@@ -5,13 +5,59 @@
 """E2E tests for cross-instance backup migration.
 
 Validates the disaster-recovery / server-migration / clone-to-staging
-path: a backup taken on instance A reconstructs the app correctly on a
-fresh instance B. Single-instance round-trips are covered in
-`test_backup.py`; this file covers what those can't catch — issues that
-only show up across instances (different `HOP3_SECRET_KEY`, different
-addon credentials, fresh nginx state, fresh database).
+path described in ADR 024 §"Cross-Instance Migration": a backup taken
+on instance A reconstructs the app correctly on a fresh instance B.
+Single-instance round-trips are covered in `test_backup.py`; this file
+covers what those can't catch — issues that only show up across
+instances (different `HOP3_SECRET_KEY`, different addon credentials,
+fresh nginx state, fresh database).
 
-See `local-notes/plans/backup-plans.md` for the design + milestones.
+Strategy
+========
+
+The fixture `hop3_container_pair` (in `conftest.py`) yields two
+independent `DockerTarget` instances backed by the pre-built
+`hop3-e2e:test` image. Class-scoped, so all migration tests share the
+same pair (~25 s startup amortised across the whole class).
+
+Each test follows the same operator workflow:
+
+  1. Deploy app on A (via `DeploymentSession`); capture state.
+  2. `backup create` on A; record the `backup_id`.
+  3. `transfer_backup_dir(a, b, name)` — tar-stream
+     `BACKUP_ROOT/apps/<name>/` from A to B via Docker's
+     `get_archive` / `put_archive` (the test-internal stand-in for
+     the operator's `scp -r`).
+  4. `backup register <path>` on B — makes the transferred tree
+     findable by B's `restore` (without this the destination DB
+     misses the files entirely).
+  5. `backup restore <id>` on B (`--target-app` for clones).
+  6. Assert equivalence — registry membership, env-var preservation,
+     HTTP body byte-equality served from inside B's container.
+
+Coverage breakdown:
+
+  - Smoke tests for the fixture and `transfer_backup_dir` helper.
+  - Happy path with three-layer equivalence (registry, env vars,
+    HTTP body).
+  - Negative paths: name collision overwrite, `--target-app` clone,
+    corrupted-manifest refusal.
+  - Round-trip integrity: manifest checksums match A↔B, and the
+    user-authored source files (`app.py`, `requirements.txt`,
+    `Procfile`) are byte-equal between local input and B's
+    restored `apps/<name>/src/`.
+
+The HTTP equivalence helper (`_fetch_app_response`) reads each app's
+bound port from its uwsgi ini and curls `127.0.0.1:<port>` from
+*inside* the container — same approach `DeploymentSession._test_http
+_direct` uses, just without the per-target session-state coupling.
+
+References
+==========
+
+- ADR: `notes/adrs/024-backup-restore-system.md`
+- CLI: `hop3 backup create / register / restore / info`
+- Implementation: `hop3.core.backup.BackupManager`
 """
 
 from __future__ import annotations
@@ -151,6 +197,34 @@ def _fetch_app_response(
 
 
 _UWSGI_PORT_RE = re.compile(r"^\s*env\s*=\s*PORT=(\d+)\s*$", re.MULTILINE)
+
+
+# `backup info` renders one checksum per file as two indented lines:
+#   "  ✓ source.tar.gz"
+#   "     sha256:<64-char hex>"
+# We only need the digests for cross-instance comparison.
+_CHECKSUM_HEX_RE = re.compile(r"sha256:([0-9a-f]{64})")
+_ENV_COUNT_RE = re.compile(r"Environment:\s*(\d+)\s*variables")
+
+
+def _extract_checksums(backup_info_output: str) -> list[str]:
+    """Return the sha256 hex digests from a `backup info` output.
+
+    Used by the manifest round-trip test to compare integrity across
+    instances without coupling on Rich's formatting.
+    """
+    return _CHECKSUM_HEX_RE.findall(backup_info_output)
+
+
+def _extract_env_count(backup_info_output: str) -> int | None:
+    """Return the env-var count from a `backup info` output.
+
+    Looks for ``Environment: N variables`` and returns N. Used to
+    compare A vs B without depending on what the count actually is
+    (HOST_NAME and similar deploy-injected vars are counted).
+    """
+    match = _ENV_COUNT_RE.search(backup_info_output)
+    return int(match.group(1)) if match else None
 
 
 def _parse_uwsgi_port(ini_content: str) -> int | None:
@@ -484,6 +558,136 @@ class TestBackupMigrationE2E:
             # Best-effort cleanup of the clone (the session destroys
             # the original at __exit__; the clone is a separate app).
             b.run_command("app", "destroy", clone_name)
+
+    def test_manifest_round_trip(self, hop3_container_pair, tmp_path: Path):
+        """`backup info <id>` returns equivalent output on A and B post-migration.
+
+        The manifest carries app_name, format_version, hop3_version,
+        size_bytes, checksums, env_vars_count, etc. — all of which are
+        portable. None of those fields should differ across instances
+        for the same backup. Catches path-rewriting bugs and
+        manifest-serialisation regressions.
+        """
+        a, b = hop3_container_pair
+        name = "manifest-rt"
+
+        src = create_flask_app(tmp_path, name, "round-trip body")
+        with DeploymentSession(
+            AppSource(name=name, path=src), a, app_name=name
+        ) as session_a:
+            session_a.deploy()
+            a.run_command("config", "set", name, "RT_MARKER=present")
+            res = a.run_command("backup", "create", name)
+            assert res.success, f"backup create failed: {res.stderr}"
+            backup_id = extract_backup_id(res.stdout)
+
+            # Capture A's manifest view BEFORE session exit (the destroy
+            # cascade would remove the backup row from A's DB).
+            a_info = a.run_command("backup", "info", backup_id)
+            assert a_info.success, f"backup info on A failed: {a_info.stderr}"
+
+        # Migrate.
+        transfer_backup_dir(a, b, name)
+        register_path = f"{BACKUP_DIR_IN_CONTAINER}/{name}/{backup_id}"
+        res = b.run_command("backup", "register", register_path)
+        assert res.success
+
+        b_info = b.run_command("backup", "info", backup_id)
+        assert b_info.success, f"backup info on B failed: {b_info.stderr}"
+
+        # The manifest fields should appear identically in both
+        # outputs. We don't require *exact* string equality (Rich
+        # formatting / column widths can diverge across terminals);
+        # we require each portable field to appear on both sides.
+        portable_fields = (
+            f"Backup ID: {backup_id}",
+            f"Application: {name}",
+        )
+        for field in portable_fields:
+            assert field in a_info.stdout, (
+                f"field {field!r} missing on A:\n{a_info.stdout}"
+            )
+            assert field in b_info.stdout, (
+                f"field {field!r} missing on B:\n{b_info.stdout}"
+            )
+
+        # Env-var count should match across instances without
+        # hardcoding what the count is (deploy adds HOST_NAME etc.).
+        a_count = _extract_env_count(a_info.stdout)
+        b_count = _extract_env_count(b_info.stdout)
+        assert a_count is not None, (
+            f"could not extract env count from A:\n{a_info.stdout}"
+        )
+        assert b_count is not None, (
+            f"could not extract env count from B:\n{b_info.stdout}"
+        )
+        assert a_count == b_count, (
+            f"env-var count differs: A={a_count}, B={b_count}"
+        )
+
+        # Checksums should be byte-equal across A and B since the
+        # tarballs are the same files. Extract just the digests —
+        # rendering can vary but the values should not.
+        a_checksums = sorted(_extract_checksums(a_info.stdout))
+        b_checksums = sorted(_extract_checksums(b_info.stdout))
+        assert a_checksums, f"no checksums in A's output:\n{a_info.stdout}"
+        assert a_checksums == b_checksums, (
+            f"checksums differ across instances:\n"
+            f"  A: {a_checksums}\n  B: {b_checksums}"
+        )
+
+    def test_source_tree_byte_equal(self, hop3_container_pair, tmp_path: Path):
+        """Restored source on B is byte-equal to the user-authored input on A.
+
+        Catches subtle path-rewriting / encoding bugs in the
+        backup→transfer→register→restore pipeline that would otherwise
+        let a 'successful' restore silently mangle file contents.
+        """
+        a, b = hop3_container_pair
+        name = "source-eq"
+
+        src = create_flask_app(tmp_path, name, "source-equality marker")
+        # The user-authored files we want to compare byte-for-byte
+        # against B's restored copy. (`create_flask_app` writes these.)
+        original_files = ("app.py", "requirements.txt", "Procfile")
+        local_contents = {
+            f: (src / f).read_bytes() for f in original_files
+        }
+
+        with DeploymentSession(
+            AppSource(name=name, path=src), a, app_name=name
+        ) as session_a:
+            session_a.deploy()
+            res = a.run_command("backup", "create", name)
+            assert res.success
+            backup_id = extract_backup_id(res.stdout)
+
+        # Migrate + restore on B.
+        transfer_backup_dir(a, b, name)
+        register_path = f"{BACKUP_DIR_IN_CONTAINER}/{name}/{backup_id}"
+        b.run_command("backup", "register", register_path)
+        res = b.run_command("backup", "restore", backup_id)
+        assert res.success, f"restore failed on B: {res.stderr}"
+
+        # Compare each user-authored file in B's restored src/ against
+        # what we wrote locally.
+        b_container = b._container_helper.container
+        for filename, expected in local_contents.items():
+            container_path = f"/home/hop3/apps/{name}/src/{filename}"
+            result = b_container.exec_run(["cat", container_path])
+            assert result.exit_code == 0, (
+                f"could not read {container_path} on B: {result.output!r}"
+            )
+            actual = result.output
+            assert actual == expected, (
+                f"byte mismatch on B for {filename}:\n"
+                f"  expected: {expected!r}\n"
+                f"  got:      {actual!r}"
+            )
+
+        # Best-effort cleanup: destroy on B (the session destroyed
+        # only A's app at exit).
+        b.run_command("app", "destroy", name)
 
     def test_register_refuses_corrupted_backup(self, hop3_container_pair, tmp_path: Path):
         """`backup register` rejects a backup directory missing its manifest.
