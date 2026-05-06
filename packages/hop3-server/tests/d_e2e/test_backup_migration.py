@@ -350,3 +350,183 @@ class TestBackupMigrationE2E:
         assert b_response.body == golden.body, (
             f"body mismatch: A={golden.body!r}, B={b_response.body!r}"
         )
+
+    # --- M3 negative paths ----------------------------------------------
+
+    def test_restore_when_app_name_collides_on_b(
+        self, hop3_container_pair, tmp_path: Path
+    ):
+        """Name collision on B: restore silently overwrites the existing app.
+
+        When B already has an app with the backup's app_name, ``backup
+        restore`` (without ``--target-app``) replaces B's version with
+        A's. This locks in current behaviour. The friendlier UX
+        (refuse without an explicit ``--force``) is captured in
+        ``release-0.6-targets.md`` §4.1 — pulling it forward isn't part
+        of M3.3.
+        """
+        a, b = hop3_container_pair
+        name = "collision-test"
+
+        # 1. Deploy on A with distinguishing body, capture backup, exit
+        # (A's app destroyed at session exit; backup files survive).
+        # Distinct local dir names (`-a-src`, `-b-src`) — `create_flask_app`
+        # mkdirs `<tmp_path>/<name>` without parents, so the local dir
+        # name has to be unique even though the deployed app_name is shared.
+        src_a = create_flask_app(tmp_path, f"{name}-a-src", "from A")
+        with DeploymentSession(
+            AppSource(name=name, path=src_a), a, app_name=name
+        ) as session_a:
+            session_a.deploy()
+            res = a.run_command("backup", "create", name)
+            assert res.success, f"backup create failed on A: {res.stderr}"
+            backup_id = extract_backup_id(res.stdout)
+            assert backup_id
+
+        # 2. Deploy a *different* app on B under the same name.
+        # 3. Inside the same with-block, migrate from A and assert
+        # overwrite. (Session exit at the end of the block destroys
+        # whichever variant of the app is alive then — a fine cleanup.)
+        src_b = create_flask_app(tmp_path, f"{name}-b-src", "from B")
+        with DeploymentSession(
+            AppSource(name=name, path=src_b), b, app_name=name
+        ) as session_b:
+            session_b.deploy()
+
+            # Pre-restore: B serves its own version.
+            before = _fetch_app_response(b, name, "/")
+            assert before.body == "from B", (
+                f"unexpected pre-restore body on B: {before.body!r}"
+            )
+
+            # Migrate.
+            transfer_backup_dir(a, b, name)
+            register_path = f"{BACKUP_DIR_IN_CONTAINER}/{name}/{backup_id}"
+            res = b.run_command("backup", "register", register_path)
+            assert res.success, f"register failed on B: {res.stderr}"
+
+            res = b.run_command("backup", "restore", backup_id)
+            assert res.success, f"restore failed on B: {res.stderr}"
+
+            # Post-restore: B's app now reflects A's content (silent
+            # overwrite). If/when the 0.6 refusal-by-default UX lands,
+            # this assertion flips to expect a clear error instead.
+            after = _fetch_app_response(b, name, "/")
+            assert after.body == "from A", (
+                f"expected overwrite to A's body, got {after.body!r}"
+            )
+
+    def test_migrate_via_target_app(self, hop3_container_pair, tmp_path: Path):
+        """``--target-app`` produces a separate app on B alongside any pre-existing one.
+
+        Operator workflow: B already runs `same-name` for unrelated
+        reasons. We want to bring in A's backup as a *clone* without
+        clobbering B's existing app. Equivalent to "restore to a new
+        name" — the same code path that the existing
+        `test_restore_to_different_app_name` exercises within a single
+        instance, here verified across instances.
+        """
+        a, b = hop3_container_pair
+        name = "clone-source"
+        clone_name = "clone-target"
+
+        # Backup on A.
+        src_a = create_flask_app(tmp_path, f"{name}-a-src", "source content")
+        with DeploymentSession(
+            AppSource(name=name, path=src_a), a, app_name=name
+        ) as session_a:
+            session_a.deploy()
+            res = a.run_command("backup", "create", name)
+            assert res.success
+            backup_id = extract_backup_id(res.stdout)
+
+        # On B: pre-existing app under the *original* name with
+        # different content.
+        src_b = create_flask_app(tmp_path, f"{name}-b-src", "untouched B content")
+        with DeploymentSession(
+            AppSource(name=name, path=src_b), b, app_name=name
+        ) as session_b:
+            session_b.deploy()
+
+            # Migrate as a clone, NOT overwriting B's `name` app.
+            transfer_backup_dir(a, b, name)
+            register_path = f"{BACKUP_DIR_IN_CONTAINER}/{name}/{backup_id}"
+            res = b.run_command("backup", "register", register_path)
+            assert res.success
+
+            res = b.run_command(
+                "backup", "restore", backup_id, "--target-app", clone_name
+            )
+            assert res.success, f"clone restore failed: {res.stderr}"
+            assert clone_name in res.stdout, (
+                f"clone name not echoed: {res.stdout!r}"
+            )
+
+            # Both apps exist on B.
+            apps_list = b.run_command("apps").stdout
+            assert name in apps_list, f"{name!r} missing on B: {apps_list}"
+            assert clone_name in apps_list, (
+                f"{clone_name!r} missing on B: {apps_list}"
+            )
+
+            # Original app on B unchanged.
+            original = _fetch_app_response(b, name, "/")
+            assert original.body == "untouched B content", (
+                f"original app on B was modified: {original.body!r}"
+            )
+
+            # Cloned app reflects A's content.
+            clone = _fetch_app_response(b, clone_name, "/")
+            assert clone.body == "source content", (
+                f"clone body wrong: {clone.body!r}"
+            )
+
+            # Best-effort cleanup of the clone (the session destroys
+            # the original at __exit__; the clone is a separate app).
+            b.run_command("app", "destroy", clone_name)
+
+    def test_register_refuses_corrupted_backup(self, hop3_container_pair, tmp_path: Path):
+        """`backup register` rejects a backup directory missing its manifest.
+
+        Migration-by-filesystem only works if the manifest is intact.
+        Register catches the corruption explicitly so the operator gets
+        a useful error rather than letting `restore` fail later with a
+        less actionable message.
+        """
+        a, b = hop3_container_pair
+        name = "corrupt-test"
+
+        # Create a real backup on A, then transfer + corrupt on B.
+        src = create_flask_app(tmp_path, name, "doesn't matter")
+        with DeploymentSession(
+            AppSource(name=name, path=src), a, app_name=name
+        ) as session_a:
+            session_a.deploy()
+            res = a.run_command("backup", "create", name)
+            assert res.success
+            backup_id = extract_backup_id(res.stdout)
+
+        transfer_backup_dir(a, b, name)
+
+        # Corrupt: delete metadata.json from B's copy.
+        b_container = b._container_helper.container
+        metadata_path = (
+            f"{BACKUP_DIR_IN_CONTAINER}/{name}/{backup_id}/metadata.json"
+        )
+        rm_result = b_container.exec_run(["rm", metadata_path], user="root")
+        assert rm_result.exit_code == 0, (
+            f"could not remove metadata for corruption test: {rm_result.output!r}"
+        )
+
+        # Register should refuse with a clear message.
+        register_path = f"{BACKUP_DIR_IN_CONTAINER}/{name}/{backup_id}"
+        res = b.run_command("backup", "register", register_path)
+        assert not res.success, (
+            f"register unexpectedly succeeded on a corrupted backup: {res.stdout!r}"
+        )
+        # The operator-facing error should mention the missing manifest.
+        combined = (res.stdout + res.stderr).lower()
+        assert "manifest" in combined or "metadata.json" in combined, (
+            f"error didn't reference the missing manifest: "
+            f"stdout={res.stdout!r} stderr={res.stderr!r}"
+        )
