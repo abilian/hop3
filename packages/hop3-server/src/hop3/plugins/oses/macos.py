@@ -16,7 +16,8 @@ from hop3.core.hooks import hop3_hook_impl
 
 from .base import BaseOSStrategy
 
-# Package list for macOS (Homebrew formula names)
+# Package list for macOS (Homebrew formula names).
+# SECURITY: must remain a static literal — see arch.PACKAGES for why.
 PACKAGES = [
     "git",
     # Python (macOS has python3 built-in, but we want brew version)
@@ -76,6 +77,9 @@ class MacOSStrategy(BaseOSStrategy):
             packages: List of package/formula names to install
             update: Whether to update Homebrew first
         """
+        # SECURITY: see DebianBase.ensure_packages for the reasoning.
+        self._validate_package_names(packages)
+
         # Check if Homebrew is installed
         try:
             subprocess.run(

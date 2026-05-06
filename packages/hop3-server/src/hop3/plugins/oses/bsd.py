@@ -18,8 +18,9 @@ from hop3.core.hooks import hop3_hook_impl
 
 from .base import BaseOSStrategy
 
-# Package list for FreeBSD (pkg names)
-# Note: venv is included with python39 on FreeBSD
+# Package list for FreeBSD (pkg names).
+# Note: venv is included with python39 on FreeBSD.
+# SECURITY: must remain a static literal — see arch.PACKAGES for why.
 FREEBSD_PACKAGES = [
     "git",
     "sudo",
@@ -52,8 +53,9 @@ FREEBSD_PACKAGES = [
     "pango",
 ]
 
-# Package list for OpenBSD (pkg_add names)
-# Note: venv is included with python3 on OpenBSD
+# Package list for OpenBSD (pkg_add names).
+# Note: venv is included with python3 on OpenBSD.
+# SECURITY: must remain a static literal — see arch.PACKAGES for why.
 OPENBSD_PACKAGES = [
     "git",
     # Python (venv is included with python3)
@@ -111,6 +113,9 @@ class BSDStrategy(BaseOSStrategy):
             packages: List of package names to install
             update: Whether to update package database first
         """
+        # SECURITY: see DebianBase.ensure_packages for the reasoning.
+        self._validate_package_names(packages)
+
         system = platform.system()
 
         if system == "FreeBSD":

@@ -23,8 +23,8 @@ from hop3.core.hooks import hop3_hook_impl
 
 from .redhat_base import RedHatBase
 
-# Package list for Red Hat-based distributions
-# DNF/YUM package names
+# Package list for Red Hat-based distributions (DNF/YUM package names).
+# SECURITY: must remain a static literal — see arch.PACKAGES for why.
 PACKAGES = [
     "bc",
     "git",

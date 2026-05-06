@@ -2,7 +2,26 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""SSH operations for local commands."""
+"""SSH operations for local commands.
+
+Trust model
+-----------
+Every input that flows into the shell strings built here (``username``,
+``email``, ``ssh_target``, ``hostname``, ``server_url``) originates from
+the local user invoking the CLI on their own workstation. The user
+already controls their own shell, so there is no privilege boundary
+between them and the commands assembled below — "command injection"
+into one's own shell is self-injection.
+
+``shlex.quote`` is used here purely for *correctness*: ``ssh_target``
+and ``HOP_SERVER_PATH`` are passed to ``ssh`` as a single positional,
+which the remote sshd hands to ``$SHELL -c``. Quoting protects against
+unusual but legitimate characters in usernames/emails (e.g. apostrophes
+in display names), not against an attacker. Do not "fix" this by
+replacing the nested ``su -c {shlex.quote(hop3_cmd)}`` pattern with a
+list-form call — there is no such form when the transport is a remote
+shell.
+"""
 
 from __future__ import annotations
 

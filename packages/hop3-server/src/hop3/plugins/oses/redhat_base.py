@@ -23,6 +23,9 @@ class RedHatBase(BaseOSStrategy):
             packages: List of package names to install
             update: Whether to update package cache first
         """
+        # SECURITY: see DebianBase.ensure_packages for the reasoning.
+        self._validate_package_names(packages)
+
         # Try DNF first (newer), fall back to YUM (older systems)
         pkg_manager = "dnf"
         try:

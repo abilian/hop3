@@ -140,7 +140,17 @@ def _create_mysql_hop3_user(root_cmd: list[str], mysql_password: str) -> bool:
     Returns:
         True if user created successfully, False otherwise.
     """
-    # Validate password to prevent SQL injection
+    # SECURITY: the SQL below interpolates ``mysql_password`` directly into
+    # CREATE/ALTER USER statements because MySQL admin tooling here is
+    # invoked via ``mysql -e <sql>`` (no parameter binding available).
+    # Safety relies on a two-step contract:
+    #   1. The caller generates ``mysql_password`` via ``secrets.token_hex``
+    #      in the installer flow — hex-charset only.
+    #   2. We re-validate that contract here. If the generator ever changes,
+    #      this gate must stay valid: validation is the only thing standing
+    #      between callers and SQL injection.
+    # Do not relax ``_validate_mysql_password`` without auditing every
+    # f-string SQL query in this file.
     if not _validate_mysql_password(mysql_password):
         print_warning("Invalid characters in MySQL password")
         return False

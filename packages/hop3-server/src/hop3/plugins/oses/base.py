@@ -5,9 +5,20 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 from io import StringIO
 from pathlib import Path
+
+# Allowed shape for distro package names. Covers everything the PACKAGES
+# lists in this package use today (alphanumerics plus ``.``, ``_``, ``+``,
+# ``@`` for Homebrew like ``python@3.11``, and ``-`` *only* in non-leading
+# position) while rejecting every shell metacharacter.
+#
+# The first-character restriction is the load-bearing part: leaving ``-``
+# in leading position would let a regression sneak in an argument-injection
+# string like ``"--reinstall"`` (apt and friends happily accept it).
+_PACKAGE_NAME_RE = re.compile(r"^[A-Za-z0-9_+.@][A-Za-z0-9._+@-]*$")
 
 
 class BaseOSStrategy:
@@ -59,6 +70,27 @@ class BaseOSStrategy:
         """Install packages - must be overridden by subclasses."""
         msg = "Subclasses must implement ensure_packages()"
         raise NotImplementedError(msg)
+
+    @staticmethod
+    def _validate_package_names(packages: list[str]) -> None:
+        """Reject any package name that contains shell metacharacters.
+
+        Today every concrete OS strategy passes a static module-level
+        ``PACKAGES`` list to ``ensure_packages``. That contract is *not*
+        enforced by the type system — and one regression that piped a
+        user-controlled string through here would turn this module into
+        a remote-code-execution sink (``subprocess.run([pkg_mgr,
+        "install", "-y", *packages])`` happily executes whatever the
+        package manager interprets, and many accept ``--`` and similar
+        argument-injection escapes).
+
+        Validate eagerly. The check is cheap and the assertion gives
+        future maintainers a loud failure rather than a silent injection.
+        """
+        for pkg in packages:
+            if not _PACKAGE_NAME_RE.fullmatch(pkg):
+                msg = f"Refusing unsafe package name: {pkg!r}"
+                raise ValueError(msg)
 
     def ensure_user(self, user: str, home: str, shell: str, group: str) -> None:
         """Create a system user if it doesn't exist.

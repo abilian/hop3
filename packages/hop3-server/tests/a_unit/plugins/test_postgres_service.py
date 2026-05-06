@@ -106,3 +106,36 @@ def test_connection_details_format(postgres_service):
 def test_legacy_alias():
     """Test that PostgresqlAddon is an alias for PostgresAddon."""
     assert PostgresqlAddon is PostgresAddon
+
+
+def test_install_extensions_empty_list_is_noop(postgres_service):
+    """Empty extension list short-circuits before any DB connection."""
+    # Should not raise and should not need a DB connection.
+    postgres_service.install_extensions([])
+
+
+@pytest.mark.parametrize(
+    "bad_ext",
+    [
+        "adminpack",  # untrusted, filesystem access
+        "postgres_fdw",  # untrusted, network access
+        "dblink",  # untrusted, network access
+        "file_fdw",  # untrusted, filesystem access
+        "plpython3u",  # untrusted procedural language
+        "evil; DROP TABLE foo;",  # injection-shaped (sql.Identifier neutralizes,
+        # but the allow-list rejects first)
+    ],
+)
+def test_install_extensions_rejects_non_allowlisted(postgres_service, bad_ext):
+    """Extensions outside ALLOWED_EXTENSIONS must be refused before SQL runs."""
+    with pytest.raises(ValueError, match="non-allow-listed PostgreSQL extension"):
+        postgres_service.install_extensions(["pg_trgm", bad_ext])
+
+
+def test_install_extensions_allowlist_covers_common_trusted():
+    """The allow-list must contain the extensions hop3 docs/examples reference."""
+    from hop3.plugins.postgresql.postgres import ALLOWED_EXTENSIONS  # noqa: PLC0415
+
+    # Spot-check a handful of widely-used trusted extensions.
+    for ext in ("pg_trgm", "hstore", "citext", "pgcrypto", "uuid-ossp"):
+        assert ext in ALLOWED_EXTENSIONS, f"missing trusted ext: {ext!r}"

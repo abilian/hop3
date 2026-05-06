@@ -1,9 +1,28 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Docker deployment backend for local containers."""
+"""Docker deployment backend for local containers.
+
+Trust model
+-----------
+This module is loaded *only* by ``hop3-deploy``, the developer-facing
+deploy tool used to spin up a throwaway Docker container for local
+testing and CI. It is **never** imported by ``hop3-install`` (the
+production server installer) — see ``packages/hop3-installer/CLAUDE.md``
+for the entry-point split.
+
+Consequently the hardcoded ``E2E_TEST_SECRET_KEY`` below — which makes
+every test container share the same JWT signing key — is intentional
+and safe: the test harness needs a known key to mint admin tokens
+against the just-spun-up container, and the container is ephemeral
+and bound to localhost ports. If this module is ever loaded in a
+context where ``MODE=production``, that is a bug; we abort at backend
+construction time rather than risk shipping the test key into a
+real deploy.
+"""
 
 from __future__ import annotations
 
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -17,6 +36,8 @@ if TYPE_CHECKING:
     from hop3_installer.deployer.config import DeployConfig
 
 # E2E test secret key - must match hop3-testing/src/hop3_testing/targets/constants.py
+# DO NOT change this string and DO NOT reuse it outside the developer
+# Docker deploy backend; see the trust-model note at the top of the file.
 E2E_TEST_SECRET_KEY = "e2e-test-secret-key-do-not-use-in-production"
 
 # Supervisor configuration for Hop3 services in Docker
@@ -80,6 +101,18 @@ class DockerDeployBackend(DeployBackend):
     ]
 
     def __init__(self, config: DeployConfig):
+        # Belt-and-suspenders interlock: this backend embeds a known JWT
+        # signing key in its supervisor config (see E2E_TEST_SECRET_KEY).
+        # Refuse to construct the backend if MODE=production so the key
+        # can never reach a production-shaped deploy by accident.
+        if os.environ.get("MODE", "").strip().lower() in {"production", "prod"}:
+            msg = (
+                "DockerDeployBackend is a developer-only deploy backend with a "
+                "hardcoded E2E test signing key; it must not be used with "
+                "MODE=production. Use the SSH backend or hop3-install instead."
+            )
+            raise RuntimeError(msg)
+
         super().__init__(config)
         self.container_name = config.docker_container
         self.image = self.TEST_IMAGE

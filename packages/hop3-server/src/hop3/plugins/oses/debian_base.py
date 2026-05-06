@@ -24,6 +24,12 @@ class DebianBase(BaseOSStrategy):
             packages: List of package names to install
             update: Whether to run apt-get update first
         """
+        # SECURITY: ``packages`` is fanned out into ``apt-get install -y *names``.
+        # Today every caller passes a static module-level list, but reject
+        # anything with shell metacharacters anyway — see
+        # BaseOSStrategy._validate_package_names.
+        self._validate_package_names(packages)
+
         if update:
             subprocess.run(
                 ["apt-get", "update"],
