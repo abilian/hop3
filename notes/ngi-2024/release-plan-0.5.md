@@ -284,8 +284,7 @@ are all deferred to 0.6 — see `release-plan-0.6.md`.)
 
 ### Server-side packaging-gap fixes — DONE (W16, Tier 1)
 
-Surfaced from the 30-app packaging effort (G1–G7 gaps tracked in
-`local-notes/plans/hop3-server-improvements.md`). Tier 1 landed
+Surfaced from the 30-app packaging effort (G1–G7 gaps). Tier 1 landed
 in W16 as commit `2c3c698e` on devel:
 
 - [x] **G1 — Postgres CREATE grants.** `plugins/postgresql/postgres.py`
@@ -318,10 +317,9 @@ Tier 2 (G2 `[build].packages`, G5 `nix-env-exports`) and Tier 3
 
 ### Tier-F fediverse packaging (new track, W16)
 
-A dedicated Tier F for fediverse apps was added to
-`local-notes/stacks-and-apps/PRIORITY.md` explicitly because NGI
-has been the primary funder of the fediverse ecosystem. W16 batch
-landed:
+A dedicated Tier F for fediverse apps was added to the internal
+packaging priority list explicitly because NGI has been the primary
+funder of the fediverse ecosystem. W16 batch landed:
 
 - [x] GoToSocial (3/4 variants — nix-gen deferred)
 - [x] WriteFreely (3/4 — nix-gen deferred; hybrid nixpkgs+tarball)

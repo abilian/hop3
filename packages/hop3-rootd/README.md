@@ -2,7 +2,7 @@
 
 Privileged-operations agent for Hop3. Runs as root; exposes a narrow control-plane API to `hop3-server` (running unprivileged as the `hop3` user) over a Unix domain socket.
 
-See `notes/adrs/041-privileged-operations-agent.md` for the design rationale and `local-notes/plans/firewall.md` for implementation notes.
+See `notes/adrs/041-privileged-operations-agent.md` for the design rationale and `notes/adrs/040-network-firewall-and-port-exposure.md` for the firewall integration that motivated v1's op set.
 
 ## What this is
 

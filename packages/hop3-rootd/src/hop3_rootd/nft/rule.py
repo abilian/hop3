@@ -9,7 +9,7 @@ Each PortSpec maps to a single `nft add rule …` invocation in the
 `inet hop3 input` chain. The rule carries a comment of the form
 `hop3:rule:<rule_id>` so we can identify and remove it later.
 
-See ADR 041 §6 and `local-notes/plans/firewall.md` §5 for the rule shape.
+See ADR 041 §6 for the rule shape and threat-model rationale.
 """
 
 from __future__ import annotations

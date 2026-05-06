@@ -9,8 +9,6 @@ This module tests admin commands using real database interactions:
 - Commands receive repository instances for database access
 - Verifies actual database state changes
 - Tests that outcomes (state) are correct, not just that methods were called
-
-See local-notes/test-mock-migration-plan.md for migration strategy.
 """
 
 from __future__ import annotations

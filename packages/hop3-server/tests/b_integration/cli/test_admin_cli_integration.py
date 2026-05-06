@@ -9,8 +9,6 @@ This module tests admin CLI commands using state-based testing approach:
 - Verifies actual database state changes
 - Only mocks external I/O (getpass, stdin, stdout)
 - Tests that outcomes (state) are correct, not just that methods were called
-
-See local-notes/test-mock-migration-plan.md for migration strategy.
 """
 
 from __future__ import annotations

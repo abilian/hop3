@@ -2,8 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Derive the installer package baseline from the app catalogue.
 
-The native-build-profile contract (see
-`local-notes/plans/isolation-strategy.md`):
+The native-build-profile contract:
 
 1. Each native-profile app declares its host-level needs in
    `[build].packages` + `[run].packages` of its `hop3.toml`. These are
