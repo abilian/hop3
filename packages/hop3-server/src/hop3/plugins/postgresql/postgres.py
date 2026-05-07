@@ -45,20 +45,22 @@ from .admin import PostgresAdmin
 # Addon type identifier for secrets storage
 ADDON_TYPE = "postgres"
 
-# Extensions that the platform will install as superuser on behalf of an
-# app. Allow-list rather than deny-list so anything new requires a
-# deliberate review — there are extensions in PostgreSQL that grant
-# filesystem or network access (``adminpack``, ``file_fdw``,
-# ``postgres_fdw``, ``dblink``, the PL/* untrusted languages, …) and
-# letting an app declare them in ``hop3.toml`` would be a privilege-
-# escalation path from "I can deploy an app" to "I run code as the
-# postgres superuser".
+# Extensions the platform installs as superuser on behalf of an app.
+# Allow-list rather than deny-list so anything new requires deliberate
+# review — some PostgreSQL contrib extensions grant filesystem / network
+# / code-execution capability to whoever can call them, and letting an
+# app's ``hop3.toml`` declare them would be a privilege-escalation path
+# from "I deploy an app" to "I run code as the postgres superuser".
 #
-# This list covers the trusted (PG13+ trusted-extension) set plus a few
-# very common non-trusted ones we actively want to support. To add an
-# extension here: confirm it doesn't expose filesystem or network I/O
-# and doesn't add untrusted-language support, then add it.
-ALLOWED_EXTENSIONS: frozenset[str] = frozenset({
+# To add to the default set: confirm the extension doesn't expose
+# filesystem or network I/O, doesn't add an untrusted procedural
+# language, and doesn't ship SECURITY DEFINER functions that escalate.
+# To enable an extension on a specific Hop3 install without modifying
+# the source, set HOP3_EXTRA_PG_EXTENSIONS in the operator's
+# environment (see ``_resolve_allowed_extensions``). Items in
+# BLOCKED_EXTENSIONS are refused even when listed there.
+DEFAULT_ALLOWED_EXTENSIONS: frozenset[str] = frozenset({
+    # PG13+ trusted extensions (CREATE EXTENSION without superuser)
     "btree_gin",
     "btree_gist",
     "citext",
@@ -66,13 +68,56 @@ ALLOWED_EXTENSIONS: frozenset[str] = frozenset({
     "hstore",
     "intarray",
     "ltree",
-    "pg_stat_statements",
     "pg_trgm",
     "pgcrypto",
     "tablefunc",
     "unaccent",
     "uuid-ossp",
+    # Non-trusted but reviewed safe (no filesystem/network/untrusted-PL)
+    "bloom",  # bloom-filter index AM (BookWyrm)
+    "cube",  # multi-dim cubes (paired with earthdistance)
+    "earthdistance",  # great-circle distance (Immich face clustering)
+    "ip4r",  # IPv4/v6 range types (GitLab)
+    "pg_stat_statements",  # observability; preloaded by installer
+    "pgvector",  # vector similarity (Immich, Open WebUI, paperless-ngx)
+    "postgis",  # GIS (Mastodon, GeoDjango apps, OSM-based apps)
 })
+
+# Hard-deny list. Even an operator who sets HOP3_EXTRA_PG_EXTENSIONS
+# cannot enable these — they grant capability that breaks the
+# separation between "deploy an app" and "execute code as postgres
+# superuser". An operator who genuinely needs one should patch the
+# source and accept that they're widening the privilege boundary.
+BLOCKED_EXTENSIONS: frozenset[str] = frozenset({
+    "adminpack",  # filesystem I/O via pg_catalog functions
+    "dblink",  # arbitrary outbound DB connections
+    "file_fdw",  # read arbitrary local files via FDW
+    "postgres_fdw",  # arbitrary outbound DB connections
+    # Untrusted procedural languages — bypass SQL's privilege model
+    "plperlu",
+    "plpython2u",
+    "plpython3u",
+    "pltclu",
+})
+
+# Operator escape-hatch: comma-separated extension names merged into the
+# effective allow-list at runtime.
+EXTRA_EXTENSIONS_ENV = "HOP3_EXTRA_PG_EXTENSIONS"
+
+# Backwards-compatible alias. Callers/tests that read the *default* set
+# should use this; the runtime check uses _resolve_allowed_extensions().
+ALLOWED_EXTENSIONS: frozenset[str] = DEFAULT_ALLOWED_EXTENSIONS
+
+
+def _resolve_allowed_extensions() -> frozenset[str]:
+    """Effective allow-list = defaults + operator extras - blocked.
+
+    Read at call time (not import) so operators and tests can change the
+    environment without reloading the module.
+    """
+    extra_raw = os.environ.get(EXTRA_EXTENSIONS_ENV, "")
+    extra = {e.strip() for e in extra_raw.split(",") if e.strip()}
+    return (DEFAULT_ALLOWED_EXTENSIONS | extra) - BLOCKED_EXTENSIONS
 
 
 def _find_pg_hba() -> Path | None:
@@ -388,7 +433,7 @@ class PostgresAddon:
             # schema so the per-app user can install *trusted* extensions
             # (pg_trgm, hstore, citext, fuzzystrmatch, unaccent, …) from
             # their own migrations. Non-trusted extensions (bloom,
-            # adminpack, postgres_fdw) still require superuser and are
+            # postgis, pgvector, …) still require superuser and are
             # handled separately via install_extensions().
             _grant_schema_create(
                 admin,
@@ -415,8 +460,8 @@ class PostgresAddon:
     def install_extensions(self, extensions: list[str]) -> None:
         """Install PostgreSQL extensions in the per-app database as superuser.
 
-        Some extensions (bloom, adminpack, postgres_fdw) are not *trusted*
-        and require superuser to CREATE EXTENSION even if the caller has
+        Some extensions (bloom, postgis, pgvector) are not *trusted* and
+        require superuser to CREATE EXTENSION even if the caller has
         CREATE on the target database. Trusted extensions (pg_trgm,
         hstore, citext, …) work via the per-app user's grants set in
         create(), but running them here as superuser is harmless and
@@ -425,10 +470,12 @@ class PostgresAddon:
         SECURITY: ``sql.Identifier`` makes the name safe against SQL
         injection; the second protection (against an *operator-trusted
         but app-supplied* name like ``adminpack`` or ``postgres_fdw``)
-        is the ``ALLOWED_EXTENSIONS`` allow-list. Extension names come
-        from the app's ``hop3.toml`` — we trust the deployer to pick a
-        sensible app, but not to escalate from "deploy an app" to
-        "load arbitrary postgres extensions as superuser".
+        is the resolved allow-list (defaults +
+        ``HOP3_EXTRA_PG_EXTENSIONS`` minus ``BLOCKED_EXTENSIONS``).
+        Extension names come from the app's ``hop3.toml`` — we trust
+        the deployer to pick a sensible app, but not to escalate from
+        "deploy an app" to "load arbitrary postgres extensions as
+        superuser".
 
         Args:
             extensions: list of extension names declared by the app in
@@ -440,16 +487,25 @@ class PostgresAddon:
         if not extensions:
             return
 
-        rejected = [ext for ext in extensions if ext not in ALLOWED_EXTENSIONS]
+        allowed = _resolve_allowed_extensions()
+        rejected = [ext for ext in extensions if ext not in allowed]
         if rejected:
-            allowed = ", ".join(sorted(ALLOWED_EXTENSIONS))
-            msg = (
-                f"Refusing to install non-allow-listed PostgreSQL extension(s): "
-                f"{rejected!r}. Allowed: {allowed}. "
-                f"To add an extension to the allow-list, see "
-                f"hop3.plugins.postgresql.postgres.ALLOWED_EXTENSIONS."
+            blocked = [ext for ext in rejected if ext in BLOCKED_EXTENSIONS]
+            parts = [
+                f"Refusing to install non-allow-listed PostgreSQL extension(s): {rejected!r}.",
+            ]
+            if blocked:
+                parts.append(
+                    f"These cannot be enabled even via {EXTRA_EXTENSIONS_ENV}"
+                    f" (privilege-escalation surface): {blocked!r}."
+                )
+            parts.append(
+                f"To enable a non-default extension on this instance, set"
+                f" {EXTRA_EXTENSIONS_ENV} (comma-separated). See"
+                f" hop3.plugins.postgresql.postgres for the default allow-list"
+                f" and blocked set."
             )
-            raise ValueError(msg)
+            raise ValueError(" ".join(parts))
 
         admin = self._get_admin()
         conn = psycopg2.connect(**admin.get_connection_params(dbname=self.db_name))
