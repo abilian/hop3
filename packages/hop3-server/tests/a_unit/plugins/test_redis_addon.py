@@ -125,3 +125,95 @@ def test_redis_addon_assignment_is_deterministic_after_persist(tmp_hop3_root):
     # (which it does between processes by default).
     a2 = RedisAddon(addon_name="first")
     assert a2.db_number == 1
+
+
+# ---------- Redis auth (REDIS_PASS_FILE / requirepass) ---------------------
+
+
+@pytest.fixture
+def redis_pass_file(tmp_path, monkeypatch):
+    """Redirect the REDIS_PASS_FILE module constant at a tmp path."""
+    from hop3.plugins.redis import redis as redis_mod  # noqa: PLC0415
+
+    pass_file = tmp_path / "redis-pass"
+    monkeypatch.setattr(redis_mod, "REDIS_PASS_FILE", pass_file)
+    return pass_file
+
+
+def test_load_redis_password_returns_none_when_file_missing(redis_pass_file):
+    from hop3.plugins.redis.redis import _load_redis_password  # noqa: PLC0415
+
+    assert _load_redis_password() is None
+
+
+def test_load_redis_password_returns_stripped_value(redis_pass_file):
+    from hop3.plugins.redis.redis import _load_redis_password  # noqa: PLC0415
+
+    redis_pass_file.write_text("  s3cret-token  \n")
+    assert _load_redis_password() == "s3cret-token"
+
+
+def test_load_redis_password_empty_file_returns_none(redis_pass_file):
+    from hop3.plugins.redis.redis import _load_redis_password  # noqa: PLC0415
+
+    redis_pass_file.write_text("\n")
+    assert _load_redis_password() is None
+
+
+def test_redis_cli_env_injects_rediscli_auth_when_password_set(redis_pass_file):
+    from hop3.plugins.redis.redis import _redis_cli_env  # noqa: PLC0415
+
+    redis_pass_file.write_text("p4ssw0rd\n")
+    env = _redis_cli_env()
+    assert env["REDISCLI_AUTH"] == "p4ssw0rd"
+
+
+def test_redis_cli_env_omits_rediscli_auth_when_no_password(
+    redis_pass_file, monkeypatch
+):
+    from hop3.plugins.redis.redis import _redis_cli_env  # noqa: PLC0415
+
+    monkeypatch.delenv("REDISCLI_AUTH", raising=False)
+    env = _redis_cli_env()
+    assert "REDISCLI_AUTH" not in env
+
+
+def test_get_connection_details_includes_password_in_url(
+    tmp_hop3_root, redis_pass_file
+):
+    from hop3.plugins.redis.redis import RedisAddon  # noqa: PLC0415
+
+    _write_secrets(tmp_hop3_root, "with-auth", 5)
+    redis_pass_file.write_text("hunter2\n")
+
+    details = RedisAddon(addon_name="with-auth").get_connection_details()
+    assert details["REDIS_URL"] == "redis://:hunter2@127.0.0.1:6379/5"
+    assert details["REDIS_PASSWORD"] == "hunter2"
+
+
+def test_get_connection_details_url_unchanged_when_no_password(
+    tmp_hop3_root, redis_pass_file
+):
+    """Legacy installs without /etc/hop3/redis-pass keep the unauthenticated URL."""
+    from hop3.plugins.redis.redis import RedisAddon  # noqa: PLC0415
+
+    _write_secrets(tmp_hop3_root, "no-auth", 5)
+
+    details = RedisAddon(addon_name="no-auth").get_connection_details()
+    assert details["REDIS_URL"] == "redis://127.0.0.1:6379/5"
+    assert "REDIS_PASSWORD" not in details
+
+
+def test_get_connection_details_url_quotes_special_chars(
+    tmp_hop3_root, redis_pass_file
+):
+    """A password containing : / @ must be URL-quoted in REDIS_URL."""
+    from hop3.plugins.redis.redis import RedisAddon  # noqa: PLC0415
+
+    _write_secrets(tmp_hop3_root, "tricky", 5)
+    redis_pass_file.write_text("p@ss:w/rd\n")
+
+    details = RedisAddon(addon_name="tricky").get_connection_details()
+    # The password is quoted but the rest of the URL is not.
+    assert details["REDIS_URL"] == "redis://:p%40ss%3Aw%2Frd@127.0.0.1:6379/5"
+    assert details["REDIS_PASSWORD"] == "p@ss:w/rd"

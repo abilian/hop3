@@ -97,12 +97,23 @@ class DeployBackend(ABC):
         """
 
     @abstractmethod
-    def run(self, command: str, *, check: bool = True) -> CommandResult:
+    def run(
+        self,
+        command: str,
+        *,
+        check: bool = True,
+        stdin: str | None = None,
+    ) -> CommandResult:
         """Run a command on the target.
 
         Args:
-            command: Command to execute
-            check: Whether to raise on non-zero exit
+            command: Command to execute.
+            check: Whether to raise on non-zero exit.
+            stdin: Optional string to feed to the command's standard
+                input. Use this instead of ``echo "$secret" | cmd`` for
+                passwords or any other secret — the secret stays out of
+                the spawned process's argv (and therefore out of
+                ``ps`` / ``/proc/<pid>/cmdline``).
 
         Returns:
             CommandResult with returncode, stdout, stderr

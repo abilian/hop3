@@ -5,6 +5,9 @@
 from __future__ import annotations
 
 import re
+import secrets
+import shutil
+import subprocess
 from pathlib import Path
 
 from hop3_installer.common import (
@@ -22,6 +25,52 @@ REDIS_CONF_PATHS = [
     Path("/etc/redis/redis.conf"),
     Path("/etc/redis.conf"),
 ]
+
+# Persistent location for the Redis auth password. The hop3-server
+# process (running as user `hop3`) reads this file at runtime; setting
+# it 0640 root:hop3 keeps it off any ps/argv path while still letting
+# the addon plugin authenticate.
+REDIS_PASS_FILE = Path("/etc/hop3/redis-pass")
+
+
+def _ensure_redis_password() -> str:
+    """Generate (or load) the Redis auth password and persist it.
+
+    The file is written 0640 root:hop3 so the hop3-server process can
+    read it while keeping it inaccessible to other local users. If the
+    hop3 group does not exist yet (first-run order quirk), we leave the
+    ownership as root:root and rely on the ``fix_redis_pass_ownership``
+    pass once the user has been created.
+    """
+    REDIS_PASS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    if REDIS_PASS_FILE.exists() and REDIS_PASS_FILE.read_text().strip():
+        return REDIS_PASS_FILE.read_text().strip()
+
+    password = secrets.token_urlsafe(32)
+    REDIS_PASS_FILE.write_text(password + "\n")
+    REDIS_PASS_FILE.chmod(0o640)
+    fix_redis_pass_ownership()
+    print_detail("Redis password generated and persisted")
+    return password
+
+
+def fix_redis_pass_ownership() -> None:
+    """Re-apply root:hop3 ownership on the redis password file.
+
+    Safe to call repeatedly; called both at password generation time and
+    after the hop3 user is created (which may happen *after* Redis is
+    configured on first install).
+    """
+    if not REDIS_PASS_FILE.exists():
+        return
+    chown = shutil.which("chown")
+    if not chown:
+        return
+    subprocess.run(
+        [chown, "root:hop3", str(REDIS_PASS_FILE)],
+        check=False,
+        capture_output=True,
+    )
 
 
 def _configure_redis_bind() -> None:
@@ -42,10 +91,12 @@ def _configure_redis_bind() -> None:
         print_detail("Docker bridge not found, Redis will bind to localhost only")
         return
 
+    password = _ensure_redis_password()
+
     content = redis_conf.read_text()
-    content, modified = _update_redis_bind(content, docker_ip)
-    content, protected_modified = _update_redis_protected_mode(content)
-    modified = modified or protected_modified
+    content, bind_modified = _update_redis_bind(content, docker_ip)
+    content, requirepass_modified = _update_redis_requirepass(content, password)
+    modified = bind_modified or requirepass_modified
 
     if modified:
         redis_conf.write_text(content)
@@ -69,23 +120,29 @@ def _update_redis_bind(content: str, docker_ip: str) -> tuple[str, bool]:
     return content, True
 
 
-def _update_redis_protected_mode(content: str) -> tuple[str, bool]:
-    """Ensure Redis protected-mode is disabled for Docker access."""
-    if "protected-mode no" in content:
-        print_detail("Redis protected-mode already disabled")
+def _update_redis_requirepass(content: str, password: str) -> tuple[str, bool]:
+    """Ensure Redis is configured with the persisted requirepass.
+
+    Replaces the previous ``_update_redis_protected_mode`` helper, which
+    disabled protected-mode for Docker bridge access *without* setting
+    a password — leaving Redis listening on the bridge with no auth.
+    Now we keep protected-mode at its default and require auth instead.
+    """
+    target_line = f"requirepass {password}"
+    if target_line in content:
+        print_detail("Redis requirepass already up to date")
         return content, False
 
-    # Disable protected-mode for Docker bridge connections
-    if re.search(r"^#?\s*protected-mode\s+", content, re.MULTILINE):
+    if re.search(r"^#?\s*requirepass\s+", content, re.MULTILINE):
         content = re.sub(
-            r"^#?\s*protected-mode\s+.*$",
-            "protected-mode no",
+            r"^#?\s*requirepass\s+.*$",
+            target_line,
             content,
             flags=re.MULTILINE,
         )
     else:
-        content = f"protected-mode no\n{content}"
-    print_detail("Disabled Redis protected-mode for Docker access")
+        content = f"{target_line}\n{content}"
+    print_detail("Configured Redis requirepass")
     return content, True
 
 
