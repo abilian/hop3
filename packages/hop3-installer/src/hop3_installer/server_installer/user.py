@@ -13,6 +13,8 @@ from pathlib import Path
 from hop3_installer.common import print_info, print_success, print_warning, run_cmd
 from hop3_installer.constants import HOME_DIR, HOP3_GROUP, HOP3_USER
 
+from .redis import fix_redis_pass_ownership
+
 
 def user_exists(username: str) -> bool:
     """Check if a user exists."""
@@ -108,3 +110,7 @@ def create_user_and_group() -> None:
             print_info("Added hop3 to docker group")
         else:
             print_warning("Failed to add hop3 to docker group - Docker builds may fail")
+
+    # Re-apply ownership on /etc/hop3/redis-pass in case Redis was
+    # configured before the hop3 group existed (first-run order).
+    fix_redis_pass_ownership()

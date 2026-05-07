@@ -40,6 +40,54 @@ RESERVED_DB = 0
 MIN_ADDON_DB = 1
 MAX_ADDON_DB = 15
 
+# Persistent file written by the installer holding the Redis auth
+# password. Absent means the install has not (yet) been switched to
+# auth mode — we fall back to unauthenticated calls so legacy installs
+# keep working until they re-run the installer.
+REDIS_PASS_FILE = Path("/etc/hop3/redis-pass")
+
+
+def _load_redis_password() -> str | None:
+    """Return the operator-managed Redis password, or None if not set.
+
+    The installer writes ``/etc/hop3/redis-pass`` with mode 0640
+    root:hop3; reading it requires being in the hop3 group, which the
+    server process is. Any IO error → None (legacy unauth fall-back).
+    """
+    try:
+        text = REDIS_PASS_FILE.read_text().strip()
+    except OSError:
+        return None
+    return text or None
+
+
+def _redis_cli_env() -> dict[str, str]:
+    """Environment for invoking ``redis-cli`` so the password isn't on argv.
+
+    ``REDISCLI_AUTH`` is the documented mechanism for passing the
+    password without ``-a <password>`` (which would land in
+    /proc/<pid>/cmdline).
+    """
+    import os  # noqa: PLC0415
+
+    env = os.environ.copy()
+    password = _load_redis_password()
+    if password:
+        env["REDISCLI_AUTH"] = password
+    return env
+
+
+def _run_redis_cli(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+    """Run ``redis-cli`` with REDISCLI_AUTH injected when configured."""
+    return subprocess.run(
+        ["redis-cli", *args],
+        capture_output=kwargs.pop("capture_output", True),
+        text=kwargs.pop("text", True),
+        check=kwargs.pop("check", False),
+        env=_redis_cli_env(),
+        **kwargs,
+    )
+
 
 @dataclass(frozen=True)
 class RedisAddon:
@@ -85,6 +133,14 @@ class RedisAddon:
         """Get the Redis database number for this addon."""
         return self._db_number
 
+    def _db_cmd(self, *args: str) -> subprocess.CompletedProcess[str]:
+        """Run a redis-cli command scoped to this addon's database.
+
+        Wraps ``-n <db_number>`` so the call sites read like Redis
+        commands rather than argv soup.
+        """
+        return _run_redis_cli(["-n", str(self.db_number), *args])
+
     @property
     def instance_name(self) -> str:
         """Get a sanitized instance name."""
@@ -105,8 +161,7 @@ class RedisAddon:
             object.__setattr__(self, "_db_number", _allocate_db_number())  # noqa: PLC2801
 
         # Verify Redis is accessible
-        cmd = ["redis-cli", "ping"]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        result = _run_redis_cli(["ping"])
         if result.returncode != 0 or result.stdout.strip() != "PONG":
             msg = f"Redis is not accessible: {result.stderr or 'no response'}"
             raise RuntimeError(msg)
@@ -116,15 +171,11 @@ class RedisAddon:
         self._ensure_writable()
 
         # Select the database and set a marker key to indicate it's in use
-        marker_cmd = [
-            "redis-cli",
-            "-n",
-            str(self.db_number),
+        result = self._db_cmd(
             "SET",
             f"hop3:addon:{self.addon_name}:created",
             datetime.now(timezone.utc).isoformat(),
-        ]
-        result = subprocess.run(marker_cmd, capture_output=True, text=True, check=False)
+        )
         if result.returncode != 0:
             # Check if this is a read-only replica error
             if "read only replica" in result.stderr.lower():
@@ -155,31 +206,16 @@ class RedisAddon:
         If Redis is configured as a replica, attempt to make it a primary.
         """
         # Check if Redis is a replica
-        result = subprocess.run(
-            ["redis-cli", "INFO", "replication"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        result = _run_redis_cli(["INFO", "replication"])
         if result.returncode != 0:
             return  # Can't check, assume it's fine
 
         # Check if role is slave/replica
         if "role:slave" in result.stdout:
             # Try to make it a primary
-            subprocess.run(
-                ["redis-cli", "REPLICAOF", "NO", "ONE"],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
+            _run_redis_cli(["REPLICAOF", "NO", "ONE"])
             # Also allow writes on replica (fallback if REPLICAOF fails)
-            subprocess.run(
-                ["redis-cli", "CONFIG", "SET", "replica-read-only", "no"],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
+            _run_redis_cli(["CONFIG", "SET", "replica-read-only", "no"])
 
     def destroy(self) -> None:
         """Decommission this Redis addon.
@@ -193,8 +229,7 @@ class RedisAddon:
             delete_addon_secrets(ADDON_TYPE, self.addon_name)
             return
 
-        cmd = ["redis-cli", "-n", str(self.db_number), "FLUSHDB"]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        result = self._db_cmd("FLUSHDB")
         if result.returncode != 0:
             msg = f"Failed to flush Redis database {self.db_number}: {result.stderr}"
             raise RuntimeError(msg)
@@ -219,13 +254,31 @@ class RedisAddon:
         # Docker deployer transforms 127.0.0.1 → host.docker.internal for containers.
         host = "127.0.0.1"
         port = "6379"
+        password = _load_redis_password()
 
-        return {
-            "REDIS_URL": f"redis://{host}:{port}/{self.db_number}",
+        # When auth is configured, surface the password in REDIS_URL (the
+        # standard form ``redis://:<password>@host:port/db``) and also
+        # via REDIS_PASSWORD for libraries that read it separately.
+        # Quote the password since token_urlsafe can include "-" / "_"
+        # but not "@" / ":" / "/", so naive interpolation is safe; we
+        # still pass it through quote() defensively in case the operator
+        # rotates to a custom value.
+        if password:
+            from urllib.parse import quote  # noqa: PLC0415
+
+            url = f"redis://:{quote(password, safe='')}@{host}:{port}/{self.db_number}"
+        else:
+            url = f"redis://{host}:{port}/{self.db_number}"
+
+        details = {
+            "REDIS_URL": url,
             "REDIS_HOST": host,
             "REDIS_PORT": port,
             "REDIS_DB": str(self.db_number),
         }
+        if password:
+            details["REDIS_PASSWORD"] = password
+        return details
 
     def backup(self) -> Path:
         """Create a backup of the Redis database.
@@ -242,8 +295,7 @@ class RedisAddon:
         backup_file = backup_dir / f"{self.addon_name}_{timestamp}.json"
 
         # Get all keys in this database
-        keys_cmd = ["redis-cli", "-n", str(self.db_number), "KEYS", "*"]
-        result = subprocess.run(keys_cmd, capture_output=True, text=True, check=False)
+        result = self._db_cmd("KEYS", "*")
         if result.returncode != 0:
             msg = f"Failed to list Redis keys: {result.stderr}"
             raise RuntimeError(msg)
@@ -264,53 +316,29 @@ class RedisAddon:
                 continue
 
             # Get key type
-            type_cmd = ["redis-cli", "-n", str(self.db_number), "TYPE", key]
-            type_result = subprocess.run(
-                type_cmd, capture_output=True, text=True, check=False
-            )
-            key_type = type_result.stdout.strip()
+            key_type = self._db_cmd("TYPE", key).stdout.strip()
 
             # Get value based on type
             if key_type == "string":
-                get_cmd = ["redis-cli", "-n", str(self.db_number), "GET", key]
-                value_result = subprocess.run(
-                    get_cmd, capture_output=True, text=True, check=False
-                )
+                value_result = self._db_cmd("GET", key)
                 keys_data[key] = {
                     "type": "string",
                     "value": value_result.stdout.strip(),
                 }
             elif key_type == "list":
-                get_cmd = [
-                    "redis-cli",
-                    "-n",
-                    str(self.db_number),
-                    "LRANGE",
-                    key,
-                    "0",
-                    "-1",
-                ]
-                value_result = subprocess.run(
-                    get_cmd, capture_output=True, text=True, check=False
-                )
+                value_result = self._db_cmd("LRANGE", key, "0", "-1")
                 keys_data[key] = {
                     "type": "list",
                     "value": value_result.stdout.strip().split("\n"),
                 }
             elif key_type == "set":
-                get_cmd = ["redis-cli", "-n", str(self.db_number), "SMEMBERS", key]
-                value_result = subprocess.run(
-                    get_cmd, capture_output=True, text=True, check=False
-                )
+                value_result = self._db_cmd("SMEMBERS", key)
                 keys_data[key] = {
                     "type": "set",
                     "value": value_result.stdout.strip().split("\n"),
                 }
             elif key_type == "hash":
-                get_cmd = ["redis-cli", "-n", str(self.db_number), "HGETALL", key]
-                value_result = subprocess.run(
-                    get_cmd, capture_output=True, text=True, check=False
-                )
+                value_result = self._db_cmd("HGETALL", key)
                 # Parse alternating key/value pairs
                 items = value_result.stdout.strip().split("\n")
                 hash_dict = {}
@@ -344,65 +372,20 @@ class RedisAddon:
             value = data["value"]
 
             if key_type == "string":
-                cmd = [
-                    "redis-cli",
-                    "-n",
-                    str(self.db_number),
-                    "SET",
-                    key,
-                    str(value),
-                ]
-                subprocess.run(cmd, capture_output=True, text=True, check=False)
+                self._db_cmd("SET", key, str(value))
             elif key_type == "list":
                 # Delete existing key first
-                subprocess.run(
-                    ["redis-cli", "-n", str(self.db_number), "DEL", key],
-                    capture_output=True,
-                    check=False,
-                )
+                self._db_cmd("DEL", key)
                 for item in value:
-                    cmd = [
-                        "redis-cli",
-                        "-n",
-                        str(self.db_number),
-                        "RPUSH",
-                        key,
-                        str(item),
-                    ]
-                    subprocess.run(cmd, capture_output=True, text=True, check=False)
+                    self._db_cmd("RPUSH", key, str(item))
             elif key_type == "set":
-                subprocess.run(
-                    ["redis-cli", "-n", str(self.db_number), "DEL", key],
-                    capture_output=True,
-                    check=False,
-                )
+                self._db_cmd("DEL", key)
                 for item in value:
-                    cmd = [
-                        "redis-cli",
-                        "-n",
-                        str(self.db_number),
-                        "SADD",
-                        key,
-                        str(item),
-                    ]
-                    subprocess.run(cmd, capture_output=True, text=True, check=False)
+                    self._db_cmd("SADD", key, str(item))
             elif key_type == "hash":
-                subprocess.run(
-                    ["redis-cli", "-n", str(self.db_number), "DEL", key],
-                    capture_output=True,
-                    check=False,
-                )
+                self._db_cmd("DEL", key)
                 for field, val in value.items():
-                    cmd = [
-                        "redis-cli",
-                        "-n",
-                        str(self.db_number),
-                        "HSET",
-                        key,
-                        field,
-                        str(val),
-                    ]
-                    subprocess.run(cmd, capture_output=True, text=True, check=False)
+                    self._db_cmd("HSET", key, field, str(val))
 
     def info(self) -> dict[str, Any]:
         """Get information about the Redis service.
@@ -411,8 +394,7 @@ class RedisAddon:
             Dictionary with service details
         """
         # Get Redis server info
-        info_cmd = ["redis-cli", "INFO", "server"]
-        result = subprocess.run(info_cmd, capture_output=True, text=True, check=False)
+        result = _run_redis_cli(["INFO", "server"])
 
         version = "unknown"
         if result.returncode == 0:
@@ -422,10 +404,7 @@ class RedisAddon:
                     break
 
         # Get number of keys in this database
-        dbsize_cmd = ["redis-cli", "-n", str(self.db_number), "DBSIZE"]
-        dbsize_result = subprocess.run(
-            dbsize_cmd, capture_output=True, text=True, check=False
-        )
+        dbsize_result = self._db_cmd("DBSIZE")
         key_count = 0
         if dbsize_result.returncode == 0:
             # Output format: "(integer) N"
@@ -433,10 +412,7 @@ class RedisAddon:
                 key_count = int(dbsize_result.stdout.strip())
 
         # Get memory usage for this database (approximate)
-        memory_cmd = ["redis-cli", "-n", str(self.db_number), "INFO", "memory"]
-        memory_result = subprocess.run(
-            memory_cmd, capture_output=True, text=True, check=False
-        )
+        memory_result = self._db_cmd("INFO", "memory")
         used_memory = "unknown"
         if memory_result.returncode == 0:
             for line in memory_result.stdout.split("\n"):

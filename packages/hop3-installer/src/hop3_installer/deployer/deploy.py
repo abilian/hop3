@@ -846,10 +846,10 @@ class Deployer:
         email = self.config.admin_email
         password = self.config.admin_password
 
-        # Quote all user-controlled values
+        # Quote all user-controlled values. Password is fed via stdin
+        # below, so it doesn't need (and must not get) shell quoting.
         safe_user = shlex.quote(user)
         safe_email = shlex.quote(email)
-        safe_password = shlex.quote(password)
         hop3_server = str(HOP3_SERVER_BIN)
 
         # Check if admin user already exists
@@ -863,11 +863,16 @@ class Deployer:
 
         # User doesn't exist - create it
         self.log(f"Creating admin user '{user}'")
+        # SECURITY: pipe the password via subprocess stdin, not via the
+        # shell ``echo {pw} | sudo …`` form. The latter puts the password
+        # in the spawned ``echo``'s argv (visible in /proc/<pid>/cmdline
+        # for the deploy window). The remote command reads it from its
+        # own stdin via --password-stdin.
         cmd = (
-            f"echo {safe_password} | sudo -u hop3 {hop3_server} "
+            f"sudo -u hop3 {hop3_server} "
             f"admin:create {safe_user} {safe_email} --password-stdin"
         )
-        result = self.backend.run(cmd, check=False)
+        result = self.backend.run(cmd, check=False, stdin=password)
         if result.success:
             self.admin_user_created = True
             self.log(f"Admin user '{user}' created", "success")
@@ -892,17 +897,19 @@ class Deployer:
             user = self.config.admin_user
             password = self.config.admin_password
 
-            # Quote user-controlled values to prevent command injection
+            # Quote user-controlled values to prevent command injection.
+            # The password no longer flows through argv; see _create_admin_user.
             safe_user = shlex.quote(user)
-            safe_password = shlex.quote(password)
             safe_email = shlex.quote(f"{user}@hop3.dev")
 
-            # Create admin user on server using --password-stdin (ignore if already exists)
+            # Create admin user on server using --password-stdin (ignore if already exists).
+            # See _create_admin_user above for the stdin-vs-echo rationale.
             hop3_server = str(HOP3_SERVER_BIN)
             self.backend.run(
-                f"echo {safe_password} | sudo -u hop3 {hop3_server} "
+                f"sudo -u hop3 {hop3_server} "
                 f"admin:create {safe_user} {safe_email} --password-stdin",
                 check=False,
+                stdin=password,
             )
 
             # Get token from server (admin:token only needs username)

@@ -28,6 +28,17 @@ from hop3_cli.exceptions import DeploymentError
 if TYPE_CHECKING:
     from hop3_cli.ui.rich_printer import RichPrinter
 
+# Connect timeout: how long to wait for the initial TCP/TLS handshake.
+# Tight bound — if the server isn't reachable in 30s it likely never will be.
+_STREAM_CONNECT_TIMEOUT_SECONDS = 30.0
+
+# Read timeout: max gap between successive bytes once the stream is open.
+# The server emits SSE keepalive comments every ~15s, so any gap longer
+# than this means the connection has stalled (slowloris-style or a hung
+# server). Generous default so legitimate long deploys aren't cut off,
+# but bounded so a CI runner can never wait forever.
+_STREAM_READ_TIMEOUT_SECONDS = 300.0
+
 
 def stream_deployment_logs(
     base_url: str,
@@ -60,12 +71,17 @@ def stream_deployment_logs(
         headers["Authorization"] = f"Bearer {token}"
 
     try:
-        # Use streaming mode to receive SSE events
+        # Use streaming mode to receive SSE events.
+        # SECURITY: bound both connect and read timeouts. ``timeout=None``
+        # would let a slowloris-style hang or a stuck server keep a CI
+        # runner blocked indefinitely. The read timeout is the inter-byte
+        # gap, which is well-defined for SSE because the server emits
+        # keepalive comments — so a missed keepalive trips it cleanly.
         with requests.get(
             stream_url,
             headers=headers,
             stream=True,
-            timeout=None,  # No timeout for streaming
+            timeout=(_STREAM_CONNECT_TIMEOUT_SECONDS, _STREAM_READ_TIMEOUT_SECONDS),
             verify=verify_ssl,
         ) as response:
             if response.status_code == 404:
@@ -90,6 +106,22 @@ def stream_deployment_logs(
 
             _process_sse_stream(response, printer)
 
+    except requests.exceptions.ConnectTimeout as e:
+        msg = (
+            f"Timed out connecting to {stream_url} after "
+            f"{_STREAM_CONNECT_TIMEOUT_SECONDS:.0f}s. The server is "
+            "unreachable; the deployment may still be running."
+        )
+        printer.print([{"t": "error", "text": msg}])
+        raise DeploymentError(msg) from e
+    except requests.exceptions.ReadTimeout as e:
+        msg = (
+            f"Stream stalled (no data for "
+            f"{_STREAM_READ_TIMEOUT_SECONDS:.0f}s). The deployment "
+            "may still be running on the server."
+        )
+        printer.print([{"t": "error", "text": msg}])
+        raise DeploymentError(msg) from e
     except requests.exceptions.ConnectionError as e:
         printer.print([
             {

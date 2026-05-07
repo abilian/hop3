@@ -24,6 +24,28 @@ import tomllib  # Python 3.11+
 from hop3.lib import log
 
 
+def _validation_skip_requested() -> bool:
+    """Return True if the operator wants to skip hop3.toml validation.
+
+    The escape-hatch ``HOP3_SKIP_CONFIG_VALIDATION`` exists for back-compat
+    with old configs that fail the current Pydantic schema. It is **only**
+    honoured outside production: in production the schema is the contract,
+    and silently accepting malformed configs would mask deploy bugs.
+
+    Mirrors the gating pattern used for ``HOP3_UNSAFE``.
+    """
+    if not os.environ.get("HOP3_SKIP_CONFIG_VALIDATION"):
+        return False
+    if os.environ.get("MODE", "").lower() == "production":
+        log(
+            "HOP3_SKIP_CONFIG_VALIDATION ignored in production mode",
+            level=1,
+            fg="yellow",
+        )
+        return False
+    return True
+
+
 @dataclass
 class Hop3Config:
     """Represents a parsed hop3.toml configuration file.
@@ -65,7 +87,7 @@ class Hop3Config:
 
         # Validate against schema unless disabled
         # Can be disabled via environment variable for backwards compatibility
-        should_validate = validate and not os.environ.get("HOP3_SKIP_CONFIG_VALIDATION")
+        should_validate = validate and not _validation_skip_requested()
         if should_validate:
             cls._validate_config(data, path)
 
@@ -114,7 +136,7 @@ class Hop3Config:
         data = tomllib.loads(content)
 
         # Validate against schema unless disabled
-        should_validate = validate and not os.environ.get("HOP3_SKIP_CONFIG_VALIDATION")
+        should_validate = validate and not _validation_skip_requested()
         if should_validate:
             cls._validate_config(data, Path("<string>"))
 

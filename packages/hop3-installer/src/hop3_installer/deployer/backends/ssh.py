@@ -52,7 +52,13 @@ class SSHDeployBackend(DeployBackend):
     def teardown(self) -> None:
         """No teardown needed for SSH."""
 
-    def run(self, command: str, *, check: bool = True) -> CommandResult:
+    def run(
+        self,
+        command: str,
+        *,
+        check: bool = True,
+        stdin: str | None = None,
+    ) -> CommandResult:
         """Run a command on the remote server via SSH."""
         ssh_cmd = [
             "ssh",
@@ -63,6 +69,7 @@ class SSHDeployBackend(DeployBackend):
 
         result = subprocess.run(
             ssh_cmd,
+            input=stdin,
             capture_output=True,
             text=True,
             check=False,

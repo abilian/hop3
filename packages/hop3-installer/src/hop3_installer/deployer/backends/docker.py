@@ -390,11 +390,18 @@ class DockerDeployBackend(DeployBackend):
             check=False,
         )
 
-    def run(self, command: str, *, check: bool = True) -> CommandResult:
+    def run(
+        self,
+        command: str,
+        *,
+        check: bool = True,
+        stdin: str | None = None,
+    ) -> CommandResult:
         """Run a command in the container."""
         docker_cmd = [
             "docker",
             "exec",
+            *(["-i"] if stdin is not None else []),
             self.container_name,
             "bash",
             "-c",
@@ -403,6 +410,7 @@ class DockerDeployBackend(DeployBackend):
 
         result = subprocess.run(
             docker_cmd,
+            input=stdin,
             capture_output=True,
             text=True,
             check=False,

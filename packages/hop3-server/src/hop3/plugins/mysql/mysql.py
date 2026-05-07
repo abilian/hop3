@@ -304,7 +304,11 @@ class MySQLAddon:
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         backup_file = backup_dir / f"{self.addon_name}_{timestamp}.sql"
 
-        # Use mysqldump to create backup
+        # SECURITY: pass the password via MYSQL_PWD instead of -p{password}
+        # so it doesn't appear in /proc/<pid>/cmdline (visible to other
+        # local users for the duration of the dump). MYSQL_PWD is the
+        # documented mechanism for this; the surrounding env is otherwise
+        # preserved.
         cmd = [
             "mysqldump",
             "-h",
@@ -313,7 +317,6 @@ class MySQLAddon:
             str(admin.port),
             "-u",
             self.db_user,
-            f"-p{password}",
             "--single-transaction",
             "--routines",
             "--triggers",
@@ -321,8 +324,8 @@ class MySQLAddon:
         ]
 
         with Path(backup_file).open("w") as f:
-            # Preserve existing environment
             env = os.environ.copy()
+            env["MYSQL_PWD"] = password
             subprocess.run(cmd, check=True, stdout=f, env=env)
 
         return backup_file
@@ -344,7 +347,8 @@ class MySQLAddon:
             msg = f"No stored password for addon '{self.addon_name}'."
             raise RuntimeError(msg)
 
-        # Use mysql to restore
+        # SECURITY: see backup() above — MYSQL_PWD avoids leaking the
+        # password through argv.
         cmd = [
             "mysql",
             "-h",
@@ -353,13 +357,12 @@ class MySQLAddon:
             str(admin.port),
             "-u",
             self.db_user,
-            f"-p{password}",
             self.db_name,
         ]
 
         with Path(backup_path).open() as f:
-            # Preserve existing environment
             env = os.environ.copy()
+            env["MYSQL_PWD"] = password
             subprocess.run(cmd, check=True, stdin=f, env=env)
 
     def info(self) -> dict[str, Any]:
