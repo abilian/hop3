@@ -368,9 +368,11 @@ class TestSpinner:
     def test_spinner_context_manager_non_tty(self, capsys):
         """Spinner should print message when not a TTY."""
         # When not a TTY, spinner just prints the message
-        with patch("sys.stdout.isatty", return_value=False):
-            with Spinner("Loading..."):
-                pass
+        with (
+            patch("sys.stdout.isatty", return_value=False),
+            Spinner("Loading..."),
+        ):
+            pass
         captured = capsys.readouterr()
         assert "Loading..." in captured.out
 
@@ -386,9 +388,11 @@ class TestSpinner:
 
     def test_spinner_enter_exit(self):
         """Spinner should work as context manager."""
-        with patch("sys.stdout.isatty", return_value=False):
-            with Spinner("Test") as spinner:
-                assert isinstance(spinner, Spinner)
+        with (
+            patch("sys.stdout.isatty", return_value=False),
+            Spinner("Test") as spinner,
+        ):
+            assert isinstance(spinner, Spinner)
 
 
 # =============================================================================

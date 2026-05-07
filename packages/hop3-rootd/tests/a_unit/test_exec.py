@@ -52,9 +52,11 @@ def test_run_rejects_binary_not_present():
     """Allow-list path that doesn't exist on this system."""
     # Patch ALLOWED_BINARIES to include a non-existent path
     fake_path = "/this/path/does/not/exist/for/sure"
-    with patch.object(rootd_exec, "ALLOWED_BINARIES", frozenset({fake_path})):
-        with pytest.raises(InvalidBinaryError, match="not present on filesystem"):
-            run([fake_path, "--help"])
+    with (
+        patch.object(rootd_exec, "ALLOWED_BINARIES", frozenset({fake_path})),
+        pytest.raises(InvalidBinaryError, match="not present on filesystem"),
+    ):
+        run([fake_path, "--help"])
 
 
 # --- Successful execution (using mocked subprocess) -----------------------

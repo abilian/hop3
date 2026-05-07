@@ -263,9 +263,11 @@ def test_call_handles_response_id_mismatch(short_tmp_dir):
     daemon = FakeDaemon(socket_path, respond=respond)
     daemon.start()
     try:
-        with LocalRootdClient(socket_path=socket_path) as client:
-            with pytest.raises(RootdProtocolError, match="id mismatch"):
-                client.call("test.foo", {})
+        with (
+            LocalRootdClient(socket_path=socket_path) as client,
+            pytest.raises(RootdProtocolError, match="id mismatch"),
+        ):
+            client.call("test.foo", {})
     finally:
         daemon.stop()
 
@@ -290,9 +292,11 @@ def test_call_handles_invalid_json_response(short_tmp_dir):
     daemon = FakeDaemon(socket_path, respond=respond)
     daemon.start()
     try:
-        with LocalRootdClient(socket_path=socket_path) as client:
-            with pytest.raises(RootdProtocolError):
-                client.call("test.foo", {})
+        with (
+            LocalRootdClient(socket_path=socket_path) as client,
+            pytest.raises(RootdProtocolError),
+        ):
+            client.call("test.foo", {})
     finally:
         daemon.stop()
 

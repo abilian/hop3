@@ -156,9 +156,11 @@ def test_empty_password_file_raises(tmp_path: Path) -> None:
 
 def test_stdin_from_tty_refused() -> None:
     args = ["user", "add", "alice", "alice@example.com", "--stdin"]
-    with patch.object(sys.stdin, "isatty", lambda: True, create=True):
-        with pytest.raises(ValueError, match="Refusing to read password"):
-            _resolve_password_inputs(args)
+    with (
+        patch.object(sys.stdin, "isatty", lambda: True, create=True),
+        pytest.raises(ValueError, match="Refusing to read password"),
+    ):
+        _resolve_password_inputs(args)
 
 
 # ---- _resolve_run_input (ADR 036 G3 for `hop run --input`) ----
@@ -203,6 +205,8 @@ def test_run_input_at_path_missing_file() -> None:
 
 def test_run_input_dash_from_tty_refused() -> None:
     args = ["run", "myapp", "cat", "--input", "-"]
-    with patch.object(sys.stdin, "isatty", lambda: True, create=True):
-        with pytest.raises(ValueError, match="Refusing to read --input"):
-            _resolve_run_input(args)
+    with (
+        patch.object(sys.stdin, "isatty", lambda: True, create=True),
+        pytest.raises(ValueError, match="Refusing to read --input"),
+    ):
+        _resolve_run_input(args)

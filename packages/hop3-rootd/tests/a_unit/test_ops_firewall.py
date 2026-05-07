@@ -99,17 +99,19 @@ def test_add_rule_happy_path(patched_nft, ctx):
 def test_add_rule_validation_failure(patched_nft, ctx):
     """Bad spec → ValidationError raised, no nft call, no state change."""
     handler = get_handler("firewall.add_rule")
-    with patch.object(nft_rule, "exec_run") as mock_exec:
-        with pytest.raises(ValidationError):
-            handler(
-                _add_rule_request(
-                    port=99999,  # out of range
-                    protocol="tcp",
-                    source="any",
-                    app_name="matrix",
-                ),
-                ctx,
-            )
+    with (
+        patch.object(nft_rule, "exec_run") as mock_exec,
+        pytest.raises(ValidationError),
+    ):
+        handler(
+            _add_rule_request(
+                port=99999,  # out of range
+                protocol="tcp",
+                source="any",
+                app_name="matrix",
+            ),
+            ctx,
+        )
     mock_exec.assert_not_called()
     assert ctx.state.rules == []
 
