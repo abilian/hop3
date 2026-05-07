@@ -88,9 +88,11 @@ def test_reload_falls_back_to_nginx_s_reload():
 def test_reload_raises_when_no_method_available():
     """No systemctl, no nginx → raise."""
     handler = get_handler("nginx.reload")
-    with patch("shutil.which", return_value=None):
-        with pytest.raises(NginxBinaryNotFoundError, match="no nginx-reload method"):
-            handler(_req("nginx.reload"), _ctx())
+    with (
+        patch("shutil.which", return_value=None),
+        pytest.raises(NginxBinaryNotFoundError, match="no nginx-reload method"),
+    ):
+        handler(_req("nginx.reload"), _ctx())
 
 
 def test_reload_raises_when_all_methods_fail():
@@ -165,13 +167,17 @@ def test_validate_filters_warnings_in_errors_list():
 
 def test_validate_raises_when_nginx_missing():
     handler = get_handler("nginx.validate_config")
-    with patch("shutil.which", return_value=None):
-        with pytest.raises(NginxBinaryNotFoundError, match="not on allow-list"):
-            handler(_req("nginx.validate_config"), _ctx())
+    with (
+        patch("shutil.which", return_value=None),
+        pytest.raises(NginxBinaryNotFoundError, match="not on allow-list"),
+    ):
+        handler(_req("nginx.validate_config"), _ctx())
 
 
 def test_validate_raises_when_nginx_not_in_allowlist():
     handler = get_handler("nginx.validate_config")
-    with patch("shutil.which", return_value="/opt/sketchy/nginx"):
-        with pytest.raises(NginxBinaryNotFoundError, match="not on allow-list"):
-            handler(_req("nginx.validate_config"), _ctx())
+    with (
+        patch("shutil.which", return_value="/opt/sketchy/nginx"),
+        pytest.raises(NginxBinaryNotFoundError, match="not on allow-list"),
+    ):
+        handler(_req("nginx.validate_config"), _ctx())

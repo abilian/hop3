@@ -92,10 +92,12 @@ def _run_lifecycle_action(
             return [text(msg) for msg in state_checks[state]]
 
     # Capture logs during operation
-    with capture_logs() as captured:
-        with command_context(action_name, app_name=app_name):
-            getattr(app, action_method)()
-            db_session.commit()
+    with (
+        capture_logs() as captured,
+        command_context(action_name, app_name=app_name),
+    ):
+        getattr(app, action_method)()
+        db_session.commit()
 
     response = build_log_response(captured, final_messages)
     # ADR 036 D19c: one-line state-change summary per lifecycle action.
@@ -287,11 +289,13 @@ class DeployCmd(Command):
                         msg = f"App with id {app_id} not found"
                         raise ValueError(msg)
 
-                    with stream_context(log_stream):
-                        with command_context("deploying app", app_name=app_name):
-                            do_deploy(thread_app, db_session=thread_session)
-                            thread_app.last_deployed_at = datetime.now(UTC)
-                            thread_session.commit()
+                    with (
+                        stream_context(log_stream),
+                        command_context("deploying app", app_name=app_name),
+                    ):
+                        do_deploy(thread_app, db_session=thread_session)
+                        thread_app.last_deployed_at = datetime.now(UTC)
+                        thread_session.commit()
                     log_stream.finish(success=True)
                 except Exception as e:
                     # Ensure rollback on error
@@ -743,22 +747,24 @@ class DestroyCmd(Command):
         app = get_app(self.db_session, app_name)
 
         # Capture logs during destroy operation (uses global verbosity context)
-        with capture_logs() as captured:
-            with command_context("destroying app", app_name=app_name):
-                log(f"Destroying app '{app_name}'...", level=2)
+        with (
+            capture_logs() as captured,
+            command_context("destroying app", app_name=app_name),
+        ):
+            log(f"Destroying app '{app_name}'...", level=2)
 
-                # Stop the app first to release any file locks
-                app.stop()
+            # Stop the app first to release any file locks
+            app.stop()
 
-                # Clean up filesystem (repo, src, logs, configs etc.)
-                app.destroy()
+            # Clean up filesystem (repo, src, logs, configs etc.)
+            app.destroy()
 
-                # Remove from the database
-                self.db_session.delete(app)
-                self.db_session.commit()
+            # Remove from the database
+            self.db_session.delete(app)
+            self.db_session.commit()
 
-                # Reload nginx to remove the app's routing configuration
-                self._reload_nginx()
+            # Reload nginx to remove the app's routing configuration
+            self._reload_nginx()
 
         response = build_log_response(
             captured, [f"App '{app_name}' has been destroyed."]

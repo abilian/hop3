@@ -52,16 +52,20 @@ def test_parse_comment_returns_none_for_foreign():
 
 
 def test_find_nft_binary_raises_when_not_on_path():
-    with patch("hop3_rootd.exec.shutil.which", return_value=None):
-        with pytest.raises(NftBinaryNotFoundError, match="not found on PATH"):
-            nft_rule.find_nft_binary()
+    with (
+        patch("hop3_rootd.exec.shutil.which", return_value=None),
+        pytest.raises(NftBinaryNotFoundError, match="not found on PATH"),
+    ):
+        nft_rule.find_nft_binary()
 
 
 def test_find_nft_binary_raises_when_not_in_allowlist():
     """nft on PATH but at a path not in our exec allow-list."""
-    with patch("hop3_rootd.exec.shutil.which", return_value="/opt/sketchy/nft"):
-        with pytest.raises(NftBinaryNotFoundError, match="not found on PATH"):
-            nft_rule.find_nft_binary()
+    with (
+        patch("hop3_rootd.exec.shutil.which", return_value="/opt/sketchy/nft"),
+        pytest.raises(NftBinaryNotFoundError, match="not found on PATH"),
+    ):
+        nft_rule.find_nft_binary()
 
 
 def test_find_nft_binary_returns_allowlisted_path():
