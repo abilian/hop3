@@ -82,13 +82,17 @@ Provisions a PostgreSQL database owned by a per-app user with `CREATE ON DATABAS
 | `PGHOST` | `localhost` |
 | `PGPORT` | `5432` |
 
-**Non-trusted extensions** (e.g. `bloom`, `adminpack`, `postgres_fdw`) cannot be installed by the per-app user. Declare them in `hop3.toml` and Hop3 will install them as superuser at provisioning time:
+**Non-trusted extensions** (e.g. `postgis`, `pgvector`, `bloom`) cannot be installed by the per-app user. Declare them in `hop3.toml` and Hop3 will install them as superuser at provisioning time:
 
 ```toml
 [[addons]]
 type = "postgres"
-extensions = ["bloom", "postgres_fdw"]
+extensions = ["postgis", "pgvector"]
 ```
+
+Hop3 enforces an allow-list. The default set covers the PG13+ trusted extensions (`pg_trgm`, `hstore`, `citext`, `pgcrypto`, `uuid-ossp`, …) plus widely-used non-trusted ones audited to carry no privilege-escalation surface (`postgis`, `pgvector`, `bloom`, `cube`, `earthdistance`, `ip4r`, `pg_stat_statements`). To enable an additional extension on a specific Hop3 install — e.g. `pg_partman` or a vendor extension — set the operator-side env var `HOP3_EXTRA_PG_EXTENSIONS` (comma-separated). A small hard-deny set (`postgres_fdw`, `dblink`, `file_fdw`, `adminpack`, untrusted PL languages) cannot be enabled even via the override; those grant filesystem / network / arbitrary-code-execution capability and would defeat the separation between "deploy an app" and "execute as the postgres superuser".
+
+> Some extensions (`pg_cron`, `timescaledb`) require `shared_preload_libraries` and a Postgres restart on top of `CREATE EXTENSION`. Hop3's default installer does not yet pre-load arbitrary extensions; treat those as a separate setup step.
 
 ### mysql
 
