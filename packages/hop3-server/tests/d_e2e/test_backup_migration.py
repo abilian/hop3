@@ -164,8 +164,14 @@ def _fetch_app_response(
         # line; the default ruff format hurts readability here.
         # fmt: off
         curl_result = container.exec_run([
-            "curl", "-s", "-o", "-", "-w", "\n%{http_code}",
-            "--max-time", "3",
+            "curl",
+            "-s",
+            "-o",
+            "-",
+            "-w",
+            "\n%{http_code}",
+            "--max-time",
+            "3",
             f"http://127.0.0.1:{port}{path}",
         ])
         # fmt: on
@@ -290,7 +296,11 @@ class TestBackupMigrationE2E:
         # Keep the sh -c argv on one line; one-per-line reads worse.
         # fmt: off
         a_container.exec_run(
-            ["sh", "-c", f"echo -n '{sentinel_content.decode()}' > {a_path}/marker.txt"],
+            [
+                "sh",
+                "-c",
+                f"echo -n '{sentinel_content.decode()}' > {a_path}/marker.txt",
+            ],
             user="root",
         )
         # fmt: on

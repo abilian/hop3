@@ -104,10 +104,10 @@ def _provision_single_addon(
     try:
         addon.create()
         # Install any app-declared Postgres extensions AS SUPERUSER.
-        # This covers non-trusted extensions (bloom, adminpack) that
-        # a per-app user cannot install even with CREATE grants, and
-        # is idempotent (CREATE EXTENSION IF NOT EXISTS) for trusted
-        # extensions too.
+        # This covers non-trusted extensions (bloom, postgis, pgvector)
+        # that a per-app user cannot install even with CREATE grants,
+        # and is idempotent (CREATE EXTENSION IF NOT EXISTS) for
+        # trusted extensions too.
         extensions = addon_config.get("extensions") or []
         if extensions and hasattr(addon, "install_extensions"):
             log(
