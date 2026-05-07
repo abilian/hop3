@@ -171,22 +171,35 @@ class ConsoleReporter:
             )
 
     def _extract_app_log_tail(self, result: TestResult, *, max_lines: int = 30) -> str:
-        """Extract the tail of the app's own stderr from the runtime logs.
+        """Extract the most-relevant tail of app logs from runtime diagnostics.
 
-        ``collect_runtime_logs`` writes all files under
-        ``/home/hop3/apps/<app>/log/*.log`` separated by ``--- <path> ---``
-        markers. We prefer ``web.*.log`` (where attach-daemon stderr lands)
-        and fall back to other kinds if no web log exists.
+        ``collect_runtime_logs`` produces a labelled blob with per-section
+        ``--- Title ---`` headers. Two relevant sections:
+
+        - **App log files** — uWSGI / native deployer logs at
+          ``/home/hop3/apps/<app>/log/<name>.log``. Per-file markers look
+          like ``--- /home/hop3/apps/<app>/log/<file>.log ---``.
+        - **Docker container logs** — for docker-based apps, the per-app
+          uWSGI dir is empty. Per-container markers look like
+          ``--- <container-name> ---``.
+
+        We try native logs first (web.* > worker.* > other), then fall
+        back to docker container logs. This way the inline tail is
+        useful for both deployer types — previously docker apps showed
+        the literal ``tail: cannot open ...`` shell error here, which
+        was uniformly unhelpful.
         """
         blob = getattr(result, "runtime_logs", "") or ""
         if not blob:
             return ""
 
-        # Split on per-file markers from runtime_diagnostics.py: the shell
-        # loop emits `--- <absolute-path> ---` before each file's content.
-        # We also track ANY `--- Title ---` delimiter so the content we
-        # extract doesn't leak past the "App log files" section boundary
-        # into the next section (e.g. "Docker container logs").
+        native = self._extract_native_log_tail(blob, max_lines=max_lines)
+        if native:
+            return native
+        return self._extract_docker_logs_tail(blob, max_lines=max_lines)
+
+    def _extract_native_log_tail(self, blob: str, *, max_lines: int) -> str:
+        """Tail of the most-interesting uWSGI/native log file, if any."""
         import re  # noqa: PLC0415
 
         any_marker = re.compile(r"^---\s+.+?\s+---\s*$", re.MULTILINE)
@@ -223,13 +236,71 @@ class ConsoleReporter:
         if not picked_content or picked_content == "(empty)":
             return ""
 
-        lines = picked_content.splitlines()
+        return self._format_tail(f"[{picked_path}]", picked_content, max_lines)
+
+    def _extract_docker_logs_tail(self, blob: str, *, max_lines: int) -> str:
+        """Tail of the first container's docker logs, if any.
+
+        Used as a fallback when the native log section had no real
+        files (typical for docker-based apps where uWSGI isn't involved).
+        """
+        import re  # noqa: PLC0415
+
+        # The "Docker container logs ..." section header is the last in
+        # collect_runtime_logs — anything after it is in scope.
+        section_re = re.compile(
+            r"^---\s+Docker container logs[^-\n]*---\s*$",
+            re.MULTILINE,
+        )
+        match = section_re.search(blob)
+        if not match:
+            return ""
+        section_body = blob[match.end() :]
+
+        # Skip past any subsequent top-level section header (defensive,
+        # in case collect_runtime_logs ever appends new sections after
+        # this one).
+        next_section = re.search(
+            r"^===\s+",
+            section_body,
+            re.MULTILINE,
+        )
+        if next_section:
+            section_body = section_body[: next_section.start()]
+
+        # Per-container markers: `--- <container-name> ---` (no path).
+        container_re = re.compile(r"^---\s+(\S[^\n]*?)\s+---\s*$", re.MULTILINE)
+        matches = list(container_re.finditer(section_body))
+        if not matches:
+            return ""
+
+        first = matches[0]
+        end = matches[1].start() if len(matches) > 1 else len(section_body)
+        container_name = first.group(1)
+        content = section_body[first.end() : end].strip()
+
+        # Skip uninformative section bodies emitted by the collector.
+        if not content or content in {
+            "(empty)",
+            "(docker not installed)",
+            "(no docker containers matching app name)",
+        }:
+            return ""
+
+        return self._format_tail(
+            f"[docker logs {container_name}]",
+            content,
+            max_lines,
+        )
+
+    def _format_tail(self, header: str, content: str, max_lines: int) -> str:
+        """Render the last ``max_lines`` of ``content`` with a header line."""
+        lines = content.splitlines()
         if len(lines) > max_lines:
             lines = [
                 f"... ({len(lines) - max_lines} earlier lines elided)",
                 *lines[-max_lines:],
             ]
-        header = f"[{picked_path}]"
         return "\n".join([header, *lines])
 
     def _log_file_for(self, result: TestResult) -> str | None:
