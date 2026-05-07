@@ -142,9 +142,7 @@ def _fetch_app_response(
         ]
         if not candidates:
             diagnostic = container.exec_run(["ls", "-1", "/home/hop3/uwsgi-enabled/"])
-            last_diagnostic = (
-                f"uwsgi-enabled/ contents:\n{diagnostic.output.decode()}"
-            )
+            last_diagnostic = f"uwsgi-enabled/ contents:\n{diagnostic.output.decode()}"
             time.sleep(1)
             continue
 
@@ -157,16 +155,20 @@ def _fetch_app_response(
 
         port = _parse_uwsgi_port(cat.output.decode())
         if port is None:
-            last_diagnostic = (
-                f"No PORT env in {ini_path}:\n{cat.output.decode()}"
-            )
+            last_diagnostic = f"No PORT env in {ini_path}:\n{cat.output.decode()}"
             time.sleep(1)
             continue
 
         # Worker exists. Try the curl (worker may still be starting).
         curl_result = container.exec_run([
-            "curl", "-s", "-o", "-", "-w", "\n%{http_code}",
-            "--max-time", "3",
+            "curl",
+            "-s",
+            "-o",
+            "-",
+            "-w",
+            "\n%{http_code}",
+            "--max-time",
+            "3",
             f"http://127.0.0.1:{port}{path}",
         ])
         if curl_result.exit_code == 0:
@@ -288,7 +290,11 @@ class TestBackupMigrationE2E:
         a_path = f"{BACKUP_DIR_IN_CONTAINER}/{sentinel_app}/{backup_id}"
         a_container.exec_run(["mkdir", "-p", a_path], user="root")
         a_container.exec_run(
-            ["sh", "-c", f"echo -n '{sentinel_content.decode()}' > {a_path}/marker.txt"],
+            [
+                "sh",
+                "-c",
+                f"echo -n '{sentinel_content.decode()}' > {a_path}/marker.txt",
+            ],
             user="root",
         )
         # Leave the backup root hop3-owned so a later test in this class
@@ -331,7 +337,9 @@ class TestBackupMigrationE2E:
 
         # 1. Deploy on A and capture the golden HTTP response.
         app_dir = create_flask_app(tmp_path, "migrate-app", "Hello from migrate-app!")
-        with DeploymentSession(AppSource(name="migrate-app", path=app_dir), a) as session:
+        with DeploymentSession(
+            AppSource(name="migrate-app", path=app_dir), a
+        ) as session:
             session.deploy()
             assert session.check_deployed(), "App not properly deployed on A"
 
@@ -379,12 +387,18 @@ class TestBackupMigrationE2E:
             # Pull diagnostics from B's server log on failure to surface
             # the actual deploy-pipeline error (the BackupRestoreCmd
             # error wrapping flattens the underlying exception message).
-            log_dump = b._container_helper.container.exec_run(
-                ["tail", "-n", "100", "/var/log/supervisor/hop3-server.log"]
-            )
-            err_dump = b._container_helper.container.exec_run(
-                ["tail", "-n", "100", "/var/log/supervisor/hop3-server_err.log"]
-            )
+            log_dump = b._container_helper.container.exec_run([
+                "tail",
+                "-n",
+                "100",
+                "/var/log/supervisor/hop3-server.log",
+            ])
+            err_dump = b._container_helper.container.exec_run([
+                "tail",
+                "-n",
+                "100",
+                "/var/log/supervisor/hop3-server_err.log",
+            ])
             pytest.fail(
                 f"restore failed on B:\n"
                 f"  stderr: {res.stderr}\n"
@@ -532,16 +546,12 @@ class TestBackupMigrationE2E:
                 "backup", "restore", backup_id, "--target-app", clone_name
             )
             assert res.success, f"clone restore failed: {res.stderr}"
-            assert clone_name in res.stdout, (
-                f"clone name not echoed: {res.stdout!r}"
-            )
+            assert clone_name in res.stdout, f"clone name not echoed: {res.stdout!r}"
 
             # Both apps exist on B.
             apps_list = b.run_command("apps").stdout
             assert name in apps_list, f"{name!r} missing on B: {apps_list}"
-            assert clone_name in apps_list, (
-                f"{clone_name!r} missing on B: {apps_list}"
-            )
+            assert clone_name in apps_list, f"{clone_name!r} missing on B: {apps_list}"
 
             # Original app on B unchanged.
             original = _fetch_app_response(b, name, "/")
@@ -551,9 +561,7 @@ class TestBackupMigrationE2E:
 
             # Cloned app reflects A's content.
             clone = _fetch_app_response(b, clone_name, "/")
-            assert clone.body == "source content", (
-                f"clone body wrong: {clone.body!r}"
-            )
+            assert clone.body == "source content", f"clone body wrong: {clone.body!r}"
 
             # Best-effort cleanup of the clone (the session destroys
             # the original at __exit__; the clone is a separate app).
@@ -621,9 +629,7 @@ class TestBackupMigrationE2E:
         assert b_count is not None, (
             f"could not extract env count from B:\n{b_info.stdout}"
         )
-        assert a_count == b_count, (
-            f"env-var count differs: A={a_count}, B={b_count}"
-        )
+        assert a_count == b_count, f"env-var count differs: A={a_count}, B={b_count}"
 
         # Checksums should be byte-equal across A and B since the
         # tarballs are the same files. Extract just the digests —
@@ -650,9 +656,7 @@ class TestBackupMigrationE2E:
         # The user-authored files we want to compare byte-for-byte
         # against B's restored copy. (`create_flask_app` writes these.)
         original_files = ("app.py", "requirements.txt", "Procfile")
-        local_contents = {
-            f: (src / f).read_bytes() for f in original_files
-        }
+        local_contents = {f: (src / f).read_bytes() for f in original_files}
 
         with DeploymentSession(
             AppSource(name=name, path=src), a, app_name=name
@@ -689,7 +693,9 @@ class TestBackupMigrationE2E:
         # only A's app at exit).
         b.run_command("app", "destroy", name)
 
-    def test_register_refuses_corrupted_backup(self, hop3_container_pair, tmp_path: Path):
+    def test_register_refuses_corrupted_backup(
+        self, hop3_container_pair, tmp_path: Path
+    ):
         """`backup register` rejects a backup directory missing its manifest.
 
         Migration-by-filesystem only works if the manifest is intact.
@@ -714,9 +720,7 @@ class TestBackupMigrationE2E:
 
         # Corrupt: delete metadata.json from B's copy.
         b_container = b._container_helper.container
-        metadata_path = (
-            f"{BACKUP_DIR_IN_CONTAINER}/{name}/{backup_id}/metadata.json"
-        )
+        metadata_path = f"{BACKUP_DIR_IN_CONTAINER}/{name}/{backup_id}/metadata.json"
         rm_result = b_container.exec_run(["rm", metadata_path], user="root")
         assert rm_result.exit_code == 0, (
             f"could not remove metadata for corruption test: {rm_result.output!r}"
