@@ -670,30 +670,26 @@ def _verify_https_connection(
             print(f"HTTPS connection works (status: {response.status_code})")
 
     except requests.exceptions.SSLError:
-        # Self-signed or untrusted certificate
+        # Self-signed or untrusted certificate. We deliberately do NOT
+        # offer an interactive "disable verification?" prompt here:
+        # auth tokens flow over this connection and a single typo'd
+        # 'y' would silently drop them onto an attacker-in-the-middle.
+        # The operator can still opt in via the persistent config knob,
+        # which is a deliberate, audit-able decision.
+        host = _extract_host(api_url)
         print()
         print("The server uses a self-signed or untrusted SSL certificate.")
+        print("Refusing to log in: a wrong choice here would leak your auth")
+        print("token on every subsequent CLI call.")
         print()
-        print("Options:")
-        print("  1. Use SSH tunnel instead (recommended):")
-        print(f"     hop3 login --ssh {_extract_host(api_url)}")
-        print()
-        print("  2. Disable SSL verification for this server:")
-
-        # Ask user if they want to disable SSL verification (if interactive)
-        try:
-            if sys.stdin.isatty():
-                answer = input("\nDisable SSL verification? [y/N]: ").strip().lower()
-                if answer in {"y", "yes"}:
-                    config_data["verify_ssl"] = "false"
-                    print("SSL verification disabled.")
-                    return
-        except (EOFError, KeyboardInterrupt):
-            pass
-
-        print()
-        print("To disable SSL verification later, run:")
-        print("  hop3 settings set verify_ssl false")
+        print("Resolve one of these ways:")
+        print("  1. Use an SSH tunnel (recommended — bypasses TLS entirely):")
+        print(f"       hop3 login --ssh {host}")
+        print("  2. Trust the server certificate explicitly:")
+        print("       hop3 settings set ssl_cert /path/to/server.crt")
+        print("  3. Disable verification for this server (last resort):")
+        print("       hop3 settings set verify_ssl false")
+        print("       hop3 login ...   # retry")
 
     except requests.exceptions.RequestException as e:
         if debug_level >= 1:

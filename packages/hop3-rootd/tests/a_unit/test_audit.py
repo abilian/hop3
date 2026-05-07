@@ -73,11 +73,33 @@ def test_sanitise_does_not_mutate_input():
     assert inp["password"] == "hunter2"
 
 
-def test_sanitise_only_matches_full_word_endings():
-    """`portkey_admin` is NOT a secret field — `key` only matches at end."""
-    # 'portkey_admin' ends with 'admin', so not matched
-    out = sanitise_args({"portkey_admin": "v"})
-    assert out["portkey_admin"] == "v"
+def test_sanitise_redacts_secret_substrings_anywhere():
+    """The pattern matches secret words anywhere in the field name.
+
+    Previously the regex used a ``$`` end-anchor and missed
+    ``aws_access_key_id`` and similar (where the secret-marker word is
+    not the trailing component). Per the security-review policy
+    "false-positives are fine, false-negatives leak", we widened the
+    pattern. Side effect: an innocent field whose name happens to
+    contain ``key``/``token``/etc. (e.g. ``portkey_admin``) also gets
+    redacted. That is the cost of safety-first coverage and is not a
+    correctness issue — the audit log still records the operation,
+    just with the suspect field censored.
+    """
+    out = sanitise_args({
+        "aws_access_key_id": "AKIA...",
+        "aws_secret_access_key": "sek",
+        "private_key": "-----BEGIN...-----",
+        "passphrase": "open sesame",
+        "portkey_admin": "innocent-but-redacted",
+    })
+    assert out["aws_access_key_id"] == "<redacted>"
+    assert out["aws_secret_access_key"] == "<redacted>"
+    assert out["private_key"] == "<redacted>"
+    assert out["passphrase"] == "<redacted>"
+    # Conservative widening: an innocent field containing "key" is also
+    # redacted. We accept this in exchange for catching the AWS-style names.
+    assert out["portkey_admin"] == "<redacted>"
 
 
 # --- AuditEntry.to_json_line ---------------------------------------------

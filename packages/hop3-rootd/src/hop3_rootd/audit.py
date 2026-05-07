@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -34,10 +35,31 @@ DEFAULT_AUDIT_LOG_MODE: Final[int] = 0o640
 
 
 # Field names (case-insensitive) whose values get redacted in audit args.
-# Conservative: catches anything that looks like a secret. False-positives
-# are fine; false-negatives leak.
+# Conservative: false-positives are fine; false-negatives leak.
+#
+# The original pattern used a ``$`` end-anchor, which silently missed
+# anything where the secret-marker word wasn't the last component of
+# the field name — most importantly ``aws_access_key_id`` (where
+# ``key`` is in the middle) and any future ``…_token_…`` style name.
+# Switch to ``re.search`` semantics (no anchor) so substrings match,
+# and add the common ``aws_``, ``private_``, ``access_``, ``client_id``
+# prefixes that show up in real configs.
 _SECRET_FIELD_RE: Final[re.Pattern[str]] = re.compile(
-    r"(password|token|secret|key|credential|api[-_]?key)$",
+    r"("
+    r"password"
+    r"|passwd"
+    r"|passphrase"
+    r"|token"
+    r"|secret"
+    r"|credential"
+    r"|api[-_]?key"
+    r"|access[-_]?key"
+    r"|private[-_]?key"
+    r"|signing[-_]?key"
+    r"|encryption[-_]?key"
+    r"|key"  # catch-all (must come last; prefixes above are more specific)
+    r"|aws_"  # aws_access_key_id, aws_secret_access_key
+    r")",
     re.IGNORECASE,
 )
 _REDACTED: Final[str] = "<redacted>"
@@ -156,10 +178,23 @@ class AuditLog:
             )
 
     def write(self, entry: AuditEntry) -> None:
-        """Append one entry as a JSON line, flushing immediately."""
+        """Append one entry as a JSON line, flushing through to disk.
+
+        We fsync after each entry so an audit record survives an OS crash
+        in the page-cache window. The perf cost (one fsync per privileged
+        op) is acceptable: rootd ops are infrequent and durability of the
+        audit trail is more valuable than throughput here. ADR 041 §13.
+        """
         self._ensure_open()
         self._fd.write(entry.to_json_line() + "\n")
         self._fd.flush()
+        try:
+            os.fsync(self._fd.fileno())
+        except OSError as exc:
+            # fsync can fail on some filesystems (procfs, certain tmpfs
+            # layouts) — best-effort only. The flush above already gets
+            # us through to the kernel buffer.
+            logger.warning("audit log fsync failed: %s", exc)
 
     def reopen(self) -> None:
         """Close + reopen the file. Hooked to SIGUSR1 (logrotate-friendly)."""

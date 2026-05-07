@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import itertools
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -25,6 +26,53 @@ from pathlib import Path
 from typing import overload
 
 from typing_extensions import Self
+
+# Argv tokens we'll redact when stringifying a CommandError. Defense in
+# depth: the right fix is to keep secrets off argv at the call site (we
+# did that for mysqldump and the deployer), but if a future caller
+# regresses, this prevents the password from landing in error output
+# and any log that catches it.
+_REDACT_TOKEN_RE = re.compile(
+    r"^("
+    r"-p[^\s]+"  # mysql/mariadb-style "-pSECRET"
+    r"|--password=.+"  # generic --password=SECRET
+    r"|--password-file=.+"
+    r"|--token=.+"
+    r"|--api-token=.+"
+    r")$",
+    re.IGNORECASE,
+)
+
+
+def _redact_argv(cmd: list[str]) -> list[str]:
+    """Return a copy of ``cmd`` with secret-bearing tokens replaced.
+
+    Conservative: only matches well-known password/token flag shapes
+    so we don't redact innocuous flags that happen to look similar.
+    """
+    out: list[str] = []
+    redact_next = False
+    for token in cmd:
+        if redact_next:
+            out.append("***REDACTED***")
+            redact_next = False
+            continue
+        if _REDACT_TOKEN_RE.match(token):
+            # Single-token form like "-pSECRET" or "--password=SECRET"
+            head, sep, _ = token.partition("=")
+            if sep:
+                out.append(f"{head}=***REDACTED***")
+            else:
+                out.append(f"{token[:2]}***REDACTED***")
+            continue
+        if token in {"--password", "--password-file", "--token", "--api-token"}:
+            # Two-token form like "--password SECRET" — redact the next.
+            out.append(token)
+            redact_next = True
+            continue
+        out.append(token)
+    return out
+
 
 # =============================================================================
 # Terminal Colors
@@ -193,7 +241,7 @@ class CommandError(Exception):
     stdout: str = ""
 
     def __str__(self) -> str:
-        return f"Command failed: {' '.join(self.cmd)}"
+        return f"Command failed: {' '.join(_redact_argv(self.cmd))}"
 
 
 class ServiceStartError(Exception):
