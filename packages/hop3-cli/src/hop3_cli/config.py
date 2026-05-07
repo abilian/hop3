@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import os
 from pathlib import Path
@@ -228,23 +229,50 @@ class Config:
     def save(self, updates: dict | None = None) -> None:
         """Save the config to the TOML file.
 
+        SECURITY: the config holds the JWT auth token. Two precautions:
+
+        1. ``chmod 0600`` so other local users can't read it.
+        2. Atomic write via tmpfile + ``os.replace`` so a crash mid-write
+           can't leave the file truncated (and bricked, since auto-auth
+           needs it readable).
+
         Args:
-            updates: Optional dictionary of updates to merge into config before saving
+            updates: Optional dict merged into config before saving.
         """
         if not self.config_file:
             msg = "Cannot save: config_file path not set"
             raise ValueError(msg)
 
-        # Merge updates into data
         if updates:
             self.data.update(updates)
 
-        # Ensure parent directory exists
-        self.config_file.parent.mkdir(parents=True, exist_ok=True)
+        config_dir = self.config_file.parent
+        config_dir.mkdir(parents=True, exist_ok=True)
 
-        # Write to file
-        with self.config_file.open("w") as f:
-            toml.dump(self.data, f)
+        # Write to a sibling tmp file in the same directory (so the
+        # final os.replace is atomic — same filesystem guaranteed).
+        # NamedTemporaryFile + delete=False keeps the file readable on
+        # the rename target path even if we crash before chmod runs.
+        import tempfile  # noqa: PLC0415
+
+        fd, tmp_path = tempfile.mkstemp(
+            prefix=".config.toml.",
+            suffix=".tmp",
+            dir=config_dir,
+        )
+        try:
+            with os.fdopen(fd, "w") as f:
+                toml.dump(self.data, f)
+                f.flush()
+                os.fsync(f.fileno())
+            # Tighten perms before swap-in so there's no window where
+            # the final file is world-readable.
+            os.chmod(tmp_path, 0o600)
+            os.replace(tmp_path, self.config_file)
+        except Exception:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp_path)
+            raise
 
     # =========================================================================
     # Context Management

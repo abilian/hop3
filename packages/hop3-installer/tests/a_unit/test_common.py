@@ -591,3 +591,71 @@ class TestEnvList:
         clean_env["TEST_VAR"] = "single"
         result = env_list("TEST_VAR")
         assert result == ["single"]
+
+
+class TestCommandErrorRedaction:
+    """CommandError.__str__ must not echo passwords / tokens from argv.
+
+    The right place to keep secrets out of argv is the call site (we did
+    that for mysqldump and the deployer), but the redactor here is
+    defense-in-depth: a future regression must not leak a password into
+    log output via the exception string.
+    """
+
+    def test_redacts_dash_p_form(self):
+        err = CommandError(
+            cmd=["mysqldump", "-pSECRET", "mydb"],
+            returncode=1,
+            stderr="",
+        )
+        msg = str(err)
+        assert "SECRET" not in msg
+        assert "-p***REDACTED***" in msg
+
+    def test_redacts_long_password_equals(self):
+        err = CommandError(
+            cmd=["foo", "--password=hunter2", "bar"],
+            returncode=1,
+            stderr="",
+        )
+        msg = str(err)
+        assert "hunter2" not in msg
+        assert "--password=***REDACTED***" in msg
+
+    def test_redacts_two_token_password_form(self):
+        err = CommandError(
+            cmd=["foo", "--password", "hunter2"],
+            returncode=1,
+            stderr="",
+        )
+        msg = str(err)
+        assert "hunter2" not in msg
+        assert "--password ***REDACTED***" in msg
+
+    def test_redacts_token_flags(self):
+        err = CommandError(
+            cmd=["foo", "--api-token=eyJ.JWT", "bar"],
+            returncode=1,
+            stderr="",
+        )
+        msg = str(err)
+        assert "eyJ.JWT" not in msg
+
+    def test_leaves_innocuous_args_alone(self):
+        """Non-secret flags and positional args must round-trip unchanged."""
+        err = CommandError(
+            cmd=["mysql", "-h", "localhost", "-u", "root", "mydb"],
+            returncode=1,
+            stderr="",
+        )
+        assert str(err) == "Command failed: mysql -h localhost -u root mydb"
+
+    def test_does_not_redact_dash_p_lowercase_alone(self):
+        """Bare ``-p`` (no value attached) is not the secret form; leave it."""
+        err = CommandError(
+            cmd=["mysql", "-p", "-h", "localhost"], returncode=1, stderr=""
+        )
+        # We only redact "-p<token>"; bare "-p" prompts mysql for a password
+        # interactively and isn't the leak vector.
+        assert "-p" in str(err)
+        assert "***REDACTED***" not in str(err)
