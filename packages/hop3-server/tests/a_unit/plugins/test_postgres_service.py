@@ -139,3 +139,96 @@ def test_install_extensions_allowlist_covers_common_trusted():
     # Spot-check a handful of widely-used trusted extensions.
     for ext in ("pg_trgm", "hstore", "citext", "pgcrypto", "uuid-ossp"):
         assert ext in ALLOWED_EXTENSIONS, f"missing trusted ext: {ext!r}"
+
+
+@pytest.mark.parametrize(
+    "ext",
+    [
+        "bloom",  # BookWyrm
+        "postgis",  # GeoDjango / OSM-based apps
+        "pgvector",  # AI/embedding apps
+        "cube",  # paired with earthdistance
+        "earthdistance",  # Immich face clustering
+        "ip4r",  # GitLab
+    ],
+)
+def test_install_extensions_default_set_covers_popular_apps(ext):
+    """Popular self-hosted apps' extensions must be in the default set."""
+    from hop3.plugins.postgresql.postgres import (  # noqa: PLC0415
+        DEFAULT_ALLOWED_EXTENSIONS,
+    )
+
+    assert ext in DEFAULT_ALLOWED_EXTENSIONS, (
+        f"missing extension needed by popular apps: {ext!r}"
+    )
+
+
+def test_blocked_extensions_includes_privilege_escalation_set():
+    """Truly dangerous extensions must be in BLOCKED_EXTENSIONS."""
+    from hop3.plugins.postgresql.postgres import BLOCKED_EXTENSIONS  # noqa: PLC0415
+
+    for ext in (
+        "adminpack",
+        "dblink",
+        "file_fdw",
+        "postgres_fdw",
+        "plpython3u",
+        "plperlu",
+    ):
+        assert ext in BLOCKED_EXTENSIONS, f"missing blocked ext: {ext!r}"
+
+
+def test_operator_extra_env_extends_allowlist(postgres_service, monkeypatch):
+    """HOP3_EXTRA_PG_EXTENSIONS adds names to the effective allow-list."""
+    from hop3.plugins.postgresql.postgres import (  # noqa: PLC0415
+        _resolve_allowed_extensions,
+    )
+
+    monkeypatch.setenv("HOP3_EXTRA_PG_EXTENSIONS", "pg_partman, h3 ")
+    allowed = _resolve_allowed_extensions()
+    assert "pg_partman" in allowed
+    assert "h3" in allowed
+    # Defaults preserved.
+    assert "pg_trgm" in allowed
+
+
+def test_operator_extra_env_cannot_enable_blocked(postgres_service, monkeypatch):
+    """HOP3_EXTRA_PG_EXTENSIONS cannot lift entries off BLOCKED_EXTENSIONS."""
+    from hop3.plugins.postgresql.postgres import (  # noqa: PLC0415
+        _resolve_allowed_extensions,
+    )
+
+    monkeypatch.setenv("HOP3_EXTRA_PG_EXTENSIONS", "plpython3u,postgres_fdw,h3")
+    allowed = _resolve_allowed_extensions()
+    assert "plpython3u" not in allowed
+    assert "postgres_fdw" not in allowed
+    # Non-blocked entry from the same env still goes through.
+    assert "h3" in allowed
+
+
+def test_operator_extra_env_empty_is_noop(monkeypatch):
+    """Empty / unset env var leaves the allow-list at defaults."""
+    from hop3.plugins.postgresql.postgres import (  # noqa: PLC0415
+        BLOCKED_EXTENSIONS,
+        DEFAULT_ALLOWED_EXTENSIONS,
+        _resolve_allowed_extensions,
+    )
+
+    monkeypatch.delenv("HOP3_EXTRA_PG_EXTENSIONS", raising=False)
+    assert (
+        _resolve_allowed_extensions() == DEFAULT_ALLOWED_EXTENSIONS - BLOCKED_EXTENSIONS
+    )
+
+    monkeypatch.setenv("HOP3_EXTRA_PG_EXTENSIONS", "")
+    assert (
+        _resolve_allowed_extensions() == DEFAULT_ALLOWED_EXTENSIONS - BLOCKED_EXTENSIONS
+    )
+
+
+def test_install_extensions_blocked_error_mentions_blocked_set(
+    postgres_service, monkeypatch
+):
+    """When an app declares a blocked extension, the error names the override env."""
+    monkeypatch.delenv("HOP3_EXTRA_PG_EXTENSIONS", raising=False)
+    with pytest.raises(ValueError, match="HOP3_EXTRA_PG_EXTENSIONS"):
+        postgres_service.install_extensions(["plpython3u"])

@@ -238,14 +238,14 @@ type = "s3"
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `extensions` | list[string] | Non-trusted PostgreSQL extensions to install as superuser (e.g. `["bloom", "adminpack", "postgres_fdw"]`). Trusted extensions (`pg_trgm`, `uuid-ossp`, etc.) can be installed by the per-app user via migrations and do not need to be listed here. |
+| `extensions` | list[string] | Non-trusted PostgreSQL extensions to install as superuser (e.g. `["postgis", "pgvector", "bloom"]`). Trusted extensions (`pg_trgm`, `uuid-ossp`, etc.) can be installed by the per-app user via migrations and do not need to be listed here. The platform enforces an allow-list — see `docs/src/guides/addons.md` for the default set, the operator override (`HOP3_EXTRA_PG_EXTENSIONS`), and the hard-deny set. |
 
 Example:
 
 ```toml
 [[addons]]
 type = "postgres"
-extensions = ["bloom", "postgres_fdw"]
+extensions = ["postgis", "pgvector"]
 ```
 
 **Injected environment variables (per addon type):**
