@@ -226,7 +226,9 @@ class LocalBuilder:
 
         # Log auto-detection decisions
         for toolchain_class in applicable:
-            toolchain_name = getattr(toolchain_class, "name", toolchain_class.__name__)
+            toolchain_name = (
+                getattr(toolchain_class, "name", None) or toolchain_class.__name__
+            )
             # Get detection info if available
             detected_files = getattr(toolchain_class, "detection_files", None)
             decision_logger.log_toolchain_decision(
