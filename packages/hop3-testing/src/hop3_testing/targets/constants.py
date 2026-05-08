@@ -6,10 +6,26 @@
 
 from __future__ import annotations
 
+import os
 import secrets
 from datetime import datetime, timedelta, timezone
 
 import jwt
+
+# SECURITY: production-mode interlock. Mirrors the shape used by
+# DockerDeployBackend (see notes/security.md §3.3.3) — refuse to load
+# this module when MODE=production so the hardcoded
+# E2E_TEST_SECRET_KEY below cannot reach a production deploy by
+# accident. hop3-testing is a developer tool and should never be
+# imported in a production-mode process; if it is, that's the bug.
+if os.environ.get("MODE", "").strip().lower() in {"production", "prod"}:
+    msg = (
+        "hop3_testing.targets.constants imports the E2E test signing "
+        "key (E2E_TEST_SECRET_KEY) and must not be used with "
+        "MODE=production. Unset MODE or use a non-production value "
+        "for development/test workflows."
+    )
+    raise RuntimeError(msg)
 
 # HTTP status codes that indicate a server is responding (not just connection errors)
 # These mean the server is running, even if the specific endpoint returns an error.

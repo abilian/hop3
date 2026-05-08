@@ -79,6 +79,8 @@ class Hop3TUI(App[str]):
         self.api_client = Hop3Client(
             base_url=self.config.server_url,
             token=self.config.auth_token,
+            verify_ssl=self.config.verify_ssl,
+            ssl_cert=self.config.ssl_cert,
         )
         self.dark = self.config.theme == "dark"
 

@@ -132,9 +132,13 @@ def validate_token(token: str) -> dict[str, Any] | None:
             },
         )
 
-        # Check if token is revoked (if jti is present)
+        # Check if token is revoked (if jti is present).
+        # SECURITY: pass the token's scopes so admin-scoped tokens fail
+        # *closed* on a DB error while user-scoped tokens fail open
+        # (avoiding lockout-on-DB-outage). See is_token_revoked.
         jti = payload.get("jti")
-        if jti and is_token_revoked(jti):
+        token_scopes = payload.get("scopes", []) or []
+        if jti and is_token_revoked(jti, scopes=token_scopes):
             return None
 
         # Validate that the token has proper scopes
@@ -166,14 +170,16 @@ def validate_token(token: str) -> dict[str, Any] | None:
         return None
 
 
-def is_token_revoked(jti: str) -> bool:
+def is_token_revoked(jti: str, scopes: list[str] | None = None) -> bool:
     """Check if a token has been revoked.
 
-    Args:
-        jti: JWT ID to check
-
-    Returns:
-        True if the token is revoked, False otherwise
+    SECURITY: on a DB error this fails *open* for normal user tokens
+    (so a DB outage does not lock every authenticated user out of
+    their own apps), but fails *closed* for tokens carrying the
+    ``admin`` scope. The blast radius of an admin-scope false-allow
+    is significantly larger than a user-scope false-deny, so the
+    asymmetry is the right default. Surfaced from 0.5dev3 / 0.5.0.dev3
+    triage; see notes/security.md §3.3.
     """
     from hop3.orm.repositories import RevokedTokenRepository  # noqa: PLC0415
     from hop3.server.lib.database import get_session  # noqa: PLC0415
@@ -183,9 +189,11 @@ def is_token_revoked(jti: str) -> bool:
             repo = RevokedTokenRepository(session=db_session)
             return repo.is_revoked(jti)
     except Exception:
-        # If there's a database error, fail open (allow the token)
-        # This prevents a database outage from locking out all users
-        return False
+        is_admin = scopes is not None and "admin" in scopes
+        # Admin scope: fail closed (treat as revoked).
+        # User scope: fail open (treat as not revoked) so a DB
+        # outage doesn't lock everyone out.
+        return is_admin
 
 
 def revoke_token(jti: str, expires_at: datetime, reason: str | None = None) -> None:
@@ -276,13 +284,15 @@ def validate_magic_token(token: str) -> dict[str, Any] | None:
             options={"require": ["exp", "sub"]},
         )
 
-        # Check if token is revoked
-        jti = payload.get("jti")
-        if jti and is_token_revoked(jti):
-            return None
-
         # Validate that this is a magic link token
         scopes = payload.get("scopes", [])
+        # Check if token is revoked. Magic links are bootstrap tokens
+        # (single-use, 5-min validity), so we want fail-closed semantics
+        # — pass MAGIC_LINK_SCOPE as if it were admin to get that
+        # treatment from is_token_revoked.
+        jti = payload.get("jti")
+        if jti and is_token_revoked(jti, scopes=["admin", *scopes]):
+            return None
         if MAGIC_LINK_SCOPE not in scopes:
             return None
 

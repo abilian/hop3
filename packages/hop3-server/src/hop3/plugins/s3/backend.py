@@ -221,14 +221,25 @@ class MinIOBackend:
 
         # Attach a policy that only allows access to the named bucket.
         # MinIO's "readwrite" built-in policy is too broad; we need a
-        # scoped inline policy instead.
-        policy_json = (
-            '{"Version":"2012-10-17","Statement":[{'
-            '"Effect":"Allow",'
-            '"Action":["s3:*"],'
-            f'"Resource":["arn:aws:s3:::{bucket}","arn:aws:s3:::{bucket}/*"]'
-            "}]}"
-        )
+        # scoped inline policy instead. Build it with json.dumps from
+        # a Python dict — string interpolation here would be safe in
+        # principle (the bucket name is validated upstream as an
+        # addon-name shape) but json.dumps removes the worry entirely
+        # and keeps a future regression in the validator from turning
+        # this into a policy-injection sink.
+        policy_json = json.dumps({
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": ["s3:*"],
+                    "Resource": [
+                        f"arn:aws:s3:::{bucket}",
+                        f"arn:aws:s3:::{bucket}/*",
+                    ],
+                }
+            ],
+        })
         policy_name = f"hop3-{bucket}"
 
         # Write policy to a temp file (mc expects a path, not inline JSON)

@@ -1,11 +1,12 @@
 # Security model and review guide
 
 **Status:** Living document — last updated 2026-05-07.
+
 **Audience:** Hop3 contributors, code reviewers, internal and external security auditors, and LLM-based review tooling. Read this before filing a security finding against the codebase. Most "this looks like an injection / a leak" patterns in this repo are deliberate and have already been audited; this document tells you which.
 
-This doc is **not** a public security policy (how to report a vulnerability, supported versions, response SLAs). That belongs in a `SECURITY.md` at the repo root if and when we publish a disclosure channel. The two documents have different audiences.
+This doc is **not** a public security policy (how to report a vulnerability, supported versions, response SLAs). That belongs in a `SECURITY.md` at the repo root if and when we publish a disclosure channel.
 
-For the historical triage trail and per-round review notes, see [`local-notes/secreviews/`](../local-notes/secreviews/) (private). For the umbrella ADR pointing to per-concern decisions (encryption-at-rest, MFA, supply chain, …), see [ADR 010](./adrs/010-security-and-resilience.md).
+For the umbrella ADR pointing to per-concern decisions (encryption-at-rest, MFA, supply chain, …), see [ADR 010](./adrs/010-security-and-resilience.md).
 
 ---
 
@@ -20,7 +21,7 @@ Hop3 is a single-host PaaS. Five distinct actors, with clear privilege boundarie
 | **Operator** | The sysadmin who installed Hop3 (root on the host, runs `hop3-install server`). | **Fully trusted** within the host. Can edit any config, read any file, restart any service. | Operator-level compromise = host compromise. Out of scope. |
 | **App deployer** | A user who has been granted a hop3 admin token and pushes apps via the CLI / RPC. Authenticated. | **Trusted within their own app's namespace.** Can write the app's `hop3.toml`, choose its entrypoint, set its env, install allow-listed addon services. Cannot escape the per-app boundary or escalate to operator. | Privilege boundary: app deployer → operator/host. The non-trivial security work in the codebase. |
 | **hop3-server (daemon)** | The ASGI server, runs as user `hop3`. | Confidant of operator + app deployer; not internet-trusted. Receives RPC, drives uWSGI, writes addon secrets. | Anything reachable on `0.0.0.0:8000` (`/auth/login`, `/rpc`, `/api/stream/...`) is the public attack surface. |
-| **hop3-cli (workstation tool)** | The CLI binary running on a developer's laptop. | Trusted by the user invoking it. The user owns the shell. | Threats: a hostile remote server replying to the CLI's RPC; a malicious `hop3.toml` in a cloned repo; on-disk perms of the auth-token file. |
+| **hop3-cli / hop3-tui (workstation tools)** | The CLI binary and the Textual TUI, both running on a developer's laptop and talking to a hop3-server over HTTPS or an SSH tunnel. The TUI shares the CLI's posture entirely — it reads the same auth-token file, hits the same RPC endpoint, and is hardened the same way (atomic-write + 0600, SSL config options, see §3.4 / §3.6). | Trusted by the user invoking it. The user owns the shell. | Threats: a hostile remote server replying to the RPC; a malicious `hop3.toml` in a cloned repo; on-disk perms of the auth-token file. |
 | **hop3-rootd (kernel-boundary daemon)** | A small root-owned daemon listening on a Unix socket; performs the operations `hop3-server` cannot do as the unprivileged `hop3` user (firewall changes, nginx reload, …). | Only ever invoked by `hop3` user or `root`, authenticated by `SO_PEERCRED` UID check on the local socket. | Confused-deputy risk if any operation accepts caller-controlled paths/identifiers without revalidation. |
 
 ### 1.2 The boundaries that matter
@@ -55,7 +56,9 @@ Most "command injection" / "shell construction" findings turn out **not** to cro
 
 ---
 
-## 2. Comment conventions in source
+## 2. Conventions and process
+
+### 2.1 Comment conventions in source
 
 We use two distinct prefixes, both grep-able:
 
@@ -70,6 +73,18 @@ git grep -n -E "^[ \t]*# (SECURITY|AUDIT):" -- packages/
 ```
 
 Top-of-file *Trust model* docstrings are also acceptable for whole-module reasoning (see `packages/hop3-cli/src/hop3_cli/commands/local/ssh_ops.py`, `packages/hop3-installer/src/hop3_installer/deployer/backends/docker.py`).
+
+### 2.2 Sister-site discipline
+
+A hardening pattern that lives in one module is almost certainly relevant in others. We have repeatedly shipped a fix in one place only to find the matching site in another module still using the original anti-pattern. Examples we have actually hit:
+
+- **`MYSQL_PWD` env vs `-p{password}` argv.** First applied in the server-side mysql addon plugin; installer-side connection-verify helpers had the same shape and were caught only on a later pass.
+- **Atomic write + `chmod 0o600` on the auth-token config.** First applied in `hop3-cli`; the equivalent logic in `hop3-tui` had to be applied separately.
+- **`validate_hostname_list` before HOST_NAME interpolation.** Applied in the nginx proxy plugin from the start; the Caddy and Traefik plugins shipped without it for a release.
+
+**Rule.** When you fix a hardening pattern in one place, run a `git grep` for the original anti-pattern across all packages before declaring the fix done. Use a search shape that targets the *anti-pattern* (e.g. `git grep -n 'f"-p{'` for argv-style passwords, `git grep -n 'write_text' -- 'packages/**/config*.py'` for non-atomic config writes). Add the matches to the same fix or to a follow-up task; either way they should not survive the round.
+
+This is process, not a security control — but it visibly reduces the round-over-round drift between "fix landed" and "fix is pervasive".
 
 ---
 
@@ -111,7 +126,7 @@ The constructions in this section have been deliberately reviewed. Each entry: t
 1. `psycopg2.sql.Identifier` neutralises SQL injection in the name itself.
 2. An additional **allow-list** (`DEFAULT_ALLOWED_EXTENSIONS` plus operator-extensible `HOP3_EXTRA_PG_EXTENSIONS`) refuses anything not on the list, with a hard-deny `BLOCKED_EXTENSIONS` set (`adminpack`, `dblink`, `file_fdw`, `postgres_fdw`, `pl{perl,python,tcl}u`) that even the operator override cannot lift.
 
-The allow-list exists because some PostgreSQL contrib extensions grant filesystem / network / arbitrary-code-execution capability to whoever can call them, regardless of whether they were installed safely. See [`docs/src/guides/addons.md`](../docs/src/guides/addons.md) for the user-facing description and [`local-notes/postgres-extensions.md`](../local-notes/postgres-extensions.md) for the design survey.
+The allow-list exists because some PostgreSQL contrib extensions grant filesystem / network / arbitrary-code-execution capability to whoever can call them, regardless of whether they were installed safely. See [`docs/src/guides/addons.md`](../docs/src/guides/addons.md) for the user-facing description.
 
 **Boundary:** *App deployer → operator/host.* Both controls (Identifier quoting and allow-list) are required.
 
@@ -200,6 +215,8 @@ If you are about to file "shell injection via env / command in uWSGI worker", re
 
 ### 3.4 Secret handling (keep secrets off argv and out of logs)
 
+**Rule.** Any subprocess that needs a credential takes it via environment variable or stdin — *never* via argv. The OS-level argv of a spawned process is visible in `ps`, `/proc/<pid>/cmdline`, and shell history; environment variables and stdin are not. Every audited site below applies this rule one way or another (`MYSQL_PWD`, `PGPASSWORD`, `REDISCLI_AUTH`, `--password-stdin` from the deployer). When you add a new subprocess that handles a secret, pick whichever mechanism the target tool documents — but *don't* invent a fourth way to do it on argv.
+
 > **Note for reviewers (recurring confusion).** "Argv" in this section means the OS-level `argv` of a *spawned process* — what shows up in `ps`, `/proc/<pid>/cmdline`, and shell history. Python list arguments to a function call (e.g. `client.rpc("cli", ["auth", "login", username, password])` or `command.call(..., password, ...)`) are *not* argv. They are stack-allocated function parameters that get JSON-serialised into an HTTPS request body or passed in-process to a method. There is no `/proc` exposure for those flows. If a reviewer flags "password leakage via process arguments" for a Python list passed to a function, the finding is misreading argv: only `subprocess.run([...])`-style invocations and the equivalent place secrets in OS argv. The mitigations below all target that specific case.
 
 #### 3.4.1 mysqldump / mysql client — `MYSQL_PWD`
@@ -273,11 +290,11 @@ The marketplace catalog (titles, descriptions, icons) is **public by design**. N
 
 #### 3.6.2 Truncated `RepositoryError` strings via RPC
 
-`packages/hop3-server/src/hop3/repositories/repository_errors.py::extract_repository_error_reason` returns the underlying SQLAlchemy error message (truncated). SQLAlchemy errors can include partial query fragments and column names — useful for debugging, but considered low-impact info disclosure given the authenticated-admin trust posture. A redaction pass is queued (see `local-notes/secreviews/0.5dev2/CONSOLIDATED.md` finding part-1 #7) but treated as defense-in-depth, not a vulnerability.
+`packages/hop3-server/src/hop3/repositories/repository_errors.py::extract_repository_error_reason` returns the underlying SQLAlchemy error message (truncated). SQLAlchemy errors can include partial query fragments and column names — useful for debugging, but considered low-impact info disclosure given the authenticated-admin trust posture. A redaction pass is queued as a defense-in-depth follow-up; not a vulnerability per the trust model.
 
 #### 3.6.3 Self-signed certificates with 1-year validity
 
-`packages/hop3-server/src/hop3/platform/certificates.py::generate_self_signed` generates a 365-day RSA-4096 self-signed cert when ACME is unavailable. ACME-via-certbot is the documented production path; the self-signed cert is for development convenience. Documented in [ADR 011](./adrs/011-encryption.md). (Earlier drafts of this document said "10-year RSA-2048" — that was a documentation drift, not the actual code. If you find a 10-year reference somewhere, treat it as stale.)
+Two self-signed cert paths exist; both use 365-day validity. `packages/hop3-server/src/hop3/platform/certificates.py::generate_self_signed` covers the per-app cert path (RSA-4096); `packages/hop3-installer/src/hop3_installer/server_installer/ssl.py` (driven by `SSL_CERT_VALIDITY_DAYS` in `constants.py`) covers the system-level cert path used during install. Both fall back to self-signed only when ACME is unavailable; ACME-via-certbot is the documented production path. Documented in [ADR 011](./adrs/011-encryption.md).
 
 ---
 
@@ -287,10 +304,9 @@ If you have a finding that doesn't match any audited pattern above, or you belie
 
 1. **Re-read §1.1 (actors) and §1.2 (boundaries).** If the taint flow doesn't cross a boundary listed there, the finding is most likely "threat-model misaligned" — write up the boundary argument and either retract or disagree explicitly with §1.
 2. **Search source for the corresponding `# SECURITY:` or `# AUDIT:` comment.** If one exists, the rationale is local. If the rationale doesn't actually defend the flow you found, that's a real finding.
-3. **Check the historical triage.** [`local-notes/secreviews/`](../local-notes/secreviews/) holds the per-round consolidated reports. Each round labels findings as REAL / REAL-LOW / CONTROLLED-INPUT / THREAT-MODEL-MISALIGNED / FALSE-POSITIVE — your finding may already be there.
-4. **Write it up.** For a confirmed exploitable issue, file a private security report (channel TBD; for now use email to the maintainers). For a reasoning gap (an audited pattern whose comment is wrong or stale), open a regular issue or PR updating §3.
+3. **Write it up.** For a confirmed exploitable issue, file a private security report (channel TBD; for now use email to the maintainers). For a reasoning gap (an audited pattern whose comment is wrong or stale), open a regular issue or PR updating §3.
 
-When the next round of audits happens (`local-notes/secreviews/0.5dev3/`, `0.6dev1/`, …), the consolidated triage cross-references this document section by section. If you are *running* such a review (LLM or human), prepend this file to the reviewer's context as the briefing.
+If you are *running* a security review against this codebase (LLM or human), prepend this file to the reviewer's context as the briefing — the audited-pattern catalogue and trust-model framing materially reduce the false-positive rate.
 
 ---
 
