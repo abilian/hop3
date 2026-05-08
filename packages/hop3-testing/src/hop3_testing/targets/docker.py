@@ -14,6 +14,7 @@ testing scenarios:
 
 from __future__ import annotations
 
+import shlex
 import subprocess
 import time
 from contextlib import suppress
@@ -689,7 +690,12 @@ class DockerTarget(DeploymentTarget):
             Tuple of (exit_code, stdout, stderr)
         """
         if isinstance(cmd, list):
-            cmd = " ".join(cmd)
+            # Use shlex.join, not " ".join — the list-form contract
+            # advertises safe execution, so individual args must survive
+            # the trip through the shell intact (spaces, quotes, $, …).
+            # Test author owns the input, so this is correctness, not a
+            # security control; matches the sister-site fix in remote.py.
+            cmd = shlex.join(cmd)
 
         if self._command_runner:
             result = self._command_runner.run(cmd, check=False)
