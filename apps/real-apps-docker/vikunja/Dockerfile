@@ -23,8 +23,13 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 ENV GOPATH="/go"
 ENV PATH="${GOPATH}/bin:${PATH}"
 
-# Install pnpm for frontend build
-RUN npm install -g pnpm
+# Install pnpm for frontend build.
+# Pin to pnpm@8: Debian Trixie ships a Node.js 20.x patch whose builtin
+# module surface is older than what pnpm 10.x expects, producing
+# ERR_UNKNOWN_BUILTIN_MODULE on first invocation. Same root cause as
+# the etherpad Dockerfile fix; default pin for any frontend-building
+# Trixie app until the installer ships a NodeSource-based Node toolchain.
+RUN npm install -g pnpm@8
 
 WORKDIR /build
 
