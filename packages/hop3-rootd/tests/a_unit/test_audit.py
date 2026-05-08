@@ -73,6 +73,42 @@ def test_sanitise_does_not_mutate_input():
     assert inp["password"] == "hunter2"
 
 
+def test_sanitise_redacts_inside_lists_of_dicts():
+    """A list of dicts containing secret keys must redact each member.
+
+    Today's rootd ops are flat dicts, but the sanitiser is the safety
+    net for future ops — a list of credential records must redact the
+    same way a single dict does.
+    """
+    out = sanitise_args({
+        "configs": [
+            {"name": "a", "password": "p1"},
+            {"name": "b", "api_token": "t1"},
+        ],
+    })
+    assert out["configs"][0] == {"name": "a", "password": "<redacted>"}
+    assert out["configs"][1] == {"name": "b", "api_token": "<redacted>"}
+
+
+def test_sanitise_redacts_inside_nested_tuples():
+    """Tuples nest the same way as lists."""
+    out = sanitise_args({"creds": ({"password": "p1"}, {"password": "p2"})})
+    assert out["creds"] == ({"password": "<redacted>"}, {"password": "<redacted>"})
+
+
+def test_sanitise_top_level_list():
+    """Calling with a top-level list returns a list (not coerced to dict)."""
+    out = sanitise_args([{"password": "p1"}, {"name": "x"}])
+    assert out == [{"password": "<redacted>"}, {"name": "x"}]
+
+
+def test_sanitise_passes_scalars_through():
+    """Non-container values round-trip unchanged."""
+    assert sanitise_args(42) == 42
+    assert sanitise_args("abc") == "abc"
+    assert sanitise_args(None) is None
+
+
 def test_sanitise_redacts_secret_substrings_anywhere():
     """The pattern matches secret words anywhere in the field name.
 

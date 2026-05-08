@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import os
 
 import pytest
 from hop3_rootd.state import (
@@ -71,6 +72,25 @@ def test_save_pretty_prints(tmp_path):
     content = path.read_text()
     assert "\n" in content  # indented
     assert "  " in content  # 2-space indent
+
+
+def test_save_sets_perms_0600(tmp_path):
+    """The persisted state file is always mode 0o600 regardless of umask.
+
+    The systemd StateDirectory= already restricts access at the dir
+    level, but the file's own perms must be pinned in case the daemon
+    is ever run outside systemd (tests, standalone) where the parent
+    dir is wider.
+    """
+    path = tmp_path / "state.json"
+    # Force a permissive umask to expose any reliance on the default.
+    old_umask = os.umask(0o022)
+    try:
+        save(State(version=STATE_VERSION, rules=[]), path)
+    finally:
+        os.umask(old_umask)
+    mode = path.stat().st_mode & 0o777
+    assert mode == 0o600, f"expected 0o600, got 0o{mode:o}"
 
 
 # --- Load errors --------------------------------------------------------

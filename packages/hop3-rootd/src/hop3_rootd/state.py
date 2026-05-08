@@ -190,12 +190,12 @@ def load(path: Path = DEFAULT_STATE_PATH) -> State:
 
 
 def save(state: State, path: Path = DEFAULT_STATE_PATH) -> None:
-    """Atomic write of state.json: tmp + fsync + rename.
+    """Atomic write of state.json (tmp + fsync + rename + chmod 0o600).
 
-    The pattern guarantees:
-      - never observe a half-written file (rename is atomic on POSIX)
-      - never observe a stale file after success (fsync before rename
-        ensures the new bytes are durable on disk before the rename)
+    The chmod pins file perms regardless of umask — the StateDirectory
+    already gates external access in production, but standalone /
+    test runs benefit from the explicit cap. See notes/security.md
+    §3.4 for the broader rationale.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
@@ -208,6 +208,7 @@ def save(state: State, path: Path = DEFAULT_STATE_PATH) -> None:
 
     # Atomic rename. On POSIX, rename within the same filesystem is atomic.
     tmp.replace(path)
+    os.chmod(path, 0o600)
 
 
 def init_empty(path: Path = DEFAULT_STATE_PATH) -> State:

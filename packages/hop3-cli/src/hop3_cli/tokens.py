@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import re
 
-# JWT token pattern: 3 base64url segments separated by dots
-# Format: header.payload.signature (each segment starts with eyJ for JSON)
-JWT_PATTERN = re.compile(r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
+# JWT pattern: header.payload.signature, each base64url. Length bounds
+# (20-500 per segment) reject short eyJ-prefixed false positives from
+# log output without truncating real tokens.
+JWT_PATTERN = re.compile(
+    r"eyJ[A-Za-z0-9_-]{20,500}\.eyJ[A-Za-z0-9_-]{20,500}\.[A-Za-z0-9_-]{20,500}"
+)
 
 
 def extract_jwt(text: str) -> str | None:

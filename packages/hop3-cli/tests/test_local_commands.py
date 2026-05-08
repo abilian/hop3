@@ -28,6 +28,21 @@ from hop3_cli.commands.local import (
 from hop3_cli.config import Config
 from hop3_cli.ui.rich_printer import RichPrinter
 
+# Realistic-shape JWT fixtures: header + payload + 44-char signature.
+# Lengths chosen to satisfy the {20,500}-per-segment redaction regex
+# in hop3_cli.tokens (real HS256 tokens have 36/40+/43 chars).
+_JWT_HEADER = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+_JWT_SIG = "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789aBcDeFgH"
+_FAKE_JWT_TEST = (
+    f"{_JWT_HEADER}.eyJzdWIiOiJ0ZXN0Iiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzAwMDB9.{_JWT_SIG}"
+)
+_FAKE_JWT_ADMIN = (
+    f"{_JWT_HEADER}.eyJzdWIiOiJhZG1pbiIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcwMDB9.{_JWT_SIG}"
+)
+_FAKE_JWT_USER = (
+    f"{_JWT_HEADER}.eyJzdWIiOiJ1c2VyIiwicm9sZSI6InVzZXIiLCJpYXQiOjE3MDAwMH0.{_JWT_SIG}"
+)
+
 
 class TestIsLocalCommand:
     """Tests for is_local_command function."""
@@ -76,10 +91,16 @@ class TestExtractToken:
     """Tests for extract_token function."""
 
     def test_extract_jwt_token(self):
-        """Test extracting a JWT token from output."""
+        """Test extracting a JWT token from output.
+
+        Token shape mirrors a real HS256 token: ~36-char header (the
+        canonical ``{"alg":"HS256","typ":"JWT"}``), a payload with
+        enough claims to base64-encode past 20 chars, and a 43-char
+        signature (HMAC-SHA256 → 256 bits → 43 base64url chars).
+        """
         output = """
         Admin user created successfully.
-        Token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.signature123
+        Token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0Iiwicm9sZSI6ImFkbWluIn0.AbCdEfGhIjKlMnOpQrStUvWxYz0123456789aBcDeFgH
         """
         token = extract_token(output)
         assert token is not None
@@ -92,13 +113,18 @@ class TestExtractToken:
 
     def test_multiple_tokens(self):
         """Test that first token is returned."""
-        output = """
-        Token 1: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmaXJzdCI6dHJ1ZX0.sig1
-        Token 2: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZWNvbmQiOnRydWV9.sig2
+        # Synthetic but realistic-length tokens — the redaction regex
+        # rejects short eyJ.eyJ.X patterns to avoid false positives in
+        # log output, so test fixtures need realistic segments.
+        sig1 = "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789aBcDeFgH"  # 44 chars
+        sig2 = "ZyXwVuTsRqPoNmLkJiHgFeDcBa9876543210ZyXwVuTs"
+        output = f"""
+        Token 1: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmaXJzdCI6dHJ1ZSwicm9sZSI6ImEifQ.{sig1}
+        Token 2: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZWNvbmQiOnRydWUsInJvbGUiOiJiIn0.{sig2}
         """
         token = extract_token(output)
         assert token is not None
-        assert "first" in token or token.startswith("eyJ")
+        assert sig1 in token  # first token wins
 
 
 class TestInferServerUrl:
@@ -145,7 +171,7 @@ class TestSettingsCommands:
     def test_settings_show_with_data(self, temp_config, mock_printer, capsys):
         """Test settings show with settings."""
         # Use a token longer than 20 chars to trigger masking
-        long_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.sig"
+        long_token = _FAKE_JWT_TEST
         temp_config.data = {"api_url": "https://test.com", "api_token": long_token}
 
         settings_show(temp_config, mock_printer)
@@ -212,9 +238,7 @@ class TestHandleInit:
 
     def test_init_success(self, temp_config, mock_printer, capsys):
         """Test successful init via SSH."""
-        mock_token = (
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiJ9.signature"
-        )
+        mock_token = _FAKE_JWT_ADMIN
 
         # Mock SSH execution
         mock_result = Mock()
@@ -271,9 +295,7 @@ class TestHandleLogin:
 
     def test_login_ssh_success(self, temp_config, mock_printer, capsys):
         """Test successful login via SSH."""
-        mock_token = (
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyIn0.signature"
-        )
+        mock_token = _FAKE_JWT_USER
 
         mock_result = Mock()
         mock_result.returncode = 0
@@ -306,9 +328,7 @@ class TestHandleLogin:
 
     def test_login_token_success(self, temp_config, mock_printer, capsys):
         """Test successful token-based login."""
-        mock_token = (
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.signature"
-        )
+        mock_token = _FAKE_JWT_TEST
 
         with patch(
             "hop3_cli.commands.local.login_cmd._verify_token", return_value="testuser"
@@ -326,9 +346,7 @@ class TestHandleLogin:
 
     def test_login_token_with_existing_server(self, temp_config, mock_printer, capsys):
         """Test token login uses existing server config."""
-        mock_token = (
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.signature"
-        )
+        mock_token = _FAKE_JWT_TEST
         # Pre-configure server with existing context
         temp_config.data["contexts"] = {
             "default": {"api_url": "https://existing-server.com", "api_token": ""}
@@ -356,9 +374,7 @@ class TestHandleLogin:
 
     def test_login_token_verification_fails(self, temp_config, mock_printer):
         """Test token login fails when verification fails."""
-        mock_token = (
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.signature"
-        )
+        mock_token = _FAKE_JWT_TEST
 
         with patch(
             "hop3_cli.commands.local.login_cmd._verify_token", return_value=None
@@ -378,9 +394,7 @@ class TestHandleLogin:
 
     def test_login_url_with_token(self, temp_config, mock_printer, capsys):
         """Test login with URL containing embedded token."""
-        mock_token = (
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.signature"
-        )
+        mock_token = _FAKE_JWT_TEST
         url_with_token = f"http://localhost:8000?token={mock_token}"
 
         with patch(
@@ -395,9 +409,7 @@ class TestHandleLogin:
 
     def test_login_url_with_token_and_path(self, temp_config, mock_printer, capsys):
         """Test login with URL containing path and embedded token."""
-        mock_token = (
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.signature"
-        )
+        mock_token = _FAKE_JWT_TEST
         url_with_token = f"https://my-server.com/api?token={mock_token}"
 
         with patch(

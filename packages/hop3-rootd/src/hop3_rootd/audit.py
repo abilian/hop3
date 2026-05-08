@@ -92,23 +92,26 @@ def configure_operational_logging(level: str = "INFO") -> None:
 # --- Argument sanitisation ------------------------------------------------
 
 
-def sanitise_args(args: dict[str, Any]) -> dict[str, Any]:
-    """Walk a dict and redact values for any key matching the secret regex.
+def sanitise_args(args: Any) -> Any:
+    """Walk an arbitrary structure and redact values whose keys look secret.
 
-    Operates recursively on nested dicts (lists inside dicts pass through
-    unchanged — no current op uses nested lists of secrets).
-
-    Returns a new dict; never mutates input.
+    Recurses into dicts, lists, and tuples (today's rootd ops are flat
+    dicts, but the redaction must hold for any nesting future ops
+    introduce). Returns structurally-equal value; never mutates input.
     """
-    out: dict[str, Any] = {}
-    for k, v in args.items():
-        if isinstance(k, str) and _SECRET_FIELD_RE.search(k):
-            out[k] = _REDACTED
-        elif isinstance(v, dict):
-            out[k] = sanitise_args(v)
-        else:
-            out[k] = v
-    return out
+    if isinstance(args, dict):
+        out: dict[Any, Any] = {}
+        for k, v in args.items():
+            if isinstance(k, str) and _SECRET_FIELD_RE.search(k):
+                out[k] = _REDACTED
+            else:
+                out[k] = sanitise_args(v)
+        return out
+    if isinstance(args, list):
+        return [sanitise_args(item) for item in args]
+    if isinstance(args, tuple):
+        return tuple(sanitise_args(item) for item in args)
+    return args
 
 
 # --- Audit log writer -----------------------------------------------------

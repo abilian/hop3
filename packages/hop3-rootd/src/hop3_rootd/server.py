@@ -16,6 +16,7 @@ See ADR 041 §3 (IPC) and §7 (Concurrency).
 
 from __future__ import annotations
 
+import grp
 import os
 import select
 import socket
@@ -247,6 +248,31 @@ def _audit_error(
 # --- Server loop ----------------------------------------------------------
 
 
+def _chown_socket_to_hop3_group(path: Path) -> None:
+    """chown ``path`` to root:hop3, best-effort.
+
+    On systems without the hop3 group (early-install, unit tests, CI
+    sandboxes) leaves ownership unchanged and warns. ``SO_PEERCRED``
+    still gates connections — but mode 0o660 with the wrong group
+    also gates them at the OS layer, locking out hop3-server entirely
+    if the group is wrong. See notes/security.md §3.2 / FINDING-002
+    in 0.5dev3.
+    """
+    try:
+        hop3_gid = grp.getgrnam("hop3").gr_gid
+    except KeyError:
+        logger.warning(
+            "hop3 group not found; leaving socket %s at default group "
+            "ownership (only SO_PEERCRED will gate access)",
+            path,
+        )
+        return
+    try:
+        os.chown(str(path), 0, hop3_gid)
+    except OSError as exc:
+        logger.warning("could not chown socket %s to root:hop3: %s", path, exc)
+
+
 class Server:
     """Multi-connection-accept, single-threaded request loop.
 
@@ -274,7 +300,18 @@ class Server:
         """Bind a fresh socket at `path` (testing / non-systemd path).
 
         For systemd Type=notify with socket activation, prefer
-        `inherit_systemd_socket()` — fd 3 carries an already-bound socket.
+        `inherit_systemd_socket()` — fd 3 carries an already-bound socket
+        whose group ownership is set by the unit's ``SocketGroup=hop3``
+        directive.
+
+        SECURITY: when binding standalone we explicitly chown to the
+        ``hop3`` group so the 0o660 mode actually grants the hop3-server
+        process access. Without the chown the socket inherits the
+        daemon's primary group (root in production), and the SO_PEERCRED
+        UID check becomes the sole authorisation control — fine in
+        principle but a configuration footgun for tests / standalone
+        runs. The SocketGroup= directive in the systemd unit handles
+        this for the production path.
         """
         path.parent.mkdir(parents=True, exist_ok=True)
         # Remove any stale socket file.
@@ -282,6 +319,7 @@ class Server:
             path.unlink()
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.bind(str(path))
+        _chown_socket_to_hop3_group(path)
         os.chmod(str(path), 0o660)
         sock.listen(8)
         sock.setblocking(False)
