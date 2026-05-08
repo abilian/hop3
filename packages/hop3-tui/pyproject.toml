@@ -4,7 +4,7 @@
 
 [project]
 name = "hop3-tui"
-version = "0.5.0.dev2"
+version = "0.5.0.dev3"
 description = "Terminal User Interface for Hop3 PaaS"
 readme = "README.md"
 requires-python = ">=3.12"
