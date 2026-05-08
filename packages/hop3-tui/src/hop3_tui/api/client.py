@@ -26,9 +26,20 @@ class Hop3Client:
         self,
         base_url: str = "http://localhost:5000",
         token: str | None = None,
+        verify_ssl: bool = True,
+        ssl_cert: str | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.token = token
+        # SECURITY: when a pinned cert is configured we always pass its
+        # path (chain-verified against the cert). Disabling verification
+        # entirely happens only when the operator explicitly sets
+        # ``verify_ssl=false`` in config or via ``HOP3_VERIFY_SSL=false``.
+        # Mirrors the hop3-cli policy in notes/security.md §3.4.
+        if ssl_cert:
+            self._verify: bool | str = ssl_cert
+        else:
+            self._verify = verify_ssl
         self._request_id = 0
 
     def _get_headers(self) -> dict[str, str]:
@@ -57,7 +68,7 @@ class Hop3Client:
             "id": self._next_request_id(),
         }
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(verify=self._verify) as client:
             try:
                 response = await client.post(
                     f"{self.base_url}/rpc",

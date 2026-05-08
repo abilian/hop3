@@ -37,7 +37,12 @@ UWSGI_BIN = VENV_DIR / "bin" / "uwsgi"
 SYSTEM_SSL_DIR = Path("/etc/hop3/ssl")
 SYSTEM_SSL_CERT = SYSTEM_SSL_DIR / "hop3.crt"
 SYSTEM_SSL_KEY = SYSTEM_SSL_DIR / "hop3.key"
-SSL_CERT_VALIDITY_DAYS = 3650  # 10 years for self-signed certificates
+SSL_CERT_VALIDITY_DAYS = 365  # 1 year for self-signed certs (matches
+# the per-app cert generator at hop3-server's
+# platform/certificates.py — see notes/security.md §3.6.3). ACME via
+# certbot is the documented production path; a long-validity
+# self-signed cert offered no security benefit and made operators
+# slower to migrate to ACME.
 
 # ACME paths
 ACME_WEBROOT = Path("/var/www/html")

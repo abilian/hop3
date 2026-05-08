@@ -76,36 +76,46 @@ def _start_mysql_service() -> bool:
     return result.returncode == 0
 
 
-def _find_mysql_admin_connection() -> list[str] | None:
+def _find_mysql_admin_connection() -> tuple[list[str], dict[str, str]] | None:
     """Find a working MySQL admin connection method.
 
-    Tries various methods to connect to MySQL as an admin user.
+    Tries various methods to connect to MySQL as an admin user. The
+    Debian-maintenance fallback uses a password from ``debian.cnf``.
+
+    SECURITY: when a password is needed it is passed via ``MYSQL_PWD``
+    env, never via ``-p{password}`` on argv. The latter would expose
+    the maintenance password in /proc/<pid>/cmdline for any local user
+    to read for the duration of every SQL execution. See
+    notes/security.md §3.4.1.
 
     Returns:
-        Command list that works, or None if no method works.
+        ``(argv, env_overrides)`` tuple — both must be threaded into
+        every subsequent ``run_cmd`` call. ``None`` if no method works.
     """
-    # Build list of commands to try
-    test_commands: list[list[str]] = [
-        ["mysql"],  # Socket auth as current user (root)
-        ["sudo", "mysql"],  # Socket auth via sudo
-        ["mysql", "-u", "root"],  # Traditional root
+    # Build list of (argv, env) candidates. argv is the prefix the
+    # callers will append `-e <sql>` to; env carries any secrets that
+    # must not appear in argv.
+    candidates: list[tuple[list[str], dict[str, str]]] = [
+        (["mysql"], {}),  # Socket auth as current user (root)
+        (["sudo", "mysql"], {}),  # Socket auth via sudo
+        (["mysql", "-u", "root"], {}),  # Traditional root
     ]
 
-    # Also try Debian maintenance user if available
+    # Also try Debian maintenance user if available — but route the
+    # password through MYSQL_PWD instead of argv.
     debian_creds = _get_debian_mysql_credentials()
     if debian_creds:
         user, password = debian_creds
-        test_commands.insert(0, ["mysql", f"-u{user}", f"-p{password}"])
+        candidates.insert(
+            0,
+            (["mysql", f"-u{user}"], {"MYSQL_PWD": password}),
+        )
 
-    for test_cmd in test_commands:
-        result = run_cmd(test_cmd + ["-e", "SELECT 1;"], check=False)
+    for test_cmd, test_env in candidates:
+        result = run_cmd(test_cmd + ["-e", "SELECT 1;"], check=False, env=test_env)
         if result.returncode == 0:
-            # Don't show password in logs
-            display_cmd = " ".join(test_cmd)
-            if debian_creds and debian_creds[1] in display_cmd:
-                display_cmd = display_cmd.replace(debian_creds[1], "***")
-            print_detail(f"MySQL admin access via: {display_cmd}")
-            return test_cmd
+            print_detail(f"MySQL admin access via: {' '.join(test_cmd)}")
+            return test_cmd, test_env
 
     return None
 
@@ -130,11 +140,17 @@ def _validate_mysql_password(password: str) -> bool:
     return all(c in allowed_chars for c in password)
 
 
-def _create_mysql_hop3_user(root_cmd: list[str], mysql_password: str) -> bool:
+def _create_mysql_hop3_user(
+    root_cmd: list[str],
+    root_env: dict[str, str],
+    mysql_password: str,
+) -> bool:
     """Create hop3 MySQL user with privileges.
 
     Args:
         root_cmd: Working MySQL admin command.
+        root_env: Env overrides to apply to every admin invocation
+            (carries MYSQL_PWD when the admin path needs a password).
         mysql_password: Password to set for hop3 user.
 
     Returns:
@@ -156,7 +172,7 @@ def _create_mysql_hop3_user(root_cmd: list[str], mysql_password: str) -> bool:
         return False
 
     def run_sql(sql: str) -> subprocess.CompletedProcess:
-        return run_cmd(root_cmd + ["-e", sql], check=False)
+        return run_cmd(root_cmd + ["-e", sql], check=False, env=root_env)
 
     # Drop existing hop3 user if exists (clean slate)
     # Note: MySQL treats 'localhost' (socket) and '127.0.0.1' (TCP) as different hosts
@@ -209,24 +225,24 @@ def _create_mysql_hop3_user(root_cmd: list[str], mysql_password: str) -> bool:
 def _verify_mysql_hop3_connection(mysql_password: str) -> bool:
     """Verify hop3 user can connect to MySQL.
 
-    Args:
-        mysql_password: Password for hop3 user.
-
-    Returns:
-        True if connection verified, False otherwise.
+    SECURITY: pass the password via MYSQL_PWD instead of -p{password}.
+    The latter exposes the secret in /proc/<pid>/cmdline for the
+    duration of the verification (visible to other local users). Same
+    fix shape as the addon-plugin's mysqldump/mysql calls; see
+    notes/security.md §3.4.1.
     """
     result = run_cmd(
         [
             "mysql",
             "-u",
             "hop3",
-            f"-p{mysql_password}",
             "-h",
             "127.0.0.1",
             "-e",
             "SELECT 1;",
         ],
         check=False,
+        env={"MYSQL_PWD": mysql_password},
     )
 
     if result.returncode != 0:
@@ -295,12 +311,18 @@ def _configure_mysql_bind_address(docker_ip: str) -> bool:
 
 
 def _create_mysql_docker_user(
-    root_cmd: list[str], mysql_password: str, docker_ip: str
+    root_cmd: list[str],
+    root_env: dict[str, str],
+    mysql_password: str,
+    docker_ip: str,
 ) -> bool:
     """Create hop3 MySQL user for Docker network access.
 
     Args:
         root_cmd: Working MySQL admin command.
+        root_env: Env overrides for every admin call (see
+            ``_find_mysql_admin_connection`` for why this is separate
+            from argv).
         mysql_password: Password for hop3 user.
         docker_ip: Docker bridge IP address.
 
@@ -311,7 +333,7 @@ def _create_mysql_docker_user(
         return False
 
     def run_sql(sql: str) -> subprocess.CompletedProcess:
-        return run_cmd(root_cmd + ["-e", sql], check=False)
+        return run_cmd(root_cmd + ["-e", sql], check=False, env=root_env)
 
     # Docker bridge network is typically 172.17.0.0/16
     # Extract network pattern (e.g., 172.17.%)
@@ -350,11 +372,16 @@ def _create_mysql_docker_user(
     return True
 
 
-def _configure_mysql_for_docker(root_cmd: list[str], mysql_password: str) -> None:
+def _configure_mysql_for_docker(
+    root_cmd: list[str],
+    root_env: dict[str, str],
+    mysql_password: str,
+) -> None:
     """Configure MySQL for Docker container access.
 
     Args:
         root_cmd: Working MySQL admin command.
+        root_env: Env overrides for every admin call.
         mysql_password: Password for hop3 user.
     """
     docker_ip = get_docker_bridge_ip()
@@ -368,7 +395,7 @@ def _configure_mysql_for_docker(root_cmd: list[str], mysql_password: str) -> Non
     bind_changed = _configure_mysql_bind_address(docker_ip)
 
     # Create user for Docker network
-    _create_mysql_docker_user(root_cmd, mysql_password, docker_ip)
+    _create_mysql_docker_user(root_cmd, root_env, mysql_password, docker_ip)
 
     if bind_changed:
         # Restart MySQL to apply bind-address change
@@ -396,24 +423,25 @@ def setup_mysql(config: ServerInstallerConfig, distro: str) -> str | None:
     print_success("MySQL service started")
 
     # Find a working admin connection
-    mysql_root_cmd = _find_mysql_admin_connection()
+    admin = _find_mysql_admin_connection()
 
-    if mysql_root_cmd is None:
+    if admin is None:
         print_warning("Could not connect to MySQL as admin")
         print_detail("Please check MySQL is running and has default authentication")
         print_detail("You may need to configure MySQL manually")
         return None
+    mysql_root_cmd, mysql_root_env = admin
 
     # Generate a secure password
     mysql_password = "hop3_" + secrets.token_hex(16)
 
     # Create hop3 user with privileges
-    if not _create_mysql_hop3_user(mysql_root_cmd, mysql_password):
+    if not _create_mysql_hop3_user(mysql_root_cmd, mysql_root_env, mysql_password):
         return None
     print_success("MySQL user 'hop3' created with privileges")
 
     # Configure for Docker container access
-    _configure_mysql_for_docker(mysql_root_cmd, mysql_password)
+    _configure_mysql_for_docker(mysql_root_cmd, mysql_root_env, mysql_password)
 
     # Verify the connection works
     if not _verify_mysql_hop3_connection(mysql_password):

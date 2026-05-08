@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3.config import ACME_EMAIL, ACME_WWW, CADDY_ROOT
+from hop3.core.identifiers import validate_hostname_list
 from hop3.core.protocols import BaseProxy
 from hop3.di import create_container
 from hop3.lib import command_output, expand_vars, log
@@ -45,8 +46,12 @@ class CaddyVirtualHost(BaseProxy):
         return "caddy"
 
     def __post_init__(self) -> None:
-        # Normalize server name list
-        server_name_list = self.env["HOST_NAME"].split(",")
+        # SECURITY: validate each host before it lands in the Caddy
+        # config. The template interpolates HOST_NAME directly; an
+        # un-validated value with a newline or `}` would inject
+        # arbitrary Caddy directives. Same shape as the nginx plugin
+        # — see notes/security.md §3.5.
+        server_name_list = validate_hostname_list(self.env["HOST_NAME"])
         # Caddy uses space-separated alternative names in the server block
         self.env["HOST_NAME"] = " ".join(server_name_list)
 

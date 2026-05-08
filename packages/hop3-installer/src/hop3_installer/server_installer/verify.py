@@ -122,11 +122,14 @@ def verify_mysql_config() -> bool:
         print_warning("Could not extract MySQL password from config")
         return False
 
-    # Test connection with the hop3 MySQL user
+    # Test connection with the hop3 MySQL user.
+    # SECURITY: pass the password via MYSQL_PWD instead of -p{password}.
+    # See notes/security.md §3.4.1.
     result = run_cmd(
-        ["mysql", "-u", "hop3", f"-p{mysql_password}", "-e", "SELECT 1;"],
+        ["mysql", "-u", "hop3", "-e", "SELECT 1;"],
         check=False,
         capture=True,
+        env={"MYSQL_PWD": mysql_password},
     )
 
     if result.returncode != 0:

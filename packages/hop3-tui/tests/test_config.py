@@ -222,6 +222,28 @@ class TestConfigSave:
         config.save(config_path)
         assert config_path.exists()
 
+    def test_save_sets_perms_0600(self, tmp_path: Path):
+        """The TUI config holds the auth token; pin perms to 0o600."""
+        config = TUIConfig(auth_token="secret-jwt-token-value")
+        config_path = tmp_path / "tui.toml"
+        old_umask = os.umask(0o022)
+        try:
+            config.save(config_path)
+        finally:
+            os.umask(old_umask)
+        mode = config_path.stat().st_mode & 0o777
+        assert mode == 0o600, f"expected 0o600, got 0o{mode:o}"
+
+    def test_save_leaves_no_tmp_files(self, tmp_path: Path):
+        """Atomic-write tmpfile is renamed away on success."""
+        config = TUIConfig()
+        config_path = tmp_path / "tui.toml"
+        config.save(config_path)
+        # Only the final file should exist
+        assert config_path.exists()
+        siblings = [p for p in tmp_path.iterdir() if p != config_path]
+        assert siblings == [], f"expected no leftover temp files, got {siblings}"
+
 
 class TestFindConfigFile:
     """Tests for finding configuration file."""

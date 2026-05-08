@@ -181,9 +181,12 @@ def test_create_magic_token_short_expiry():
 
 def test_validate_magic_token_success(monkeypatch):
     """Test successful magic token validation."""
-    # Mock is_token_revoked to return False (not revoked)
+    # Mock is_token_revoked to return False (not revoked).
+    # Accepts the new ``scopes=`` kwarg added in 0.5.0.dev3 to give
+    # admin/magic-link tokens fail-closed semantics on DB error.
     monkeypatch.setattr(
-        "hop3.server.security.tokens.is_token_revoked", lambda jti: False
+        "hop3.server.security.tokens.is_token_revoked",
+        lambda jti, scopes=None: False,
     )
     # Mock revoke_token to do nothing
     monkeypatch.setattr(
@@ -240,7 +243,8 @@ def test_validate_magic_token_revoked(monkeypatch):
     """Test that revoked magic tokens are rejected."""
     # Mock is_token_revoked to return True (revoked)
     monkeypatch.setattr(
-        "hop3.server.security.tokens.is_token_revoked", lambda jti: True
+        "hop3.server.security.tokens.is_token_revoked",
+        lambda jti, scopes=None: True,
     )
 
     token = create_magic_token("admin")

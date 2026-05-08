@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 import yaml
 
 from hop3.config import ACME_EMAIL, ACME_WWW, TRAEFIK_ROOT
+from hop3.core.identifiers import validate_hostname_list
 from hop3.core.protocols import BaseProxy
 from hop3.di import create_container
 from hop3.lib import command_output, expand_vars, log
@@ -45,10 +46,14 @@ class TraefikVirtualHost(BaseProxy):
         return "traefik"
 
     def __post_init__(self) -> None:
-        # Normalize server name list (Traefik supports multiple hosts with backticks)
-        server_name_list = self.env["HOST_NAME"].split(",")
+        # SECURITY: validate every host before any of them lands in the
+        # Traefik config. The template uses HOST_NAME directly; an
+        # un-validated value with a backtick or newline would inject
+        # arbitrary Traefik router/middleware definitions. Same shape
+        # as the nginx and caddy plugins — see notes/security.md §3.5.
+        server_name_list = validate_hostname_list(self.env["HOST_NAME"])
         # For Traefik, we'll use the first domain as primary
-        self.env["HOST_NAME"] = server_name_list[0].strip()
+        self.env["HOST_NAME"] = server_name_list[0]
 
         # Check Traefik version
         traefik_version = command_output("traefik version") or "???"

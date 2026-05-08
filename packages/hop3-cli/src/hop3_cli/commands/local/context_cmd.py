@@ -7,12 +7,27 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3_cli.commands.local.help_text import print_context_help
 from hop3_cli.config import LOCAL_CONTEXT_FILE
+
+# Context names flow into TOML keys and config-file paths. The shape
+# below is the same lowercase-alpha-with-hyphens form server-side
+# identifiers use, plus underscores and a digit/letter start. Keeps
+# whitespace, quotes, dots, slashes and shell metacharacters out of
+# the config file. Length capped at 64 (TOML keys aren't bounded but
+# we don't want operators inventing 1KB context labels).
+_CONTEXT_NAME_RE: re.Pattern[str] = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+
+
+def _validate_context_name(name: str) -> bool:
+    """Return True if ``name`` is a safe context identifier."""
+    return bool(_CONTEXT_NAME_RE.fullmatch(name))
+
 
 if TYPE_CHECKING:
     from hop3_cli.config import Config
@@ -323,8 +338,13 @@ def context_rename(args: list[str], config: Config, printer: RichPrinter) -> Non
             file=sys.stderr,
         )
         sys.exit(1)
-    if not new_name or new_name.startswith("-"):
-        print(f"Invalid context name: {new_name!r}", file=sys.stderr)
+    if not _validate_context_name(new_name):
+        print(
+            f"Invalid context name: {new_name!r} — must match "
+            f"{_CONTEXT_NAME_RE.pattern!r} (letters/digits with optional "
+            "hyphens or underscores, 1-64 chars).",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     # Copy old context data under new name, then remove old.
@@ -419,6 +439,15 @@ def context_add(args: list[str], config: Config, printer: RichPrinter) -> None:
 
     if not server:
         print("Error: --server is required", file=sys.stderr)
+        sys.exit(1)
+
+    if not _validate_context_name(name):
+        print(
+            f"Invalid context name: {name!r} — must match "
+            f"{_CONTEXT_NAME_RE.pattern!r} (letters/digits with optional "
+            "hyphens or underscores, 1-64 chars).",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     # Check if context already exists

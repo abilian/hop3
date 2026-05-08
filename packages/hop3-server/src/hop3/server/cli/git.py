@@ -130,12 +130,10 @@ class GitHookCmd(Command):
         parser.add_argument("app_name", type=str, help="Name of the app to deploy")
 
     def run(self, app_name: str) -> None:
-        import shutil  # noqa: PLC0415
         import subprocess  # noqa: PLC0415
-        import tempfile  # noqa: PLC0415
-        from pathlib import Path  # noqa: PLC0415
 
         from hop3.deployers import do_deploy  # noqa: PLC0415
+        from hop3.lib.archives import extract_archive_to_dir  # noqa: PLC0415
 
         session_factory = get_session_factory()
         with session_factory() as session:
@@ -177,37 +175,24 @@ class GitHookCmd(Command):
             # Extract the commit to app's source directory
             echo(f"-----> Extracting commit {new_sha[:8]}...", fg="cyan")
 
-            # Clean the source directory first
-            if app.src_path.exists():
-                shutil.rmtree(app.src_path)
-            app.src_path.mkdir(parents=True, exist_ok=True)
-
-            # Use git archive to create a tarball from the commit
-            with tempfile.TemporaryDirectory() as tmpdir:
-                archive_path = Path(tmpdir) / "commit.tar"
-
-                # Create archive from commit
-                subprocess.run(
-                    [
-                        "git",
-                        "archive",
-                        "--format=tar",
-                        f"--output={archive_path}",
-                        new_sha,
-                    ],
-                    cwd=app.repo_path,
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                )
-
-                # Extract archive to source directory
-                subprocess.run(
-                    ["tar", "-xf", str(archive_path), "-C", str(app.src_path)],
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                )
+            # SECURITY: route the archive through the same hardened
+            # extractor the RPC repository-upload path uses. git's own
+            # tooling already prevents path-traversal entries in repo
+            # paths, but threading both archive sources through one
+            # validator keeps the controls in one place. See
+            # notes/security.md §3.5 / 0.5.0.dev3 H-002.
+            git_archive = subprocess.run(
+                [
+                    "git",
+                    "archive",
+                    "--format=tar.gz",
+                    new_sha,
+                ],
+                cwd=app.repo_path,
+                check=True,
+                capture_output=True,
+            )
+            extract_archive_to_dir(git_archive.stdout, app.src_path)
 
             # Trigger deployment
             echo(f"-----> Deploying '{app_name}'...", fg="cyan")

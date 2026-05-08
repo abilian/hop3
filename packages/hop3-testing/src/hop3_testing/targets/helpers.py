@@ -10,6 +10,9 @@ the principle of composition over inheritance.
 
 from __future__ import annotations
 
+import contextlib
+import os
+import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -434,15 +437,31 @@ class DockerContainerHelper:
     def extract_ssh_key(self) -> Path:
         """Extract SSH key from container to temp file.
 
-        Returns:
-            Path to temp file containing SSH private key
+        SECURITY: create the file with restrictive perms *before* writing
+        the key. The earlier shape used ``write_text(...)`` (default
+        umask, typically 0o644) followed by ``chmod 0o600`` — there's a
+        race window during which other local users on the workstation
+        could read the SSH private key. ``mkstemp`` creates the file at
+        0o600 from the start, and ``os.fchmod`` on the descriptor before
+        close pins it.
         """
         result = self.container.exec_run("cat /home/hop3/.ssh/id_rsa")
         ssh_key = result.output.decode()
 
-        key_path = Path("/tmp") / f"hop3-key-{self.container.short_id}"
-        key_path.write_text(ssh_key)
-        key_path.chmod(0o600)
+        fd, tmp_str = tempfile.mkstemp(
+            prefix=f"hop3-key-{self.container.short_id}-",
+            dir="/tmp",
+        )
+        try:
+            os.fchmod(fd, 0o600)
+            with os.fdopen(fd, "w") as f:
+                f.write(ssh_key)
+        except Exception:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp_str)
+            raise
+
+        key_path = Path(tmp_str)
         self._ssh_key_path = key_path
         return key_path
 
