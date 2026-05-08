@@ -14,6 +14,7 @@ The behavior is determined by whether a DeploymentConfig is provided.
 
 from __future__ import annotations
 
+import shlex
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -316,8 +317,12 @@ class RemoteTarget(DeploymentTarget):
             Tuple of (exit_code, stdout, stderr)
         """
         if isinstance(cmd, list):
-            # Properly escape command arguments
-            cmd = " ".join(f'"{arg}"' if " " in arg else arg for arg in cmd)
+            # shlex.join handles every shell metachar (quotes, $, &, |,
+            # backslash, …) the previous "wrap-if-spaces" form missed.
+            # Test author owns the input, so this is correctness rather
+            # than a security control; matches the sister-site fix in
+            # docker.py.
+            cmd = shlex.join(cmd)
 
         # Use command runner if available
         if self._command_runner:

@@ -9,7 +9,6 @@ from __future__ import annotations
 import contextlib
 import json
 import os
-import re
 import subprocess
 import threading
 import time
@@ -551,10 +550,18 @@ class LogsCmd(Command):
 
         log_lines = app.get_logs(lines=parsed["lines"], since=since)
 
-        # Apply grep filter if specified
+        # Apply grep filter if specified.
+        # SECURITY: case-insensitive *literal substring* match, not a
+        # regex compile of the user-supplied string. A pathological
+        # pattern (e.g. ``(a+)+b``) would otherwise catastrophic-
+        # backtrack at search time and starve the worker — DoS that
+        # crosses the per-app boundary into shared CPU. Most users
+        # invoke ``--grep`` for substring matching anyway; if regex
+        # support is ever wanted, it should arrive with a length cap
+        # and a match-time timeout (signal.alarm or threading.Timer).
         if parsed["grep"]:
-            pattern = re.compile(parsed["grep"], re.IGNORECASE)
-            log_lines = [ln for ln in log_lines if pattern.search(ln)]
+            needle = parsed["grep"].casefold()
+            log_lines = [ln for ln in log_lines if needle in ln.casefold()]
 
         if not log_lines:
             msg = "No log entries found"
