@@ -107,6 +107,8 @@ class MarketplaceController(Controller):
     # Icon Serving
     # -------------------------------------------------------------------------
 
+    # AUDIT: guards=[] is intentional — the marketplace catalog is
+    # public by design. See notes/security.md §3.6.1.
     @get("/icons/{app_id:str}", status_code=200, sync_to_thread=False, guards=[])
     def marketplace_icon(self, app_id: str) -> File | Redirect:
         """Serve app icon from the marketplace directory.

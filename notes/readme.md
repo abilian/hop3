@@ -6,6 +6,7 @@ Developer-facing notes for Hop3. The entries below cover what lives where.
 
 - [`app-porting-tips.md`](./app-porting-tips.md) — cookbook for packaging a self-hosted application as a Hop3 app, distilled from ~30 real apps packaged between late 2025 and April 2026.
 - [`questions.md`](./questions.md) — open architectural questions (pointer to relevant ADRs).
+- [`security.md`](./security.md) — trust model, audited patterns, scope. Read this before filing a security finding (or briefing an LLM-based review tool).
 
 ## `adrs/` — Architecture Decision Records
 

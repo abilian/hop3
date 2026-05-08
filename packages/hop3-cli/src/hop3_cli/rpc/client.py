@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import re
 import warnings
 from dataclasses import dataclass
 from functools import cached_property
@@ -32,15 +31,6 @@ if TYPE_CHECKING:
 
 # Suppress InsecureRequestWarning when SSL verification is disabled
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-
-def _is_ip_address(hostname: str) -> bool:
-    """Check if hostname is an IP address."""
-    # IPv4 pattern
-    ipv4_pattern = r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$"
-    # IPv6 pattern (simplified - brackets or raw)
-    ipv6_pattern = r"^\[?[0-9a-fA-F:]+\]?$"
-    return bool(re.match(ipv4_pattern, hostname) or re.match(ipv6_pattern, hostname))
 
 
 @dataclass
@@ -253,7 +243,13 @@ class Client:
         self.config.update_context_token(token)
 
     def _get_ssl_verification(self) -> bool | str:
-        """Determine SSL verification mode based on config."""
+        """Determine SSL verification mode based on config.
+
+        A pinned ``ssl_cert`` is always returned (chain-verified
+        against the cert, including hostname/SAN); operators wanting
+        IP-based access must include the IP in the cert's SAN. See
+        notes/security.md §3.4 for the trust-model rationale.
+        """
         parsed_url = urlparse(self.api_url)
 
         if parsed_url.scheme != "https":
@@ -262,17 +258,15 @@ class Client:
         ssl_cert_value = self.config.get("ssl_cert", None)
         ssl_cert: str | None = str(ssl_cert_value) if ssl_cert_value else None
         verify_ssl_config = self.config.get("verify_ssl", None)
-        hostname = parsed_url.hostname or ""
 
         # Check if verification is explicitly disabled
         verify_ssl_disabled = self._is_verify_ssl_disabled(verify_ssl_config)
 
-        if ssl_cert and _is_ip_address(hostname):
-            # IP address with saved cert: skip verification
-            # (cert was fetched via trusted SSH, hostname check would fail)
-            return False
         if ssl_cert:
-            # Hostname with saved cert: standard verification with custom CA
+            # Pinned cert: verify chain against it. If the host is an
+            # IP and the cert lacks an IP SAN, the request will fail —
+            # that's correct; it forces the operator to fix the cert
+            # rather than silently accepting any cert.
             return ssl_cert
 
         # Default to system CA bundle unless explicitly disabled

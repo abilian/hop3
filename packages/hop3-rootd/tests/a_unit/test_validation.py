@@ -416,3 +416,25 @@ def test_port_spec_normalises_cidr_in_source():
         "app_name": "pgdb",
     })
     assert spec.source == "10.0.0.0/24"
+
+
+# --- Cross-package APP_NAME_RE parity -------------------------------------
+
+
+def test_app_name_re_matches_hop3_server_upstream():
+    """The rootd-local APP_NAME_RE must equal hop3-server's APP_NAME_RE.
+
+    The two regexes are deliberately duplicated — hop3-rootd has no
+    runtime deps on hop3-server (ADR 041 §"No external dependencies").
+    The source comment in validation.py promises they stay in lockstep;
+    this test enforces it. If you intentionally diverge them, update
+    both regex literals + this test in the same change.
+    """
+    import hop3_rootd.validation as rootd_validation  # noqa: PLC0415
+
+    import hop3.core.identifiers as upstream  # noqa: PLC0415
+
+    assert rootd_validation.APP_NAME_RE.pattern == upstream.APP_NAME_RE.pattern, (
+        "rootd APP_NAME_RE has drifted from hop3-server's; the two are "
+        "load-bearing for cross-boundary identifier validation."
+    )

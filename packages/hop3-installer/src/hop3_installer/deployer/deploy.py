@@ -160,18 +160,20 @@ class Deployer:
         if self.config.admin_domain:
             print(f"Admin URL: https://{self.config.admin_domain}")
             print(f"Admin user: {self.config.admin_user}")
-            # Only show password if we created a new user
+            # Only show password if we created a new user.
+            # SECURITY: do not print partial-masked forms (e.g. first-4 +
+            # last-4). Even small fractions of a token leak entropy and
+            # narrow brute-force search; either show the full secret
+            # under --verbose so the operator can capture it, or show
+            # nothing and let them rotate via ``hop3 admin set-password``.
             if self.admin_user_created:
                 if self.verbose:
                     print(f"Admin password: {self.config.admin_password}")
                 else:
-                    # Show masked password with hint
-                    masked = (
-                        self.config.admin_password[:4]
-                        + "..."
-                        + self.config.admin_password[-4:]
+                    print(
+                        "Admin password: [hidden — re-run with --verbose to "
+                        "display, or rotate via 'hop3 admin set-password']"
                     )
-                    print(f"Admin password: {masked} (use --verbose to show full)")
 
         print("=" * 60)
 

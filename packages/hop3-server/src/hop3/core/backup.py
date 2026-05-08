@@ -55,9 +55,15 @@ def _ensure_secure_backup_dir(path: Path) -> None:
     the whole chain rooted at BACKUP_ROOT to be 0o700, so we walk
     upwards after creation and fix any ancestor whose mode is looser.
 
+    SECURITY: pass ``mode=0o700`` to ``mkdir`` for the leaf so the brief
+    window between dir creation and the chmod walk doesn't leave the
+    leaf at umask perms (typically 0o755). The walk still has to widen
+    its scope to ancestors, but the leaf — the directory we just made
+    that holds the dumps — is tight from creation.
+
     Idempotent: safe to call on an already-existing tree.
     """
-    path.mkdir(parents=True, exist_ok=True)
+    path.mkdir(parents=True, exist_ok=True, mode=_BACKUP_DIR_MODE)
     # Walk back up to BACKUP_ROOT, tightening every ancestor whose mode
     # is looser than 0o700. Stop at BACKUP_ROOT itself (we control it
     # and don't want to climb past it).
