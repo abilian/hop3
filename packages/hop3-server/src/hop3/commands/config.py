@@ -15,15 +15,22 @@ from hop3.config import HopConfig
 from hop3.core.identifiers import InvalidIdentifierError, validate_hostname_list
 from hop3.lib.args import parse_cli_args
 from hop3.lib.registry import register
-from hop3.orm import App, AppRepository
 from hop3.project.procfile import Procfile
 
 from ._base import Command
-from ._helpers import get_app, parse_key_value_settings, set_env_var, unset_env_var
+from ._helpers import (
+    check_hostname_conflict,
+    get_app,
+    parse_key_value_settings,
+    set_env_var,
+    unset_env_var,
+)
 from ._response import code, error, success, summary, table, text
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+
+    from hop3.orm import App
 
 
 @register
@@ -370,15 +377,19 @@ class SetCmd(Command):
             hostname = key_values["HOST_NAME"]
             if hostname and hostname != "_":
                 try:
-                    validate_hostname_list(hostname)
+                    parsed_hosts = validate_hostname_list(hostname)
                 except InvalidIdentifierError as e:
                     errors.append(str(e))
                     del key_values["HOST_NAME"]
                 else:
-                    conflict = self._check_hostname_conflict(app_name, hostname)
+                    conflict = check_hostname_conflict(
+                        self.db_session, app_name, parsed_hosts
+                    )
                     if conflict:
+                        other_app, other_host = conflict
                         errors.append(
-                            f"Hostname '{hostname}' is already used by app '{conflict}'"
+                            f"Hostname '{other_host}' is already used by app "
+                            f"'{other_app}'"
                         )
                         del key_values["HOST_NAME"]
 
@@ -416,39 +427,6 @@ class SetCmd(Command):
         keys_set = ", ".join(sorted(key_values.keys()))
         result.append(summary(f"set {keys_set} on {app_name}."))
         return result
-
-    def _check_hostname_conflict(self, current_app: str, hostname: str) -> str | None:
-        """Check if a hostname is already used by another app.
-
-        Args:
-            current_app: Name of the current app (to exclude from check)
-            hostname: Hostname to check
-
-        Returns:
-            Name of the conflicting app, or None if no conflict.
-        """
-        # Handle comma-separated hostnames (check each one)
-        hostnames_to_check = [h.strip() for h in hostname.split(",") if h.strip()]
-
-        app_repo = AppRepository(session=self.db_session)
-        all_apps = app_repo.list()
-
-        for app in all_apps:
-            if app.name == current_app:
-                continue
-
-            # Get the app's current HOST_NAME
-            for env_var in app.env_vars:
-                if env_var.name == "HOST_NAME" and env_var.value:
-                    existing_hostnames = [
-                        h.strip() for h in env_var.value.split(",") if h.strip()
-                    ]
-                    # Check for any overlap
-                    for new_hostname in hostnames_to_check:
-                        if new_hostname in existing_hostnames:
-                            return app.name
-
-        return None
 
 
 @register

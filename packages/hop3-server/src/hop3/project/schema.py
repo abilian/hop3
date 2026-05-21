@@ -18,7 +18,14 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 
 class MetadataSection(BaseModel):
@@ -238,6 +245,51 @@ class BackupSection(BaseModel):
     )
 
 
+class DomainsSection(BaseModel):
+    """[domains] section - First-class declaration of an app's hostnames.
+
+    Translates at deploy time into the HOST_NAME env var, which the reverse-
+    proxy plugins (nginx/caddy/traefik) read. Mirrors the [env] policy model:
+    by default values are treated as defaults (keep-existing); set
+    ``_policy = "override"`` to update HOST_NAME on every deploy.
+    """
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    hosts: list[str] = Field(
+        alias="list",
+        description="Hostnames to bind to this app, in declaration order.",
+    )
+    policy: str | None = Field(
+        default=None,
+        alias="_policy",
+        description="Merge policy: 'keep-existing' (default) or 'override'.",
+    )
+
+    @field_validator("hosts")
+    @classmethod
+    def validate_hosts(cls, v: list[str]) -> list[str]:
+        # "_" is the nginx catch-all; meaningful only as the sole entry.
+        if "_" in v and len(v) > 1:
+            msg = (
+                "The catch-all hostname '_' cannot be combined with other "
+                "hostnames in [domains].list."
+            )
+            raise ValueError(msg)
+        return v
+
+    @field_validator("policy")
+    @classmethod
+    def validate_policy(cls, v: str | None) -> str | None:
+        if v is not None and v not in {"keep-existing", "override"}:
+            msg = (
+                f"Invalid [domains]._policy {v!r}. "
+                "Must be 'keep-existing' or 'override'."
+            )
+            raise ValueError(msg)
+        return v
+
+
 class AddonConfig(BaseModel):
     """Single addon/provider configuration."""
 
@@ -409,6 +461,13 @@ class Hop3TomlSchema(BaseModel):
         default=None,
         description="Static file path mappings (URL path -> filesystem path)",
     )
+    domains: DomainsSection | None = Field(
+        default=None,
+        description=(
+            "App hostnames. Translates to HOST_NAME at deploy time. Mutually "
+            "exclusive with setting HOST_NAME under [env]."
+        ),
+    )
     addons: list[AddonConfig] | None = None
     provider: list[AddonConfig] | None = Field(
         default=None,
@@ -428,6 +487,17 @@ class Hop3TomlSchema(BaseModel):
             "Requires [nix].template to be set. See ADR 008."
         ),
     )
+
+    @model_validator(mode="after")
+    def validate_domains_vs_env_hostname(self) -> Hop3TomlSchema:
+        if self.domains is not None and self.env and "HOST_NAME" in self.env:
+            msg = (
+                "HOST_NAME cannot be set in [env] when [domains] is also "
+                "declared. Move the hostnames into [domains].list and "
+                "remove HOST_NAME from [env]."
+            )
+            raise ValueError(msg)
+        return self
 
 
 class Hop3TomlValidationError(Exception):

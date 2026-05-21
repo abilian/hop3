@@ -1106,6 +1106,95 @@ hop3 config migrate --format procfile --backup
 
 ---
 
+## Domain Management
+
+Manage the hostnames bound to an app. These commands are a first-class view
+over the `HOST_NAME` env var that the reverse-proxy plugins
+(nginx / caddy / traefik) read. All write operations are atomic: every
+hostname is validated and conflicts with other apps are checked up front
+before anything is persisted. After every write you must redeploy
+(`hop3 deploy <app>`) for the proxy configuration to be updated.
+
+For the declarative equivalent in `hop3.toml`, see
+[`[domains]`](./config.md#domains-application-hostnames).
+
+### `hop3 domains list`
+
+Show the hostnames currently bound to an app.
+
+**Usage:**
+```bash
+hop3 domains list <app>
+hop3 domains list --app <app>
+```
+
+**Example:**
+```bash
+hop3 domains list abilian-cms
+```
+
+---
+
+### `hop3 domains add`
+
+Add one or more hostnames to an app (union, atomic, deduplicated).
+
+**Usage:**
+```bash
+hop3 domains add <app> <host> [<host> ...]
+hop3 domains add --app <app> <host> [<host> ...]
+```
+
+**Example:**
+```bash
+hop3 domains add abilian-cms fermigier.com www.fermigier.com \
+                              abilian.com www.abilian.com
+```
+
+---
+
+### `hop3 domains remove`
+
+Remove one or more hostnames from an app. Errors if any of the requested
+hostnames is not currently bound.
+
+**Usage:**
+```bash
+hop3 domains remove <app> <host> [<host> ...]
+hop3 domains remove --app <app> <host> [<host> ...]
+```
+
+---
+
+### `hop3 domains set`
+
+Replace the full list of hostnames bound to an app.
+
+**Usage:**
+```bash
+hop3 domains set <app> <host> [<host> ...]
+hop3 domains set --app <app> <host> [<host> ...]
+```
+
+**Example:**
+```bash
+hop3 domains set abilian-cms abilian.com www.abilian.com
+```
+
+---
+
+### `hop3 domains clear`
+
+Clear all hostnames from an app (unsets `HOST_NAME`).
+
+**Usage:**
+```bash
+hop3 domains clear <app>
+hop3 domains clear --app <app>
+```
+
+---
+
 ## Nix Commands
 
 ### `hop3 nix eject`

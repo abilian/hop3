@@ -162,6 +162,28 @@ LOG_LEVEL = "info"
 - Sensitive values should be injected through `hop3 config set`, not hardcoded in hop3.toml.
 - The `DEBUG` environment variable defaults to `false`. Only set `DEBUG = "true"` in development environments for troubleshooting—never in production.
 
+### [domains] - Application Hostnames
+
+Declare the hostnames the reverse proxy should bind to your app.
+
+```toml
+[domains]
+list = ["abilian.com", "www.abilian.com", "fermigier.com", "www.fermigier.com"]
+_policy = "keep-existing"   # optional; "override" to overwrite on every deploy
+```
+
+**Fields:**
+
+- `list` (array of strings, required when section is present): hostnames bound to this app, in declaration order. Each entry must be a valid RFC-1123 hostname. The special value `"_"` is the nginx catch-all and may only appear alone.
+- `_policy` (string, optional, default `"keep-existing"`): merge policy. Mirrors `[env]._policy`. With `"keep-existing"`, a manually set HOST_NAME (via `hop3 config set` or `hop3 domains`) is preserved across deploys. With `"override"`, the value from `hop3.toml` is reapplied on every deploy.
+
+**Notes:**
+
+- `[domains].list` is mutually exclusive with `HOST_NAME` under `[env]`. Setting both is a hop3.toml validation error — use one or the other.
+- At deploy time, the section is translated into the `HOST_NAME` env var that the reverse-proxy plugins (nginx / caddy / traefik) read.
+- An empty list (`list = []`) is a no-op: HOST_NAME is **not** unset. Use `hop3 domains clear <app>` to remove the binding explicitly.
+- For CRUD from the CLI, see `hop3 domains` in the CLI reference.
+
 ### [port] - Port Configuration
 
 Specify ports for different services.

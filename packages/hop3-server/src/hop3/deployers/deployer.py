@@ -5,6 +5,8 @@ import os
 import time
 from typing import TYPE_CHECKING
 
+from hop3.commands._helpers import check_hostname_conflict
+from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
 from hop3.core.manifest import RuntimeManifestBuilder
 from hop3.core.plugins import get_builder, get_deployer
 from hop3.core.protocols import DeploymentContext
@@ -581,6 +583,15 @@ def _process_config_dependencies(
         )
         set_default_env_vars(app, env_config, db_session, env_policy=env_policy)
 
+    # Translate [domains].list into HOST_NAME. Schema already rejects mixing
+    # with env.HOST_NAME and combining "_" with other hosts, but we re-check
+    # defensively (HOP3_SKIP_CONFIG_VALIDATION can bypass schema in dev).
+    domains_config = hop3_config.domains
+    if domains_config:
+        _apply_domains_to_host_name(
+            app, domains_config, hop3_config.domains_policy, db_session
+        )
+
     # Resolve computed env vars from [env.computed] section
     computed_config = hop3_config.env_computed
     if computed_config:
@@ -592,14 +603,82 @@ def _process_config_dependencies(
         set_computed_env_vars(app, computed_config, db_session)
 
     # Commit changes before continuing with build
-    if addon_configs or env_config:
+    if addon_configs or env_config or domains_config:
         db_session.commit()
         server_log.info(
             "Config dependencies processed",
             app_name=app.name,
             addon_count=len(addon_configs),
             env_var_count=len(env_config),
+            domain_count=len(domains_config),
         )
+
+
+def _apply_domains_to_host_name(
+    app: App,
+    domains_config: list[str],
+    policy: str,
+    db_session: Session,
+) -> None:
+    """Translate [domains].list into the HOST_NAME env var.
+
+    Validates each hostname, rejects "_" combined with other hosts, and
+    aborts the deploy on a cross-app conflict. Mirrors set_default_env_vars
+    semantics via the env_policy argument: "keep-existing" leaves a manually
+    set HOST_NAME alone; "override" updates it every deploy.
+    """
+    try:
+        validated = [validate_hostname(h) for h in domains_config]
+    except InvalidIdentifierError as e:
+        abort_with_diagnosis(
+            Diagnosis(
+                component="hop3.toml",
+                action="apply [domains].list",
+                reason=str(e),
+                hint=(
+                    "Each entry in [domains].list must be a valid RFC-1123 hostname."
+                ),
+            )
+        )
+
+    if "_" in validated and len(validated) > 1:
+        abort_with_diagnosis(
+            Diagnosis(
+                component="hop3.toml",
+                action="apply [domains].list",
+                reason=(
+                    "The catch-all hostname '_' cannot be combined with "
+                    "other hostnames in [domains].list."
+                ),
+                hint="Use '_' on its own, or list specific hostnames.",
+            )
+        )
+
+    conflict = check_hostname_conflict(db_session, app.name, validated)
+    if conflict:
+        other_app, other_host = conflict
+        abort_with_diagnosis(
+            Diagnosis(
+                component="hop3.toml",
+                action="apply [domains].list",
+                reason=(
+                    f"Hostname '{other_host}' is already bound to app '{other_app}'."
+                ),
+                hint=(
+                    "Remove the conflicting hostname from one of the apps "
+                    "(see `hop3 domains list <app>`)."
+                ),
+            )
+        )
+
+    log(
+        f"Processing {len(validated)} domain(s) from hop3.toml (policy: {policy})...",
+        level=1,
+        fg="blue",
+    )
+    set_default_env_vars(
+        app, {"HOST_NAME": " ".join(validated)}, db_session, env_policy=policy
+    )
 
 
 def _run_hook(
