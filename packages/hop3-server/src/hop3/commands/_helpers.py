@@ -150,3 +150,48 @@ def unset_env_var(app: App, key: str) -> bool:
             app.env_vars.remove(env_var)
             return True
     return False
+
+
+def parse_hostname_string(value: str | None) -> list[str]:
+    """Split a HOST_NAME string into individual hostnames.
+
+    Accepts comma- or whitespace-separated forms. Does NOT validate
+    syntax — use ``validate_hostname_list`` for that. Use this when
+    reading already-stored values, where the canonical form is
+    space-separated but legacy data may use commas.
+    """
+    return [h for h in (value or "").replace(",", " ").split() if h]
+
+
+def check_hostname_conflict(
+    db_session: Session,
+    current_app_name: str,
+    new_hosts: list[str],
+) -> tuple[str, str] | None:
+    """Return (app, host) if any of new_hosts is already used by another app.
+
+    Args:
+        db_session: Database session.
+        current_app_name: App being modified (excluded from the scan).
+        new_hosts: Pre-parsed hostnames to check.
+
+    Returns:
+        Tuple of (conflicting_app_name, conflicting_host) on overlap,
+        else None.
+    """
+    new_set = set(new_hosts)
+    if not new_set:
+        return None
+
+    app_repo = AppRepository(session=db_session)
+    for app in app_repo.list():
+        if app.name == current_app_name:
+            continue
+        for env_var in app.env_vars:
+            if env_var.name != "HOST_NAME" or not env_var.value:
+                continue
+            existing = set(parse_hostname_string(env_var.value))
+            overlap = new_set & existing
+            if overlap:
+                return (app.name, min(overlap))
+    return None

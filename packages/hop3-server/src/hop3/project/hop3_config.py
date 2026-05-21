@@ -454,6 +454,36 @@ class Hop3Config:
         return env_section.get("computed", {})
 
     # =========================================================================
+    # [domains] section
+    # =========================================================================
+
+    @property
+    def domains(self) -> list[str]:
+        """Get [domains].list - the app's hostnames.
+
+        Returns the declared hostnames in order. Empty list when no [domains]
+        section is present, or when ``list = []`` (treated as no-op at deploy).
+        """
+        section = self._data.get("domains", {})
+        if not isinstance(section, dict):
+            return []
+        hosts = section.get("list", [])
+        if not isinstance(hosts, list):
+            return []
+        return [str(h) for h in hosts]
+
+    @property
+    def domains_policy(self) -> str:
+        """Get the [domains] merge policy from [domains]._policy.
+
+        Returns "keep-existing" (default) or "override". Mirrors env_policy.
+        """
+        section = self._data.get("domains", {})
+        if not isinstance(section, dict):
+            return "keep-existing"
+        return section.get("_policy", "keep-existing")
+
+    # =========================================================================
     # [port] section
     # =========================================================================
 
