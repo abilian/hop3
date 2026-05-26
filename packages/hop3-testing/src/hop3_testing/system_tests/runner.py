@@ -551,7 +551,7 @@ class TestRunnerManager:
         if not self.logs_dir:
             return
 
-        try:
+        try:  # noqa: PLW0717 — best-effort diagnostic collector called from a `finally` elsewhere: by design it catches *anything* the SSH/file ops throw and prints a warning. Narrowing the try would let an exception abort log collection partway and lose the rest of the diagnostics.
             # Ensure SSH connection
             if not self._ssh_conn:
                 info = SSHConnectionInfo(host=self.host, user="root")

@@ -98,69 +98,20 @@ class DemoTestRunner:
         error = None
         logs = ""
 
+        # Preconditions live outside the try below: path lookups can't raise
+        # the subprocess exceptions we catch, so keeping them inside would
+        # obscure where those exceptions actually come from.
+        resolved = self._resolve_demo_cli(test)
+        if isinstance(resolved, TestResult):
+            return resolved
+        demos_root, demo_cli = resolved
+
+        self.console.info(f"Running demo: {test.name}")
+        cmd = self._build_demo_command(demo_cli, test)
+        self.console.debug(f"Running: {' '.join(cmd)}")
+
+        # Only the subprocess call can raise the exceptions we catch.
         try:
-            # Find the demo directory and script
-            if test.source_path is None:
-                return TestResult(
-                    test=test,
-                    passed=False,
-                    error="Test has no source path",
-                )
-
-            demo_dir = test.source_path.parent
-            script_path = demo_dir / (test.demo.script or "demo-script.py")
-
-            if not script_path.exists():
-                return TestResult(
-                    test=test,
-                    passed=False,
-                    error=f"Demo script not found: {script_path}",
-                )
-
-            self.console.info(f"Running demo: {test.name}")
-
-            # Find the demos directory and demo.py CLI
-            demos_root = self._find_demos_root(demo_dir)
-            if demos_root is None:
-                return TestResult(
-                    test=test,
-                    passed=False,
-                    error="Could not find demos root directory",
-                )
-
-            demo_cli = demos_root / "demo.py"
-            if not demo_cli.exists():
-                return TestResult(
-                    test=test,
-                    passed=False,
-                    error=f"Demo CLI not found: {demo_cli}",
-                )
-
-            # Build the command to run the demo via its own infrastructure
-            cmd = [sys.executable, str(demo_cli)]
-
-            # Determine backend and connection parameters from target
-            target_info = self.target.info
-            if target_info.ssh_host:
-                cmd.extend(["--host", target_info.ssh_host])
-                if target_info.ssh_user and target_info.ssh_user != "root":
-                    cmd.extend(["--ssh-user", target_info.ssh_user])
-            else:
-                # Docker backend
-                cmd.extend(["--backend", "docker"])
-
-            # Add demo-specific flags
-            cmd.extend(["--skip-install"])  # Hop3 is already installed
-            cmd.extend(["--fail-fast"])  # Stop on first error
-            if self.verbose:
-                cmd.extend(["--verbose"])  # Pass through verbose mode
-
-            # Add the specific demo to run (demo CLI expects basename, e.g., "demo03")
-            cmd.append(test.deploy_name)
-
-            self.console.debug(f"Running: {' '.join(cmd)}")
-
-            # Run the demo CLI
             result = subprocess.run(
                 cmd,
                 cwd=demos_root,
@@ -170,21 +121,21 @@ class DemoTestRunner:
                 env=build_test_env(self.target.info),
                 check=False,
             )
-
-            logs = result.stdout + result.stderr
-
-            if result.returncode != 0:
-                # Show the last part of the output to help diagnose failures
-                log_tail = logs[-2000:] if len(logs) > 2000 else logs
-                error = f"Demo failed with exit code {result.returncode}\n\n--- Output (last 2000 chars) ---\n{log_tail}"
-                self.console.error(f"Demo {test.name} failed")
-            else:
-                self.console.success("Demo script completed successfully")
-
         except subprocess.TimeoutExpired:
             error = "Demo script timed out"
         except Exception as e:
             error = str(e)
+        else:
+            logs = result.stdout + result.stderr
+            if result.returncode != 0:
+                log_tail = logs[-2000:] if len(logs) > 2000 else logs
+                error = (
+                    f"Demo failed with exit code {result.returncode}\n\n"
+                    f"--- Output (last 2000 chars) ---\n{log_tail}"
+                )
+                self.console.error(f"Demo {test.name} failed")
+            else:
+                self.console.success("Demo script completed successfully")
 
         passed = error is None and all(v.passed for v in validation_results)
 
@@ -196,6 +147,58 @@ class DemoTestRunner:
             total_duration=time.time() - start_time,
             error=error,
         )
+
+    def _resolve_demo_cli(self, test: TestDefinition) -> tuple[Path, Path] | TestResult:
+        """Resolve (demos_root, demo_cli) or return a short-circuit TestResult.
+
+        Pure path-existence checks; no I/O beyond ``Path.exists()``. Lives
+        outside ``_run_script``'s try-block so the protected region matches
+        the subprocess.run that actually does the work.
+        """
+        assert test.demo is not None  # checked by caller
+        if test.source_path is None:
+            return TestResult(test=test, passed=False, error="Test has no source path")
+
+        demo_dir = test.source_path.parent
+        script_path = demo_dir / (test.demo.script or "demo-script.py")
+        if not script_path.exists():
+            return TestResult(
+                test=test,
+                passed=False,
+                error=f"Demo script not found: {script_path}",
+            )
+
+        demos_root = self._find_demos_root(demo_dir)
+        if demos_root is None:
+            return TestResult(
+                test=test,
+                passed=False,
+                error="Could not find demos root directory",
+            )
+
+        demo_cli = demos_root / "demo.py"
+        if not demo_cli.exists():
+            return TestResult(
+                test=test, passed=False, error=f"Demo CLI not found: {demo_cli}"
+            )
+        return demos_root, demo_cli
+
+    def _build_demo_command(self, demo_cli: Path, test: TestDefinition) -> list[str]:
+        """Build the argv to invoke the demos CLI for a given test."""
+        cmd = [sys.executable, str(demo_cli)]
+        target_info = self.target.info
+        if target_info.ssh_host:
+            cmd.extend(["--host", target_info.ssh_host])
+            if target_info.ssh_user and target_info.ssh_user != "root":
+                cmd.extend(["--ssh-user", target_info.ssh_user])
+        else:
+            cmd.extend(["--backend", "docker"])
+
+        cmd.extend(["--skip-install", "--fail-fast"])
+        if self.verbose:
+            cmd.append("--verbose")
+        cmd.append(test.deploy_name)  # e.g. "demo03"
+        return cmd
 
     def _find_demos_root(self, demo_dir: Path) -> Path | None:
         """Find the demos root directory containing demo.py.

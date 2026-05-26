@@ -396,7 +396,7 @@ class DockerTarget(DeploymentTarget):
         print("Starting Hop3 Docker container via hop3-deploy")
         print("=" * 70)
 
-        try:
+        try:  # noqa: PLW0717 — the diagnostic-save-on-any-failure pattern: the except clause's job is to call `_save_diagnostics_on_error()` no matter which startup step blew up (deploy, service start, health check). Narrowing the try would force the same diagnostics call to be sprinkled at every failure site.
             # Run hop3-deploy via subprocess (no hop3-installer imports!)
             success, _duration = run_hop3_deploy(
                 docker=True,
