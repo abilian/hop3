@@ -522,7 +522,7 @@ class MigrateCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("config", "migrate")
 
-    def call(
+    def call(  # noqa: PLR0911 — sequential precondition cascade (usage, format, dir-exists, Procfile-exists, parse, dry-run, output-exists, success) where each return carries its own user-facing message; a state-machine refactor here trades clarity for a metric.
         self,
         from_format: str = "",
         app_dir: str = "",

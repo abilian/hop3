@@ -90,50 +90,38 @@ def map_rpc_code_to_exit(code: int) -> int:
     return mapping.get(code, ExitCode.GENERAL_ERROR)
 
 
+# Ordered table mapping (any-substring-match) → ExitCode. First match wins, so
+# more specific patterns must come before more general ones. The network case
+# carries a small predicate because "connection failed/refused" must match
+# only when the word "connection" is also present (a bare "failed" is too
+# generic).
+_MESSAGE_PATTERNS: list[tuple[tuple[str, ...], int]] = [
+    (("not found", "does not exist"), ExitCode.RESOLUTION_ERROR),
+    (("forbidden", "permission denied"), ExitCode.AUTHZ_ERROR),
+    (("unauthorized", "authentication"), ExitCode.AUTH_ERROR),
+    (("already exists", "conflict"), ExitCode.CONFLICT_ERROR),
+    (("deployment failed", "deploy failed"), ExitCode.DEPLOYMENT_ERROR),
+    (("timeout", "timed out"), ExitCode.NETWORK_ERROR),
+    (("invalid", "validation", "usage:"), ExitCode.USAGE_ERROR),
+]
+
+
 def map_message_to_exit(message: str) -> int:
     """Map an error message to an ADR 036 D16 exit code based on content.
 
     Used as a fallback when the error code doesn't carry enough context
     (e.g., generic server error wrapping a domain-specific failure).
-
-    Args:
-        message: The error message text
-
-    Returns:
-        Appropriate exit code from ExitCode class
     """
-    message_lower = message.lower()
+    msg = message.lower()
 
-    if "not found" in message_lower or "does not exist" in message_lower:
-        return ExitCode.RESOLUTION_ERROR
-
-    if "forbidden" in message_lower or "permission denied" in message_lower:
-        return ExitCode.AUTHZ_ERROR
-
-    if "unauthorized" in message_lower or "authentication" in message_lower:
-        return ExitCode.AUTH_ERROR
-
-    if "already exists" in message_lower or "conflict" in message_lower:
-        return ExitCode.CONFLICT_ERROR
-
-    if "deployment failed" in message_lower or "deploy failed" in message_lower:
-        return ExitCode.DEPLOYMENT_ERROR
-
-    if (
-        "timeout" in message_lower
-        or "timed out" in message_lower
-        or (
-            "connection" in message_lower
-            and ("refused" in message_lower or "failed" in message_lower)
-        )
-    ):
+    # "connection refused/failed" only counts as a NETWORK_ERROR when the
+    # word "connection" co-occurs — handled out-of-table because of the
+    # conjunction.
+    if "connection" in msg and ("refused" in msg or "failed" in msg):
         return ExitCode.NETWORK_ERROR
 
-    if (
-        "invalid" in message_lower
-        or "validation" in message_lower
-        or "usage:" in message_lower
-    ):
-        return ExitCode.USAGE_ERROR
+    for patterns, code in _MESSAGE_PATTERNS:
+        if any(p in msg for p in patterns):
+            return code
 
     return ExitCode.GENERAL_ERROR

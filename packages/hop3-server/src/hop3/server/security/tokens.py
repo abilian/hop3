@@ -103,7 +103,7 @@ def create_token(
     return token
 
 
-def validate_token(token: str) -> dict[str, Any] | None:
+def validate_token(token: str) -> dict[str, Any] | None:  # noqa: PLR0911 — security-critical: every early `return None` is a distinct validation rule failing (revocation, scopes shape, empty scopes, no valid scope, ExpiredSignature/InvalidToken, generic catch-all). Coalescing them into a single return path risks accidentally weakening one of the rules; multiple early-exits are the right pattern here.
     """Validate a JWT token and return the payload.
 
     This function:

@@ -18,7 +18,7 @@ import docker.errors
 import httpx
 
 
-def main():
+def main():  # noqa: PLR0911 — standalone scratch driver (xxx_ prefix → not collected by pytest); each early return is a distinct setup-step failure printed for the human running it ad-hoc.
     """Run standalone proxy plugin test."""
     proxy_type = sys.argv[1] if len(sys.argv) > 1 else "nginx"
 

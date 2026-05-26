@@ -72,7 +72,7 @@ class ErrorContext:
         """
         self._handlers[exc_type] = handler
 
-    def format_error(self, exc: Exception) -> str:
+    def format_error(self, exc: Exception) -> str:  # noqa: PLR0911 — ruff counts each match-arm as a return; the body IS a match statement (the structured form this lint nominally prefers), so the warning is a false positive here.
         """Format an exception into a user-friendly message.
 
         Args:

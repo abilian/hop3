@@ -79,7 +79,7 @@ def _confirm_protected_context(config: Config | None) -> tuple[bool, str | None]
     return True, context_name
 
 
-def confirm_destructive_action(
+def confirm_destructive_action(  # noqa: PLR0911 — sequential decision tree, each return is a distinct escape hatch (json mode, no-match, missing-args, --confirm, --no-input, protected context, …) with its own side effects; flattening into a result var would obscure the safety story.
     cli_args: list[str],
     printer: RichPrinter,
     config: Config | None = None,

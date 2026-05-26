@@ -62,17 +62,17 @@ lint.extend-ignore = [
     #
     # Fix this (later)
     #
-    "PLW0717", # too-many-statements-in-try-clause
+    # "PLW0717", # too-many-statements-in-try-clause
     "PLW2901", # redefined-loop-name
     "PLR0917", # too-many-positional-arguments
     "PERF203", # try-except-in-loop
     "TRY301", #  raise-within-try
-    # "F841", #    unused-variable
-    "PLR0911", # too-many-return-statements
     "PLR0914", # too-many-locals
     "A002", #    builtin-argument-shadowing
 ]
 
+[lint.pylint]
+max-statements-in-try = 30
 
 [lint.mccabe]
 # TODO: Set max-complexity = 10

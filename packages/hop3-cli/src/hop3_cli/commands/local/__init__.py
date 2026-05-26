@@ -97,6 +97,22 @@ def is_local_command(args: list[str]) -> bool:
     return not (command == "auth" and len(args) > 1 and not args[1].startswith("-"))
 
 
+# Dispatch table for local commands. Each entry maps a CLI token to its
+# handler. Handlers that always claim the command return None; ``auth`` is
+# the one exception — it returns a bool to delegate back to the server when
+# the subcommand belongs in the server-side `auth` namespace.
+_LOCAL_HANDLERS = {
+    "completion": handle_completion,
+    "context": handle_context,
+    "init": handle_init,
+    "login": handle_login,
+    "settings": handle_settings,
+    "aliases": handle_aliases,
+    "use": handle_use,
+}
+_VERSION_TOKENS = {"version", "--version", "-V"}
+
+
 def handle_local_command(args: list[str], config: Config, printer: RichPrinter) -> bool:
     """Handle a local command.
 
@@ -106,35 +122,18 @@ def handle_local_command(args: list[str], config: Config, printer: RichPrinter) 
     if not args:
         return False
 
-    command = args[0]
-    cmd_args = args[1:]
+    command, cmd_args = args[0], args[1:]
 
-    if command == "completion":
-        handle_completion(cmd_args, config, printer)
-        return True
-    if command == "context":
-        handle_context(cmd_args, config, printer)
-        return True
-    if command == "init":
-        handle_init(cmd_args, config, printer)
-        return True
-    if command == "login":
-        handle_login(cmd_args, config, printer)
-        return True
-    if command == "settings":
-        handle_settings(cmd_args, config, printer)
-        return True
-    if command == "aliases":
-        handle_aliases(cmd_args, config, printer)
-        return True
-    if command == "use":
-        handle_use(cmd_args, config, printer)
-        return True
-    if command in {"version", "--version", "-V"}:
+    if command in _VERSION_TOKENS:
         handle_version(cmd_args, config, printer)
         return True
+
     if command == "auth":
-        # handle_auth returns False if command should go to server
+        # handle_auth returns False if command should go to server.
         return handle_auth(cmd_args, config, printer)
 
-    return False
+    handler = _LOCAL_HANDLERS.get(command)
+    if handler is None:
+        return False
+    handler(cmd_args, config, printer)
+    return True
