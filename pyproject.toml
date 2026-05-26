@@ -6,17 +6,22 @@ authors = [
     { name = "Stefane Fermigier", email = "sf@abilian.com" },
 ]
 readme = "README.md"
-requires-python = ">=3.12,<3.14"
+requires-python = ">=3.10,<3.15"
 
 dependencies = [
     # Workspace
     # "hop3-agent",
     "hop3-server",
     "hop3-cli",
-    "hop3-tui",
+    # hop3-tui and hop3-rootd are 3.12+ only (per their own pyproject.toml).
+    # Marking them conditional here lets the workspace install (and the
+    # cross-version packages — cli/installer/testing — be tested) under
+    # 3.10 / 3.11 too. Once we have evidence those packages can move to
+    # 3.10 the conditional can drop.
+    "hop3-tui; python_version >= '3.12'",
     "hop3-installer",
     "hop3-testing",
-    "hop3-rootd",
+    "hop3-rootd; python_version >= '3.12'",
     # Later
     #    "hop3-lib",
     #    "hop3-web",

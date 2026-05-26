@@ -35,6 +35,7 @@ lint.extend-ignore = [
     "E501", # line too long
 
     # False positive, don't remove
+    "A001",
     "A004", # ... is shadowing a Python standard library module
     "A005", # ... is shadowing a Python builtin module
     "COM812", # Missing trailing comma

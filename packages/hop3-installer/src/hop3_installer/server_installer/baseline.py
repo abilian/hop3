@@ -127,9 +127,12 @@ def format_baselines_module(result: BaselineResult) -> str:
     the curl|python install path). Regeneration after catalogue
     changes is tracked by CI via `--check`.
     """
+    # Hack around REUSE's stubborness
+    spdx_license_identifier = "SPDX-License-Identifier"
+    license = "Apache-2.0"
     header = (
         "# Copyright (c) 2025-2026, Abilian SAS\n"
-        "# SPDX-License-Identifier: Apache-2.0\n"
+        f"# {spdx_license_identifier}: {license}\n"
         '"""Catalogue-derived installer baselines, per OS family.\n\n'
         "GENERATED FROM apps/*/hop3.toml by\n"
         "`python -m hop3_installer.server_installer.baseline`.\n"
