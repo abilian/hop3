@@ -53,28 +53,30 @@ class TestColors:
 
     def test_colors_disable_sets_empty_strings(self):
         """disable() should set all color attributes to empty strings."""
-        # Save original values
-        original_reset = Colors.RESET
-        original_red = Colors.RED
-
-        # Disable colors
-        Colors.disable()
-
-        # Verify all are empty
-        assert Colors.RESET == ""
-        assert Colors.RED == ""
-        assert Colors.GREEN == ""
-        assert Colors.BOLD == ""
-
-        # Restore for other tests (set back to ANSI codes)
-        Colors.RESET = "\033[0m"
-        Colors.BOLD = "\033[1m"
-        Colors.DIM = "\033[2m"
-        Colors.RED = "\033[0;31m"
-        Colors.GREEN = "\033[0;32m"
-        Colors.YELLOW = "\033[0;33m"
-        Colors.BLUE = "\033[0;34m"
-        Colors.CYAN = "\033[0;36m"
+        # Snapshot every color attribute so we restore exactly what was set —
+        # not whatever literal we copy-pasted at test-write time.
+        snapshot = {
+            name: getattr(Colors, name)
+            for name in (
+                "RESET",
+                "BOLD",
+                "DIM",
+                "RED",
+                "GREEN",
+                "YELLOW",
+                "BLUE",
+                "CYAN",
+            )
+        }
+        try:
+            Colors.disable()
+            assert Colors.RESET == ""
+            assert Colors.RED == ""
+            assert Colors.GREEN == ""
+            assert Colors.BOLD == ""
+        finally:
+            for name, value in snapshot.items():
+                setattr(Colors, name, value)
 
 
 # =============================================================================

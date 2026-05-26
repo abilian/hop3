@@ -253,11 +253,13 @@ class BackupManager:
         self.backup_repo.add(backup_record, auto_commit=True)
 
         try:
-            # Backup components
-            # FIXME: not used
-            source_info = self._backup_source(app, backup_dir)
-            data_info = self._backup_data(app, backup_dir)
-            env_info = self._backup_env(app, backup_dir)
+            # Backup components. The helpers create source.tar.gz / data.tar.gz
+            # / env.json in backup_dir; the per-component metadata they return
+            # is redundant with the directory scan below (which computes
+            # checksums + total_size from the actual files), so we discard it.
+            self._backup_source(app, backup_dir)
+            self._backup_data(app, backup_dir)
+            self._backup_env(app, backup_dir)
 
             addons_info = []
             if include_addons:

@@ -634,15 +634,12 @@ class MigrateCmd(Command):
 
         # Extract special workers (prebuild, prerun)
         workers = procfile.workers
-        has_build = False
-        has_run = False
 
         # Build section
         if "prebuild" in workers:
             lines.append("[build]")
             lines.append(f'before-build = "{workers["prebuild"]}"')
             lines.append("")
-            has_build = True
 
         # Run section
         run_workers = {}
@@ -656,7 +653,6 @@ class MigrateCmd(Command):
             for key, value in run_workers.items():
                 lines.append(f'{key} = "{value}"')
             lines.append("")
-            has_run = True
 
         # Other workers (worker, cron, etc.)
         other_workers = {

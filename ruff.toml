@@ -7,6 +7,7 @@ exclude = [
     "tasks.py",
     "docs",
     "demos",
+    "spikes",
 ]
 
 lint.select = [
@@ -31,6 +32,7 @@ lint.extend-ignore = [
     "T20", # flake8-print
     "TD", # flake8-todos
     "FBT",
+    "E501", # line too long
 
     # False positive, don't remove
     "A004", # ... is shadowing a Python standard library module
@@ -60,11 +62,12 @@ lint.extend-ignore = [
     #
     # Fix this (later)
     #
+    "PLW0717", # too-many-statements-in-try-clause
     "PLW2901", # redefined-loop-name
-    "F841", #    unused-variable
     "PLR0917", # too-many-positional-arguments
     "PERF203", # try-except-in-loop
     "TRY301", #  raise-within-try
+    # "F841", #    unused-variable
     "PLR0911", # too-many-return-statements
     "PLR0914", # too-many-locals
     "A002", #    builtin-argument-shadowing

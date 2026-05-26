@@ -53,7 +53,11 @@ class Plugins(Command):
         )
 
     def run(self, *, verbose_plugins: bool = False):
-        app = create_app()
+        # create_app() has the side effect of importing every command and
+        # plugin module, which is what registers them with the plugin
+        # manager. Discarding the return value is intentional: we only need
+        # the registration side effect, not the ASGI app.
+        create_app()
         pm = get_plugin_manager()
 
         if verbose_plugins:

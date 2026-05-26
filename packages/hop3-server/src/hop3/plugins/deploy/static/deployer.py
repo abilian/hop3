@@ -47,9 +47,10 @@ class StaticDeployer:
     def _make_env(self) -> Env:
         """Create environment for nginx configuration.
 
-        Similar to AppLauncher.make_env() but simplified for static apps.
+        Similar to AppLauncher.make_env() but simplified for static apps —
+        no hop3.toml parse needed; we use only the ORM-persisted runtime env
+        plus a small set of safe defaults.
         """
-        app_config = AppConfig.from_dir(self.app.app_path)
         virtualenv_path = self.app.virtualenv_path
 
         # Bootstrap environment

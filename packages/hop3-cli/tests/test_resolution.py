@@ -83,10 +83,9 @@ def test_dotfile_search_stops_at_home(
 ) -> None:
     """Search doesn't escape above $HOME."""
     monkeypatch.delenv("HOP3_APP", raising=False)
-    outside_home = tmp_path.parent
-    # A .hop3-app OUTSIDE the tmp_path tree (above it) must not be found.
-    # We can't easily simulate this with pytest fixtures, but we CAN verify
-    # that if nothing is inside tmp_path, resolution fails (returns unresolved).
+    # We can't easily place a .hop3-app outside tmp_path with pytest fixtures,
+    # but we CAN verify the symmetric property: with nothing inside tmp_path,
+    # resolution must fail rather than wander up the filesystem.
     sub = tmp_path / "a" / "b"
     sub.mkdir(parents=True)
     cfg = _fake_config(default_app="")
