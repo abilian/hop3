@@ -4,7 +4,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 # BuildArtifact is imported from artifacts.py - see ADR 035
 # It includes RuntimeConfig for build/run separation
@@ -429,6 +429,9 @@ class BaseProxy(ABC):
         return result
 
 
+Severity = Literal["ok", "warn", "fail"]
+
+
 @dataclass
 class HealthCheckResult:
     """Result of a health check.
@@ -438,12 +441,26 @@ class HealthCheckResult:
         passed: Whether the check passed
         message: Human-readable status message
         details: Optional dict with additional diagnostic info
+        severity: Explicit severity ("ok" | "warn" | "fail"). When omitted, it
+            is derived from ``passed``. Set it explicitly when the binary
+            pass/fail doesn't capture the right rendering — e.g., an
+            optional service that's unreachable is ``passed=False`` but
+            ``severity="warn"`` (the result is unacceptable from the
+            check's perspective, but the operator can still ship).
     """
 
     name: str
     passed: bool
     message: str
     details: dict[str, Any] = field(default_factory=dict)
+    severity: Severity | None = None
+
+    @property
+    def derived_severity(self) -> Severity:
+        """Resolve the severity, defaulting from ``passed`` when not set."""
+        if self.severity is not None:
+            return self.severity
+        return "ok" if self.passed else "fail"
 
 
 class HealthCheck(Protocol):

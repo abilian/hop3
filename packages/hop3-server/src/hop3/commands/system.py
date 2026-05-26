@@ -1,8 +1,23 @@
-# Copyright (c) 2023-2025, Abilian SAS
+# Copyright (c) 2023-2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""CLI commands."""
+"""`hop3 system` commands.
+
+Four subcommands by design:
+
+- ``system status`` — "Is the server OK?". Full health report + identity
+  header at top. Honours ``--quiet`` and ``--json``.
+- ``system info``   — "What is this server?". Facts only (version, host,
+  IPs, uptime). With ``-v``, lists loaded plugins.
+- ``system logs``   — server logs.
+- ``system cleanup`` — Docker resource cleanup.
+
+The pre-0.5 surface had ``check`` / ``status`` / ``uptime`` / ``ps`` as
+separate commands; they were collapsed (uptime → identity header) or
+removed (``ps aux`` of the host was a security smell). See the plan at
+``local-notes/plans/17-system-commands-redesign.md``.
+"""
 
 from __future__ import annotations
 
@@ -16,8 +31,9 @@ import shutil
 import socket
 import subprocess
 import sys
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from hop3.config import HOP3_ROOT
 from hop3.core.plugins import get_plugin_manager
@@ -27,7 +43,106 @@ from hop3.lib.registry import register
 from hop3.server.health import get_all_health_checks, run_health_check
 
 from ._base import Command
-from ._response import text
+from ._response import data, error, success, text, warning
+
+if TYPE_CHECKING:
+    from hop3.core.protocols import Severity
+
+
+#
+# -- Helpers ------------------------------------------------------------------
+#
+
+_SEVERITY_ICON: dict[Severity, str] = {"ok": "✓", "warn": "⚠", "fail": "✗"}
+_SEVERITY_RANK: dict[Severity, int] = {"ok": 0, "warn": 1, "fail": 2}
+
+
+def _worst(severities: list[Severity]) -> Severity:
+    """Return the most severe entry; defaults to ok if list is empty."""
+    if not severities:
+        return "ok"
+    return max(severities, key=lambda s: _SEVERITY_RANK[s])
+
+
+@dataclass(frozen=True)
+class CheckItem:
+    """One row inside a ``StatusCmd`` section."""
+
+    name: str
+    severity: Severity
+    detail: str = ""
+
+
+@dataclass(frozen=True)
+class CheckSection:
+    """One titled group of related checks."""
+
+    title: str
+    items: list[CheckItem] = field(default_factory=list)
+
+
+def _resolved_ips() -> list[str]:
+    """Best-effort getaddrinfo for the host's own name."""
+    ips: list[str] = []
+    try:
+        addr_info = socket.getaddrinfo(socket.gethostname(), None, socket.AF_UNSPEC)
+    except socket.gaierror:
+        return ips
+    for item in addr_info:
+        ip = str(item[4][0])
+        if (
+            not ip.startswith("127.")
+            and not ip.startswith("::1")
+            and not ip.startswith("fe80")
+            and ip not in ips
+        ):
+            ips.append(ip)
+    return ips
+
+
+def _probed_ip() -> str | None:
+    """Fallback when getaddrinfo gives nothing: ask the kernel which IP it
+    would use to reach a public address. No traffic is actually sent."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+    except OSError:
+        return None
+
+
+def _get_ip_addresses() -> list[str]:
+    """Non-loopback IP addresses of this host."""
+    ips = _resolved_ips()
+    if not ips:
+        probed = _probed_ip()
+        if probed:
+            ips.append(probed)
+    return ips
+
+
+def _get_uptime() -> str | None:
+    """Human-readable host uptime (e.g. '14d 3h'). Linux-only."""
+    try:
+        seconds = float(pathlib.Path("/proc/uptime").read_text().split()[0])
+    except (FileNotFoundError, ValueError, OSError):
+        return None
+    days, rem = divmod(int(seconds), 86400)
+    hours, _ = divmod(rem, 3600)
+    if days:
+        return f"{days}d {hours}h"
+    minutes = rem // 60
+    return f"{hours}h {minutes}m"
+
+
+def _docker_installed() -> bool:
+    """Cheap fact check: is the docker CLI on PATH? No subprocess invocation."""
+    return shutil.which("docker") is not None
+
+
+#
+# -- The 'system' group ------------------------------------------------------
+#
 
 
 @register
@@ -35,589 +150,418 @@ class SystemCmd(Command):
     """Manage the hop3 system.
 
     Examples:
-        hop3 system check              # Run full health check
-        hop3 system status             # Server status
-        hop3 system info               # Detailed system information
+        hop3 system status             # Full health report
+        hop3 system info               # Facts about this server
+        hop3 system logs               # Server logs
+        hop3 system cleanup            # Reclaim Docker resources
     """
 
     name: ClassVar[tuple[str, ...]] = ("system",)
 
 
+#
+# -- system status (the rich health view) -------------------------------------
+#
+
+
 @register
-class CheckCmd(Command):
-    """Run comprehensive health checks on the Hop3 server.
+class StatusCmd(Command):
+    """Show full health status of the Hop3 server.
 
-    This command verifies that all server components are properly configured
-    and operational. Use this to diagnose issues before deploying applications.
-
-    Checks performed:
-        - Core services (hop3-server, nginx, uwsgi-hop3)
-        - Database addons (PostgreSQL, MySQL) if configured
-        - Redis connectivity if installed
-        - Filesystem permissions and directories
-        - Configuration file validity
-        - SSL certificates
-        - Disk space
-
-    Usage: hop3 system check [options]
+    Default output: one-line identity header + per-section health table.
+    Bottom line summarises warnings and failures.
 
     Options:
-        --verbose, -v    Show detailed output for each check
+        --quiet, -q   One-line summary only (suitable for scripting).
+        --json        Machine-readable JSON output.
+
+    Exit code is non-zero when there is any warning or failure.
 
     Examples:
-        hop3 system check              # Run all health checks
-        hop3 system check --verbose    # Detailed output
+        hop3 system status
+        hop3 system status --quiet
+        hop3 system status --json
     """
 
-    name: ClassVar[tuple[str, ...]] = ("system", "check")
+    name: ClassVar[tuple[str, ...]] = ("system", "status")
 
     def call(self, *args, **kwargs):
-        verbose = "--verbose" in args or "-v" in args
+        quiet = "--quiet" in args or "-q" in args
+        json_mode = "--json" in args
 
-        results = []
-        all_passed = True
+        identity = self._gather_identity()
+        sections = [
+            self._check_services(),
+            self._check_addons(),
+            self._check_filesystem(),
+            self._check_configuration(),
+            self._check_certificates(),
+            self._check_disk(),
+        ]
+        overall = _worst(
+            [item.severity for section in sections for item in section.items]
+        )
 
-        # Header
-        results.append("Hop3 System Health Check")
-        results.append("=" * 50)
-        results.append("")
+        if json_mode:
+            return [data(self._to_json(identity, sections, overall))]
+        if quiet:
+            return [self._render_quiet(overall, sections)]
+        return self._render_rich(identity, sections, overall)
 
-        # 1. Core services
-        services_ok, services_output = self._check_services(verbose)
-        results.extend(services_output)
-        all_passed = all_passed and services_ok
+    # -- gathering --
 
-        # 2. Database addons
-        db_ok, db_output = self._check_databases(verbose)
-        results.extend(db_output)
-        all_passed = all_passed and db_ok
+    def _gather_identity(self) -> dict[str, str]:
+        version = importlib.metadata.version("hop3_server")
+        hostname = socket.gethostname()
+        ips = _get_ip_addresses()
+        uptime = _get_uptime()
+        return {
+            "hostname": hostname,
+            "ip": ips[0] if ips else "unknown",
+            "version": version,
+            "uptime": uptime or "unknown",
+        }
 
-        # 3. Filesystem
-        fs_ok, fs_output = self._check_filesystem(verbose)
-        results.extend(fs_output)
-        all_passed = all_passed and fs_ok
-
-        # 4. Configuration
-        config_ok, config_output = self._check_configuration(verbose)
-        results.extend(config_output)
-        all_passed = all_passed and config_ok
-
-        # 5. SSL certificates
-        ssl_ok, ssl_output = self._check_ssl(verbose)
-        results.extend(ssl_output)
-        all_passed = all_passed and ssl_ok
-
-        # 6. Disk space
-        disk_ok, disk_output = self._check_disk_space(verbose)
-        results.extend(disk_output)
-        all_passed = all_passed and disk_ok
-
-        # 7. Docker (if available)
-        _docker_ok, docker_output = self._check_docker(verbose)
-        results.extend(docker_output)
-        # Docker is optional, don't affect overall status
-
-        # Summary
-        results.append("")
-        results.append("=" * 50)
-        if all_passed:
-            results.append("✓ All checks passed")
-        else:
-            results.append("✗ Some checks failed - review output above")
-
-        return [text("\n".join(results))]
-
-    def _check_services(self, verbose: bool) -> tuple[bool, list[str]]:
-        """Check core system services."""
-        lines = ["Services", "-" * 30]
-        all_ok = True
-
+    def _check_services(self) -> CheckSection:
         services = [
             ("hop3-server", "Hop3 Server"),
             ("nginx", "Nginx"),
             ("uwsgi-hop3", "uWSGI Emperor"),
         ]
-
-        for service_name, display_name in services:
+        items: list[CheckItem] = []
+        for unit, label in services:
             result = subprocess.run(
-                ["systemctl", "is-active", service_name],
+                ["systemctl", "is-active", unit],
                 capture_output=True,
                 text=True,
                 check=False,
             )
-            is_active = result.stdout.strip() == "active"
+            active = result.stdout.strip() == "active"
+            items.append(
+                CheckItem(
+                    name=label,
+                    severity="ok" if active else "fail",
+                    detail="running" if active else "not running",
+                )
+            )
+        return CheckSection(title="Services", items=items)
 
-            if is_active:
-                lines.append(f"  ✓ {display_name}: running")
-            else:
-                lines.append(f"  ✗ {display_name}: not running")
-                all_ok = False
-                if verbose:
-                    # Get more details
-                    status_result = subprocess.run(
-                        ["systemctl", "status", service_name, "--no-pager", "-l"],
-                        capture_output=True,
-                        text=True,
-                        check=False,
-                    )
-                    # Show last few lines
-                    status_lines = status_result.stdout.strip().split("\n")[-5:]
-                    for sl in status_lines:
-                        lines.append(f"      {sl}")
+    def _check_addons(self) -> CheckSection:
+        items: list[CheckItem] = []
+        for hc in get_all_health_checks():
+            result = run_health_check(hc)
+            severity = result.derived_severity
+            detail = result.message
+            if severity == "ok":
+                detail = "ok"
+            items.append(
+                CheckItem(name=result.name, severity=severity, detail=detail)
+            )
+        if not items:
+            items.append(
+                CheckItem(
+                    name="(no addons)",
+                    severity="ok",
+                    detail="no health checks registered",
+                )
+            )
+        return CheckSection(title="Backing services", items=items)
 
-        lines.append("")
-        return all_ok, lines
-
-    def _check_databases(self, verbose: bool) -> tuple[bool, list[str]]:
-        """Check database addon connectivity via plugin health checks."""
-        lines = ["Database Addons (via plugins)", "-" * 30]
-        all_ok = True
-
-        # Get all health checks from plugins
-        health_checks = get_all_health_checks()
-
-        if not health_checks:
-            lines.append("  (no health checks registered)")
-            lines.append("")
-            return True, lines
-
-        for check in health_checks:
-            result = run_health_check(check)
-
-            if result.passed:
-                lines.append(f"  ✓ {result.name}: {result.message}")
-                if verbose and result.details:
-                    for key, value in result.details.items():
-                        lines.append(f"      {key}: {value}")
-            else:
-                lines.append(f"  ✗ {result.name}: {result.message}")
-                all_ok = False
-                if verbose:
-                    lines.append("      Check configuration in hop3-server.toml")
-                    if result.details:
-                        for key, value in result.details.items():
-                            lines.append(f"      {key}: {value}")
-
-        lines.append("")
-        return all_ok, lines
-
-    def _check_filesystem(self, verbose: bool) -> tuple[bool, list[str]]:
-        """Check filesystem permissions and directories."""
-        lines = ["Filesystem", "-" * 30]
-        all_ok = True
-
-        required_dirs = [
+    def _check_filesystem(self) -> CheckSection:
+        required = [
             (HOP3_ROOT, "HOP3_ROOT"),
             (HOP3_ROOT / "apps", "Apps directory"),
             (HOP3_ROOT / "nginx", "Nginx config"),
             (HOP3_ROOT / "uwsgi-available", "uWSGI available"),
             (HOP3_ROOT / "uwsgi-enabled", "uWSGI enabled"),
         ]
-
-        for path, name in required_dirs:
-            if path.exists():
-                # Check if writable
-                if os.access(path, os.W_OK):
-                    lines.append(f"  ✓ {name}: exists, writable")
-                else:
-                    lines.append(f"  ✗ {name}: exists but not writable")
-                    all_ok = False
+        items: list[CheckItem] = []
+        for path, label in required:
+            if not path.exists():
+                items.append(
+                    CheckItem(name=label, severity="fail", detail=f"missing ({path})")
+                )
+            elif not os.access(path, os.W_OK):
+                items.append(
+                    CheckItem(name=label, severity="fail", detail="not writable")
+                )
             else:
-                lines.append(f"  ✗ {name}: missing ({path})")
-                all_ok = False
-
-        # Check hop3 user exists
+                items.append(
+                    CheckItem(name=label, severity="ok", detail="writable")
+                )
         try:
             pwd.getpwnam("hop3")
-            lines.append("  ✓ hop3 user: exists")
+            items.append(CheckItem(name="hop3 user", severity="ok", detail="exists"))
         except KeyError:
-            lines.append("  ✗ hop3 user: not found")
-            all_ok = False
+            items.append(
+                CheckItem(name="hop3 user", severity="fail", detail="not found")
+            )
+        return CheckSection(title="Filesystem", items=items)
 
-        lines.append("")
-        return all_ok, lines
-
-    def _check_configuration(self, verbose: bool) -> tuple[bool, list[str]]:
-        """Check configuration file validity."""
-        lines = ["Configuration", "-" * 30]
-        all_ok = True
-
+    def _check_configuration(self) -> CheckSection:
         config_file = HOP3_ROOT / "hop3-server.toml"
+        items: list[CheckItem] = []
+        if not config_file.exists():
+            items.append(
+                CheckItem(
+                    name="Config file",
+                    severity="fail",
+                    detail=f"missing ({config_file})",
+                )
+            )
+            return CheckSection(title="Configuration", items=items)
 
-        if config_file.exists():
-            lines.append(f"  ✓ Config file: {config_file}")
+        items.append(
+            CheckItem(name="Config file", severity="ok", detail=str(config_file))
+        )
+        try:
+            content = config_file.read_text()
+        except OSError as e:
+            items.append(
+                CheckItem(name="Config file", severity="fail", detail=f"read error: {e}")
+            )
+            return CheckSection(title="Configuration", items=items)
 
-            # Check for required settings
-            try:
-                content = config_file.read_text()
-
-                if "HOP3_SECRET_KEY" in content:
-                    lines.append("  ✓ HOP3_SECRET_KEY: configured")
-                else:
-                    lines.append("  ✗ HOP3_SECRET_KEY: missing (required for auth)")
-                    all_ok = False
-
-                # Check database configs (informational)
-                if verbose:
-                    has_pg = "POSTGRES_SUPERUSER_PASSWORD" in content
-                    has_mysql = "MYSQL_SUPERUSER_PASSWORD" in content
-                    lines.append(
-                        f"      PostgreSQL addon: {'configured' if has_pg else 'not configured'}"
-                    )
-                    lines.append(
-                        f"      MySQL addon: {'configured' if has_mysql else 'not configured'}"
-                    )
-
-            except Exception as e:
-                lines.append(f"  ✗ Config file read error: {e}")
-                all_ok = False
+        if "HOP3_SECRET_KEY" in content:
+            items.append(
+                CheckItem(name="HOP3_SECRET_KEY", severity="ok", detail="configured")
+            )
         else:
-            lines.append(f"  ✗ Config file: missing ({config_file})")
-            all_ok = False
+            items.append(
+                CheckItem(
+                    name="HOP3_SECRET_KEY",
+                    severity="fail",
+                    detail="missing (required for auth)",
+                )
+            )
+        return CheckSection(title="Configuration", items=items)
 
-        lines.append("")
-        return all_ok, lines
-
-    def _check_ssl(self, verbose: bool) -> tuple[bool, list[str]]:
-        """Check SSL certificate configuration."""
-        lines = ["SSL Certificates", "-" * 30]
-        all_ok = True
-
+    def _check_certificates(self) -> CheckSection:
         ssl_cert = HOP3_ROOT / "nginx" / "ssl" / "hop3.crt"
         ssl_key = HOP3_ROOT / "nginx" / "ssl" / "hop3.key"
-
         if ssl_cert.exists() and ssl_key.exists():
-            lines.append("  ✓ SSL certificate: configured")
-
-            if verbose:
-                # Check certificate expiry using openssl
-                result = subprocess.run(
-                    ["openssl", "x509", "-in", str(ssl_cert), "-noout", "-enddate"],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-                if result.returncode == 0:
-                    lines.append(f"      {result.stdout.strip()}")
+            item = CheckItem(name="SSL", severity="ok", detail="configured")
         else:
-            lines.append("  ⚠ SSL certificate: not configured (using self-signed)")
-            # This is a warning, not a failure
-            if verbose:
-                lines.append(
-                    "      Apps will work but browsers will show security warnings"
-                )
+            item = CheckItem(
+                name="SSL",
+                severity="warn",
+                detail="self-signed (Let's Encrypt not configured)",
+            )
+        return CheckSection(title="Certificates", items=[item])
 
-        lines.append("")
-        return all_ok, lines
-
-    def _check_disk_space(self, verbose: bool) -> tuple[bool, list[str]]:
-        """Check available disk space."""
-        lines = ["Disk Space", "-" * 30]
-        all_ok = True
-
+    def _check_disk(self) -> CheckSection:
         try:
             usage = shutil.disk_usage(HOP3_ROOT)
-            total_gb = usage.total / (1024**3)
-            used_gb = usage.used / (1024**3)
-            free_gb = usage.free / (1024**3)
-            percent_used = (usage.used / usage.total) * 100
-
-            if percent_used > 90:
-                lines.append(f"  ✗ Disk usage: {percent_used:.1f}% (critical)")
-                all_ok = False
-            elif percent_used > 80:
-                lines.append(f"  ⚠ Disk usage: {percent_used:.1f}% (warning)")
-            else:
-                lines.append(f"  ✓ Disk usage: {percent_used:.1f}%")
-
-            if verbose:
-                lines.append(f"      Total: {total_gb:.1f} GB")
-                lines.append(f"      Used: {used_gb:.1f} GB")
-                lines.append(f"      Free: {free_gb:.1f} GB")
-
-        except Exception as e:
-            lines.append(f"  ✗ Disk check failed: {e}")
-            all_ok = False
-
-        lines.append("")
-        return all_ok, lines
-
-    def _check_docker(self, verbose: bool) -> tuple[bool, list[str]]:
-        """Check Docker availability (optional)."""
-        lines = ["Docker (optional)", "-" * 30]
-
-        try:
-            result = subprocess.run(
-                ["docker", "version", "--format", "{{.Server.Version}}"],
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=5,
+        except OSError as e:
+            return CheckSection(
+                title="Disk",
+                items=[CheckItem(name="Disk usage", severity="fail", detail=str(e))],
             )
-            if result.returncode == 0:
-                version = result.stdout.strip()
-                lines.append(f"  ✓ Docker: {version}")
+        percent = (usage.used / usage.total) * 100
+        if percent > 90:
+            severity: Severity = "fail"
+        elif percent > 80:
+            severity = "warn"
+        else:
+            severity = "ok"
+        return CheckSection(
+            title="Disk",
+            items=[
+                CheckItem(name="Disk usage", severity=severity, detail=f"{percent:.0f}%")
+            ],
+        )
 
-                if verbose:
-                    # Check Docker networks
-                    net_result = subprocess.run(
-                        ["docker", "network", "ls", "-q"],
-                        capture_output=True,
-                        text=True,
-                        check=False,
-                    )
-                    net_count = len(net_result.stdout.strip().split("\n"))
-                    lines.append(f"      Networks: {net_count}")
+    # -- rendering --
 
-                    # Check running containers
-                    cont_result = subprocess.run(
-                        ["docker", "ps", "-q"],
-                        capture_output=True,
-                        text=True,
-                        check=False,
-                    )
-                    containers = cont_result.stdout.strip().split("\n")
-                    cont_count = len([c for c in containers if c])
-                    lines.append(f"      Running containers: {cont_count}")
-            else:
-                lines.append("  - Docker: not available")
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            lines.append("  - Docker: not installed")
+    def _render_rich(
+        self,
+        identity: dict[str, str],
+        sections: list[CheckSection],
+        overall: Severity,
+    ) -> list[dict]:
+        lines: list[str] = []
+        lines.append(
+            f"Hop3 server: {identity['hostname']} ({identity['ip']}) — "
+            f"v{identity['version']} — up {identity['uptime']}"
+        )
+
+        for section in sections:
+            lines.append("")
+            lines.append(section.title)
+            width = max((len(item.name) for item in section.items), default=0)
+            for item in section.items:
+                icon = _SEVERITY_ICON[item.severity]
+                lines.append(
+                    f"  {item.name:<{width}}  {icon} {item.detail}"
+                )
 
         lines.append("")
-        return True, lines  # Docker is optional, always return True
+        summary_text = self._summary_line(overall, sections)
+        # Match the bottom-line summary to the worst severity, so the CLI
+        # can map error()/warning() to a useful exit code without parsing.
+        result: list[dict] = [text("\n".join(lines))]
+        if overall == "fail":
+            result.append(error(summary_text))
+        elif overall == "warn":
+            result.append(warning(summary_text))
+        else:
+            result.append(success(summary_text))
+        return result
+
+    def _render_quiet(
+        self, overall: Severity, sections: list[CheckSection]
+    ) -> dict:
+        if overall == "ok":
+            return success("OK")
+        non_ok = [
+            f"{item.name.lower()} {item.detail}".strip()
+            for section in sections
+            for item in section.items
+            if item.severity != "ok"
+        ]
+        label = "DEGRADED" if overall == "warn" else "FAILED"
+        msg = f"{label}: " + "; ".join(non_ok) if non_ok else label
+        return error(msg) if overall == "fail" else warning(msg)
+
+    def _summary_line(
+        self, overall: Severity, sections: list[CheckSection]
+    ) -> str:
+        warns = sum(
+            1 for s in sections for i in s.items if i.severity == "warn"
+        )
+        fails = sum(
+            1 for s in sections for i in s.items if i.severity == "fail"
+        )
+        if overall == "ok":
+            return "Status: ✓ all OK"
+        parts = []
+        if fails:
+            parts.append(f"{fails} failure{'s' if fails != 1 else ''}")
+        if warns:
+            parts.append(f"{warns} warning{'s' if warns != 1 else ''}")
+        icon = _SEVERITY_ICON[overall]
+        return f"Status: {icon} " + ", ".join(parts)
+
+    def _to_json(
+        self,
+        identity: dict[str, str],
+        sections: list[CheckSection],
+        overall: Severity,
+    ) -> dict:
+        return {
+            "identity": identity,
+            "overall": overall,
+            "sections": [
+                {
+                    "title": s.title,
+                    "items": [
+                        {"name": i.name, "severity": i.severity, "detail": i.detail}
+                        for i in s.items
+                    ],
+                }
+                for s in sections
+            ],
+        }
 
 
-@register
-class UptimeCmd(Command):
-    """Show host server uptime.
-
-    Examples:
-        hop3 system uptime            # Show server uptime
-    """
-
-    name: ClassVar[tuple[str, ...]] = ("system", "uptime")
-
-    def call(self, *args):
-        result = subprocess.run(
-            ["uptime"], capture_output=True, text=True, check=False
-        ).stdout
-        return [text(result)]
-
-
-@register
-class PSCmd(Command):
-    """List all server processes.
-
-    Examples:
-        hop3 ps myapp                  # Show processes for myapp
-        hop3 ps --app myapp            # Same via --app flag
-    """
-
-    name: ClassVar[tuple[str, ...]] = ("system", "ps")
-
-    def call(self, *args):
-        result = subprocess.run(
-            ["ps", "aux"], capture_output=True, text=True, check=False
-        ).stdout
-        return [text(result)]
-
-
-@register
-class StatusCmd(Command):
-    """Show Hop3 system status.
-
-    Examples:
-        hop3 system status            # Show overall server status
-    """
-
-    name: ClassVar[tuple[str, ...]] = ("system", "status")
-
-    def call(self, *args):
-        version = importlib.metadata.version("hop3_server")
-
-        return [text(f"Hop3 version: {version}")]
+#
+# -- system info (facts only, no liveness probes) -----------------------------
+#
 
 
 @register
 class InfoCmd(Command):
-    """Show detailed Hop3 system information.
+    """Show static facts about this server.
 
-    Use --verbose or -v for more details including loaded plugins.
+    No liveness probes — use ``hop3 system status`` for "is everything OK?".
 
+    Options:
+        --verbose, -v   Also list loaded plugins and key paths.
 
     Examples:
-        hop3 system info              # Show detailed system information
+        hop3 system info
+        hop3 system info -v
     """
 
     name: ClassVar[tuple[str, ...]] = ("system", "info")
 
     def call(self, *args, **kwargs):
-        # Parse --verbose/-v from args
         verbose = "--verbose" in args or "-v" in args
 
         version = importlib.metadata.version("hop3_server")
         python_version = sys.version.split()[0]
         os_info = f"{platform.system()} {platform.release()}"
-
-        # Get hostname and IP addresses
         hostname = socket.gethostname()
-        ip_addresses = self._get_ip_addresses()
+        ips = _get_ip_addresses()
+        uptime = _get_uptime() or "unknown"
+        docker = "installed" if _docker_installed() else "not installed"
 
         lines = [
-            "Hop3 System Information",
-            "=" * 40,
             f"Version:        {version}",
             f"Python:         {python_version}",
             f"Platform:       {os_info}",
             f"Hostname:       {hostname}",
-            f"IP Addresses:   {', '.join(ip_addresses) if ip_addresses else 'unknown'}",
+            f"IP Addresses:   {', '.join(ips) if ips else 'unknown'}",
+            f"Uptime:         {uptime}",
+            f"Docker:         {docker}",
         ]
 
-        # Check Docker availability
-        docker_available = self._check_docker()
-        lines.append(
-            f"Docker:         {'available' if docker_available else 'not available'}"
-        )
-
         if verbose:
-            lines.extend(self._get_verbose_info())
+            lines.extend(self._verbose_info())
 
         return [text("\n".join(lines))]
 
-    def _check_docker(self) -> bool:
-        """Check if Docker is available."""
-        try:
-            result = subprocess.run(
-                ["docker", "version", "--format", "{{.Server.Version}}"],
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=5,
-            )
-            return result.returncode == 0
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            return False
-
-    def _get_ip_addresses(self) -> list[str]:
-        """Get non-loopback IP addresses of the host."""
-        ip_addresses = []
-        try:
-            # Get all IPs associated with the hostname
-            hostname = socket.gethostname()
-            # Try to get all addresses
-            try:
-                addr_info = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC)
-                for item in addr_info:
-                    ip = str(item[4][0])
-                    # Skip loopback and link-local addresses
-                    if (
-                        not ip.startswith("127.")
-                        and not ip.startswith("::1")
-                        and not ip.startswith("fe80")
-                    ):
-                        if ip not in ip_addresses:
-                            ip_addresses.append(ip)
-            except socket.gaierror:
-                pass
-
-            # Fallback: try to get the primary IP by connecting to external address
-            if not ip_addresses:
-                try:
-                    # This doesn't actually connect, just determines routing
-                    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                        s.connect(("8.8.8.8", 80))
-                        ip = s.getsockname()[0]
-                        if ip not in ip_addresses:
-                            ip_addresses.append(ip)
-                except OSError:
-                    pass
-
-        except Exception:
-            pass
-
-        return ip_addresses
-
-    def _get_verbose_info(self) -> list[str]:
-        """Get verbose information including plugins."""
-        lines = [
-            "",
-            "Loaded Plugins",
-            "-" * 40,
-        ]
-
+    def _verbose_info(self) -> list[str]:
+        lines = ["", "Loaded plugins"]
         pm = get_plugin_manager()
 
-        # Get builders
-        builder_classes = []
-        for sublist in pm.hook.get_builders():
-            builder_classes.extend(sublist)
-        if builder_classes:
-            lines.append("Builders:")
-            for cls in builder_classes:
-                lines.append(f"  - {cls.__name__}")
-        else:
-            lines.append("Builders: (none loaded)")
+        def _collect(hook_name: str) -> list:
+            classes: list = []
+            for sublist in getattr(pm.hook, hook_name)():
+                classes.extend(sublist)
+            return classes
 
-        # Get deployers
-        deployer_classes = []
-        for sublist in pm.hook.get_deployers():
-            deployer_classes.extend(sublist)
-        if deployer_classes:
-            lines.append("Deployers:")
-            for cls in deployer_classes:
-                # Try to get the 'name' attribute if it exists
-                name = getattr(cls, "name", cls.__name__)
-                lines.append(f"  - {cls.__name__} (runtime: {name})")
-        else:
-            lines.append("Deployers: (none loaded)")
+        for label, hook in (
+            ("Builders", "get_builders"),
+            ("Deployers", "get_deployers"),
+            ("Toolchains", "get_language_toolchains"),
+        ):
+            classes = _collect(hook)
+            if classes:
+                lines.append(f"  {label}:")
+                for cls in classes:
+                    name = getattr(cls, "name", cls.__name__)
+                    if name != cls.__name__:
+                        lines.append(f"    - {cls.__name__} ({name})")
+                    else:
+                        lines.append(f"    - {cls.__name__}")
+            else:
+                lines.append(f"  {label}: (none loaded)")
 
-        # Get toolchains
-        toolchain_classes = []
-        for sublist in pm.hook.get_toolchains():
-            toolchain_classes.extend(sublist)
-        if toolchain_classes:
-            lines.append("Toolchains:")
-            for cls in toolchain_classes:
-                lines.append(f"  - {cls.__name__}")
-        else:
-            lines.append("Toolchains: (none loaded)")
-
-        # Check important paths
         lines.extend([
             "",
             "Paths",
-            "-" * 40,
+            f"  HOP3_ROOT:    {HOP3_ROOT}",
+            f"  Apps dir:     {HOP3_ROOT / 'apps'}",
+            f"  Nginx conf:   {HOP3_ROOT / 'nginx'}",
         ])
-        lines.append(f"HOP3_ROOT:      {HOP3_ROOT}")
-        lines.append(f"Apps dir:       {HOP3_ROOT / 'apps'}")
-        lines.append(f"Nginx conf:     {HOP3_ROOT / 'nginx'}")
-
         return lines
 
-        # registries = result["registries"]
-        # print("Configured registries:")
-        # for reg in sorted(registries, key=itemgetter("priority")):
-        #     msg = (
-        #         f'  priority: {reg["priority"]:>2}   '
-        #         f'format: {reg["format"]:<16}   '
-        #         f'url: {reg["url"]}'
-        #     )
-        #     print(msg)
+
+#
+# -- system logs --------------------------------------------------------------
+#
 
 
 @register
 class SystemLogsCmd(Command):
     """Show Hop3 server logs.
 
-    Usage: hop3 system logs [options]
-
     Options:
         -n, --lines N      Number of lines to show (default: 100)
         --since DURATION   Show logs since duration (e.g., 1h, 30m, 1d)
         --level LEVEL      Filter by log level (DEBUG, INFO, WARNING, ERROR)
         --grep PATTERN     Filter lines matching pattern
-        -f, --follow       Follow log output (not yet implemented)
 
     Examples:
         hop3 system logs                    # Last 100 lines
@@ -628,7 +572,6 @@ class SystemLogsCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("system", "logs")
-    # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "lines": {"short": "-n", "type": int, "default": 100},
         "since": {"type": str, "default": ""},
@@ -643,30 +586,24 @@ class SystemLogsCmd(Command):
         level = parsed["level"].upper()
         grep = parsed["grep"]
 
-        # Check if log file exists
         if not DEFAULT_LOG_FILE.exists():
             return [text(f"No log file found at {DEFAULT_LOG_FILE}")]
 
-        # Read log file
         with pathlib.Path(DEFAULT_LOG_FILE).open(encoding="utf-8") as f:
             all_lines = f.readlines()
 
-        # Apply --since filter
         if since:
             cutoff = self._parse_since(since)
             if cutoff:
                 all_lines = self._filter_by_time(all_lines, cutoff)
 
-        # Apply --level filter
         if level:
             all_lines = [ln for ln in all_lines if f"[{level}]" in ln]
 
-        # Apply --grep filter
         if grep:
             pattern = re.compile(grep, re.IGNORECASE)
             all_lines = [ln for ln in all_lines if pattern.search(ln)]
 
-        # Take last N lines
         result_lines = all_lines[-lines:]
 
         if not result_lines:
@@ -675,72 +612,58 @@ class SystemLogsCmd(Command):
         return [text("".join(result_lines))]
 
     def _parse_since(self, since: str):
-        """Parse duration string like '1h', '30m', '1d' into a cutoff datetime."""
         match = re.match(r"^(\d+)([smhd])$", since.lower())
         if not match:
             return None
-
         value = int(match.group(1))
         unit = match.group(2)
-
         delta = {
             "s": timedelta(seconds=value),
             "m": timedelta(minutes=value),
             "h": timedelta(hours=value),
             "d": timedelta(days=value),
         }.get(unit)
-
         if delta:
             return datetime.now(tz=timezone.utc) - delta
         return None
 
     def _filter_by_time(self, lines: list[str], cutoff) -> list[str]:
-        """Filter log lines to only include those after cutoff time."""
-        result = []
+        result: list[str] = []
         for line in lines:
-            # Log format: "2025-12-07 10:15:23 [LEVEL] message"
             if len(line) >= 19:
                 try:
-                    timestamp_str = line[:19]
                     timestamp = datetime.strptime(
-                        timestamp_str, "%Y-%m-%d %H:%M:%S"
+                        line[:19], "%Y-%m-%d %H:%M:%S"
                     ).replace(tzinfo=timezone.utc)
                     if timestamp >= cutoff:
                         result.append(line)
                 except ValueError:
-                    # Line doesn't start with valid timestamp, include it anyway
-                    # (could be continuation of previous log entry)
-                    if result:  # Only if we've started collecting
+                    if result:
                         result.append(line)
         return result
+
+
+#
+# -- system cleanup (Docker resources) ----------------------------------------
+#
 
 
 @register
 class CleanupCmd(Command):
     """Clean up unused Docker resources (networks, images, containers, volumes).
 
-    Usage: hop3 system cleanup [options]
-
     Options:
-        --dry-run       Show what would be cleaned up without actually doing it
+        --dry-run       Show what would be cleaned without doing it
         --all           Also remove unused images (not just dangling ones)
         --volumes       Also prune unused volumes (data loss warning!)
 
-    This command removes:
-        - Stopped containers
-        - Unused networks (not used by any container)
-        - Dangling images (untagged)
-        - Build cache
-
-    With --all:
-        - All unused images (not just dangling)
-
-    With --volumes:
-        - Unused volumes (WARNING: may cause data loss!)
+    Removes by default: stopped containers, unused networks, dangling
+    images, build cache. With --all also unused images; with --volumes
+    also unused volumes (may cause data loss).
 
     Examples:
         hop3 system cleanup                # Safe cleanup
-        hop3 system cleanup --dry-run      # Preview what would be cleaned
+        hop3 system cleanup --dry-run      # Preview
         hop3 system cleanup --all          # Include unused images
         hop3 system cleanup --volumes      # Include volumes (careful!)
     """
@@ -752,48 +675,34 @@ class CleanupCmd(Command):
         include_all = "--all" in args
         include_volumes = "--volumes" in args
 
-        results = []
-
+        results: list[str] = []
         if dry_run:
             results.append("=== DRY RUN - No changes will be made ===\n")
 
-        # 1. Network cleanup (most important for the network exhaustion issue)
         results.append(self._cleanup_networks(dry_run))
-
-        # 2. Container cleanup
         results.append(self._cleanup_containers(dry_run))
-
-        # 3. Image cleanup
         results.append(self._cleanup_images(dry_run, include_all))
-
-        # 4. Volume cleanup (only if explicitly requested)
         if include_volumes:
             results.append(self._cleanup_volumes(dry_run))
-
-        # 5. Build cache cleanup
         results.append(self._cleanup_build_cache(dry_run))
 
         return [text("\n".join(results))]
 
     def _cleanup_networks(self, dry_run: bool) -> str:
-        """Clean up unused Docker networks."""
         lines = ["Docker Networks:"]
-
         if dry_run:
-            # List networks that would be removed
             result = subprocess.run(
                 ["docker", "network", "ls", "--filter", "dangling=true", "-q"],
                 capture_output=True,
                 text=True,
                 check=False,
             )
-            network_ids = result.stdout.strip().split("\n")
-            network_ids = [n for n in network_ids if n]
-
-            if network_ids:
-                lines.append(f"  Would remove {len(network_ids)} unused network(s)")
-            else:
-                lines.append("  No unused networks to remove")
+            ids = [n for n in result.stdout.strip().split("\n") if n]
+            lines.append(
+                f"  Would remove {len(ids)} unused network(s)"
+                if ids
+                else "  No unused networks to remove"
+            )
         else:
             result = subprocess.run(
                 ["docker", "network", "prune", "-f"],
@@ -802,21 +711,18 @@ class CleanupCmd(Command):
                 check=False,
             )
             if result.returncode == 0:
-                # Parse output for deleted networks
                 output = result.stdout.strip()
-                if "Deleted Networks:" in output:
-                    lines.append(f"  {output}")
-                else:
-                    lines.append("  No unused networks removed")
+                lines.append(
+                    f"  {output}"
+                    if "Deleted Networks:" in output
+                    else "  No unused networks removed"
+                )
             else:
                 lines.append(f"  Error: {result.stderr.strip()}")
-
         return "\n".join(lines)
 
     def _cleanup_containers(self, dry_run: bool) -> str:
-        """Clean up stopped containers."""
         lines = ["Docker Containers:"]
-
         if dry_run:
             result = subprocess.run(
                 ["docker", "ps", "-aq", "--filter", "status=exited"],
@@ -824,15 +730,12 @@ class CleanupCmd(Command):
                 text=True,
                 check=False,
             )
-            container_ids = result.stdout.strip().split("\n")
-            container_ids = [c for c in container_ids if c]
-
-            if container_ids:
-                lines.append(
-                    f"  Would remove {len(container_ids)} stopped container(s)"
-                )
-            else:
-                lines.append("  No stopped containers to remove")
+            ids = [c for c in result.stdout.strip().split("\n") if c]
+            lines.append(
+                f"  Would remove {len(ids)} stopped container(s)"
+                if ids
+                else "  No stopped containers to remove"
+            )
         else:
             result = subprocess.run(
                 ["docker", "container", "prune", "-f"],
@@ -841,55 +744,42 @@ class CleanupCmd(Command):
                 check=False,
             )
             if result.returncode == 0:
-                output = result.stdout.strip()
-                if output:
-                    # Count deleted containers
-                    deleted = output.count("Deleted Containers:")
-                    lines.append("  Cleaned up stopped containers")
-                else:
-                    lines.append("  No stopped containers removed")
+                lines.append(
+                    "  Cleaned up stopped containers"
+                    if result.stdout.strip()
+                    else "  No stopped containers removed"
+                )
             else:
                 lines.append(f"  Error: {result.stderr.strip()}")
-
         return "\n".join(lines)
 
     def _cleanup_images(self, dry_run: bool, include_all: bool) -> str:
-        """Clean up unused Docker images."""
         lines = ["Docker Images:"]
-
         prune_args = ["docker", "image", "prune", "-f"]
         if include_all:
             prune_args.append("-a")
 
         if dry_run:
-            # List dangling images
-            filter_arg = "dangling=true" if not include_all else "dangling=false"
             result = subprocess.run(
                 ["docker", "images", "-q", "--filter", "dangling=true"],
                 capture_output=True,
                 text=True,
                 check=False,
             )
-            image_ids = result.stdout.strip().split("\n")
-            image_ids = [i for i in image_ids if i]
-
+            ids = [i for i in result.stdout.strip().split("\n") if i]
             if include_all:
                 lines.append("  Would remove dangling images + all unused images")
-            elif image_ids:
-                lines.append(f"  Would remove {len(image_ids)} dangling image(s)")
+            elif ids:
+                lines.append(f"  Would remove {len(ids)} dangling image(s)")
             else:
                 lines.append("  No dangling images to remove")
         else:
             result = subprocess.run(
-                prune_args,
-                capture_output=True,
-                text=True,
-                check=False,
+                prune_args, capture_output=True, text=True, check=False
             )
             if result.returncode == 0:
                 output = result.stdout.strip()
                 if "Total reclaimed space" in output:
-                    # Extract space reclaimed
                     for line in output.split("\n"):
                         if "Total reclaimed space" in line:
                             lines.append(f"  {line}")
@@ -898,13 +788,10 @@ class CleanupCmd(Command):
                     lines.append("  No images removed")
             else:
                 lines.append(f"  Error: {result.stderr.strip()}")
-
         return "\n".join(lines)
 
     def _cleanup_volumes(self, dry_run: bool) -> str:
-        """Clean up unused Docker volumes."""
         lines = ["Docker Volumes (WARNING: may cause data loss!):"]
-
         if dry_run:
             result = subprocess.run(
                 ["docker", "volume", "ls", "-q", "--filter", "dangling=true"],
@@ -912,13 +799,12 @@ class CleanupCmd(Command):
                 text=True,
                 check=False,
             )
-            volume_ids = result.stdout.strip().split("\n")
-            volume_ids = [v for v in volume_ids if v]
-
-            if volume_ids:
-                lines.append(f"  Would remove {len(volume_ids)} unused volume(s)")
-            else:
-                lines.append("  No unused volumes to remove")
+            ids = [v for v in result.stdout.strip().split("\n") if v]
+            lines.append(
+                f"  Would remove {len(ids)} unused volume(s)"
+                if ids
+                else "  No unused volumes to remove"
+            )
         else:
             result = subprocess.run(
                 ["docker", "volume", "prune", "-f"],
@@ -937,13 +823,10 @@ class CleanupCmd(Command):
                     lines.append("  No volumes removed")
             else:
                 lines.append(f"  Error: {result.stderr.strip()}")
-
         return "\n".join(lines)
 
     def _cleanup_build_cache(self, dry_run: bool) -> str:
-        """Clean up Docker build cache."""
         lines = ["Docker Build Cache:"]
-
         if dry_run:
             result = subprocess.run(
                 ["docker", "builder", "du"],
@@ -951,10 +834,11 @@ class CleanupCmd(Command):
                 text=True,
                 check=False,
             )
-            if result.returncode == 0:
-                lines.append("  Would clear build cache")
-            else:
-                lines.append("  Build cache info unavailable")
+            lines.append(
+                "  Would clear build cache"
+                if result.returncode == 0
+                else "  Build cache info unavailable"
+            )
         else:
             result = subprocess.run(
                 ["docker", "builder", "prune", "-f"],
@@ -973,5 +857,4 @@ class CleanupCmd(Command):
                     lines.append("  Build cache cleared")
             else:
                 lines.append(f"  Error: {result.stderr.strip()}")
-
         return "\n".join(lines)

@@ -45,12 +45,19 @@ class RedisHealthCheck:
         return _REDIS_AVAILABLE
 
     def check(self) -> HealthCheckResult:
-        """Test Redis connectivity."""
+        """Test Redis connectivity.
+
+        Redis is an optional addon: when it's unreachable or the client
+        package isn't installed, we return ``passed=False, severity="warn"``
+        so the operator sees ⚠ (not ✓) in ``hop3 system status`` and the
+        overall summary counts it as a warning rather than a hard failure.
+        """
         if not _REDIS_AVAILABLE:
             return HealthCheckResult(
                 name="Redis",
-                passed=True,
-                message="Redis package not installed (skipped)",
+                passed=False,
+                severity="warn",
+                message="redis-py package not installed (skipped)",
             )
 
         try:
@@ -70,12 +77,14 @@ class RedisHealthCheck:
             )
 
         except Exception as e:
-            # Catch all errors including redis.ConnectionError
-            # Redis is optional, so failures are OK
+            # redis.ConnectionError, AuthenticationError, etc. Redis is
+            # optional → warn (not fail) so the server stays "OK overall"
+            # even when redis is intentionally not running.
             return HealthCheckResult(
                 name="Redis",
-                passed=True,
-                message=f"Not accessible: {e}",
+                passed=False,
+                severity="warn",
+                message=f"unreachable — {e}",
             )
 
 

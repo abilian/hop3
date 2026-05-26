@@ -1741,146 +1741,119 @@ eyJ0eXAiOiJKV1QiLCJhbGc...
 
 ## System Commands
 
+Four subcommands answer four distinct questions about the server:
+
+| Command | Answers |
+|---|---|
+| `system status` | *Is the server OK?* — full health report + identity header |
+| `system info` | *What is this server?* — static facts (version, OS, IPs) |
+| `system logs` | *What happened?* — server log tail with filters |
+| `system cleanup` | *Reclaim Docker resources* — networks, images, build cache |
+
+The pre-0.5 commands `system check`, `system uptime`, and `system ps` were removed: `check` was renamed to `status` (it was always the rich health view), `uptime` is now part of the `status` and `info` identity header, and `ps` returned the entire host's process table over RPC and was removed as a security smell. For per-app process info, use `hop3 app processes <app>`.
+
+---
+
 ### `hop3 system status`
 
-Show Hop3 system status.
+Show full health status of the Hop3 server. Default output: one-line identity header (host, IP, version, uptime) followed by per-section health items, then a bottom-line summary.
 
 **Usage:**
 ```bash
-hop3 system status
-```
-
-**Example Output:**
-```
-Hop3 System Status
-
-Version: 0.4.0
-Uptime: 14 days 6 hours
-Applications: 12 running, 3 stopped
-Services: 8 running
-Disk Usage: 45% (23 GB / 50 GB)
-Memory: 62% (4.8 GB / 8 GB)
-```
-
----
-
-### `hop3 system uptime`
-
-Show host server uptime.
-
-**Usage:**
-```bash
-hop3 system uptime
-```
-
----
-
-### `hop3 system ps`
-
-List all server processes.
-
-**Usage:**
-```bash
-hop3 system ps
-```
-
-**Example Output:**
-```
-┌──────────────────────────────────────────────────────────────┐
-│ System Processes                                             │
-├─────────┬────────────┬─────────────────┬───────────┬────────┤
-│ PID     │ App        │ Type            │ CPU       │ Memory │
-├─────────┼────────────┼─────────────────┼───────────┼────────┤
-│ 12345   │ myapp      │ web             │ 2.1%      │ 125 MB │
-│ 12346   │ myapp      │ worker          │ 0.8%      │ 98 MB  │
-│ 12347   │ testapp    │ web             │ 0.2%      │ 67 MB  │
-└─────────┴────────────┴─────────────────┴───────────┴────────┘
-```
-
----
-
-### `hop3 system check`
-
-Run comprehensive health checks on the Hop3 server.
-
-**Usage:**
-```bash
-hop3 system check [--verbose]
+hop3 system status [--quiet|-q] [--json]
 ```
 
 **Options:**
-- `--verbose` - Show detailed check results
+- `--quiet`, `-q` — One-line summary only. For scripts.
+- `--json` — Machine-readable JSON. For dashboards and external monitors.
 
-**What Gets Checked:**
-- Core services (hop3-server, nginx, uwsgi)
-- Database addons (PostgreSQL, MySQL, Redis)
-- Filesystem permissions
-- Disk space
-- SSL certificates
+**Exit code:** non-zero when there is any warning or failure (the command emits an `error`/`warning` response item).
 
----
+**Example output:**
+```
+Hop3 server: hop3-dev (135.181.203.156) — v0.5.0.dev3 — up 14d 3h
 
-### `hop3 system cleanup`
+Services
+  Hop3 Server      ✓ running
+  Nginx            ✓ running
+  uWSGI Emperor    ✓ running
 
-Clean up unused Docker resources (networks, images, containers, volumes).
+Backing services
+  PostgreSQL       ✓ ok
+  MySQL            ✓ ok
+  Redis            ⚠ unreachable — connection refused (127.0.0.1:6379)
+  S3 (minio)       ✓ ok
 
-**Usage:**
-```bash
-hop3 system cleanup [--dry-run]
+Filesystem
+  HOP3_ROOT        ✓ writable
+  Apps directory   ✓ writable
+  Disk usage       ⚠ 86%
+
+Certificates
+  SSL              ⚠ self-signed (Let's Encrypt not configured)
+
+Status: ⚠ 2 warnings
 ```
 
-**Options:**
-- `--dry-run` - Show what would be cleaned without removing anything
-
-**Notes:**
-- Removes dangling images and unused networks
-- Does not remove volumes by default (use `--volumes` flag)
+Severity legend: `✓` ok · `⚠` warning · `✗` failure. Optional services (Redis, Docker) report `⚠` when unreachable rather than `✗` so the overall status stays *degraded* rather than *failed*.
 
 ---
 
 ### `hop3 system info`
 
-Show detailed Hop3 system information.
+Show static facts about this server. No liveness probes — for "is everything OK?", use `system status`.
 
 **Usage:**
 ```bash
-hop3 system info
+hop3 system info [--verbose|-v]
 ```
 
-**Example Output:**
+**Options:**
+- `--verbose`, `-v` — Also list loaded plugins (builders, deployers, toolchains) and key filesystem paths.
+
+**Example output:**
 ```
-Hop3 System Information
-
-Version: 0.4.0
-Python: 3.12.1
-OS: Debian GNU/Linux 12 (bookworm)
-Architecture: x86_64
-
-Paths:
-  HOP3_ROOT: /home/hop3
-  Config: /home/hop3/.config/hop3
-  Apps: /home/hop3/apps
-
-Services:
-  hop3-server: running (pid 1234)
-  nginx: running
-  uwsgi-hop3: running
+Version:        0.5.0.dev3
+Python:         3.12.3
+Platform:       Linux 6.8.0-117-generic
+Hostname:       hop3-dev
+IP Addresses:   135.181.203.156
+Uptime:         14d 3h
+Docker:         installed
 ```
 
 ---
 
 ### `hop3 system logs`
 
-Show Hop3 server logs.
+Show Hop3 server logs from the default log file, with optional time-window, level, and regex filters.
 
 **Usage:**
 ```bash
-hop3 system logs [--lines N] [--follow]
+hop3 system logs [-n N] [--since DURATION] [--level LEVEL] [--grep PATTERN]
 ```
 
 **Options:**
-- `--lines N` - Number of lines to show (default: 100)
-- `--follow` - Follow log output in real-time
+- `-n`, `--lines N` — Number of lines to show (default: 100).
+- `--since DURATION` — Show logs since a duration ago (e.g. `1h`, `30m`, `1d`).
+- `--level LEVEL` — Filter by log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`).
+- `--grep PATTERN` — Filter lines matching a regex (case-insensitive).
+
+---
+
+### `hop3 system cleanup`
+
+Reclaim unused Docker resources: stopped containers, unused networks, dangling images, build cache.
+
+**Usage:**
+```bash
+hop3 system cleanup [--dry-run] [--all] [--volumes]
+```
+
+**Options:**
+- `--dry-run` — Show what would be cleaned without doing it.
+- `--all` — Also remove unused images (not just dangling).
+- `--volumes` — Also prune unused volumes. *May cause data loss.*
 
 ---
 
