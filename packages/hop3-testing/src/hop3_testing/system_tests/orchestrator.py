@@ -351,7 +351,7 @@ class DailyTestOrchestrator:
                 message="Server info not available",
             )
 
-        try:
+        try:  # noqa: PLW0717 — try/except/finally pairs the deploy attempt with `self._deployment.cleanup()` in finally. The DeploymentManager is constructed inside the try, so the cleanup MUST wrap the entire deploy+verify sequence; splitting would either leak temp dirs on early-return paths or duplicate the cleanup at every exit.
             server_ip = self._result.server_info.ipv4
 
             # Auto-detect nix feature from suites
