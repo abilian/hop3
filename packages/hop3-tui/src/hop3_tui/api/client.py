@@ -143,9 +143,17 @@ class Hop3Client:
     # System methods
 
     async def get_system_status(self) -> SystemStatus:
-        """Get system status information."""
-        result = await self._rpc_call(["system", "status"])
-        # Parse result into SystemStatus model
+        """Get system status information.
+
+        STUB: the RPC call is made (so the server is exercised), but the
+        response is not yet parsed. The server returns the rich-text
+        ``system status`` shape; once we surface ``--json`` here and
+        reshape ``SystemStatus`` to match (identity + per-section items +
+        overall severity), this should hand back real data. Until then the
+        TUI dashboard's system pane is intentionally a placeholder.
+        """
+        # TODO(tui): pass --json to the RPC call and parse into SystemStatus.
+        _ = await self._rpc_call(["system", "status"])
         return SystemStatus()
 
     async def get_system_info(self) -> dict[str, Any]:
@@ -156,11 +164,15 @@ class Hop3Client:
     # Backup methods
 
     async def list_backups(self) -> list[Backup]:
-        """Get list of all backups."""
-        result = await self._rpc_call(["backup", "list"])
-        backups: list[Backup] = []
-        # Parse result into Backup models
-        return backups
+        """Get list of all backups.
+
+        STUB: the RPC is invoked but the response is not yet parsed into
+        ``Backup`` models. The TUI backup list will be empty until this
+        parse is wired up.
+        """
+        # TODO(tui): parse the ``backup list`` response into Backup models.
+        _ = await self._rpc_call(["backup", "list"])
+        return []
 
     async def create_backup(self, app_name: str) -> str:
         """Create a backup for an application."""

@@ -45,8 +45,13 @@ IDENTITY = {
 
 
 def test_derived_severity_defaults_from_passed():
-    assert HealthCheckResult(name="X", passed=True, message="m").derived_severity == "ok"
-    assert HealthCheckResult(name="X", passed=False, message="m").derived_severity == "fail"
+    assert (
+        HealthCheckResult(name="X", passed=True, message="m").derived_severity == "ok"
+    )
+    assert (
+        HealthCheckResult(name="X", passed=False, message="m").derived_severity
+        == "fail"
+    )
 
 
 def test_derived_severity_honours_explicit_value():

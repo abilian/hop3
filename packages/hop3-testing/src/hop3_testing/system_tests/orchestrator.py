@@ -763,8 +763,11 @@ class DailyTestOrchestrator:
             elapsed = int(time.time() - start_time)
             remaining = timeout - elapsed
 
-            # Check port first
-            if is_port_open(host, 22, timeout=5):
+            # Check port first. Cap the per-call timeout to whatever's left of
+            # the overall budget so we don't block ~5s past the deadline on
+            # the very last iteration.
+            probe_timeout = min(5, max(1, remaining))
+            if is_port_open(host, 22, timeout=probe_timeout):
                 new_status = "port open, verifying connection"
                 if self.verbose and new_status != last_status:
                     self.console.print(f"    [{elapsed}s] SSH {new_status}...")

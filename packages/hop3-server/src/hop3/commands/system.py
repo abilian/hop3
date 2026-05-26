@@ -198,9 +198,9 @@ class StatusCmd(Command):
             self._check_certificates(),
             self._check_disk(),
         ]
-        overall = _worst(
-            [item.severity for section in sections for item in section.items]
-        )
+        overall = _worst([
+            item.severity for section in sections for item in section.items
+        ])
 
         if json_mode:
             return [data(self._to_json(identity, sections, overall))]
@@ -254,9 +254,7 @@ class StatusCmd(Command):
             detail = result.message
             if severity == "ok":
                 detail = "ok"
-            items.append(
-                CheckItem(name=result.name, severity=severity, detail=detail)
-            )
+            items.append(CheckItem(name=result.name, severity=severity, detail=detail))
         if not items:
             items.append(
                 CheckItem(
@@ -286,9 +284,7 @@ class StatusCmd(Command):
                     CheckItem(name=label, severity="fail", detail="not writable")
                 )
             else:
-                items.append(
-                    CheckItem(name=label, severity="ok", detail="writable")
-                )
+                items.append(CheckItem(name=label, severity="ok", detail="writable"))
         try:
             pwd.getpwnam("hop3")
             items.append(CheckItem(name="hop3 user", severity="ok", detail="exists"))
@@ -318,7 +314,9 @@ class StatusCmd(Command):
             content = config_file.read_text()
         except OSError as e:
             items.append(
-                CheckItem(name="Config file", severity="fail", detail=f"read error: {e}")
+                CheckItem(
+                    name="Config file", severity="fail", detail=f"read error: {e}"
+                )
             )
             return CheckSection(title="Configuration", items=items)
 
@@ -367,7 +365,9 @@ class StatusCmd(Command):
         return CheckSection(
             title="Disk",
             items=[
-                CheckItem(name="Disk usage", severity=severity, detail=f"{percent:.0f}%")
+                CheckItem(
+                    name="Disk usage", severity=severity, detail=f"{percent:.0f}%"
+                )
             ],
         )
 
@@ -391,9 +391,7 @@ class StatusCmd(Command):
             width = max((len(item.name) for item in section.items), default=0)
             for item in section.items:
                 icon = _SEVERITY_ICON[item.severity]
-                lines.append(
-                    f"  {item.name:<{width}}  {icon} {item.detail}"
-                )
+                lines.append(f"  {item.name:<{width}}  {icon} {item.detail}")
 
         lines.append("")
         summary_text = self._summary_line(overall, sections)
@@ -408,9 +406,7 @@ class StatusCmd(Command):
             result.append(success(summary_text))
         return result
 
-    def _render_quiet(
-        self, overall: Severity, sections: list[CheckSection]
-    ) -> dict:
+    def _render_quiet(self, overall: Severity, sections: list[CheckSection]) -> dict:
         if overall == "ok":
             return success("OK")
         non_ok = [
@@ -423,15 +419,9 @@ class StatusCmd(Command):
         msg = f"{label}: " + "; ".join(non_ok) if non_ok else label
         return error(msg) if overall == "fail" else warning(msg)
 
-    def _summary_line(
-        self, overall: Severity, sections: list[CheckSection]
-    ) -> str:
-        warns = sum(
-            1 for s in sections for i in s.items if i.severity == "warn"
-        )
-        fails = sum(
-            1 for s in sections for i in s.items if i.severity == "fail"
-        )
+    def _summary_line(self, overall: Severity, sections: list[CheckSection]) -> str:
+        warns = sum(1 for s in sections for i in s.items if i.severity == "warn")
+        fails = sum(1 for s in sections for i in s.items if i.severity == "fail")
         if overall == "ok":
             return "Status: ✓ all OK"
         parts = []
