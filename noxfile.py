@@ -3,15 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
-import glob
-
 import nox
 
 # Minimal version is 3.10
-PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13"]
+PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
 SUB_REPOS = [
-    # "packages/hop3-agent",
     "packages/hop3-server",
     "packages/hop3-cli",
     "packages/hop3-testing",
@@ -35,7 +32,7 @@ def lint(session: nox.Session):
     session.run("ruff", "check")
     session.run("reuse", "lint", "-q")
 
-    src_dirs = glob.glob("packages/*/src/") + glob.glob("packages/*/tests/")
+    # src_dirs = glob.glob("packages/*/src/") + glob.glob("packages/*/tests/")
     with session.chdir("packages/hop3-server"):
         session.run("deptry", "src")
 
