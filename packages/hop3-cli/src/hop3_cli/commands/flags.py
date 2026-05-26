@@ -78,7 +78,7 @@ class CliFlags:
         return self.verbosity >= 3
 
 
-def _parse_verbosity_flag(arg: str, current: int) -> int | None:
+def _parse_verbosity_flag(arg: str, current: int) -> int | None:  # noqa: PLR0911 — mix of exact matches (--debug/--verbose/--quiet) and pattern matches (-v*/-d*/-q* with length-dependent verbosity); a unified table would have to encode the per-prefix length-to-level math and would read worse than the straight-line cascade.
     """Parse a verbosity-related flag; return the new verbosity or None if not one."""
     if arg == "--debug":
         return 3
@@ -157,8 +157,22 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
     return CliFlags(**state), remaining_args
 
 
-_JSON_FLAGS = {"--json", "-j"}
-_YES_FLAGS = {"-y", "--yes", "--force"}
+# Boolean flags: token → state field to set True. One row per logical flag,
+# with aliases grouped in the tuple key.
+_BOOL_FLAGS: dict[tuple[str, ...], str] = {
+    ("--json", "-j"): "json_output",
+    ("-y", "--yes", "--force"): "skip_confirm",
+    ("--why",): "why",
+    ("--no-alias",): "no_alias",
+    ("--no-input",): "no_input",
+}
+
+# Two-token "--flag value" pairs.
+_PAIR_FLAGS: dict[tuple[str, ...], str] = {
+    ("--context", "-c"): "context",
+    ("--app", "-a"): "app",
+    ("--confirm",): "confirm_value",
+}
 
 
 def _apply_flag(args: list[str], i: int, state: dict[str, Any]) -> int:
@@ -169,32 +183,16 @@ def _apply_flag(args: list[str], i: int, state: dict[str, Any]) -> int:
     """
     arg = args[i]
 
-    if arg in _JSON_FLAGS:
-        state["json_output"] = True
-        return 1
-    if arg in _YES_FLAGS:
-        state["skip_confirm"] = True
-        return 1
-    if arg == "--why":
-        state["why"] = True
-        return 1
-    if arg == "--no-alias":
-        state["no_alias"] = True
-        return 1
-    if arg == "--no-input":
-        state["no_input"] = True
-        return 1
+    for keys, field_name in _BOOL_FLAGS.items():
+        if arg in keys:
+            state[field_name] = True
+            return 1
+
     if arg.startswith("--confirm="):
         state["confirm_value"] = arg.split("=", 1)[1]
         return 1
 
-    # Two-token forms: ``--flag value``.
-    pair_keys = {
-        ("--context", "-c"): "context",
-        ("--app", "-a"): "app",
-        ("--confirm",): "confirm_value",
-    }
-    for keys, field_name in pair_keys.items():
+    for keys, field_name in _PAIR_FLAGS.items():
         if arg in keys and i + 1 < len(args):
             state[field_name] = args[i + 1]
             return 2

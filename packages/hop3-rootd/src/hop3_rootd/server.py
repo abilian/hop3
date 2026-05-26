@@ -128,7 +128,7 @@ def _make_op_context(state: State, state_path: Path, stats: DaemonStats) -> OpCo
     )
 
 
-def dispatch(req: Request, ctx: OpContext) -> Response:
+def dispatch(req: Request, ctx: OpContext) -> Response:  # noqa: PLR0911 — one return per except clause is the canonical exception-translation shape; collapsing them would require a per-exception lookup table whose only payoff is appeasing this lint.
     """Look up the op, run it, translate exceptions into Response errors.
 
     Public for testability. Doesn't touch the audit log; see handle_one().

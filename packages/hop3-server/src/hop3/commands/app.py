@@ -427,7 +427,7 @@ class PingCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "ping")
 
-    def call(self, *args):
+    def call(self, *args):  # noqa: PLR0911 — each return is a distinct HTTP/network outcome (stopped, no-port, success, HTTPError, connection-refused, generic URLError, timeout) with its own formatted response; flattening would just rebuild the same shape with mutable bookkeeping.
         if not args:
             msg = "Usage: hop app ping <app_name> [path]"
             raise ValueError(msg)
