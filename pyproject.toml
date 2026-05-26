@@ -13,15 +13,10 @@ dependencies = [
     # "hop3-agent",
     "hop3-server",
     "hop3-cli",
-    # hop3-tui and hop3-rootd are 3.12+ only (per their own pyproject.toml).
-    # Marking them conditional here lets the workspace install (and the
-    # cross-version packages — cli/installer/testing — be tested) under
-    # 3.10 / 3.11 too. Once we have evidence those packages can move to
-    # 3.10 the conditional can drop.
-    "hop3-tui; python_version >= '3.12'",
+    "hop3-tui",
     "hop3-installer",
     "hop3-testing",
-    "hop3-rootd; python_version >= '3.12'",
+    "hop3-rootd",
     # Later
     #    "hop3-lib",
     #    "hop3-web",
@@ -68,7 +63,7 @@ dev = [
     "urllib3",
     "snoop>=0.6.0",
     "docker>=7.1.0",
-    "validoc>=0.1.1",
+    "validoc>=0.1.1; python_version >= '3.12'",
     # Experimental
     "infer-types~=1.0.0",
     # Installer
@@ -91,8 +86,9 @@ dev = [
     "spdx-tools>=0.8.3",
     "pytest-xdist>=3.8.0",
     "twine>=6.2.0",
-    "dead-code-detector>=0.5.0",
-    "md2typst>=0.3.3",
+    # 3.12+ only; conditional so the workspace can sync under 3.10 / 3.11.
+    "dead-code-detector>=0.5.0; python_version >= '3.12'",
+    "md2typst>=0.3.3; python_version >= '3.12'",
 ]
 
 doc = [
