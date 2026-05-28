@@ -17,12 +17,17 @@ Usage:
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from litestar import Controller, get
 from litestar.exceptions import NotFoundException
 from litestar.response import Stream
 
 from hop3.server.guards import auth_guard
 from hop3.server.streaming import get_stream
+
+if TYPE_CHECKING:
+    from litestar.params import FromPath
 
 
 class StreamController(Controller):
@@ -41,7 +46,7 @@ class StreamController(Controller):
     guards = [auth_guard]  # noqa: RUF012 - base class defines as instance var
 
     @get("/{stream_id:str}")
-    async def stream_logs(self, stream_id: str) -> Stream:
+    async def stream_logs(self, stream_id: FromPath[str]) -> Stream:
         """Stream deployment logs via Server-Sent Events.
 
         Args:
@@ -69,7 +74,7 @@ class StreamController(Controller):
         )
 
     @get("/{stream_id:str}/status")
-    async def stream_status(self, stream_id: str) -> dict:
+    async def stream_status(self, stream_id: FromPath[str]) -> dict:
         """Get current status of a deployment stream.
 
         Args:

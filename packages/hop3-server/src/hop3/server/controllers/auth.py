@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from litestar import Controller, Request, get, post
 from litestar.response import Redirect, Template
@@ -16,6 +17,9 @@ from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
 from hop3.server.security.rate_limit import RateLimiter, RateLimitError
 from hop3.server.security.tokens import validate_magic_token
+
+if TYPE_CHECKING:
+    from litestar.params import FromPath
 
 # Module-level rate limiter shared across all AuthController instances.
 # 5 attempts per IP per minute is enough for legitimate users (typos)
@@ -175,7 +179,7 @@ class AuthController(Controller):
         return Template(template_name="auth/profile.html", context=ctx)
 
     @get("/magic/{token:str}", sync_to_thread=False)
-    def magic_login(self, request: Request, token: str) -> Redirect:
+    def magic_login(self, request: Request, token: FromPath[str]) -> Redirect:
         """Handle magic link login.
 
         Magic links are single-use, short-lived tokens that allow passwordless
