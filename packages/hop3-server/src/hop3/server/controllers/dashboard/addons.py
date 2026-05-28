@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from litestar import Controller, get
 from litestar.response import Redirect, Template
 
@@ -13,6 +15,9 @@ from hop3.core.plugins import get_addon
 from hop3.orm import AddonCredentialRepository
 from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
+
+if TYPE_CHECKING:
+    from litestar.params import FromPath
 
 
 class AddonsController(Controller):
@@ -44,7 +49,7 @@ class AddonsController(Controller):
         return Template(template_name="dashboard/addons.html", context=ctx)
 
     @get("/{addon_name:str}", sync_to_thread=False)
-    def addon_detail(self, addon_name: str) -> Template:
+    def addon_detail(self, addon_name: FromPath[str]) -> Template:
         """Display addon detail page."""
         with get_session() as db_session:
             addon_credential_repo = AddonCredentialRepository(session=db_session)

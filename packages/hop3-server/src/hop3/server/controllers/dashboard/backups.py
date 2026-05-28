@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from litestar import Controller, get, post
 from litestar.response import Redirect, Template
 
@@ -19,6 +21,9 @@ from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
 
 from .helpers import format_size
+
+if TYPE_CHECKING:
+    from litestar.params import FromPath
 
 
 def _get_backup_manager(db_session):
@@ -73,7 +78,7 @@ class BackupsController(Controller):
         return Template(template_name="dashboard/backups.html", context=ctx)
 
     @get("/{backup_id:str}/info", sync_to_thread=False)
-    def backup_info(self, backup_id: str) -> Template | Redirect:
+    def backup_info(self, backup_id: FromPath[str]) -> Template | Redirect:
         """Display detailed backup information."""
         with get_session() as db_session:
             manager = _get_backup_manager(db_session)
@@ -116,7 +121,7 @@ class BackupsController(Controller):
                 return Redirect(path="/dashboard/backups")
 
     @post("/{backup_id:str}/restore", status_code=303, sync_to_thread=False)
-    def backup_restore(self, backup_id: str) -> Redirect:
+    def backup_restore(self, backup_id: FromPath[str]) -> Redirect:
         """Restore a backup."""
         with get_session() as db_session:
             manager = _get_backup_manager(db_session)
@@ -133,7 +138,7 @@ class BackupsController(Controller):
         return Redirect(path="/dashboard/backups")
 
     @post("/{backup_id:str}/delete", status_code=303, sync_to_thread=False)
-    def backup_delete(self, backup_id: str) -> Redirect:
+    def backup_delete(self, backup_id: FromPath[str]) -> Redirect:
         """Delete a backup."""
         with get_session() as db_session:
             manager = _get_backup_manager(db_session)

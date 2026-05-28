@@ -20,7 +20,7 @@ from typing import Annotated
 
 from litestar import Controller, get, post
 from litestar.enums import RequestEncodingType
-from litestar.params import Body
+from litestar.params import Body, FromPath
 from litestar.response import File, Redirect, Template
 
 from hop3.orm import App, AppRepository, EnvVar
@@ -110,7 +110,7 @@ class MarketplaceController(Controller):
     # AUDIT: guards=[] is intentional — the marketplace catalog is
     # public by design. See notes/security.md §3.6.1.
     @get("/icons/{app_id:str}", status_code=200, sync_to_thread=False, guards=[])
-    def marketplace_icon(self, app_id: str) -> File | Redirect:
+    def marketplace_icon(self, app_id: FromPath[str]) -> File | Redirect:
         """Serve app icon from the marketplace directory.
 
         Icons are stored in each app's directory as icon.webp or icon.png.
@@ -165,7 +165,7 @@ class MarketplaceController(Controller):
     # -------------------------------------------------------------------------
 
     @get("/apps/{app_id:str}", status_code=200, sync_to_thread=False)
-    def marketplace_detail(self, app_id: str) -> Template | Redirect:
+    def marketplace_detail(self, app_id: FromPath[str]) -> Template | Redirect:
         """Display marketplace app detail page.
 
         Shows full app information and install form.
@@ -199,7 +199,7 @@ class MarketplaceController(Controller):
     # -------------------------------------------------------------------------
 
     @get("/category/{category_id:str}", status_code=200, sync_to_thread=False)
-    def marketplace_category(self, category_id: str) -> Template | Redirect:
+    def marketplace_category(self, category_id: FromPath[str]) -> Template | Redirect:
         """Display apps in a specific category."""
         service = MarketplaceService.get_instance()
         category = service.get_category(category_id)
@@ -224,7 +224,7 @@ class MarketplaceController(Controller):
     @post("/apps/{app_id:str}/install", status_code=303, sync_to_thread=True)
     def marketplace_install(
         self,
-        app_id: str,
+        app_id: FromPath[str],
         data: Annotated[
             dict[str, str], Body(media_type=RequestEncodingType.URL_ENCODED)
         ],

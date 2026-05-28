@@ -89,6 +89,7 @@ dev = [
     # 3.12+ only; conditional so the workspace can sync under 3.10 / 3.11.
     "dead-code-detector>=0.5.0; python_version >= '3.12'",
     "md2typst>=0.3.3; python_version >= '3.12'",
+    "libcst>=1.8.6",
 ]
 
 doc = [

@@ -12,7 +12,7 @@ from typing import Annotated
 
 from litestar import Controller, get, post
 from litestar.enums import RequestEncodingType
-from litestar.params import Body
+from litestar.params import Body, FromPath
 from litestar.response import Redirect, Template
 
 from hop3.core.backup import BackupManager
@@ -189,7 +189,7 @@ class AppsController(Controller):
             )
 
     @get("/{app_name:str}", sync_to_thread=False)
-    def app_detail(self, app_name: str) -> Template | Redirect:
+    def app_detail(self, app_name: FromPath[str]) -> Template | Redirect:
         """Display application detail page."""
         with get_session() as db_session:
             app = get_app_or_none(db_session, app_name)
@@ -232,7 +232,7 @@ class AppsController(Controller):
         return Template(template_name="dashboard/app_detail.html", context=ctx)
 
     @get("/{app_name:str}/status", sync_to_thread=False)
-    def app_status(self, app_name: str) -> Template:
+    def app_status(self, app_name: FromPath[str]) -> Template:
         """Get application status (for HTMX polling)."""
         with get_session() as db_session:
             app = get_app_or_none(db_session, app_name)
@@ -261,7 +261,7 @@ class AppsController(Controller):
         return Template(template_name="dashboard/_app_status.html", context=ctx)
 
     @post("/{app_name:str}/restart", status_code=303, sync_to_thread=False)
-    def app_restart(self, app_name: str) -> Redirect:
+    def app_restart(self, app_name: FromPath[str]) -> Redirect:
         """Restart an application."""
         with get_session() as db_session:
             app = get_app_or_none(db_session, app_name)
@@ -284,7 +284,7 @@ class AppsController(Controller):
         return Redirect(path=f"/dashboard/apps/{app_name}")
 
     @post("/{app_name:str}/stop", status_code=303, sync_to_thread=False)
-    def app_stop(self, app_name: str) -> Redirect:
+    def app_stop(self, app_name: FromPath[str]) -> Redirect:
         """Stop an application."""
         with get_session() as db_session:
             app = get_app_or_none(db_session, app_name)
@@ -307,7 +307,7 @@ class AppsController(Controller):
         return Redirect(path=f"/dashboard/apps/{app_name}")
 
     @post("/{app_name:str}/backup", status_code=303, sync_to_thread=False)
-    def app_backup(self, app_name: str) -> Redirect:
+    def app_backup(self, app_name: FromPath[str]) -> Redirect:
         """Create a backup of an application."""
         with get_session() as db_session:
             app = get_app_or_none(db_session, app_name)
