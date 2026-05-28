@@ -6,7 +6,9 @@ from __future__ import annotations
 import nox
 
 # Minimal version is 3.10
-PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+# PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+# Actually, it's 3.11 for now
+PYTHON_VERSIONS = ["3.11", "3.12", "3.13", "3.14"]
 
 SUB_REPOS = [
     "packages/hop3-server",

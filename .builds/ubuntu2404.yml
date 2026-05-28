@@ -57,7 +57,11 @@ tasks:
 
   - nox: |
       cd hop3
-      uv run nox -P 3.12
+      uv run -p 3.11 nox -P 3.11
+      uv run -p 3.12 nox -P 3.12
+      uv run -p 3.13 nox -P 3.13
+      uv run -p 3.14 nox -P 3.14
+      uv run -p 3.15 nox -P 3.15
 
   - docker-tests: |
       cd hop3
