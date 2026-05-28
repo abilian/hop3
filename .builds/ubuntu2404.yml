@@ -26,6 +26,8 @@ packages:
   - libffi-dev
   - libsqlite3-dev
   - libbz2-dev
+  - libxml2-dev
+  - libxslt-dev
   # Extra tools (TODO: remove)
   - rsync
   # For builders
