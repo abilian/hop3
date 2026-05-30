@@ -101,18 +101,18 @@ def resolve_app(
         )
     trace.append(".hop3-app: (not found)")
 
-    # Source 4: hop3.toml [cli].app in CWD or any ancestor
-    found_toml, toml_app = _search_hop3_toml(cwd, home)
-    if toml_app:
-        trace.append(f"hop3.toml ({found_toml}) [cli].app: {toml_app!r}")
-        return AppResolution(
-            app=toml_app,
-            source=f"hop3.toml [cli].app at {found_toml}",
-            trace=tuple(trace),
-        )
-    trace.append("hop3.toml [cli].app: (not set)")
+    # Sources 4 & 5: hop3.toml in CWD or any ancestor — prefer [cli].app
+    # (explicit per-project CLI override) and fall back to [metadata].id
+    # (the project's canonical identity, populated for almost every app).
+    # The [metadata].id fallback is the "I'm physically standing in this
+    # project" source — it outranks the global context default below so
+    # being inside a project directory wins over a sticky `hop3 use` from
+    # another directory.
+    toml_resolution = _resolve_from_hop3_toml(cwd, home, trace)
+    if toml_resolution is not None:
+        return toml_resolution
 
-    # Source 5: active context's default_app
+    # Source 6: active context's default_app
     ctx_name = config.get_current_context_name()
     if ctx_name:
         ctx_app = config.get_default_app()
@@ -153,25 +153,64 @@ def _search_dotfile(
     return None, None
 
 
-def _search_hop3_toml(start: Path, stop_at: Path) -> tuple[Path | None, str | None]:
-    """Search upward for a hop3.toml with [cli].app set."""
+def _resolve_from_hop3_toml(
+    start: Path, stop_at: Path, trace: list[str]
+) -> AppResolution | None:
+    """Walk upward for the nearest hop3.toml; consult [cli].app then [metadata].id.
+
+    [cli].app is the explicit per-project CLI override and wins if set.
+    [metadata].id is the project's canonical identity (the value the server
+    uses) and is populated for almost every app — it's the "I'm physically
+    standing in this project" source.
+
+    Appends trace entries for whichever sub-source resolved (or for both
+    being absent), and returns an AppResolution on hit or None on miss.
+    """
     current = start.resolve()
     stop_at = stop_at.resolve()
     while True:
         candidate = current / "hop3.toml"
         if candidate.is_file():
-            try:
-                data = tomllib.loads(candidate.read_text())
-                cli = data.get("cli", {})
-                app = cli.get("app") if isinstance(cli, dict) else None
-                if isinstance(app, str) and app.strip():
-                    return candidate, app.strip()
-            except (OSError, tomllib.TOMLDecodeError):
-                pass  # Silently skip unparseable hop3.toml
+            cli_app, meta_id = _read_app_keys(candidate)
+            if cli_app:
+                trace.append(f"hop3.toml ({candidate}) [cli].app: {cli_app!r}")
+                return AppResolution(
+                    app=cli_app,
+                    source=f"hop3.toml [cli].app at {candidate}",
+                    trace=tuple(trace),
+                )
+            trace.append(f"hop3.toml ({candidate}) [cli].app: (not set)")
+            if meta_id:
+                trace.append(
+                    f"hop3.toml ({candidate}) [metadata].id: {meta_id!r}"
+                )
+                return AppResolution(
+                    app=meta_id,
+                    source=f"hop3.toml [metadata].id at {candidate}",
+                    trace=tuple(trace),
+                )
+            trace.append(f"hop3.toml ({candidate}) [metadata].id: (not set)")
         if current in {stop_at, current.parent}:
             break
         current = current.parent
-    return None, None
+    trace.append("hop3.toml: (not found)")
+    return None
+
+
+def _read_app_keys(path: Path) -> tuple[str | None, str | None]:
+    """Read ([cli].app, [metadata].id) from a hop3.toml. Either may be None."""
+    try:
+        data = tomllib.loads(path.read_text())
+    except (OSError, tomllib.TOMLDecodeError):
+        return None, None  # Silently skip unparseable hop3.toml
+    cli = data.get("cli", {})
+    cli_app = cli.get("app") if isinstance(cli, dict) else None
+    metadata = data.get("metadata", {})
+    meta_id = metadata.get("id") if isinstance(metadata, dict) else None
+    return (
+        cli_app.strip() if isinstance(cli_app, str) and cli_app.strip() else None,
+        meta_id.strip() if isinstance(meta_id, str) and meta_id.strip() else None,
+    )
 
 
 def format_trace(resolution: AppResolution) -> str:

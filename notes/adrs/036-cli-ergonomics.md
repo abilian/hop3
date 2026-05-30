@@ -127,8 +127,9 @@ When a command requires `--app` and none is given, resolve in order:
 2. `$HOP3_APP` env var
 3. `.hop3-app` file in CWD or any ancestor directory up to `$HOME`
 4. `[cli].app` in `hop3.toml` in CWD or any ancestor
-5. Active context's `default_app` from `~/.config/hop3-cli/state.toml`
-6. Git remote named `hop3` if it uniquely identifies an app on the active context
+5. `[metadata].id` in `hop3.toml` in CWD or any ancestor — the project's canonical name, the "I'm physically standing in this project" source
+6. Active context's `default_app` from `~/.config/hop3-cli/state.toml`
+7. Git remote named `hop3` if it uniquely identifies an app on the active context
 
 Unresolvable → fail with the chain printed and a one-line fix suggested.
 

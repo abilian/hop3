@@ -182,8 +182,12 @@ chain in order, stopping at the first source that supplies a value (ADR 036 D7):
    ancestor up to `$HOME`. Put it in a project repo and every `hop3` invocation
    from within picks up the right app.
 4. **`hop3.toml [cli].app`** - same search path as `.hop3-app`, lower priority.
-5. **Active context's `default_app`** - set via `hop3 use <app>`.
-6. **Git remote named `hop3`** - reserved for future use.
+5. **`hop3.toml [metadata].id`** - the project's canonical name (same value
+   the server uses). The "I'm physically standing in this project" source.
+   Outranks the global default so being inside a project always wins over
+   a sticky `hop3 use` from another directory.
+6. **Active context's `default_app`** - set via `hop3 use <app>`.
+7. **Git remote named `hop3`** - reserved for future use.
 
 Set `--why` on any app-scoped command to see the trace:
 

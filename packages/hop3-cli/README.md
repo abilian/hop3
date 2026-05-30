@@ -50,7 +50,8 @@ Commands that act on a single app (`logs`, `restart`, `config set`, `run`, …) 
 2. `$HOP3_APP` — environment variable for the current shell.
 3. `.hop3-app` — one-line file in CWD or any ancestor up to `$HOME`. Drop it in a project repo and `hop3` from inside picks up the right app.
 4. `hop3.toml [cli].app` — same search path as `.hop3-app`, lower priority.
-5. Active context's `default_app` — set via `hop3 use <app>`.
+5. `hop3.toml [metadata].id` — the project's canonical name. The "I'm physically standing in this project" source; outranks the global default so being inside a project always wins over a sticky `hop3 use` from elsewhere.
+6. Active context's `default_app` — set via `hop3 use <app>`.
 
 Use `hop3 --why <command>` to print the full trace and see which source won. `--why` is diagnostic-only: the command itself is not executed (so `hop3 deploy --why` is safe to run).
 

@@ -131,6 +131,67 @@ def test_context_default_fallback(
     assert "prod" in r.source
 
 
+def test_hop3_toml_metadata_id_resolves(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """[metadata].id alone (no [cli].app) should resolve the app."""
+    monkeypatch.delenv("HOP3_APP", raising=False)
+    (tmp_path / "hop3.toml").write_text('[metadata]\nid = "my-project"\n')
+    cfg = _fake_config(default_app="")
+
+    r = resolve_app(cli_app=None, config=cfg, cwd=tmp_path, home=tmp_path)
+    assert r.app == "my-project"
+    assert "[metadata].id" in r.source
+
+
+def test_metadata_id_outranks_global_context(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: standing inside a project must beat the sticky global default.
+
+    This is the wrong-app-deployed bug we hit in prod: `hop3 use foo`
+    set a global default that followed the user into every directory,
+    including ones containing other projects with their own [metadata].id.
+    """
+    monkeypatch.delenv("HOP3_APP", raising=False)
+    (tmp_path / "hop3.toml").write_text('[metadata]\nid = "ac-sciences"\n')
+    cfg = _fake_config(context_name="dev", default_app="miniflux-native")
+
+    r = resolve_app(cli_app=None, config=cfg, cwd=tmp_path, home=tmp_path)
+    assert r.app == "ac-sciences", (
+        "the project I am physically standing in must win over the "
+        "global sticky default"
+    )
+
+
+def test_cli_app_still_beats_metadata_id(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """[cli].app is more explicit than [metadata].id and keeps priority."""
+    monkeypatch.delenv("HOP3_APP", raising=False)
+    (tmp_path / "hop3.toml").write_text(
+        '[metadata]\nid = "default-name"\n[cli]\napp = "override-name"\n'
+    )
+    cfg = _fake_config(default_app="")
+
+    r = resolve_app(cli_app=None, config=cfg, cwd=tmp_path, home=tmp_path)
+    assert r.app == "override-name"
+
+
+def test_metadata_id_searches_ancestors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The [metadata].id source walks up to the project root, like [cli].app."""
+    monkeypatch.delenv("HOP3_APP", raising=False)
+    (tmp_path / "hop3.toml").write_text('[metadata]\nid = "rooted"\n')
+    sub = tmp_path / "src" / "deep" / "leaf"
+    sub.mkdir(parents=True)
+    cfg = _fake_config(default_app="")
+
+    r = resolve_app(cli_app=None, config=cfg, cwd=sub, home=tmp_path)
+    assert r.app == "rooted"
+
+
 def test_nothing_resolves(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("HOP3_APP", raising=False)
     cfg = _fake_config(context_name="", default_app="")
