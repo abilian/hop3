@@ -189,7 +189,9 @@ def _resolve_and_inject_app(
     positional argument after the command-name tokens. The server's dispatcher
     and command handlers continue to expect the app as first positional.
 
-    If `--why` is set, print the resolution trace before running.
+    If `--why` is set, print the resolution trace and exit (diagnostic-only,
+    the command is NOT executed — running it would turn `hop3 deploy --why`
+    into an actual deploy, which is a footgun).
     If no app can be resolved for an app-scoped command that was invoked
     without an explicit positional, we do NOT error here — the server-side
     command still has its own "missing argument" handling. We just leave
@@ -207,6 +209,8 @@ def _resolve_and_inject_app(
         # or json_output setting. `--why` is an explicit user request for
         # diagnostic output and shouldn't be gated.
         print(format_trace(resolution), file=sys.stderr)
+        # Diagnostic-only: don't run the command. See docstring.
+        sys.exit(ExitCode.SUCCESS)
 
     if not scoped:
         return cli_args

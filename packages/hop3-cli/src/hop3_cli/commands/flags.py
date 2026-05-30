@@ -46,7 +46,8 @@ class CliFlags:
     # chain (env, .hop3-app file, hop3.toml, context default).
     app: str | None = None
 
-    # ADR 036: `--why` prints the resolution trace before running.
+    # ADR 036: `--why` prints the resolution trace and exits without running
+    # the command (diagnostic-only — avoids `hop3 deploy --why` deploying).
     why: bool = False
 
     # ADR 036: `--no-alias` bypasses alias resolution.

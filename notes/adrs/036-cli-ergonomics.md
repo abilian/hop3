@@ -115,7 +115,7 @@ The app is *never* positional. Every command that targets an app takes it via `-
 | `--no-progress` | — | long-running | disable spinners (deferred — no long-running spinners yet) |
 | `--config <path>` | — | all | alternative CLI config file (deferred — use `HOP3_CONFIG_DIR`) |
 | `--no-alias` | — | all | bypass alias resolution |
-| `--why` | — | all | print resolution trace |
+| `--why` | — | all | print resolution trace and exit (diagnostic-only — does not run the command) |
 
 Flags may appear before or after the subcommand. Environment-variable equivalents (e.g., `HOP3_APP`, `HOP3_CONTEXT`) follow the pattern `HOP3_<FLAG>`. `--json` implies non-interactive (no prompts, no colors, no spinners).
 
@@ -138,7 +138,7 @@ Unresolvable → fail with the chain printed and a one-line fix suggested.
 - **Context's default app** lives in the same file under `[contexts.<name>].default_app`. `hop3 use <app>` is sugar for setting the current context's default app.
 - **Context resolution** mirrors app resolution: `--context` flag → `$HOP3_CONTEXT` → `hop3.toml` → `state.toml` → error.
 - **`hop3 context`** (bare) prints the active context + resolved defaults + source. `hop3 use` (bare) prints the resolved app + source.
-- **`--why`** on any command prints the resolution trace before running.
+- **`--why`** on any command prints the resolution trace and exits — diagnostic-only, so `hop3 deploy --why` shows how `<app>` resolves without actually deploying.
 - **Atomic writes** (write-temp + rename); last-write-wins on racing shells.
 
 `hop3 init` interactively creates the first context. `hop3 context add <name>` adds subsequent ones.
