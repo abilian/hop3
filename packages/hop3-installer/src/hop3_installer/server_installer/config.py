@@ -27,6 +27,12 @@ class ServerInstallerConfig:
     skip_nginx: bool = False
     skip_postgres: bool = False
     skip_acme: bool = False
+    # Skip step 4 (hop3-server package install). Used by the deployer when
+    # re-running the installer purely to install features: the package was
+    # already installed in the prior --local/--git/--pypi step, and
+    # reinstalling from PyPI would clobber it (downgrading to whatever
+    # PyPI's latest stable is).
+    skip_package_install: bool = False
     domain: str | None = None
     acme_email: str | None = None  # Email for Let's Encrypt registration
     verbose: bool = False
@@ -74,6 +80,7 @@ class ServerInstallerConfig:
             skip_nginx=env_bool("HOP3_SKIP_NGINX"),
             skip_postgres=env_bool("HOP3_SKIP_POSTGRES"),
             skip_acme=env_bool("HOP3_SKIP_ACME"),
+            skip_package_install=env_bool("HOP3_SKIP_PACKAGE_INSTALL"),
             domain=env_str("HOP3_DOMAIN"),
             acme_email=env_str("HOP3_ACME_EMAIL"),
             verbose=env_bool("HOP3_VERBOSE"),

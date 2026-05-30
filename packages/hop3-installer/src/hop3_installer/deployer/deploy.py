@@ -467,10 +467,14 @@ class Deployer:
             self.log("Failed to upload installer", "error")
             return False
 
-        # Run installer with feature flags, skipping unrelated steps
+        # Run installer with feature flags, skipping unrelated steps.
+        # --skip-package-install is critical: without it, this step
+        # reinstalls hop3-server from PyPI, clobbering whatever the
+        # preceding _update() just installed (local code, specific git
+        # branch, or specific PyPI version).
         install_cmd = f"{python_cmd} -u /tmp/install-server.py"
         install_cmd += f" --with {','.join(self.config.with_features)}"
-        install_cmd += " --skip-nginx --skip-acme"
+        install_cmd += " --skip-nginx --skip-acme --skip-package-install"
         install_cmd += " --verbose"
 
         self.log(f"Running: {install_cmd}")
@@ -493,6 +497,34 @@ class Deployer:
         self.log("Features installed", "success")
         return True
 
+    def _run_migrations(self) -> bool:
+        """Run database migrations via ``hop3-server db:upgrade``.
+
+        Called after the new package is installed but before the server is
+        restarted, so a failed migration leaves the old server still
+        running on the old schema.
+
+        Returns:
+            True if migrations succeeded (or were skipped).
+        """
+        if self.config.skip_migrations:
+            self.log("Skipping migrations (--skip-migrations)", "warning")
+            return True
+
+        self.log("Running database migrations")
+        hop3_server = str(HOP3_SERVER_BIN)
+        result = self.backend.run(
+            f"sudo -u hop3 {hop3_server} db:upgrade",
+            check=False,
+        )
+        if not result.success:
+            self.log("Database migration failed — server NOT restarted", "error")
+            self.log_output(result)
+            return False
+
+        self.log("Migrations applied", "success")
+        return True
+
     def _update_from_git(self) -> bool:
         """Update existing installation from git."""
         self.log("Pulling latest code from git")
@@ -500,13 +532,14 @@ class Deployer:
         # Quote branch name to prevent command injection
         safe_branch = shlex.quote(self.config.branch)
 
-        # Update from git
+        # Install the new code before running migrations and restarting.
+        # Migrations run between install and restart so a schema mismatch
+        # aborts the deploy with the OLD server still running.
         update_commands = [
             "cd /home/hop3/hop3 && git fetch origin",
             f"cd /home/hop3/hop3 && git checkout {safe_branch}",
             f"cd /home/hop3/hop3 && git reset --hard origin/{safe_branch}",
             "cd /home/hop3/hop3 && /home/hop3/venv/bin/pip install -e packages/hop3-server",
-            "systemctl restart hop3-server",
         ]
 
         for cmd in update_commands:
@@ -518,6 +551,10 @@ class Deployer:
                 self.log_output(result)
                 return False
 
+        if not self._run_migrations():
+            return False
+
+        self.backend.run("systemctl restart hop3-server", check=False)
         self.log("Update complete", "success")
         return True
 
@@ -540,12 +577,17 @@ class Deployer:
         pre_flag = (
             "--pre " if self.config.pypi_pre and not self.config.pypi_version else ""
         )
-        pip_cmd = f"{pip} install --upgrade {pre_flag}{package_spec}"
+        pip_cmd = (
+            f"{pip} install --upgrade --upgrade-strategy=eager {pre_flag}{package_spec}"
+        )
 
         result = self.backend.run(pip_cmd, check=False)
         if not result.success:
             self.log("Failed to upgrade package", "error")
             self.log_output(result)
+            return False
+
+        if not self._run_migrations():
             return False
 
         # Restart server
@@ -592,15 +634,37 @@ class Deployer:
             self.log("Failed to upload code", "error")
             return False
 
-        # Install from uploaded code
+        # Uninstall the existing hop3-server *first*, so the install step
+        # writes a fresh .dist-info directory. Without this, repeated
+        # --local deploys can leave stale metadata: the new code lands in
+        # site-packages/hop3/ but the dist-info dir keeps the old version,
+        # so importlib.metadata.version("hop3_server") (used by
+        # `hop3 system info` and elsewhere) reports a stale value.
+        # `pip uninstall` only removes the named package, never its deps,
+        # so this is fast.
+        self.log("Removing stale metadata")
+        self.backend.run(
+            "/home/hop3/venv/bin/pip uninstall -y hop3-server",
+            check=False,
+        )
+
+        # Install from uploaded code. --upgrade-strategy=eager bumps
+        # transitive deps (e.g. litestar) when the new package uses APIs
+        # from a newer version. Without it, a >=X.Y.Z pin that the server
+        # already satisfies at the old floor leaves stale deps in place
+        # and the import fails at runtime.
         self.log("Installing from uploaded code")
         result = self.backend.run(
-            f"/home/hop3/venv/bin/pip install --upgrade {remote_path}",
+            "/home/hop3/venv/bin/pip install "
+            f"--upgrade --upgrade-strategy=eager {remote_path}",
             check=False,
         )
         if not result.success:
             self.log("Failed to install package", "error")
             self.log_output(result)
+            return False
+
+        if not self._run_migrations():
             return False
 
         # Restart server

@@ -10,7 +10,7 @@ readme = "README.md"
 
 dependencies = [
     # Web / app server
-    "litestar[standard]>=2.18.0",
+    "litestar[standard]>=2.22.0",
     "attrs >= 24.2",
     "jinja2",
     "itsdangerous>=2.0.0",

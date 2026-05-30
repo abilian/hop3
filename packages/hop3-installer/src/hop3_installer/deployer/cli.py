@@ -145,6 +145,12 @@ Examples:
         help="Skip installation (only upload code if --local)",
     )
     install.add_argument(
+        "--skip-migrations",
+        action="store_true",
+        help="Skip running database migrations (alembic upgrade head) after install. "
+        "Use only if you intend to run migrations manually.",
+    )
+    install.add_argument(
         "--clean",
         "-c",
         action="store_true",
@@ -260,6 +266,8 @@ def _apply_install_overrides(config: DeployConfig, args: argparse.Namespace) -> 
         config.pypi_pre = True
     if args.skip_install:
         config.skip_install = True
+    if args.skip_migrations:
+        config.skip_migrations = True
     if args.clean:
         config.clean_before = True
     if args.features:

@@ -1968,7 +1968,7 @@ requires-dist = [
     { name = "granian", extras = ["reload"], specifier = ">=2.2.0" },
     { name = "itsdangerous", specifier = ">=2.0.0" },
     { name = "jinja2" },
-    { name = "litestar", extras = ["standard"], specifier = ">=2.18.0" },
+    { name = "litestar", extras = ["standard"], specifier = ">=2.22.0" },
     { name = "markdown", specifier = ">=3.5" },
     { name = "mysql-connector-python", specifier = ">=9.0.0" },
     { name = "pluggy", specifier = "~=1.4" },

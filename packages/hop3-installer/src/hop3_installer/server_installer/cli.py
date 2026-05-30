@@ -107,6 +107,13 @@ Optional Features (--with):
         help="Skip ACME/Let's Encrypt setup",
     )
     parser.add_argument(
+        "--skip-package-install",
+        action="store_true",
+        default=env_config.skip_package_install,
+        help="Skip the hop3-server package install step. "
+        "Use when the package was installed separately (e.g. by hop3-deploy --local).",
+    )
+    parser.add_argument(
         "--domain",
         metavar="DOMAIN",
         default=env_config.domain,
@@ -142,6 +149,7 @@ def config_from_args(args: argparse.Namespace) -> ServerInstallerConfig:
         skip_nginx=args.skip_nginx,
         skip_postgres=args.skip_postgres,
         skip_acme=args.skip_acme,
+        skip_package_install=args.skip_package_install,
         domain=args.domain,
         acme_email=args.acme_email,
         verbose=args.verbose,

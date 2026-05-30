@@ -43,6 +43,7 @@ class DeployConfig:
     pypi_version: str | None = None  # Specific PyPI version
     pypi_pre: bool = False  # Allow pre-release versions from PyPI
     skip_install: bool = False
+    skip_migrations: bool = False
     clean_before: bool = False
     with_features: list[str] = field(default_factory=list)
 
@@ -206,6 +207,7 @@ class DeployConfig:
             pypi_version=env_str("HOP3_PYPI_VERSION"),
             pypi_pre=env_bool("HOP3_PYPI_PRE"),
             clean_before=env_bool("HOP3_CLEAN"),
+            skip_migrations=env_bool("HOP3_SKIP_MIGRATIONS"),
             with_features=features or ["docker"],
             admin_domain=env_str("HOP3_ADMIN_DOMAIN"),
             admin_user=env_str("HOP3_ADMIN_USER", DEFAULT_ADMIN_USER),
