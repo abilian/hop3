@@ -100,6 +100,33 @@ def _install_optional_toolchains(config: ServerInstallerConfig) -> None:
             print_warning(f"Nix installation failed: {e}")
 
 
+def _install_package_step(config: ServerInstallerConfig) -> bool:
+    """Step 4: install the hop3-server Python package.
+
+    Honors ``--skip-package-install`` so callers that installed the
+    package separately (e.g. ``hop3-deploy --local``) can re-run the
+    installer for other steps without clobbering their package install.
+    """
+    print_step(4, TOTAL_STEPS, "Installing hop3-server...")
+    if config.skip_package_install:
+        print_info("Skipping package install (--skip-package-install)")
+        return True
+    try:
+        install_package(config)
+    except CommandError as e:
+        print_error("Failed to install hop3-server")
+        if e.stdout:
+            print_detail("--- stdout ---")
+            for line in e.stdout.strip().split("\n")[-20:]:
+                print_detail(line)
+        if e.stderr:
+            print_detail("--- stderr ---")
+            for line in e.stderr.strip().split("\n")[-20:]:
+                print_detail(line)
+        return False
+    return True
+
+
 def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
     """Run critical installation steps that must succeed.
 
@@ -143,27 +170,18 @@ def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
     _install_optional_toolchains(config)
 
     # Step 3: Virtual environment
+    # Idempotent: keeps an existing venv unless --force is set. Critical
+    # for re-runs (e.g. feature installs), where wiping the venv would
+    # silently destroy the package install done in a prior step.
     print_step(3, TOTAL_STEPS, "Creating virtual environment...")
     try:
-        create_virtual_environment()
+        create_virtual_environment(force=config.force)
     except CommandError as e:
         print_error(f"Failed to create venv: {e.stderr}")
         return False
 
     # Step 4: Install package
-    print_step(4, TOTAL_STEPS, "Installing hop3-server...")
-    try:
-        install_package(config)
-    except CommandError as e:
-        print_error("Failed to install hop3-server")
-        if e.stdout:
-            print_detail("--- stdout ---")
-            for line in e.stdout.strip().split("\n")[-20:]:
-                print_detail(line)
-        if e.stderr:
-            print_detail("--- stderr ---")
-            for line in e.stderr.strip().split("\n")[-20:]:
-                print_detail(line)
+    if not _install_package_step(config):
         return False
 
     # Step 5: Run setup

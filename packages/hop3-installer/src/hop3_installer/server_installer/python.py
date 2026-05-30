@@ -42,9 +42,22 @@ def _get_python_executable() -> str:
     return sys.executable
 
 
-def create_virtual_environment() -> None:
-    """Create Python virtual environment."""
+def create_virtual_environment(*, force: bool = False) -> None:
+    """Create Python virtual environment.
+
+    Idempotent by default: if a working venv already exists at VENV_DIR
+    (i.e. has a usable ``bin/python``), this is a no-op. Pass ``force=True``
+    to wipe and recreate.
+
+    This used to unconditionally rmtree+recreate, which silently destroyed
+    any prior install — including the one ``hop3-deploy --local`` had just
+    placed there via ``pip install`` in a separate step.
+    """
+    python_in_venv = VENV_DIR / "bin" / "python"
     if VENV_DIR.exists():
+        if not force and python_in_venv.exists():
+            print_info(f"Virtual environment already exists at {VENV_DIR}")
+            return
         shutil.rmtree(VENV_DIR)
 
     python_exe = _get_python_executable()

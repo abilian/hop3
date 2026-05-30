@@ -89,6 +89,18 @@ class TestDeployConfig:
         config = DeployConfig()
         assert config.with_features == ["docker"]
 
+    def test_skip_migrations_default_false(self):
+        """Migrations should run by default; --skip-migrations is opt-in."""
+        config = DeployConfig()
+        assert config.skip_migrations is False
+
+    def test_skip_migrations_from_env(self, monkeypatch):
+        """HOP3_SKIP_MIGRATIONS=1 should set skip_migrations=True."""
+        monkeypatch.setenv("HOP3_SKIP_MIGRATIONS", "1")
+        monkeypatch.setenv("HOP3_DEV_HOST", "example.com")
+        config = DeployConfig.from_env()
+        assert config.skip_migrations is True
+
     def test_custom_features_preserved(self):
         """DeployConfig should preserve custom features."""
         config = DeployConfig(with_features=["redis", "mysql"])
