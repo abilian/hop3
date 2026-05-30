@@ -106,7 +106,7 @@ Flags may appear before or after the subcommand.
 
 ### Diagnostics
 
-- **`--why`** - Print the resolution trace to stderr before running the command. Shows which source supplied `--app`, `--context`, and (if applicable) what the alias resolver did. Useful for "why did it pick THAT app?" debugging.
+- **`--why`** - Print the resolution trace to stderr **and exit** (diagnostic-only — the command is NOT executed). Shows which source supplied `--app`, `--context`, and (if applicable) what the alias resolver did. Safe to use with destructive commands: `hop3 deploy --why` reports the trace without deploying.
 - **`--no-alias`** - Bypass alias resolution. `hop3 --no-alias apps` tries `apps` as a literal command rather than expanding the built-in alias to `app list`.
 
 ### Verbosity

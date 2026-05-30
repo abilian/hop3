@@ -52,7 +52,7 @@ Commands that act on a single app (`logs`, `restart`, `config set`, `run`, …) 
 4. `hop3.toml [cli].app` — same search path as `.hop3-app`, lower priority.
 5. Active context's `default_app` — set via `hop3 use <app>`.
 
-Use `hop3 --why <command>` to print the full trace and see which source won.
+Use `hop3 --why <command>` to print the full trace and see which source won. `--why` is diagnostic-only: the command itself is not executed (so `hop3 deploy --why` is safe to run).
 
 ```bash
 # Explicit (always works):

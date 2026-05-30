@@ -8,10 +8,12 @@ from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from hop3_cli.core.resolution import AppResolution, resolve_app
+from hop3_cli.exit_codes import ExitCode
+from hop3_cli.main import run_command_from_args
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -170,3 +172,53 @@ def test_appresolution_dataclass_is_frozen() -> None:
     r = AppResolution(app="foo", source="test")
     with pytest.raises(FrozenInstanceError):
         r.app = "bar"  # type: ignore[misc]
+
+
+# ---- ADR 036 D14: --why is diagnostic-only (does NOT run the command) ----
+
+
+def _stub_config_for_main() -> MagicMock:
+    cfg = MagicMock()
+    cfg.is_configured.return_value = True
+    cfg.is_authenticated.return_value = True
+    cfg.set_context_override = MagicMock()
+    cfg.get_current_context_name.return_value = "dev"
+    cfg.get_current_context.return_value = None
+    cfg.get_api_url.return_value = None
+    cfg.get_default_app.return_value = "miniflux-native"
+    return cfg
+
+
+def test_why_flag_prints_trace_and_exits_without_running(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`hop3 deploy --why` must NOT trigger the deploy — diagnostic-only.
+
+    Regression for the footgun where `--why` printed the trace and then
+    continued to execute the RPC command (e.g. an actual deploy).
+    """
+    rpc_executed = False
+
+    def _record_rpc_call(*_args, **_kwargs):
+        nonlocal rpc_executed
+        rpc_executed = True
+
+    with (
+        patch(
+            "hop3_cli.main.load_config", side_effect=_stub_config_for_main
+        ),
+        patch(
+            "hop3_cli.main._apply_aliases",
+            side_effect=lambda args, *a, **kw: args,
+        ),
+        patch("hop3_cli.main._execute_rpc_command", side_effect=_record_rpc_call),
+        pytest.raises(SystemExit) as exc_info,
+    ):
+        run_command_from_args(["deploy", "--why"])
+
+    assert exc_info.value.code == ExitCode.SUCCESS
+    assert rpc_executed is False, "`--why` must not execute the underlying command"
+
+    # The trace is written to stderr.
+    captured = capsys.readouterr()
+    assert "resolution" in captured.err.lower() or captured.err
