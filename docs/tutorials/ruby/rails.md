@@ -16,7 +16,7 @@ This guide walks you through deploying a Ruby on Rails 8 application on Hop3. By
 
 Before you begin, ensure you have:
 
-1. **A Hop3 server** - Follow the [Installation Guide](../../get-started/installation.md) if you haven't set one up yet
+1. **A Hop3 server** - Follow the [Installation Guide](../../get-started/server-setup.md) if you haven't set one up yet
 2. **The Hop3 CLI** - Installed on your local machine
 3. **Ruby 3.2+** and **Rails 8+** - Install with `gem install rails`
 4. **PostgreSQL** - Installed locally for development

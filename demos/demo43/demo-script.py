@@ -64,7 +64,7 @@ def run(ctx: DemoContext) -> None:
     pause(ctx.pause_between_steps)
 
     # Clean up any leftover MySQL addon from previous failed runs
-    run_hop3(f"addons:destroy {MYSQL_NAME} --service-type mysql", check=False, show=False)
+    run_hop3(f"addon destroy {MYSQL_NAME} --service-type mysql", check=False, show=False)
 
     # Show app structure
     print_header("Deploying EasyAppointments")
@@ -89,7 +89,7 @@ def run(ctx: DemoContext) -> None:
     # Create MySQL addon
     print_header("Step 1: Create MySQL Database")
     print_step(f"Creating MySQL instance '{MYSQL_NAME}'...")
-    result = run_hop3(f"addons:create mysql {MYSQL_NAME}", check=False)
+    result = run_hop3(f"addon create mysql {MYSQL_NAME}", check=False)
 
     if result.returncode != 0:
         print_warning("MySQL creation failed.")
@@ -111,7 +111,7 @@ def run(ctx: DemoContext) -> None:
     print_header("Step 3: Attach MySQL")
     print_step(f"Attaching '{MYSQL_NAME}' to '{APP_NAME}'...")
     result = run_hop3(
-        f"addons:attach {MYSQL_NAME} --app {APP_NAME} --service-type mysql",
+        f"addon attach {MYSQL_NAME} --app {APP_NAME} --service-type mysql",
         check=False,
     )
     if result.returncode != 0:
@@ -139,10 +139,10 @@ def run(ctx: DemoContext) -> None:
     print_header("Step 6: Cleanup")
     print_step("Detaching and destroying MySQL...")
     run_hop3(
-        f"addons:detach {MYSQL_NAME} --app {APP_NAME} --service-type mysql",
+        f"addon detach {MYSQL_NAME} --app {APP_NAME} --service-type mysql",
         check=False,
     )
-    run_hop3(f"addons:destroy {MYSQL_NAME} --service-type mysql", check=False)
+    run_hop3(f"addon destroy {MYSQL_NAME} --service-type mysql", check=False)
     print_success("MySQL cleaned up.")
 
     cleanup_app(ctx, APP_NAME, app_url)

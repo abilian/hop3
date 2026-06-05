@@ -20,6 +20,7 @@ import sys
 from hop3_installer.common import (
     Colors,
     CommandError,
+    ServiceStartError,
     check_python_version,
     detect_distro,
     print_detail,
@@ -233,11 +234,18 @@ def _run_service_setup_steps(
     except CommandError as e:
         print_warning(f"Nginx setup issue: {e.stderr[:100]}")
 
-    # Step 9b: hop3-rootd (privileged-operations daemon). See ADR 041.
+    # Step 9b: hop3-rootd (privileged-operations daemon, ADR 041). The deploy
+    # path depends on it for nginx reloads, so on systemd hosts a failure is
+    # fatal — we refuse to finish an install that would leave deploys unable
+    # to apply proxy changes. On non-systemd hosts setup_rootd() does the host
+    # prep and returns without starting anything (the process manager owns
+    # activation), so there is nothing to fail here.
     try:
         setup_rootd()
-    except CommandError as e:
-        print_warning(f"hop3-rootd setup issue: {e.stderr[:200]}")
+    except (CommandError, ServiceStartError) as e:
+        print_error(f"hop3-rootd setup failed: {e}")
+        print_info("hop3-rootd is required for deployments (nginx reloads).")
+        raise
 
     # Step 10: PostgreSQL
     print_step(10, TOTAL_STEPS, "Configuring PostgreSQL...")

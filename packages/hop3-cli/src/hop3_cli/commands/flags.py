@@ -32,7 +32,15 @@ class CliFlags:
     """CLI flags that control output and behavior."""
 
     json_output: bool = False  # --json, -j: Machine-readable JSON output
-    skip_confirm: bool = False  # -y, --yes, --force: Skip confirmation prompts
+    skip_confirm: bool = False  # -y, --yes: Skip confirmation prompts
+
+    # ADR 042 §D14: --force is the dedicated bypass for the project-
+    # mismatch guard. It also implies skip_confirm (a --force user has
+    # already opted into "yes really do it"), but the converse is NOT
+    # true: -y/--yes alone must NOT silence the safety guard, or scripts
+    # running `hop3 deploy -y` from the wrong directory deploy to the
+    # wrong app — exactly the scenario the guard exists to prevent.
+    force: bool = False
 
     # Verbosity is now stored as a level (0=quiet, 1=normal, 2=verbose, 3=debug)
     # This allows -vv, -vvv, -qq, etc.
@@ -40,6 +48,11 @@ class CliFlags:
 
     # Context override for multi-server support
     context: str | None = None  # --context <name>: Use a specific context
+
+    # ADR 042: `--server` / `-s` selects a server from the global registry
+    # explicitly. Highest-priority source in the server resolution chain;
+    # bypasses any context-derived server.
+    server: str | None = None
 
     # ADR 036 D5: `--app` / `-a` is always a flag, never positional.
     # ADR 036 D7: if not set, the CLI will resolve one via the app-resolution
@@ -62,6 +75,11 @@ class CliFlags:
     # the command fails with a one-line "use --flag-X" instruction. For
     # automation/CI; complements `--yes` (which says "yes, take action").
     no_input: bool = False
+
+    # ADR 042 §Deploy preview: `--dry-run` prints the deploy plan and
+    # exits without invoking the RPC. Analogous to `--why` but for the
+    # action plan rather than the resolution trace.
+    dry_run: bool = False
 
     @property
     def quiet(self) -> bool:
@@ -136,12 +154,15 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
     state: dict[str, Any] = {
         "json_output": False,
         "skip_confirm": False,
+        "force": False,
         "context": None,
+        "server": None,
         "app": None,
         "why": False,
         "no_alias": False,
         "confirm_value": None,
         "no_input": False,
+        "dry_run": False,
         "verbosity": _get_env_verbosity() or 1,
     }
 
@@ -162,15 +183,23 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
 # with aliases grouped in the tuple key.
 _BOOL_FLAGS: dict[tuple[str, ...], str] = {
     ("--json", "-j"): "json_output",
-    ("-y", "--yes", "--force"): "skip_confirm",
+    ("-y", "--yes"): "skip_confirm",
     ("--why",): "why",
     ("--no-alias",): "no_alias",
     ("--no-input",): "no_input",
+    ("--dry-run",): "dry_run",
 }
+
+
+# --force needs its own row because it sets two flags at once: the
+# §D14 bypass AND skip_confirm (a --force user has implicitly opted
+# into the prompt skip). Handled in _apply_flag.
+_FORCE_FLAG = "--force"
 
 # Two-token "--flag value" pairs.
 _PAIR_FLAGS: dict[tuple[str, ...], str] = {
     ("--context", "-c"): "context",
+    ("--server", "-s"): "server",
     ("--app", "-a"): "app",
     ("--confirm",): "confirm_value",
 }
@@ -183,6 +212,11 @@ def _apply_flag(args: list[str], i: int, state: dict[str, Any]) -> int:
     Returns 1 for boolean/inline flags, 2 for ``--flag value`` pairs.
     """
     arg = args[i]
+
+    if arg == _FORCE_FLAG:
+        state["force"] = True
+        state["skip_confirm"] = True
+        return 1
 
     for keys, field_name in _BOOL_FLAGS.items():
         if arg in keys:

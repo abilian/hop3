@@ -24,8 +24,21 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+def _app_has_column(name: str) -> bool:
+    """True if the live ``app`` table already has column ``name``."""
+    bind = op.get_bind()
+    return name in {col["name"] for col in sa.inspect(bind).get_columns("app")}
+
+
 def upgrade() -> None:
-    """Upgrade schema to add runtime field."""
+    """Upgrade schema to add runtime field.
+
+    Idempotent (see the error_message migration): skip when a create_all DB
+    being adopted already has the column.
+    """
+    if _app_has_column("runtime"):
+        return
+
     # Add runtime column with default value 'uwsgi' for existing apps
     op.add_column(
         "app",

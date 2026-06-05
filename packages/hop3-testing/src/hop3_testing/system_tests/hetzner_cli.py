@@ -107,6 +107,17 @@ Environment variables:
         help="Run tests in random order.",
     )
     run_parser.add_argument(
+        "--with",
+        dest="features",
+        default=None,
+        help=(
+            "Comma-separated server features/addons to install on top of the "
+            "baseline (docker,mysql,postgresql), e.g. '--with redis' or "
+            "'--with redis,nix'. Needed for apps whose hop3.toml declares "
+            "those addons."
+        ),
+    )
+    run_parser.add_argument(
         "--use-local-repo",
         action="store_true",
         help="Use local working directory instead of cloning from git.",
@@ -248,6 +259,10 @@ def _build_overrides(args: argparse.Namespace) -> dict:
         overrides["use_local_repo"] = True
     if args.local_repo_path:
         overrides["local_repo_path"] = args.local_repo_path
+    if args.features:
+        overrides["features"] = [
+            f.strip() for f in args.features.split(",") if f.strip()
+        ]
     return overrides
 
 

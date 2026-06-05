@@ -63,7 +63,7 @@ def run(ctx: DemoContext) -> None:
     pause(ctx.pause_between_steps)
 
     # Clean up any leftover PostgreSQL addon from previous failed runs
-    run_hop3(f"addons:destroy {POSTGRES_NAME} --service-type postgres", check=False, show=False)
+    run_hop3(f"addon destroy {POSTGRES_NAME} --service-type postgres", check=False, show=False)
 
     # Show app structure
     print_header("Deploying Listmonk")
@@ -88,7 +88,7 @@ def run(ctx: DemoContext) -> None:
     # Create PostgreSQL addon
     print_header("Step 1: Create PostgreSQL Database")
     print_step(f"Creating PostgreSQL instance '{POSTGRES_NAME}'...")
-    result = run_hop3(f"addons:create postgres {POSTGRES_NAME}", check=False)
+    result = run_hop3(f"addon create postgres {POSTGRES_NAME}", check=False)
 
     if result.returncode != 0:
         print_warning("PostgreSQL creation failed.")
@@ -110,7 +110,7 @@ def run(ctx: DemoContext) -> None:
     print_header("Step 3: Attach PostgreSQL")
     print_step(f"Attaching '{POSTGRES_NAME}' to '{APP_NAME}'...")
     result = run_hop3(
-        f"addons:attach {POSTGRES_NAME} --app {APP_NAME} --service-type postgres",
+        f"addon attach {POSTGRES_NAME} --app {APP_NAME} --service-type postgres",
         check=False,
     )
     if result.returncode != 0:
@@ -141,10 +141,10 @@ def run(ctx: DemoContext) -> None:
     print_header("Step 7: Cleanup")
     print_step("Detaching and destroying PostgreSQL...")
     run_hop3(
-        f"addons:detach {POSTGRES_NAME} --app {APP_NAME} --service-type postgres",
+        f"addon detach {POSTGRES_NAME} --app {APP_NAME} --service-type postgres",
         check=False,
     )
-    run_hop3(f"addons:destroy {POSTGRES_NAME} --service-type postgres", check=False)
+    run_hop3(f"addon destroy {POSTGRES_NAME} --service-type postgres", check=False)
     print_success("PostgreSQL cleaned up.")
 
     cleanup_app(ctx, APP_NAME, app_url)

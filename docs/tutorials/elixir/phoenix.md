@@ -16,7 +16,7 @@ This guide walks you through deploying a Phoenix (Elixir) application on Hop3. B
 
 Before you begin, ensure you have:
 
-1. **A Hop3 server** - Follow the [Installation Guide](../../get-started/installation.md) if you haven't set one up yet
+1. **A Hop3 server** - Follow the [Installation Guide](../../get-started/server-setup.md) if you haven't set one up yet
 2. **The Hop3 CLI** - Installed on your local machine
 3. **Erlang/OTP 26+** - Install via your package manager or [erlang.org](https://www.erlang.org/)
 4. **Elixir 1.15+** - Install from [elixir-lang.org](https://elixir-lang.org/)

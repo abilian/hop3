@@ -14,11 +14,19 @@ from hop3.orm.app import App
 # access to the values within the .ini file in use.
 config = context.config
 
-# Get database URL from Hop3 config, falling back to alembic.ini
+# Get database URL from Hop3 config, falling back to alembic.ini.
+# Resolution must match hop3.orm.session.get_session_factory exactly, or the
+# db:* CLI commands would operate on a different database than the server:
+#   1. HOP3_DATABASE_URI env var (used by tests and alternative configs)
+#   2. the default SQLite file under HOP3_ROOT
+import os  # noqa: E402
+
 database_url = config.get_main_option("sqlalchemy.url")
 if not database_url or database_url == "driver://user:pass@localhost/dbname":
-    # Use Hop3's default database path
-    database_url = f"sqlite:///{hop3_config.HOP3_ROOT}/hop3.db"
+    database_url = (
+        os.environ.get("HOP3_DATABASE_URI")
+        or f"sqlite:///{hop3_config.HOP3_ROOT}/hop3.db"
+    )
 
 # Override the sqlalchemy.url in the config
 config.set_main_option("sqlalchemy.url", database_url)

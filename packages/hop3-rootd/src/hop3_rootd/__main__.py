@@ -9,7 +9,9 @@ Run via `python -m hop3_rootd` or the `hop3-rootd` console script.
 Startup sequence:
   1. Configure stderr logging (captured by journald under systemd).
   2. Load state.json — refuse to start if missing or corrupt.
-  3. Run reconciliation against the kernel.
+  3. Run reconciliation against the kernel (skipped non-fatally when the nft
+     firewall backend isn't installed — the proxy/process duties don't need
+     it, and crashing here would take them down too).
   4. Open the audit log (creates /var/log/hop3-rootd/ if needed).
   5. Bind/inherit the Unix socket.
   6. Notify systemd READY=1.
@@ -33,10 +35,12 @@ from hop3_rootd.audit import (
     configure_operational_logging,
     logger,
 )
+from hop3_rootd.nft.rule import NftBinaryNotFoundError
 from hop3_rootd.reconcile import reconcile
 from hop3_rootd.server import DEFAULT_SOCKET_PATH, Server
 from hop3_rootd.state import (
     DEFAULT_STATE_PATH,
+    State,
     StateError,
     init_empty,
     load,
@@ -102,6 +106,47 @@ def _sd_notify(msg: str) -> None:
         logger.warning("sd_notify failed: %s", e)
 
 
+def _startup_reconcile(state: State, state_path: Path) -> bool:
+    """Reconcile kernel state at startup. Return True to continue, False to abort.
+
+    A *missing* nft backend is tolerated — the firewall subsystem degrades
+    (firewall ops fail at call time, see server.dispatch) but the daemon stays
+    up to serve its nginx/proxy duties, which don't need nft. Any other
+    reconciliation failure is fatal per ADR 041 §6: a firewall that's expected
+    to work but can't reach the kernel must refuse to start rather than run
+    with an unverified security posture.
+    """
+    try:
+        report = reconcile(state)
+    except NftBinaryNotFoundError as e:
+        # nft isn't installed/allow-listed here — a supported configuration
+        # (containers, restricted VPSes that use Hop3 only for proxy/process
+        # duties). Crashing wouldn't enforce any rules anyway; it would just
+        # also kill the proxy, the failure mode this guards against.
+        log = logger.error if state.rules else logger.warning
+        log(
+            "firewall backend unavailable (%s); skipping firewall "
+            "reconciliation. %d rule(s) in state will NOT be enforced until "
+            "nft is installed. Proxy/process operations are unaffected.",
+            e,
+            len(state.rules),
+        )
+        return True
+    except Exception as e:
+        logger.error("reconciliation failed: %s", e)
+        return False
+
+    save(state, state_path)
+    logger.info(
+        "reconciliation: verified=%d reapplied=%d orphans_removed=%d state_dropped=%d",
+        report.verified,
+        report.reapplied,
+        report.orphans_removed,
+        report.state_dropped,
+    )
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     configure_operational_logging(args.log_level)
@@ -129,20 +174,8 @@ def main(argv: list[str] | None = None) -> int:
         args.state_path,
     )
 
-    try:
-        report = reconcile(state)
-    except Exception as e:
-        logger.error("reconciliation failed: %s", e)
+    if not _startup_reconcile(state, args.state_path):
         return EXIT_RECONCILE_ERROR
-
-    save(state, args.state_path)
-    logger.info(
-        "reconciliation: verified=%d reapplied=%d orphans_removed=%d state_dropped=%d",
-        report.verified,
-        report.reapplied,
-        report.orphans_removed,
-        report.state_dropped,
-    )
 
     audit = AuditLog(args.audit_log)
 

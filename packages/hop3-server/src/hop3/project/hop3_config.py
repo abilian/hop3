@@ -17,11 +17,68 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 import tomllib  # Python 3.11+
 
 from hop3.lib import log
+
+
+class UnknownContextError(KeyError):
+    """Raised when Hop3Config.resolve_context is called with an undeclared name.
+
+    Subclass of KeyError so callers using ``dict.get``-style flow still catch
+    it via ``except KeyError``. The error message includes the list of
+    declared context names so operators see "did you mean..." breadcrumbs.
+    """
+
+
+def _filter_env_internals(raw: Any) -> dict[str, Any]:
+    """Strip env keys that are top-level-only per ADR 042 §Merge semantics.
+
+    Drops:
+    - Sentinel keys starting with ``_`` (``_policy`` and the like).
+    - Nested sub-tables (``computed`` and any other ``[env.<sub>]`` block).
+
+    Returns an empty dict when the input is None or not a dict.
+    """
+    if not isinstance(raw, dict):
+        return {}
+    return {
+        k: v
+        for k, v in raw.items()
+        if not k.startswith("_") and not isinstance(v, dict)
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedContext:
+    """A fully-resolved project deploy target (ADR 042).
+
+    Materialises one `[contexts.<name>]` block into the (server, app,
+    domains, env) tuple that downstream code (deploy preview, CLI dispatch,
+    server-side handlers) actually consumes. Encapsulates the merge rules
+    from ADR 042 §Merge semantics:
+
+    - ``server``: from the context block; required by schema.
+    - ``app``: context override if set, else ``[metadata].id``.
+    - ``domains``: full replacement — context list when present (including
+      ``[]``), else top-level ``[domains].list``. Held as a ``tuple`` for
+      value-semantics immutability.
+    - ``env``: merged map — context env keys override matching top-level
+      keys; unmatched top-level keys inherit. Both sides are filtered of
+      internal sentinels (``_policy``) and nested sub-tables (``computed``)
+      before merging. Held as a ``MappingProxyType`` so the frozen-
+      dataclass guarantee extends to value mutation: callers cannot
+      ``resolved.env['HACKED'] = ...`` and pollute a shared view.
+    """
+
+    name: str
+    server: str
+    app: str
+    domains: tuple[str, ...]
+    env: MappingProxyType[str, Any]
 
 
 def _validation_skip_requested() -> bool:
@@ -484,6 +541,114 @@ class Hop3Config:
         return section.get("_policy", "keep-existing")
 
     # =========================================================================
+    # [contexts] section (ADR 042)
+    # =========================================================================
+    #
+    # Pure data accessors at this stage. Resolution (which context is
+    # "current", how a context resolves to (server, app, domains, env))
+    # lives in the CLI per ADR 042 §Resolution chains and is wired up in
+    # later steps of the implementation order.
+
+    @property
+    def contexts(self) -> dict[str, dict[str, Any]]:
+        """Get the [contexts] section as a dict keyed by context name.
+
+        Each value is the raw context block (``server``, ``app``,
+        ``domains``, ``env``). Returns an empty dict when no [contexts]
+        section is declared.
+        """
+        raw = self._data.get("contexts", {})
+        if not isinstance(raw, dict):
+            return {}
+        # Return only well-formed entries (filter non-dict values defensively;
+        # the schema rejects them but this guard keeps the property useful
+        # when validate=False was passed to from_file).
+        return {k: v for k, v in raw.items() if isinstance(v, dict)}
+
+    @property
+    def context_names(self) -> list[str]:
+        """Declared context names, in TOML declaration order. Empty when none.
+
+        Preserves the order from the user's hop3.toml so `hop3 context list`
+        can show contexts in the order they appear in source rather than
+        alphabetically. Callers wanting sorted order can wrap in ``sorted()``.
+        """
+        return list(self.contexts.keys())
+
+    def get_context(self, name: str) -> dict[str, Any] | None:
+        """Return the raw context block for ``name``, or None if absent."""
+        return self.contexts.get(name)
+
+    def resolve_context(self, name: str) -> ResolvedContext:
+        """Resolve a context name into the (server, app, domains, env) tuple.
+
+        Applies the ADR 042 merge rules:
+
+        - ``app`` falls back to ``[metadata].id`` when the context omits it.
+        - ``domains`` is full-replacement: the context's list (any length,
+          including empty) replaces the top-level ``[domains].list``
+          entirely. When the context omits ``domains``, the top-level list
+          is inherited.
+        - ``env`` is merged: the top-level ``[env]`` view (already filtered
+          of ``_policy`` and ``computed`` by the ``Hop3Config.env`` getter)
+          is the base; the context's env keys overwrite matching base keys.
+
+        Args:
+            name: A context name declared under ``[contexts.<name>]``.
+
+        Returns:
+            ResolvedContext with the merged view.
+
+        Raises:
+            UnknownContextError: if ``name`` is not declared. The error
+                lists the declared context names for "did you mean" hints.
+        """
+        raw = self.contexts.get(name)
+        if raw is None:
+            declared = ", ".join(self.context_names) or "(none declared)"
+            msg = f"Unknown context {name!r}. Declared contexts: {declared}."
+            raise UnknownContextError(msg)
+
+        # ``server`` is required by the schema; the schema validates that.
+        # resolve_context is also called via validate=False paths (e.g. by
+        # tooling that constructs Hop3Config directly), so guard with a
+        # named error rather than a bare KeyError('server').
+        if "server" not in raw:
+            msg = (
+                f"Context {name!r} is missing the required 'server' field. "
+                "Did the config bypass schema validation?"
+            )
+            raise UnknownContextError(msg)
+        server = raw["server"]
+
+        # ``app`` falls back to [metadata].id (which itself may be None for
+        # legacy projects without a metadata block — caller's problem).
+        app = raw.get("app") or self.app_id or ""
+
+        # ``domains``: full replacement. Use `"domains" in raw` (not raw.get)
+        # so an explicit ``domains = []`` blanks the top-level inheritance.
+        if "domains" in raw:
+            domains: tuple[str, ...] = tuple(raw.get("domains") or [])
+        else:
+            domains = tuple(self.domains)
+
+        # ``env``: merge with context-wins. Both sides go through the same
+        # filter — keys starting with "_" (e.g. _policy) and nested sub-
+        # tables (e.g. computed) are top-level-only per ADR 042 §Merge
+        # semantics and must not leak into the resolved env from the
+        # context overlay either.
+        merged_env: dict[str, Any] = dict(self.env)  # base is already filtered
+        merged_env.update(_filter_env_internals(raw.get("env")))
+
+        return ResolvedContext(
+            name=name,
+            server=server,
+            app=app,
+            domains=domains,
+            env=MappingProxyType(merged_env),
+        )
+
+    # =========================================================================
     # [port] section
     # =========================================================================
 
@@ -587,6 +752,9 @@ class Hop3Config:
             "providers": self.providers,  # Deprecated, kept for compatibility
             "workers": self.get_workers_from_run_section(),
             "nix": self._data.get("nix", {}),
+            # Raw context blocks; resolution to (server, app, domains, env)
+            # belongs in the CLI per ADR 042.
+            "contexts": self.contexts,
         }
 
     def __repr__(self) -> str:

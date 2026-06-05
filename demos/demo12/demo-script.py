@@ -109,7 +109,7 @@ def run(ctx: DemoContext) -> None:
     # Create a backup
     print_header("Step 3: Create Backup")
     print_step(f"Creating backup of '{APP_NAME}'...")
-    result = run_hop3(f"backup:create {APP_NAME}", check=False)
+    result = run_hop3(f"backup create {APP_NAME}", check=False)
 
     backup_id = None
     if result.returncode != 0:
@@ -131,8 +131,8 @@ def run(ctx: DemoContext) -> None:
 
     if not backup_id:
         print_warning("Could not extract backup ID from output.")
-        # Try to get it from backup:list
-        list_result = run_hop3(f"backup:list {APP_NAME}", check=False, show=False)
+        # Try to get it from backup list
+        list_result = run_hop3(f"backup list {APP_NAME}", check=False, show=False)
         if list_result.stdout:
             # Look for backup ID in table output (first column after header)
             lines = list_result.stdout.strip().split("\n")
@@ -149,7 +149,7 @@ def run(ctx: DemoContext) -> None:
     if backup_id:
         print_header("Step 4: View Backup Information")
         print_step(f"Getting info for backup {backup_id}...")
-        run_hop3(f"backup:info {backup_id}", check=False)
+        run_hop3(f"backup info {backup_id}", check=False)
         pause(ctx.pause_between_steps)
 
     # Clear the data
@@ -172,7 +172,7 @@ def run(ctx: DemoContext) -> None:
     if backup_id:
         print_header("Step 6: Restore from Backup")
         print_step(f"Restoring from backup {backup_id}...")
-        result = run_hop3(f"backup:restore {backup_id}", check=False)
+        result = run_hop3(f"backup restore {backup_id}", check=False)
 
         if result.returncode != 0:
             print_warning("Restore may have encountered issues.")

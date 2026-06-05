@@ -39,6 +39,77 @@ def _looks_like_unstamped_db(exc: BaseException) -> bool:
     return any(hint in msg for hint in _UNSTAMPED_HINTS)
 
 
+def _database_url() -> str:
+    """Resolve the DB URL the same way ``alembic/env.py`` does.
+
+    Must agree with env.py (and ``orm.session.get_session_factory``) so the
+    adoption check below inspects the very database the migrations will run
+    against.
+    """
+    import os  # noqa: PLC0415
+
+    from hop3 import config as c  # noqa: PLC0415
+
+    return os.environ.get("HOP3_DATABASE_URI") or f"sqlite:///{c.HOP3_ROOT}/hop3.db"
+
+
+def _adopt_unstamped_db(cfg) -> None:
+    """Make an unstamped database safe to ``upgrade`` from base.
+
+    Hop3 historically created its schema via ``metadata.create_all()`` and
+    never stamped Alembic (orm/session.py falls back to create_all). Such a
+    DB already has the current tables/columns but no ``alembic_version`` row,
+    so a plain ``upgrade`` replays every migration from base and the first
+    real delta dies with "duplicate column".
+
+    We detect that state and stamp the *base* revision, then let the caller
+    run ``upgrade``: the delta migrations are idempotent (they skip columns
+    that already exist), so adoption applies only what is genuinely missing —
+    correct whether the create_all DB is at head or slightly behind.
+
+    Cases:
+    - already stamped        -> no-op (normal upgrade follows)
+    - unstamped + populated  -> stamp base (adopt), then upgrade fills gaps
+    - unstamped + empty       -> create_all + stamp head (the initial
+      migration is an empty placeholder, so it cannot build the schema)
+    """
+    from alembic import command  # noqa: PLC0415
+    from alembic.runtime.migration import MigrationContext  # noqa: PLC0415
+    from alembic.script import ScriptDirectory  # noqa: PLC0415
+    from sqlalchemy import create_engine, inspect  # noqa: PLC0415
+
+    engine = create_engine(_database_url())
+    try:
+        with engine.connect() as conn:
+            current = MigrationContext.configure(conn).get_current_revision()
+            has_app = inspect(conn).has_table("app")
+
+        if current is not None:
+            return  # already under Alembic's control
+
+        if has_app:
+            base = ScriptDirectory.from_config(cfg).get_bases()[0]
+            print(
+                f"Adopting pre-Alembic database (schema present, unstamped): "
+                f"stamping base {base} so only missing migrations apply.",
+                file=sys.stderr,
+            )
+            command.stamp(cfg, base)
+        else:
+            # Empty DB: the initial migration is an empty placeholder, so it
+            # can't create the schema. Build it from the models and stamp head.
+            from hop3.orm.app import App  # noqa: PLC0415
+
+            print(
+                "Empty database: creating schema from models and stamping head.",
+                file=sys.stderr,
+            )
+            App.metadata.create_all(engine)
+            command.stamp(cfg, "head")
+    finally:
+        engine.dispose()
+
+
 def _alembic_config():
     """Build a programmatic Alembic Config pointing at the bundled alembic.ini.
 
@@ -109,6 +180,10 @@ class DbUpgradeCmd(Command):
 
         cfg = _alembic_config()
         try:
+            # Adopt a pre-Alembic (create_all, unstamped) DB before upgrading,
+            # so `upgrade` applies only genuinely-missing migrations instead of
+            # replaying from base against an already-complete schema.
+            _adopt_unstamped_db(cfg)
             command.upgrade(cfg, revision)
         except Exception as exc:
             print(f"Error: migration failed: {exc}", file=sys.stderr)

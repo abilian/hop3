@@ -4,8 +4,10 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lib.context import OutputLevel
@@ -17,6 +19,40 @@ if TYPE_CHECKING:
 
 # Global debug flag (set by demo.py when --debug is used)
 _debug_mode: bool = False
+
+# Env vars the hop3 CLI uses to *steer* resolution (ADR 042, precedence #2 —
+# above any stored config). A developer's shell almost always exports these
+# (e.g. HOP3_SERVER via direnv) pointing at their real server. If they leak
+# into the demo's `hop3` subprocesses they silently override the localhost
+# context the demo logs into, so `hop3 deploy` targets the wrong server and
+# fails the stream auth (302 -> /auth/login). Strip them so resolution falls
+# through to the context the demo established via `hop3 login`.
+_CLI_STEERING_ENV_VARS = ("HOP3_SERVER", "HOP3_APP", "HOP3_CONTEXT")
+
+# A demo-private CLI config home. The hop3 CLI stores config.toml / servers.toml
+# / state.toml under ``$XDG_CONFIG_HOME/hop3-cli`` (ADR 042). Pointing the demo's
+# `hop3` subprocesses at a dedicated dir keeps them off the developer's real
+# ~/.config/hop3-cli (which holds their prod/dev contexts): the demo neither
+# reads those contexts — so resolution lands cleanly on the demo server it logs
+# into — nor clobbers them with its throwaway localhost context.
+_DEMO_CLI_CONFIG_HOME = Path(__file__).resolve().parent.parent / ".cli-home"
+
+
+def cli_env() -> dict[str, str]:
+    """Return the environment for local `hop3` CLI calls.
+
+    Two adjustments over the inherited environment:
+
+    - drop the steering vars (see ``_CLI_STEERING_ENV_VARS``) that would
+      override the demo's logged-in context;
+    - point ``XDG_CONFIG_HOME`` at a demo-private dir so the CLI reads/writes
+      an isolated config (see ``_DEMO_CLI_CONFIG_HOME``).
+    """
+    env = dict(os.environ)
+    for var in _CLI_STEERING_ENV_VARS:
+        env.pop(var, None)
+    env["XDG_CONFIG_HOME"] = str(_DEMO_CLI_CONFIG_HOME)
+    return env
 
 
 def set_debug_mode(*, enabled: bool) -> None:
@@ -178,7 +214,12 @@ def run_hop3(
 
     cmd_start = time.time()
     result = subprocess.run(
-        full_cmd, shell=True, capture_output=True, text=True, check=False
+        full_cmd,
+        shell=True,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=cli_env(),
     )
     cmd_elapsed = time.time() - cmd_start
 

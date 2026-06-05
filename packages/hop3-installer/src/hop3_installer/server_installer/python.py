@@ -24,6 +24,8 @@ from hop3_installer.constants import (
     GIT_REPO,
     HOP3_GROUP,
     HOP3_USER,
+    ROOTD_PACKAGE_NAME,
+    ROOTD_PACKAGE_SUBDIR,
     SERVER_PACKAGE_NAME,
     SERVER_PACKAGE_SUBDIR,
     VENV_DIR,
@@ -104,6 +106,52 @@ def install_package(config: ServerInstallerConfig) -> None:
         run_as_hop3(f"{pip} install {pre_flag}{shlex.quote(package_spec)}")
 
     print_success("hop3-server installed successfully")
+
+    install_rootd_package(config)
+
+
+def install_rootd_package(config: ServerInstallerConfig) -> None:
+    """Install the hop3-rootd daemon into the server venv.
+
+    hop3-rootd (ADR 041) is a separate package the deploy path depends on for
+    privileged operations (nginx reload). hop3-server does not declare it as a
+    dependency, so we install it explicitly alongside, from the same source as
+    the server: a sibling local dir, the git subdirectory, or PyPI.
+    """
+    pip = f"{VENV_DIR}/bin/pip"
+
+    if config.local_path:
+        # Sibling of the server source (the demo uploads /tmp/hop3-rootd
+        # next to /tmp/hop3-server).
+        rootd_path = Path(config.local_path).parent / "hop3-rootd"
+        if not rootd_path.exists():
+            # Don't soft-skip into a confusing later failure: setup_rootd
+            # (step 9b) hard-aborts when the binary is absent. Say so plainly.
+            print_warning(
+                f"hop3-rootd source not found at {rootd_path}. The install will "
+                "abort at the hop3-rootd step — the daemon is required for "
+                "deploys (nginx reloads). Upload it next to the server source "
+                "and re-run."
+            )
+            return
+        package_spec = str(rootd_path)
+        source_desc = f"local path ({rootd_path})"
+    elif config.use_git:
+        package_spec = (
+            f"git+{GIT_REPO}@{config.branch}#subdirectory={ROOTD_PACKAGE_SUBDIR}"
+        )
+        source_desc = f"git ({config.branch} branch)"
+    elif config.version:
+        package_spec = f"{ROOTD_PACKAGE_NAME}=={config.version}"
+        source_desc = f"PyPI (version {config.version})"
+    else:
+        package_spec = ROOTD_PACKAGE_NAME
+        source_desc = "PyPI (latest stable)"
+
+    with Spinner(f"Installing hop3-rootd from {source_desc}..."):
+        run_as_hop3(f"{pip} install {shlex.quote(package_spec)}")
+
+    print_success("hop3-rootd installed successfully")
 
 
 def run_hop3_setup() -> None:

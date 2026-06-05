@@ -7,7 +7,7 @@
 
 # For tests, set HOP3_DEV_HOST in your environment
 
-all: ruff test lint
+all: ruff test lint doc
 
 #
 # Help

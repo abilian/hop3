@@ -261,7 +261,10 @@ code = "Roboto Mono"
 # Icons
 [project.theme.icon]
 logo = "lucide/cloud"
-repo = "lucide/github"
+# Lucide dropped brand icons, so "lucide/github" doesn't exist in the bundled
+# icon set and the repo-link include (partials/source.html) fails the build.
+# Use the FontAwesome GitHub mark (also used for the social link below).
+repo = "fontawesome/brands/github"
 
 # =============================================================================
 # Social links

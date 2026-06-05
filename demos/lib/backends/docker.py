@@ -401,6 +401,26 @@ class DockerDemoBackend(DemoBackend):
             check=False,
         )
 
+    def configure_rootd_supervisor(self) -> None:
+        """Start hop3-rootd under supervisor after the installer runs.
+
+        Call AFTER install_hop3() and BEFORE any deploy. On non-systemd
+        containers the installer does host prep but can't activate the daemon
+        (it ships as systemd units), so we run it under supervisor here. The
+        deploy path requires rootd for nginx reloads (ADR 041). Mirrors
+        configure_database_supervisor.
+        """
+        if self._has_systemd:
+            # With systemd, the installer already started the unit.
+            return
+
+        self._ensure_supervisor_config("hop3-rootd")
+        self.run(
+            "supervisorctl reread && supervisorctl update 2>&1 || true", check=False
+        )
+        self.run("supervisorctl start hop3-rootd 2>&1 || true", check=False)
+        self.run("sleep 1", check=False)
+
     def teardown(self) -> None:
         """Stop and remove the container."""
         subprocess.run(
@@ -588,6 +608,18 @@ autostart=true
 autorestart=true
 stderr_logfile=/var/log/supervisor/nginx.err.log
 stdout_logfile=/var/log/supervisor/nginx.out.log
+"""
+        elif service_name == "hop3-rootd":
+            # Privileged-operations daemon (ADR 041). Runs as root (no user=)
+            # so it can reload nginx; hop3-server connects to its socket as the
+            # hop3 user (SO_PEERCRED admits hop3 + root). The container has no
+            # systemd, so the installer only did host prep — we activate here.
+            config = """[program:hop3-rootd]
+command=/home/hop3/venv/bin/hop3-rootd --socket-path /run/hop3-rootd/socket
+autostart=true
+autorestart=true
+stderr_logfile=/var/log/supervisor/hop3-rootd.err.log
+stdout_logfile=/var/log/supervisor/hop3-rootd.out.log
 """
         elif service_name == "uwsgi-hop3":
             # uWSGI Emperor to manage app workers

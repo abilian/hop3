@@ -616,8 +616,34 @@ class Deployer:
             self.log("Failed to upload code", "error")
             return None
 
+        # hop3-rootd is a sibling package the installer needs (the deploy path
+        # depends on it for nginx reloads). Without it install_rootd_package
+        # has no source and the install aborts at the rootd step.
+        if not self._upload_rootd_package():
+            return None
+
         self.log("Local code uploaded", "success")
         return remote_path
+
+    def _upload_rootd_package(self) -> bool:
+        """Upload the hop3-rootd package to /tmp/hop3-rootd (sibling of server).
+
+        Returns True on success (or success-with-warning if the package dir is
+        absent — older checkouts), False only on a transfer failure.
+        """
+        rootd_pkg = self.config.rootd_package_path
+        if not rootd_pkg.exists():
+            self.log(
+                f"hop3-rootd package not found at {rootd_pkg}; the install will "
+                "abort at the rootd step (it's required for nginx reloads).",
+                "warning",
+            )
+            return True
+        self.log(f"Uploading {rootd_pkg} to /tmp/hop3-rootd")
+        if not self.backend.upload_dir(rootd_pkg, "/tmp/hop3-rootd"):
+            self.log("Failed to upload hop3-rootd", "error")
+            return False
+        return True
 
     def _update_local_code(self) -> bool:
         """Update an existing installation with local code."""
@@ -632,6 +658,10 @@ class Deployer:
         self.log(f"Uploading {server_pkg}")
         if not self.backend.upload_dir(server_pkg, remote_path):
             self.log("Failed to upload code", "error")
+            return False
+
+        # Upload the sibling hop3-rootd package too (required by the installer).
+        if not self._upload_rootd_package():
             return False
 
         # Uninstall the existing hop3-server *first*, so the install step

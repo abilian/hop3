@@ -26,7 +26,11 @@ except ImportError:
     pass
 
 import sys  # noqa: E402
-from typing import Any  # noqa: E402
+from pathlib import Path  # noqa: E402
+from typing import TYPE_CHECKING, Any  # noqa: E402
+
+if TYPE_CHECKING:
+    from .commands.flags import CliFlags
 
 import requests.exceptions  # noqa: E402
 from jsonrpcclient import Error, Ok  # noqa: E402
@@ -49,7 +53,19 @@ from .core.alias_registry import (  # noqa: E402
     resolve_aliases,
 )
 from .core.app_scope import is_app_scoped  # noqa: E402
-from .core.resolution import format_trace, resolve_app  # noqa: E402
+from .core.deploy_preview import (  # noqa: E402
+    build_plan,
+    domain_target_warnings,
+    render_plan,
+)
+from .core.project_guard import check_project_mismatch  # noqa: E402
+from .core.resolution import (  # noqa: E402
+    format_trace,
+    parse_hop3_git_remote,
+    resolve_app,
+    resolve_context,
+    resolve_server,
+)
 from .exit_codes import ExitCode  # noqa: E402
 from .rpc import Client, handle_response  # noqa: E402
 from .ui import (  # noqa: E402
@@ -95,8 +111,7 @@ def run_command_from_args(cli_args: list[str]) -> None:
     )
     config = load_config()
 
-    if flags.context:
-        config.set_context_override(flags.context)
+    _apply_flag_overrides(config, flags)
 
     if flags.verbosity >= 2:
         _print_debug_info(printer, cli_args, config, flags)
@@ -117,7 +132,30 @@ def run_command_from_args(cli_args: list[str]) -> None:
             return
 
     cli_args = handle_help_flags(cli_args)
-    cli_args = _resolve_and_inject_app(cli_args, flags, config, printer)
+
+    # ADR 042: compute resolutions once, then reuse them for app injection,
+    # the project-mismatch guard, and the deploy preview. Avoids running
+    # the git subprocess twice.
+    context_resolution, server_resolution, app_resolution = _compute_resolutions(
+        cli_args, flags, config
+    )
+
+    if flags.why:
+        # Always print the resolution trace to stderr, regardless of verbosity
+        # or json_output setting. `--why` is an explicit user request for
+        # diagnostic output and shouldn't be gated. ``_compute_resolutions``
+        # guarantees app_resolution is non-None whenever flags.why is True
+        # (see its early-return condition); the assert narrows for pyrefly.
+        assert app_resolution is not None
+        print(format_trace(app_resolution), file=sys.stderr)
+        sys.exit(ExitCode.SUCCESS)
+
+    cli_args = _inject_resolved_app(cli_args, flags, app_resolution, printer)
+    _check_project_mismatch(cli_args, flags, app_resolution)
+    _check_stray_dry_run(cli_args, flags)
+    _handle_deploy_preview(
+        cli_args, flags, config, app_resolution, context_resolution, server_resolution
+    )
     _update_printer_scope(printer, config, cli_args)
     _check_prerequisites(cli_args, config, printer, flags)
 
@@ -126,6 +164,24 @@ def run_command_from_args(cli_args: list[str]) -> None:
 
     extra_args = _get_extra_args_safe(cli_args, flags.verbosity)
     _execute_rpc_command(cli_args, config, extra_args, printer)
+
+
+def _apply_flag_overrides(config: Config, flags: CliFlags) -> None:
+    """Stash the resolution flags (--context/--server/--app) onto the config.
+
+    These are global flags consumed by ``parse_flags`` before the subcommand
+    runs. App-scoped commands read them via the resolvers; local config-
+    authoring commands (``hop3 context init/add``, the forthcoming
+    ``hop3 server`` namespace) read them off the config — without this the
+    documented ``hop3 context init --server <s>`` would have its ``--server``
+    silently discarded and print usage instead of running.
+    """
+    if flags.context:
+        config.set_context_override(flags.context)
+    if flags.server:
+        config.set_server_override(flags.server)
+    if flags.app:
+        config.set_app_override(flags.app)
 
 
 def _exit_no_app_resolved(resolution, cli_args: list[str], n_consumed: int) -> None:
@@ -177,48 +233,62 @@ def _apply_aliases(
     return rewritten
 
 
-def _resolve_and_inject_app(
+def _compute_resolutions(cli_args: list[str], flags: CliFlags, config: Config):
+    """Run the context+server+app resolvers (or no-op when not needed).
+
+    Returns ``(context_resolution, server_resolution, app_resolution)``.
+    All three may be None when the command is not app-scoped and
+    ``--why`` wasn't requested — the resolvers do real work (git
+    subprocess, file reads) and must not fire for ``hop3 version``,
+    ``hop3 help``, etc.
+    """
+    scoped, _ = is_app_scoped(cli_args)
+    if not scoped and not flags.why:
+        return None, None, None
+
+    # ADR 042 §Resolution chains: context resolves first (with the
+    # parsed git remote as a hint), then its name feeds app and
+    # server resolution.
+    git_remote = parse_hop3_git_remote()
+    git_env = git_remote[0] if git_remote else None
+
+    context_resolution = resolve_context(
+        cli_context=flags.context, git_remote_hint=git_env
+    )
+    # parse_hop3_git_remote returns (env, host, app); resolve_server
+    # expects (host, app). Drop the env to avoid a 3-vs-2 unpack crash.
+    server_hint = (git_remote[1], git_remote[2]) if git_remote else None
+    server_resolution = resolve_server(
+        cli_server=flags.server,
+        config=config,
+        resolved_context=context_resolution.context,
+        git_remote_hint=server_hint,
+    )
+    app_resolution = resolve_app(
+        cli_app=flags.app,
+        config=config,
+        resolved_context=context_resolution.context,
+    )
+    return context_resolution, server_resolution, app_resolution
+
+
+def _inject_resolved_app(
     cli_args: list[str],
-    flags,
-    config: Config,
+    flags: CliFlags,
+    resolution,
     printer: RichPrinter,
 ) -> list[str]:
-    """Resolve the effective app (ADR 036 D7) and inject it into cli_args.
+    """Inject the resolved app as the first positional for app-scoped commands.
 
-    For app-scoped commands, the resolved app is injected as the first
-    positional argument after the command-name tokens. The server's dispatcher
-    and command handlers continue to expect the app as first positional.
-
-    If `--why` is set, print the resolution trace and exit (diagnostic-only,
-    the command is NOT executed — running it would turn `hop3 deploy --why`
-    into an actual deploy, which is a footgun).
-    If no app can be resolved for an app-scoped command that was invoked
-    without an explicit positional, we do NOT error here — the server-side
-    command still has its own "missing argument" handling. We just leave
-    cli_args untouched.
+    The server's dispatcher and command handlers continue to expect the
+    app as first positional. If no app can be resolved for an app-scoped
+    command that was invoked without an explicit positional, exit with a
+    structured "no app resolved" error (ADR 036 D10).
     """
     scoped, n_consumed = is_app_scoped(cli_args)
-    if not scoped and not flags.why:
+    if not scoped or resolution is None:
         return cli_args
 
-    # Resolve only when needed (app-scoped or --why was requested).
-    resolution = resolve_app(cli_app=flags.app, config=config)
-
-    if flags.why:
-        # Always print the resolution trace to stderr, regardless of verbosity
-        # or json_output setting. `--why` is an explicit user request for
-        # diagnostic output and shouldn't be gated.
-        print(format_trace(resolution), file=sys.stderr)
-        # Diagnostic-only: don't run the command. See docstring.
-        sys.exit(ExitCode.SUCCESS)
-
-    if not scoped:
-        return cli_args
-
-    # ADR 036 D10: if the command is app-scoped, no app resolved, and the user
-    # didn't pass a positional that might serve as the app, give a structured
-    # client-side error explaining what to do — instead of letting the server
-    # return a bare "Usage: hop foo <app>" string.
     if not resolution.resolved:
         remaining = cli_args[n_consumed:]
         no_positional = not remaining or remaining[0].startswith("-")
@@ -239,8 +309,6 @@ def _resolve_and_inject_app(
     if already_has_positional and first_positional_is_app and flags.app is None:
         return cli_args
 
-    # Inject the resolved app as the first positional after the command name.
-    # `resolution.resolved` was checked above, so `resolution.app` is non-None here.
     resolved_app = resolution.app
     assert resolved_app is not None
     injected = [*cli_args[:n_consumed], resolved_app, *cli_args[n_consumed:]]
@@ -250,6 +318,177 @@ def _resolve_and_inject_app(
             f"(source: {resolution.source})"
         )
     return injected
+
+
+# ADR 042 §D14: verbs that trigger the project-mismatch guard. These are
+# the ones that mutate server state in a way the operator would regret
+# pointing at the wrong app. Bare ``destroy`` is intentionally absent:
+# alias expansion rewrites it to ``app destroy`` upstream, and the bare
+# form is not in APP_SCOPED_COMMANDS — so _compute_resolutions returns
+# (None, None, None) and the guard never sees it.
+#
+# Compare with commands/destructive.py::DESTRUCTIVE_COMMANDS, which
+# carries a *different* list (verbs that require typed-name confirmation
+# for destruction). The two lists overlap on ``app destroy`` but are
+# semantically distinct: this list is "verbs that need to know they're
+# pointing at the right app", that list is "verbs that need a typed
+# acknowledgment of the resource name".
+_MISMATCH_GUARDED_PREFIXES: tuple[tuple[str, ...], ...] = (
+    ("deploy",),
+    ("restart",),
+    ("config", "set"),
+    ("app", "destroy"),
+)
+
+
+def _matches_guarded_prefix(cli_args: list[str]) -> tuple[str, ...] | None:
+    """Return the matching guarded-verb tuple, if any."""
+    for prefix in _MISMATCH_GUARDED_PREFIXES:
+        if len(cli_args) >= len(prefix) and tuple(cli_args[: len(prefix)]) == prefix:
+            return prefix
+    return None
+
+
+def _check_project_mismatch(
+    cli_args: list[str], flags: CliFlags, app_resolution
+) -> None:
+    """ADR 042 §D14: refuse a guarded verb when CWD's project disagrees with
+    the resolved app and the operator did NOT opt in with ``--force``.
+
+    ``-y`` / ``--yes`` alone (skip-confirmation) is NOT enough to bypass —
+    the ADR explicitly separates the two intents because routine CI/scripting
+    use of ``-y`` is precisely the surface this guard exists to protect.
+    """
+    if app_resolution is None or not app_resolution.resolved:
+        return
+    if _matches_guarded_prefix(cli_args) is None:
+        return
+    if flags.force:
+        return
+
+    verb = " ".join(_matches_guarded_prefix(cli_args) or ())
+    mismatch = check_project_mismatch(
+        resolved_app=app_resolution.app or "",
+        resolved_source=app_resolution.source or "",
+        resolved_kind=app_resolution.kind,
+        verb=verb,
+    )
+    if mismatch.is_mismatch:
+        print(mismatch.message, file=sys.stderr)
+        # RESOLUTION_ERROR (3) — refusal because of inconsistent state,
+        # NOT confirmation-declined (a UX event from a prompt that never
+        # ran). Scripts can match on 3 to distinguish "wrong project"
+        # from "user said no".
+        sys.exit(ExitCode.RESOLUTION_ERROR)
+
+
+def _check_stray_dry_run(cli_args: list[str], flags: CliFlags) -> None:
+    """Warn (don't silently ignore) when ``--dry-run`` is given for a
+    command that doesn't yet support it. Avoids the worst-of-both-worlds
+    case where ``hop3 restart --dry-run`` parses the flag, takes no
+    notice of it, and actually restarts.
+    """
+    if not flags.dry_run:
+        return
+    if not cli_args or cli_args[0] == "deploy":
+        return
+    print(
+        f"warning: --dry-run is currently only honored for `hop3 deploy`; "
+        f"continuing with `hop3 {cli_args[0]}` as if it were absent.",
+        file=sys.stderr,
+    )
+
+
+def _deploy_source_path(cli_args: list[str]) -> Path:
+    """Mirror commands.arguments._parse_deploy_args's directory-positional logic.
+
+    ``hop3 deploy [<app>] [<dir>]`` — if the trailing positional looks like a
+    directory argument, use it; otherwise CWD. This makes the preview honest
+    about what's being packaged (``hop3 deploy --dry-run /tmp/checkout`` reads
+    /tmp/checkout/hop3.toml, not the operator's terminal CWD).
+    """
+    # cli_args at this point is post-injection: ["deploy", <app>, <maybe-dir>].
+    # We treat any non-flag positional after position 2 (deploy + app) as a
+    # directory argument. Same heuristic as _parse_deploy_args (last positional).
+    candidates = [a for a in cli_args[1:] if not a.startswith("-")]
+    if len(candidates) >= 2:
+        return Path(candidates[-1])
+    return Path.cwd()
+
+
+def _handle_deploy_preview(
+    cli_args: list[str],
+    flags: CliFlags,
+    config: Config,
+    app_resolution,
+    context_resolution,
+    server_resolution,
+) -> None:
+    """ADR 042 §Deploy preview: ``hop3 deploy`` prints a plan and exits when
+    ``--dry-run`` is set. The interactive preview-and-confirm flow on plain
+    ``hop3 deploy`` is gated on a TTY and bypassed by ``-y`` / ``--yes`` /
+    ``--force`` / ``--no-input``.
+
+    Also runs the DNS host-check: if an app domain doesn't resolve to the
+    deploy-target server, requests will land elsewhere and 502 while the app
+    looks healthy. That warning is emitted unconditionally (even under -y /
+    --quiet) — it's precisely the silent failure the preview exists to prevent.
+    """
+    if cli_args[:1] != ["deploy"]:
+        return
+    if app_resolution is None or not app_resolution.resolved:
+        return
+
+    context_name = context_resolution.context if context_resolution else None
+    server_name = server_resolution.server if server_resolution else None
+    plan = build_plan(
+        source_path=_deploy_source_path(cli_args),
+        context=context_name,
+        server=server_name,
+        app=app_resolution.app or "",
+    )
+    domain_warnings = domain_target_warnings(plan.domains, config.get_api_url())
+
+    def emit_domain_warnings() -> None:
+        for w in domain_warnings:
+            print(f"  warning: {w}", file=sys.stderr)
+
+    if flags.dry_run:
+        # --dry-run: print plan to stdout (so it's pipeable for review),
+        # warnings to stderr (so a script that redirects stdout still
+        # surfaces the dirty-tree marker), exit 0.
+        print(render_plan(plan))
+        emit_domain_warnings()
+        sys.exit(ExitCode.SUCCESS)
+
+    # Default deploy: interactive preview-and-confirm. Bypassed when the
+    # operator already opted out of prompts (-y / --yes / --force) or
+    # disabled prompting altogether (--no-input). The plan still prints
+    # in those cases — quietly — so the action surfaces in CI logs.
+    if flags.skip_confirm or flags.no_input:
+        if not flags.quiet:
+            print(render_plan(plan), file=sys.stderr)
+        emit_domain_warnings()  # always — a wrong-target deploy must surface
+        return
+
+    if not sys.stdin.isatty():
+        # No tty and no --yes: refuse to deploy blind. Matches the
+        # destructive-prompt non-tty behavior elsewhere.
+        print(render_plan(plan), file=sys.stderr)
+        emit_domain_warnings()
+        print(
+            "\nRefusing to deploy without a tty. Re-run with --yes (skip "
+            "this prompt) or --dry-run (print the plan and exit).",
+            file=sys.stderr,
+        )
+        sys.exit(ExitCode.CONFIRMATION_DECLINED)
+
+    print(render_plan(plan), file=sys.stderr)
+    emit_domain_warnings()
+    response = input("\nDeploy? [y/N] ").strip().lower()
+    if response not in {"y", "yes"}:
+        print("Deploy aborted.", file=sys.stderr)
+        sys.exit(ExitCode.CONFIRMATION_DECLINED)
 
 
 def _update_printer_scope(
@@ -448,7 +687,7 @@ def _execute_rpc_command(
         # Debug: show connection info
         if printer.verbosity >= 2:
             if client.using_ssh_tunnel:
-                printer.print_debug(f"Using SSH tunnel to {config.get('api_url')}")
+                printer.print_debug(f"Using SSH tunnel to {config.get_api_url()}")
                 printer.print_debug(f"RPC endpoint: {client.rpc_url}")
             else:
                 printer.print_debug(f"Direct connection to {client.rpc_url}")

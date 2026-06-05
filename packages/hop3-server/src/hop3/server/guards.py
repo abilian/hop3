@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from litestar.exceptions import NotAuthorizedException
 
 from hop3 import config
+from hop3.server.security.tokens import validate_token
 
 if TYPE_CHECKING:
     from litestar.connection import ASGIConnection
@@ -24,31 +25,57 @@ if TYPE_CHECKING:
 def auth_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:
     """Guard that requires user authentication.
 
-    This guard checks if the user is authenticated by looking for a user_id
-    in the session. If HOP3_UNSAFE is true (testing mode), authentication
-    is skipped.
+    Accepts either of the two credentials the platform issues:
+
+    1. A web session cookie (``user_id`` in the session), used by the
+       browser dashboard after an interactive login.
+    2. An ``Authorization: Bearer <token>`` header, used by the CLI and
+       other API clients — the same credential ``/rpc`` accepts.
+
+    Honouring the Bearer token here matters: without it, a token-only
+    client (e.g. the CLI streaming deploy logs from ``/api/stream/<id>``)
+    failed the guard, the app-wide ``handle_401`` redirected it to
+    ``/auth/login`` (302), and the client — which cannot follow a login
+    redirect — saw the deploy fail with an opaque stream error instead
+    of the real server-side cause.
+
+    If HOP3_UNSAFE is true (testing mode), authentication is skipped.
 
     Args:
         connection: The ASGI connection with request/session data
         _: The route handler (unused)
 
     Raises:
-        NotAuthorizedException: If user is not authenticated
-
-    Example:
-        @get("/protected", guards=[auth_guard])
-        def protected_route(request: Request) -> dict:
-            # This route requires authentication
-            return {"message": "You are authenticated"}
+        NotAuthorizedException: If neither credential authenticates.
     """
     # Skip authentication in unsafe mode (testing)
     if config.HOP3_UNSAFE:
         return
 
-    # Check if user_id exists in session
-    user_id = connection.session.get("user_id")
-    if not user_id:
-        raise NotAuthorizedException(detail="Authentication required")
+    # 1. Web session cookie.
+    if connection.session.get("user_id"):
+        return
+
+    # 2. Bearer token (CLI / API clients).
+    if _has_valid_bearer_token(connection):
+        return
+
+    raise NotAuthorizedException(detail="Authentication required")
+
+
+def _has_valid_bearer_token(connection: ASGIConnection) -> bool:
+    """Return True iff the request carries a valid ``Bearer`` token.
+
+    Mirrors the validation ``/rpc`` performs (``validate_token``), so the
+    two entry points accept exactly the same tokens. No side effects: the
+    guard only authorises; it does not mutate the session or issue a
+    cookie (a Bearer client neither wants nor expects one).
+    """
+    auth_header = connection.headers.get("authorization", "")
+    # RFC 7235: the auth-scheme is case-insensitive.
+    if auth_header[:7].lower() != "bearer ":
+        return False
+    return bool(validate_token(auth_header[7:].strip()))
 
 
 def optional_auth_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:

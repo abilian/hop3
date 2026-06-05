@@ -58,8 +58,10 @@ hop3 context current
 hop3 context use production
 # Output: export HOP3_CONTEXT=production
 
-# Switch context for this directory
-hop3 context use staging --local
+# Switch context for this project (run from inside the project tree;
+# writes .hop3-local.toml, auto-gitignored — ADR 042)
+cd myproject/
+hop3 context use staging
 
 # Switch context globally (affects all terminals - use with caution!)
 hop3 context use production --global
@@ -74,7 +76,7 @@ hop3 context remove old-staging
 **Context priority (highest to lowest):**
 1. `--context` flag
 2. `HOP3_CONTEXT` environment variable
-3. `.hop3-context` file in current directory
+3. `.hop3-local.toml [current].context` (per project checkout, ADR 042)
 4. Global config
 
 ### Application Lifecycle
@@ -504,7 +506,7 @@ hop3 ps scale myapp worker=2
 
 - **Mark production as protected:** `hop3 context add production --server ... --protected`
 - **Use environment variable for safety:** `export HOP3_CONTEXT=staging` in your shell
-- **Per-project contexts:** Use `hop3 context use <name> --local` for project directories
+- **Per-project contexts (ADR 042):** `cd` into the project tree and run `hop3 context use <name>` — the project-scoped verb writes `.hop3-local.toml` and adds it to `.gitignore` automatically. The legacy `--local` flag was retired in Step 7.
 - **Avoid global context switches:** Don't use `--global` for production contexts
 - **Create shell aliases:**
   ```bash

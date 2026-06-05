@@ -228,7 +228,7 @@ When determining which server to use, the CLI checks these sources in order:
 |----------|--------|-------|
 | 1 (highest) | `--context` flag | Single command |
 | 2 | `HOP3_CONTEXT` environment variable | Current shell |
-| 3 | `.hop3-context` file | Current directory |
+| 3 | `.hop3-local.toml [current].context` (ADR 042) | Per project checkout |
 | 4 (lowest) | Global config file | All terminals |
 
 ### `hop3 context add`
@@ -317,7 +317,7 @@ Current context: production
 **Possible sources:**
 - `--context flag` - Set via command line
 - `HOP3_CONTEXT environment variable` - Set in current shell
-- `local file (/path/to/.hop3-context)` - Set for current directory
+- `.hop3-local.toml [current].context` - Set for current project checkout (ADR 042)
 - `global config` - Set as global default
 
 ---
@@ -328,7 +328,7 @@ Switch to a different context. **Safe by default** - does not modify global conf
 
 **Usage:**
 ```bash
-hop3 context use [--local | --global] <name>
+hop3 context use [--global] <name>
 ```
 
 **Arguments:**
@@ -336,8 +336,9 @@ hop3 context use [--local | --global] <name>
 
 **Options:**
 - (default) - Print `export` command for this shell only (safest)
-- `--local` - Write to `.hop3-context` file in current directory
 - `--global` - Set as global default (**affects all terminals** - use with caution)
+
+Per-project context selection: run `hop3 context use <name>` from inside a project directory (a tree containing `hop3.toml`). The project-scoped verb writes `.hop3-local.toml` and adds it to `.gitignore` automatically (ADR 042).
 
 **Examples:**
 ```bash
@@ -347,8 +348,9 @@ hop3 context use production
 # To use context 'production' in this shell, run:
 #   export HOP3_CONTEXT=production
 
-# Save to local .hop3-context file (per-project)
-hop3 context use staging --local
+# Per-project: stand in the project tree and select a declared context
+cd my-staging-project/
+hop3 context use staging        # writes .hop3-local.toml
 
 # Set as global default (dangerous - affects ALL terminals)
 hop3 context use production --global
@@ -412,19 +414,20 @@ hop3 apps
 hop3 app status myapp
 ```
 
-#### Per-Project Context
+#### Per-Project Context (ADR 042)
 
-Create `.hop3-context` file in your project directory:
+Stand in the project directory and run `hop3 context use <name>` — the project-scoped verb writes `.hop3-local.toml` and auto-gitignores it:
 ```bash
 cd my-staging-project/
-hop3 context use staging --local
-# Creates .hop3-context containing "staging"
+hop3 context use staging
+# Writes .hop3-local.toml with [current].context = "staging"
+# Adds .hop3-local.toml to .gitignore if it isn't already
 
 # Now any hop3 command in this directory uses staging
 hop3 deploy myapp
 ```
 
-**Tip:** Add `.hop3-context` to your `.gitignore` if you don't want to commit it.
+The legacy single-line `.hop3-context` file (and its `--local` flag) was retired in ADR 042 Step 7. Stale `.hop3-context` files have no effect — re-run `hop3 context use <name>` to migrate to `.hop3-local.toml`.
 
 ---
 

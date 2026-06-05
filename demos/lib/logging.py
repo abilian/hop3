@@ -342,7 +342,7 @@ def capture_failure_debug(ctx: DemoContext, app_name: str) -> None:
         log_section("container-inspect", f"Docker inspect for {app_name}", inspect)
 
     # Capture app status
-    result = run_hop3(f"apps:info {app_name}", check=False, show=False)
+    result = run_hop3(f"app status {app_name}", check=False, show=False)
     if result.stdout:
         log_section("app-info", f"App info for {app_name}", result.stdout)
 

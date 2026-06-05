@@ -350,12 +350,54 @@ def check_hop3_installed(ctx: DemoContext) -> bool:
     return False
 
 
+def _ensure_installer_built(ctx: DemoContext) -> None:
+    """Make sure the single-file server installer exists, building it if not.
+
+    The demo ships no installer; it is generated from the modular installer
+    source by ``hop3-install bundle``. Rather than error out when ``dist/
+    install-server.py`` is absent, build it on the fly so a fresh checkout
+    can run the demos without a separate ``make build-installers`` step.
+
+    We bundle in-process via ``hop3_installer.bundler`` (the demo runs in the
+    repo venv, so it is importable) and fall back to the CLI if the import is
+    unavailable.
+
+    In ``--local`` mode the bundle is part of the local code under test, so we
+    always rebuild it — otherwise a stale ``dist/install-server.py`` from an
+    earlier run would mask edits to the installer source.
+    """
+    if ctx.installer_path.exists() and not ctx.use_local_code:
+        return
+
+    print_step("Building single-file server installer...")
+    ctx.installer_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        from hop3_installer.bundler import bundle_installer, validate_bundle
+
+        source = bundle_installer("server")
+        if not validate_bundle(source):
+            msg = "Generated installer failed validation (see bundler output)"
+            raise CommandError(msg)
+        ctx.installer_path.write_text(source)
+    except ImportError:
+        # hop3_installer not importable in this interpreter — shell out.
+        result = run_local(
+            f"uv run hop3-install bundle --type server "
+            f"--output {ctx.installer_path}",
+            show=False,
+            check=False,
+        )
+        if result.returncode != 0 or not ctx.installer_path.exists():
+            print_error("Failed to build the Hop3 server installer.")
+            msg = "Installer build failed (hop3-install bundle)"
+            raise CommandError(msg) from None
+
+    print_success(f"Installer built: {ctx.installer_path}")
+
+
 def install_hop3(ctx: DemoContext) -> None:
     """Install Hop3 on the server."""
-    if not ctx.installer_path.exists():
-        print_error("Cannot find Hop3 installer.")
-        msg = f"Installer not found: {ctx.installer_path}"
-        raise CommandError(msg)
+    _ensure_installer_built(ctx)
 
     # Copy installer to server using backend
     print_step("Copying installer to server...")
@@ -408,6 +450,12 @@ def install_hop3(ctx: DemoContext) -> None:
     if hasattr(backend, "configure_database_supervisor"):
         backend.configure_database_supervisor()
 
+    # Start hop3-rootd under supervisor before any deploy. On non-systemd
+    # containers the installer can't activate it (systemd-only units), but the
+    # deploy path requires it for nginx reloads (ADR 041).
+    if hasattr(backend, "configure_rootd_supervisor"):
+        backend.configure_rootd_supervisor()
+
     # Verify and start services
     print_step("Verifying services...")
 
@@ -449,9 +497,21 @@ def sync_local_code(ctx: DemoContext) -> None:
         msg = "Failed to sync code to server"
         raise CommandError(msg)
 
+    # Also sync hop3-rootd alongside it (as the sibling /tmp/hop3-rootd) so the
+    # installer's local-path step installs the privileged-ops daemon too. The
+    # deploy path requires it for nginx reloads (ADR 041).
+    rootd_pkg = ctx.packages_path / "hop3-rootd"
+    if rootd_pkg.exists():
+        print_info(f"Syncing {rootd_pkg} to server...")
+        if not _upload_dir(ctx, rootd_pkg, "/tmp/hop3-rootd"):
+            print_error("Failed to sync hop3-rootd to server")
+            msg = "Failed to sync hop3-rootd to server"
+            raise CommandError(msg)
+
     # Fix permissions so hop3 user can read the code during pip install
     run_ssh(
         ctx,
+        "chmod -R a+rX /tmp/hop3-server /tmp/hop3-rootd 2>/dev/null || "
         "chmod -R a+rX /tmp/hop3-server",
         show=False,
         check=False,

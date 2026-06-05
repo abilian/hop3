@@ -27,9 +27,12 @@ def test_top_level_verbs_are_app_scoped() -> None:
 
 
 def test_app_namespace_verbs_are_app_scoped() -> None:
+    # Mirrors the `app` command tuples registered server-side. The detail
+    # verb is `status` (not the old `show`): `hop3 app status` must resolve
+    # an implicit app like its siblings.
     for verb in (
         "destroy",
-        "show",
+        "status",
         "ping",
         "logs",
         "build-logs",
@@ -43,6 +46,12 @@ def test_app_namespace_verbs_are_app_scoped() -> None:
         scoped, n = is_app_scoped(["app", verb])
         assert scoped, f"app {verb} should be app-scoped"
         assert n == 2
+
+
+def test_stale_app_show_is_not_scoped() -> None:
+    """`app show` was renamed to `app status`; the dead name must not linger."""
+    scoped, _ = is_app_scoped(["app", "show"])
+    assert not scoped
 
 
 def test_config_namespace_is_app_scoped() -> None:
