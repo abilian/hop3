@@ -6,11 +6,13 @@
 
 from __future__ import annotations
 
+import io
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+import requests
 from hop3_cli.commands.local import (
     BootstrapError,
     extract_token,
@@ -25,8 +27,14 @@ from hop3_cli.commands.local import (
     settings_set,
     settings_show,
 )
+from hop3_cli.commands.local.login_cmd import (
+    _verify_https_connection,
+    _verify_token,
+)
 from hop3_cli.config import Config
+from hop3_cli.exit_codes import ExitCode
 from hop3_cli.ui.rich_printer import RichPrinter
+from jsonrpcclient import Ok
 
 # Realistic-shape JWT fixtures: header + payload + 44-char signature.
 # Lengths chosen to satisfy the {20,500}-per-segment redaction regex
@@ -125,6 +133,80 @@ class TestExtractToken:
         token = extract_token(output)
         assert token is not None
         assert sig1 in token  # first token wins
+
+
+class TestVerifyToken:
+    """Regression tests for token-login verification (_verify_token).
+
+    The verify step builds a throwaway Config from the URL+token. It MUST
+    use the nested [contexts.*] shape — Config.get_api_url() no longer reads
+    a flat top-level "api_url" key, so a flat dict yields api_url=None and
+    Client raises CliError, which _verify_token's broad except misreports as
+    "Could not connect". That silently broke `hop3 login "<url>?token=..."`
+    against healthy servers (the Docker demo login failure).
+    """
+
+    def test_verify_token_builds_resolvable_config(self):
+        """The temp Config passed to Client must resolve api_url + token."""
+        captured: dict = {}
+
+        class _FakeClient:
+            def __init__(self, config, **_kwargs):
+                captured["config"] = config
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_a):
+                return False
+
+            def rpc(self, _method, _params):
+                return Ok(id=1, result=[{"t": "text", "text": "Logged in as: alice"}])
+
+        with patch("hop3_cli.rpc.Client", _FakeClient):
+            username = _verify_token("http://localhost:18000", "tok-123")
+
+        assert username == "alice"
+        # The crux: the verify config must be resolvable, not a flat dict.
+        cfg = captured["config"]
+        assert cfg.get_api_url() == "http://localhost:18000"
+        assert cfg.get_api_token() == "tok-123"
+
+
+class TestVerifyHttpsConnection:
+    """Regression tests for HTTPS verification during login.
+
+    A self-signed/untrusted cert must ABORT the login. Previously it printed
+    "Refusing to log in" but returned normally, so the caller still persisted
+    the https URL — producing a self-contradictory flow ("Refusing..." then
+    "Credentials saved") and a config that failed SSL verification on every
+    subsequent call.
+    """
+
+    def _config(self) -> Config:
+        return Config(
+            data={"contexts": {"default": {}}, "current_context": "default"},
+            config_file=None,
+        )
+
+    def test_self_signed_cert_aborts_login(self):
+        with (
+            patch(
+                "requests.get",
+                side_effect=requests.exceptions.SSLError("self-signed"),
+            ),
+            pytest.raises(SystemExit) as exc,
+        ):
+            _verify_https_connection("https://hop3.dev", "tok", self._config(), {})
+        assert exc.value.code == ExitCode.AUTH_ERROR
+
+    def test_valid_cert_does_not_abort(self):
+        ok = Mock()
+        ok.ok = True
+        ok.status_code = 200
+        with patch("requests.get", return_value=ok):
+            # Must return normally (no SystemExit) for a trusted cert.
+            _verify_https_connection("https://hop3.dev", "tok", self._config(), {})
 
 
 class TestInferServerUrl:
@@ -267,6 +349,93 @@ class TestHandleInit:
         default_ctx = temp_config.data["contexts"]["default"]
         assert default_ctx["api_token"] == mock_token
         assert "https://test.com" in default_ctx["api_url"]
+
+    def test_init_password_stdin_reads_server_from_global_override(
+        self, temp_config, mock_printer
+    ):
+        """Regression: `hop3 init --server <url> --password-stdin`.
+
+        The global flag parser consumes --server before init runs, so init must
+        read it from the config override and must NOT prompt for the server URL
+        — otherwise that prompt consumes the piped password line, leaving the
+        password empty ("Password cannot be empty").
+        """
+        captured = {}
+
+        def fake_create(ssh_target, username, email, password):
+            captured["password"] = password
+            return _FAKE_JWT_ADMIN
+
+        # Simulate parse_flags having stashed the stripped `--server <url>`.
+        temp_config.set_server_override("https://hop3.example.com")
+
+        with (
+            patch(
+                "hop3_cli.commands.local.init_cmd.create_admin_via_ssh",
+                side_effect=fake_create,
+            ),
+            patch(
+                "hop3_cli.commands.local.init_cmd.sys.stdin", io.StringIO("s3cret\n")
+            ),
+        ):
+            handle_init(
+                [
+                    "--ssh",
+                    "root@hop3.example.com",
+                    "--username",
+                    "admin",
+                    "--email",
+                    "admin@example.com",
+                    "--password-stdin",
+                ],
+                temp_config,
+                mock_printer,
+            )
+
+        assert captured["password"] == "s3cret"
+        assert (
+            temp_config.data["contexts"]["default"]["api_url"]
+            == "https://hop3.example.com"
+        )
+
+    def test_init_password_stdin_does_not_prompt_when_no_server(
+        self, temp_config, mock_printer
+    ):
+        """With --password-stdin and no server, infer silently — never prompt.
+
+        A non-tty stdin carries the password; an interactive Server URL prompt
+        would eat it. The server URL is inferred from the SSH target instead.
+        """
+        captured = {}
+
+        def fake_create(ssh_target, username, email, password):
+            captured["password"] = password
+            return _FAKE_JWT_ADMIN
+
+        with (
+            patch(
+                "hop3_cli.commands.local.init_cmd.create_admin_via_ssh",
+                side_effect=fake_create,
+            ),
+            patch("hop3_cli.commands.local.init_cmd.sys.stdin", io.StringIO("pw42\n")),
+        ):
+            handle_init(
+                [
+                    "--ssh",
+                    "root@host.example.com",
+                    "--username",
+                    "admin",
+                    "--email",
+                    "admin@example.com",
+                    "--password-stdin",
+                ],
+                temp_config,
+                mock_printer,
+            )
+
+        assert captured["password"] == "pw42"
+        # URL inferred from the SSH host, not prompted.
+        assert "host.example.com" in temp_config.data["contexts"]["default"]["api_url"]
 
 
 class TestHandleLogin:

@@ -65,7 +65,7 @@ def run(ctx: DemoContext) -> None:
     pause(ctx.pause_between_steps)
 
     # Clean up any leftover database from previous failed runs
-    run_hop3(f"addons:destroy {DB_NAME} --service-type mysql", check=False, show=False)
+    run_hop3(f"addon destroy {DB_NAME} --service-type mysql", check=False, show=False)
 
     # Show app structure
     print_header("Deploying App with Declarative MySQL Provider")
@@ -119,7 +119,7 @@ def run(ctx: DemoContext) -> None:
     print_info("For now, we create the addon manually:")
     print_blank()
     print_step(f"Creating MySQL database '{DB_NAME}'...")
-    result = run_hop3(f"addons:create mysql {DB_NAME}", check=False)
+    result = run_hop3(f"addon create mysql {DB_NAME}", check=False)
 
     mysql_available = result.returncode == 0
     if not mysql_available:
@@ -135,7 +135,7 @@ def run(ctx: DemoContext) -> None:
         print_header("Step 5: Attach Database to Application")
         print_step(f"Attaching '{DB_NAME}' to '{APP_NAME}'...")
         result = run_hop3(
-            f"addons:attach {DB_NAME} --app {APP_NAME} --service-type mysql",
+            f"addon attach {DB_NAME} --app {APP_NAME} --service-type mysql",
             check=False,
         )
 
@@ -171,10 +171,10 @@ def run(ctx: DemoContext) -> None:
         print_header("Step 9: Cleanup Database")
         print_step("Detaching and destroying database...")
         run_hop3(
-            f"addons:detach {DB_NAME} --app {APP_NAME} --service-type mysql",
+            f"addon detach {DB_NAME} --app {APP_NAME} --service-type mysql",
             check=False,
         )
-        run_hop3(f"addons:destroy {DB_NAME} --service-type mysql", check=False)
+        run_hop3(f"addon destroy {DB_NAME} --service-type mysql", check=False)
         print_success("Database cleaned up.")
         pause(ctx.pause_between_steps)
     else:

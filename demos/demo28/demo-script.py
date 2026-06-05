@@ -109,7 +109,7 @@ def run(ctx: DemoContext) -> None:
     # Create MySQL addon
     print_header("Step 4: Create MySQL Database")
     print_step(f"Creating MySQL database '{DB_NAME}'...")
-    result = run_hop3(f"addons:create mysql {DB_NAME}", check=False)
+    result = run_hop3(f"addon create mysql {DB_NAME}", check=False)
 
     mysql_available = result.returncode == 0
     if not mysql_available:
@@ -128,7 +128,7 @@ def run(ctx: DemoContext) -> None:
         print_header("Step 5: Attach Database to Application")
         print_step(f"Attaching '{DB_NAME}' to '{APP_NAME}'...")
         result = run_hop3(
-            f"addons:attach {DB_NAME} --app {APP_NAME} --service-type mysql",
+            f"addon attach {DB_NAME} --app {APP_NAME} --service-type mysql",
             check=False,
         )
 
@@ -146,7 +146,7 @@ def run(ctx: DemoContext) -> None:
                         print_info(f"  {line}")
             # Verify env vars were actually set
             print_step("Verifying environment variables in database...")
-            verify_result = run_hop3(f"app:env {APP_NAME}", check=False)
+            verify_result = run_hop3(f"app env {APP_NAME}", check=False)
             if verify_result.stdout:
                 has_database_url = "DATABASE_URL" in verify_result.stdout
                 if has_database_url:
@@ -157,7 +157,7 @@ def run(ctx: DemoContext) -> None:
                     for line in verify_result.stdout.strip().split("\n")[:10]:
                         print_info(f"  {line}")
             else:
-                print_warning("No output from app:env command")
+                print_warning("No output from app env command")
         pause(ctx.pause_between_steps)
 
     # Redeploy to pick up DATABASE_URL
@@ -169,7 +169,7 @@ def run(ctx: DemoContext) -> None:
 
         # Debug: Check generated compose file for DATABASE_URL
         print_step("Checking generated compose file for env vars...")
-        compose_check = run_hop3(f"app:debug {APP_NAME}", check=False)
+        compose_check = run_hop3(f"app debug {APP_NAME}", check=False)
         if compose_check.stdout and "DATABASE_URL" in compose_check.stdout:
             print_success("DATABASE_URL found in compose configuration.")
         elif compose_check.stdout:
@@ -223,17 +223,17 @@ def run(ctx: DemoContext) -> None:
         print_header("Step 12: Cleanup Database")
         print_step("Detaching and destroying database...")
         run_hop3(
-            f"addons:detach {DB_NAME} --app {APP_NAME} --service-type mysql",
+            f"addon detach {DB_NAME} --app {APP_NAME} --service-type mysql",
             check=False,
         )
-        run_hop3(f"addons:destroy {DB_NAME} --service-type mysql", check=False)
+        run_hop3(f"addon destroy {DB_NAME} --service-type mysql", check=False)
         print_success("Database cleaned up.")
         pause(ctx.pause_between_steps)
     else:
         print_header("MySQL Addon Commands")
         print_info("When MySQL is available:")
-        print_info(f"  hop3 addons:create mysql {DB_NAME}")
-        print_info(f"  hop3 addons:attach {DB_NAME} --app {APP_NAME} --service-type mysql")
+        print_info(f"  hop3 addon create mysql {DB_NAME}")
+        print_info(f"  hop3 addon attach {DB_NAME} --app {APP_NAME} --service-type mysql")
         print_blank()
         pause(ctx.pause_between_steps)
 

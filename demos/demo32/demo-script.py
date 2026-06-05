@@ -61,7 +61,7 @@ def run(ctx: DemoContext) -> None:
     pause(ctx.pause_between_steps)
 
     # Clean up any leftover Redis addon from previous failed runs
-    run_hop3(f"addons:destroy {REDIS_NAME} --service-type redis", check=False, show=False)
+    run_hop3(f"addon destroy {REDIS_NAME} --service-type redis", check=False, show=False)
 
     # Show app structure
     print_header("Deploying Native Python + Redis Application")
@@ -105,7 +105,7 @@ def run(ctx: DemoContext) -> None:
     # Create Redis addon
     print_header("Step 4: Create Redis Instance")
     print_step(f"Creating Redis instance '{REDIS_NAME}'...")
-    result = run_hop3(f"addons:create redis {REDIS_NAME}", check=False)
+    result = run_hop3(f"addon create redis {REDIS_NAME}", check=False)
 
     redis_available = result.returncode == 0
     if not redis_available:
@@ -121,7 +121,7 @@ def run(ctx: DemoContext) -> None:
         print_header("Step 5: Attach Redis to Application")
         print_step(f"Attaching '{REDIS_NAME}' to '{APP_NAME}'...")
         result = run_hop3(
-            f"addons:attach {REDIS_NAME} --app {APP_NAME} --service-type redis",
+            f"addon attach {REDIS_NAME} --app {APP_NAME} --service-type redis",
             check=False,
         )
 
@@ -178,17 +178,17 @@ def run(ctx: DemoContext) -> None:
         print_header("Step 10: Cleanup Redis")
         print_step("Detaching and destroying Redis...")
         run_hop3(
-            f"addons:detach {REDIS_NAME} --app {APP_NAME} --service-type redis",
+            f"addon detach {REDIS_NAME} --app {APP_NAME} --service-type redis",
             check=False,
         )
-        run_hop3(f"addons:destroy {REDIS_NAME} --service-type redis", check=False)
+        run_hop3(f"addon destroy {REDIS_NAME} --service-type redis", check=False)
         print_success("Redis cleaned up.")
         pause(ctx.pause_between_steps)
     else:
         print_header("Redis Addon Commands")
         print_info("When Redis is available:")
-        print_info(f"  hop3 addons:create redis {REDIS_NAME}")
-        print_info(f"  hop3 addons:attach {REDIS_NAME} --app {APP_NAME} --service-type redis")
+        print_info(f"  hop3 addon create redis {REDIS_NAME}")
+        print_info(f"  hop3 addon attach {REDIS_NAME} --app {APP_NAME} --service-type redis")
         print_blank()
         pause(ctx.pause_between_steps)
 

@@ -16,9 +16,6 @@ PREFIX = "HOP3_"
 APP_NAME = "hop3-cli"
 APP_AUTHOR = "Abilian SAS"
 
-# Local context file name (per-project context)
-LOCAL_CONTEXT_FILE = ".hop3-context"
-
 _marker = object()
 
 
@@ -76,6 +73,8 @@ class Config:
     data: dict = dataclasses.field(default_factory=dict)
     config_file: Path | None = None
     _context_override: str | None = None  # For --context flag
+    _server_override: str | None = None  # For --server flag
+    _app_override: str | None = None  # For --app flag
 
     # These are the ultimate fallbacks if nothing is configured.
     defaults: ClassVar[dict] = {
@@ -286,15 +285,42 @@ class Config:
         """Check if a context override is set (from --context flag)."""
         return self._context_override is not None
 
+    def set_server_override(self, server: str | None) -> None:
+        """Set a server override (from the --server flag).
+
+        The global flag parser consumes ``--server`` / ``-s`` before any
+        subcommand runs (see ``commands/flags.py``). For app-scoped RPC
+        commands the value feeds server resolution; for local config-
+        authoring commands (``hop3 context init/add``) it would otherwise
+        be discarded, so we stash it here for those handlers to read.
+        """
+        self._server_override = server
+
+    def get_server_override(self) -> str | None:
+        """Return the server passed via ``--server`` / ``-s``, if any."""
+        return self._server_override
+
+    def set_app_override(self, app: str | None) -> None:
+        """Set an app override (from the --app flag). See set_server_override."""
+        self._app_override = app
+
+    def get_app_override(self) -> str | None:
+        """Return the app passed via ``--app`` / ``-a``, if any."""
+        return self._app_override
+
     def get_current_context_name(self) -> str | None:
         """Get the name of the current context.
 
-        Priority:
+        Priority (ADR 042 §Resolution chains, post-Step-7):
         1. Context override (--context flag)
         2. HOP3_CONTEXT environment variable
-        3. Local .hop3-context file (per-project)
-        4. current_context in global config file
-        5. None if no contexts configured
+        3. current_context in global config file
+        4. None if no contexts configured
+
+        Per-project context selection now goes through
+        ``.hop3-local.toml [current].context`` (read by
+        ``hop3_cli.core.resolution.resolve_context``, not by this method).
+        The legacy ``.hop3-context`` one-liner was retired in Step 7.
         """
         # 1. Check override from --context flag
         if self._context_override:
@@ -305,44 +331,8 @@ class Config:
         if env_context:
             return env_context
 
-        # 3. Check local .hop3-context file
-        local_context = self._read_local_context()
-        if local_context:
-            return local_context
-
-        # 4. Check global config file
+        # 3. Check global config file
         return self.data.get("current_context")
-
-    def _read_local_context(self) -> str | None:
-        """Read context from local .hop3-context file if it exists."""
-        local_file = Path.cwd() / LOCAL_CONTEXT_FILE
-        if local_file.exists():
-            try:
-                content = local_file.read_text().strip()
-                if content:
-                    return content
-            except OSError:
-                pass
-        return None
-
-    @staticmethod
-    def write_local_context(name: str) -> Path:
-        """Write context to local .hop3-context file.
-
-        Args:
-            name: Context name to write
-
-        Returns:
-            Path to the created file
-        """
-        local_file = Path.cwd() / LOCAL_CONTEXT_FILE
-        local_file.write_text(name + "\n")
-        return local_file
-
-    @staticmethod
-    def get_local_context_path() -> Path:
-        """Get the path to the local context file."""
-        return Path.cwd() / LOCAL_CONTEXT_FILE
 
     def get_current_context(self) -> Context | None:
         """Get the current context object."""
@@ -430,8 +420,10 @@ class Config:
     def use_context(self, name: str) -> bool:
         """Check if a context exists (for validation).
 
-        Note: This no longer persists the context. Use set_global_context()
-        for global persistence or write_local_context() for local persistence.
+        Note: this no longer persists the context. Use ``set_global_context()``
+        for global persistence; per-project context selection goes through
+        ``hop3_cli.core.local_overlay.write_overlay`` (ADR 042) to write
+        ``.hop3-local.toml``.
 
         Args:
             name: Context name to check

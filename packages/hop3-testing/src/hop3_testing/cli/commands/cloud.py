@@ -28,6 +28,7 @@ def _build_daily_argv(
     random_order: bool,
     use_local_repo: bool,
     local_repo_path: str | None,
+    with_features: str | None,
     verbose: bool,
 ) -> list[str]:
     """Build argv list for daily CLI."""
@@ -40,6 +41,7 @@ def _build_daily_argv(
         (config_file, "--config", config_file),
         (report_dir != "./reports", "--report-dir", report_dir),
         (local_repo_path, "--local-repo-path", local_repo_path),
+        (with_features, "--with", with_features),
     ]
     for condition, flag, value in options:
         if condition and value:
@@ -111,6 +113,16 @@ def _normalize_paths(paths: tuple[str, ...]) -> tuple[str, ...]:
 @click.option("--random", "random_order", is_flag=True, help="Random test order")
 @click.option("--use-local-repo/--no-local-repo", default=True, help="Use local repo")
 @click.option("--local-repo-path", type=click.Path(), help="Path to local Hop3 repo")
+@click.option(
+    "--with",
+    "with_features",
+    default=None,
+    help=(
+        "Comma-separated server features/addons to install on top of the "
+        "baseline (docker,mysql,postgresql), e.g. '--with redis'. Needed for "
+        "apps whose hop3.toml declares those addons."
+    ),
+)
 @click.option("-v", "--verbose", is_flag=True, help="Verbose output")
 @click.pass_context
 def cloud_test(
@@ -131,6 +143,7 @@ def cloud_test(
     random_order: bool,
     use_local_repo: bool,
     local_repo_path: str | None,
+    with_features: str | None,
     verbose: bool,
 ) -> None:
     """Run E2E tests on cloud infrastructure.
@@ -167,6 +180,7 @@ def cloud_test(
             use_local_repo=use_local_repo,
             fail_fast=fail_fast,
             verbose=verbose,
+            with_features=with_features,
             ctx=ctx,
         )
         return
@@ -186,6 +200,7 @@ def cloud_test(
         random_order,
         use_local_repo,
         local_repo_path,
+        with_features,
         verbose,
     )
 
@@ -230,6 +245,7 @@ def _run_multi_distro(
     use_local_repo: bool,
     fail_fast: bool,
     verbose: bool,
+    with_features: str | None,
     ctx: click.Context,
 ) -> None:
     """Run tests across multiple distributions."""
@@ -245,6 +261,8 @@ def _run_multi_distro(
         image_list = [img.strip() for img in images_str.split(",") if img.strip()]
 
     extra_args = ["-v"] if verbose else []
+    if with_features:
+        extra_args.extend(["--with", with_features])
 
     results = run_multi_distro_tests(
         images=image_list,

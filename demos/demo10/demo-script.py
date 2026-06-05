@@ -103,7 +103,7 @@ def run(ctx: DemoContext) -> None:
     # Create PostgreSQL addon
     print_header("Step 4: Create PostgreSQL Database")
     print_step(f"Creating PostgreSQL database '{DB_NAME}'...")
-    result = run_hop3(f"addons:create postgres {DB_NAME}", check=False)
+    result = run_hop3(f"addon create postgres {DB_NAME}", check=False)
 
     postgres_available = result.returncode == 0
     if not postgres_available:
@@ -121,7 +121,7 @@ def run(ctx: DemoContext) -> None:
         # Verify the database was actually created using addon's own connection
         print_step("Verifying database exists...")
         info_result = run_hop3(
-            f"addons:info {DB_NAME} --service-type postgres",
+            f"addon show {DB_NAME} --service-type postgres",
             check=False,
             show=False,
         )
@@ -139,7 +139,7 @@ def run(ctx: DemoContext) -> None:
         print_header("Step 5: Attach Database to Application")
         print_step(f"Attaching '{DB_NAME}' to '{APP_NAME}'...")
         result = run_hop3(
-            f"addons:attach {DB_NAME} --app {APP_NAME} --service-type postgres",
+            f"addon attach {DB_NAME} --app {APP_NAME} --service-type postgres",
             check=False
         )
 
@@ -168,7 +168,7 @@ def run(ctx: DemoContext) -> None:
 
         # Debug: Test direct connection (bypass nginx) to confirm app is running
         print_step("Testing direct connection to app (bypassing nginx)...")
-        result = run_hop3(f"app:ping {APP_NAME} /db-status", check=False)
+        result = run_hop3(f"app ping {APP_NAME} /db-status", check=False)
         if result.returncode != 0:
             print_warning(f"Direct ping failed: {result.stderr or result.stdout}")
         else:
@@ -190,21 +190,21 @@ def run(ctx: DemoContext) -> None:
         # Get addon info
         print_header("Step 8: View Database Information")
         print_step(f"Getting info for database '{DB_NAME}'...")
-        run_hop3(f"addons:info {DB_NAME} --service-type postgres", check=False)
+        run_hop3(f"addon show {DB_NAME} --service-type postgres", check=False)
         pause(ctx.pause_between_steps)
 
         # Cleanup: Detach and destroy the database
         print_header("Step 9: Cleanup Database")
         print_step("Detaching database from app...")
-        run_hop3(f"addons:detach {DB_NAME} --app {APP_NAME} --service-type postgres", check=False)
+        run_hop3(f"addon detach {DB_NAME} --app {APP_NAME} --service-type postgres", check=False)
 
         print_step(f"Destroying database '{DB_NAME}'...")
-        run_hop3(f"addons:destroy {DB_NAME} --service-type postgres", check=False)
+        run_hop3(f"addon destroy {DB_NAME} --service-type postgres", check=False)
 
         # Verify the database was actually destroyed using addon's own connection
         print_step("Verifying database was removed...")
         info_result = run_hop3(
-            f"addons:info {DB_NAME} --service-type postgres",
+            f"addon show {DB_NAME} --service-type postgres",
             check=False,
             show=False,
         )
@@ -221,11 +221,11 @@ def run(ctx: DemoContext) -> None:
         print_header("PostgreSQL Addon Commands")
         print_blank()
         print_info("When PostgreSQL is available, you can:")
-        print_info(f"  1. Create database: hop3 addons:create postgres {DB_NAME}")
-        print_info(f"  2. Attach to app: hop3 addons:attach {DB_NAME} --app {APP_NAME} --service-type postgres")
-        print_info(f"  3. View info: hop3 addons:info {DB_NAME} --service-type postgres")
-        print_info(f"  4. Detach: hop3 addons:detach {DB_NAME} --app {APP_NAME}")
-        print_info(f"  5. Destroy: hop3 addons:destroy {DB_NAME}")
+        print_info(f"  1. Create database: hop3 addon create postgres {DB_NAME}")
+        print_info(f"  2. Attach to app: hop3 addon attach {DB_NAME} --app {APP_NAME} --service-type postgres")
+        print_info(f"  3. View info: hop3 addon show {DB_NAME} --service-type postgres")
+        print_info(f"  4. Detach: hop3 addon detach {DB_NAME} --app {APP_NAME}")
+        print_info(f"  5. Destroy: hop3 addon destroy {DB_NAME}")
         print_blank()
         pause(ctx.pause_between_steps)
 

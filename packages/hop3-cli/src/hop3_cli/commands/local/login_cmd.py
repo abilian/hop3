@@ -421,9 +421,18 @@ def _verify_token(server_url: str, token: str) -> str | None:
     from hop3_cli.config import Config as TempConfig  # noqa: PLC0415
     from hop3_cli.rpc import Client  # noqa: PLC0415
 
-    # Create a temporary config for verification
+    # Create a temporary config for verification. Must use the nested
+    # [contexts.*] shape — Config.get_api_url() no longer reads a flat
+    # top-level "api_url" key (removed in the context-model refactor), so a
+    # flat dict here yields api_url=None and Client raises CliError, which
+    # the broad except below misreports as "Could not connect". That made
+    # token-based `hop3 login "<url>?token=..."` fail even against a healthy
+    # server (e.g. the Docker demo login on localhost:18000).
     temp_config = TempConfig(
-        data={"api_url": server_url, "api_token": token},
+        data={
+            "contexts": {"default": {"api_url": server_url, "api_token": token}},
+            "current_context": "default",
+        },
         config_file=None,
     )
 
@@ -642,7 +651,8 @@ def _verify_https_connection(
 ) -> None:
     """Verify HTTPS connection works with the system CA bundle.
 
-    If SSL verification fails, offers to disable it for self-signed certificates.
+    Aborts the login (exit AUTH_ERROR) when the certificate is untrusted, so
+    we never persist an https config that would fail on every later call.
 
     Args:
         api_url: The HTTPS URL to verify
@@ -652,6 +662,8 @@ def _verify_https_connection(
         debug_level: Debug verbosity level
     """
     import requests  # noqa: PLC0415
+
+    from hop3_cli.exit_codes import ExitCode  # noqa: PLC0415
 
     if debug_level >= 1:
         print(f"[debug] Verifying HTTPS connection to {api_url}")
@@ -677,19 +689,25 @@ def _verify_https_connection(
         # The operator can still opt in via the persistent config knob,
         # which is a deliberate, audit-able decision.
         host = _extract_host(api_url)
-        print()
-        print("The server uses a self-signed or untrusted SSL certificate.")
-        print("Refusing to log in: a wrong choice here would leak your auth")
-        print("token on every subsequent CLI call.")
-        print()
-        print("Resolve one of these ways:")
-        print("  1. Use an SSH tunnel (recommended — bypasses TLS entirely):")
-        print(f"       hop3 login --ssh {host}")
-        print("  2. Trust the server certificate explicitly:")
-        print("       hop3 settings set ssl_cert /path/to/server.crt")
-        print("  3. Disable verification for this server (last resort):")
-        print("       hop3 settings set verify_ssl false")
-        print("       hop3 login ...   # retry")
+        msg = (
+            "\nThe server uses a self-signed or untrusted SSL certificate.\n"
+            "Refusing to log in: a wrong choice here would leak your auth\n"
+            "token on every subsequent CLI call.\n"
+            "\nResolve one of these ways:\n"
+            "  1. Use an SSH tunnel (recommended — bypasses TLS entirely):\n"
+            f"       hop3 login --ssh {host}\n"
+            "  2. Trust the server certificate explicitly:\n"
+            "       hop3 settings set ssl_cert /path/to/server.crt\n"
+            "  3. Disable verification for this server (last resort):\n"
+            "       hop3 settings set verify_ssl false\n"
+            "       hop3 login ...   # retry"
+        )
+        # Actually abort. Printing "Refusing to log in" and then letting the
+        # caller persist the https URL anyway produced a self-contradictory
+        # flow ("Refusing..." followed by "Credentials saved") and a config
+        # that fails SSL verification on every subsequent call.
+        print(msg, file=sys.stderr)
+        sys.exit(ExitCode.AUTH_ERROR)
 
     except requests.exceptions.RequestException as e:
         if debug_level >= 1:

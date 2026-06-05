@@ -135,7 +135,6 @@ Add options:
 
 Use options:
   (default)         Print 'export HOP3_CONTEXT=...' for this shell only
-  --local           Write to .hop3-context file in current directory
   --global          Set as global default (affects ALL terminals)
   --app <name>      Also set this context's default app (ADR 036 D7/D8)
 
@@ -152,13 +151,14 @@ Examples:
   hop3 --context prod apps
   hop3 --context prod deploy myapp
 
-  # Per-project context (creates .hop3-context file)
-  hop3 context use prod --local
+  # Per-project context (ADR 042): from inside a project directory
+  cd myproject
+  hop3 context use prod        # writes .hop3-local.toml
 
 Context priority (highest to lowest):
   1. --context flag
   2. HOP3_CONTEXT environment variable
-  3. .hop3-context file in current directory
+  3. .hop3-local.toml [current].context (per-project, ADR 042)
   4. Global config file
 
 Protected contexts require extra confirmation for destructive operations.

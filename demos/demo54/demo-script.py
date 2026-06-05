@@ -63,7 +63,7 @@ def run(ctx: DemoContext) -> None:
     pause(ctx.pause_between_steps)
 
     # Clean up any leftover PostgreSQL addon from previous failed runs
-    run_hop3(f"addons:destroy {PG_NAME} --service-type postgres", check=False, show=False)
+    run_hop3(f"addon destroy {PG_NAME} --service-type postgres", check=False, show=False)
 
     # Show app structure
     print_header("Deploying Miniflux RSS Reader")
@@ -98,7 +98,7 @@ def run(ctx: DemoContext) -> None:
     # Create PostgreSQL addon
     print_header("Step 2: Create PostgreSQL Database")
     print_step(f"Creating PostgreSQL instance '{PG_NAME}'...")
-    result = run_hop3(f"addons:create postgres {PG_NAME}", check=False)
+    result = run_hop3(f"addon create postgres {PG_NAME}", check=False)
 
     pg_available = result.returncode == 0
     if not pg_available:
@@ -115,7 +115,7 @@ def run(ctx: DemoContext) -> None:
     print_header("Step 3: Attach PostgreSQL to Application")
     print_step(f"Attaching '{PG_NAME}' to '{APP_NAME}'...")
     result = run_hop3(
-        f"addons:attach {PG_NAME} --app {APP_NAME} --service-type postgres",
+        f"addon attach {PG_NAME} --app {APP_NAME} --service-type postgres",
         check=False,
     )
 
@@ -159,10 +159,10 @@ def run(ctx: DemoContext) -> None:
     print_header("Step 8: Cleanup PostgreSQL")
     print_step("Detaching and destroying PostgreSQL...")
     run_hop3(
-        f"addons:detach {PG_NAME} --app {APP_NAME} --service-type postgres",
+        f"addon detach {PG_NAME} --app {APP_NAME} --service-type postgres",
         check=False,
     )
-    run_hop3(f"addons:destroy {PG_NAME} --service-type postgres", check=False)
+    run_hop3(f"addon destroy {PG_NAME} --service-type postgres", check=False)
     print_success("PostgreSQL cleaned up.")
     pause(ctx.pause_between_steps)
 

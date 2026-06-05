@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from lib.commands import run_hop3
+from lib.commands import cli_env, run_hop3
 from lib.context import DemoResult, OutputLevel
 from lib.discovery import load_demo_module
 from lib.logging import (
@@ -161,6 +161,75 @@ def run_prerequisites(ctx: DemoContext) -> bool:
         return False
 
 
+def _wait_for_http_ready(
+    server_url: str, timeout: float = 120.0, interval: float = 2.0
+) -> bool:
+    """Poll ``server_url`` until it answers HTTP, or ``timeout`` elapses.
+
+    Any HTTP response (including 3xx/4xx — the root redirects to /auth/login,
+    and /rpc would 401) means the server is up and accepting connections,
+    which is all we need before ``hop3 login``. Connection refused / reset /
+    timeout means "not ready yet". Returns True once reachable, else False.
+    """
+    import urllib.error  # noqa: PLC0415
+    import urllib.request  # noqa: PLC0415
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with urllib.request.urlopen(server_url, timeout=5):
+                return True
+        except urllib.error.HTTPError:
+            # The server answered (e.g. 302/401/404) — it's up.
+            return True
+        except (urllib.error.URLError, OSError, TimeoutError):
+            # Not listening yet (connection refused) or slow — keep polling.
+            time.sleep(interval)
+    return False
+
+
+def _run_login_with_retry(
+    config_cmd: str, timeout: float = 120.0, interval: float = 3.0
+) -> subprocess.CompletedProcess:
+    """Run a `hop3 login` command, retrying on connection failures.
+
+    The login is the definitive readiness test: it must reach the server
+    over HTTP. The server may be momentarily unreachable just after first
+    boot (it does an initial DB stamp, and the demo bounces services under
+    supervisor), so retry while that settles. Non-connection failures (e.g.
+    a rejected token) are returned immediately — retrying wouldn't help and
+    we don't want to mask a real error for two minutes.
+
+    Returns the final CompletedProcess (success, or the last failure).
+    """
+    deadline = time.time() + timeout
+    while True:
+        result = subprocess.run(
+            config_cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=cli_env(),
+        )
+        if result.returncode == 0:
+            return result
+        # Only retry on explicit connection errors (server still settling
+        # after first boot). A non-connection failure — e.g. a rejected
+        # token — is returned immediately so we never loop for the full
+        # timeout on a permanent error.
+        err = result.stderr.lower()
+        transient = (
+            "could not connect" in err
+            or "connection refused" in err
+            or "connection reset" in err
+            or "timed out" in err
+        )
+        if not transient or time.time() >= deadline:
+            return result
+        time.sleep(interval)
+
+
 def configure_cli(ctx: DemoContext) -> bool:
     """Run Phase 2: Configure the local Hop3 CLI.
 
@@ -193,6 +262,19 @@ def configure_cli(ctx: DemoContext) -> bool:
     # Get server URL based on backend
     backend = ctx.get_backend()
     server_url = backend.get_server_url()
+
+    # Wait for the HTTP endpoint to actually accept connections before we try
+    # to log in. The server is started under supervisor at the end of the
+    # prerequisites phase, but uWSGI needs a few seconds to bind the port —
+    # firing `hop3 login` immediately raced that and failed with
+    # "Could not connect to <server_url>". Poll until it answers.
+    print_step("Waiting for Hop3 server to accept connections...")
+    if not _wait_for_http_ready(server_url):
+        print_error(f"Hop3 server never became reachable at {server_url}")
+        print_info("Check the server: supervisorctl status / journalctl -u hop3-server")
+        print_phase_result(success=False)
+        return False
+    print_success("Server is reachable")
 
     # Create admin user
     print_step(f"Setting up admin user '{ctx.admin_user}'...")
@@ -247,9 +329,11 @@ def configure_cli(ctx: DemoContext) -> bool:
                 f"--password-stdin"
             )
 
-        result = subprocess.run(
-            config_cmd, shell=True, capture_output=True, text=True, check=False
-        )
+        # Retry the login: the server can still be settling right after
+        # first boot (initial DB stamp + a supervisor bounce of the services),
+        # so a single attempt may hit a brief window where the port is not
+        # accepting yet — even though the readiness poll above just saw it up.
+        result = _run_login_with_retry(config_cmd)
         if result.returncode != 0:
             print_error("Failed to configure CLI for Docker")
             if result.stderr:
@@ -275,7 +359,12 @@ def configure_cli(ctx: DemoContext) -> bool:
 
         step_start = time.time()
         result = subprocess.run(
-            init_cmd, shell=True, capture_output=True, text=True, check=False
+            init_cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=cli_env(),
         )
         record_timing("hop3_init", time.time() - step_start, category="setup")
         if result.stdout and ctx.output_level >= OutputLevel.VERBOSE:
@@ -291,7 +380,12 @@ def configure_cli(ctx: DemoContext) -> bool:
                 )
                 step_start = time.time()
                 result = subprocess.run(
-                    login_cmd, shell=True, capture_output=True, text=True, check=False
+                    login_cmd,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    env=cli_env(),
                 )
                 record_timing("hop3_login", time.time() - step_start, category="setup")
                 if result.stdout and ctx.output_level >= OutputLevel.VERBOSE:
@@ -317,7 +411,7 @@ def configure_cli(ctx: DemoContext) -> bool:
     print_step("Verifying authentication...")
     step_start = time.time()
     try:
-        run_hop3("auth:whoami", quiet=(ctx.output_level < OutputLevel.VERBOSE))
+        run_hop3("auth whoami", quiet=(ctx.output_level < OutputLevel.VERBOSE))
     except Exception:
         print_phase_result(success=False)
         return False

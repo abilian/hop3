@@ -36,30 +36,45 @@ def tmp_config(tmp_path: Path) -> Config:
 
 
 # ---- _parse_context_use_args ----
+# Post-ADR-042-Step-7: --local was removed; the returned tuple shape is
+# (name, use_global, app).
 
 
 def test_parse_context_use_plain_name():
-    name, local, glob, app = _parse_context_use_args(["prod"])
-    assert (name, local, glob, app) == ("prod", False, False, None)
+    name, glob, app = _parse_context_use_args(["prod"])
+    assert (name, glob, app) == ("prod", False, None)
 
 
 def test_parse_context_use_with_app_long():
-    name, _, _, app = _parse_context_use_args(["--app", "myapp", "prod"])
+    name, _, app = _parse_context_use_args(["--app", "myapp", "prod"])
     assert name == "prod"
     assert app == "myapp"
 
 
 def test_parse_context_use_with_app_short():
-    name, _, _, app = _parse_context_use_args(["-a", "myapp", "prod"])
+    name, _, app = _parse_context_use_args(["-a", "myapp", "prod"])
     assert name == "prod"
     assert app == "myapp"
 
 
-def test_parse_context_use_with_local_and_app():
-    name, local, _, app = _parse_context_use_args(["--local", "--app", "myapp", "prod"])
+def test_parse_context_use_with_global_and_app():
+    name, glob, app = _parse_context_use_args(["--global", "--app", "myapp", "prod"])
     assert name == "prod"
-    assert local is True
+    assert glob is True
     assert app == "myapp"
+
+
+def test_parse_context_use_rejects_retired_local_flag(capsys):
+    """ADR 042 Step 7: --local is retired; the parser must refuse it
+    loudly rather than silently dropping it (the old habit would
+    otherwise fall through to the global-export-instruction path).
+    """
+    with pytest.raises(SystemExit) as exc:
+        _parse_context_use_args(["--local", "staging"])
+    assert exc.value.code == 2
+    captured = capsys.readouterr()
+    assert "--local was retired" in captured.err
+    assert ".hop3-local.toml" in captured.err
 
 
 # ---- context_show ----

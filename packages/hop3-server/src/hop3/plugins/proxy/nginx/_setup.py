@@ -14,13 +14,19 @@ from hop3.config import ACME_WWW, CACHE_ROOT, NGINX_ROOT
 from hop3.core.identifiers import validate_hostname_list
 from hop3.core.protocols import BaseProxy
 from hop3.di import create_container
-from hop3.lib import Diagnosis, command_output, expand_vars, log, log_diagnosis
+from hop3.lib import (
+    Diagnosis,
+    abort_with_diagnosis,
+    command_output,
+    expand_vars,
+    log,
+    log_diagnosis,
+)
 from hop3.lib.rootd import (
     LocalRootdClient,
     RootdOpError,
     RootdUnavailableError,
 )
-from hop3.lib.util import CommandError, run_command, try_commands  # noqa: F401
 from hop3.platform.certificates import Certificate, CertificatesManager
 
 from ._templates import (
@@ -309,10 +315,18 @@ class NginxVirtualHost(BaseProxy):
     def reload_proxy(self) -> None:
         """Reload nginx to apply configuration changes.
 
-        Attempts to reload nginx using available methods. Silently skips if:
-        - Running in unit/integration test environment (not E2E)
-        - No reload mechanism is available
-        - Commands fail (logs warning instead of raising)
+        Reloads via hop3-rootd, the privileged-operations daemon (ADR 041).
+        The daemon is a hard dependency of the deploy path: if it is not
+        reachable, or the reload op fails, the new routes cannot be
+        published and the deploy is aborted with an actionable diagnosis —
+        we do NOT silently continue against a stale nginx.
+
+        The only non-fatal path is a generated config that fails `nginx -t`:
+        the previously-running config stays live and the deploy stops so the
+        operator can fix the error and redeploy.
+
+        Skipped only in unit/integration tests (not E2E), which run without a
+        live daemon.
         """
         # Skip reload in unit/integration tests, but NOT in E2E tests
         # E2E tests run in Docker containers and need nginx to actually reload
@@ -324,52 +338,62 @@ class NginxVirtualHost(BaseProxy):
         try:
             with LocalRootdClient() as client:
                 if not self._validate_nginx_config(client):
-                    log_diagnosis(
+                    abort_with_diagnosis(
                         Diagnosis(
                             component="Nginx",
                             action="reload proxy",
                             reason=(
-                                "skipping reload because the generated config "
-                                "failed validation (see the validation "
-                                "diagnosis above)"
+                                "the generated nginx config failed validation "
+                                "(see the validation diagnosis above)"
                             ),
                             hint=(
                                 "The previously-running nginx config is still "
                                 "live; fix the error and redeploy to publish "
                                 "the new routes"
                             ),
-                        ),
-                        fg="yellow",
+                        )
                     )
-                    return
                 result = client.call("nginx.reload", {})
             method = result.get("method", "rootd")
             log(f"nginx reloaded via {method} (hop3-rootd)", level=2)
         except RootdUnavailableError as e:
-            # rootd not running. Match the previous sudo-path behaviour:
-            # log and continue rather than blocking the deploy.
-            log(
-                f"hop3-rootd not reachable; skipping nginx reload: {e}",
-                level=2,
-            )
-        except RootdOpError as e:
-            log_diagnosis(
+            # rootd is required to apply proxy changes. Its absence is a
+            # deploy-blocker (see RootdUnavailableError) — fail loudly rather
+            # than report success against a stale nginx the operator must
+            # reload by hand.
+            abort_with_diagnosis(
                 Diagnosis(
                     component="Nginx",
                     action="reload proxy",
-                    reason=(f"hop3-rootd returned error: {e.message.strip()}"),
+                    reason=f"hop3-rootd is not reachable: {e}",
                     hint=(
-                        "Check journalctl -u hop3-rootd for details; "
-                        "the daemon should pick from systemctl / nginx -s "
-                        "reload automatically."
+                        "The platform requires the hop3-rootd daemon to apply "
+                        "proxy changes. Start it, then redeploy."
                     ),
                     troubleshooting=[
-                        "journalctl -u hop3-rootd -n 50",
-                        "systemctl status hop3-rootd",
+                        "systemctl status hop3-rootd   # systemd hosts",
+                        "supervisorctl status hop3-rootd   # containers",
+                        "ls -l /run/hop3-rootd/socket",
+                    ],
+                )
+            )
+        except RootdOpError as e:
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Nginx",
+                    action="reload proxy",
+                    reason=(f"hop3-rootd returned an error: {e.message.strip()}"),
+                    hint=(
+                        "nginx was not reloaded, so the new routes are not "
+                        "live. Inspect the daemon logs, fix the cause, and "
+                        "redeploy."
+                    ),
+                    troubleshooting=[
+                        "journalctl -u hop3-rootd -n 50   # systemd hosts",
+                        "supervisorctl tail hop3-rootd stderr   # containers",
                         "systemctl status nginx",
                     ],
-                ),
-                fg="yellow",
+                )
             )
 
     def setup_cache(self) -> None:

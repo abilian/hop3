@@ -6,7 +6,9 @@
 from __future__ import annotations
 
 import os
+import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 
 from hop3.config import HOP3_ROOT, HOP3_USER
 from hop3.core.env import Env
@@ -128,6 +130,11 @@ class StaticDeployer:
         # Get the static path from workers, falling back to artifact location
         static_path = workers.get("static", self.artifact.location)
 
+        # Static files are served by nginx directly (its workers run as
+        # www-data), so they must be readable by it — unlike proxied apps,
+        # whose process runs as the hop3 user and reads its own files.
+        self._grant_nginx_read(static_path)
+
         # Set up nginx configuration for static file serving
         env = self._make_env()
         if "HOST_NAME" in env:
@@ -144,6 +151,40 @@ class StaticDeployer:
             protocol="static",
             address=static_path,
         )
+
+    def _grant_nginx_read(self, static_path: str | Path) -> None:
+        """Make the served static tree readable by the nginx worker (www-data).
+
+        ``git checkout`` during deploy creates files mode 0600 (owner-only).
+        That's fine for proxied apps — their process runs as the hop3 user and
+        reads its own files — but nginx serves static sites directly and its
+        workers run as www-data, which then gets ``403 Forbidden`` on every
+        0600 file. ``chmod -R a+rX`` grants read to all plus traverse on
+        directories, without making data files executable.
+
+        Best-effort: a read-only artifact (e.g. a Nix store path, already
+        world-readable) or any chmod failure is logged, not fatal — the
+        proxied case never needed this at all.
+        """
+        served = Path(static_path)
+        if not served.is_absolute():
+            served = self.app.src_path / served
+        if not served.exists():
+            return
+        try:
+            subprocess.run(
+                ["chmod", "-R", "a+rX", str(served)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            log(f"Granted nginx read access to {served}", level=3)
+        except (subprocess.CalledProcessError, OSError) as e:
+            log(
+                f"Could not relax permissions on {served} for nginx: {e}",
+                level=1,
+                fg="yellow",
+            )
 
     def start(self) -> None:
         """Start the static app (same as deploy)."""

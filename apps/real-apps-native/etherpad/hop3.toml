@@ -15,6 +15,13 @@ categories = ["collaboration", "editor", "real-time"]
 builder = "local"
 # Explicit toolchain since package.json doesn't exist until before-build downloads source
 toolchain = "node"
+# Etherpad 2.x drives its build through pnpm, which requires Node >= 22.13.
+# Without this the build falls back to the host's apt Node (v18 on Ubuntu
+# 24.04) and dies in bin/installDeps.sh. The Node toolchain installs this
+# exact version into the app venv via `nodeenv --prebuilt`. Must be a full
+# version (not a bare "22") — nodeenv uses the string verbatim as the
+# download version, so "22" would resolve to a non-existent dist dir.
+node-version = "22.13.1"
 
 # Download source code
 before-build = "bash scripts/download.sh"

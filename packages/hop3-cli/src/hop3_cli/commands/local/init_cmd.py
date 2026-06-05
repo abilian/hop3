@@ -36,10 +36,20 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> None:
         parsed
     )
 
-    # Infer server URL from SSH target if not provided
+    # The global flag parser (commands/flags.py) consumes --server before
+    # local commands run, so `hop3 init --server <url>` arrives via the config
+    # override, not in args. Fall back to it before inferring/prompting.
+    if not server_url:
+        server_url = config.get_server_override()
+
+    # Infer the server URL from the SSH target if still unknown.
     if not server_url:
         server_url = infer_server_url(ssh_target)
-        if not auto_yes:
+        # Only prompt on an interactive tty. With --password-stdin (or any
+        # non-tty, e.g. CI), stdin carries the password — prompting here would
+        # consume that line and leave the password empty ("Password cannot be
+        # empty"). Infer silently in that case.
+        if not auto_yes and not password_stdin and sys.stdin.isatty():
             response = input(f"Server URL [{server_url}]: ").strip()
             if response:
                 server_url = response

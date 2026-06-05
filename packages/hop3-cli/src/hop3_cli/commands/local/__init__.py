@@ -22,6 +22,7 @@ from .completion_cmd import handle_completion
 from .context_cmd import handle_context
 from .init_cmd import handle_init
 from .login_cmd import handle_login, handle_login_token
+from .server_cmd import handle_server
 from .settings_cmd import handle_settings, settings_get, settings_set, settings_show
 from .ssh_ops import BootstrapError, extract_token, infer_server_url
 from .use_cmd import handle_use
@@ -44,6 +45,7 @@ __all__ = [
     "handle_local_command",
     "handle_login",
     "handle_login_token",
+    "handle_server",
     "handle_settings",
     "handle_use",
     "handle_version",
@@ -59,9 +61,10 @@ __all__ = [
 LOCAL_COMMANDS_INFO = {
     "aliases": "List all effective aliases (built-in, plugin, user).",
     "completion": "Generate shell completion scripts.",
-    "context": "Manage multiple server contexts.",
+    "context": "Manage project deploy contexts (or legacy server contexts).",
     "init": "Initialize connection to a Hop3 server via SSH.",
     "login": "Authenticate to a server.",
+    "server": "Manage server bindings (ADR 042).",
     "settings": "Manage local CLI settings (server URL, token, SSL).",
     "use": "Set / show / clear the current context's default app.",
     "version": "Show CLI version.",
@@ -106,6 +109,7 @@ _LOCAL_HANDLERS = {
     "context": handle_context,
     "init": handle_init,
     "login": handle_login,
+    "server": handle_server,
     "settings": handle_settings,
     "aliases": handle_aliases,
     "use": handle_use,

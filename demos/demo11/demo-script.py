@@ -18,7 +18,7 @@ TITLE = "Demo 11: Background Workers"
 DESCRIPTION = """
 Demonstrates background worker processes with Hop3:
   - Procfile with multiple process types (web + worker)
-  - Process scaling with ps:scale
+  - Process scaling with ps scale
   - Viewing process status with ps
 """
 
@@ -124,7 +124,7 @@ def run(ctx: DemoContext) -> None:
     # Demonstrate scaling
     print_header("Step 5: Process Scaling")
     print_step("Scaling worker to 2 instances...")
-    result = run_hop3(f"ps:scale {APP_NAME} worker=2", check=False)
+    result = run_hop3(f"ps scale {APP_NAME} worker=2", check=False)
     if result.returncode == 0:
         print_success("Worker scaled to 2 instances.")
     else:
@@ -138,7 +138,7 @@ def run(ctx: DemoContext) -> None:
 
     # Scale back down
     print_step("Scaling worker back to 1 instance...")
-    run_hop3(f"ps:scale {APP_NAME} worker=1", check=False)
+    run_hop3(f"ps scale {APP_NAME} worker=1", check=False)
 
     # Cleanup
     cleanup_app(ctx, APP_NAME, app_url)

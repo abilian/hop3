@@ -1,13 +1,14 @@
 # ADR 036: CLI Ergonomics and Command Surface
 
-**Status**: Accepted — implementation complete (M1–M8 landed on `cli-refact`, 2026-04-16)
+**Status**: Accepted — sections D7/D8 **superseded by [ADR 042](042-cli-context-model.md)** (2026-06-01); all other decisions remain authoritative.
 **Type**: Design
 **Created**: 2026-03-05
-**Updated**: 2026-04-16
-**Related ADRs**: 018, 019, 025, 031, 039 (planned)
+**Updated**: 2026-06-01
+**Related ADRs**: 018, 019, 025, 031, 039 (planned), **042 (supersedes D7/D8)**
 
 ## Revisions
 
+- v3.4 (2026-06-01): §D7 (app resolution chain) and §D8 (sticky context state) superseded by ADR 042. The vocabulary split was inverted — "context" now names a project environment, "server" the credentialed binding — and the resolution chains were rewritten end-to-end. See ADR 042 for the authoritative chains. Body of D7/D8 retained for historical record with in-section supersession notes.
 - v3.3 (2026-04-17): Post-implementation audit. Three D6 flags are deferred, not dropped: `--no-color` (terminal-palette control; use `NO_COLOR=1` env var as the interim convention), `--no-progress` (no long-running spinners in the tree yet — Rich `print_progress` is wired but unused), and `--config <path>` (alternative CLI config file; `$HOP3_CONFIG_DIR` covers the same surface for now). All other D1–D19 and G1–G8 items land in M1–M8. `docs/src/reference/cli.md` and `docs/src/guides/cheat-sheet.md` now describe the D6 flag set, the D7 resolution chain, and the D16 exit-code table.
 - v3.2 (2026-04-16): M5–M8 landed, closing out the implementation. M5: did-you-mean + structured no-app errors. M6: `--confirm`/`--no-input`/`summary` response type + stderr discipline + `--password-file`/`--stdin`/`--input -`. M7: ExitCode renumbered to D16 table + SIGINT handler. M8: alias load diagnostics + `HOP3_NO_INPUT` env bridge + app-name cache in `completion --refresh` + app did-you-mean. Status: Accepted.
 - v3.1 (2026-04-15): Applied G1–G8 from the cli-guidelines (clig.dev) review. New D19 on output conventions (stdout/stderr, `-` for file args, state-change summaries). Added `--no-input` and `--confirm=<name>` flags. Reordered per-command help to lead with examples. Dropped `--password` flag (stdin / prompt / file only). Added feedback link in top-level help.
@@ -121,6 +122,15 @@ Flags may appear before or after the subcommand. Environment-variable equivalent
 
 #### D7 — Implicit app resolution
 
+> **Superseded by ADR 042** (2026-06-01). The eight-source resolution chain
+> below is now defined in [ADR 042 §Resolution chains](042-cli-context-model.md#resolution-chains).
+> Notable deltas: the legacy `[contexts.*]` blocks in `config.toml` were renamed
+> to `[servers.*]` in `servers.toml`; `[contexts.<name>]` blocks in `hop3.toml`
+> now name *project* contexts (an environment/target binding) rather than
+> server records; an eighth source — the server-level `default_app` — was
+> added below the existing seven. The body below is retained for historical
+> record only; see ADR 042 for the authoritative chain.
+
 When a command requires `--app` and none is given, resolve in order:
 
 1. `--app` (or `-a`) on the command line
@@ -134,6 +144,16 @@ When a command requires `--app` and none is given, resolve in order:
 Unresolvable → fail with the chain printed and a one-line fix suggested.
 
 #### D8 — Sticky state: contexts and default app
+
+> **Superseded by ADR 042** (2026-06-01). The vocabulary split below ("context"
+> = server binding) was inverted: under ADR 042, **server records** live in
+> `~/.config/hop3-cli/servers.toml` (managed by `hop3 server`), and **project
+> contexts** are `[contexts.*]` blocks inside each project's `hop3.toml`
+> (managed by `hop3 context` from inside the project tree). The per-server
+> `default_app` survives as the lowest-priority app-resolution source. The
+> per-project context-name selector moved from `.hop3-context` to
+> `.hop3-local.toml [current].context` (the legacy one-liner was retired in
+> ADR 042 Step 7). Body retained for historical record only.
 
 - **Active context** lives in `~/.config/hop3-cli/state.toml` (XDG). Set via `hop3 context use <name>`. Overridable per-shell by `HOP3_CONTEXT`, per-project by `hop3.toml [cli].context`.
 - **Context's default app** lives in the same file under `[contexts.<name>].default_app`. `hop3 use <app>` is sugar for setting the current context's default app.

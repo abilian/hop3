@@ -161,6 +161,17 @@ class DeployConfig:
         return self.packages_path / "hop3-server"
 
     @property
+    def rootd_package_path(self) -> Path:
+        """Path to hop3-rootd package.
+
+        The installer expects the daemon source as a sibling of the server
+        source (``/tmp/hop3-rootd`` next to ``/tmp/hop3-server``); it's a hard
+        dependency of the deploy path (nginx reloads). See
+        ``server_installer.python.install_rootd_package``.
+        """
+        return self.packages_path / "hop3-rootd"
+
+    @property
     def dist_path(self) -> Path:
         """Path to dist directory."""
         return self.project_root / "dist"

@@ -103,7 +103,7 @@ def run(ctx: DemoContext) -> None:
     # Create PostgreSQL addon
     print_header("Step 4: Create PostgreSQL Database")
     print_step(f"Creating PostgreSQL database '{DB_NAME}'...")
-    result = run_hop3(f"addons:create postgres {DB_NAME}", check=False)
+    result = run_hop3(f"addon create postgres {DB_NAME}", check=False)
 
     postgres_available = result.returncode == 0
     if not postgres_available:
@@ -119,7 +119,7 @@ def run(ctx: DemoContext) -> None:
         print_header("Step 5: Attach Database to Application")
         print_step(f"Attaching '{DB_NAME}' to '{APP_NAME}'...")
         result = run_hop3(
-            f"addons:attach {DB_NAME} --app {APP_NAME} --service-type postgres",
+            f"addon attach {DB_NAME} --app {APP_NAME} --service-type postgres",
             check=False,
         )
 
@@ -155,17 +155,17 @@ def run(ctx: DemoContext) -> None:
         print_header("Step 9: Cleanup Database")
         print_step("Detaching and destroying database...")
         run_hop3(
-            f"addons:detach {DB_NAME} --app {APP_NAME} --service-type postgres",
+            f"addon detach {DB_NAME} --app {APP_NAME} --service-type postgres",
             check=False,
         )
-        run_hop3(f"addons:destroy {DB_NAME} --service-type postgres", check=False)
+        run_hop3(f"addon destroy {DB_NAME} --service-type postgres", check=False)
         print_success("Database cleaned up.")
         pause(ctx.pause_between_steps)
     else:
         print_header("PostgreSQL Addon Commands")
         print_info("When PostgreSQL is available:")
-        print_info(f"  hop3 addons:create postgres {DB_NAME}")
-        print_info(f"  hop3 addons:attach {DB_NAME} --app {APP_NAME} --service-type postgres")
+        print_info(f"  hop3 addon create postgres {DB_NAME}")
+        print_info(f"  hop3 addon attach {DB_NAME} --app {APP_NAME} --service-type postgres")
         print_blank()
         pause(ctx.pause_between_steps)
 

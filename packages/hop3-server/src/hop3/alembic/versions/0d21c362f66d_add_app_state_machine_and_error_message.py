@@ -24,6 +24,12 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+def _app_has_column(name: str) -> bool:
+    """True if the live ``app`` table already has column ``name``."""
+    bind = op.get_bind()
+    return name in {col["name"] for col in sa.inspect(bind).get_columns("app")}
+
+
 def upgrade() -> None:
     """Upgrade schema to add error_message column and update state enum values.
 
@@ -31,7 +37,16 @@ def upgrade() -> None:
     - Add error_message column to app table
     - Update run_state enum values (remove PAUSED, add STARTING, STOPPING, FAILED)
     - STOPPED=1, STARTING=2, RUNNING=3, STOPPING=4, FAILED=5
+
+    Idempotent: Hop3 historically created its schema via metadata.create_all()
+    and never stamped Alembic (see orm/session.py), so this delta is replayed
+    when such a DB is adopted (db:upgrade stamps base, then upgrades). If the
+    column is already present the DB is at/past this revision — skip the whole
+    body, including the run_state reset, so we don't clobber live app state.
     """
+    if _app_has_column("error_message"):
+        return
+
     # Add error_message column
     op.add_column(
         "app",

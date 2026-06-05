@@ -44,14 +44,16 @@ hop3 restart
 
 ## App Resolution
 
-Commands that act on a single app (`logs`, `restart`, `config set`, `run`, …) no longer take the app name as a positional argument. Instead the CLI resolves it from a layered chain, walking sources until one supplies a value (ADR 036 D7):
+Commands that act on a single app (`logs`, `restart`, `config set`, `run`, …) no longer take the app name as a positional argument. Instead the CLI resolves it from a layered chain, walking sources until one supplies a value (ADR 042 §Resolution chains; supersedes ADR 036 §D7):
 
 1. `--app <name>` / `-a <name>` — explicit flag, wins over everything.
 2. `$HOP3_APP` — environment variable for the current shell.
 3. `.hop3-app` — one-line file in CWD or any ancestor up to `$HOME`. Drop it in a project repo and `hop3` from inside picks up the right app.
 4. `hop3.toml [cli].app` — same search path as `.hop3-app`, lower priority.
-5. `hop3.toml [metadata].id` — the project's canonical name. The "I'm physically standing in this project" source; outranks the global default so being inside a project always wins over a sticky `hop3 use` from elsewhere.
-6. Active context's `default_app` — set via `hop3 use <app>`.
+5. `hop3.toml [contexts.<resolved-context>].app` — when a project context resolves (see below), its `app` field becomes the source. Lets one project map per-environment to different apps.
+6. `hop3.toml [metadata].id` — the project's canonical name. The "I'm physically standing in this project" source; outranks any server-level default so being inside a project always wins over a sticky binding from elsewhere.
+7. Git remote `hop3-<env>` parsed for an app name — supports `git push hop3-prod main` style deploys.
+8. Active server's `default_app` from `~/.config/hop3-cli/servers.toml` — set via `hop3 server use --default-app <app>`. Lowest-priority fallback for single-app users.
 
 Use `hop3 --why <command>` to print the full trace and see which source won. `--why` is diagnostic-only: the command itself is not executed (so `hop3 deploy --why` is safe to run).
 
@@ -60,21 +62,30 @@ Use `hop3 --why <command>` to print the full trace and see which source won. `--
 hop3 logs --app myapp
 hop3 config set --app myapp KEY=value
 
-# Sticky app for the context:
-hop3 use myapp
-hop3 logs
-
 # Per-shell:
 export HOP3_APP=myapp
 
-# Per-directory:
+# Per-directory (legacy pin file):
 echo myapp > .hop3-app
+
+# Per-project, declared in hop3.toml:
+# [metadata]
+# id = "myapp"
+# [contexts.staging]
+# app = "myapp-staging"
 
 # Debug:
 hop3 --why logs
 ```
 
-See [CLI Reference: App Resolution](../../docs/src/reference/cli.md#app-resolution) for the full specification.
+The ADR 042 model splits the old "context" noun into two concepts:
+
+- **Server records** — credentialed bindings to a Hop3 server. Live in `~/.config/hop3-cli/servers.toml`. Managed with `hop3 server` (`add` / `list` / `show` / `use` / `login` / `remove`).
+- **Project contexts** — environment-shaped overlays on a single project. Declared as `[contexts.<name>]` blocks inside `hop3.toml`. Managed with `hop3 context` from inside a project tree (`init` / `use` / `list` / `show` / `add` / `remove`). The currently-selected one is recorded in `.hop3-local.toml` (gitignored automatically).
+
+A `hop3 deploy` from a project tree resolves: server (which Hop3 to talk to) + context (which environment of this project) + app (which app on that server) — and shows a preview-and-confirm prompt with the plan before invoking the deploy RPC. `--dry-run` exits after printing the plan; `--force` bypasses the project-mismatch safety guard.
+
+See [CLI Reference: App Resolution](../../docs/src/reference/cli.md#app-resolution) and [ADR 042](../../notes/adrs/042-cli-context-model.md) for the full specification.
 
 ## Configuration
 

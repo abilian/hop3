@@ -91,6 +91,12 @@ DOCKER_CONTAINER_NAME = "hop3-dev"
 SERVER_PACKAGE_NAME = "hop3-server"
 SERVER_PACKAGE_SUBDIR = "packages/hop3-server"
 
+# Privileged-operations daemon (ADR 041). Installed into the same venv as
+# the server; the deploy path requires it for nginx reloads.
+ROOTD_PACKAGE_NAME = "hop3-rootd"
+ROOTD_PACKAGE_SUBDIR = "packages/hop3-rootd"
+ROOTD_BIN = VENV_DIR / "bin" / "hop3-rootd"
+
 # CLI package
 CLI_PACKAGE_NAME = "hop3-cli"
 CLI_PACKAGE_SUBDIR = "packages/hop3-cli"

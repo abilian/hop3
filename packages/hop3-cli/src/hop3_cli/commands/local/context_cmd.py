@@ -9,11 +9,9 @@ from __future__ import annotations
 import os
 import re
 import sys
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3_cli.commands.local.help_text import print_context_help
-from hop3_cli.config import LOCAL_CONTEXT_FILE
 
 # Context names flow into TOML keys and config-file paths. The shape
 # below is the same lowercase-alpha-with-hyphens form server-side
@@ -34,26 +32,72 @@ if TYPE_CHECKING:
     from hop3_cli.ui.rich_printer import RichPrinter
 
 
+def _try_project_routing(args: list[str], config: Config, printer: RichPrinter) -> bool:
+    """Attempt to route to the new project-scoped context handler.
+
+    Returns True when the command was routed there (caller stops),
+    False to fall through to legacy global-server behavior. Decision
+    table:
+
+    - No hop3.toml in CWD/ancestors → False (legacy).
+    - hop3.toml exists AND declares [contexts.*] → route to project.
+    - hop3.toml exists, no [contexts.*], subcommand is ``init`` or
+      ``add`` → route to project (these are the bootstrap verbs).
+    - hop3.toml exists, no [contexts.*], other subcommand → False
+      (legacy), but emit a stderr breadcrumb so the operator knows
+      why their global-server verbs are still in scope.
+    """
+    from hop3_cli.commands.local.project_context_cmd import (  # noqa: PLC0415
+        find_project_hop3_toml,
+        handle_project_context,
+        project_has_contexts,
+    )
+
+    project_hop3 = find_project_hop3_toml()
+    if project_hop3 is None:
+        return False
+
+    if project_has_contexts(project_hop3):
+        handle_project_context(args, config, printer, project_hop3=project_hop3)
+        return True
+
+    # Bootstrap verbs route to project-scoped even when no contexts exist yet.
+    if args and args[0] in {"init", "add"}:
+        handle_project_context(args, config, printer, project_hop3=project_hop3)
+        return True
+
+    # Inside a project but no [contexts.*] declared. Fall through to the
+    # legacy global-server handler, with a breadcrumb so the operator
+    # understands why.
+    print(
+        f"note: project at {project_hop3} has no [contexts.*] declared. "
+        "Using global-server contexts (legacy behavior). "
+        "Run `hop3 context init --server <name>` to switch to "
+        "project-scoped contexts.",
+        file=sys.stderr,
+    )
+    return False
+
+
 def handle_context(args: list[str], config: Config, printer: RichPrinter) -> None:
-    """Handle the context command for managing server contexts.
+    """Handle the context command.
 
-    Usage:
-        hop3 context                       Show current context state + subcommand list
-        hop3 context list                  List all configured contexts
-        hop3 context show [<name>]         Show details of a context
-        hop3 context use [--app <a>] <n>   Switch active context (optionally set default app)
-        hop3 context add <name> --server <url> [options]
-        hop3 context remove <name>
-        hop3 context rename <old> <new>
+    Post-ADR 042: ``hop3 context`` is the *project-scoped* verb. When
+    invoked inside a project directory (hop3.toml present in CWD or an
+    ancestor up to ``$HOME``), it routes to the project-context handler
+    in ``project_context_cmd.py``.
 
-    Per ADR 036 D8: bare `hop3 context` prints the current active state AND a
-    short hint to help new users discover subcommands without having to pass
-    `--help`.
+    When invoked OUTSIDE a project, falls back to the legacy global-
+    server-binding behavior (the original meaning of ``hop3 context``)
+    so existing operators don't lose access to their server records
+    before Step 4 ships the ``hop3 server`` namespace.
     """
     if args and args[0] in {"--help", "-h"}:
         print_context_help()
         return
 
+    if _try_project_routing(args, config, printer):
+        return
     if not args:
         _context_bare(config, printer)
         return
@@ -89,7 +133,7 @@ def _context_bare(config: Config, printer: RichPrinter) -> None:
     context = config.get_current_context()
 
     if current and context:
-        source = _get_context_source(config, current)
+        source = _get_context_source(config)
         print(f"Current context: {current}  (via {source})")
         print(f"  Server:      {context.api_url}")
         if context.protected:
@@ -164,7 +208,7 @@ def context_show(args: list[str], config: Config, printer: RichPrinter) -> None:
     is_active = target == active
     print(f"Context: {target}{' (active)' if is_active else ''}")
     if is_active:
-        print(f"  Source:      {_get_context_source(config, target)}")
+        print(f"  Source:      {_get_context_source(config)}")
     print(f"  Server:      {context.api_url}")
     if context.protected:
         print("  Protected:   yes (requires confirmation for destructive operations)")
@@ -179,9 +223,15 @@ def context_show(args: list[str], config: Config, printer: RichPrinter) -> None:
         print(f"  Token:       {token_display}")
 
 
-def _get_context_source(config: Config, context_name: str) -> str:
-    """Determine where the current context setting came from."""
-    # Check in priority order
+def _get_context_source(config: Config) -> str:
+    """Determine where the current context setting came from.
+
+    Mirrors ``Config.get_current_context_name``'s priority chain. The
+    per-project ``.hop3-local.toml`` overlay is handled by
+    ``hop3_cli.core.resolution.resolve_context`` and surfaces via the
+    ``--why`` trace rather than here, so this stays scoped to the global
+    Config's three sources.
+    """
     if config.has_context_override():
         return "--context flag"
 
@@ -189,28 +239,35 @@ def _get_context_source(config: Config, context_name: str) -> str:
     if env_context:
         return "HOP3_CONTEXT environment variable"
 
-    local_file = Path.cwd() / LOCAL_CONTEXT_FILE
-    if local_file.exists():
-        try:
-            content = local_file.read_text().strip()
-            if content == context_name:
-                return f"local file ({local_file})"
-        except OSError:
-            pass
-
     return "global config"
 
 
 def _parse_context_use_args(
     args: list[str],
-) -> tuple[str | None, bool, bool, str | None]:
+) -> tuple[str | None, bool, str | None]:
     """Parse context use arguments.
 
     Returns:
-        Tuple of (context_name, use_local, use_global, app).
+        Tuple of (context_name, use_global, app).
         `app` is the value of `--app <name>` if given (ADR 036 D7/D8).
+
+    ``--local`` was retired in ADR 042 Step 7 along with the
+    ``.hop3-context`` one-liner. Per-project context selection now goes
+    through ``hop3 context use <name>`` from inside a project directory,
+    which writes ``.hop3-local.toml`` via the project-scoped verb. The
+    parser refuses ``--local`` loudly so operators following old muscle
+    memory don't silently fall through to the global path.
     """
-    use_local = "--local" in args
+    if "--local" in args:
+        print(
+            "Error: --local was retired in ADR 042. Per-project context "
+            "selection happens automatically when 'hop3 context use <name>' "
+            "is invoked from inside a project directory (writes "
+            ".hop3-local.toml).",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
     use_global = "--global" in args
 
     app: str | None = None
@@ -227,7 +284,7 @@ def _parse_context_use_args(
             name = arg
         i += 1
 
-    return name, use_local, use_global, app
+    return name, use_global, app
 
 
 def _context_use_global(name: str, config: Config, context) -> None:
@@ -239,16 +296,6 @@ def _context_use_global(name: str, config: Config, context) -> None:
         print("  Warning: This is a protected context.")
 
 
-def _context_use_local(name: str, config: Config, context) -> None:
-    """Handle --local flag for context use."""
-    local_path = config.write_local_context(name)
-    print(f"Wrote context '{name}' to {local_path}")
-    print("  This context will be used when running hop3 from this directory.")
-    if context and context.protected:
-        print("  Warning: This is a protected context.")
-    print("\n  Tip: Add .hop3-context to .gitignore if you don't want to commit it.")
-
-
 def _context_use_default(name: str, context) -> None:
     """Handle default behavior for context use (print export command)."""
     print(f"To use context '{name}' in this shell, run:\n")
@@ -258,25 +305,31 @@ def _context_use_default(name: str, context) -> None:
         if context.protected:
             print("Warning: This is a protected context.")
     print("\nOther options:")
-    print(f"  hop3 context use {name} --local   # Save to .hop3-context file")
     print(
         f"  hop3 context use {name} --global  # Set as global default (all terminals)"
+    )
+    print(
+        "  hop3 context use <name>            # (run inside a project) writes .hop3-local.toml"
     )
 
 
 def context_use(args: list[str], config: Config, printer: RichPrinter) -> None:
-    """Switch to a different context (ADR 036 D7/D8).
+    """Switch to a different context (ADR 036 D7/D8, ADR 042).
 
     By default, prints instructions to set the environment variable (safest).
-    Use --local to write to .hop3-context file in current directory.
     Use --global to persist to global config (affects all terminals).
     Use --app <name> to also set the context's default app in one shot.
+
+    Note: the legacy ``--local`` flag (wrote ``.hop3-context``) was retired
+    in ADR 042 Step 7. Per-project context selection now happens via the
+    project-scoped routing in ``_try_project_routing``, which writes
+    ``.hop3-local.toml`` when invoked from inside a project tree.
     """
     if not args:
         _print_context_use_usage()
         sys.exit(1)
 
-    name, use_local, use_global, app = _parse_context_use_args(args)
+    name, use_global, app = _parse_context_use_args(args)
 
     if not name:
         _print_context_use_usage()
@@ -294,7 +347,7 @@ def context_use(args: list[str], config: Config, printer: RichPrinter) -> None:
     context = config.get_contexts().get(name)
 
     # Apply --app (if any): sets the context's default_app. This works
-    # independently of --local/--global/(default) scope because it's always
+    # independently of --global/(default) scope because it's always
     # persisted to the named context's entry.
     if app is not None:
         config.set_default_app(app, context_name=name)
@@ -302,20 +355,17 @@ def context_use(args: list[str], config: Config, printer: RichPrinter) -> None:
 
     if use_global:
         _context_use_global(name, config, context)
-    elif use_local:
-        _context_use_local(name, config, context)
     else:
         _context_use_default(name, context)
 
 
 def _print_context_use_usage() -> None:
     print(
-        "Usage: hop3 context use [--local | --global] [--app <name>] <name>",
+        "Usage: hop3 context use [--global] [--app <name>] <name>",
         file=sys.stderr,
     )
     print("\nOptions:")
     print("  (default)       Print export command for this shell only")
-    print("  --local         Write to .hop3-context in current directory")
     print("  --global        Set as global default (affects all terminals)")
     print("  --app <name>    Also set this context's default app (ADR 036 D7/D8)")
 

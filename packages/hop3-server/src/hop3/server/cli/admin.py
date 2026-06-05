@@ -411,7 +411,7 @@ class AuthMagicLink(Command):
     """Generate a magic link for passwordless web login.
 
     Usage:
-        hop3-server auth magic-link [username]
+        hop3-server auth:magic-link [username]
 
     This command generates a short-lived, single-use token that can be used
     to log into the web dashboard without entering a password.
@@ -422,12 +422,12 @@ class AuthMagicLink(Command):
     - Logs in as the specified user (default: admin)
 
     This is designed for SSH-based authentication workflows:
-        ssh root@server hop3-server auth magic-link
+        ssh root@server hop3-server auth:magic-link
 
     The CLI uses this internally for 'hop3 login --web'.
     """
 
-    name = "auth magic-link"
+    name = "auth:magic-link"
 
     def add_arguments(self, parser):
         parser.add_argument(

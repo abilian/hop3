@@ -98,3 +98,54 @@ def test_setup_with_workers(env: Env) -> None:
     workers = {"static": "public"}
     nginx = NginxVirtualHost(App(name="testapp"), env, workers)
     nginx.setup()
+
+
+# --- reload_proxy: hop3-rootd is a hard dependency (ADR 041) -------------
+#
+# These tests bypass the unit-test reload guard via HOP3_E2E_TEST so the
+# rootd path actually runs, then prove that an unreachable / failing daemon
+# aborts the deploy loudly instead of silently leaving nginx stale.
+
+from hop3.lib.console import Abort  # noqa: E402
+from hop3.lib.rootd import RootdOpError, RootdUnavailableError  # noqa: E402
+from hop3.plugins.proxy.nginx import _setup as nginx_setup  # noqa: E402
+
+
+class _UnavailableClient:
+    """Stand-in whose construction fails like a missing daemon socket."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        msg = "hop3-rootd socket not found at /run/hop3-rootd/socket"
+        raise RootdUnavailableError(msg)
+
+
+class _OpErrorClient:
+    """Stand-in that connects and validates, but errors on reload."""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def call(self, op: str, _args: dict) -> dict:
+        if op == "nginx.validate_config":
+            return {"valid": True}
+        code, msg = "kernel_error", "nginx reload exploded"
+        raise RootdOpError(code, msg)
+
+
+def test_reload_proxy_aborts_when_rootd_unavailable(env, monkeypatch) -> None:
+    monkeypatch.setenv("HOP3_E2E_TEST", "1")  # bypass the unit-test guard
+    monkeypatch.setattr(nginx_setup, "LocalRootdClient", _UnavailableClient)
+    nginx = NginxVirtualHost(App(name="testapp"), env, {})
+    with pytest.raises(Abort):
+        nginx.reload_proxy()
+
+
+def test_reload_proxy_aborts_when_rootd_reload_errors(env, monkeypatch) -> None:
+    monkeypatch.setenv("HOP3_E2E_TEST", "1")
+    monkeypatch.setattr(nginx_setup, "LocalRootdClient", _OpErrorClient)
+    nginx = NginxVirtualHost(App(name="testapp"), env, {})
+    with pytest.raises(Abort):
+        nginx.reload_proxy()

@@ -225,6 +225,7 @@ def _apply_overrides(config: Config, overrides: dict) -> Config:
             verbose=deployment.verbose,
             use_local_repo=deployment.use_local_repo,
             local_repo_path=deployment.local_repo_path,
+            features=deployment.features,
         )
 
     if overrides.get("use_local_repo") or overrides.get("local_repo_path"):
@@ -239,6 +240,28 @@ def _apply_overrides(config: Config, overrides: dict) -> Config:
             local_repo_path=overrides.get(
                 "local_repo_path", deployment.local_repo_path
             ),
+            features=deployment.features,
+        )
+
+    if overrides.get("features"):
+        # `--with`: union the requested features onto whatever is configured
+        # (config file default is docker/mysql/postgresql), preserving order
+        # and dropping duplicates. So `--with redis` adds redis without
+        # dropping the baseline addons an app might also need.
+        merged = list(deployment.features)
+        for feat in overrides["features"]:
+            if feat not in merged:
+                merged.append(feat)
+        deployment = DeploymentConfig(
+            branch=deployment.branch,
+            domain=deployment.domain,
+            acme_email=deployment.acme_email,
+            use_local_code=deployment.use_local_code,
+            clean_before=deployment.clean_before,
+            verbose=deployment.verbose,
+            use_local_repo=deployment.use_local_repo,
+            local_repo_path=deployment.local_repo_path,
+            features=merged,
         )
 
     if "suites" in overrides or "fail_fast" in overrides or "random_order" in overrides:

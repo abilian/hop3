@@ -132,8 +132,13 @@ def _handle_streaming_response(
         ])
         sys.exit(1)
 
-    # Get API URL from config
-    api_url: str = config.get("api_url", "")
+    # Get API URL from config. Must use get_api_url() (context-aware, matching
+    # how Client resolves the connection) — NOT the flat config.get("api_url"),
+    # which ADR 042 stopped populating once the URL moved into [contexts.*].
+    # The flat lookup returned "" for context-configured CLIs, so streaming
+    # deploys aborted with "No API URL configured" even though the RPC itself
+    # had just connected fine.
+    api_url: str = config.get_api_url() or ""
     if not api_url:
         printer.print([{"t": "error", "text": "No API URL configured"}])
         sys.exit(1)

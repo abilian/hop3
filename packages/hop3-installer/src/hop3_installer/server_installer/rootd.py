@@ -24,13 +24,16 @@ from pathlib import Path
 
 from hop3_installer.common import (
     CommandError,
+    ServiceStartError,
     cmd_exists,
+    has_systemd,
     print_detail,
     print_info,
     print_success,
     print_warning,
     run_cmd,
 )
+from hop3_installer.constants import VENV_DIR
 
 # --- Paths and content ---------------------------------------------------
 
@@ -44,13 +47,21 @@ LOG_DIR = Path("/var/log/hop3-rootd")
 RUNTIME_DIR = Path("/run/hop3-rootd")
 
 
-# Paths to the daemon entry script. Two candidates depending on install
-# style: editable install via `uv sync` (script lives in the venv's bin
-# dir) or production install (TBD — for now we shell out to the venv).
 def _resolve_daemon_command() -> str:
-    """Find the hop3-rootd executable. Returns an absolute path or raises."""
+    """Find the hop3-rootd executable. Returns an absolute path, or raises.
+
+    We deliberately do NOT fall back to a guessed path. Writing a systemd
+    unit whose ``ExecStart`` points at a non-existent binary produces a
+    silent, relentless ``status=203/EXEC`` crash loop (observed in the wild:
+    1600+ restarts over 9h) and leaves every deploy unable to reload nginx —
+    apps stay unreachable behind the default vhost. A missing daemon is a
+    deploy-blocker (ADR 041 §14), so we fail the install loudly here instead.
+    The operator must install hop3-rootd into the server venv first (see
+    ``install_rootd_package``), then re-run.
+    """
     # Common installation locations to probe in order.
     candidates = [
+        VENV_DIR / "bin" / "hop3-rootd",  # the server venv (where we install it)
         Path("/usr/local/bin/hop3-rootd"),
         Path("/opt/hop3/.venv/bin/hop3-rootd"),  # production venv
         Path("/home/hop3/.venv/bin/hop3-rootd"),  # legacy
@@ -58,68 +69,57 @@ def _resolve_daemon_command() -> str:
     for c in candidates:
         if c.exists() and c.is_file():
             return str(c)
-    # Fallback: rely on PATH at unit-start time. The systemd unit will
-    # fail clearly if the binary isn't found.
-    return "/usr/local/bin/hop3-rootd"
+    searched = ", ".join(str(c) for c in candidates)
+    msg = (
+        f"hop3-rootd binary not found (looked in: {searched}). The daemon "
+        "package was not installed. Refusing to write a systemd unit with a "
+        "non-existent ExecStart — it would crash-loop with status=203/EXEC "
+        "and break every deploy. Install hop3-rootd into the server venv "
+        "(see install_rootd_package) and re-run."
+    )
+    raise ServiceStartError(msg)
 
 
+# NOTE — v0.6 hardening debt (tracked in notes/v0.6-rootd-hardening.md):
+# This unit intentionally runs with MINIMAL sandboxing. The original heavy
+# hardening (ProtectHome, ProtectSystem=strict, CapabilityBoundingSet, seccomp
+# SystemCallFilter, namespace restrictions, MemoryDenyWriteExecute) was found to
+# be fundamentally incompatible with rootd's role as the privileged executor of
+# THREE external tools — nft, nginx (`-t` / `-s reload`), and systemctl. Each
+# layer broke a different tool, and because the daemon never even started under
+# it (203/EXEC), none of it was ever exercised:
+#   - ProtectHome=true        -> 203/EXEC: the venv interpreter under /home is
+#                                hidden from the unit's namespace at execve.
+#   - ProtectSystem=strict    -> nginx -t can't write /var/log/nginx, /run.
+#   - CapabilityBoundingSet=  -> drops CAP_DAC_OVERRIDE, so `nginx -t` (run as
+#       CAP_NET_ADMIN only      root) gets EACCES on nginx's www-data error log.
+# Re-introduce hardening in v0.6, designed and tested against ALL three tools,
+# and relocate the daemon out of the hop3-writable /home venv (the open
+# hop3->root escalation). Until then this matches the proven-working container
+# model (rootd as a plain root daemon under supervisor). Defence-in-depth is
+# still provided at the application layer by the exec wrapper's absolute-path
+# binary allow-list.
 SERVICE_TEMPLATE = """\
 [Unit]
 Description=Hop3 privileged operations daemon
 Documentation=https://github.com/abilian/hop3/blob/main/notes/adrs/041-privileged-operations-agent.md
 Requires=hop3-rootd.socket
 After=hop3-rootd.socket network.target
+# Cap the restart loop so a persistently-failing daemon enters `failed` and
+# surfaces, rather than silently restarting forever (a misconfigured unit once
+# looped ~1620 times before anyone noticed). Install-time failures are also
+# caught by _verify_rootd_running.
+StartLimitIntervalSec=300
+StartLimitBurst=5
 
 [Service]
 Type=notify
 ExecStart={daemon_command}
 Restart=on-failure
 RestartSec=2s
-
-# --- Capability scoping (only nft needs CAP_NET_ADMIN) ---
 User=root
-CapabilityBoundingSet=CAP_NET_ADMIN
-AmbientCapabilities=CAP_NET_ADMIN
-NoNewPrivileges=true
 
-# --- Filesystem isolation ---
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/var/lib/hop3-rootd /var/log/hop3-rootd
-PrivateTmp=true
-PrivateDevices=true
-PrivateMounts=true
-
-# --- Kernel-surface protection ---
-ProtectKernelModules=true
-ProtectKernelTunables=true
-ProtectKernelLogs=true
-ProtectClock=true
-ProtectHostname=true
-ProtectProc=invisible
-ProtectControlGroups=true
-LockPersonality=true
-MemoryDenyWriteExecute=true
-RestrictNamespaces=true
-RestrictRealtime=true
-RestrictSUIDSGID=true
-
-# --- Network surface (UDS for IPC, NETLINK for nft) ---
-RestrictAddressFamilies=AF_UNIX AF_NETLINK
-IPAddressDeny=any
-
-# --- Syscall filter ---
-SystemCallFilter=@system-service @network-io
-SystemCallFilter=~@privileged @resources @debug @cpu-emulation @keyring
-SystemCallErrorNumber=EPERM
-SystemCallArchitectures=native
-
-# --- Resource limits ---
-MemoryMax=128M
-TasksMax=16
-LimitNOFILE=1024
-
-# --- Directories (systemd auto-creates with right perms) ---
+# Directories (systemd auto-creates with the right perms).
 RuntimeDirectory=hop3-rootd
 RuntimeDirectoryMode=0755
 StateDirectory=hop3-rootd
@@ -175,17 +175,30 @@ def setup_rootd() -> None:
     if `/etc/sudoers.d/hop3` is present at the start of this function we
     keep it until rootd is verified up — the point of no return is the
     final unlink call below.
+
+    The hop3-rootd binary must already be installed (see
+    ``install_rootd_package``): this raises ``ServiceStartError`` up front if it
+    isn't, on systemd *and* non-systemd hosts — the process manager needs it
+    either way, and a dead daemon is a deploy-blocker, not a warning.
+
+    On systemd hosts this then installs+enables+starts the units and raises if
+    the daemon doesn't come up. On non-systemd hosts it does the host prep and
+    leaves *activation* to the process manager (e.g. the demo runs the daemon
+    under supervisor), returning without starting anything itself.
     """
     print_info("Installing hop3-rootd (privileged operations daemon)...")
 
     daemon_command = _resolve_daemon_command()
+    systemd = has_systemd()
 
-    # 1) Drop systemd units.
-    SERVICE_PATH.write_text(SERVICE_TEMPLATE.format(daemon_command=daemon_command))
-    SERVICE_PATH.chmod(0o644)
-    SOCKET_PATH.write_text(SOCKET_CONTENT)
-    SOCKET_PATH.chmod(0o644)
-    print_success(f"systemd units installed at {SERVICE_PATH} and {SOCKET_PATH}")
+    # 1) Drop systemd units (only meaningful where systemd is PID 1; under
+    # another init the process manager starts the daemon — see step 6).
+    if systemd:
+        SERVICE_PATH.write_text(SERVICE_TEMPLATE.format(daemon_command=daemon_command))
+        SERVICE_PATH.chmod(0o644)
+        SOCKET_PATH.write_text(SOCKET_CONTENT)
+        SOCKET_PATH.chmod(0o644)
+        print_success(f"systemd units installed at {SERVICE_PATH} and {SOCKET_PATH}")
 
     # 2) Logrotate.
     LOGROTATE_PATH.write_text(LOGROTATE_CONTENT)
@@ -225,8 +238,18 @@ def setup_rootd() -> None:
     # just verifies; using add and tolerating EEXIST.
     _ensure_inet_hop3_table()
 
-    # 6) Enable + (re)start units. systemd resolves ordering via the unit's
-    # Requires=/After= directives, so we can pass both names per call.
+    # 6) Activation.
+    if not systemd:
+        print_info(
+            "systemd not detected (PID 1 is not systemd); skipping unit "
+            "activation. The process manager must start the daemon, e.g.:"
+        )
+        print_detail(f"{daemon_command} --socket-path {RUNTIME_DIR}/socket")
+        print_detail("(the demo harness runs it under supervisor)")
+        return
+
+    # systemd resolves ordering via the unit's Requires=/After= directives,
+    # so we can pass both names per call.
     run_cmd(["systemctl", "daemon-reload"], check=False)
     run_cmd(
         ["systemctl", "enable", "hop3-rootd.socket", "hop3-rootd.service"],
@@ -237,17 +260,40 @@ def setup_rootd() -> None:
         check=False,
     )
     if result.returncode != 0:
-        print_warning("hop3-rootd.service failed to start")
-        print_detail("Check status: journalctl -u hop3-rootd -n 50")
-        # Don't proceed to the sudoers retirement on failure — keep the
-        # fallback in place.
-        return
+        msg = (
+            f"hop3-rootd failed to start (systemctl restart returned "
+            f"{result.returncode}). It is required by the deploy path "
+            "(nginx reloads). Inspect: journalctl -u hop3-rootd -n 50"
+        )
+        raise ServiceStartError(msg)
 
+    _verify_rootd_running()
     print_success("hop3-rootd is running")
 
     # 7) Migration: retire the legacy sudoers fragment if present.
-    # Point of no return — only do this AFTER rootd has started OK.
+    # Point of no return — only do this AFTER rootd has verified up.
     _retire_sudoers_fragment()
+
+
+def _verify_rootd_running() -> None:
+    """Confirm the daemon actually came up — not just that restart returned 0.
+
+    A 'successful' install with a dead daemon is the silent failure that
+    leaves deploys unable to reload nginx. We check the listening socket
+    exists and the socket unit is active, and raise otherwise.
+    """
+    socket_path = RUNTIME_DIR / "socket"
+    active = run_cmd(
+        ["systemctl", "is-active", "--quiet", "hop3-rootd.socket"], check=False
+    )
+    if active.returncode != 0 or not socket_path.exists():
+        present = "present" if socket_path.exists() else "missing"
+        msg = (
+            f"hop3-rootd did not come up: socket {socket_path} is {present}, "
+            f"`systemctl is-active hop3-rootd.socket` returned "
+            f"{active.returncode}. Inspect: journalctl -u hop3-rootd -n 50"
+        )
+        raise ServiceStartError(msg)
 
 
 def _ensure_inet_hop3_table() -> None:

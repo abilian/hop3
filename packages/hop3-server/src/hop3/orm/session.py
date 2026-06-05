@@ -91,13 +91,23 @@ def get_session_factory(database_uri: str = "") -> sessionmaker:
 
     # Pool configuration - only for file-based databases (not in-memory SQLite)
     if not is_memory_sqlite:
-        if is_sqlite:
-            # Use a small pool for SQLite (it doesn't handle concurrent writes well)
-            engine_kwargs["pool_size"] = 1
-            engine_kwargs["max_overflow"] = 0
-        else:
-            engine_kwargs["pool_size"] = 5
-            engine_kwargs["max_overflow"] = 10
+        # SQLite gets the same pool as PostgreSQL. The earlier ``pool_size=1``
+        # was over-conservative: it serialized ALL database access — reads
+        # included — through a single connection. A deployment runs in a
+        # background thread (commands/app.py::_deploy_streaming) that holds
+        # its session/connection open for the entire multi-minute build, so
+        # with one connection every concurrent request (notably auth token
+        # verification, which is a read) queued behind it and timed out after
+        # ``pool_timeout`` (30s) — surfacing as bogus 401s on /rpc and 302s on
+        # /api/stream during heavy deploys.
+        #
+        # WAL mode (enabled in _configure_sqlite_engine) lets readers proceed
+        # concurrently with a writer, so a real pool is safe: auth reads get
+        # their own connection and never block behind a deploy's write
+        # transaction. Writer-vs-writer contention (rare; deploys are
+        # typically sequential) is handled by busy_timeout=30000.
+        engine_kwargs["pool_size"] = 5
+        engine_kwargs["max_overflow"] = 10
         engine_kwargs["pool_pre_ping"] = True  # Verify connections are alive
 
     engine = create_engine(
@@ -110,23 +120,50 @@ def get_session_factory(database_uri: str = "") -> sessionmaker:
     if is_sqlite and not is_memory_sqlite:
         _configure_sqlite_engine(engine)
 
-    # Run Alembic migrations to ensure database schema is up-to-date
-    alembic_ini_path = Path(__file__).parent / "alembic.ini"
-    if alembic_ini_path.exists():
-        alembic_cfg = AlembicConfig(str(alembic_ini_path))
-        alembic_cfg.set_main_option("sqlalchemy.url", database_uri)
+    # Schema bootstrap.
+    #
+    # We deliberately do NOT run migrations here. Migrations are applied
+    # explicitly and gated by `hop3-server db:upgrade` during deploy (so a
+    # schema change aborts the deploy with the OLD server still running).
+    # Auto-migrating on every boot/CLI invocation would undermine that gate
+    # and risk concurrent runs racing on the version table.
+    #
+    # This step only ensures a brand-new database has its tables, and stamps
+    # it at head so Alembic is consistent from birth (create_all produces the
+    # current = head schema). An EXISTING database is left untouched: an
+    # unstamped/pre-Alembic one is adopted later, safely, by `db:upgrade`.
+    with engine.begin() as conn:
+        from sqlalchemy import inspect as sa_inspect  # noqa: PLC0415
 
-        # Upgrade to the latest revision
-        with engine.begin() as conn:
-            alembic_cfg.attributes["connection"] = conn
-            command.upgrade(alembic_cfg, "head")
-    else:
-        # Fallback to create_all() if Alembic is not set up
-        # This maintains backward compatibility during development
-        # Use BigIntAuditBase.metadata to ensure all models are created
-        with engine.begin() as conn:
+        if not sa_inspect(conn).has_table("app"):
             BigIntAuditBase.metadata.create_all(conn)
+            # Stamp head for real (persistent) databases. In-memory test DBs
+            # are ephemeral and never deployed, so stamping them is pointless
+            # and we keep their behavior identical to before (create_all only).
+            if not is_memory_sqlite:
+                alembic_cfg = _bootstrap_alembic_config(database_uri)
+                if alembic_cfg is not None:
+                    alembic_cfg.attributes["connection"] = conn
+                    command.stamp(alembic_cfg, "head")
 
     session_factory = sessionmaker(bind=engine)
     _session_factory_cache[database_uri] = session_factory
     return session_factory
+
+
+def _bootstrap_alembic_config(database_uri: str) -> AlembicConfig | None:
+    """Build an Alembic Config pointing at the bundled alembic.ini.
+
+    Resolves the path from the ``hop3`` package root (where alembic.ini
+    actually ships) rather than relative to this module. Returns None if it
+    can't be found, so a fresh DB still gets its schema via create_all even
+    when Alembic isn't packaged alongside (e.g. odd test layouts).
+    """
+    import hop3  # noqa: PLC0415
+
+    ini_path = Path(hop3.__file__).parent / "alembic.ini"
+    if not ini_path.exists():
+        return None
+    cfg = AlembicConfig(str(ini_path))
+    cfg.set_main_option("sqlalchemy.url", database_uri)
+    return cfg

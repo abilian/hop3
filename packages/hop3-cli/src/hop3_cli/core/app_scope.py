@@ -31,9 +31,13 @@ _TOP_LEVEL_APP_SCOPED: set[tuple[str, ...]] = {
 }
 
 # Management verbs in the `app` namespace that take an app target.
+# Keep this in sync with the `app` command tuples registered server-side
+# (hop3/commands/app.py). Notably the detail command is `app status`, not
+# `app show` — the stale `show` entry left `hop3 app status` un-injected, so
+# it alone demanded an explicit <app_name> while its siblings resolved one.
 _APP_NAMESPACE_SCOPED: set[tuple[str, ...]] = {
     ("app", "destroy"),
-    ("app", "show"),
+    ("app", "status"),
     ("app", "ping"),
     ("app", "logs"),
     ("app", "build-logs"),
@@ -43,6 +47,8 @@ _APP_NAMESPACE_SCOPED: set[tuple[str, ...]] = {
     ("app", "env"),
     ("app", "debug"),
     ("app", "sbom"),
+    # ("app", "launch") and ("app", "list") are NOT app-scoped: launch creates
+    # an app from a repo arg; list takes no app.
     # ("app", "rename") — second arg is the new name, not a second app; app is positional and unambiguous
 }
 

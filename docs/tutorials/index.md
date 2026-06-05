@@ -99,7 +99,7 @@ Before starting any tutorial, ensure you have:
 - The `hop3` CLI installed and configured
 - SSH access to your server (or local Docker for testing)
 
-See the [Installation Guide](../get-started/installation.md) to get started.
+See the [Installation Guide](../get-started/server-setup.md) to get started.
 
 ## Common Configuration Files
 

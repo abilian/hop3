@@ -59,7 +59,18 @@ class TestDbGroupCommand:
 
 
 class TestDbUpgradeCmd:
-    """Tests for db:upgrade."""
+    """Tests for db:upgrade.
+
+    These exercise revision forwarding and error handling. The pre-Alembic
+    adoption step is mocked out here (it touches a real database); its
+    behavior is covered by tests/b_integration/test_db_adoption.py.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _no_adopt(self):
+        """Stub the DB-adoption step so these stay pure unit tests."""
+        with patch("hop3.server.cli.db._adopt_unstamped_db"):
+            yield
 
     def test_name(self):
         assert DbUpgradeCmd.name == "db:upgrade"
@@ -77,6 +88,23 @@ class TestDbUpgradeCmd:
             DbUpgradeCmd().run(revision="961bfd2ecce5")
             args, _ = mock_upgrade.call_args
             assert args[1] == "961bfd2ecce5"
+
+    def test_adopt_runs_before_upgrade(self):
+        """A pre-Alembic DB must be stamped (adopted) BEFORE upgrade runs,
+        otherwise upgrade replays from base and hits 'duplicate column'."""
+        calls: list[str] = []
+        with (
+            patch(
+                "hop3.server.cli.db._adopt_unstamped_db",
+                side_effect=lambda _cfg: calls.append("adopt"),
+            ),
+            patch(
+                "alembic.command.upgrade",
+                side_effect=lambda _cfg, _rev: calls.append("upgrade"),
+            ),
+        ):
+            DbUpgradeCmd().run()
+        assert calls == ["adopt", "upgrade"]
 
     def test_failure_exits_nonzero(self):
         """A migration error must abort with exit code 1, not pass silently."""

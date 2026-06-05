@@ -24,8 +24,12 @@ def test_extra_args_deploy_without_app_name():
     assert "verbosity" in extra_args
 
 
-def test_extra_args_deploy_with_app_name():
+def test_extra_args_deploy_with_app_name(tmp_path):
     """Deploy with app name should generate archive."""
+    # The conftest's autouse fixture chdirs to tmp_path so tests don't
+    # accidentally package the repo. The archive-generation helper
+    # refuses an empty directory, so seed it with a token file.
+    tmp_path.joinpath("hop3.toml").write_text('[metadata]\nid = "myapp"\n')
     args = ["deploy", "myapp"]
     extra_args = get_extra_args(args)
     assert "repository" in extra_args

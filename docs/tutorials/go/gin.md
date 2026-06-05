@@ -14,7 +14,7 @@ This guide walks you through deploying a Gin web application on Hop3. By the end
 
 Before you begin, ensure you have:
 
-1. **A Hop3 server** - Follow the [Installation Guide](../../get-started/installation.md) if you haven't set one up yet
+1. **A Hop3 server** - Follow the [Installation Guide](../../get-started/server-setup.md) if you haven't set one up yet
 2. **The Hop3 CLI** - Installed on your local machine
 3. **Go 1.21+** - Install from [go.dev](https://go.dev/)
 4. **Git** - For version control and deployment

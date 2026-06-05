@@ -14,7 +14,7 @@ This guide walks you through deploying an Axum application on Hop3. Axum is a mo
 
 Before you begin, ensure you have:
 
-1. **A Hop3 server** - Follow the [Installation Guide](../../get-started/installation.md)
+1. **A Hop3 server** - Follow the [Installation Guide](../../get-started/server-setup.md)
 2. **The Hop3 CLI** - Installed on your local machine
 3. **Rust 1.70+** - Install from [rustup.rs](https://rustup.rs/)
 4. **Git** - For version control and deployment

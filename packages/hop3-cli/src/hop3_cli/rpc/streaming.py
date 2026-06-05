@@ -83,6 +83,14 @@ def stream_deployment_logs(
             stream=True,
             timeout=(_STREAM_CONNECT_TIMEOUT_SECONDS, _STREAM_READ_TIMEOUT_SECONDS),
             verify=verify_ssl,
+            # Do NOT follow redirects. The stream endpoint requires auth;
+            # when the token is missing/rejected it answers 3xx → /auth/login.
+            # If we followed it, requests would fetch the HTML login page,
+            # see a 200, hand non-SSE HTML to the parser, and the loop would
+            # end with no `complete` event — surfacing the real deployment
+            # error as a useless "Stream ended unexpectedly". Treating the
+            # 3xx as a hard auth failure keeps the actual cause visible.
+            allow_redirects=False,
         ) as response:
             if response.status_code == 404:
                 printer.print([
@@ -92,6 +100,32 @@ def stream_deployment_logs(
                     }
                 ])
                 msg = f"Stream '{stream_id}' not found"
+                raise DeploymentError(msg)
+
+            if response.is_redirect or response.status_code in {
+                301,
+                302,
+                303,
+                307,
+                308,
+            }:
+                location = response.headers.get("Location", "(unknown)")
+                printer.print([
+                    {
+                        "t": "error",
+                        "text": (
+                            f"Stream authentication failed: the server redirected "
+                            f"(HTTP {response.status_code} → {location}) instead of "
+                            f"streaming. The deployment ran but its progress/errors "
+                            f"could not be read. Check 'journalctl -u hop3-server' on "
+                            f"the server for the real cause."
+                        ),
+                    }
+                ])
+                msg = (
+                    f"Stream authentication failed (HTTP {response.status_code} "
+                    f"redirect to {location})"
+                )
                 raise DeploymentError(msg)
 
             if response.status_code != 200:
