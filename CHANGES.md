@@ -5,7 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] (0.5.0dev)
+## [0.5.0] - 2026-06-08
+
+### Highlights
+
+- **CLI server/context model (ADR 042)** — the old "context" is split into *servers* (credentialed host bindings, in `~/.config/hop3-cli/servers.toml`) and per-project *contexts* (deploy targets in `hop3.toml`), ending the sticky-global-default footgun; `hop3 deploy` now previews and confirms.
+- **Unified testing architecture (ADR 043)** — three runners (pytest / `hop3-test` / validoc), one set of speed tiers, and a shared diagnostic bundle (`hop3-test why`) that finally captures the "healthy app behind a 502" failure.
+- **Nightly Test Lab (ADR 044)** — a new `hop3-testlab` web dashboard: run history, a live run panel (progress, ETA, stop), the morning regressions diff, and trends.
+- **Privileged-operations daemon `rootd` (ADR 041)** — a narrow kernel-boundary daemon replaces the sudoers surface.
+- **Security hardening** — several waves across the RPC boundary, authentication, and credential storage (see Security).
 
 ### Added
 
@@ -17,6 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Env Var Policy Override**: New `_policy = "override"` option in `[env]` section forces hop3.toml values to overwrite existing env vars on every deploy.
 - **Failure Diagnosis Engine**: `_diagnose_failure()` analyzes logs on health check timeout and detects specific patterns: no-workers mode, daemon throttling, connection refused, missing modules. Provides targeted fix suggestions.
 - **10 Nix Demo Apps**: flask-hello, flask-gunicorn, flask-alt, nodejs-express, golang-gin, golang-minimal, clojure-hello, static-hello, rack-hello, sinatra-hello.
+- **Servers and project contexts (ADR 042)**: `hop3 server` (list/add/remove/show/login/use) manages credentialed host bindings; `hop3 context` (init/use/list/show/add/remove) manages per-project deploy targets under `hop3.toml [contexts.*]`. Layered resolution for server, context, and app (including `git remote` sources), a typed `ResolvedContext`, and a `.hop3-local.toml` overlay for the working checkout.
+- **Deploy preview + project-mismatch guard (ADR 042)**: `hop3 deploy` prints the resolved plan (source, context, server, app, domains, addons, env) and confirms before acting (`--dry-run` / `-y` / `--force`); destructive commands refuse to run when the resolved app contradicts the directory's project.
+- **Shared diagnostic bundle and `hop3-test why` (ADR 043)**: every deploy-and-verify path collects one bundle on failure (proxy probe, nginx logs, app/journal logs, deploy transcript, HTTP/DNS) and classifies it into a one-line headline (`proxy-502` / `build-failure` / `addon-unreachable` / `app-crash` / `timeout`) with on-demand drill-down — closing the silent-502 gap.
+- **`hop3-testlab` nightly dashboard (ADR 044)**: a Litestar web app over the shared result store — run list, run detail with per-build logs, a live run panel (progress/ETA/stop), the regressions diff, flakiness/duration trends, and an in-process scheduler.
+- **`rootd` privileged-operations daemon (ADR 041)**: a small kernel-boundary daemon for the operations that need root, replacing the sudoers configuration.
+- **`[domains]` section and `hop3 domains` commands**: declare and manage an app's hostnames from `hop3.toml` and the CLI.
+- **Backup cross-instance migration (ADR 024)**: restore a backup onto a different Hop3 instance, with end-to-end coverage.
+- **Structured failure diagnoses**: RPC errors are unwrapped into a structured `Diagnosis` (likely cause + suggested fix) instead of opaque tracebacks.
 
 ### Changed
 
@@ -34,6 +50,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLI Command Syntax (BREAKING, ADR 036 D1)**: All multi-token commands use spaces. `hop3 config:set` → `hop3 config set`. Typing the old colon form produces a migration hint pointing at the new syntax. Clean break — no colon-form aliases preserved.
 - **CLI Namespace Reshuffle (BREAKING, ADR 036 D3/D4)**: `admin:user:*` flattened to `user *` (bare `admin` namespace dropped). `addons` → `addon` (singular). `backup:delete` → `backup destroy` (verb normalization). `sbom` demoted from top-level to `app sbom`.
 - **CLI Exit Codes (ADR 036 D16)**: Exit-code table renumbered to the 11-code D16 spec. Scripts relying on the old layout (auth=2, not-found=3, validation=4) need updating: auth is now 4, usage is 2, resolution is 3, authz is 5, conflict is 6, network/server is 7, deployment is 8, plugin is 9, confirmation-declined is 10, SIGINT is 130. JSON envelope includes `error.exit_code`.
+- **CLI vocabulary split (BREAKING, ADR 042)**: the global "context" (URL + token) is now a *server*; "context" means a project deploy target. `~/.config/hop3-cli/config.toml [contexts.*]` is rewritten to `servers.toml [servers.*]` on first run, and the per-context `default_app` is dropped in favour of project contexts. `hop3 use <app>` is now project-scoped; `--global` keeps the old server-level behaviour.
+- **Testing surface consolidated (ADR 043)**: the pytest pyramid is three layers (`a_unit` / `b_integration` / `c_e2e`; `c_system` dissolved, `d_e2e` renamed `c_e2e`), selected by speed tier (`fast` / `check` / `apps` / `nightly`) via `make` targets. Bare `pytest` runs only the in-process layers, so it never triggers Docker.
+- **Addon DB reachability**: MySQL grants and PostgreSQL `pg_hba` now cover every RFC1918 Docker network pool (10/8, 172.16/12, 192.168/16), so containerized apps on Compose networks can reach their database.
+- **PostgreSQL extensions**: the per-app extension allow-list is expanded, with an operator override for installs that need more.
+- **Deploy upgrades**: pending database migrations now run on upgrade, and an existing virtualenv is no longer clobbered.
 
 ### Fixed
 
@@ -42,6 +63,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Miniflux Deployment**: Fixed worker command resolution in manifest builder (downloaded Procfile was overriding hop3.toml).
 - **Elixir Toolchain**: Fixed detection and build issues.
 - **hop3.toml Schema**: Added missing fields, fixed validation errors across demo apps.
+- **Deploy log streaming latency**: fixed a cross-thread wake-up bug (an `asyncio.Queue` written from a worker thread) that added a fixed delay to every deploy; logs now stream promptly.
+- **`hop3 --why` / `--app` resolution**: `--why` is now diagnostic-only (prints the resolution trace and exits without running the command); the app also resolves from `hop3.toml [metadata].id`.
+
+### Security
+
+- **Input validation at the RPC boundary**: untrusted RPC arguments are validated before use.
+- **Authentication hardening**: tightened `HOP3_UNSAFE` handling and the SSE log/deploy stream; closed a pre-authentication admin-takeover path and a production debug-info leak.
+- **Credential encryption v2**: addon credentials and secrets re-encrypted with an automatic migration; archive-bomb defense and stricter permissions on backup directories.
+- **Addon injection fixes**: closed SQL-injection vectors in addon provisioning, password leakage in logs, and Redis database-number collisions across apps.
+- **Privilege boundary**: `rootd` (ADR 041) replaces broad sudoers rules with a narrow, audited daemon. The trust model is documented and defensive guards added across the boundary.
+
+### Removed
+
+- **GitHub Actions workflows** (`ci.yml`, `test.yml`, `e2e.yml`): the dead/duplicative workflows are removed; SourceHut (`.builds/`) is the CI of record.
 
 ## [0.4.0] - 2026-03-27
 
