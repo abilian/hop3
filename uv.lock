@@ -1892,7 +1892,7 @@ requires-dist = [
 
 [[package]]
 name = "hop3-testlab"
-version = "0.5.0.dev3"
+version = "0.5.0"
 source = { editable = "packages/hop3-testlab" }
 dependencies = [
     { name = "advanced-alchemy" },
