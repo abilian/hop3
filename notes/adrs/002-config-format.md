@@ -10,7 +10,7 @@
 
 **The shipped subset of the specification is stable and in production use.** Fields listed below as "reserved" are part of the forward-looking design but not yet consumed by the runtime.
 
-### Shipped sections and fields (Accepted)
+### Shipped sections and fields
 - **`[metadata]`** — `id` (required); additional descriptive fields (`version`, `title`, `description`, `homepage`, `license`, `categories`) are parsed as informational metadata and surfaced in listings, but do not change runtime behaviour.
 - **`[build]`** — `builder` (explicit override), `toolchain` (explicit override), `packages` (apt-install list), `before-build`, `build`.
 - **`[run]`** — `start`, `before-run`, `start-timeout`, `packages`.
@@ -60,34 +60,6 @@ The `hop3.toml` file will be used as the primary configuration format for the Ho
 
 - **Learning Curve**: New users might need some time to get accustomed to the detailed structure.
 - **Maintenance**: Keeping the format and parsing logic consistent across different formats might require additional effort.
-
-## Action Items
-
-1. **Develop Detailed Documentation**:
-
-   - Create comprehensive documentation outlining each section and field within the `hop3.toml` file.
-   - Provide examples and best practices to guide users.
-
-1. **Implement Parsing Logic**:
-
-   - Develop robust parsing logic to handle TOML, YAML, and JSON formats.
-   - Ensure the consistency and correctness of parsed data.
-
-1. **Validation Framework**:
-
-   - Implement schema validation to ensure data integrity (see ADR 003 for requirements).
-   - Provide clear, actionable error messages for invalid configurations.
-   - Implement format-specific validation where necessary.
-
-1. **Tooling and Support**:
-
-   - Develop CLI tools to assist users in generating and validating `hop3.toml` files.
-   - Integrate validation into the CI/CD pipeline to catch errors early.
-
-1. **Community Engagement**:
-
-   - Gather feedback from users to improve the configuration format.
-   - Update the format and documentation based on user input and evolving needs.
 
 ## Alternatives
 

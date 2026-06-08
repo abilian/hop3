@@ -1,0 +1,37 @@
+[project]
+name = "hop3-testlab"
+version = "0.5.0.dev3"
+description = "Hop3 Test Lab — web dashboard + scheduler for the nightly test suite (ADR 044)"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [
+    { name = "Stefane Fermigier", email = "sf@abilian.com" },
+]
+requires-python = ">=3.11,<4"
+dependencies = [
+    # The shared engine + result store (ADR 044 §B: one engine, one store).
+    "hop3-testing",
+    # Web stack — pinned to match hop3-server (the app this one mirrors).
+    "litestar[standard]>=2.22.0",
+    "dishka>=1.3.0",
+    "advanced-alchemy>=0.21",
+    "sqlalchemy~=2.0",
+    "jinja2",
+    "granian[reload]>=2.2.0",
+    # In-process nightly scheduler (ADR 044 §10).
+    "apscheduler>=3.10,<4",
+]
+
+[project.scripts]
+hop3-testlab = "hop3_testlab.cli:main"
+
+[build-system]
+requires = ["uv-build>=0.8.4,<0.9.0"]
+build-backend = "uv_build"
+
+# Keep!
+[tool.pyrefly]
+project-includes = [
+    "**/*.py*",
+    "**/*.ipynb",
+]

@@ -8,7 +8,7 @@
 
 ## Revisions
 
-- v1.1: Status refreshed. The integration is shipped: plugins contribute services to the Dishka container via the `get_di_providers()` hook; the previous global-registry anti-pattern is gone. All in-tree plugins (addons, proxies, builders, deployers, language toolchains) use this path (2026-04-14).
+- v1.1: Accepted and shipped — plugins contribute services to the Dishka container via the `get_di_providers()` hook; the global-registry anti-pattern is retired (2026-04-14).
 - v1.0: Original final version (2025-11-20)
 
 ## Context

@@ -13,6 +13,7 @@ from .console import (
 )
 from .project import find_project_root, find_project_root_optional
 from .subprocess import build_test_env
+from .timing import format_duration
 
 __all__ = [
     "Console",
@@ -21,4 +22,5 @@ __all__ = [
     "build_test_env",
     "find_project_root",
     "find_project_root_optional",
+    "format_duration",
 ]

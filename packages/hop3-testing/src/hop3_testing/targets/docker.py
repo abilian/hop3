@@ -309,7 +309,7 @@ class DockerTarget(DeploymentTarget):
         if not dockerfile_path:
             # Use default E2E Dockerfile
             dockerfile_path = (
-                project_root / "packages/hop3-server/tests/d_e2e/docker/Dockerfile"
+                project_root / "packages/hop3-server/tests/c_e2e/docker/Dockerfile"
             )
 
         if not dockerfile_path.exists():

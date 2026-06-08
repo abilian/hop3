@@ -24,18 +24,18 @@ Hop3 will implement a comprehensive backup strategy that includes regular backup
 
 The implementation is phased:
 
-| Feature | Phase | Status | ADR |
-|---------|-------|--------|-----|
-| Manual full backups | Phase 1 | ✅ Implemented | ADR 024 |
-| Local storage | Phase 1 | ✅ Implemented | ADR 024 |
-| Checksum verification | Phase 1 | ✅ Implemented | ADR 024 |
-| Service-specific backups | Phase 1 | ✅ Implemented | ADR 024 |
-| Automated scheduled backups | Phase 2 | 🔲 Planned | - |
-| Retention policies | Phase 2 | 🔲 Planned | - |
-| Remote storage (S3, B2) | Phase 3 | 🔲 Planned | - |
-| Encryption | Phase 3 | 🔲 Planned | - |
-| Incremental backups | Phase 3 | 🔲 Planned | - |
-| Transaction log backups | Phase 3 | 🔲 Planned | - |
+| Feature | Phase | ADR |
+|---------|-------|-----|
+| Manual full backups | Phase 1 | ADR 024 |
+| Local storage | Phase 1 | ADR 024 |
+| Checksum verification | Phase 1 | ADR 024 |
+| Service-specific backups | Phase 1 | ADR 024 |
+| Automated scheduled backups | Phase 2 | - |
+| Retention policies | Phase 2 | - |
+| Remote storage (S3, B2) | Phase 3 | - |
+| Encryption | Phase 3 | - |
+| Incremental backups | Phase 3 | - |
+| Transaction log backups | Phase 3 | - |
 
 ## Key Components
 
@@ -121,37 +121,8 @@ The implementation is phased:
 - **Backup Failures**: Potential risk of backup failures or corruption. Mitigation involves regular testing and monitoring.
 - **Security Breaches**: Risk of unauthorized access to backup files. Mitigation includes strong encryption (Phase 3) and access control measures.
 
-## Implementation Roadmap
-
-### Phase 1: Foundation ✅ (ADR 024)
-- [x] Manual backup/restore commands
-- [x] Local file-based storage
-- [x] Directory-based backup format
-- [x] SHA256 checksums
-- [x] Service plugin integration (PostgreSQL, Redis)
-- [x] Database tracking of backups
-
-### Phase 2: Automation (Future)
-- [ ] Scheduled backups with cron-like syntax
-- [ ] Configurable in `hop3.toml`
-- [ ] Retention policies with automatic cleanup
-- [ ] Backup monitoring and alerting
-
-### Phase 3: Enterprise Features (Future)
-- [ ] Remote storage backends (S3, B2, Azure)
-- [ ] Encryption (Age or GPG)
-- [ ] Incremental backups
-- [ ] Transaction log backups for databases
-- [ ] Point-in-time recovery
-- [ ] Backup verification scheduler
-
 ## References
 
 - **Implementation**: [ADR 024: Backup and Restore System](024-backup-restore-system.md)
 - **Code**: `packages/hop3-server/src/hop3/core/backup.py`
 - **User Docs**: `docs/src/backup-restore.md`
-
-## Revision History
-
-- **2024**: Initial draft
-- **2025-11**: Updated to reflect phased implementation and relationship with ADR 024

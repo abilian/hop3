@@ -303,54 +303,6 @@ artifact = builder.build()
 
 ---
 
-## Implementation Status
-
-> **All core phases are complete.** The two-level build architecture is fully implemented.
-
-| Phase | Description | Status |
-|-------|-------------|--------|
-| 1 | Add BuildContext + LanguageToolchain protocol | ✅ Complete |
-| 2 | Rename existing classes to `*Toolchain` | ✅ Complete |
-| 3 | Implement LocalBuilder | ✅ Complete |
-| 4 | Update plugin system | ✅ Complete |
-| 5 | Fix type errors | ✅ Complete |
-| 6 | Update documentation | ✅ Complete |
-| 7 | Testing | ✅ Complete |
-| 8 | Rename directory `builders/` → `toolchains/` | Pending (low priority) |
-
-### Current File Locations
-
-**Protocols** (`packages/hop3-server/src/hop3/core/protocols.py`):
-- `Builder` - Level 1 protocol (orchestration)
-- `LanguageToolchain` - Level 2 protocol (language-specific)
-- `BuildContext` - Context for build operations
-- `BuildArtifact` - Describes built output (extended with `RuntimeConfig` in ADR 035)
-
-**LocalBuilder** (`packages/hop3-server/src/hop3/plugins/build/local_build/builder.py`):
-- Orchestrates toolchains for local builds
-- Auto-detects applicable toolchains
-- Supports multi-language builds
-
-**LanguageToolchains** (`packages/hop3-server/src/hop3/builders/`):
-- `_base.py` - `LanguageToolchain` ABC
-- `python.py` - `PythonToolchain`
-- `node.py` - `NodeToolchain`
-- `ruby.py` - `RubyToolchain`
-- `go.py` - `GoToolchain`
-- `rust.py` - `RustToolchain`
-- `clojure.py` - `ClojureToolchain`
-- `php.py` - `PHPToolchain`
-- `static.py` - `StaticToolchain`
-- `__init__.py` - Exports `TOOLCHAIN_CLASSES`
-
-### Remaining Work
-
-**Directory rename** (low priority):
-- Rename `hop3/builders/` → `hop3/toolchains/` for consistency
-- The directory contains toolchains, not builders
-
----
-
 ## Alternative Approaches Considered
 
 ### Alternative 1: Keep Flat Hierarchy, Add Marker Attribute
@@ -434,11 +386,11 @@ Building with multiple toolchains sequentially may be slow. Consider:
 
 This architecture is successful when:
 
-1. ✅ Multi-language apps (Python + Node) build correctly
-2. ✅ New build methods (Docker, Nix) can be added without changing toolchains
-3. ✅ New language toolchains can be added as plugins
-4. ✅ Type checking passes with no errors or `# type: ignore` comments
-5. ✅ Plugin authors understand when to implement Builder vs LanguageToolchain
+1. Multi-language apps (Python + Node) build correctly
+2. New build methods (Docker, Nix) can be added without changing toolchains
+3. New language toolchains can be added as plugins
+4. Type checking passes with no errors or `# type: ignore` comments
+5. Plugin authors understand when to implement Builder vs LanguageToolchain
 
 ---
 

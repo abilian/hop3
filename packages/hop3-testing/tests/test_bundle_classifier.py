@@ -1,0 +1,294 @@
+# Copyright (c) 2026, Abilian SAS
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""Pure-core tests for the diagnostic bundle (no exec_run, no disk).
+
+Covers the silent-502 classifier precedence and the listen-table / proxy_pass
+parsers — the logic that decides signal vs noise.
+"""
+
+from __future__ import annotations
+
+from hop3_testing.bundle import (
+    ProxyProbe,
+    build_headline,
+    classify,
+    collect_diagnostic_bundle,
+    parse_listen_ports,
+    parse_proxy_pass_port,
+)
+from hop3_testing.targets.base import HttpResponse
+
+
+def _probe(**overrides) -> ProxyProbe:
+    """A healthy-looking root probe; override fields per test."""
+    defaults = {
+        "effective_uid": "root",
+        "deployer_kind": "uwsgi",
+        "is_static": False,
+        "vhost_found": True,
+        "proxy_pass_port": 8000,
+        "expected_port": 8000,
+        "listen_table_available": True,
+        "listen_ports": (8000,),
+        "listen_owner": "uwsgi",
+        "curl_status": 200,
+        "container_state": "",
+        "verdict": "ok",
+    }
+    defaults.update(overrides)
+    return ProxyProbe(**defaults)
+
+
+# --------------------------------------------------------------------------- #
+# parse_proxy_pass_port
+# --------------------------------------------------------------------------- #
+def test_parse_proxy_pass_direct_form() -> None:
+    conf = "server {\n  location / { proxy_pass http://127.0.0.1:55489; }\n}"
+    assert parse_proxy_pass_port(conf) == 55489
+
+
+def test_parse_proxy_pass_upstream_form() -> None:
+    conf = (
+        "upstream myapp { server 127.0.0.1:8123; }\n"
+        "server { location / { uwsgi_pass myapp; } }"
+    )
+    assert parse_proxy_pass_port(conf) == 8123
+
+
+def test_parse_proxy_pass_prefers_proxy_pass_over_upstream() -> None:
+    conf = (
+        "upstream myapp { server 127.0.0.1:1111; }\n"
+        "location / { proxy_pass http://127.0.0.1:2222; }"
+    )
+    assert parse_proxy_pass_port(conf) == 2222
+
+
+def test_parse_proxy_pass_none_for_static() -> None:
+    assert parse_proxy_pass_port("server { root /var/www; }") is None
+
+
+# --------------------------------------------------------------------------- #
+# parse_listen_ports
+# --------------------------------------------------------------------------- #
+def test_parse_listen_ss() -> None:
+    out = (
+        "State  Recv-Q Send-Q Local Address:Port Peer Address:Port Process\n"
+        'LISTEN 0      128    127.0.0.1:8000     0.0.0.0:*  users:(("uwsgi",pid=42,fd=3))\n'
+    )
+    ports, available, owners = parse_listen_ports(out)
+    assert ports == (8000,)
+    assert available is True
+    assert owners[8000] == "uwsgi"
+
+
+def test_parse_listen_netstat() -> None:
+    out = (
+        "Proto Recv-Q Send-Q Local Address  Foreign Address State  PID/Program\n"
+        "tcp   0      0      127.0.0.1:9001 0.0.0.0:*       LISTEN 99/python\n"
+    )
+    ports, available, owners = parse_listen_ports(out)
+    assert ports == (9001,)
+    assert available is True
+    assert owners[9001] == "python"
+
+
+def test_parse_listen_proc_net_tcp_hex() -> None:
+    # 0100007F:1F90 -> 127.0.0.1:8080, st 0A == LISTEN
+    out = (
+        "  sl  local_address rem_address   st\n"
+        "   0: 0100007F:1F90 00000000:0000 0A 00000000\n"
+        "   1: 0100007F:0050 00000000:0000 01 00000000\n"  # st 01 != LISTEN
+    )
+    ports, available, _ = parse_listen_ports(out)
+    assert ports == (8080,)
+    assert available is True
+
+
+def test_parse_listen_unavailable() -> None:
+    ports, available, _ = parse_listen_ports("(ss/netstat unavailable)")
+    assert ports == ()
+    assert available is False
+
+
+# --------------------------------------------------------------------------- #
+# classify — precedence
+# --------------------------------------------------------------------------- #
+def test_classify_hint_wins() -> None:
+    assert classify({}, None, kind="uwsgi", http_front=None, hint="build-failure") == (
+        "build-failure"
+    )
+
+
+def test_classify_build_failure() -> None:
+    sections = {"build": "error: gcc not found", "app": "", "deploy": ""}
+    assert (
+        classify(sections, _probe(), kind="uwsgi", http_front=None) == "build-failure"
+    )
+
+
+def test_classify_addon_unreachable() -> None:
+    sections = {"app": "psycopg2.OperationalError: could not connect to server"}
+    assert (
+        classify(sections, _probe(), kind="uwsgi", http_front=None)
+        == "addon-unreachable"
+    )
+
+
+def test_classify_static_ok_without_http() -> None:
+    assert classify({}, _probe(is_static=True), kind="static", http_front=None) == "ok"
+
+
+def test_classify_static_appcrash_on_5xx() -> None:
+    http = HttpResponse(status=500, body="")
+    assert (
+        classify({}, _probe(is_static=True), kind="static", http_front=http)
+        == "app-crash"
+    )
+
+
+def test_classify_docker_down_is_app_crash() -> None:
+    probe = _probe(deployer_kind="docker", container_state="exited 1", curl_status=0)
+    assert classify({}, probe, kind="docker", http_front=None) == "app-crash"
+
+
+def test_classify_indeterminate_when_blind_and_nonroot() -> None:
+    probe = _probe(
+        effective_uid="hop3",
+        listen_table_available=False,
+        listen_ports=(),
+        curl_status=0,
+    )
+    assert classify({}, probe, kind="uwsgi", http_front=None) == "indeterminate"
+
+
+def test_classify_proxy_502_on_port_mismatch() -> None:
+    # nginx -> :8000 but the app listens on :8123 (table readable, root)
+    probe = _probe(proxy_pass_port=8000, listen_ports=(8123,), curl_status=0)
+    assert classify({}, probe, kind="uwsgi", http_front=None) == "proxy-502"
+
+
+def test_classify_not_proxy_502_when_backend_reachable() -> None:
+    probe = _probe(proxy_pass_port=8000, listen_ports=(8000,), curl_status=200)
+    assert classify({}, probe, kind="uwsgi", http_front=None) == "ok"
+
+
+def test_classify_app_crash_on_traceback() -> None:
+    sections = {"app": "Traceback (most recent call last):\nImportError: x"}
+    probe = _probe(curl_status=200)  # listening, but app log shows a crash
+    assert classify(sections, probe, kind="uwsgi", http_front=None) == "app-crash"
+
+
+def test_classify_timeout() -> None:
+    http = HttpResponse(status=0, body="")
+    probe = _probe(curl_status=200, listen_ports=(8000,))
+    assert classify({}, probe, kind="uwsgi", http_front=http) == "timeout"
+
+
+# --------------------------------------------------------------------------- #
+# build_headline
+# --------------------------------------------------------------------------- #
+def test_headline_is_bounded_and_has_why_pointer() -> None:
+    probe = _probe(proxy_pass_port=8000, listen_ports=(), curl_status=0)
+    headline = build_headline(
+        classifier="proxy-502",
+        app="flask-hello",
+        run_id="2026-06-05T14-22-09Z-flask-hello-a1b2c3",
+        probe=probe,
+        sections={},
+        http_front=HttpResponse(status=502, body=""),
+    )
+    lines = headline.splitlines()
+    assert len(lines) <= 12
+    assert lines[0].startswith("✗ proxy-502 — flask-hello")
+    assert "run-id: 2026-06-05T14-22-09Z-flask-hello-a1b2c3" in headline
+    assert (
+        "why: hop3-test why 2026-06-05T14-22-09Z-flask-hello-a1b2c3 --section proxy"
+        in headline
+    )
+
+
+class _FakeTarget:
+    """A target whose exec_run replays canned output by command substring."""
+
+    def __init__(self, responses: dict[str, str]) -> None:
+        self.responses = responses
+
+    def exec_run(self, cmd: str) -> tuple[int, str, str]:
+        for key, val in self.responses.items():
+            if key in cmd:
+                return 0, val, ""
+        return 0, "", ""
+
+
+def test_collect_bundle_silent_502_end_to_end(tmp_path) -> None:
+    """Full orchestration (collect -> probe -> classify -> headline -> write):
+    nginx proxies to a port nothing listens on -> proxy-502, bundle persisted.
+    """
+    ss_table = (
+        "State Recv-Q Send-Q Local Address:Port Peer Address:Port Process\n"
+        'LISTEN 0 128 127.0.0.1:22 0.0.0.0:* users:(("sshd",pid=1,fd=3))\n'
+    )
+    target = _FakeTarget({
+        "ss -ltnp": ss_table,
+        "curl": "000",
+        "uwsgi-enabled": "uwsgi",  # _detect_kind + app uwsgi ini
+        "nginx/": "location / { proxy_pass http://127.0.0.1:55489; }",
+        "id -un": "root",
+    })
+
+    bundle = collect_diagnostic_bundle(
+        target,  # type: ignore[arg-type]
+        "flask-hello",
+        target_kind="docker",
+        base_dir=tmp_path,
+    )
+
+    assert bundle.classifier == "proxy-502"
+    assert bundle.probe is not None
+    assert bundle.probe.proxy_pass_port == 55489
+    assert bundle.probe.listen_ports == (22,)
+    # Persisted: dir basename == run_id, manifest + proxy_probe written.
+    assert bundle.artifact_dir is not None
+    assert bundle.artifact_dir.name == bundle.run_id
+    assert (bundle.artifact_dir / "proxy_probe.txt").exists()
+    assert (bundle.artifact_dir / "manifest.json").exists()
+    assert "55489" in (bundle.artifact_dir / "proxy_probe.txt").read_text()
+
+
+def test_collect_bundle_ok_is_not_persisted(tmp_path) -> None:
+    """A healthy backend (curl 200, port matches) classifies ok and writes nothing."""
+    ss_table = (
+        "State Recv-Q Send-Q Local Address:Port\n"
+        "LISTEN 0 128 127.0.0.1:55489 0.0.0.0:*\n"
+    )
+    target = _FakeTarget({
+        "ss -ltnp": ss_table,
+        "curl": "200",
+        "uwsgi-enabled": "uwsgi",
+        "nginx/": "location / { proxy_pass http://127.0.0.1:55489; }",
+        "id -un": "root",
+    })
+    bundle = collect_diagnostic_bundle(
+        target,  # type: ignore[arg-type]
+        "flask-hello",
+        target_kind="docker",
+        base_dir=tmp_path,
+    )
+    assert bundle.classifier == "ok"
+    assert bundle.artifact_dir is None  # ok bundles are never persisted
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_headline_indeterminate_icon() -> None:
+    probe = _probe(effective_uid="hop3", listen_table_available=False, listen_ports=())
+    headline = build_headline(
+        classifier="indeterminate",
+        app="x",
+        run_id="rid",
+        probe=probe,
+        sections={},
+        http_front=None,
+    )
+    assert headline.startswith("? indeterminate — x")

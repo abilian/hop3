@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
@@ -136,44 +136,9 @@ def test_admin_user_add_success(mock_user_repo, mock_role_repo, mock_admin_user)
     assert "created successfully" in result[0]["text"]
 
 
-@pytest.mark.skip(
-    reason="Requires proper SQLAlchemy mocking - covered by integration tests"
-)
-def test_admin_user_add_with_admin_flag(
-    mock_user_repo, mock_role_repo, mock_admin_user, mock_admin_role
-):
-    """Test user creation with admin flag."""
-
-    # Create a mock for the new user that will be created
-    mock_new_user = Mock(spec=User)
-    mock_new_user.roles = Mock()
-    mock_new_user.set_password = Mock()
-    mock_new_user.username = "newadmin"
-    mock_new_user.email = "admin2@example.com"
-    mock_new_user.active = True
-
-    # Mock repository methods
-    mock_user_repo.get_by_username.return_value = mock_admin_user
-    mock_user_repo.username_exists.return_value = False
-    mock_user_repo.email_exists.return_value = False
-    mock_role_repo.get_admin_role.return_value = mock_admin_role
-
-    # Patch the User class constructor to return our mock
-    with patch("hop3.commands.user.User", return_value=mock_new_user):
-        cmd = UserAddCmd(user_repo=mock_user_repo, role_repo=mock_role_repo)
-        result = cmd.call(
-            "admin", "newadmin", "admin2@example.com", "password123", "--admin"
-        )
-
-    # Verify database operations
-    mock_user_repo.add.assert_called()
-
-    # Verify roles.append was called with the admin role
-    mock_new_user.roles.append.assert_called_once()
-
-    # Check that admin flag is mentioned in result
-    result_text = " ".join(r["text"] for r in result)
-    assert "Admin: Yes" in result_text
+# user:add with --admin is covered by
+# b_integration/commands/test_user_commands_integration.py::test_add_user_with_admin_flag
+# (real in-memory DB; asserts user.is_admin is True).
 
 
 def test_admin_user_remove_prevents_self_deletion(mock_user_repo, mock_admin_user):

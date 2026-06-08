@@ -8,8 +8,7 @@
 
 ## Revisions
 
-- v1.2: Status refreshed. SSE-based streaming for deploy and app logs is the production path; ADR 018 cross-references this as the answer to its previously-open in-band-streaming question (2026-04-14).
-- v1.1: Implementation update (2025-01-28)
+- v1.2: SSE-based streaming for deploy and app logs is the production path; ADR 018 cross-references this as the answer to its previously-open in-band-streaming question (2026-04-14).
 - v1.0: Original version (2025-12-15)
 
 ## Context
@@ -223,24 +222,9 @@ Future implementation would add:
 
 SSH tunneling is deprecated. The CLI now communicates with the server over HTTP. This simplifies streaming implementation as we don't need to handle SSH tunnel limitations.
 
-## Implementation Status
+## Runtime Behavior
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| Phase 1: Log capture | ✅ Implemented | `shell()` routes output through `log()` |
-| Phase 1: CLI display | ✅ Implemented | `print_log()` handles `t: "log"` entries |
-| Phase 1: Deploy command | ✅ Implemented | Uses `capture_logs()` context manager |
-| Phase 1: Error logs | ✅ Implemented | Logs embedded in error responses (2025-01) |
-| Phase 2: SSE streaming | ✅ Implemented | Real-time log streaming via SSE (2025-01) |
-| Phase 2: Stream infrastructure | ✅ Implemented | `hop3/server/streaming.py` |
-| Phase 2: SSE endpoint | ✅ Implemented | `GET /api/stream/{stream_id}` |
-| Phase 2: CLI SSE client | ✅ Implemented | `hop3_cli/rpc/streaming.py` |
-| SSH tunnel streaming | ⏳ Deferred | Falls back to batch mode |
-| Build cancellation | ❌ Not implemented | Future enhancement |
-
-### Current Behavior (Phase 2 Implemented)
-
-With Phase 2 SSE streaming implemented, deployment logs are now displayed in **real-time** as they happen:
+With Phase 2 SSE streaming, deployment logs are displayed in **real-time** as they happen:
 
 1. CLI sends deploy request with `streaming=True`
 2. Server creates a stream, starts deployment in background thread
@@ -265,58 +249,6 @@ tail -f /home/hop3/apps/<app_name>/log/*.log
 # Watch uWSGI emperor logs
 journalctl -u uwsgi-emperor -f
 ```
-
-## Implementation Plan
-
-### Phase 1 Tasks (Completed)
-
-1. **Modify build process to capture output** ✅
-   - Modified `shell()` in `hop3/lib/util.py` to route output through `log()`
-   - All subprocess output now gets captured by `capture_logs()` context manager
-   - Error output includes both stdout and stderr at appropriate log levels
-
-2. **Deploy command captures logs** ✅
-   - `DeployCmd.call()` uses `capture_logs()` context manager
-   - Returns logs as `t: "log"` entries in response
-
-3. **CLI displays logs** ✅
-   - `RichPrinter.print_log()` handles `t: "log"` entries
-   - Filters by verbosity level (0-3)
-   - Applies color styling from server
-
-4. **Logs included in error responses** ✅ (2025-01)
-   - When deployment fails, logs are embedded in the error message
-   - CLI parses and displays logs before showing error
-   - Format: `LOGS:<json>|||<error_message>`
-
-### Phase 2 Tasks (Priority: High)
-
-Phase 2 is **required** to provide real-time deployment feedback. Without it, users experience a "black box" during long deployments.
-
-**Estimated effort:** 2-3 days
-
-1. **Add streaming infrastructure** (Server)
-   - `BuildOutputStream` class for log capture with pub/sub pattern
-   - Stream registry with automatic cleanup (TTL-based)
-   - SSE endpoint: `GET /api/stream/{stream_id}`
-   - Litestar's `StreamingResponse` with `text/event-stream` media type
-
-2. **Modify deploy command** (Server)
-   - Generate unique `stream_id` at deploy start
-   - Return `stream_id` immediately in JSON-RPC response
-   - Run deployment in background asyncio task
-   - Pipe all `log()` output to the stream
-
-3. **Update CLI** (Client)
-   - Detect streaming support from response (presence of `stream_id`)
-   - Use `httpx` async client to connect to SSE endpoint
-   - Display log lines as they arrive
-   - Handle connection drops with reconnection logic
-   - Graceful fallback to Phase 1 behavior if streaming unavailable
-
-4. **SSH tunnel compatibility**
-   - SSE must work through SSH tunnels (localhost forwarding)
-   - Test with both direct HTTP and SSH-tunneled connections
 
 ## Consequences
 

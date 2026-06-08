@@ -1,10 +1,14 @@
 # Hop3 Testing Strategy
 
+> **Updated by [ADR 043](../../../notes/adrs/043-unified-testing-architecture.md).** The pytest pyramid is now **three** layers — `a_unit` (fast, no Docker) · `b_integration` (in-process, real in-memory DB, no Docker) · `c_e2e` (Docker/real-deploy, renamed from `d_e2e`). The old `c_system` layer is **dissolved**. A test's layer is decided by whether it needs Docker/root/host-mutation, not by complexity; coverage is measured on `a_unit` + `b_integration` only (e2e runs out-of-process). Markers (`fast`/`integration`/`e2e`/`needs_docker`) are stamped from the directory layer (root `conftest.py`), so `pytest -m fast` / `-m "not needs_docker"` work everywhere.
+>
+> **Entry points:** `make test-fast` (unit, all packages, < 1 min) · `make test` (check tier: in-process across all 6 packages) · `make test-e2e` (Docker e2e) · `make test-apps` / `test-app APP=…` (deploy real apps via `hop3-test`) · `make test-nightly`.
+
 ## Overview
 
 Hop3 uses a comprehensive testing strategy combining two complementary approaches:
 
-1. **pytest-based Test Layers** - Traditional unit, integration, system, and E2E tests
+1. **pytest-based Test Layers** - Three layers placed by need: unit, integration, and E2E
 2. **Application Deployment Testing** - Testing real app deployments via `hop3-test`
 
 This document describes both approaches, their purposes, and how to use them effectively.
@@ -20,18 +24,18 @@ This document describes both approaches, their purposes, and how to use them eff
 │  ─────────────              │  ────────────────────────────────────  │
 │                             │                                        │
 │  ┌─────────────┐            │  ┌─────────────────────────────────┐  │
-│  │   E2E       │ Slow       │  │  System Testing                 │  │
-│  │  (d_e2e/)   │            │  │  - Uses hop3-deploy             │  │
+│  │   E2E       │ Docker     │  │  System Testing                 │  │
+│  │  (c_e2e/)   │            │  │  - Uses hop3-deploy             │  │
 │  ├─────────────┤            │  │  - Tests Hop3 installation      │  │
-│  │   System    │            │  │  - 5-8 known-good apps          │  │
-│  │ (c_system/) │            │  └─────────────────────────────────┘  │
+│  │ Integration │            │  │  - 5-8 known-good apps          │  │
+│  │(b_integr./) │            │  └─────────────────────────────────┘  │
 │  ├─────────────┤            │                                        │
-│  │ Integration │            │  ┌─────────────────────────────────┐  │
-│  │(b_integr./) │            │  │  Apps Testing                   │  │
-│  ├─────────────┤            │  │  - Uses pre-built image         │  │
-│  │   Unit      │ Fast       │  │  - Tests app deployments        │  │
-│  │  (a_unit/)  │            │  │  - Multiple test applications   │  │
-│  └─────────────┘            │  └─────────────────────────────────┘  │
+│  │   Unit      │ Fast       │  ┌─────────────────────────────────┐  │
+│  │  (a_unit/)  │            │  │  Apps Testing                   │  │
+│  └─────────────┘            │  │  - Uses pre-built image         │  │
+│                             │  │  - Tests app deployments        │  │
+│                             │  │  - Multiple test applications   │  │
+│                             │  └─────────────────────────────────┘  │
 │                             │                                        │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -42,31 +46,28 @@ This document describes both approaches, their purposes, and how to use them eff
 
 ```
            /\
-          /  \  E2E Tests (d_e2e/)
-         /    \  - Slowest, most comprehensive
-        /------\  - Real deployments in Docker
+          /  \  E2E Tests (c_e2e/)
+         /    \  - Real Docker deployments
+        /------\  - No coverage (runs out-of-process)
        /        \
-      /  System  \ System Tests (c_system/)
-     /   Tests    \ - Docker-based CLI ↔ Server tests
-    /--------------\ - Isolated, reproducible
+      / Integr.  \ Integration Tests (b_integration/)
+     /   Tests    \ - In-process, real in-memory DB
+    /--------------\ - Component interactions, no Docker
    /                \
-  /   Integration    \ Integration Tests (b_integration/)
- /      Tests         \ - Component interactions
-/______________________\ - In-memory database
-
-   Unit Tests (a_unit/)
-   - Fastest, most isolated
-   - Mock all dependencies
+  /   Unit Tests     \ Unit Tests (a_unit/)
+ /     (a_unit/)      \ - Fastest, most isolated
+/______________________\ - No Docker, counts toward coverage
 ```
+
+A test's layer is decided by **what it needs** — Docker, root, or host-mutation — not by complexity. Anything that needs a real Docker deploy lives in `c_e2e`; everything that can run in-process (even with a real in-memory database) lives in `a_unit` or `b_integration`. Duplication across layers is allowed.
 
 ### Test Layer Characteristics
 
-| Layer | Speed | Scope | Dependencies | When to Run |
-|-------|-------|-------|--------------|-------------|
-| Unit | < 1s | Individual functions/classes | None (mocked) | Every save |
-| Integration | ~10s | Multiple components | In-memory DB | Before commit |
-| System | ~20s | CLI ↔ Server | Docker | Before push |
-| E2E | 10-20min | Complete workflows | Docker + apps | CI/CD |
+| Layer | Docker? | Coverage? | Scope | Dependencies | When to Run |
+|-------|---------|-----------|-------|--------------|-------------|
+| Unit (`a_unit`) | no | yes | Individual functions/classes | None / in-memory SQLite | Every save (`make test-fast`) |
+| Integration (`b_integration`) | no | yes | Multiple components, in-process | Real in-memory DB | Before commit (`make test`) |
+| E2E (`c_e2e`) | yes | no | Complete workflows, real deploy | Docker + apps | `make test-e2e` + nightly |
 
 ### Layer 1: Unit Tests
 
@@ -145,56 +146,35 @@ def test_auth_login_flow(client, db):
 pytest packages/hop3-server/tests/b_integration/ -v
 ```
 
-### Layer 3: System Tests
+### Layer 3: E2E Tests
 
-**Location**: `packages/hop3-server/tests/c_system/`
+**Location**: `packages/hop3-server/tests/c_e2e/`
 
-**Purpose**: Test the full application with real dependencies in Docker containers.
+> The old `c_system` layer is **dissolved**: its one in-process test moved into `b_integration`, and the rest of its responsibilities were folded into this E2E layer. `c_e2e` is the former `d_e2e`, renamed.
+
+**Purpose**: Test complete workflows in a production-like Docker environment with real deployments.
 
 **Characteristics**:
-- Medium execution time (~20 seconds after initial image build)
-- Uses Docker containers (`hop3-e2e:test` image)
-- Real hop3-server running in container
-- HTTP-based CLI communication
-- Isolated, reproducible environment
+- Slow execution (real Docker deploys, includes image build)
+- Docker containers with the full hop3 stack (server, SSH, HTTP, apps)
+- Real deployment workflows (backups, git-push, tarball deploy)
+- Does **not** count toward coverage (runs out-of-process)
+- `HOP3_UNSAFE=true` configured in the Dockerfile
 
 **Coverage**:
-- CLI availability and basic functionality
-- Authentication commands
-- App deployment via tarball
+- App deployment via tarball and git hook
 - App lifecycle (deploy, list, destroy)
-- Git hook deployment
+- Python Flask/Django app deployment
+- Full deployment lifecycle and HTTP endpoint verification
+- Security tests
 
 **Running**:
 ```bash
 # Ensure HOP3_DEV_HOST is not set
 unset HOP3_DEV_HOST
-pytest packages/hop3-server/tests/c_system/ -v
-```
-
-### Layer 4: E2E Tests
-
-**Location**: `packages/hop3-server/tests/d_e2e/`
-
-**Purpose**: Test complete workflows in production-like Docker environment.
-
-**Characteristics**:
-- Slow execution (10-20 minutes, includes image build)
-- Docker containers with supervisor
-- Full hop3 stack (server, SSH, HTTP, apps)
-- Real deployment workflows
-- `HOP3_UNSAFE=true` configured in Dockerfile
-
-**Coverage**:
-- Python Flask/Django app deployment
-- Full deployment lifecycle
-- HTTP endpoint verification
-- Git hook deployment
-- Security tests
-
-**Running**:
-```bash
-pytest packages/hop3-server/tests/d_e2e/ -v
+pytest packages/hop3-server/tests/c_e2e/ -v
+# or, via the make target:
+make test-e2e
 ```
 
 ---
@@ -605,23 +585,29 @@ def test_app_name_validation(app_name, valid):
 ### Quick Commands
 
 ```bash
-# All unit + integration tests
+# Check tier: unit + integration, all packages, no Docker
 make test
 
-# System tests (Hop3 deployment testing)
-make test-system
+# Fast lane: unit only, all packages, no Docker (< 1 min)
+make test-fast
 
-# App tests
+# Docker e2e layer (real deploys, backups, git-push)
+make test-e2e
+
+# App deployment tests (real apps via hop3-test, Docker)
 make test-apps
 
 # Specific pytest layer
 pytest packages/hop3-server/tests/a_unit/
 pytest packages/hop3-server/tests/b_integration/
-pytest packages/hop3-server/tests/c_system/
-pytest packages/hop3-server/tests/d_e2e/
+pytest packages/hop3-server/tests/c_e2e/
 
-# With coverage
-pytest --cov=hop3 --cov-report=html
+# By marker (stamped from the directory layer by the root conftest.py)
+pytest -m fast                 # a_unit + flat unit suites
+pytest -m "not needs_docker"   # everything except the Docker e2e layer
+
+# With coverage (in-process layers only; e2e runs out-of-process)
+pytest --cov=hop3 --cov-report=html packages/hop3-server/tests/a_unit packages/hop3-server/tests/b_integration
 
 # Verbose output
 pytest -v -s
@@ -656,20 +642,19 @@ uv run hop3-test build-ready-image
 # Stage 1: Fast Feedback (every commit)
 fast-tests:
   - make lint
-  - make test  # Unit + integration
+  - make test  # Check tier: unit + integration, no Docker
 
-# Stage 2: System Tests (every push/PR)
-system-tests:
-  - make test-system  # Dev mode, 5 apps, ~2min
+# Stage 2: Docker E2E (every push/PR)
+e2e-tests:
+  - make test-e2e  # c_e2e layer: real deploys, backups, git-push
 
 # Stage 3: Full App Tests (merge to main)
 app-tests:
-  - hop3-test build-ready-image
-  - make test-apps  # 66 apps, ~14min
+  - make test-apps  # deploy the app catalog on Docker
 
 # Stage 4: Nightly
 nightly:
-  - hop3-test system --mode nightly
+  - make test-nightly  # full app/demo/tutorial matrix + HTML report
 ```
 
 ### Current CI (SourceHut)

@@ -159,18 +159,29 @@ def _ensure_pg_hba_docker_access() -> None:
 
     content = pg_hba.read_text()
 
-    # Docker network range covering all typical Docker networks
-    docker_network = "172.16.0.0/12"
+    # Docker draws container networks from its default-address-pools, which span
+    # *all* of RFC1918 — not just 172.16.0.0/12. Compose projects routinely land
+    # in 192.168.x, and custom networks may use 10.x; allowing only the 172 range
+    # rejected those with "no pg_hba.conf entry for host". Cover every RFC1918
+    # block (md5-authenticated, private-source only).
+    docker_networks = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
 
-    if docker_network in content:
+    changed = False
+    for net in docker_networks:
+        # Match the exact rule (avoid a substring of a wider/other line).
+        rule = f"host    all    all    {net}    md5"
+        if rule in content:
+            continue
+        if not changed:
+            content += "\n# Allow Docker containers to connect (Hop3)\n"
+            changed = True
+        content += rule + "\n"
+
+    if not changed:
         return  # Already configured
 
-    # Add entry for Docker networks (allow all users with md5 auth)
-    hba_entry = f"\n# Allow Docker containers to connect (Hop3)\nhost    all    all    {docker_network}    md5\n"
-    content += hba_entry
-
     pg_hba.write_text(content)
-    server_log.info(f"Added pg_hba.conf entry for Docker networks: {docker_network}")
+    server_log.info(f"Added pg_hba.conf entries for Docker networks: {docker_networks}")
 
     # Reload PostgreSQL to apply changes
     subprocess.run(

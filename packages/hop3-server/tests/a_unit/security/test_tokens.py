@@ -131,10 +131,15 @@ def test_token_contains_jti():
     assert info1["token_id"] != info2["token_id"]
 
 
-@pytest.mark.skip(reason="Relying on environment variable is not ideal for tests")
-def test_create_token_without_secret_key():
-    """Test that token creation fails without a secret key."""
-    os.environ.pop("HOP3_SECRET_KEY", None)
+def test_create_token_without_secret_key(monkeypatch):
+    """Token creation fails when no secret is configured (env AND config).
+
+    ``get_secret_key`` reads ``HOP3_SECRET_KEY`` from the env, then falls back to
+    the config file — so both must be cleared to exercise the failure. monkeypatch
+    keeps it hermetic (env is restored after the test).
+    """
+    monkeypatch.delenv("HOP3_SECRET_KEY", raising=False)
+    monkeypatch.setattr("hop3.config.HOP3_SECRET_KEY", None)
 
     with pytest.raises(ValueError, match="HOP3_SECRET_KEY must be set"):
         create_token("testuser")

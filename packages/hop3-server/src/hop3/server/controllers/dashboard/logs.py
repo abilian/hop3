@@ -13,6 +13,10 @@ from typing import TYPE_CHECKING
 
 import anyio
 from litestar import Controller, get
+
+# Runtime import (not TYPE_CHECKING): Litestar resolves the FromPath path-param
+# annotation at route registration via get_type_hints, so it must exist at runtime.
+from litestar.params import FromPath  # noqa: TC002
 from litestar.response import Redirect, Response, Stream, Template
 
 from hop3.server.guards import auth_guard
@@ -95,7 +99,7 @@ class LogsController(Controller):
     guards = [auth_guard]  # noqa: RUF012
 
     @get("/", sync_to_thread=False)
-    def app_logs(self, app_name: str) -> Template | Redirect:
+    def app_logs(self, app_name: FromPath[str]) -> Template | Redirect:
         """Display application logs page."""
         with get_session() as db_session:
             app = get_app_or_none(db_session, app_name)
@@ -115,7 +119,7 @@ class LogsController(Controller):
         return Template(template_name="dashboard/logs.html", context=ctx)
 
     @get("/download", sync_to_thread=False)
-    def app_logs_download(self, app_name: str) -> Response | Redirect:
+    def app_logs_download(self, app_name: FromPath[str]) -> Response | Redirect:
         """Download application logs as a text file."""
         with get_session() as db_session:
             app = get_app_or_none(db_session, app_name)
@@ -138,7 +142,7 @@ class LogsController(Controller):
             )
 
     @get("/stream")
-    async def app_logs_stream(self, app_name: str) -> Stream | Response:
+    async def app_logs_stream(self, app_name: FromPath[str]) -> Stream | Response:
         """Stream application logs via Server-Sent Events (SSE)."""
         with get_session() as db_session:
             app = get_app_or_none(db_session, app_name)

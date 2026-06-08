@@ -16,7 +16,7 @@ from unittest.mock import patch
 import mysql.connector
 import pytest
 
-from hop3.plugins.mysql.mysql import MySQLAddon, MysqlAddon
+from hop3.plugins.mysql.mysql import ADDON_USER_HOSTS, MySQLAddon, MysqlAddon
 
 
 @pytest.fixture
@@ -170,3 +170,94 @@ def test_name_attribute():
     assert MySQLAddon.name == "mysql"
     service = MySQLAddon(addon_name="test")
     assert service.name == "mysql"
+
+
+def test_addon_user_hosts_cover_docker_network_pools():
+    """A per-app DB user must be reachable from every Docker network pool.
+
+    Regression: granting only ``172.%`` rejected compose apps whose network
+    came from Docker's ``192.168.x`` default-address-pool, with
+    "[1130] Host '192.168.x.y' is not allowed to connect to this MySQL server".
+    """
+    assert "127.0.0.1" in ADDON_USER_HOSTS  # native apps
+    assert "172.%" in ADDON_USER_HOSTS  # default docker bridge pool
+    assert "192.168.%" in ADDON_USER_HOSTS  # the other docker default pool
+    assert "10.%" in ADDON_USER_HOSTS  # custom networks
+
+
+class _RecordingCursor:
+    """A stub cursor that records executed statements (no real DB)."""
+
+    def __init__(self, executed: list[tuple[str, tuple]]) -> None:
+        self._executed = executed
+
+    def execute(self, stmt: str, params: tuple = ()) -> None:
+        self._executed.append((stmt, tuple(params)))
+
+    def fetchone(self):
+        return None  # the database does not exist yet
+
+    def close(self) -> None:
+        pass
+
+
+class _RecordingConnection:
+    def __init__(self, executed: list[tuple[str, tuple]]) -> None:
+        self._executed = executed
+
+    def cursor(self) -> _RecordingCursor:
+        return _RecordingCursor(self._executed)
+
+    def commit(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+
+class _FakeAdmin:
+    def get_connection_params(self) -> dict:
+        return {}
+
+
+def _hosts_in(executed, verb: str) -> set[str]:
+    """The set of ``host`` params (2nd bind value) of statements starting ``verb``."""
+    return {p[1] for stmt, p in executed if stmt.startswith(verb) and len(p) >= 2}
+
+
+def test_create_grants_and_destroy_drops_user_for_every_host():
+    """Behavioural guard (not just the constant): ``create`` must CREATE USER +
+    GRANT for *every* host in ADDON_USER_HOSTS, and ``destroy`` must DROP each.
+
+    Catches a regression where ``create``/``destroy`` stop iterating the host
+    list (the original 172-only bug) even though the constant stays correct.
+    """
+    service = MySQLAddon(addon_name="bookstack")
+    executed: list[tuple[str, tuple]] = []
+
+    with (
+        patch.object(MySQLAddon, "_get_admin", lambda _self: _FakeAdmin()),
+        patch(
+            "mysql.connector.connect",
+            return_value=_RecordingConnection(executed),
+        ),
+        patch("hop3.plugins.mysql.mysql.load_addon_secrets", return_value=None),
+        patch("hop3.plugins.mysql.mysql.save_addon_secrets"),
+    ):
+        service.create()
+
+    assert set(ADDON_USER_HOSTS) <= _hosts_in(executed, "CREATE USER")
+    assert set(ADDON_USER_HOSTS) <= _hosts_in(executed, "GRANT")
+
+    executed.clear()
+    with (
+        patch.object(MySQLAddon, "_get_admin", lambda _self: _FakeAdmin()),
+        patch(
+            "mysql.connector.connect",
+            return_value=_RecordingConnection(executed),
+        ),
+        patch("hop3.plugins.mysql.mysql.delete_addon_secrets"),
+    ):
+        service.destroy()
+
+    assert set(ADDON_USER_HOSTS) <= _hosts_in(executed, "DROP USER")

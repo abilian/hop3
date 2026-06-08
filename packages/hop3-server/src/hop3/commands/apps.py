@@ -98,7 +98,7 @@ class AppsCmd(Command):
 
     def call(self, *args):
         app_repo = AppRepository(session=self.db_session)
-        apps = sorted(app_repo.list(), key=lambda a: a.name)
+        apps = sorted(app_repo.get_many(), key=lambda a: a.name)
         if not apps:
             return [text("There are no applications deployed.")]
 

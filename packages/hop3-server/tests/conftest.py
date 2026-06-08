@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import os
 
 import pytest
 from filelock import FileLock
@@ -25,6 +26,31 @@ from hop3.orm import reset_session_factory_cache
 
 # Import fixtures from di_fixtures.py to make them available to all tests
 from .di_fixtures import di_container  # noqa: F401
+
+# Provide a stable session secret so create_app() doesn't warn about a generated
+# key during tests. The warning (asgi.py) is a production-only concern; tests
+# don't need a persistent secret. Set before any test module imports the ASGI
+# app (none of the imports above pull it in, verified). setdefault keeps any
+# real value a developer may have exported.
+os.environ.setdefault("HOP3_SESSION_SECRET", "test-session-secret-not-for-production")
+
+
+@pytest.fixture(autouse=True)
+def _fast_bcrypt(monkeypatch):
+    """Use the minimum bcrypt work factor in tests.
+
+    Password hashing is intentionally slow in production (~0.3s/hash at the
+    default cost). Tests only exercise the hash/verify *roundtrip*, not the work
+    factor, so force the minimum (4 rounds) — this alone cuts ~10s off the
+    auth/user/admin integration suite. ``checkpw`` reads the cost from the hash,
+    so verification is unaffected.
+    """
+    import bcrypt  # noqa: PLC0415 - localized to this perf fixture
+
+    original_gensalt = bcrypt.gensalt
+    monkeypatch.setattr(
+        bcrypt, "gensalt", lambda *args, **kwargs: original_gensalt(rounds=4)
+    )
 
 
 # 1. Add command-line options to pytest

@@ -179,21 +179,3 @@ class ServerLogger:
 
 # Global server logger instance
 server_log = ServerLogger()
-
-
-# Convenience function to view recent logs
-def get_recent_logs(lines: int = 100) -> list[str]:
-    """Read recent log entries from the server log file.
-
-    Args:
-        lines: Number of lines to return
-
-    Returns:
-        List of log lines (most recent last)
-    """
-    if not DEFAULT_LOG_FILE.exists():
-        return []
-
-    with Path(DEFAULT_LOG_FILE).open() as f:
-        all_lines = f.readlines()
-        return all_lines[-lines:]

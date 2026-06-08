@@ -8,14 +8,13 @@
 
 ## Revisions
 
-- v1.3: CLI example migrated from colon syntax (`hop3 app:deploy`) to space form (`hop3 deploy`) per ADR 036 (2026-04-22).
-- v1.2: Promoted from Draft (Deferred) to Implemented. Option A from the original draft (server CLI command for git hook handling) was implemented. Three commands now live in `packages/hop3-server/src/hop3/server/cli/git.py`: `git-receive-pack`, `git-upload-pack`, and `git-hook`. The SSH-forced-command pattern routes pushes through `hop3-server`, the post-receive hook calls `git-hook`, the hook handler reads push data from stdin, runs `git archive` to extract the new commit into `src_path`, and triggers `do_deploy()`. First-push auto-creation of the app (Heroku/piku-style) is included. Coverage: end-to-end test at `tests/d_e2e/test_git_push.py` + integration tests under `tests/b_integration/{orm,core,commands}/`. The flow is documented in `packages/hop3-server/CLAUDE.md` as "git push → Git hook → do_deploy() → Builder → …" (2026-04-14).
-- v1.1: Earlier interim status (incorrectly re-marked Deferred — corrected by v1.2).
-- v1.0: Original draft (2026-03-05)
+- v1.3: CLI example migrated to the space form (`hop3 deploy`) per ADR 036 (2026-04-22).
+- v1.2: Promoted from Draft to Implemented via Option A (2026-04-14).
+- v1.0: Original draft (2026-03-05).
 
 ## Implementation Status
 
-**Shipped** as the recommended Option A from the original draft. The body below describes the original problem and decision context; the actual code lives at `packages/hop3-server/src/hop3/server/cli/git.py` and the operator workflow is:
+Implemented as the recommended Option A from the original draft. The body below describes the original problem and decision context; the resulting operator workflow is:
 
 ```
 git push hop3@server:myapp main
@@ -195,7 +194,3 @@ When git deployment becomes a priority:
 - [ADR 036: CLI Ergonomics](./036-cli-ergonomics.md) - Hidden commands
 - `hop3/commands/git.py` - Current (broken) implementation
 - `hop3/core/git.py` - Git repository management
-
-## Revision History
-
-- **2026-03-05**: Initial draft documenting broken state and future options

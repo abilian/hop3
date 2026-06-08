@@ -33,7 +33,7 @@ This process is inspired by [Python's PEP process](https://www.python.org/dev/pe
 | [023](./023-runtime-stack-replacement.md) | Runtime Stack Replacement | Feature | Draft |
 | [024](./024-backup-restore-system.md) | Backup and Restore System | Feature | Final |
 | [025](./025-cli-user-experience.md) | CLI User Experience Improvements | Feature | Final |
-| [026](./026-dashboard-ui-test-classification.md) | Dashboard UI Test Classification | Guideline | Active |
+| [026](./026-dashboard-ui-test-classification.md) | Dashboard UI Test Classification | Guideline | Superseded (by 043) |
 | [027](./027-config-system-refactoring.md) | Configuration System Refactoring for Testability | Feature | Final |
 | [028](./028-pluggy-dishka-integration.md) | Pluggy + Dishka Integration for Plugin-Contributed Services | Feature | Final |
 | [029](./029-reconciliation-health-checks.md) | Application Reconciliation and Health Check System | Feature | Draft |
@@ -42,10 +42,20 @@ This process is inspired by [Python's PEP process](https://www.python.org/dev/pe
 | [032](./032-deployment-strategies-artifact-lifecycle.md) | Deployment Strategies & Artifact Lifecycle | Feature | Accepted |
 | [033](./033-docker-integration.md) | Docker Integration Strategy | Feature | Final |
 | [034](./034-streaming-deployment-logs.md) | Streaming Deployment Logs | Feature | Accepted |
+| [035](./035-build-artifacts.md) | Build Artifacts as Runtime Contract | Architecture | Accepted |
+| [036](./036-cli-ergonomics.md) | CLI Ergonomics and Command Surface | Design | Accepted (D7/D8 superseded by 042) |
+| [037](./037-git-deployment-architecture.md) | Git-Based Deployment Architecture | Architecture | Implemented |
+| [038](./038-multi-service-apps.md) | Multi-Service Application Support | Feature | Active (design) |
+| [039](./039-python-deploy-strategies.md) | Python Deploy Strategies | Feature | Active (Phase 1 landed) |
+| [040](./040-network-firewall-and-port-exposure.md) | Network Firewall and Per-App Port Exposure | Feature | Draft |
+| [041](./041-privileged-operations-agent.md) | Privileged Operations Agent (hop3-rootd) | Architecture | Draft |
+| [042](./042-cli-context-model.md) | CLI Context Model — Servers and Project Contexts | Feature (breaking) | Accepted |
+| [043](./043-unified-testing-architecture.md) | Unified Testing Architecture | Process | Draft |
+| [044](./044-nightly-test-lab.md) | Nightly Test Lab — Web App to Run & Report on Tests | Architecture | Draft (provisional) |
 
 ## ADRs by Type
 
-### Features (30)
+### Features (34)
 
 | # | Title | Status |
 |---|-------|--------|
@@ -79,24 +89,44 @@ This process is inspired by [Python's PEP process](https://www.python.org/dev/pe
 | [032](./032-deployment-strategies-artifact-lifecycle.md) | Deployment Strategies & Artifact Lifecycle | Accepted |
 | [033](./033-docker-integration.md) | Docker Integration Strategy | Final |
 | [034](./034-streaming-deployment-logs.md) | Streaming Deployment Logs | Accepted |
+| [038](./038-multi-service-apps.md) | Multi-Service Application Support | Active (design) |
+| [039](./039-python-deploy-strategies.md) | Python Deploy Strategies | Active (Phase 1 landed) |
+| [040](./040-network-firewall-and-port-exposure.md) | Network Firewall and Per-App Port Exposure | Draft |
+| [042](./042-cli-context-model.md) | CLI Context Model — Servers and Project Contexts | Accepted |
 
-### Processes (2)
+### Processes (3)
 
 | # | Title | Status |
 |---|-------|--------|
 | [004](./004-development-tooling.md) | Development Tooling | Active |
 | [015](./015-documentation.md) | Documentation and Community Engagement | Draft |
+| [043](./043-unified-testing-architecture.md) | Unified Testing Architecture | Draft |
 
 ### Guidelines (2)
 
 | # | Title | Status |
 |---|-------|--------|
-| [026](./026-dashboard-ui-test-classification.md) | Dashboard UI Test Classification | Active |
+| [026](./026-dashboard-ui-test-classification.md) | Dashboard UI Test Classification | Superseded (by 043) |
 | [031](./031-project-terminology.md) | Project Terminology | Active |
+
+### Architecture (4)
+
+| # | Title | Status |
+|---|-------|--------|
+| [035](./035-build-artifacts.md) | Build Artifacts as Runtime Contract | Accepted |
+| [037](./037-git-deployment-architecture.md) | Git-Based Deployment Architecture | Implemented |
+| [041](./041-privileged-operations-agent.md) | Privileged Operations Agent (hop3-rootd) | Draft |
+| [044](./044-nightly-test-lab.md) | Nightly Test Lab | Draft (provisional) |
+
+### Design (1)
+
+| # | Title | Status |
+|---|-------|--------|
+| [036](./036-cli-ergonomics.md) | CLI Ergonomics and Command Surface | Accepted (D7/D8 superseded by 042) |
 
 ## ADRs by Status
 
-### Final (10)
+### Final (11)
 
 Fully implemented features.
 
@@ -112,18 +142,20 @@ Fully implemented features.
 | [028](./028-pluggy-dishka-integration.md) | Pluggy + Dishka Integration for Plugin-Contributed Services | Feature |
 | [030](./030-two-level-build-architecture.md) | Two-Level Build Architecture | Feature |
 | [033](./033-docker-integration.md) | Docker Integration Strategy | Feature |
+| [037](./037-git-deployment-architecture.md) | Git-Based Deployment Architecture | Architecture |
 
-### Active (3)
+### Active (4)
 
-Processes and guidelines currently in effect.
+Processes, guidelines, and in-design features currently being worked on.
 
 | # | Title | Type |
 |---|-------|------|
 | [004](./004-development-tooling.md) | Development Tooling | Process |
-| [026](./026-dashboard-ui-test-classification.md) | Dashboard UI Test Classification | Guideline |
 | [031](./031-project-terminology.md) | Project Terminology | Guideline |
+| [038](./038-multi-service-apps.md) | Multi-Service Application Support | Feature |
+| [039](./039-python-deploy-strategies.md) | Python Deploy Strategies | Feature |
 
-### Accepted (4)
+### Accepted (7)
 
 Approved and ready for implementation.
 
@@ -133,8 +165,11 @@ Approved and ready for implementation.
 | [019](./019-cli-commands.md) | Basic Commands for the Hop3 Command-Line | Feature |
 | [032](./032-deployment-strategies-artifact-lifecycle.md) | Deployment Strategies & Artifact Lifecycle | Feature |
 | [034](./034-streaming-deployment-logs.md) | Streaming Deployment Logs | Feature |
+| [035](./035-build-artifacts.md) | Build Artifacts as Runtime Contract | Architecture |
+| [036](./036-cli-ergonomics.md) | CLI Ergonomics and Command Surface | Design |
+| [042](./042-cli-context-model.md) | CLI Context Model — Servers and Project Contexts | Feature |
 
-### Draft (12)
+### Draft (16)
 
 Initial proposals, not yet reviewed.
 
@@ -152,6 +187,10 @@ Initial proposals, not yet reviewed.
 | [016](./016-backups.md) | Backup Strategy | Feature |
 | [023](./023-runtime-stack-replacement.md) | Runtime Stack Replacement | Feature |
 | [029](./029-reconciliation-health-checks.md) | Application Reconciliation and Health Check System | Feature |
+| [040](./040-network-firewall-and-port-exposure.md) | Network Firewall and Per-App Port Exposure | Feature |
+| [041](./041-privileged-operations-agent.md) | Privileged Operations Agent (hop3-rootd) | Architecture |
+| [043](./043-unified-testing-architecture.md) | Unified Testing Architecture | Process |
+| [044](./044-nightly-test-lab.md) | Nightly Test Lab | Architecture |
 
 ### Deferred (5)
 
@@ -165,6 +204,14 @@ Parked for later consideration.
 | [009](./009-nix-runtime.md) | Using Nix as a Runtime Isolation Mechanism | Feature |
 | [017](./017-agent-based-architecture.md) | Distributed, Agent-Based Architecture | Feature |
 
+### Superseded (1)
+
+Replaced by a newer ADR.
+
+| # | Title | Type | Superseded by |
+|---|-------|------|---------------|
+| [026](./026-dashboard-ui-test-classification.md) | Dashboard UI Test Classification | Guideline | [043](./043-unified-testing-architecture.md) |
+
 ---
 
 ## ADR Types
@@ -174,6 +221,8 @@ An ADR can describe one of three types:
 | Type | Description | Final Status |
 |------|-------------|--------------|
 | **Feature** | New functionality or capability in Hop3 | Final |
+| **Architecture** | Cross-cutting structural decisions (build, deploy, agents) | Implemented / Accepted |
+| **Design** | Interface/UX and command-surface decisions | Accepted |
 | **Process** | How we do things (workflows, development practices) | Active |
 | **Guideline** | Conventions, best practices, standards | Active |
 

@@ -9,13 +9,10 @@
 
 ## Revisions
 
-- v0.7: CLI examples migrated from colon syntax (`hop3 nix eject`) to space form (`hop3 nix eject`) per ADR 036 (2026-04-22).
 - v0.1: Initial draft (2024-07-17)
-- v0.2: Tweak following feedback from NLNet (2024-09-23)
-- v0.3: Mark as Phase 3, pending earlier phases (2026-03-23)
-- v0.4: Reframed from "lockfile conversion" to "on-the-fly generation at build time." Initially proposed using ecosystem tools (poetry2nix, dream2nix, node2nix). (2026-04-04)
-- v0.6: Promoted from Active to Final. 20 apps under `apps/real-apps-nix-gen/` build and deploy through the eight templates; the spike at `spikes/nix-gen/` is retired. ADR 007 (the originally-planned separate nixpkgs-mode builder) is marked Superseded since `nixpkgs-wrapper` covers that case. Template limitations for apps needing multi-package wiring (Vaultwarden, GoToSocial, WriteFreely) are tracked internally (see `notes/lessons-learned/nix-packaging.md` for the visible portion) (2026-04-14).
-- v0.5: Major rewrite after spike validation. Ecosystem tools approach abandoned — we don't actually use them in any existing hop3.nix. Replaced with template-based approach systematising the manual conversion patterns. Spike at `spikes/nix-gen/` validates the approach with 20 of 22 apps building successfully. (2026-04-05)
+- v0.4: Reframed from "lockfile conversion" to "on-the-fly generation at build time," initially proposing ecosystem tools (poetry2nix, dream2nix, node2nix) (2026-04-04).
+- v0.5: Major rewrite. Ecosystem-tools approach abandoned in favour of a template-based approach that systematises the manual conversion patterns (2026-04-05).
+- v0.6: Promoted to Final. ADR 007 (the originally-planned separate nixpkgs-mode builder) marked Superseded since `nixpkgs-wrapper` covers that case (2026-04-14).
 
 ## Context
 
@@ -92,9 +89,9 @@ hop3.nix exists in source?
 
 When a generated template cannot express an app's needs, the developer runs `hop3 nix eject <app>` to materialize the generated `hop3.nix` as a real file in the source tree. After ejection, the committed `hop3.nix` takes precedence and can be customized freely. This mirrors Create React App's eject pattern: auto-generation is progressive disclosure, not lock-in.
 
-## Validated Templates (Spike)
+## Validated Templates
 
-A spike at `spikes/nix-gen/` implements 7 templates covering **20 of 22 apps** in `apps/real-apps-nix/`. All 20 build successfully via `nix-build`.
+Seven templates cover **20 of 22 apps** in `apps/real-apps-nix/`, each verified to build via `nix-build`.
 
 | Template | Apps covered | Count | Key patterns |
 |----------|-------------|-------|-------------|
@@ -143,52 +140,11 @@ The placeholder pattern is simpler than trying to interleave Nix interpolation w
 
 ### Nix Escaping
 
-Inside a Nix `''...''` multi-line string, only `${VAR}` needs escaping (becomes `''${VAR}`). Bare `$VAR`, `$(cmd)`, and `$PWD` pass through literally. A 5-line `nix_escape()` regex function handles all cases. The spike's 8 unit tests verify the escaping rules.
+Inside a Nix `''...''` multi-line string, only `${VAR}` needs escaping (becomes `''${VAR}`). Bare `$VAR`, `$(cmd)`, and `$PWD` pass through literally. A small `nix_escape()` regex function handles all cases.
 
-## Implementation Plan
+## Implementation Status
 
-### Phase 3a: Productionize into hop3-server
-
-- Move `spikes/nix-gen/src/hop3_nix_gen/` into `packages/hop3-server/src/hop3/plugins/build/nix/gen/`
-- Adapt to Hop3's logging and error handling conventions
-- Port the 70 unit tests into the hop3-server test suite
-- Run the spike's validate_all.py against the migrated code
-
-### Phase 3b: TOML integration
-
-- Define the `[nix]` section schema in `hop3.toml` (Pydantic model in `project/schema.py`)
-- Implement TOML → `AppSpec` deserialization
-- Move the 20 Python specs from the spike to `[nix]` sections in the corresponding `apps/real-apps-nix/*/hop3.toml` files
-- Verify that the generated `.nix` still builds for each app
-
-### Phase 3c: NixBuilder integration
-
-**Prerequisite:** `Hop3Config.to_dict()` must be updated to include the `[nix]` section in the config dict passed to builders. Currently (`hop3_config.py:520-537`) it explicitly enumerates known sections and omits `nix`.
-
-- `NixBuilder.accept()` now also accepts apps with `[nix].template` set in `hop3.toml`
-- `NixBuilder.build()` generates the `.nix` at build time when no `hop3.nix` exists
-- The generated file is written to a temp directory (not committed)
-- Pass it to `nix-build` via the existing infrastructure
-- Verify the end-to-end deploy path works for a few apps
-
-### Phase 3d: `hop3 nix eject` command
-
-- New CLI command that writes the generated `hop3.nix` to the app source directory
-- After ejection, the generator is skipped and the hand-crafted file is used
-- Add tests for the ejection flow
-
-### Phase 3e: Documentation and CI
-
-- Document the `[nix]` section in `docs/src/hop3-toml-reference.md`
-- Add the validate_all.py script (renamed) to CI
-- Write a tutorial: "Deploy a reproducible app with Hop3 + Nix, zero Nix expertise needed"
-
-### Phase 3f: Ruby template and additional coverage (optional)
-
-- Add `ruby-bundler` template for the 2 Ruby test apps (`sinatra-hello`, `rack-hello`)
-- Not blocking — deprioritised since only test apps are affected
-
-**Total effort: ~18 hours of focused work.** The Ruby template adds ~2 more hours if desired.
+Shipped: the generator is productionized in the `NixBuilder` plugin tree (`plugins/build/nix/gen/`). `hop3.toml` carries a `[nix]` section; `NixBuilder.accept()` builds apps that declare `[nix].template`, generating the `.nix` at build time (and refusing when both a hand-written `hop3.nix` and a `[nix].template` are present). The template set covers the documented stacks, including `ruby-bundler`.
 
 ## Consequences
 
@@ -198,27 +154,27 @@ Inside a Nix `''...''` multi-line string, only `${VAR}` needs escaping (becomes 
 - **Progressive disclosure via eject.** Developers can drop to hand-crafted `hop3.nix` when needed without changing their workflow.
 - **Same BuildArtifact output.** The rest of the pipeline (deployer, proxy, etc.) is unchanged. The generator is purely a build-time source transformation.
 - **Extensible.** New templates are pure plugins — third parties can publish ecosystem-specific templates as separate packages.
-- **Validated end-to-end.** The spike proves that 20 real apps across 7 templates build correctly on a real system, not just in theory.
+- **Validated end-to-end.** 20 real apps across 7 templates build correctly on a real system, not just in theory.
 
 ### Drawbacks
 
 - **Per-template maintenance.** Each template has to be kept in sync with nixpkgs conventions and upstream app changes. Mitigated by the fact that each template is small (~150 lines Python + tests) and the patterns are stable (we're not chasing moving targets like poetry2nix releases).
 - **Edge cases escape through `nix:eject`.** Apps that don't fit templates still require hand-crafted files. The 91% coverage (20/22) validates that this is manageable, not catastrophic.
-- **Duplication during migration.** During phase 3c, apps have both a hand-crafted `hop3.nix` *and* a `[nix]` section in `hop3.toml`. We migrate one at a time, verifying each step.
+- **Duplication during migration.** While migrating, an app can have both a hand-crafted `hop3.nix` *and* a `[nix]` section in `hop3.toml`; they're migrated one at a time, verifying each step.
 
-## Lessons from the Spike
+## Lessons
 
-Five concrete findings that changed the approach:
+Concrete findings that shaped the design:
 
-1. **"60% boilerplate, not 90%."** Initial estimate was optimistic. Apps like Mattermost (60-line wrapper with symlink loops, JSON config, runtime secret generation) and Invoice Ninja (composer with `--ignore-platform-reqs` + nodejs in build inputs) have real per-app logic that can't be fully abstracted. The template system must be parametric enough to accommodate this.
+1. **Roughly 60% boilerplate, not 90%.** Apps like Mattermost (60-line wrapper with symlink loops, JSON config, runtime secret generation) and Invoice Ninja (composer with `--ignore-platform-reqs` + nodejs in build inputs) have real per-app logic that can't be fully abstracted. The template system must be parametric enough to accommodate this.
 
-2. **Placeholder sed-replacement beats in-place Nix interpolation.** Early attempts tried to put `${nodejs}/bin` directly inside the wrapper heredoc, which conflicted with shell variable escaping (`${PORT:-8080}` also needs special handling). Using placeholders (`NODEBIN`, `PHPBIN`, etc.) that get sed-replaced after Nix interpolation is simpler and composes cleanly.
+2. **Placeholder sed-replacement beats in-place Nix interpolation.** Putting `${nodejs}/bin` directly inside the wrapper heredoc conflicts with shell variable escaping (`${PORT:-8080}` also needs special handling). Using placeholders (`NODEBIN`, `PHPBIN`, etc.) that get sed-replaced after Nix interpolation is simpler and composes cleanly.
 
 3. **Unquoted heredocs are the right default for runtime config files.** Apps need `${PORT}` and `$(head -c 32 /dev/urandom | base64)` to be evaluated at container startup, not at build time. The `cat > config << EOF` (unquoted) pattern handles both.
 
-4. **Some apps always need hand-crafting.** The 8 apps in `real-apps-nix-bad/` have known upstream issues (complex build systems, deprecated dependencies, etc.). The template approach doesn't magically fix these — it just scales the easy cases so developers can spend hand-crafting effort only where it matters.
+4. **Some apps always need hand-crafting.** Apps with known upstream issues (complex build systems, deprecated dependencies) aren't magically fixed by templates. The template approach scales the easy cases so developers spend hand-crafting effort only where it matters.
 
-5. **Validating with actual `nix-build` catches bugs pattern-matching can't.** The spike's `validate_all.py --build` found two bugs that passed unit tests and `nix-instantiate --parse`: the exec-line escaping bug (needed nix_escape) and the `create_if_missing` indentation bug (bogus leading whitespace in generated configs). End-to-end validation via real builds is essential.
+5. **Validating with actual `nix-build` catches bugs pattern-matching can't.** Real builds surfaced two bugs that passed both unit tests and `nix-instantiate --parse` (exec-line escaping, and a generated-config indentation bug). End-to-end validation via real builds is essential.
 
 ## Prior Art
 

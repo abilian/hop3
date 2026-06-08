@@ -244,6 +244,10 @@ class TestDockerComposeDeployerLifecycle:
             cmd = compose_down_call[0][0]
             assert "down" in cmd
             assert "--volumes" in cmd
+            # Reclaim the app's built images too, else disk fills over many
+            # deploy/destroy cycles. "all" (not "local") because Hop3 tags the
+            # built service image, which "local" would skip.
+            assert cmd[cmd.index("--rmi") + 1] == "all"
 
 
 class TestDockerComposeDeployerStatus:

@@ -8,13 +8,13 @@
 
 ## Revisions
 
-- v0.3: Refreshed implementation status. The shipped command surface is wider than the original spec (~57 commands across 10+ families); the original spec was a kernel, not a ceiling. Documented which originally-specified commands remain deferred and why (2026-04-14).
-- v0.2: Status promoted to Accepted with implementation status block (earlier).
+- v0.3: Recorded that the shipped command surface is wider than the original spec — the original spec was a kernel, not a ceiling — and documented which originally-specified commands remain deferred and why (2026-04-14).
+- v0.2: Status promoted to Accepted with implementation status block.
 - v0.1: Initial draft (2024-07-17)
 
 ## Implementation Status
 
-The shipped CLI covers and extends the originally-specified command set. The dispatch mechanism lives in `hop3/commands/` with the `@register` decorator scanning all command modules at startup (see `hop3-server/CLAUDE.md`).
+The shipped CLI covers and extends the originally-specified command set. The dispatch mechanism lives in `hop3/commands/`, with the `@register` decorator scanning all command modules at startup.
 
 ### Shipped command families
 
@@ -115,14 +115,6 @@ Credentials are stored in `~/.hop3/credentials.toml` or similar, and may also be
 - `hop3 search`: Search the marketplace for available apps (name + short description).
 - `hop3 info`: Get detailed information on a specific app from the marketplace.
 - `hop3 install`: Install (or instantiate) an app from the marketplace.
-
-## Action Items
-
-1. Refine the list of commands based on feedback and usability testing.
-
-1. Implement a minimal set of commands for the Hop3 CLI, focusing on essential operations and user needs.
-
-1. Design the whole command-set.
 
 ## Related
 

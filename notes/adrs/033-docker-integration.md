@@ -8,8 +8,8 @@
 
 ## Revisions
 
-- v1.1: Status refreshed. DockerBuilder + DockerComposeDeployer in production use across 30+ apps in `apps/real-apps-docker/`. Note added on the W16 docker-deployer rewrite: `localhost → host.docker.internal` substitution is now value-based (regex at host-boundaries) rather than a per-env-var-name whitelist; this catches custom env-var names like `GF_DATABASE_HOST` automatically. The hardcoded 10-min docker-build timeout has surfaced as a real constraint for heavy-compile apps (Vaultwarden Rust); making it tier-aware is on the post-0.6 list (2026-04-14).
-- v1.0: Original final version (2025-12-04)
+- v1.1 (2026-04-14): `localhost → host.docker.internal` substitution is now value-based (regex at host boundaries) rather than a per-env-var-name whitelist, so it catches custom env-var names (e.g. `GF_DATABASE_HOST`) automatically.
+- v1.0 (2025-12-04): Original final version.
 
 ## Context
 
@@ -251,130 +251,6 @@ Ports are discovered in this order:
 2. `docker compose port` command (runtime discovery)
 3. Fallback to 8080
 
-## Implementation Status
-
-| Component | Status | Tests |
-|-----------|--------|-------|
-| DockerBuilder | ✅ Implemented | ✅ 14 tests |
-| DockerComposeDeployer | ✅ Implemented | ✅ 24 tests |
-| DockerPlugin (registration) | ✅ Implemented | - |
-| Proxy integration | ✅ Implemented | ✅ 8 tests |
-| Multi-stage builds | ❌ Not implemented | - |
-| Build args support | ❌ Not implemented | - |
-
-## Implementation Details: Proxy Integration
-
-The following methods were added to `DockerComposeDeployer`:
-
-### `_make_proxy_env()` method
-
-Create environment dictionary following StaticDeployer's pattern:
-
-```python
-def _make_proxy_env(self) -> Env:
-    """Create environment for proxy configuration."""
-    env = Env({
-        "APP": self.app_name,
-        "HOME": HOP3_ROOT,
-        "USER": HOP3_USER,
-        "PATH": os.environ["PATH"],
-        "PWD": str(self.context.source_path),
-    })
-
-    safe_defaults = {
-        "NGINX_IPV4_ADDRESS": "0.0.0.0",
-        "NGINX_IPV6_ADDRESS": "[::]",
-        "BIND_ADDRESS": "127.0.0.1",
-        "PORT": str(self._get_host_port()),
-        "HOST_NAME": "_",
-    }
-
-    # Load ENV file from app source
-    env_file = self.context.source_path / "ENV"
-    env.parse_settings(env_file)
-
-    # Load runtime env vars from ORM
-    if self.context.app:
-        env.update(self.context.app.get_runtime_env())
-
-    # Apply defaults
-    for k, v in safe_defaults.items():
-        if k not in env:
-            env[k] = v
-
-    return env
-```
-
-### `_get_workers()` method
-
-Returns a minimal workers dict for proxy configuration:
-
-```python
-def _get_workers(self) -> dict[str, str]:
-    """Get workers configuration for proxy.
-
-    Docker apps have a single 'web' worker that is the container itself.
-    """
-    return {"web": "docker-compose"}
-```
-
-### `_setup_proxy()` method (called from `deploy()`)
-
-```python
-def deploy(self, deltas: dict[str, int] | None = None) -> DeploymentInfo:
-    # ... existing container startup code ...
-
-    # Setup proxy if HOST_NAME is configured
-    env = self._make_proxy_env()
-    host_name = env.get("HOST_NAME", "_")
-
-    if host_name and host_name != "_" and self.context.app:
-        log(f"Setting up proxy for '{self.app_name}'...", level=2, fg="blue")
-        try:
-            proxy = get_proxy_strategy(self.context.app, env, self._get_workers())
-            proxy.setup()
-            log(f"✓ Proxy configured for '{self.app_name}'", level=2, fg="green")
-        except Exception as e:
-            log(f"✗ Proxy setup failed: {e}", level=1, fg="red")
-
-    # ... rest of deploy ...
-```
-
-### docker-compose.yml requirements
-
-Users must use host-only port binding:
-
-```yaml
-version: '3.8'
-services:
-  web:
-    image: ${HOP3_IMAGE_TAG}
-    ports:
-      - "127.0.0.1:${PORT:-8080}:8080"
-    environment:
-      - DATABASE_URL=${DATABASE_URL:-}
-```
-
-### Required imports
-
-```python
-from hop3.config import HOP3_ROOT, HOP3_USER
-from hop3.core.env import Env
-from hop3.core.plugins import get_proxy_strategy
-```
-
-### Test coverage
-
-The proxy integration is covered by 8 unit tests:
-- `test_make_proxy_env_basic` - Environment creation with required variables
-- `test_make_proxy_env_with_env_file` - Loading HOST_NAME from ENV file
-- `test_make_proxy_env_with_app_runtime_env` - Loading HOST_NAME from ORM
-- `test_get_workers` - Returns correct workers dict
-- `test_setup_proxy_skipped_when_no_app` - Skips when no App in context
-- `test_setup_proxy_skipped_when_hostname_is_catchall` - Skips when HOST_NAME="_"
-- `test_setup_proxy_called_when_hostname_configured` - Calls proxy when configured
-- `test_setup_proxy_handles_exception` - Graceful exception handling
-
 ## Future Enhancements
 
 ### Phase 1: Build Improvements
@@ -408,7 +284,6 @@ The proxy integration is covered by 8 unit tests:
 - Works with any configured proxy (nginx, caddy, traefik)
 - **Simple deployment**: Just provide a Dockerfile, Hop3 generates compose file
 - Correct port binding ensured by generated compose file
-- Tested with 30+ unit tests
 
 ### Negative
 

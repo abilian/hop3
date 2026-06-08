@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 from .loader import (
     TestDefinitionError,
     generate_test_definition_from_app,
+    generate_tutorial_test_definition,
     load_test_definition_smart,
 )
 from .models import TargetType, TestDefinition, Tier
@@ -183,6 +184,24 @@ class Catalog:
             if demo_dir not in processed_dirs:
                 self._load_demo(demo_dir)
 
+        # Tutorials: literate markdown files under a tutorials/ tree (validoc).
+        self._scan_tutorials(path, rel_path)
+
+    def _scan_tutorials(self, path: Path, rel_path: str) -> None:
+        """Discover literate tutorial markdown files (validoc-driven).
+
+        Restricted to tutorials trees so app/demo READMEs aren't mistaken for
+        tutorials.
+        """
+        if "tutorials" not in rel_path:
+            return
+        for md in sorted(path.rglob("*.md")):
+            if md.name.lower() in {"index.md", "readme.md"}:
+                continue
+            if self._has_ignore_ancestor(md.parent, path):
+                continue
+            self._load_tutorial(md)
+
     def _load_demo(self, demo_dir: Path) -> None:
         """Load a demo directory (has demo-script.py)."""
         try:
@@ -191,6 +210,15 @@ class Catalog:
         except Exception as e:
             logger.warning("Failed to load demo %s: %s", demo_dir, e)
             self._errors.append((demo_dir, str(e)))
+
+    def _load_tutorial(self, md_path: Path) -> None:
+        """Load a literate tutorial markdown file (validoc-driven)."""
+        try:
+            test_def = generate_tutorial_test_definition(md_path)
+            self._add_test(test_def)
+        except Exception as e:
+            logger.warning("Failed to load tutorial %s: %s", md_path, e)
+            self._errors.append((md_path, str(e)))
 
     def _load_test_smart(self, app_dir: Path) -> None:
         """Load a test using smart loading (hop3.toml + test.toml).

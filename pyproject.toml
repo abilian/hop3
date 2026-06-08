@@ -6,7 +6,7 @@ authors = [
     { name = "Stefane Fermigier", email = "sf@abilian.com" },
 ]
 readme = "README.md"
-requires-python = ">=3.10,<3.16"
+requires-python = ">=3.11,<3.15"
 
 dependencies = [
     # Workspace
@@ -17,6 +17,7 @@ dependencies = [
     "hop3-installer",
     "hop3-testing",
     "hop3-rootd",
+    "hop3-testlab",
     # Later
     #    "hop3-lib",
     #    "hop3-web",
@@ -131,6 +132,7 @@ hop3-installer = { workspace = true }
 hop3-testing = { workspace = true }
 hop3-tui = { workspace = true }
 hop3-rootd = { workspace = true }
+hop3-testlab = { workspace = true }
 
 [build-system]
 requires = ["uv-build>=0.8.4,<0.9.0"]
@@ -149,23 +151,20 @@ profile = "black"
 # See: https://docs.pytest.org/en/7.1.x/explanation/pythonpath.html#import-modes
 # and: https://docs.pytest.org/en/7.1.x/explanation/goodpractices.html#choosing-an-import-mode
 addopts = "-ra --import-mode=importlib --tb=short"
+# Default (bare `pytest`) = the FAST, no-Docker lane (ADR 043). The Docker
+# `c_e2e` layer is NOT here; it's the `check` tier, run via `make test`.
+# To include c_e2e in the bare-pytest default, add its path back below.
 testpaths = [
     "packages/hop3-server/tests/a_unit",
     "packages/hop3-server/tests/b_integration",
-    "packages/hop3-server/tests/c_system",
     "packages/hop3-cli/tests",
-    # E2E tests with Docker are slow - run separately with: make test-e2e
-    # "packages/hop3-server/tests/d_e2e",
-    # Disabled for now
-    #    "packages/*/tests",
-    #    # Tests may be in the same directory as the code
-    #    "packages/*/src",
 ]
 markers = [
-    "e2e: End-to-end tests using hop3-cli binary (auto-starts local server)",
-    "docker: E2E tests using Docker containers (slow, run with make test-e2e)",
-    "integration: Integration tests using real database (state-based testing)",
-    "slow: Tests that are slow to run (require substantial setup or Docker)",
+    "fast: Fast, hermetic tests — no Docker/root/network (the inner loop).",
+    "integration: In-process integration tests (real in-memory DB, no Docker).",
+    "e2e: End-to-end tests that deploy to a real target (Docker/SSH).",
+    "needs_docker: Test requires a Docker daemon (a subset of e2e).",
+    "slow: Slow tests (substantial setup); informational label.",
 ]
 
 [tool.coverage.report]

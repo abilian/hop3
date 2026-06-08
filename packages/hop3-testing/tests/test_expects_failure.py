@@ -11,8 +11,10 @@ Two layers:
 
 from __future__ import annotations
 
+import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -20,6 +22,8 @@ from hop3_testing.catalog.loader import (
     _overrides_from_hop3_test,
     _overrides_from_legacy_test_toml,
     _parse_test_definition,
+    _under_bad_dir,
+    generate_test_definition_from_hop3_toml,
 )
 from hop3_testing.catalog.models import (
     Priority,
@@ -28,6 +32,8 @@ from hop3_testing.catalog.models import (
     Tier,
 )
 from hop3_testing.exceptions import DeploymentError
+from hop3_testing.results import ResultStore
+from hop3_testing.results.store import _derive_status
 from hop3_testing.runners import deployment as deployment_module
 from hop3_testing.runners.deployment import DeploymentTestRunner
 
@@ -63,6 +69,26 @@ class TestLoaderParsesExpectsFailure:
         }
         td = _parse_test_definition(data, tmp_path / "test.toml")
         assert td.expects_failure is True
+
+    def test_hop3_toml_bad_app_is_auto_expects_failure(self):
+        """A bad recipe under apps/bad/** is xfail even via hop3.toml (no flag).
+
+        Regression: the hop3.toml path only honoured the explicit config flag,
+        so docker/native bad recipes (which carry hop3.toml) were counted as
+        real failures instead of expected ones.
+        """
+        td = generate_test_definition_from_hop3_toml(
+            Path("apps/bad/real-apps-docker-bad/discourse"),
+            {"metadata": {"id": "discourse"}},
+        )
+        assert td.expects_failure is True
+
+    def test_hop3_toml_normal_app_is_not_expects_failure(self):
+        td = generate_test_definition_from_hop3_toml(
+            Path("apps/real-apps-native/edrix"),
+            {"metadata": {"id": "edrix"}},
+        )
+        assert td.expects_failure is False
 
 
 # ---------------------------------------------------------------------------
@@ -166,6 +192,89 @@ class TestRunnerInvertsExpectsFailure:
         assert result.passed is False
         assert "Unexpected deploy success" in (result.error or "")
         assert session.cleaned is True
+
+
+class TestBadDirIsNegativeTest:
+    """Apps under apps/bad/ are auto-marked expects_failure (path-based)."""
+
+    def test_under_bad_dir_matches(self):
+        assert _under_bad_dir(Path("apps/bad/real-apps-docker-bad/wekan/hop3.toml"))
+        assert _under_bad_dir(Path("/home/x/apps/bad/foo/hop3.toml"))
+
+    def test_under_bad_dir_excludes_normal_apps(self):
+        assert not _under_bad_dir(Path("apps/real-apps-docker/invoice-ninja/hop3.toml"))
+        assert not _under_bad_dir(None)
+
+
+class TestStoreStatusForNegativeTests:
+    """xfail (expected failure) vs xpass (bad recipe unexpectedly works)."""
+
+    def _result(self, name, *, passed, expects_failure):
+        test = SimpleNamespace(
+            name=name,
+            runner_type="deployment",
+            tier=SimpleNamespace(value="fast"),
+            priority=SimpleNamespace(value="P1"),
+            expects_failure=expects_failure,
+        )
+        return SimpleNamespace(
+            test=test,
+            passed=passed,
+            total_duration=1.0,
+            error=None,
+            deploy_logs="",
+            runtime_logs="",
+            validation_results=[],
+            bundle=None,
+        )
+
+    def test_derive_status(self):
+        assert (
+            _derive_status(self._result("a", passed=True, expects_failure=False))
+            == "pass"
+        )
+        assert (
+            _derive_status(self._result("b", passed=False, expects_failure=False))
+            == "fail"
+        )
+        # Runner inverts negative tests: passed=True => expected failure happened.
+        assert (
+            _derive_status(self._result("c", passed=True, expects_failure=True))
+            == "xfail"
+        )
+        assert (
+            _derive_status(self._result("d", passed=False, expects_failure=True))
+            == "xpass"
+        )
+
+    def test_save_status_and_counts(self, tmp_path):
+        db = tmp_path / "r.db"
+        store = ResultStore(db_path=db)
+        run = store.start_run(mode="nightly", target_type="ssh", target_name="t")
+        store.save(self._result("bad-fail", passed=True, expects_failure=True))  # xfail
+        store.save(
+            self._result("bad-works", passed=False, expects_failure=True)
+        )  # xpass
+        store.save(
+            self._result("real-fail", passed=False, expects_failure=False)
+        )  # fail
+        store.save(
+            self._result("real-pass", passed=True, expects_failure=False)
+        )  # pass
+
+        got = store.get_run(run.run_uid)
+        assert got.failed_tests == 1  # only the true failure is red
+        assert got.passed_tests == 3  # pass + xfail + xpass are "not a failure"
+
+        rows = dict(
+            sqlite3.connect(db).execute("SELECT test_name, status FROM test_results")
+        )
+        assert rows == {
+            "bad-fail": "xfail",
+            "bad-works": "xpass",
+            "real-fail": "fail",
+            "real-pass": "pass",
+        }
 
 
 def test_test_definition_default_expects_failure_false():

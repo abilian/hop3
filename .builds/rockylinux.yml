@@ -36,8 +36,8 @@ tasks:
 
   - test: |
       cd hop3
-      uv run pytest packages/hop3-server/tests/a_unit
-      uv run pytest packages/hop3-cli/tests
+      # No Docker on Rocky (podman/buildah) -> fast lane only (all packages, no Docker)
+      uv run make test-fast
 
   # - nox: |
   #     cd hop3

@@ -6,21 +6,11 @@
 **Updated**: 2026-04-22
 **Related-ADRs**: 002, 003
 
-## Implementation Status
+## Future Work
 
-**Shipped and in production use** across 100+ packaged applications and the real-apps test corpus.
-
-### Shipped
-- `hop3.toml` parsing with TOML format (`tomllib`).
-- `Procfile` support for the simple-single-web-process case (Heroku-compatible).
-- Core sections: `[metadata]`, `[build]`, `[run]`, `[env]`, `[[addons]]`, `[healthcheck]`, `[nix]`.
-- Unified internal representation via `AppConfig` (at `packages/hop3-server/src/hop3/project/config.py`) merging Procfile and `hop3.toml`.
-- Precedence rules documented in `docs/src/reference/hop3-toml.md`.
-
-### Deferred (not blocking; scheduled as follow-ups)
 - **Schema validation** beyond TOML parse errors: see ADR 003 Phase 2. The current ad-hoc dataclass + `@property` approach catches structural errors at access time rather than at load time.
 - **YAML / JSON alternative formats**: not yet requested by users. TOML-only is considered sufficient; adding alternatives would be a mechanical translation layer.
-- **CLI validation command** (`hop3 config validate`): useful for CI gating, not yet shipped.
+- **CLI validation command** (`hop3 config validate`): useful for CI gating.
 
 ### Non-goal
 Supporting arbitrary ad-hoc configuration scripts (Dockerfile-flavoured shell snippets, inline Python) is out of scope. A Hop3 application's configuration surface is `Procfile` + `hop3.toml`; builders and deployers live in plugins, not in per-app scripts.
@@ -64,34 +54,6 @@ Hop3 will support configuration and metadata through multiple file formats to ac
 
 - **Complexity in Implementation**: Supporting multiple formats requires additional parsing and validation logic.
 - **Potential for Inconsistencies**: Ensuring consistency across different formats can be challenging.
-
-## Action Items
-
-1. **Support for Multiple Formats**:
-
-   - Implement parsing logic for `hop3.toml`, Procfiles, and other relevant configuration formats.
-   - Ensure all formats can be transformed into a unified internal representation for processing.
-
-1. **Validation Framework**:
-
-   - Develop a validation framework that works across different configuration formats, ensuring consistency and correctness.
-   - Provide clear error messages to help users fix configuration issues.
-   - See ADR 003 for detailed validation requirements.
-
-1. **Documentation and Examples**:
-
-   - Provide comprehensive documentation detailing the supported configuration formats and their usage.
-   - Include examples and best practices for each supported format to guide users in setting up their configurations.
-
-1. **Tooling and Integration**:
-
-   - Develop CLI tools to assist users in generating and validating their configuration files.
-   - Integrate configuration validation into the CI/CD pipeline to catch errors early in the development cycle.
-
-1. **Community Feedback and Iteration**:
-
-   - Gather feedback from the community on the supported formats and their usability.
-   - Iterate on the implementation based on user feedback to improve the overall developer experience.
 
 ## Alternatives
 

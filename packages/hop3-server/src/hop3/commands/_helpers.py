@@ -184,7 +184,7 @@ def check_hostname_conflict(
         return None
 
     app_repo = AppRepository(session=db_session)
-    for app in app_repo.list():
+    for app in app_repo.get_many():
         if app.name == current_app_name:
             continue
         for env_var in app.env_vars:

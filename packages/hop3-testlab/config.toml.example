@@ -1,0 +1,36 @@
+# hop3-testlab configuration — COPY, don't edit in place.
+#
+# This file holds secrets, so the real config.toml is gitignored. Put your copy
+# at one of (first found wins):
+#   1. $TESTLAB_CONFIG            (explicit path)
+#   2. ~/.hop3/testlab/config.toml
+#   3. ./config.toml              (repo root; gitignored)
+#
+# Values may be literals or "$ENV_VAR" references. Anything you leave unset
+# falls back to the matching environment variable (12-factor), then a default.
+#
+#   cp packages/hop3-testlab/config.toml.example config.toml
+
+[hetzner]
+# The Hetzner Cloud API token and the pre-existing server to run on.
+api_token = "$HETZNER_API_TOKEN"
+server_id = "$HETZNER_SERVER_ID"
+image = "ubuntu-24.04"
+
+[ssh]
+# Local private key used to connect to the target server.
+key_path = "$HOP3_TEST_SSH_KEY"
+
+[retention]
+# Build logs are kept (compressed) for every build; `hop3-testlab prune` keeps
+# the most recent N runs' logs and drops older ones.
+keep_runs = 30
+
+[schedule]
+# In-process nightly scheduler (runs inside `hop3-testlab serve` when enabled,
+# or standalone via `hop3-testlab schedule`). Time is LOCAL.
+enabled = false       # set true in production to run the nightly automatically
+target = "hetzner"    # "docker", "hetzner", or an SSH host
+hour = 0              # 00:00 local
+minute = 0
+mode = "nightly"     # dev | ci | nightly | release

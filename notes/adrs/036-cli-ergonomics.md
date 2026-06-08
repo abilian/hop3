@@ -9,14 +9,9 @@
 ## Revisions
 
 - v3.4 (2026-06-01): §D7 (app resolution chain) and §D8 (sticky context state) superseded by ADR 042. The vocabulary split was inverted — "context" now names a project environment, "server" the credentialed binding — and the resolution chains were rewritten end-to-end. See ADR 042 for the authoritative chains. Body of D7/D8 retained for historical record with in-section supersession notes.
-- v3.3 (2026-04-17): Post-implementation audit. Three D6 flags are deferred, not dropped: `--no-color` (terminal-palette control; use `NO_COLOR=1` env var as the interim convention), `--no-progress` (no long-running spinners in the tree yet — Rich `print_progress` is wired but unused), and `--config <path>` (alternative CLI config file; `$HOP3_CONFIG_DIR` covers the same surface for now). All other D1–D19 and G1–G8 items land in M1–M8. `docs/src/reference/cli.md` and `docs/src/guides/cheat-sheet.md` now describe the D6 flag set, the D7 resolution chain, and the D16 exit-code table.
-- v3.2 (2026-04-16): M5–M8 landed, closing out the implementation. M5: did-you-mean + structured no-app errors. M6: `--confirm`/`--no-input`/`summary` response type + stderr discipline + `--password-file`/`--stdin`/`--input -`. M7: ExitCode renumbered to D16 table + SIGINT handler. M8: alias load diagnostics + `HOP3_NO_INPUT` env bridge + app-name cache in `completion --refresh` + app did-you-mean. Status: Accepted.
-- v3.1 (2026-04-15): Applied G1–G8 from the cli-guidelines (clig.dev) review. New D19 on output conventions (stdout/stderr, `-` for file args, state-change summaries). Added `--no-input` and `--confirm=<name>` flags. Reordered per-command help to lead with examples. Dropped `--password` flag (stdin / prompt / file only). Added feedback link in top-level help.
+- v3.1 (2026-04-15): Applied the cli-guidelines (clig.dev) review. New D19 on output conventions (stdout/stderr, `-` for file args, state-change summaries); added `--no-input` and `--confirm=<name>` flags; dropped the `--password` flag (stdin / prompt / file only).
 - v3.0 (2026-04-15): Complete redraft: namespace inventory, verb conventions, argument rules, alias mechanism, sticky-state semantics, help format, confirmation rules, exit codes, and hidden-command discipline all locked in. Plugin extension mechanism moved to ADR 039 (planned).
-- v2.1 (2026-04-15): Adopted space-separated commands and the top-level/namespace boundary rule.
-- v2.0 (2026-04-15): Restructured; supporting evidence moved to `notes/cli/`.
-- v1.2 (2026-04-15): Added real-world usage evidence; introduced implicit-app, sticky context, did-you-mean, bare-command help.
-- v1.1 (2026-04-14): Status clarified.
+- v2.0 (2026-04-15): Restructured; adopted space-separated commands and the top-level/namespace boundary rule; supporting evidence moved to `notes/cli/`.
 - v1.0 (2026-03-05): Original draft.
 
 > **Read alongside**: [ADR 031 (Terminology)](./031-project-terminology.md), [ADR 039 (Plugin CLI extension, planned)](../cli/plugin-mechanism-todo.md), and the evidence in [`notes/cli/`](../cli/README.md).

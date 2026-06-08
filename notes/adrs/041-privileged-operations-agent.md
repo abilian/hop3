@@ -19,7 +19,7 @@
 
 **The goal of this ADR**: after v1 ships, the hop3 user is a *strict non-sudoer*. The four nginx entries are retired (their work moves into hop3-rootd's `nginx.reload` and `nginx.validate_config` ops). The installer no longer creates `/etc/sudoers.d/hop3`. Hop3-server holds no elevated privileges of any kind — every kernel-boundary operation goes through hop3-rootd. The blast radius of a hop3-server compromise is bounded to "what the hop3 user can do" with no escalation path.
 
-The discipline has so far held for everything except nginx reload because Hop3 has either pushed root-needing work to install time (the installer runs as root once) or sidestepped it. The package-installation story is the clearest example: `[build].packages` declarations are honoured *not* by running `apt install` at deploy time but by deriving an installer baseline from the catalogue at server-setup time and pre-installing the union (see W17 weekly notes, "Mon Apr 20 — blocker #1 design pivot"). This works because package installation is monotonically additive and because the catalogue is known at install time. The same workaround does not generalise.
+The discipline has so far held for everything except nginx reload because Hop3 has either pushed root-needing work to install time (the installer runs as root once) or sidestepped it. The package-installation story is the clearest example: `[build].packages` declarations are honoured *not* by running `apt install` at deploy time but by deriving an installer baseline from the catalogue at server-setup time and pre-installing the union. This works because package installation is monotonically additive and because the catalogue is known at install time. The same workaround does not generalise.
 
 ADR 040 introduces declarative per-app port exposure. The runtime mutation of host firewall state (nftables / ufw / iptables — all of which need `CAP_NET_ADMIN`, effectively root) cannot be pushed to install time:
 
@@ -84,8 +84,6 @@ nginx.validate_config() -> ValidationResult
 daemon.health() -> HealthStatus
 daemon.handshake() -> {protocol_version, daemon_version, accepted}
 ```
-
-Five service ops + two introspection ops.
 
 **Why nginx is in v1**: hop3-server already shells out via `sudo -n systemctl reload nginx` (and three sister commands) for normal deploys. The `/etc/sudoers.d/hop3` fragment that grants this is the *existing* privilege escalation that rootd is positioned to retire. Shipping firewall-only in v1 would leave two privilege paths on every host (rootd plus the sudoers fragment); shipping nginx-via-rootd in v1 collapses to one.
 
@@ -802,17 +800,7 @@ The systemd units (`hop3-rootd.service`, `hop3-rootd.socket`) and the logrotate 
 
 `hop3-server` gains a `LocalRootdClient` in `hop3.lib.rootd` (or similar): a thin class wrapping `socket.connect("/run/hop3-rootd/socket")`, sending JSON requests, parsing responses, raising on errors. Plugins (`LocalNftablesFirewall`, future `LocalNginxOps`) use the client.
 
-Approximate v1 LOC budget:
-
-- `protocol.py` — handshake, framing, error codes (~150 LOC).
-- `server.py` — accept loop, peer-cred check, dispatch (~200 LOC).
-- `ops/firewall.py` + `nft/` — three ops, validated, nft command emission (~400 LOC).
-- `ops/nginx.py` — two ops, reload + validate (~120 LOC).
-- `ops/daemon.py` — health + handshake (~80 LOC).
-- `state.py` + `reconcile.py` — persistence + startup sync (~250 LOC).
-- `audit.py` + `exec.py` + `validation.py` — supporting (~250 LOC).
-
-Total v1: ~1450 LOC of stdlib Python, plus ~800 LOC of tests. Reviewable end-to-end in a sitting.
+The v1 daemon is intentionally small — on the order of ~1500 LOC of stdlib Python plus its tests — so it can be reviewed end-to-end in a sitting.
 
 ## References
 

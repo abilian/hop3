@@ -1,13 +1,15 @@
 # ADR 026: Dashboard UI Test Classification
 
-**Status**: Final
+**Status**: Superseded
+**Superseded-By**: ADR 043 (Unified Testing Architecture)
 **Type**: Guideline
 **Created**: 2025-11-20
-**Updated**: 2026-04-14
+**Updated**: 2026-06-05
 
 ## Revisions
 
-- v1.1: Promoted from Active to Final. The guideline has been established and applied: dashboard UI tests that involve real file-system operations live under `c_system/` with a real `App.create()`; tests covering only HTTP / template / ORM behaviour remain in `b_integration/` with mocked file-system operations. No further evolution expected (2026-04-14).
+- v1.2: **Superseded by [ADR 043](043-unified-testing-architecture.md).** The four-layer pyramid this guideline relied on (`a_unit`/`b_integration`/`c_system`/`d_e2e`) is replaced by three layers (`a_unit`/`b_integration`/`c_e2e`), and `c_system` is dissolved. ADR 043 classifies tests by whether they need Docker/root/host-mutation rather than by real-vs-mocked dependencies; under that rule the dashboard FS-ops tests are hermetic (real `App.create()` in `tmp_path`, no root/Docker) and belong in `b_integration`, reversing this ADR's placement decision (2026-06-05).
+- v1.1: Accepted. Dashboard UI tests that involve real file-system operations live under `c_system/` with a real `App.create()`; tests covering only HTTP / template / ORM behaviour remain in `b_integration/` with mocked file-system operations (2026-04-14).
 - v1.0: Original version (2025-11-20)
 
 ## Introduction
@@ -82,16 +84,10 @@ Dashboard UI tests for the app creation feature have been moved from `b_integrat
 
 **Rationale:**
 1. `App.create()` is core business logic that creates the application's directory structure
-2. The performance overhead is negligible (~0.6s vs estimated ~1.3-1.5s if we had more file operations)
+2. The performance overhead is negligible
 3. Removes mock maintenance burden - tests use real code
-4. Better bug detection - already caught a test assumption error (log vs logs directory name)
+4. Better bug detection - catches issues a mock would hide (e.g. a `log` vs `logs` directory-name discrepancy)
 5. Clearer semantics - "system test" clearly means "full stack with real dependencies"
-
-**Implementation:**
-- Tests moved to: `packages/hop3-server/tests/c_system/test_dashboard_app_create.py`
-- `App.create()` mock removed
-- Added file system verification assertions
-- All 10 tests passing with real implementation
 
 **What's tested:**
 - Real HTTP request/response cycle (Starlette)
@@ -352,37 +348,7 @@ Note: It says "network dependencies" - not "file system dependencies". This is a
 
 ### From Test Development Process
 
-1. First attempt: Tried to mock `HOP3_ROOT` at environment level → Failed
-2. Second attempt: Used `importlib.reload()` → Failed
-3. Third attempt: Monkeypatched multiple locations → Partially worked
-4. Fourth attempt: Added `App.create()` mock → All tests passed
-
-This progression suggests that **the system fought against mocking**, which might indicate that Option 2 (system tests) is more natural.
-
-## Action Items
-
-### If Option 1 is Chosen (Keep as Integration Tests)
-
-1. Document the mock in comments explaining what it simulates
-2. Add a system test that verifies real `App.create()` behavior separately
-3. Update testing strategy to clarify "file system is external dependency"
-4. Consider adding property-based tests for `App.create()` in `a_unit/`
-
-### If Option 2 is Chosen (Move to System Tests)
-
-1. Move `test_dashboard_app_create.py` from `b_integration/` to `c_system/`
-2. Remove `App.create()` mock from test fixture
-3. Fix all config patching to work with real implementation
-4. Add assertions verifying file system state after app creation
-5. Update test to verify actual directory permissions if relevant
-6. Update testing strategy with examples of system-level UI tests
-
-### Common Actions (Regardless of Decision)
-
-1. Document the decision in this ADR
-2. Update testing guidelines with clear criteria for future dashboard tests
-3. Add examples to testing strategy documentation
-4. Consider refactoring config module to make testing easier (future work)
+Mocking `App.create()` and `HOP3_ROOT` proved awkward: environment-level patching and `importlib.reload()` did not work, and only monkeypatching multiple import locations plus the `App.create()` method made the mocked tests pass. **The system fought against mocking**, which suggests that Option 2 (system tests with real implementations) is the more natural fit.
 
 ## Alternatives
 
@@ -542,119 +508,22 @@ config = Config()
 
 ## Notes
 
-### Decision Factors to Consider
-
-When choosing between the two options, consider:
-
-1. **Team Velocity**: How important is fast feedback vs comprehensive testing?
-2. **Bug History**: Has `App.create()` had bugs that mocks would have missed?
-3. **Change Frequency**: How often does the file system logic change?
-4. **Test Maintainability**: Which approach is easier for new contributors?
-5. **CI/CD Pipeline**: What's the acceptable test suite runtime?
-
 ### Recommendation from ADR Author
 
-**Personal Opinion** (to be validated by team):
+I lean toward **Option 2 (System Tests)**: `App.create()` is core business logic rather than mere I/O, the slowdown is minimal, there is no mock to maintain, real implementations catch real bugs, and the mental model ("system tests = full stack") is simpler. **Option 1 is acceptable** only if the team prioritizes the fastest possible feedback, commits to maintaining the mock carefully, and adds system-level smoke tests separately.
 
-I lean toward **Option 2 (System Tests)** for these reasons:
+### Implemented Layout (Option 2)
 
-1. **`App.create()` is core business logic**, not just I/O
-2. **The slowdown is minimal** (0.5-1s is acceptable)
-3. **No mock to maintain** reduces long-term burden
-4. **Better bug detection** - will catch real issues
-5. **Simpler mental model** - "system tests = full stack"
-
-However, **Option 1 is acceptable** if:
-- The team prioritizes fastest possible feedback
-- We commit to maintaining the mock carefully
-- We add system-level smoke tests separately
-
-## Appendix
-
-### Current Test Results
-
-**With Mocks** (Option 1):
-```bash
-$ pytest packages/hop3-server/tests/b_integration/test_dashboard_app_create.py -v
-======================== 10 passed, 1 warning in 0.79s =========================
-```
-
-**Test Breakdown:**
-- 5 validation tests (no mocks needed): 0.3s
-- 5 app creation tests (mocks used): 0.5s
-
-**Estimated with Real I/O** (Option 2):
-- 5 validation tests: 0.3s (same)
-- 5 app creation tests: 1.0-1.2s (with real file operations)
-- **Total estimated: 1.3-1.5s**
-
-### Actual Implementation Results
-
-**Final Test Results** (Option 2 - System Tests):
-```bash
-$ pytest packages/hop3-server/tests/c_system/test_dashboard_app_create.py -v
-======================== 10 passed, 1 warning in 0.62s =========================
-```
-
-**Performance:** 0.62s for 10 tests (even faster than the estimated 1.3-1.5s!)
-
-**Bug Found During Migration:**
-The test initially assumed the log directory would be named `logs` (plural), but the real implementation creates `log` (singular) as defined in `App.log_path` property. This demonstrates the value of using real implementations - the mock would have hidden this discrepancy indefinitely.
-
-**Fixture Complexity:**
-- Before (with mock): ~28 lines including 15-line App.create() mock
-- After (without mock): ~25 lines, simpler and more maintainable
-
-### File Structure Comparison
-
-**Old Structure** (Option 1 - Not Chosen):
-```
-packages/hop3-server/tests/
-├── a_unit/
-│   └── (future: test_app_model.py with pure logic tests)
-├── b_integration/
-│   └── test_dashboard_app_create.py    ← Currently here (10 tests)
-├── c_system/
-│   └── (empty for dashboard tests)
-└── d_e2e/
-    └── (future: full workflow tests)
-```
-
-**Implemented Structure** (Option 2 - Chosen):
 ```
 packages/hop3-server/tests/
 ├── a_unit/
 │   └── test_app_model.py              ← Pure validation logic
 ├── b_integration/
-│   └── test_dashboard_forms.py        ← Only form validation (5 tests)
+│   └── test_dashboard_forms.py        ← Only form validation
 ├── c_system/
-│   └── test_dashboard_app_create.py   ← Full stack tests (10 tests)
+│   └── test_dashboard_app_create.py   ← Full stack tests
 └── d_e2e/
     └── test_app_lifecycle.py          ← Complete workflows
 ```
 
-### Code Complexity Comparison
-
-**Option 1 Fixture** (current):
-```python
-@pytest.fixture
-def test_client(tmp_path: Path, monkeypatch):
-    # 3 lines: patch config
-    # 15 lines: mock App.create()
-    # 5 lines: mock auth
-    # 5 lines: setup app
-    # Total: ~28 lines
-```
-
-**Option 2 Fixture** (proposed):
-```python
-@pytest.fixture
-def test_client(tmp_path: Path, monkeypatch):
-    # 5 lines: patch all config locations
-    # 8 lines: create directory structure
-    # 5 lines: mock auth only
-    # 5 lines: setup app
-    # Total: ~23 lines (simpler!)
-```
-
-Removing the `App.create()` mock actually **simplifies** the fixture.
+Removing the `App.create()` mock simplified the fixture rather than complicating it.

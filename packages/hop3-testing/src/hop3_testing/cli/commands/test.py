@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 def _get_default_scan_paths(root: Path) -> list[str]:
-    """Get default scan paths: all subdirs of apps/ plus demos/."""
+    """Get default scan paths: all subdirs of apps/, plus demos/ and tutorials."""
     paths: list[str] = []
     apps_dir = root / "apps"
     if apps_dir.is_dir():
@@ -34,6 +34,8 @@ def _get_default_scan_paths(root: Path) -> list[str]:
                 paths.append(str(child.relative_to(root)))
     if (root / "demos").is_dir():
         paths.append("demos")
+    if (root / "docs/src/tutorials").is_dir():
+        paths.append("docs/src/tutorials")
     return paths
 
 
@@ -169,6 +171,11 @@ def _lookup_test(
 )
 @click.option("-q", "--quiet", is_flag=True, help="Quiet mode")
 @click.option("--debug", is_flag=True, help="Show debug info on failure")
+@click.option(
+    "--narrate",
+    is_flag=True,
+    help="Print a per-test phase-timing breakdown (where the wall-clock went)",
+)
 @click.option("--logs-dir", type=click.Path(), help="Directory for per-app logs")
 @click.option(
     "--with",
@@ -195,6 +202,7 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
     report: str,
     quiet: bool,
     debug: bool,
+    narrate: bool,
     logs_dir: str | None,
     features: tuple[str, ...],
 ) -> None:
@@ -310,8 +318,10 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
         report=report,
         quiet=quiet,
         debug=debug,
+        narrate=narrate,
         logs_dir=logs_dir,
         start_message=start_msg,
         mode_label="system" if deploy_from != "none" else "reuse",
+        selection_mode=mode,  # dev/ci/nightly/release -> the dashboard "scope"
         available_features=list(features) if features else None,
     )

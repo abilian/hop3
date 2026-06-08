@@ -11,16 +11,8 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from hop3.orm import Role, User
-from hop3.orm.repositories import RoleRepository, UserRepository
+from hop3.orm import User
 from hop3.server.cli.admin import AdminCreate, AdminList, AdminResetPassword, AdminToken
-
-
-@pytest.fixture
-def mock_db_session():
-    """Create a mock database session context manager."""
-    session = MagicMock()
-    return session
 
 
 @pytest.fixture
@@ -36,105 +28,12 @@ def mock_user():
     return user
 
 
-@pytest.fixture
-def mock_admin_role():
-    """Create a mock admin role."""
-    role = Mock(spec=Role)
-    role.name = "admin"
-    role.description = "Administrator role"
-    return role
-
-
-@pytest.fixture
-def mock_user_repo():
-    """Create a mock user repository."""
-    return Mock(spec=UserRepository)
-
-
-@pytest.fixture
-def mock_role_repo():
-    """Create a mock role repository."""
-    return Mock(spec=RoleRepository)
-
-
 class TestAdminCreate:
     """Tests for admin:create command."""
 
-    @pytest.mark.skip(
-        reason="Requires proper SQLAlchemy mocking - covered by integration tests"
-    )
-    def test_create_admin_success(self, mock_db_session, mock_admin_role, monkeypatch):
-        """Test successful admin user creation."""
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
-
-        # Mock get_session context manager
-        mock_session = MagicMock()
-        mock_session.__enter__ = Mock(return_value=mock_session)
-        mock_session.__exit__ = Mock(return_value=False)
-
-        # Capture stdout
-        captured_output = io.StringIO()
-
-        with (
-            patch("hop3.server.cli.admin.get_session", return_value=mock_session),
-            patch("hop3.server.cli.admin.UserRepository") as mock_user_repo_class,
-            patch("hop3.server.cli.admin.RoleRepository") as mock_role_repo_class,
-            patch(
-                "hop3.server.cli.admin.getpass.getpass",
-                side_effect=["password123", "password123"],
-            ),
-            patch("sys.stdout", captured_output),
-        ):
-            mock_user_repo = mock_user_repo_class.return_value
-            mock_user_repo.username_exists.return_value = False
-            mock_user_repo.email_exists.return_value = False
-
-            mock_role_repo = mock_role_repo_class.return_value
-            mock_role_repo.get_admin_role.return_value = mock_admin_role
-
-            cmd = AdminCreate()
-            cmd.run(
-                username="newadmin", email="admin@example.com", password_stdin=False
-            )
-
-        output = captured_output.getvalue()
-        assert "Admin user 'newadmin' created successfully" in output
-        assert "Token:" in output or "eyJ" in output  # JWT token present
-
-    @pytest.mark.skip(
-        reason="Requires proper SQLAlchemy mocking - covered by integration tests"
-    )
-    def test_create_admin_password_stdin(
-        self, mock_db_session, mock_admin_role, monkeypatch
-    ):
-        """Test admin creation with password from stdin."""
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
-
-        mock_session = MagicMock()
-        mock_session.__enter__ = Mock(return_value=mock_session)
-        mock_session.__exit__ = Mock(return_value=False)
-
-        captured_output = io.StringIO()
-
-        with (
-            patch("hop3.server.cli.admin.get_session", return_value=mock_session),
-            patch("hop3.server.cli.admin.UserRepository") as mock_user_repo_class,
-            patch("hop3.server.cli.admin.RoleRepository") as mock_role_repo_class,
-            patch("sys.stdin", io.StringIO("password123\n")),
-            patch("sys.stdout", captured_output),
-        ):
-            mock_user_repo = mock_user_repo_class.return_value
-            mock_user_repo.username_exists.return_value = False
-            mock_user_repo.email_exists.return_value = False
-
-            mock_role_repo = mock_role_repo_class.return_value
-            mock_role_repo.get_admin_role.return_value = mock_admin_role
-
-            cmd = AdminCreate()
-            cmd.run(username="newadmin", email="admin@example.com", password_stdin=True)
-
-        output = captured_output.getvalue()
-        assert "Admin user 'newadmin' created successfully" in output
+    # admin:create success + password-stdin are covered by
+    # b_integration/cli/test_admin_cli_integration.py (real in-memory DB),
+    # which is far cleaner than mocking SQLAlchemy here.
 
     def test_create_admin_username_exists(self, mock_user, monkeypatch):
         """Test error when username already exists."""

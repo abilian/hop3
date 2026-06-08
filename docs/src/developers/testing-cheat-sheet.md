@@ -1,16 +1,19 @@
 # Hop3 Testing Cheat Sheet
 
+> **Updated by [ADR 043](../../../notes/adrs/043-unified-testing-architecture.md).** The pytest pyramid is now **three** layers — `a_unit` (fast, no Docker) · `b_integration` (in-process, real in-memory DB, no Docker) · `c_e2e` (Docker/real-deploy, renamed from `d_e2e`). The old `c_system` layer is **dissolved**. A test's layer is decided by whether it needs Docker/root/host-mutation, not by complexity; coverage is measured on `a_unit` + `b_integration` only (e2e runs out-of-process). Markers (`fast`/`integration`/`e2e`/`needs_docker`) are stamped from the directory layer (root `conftest.py`), so `pytest -m fast` / `-m "not needs_docker"` work everywhere.
+
 Quick reference for developers running tests.
 
 ## Quick Commands
 
 | What | Command |
 |------|---------|
-| **All pytest tests** | `make test` |
-| **Full CI suite** | `make test-ci` |
-| **System tests (Docker)** | `hop3-test system --docker` |
-| **App tests (fast)** | `hop3-test apps` |
+| **Fast unit tests (< 1 min)** | `make test-fast` |
+| **Check tier (unit + integration, no Docker)** | `make test` |
+| **Docker e2e (real deploys, backups, git-push)** | `make test-e2e` |
+| **App tests (Docker)** | `make test-apps` |
 | **Lint & type check** | `make lint` |
+| **System tests (Docker)** | `hop3-test system --docker` |
 | **Hetzner Cloud test** | `hop3-test hetzner --image ubuntu-24.04` |
 | **Multi-distro test** | `hop3-test multi-distro` |
 
@@ -168,21 +171,29 @@ hop3-test hetzner --skip-deploy   # Use existing Hop3 installation
 
 ### Run by Layer
 
+There are three layers under each package's `tests/`. A test's layer is decided by what it *needs* (Docker / root / host-mutation), not by complexity; duplication across layers is allowed.
+
 ```bash
-# Unit tests (~361 tests, fast)
+# Unit tests — no Docker, counts toward coverage (tier: fast)
 uv run pytest packages/hop3-server/tests/a_unit
 
-# Integration tests (~247 tests, medium)
+# Integration tests — in-process, real in-memory DB, no Docker, counts toward
+# coverage (tier: check)
 uv run pytest packages/hop3-server/tests/b_integration
 
-# System tests (~13 tests, needs Docker)
-uv run pytest packages/hop3-server/tests/c_system
-
-# E2E tests (~17 tests, slow, needs Docker)
-uv run pytest packages/hop3-server/tests/d_e2e
+# E2E tests — real Docker deploy, NO coverage (check (Docker) + nightly)
+uv run pytest packages/hop3-server/tests/c_e2e
 
 # CLI tests
 uv run pytest packages/hop3-cli/tests
+```
+
+Markers are stamped from the directory by the root `conftest.py`, so you can select layers anywhere:
+
+```bash
+uv run pytest -m fast                  # a_unit + flat unit suites
+uv run pytest -m "not needs_docker"    # everything except the Docker e2e layer
+uv run pytest packages/hop3-server/tests/c_e2e   # the Docker e2e layer
 ```
 
 ### Run Specific Tests
@@ -197,8 +208,8 @@ uv run pytest packages/hop3-server/tests/a_unit/test_app_config.py::test_functio
 # By keyword
 uv run pytest -k "backup" packages/hop3-server/tests
 
-# By marker
-uv run pytest -m "slow" packages/hop3-server/tests
+# By marker (fast / integration / e2e / needs_docker)
+uv run pytest -m "not needs_docker" packages/hop3-server/tests
 ```
 
 ### Useful Flags
@@ -228,8 +239,9 @@ uv run pytest --cov=hop3 --cov-report=term-missing
 ### Before Committing
 
 ```bash
-make lint      # Check formatting and types
-make test      # Run all pytest tests
+make lint       # Check formatting and types
+make test-fast  # Fast unit tests (the inner loop, < 1 min)
+make test       # Check tier: unit + integration, all packages, no Docker
 ```
 
 ### Quick Validation (Developer)
@@ -239,13 +251,17 @@ make test      # Run all pytest tests
 hop3-test system --docker --mode dev
 ```
 
-### Full Validation (CI)
+### Full Validation
 
 ```bash
-# Full CI suite
-make test-ci
+# Check tier (in-process, no Docker) plus the Docker e2e layer
+make test
+make test-e2e
 
-# Or manually
+# Deploy the real app catalog on Docker
+make test-apps
+
+# Or run the system suite manually
 hop3-test system --docker --mode ci --report html
 ```
 
@@ -282,10 +298,9 @@ open htmlcov/index.html
 
 ```
 packages/hop3-server/tests/
-├── a_unit/          # Fast, isolated tests (~361)
-├── b_integration/   # Component interaction tests (~247)
-├── c_system/        # Docker-based system tests (~13)
-└── d_e2e/           # Full deployment tests (~17)
+├── a_unit/          # Unit; no Docker; counts toward coverage (tier: fast)
+├── b_integration/   # In-process, real in-memory DB; no Docker; coverage (tier: check)
+└── c_e2e/           # End-to-end; real Docker deploy; no coverage (check (Docker) + nightly)
 
 packages/hop3-testing/    # Test framework
 ├── src/hop3_testing/
@@ -369,8 +384,8 @@ hop3-test apps --report html
 # Reuse existing container to debug
 hop3-test system --docker --reuse --keep
 
-# View diagnostic logs
-ls test-logs/
+# Inspect the diagnostic bundle collected on a failed Docker e2e/app run
+hop3-test why <run-id>
 ```
 
 ### Remote Tests Fail

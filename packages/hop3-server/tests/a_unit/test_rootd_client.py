@@ -52,6 +52,14 @@ def short_tmp_dir() -> Iterator[Path]:
 # --- Fake daemon ----------------------------------------------------------
 
 
+# In-process localhost AF_UNIX sockets answer in well under a millisecond, so
+# this timeout only bounds how fast the daemon notices shutdown (the accept
+# loop) or a dangling client connection (a refused-handshake test that leaves
+# the socket half-open). 2.0s made every test pay ~2s in teardown; 0.25s keeps
+# a generous margin while reclaiming it.
+_SOCKET_TIMEOUT = 0.25
+
+
 class FakeDaemon:
     """Tiny in-process daemon that speaks the rootd wire protocol.
 
@@ -67,7 +75,7 @@ class FakeDaemon:
             socket_path.unlink()
         self._sock.bind(str(socket_path))
         self._sock.listen(2)
-        self._sock.settimeout(2.0)
+        self._sock.settimeout(_SOCKET_TIMEOUT)
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._stopping = False
 
@@ -83,7 +91,7 @@ class FakeDaemon:
             self._serve(client)
 
     def _serve(self, client: socket.socket) -> None:
-        client.settimeout(2.0)
+        client.settimeout(_SOCKET_TIMEOUT)
         try:
             f = client.makefile("rb")
             while True:
@@ -96,6 +104,12 @@ class FakeDaemon:
                     return
                 response = self.respond(request)
                 client.sendall((json.dumps(response) + "\n").encode("utf-8"))
+        except (TimeoutError, OSError):
+            # The client went away (or stalled) after we answered — expected in
+            # the negative tests where the client aborts on a refused handshake.
+            # Exit the handler thread cleanly instead of letting the socket
+            # timeout surface as an unhandled-thread-exception warning.
+            return
         finally:
             try:
                 client.close()

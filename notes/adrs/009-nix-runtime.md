@@ -9,7 +9,7 @@
 
 ## Revisions
 
-- v0.4: Phases 1 and 3 of ADR 006 have shipped; this ADR's scope is now unambiguously post-0.6 operational hardening. Delineated what's already delivered (basic Nix-built-app runtime via ADR 035 `RuntimeConfig`) vs. what remains (NixOS-level runtime integration) (2026-04-14).
+- v0.4: With Phases 1 and 3 of ADR 006 shipped, scope is now post-0.6 operational hardening. Delineated what's already delivered (basic Nix-built-app runtime via ADR 035 `RuntimeConfig`) vs. what remains (NixOS-level runtime integration) (2026-04-14).
 - v0.3: Mark as Phase 4; note interaction with ADR 023 runtime stack (2026-03-23)
 - v0.2: Tweak following feedback from NLNet (2024-09-23)
 - v0.1: Initial draft (2024-07-17)
@@ -18,7 +18,7 @@
 
 **Already delivered (not in this ADR's scope):**
 - Running Nix-built applications via the standard uWSGI emperor is handled by ADR 035's `RuntimeConfig` contract. A Nix derivation produces `$out/hop3/runtime.json`; the deployer reads it and launches the workers with no further inference.
-- Integration with Hop3's own runtime (uWSGI + nginx) works across 42+ apps (22 hand-crafted + 20 template-generated).
+- Integration with Hop3's own runtime (uWSGI + nginx) works across the Nix app catalog (both hand-crafted and template-generated derivations).
 
 **Remaining (Phase 4, deferred to post-0.6):**
 - **Full NixOS module generation.** Emit `configuration.nix` fragments so an operator can deploy Hop3 as a NixOS module rather than as a Python-installed daemon.
@@ -27,7 +27,7 @@
 
 These are legitimately future work. They deliver additional reproducibility guarantees (the OS itself is now Nix-managed) at the cost of narrowing the installation target from "any Debian/Red-Hat host" to "NixOS host". That trade-off is not worth making before the quantitative evaluation (§5.5 of TR-01) has demonstrated the reproducibility benefits of the current Phase-1+3 integration.
 
-**Pending design questions**: Q6 (Nix-managed backing services provisioning semantics) and Q7 (NixOS-container isolation boundary) are tracked internally and will be folded into this ADR when the Phase-1+3 evaluation completes.
+**Open design questions** (to be resolved when the Phase-1+3 evaluation completes): the provisioning semantics for Nix-managed backing services, and the isolation boundary for NixOS containers.
 
 ### Interaction with ADR 023 (Runtime Stack Replacement)
 
@@ -205,18 +205,6 @@ Here is the current thinking on how Nix can be used to manage services:
 
 - **Orchestrating Multiple Services**: Nix can orchestrate multiple backing services (databases, caches, email servers, etc.) needed by an application. By specifying the relationship between these services in the Nix configuration, the platform can ensure that all services are deployed and managed correctly as part of the application stack. For example, if an application requires PostgreSQL, Redis, and an email service, Nix can ensure that all these services are deployed together, started in the correct order, and managed declaratively.
 
-### Continuous Improvement
-
-1. **Monitoring and Feedback**:
-
-   - **Performance and Security Monitoring**: Continuous monitoring of the runtime performance and security of isolated environments. Feedback from this monitoring can be used to improve isolation techniques or address security vulnerabilities.
-   - **User Feedback**: A feedback loop with users and developers will help improve the runtime isolation and service management mechanisms over time, ensuring they meet real-world use cases.
-
-1. **Community Engagement**:
-
-   - **Nix Community**: Collaborate with the Nix community to adopt best practices and tools for runtime isolation and service management. Leverage existing NixOS tools, `systemd` integrations, and explore emerging runtime isolation practices.
-   - **Hop3 Community**: Involve the Hop3 community to gather feedback and contributions on how Nix’s runtime behavior can be optimized for the platform’s specific needs.
-
 ## Consequences
 
 ### Benefits
@@ -234,25 +222,3 @@ Here is the current thinking on how Nix can be used to manage services:
 - **Integration Complexity**: Nix’s role as a runtime isolation tool is still less mature than its build-time capabilities. Ensuring that Nix provides adequate runtime isolation across a wide range of applications and services might be challenging. To mitigate this, Hop3 will leverage `systemd` and other NixOS tools known to manage services effectively.
 - **Service Interoperability**: Managing backing services like databases and certificates using Nix could face challenges when integrating with legacy or complex services. Mitigation includes extensive testing and community feedback to ensure compatibility.
 - **Runtime Performance**: Using Nix to manage the runtime environment might introduce performance overhead, especially in complex deployments with many services. Continuous performance optimization and monitoring are essential to minimize this impact.
-
-## Action Items
-
-1. **Implement Runtime Isolation**:
-
-   - Use Nix shells or similar mechanisms to isolate the runtime environments of applications and manage their lifecycle declaratively.
-   - Ensure that each running application is isolated from others to prevent interference and dependency conflicts.
-
-1. **Service and Resource Management**:
-
-   - Use Nix to manage backing services like databases, email systems, and SSL certificates. Ensure that applications can access these resources in a consistent, secure manner.
-   - Automate the deployment and management of certificates (e.g., using Let’s Encrypt) to ensure secure communication between services.
-
-1. **Monitor and Improve**:
-
-   - Implement real-time monitoring of application performance and security within the isolated environments.
-   - Continuously optimize Nix expressions and service management strategies based on feedback and monitoring results.
-
-1. **Community Engagement**:
-
-   - Collaborate with the Nix and Hop3 communities to refine and improve the use of Nix as a runtime isolation and service management tool.
-   - Provide documentation and support to help users and developers adopt Nix for both build-time and runtime isolation.

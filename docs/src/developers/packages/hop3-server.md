@@ -249,23 +249,41 @@ Internet → Nginx → uWSGI Emperor → App Worker → Response
 
 ## Testing
 
-Test layers in `tests/`:
+Testing follows [ADR 043](../../../../notes/adrs/043-unified-testing-architecture.md). There are three pytest layers under `tests/`. A test's layer is decided by what it *needs* (Docker, root, or host mutation), not by how complex it is, so duplication across layers is allowed:
 
-- `a_unit/` - Unit tests (mocked dependencies)
-- `b_integration/` - Component integration
-- `c_system/` - Full server in Docker
-- `d_e2e/` - Complete deployment workflows
+- `a_unit/` - Unit tests; no Docker; counts toward coverage; tier `fast`.
+- `b_integration/` - Integration tests; in-process, against a real in-memory database; no Docker; counts toward coverage; tier `check`.
+- `c_e2e/` - End-to-end tests; real Docker deploys; no coverage; runs in the check tier (Docker) and nightly.
+
+Markers are stamped from the directory by the root `conftest.py` (`fast` / `integration` / `e2e` / `needs_docker`), so selection works from anywhere:
+
+```bash
+uv run pytest -m fast                               # a_unit (the inner loop)
+uv run pytest -m "not needs_docker"                 # everything except the Docker e2e layer
+uv run pytest packages/hop3-server/tests/c_e2e      # just the Docker e2e layer
+```
+
+Make targets:
+
+```bash
+make test-fast          # unit, all packages, no Docker (< 1 min)
+make test               # check tier: a_unit + b_integration, all packages, no Docker
+make test-e2e           # the Docker e2e layer (c_e2e): real deploys, backups, git-push
+make test-with-coverage # coverage on the in-process layers (a_unit + b_integration)
+```
+
+When a Docker e2e or app test fails, a diagnostic bundle is collected; run `hop3-test why <run-id>` to inspect it.
 
 Key fixtures:
 
 ```python
-# In-memory database for unit tests
+# In-memory database for unit and integration tests
 @pytest.fixture
 def db_session():
     engine = create_engine("sqlite:///:memory:")
     ...
 
-# Docker container for system tests
+# Docker container for end-to-end tests
 @pytest.fixture(scope="session")
 def hop3_container():
     ...

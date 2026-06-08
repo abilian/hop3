@@ -29,7 +29,7 @@ def test_app_model(db_session):
     app2 = app_repo.get_one(name="test_app")
     assert app2 == app
 
-    app_list = app_repo.list()
+    app_list = app_repo.get_many()
     assert app_list == [app]
 
 

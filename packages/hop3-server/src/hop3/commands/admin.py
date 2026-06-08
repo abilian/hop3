@@ -58,7 +58,7 @@ class AdminReencryptCredentialsCmd(Command):
         dry_run = "--dry-run" in args
         encryptor = get_credential_encryptor()
 
-        all_credentials = list(self.addon_credential_repo.list())
+        all_credentials = list(self.addon_credential_repo.get_many())
         already_v2 = 0
         migrated = 0
         failures: list[str] = []

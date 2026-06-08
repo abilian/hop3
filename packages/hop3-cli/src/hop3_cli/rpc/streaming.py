@@ -258,32 +258,3 @@ def _process_sse_stream(response: requests.Response, printer: RichPrinter) -> No
     ])
     msg = "Stream ended unexpectedly"
     raise DeploymentError(msg)
-
-
-def check_streaming_support(base_url: str, token: str | None = None) -> bool:
-    """Check if the server supports streaming.
-
-    Args:
-        base_url: Base URL of the Hop3 server
-        token: Optional JWT token
-
-    Returns:
-        True if server supports /api/stream endpoint
-    """
-    # Try to access the stream endpoint (will 404 with no stream_id)
-    # but at least we know the route exists
-    try:
-        headers = {}
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
-
-        response = requests.get(
-            f"{base_url.rstrip('/')}/api/stream/test",
-            headers=headers,
-            timeout=5,
-        )
-        # 404 means endpoint exists but stream not found (expected)
-        # 405 or other errors mean endpoint doesn't exist
-        return response.status_code in {200, 404}
-    except Exception:
-        return False

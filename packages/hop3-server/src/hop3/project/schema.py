@@ -134,12 +134,6 @@ class BuildSection(BaseModel):
         return v
 
 
-class WorkersSection(BaseModel):
-    """[run.workers] section - Named worker processes."""
-
-    model_config = ConfigDict(extra="allow")  # Allow any worker names
-
-
 class RunSection(BaseModel):
     """[run] section - Runtime configuration."""
 
@@ -768,14 +762,3 @@ def validate_hop3_toml(data: dict[str, Any]) -> Hop3TomlSchema:
         # Cast ErrorDetails to dict[str, Any] for our error handler
         errors = cast("list[dict[str, Any]]", e.errors())
         raise Hop3TomlValidationError(errors, data) from None
-
-
-def get_json_schema() -> dict[str, Any]:
-    """Generate JSON Schema for hop3.toml.
-
-    This can be used by IDEs and editors for autocompletion and validation.
-
-    Returns:
-        JSON Schema as dictionary
-    """
-    return Hop3TomlSchema.model_json_schema()

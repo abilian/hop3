@@ -8,8 +8,8 @@
 
 ## Revisions
 
-- v1.2: CLI example migrated from colon syntax (`hop3 app:deploy`) to space form (`hop3 deploy`) per ADR 036 (2026-04-22).
-- v1.1: Explicit status note. The proposed replacement (Granian + Caddy + custom Python process manager, replacing uWSGI + nginx + supervisor) has **not** been started. The current runtime is the uWSGI emperor + nginx + optional supervisord fallback described throughout the other ADRs, and this is what 100+ app variants run on. This ADR captures a future direction that is not currently scheduled against any release (2026-04-14).
+- v1.2: CLI examples migrated to the space form (`hop3 deploy`) per ADR 036 (2026-04-22).
+- v1.1: Status note added — the proposed replacement has not been started; this ADR captures a future direction, not a scheduled workstream (2026-04-14).
 - v1.0: Original draft (2024-11-01)
 
 ## Current Status (2026-04-14)
@@ -20,7 +20,7 @@ Nothing from this ADR has been implemented. The motivation — uWSGI's developme
 
 - uWSGI's unmaintained status has not produced concrete incidents since this ADR was drafted, but remains a latent risk.
 - Hot reconfiguration is still not provided by the current stack. `hop3 deploy` writes configs and reloads Nginx; there is no atomic-swap pathway.
-- The three-component coupling (uWSGI vassal → Nginx site → optional supervisord) has been refined rather than simplified (see W16's systemd-vs-supervisord detection rework).
+- The three-component coupling (uWSGI vassal → Nginx site → optional supervisord) has been refined rather than simplified.
 
 **What would need to happen to revive this ADR:**
 
@@ -287,25 +287,25 @@ packages/hop3-server/src/hop3/
 
 ### Migration Strategy
 
-**Phase 1: Parallel Implementation (2 weeks)**
+**Phase 1: Parallel Implementation**
 - Implement ProcessManager
 - Implement Caddy integration
 - Add Granian deployer plugin
 - Keep existing uWSGI/nginx code
 
-**Phase 2: Feature Parity (1 week)**
+**Phase 2: Feature Parity**
 - Test all app types (Python, Node.js, Ruby, etc.)
 - Verify SSL/ACME functionality
 - Performance testing
 - Documentation
 
-**Phase 3: Migration (1 week)**
+**Phase 3: Migration**
 - Update installer to include Caddy
 - Default to new stack for new installs
 - Provide migration script for existing deployments
 - Update all documentation
 
-**Phase 4: Deprecation (future)**
+**Phase 4: Deprecation**
 - Mark uWSGI/nginx code as deprecated
 - Remove in next major version
 
@@ -458,41 +458,6 @@ From nginx experience:
 - Virtual host routing is essential
 - Unix sockets work better than TCP for local communication
 - SSL automation is critical (certbot was complex)
-
-## Action Items
-
-### Research & Validation
-- [ ] Benchmark Granian vs uWSGI for Python apps
-- [ ] Validate Caddy hot reload performance
-- [ ] Test Caddy ACME with Let's Encrypt staging
-- [ ] Prototype ProcessManager core functionality
-
-### Implementation
-- [ ] Implement ProcessManager (~500 LOC)
-- [ ] Implement Caddy API client (~300 LOC)
-- [ ] Create GranianDeployer plugin
-- [ ] Update spawn.py to support Granian
-- [ ] Write integration tests
-
-### Testing & Documentation
-- [ ] Test all app types (Python, Node, Ruby, static)
-- [ ] Performance benchmarks
-- [ ] Load testing with multiple apps
-- [ ] Migration guide for existing deployments
-- [ ] Update all documentation
-
-### Deployment
-- [ ] Update installer to include Caddy
-- [ ] Create migration script
-- [ ] Deploy to test server
-- [ ] User acceptance testing
-
-### Rollout
-- [ ] Release beta version
-- [ ] Gather feedback
-- [ ] Fix issues
-- [ ] Release stable version
-- [ ] Deprecate old stack
 
 ## Alternatives
 

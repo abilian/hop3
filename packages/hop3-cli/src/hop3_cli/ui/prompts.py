@@ -41,17 +41,6 @@ def require_input_allowed(prompt_label: str) -> None:
         raise NoInputError(msg)
 
 
-def prompt_input(message: str, *, prompt_label: str) -> str:
-    """input() wrapper that respects --no-input.
-
-    Use in local commands instead of bare ``input()`` so the same
-    --no-input guard fires everywhere without requiring each call site
-    to remember.
-    """
-    require_input_allowed(prompt_label)
-    return input(message)
-
-
 def confirm(message: str, *, default: bool = False) -> bool:
     """Ask user for yes/no confirmation.
 

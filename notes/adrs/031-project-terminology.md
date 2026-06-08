@@ -8,8 +8,8 @@
 
 ## Revisions
 
-- v1.1: Status clarified. Most terminology in this ADR is in active use across the codebase, docs, tests, and other ADRs. Two specific terms remain unresolved: (a) the **Blueprint** vocabulary for the "packaged-app installation" use case is *proposed* and not yet picked up across the codebase; (b) the **addon vs service** ambiguity flagged in ADR 036 needs to be resolved (current usage: `addon:*` for the CLI command group but `service-type` as a flag — these should converge). The rest of the glossary is stable enough to be relied on (2026-04-14).
-- v1.0: Original active version (2025-11-28)
+- v1.1 (2026-04-14): Most terminology here is stable and in active use. Two terms remain unresolved: (a) the **Blueprint** vocabulary for the "packaged-app installation" use case is *proposed*; (b) the **addon vs service** ambiguity flagged in ADR 036 needs to be resolved (current usage: `addon:*` for the CLI command group but `service-type` as a flag — these should converge).
+- v1.0 (2025-11-28): Original active version.
 
 ## Context
 
@@ -321,28 +321,14 @@ This is a critical distinction to avoid confusion:
 
 ---
 
-## Codebase Alignment Status
+## Codebase Alignment
 
-> **Updated 2025-12-04**: The two-level build architecture from ADR 030 is fully implemented.
+Open terminology-alignment considerations:
 
-### Completed
-
-| Item | Status |
-|------|--------|
-| Rename `*Builder` → `*Toolchain` classes | ✅ Complete |
-| Rename ABC to `LanguageToolchain` | ✅ Complete |
-| Rename `BUILDER_CLASSES` → `TOOLCHAIN_CLASSES` | ✅ Complete |
-| Implement `LocalBuilder` | ✅ Complete |
-| Add `BuildContext` dataclass | ✅ Complete |
-| Add `LanguageToolchain` protocol | ✅ Complete |
-
-### Remaining
-
-| Item | Priority | Notes |
-|------|----------|-------|
-| Rename directory `builders/` → `toolchains/` | Low | Cosmetic; code is correct |
-| Consider `Addon.name` → `Addon.addon_type` | Medium | See `protocols.py:199` |
-| Plugin developer guide | Low | Document Builder vs LanguageToolchain |
+| Item | Notes |
+|------|-------|
+| Rename directory `builders/` → `toolchains/` | Cosmetic; code is correct |
+| Consider `Addon.name` → `Addon.addon_type` | Ties into the addon vs service ambiguity |
 
 ---
 
@@ -440,11 +426,11 @@ See ADR 030 for detailed rationale.
 
 This terminology is successful when:
 
-1. ✅ New developers understand concepts without explanation
-2. ✅ Documentation uses consistent vocabulary
-3. ✅ Code identifiers match domain language
-4. ✅ No terminology conflicts in discussions
-5. ✅ Plugin authors know which protocol to implement
+1. New developers understand concepts without explanation
+2. Documentation uses consistent vocabulary
+3. Code identifiers match domain language
+4. No terminology conflicts in discussions
+5. Plugin authors know which protocol to implement
 
 ---
 
@@ -456,13 +442,3 @@ This terminology is successful when:
 - [ADR 020: Pluggable Architecture](./020-pluggable-architecture.md)
 - [ADR 022: Build/Deploy Plugin System](./022-build-deploy-plugin-system.md)
 - [ADR 030: Two-Level Build Architecture](./030-two-level-build-architecture.md)
-
----
-
-## Changelog
-
-| Date | Version | Changes |
-|------|---------|---------|
-| 2025-12-04 | 1.2 | Updated codebase alignment status - ADR 030 implementation complete |
-| 2025-11-28 | 1.1 | Added Blueprint terminology (proposed) for App Marketplace use case |
-| 2025-11-28 | 1.0 | Initial version consolidating terminology decisions |

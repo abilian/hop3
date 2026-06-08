@@ -9,6 +9,10 @@ from __future__ import annotations
 from operator import itemgetter
 
 from litestar import Controller, get
+
+# Runtime import (not TYPE_CHECKING): Litestar resolves the FromPath path-param
+# annotation at route registration via get_type_hints, so it must exist at runtime.
+from litestar.params import FromPath  # noqa: TC002
 from litestar.response import Redirect, Template
 
 from hop3.server.guards import auth_guard
@@ -24,7 +28,7 @@ class EnvVarsController(Controller):
     guards = [auth_guard]  # noqa: RUF012
 
     @get("/", sync_to_thread=False)
-    def app_env_vars(self, app_name: str) -> Template | Redirect:
+    def app_env_vars(self, app_name: FromPath[str]) -> Template | Redirect:
         """Display application environment variables page."""
         with get_session() as db_session:
             app = get_app_or_none(db_session, app_name)

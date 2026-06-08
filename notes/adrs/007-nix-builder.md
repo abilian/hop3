@@ -8,7 +8,7 @@
 
 ## Revisions
 
-- v0.4: Superseded by ADR 008. The `nixpkgs-wrapper` template in the eight-template generation system delivers the same capability — wrapping an existing nixpkgs package with Hop3 runtime metadata — more cleanly than the separate "Blueprint builder" proposed here. See `apps/real-apps-nix-gen/` (miniflux, gitea, forgejo, grafana, mattermost, vikunja, gotosocial, stirling-pdf, …) (2026-04-14).
+- v0.4: Superseded by ADR 008 — see the Supersession Note below (2026-04-14).
 - v0.3: Mark as Phase 2, pending hop3.nix support (2026-03-23)
 - v0.2: Tweak following feedback from NLNet (2024-09-23)
 - v0.1: Initial draft (2024-07-17)
@@ -78,20 +78,3 @@ Hop3 will develop NixBuilder (a Level 1 Builder per ADR 030) that supports appli
 - **Integration Complexity**: Ensuring that a wide variety of applications, particularly legacy or non-12-factor apps, are compatible with Nix and Hop3. This can be mitigated through community feedback and thorough testing with real-world applications.
 - **Ongoing Maintenance**: Keeping the builder plugin in sync with changes in the nixpkgs repository and updates to the supported applications. This will require a well-defined maintenance schedule and active community contributions.
 - **Performance Overhead**: Nix-based builds, while reproducible, can sometimes introduce performance overhead compared to native build systems. Mitigation involves continuous optimization of build processes and leveraging Nix’s caching mechanisms.
-
-## Action Items
-
-1. **Development**:
-
-   - Develop the initial builder plugin for Hop3, ensuring broad compatibility with applications in the nixpkgs repository.
-   - Implement tools to convert non-Nix configurations (e.g., Dockerfiles, Procfile) into Nix-compatible formats.
-
-1. **Testing and Optimization**:
-
-   - Conduct thorough testing with several initial packaged applications to validate the builder plugin’s robustness, focusing on applications with varying levels of complexity (e.g., Nextcloud, Jitsi, simpler tools like HedgeDoc).
-   - Optimize Nix expressions and build processes to minimize performance overhead.
-
-1. **Documentation and Community Engagement**:
-
-   - Provide clear, user-friendly documentation for both developers and non-technical users on how to use the Nix builder within Hop3.
-   - Engage with the Nix and Hop3 communities for feedback and contributions, ensuring ongoing support and improvements to the builder plugin.

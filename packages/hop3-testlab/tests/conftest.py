@@ -1,0 +1,29 @@
+# Copyright (c) 2026, Abilian SAS
+# SPDX-License-Identifier: Apache-2.0
+"""Shared test fixtures for hop3-testlab."""
+
+from __future__ import annotations
+
+import pytest
+from hop3_testlab.db import get_session_factory
+
+
+@pytest.fixture(autouse=True)
+def isolated_db(tmp_path, monkeypatch):
+    """Point every test at a throwaway result DB (never the real ~/.hop3 one).
+
+    The dashboard reads the shared store, so without this a test would create /
+    read the developer's ~/.hop3/test-results.db. Each test gets its own tmp DB
+    and the per-path session-factory cache is cleared around it.
+    """
+    monkeypatch.setenv("TESTLAB_DB_PATH", str(tmp_path / "test-results.db"))
+    # Bypass the auth guard by default (the auth tests opt back in). Mirrors
+    # hop3-server's HOP3_UNSAFE test bypass.
+    monkeypatch.setenv("TESTLAB_UNSAFE", "true")
+    # Isolate config discovery from the developer's ~/.hop3/testlab/config.toml
+    # (a non-existent path -> empty config -> defaults). Tests that want config
+    # pass an explicit path or set the relevant env vars.
+    monkeypatch.setenv("TESTLAB_CONFIG", str(tmp_path / "no-config.toml"))
+    get_session_factory.cache_clear()
+    yield
+    get_session_factory.cache_clear()

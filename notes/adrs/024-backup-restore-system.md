@@ -8,9 +8,9 @@
 
 ## Revisions
 
-- v1.2: Cross-instance migration support (2026-05-06). Adds `hop3 backup register <path>` to make a backup tree copied in from another server findable by `restore`. `restore_backup` now invokes the deploy pipeline after repopulating files, so the app is running again after `backup restore` (previously the operator had to follow up with a separate command). `_backup_source` now archives `app.src_path` (the canonical deployed source) alongside the bare git repo — the original implementation tarred only the bare repo, which is empty for tarball-based deploys (the JSON-RPC path used by `hop3 deploy`). Older backups remain restorable via a `git/` → `src/` clone fallback. Manifest schema corrected (the ORM uses `addons`, not `services`). Backup root path corrected to `/home/hop3/backups/...` (matches `HopConfig.BACKUP_ROOT`).
-- v1.1: Status refreshed. Phase 1 backup/restore is shipped and exercised by the `backup:*` CLI commands; it is the concrete implementation of the ADR 016 strategy. Phase 2 enhancements (scheduling, retention, remote storage, encryption, incremental) remain on the long-term roadmap per ADR 016 (2026-04-14).
-- v1.0: Original final version (2025-11-08)
+- v1.2 (2026-05-06): Added cross-instance migration support (`hop3 backup register`, source-tree archival, restore now redeploys the app).
+- v1.1 (2026-04-14): Status refreshed; Phase 1 backup/restore shipped as the concrete implementation of the ADR 016 strategy.
+- v1.0 (2025-11-08): Original final version.
 
 ## Relationship to ADR 016
 
@@ -160,10 +160,8 @@ This provides:
 `hop3 backup restore <id>` repopulates source / data / env / addons
 **and** invokes the build+spawn pipeline at the end. After the
 command returns, the app is running again — equivalent to its
-pre-backup state. (This was a behavioural change in v1.2; previously
-restore left the operator to manually rebuild via a follow-up
-command, which silently failed for cross-instance restore on a fresh
-host with no prior build state.)
+pre-backup state. This matters for cross-instance restore on a fresh
+host, where there is no prior build state to reuse.
 
 Pass `--target-app <new-name>` to restore as a clone alongside the
 original, instead of in-place.
@@ -317,16 +315,13 @@ DB lookup misses the transferred files entirely.
 - **Unit Tests:** BackupManifest, checksums, ID generation
 - **Integration Tests:** All CLI commands with mocked filesystem
 - **System Tests:** Real PostgreSQL in Docker (future)
-- **E2E (single-instance):** `tests/d_e2e/test_backup.py` — round-trip
-  create / list / info / restore / destroy, plus same-instance clone
-  via `--target-app`.
-- **E2E (cross-instance migration):** `tests/d_e2e/test_backup_migration.py`
-  — two independent `DockerTarget` instances paired via the
-  `hop3_container_pair` fixture; covers `register` happy path,
-  three-layer equivalence (registry / env vars / HTTP body
-  byte-equality), name collision behaviour, `--target-app` clone
-  across instances, manifest round-trip checksums, source-tree
-  byte-equality, and corrupted-manifest refusal.
+- **E2E (single-instance):** round-trip create / list / info / restore
+  / destroy, plus same-instance clone via `--target-app`.
+- **E2E (cross-instance migration):** two independent Docker instances
+  paired by a fixture; covers `register`, restore equivalence
+  (registry / env vars / HTTP body byte-equality), name collisions,
+  cross-instance clone, manifest checksum round-trip, and
+  corrupted-manifest refusal.
 
 ### Service Integration
 
@@ -396,9 +391,3 @@ def backup(self) -> Path:
 - **Tests**: `packages/hop3-server/tests/{a_unit,b_integration,d_e2e}/test_backup*.py`
 - **User Documentation**: `docs/src/backup-restore.md`
 - **Service Protocol**: `packages/hop3-server/src/hop3/core/protocols.py`
-
-## Revision History
-
-- **2025-11-08**: Initial ADR (v1.0)
-- **2025-11-25**: Added cross-reference to ADR 016 (long-term strategy)
-- Implemented in Hop3 v0.4.0

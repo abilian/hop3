@@ -806,8 +806,31 @@ def ensure_redis(ctx: DemoContext) -> None:
     # Verify Redis is responding
     print_step("Verifying Redis is responding...")
     result = run_ssh(ctx, "redis-cli ping", show=False, check=False)
-    if result.returncode != 0 or "PONG" not in result.stdout:
+    # Hop3 password-protects Redis, so an unauthenticated `redis-cli ping`
+    # answers "NOAUTH Authentication required." — that still proves the server
+    # is up and responding (this is a liveness check, not an auth check), so
+    # accept it alongside PONG.
+    reply = f"{result.stdout or ''}{result.stderr or ''}"
+    if "PONG" not in reply and "NOAUTH" not in reply:
         print_error("Redis is not responding to ping")
         msg = "Redis not responding"
         raise RuntimeError(msg)
     print_success("Redis is responding")
+
+
+def prune_server_disk(ctx: DemoContext) -> None:
+    """Reclaim disk on the server between demos so heavy runs don't ENOSPC.
+
+    ``hop3 app destroy`` frees each app's dir + venv (and ``--rmi all`` its
+    images), but the Docker build cache and the pip/uv caches accumulate across
+    50+ demo deploys and exhaust the disk (the cascading-failure + 600s-timeout
+    cause). Demos are independent, so cache reuse is low — prune aggressively.
+    All commands are best-effort (``|| true``); a missing Docker is fine.
+    """
+    print_info("Pruning server disk (docker + package caches)...")
+    for cmd in (
+        "docker image prune -f",
+        "docker builder prune -f",
+        "rm -rf /home/hop3/.cache/pip /home/hop3/.cache/uv",
+    ):
+        run_ssh(ctx, f"{cmd} 2>/dev/null || true", show=False, check=False)

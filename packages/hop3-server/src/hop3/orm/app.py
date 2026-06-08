@@ -332,6 +332,9 @@ class App(BigIntAuditBase):
         This updates the environment settings for the application
         identified by the instance's name attribute.
         """
+        # EnvVar is imported under TYPE_CHECKING to avoid a circular import with
+        # .env; import it locally here where it is actually instantiated.
+        from .env import EnvVar  # noqa: PLC0415
 
         self.env_vars.clear()
         for key, value in env.items():

@@ -222,35 +222,12 @@ Allow first registration to automatically become admin.
 
 ## Implementation
 
-### Phase 1: Server-side CLI (Foundation)
+The server-side CLI provides the `hop3-server` entry point in `pyproject.toml`:
 
-**Files to create:**
-```
-packages/hop3-server/
-├── src/hop3/
-│   └── cli/
-│       ├── __init__.py
-│       ├── main.py          # Entry point for hop3-server
-│       └── admin.py         # Admin commands
-```
-
-**Entry point in pyproject.toml:**
 ```toml
 [project.scripts]
 hop3-server = "hop3.cli.main:main"
 ```
-
-### Phase 2: SSH-Assisted Bootstrap (Convenience)
-
-**Files to create/modify:**
-```
-packages/hop3-cli/
-├── src/hop3_cli/
-│   └── commands/
-│       └── init.py          # hop3 init --ssh command
-```
-
-### Implementation Details
 
 **Server-side admin:create:**
 ```python
@@ -474,35 +451,3 @@ Allow first user registration without authentication:
 - **Security concern**: Race condition if multiple users register simultaneously
 - Requires network isolation during initial setup
 - Simple for single-admin deployments
-
-### Original Action Items (From Draft)
-
-1. **Decision Phase**: ✅ Completed
-   - Review proposed options with team
-   - Evaluate security implications of each approach
-   - Consider deployment scenarios (bare metal, containers, cloud)
-   - Select preferred option or hybrid approach
-
-2. **Design Phase**: ✅ Completed
-   - Document detailed authentication flow with bootstrap
-   - Design API/CLI interface for chosen option
-   - Plan security measures (token rotation, audit logging)
-   - Define error handling and recovery procedures
-
-3. **Implementation Phase**: ✅ Completed (Phase 1)
-   - Implement server-side bootstrap mechanism
-   - Add CLI commands for bootstrap operations
-   - Implement audit logging for bootstrap events
-   - Add tests for bootstrap scenarios
-
-4. **Documentation Phase**: 🔄 In Progress
-   - Update installation guide with bootstrap instructions
-   - Document security best practices
-   - Provide examples for common deployment scenarios
-   - Create troubleshooting guide for bootstrap issues
-
-5. **Testing Phase**: 🔄 Pending
-   - Test bootstrap on fresh installations
-   - Test bootstrap in automated deployment scripts
-   - Security audit of bootstrap mechanism
-   - Test recovery scenarios
