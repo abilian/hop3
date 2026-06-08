@@ -8,7 +8,7 @@ Hop3 uses a multi-layer testing approach across three complementary runners (pyt
 
 ### Test Layers (pytest-based)
 
-Three layers live under each package's `tests/`. The layer is decided by what a test *needs* (Docker, root, host-mutation), not by complexity — duplication across layers is allowed (see [ADR 043](../../../notes/adrs/043-unified-testing-architecture.md)).
+Three layers live under each package's `tests/`. The layer is decided by what a test *needs* (Docker, root, host-mutation), not by complexity — duplication across layers is allowed (see ADR 043).
 
 1. **Unit Tests** (`tests/a_unit/`) - Individual components in isolation; no Docker; count toward coverage; tier `fast`
 2. **Integration Tests** (`tests/b_integration/`) - Multiple components within a subsystem, in-process against a real in-memory DB; no Docker; count toward coverage; tier `check`
@@ -186,7 +186,7 @@ status = 200
 contains = "Hello"
 ```
 
-Note: `tier` is *only* a report-grouping label — all builds share a single 30-minute budget (see [config.md](../reference/config.md#test---test-harness-metadata)). The legacy `[build].tier` field no longer exists.
+Note: `tier` is *only* a report-grouping label — all builds share a single 30-minute budget (see [config.md](../reference/config.md#test-test-harness-metadata)). The legacy `[build].tier` field no longer exists.
 
 **Exceptions — standalone `test.toml` files still exist for:**
 

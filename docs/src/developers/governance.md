@@ -1,6 +1,6 @@
 # Governance Policy
 
-This document delineates the governance policy for the Project. By appending their name to the [maintainers.md file](./maintainers.md), maintainers signify their consent to this policy and commit to observing all Project policies, including the [code of conduct](./policies/code-of-conduct.md).
+This document delineates the governance policy for the Project. By appending their name to the maintainers.md file, maintainers signify their consent to this policy and commit to observing all Project policies, including the [code of conduct](../reference/policies/code-of-conduct.md).
 
 ## 1. Roles
 

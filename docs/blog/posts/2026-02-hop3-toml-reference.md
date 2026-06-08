@@ -45,7 +45,7 @@ type = "postgres"
 
 Each section handles one concern. No mixing build commands with runtime configuration. No environment variables scattered across files. Everything in one place.
 
-## [metadata] — Who Is This App?
+## `[metadata]` — Who Is This App?
 
 Every app needs an identity. The `metadata` section captures it:
 
@@ -61,7 +61,7 @@ license = "MIT"                 # Optional: license
 
 The `id` is the only required field. It must be lowercase letters, numbers, and hyphens, start with a letter, and be 2-64 characters. We enforce this strictly because the ID becomes part of file paths, database names, and URLs.
 
-## [build] — Getting Your App Ready
+## `[build]` — Getting Your App Ready
 
 The build section controls how Hop3 transforms your source code into something runnable:
 
@@ -101,7 +101,7 @@ Most of this is optional. Hop3 auto-detects your toolchain based on what files e
 
 The `builder` option is interesting. By default (`auto`), Hop3 builds directly on the server using the native toolchain. But you can force Docker builds if you need isolation or specific system dependencies. We found that most apps don't need containerized builds—they're slower and more complex—but the option is there when you need it.
 
-## [run] — Keeping Your App Alive
+## `[run]` — Keeping Your App Alive
 
 This is where you tell Hop3 how to actually run your application:
 
@@ -135,7 +135,7 @@ cron = "python manage.py runcrons"
 
 Workers are managed independently. You can scale them separately (`hop3 ps scale --app worker=3`), restart them individually, and monitor them in isolation. This mirrors how Heroku's dynos work, and it's one of the patterns we explicitly borrowed.
 
-## [env] — Configuration Without Code Changes
+## `[env]` — Configuration Without Code Changes
 
 Environment variables live in their own section:
 
@@ -157,7 +157,7 @@ PORT = "8000"           # Correct
 
 Some variables are special. `HOST_NAME` configures your domain for the reverse proxy and SSL. `PORT` is auto-injected—you shouldn't set it yourself. `DATABASE_URL` gets injected when you attach database addons.
 
-## [static] — Let Nginx Handle the Heavy Lifting
+## `[static]` — Let Nginx Handle the Heavy Lifting
 
 Static files can bypass your application entirely:
 
@@ -172,7 +172,7 @@ The left side is the URL path, the right side is the filesystem path relative to
 
 We debated whether to auto-detect static directories. We decided against it—explicit configuration is clearer, and it prevents accidental exposure of directories you didn't intend to serve.
 
-## [healthcheck] — Knowing When Things Break
+## `[healthcheck]` — Knowing When Things Break
 
 Health checks let Hop3 monitor your application:
 
@@ -198,7 +198,7 @@ def health():
 
 When health checks fail repeatedly, Hop3 can restart your app automatically. This isn't magic—it's just automation of what you'd do manually when things go wrong.
 
-## [[addons]] — Databases and Beyond
+## `[[addons]]` — Databases and Beyond
 
 The double-bracket syntax declares database addons:
 
@@ -226,7 +226,7 @@ We originally used `[[provider]]` for this, but "addon" is clearer. The old synt
 
 A few more sections handle specialized needs:
 
-### [backup]
+### `[backup]`
 
 ```toml
 [backup]
@@ -236,7 +236,7 @@ exclude = ["*.tmp", "cache/*"]  # Patterns to exclude
 
 Backups include your specified paths, database dumps, and environment configuration. Everything you need to restore from scratch.
 
-### [docker]
+### `[docker]`
 
 ```toml
 [docker]
@@ -248,7 +248,7 @@ NODE_ENV = "production"
 
 Only relevant if you're using `builder = "docker"`. Most apps don't need this.
 
-### [port]
+### `[port]`
 
 ```toml
 [port.web]

@@ -11,12 +11,12 @@ All protocols are defined in `hop3/core/protocols.py` using Python's PEP 544 Pro
   - [BuildArtifact](#buildartifact)
   - [DeploymentInfo](#deploymentinfo)
 - [Strategy Protocols](#strategy-protocols)
-  - [Builder](#Builder)
-  - [Deployer](#Deployer)
-  - [Addon](#Addon)
+  - [Builder](#builder)
+  - [Deployer](#deployer)
+  - [Addon](#addon)
   - [Proxy](#proxy)
   - [BaseProxy](#baseproxy)
-  - [OS](#OS)
+  - [OS](#os)
 
 ---
 

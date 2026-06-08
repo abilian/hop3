@@ -409,7 +409,7 @@ hop3 deploy myapp
 
 Before migrating, ensure:
 
-- [ ] Procfile defines all processes (or hop3.toml [run] section)
+- [ ] Procfile defines all processes (or hop3.toml `[run]` section)
 - [ ] Environment variables documented/exported
 - [ ] Database connection strings use standard `DATABASE_URL` format
 - [ ] Application reads port from `$PORT` environment variable

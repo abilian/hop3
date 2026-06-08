@@ -47,7 +47,7 @@ builder = "nix"
 ```
 
 For template-generated mode, also add a `[nix]` section. See the
-[hop3.toml reference](config.md#nix--template-based-nix-builds) for
+[hop3.toml reference](config.md#nix-template-based-nix-builds) for
 the full schema.
 
 ## Build process
@@ -153,7 +153,7 @@ of `hop3.toml`.
 | `node-prebuilt` | Node.js apps shipped as a pre-built tarball | 3 (compromise) |
 
 For the full field reference per template, see the
-[hop3.toml `[nix]` section](config.md#nix--template-based-nix-builds).
+[hop3.toml `[nix]` section](config.md#nix-template-based-nix-builds).
 
 ### Reproducibility tiers
 
@@ -264,6 +264,6 @@ hop3-test system --docker --clean --with nix apps/real-apps-nix-gen
   — Phase 3 template system
 - [Nix Deployment Guide](../guides/nix-deployment.md) — Tutorial-style
   introduction
-- [hop3.toml `[nix]` section](config.md#nix--template-based-nix-builds)
+- [hop3.toml `[nix]` section](config.md#nix-template-based-nix-builds)
   — Field-by-field reference
-- [`nix eject` command](cli.md#hop3-nixeject)
+- [`nix eject` command](cli.md#hop3-nix-eject)

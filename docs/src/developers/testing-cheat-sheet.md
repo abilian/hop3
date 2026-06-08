@@ -1,6 +1,6 @@
 # Hop3 Testing Cheat Sheet
 
-> **Updated by [ADR 043](../../../notes/adrs/043-unified-testing-architecture.md).** The pytest pyramid is now **three** layers — `a_unit` (fast, no Docker) · `b_integration` (in-process, real in-memory DB, no Docker) · `c_e2e` (Docker/real-deploy, renamed from `d_e2e`). The old `c_system` layer is **dissolved**. A test's layer is decided by whether it needs Docker/root/host-mutation, not by complexity; coverage is measured on `a_unit` + `b_integration` only (e2e runs out-of-process). Markers (`fast`/`integration`/`e2e`/`needs_docker`) are stamped from the directory layer (root `conftest.py`), so `pytest -m fast` / `-m "not needs_docker"` work everywhere.
+> **Updated by ADR 043.** The pytest pyramid is now **three** layers — `a_unit` (fast, no Docker) · `b_integration` (in-process, real in-memory DB, no Docker) · `c_e2e` (Docker/real-deploy, renamed from `d_e2e`). The old `c_system` layer is **dissolved**. A test's layer is decided by whether it needs Docker/root/host-mutation, not by complexity; coverage is measured on `a_unit` + `b_integration` only (e2e runs out-of-process). Markers (`fast`/`integration`/`e2e`/`needs_docker`) are stamped from the directory layer (root `conftest.py`), so `pytest -m fast` / `-m "not needs_docker"` work everywhere.
 
 Quick reference for developers running tests.
 
@@ -338,7 +338,7 @@ path = "/"
 status = 200
 ```
 
-Legacy standalone `test.toml` files are still used by procfile-only test apps (`apps/test-apps-procfile/*/`), negative-test cases, demos, and tutorials — anywhere there's no sibling `hop3.toml`. See [config.md](../reference/config.md#test---test-harness-metadata) for the full reference.
+Legacy standalone `test.toml` files are still used by procfile-only test apps (`apps/test-apps-procfile/*/`), negative-test cases, demos, and tutorials — anywhere there's no sibling `hop3.toml`. See [config.md](../reference/config.md#test-test-harness-metadata) for the full reference.
 
 ## Environment Variables
 

@@ -1,6 +1,6 @@
 # Hop3 Testing Strategy
 
-> **Updated by [ADR 043](../../../notes/adrs/043-unified-testing-architecture.md).** The pytest pyramid is now **three** layers — `a_unit` (fast, no Docker) · `b_integration` (in-process, real in-memory DB, no Docker) · `c_e2e` (Docker/real-deploy, renamed from `d_e2e`). The old `c_system` layer is **dissolved**. A test's layer is decided by whether it needs Docker/root/host-mutation, not by complexity; coverage is measured on `a_unit` + `b_integration` only (e2e runs out-of-process). Markers (`fast`/`integration`/`e2e`/`needs_docker`) are stamped from the directory layer (root `conftest.py`), so `pytest -m fast` / `-m "not needs_docker"` work everywhere.
+> **Updated by ADR 043.** The pytest pyramid is now **three** layers — `a_unit` (fast, no Docker) · `b_integration` (in-process, real in-memory DB, no Docker) · `c_e2e` (Docker/real-deploy, renamed from `d_e2e`). The old `c_system` layer is **dissolved**. A test's layer is decided by whether it needs Docker/root/host-mutation, not by complexity; coverage is measured on `a_unit` + `b_integration` only (e2e runs out-of-process). Markers (`fast`/`integration`/`e2e`/`needs_docker`) are stamped from the directory layer (root `conftest.py`), so `pytest -m fast` / `-m "not needs_docker"` work everywhere.
 >
 > **Entry points:** `make test-fast` (unit, all packages, < 1 min) · `make test` (check tier: in-process across all 6 packages) · `make test-e2e` (Docker e2e) · `make test-apps` / `test-app APP=…` (deploy real apps via `hop3-test`) · `make test-nightly`.
 
@@ -267,7 +267,7 @@ path = "/api/health"
 status = 200
 ```
 
-Everything else (name, category, services, deployment type) is derived automatically from the surrounding `hop3.toml`. See [config.md](../reference/config.md#test---test-harness-metadata) for the field-by-field reference.
+Everything else (name, category, services, deployment type) is derived automatically from the surrounding `hop3.toml`. See [config.md](../reference/config.md#test-test-harness-metadata) for the field-by-field reference.
 
 #### Legacy `test.toml` Configuration
 

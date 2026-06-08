@@ -140,7 +140,7 @@ static: public
 
 ### hop3.toml Sections
 
-#### [metadata] - Application Identity
+#### `[metadata]` - Application Identity
 
 ```toml
 [metadata]
@@ -151,7 +151,7 @@ author = "Your Name <you@example.com>"
 description = "A brief description"
 ```
 
-#### [build] - Build Process
+#### `[build]` - Build Process
 
 ```toml
 [build]
@@ -174,7 +174,7 @@ pip-install = ["setuptools", "wheel"]
 test = "npm test"
 ```
 
-#### [run] - Runtime Configuration
+#### `[run]` - Runtime Configuration
 
 ```toml
 [run]
@@ -188,7 +188,7 @@ before-run = ["python manage.py migrate", "python manage.py collectstatic"]
 packages = ["postgresql-client", "redis"]
 ```
 
-#### [env] - Environment Variables
+#### `[env]` - Environment Variables
 
 ```toml
 [env]
@@ -205,7 +205,7 @@ hop3 config set --app my-app SECRET_KEY="actual-secret-value"
 hop3 config set --app my-app API_TOKEN="sensitive-token"
 ```
 
-#### [port] - Port Configuration
+#### `[port]` - Port Configuration
 
 ```toml
 [port]
@@ -214,7 +214,7 @@ api = 8080      # API service port
 metrics = 9090  # Metrics endpoint
 ```
 
-#### [healthcheck] - Health Monitoring
+#### `[healthcheck]` - Health Monitoring
 
 ```toml
 [healthcheck]
@@ -223,7 +223,7 @@ timeout = 30          # Request timeout (seconds)
 interval = 60         # Check frequency (seconds)
 ```
 
-#### [[provider]] - Service Dependencies
+#### `[[provider]]` - Service Dependencies
 
 Use double brackets `[[provider]]` for arrays in TOML.
 
@@ -980,10 +980,10 @@ Add [build] section with before-build/build
 
 ## Next Steps
 
-- [Quickstart Guide](quickstart.md) - Deploy your first app
-- [hop3.toml Reference](hop3-toml-reference.md) - Complete configuration reference
+- [Quickstart Guide](../get-started/quickstart.md) - Deploy your first app
+- [hop3.toml Reference](../reference/config.md) - Complete configuration reference
 - [Migration Guide](migration-guide.md) - Migrate from other platforms
-- [CLI Reference](cli-reference.md) - All available commands
+- [CLI Reference](../reference/cli.md) - All available commands
 
 For help, run:
 ```bash

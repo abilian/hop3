@@ -742,7 +742,7 @@ Or set server-wide default via `APP_START_TIMEOUT` environment variable.
 - Use `-v` or `-vv` for more verbose output (see [Global Flags](#global-flags))
 - Build logs are also saved and can be retrieved with `app build-logs`
 - Streaming requires direct HTTP connection (SSH tunnel falls back to batch mode)
-- See [Deployment Guide](./deployment.md) for details
+- See [Packaging Applications](../guides/packaging-applications.md) for details
 
 ---
 
@@ -1241,13 +1241,13 @@ cat /path/to/myapp-source/hop3.nix
 
 **Errors:**
 - "App has no hop3.toml" — the app source has no `hop3.toml`
-- "No [nix].template in hop3.toml" — the app isn't using template mode
+- "No `[nix]`.template in hop3.toml" — the app isn't using template mode
 - "hop3.nix already exists" — remove the existing file first if you
   want to re-eject
 
 **See also:**
 - [Nix deployment guide](../guides/nix-deployment.md)
-- [hop3.toml `[nix]` section](config.md#nix--template-based-nix-builds)
+- [hop3.toml `[nix]` section](config.md#nix-template-based-nix-builds)
 
 ---
 
@@ -1292,7 +1292,7 @@ Location: /home/hop3/.hop3/backups/backup-myapp-20251112-143022.tar.gz
 Size: 45.2 MB
 ```
 
-**See Also:** [Backup and Restore Guide](./backup-restore.md)
+**See Also:** [Backup and Restore Guide](../guides/backup-restore.md)
 
 ---
 
@@ -2135,9 +2135,9 @@ hop3 <command> --help
 
 ### Documentation
 
-- **User Guide:** [docs/src/quickstart.md](./quickstart.md)
-- **Backup Guide:** [docs/src/backup-restore.md](./backup-restore.md)
-- **Migration Guide:** [docs/src/cli-migration.md](./cli-migration.md)
+- **User Guide:** [Quickstart](../get-started/quickstart.md)
+- **Backup Guide:** [Backup and Restore](../guides/backup-restore.md)
+- **Migration Guide:** [CLI Migration](../guides/cli-migration.md)
 
 ### Community
 
