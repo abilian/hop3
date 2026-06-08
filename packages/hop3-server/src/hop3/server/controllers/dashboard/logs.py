@@ -81,15 +81,18 @@ async def _send_initial_logs(log_path_anyio: anyio.Path) -> AsyncIterator[str]:
 
 async def _send_new_log_lines(log_path: Path, file_size: int) -> AsyncIterator[str]:
     """Read and send new log lines from file."""
+    # Read inside the context manager so the file is closed deterministically,
+    # then yield outside it — a yield while the file is open wouldn't run the
+    # close if the SSE consumer disconnects mid-stream (ruff ASYNC119).
     async with await anyio.open_file(log_path, "r") as f:
         await f.seek(file_size)
         new_content = await f.read()
-        new_lines = new_content.splitlines(keepends=True)
 
-        for line in new_lines:
-            if line:
-                escaped_line = line.rstrip().replace("\n", "\\n")
-                yield f"data: {escaped_line}\n\n"
+    new_lines = new_content.splitlines(keepends=True)
+    for line in new_lines:
+        if line:
+            escaped_line = line.rstrip().replace("\n", "\\n")
+            yield f"data: {escaped_line}\n\n"
 
 
 class LogsController(Controller):
