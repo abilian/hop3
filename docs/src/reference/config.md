@@ -48,7 +48,7 @@ Place `hop3.toml` in one of these locations (checked in order):
 
 ## Sections
 
-### [metadata] - Application Metadata
+### `[metadata]` - Application Metadata
 
 Optional section for application identification.
 
@@ -66,7 +66,7 @@ author = "Your Name <you@example.com>"  # Author information
 - `title` (string): Display name for the application
 - `author` (string): Author name and email
 
-### [build] - Build Configuration
+### `[build]` - Build Configuration
 
 Controls how your application is built and prepared for deployment.
 
@@ -105,7 +105,7 @@ pip-install = ["setuptools", "wheel"]
 **Procfile Mapping:**
 - `build.before-build` → Procfile `prebuild`
 
-### [run] - Runtime Configuration
+### `[run]` - Runtime Configuration
 
 Defines how your application runs.
 
@@ -145,7 +145,7 @@ start-timeout = 120  # Wait up to 2 minutes for app to start
 
 The server-wide default is 60 seconds (1 minute), configurable via the `APP_START_TIMEOUT` environment variable on the server. During the wait, Hop3 streams log output so you can see what's happening.
 
-### [env] - Environment Variables
+### `[env]` - Environment Variables
 
 Define environment variables for your application.
 
@@ -162,7 +162,7 @@ LOG_LEVEL = "info"
 - Sensitive values should be injected through `hop3 config set`, not hardcoded in hop3.toml.
 - The `DEBUG` environment variable defaults to `false`. Only set `DEBUG = "true"` in development environments for troubleshooting—never in production.
 
-### [domains] - Application Hostnames
+### `[domains]` - Application Hostnames
 
 Declare the hostnames the reverse proxy should bind to your app.
 
@@ -184,7 +184,7 @@ _policy = "keep-existing"   # optional; "override" to overwrite on every deploy
 - An empty list (`list = []`) is a no-op: HOST_NAME is **not** unset. Use `hop3 domains clear <app>` to remove the binding explicitly.
 - For CRUD from the CLI, see `hop3 domains` in the CLI reference.
 
-### [port] - Port Configuration
+### `[port]` - Port Configuration
 
 Specify ports for different services.
 
@@ -195,7 +195,7 @@ api = 8080
 metrics = 9090
 ```
 
-### [healthcheck] - Health Check Configuration
+### `[healthcheck]` - Health Check Configuration
 
 Configure health check endpoints for monitoring.
 
@@ -211,7 +211,7 @@ interval = 60             # Check interval in seconds
 - `timeout` (number): Timeout for health check requests
 - `interval` (number): How often to run health checks
 
-### [backup] - Backup Configuration
+### `[backup]` - Backup Configuration
 
 Configure automated backups for your application.
 
@@ -227,7 +227,7 @@ retention = 7             # Days to keep backups
 - `schedule` (string): Cron expression for backup schedule
 - `retention` (number): Number of days to retain backups
 
-### [[addons]] - Backing Services
+### `[[addons]]` - Backing Services
 
 Declare backing services your application needs (databases, caches, object storage). Each `[[addons]]` entry auto-provisions the addon on first deploy if it doesn't already exist, and injects connection env vars into the app runtime.
 
@@ -260,7 +260,7 @@ type = "s3"
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `extensions` | list[string] | Non-trusted PostgreSQL extensions to install as superuser (e.g. `["postgis", "pgvector", "bloom"]`). Trusted extensions (`pg_trgm`, `uuid-ossp`, etc.) can be installed by the per-app user via migrations and do not need to be listed here. The platform enforces an allow-list — see `docs/src/guides/addons.md` for the default set, the operator override (`HOP3_EXTRA_PG_EXTENSIONS`), and the hard-deny set. |
+| `extensions` | `list[string]` | Non-trusted PostgreSQL extensions to install as superuser (e.g. `["postgis", "pgvector", "bloom"]`). Trusted extensions (`pg_trgm`, `uuid-ossp`, etc.) can be installed by the per-app user via migrations and do not need to be listed here. The platform enforces an allow-list — see `docs/src/guides/addons.md` for the default set, the operator override (`HOP3_EXTRA_PG_EXTENSIONS`), and the hard-deny set. |
 
 Example:
 
@@ -281,7 +281,7 @@ extensions = ["postgis", "pgvector"]
 
 For CLI-level addon management (`addon create`, `addon attach`, `addon detach`, `addon destroy`) and end-to-end examples, see [Addons Guide](../guides/addons.md).
 
-### [test] - Test Harness Metadata
+### `[test]` - Test Harness Metadata
 
 Optional section for the `hop3-test` framework. Holds fields that are genuinely test-specific; everything else (app name, description, addons, healthcheck path) is derived from the rest of `hop3.toml`. Replaces the separate `test.toml` file (removed 2026-04-21 — one source of truth per app).
 
@@ -575,5 +575,5 @@ This will generate a hop3.toml from your Procfile. Review and customize as neede
 ## See Also
 
 - [Procfile Reference](https://devcenter.heroku.com/articles/procfile)
-- [Migration Guide](migration-guide.md)
-- [Examples](examples/)
+- [Migration Guide](../guides/migration-guide.md)
+- Examples

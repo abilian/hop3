@@ -288,7 +288,7 @@ Proxies configure reverse proxies for applications.
 **Required attributes**:
 - `app` (App): Application instance
 - `env` (Env): Environment variables
-- `workers` (dict[str, str]): Worker configurations
+- `workers` (`dict[str, str]`): Worker configurations
 
 **Required methods** (abstract):
 - `get_proxy_name() -> str`: Return proxy name ("nginx", "caddy", "traefik")
@@ -376,7 +376,7 @@ OS implementations handle operating system-specific configuration.
 **Required attributes**:
 - `name` (str): OS identifier (e.g., "debian12", "ubuntu2204")
 - `display_name` (str): Human-readable name
-- `packages` (list[str]): Required system packages
+- `packages` (`list[str]`): Required system packages
 
 **Required methods**:
 - `detect() -> bool`: Check if this OS matches the current system

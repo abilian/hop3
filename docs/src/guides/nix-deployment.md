@@ -112,7 +112,7 @@ No Nix code, no `fetchurl`, no hash to maintain.
 | `node-prebuilt` | Node.js apps shipped as a pre-built tarball (Tier 3) |
 
 For full template field reference, see the
-[hop3.toml `[nix]` section](../reference/config.md#nix--template-based-nix-builds).
+[hop3.toml `[nix]` section](../reference/config.md#nix-template-based-nix-builds).
 
 ## Source builds vs pre-built binaries
 
@@ -392,7 +392,7 @@ Notable examples:
 
 - [Nix Integration Reference](../reference/nix.md) — Full technical
   reference, runtime.json schema
-- [hop3.toml `[nix]` section](../reference/config.md#nix--template-based-nix-builds)
+- [hop3.toml `[nix]` section](../reference/config.md#nix-template-based-nix-builds)
   — All template fields
-- [`nix eject` command](../reference/cli.md#hop3-nixeject) — CLI reference
+- [`nix eject` command](../reference/cli.md#hop3-nix-eject) — CLI reference
 - [User Guide](user-guide.md) — General deployment guide

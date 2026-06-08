@@ -42,7 +42,7 @@ Once you've completed your changes, pushed them to your fork, and ensured they a
 
 ## Testing
 
-Hop3 uses a three-layer testing strategy (see [ADR 043](../../../notes/adrs/043-unified-testing-architecture.md)). All contributions should include appropriate tests. A test's layer is decided by what it *needs* (Docker, root, host mutation), not by how complex it is — duplication across layers is allowed.
+Hop3 uses a three-layer testing strategy (see ADR 043). All contributions should include appropriate tests. A test's layer is decided by what it *needs* (Docker, root, host mutation), not by how complex it is — duplication across layers is allowed.
 
 ### Test Requirements
 
@@ -90,7 +90,7 @@ Each package's `tests/` directory holds up to three layers. The root `conftest.p
    - Does *not* count toward coverage
    - Runs in the check tier (Docker) and nightly
 
-> Earlier versions of this doc described a four-layer model with a `c_system` layer and a `d_e2e` layer. That has been consolidated: `c_system` was dissolved (its in-process test moved into `b_integration`) and `d_e2e` was renamed `c_e2e`. See [ADR 043](../../../notes/adrs/043-unified-testing-architecture.md).
+> Earlier versions of this doc described a four-layer model with a `c_system` layer and a `d_e2e` layer. That has been consolidated: `c_system` was dissolved (its in-process test moved into `b_integration`) and `d_e2e` was renamed `c_e2e`. See ADR 043.
 
 ### Docker Requirement
 
@@ -175,14 +175,14 @@ E2E tests run in Docker containers with `HOP3_UNSAFE=true` to bypass authenticat
 - Containers are destroyed after tests complete
 - Containers are not exposed to any network
 
-**Never** use `HOP3_UNSAFE` outside of isolated test containers. See the [Security Policy](../../policies/security-policy.md#hop3_unsafe-mode) for more details.
+**Never** use `HOP3_UNSAFE` outside of isolated test containers. See the [Security Policy](../reference/policies/security-policy.md#hop3_unsafe-mode) for more details.
 
 ### Additional Testing Resources
 
 For comprehensive testing documentation, see:
 - [Testing Strategy](./testing-strategy.md) - Complete testing guide
 - [Testing Documentation](./testing.md) - Quick reference
-- [test-status](/notes/testing/status.md) - Current test status
+- test-status - Current test status
 
 ## Continuous Integration
 

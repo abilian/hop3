@@ -249,7 +249,7 @@ Internet → Nginx → uWSGI Emperor → App Worker → Response
 
 ## Testing
 
-Testing follows [ADR 043](../../../../notes/adrs/043-unified-testing-architecture.md). There are three pytest layers under `tests/`. A test's layer is decided by what it *needs* (Docker, root, or host mutation), not by how complex it is, so duplication across layers is allowed:
+Testing follows ADR 043. There are three pytest layers under `tests/`. A test's layer is decided by what it *needs* (Docker, root, or host mutation), not by how complex it is, so duplication across layers is allowed:
 
 - `a_unit/` - Unit tests; no Docker; counts toward coverage; tier `fast`.
 - `b_integration/` - Integration tests; in-process, against a real in-memory database; no Docker; counts toward coverage; tier `check`.
@@ -332,8 +332,7 @@ sqlite3 /home/hop3/hop3.db ".tables"
 
 ## Future Work
 
-See the NGI release plans ([0.5](../../../../notes/ngi-2024/release-plan-0.5.md),
-[0.6](../../../../notes/ngi-2024/release-plan-0.6.md)) for the current
+See the NGI release plans (0.5, 0.6) for the current
 roadmap, including:
 
 - Web dashboard

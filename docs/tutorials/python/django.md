@@ -1083,7 +1083,7 @@ pip install django-debug-toolbar
 - **[CLI Reference](../../reference/cli.md)** - Complete command reference
 - **[hop3.toml Reference](../../reference/config.md)** - Full configuration options
 - **[Backup and Restore Guide](../../guides/backup-restore.md)** - Protect your data
-- **[Migration Guide](../migration-guide.md)** - Migrate from Heroku or other platforms
+- **[Migration Guide](../../guides/migration-guide.md)** - Migrate from Heroku or other platforms
 
 ## Example Files
 

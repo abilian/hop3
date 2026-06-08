@@ -206,6 +206,6 @@ database_url = os.environ.get("DATABASE_URL")
 
 ## Next Steps
 
-- See [Deploying with Nix](../guides/nix-deployment.md) for patterns in Go, Node.js, Ruby, and static sites
-- See [Nix Integration Reference](../reference/nix.md) for the full `runtime.json` specification
+- See [Deploying with Nix](../../guides/nix-deployment.md) for patterns in Go, Node.js, Ruby, and static sites
+- See [Nix Integration Reference](../../reference/nix.md) for the full `runtime.json` specification
 - Browse working examples in `apps/nix-apps/` (10 apps across 6 languages)

@@ -429,6 +429,6 @@ def test_session_cleanup(di_container):
 ## References
 
 - [Testing Strategy](testing-strategy.md) - Overall testing approach
-- [ADR 092](../../../notes/adrs/092-pluggy-dishka-integration.md) - Pluggy+Dishka integration
+- ADR 028 - Pluggy+Dishka integration
 - [Dishka Documentation](https://dishka.readthedocs.io/) - Dishka framework docs
 - [Pytest Documentation](https://docs.pytest.org/) - Pytest testing framework
