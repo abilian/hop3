@@ -8,12 +8,16 @@ import argparse
 import subprocess
 import sys
 
+# Every workspace package — versions are kept in lockstep across ALL of them,
+# including the internal hop3-testlab (synced here but NOT published; the
+# published subset is the separate PACKAGES list in scripts/release.py).
 PACKAGES = [
     "hop3-cli",
     "hop3-installer",
     "hop3-rootd",
     "hop3-server",
     "hop3-testing",
+    "hop3-testlab",
     "hop3-tui",
 ]
 
