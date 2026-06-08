@@ -4,52 +4,57 @@
 
 ## Overview
 
-Hop3 uses a multi-layer testing approach with two complementary systems:
+Hop3 uses a multi-layer testing approach across three complementary runners (pytest for platform code, `hop3-test` for applications, `validoc` for tutorials):
 
 ### Test Layers (pytest-based)
 
-1. **Unit Tests** (`tests/a_unit/`) - Individual components in isolation
-2. **Integration Tests** (`tests/b_integration/`) - Multiple components within subsystems
-3. **System Tests** (`tests/c_system/`) - CLI ↔ Server communication
-4. **E2E Tests** (`tests/d_e2e/`) - Full deployments with Docker
+Three layers live under each package's `tests/`. The layer is decided by what a test *needs* (Docker, root, host-mutation), not by complexity — duplication across layers is allowed (see [ADR 043](../../../notes/adrs/043-unified-testing-architecture.md)).
+
+1. **Unit Tests** (`tests/a_unit/`) - Individual components in isolation; no Docker; count toward coverage; tier `fast`
+2. **Integration Tests** (`tests/b_integration/`) - Multiple components within a subsystem, in-process against a real in-memory DB; no Docker; count toward coverage; tier `check`
+3. **E2E Tests** (`tests/c_e2e/`) - Full deployments with a real Docker target; no coverage; run in the check tier (Docker) and nightly
 
 ### Application Testing (hop3-test)
 
-The `hop3-test` CLI provides deployment testing for applications:
+Beyond pytest, two more runners cover the other domains (only pytest produces coverage):
 
-- **System Testing** - Test Hop3 itself using real `hop3-deploy`
-- **Apps Testing** - Test applications against a pre-deployed Hop3 server
+- **`hop3-test`** — applications: deploys real apps and demos to a `DeploymentTarget` (Docker, SSH, Hetzner) and verifies them.
+- **`validoc`** — narratives: runs the tutorials as doc-as-tests.
 
 ## Quick Start
 
 ### Run Unit + Integration Tests
 
 ```bash
-# Fast tests (recommended for development)
+# Fast lane — unit only, all packages, no Docker (< 1 min)
+make test-fast
+
+# Check tier — unit + integration, all packages, no Docker
 make test
 
 # Or using pytest directly
 pytest packages/hop3-server/tests/a_unit/ packages/hop3-server/tests/b_integration/
 ```
 
-### Run System Tests (Docker-based)
+### Run E2E Tests (Docker-based)
 
 ```bash
-# Test Hop3 system with known-good apps
-make test-system
+# The Docker e2e layer (c_e2e): real deploys, backups, git-push
+make test-e2e
 
-# Or with more apps (CI mode)
-uv run hop3-test system --mode ci
+# Or using pytest directly
+unset HOP3_DEV_HOST
+pytest packages/hop3-server/tests/c_e2e/
 ```
 
 ### Run Application Tests
 
 ```bash
-# Test all apps against pre-built Hop3 image
+# Deploy the real-app catalog on Docker via hop3-test
 make test-apps
 
-# Requires building the image first
-uv run hop3-test build-ready-image
+# Test a single app or path
+make test-app APP=apps/real-apps-native/edrix
 ```
 
 ## Test Commands Reference
@@ -58,46 +63,56 @@ uv run hop3-test build-ready-image
 
 | Command | Description | Duration |
 |---------|-------------|----------|
-| `make test` | Unit + integration tests | ~30s |
-| `make test-system` | System tests (5 fast apps) | ~2min |
-| `make test-apps` | All app tests | ~5min |
-| `make test-with-coverage` | Tests with coverage report | ~1min |
+| `make test-fast` | Unit only, all packages, no Docker | < 1min |
+| `make test` | Check tier: unit + integration, all packages, no Docker | ~30s |
+| `make test-e2e` | The Docker e2e layer (`c_e2e`): real deploys, backups, git-push | ~10min |
+| `make test-with-coverage` | Coverage on the in-process layers (unit + integration) | ~1min |
+| `make test-apps` | Deploy the real-app catalog on Docker (`hop3-test`) | ~5min |
+| `make test-list` | List available app/demo/tutorial tests | instant |
+| `make test-nightly` | Full app/demo/tutorial matrix on Docker + HTML report | long |
+| `make test-installer` | Test the installers | ~5min |
 | `make lint` | Linting and type checking | ~30s |
 
 ### Hetzner Cloud Testing
 
 | Command | Description |
 |---------|-------------|
-| `hop3-test hetzner` | Run E2E tests on Hetzner Cloud |
-| `hop3-test multi-distro` | Test across multiple Linux distributions |
+| `hop3-test cloud --image ubuntu-24.04` | Run e2e/app tests on a cloud server (Hetzner) |
+| `hop3-test cloud --images ubuntu-24.04,debian-13` | Test across multiple Linux distributions |
 
 ### hop3-test CLI
 
 ```bash
-# System testing (deploys Hop3 via hop3-deploy)
-hop3-test system                    # Dev mode (5 fast tests)
-hop3-test system --mode ci          # CI mode (8 tests, includes medium tier)
-hop3-test system --deploy-from git  # Deploy from git instead of local
-hop3-test system --clean            # Clean install first
+# System testing (deploys Hop3, then deploys + verifies apps)
+hop3-test system --docker                       # Deploy + test defaults on Docker
+hop3-test system --docker --clean --with all    # Clean install with all addons
+hop3-test system --docker apps/real-apps-native # Scan a directory
+hop3-test system --docker apps/real-apps-native/edrix  # One app or path
+hop3-test system --ssh --host $HOP3_DEV_HOST    # Remote via SSH
+hop3-test system --reuse --ssh --host $HOP3_DEV_HOST   # Skip deploy, test existing
+hop3-test system --docker --deploy-from git --branch devel  # Deploy from git
+hop3-test system --docker --mode nightly        # Wider matrix (dev | ci | nightly | release)
 
-# Application testing (uses pre-built image)
-hop3-test apps                      # Test all deployment apps
-hop3-test apps 010-flask-pip-wsgi   # Test specific app
-hop3-test apps --category python    # Test by category
-hop3-test apps -q                   # Quiet mode (no recap)
-
-# Utilities
-hop3-test build-ready-image         # Build hop3-ready:latest image
-hop3-test catalog                   # List available tests
+# List / inspect
+hop3-test list                      # List available app/demo/tutorial tests
+hop3-test why <run-id>              # Show the diagnostic bundle for a failed run
 ```
 
 ## Test Organization
+
+A test's layer is decided by what it *needs*, not by complexity: if it needs Docker, root, or host-mutation it belongs in `c_e2e`; otherwise it stays in-process in `a_unit` or `b_integration`. The root `conftest.py` stamps a marker from the directory, so `-m fast`, `-m integration`, `-m e2e`, and `-m "not needs_docker"` select the right lane regardless of package.
+
+```bash
+pytest -m fast                 # a_unit (+ flat unit suites)
+pytest -m "not needs_docker"   # everything except the Docker e2e layer
+```
 
 ### Layer 1: Unit Tests
 
 **Location**: `packages/hop3-server/tests/a_unit/`
 **Speed**: < 1 second
-**Requirements**: None
+**Requirements**: None — counts toward coverage
+**Marker**: `fast`
 
 ```bash
 pytest packages/hop3-server/tests/a_unit/ -v
@@ -107,52 +122,39 @@ pytest packages/hop3-server/tests/a_unit/ -v
 
 **Location**: `packages/hop3-server/tests/b_integration/`
 **Speed**: ~10 seconds
-**Requirements**: None (uses TestClient, in-memory DB)
+**Requirements**: None — in-process, real in-memory DB; counts toward coverage
+**Marker**: `integration`
 
 ```bash
 pytest packages/hop3-server/tests/b_integration/ -v
 ```
 
-### Layer 3: System Tests
+### Layer 3: E2E Tests
 
-**Location**: `packages/hop3-server/tests/c_system/`
-**Speed**: ~20 seconds
-**Requirements**: Docker
+**Location**: `packages/hop3-server/tests/c_e2e/`
+**Speed**: 10-20 minutes
+**Requirements**: Docker (real deploy) — no coverage
+**Marker**: `e2e` (+ `needs_docker`)
 
 ```bash
 unset HOP3_DEV_HOST
-pytest packages/hop3-server/tests/c_system/ -v
-```
-
-### Layer 4: E2E Tests
-
-**Location**: `packages/hop3-server/tests/d_e2e/`
-**Speed**: 10-20 minutes
-**Requirements**: Docker
-
-```bash
-pytest packages/hop3-server/tests/d_e2e/ -v
+pytest packages/hop3-server/tests/c_e2e/ -v
 ```
 
 ## Application Testing with hop3-test
 
 ### Test Apps Directory
 
-Test applications are located in `apps/test-apps/` and `apps/nix-apps/`:
+Test applications live under several `apps/` directories (plus `demos/`):
 
 ```
-apps/test-apps/
-├── 000-static/           # Static website (nginx)
-├── 010-flask-pip-wsgi/   # Python Flask with pip
-├── 020-nodejs-express/   # Node.js Express
-├── 030-golang-gin/       # Go Gin framework
-├── 040-sinatra/          # Ruby Sinatra
-├── 100-flask-gunicorn-pip/    # Flask with Gunicorn
-├── 110-flask-gunicorn-poetry/ # Flask with Poetry
-└── 130-golang-minimal/   # Minimal Go app
-
-apps/nix-apps/
-└── flask-hello/          # Flask app built with Nix
+apps/test-apps-procfile/   # Procfile-only fixtures (standalone test.toml)
+apps/test-apps-nix/        # Nix fixtures
+apps/real-apps-native/     # Real apps, native build
+apps/real-apps-docker/     # Real apps, Docker build
+apps/real-apps-nix/        # Real apps, Nix hand-crafted
+apps/real-apps-nix-gen/    # Real apps, Nix from template
+demos/                     # Demos (standalone test.toml)
 ```
 
 ### Test Configuration (`[test]` in hop3.toml)
@@ -194,20 +196,24 @@ Note: `tier` is *only* a report-grouping label — all builds share a single 30-
 
 ### Test Modes
 
-| Mode | Tiers | Priority | Use Case |
-|------|-------|----------|----------|
-| `dev` | fast | P0 | Quick verification (~90s) |
-| `ci` | fast, medium | P0 | CI pipelines (~150s) |
-| `nightly` | fast, medium, slow | P0, P1 | Nightly builds |
-| `release` | all | all | Release validation |
+When no apps are named, `--mode` filters the catalog by tier/priority:
+
+| Mode | Selection | Use Case |
+|------|-----------|----------|
+| `dev` | fast / P0 only | Quick verification |
+| `ci` | P0 across tiers | CI pipelines |
+| `nightly` | wider matrix, P0 + P1 | Nightly builds |
+| `release` | everything | Release validation |
 
 ### Test Targets
 
-| Target | Description | Command |
-|--------|-------------|---------|
-| `docker` | Fresh Hop3 via hop3-deploy | `--target docker` |
-| `ready` | Pre-built hop3-ready image | `--target ready` |
-| `remote` | Existing remote server | `--target remote --host X` |
+The `system` command picks a target via a flag (the `DeploymentTarget` ABC covers Docker, SSH, and cloud):
+
+| Target | Description | Flag |
+|--------|-------------|------|
+| Docker | Fresh Hop3 deployed into a local container | `--docker` |
+| SSH    | Existing remote server | `--ssh --host X` |
+| Cloud  | Provisioned cloud server(s) (Hetzner) | `hop3-test cloud` |
 
 ## Test Output
 
@@ -232,7 +238,15 @@ Use `-q/--quiet` to suppress the recap.
 
 ### Diagnostic Logs
 
-Failed tests generate diagnostic logs in `test-logs/`:
+On failure of a Docker e2e or app test, a diagnostic bundle is collected for the run. Replay it with the run id printed in the failure headline:
+
+```bash
+hop3-test why <run-id>            # Show the full bundle
+hop3-test why <run-id> --list     # List available sections
+hop3-test why <run-id> --section nginx   # Replay one section
+```
+
+Per-app logs are also written under `test-logs/` (override with `--logs-dir`):
 
 ```
 test-logs/
@@ -246,58 +260,60 @@ test-logs/
 
 ## Continuous Integration
 
-### GitHub Actions (Planned)
+CI runs on **SourceHut** (build manifests live in `.builds/`), not GitHub Actions. A typical pipeline runs:
 
-```yaml
-# Run on every PR
-- make test           # Unit + integration
-- make lint           # Linting
-
-# Run on merge to main
-- make test-system    # System tests (dev mode)
-
-# Nightly
-- hop3-test system --mode nightly
+```bash
+make lint             # Linting and type checking
+make test             # Check tier: unit + integration, no Docker
+make test-e2e         # The Docker e2e layer (c_e2e)
 ```
 
-### SourceHut (Current)
+The wider app/demo/tutorial matrix runs nightly:
 
-Current CI runs:
-- Unit tests
-- Integration tests
-- Linting and type checking
+```bash
+make test-nightly     # hop3-test system --docker --mode nightly + HTML report
+```
 
 See: <https://builds.sr.ht/~sfermigier/hop3/>
 
 ## Coverage
 
+Coverage is measured on the in-process layers only (`a_unit` + `b_integration`) — the Docker e2e layer runs out-of-process and contributes nothing to coverage.
+
 ```bash
-# Generate coverage report
-pytest --cov=hop3 --cov-report=html
+# Coverage on the in-process layers
+make test-with-coverage
+
+# Or directly (HTML report)
+pytest --cov=hop3 --cov-report=html \
+  packages/hop3-server/tests/a_unit packages/hop3-server/tests/b_integration
 
 # Open report
 open htmlcov/index.html
 ```
 
-## Hetzner Cloud Testing
+## Cloud Testing
 
-For E2E testing on real cloud infrastructure, use the Hetzner commands. Requires `HETZNER_API_TOKEN` environment variable.
+For E2E testing on real cloud infrastructure, use `hop3-test cloud`. Requires the `HETZNER_API_TOKEN` environment variable (Hetzner provider).
 
 ```bash
 # List available images
-hop3-test multi-distro --list-images
+hop3-test cloud --list-images
 
 # Test on a single distribution
-hop3-test hetzner --image ubuntu-24.04 --suites test-apps
+hop3-test cloud --image ubuntu-24.04
 
 # Test across multiple distributions
-hop3-test multi-distro --images ubuntu-24.04 debian-13
+hop3-test cloud --images ubuntu-24.04,debian-13
+
+# Choose which app directories to test
+hop3-test cloud --apps apps/real-apps-native --apps demos
 
 # Use local code
-hop3-test hetzner --use-local-repo
+hop3-test cloud --use-local-repo
 
 # Skip phases for debugging
-hop3-test hetzner --skip-reset --skip-deploy  # Only run tests
+hop3-test cloud --skip-reset --skip-deploy  # Only run tests
 ```
 
 ### Supported Images
@@ -311,11 +327,11 @@ hop3-test hetzner --skip-reset --skip-deploy  # Only run tests
 
 ## Troubleshooting
 
-### "Image hop3-ready:latest not found"
+### A Docker e2e or app test failed
 
-Build the ready image first:
+Inspect the saved diagnostic bundle by run id (printed in the failure headline):
 ```bash
-uv run hop3-test build-ready-image
+hop3-test why <run-id>
 ```
 
 ### Tests Hang
@@ -336,8 +352,8 @@ uv sync
 # Clean up containers
 docker rm -f hop3-app-test hop3-system-test
 
-# Rebuild images
-docker build -f packages/hop3-server/tests/d_e2e/docker/Dockerfile -t hop3-ready:latest .
+# Force a rebuild of the cached e2e image (the next c_e2e run rebuilds it)
+docker rmi hop3-e2e:test
 ```
 
 For detailed information, see [Testing Strategy](testing-strategy.md).

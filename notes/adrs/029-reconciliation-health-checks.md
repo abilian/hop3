@@ -8,11 +8,13 @@
 
 ## Revisions
 
-- v0.3: CLI examples migrated from colon syntax (`hop3 app:deploy`, `hop3 app:logs`, `hop3 app:start`, proposed `hop3 app:health` / `hop3 app:events`) to space form per ADR 036 (2026-04-22).
-- v0.2: Explicit status note. None of the four components (background reconciliation loop, active health checks, restart policies, immutable event log) has been implemented. The `[healthcheck]` section in `hop3.toml` *is* parsed and used by the deployer's one-shot startup probe, but the reconciliation loop, the active periodic probing, and the audit log remain on paper. PLAN-2026-Q2 schedules this work for the 0.6 release as the concrete Phase 1 of ADR 017 (2026-04-14).
+- v0.3: CLI examples migrated to space form per ADR 036 (2026-04-22).
+- v0.2: Status note — none of the four components is yet implemented; design only (2026-04-14).
 - v0.1: Initial draft (2025-11-25)
 
-## Current Status (2026-04-14)
+## Current Status
+
+This ADR is a design proposal; none of the four components below is yet implemented.
 
 What exists today:
 - The `[healthcheck]` section in `hop3.toml` is parsed.
@@ -26,8 +28,6 @@ What this ADR proposes and what is **not** implemented:
 - A `RestartPolicy` model (NEVER / ON_FAILURE / ALWAYS) with exponential backoff.
 - An immutable `AppEvent` audit log of all state changes.
 - New CLI commands `hop3 app health` and `hop3 app events`.
-
-The design below is what will be built when the work is scheduled. Until that happens, the ADR is paper, not code.
 
 ## Introduction
 
@@ -1135,35 +1135,6 @@ def downgrade():
    - **Mitigation**: Configurable thresholds and start periods
 3. **Database Lock Contention**: Frequent writes from watchdog
    - **Mitigation**: Batch commits, optimize query patterns
-
-## Action Items
-
-### Phase 1: Core Infrastructure (Week 1-2)
-- [ ] Create database migrations for new tables/columns
-- [ ] Implement AppEvent model and logging
-- [ ] Implement HealthCheckResult model
-- [ ] Add restart policy fields to App model
-- [ ] Write unit tests for new models
-
-### Phase 2: Watchdog Service (Week 2-3)
-- [ ] Implement WatchdogService class
-- [ ] Implement HealthChecker class
-- [ ] Integrate with Litestar lifespan
-- [ ] Add configuration options
-- [ ] Write integration tests
-
-### Phase 3: CLI and Dashboard (Week 3-4)
-- [ ] Implement health:status command
-- [ ] Implement health:history command
-- [ ] Implement app:events command
-- [ ] Update dashboard UI with health indicators
-- [ ] Add event log view to dashboard
-
-### Phase 4: Documentation and Testing (Week 4)
-- [ ] Update hop3.toml reference documentation
-- [ ] Write operational guide for health checks
-- [ ] End-to-end testing with failure scenarios
-- [ ] Performance testing under load
 
 ## Alternatives Considered
 

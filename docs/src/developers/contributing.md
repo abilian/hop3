@@ -42,7 +42,7 @@ Once you've completed your changes, pushed them to your fork, and ensured they a
 
 ## Testing
 
-Hop3 uses a comprehensive four-layer testing strategy. All contributions should include appropriate tests.
+Hop3 uses a three-layer testing strategy (see [ADR 043](../../../notes/adrs/043-unified-testing-architecture.md)). All contributions should include appropriate tests. A test's layer is decided by what it *needs* (Docker, root, host mutation), not by how complex it is — duplication across layers is allowed.
 
 ### Test Requirements
 
@@ -52,51 +52,49 @@ Hop3 uses a comprehensive four-layer testing strategy. All contributions should 
 - Add tests at the appropriate layer (usually unit or integration)
 
 **For New Features:**
-- Add unit tests for new functions/classes
-- Add integration tests for component interactions
-- Add system tests if the feature involves CLI commands
-- Add E2E tests if the feature involves complete workflows
+- Add unit tests (`a_unit/`) for new functions/classes
+- Add integration tests (`b_integration/`) for component interactions that need a real in-memory DB
+- Add E2E tests (`c_e2e/`) if the feature needs a real Docker deploy or host mutation
 
 ### Running Tests
 
 Before submitting a PR, ensure all tests pass:
 
 ```bash
-# Quick tests (unit + integration) - run before every commit
-pytest packages/hop3-server/tests/a_unit/ packages/hop3-server/tests/b_integration/
+# Fast tests (unit only, no Docker) - the inner loop, run constantly
+make test-fast
 
-# System tests - run before pushing
-pytest packages/hop3-server/tests/c_system/
+# Check tier (unit + integration, all packages, no Docker) - run before pushing
+make test
 
-# All tests (takes longer)
-pytest
+# Docker e2e layer (real deploys, backups, git-push) - needs Docker
+make test-e2e
 ```
 
 ### Test Layers
 
+Each package's `tests/` directory holds up to three layers. The root `conftest.py` stamps a marker on each layer (`fast`, `integration`, `e2e`, `needs_docker`), so `pytest -m fast` and `pytest -m "not needs_docker"` work across all packages.
+
 1. **Unit Tests** (`tests/a_unit/`): Fast, isolated tests of individual functions
-   - No external dependencies
-   - Mock all I/O operations
-   - Should run in < 1 second
+   - No Docker, no external dependencies
+   - Counts toward coverage
+   - Tier: `fast` (the inner loop, < 1 min for the whole suite)
 
 2. **Integration Tests** (`tests/b_integration/`): Component interaction tests
-   - Uses in-memory database
-   - Uses Starlette TestClient
-   - Should run in ~10 seconds
+   - In-process, against a real in-memory database; no Docker
+   - Counts toward coverage
+   - Tier: `check`
 
-3. **System Tests** (`tests/c_system/`): CLI ↔ Server communication tests
-   - **Requires Docker**
-   - Tests use isolated Docker containers
-   - Should run in ~20 seconds (after initial image build)
+3. **E2E Tests** (`tests/c_e2e/`): Complete workflow tests
+   - **Requires Docker** — real application deploys, backups, git-push
+   - Does *not* count toward coverage
+   - Runs in the check tier (Docker) and nightly
 
-4. **E2E Tests** (`tests/d_e2e/`): Complete workflow tests
-   - **Requires Docker**
-   - Tests real application deployments
-   - Should run in 10-20 minutes
+> Earlier versions of this doc described a four-layer model with a `c_system` layer and a `d_e2e` layer. That has been consolidated: `c_system` was dissolved (its in-process test moved into `b_integration`) and `d_e2e` was renamed `c_e2e`. See [ADR 043](../../../notes/adrs/043-unified-testing-architecture.md).
 
 ### Docker Requirement
 
-System and E2E tests require Docker to be installed and running:
+E2E tests require Docker to be installed and running:
 
 ```bash
 # Check Docker is installed
@@ -120,8 +118,8 @@ uv sync --dev
 # Ensure HOP3_DEV_HOST is not set (for Docker-based testing)
 unset HOP3_DEV_HOST
 
-# Run tests
-pytest
+# Run the check tier (no Docker)
+make test
 ```
 
 ### Writing Tests
@@ -172,7 +170,7 @@ Follow these guidelines when writing tests:
 
 ### Test Configuration
 
-System and E2E tests run in Docker containers with `HOP3_UNSAFE=true` to bypass authentication. This is **only** safe because:
+E2E tests run in Docker containers with `HOP3_UNSAFE=true` to bypass authentication. This is **only** safe because:
 - Tests run in completely isolated Docker containers
 - Containers are destroyed after tests complete
 - Containers are not exposed to any network
@@ -188,64 +186,35 @@ For comprehensive testing documentation, see:
 
 ## Continuous Integration
 
-Hop3 uses GitHub Actions for continuous integration. All pull requests must pass CI checks before being merged.
+Hop3 runs CI on [SourceHut builds](https://builds.sr.ht/), driven by the manifests under `.builds/` (one per target distro, e.g. `ubuntu2404.yml`, `nixos.yml`). All pull requests should pass these checks before being merged.
 
-### CI Workflows
+### Test Runners
 
-**Main Test Workflow** (`.github/workflows/test.yml`):
-- Runs on every push and pull request to `main` and `devel` branches
-- Tests on Python 3.12 and 3.13
-- Includes:
-  - Unit tests
-  - Integration tests
-  - CLI tests
-  - Linting (Ruff)
-  - Dependency health checks
-  - Security scanning (pip-audit, safety)
-  - Code coverage reporting
+Three runners cover three domains. Only pytest produces coverage.
 
-**E2E Test Workflow** (`.github/workflows/e2e.yml`):
-- Runs on schedule (nightly at 2 AM UTC)
-- Runs on manual trigger
-- Runs on pushes to `main` (but not PRs to keep CI times reasonable)
-- Includes:
-  - E2E tests with Docker
-  - System tests with Docker
-  - Log artifact upload for debugging
+- **pytest** — platform code (unit → integration → e2e). The only runner that produces coverage.
+- **hop3-test** — applications: real apps and demos, deployed and verified over the `DeploymentTarget` ABC (Docker, SSH, Hetzner). See `make test-apps` / `make test-list`.
+- **validoc** — narratives: tutorials-as-tests. See `make test-tutorials`.
 
-### Viewing CI Results
-
-After submitting a PR:
-1. Wait for CI checks to complete (usually 5-10 minutes for main tests)
-2. Check the "Checks" tab on your PR to see results
-3. If tests fail, click on the failed check for detailed logs
-4. Fix any issues and push new commits (CI will automatically re-run)
+On failure of a Docker e2e or app test, a diagnostic bundle is collected; run `hop3-test why <run-id>` to inspect it.
 
 ### Running CI Checks Locally
 
 Before submitting a PR, you can run the same checks locally:
 
 ```bash
-# Run the same checks as CI
-make lint          # Linting
-make test          # Unit + integration tests
-pytest packages/hop3-server/tests/d_e2e  # E2E tests (slow)
-
-# Code coverage (like CI)
-pytest --cov=hop3 --cov-report=term-missing \
-  packages/hop3-server/tests/a_unit \
-  packages/hop3-server/tests/b_integration \
-  packages/hop3-cli/tests
+make lint                # Linting and type checks
+make test                # Check tier: unit + integration, all packages, no Docker
+make test-e2e            # Docker e2e layer (real deploys, slow)
+make test-with-coverage  # Coverage on the in-process layers (what coverage.py sees)
 ```
 
 ### Coverage Requirements
 
-Code coverage is tracked and reported by CI. While we don't enforce strict coverage requirements, we expect:
+Coverage is produced by pytest on the in-process layers only (`a_unit` + `b_integration`) — the Docker e2e layer does not contribute coverage. Run `make test-with-coverage` to reproduce it. While we don't enforce strict coverage requirements, we expect:
 - New features to include tests that cover the main code paths
 - Bug fixes to include regression tests
 - Coverage not to decrease significantly with new changes
-
-Coverage reports are uploaded to Codecov and available as artifacts on the GitHub Actions run.
 
 ## CLI Message Types and Rich Output
 

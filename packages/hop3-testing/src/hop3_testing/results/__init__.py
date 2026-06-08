@@ -12,14 +12,23 @@ This module provides:
 
 from __future__ import annotations
 
+# Bundle types are imported INTO results (results -> bundle), never the reverse,
+# so bundle.py stays free of any results import (no cycle).
+from hop3_testing.bundle import Bundle, ProxyProbe
+from hop3_testing.bundle_ids import make_run_id
+
 from .models import TestResultRecord, TestRun, ValidationRecord
-from .reporters import ConsoleReporter
+from .reporters import ConsoleReporter, narrate_timings
 from .store import ResultStore
 
 __all__ = [
+    "Bundle",
     "ConsoleReporter",
+    "ProxyProbe",
     "ResultStore",
     "TestResultRecord",
     "TestRun",
     "ValidationRecord",
+    "make_run_id",
+    "narrate_timings",
 ]

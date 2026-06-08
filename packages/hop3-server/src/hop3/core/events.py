@@ -39,22 +39,6 @@ class InstallingVirtualEnv(Event):
 
 
 @dataclass(frozen=True)
-class CreatingBuildEnv(Event):
-    app_name: str
-
-    def __str__(self) -> str:
-        return f"Creating build environment for {self.app_name}"
-
-
-@dataclass(frozen=True)
-class CompilingProject(Event):
-    app_name: str
-
-    def __str__(self) -> str:
-        return f"Compiling project {self.app_name}"
-
-
-@dataclass(frozen=True)
 class PreparingBuildEnv(Event):
     app_name: str
 

@@ -130,13 +130,6 @@ graph TD
 
 The initial monolithic design, while simple to start with, quickly became a bottleneck for innovation and integration. It confirmed that for a platform intended to be part of a larger ecosystem, designing for extensibility from the outset is crucial. However, the effort required to refactor the core was not significant, meaning that there is nothing wrong in prototyping with a monolith and eventually leveraging the value of adopting a decoupled, plugin-based architecture later in a project's lifecycle.
 
-## Action Items
-
-*   The refactoring of the core `do_deploy` function is complete.
-*   The `pluggy`-based plugin manager has been implemented.
-*   The original build/deploy logic has been successfully extracted into the default `BuildpackBuilder` and `UWSGIDeployer` strategies.
-*   The H3NI-specific `SMODeployer` plugin has been developed and validated.
-
 ## Alternatives
 
 1.  **Hardcoded Conditional Logic:** We could have added `if/else` blocks to the existing `Deployer` to handle different cases (e.g., `if dockerfile_exists: do_docker_build()`). This was rejected as it would lead to an unmaintainable, monolithic function and would not be extensible by third parties.
@@ -161,111 +154,55 @@ This architectural pattern is well-established and draws inspiration from numero
 
 ## Implementation Status
 
-**Last Updated:** 2025-10-14
+The core architecture described in this ADR has been implemented, with the following components operational:
 
-### Implemented ✅
+1. **Three-Stage Pipeline**: Build → Deploy → Proxy pipeline.
+2. **Plugin System**: `pluggy`-based plugin manager with auto-discovery via `pkgutil.walk_packages` and setuptools entry points.
+3. **Strategy Protocols**: All strategies implemented as Python `Protocol` types (PEP 544) for structural subtyping.
+4. **Build Strategies**: `NativeBuildPlugin` (default, wraps legacy builders for Python, Node, Ruby, Go, Static, etc.) and `DockerBuilder`, with auto-detection via the `accept()` method.
+5. **Deployment Strategies**: `UWSGIDeployer` (default for dynamic apps), `StaticDeployer` (for static sites), and `DockerDeployer`, with auto-detection via the `accept()` method.
+6. **Proxy Strategies**: `NginxProxyPlugin` (default), `CaddyProxyPlugin`, and `TraefikProxyPlugin`, selected server-wide via the `HOP3_PROXY_TYPE` environment variable.
 
-The core architecture described in this ADR has been **fully implemented** with the following components operational:
+### Extensions Beyond ADR
 
-1. **Three-Stage Pipeline**: Build → Deploy → Proxy pipeline is fully functional
-2. **Plugin System**: `pluggy`-based plugin manager with auto-discovery via `pkgutil.walk_packages` and setuptools entry points
-3. **Strategy Protocols**: All strategies implemented as Python `Protocol` types (PEP 544) for structural subtyping
-4. **Build Strategies**:
-   - `NativeBuildPlugin` (default, wraps legacy builders for Python, Node, Ruby, Go, Static, etc.)
-   - `DockerBuilder` (in progress)
-   - Auto-detection via `accept()` method
-5. **Deployment Strategies**:
-   - `UWSGIDeployer` (default for dynamic apps)
-   - `StaticDeployer` (for static sites)
-   - `DockerDeployer` (in progress)
-   - Auto-detection via `accept()` method
-6. **Proxy Strategies** (fully pluginized):
-   - `NginxProxyPlugin` (default)
-   - `CaddyProxyPlugin`
-   - `TraefikProxyPlugin`
-   - **Server-wide configuration** via `HOP3_PROXY_TYPE` environment variable
+The implementation includes value-add features beyond the original ADR scope:
 
-### Extensions Beyond ADR ➕
-
-The implementation includes significant value-add features beyond the original ADR scope:
-
-1. **Addon**: Plugin system for managing backing services (PostgreSQL, Redis) with encrypted credential persistence
-2. **OS**: Plugin system for multi-distribution OS support (Debian, Ubuntu, Arch, BSD, etc.)
-3. **Server-wide Proxy Configuration**: Proxy selection is server-wide (via `HOP3_PROXY_TYPE`), not per-application, reflecting the practical reality that one server uses one reverse proxy for all applications
-4. **Protocol-based Design**: Using Python `Protocol` instead of ABC for better IDE support and more Pythonic code
+1. **Addon**: Plugin system for managing backing services (PostgreSQL, Redis) with encrypted credential persistence.
+2. **OS**: Plugin system for multi-distribution OS support (Debian, Ubuntu, Arch, BSD, etc.).
+3. **Server-wide Proxy Configuration**: Proxy selection is server-wide (via `HOP3_PROXY_TYPE`), not per-application, reflecting the practical reality that one server uses one reverse proxy for all applications.
+4. **Protocol-based Design**: Using Python `Protocol` instead of ABC for better IDE support and more Pythonic code.
 
 #### Service Credential Persistence
 
-**Status:** ✅ Implemented (2025-01-12)
-
-The Addon system has been extended with a robust credential persistence layer to ensure service connection details survive server restarts and are properly managed through the service lifecycle.
+The Addon system has been extended with a credential persistence layer so that service connection details survive server restarts and are managed through the service lifecycle.
 
 **Architecture:**
-- **ServiceCredential ORM Model**: Stores encrypted credentials in the database with CASCADE delete on app removal
-- **CredentialEncryption Helper**: Fernet AEAD encryption with PBKDF2-HMAC-SHA256 key derivation (100K iterations)
-- **Singleton Encryptor**: Single encryption instance per process for performance
-- **HOP3_SECRET_KEY**: Environment variable provides the encryption key (required for production)
+- **ServiceCredential ORM Model**: Stores encrypted credentials in the database with CASCADE delete on app removal.
+- **CredentialEncryption Helper**: Fernet AEAD encryption with PBKDF2-HMAC-SHA256 key derivation (100K iterations).
+- **Singleton Encryptor**: Single encryption instance per process for performance.
+- **HOP3_SECRET_KEY**: Environment variable provides the encryption key (required for production).
 
 **Lifecycle Management:**
-1. **services:create** - Service created but credentials not yet stored (no app context)
-2. **services:attach** - Credentials encrypted and stored when service attached to app
-3. **services:detach** - Credentials decrypted to find env vars to remove, then deleted
-4. **services:destroy** - All credentials across all apps removed before service destruction
+1. **services:create** - Service created but credentials not yet stored (no app context).
+2. **services:attach** - Credentials encrypted and stored when service attached to app.
+3. **services:detach** - Credentials decrypted to find env vars to remove, then deleted.
+4. **services:destroy** - All credentials across all apps removed before service destruction.
 
 **Security Properties:**
-- Authenticated Encryption with Associated Data (AEAD) via Fernet
-- Credentials encrypted at rest in SQLite database
-- Database backups safe (cannot decrypt without HOP3_SECRET_KEY)
-- Tampering detection built-in (InvalidToken on modification)
-- URL-safe base64 encoding (Fernet standard)
-- Thread-safe singleton encryptor
+- Authenticated Encryption with Associated Data (AEAD) via Fernet.
+- Credentials encrypted at rest in SQLite database.
+- Database backups safe (cannot decrypt without HOP3_SECRET_KEY).
+- Tampering detection built-in (InvalidToken on modification).
+- URL-safe base64 encoding (Fernet standard).
+- Thread-safe singleton encryptor.
 
-**Testing:**
-- 12 unit tests for encryption logic
-- 8 integration tests for ORM persistence
-- 7 integration tests for services commands
-- 100% test coverage for credential system
-- Zero regressions in existing test suite
-
-**Files:**
-- `packages/hop3-server/src/hop3/orm/service_credential.py` - ORM model
-- `packages/hop3-server/src/hop3/core/credentials.py` - Encryption helper
-- `packages/hop3-server/src/hop3/commands/services.py` - Command integration
-
-**Implementation Time:** ~7 hours (infrastructure + tests + integration)
-
-**Key Design Decision:** Credentials stored during `services:attach` (when app context available) rather than `services:create` (no app context), allowing one service to be attached to multiple apps with separate credential records.
-
-### Remaining Work ⚠️
-
-1. **Explicit Strategy Selection via hop3.toml** (Low Priority):
-   - Auto-detection via `accept()` methods works well for most cases
-   - Explicit configuration (`[build] strategy = "docker"`) not yet implemented
-   - Estimated effort: 2-3 hours
-
-2. **Third-Party Plugin Testing** (Medium Priority):
-   - Entry point system is implemented but not tested with external plugins
-   - Need to create sample external plugin package for validation
-
-3. **Plugin Developer Documentation** (Medium Priority):
-   - Protocol interfaces need developer guide
-   - Example plugin repository would be helpful
+**Key Design Decision:** Credentials are stored during `services:attach` (when app context is available) rather than `services:create` (no app context), allowing one service to be attached to multiple apps with separate credential records.
 
 ### Notable Architectural Decisions
 
-1. **Protocol over ABC**: The implementation uses Python `Protocol` (structural typing) instead of abstract base classes, providing better IDE support and more flexibility
-2. **Module-level Plugin Instances**: Core plugins export a `plugin` instance at module level for simple auto-discovery via `pkgutil.walk_packages`
-3. **Server-wide Proxy Config**: Unlike build/deploy strategies (which are per-app), proxy configuration is server-wide, matching real-world deployment patterns
-
-### Validation
-
-The architecture has been validated through:
-- Multiple working plugins for each strategy type
-- Successful integration with legacy code
-- Three complete proxy implementations (Nginx, Caddy, Traefik) demonstrating true extensibility
-- Operational deployment pipeline in production use
-
-**Overall Assessment:** ~95% complete relative to ADR specifications, with meaningful extensions demonstrating the architecture's flexibility and success.
+1. **Protocol over ABC**: The implementation uses Python `Protocol` (structural typing) instead of abstract base classes, providing better IDE support and more flexibility.
+2. **Module-level Plugin Instances**: Core plugins export a `plugin` instance at module level for simple auto-discovery via `pkgutil.walk_packages`.
+3. **Server-wide Proxy Config**: Unlike build/deploy strategies (which are per-app), proxy configuration is server-wide, matching real-world deployment patterns.
 
 ## References
 

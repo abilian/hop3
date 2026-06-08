@@ -6,21 +6,6 @@
 **Updated**: 2026-04-14
 **Related-ADRs**: 014, 019, 025, 034
 
-## Implementation Status
-
-**Core protocol shipped and in production use; streaming is delivered via a companion SSE channel rather than via JSON-RPC itself.**
-
-### Shipped
-- **JSON-RPC protocol** over HTTP(S) or SSH-tunnelled HTTP.
-- **"Dumb" CLI design**: the server owns business logic and output formatting; the CLI renders the server's decisions.
-- **Authentication**: every RPC call carries a JWT bearer token (ADR 014); unauthenticated calls are rejected.
-- **Structured output**: response envelopes carry typed message elements (success, error, warning, info, table, panel) that the CLI renders uniformly.
-- **Streaming deployment and log output** via Server-Sent Events at `/api/apps/{app}/logs/stream` and at the deployment endpoint (ADR 034, Implemented). The streaming channel is *complementary* to the JSON-RPC channel rather than embedded in it — this sidesteps the complexity of bidirectional JSON-RPC over HTTP and lets each protocol do what it does best.
-
-### Deferred
-- **In-band JSON-RPC streaming** (`yield` messages inside an RPC response). The original design proposed this; the SSE-companion approach above covers the motivating use cases (deploy logs, app logs) cleanly, so in-band streaming is no longer on the critical path. Re-open if a future use case (e.g., large interactive operations) cannot be expressed via SSE.
-- **File-transfer streaming via JSON-RPC**. Large file uploads use a direct HTTP upload endpoint rather than chunked RPC.
-
 ## Introduction
 
 This ADR addresses the architecture of the communication protocol between the Command-Line Interface (CLI) and the server for the Hop3 project. The chosen approach aims to simplify the CLI by implementing both the logic and formatting on the server, while the CLI will focus on handling user input and presenting responses based on server instructions.
@@ -56,6 +41,8 @@ The current requirement is to develop an efficient and secure communication prot
 
 We will implement a JSON-RPC protocol over HTTPS for the communication between the CLI and the server. The server will handle all business logic and formatting, sending formatted instructions to the CLI, which will then present the results to the user. The server will use ad-hoc certificates to secure the communication. Additionally, we will implement support for streaming responses to handle real-time data needs such as log tailing and file downloads.
 
+Streaming is delivered via a companion Server-Sent Events channel (at `/api/apps/{app}/logs/stream` and at the deployment endpoint, ADR 034) rather than embedded in the JSON-RPC channel itself. The streaming channel is *complementary* to JSON-RPC rather than embedded in it — this sidesteps the complexity of bidirectional JSON-RPC over HTTP and lets each protocol do what it does best. In-band JSON-RPC streaming (`yield` messages inside an RPC response) was originally proposed but deferred, since the SSE-companion approach covers the motivating use cases (deploy logs, app logs) cleanly; it can be re-opened if a future use case (e.g., large interactive operations) cannot be expressed via SSE. Likewise, large file uploads use a direct HTTP upload endpoint rather than chunked RPC.
+
 ## Consequences
 
 ### Benefits
@@ -75,35 +62,6 @@ We will implement a JSON-RPC protocol over HTTPS for the communication between t
 ## Lessons Learned
 
 In a previous project (Nua), a "smart" CLI with embedded presentation logic proved difficult to maintain and update. Centralizing the logic and formatting on the server simplifies maintenance and ensures consistency across all CLI instances.
-
-## Action Items
-
-### Strategic Priorities
-
-1. **Develop Server-Side Logic and Formatting**:
-
-   - Implement the necessary business logic on the server.
-   - Develop a robust formatting engine to prepare responses for the CLI.
-
-1. **Implement JSON-RPC Protocol**:
-
-   - Set up the JSON-RPC protocol on the server.
-   - Ensure the CLI can send and receive JSON-RPC requests and responses.
-
-1. **Configure HTTPS with Ad-Hoc Certificates**:
-
-   - Set up HTTPS on the server.
-   - Generate and configure ad-hoc certificates for secure communication.
-
-1. **Develop and Test CLI**:
-
-   - Implement the CLI to handle user input and display formatted responses.
-   - Conduct thorough testing to ensure reliability and performance.
-
-1. **Implement Streaming Support**:
-
-   - Develop server-side support for streaming responses.
-   - Ensure the CLI can handle and present streaming data effectively.
 
 ## Alternatives
 

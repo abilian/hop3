@@ -24,7 +24,7 @@ This ADR serves as the landing page for Hop3's security and resilience design. I
 | Software supply chain security, SBOM | [ADR 013](013-supply-chain.md) | Draft — SBOM tooling (cyclonedx-bom, spdx-tools) declared in ADR 004; SBOM emission not yet automated. |
 | Authentication bootstrap (first-admin provisioning) | [ADR 014](014-authentication-bootstrap.md) | Final — shipped. |
 | Backup and restore | [ADR 024](024-backup-restore-system.md) | Final — shipped (initial scope per ADR 016). |
-| Reconciliation and health checks | [ADR 029](029-reconciliation-health-checks.md) | Draft — agent loop scheduled for 0.6 per PLAN-2026-Q2. |
+| Reconciliation and health checks | [ADR 029](029-reconciliation-health-checks.md) | Draft — agent loop scheduled for 0.6. |
 
 ## What is out of scope for this umbrella ADR
 
@@ -48,4 +48,4 @@ The current shipped posture, to be refined as child ADRs mature:
 - **Health checks**: Per-app HTTP probing at the declared health-check path; reconciliation loop (ADR 029) is scheduled work.
 - **Backups**: Full backup and restore of app state and addon data (ADR 024).
 
-An **external security review** is scheduled as part of M3.8 before release 0.6; internal-audit outcomes that drove recent fixes are tracked separately and not repeated here.
+An **external security review** is scheduled before release 0.6.

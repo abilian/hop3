@@ -16,6 +16,7 @@ from unittest.mock import patch
 import psycopg2
 import pytest
 
+from hop3.plugins.postgresql import postgres as pg
 from hop3.plugins.postgresql.postgres import PostgresAddon, PostgresqlAddon
 
 
@@ -232,3 +233,23 @@ def test_install_extensions_blocked_error_mentions_blocked_set(
     monkeypatch.delenv("HOP3_EXTRA_PG_EXTENSIONS", raising=False)
     with pytest.raises(ValueError, match="HOP3_EXTRA_PG_EXTENSIONS"):
         postgres_service.install_extensions(["plpython3u"])
+
+
+def test_pg_hba_allows_all_docker_network_pools(tmp_path):
+    """pg_hba.conf must allow every Docker network pool, idempotently.
+
+    Regression: only ``172.16.0.0/12`` was allowed, so compose apps whose
+    network came from the ``192.168.x`` pool got "no pg_hba.conf entry for host".
+    """
+    hba = tmp_path / "pg_hba.conf"
+    hba.write_text("local all all peer\n")
+
+    with patch.object(pg, "_find_pg_hba", return_value=hba):
+        pg._ensure_pg_hba_docker_access()
+        first = hba.read_text()
+        pg._ensure_pg_hba_docker_access()  # second run must be a no-op
+        second = hba.read_text()
+
+    for net in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"):
+        assert net in first
+    assert first == second  # idempotent — no duplicate entries

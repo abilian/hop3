@@ -119,27 +119,30 @@ def _configure_postgres_hba(_unused: str = "") -> bool:
 
     content = pg_hba.read_text()
 
-    # Use 172.16.0.0/12 to cover all typical Docker networks:
-    # - docker0 bridge: 172.17.0.0/16
-    # - docker-compose networks: 172.18.0.0/16, 172.19.0.0/16, etc.
-    # The /12 range covers 172.16.0.0 - 172.31.255.255
-    docker_network = "172.16.0.0/12"
+    # Docker draws container networks from across RFC1918, not just 172.16/12:
+    # docker0 is 172.17/16, but Compose projects routinely land in 192.168.x and
+    # custom networks may use 10.x. Allow every RFC1918 block (md5, private-source
+    # only). Kept in sync BY HAND with the runtime list in hop3-server's
+    # postgresql plugin (``_ensure_pg_hba_docker_access``) — the installer is
+    # stdlib-only and can't import the server package to share a constant.
+    docker_networks = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
 
-    # Check if already configured
-    if docker_network in content:
-        print_detail(
-            f"pg_hba.conf already configured for Docker networks ({docker_network})"
-        )
+    changed = False
+    for net in docker_networks:
+        rule = f"host    all    all    {net}    md5"
+        if rule in content:
+            continue
+        if not changed:
+            content += "\n# Allow Docker containers to connect (Hop3)\n"
+            changed = True
+        content += rule + "\n"
+
+    if not changed:
+        print_detail("pg_hba.conf already allows Docker networks")
         return False
 
-    # Add host entry for Docker networks
-    # Allow md5 authentication for ALL users from Docker containers
-    # (app addons create specific users like myapp_postgres_user)
-    hba_entry = f"\n# Allow Docker containers to connect (Hop3)\nhost    all    all    {docker_network}    md5\n"
-
-    content += hba_entry
     pg_hba.write_text(content)
-    print_detail(f"Added pg_hba.conf entry for Docker networks: {docker_network}")
+    print_detail(f"Added pg_hba.conf entries for Docker networks: {docker_networks}")
     return True
 
 

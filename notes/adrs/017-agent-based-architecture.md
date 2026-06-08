@@ -9,10 +9,10 @@
 
 ## Revisions
 
-- v0.4: Status reverted from Active back to Draft to accurately reflect state. None of the four phases (single-host reconciliation, agent extraction, multi-server coordinator, decentralised federation) has been implemented; the design — particularly the Phase 3/4 coordinator protocol, the promise-language used for coordination, and the CRDT model for decentralised state — is not yet fully worked out. Phase 1 is scheduled in PLAN-2026-Q2 for 0.6 but the detailed design is in ADR 029, which is also still Draft. The decentralised-federation strand is actively being scoped in a research subprogram on distributed Promise Theory (2026-04-14).
-- v0.3: Status changed to Active. Added decentralized federation track (Phase 4) with CRDT/gossip model from Hop3 paper. Updated Promise Theory references. (2026-04-03)
-- v0.2: Revised to align with phased implementation plan and ADR 029 (2025-11-25)
-- v0.1: Initial draft
+- v0.4: Status reverted to Draft to reflect that none of the four phases is implemented and the Phase 3/4 coordinator protocol and the CRDT model for decentralised state are not yet fully worked out. (2026-04-14)
+- v0.3: Added the decentralized federation track (Phase 4) with the CRDT/gossip model from the Hop3 paper. (2026-04-03)
+- v0.2: Revised to align with the phased implementation plan and ADR 029. (2025-11-25)
+- v0.1: Initial draft.
 
 ## Introduction
 
@@ -383,42 +383,6 @@ This provides:
 | Coordination | Promise-based | Imperative | Less fault tolerant |
 | Scheduling | 3-phase | Simple round-robin | Insufficient for heterogeneous nodes |
 | Storage | Per-agent SQLite | Distributed consensus | Unnecessary complexity for Hop3 scale |
-
-## Action Items
-
-### Phase 1: Single-Server Foundations (Current Priority)
-
-See ADR 029 for detailed action items. Summary:
-
-1. Implement `WatchdogService` with reconciliation loop
-2. Implement `HealthChecker` for active health monitoring
-3. Add `RestartPolicy` to App model
-4. Create `AppEvent` audit log
-5. Add CLI commands for health status and event history
-
-### Phase 2: Agent Module Extraction
-
-1. Extract `LocalAgent` class encapsulating agent responsibilities
-2. Define `AgentStatus` reporting format
-3. Define `Task` and `Promise` data structures
-4. Refactor WatchdogService to use agent abstraction
-5. Add agent configuration to `hop3.toml`
-
-### Phase 3: Multi-Server Coordinator
-
-1. Implement `Coordinator` service
-2. Implement three-phase `Scheduler`
-3. Define agent-coordinator communication protocol (HTTP/gRPC)
-4. Implement `PromiseRegistry` for promise tracking
-5. Add multi-server configuration and CLI commands
-6. Implement agent discovery/registration
-
-### Phase 4: Advanced Orchestration
-
-1. Implement placement constraints
-2. Implement rolling update strategy
-3. Add resource quotas
-4. Consider federation requirements
 
 ## Prior Art
 

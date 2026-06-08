@@ -49,11 +49,18 @@ tasks:
 
   - test: |
       cd hop3
-      # Ensure HOP3_DEV_HOST is not set for c_system tests (they use Docker)
+      # check tier: in-process across all packages (no Docker)
       unset HOP3_DEV_HOST
       uv run make test
+
+  - test-e2e: |
+      cd hop3
+      # Docker e2e: backups, git-push, real deploys (c_e2e)
+      unset HOP3_DEV_HOST
+      uv run make test-e2e
 
   - nox: |
       cd hop3
       sudo chmod 666 /var/run/docker.sock
+      uv run nox -P 3.11
       uv run nox -P 3.12

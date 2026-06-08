@@ -23,9 +23,9 @@
 
 **Active outbound engagement:**
 
-- Conference presentations (OW2Con, OSXP) under NGI milestone M5.4.
+- Conference presentations (OW2Con, OSXP).
 - The NGI0 Commons Fund project page.
-- Technical reports (TR-01) and the companion paper for systems venues.
+- Technical reports and the companion paper for systems venues.
 
 **Candidate future mechanisms (not committed by this ADR):**
 

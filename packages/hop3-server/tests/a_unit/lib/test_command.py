@@ -112,9 +112,9 @@ class TestRunCommand:
     def test_command_timeout(self):
         """run_command raises CommandTimeoutError when command takes too long."""
         with pytest.raises(CommandTimeoutError) as exc_info:
-            run_command(["sleep", "10"], timeout=1)
+            run_command(["sleep", "10"], timeout=0.2)
 
-        assert "timed out after 1s" in str(exc_info.value)
+        assert "timed out after 0.2s" in str(exc_info.value)
 
     def test_command_with_arguments(self):
         """run_command handles commands with multiple arguments."""
@@ -241,7 +241,7 @@ class TestTryCommands:
         ]
 
         with pytest.raises(CommandError) as exc_info:
-            try_commands(commands, timeout=1)
+            try_commands(commands, timeout=0.2)
 
         assert "timed out" in str(exc_info.value)
 

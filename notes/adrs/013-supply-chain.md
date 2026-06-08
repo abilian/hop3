@@ -8,14 +8,14 @@
 
 ## Revisions
 
-- v0.2: Promoted from Draft. Clarified what is actually in place (Nix hermetic builds for Tier-1 apps, SBOM-capable tooling declared in ADR 004) vs. what remains (automated SBOM emission per release, signature attestation, regular dependency-audit cadence) (2026-04-14).
-- v0.1: Initial draft (2024-07-17)
+- 2026-04-14: Accepted (phased) — clarified what is in place vs. what remains for the supply-chain posture.
+- 2024-07-17: Initial draft.
 
 ## Implementation Status
 
 **Shipped (contributes to the supply-chain posture today):**
 
-- **Hermetic builds via Nix** for Tier-1 applications (ADR 008 reproducibility taxonomy): Go and Rust apps from nixpkgs build in a pure sandbox against hash-pinned inputs. Tier-2 applications (Python-venv, PHP-composer, Node-prebuilt, Ruby-bundler) use `__noChroot`, which weakens hermeticity; this is documented honestly in ADR 008 and TR-01 §2.2.
+- **Hermetic builds via Nix** for Tier-1 applications (ADR 008 reproducibility taxonomy): Go and Rust apps from nixpkgs build in a pure sandbox against hash-pinned inputs. Tier-2 applications (Python-venv, PHP-composer, Node-prebuilt, Ruby-bundler) use `__noChroot`, which weakens hermeticity; this is documented in ADR 008.
 - **Content-addressed closures** for every Nix-built app: full dependency graph is inspectable via `nix-store -qR`; update deltas are minimal (only changed store paths transfer).
 - **Supply-chain-aware tooling declared in the project** (ADR 004): `cyclonedx-bom`, `spdx-tools`, `pip-audit` (via Nox), `deptry`, `import-linter`.
 - **REUSE-compliant license headers** on every source file, enforced in CI.
@@ -28,7 +28,7 @@
 **Deferred:**
 
 - **Signature attestation** (Sigstore / in-toto / cosign) for release artefacts and for the SBOM itself. Likely required for Cyber Resilience Act compliance; not in scope for 0.6.
-- **Reproducible-builds verification as a CI gate** (two independent rebuilds of each Tier-1 app, bit-compare). Planned for the final-report quantitative evaluation (TR-01 §5.4).
+- **Reproducible-builds verification as a CI gate** (two independent rebuilds of each Tier-1 app, bit-compare).
 - **Upstream source mirroring** to insulate against PyPI / registry deletions.
 
 The **Genealogos** reference in the original Draft is retained as a candidate tool but is not a committed dependency; any SBOM generator producing valid CycloneDX output meets the requirement.
@@ -101,25 +101,3 @@ Hop3 will adopt a proactive stance towards software supply chain security by int
 
 - **Security Threats**: Ongoing risk of evolving security threats. Mitigation involves continuous monitoring, regular updates, and proactive security measures.
 - **Toolchain Integration**: Potential challenges in integrating SBOM generation tools with the existing CI/CD pipeline. Mitigation includes thorough testing and community support.
-
-## Action Items
-
-1. **Implement SBOM Generation**:
-
-   - Integrate tools like Genealogos to automatically generate CycloneDX SBOMs.
-   - Ensure SBOMs are included in all software releases.
-
-1. **Enhance CI/CD Security**:
-
-   - Integrate automated security scans and dependency auditing into the CI pipeline.
-   - Ensure all builds are hermetic and reproducible using Nix.
-
-1. **Engage with Community**:
-
-   - Provide documentation and training on supply chain security and SBOMs.
-   - Establish a feedback loop to continuously improve security practices.
-
-1. **Regular Audits and Monitoring**:
-
-   - Conduct regular security audits and performance monitoring.
-   - Continuously update and improve security measures based on audit findings and feedback.

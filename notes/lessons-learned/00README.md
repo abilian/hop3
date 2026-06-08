@@ -6,6 +6,7 @@ This directory collects lessons learned during Hop3 development, to help avoid r
 
 ## Topic deep dives
 
+- [`async-thread-boundaries.md`](./async-thread-boundaries.md) — cross-thread `asyncio` pitfalls (the "every deploy takes 30s" bug) and choosing the right primitive per producer/consumer boundary.
 - [`database-addon-portability.md`](./database-addon-portability.md) — PostgreSQL and MySQL connectivity across native and Docker deployment.
 - [`deployment-diagnostics.md`](./deployment-diagnostics.md) — Making deployment failures actionable.
 - [`e2e-test-infrastructure.md`](./e2e-test-infrastructure.md) — Building and running the E2E suite.
@@ -37,6 +38,7 @@ This directory collects lessons learned during Hop3 development, to help avoid r
 | 15 | Use lazy imports when ORM models need business logic |
 | 16 | Use `--yes`, `CI=true` for non-interactive CLI tools |
 | 17 | Server provides runtimes; tutorials install frameworks |
+| 18 | Bridge thread→coroutine with `call_soon_threadsafe`; never poke `asyncio` primitives cross-thread |
 
 ---
 
@@ -296,3 +298,26 @@ Tutorials were failing with "rails not found" or "jekyll not found" because we e
 |-------|----------|----------|
 | Server/Installer | Base language runtimes | ruby, python, node, php, go |
 | Tutorials | Framework dependencies | rails, jekyll, phoenix, django |
+
+---
+
+## Concurrency & Async
+
+### 18. Bridge thread→coroutine with `call_soon_threadsafe`
+
+**Lesson**: `asyncio` primitives (`Queue`, `Event`, `Future`, …) are owned by the event loop and are **not thread-safe**. A background thread must never mutate one directly — it must marshal the call onto the loop with `loop.call_soon_threadsafe(...)` (or `asyncio.run_coroutine_threadsafe(...)`). Full write-up: [`async-thread-boundaries.md`](./async-thread-boundaries.md).
+
+**Case Study — "every deploy takes ~30s" (June 2026)**:
+
+The deploy runs in a `threading.Thread`, but pushed SSE logs to clients through an `asyncio.Queue` consumed by the async handler. A cross-thread `queue.put_nowait()` doesn't wake the loop's awaiting `get()`, so the consumer only advanced on its 30s keepalive — making *every* deployment report ~30s regardless of real work (~2s).
+
+**Best practices**:
+- Pick the primitive by boundary: thread↔thread → `queue.Queue`/`threading.Event`; loop↔loop → `asyncio.*`; **thread→coroutine → `call_soon_threadsafe`/`run_coroutine_threadsafe`**.
+- Litestar/Granian handlers run on the loop; any `threading.Thread` you spawn does not — that seam is where this bug lives.
+- A numeric coincidence (30.0s ≈ a known timeout, here SQLite `busy_timeout`) is a *lead*, not a verdict. Instrument each phase and trust the web server's access-log durations over app-level logs (which buffer and mislead).
+
+| Producer → Consumer | Use | Why |
+|---------------------|-----|-----|
+| thread → thread | `queue.Queue`, `threading.Event` | thread-safe (built on `threading.Condition`) |
+| coroutine → coroutine (same loop) | `asyncio.Queue`, `asyncio.Event` | the loop schedules wakeups |
+| **thread → coroutine** | `loop.call_soon_threadsafe` / `run_coroutine_threadsafe` | the only boundary needing an explicit bridge |

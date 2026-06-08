@@ -11,8 +11,51 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, TextIO
 
+from hop3_testing.util.timing import format_duration
+
 if TYPE_CHECKING:
     from hop3_testing.runners.base import TestResult
+
+
+def _phase_breakdown(result: TestResult) -> list[tuple[str, float]]:
+    """Sum a test's validation durations by phase (deploy, http, script, ...)."""
+    by_phase: dict[str, float] = {}
+    for v in result.validation_results:
+        by_phase[v.type_name] = by_phase.get(v.type_name, 0.0) + v.duration
+    return [(name, dur) for name, dur in by_phase.items() if dur > 0]
+
+
+def narrate_timings(results: list[TestResult], *, output: TextIO | None = None) -> None:
+    """Print a per-test phase-timing breakdown (the ``--narrate`` reporter).
+
+    Preserves the demo harness's timing narration: where the wall-clock went,
+    per test and per phase (deploy / http / script / ...), slowest first.
+    """
+    out = output or sys.stdout
+    if not results:
+        return
+
+    ordered = sorted(results, key=lambda r: r.total_duration, reverse=True)
+    total_wall = sum(r.total_duration for r in results)
+    total_deploy = 0.0
+
+    print("\nTIMINGS (slowest first)", file=out)
+    for r in ordered:
+        print(f"  {format_duration(r.total_duration):>10}  {r.test.name}", file=out)
+        phases = _phase_breakdown(r)
+        if phases:
+            parts = " · ".join(f"{name} {format_duration(d)}" for name, d in phases)
+            print(f"              {parts}", file=out)
+        total_deploy += sum(d for name, d in phases if name == "deploy")
+
+    slowest = ordered[0]
+    print(
+        f"  ── total wall {format_duration(total_wall)}"
+        f" across {len(results)} tests"
+        f" · deploy {format_duration(total_deploy)}"
+        f" · slowest {slowest.test.name} ({format_duration(slowest.total_duration)})",
+        file=out,
+    )
 
 
 @dataclass
@@ -140,16 +183,20 @@ class ConsoleReporter:
             if r.passed:
                 continue
             name = r.test.name
-            cause = self._extract_root_cause(r.error or "validation failed")
             mark = self._colorize("✗", "red")
             print(f"  {mark} {name}", file=self.output)
-            print(f"      {cause}", file=self.output)
 
-            # Surface the app's own stderr inline. The full per-test
-            # log file has everything; but 99% of the time the app's
-            # web.log / worker.log tail is what a developer actually
-            # needs to see, and hiding it in a file the user has to
-            # open defeats the purpose of our diagnostics collection.
+            # Headline-first (ADR 043 §7): the bundle's classifier verdict +
+            # the `why` pointer say what's wrong and where to look. The full
+            # sections stay on disk — terse on screen, rich in the artifact.
+            if r.bundle is not None:
+                for line in r.bundle.headline.splitlines():
+                    print(f"      {line}", file=self.output)
+                continue
+
+            # Legacy path — runners not yet wired to the bundle.
+            cause = self._extract_root_cause(r.error or "validation failed")
+            print(f"      {cause}", file=self.output)
             app_tail = self._extract_app_log_tail(r)
             if app_tail:
                 print(

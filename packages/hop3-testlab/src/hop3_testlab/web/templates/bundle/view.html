@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<h1 class="text-lg font-semibold mt-2 mb-1 font-mono">{{ test_name }}</h1>
+<p class="text-sm text-gray-600 mb-2">
+  {{ classification or "—" }} · <span class="font-mono text-xs">{{ bundle_run_id }}</span>
+</p>
+
+{% if headline %}
+<pre class="mb-6 text-xs whitespace-pre-wrap bg-gray-100 border rounded p-3">{{ headline }}</pre>
+{% endif %}
+
+{% if sections %}
+<div class="space-y-2">
+  {% for name, content in sections %}
+  <details class="border rounded" {% if loop.first %}open{% endif %}>
+    <summary class="cursor-pointer px-3 py-2 bg-gray-100 font-mono text-sm">{{ name }}</summary>
+    <pre class="text-xs whitespace-pre-wrap overflow-x-auto p-3 max-h-[28rem] overflow-y-auto">{{ content }}</pre>
+  </details>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-gray-600">No collected sections in this bundle.</p>
+{% endif %}
+{% endblock %}

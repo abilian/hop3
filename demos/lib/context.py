@@ -106,9 +106,9 @@ class DemoContext:
             app_name: The name of the app (e.g., 'demo01')
 
         Returns:
-            A unique hostname like 'demo01.hop3.dev'.
-            If server_ip looks like a domain (contains '.local' or is not an IP),
-            uses it as base for subdomains.
+            A unique, routable hostname per app:
+            - with a domain configured:  'demo01.hop3.dev'
+            - on an IP-only server:      'demo01.<ip>.sslip.io'
         """
         base_domain = self.admin_domain or self.server_ip
 
@@ -126,7 +126,16 @@ class DemoContext:
             # Use subdomain: demo01.hop3.dev
             return f"{app_name}.{base_domain}"
 
-        # Fall back to server IP (all apps share same hostname - not ideal)
+        if is_ip_address:
+            # No domain configured: give each app a UNIQUE, resolvable hostname
+            # by embedding the IP in an sslip.io name (`*.<ip>.sslip.io` resolves
+            # to <ip>). A bare IP can't: all apps would share one server_name,
+            # and HTTPS to a bare IP sends no SNI, so nginx serves the catch-all
+            # /wrong vhost. The demo curl also passes --resolve, so validation
+            # never depends on sslip.io's DNS being reachable.
+            return f"{app_name}.{base_domain}.sslip.io"
+
+        # Last resort (e.g. 'localhost' on a docker backend): the bare base.
         return base_domain
 
     @property

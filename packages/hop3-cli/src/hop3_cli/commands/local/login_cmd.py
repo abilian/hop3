@@ -19,7 +19,6 @@ from hop3_cli.tokens import extract_jwt
 from .help_text import print_login_help
 from .ssh_ops import (
     BootstrapError,
-    fetch_and_save_certificate,
     get_magic_link_via_ssh,
     get_ssh_token,
     get_token_via_ssh,
@@ -722,48 +721,6 @@ def _extract_host(url: str) -> str:
     parsed = urlparse(url)
     host = parsed.hostname or url
     return f"root@{host}"
-
-
-def _handle_ssl_certificate(
-    ssh_target: str, server_url: str, config: Config, config_data: dict
-) -> None:
-    """Handle SSL certificate fetching for HTTPS connections.
-
-    Note: This function is currently unused. For most HTTPS connections,
-    the system CA bundle works. For self-signed certs, users should set
-    verify_ssl=false.
-    """
-    existing_cert = config.get("ssl_cert", None)
-    existing_verify = config.get("verify_ssl", None)
-
-    if not server_url.startswith("https://"):
-        return
-    if existing_cert or existing_verify is not None:
-        return
-
-    parsed = urlparse(server_url)
-    hostname = parsed.hostname
-
-    # Check if connecting via IP address
-    is_ip_address = hostname and (
-        hostname.replace(".", "").isdigit() or ":" in hostname
-    )
-
-    print("\nFetching SSL certificate...")
-    try:
-        cert_path = fetch_and_save_certificate(ssh_target, server_url, config)
-        if cert_path:
-            config_data["ssl_cert"] = str(cert_path)
-            print(f"  Certificate saved to {cert_path}")
-            if is_ip_address:
-                print(
-                    "  Note: Using IP address - hostname verification will be skipped,"
-                )
-                print("        but certificate will still be verified.")
-    except Exception as e:
-        print(f"  Warning: Could not fetch certificate: {e}")
-        print("  You may need to configure SSL manually with:")
-        print("    hop3 settings set verify_ssl false")
 
 
 def _print_login_success(username: str, config: Config, context_name: str) -> None:

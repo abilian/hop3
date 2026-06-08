@@ -104,6 +104,7 @@ class DeploymentSession:
         # Deployment state
         self.deployed = False
         self._last_deploy_error: str | None = None
+        self._last_deploy_output: str = ""
         self._app_port: int | None = None
 
         # Console setup
@@ -128,6 +129,11 @@ class DeploymentSession:
     def last_deploy_error(self) -> str | None:
         """Get the last deployment error message."""
         return self._last_deploy_error
+
+    @property
+    def last_deploy_output(self) -> str:
+        """Full stdout of the last `hop3 deploy` (kept for every build)."""
+        return self._last_deploy_output
 
     def _build_cli_env(self) -> dict[str, str]:
         """Build environment variables for hop3 CLI commands.
@@ -277,6 +283,9 @@ class DeploymentSession:
         result = run_streaming(cmd, on_output=on_output, env=env, timeout=timeout)
         stdout = result.stdout
         returncode = result.returncode
+        # Keep the full deploy output for every build (success or failure), not
+        # just a one-line summary — so the per-build logs are actually useful.
+        self._last_deploy_output = stdout
 
         if result.timed_out:
             mins = timeout // 60
@@ -453,55 +462,6 @@ class DeploymentSession:
         return self._test_http_via_ssh(
             port, path, expected_status, max_retries, result,
         )
-
-    def _test_http_local(
-        self,
-        host: str,
-        port: int,
-        path: str,
-        expected_status: int | Iterable[int],
-        max_retries: int,
-        result: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Test HTTP by connecting directly from the test client."""
-        import httpx  # noqa: PLC0415
-
-        url = f"http://{host}:{port}{path}"
-        result["details"]["url"] = url
-
-        for attempt in range(max_retries):
-            try:
-                response = httpx.get(url, timeout=5.0, follow_redirects=True)
-                result["details"]["status_code"] = response.status_code
-                result["details"]["attempts"] = attempt + 1
-                result["details"]["body_preview"] = (
-                    response.text[:4096] if response.text else ""
-                )
-
-                if _status_match(response.status_code, expected_status):
-                    result["passed"] = True
-                    result["message"] = f"HTTP {response.status_code} from {url}"
-                    self.console.success(
-                        f"HTTP test passed (direct port {port}, status: {response.status_code})"
-                    )
-                    return result
-
-                if response.status_code in {502, 503, 504}:
-                    time.sleep(1)
-                    continue
-
-                result["message"] = (
-                    f"HTTP {response.status_code} (expected {_format_expected(expected_status)}) from {url}"
-                )
-                return result
-
-            except (httpx.HTTPError, httpx.ConnectError) as e:
-                result["details"]["last_error"] = str(e)
-                self.console.debug(f"Attempt {attempt + 1}/{max_retries}: {e}")
-                time.sleep(1)
-
-        result["message"] = f"HTTP test failed after {max_retries} attempts on {url}"
-        return result
 
     def _test_http_via_ssh(
         self,

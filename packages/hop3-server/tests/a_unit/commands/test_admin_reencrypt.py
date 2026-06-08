@@ -99,7 +99,7 @@ def test_requires_authenticated_username():
 def test_upgrades_legacy_records(mock_user_repo):
     legacy = _make_credential(1, _v1_record(c.HOP3_SECRET_KEY, {"user": "u"}))
     repo = Mock(spec=AddonCredentialRepository)
-    repo.list.return_value = [legacy]
+    repo.get_many.return_value = [legacy]
     repo.session = Mock()
 
     cmd = AdminReencryptCredentialsCmd(
@@ -117,7 +117,7 @@ def test_skips_records_already_v2(mock_user_repo):
     original = v2_token
     cred = _make_credential(2, v2_token)
     repo = Mock(spec=AddonCredentialRepository)
-    repo.list.return_value = [cred]
+    repo.get_many.return_value = [cred]
     repo.session = Mock()
 
     cmd = AdminReencryptCredentialsCmd(
@@ -134,7 +134,7 @@ def test_dry_run_does_not_mutate(mock_user_repo):
     legacy = _make_credential(3, _v1_record(c.HOP3_SECRET_KEY, {"user": "u"}))
     before = legacy.encrypted_data
     repo = Mock(spec=AddonCredentialRepository)
-    repo.list.return_value = [legacy]
+    repo.get_many.return_value = [legacy]
     repo.session = Mock()
 
     cmd = AdminReencryptCredentialsCmd(
@@ -154,7 +154,7 @@ def test_failed_decrypts_are_reported(mock_user_repo):
     # A record that is neither v2-prefixed nor a valid v1 token.
     broken = _make_credential(4, "this-is-garbage")
     repo = Mock(spec=AddonCredentialRepository)
-    repo.list.return_value = [broken]
+    repo.get_many.return_value = [broken]
     repo.session = Mock()
 
     cmd = AdminReencryptCredentialsCmd(

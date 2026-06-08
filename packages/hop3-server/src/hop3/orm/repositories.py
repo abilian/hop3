@@ -93,7 +93,7 @@ class UserRepository(BaseRepository[User]):
         Returns:
             List of users with active=True
         """
-        return list(self.list(active=True))
+        return list(self.get_many(active=True))
 
     def username_exists(self, username: str) -> bool:
         """Check if a username already exists.
@@ -224,7 +224,7 @@ class AddonCredentialRepository(BaseRepository[AddonCredential]):
         Returns:
             List of addon credentials for the app
         """
-        return list(self.list(app_id=app_id))
+        return list(self.get_many(app_id=app_id))
 
     def get_by_app_addon(
         self,
@@ -262,7 +262,7 @@ class AddonCredentialRepository(BaseRepository[AddonCredential]):
         Returns:
             List of credentials attached to this addon
         """
-        return list(self.list(addon_type=addon_type, addon_name=addon_name))
+        return list(self.get_many(addon_type=addon_type, addon_name=addon_name))
 
     def get_by_addon_name(self, addon_name: str) -> AddonCredential | None:
         """Get credential by addon name only.
@@ -382,7 +382,7 @@ class EnvVarRepository(BaseRepository[EnvVar]):
         Returns:
             List of environment variables for the app
         """
-        return list(self.list(app_id=app_id))
+        return list(self.get_many(app_id=app_id))
 
 
 # =============================================================================

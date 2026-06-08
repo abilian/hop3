@@ -7,8 +7,8 @@
 
 ## Revisions
 
-- v1.2: Promoted from Active to Final — tooling selection stable across 2025-Q4, 2026-Q1, and 2026-Q2 with no material changes; stale action items dropped (2026-04-14).
-- v1.1: Updated Task Runner section to reflect current state (2025-11-25)
+- v1.2: Promoted from Active to Final — tooling selection stable with no material changes (2026-04-14).
+- v1.1: Updated Task Runner section (2025-11-25)
 - v1.0: First version (2025-10-08)
 
 ## Summary
@@ -206,10 +206,6 @@ A modern Python project requires a comprehensive toolchain to ensure developer p
 
 1. **Speed vs Maturity**: Chose faster, newer tools (uv, Ruff) over more mature alternatives (poetry, pylint)
 2. **Single Tool vs Best of Breed**: Consolidated where possible (Ruff) but kept separate tools where specialized (pytest, pirefly, mypy)
-
-## Action Items
-
-All substantive action items are complete. Documentation of tool usage lives in `docs/src/dev/` and in `CLAUDE.md` files at the repo and package level; developer onboarding is covered by `make develop` + `README.md`. No outstanding tooling decisions at the time of promotion to Final.
 
 ## References
 

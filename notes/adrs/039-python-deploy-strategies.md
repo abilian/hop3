@@ -8,8 +8,8 @@
 
 ## Revisions
 
-- v1.2: Proposed-CLI examples migrated from colon syntax (`hop3 app check`, `hop3 app freeze`) to space form (`hop3 app check`, `hop3 app freeze`) per ADR 036 (2026-04-22).
-- v1.1: Phase 1 implemented. `packages/hop3-server/src/hop3/toolchains/python.py` now: drops `--upgrade` from pip-install paths (abstract requirements no longer silently updated); adds `--no-dev` to `uv sync` (production deploys don't ship dev-deps); errors when both `requirements.txt` and `pyproject.toml` are present (no silent precedence); detects Poetry-only pyprojects (has `[tool.poetry]`, no PEP-621 `[project]`) and raises with a clear hint pointing at `poetry export`. Five unit tests under `tests/a_unit/toolchains/test_python_strategy.py` cover the detection cases. 649 pre-existing unit tests still pass — no regressions (2026-04-15).
+- v1.2: Proposed-CLI examples migrated to ADR 036 space form (2026-04-22).
+- v1.1: Phase 1 implemented (2026-04-15).
 - v1.0: Original design (2026-04-15)
 
 ## Context
@@ -51,7 +51,7 @@ All 13 Python tutorials under `docs/src/tutorials/python/` teach the same patter
 
 ### What's been tried so far
 
-The W16 batches (Bugsink, GlitchTip) worked around individual cases in app-level scripts (emit `requirements.txt` in `scripts/download.sh` from Poetry's lockfile). These workarounds are repeatable but uncoordinated — each packager solves the problem in their own way, and the toolchain is none the wiser.
+Individual apps (Bugsink, GlitchTip) have worked around these cases in app-level scripts (e.g. emitting `requirements.txt` from Poetry's lockfile). These workarounds are repeatable but uncoordinated — each packager solves the problem in their own way, and the toolchain is none the wiser.
 
 ## Decision
 
@@ -114,29 +114,6 @@ Three deliverables:
 
 Tutorials that currently teach `pip freeze > requirements.txt` as the production workflow are rewritten.
 
-## Phased rollout
-
-**Phase 1 — minimum viable — DONE (2026-04-15):**
-
-- ✅ Add `--no-dev` to `uv sync`.
-- ✅ Drop `--upgrade` from both pip-install paths.
-- ✅ Error on both-files-present (no silent override).
-- ✅ Add Poetry-project detection with a clear error pointing at `poetry export`.
-
-Landed in `packages/hop3-server/src/hop3/toolchains/python.py`; ~40 lines of code + 70 lines of tests. Full unit suite (649 tests) still passes. The error surfaces as a `RuntimeError` at build time with an actionable message; a follow-up in Phase 2 will upgrade the error channel to the structured `Diagnosis` form used elsewhere in the deploy pipeline.
-
-**Phase 2 — explicit strategy (scheduled for 0.6):**
-
-- Add `[build.python].strategy` parsing and routing.
-- `poetry-export` strategy accepting the packager's pre-generated `requirements.txt`.
-- `hop3 app check` lint rules for the three warnings listed above.
-
-**Phase 3 — tutorials and docs (scheduled for 0.6):**
-
-- Rewrite the 13 Python tutorials.
-- New user-facing page `docs/src/guides/deploying-python.md` with the decision tree in §7 of the discussion that preceded this ADR.
-- Remove the "how we build Hop3 itself" content from user-facing tutorial pages.
-
 ## Deferred
 
 **`hop3 app freeze` client-side helper.** Worth doing — it would turn "run `poetry export`, commit the file, redeploy" into `hop3 app freeze` — but it requires the relevant toolchain (`uv`, `poetry`, `pip-compile`) on the packager's client machine and would have to be replicated for the other languages Hop3 supports (Node via `npm shrinkwrap` / `pnpm lock`, Ruby via `bundle lock`, etc.). The abstract mechanism is "a per-language freeze step"; designing it coherently belongs in a separate ADR rather than riding along with Python-specific changes.
@@ -171,5 +148,4 @@ Landed in `packages/hop3-server/src/hop3/toolchains/python.py`; ~40 lines of cod
 
 - Python toolchain source: `packages/hop3-server/src/hop3/toolchains/python.py`.
 - Current Python tutorials: `docs/src/tutorials/python/`.
-- Discussion thread that motivated this ADR: conversation 2026-04-15 covering GlitchTip Poetry support and the seven-point review.
 - Companion ADRs: 001 (config files), 002 (`hop3.toml` format), 030 (two-level build architecture), 035 (runtime contract).

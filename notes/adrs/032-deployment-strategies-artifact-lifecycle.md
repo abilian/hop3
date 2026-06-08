@@ -8,8 +8,8 @@
 
 ## Revisions
 
-- v1.2: CLI example migrated from colon syntax (`hop3 deploy:status`) to space form (`hop3 deploy status`) per ADR 036 (2026-04-22).
-- v1.1: Implementation status clarified. The design — versioned build artefacts, blue-green deployment, atomic switch, retained previous version for rollback — is accepted, but the current production behaviour for the LocalBuilder + uWSGI deployer is still the original "stop-then-deploy" path. Versioned closures *do* exist for Nix-built apps (Nix's content-addressed store gives them for free) and rolling back a Nix-built app is in principle a symlink switch; the rest of the deployer family does not yet implement the proposed lifecycle. The CLI `revert` and `upgrade`/`downgrade` commands documented as deferred in ADR 019 will land alongside this work (2026-04-14).
+- v1.2: CLI examples migrated from colon syntax (`hop3 deploy:status`) to space form (`hop3 deploy status`) per ADR 036 (2026-04-22).
+- v1.1: Implementation status clarified. The design — versioned build artefacts, blue-green deployment, atomic switch, retained previous version for rollback — is accepted, but current production behaviour for the LocalBuilder + uWSGI deployer is still the original "stop-then-deploy" path. Versioned closures *do* exist for Nix-built apps (Nix's content-addressed store gives them for free), and rolling back a Nix-built app is in principle a symlink switch; the rest of the deployer family does not yet implement the proposed lifecycle. The CLI `revert` and `upgrade`/`downgrade` commands (deferred in ADR 019) belong to this work (2026-04-14).
 - v1.0: Original accepted version (2025-12-03)
 
 ## Context
@@ -336,47 +336,6 @@ class PortAllocator:
     def release(self, app_name: str, version: str) -> None:
         """Release port when version is stopped."""
 ```
-
-### 6. Implementation Phases
-
-#### Phase 1: Versioned Artifacts (Foundation)
-
-- [ ] Add artifact versioning (directory structure)
-- [ ] Store artifact manifest with metadata
-- [ ] Keep N previous versions (configurable)
-- [ ] Add `hop3 releases` command to list versions
-- [ ] Add `hop3 rollback <app> [version]` command
-
-#### Phase 2: Health Checks
-
-- [ ] Define health check interface in artifact manifest
-- [ ] Implement HTTP health check
-- [ ] Implement TCP health check
-- [ ] Implement command health check
-- [ ] Add timeout and retry configuration
-
-#### Phase 3: Blue-Green Deployment
-
-- [ ] Implement port/socket allocation for parallel versions
-- [ ] Start new version alongside old
-- [ ] Run health checks on new version
-- [ ] Switch proxy configuration atomically
-- [ ] Graceful shutdown of old version
-
-#### Phase 4: Migration Support
-
-- [ ] Add migration phase to deployment workflow
-- [ ] Pre-deploy and post-deploy hooks
-- [ ] Migration status tracking
-- [ ] Rollback-safe migration validation
-
-#### Phase 5: Advanced Strategies
-
-- [ ] Rolling deployment for scaled workers
-- [ ] Canary deployment with traffic splitting
-- [ ] Automatic rollback on error threshold
-
----
 
 ## Consequences
 

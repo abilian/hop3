@@ -34,12 +34,9 @@ However, we also choose to support JSON and YAML as alternatives because the con
 
 ### Current Implementation Status (Phase 1 — Shipped)
 
-The current implementation uses property-based access via Python dataclasses and `@property` methods. Key files:
+Phase 1 uses property-based access via Python dataclasses and `@property` methods: a `Hop3Config` class with `tomllib` parsing, and an `AppConfig` class merging `Procfile` + `hop3.toml` with property-based access.
 
-- `packages/hop3-server/src/hop3/project/hop3_config.py` — `Hop3Config` class with `tomllib` parsing.
-- `packages/hop3-server/src/hop3/project/config.py` — `AppConfig` class merging `Procfile` + `hop3.toml` with property-based access.
-
-Validation at load time is limited to TOML parse errors; semantic errors (missing required field, wrong type) surface when the accessor runs. This is the shipped, in-production behaviour. The trade-off is explicit: we defer formal schema validation in exchange for zero additional dependencies and fast iteration on the config surface. ADR 001 and ADR 002 document which fields are active.
+Validation at load time is limited to TOML parse errors; semantic errors (missing required field, wrong type) surface when the accessor runs. The trade-off is explicit: we defer formal schema validation in exchange for zero additional dependencies and fast iteration on the config surface. ADR 001 and ADR 002 document which fields are active.
 
 ### Phase 2 (Deferred) — Schema Validation
 
@@ -99,43 +96,3 @@ The implementation choice is left open - any approach that meets the validation 
 - **Better Developer Experience (DX)**: Early feedback to developers or package-builders about invalid configuration syntax or basic semantics will lead to a better developer experience.
 - **Fewer Runtime Dependencies**: The build-time/runtime on TOML or YAML parsers is avoided.
 - **Easier Evolution**: The configuration format can evolve more easily as it is defined and validated through a consistent schema.
-
-### Action Items
-
-- [ ] **Implement schema validation**: Add validation meeting the requirements above
-- [ ] **Converge the configuration format**: Ensure consistency between:
-  - The schema (as implemented)
-  - The documentation (ADR 002)
-  - The existing configuration files in examples
-
-### Additional TODOs
-
-1. **Documentation and Examples**:
-
-- Provide comprehensive documentation for the configuration format, including examples for TOML, JSON, and YAML.
-- Create a migration guide for users transitioning from older configuration formats to the new standardized format.
-
-2. **Validation Enhancements**:
-
-- Extend validation to cover more complex configurations and interdependencies between sections.
-- Implement validation for additional configuration sections, ensuring completeness and correctness.
-
-3. **Tooling and Integration**:
-
-- Develop CLI tools to validate configuration files before deployment.
-- Integrate configuration validation into the CI/CD pipeline to catch errors early in the development cycle.
-
-4. **Error Handling and Reporting**:
-
-- Improve error messages to be more descriptive and helpful, guiding users to fix issues quickly.
-- Log validation errors and provide suggestions for common mistakes.
-
-5. **Schema Evolution and Versioning**:
-
-- Implement a versioning system for the configuration schema to manage changes over time.
-- Develop a process for deprecating old schema versions and supporting backward compatibility.
-
-6. **Community Involvement**:
-
-- Encourage community contributions to the configuration schema and validation logic.
-- Set up a feedback mechanism to gather input from users on configuration challenges and improvements.

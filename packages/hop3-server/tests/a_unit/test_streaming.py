@@ -12,7 +12,11 @@ already has a valid token.
 
 from __future__ import annotations
 
+import asyncio
+import threading
 import uuid
+
+import pytest
 
 from hop3.server.streaming import create_stream, get_stream
 
@@ -48,3 +52,46 @@ def test_get_stream_unknown_id_returns_none() -> None:
     """Guessing a stream id returns None; controller maps to 404."""
     assert get_stream("not-a-real-uuid") is None
     assert get_stream(str(uuid.uuid4())) is None
+
+
+@pytest.mark.asyncio
+async def test_cross_thread_notify_is_scheduled_on_the_loop() -> None:
+    """write()/finish() from the deploy's background OS thread must be routed
+    onto the consumer's event loop via ``call_soon_threadsafe``.
+
+    Regression: asyncio.Queue is not thread-safe. A bare cross-thread
+    ``put_nowait()`` does not wake the consumer's ``await queue.get()``, so the
+    SSE consumer only advanced when its ``wait_for(..., timeout=30.0)`` keepalive
+    fired --- making every deployment appear to take ~30s regardless of the real
+    work (~2s). This asserts the producer hands the put to the loop instead of
+    poking the queue directly from the foreign thread.
+    """
+    loop = asyncio.get_running_loop()
+    scheduled: list[object] = []
+    real_call_soon_threadsafe = loop.call_soon_threadsafe
+
+    def spy(callback, *args):
+        scheduled.append(callback)
+        return real_call_soon_threadsafe(callback, *args)
+
+    loop.call_soon_threadsafe = spy  # type: ignore[method-assign]
+    try:
+        stream = create_stream("threadtest")
+        queue: asyncio.Queue = asyncio.Queue(maxsize=10)
+        stream.subscribers.append(queue)
+        stream._loop = loop  # what subscribe() captures on the live path
+
+        # write() from a real background thread, exactly like the deploy thread.
+        thread = threading.Thread(target=lambda: stream.write("building..."))
+        thread.start()
+        thread.join()
+
+        # The foreign-thread write was scheduled on the loop, not put directly.
+        assert scheduled, "cross-thread write must use call_soon_threadsafe"
+
+        # ...and the event is delivered to the (loop-side) consumer.
+        kind, entry = await asyncio.wait_for(queue.get(), timeout=5.0)
+        assert kind == "log"
+        assert entry.msg == "building..."
+    finally:
+        loop.call_soon_threadsafe = real_call_soon_threadsafe  # type: ignore[method-assign]

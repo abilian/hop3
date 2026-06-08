@@ -43,6 +43,18 @@ from .admin import MySQLAdmin
 # Addon type identifier for secrets storage
 ADDON_TYPE = "mysql"
 
+# Hosts a per-app DB user may connect from. Native Hop3 apps come from
+# localhost/127.0.0.1; Docker apps come from a container IP that depends on
+# which pool Docker drew the network from — its default-address-pools span
+# *both* 172.16.0.0/12 AND 192.168.0.0/16 (compose projects routinely land in
+# 192.168.x), and custom networks may use 10.x. MySQL host patterns can't do
+# CIDR, so we enumerate the RFC1918 wildcards. They only match private-source
+# connections, so this does not expose the user to the public interface.
+# (Granting only 172.% — the previous value — failed every compose app whose
+# network came from the 192.168.x pool: "[1130] Host '192.168.x.y' is not
+# allowed to connect to this MySQL server".)
+ADDON_USER_HOSTS = ("localhost", "127.0.0.1", "10.%", "172.%", "192.168.%")
+
 
 @dataclass(frozen=True)
 class MySQLAddon:
@@ -166,18 +178,9 @@ class MySQLAddon:
                 # Database and secrets both exist - nothing to do
                 return
 
-            # Create user entries for every host from which the
-            # addon will be accessed:
-            # - ``localhost`` / ``127.0.0.1`` for native Hop3 apps
-            # - ``172.%`` for Docker-based apps (docker bridge
-            #   networks land in 172.16.0.0/12)
-            #
-            # Per-host user rows in MySQL are separate identities;
-            # the Docker bridge IP is NOT matched by @'localhost'.
-            # Pre-S3-fix versions only granted @'localhost', which
-            # made every Docker app fail with "Host 'N.N.N.N' is
-            # not allowed to connect to this MySQL server".
-            hosts = ["localhost", "127.0.0.1", "172.%"]
+            # Create a user row per host the addon is reached from (native +
+            # every Docker network pool). See ADDON_USER_HOSTS for the why.
+            hosts = ADDON_USER_HOSTS
 
             for host in hosts:
                 self._create_or_update_user(cursor, host, password)
@@ -232,7 +235,7 @@ class MySQLAddon:
             cursor.execute(f"DROP DATABASE IF EXISTS `{self.db_name}`")
 
             # Drop user rows for every host we created (see ensure_exists)
-            for host in ("localhost", "127.0.0.1", "172.%"):
+            for host in ADDON_USER_HOSTS:
                 with contextlib.suppress(mysql.connector.Error):
                     cursor.execute("DROP USER IF EXISTS %s@%s", (self.db_user, host))
 

@@ -14,17 +14,24 @@ from urllib.parse import urlparse
 
 from hop3_testing.apps.catalog import AppSource
 from hop3_testing.apps.deployment import DeploymentSession
+from hop3_testing.bundle import collect_diagnostic_bundle
 from hop3_testing.exceptions import DeploymentError
-from hop3_testing.runtime_diagnostics import (
-    collect_runtime_logs as _collect_runtime_logs,
-)
 from hop3_testing.util.console import Console, PrintingConsole, Verbosity
 
 from .base import TestResult, ValidationResult
 
 if TYPE_CHECKING:
+    from hop3_testing.bundle import Bundle
     from hop3_testing.catalog.models import TestDefinition
     from hop3_testing.targets.base import DeploymentTarget
+
+
+def _target_kind(target: DeploymentTarget) -> str:
+    """Map a target to the bundle's ``target_kind`` ("docker"/"ssh"/"hetzner")."""
+    name = type(target).__name__
+    if "Remote" in name:
+        return "ssh"
+    return "docker"
 
 
 @dataclass(frozen=True)
@@ -211,7 +218,11 @@ class DeploymentTestRunner:
             return deploy_logs, f"Deploy failed: {deploy_logs}"
 
         deploy_duration = time.time() - start_time
-        deploy_logs = f"Deployed {session.app_name} in {deploy_duration:.1f}s"
+        # Keep the FULL deploy output (always), prefixed with the timing summary.
+        full_output = session.last_deploy_output or ""
+        deploy_logs = (
+            f"Deployed {session.app_name} in {deploy_duration:.1f}s\n{full_output}"
+        ).rstrip()
         validation_results.append(
             ValidationResult(
                 passed=True,
@@ -294,7 +305,7 @@ class DeploymentTestRunner:
             "deployment succeeded. Either the rejection path has "
             "regressed, or the test should drop expects-failure."
         )
-        runtime_logs = _collect_runtime_logs(self.target, session.app_name)
+        bundle = self._collect_bundle(session, deploy_logs)
         self._safe_cleanup(test, session)
         return TestResult(
             test=test,
@@ -304,7 +315,23 @@ class DeploymentTestRunner:
             total_duration=time.time() - start_time,
             error=err,
             deployed_app_name=session.app_name,
-            runtime_logs=runtime_logs,
+            bundle=bundle,
+        )
+
+    def _collect_bundle(
+        self, session: DeploymentSession, deploy_logs: str = ""
+    ) -> Bundle:
+        """Collect the unified diagnostic bundle from the target before cleanup."""
+        try:
+            expected_port = session.get_app_port()
+        except Exception:  # diagnostics must never crash the run
+            expected_port = None
+        return collect_diagnostic_bundle(
+            self.target,
+            session.app_name,
+            deploy_logs=deploy_logs,
+            expected_port=expected_port,
+            target_kind=_target_kind(self.target),
         )
 
     def _safe_cleanup(self, test: TestDefinition, session: DeploymentSession) -> None:
@@ -388,7 +415,7 @@ class DeploymentTestRunner:
                 total_duration=time.time() - start_time,
                 error=err,
                 deployed_app_name=session.app_name,
-                runtime_logs=_collect_runtime_logs(self.target, session.app_name),
+                bundle=self._collect_bundle(session, deploy_logs),
             )
 
         try:
@@ -428,12 +455,12 @@ class DeploymentTestRunner:
 
         passed = error is None and all(v.passed for v in validation_results)
 
-        runtime_logs = ""
+        bundle = None
         if not passed:
-            runtime_logs = _collect_runtime_logs(self.target, session.app_name)
+            bundle = self._collect_bundle(session, deploy_logs)
 
-        # Cleanup AFTER collecting runtime diagnostics so the app
-        # dir and docker containers are still around.
+        # Cleanup AFTER collecting diagnostics so the app dir and docker
+        # containers are still around.
         if self.cleanup:
             self.console.info(f"Cleaning up {test.name}...")
             session.cleanup()
@@ -446,7 +473,7 @@ class DeploymentTestRunner:
             total_duration=time.time() - start_time,
             error=error,
             deployed_app_name=session.app_name,
-            runtime_logs=runtime_logs,
+            bundle=bundle,
         )
 
     def _create_app_source(self, test: TestDefinition) -> AppSource:

@@ -65,6 +65,8 @@ class TargetType(str, Enum):
 class TestRequirements:
     """Requirements for running a test."""
 
+    __test__ = False  # domain model, not a pytest test class (avoid Test* collection)
+
     targets: list[TargetType] = field(default_factory=lambda: [TargetType.DOCKER])
     """Which target types can run this test."""
 
@@ -228,6 +230,8 @@ class TestMetadata:
 class TestDefinition:
     """Complete test definition parsed from test.toml."""
 
+    __test__ = False  # domain model, not a pytest test class (avoid Test* collection)
+
     name: str
     """Unique test identifier."""
 
@@ -279,6 +283,11 @@ class TestDefinition:
 
         if self.deployment:
             return self.source_path.parent / self.deployment.path
+        if self.tutorial:
+            # Each tutorial is a distinct markdown file; use the file itself as
+            # the unique path so same-directory tutorials (e.g. python/flask.md
+            # and python/django.md) get distinct catalog names.
+            return self.source_path
         if self.demo and self.demo.type == "declarative":
             # For declarative demos, look for app in steps
             for step in self.demo.steps:

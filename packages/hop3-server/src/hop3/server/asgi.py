@@ -10,10 +10,10 @@ from typing import TYPE_CHECKING
 
 from dishka.integrations.litestar import setup_dishka
 from litestar import Litestar, Request
-from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.exceptions import NotAuthorizedException
 from litestar.logging import LoggingConfig
 from litestar.middleware.session.server_side import ServerSideSessionConfig
+from litestar.plugins.jinja import JinjaTemplateEngine
 from litestar.response import Redirect
 from litestar.static_files import create_static_files_router
 from litestar.stores.memory import MemoryStore

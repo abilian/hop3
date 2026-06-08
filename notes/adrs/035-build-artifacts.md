@@ -8,12 +8,12 @@
 
 ## Revisions
 
-- v1.1: Promoted from Proposed to Accepted. The `BuildArtifact` + `RuntimeConfig` contract is the basis of NixBuilder's output (`$out/hop3/runtime.json`) and is consumed without language-specific knowledge by the deploy stage. ADR 006 §"Architectural Context" and ADR 008 (template generation) both rely on this contract. Retrofitting the LocalBuilder + LanguageToolchain path so that `spawn.py` reads `RuntimeConfig` instead of doing per-language detection (`_setup_node_paths`, `_setup_python_paths`, `_setup_ruby_paths`) is deferred — it would deliver the architectural cleanliness goal stated in the original problem section but not unlock new functionality, so it ranks below the active workstreams (2026-04-14).
-- v1.0: Original proposed version (2026-02-23)
+- v1.1 (2026-04-14): Promoted from Proposed to Accepted. The contract is the basis of NixBuilder's output (`$out/hop3/runtime.json`) and is consumed without language-specific knowledge by the deploy stage; ADR 006 and ADR 008 (template generation) both rely on it. Retrofitting the LocalBuilder + LanguageToolchain path so `spawn.py` reads `RuntimeConfig` instead of doing per-language detection is deferred — it delivers architectural cleanliness but not new functionality.
+- v1.0 (2026-02-23): Original proposed version.
 
 ## Context
 
-During a refactoring session to reduce complexity in `spawn.py`, we extracted language-specific environment setup into helper methods:
+The run phase (`spawn.py`) configures the environment via language-specific helper methods:
 
 ```python
 # In spawn.py make_env()
@@ -22,7 +22,7 @@ self._setup_ruby_paths(env)    # GEM_HOME, BUNDLE_PATH
 self._setup_python_paths(env)  # PYTHONPATH for src-layout
 ```
 
-This revealed a deeper architectural issue: **the run phase has hardcoded knowledge of specific languages**.
+This exposes a deeper architectural issue: **the run phase has hardcoded knowledge of specific languages**.
 
 ### The Problem
 

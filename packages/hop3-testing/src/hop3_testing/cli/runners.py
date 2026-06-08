@@ -11,13 +11,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hop3_testing.apps.debug import DeploymentDebugger
-from hop3_testing.results import ConsoleReporter, ResultStore
+from hop3_testing.bundle import collect_diagnostic_bundle
+from hop3_testing.results import ConsoleReporter, ResultStore, narrate_timings
 from hop3_testing.runners import (
     DemoTestRunner,
     DeploymentTestRunner,
     TutorialTestRunner,
 )
-from hop3_testing.util.console import PrintingConsole, Verbosity
+from hop3_testing.util.console import Console, PrintingConsole, Verbosity
 
 from .logging import TestLogWriter
 from .reports import generate_reports
@@ -111,9 +112,11 @@ def run_tests(
     report: str = "text",
     quiet: bool = False,
     debug: bool = False,
+    narrate: bool = False,
     logs_dir: str | None = None,
     start_message: str = "Starting tests...",
     mode_label: str = "system",
+    selection_mode: str | None = None,
     available_features: list[str] | None = None,
 ) -> None:
     """Run tests against a target.
@@ -147,14 +150,23 @@ def run_tests(
         target.start()
     except RuntimeError as e:
         console.error(f"Failed: {e}")
+        _emit_startup_diagnostics(target, console)
         sys.exit(1)
 
+    target_kind = "ssh" if "Remote" in type(target).__name__ else "docker"
     try:
-        store.start_run(
-            mode=mode_label,
-            target_type=mode_label,
+        # Record the test-selection scope (dev/ci/nightly/release) as the run's
+        # mode — that's what the dashboard shows and what the regressions diff
+        # compares against. ``mode_label`` (system/reuse, the deploy style) stays
+        # the per-run log-dir label. Older callers that don't pass a selection
+        # fall back to mode_label.
+        run = store.start_run(
+            mode=selection_mode or mode_label,
+            target_type=target_kind,
             target_name=target.info.ssh_host,
         )
+        if run.run_uid:
+            console.status(f"Run: {run.run_uid}")
 
         results = []
         for test in tests:
@@ -180,6 +192,8 @@ def run_tests(
         store.finish_run()
         reporter.summary(results)
         generate_reports(target, report, results)
+        if narrate:
+            narrate_timings(results)
 
         passed = sum(1 for r in results if r.passed)
         failed = len(results) - passed
@@ -189,6 +203,27 @@ def run_tests(
         if not keep:
             console.status("Stopping target...")
             target.stop()
+
+
+def _emit_startup_diagnostics(target: DeploymentTarget, console: Console) -> None:
+    """Best-effort diagnostics when the target never came up.
+
+    Captures whatever a half-started target shows (supervisor/nginx/journal) and
+    prints the headline + the saved artifact path. ``why`` can't resolve it (no
+    result row exists yet), so the directory is printed directly.
+    """
+    try:
+        bundle = collect_diagnostic_bundle(
+            target,
+            app="startup",
+            target_kind="ssh" if "Remote" in type(target).__name__ else "docker",
+            classifier_hint="app-crash",
+        )
+    except Exception:  # diagnostics must never mask the original failure
+        return
+    console.error(bundle.headline)
+    if bundle.artifact_dir:
+        console.error(f"diagnostics saved to {bundle.artifact_dir}")
 
 
 def run_single_test(

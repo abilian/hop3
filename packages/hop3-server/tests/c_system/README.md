@@ -1,8 +1,15 @@
 # System Integration Tests
 
+> **⚠️ DISSOLVING — see [ADR 043](../../../../notes/adrs/043-unified-testing-architecture.md).**
+> The three-layer pyramid is `a_unit` / `b_integration` / `c_e2e`; `c_system` is being retired.
+> Its one active, hermetic test (`test_dashboard_app_create.py`) moved to `b_integration`.
+> What remains here is **inactive** (a module-skipped Postgres backup placeholder + `xxx_`-disabled
+> connection/deployment/git-hook tests) and is kept only as a porting reference: it should be
+> revived into `c_e2e` (Docker) or deleted. Do not add new tests here.
+
 This directory contains system integration tests that verify hop3-cli and hop3-server work together correctly, including authentication, RPC communication, and basic command execution.
 
-**Important**: These are **not** full end-to-end tests with actual application deployments. For full E2E tests, see `tests/d_e2e/`.
+**Important**: These are **not** full end-to-end tests with actual application deployments. For full E2E tests, see `tests/c_e2e/`.
 
 ## Test Scope
 

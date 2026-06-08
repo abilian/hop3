@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from hop3_testing.bundle import Bundle
     from hop3_testing.catalog.models import TestDefinition, Validation
 
 
@@ -52,6 +53,8 @@ class ValidationResult:
 class TestResult:
     """Complete result of running a test."""
 
+    __test__ = False  # domain model, not a pytest test class (avoid Test* collection)
+
     test: TestDefinition
     """The test definition that was run."""
 
@@ -79,7 +82,11 @@ class TestResult:
     """Runtime logs collected from the target side when the test
     failed. Populated BEFORE cleanup destroys the app, so the content
     survives even when the container/app dir is gone by the time the
-    log is written to disk."""
+    log is written to disk. Legacy fallback — superseded by ``bundle``."""
+
+    bundle: Bundle | None = None
+    """Unified diagnostic bundle (ADR 043 §7), collected on failure before
+    cleanup. Carries the headline, classifier, and the saved artifact path."""
 
     @property
     def failed_validations(self) -> list[ValidationResult]:

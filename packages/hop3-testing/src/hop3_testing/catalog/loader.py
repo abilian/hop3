@@ -105,9 +105,18 @@ def _parse_test_definition(data: dict[str, Any], path: Path) -> TestDefinition:
         tutorial=tutorial,
         description=test_section.get("description"),
         metadata=metadata,
-        expects_failure=bool(test_section.get("expects-failure", False)),
+        # Apps under apps/bad/ are "bad recipes": negative tests expected to
+        # fail. A config flag can also opt any app in.
+        expects_failure=(
+            bool(test_section.get("expects-failure", False)) or _under_bad_dir(path)
+        ),
         source_path=path,
     )
+
+
+def _under_bad_dir(path: Path | None) -> bool:
+    """True for apps under apps/bad/ (the expected-to-fail "bad recipes")."""
+    return path is not None and "/apps/bad/" in f"/{path.as_posix()}"
 
 
 def _parse_requirements(data: dict[str, Any]) -> TestRequirements:
@@ -544,7 +553,11 @@ def generate_test_definition_from_hop3_toml(
         ),
         description=description,
         metadata=TestMetadata(**metadata_kwargs),
-        expects_failure=overrides.get("expects_failure", False),
+        # Bad recipes (apps/bad/**) are negative tests even when configured via
+        # hop3.toml — match the standalone-test.toml path so they're xfail, not
+        # red. An explicit [test] expects-failure flag still opts any app in.
+        expects_failure=overrides.get("expects_failure", False)
+        or _under_bad_dir(app_path),
         source_path=app_path / "hop3.toml",
     )
 
@@ -586,3 +599,54 @@ def load_test_definition_smart(app_path: Path) -> TestDefinition:
 
     # Case 3: Generate from structure
     return generate_test_definition_from_app(app_path)
+
+
+def _read_markdown_title(md_path: Path) -> str | None:
+    """Read a tutorial's description from its first markdown heading."""
+    try:
+        with md_path.open() as f:
+            for line in f:
+                stripped = line.strip()
+                if stripped.startswith("#"):
+                    return stripped.lstrip("#").strip()
+    except OSError:
+        return None
+    return None
+
+
+def generate_tutorial_test_definition(md_path: Path) -> TestDefinition:
+    """Generate a TestDefinition for a literate tutorial markdown file.
+
+    Tutorials live as ``docs/src/tutorials/<language>/<framework>.md`` and are
+    executed by ``validoc`` (see ``TutorialTestRunner``). The language is taken
+    from the parent directory and the framework from the file stem.
+
+    Args:
+        md_path: Path to the tutorial markdown file.
+
+    Returns:
+        A tutorial TestDefinition (``category == "tutorial"``).
+    """
+    language = md_path.parent.name
+    framework = md_path.stem
+    covers = [c for c in (language, framework) if c]
+
+    return TestDefinition(
+        # P1 + slow so tutorials run in the nightly matrix (nightly = P0+P1,
+        # tiers fast/medium/slow) alongside demos, not only in `release`.
+        name=f"{language}/{framework}",
+        tier=Tier.SLOW,
+        priority=Priority.P1,
+        requirements=TestRequirements(
+            targets=[TargetType.DOCKER, TargetType.REMOTE],
+        ),
+        validations=[],
+        tutorial=TutorialConfig(path=md_path.name, runner="validoc"),
+        description=_read_markdown_title(md_path),
+        metadata=TestMetadata(
+            language=language,
+            framework=framework,
+            covers=covers,
+        ),
+        source_path=md_path,
+    )

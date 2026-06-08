@@ -9,9 +9,8 @@
 
 ## Revisions
 
-- v0.3: Privilege-handling deferred to ADR 041 (now v0.2 after a design-grilling session). ADR 041 settles: rootd is a pure executor with no policy file (no auto_allow / prompt / deny outcomes); deploy-time confirmation lives in the CLI as a y/N summary computed from the firewall delta vs the previous deploy; nftables only in v1 with a dedicated `inet hop3` table; cloud-firewall plugins call provider APIs directly from hop3-server. The grant lifecycle described in this ADR (open on deploy, close on destroy) flows through rootd's `firewall.add_rule` / `firewall.remove_rule` ops; the `[[expose]]` schema gains an optional `description` field surfaced in the y/N prompt and audit log (2026-05-01).
-- v0.2: Privilege-handling pointer added — ADR 041 introduces `hop3-rootd`, a small Python daemon that supersedes the sudoers-fragment / setuid-binary approaches implied here. The grant lifecycle in this ADR (open on deploy, close on destroy) flows through hop3-rootd's `firewall.add_rule` / `firewall.remove_rule` ops; cloud-provider firewall integration uses the same `Firewall` plugin protocol but bypasses hop3-rootd (calls cloud APIs directly with operator credentials). See ADR 041 for the agent design (2026-04-24).
-- v0.1: Initial draft (2026-04-25). Proposes declarative per-app port exposure backed by an installer-managed L3/L4 firewall. Explicitly defers the WAF half of the NGI commitment to a separate ADR.
+- v0.3 (2026-05-01): Privilege-handling delegated to ADR 041. The grant lifecycle described here (open on deploy, close on destroy) flows through rootd's `firewall.add_rule` / `firewall.remove_rule` ops; deploy-time confirmation lives in the CLI as a y/N summary of the firewall delta. See ADR 041 for the authoritative privilege design.
+- v0.1 (2026-04-25): Initial draft. Proposes declarative per-app port exposure backed by an installer-managed L3/L4 firewall. Explicitly defers the WAF half of the NGI commitment to a separate ADR.
 
 ## Context
 

@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{# Auto-refresh while the run is still in progress so finished builds appear. #}
+{% block head_extra %}{% if not run.finished_at %}<meta http-equiv="refresh" content="6">{% endif %}{% endblock %}
+
+{% block content %}
+<a href="/" class="text-sm text-gray-500 hover:text-gray-900">&larr; Dashboard</a>
+
+<h1 class="text-xl font-semibold mt-2 mb-1 font-mono">
+  {{ run.run_uid }}
+  {% if not run.finished_at %}
+  <span class="ml-2 align-middle inline-flex items-center rounded bg-blue-100 text-blue-800 px-2 py-0.5 text-xs font-sans animate-pulse">&#9679; running</span>
+  {% endif %}
+</h1>
+<p class="text-sm text-gray-600 mb-6">
+  {{ run.trigger or run.mode or "—" }} ·
+  {{ run.passed }}/{{ run.total }} {% if run.finished_at %}passed{% else %}done so far{% endif %} ·
+  {{ run.failed }} failed ·
+  {% if run.finished_at %}{{ "%.1fs"|format(run.duration) if run.duration else "—" }}{% else %}<span class="text-blue-700">live — auto-refreshing</span>{% endif %}
+</p>
+
+{# --- Session details (progressive disclosure) --- #}
+<details class="mb-6 border rounded">
+  <summary class="cursor-pointer px-3 py-2 bg-gray-100 text-sm font-semibold text-gray-700">Session details</summary>
+  <dl class="px-3 py-2 text-sm grid grid-cols-[10rem_1fr] gap-x-4 gap-y-1">
+    <dt class="text-gray-500">Hop3 version</dt><dd>{{ run.hop3_version or "—" }}</dd>
+    <dt class="text-gray-500">Git SHA</dt><dd class="font-mono text-xs">{{ run.git_sha or "—" }}</dd>
+    <dt class="text-gray-500">Trigger</dt><dd>{{ run.trigger or "—" }}</dd>
+    <dt class="text-gray-500">Mode</dt><dd>{{ run.mode or "—" }}</dd>
+    <dt class="text-gray-500">Target</dt><dd>{{ run.target_type or "—" }} {{ run.target_name or "" }}</dd>
+    <dt class="text-gray-500">Started</dt><dd>{{ run.started_at.strftime("%Y-%m-%d %H:%M:%SZ") if run.started_at else "—" }}</dd>
+    <dt class="text-gray-500">Finished</dt><dd>{{ run.finished_at.strftime("%Y-%m-%d %H:%M:%SZ") if run.finished_at else "—" }}</dd>
+    {% for key, value in run.metadata.items() %}
+    <dt class="text-gray-500">{{ key }}</dt><dd class="font-mono text-xs">{{ value }}</dd>
+    {% endfor %}
+  </dl>
+</details>
+
+{% if xpass_count %}
+<p class="mb-4 rounded bg-amber-100 text-amber-900 px-3 py-2 text-sm">
+  &#9888; {{ xpass_count }} "bad recipe"{{ "s" if xpass_count != 1 else "" }}
+  unexpectedly <strong>passed</strong> (xpass) — consider promoting
+  {{ "them" if xpass_count != 1 else "it" }} out of <code>apps/bad/</code>.
+</p>
+{% endif %}
+
+{# --- Per-suite rollup --- #}
+{% if rollup %}
+<section class="mb-6">
+  <h2 class="text-sm font-semibold text-gray-700 mb-2">Per suite</h2>
+  <div class="flex flex-wrap gap-4 text-sm">
+    {% for category, counts in rollup.items() %}
+    <div class="border rounded px-3 py-2">
+      <div class="font-medium">{{ category }}</div>
+      <div class="text-xs text-gray-600">{{ counts.passed }}/{{ counts.total }} passed{% if counts.failed %}, <span class="text-red-700">{{ counts.failed }} failed</span>{% endif %}</div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{# --- Regressions diff: only tests run in BOTH this run and the previous one --- #}
+{% if previous_uid %}
+<section class="mb-6">
+  <h2 class="text-sm font-semibold text-gray-700 mb-1">
+    Diff vs <span class="font-mono">{{ previous_uid }}</span>
+  </h2>
+  <p class="text-xs text-gray-500 mb-2">
+    Compares only tests run in both.
+    {% if diff.not_run %}<strong>{{ diff.not_run|length }}</strong> test{{ "s" if diff.not_run|length != 1 else "" }} from the previous run weren't re-run here (not counted as fixed).{% endif %}
+  </p>
+  <div class="flex flex-wrap gap-6 text-sm">
+    <div>
+      <div class="text-red-700 font-medium">Regressions ({{ diff.regressions|length }})</div>
+      {% for name in diff.regressions %}<div class="font-mono text-xs">{{ name }}</div>{% else %}<div class="text-gray-400 text-xs">none</div>{% endfor %}
+    </div>
+    <div>
+      <div class="text-green-700 font-medium">Fixed ({{ diff.fixed|length }})</div>
+      {% for name in diff.fixed %}<div class="font-mono text-xs">{{ name }}</div>{% else %}<div class="text-gray-400 text-xs">none</div>{% endfor %}
+    </div>
+    <div>
+      <div class="text-amber-700 font-medium">Still failing ({{ diff.still_failing|length }})</div>
+      {% for name in diff.still_failing %}<div class="font-mono text-xs">{{ name }}</div>{% else %}<div class="text-gray-400 text-xs">none</div>{% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{# --- Results, failed-first --- #}
+<h2 class="text-sm font-semibold text-gray-700 mb-2">Results</h2>
+<table class="w-full text-sm border-collapse">
+  <thead class="text-left text-gray-500 border-b">
+    <tr>
+      <th class="py-2 pr-4">Test</th>
+      <th class="py-2 pr-4">Status</th>
+      <th class="py-2 pr-4">Classifier</th>
+      <th class="py-2 pr-4 text-right">Duration</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in results %}
+    <tr class="border-b align-top {% if r.status == 'fail' %}bg-red-50{% elif r.status == 'xpass' %}bg-amber-50{% endif %}">
+      <td class="py-2 pr-4 font-mono text-xs">
+        <a href="/builds/{{ r.id }}" class="text-blue-700 hover:underline">{{ r.test_name }}</a>
+        <form method="post" action="/runs/trigger" class="inline">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="app" value="{{ r.test_name }}">
+          <button type="submit" title="Re-run this app" class="ml-2 text-gray-400 hover:text-gray-900">&#8635;</button>
+        </form>
+      </td>
+      <td class="py-2 pr-4">
+        {% if r.status == 'fail' %}
+        <span class="text-red-700 font-medium">fail</span>
+        {% elif r.status == 'xpass' %}
+        <span class="text-amber-700 font-medium" title="bad recipe unexpectedly passed">xpass</span>
+        {% elif r.status == 'xfail' %}
+        <span class="text-gray-500" title="bad recipe — expected failure">xfail</span>
+        {% else %}
+        <span class="text-green-700">pass</span>
+        {% endif %}
+      </td>
+      <td class="py-2 pr-4">
+        {{ r.classification or "—" }}
+        {% if r.bundle_run_id %}<a href="/bundle/{{ r.bundle_run_id }}" class="ml-1 text-blue-700 hover:underline text-xs">logs &rarr;</a>{% endif %}
+        {% if r.headline %}<pre class="mt-1 text-xs whitespace-pre-wrap text-gray-700">{{ r.headline }}</pre>{% endif %}
+      </td>
+      <td class="py-2 pr-4 text-right">{{ "%.1fs"|format(r.duration) if r.duration else "—" }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="py-2 text-gray-400">No results recorded.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

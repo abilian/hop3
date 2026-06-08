@@ -8,8 +8,7 @@
 
 ## Revisions
 
-- v1.2: CLI examples migrated from colon syntax (`hop3 ps:scale`, `hop3 config:set`, `hop3 app:status`) to space form (`hop3 ps scale --app <app>`, `hop3 config set --app <app> KEY=val`, `hop3 app status --app <app>`) per ADR 036 (2026-04-22).
-- v1.1: Status header re-formatted (the original header was a single line, which the markdown renderer collapsed). Schema design (Phase 1) is still scheduled for 0.6; runtime support (Phase 2) for 0.7. Cross-references reordered for readability (2026-04-14).
+- v1.2: CLI examples migrated from colon syntax to the space form per ADR 036 (2026-04-22).
 - v1.0: Original active version (2026-04-11)
 
 ## Context

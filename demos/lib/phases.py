@@ -486,6 +486,12 @@ def run_demo(
         f"Demo directory: {demo_dir}\nGeneric: {is_generic}",
     )
 
+    # Reclaim server disk before each demo so a long run (50+ deploys) doesn't
+    # exhaust the disk — the cascading-failure + 600s-timeout cause.
+    from lib.server import prune_server_disk
+
+    prune_server_disk(ctx)
+
     # Show demo start - in quiet mode show "demo01 (description)...", in normal mode full header
     if ctx.output_level == OutputLevel.QUIET:
         if short_desc:

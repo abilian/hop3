@@ -105,6 +105,16 @@ def test_builder_returns_build_artifact(tmp_path: Path, monkeypatch):
     # Change to source directory
     monkeypatch.chdir(src_dir)
 
+    # Stub the network pip-install step — this test verifies build() returns a
+    # well-formed BuildArtifact and creates a real venv, not that flask installs
+    # over the network (real installs are covered by the c_e2e deploy tests).
+    orig_shell = toolchain.shell
+
+    def shell_no_pip(cmd, *args, **kwargs):
+        return None if "pip install" in cmd else orig_shell(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(toolchain, "shell", shell_no_pip)
+
     # Build the app
     artifact = toolchain.build()
 

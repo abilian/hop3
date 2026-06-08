@@ -7,8 +7,8 @@
 
 ## Revisions
 
-- v1.1: CLI example migrated from colon syntax (`hop3 app:logs <app>`) to space form (`hop3 logs --app <app>`) per ADR 036 (2026-04-22).
-- v1.0: Deferral note added (2026-04-14).
+- 2026-04-14: Deferred (post-0.6) — see Deferral Note below.
+- 2025-01-23: Original draft.
 
 ## Deferral Note (2026-04-14)
 
@@ -372,69 +372,6 @@ max_cpu_time = 300  # 5 minutes
 max_memory = 536870912  # 512MB
 ```
 
-## Implementation Phases
-
-### Phase 1: MVP (Weeks 1-2)
-**Goal:** Basic terminal functionality for applications
-
-- [ ] Terminal session management (create, destroy, timeout)
-- [ ] PTY-backed shell execution
-- [ ] WebSocket communication
-- [ ] Basic xterm.js UI
-- [ ] Authentication and app-scoped permissions
-- [ ] Single session per user
-- [ ] Basic command execution (no filtering yet)
-
-**Deliverables:**
-- Working terminal accessible from app detail page
-- Users can execute commands in their app's environment
-- Sessions auto-close after timeout
-- Basic audit logging
-
-### Phase 2: Enhanced Features (Weeks 3-4)
-**Goal:** Production-ready with security and UX improvements
-
-- [ ] Multiple sessions per user (tabs)
-- [ ] Command filtering (blacklist/whitelist)
-- [ ] Session recording (asciicast format)
-- [ ] Copy/paste support
-- [ ] Terminal search
-- [ ] Resource limits enforcement
-- [ ] Read-only mode
-- [ ] Better error handling and user feedback
-
-**Deliverables:**
-- Multi-tab terminal interface
-- Session recordings can be viewed/downloaded
-- Command filtering prevents dangerous operations
-- Users can copy/paste with clipboard integration
-
-### Phase 3: Advanced Features (Weeks 5-6)
-**Goal:** Power-user features
-
-- [ ] File upload/download through terminal
-- [ ] Database shell integration (psql, mysql)
-- [ ] Terminal history and search across sessions
-- [ ] Collaborative terminals (multi-user view/control)
-- [ ] System terminal for superadmins
-- [ ] Session sharing (read-only links)
-
-**Deliverables:**
-- Users can upload/download files via terminal
-- Direct database access through web terminal
-- Admins can share terminal sessions with team
-- System-level terminal for infrastructure management
-
-### Phase 4: Enterprise (Future)
-**Goal:** Compliance and enterprise features
-
-- [ ] Multi-party authorization for sensitive commands
-- [ ] Integration with external audit systems
-- [ ] RBAC with granular command permissions
-- [ ] Command approval workflows
-- [ ] SSO/SAML integration
-- [ ] Session replay with timeline scrubbing
-
 ## Consequences
 
 ### Positive
@@ -629,12 +566,3 @@ max_memory = 536870912  # 512MB
 **User Satisfaction:**
 - Terminal feature rated 4+ stars
 - < 5% of support tickets mention terminal issues
-
-## Next Steps
-
-1. **Create detailed implementation plan** for Phase 1
-2. **Security review** with team before implementation
-3. **Prototype** basic terminal with xterm.js + WebSocket
-4. **User testing** with 5-10 beta users
-5. **Documentation** (user guide, admin guide, security guide)
-6. **Gradual rollout** (beta → production)

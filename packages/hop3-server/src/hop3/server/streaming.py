@@ -83,6 +83,13 @@ class DeploymentStream:
     complete: bool = False
     success: bool = False
     error_message: str = ""
+    # Event loop running the SSE consumer, captured on first subscribe().
+    # write()/finish() run in the deployment's background OS thread, but
+    # asyncio.Queue is NOT thread-safe: a bare cross-thread put_nowait() does
+    # not wake the consumer's `await queue.get()`, so it only advances on its
+    # keepalive timeout --- making every deploy appear to take ~30s. We route
+    # puts back onto the loop with call_soon_threadsafe so they arrive at once.
+    _loop: asyncio.AbstractEventLoop | None = field(default=None, repr=False)
 
     def write(self, msg: str, level: int = 0, fg: str = "") -> None:
         """Write a log entry and notify all subscribers.
@@ -94,12 +101,7 @@ class DeploymentStream:
         """
         entry = LogEntry(msg=msg, level=level, fg=fg)
         self.logs.append(entry)
-
-        # Notify all subscribers
-        for queue in self.subscribers:
-            # Skip slow consumers
-            with suppress(asyncio.QueueFull):
-                queue.put_nowait(("log", entry))
+        self._notify(("log", entry))
 
     def finish(self, success: bool, error_message: str = "") -> None:
         """Mark stream as complete.
@@ -111,11 +113,27 @@ class DeploymentStream:
         self.complete = True
         self.success = success
         self.error_message = error_message
+        self._notify(("complete", None))
 
-        # Notify subscribers of completion
+    def _notify(self, item: tuple[str, Any]) -> None:
+        """Push an event to every subscriber, waking the consumer's loop.
+
+        Called from the deployment's background thread, so cross-thread puts
+        must be scheduled on the consumer's event loop (see _loop above).
+        Falls back to a direct put when no loop is captured (sync/test use).
+        """
+        loop = self._loop
         for queue in self.subscribers:
-            with suppress(asyncio.QueueFull):
-                queue.put_nowait(("complete", None))
+            if loop is not None and loop.is_running():
+                loop.call_soon_threadsafe(self._safe_put, queue, item)
+            else:
+                self._safe_put(queue, item)
+
+    @staticmethod
+    def _safe_put(queue: asyncio.Queue, item: tuple[str, Any]) -> None:
+        # Skip slow consumers rather than block the producer.
+        with suppress(asyncio.QueueFull):
+            queue.put_nowait(item)
 
     async def subscribe(self) -> AsyncIterator[str]:
         """Subscribe to this stream and yield SSE-formatted events.
@@ -123,6 +141,8 @@ class DeploymentStream:
         Yields:
             SSE-formatted strings ready to send to client
         """
+        # Capture the loop so background-thread writers can wake us (_notify).
+        self._loop = asyncio.get_running_loop()
         queue: asyncio.Queue = asyncio.Queue(maxsize=1000)
         self.subscribers.append(queue)
 

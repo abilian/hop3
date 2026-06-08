@@ -8,7 +8,7 @@
 
 ## Revisions
 
-- v0.4: Phase 3 (ADR 008) productionized across 22+ hand-crafted and 20 template-generated apps. Phase 2 (ADR 007) effectively superseded by the `nixpkgs-wrapper` template; ADR 007 is marked Superseded. Phase-status table refreshed (2026-04-14).
+- v0.4: Phase 3 (ADR 008) accepted as the basis for generated Nix builds. Phase 2 (ADR 007) superseded by the `nixpkgs-wrapper` template; ADR 007 marked Superseded (2026-04-14).
 - v0.3: Phased approach starting with hop3.nix; align with plugin architecture (2026-03-23)
 - v0.2: Tweak following feedback from NLNet (2024-09-23)
 - v0.1: Initial draft (2024-07-17)
@@ -23,12 +23,12 @@ Integrating Nix into Hop3 will bridge the gap between reproducible builds and pr
 
 ### Phased Implementation Approach (Updated 2026-04)
 
-| Phase | Scope | Status | Evidence |
-|-------|-------|--------|----------|
-| **Phase 1** | Projects with explicit `hop3.nix` file | **Shipped** | 22+ applications under `apps/real-apps-nix/` build and deploy via hand-crafted `hop3.nix`. |
-| **Phase 2** | Nixpkgs packages as Blueprints (ADR 007) | **Superseded by Phase 3** | The `nixpkgs-wrapper` template in ADR 008 covers this use case (wrapping an existing nixpkgs package with Hop3 runtime metadata) more cleanly than the originally-proposed Blueprint abstraction. |
-| **Phase 3** | Template-based generation at build time (ADR 008) | **Shipped** | Eight templates (`nixpkgs-wrapper`, `prebuilt-binary`, `prebuilt-archive`, `node-prebuilt`, `php-app`, `python-venv`, `java-war`, `ruby-bundler`) cover 20 applications in `apps/real-apps-nix-gen/`. Three-tier reproducibility taxonomy (§ADR 008) surfaced in per-template metadata. |
-| **Phase 4** | Full NixOS runtime integration (ADR 009) | **Deferred** | Nix-managed systemd services, Nix-managed backing-service integration, NixOS module generation. Not blocking current goals. |
+| Phase | Scope | Notes |
+|-------|-------|-------|
+| **Phase 1** | Projects with explicit `hop3.nix` file | Applications build and deploy via hand-crafted `hop3.nix`. |
+| **Phase 2** | Nixpkgs packages as Blueprints (ADR 007) | The `nixpkgs-wrapper` template in ADR 008 covers this use case (wrapping an existing nixpkgs package with Hop3 runtime metadata) more cleanly than the originally-proposed Blueprint abstraction. |
+| **Phase 3** | Template-based generation at build time (ADR 008) | Templates (`nixpkgs-wrapper`, `prebuilt-binary`, `prebuilt-archive`, `node-prebuilt`, `php-app`, `python-venv`, `java-war`, `ruby-bundler`) generate `hop3.nix` for common app shapes. A three-tier reproducibility taxonomy (§ADR 008) is surfaced in per-template metadata. |
+| **Phase 4** | Full NixOS runtime integration (ADR 009) | Nix-managed systemd services, Nix-managed backing-service integration, NixOS module generation. Not blocking current goals. |
 
 ### Architectural Context (Updated 2026-03)
 
@@ -174,6 +174,8 @@ Hop3 will integrate Nix to take advantage of its strengths in reproducible build
    - Closure size optimization
    - Build parallelization
 
+Deferred design questions (Nix-store GC, multi-app isolation, sandbox policy) are tracked internally and folded into the follow-up ADRs as they land.
+
 ## Consequences
 
 ### Benefits
@@ -192,39 +194,6 @@ Hop3 will integrate Nix to take advantage of its strengths in reproducible build
 
 - **Integration Complexity**: High complexity in integrating diverse applications with Nix. Early community engagement and sufficient buffer time will mitigate this risk.
 - **Dependency Management**: Medium probability of encountering unsupported dependencies in the Nix ecosystem. Prioritize applications with Nix support and work on packaging missing dependencies as part of the project.
-
-## Action Items
-
-### Phase 1: hop3.nix Support (M1.1)
-
-1. **NixBuilder Plugin**:
-   - [ ] Create `NixBuilder` class implementing `Builder` protocol
-   - [ ] Implement `accept()` - check for `hop3.nix` existence
-   - [ ] Implement `build()` - run `nix-build` and extract RuntimeConfig
-   - [ ] Register via `NixBuildPlugin` with `get_builders()` hook
-
-2. **hop3.nix Evaluation**:
-   - [ ] Define expected attributes (`package`, `workers`, `env`)
-   - [ ] Parse Nix output to extract store paths
-   - [ ] Map to `RuntimeConfig` structure
-
-3. **Integration Testing**:
-   - [ ] Create sample Python app with hop3.nix
-   - [ ] Verify build produces correct BuildArtifact
-   - [ ] Test deployment via standard deployers (uWSGI, etc.)
-
-4. **Documentation**:
-   - [ ] Document hop3.nix file format
-   - [ ] Create tutorial for Nix-based deployment
-   - [ ] Add troubleshooting guide
-
-### Future Phases (Deferred)
-
-5. **Phase 2** (ADR 007): Nixpkgs/Blueprint integration
-6. **Phase 3** (ADR 008): Auto-generation via dream2nix/nixpacks
-7. **Phase 4** (ADR 009): NixOS runtime integration
-
-Deferred design questions (Nix-store GC, multi-app isolation, sandbox policy) are tracked internally and folded into the follow-up ADRs as they land.
 
 ## File Locations
 

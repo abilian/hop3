@@ -69,16 +69,3 @@ CORE_ALIASES: tuple[Alias, ...] = (
     # server's auth commands explicitly can type `hop3 auth login` /
     # `hop3 auth logout`.
 )
-
-
-def build_alias_map(aliases: tuple[Alias, ...]) -> dict[str, Alias]:
-    """Build a {source_token: Alias} dict from a tuple of Alias entries.
-
-    If two aliases share the same source token, the first one wins (callers
-    should pass a union-ed list where earlier entries have higher priority).
-    """
-    table: dict[str, Alias] = {}
-    for alias in aliases:
-        if alias.source_token not in table:
-            table[alias.source_token] = alias
-    return table

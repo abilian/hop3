@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">{{ title }}</h1>
+
+{% if flash %}
+<p class="mb-3 rounded px-3 py-2 text-sm {% if flash[0] == 'ok' %}bg-green-100 text-green-800{% else %}bg-amber-100 text-amber-800{% endif %}">{{ flash[1] }}</p>
+{% endif %}
+
+{# Live current-run panel: loads immediately, then self-polls every 3s. #}
+<div id="running-panel" hx-get="/running" hx-trigger="load, every 3s" hx-swap="innerHTML"></div>
+
+<form method="post" action="/runs/trigger" class="mb-5 flex items-center gap-2">
+  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+  <span class="text-sm text-gray-600">Run now on <span class="font-mono">{{ default_target }}</span>:</span>
+  <select name="mode" class="border rounded px-2 py-1 text-sm">
+    {% for m in modes %}<option value="{{ m }}" {% if m == default_mode %}selected{% endif %}>{{ m }}</option>{% endfor %}
+  </select>
+  <button type="submit" class="rounded bg-gray-900 text-white px-3 py-1 text-sm hover:bg-gray-700">Run now</button>
+</form>
+
+{% if runs %}
+<table class="w-full text-sm border-collapse">
+  <thead class="text-left text-gray-500 border-b">
+    <tr>
+      <th class="py-2 pr-4"></th>
+      <th class="py-2 pr-4">Scope</th>
+      <th class="py-2 pr-4">Trigger</th>
+      <th class="py-2 pr-4">Started</th>
+      <th class="py-2 pr-4 text-right">Tests</th>
+      <th class="py-2 pr-4 text-right">Passed</th>
+      <th class="py-2 pr-4 text-right">Failed</th>
+      <th class="py-2 pr-4 text-right">Duration</th>
+      <th class="py-2">Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for run in runs %}
+    <tr class="border-b hover:bg-gray-100">
+      <td class="py-2 pr-4"><a href="/runs/{{ run.run_uid }}" title="View run" class="inline-block rounded border border-gray-300 px-2 py-0.5 text-xs text-blue-700 hover:bg-blue-50">view</a></td>
+      <td class="py-2 pr-4">{{ run.mode or "—" }}</td>
+      <td class="py-2 pr-4">{{ run.trigger or "—" }}</td>
+      <td class="py-2 pr-4">{{ run.started_at.strftime("%Y-%m-%d %H:%M") if run.started_at else "—" }}</td>
+      <td class="py-2 pr-4 text-right">{{ run.total }}</td>
+      <td class="py-2 pr-4 text-right text-green-700">{{ run.passed }}</td>
+      <td class="py-2 pr-4 text-right text-red-700">{{ run.failed }}</td>
+      <td class="py-2 pr-4 text-right">{{ "%.1fs"|format(run.duration) if run.duration else "—" }}</td>
+      <td class="py-2">
+        {% if not run.finished %}
+        <a href="/runs/{{ run.run_uid }}" class="inline-block rounded bg-blue-100 text-blue-800 px-2 py-0.5 text-xs animate-pulse hover:bg-blue-200">&#9679; running</a>
+        {% elif run.aborted %}
+        <span class="inline-block rounded bg-amber-100 text-amber-800 px-2 py-0.5 text-xs">interrupted</span>
+        {% elif run.ok %}
+        <span class="inline-block rounded bg-green-100 text-green-800 px-2 py-0.5 text-xs">green</span>
+        {% else %}
+        <span class="inline-block rounded bg-red-100 text-red-800 px-2 py-0.5 text-xs">red</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="text-gray-600">No runs yet. Run <code>hop3-test cloud …</code> or the nightly suite; results land here.</p>
+{% endif %}
+{% endblock %}

@@ -1,8 +1,9 @@
-.PHONY: all develop test lint clean doc format build serve
+.PHONY: all develop test test-fast lint clean doc format build serve
+.PHONY: testlab-serve testlab-prune testlab-schedule testlab-run
 .PHONY: deploy deploy-docker clean-server clean-and-deploy
-.PHONY: test-all test-ci test-demos test-demos-docker test-demos-ssh
-.PHONY: test-tutorials test-tutorials-ssh test-installer build-installers
-.PHONY: test-dev test-ci-new test-nightly test-list test-run
+.PHONY: test-e2e test-with-coverage test-with-typeguard
+.PHONY: test-demos test-demos-docker test-demos-ssh test-tutorials
+.PHONY: test-installer build-installers test-list test-nightly
 .PHONY: test-system test-system-clean test-apps test-app test-nix
 
 # For tests, set HOP3_DEV_HOST in your environment
@@ -58,6 +59,23 @@ serve:
 dev: serve
 run: serve
 
+## Run the Test Lab web UI in dev mode (auto-reload, auth bypassed)
+testlab-serve:
+	TESTLAB_UNSAFE=true uv run hop3-testlab serve --reload
+
+## Prune old Test Lab build logs per the retention policy
+testlab-prune:
+	uv run hop3-testlab prune
+
+## Run the Test Lab nightly scheduler in the foreground
+testlab-schedule:
+	uv run hop3-testlab schedule
+
+## Trigger a run now (full: MODE=ci|dev|nightly, or per-app: APP=<path>; TARGET=hetzner)
+testlab-run:
+	uv run hop3-testlab run --target $(or $(TARGET),hetzner) --trigger manual \
+		$(if $(APP),--apps $(APP),--mode $(or $(MODE),ci))
+
 ## Run only the web server (without uWSGI)
 serve-web:
 	litestar --app asgi:create_app run --debug --reload
@@ -109,17 +127,46 @@ audit:
 # Testing
 #
 
-## Run all pytest tests (unit, integration, e2e)
-test:
-	@echo "--> Running Python tests"
-	uv run pytest packages/hop3-server/tests
-	uv run pytest packages/hop3-cli/tests
+## Fast lane — unit tests, all packages, no Docker (< 1 min). The inner loop.
+test-fast:
+	@echo "--> Fast tests (unit, all packages, no Docker)"
+	uv run pytest \
+	  packages/hop3-server/tests/a_unit \
+	  packages/hop3-cli/tests \
+	  packages/hop3-rootd/tests/a_unit \
+	  packages/hop3-installer/tests/a_unit \
+	  packages/hop3-tui/tests \
+	  packages/hop3-testing/tests \
+	  packages/hop3-testlab/tests/a_unit
 	@echo ""
 
-## Run tests with coverage report
+## Check tier — full in-process suite, all packages, no Docker. The pre-push gate.
+test:
+	@echo "--> Check tier (unit + integration, all packages, no Docker)"
+	uv run pytest \
+	  packages/hop3-server/tests/a_unit \
+	  packages/hop3-server/tests/b_integration \
+	  packages/hop3-cli/tests \
+	  packages/hop3-rootd/tests \
+	  packages/hop3-installer/tests/a_unit \
+	  packages/hop3-installer/tests/b_integration \
+	  packages/hop3-tui/tests \
+	  packages/hop3-testing/tests \
+	  packages/hop3-testlab/tests/a_unit
+	@echo ""
+
+## Docker e2e — backups, git-push, real deploys (needs Docker). Part of the check gate.
+test-e2e:
+	@echo "--> Docker e2e tests (c_e2e)"
+	unset HOP3_DEV_HOST; uv run pytest packages/hop3-server/tests/c_e2e
+	@echo ""
+
+## Coverage — the in-process layers (what coverage.py can actually see)
 test-with-coverage:
-	@echo "--> Running Python tests with coverage"
-	uv run pytest --cov=hop3 --cov-report term-missing
+	@echo "--> Coverage (unit + integration)"
+	uv run pytest --cov=hop3 --cov-report term-missing \
+	  packages/hop3-server/tests/a_unit \
+	  packages/hop3-server/tests/b_integration
 	@echo ""
 
 ## Run tests with runtime type checking
@@ -127,35 +174,6 @@ test-with-typeguard:
 	@echo "--> Running Python tests with typeguard"
 	uv run pytest --typeguard-packages=hop3,hop3_agent,hop3_server,hop3_web,hop3_lib
 	@echo ""
-
-## Run full CI test suite (pytest + demos + tutorials)
-test-all: test-ci
-test-ci:
-	@echo "=========================================="
-	@echo "Running CI test suite"
-	@echo "=========================================="
-	@echo ""
-	@echo "Phase 1: Run pytest..."
-	@make test
-	@echo ""
-	@echo "Phase 2: Deploy to Docker..."
-	uv run hop3-deploy --local --docker
-	@echo ""
-	@echo "Phase 3: Deploy to SSH target (${HOP3_DEV_HOST})..."
-	uv run hop3-deploy --local
-	@echo ""
-	@echo "Phase 4: Run demos on Docker..."
-	python demos/demo.py --backend docker --local --quiet
-	@echo ""
-	@echo "Phase 5: Run demos on SSH target..."
-	python demos/demo.py --host ${HOP3_DEV_HOST} --local --quiet
-	@echo ""
-	@echo "Phase 6: Run tutorials..."
-	python ./scripts/run-all-tutorials.py
-	@echo ""
-	@echo "=========================================="
-	@echo "CI test suite completed!"
-	@echo "=========================================="
 
 ## Run demos on both backends
 test-demos: test-demos-docker test-demos-ssh
@@ -178,49 +196,19 @@ test-demos-ssh:
 	python demos/demo.py --host ${HOP3_DEV_HOST} --local --quiet
 	@echo ""
 
-## Run tutorials
-test-tutorials: test-tutorials-ssh
-
-## Run tutorials on SSH backend
-test-tutorials-ssh:
-	@echo "--> Running tutorials on SSH backend"
-	./scripts/run-all-tutorials.sh
+## Run tutorials (validoc doc-as-tests)
+test-tutorials:
+	@echo "--> Running tutorials (validoc)"
+	python ./scripts/run-all-tutorials.py
 	@echo ""
 
 #
-# New unified test runner (hop3-test)
+# App / deploy testing (hop3-test) — deploys real apps to a target
 #
 
-## Run quick tests with new runner (fast, P0 only) - LEGACY
-test-dev:
-	@echo "--> Running dev tests (fast, P0)"
-	uv run hop3-test dev --target docker
-	@echo ""
-
-## Run CI tests with new runner (fast+medium, P0)
-test-ci-new:
-	@echo "--> Running CI tests (fast+medium, P0)"
-	uv run hop3-test ci --target docker
-	@echo ""
-
-## Run nightly tests with new runner (all tiers, all priorities)
-test-nightly:
-	@echo "--> Running nightly tests (all)"
-	uv run hop3-test nightly --target docker
-	@echo ""
-
-## List available tests
+## List available app/demo/tutorial tests
 test-list:
 	@uv run hop3-test list
-
-## Run specific tests by name
-test-run:
-	@echo "Usage: make test-run APPS='app1 app2'"
-	@echo "Example: make test-run APPS='010-flask-pip-wsgi 020-nodejs-express'"
-
-#
-# System and App Testing (NEW - uses hop3-deploy)
-#
 
 ## Test Hop3 system with hop3-deploy (local code)
 test-system:
@@ -234,21 +222,27 @@ test-system-clean:
 	uv run hop3-test system --deploy-from local --clean
 	@echo ""
 
-## Test apps against pre-built image (fast, no deployment)
+## Deploy Hop3 + run the app catalog on Docker (the apps tier)
 test-apps:
-	@echo "--> Testing apps (pre-built image)"
-	uv run hop3-test apps
+	@echo "--> Testing apps on Docker (hop3-test system)"
+	uv run hop3-test system --docker
 	@echo ""
 
-## Test specific app
+## Test one app or path: make test-app APP=apps/real-apps-native/edrix
 test-app:
-	@echo "Usage: make test-app APP=010-flask-pip-wsgi"
-	@if [ -n "$(APP)" ]; then uv run hop3-test apps $(APP); fi
+	@if [ -z "$(APP)" ]; then echo "Usage: make test-app APP=<app-path-or-name>"; exit 1; fi
+	uv run hop3-test system --docker $(APP)
 
 ## Run Nix-focused test suite (test-apps-nix + real-apps-nix-gen, Docker)
 test-nix:
 	@echo "--> Running Nix test suite (Docker, --with nix)"
 	uv run hop3-test system --docker --with nix apps/test-apps-nix apps/real-apps-nix-gen
+	@echo ""
+
+## Nightly — full app/demo/tutorial matrix on Docker, with HTML report
+test-nightly:
+	@echo "--> Nightly suite (hop3-test system --docker --mode nightly, HTML report)"
+	uv run hop3-test system --docker --mode nightly --report html
 	@echo ""
 
 #

@@ -447,7 +447,22 @@ services:
         """Destroy the application and clean up resources."""
         log(f"Destroying '{self.app_name}'...", level=2, fg="yellow")
 
-        cmd = [*self._get_compose_cmd_base(), "down", "--volumes", "--remove-orphans"]
+        # `--rmi all` also removes this app's images. Without it, every
+        # deploy/destroy cycle leaves the built image behind; over many apps
+        # (e.g. a nightly campaign on one server) that fills the disk ("No space
+        # left on device"). We use "all" not "local" because Hop3's generated
+        # compose tags the built service (image: ${HOP3_IMAGE_TAG}), which
+        # "local" would skip. It only touches THIS compose project's service
+        # images; the base images those builds FROM (reused across apps) are not
+        # service images, so they're untouched.
+        cmd = [
+            *self._get_compose_cmd_base(),
+            "down",
+            "--rmi",
+            "all",
+            "--volumes",
+            "--remove-orphans",
+        ]
         self._run_compose_command(cmd, check=False)
 
         # Explicitly remove the Docker network to prevent network pool exhaustion
