@@ -304,7 +304,7 @@ build:
 
 ## Publish to PyPI (legacy, use 'make release' instead)
 publish: clean build
-	twine upload dist/*
+	twine upload --skip-existing dist/*
 
 ## Release all packages to PyPI (checks versions, builds, uploads)
 release:

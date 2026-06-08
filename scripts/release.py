@@ -13,9 +13,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Packages published to PyPI. NOTE: hop3-testlab is intentionally excluded —
+# it's an internal app (its version is still kept in sync by scripts/bump_version.py,
+# which covers the *whole* workspace, not just the published subset).
 PACKAGES = [
     "hop3-cli",
     "hop3-installer",
+    "hop3-rootd",
     "hop3-server",
     "hop3-testing",
     "hop3-tui",
@@ -206,7 +210,7 @@ def upload_packages(dry_run: bool = False):
     print("Uploading packages to PyPI...")
 
     result = subprocess.run(
-        ["twine", "upload", *[str(f) for f in dist_files]],
+        ["twine", "upload", "--skip-existing", *[str(f) for f in dist_files]],
         cwd=ROOT_DIR,
     )
 
