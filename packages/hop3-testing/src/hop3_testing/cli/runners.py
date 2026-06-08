@@ -29,7 +29,6 @@ if TYPE_CHECKING:
     from hop3_testing.catalog.models import TestDefinition
     from hop3_testing.runners.base import TestResult
     from hop3_testing.targets.base import DeploymentTarget
-    from hop3_testing.util.console import Console
 
 
 def _create_console(verbose: bool, quiet: bool = False) -> Console:

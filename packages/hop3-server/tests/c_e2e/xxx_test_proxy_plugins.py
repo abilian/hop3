@@ -214,7 +214,7 @@ def create_proxy_container(
         },
     )
 
-    try:  # noqa: PLW0717 — scratch e2e driver (xxx_ prefix → not collected by pytest); the try/finally pairs container creation with stop+remove cleanup and SSH-key tempfile unlink. Splitting would risk leaking containers or key files on setup failure.
+    try:
         # Wait for services to initialize
         print("Waiting for services to initialize...")
         time.sleep(5)

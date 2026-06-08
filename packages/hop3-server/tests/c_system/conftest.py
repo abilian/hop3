@@ -131,7 +131,7 @@ def local_server(
         },
     )
 
-    try:  # noqa: PLW0717 — fixture's container-lifecycle try/finally: the cleanup below must run regardless of where setup fails (timeout, container crash, port readback, etc.). Splitting the try would orphan the running container on partial failures.
+    try:
         # Wait for services to initialize
         print("Waiting for services to initialize...")
         time.sleep(5)

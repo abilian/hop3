@@ -58,7 +58,7 @@ def main():  # noqa: PLR0911 — standalone scratch driver (xxx_ prefix → not 
         },
     )
 
-    try:  # noqa: PLW0717 — standalone scratch driver (xxx_ prefix → not collected). The 130-statement body is a monolithic end-to-end probe (deploy, inspect logs, curl); a refactor belongs at the level of "promote this to a real test suite", not the try-block.
+    try:
         container_id = container.short_id
         print(f"✓ Container started: {container_id}\n")
 
