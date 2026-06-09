@@ -44,6 +44,7 @@ def _req(op: str) -> Request:
 
 def test_reload_uses_systemctl_when_available():
     handler = get_handler("nginx.reload")
+    assert handler is not None
     with (
         patch("shutil.which") as mock_which,
         patch.object(nginx_ops, "exec_run") as mock_exec,
@@ -66,6 +67,7 @@ def test_reload_uses_systemctl_when_available():
 def test_reload_falls_back_to_nginx_s_reload():
     """systemctl missing or fails → try `nginx -s reload`."""
     handler = get_handler("nginx.reload")
+    assert handler is not None
     with (
         patch("shutil.which") as mock_which,
         patch.object(nginx_ops, "exec_run") as mock_exec,
@@ -88,6 +90,7 @@ def test_reload_falls_back_to_nginx_s_reload():
 def test_reload_raises_when_no_method_available():
     """No systemctl, no nginx → raise."""
     handler = get_handler("nginx.reload")
+    assert handler is not None
     with (
         patch("shutil.which", return_value=None),
         pytest.raises(NginxBinaryNotFoundError, match="no nginx-reload method"),
@@ -97,6 +100,7 @@ def test_reload_raises_when_no_method_available():
 
 def test_reload_raises_when_all_methods_fail():
     handler = get_handler("nginx.reload")
+    assert handler is not None
     with (
         patch("shutil.which") as mock_which,
         patch.object(nginx_ops, "exec_run") as mock_exec,
@@ -121,6 +125,7 @@ def test_reload_raises_when_all_methods_fail():
 
 def test_validate_returns_valid_true_on_success():
     handler = get_handler("nginx.validate_config")
+    assert handler is not None
     with (
         patch("shutil.which", return_value="/usr/sbin/nginx"),
         patch.object(nginx_ops, "exec_run") as mock_exec,
@@ -132,6 +137,7 @@ def test_validate_returns_valid_true_on_success():
 
 def test_validate_returns_valid_false_with_errors():
     handler = get_handler("nginx.validate_config")
+    assert handler is not None
     stderr = (
         "nginx: [emerg] unexpected '}' in /etc/nginx/sites-enabled/default:42\n"
         "nginx: configuration file /etc/nginx/nginx.conf test failed\n"
@@ -152,6 +158,7 @@ def test_validate_returns_valid_false_with_errors():
 
 def test_validate_filters_warnings_in_errors_list():
     handler = get_handler("nginx.validate_config")
+    assert handler is not None
     stderr = "Some chatter\nnginx: [warn] something weird\nnginx: [emerg] real error\n"
     with (
         patch("shutil.which", return_value="/usr/sbin/nginx"),
@@ -167,6 +174,7 @@ def test_validate_filters_warnings_in_errors_list():
 
 def test_validate_raises_when_nginx_missing():
     handler = get_handler("nginx.validate_config")
+    assert handler is not None
     with (
         patch("shutil.which", return_value=None),
         pytest.raises(NginxBinaryNotFoundError, match="not on allow-list"),
@@ -176,6 +184,7 @@ def test_validate_raises_when_nginx_missing():
 
 def test_validate_raises_when_nginx_not_in_allowlist():
     handler = get_handler("nginx.validate_config")
+    assert handler is not None
     with (
         patch("shutil.which", return_value="/opt/sketchy/nginx"),
         pytest.raises(NginxBinaryNotFoundError, match="not on allow-list"),

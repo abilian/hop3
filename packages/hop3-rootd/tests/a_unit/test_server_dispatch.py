@@ -56,7 +56,9 @@ def test_dispatch_unknown_op():
     req = Request(v=PROTOCOL_VERSION, id="r1", op="no.such.op", args={})
     resp = dispatch(req, _ctx_for(state))
     assert not resp.ok
-    assert resp.error["code"] == ErrorCode.UNKNOWN_OP.value
+    err = resp.error
+    assert err is not None
+    assert err["code"] == ErrorCode.UNKNOWN_OP.value
 
 
 def test_dispatch_health_succeeds():
@@ -64,7 +66,9 @@ def test_dispatch_health_succeeds():
     req = Request(v=PROTOCOL_VERSION, id="r1", op="daemon.health", args={})
     resp = dispatch(req, _ctx_for(state))
     assert resp.ok
-    assert "uptime_seconds" in resp.result
+    result = resp.result
+    assert result is not None
+    assert "uptime_seconds" in result
 
 
 def test_dispatch_handshake_succeeds():
@@ -72,7 +76,9 @@ def test_dispatch_handshake_succeeds():
     req = Request(v=PROTOCOL_VERSION, id="r1", op="daemon.handshake", args={})
     resp = dispatch(req, _ctx_for(state))
     assert resp.ok
-    assert resp.result["accepted"] is True
+    result = resp.result
+    assert result is not None
+    assert result["accepted"] is True
 
 
 def test_dispatch_validation_error_returns_validation_failed_code(patched_nft):
@@ -85,7 +91,9 @@ def test_dispatch_validation_error_returns_validation_failed_code(patched_nft):
     )
     resp = dispatch(req, _ctx_for(state))
     assert not resp.ok
-    assert resp.error["code"] == ErrorCode.VALIDATION_FAILED.value
+    err = resp.error
+    assert err is not None
+    assert err["code"] == ErrorCode.VALIDATION_FAILED.value
 
 
 def test_dispatch_state_conflict_returns_state_conflict_code():
@@ -98,7 +106,9 @@ def test_dispatch_state_conflict_returns_state_conflict_code():
     )
     resp = dispatch(req, _ctx_for(state))
     assert not resp.ok
-    assert resp.error["code"] == ErrorCode.STATE_CONFLICT.value
+    err = resp.error
+    assert err is not None
+    assert err["code"] == ErrorCode.STATE_CONFLICT.value
 
 
 def test_dispatch_kernel_error_returns_kernel_error_code(patched_nft):
@@ -120,7 +130,9 @@ def test_dispatch_kernel_error_returns_kernel_error_code(patched_nft):
         resp = dispatch(req, _ctx_for(state))
 
     assert not resp.ok
-    assert resp.error["code"] == ErrorCode.KERNEL_ERROR.value
+    err = resp.error
+    assert err is not None
+    assert err["code"] == ErrorCode.KERNEL_ERROR.value
 
 
 def test_dispatch_unexpected_exception_returns_internal_error():
@@ -137,7 +149,9 @@ def test_dispatch_unexpected_exception_returns_internal_error():
         resp = dispatch(req, _ctx_for(state))
 
     assert not resp.ok
-    assert resp.error["code"] == ErrorCode.INTERNAL_ERROR.value
+    err = resp.error
+    assert err is not None
+    assert err["code"] == ErrorCode.INTERNAL_ERROR.value
 
 
 # --- handle_one (with audit) ---------------------------------------------

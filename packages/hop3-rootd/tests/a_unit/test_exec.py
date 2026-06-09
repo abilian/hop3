@@ -28,12 +28,12 @@ def test_run_rejects_empty_argv():
 
 def test_run_rejects_non_list_argv():
     with pytest.raises(TypeError, match="must be a list"):
-        run("/usr/sbin/nft list")  # type: ignore[arg-type]
+        run("/usr/sbin/nft list")  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
 
 def test_run_rejects_argv_with_non_strings():
     with pytest.raises(TypeError, match="only strings"):
-        run(["/usr/sbin/nft", 42])  # type: ignore[list-item]
+        run(["/usr/sbin/nft", 42])  # type: ignore[list-item]  # ty: ignore[invalid-argument-type]
 
 
 def test_run_rejects_binary_not_on_allowlist():
