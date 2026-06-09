@@ -17,6 +17,7 @@ import os
 import re
 import subprocess
 import traceback
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, NoReturn
 
@@ -327,6 +328,10 @@ services:
                 self.context.app.image_tag = self.artifact.location
                 log(f"Saved image tag: {self.artifact.location}", level=3)
 
+        # Reclaim the image this (re)deploy just superseded: the tag moved to
+        # the new build, leaving the old one dangling and now unused.
+        self._prune_dangling_images()
+
         # Discover the actual port (should match allocated_port)
         port = self._discover_port(allocated_port, compose_file)
 
@@ -338,6 +343,25 @@ services:
             address="127.0.0.1",
             port=port,
         )
+
+    def _prune_dangling_images(self) -> None:
+        """Reclaim the image a redeploy just superseded.
+
+        Each (re)deploy moves the ``hop3/<app>:latest`` tag to the freshly
+        built image, leaving the previous one *dangling* (untagged) and — now
+        the container has been recreated — unused. ``docker image prune -f``
+        removes only dangling images: it never touches the BuildKit build
+        cache or tagged base images, so it does not slow future builds.
+        Best-effort; a failure must not fail the deploy.
+        """
+        with suppress(Exception):
+            subprocess.run(
+                ["docker", "image", "prune", "-f"],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=60,
+            )
 
     def _allocate_port(self) -> int:
         """Allocate a unique port for this app.

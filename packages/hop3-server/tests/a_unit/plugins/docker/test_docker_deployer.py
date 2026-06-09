@@ -627,3 +627,39 @@ class TestRewriteHostForDocker:
         """Redis Sentinel-style multi-host value."""
         got = deployer._rewrite_host_for_docker("127.0.0.1:26379,remote:26379")
         assert got == "host.docker.internal:26379,remote:26379"
+
+
+class TestPruneDanglingImages:
+    """A (re)deploy reclaims the image it superseded — dangling-only."""
+
+    @pytest.fixture
+    def deployer(
+        self, tmp_path: Path, docker_artifact: BuildArtifact
+    ) -> DockerComposeDeployer:
+        context = DeploymentContext(
+            app_name="test", source_path=tmp_path, app_config={}
+        )
+        return DockerComposeDeployer(context, docker_artifact)
+
+    def test_prunes_dangling_only_never_base_or_cache(
+        self, deployer: DockerComposeDeployer
+    ):
+        with patch("hop3.plugins.docker.deployer.subprocess.run") as mock_run:
+            deployer._prune_dangling_images()
+
+        mock_run.assert_called_once()
+        cmd = mock_run.call_args.args[0]
+        assert cmd == ["docker", "image", "prune", "-f"]
+        # NOT -a/-af (which would drop base images) and NOT a builder-cache prune.
+        assert "-a" not in cmd
+        assert "-af" not in cmd
+        assert "builder" not in cmd
+
+    def test_prune_failure_never_fails_the_deploy(
+        self, deployer: DockerComposeDeployer
+    ):
+        with patch(
+            "hop3.plugins.docker.deployer.subprocess.run",
+            side_effect=OSError("docker not found"),
+        ):
+            deployer._prune_dangling_images()  # must not raise
