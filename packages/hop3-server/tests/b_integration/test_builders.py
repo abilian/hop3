@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -100,7 +101,7 @@ def test_builder_returns_build_artifact(tmp_path: Path, monkeypatch):
     context = DeploymentContext(app_name="test-app", source_path=src_dir, app_config={})
 
     # Initialize toolchain with context
-    toolchain = PythonToolchain(context)
+    toolchain = PythonToolchain(cast("Any", context))
 
     # Change to source directory
     monkeypatch.chdir(src_dir)

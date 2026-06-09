@@ -116,4 +116,4 @@ def test_diagnosis_is_immutable():
     """Frozen dataclass — can't modify after construction."""
     diag = Diagnosis(component="A", action="b", reason="c")
     with pytest.raises((AttributeError, Exception)):
-        diag.component = "something else"  # type: ignore[misc]
+        setattr(diag, "component", "something else")  # noqa: B010  # read-only: must raise

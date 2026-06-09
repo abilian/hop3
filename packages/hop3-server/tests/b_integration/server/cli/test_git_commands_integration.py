@@ -22,6 +22,7 @@ from hop3.orm import App, AppRepository, get_session_factory
 from hop3.server.cli.git import GitReceivePackCmd, GitUploadPackCmd
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
     from sqlalchemy.orm import Session
@@ -45,7 +46,9 @@ def configured_hop3_root(tmp_path: Path):
 
 
 @pytest.fixture
-def test_app_with_git_repo(db_session: Session, configured_hop3_root: Path) -> App:
+def test_app_with_git_repo(
+    db_session: Session, configured_hop3_root: Path
+) -> Iterator[App]:
     """Create a test application with initialized git repository.
 
     Args:

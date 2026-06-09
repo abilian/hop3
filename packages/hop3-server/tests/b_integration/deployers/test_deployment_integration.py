@@ -18,7 +18,7 @@ Key Design:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 
@@ -108,8 +108,8 @@ class TestDeploymentStrategySelection:
 
         deployer = get_deployer(context, artifact)
 
-        assert deployer.app == app
-        assert deployer.app.name == "test-app"
+        assert cast("Any", deployer).app == app
+        assert cast("Any", deployer).app.name == "test-app"
 
     def test_deployment_strategy_priority_for_multiple_artifacts(self, tmp_path: Path):
         """Test that UWSGIDeployer is selected for various artifact types.

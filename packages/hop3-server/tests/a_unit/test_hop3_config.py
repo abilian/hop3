@@ -429,7 +429,10 @@ status_in = [200, 202]
 """
         )
     )
-    assert c.test.validations[0].status_in == [200, 202]
+    assert c.test is not None
+    validations = c.test.validations
+    assert validations is not None
+    assert validations[0].status_in == [200, 202]
 
 
 def test_test_validation_status_in_kebab_alias():
@@ -443,7 +446,10 @@ status-in = [200, 503]
 """
         )
     )
-    assert c.test.validations[0].status_in == [200, 503]
+    assert c.test is not None
+    validations = c.test.validations
+    assert validations is not None
+    assert validations[0].status_in == [200, 503]
 
 
 def test_test_section_expects_failure():
@@ -456,6 +462,7 @@ expects-failure = true
 """
         )
     )
+    assert c.test is not None
     assert c.test.expects_failure is True
 
 

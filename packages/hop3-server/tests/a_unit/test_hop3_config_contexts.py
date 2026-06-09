@@ -12,6 +12,8 @@ scope here.
 
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
 
 from hop3.project.hop3_config import (
@@ -20,6 +22,14 @@ from hop3.project.hop3_config import (
     UnknownContextError,
 )
 from hop3.project.schema import Hop3TomlValidationError, validate_hop3_toml
+
+
+def _ctx(cfg, name) -> dict:
+    """get_context() asserted non-None for happy-path tests."""
+    c = cfg.get_context(name)
+    assert c is not None
+    return c
+
 
 # ---- Positive parsing ------------------------------------------------------
 
@@ -90,9 +100,9 @@ domains = ["myapp.example.com"]
     )
     # Declaration order is preserved (insertion order from tomllib).
     assert cfg.context_names == ["dev", "staging", "prod"]
-    assert cfg.get_context("dev")["app"] == "myapp-dev"
-    assert cfg.get_context("staging")["server"] == "dev"
-    assert cfg.get_context("prod")["domains"] == ["myapp.example.com"]
+    assert _ctx(cfg, "dev")["app"] == "myapp-dev"
+    assert _ctx(cfg, "staging")["server"] == "dev"
+    assert _ctx(cfg, "prod")["domains"] == ["myapp.example.com"]
 
 
 def test_no_contexts_section_returns_empty():
@@ -208,7 +218,7 @@ app = "myapp-dev"
     assert cfg.app_id == "myapp"
     assert cfg.domains == ["fallback.example.com"]
     assert cfg.context_names == ["dev"]
-    assert cfg.get_context("dev")["app"] == "myapp-dev"
+    assert _ctx(cfg, "dev")["app"] == "myapp-dev"
 
 
 def test_legacy_app_with_no_contexts_still_validates():
@@ -623,7 +633,7 @@ def test_resolved_context_is_frozen():
     cfg = Hop3Config.from_str('[contexts.dev]\nserver = "s"\n')
     resolved = cfg.resolve_context("dev")
     with pytest.raises((AttributeError, Exception)):
-        resolved.server = "mutated"  # type: ignore[misc]
+        setattr(resolved, "server", "mutated")  # noqa: B010  # frozen: must raise
 
 
 def test_resolve_context_no_metadata_id_no_app_returns_empty_app():
@@ -688,7 +698,7 @@ server = "s"
     )
     resolved = cfg.resolve_context("dev")
     with pytest.raises(TypeError):
-        resolved.env["KEY"] = "mutated"  # type: ignore[index]
+        cast("dict", resolved.env)["KEY"] = "mutated"  # frozen mapping: must raise
 
 
 def test_resolve_context_missing_server_raises_named_error():
@@ -750,8 +760,8 @@ LOG_LEVEL = "warning"
     )
     # Declaration order preserved (insertion-order from tomllib).
     assert cfg.context_names == ["dev", "staging", "prod"]
-    assert cfg.get_context("staging")["server"] == "dev"
-    assert cfg.get_context("prod")["env"]["LOG_LEVEL"] == "warning"
+    assert _ctx(cfg, "staging")["server"] == "dev"
+    assert _ctx(cfg, "prod")["env"]["LOG_LEVEL"] == "warning"
 
 
 # ---- to_dict() round-trip ------------------------------------------------

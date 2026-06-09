@@ -34,11 +34,12 @@ from hop3.orm.app import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
 
 @pytest.fixture
-def app_root(tmp_path: Path) -> Path:
+def app_root(tmp_path: Path) -> Iterator[Path]:
     """Point the HopConfig singleton's APP_ROOT at a tmp dir and restore it.
 
     ``app_path`` resolves via ``HopConfig.get_instance().APP_ROOT``, so paths

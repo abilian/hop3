@@ -10,6 +10,8 @@ sed commands, and Nix syntax structure.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from hop3.plugins.build.nix.gen.registry import generate
@@ -420,7 +422,7 @@ class TestNodePnpmInstallTemplate:
     pnpm install --prod inside the Nix build (__noChroot for network)."""
 
     def _base_spec(self, **kwargs):
-        defaults = {
+        defaults: dict[str, Any] = {
             "pname": "directus",
             "version": "11.17.2",
             "description": "Headless CMS",

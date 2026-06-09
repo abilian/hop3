@@ -54,7 +54,7 @@ class TestMetadata:
         metadata = Metadata()
 
         with pytest.raises(AttributeError):
-            metadata.name = "changed"
+            setattr(metadata, "name", "changed")  # noqa: B010
 
 
 class Animal:

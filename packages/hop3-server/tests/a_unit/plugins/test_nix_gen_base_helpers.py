@@ -10,6 +10,8 @@ wrapper script assembly.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from hop3.plugins.build.nix.gen.spec import (
@@ -59,7 +61,7 @@ def test_local_vars_multiple():
 
 def _make_spec(**kwargs) -> AppSpec:
     """Helper to create a minimal AppSpec with overrides."""
-    defaults = {
+    defaults: dict[str, Any] = {
         "pname": "test",
         "version": "1.0",
         "description": "test",
