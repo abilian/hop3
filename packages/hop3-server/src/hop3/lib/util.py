@@ -71,7 +71,7 @@ class CommandNotFoundError(CommandError):
 class CommandTimeoutError(CommandError):
     """Raised when the command times out."""
 
-    def __init__(self, cmd: list[str], timeout: int) -> None:
+    def __init__(self, cmd: list[str], timeout: float) -> None:
         self.timeout = timeout
         super().__init__(cmd, f"timed out after {timeout}s")
 
@@ -91,7 +91,7 @@ class CommandFailedError(CommandError):
 def run_command(
     cmd: list[str],
     *,
-    timeout: int = 10,
+    timeout: float = 10,
     cwd: Path | str | None = None,
     env: dict[str, str] | None = None,
     text: bool = False,
@@ -149,7 +149,7 @@ def run_command(
 def try_commands(
     commands: list[tuple[list[str], str]],
     *,
-    timeout: int = 10,
+    timeout: float = 10,
 ) -> str | None:
     """Try multiple commands in sequence until one succeeds.
 

@@ -81,6 +81,9 @@ class Config:
     def __call__(self, key: str, *, default: None) -> str | None: ...
 
     @overload
+    def __call__(self, key: str, *, default: str) -> str: ...
+
+    @overload
     def __call__(self, key: str, cast: type[T] | Callable[[Any], T]) -> T: ...
 
     @overload
