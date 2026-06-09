@@ -12,6 +12,7 @@ from pathlib import Path
 
 from hop3.config import HOP3_ROOT, HOP3_USER
 from hop3.core.env import Env
+from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
 from hop3.core.plugins import get_proxy_strategy
 from hop3.core.protocols import (
     BuildArtifact,
@@ -65,12 +66,22 @@ class StaticDeployer:
             "VIRTUAL_ENV": str(virtualenv_path),
         })
 
+        # Per-app nginx server_name so requests route by Host to THIS app
+        # rather than the first catch-all block nginx happens to load
+        # (the cross-app "served the wrong app" bug). Names that are not
+        # valid hostnames (e.g. with underscores) fall back to the "_"
+        # catch-all instead of crashing the deploy.
+        try:
+            host_name = validate_hostname(self.app.name)
+        except InvalidIdentifierError:
+            host_name = "_"
+
         safe_defaults = {
             "NGINX_IPV4_ADDRESS": "0.0.0.0",
             "NGINX_IPV6_ADDRESS": "[::]",
             "BIND_ADDRESS": "127.0.0.1",
             "PORT": "0",  # Dummy port for static apps (not used, but needed by nginx setup)
-            "HOST_NAME": "_",  # Catch-all server name for development
+            "HOST_NAME": host_name,
         }
 
         # Load environment variables from the ORM
