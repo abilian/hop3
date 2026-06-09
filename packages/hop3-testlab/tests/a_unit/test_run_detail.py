@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import json
+import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -88,6 +90,36 @@ def test_run_detail_in_progress_is_accessible_and_live(tmp_path):
     assert "edrix" in response.text  # finished build, accessible mid-run
     assert "running" in response.text.lower()  # running indicator
     assert 'http-equiv="refresh"' in response.text  # auto-refreshes while in progress
+
+
+def test_run_detail_table_is_sortable_and_shows_variant(tmp_path):
+    """The results render as the Alpine sort/filter table with a variant chip."""
+    db = tmp_path / "test-results.db"
+    _seed_run_with_failure(
+        db, "2026-06-09T00-00-00Z-nightly-var01", "apps/real-apps-docker/bugsink"
+    )
+
+    with TestClient(app=create_app()) as client:
+        response = client.get("/runs/2026-06-09T00-00-00Z-nightly-var01")
+
+    assert response.status_code == 200
+    # Rows are embedded as JSON in a <script> tag (NOT in the x-data attribute,
+    # whose double quotes would otherwise break on the JSON's quotes) and must
+    # round-trip through json.loads — this is the regression guard for the
+    # "empty table" bug.
+    m = re.search(
+        r'<script type="application/json" id="run-results">(.*?)</script>',
+        response.text,
+        re.DOTALL,
+    )
+    assert m, "results JSON <script> block missing"
+    rows = json.loads(m.group(1))
+    assert rows[0]["test_name"] == "apps/real-apps-docker/bugsink"
+    assert rows[0]["variant"] == "docker"  # derived discriminator
+    # Alpine reads the script tag — the data must NOT be inlined in the attribute.
+    assert 'x-data="resultsTable()"' in response.text
+    # The interactive table + controls are present.
+    assert "failures only" in response.text
 
 
 def test_run_detail_unknown_run_is_404(tmp_path):

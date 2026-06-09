@@ -88,49 +88,135 @@
 </section>
 {% endif %}
 
-{# --- Results, failed-first --- #}
+{# --- Results: sortable / filterable table, failures first, collapsible detail --- #}
 <h2 class="text-sm font-semibold text-gray-700 mb-2">Results</h2>
-<table class="w-full text-sm border-collapse">
-  <thead class="text-left text-gray-500 border-b">
-    <tr>
-      <th class="py-2 pr-4">Test</th>
-      <th class="py-2 pr-4">Status</th>
-      <th class="py-2 pr-4">Classifier</th>
-      <th class="py-2 pr-4 text-right">Duration</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for r in results %}
-    <tr class="border-b align-top {% if r.status == 'fail' %}bg-red-50{% elif r.status == 'xpass' %}bg-amber-50{% endif %}">
-      <td class="py-2 pr-4 font-mono text-xs">
-        <a href="/builds/{{ r.id }}" class="text-blue-700 hover:underline">{{ r.test_name }}</a>
-        <form method="post" action="/runs/trigger" class="inline">
-          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-          <input type="hidden" name="app" value="{{ r.test_name }}">
-          <button type="submit" title="Re-run this app" class="ml-2 text-gray-400 hover:text-gray-900">&#8635;</button>
-        </form>
-      </td>
-      <td class="py-2 pr-4">
-        {% if r.status == 'fail' %}
-        <span class="text-red-700 font-medium">fail</span>
-        {% elif r.status == 'xpass' %}
-        <span class="text-amber-700 font-medium" title="bad recipe unexpectedly passed">xpass</span>
-        {% elif r.status == 'xfail' %}
-        <span class="text-gray-500" title="bad recipe — expected failure">xfail</span>
-        {% else %}
-        <span class="text-green-700">pass</span>
-        {% endif %}
-      </td>
-      <td class="py-2 pr-4">
-        {{ r.classification or "—" }}
-        {% if r.bundle_run_id %}<a href="/bundle/{{ r.bundle_run_id }}" class="ml-1 text-blue-700 hover:underline text-xs">logs &rarr;</a>{% endif %}
-        {% if r.headline %}<pre class="mt-1 text-xs whitespace-pre-wrap text-gray-700">{{ r.headline }}</pre>{% endif %}
-      </td>
-      <td class="py-2 pr-4 text-right">{{ "%.1fs"|format(r.duration) if r.duration else "—" }}</td>
-    </tr>
-    {% else %}
-    <tr><td colspan="4" class="py-2 text-gray-400">No results recorded.</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
+
+{# Data embedded as JSON (not in an attribute, so its quotes can't break it). #}
+<script type="application/json" id="run-results">{{ results | tojson }}</script>
+<div x-data="resultsTable()" class="text-sm">
+  {# Filters #}
+  <div class="flex flex-wrap items-center gap-3 mb-2">
+    <input type="search" x-model="q" placeholder="Filter apps…"
+           class="border rounded px-2 py-1 text-sm w-48">
+    <select x-model="variant" class="border rounded px-2 py-1 text-sm">
+      <option value="">All variants</option>
+      <template x-for="v in variants" :key="v"><option :value="v" x-text="v"></option></template>
+    </select>
+    <select x-model="suite" class="border rounded px-2 py-1 text-sm">
+      <option value="">All suites</option>
+      <template x-for="s in suites" :key="s"><option :value="s" x-text="s"></option></template>
+    </select>
+    <label class="inline-flex items-center gap-1 text-gray-600">
+      <input type="checkbox" x-model="failuresOnly"> failures only
+    </label>
+    <span class="text-gray-400 text-xs" x-text="filtered.length + ' / ' + rows.length + ' shown'"></span>
+  </div>
+
+  {# Header (click to sort) #}
+  <div class="flex items-center gap-2 border-b text-gray-500 font-medium select-none">
+    <button @click="sortBy('status')"   class="w-16 text-left py-2 hover:text-gray-900">Status<span x-text="arrow('status')"></span></button>
+    <button @click="sortBy('app')"      class="flex-1 min-w-0 text-left py-2 hover:text-gray-900">App<span x-text="arrow('app')"></span></button>
+    <button @click="sortBy('variant')"  class="w-28 text-left py-2 hover:text-gray-900">Variant<span x-text="arrow('variant')"></span></button>
+    <button @click="sortBy('category')" class="w-24 text-left py-2 hover:text-gray-900">Suite<span x-text="arrow('category')"></span></button>
+    <button @click="sortBy('priority')" class="w-12 text-left py-2 hover:text-gray-900">Pri<span x-text="arrow('priority')"></span></button>
+    <button @click="sortBy('classification')" class="w-36 text-left py-2 hover:text-gray-900">Classifier<span x-text="arrow('classification')"></span></button>
+    <button @click="sortBy('duration')" class="w-20 text-right py-2 hover:text-gray-900">Duration<span x-text="arrow('duration')"></span></button>
+    <span class="w-6"></span>
+  </div>
+
+  {# Rows #}
+  <template x-for="r in filtered" :key="r.id">
+    <div class="border-b" :class="rowBg(r.status)">
+      <div class="flex items-center gap-2 py-1.5 cursor-pointer" @click="toggle(r.id)">
+        <span class="w-16 font-medium" :class="statusColor(r.status)" x-text="r.status"></span>
+        <a class="flex-1 min-w-0 truncate font-mono text-xs text-blue-700 hover:underline"
+           :href="'/builds/' + r.id" :title="r.test_name" x-text="r.app" @click.stop></a>
+        <span class="w-28"><span class="inline-block rounded px-1.5 py-0.5 text-xs" :class="variantBadge(r.variant)" x-text="r.variant"></span></span>
+        <span class="w-24 text-gray-600 text-xs" x-text="r.category || '—'"></span>
+        <span class="w-12 text-gray-500 text-xs" x-text="r.priority || '—'"></span>
+        <span class="w-36 text-gray-600 text-xs truncate" x-text="r.classification || '—'"></span>
+        <span class="w-20 text-right text-gray-600 text-xs" x-text="r.duration ? r.duration.toFixed(1) + 's' : '—'"></span>
+        <span class="w-6 text-center text-gray-400" x-text="open[r.id] ? '▾' : '▸'"></span>
+      </div>
+
+      {# Collapsible detail (verdict, headline, error, links) — instead of inline paragraphs #}
+      <div x-show="open[r.id]" x-cloak class="pl-16 pr-2 pb-3 space-y-2">
+        <template x-if="r.headline">
+          <pre class="text-xs whitespace-pre-wrap text-gray-800 bg-white/60 rounded p-2 border" x-text="r.headline"></pre>
+        </template>
+        <template x-if="r.error && r.error !== r.headline">
+          <pre class="text-xs whitespace-pre-wrap text-red-800 bg-white/60 rounded p-2 border" x-text="r.error"></pre>
+        </template>
+        <div class="flex flex-wrap items-center gap-3 text-xs">
+          <a :href="'/builds/' + r.id" class="text-blue-700 hover:underline">build page &rarr;</a>
+          <template x-if="r.bundle_run_id">
+            <a :href="'/bundle/' + r.bundle_run_id" class="text-blue-700 hover:underline">logs / bundle &rarr;</a>
+          </template>
+          <template x-if="r.bundle_run_id">
+            <code class="text-gray-500" x-text="'hop3-test why ' + r.bundle_run_id + (r.classification ? ' --section ' + r.classification : '')"></code>
+          </template>
+          <form method="post" action="/runs/trigger" class="inline">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="app" :value="r.test_name">
+            <button type="submit" class="text-gray-500 hover:text-gray-900" title="Re-run this app">&#8635; re-run</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </template>
+  <p x-show="filtered.length === 0" class="py-3 text-gray-400">No results match the filter.</p>
+</div>
+
+<script>
+function resultsTable() {
+  // Failures first: lower rank sorts to top.
+  const RANK = { fail: 0, error: 0, xpass: 1, pass: 2, xfail: 3 };
+  const rows = JSON.parse(document.getElementById("run-results").textContent);
+  return {
+    rows: rows,
+    q: "", variant: "", suite: "", failuresOnly: false,
+    sortKey: "status", sortDir: 1, open: {},
+
+    get variants() { return [...new Set(this.rows.map(r => r.variant))].sort(); },
+    get suites() { return [...new Set(this.rows.map(r => r.category).filter(Boolean))].sort(); },
+
+    get filtered() {
+      const q = this.q.toLowerCase();
+      let out = this.rows.filter(r =>
+        (!q || (r.app + " " + r.test_name).toLowerCase().includes(q)) &&
+        (!this.variant || r.variant === this.variant) &&
+        (!this.suite || r.category === this.suite) &&
+        (!this.failuresOnly || !r.passed)
+      );
+      const k = this.sortKey, d = this.sortDir;
+      out.sort((a, b) => {
+        let va = k === "status" ? (RANK[a.status] ?? 9) : a[k];
+        let vb = k === "status" ? (RANK[b.status] ?? 9) : b[k];
+        if (va === null || va === undefined) va = "";
+        if (vb === null || vb === undefined) vb = "";
+        if (va < vb) return -1 * d;
+        if (va > vb) return 1 * d;
+        return a.app < b.app ? -1 : a.app > b.app ? 1 : 0;  // stable tiebreak
+      });
+      return out;
+    },
+
+    sortBy(k) { if (this.sortKey === k) this.sortDir *= -1; else { this.sortKey = k; this.sortDir = 1; } },
+    arrow(k) { return this.sortKey === k ? (this.sortDir === 1 ? " ▲" : " ▼") : ""; },
+    toggle(id) { this.open[id] = !this.open[id]; },
+
+    statusColor(s) {
+      return { fail: "text-red-700", error: "text-red-700", xpass: "text-amber-700",
+               xfail: "text-gray-500", pass: "text-green-700" }[s] || "text-gray-700";
+    },
+    rowBg(s) { return s === "fail" || s === "error" ? "bg-red-50" : s === "xpass" ? "bg-amber-50" : ""; },
+    variantBadge(v) {
+      return { docker: "bg-blue-100 text-blue-800", native: "bg-green-100 text-green-800",
+               nix: "bg-purple-100 text-purple-800", "nix-template": "bg-indigo-100 text-indigo-800",
+               procfile: "bg-teal-100 text-teal-800", demo: "bg-gray-100 text-gray-700",
+               tutorial: "bg-amber-100 text-amber-800" }[v] || "bg-gray-100 text-gray-600";
+    },
+  };
+}
+</script>
 {% endblock %}
