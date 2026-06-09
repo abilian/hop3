@@ -47,7 +47,9 @@ def test_generate_tutorial_test_definition_basics(tmp_path: Path):
     assert td.description == "Deploy Flask"
     # source_path drives the validoc runner: source_path.parent / tutorial.path
     assert td.source_path == md
-    assert td.source_path.parent / td.tutorial.path == md
+    source_path = td.source_path
+    assert source_path is not None
+    assert source_path.parent / td.tutorial.path == md
 
 
 def test_catalog_discovers_tutorials(tmp_path: Path):

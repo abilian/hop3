@@ -106,6 +106,7 @@ def test_ensure_columns_adds_adr044_columns(tmp_path: Path) -> None:
 
 def _passing_result(name: str = "good-app"):
     """A minimal passing TestResult stand-in (no bundle)."""
+    test_name = name
 
     class _Tier:
         value = "fast"
@@ -117,6 +118,7 @@ def _passing_result(name: str = "good-app"):
         runner_type = "deployment"
         tier = _Tier()
         priority = _Prio()
+        name = test_name
 
     class _Result:
         passed = True
@@ -125,11 +127,9 @@ def _passing_result(name: str = "good-app"):
         deploy_logs = ""
         validation_results: ClassVar[list] = []
         bundle = None
+        test = _Test()
 
-    r = _Result()
-    r.test = _Test()
-    r.test.name = name
-    return r
+    return _Result()
 
 
 def test_save_derives_status_pass_and_fail(tmp_path: Path) -> None:
@@ -202,8 +202,12 @@ def test_save_records_and_reads_back_bundle(tmp_path: Path) -> None:
     record = store.get_result_by_run_id("2026-06-05T00-00-00Z-myapp-abc123")
     assert record is not None
     assert record.classification == "proxy-502"
-    assert record.headline.startswith("✗ proxy-502")
-    assert record.bundle_path.endswith("2026-06-05T00-00-00Z-myapp-abc123")
+    headline = record.headline
+    assert headline is not None
+    assert headline.startswith("✗ proxy-502")
+    bundle_path = record.bundle_path
+    assert bundle_path is not None
+    assert bundle_path.endswith("2026-06-05T00-00-00Z-myapp-abc123")
 
 
 def test_ok_bundle_is_not_persisted(tmp_path: Path) -> None:

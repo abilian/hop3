@@ -15,7 +15,7 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from hop3_testing.catalog.loader import (
@@ -155,17 +155,19 @@ class TestRunnerInvertsExpectsFailure:
     def _make_runner(self, tmp_path) -> DeploymentTestRunner:
         # `_collect_runtime_logs` is imported at module level in
         # deployment.py; patch the binding there.
-        deployment_module._collect_runtime_logs = (  # type: ignore[assignment]
-            lambda _target, _name: ""
+        setattr(  # noqa: B010
+            deployment_module,
+            "_collect_runtime_logs",
+            lambda _target, _name: "",
         )
-        return DeploymentTestRunner(target=_FakeTarget(), cleanup=True)
+        return DeploymentTestRunner(target=cast("Any", _FakeTarget()), cleanup=True)
 
     def test_failed_deploy_with_expects_failure_yields_pass(self, tmp_path):
         runner = self._make_runner(tmp_path)
         session = _FakeSession(will_fail=True)
         result = runner._handle_expects_failure(
             test=_negative_test_def(),
-            session=session,  # type: ignore[arg-type]
+            session=cast("Any", session),
             start_time=0.0,
             deploy_logs="simulated deploy output",
             deploy_failed=True,
@@ -183,7 +185,7 @@ class TestRunnerInvertsExpectsFailure:
         session = _FakeSession(will_fail=False)
         result = runner._handle_expects_failure(
             test=_negative_test_def(),
-            session=session,  # type: ignore[arg-type]
+            session=cast("Any", session),
             start_time=0.0,
             deploy_logs="deploy went through",
             deploy_failed=False,
@@ -262,7 +264,10 @@ class TestStoreStatusForNegativeTests:
             self._result("real-pass", passed=True, expects_failure=False)
         )  # pass
 
-        got = store.get_run(run.run_uid)
+        uid = run.run_uid
+        assert uid is not None
+        got = store.get_run(uid)
+        assert got is not None
         assert got.failed_tests == 1  # only the true failure is red
         assert got.passed_tests == 3  # pass + xfail + xpass are "not a failure"
 

@@ -21,6 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from io import StringIO
 from textwrap import dedent
+from typing import Any, cast
 
 from hop3_testing.results.reporters import ConsoleReporter
 
@@ -62,7 +63,7 @@ def test_extract_app_log_tail_prefers_native_web_log():
         (no docker containers matching app name)
     """)
     result = _FakeResult(test=_FakeTest(), runtime_logs=blob)
-    out = _reporter()._extract_app_log_tail(result)
+    out = _reporter()._extract_app_log_tail(cast("Any", result))
     assert "web.1.log" in out
     assert "web log line 2 — this is what we want" in out
     assert "build log" not in out
@@ -90,7 +91,7 @@ def test_extract_app_log_tail_falls_back_to_docker_logs():
         Node.js v20.19.2
     """)
     result = _FakeResult(test=_FakeTest(), runtime_logs=blob)
-    out = _reporter()._extract_app_log_tail(result)
+    out = _reporter()._extract_app_log_tail(cast("Any", result))
     assert out.startswith("[docker logs etherpad-1778179312]")
     assert "Etherpad startup error" in out
     assert "Node.js v20.19.2" in out
@@ -109,13 +110,13 @@ def test_extract_app_log_tail_returns_empty_when_truly_nothing():
         (no docker containers matching app name)
     """)
     result = _FakeResult(test=_FakeTest(), runtime_logs=blob)
-    assert _reporter()._extract_app_log_tail(result) == ""
+    assert _reporter()._extract_app_log_tail(cast("Any", result)) == ""
 
 
 def test_extract_app_log_tail_handles_missing_runtime_logs():
     """Missing ``runtime_logs`` attribute / empty string → empty."""
     result = _FakeResult(test=_FakeTest(), runtime_logs="")
-    assert _reporter()._extract_app_log_tail(result) == ""
+    assert _reporter()._extract_app_log_tail(cast("Any", result)) == ""
 
 
 def test_extract_app_log_tail_truncates_long_docker_output():
@@ -127,7 +128,7 @@ def test_extract_app_log_tail_truncates_long_docker_output():
         {body}
     """).format(body=long_body)
     result = _FakeResult(test=_FakeTest(), runtime_logs=blob)
-    out = _reporter()._extract_app_log_tail(result, max_lines=10)
+    out = _reporter()._extract_app_log_tail(cast("Any", result), max_lines=10)
     lines = out.splitlines()
     # 1 header + 1 elision marker + 10 last lines = 12
     assert len(lines) == 12
@@ -145,7 +146,7 @@ def test_extract_app_log_tail_picks_first_container_when_multiple():
         worker container logs
     """)
     result = _FakeResult(test=_FakeTest(), runtime_logs=blob)
-    out = _reporter()._extract_app_log_tail(result)
+    out = _reporter()._extract_app_log_tail(cast("Any", result))
     assert "[docker logs app-web]" in out
     assert "web container logs" in out
     # The worker logs are still in the full per-test log file but
@@ -173,7 +174,7 @@ def test_runtime_diagnostics_no_log_dir_yields_clean_message():
             # missing files gracefully before tail ever runs.
             return 0, "(empty)", ""
 
-    blob = collect_runtime_logs(_FakeTarget(), "etherpad-test")  # type: ignore[arg-type]
+    blob = collect_runtime_logs(cast("Any", _FakeTarget()), "etherpad-test")
     # Lock in the fix-shape: no bare ``for f in <path>/*.log`` loop
     # (the original buggy form). The replacement uses ``find`` piped
     # to ``while read``, which short-circuits cleanly on no matches.
