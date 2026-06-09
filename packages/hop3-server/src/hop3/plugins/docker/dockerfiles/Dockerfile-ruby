@@ -29,11 +29,14 @@ RUN addgroup --system app && adduser --system --group app
 # Copy the installed gems from the builder stage
 COPY --from=builder ${BUNDLE_PATH} ${BUNDLE_PATH}
 
-# Copy the application source code
-COPY . .
+# Copy the application source code, already owned by the app user.
+# COPY --chown avoids a following `chown -R`, which would rewrite every file
+# into a SECOND layer (the source stored twice — pure image bloat).
+COPY --chown=app:app . .
 
-# Set ownership and user
-RUN chown -R app:app .
+# Own the WORKDIR itself (COPY --chown only owns the copied entries) so the
+# app user can write here at runtime. (Gems live in BUNDLE_PATH, outside /app.)
+RUN chown app:app .
 USER app
 
 # Expose the application port (e.g., 3000 for Rails/Sinatra)
