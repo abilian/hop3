@@ -51,6 +51,44 @@ def _hetzner_server_info(cfg: CloudConfig):
     return HetznerManager(hz).get_server_info()
 
 
+def _rebuild_blank_slate(cfg: CloudConfig) -> None:
+    """Rebuild the Hetzner server to a fresh OS before a full-suite run.
+
+    This is what makes runs reproducible: each run starts from an identical,
+    known state instead of inheriting leaked apps/addons/disk from prior runs.
+    Requires ``hetzner.ssh_key_name`` — Hetzner re-injects that key on rebuild;
+    without it the fresh OS would have no SSH access and lock us out, so we skip
+    (loudly) rather than risk it.
+    """
+    if not cfg.hetzner_ssh_key_name:
+        print(
+            "[blank-slate] SKIPPED — set hetzner.ssh_key_name (or "
+            "HETZNER_SSH_KEY_NAME) so the rebuild can re-inject SSH access."
+        )
+        return
+
+    from hop3_testing.system_tests.config import HetznerConfig  # noqa: PLC0415
+    from hop3_testing.system_tests.hetzner import HetznerManager  # noqa: PLC0415
+
+    manager = HetznerManager(
+        HetznerConfig(
+            api_token=cfg.hetzner_token,
+            server_id=cfg.hetzner_server_id,
+            image=cfg.hetzner_image,
+            ssh_key_name=cfg.hetzner_ssh_key_name,
+        )
+    )
+    print(
+        f"[blank-slate] rebuilding Hetzner server {cfg.hetzner_server_id} "
+        f"with {cfg.hetzner_image} ..."
+    )
+    manager.rebuild_server(image=cfg.hetzner_image, timeout=600)
+    if not manager.wait_for_ssh_ready(timeout=300):
+        msg = "Blank-slate rebuild: SSH never became ready after rebuild"
+        raise RuntimeError(msg)
+    print("[blank-slate] server rebuilt; SSH ready")
+
+
 def _resolve_run_target(target_id: str) -> tuple[str, str | None, dict]:
     """Map a target id to (ssh_host, ssh_key_path, session_metadata).
 
@@ -190,6 +228,13 @@ def _default_executor(target_id: str, mode: str, apps: list[str] | None) -> None
         return
 
     host, ssh_key, meta = _resolve_run_target(target_id)
+
+    # Blank slate for reproducibility: rebuild the Hetzner OS before a
+    # full-suite run so every run starts from an identical, known state. Per-app
+    # re-runs (apps given) test against the live server and skip the rebuild.
+    if target_id == "hetzner" and not apps:
+        _rebuild_blank_slate(load_cloud_config())
+
     env = dict(os.environ)
     if ssh_key:
         env["HOP3_TEST_SSH_KEY"] = ssh_key
