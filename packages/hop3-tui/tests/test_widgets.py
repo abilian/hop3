@@ -138,7 +138,7 @@ class TestConfirmationDialog:
                 yield Static("Main content")
 
             def on_mount(self) -> None:
-                self.push_screen(
+                self.push_screen(  # ty: ignore[no-matching-overload]
                     ConfirmationDialog(
                         title="Test",
                         message="Test message",
