@@ -38,6 +38,9 @@ class CloudConfig:
     hetzner_server_id: int
     hetzner_image: str
     ssh_key_path: str | None
+    # Name of the SSH key registered with Hetzner; re-injected on rebuild.
+    # Required for the blank-slate rebuild (without it a rebuild locks us out).
+    hetzner_ssh_key_name: str | None = None
 
     @property
     def is_complete(self) -> bool:
@@ -96,6 +99,9 @@ def load_cloud_config(path: Path | None = None) -> CloudConfig:
         hetzner_server_id=hetzner.server_id,
         hetzner_image=hetzner.image,
         ssh_key_path=key_path or None,
+        hetzner_ssh_key_name=hetzner.ssh_key_name
+        or env.get("HETZNER_SSH_KEY_NAME")
+        or None,
     )
 
 
