@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import subprocess
 import tarfile
@@ -19,7 +20,7 @@ from typing import Any, Literal
 import httpx
 from typing_extensions import Self
 
-from hop3_testing.exceptions import DeploymentError
+from hop3_testing.exceptions import DeploymentError, TargetOutOfDiskError
 
 from .constants import E2E_TEST_SECRET_KEY, create_test_token
 
@@ -202,6 +203,77 @@ class DeploymentTarget(ABC):
             returncode=result.returncode,
             duration=time.time() - start_time,
         )
+
+    # Pressure-gated disk reclaim (see ensure_disk_headroom).
+    _DISK_MIN_FREE_PCT = 15
+    _DISK_HARD_FLOOR_PCT = 5
+    _DISK_CACHE_CEILING = "10GB"
+
+    def ensure_disk_headroom(
+        self,
+        min_free_pct: int | None = None,
+        hard_floor_pct: int | None = None,
+        cache_ceiling: str | None = None,
+    ) -> None:
+        """Reclaim disk on the target when free space runs low.
+
+        Pressure-gated and cache-preserving: only when free space drops
+        below ``min_free_pct`` does it reclaim the *ephemeral* artifacts
+        (stopped containers, dangling images) and cap the build cache at
+        ``cache_ceiling`` — base images and warm cache are left intact, so
+        repeat runs stay fast and network-cheap. If space is still below
+        ``hard_floor_pct`` afterwards, raises ``TargetOutOfDiskError`` so
+        the caller fails fast with one clear message instead of cascading
+        misleading per-app errors. Best-effort otherwise (a missing
+        ``docker``/``df`` is ignored).
+        """
+        min_free_pct = min_free_pct or self._DISK_MIN_FREE_PCT
+        hard_floor_pct = hard_floor_pct or self._DISK_HARD_FLOOR_PCT
+        cache_ceiling = cache_ceiling or self._DISK_CACHE_CEILING
+
+        free = self._free_disk_pct()
+        if free is None or free >= min_free_pct:
+            return
+
+        print(
+            f"[disk] {free}% free on target — reclaiming ephemeral docker "
+            "artifacts (keeping base images + warm cache)"
+        )
+        for cmd in (
+            "docker container prune -f",  # stopped containers
+            "docker image prune -f",  # dangling images only (keeps tagged + base)
+            f"docker builder prune -f --keep-storage={cache_ceiling}",  # cap cache
+        ):
+            with contextlib.suppress(Exception):  # best-effort maintenance
+                self.exec_run(f"{cmd} 2>/dev/null || true")
+
+        after = self._free_disk_pct()
+        if after is not None and after < hard_floor_pct:
+            msg = (
+                f"Target out of disk: {after}% free after reclaim "
+                f"(floor {hard_floor_pct}%). Base images/warm cache were kept; "
+                "the target needs a bigger disk or fewer concurrent apps."
+            )
+            raise TargetOutOfDiskError(msg)
+        if after is not None:
+            print(f"[disk] reclaimed to {after}% free")
+
+    def _free_disk_pct(self) -> int | None:
+        """Percent free on the apps filesystem, or None if it can't be read."""
+        try:
+            code, out, _ = self.exec_run("df -P /home/hop3 2>/dev/null | tail -1")
+        except Exception:
+            return None
+        if code != 0 or not out.strip():
+            return None
+        parts = out.split()
+        if len(parts) < 5:
+            return None
+        try:
+            used_pct = int(parts[4].rstrip("%"))
+        except ValueError:
+            return None
+        return 100 - used_pct
 
     def capabilities(self) -> TargetCapabilities:
         """Get target capabilities.

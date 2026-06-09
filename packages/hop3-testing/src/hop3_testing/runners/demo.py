@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, cast
 
 from hop3_testing.catalog.models import Validation, ValidationExpect
+from hop3_testing.exceptions import TargetOutOfDiskError
 from hop3_testing.util import build_test_env
 from hop3_testing.util.console import Console, PrintingConsole, Verbosity
 
@@ -294,6 +295,18 @@ class DemoTestRunner:
                 validation=Validation(type="command"),
                 passed=False,
                 message="Deploy step requires app_path and app_name",
+                duration=time.time() - start_time,
+            )
+
+        # Reclaim disk before deploying (demos share one long-lived target
+        # across many deploys, so artifacts accumulate fastest here).
+        try:
+            self.target.ensure_disk_headroom()
+        except TargetOutOfDiskError as e:
+            return ValidationResult(
+                validation=Validation(type="command"),
+                passed=False,
+                message=str(e),
                 duration=time.time() - start_time,
             )
 

@@ -23,5 +23,13 @@ class CleanupError(TestingError):
     """Raised when cleanup fails."""
 
 
+class TargetOutOfDiskError(TestingError):
+    """Raised when the target is out of disk even after reclaiming.
+
+    Surfaced as a clear per-deploy error so a full disk reads as one
+    explicit signal instead of cascading misleading per-app failures.
+    """
+
+
 class ConfigurationError(TestingError):
     """Raised when configuration fails."""

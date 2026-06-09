@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 from hop3_testing.apps.catalog import AppSource
 from hop3_testing.apps.deployment import DeploymentSession
 from hop3_testing.bundle import collect_diagnostic_bundle
-from hop3_testing.exceptions import DeploymentError
+from hop3_testing.exceptions import DeploymentError, TargetOutOfDiskError
 from hop3_testing.util.console import Console, PrintingConsole, Verbosity
 
 from .base import TestResult, ValidationResult
@@ -209,6 +209,13 @@ class DeploymentTestRunner:
         validation_results: list[ValidationResult],
     ) -> tuple[str, str | None]:
         """Run deployment and verification, return (deploy_logs, error or None)."""
+        # Reclaim disk before deploying so a full target fails with one clear
+        # message instead of cascading misleading ENOSPC per-app errors.
+        try:
+            self.target.ensure_disk_headroom()
+        except TargetOutOfDiskError as e:
+            return "", str(e)
+
         session.prepare()
 
         try:
@@ -349,7 +356,12 @@ class DeploymentTestRunner:
         try:
             session.cleanup()
         except Exception as exc:
-            self.console.debug(f"Cleanup failed (ignored): {exc}")
+            # Surfaced (not swallowed): a failed cleanup leaks resources and
+            # is the leading cause of later cascade failures — make it visible.
+            self.console.warning(
+                f"Cleanup FAILED for {test.name} — resources may leak "
+                f"(addons/disk): {exc}"
+            )
 
     def _validate_app_path(
         self, test: TestDefinition, start_time: float
@@ -460,10 +472,9 @@ class DeploymentTestRunner:
             bundle = self._collect_bundle(session, deploy_logs)
 
         # Cleanup AFTER collecting diagnostics so the app dir and docker
-        # containers are still around.
-        if self.cleanup:
-            self.console.info(f"Cleaning up {test.name}...")
-            session.cleanup()
+        # containers are still around. Routed through _safe_cleanup so a
+        # cleanup failure is surfaced (not silent) and never crashes the run.
+        self._safe_cleanup(test, session)
 
         return TestResult(
             test=test,
