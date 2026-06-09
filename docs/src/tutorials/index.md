@@ -91,6 +91,12 @@ Every tutorial follows a consistent pattern:
 |-----------|-------------|
 | [ASP.NET Core](dotnet/aspnet-core.md) | Cross-platform web framework |
 
+### Static Sites
+
+| Type | Description |
+|------|-------------|
+| [Plain static site](static/static-site.md) | HTML/CSS/JS served directly by nginx — no build, no app server |
+
 ## Prerequisites
 
 Before starting any tutorial, ensure you have:
