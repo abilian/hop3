@@ -41,6 +41,7 @@ def test_handshake_returns_versions():
 
 def test_handshake_accepts_optional_client_version():
     handler = get_handler("daemon.handshake")
+    assert handler is not None
     req = Request(
         v=PROTOCOL_VERSION,
         id="r1",
@@ -53,6 +54,7 @@ def test_handshake_accepts_optional_client_version():
 
 def test_health_reports_basic_fields():
     handler = get_handler("daemon.health")
+    assert handler is not None
     req = Request(v=PROTOCOL_VERSION, id="r1", op="daemon.health", args={})
     result = handler(req, _ctx())
     assert result["daemon_version"] == __version__
@@ -65,6 +67,7 @@ def test_health_reports_basic_fields():
 
 def test_health_reports_rules_count():
     handler = get_handler("daemon.health")
+    assert handler is not None
     ctx = _ctx()
     # Add a fake rule to the state.
     ctx.state.rules.append(StoredRule("r1", {}, "2026-04-24T00:00:00Z"))
@@ -75,6 +78,7 @@ def test_health_reports_rules_count():
 
 def test_health_uptime_is_nonnegative():
     handler = get_handler("daemon.health")
+    assert handler is not None
     req = Request(v=PROTOCOL_VERSION, id="r1", op="daemon.health", args={})
     result = handler(req, _ctx())
     assert result["uptime_seconds"] >= 0

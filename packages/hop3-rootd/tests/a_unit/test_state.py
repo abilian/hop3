@@ -189,8 +189,9 @@ def test_find_rule():
             StoredRule("r2", {"app_name": "b"}, "2026-04-24T00:00:00Z"),
         ],
     )
-    assert state.find_rule("r1") is not None
-    assert state.find_rule("r1").spec["app_name"] == "a"
+    rule = state.find_rule("r1")
+    assert rule is not None
+    assert rule.spec["app_name"] == "a"
     assert state.find_rule("nonexistent") is None
 
 

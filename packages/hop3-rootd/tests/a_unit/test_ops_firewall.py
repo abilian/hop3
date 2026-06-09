@@ -65,6 +65,7 @@ def _add_rule_request(**args) -> Request:
 
 def test_add_rule_happy_path(patched_nft, ctx):
     handler = get_handler("firewall.add_rule")
+    assert handler is not None
     nft_list_output = (
         '{"nftables":[{"rule":{"handle":47,"comment":"hop3:rule:rule-test-1"}}]}'
     )
@@ -99,6 +100,7 @@ def test_add_rule_happy_path(patched_nft, ctx):
 def test_add_rule_validation_failure(patched_nft, ctx):
     """Bad spec → ValidationError raised, no nft call, no state change."""
     handler = get_handler("firewall.add_rule")
+    assert handler is not None
     with (
         patch.object(nft_rule, "exec_run") as mock_exec,
         pytest.raises(ValidationError),
@@ -119,6 +121,7 @@ def test_add_rule_validation_failure(patched_nft, ctx):
 def test_add_rule_rolls_back_on_nft_failure(patched_nft, ctx):
     """nft fails → pending state is rolled back, no rule remains."""
     handler = get_handler("firewall.add_rule")
+    assert handler is not None
     with patch.object(nft_rule, "exec_run") as mock_exec:
         mock_exec.return_value = _fail("Error: invalid rule")
         with pytest.raises(NftCommandError):
@@ -136,6 +139,7 @@ def test_add_rule_rolls_back_on_nft_failure(patched_nft, ctx):
 
 def test_add_rule_with_port_range(patched_nft, ctx):
     handler = get_handler("firewall.add_rule")
+    assert handler is not None
     nft_list_output = (
         '{"nftables":[{"rule":{"handle":47,"comment":"hop3:rule:rule-test-1"}}]}'
     )
@@ -156,6 +160,7 @@ def test_add_rule_with_port_range(patched_nft, ctx):
 
 def test_add_rule_with_cidr_source(patched_nft, ctx):
     handler = get_handler("firewall.add_rule")
+    assert handler is not None
     nft_list_output = (
         '{"nftables":[{"rule":{"handle":47,"comment":"hop3:rule:rule-test-1"}}]}'
     )
@@ -194,6 +199,7 @@ def test_remove_rule_happy_path(patched_nft, ctx):
     )
 
     handler = get_handler("firewall.remove_rule")
+    assert handler is not None
     nft_list_output = (
         '{"nftables":[{"rule":{"handle":47,"comment":"hop3:rule:rule-1"}}]}'
     )
@@ -216,6 +222,7 @@ def test_remove_rule_happy_path(patched_nft, ctx):
 
 def test_remove_rule_unknown_id_raises_state_conflict(patched_nft, ctx):
     handler = get_handler("firewall.remove_rule")
+    assert handler is not None
     req = Request(
         v=PROTOCOL_VERSION,
         id="r1",
@@ -238,6 +245,7 @@ def test_remove_rule_kernel_already_absent(patched_nft, ctx):
     )
     # Mock list_rules to return empty.
     handler = get_handler("firewall.remove_rule")
+    assert handler is not None
     with patch.object(nft_rule, "exec_run") as mock_exec:
         mock_exec.return_value = _ok(stdout='{"nftables":[]}')
         req = Request(
@@ -254,6 +262,7 @@ def test_remove_rule_kernel_already_absent(patched_nft, ctx):
 
 def test_remove_rule_invalid_id_type_raises_validation(patched_nft, ctx):
     handler = get_handler("firewall.remove_rule")
+    assert handler is not None
     req = Request(
         v=PROTOCOL_VERSION,
         id="r1",
@@ -269,6 +278,7 @@ def test_remove_rule_invalid_id_type_raises_validation(patched_nft, ctx):
 
 def test_list_rules_empty(ctx):
     handler = get_handler("firewall.list_rules")
+    assert handler is not None
     req = Request(v=PROTOCOL_VERSION, id="r1", op="firewall.list_rules", args={})
     result = handler(req, ctx)
     assert result == {"rules": []}
@@ -280,6 +290,7 @@ def test_list_rules_returns_all(ctx):
         StoredRule("r2", {"app_name": "other", "port": 80}, "2026-04-24T00:00:00Z"),
     ])
     handler = get_handler("firewall.list_rules")
+    assert handler is not None
     req = Request(v=PROTOCOL_VERSION, id="r1", op="firewall.list_rules", args={})
     result = handler(req, ctx)
     assert len(result["rules"]) == 2
@@ -292,6 +303,7 @@ def test_list_rules_filters_by_app_name(ctx):
         StoredRule("r3", {"app_name": "matrix", "port": 3478}, "2026-04-24T00:00:00Z"),
     ])
     handler = get_handler("firewall.list_rules")
+    assert handler is not None
     req = Request(
         v=PROTOCOL_VERSION,
         id="r1",
@@ -305,6 +317,7 @@ def test_list_rules_filters_by_app_name(ctx):
 
 def test_list_rules_validates_app_name_filter(ctx):
     handler = get_handler("firewall.list_rules")
+    assert handler is not None
     req = Request(
         v=PROTOCOL_VERSION,
         id="r1",
