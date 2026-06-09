@@ -10,12 +10,12 @@ from typing import TYPE_CHECKING
 import pytest
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Generator, MutableMapping
     from pathlib import Path
 
 
 @pytest.fixture
-def clean_env() -> Generator[dict[str, str], None, None]:
+def clean_env() -> Generator[MutableMapping[str, str], None, None]:
     """Provide a clean environment without HOP3_* variables.
 
     Saves and restores original environment after test.

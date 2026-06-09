@@ -69,7 +69,7 @@ class TestDeployer:
             deploy_args = ["hop3-deploy", "--host", host, "--local", "--clean"]
 
         # Run hop3-deploy
-        result = subprocess.run(
+        result = subprocess.run(  # ty: ignore[no-matching-overload]
             deploy_args,
             capture_output=True,
             text=True,
@@ -120,7 +120,7 @@ class TestDeployer:
         host = ssh_host_available()
 
         # Verify hop3-server is installed on remote host
-        result = subprocess.run(
+        result = subprocess.run(  # ty: ignore[no-matching-overload]
             [
                 "ssh",
                 "-o",
