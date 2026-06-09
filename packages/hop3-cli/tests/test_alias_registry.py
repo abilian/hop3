@@ -73,7 +73,9 @@ def test_user_alias_skipped_on_collision_with_core() -> None:
 def test_plugin_alias_skipped_on_collision_with_core() -> None:
     plugins = [Alias("apps", ("custom", "apps"), "plugin")]
     r = build_registry(plugin_aliases=plugins)
-    assert r.find("apps").origin == "built-in"
+    a = r.find("apps")
+    assert a is not None
+    assert a.origin == "built-in"
     assert any(tok == "apps" for tok, _ in r.skipped)
 
 
@@ -81,7 +83,9 @@ def test_user_alias_skipped_on_collision_with_plugin() -> None:
     plugins = [Alias("drain", ("drain",), "plugin")]
     user = [Alias("drain", ("my", "drain"), "user")]
     r = build_registry(plugin_aliases=plugins, user_aliases=user)
-    assert r.find("drain").origin == "plugin"
+    a = r.find("drain")
+    assert a is not None
+    assert a.origin == "plugin"
     assert any(tok == "drain" for tok, _ in r.skipped)
 
 

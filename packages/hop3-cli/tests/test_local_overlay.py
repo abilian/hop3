@@ -84,7 +84,7 @@ def test_local_overlay_dataclass_is_frozen() -> None:
 
     o = LocalOverlay(path=None, data={})
     with pytest.raises(FrozenInstanceError):
-        o.path = "mutated"  # type: ignore[misc]
+        setattr(o, "path", "mutated")  # noqa: B010  # frozen: assignment must raise
 
 
 # ---- write_overlay ------------------------------------------------------
