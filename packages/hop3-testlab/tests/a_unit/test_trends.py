@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import Any, cast
 
 from hop3_testlab.trends import (
     diff_results,
@@ -79,7 +80,7 @@ def test_suite_rollup_groups_by_category():
         SimpleNamespace(category="demo", passed=True),
         SimpleNamespace(category=None, passed=True),
     ]
-    rollup = suite_rollup(results)
+    rollup = suite_rollup(cast("Any", results))
     assert rollup["deployment"] == {"total": 2, "passed": 1, "failed": 1}
     assert rollup["demo"] == {"total": 1, "passed": 1, "failed": 0}
     assert rollup["other"] == {"total": 1, "passed": 1, "failed": 0}

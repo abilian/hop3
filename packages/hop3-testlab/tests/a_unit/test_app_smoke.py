@@ -47,7 +47,9 @@ def test_dashboard_lists_recent_runs(tmp_path):
     with TestClient(app=create_app()) as client:
         response = client.get("/")
     assert response.status_code == 200
-    assert run.run_uid in response.text
+    uid = run.run_uid
+    assert uid is not None
+    assert uid in response.text
     assert "hetzner-1" in response.text  # target column
 
 
