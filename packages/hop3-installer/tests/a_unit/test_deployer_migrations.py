@@ -77,7 +77,7 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
         config.use_local_code = True
         d = _make_deployer(config, backend)
         # Stub the upload to succeed without touching the network
-        d.backend.upload_dir = MagicMock(return_value=True)
+        setattr(d.backend, "upload_dir", MagicMock(return_value=True))  # noqa: B010
 
         assert d._update_local_code() is True
         calls = self._run_calls(backend)
@@ -104,9 +104,9 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
         d = _make_deployer(config, backend)
 
         # Stub out the upload + version-check shell-outs in _install_features
-        d.backend.upload_file = MagicMock(return_value=True)
-        d.backend.run_streaming = MagicMock(return_value=0)
-        d._ensure_python310_plus = MagicMock(return_value="python3")
+        setattr(d.backend, "upload_file", MagicMock(return_value=True))  # noqa: B010
+        setattr(d.backend, "run_streaming", MagicMock(return_value=0))  # noqa: B010
+        setattr(d, "_ensure_python310_plus", MagicMock(return_value="python3"))  # noqa: B010
         # The installer_path property triggers bundle regeneration if stale;
         # short-circuit it to avoid running the real bundler in unit tests.
         from pathlib import Path as _Path  # noqa: PLC0415
@@ -134,7 +134,7 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
         """
         config.use_local_code = True
         d = _make_deployer(config, backend)
-        d.backend.upload_dir = MagicMock(return_value=True)
+        setattr(d.backend, "upload_dir", MagicMock(return_value=True))  # noqa: B010
 
         assert d._update_local_code() is True
         calls = self._run_calls(backend)
@@ -160,7 +160,7 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
 
         backend.run.side_effect = fake_run
         d = _make_deployer(config, backend)
-        d.backend.upload_dir = MagicMock(return_value=True)
+        setattr(d.backend, "upload_dir", MagicMock(return_value=True))  # noqa: B010
 
         assert d._update_local_code() is False
         calls = self._run_calls(backend)
