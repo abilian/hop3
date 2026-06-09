@@ -157,7 +157,7 @@ def _lookup_test(
 # Test options
 @click.option(
     "--mode",
-    type=click.Choice(["dev", "ci", "nightly", "release"]),
+    type=click.Choice(["dev", "ci", "coverage", "nightly", "release"]),
     default="dev",
     help="Test mode (filters by tier/priority when no apps specified)",
 )
