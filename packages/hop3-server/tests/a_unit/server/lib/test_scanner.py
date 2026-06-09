@@ -25,7 +25,7 @@ def test_scan_packages_rejects_a_bare_string():
 
 def test_scan_package_rejects_non_string():
     with pytest.raises(AssertionError):
-        scan_package(["json"])
+        scan_package(["json"])  # ty: ignore[invalid-argument-type]
 
 
 def test_iter_module_names_yields_submodules_of_a_package():

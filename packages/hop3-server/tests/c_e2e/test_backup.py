@@ -89,6 +89,7 @@ class TestBackupRestoreE2E:
             assert "Backup created successfully!" in result.stdout
 
             backup_id = extract_backup_id(result.stdout)
+            assert backup_id is not None
             assert backup_id, "Could not extract backup ID from output"
 
             # Verify backup in list
@@ -133,6 +134,7 @@ class TestBackupRestoreE2E:
             assert result.success
 
             backup_id = extract_backup_id(result.stdout)
+            assert backup_id is not None
 
             # Get backup info and verify env vars
             result = deployment_target.run_command("backup", "info", backup_id)
@@ -152,6 +154,7 @@ class TestBackupRestoreE2E:
             assert result.success
 
             backup_id = extract_backup_id(result.stdout)
+            assert backup_id is not None
 
             # Modify the app (simulate changes)
             (app_dir / "app.py").write_text("""
@@ -185,6 +188,7 @@ def index():
             assert result.success
 
             backup_id = extract_backup_id(result.stdout)
+            assert backup_id is not None
 
             # Restore to a different app name
             result = deployment_target.run_command(
@@ -245,6 +249,7 @@ def index():
             assert result.success
 
             backup_id = extract_backup_id(result.stdout)
+            assert backup_id is not None
 
             # Verify backup exists
             result = deployment_target.run_command("backup", "list", "--json")
@@ -306,6 +311,7 @@ conn.close()""",
             assert result.success
 
             backup_id = extract_backup_id(result.stdout)
+            assert backup_id is not None
 
             # Verify backup info shows PostgreSQL service
             result = deployment_target.run_command("backup", "info", backup_id)

@@ -165,12 +165,14 @@ def deployment_target(request, tmp_path_factory):
                 target = DockerTarget(docker_config, deployment=deployment_config)
                 target.start()
                 # Save connection info for other workers
+                info = target._info
+                assert info is not None
                 info_data = {
                     "container_name": docker_config.container_name,
-                    "ssh_port": target._info.ssh_port,
-                    "http_base": target._info.http_base,
-                    "api_url": target._info.api_url,
-                    "ssh_key": target._info.ssh_key,
+                    "ssh_port": info.ssh_port,
+                    "http_base": info.http_base,
+                    "api_url": info.api_url,
+                    "ssh_key": info.ssh_key,
                 }
                 info_file.write_text(json.dumps(info_data))
                 yield target

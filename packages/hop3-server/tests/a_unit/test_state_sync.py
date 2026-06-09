@@ -8,10 +8,21 @@ from __future__ import annotations
 
 import time
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, cast
 from unittest.mock import MagicMock, patch
 
 from hop3.orm import AppStateEnum
 from hop3.server.state_sync import StateSyncService
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from sqlalchemy.orm import Session
+
+
+def _service(factory, **kwargs) -> StateSyncService:
+    """StateSyncService with the mock factory cast to the declared type."""
+    return StateSyncService(cast("Callable[[], Session]", factory), **kwargs)
 
 
 class MockApp:
@@ -72,14 +83,14 @@ class TestStateSyncService:
 
     def test_init(self):
         """Test service initialization with default values."""
-        service = StateSyncService(MockSession)
+        service = _service(MockSession)
         assert service.interval == 3.0
         assert service.timeout == 60.0
         assert not service.is_running()
 
     def test_init_custom_values(self):
         """Test service initialization with custom values."""
-        service = StateSyncService(
+        service = _service(
             MockSession,
             interval=5.0,
             timeout=30.0,
@@ -89,7 +100,7 @@ class TestStateSyncService:
 
     def test_start_stop(self):
         """Test starting and stopping the service."""
-        service = StateSyncService(MockSession, interval=0.1)
+        service = _service(MockSession, interval=0.1)
 
         service.start()
         assert service.is_running()
@@ -99,7 +110,7 @@ class TestStateSyncService:
 
     def test_start_twice_is_safe(self):
         """Test that starting twice doesn't create multiple threads."""
-        service = StateSyncService(MockSession, interval=0.1)
+        service = _service(MockSession, interval=0.1)
 
         service.start()
         service.start()  # Should not raise or create duplicate threads
@@ -119,9 +130,9 @@ class TestStateSyncService:
         mock_repo_class.return_value = mock_repo
 
         session = MockSession([app])
-        service = StateSyncService(lambda: session)
+        service = _service(lambda: session)
 
-        count = service.sync_transitional_apps(session)
+        count = service.sync_transitional_apps(cast("Session", session))
 
         assert count == 1
         assert app._sync_state_called
@@ -138,9 +149,9 @@ class TestStateSyncService:
         mock_repo_class.return_value = mock_repo
 
         session = MockSession([app])
-        service = StateSyncService(lambda: session)
+        service = _service(lambda: session)
 
-        count = service.sync_transitional_apps(session)
+        count = service.sync_transitional_apps(cast("Session", session))
 
         assert count == 1
         assert app._sync_state_called
@@ -154,9 +165,9 @@ class TestStateSyncService:
         mock_repo_class.return_value = mock_repo
 
         session = MockSession([])
-        service = StateSyncService(lambda: session)
+        service = _service(lambda: session)
 
-        count = service.sync_transitional_apps(session)
+        count = service.sync_transitional_apps(cast("Session", session))
 
         assert count == 0
 
@@ -172,9 +183,9 @@ class TestStateSyncService:
         mock_repo_class.return_value = mock_repo
 
         session = MockSession([app])
-        service = StateSyncService(lambda: session)
+        service = _service(lambda: session)
 
-        count = service.sync_transitional_apps(session)
+        count = service.sync_transitional_apps(cast("Session", session))
 
         assert count == 0
         assert app._sync_state_called
@@ -192,9 +203,9 @@ class TestStateSyncService:
         mock_repo_class.return_value = mock_repo
 
         session = MockSession([app])
-        service = StateSyncService(lambda: session, timeout=60.0)
+        service = _service(lambda: session, timeout=60.0)
 
-        service.sync_transitional_apps(session)
+        service.sync_transitional_apps(cast("Session", session))
 
         assert app.run_state == AppStateEnum.FAILED
         assert "Failed to start" in app.error_message
@@ -212,9 +223,9 @@ class TestStateSyncService:
         mock_repo_class.return_value = mock_repo
 
         session = MockSession([app])
-        service = StateSyncService(lambda: session, timeout=60.0)
+        service = _service(lambda: session, timeout=60.0)
 
-        service.sync_transitional_apps(session)
+        service.sync_transitional_apps(cast("Session", session))
 
         assert app.run_state == AppStateEnum.STOPPED
 
@@ -232,9 +243,9 @@ class TestStateSyncService:
         mock_repo_class.return_value = mock_repo
 
         session = MockSession([app])
-        service = StateSyncService(lambda: session, timeout=60.0)
+        service = _service(lambda: session, timeout=60.0)
 
-        service.sync_transitional_apps(session)
+        service.sync_transitional_apps(cast("Session", session))
 
         # Should still be STARTING (sync was called but returned False)
         assert app.run_state == AppStateEnum.STARTING
@@ -252,9 +263,9 @@ class TestStateSyncService:
         mock_repo_class.return_value = mock_repo
 
         session = MockSession([app])
-        service = StateSyncService(lambda: session, timeout=60.0)
+        service = _service(lambda: session, timeout=60.0)
 
-        service.sync_transitional_apps(session)
+        service.sync_transitional_apps(cast("Session", session))
 
         # Should still be STARTING (no timeout applied)
         assert app.run_state == AppStateEnum.STARTING
@@ -276,7 +287,7 @@ class TestStateSyncServiceIntegration:
         mock_repo_class.return_value = mock_repo
 
         session = MockSession([app])
-        service = StateSyncService(lambda: session)
+        service = _service(lambda: session)
 
         service._sync_cycle()
 
@@ -291,7 +302,7 @@ class TestStateSyncServiceIntegration:
         mock_repo_class.return_value = mock_repo
 
         session = MockSession([])  # No apps
-        service = StateSyncService(lambda: session)
+        service = _service(lambda: session)
 
         service._sync_cycle()
 
@@ -304,8 +315,8 @@ class TestStateSyncServiceIntegration:
         def mock_sync_cycle():
             sync_count["value"] += 1
 
-        service = StateSyncService(MockSession, interval=0.05)
-        service._sync_cycle = mock_sync_cycle
+        service = _service(MockSession, interval=0.05)
+        setattr(service, "_sync_cycle", mock_sync_cycle)  # noqa: B010
 
         service.start()
         time.sleep(0.2)  # Allow a few cycles

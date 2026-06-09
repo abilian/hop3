@@ -15,13 +15,17 @@ import gzip
 import io
 import tarfile
 from pathlib import Path  # noqa: TC003
+from typing import TYPE_CHECKING
 
 import pytest
 
 from hop3.lib.archives import extract_archive_to_dir
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
-def _make_targz(members: list[tuple[tarfile.TarInfo, bytes | None]]) -> bytes:
+
+def _make_targz(members: Sequence[tuple[tarfile.TarInfo, bytes | None]]) -> bytes:
     """Build an in-memory tar.gz from a list of (TarInfo, payload?) tuples."""
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as tar:

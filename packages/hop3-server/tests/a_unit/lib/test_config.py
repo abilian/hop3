@@ -331,4 +331,4 @@ class TestUndefinedSentinel:
         config = Config(environ={})
 
         with pytest.raises(KeyError):
-            config("MISSING", default=Undefined)
+            config("MISSING", default=Undefined)  # ty: ignore[no-matching-overload]

@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import Mock
 
 from hop3.core.plugins import get_deployer
@@ -83,8 +83,8 @@ def test_uwsgi_deployer_has_app_access(tmp_path: Path):
     deployer = get_deployer(context, artifact)
 
     # Verify the deployer can access the app
-    assert deployer.app == app
-    assert deployer.app.name == "test-app"
+    assert cast("Any", deployer).app == app
+    assert cast("Any", deployer).app.name == "test-app"
 
 
 def test_deployment_strategy_priority(tmp_path: Path):

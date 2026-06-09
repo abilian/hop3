@@ -12,7 +12,7 @@ import subprocess
 import time
 from pathlib import Path
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import docker
 import docker.errors
@@ -113,7 +113,7 @@ def _persist_pytest_bundle(app: str, bundle: Any) -> None:
         validation_results=[],
         test=test,
     )
-    ResultStore().save(result)
+    ResultStore().save(cast("Any", result))
 
 
 @pytest.fixture(scope="session")

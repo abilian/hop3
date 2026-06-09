@@ -24,6 +24,7 @@ import uuid
 from contextlib import suppress
 
 import psycopg2
+import psycopg2.extensions
 import pytest
 
 import hop3.plugins.postgresql.postgres as pg_module

@@ -26,13 +26,14 @@ from hop3.config import HopConfig
 from hop3.orm import App
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
     from sqlalchemy.orm import Session
 
 
 @pytest.fixture
-def test_git_app(db_session: Session, tmp_path: Path, monkeypatch) -> App:
+def test_git_app(db_session: Session, tmp_path: Path, monkeypatch) -> Iterator[App]:
     """Create a test application with git repository structure.
 
     Args:

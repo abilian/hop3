@@ -307,5 +307,5 @@ class TestTail:
         assert first == "a | line3\n"
         assert second == "a | line4\n"
 
-        gen.close()
+        gen.close()  # ty: ignore[unresolved-attribute]  # tail() yields a generator
         mt.handles[Path(f1)].close()

@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from hop3.core.protocols import DeploymentContext
 from hop3.toolchains.python import PythonToolchain
@@ -25,7 +25,7 @@ def test_toolchain_with_deployment_context(tmp_path: Path):
     context = DeploymentContext(app_name="test-app", source_path=src_dir, app_config={})
 
     # Initialize toolchain with context
-    toolchain = PythonToolchain(context)
+    toolchain = PythonToolchain(cast("Any", context))
 
     # Verify attributes
     assert toolchain.app_name == "test-app"
@@ -66,7 +66,7 @@ def test_toolchain_with_pyproject_toml(tmp_path: Path):
     context = DeploymentContext(app_name="test-app", source_path=src_dir, app_config={})
 
     # Initialize toolchain with context
-    toolchain = PythonToolchain(context)
+    toolchain = PythonToolchain(cast("Any", context))
 
     # Verify it accepts pyproject.toml
     assert toolchain.accept() is True
@@ -83,7 +83,7 @@ def test_toolchain_rejects_non_python_project(tmp_path: Path):
     context = DeploymentContext(app_name="test-app", source_path=src_dir, app_config={})
 
     # Initialize toolchain with context
-    toolchain = PythonToolchain(context)
+    toolchain = PythonToolchain(cast("Any", context))
 
     # Verify it rejects non-Python projects
     assert toolchain.accept() is False

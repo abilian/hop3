@@ -20,11 +20,13 @@ from hop3.di.providers import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from dishka import Container
 
 
 @pytest.fixture
-def di_container() -> Container:
+def di_container() -> Iterator[Container]:
     """Create a DI container for testing.
 
     This fixture provides a fresh Dishka container for each test,

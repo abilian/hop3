@@ -17,12 +17,14 @@ from hop3.orm import Role, User, get_session_factory, reset_session_factory_cach
 from hop3.orm.session import BigIntAuditBase
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from sqlalchemy.engine import Engine
     from sqlalchemy.orm import Session
 
 
 @pytest.fixture
-def db_engine() -> Engine:
+def db_engine() -> Iterator[Engine]:
     """Create test database engine (fresh for each test).
 
     Uses in-memory SQLite for fast, isolated tests.
@@ -53,7 +55,7 @@ def db_engine() -> Engine:
 
 
 @pytest.fixture
-def db_session(db_engine: Engine) -> Session:
+def db_session(db_engine: Engine) -> Iterator[Session]:
     """Create test session for querying test results.
 
     This session shares the same in-memory database that get_session() uses

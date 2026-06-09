@@ -22,6 +22,7 @@ from __future__ import annotations
 import shutil
 import uuid
 from contextlib import suppress
+from typing import Any, cast
 
 import mysql.connector
 import pytest
@@ -304,7 +305,8 @@ class TestMySQLBackupRestore:
             cursor.close()
             conn.close()
 
-            assert result[0] == "original"
+            assert result is not None
+            assert cast("Any", result)[0] == "original"
 
         finally:
             mysql_module.HOP3_ROOT = original_root

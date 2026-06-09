@@ -26,6 +26,7 @@ from hop3.core.git import GitManager
 from hop3.orm import App
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
     from sqlalchemy.orm import Session
@@ -49,7 +50,7 @@ def configured_git_root(tmp_path: Path):
 
 
 @pytest.fixture
-def test_app(db_session: Session, configured_git_root: Path) -> App:
+def test_app(db_session: Session, configured_git_root: Path) -> Iterator[App]:
     """Create a test application with directories.
 
     Yields:

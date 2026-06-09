@@ -143,6 +143,7 @@ def test_config_unset_existing_variable(db_session: Session, test_app: App):
 
     # Verify removed from database
     app = db_session.query(App).filter_by(name="testapp").first()
+    assert app is not None
     env = app.get_runtime_env()
     assert "EXISTING_VAR" not in env
 
@@ -159,6 +160,7 @@ def test_config_unset_multiple_variables(db_session: Session, test_app: App):
 
     # Verify removed from database
     app = db_session.query(App).filter_by(name="testapp").first()
+    assert app is not None
     env = app.get_runtime_env()
     assert "EXISTING_VAR" not in env
     assert "DEBUG" not in env
@@ -193,6 +195,7 @@ def test_config_unset_mixed_existing_nonexistent(db_session: Session, test_app: 
 
     # Verify database state
     app = db_session.query(App).filter_by(name="testapp").first()
+    assert app is not None
     env = app.get_runtime_env()
     assert "EXISTING_VAR" not in env
     assert "DEBUG" not in env
@@ -223,6 +226,7 @@ def test_config_set_then_unset(db_session: Session, test_app: App):
 
     # Verify it was set
     app = db_session.query(App).filter_by(name="testapp").first()
+    assert app is not None
     env = app.get_runtime_env()
     assert "TEMP_VAR" in env
     assert env["TEMP_VAR"] == "temp_value"
@@ -233,6 +237,7 @@ def test_config_set_then_unset(db_session: Session, test_app: App):
 
     # Verify it was removed
     app = db_session.query(App).filter_by(name="testapp").first()
+    assert app is not None
     env = app.get_runtime_env()
     assert "TEMP_VAR" not in env
 

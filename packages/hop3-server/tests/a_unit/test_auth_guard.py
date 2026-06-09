@@ -14,11 +14,22 @@ the same Bearer token ``/rpc`` accepts.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, cast
+
 import pytest
 from litestar.exceptions import NotAuthorizedException
 
 from hop3.server import guards
 from hop3.server.guards import auth_guard
+
+if TYPE_CHECKING:
+    from litestar.connection import ASGIConnection
+    from litestar.handlers import BaseRouteHandler
+
+
+def _run_guard(conn: object) -> None:
+    """Call auth_guard with the test double cast to the declared types."""
+    auth_guard(cast("ASGIConnection", conn), cast("BaseRouteHandler", None))
 
 
 class _FakeConnection:
@@ -51,13 +62,13 @@ def _force_safe_mode(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_session_cookie_authenticates() -> None:
     conn = _FakeConnection(session={"user_id": "alice"})
-    auth_guard(conn, None)  # must not raise
+    _run_guard(conn)  # must not raise
 
 
 def test_no_credentials_rejected() -> None:
     conn = _FakeConnection()
     with pytest.raises(NotAuthorizedException):
-        auth_guard(conn, None)
+        _run_guard(conn)
 
 
 # ---- bearer-token path (the fix) ----------------------------------------
@@ -68,20 +79,20 @@ def test_valid_bearer_token_authenticates(monkeypatch: pytest.MonkeyPatch) -> No
         guards, "validate_token", lambda t: {"username": "bob", "scopes": ["admin"]}
     )
     conn = _FakeConnection(headers={"authorization": "Bearer good-token"})
-    auth_guard(conn, None)  # must not raise
+    _run_guard(conn)  # must not raise
 
 
 def test_bearer_scheme_is_case_insensitive(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(guards, "validate_token", lambda t: {"username": "bob"})
     conn = _FakeConnection(headers={"authorization": "bearer good-token"})
-    auth_guard(conn, None)  # must not raise
+    _run_guard(conn)  # must not raise
 
 
 def test_invalid_bearer_token_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(guards, "validate_token", lambda t: None)
     conn = _FakeConnection(headers={"authorization": "Bearer bad-token"})
     with pytest.raises(NotAuthorizedException):
-        auth_guard(conn, None)
+        _run_guard(conn)
 
 
 def test_non_bearer_authorization_header_rejected(
@@ -98,7 +109,7 @@ def test_non_bearer_authorization_header_rejected(
     monkeypatch.setattr(guards, "validate_token", _spy)
     conn = _FakeConnection(headers={"authorization": "Basic dXNlcjpwYXNz"})
     with pytest.raises(NotAuthorizedException):
-        auth_guard(conn, None)
+        _run_guard(conn)
     assert called["hit"] is False
 
 
@@ -116,7 +127,7 @@ def test_session_cookie_wins_without_consulting_token(
         session={"user_id": "alice"},
         headers={"authorization": "Bearer whatever"},
     )
-    auth_guard(conn, None)
+    _run_guard(conn)
     assert called["hit"] is False
 
 
@@ -127,7 +138,7 @@ def test_bearer_token_does_not_mutate_session(
     for a Bearer client)."""
     monkeypatch.setattr(guards, "validate_token", lambda t: {"username": "bob"})
     conn = _FakeConnection(headers={"authorization": "Bearer good-token"})
-    auth_guard(conn, None)
+    _run_guard(conn)
     assert conn.session == {}
 
 
@@ -137,4 +148,4 @@ def test_bearer_token_does_not_mutate_session(
 def test_unsafe_mode_skips_auth(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(guards.config, "HOP3_UNSAFE", True)
     conn = _FakeConnection()  # no creds at all
-    auth_guard(conn, None)  # must not raise
+    _run_guard(conn)  # must not raise

@@ -124,7 +124,7 @@ class TestParseCommand:
     def test_non_string_non_list_raises_type_error(self):
         """Passing an unsupported type raises TypeError."""
         with pytest.raises(TypeError, match="string or a list"):
-            _parse_command(42)  # type: ignore[arg-type]
+            _parse_command(42)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
 
 class TestResolveCwd:
