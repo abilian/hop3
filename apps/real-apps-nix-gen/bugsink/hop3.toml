@@ -76,3 +76,4 @@ covers = ["python", "django", "nix", "postgres"]
 [[test.validations]]
 path = "/accounts/login/"
 status = 200
+contains = "Bugsink"

@@ -20,3 +20,4 @@ covers = ["php", "dolibarr", "nix", "erp", "crm"]
 [[test.validations]]
 path = "/"
 status = 200
+contains = "Dolibarr"

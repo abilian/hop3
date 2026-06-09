@@ -41,3 +41,4 @@ tier = "medium"
 [[test.validations]]
 path = "/api/health"
 status = 200
+contains = "database"

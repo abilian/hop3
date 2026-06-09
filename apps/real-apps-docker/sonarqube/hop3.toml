@@ -34,3 +34,4 @@ tier = "slow"
 [[test.validations]]
 path = "/api/system/status"
 status = 200
+contains = "status"

@@ -40,5 +40,6 @@ targets = ["docker", "remote"]
 covers = ["java", "xwiki"]
 
 [[test.validations]]
-path = "/xwiki/"
-status = 302
+path = "/xwiki/bin/view/Main/"
+status_in = [200, 202]
+contains = "XWiki"

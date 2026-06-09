@@ -29,3 +29,4 @@ tier = "medium"
 [[test.validations]]
 path = "/status"
 status = 200
+contains = "onlineNotes"

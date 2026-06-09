@@ -31,3 +31,4 @@ tier = "slow"
 [[test.validations]]
 path = "/health"
 status = 200
+contains = "OK"

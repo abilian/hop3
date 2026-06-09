@@ -32,3 +32,4 @@ tier = "medium"
 [[test.validations]]
 path = "/status.php"
 status = 200
+contains = "installed"

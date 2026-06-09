@@ -43,3 +43,4 @@ covers = ["php", "nix", "sqlite", "nonprofit"]
 [[test.validations]]
 path = "/admin/install.php"
 status = 200
+contains = "Paheko"

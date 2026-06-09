@@ -20,3 +20,4 @@ tier = "medium"
 [[test.validations]]
 path = "/admin/install.php"
 status = 200
+contains = "Paheko"

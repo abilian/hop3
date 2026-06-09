@@ -26,3 +26,4 @@ covers = ["python", "matrix-synapse", "nix", "postgres"]
 [[test.validations]]
 path = "/_matrix/client/versions"
 status = 200
+contains = "versions"

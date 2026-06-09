@@ -108,3 +108,4 @@ covers = ["nodejs", "etherpad", "nix", "postgres", "nixpkgs-wrapper"]
 [[test.validations]]
 path = "/"
 status = 200
+contains = "Etherpad"

@@ -28,3 +28,4 @@ covers = ["php", "adminer", "nix", "database"]
 [[test.validations]]
 path = "/"
 status = 200
+contains = "Adminer"

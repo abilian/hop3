@@ -30,3 +30,4 @@ covers = ["php", "bookstack", "nix", "wiki", "laravel"]
 [[test.validations]]
 path = "/login"
 status = 200
+contains = "BookStack"

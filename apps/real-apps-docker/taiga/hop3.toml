@@ -19,3 +19,12 @@ ENABLE_TELEMETRY = "False"
 
 [healthcheck]
 path = "/api/v1/"
+
+[test]
+priority = "P2"
+tier = "very-slow"
+
+[[test.validations]]
+path = "/api/v1/"
+status = 200
+contains = "api/v1"

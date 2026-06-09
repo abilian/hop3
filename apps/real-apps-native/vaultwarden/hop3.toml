@@ -39,3 +39,8 @@ covers = ["rust", "sqlite"]
 [[test.validations]]
 path = "/alive"
 status = 200
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "Vaultwarden"

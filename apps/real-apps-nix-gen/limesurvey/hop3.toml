@@ -72,3 +72,4 @@ covers = ["php", "limesurvey", "nix", "surveys"]
 [[test.validations]]
 path = "/"
 status = 200
+contains = "LimeSurvey"

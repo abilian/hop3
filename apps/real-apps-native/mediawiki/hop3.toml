@@ -48,3 +48,4 @@ covers = ["php", "composer", "postgres", "wiki"]
 [[test.validations]]
 path = "/api.php"
 status = 200
+contains = "MediaWiki"

@@ -23,3 +23,4 @@ tier = "very-slow"
 [[test.validations]]
 path = "/login"
 status = 200
+contains = "Stirling"

@@ -22,3 +22,4 @@ tier = "medium"
 [[test.validations]]
 path = "/api.php"
 status = 200
+contains = "MediaWiki"

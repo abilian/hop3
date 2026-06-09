@@ -77,3 +77,4 @@ covers = ["python", "django", "celery", "postgres", "redis", "fediverse"]
 [[test.validations]]
 path = "/api/v1/instance"
 status = 200
+contains = "uri"
