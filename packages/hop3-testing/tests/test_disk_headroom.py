@@ -56,18 +56,28 @@ def test_reclaim_under_pressure_preserves_warm_cache():
     docker = " ".join(target._docker_cmds())
     # Reclaims the ephemeral artifacts...
     assert "docker container prune -f" in docker
+    assert "hop3/*" in docker  # unused per-app images (never cache) removed
     assert "docker image prune -f" in docker
     assert "docker builder prune -f --keep-storage=" in docker
-    # ...but NEVER nukes base images or the whole cache.
-    assert "image prune -a" not in docker
+    # ...but NEVER nukes base images or the whole cache at the gentle tier.
+    assert "image prune -af" not in docker
     assert "image prune --all" not in docker
     assert "system prune" not in docker
-    assert "builder prune -f -a" not in docker
+    assert "builder prune -af" not in docker
 
 
-def test_raises_when_still_out_of_disk_after_reclaim():
-    # 3% free before AND after reclaim -> below the hard floor.
-    target = _FakeTarget(used_pct_seq=[97, 97])
+def test_escalates_to_recover_before_failing():
+    # 3% free, still 3% after the gentle tier -> escalate; then recovers to 30%.
+    target = _FakeTarget(used_pct_seq=[97, 97, 70])
+    target.ensure_disk_headroom()  # must NOT raise — escalation recovered it
+    docker = " ".join(target._docker_cmds())
+    assert "docker image prune -af" in docker  # escalation sacrificed base + cache
+    assert "docker builder prune -af" in docker
+
+
+def test_raises_when_still_out_of_disk_after_full_reclaim():
+    # 3% free before, after gentle, AND after escalation -> genuinely out of disk.
+    target = _FakeTarget(used_pct_seq=[97, 97, 97])
     with pytest.raises(TargetOutOfDiskError):
         target.ensure_disk_headroom()
 

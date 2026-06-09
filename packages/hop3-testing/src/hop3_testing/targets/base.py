@@ -217,15 +217,23 @@ class DeploymentTarget(ABC):
     ) -> None:
         """Reclaim disk on the target when free space runs low.
 
-        Pressure-gated and cache-preserving: only when free space drops
-        below ``min_free_pct`` does it reclaim the *ephemeral* artifacts
-        (stopped containers, dangling images) and cap the build cache at
-        ``cache_ceiling`` — base images and warm cache are left intact, so
-        repeat runs stay fast and network-cheap. If space is still below
-        ``hard_floor_pct`` afterwards, raises ``TargetOutOfDiskError`` so
-        the caller fails fast with one clear message instead of cascading
-        misleading per-app errors. Best-effort otherwise (a missing
-        ``docker``/``df`` is ignored).
+        Pressure-gated, two-tier and cache-preserving:
+
+        * **Gentle** (free < ``min_free_pct``): drop the genuinely-ephemeral
+          artifacts — stopped containers, *unused per-app images*
+          (``hop3/<app>:latest`` are uniquely tagged so ``image prune -f``
+          misses them, yet they are never reused), dangling images — and cap
+          the build cache at ``cache_ceiling``. Base images + warm cache stay,
+          so repeat runs are fast and network-cheap.
+        * **Escalation** (still < ``hard_floor_pct``): sacrifice the warm cache
+          too — all unused images (incl. base) and the whole build cache.
+          Losing cache beats failing the run.
+        * **Fail** (still < ``hard_floor_pct``): raise ``TargetOutOfDiskError``
+          so the caller reports one clear message instead of cascading
+          misleading per-app errors (the disk is then full of non-docker data
+          or simply too small).
+
+        Best-effort otherwise (a missing ``docker``/``df`` is ignored).
         """
         min_free_pct = min_free_pct or self._DISK_MIN_FREE_PCT
         hard_floor_pct = hard_floor_pct or self._DISK_HARD_FLOOR_PCT
@@ -235,28 +243,42 @@ class DeploymentTarget(ABC):
         if free is None or free >= min_free_pct:
             return
 
-        print(
-            f"[disk] {free}% free on target — reclaiming ephemeral docker "
-            "artifacts (keeping base images + warm cache)"
-        )
-        for cmd in (
-            "docker container prune -f",  # stopped containers
-            "docker image prune -f",  # dangling images only (keeps tagged + base)
+        print(f"[disk] {free}% free on target — reclaiming ephemeral artifacts")
+        self._reclaim_disk((
+            "docker container prune -f",  # stopped containers (frees their images)
+            # Unused per-app images: tagged, never reused; in-use ones are skipped.
+            (
+                "docker images 'hop3/*' --format '{{.Repository}}:{{.Tag}}'"
+                " | sort -u | xargs -r docker rmi"
+            ),
+            "docker image prune -f",  # dangling images
             f"docker builder prune -f --keep-storage={cache_ceiling}",  # cap cache
-        ):
-            with contextlib.suppress(Exception):  # best-effort maintenance
-                self.exec_run(f"{cmd} 2>/dev/null || true")
+        ))
 
         after = self._free_disk_pct()
         if after is not None and after < hard_floor_pct:
+            print(f"[disk] still {after}% free — escalating (dropping base + cache)")
+            self._reclaim_disk((
+                "docker image prune -af",  # all unused images, incl. base
+                "docker builder prune -af",  # all build cache
+            ))
+            after = self._free_disk_pct()
+
+        if after is not None and after < hard_floor_pct:
             msg = (
-                f"Target out of disk: {after}% free after reclaim "
-                f"(floor {hard_floor_pct}%). Base images/warm cache were kept; "
-                "the target needs a bigger disk or fewer concurrent apps."
+                f"Target out of disk: {after}% free after full reclaim "
+                f"(floor {hard_floor_pct}%). The disk is consumed by non-docker "
+                "data (app dirs / nix store) or is simply too small."
             )
             raise TargetOutOfDiskError(msg)
         if after is not None:
             print(f"[disk] reclaimed to {after}% free")
+
+    def _reclaim_disk(self, commands: tuple[str, ...]) -> None:
+        """Run each reclaim command best-effort (a missing docker is fine)."""
+        for cmd in commands:
+            with contextlib.suppress(Exception):
+                self.exec_run(f"{cmd} 2>/dev/null || true")
 
     def _free_disk_pct(self) -> int | None:
         """Percent free on the apps filesystem, or None if it can't be read."""
