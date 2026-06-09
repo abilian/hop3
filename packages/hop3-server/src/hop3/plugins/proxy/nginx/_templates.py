@@ -13,6 +13,7 @@ upstream $APP {
 server {
   listen $NGINX_IPV6_ADDRESS:80;
   listen $NGINX_IPV4_ADDRESS:80;
+  server_name $HOST_NAME;
 
   location ^~ /.well-known/acme-challenge {
     allow all;

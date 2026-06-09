@@ -60,7 +60,7 @@ class NginxVirtualHost(BaseProxy):
         # `server_name $HOST_NAME;`, so an un-validated value with a newline
         # or `;` would inject arbitrary nginx directives.
         server_name_list = validate_hostname_list(self.env["HOST_NAME"])
-        self.env["HOST_NAME"] = " ".join(server_name_list)
+        self.env["HOST_NAME"] = " ".join(server_name_list) or "_"
 
         nginx_version = command_output("nginx -V")
         nginx_ssl = "443 ssl"
@@ -108,11 +108,14 @@ class NginxVirtualHost(BaseProxy):
     def setup_certificates(self) -> None:
         domain_name = self.env["HOST_NAME"].split()[0]
 
-        # For catch-all server name, generate self-signed certificate directly
-        # (no point attempting certbot for "_")
-        if domain_name == "_":
+        # Self-signed for the catch-all name and for static-only apps:
+        # neither has a real public domain, so ACME/certbot would only
+        # fail. Static apps now carry their app name as HOST_NAME (for
+        # per-app routing), not "_", so this static check keeps them off ACME.
+        is_static_only = len(self.workers) == 1 and "static" in self.workers
+        if domain_name == "_" or is_static_only:
             log(
-                "Using self-signed certificate for catch-all server name '_'",
+                f"Using self-signed certificate for '{domain_name}'",
                 level=2,
             )
             self._generate_self_signed_certificate(domain_name)
