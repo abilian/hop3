@@ -20,3 +20,4 @@ covers = ["php", "easy-appointments", "nix", "scheduling"]
 [[test.validations]]
 path = "/"
 status = 200
+contains = "Easy!Appointments"

@@ -53,3 +53,4 @@ covers = ["php", "matomo", "nix", "analytics"]
 [[test.validations]]
 path = "/"
 status = 200
+contains = "Matomo"

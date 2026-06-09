@@ -64,3 +64,4 @@ covers = ["golang", "nix", "postgres"]
 [[test.validations]]
 path = "/"
 status = 200
+contains = "Gitea"

@@ -50,3 +50,4 @@ covers = ["python", "radicale", "nix"]
 [[test.validations]]
 path = "/.web/"
 status = 200
+contains = "Radicale"

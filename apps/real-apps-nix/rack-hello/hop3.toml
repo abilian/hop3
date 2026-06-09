@@ -13,3 +13,4 @@ covers = ["ruby", "rack", "nix"]
 [[test.validations]]
 path = "/"
 status = 200
+contains = "Hello World, from Rack via Nix!"

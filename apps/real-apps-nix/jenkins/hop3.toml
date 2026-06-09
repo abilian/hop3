@@ -18,3 +18,4 @@ covers = ["java", "jenkins", "nix"]
 [[test.validations]]
 path = "/login"
 status = 200
+contains = "Jenkins"

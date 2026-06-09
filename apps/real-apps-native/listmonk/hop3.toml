@@ -42,3 +42,4 @@ covers = ["golang", "listmonk"]
 [[test.validations]]
 path = "/"
 status = 200
+contains = "listmonk"

@@ -36,3 +36,4 @@ covers = ["php"]
 [[test.validations]]
 path = "/"
 status = 200
+contains = "Adminer"

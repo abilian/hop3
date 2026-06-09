@@ -14,3 +14,4 @@ covers = ["golang", "nix", "sqlite", "fediverse"]
 [[test.validations]]
 path = "/"
 status = 200
+contains = "WriteFreely"

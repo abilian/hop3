@@ -42,3 +42,4 @@ covers = ["php", "laravel", "mysql"]
 [[test.validations]]
 path = "/login"
 status = 200
+contains = "BookStack"

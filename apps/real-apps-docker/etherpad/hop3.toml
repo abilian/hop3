@@ -27,3 +27,4 @@ tier = "medium"
 [[test.validations]]
 path = "/health"
 status = 200
+contains = "status"

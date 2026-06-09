@@ -39,3 +39,4 @@ covers = ["java", "spring-boot", "nix"]
 [[test.validations]]
 path = "/login"
 status = 200
+contains = "Stirling"

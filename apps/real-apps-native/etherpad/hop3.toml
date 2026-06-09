@@ -52,3 +52,4 @@ covers = ["nodejs"]
 [[test.validations]]
 path = "/"
 status = 200
+contains = "Etherpad"

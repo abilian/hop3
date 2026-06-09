@@ -84,3 +84,4 @@ covers = ["nodejs", "nix", "postgres", "headless-cms", "pnpm"]
 [[test.validations]]
 path = "/admin/login"
 status = 200
+contains = "Directus"

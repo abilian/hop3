@@ -13,3 +13,4 @@ covers = ["ruby", "sinatra", "nix"]
 [[test.validations]]
 path = "/"
 status = 200
+contains = "Hello World, from Sinatra via Nix!"

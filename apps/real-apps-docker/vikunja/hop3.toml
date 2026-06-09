@@ -26,3 +26,8 @@ tier = "medium"
 [[test.validations]]
 path = "/api/v1/info"
 status = 200
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "Vikunja"

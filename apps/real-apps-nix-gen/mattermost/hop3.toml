@@ -87,3 +87,4 @@ covers = ["golang", "nix", "postgres"]
 [[test.validations]]
 path = "/api/v4/system/ping"
 status = 200
+contains = "status"

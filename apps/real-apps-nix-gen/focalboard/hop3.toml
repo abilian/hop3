@@ -74,3 +74,4 @@ covers = ["golang", "nix", "postgres"]
 [[test.validations]]
 path = "/api/v2/health"
 status = 200
+contains = "status"

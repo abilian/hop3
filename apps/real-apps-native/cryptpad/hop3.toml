@@ -39,3 +39,4 @@ covers = ["nodejs", "cryptpad"]
 [[test.validations]]
 path = "/"
 status = 200
+contains = "CryptPad"

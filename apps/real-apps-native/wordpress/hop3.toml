@@ -44,5 +44,6 @@ targets = ["docker", "remote"]
 covers = ["php", "mysql"]
 
 [[test.validations]]
-path = "/"
-status = 302
+path = "/wp-admin/install.php"
+status = 200
+contains = "WordPress"

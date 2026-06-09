@@ -43,3 +43,4 @@ covers = ["nodejs", "postgresql"]
 [[test.validations]]
 path = "/"
 status = 200
+contains = "HedgeDoc"

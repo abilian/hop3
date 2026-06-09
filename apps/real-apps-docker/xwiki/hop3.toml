@@ -26,4 +26,5 @@ tier = "slow"
 
 [[test.validations]]
 path = "/xwiki/bin/view/Main/"
-status = 202
+status_in = [200, 202]
+contains = "XWiki"

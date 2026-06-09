@@ -54,3 +54,4 @@ covers = ["php", "nextcloud", "nix", "file-sharing", "collaboration"]
 [[test.validations]]
 path = "/status.php"
 status = 200
+contains = "installed"
