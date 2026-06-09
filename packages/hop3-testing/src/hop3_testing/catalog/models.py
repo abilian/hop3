@@ -210,6 +210,8 @@ class TutorialConfig:
 class TestMetadata:
     """Optional metadata about the test."""
 
+    __test__ = False  # domain model, not a pytest test class (avoid Test* collection)
+
     author: str | None = None
     """Test author."""
 

@@ -35,6 +35,12 @@ class ModeConfig:
     max_duration_minutes: int | None = None
     """Expected maximum duration in minutes."""
 
+    representative: bool = False
+    """If True, reduce the filtered set to a minimal representative subset that
+    still exercises every variant / toolchain / addon / category at least once
+    (set-cover). Used by the ``coverage`` mode to hit all significant cases at
+    a fraction of nightly's cost."""
+
 
 # Pre-defined mode configurations
 MODES: dict[str, ModeConfig] = {
@@ -53,6 +59,19 @@ MODES: dict[str, ModeConfig] = {
         targets=["docker"],
         description="CI tests (fast+medium + P0 + deployment/demo)",
         max_duration_minutes=15,
+    ),
+    "coverage": ModeConfig(
+        name="coverage",
+        tiers=["fast", "medium", "slow"],
+        priorities=["P0", "P1"],
+        targets=["docker"],
+        description=(
+            "Representative coverage (docker-only): set-cover deployment apps, "
+            "all tutorials, a sampled floor of demos. Every significant case, "
+            "well under nightly."
+        ),
+        max_duration_minutes=45,
+        representative=True,
     ),
     "nightly": ModeConfig(
         name="nightly",

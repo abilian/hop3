@@ -78,7 +78,7 @@ class DashboardController(Controller):
                 "title": "Hop3 Test Lab",
                 "runs": rows,
                 "flash": _FLASH.get(flash_key),
-                "modes": ["dev", "ci", "nightly", "release"],
+                "modes": ["dev", "ci", "coverage", "nightly", "release"],
                 "default_mode": schedule.mode,
                 "default_target": schedule.target,
             },

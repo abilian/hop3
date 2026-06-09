@@ -128,6 +128,7 @@ class TestListModes:
 
         assert "dev" in modes
         assert "ci" in modes
+        assert "coverage" in modes
         assert "nightly" in modes
         assert "release" in modes
-        assert len(modes) == 4
+        assert len(modes) == 5
