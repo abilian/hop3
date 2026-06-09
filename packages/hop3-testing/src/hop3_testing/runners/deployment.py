@@ -16,6 +16,7 @@ from hop3_testing.apps.catalog import AppSource
 from hop3_testing.apps.deployment import DeploymentSession
 from hop3_testing.bundle import collect_diagnostic_bundle
 from hop3_testing.exceptions import DeploymentError, TargetOutOfDiskError
+from hop3_testing.runtime_diagnostics import collect_runtime_logs
 from hop3_testing.util.console import Console, PrintingConsole, Verbosity
 
 from .base import TestResult, ValidationResult
@@ -32,6 +33,16 @@ def _target_kind(target: DeploymentTarget) -> str:
     if "Remote" in name:
         return "ssh"
     return "docker"
+
+
+def _collect_runtime_logs(target: DeploymentTarget, app_name: str | None) -> str:
+    """Best-effort app-side runtime logs (gunicorn/app stderr, migrate
+    output, docker logs) captured before cleanup. Never raises — diagnostics
+    must not crash the run. Module-level so tests can patch the binding."""
+    try:
+        return collect_runtime_logs(target, app_name)
+    except Exception:
+        return ""
 
 
 @dataclass(frozen=True)
@@ -312,6 +323,7 @@ class DeploymentTestRunner:
             "deployment succeeded. Either the rejection path has "
             "regressed, or the test should drop expects-failure."
         )
+        runtime_logs = _collect_runtime_logs(self.target, session.app_name)
         bundle = self._collect_bundle(session, deploy_logs)
         self._safe_cleanup(test, session)
         return TestResult(
@@ -322,6 +334,7 @@ class DeploymentTestRunner:
             total_duration=time.time() - start_time,
             error=err,
             deployed_app_name=session.app_name,
+            runtime_logs=runtime_logs,
             bundle=bundle,
         )
 
@@ -427,6 +440,7 @@ class DeploymentTestRunner:
                 total_duration=time.time() - start_time,
                 error=err,
                 deployed_app_name=session.app_name,
+                runtime_logs=_collect_runtime_logs(self.target, session.app_name),
                 bundle=self._collect_bundle(session, deploy_logs),
             )
 
@@ -435,8 +449,8 @@ class DeploymentTestRunner:
                 test, session, start_time, validation_results
             )
             # Negative test cases: a failed deploy is the expected
-            # outcome (e.g., Poetry-managed pyproject.toml rejected by
-            # the Python toolchain per ADR 039 Phase 1). We record a
+            # outcome (e.g., an input the builder is expected to
+            # reject — see apps/bad/). We record a
             # PASS, skip the HTTP/check-script stages (there's no
             # running app to probe), and short-circuit to cleanup.
             if test.expects_failure:
@@ -468,7 +482,9 @@ class DeploymentTestRunner:
         passed = error is None and all(v.passed for v in validation_results)
 
         bundle = None
+        runtime_logs = ""
         if not passed:
+            runtime_logs = _collect_runtime_logs(self.target, session.app_name)
             bundle = self._collect_bundle(session, deploy_logs)
 
         # Cleanup AFTER collecting diagnostics so the app dir and docker
@@ -484,6 +500,7 @@ class DeploymentTestRunner:
             total_duration=time.time() - start_time,
             error=error,
             deployed_app_name=session.app_name,
+            runtime_logs=runtime_logs,
             bundle=bundle,
         )
 
