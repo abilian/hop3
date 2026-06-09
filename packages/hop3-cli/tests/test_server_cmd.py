@@ -162,7 +162,9 @@ def test_server_add_protected_flag(
         _printer(),
     )
     registry = load_registry(redirect_servers_path)
-    assert registry.get("prod").protected is True
+    rec = registry.get("prod")
+    assert rec is not None
+    assert rec.protected is True
 
 
 def test_server_add_ssh_port_integer(redirect_servers_path: Path) -> None:
@@ -179,7 +181,9 @@ def test_server_add_ssh_port_integer(redirect_servers_path: Path) -> None:
         _printer(),
     )
     registry = load_registry(redirect_servers_path)
-    assert registry.get("dev").ssh_port == 2222
+    rec = registry.get("dev")
+    assert rec is not None
+    assert rec.ssh_port == 2222
 
 
 def test_server_add_ssh_port_non_integer(
@@ -346,7 +350,9 @@ def test_server_use_default_app_sets_field(
         _printer(),
     )
     registry = load_registry(redirect_servers_path)
-    assert registry.get("dev").default_app == "myapp"
+    rec = registry.get("dev")
+    assert rec is not None
+    assert rec.default_app == "myapp"
 
 
 def test_server_use_default_app_without_current_server(
@@ -380,7 +386,9 @@ def test_server_login_rotates_token(redirect_servers_path: Path) -> None:
         _printer(),
     )
     registry = load_registry(redirect_servers_path)
-    assert registry.get("dev").token == "new-tok"
+    rec = registry.get("dev")
+    assert rec is not None
+    assert rec.token == "new-tok"
 
 
 def test_server_login_unknown(capsys: pytest.CaptureFixture[str]) -> None:

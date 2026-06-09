@@ -88,9 +88,15 @@ default_app = "myapp"
     )
     registry = load_registry(target)
     assert registry.names() == ["dev", "prod"]
-    assert registry.get("dev").url == "https://dev.example.com"
-    assert registry.get("dev").protected is True
-    assert registry.get("prod").default_app == "myapp"
+    rec = registry.get("dev")
+    assert rec is not None
+    assert rec.url == "https://dev.example.com"
+    rec = registry.get("dev")
+    assert rec is not None
+    assert rec.protected is True
+    rec = registry.get("prod")
+    assert rec is not None
+    assert rec.default_app == "myapp"
 
 
 def test_load_registry_parse_error_returns_empty(tmp_path: Path) -> None:
@@ -166,9 +172,15 @@ def test_save_then_load_round_trip(tmp_path: Path) -> None:
     save_registry(original)
     reloaded = load_registry(target)
     assert reloaded.names() == ["dev"]
-    assert reloaded.get("dev").url == "https://dev.example.com"
-    assert reloaded.get("dev").protected is True
-    assert reloaded.get("dev").default_app == "myapp"
+    rec = reloaded.get("dev")
+    assert rec is not None
+    assert rec.url == "https://dev.example.com"
+    rec = reloaded.get("dev")
+    assert rec is not None
+    assert rec.protected is True
+    rec = reloaded.get("dev")
+    assert rec is not None
+    assert rec.default_app == "myapp"
 
 
 # ---- upsert / remove (pure functions) ------------------------------------
@@ -196,7 +208,9 @@ def test_upsert_replaces_existing(tmp_path: Path) -> None:
         registry,
         ServerRecord(name="dev", url="https://new.example.com"),
     )
-    assert new.get("dev").url == "https://new.example.com"
+    rec = new.get("dev")
+    assert rec is not None
+    assert rec.url == "https://new.example.com"
 
 
 def test_remove_drops_record(tmp_path: Path) -> None:
@@ -243,11 +257,19 @@ def test_migration_carries_over_records(tmp_path: Path) -> None:
 
     assert sorted(names) == ["dev", "prod"]
     # Field renames (api_url → url, api_token → token) applied.
-    assert registry.get("prod").url == "https://prod.example.com"
-    assert registry.get("prod").token == "tok-1"
-    assert registry.get("prod").protected is True
+    rec = registry.get("prod")
+    assert rec is not None
+    assert rec.url == "https://prod.example.com"
+    rec = registry.get("prod")
+    assert rec is not None
+    assert rec.token == "tok-1"
+    rec = registry.get("prod")
+    assert rec is not None
+    assert rec.protected is True
     # default_app preserved (ADR 042 v0.2 keeps it as app-resolution #8).
-    assert registry.get("dev").default_app == "myapp"
+    rec = registry.get("dev")
+    assert rec is not None
+    assert rec.default_app == "myapp"
     # The default_app preservation triggers a one-line note for stderr.
     assert any("myapp" in n for n in notes)
 
@@ -288,8 +310,12 @@ def test_migration_accepts_new_field_names_too(tmp_path: Path) -> None:
     }
     target = tmp_path / "servers.toml"
     registry, _, _ = migrate_legacy_records(legacy_data, target=target)
-    assert registry.get("dev").url == "https://dev.example.com"
-    assert registry.get("dev").token == "modern-tok"
+    rec = registry.get("dev")
+    assert rec is not None
+    assert rec.url == "https://dev.example.com"
+    rec = registry.get("dev")
+    assert rec is not None
+    assert rec.token == "modern-tok"
 
 
 # ---- ServerRegistry is frozen --------------------------------------------
@@ -300,7 +326,7 @@ def test_registry_dataclass_is_frozen(tmp_path: Path) -> None:
 
     registry = ServerRegistry(path=tmp_path / "servers.toml", records={})
     with pytest.raises(FrozenInstanceError):
-        registry.path = tmp_path / "other.toml"  # type: ignore[misc]
+        setattr(registry, "path", tmp_path / "other.toml")  # noqa: B010  # frozen: assignment must raise
 
 
 # ---- Token redaction in __repr__ (Step-4 review should-fix) -------------

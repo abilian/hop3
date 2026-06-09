@@ -260,7 +260,7 @@ def test_unreadable_dotfile_is_ignored(
 def test_appresolution_dataclass_is_frozen() -> None:
     r = AppResolution(app="foo", source="test")
     with pytest.raises(FrozenInstanceError):
-        r.app = "bar"  # type: ignore[misc]
+        setattr(r, "app", "bar")  # noqa: B010  # frozen: assignment must raise
 
 
 # ---- ADR 036 D14: --why is diagnostic-only (does NOT run the command) ----
@@ -420,7 +420,7 @@ def test_resolve_context_unresolved_when_nothing(
 def test_context_resolution_dataclass_is_frozen() -> None:
     r = ContextResolution(context="foo", source="test")
     with pytest.raises(FrozenInstanceError):
-        r.context = "bar"  # type: ignore[misc]
+        setattr(r, "context", "bar")  # noqa: B010  # frozen: assignment must raise
 
 
 # =============================================================================
@@ -533,7 +533,7 @@ def test_resolve_server_unresolved_when_multiple_without_signal(
 def test_server_resolution_dataclass_is_frozen() -> None:
     r = ServerResolution(server="foo", source="test")
     with pytest.raises(FrozenInstanceError):
-        r.server = "bar"  # type: ignore[misc]
+        setattr(r, "server", "bar")  # noqa: B010  # frozen: assignment must raise
 
 
 # =============================================================================

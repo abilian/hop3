@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pytest
 from hop3_cli.core.deploy_preview import (
@@ -17,10 +17,6 @@ from hop3_cli.core.deploy_preview import (
     domain_target_warnings,
     render_plan,
 )
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
 
 # ---- GitState ------------------------------------------------------------
 
@@ -324,7 +320,7 @@ def test_build_plan_unparseable_hop3_toml_safe(tmp_path: Path) -> None:
 
 def _plan(**overrides) -> DeployPlan:
     defaults = {
-        "source_path": "/tmp/proj",
+        "source_path": Path("/tmp/proj"),
         "git": GitState(is_repo=False),
         "context": None,
         "server": None,
