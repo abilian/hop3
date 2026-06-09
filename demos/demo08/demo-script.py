@@ -1,8 +1,9 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Demo 8: Python Poetry Project.
+"""Demo 8: Python (PEP-621) Project.
 
-Demonstrates deploying a Python application using Poetry for dependency management.
+Demonstrates deploying a Python application packaged with a PEP-621
+pyproject.toml (installed via ``pip install .``).
 """
 
 from __future__ import annotations
@@ -14,11 +15,10 @@ if TYPE_CHECKING:
     from lib import DemoContext
 
 # Demo metadata
-TITLE = "Demo 8: Python Poetry"
+TITLE = "Demo 8: Python (PEP-621)"
 DESCRIPTION = """
-Demonstrates Python deployment with Poetry:
+Demonstrates Python deployment with a PEP-621 pyproject.toml:
   - pyproject.toml for modern Python packaging
-  - poetry.lock for reproducible builds
   - Package-based project structure (src/app/)
 """
 
@@ -52,18 +52,17 @@ def run(ctx: DemoContext) -> None:
     app_url = f"https://{app_hostname}"
 
     # Show app structure
-    print_header("Deploying Python Poetry Project")
+    print_header("Deploying Python (PEP-621) Project")
 
     show_app_structure(
         APP_NAME,
         [
-            ("pyproject.toml", "Poetry configuration"),
-            ("poetry.lock", "Locked dependencies"),
+            ("pyproject.toml", "PEP-621 project metadata"),
             ("src/app/", "Python package"),
             ("Procfile", "Gunicorn command"),
         ],
     )
-    print_info("Poetry projects use pyproject.toml instead of requirements.txt.")
+    print_info("PEP-621 projects declare dependencies in pyproject.toml instead of requirements.txt.")
     print_blank()
     pause(ctx.pause_between_steps)
 
@@ -76,7 +75,7 @@ def run(ctx: DemoContext) -> None:
     pause(ctx.pause_between_steps)
 
     # Deploy the application
-    print_info("Hop3 will run 'poetry install' to set up dependencies.")
+    print_info("Hop3 will run 'pip install .' to set up dependencies.")
     deploy_app(ctx, APP_NAME, APP_DIR)
 
     # Set hostname

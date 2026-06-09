@@ -156,7 +156,7 @@ def _detect_app_type(app_dir: Path) -> str:
     if (app_dir / "requirements.txt").exists():
         return "python"
     if (app_dir / "pyproject.toml").exists():
-        return "python-poetry"
+        return "python"
     if (app_dir / "package.json").exists():
         return "nodejs"
     if (app_dir / "go.mod").exists() or any(
