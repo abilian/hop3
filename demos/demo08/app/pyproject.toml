@@ -1,5 +1,4 @@
-# PEP-621 metadata so Hop3's Python toolchain installs this with `pip install .`
-# (it rejects Poetry-only pyproject.toml — `[tool.poetry]` with no `[project]`).
+# PEP-621 metadata so Hop3's Python toolchain installs this with `pip install .`.
 [project]
 name = "flask-app"
 version = "0.1.0"

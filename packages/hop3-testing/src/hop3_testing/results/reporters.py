@@ -495,7 +495,7 @@ class ConsoleReporter:
 
         # Per-app status listing. `test.name` can be either the
         # `metadata.id` (short — e.g., "directus") or the relative
-        # path (e.g., "apps/bad/test-apps-bad/110-flask-gunicorn-poetry")
+        # path (e.g., "apps/bad/test-apps-bad/focalboard")
         # depending on how it reached the catalog. Short names collide
         # across apps/bad/ variants (multiple "focalboard"s), so we
         # always show the app_path alongside to disambiguate.

@@ -494,7 +494,7 @@ class AppLauncher:
         """Add src/ to PYTHONPATH for Python apps with src layout.
 
         This is a common pattern where packages live in src/package_name/
-        (e.g., Poetry projects with packages = [{ include = "app", from = "src" }])
+        (e.g., src-layout projects that ship their package under ``src/``)
         """
         src_dir = self.app.src_path / "src"
         if src_dir.is_dir():

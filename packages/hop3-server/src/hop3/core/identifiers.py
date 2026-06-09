@@ -31,7 +31,7 @@ __all__ = [
 # hyphens and underscores in between, total length 3-63. Matches the existing
 # dashboard rule (letters, digits, '-', '_') but tightens it so the name is
 # always safe as a filesystem path segment and as a Docker Compose service
-# identifier. Examples accepted: ``myapp``, ``110-flask-gunicorn-poetry``,
+# identifier. Examples accepted: ``myapp``, ``110-flask-gunicorn``,
 # ``user_service_v2``. Rejected: ``..``, ``_leading``, ``-x``, ``app.evil``.
 APP_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{1,61}[A-Za-z0-9]$")
 

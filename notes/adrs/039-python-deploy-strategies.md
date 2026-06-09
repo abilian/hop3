@@ -8,6 +8,7 @@
 
 ## Revisions
 
+- v1.3: Poetry handling removed — Poetry is out of fashion; a poetry-only `pyproject.toml` is no longer special-cased or rejected (it falls through to `pip install .` via PEP-517) and the negative-test app was dropped (2026-06-09).
 - v1.2: Proposed-CLI examples migrated to ADR 036 space form (2026-04-22).
 - v1.1: Phase 1 implemented (2026-04-15).
 - v1.0: Original design (2026-04-15)

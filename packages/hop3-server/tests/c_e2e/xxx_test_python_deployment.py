@@ -126,12 +126,6 @@ def health():
         result = hop3_command("app", "destroy", app_name)
         assert result.returncode == 0, f"Failed to destroy app: {result.stderr}"
 
-    def test_deploy_flask_with_poetry(
-        self, hop3_container: dict[str, Any], hop3_command, test_app_dir: Path
-    ):
-        """Test deploying a Flask app with Poetry."""
-        pytest.skip("Poetry support not yet fully implemented")
-
     def test_deploy_flask_with_requirements_txt(
         self, hop3_container: dict[str, Any], hop3_command, test_app_dir: Path
     ):
@@ -203,10 +197,6 @@ class TestPythonPackageManagement:
     def test_pip_with_requirements_txt(self, hop3_container, hop3_command):
         """Test pip with requirements.txt."""
         pytest.skip("Already tested in main deployment tests")
-
-    def test_poetry_with_pyproject_toml(self, hop3_container, hop3_command):
-        """Test Poetry with pyproject.toml."""
-        pytest.skip("Poetry support not yet implemented")
 
     def test_pipenv_with_pipfile(self, hop3_container, hop3_command):
         """Test Pipenv with Pipfile."""

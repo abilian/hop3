@@ -264,8 +264,8 @@ class TestDefinition:
     # Negative test cases: the deploy should FAIL in a specific way.
     # Runner treats a failed deploy as PASS (and an unexpected
     # successful deploy as FAIL). Used for apps that intentionally
-    # exercise a rejection path (e.g., Poetry-managed pyproject.toml
-    # rejected by the Python toolchain per ADR 039 Phase 1).
+    # exercise a rejection path (e.g., an input the builder must
+    # reject — see apps/bad/).
     expects_failure: bool = False
     """Whether this test expects the deployment to fail."""
 
