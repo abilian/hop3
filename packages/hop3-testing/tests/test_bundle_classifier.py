@@ -10,6 +10,8 @@ parsers — the logic that decides signal vs noise.
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 from hop3_testing.bundle import (
     ProxyProbe,
     build_headline,
@@ -239,7 +241,7 @@ def test_collect_bundle_silent_502_end_to_end(tmp_path) -> None:
     })
 
     bundle = collect_diagnostic_bundle(
-        target,  # type: ignore[arg-type]
+        cast("Any", target),
         "flask-hello",
         target_kind="docker",
         base_dir=tmp_path,
@@ -271,7 +273,7 @@ def test_collect_bundle_ok_is_not_persisted(tmp_path) -> None:
         "id -un": "root",
     })
     bundle = collect_diagnostic_bundle(
-        target,  # type: ignore[arg-type]
+        cast("Any", target),
         "flask-hello",
         target_kind="docker",
         base_dir=tmp_path,

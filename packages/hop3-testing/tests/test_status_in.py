@@ -77,5 +77,7 @@ class TestLoaderParsesStatusIn:
         they survive. Testing defensive int() coercion."""
         data = {"type": "http", "status_in": [200, 202]}
         v = _parse_validation(data)
-        assert v.expect.status_in == [200, 202]
-        assert all(isinstance(s, int) for s in v.expect.status_in)
+        status_in = v.expect.status_in
+        assert status_in is not None
+        assert status_in == [200, 202]
+        assert all(isinstance(s, int) for s in status_in)

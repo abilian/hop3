@@ -11,7 +11,7 @@ the real validoc (its result is stubbed).
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from hop3_testing.catalog.models import (
     Priority,
@@ -42,7 +42,7 @@ def _tutorial(tmp_path: Path) -> TestDefinition:
 
 def _runner() -> TutorialTestRunner:
     target = SimpleNamespace(info=TargetInfo(ssh_host="", ssh_port=22))
-    return TutorialTestRunner(target)  # type: ignore[arg-type]
+    return TutorialTestRunner(cast("Any", target))
 
 
 def test_failed_validoc_is_reported_as_failed(tmp_path, monkeypatch):

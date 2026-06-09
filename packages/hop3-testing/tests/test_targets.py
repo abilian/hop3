@@ -185,6 +185,10 @@ class TestTargetInfo:
         assert info.ssh_key == "/path/to/key"
         assert info.http_base == "http://server.example.com"
         assert info.api_url == "http://server.example.com:8000"
-        assert info.metadata["container_id"] == "abc123"
-        assert info.capabilities.os == "ubuntu-24.04"
-        assert info.capabilities.has_systemd is True
+        metadata = info.metadata
+        assert metadata is not None
+        assert metadata["container_id"] == "abc123"
+        capabilities = info.capabilities
+        assert capabilities is not None
+        assert capabilities.os == "ubuntu-24.04"
+        assert capabilities.has_systemd is True

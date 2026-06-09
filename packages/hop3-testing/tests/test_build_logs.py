@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import time
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from hop3_testing.results import ResultStore
 from hop3_testing.results.compression import compress, decompress
@@ -107,7 +107,7 @@ def test_save_captures_per_build_logs_for_passing_build(tmp_path: Path):
         bundle=None,
     )
 
-    rid = store.save(result)
+    rid = store.save(cast("Any", result))
 
     assert isinstance(rid, int)
     logs = {e["phase"]: e["text"] for e in store.get_build_logs(rid)}

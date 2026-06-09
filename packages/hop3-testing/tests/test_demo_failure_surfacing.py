@@ -12,7 +12,7 @@ contract without needing Docker (the subprocess is stubbed).
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from hop3_testing.catalog.models import (
     DemoConfig,
@@ -48,7 +48,7 @@ def _demo_tree(tmp_path: Path) -> TestDefinition:
 
 def _runner() -> DemoTestRunner:
     target = SimpleNamespace(info=TargetInfo(ssh_host="", ssh_port=22))
-    return DemoTestRunner(target)  # type: ignore[arg-type]
+    return DemoTestRunner(cast("Any", target))
 
 
 def test_failed_demo_is_reported_as_failed(tmp_path, monkeypatch):

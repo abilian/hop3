@@ -49,9 +49,11 @@ def test_start_run_merges_metadata_param_and_env(tmp_path: Path, monkeypatch):
         target_name="hop3-dev",
         metadata={"region": "eu"},
     )
-    assert run.run_metadata["os_name"] == "ubuntu"  # from $HOP3_TEST_META
-    assert run.run_metadata["server_type"] == "cx43"  # from env
-    assert run.run_metadata["region"] == "eu"  # from the param
+    meta = run.run_metadata
+    assert meta is not None
+    assert meta["os_name"] == "ubuntu"  # from $HOP3_TEST_META
+    assert meta["server_type"] == "cx43"  # from env
+    assert meta["region"] == "eu"  # from the param
 
 
 def test_start_run_autodetects_hop3_version(tmp_path: Path, monkeypatch):

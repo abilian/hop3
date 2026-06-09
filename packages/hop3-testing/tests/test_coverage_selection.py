@@ -11,6 +11,7 @@ profile that's a fraction of nightly's cost.
 from __future__ import annotations
 
 from collections import Counter
+from typing import Any, cast
 
 from hop3_testing.catalog.models import (
     DemoConfig,
@@ -187,7 +188,7 @@ class _StubCatalog:
 
 def test_selector_applies_reduction_only_for_coverage_mode():
     catalog = _StubCatalog(_matrix())
-    selector = Selector(catalog=catalog)
+    selector = Selector(catalog=cast("Any", catalog))
 
     full = selector.select(get_mode_config("nightly"))
     covered = selector.select(get_mode_config("coverage"))
