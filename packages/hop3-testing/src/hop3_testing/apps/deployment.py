@@ -638,17 +638,19 @@ class DeploymentSession:
         )
 
     def cleanup(self) -> None:
-        """Cleanup the deployed app and temp files.
+        """Destroy the app (always) and remove temp files.
 
-        Note: This method catches exceptions internally to ensure
-        temp directory cleanup always happens.
+        The destroy is attempted even after a FAILED deploy: a partial deploy
+        can still have created the app and provisioned some addons (e.g.
+        postgres before redis failed). Skipping cleanup for failures leaks an
+        app dir + addon slots on every run — the slow cause of disk and
+        Redis-db exhaustion. Errors are surfaced as warnings, never raised, so
+        temp-dir cleanup always runs.
         """
-        # Destroy app on target
-        if self.deployed:
-            try:
-                self._destroy_app()
-            except CleanupError as e:
-                self.console.warning(f"Cleanup warning: {e}")
+        try:
+            self._destroy_app()
+        except CleanupError as e:
+            self.console.warning(f"Cleanup warning: {e}")
 
         # Remove temp directory
         self._preparation.cleanup()
