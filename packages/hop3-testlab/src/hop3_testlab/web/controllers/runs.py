@@ -22,6 +22,7 @@ from litestar.response import Redirect, Template
 from litestar.status_codes import HTTP_303_SEE_OTHER
 
 from hop3_testlab.cloud_config import load_schedule
+from hop3_testlab.discriminators import short_app, variant_of
 from hop3_testlab.repositories import (
     RunsRepository,  # noqa: TC001 -- runtime: @inject resolves it
 )
@@ -87,8 +88,11 @@ class RunsController(Controller):
             {
                 "id": r.id,
                 "test_name": r.test_name,
+                "app": short_app(r.test_name),
+                "variant": variant_of(r.test_name),
                 "category": r.category,
-                "passed": r.passed,
+                "priority": r.priority,
+                "passed": bool(r.passed),
                 "status": r.status or ("pass" if r.passed else "fail"),
                 "classification": r.classification,
                 "headline": r.headline,
