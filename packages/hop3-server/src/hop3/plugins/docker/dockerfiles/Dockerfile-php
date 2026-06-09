@@ -19,18 +19,20 @@ WORKDIR /app
 # Create a non-root user
 RUN addgroup -S app && adduser -S app -G app
 
-# Copy installed dependencies from the composer stage
-COPY --from=composer_builder /app/vendor/ ./vendor/
+# Copy installed dependencies from the composer stage, owned by the app user.
+# vendor/ lives inside /app, so it must carry --chown too (the old recursive
+# `chown -R .` covered it; without --chown it would stay root-owned).
+COPY --chown=app:app --from=composer_builder /app/vendor/ ./vendor/
 
-# Copy the application source code
-COPY . .
+# Copy the application source code, already owned by the app user.
+# COPY --chown avoids a following `chown -R`, which would rewrite vendor +
+# source into a SECOND layer (stored twice — pure image bloat).
+COPY --chown=app:app . .
 
-# Set correct permissions for storage and bootstrap/cache directories (common for Laravel/Symfony)
-# Adjust these paths for your specific framework
-RUN chown -R app:app .
-# RUN mkdir -p storage/framework/views storage/framework/sessions storage/framework/cache
-# RUN chown -R app:app storage bootstrap/cache
-# RUN chmod -R 775 storage bootstrap/cache
+# Own the WORKDIR itself (COPY --chown only owns the copied entries) so the
+# app user can write here at runtime (e.g. Laravel/Symfony storage,
+# bootstrap/cache). Create + chmod framework dirs in your app if needed.
+RUN chown app:app .
 
 # Switch to the non-root user
 USER app
