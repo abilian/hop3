@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from hop3.core.credentials import get_credential_encryptor
 from hop3.core.identifiers import validate_app_name
+from hop3.core.plugins import get_addon
 from hop3.deployers import do_deploy
 from hop3.lib import log
 from hop3.lib.archives import extract_archive_to_dir
@@ -763,6 +764,11 @@ class DestroyCmd(Command):
             # Stop the app first to release any file locks
             app.stop()
 
+            # Tear down attached addons (DBs, redis slots) while their
+            # credentials are still in the DB. Without this, addon resources
+            # leak forever and eventually exhaust (e.g. Redis has 15 dbs).
+            self._destroy_addons(app)
+
             # Clean up filesystem (repo, src, logs, configs etc.)
             app.destroy()
 
@@ -778,6 +784,47 @@ class DestroyCmd(Command):
         )
         response.append(summary(f"destroyed {app_name}."))
         return response
+
+    def _destroy_addons(self, app) -> None:
+        """Destroy addons attached to this app, freeing their resources.
+
+        Symmetric with provisioning: dropping each addon's backing store
+        (postgres/mysql database and role, redis logical db) reclaims
+        finite resources. Best-effort — a failed teardown must not block
+        the app destroy. An addon still attached to another app is kept.
+        """
+        repo = AddonCredentialRepository(session=self.db_session)
+        for credential in list(app.addon_credentials):
+            addon_type = credential.addon_type
+            addon_name = credential.addon_name
+
+            shared_with_others = any(
+                c.app_id != app.id for c in repo.list_by_addon(addon_type, addon_name)
+            )
+            if shared_with_others:
+                log(
+                    f"  Keeping addon {addon_name} ({addon_type}): "
+                    "still attached to another app",
+                    level=2,
+                )
+                continue
+
+            try:
+                get_addon(addon_type, addon_name).destroy()
+                log(f"  Destroyed addon {addon_name} ({addon_type})", level=2)
+            except Exception as e:
+                log(
+                    f"  Warning: could not destroy addon {addon_name} "
+                    f"({addon_type}): {e}",
+                    level=1,
+                    fg="yellow",
+                )
+                server_log.warning(
+                    "Addon teardown failed during app destroy",
+                    addon_name=addon_name,
+                    addon_type=addon_type,
+                    error=str(e),
+                )
 
     # TODO: this should use a signal/event bus system instead
     def _reload_nginx(self) -> None:
