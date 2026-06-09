@@ -630,7 +630,20 @@ class App(BigIntAuditBase):
         if compose_file.exists():
             cmd.extend(["-f", str(compose_file)])
 
-        cmd.extend(["-p", self.name, "down", "--volumes", "--remove-orphans"])
+        # `--rmi all` removes the per-app image (hop3/<app>:latest) too.
+        # Without it, every deploy leaks a 0.5-1.5 GB image (the app name is
+        # timestamped, so the tag is unique each run and never overwritten),
+        # filling the disk fast. Base images are FROM layers, not compose
+        # `image:` services, so they are NOT removed by this.
+        cmd.extend([
+            "-p",
+            self.name,
+            "down",
+            "--rmi",
+            "all",
+            "--volumes",
+            "--remove-orphans",
+        ])
 
         # Build environment with image tag for compose file substitution
         # This fixes the "HOP3_IMAGE_TAG not set" issue during destroy
@@ -669,6 +682,23 @@ class App(BigIntAuditBase):
         # Always try to force cleanup the network as a safety measure
         # docker compose down should remove it, but sometimes networks are left behind
         self._force_cleanup_docker_network()
+
+        # Safety net: remove the per-app image directly, in case `down --rmi`
+        # missed it (e.g. the compose file was already gone). Base images are
+        # never tagged `hop3/...`, so this only drops the app's own image.
+        self._force_cleanup_docker_image()
+
+    def _force_cleanup_docker_image(self) -> None:
+        """Force-remove the app's own image; safe no-op if already gone."""
+        image_tag = self.image_tag or f"hop3/{self.name.lower()}:latest"
+        with suppress(Exception):  # best-effort cleanup
+            subprocess.run(
+                ["docker", "rmi", "-f", image_tag],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=30,
+            )
 
     def _force_cleanup_docker_network(self) -> None:
         """Force cleanup of Docker network when compose file is missing."""
