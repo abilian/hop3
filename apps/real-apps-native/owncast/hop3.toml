@@ -23,6 +23,11 @@ start-timeout = 120
 [healthcheck]
 path = "/api/status"
 
+[[ports]]
+number = 1935
+protocol = "tcp"
+name = "rtmp"
+
 [test]
 priority = "P1"
 tier = "medium"

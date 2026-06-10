@@ -195,6 +195,41 @@ api = 8080
 metrics = 9090
 ```
 
+### `[[ports]]` - Fixed Host Ports (non-HTTP)
+
+For HTTP/HTTPS apps you don't declare ports at all — Hop3 assigns a dynamic `$PORT` and the reverse proxy routes by hostname, so any number of apps share `:80`/`:443`. But non-HTTP services (SMTP, XMPP, RTMP, Matrix federation, …) have no proxy and no virtual hosting: the app binds a fixed host port directly, so **exactly one app can own a given port** on the server.
+
+Declare those ports with `[[ports]]`. Hop3 records each in a host-wide registry, **refuses a second app that declares the same port — before it builds — with a clear error**, opens the firewall for it on a successful deploy, and closes it on teardown.
+
+```toml
+[[ports]]
+number = 1935
+protocol = "tcp"
+name = "rtmp"        # optional label, for diagnostics
+
+[[ports]]
+number = 8448
+protocol = "tcp"
+name = "federation"
+```
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `number` | integer | yes | Port number, 1–65535 |
+| `protocol` | string | no | `tcp` (default) or `udp` |
+| `name` | string | no | Human-readable label, for diagnostics only |
+
+**Notes:**
+
+- Don't list your HTTP port here — that one is dynamic (`$PORT`) and proxied. `[[ports]]` is only for ports the app binds directly to the host.
+- Two apps declaring the same `(number, protocol)` cannot coexist (there is no proxy to multiplex them). The second deploy is rejected up front with a message naming the app that already holds the port.
+- Ports `22`, `80`, and `443` are reserved by Hop3 (SSH and the reverse proxy) and rejected — HTTP apps use `$PORT` and are proxied.
+- A declared port is opened to the **whole internet** (`source = any`). Restricting it to a CIDR is a planned enhancement; for now declare a port only if it is meant to be publicly reachable.
+- **Native/Nix builds only.** A Docker-deployed app's container does not yet publish declared ports to the host, so for Docker apps the port is *claimed* (conflict-checked) but the firewall is not opened. Use a native or Nix build for an app that needs a fixed host port.
+- Opening the firewall needs the `hop3-rootd` daemon. If it isn't running the port is still *claimed* (so the conflict check works), but it won't be reachable externally until rootd applies the rule.
+
 ### `[healthcheck]` - Health Check Configuration
 
 Configure health check endpoints for monitoring.

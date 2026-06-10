@@ -23,6 +23,7 @@ from hop3.core.credentials import get_credential_encryptor
 from hop3.core.identifiers import validate_app_name
 from hop3.core.plugins import get_addon
 from hop3.deployers import do_deploy
+from hop3.deployers.fixed_ports import release_fixed_ports
 from hop3.lib import log
 from hop3.lib.archives import extract_archive_to_dir
 from hop3.lib.args import parse_cli_args
@@ -768,6 +769,10 @@ class DestroyCmd(Command):
             # credentials are still in the DB. Without this, addon resources
             # leak forever and eventually exhaust (e.g. Redis has 15 dbs).
             self._destroy_addons(app)
+
+            # Close the firewall for any fixed ports this app claimed. The
+            # claim rows themselves are removed by the cascade on delete below.
+            release_fixed_ports(app, self.db_session)
 
             # Clean up filesystem (repo, src, logs, configs etc.)
             app.destroy()

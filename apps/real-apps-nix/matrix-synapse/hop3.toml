@@ -16,6 +16,11 @@ SERVER_NAME = "localhost"
 # tables and runs its migration chain). 180s was tight; 360s has room.
 start-timeout = 360
 
+[[ports]]
+number = 8448
+protocol = "tcp"
+name = "federation"
+
 [test]
 priority = "P2"
 tier = "slow"

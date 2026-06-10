@@ -35,6 +35,7 @@ from .addon_credential import AddonCredential
 from .app import App, AppStateEnum
 from .backup import Backup
 from .env import EnvVar
+from .port_claim import PortClaim
 from .revoked_token import RevokedToken
 from .security import Role, User
 
@@ -416,3 +417,17 @@ class RevokedTokenRepository(BaseRepository[RevokedToken]):
             True if the token is revoked, False otherwise
         """
         return self.exists(jti=jti)
+
+
+class PortClaimRepository(BaseRepository[PortClaim]):
+    """Repository for the host-wide fixed-port claim registry."""
+
+    model_type = PortClaim
+
+    def find_active(self, number: int, protocol: str = "tcp") -> PortClaim | None:
+        """Return the claim holding ``(number, protocol)``, or None if free."""
+        return self.get_one_or_none(number=number, protocol=protocol)
+
+    def get_by_app_id(self, app_id: int) -> list[PortClaim]:
+        """Return all port claims held by an app."""
+        return list(self.get_many(app_id=app_id))

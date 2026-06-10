@@ -31,7 +31,7 @@ from hop3.server.cli.db import DbUpgradeCmd
 if TYPE_CHECKING:
     from pathlib import Path
 
-HEAD_REVISION = "961bfd2ecce5"
+HEAD_REVISION = "a3f1c9e2b4d6"
 BASE_REVISION = "d20dd80dafca"
 
 

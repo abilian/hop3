@@ -491,6 +491,57 @@ class AddonConfig(BaseModel):
     )
 
 
+# Host ports owned by the platform — apps may never claim them. 80/443 are the
+# reverse proxy; 22 is SSH. (HTTP apps use $PORT and are proxied, not [[ports]].)
+RESERVED_PORTS = frozenset({22, 80, 443})
+
+
+class PortDeclaration(BaseModel):
+    """A single [[ports]] entry — one fixed network port the app binds directly.
+
+    For non-HTTP services (SMTP, XMPP, RTMP, Matrix federation, …) there is no
+    reverse proxy or virtual hosting: the app binds the host port itself, so
+    exactly one app can own a given (number, protocol) on the host. Declaring
+    it lets Hop3 register the claim, refuse a conflicting second app up front,
+    and open/close the firewall for it. The HTTP port stays dynamic (``$PORT``,
+    proxied by nginx) and must NOT be declared here.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    number: int = Field(description="Port number (1-65535, excluding 22/80/443).")
+    protocol: str = Field(
+        default="tcp", description="Transport protocol: 'tcp' or 'udp'."
+    )
+    name: str | None = Field(
+        default=None,
+        description="Optional label for diagnostics (e.g. 'rtmp', 'federation').",
+    )
+
+    @field_validator("number")
+    @classmethod
+    def _check_number(cls, v: int) -> int:
+        if not 1 <= v <= 65535:
+            msg = f"Port number must be between 1 and 65535, got {v}"
+            raise ValueError(msg)
+        if v in RESERVED_PORTS:
+            msg = (
+                f"port {v} is reserved by Hop3 (80/443 belong to the reverse "
+                f"proxy, 22 to SSH). HTTP apps are served on a dynamic $PORT "
+                f"behind the proxy — don't declare 80/443/22 in [[ports]]."
+            )
+            raise ValueError(msg)
+        return v
+
+    @field_validator("protocol")
+    @classmethod
+    def _check_protocol(cls, v: str) -> str:
+        if v not in {"tcp", "udp"}:
+            msg = f"Protocol must be 'tcp' or 'udp', got {v!r}"
+            raise ValueError(msg)
+        return v
+
+
 class TestValidation(BaseModel):
     """A single [[test.validations]] entry — one HTTP check the test harness
     performs after the app is up.
@@ -663,6 +714,16 @@ class Hop3TomlSchema(BaseModel):
         ),
     )
     addons: list[AddonConfig] | None = None
+    ports: list[PortDeclaration] | None = Field(
+        default=None,
+        description=(
+            "Fixed host ports the app binds directly (non-HTTP services: SMTP, "
+            "XMPP, RTMP, Matrix federation, …). Each is claimed exclusively on "
+            "the host; a second app declaring the same port is refused before "
+            "deploy. The HTTP port stays dynamic ($PORT, proxied) — don't list "
+            "it here."
+        ),
+    )
     provider: list[AddonConfig] | None = Field(
         default=None,
         description="Deprecated: use [[addons]] instead",
@@ -692,6 +753,18 @@ class Hop3TomlSchema(BaseModel):
             )
             raise ValueError(msg)
         return self
+
+    @field_validator("ports")
+    @classmethod
+    def _validate_unique_ports(
+        cls, v: list[PortDeclaration] | None
+    ) -> list[PortDeclaration] | None:
+        if v:
+            seen = [(p.number, p.protocol) for p in v]
+            if len(seen) != len(set(seen)):
+                msg = "Duplicate (number, protocol) entry in [[ports]]"
+                raise ValueError(msg)
+        return v
 
     @field_validator("contexts")
     @classmethod

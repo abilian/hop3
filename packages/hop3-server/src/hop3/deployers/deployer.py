@@ -12,6 +12,7 @@ from hop3.core.plugins import get_builder, get_deployer
 from hop3.core.protocols import DeploymentContext
 from hop3.deployers.addon_provisioning import provision_addons
 from hop3.deployers.env_provisioning import set_computed_env_vars, set_default_env_vars
+from hop3.deployers.fixed_ports import claim_fixed_ports, open_fixed_ports
 from hop3.lib import Diagnosis, abort_with_diagnosis, log, log_diagnosis, shell
 from hop3.lib.logging import server_log
 from hop3.orm.app import AppStateEnum
@@ -100,6 +101,12 @@ def do_deploy(
     if app_config.has_hop3_toml:
         _process_config_dependencies(app, app_config, db_session)
 
+    # --- 1.6. Claim declared fixed ports (refuse conflicts BEFORE build) ---
+    # Non-HTTP services (SMTP, XMPP, RTMP, …) bind a host port directly; only
+    # one app can own it. Claiming here fails fast with a clear error if another
+    # app already holds it, and rolls back with the deploy session on failure.
+    claim_fixed_ports(app, app_config, db_session)
+
     # --- 2. Run Prebuild Hook ---
     # This runs BEFORE builder selection because prebuild may fetch source code
     # or generate files that the builder needs to detect the app type.
@@ -181,6 +188,11 @@ def do_deploy(
     # --- 6. Update App Model ---
     # Store runtime info so start/stop/status commands know how to handle this app
     _update_app_model(app, deployer.name, deployment_info, app_config)
+
+    # --- 6.5. Open the firewall for declared fixed ports (best-effort) ---
+    # Now that the app is confirmed running, allow external ingress to the
+    # ports it claimed. Skipped silently when no [[ports]] are declared.
+    open_fixed_ports(app, db_session)
 
     # Flush decision log summary
     flush_decision_logger()
