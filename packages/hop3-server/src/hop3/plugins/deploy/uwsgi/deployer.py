@@ -1,10 +1,14 @@
 # Copyright (c) 2025, Abilian SAS
 from __future__ import annotations
 
+import os
+import signal
 import socket
 import subprocess
 import time
+from contextlib import suppress
 from dataclasses import dataclass
+from pathlib import Path
 
 from hop3.config import UWSGI_ENABLED, HopConfig
 from hop3.core.protocols import (
@@ -16,6 +20,31 @@ from hop3.lib import log
 from hop3.orm import App, AppStateEnum
 from hop3.project.procfile import parse_procfile
 from hop3.run.spawn import spawn_app
+
+# Grace period after the Emperor stops a vassal before we force-kill leftovers.
+_GRACEFUL_STOP_SECONDS = 10.0
+
+
+def _proc_belongs_to_app(cmdline: str, cwd: str, app_name: str) -> bool:
+    """Whether a process (by its cmdline + cwd) belongs to ``app_name``.
+
+    Robust to the two cases plain ``pgrep -f apps/<name>`` gets wrong:
+
+    - A daemon that ``exec``s into a path outside the app dir (a Nix-store
+      binary becomes argv ``/nix/store/.../bin/owncast``) — its cmdline no
+      longer mentions the app, but its working directory still does.
+    - Name-prefix collisions: ``owncast-12`` must not match ``owncast-123``;
+      the trailing ``/`` and ``:`` markers enforce a boundary.
+
+    Matches the uWSGI vassal/workers by their procname prefix ``<name>:`` and
+    the app's own processes by ``apps/<name>/`` in the cmdline or cwd. Never
+    matches the shared Emperor (its cwd/cmdline is not under any app dir).
+    """
+    return (
+        f"{app_name}:" in cmdline
+        or f"apps/{app_name}/" in cmdline
+        or f"apps/{app_name}/" in cwd
+    )
 
 
 @dataclass(frozen=True)
@@ -133,35 +162,73 @@ class UWSGIDeployer:
         self.app._transition_state(AppStateEnum.STOPPED)  # noqa: SLF001
         log(f"App '{self.app.name}' stopped.", level=2, fg="green")
 
-    def _wait_for_processes_to_stop(self, timeout: float = 10.0) -> None:
-        """Wait for old app processes to terminate after config removal."""
-        start = time.time()
-        while time.time() - start < timeout:
+    def _app_pids(self) -> list[int]:
+        """PIDs of every live process belonging to this app.
+
+        Scans ``/proc`` and matches each process's cmdline and working
+        directory (see :func:`_proc_belongs_to_app`). Catches Nix-store
+        ``exec``'d daemons that ``pgrep -f apps/<name>`` misses — the
+        leftover that holds a fixed port (e.g. owncast's RTMP 1935) and makes
+        the next deploy fail. Returns ``[]`` where there is no procfs (a
+        non-Linux dev machine), where there is nothing to reap anyway.
+        """
+        proc = Path("/proc")
+        if not proc.is_dir():
+            return []
+        pids: list[int] = []
+        for entry in proc.iterdir():
+            if not entry.name.isdigit():
+                continue
             try:
-                result = subprocess.run(
-                    ["pgrep", "-f", f"apps/{self.app.name}"],
-                    capture_output=True,
-                    text=True,
-                    timeout=5,
-                    check=False,
-                )
-                if result.returncode != 0:
-                    # No matching processes found — old vassal is gone
-                    time.sleep(0.5)  # Brief grace period for fd cleanup
-                    return
-            except (subprocess.TimeoutExpired, FileNotFoundError):
-                break
+                cmdline = (entry / "cmdline").read_bytes().replace(b"\x00", b" ")
+            except OSError:
+                continue  # process exited between listing and read
+            cwd = ""
+            # cwd unreadable (perms/gone) — the cmdline match still applies
+            with suppress(OSError):
+                cwd = os.readlink(entry / "cwd")
+            if _proc_belongs_to_app(
+                cmdline.decode("utf-8", "replace"), cwd, self.app.name
+            ):
+                pids.append(int(entry.name))
+        return pids
+
+    def _wait_for_processes_to_stop(
+        self, timeout: float = _GRACEFUL_STOP_SECONDS
+    ) -> None:
+        """Block until none of the app's processes remain, force-killing any
+        straggler so it cannot keep holding a port.
+
+        Removing the ``.ini`` makes the Emperor stop the vassal, which should
+        terminate the app's processes. We then *confirm* they are gone rather
+        than guess — a leftover daemon binding a fixed port would otherwise
+        make the next deploy of that app fail with an opaque health-check
+        timeout (an order-dependent heisenbug). If any survive the graceful
+        period (the Emperor didn't reap them, or the daemon ignored SIGTERM),
+        we SIGTERM then SIGKILL them. Detection is precise to this app, and by
+        this point the vassal is gone, so nothing respawns the daemon.
+        """
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if not self._app_pids():
+                time.sleep(0.5)  # brief grace for fd / port release
+                return
             time.sleep(0.5)
 
-        # Fallback: if we couldn't confirm termination, wait a fixed period
-        remaining = timeout - (time.time() - start)
-        if remaining > 0:
-            log(
-                f"Waiting {remaining:.0f}s for old processes to terminate",
-                level=3,
-                fg="yellow",
-            )
-            time.sleep(remaining)
+        stragglers = self._app_pids()
+        if not stragglers:
+            return
+        log(
+            f"Force-stopping {len(stragglers)} leftover process(es) for "
+            f"'{self.app.name}' (graceful stop timed out)",
+            level=2,
+            fg="yellow",
+        )
+        for sig in (signal.SIGTERM, signal.SIGKILL):
+            for pid in self._app_pids():
+                with suppress(OSError):
+                    os.kill(pid, sig)
+            time.sleep(1.0)
 
     def restart(self) -> None:
         """For uWSGI, touching the .ini files is the most efficient way to restart."""
