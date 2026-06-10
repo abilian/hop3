@@ -111,6 +111,12 @@ class TestRun(Base):
     (hop3_version, git_sha) stay queryable. NB: can't be named ``metadata`` —
     that attribute is reserved by SQLAlchemy's declarative base."""
 
+    planned_counts: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    """Planned test count per type at selection time, e.g.
+    ``{"app": 50, "demo": 8, "tutorial": 35}``. Recorded by the engine at
+    ``start_run`` so the live dashboard can show "M done / N planned" per type
+    (the planned totals aren't otherwise visible to the web app)."""
+
     # Relationships
     results: Mapped[list[TestResultRecord]] = relationship(
         back_populates="run", cascade="all, delete-orphan"

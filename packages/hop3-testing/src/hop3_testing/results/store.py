@@ -132,6 +132,7 @@ class ResultStore:
                 ("phase_timings", "JSON"),
                 ("shed_tests", "JSON"),
                 ("run_metadata", "JSON"),
+                ("planned_counts", "JSON"),
             ],
             "run_lease": [
                 # ADR 044: killable engine PID so the dashboard can stop a run,
@@ -195,6 +196,7 @@ class ResultStore:
         trigger: str | None = None,
         git_sha: str | None = None,
         metadata: dict | None = None,
+        planned_counts: dict | None = None,
     ) -> TestRun:
         """Start a new test run.
 
@@ -233,6 +235,7 @@ class ResultStore:
                 trigger=trigger or os.environ.get("HOP3_TEST_TRIGGER", "cli"),
                 git_sha=git_sha if git_sha is not None else _detect_git_sha(),
                 run_metadata=meta or None,
+                planned_counts=planned_counts,
             )
             session.add(run)
             session.commit()
@@ -411,6 +414,42 @@ class ResultStore:
             for record in records:
                 session.expunge(record)
             return records
+        finally:
+            session.close()
+
+    def previous_failures(self, mode: str, target_type: str) -> set[str]:
+        """Names of tests that failed in the most recent FINISHED run of this
+        family (same ``mode`` + ``target_type``).
+
+        Used to run the previous run's failures first, so a re-run surfaces
+        regressions fast. "Failed" means ``passed is False`` — a true failure;
+        an expected negative-test failure is recorded as passed=True (xfail).
+        """
+        session = self.Session()
+        try:
+            run = (
+                session
+                .query(TestRun)
+                .filter(
+                    TestRun.mode == mode,
+                    TestRun.target_type == target_type,
+                    TestRun.finished_at.isnot(None),
+                )
+                .order_by(TestRun.started_at.desc())
+                .first()
+            )
+            if run is None:
+                return set()
+            rows = (
+                session
+                .query(TestResultRecord.test_name)
+                .filter(
+                    TestResultRecord.run_id == run.id,
+                    TestResultRecord.passed.is_(False),
+                )
+                .all()
+            )
+            return {name for (name,) in rows}
         finally:
             session.close()
 
