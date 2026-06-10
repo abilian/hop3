@@ -566,6 +566,26 @@ class Hop3Config:
         return {k: v for k, v in raw.items() if isinstance(v, dict)}
 
     @property
+    def ports(self) -> list[dict[str, Any]]:
+        """Get the [[ports]] entries (fixed host ports the app binds directly).
+
+        Each entry is a dict with ``number`` (int), ``protocol`` (str, default
+        ``"tcp"``) and optional ``name``. Empty list when none are declared.
+        """
+        raw = self._data.get("ports", [])
+        if not isinstance(raw, list):
+            return []
+        return [
+            {
+                "number": p["number"],
+                "protocol": p.get("protocol", "tcp"),
+                "name": p.get("name"),
+            }
+            for p in raw
+            if isinstance(p, dict) and isinstance(p.get("number"), int)
+        ]
+
+    @property
     def context_names(self) -> list[str]:
         """Declared context names, in TOML declaration order. Empty when none.
 
@@ -747,6 +767,7 @@ class Hop3Config:
             "run": self.run,
             "env": self.env,
             "port": self.port,
+            "ports": self.ports,
             "docker": self.docker,
             "addons": self.addons,
             "providers": self.providers,  # Deprecated, kept for compatibility

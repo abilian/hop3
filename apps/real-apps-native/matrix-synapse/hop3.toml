@@ -30,6 +30,11 @@ SERVER_NAME = "localhost"
 [healthcheck]
 path = "/_matrix/client/versions"
 
+[[ports]]
+number = 8448
+protocol = "tcp"
+name = "federation"
+
 [test]
 priority = "P2"
 tier = "slow"

@@ -166,6 +166,16 @@ class AppConfig:
         return config.APP_START_TIMEOUT
 
     @property
+    def ports(self) -> list[dict]:
+        """Fixed host ports declared in [[ports]] (empty list when none).
+
+        Each entry: ``{"number": int, "protocol": str, "name": str | None}``.
+        """
+        if self.has_hop3_toml:
+            return self.hop3_config.ports
+        return []
+
+    @property
     def src_dir(self):
         return self.app_dir / "src"
 

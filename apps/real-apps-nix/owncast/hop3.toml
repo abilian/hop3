@@ -4,6 +4,11 @@ builder = "nix"
 [run]
 start-timeout = 120
 
+[[ports]]
+number = 1935
+protocol = "tcp"
+name = "rtmp"
+
 [test]
 priority = "P1"
 tier = "medium"

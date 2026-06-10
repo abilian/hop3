@@ -28,6 +28,7 @@ from hop3.run.spawn import spawn_app
 if TYPE_CHECKING:
     from .addon_credential import AddonCredential
     from .env import EnvVar
+    from .port_claim import PortClaim
 
 
 class AppStateEnum(Enum):
@@ -122,6 +123,10 @@ class App(BigIntAuditBase):
     )
 
     addon_credentials: Mapped[list[AddonCredential]] = relationship(
+        back_populates="app", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+    port_claims: Mapped[list[PortClaim]] = relationship(
         back_populates="app", cascade="all, delete-orphan", lazy="selectin"
     )
 
