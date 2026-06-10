@@ -41,6 +41,20 @@ def variant_of(test_name: str | None) -> str:
     return "other"
 
 
+def type_of(test_name: str | None) -> str:
+    """Classify a test as one of the three run types: app / demo / tutorial.
+
+    Path-based, matching how the engine counts planned tests per type
+    (``_count_by_type``), so live "done / planned" lines up per type.
+    """
+    name = (test_name or "").replace("\\", "/")
+    if name.startswith("demos/") or "/demos/" in name:
+        return "demo"
+    if "tutorials" in name or name.startswith("docs/"):
+        return "tutorial"
+    return "app"
+
+
 def short_app(test_name: str | None) -> str:
     """The leaf name (``bugsink``) of a path-based test name."""
     if not test_name:

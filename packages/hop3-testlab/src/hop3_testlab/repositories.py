@@ -18,6 +18,7 @@ from hop3_testing.results.models import BuildLog, RunLease, TestResultRecord, Te
 from sqlalchemy import select
 
 from hop3_testlab import leasing
+from hop3_testlab.discriminators import type_of
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -56,6 +57,28 @@ class RunsRepository:
             .order_by(TestResultRecord.passed.asc(), TestResultRecord.test_name.asc())
         )
         return list(self.session.scalars(stmt).all())
+
+    def progress_by_type(self, run: TestRun) -> dict[str, dict[str, int]]:
+        """Per-type ``{done, passed, failed}`` for a run's results so far.
+
+        Types are app / demo / tutorial (see ``discriminators.type_of``), keyed
+        identically to the engine's planned counts so the live panel can show
+        "done / planned" per type.
+        """
+        out = {
+            t: {"done": 0, "passed": 0, "failed": 0}
+            for t in ("app", "demo", "tutorial")
+        }
+        for record in self.results_for(run):
+            bucket = out.setdefault(
+                type_of(record.test_name), {"done": 0, "passed": 0, "failed": 0}
+            )
+            bucket["done"] += 1
+            if record.passed:
+                bucket["passed"] += 1
+            else:
+                bucket["failed"] += 1
+        return out
 
     def previous_run(self, run: TestRun) -> TestRun | None:
         """Return the most recent earlier run of the same mode (for the diff)."""

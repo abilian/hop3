@@ -94,8 +94,31 @@ def _build_panel_context(runs: RunsRepository) -> dict:
         "elapsed_text": _fmt_duration(prog["elapsed_seconds"]),
         "eta_text": _fmt_duration(prog["eta_seconds"]),
         "typical_text": _fmt_duration(prog["typical_seconds"]),
+        "type_progress": _type_progress(runs, active),
     })
     return ctx
+
+
+def _type_progress(runs: RunsRepository, active) -> list[dict]:
+    """Rows for the per-type progress table: done/planned + pass/fail per type.
+
+    Planned counts come from the run (recorded by the engine at start); done
+    counts from the results so far. The three types are always shown, in a
+    stable order, even at zero.
+    """
+    planned = active.planned_counts or {}
+    done = runs.progress_by_type(active)
+    rows = []
+    for key, label in (("app", "Apps"), ("demo", "Demos"), ("tutorial", "Tutorials")):
+        d = done.get(key, {"done": 0, "passed": 0, "failed": 0})
+        rows.append({
+            "label": label,
+            "planned": planned.get(key, 0),
+            "done": d["done"],
+            "passed": d["passed"],
+            "failed": d["failed"],
+        })
+    return rows
 
 
 class RunningController(Controller):
