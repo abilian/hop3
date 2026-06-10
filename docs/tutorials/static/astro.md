@@ -1,4 +1,16 @@
+---
+tutorial:
+  name: astro-hop3-tutorial
+  env:
+    NODE_ENV: development
+  teardown:
+    - rm -rf hop3-tuto-astro 2>/dev/null || true
+    - hop3 app destroy --app hop3-tuto-astro -y 2>/dev/null || true
+---
+
 # Deploying Astro on Hop3
+
+> This guide deploys with the **build-on-server** strategy — Hop3 runs the generator on each deploy. For the concepts and the alternative (build your site at the source and deploy the assets), see the [Static Sites overview](index.md).
 
 This guide walks you through deploying an Astro site on Hop3. Astro is a modern static site builder that ships zero JavaScript by default and supports partial hydration.
 
@@ -13,23 +25,30 @@ Before you begin, ensure you have:
 
 Verify your local setup:
 
-```bash
+```bash exec id=check-node
 node -v
+```
+
+```output regex
+v[0-9]+\.
 ```
 
 ## Step 1: Create a New Astro Site
 
-```bash
+```bash exec id=create-astro timeout=300
 CI=true ASTRO_TELEMETRY_DISABLED=1 npm create astro@latest hop3-tuto-astro -- --template minimal --no-install --no-git --yes
+```
+
+```assert file-exists path=hop3-tuto-astro/astro.config.mjs
 ```
 
 Install dependencies:
 
-```bash
+```bash exec id=install-deps dir=hop3-tuto-astro timeout=120
 npm install
 ```
 
-```console
+```output contains
 added
 ```
 
@@ -37,7 +56,7 @@ added
 
 Create the layout:
 
-```text
+```file path=hop3-tuto-astro/src/layouts/Base.astro
 ---
 interface Props {
   title: string;
@@ -109,7 +128,7 @@ const { title } = Astro.props;
 
 Update the home page:
 
-```text
+```file path=hop3-tuto-astro/src/pages/index.astro
 ---
 import Base from '../layouts/Base.astro';
 ---
@@ -135,7 +154,7 @@ import Base from '../layouts/Base.astro';
 
 Create the about page:
 
-```text
+```file path=hop3-tuto-astro/src/pages/about.astro
 ---
 import Base from '../layouts/Base.astro';
 ---
@@ -157,11 +176,11 @@ import Base from '../layouts/Base.astro';
 
 Create a blog directory and posts:
 
-```bash
+```bash exec id=create-blog-dir dir=hop3-tuto-astro
 mkdir -p src/pages/blog
 ```
 
-```text
+```file path=hop3-tuto-astro/src/pages/blog/index.astro
 ---
 import Base from '../../layouts/Base.astro';
 
@@ -185,7 +204,7 @@ const posts = [
 </Base>
 ```
 
-```text
+```file path=hop3-tuto-astro/src/pages/blog/hello-world.astro
 ---
 import Base from '../../layouts/Base.astro';
 ---
@@ -213,31 +232,31 @@ import Base from '../../layouts/Base.astro';
 
 Build the site:
 
-```bash
+```bash exec id=build-site dir=hop3-tuto-astro timeout=60
 npm run build
 ```
 
-```console
+```output contains
 Complete!
 ```
 
 Verify the build:
 
-```bash
+```bash exec id=verify-build dir=hop3-tuto-astro
 ls -la dist/
 ```
 
-```console
+```output contains
 index.html
 ```
 
 Test the build:
 
-```bash
+```bash exec id=test-site dir=hop3-tuto-astro
 cat dist/index.html | grep "Hello from Hop3" | head -1
 ```
 
-```console
+```output contains
 Hello from Hop3
 ```
 
@@ -245,7 +264,7 @@ Hello from Hop3
 
 Configure Astro for static output:
 
-```text
+```file path=hop3-tuto-astro/astro.config.mjs
 import { defineConfig } from 'astro/config';
 
 export default defineConfig({
@@ -256,12 +275,12 @@ export default defineConfig({
 });
 ```
 
-```procfile
+```file path=hop3-tuto-astro/Procfile
 prebuild: npm install && npm run build
 web: npx serve dist -l $PORT
 ```
 
-```toml
+```file path=hop3-tuto-astro/hop3.toml
 [metadata]
 id = "hop3-tuto-astro"
 version = "1.0.0"
@@ -289,7 +308,7 @@ The following steps require a Hop3 server.
 
 ### Initialize (First Time Only)
 
-```bash
+```bash skip
 hop3 init --ssh root@your-server.example.com
 ```
 
@@ -297,11 +316,11 @@ hop3 init --ssh root@your-server.example.com
 
 Deploy the application (first deployment creates the app):
 
-```bash
+```bash exec id=deploy dir=hop3-tuto-astro timeout=120
 hop3 deploy hop3-tuto-astro
 ```
 
-```console
+```output contains
 deployed successfully
 ```
 
@@ -309,7 +328,7 @@ deployed successfully
 
 Configure the hostname for nginx proxy:
 
-```bash
+```bash exec id=set-hostname timeout=30
 hop3 config set --app hop3-tuto-astro HOST_NAME=hop3-tuto-astro.$HOP3_TEST_DOMAIN
 ```
 
@@ -317,7 +336,7 @@ hop3 config set --app hop3-tuto-astro HOST_NAME=hop3-tuto-astro.$HOP3_TEST_DOMAI
 
 Wait for the previous deployment to fully stop:
 
-```bash
+```bash exec id=wait-before-redeploy timeout=10
 sleep 5
 ```
 
@@ -325,35 +344,35 @@ sleep 5
 
 Redeploy to apply the hostname configuration:
 
-```bash
+```bash exec id=redeploy dir=hop3-tuto-astro timeout=120
 hop3 deploy hop3-tuto-astro
 ```
 
-```console
+```output contains
 deployed successfully
 ```
 
 ### Verify Deployment
 
-```bash
+```bash exec id=check-status timeout=30
 hop3 status --app hop3-tuto-astro
 ```
 
-```console
+```output contains
 hop3-tuto-astro
 ```
 
-```bash
+```bash exec id=check-health timeout=30
 curl -s http://hop3-tuto-astro.$HOP3_TEST_DOMAIN/
 ```
 
-```console
+```output contains
 Hello from Hop3
 ```
 
 ### Managing Your Application
 
-```bash
+```bash skip
 # Restart the application
 hop3 restart --app hop3-tuto-astro
 
@@ -370,28 +389,9 @@ hop3 ps scale --app hop3-tuto-astro web=2
 
 ## Advanced Configuration
 
-### SSR Mode (Server-Side Rendering)
-
-```javascript
-// astro.config.mjs
-import { defineConfig } from 'astro/config';
-import node from '@astrojs/node';
-
-export default defineConfig({
-  output: 'server',
-  adapter: node({ mode: 'standalone' })
-});
-```
-
-```toml
-# hop3.toml
-[run]
-start = "node dist/server/entry.mjs"
-```
-
 ### Adding React Components
 
-```bash
+```bash skip
 npx astro add react
 ```
 
@@ -433,13 +433,13 @@ import myImage from '../assets/image.png';
 
 ### MDX Support
 
-```bash
+```bash skip
 npx astro add mdx
 ```
 
 ### Tailwind CSS
 
-```bash
+```bash skip
 npx astro add tailwind
 ```
 
@@ -471,30 +471,6 @@ start = "npx serve dist -l $PORT -s"
 
 [port]
 web = 3000
-
-[healthcheck]
-path = "/"
-```
-
-### SSR Mode hop3.toml
-
-```toml
-[metadata]
-id = "hop3-tuto-astro"
-version = "1.0.0"
-
-[build]
-before-build = ["npm install", "npm run build"]
-packages = ["nodejs"]
-
-[run]
-start = "node dist/server/entry.mjs"
-
-[env]
-HOST = "0.0.0.0"
-
-[port]
-web = 4321
 
 [healthcheck]
 path = "/"

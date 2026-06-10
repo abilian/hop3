@@ -1,5 +1,7 @@
 # Deploying Eleventy on Hop3
 
+> This guide deploys with the **build-on-server** strategy — Hop3 runs the generator on each deploy. For the concepts and the alternative (build your site at the source and deploy the assets), see the [Static Sites overview](index.md).
+
 This guide walks you through deploying an Eleventy (11ty) static site on Hop3. Eleventy is a simpler static site generator with zero-config by default.
 
 ## Prerequisites
