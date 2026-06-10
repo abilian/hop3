@@ -47,7 +47,6 @@ dependencies = [
     # Process management (required for running apps)
     "uwsgi>=2.0.31",
     "pydantic>=2.12.5",
-    "tomli>=2.4.1",
 ]
 
 [dependency-groups]
@@ -85,12 +84,7 @@ exclude = [
 
 # -----------------------------------------------------------------------------
 
-# X imported but missing from the dependency definitions
 [tool.deptry.per_rule_ignores]
-DEP001 = [
-    "tomli",
-]
-
 # X defined as a dependency but not used in the codebase
 DEP002 = [
     "cyclonedx-bom",
