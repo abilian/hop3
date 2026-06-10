@@ -115,21 +115,22 @@ def claim_fixed_ports(
         if existing is not None:
             continue  # already this app's claim (idempotent redeploy)
 
+        # The find_active check above handles the normal case with a clear
+        # message. The unique constraint is the race backstop: if a concurrent
+        # deploy claimed the port between the check and our flush, the flush
+        # raises IntegrityError. We abort with a (less specific) diagnosis
+        # WITHOUT re-querying — the session is in a rolled-back state after a
+        # failed flush, so any query on it would itself raise. The deploy then
+        # fails and its caller rolls the session back.
         db_session.add(
             PortClaim(
                 app_id=app.id, number=number, protocol=protocol, app_name=app.name
             )
         )
-        # Savepoint so a concurrent duplicate claim surfaces as our diagnosis
-        # (and rolls back only this claim), not an opaque IntegrityError.
         try:
-            with db_session.begin_nested():
-                db_session.flush()
+            db_session.flush()
         except IntegrityError:
-            holder = repo.find_active(number, protocol)
-            _abort_conflict(
-                number, protocol, holder.app_name if holder else "another app"
-            )
+            _abort_conflict(number, protocol, "another app")
         log(
             f"Claimed fixed port {number}/{protocol} for '{app.name}'",
             level=2,
