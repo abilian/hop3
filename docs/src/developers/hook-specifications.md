@@ -348,7 +348,7 @@ proxy.setup()
 **Location**: `hop3.core.hookspecs.get_di_providers`
 
 **Signature**:
-```python
+````python
 @hookspec
 def get_di_providers() -> list:
     """Get DI providers from this plugin.
@@ -376,7 +376,7 @@ def get_di_providers() -> list:
             return [MyPluginProvider()]
         ```
     """
-```
+````
 
 **Returns**: List of Dishka `Provider` **instances** (not classes).
 
