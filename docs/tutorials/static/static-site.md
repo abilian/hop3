@@ -10,7 +10,7 @@ tutorial:
 
 This guide walks you through deploying a **plain static site** — just HTML, CSS, and JavaScript files — on Hop3. There is no build step and no application server: Hop3's static deployer configures nginx to serve your files directly. It's the simplest possible deployment.
 
-> Using a static-site generator? Its build output is also just static files, so it deploys the same way — see the [Hugo](../go/hugo.md), [Eleventy](../javascript/eleventy.md), [Astro](../javascript/astro.md), or [Jekyll](../ruby/jekyll.md) tutorials.
+> **New to static sites on Hop3?** Read the [Static Sites overview](index.md) for the two deployment strategies (build at the source vs. build on the server). Using a generator? Its build output is also just static files, so it deploys the same way — see [Hugo](hugo.md), [Eleventy](eleventy.md), [Astro](astro.md), or [Jekyll](jekyll.md).
 
 ## Prerequisites
 
@@ -49,21 +49,29 @@ HTML
 
 ## Step 2: Configure Hop3
 
-Hop3 serves static files via a one-line `Procfile`. The `static:` directive tells Hop3 to skip the language toolchains and application servers entirely and serve the named directory directly through nginx:
+Tell Hop3 to serve the `public/` directory as static. The recommended way is a short `hop3.toml` — **no `Procfile` required**. The `static` worker makes Hop3 skip the language toolchains and application servers entirely and serve the directory directly through nginx:
 
-```bash exec id=create-procfile dir=hop3-tuto-static
-echo "static: public" > Procfile
+```bash exec id=create-config dir=hop3-tuto-static
+cat > hop3.toml <<'TOML'
+[metadata]
+id = "hop3-tuto-static"
+
+[run.workers]
+static = "public"
+TOML
 ```
 
 Confirm the configuration:
 
-```bash exec id=verify-procfile dir=hop3-tuto-static
-cat Procfile
+```bash exec id=verify-config dir=hop3-tuto-static
+cat hop3.toml
 ```
 
 ```output contains
-static: public
+static = "public"
 ```
+
+> Prefer a `Procfile`? `echo "static: public" > Procfile` works too. Hop3 accepts either, but `hop3.toml` wins if both declare a static directory — it's Hop3's own config file, whereas a `Procfile` is a generic, cross-tool convention that may belong to something else.
 
 ## Deploy to Hop3
 
@@ -135,7 +143,7 @@ Hello from Hop3
 
 ## How It Works
 
-- **No build, no runtime.** Hop3 sees the `static:` Procfile directive and uses its static deployer instead of a language toolchain or application server.
+- **No build, no runtime.** Hop3 sees the `static` directive (in `hop3.toml` or a `Procfile`) and uses its static deployer instead of a language toolchain or application server.
 - **nginx serves your files.** The named directory (`public/`) is served directly; requests never reach an app process.
 - **Anything static works.** Drop in CSS, JavaScript, images, or the build output of any static-site generator.
 
@@ -150,5 +158,5 @@ hop3 app destroy --app hop3-tuto-static -y  # Remove the app
 
 ## Next Steps
 
-- Put a static-site generator in front of the same workflow: [Hugo](../go/hugo.md), [Eleventy](../javascript/eleventy.md), [Astro](../javascript/astro.md), [Jekyll](../ruby/jekyll.md).
+- Put a static-site generator in front of the same workflow: [Hugo](hugo.md), [Eleventy](eleventy.md), [Astro](astro.md), [Jekyll](jekyll.md).
 - Add a custom domain and TLS — see the deployment guides.

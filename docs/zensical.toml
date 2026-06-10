@@ -66,7 +66,16 @@ nav = [
     # -------------------------------------------------------------------------
     { "Tutorials" = [
         { "Overview" = "tutorials/index.md" },
+        { "Static Sites" = [
+            { "Static Sites Overview" = "tutorials/static/index.md" },
+            { "Plain static site" = "tutorials/static/static-site.md" },
+            { "Hugo" = "tutorials/static/hugo.md" },
+            { "Astro" = "tutorials/static/astro.md" },
+            { "Eleventy" = "tutorials/static/eleventy.md" },
+            { "Jekyll" = "tutorials/static/jekyll.md" },
+        ]},
         { "Python" = [
+            { "Python Overview" = "tutorials/python/index.md" },
             { "Flask" = "tutorials/python/flask.md" },
             { "Django" = "tutorials/python/django.md" },
             { "FastAPI" = "tutorials/python/fastapi.md" },
@@ -81,40 +90,44 @@ nav = [
             { "Robyn" = "tutorials/python/robyn.md" },
         ]},
         { "JavaScript" = [
+            { "JavaScript Overview" = "tutorials/javascript/index.md" },
             { "Express" = "tutorials/javascript/express.md" },
             { "Fastify" = "tutorials/javascript/fastify.md" },
             { "Next.js" = "tutorials/javascript/nextjs.md" },
             { "Nuxt.js" = "tutorials/javascript/nuxtjs.md" },
-            { "Astro" = "tutorials/javascript/astro.md" },
-            { "Eleventy" = "tutorials/javascript/eleventy.md" },
             { "NestJS" = "tutorials/javascript/nestjs.md" },
         ]},
         { "Go" = [
+            { "Go Overview" = "tutorials/go/index.md" },
             { "Gin" = "tutorials/go/gin.md" },
             { "Fiber" = "tutorials/go/fiber.md" },
-            { "Hugo" = "tutorials/go/hugo.md" },
         ]},
         { "Ruby" = [
+            { "Ruby Overview" = "tutorials/ruby/index.md" },
             { "Rails" = "tutorials/ruby/rails.md" },
             { "Sinatra" = "tutorials/ruby/sinatra.md" },
-            { "Jekyll" = "tutorials/ruby/jekyll.md" },
         ]},
         { "Rust" = [
+            { "Rust Overview" = "tutorials/rust/index.md" },
             { "Axum" = "tutorials/rust/axum.md" },
             { "Actix-web" = "tutorials/rust/actix-web.md" },
         ]},
         { "Java" = [
+            { "Java Overview" = "tutorials/java/index.md" },
             { "Spring Boot" = "tutorials/java/spring-boot.md" },
             { "Quarkus" = "tutorials/java/quarkus.md" },
         ]},
         { "PHP" = [
+            { "PHP Overview" = "tutorials/php/index.md" },
             { "Laravel" = "tutorials/php/laravel.md" },
             { "Symfony" = "tutorials/php/symfony.md" },
         ]},
         { "Elixir" = [
+            { "Elixir Overview" = "tutorials/elixir/index.md" },
             { "Phoenix" = "tutorials/elixir/phoenix.md" },
         ]},
         { ".NET" = [
+            { ".NET Overview" = "tutorials/dotnet/index.md" },
             { "ASP.NET Core" = "tutorials/dotnet/aspnet-core.md" },
         ]},
     ]},
@@ -225,7 +238,9 @@ features = [
     "content.tabs.link",
     "content.tooltips",
     "navigation.footer",
-    "navigation.indexes",
+    # navigation.indexes intentionally OFF: it turns a section's index.md into a
+    # clickable section *title* (poor affordance — users don't expect headers to
+    # be links). Instead each section lists an explicit "Overview" item on top.
     "navigation.instant",
     "navigation.instant.prefetch",
     "navigation.path",

@@ -1,6 +1,8 @@
 # Deploying Hugo on Hop3
 
-This guide walks you through deploying a Hugo static site on Hop3. Hugo is the world's fastest static site generator, written in Go.
+> This guide deploys with the **build-on-server** strategy — Hop3 runs the generator on each deploy. For the concepts and the alternative (build your site at the source and deploy the assets), see the [Static Sites overview](index.md).
+
+Hugo is the world's fastest static site generator, written in Go.
 
 ## Prerequisites
 
