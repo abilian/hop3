@@ -101,6 +101,65 @@ def _resolve_logs_dir(logs_dir: str | None, mode_label: str) -> Path | None:
     return Path("test-logs") / f"{mode_label}-{stamp}" / "app-logs"
 
 
+def _order_run(
+    tests: list[TestDefinition],
+    store: ResultStore,
+    target: DeploymentTarget,
+    *,
+    mode: str,
+    console,
+) -> tuple[str, str, list[TestDefinition]]:
+    """Resolve the run family and order failed-first.
+
+    Returns ``(mode, target_type, ordered_tests)``: the family identifiers used
+    for both the failure lookup and the recorded run, plus the ordered list.
+    """
+    target_type = "ssh" if "Remote" in type(target).__name__ else "docker"
+    ordered = _order_failed_first(
+        tests, store, mode=mode, target_type=target_type, console=console
+    )
+    return mode, target_type, ordered
+
+
+def _order_failed_first(
+    tests: list[TestDefinition],
+    store: ResultStore,
+    *,
+    mode: str,
+    target_type: str,
+    console,
+) -> list[TestDefinition]:
+    """Order the previous run's failures (same family) first, the rest by name.
+
+    "Same family" is (mode, target_type): the most recent finished run with that
+    scope. Re-running its failures first surfaces regressions fast without
+    changing WHICH tests run — the set is identical, only the order differs.
+    """
+    by_name = sorted(tests, key=lambda t: t.name)
+    failed = store.previous_failures(mode=mode, target_type=target_type)
+    if not failed:
+        return by_name
+    first = [t for t in by_name if t.name in failed]
+    rest = [t for t in by_name if t.name not in failed]
+    if first:
+        console.status(f"Re-running {len(first)} previously-failed test(s) first")
+    return first + rest
+
+
+def _count_by_type(tests: list[TestDefinition]) -> dict[str, int]:
+    """Planned test count per type (app / demo / tutorial) for the live UI.
+
+    Uses the same app/demo/tutorial split the dashboard applies to results, so
+    the "M done / N planned" lines up per type. ``runner_type`` is "deployment"
+    for ordinary apps, "demo", or "tutorial".
+    """
+    counts = {"app": 0, "demo": 0, "tutorial": 0}
+    for test in tests:
+        key = {"demo": "demo", "tutorial": "tutorial"}.get(test.runner_type, "app")
+        counts[key] += 1
+    return counts
+
+
 def run_tests(
     ctx: click.Context,
     tests: list[TestDefinition],
@@ -123,9 +182,6 @@ def run_tests(
     This is the single test execution function used by all CLI commands.
     The target is started, tests are executed, results are collected and reported.
     """
-    # Sort tests by name for deterministic, alphabetical execution order
-    tests = sorted(tests, key=lambda t: t.name)
-
     verbose = ctx.obj["verbose"]
     console = _create_console(verbose, quiet)
 
@@ -136,6 +192,12 @@ def run_tests(
             console.error("No tests remaining after filtering by available services")
             sys.exit(1)
     store = ResultStore()
+
+    # Order the run: previously-failed tests (same family = mode + target type)
+    # run first so a re-run surfaces regressions fast; the rest follow by name.
+    run_mode, target_kind, tests = _order_run(
+        tests, store, target, mode=selection_mode or mode_label, console=console
+    )
 
     log_path = _resolve_logs_dir(logs_dir, mode_label)
     reporter = ConsoleReporter(verbose=verbose, quiet=quiet, logs_dir=log_path)
@@ -152,7 +214,6 @@ def run_tests(
         _emit_startup_diagnostics(target, console)
         sys.exit(1)
 
-    target_kind = "ssh" if "Remote" in type(target).__name__ else "docker"
     try:
         # Record the test-selection scope (dev/ci/nightly/release) as the run's
         # mode — that's what the dashboard shows and what the regressions diff
@@ -160,9 +221,10 @@ def run_tests(
         # the per-run log-dir label. Older callers that don't pass a selection
         # fall back to mode_label.
         run = store.start_run(
-            mode=selection_mode or mode_label,
+            mode=run_mode,
             target_type=target_kind,
             target_name=target.info.ssh_host,
+            planned_counts=_count_by_type(tests),
         )
         if run.run_uid:
             console.status(f"Run: {run.run_uid}")
