@@ -164,6 +164,26 @@ def test_removed_port_is_reconciled(db_session: Session):
     assert freed.app_id == other.id
 
 
+def test_concurrent_race_aborts_cleanly(db_session: Session, monkeypatch):
+    # Regression: when the find_active check misses but the unique constraint
+    # catches the duplicate on flush, claim must abort with a clear Diagnosis —
+    # NOT re-query the now-rolled-back session (which raised an opaque
+    # "An invalid request was made.").
+    a = _app(db_session, "owncast-a")
+    claim_fixed_ports(a, _cfg((1935, "tcp")), db_session)  # type: ignore[arg-type]
+    b = _app(db_session, "owncast-b")
+    # Simulate the race: the pre-flight check sees nothing, so we fall through
+    # to the insert, where the unique constraint fires.
+    monkeypatch.setattr(
+        PortClaimRepository, "find_active", lambda self, n, p="tcp": None
+    )
+    with pytest.raises(Abort) as exc:
+        claim_fixed_ports(b, _cfg((1935, "tcp")), db_session)  # type: ignore[arg-type]
+    message = str(exc.value)
+    assert "1935/tcp" in message
+    assert "invalid request" not in message.lower()
+
+
 def test_docker_runtime_skips_firewall(db_session: Session, monkeypatch):
     _FakeRootd.added = []
     app = _app(db_session, "owncast-1")
