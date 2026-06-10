@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 from hop3_cli.core.deploy_preview import (
@@ -319,7 +320,7 @@ def test_build_plan_unparseable_hop3_toml_safe(tmp_path: Path) -> None:
 
 
 def _plan(**overrides) -> DeployPlan:
-    defaults = {
+    defaults: dict[str, Any] = {
         "source_path": Path("/tmp/proj"),
         "git": GitState(is_repo=False),
         "context": None,
