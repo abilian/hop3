@@ -1,6 +1,0 @@
-# Demo 24: Listmonk
-[metadata]
-name = "demo24"
-
-[build]
-builder = "docker"

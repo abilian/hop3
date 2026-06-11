@@ -1,9 +1,0 @@
-# Umami Analytics - Self-hosted web analytics
-# https://umami.is/
-
-[build]
-builder = "docker"
-
-[env]
-DISABLE_TELEMETRY = "1"
-DISABLE_UPDATES = "1"

@@ -1,0 +1,31 @@
+# Hop3 Configuration for Ghost (Docker-based)
+# Modern publishing platform for professional bloggers
+
+[metadata]
+id = "ghost"
+version = "5.111.0"
+title = "Ghost"
+description = "Modern open-source publishing platform for professional bloggers"
+homepage = "https://ghost.org/"
+license = "MIT"
+categories = ["blog", "cms", "publishing"]
+
+[docker]
+port = 2368
+
+[[addons]]
+type = "mysql"
+
+[healthcheck]
+path = "/"
+
+[test]
+priority = "P1"
+tier = "slow"
+targets = ["docker"]
+covers = ["docker", "ghost", "mysql"]
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "Ghost"

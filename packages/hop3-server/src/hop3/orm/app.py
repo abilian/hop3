@@ -373,6 +373,22 @@ class App(BigIntAuditBase):
         """
         app_name = self.name
 
+        # Reap leftover app processes FIRST, regardless of recorded state: a
+        # daemon that exec'd into a Nix-store path can survive a prior (false)
+        # STOPPED and keep holding a fixed port. Removing its files — or the DB
+        # row — while it runs would strand both the process and the port. Docker
+        # runtimes are torn down by _destroy_docker_compose below.
+        if self.runtime != "docker-compose":
+            from hop3.run.reaper import reap_app_processes  # noqa: PLC0415
+
+            survivors = reap_app_processes(app_name)
+            if survivors:
+                msg = (
+                    f"{len(survivors)} process(es) for '{app_name}' survived SIGKILL "
+                    f"(pids {survivors}) and still hold their ports"
+                )
+                raise RuntimeError(msg)
+
         # First, clean up runtime resources (Docker containers, etc.)
         if self.runtime == "docker-compose":
             self._destroy_docker_compose()
@@ -538,15 +554,16 @@ class App(BigIntAuditBase):
         For uWSGI apps: Removes config files, emperor stops the vassal.
         For Docker apps: Runs docker compose stop.
 
-        The app transitions to STOPPING state. Use sync_state() or check
-        app status to verify when it reaches STOPPED.
+        Reaps and verifies: the app's processes/containers (and the ports they
+        hold) must be confirmed gone before STOPPED is reported — see
+        _stop_uwsgi / _stop_docker_compose. Raises if anything survives even
+        SIGKILL, so a freed PortClaim can never outlive a still-bound port.
 
-        Always performs cleanup even if state says STOPPED, to handle
-        state-reality mismatches.
-
-        Transitions: RUNNING -> STOPPING (STOPPED verified by sync_state)
+        Skips work when already recorded STOPPED. Callers that need cleanup
+        regardless of recorded state (destroy) reap independently — a recorded
+        STOPPED can be false for a daemon that exec'd into a Nix-store path.
         """
-        # If already stopped, nothing more to do
+        # If already stopped, nothing more to do (destroy() reaps independently).
         if self.run_state == AppStateEnum.STOPPED:
             return
 
@@ -556,22 +573,49 @@ class App(BigIntAuditBase):
             self._stop_uwsgi()
 
     def _stop_uwsgi(self) -> None:
-        """Stop uWSGI-based app by removing config files."""
+        """Stop a uWSGI app: remove the Emperor config, then CONFIRM the
+        processes are actually gone before reporting STOPPED.
+
+        Removing the ``.ini`` makes the Emperor stop the vassal, but a daemon
+        that ``exec``'d into a Nix-store path (e.g. owncast) can ignore that and
+        keep holding a fixed port. We reap-and-verify (force-killing stragglers)
+        so STOPPED is truthful — otherwise a freed PortClaim lets the next deploy
+        of that port fail at runtime with 'address already in use'.
+        """
+        from hop3.run.reaper import reap_app_processes  # noqa: PLC0415
+
         cfg = HopConfig.get_instance()
 
         # Remove uWSGI config files - emperor will stop the vassal
-        config_files = list(cfg.UWSGI_ENABLED.glob(f"{self.name}*.ini"))
-        for config_file in config_files:
+        for config_file in cfg.UWSGI_ENABLED.glob(f"{self.name}*.ini"):
             config_file.unlink()
 
-        # Transition to STOPPING if coming from RUNNING
         if self.run_state == AppStateEnum.RUNNING:
             self._transition_state(AppStateEnum.STOPPING)
-        elif self.run_state == AppStateEnum.STOPPING:
-            pass  # Already in STOPPING
-        else:
-            # For other states (STARTING, FAILED), force to STOPPED directly
-            self.run_state = AppStateEnum.STOPPED
+
+        # Confirm the processes are gone — don't trust that the Emperor reaped
+        # them (it doesn't, for an exec'd daemon that ignores SIGTERM).
+        survivors = reap_app_processes(self.name)
+        if survivors:
+            msg = (
+                f"Could not stop all processes for '{self.name}': {len(survivors)} "
+                f"still running (pids {survivors}) and may still hold their ports."
+            )
+            raise RuntimeError(msg)
+        self._mark_stopped()
+
+    def _mark_stopped(self) -> None:
+        """Record a confirmed-STOPPED state with fresh metadata.
+
+        Bypasses ``_transition_state`` on purpose: the entry state may be one the
+        state machine forbids → STOPPED (e.g. STARTING/FAILED), but reaping has
+        confirmed the processes are gone, so STOPPED is the truth. We still
+        refresh ``state_changed_at`` and clear any stale ``error_message`` so a
+        cleanly-stopped app doesn't carry a leftover failure message.
+        """
+        self.run_state = AppStateEnum.STOPPED
+        self.state_changed_at = datetime.now(UTC)
+        self.error_message = ""
 
     def _stop_docker_compose(self) -> None:
         """Stop Docker Compose app."""
@@ -610,17 +654,46 @@ class App(BigIntAuditBase):
                     level=2,
                     fg="yellow",
                 )
-            # Transition directly to STOPPED since docker compose stop is synchronous
-            self._transition_state(AppStateEnum.STOPPED)
-            log(f"Docker Compose app '{self.name}' stopped.", level=2, fg="green")
         except subprocess.TimeoutExpired:
-            log("Docker Compose stop timed out", level=2, fg="yellow")
-            # Force to STOPPED anyway
-            self.run_state = AppStateEnum.STOPPED
+            log(
+                "Docker Compose stop timed out; verifying/force-killing",
+                level=2,
+                fg="yellow",
+            )
         except Exception as e:
-            log(f"Error stopping Docker Compose app: {e}", level=2, fg="yellow")
-            # Force to STOPPED anyway
-            self.run_state = AppStateEnum.STOPPED
+            log(
+                f"Error stopping Docker Compose app: {e}; verifying",
+                level=2,
+                fg="yellow",
+            )
+
+        # Verify the containers are actually down; force-kill any survivor so its
+        # published port is released, then confirm before reporting STOPPED — a
+        # slow/failed 'compose stop' must NOT be reported as a clean STOPPED.
+        running = self._app_container_ids(running_only=True)
+        if running:
+            log(
+                f"Force-killing {len(running)} container(s) still running for "
+                f"'{self.name}'",
+                level=2,
+                fg="yellow",
+            )
+            with suppress(Exception):
+                subprocess.run(
+                    ["docker", "kill", *running],
+                    capture_output=True,
+                    check=False,
+                    timeout=30,
+                )
+            running = self._app_container_ids(running_only=True)
+        if running:
+            msg = (
+                f"Docker app '{self.name}' has {len(running)} container(s) still "
+                f"running after stop+kill; they still hold their ports."
+            )
+            raise RuntimeError(msg)
+        self._mark_stopped()
+        log(f"Docker Compose app '{self.name}' stopped.", level=2, fg="green")
 
     def _destroy_docker_compose(self) -> None:
         """Destroy Docker Compose app - remove containers, networks, and volumes."""
@@ -684,6 +757,26 @@ class App(BigIntAuditBase):
         except Exception as e:
             log(f"Error destroying Docker Compose app: {e}", level=2, fg="yellow")
 
+        # Safety net: 'down' is best-effort (check=False, may time out). Remove
+        # any container it left behind — otherwise it keeps the published host
+        # port and collides by name on the next deploy. (The orphan reaper is
+        # only on the non-docker branch of destroy(), so do it here too.)
+        leftover = self._app_container_ids()
+        if leftover:
+            log(
+                f"Force-removing {len(leftover)} leftover container(s) for "
+                f"'{self.name}' after compose down",
+                level=2,
+                fg="yellow",
+            )
+            with suppress(Exception):
+                subprocess.run(
+                    ["docker", "rm", "-f", *leftover],
+                    capture_output=True,
+                    check=False,
+                    timeout=60,
+                )
+
         # Always try to force cleanup the network as a safety measure
         # docker compose down should remove it, but sometimes networks are left behind
         self._force_cleanup_docker_network()
@@ -692,6 +785,32 @@ class App(BigIntAuditBase):
         # missed it (e.g. the compose file was already gone). Base images are
         # never tagged `hop3/...`, so this only drops the app's own image.
         self._force_cleanup_docker_image()
+
+    def _app_container_ids(self, *, running_only: bool = False) -> list[str]:
+        """IDs of this app's containers, matched by Compose project label.
+
+        ``running_only`` limits to currently-running containers; otherwise it
+        includes stopped ones too. The project label is an exact match (unlike a
+        container-name substring), so it can't catch a different app by prefix.
+        """
+        flag = "-q" if running_only else "-aq"
+        with suppress(Exception):  # docker missing / timeout -> nothing to report
+            result = subprocess.run(
+                [
+                    "docker",
+                    "ps",
+                    flag,
+                    "--filter",
+                    f"label=com.docker.compose.project={self.name}",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=30,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout.strip().split("\n")
+        return []
 
     def _force_cleanup_docker_image(self) -> None:
         """Force-remove the app's own image; safe no-op if already gone."""

@@ -16,7 +16,6 @@ from __future__ import annotations
 import os
 import re
 import subprocess
-import traceback
 from contextlib import suppress
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, NoReturn
@@ -951,12 +950,15 @@ services:
                 fg="green",
             )
         except Exception as e:
+            # Loud failure: a broken proxy/cert must never be reported as a
+            # successful deploy — a swallowed cert error is exactly how edrix.eu
+            # shipped an untrusted cert under a green "✓ deployed".
             log(
                 f"✗ Proxy setup failed for '{self.app_name}': {e}",
                 level=1,
                 fg="red",
             )
-            traceback.print_exc()
+            raise
 
     def _make_proxy_env(self, port: int) -> Env:
         """Create environment for proxy configuration.

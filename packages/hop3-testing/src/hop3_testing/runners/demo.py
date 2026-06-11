@@ -19,9 +19,10 @@ from typing import TYPE_CHECKING, Literal, cast
 
 from hop3_testing.catalog.models import Validation, ValidationExpect
 from hop3_testing.exceptions import TargetOutOfDiskError
-from hop3_testing.util import build_test_env
+from hop3_testing.util import as_text, build_test_env, run_captured
 from hop3_testing.util.console import Console, PrintingConsole, Verbosity
 
+from ._diagnostics import collect_failure_diagnostics
 from .base import TestResult, ValidationResult
 from .validations import run_validation
 
@@ -112,18 +113,24 @@ class DemoTestRunner:
         self.console.debug(f"Running: {' '.join(cmd)}")
 
         # Only the subprocess call can raise the exceptions we catch.
+        # run_captured kills the whole process group on timeout so the demo's
+        # `hop3`/`ssh` grandchildren can't wedge output capture (see its docstring).
         try:
-            result = subprocess.run(
+            result = run_captured(
                 cmd,
                 cwd=demos_root,
-                capture_output=True,
-                text=True,
                 timeout=600,  # 10 minute timeout
                 env=build_test_env(self.target.info),
-                check=False,
             )
-        except subprocess.TimeoutExpired:
-            error = "Demo script timed out"
+        except subprocess.TimeoutExpired as e:
+            # Persist the partial output so a hung/slow demo still has
+            # diagnostics — otherwise the dashboard shows "No logs recorded".
+            logs = as_text(e.stdout) + as_text(e.stderr)
+            log_tail = logs[-2000:] if len(logs) > 2000 else logs
+            error = (
+                "Demo script timed out after 600s (still running — likely hung)"
+                f"\n\n--- Output before timeout (last 2000 chars) ---\n{log_tail}"
+            )
         except Exception as e:
             error = str(e)
         else:
@@ -140,6 +147,17 @@ class DemoTestRunner:
 
         passed = error is None and all(v.passed for v in validation_results)
 
+        # On failure, snapshot the target's app list so a failed/hung demo isn't
+        # a black box — it reveals leftover apps and an app stuck mid-deploy.
+        # Demos don't follow a single app-name convention, so per-app logs are
+        # skipped; the name-independent `hop3 apps` snapshot is the value. Never
+        # raises.
+        runtime_logs = ""
+        if not passed:
+            runtime_logs, _bundle = collect_failure_diagnostics(
+                self.target, None, deploy_logs=logs
+            )
+
         return TestResult(
             test=test,
             passed=passed,
@@ -147,6 +165,7 @@ class DemoTestRunner:
             deploy_logs=logs,
             total_duration=time.time() - start_time,
             error=error,
+            runtime_logs=runtime_logs,
         )
 
     def _resolve_demo_cli(self, test: TestDefinition) -> tuple[Path, Path] | TestResult:

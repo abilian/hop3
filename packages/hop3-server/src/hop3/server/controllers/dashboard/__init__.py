@@ -18,6 +18,7 @@ from __future__ import annotations
 from .addons import AddonsController
 from .apps import AppsController
 from .backups import BackupsController
+from .certificates import CertificatesController
 from .env_vars import EnvVarsController
 from .index import DashboardIndexController
 from .logs import LogsController
@@ -26,6 +27,7 @@ __all__ = [
     "AddonsController",
     "AppsController",
     "BackupsController",
+    "CertificatesController",
     "DashboardIndexController",
     "EnvVarsController",
     "LogsController",

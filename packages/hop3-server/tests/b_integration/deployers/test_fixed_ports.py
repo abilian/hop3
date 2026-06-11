@@ -126,6 +126,28 @@ def test_open_then_release_firewall(db_session: Session, monkeypatch):
 
     release_fixed_ports(app, db_session)
     assert _FakeRootd.removed == ["rule-xyz"]
+    # Release frees the registry row too, not just the firewall.
+    assert repo.find_active(1935, "tcp") is None
+
+
+def test_release_frees_port_for_reuse_without_app_delete(db_session: Session):
+    # Regression for the owncast 1935 leak: releasing fixed ports must free the
+    # registry even when the App row is never deleted (e.g. filesystem/Docker
+    # cleanup failed mid-destroy). Otherwise the claim is stranded and blocks
+    # every future deploy of that port.
+    app = _app(db_session, "owncast-1")
+    claim_fixed_ports(app, _cfg((1935, "tcp")), db_session)  # type: ignore[arg-type]
+    repo = PortClaimRepository(session=db_session)
+    assert repo.find_active(1935, "tcp") is not None
+
+    release_fixed_ports(app, db_session)  # App row intentionally NOT deleted
+    assert repo.find_active(1935, "tcp") is None
+
+    other = _app(db_session, "owncast-2")
+    claim_fixed_ports(other, _cfg((1935, "tcp")), db_session)  # must succeed  # type: ignore[arg-type]
+    freed = repo.find_active(1935, "tcp")
+    assert freed is not None
+    assert freed.app_id == other.id
 
 
 def test_open_degrades_when_rootd_unavailable(db_session: Session, monkeypatch):
@@ -166,11 +188,14 @@ def test_removed_port_is_reconciled(db_session: Session):
 
 def test_concurrent_race_aborts_cleanly(db_session: Session, monkeypatch):
     # Regression: when the find_active check misses but the unique constraint
-    # catches the duplicate on flush, claim must abort with a clear Diagnosis —
-    # NOT re-query the now-rolled-back session (which raised an opaque
-    # "An invalid request was made.").
+    # catches the duplicate on flush, claim must roll back the poisoned flush and
+    # re-read to name the holder — never surface the opaque "An invalid request
+    # was made." that querying a poisoned session raises. Here find_active is
+    # stubbed to always miss, so the holder can't be re-read and we fall back to
+    # a generic name, but the abort is still clean.
     a = _app(db_session, "owncast-a")
     claim_fixed_ports(a, _cfg((1935, "tcp")), db_session)  # type: ignore[arg-type]
+    db_session.commit()  # a's claim is a committed holder the constraint enforces
     b = _app(db_session, "owncast-b")
     # Simulate the race: the pre-flight check sees nothing, so we fall through
     # to the insert, where the unique constraint fires.
@@ -182,6 +207,35 @@ def test_concurrent_race_aborts_cleanly(db_session: Session, monkeypatch):
     message = str(exc.value)
     assert "1935/tcp" in message
     assert "invalid request" not in message.lower()
+
+
+def test_race_names_the_real_holder(db_session: Session, monkeypatch):
+    # When the pre-flight check misses but the constraint catches the duplicate,
+    # the abort must still name the *actual* holder (re-read on a fresh snapshot
+    # after rolling back the failed flush) — not the generic "another app" the
+    # user saw. Reproduces the reported owncast 1935/tcp diagnosis gap.
+    a = _app(db_session, "owncast-a")
+    claim_fixed_ports(a, _cfg((1935, "tcp")), db_session)  # type: ignore[arg-type]
+    db_session.commit()  # a is a committed holder
+
+    real_find = PortClaimRepository.find_active
+    calls = {"n": 0}
+
+    def flaky(self, n, p="tcp"):
+        # Miss on the pre-flight check (call 1), then behave normally so the
+        # post-rollback re-read returns the real holder.
+        calls["n"] += 1
+        return None if calls["n"] == 1 else real_find(self, n, p)
+
+    monkeypatch.setattr(PortClaimRepository, "find_active", flaky)
+
+    b = _app(db_session, "owncast-b")
+    with pytest.raises(Abort) as exc:
+        claim_fixed_ports(b, _cfg((1935, "tcp")), db_session)  # type: ignore[arg-type]
+    message = str(exc.value)
+    assert "1935/tcp" in message
+    assert "owncast-a" in message  # the real holder, not "another app"
+    assert "another app" not in message
 
 
 def test_docker_runtime_skips_firewall(db_session: Session, monkeypatch):

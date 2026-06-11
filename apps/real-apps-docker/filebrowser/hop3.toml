@@ -1,0 +1,29 @@
+# Hop3 Configuration for Filebrowser (Docker-based)
+# A web-based file browser and file manager (no database required)
+
+[metadata]
+id = "filebrowser"
+version = "2.31.2"
+title = "Filebrowser"
+description = "Web-based file browser and file manager for a single directory"
+homepage = "https://filebrowser.org/"
+license = "Apache-2.0"
+categories = ["files", "file-manager", "storage"]
+
+[docker]
+port = 8080
+
+[healthcheck]
+# /login is the public login page served before authentication.
+path = "/login"
+
+[test]
+priority = "P1"
+tier = "slow"
+targets = ["docker"]
+covers = ["docker", "filebrowser"]
+
+[[test.validations]]
+path = "/login"
+status = 200
+contains = "File Browser"

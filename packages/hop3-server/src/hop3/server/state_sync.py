@@ -182,13 +182,32 @@ class StateSyncService:
                 fg="red",
             )
         elif app.run_state == AppStateEnum.STOPPING:
-            # Force to stopped - we already removed config files
-            app._transition_state(AppStateEnum.STOPPED)  # noqa: SLF001
-            log(
-                f"App '{app.name}' stop timed out, forced to STOPPED",
-                level=1,
-                fg="yellow",
-            )
+            # Stop has dragged on. Don't blindly report STOPPED — reap-and-verify
+            # first, so a daemon that ignored the Emperor's SIGTERM (e.g. an
+            # exec'd Nix binary holding a fixed port) can't be mislabelled STOPPED
+            # while it still holds its port (the next deploy would then fail to
+            # bind). Mirrors the reap-and-verify contract in App._stop_uwsgi.
+            from hop3.run.reaper import reap_app_processes  # noqa: PLC0415
+
+            survivors = reap_app_processes(app.name)
+            if survivors:
+                app._transition_state(  # noqa: SLF001
+                    AppStateEnum.FAILED,
+                    f"Stop timed out; {len(survivors)} process(es) still running",
+                )
+                log(
+                    f"App '{app.name}' stop timed out and {len(survivors)} "
+                    f"process(es) survived; marked FAILED (port still held)",
+                    level=1,
+                    fg="red",
+                )
+            else:
+                app._transition_state(AppStateEnum.STOPPED)  # noqa: SLF001
+                log(
+                    f"App '{app.name}' stop timed out, reaped, forced to STOPPED",
+                    level=1,
+                    fg="yellow",
+                )
 
 
 # Global instance for server integration

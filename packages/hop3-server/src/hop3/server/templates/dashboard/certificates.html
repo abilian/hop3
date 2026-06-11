@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Certificates - Hop3 Dashboard{% endblock %}
+
+{% block content %}
+<div class="px-4 sm:px-6 lg:px-8">
+    <div class="sm:flex sm:items-center">
+        <div class="sm:flex-auto">
+            <h1 class="text-2xl font-semibold leading-6 text-gray-900">Certificates &amp; domains</h1>
+            <p class="mt-2 text-sm text-gray-700">
+                TLS certificate, domain-registration, and DNS health for each
+                app's domain. Certificates renew automatically before expiry.
+            </p>
+        </div>
+    </div>
+
+    {% if alerts %}
+    <div class="mt-6 rounded-md {% if alerts[0].level == 'critical' %}bg-red-50{% else %}bg-yellow-50{% endif %} p-4">
+        <h3 class="text-sm font-medium {% if alerts[0].level == 'critical' %}text-red-800{% else %}text-yellow-800{% endif %}">
+            {{ alerts|length }} issue{{ "s" if alerts|length != 1 else "" }} need attention
+        </h3>
+        <ul class="mt-2 list-disc space-y-1 pl-5 text-sm {% if alerts[0].level == 'critical' %}text-red-700{% else %}text-yellow-700{% endif %}">
+            {% for a in alerts %}
+            <li>{{ a.message }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if rows %}
+    <div class="mt-8 flow-root">
+        <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+            <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+                <table class="min-w-full divide-y divide-gray-300">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">App</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Domain</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Cert type</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Cert expiry</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Domain reg.</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">DNS</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for c in rows %}
+                        <tr>
+                            <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-0">{{ c.app_name }}</td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ c.domain }}</td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ c.kind }}</td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm">
+                                {% if c.status == "ok" %}
+                                <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">{{ c.days_left }}d</span>
+                                {% elif c.status == "expiring" %}
+                                <span class="inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">{{ c.days_left }}d</span>
+                                {% elif c.status == "expired" %}
+                                <span class="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/20">Expired</span>
+                                {% else %}
+                                <span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/20">Missing</span>
+                                {% endif %}
+                            </td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ (c.reg_days_left ~ "d") if c.reg_days_left is not none else "—" }}</td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm">
+                                {% if c.dns == "ok" %}
+                                <span class="text-green-700">ok</span>
+                                {% elif c.dns == "no DNS" or c.dns == "elsewhere" %}
+                                <span class="text-red-700">{{ c.dns }}</span>
+                                {% else %}
+                                <span class="text-gray-500">{{ c.dns }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="mt-8 rounded-md bg-gray-50 p-6 text-center text-sm text-gray-500">
+        No apps have a managed TLS certificate yet.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -429,10 +429,15 @@ class DeploymentTestRunner:
             *,
             deploy_logs: str = "",
         ) -> TestResult:
-            """Build a failure TestResult, capturing runtime logs
-            from the target BEFORE ``finally:`` cleanup runs — so
-            containers and app dirs are still present."""
-            return TestResult(
+            """Build a failure TestResult, then tear the app down.
+
+            Captures runtime logs and the diagnostic bundle from the target
+            while the app is still present, THEN runs cleanup — so a failed test
+            never leaks its app (and its fixed-port claim, addon slots, …) into
+            the next deploy. Previously these early-return paths skipped cleanup
+            entirely; only the success path tore down.
+            """
+            result = TestResult(
                 test=test,
                 passed=False,
                 deploy_logs=deploy_logs,
@@ -443,6 +448,8 @@ class DeploymentTestRunner:
                 runtime_logs=_collect_runtime_logs(self.target, session.app_name),
                 bundle=self._collect_bundle(session, deploy_logs),
             )
+            self._safe_cleanup(test, session)
+            return result
 
         try:
             deploy_logs, error = self._run_deploy_and_verify(

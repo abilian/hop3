@@ -32,6 +32,7 @@ from hop3_testlab.web.controllers import (
     BundleController,
     DashboardController,
     HealthController,
+    ProfilesController,
     RunningController,
     RunsController,
     TrendsController,
@@ -80,6 +81,7 @@ def create_app() -> Litestar:
             BundleController,
             BuildController,
             TrendsController,
+            ProfilesController,
         ],
         template_config=TemplateConfig(
             directory=TEMPLATES_DIR, engine=JinjaTemplateEngine

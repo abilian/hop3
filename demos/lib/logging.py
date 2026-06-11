@@ -4,7 +4,7 @@
 
 Provides file-based logging for debugging demo failures:
 - Timestamped log directories: demos/logs/YYYY-MM-DD-HH-mm/
-- Per-demo subdirectories: demo42/main.txt, demo42/docker-build.txt, etc.
+- Per-demo subdirectories: demoNN/main.txt, demoNN/docker-build.txt, etc.
 - Captures command output, docker logs, and errors
 - Timing instrumentation for performance analysis
 """

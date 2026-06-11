@@ -536,10 +536,14 @@ class TestDockerComposeDeployerProxyIntegration:
             assert call_args[0][0] == mock_app  # First arg is app
             assert call_args[0][2] == {"web": "docker-compose"}  # Third arg is workers
 
-    def test_setup_proxy_handles_exception(
+    def test_setup_proxy_propagates_exception(
         self, tmp_path: Path, docker_artifact: BuildArtifact
     ):
-        """Should handle proxy setup exceptions gracefully."""
+        """Proxy/cert setup failures must surface, not be swallowed.
+
+        A swallowed proxy error is how edrix.eu shipped a self-signed cert under
+        a green deploy; the failure must propagate so the deploy fails.
+        """
         (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
 
         mock_app = MagicMock()
@@ -556,10 +560,13 @@ class TestDockerComposeDeployerProxyIntegration:
         mock_proxy = MagicMock()
         mock_proxy.setup.side_effect = RuntimeError("Proxy configuration failed")
 
-        with patch(
-            "hop3.plugins.docker.deployer.get_proxy_strategy", return_value=mock_proxy
+        with (
+            patch(
+                "hop3.plugins.docker.deployer.get_proxy_strategy",
+                return_value=mock_proxy,
+            ),
+            pytest.raises(RuntimeError, match="Proxy configuration failed"),
         ):
-            # Should not raise - exception is caught and logged
             deployer._setup_proxy(8080)
 
 

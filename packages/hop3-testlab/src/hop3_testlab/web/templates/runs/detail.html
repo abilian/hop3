@@ -3,7 +3,22 @@
 {% block title %}{{ title }}{% endblock %}
 
 {# Auto-refresh while the run is still in progress so finished builds appear. #}
-{% block head_extra %}{% if not run.finished_at %}<meta http-equiv="refresh" content="6">{% endif %}{% endblock %}
+{% block head_extra %}{% if not run.finished_at %}<meta http-equiv="refresh" content="6">{% endif %}
+<style>
+  /* Typography for the rendered markdown report (no Tailwind prose plugin on the CDN build). */
+  .report h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 .5rem; }
+  .report h2 { font-size: 1.05rem; font-weight: 600; margin: 1.25rem 0 .5rem; border-bottom: 1px solid #eee; padding-bottom: .15rem; }
+  .report h3 { font-size: .95rem; font-weight: 600; color: #b91c1c; margin: 1rem 0 .35rem; }
+  .report h4 { font-size: .9rem; font-weight: 600; font-family: ui-monospace, monospace; margin: .75rem 0 .25rem; }
+  .report p { margin: .4rem 0; }
+  .report ul { list-style: disc; margin: .4rem 0 .4rem 1.25rem; }
+  .report a { color: #1d4ed8; text-decoration: underline; }
+  .report code { font-family: ui-monospace, monospace; background: #f3f4f6; padding: 0 .25rem; border-radius: .2rem; font-size: .85em; }
+  .report pre { background: #f9fafb; border: 1px solid #eee; border-radius: .3rem; padding: .6rem; overflow-x: auto; margin: .4rem 0; }
+  .report pre code { background: none; padding: 0; white-space: pre-wrap; }
+  .report blockquote { border-left: 3px solid #f59e0b; background: #fffbeb; padding: .3rem .6rem; margin: .5rem 0; color: #92400e; }
+</style>
+{% endblock %}
 
 {% block content %}
 <a href="/" class="text-sm text-gray-500 hover:text-gray-900">&larr; Dashboard</a>
@@ -88,9 +103,18 @@
 </section>
 {% endif %}
 
-{# --- Results: sortable / filterable table, failures first, collapsible detail --- #}
-<h2 class="text-sm font-semibold text-gray-700 mb-2">Results</h2>
+{# --- Results: Table (sortable/filterable) | Narrative (actionable report) --- #}
+<div x-data="{view:'table', copied:false, copyReport(){ navigator.clipboard.writeText(JSON.parse(document.getElementById('report-md').textContent)).then(() => { this.copied = true; setTimeout(() => this.copied = false, 1500); }); }}">
+<div class="flex items-center gap-2 mb-2">
+  <h2 class="text-sm font-semibold text-gray-700 mr-1">Results</h2>
+  <div class="inline-flex rounded border overflow-hidden text-xs select-none">
+    <button type="button" @click="view='table'" :class="view==='table' ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'" class="px-2 py-1">Table</button>
+    <button type="button" @click="view='narrative'" :class="view==='narrative' ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'" class="px-2 py-1">Narrative</button>
+  </div>
+</div>
 
+{# Table view #}
+<div x-show="view==='table'">
 {# Data embedded as JSON (not in an attribute, so its quotes can't break it). #}
 <script type="application/json" id="run-results">{{ results | tojson }}</script>
 <div x-data="resultsTable()" class="text-sm">
@@ -166,6 +190,20 @@
   </template>
   <p x-show="filtered.length === 0" class="py-3 text-gray-400">No results match the filter.</p>
 </div>
+</div>{# end table view #}
+
+{# Narrative view: actionable markdown report, rendered + exportable #}
+<div x-show="view==='narrative'" x-cloak>
+  <div class="flex items-center gap-3 mb-3">
+    <button type="button" @click="copyReport()" class="rounded bg-gray-900 text-white px-3 py-1.5 text-sm hover:bg-gray-700">Copy markdown</button>
+    <a href="/runs/{{ run.run_uid }}/report.md" class="text-sm text-blue-700 hover:underline">Download .md</a>
+    <span class="text-xs text-green-700" x-show="copied" x-cloak>Copied!</span>
+  </div>
+  {# Raw markdown for copy/export (JSON-encoded so it can't break out of the tag). #}
+  <script type="application/json" id="report-md">{{ report_md | tojson }}</script>
+  <div class="report border rounded bg-white p-4 text-sm">{{ report_html | safe }}</div>
+</div>
+</div>{# end view toggle #}
 
 <script>
 function resultsTable() {

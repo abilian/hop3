@@ -26,7 +26,7 @@ dotnet --list-sdks | head -1
 Create a new web API project:
 
 ```bash
-dotnet new webapi -n hop3-tuto-aspnet-core --no-https --framework net8.0
+dotnet new webapi -n hop3-tuto-aspnet-core --no-https
 ```
 
 ```console

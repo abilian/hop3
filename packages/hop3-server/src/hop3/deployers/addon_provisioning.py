@@ -75,6 +75,43 @@ def provision_addons(
         )
 
 
+def reinject_attached_addons(app: App, db_session: Session) -> None:
+    """Re-derive the app's addon env vars from its stored credentials.
+
+    On every deploy, each addon *attached* to the app — whether declared in
+    ``hop3.toml [[addons]]`` or attached manually via ``hop3 addon attach`` —
+    has its decrypted connection details re-injected into the runtime env. This
+    makes the runtime env a function of the ``AddonCredential`` rows (the source
+    of truth) rather than a one-time env-var write at attach time, so
+    ``DATABASE_URL``/``REDIS_URL``/… always survive redeploys and any env churn.
+    Without it, a manually-attached addon (not in ``hop3.toml``) is never
+    re-injected and its env var can silently go missing on redeploy.
+    """
+    repo = AddonCredentialRepository(session=db_session)
+    credentials = repo.get_by_app_id(app.id)
+    if not credentials:
+        return
+
+    encryptor = get_credential_encryptor()
+    for credential in credentials:
+        try:
+            details = encryptor.decrypt(credential.encrypted_data)
+        except Exception as e:
+            log(
+                f"  Could not decrypt credentials for addon "
+                f"'{credential.addon_name}': {e}",
+                level=1,
+                fg="yellow",
+            )
+            continue
+        if details:
+            set_env_vars(app, details, db_session)
+            log(
+                f"  Re-injected env from attached addon '{credential.addon_name}'",
+                level=2,
+            )
+
+
 def _provision_single_addon(
     app: App,
     addon_type: str,

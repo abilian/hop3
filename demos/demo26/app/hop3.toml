@@ -1,6 +1,0 @@
-# Demo 26: Miniflux
-[metadata]
-name = "demo26"
-
-[build]
-builder = "docker"

@@ -1,0 +1,28 @@
+# Hop3 Configuration for DokuWiki (Docker-based)
+# A simple, versatile wiki that doesn't require a database
+
+[metadata]
+id = "dokuwiki"
+version = "2024-02-06b"
+title = "DokuWiki"
+description = "Simple, versatile, database-free wiki that stores content in plain text files"
+homepage = "https://www.dokuwiki.org/"
+license = "GPL-2.0-only"
+categories = ["wiki", "documentation", "knowledge-base"]
+
+[docker]
+port = 80
+
+[healthcheck]
+path = "/doku.php?id=start"
+
+[test]
+priority = "P1"
+tier = "slow"
+targets = ["docker"]
+covers = ["docker", "dokuwiki"]
+
+[[test.validations]]
+path = "/doku.php?id=start"
+status = 200
+contains = "DokuWiki"

@@ -24,6 +24,10 @@ def isolated_db(tmp_path, monkeypatch):
     # (a non-existent path -> empty config -> defaults). Tests that want config
     # pass an explicit path or set the relevant env vars.
     monkeypatch.setenv("TESTLAB_CONFIG", str(tmp_path / "no-config.toml"))
+    # The dashboard + profiles views read the engine's mode-overrides file
+    # ($HOP3_TEST_MODES); isolate it so tests never see the developer's real
+    # ~/.hop3/test-modes.toml. Tests that exercise overrides set their own.
+    monkeypatch.setenv("HOP3_TEST_MODES", str(tmp_path / "isolated-test-modes.toml"))
     get_session_factory.cache_clear()
     yield
     get_session_factory.cache_clear()

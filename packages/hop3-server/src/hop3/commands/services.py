@@ -183,6 +183,7 @@ class AddonAttachCmd(Command):
         "addon_name": {"positional": True},
         "app": {"type": str},  # --app <name>
         "type": {"type": str, "default": "postgres"},  # --type <type>
+        "service_type": {"type": str},  # --service-type <type> (preferred alias)
     }
 
     def _store_or_update_credential(
@@ -278,7 +279,7 @@ class AddonAttachCmd(Command):
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
         app_name = parsed.get("app")
-        service_type = parsed.get("type", "postgres")
+        service_type = parsed.get("service_type") or parsed.get("type", "postgres")
 
         if not addon_name:
             return [
@@ -432,6 +433,7 @@ class AddonDetachCmd(Command):
         "addon_name": {"positional": True},
         "app": {"type": str},  # --app <name>
         "type": {"type": str, "default": "postgres"},  # --type <type>
+        "service_type": {"type": str},  # --service-type <type> (preferred alias)
     }
 
     def _get_connection_details(
@@ -482,7 +484,7 @@ class AddonDetachCmd(Command):
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
         app_name = parsed.get("app")
-        service_type = parsed.get("type", "postgres")
+        service_type = parsed.get("service_type") or parsed.get("type", "postgres")
 
         if not addon_name:
             return [
@@ -550,13 +552,14 @@ class AddonDestroyCmd(Command):
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
         "type": {"type": str, "default": "postgres"},  # --type <type>
+        "service_type": {"type": str},  # --service-type <type> (preferred alias)
     }
 
     def call(self, *args):
         """Destroy a service instance."""
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
-        service_type = parsed.get("type", "postgres")
+        service_type = parsed.get("service_type") or parsed.get("type", "postgres")
 
         if not addon_name:
             return [
@@ -623,13 +626,14 @@ class AddonShowCmd(Command):
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
         "type": {"type": str, "default": "postgres"},  # --type <type>
+        "service_type": {"type": str},  # --service-type <type> (preferred alias)
     }
 
     def call(self, *args):
         """Get service information."""
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
-        service_type = parsed.get("type", "postgres")
+        service_type = parsed.get("service_type") or parsed.get("type", "postgres")
 
         if not addon_name:
             return [

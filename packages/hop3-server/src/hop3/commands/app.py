@@ -761,33 +761,72 @@ class DestroyCmd(Command):
             command_context("destroying app", app_name=app_name),
         ):
             log(f"Destroying app '{app_name}'...", level=2)
+            cleanup_failed = False
 
-            # Stop the app first to release any file locks
-            app.stop()
+            # Stop the app first — release file locks AND reap its processes so a
+            # daemon holding a fixed port can't survive teardown. A stop that
+            # can't fully reap must not block DB teardown: record it and continue
+            # (app.destroy() below reaps again, state-independently).
+            try:
+                app.stop()
+            except Exception as e:
+                cleanup_failed = True
+                log(
+                    f"Stop during destroy was incomplete for '{app_name}': {e}",
+                    level=1,
+                    fg="yellow",
+                )
 
             # Tear down attached addons (DBs, redis slots) while their
             # credentials are still in the DB. Without this, addon resources
             # leak forever and eventually exhaust (e.g. Redis has 15 dbs).
             self._destroy_addons(app)
 
-            # Close the firewall for any fixed ports this app claimed. The
-            # claim rows themselves are removed by the cascade on delete below.
+            # Fully release the app's fixed ports (firewall + registry rows)
+            # BEFORE the fallible filesystem/Docker cleanup, so a stranded claim
+            # can never block a future deploy of that port.
             release_fixed_ports(app, self.db_session)
 
-            # Clean up filesystem (repo, src, logs, configs etc.)
-            app.destroy()
+            # Clean up filesystem (repo, src, logs, configs etc.). Downgrade a
+            # failure to a warning: a busy directory or a Docker hiccup must not
+            # strand the app row and its port-claim/addon rows in the DB (a far
+            # worse leak than a leftover directory — which we log loudly — because
+            # a stranded fixed-port claim blocks every future deploy of that
+            # port). The DB delete + commit below must always run.
+            try:
+                app.destroy()
+            except Exception as e:
+                cleanup_failed = True
+                log(
+                    f"Filesystem/Docker cleanup for '{app_name}' was incomplete: "
+                    f"{e}. Removing the app from the database anyway — inspect for "
+                    f"leftovers manually.",
+                    level=1,
+                    fg="yellow",
+                )
 
-            # Remove from the database
+            # Remove from the database (cascades to any remaining child rows)
             self.db_session.delete(app)
             self.db_session.commit()
 
             # Reload nginx to remove the app's routing configuration
             self._reload_nginx()
 
-        response = build_log_response(
-            captured, [f"App '{app_name}' has been destroyed."]
-        )
-        response.append(summary(f"destroyed {app_name}."))
+        # Be honest in the summary: if filesystem/Docker cleanup failed, the app
+        # is gone from the DB (port freed) but leftovers may remain — say so,
+        # rather than reporting a clean success ("teardown must be verifiable").
+        if cleanup_failed:
+            final_message = (
+                f"App '{app_name}' removed from the database, but filesystem/Docker "
+                f"cleanup was incomplete — inspect for leftovers (see logs above)."
+            )
+            response = build_log_response(captured, [final_message])
+            response.append(summary(f"destroyed {app_name} (with cleanup warnings)."))
+        else:
+            response = build_log_response(
+                captured, [f"App '{app_name}' has been destroyed."]
+            )
+            response.append(summary(f"destroyed {app_name}."))
         return response
 
     def _destroy_addons(self, app) -> None:

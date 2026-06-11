@@ -22,7 +22,7 @@ Note: Run from the hop3 repository root directory.
 
 ## Available Demos
 
-### Basic Deployment (demo01-demo09)
+### Basic Deployment (demo01-demo08)
 
 Demonstrates different builders and languages.
 
@@ -35,8 +35,7 @@ Demonstrates different builders and languages.
 | demo05 | Go with Gin | go |
 | demo06 | Ruby Sinatra | ruby |
 | demo07 | Flask + Gunicorn | python |
-| demo08 | Python Poetry | python |
-| demo09 | Minimal Go (stdlib only) | go |
+| demo08 | Python (PEP-621) | python |
 
 ### Addons & Features (demo10-demo14)
 
@@ -62,20 +61,13 @@ Demonstrates Docker deployments with database addons.
 | demo18 | Docker Node.js | - |
 | demo19 | Docker Go | - |
 
-### Real-World Applications (demo20-demo27)
+### Real-World Applications
 
-Production-ready applications demonstrating Hop3's capabilities.
-
-| Demo | Application | Description | Addons |
-|------|-------------|-------------|--------|
-| demo20 | Umami | Privacy-focused web analytics | PostgreSQL |
-| demo21 | HedgeDoc | Collaborative markdown editor | PostgreSQL |
-| demo22 | Radicale | CalDAV/CardDAV server | - |
-| demo23 | DokuWiki | Simple wiki (file-based) | - |
-| demo24 | Listmonk | Newsletter & mailing list manager | PostgreSQL |
-| demo25 | Filebrowser | Web-based file manager | - |
-| demo26 | Miniflux | RSS/Atom feed reader | PostgreSQL |
-| demo27 | OpenCloud | Cloud storage solution | - |
+Real-world third-party apps (WordPress, Ghost, Matomo, Miniflux, …) now live in
+the **`real-apps` catalog** (`apps/real-apps-*/`), where each is packaged and
+tested in multiple variants with content-checked validations — a better home
+than a one-off demo. The demos here focus on platform *capabilities* (builders,
+addons, features), not on showcasing individual apps.
 
 ### MySQL Addon Demos (demo28+)
 
@@ -84,20 +76,6 @@ Demos using the MySQL addon.
 | Demo | Application | Description | Addons |
 |------|-------------|-------------|--------|
 | demo28 | Page Counter | Simple page view counter (MySQL validation) | MySQL |
-
-### Default Credentials
-
-Applications with web interfaces use these default credentials:
-
-| Demo | Application | Username | Password |
-|------|-------------|----------|----------|
-| demo20 | Umami | admin | umami |
-| demo21 | HedgeDoc | - | (anonymous access) |
-| demo22 | Radicale | demo | demo |
-| demo23 | DokuWiki | - | (no auth for demo) |
-| demo24 | Listmonk | admin | admin123 |
-| demo25 | Filebrowser | admin | admin |
-| demo26 | Miniflux | admin | admin123 |
 
 Use `python -m demos.demo --list` to see all available demos.
 
@@ -243,7 +221,7 @@ demos/
 ├── demo01/             # uWSGI (Flask)
 ├── demo02/             # Docker
 ├── ...
-└── demo26/             # Miniflux (RSS reader)
+└── demoNN/             # (one dir per demo, auto-discovered)
 ```
 
 ## Creating a New Demo

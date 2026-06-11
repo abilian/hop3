@@ -161,6 +161,15 @@ class HopConfig:
         """Email for ACME registration (required for certbot)."""
         return self._config_loader.get_str("ACME_EMAIL", "")
 
+    @property
+    def ACME_SERVER(self) -> str:
+        """ACME directory URL for certbot's --server (empty = certbot default).
+
+        Set to a test ACME server (pebble) or Let's Encrypt staging to exercise
+        real issuance without consuming the production rate limit.
+        """
+        return self._config_loader.get_str("ACME_SERVER", "")
+
     # Derived Paths (Lazy Evaluation)
 
     @property
@@ -330,6 +339,7 @@ UWSGI_LOG_MAXSIZE: str = config.UWSGI_LOG_MAXSIZE
 ACME_ENGINE: str = config.ACME_ENGINE
 ACME_ROOT_CA: str = config.ACME_ROOT_CA
 ACME_EMAIL: str = config.ACME_EMAIL
+ACME_SERVER: str = config.ACME_SERVER
 ACME_WWW: Path = config.ACME_WWW
 
 # Constants
@@ -370,6 +380,7 @@ __all__ = [  # noqa: RUF022
     "ACME_ENGINE",
     "ACME_ROOT_CA",
     "ACME_EMAIL",
+    "ACME_SERVER",
     "ACME_WWW",
     # Constants
     "CRON_REGEXP",

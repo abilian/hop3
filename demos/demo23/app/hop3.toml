@@ -1,6 +1,0 @@
-# Demo 23: DokuWiki
-[metadata]
-name = "demo23"
-
-[build]
-builder = "docker"

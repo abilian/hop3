@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% macro checkgroup(label, field, options, selected) %}
+<div>
+  <div class="text-xs font-medium text-gray-500 mb-1">{{ label }}</div>
+  <div class="flex flex-wrap gap-x-3 gap-y-1">
+    {% for opt in options %}
+    <label class="inline-flex items-center gap-1 text-sm">
+      <input type="checkbox" name="{{ field }}" value="{{ opt }}" {% if opt in selected %}checked{% endif %}>
+      {{ opt }}
+    </label>
+    {% endfor %}
+  </div>
+</div>
+{% endmacro %}
+
+{% macro profile_form(p, valid_tiers, valid_priorities, valid_targets) %}
+<form method="post" action="/profiles/save" class="space-y-3">
+  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="name" value="{{ p.name }}">
+  {{ checkgroup("Tiers", "tiers", valid_tiers, p.tiers) }}
+  {{ checkgroup("Priorities", "priorities", valid_priorities, p.priorities) }}
+  {{ checkgroup("Targets", "targets", valid_targets, p.targets) }}
+  <div class="flex flex-wrap items-end gap-4">
+    <label class="text-sm">
+      <span class="block text-xs font-medium text-gray-500 mb-1">Description</span>
+      <input type="text" name="description" value="{{ p.description }}" class="border rounded px-2 py-1 w-80">
+    </label>
+    <label class="text-sm">
+      <span class="block text-xs font-medium text-gray-500 mb-1">Max duration (min)</span>
+      <input type="number" name="max_duration_minutes" min="1" value="{{ p.max_duration_minutes if p.max_duration_minutes is not none else '' }}" class="border rounded px-2 py-1 w-28">
+    </label>
+    <label class="inline-flex items-center gap-1 text-sm pb-1">
+      <input type="checkbox" name="representative" {% if p.representative %}checked{% endif %}>
+      representative (set-cover subset)
+    </label>
+  </div>
+  <div class="flex items-center gap-3">
+    <button type="submit" class="rounded bg-gray-900 text-white px-3 py-1.5 text-sm hover:bg-gray-700">Save</button>
+  </div>
+</form>
+{% endmacro %}
+
+{% block content %}
+<h1 class="text-xl font-semibold mb-1">Profiles</h1>
+<p class="text-sm text-gray-600 mb-4">
+  Test-execution profiles (modes). Edits apply to every trigger — the dashboard
+  button, the scheduler, and <code class="text-xs">hop3-test --mode &lt;name&gt;</code>.
+  Built-in profiles can be overridden or reset; custom ones can be deleted.
+</p>
+
+{% if flash %}
+<p class="mb-4 rounded px-3 py-2 text-sm {{ 'bg-green-100 text-green-900' if flash[0] == 'ok' else 'bg-amber-100 text-amber-900' }}">
+  {{ flash[1] }}
+</p>
+{% endif %}
+
+<div class="space-y-3">
+  {% for p in profiles %}
+  <details class="border rounded bg-white" {% if not p.builtin %}open{% endif %}>
+    <summary class="cursor-pointer px-3 py-2 flex items-center gap-3 text-sm">
+      <span class="font-mono font-semibold">{{ p.name }}</span>
+      {% if not p.builtin %}
+      <span class="rounded bg-indigo-100 text-indigo-800 px-1.5 py-0.5 text-xs">custom</span>
+      {% elif p.customized %}
+      <span class="rounded bg-amber-100 text-amber-800 px-1.5 py-0.5 text-xs">built-in · overridden</span>
+      {% else %}
+      <span class="rounded bg-gray-100 text-gray-600 px-1.5 py-0.5 text-xs">built-in</span>
+      {% endif %}
+      <span class="text-gray-500 text-xs truncate">
+        {{ p.tiers|join("/") }} · {{ p.priorities|join("/") }} · {{ p.targets|join("/") }}
+        {%- if p.description %} — {{ p.description }}{% endif %}
+      </span>
+    </summary>
+    <div class="px-3 py-3 border-t">
+      {{ profile_form(p, valid_tiers, valid_priorities, valid_targets) }}
+      <div class="mt-3 pt-3 border-t flex items-center gap-3">
+        {% if p.builtin and p.customized %}
+        <form method="post" action="/profiles/reset">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="name" value="{{ p.name }}">
+          <button type="submit" class="text-sm text-amber-700 hover:underline">↺ Reset to built-in default</button>
+        </form>
+        {% elif not p.builtin %}
+        <form method="post" action="/profiles/delete" onsubmit="return confirm('Delete profile {{ p.name }}?')">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="name" value="{{ p.name }}">
+          <button type="submit" class="text-sm text-red-700 hover:underline">🗑 Delete profile</button>
+        </form>
+        {% else %}
+        <span class="text-xs text-gray-400">Built-in default (no overrides).</span>
+        {% endif %}
+      </div>
+    </div>
+  </details>
+  {% endfor %}
+</div>
+
+{# --- Add a new custom profile --- #}
+<h2 class="text-sm font-semibold text-gray-700 mt-8 mb-2">Add a custom profile</h2>
+<div class="border rounded bg-white px-3 py-3">
+  <form method="post" action="/profiles/save" class="space-y-3">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <label class="text-sm block">
+      <span class="block text-xs font-medium text-gray-500 mb-1">Name (lowercase, e.g. <code>smoke</code>)</span>
+      <input type="text" name="name" required pattern="[a-z][a-z0-9-]*" class="border rounded px-2 py-1 w-64">
+    </label>
+    {{ checkgroup("Tiers", "tiers", valid_tiers, ["fast"]) }}
+    {{ checkgroup("Priorities", "priorities", valid_priorities, ["P0"]) }}
+    {{ checkgroup("Targets", "targets", valid_targets, ["docker"]) }}
+    <div class="flex flex-wrap items-end gap-4">
+      <label class="text-sm">
+        <span class="block text-xs font-medium text-gray-500 mb-1">Description</span>
+        <input type="text" name="description" class="border rounded px-2 py-1 w-80">
+      </label>
+      <label class="text-sm">
+        <span class="block text-xs font-medium text-gray-500 mb-1">Max duration (min)</span>
+        <input type="number" name="max_duration_minutes" min="1" class="border rounded px-2 py-1 w-28">
+      </label>
+      <label class="inline-flex items-center gap-1 text-sm pb-1">
+        <input type="checkbox" name="representative"> representative (set-cover subset)
+      </label>
+    </div>
+    <button type="submit" class="rounded bg-gray-900 text-white px-3 py-1.5 text-sm hover:bg-gray-700">Add profile</button>
+  </form>
+</div>
+{% endblock %}

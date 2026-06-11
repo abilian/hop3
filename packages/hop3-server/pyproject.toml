@@ -40,6 +40,8 @@ dependencies = [
     # Config
     "pyyaml>=6.0.3",
     "python-multipart>=0.0.20",
+    # Domain health monitoring (WHOIS registration expiry)
+    "python-whois>=0.9.5",
     # Transitive dependencies
     "anyio",
     # Needed for some reason

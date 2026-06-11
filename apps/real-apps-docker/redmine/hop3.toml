@@ -1,0 +1,31 @@
+# Hop3 Configuration for Redmine (Docker-based)
+# Flexible project management and issue-tracking web application
+
+[metadata]
+id = "redmine"
+version = "5.1.10"
+title = "Redmine"
+description = "Flexible project management and issue-tracking web application"
+homepage = "https://www.redmine.org/"
+license = "GPL-2.0-or-later"
+categories = ["project-management", "issue-tracker", "collaboration"]
+
+[docker]
+port = 3000
+
+[[addons]]
+type = "postgres"
+
+[healthcheck]
+path = "/"
+
+[test]
+priority = "P1"
+tier = "slow"
+targets = ["docker"]
+covers = ["docker", "redmine", "postgres"]
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "Redmine"
