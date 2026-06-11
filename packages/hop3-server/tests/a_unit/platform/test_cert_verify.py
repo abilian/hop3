@@ -18,6 +18,7 @@ from hop3.platform import certificates
 from hop3.platform.certificates import (
     Certificate,
     CertificateError,
+    _cert_dns_names,
     verify_cert,
     write_private_key,
 )
@@ -114,3 +115,41 @@ def test_self_signed_key_is_owner_only(store):
     cert = Certificate("perm.example.com")
     cert.generate_self_signed()
     assert (cert.key_file.stat().st_mode & 0o777) == 0o600
+
+
+def test_self_signed_cert_has_san_and_covers_domain(store):
+    # The real generate_self_signed (multi-component subject) must produce a cert
+    # that satisfies verify_cert. A self-signed cert with no SAN failed to
+    # "cover" its own domain on the target's OpenSSL -> every deploy failed.
+    cert = Certificate("000-static.test.local")
+    cert.generate_self_signed()
+    san = subprocess.run(
+        [
+            "openssl",
+            "x509",
+            "-noout",
+            "-ext",
+            "subjectAltName",
+            "-in",
+            str(cert.crt_file),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert "DNS:000-static.test.local" in san  # SAN present, version-independent
+    assert cert.covers_domain("000-static.test.local") is True
+    verify_cert("000-static.test.local")  # must not raise
+
+
+def test_cert_dns_names_parses_cn_across_openssl_formats():
+    # `openssl x509 -subject` formats the subject differently across versions;
+    # all must yield the CN (the bug: only the compact form was parsed).
+    for subject in (
+        "subject=/C=FR/ST=NA/CN=foo.test.local",  # <3.0 slash form
+        "subject=C = FR, ST = NA, CN = foo.test.local",  # 3.0 spaced form
+        "subject=CN=foo.test.local",  # compact form
+    ):
+        assert "foo.test.local" in _cert_dns_names(subject), subject
+    # SAN DNS entries are collected too (indented in real output).
+    assert "bar.test.local" in _cert_dns_names("    DNS:bar.test.local")

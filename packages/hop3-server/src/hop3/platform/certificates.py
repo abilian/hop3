@@ -260,12 +260,16 @@ class Certificate:
         """Generate a self-signed SSL certificate for the specified domain.
 
         Uses the OpenSSL command-line tool to generate a self-signed
-        certificate with a 4096-bit RSA key, valid for 365 days.
+        certificate with a 4096-bit RSA key, valid for 365 days. A
+        subjectAltName is REQUIRED: modern TLS clients ignore the CN entirely,
+        and verify_cert/covers_domain rely on the SAN's stable ``DNS:`` line
+        (the ``subject=`` line's format varies across OpenSSL versions).
         """
         log("Generating self-signed certificate", level=2)
         cmd = (
             "openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj"
             f' "/C=FR/ST=NA/L=Paris/O=Hop3/OU=Self-Signed/CN={self.domain_name}"'
+            f' -addext "subjectAltName=DNS:{self.domain_name}"'
             f" -keyout {self.key_file} -out {self.crt_file}"
         )
         shell(cmd)
@@ -473,15 +477,21 @@ def verify_cert(domain_name: str) -> None:
 
 
 def _cert_dns_names(openssl_text: str) -> set[str]:
-    """Extract CN + SAN DNS names from `openssl x509 -subject -ext ...` output."""
+    """Extract CN + SAN DNS names from `openssl x509 -subject -ext ...` output.
+
+    Tolerates the several subject formats OpenSSL emits across versions:
+    slash-separated (``/.../CN=x``) and comma-separated, with or without spaces
+    around ``=`` (``CN=x`` or ``CN = x``). Getting this wrong made covers_domain
+    reject self-signed certs on the target's OpenSSL and failed every deploy.
+    """
     names: set[str] = set()
     for raw in openssl_text.splitlines():
         line = raw.strip()
         if line.startswith("subject="):
-            for part in line[len("subject=") :].split(","):
-                part = part.strip()
-                if part.upper().startswith("CN="):
-                    names.add(part[3:].strip().lower())
+            for part in re.split(r"[,/]", line[len("subject=") :]):
+                key, sep, value = part.partition("=")
+                if sep and key.strip().upper() == "CN":
+                    names.add(value.strip().lower())
         elif line.startswith("DNS:"):
             for entry in line.split(","):
                 entry = entry.strip()
