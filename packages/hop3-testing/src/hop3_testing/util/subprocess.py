@@ -6,10 +6,15 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
+import signal
+import subprocess
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from hop3_testing.targets import TargetInfo
 
 
@@ -28,3 +33,69 @@ def build_test_env(target_info: TargetInfo) -> dict[str, str]:
         "HOP3_TEST_PORT": str(target_info.ssh_port),
         "HOP3_TEST_SSH_KEY": target_info.ssh_key or "",
     }
+
+
+def run_captured(
+    cmd: list[str],
+    *,
+    cwd: Path | str | None = None,
+    env: dict[str, str] | None = None,
+    timeout: float,
+) -> subprocess.CompletedProcess[str]:
+    """Like ``subprocess.run(capture_output=True, text=True, timeout=...)`` but
+    kills the child's whole process *group* on timeout before draining output.
+
+    Demo and tutorial runs spawn grandchildren (the ``hop3`` CLI, then ``ssh``)
+    that inherit the captured stdout/stderr pipes. ``subprocess.run`` only kills
+    the direct child on timeout, so a surviving grandchild keeps the pipe's
+    write end open and the post-kill ``communicate()`` blocks forever — the run
+    never returns and the dashboard shows "No logs recorded". Running the child
+    in its own session lets us SIGKILL the entire tree, then drain whatever was
+    buffered before the kill.
+
+    Raises ``subprocess.TimeoutExpired`` with ``output``/``stderr`` populated on
+    timeout, matching ``subprocess.run`` so callers keep a single handler. Does
+    not raise on a non-zero exit (equivalent to ``check=False``).
+    """
+    proc = subprocess.Popen(
+        cmd,
+        cwd=cwd,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,  # own process group, so we can kill the tree
+    )
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_process_group(proc)
+        # The tree is dead now, so the pipes have closed; this drain returns.
+        stdout, stderr = proc.communicate()
+        raise subprocess.TimeoutExpired(
+            cmd, timeout, output=stdout, stderr=stderr
+        ) from None
+    return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
+
+
+def as_text(stream: str | bytes | None) -> str:
+    """Coerce a captured subprocess stream (str / bytes / None) to text.
+
+    ``subprocess.TimeoutExpired.stdout`` is typed loosely (it can be bytes when
+    ``text=False``); this normalises it so timeout handlers can build a log
+    string without tripping the type checker.
+    """
+    if stream is None:
+        return ""
+    if isinstance(stream, bytes):
+        return stream.decode("utf-8", "replace")
+    return stream
+
+
+def _kill_process_group(proc: subprocess.Popen) -> None:
+    """SIGKILL the child's whole process group, falling back to the child."""
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        with contextlib.suppress(ProcessLookupError):
+            proc.kill()

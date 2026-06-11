@@ -168,7 +168,7 @@ class Catalog:
             app_dir = hop3_toml.parent
             if self._has_ignore_ancestor(app_dir, path):
                 continue
-            # Skip internal demo subdirectories (e.g., demos/demo38/app/)
+            # Skip internal demo subdirectories (e.g., demos/demoNN/app/)
             if app_dir in demo_internal_dirs:
                 logger.debug("Skipping internal demo directory: %s", app_dir)
                 continue

@@ -8,7 +8,6 @@ from __future__ import annotations
 import os
 import subprocess
 import time
-import traceback
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -163,6 +162,8 @@ class AppLauncher:
                 fg="green",
             )
         except Exception as e:
+            # Loud failure: surface a broken proxy/cert rather than reporting a
+            # successful deploy with a missing or untrusted certificate.
             log(
                 f"✗ Proxy setup failed for '{self.app_name}': {e}",
                 level=0,
@@ -171,7 +172,7 @@ class AppLauncher:
             server_log.exception(
                 "Proxy setup failed", app_name=self.app_name, error=str(e)
             )
-            traceback.print_exc()
+            raise
 
     def _calculate_worker_changes(self, worker_count: dict) -> tuple[dict, dict]:
         """Calculate which workers to create and destroy based on deltas.

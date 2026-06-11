@@ -1,0 +1,31 @@
+# Hop3 Configuration for Piwigo (Docker-based)
+# Self-hosted photo management and gallery
+
+[metadata]
+id = "piwigo"
+version = "16.1.0"
+title = "Piwigo"
+description = "Self-hosted photo management and gallery software"
+homepage = "https://piwigo.org/"
+license = "GPL-2.0-or-later"
+categories = ["photos", "gallery", "media"]
+
+[docker]
+port = 80
+
+[[addons]]
+type = "mysql"
+
+[healthcheck]
+path = "/"
+
+[test]
+priority = "P1"
+tier = "slow"
+targets = ["docker"]
+covers = ["docker", "piwigo", "mysql"]
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "Piwigo"

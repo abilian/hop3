@@ -46,7 +46,7 @@ elixir --version
 Verify your local setup:
 
 ```bash exec id=check-elixir
-elixir --version 2>&1 | head -2 || echo "Elixir version check"
+elixir --version
 ```
 
 ```output regex
@@ -54,11 +54,11 @@ Elixir|elixir|version
 ```
 
 ```bash exec id=check-mix
-mix --version 2>&1 || echo "Mix version check"
+mix --version
 ```
 
 ```output regex
-Mix [0-9]+\.[0-9]+|Mix version check
+Mix [0-9]+\.[0-9]+
 ```
 
 ## Step 1: Create a New Phoenix Application

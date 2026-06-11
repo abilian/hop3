@@ -16,7 +16,11 @@ from hop3.core.protocols import BaseProxy
 from hop3.di import create_container
 from hop3.lib import command_output, expand_vars, log
 from hop3.lib.util import CommandError, try_commands
-from hop3.platform.certificates import CertificatesManager
+from hop3.platform.certificates import (
+    CertificatesManager,
+    verify_cert,
+    write_private_key,
+)
 
 from ._templates import (
     CADDY_BLOCK_GIT,
@@ -99,8 +103,13 @@ class CaddyVirtualHost(BaseProxy):
             try:
                 certificate_manager = container.get(CertificatesManager)
                 certificate = certificate_manager.get_certificate(domain_name)
-                (CADDY_ROOT / f"{self.app_name}.key").write_text(certificate.get_key())
+                write_private_key(
+                    CADDY_ROOT / f"{self.app_name}.key", certificate.get_key()
+                )
                 (CADDY_ROOT / f"{self.app_name}.crt").write_text(certificate.get_crt())
+                # Same post-condition as nginx: never serve an untrusted/expired
+                # cert for a public domain under a green deploy (the edrix bug).
+                verify_cert(domain_name)
             finally:
                 container.close()
             self.env["HOP3_INTERNAL_CADDY_TLS"] = expand_vars(
@@ -232,10 +241,8 @@ class CaddyVirtualHost(BaseProxy):
     def reload_proxy(self) -> None:
         """Reload caddy to apply configuration changes.
 
-        Attempts to reload caddy using available methods. Silently skips if:
-        - Running in test environment (PYTEST_CURRENT_TEST set)
-        - No reload mechanism is available
-        - Commands fail (logs warning instead of raising)
+        A failed reload is fatal (like nginx): the new routes/cert can't be
+        published, so the deploy must not report success. Skipped only in tests.
         """
         # Skip reload in test environments
         if os.environ.get("PYTEST_CURRENT_TEST"):
@@ -252,11 +259,12 @@ class CaddyVirtualHost(BaseProxy):
             method = try_commands(reload_methods, timeout=5)
             log(f"caddy reloaded via {method}", level=2)
         except CommandError as e:
-            log(
-                f"Warning: could not reload caddy automatically. {e.message}",
-                level=2,
-                fg="yellow",
+            msg = (
+                f"Could not reload caddy: {e.message}. The new configuration / "
+                f"certificate is not live; refusing to report a successful deploy."
             )
+            log(f"✗ {msg}", level=1, fg="red")
+            raise RuntimeError(msg) from e
 
     def setup_cache(self) -> None:
         """Configure Caddy caching for the application.

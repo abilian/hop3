@@ -424,9 +424,9 @@ def _derive_unique_name(app_path: Path) -> str:
 
     For generic directory names like 'app', include parent directory.
     Examples:
-        demos/demo20/app -> demo20-app
+        demos/demo28/app -> demo28-app
         apps/docker-apps/wordpress -> wordpress
-        demos/demo20 -> demo20
+        demos/demo28 -> demo28
     """
     dir_name = app_path.name
 
@@ -617,9 +617,11 @@ def _read_markdown_title(md_path: Path) -> str | None:
 def generate_tutorial_test_definition(md_path: Path) -> TestDefinition:
     """Generate a TestDefinition for a literate tutorial markdown file.
 
-    Tutorials live as ``docs/src/tutorials/<language>/<framework>.md`` and are
-    executed by ``validoc`` (see ``TutorialTestRunner``). The language is taken
-    from the parent directory and the framework from the file stem.
+    Tutorials live as ``docs/tutorials/<language>/<framework>.md`` (the source
+    tree, where the validoc ``bash exec``/``output``/``file`` markers still
+    exist) and are executed by ``validoc`` (see ``TutorialTestRunner``). The
+    language is taken from the parent directory and the framework from the file
+    stem.
 
     Args:
         md_path: Path to the tutorial markdown file.

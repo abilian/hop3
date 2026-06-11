@@ -27,7 +27,11 @@ from hop3.lib.rootd import (
     RootdOpError,
     RootdUnavailableError,
 )
-from hop3.platform.certificates import Certificate, CertificatesManager
+from hop3.platform.certificates import (
+    CertificatesManager,
+    verify_cert,
+    write_private_key,
+)
 
 from ._templates import (
     HOP3_INTERNAL_NGINX_CACHE_MAPPING,
@@ -108,36 +112,25 @@ class NginxVirtualHost(BaseProxy):
     def setup_certificates(self) -> None:
         domain_name = self.env["HOST_NAME"].split()[0]
 
-        # Self-signed for the catch-all name and for static-only apps:
-        # neither has a real public domain, so ACME/certbot would only
-        # fail. Static apps now carry their app name as HOST_NAME (for
-        # per-app routing), not "_", so this static check keeps them off ACME.
-        is_static_only = len(self.workers) == 1 and "static" in self.workers
-        if domain_name == "_" or is_static_only:
-            log(
-                f"Using self-signed certificate for '{domain_name}'",
-                level=2,
-            )
-            self._generate_self_signed_certificate(domain_name)
-            return
-
-        # Create container for this CLI/deployment context
+        # Engine choice (self-signed vs certbot) and the public-FQDN gate live in
+        # select_engine (via get_certificate): the catch-all "_", bare app names,
+        # and any non-public host get self-signed there, while a real public
+        # domain — even on a static or docker app — gets a CA cert. No per-proxy
+        # special-casing, and never a silent self-sign of a public domain.
         container = create_container()
         try:
             certificate_manager = container.get(CertificatesManager)
             certificate = certificate_manager.get_certificate(domain_name)
-            (NGINX_ROOT / f"{self.app_name}.key").write_text(certificate.get_key())
+            write_private_key(
+                NGINX_ROOT / f"{self.app_name}.key", certificate.get_key()
+            )
             (NGINX_ROOT / f"{self.app_name}.crt").write_text(certificate.get_crt())
+            # Post-condition: a bad cert (expired, wrong domain, or silently
+            # self-signed for a public domain) fails the deploy loudly instead
+            # of quietly serving an untrusted/expired cert.
+            verify_cert(domain_name)
         finally:
             container.close()
-
-    def _generate_self_signed_certificate(self, domain_name: str) -> None:
-        """Generate a self-signed certificate and copy to nginx directory."""
-        certificate = Certificate(domain_name=domain_name)
-        if not certificate.crt_file.exists():
-            certificate.generate_self_signed()
-        (NGINX_ROOT / f"{self.app_name}.key").write_text(certificate.get_key())
-        (NGINX_ROOT / f"{self.app_name}.crt").write_text(certificate.get_crt())
 
     def extra_setup(self):
         # Conditionally block .git folders from being served

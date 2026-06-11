@@ -17,7 +17,11 @@ from hop3.core.protocols import BaseProxy
 from hop3.di import create_container
 from hop3.lib import command_output, expand_vars, log
 from hop3.lib.util import CommandError, try_commands
-from hop3.platform.certificates import CertificatesManager
+from hop3.platform.certificates import (
+    CertificatesManager,
+    verify_cert,
+    write_private_key,
+)
 
 from ._templates import (
     HOP3_INTERNAL_TRAEFIK_CACHE_MIDDLEWARE,
@@ -100,12 +104,15 @@ class TraefikVirtualHost(BaseProxy):
             try:
                 certificate_manager = container.get(CertificatesManager)
                 certificate = certificate_manager.get_certificate(domain_name)
-                (TRAEFIK_ROOT / f"{self.app_name}.key").write_text(
-                    certificate.get_key()
+                write_private_key(
+                    TRAEFIK_ROOT / f"{self.app_name}.key", certificate.get_key()
                 )
                 (TRAEFIK_ROOT / f"{self.app_name}.crt").write_text(
                     certificate.get_crt()
                 )
+                # Same post-condition as nginx: never serve an untrusted/expired
+                # cert for a public domain under a green deploy (the edrix bug).
+                verify_cert(domain_name)
             finally:
                 container.close()
             self.env["HOP3_INTERNAL_TRAEFIK_TLS"] = expand_vars(
@@ -195,7 +202,9 @@ class TraefikVirtualHost(BaseProxy):
 
         for idx, (static_url, static_path_) in enumerate(static_paths):
             static_path = str(static_path_)
-            static_index = idx
+            # str: expand_vars feeds substitution values straight into re.sub,
+            # which rejects non-str values with a TypeError.
+            static_index = str(idx)
             log(
                 f"traefik will serve static files from {static_url} -> {static_path}",
                 level=2,
@@ -271,10 +280,11 @@ class TraefikVirtualHost(BaseProxy):
     def reload_proxy(self) -> None:
         """Reload traefik to apply configuration changes.
 
-        Attempts to reload traefik using available methods. Silently skips if:
-        - Running in test environment (PYTEST_CURRENT_TEST set)
-        - No reload mechanism is available
-        - Commands fail (logs warning instead of raising)
+        Unlike nginx/caddy, traefik commonly file-watches its dynamic config and
+        reloads itself, so a failed *explicit* reload is often benign — hence it
+        is surfaced LOUDLY (not silently) rather than raised, to avoid failing
+        legitimate file-watch deploys. (A stricter contract would detect whether
+        the file provider is configured before deciding.) Skipped only in tests.
         """
         # Skip reload in test environments
         if os.environ.get("PYTEST_CURRENT_TEST"):
@@ -289,12 +299,12 @@ class TraefikVirtualHost(BaseProxy):
         try:
             method = try_commands(reload_methods, timeout=5)
             log(f"traefik reloaded via {method}", level=2)
-        except CommandError:
-            # Traefik typically watches config files and reloads automatically
-            # So if the above methods fail, it's likely running in file-watch mode
+        except CommandError as e:
             log(
-                "Note: Traefik may auto-reload config files if file watching is enabled",
-                level=2,
+                f"⚠ Could not explicitly reload traefik ({e.message}); relying on "
+                "its file-watch to apply the new config — verify the app is served.",
+                level=1,
+                fg="yellow",
             )
 
     def setup_cache(self) -> None:
@@ -316,7 +326,9 @@ class TraefikVirtualHost(BaseProxy):
             # Add cache middleware to custom middlewares
             cache_middleware = expand_vars(
                 HOP3_INTERNAL_TRAEFIK_CACHE_MIDDLEWARE,
-                {"cache_time_control": cache_time_control, "APP": self.app_name},
+                # str(): expand_vars feeds substitution values into re.sub,
+                # which rejects the raw int with a TypeError.
+                {"cache_time_control": str(cache_time_control), "APP": self.app_name},
             )
 
             if self.env.get("HOP3_INTERNAL_TRAEFIK_CUSTOM_MIDDLEWARES"):

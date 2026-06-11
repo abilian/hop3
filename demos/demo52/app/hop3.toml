@@ -1,9 +1,0 @@
-# hop3.toml - Native Ruby/Sinatra application
-
-[metadata]
-id = "demo52-native-ruby"
-version = "1.0.0"
-title = "Native Ruby Demo"
-description = "Demonstrates native deployment with Ruby/Sinatra (no Docker)"
-
-# No [build] section - auto-detect from Gemfile

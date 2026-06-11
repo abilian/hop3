@@ -36,11 +36,11 @@ elixir --version
 Verify your local setup:
 
 ```bash
-elixir --version 2>&1 | head -2 || echo "Elixir version check"
+elixir --version
 ```
 
 ```bash
-mix --version 2>&1 || echo "Mix version check"
+mix --version
 ```
 
 ## Step 1: Create a New Phoenix Application

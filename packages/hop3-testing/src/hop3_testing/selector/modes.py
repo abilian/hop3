@@ -2,11 +2,33 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Test execution mode configurations."""
+"""Test execution mode configurations.
+
+The built-in modes in ``MODES`` are the seed defaults. Users can override them
+(or add their own) from the Test Lab UI; those edits persist to a TOML overrides
+file (``$HOP3_TEST_MODES`` → ``~/.hop3/test-modes.toml``) that ``load_modes()``
+overlays on top of the built-ins. Every mode-resolution path goes through
+``load_modes()`` (``get_mode_config`` / ``list_modes``), so an edit applies
+consistently to the web trigger, the scheduler, and the ``hop3-test --mode X``
+subprocess the worker spawns.
+"""
 
 from __future__ import annotations
 
+import logging
+import os
 from dataclasses import dataclass
+from pathlib import Path
+
+import tomlkit
+from tomlkit.exceptions import TOMLKitError
+
+logger = logging.getLogger(__name__)
+
+# Allowed values, exposed so the UI / API can validate edits before saving.
+VALID_TIERS = ("fast", "medium", "slow", "very-slow")
+VALID_PRIORITIES = ("P0", "P1", "P2")
+VALID_TARGETS = ("docker", "remote", "local")
 
 
 @dataclass
@@ -92,11 +114,119 @@ MODES: dict[str, ModeConfig] = {
 }
 
 
+# Built-in mode names: these can be overridden or reset, but never deleted, so
+# `--mode ci` etc. always resolve to something.
+BUILTIN_MODE_NAMES = frozenset(MODES)
+
+
+def _modes_file() -> Path:
+    """Path to the user mode-overrides file ($HOP3_TEST_MODES → ~/.hop3)."""
+    override = os.environ.get("HOP3_TEST_MODES")
+    if override:
+        return Path(override)
+    return Path.home() / ".hop3" / "test-modes.toml"
+
+
+def _mode_from_dict(name: str, data: dict) -> ModeConfig:
+    """Build a ModeConfig from a parsed TOML table (the table key is the name)."""
+    max_duration = data.get("max_duration_minutes")
+    return ModeConfig(
+        name=name,
+        tiers=[str(t) for t in data.get("tiers", [])],
+        priorities=[str(p) for p in data.get("priorities", [])],
+        targets=[str(t) for t in data.get("targets", [])],
+        description=str(data.get("description", "")),
+        max_duration_minutes=int(max_duration) if max_duration is not None else None,
+        representative=bool(data.get("representative")),
+    )
+
+
+def _read_overrides() -> dict[str, ModeConfig]:
+    """Parse the overrides file; a missing/malformed file yields no overrides."""
+    path = _modes_file()
+    if not path.is_file():
+        return {}
+    try:
+        doc = tomlkit.parse(path.read_text(encoding="utf-8"))
+    except (OSError, TOMLKitError) as e:
+        logger.warning("Ignoring malformed test-modes file %s: %s", path, e)
+        return {}
+
+    overrides: dict[str, ModeConfig] = {}
+    for name, data in doc.items():
+        if not isinstance(data, dict):
+            continue  # skip stray top-level scalars/comments
+        try:
+            overrides[name] = _mode_from_dict(name, data)
+        except (TypeError, ValueError) as e:
+            logger.warning("Ignoring bad mode %r in %s: %s", name, path, e)
+    return overrides
+
+
+def _write_overrides(overrides: dict[str, ModeConfig]) -> None:
+    """Persist the overrides dict to the TOML file (one table per mode)."""
+    path = _modes_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    doc = tomlkit.document()
+    doc.add(tomlkit.comment("Hop3 test-mode overrides — managed by the Test Lab UI."))
+    for name in sorted(overrides):
+        cfg = overrides[name]
+        table = tomlkit.table()
+        table["tiers"] = cfg.tiers
+        table["priorities"] = cfg.priorities
+        table["targets"] = cfg.targets
+        table["description"] = cfg.description
+        if cfg.max_duration_minutes is not None:
+            table["max_duration_minutes"] = cfg.max_duration_minutes
+        table["representative"] = cfg.representative
+        doc[name] = table
+    path.write_text(tomlkit.dumps(doc), encoding="utf-8")
+
+
+def load_modes() -> dict[str, ModeConfig]:
+    """Effective modes: built-in defaults overlaid with the user overrides file."""
+    effective = dict(MODES)
+    effective.update(_read_overrides())
+    return effective
+
+
+def customized_mode_names() -> set[str]:
+    """Mode names that currently have an override entry in the file."""
+    return set(_read_overrides())
+
+
+def save_mode(name: str, config: ModeConfig) -> None:
+    """Create or override a mode (built-in or custom), persisting it to the file."""
+    overrides = _read_overrides()
+    overrides[name] = config
+    _write_overrides(overrides)
+
+
+def reset_mode(name: str) -> None:
+    """Drop a built-in mode's override so it reverts to the seed default."""
+    if name not in BUILTIN_MODE_NAMES:
+        msg = f"{name!r} is not a built-in mode; use delete_mode to remove it."
+        raise ValueError(msg)
+    overrides = _read_overrides()
+    if overrides.pop(name, None) is not None:
+        _write_overrides(overrides)
+
+
+def delete_mode(name: str) -> None:
+    """Remove a custom mode entirely (built-ins can only be reset, not deleted)."""
+    if name in BUILTIN_MODE_NAMES:
+        msg = f"Cannot delete built-in mode {name!r}; reset it instead."
+        raise ValueError(msg)
+    overrides = _read_overrides()
+    if overrides.pop(name, None) is not None:
+        _write_overrides(overrides)
+
+
 def get_mode_config(mode: str) -> ModeConfig:
-    """Get configuration for a mode.
+    """Get configuration for a mode (built-in or user-defined).
 
     Args:
-        mode: Mode name (dev, ci, nightly, release, package)
+        mode: Mode name (dev, ci, coverage, nightly, release, or a custom one)
 
     Returns:
         ModeConfig for the requested mode
@@ -104,18 +234,15 @@ def get_mode_config(mode: str) -> ModeConfig:
     Raises:
         ValueError: If mode is not recognized
     """
-    if mode not in MODES:
-        valid_modes = ", ".join(MODES.keys())
+    modes = load_modes()
+    if mode not in modes:
+        valid_modes = ", ".join(sorted(modes))
         msg = f"Unknown mode: {mode}. Valid modes: {valid_modes}"
         raise ValueError(msg)
 
-    return MODES[mode]
+    return modes[mode]
 
 
 def list_modes() -> list[str]:
-    """Get list of available modes.
-
-    Returns:
-        List of mode names
-    """
-    return list(MODES.keys())
+    """Get list of available modes (built-in + user-defined), sorted."""
+    return sorted(load_modes().keys())

@@ -116,12 +116,14 @@ def claim_fixed_ports(
             continue  # already this app's claim (idempotent redeploy)
 
         # The find_active check above handles the normal case with a clear
-        # message. The unique constraint is the race backstop: if a concurrent
-        # deploy claimed the port between the check and our flush, the flush
-        # raises IntegrityError. We abort with a (less specific) diagnosis
-        # WITHOUT re-querying — the session is in a rolled-back state after a
-        # failed flush, so any query on it would itself raise. The deploy then
-        # fails and its caller rolls the session back.
+        # message. The unique constraint is the race backstop: if another deploy
+        # committed the port between our check and our flush — or our read
+        # snapshot was stale (each deploy runs in its own session/connection, and
+        # WAL gives long-lived transactions a fixed snapshot) — the flush raises
+        # IntegrityError. Roll the failed flush back so the session is usable,
+        # then re-read on a fresh snapshot to name the *real* holder (a query on
+        # the poisoned session would itself raise; the bare rollback fixes that).
+        # The deploy aborts regardless — its caller also rolls back.
         db_session.add(
             PortClaim(
                 app_id=app.id, number=number, protocol=protocol, app_name=app.name
@@ -130,7 +132,11 @@ def claim_fixed_ports(
         try:
             db_session.flush()
         except IntegrityError:
-            _abort_conflict(number, protocol, "another app")
+            db_session.rollback()
+            holder = repo.find_active(number, protocol)
+            _abort_conflict(
+                number, protocol, holder.app_name if holder else "another app"
+            )
         log(
             f"Claimed fixed port {number}/{protocol} for '{app.name}'",
             level=2,
@@ -199,11 +205,19 @@ def open_fixed_ports(app: App, db_session: Session | None) -> None:
 
 
 def release_fixed_ports(app: App, db_session: Session | None) -> None:
-    """On teardown, close the firewall for the app's claimed ports.
+    """On teardown, fully release the app's fixed ports: firewall *and* registry.
 
-    Best-effort — never blocks destroy. Removes rules by stored id *and* by the
-    app's name (so a rule whose id never made it back to the DB is still
-    reclaimed). The claim rows are removed by the cascade when the App is deleted.
+    Two steps, in priority order:
+
+    1. **Drop the claim rows** so the host-wide port is free. This is done here —
+       not left to the App-delete cascade — so the port is reclaimed even if a
+       later teardown step (filesystem / Docker cleanup) fails before the App row
+       is deleted. A stranded claim blocks *every* future deploy of that port, so
+       freeing it must not depend on the rest of destroy succeeding. (The caller
+       commits; the cascade on App delete is then just a harmless backstop.)
+    2. **Close the firewall** — best-effort, never blocks destroy. Removes rules
+       by stored id *and* by app name (so a rule whose id never made it back to
+       the DB is still reclaimed).
     """
     if db_session is None:
         return
@@ -212,7 +226,15 @@ def release_fixed_ports(app: App, db_session: Session | None) -> None:
     if not claims:
         return
 
+    # Step 1 — free the registry rows first, so the port is reclaimable even if
+    # the best-effort firewall close below fails (the caller commits the delete).
+    # rule_ids are read off the claim objects before deletion (still in memory).
     rule_ids = {c.rule_id for c in claims if c.rule_id}
+    for claim in claims:
+        db_session.delete(claim)
+    log(f"Released fixed-port claims of '{app.name}'", level=2, fg="blue")
+
+    # Step 2 — close the firewall (best-effort, never blocks destroy).
     try:
         with LocalRootdClient() as client:
             # Also sweep any rule rootd still has for this app (orphan safety).

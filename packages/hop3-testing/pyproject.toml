@@ -37,6 +37,7 @@ dependencies = [
     "rich>=13.0",
     "attrs>=23.0",
     "termcolor>=2.0",
+    "tomlkit>=0.12",
 ]
 
 [project.scripts]

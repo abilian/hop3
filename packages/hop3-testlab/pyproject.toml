@@ -20,6 +20,8 @@ dependencies = [
     "granian[reload]>=2.2.0",
     # In-process nightly scheduler (ADR 044 §10).
     "apscheduler>=3.10,<4",
+    # Renders the narrative run report (markdown -> HTML).
+    "markdown>=3.5",
 ]
 
 [project.scripts]

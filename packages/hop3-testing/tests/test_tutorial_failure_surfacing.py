@@ -29,7 +29,9 @@ if TYPE_CHECKING:
 
 def _tutorial(tmp_path: Path) -> TestDefinition:
     md = tmp_path / "flask.md"
-    md.write_text("# Deploy Flask\n\nSteps...\n")
+    # A real tutorial carries at least one executable validoc block; without
+    # one the runner refuses it as a vacuous pass before validoc ever runs.
+    md.write_text("# Deploy Flask\n\n```bash exec\necho hello\n```\n")
     return TestDefinition(
         name="python/flask",
         tier=Tier.SLOW,
@@ -76,6 +78,65 @@ def test_passing_validoc_is_reported_as_passed(tmp_path, monkeypatch):
 
     assert result.passed is True
     assert result.error is None
+
+
+def test_tutorial_without_executable_blocks_is_reported_as_failed(tmp_path):
+    """A tutorial with no validoc markers must fail, never pass vacuously.
+
+    Regression: the catalog used to scan the *rendered* docs tree
+    (docs/src/tutorials), where the ``bash exec``/``output``/``file`` markers
+    are stripped. validoc then found nothing to run and exited 0, so a broken
+    tutorial was reported as "pass in 0.1s". The runner must refuse a
+    block-less tutorial outright.
+    """
+    md = tmp_path / "starlette.md"
+    md.write_text("# Deploy Starlette\n\nJust prose, no executable blocks.\n")
+    test = TestDefinition(
+        name="python/starlette",
+        tier=Tier.SLOW,
+        priority=Priority.P1,
+        requirements=TestRequirements(),
+        tutorial=TutorialConfig(path="starlette.md", runner="validoc"),
+        source_path=md,
+    )
+
+    result = _runner().run(test)
+
+    assert result.passed is False
+    assert result.error is not None
+    assert "no executable validoc blocks" in result.error
+
+
+def test_failed_tutorial_collects_target_diagnostics(tmp_path, monkeypatch):
+    """A failed tutorial must attach SUT-side diagnostics — at minimum the
+    `hop3 apps` snapshot — so a deploy that timed out isn't a black box of
+    'Command timed out after 120s' with nothing else."""
+    test = _tutorial(tmp_path)
+    test.metadata.framework = "flask"  # -> derived app name hop3-tuto-flask
+
+    class _Target:
+        info = TargetInfo(ssh_host="", ssh_port=22)
+
+        def exec_run(self, _cmd):
+            return (0, "hop3-tuto-flask BUILDING\nother RUNNING", "")
+
+    runner = TutorialTestRunner(cast("Any", _Target()))
+    monkeypatch.setattr(
+        TutorialTestRunner,
+        "_run_validoc",
+        lambda self, path, cwd: {
+            "success": False,
+            "error": "Command timed out after 120s",
+            "logs": "running hop3 deploy...",
+        },
+    )
+
+    result = runner.run(test)
+
+    assert result.passed is False
+    assert "hop3 apps" in result.runtime_logs
+    assert "hop3-tuto-flask BUILDING" in result.runtime_logs  # app stuck mid-build
+    assert result.deployed_app_name == "hop3-tuto-flask"
 
 
 def test_missing_tutorial_file_is_reported_as_failed(tmp_path):

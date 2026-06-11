@@ -53,6 +53,10 @@
                                class="{% if request.url.path.startswith('/dashboard/backups') %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium">
                                 Backups
                             </a>
+                            <a href="/dashboard/certificates"
+                               class="{% if request.url.path.startswith('/dashboard/certificates') %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium">
+                                Certificates
+                            </a>
                         </div>
                     </div>
 
@@ -132,6 +136,10 @@
                     <a href="/dashboard/backups"
                        class="{% if request.url.path.startswith('/dashboard/backups') %}border-blue-500 bg-blue-50 text-blue-700{% else %}border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700{% endif %} block border-l-4 py-2 pl-3 pr-4 text-base font-medium">
                         Backups
+                    </a>
+                    <a href="/dashboard/certificates"
+                       class="{% if request.url.path.startswith('/dashboard/certificates') %}border-blue-500 bg-blue-50 text-blue-700{% else %}border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700{% endif %} block border-l-4 py-2 pl-3 pr-4 text-base font-medium">
+                        Certificates
                     </a>
                 </div>
                 <div class="border-t border-gray-200 pb-3 pt-4">

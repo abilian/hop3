@@ -10,7 +10,10 @@ from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
 from hop3.core.manifest import RuntimeManifestBuilder
 from hop3.core.plugins import get_builder, get_deployer
 from hop3.core.protocols import DeploymentContext
-from hop3.deployers.addon_provisioning import provision_addons
+from hop3.deployers.addon_provisioning import (
+    provision_addons,
+    reinject_attached_addons,
+)
 from hop3.deployers.env_provisioning import set_computed_env_vars, set_default_env_vars
 from hop3.deployers.fixed_ports import claim_fixed_ports, open_fixed_ports
 from hop3.lib import Diagnosis, abort_with_diagnosis, log, log_diagnosis, shell
@@ -582,6 +585,13 @@ def _process_config_dependencies(
             fg="blue",
         )
         provision_addons(app, addon_configs, db_session)
+
+    # Re-derive env from EVERY attached addon (declared above OR attached
+    # manually via `hop3 addon attach`), so DATABASE_URL/REDIS_URL/... are
+    # re-injected from the stored credentials on each deploy and can't silently
+    # go missing on redeploy. Runs unconditionally — a manually-attached addon
+    # leaves no [[addons]] entry, so this is its only re-injection point.
+    reinject_attached_addons(app, db_session)
 
     # Inject env vars from [env] section
     env_config = hop3_config.env

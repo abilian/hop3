@@ -1,6 +1,0 @@
-# Demo 22: Radicale CalDAV/CardDAV Server
-[metadata]
-name = "demo22"
-
-[build]
-builder = "docker"

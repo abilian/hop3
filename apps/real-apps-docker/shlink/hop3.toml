@@ -1,0 +1,33 @@
+# Hop3 Configuration for Shlink (Docker-based)
+# Self-hosted URL shortener with analytics
+
+[metadata]
+id = "shlink"
+version = "4.3.1"
+title = "Shlink URL Shortener"
+description = "Self-hosted URL shortener with a REST API and analytics"
+homepage = "https://shlink.io/"
+license = "MIT"
+categories = ["url-shortener", "productivity", "analytics"]
+
+[docker]
+port = 8080
+
+[healthcheck]
+path = "/rest/health"
+
+[test]
+priority = "P1"
+tier = "slow"
+targets = ["docker"]
+covers = ["docker", "shlink"]
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "Shlink"
+
+[[test.validations]]
+path = "/rest/health"
+status = 200
+contains = "pass"

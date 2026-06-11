@@ -24,11 +24,16 @@ from hop3.core.unsafe_gate import enforce_unsafe_mode_policy
 from hop3.di import create_async_container
 from hop3.orm import get_session_factory
 
+from .cert_renewal_service import (
+    start_cert_renewal_service,
+    stop_cert_renewal_service,
+)
 from .controllers import (
     AddonsController,
     AppsController,
     AuthController,
     BackupsController,
+    CertificatesController,
     DashboardIndexController,
     EnvVarsController,
     LogsController,
@@ -36,6 +41,10 @@ from .controllers import (
     RootController,
     RPCController,
     StreamController,
+)
+from .domain_health_service import (
+    start_domain_health_service,
+    stop_domain_health_service,
 )
 from .health import verify_addon_health
 from .state_sync import start_state_sync_service, stop_state_sync_service
@@ -93,11 +102,17 @@ def on_startup() -> None:
 
     session_factory = get_session_factory()
     start_state_sync_service(session_factory)
+    # In-process TLS renewal (the primary path; `hop3 cert renew` is a fallback).
+    start_cert_renewal_service(session_factory)
+    # Domain registration (WHOIS) + DNS health, surfaced on the dashboard.
+    start_domain_health_service(session_factory)
 
 
 def on_shutdown() -> None:
     """Stop background services when server shuts down."""
     stop_state_sync_service()
+    stop_cert_renewal_service()
+    stop_domain_health_service()
 
 
 def create_app():
@@ -138,6 +153,7 @@ def create_app():
         EnvVarsController,  # Environment variables (/dashboard/apps/*/env)
         AddonsController,  # Addon management (/dashboard/addons/*)
         BackupsController,  # Backup management (/dashboard/backups/*)
+        CertificatesController,  # TLS cert health (/dashboard/certificates)
         MarketplaceController,  # Marketplace UI (/dashboard/marketplace/*)
         static_handler,  # Static files (/static/*)
     ]

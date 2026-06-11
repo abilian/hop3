@@ -156,7 +156,7 @@ quarkus.log.console.format=%d{HH:mm:ss} %-5p [%c{2.}] %s%e%n
 Build the application:
 
 ```bash
-./mvnw package -DskipTests
+mvn package -DskipTests
 ```
 
 ```console
@@ -190,7 +190,7 @@ OK
 ## Step 4: Create Deployment Configuration
 
 ```procfile
-prebuild: ./mvnw package -DskipTests
+prebuild: mvn package -DskipTests
 web: java -jar target/quarkus-app/quarkus-run.jar
 ```
 
@@ -201,7 +201,7 @@ version = "1.0.0"
 title = "My Quarkus Application"
 
 [build]
-before-build = ["./mvnw package -DskipTests"]
+before-build = ["mvn package -DskipTests"]
 packages = ["openjdk-17-jdk", "maven"]
 
 [run]
@@ -314,13 +314,13 @@ hop3 ps scale --app hop3-tuto-quarkus web=2
 ### Native Compilation with GraalVM
 
 ```bash
-./mvnw package -Pnative
+mvn package -Pnative
 ```
 
 Update Procfile for native:
 
 ```procfile
-prebuild: ./mvnw package -Pnative
+prebuild: mvn package -Pnative
 web: ./target/hop3-tuto-quarkus-1.0.0-runner
 ```
 
@@ -329,7 +329,7 @@ web: ./target/hop3-tuto-quarkus-1.0.0-runner
 Add extension:
 
 ```bash
-./mvnw quarkus:add-extension -Dextensions="hibernate-orm-panache,jdbc-postgresql"
+mvn quarkus:add-extension -Dextensions="hibernate-orm-panache,jdbc-postgresql"
 ```
 
 ```java
@@ -358,7 +358,7 @@ id = "hop3-tuto-quarkus"
 version = "1.0.0"
 
 [build]
-before-build = ["./mvnw package -DskipTests"]
+before-build = ["mvn package -DskipTests"]
 
 [run]
 start = "java -Dquarkus.http.port=$PORT -jar target/quarkus-app/quarkus-run.jar"

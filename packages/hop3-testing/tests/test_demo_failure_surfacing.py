@@ -61,7 +61,7 @@ def test_failed_demo_is_reported_as_failed(tmp_path, monkeypatch):
             stderr="boom: deploy failed\n",
         )
 
-    monkeypatch.setattr("hop3_testing.runners.demo.subprocess.run", fake_run)
+    monkeypatch.setattr("hop3_testing.runners.demo.run_captured", fake_run)
 
     result = _runner().run(test)
 
@@ -78,7 +78,7 @@ def test_passing_demo_is_reported_as_passed(tmp_path, monkeypatch):
     def fake_run(cmd, **kwargs):
         return SimpleNamespace(returncode=0, stdout="ok\n", stderr="")
 
-    monkeypatch.setattr("hop3_testing.runners.demo.subprocess.run", fake_run)
+    monkeypatch.setattr("hop3_testing.runners.demo.run_captured", fake_run)
 
     result = _runner().run(test)
 
@@ -94,10 +94,43 @@ def test_demo_timeout_is_reported_as_failed(tmp_path, monkeypatch):
     def fake_run(cmd, **kwargs):
         raise subprocess.TimeoutExpired(cmd, 600)
 
-    monkeypatch.setattr("hop3_testing.runners.demo.subprocess.run", fake_run)
+    monkeypatch.setattr("hop3_testing.runners.demo.run_captured", fake_run)
 
     result = _runner().run(test)
 
     assert result.passed is False
     assert result.error is not None
     assert "timed out" in result.error.lower()
+
+
+def test_demo_timeout_captures_partial_output(tmp_path, monkeypatch):
+    """A hung demo must still surface its partial output, not 'No logs recorded'.
+
+    ``subprocess.run(capture_output=True, timeout=…)`` populates the
+    TimeoutExpired's stdout/stderr with what was captured before the kill; the
+    runner must persist that as the log (this is the dashboard's only window
+    into why a 600s demo hung).
+    """
+    import subprocess  # noqa: PLC0415
+
+    test = _demo_tree(tmp_path)
+
+    def fake_run(cmd, **kwargs):
+        raise subprocess.TimeoutExpired(
+            cmd,
+            600,
+            output="Deploying demoX...\nStep 5: hung here\n",
+            stderr="warn: slow\n",
+        )
+
+    monkeypatch.setattr("hop3_testing.runners.demo.run_captured", fake_run)
+
+    result = _runner().run(test)
+
+    assert result.passed is False
+    assert "timed out" in result.error.lower()
+    # Partial output captured before the kill must be persisted (was lost before).
+    assert "Step 5: hung here" in result.deploy_logs
+    assert "warn: slow" in result.deploy_logs
+    # ...and a tail surfaced in the error message for quick triage.
+    assert "Step 5: hung here" in result.error

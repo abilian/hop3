@@ -34,7 +34,13 @@ def _get_default_scan_paths(root: Path) -> list[str]:
                 paths.append(str(child.relative_to(root)))
     if (root / "demos").is_dir():
         paths.append("demos")
-    if (root / "docs/src/tutorials").is_dir():
+    # Scan the *source* tutorials tree, not the rendered one: validoc executes
+    # the `bash exec`/`output`/`file` markers, which are stripped out of
+    # docs/src/tutorials during the docs build (scanning that yields a vacuous
+    # "0 passed" success). The source lives in docs/tutorials.
+    if (root / "docs/tutorials").is_dir():
+        paths.append("docs/tutorials")
+    elif (root / "docs/src/tutorials").is_dir():
         paths.append("docs/src/tutorials")
     return paths
 

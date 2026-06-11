@@ -1,6 +1,0 @@
-# Demo 25: Filebrowser
-[metadata]
-name = "demo25"
-
-[build]
-builder = "docker"

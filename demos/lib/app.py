@@ -263,7 +263,7 @@ def test_app_via_curl(
     print_step(f"Verifying external access via {app_url}...")
 
     # Extract hostname from URL and use --resolve for DNS resolution
-    # This allows testing with custom hostnames like "demo37.hop"
+    # This allows testing with custom hostnames like "myapp.hop"
     import socket
     from urllib.parse import urlparse
 

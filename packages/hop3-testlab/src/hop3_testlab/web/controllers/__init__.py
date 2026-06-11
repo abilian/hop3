@@ -10,6 +10,7 @@ from .auth import AuthController
 from .builds import BuildController
 from .bundle import BundleController
 from .dashboard import DashboardController, HealthController
+from .profiles import ProfilesController
 from .running import RunningController
 from .runs import RunsController
 from .trends import TrendsController
@@ -20,6 +21,7 @@ __all__ = [
     "BundleController",
     "DashboardController",
     "HealthController",
+    "ProfilesController",
     "RunningController",
     "RunsController",
     "TrendsController",

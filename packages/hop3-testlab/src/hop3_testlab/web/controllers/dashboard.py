@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from dishka import FromDishka  # noqa: TC002 -- runtime: @inject resolves the annotation
 from dishka.integrations.litestar import inject
+from hop3_testing.selector import list_modes
 from litestar import Controller, Request, get
 from litestar.response import Template
 
@@ -78,7 +79,7 @@ class DashboardController(Controller):
                 "title": "Hop3 Test Lab",
                 "runs": rows,
                 "flash": _FLASH.get(flash_key),
-                "modes": ["dev", "ci", "coverage", "nightly", "release"],
+                "modes": list_modes(),
                 "default_mode": schedule.mode,
                 "default_target": schedule.target,
             },
