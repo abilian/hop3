@@ -25,6 +25,7 @@ from hop3.config import (
     NGINX_ROOT,
 )
 from hop3.lib import log
+from hop3.lib.rootd import LocalRootdClient, RootdOpError, RootdUnavailableError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -511,47 +512,26 @@ def _dns_name_matches(cert_name: str, domain: str) -> bool:
 
 
 def reload_nginx() -> None:
-    """Reload nginx to apply configuration changes.
+    """Reload nginx via hop3-rootd to apply configuration changes.
 
-    Tries supervisorctl first (Docker/E2E), then systemctl (systemd).
-    Raises RuntimeError if nginx cannot be reloaded.
+    Reloads through the SAME privileged path as a normal deploy — hop3-rootd's
+    ``nginx.reload`` op (which runs ``systemctl reload nginx`` / ``nginx -s
+    reload``, both validating the config first). The platform grants privilege
+    through hop3-rootd, NOT passwordless sudo, so the old sudo path failed on real
+    servers. Used to publish the temporary ACME-challenge vhost during certbot
+    issuance and to apply renewed certs; raises loudly if nginx cannot be
+    reloaded (a deploy/renewal blocker, never swallowed).
     """
-    # Skip reload in test environments
+    # Skip reload in test environments.
     if os.environ.get("PYTEST_CURRENT_TEST"):
         return
-
-    # Try supervisorctl restart (for Docker/E2E environments)
     try:
-        subprocess.run(
-            ["sudo", "-n", "supervisorctl", "restart", "nginx"],
-            check=True,
-            capture_output=True,
-            timeout=10,
-        )
-        log("nginx reloaded for ACME challenge", level=2)
-        return
-    except Exception:
-        pass
-
-    # Try systemctl reload (for systemd)
-    try:
-        subprocess.run(
-            ["sudo", "-n", "systemctl", "reload", "nginx"],
-            check=True,
-            capture_output=True,
-            timeout=10,
-        )
-        log("nginx reloaded for ACME challenge", level=2)
-        return
-    except Exception:
-        pass
-
-    # If we can't reload nginx, the ACME challenge will fail
-    msg = (
-        "Cannot reload nginx to serve ACME challenge. "
-        "Ensure sudo is configured for passwordless nginx reload."
-    )
-    raise RuntimeError(msg)
+        with LocalRootdClient() as client:
+            client.call("nginx.reload", {})
+    except (RootdUnavailableError, RootdOpError) as e:
+        msg = f"Cannot reload nginx (via hop3-rootd): {e}"
+        raise CertificateError(msg) from e
+    log("nginx reloaded (hop3-rootd)", level=2)
 
 
 def shell(cmd: str | list[str]) -> None:
