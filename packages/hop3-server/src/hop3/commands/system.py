@@ -22,6 +22,7 @@ removed (``ps aux`` of the host was a security smell). See the plan at
 from __future__ import annotations
 
 import importlib.metadata
+import json
 import os
 import pathlib
 import platform
@@ -138,6 +139,75 @@ def _get_uptime() -> str | None:
 def _docker_installed() -> bool:
     """Cheap fact check: is the docker CLI on PATH? No subprocess invocation."""
     return shutil.which("docker") is not None
+
+
+def _read_build_info() -> dict | None:
+    """Read the deploy-provenance manifest written by hop3-deploy/-install.
+
+    Returns the parsed dict, or None when the file is absent or unreadable
+    (e.g. an install that predates build-info, or a hand-rolled deploy).
+    """
+    try:
+        raw = (HOP3_ROOT / "build-info.json").read_text(encoding="utf-8")
+        data = json.loads(raw)
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _commit_from_direct_url() -> tuple[str | None, str | None]:
+    """Fallback provenance: read the commit pip recorded for a git install.
+
+    PEP 610 writes ``direct_url.json`` into the dist-info for ``pip install
+    git+...`` deploys. Returns ``(commit, requested_revision)`` — both None
+    for PyPI/local installs (which carry no VCS info).
+    """
+    try:
+        raw = importlib.metadata.distribution("hop3_server").read_text(
+            "direct_url.json"
+        )
+    except (importlib.metadata.PackageNotFoundError, OSError):
+        return None, None
+    if not raw:
+        return None, None
+    try:
+        vcs = json.loads(raw).get("vcs_info", {})
+    except ValueError:
+        return None, None
+    return vcs.get("commit_id"), vcs.get("requested_revision")
+
+
+def _provenance_lines() -> list[str]:
+    """Build the Commit / Branch / Deploy method / Deployed display lines.
+
+    Prefers the deploy manifest; falls back to pip's recorded git commit;
+    shows ``unknown`` when neither is available (so the field is never silently
+    missing — its absence is itself diagnostic).
+    """
+    info = _read_build_info() or {}
+    commit = info.get("git_commit")
+    branch = info.get("git_branch")
+    dirty = info.get("git_dirty")
+    method = info.get("deploy_method")
+    deployed_at = info.get("deployed_at")
+
+    if not commit:
+        du_commit, du_branch = _commit_from_direct_url()
+        commit = du_commit
+        branch = branch or du_branch
+
+    commit_str = commit or "unknown"
+    if dirty:
+        commit_str += " (dirty)"
+
+    lines = [f"Commit:         {commit_str}"]
+    if branch:
+        lines.append(f"Branch:         {branch}")
+    if method:
+        lines.append(f"Deploy method:  {method}")
+    if deployed_at:
+        lines.append(f"Deployed:       {deployed_at}")
+    return lines
 
 
 #
@@ -488,6 +558,7 @@ class InfoCmd(Command):
 
         lines = [
             f"Version:        {version}",
+            *_provenance_lines(),
             f"Python:         {python_version}",
             f"Platform:       {os_info}",
             f"Hostname:       {hostname}",
