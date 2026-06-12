@@ -81,18 +81,6 @@ def handle_aliases(args: list[str], config: Config, printer: RichPrinter) -> Non
 
 
 def _show_help() -> None:
-    print("""Usage: hop3 aliases
+    from .help_text import ALIASES_HELP  # noqa: PLC0415
 
-List all effective aliases (ADR 036 D9).
-
-Shows each alias's source token, expansion, and origin (built-in, plugin,
-or user). User aliases come from `~/.config/hop3-cli/config.toml` under
-the `[aliases]` section:
-
-    [aliases]
-    pg = "addon postgres"
-    ll = "app list"
-
-Aliases must not collide with built-in or plugin aliases (D9: no shadowing).
-Colliding user aliases are reported at the bottom and skipped at resolution.
-""")
+    print(ALIASES_HELP)

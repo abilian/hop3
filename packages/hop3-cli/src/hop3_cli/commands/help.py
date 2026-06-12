@@ -112,6 +112,37 @@ def emit_status_line(config: Config) -> None:
     print(f"\nActive context: {context_name}      {app_part}", file=sys.stderr)
 
 
+def append_local_commands_full_help(result: list[dict]) -> list[dict]:
+    """Append the full help for client-side (local) commands.
+
+    Used for `hop3 help --all -v`: the server renders the full help for every
+    *server* command, but local commands (init, login, settings, ...) are
+    handled entirely by the CLI and never reach the server. Appending their
+    full help here keeps the aggregated document a complete reference of every
+    command the user can run.
+    """
+    from .local.help_text import LOCAL_COMMAND_HELP  # noqa: PLC0415
+
+    separator = "=" * 72
+    lines = [
+        separator,
+        "",
+        "CLIENT-SIDE (LOCAL) COMMANDS — FULL HELP",
+        "",
+        "These commands run in the CLI itself and are never sent to the server.",
+        "",
+    ]
+    for name in sorted(LOCAL_COMMAND_HELP):
+        lines.append(separator)
+        lines.append("")
+        lines.append(f"hop {name}")
+        lines.append("")
+        lines.append(LOCAL_COMMAND_HELP[name].rstrip())
+        lines.append("")
+
+    return [*result, {"t": "text", "text": "\n".join(lines).rstrip() + "\n"}]
+
+
 def inject_local_commands_into_help(result: list[dict]) -> list[dict]:
     """Inject local CLI commands into the help output from the server.
 
@@ -175,6 +206,11 @@ def _process_help_text_with_local_commands(
     in_commands_section = False
     is_all_commands = False
 
+    # Align injected local commands to the server's name column so the markers
+    # and descriptions line up (the server widths its column to the longest
+    # command name; we mirror that here).
+    name_width = _detect_command_name_width(lines)
+
     # Pre-collect server commands to avoid duplicates
     injected = _collect_server_commands(lines)
 
@@ -191,7 +227,9 @@ def _process_help_text_with_local_commands(
         # Detect leaving commands section
         if in_commands_section and stripped and not line.startswith("  "):
             new_lines.extend(
-                _inject_remaining_commands(local_commands, injected, is_all_commands)
+                _inject_remaining_commands(
+                    local_commands, injected, is_all_commands, name_width
+                )
             )
             in_commands_section = False
 
@@ -201,7 +239,11 @@ def _process_help_text_with_local_commands(
             if current_cmd:
                 new_lines.extend(
                     _inject_commands_before(
-                        current_cmd, local_commands, injected, is_all_commands
+                        current_cmd,
+                        local_commands,
+                        injected,
+                        is_all_commands,
+                        name_width,
                     )
                 )
 
@@ -210,7 +252,7 @@ def _process_help_text_with_local_commands(
     # Handle remaining commands at end of section
     if in_commands_section:
         remaining = _inject_remaining_commands(
-            local_commands, injected, is_all_commands
+            local_commands, injected, is_all_commands, name_width
         )
         if remaining:
             _insert_remaining_at_end(new_lines, remaining)
@@ -218,17 +260,39 @@ def _process_help_text_with_local_commands(
     return "\n".join(new_lines)
 
 
+def _detect_command_name_width(lines: list[str], default: int = 24) -> int:
+    """Infer the server's name-column width from its `--all` command lines.
+
+    Server `--all` lines look like ``  <name padded to W> [marker]  <help>``.
+    The marker is the first ``[`` on the line (command names never contain
+    brackets), so ``W = index_of_first_bracket - 3`` (two leading spaces, the
+    name, then one space). Falls back to ``default`` when no marker line is
+    found (e.g. the bare grouped view, or a server that predates dynamic
+    widths).
+    """
+    for line in lines:
+        if not line.startswith("  "):
+            continue
+        bracket = line.find("[")
+        if bracket > 3:
+            return bracket - 3
+    return default
+
+
 def _inject_remaining_commands(
     local_commands: dict[str, str],
     injected: set[str],
     is_all_commands: bool = False,
+    name_width: int = 24,
 ) -> list[str]:
     """Return all local commands not yet injected."""
     lines = []
     for cmd in sorted(local_commands.keys()):
         if cmd not in injected:
             lines.append(
-                _format_help_command(cmd, local_commands[cmd], is_all_commands)
+                _format_help_command(
+                    cmd, local_commands[cmd], is_all_commands, name_width
+                )
             )
             injected.add(cmd)
     return lines
@@ -250,25 +314,39 @@ def _inject_commands_before(
     local_commands: dict[str, str],
     injected: set[str],
     is_all_commands: bool = False,
+    name_width: int = 24,
 ) -> list[str]:
     """Return local commands that should appear before current_cmd alphabetically."""
     lines = []
     for cmd in sorted(local_commands.keys()):
         if cmd not in injected and cmd < current_cmd:
             lines.append(
-                _format_help_command(cmd, local_commands[cmd], is_all_commands)
+                _format_help_command(
+                    cmd, local_commands[cmd], is_all_commands, name_width
+                )
             )
             injected.add(cmd)
     return lines
 
 
-def _format_help_command(name: str, description: str, wide: bool = False) -> str:
+def _format_help_command(
+    name: str,
+    description: str,
+    wide: bool = False,
+    name_width: int = 24,
+) -> str:
     """Format a command entry for help output.
 
     Args:
         name: Command name
         description: Command description
-        wide: If True, use 24-char width (for --all mode), otherwise 16-char
+        wide: If True, this is the `--all` view: emit the same
+            ``name  [marker]  help`` columns the server uses, tagging local
+            commands with a ``[local]`` marker so they line up with server
+            commands. Otherwise use the narrow grouped-view layout.
+        name_width: Width of the name column in `--all` mode (matched to the
+            server's column so markers align).
     """
-    width = 24 if wide else 16
-    return f"  {name:<{width}} {description}"
+    if wide:
+        return f"  {name:<{name_width}} {'[local]':<10} {description}"
+    return f"  {name:<16} {description}"

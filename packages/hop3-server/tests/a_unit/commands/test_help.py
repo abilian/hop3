@@ -9,6 +9,7 @@ from __future__ import annotations
 import pytest
 
 from hop3.commands.help import HelpCmd, HelpCommandsCmd
+from hop3.lib.console import verbosity_context
 from hop3.lib.scanner import scan_package
 
 
@@ -178,6 +179,42 @@ def test_help_all_shows_all_commands():
         for line in lines
     )
     assert has_subcommands, "Expected subcommands to be shown with --all flag"
+
+
+def test_help_all_flat_hints_at_verbose():
+    """The terse `--all` index points users at the full `--all -v` document."""
+    cmd = HelpCmd()
+    text = cmd.call("--all")[0]["text"]
+    assert "help --all -v" in text
+    # Default (verbosity 1) stays the flat one-line index, not the full doc.
+    assert "FULL HELP" not in text
+
+
+def test_help_all_verbose_aggregates_full_help():
+    """`hop help --all -v` aggregates the full help for every command.
+
+    Verbosity is forwarded by the client and applied as a context (see
+    rpc.call); here we set it directly. The document must contain detailed
+    pages — USAGE/EXAMPLES/SUBCOMMANDS — for many commands, not just a flat
+    list of one-liners.
+    """
+    cmd = HelpCmd()
+    with verbosity_context(2):
+        result = cmd.call("--all")
+
+    assert len(result) == 1
+    text = result[0]["text"]
+
+    assert "ALL COMMANDS — FULL HELP" in text
+    # Detailed pages, repeated across the command set (not a single index).
+    assert text.count("USAGE") > 5
+    assert "SUBCOMMANDS" in text
+    # Namespaced subcommands get their own page with a "Part of:" footer.
+    assert "Part of: hop" in text
+    # Spot-check that specific top-level and namespaced commands are present
+    # as full-help headers.
+    for header in ("hop deploy —", "hop config set —", "hop auth login —"):
+        assert header in text, header
 
 
 def test_help_default_shows_only_top_level():

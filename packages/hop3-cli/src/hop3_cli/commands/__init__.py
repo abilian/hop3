@@ -19,6 +19,7 @@ from .destructive import confirm_destructive_action, is_destructive_command
 from .flags import CliFlags, parse_flags
 from .help import (
     append_feedback_footer,
+    append_local_commands_full_help,
     emit_status_line,
     handle_help_flags,
     inject_local_commands_into_help,
@@ -36,6 +37,7 @@ __all__ = [
     "LOCAL_COMMANDS_INFO",
     "CliFlags",
     "append_feedback_footer",
+    "append_local_commands_full_help",
     "confirm_destructive_action",
     "emit_status_line",
     "generate_archive",

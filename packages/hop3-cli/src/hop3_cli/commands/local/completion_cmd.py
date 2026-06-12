@@ -382,52 +382,9 @@ def handle_completion(args: list[str], config: Config, printer: RichPrinter) -> 
 
 def print_completion_help():
     """Print help for the completion command."""
-    print("""Usage: hop3 completion <shell|option>
+    from .help_text import COMPLETION_HELP  # noqa: PLC0415
 
-Generate shell completion scripts.
-
-Shells:
-  bash      Generate bash completion script
-  zsh       Generate zsh completion script
-  fish      Generate fish completion script
-
-Options:
-  --refresh   Fetch current commands from server and update cache
-  --status    Show cache status (location, age, command count)
-
-Installation:
-
-  Bash (current session):
-    eval "$(hop3 completion bash)"
-
-  Bash (permanent):
-    hop3 completion bash > /etc/bash_completion.d/hop3
-    # Or for user-specific:
-    hop3 completion bash >> ~/.bashrc
-
-  Zsh (current session):
-    eval "$(hop3 completion zsh)"
-
-  Zsh (permanent):
-    hop3 completion zsh > ~/.zsh/completions/_hop3
-    # Make sure ~/.zsh/completions is in your fpath
-
-  Fish:
-    hop3 completion fish > ~/.config/fish/completions/hop3.fish
-
-Keeping Completions Updated:
-
-  The completion scripts read from a local cache file that can be
-  updated from the server. No need to regenerate scripts after refresh:
-
-    hop3 completion --refresh    # Fetch latest commands from server
-    hop3 completion --status     # Check cache status
-
-Examples:
-  hop3 completion bash      # Output bash completion script
-  hop3 completion --refresh # Update command cache from server
-  hop3 completion --status  # Show cache info
-""")
+    print(COMPLETION_HELP)
 
 
 def get_commands() -> list[str]:

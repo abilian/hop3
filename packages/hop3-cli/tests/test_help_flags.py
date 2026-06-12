@@ -7,11 +7,25 @@
 from __future__ import annotations
 
 from hop3_cli.commands.help import (
+    append_local_commands_full_help,
     handle_help_flags,
     inject_local_commands_into_help,
     is_help_command,
 )
 from hop3_cli.main import requires_authentication
+from hop3_cli.rpc.responses import handle_ok_response
+from hop3_cli.ui import RichPrinter
+
+
+class _StubConfig:
+    """Minimal config for the help post-processing path.
+
+    `emit_status_line` returns early when there is no active context, so this
+    only needs to answer the context-name query.
+    """
+
+    def get_current_context_name(self):
+        return None
 
 
 def test_help_flags_basic():
@@ -95,6 +109,70 @@ def test_is_help_command():
     assert is_help_command([]) is False
 
 
+class TestAppendLocalCommandsFullHelp:
+    """Tests for the `hop3 help --all -v` local-command aggregation."""
+
+    def test_appends_full_local_help_block(self):
+        """Full help (not one-liners) for local commands is appended."""
+        result = [{"t": "text", "text": "ALL COMMANDS — FULL HELP\nhop deploy — x"}]
+        out = append_local_commands_full_help(result)
+
+        # Original server document is preserved untouched as the first item.
+        assert out[0] == {
+            "t": "text",
+            "text": "ALL COMMANDS — FULL HELP\nhop deploy — x",
+        }
+
+        text = out[-1]["text"]
+        assert "CLIENT-SIDE (LOCAL) COMMANDS" in text
+        # Full help bodies, not just one-line descriptions.
+        assert "Usage: hop3 init --ssh" in text
+        assert "Usage: hop3 settings" in text
+        assert "Usage: hop3 completion" in text
+        # Every local command with centralized help appears.
+        for name in ("init", "login", "settings", "context", "use", "aliases"):
+            assert f"hop {name}" in text
+
+
+def test_verbose_help_all_appends_full_local_help(capsys):
+    """`hop3 help --all -v` appends full local help, not one-liners."""
+    server_doc = [
+        {"t": "text", "text": "ALL COMMANDS — FULL HELP\nhop deploy — Deploy."}
+    ]
+    printer = RichPrinter(verbose=True)
+
+    handle_ok_response(server_doc, ["help", "--all"], _StubConfig(), printer)
+
+    out = capsys.readouterr().out
+    assert "CLIENT-SIDE (LOCAL) COMMANDS" in out
+    assert "Usage: hop3 init --ssh" in out
+    # Feedback footer (G7) still appended.
+    assert "Report issues:" in out
+
+
+def test_nonverbose_help_all_keeps_oneliner_injection(capsys):
+    """Plain `hop3 help --all` keeps the flat one-liner injection (unchanged)."""
+    server_doc = [
+        {
+            "t": "text",
+            "text": (
+                "USAGE\n  $ hop <command>\n\nALL COMMANDS\n"
+                "  apps             List all applications.\n"
+            ),
+        }
+    ]
+    printer = RichPrinter(verbose=False)
+
+    handle_ok_response(server_doc, ["help", "--all"], _StubConfig(), printer)
+
+    out = capsys.readouterr().out
+    # No full-help appendix in the terse mode.
+    assert "CLIENT-SIDE (LOCAL) COMMANDS" not in out
+    # Local commands still injected as one-liners.
+    assert "init" in out
+    assert "settings" in out
+
+
 class TestInjectLocalCommandsIntoHelp:
     """Tests for inject_local_commands_into_help function."""
 
@@ -143,6 +221,39 @@ class TestInjectLocalCommandsIntoHelp:
 
         # Verify alphabetical order is maintained
         assert commands == sorted(commands)
+
+    def test_all_commands_local_markers_align_with_server(self):
+        """Injected local commands get a [local] marker aligned to the server's.
+
+        The server widths its name column to the longest command name; the
+        client must mirror that width so every marker column lines up.
+        """
+        # Server output with a deliberately long name -> wide name column.
+        server_help = [
+            {
+                "t": "text",
+                "text": (
+                    "ALL COMMANDS\n"
+                    "  admin reencrypt-credentials [admin]    Rewrite credentials.\n"
+                    "  app                         [top]      Manage apps.\n"
+                    "  zzz                         [top]      Last server command.\n"
+                ),
+            }
+        ]
+
+        text = inject_local_commands_into_help(server_help)[0]["text"]
+        lines = [ln for ln in text.split("\n") if "[" in ln and ln.startswith("  ")]
+
+        # Local commands carry a [local] marker.
+        local_lines = [ln for ln in lines if "[local]" in ln]
+        assert local_lines, "expected injected local commands with [local] marker"
+        assert any("init" in ln for ln in local_lines)
+
+        # Every marker starts at the same column (server and local alike).
+        marker_columns = {ln.index("[") for ln in lines}
+        assert len(marker_columns) == 1, (
+            f"markers not aligned; columns seen: {sorted(marker_columns)}"
+        )
 
     def test_empty_result(self):
         """Test with empty result."""

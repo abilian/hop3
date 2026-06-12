@@ -2,14 +2,18 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Help text for local commands."""
+"""Help text for local (client-side) commands.
+
+This module is the single source of truth for the long-form help of every
+command handled by the CLI itself (never sent to the server). Each command's
+handler prints the matching constant for its ``--help`` output, and
+``hop3 help --all -v`` aggregates them all (see
+``hop3_cli.commands.help.append_local_commands_full_help``).
+"""
 
 from __future__ import annotations
 
-
-def print_init_help():
-    """Print help for the init command."""
-    print("""Usage: hop3 init --ssh <user@server> [options]
+INIT_HELP = """Usage: hop3 init --ssh <user@server> [options]
 
 Bootstrap a new Hop3 server with a custom admin user.
 
@@ -35,12 +39,10 @@ Examples:
   # Create admin with custom credentials
   hop3 init --ssh root@my-server.com --context prod \\
     --username myadmin --email admin@company.com
-""")
+"""
 
 
-def print_settings_help():
-    """Print help for the settings command."""
-    print("""Usage: hop3 settings <subcommand> [args]
+SETTINGS_HELP = """Usage: hop3 settings <subcommand> [args]
 
 Manage local CLI settings.
 
@@ -62,12 +64,10 @@ Examples:
   hop3 settings set ssl_cert ~/server.crt  # Trust a specific certificate
   hop3 settings set verify_ssl false       # Disable SSL verification (less secure)
   hop3 settings get server
-""")
+"""
 
 
-def print_login_help():
-    """Print help for the login command."""
-    print("""Usage: hop3 login [options]
+LOGIN_HELP = """Usage: hop3 login [options]
 
 Authenticate to a Hop3 server.
 
@@ -102,12 +102,10 @@ Examples:
 
 Note: With contexts, login is often not needed - auto-auth happens
 automatically when you run commands. See 'hop3 context --help'.
-""")
+"""
 
 
-def print_context_help():
-    """Print help for the context command."""
-    print("""Usage: hop3 context <subcommand> [args]
+CONTEXT_HELP = """Usage: hop3 context <subcommand> [args]
 
 Manage multiple server contexts (similar to kubectl contexts).
 
@@ -163,4 +161,135 @@ Context priority (highest to lowest):
 
 Protected contexts require extra confirmation for destructive operations.
 SSH-based contexts auto-authenticate - no login needed!
-""")
+"""
+
+
+ALIASES_HELP = """Usage: hop3 aliases
+
+List all effective aliases (ADR 036 D9).
+
+Shows each alias's source token, expansion, and origin (built-in, plugin,
+or user). User aliases come from `~/.config/hop3-cli/config.toml` under
+the `[aliases]` section:
+
+    [aliases]
+    pg = "addon postgres"
+    ll = "app list"
+
+Aliases must not collide with built-in or plugin aliases (D9: no shadowing).
+Colliding user aliases are reported at the bottom and skipped at resolution.
+"""
+
+
+COMPLETION_HELP = """Usage: hop3 completion <shell|option>
+
+Generate shell completion scripts.
+
+Shells:
+  bash      Generate bash completion script
+  zsh       Generate zsh completion script
+  fish      Generate fish completion script
+
+Options:
+  --refresh   Fetch current commands from server and update cache
+  --status    Show cache status (location, age, command count)
+
+Installation:
+
+  Bash (current session):
+    eval "$(hop3 completion bash)"
+
+  Bash (permanent):
+    hop3 completion bash > /etc/bash_completion.d/hop3
+    # Or for user-specific:
+    hop3 completion bash >> ~/.bashrc
+
+  Zsh (current session):
+    eval "$(hop3 completion zsh)"
+
+  Zsh (permanent):
+    hop3 completion zsh > ~/.zsh/completions/_hop3
+    # Make sure ~/.zsh/completions is in your fpath
+
+  Fish:
+    hop3 completion fish > ~/.config/fish/completions/hop3.fish
+
+Keeping Completions Updated:
+
+  The completion scripts read from a local cache file that can be
+  updated from the server. No need to regenerate scripts after refresh:
+
+    hop3 completion --refresh    # Fetch latest commands from server
+    hop3 completion --status     # Check cache status
+
+Examples:
+  hop3 completion bash      # Output bash completion script
+  hop3 completion --refresh # Update command cache from server
+  hop3 completion --status  # Show cache info
+"""
+
+
+SERVER_HELP = """Usage: hop3 server <subcommand> [options]
+
+Manage server bindings — the global registry of Hop3 hosts.
+
+Subcommands:
+  list                List configured servers.
+  add <name> --url <u> [--token <t>] [--ssh-user <u>] [--ssh-port <p>]
+                       [--protected]
+                      Register a new server.
+  remove <name>       Drop a server.
+  show <name>         Display a server's details.
+  use <name>          Set the global single-server default.
+  use --default-app <app>
+                      Set the current server's default app
+                      (app-resolution source #8).
+  login <name>        Re-authenticate to a server (token rotation).
+"""
+
+
+USE_HELP = """Usage: hop3 use [app]
+
+Set / show / clear the current context's default app (ADR 036 D7/D8).
+
+Examples:
+  hop3 use myapp        # Set default app for the current context
+  hop3 use              # Show the currently resolved app and its source
+  hop3 use --clear      # Clear the default app for the current context
+"""
+
+
+# Maps each local command name to its long-form help text. Used by
+# `hop3 help --all -v` to aggregate the full client-side help. `auth` is
+# intentionally absent: its real subcommands (auth login/whoami/...) are
+# server-side and already documented in the server portion of the document.
+LOCAL_COMMAND_HELP: dict[str, str] = {
+    "aliases": ALIASES_HELP,
+    "completion": COMPLETION_HELP,
+    "context": CONTEXT_HELP,
+    "init": INIT_HELP,
+    "login": LOGIN_HELP,
+    "server": SERVER_HELP,
+    "settings": SETTINGS_HELP,
+    "use": USE_HELP,
+}
+
+
+def print_init_help() -> None:
+    """Print help for the init command."""
+    print(INIT_HELP)
+
+
+def print_settings_help() -> None:
+    """Print help for the settings command."""
+    print(SETTINGS_HELP)
+
+
+def print_login_help() -> None:
+    """Print help for the login command."""
+    print(LOGIN_HELP)
+
+
+def print_context_help() -> None:
+    """Print help for the context command."""
+    print(CONTEXT_HELP)

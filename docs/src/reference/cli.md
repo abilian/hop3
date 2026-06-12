@@ -1873,6 +1873,8 @@ Display help information.
 **Usage:**
 ```bash
 hop3 help [command]
+hop3 help --all          # Flat index of every command, with markers
+hop3 help --all -v       # Full help for every command, aggregated
 ```
 
 **Examples:**
@@ -1883,6 +1885,15 @@ hop3 help
 # Help for specific command
 hop3 help deploy
 hop3 help backup create
+
+# Flat alphabetical index of every command (top-level + namespaced)
+hop3 help --all
+
+# One long document aggregating the full help for every command,
+# recursively (server commands + client-side local commands). Handy for
+# piping to a file or a pager:
+hop3 help --all -v | less
+hop3 help --all --verbose > hop3-commands.txt
 ```
 
 ---
