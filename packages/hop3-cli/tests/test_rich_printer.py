@@ -41,6 +41,35 @@ def test_rich_printer_print_text_normal():
     assert "Hello, world!" in output
 
 
+def test_rich_printer_print_text_preserves_square_brackets():
+    """Plain text with square brackets must print literally (not as Rich markup).
+
+    Help output uses literal brackets the user must see: the ``[top]`` /
+    ``[addon]`` markers in ``hop help --all`` and ``[options]`` / ``[aliases]``
+    / ``[current]`` in command help. Rich's markup parser would otherwise treat
+    these as style tags and strip them.
+    """
+    printer = RichPrinter()
+
+    stdout_capture = StringIO()
+    with patch.object(sys, "stdout", stdout_capture):
+        printer.print([
+            {
+                "t": "text",
+                "text": (
+                    "  addon attach    [addon]   Attach a service.\n"
+                    "Add it under the [aliases] section.\n"
+                    "  3. .hop3-local.toml [current].context"
+                ),
+            }
+        ])
+
+    output = stdout_capture.getvalue()
+    assert "[addon]" in output
+    assert "[aliases]" in output
+    assert "[current]" in output
+
+
 def test_rich_printer_print_text_quiet():
     """Test that quiet mode suppresses text output."""
     printer = RichPrinter(quiet=True)

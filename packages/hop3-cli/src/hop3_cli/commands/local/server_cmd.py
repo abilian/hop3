@@ -91,22 +91,9 @@ def handle_server(args: list[str], config: Config, printer: RichPrinter) -> None
 
 
 def _print_server_help() -> None:
-    print("Usage: hop3 server <subcommand> [options]")
-    print()
-    print("Manage server bindings — the global registry of Hop3 hosts.")
-    print()
-    print("Subcommands:")
-    print("  list                List configured servers.")
-    print("  add <name> --url <u> [--token <t>] [--ssh-user <u>] [--ssh-port <p>]")
-    print("                       [--protected]")
-    print("                      Register a new server.")
-    print("  remove <name>       Drop a server.")
-    print("  show <name>         Display a server's details.")
-    print("  use <name>          Set the global single-server default.")
-    print("  use --default-app <app>")
-    print("                      Set the current server's default app")
-    print("                      (app-resolution source #8).")
-    print("  login <name>        Re-authenticate to a server (token rotation).")
+    from .help_text import SERVER_HELP  # noqa: PLC0415
+
+    print(SERVER_HELP)
 
 
 def _server_bare(config: Config) -> None:

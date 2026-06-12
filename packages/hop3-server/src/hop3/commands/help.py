@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from hop3.lib.console import get_verbosity
 from hop3.lib.registry import lookup, register
 
 from ._base import Command
@@ -80,6 +81,7 @@ class HelpCmd(Command):
         hop help <command>        Show detailed help for a command
         hop help <ns> <verb>      Show detailed help for a namespaced command
         hop help --all            Show all commands flat with markers
+        hop help --all -v         Show the full help for every command
 
     Examples:
         hop help auth             Show auth command help and its subcommands
@@ -101,6 +103,11 @@ class HelpCmd(Command):
             return self._detailed_help(tuple(arg_list))
 
         if show_all:
+            # `--all -v` (verbosity is forwarded from the client and applied as
+            # a context; see rpc.call) aggregates the full help for every
+            # command. Plain `--all` keeps the terse flat index (ADR 036).
+            if get_verbosity() >= 2:
+                return self._show_all_commands_verbose()
             return self._show_all_commands()
         return self._show_top_level_commands()
 
@@ -154,18 +161,54 @@ class HelpCmd(Command):
             "ALL COMMANDS",
         ]
 
-        commands = lookup(Command)
+        commands = [cmd for cmd in lookup(Command) if not getattr(cmd, "hidden", False)]
         commands.sort(key=lambda cmd: cmd.name)
+
+        # Width the name column to the longest command name so the marker
+        # column lines up even for long names (e.g. "admin
+        # reencrypt-credentials"). The client aligns its injected local
+        # commands to the same columns (see hop3_cli.commands.help).
+        name_width = max((len(" ".join(cmd.name)) for cmd in commands), default=22)
         for cmd in commands:
-            if getattr(cmd, "hidden", False):
-                continue
             display = " ".join(cmd.name)
             help_text = self._get_short_help(cmd.__doc__)
             marker = "[top]" if len(cmd.name) == 1 else f"[{cmd.name[0]}]"
-            # 24-char name column, 8-char marker column.
-            output.append(f"  {display:<24} {marker:<10} {help_text}")
+            output.append(f"  {display:<{name_width}} {marker:<10} {help_text}")
 
+        output.append("")
+        output.append(
+            "Use 'hop help --all -v' to print the full help for every command."
+        )
         return [text("\n".join(output))]
+
+    def _show_all_commands_verbose(self):
+        """Aggregate the full detailed help for every command, recursively.
+
+        `hop help --all -v` renders, for each non-hidden command (top-level and
+        namespaced), the same D11 page produced by `hop help <command>`, joined
+        with separators. This is the long "manual" view of the whole CLI.
+        """
+        all_commands = lookup(Command)
+        visible = sorted(
+            (cmd for cmd in all_commands if not getattr(cmd, "hidden", False)),
+            key=lambda cmd: cmd.name,
+        )
+
+        separator = "=" * 72
+        output = [
+            "ALL COMMANDS — FULL HELP",
+            "",
+            f"Full help for every command ({len(visible)} total), recursively.",
+            "Use 'hop help <command>' to view a single entry.",
+            "",
+        ]
+        for cmd in visible:
+            output.append(separator)
+            output.append("")
+            output.extend(self._render_command_block(all_commands, cmd, cmd.name))
+            output.append("")
+
+        return [text("\n".join(output).rstrip() + "\n")]
 
     def _detailed_help(self, command_name: tuple[str, ...]):
         """Show detailed help for a specific command, in D11 section order.
@@ -185,16 +228,32 @@ class HelpCmd(Command):
             ]
 
         cmd = commands[matched]
-        display = " ".join(matched)
+        output = self._render_command_block(all_commands, cmd, matched)
+        return [text("\n".join(output))]
+
+    def _render_command_block(
+        self,
+        all_commands: list[type[Command]],
+        cmd: type[Command],
+        display_name: tuple[str, ...],
+    ) -> list[str]:
+        """Render one command's D11 help page as a list of lines.
+
+        Shared by `_detailed_help` (single command) and
+        `_show_all_commands_verbose` (every command) so the two stay in sync.
+        """
+        display = " ".join(display_name)
         sections = _parse_docstring_sections(cmd.__doc__)
         output = _render_detailed_help(display, sections)
-        output.extend(_render_subcommands(all_commands, matched, self._get_short_help))
+        output.extend(
+            _render_subcommands(all_commands, display_name, self._get_short_help)
+        )
 
         # "Part of:" line for namespaced commands.
-        if len(matched) > 1:
-            output.append(f"Part of: hop {matched[0]} namespace.")
+        if len(display_name) > 1:
+            output.append(f"Part of: hop {display_name[0]} namespace.")
 
-        return [text("\n".join(output))]
+        return output
 
     # Kept as a static method so tests using HelpCmd._get_short_help(...) still work.
     _get_short_help = staticmethod(_short_help)

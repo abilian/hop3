@@ -15,6 +15,7 @@ from jsonrpcclient import Error, Ok
 
 from hop3_cli.commands.help import (
     append_feedback_footer,
+    append_local_commands_full_help,
     emit_status_line,
     inject_local_commands_into_help,
     is_help_command,
@@ -89,7 +90,15 @@ def handle_ok_response(
         # ADR 036 D11: bare `hop3 help` gets local commands injected, then the
         # feedback-link footer (G7), and a dynamic context/app status line
         # emitted separately to stderr (D19).
-        result = inject_local_commands_into_help(result)
+        #
+        # `hop3 help --all -v` is the full-document variant: the server already
+        # rendered the full help for every server command, so instead of
+        # injecting local one-liners we append the *full* help for local
+        # commands, keeping the document a complete reference.
+        if printer.verbose and cli_args == ["help", "--all"]:
+            result = append_local_commands_full_help(result)
+        else:
+            result = inject_local_commands_into_help(result)
         result = append_feedback_footer(result)
         printer.print(result)
         emit_status_line(config)

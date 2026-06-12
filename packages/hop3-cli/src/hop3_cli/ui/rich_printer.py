@@ -119,7 +119,15 @@ class RichPrinter:
         self.console.print(table)
 
     def print_text(self, obj: dict) -> None:
-        """Print plain text."""
+        """Print plain text.
+
+        ``markup=False`` is essential: server text is literal and routinely
+        contains square brackets that are NOT Rich markup — e.g. the
+        ``[top]`` / ``[addon]`` markers in ``hop help --all`` and ``[options]``
+        / ``[aliases]`` / ``[current]`` in command help. With markup enabled
+        Rich would parse those as style tags and silently strip them, mangling
+        the output.
+        """
         if self.quiet:
             return
 
@@ -128,7 +136,7 @@ class RichPrinter:
             return
 
         text = obj.get("text", "")
-        self.console.print(text)
+        self.console.print(text, markup=False, highlight=False)
 
     def print_error(self, obj: dict) -> None:
         """Print error messages in red."""

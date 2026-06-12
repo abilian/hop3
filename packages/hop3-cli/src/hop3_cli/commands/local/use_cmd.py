@@ -52,15 +52,9 @@ def handle_use(args: list[str], config: Config, printer: RichPrinter) -> None:
 
 
 def _show_help() -> None:
-    print("""Usage: hop3 use [app]
+    from .help_text import USE_HELP  # noqa: PLC0415
 
-Set / show / clear the current context's default app (ADR 036 D7/D8).
-
-Examples:
-  hop3 use myapp        # Set default app for the current context
-  hop3 use              # Show the currently resolved app and its source
-  hop3 use --clear      # Clear the default app for the current context
-""")
+    print(USE_HELP)
 
 
 def _set(app: str, config: Config) -> None:
