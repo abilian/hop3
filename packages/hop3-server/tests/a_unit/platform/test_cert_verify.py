@@ -14,6 +14,7 @@ import subprocess
 
 import pytest
 
+from hop3.lib.rootd import RootdUnavailableError
 from hop3.platform import certificates
 from hop3.platform.certificates import (
     Certificate,
@@ -22,6 +23,27 @@ from hop3.platform.certificates import (
     verify_cert,
     write_private_key,
 )
+
+
+class _FakeRootdClient:
+    """Stub LocalRootdClient context manager recording the ops it's asked to run."""
+
+    calls: list[str] = []  # noqa: RUF012
+
+    def __init__(self, *, fail: Exception | None = None):
+        self.fail = fail
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_a):
+        return False
+
+    def call(self, op, _args=None):
+        if self.fail:
+            raise self.fail
+        type(self).calls.append(op)
+        return {}
 
 
 def _make(store_dir, name: str, *, cn: str, days: int = 90, sans=()):
@@ -153,3 +175,24 @@ def test_cert_dns_names_parses_cn_across_openssl_formats():
         assert "foo.test.local" in _cert_dns_names(subject), subject
     # SAN DNS entries are collected too (indented in real output).
     assert "bar.test.local" in _cert_dns_names("    DNS:bar.test.local")
+
+
+def test_reload_nginx_uses_rootd_not_sudo(monkeypatch):
+    # The platform reloads nginx via hop3-rootd, never passwordless sudo (which
+    # real servers don't grant). Drop the pytest short-circuit to run the path.
+    _FakeRootdClient.calls = []
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.setattr(certificates, "LocalRootdClient", _FakeRootdClient)
+    certificates.reload_nginx()
+    assert _FakeRootdClient.calls == ["nginx.reload"]
+
+
+def test_reload_nginx_raises_loudly_when_rootd_unavailable(monkeypatch):
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.setattr(
+        certificates,
+        "LocalRootdClient",
+        lambda: _FakeRootdClient(fail=RootdUnavailableError("rootd socket missing")),
+    )
+    with pytest.raises(CertificateError, match="reload nginx"):
+        certificates.reload_nginx()
