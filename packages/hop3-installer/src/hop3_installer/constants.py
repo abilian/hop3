@@ -26,6 +26,10 @@ HOP3_USER = "hop3"
 HOP3_GROUP = "hop3"
 HOME_DIR = Path("/home") / HOP3_USER
 VENV_DIR = HOME_DIR / "venv"
+
+# Deploy-time provenance manifest. Written by the installer / deployer and
+# read by ``hop3 system info`` to report the exact deployed commit/branch.
+BUILD_INFO_PATH = HOME_DIR / "build-info.json"
 NGINX_DIR = HOME_DIR / "nginx"
 HOP3_SSL_DIR = HOME_DIR / "ssl"  # Per-domain SSL certs
 
