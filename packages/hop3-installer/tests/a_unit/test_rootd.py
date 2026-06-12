@@ -82,3 +82,19 @@ def test_service_template_is_minimal_pending_v06_hardening() -> None:
         "MemoryDenyWriteExecute=",
     ):
         assert breaking not in rendered, f"{breaking} re-added without v0.6 review"
+
+
+# ---- docker (supervisor) launch ------------------------------------------
+
+
+def test_docker_supervisor_config_launches_rootd() -> None:
+    """rootd must be launched in the Docker deploy too (no systemd as PID 1, so
+    supervisor is the process manager). Omitting it meant the rootd socket never
+    appeared and EVERY app deploy's proxy reload failed with 'hop3-rootd is not
+    reachable' -- the c_e2e regression this guards against."""
+    from hop3_installer.deployer.backends.docker import (  # noqa: PLC0415
+        SUPERVISOR_CONFIG,
+    )
+
+    assert "[program:hop3-rootd]" in SUPERVISOR_CONFIG
+    assert "hop3-rootd --socket-path /run/hop3-rootd/socket" in SUPERVISOR_CONFIG
