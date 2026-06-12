@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import grp
+import json
 import os
 import pwd
 import shlex
@@ -16,11 +17,13 @@ from pathlib import Path
 from hop3_installer.common import (
     CommandError,
     Spinner,
+    make_build_info,
     print_info,
     print_success,
     print_warning,
 )
 from hop3_installer.constants import (
+    BUILD_INFO_PATH,
     GIT_REPO,
     HOP3_GROUP,
     HOP3_USER,
@@ -108,6 +111,70 @@ def install_package(config: ServerInstallerConfig) -> None:
     print_success("hop3-server installed successfully")
 
     install_rootd_package(config)
+
+    write_build_info(config)
+
+
+def write_build_info(config: ServerInstallerConfig) -> None:
+    """Record deploy provenance to ``BUILD_INFO_PATH`` (read by `system info`).
+
+    Best-effort: a failure here must never abort an otherwise-good install.
+    For git installs the commit comes from pip's ``direct_url.json`` (PEP 610);
+    local/PyPI installs record only the method and version (the developer-side
+    ``hop3-deploy`` fills in the commit for ``--local`` deploys).
+    """
+    try:
+        if config.local_path:
+            method = "local"
+        elif config.use_git:
+            method = "git"
+        elif config.version:
+            method = "pypi"
+        else:
+            method = "pypi-latest"
+
+        info = make_build_info(
+            deploy_method=method,
+            version=_installed_version(),
+            deployed_by="hop3-install",
+            git_commit=_git_commit_from_direct_url() if config.use_git else None,
+            git_branch=config.branch if config.use_git else None,
+        )
+        BUILD_INFO_PATH.write_text(json.dumps(info, indent=2) + "\n")
+        _chown_hop3(BUILD_INFO_PATH)
+        print_info(f"Recorded build info to {BUILD_INFO_PATH}")
+    except Exception as e:
+        # Provenance is non-critical: never fail an otherwise-good install.
+        print_warning(f"Could not write build info: {e}")
+
+
+def _installed_version() -> str | None:
+    """Return the hop3-server version as installed in the venv."""
+    code = "import importlib.metadata as m; print(m.version('hop3_server'))"
+    result = run_as_hop3(f'{VENV_DIR}/bin/python -c "{code}"')
+    version = (result.stdout or "").strip()
+    return version or None
+
+
+def _git_commit_from_direct_url() -> str | None:
+    """Read the git commit pip recorded for a ``git+...`` install (PEP 610)."""
+    for site in (VENV_DIR / "lib").glob("python*/site-packages"):
+        for path in site.glob("hop3_server-*.dist-info/direct_url.json"):
+            try:
+                data = json.loads(path.read_text())
+            except (OSError, ValueError):
+                continue
+            commit = data.get("vcs_info", {}).get("commit_id")
+            if commit:
+                return commit
+    return None
+
+
+def _chown_hop3(path: Path) -> None:
+    """Give a file to the hop3 user/group so the server can read it."""
+    uid = pwd.getpwnam(HOP3_USER).pw_uid
+    gid = grp.getgrnam(HOP3_GROUP).gr_gid
+    os.chown(path, uid, gid)
 
 
 def install_rootd_package(config: ServerInstallerConfig) -> None:

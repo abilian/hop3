@@ -13,6 +13,7 @@ All code uses only the Python standard library.
 
 from __future__ import annotations
 
+import datetime
 import itertools
 import os
 import re
@@ -632,3 +633,78 @@ def create_symlink(source: Path, target: Path) -> bool:
         return True
     except OSError:
         return False
+
+
+# =============================================================================
+# Build provenance (deploy-time manifest)
+# =============================================================================
+
+
+def collect_git_provenance(repo_dir: Path) -> dict:
+    """Collect git commit / branch / dirty state for a working tree.
+
+    Runs git inside ``repo_dir`` (git searches upward for the repo root, so a
+    package subdirectory works). Returns a dict with keys ``git_commit``,
+    ``git_branch`` and ``git_dirty`` — any of which may be None when git is
+    unavailable or the directory isn't a checkout.
+    """
+
+    def _git(*args: str) -> tuple[int, str]:
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(repo_dir), *args],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return 1, ""
+        return result.returncode, result.stdout.strip()
+
+    commit_rc, commit = _git("rev-parse", "HEAD")
+    _, branch = _git("rev-parse", "--abbrev-ref", "HEAD")
+
+    dirty: bool | None = None
+    if commit_rc == 0:
+        status_rc, status = _git("status", "--porcelain")
+        if status_rc == 0:
+            # Empty output == clean; any line == dirty.
+            dirty = bool(status)
+
+    return {
+        "git_commit": commit or None if commit_rc == 0 else None,
+        "git_branch": branch or None,
+        "git_dirty": dirty,
+    }
+
+
+def make_build_info(
+    *,
+    deploy_method: str,
+    version: str | None,
+    deployed_by: str,
+    git_commit: str | None = None,
+    git_branch: str | None = None,
+    git_dirty: bool | None = None,
+) -> dict:
+    """Build the deploy-provenance manifest written to ``BUILD_INFO_PATH``.
+
+    A single schema so the installer and the deployer agree on keys and
+    ``hop3 system info`` can read either's output. ``deployed_by`` records
+    which tool wrote it (``hop3-deploy`` / ``hop3-install``).
+    """
+    return {
+        "version": version,
+        "deploy_method": deploy_method,
+        "git_commit": git_commit,
+        "git_branch": git_branch,
+        "git_dirty": git_dirty,
+        "deployed_by": deployed_by,
+        # Module-qualified: the single-file bundler rewrites
+        # ``from datetime import datetime`` to ``import datetime``, so the bare
+        # name would resolve to the module in the bundled installer.
+        "deployed_at": datetime.datetime.now(datetime.timezone.utc).isoformat(
+            timespec="seconds"
+        ),
+    }

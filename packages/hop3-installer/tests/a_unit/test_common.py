@@ -17,6 +17,7 @@ from hop3_installer.common import (
     Spinner,
     check_python_version,
     cmd_exists,
+    collect_git_provenance,
     detect_distro,
     env_bool,
     env_list,
@@ -24,6 +25,7 @@ from hop3_installer.common import (
     env_str,
     find_project_root,
     get_current_shell,
+    make_build_info,
     print_detail,
     print_error,
     print_header,
@@ -661,3 +663,56 @@ class TestCommandErrorRedaction:
         # interactively and isn't the leak vector.
         assert "-p" in str(err)
         assert "***REDACTED***" not in str(err)
+
+
+class TestBuildProvenance:
+    """Tests for the deploy-provenance manifest helpers."""
+
+    def test_make_build_info_schema(self):
+        info = make_build_info(
+            deploy_method="local",
+            version="0.5.0",
+            deployed_by="hop3-deploy",
+            git_commit="abc123",
+            git_branch="main",
+            git_dirty=False,
+        )
+        assert set(info) == {
+            "version",
+            "deploy_method",
+            "git_commit",
+            "git_branch",
+            "git_dirty",
+            "deployed_by",
+            "deployed_at",
+        }
+        assert info["deploy_method"] == "local"
+        assert info["git_commit"] == "abc123"
+        assert info["deployed_by"] == "hop3-deploy"
+        # deployed_at is an ISO-8601 UTC timestamp.
+        assert info["deployed_at"].endswith("+00:00")
+
+    def test_make_build_info_defaults_git_fields_none(self):
+        info = make_build_info(
+            deploy_method="pypi", version="0.5.0", deployed_by="hop3-install"
+        )
+        assert info["git_commit"] is None
+        assert info["git_branch"] is None
+        assert info["git_dirty"] is None
+
+    def test_collect_git_provenance_reads_real_repo(self):
+        """In this checkout, provenance reports a commit and branch."""
+        prov = collect_git_provenance(Path(__file__).parent)
+        assert set(prov) == {"git_commit", "git_branch", "git_dirty"}
+        # We're inside a git checkout, so a commit is resolvable.
+        assert prov["git_commit"]
+        assert len(prov["git_commit"]) == 40  # full SHA-1
+        assert isinstance(prov["git_dirty"], bool)
+
+    def test_collect_git_provenance_non_repo_is_all_none(self, tmp_path):
+        prov = collect_git_provenance(tmp_path)
+        assert prov == {
+            "git_commit": None,
+            "git_branch": None,
+            "git_dirty": None,
+        }
