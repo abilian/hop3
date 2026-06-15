@@ -311,6 +311,16 @@ class App(BigIntAuditBase):
         return self.app_path / "data"
 
     @property
+    def volumes_path(self) -> Path:
+        """Root of the app's persistent volumes (ADR 046 §2).
+
+        Each declared ``[[volumes]]`` entry stores its data under
+        ``volumes_path / <name>`` — outside ``src/`` so it survives the
+        source-replacing redeploy.
+        """
+        return self.app_path / "volumes"
+
+    @property
     def log_path(self) -> Path:
         """Path to the log directory of the app."""
         return self.app_path / "log"
@@ -360,14 +370,18 @@ class App(BigIntAuditBase):
         do_deploy(self)
 
     def destroy(self) -> None:
-        """Remove various application-related files and directories, except for
-        data.
+        """Completely remove the application and all of its data.
 
-        This deletes the application directory, repository directory,
-        virtual environment, and log files associated with the
-        application. It also removes UWSGI and NGINX configuration files
-        and sockets. However, it preserves the application's data
-        directory.
+        This is a full teardown (per the platform rule that destroy must leave
+        no leftover process, port, config, or disk): it removes the application
+        directory — including the data directory and any persistent
+        ``volumes/`` — plus the bare repository, virtualenv, logs, and the
+        uWSGI / NGINX / ACME configuration and sockets. The global DATA_ROOT and
+        CACHE_ROOT are left untouched (they are not app-specific).
+
+        Persistent data is removed too, so this loudly warns about non-empty
+        data/volume directories before deleting them — back up first with
+        ``hop3 backup create`` if you need them.
 
         For Docker apps, this also removes containers, networks, and volumes.
         """
@@ -409,8 +423,23 @@ class App(BigIntAuditBase):
                     log(f"Removing file '{p}'", level=2, fg="blue")
                     p.unlink()  # Remove a file
 
-        # Leave DATA_ROOT, as apps may create hard-to-reproduce data,
-        # and CACHE_ROOT, as `nginx` will set permissions to protect it
+        # Persistent data (data/ and any volumes/) lives under app_path and is
+        # removed with it. That is intentional — a full teardown must leave no
+        # leftover disk — but it is permanent, so warn loudly first rather than
+        # deleting it silently. (The global DATA_ROOT / CACHE_ROOT are separate
+        # and are not touched here.)
+        for label, path in [
+            ("data", self.data_path),
+            ("volumes", self.volumes_path),
+        ]:
+            if path.exists() and any(path.iterdir()):
+                log(
+                    f"  Removing {label} for '{app_name}' permanently "
+                    f"(back it up first with 'hop3 backup create'): {path}",
+                    level=0,
+                    fg="yellow",
+                )
+
         remove_file(self.app_path)
         remove_file(self.repo_path)
         remove_file(self.virtualenv_path)
@@ -430,11 +459,6 @@ class App(BigIntAuditBase):
         acme_certs = acme_link.resolve()
         remove_file(acme_link)
         remove_file(acme_certs)
-
-        # We preserve data
-        data_dir = self.data_path
-        if data_dir.exists():
-            log(f"Preserving folder '{data_dir}'", level=2, fg="blue")
 
     def start(self) -> None:
         """Start the application (non-blocking).
