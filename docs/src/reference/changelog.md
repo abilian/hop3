@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Generated secrets in `hop3.toml`**: declare an app-internal secret as `KEY = { generate = "hex" | "base64" | "urlsafe" | "password" | "uuid", length = N, prefix = "..." }` under `[env]`. Hop3 generates the value with a CSPRNG on the first deploy, persists it, and never rotates it (generated-once) — replacing the manual `hop3 config set KEY=$(...)` workaround and making first-boot reproducible for apps that require a secret at startup (Phoenix `SECRET_KEY_BASE`, Laravel `APP_KEY`, Rails `secret_key_base`, …). See [Generated secrets](config.md#generated-secrets) (ADR 046).
 - **Dynamic `[env]` references**: `KEY = { from = "<addon>", key = "<VAR>" }` copies an attribute from an attached addon, and `KEY = { key = "domain" | "hostname" | "name" }` reads an app fact (ADR 046).
 - **Persistent volumes (`[[volumes]]`)**: declare a directory that survives the source-replacing redeploy; Hop3 stores it outside `src/` and links it in on every deploy. Backups now include volume data, and restore round-trips it. See the Persistent Volumes section of [the config reference](config.md) (ADR 046).
+- **Resource limits (`[limits]`)**: cap an app's `memory` / `cpu` / `processes`. Enforced for Docker-deployed apps (compose limits); declaring `[limits]` on a non-Docker app fails the deploy loudly until cgroup enforcement lands, so a limit is never silently un-applied. See the Resource Caps section of [the config reference](config.md) (ADR 046).
 
 ### Fixed
 

@@ -332,7 +332,31 @@ Hop3 stores the data under the app's data root (`<app>/volumes/<name>/`) — out
 
 - `target` must be a **directory** path relative to the app's source tree; absolute paths and `..` are rejected. A file already at `target` is an error — volume targets are directories.
 - Persist volumes need no `hop3-rootd`: the link lives under the app's own directories. `tmpfs`/`bind` will need privileged mounts and are deferred.
-- A `[volumes.backup]` sub-table is accepted for forward compatibility but not yet acted on (it will tie into the backup system; declaring it logs a notice).
+- Volumes are included in `hop3 backup create` by default; set `[volumes.backup]` `include = false` to opt a volume out.
+
+### `[limits]` - Resource Caps
+
+Cap an app's resource use so one app can't starve others on the same server:
+
+```toml
+[limits]
+memory = "512M"     # hard memory cap
+cpu = 1.5           # CPU cores (fractional allowed)
+processes = 256     # max processes/threads
+```
+
+**Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `memory` | string | Memory cap: a number with an optional `K`/`M`/`G` suffix (e.g. `512M`, `1G`), or plain bytes |
+| `cpu` | number | CPU cores, fractional allowed (e.g. `1.5`) |
+| `processes` | integer | Maximum processes/threads |
+
+**Notes:**
+
+- A declared limit is a **safety guarantee**: if it can't be enforced, the deploy fails loudly rather than running an app that only *looks* capped.
+- Enforcement is implemented for the **Docker builder** (compose `mem_limit` / `cpus` / `pids_limit`). Native/Nix enforcement needs cgroups via `hop3-rootd` and isn't available yet, so declaring `[limits]` on a non-Docker app **aborts the deploy** with a clear message until then.
 
 ### `[healthcheck]` - Health Check Configuration
 

@@ -761,6 +761,22 @@ VOLUME_TYPES: frozenset[str] = frozenset({"persist", "tmpfs", "bind"})
 _VOLUME_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
 
 
+class VolumeBackupSection(BaseModel):
+    """`[volumes.backup]` — per-volume backup policy (ADR 046 §2/§4a).
+
+    A strict table so a typo (e.g. ``inclide = false``) is rejected at deploy
+    time rather than silently leaving the volume in the backup. ``include``
+    (default true) is the only key acted on today.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    include: bool = Field(
+        default=True,
+        description="Whether this volume's data is captured by `hop3 backup create`.",
+    )
+
+
 class VolumeSection(BaseModel):
     """A `[[volumes]]` entry — a path that survives the source-replacing redeploy.
 
@@ -787,9 +803,9 @@ class VolumeSection(BaseModel):
     mode: str | None = Field(
         default=None, description="Octal permissions for the volume directory."
     )
-    backup: dict[str, Any] | None = Field(
+    backup: VolumeBackupSection | None = Field(
         default=None,
-        description="Per-volume backup policy (ADR 024 integration — not yet acted on).",
+        description="Per-volume backup policy; omit to include the volume in backups.",
     )
 
     @field_validator("name")
@@ -853,6 +869,59 @@ class VolumeSection(BaseModel):
             )
             raise ValueError(msg)
         return self
+
+
+_MEMORY_RE = re.compile(r"^\d+[KMGkmg]?$")
+
+
+class LimitsSection(BaseModel):
+    """[limits] section — per-app resource caps (ADR 046 §3).
+
+    A declared limit is a safety guarantee: if the platform can't enforce it the
+    deploy aborts rather than running an app that only *looks* capped. Today
+    enforcement is implemented for the Docker builder (compose mem_limit / cpus /
+    pids_limit); native/Nix enforcement needs cgroups via hop3-rootd and isn't
+    available yet, so [limits] on a non-Docker app fails loud at deploy.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    memory: str | None = Field(
+        default=None, description="Hard memory cap, e.g. '512M' or '1G'."
+    )
+    cpu: float | None = Field(
+        default=None, description="CPU cores, fractional allowed (e.g. 1.5)."
+    )
+    processes: int | None = Field(
+        default=None, description="Max processes/threads (pids cap)."
+    )
+
+    @field_validator("memory")
+    @classmethod
+    def _check_memory(cls, v: str | None) -> str | None:
+        if v is not None and not _MEMORY_RE.match(v):
+            msg = (
+                f"[limits] memory {v!r} must be a number with an optional K/M/G "
+                "suffix, e.g. '512M' or '1G'."
+            )
+            raise ValueError(msg)
+        return v
+
+    @field_validator("cpu")
+    @classmethod
+    def _check_cpu(cls, v: float | None) -> float | None:
+        if v is not None and v <= 0:
+            msg = f"[limits] cpu must be greater than 0, got {v}."
+            raise ValueError(msg)
+        return v
+
+    @field_validator("processes")
+    @classmethod
+    def _check_processes(cls, v: int | None) -> int | None:
+        if v is not None and v < 1:
+            msg = f"[limits] processes must be >= 1, got {v}."
+            raise ValueError(msg)
+        return v
 
 
 class Hop3TomlSchema(BaseModel):
@@ -936,6 +1005,14 @@ class Hop3TomlSchema(BaseModel):
             "Declarative persistent volumes (ADR 046 §2). Each links a directory "
             "in the app tree to storage that survives the source-replacing "
             "redeploy."
+        ),
+    )
+    limits: LimitsSection | None = Field(
+        default=None,
+        description=(
+            "Per-app resource caps (ADR 046 §3): memory / cpu / processes. "
+            "Enforced for Docker apps; declaring them on a non-Docker app fails "
+            "loud until cgroup enforcement lands."
         ),
     )
     provider: list[AddonConfig] | None = Field(

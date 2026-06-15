@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from hop3.core.protocols import BuildArtifact, DeploymentContext
+from hop3.deployers.deployer import _reject_limits_on_non_docker
 from hop3.lib import Abort
 from hop3.plugins.docker.deployer import DockerComposeDeployer
 
@@ -670,3 +671,48 @@ class TestPruneDanglingImages:
             side_effect=OSError("docker not found"),
         ):
             deployer._prune_dangling_images()  # must not raise
+
+
+class TestDockerComposeLimits:
+    """[limits] resource caps are rendered into the generated compose (ADR 046)."""
+
+    def _deployer(self, tmp_path, docker_artifact, limits):
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={"hop3_config": {"limits": limits}},
+        )
+        return DockerComposeDeployer(context, docker_artifact)
+
+    def test_compose_includes_resource_limits(self, tmp_path, docker_artifact):
+        deployer = self._deployer(
+            tmp_path, docker_artifact, {"memory": "512M", "cpu": 1.5, "processes": 256}
+        )
+        compose = deployer._generate_compose_file().read_text()
+        assert "mem_limit: 512m" in compose  # lowercased for compose
+        assert "cpus: 1.5" in compose
+        assert "pids_limit: 256" in compose
+
+    def test_compose_has_no_limits_when_none(self, tmp_path, docker_artifact):
+        deployer = self._deployer(tmp_path, docker_artifact, {})
+        compose = deployer._generate_compose_file().read_text()
+        assert "mem_limit" not in compose
+        assert "pids_limit" not in compose
+
+    def test_limits_section_lowercases_memory(self, tmp_path, docker_artifact):
+        deployer = self._deployer(tmp_path, docker_artifact, {"memory": "1G"})
+        assert "mem_limit: 1g" in deployer._compose_limits_section()
+
+
+class TestLimitsBuilderGuard:
+    """[limits] on a non-Docker builder must fail loud (ADR 046 §3)."""
+
+    def test_limits_on_native_aborts(self):
+        with pytest.raises(ValueError, match="only enforced for Docker"):
+            _reject_limits_on_non_docker("local", {"memory": "512M"})
+
+    def test_limits_on_docker_is_ok(self):
+        _reject_limits_on_non_docker("docker", {"memory": "512M"})  # no raise
+
+    def test_no_limits_on_native_is_ok(self):
+        _reject_limits_on_non_docker("local", {})  # no raise

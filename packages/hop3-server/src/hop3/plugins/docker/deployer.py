@@ -163,6 +163,24 @@ class DockerComposeDeployer:
             out = pat.sub(repl, out)
         return out
 
+    def _compose_limits_section(self) -> str:
+        """Render [limits] as docker-compose resource caps (ADR 046 §3).
+
+        Returns the compose service lines (with a leading newline) or "" when no
+        limits are declared. Docker enforces these natively.
+        """
+        hop3_cfg = self.context.app_config.get("hop3_config") or {}
+        limits = hop3_cfg.get("limits") or {} if isinstance(hop3_cfg, dict) else {}
+
+        lines = []
+        if limits.get("memory"):
+            lines.append(f"    mem_limit: {str(limits['memory']).lower()}")
+        if limits.get("cpu") is not None:
+            lines.append(f"    cpus: {limits['cpu']}")
+        if limits.get("processes") is not None:
+            lines.append(f"    pids_limit: {limits['processes']}")
+        return ("\n" + "\n".join(lines)) if lines else ""
+
     def _generate_compose_file(self) -> Path:
         """Generate a docker-compose.yml for the application.
 
@@ -217,6 +235,10 @@ class DockerComposeDeployer:
             env_var_names=env_var_names,
         )
 
+        # Resource caps from [limits] (ADR 046 §3): Docker enforces these
+        # natively via the compose service keys.
+        limits_section = self._compose_limits_section()
+
         # Generate compose content
         # extra_hosts with host-gateway makes host.docker.internal work on Linux
         # (it's built-in on Docker Desktop for macOS/Windows)
@@ -233,7 +255,7 @@ services:
     extra_hosts:
       # Allow container to reach host services (PostgreSQL, Redis)
       - "host.docker.internal:host-gateway"
-    restart: unless-stopped
+    restart: unless-stopped{limits_section}
 """
 
         # Write to generated compose file

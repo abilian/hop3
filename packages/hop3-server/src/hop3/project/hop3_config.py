@@ -635,6 +635,18 @@ class Hop3Config:
         ]
 
     @property
+    def limits(self) -> dict[str, Any]:
+        """Get the [limits] resource caps (ADR 046 §3).
+
+        Returns a dict of only the set fields (``memory`` / ``cpu`` /
+        ``processes``); empty when no limits are declared.
+        """
+        raw = self._data.get("limits", {})
+        if not isinstance(raw, dict):
+            return {}
+        return {k: v for k, v in raw.items() if v is not None}
+
+    @property
     def context_names(self) -> list[str]:
         """Declared context names, in TOML declaration order. Empty when none.
 
@@ -820,6 +832,8 @@ class Hop3Config:
             "docker": self.docker,
             "addons": self.addons,
             "providers": self.providers,  # Deprecated, kept for compatibility
+            "volumes": self.volumes,
+            "limits": self.limits,
             "workers": self.get_workers_from_run_section(),
             "nix": self._data.get("nix", {}),
             # Raw context blocks; resolution to (server, app, domains, env)
