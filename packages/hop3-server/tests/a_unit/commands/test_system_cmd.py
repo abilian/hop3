@@ -265,6 +265,52 @@ def test_info_verbose_lists_plugins():
     assert "Toolchains" in blob
 
 
+def test_info_shows_provenance_from_manifest(tmp_path, monkeypatch):
+    """`system info` surfaces the deploy manifest's commit/branch/method."""
+    (tmp_path / "build-info.json").write_text(
+        json.dumps({
+            "version": "0.5.0",
+            "deploy_method": "local",
+            "git_commit": "abc123def4567890",
+            "git_branch": "feat/cli-help-full",
+            "git_dirty": True,
+            "deployed_by": "hop3-deploy",
+            "deployed_at": "2026-06-12T10:30:00+00:00",
+        })
+    )
+    monkeypatch.setattr(sysmod, "HOP3_ROOT", tmp_path)
+
+    blob = InfoCmd().call()[0]["text"]
+    assert "Commit:         abc123def4567890 (dirty)" in blob
+    assert "Branch:         feat/cli-help-full" in blob
+    assert "Deploy method:  local" in blob
+    assert "Deployed:       2026-06-12T10:30:00+00:00" in blob
+
+
+def test_info_provenance_unknown_without_manifest(tmp_path, monkeypatch):
+    """With no manifest (and no VCS install), Commit reads 'unknown'."""
+    monkeypatch.setattr(sysmod, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(sysmod, "_commit_from_direct_url", lambda: (None, None))
+
+    blob = InfoCmd().call()[0]["text"]
+    assert "Commit:         unknown" in blob
+    # Absent optional fields are simply not shown.
+    assert "Branch:" not in blob
+    assert "Deployed:" not in blob
+
+
+def test_provenance_falls_back_to_direct_url(tmp_path, monkeypatch):
+    """No manifest but a git (PEP 610) install → commit from direct_url.json."""
+    monkeypatch.setattr(sysmod, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(
+        sysmod, "_commit_from_direct_url", lambda: ("deadbeefcafe", "devel")
+    )
+
+    lines = sysmod._provenance_lines()
+    assert "Commit:         deadbeefcafe" in lines
+    assert "Branch:         devel" in lines
+
+
 # ---------------------------------------------------------------------------
 # Removed commands — ensure they don't load at import time
 # ---------------------------------------------------------------------------
