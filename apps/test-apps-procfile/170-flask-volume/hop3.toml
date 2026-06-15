@@ -1,0 +1,26 @@
+# Hop3 configuration for the persistent [[volumes]] smoke test (ADR 046 §2).
+
+[metadata]
+id = "flask-volume"
+description = "Flask app proving a Hop3 persistent volume is mounted and writable"
+
+[[volumes]]
+name = "store"
+target = "data/store"
+
+[test]
+priority = "P1"
+tier = "fast"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["python", "flask", "volume", "persistence"]
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "VOLUME OK"
+
+[[test.validations]]
+path = "/config"
+status = 200
+contains = "/volumes/store"

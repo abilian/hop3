@@ -611,6 +611,30 @@ class Hop3Config:
         ]
 
     @property
+    def volumes(self) -> list[dict[str, Any]]:
+        """Get the [[volumes]] entries (declarative persistent volumes, ADR 046 §2).
+
+        Each entry is a dict with ``name`` and ``target`` (both required),
+        ``type`` (default ``"persist"``), and optional ``size`` / ``mode`` /
+        ``backup``. Empty list when none are declared.
+        """
+        raw = self._data.get("volumes", [])
+        if not isinstance(raw, list):
+            return []
+        return [
+            {
+                "name": v["name"],
+                "target": v["target"],
+                "type": v.get("type", "persist"),
+                "size": v.get("size"),
+                "mode": v.get("mode"),
+                "backup": v.get("backup"),
+            }
+            for v in raw
+            if isinstance(v, dict) and "name" in v and "target" in v
+        ]
+
+    @property
     def context_names(self) -> list[str]:
         """Declared context names, in TOML declaration order. Empty when none.
 

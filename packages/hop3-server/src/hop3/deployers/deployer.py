@@ -22,6 +22,7 @@ from hop3.deployers.env_provisioning import (
     set_generated_env_vars,
 )
 from hop3.deployers.fixed_ports import claim_fixed_ports, open_fixed_ports
+from hop3.deployers.volumes import realize_volumes
 from hop3.lib import Diagnosis, abort_with_diagnosis, log, log_diagnosis, shell
 from hop3.lib.logging import server_log
 from hop3.orm.app import AppStateEnum
@@ -110,19 +111,8 @@ def do_deploy(
     if app_config.has_hop3_toml:
         _process_config_dependencies(app, app_config, db_session)
 
-    # --- 1.6. Claim declared fixed ports (refuse conflicts BEFORE build) ---
-    # Non-HTTP services (SMTP, XMPP, RTMP, …) bind a host port directly; only
-    # one app can own it. Claiming here fails fast with a clear error if another
-    # app already holds it, and rolls back with the deploy session on failure.
-    claim_fixed_ports(app, app_config, db_session)
-
-    # --- 1.7. Stop the previous instance before rebuilding (safety net) ---
-    # The primary stop happens BEFORE the source is replaced (in DeployCmd /
-    # the git hooks), since that's where the destructive race is — clearing
-    # src/ deletes build outputs the old process holds. This call covers any
-    # do_deploy path that didn't already stop (e.g. restart). It's a no-op when
-    # the app is already stopped. See stop_previous_instance() for details.
-    stop_previous_instance(app)
+    # --- 1.6. Prepare the freshly-extracted source tree for the build ---
+    _prepare_source_for_build(app, app_config, db_session)
 
     # --- 2. Run Prebuild Hook ---
     # This runs BEFORE builder selection because prebuild may fetch source code
@@ -142,6 +132,9 @@ def do_deploy(
 
     builder = get_builder(context)
     log(f"Using builder: '{builder.name}'", level=1, fg="blue")
+
+    _reject_volumes_on_docker(builder.name, app_config.hop3_config.volumes)
+
     build_artifact = builder.build()
     log(
         f"Build successful. Artifact: {build_artifact.location} (kind: {build_artifact.kind})",
@@ -657,6 +650,49 @@ def stop_previous_instance(app: App) -> None:
             fg="blue",
         )
         app.stop()
+
+
+def _reject_volumes_on_docker(builder_name: str, volumes: list) -> None:
+    """Abort the deploy if [[volumes]] are declared under the Docker builder.
+
+    Volumes are realized as host-side symlinks into src/ (ADR 046 §2), which a
+    Docker container cannot see — and the generated compose has no bind-mount
+    for them — so the app's data would be silently lost. Fail loud instead.
+    Native/Nix run on the host with cwd=src, so the symlink resolves there.
+    """
+    if builder_name.lower() == "docker" and volumes:
+        msg = (
+            "[[volumes]] is not yet supported for Docker-deployed apps: the "
+            "container cannot see the host volume, so data would be lost. Use "
+            "the native or nix builder, or remove the [[volumes]] declaration."
+        )
+        raise ValueError(msg)
+
+
+def _prepare_source_for_build(
+    app: App, app_config: AppConfig, db_session: Session | None
+) -> None:
+    """Ready the freshly-extracted source tree before the prebuild/build runs.
+
+    Three ordered steps, all before any build output is produced:
+
+    1. **Claim declared fixed ports.** Non-HTTP services (SMTP, XMPP, RTMP, …)
+       bind a host port directly; only one app can own it. Claiming here fails
+       fast with a clear error if another app holds it, and rolls back with the
+       deploy session on failure.
+    2. **Stop the previous instance** (safety net). The primary stop happens
+       before the source is replaced (in DeployCmd / the git hooks), where the
+       destructive race is — clearing src/ deletes build outputs the old process
+       holds. This covers any do_deploy path that didn't already stop (e.g.
+       restart); it's a no-op when the app is already stopped.
+    3. **Realize declarative volumes** ([[volumes]]). Link persistent volumes into
+       src/ before any build/run writes to them. Storage lives under
+       <app>/volumes/, outside src/, so it survives the redeploy that wipes src/
+       (ADR 046 §2). No-op when none are declared.
+    """
+    claim_fixed_ports(app, app_config, db_session)
+    stop_previous_instance(app)
+    realize_volumes(app, app_config.hop3_config.volumes)
 
 
 def _process_config_dependencies(
