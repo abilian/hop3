@@ -15,7 +15,11 @@ from hop3.deployers.addon_provisioning import (
     provision_addons,
     reinject_attached_addons,
 )
-from hop3.deployers.env_provisioning import set_computed_env_vars, set_default_env_vars
+from hop3.deployers.env_provisioning import (
+    set_computed_env_vars,
+    set_default_env_vars,
+    set_generated_env_vars,
+)
 from hop3.deployers.fixed_ports import claim_fixed_ports, open_fixed_ports
 from hop3.lib import Diagnosis, abort_with_diagnosis, log, log_diagnosis, shell
 from hop3.lib.logging import server_log
@@ -709,6 +713,18 @@ def _process_config_dependencies(
         )
         set_default_env_vars(app, env_config, db_session, env_policy=env_policy)
 
+    # Generate declared secrets ([env] { generate = ... }) — once, for any var
+    # still unset. Runs after static [env] and before [env.computed] so a
+    # computed value may reference a generated secret via ${VAR} (ADR 046).
+    generated_config = hop3_config.env_generated
+    if generated_config:
+        log(
+            f"Generating {len(generated_config)} secret(s) from [env]...",
+            level=1,
+            fg="blue",
+        )
+        set_generated_env_vars(app, generated_config, db_session)
+
     # Translate [domains].list into HOST_NAME. Schema already rejects mixing
     # with env.HOST_NAME and combining "_" with other hosts, but we re-check
     # defensively (HOP3_SKIP_CONFIG_VALIDATION can bypass schema in dev).
@@ -729,7 +745,7 @@ def _process_config_dependencies(
         set_computed_env_vars(app, computed_config, db_session)
 
     # Commit changes before continuing with build
-    if addon_configs or env_config or domains_config:
+    if addon_configs or env_config or generated_config or domains_config:
         db_session.commit()
         server_log.info(
             "Config dependencies processed",

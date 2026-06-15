@@ -53,7 +53,7 @@ This process is inspired by [Python's PEP process](https://www.python.org/dev/pe
 | [043](./043-unified-testing-architecture.md) | Unified Testing Architecture | Process | Draft |
 | [044](./044-nightly-test-lab.md) | Nightly Test Lab — Web App to Run & Report on Tests | Architecture | Draft (provisional) |
 | [045](./045-fixed-port-registry.md) | Fixed Port Registry | Feature | Draft |
-| [046](./046-declarative-app-resources.md) | Declarative Application Resources — Secrets, Volumes, Dynamic Env, Limits | Feature | Draft |
+| [046](./046-declarative-app-resources.md) | Declarative Application Resources — Secrets, Volumes, Dynamic Env, Limits | Feature | Accepted |
 
 ## ADRs by Type
 
@@ -96,7 +96,7 @@ This process is inspired by [Python's PEP process](https://www.python.org/dev/pe
 | [040](./040-network-firewall-and-port-exposure.md) | Network Firewall and Per-App Port Exposure | Draft |
 | [042](./042-cli-context-model.md) | CLI Context Model — Servers and Project Contexts | Accepted |
 | [045](./045-fixed-port-registry.md) | Fixed Port Registry | Draft |
-| [046](./046-declarative-app-resources.md) | Declarative Application Resources | Draft |
+| [046](./046-declarative-app-resources.md) | Declarative Application Resources | Accepted |
 
 ### Processes (3)
 
@@ -159,7 +159,7 @@ Processes, guidelines, and in-design features currently being worked on.
 | [038](./038-multi-service-apps.md) | Multi-Service Application Support | Feature |
 | [039](./039-python-deploy-strategies.md) | Python Deploy Strategies | Feature |
 
-### Accepted (7)
+### Accepted (8)
 
 Approved and ready for implementation.
 
@@ -172,8 +172,9 @@ Approved and ready for implementation.
 | [035](./035-build-artifacts.md) | Build Artifacts as Runtime Contract | Architecture |
 | [036](./036-cli-ergonomics.md) | CLI Ergonomics and Command Surface | Design |
 | [042](./042-cli-context-model.md) | CLI Context Model — Servers and Project Contexts | Feature |
+| [046](./046-declarative-app-resources.md) | Declarative Application Resources | Feature |
 
-### Draft (18)
+### Draft (17)
 
 Initial proposals, not yet reviewed.
 
@@ -196,7 +197,6 @@ Initial proposals, not yet reviewed.
 | [043](./043-unified-testing-architecture.md) | Unified Testing Architecture | Process |
 | [044](./044-nightly-test-lab.md) | Nightly Test Lab | Architecture |
 | [045](./045-fixed-port-registry.md) | Fixed Port Registry | Feature |
-| [046](./046-declarative-app-resources.md) | Declarative Application Resources | Feature |
 
 ### Deferred (5)
 

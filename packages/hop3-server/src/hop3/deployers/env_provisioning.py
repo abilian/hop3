@@ -11,16 +11,33 @@ and never overwrite existing ones (set via config set or addon provisioning).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import base64
+import secrets
+import string
+import uuid
+from typing import TYPE_CHECKING, Any
 
 from hop3.lib import log
 from hop3.lib.logging import server_log
 from hop3.orm import EnvVar
+from hop3.project.schema import GENERATE_KINDS
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from sqlalchemy.orm import Session
 
     from hop3.orm.app import App
+
+# Default entropy when a generate spec omits `length`: bytes for
+# hex/base64/urlsafe, characters for password (uuid ignores length).
+_DEFAULT_GENERATE_LENGTHS: dict[str, int] = {
+    "hex": 32,
+    "base64": 32,
+    "urlsafe": 32,
+    "password": 24,
+}
+_PASSWORD_ALPHABET = string.ascii_letters + string.digits
 
 
 def set_default_env_vars(
@@ -162,4 +179,96 @@ def set_computed_env_vars(
             f"  Set {count} computed env var(s) from [env.computed]",
             level=1,
             fg="green",
+        )
+
+
+def generate_secret_value(spec: Mapping[str, Any]) -> str:
+    """Generate one secret value from an [env] ``{ generate = ... }`` spec.
+
+    Pure and CSPRNG-backed (the stdlib ``secrets`` module — never ``random``).
+    The schema validates the spec up front, but this also guards the
+    ``HOP3_SKIP_CONFIG_VALIDATION`` path: an unknown generator raises rather
+    than silently producing nothing (ADR 046).
+
+    Args:
+        spec: A generate spec — ``generate`` (required), optional ``length``
+            and ``prefix``.
+
+    Returns:
+        The generated value, with ``prefix`` prepended when present.
+    """
+    kind = spec.get("generate")
+    if kind not in GENERATE_KINDS:
+        msg = (
+            f"Unknown [env] generator {kind!r}. "
+            f"Must be one of: {', '.join(sorted(GENERATE_KINDS))}."
+        )
+        raise ValueError(msg)
+    kind = str(kind)  # narrowed: a valid generator name past the guard
+
+    length = spec.get("length") or _DEFAULT_GENERATE_LENGTHS.get(kind, 32)
+
+    if kind == "hex":
+        body = secrets.token_hex(length)
+    elif kind == "base64":
+        body = base64.b64encode(secrets.token_bytes(length)).decode("ascii")
+    elif kind == "urlsafe":
+        body = secrets.token_urlsafe(length)
+    elif kind == "password":
+        body = "".join(secrets.choice(_PASSWORD_ALPHABET) for _ in range(length))
+    else:  # uuid
+        body = str(uuid.uuid4())
+
+    prefix = spec.get("prefix") or ""
+    return f"{prefix}{body}"
+
+
+def set_generated_env_vars(
+    app: App,
+    generated_config: dict[str, Any],
+    db_session: Session,
+) -> None:
+    """Materialize [env] generated secrets, once, for vars that are unset.
+
+    Generated-once semantics (ADR 046): a secret is created with a CSPRNG only
+    when the var has no value yet, persisted as a normal env var, and never
+    regenerated on redeploy — so redeploys stay idempotent and secrets don't
+    silently rotate. ``_policy = "override"`` does NOT force rotation; rotate
+    explicitly with ``hop3 config unset`` then redeploy.
+
+    Args:
+        app: The application model.
+        generated_config: Dict of var name -> generate spec (from
+            ``Hop3Config.env_generated``).
+        db_session: Database session for persistence.
+    """
+    if not generated_config:
+        return
+
+    existing_names = {ev.name for ev in app.env_vars}
+    created: list[str] = []
+    to_display: list[tuple[str, str]] = []
+
+    for name, spec in generated_config.items():
+        if name in existing_names:
+            continue  # generated-once: keep the stored secret, never rotate
+        value = generate_secret_value(spec)
+        new_var = EnvVar(app_id=app.id, name=name, value=value)
+        db_session.add(new_var)
+        app.env_vars.append(new_var)
+        created.append(name)
+        if spec.get("display"):
+            to_display.append((name, value))
+
+    if created:
+        log(
+            f"  Generated {len(created)} secret(s): {', '.join(sorted(created))}",
+            level=1,
+            fg="green",
+        )
+    for name, value in to_display:
+        log(
+            f"  {name} = {value}  [generated — shown once, store it now]",
+            level=0,
+            fg="yellow",
         )
