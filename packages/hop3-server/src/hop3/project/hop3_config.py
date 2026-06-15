@@ -517,6 +517,24 @@ class Hop3Config:
             if isinstance(v, dict) and "generate" in v and not k.startswith("_")
         }
 
+    @property
+    def env_refs(self) -> dict[str, dict[str, Any]]:
+        """Get [env] entries that are dynamic references (ADR 046 §1b).
+
+        A reference is a table value with ``from`` / ``key`` / ``external_ip``
+        (and not ``generate``); the ``computed`` sub-table and ``_``-sentinels
+        are excluded. Resolved at deploy time against addon and app facts.
+        """
+        raw = self._data.get("env", {})
+        return {
+            k: v
+            for k, v in raw.items()
+            if isinstance(v, dict)
+            and "generate" not in v
+            and not k.startswith("_")
+            and ("from" in v or "key" in v or "external_ip" in v)
+        }
+
     # =========================================================================
     # [domains] section
     # =========================================================================

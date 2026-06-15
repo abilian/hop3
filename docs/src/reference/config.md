@@ -209,6 +209,35 @@ SESSION_ID      = { generate = "uuid" }
 - To rotate a generated secret, run `hop3 config unset <app> KEY` and redeploy.
 - A malformed spec (unknown generator, `length < 1`, unknown field) is a hop3.toml validation error — it fails the deploy loudly rather than producing a bad secret.
 
+#### Dynamic references
+
+Most apps need nothing here: attaching an addon already injects its standard variables (`DATABASE_URL`, `PGHOST`, `REDIS_URL`, …), and `[env.computed]` assembles custom strings from them. A reference is for the cases those can't express — copying one specific attribute, or reading an app fact:
+
+```toml
+[env]
+# Copy one attribute from a declared addon's credentials. `key` is one of the
+# addon's injected variable names (run `hop3 config show` to see them).
+PRIMARY_DB_HOST = { from = "myapp-db", key = "PGHOST" }
+
+# App facts (no `from`): "domain"/"hostname" → the app's first hostname,
+# "name" → the app name.
+APP_FQDN = { key = "domain" }
+```
+
+**Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `from` | string | Name of an addon attached to this app. Omit for app facts. |
+| `key` | string | The attribute to copy: an addon variable name (with `from`), or an app fact (`domain`, `hostname`, `name`). |
+| `external_ip` | boolean | The host's public IP. **Not implemented yet** — declaring it fails the deploy with a clear message; use `hop3 config set` meanwhile. |
+
+**Semantics:**
+
+- References are **derived** values resolved fresh on every deploy (like `[env.computed]`), so they overwrite. Resolution order is: addon auto-injection → static `[env]` → generated secrets → **references** → `[env.computed]`. A `{ key = "domain" }` ref therefore sees the hostname from `[domains]`, and a `[env.computed]` template can interpolate a resolved reference.
+- Resolution **fails the deploy loudly** if the addon isn't attached, the key doesn't exist (the error lists the available keys), or the app fact is unknown — never a wrong or empty value.
+- `{ from = ..., key = ... }` resolves against this app's own addons only; it can't read another app's credentials.
+
 ### `[domains]` - Application Hostnames
 
 Declare the hostnames the reverse proxy should bind to your app.

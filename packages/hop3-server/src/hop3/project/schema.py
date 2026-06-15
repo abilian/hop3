@@ -711,6 +711,49 @@ class EnvGenerate(BaseModel):
         return v
 
 
+class EnvRef(BaseModel):
+    """An `[env]` value resolved from a fact at deploy time (ADR 046 §1b).
+
+    For what auto-injection and `[env.computed]` can't express:
+    - ``{ from = "<addon>", key = "<KEY>" }`` copies one attribute from a
+      declared addon's credentials (``key`` is one of the addon's injected
+      var names, e.g. ``DATABASE_URL``).
+    - ``{ key = "domain" }`` (no ``from``) reads an app fact (``domain`` /
+      ``hostname`` / ``name``).
+    - ``{ external_ip = true }`` is the host's public IP (not yet implemented).
+    """
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    from_: str | None = Field(
+        default=None,
+        alias="from",
+        description="Name of a declared addon to read from; omit for app facts.",
+    )
+    key: str | None = Field(
+        default=None,
+        description="Attribute to copy (addon var name, or an app fact).",
+    )
+    external_ip: bool = Field(
+        default=False,
+        description="Resolve to the host's detected public IP.",
+    )
+
+    @model_validator(mode="after")
+    def _check_shape(self) -> EnvRef:
+        if self.external_ip:
+            if self.from_ or self.key:
+                msg = "external_ip cannot be combined with 'from' or 'key'."
+                raise ValueError(msg)
+            return self
+        if not self.key:
+            msg = (
+                "a reference needs 'key' (with optional 'from'), or external_ip = true."
+            )
+            raise ValueError(msg)
+        return self
+
+
 class Hop3TomlSchema(BaseModel):
     """Complete hop3.toml schema with validation.
 
@@ -846,24 +889,38 @@ class Hop3TomlSchema(BaseModel):
 
     @field_validator("env")
     @classmethod
-    def _validate_env_generate(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
+    def _validate_env_values(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
         # The env value type stays dict[str, Any] (TOML scalars + the `computed`
-        # sub-table + `_policy` sentinel). We deep-validate only `{ generate =
-        # ... }` secret declarations (ADR 046) so a malformed spec fails loud at
-        # deploy instead of silently producing a bad secret. EnvRef `{ from =
-        # ... }` validation lands with that phase.
+        # sub-table + `_policy` sentinel), but every *table* value must be a
+        # recognised typed form — a generated secret or a reference (ADR 046).
+        # Classifying here is the single source of truth and fails loud on an
+        # unknown shape instead of silently dropping it.
         if not v:
             return v
         for name, value in v.items():
-            if name == "computed" or name.startswith("_"):
+            if (
+                name == "computed"
+                or name.startswith("_")
+                or not isinstance(value, dict)
+            ):
                 continue
-            if isinstance(value, dict) and "generate" in value:
-                try:
-                    EnvGenerate.model_validate(value)
-                except ValidationError as e:
-                    detail = e.errors()[0].get("msg", "invalid generate spec")
-                    msg = f"[env].{name}: {detail}"
-                    raise ValueError(msg) from None
+            if "generate" in value:
+                model: type[BaseModel] = EnvGenerate
+            elif "from" in value or "key" in value or "external_ip" in value:
+                model = EnvRef
+            else:
+                msg = (
+                    f"[env].{name}: unrecognised table value. Use a scalar, a "
+                    f"generated secret ({{ generate = ... }}), or a reference "
+                    f"({{ from = ..., key = ... }} / {{ external_ip = true }})."
+                )
+                raise ValueError(msg)
+            try:
+                model.model_validate(value)
+            except ValidationError as e:
+                detail = e.errors()[0].get("msg", "invalid value")
+                msg = f"[env].{name}: {detail}"
+                raise ValueError(msg) from None
         return v
 
 
