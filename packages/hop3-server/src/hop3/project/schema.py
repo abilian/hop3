@@ -115,12 +115,12 @@ class BuildSection(BaseModel):
     )
     ignore: list[str] | None = Field(
         default=None,
-        description="Patterns to ignore when deploying",
-    )
-    ignore_file: str | None = Field(
-        default=None,
-        alias="ignore-file",
-        description="File containing ignore patterns",
+        description=(
+            "Gitignore-style patterns to exclude from the `hop3 deploy` upload, "
+            "on top of Hop3's built-in defaults (ADR 046 §5). The canonical "
+            "ignore mechanism — the `.hop3ignore` sidecar and the `ignore-file` "
+            "pointer are removed."
+        ),
     )
 
     @field_validator("builder")

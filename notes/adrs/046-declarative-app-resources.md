@@ -11,6 +11,7 @@
 Phase 1 is landing incrementally. Shipped so far:
 
 - **Generated secrets** (`[env] { generate = ... }`) — `hex`/`base64`/`urlsafe`/`password`/`uuid`, generated-once with a CSPRNG, persisted as normal app env, validated at schema time, wired into the deploy pipeline between static `[env]` and `[env.computed]`. Replaces the `hop3 deploy --env KEY=$(...)` workaround. See `deployers/env_provisioning.py::generate_secret_value` / `set_generated_env_vars`, `project/schema.py::EnvGenerate`, `docs/src/reference/config.md` §"Generated secrets".
+- **Ignore consolidation (§5)** — the `hop3 deploy` upload now excludes a built-in default set plus `[build].ignore`; `.gitignore` is no longer consulted for the upload (git-push only), `.dockerignore` stays a Docker-build concern, `.hop3ignore` is honored for one release with a loud deprecation warning, and `[build].ignore-file` is removed (schema rejects it). See `hop3-cli/commands/arguments.py::get_ignored_spec`, `project/schema.py::BuildSection`, `docs/src/reference/config.md` §"Excluding files from the upload".
 
 Not yet implemented: dynamic env references (`{ from, key }`, `external_ip`), `[[volume]]`, `[limits]`, and the folded-in backup/multi-port extensions.
 
@@ -60,6 +61,7 @@ Concretely, this ADR specifies:
 2. A new `[[volume]]` section for **declarative persistence** (Phase 1).
 3. A new `[limits]` section for **resource caps** (Phase 1).
 4. Folded-in: `[backup]` **per-resource policy** extending ADR 024 (and superseding the backup-config sketch in ADR 002 §backup); `[port]` **proxied secondary endpoints** extending ADR 040.
+5. Consolidate **deploy ignore patterns** into `[build].ignore`, removing the `.hop3ignore` sidecar and the `[build].ignore-file` pointer; ecosystem-standard ignore files apply only in their native context (`.gitignore` → git-push, `.dockerignore` → docker), never for the generic `hop3 deploy` upload.
 
 It also corrects ADR 002: `from`/`key`/`random` move from "shipped" to "specified here, not yet implemented."
 
@@ -203,6 +205,38 @@ subdomain = "admin"         # served at admin.<host>; inherits TLS
 
 Each proxied secondary endpoint is exposed as a subdomain of the app's primary host and inherits its TLS. Raw, non-HTTP ports stay in `[[ports]]`. The full routing mechanism (subdomain vs path) is an extension of ADR 040 and is detailed at implementation time; this ADR fixes the *config shape* and the principle (no app binds 80/443 directly; the proxy multiplexes).
 
+### 5. Deploy ignore patterns — `[build].ignore`, not `.hop3ignore`
+
+Deploy-time ignore patterns (what *not* to bundle and upload) are configuration about the app, so by the same tenet — *declare intent in `hop3.toml`, not a sidecar* — they belong in `hop3.toml`, not a Hop3-invented dotfile.
+
+Today the surface is split and inconsistent:
+
+- The **CLI bundler** (`hop3-cli` `arguments.py`) reads patterns from a `.hop3ignore` file (`IGNORE_FILES = [".hop3ignore", ".gitignore"]`). This is the live mechanism.
+- The **schema** already declares `[build].ignore` (an inline list) and `[build].ignore-file` (a pointer to a file), but the server-side getters (`Hop3Config.ignore_patterns` / `ignore_file`) have **no consumers** — they are unwired. And `[build].ignore-file = ".hop3ignore"` is the worst shape of all: a `hop3.toml` field whose value is "go read this other file."
+
+Decision:
+
+- **`[build].ignore`** (an inline list of glob patterns in `hop3.toml`) is the single canonical, method-agnostic way to declare what is *not* part of the app:
+
+  ```toml
+  [build]
+  ignore = ["*.log", "node_modules/", "tmp/", ".env"]
+  ```
+
+  It applies regardless of how the app reaches the server, and is the primary mechanism for the `hop3 deploy` upload path (where the CLI tars the working tree).
+
+- **A built-in default ignore set always applies** (and `[build].ignore` extends it): VCS metadata and dependency/cache dirs the server regenerates — `.git/`, `node_modules/`, `.venv/`, `venv/`, `__pycache__/`, `*.py[cod]`, `.idea/`, `.DS_Store`, `.mypy_cache/`, `.pytest_cache/`, `.ruff_cache/`, `*.egg-info/`. This is what makes dropping the old `.gitignore` upload-fallback safe: the common junk is excluded with zero config, so most apps need no `ignore` at all.
+
+- **Remove `.hop3ignore`** (the Hop3-invented sidecar) and **remove `[build].ignore-file`** (the pointer field — it just re-introduces a sidecar). The CLI bundler reads `[build].ignore` from `hop3.toml` before packaging the upload, instead of `.hop3ignore`.
+
+- **Standard ecosystem ignore files apply only in their native context — never for the generic `hop3 deploy` upload:**
+  - **`.gitignore` → git-push deployment only.** With a `git push` deploy the transport *is* git, so `.gitignore` already governs what reaches the server (ignored/uncommitted files never arrive); Hop3 does nothing special. It is **not** consulted for the `hop3 deploy` upload.
+  - **`.dockerignore` → the `docker` builder.** When the deployment method is Docker, the build context is filtered by `.dockerignore`, the standard, well-understood file Docker already honors. Hop3 leaves that to Docker.
+
+  These are real, ecosystem-standard files tied to a specific transport/builder — not Hop3 inventions — so honoring them in their own context surprises no one. `.hop3ignore`, by contrast, was a Hop3-specific sidecar for the *generic* upload, and that role now belongs to `[build].ignore`.
+
+This also wires up config that is currently dead: the unwired server getters either move to the CLI (the real bundler) or are removed.
+
 ## Examples
 
 **Phoenix — generated secret replaces the deploy-time workaround:**
@@ -277,6 +311,7 @@ type = "postgres"
 - Additive: static `[env]`, existing `[[addons]]`, `[run]`, etc. are unchanged.
 - The one change: dict-valued `[env]` entries that are currently dropped will be interpreted (known forms) or rejected at validation (unknown shapes). This is a fix; the migration note will call it out and `hop3 config migrate` / validation will flag affected files.
 - ADR 002 status corrected (`from`/`key`/`random` were never shipped). ADR 016 and 024 extended for resource-aware backup policy; ADR 040 extended for proxied secondary endpoints. No deployed app breaks.
+- **`.hop3ignore` is deprecated** in favour of `[build].ignore`, and `[build].ignore-file` is removed. Transition: a present `.hop3ignore` is still honoured for one release with a loud deprecation warning that points to `[build].ignore`, then dropped (no silent shim). The CLI's current `.gitignore` fallback for the `hop3 deploy` upload (`IGNORE_FILES = [".hop3ignore", ".gitignore"]`) is also removed — `.gitignore` belongs to the git-push path, not the upload path. Migration for an existing `.hop3ignore` user: move its patterns into `[build].ignore`. git-push users (relying on `.gitignore`) and Docker users (relying on `.dockerignore`) are unaffected.
 
 ## Alternatives Considered
 

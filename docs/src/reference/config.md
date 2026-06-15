@@ -101,9 +101,28 @@ pip-install = ["setuptools", "wheel"]
 - `test` (string | array): Test commands to run after build
 - `packages` (array): System packages required for building
 - `pip-install` (array): Python packages to install during build
+- `ignore` (array): Gitignore-style patterns excluded from the `hop3 deploy` upload (see below)
 
 **Procfile Mapping:**
 - `build.before-build` → Procfile `prebuild`
+
+#### `ignore` - Excluding files from the upload
+
+When you run `hop3 deploy`, the CLI tars your working tree and uploads it. `[build].ignore` is the single, canonical way to say what *not* to upload:
+
+```toml
+[build]
+ignore = ["*.log", "tmp/", "coverage/", "*.sqlite3"]
+```
+
+Patterns use gitignore syntax (including `!` negation), and are added **on top of** Hop3's built-in defaults — VCS metadata and dependency/cache dirs that the server regenerates (`.git/`, `node_modules/`, `.venv/`, `venv/`, `__pycache__/`, `*.py[cod]`, `.idea/`, `.DS_Store`, `.mypy_cache/`, `.pytest_cache/`, `.ruff_cache/`, `*.egg-info/`). So most apps need no `ignore` at all.
+
+**Other ignore files are scoped to their own deployment method — they do *not* affect the `hop3 deploy` upload:**
+
+- **`.gitignore`** applies to the **git-push** deploy path (git itself decides what reaches the server). It is not consulted for the `hop3 deploy` upload.
+- **`.dockerignore`** applies to the server-side **`docker build`** context when `builder = "docker"` (Docker honors it there). It is not applied to the upload.
+
+> The legacy `.hop3ignore` sidecar and the `[build].ignore-file` pointer are removed. Move any `.hop3ignore` patterns into `[build].ignore`; a leftover `.hop3ignore` is still read for one transition release with a deprecation warning, and `[build].ignore-file` is now a hop3.toml validation error.
 
 ### `[run]` - Runtime Configuration
 
