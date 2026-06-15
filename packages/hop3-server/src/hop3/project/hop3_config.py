@@ -317,15 +317,6 @@ class Hop3Config:
         return []
 
     @property
-    def ignore_file(self) -> str | None:
-        """Get build.ignore-file (file containing ignore patterns).
-
-        Returns:
-            Path to ignore file, or None if not specified
-        """
-        return self.build.get("ignore-file")
-
-    @property
     def pip_install(self) -> list[str]:
         """Get build.pip-install (Python packages to install)."""
         return self.build.get("pip-install", [])
