@@ -36,7 +36,10 @@ version = "1.0.0"
 edition = "2021"
 
 [dependencies]
-actix-web = "4"
+# Disable the default brotli compression feature: brotli 8.0.3 pulls two
+# incompatible alloc-no-stdlib versions and fails to compile. The reverse proxy
+# handles compression anyway; keep gzip for completeness.
+actix-web = { version = "4", default-features = false, features = ["macros", "compress-gzip"] }
 actix-cors = "0.7"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -250,9 +253,10 @@ Finished
 
 ```bash
 ./target/release/hop3-tuto-actix-web &
+APP_PID=$!
 sleep 3
 curl -s http://localhost:8080/health || echo "Test completed"
-pkill -f "hop3-tuto-actix-web" 2>/dev/null || true
+kill "$APP_PID" 2>/dev/null || true
 ```
 
 ```console
@@ -382,7 +386,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 status --app hop3-tuto-actix-web
+hop3 app status --app hop3-tuto-actix-web
 ```
 
 ```console
@@ -401,7 +405,7 @@ View logs:
 
 ```bash
 # View logs
-hop3 logs --app hop3-tuto-actix-web
+hop3 app logs --app hop3-tuto-actix-web
 
 # Your app will be available at:
 # http://hop3-tuto-actix-web.your-hop3-server.example.com
@@ -411,7 +415,7 @@ hop3 logs --app hop3-tuto-actix-web
 
 ```bash
 # Restart the application
-hop3 restart --app hop3-tuto-actix-web
+hop3 app restart --app hop3-tuto-actix-web
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-actix-web

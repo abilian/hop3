@@ -53,6 +53,12 @@ class Selector:
         if specific_tests:
             return self._get_specific_tests(specific_tests)
 
+        # A curated profile carries an explicit test list: return exactly those,
+        # in order, ignoring the tier/priority/target filters (which it leaves
+        # empty). Order matters — it preserves demo01→demoNN sequencing.
+        if mode_config.tests:
+            return self._get_specific_tests(mode_config.tests)
+
         # Apply mode-based filtering
         tests = self.catalog.filter(
             tiers=mode_config.tiers,

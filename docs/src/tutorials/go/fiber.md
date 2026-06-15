@@ -178,9 +178,10 @@ go build -o hop3-tuto-fiber .
 
 ```bash
 ./hop3-tuto-fiber &
+APP_PID=$!
 sleep 2
 curl -s http://localhost:3000/health || echo "Test completed"
-pkill -f "./hop3-tuto-fiber" 2>/dev/null || true
+kill "$APP_PID" 2>/dev/null || true
 ```
 
 ```console
@@ -261,7 +262,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 status --app hop3-tuto-fiber
+hop3 app status --app hop3-tuto-fiber
 ```
 
 ```console
@@ -280,7 +281,7 @@ View logs:
 
 ```bash
 # View logs
-hop3 logs --app hop3-tuto-fiber
+hop3 app logs --app hop3-tuto-fiber
 
 # Your app will be available at:
 # http://hop3-tuto-fiber.your-hop3-server.example.com
@@ -290,7 +291,7 @@ hop3 logs --app hop3-tuto-fiber
 
 ```bash
 # Restart the application
-hop3 restart --app hop3-tuto-fiber
+hop3 app restart --app hop3-tuto-fiber
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-fiber

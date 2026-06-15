@@ -49,11 +49,11 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY: SECRET_KEY must be set in production
-SECRET_KEY = os.environ.get('SECRET_KEY')
+# SECRET_KEY: a dev-insecure fallback keeps `migrate` and the very first deploy
+# working before any secrets are set. Override it in production with
+# `hop3 config set --app <app> SECRET_KEY=...` (see the deploy step below).
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-only-change-me')
 DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
-if not SECRET_KEY and not DEBUG:
-    raise ValueError("SECRET_KEY environment variable is required in production")
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
@@ -309,16 +309,14 @@ hop3 init --ssh root@your-server.example.com
 
 Deploy the application (first deployment creates the app):
 
-<!-- Note: The first deploy may succeed but the app may crash due to missing SECRET_KEY.
-     We set it via config:set after the app is created. -->
-
 ```bash
 hop3 deploy hop3-tuto-drf
 ```
 
 ### Set Environment Variables
 
-Set the SECRET_KEY, ALLOWED_HOSTS, and hostname for the application:
+Harden the deployment: replace the dev-insecure fallback `SECRET_KEY` with a
+real one, and set `ALLOWED_HOSTS` and the hostname for the application:
 
 ```bash
 hop3 config set --app hop3-tuto-drf SECRET_KEY=drf-insecure-changeme-for-production
@@ -347,7 +345,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 status --app hop3-tuto-drf
+hop3 app status --app hop3-tuto-drf
 ```
 
 ```console
@@ -365,7 +363,7 @@ OK
 View logs:
 
 ```bash
-hop3 logs --app hop3-tuto-drf
+hop3 app logs --app hop3-tuto-drf
 
 # Your app will be available at:
 # http://hop3-tuto-drf.your-hop3-server.example.com
@@ -375,7 +373,7 @@ hop3 logs --app hop3-tuto-drf
 
 ```bash
 # Restart the application
-hop3 restart --app hop3-tuto-drf
+hop3 app restart --app hop3-tuto-drf
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-drf

@@ -79,10 +79,29 @@ class NginxVirtualHost(BaseProxy):
             },
         )
 
+    def _is_static_only(self) -> bool:
+        """Whether nginx should serve this app's files directly (no backend).
+
+        A static-only app has a ``static`` worker and no HTTP backend process to
+        proxy to, so no port is allocated and no ``upstream`` block is valid.
+
+        Detected by the *absence* of a backend worker, not by worker count: a
+        static site commonly also declares a build hook (``prebuild``/``build``)
+        which is not a server process. Counting those as backends made the
+        upstream block survive with an unallocated port, producing
+        ``upstream 127.0.0.1:0`` — which nginx rejects with "invalid port".
+        A ``web``/``wsgi`` worker alongside ``static`` is a real backend app
+        with static paths and must keep its upstream.
+        """
+        if "static" not in self.workers:
+            return False
+        backend_workers = ("web", "wsgi", "jwsgi", "rwsgi")
+        return not any(w in self.workers for w in backend_workers)
+
     def setup_backend(self):
         # For static-only apps, skip backend configuration entirely
         # (they serve files directly without a backend process)
-        if len(self.workers) == 1 and "static" in self.workers:
+        if self._is_static_only():
             self.env["HOP3_INTERNAL_NGINX_UWSGI_SETTINGS"] = ""
             self.env["HOP3_INTERNAL_NGINX_PORTMAP"] = ""
             # Set a dummy NGINX_SOCKET to prevent template errors

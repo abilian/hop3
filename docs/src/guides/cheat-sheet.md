@@ -123,8 +123,8 @@ current shell or directory.
 ```bash
 # Bind an app to the current context
 hop3 use myapp
-hop3 logs          # no positional needed
-hop3 restart
+hop3 app logs          # no positional needed
+hop3 app restart
 hop3 config show
 
 # Or set for a single shell

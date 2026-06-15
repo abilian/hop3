@@ -186,9 +186,10 @@ Test locally:
 
 ```bash
 bundle exec jekyll serve &
+APP_PID=$!
 sleep 5
 curl -s http://localhost:4000/ | head -5 || echo "Test completed"
-pkill -f "jekyll serve" 2>/dev/null || true
+kill "$APP_PID" 2>/dev/null || true
 ```
 
 ```console
@@ -272,7 +273,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 status --app hop3-tuto-jekyll
+hop3 app status --app hop3-tuto-jekyll
 ```
 
 ```console
@@ -291,10 +292,10 @@ html
 
 ```bash
 # Restart the application
-hop3 restart --app hop3-tuto-jekyll
+hop3 app restart --app hop3-tuto-jekyll
 
 # View logs
-hop3 logs --app hop3-tuto-jekyll
+hop3 app logs --app hop3-tuto-jekyll
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-jekyll

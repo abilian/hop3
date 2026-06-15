@@ -101,9 +101,25 @@ def test_add_argv_simple_tcp_port(patched_nft):
     assert "dport" in argv
     assert "8448" in argv
     assert "accept" in argv
-    assert make_comment("abc-123") in argv
+    # The comment value carries ':' (the hop3:rule: marker), so it must appear
+    # as an nft quoted-string token or nft errors at the first colon.
+    assert f'"{make_comment("abc-123")}"' in argv
     # No saddr clause for source="any"
     assert "saddr" not in argv
+
+
+def test_add_argv_quotes_comment_so_nft_accepts_the_colons(patched_nft):
+    """Regression: an unquoted ``hop3:rule:<id>`` comment makes nft fail with
+    "unexpected colon". The comment token must be a quoted-string literal, and
+    must immediately follow the ``comment`` keyword.
+    """
+    spec = PortSpec(protocol="tcp", app_name="owncast", source="any", port=1935)
+    argv = build_add_argv(spec, rule_id="rule-d3029cac64b2")
+
+    token = argv[argv.index("comment") + 1]
+    assert token == '"hop3:rule:rule-d3029cac64b2"'  # a quoted-string literal
+    # The bare (unquoted) marker must NOT be a standalone token.
+    assert "hop3:rule:rule-d3029cac64b2" not in argv
 
 
 def test_add_argv_udp(patched_nft):

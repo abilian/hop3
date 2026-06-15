@@ -172,7 +172,7 @@ hop3 --why logs
 
 ### App Resolution
 
-App-scoped commands (like `hop3 logs`, `hop3 restart`, `hop3 config set`)
+App-scoped commands (like `hop3 app logs`, `hop3 app restart`, `hop3 config set`)
 don't require an explicit app name. The CLI resolves one by walking this
 chain in order, stopping at the first source that supplies a value (ADR 036 D7):
 
@@ -204,7 +204,7 @@ hop3 use              # Show current sticky app
 hop3 use --clear      # Unbind
 ```
 
-Once bound, `hop3 logs`, `hop3 restart`, etc. all default to `myapp`
+Once bound, `hop3 app logs`, `hop3 app restart`, etc. all default to `myapp`
 without needing `--app` or positional. A `.hop3-app` file in the CWD
 takes precedence.
 

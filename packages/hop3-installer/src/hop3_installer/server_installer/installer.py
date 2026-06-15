@@ -37,6 +37,7 @@ from .config import ServerInstallerConfig
 from .deps import install_system_deps
 from .deps_common import (
     install_catalogue_baseline,
+    install_elixir,
     install_leiningen,
     install_node_global_packages,
     install_rust_toolchain,
@@ -93,6 +94,12 @@ def _install_optional_toolchains(config: ServerInstallerConfig) -> None:
     except CommandError as e:
         print_warning(f"Leiningen installation failed: {e.stderr[:100]}")
 
+    # Install a modern Elixir (Phoenix needs >= 1.15; the distro ships 1.14)
+    try:
+        install_elixir()
+    except CommandError as e:
+        print_warning(f"Elixir installation failed: {e.stderr[:100]}")
+
     # Install Nix package manager (single-user mode needs hop3 user)
     if config.with_nix:
         try:
@@ -138,21 +145,21 @@ def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
     Returns:
         True if all critical steps succeeded, False otherwise.
     """
-    # Step 1: System dependencies
+    # Step 1: System dependencies, then the catalogue-derived baseline (from
+    # apps/*/hop3.toml [build].packages + [run].packages). The baseline stacks
+    # on the static base packages; it's idempotent and safe to rerun.
+    # `detect_distro()` returns "debian" / "fedora" / "arch" / "unknown" — the
+    # baseline table keys match. Both share one failure path: a broken baseline
+    # (e.g. a package conflict) leaves native-profile apps unbuildable, so it
+    # aborts loudly rather than letting apps fail confusingly downstream.
     print_step(1, TOTAL_STEPS, "Installing system dependencies...")
     try:
         install_system_deps(distro, config)
+        if distro in {"debian", "fedora"}:
+            install_catalogue_baseline(distro)
     except CommandError as e:
         print_error(f"Failed to install dependencies: {e.stderr[:200]}")
         return False
-
-    # Step 1b: Catalogue-derived baseline (from apps/*/hop3.toml
-    # [build].packages + [run].packages declarations). Stacks on top
-    # of the static base packages. Idempotent; safe to rerun.
-    # `detect_distro()` returns "debian" / "fedora" / "arch" /
-    # "unknown" — the baseline table keys match.
-    if distro in {"debian", "fedora"}:
-        install_catalogue_baseline(distro)
 
     # Step 2: Create user
     print_step(2, TOTAL_STEPS, "Creating hop3 user and group...")

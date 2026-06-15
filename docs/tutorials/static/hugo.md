@@ -37,11 +37,15 @@ sudo apt install hugo
 Verify your local setup:
 
 ```bash exec id=check-hugo
-hugo version || (echo "SKIP: Hugo is not installed locally. Install from https://gohugo.io/installation/" && exit 1)
+hugo version 2>/dev/null || {
+  echo "Hugo not found — installing the extended build..."
+  curl -fsSL "https://github.com/gohugoio/hugo/releases/download/v0.128.0/hugo_extended_0.128.0_linux-$(dpkg --print-architecture).tar.gz" | tar -xz -C /usr/local/bin hugo
+  hugo version
+}
 ```
 
 ```output regex
-hugo v[0-9]+\.[0-9]+|SKIP: Hugo
+hugo v[0-9]+\.[0-9]+
 ```
 
 !!! note "Local Prerequisite"
@@ -158,13 +162,49 @@ This is the first post on our Hugo site deployed on Hop3!
 
 ## Getting Started
 
-Hugo makes it easy to create content:
-
-```bash
-hugo new content posts/my-post.md
+Hugo makes it easy to create content. Run `hugo new content posts/my-post.md`,
+then edit the markdown file and rebuild your site.
 ```
 
-Then edit the markdown file and rebuild your site.
+Add a home-page layout. Themes occasionally lag the installed Hugo release; a
+project-level `layouts/index.html` guarantees the home page renders to
+`public/index.html` regardless of the theme (which still styles the other
+pages):
+
+```file path=hop3-tuto-hugo/layouts/index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ .Site.Title }}</title>
+</head>
+<body>
+  <main>
+    {{ .Content }}
+  </main>
+</body>
+</html>
+```
+
+A theme's `404.html` renders through its `baseof.html`, which can reference
+fields a pinned Hugo predates (ananke uses `.Site.Language.Locale`) — that fails
+the *whole* build, not just the 404 page. A self-contained project-level
+`layouts/404.html` renders it without the theme's base template:
+
+```file path=hop3-tuto-hugo/layouts/404.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>404 — {{ .Site.Title }}</title>
+</head>
+<body>
+  <main>
+    <h1>Page not found</h1>
+  </main>
+</body>
+</html>
+```
 
 ## Step 4: Build and Test
 
@@ -192,9 +232,10 @@ Test locally:
 
 ```bash exec id=test-site dir=hop3-tuto-hugo timeout=10
 hugo server &
+APP_PID=$!
 sleep 3
 curl -s http://localhost:1313/ | head -5 || echo "Test completed"
-pkill -f "hugo server" 2>/dev/null || true
+kill "$APP_PID" 2>/dev/null || true
 ```
 
 ```output contains
@@ -204,11 +245,14 @@ html
 ## Step 5: Create Deployment Configuration
 
 ```file path=hop3-tuto-hugo/Procfile
-# Pre-build: Generate static files
-prebuild: hugo --minify
+# Pre-build: install a pinned Hugo, then generate the static files. The app
+# brings its own generator (reproducible) rather than relying on one being
+# preinstalled on the server.
+prebuild: curl -fsSL "https://github.com/gohugoio/hugo/releases/download/v0.128.0/hugo_extended_0.128.0_linux-$(dpkg --print-architecture).tar.gz" | tar -xz -C /tmp hugo && /tmp/hugo --minify
 
-# Serve static files
-web: npx serve public -l $PORT
+# Serve the generated files directly from the reverse proxy — no runtime
+# process, so no Node/Python needed.
+static: public
 ```
 
 ```file path=hop3-tuto-hugo/hop3.toml
@@ -218,41 +262,26 @@ version = "1.0.0"
 title = "My Hugo Site"
 
 [build]
-before-build = ["hugo --minify"]
-packages = ["hugo", "nodejs", "npm"]
+# Install a pinned Hugo, then build. The app provides its own generator for a
+# reproducible build instead of depending on one being preinstalled.
+before-build = [
+    "curl -fsSL \"https://github.com/gohugoio/hugo/releases/download/v0.128.0/hugo_extended_0.128.0_linux-$(dpkg --print-architecture).tar.gz\" | tar -xz -C /tmp hugo",
+    "/tmp/hugo --minify",
+]
+packages = []
 
-[run]
-start = "npx serve public -l $PORT"
-
-[port]
-web = 3000
+# Serve the built `public/` directory straight from the reverse proxy. A
+# `static` worker needs no language runtime and no $PORT process — Hop3 points
+# nginx at the directory. (For a custom server instead, declare a `web` worker
+# that binds $PORT, e.g. `start = "npx serve public -l $PORT"` with
+# packages = ["nodejs", "npm"].)
+[run.workers]
+static = "public"
 
 [healthcheck]
 path = "/"
 timeout = 30
 interval = 60
-```
-
-Alternatively, use Python's built-in HTTP server (no Node.js required):
-
-```file path=hop3-tuto-hugo/hop3-python.toml
-[metadata]
-id = "hop3-tuto-hugo"
-version = "1.0.0"
-title = "My Hugo Site"
-
-[build]
-before-build = ["hugo --minify"]
-packages = ["hugo"]
-
-[run]
-start = "python3 -m http.server $PORT --directory public"
-
-[port]
-web = 8000
-
-[healthcheck]
-path = "/"
 ```
 
 ## Step 6: Initialize Git Repository
@@ -316,7 +345,7 @@ sleep 5
 ### Verify Deployment
 
 ```bash exec id=check-status timeout=30
-hop3 status --app hop3-tuto-hugo
+hop3 app status --app hop3-tuto-hugo
 ```
 
 ```output contains
@@ -335,7 +364,7 @@ View logs:
 
 ```bash skip
 # View logs
-hop3 logs --app hop3-tuto-hugo
+hop3 app logs --app hop3-tuto-hugo
 
 # Your app will be available at:
 # http://hop3-tuto-hugo.your-hop3-server.example.com
@@ -345,7 +374,7 @@ hop3 logs --app hop3-tuto-hugo
 
 ```bash skip
 # Restart the application
-hop3 restart --app hop3-tuto-hugo
+hop3 app restart --app hop3-tuto-hugo
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-hugo
@@ -459,14 +488,14 @@ version = "1.0.0"
 title = "My Hugo Site"
 
 [build]
-before-build = ["hugo --minify"]
-packages = ["hugo", "nodejs", "npm"]
+before-build = [
+    "curl -fsSL \"https://github.com/gohugoio/hugo/releases/download/v0.128.0/hugo_extended_0.128.0_linux-$(dpkg --print-architecture).tar.gz\" | tar -xz -C /tmp hugo",
+    "/tmp/hugo --minify",
+]
+packages = []
 
-[run]
-start = "npx serve public -l $PORT -s"
-
-[port]
-web = 3000
+[run.workers]
+static = "public"
 
 [healthcheck]
 path = "/"
@@ -475,6 +504,6 @@ path = "/"
 ### Complete Procfile
 
 ```procfile
-prebuild: hugo --minify
-web: npx serve public -l $PORT -s
+prebuild: curl -fsSL "https://github.com/gohugoio/hugo/releases/download/v0.128.0/hugo_extended_0.128.0_linux-$(dpkg --print-architecture).tar.gz" | tar -xz -C /tmp hugo && /tmp/hugo --minify
+static: public
 ```

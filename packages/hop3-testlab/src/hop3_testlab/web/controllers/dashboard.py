@@ -14,10 +14,11 @@ from __future__ import annotations
 
 from dishka import FromDishka  # noqa: TC002 -- runtime: @inject resolves the annotation
 from dishka.integrations.litestar import inject
-from hop3_testing.selector import list_modes
+from hop3_testing.selector.modes import load_modes
 from litestar import Controller, Request, get
 from litestar.response import Template
 
+from hop3_testlab.catalog import mode_counts
 from hop3_testlab.cloud_config import load_schedule
 from hop3_testlab.repositories import (
     RunsRepository,  # noqa: TC001 -- runtime: @inject resolves it
@@ -73,14 +74,41 @@ class DashboardController(Controller):
         ]
         schedule = load_schedule()
         flash_key = str(request.query_params.get("run") or "")
+        flash = _FLASH.get(flash_key)
+        # A pre-flight blocker (e.g. blank-slate unconfigured) is passed as the
+        # real reason in ?error= so the user sees WHY a run didn't start —
+        # never a bare "started" for something that was refused.
+        error_msg = request.query_params.get("error")
+        if flash is None and error_msg:
+            flash = ("warn", error_msg)
         return Template(
             template_name="dashboard/index.html",
             context={
                 "title": "Hop3 Test Lab",
                 "runs": rows,
-                "flash": _FLASH.get(flash_key),
-                "modes": list_modes(),
+                "flash": flash,
+                "modes": _modes_with_counts(),
                 "default_mode": schedule.mode,
                 "default_target": schedule.target,
             },
         )
+
+
+def _modes_with_counts() -> list[dict]:
+    """Modes for the trigger dropdown, each with its test count + duration,
+    sorted by count (smallest → largest = the smoke→full ladder). Counts come
+    from the cached catalog; if it's unavailable they're omitted (None)."""
+    counts = mode_counts()
+    cfgs = load_modes()
+    rows = [
+        {
+            "name": name,
+            "count": counts.get(name),
+            "max_duration_minutes": cfg.max_duration_minutes,
+            "description": cfg.description,
+        }
+        for name, cfg in cfgs.items()
+    ]
+    # Sort by count (None last), then name — so the dropdown reads as a ladder.
+    rows.sort(key=lambda r: (r["count"] is None, r["count"] or 0, r["name"]))
+    return rows

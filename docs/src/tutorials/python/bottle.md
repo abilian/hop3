@@ -259,7 +259,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 status --app hop3-tuto-bottle
+hop3 app status --app hop3-tuto-bottle
 ```
 
 ```console
@@ -278,10 +278,10 @@ OK
 
 ```bash
 # Restart the application
-hop3 restart --app hop3-tuto-bottle
+hop3 app restart --app hop3-tuto-bottle
 
 # View logs
-hop3 logs --app hop3-tuto-bottle
+hop3 app logs --app hop3-tuto-bottle
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-bottle

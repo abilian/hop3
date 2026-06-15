@@ -124,8 +124,21 @@ def build_add_argv(spec: PortSpec, rule_id: str) -> list[str]:
     argv += [spec.protocol, "dport", _format_port_or_range(spec)]
 
     # Verdict + comment marker.
-    argv += ["accept", "comment", make_comment(rule_id)]
+    argv += ["accept", "comment", _nft_comment_token(rule_id)]
     return argv
+
+
+def _nft_comment_token(rule_id: str) -> str:
+    """The comment argv token, as an nft *quoted-string* literal.
+
+    nft concatenates its argv into a single buffer and re-lexes it, so a comment
+    value containing ':' — our ``hop3:rule:<id>`` marker does — must be a quoted
+    string or nft errors at the first colon ("unexpected colon"). We run nft via
+    execve (``shell=False``), so the double quotes belong *inside* the argv token
+    where nft's own lexer sees them; nft strips them and stores the bare value,
+    which is exactly what ``parse_comment`` expects to read back.
+    """
+    return f'"{make_comment(rule_id)}"'
 
 
 def _format_port_or_range(spec: PortSpec) -> str:

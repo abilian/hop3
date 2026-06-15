@@ -5,9 +5,12 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import time
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hcloud import Client
@@ -20,6 +23,27 @@ if TYPE_CHECKING:
     from rich.console import Console
 
     from .config import HetznerConfig
+
+
+def _public_key_md5_fingerprint(key_path: str | Path) -> str | None:
+    """MD5 fingerprint (colon-hex) of the public half of ``key_path``.
+
+    Matches the ``.fingerprint`` Hetzner reports for a registered SSH key, so a
+    local private key can be mapped to its registered counterpart by reading the
+    ``<key_path>.pub`` sibling. None if the .pub is missing or unparseable.
+    """
+    pub = Path(f"{key_path}.pub")
+    try:
+        parts = pub.read_text(encoding="utf-8").split()
+    except OSError:
+        return None
+    if len(parts) < 2:  # expect: "<type> <base64-blob> [comment]"
+        return None
+    try:
+        blob = base64.b64decode(parts[1])
+    except ValueError:  # binascii.Error subclasses ValueError
+        return None
+    return ":".join(f"{b:02x}" for b in hashlib.md5(blob).digest())
 
 
 class ServerStatus(Enum):
@@ -158,6 +182,56 @@ class HetznerManager:
             if img.type == "system"  # Only show system images, not snapshots/backups
         ]
 
+    def resolve_ssh_key(self):
+        """The registered Hetzner SSH key to re-inject on rebuild, or raise loud.
+
+        Order: explicit ``ssh_key_name`` (must exist in the project); otherwise
+        auto-derive from ``ssh_key_path`` by matching ``<path>.pub``'s
+        fingerprint against the project's registered keys. Never returns None —
+        a rebuild with no key locks us out, so an unresolvable key is a hard,
+        explained error rather than a silent skip.
+        """
+        name = self.config.ssh_key_name
+        if name:
+            key = self._client.ssh_keys.get_by_name(name)
+            if key is None:
+                msg = (
+                    f"hetzner.ssh_key_name={name!r} is not a key registered in "
+                    f"your Hetzner project, so the rebuild would lock us out. "
+                    f"Check `hcloud ssh-key list`, or fix the name."
+                )
+                raise ServerResetError(msg)
+            return key
+
+        key_path = self.config.ssh_key_path
+        if not key_path:
+            msg = (
+                "Can't determine which SSH key to re-inject on rebuild: neither "
+                "hetzner.ssh_key_name nor [ssh] key_path is set."
+            )
+            raise ServerResetError(msg)
+
+        fingerprint = _public_key_md5_fingerprint(key_path)
+        if fingerprint is None:
+            msg = (
+                f"Can't read {key_path}.pub to auto-derive the Hetzner SSH key. "
+                f"Ensure the public key exists, or set hetzner.ssh_key_name."
+            )
+            raise ServerResetError(msg)
+
+        for key in self._client.ssh_keys.get_all():
+            if key.fingerprint == fingerprint:
+                return key
+
+        msg = (
+            f"Your key {key_path}.pub (fingerprint {fingerprint}) is not "
+            f"registered in your Hetzner project, so the rebuilt server would "
+            f"have no SSH access. Upload it — `hcloud ssh-key create --name "
+            f"<name> --public-key-from-file {key_path}.pub` — or set "
+            f"hetzner.ssh_key_name."
+        )
+        raise ServerResetError(msg)
+
     def rebuild_server(
         self,
         image: str | None = None,
@@ -187,18 +261,15 @@ class HetznerManager:
             msg = f"Image '{image_name}' not found"
             raise ServerResetError(msg)
 
-        # Get SSH key if configured
-        ssh_keys = None
-        if self.config.ssh_key_name:
-            ssh_key = self._client.ssh_keys.get_by_name(self.config.ssh_key_name)
-            if ssh_key:
-                ssh_keys = [ssh_key]
+        # Resolve the SSH key to re-inject (raises loud if it can't — a rebuild
+        # with no key would lock us out of the fresh OS).
+        ssh_key = self.resolve_ssh_key()
 
         # Initiate rebuild
         response = self._client.servers.rebuild(
             server,
             image=image_obj,
-            ssh_keys=ssh_keys,
+            ssh_keys=[ssh_key],
         )
 
         if not response.action:

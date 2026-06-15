@@ -23,7 +23,7 @@ from hop3.deployers.fixed_ports import (
     release_fixed_ports,
 )
 from hop3.lib import Abort
-from hop3.lib.rootd import RootdUnavailableError
+from hop3.lib.rootd import RootdError, RootdUnavailableError
 from hop3.orm import App, PortClaimRepository
 
 if TYPE_CHECKING:
@@ -166,6 +166,34 @@ def test_open_degrades_when_rootd_unavailable(db_session: Session, monkeypatch):
     claim = PortClaimRepository(session=db_session).find_active(1935, "tcp")
     assert claim is not None
     assert claim.rule_id is None
+
+
+def test_open_aborts_loudly_when_rootd_rejects_the_rule(
+    db_session: Session, monkeypatch
+):
+    """rootd reachable but the firewall command FAILED (e.g. a malformed nft
+    rule): the deploy must abort loudly, not warn-and-report-success. Unlike an
+    unavailable rootd, this fails identically on every retry/reconcile, so a
+    declared port would silently never open.
+    """
+    app = _app(db_session, "owncast-1")
+    claim_fixed_ports(app, _cfg((1935, "tcp")), db_session)  # type: ignore[arg-type]
+
+    class _Rejects:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def call(self, op: str, args: dict):
+            msg = "nft command failed (rc=1): syntax error, unexpected colon"
+            raise RootdError(msg)
+
+    monkeypatch.setattr("hop3.deployers.fixed_ports.LocalRootdClient", _Rejects)
+    with pytest.raises(Abort) as exc:
+        open_fixed_ports(app, db_session)
+    assert "unexpected colon" in str(exc.value)  # the real reason is surfaced
 
 
 def test_removed_port_is_reconciled(db_session: Session):

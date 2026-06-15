@@ -45,7 +45,7 @@ python3 -m venv venv
 Install Django and create the project:
 
 ```bash
-source venv/bin/activate && pip install django gunicorn psycopg2-binary whitenoise dj-database-url python-decouple
+. venv/bin/activate && pip install django gunicorn psycopg2-binary whitenoise dj-database-url python-decouple
 ```
 
 ```console
@@ -53,7 +53,7 @@ Successfully installed
 ```
 
 ```bash
-source venv/bin/activate && django-admin startproject myproject .
+. venv/bin/activate && django-admin startproject myproject .
 ```
 
 Your project structure should look like:
@@ -75,7 +75,7 @@ hop3-tuto-django/
 Create a simple app for the homepage:
 
 ```bash
-source venv/bin/activate && python manage.py startapp pages
+. venv/bin/activate && python manage.py startapp pages
 ```
 
 Create the view in `pages/views.py`:
@@ -402,7 +402,7 @@ daemon = False
 Run migrations and verify the setup:
 
 ```bash
-source venv/bin/activate && python manage.py migrate --noinput
+. venv/bin/activate && python manage.py migrate --noinput
 ```
 
 ```console
@@ -412,7 +412,7 @@ Operations to perform
 Collect static files:
 
 ```bash
-source venv/bin/activate && python manage.py collectstatic --noinput
+. venv/bin/activate && python manage.py collectstatic --noinput
 ```
 
 ```console
@@ -422,7 +422,7 @@ static files
 Run Django's system checks:
 
 ```bash
-source venv/bin/activate && python manage.py check
+. venv/bin/activate && python manage.py check
 ```
 
 ```console
@@ -590,7 +590,7 @@ sleep 5
 Check your application status:
 
 ```bash
-hop3 status --app hop3-tuto-django
+hop3 app status --app hop3-tuto-django
 ```
 
 ```console
@@ -608,7 +608,7 @@ OK
 View logs:
 
 ```bash
-hop3 logs --app hop3-tuto-django
+hop3 app logs --app hop3-tuto-django
 ```
 
 Open your application:
@@ -660,7 +660,7 @@ hop3 config set --app hop3-tuto-django NEW_VARIABLE=value
 hop3 config unset --app hop3-tuto-django OLD_VARIABLE
 
 # Restart to apply changes
-hop3 restart --app hop3-tuto-django
+hop3 app restart --app hop3-tuto-django
 ```
 
 ### Scaling
@@ -922,7 +922,7 @@ This backs up:
 ```bash
 hop3 backup list hop3-tuto-django
 hop3 backup restore <backup-id>
-hop3 restart --app hop3-tuto-django
+hop3 app restart --app hop3-tuto-django
 ```
 
 ## Troubleshooting
@@ -932,7 +932,7 @@ hop3 restart --app hop3-tuto-django
 Check the logs for errors:
 
 ```bash
-hop3 logs --app hop3-tuto-django --tail
+hop3 app logs --app hop3-tuto-django --tail
 ```
 
 Common issues:

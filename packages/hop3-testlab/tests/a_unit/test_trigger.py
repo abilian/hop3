@@ -4,17 +4,30 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import hop3_testlab.web.controllers.runs as runs_ctl
+from hop3_testlab import worker
 from hop3_testlab.web.asgi import create_app
 from litestar.testing import TestClient
 
 
 def _capture_spawn(monkeypatch):
-    """Replace Popen with a recorder; return the list of spawned argv."""
+    """Replace Popen with a recorder; return the list of spawned argv.
+
+    Also stubs the per-trigger log file (no real ~/.hop3 write) and satisfies the
+    blank-slate pre-flight by default so the happy-path tests aren't refused.
+    """
     spawned: list[list[str]] = []
     monkeypatch.setattr(
         runs_ctl.subprocess, "Popen", lambda cmd, **kw: spawned.append(cmd)
     )
+    monkeypatch.setattr(
+        runs_ctl, "_open_trigger_log", lambda target: runs_ctl.subprocess.DEVNULL
+    )
+    monkeypatch.setattr(worker, "load_cloud_config", SimpleNamespace)
+    # Pre-flight passes by default (SSH key resolves); the refuse test overrides.
+    monkeypatch.setattr(worker, "_resolve_hetzner_ssh_key", lambda cfg: None)
     return spawned
 
 
@@ -48,6 +61,28 @@ def test_trigger_per_app_spawns_apps(monkeypatch):
     cmd = spawned[0]
     assert cmd[cmd.index("--apps") + 1] == "apps/real-apps-docker/invoice-ninja"
     assert "--mode" not in cmd
+
+
+def test_trigger_refuses_full_suite_when_blank_slate_unresolvable(monkeypatch):
+    # A full-suite hetzner run whose blank-slate SSH key can't be resolved must
+    # REFUSE up-front and show why — never spawn a doomed run while falsely
+    # reporting "started".
+    monkeypatch.setenv("TESTLAB_SCHEDULE_TARGET", "hetzner")
+    spawned = _capture_spawn(monkeypatch)
+
+    def _boom(cfg):
+        msg = "your key id_rsa.pub is not registered in your Hetzner project"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(worker, "_resolve_hetzner_ssh_key", _boom)
+
+    with TestClient(app=create_app()) as client:
+        r = client.post("/runs/trigger", data={"mode": "ci"}, follow_redirects=False)
+
+    assert r.status_code == 303
+    assert r.headers["location"].startswith("/?error=")
+    assert "registered" in r.headers["location"]  # the real reason is surfaced
+    assert spawned == []  # refused — nothing spawned, no fake "started"
 
 
 def test_trigger_refuses_when_busy(monkeypatch):

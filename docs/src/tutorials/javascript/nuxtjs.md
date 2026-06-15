@@ -431,7 +431,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 status --app hop3-tuto-nuxtjs
+hop3 app status --app hop3-tuto-nuxtjs
 ```
 
 ```console
@@ -458,7 +458,7 @@ hop3 config set --app hop3-tuto-nuxtjs NUXT_SECRET_KEY=$(openssl rand -hex 32)
 ### View Logs
 
 ```bash
-hop3 logs --app hop3-tuto-nuxtjs --tail
+hop3 app logs --app hop3-tuto-nuxtjs --tail
 ```
 
 ## Advanced Configuration

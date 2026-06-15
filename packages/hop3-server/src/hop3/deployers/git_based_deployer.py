@@ -280,6 +280,15 @@ class Deployer:
             if newrev:
                 # Reset the repository to the specified revision
                 shell(f"git reset --hard {newrev}", env=env)
+            # Remove build artifacts left by the previous deploy. `git reset
+            # --hard` only touches tracked files, so untracked/ignored output
+            # (node_modules, .astro, .nuxt, dist, .next, target, vendor, …)
+            # survives and a redeploy then builds on top of stale state — e.g.
+            # `astro build`/`nuxt build` over a stale node_modules fails. Build
+            # from a pristine tree every time so deploys are reproducible.
+            # Single -f (not -ff) leaves registered submodules intact; they are
+            # re-synced just below. -x also clears git-ignored files.
+            shell("git clean -dfx", env=env)
             # Initialize the submodules
             shell("git submodule init", env=env)
             # Update the submodules to match the current commit

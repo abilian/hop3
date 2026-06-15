@@ -235,6 +235,18 @@ hop3 init --ssh root@your-server.example.com
 hop3 config set --app hop3-tuto-quarkus QUARKUS_PROFILE=prod
 ```
 
+### Initialize the Git Repository
+
+Hop3 deploys the committed contents of a Git repository, so initialize one and
+commit the project before deploying:
+
+```bash
+printf 'target/\n.env\n' > .gitignore
+git init && git add -A && git commit -m "Initial Quarkus application"
+echo "Tracked files (pom.xml must be at the repo root):"
+git ls-files
+```
+
 ### Deploy
 
 Deploy the application (first deployment creates the app):
@@ -270,7 +282,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 status --app hop3-tuto-quarkus
+hop3 app status --app hop3-tuto-quarkus
 ```
 
 ```console
@@ -289,7 +301,7 @@ View logs:
 
 ```bash
 # View logs
-hop3 logs --app hop3-tuto-quarkus
+hop3 app logs --app hop3-tuto-quarkus
 
 # Your app will be available at:
 # http://hop3-tuto-quarkus.your-hop3-server.example.com
@@ -299,7 +311,7 @@ hop3 logs --app hop3-tuto-quarkus
 
 ```bash
 # Restart the application
-hop3 restart --app hop3-tuto-quarkus
+hop3 app restart --app hop3-tuto-quarkus
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-quarkus

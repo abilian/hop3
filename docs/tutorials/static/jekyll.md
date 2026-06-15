@@ -46,7 +46,7 @@ ruby -v
 ```
 
 ```output regex
-ruby 3\.
+ruby [3-9]\.
 ```
 
 ```bash exec id=check-jekyll
@@ -213,9 +213,10 @@ Test locally:
 
 ```bash exec id=test-site dir=hop3-tuto-jekyll timeout=15
 bundle exec jekyll serve &
+APP_PID=$!
 sleep 5
 curl -s http://localhost:4000/ | head -5 || echo "Test completed"
-pkill -f "jekyll serve" 2>/dev/null || true
+kill "$APP_PID" 2>/dev/null || true
 ```
 
 ```output contains
@@ -299,7 +300,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash exec id=check-status timeout=30
-hop3 status --app hop3-tuto-jekyll
+hop3 app status --app hop3-tuto-jekyll
 ```
 
 ```output contains
@@ -318,10 +319,10 @@ html
 
 ```bash skip
 # Restart the application
-hop3 restart --app hop3-tuto-jekyll
+hop3 app restart --app hop3-tuto-jekyll
 
 # View logs
-hop3 logs --app hop3-tuto-jekyll
+hop3 app logs --app hop3-tuto-jekyll
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-jekyll

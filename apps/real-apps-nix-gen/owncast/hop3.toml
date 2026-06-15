@@ -38,4 +38,4 @@ covers = ["golang", "nix", "sqlite", "streaming"]
 [[test.validations]]
 path = "/api/status"
 status = 200
-contains = "viewerCount"
+contains = "versionNumber"

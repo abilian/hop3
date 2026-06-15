@@ -20,8 +20,30 @@ def test_profiles_page_lists_builtin_modes():
     with TestClient(app=create_app()) as client:
         response = client.get("/profiles")
     assert response.status_code == 200
-    for name in ("dev", "ci", "coverage", "nightly", "release"):
+    for name in ("smoke", "ci", "curated", "coverage", "nightly", "full"):
         assert name in response.text
+
+
+def test_save_curated_profile_persists_explicit_list():
+    """A curated profile (kind=tests) stores the picked test names, not filters."""
+    names = ["apps/test-apps-procfile/000-static", "demos/demo01"]
+    with TestClient(app=create_app()) as client:
+        response = client.post(
+            "/profiles/save",
+            data={
+                "name": "mycurated",
+                "kind": "tests",
+                "tests": names,
+                "targets": ["docker"],
+                "description": "hand-picked",
+                "max_duration_minutes": "20",
+            },
+            follow_redirects=False,
+        )
+    assert response.status_code == 303
+    cfg = get_mode_config("mycurated")
+    assert cfg.tests == names
+    assert cfg.tiers == []  # explicit-list profile carries no filters
 
 
 def test_save_overrides_a_builtin_mode():
@@ -47,18 +69,20 @@ def test_add_and_delete_custom_profile():
         client.post(
             "/profiles/save",
             data={
-                "name": "smoke",
+                "name": "myprofile",
                 "tiers": ["fast"],
                 "priorities": ["P0"],
                 "targets": ["docker"],
-                "description": "smoke",
+                "description": "one-off",
             },
             follow_redirects=False,
         )
-        assert "smoke" in list_modes()
+        assert "myprofile" in list_modes()
 
-        client.post("/profiles/delete", data={"name": "smoke"}, follow_redirects=False)
-        assert "smoke" not in list_modes()
+        client.post(
+            "/profiles/delete", data={"name": "myprofile"}, follow_redirects=False
+        )
+        assert "myprofile" not in list_modes()
 
 
 def test_reset_builtin_restores_default():

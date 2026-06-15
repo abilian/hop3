@@ -13,6 +13,7 @@ from litestar.exceptions import NotFoundException
 from litestar.params import FromPath  # noqa: TC002 -- runtime: Litestar resolves it
 from litestar.response import Template
 
+from hop3_testlab.catalog import title_map
 from hop3_testlab.repositories import (
     RunsRepository,  # noqa: TC001 -- runtime: @inject resolves it
 )
@@ -36,11 +37,13 @@ class BuildController(Controller):
             raise NotFoundException(msg)
 
         logs = runs.build_logs(result_id)
+        human_title = title_map().get(record.test_name)
         return Template(
             template_name="builds/detail.html",
             context={
-                "title": f"Build {record.test_name}",
+                "title": f"Build {human_title or record.test_name}",
                 "test_name": record.test_name,
+                "human_title": human_title,
                 "status": record.status or ("pass" if record.passed else "fail"),
                 "passed": record.passed,
                 "classification": record.classification,

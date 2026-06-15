@@ -371,9 +371,8 @@ path = "/up"
 timeout = 30
 interval = 60
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"
 ```
 
 Verify the deployment files exist:
@@ -472,12 +471,16 @@ hop3 config set --app hop3-tuto-laravel LOG_CHANNEL=stderr
 
 ### Prepare for Deployment
 
-Remove files that cause deployment issues:
-- `composer.lock` - avoids PHP version conflicts between local and server
-- `package.json` - prevents multi-language detection (Vite not needed for basic deployment)
+Keep `composer.lock` (it pins your dependency versions for local work) and
+remove the JS manifests so the builder doesn't mistake this for a multi-language
+project (Vite isn't needed for a basic deployment):
+- `package.json` / `package-lock.json` / `vite.config.js` - prevent Node mis-detection
+
+The server runs `composer install --no-dev --optimize-autoloader` from the
+committed `composer.lock` for a reproducible production build.
 
 ```bash
-rm -f composer.lock package.json package-lock.json vite.config.js
+rm -f package.json package-lock.json vite.config.js
 git add -A && git commit -m "Prepare for deployment" || true
 ```
 
@@ -495,6 +498,18 @@ Configure the hostname for nginx proxy:
 
 ```bash
 hop3 config set --app hop3-tuto-laravel HOST_NAME=hop3-tuto-laravel.$HOP3_TEST_DOMAIN
+```
+
+### Set the Application Key
+
+Laravel needs an `APP_KEY` to encrypt cookies and sessions; without it every
+request (including the `/up` health check) returns a 500. Generate one and set
+it as a config var — a secret, so it's set via `hop3 config set`, never
+committed. It's baked into the cached config by the next deploy's
+`php artisan config:cache`:
+
+```bash
+hop3 config set --app hop3-tuto-laravel APP_KEY="$(php artisan key:generate --show)"
 ```
 
 ### Apply Configuration
@@ -523,11 +538,12 @@ You'll see output showing:
 Check your application status:
 
 ```bash
-hop3 status --app hop3-tuto-laravel
+hop3 app status --app hop3-tuto-laravel
 ```
 
 ```console
 hop3-tuto-laravel
+```
 
 ```bash
 curl -s http://hop3-tuto-laravel.$HOP3_TEST_DOMAIN/up
@@ -535,12 +551,12 @@ curl -s http://hop3-tuto-laravel.$HOP3_TEST_DOMAIN/up
 
 ```console
 OK
-``````
+```
 
 View logs:
 
 ```bash
-hop3 logs --app hop3-tuto-laravel
+hop3 app logs --app hop3-tuto-laravel
 ```
 
 Open your application:
@@ -694,7 +710,7 @@ hop3 config set --app hop3-tuto-laravel MAIL_ENCRYPTION=tls
 Check the logs for errors:
 
 ```bash
-hop3 logs --app hop3-tuto-laravel --tail
+hop3 app logs --app hop3-tuto-laravel --tail
 ```
 
 Common issues:
@@ -802,13 +818,11 @@ enabled = true
 schedule = "0 3 * * *"
 retention = 14
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"
 
-[[provider]]
-name = "redis"
-plan = "basic"
+[[addons]]
+type = "redis"
 ```
 
 ### Complete Procfile for Laravel

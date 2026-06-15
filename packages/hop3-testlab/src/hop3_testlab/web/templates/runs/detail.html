@@ -2,8 +2,10 @@
 
 {% block title %}{{ title }}{% endblock %}
 
-{# Auto-refresh while the run is still in progress so finished builds appear. #}
-{% block head_extra %}{% if not run.finished_at %}<meta http-equiv="refresh" content="6">{% endif %}
+{# No auto-refresh: a meta-refresh reload would wipe scroll position, table
+   sort/filter state, and any in-progress text selection while the user reads a
+   live run. A manual Refresh button (below) lets them update on demand. #}
+{% block head_extra %}
 <style>
   /* Typography for the rendered markdown report (no Tailwind prose plugin on the CDN build). */
   .report h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 .5rem; }
@@ -27,13 +29,17 @@
   {{ run.run_uid }}
   {% if not run.finished_at %}
   <span class="ml-2 align-middle inline-flex items-center rounded bg-blue-100 text-blue-800 px-2 py-0.5 text-xs font-sans animate-pulse">&#9679; running</span>
+  <button type="button" onclick="location.reload()"
+          class="ml-1 align-middle inline-flex items-center rounded border border-gray-300 bg-white px-2 py-0.5 text-xs font-sans text-gray-700 hover:bg-gray-100">
+    &#8635; Refresh
+  </button>
   {% endif %}
 </h1>
 <p class="text-sm text-gray-600 mb-6">
   {{ run.trigger or run.mode or "—" }} ·
   {{ run.passed }}/{{ run.total }} {% if run.finished_at %}passed{% else %}done so far{% endif %} ·
   {{ run.failed }} failed ·
-  {% if run.finished_at %}{{ "%.1fs"|format(run.duration) if run.duration else "—" }}{% else %}<span class="text-blue-700">live — auto-refreshing</span>{% endif %}
+  {% if run.finished_at %}{{ "%.1fs"|format(run.duration) if run.duration else "—" }}{% else %}<span class="text-blue-700">live — use Refresh to update</span>{% endif %}
 </p>
 
 {# --- Session details (progressive disclosure) --- #}
@@ -153,8 +159,11 @@
     <div class="border-b" :class="rowBg(r.status)">
       <div class="flex items-center gap-2 py-1.5 cursor-pointer" @click="toggle(r.id)">
         <span class="w-16 font-medium" :class="statusColor(r.status)" x-text="r.status"></span>
-        <a class="flex-1 min-w-0 truncate font-mono text-xs text-blue-700 hover:underline"
-           :href="'/builds/' + r.id" :title="r.test_name" x-text="r.app" @click.stop></a>
+        <a class="flex-1 min-w-0 truncate text-xs text-blue-700 hover:underline"
+           :href="'/builds/' + r.id" :title="r.test_name" @click.stop>
+          <span x-text="r.title"></span>
+          <span class="text-gray-400 font-mono" x-show="r.app !== r.title" x-text="'· ' + r.app"></span>
+        </a>
         <span class="w-28"><span class="inline-block rounded px-1.5 py-0.5 text-xs" :class="variantBadge(r.variant)" x-text="r.variant"></span></span>
         <span class="w-24 text-gray-600 text-xs" x-text="r.category || '—'"></span>
         <span class="w-12 text-gray-500 text-xs" x-text="r.priority || '—'"></span>
@@ -221,7 +230,7 @@ function resultsTable() {
     get filtered() {
       const q = this.q.toLowerCase();
       let out = this.rows.filter(r =>
-        (!q || (r.app + " " + r.test_name).toLowerCase().includes(q)) &&
+        (!q || (r.title + " " + r.app + " " + r.test_name).toLowerCase().includes(q)) &&
         (!this.variant || r.variant === this.variant) &&
         (!this.suite || r.category === this.suite) &&
         (!this.failuresOnly || !r.passed)

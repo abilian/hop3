@@ -104,6 +104,30 @@ def test_order_failed_first_without_history_is_alphabetical(tmp_path: Path):
     assert [t.name for t in ordered] == ["apps/a", "apps/b", "apps/c"]
 
 
+def test_demos_kept_in_name_order_despite_failed_first(tmp_path: Path):
+    """Demos are an ordered ladder: failed-first must not reorder them (else a
+    later-failing demo would run before demo01 and break demo fail-fast). Demos
+    stay in name order and come after the non-demos."""
+    store = ResultStore(db_path=tmp_path / "r.db")
+    _finished_run(
+        store,
+        mode="nightly",
+        target_type="docker",
+        results=[("demos/demo03", False), ("apps/b", False)],
+    )
+    tests = [
+        *_tests("apps/a", "apps/b"),
+        *_tests("demos/demo03", "demos/demo01", "demos/demo02", runner_type="demo"),
+    ]
+    ordered = _order_failed_first(
+        tests, store, mode="nightly", target_type="docker", console=_Console()
+    )
+    names = [t.name for t in ordered]
+    # apps/b failed → first among non-demos; demos stay name-ordered, at the end.
+    assert names[0] == "apps/b"
+    assert names[-3:] == ["demos/demo01", "demos/demo02", "demos/demo03"]
+
+
 def test_count_by_type():
     tests = [
         *_tests("apps/x", "apps/y"),

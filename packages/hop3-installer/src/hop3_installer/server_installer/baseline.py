@@ -33,6 +33,21 @@ else:
 
 from .package_aliases import PACKAGE_ALIASES, supported_os_families
 
+# Node.js, its dev headers, npm and node-gyp are provided by the NodeSource
+# toolchain (installed separately in deps_{debian,fedora}). Letting the distro's
+# equivalents into the apt/dnf baseline makes the package manager try to install
+# Debian's nodejs alongside NodeSource's — an unsatisfiable conflict ("held
+# broken packages") that aborts the *entire* baseline and leaves Node broken, so
+# every Node app then fails to find node/npm/nodeenv. node-gyp downloads the
+# matching headers itself, so dropping libnode-dev costs us nothing. These are
+# canonical (Debian-ish) names, matched before OS translation.
+NODESOURCE_PROVIDED: frozenset[str] = frozenset({
+    "nodejs",
+    "npm",
+    "node-gyp",
+    "libnode-dev",
+})
+
 
 @dataclass(frozen=True, slots=True)
 class BaselineSource:
@@ -78,7 +93,9 @@ def derive_baseline(app_dirs: list[Path]) -> BaselineResult:
         for toml_path in sorted(app_dir.rglob("hop3.toml")):
             sources.extend(_read_declarations(toml_path))
 
-    canonical = tuple(sorted({s.package for s in sources}))
+    canonical = tuple(
+        p for p in sorted({s.package for s in sources}) if p not in NODESOURCE_PROVIDED
+    )
     unknown = tuple(p for p in canonical if p not in PACKAGE_ALIASES)
 
     by_family: dict[str, tuple[str, ...]] = {}

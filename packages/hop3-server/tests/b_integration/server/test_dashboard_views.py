@@ -307,16 +307,11 @@ def test_env_vars_requires_authentication(client: TestClient):
     assert response.status_code in {302, 401}
 
 
-@pytest.mark.skip(
-    reason="Litestar's authentication guards are not invoked "
-    "when using test clients (both TestClient and httpx.AsyncClient with ASGITransport). "
-    "This is a known limitation in ASGI testing ecosystems. The authentication system "
-    "is fully verified by: (1) 10 token unit tests, (2) 13 ORM security tests, (3) 14 auth command tests, "
-    "(4) 8 other RPC auth tests. End-to-end auth flow should be tested via real HTTP requests to a running server."
-)
 def test_logs_stream_unauthorized(client: TestClient):
     """Test logs stream requires authentication."""
-    response = client.get("/dashboard/apps/testapp/logs/stream")
+    # follow_redirects=False so we see the auth_guard's 302 -> /auth/login,
+    # not the 200 login page it redirects to (the sibling tests do the same).
+    response = client.get("/dashboard/apps/testapp/logs/stream", follow_redirects=False)
     # Without authentication, should return 401 or redirect to login
     assert response.status_code in {302, 401}
 
