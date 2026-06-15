@@ -242,33 +242,29 @@ def set_generated_env_vars(
             ``Hop3Config.env_generated``).
         db_session: Database session for persistence.
     """
-    if not generated_config:
+    # Generated-once: only materialize vars that have no value yet, so a
+    # redeploy never regenerates (and never rotates) a stored secret.
+    existing = {ev.name for ev in app.env_vars}
+    pending = {
+        name: spec for name, spec in generated_config.items() if name not in existing
+    }
+    if not pending:
         return
 
-    existing_names = {ev.name for ev in app.env_vars}
-    created: list[str] = []
-    to_display: list[tuple[str, str]] = []
+    values = {name: generate_secret_value(spec) for name, spec in pending.items()}
+    # Delegate persistence to the shared writer (defaults_only mirrors the
+    # never-overwrite guarantee) instead of hand-rolling EnvVar rows.
+    set_env_vars(app, values, db_session, defaults_only=True)
 
-    for name, spec in generated_config.items():
-        if name in existing_names:
-            continue  # generated-once: keep the stored secret, never rotate
-        value = generate_secret_value(spec)
-        new_var = EnvVar(app_id=app.id, name=name, value=value)
-        db_session.add(new_var)
-        app.env_vars.append(new_var)
-        created.append(name)
+    log(
+        f"  Generated {len(values)} secret(s): {', '.join(sorted(values))}",
+        level=1,
+        fg="green",
+    )
+    for name, spec in pending.items():
         if spec.get("display"):
-            to_display.append((name, value))
-
-    if created:
-        log(
-            f"  Generated {len(created)} secret(s): {', '.join(sorted(created))}",
-            level=1,
-            fg="green",
-        )
-    for name, value in to_display:
-        log(
-            f"  {name} = {value}  [generated — shown once, store it now]",
-            level=0,
-            fg="yellow",
-        )
+            log(
+                f"  {name} = {values[name]}  [generated — shown once, store it now]",
+                level=0,
+                fg="yellow",
+            )

@@ -511,8 +511,6 @@ class Hop3Config:
         (ADR 046).
         """
         raw = self._data.get("env", {})
-        if not isinstance(raw, dict):
-            return {}
         return {
             k: v
             for k, v in raw.items()
