@@ -187,6 +187,9 @@ packages = ["nodejs", "npm"]
 start = "node app.js"
 
 [env]
+# Generated once on the first deploy, persisted, and reused — never
+# committed or rotated (ADR 046).
+SESSION_SECRET = { generate = "hex", length = 32 }
 NODE_ENV = "production"
 
 [port]
@@ -438,7 +441,6 @@ Attach a Redis addon:
 ```bash
 hop3 addons create redis hop3-tuto-express-redis
 hop3 addons attach hop3-tuto-express hop3-tuto-express-redis
-hop3 config set --app hop3-tuto-express SESSION_SECRET=$(openssl rand -hex 32)
 ```
 
 ### Using PM2 for Process Management
@@ -598,6 +600,7 @@ packages = ["nodejs"]
 start = "node app.js"
 
 [env]
+SESSION_SECRET = { generate = "hex", length = 32 }
 NODE_ENV = "production"
 
 [port]

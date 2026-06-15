@@ -198,6 +198,9 @@ packages = ["python3", "python3-pip"]
 start = "sanic app:app --host 0.0.0.0 --port $PORT --workers 2"
 
 [env]
+# Generated once on the first deploy, persisted, and reused — never
+# committed or rotated (ADR 046).
+SECRET_KEY = { generate = "hex", length = 32 }
 PYTHONUNBUFFERED = "1"
 SANIC_ACCESS_LOG = "true"
 
@@ -222,9 +225,7 @@ hop3 init --ssh root@your-server.example.com
 
 ### Set Environment Variables
 
-```bash
-hop3 config set --app hop3-tuto-sanic SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-```
+`SECRET_KEY` is generated automatically on the first deploy (declared in `hop3.toml` `[env]`), so there's nothing to set by hand.
 
 ### Deploy
 
@@ -352,6 +353,9 @@ version = "1.0.0"
 [build]
 [run]
 start = "sanic app:app --host 0.0.0.0 --port $PORT --workers 2 --fast"
+
+[env]
+SECRET_KEY = { generate = "hex", length = 32 }
 
 [port]
 web = 8000

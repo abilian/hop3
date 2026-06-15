@@ -205,6 +205,9 @@ start = "node .next/standalone/server.js"
 before-run = "cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/ 2>/dev/null || true"
 
 [env]
+# Generated once on the first deploy, persisted, and reused — never
+# committed or rotated (ADR 046).
+SECRET_KEY = { generate = "hex", length = 32 }
 NODE_ENV = "production"
 HOSTNAME = "0.0.0.0"
 
@@ -453,7 +456,6 @@ Next.js exposes environment variables prefixed with `NEXT_PUBLIC_` to the browse
 ```bash
 # Server-side only (secure)
 hop3 config set --app hop3-tuto-nextjs DATABASE_URL=postgres://...
-hop3 config set --app hop3-tuto-nextjs SECRET_KEY=your-secret
 
 # Client-side (visible in browser)
 hop3 config set --app hop3-tuto-nextjs NEXT_PUBLIC_API_URL=https://api.example.com
@@ -626,6 +628,7 @@ before-build = ["npm install", "npm run build"]
 start = "npx serve out -l $PORT"
 
 [env]
+SECRET_KEY = { generate = "hex", length = 32 }
 NODE_ENV = "production"
 ```
 
@@ -666,6 +669,7 @@ start = "node .next/standalone/server.js"
 before-run = "cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/ 2>/dev/null || true"
 
 [env]
+SECRET_KEY = { generate = "hex", length = 32 }
 NODE_ENV = "production"
 HOSTNAME = "0.0.0.0"
 

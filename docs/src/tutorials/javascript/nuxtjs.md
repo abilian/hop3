@@ -308,6 +308,9 @@ packages = ["nodejs", "npm"]
 start = "node .output/server/index.mjs"
 
 [env]
+# Generated once on the first deploy, persisted, and reused — never
+# committed or rotated (ADR 046).
+NUXT_SECRET_KEY = { generate = "hex", length = 32 }
 NODE_ENV = "production"
 NITRO_PORT = "$PORT"
 
@@ -452,7 +455,6 @@ OK
 
 ```bash
 hop3 config set --app hop3-tuto-nuxtjs NUXT_PUBLIC_API_BASE=https://api.example.com
-hop3 config set --app hop3-tuto-nuxtjs NUXT_SECRET_KEY=$(openssl rand -hex 32)
 ```
 
 ### View Logs
@@ -524,6 +526,7 @@ packages = ["nodejs"]
 start = "node .output/server/index.mjs"
 
 [env]
+NUXT_SECRET_KEY = { generate = "hex", length = 32 }
 NODE_ENV = "production"
 NITRO_PORT = "$PORT"
 

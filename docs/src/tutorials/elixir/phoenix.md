@@ -340,6 +340,10 @@ packages = ["erlang", "elixir", "nodejs", "npm"]
 start = "_build/prod/rel/hop3_tuto_phoenix/bin/hop3_tuto_phoenix start"
 
 [env]
+# Generated once on the first deploy, persisted, and reused on every later
+# deploy — never committed, never rotated (ADR 046). This satisfies
+# runtime.exs, which refuses to boot without SECRET_KEY_BASE.
+SECRET_KEY_BASE = { generate = "urlsafe", length = 64 }
 MIX_ENV = "prod"
 PHX_HOST = "localhost"
 MIX_HOME = "/home/hop3/apps/hop3-tuto-phoenix/.mix"
@@ -416,23 +420,24 @@ hop3 init --ssh root@your-server.example.com
 
 ### Set Environment Variables
 
-```bash
-# Generate secret key
-mix phx.gen.secret
+`SECRET_KEY_BASE` is generated for you on the first deploy (declared in
+`hop3.toml` `[env]`), so there's no secret to generate or set by hand. Just
+point the app at its public host:
 
-hop3 config set --app hop3-tuto-phoenix SECRET_KEY_BASE=<generated-secret>
+```bash
 hop3 config set --app hop3-tuto-phoenix PHX_HOST=hop3-tuto-phoenix.your-server.example.com
 ```
 
 ### Deploy
 
 Deploy the application (first deployment creates the app). The production release
-requires `SECRET_KEY_BASE` at boot (see `runtime.exs`), so generate one and pass
-it as a secret env var with `--env`. Hop3 persists it, so later redeploys reuse
-it — and it never lands in your committed `hop3.toml`:
+requires `SECRET_KEY_BASE` at boot (see `runtime.exs`); Hop3 generates it on the
+first deploy from the `{ generate = "urlsafe", length = 64 }` declaration in
+`hop3.toml`, persists it, and reuses it on every later deploy — so no secret is
+ever typed by hand or committed:
 
 ```bash
-hop3 deploy hop3-tuto-phoenix --env SECRET_KEY_BASE="$(mix phx.gen.secret)"
+hop3 deploy hop3-tuto-phoenix
 ```
 
 ### Set Hostname
@@ -611,6 +616,7 @@ start = "_build/prod/rel/hop3_tuto_phoenix/bin/hop3_tuto_phoenix start"
 before-run = "_build/prod/rel/hop3_tuto_phoenix/bin/hop3_tuto_phoenix eval 'Hop3TutoPhoenix.Release.migrate()'"
 
 [env]
+SECRET_KEY_BASE = { generate = "urlsafe", length = 64 }
 MIX_ENV = "prod"
 PHX_HOST = "localhost"
 POOL_SIZE = "10"
