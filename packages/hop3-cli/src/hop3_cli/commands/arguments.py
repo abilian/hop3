@@ -16,16 +16,12 @@ from typing import TYPE_CHECKING
 
 import pathspec
 
+from hop3_cli.core.hop3_toml import read_hop3_toml
+
 if TYPE_CHECKING:
     from hop3_cli.types import JsonDict
 
 __all__ = ["generate_archive", "get_extra_args", "pack_repository"]
-
-# tomllib is stdlib in Python 3.11+, use toml package for 3.10
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import toml as tomllib
 
 # Archive size limits (in bytes)
 # Soft limit: warn the user but proceed
@@ -480,19 +476,12 @@ def _get_build_ignore_patterns(source_dir: Path) -> list[str] | None:
     the canonical, declarative ignore list for the deploy upload (ADR 046 §5);
     the legacy ``[build].ignore-file`` pointer is no longer supported.
     """
-    hop3_toml_paths = [
+    for hop3_toml_path in (
         source_dir / "hop3" / "hop3.toml",
         source_dir / "hop3.toml",
-    ]
-    for hop3_toml_path in hop3_toml_paths:
-        if not hop3_toml_path.is_file():
-            continue
-        try:
-            data = tomllib.loads(hop3_toml_path.read_text(encoding="utf-8"))
-        except Exception:
-            # If TOML parsing fails, skip and try the next location.
-            continue
-        build_section = data.get("build", {})
+    ):
+        # read_hop3_toml returns {} for a missing or unparseable file.
+        build_section = read_hop3_toml(hop3_toml_path).get("build", {})
         if not isinstance(build_section, dict):
             continue
         patterns = build_section.get("ignore")
