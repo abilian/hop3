@@ -245,9 +245,14 @@ class RunCmd(Command):
                 output += f"\n--- stderr ---\n{result.stderr}"
             return [text(output)]
         except CommandFailedError as e:
+            # Surface BOTH streams: many commands write their error (and
+            # tracebacks) to stdout, so stderr alone often leaves only the bare
+            # exit code. Mirror the success path's stdout / stderr layout.
             output = f"Command failed with exit code {e.returncode}"
+            if e.stdout:
+                output += f"\n{e.stdout}"
             if e.stderr:
-                output += f":\n{e.stderr}"
+                output += f"\n--- stderr ---\n{e.stderr}"
             return [error(output)]
         except CommandError as e:
             return [error(e.message)]
