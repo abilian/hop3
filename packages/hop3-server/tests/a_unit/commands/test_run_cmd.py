@@ -60,3 +60,19 @@ def test_run_includes_both_streams_on_failure(
     assert "stdout line" in out
     assert "stderr line" in out
     assert "--- stderr ---" in out
+
+
+def test_run_says_so_when_no_output_was_captured(
+    db_session: Session, test_app: App, monkeypatch
+) -> None:
+    """A failure with empty streams must not be a silent bare exit code."""
+
+    def fake_run_command(*_args, **_kwargs):
+        raise CommandFailedError(["python", "x.py"], returncode=1, stderr="", stdout="")
+
+    monkeypatch.setattr(misc, "run_command", fake_run_command)
+
+    out = _text_of(misc.RunCmd(db_session=db_session).call("testapp", "python", "x.py"))
+    assert "exit code 1" in out
+    assert "$ python x.py" in out  # the exact command is echoed
+    assert "no output" in out  # explicit, not a silent bare code

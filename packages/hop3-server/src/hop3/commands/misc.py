@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
 import tempfile
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ from typing import TYPE_CHECKING, ClassVar
 from hop3 import config as c
 from hop3.config import HOP3_ROOT, HOP3_USER
 from hop3.deployers import do_deploy
+from hop3.lib.logging import server_log
 from hop3.lib.registry import lookup, register
 from hop3.lib.util import CommandError, CommandFailedError, run_command
 from hop3.project.procfile import parse_procfile
@@ -247,12 +249,30 @@ class RunCmd(Command):
         except CommandFailedError as e:
             # Surface BOTH streams: many commands write their error (and
             # tracebacks) to stdout, so stderr alone often leaves only the bare
-            # exit code. Mirror the success path's stdout / stderr layout.
-            output = f"Command failed with exit code {e.returncode}"
+            # exit code. Mirror the success path's stdout / stderr layout, echo
+            # the exact command, and — crucially — say so explicitly when the
+            # process produced nothing, so the user never gets a silent bare
+            # exit code (and so a live deploy of this code is recognisable).
+            cmd_str = shlex.join(cmd_to_run)
+            server_log.warning(
+                "run command failed",
+                app_name=app.name,
+                cmd=cmd_str,
+                returncode=e.returncode,
+                stdout_len=len(e.stdout),
+                stderr_len=len(e.stderr),
+            )
+            output = f"Command failed with exit code {e.returncode}\n$ {cmd_str}"
             if e.stdout:
                 output += f"\n{e.stdout}"
             if e.stderr:
                 output += f"\n--- stderr ---\n{e.stderr}"
+            if not e.stdout and not e.stderr:
+                output += (
+                    "\n(the command produced no output on stdout or stderr — "
+                    "it likely failed before printing, or buffered output was "
+                    "lost on a hard exit)"
+                )
             return [error(output)]
         except CommandError as e:
             return [error(e.message)]
