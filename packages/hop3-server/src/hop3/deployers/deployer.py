@@ -16,6 +16,7 @@ from hop3.deployers.addon_provisioning import (
     reinject_attached_addons,
 )
 from hop3.deployers.env_provisioning import (
+    resolve_env_refs,
     set_computed_env_vars,
     set_default_env_vars,
     set_generated_env_vars,
@@ -734,6 +735,18 @@ def _process_config_dependencies(
             app, domains_config, hop3_config.domains_policy, db_session
         )
 
+    # Resolve dynamic [env] references ({ from, key } / app facts). Runs after
+    # the domains -> HOST_NAME step so a { key = "domain" } ref can see it, and
+    # before [env.computed] so a computed value can interpolate a ref (ADR 046).
+    refs_config = hop3_config.env_refs
+    if refs_config:
+        log(
+            f"Resolving {len(refs_config)} env reference(s)...",
+            level=1,
+            fg="blue",
+        )
+        resolve_env_refs(app, refs_config, db_session)
+
     # Resolve computed env vars from [env.computed] section
     computed_config = hop3_config.env_computed
     if computed_config:
@@ -745,7 +758,7 @@ def _process_config_dependencies(
         set_computed_env_vars(app, computed_config, db_session)
 
     # Commit changes before continuing with build
-    if addon_configs or env_config or generated_config or domains_config:
+    if addon_configs or env_config or generated_config or refs_config or domains_config:
         db_session.commit()
         server_log.info(
             "Config dependencies processed",

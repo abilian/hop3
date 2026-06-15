@@ -17,9 +17,10 @@ import string
 import uuid
 from typing import TYPE_CHECKING, Any
 
+from hop3.core.credentials import get_credential_encryptor
 from hop3.lib import log
 from hop3.lib.logging import server_log
-from hop3.orm import EnvVar
+from hop3.orm import AddonCredentialRepository, EnvVar
 from hop3.project.schema import GENERATE_KINDS
 
 if TYPE_CHECKING:
@@ -28,6 +29,9 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
     from hop3.orm.app import App
+
+# App facts addressable by a `{ key = ... }` reference (no `from`).
+_APP_FACT_KEYS = frozenset({"domain", "hostname", "name"})
 
 # Default entropy when a generate spec omits `length`: bytes for
 # hex/base64/urlsafe, characters for password (uuid ignores length).
@@ -268,3 +272,99 @@ def set_generated_env_vars(
                 level=0,
                 fg="yellow",
             )
+
+
+def resolve_env_refs(
+    app: App,
+    refs_config: dict[str, Any],
+    db_session: Session,
+) -> None:
+    """Resolve dynamic [env] references against addon and app facts (ADR 046).
+
+    Each ``{ from, key }`` / ``{ key }`` / ``{ external_ip }`` entry is a derived
+    value, so (like ``[env.computed]``) it overwrites. Resolution fails loud on
+    an unattached addon, an unknown key, or an unsupported reference, aborting
+    the deploy rather than producing a wrong value.
+
+    Args:
+        app: The application model.
+        refs_config: Dict of var name -> reference spec (from
+            ``Hop3Config.env_refs``).
+        db_session: Database session for addon-credential lookups.
+    """
+    if not refs_config:
+        return
+
+    resolved = {
+        name: _resolve_env_ref(app, name, spec, db_session)
+        for name, spec in refs_config.items()
+    }
+    set_env_vars(app, resolved, db_session, defaults_only=False)
+    log(
+        f"  Resolved {len(resolved)} env reference(s): {', '.join(sorted(resolved))}",
+        level=1,
+        fg="green",
+    )
+
+
+def _resolve_env_ref(
+    app: App, name: str, spec: Mapping[str, Any], db_session: Session
+) -> str:
+    """Resolve a single reference spec to its value (or raise, loudly)."""
+    if spec.get("external_ip"):
+        msg = (
+            f"[env].{name}: external_ip references are not implemented yet "
+            "(ADR 046). Set the value with `hop3 config set` for now."
+        )
+        raise ValueError(msg)
+
+    key = spec.get("key")
+    from_ = spec.get("from")
+    if from_:
+        return _resolve_addon_ref(app, name, from_, key, db_session)
+    return _resolve_app_fact(app, name, key)
+
+
+def _resolve_addon_ref(
+    app: App, name: str, addon_name: str, key: str | None, db_session: Session
+) -> str:
+    """Copy ``key`` from the credentials of the app's addon ``addon_name``."""
+    repo = AddonCredentialRepository(session=db_session)
+    # Match within the app's own addons by name (a ref carries no addon type).
+    credential = next(
+        (c for c in repo.get_by_app_id(app.id) if c.addon_name == addon_name),
+        None,
+    )
+    if credential is None:
+        msg = f"[env].{name}: addon {addon_name!r} is not attached to {app.name!r}."
+        raise ValueError(msg)
+
+    details = get_credential_encryptor().decrypt(credential.encrypted_data)
+    if key not in details:
+        available = ", ".join(sorted(details)) or "(none)"
+        msg = (
+            f"[env].{name}: addon {addon_name!r} exposes no key {key!r}. "
+            f"Available keys: {available}."
+        )
+        raise ValueError(msg)
+    return str(details[key])
+
+
+def _resolve_app_fact(app: App, name: str, key: str | None) -> str:
+    """Resolve an app-level fact: ``domain`` / ``hostname`` / ``name``."""
+    if key in {"domain", "hostname"}:
+        host_name = app.get_runtime_env().get("HOST_NAME", "")
+        first = host_name.split()[0] if host_name else ""
+        if not first:
+            msg = (
+                f"[env].{name}: no hostname is set for {app.name!r} yet. "
+                "Declare [domains] or set HOST_NAME before referencing it."
+            )
+            raise ValueError(msg)
+        return first
+    if key == "name":
+        return app.name
+
+    known = ", ".join(sorted(_APP_FACT_KEYS))
+    msg = f"[env].{name}: unknown app fact {key!r}. Known facts: {known}."
+    raise ValueError(msg)

@@ -12,8 +12,9 @@ Phase 1 is landing incrementally. Shipped so far:
 
 - **Generated secrets** (`[env] { generate = ... }`) — `hex`/`base64`/`urlsafe`/`password`/`uuid`, generated-once with a CSPRNG, persisted as normal app env, validated at schema time, wired into the deploy pipeline between static `[env]` and `[env.computed]`. Replaces the `hop3 deploy --env KEY=$(...)` workaround. See `deployers/env_provisioning.py::generate_secret_value` / `set_generated_env_vars`, `project/schema.py::EnvGenerate`, `docs/src/reference/config.md` §"Generated secrets".
 - **Ignore consolidation (§5)** — the `hop3 deploy` upload now excludes a built-in default set plus `[build].ignore`; `.gitignore` is no longer consulted for the upload (git-push only), `.dockerignore` stays a Docker-build concern, `.hop3ignore` is honored for one release with a loud deprecation warning, and `[build].ignore-file` is removed (schema rejects it). See `hop3-cli/commands/arguments.py::get_ignored_spec`, `project/schema.py::BuildSection`, `docs/src/reference/config.md` §"Excluding files from the upload".
+- **Dynamic env references (§1b)** — `{ from = "<addon>", key = "<KEY>" }` copies an attribute from one of the app's addons; `{ key = "domain"/"hostname"/"name" }` reads an app fact. Resolved at step 5 (after the domains→HOST_NAME step, before `[env.computed]`), overwriting like computed; fails loud on an unattached addon / unknown key / unknown fact. The schema validator is now the single classifier for `[env]` table values and rejects unrecognised shapes (the ADR's fail-loud, previously unenforced). `external_ip` is recognised but not implemented — it raises a clear deploy error. See `project/schema.py::EnvRef`, `deployers/env_provisioning.py::resolve_env_refs`, `docs/src/reference/config.md` §"Dynamic references".
 
-Not yet implemented: dynamic env references (`{ from, key }`, `external_ip`), `[[volume]]`, `[limits]`, and the folded-in backup/multi-port extensions.
+Not yet implemented: `external_ip` references, `[[volume]]`, `[limits]`, and the folded-in backup/multi-port extensions.
 
 ## Context
 
@@ -102,14 +103,14 @@ This replaces all three framework workarounds: Phoenix's `--env SECRET_KEY_BASE=
 [env]
 # Auto-injection still provides DATABASE_URL, PGHOST, … by default.
 # Refs are for what injection can't express:
-MONGO_URL = { from = "database", key = "url" }
-APP_FQDN  = { key = "domain" }          # from the app itself
-PUBLIC_IP = { external_ip = true }
+PRIMARY_DB_HOST = { from = "myapp-db", key = "PGHOST" }
+APP_FQDN        = { key = "domain" }          # from the app itself
+PUBLIC_IP       = { external_ip = true }      # not implemented yet
 ```
 
-- `from` (optional): name of a declared addon (`[[addons]].name`, defaulting to the app name). Omitted/empty = the app itself, for app facts such as `domain`.
-- `key`: the attribute to copy. Each addon type publishes a **documented key contract** — references resolve only against that contract, never against arbitrary internal credentials beyond what auto-injection already exposes.
-- `external_ip = true`: the host's detected public IP.
+- `from` (optional): name of an addon attached to this app. Omitted = the app itself, for app facts such as `domain`. Resolution is app-scoped — it cannot read another app's credentials.
+- `key`: the attribute to copy. With `from`, it is one of the addon's injected variable names (e.g. `PGHOST`, `DATABASE_URL`) — i.e. exactly what auto-injection already exposes, no more. Without `from`, it is an app fact: `domain` / `hostname` (the app's first hostname) or `name`. An unknown key fails the deploy and lists what is available.
+- `external_ip = true`: the host's detected public IP — recognised but **not implemented yet** (raises a clear deploy error; use `hop3 config set` meanwhile).
 
 Composition (Nua's f-string case) is handled by the **existing** `[env.computed]` `${VAR}` interpolation, which we keep and document as the supported way to assemble a value from injected/referenced parts:
 
