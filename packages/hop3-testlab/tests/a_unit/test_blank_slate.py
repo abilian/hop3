@@ -4,8 +4,9 @@
 """Blank-slate rebuild: full-suite runs reinstall the Hetzner OS first.
 
 Reproducibility: every run starts from an identical, known state instead of
-inheriting leaked apps/addons/disk. Requires a Hetzner ssh_key_name (re-injected
-on rebuild) — without it we skip rather than lock ourselves out.
+inheriting leaked apps/addons/disk. The rebuild re-injects an SSH key (explicit
+ssh_key_name, or auto-derived from [ssh] key_path); if none can be resolved it
+aborts loudly rather than silently running against a dirty server.
 """
 
 from __future__ import annotations
@@ -17,21 +18,48 @@ from hop3_testlab import worker
 from hop3_testlab.cloud_config import CloudConfig
 
 
-def _cfg(ssh_key_name: str | None) -> CloudConfig:
+def _cfg(
+    ssh_key_name: str | None = None, ssh_key_path: str | None = None
+) -> CloudConfig:
     return CloudConfig(
         hetzner_token="tok",
         hetzner_server_id=42,
         hetzner_image="ubuntu-24.04",
-        ssh_key_path=None,
+        ssh_key_path=ssh_key_path,
         hetzner_ssh_key_name=ssh_key_name,
     )
 
 
-def test_rebuild_skipped_without_ssh_key_name(capsys):
-    with patch("hop3_testing.system_tests.hetzner.HetznerManager") as manager_cls:
-        worker._rebuild_blank_slate(_cfg(None))
-    manager_cls.assert_not_called()  # never rebuild without a key (would lock us out)
-    assert "SKIPPED" in capsys.readouterr().out
+def test_run_blockers_surfaces_resolver_failure(monkeypatch):
+    # The web trigger uses this to refuse up-front (with the real reason) instead
+    # of spawning a run that aborts unseen. Whatever the SSH-key resolver raises
+    # — a missing/unregistered key — is surfaced as the blocker.
+    monkeypatch.setattr(worker, "load_cloud_config", _cfg)
+
+    def _boom(cfg):
+        msg = "key 'x' is not registered in your Hetzner project"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(worker, "_resolve_hetzner_ssh_key", _boom)
+    blocker = worker.run_blockers("hetzner", None)
+    assert blocker is not None
+    assert "not registered" in blocker
+
+
+def test_run_blockers_clear_when_key_resolves(monkeypatch):
+    monkeypatch.setattr(worker, "load_cloud_config", _cfg)
+    monkeypatch.setattr(worker, "_resolve_hetzner_ssh_key", lambda cfg: None)
+    assert worker.run_blockers("hetzner", None) is None
+
+
+def test_run_blockers_skip_resolver_for_per_app_and_docker(monkeypatch):
+    # per-app + docker never blank-slate, so the resolver is never consulted.
+    def _fail(cfg):
+        pytest.fail("resolver must not be called")
+
+    monkeypatch.setattr(worker, "_resolve_hetzner_ssh_key", _fail)
+    assert worker.run_blockers("hetzner", ["apps/x"]) is None  # per-app: live server
+    assert worker.run_blockers("docker", None) is None  # docker: fresh container
 
 
 def test_rebuild_runs_and_waits_when_key_configured():

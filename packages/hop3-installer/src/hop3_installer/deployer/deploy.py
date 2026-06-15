@@ -630,10 +630,11 @@ class Deployer:
             self.log("Failed to upload code", "error")
             return None
 
-        # hop3-rootd is a sibling package the installer needs (the deploy path
-        # depends on it for nginx reloads). Without it install_rootd_package
-        # has no source and the install aborts at the rootd step.
-        if not self._upload_rootd_package():
+        # Sibling packages the installer needs: hop3-rootd (the deploy path uses
+        # it for nginx reloads) and hop3-cli (so the server has the `hop3` client
+        # for on-server tutorial deploys). Without rootd the install aborts at
+        # the rootd step.
+        if not (self._upload_rootd_package() and self._upload_cli_package()):
             return None
 
         self.log("Local code uploaded", "success")
@@ -659,6 +660,26 @@ class Deployer:
             return False
         return True
 
+    def _upload_cli_package(self) -> bool:
+        """Upload the hop3-cli package to /tmp/hop3-cli (sibling of server).
+
+        Returns True on success (or success-with-warning if the package dir is
+        absent — older checkouts), False only on a transfer failure.
+        """
+        cli_pkg = self.config.cli_package_path
+        if not cli_pkg.exists():
+            self.log(
+                f"hop3-cli package not found at {cli_pkg}; the server won't have "
+                "the `hop3` client, so on-server tutorial tests can't deploy.",
+                "warning",
+            )
+            return True
+        self.log(f"Uploading {cli_pkg} to /tmp/hop3-cli")
+        if not self.backend.upload_dir(cli_pkg, "/tmp/hop3-cli"):
+            self.log("Failed to upload hop3-cli", "error")
+            return False
+        return True
+
     def _update_local_code(self) -> bool:
         """Update an existing installation with local code."""
         server_pkg = self.config.server_package_path
@@ -674,8 +695,9 @@ class Deployer:
             self.log("Failed to upload code", "error")
             return False
 
-        # Upload the sibling hop3-rootd package too (required by the installer).
-        if not self._upload_rootd_package():
+        # Upload the sibling packages the installer needs: hop3-rootd (nginx
+        # reloads) and hop3-cli (on-server tutorial deploys).
+        if not (self._upload_rootd_package() and self._upload_cli_package()):
             return False
 
         # Uninstall the existing hop3-server *first*, so the install step

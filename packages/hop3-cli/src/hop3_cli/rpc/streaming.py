@@ -234,10 +234,13 @@ def _process_sse_stream(response: requests.Response, printer: RichPrinter) -> No
                 duration = data.get("duration", 0)
 
                 if success:
+                    # "deployed successfully" mirrors the non-streaming deploy
+                    # response (commands/app.py) so scripts and docs can assert
+                    # one consistent success phrase regardless of streaming.
                     printer.print([
                         {
                             "t": "success",
-                            "text": f"Deployment completed successfully in {duration:.1f}s",
+                            "text": f"App deployed successfully in {duration:.1f}s",
                         }
                     ])
                     return

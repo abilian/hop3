@@ -7,7 +7,10 @@
 from __future__ import annotations
 
 import subprocess
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Annotated
+from urllib.parse import quote
 
 import markdown
 from dishka import FromDishka  # noqa: TC002 -- runtime: @inject resolves the annotation
@@ -22,6 +25,7 @@ from litestar.params import (
 from litestar.response import Redirect, Template
 from litestar.status_codes import HTTP_303_SEE_OTHER
 
+from hop3_testlab.catalog import title_map
 from hop3_testlab.cloud_config import load_schedule
 from hop3_testlab.discriminators import short_app, variant_of
 from hop3_testlab.reports import build_run_report_md
@@ -30,6 +34,7 @@ from hop3_testlab.repositories import (
 )
 from hop3_testlab.trends import diff_results, suite_rollup
 from hop3_testlab.web.guards import auth_guard
+from hop3_testlab.worker import run_blockers
 
 _FORM = Annotated[dict, Body(media_type=RequestEncodingType.URL_ENCODED)]
 
@@ -38,12 +43,32 @@ _FORM = Annotated[dict, Body(media_type=RequestEncodingType.URL_ENCODED)]
 _MD_EXTENSIONS = ["fenced_code", "tables", "sane_lists"]
 
 
-def _result_row(r) -> dict:
-    """Flatten a result ORM row to a template/report dict (session must be open)."""
+def _open_trigger_log(target: str):
+    """Open a per-trigger log file for a detached run's combined output.
+
+    Lives under ``~/.hop3/testlab-logs/``. A run that dies before it records
+    anything (a bad ``--mode``, a refused blank-slate) would otherwise vanish
+    into /dev/null with no run row and no logs; this is the breadcrumb.
+    """
+    log_dir = Path.home() / ".hop3" / "testlab-logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    safe_target = target.replace("/", "_").replace(":", "_") or "target"
+    return (log_dir / f"trigger-{safe_target}-{stamp}.log").open("w")
+
+
+def _result_row(r, titles: dict[str, str] | None = None) -> dict:
+    """Flatten a result ORM row to a template/report dict (session must be open).
+
+    ``titles`` maps a test's catalog name to its human title; falls back to the
+    path leaf when a test isn't in the current catalog (renamed/removed).
+    """
+    titles = titles or {}
     return {
         "id": r.id,
         "test_name": r.test_name,
         "app": short_app(r.test_name),
+        "title": titles.get(r.test_name) or short_app(r.test_name),
         "variant": variant_of(r.test_name),
         "category": r.category,
         "priority": r.priority,
@@ -99,17 +124,33 @@ class RunsController(Controller):
         if runs.target_busy(target):
             return Redirect(path="/?run=busy", status_code=HTTP_303_SEE_OTHER)
 
+        # Pre-flight: refuse up-front (with the real reason) rather than spawn a
+        # detached run that aborts where no one sees it and falsely claim it
+        # "started". The run is fire-and-forget, so this is the only point where
+        # a config blocker can be surfaced to the user synchronously.
+        blocker = run_blockers(target, [app] if app else None)
+        if blocker:
+            return Redirect(
+                path="/?error=" + quote(blocker, safe=""),
+                status_code=HTTP_303_SEE_OTHER,
+            )
+
         cmd = ["hop3-testlab", "run", "--target", target, "--trigger", "manual"]
         cmd += ["--apps", app] if app else ["--mode", mode]
         try:
+            # Capture the run wrapper's output to a per-trigger log instead of
+            # discarding it: a run that dies before recording anything (a bad
+            # --mode, a skipped blank-slate) left "nothing in the logs" and no
+            # run row, making failures invisible. The log is the breadcrumb.
+            log_fh = _open_trigger_log(target)
             # Detached so it outlives the request; results land in the store.
             # Popen is fire-and-forget (returns at once), so it doesn't block the
             # event loop; argv is fixed (no shell) and the route is admin-only.
             subprocess.Popen(  # noqa: ASYNC220
                 cmd,
                 start_new_session=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stdout=log_fh,
+                stderr=subprocess.STDOUT,
             )
         except OSError:
             return Redirect(path="/?run=error", status_code=HTTP_303_SEE_OTHER)
@@ -130,7 +171,8 @@ class RunsController(Controller):
         diff = diff_results(results, runs.results_for(previous) if previous else [])
 
         # Convert to dicts while the session is open (no detached ORM in templates).
-        result_rows = [_result_row(r) for r in results]
+        titles = title_map()
+        result_rows = [_result_row(r, titles) for r in results]
         run_row = _run_row(run)
         report_md = build_run_report_md(run_row, result_rows, diff)
         report_html = markdown.markdown(report_md, extensions=_MD_EXTENSIONS)

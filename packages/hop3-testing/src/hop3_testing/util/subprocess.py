@@ -27,12 +27,25 @@ def build_test_env(target_info: TargetInfo) -> dict[str, str]:
     Returns:
         Environment dict with HOP3_TEST_* variables added.
     """
-    return {
+    env = {
         **os.environ,
         "HOP3_TEST_HOST": target_info.ssh_host,
         "HOP3_TEST_PORT": str(target_info.ssh_port),
         "HOP3_TEST_SSH_KEY": target_info.ssh_key or "",
+        # Tutorials/demos run `hop3 deploy` (and friends) non-interactively
+        # via validoc; without this, the ADR-042 deploy confirm prompt blocks
+        # on a tty until the per-command timeout, failing every tutorial.
+        "HOP3_NO_INPUT": "1",
     }
+    # Tutorials set HOST_NAME=<app>.$HOP3_TEST_DOMAIN and then curl that host, so
+    # the domain MUST resolve to the target. Default to <host>.sslip.io —
+    # *.<ip>.sslip.io resolves to <ip> via public wildcard DNS, so app vhosts
+    # work with zero DNS setup. Without it HOST_NAME is "<app>." (empty domain),
+    # no nginx vhost is created, and curl fails to resolve. An operator can
+    # override HOP3_TEST_DOMAIN (e.g. a real wildcard domain pointed at the box).
+    if not env.get("HOP3_TEST_DOMAIN"):
+        env["HOP3_TEST_DOMAIN"] = f"{target_info.ssh_host}.sslip.io"
+    return env
 
 
 def run_captured(
@@ -61,6 +74,9 @@ def run_captured(
         cmd,
         cwd=cwd,
         env=env,
+        stdin=subprocess.DEVNULL,  # never inherit a tty: a prompt must fail
+        # fast (a non-tty read hits EOF / the CLI's no-tty refusal) rather
+        # than block on input until the timeout — the tutorial-hang failure.
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,

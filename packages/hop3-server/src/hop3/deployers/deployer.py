@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 import time
 from typing import TYPE_CHECKING
 
@@ -109,6 +110,14 @@ def do_deploy(
     # one app can own it. Claiming here fails fast with a clear error if another
     # app already holds it, and rolls back with the deploy session on failure.
     claim_fixed_ports(app, app_config, db_session)
+
+    # --- 1.7. Stop the previous instance before rebuilding (safety net) ---
+    # The primary stop happens BEFORE the source is replaced (in DeployCmd /
+    # the git hooks), since that's where the destructive race is — clearing
+    # src/ deletes build outputs the old process holds. This call covers any
+    # do_deploy path that didn't already stop (e.g. restart). It's a no-op when
+    # the app is already stopped. See stop_previous_instance() for details.
+    stop_previous_instance(app)
 
     # --- 2. Run Prebuild Hook ---
     # This runs BEFORE builder selection because prebuild may fetch source code
@@ -260,6 +269,61 @@ def _update_app_model(
         _handle_startup_timeout(app, timeout)
 
 
+def _bounded_log_excerpt(lines: list[str], head: int = 25, tail: int = 20) -> list[str]:
+    """Excerpt a crash log so the root error survives truncation.
+
+    A crashing runtime puts the actual error — the exception class and message —
+    at the TOP of its traceback (Ruby/Java/Python), while uWSGI throttle/respawn
+    noise piles up at the BOTTOM. Showing only the tail (the previous behavior)
+    cut the exception off, leaving a deep stack of `from …` frames with no
+    message — the rails boot failure was undiagnosable for exactly this reason.
+    Show the head AND the tail so both the cause and the latest state survive.
+    """
+    if len(lines) <= head + tail:
+        return lines
+    omitted = len(lines) - head - tail
+    return [*lines[:head], f"    ... ({omitted} line(s) omitted) ...", *lines[-tail:]]
+
+
+# Markers of an app's own boot/crash error (lowercased substring match). Kept
+# broad on purpose — a one-line "Detected error" hint is best-effort.
+_APP_ERROR_MARKERS = (
+    "unable to load application",  # puma/rack failed to load the rackup
+    "traceback (most recent call last)",  # python
+    "caused by:",  # java / jvm
+    "could not",
+    "cannot find",
+    "no such file",
+    "not found",  # e.g. `sh: 1: exec: <release binary>: not found`
+    "fatal error",
+)
+# An exception/error class name, e.g. NoMethodError, LoadError,
+# ActiveRecord::AdapterNotSpecified, SomeException.
+_APP_ERROR_RE = re.compile(r"\b[A-Za-z_][\w.]*(?:Error|Exception|NotSpecified)\b")
+
+
+def _extract_app_error(log_lines: list[str]) -> str | None:
+    """Best-effort one-line summary of why an app crashed, from its log.
+
+    The root cause (e.g. "Unable to load application:
+    ActiveRecord::AdapterNotSpecified: The `cache` database is not configured")
+    lives in the app log, but a deep traceback plus outer-layer truncation can
+    push it out of view — the deploy diagnostic then just says "look above",
+    where there's nothing left. Surfacing the line *in* the diagnosis (printed
+    last, so it survives truncation) shows the operator the actual cause.
+
+    Returns the most recent matching line (trimmed), or None.
+    """
+    for line in reversed(log_lines):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        low = stripped.lower()
+        if any(m in low for m in _APP_ERROR_MARKERS) or _APP_ERROR_RE.search(stripped):
+            return stripped[:200]
+    return None
+
+
 def _is_crash_indicator(line: str) -> bool:
     """Check if a log line indicates a crash or error.
 
@@ -395,10 +459,10 @@ def _handle_startup_timeout(app: App, timeout: float) -> None:
     # Get recent logs and analyze for common failure patterns
     recent_logs: list[str] = []
     try:
-        recent_logs = app.get_logs(lines=30) or []
+        recent_logs = app.get_logs(lines=200) or []
         if recent_logs:
             log("  Recent log output:", level=0)
-            for line in recent_logs[-20:]:  # Show last 20 lines (was 10)
+            for line in _bounded_log_excerpt(recent_logs):
                 log(f"    {line}", level=0)
         else:
             log("  No log output available.", level=0)
@@ -498,11 +562,18 @@ def _diagnose_failure(app: App, log_lines: list[str]) -> None:
 
     # Check for daemon throttling (repeated crashes)
     if "throttling" in log_text:
+        reason = "a daemon is crashing repeatedly; uWSGI is throttling respawns"
+        detected = _extract_app_error(log_lines)
+        if detected:
+            # Put the actual error in the diagnosis itself — it's printed last,
+            # so it survives the test runner's "last N lines" truncation, unlike
+            # the traceback further up.
+            reason += f". Detected error: {detected}"
         log_diagnosis(
             Diagnosis(
                 component="uWSGI",
                 action="keep daemon running",
-                reason="a daemon is crashing repeatedly; uWSGI is throttling respawns",
+                reason=reason,
                 hint=(
                     "Look above for 'Error', 'Traceback', or 'Cannot find' lines "
                     "in the daemon's output"
@@ -548,6 +619,39 @@ def _diagnose_failure(app: App, log_lines: list[str]) -> None:
             )
         )
         return
+
+
+def stop_previous_instance(app: App) -> None:
+    """Stop a still-running previous instance before its source is replaced.
+
+    A redeploy replaces and rebuilds the SAME ``src`` tree the running app uses
+    (the upload extractor clears ``src`` first; the build then writes
+    ``node_modules``, ``dist``, ``target/*.jar`` there). A live process holding
+    those open races every stage: clearing ``src`` deletes a jar the old
+    ``java`` still maps, then the rebuild rewrites it — uWSGI respawns the old
+    daemon against the half-written file and the next launch reads a truncated
+    jar (``NoClassDefFoundError`` / "Invalid or corrupt jarfile"), or `npm`
+    can't reconcile a held ``node_modules`` (ENOTEMPTY), or esbuild execs a
+    binary still in use (ETXTBSY). Call this BEFORE the source is replaced so
+    nothing live contends with it. ``stop()`` reaps and *confirms* the processes
+    are gone (raising if any survive even SIGKILL).
+
+    A no-op on a first deploy (the freshly-created app is recorded STOPPED). A
+    crashed app (FAILED) is also torn down, since it may still have leftover
+    processes holding files.
+    """
+    if app.run_state in {
+        AppStateEnum.RUNNING,
+        AppStateEnum.STARTING,
+        AppStateEnum.STOPPING,
+        AppStateEnum.FAILED,
+    }:
+        log(
+            f"Stopping previous instance of '{app.name}' before rebuild",
+            level=1,
+            fg="blue",
+        )
+        app.stop()
 
 
 def _process_config_dependencies(

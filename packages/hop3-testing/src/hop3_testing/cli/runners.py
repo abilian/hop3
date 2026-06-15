@@ -134,16 +134,22 @@ def _order_failed_first(
     "Same family" is (mode, target_type): the most recent finished run with that
     scope. Re-running its failures first surfaces regressions fast without
     changing WHICH tests run — the set is identical, only the order differs.
+
+    Demos are exempt: they're an ordered complexity ladder (demo01 simplest) with
+    its own fail-fast, so they always run in name order — failed-first must not
+    scramble the ladder. They're appended after the others, still name-ordered.
     """
     by_name = sorted(tests, key=lambda t: t.name)
+    demos = [t for t in by_name if t.runner_type == "demo"]
+    others = [t for t in by_name if t.runner_type != "demo"]
     failed = store.previous_failures(mode=mode, target_type=target_type)
-    if not failed:
-        return by_name
-    first = [t for t in by_name if t.name in failed]
-    rest = [t for t in by_name if t.name not in failed]
-    if first:
-        console.status(f"Re-running {len(first)} previously-failed test(s) first")
-    return first + rest
+    if failed:
+        first = [t for t in others if t.name in failed]
+        rest = [t for t in others if t.name not in failed]
+        if first:
+            console.status(f"Re-running {len(first)} previously-failed test(s) first")
+        others = first + rest
+    return others + demos
 
 
 def _count_by_type(tests: list[TestDefinition]) -> dict[str, int]:
@@ -158,6 +164,57 @@ def _count_by_type(tests: list[TestDefinition]) -> dict[str, int]:
         key = {"demo": "demo", "tutorial": "tutorial"}.get(test.runner_type, "app")
         counts[key] += 1
     return counts
+
+
+def _execute_tests(
+    tests: list[TestDefinition],
+    target: DeploymentTarget,
+    store: ResultStore,
+    reporter: ConsoleReporter,
+    log_writer: TestLogWriter,
+    console: Console,
+    *,
+    keep: bool,
+    verbose: bool,
+    debug: bool,
+    fail_fast: bool,
+) -> list[TestResult]:
+    """Run the ordered tests, recording each result.
+
+    Demos are an ordered complexity ladder (demo01 simplest first): once one
+    fails the harder ones are pointless, so skip the remaining demos. That's
+    always on (not gated on --fail-fast) and never stops apps/tutorials. The
+    global --fail-fast still stops the whole run on any failure.
+    """
+    results: list[TestResult] = []
+    demo_aborted = False
+    for test in tests:
+        if demo_aborted and test.runner_type == "demo":
+            continue  # earlier demo failed; the ladder above it is moot
+
+        console.status(f"[{test.name}] ", details=None)
+        result = run_single_test(
+            test,
+            target,
+            cleanup=not keep,
+            verbose=verbose,
+            console=console,
+            debug=debug,
+        )
+        results.append(result)
+        store.save(result)
+        log_writer.write_test_log(result)
+        reporter.report_test(result)
+
+        if not result.passed and test.runner_type == "demo":
+            demo_aborted = True
+            console.warning("Demo failed — skipping the remaining (harder) demos.")
+
+        if fail_fast and not result.passed:
+            console.warning("Fail fast enabled, stopping tests")
+            break
+
+    return results
 
 
 def run_tests(
@@ -214,6 +271,10 @@ def run_tests(
         _emit_startup_diagnostics(target, console)
         sys.exit(1)
 
+    # Tutorials run ON the server (controlled toolchains; `hop3 deploy` targets
+    # localhost). Prepare the host once if the selection includes any tutorial.
+    _maybe_prepare_tutorial_host(target, tests, console)
+
     try:
         # Record the test-selection scope (dev/ci/nightly/release) as the run's
         # mode — that's what the dashboard shows and what the regressions diff
@@ -229,26 +290,18 @@ def run_tests(
         if run.run_uid:
             console.status(f"Run: {run.run_uid}")
 
-        results = []
-        for test in tests:
-            console.status(f"[{test.name}] ", details=None)
-
-            result = run_single_test(
-                test,
-                target,
-                cleanup=not keep,
-                verbose=verbose,
-                console=console,
-                debug=debug,
-            )
-            results.append(result)
-            store.save(result)
-            log_writer.write_test_log(result)
-            reporter.report_test(result)
-
-            if fail_fast and not result.passed:
-                console.warning("Fail fast enabled, stopping tests")
-                break
+        results = _execute_tests(
+            tests,
+            target,
+            store,
+            reporter,
+            log_writer,
+            console,
+            keep=keep,
+            verbose=verbose,
+            debug=debug,
+            fail_fast=fail_fast,
+        )
 
         store.finish_run()
         reporter.summary(results)
@@ -264,6 +317,35 @@ def run_tests(
         if not keep:
             console.status("Stopping target...")
             target.stop()
+
+
+def _maybe_prepare_tutorial_host(
+    target: DeploymentTarget, tests: list[TestDefinition], console: Console
+) -> None:
+    """Prepare a remote server to run tutorials on it, if the run has any.
+
+    Installs validoc + mints an admin token on the server (so the on-server
+    ``hop3`` deploys to localhost). Only applies to remote targets — docker/local
+    runs still execute validoc locally. A preparation failure is recorded on the
+    target (loud) and turns every tutorial into an explicit error rather than a
+    silent local fall-back that would deploy to the wrong server.
+    """
+    if type(target).__name__ != "RemoteTarget":
+        return
+    if not any(t.tutorial is not None for t in tests):
+        return
+
+    from hop3_testing.system_tests.tutorial_host import (  # noqa: PLC0415
+        TutorialHostError,
+        ensure_tutorial_host,
+    )
+
+    console.status("Preparing server to run tutorials (validoc + admin token)...")
+    try:
+        target.tutorial_token = ensure_tutorial_host(target)  # type: ignore[attr-defined]
+    except TutorialHostError as e:
+        target.tutorial_host_error = str(e)  # type: ignore[attr-defined]
+        console.error(f"Could not prepare the server for tutorials: {e}")
 
 
 def _emit_startup_diagnostics(target: DeploymentTarget, console: Console) -> None:

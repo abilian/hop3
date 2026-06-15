@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import pwd
+import shlex
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -305,11 +306,21 @@ class NixBuilder:
         Raises:
             RuntimeError: If nix-build fails.
         """
+        # Register a per-app GC root for the build output. With --no-out-link
+        # nothing roots the closure, so a later nix garbage-collect (manual, or
+        # auto-GC under disk pressure on a busy host) can delete a *running*
+        # app's binary — e.g. forgejo's wrapper execs the hardcoded
+        # ${forgejo}/bin/forgejo and the daemon dies with "No such file or
+        # directory". The out-link lives in the app directory (NOT src/, which
+        # the deployer now `git clean`s) and is removed when the app is
+        # destroyed (robust_rmtree of app_path), so teardown also lets nix
+        # reclaim the closure. nix-build still prints the store path to stdout.
+        gcroot = self.context.source_path.parent / ".nix-result"
         # --option build-timeout: 30-minute wall clock.
         # --option build-max-silent-time: 5-minute no-output watchdog (the
         #   real guard against lock waits and stalled downloads).
         cmd = (
-            f"nix-build {nix_file} -A package --no-out-link"
+            f"nix-build {nix_file} -A package --out-link {shlex.quote(str(gcroot))}"
             f" --option build-timeout {NIX_BUILD_TIMEOUT_SECONDS}"
             f" --option build-max-silent-time {NIX_BUILD_MAX_SILENT_SECONDS}"
         )

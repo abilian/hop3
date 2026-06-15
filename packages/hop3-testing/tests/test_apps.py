@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 from hop3_testing.catalog import Catalog
 from hop3_testing.targets.helpers import find_project_root
 
@@ -33,10 +32,10 @@ def test_catalog_discovers_tests():
     assert len(catalog) > 0, "No tests found"
 
     # Check we can retrieve specific tests
-    flask_test = catalog.get_test("apps/test-apps/010-flask-pip-wsgi")
-    if flask_test:
-        assert flask_test.runner_type == "deployment"
-        assert "python" in flask_test.metadata.covers
+    flask_test = catalog.get_test("apps/test-apps-procfile/010-flask-pip-wsgi")
+    assert flask_test is not None, "flask test app not found in catalog"
+    assert flask_test.runner_type == "deployment"
+    assert "python" in flask_test.metadata.covers
 
 
 def test_catalog_filtering():
@@ -53,9 +52,8 @@ def test_catalog_properties():
     """Test TestDefinition properties."""
     catalog = get_catalog()
 
-    static_test = catalog.get_test("apps/test-apps/000-static")
-    if not static_test:
-        pytest.skip("Static test not found")
+    static_test = catalog.get_test("apps/test-apps-procfile/000-static")
+    assert static_test is not None, "static test app not found in catalog"
 
     # Check app_path exists
     assert static_test.app_path is not None
@@ -63,7 +61,7 @@ def test_catalog_properties():
     assert static_test.app_path.is_dir()
 
     # Check name
-    assert static_test.name == "apps/test-apps/000-static"
+    assert static_test.name == "apps/test-apps-procfile/000-static"
 
     # Check has validations
     assert len(static_test.validations) > 0

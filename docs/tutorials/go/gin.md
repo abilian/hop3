@@ -412,7 +412,7 @@ sleep 5
 ### Verify Deployment
 
 ```bash exec id=check-status timeout=30
-hop3 status --app hop3-tuto-gin
+hop3 app status --app hop3-tuto-gin
 ```
 
 ```output contains
@@ -431,10 +431,10 @@ OK
 
 ```bash skip
 # Restart the application
-hop3 restart --app hop3-tuto-gin
+hop3 app restart --app hop3-tuto-gin
 
 # View logs
-hop3 logs --app hop3-tuto-gin
+hop3 app logs --app hop3-tuto-gin
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-gin

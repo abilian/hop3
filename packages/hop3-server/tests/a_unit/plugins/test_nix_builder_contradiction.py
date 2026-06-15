@@ -11,6 +11,7 @@ error rather than silently picking one.
 
 from __future__ import annotations
 
+import subprocess
 from typing import TYPE_CHECKING
 
 import pytest
@@ -96,3 +97,33 @@ def test_build_aborts_when_both_present(tmp_path: Path):
 
     with pytest.raises(Abort):
         builder.build()
+
+
+def test_nix_build_registers_gc_root_via_out_link(tmp_path: Path, monkeypatch):
+    """The build must root its closure with --out-link to <app>/.nix-result,
+    not --no-out-link. Otherwise a later nix garbage-collect (or auto-GC under
+    disk pressure) deletes a *running* app's binary — e.g. forgejo's wrapper
+    execs the hardcoded ${forgejo}/bin/forgejo and the daemon dies with
+    "No such file or directory". The root lives in the app dir (parent of src/,
+    which the deployer git-cleans) so teardown removes it and frees the closure.
+    """
+    captured: dict[str, str] = {}
+
+    def fake_run(self, cmd, cwd=None):
+        captured["cmd"] = cmd
+        return subprocess.CompletedProcess(
+            args=cmd, returncode=0, stdout="/nix/store/xxx-app\n", stderr=""
+        )
+
+    monkeypatch.setattr(NixBuilder, "_run_nix_command", fake_run)
+    builder = NixBuilder(_make_context(tmp_path, {"hop3_config": {}}))
+    nix_file = tmp_path / "hop3.nix"
+    nix_file.write_text("# placeholder")
+
+    store_path = builder._nix_build(nix_file)
+
+    assert store_path == "/nix/store/xxx-app"
+    assert "--no-out-link" not in captured["cmd"]
+    assert "--out-link" in captured["cmd"]
+    # GC root sits in the app directory (parent of source_path), not src/.
+    assert str(tmp_path.parent / ".nix-result") in captured["cmd"]

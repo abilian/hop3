@@ -140,23 +140,41 @@ class NodeToolchain(LanguageToolchain):
         return env
 
     def install_node(self, env: Env) -> None:
-        """Install a specific version of Node.js using nodeenv.
+        """Provision the pinned Node.js version into the app venv via nodeenv.
 
-        This checks if the specified Node.js version is installed in the
-        virtual environment. If not, and the `nodeenv` binary is available, it will
-        attempt to install the specified Node.js version. If the application is
-        running, it raises an exception to prevent an update during runtime.
+        When no version is pinned, the build uses the system Node (a modern
+        NodeSource LTS, provisioned by the installer) and there's nothing to
+        do here. When `[build].node-version` is pinned, install exactly that
+        version into the app venv with `nodeenv --prebuilt`.
+
+        A pin that can't be honored fails loudly: previously, if `nodeenv`
+        was absent the pin was silently ignored and the build ran on the
+        system Node, dying deep in `npm`/`pnpm` with an opaque version error.
 
         Args:
         ----
-            env (Env): Dictionary containing environment variables, including
+            env (Env): Environment variables, including the optional
             'NODE_VERSION' specifying the Node.js version to install.
 
         Raises:
         ------
-            Abort: If trying to update Node.js while the application is running.
+            Abort: If `nodeenv` is unavailable for a pinned version, or if
+            trying to update Node.js while the application is running.
         """
         version = env.get("NODE_VERSION")
+        if not version:
+            # No per-app pin: use the system Node (NodeSource LTS).
+            return
+
+        if not check_binaries(["nodeenv"]):
+            msg = (
+                f"App pins [build].node-version = {version!r} but `nodeenv` is "
+                f"not available on the server, so that version can't be "
+                f"installed. Install it (`npm install -g nodeenv`) or remove "
+                f"the pin to use the system Node."
+            )
+            raise Abort(msg)
+
         node_binary = self.virtual_env / "bin" / "node"
         if node_binary.exists():
             completed_process = self.shell(f"{node_binary} -v", env=env)
@@ -164,29 +182,23 @@ class NodeToolchain(LanguageToolchain):
         else:
             installed = ""
 
-        # Check if the specified version is different from the installed one and if nodeenv is available
-        if version and check_binaries(["nodeenv"]):
-            if not installed.endswith(version):
-                started = list(c.UWSGI_ENABLED.glob(f"{self.app_name}*.ini"))
+        if installed.endswith(version):
+            log(f"Node is installed at {version}.", level=3, fg="green")
+            return
 
-                if installed and started:
-                    # Raise an error if the app is running
-                    msg = (
-                        "Warning: Can't update node with app running. Stop the app &"
-                        " retry."
-                    )
-                    raise Abort(msg)
+        started = list(c.UWSGI_ENABLED.glob(f"{self.app_name}*.ini"))
+        if installed and started:
+            # Raise an error if the app is running
+            msg = "Warning: Can't update node with app running. Stop the app & retry."
+            raise Abort(msg)
 
-                # Log installation of the specified node version using nodeenv
-                log(
-                    f"Installing node version '{version}' using nodeenv",
-                    level=3,
-                    fg="green",
-                )
-                cmd = f"nodeenv --prebuilt --node={version} --clean-src --force {self.virtual_env}"
-                self.shell(cmd, cwd=self.virtual_env, env=env)
-            else:
-                log(f"Node is installed at {version}.", level=3, fg="green")
+        log(
+            f"Installing node version '{version}' using nodeenv",
+            level=3,
+            fg="green",
+        )
+        cmd = f"nodeenv --prebuilt --node={version} --clean-src --force {self.virtual_env}"
+        self.shell(cmd, cwd=self.virtual_env, env=env)
 
     def install_modules(self, env: Env) -> None:
         """Install necessary modules for the application.
@@ -205,6 +217,23 @@ class NodeToolchain(LanguageToolchain):
         if custom_build:
             log(f"Running custom build command: {custom_build}", level=2, fg="cyan")
             self.shell(custom_build, env=env)
+            return
+
+        # If a prebuild step already populated node_modules (e.g. before-build
+        # ran `npm install && npm run build`), don't run a second npm install
+        # over it. The toolchain's `--package-lock=false` re-resolve diverges
+        # from the freshly-built tree and corrupts it — npm fails with ENOENT on
+        # platform optional deps (@tailwindcss/oxide-*, nextjs) or ENOTEMPTY
+        # during cleanup (nuxtjs). The build output (.next/.output/dist) is
+        # already in place; reinstalling buys nothing.
+        node_modules = self.src_path / "node_modules"
+        if node_modules.is_dir() and any(node_modules.iterdir()):
+            log(
+                "node_modules already present (prebuild installed it); "
+                "skipping toolchain npm install",
+                level=2,
+                fg="cyan",
+            )
             return
 
         # Default: npm install

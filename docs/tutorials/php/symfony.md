@@ -56,7 +56,7 @@ composer create-project symfony/skeleton hop3-tuto-symfony --no-interaction
 Install the web application bundle:
 
 ```bash exec id=install-webapp dir=hop3-tuto-symfony timeout=120
-composer require webapp --no-interaction
+composer require webapp --no-interaction --ignore-platform-req=ext-redis
 ```
 
 ```output contains
@@ -202,20 +202,25 @@ class HealthController extends AbstractController
 
 ## Step 3: Configure for Production
 
-Update the `.env` file:
+Configure the committed `.env` for production. Don't replace the
+Flex-generated `.env` — it defines defaults (`DEFAULT_URI`,
+`MESSENGER_TRANSPORT_DSN`, `MAILER_DSN`, …) that `cache:clear` resolves at
+compile time, and dropping them makes the production cache build fail with
+`Environment variable not found`. Edit only what we need: run in `prod` (so the
+post-install `cache:clear` doesn't load the dev-only `DebugBundle` that
+`--no-dev` excludes), give `APP_SECRET` a value, point `DATABASE_URL` at SQLite
+(self-contained — no DB server), and trust the local reverse proxy.
 
-```file path=hop3-tuto-symfony/.env
-# Symfony environment
-APP_ENV=dev
-# SECURITY: Replace with a strong random value in production (openssl rand -hex 16)
-APP_SECRET=dev_secret_change_in_production
+```bash exec id=configure-env dir=hop3-tuto-symfony
+sed -i 's/^APP_ENV=dev/APP_ENV=prod/' .env
+sed -i 's/^APP_SECRET=$/APP_SECRET=dev_secret_change_in_production/' .env
+sed -i 's#^DATABASE_URL=.*#DATABASE_URL="sqlite:///%kernel.project_dir%/var/data.db"#' .env
+printf '\n# Trust the local Hop3 reverse proxy.\nTRUSTED_PROXIES=127.0.0.1,REMOTE_ADDR\n' >> .env
+echo "Configured .env for production"
+```
 
-# Database (optional)
-# DATABASE_URL="postgresql://user:password@127.0.0.1:5432/hop3-tuto-symfony?serverVersion=15"
-
-# Trusted hosts and proxies
-TRUSTED_HOSTS='^localhost|hop3-tuto-symfony\.example\.com$'
-TRUSTED_PROXIES=127.0.0.1,REMOTE_ADDR
+```output contains
+Configured .env for production
 ```
 
 Create production environment file:
@@ -263,7 +268,7 @@ welcome|up|Routes configured
 
 ```file path=hop3-tuto-symfony/Procfile
 # Pre-build: Install dependencies and optimize
-prebuild: composer install --no-dev --optimize-autoloader
+prebuild: composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-redis
 
 # Pre-run: Clear and warm cache
 prerun: php bin/console cache:clear --env=prod && php bin/console cache:warmup --env=prod
@@ -285,7 +290,7 @@ title = "My Symfony Application"
 
 [build]
 before-build = [
-    "composer install --no-dev --optimize-autoloader"
+    "composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-redis"
 ]
 packages = ["php", "php-pgsql", "php-mbstring", "php-xml", "php-intl", "composer"]
 
@@ -384,12 +389,18 @@ hop3 config set --app hop3-tuto-symfony APP_DEBUG=0
 
 ### Prepare for Deployment
 
-Remove files that cause deployment issues:
-- `composer.lock` - avoids PHP version conflicts between local and server
-- `package.json` - prevents multi-language detection if present
+Keep `composer.lock` (it pins your dependency versions for local work) and
+remove the JS manifests so the builder doesn't mis-detect this as a
+multi-language project:
+- `package.json` / `package-lock.json` - prevent Node mis-detection
+
+The server runs `composer install --no-dev` from the committed `composer.lock`
+for a reproducible build. The `--ignore-platform-req=ext-redis` flag is there
+because `symfony/cache` wants the phpredis extension at >= 6.1; this app doesn't
+use redis, so we let composer install without it.
 
 ```bash exec id=prep-deploy dir=hop3-tuto-symfony
-rm -f composer.lock package.json package-lock.json 2>/dev/null || true
+rm -f package.json package-lock.json 2>/dev/null || true
 git add -A && git commit -m "Prepare for deployment" || true
 ```
 
@@ -426,7 +437,7 @@ sleep 5
 ### Verify Deployment
 
 ```bash exec id=check-status timeout=30
-hop3 status --app hop3-tuto-symfony
+hop3 app status --app hop3-tuto-symfony
 ```
 
 ```output contains
@@ -445,7 +456,7 @@ View logs:
 
 ```bash skip
 # View logs
-hop3 logs --app hop3-tuto-symfony
+hop3 app logs --app hop3-tuto-symfony
 
 # Your app will be available at:
 # http://hop3-tuto-symfony.your-hop3-server.example.com
@@ -455,7 +466,7 @@ hop3 logs --app hop3-tuto-symfony
 
 ```bash skip
 # Restart the application
-hop3 restart --app hop3-tuto-symfony
+hop3 app restart --app hop3-tuto-symfony
 
 # Clear cache
 hop3 run hop3-tuto-symfony php bin/console cache:clear --env=prod
@@ -587,7 +598,7 @@ Update hop3.toml:
 ```toml
 [build]
 before-build = [
-    "composer install --no-dev --optimize-autoloader",
+    "composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-redis",
     "npm install",
     "npm run build"
 ]
@@ -637,7 +648,7 @@ title = "My Symfony Application"
 
 [build]
 before-build = [
-    "composer install --no-dev --optimize-autoloader",
+    "composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-redis",
     "npm install",
     "npm run build"
 ]
@@ -671,7 +682,7 @@ plan = "basic"
 ### Complete Procfile
 
 ```procfile
-prebuild: composer install --no-dev --optimize-autoloader && npm install && npm run build
+prebuild: composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-redis && npm install && npm run build
 prerun: php bin/console doctrine:migrations:migrate --no-interaction && php bin/console cache:warmup --env=prod
 web: php -S 0.0.0.0:$PORT -t public
 worker: php bin/console messenger:consume async --time-limit=3600

@@ -350,14 +350,14 @@ hop3 deploy hop3-tuto-eve
 ### Verify Deployment
 
 ```bash skip
-hop3 status --app hop3-tuto-eve
+hop3 app status --app hop3-tuto-eve
 curl -s http://hop3-tuto-eve.your-hop3-server.example.com/up
 ```
 
 View logs:
 
 ```bash skip
-hop3 logs --app hop3-tuto-eve
+hop3 app logs --app hop3-tuto-eve
 
 # Your app will be available at:
 # http://hop3-tuto-eve.your-hop3-server.example.com
@@ -367,7 +367,7 @@ hop3 logs --app hop3-tuto-eve
 
 ```bash skip
 # Restart the application
-hop3 restart --app hop3-tuto-eve
+hop3 app restart --app hop3-tuto-eve
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-eve

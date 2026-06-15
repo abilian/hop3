@@ -35,10 +35,6 @@ Verify your local setup:
 ruby -v
 ```
 
-```console
-ruby 3.
-```
-
 ```bash
 rails -v 2>&1 || echo "Rails not installed - will install"
 ```
@@ -60,11 +56,19 @@ rails -v
 Create a new Rails application. For production deployment, you should use PostgreSQL (`--database=postgresql`), but for this tutorial we'll use SQLite locally and configure PostgreSQL for production:
 
 ```bash
-rails new hop3-tuto-rails --skip-git --skip-docker --skip-action-mailer --skip-action-mailbox --skip-action-text --skip-active-job --skip-active-storage --skip-action-cable --skip-hotwire --skip-jbuilder --skip-test --skip-system-test --skip-thruster --skip-rubocop --skip-brakeman --skip-ci --skip-kamal
+rails new hop3-tuto-rails --skip-git --skip-docker --skip-action-mailer --skip-action-mailbox --skip-action-text --skip-active-job --skip-active-storage --skip-action-cable --skip-solid --skip-hotwire --skip-jbuilder --skip-test --skip-system-test --skip-thruster --skip-rubocop --skip-brakeman --skip-ci --skip-kamal
 ```
 
 ```console
 create
+```
+
+Add the PostgreSQL adapter. We use SQLite locally but PostgreSQL in production
+(see `config/database.yml` below); `rails new` only adds `sqlite3` to the
+Gemfile, so add `pg` before installing:
+
+```bash
+echo 'gem "pg"' >> Gemfile
 ```
 
 Install the dependencies:
@@ -177,14 +181,29 @@ Update `config/environments/production.rb` to use environment variables:
 ```bash
 cat >> config/environments/production.rb << 'RUBY'
 
-# Use environment variable for secret key base
-config.secret_key_base = ENV["SECRET_KEY_BASE"] if ENV["SECRET_KEY_BASE"].present?
+# Hop3 production overrides. This re-opens the configuration block — appending
+# bare `config.…` lines after the file's final `end` would run them outside any
+# `configure` block, where `config` is undefined (NameError).
+Rails.application.configure do
+  # Use environment variable for secret key base
+  config.secret_key_base = ENV["SECRET_KEY_BASE"] if ENV["SECRET_KEY_BASE"].present?
 
-# Ensure logs go to stdout for Hop3
-if ENV["RAILS_LOG_TO_STDOUT"].present?
-  logger = ActiveSupport::Logger.new($stdout)
-  logger.formatter = config.log_formatter
-  config.logger = ActiveSupport::TaggedLogging.new(logger)
+  # The app is generated with `--skip-solid` (no Solid Cache/Queue/Cable), so
+  # there are no extra `cache`/`queue`/`cable` databases to configure. Pin an
+  # in-process cache store for this single-instance tutorial. NOTE: changing the
+  # cache *store* alone is NOT enough to avoid the Solid stack — its engine
+  # connects to the `cache` database during production eager-load regardless, so
+  # the app must be generated without it (--skip-solid) or it crashes at boot
+  # with `ActiveRecord::AdapterNotSpecified: The 'cache' database is not
+  # configured`.
+  config.cache_store = :memory_store
+
+  # Ensure logs go to stdout for Hop3
+  if ENV["RAILS_LOG_TO_STDOUT"].present?
+    logger = ActiveSupport::Logger.new($stdout)
+    logger.formatter = config.log_formatter
+    config.logger = ActiveSupport::TaggedLogging.new(logger)
+  end
 end
 RUBY
 ```
@@ -224,7 +243,7 @@ title = "My Rails Application"
 
 [build]
 before-build = ["bin/rails assets:precompile"]
-packages = ["postgresql-dev", "nodejs"]
+packages = ["libpq-dev", "nodejs"]
 
 [run]
 start = "bundle exec puma -C config/puma.rb"
@@ -234,6 +253,11 @@ before-run = "bin/rails db:migrate"
 RAILS_ENV = "production"
 RAILS_LOG_TO_STDOUT = "true"
 RAILS_SERVE_STATIC_FILES = "true"
+# Let build/boot tasks (assets:precompile, db:migrate) run before you've set a
+# real secret: Rails 7.1+ uses an ephemeral key when SECRET_KEY_BASE_DUMMY is
+# set. For real sessions, set a persistent one:
+#   hop3 config set --app hop3-tuto-rails SECRET_KEY_BASE=$(bin/rails secret)
+SECRET_KEY_BASE_DUMMY = "1"
 
 [port]
 web = 3000
@@ -449,7 +473,7 @@ You'll see output showing:
 Check your application status:
 
 ```bash
-hop3 status --app hop3-tuto-rails
+hop3 app status --app hop3-tuto-rails
 ```
 
 ```console
@@ -467,7 +491,7 @@ OK
 View logs:
 
 ```bash
-hop3 logs --app hop3-tuto-rails
+hop3 app logs --app hop3-tuto-rails
 ```
 
 Open your application:
@@ -513,7 +537,7 @@ hop3 config set --app hop3-tuto-rails NEW_VARIABLE=value
 hop3 config unset --app hop3-tuto-rails OLD_VARIABLE
 
 # Restart to apply changes
-hop3 restart --app hop3-tuto-rails
+hop3 app restart --app hop3-tuto-rails
 ```
 
 ### Scaling
@@ -666,7 +690,7 @@ This backs up:
 ```bash
 hop3 backup list myapp
 hop3 backup restore <backup-id>
-hop3 restart --app hop3-tuto-rails
+hop3 app restart --app hop3-tuto-rails
 ```
 
 ## Troubleshooting
@@ -676,7 +700,7 @@ hop3 restart --app hop3-tuto-rails
 Check the logs for errors:
 
 ```bash
-hop3 logs --app hop3-tuto-rails --tail
+hop3 app logs --app hop3-tuto-rails --tail
 ```
 
 Common issues:
@@ -782,7 +806,7 @@ author = "Your Name <you@example.com>"
 
 [build]
 before-build = ["bin/rails assets:precompile"]
-packages = ["postgresql-dev", "nodejs", "yarn"]
+packages = ["libpq-dev", "nodejs", "yarn"]
 
 [run]
 start = "bundle exec puma -C config/puma.rb"

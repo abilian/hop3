@@ -190,10 +190,15 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // SECURITY: Specify allowed origins explicitly - never use '*' in production
+  // SECURITY: specify allowed CORS origins explicitly in production. The very
+  // first deploy boots before you've set ALLOWED_ORIGINS (you set it with
+  // `hop3 config set` below, then redeploy), so default to "no cross-origin
+  // access" with a warning rather than crashing the app on startup.
   const allowedOrigins = process.env.ALLOWED_ORIGINS;
   if (!allowedOrigins && process.env.NODE_ENV === 'production') {
-    throw new Error('ALLOWED_ORIGINS must be set in production');
+    console.warn(
+      'ALLOWED_ORIGINS is not set; CORS is disabled. Set it for production.',
+    );
   }
   app.enableCors({
     origin: allowedOrigins ? allowedOrigins.split(',') : false,
@@ -254,8 +259,10 @@ Build verified
 ### Create a Procfile
 
 ```procfile
-# Pre-build: Install dependencies and build
-prebuild: npm install && npm run build
+# Pre-build: Install dependencies and build. --include=dev is required because
+# NODE_ENV=production (below) would otherwise make npm skip devDependencies,
+# but the build needs @nestjs/cli (the `nest` command) which lives there.
+prebuild: npm install --include=dev && npm run build
 
 # Main web process
 web: node dist/main.js
@@ -270,7 +277,9 @@ version = "1.0.0"
 title = "My Nest.js Application"
 
 [build]
-before-build = ["npm install", "npm run build"]
+# --include=dev: NODE_ENV=production (below) makes npm skip devDependencies, but
+# the build needs @nestjs/cli (the `nest` command), which is a devDependency.
+before-build = ["npm install --include=dev", "npm run build"]
 packages = ["nodejs", "npm"]
 
 [run]
@@ -400,7 +409,7 @@ sleep 5
 ### Verify Deployment
 
 ```bash
-hop3 status --app hop3-tuto-nestjs
+hop3 app status --app hop3-tuto-nestjs
 ```
 
 ```console
@@ -419,10 +428,10 @@ OK
 
 ```bash
 # Restart the application
-hop3 restart --app hop3-tuto-nestjs
+hop3 app restart --app hop3-tuto-nestjs
 
 # View logs
-hop3 logs --app hop3-tuto-nestjs
+hop3 app logs --app hop3-tuto-nestjs
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-nestjs
@@ -528,7 +537,7 @@ version = "1.0.0"
 title = "My Nest.js Application"
 
 [build]
-before-build = ["npm install", "npm run build"]
+before-build = ["npm install --include=dev", "npm run build"]
 packages = ["nodejs"]
 
 [run]
@@ -558,7 +567,7 @@ plan = "basic"
 ### Complete Procfile
 
 ```procfile
-prebuild: npm install && npm run build
+prebuild: npm install --include=dev && npm run build
 prerun: npm run migration:run || true
 web: node dist/main.js
 worker: node dist/worker.js

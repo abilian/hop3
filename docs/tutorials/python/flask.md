@@ -446,7 +446,7 @@ sleep 5
 Check your application status:
 
 ```bash exec id=check-status timeout=30
-hop3 status --app hop3-tuto-flask
+hop3 app status --app hop3-tuto-flask
 ```
 
 ```output contains
@@ -464,7 +464,7 @@ OK
 View logs:
 
 ```bash skip
-hop3 logs --app hop3-tuto-flask
+hop3 app logs --app hop3-tuto-flask
 ```
 
 Open your application:
@@ -479,7 +479,7 @@ Open your application:
 ### Restart the Application
 
 ```bash skip
-hop3 restart --app hop3-tuto-flask
+hop3 app restart --app hop3-tuto-flask
 ```
 
 ### Run Commands in the Application Context
@@ -732,7 +732,7 @@ CORS(app, origins=allowed_origins.split(','))
 Check the logs for errors:
 
 ```bash skip
-hop3 logs --app hop3-tuto-flask --tail
+hop3 app logs --app hop3-tuto-flask --tail
 ```
 
 Common issues:

@@ -158,6 +158,20 @@ class DeploymentTarget(ABC):
         msg = "exec_run not implemented for this target"
         raise NotImplementedError(msg)
 
+    def upload_file(self, local_path: Path | str, remote_path: str) -> None:
+        """Copy a single local file onto the target.
+
+        Used by the on-server tutorial runner to place a tutorial markdown file
+        on the box before invoking validoc there. Targets that can't accept an
+        upload (or don't need to) leave this unimplemented.
+
+        Args:
+            local_path: Path to the local file to upload.
+            remote_path: Absolute destination path on the target.
+        """
+        msg = "upload_file not implemented for this target"
+        raise NotImplementedError(msg)
+
     def run_command(self, *args: str, timeout: int = 300) -> CommandResult:
         """Run a hop3 command on the target.
 

@@ -29,6 +29,7 @@ wheels/
 test-logs/
 /apps/internal-apps
 /apps/sandbox/
+/tasks/
 
 # Demo-private hop3 CLI config (hermetic XDG_CONFIG_HOME)
 demos/.cli-home/

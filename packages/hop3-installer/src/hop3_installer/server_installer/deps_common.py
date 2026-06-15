@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import re
 import subprocess  # noqa: TC003
 import time
 from collections.abc import Callable  # noqa: TC003
@@ -241,18 +242,65 @@ def install_node_global_packages() -> None:
             print_success("pnpm installed")
         else:
             print_warning("pnpm installation failed")
+            if result.stderr:
+                print_detail(result.stderr.strip().split("\n")[-1])
 
-    # Install nodeenv for managing Node versions per-app
-    if cmd_exists("nodeenv"):
+    # nodeenv (for per-app [build].node-version pins) is installed separately:
+    # it is a PyPI tool, not an npm package — see _install_nodeenv.
+    _install_nodeenv()
+
+
+# nodeenv lives in its own venv, symlinked onto the build PATH (mirrors Rust).
+# /opt is root-owned and exists before the hop3 user/venv are created (this runs
+# at step 1, the venv at step 3).
+_NODEENV_VENV = Path("/opt/hop3/nodeenv-venv")
+_NODEENV_BIN = Path("/usr/local/bin/nodeenv")
+
+
+def _install_nodeenv() -> None:
+    """Install ekalinin's nodeenv (PyPI) so [build].node-version pins work.
+
+    Critically NOT `npm install -g nodeenv`: the npm package of that name is an
+    unrelated test utility ("control Node.js environment variables") that ships
+    no `nodeenv` executable, so the Node toolchain's `nodeenv --prebuilt
+    --node=<v>` call could never find it. The real tool is on PyPI. It is
+    installed into a dedicated venv and symlinked into /usr/local/bin (on the
+    server's build PATH), the same way the Rust tools are exposed.
+
+    Don't swallow a failure silently: a missing nodeenv makes every pinned
+    [build].node-version abort at deploy time, so surface why it didn't install.
+    """
+    if _NODEENV_BIN.exists():
         print_info("nodeenv already installed")
+        return
+
+    print_info("Installing nodeenv (PyPI)...")
+    with Spinner("Creating nodeenv venv..."):
+        venv_res = run_cmd(["python3", "-m", "venv", str(_NODEENV_VENV)], check=False)
+    if venv_res.returncode != 0:
+        print_error("nodeenv installation failed: could not create its venv")
+        if venv_res.stderr:
+            print_detail(venv_res.stderr.strip().split("\n")[-1])
+        return
+
+    with Spinner("Installing nodeenv into venv..."):
+        pip_res = run_cmd(
+            [str(_NODEENV_VENV / "bin" / "pip"), "install", "--upgrade", "nodeenv"],
+            check=False,
+        )
+    if pip_res.returncode != 0:
+        print_error("nodeenv installation failed: pip could not install it")
+        if pip_res.stderr:
+            print_detail(pip_res.stderr.strip().split("\n")[-1])
+        return
+
+    if create_symlink(_NODEENV_VENV / "bin" / "nodeenv", _NODEENV_BIN):
+        print_success(f"nodeenv installed: {_NODEENV_BIN}")
     else:
-        print_info("Installing nodeenv...")
-        with Spinner("Installing nodeenv globally..."):
-            result = run_cmd(["npm", "install", "-g", "nodeenv"], check=False)
-        if result.returncode == 0:
-            print_success("nodeenv installed")
-        else:
-            print_warning("nodeenv installation failed")
+        print_error(
+            f"Installed nodeenv but could not symlink it to {_NODEENV_BIN} "
+            "(it won't be on the build PATH)"
+        )
 
 
 # =============================================================================
@@ -305,6 +353,15 @@ def install_catalogue_baseline(os_family: str) -> None:
         )
         return
 
+    # Defence in depth against a stale baselines.py: never apt/dnf-install Node's
+    # distro packages — Node comes from NodeSource (see _NODESOURCE_PROVIDED).
+    # Installing the distro nodejs/libnode-dev alongside NodeSource is an
+    # unsatisfiable conflict that aborts the whole baseline.
+    skipped = [p for p in packages if _is_nodesource_provided(p)]
+    packages = [p for p in packages if not _is_nodesource_provided(p)]
+    if skipped:
+        print_detail(f"Skipping NodeSource-provided package(s): {', '.join(skipped)}")
+
     # `apt-get install` if already-installed is a near-noop.
     pkg_manager = "apt-get" if os_family == "debian" else "dnf"
     install_cmd = [pkg_manager, "install", "-y", *packages]
@@ -313,11 +370,38 @@ def install_catalogue_baseline(os_family: str) -> None:
 
     if result.returncode == 0:
         print_success(f"Catalogue baseline installed ({len(packages)} packages)")
-    else:
-        print_warning("Catalogue baseline install failed")
-        if result.stderr:
-            for line in result.stderr.strip().split("\n")[-5:]:
-                print_detail(line)
+        return
+
+    # Never swallow this: a failed baseline leaves native-profile apps unable to
+    # build, and a warning here is how a real conflict (e.g. NodeSource vs the
+    # distro nodejs) stayed hidden while every Node app failed downstream. Abort
+    # loudly so the operator fixes provisioning instead of chasing per-app errors.
+    tail = "\n".join((result.stderr or "").strip().split("\n")[-5:])
+    print_error("Catalogue baseline install failed")
+    raise CommandError(
+        cmd=install_cmd,
+        returncode=result.returncode,
+        stderr=tail,
+        stdout=result.stdout or "",
+    )
+
+
+# NodeSource owns the Node toolchain (node, npm, node-gyp, headers). These
+# distro package names must never reach apt/dnf or they conflict with it. Kept in
+# sync with hop3_installer.server_installer.baseline.NODESOURCE_PROVIDED (the
+# generator drops them from baselines.py; this is the install-time backstop).
+_NODESOURCE_PROVIDED: frozenset[str] = frozenset({
+    "nodejs",
+    "npm",
+    "node-gyp",
+    "libnode-dev",
+    "nodejs-devel",
+})
+
+
+def _is_nodesource_provided(package: str) -> bool:
+    """True if ``package`` is a distro Node package NodeSource already provides."""
+    return package in _NODESOURCE_PROVIDED
 
 
 def install_rust_toolchain(*, required: bool = False) -> None:
@@ -466,6 +550,130 @@ def install_leiningen() -> None:
         print_warning("Leiningen script installed but initialization failed")
         if result.stderr:
             print_detail(result.stderr[:200])
+
+
+# =============================================================================
+# Elixir
+# =============================================================================
+
+# Pinned, recent Elixir. Phoenix's `phx_new` requires ~> 1.15; Debian/Ubuntu's
+# apt `elixir` is 1.14, so we install a precompiled release instead. v1.17.x
+# ships builds for OTP 25/26/27 (the OTP versions on current distros).
+ELIXIR_VERSION = "1.17.3"
+_ELIXIR_DIR = Path("/opt/elixir")
+_ELIXIR_BINS = ("elixir", "elixirc", "mix", "iex")
+
+
+def install_elixir() -> None:
+    """Install a modern Elixir (>= 1.15) for Phoenix and other Elixir apps.
+
+    Debian/Ubuntu ship Elixir 1.14, which recent Phoenix rejects. We keep the
+    distro's Erlang/OTP (new enough on current releases) and drop in a
+    precompiled Elixir matching the installed OTP major version, symlinked into
+    /usr/local/bin so it takes precedence over any apt `elixir`.
+
+    Non-fatal but loud: a failure leaves Elixir apps unbuildable, which the
+    deploy then reports clearly, rather than silently shipping 1.14.
+    """
+    if _elixir_is_recent_enough():
+        print_info("Elixir >= 1.15 already installed")
+        return
+
+    if not cmd_exists("erl"):
+        print_info("Installing Erlang/OTP (for Elixir)...")
+        with Spinner("Installing erlang-nox..."):
+            result = run_cmd(["apt-get", "install", "-y", "erlang-nox"], check=False)
+        if result.returncode != 0 or not cmd_exists("erl"):
+            print_error("Elixir install failed: could not install Erlang/OTP")
+            if result.stderr:
+                print_detail(result.stderr.strip().split("\n")[-1])
+            return
+
+    otp_major = _detect_otp_major()
+    if not otp_major:
+        print_error("Elixir install failed: could not detect the Erlang/OTP version")
+        return
+
+    url = (
+        "https://github.com/elixir-lang/elixir/releases/download/"
+        f"v{ELIXIR_VERSION}/elixir-otp-{otp_major}.zip"
+    )
+    zip_path = Path("/tmp/elixir.zip")
+    print_info(f"Installing Elixir {ELIXIR_VERSION} (OTP {otp_major})...")
+    with Spinner("Downloading Elixir..."):
+        result = run_cmd(["curl", "-fsSL", "-o", str(zip_path), url], check=False)
+    if result.returncode != 0:
+        print_error(
+            f"Elixir install failed: download error. No prebuilt Elixir "
+            f"{ELIXIR_VERSION} for OTP {otp_major}? ({url})"
+        )
+        return
+
+    # Fresh extract so a prior install leaves no stale files.
+    run_cmd(["rm", "-rf", str(_ELIXIR_DIR)], check=False)
+    _ELIXIR_DIR.mkdir(parents=True, exist_ok=True)
+    with Spinner("Extracting Elixir..."):
+        result = run_cmd(
+            ["python3", "-m", "zipfile", "-e", str(zip_path), str(_ELIXIR_DIR)],
+            check=False,
+        )
+    if result.returncode != 0:
+        print_error("Elixir install failed: could not extract the release archive")
+        return
+
+    for name in _ELIXIR_BINS:
+        bin_path = _ELIXIR_DIR / "bin" / name
+        if bin_path.exists():
+            bin_path.chmod(0o755)
+            create_symlink(bin_path, Path("/usr/local/bin") / name)
+
+    result = run_cmd(["elixir", "--version"], check=False)
+    if result.returncode == 0:
+        print_success(f"Elixir installed: {_elixir_version_line(result.stdout)}")
+    else:
+        print_error(
+            "Elixir install failed: `elixir --version` did not run after install"
+        )
+
+
+def _elixir_is_recent_enough() -> bool:
+    """True if a usable Elixir >= 1.15 is already on PATH."""
+    if not cmd_exists("elixir"):
+        return False
+    result = run_cmd(["elixir", "--version"], check=False)
+    return result.returncode == 0 and _elixir_at_least(result.stdout, (1, 15))
+
+
+def _detect_otp_major() -> str | None:
+    """Return the installed Erlang/OTP major version (e.g. "25"), or None."""
+    result = run_cmd(
+        [
+            "erl",
+            "-noshell",
+            "-eval",
+            'io:format("~s", [erlang:system_info(otp_release)]), halt().',
+        ],
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    major = result.stdout.strip().split(".")[0].strip()
+    return major if major.isdigit() else None
+
+
+def _elixir_at_least(version_output: str, minimum: tuple[int, int]) -> bool:
+    match = re.search(r"Elixir (\d+)\.(\d+)", version_output)
+    if not match:
+        return False
+    return (int(match.group(1)), int(match.group(2))) >= minimum
+
+
+def _elixir_version_line(version_output: str) -> str:
+    for line in version_output.splitlines():
+        if line.strip().startswith("Elixir "):
+            return line.strip()
+    stripped = version_output.strip()
+    return stripped.split("\n")[-1] if stripped else "(unknown)"
 
 
 # =============================================================================

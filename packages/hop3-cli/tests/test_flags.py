@@ -69,6 +69,35 @@ def test_parse_flags_skip_confirm_flags():
     assert args == ["destroy", "my-app"]
 
 
+def test_parse_flags_no_input_flag():
+    """--no-input sets the no_input flag."""
+    flags, args = parse_flags(["deploy", "my-app", "--no-input"])
+    assert flags.no_input is True
+    assert args == ["deploy", "my-app"]
+
+
+def test_no_input_defaults_false_without_flag_or_env():
+    # conftest's autouse isolation clears HOP3_NO_INPUT, so this is the baseline.
+    flags, _ = parse_flags(["deploy", "my-app"])
+    assert flags.no_input is False
+
+
+def test_no_input_reads_from_env(monkeypatch):
+    """HOP3_NO_INPUT=1 opts a whole environment into non-interactive mode.
+
+    This is the escape hatch the tutorial/demo harness uses: set it once so
+    every `hop3 deploy` skips the ADR-042 confirm prompt instead of blocking
+    on a tty until the per-command timeout.
+    """
+    monkeypatch.setenv("HOP3_NO_INPUT", "1")
+    flags, _ = parse_flags(["deploy", "my-app"])
+    assert flags.no_input is True
+    # A non-"1" value must NOT enable it (avoid surprising truthiness).
+    monkeypatch.setenv("HOP3_NO_INPUT", "0")
+    flags, _ = parse_flags(["deploy", "my-app"])
+    assert flags.no_input is False
+
+
 def test_parse_flags_verbose_flag():
     """Test parsing -v and --verbose flags."""
     # -v flag

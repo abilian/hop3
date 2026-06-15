@@ -302,6 +302,27 @@ timeout = 30
 interval = 60
 ```
 
+## Step 6: Initialize Git Repository
+
+Hop3 deploys the committed contents of a Git repository. Ignore `node_modules`
+and the build output (they're rebuilt on the server, and `node_modules`'
+symlinks can't be archived), then commit:
+
+```file path=hop3-tuto-astro/.gitignore
+node_modules/
+dist/
+.astro/
+.env
+```
+
+```bash exec id=git-init dir=hop3-tuto-astro
+git init && git add -A && git commit -m "Initial Astro site"
+```
+
+```output contains
+Initial Astro site
+```
+
 ## Deploy to Hop3
 
 The following steps require a Hop3 server.
@@ -355,7 +376,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash exec id=check-status timeout=30
-hop3 status --app hop3-tuto-astro
+hop3 app status --app hop3-tuto-astro
 ```
 
 ```output contains
@@ -374,10 +395,10 @@ Hello from Hop3
 
 ```bash skip
 # Restart the application
-hop3 restart --app hop3-tuto-astro
+hop3 app restart --app hop3-tuto-astro
 
 # View logs
-hop3 logs --app hop3-tuto-astro
+hop3 app logs --app hop3-tuto-astro
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-astro

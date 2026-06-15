@@ -105,16 +105,28 @@ class AppLauncher:
 
         return True
 
+    # Build/run-once hooks — never persistent processes, so they must never be
+    # handed to uWSGI as daemons. Matches RuntimeManifestBuilder's filter.
+    _LIFECYCLE_HOOKS = frozenset({"prebuild", "postbuild", "prerun"})
+
     @property
     def workers(self) -> dict:
         """Get worker definitions, preferring artifact over AppConfig.
 
-        If a build artifact exists with runtime.workers, use those.
-        Otherwise fall back to AppConfig.workers (legacy behavior).
+        If a build artifact exists with runtime.workers, use those. Otherwise
+        fall back to AppConfig.workers (legacy behavior).
+
+        Either way, lifecycle hooks are filtered out: a Procfile ``prebuild:``
+        is a build step, not a daemon. The fallback path used to leak it to
+        uWSGI, which then respawned it forever — e.g. an Elixir app looping
+        ``mix release --overwrite`` and racing the web worker for the freshly
+        (re)written release binary (`bin/<app>: not found`).
         """
         if self.artifact and self.artifact.runtime.workers:
-            return self.artifact.runtime.workers
-        return self.config.workers
+            workers = self.artifact.runtime.workers
+        else:
+            workers = self.config.workers
+        return {k: v for k, v in workers.items() if k not in self._LIFECYCLE_HOOKS}
 
     @property
     def web_workers(self):
