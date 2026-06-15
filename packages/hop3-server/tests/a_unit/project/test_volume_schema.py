@@ -33,6 +33,14 @@ def test_no_volume_section_is_empty_list():
     assert Hop3Config.from_str('[metadata]\nid = "x"\n').volumes == []
 
 
+def test_volume_backup_include_false_parses():
+    cfg = Hop3Config.from_str(
+        '[[volumes]]\nname = "store"\ntarget = "storage"\n'
+        "[volumes.backup]\ninclude = false\n"
+    )
+    assert cfg.volumes[0]["backup"] == {"include": False}
+
+
 def test_valid_volumes_pass():
     toml = (
         '[[volumes]]\nname = "uploads"\ntarget = "data/uploads"\nmode = "0700"\n'
@@ -58,6 +66,8 @@ def test_valid_volumes_pass():
         '[[volumes]]\nname = "x"\ntarget = "data"\nsize = "256M"',  # size on persist
         # duplicate names
         '[[volumes]]\nname = "dup"\ntarget = "a"\n[[volumes]]\nname = "dup"\ntarget = "b"',
+        # typo'd backup key — must not silently still back the volume up
+        '[[volumes]]\nname = "x"\ntarget = "data"\n[volumes.backup]\ninclide = false',
     ],
 )
 def test_invalid_volumes_rejected(toml):

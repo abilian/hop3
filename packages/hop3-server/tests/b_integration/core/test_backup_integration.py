@@ -642,3 +642,49 @@ class TestVolumeBackupRestore:
         manifest = BackupManifest.from_file(backup_dir / "metadata.json")
         assert manifest.volumes == []
         assert not list(backup_dir.glob("volume-*.tar.gz"))
+
+    def test_unreadable_config_fails_the_backup_loudly(
+        self, backup_db_session, backup_manager, sample_app
+    ):
+        # H1 regression: a malformed hop3.toml must abort the backup, not
+        # silently omit the app's volume data while reporting success.
+        app = sample_app
+        realize_volumes(
+            app, [{"name": "store", "target": "data/store", "type": "persist"}]
+        )
+        (app.src_path / "data" / "store" / "secret.txt").write_text("precious")
+        # Invalid TOML: the loader must raise rather than yield "no volumes".
+        (app.src_path / "hop3.toml").write_text('[[volumes]]\nname = "store"\ntarget =')
+
+        with pytest.raises(RuntimeError):
+            backup_manager.create_backup(app, include_addons=False)
+
+        backup = backup_db_session.query(Backup).filter_by(app_id=app.id).first()
+        assert backup is not None
+        assert backup.state == BackupStateEnum.FAILED
+
+    def test_restore_fails_loud_when_volume_archive_missing(
+        self, backup_manager, sample_app
+    ):
+        # Restore-side twin of H1: the manifest says a volume was backed up,
+        # but its archive is absent. Continuing would let the later deploy
+        # re-seed the volume EMPTY and report success — silent data loss.
+        app = sample_app
+        manifest = BackupManifest(
+            backup_id="x",
+            app_name=app.name,
+            created_at="2026-01-01T00:00:00Z",
+            format_version="1.0",
+            hop3_version="test",
+            size_bytes=0,
+            checksums={},
+            app_metadata={},
+            addons=[],
+            env_vars_count=0,
+            expires_after=0,
+            volumes=[{"name": "store", "backup_file": "volume-store.tar.gz"}],
+        )
+        # app.app_path has no volume-store.tar.gz, so the declared archive is
+        # missing — restore must abort rather than silently skip it.
+        with pytest.raises(FileNotFoundError):
+            backup_manager._restore_volumes(app, app.app_path, manifest)

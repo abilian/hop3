@@ -658,17 +658,17 @@ class BackupManager:
     def _app_volumes(self, app: App) -> list[dict]:
         """Declared [[volumes]] for an app, read from its deployed hop3.toml.
 
-        Returns [] when there is no config or no volumes (or on any parse
-        error) — backup must never fail because the config can't be read.
+        Returns [] when the app has no hop3.toml or declares no volumes (the
+        loader yields an empty config in that case, it does not raise). A
+        hop3.toml that exists but is malformed propagates the parse error: the
+        backup must fail loud rather than silently omit volume data while
+        reporting success (the caller marks the backup FAILED and surfaces it).
         """
         from hop3.project.config import AppConfig  # noqa: PLC0415
 
         # from_dir expects the app dir (its src_dir is <app_dir>/src), matching
         # how the deployer reads the config.
-        try:
-            return AppConfig.from_dir(app.app_path).hop3_config.volumes
-        except Exception:
-            return []
+        return AppConfig.from_dir(app.app_path).hop3_config.volumes
 
     def _backup_volumes(self, app: App, backup_dir: Path) -> list[dict]:
         """Archive each persistent volume as its own member (ADR 046 §2).
@@ -895,8 +895,16 @@ class BackupManager:
             name = vol["name"]
             tar_path = backup_dir / vol["backup_file"]
             if not tar_path.exists():
-                log(f"Warning: volume archive missing: {vol['backup_file']}")
-                continue
+                # The manifest recorded this volume as backed up, so a missing
+                # archive means the backup is incomplete. Continuing would let
+                # the later app.deploy() re-seed the volume EMPTY and still
+                # report the restore as succeeded — silent data loss. Abort.
+                msg = (
+                    f"Restore can't recover volume {name!r}: its archive "
+                    f"{vol['backup_file']!r} is missing from the backup, so the "
+                    "backup is incomplete. Use an intact backup."
+                )
+                raise FileNotFoundError(msg)
 
             target_dir = volumes_root / name
             if target_dir.exists():

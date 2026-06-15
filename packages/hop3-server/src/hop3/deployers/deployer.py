@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 import re
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from hop3.commands._helpers import check_hostname_conflict
 from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 
     from hop3.core.artifacts import BuildArtifact
     from hop3.orm.app import App
+    from hop3.project.hop3_config import Hop3Config
 
 __all__ = ["do_deploy"]
 
@@ -133,7 +134,7 @@ def do_deploy(
     builder = get_builder(context)
     log(f"Using builder: '{builder.name}'", level=1, fg="blue")
 
-    _reject_volumes_on_docker(builder.name, app_config.hop3_config.volumes)
+    _enforce_builder_resource_support(builder.name, app_config.hop3_config)
 
     build_artifact = builder.build()
     log(
@@ -652,7 +653,20 @@ def stop_previous_instance(app: App) -> None:
         app.stop()
 
 
-def _reject_volumes_on_docker(builder_name: str, volumes: list) -> None:
+def _enforce_builder_resource_support(
+    builder_name: str, hop3_config: Hop3Config
+) -> None:
+    """Fail loud when declared resources can't be honored by the chosen builder.
+
+    The two resource features have opposite builder support today, so check both
+    after builder selection and before the build: volumes work on native/Nix but
+    not Docker; limits work on Docker but not native/Nix (ADR 046 §2/§3).
+    """
+    _reject_volumes_on_docker(builder_name, hop3_config.volumes)
+    _reject_limits_on_non_docker(builder_name, hop3_config.limits)
+
+
+def _reject_volumes_on_docker(builder_name: str, volumes: list[dict[str, Any]]) -> None:
     """Abort the deploy if [[volumes]] are declared under the Docker builder.
 
     Volumes are realized as host-side symlinks into src/ (ADR 046 §2), which a
@@ -665,6 +679,24 @@ def _reject_volumes_on_docker(builder_name: str, volumes: list) -> None:
             "[[volumes]] is not yet supported for Docker-deployed apps: the "
             "container cannot see the host volume, so data would be lost. Use "
             "the native or nix builder, or remove the [[volumes]] declaration."
+        )
+        raise ValueError(msg)
+
+
+def _reject_limits_on_non_docker(builder_name: str, limits: dict[str, Any]) -> None:
+    """Abort the deploy if [limits] are declared but can't be enforced (ADR 046 §3).
+
+    A declared limit is a safety guarantee, so it must never be silently
+    ignored. Enforcement is implemented for the Docker builder (compose
+    mem_limit / cpus / pids_limit); native/Nix enforcement needs cgroups via
+    hop3-rootd and isn't available yet, so fail loud there rather than run an
+    app that only looks capped.
+    """
+    if limits and builder_name.lower() != "docker":
+        msg = (
+            "[limits] resource caps are only enforced for Docker-deployed apps "
+            "today (native/Nix enforcement needs cgroup support via hop3-rootd). "
+            "Use the docker builder, or remove the [limits] section."
         )
         raise ValueError(msg)
 

@@ -15,8 +15,9 @@ Phase 1 is landing incrementally. Shipped so far:
 - **Dynamic env references (§1b)** — `{ from = "<addon>", key = "<KEY>" }` copies an attribute from one of the app's addons; `{ key = "domain"/"hostname"/"name" }` reads an app fact. Resolved at step 5 (after the domains→HOST_NAME step, before `[env.computed]`), overwriting like computed; fails loud on an unattached addon / unknown key / unknown fact. The schema validator is now the single classifier for `[env]` table values and rejects unrecognised shapes (the ADR's fail-loud, previously unenforced). `external_ip` is recognised but not implemented — it raises a clear deploy error. See `project/schema.py::EnvRef`, `deployers/env_provisioning.py::resolve_env_refs`, `docs/src/reference/config.md` §"Dynamic references".
 - **Persistent volumes (§2), `persist` type** — `[[volumes]]` links a directory in the app tree to storage under `<app>/volumes/<name>/` (outside `src/`), realized after extract and before the prebuild hook, so it survives the redeploy that wipes `src/`. Seeds an empty volume once from shipped content; idempotent on redeploy; honours `mode` and chowns to the run-user on root deploys; the in-src link is relative. `tmpfs`/`bind` are recognised but raise a clear "not implemented" deploy error (they need privileged mounts via rootd). See `project/schema.py::VolumeSection`, `deployers/volumes.py::realize_volumes`, `docs/src/reference/config.md` §"Persistent Volumes". Proven by `apps/test-apps-procfile/170-flask-volume`.
 - **Volumes integrate safely with the rest of the platform** (audit follow-up): backups archive each volume as its own unit and restore round-trips them (no more silent exclusion / `AbsoluteLinkError`-on-restore); per-volume `[volumes.backup] include = false` opts out; `hop3 app destroy` removes data/volumes as a complete teardown but warns loudly first (its dead "preserve data" branch is gone); and `[[volumes]]` under the Docker builder aborts loudly (the container can't see a host symlink). See `core/backup.py`, `orm/app.py::destroy`, `deployers/deployer.py::_reject_volumes_on_docker`.
+- **Resource limits (§3), Docker builder** — `[limits]` (`memory` / `cpu` / `processes`) is enforced for Docker apps via compose `mem_limit` / `cpus` / `pids_limit`. A declared limit is a safety guarantee, so `[limits]` on a non-Docker app **aborts the deploy** (native/Nix cgroup enforcement needs hop3-rootd and isn't built yet) — never silently un-enforced. See `project/schema.py::LimitsSection`, `plugins/docker/deployer.py::_compose_limits_section`, `deployers/deployer.py::_reject_limits_on_non_docker`, `docs/src/reference/config.md` §"Resource Caps".
 
-Not yet implemented: `external_ip` references, `tmpfs`/`bind` volumes, `[[volumes]]` for the Docker builder, scheduled/retained backups (`[backup].paths`/`exclude` are reserved-but-inert), `[limits]`, and the folded-in multi-port extension.
+Not yet implemented: `external_ip` references, `tmpfs`/`bind` volumes, `[[volumes]]` for the Docker builder, native/Nix `[limits]` enforcement (cgroups via rootd), the server-wide default `[limits]` (operator-configurable, §3 — multi-tenant safety net needs the same rootd cgroup support), the best-effort opt-in limit mode (§3), scheduled/retained backups (`[backup].paths`/`exclude` are reserved-but-inert), and the folded-in multi-port extension.
 
 ## Context
 
@@ -166,9 +167,9 @@ Enforcement is via the OS cgroup/process boundary, applied by hop3-rootd (ADR 04
 - Native (uWSGI) and Nix apps: a per-app systemd slice / cgroup (`MemoryMax`, `CPUQuota`, `TasksMax`).
 - Docker apps: `--memory`, `--cpus`, `--pids-limit`.
 
-**Fail-loud rule.** A *declared* limit is a safety guarantee. If the platform cannot enforce it (rootd unavailable, cgroup controller missing), the deploy **aborts** — it must never start an app that looks limited but isn't (no fake success). An operator may opt into a documented best-effort mode, which then **logs loudly and records** the unenforced state where the user looks.
+**Fail-loud rule.** A *declared* limit is a safety guarantee. If the platform cannot enforce it (rootd unavailable, cgroup controller missing), the deploy **aborts** — it must never start an app that looks limited but isn't (no fake success). An operator may opt into a documented best-effort mode, which then **logs loudly and records** the unenforced state where the user looks. *(Deferred — not yet implemented; see Implementation Status.)*
 
-A server-wide **default limit** (operator-configurable) protects multi-tenant boxes even when an app declares nothing.
+A server-wide **default limit** (operator-configurable) protects multi-tenant boxes even when an app declares nothing. *(Deferred — depends on the same rootd cgroup support as native enforcement; see Implementation Status.)*
 
 ### 4. Folded-in extensions
 
@@ -282,6 +283,8 @@ type = "postgres"
   method = "pg_dump"
   schedule = "0 3 * * *"
 ```
+
+> **Builder support today:** `[[volumes]]` is realized on the native/Nix builders and `[limits]` is enforced on the Docker builder, so this *combined* form is not deployable on a single builder yet — the deploy aborts loudly rather than half-applying. The snippet documents the Phase-1 target; until both features share a builder, declare them in apps that use the matching builder. See Implementation Status.
 
 ## Consequences
 
