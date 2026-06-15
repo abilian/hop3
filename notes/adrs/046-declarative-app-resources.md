@@ -17,7 +17,7 @@ Phase 1 is landing incrementally. Shipped so far:
 - **Volumes integrate safely with the rest of the platform** (audit follow-up): backups archive each volume as its own unit and restore round-trips them (no more silent exclusion / `AbsoluteLinkError`-on-restore); per-volume `[volumes.backup] include = false` opts out; `hop3 app destroy` removes data/volumes as a complete teardown but warns loudly first (its dead "preserve data" branch is gone); and `[[volumes]]` under the Docker builder aborts loudly (the container can't see a host symlink). See `core/backup.py`, `orm/app.py::destroy`, `deployers/deployer.py::_reject_volumes_on_docker`.
 - **Resource limits (§3), Docker builder** — `[limits]` (`memory` / `cpu` / `processes`) is enforced for Docker apps via compose `mem_limit` / `cpus` / `pids_limit`. A declared limit is a safety guarantee, so `[limits]` on a non-Docker app **aborts the deploy** (native/Nix cgroup enforcement needs hop3-rootd and isn't built yet) — never silently un-enforced. See `project/schema.py::LimitsSection`, `plugins/docker/deployer.py::_compose_limits_section`, `deployers/deployer.py::_reject_limits_on_non_docker`, `docs/src/reference/config.md` §"Resource Caps".
 
-Not yet implemented: `external_ip` references, `tmpfs`/`bind` volumes, `[[volumes]]` for the Docker builder, native/Nix `[limits]` enforcement (cgroups via rootd), the server-wide default `[limits]` (operator-configurable, §3 — multi-tenant safety net needs the same rootd cgroup support), the best-effort opt-in limit mode (§3), scheduled/retained backups (`[backup].paths`/`exclude` are reserved-but-inert), and the folded-in multi-port extension.
+Not yet implemented, but each **designed in [Phase 2 Design](#phase-2-design--deferred-features) below**: `external_ip` references, `tmpfs`/`bind` volumes, `[[volumes]]` for the Docker builder, native/Nix `[limits]` enforcement (cgroups via rootd), the server-wide default + ceiling `[limits]`, the best-effort opt-in limit mode, scheduled/retained backups (`[backup].paths`/`exclude` are reserved-but-inert today), per-addon backup policy, and the folded-in multi-port extension. Phase 2 also specifies the single hop3-rootd amendment (ADR 041) the privileged items share, and the order they ship in.
 
 ## Context
 
@@ -113,7 +113,7 @@ PUBLIC_IP       = { external_ip = true }      # not implemented yet
 
 - `from` (optional): name of an addon attached to this app. Omitted = the app itself, for app facts such as `domain`. Resolution is app-scoped — it cannot read another app's credentials.
 - `key`: the attribute to copy. With `from`, it is one of the addon's injected variable names (e.g. `PGHOST`, `DATABASE_URL`) — i.e. exactly what auto-injection already exposes, no more. Without `from`, it is an app fact: `domain` / `hostname` (the app's first hostname) or `name`. An unknown key fails the deploy and lists what is available.
-- `external_ip = true`: the host's detected public IP — recognised but **not implemented yet** (raises a clear deploy error; use `hop3 config set` meanwhile).
+- `external_ip = true`: the host's detected public IP — recognised but **not implemented yet** (raises a clear deploy error; use `hop3 config set` meanwhile). Designed in **Phase 2 (P2.4)**.
 
 Composition (Nua's f-string case) is handled by the **existing** `[env.computed]` `${VAR}` interpolation, which we keep and document as the supported way to assemble a value from injected/referenced parts:
 
@@ -153,6 +153,8 @@ type   = "persist"          # persist (default) | tmpfs | bind
 
 Realization by builder: native/Nix → bind-mount or symlink into the app tree via the deploy shell (privileged mounts through hop3-rootd, ADR 041); Docker → container volume/mount. Per-volume `[volumes.backup]` makes ADR 024's backup/restore *resource-aware* (a volume becomes a backup unit).
 
+Phase 1 ships `persist` only; `tmpfs`, `bind`, and `[[volumes]]` on the Docker builder are fully designed in **Phase 2 (P2.1)**.
+
 ### 3. `[limits]` — resource caps
 
 ```toml
@@ -170,6 +172,8 @@ Enforcement is via the OS cgroup/process boundary, applied by hop3-rootd (ADR 04
 **Fail-loud rule.** A *declared* limit is a safety guarantee. If the platform cannot enforce it (rootd unavailable, cgroup controller missing), the deploy **aborts** — it must never start an app that looks limited but isn't (no fake success). An operator may opt into a documented best-effort mode, which then **logs loudly and records** the unenforced state where the user looks. *(Deferred — not yet implemented; see Implementation Status.)*
 
 A server-wide **default limit** (operator-configurable) protects multi-tenant boxes even when an app declares nothing. *(Deferred — depends on the same rootd cgroup support as native enforcement; see Implementation Status.)*
+
+Phase 1 enforces `[limits]` on the Docker builder only; native/Nix cgroup enforcement, the server-wide default + ceiling, and the best-effort mode are fully designed in **Phase 2 (P2.2)**.
 
 ### 4. Folded-in extensions
 
@@ -193,6 +197,8 @@ type = "postgres"
 
 Plus per-`[[volumes]]` `[volumes.backup]`. This is the config-surface layer over the backup *system* already specified by ADR 024 (which is extended, not replaced); it supersedes the backup-config sketch in ADR 002.
 
+Scheduling, retention, the wiring of `paths`/`exclude`, and per-addon policy are fully designed in **Phase 2 (P2.3)** — including the in-process scheduler choice and the read-path change that makes a *failed* scheduled backup visible.
+
 #### 4b. Proxied secondary endpoints — extend ADR 040
 
 Hop3 routes HTTP by hostname on a dynamic `$PORT`; raw non-HTTP ports use `[[ports]]` (ADR 040/045). The missing case is a *second proxied HTTP(S) endpoint* (e.g. an admin UI on a different container port). Direction:
@@ -207,7 +213,7 @@ proxy     = true            # nginx proxies this endpoint
 subdomain = "admin"         # served at admin.<host>; inherits TLS
 ```
 
-Each proxied secondary endpoint is exposed as a subdomain of the app's primary host and inherits its TLS. Raw, non-HTTP ports stay in `[[ports]]`. The full routing mechanism (subdomain vs path) is an extension of ADR 040 and is detailed at implementation time; this ADR fixes the *config shape* and the principle (no app binds 80/443 directly; the proxy multiplexes).
+Each proxied secondary endpoint is exposed as a subdomain of the app's primary host and inherits its TLS. Raw, non-HTTP ports stay in `[[ports]]`. The full routing mechanism (subdomain vs path) is an extension of ADR 040; this ADR fixes the *config shape* and the principle (no app binds 80/443 directly; the proxy multiplexes), and the mechanism — nginx rendering, the loopback-only invariant, and the multi-SAN cert requirement — is fully designed in **Phase 2 (P2.4)** alongside `external_ip`.
 
 ### 5. Deploy ignore patterns — `[build].ignore`, not `.hop3ignore`
 
@@ -240,6 +246,66 @@ Decision:
   These are real, ecosystem-standard files tied to a specific transport/builder — not Hop3 inventions — so honoring them in their own context surprises no one. `.hop3ignore`, by contrast, was a Hop3-specific sidecar for the *generic* upload, and that role now belongs to `[build].ignore`.
 
 This also wires up config that is currently dead: the unwired server getters either move to the CLI (the real bundler) or are removed.
+
+## Phase 2 Design — Deferred Features
+
+Phase 1 shipped each capability in its no-privilege, no-extra-dependency form (host symlinks for `persist` volumes, Docker-native limits, on-demand backups). The deferred items below complete the surface; they are designed here so the "Not yet implemented" list points at *specifications*, not blanks. Every one keeps the Phase-1 tenets — declare intent, realize idempotently, **fail loud and never fake success**, and tear down completely *and verifiably*. The designs were validated by an adversarial pass; the blocker findings are folded in inline (re-attach after respawn, visibility of failed scheduled backups, teardown over live mounts/cgroups, and the single shared rootd amendment).
+
+Three items — native `tmpfs`/`bind` mounts and native `[limits]` enforcement — cross the kernel privilege boundary and so depend on one hop3-rootd amendment (P2.0). The other two — backups and networking — need **no** new privilege and ship first.
+
+### P2.0 — One combined hop3-rootd amendment (extends ADR 041)
+
+Native volumes and native limits both need privileged kernel operations hop3-rootd does not expose today (its v1 ops are `firewall.*` / `nginx.*` / `daemon.*`, and its unit is locked to `CapabilityBoundingSet=CAP_NET_ADMIN`, `ProtectControlGroups=true`, `PrivateMounts=true`). Rather than two separate, drifting extensions, ADR 041 gains **one** Phase-2 amendment introducing both op families behind a single client/state/validation contract:
+
+- **`mount.*`** — `mount.tmpfs({mountpoint, size_bytes, mode, app_name})`, `mount.bind({source, mountpoint, mode, read_only, app_name})`, `mount.unmount({mountpoint, app_name})`, `mount.list({app_name?})`.
+- **`cgroup.*`** — `cgroup.ensure_slice()`, `cgroup.set_limits({app_name, memory?, cpu?, processes?})`, `cgroup.attach_pids({app_name, pids})`, `cgroup.remove({app_name})` (kills the subtree, then rmdir), `cgroup.read({app_name})`.
+
+What makes it *one* amendment rather than two: **one path-allow-list** (rootd re-derives `APP_ROOT` and runs the existing `validate_app_name` for both families; every `mountpoint`/leaf must canonicalize under `<APP_ROOT>/<app>/src/` resp. `hop3.slice/hop3-app-<app>.scope` — callers never pass arbitrary paths); **one state file + reconcile loop** (mounts and cgroup leaves join `firewall`'s atomic-write/reconcile discipline, so a rootd restart re-asserts or cleans exactly what it owns); and **one unit-hardening threat model** — the union `CAP_SYS_ADMIN` (mounts) + `MountFlags=shared`/non-private namespace (so an app's Emperor-spawned process can actually *see* a mount made by rootd) + `ProtectControlGroups=false` or a delegated `hop3.slice` is a materially larger trust budget than CAP_NET_ADMIN-only and must be threat-modelled as a whole. **If that amendment is rejected, native tmpfs/bind and native limits are infeasible and only the Docker paths ship** — that is the guaranteed-shippable baseline, stated up front.
+
+Hard invariant: the Phase-1 guards (`realize_volumes`' "not implemented" raise for tmpfs/bind; `_reject_limits_on_non_docker`) **stay until the matching rootd ops exist**. Removing a guard before enforcement is real would let an app deploy *looking* capped/persisted but not — the exact lie this ADR forbids — so the guard's removal is gated on the op being registered.
+
+### P2.1 — Volumes: `tmpfs`, `bind`, and Docker `[[volumes]]` (extends §2)
+
+`realize_volumes` becomes a dispatcher over `type` (`persist` shipped; `tmpfs`/`bind` added), still aborting on an unknown type.
+
+- **`tmpfs`** — a sized RAM mount at `src/<target>` (a real kernel mount, not a symlink). `size` becomes **required** for tmpfs and is format-validated like `[limits].memory` (an uncapped tmpfs defaults to half of RAM — a multi-tenant footgun, so a sizeless tmpfs aborts at schema time); a cross-section validator rejects `Σ tmpfs size ≥ [limits].memory`. Never seeded (scratch; shadowed shipped content is *logged*, not silent) and **never backed up** (`_backup_volumes` skips `tmpfs` regardless of `[volumes.backup]`, which is itself a config error on a tmpfs). Native: rootd `mount.tmpfs`; Docker: a compose `tmpfs:` mount (counted against `mem_limit`).
+- **`bind`** — adds a `source` field (absolute host path; the deliberate inverse of the relative `target`). **Default-deny:** only paths under an operator allow-list (`HOP3_BIND_VOLUME_ALLOWLIST`, empty by default) are accepted, with the `source` `realpath`-resolved and re-checked against the resolved allow-list in *both* hop3-server and rootd (no symlink escape). Two apps binding the same source is the unmanaged-shared-resource hazard, so a new `BindClaim` registry (mirroring `PortClaim`) detects contention and aborts. Backups **default-exclude** bind sources (operator-owned, possibly shared/huge); opt in with `[volumes.backup] include = true`. **Destroy must never delete the source:** the bytes live at `source` outside `app_path`, so once unmounted the mountpoint is just an empty dir — but a *still-mounted* bind makes `rmtree(app_path)` follow into operator data, which the teardown gate below prevents.
+- **Docker `[[volumes]]`** — removes `_reject_volumes_on_docker`. Instead of host symlinks (invisible to a container), the compose generator bind-mounts the **same** host dir `<app>/volumes/<name>` into the container at `target`, so the host-side backup/restore path is byte-for-byte unchanged regardless of builder. Seed-once for Docker copies the image's content at `target` into an empty host volume via a throwaway `docker create` + `docker cp` (a `docker cp` failure other than "path absent in image" aborts — no silent empty volume). bind/tmpfs map to compose `volumes:`/`tmpfs:`.
+
+**Teardown gate (blocker fix).** `App.stop()` (before src/ is wiped) and `App.destroy()` (before any `rmtree`) must, for every declared native mount: reap processes, `mount.unmount` (lazy `MNT_DETACH` fallback on EBUSY), then `mount.list({app})` and **raise if any survive** — refuse to delete over a live mount. Covered by a test with a deliberately-busy mount. Docker releases its own mounts when the container dies, and `compose down --volumes` never touches a host bind source.
+
+### P2.2 — Limits: native enforcement, server-wide default + ceiling, best-effort (extends §3)
+
+How native apps run dictates the mechanism: a native app is *not* its own systemd unit — one Emperor (`uwsgi-hop3.service`) runs every app's worker as an `attach-daemon` `exec`. So the §3 "per-app systemd slice" phrasing was aspirational; the real surface is a **per-app cgroup v2 leaf** (`hop3.slice/hop3-app-<name>.scope`) that rootd creates and into which the app's PIDs are migrated, independent of who spawned them. Mapping mirrors Phase-1 Docker: `memory→memory.max` (plus `memory.swap.max=0`, so a cap is a real cap, not spill-to-swap), `cpu→cpu.max` (`round(cpu*100000) 100000`), `processes→pids.max`. cgroup v2 only; v1/hybrid hosts fail loud and the installer records cgroup-v2 as a host fact. For parity, Phase-1's Docker mapping also gains swap-off so OOM timing matches across builders.
+
+**Keeping respawns capped (blocker fix).** An Emperor-respawned worker gets a fresh PID not in the leaf; the existing state-sync service only loops *transitional* apps, so a RUNNING app's respawned worker would silently escape its cap. Memory enforcement therefore uses a **cgroup-enter shim**: the worker's `exec` is wrapped so each (re)spawned PID writes itself into `cgroup.procs` *before* `exec`-ing the app — the leaf is the entry gate, not a post-hoc attach. A periodic reconcile over **all RUNNING apps** (not just transitional) backstops cpu/pids, and the leaf persists across a redeploy's stop→rebuild→start so there is no uncapped window.
+
+**Server-wide default + ceiling** — two operator settings on `HopConfig`, both off by default (single-tenant boxes and the test suite are unaffected): a per-dimension **default** applied where an app declares nothing, and a per-dimension **ceiling** (the multi-tenant safety net). A declared value above the ceiling **aborts** — never silently clamps down, because silently giving an app less than it asked for is the same class of lie as not enforcing. Resolution is a pure `resolve_limits(declared, defaults, ceilings)` transform feeding both the cgroup ops and the Phase-1 Docker mapping, so defaults/ceilings apply uniformly.
+
+**Modes & surfacing.** Strict (default): any unenforceable declared/defaulted limit aborts. Best-effort (operator opt-in): the app runs, but the unenforced state is recorded on the App row (`limits_enforced`/`limits_detail`) and shown in `hop3 app status`/`debug` in warning colour, at the same prominence as a CRASHED row, plus a red deploy-time warning — never a clean "deployed." A declared value over the ceiling aborts in **both** modes (it's a config error, not an enforcement gap). OOM kills are surfaced via `memory.events::oom_kill` in status and a deploy-time `Diagnosis`. **Teardown:** `destroy` calls `cgroup.remove` and verifies the leaf is gone (raises otherwise); `cgroup.kill` becomes a stronger reap surface than `/proc` scanning for the Nix-store `exec` heisenbug.
+
+### P2.3 — Backups: scheduled, retained, `paths`/`exclude`, per-addon (extends §4a)
+
+**Scheduler: in-process, not systemd timers or cron.** A fourth background service in the ASGI lifespan, structurally identical to `CertRenewalService`/`StateSyncService`/`DomainHealthService` (a daemon thread + stop-event + a testable `run_once()`), polling every 60s. It needs no rootd and no new dependency, and — crucially — leaves **no per-app host artifact**: a systemd timer or `/etc/cron.d` entry would survive `destroy` (a leftover, hence a platform bug). "Did the cron minute elapse" is computed from the existing `Backup` rows, so no new scheduling table.
+
+**Schema** promotes `BackupSection` to the policy the docs already describe (reconciling the §4a doc/schema mismatch): `enabled` + `schedule` (5-field cron, UTC; required when `enabled`) + `[backup.retention]` (`days` / `keep-last`) + the now-wired `paths`/`exclude`, plus a strict `[addons.backup]` (`method`/`schedule`/`retention`). All `extra="forbid"`, all fail-loud at schema time. The cron matcher is stdlib-only (no `croniter`).
+
+**Failed scheduled backups must be visible (blocker fix — a requirement, not an open question).** A FAILED backup writes no manifest and `create_backup` rmtrees its partial dir, while the current list reads manifests and hardcodes status `COMPLETED`. The read path (`list_backups` / `BackupListCmd` / dashboard) **must** read `state` plus a new `error` column from the `Backup` DB rows (the authoritative source) and merge manifest detail only for COMPLETED rows. This change is sequenced **first** — without it a failed scheduled backup is fire-and-forget to `/dev/null`. The scheduler catches per-app (one failure doesn't stop the cycle) but logs red, leaves the row FAILED+`error`, and refuses to start a second backup while a STARTED row exists for the app (no overlap). A `scheduled` provenance flag distinguishes manual from scheduled backups, and an "overdue" line (newest scheduled COMPLETED vs the cron) surfaces a scheduler that silently stopped.
+
+**Retention** runs in the same cycle: prunes only `scheduled, COMPLETED` backups by `days` (finally consuming the dormant `expires_after` field) and/or `keep-last` (the more conservative when both are set), via `delete_backup` (directory + row together), and **always excludes the single most recent good backup** from deletion — logging yellow when it keeps one against policy, never silently leaving zero. **`paths`/`exclude`** wire into `_backup_source`/`_backup_data` (the exclude glob composes into the existing tar `filter`, with the volume-link drop keeping precedence; `paths` archived as a separate `extra.tar.gz` so restore doesn't lose them to the redeploy's `git clean`); a declared-but-missing `paths` entry **aborts** the backup (no silent omission, mirroring `_app_volumes`). Per-addon `method` validates against a new `supported_backup_methods` capability on the addon protocol (fix-the-class, not per-type knowledge in the manager). **Teardown:** `destroy` must rmtree `BACKUP_ROOT/apps/<app>/` (the FK cascade drops rows; the directories are otherwise a disk leftover) — verifiable.
+
+### P2.4 — Networking: `external_ip`, proxied secondary endpoints (extends §1b / §4b)
+
+**`external_ip`** resolves at step 5 of the env pipeline (like other refs) and is re-resolved each deploy — a host *fact*, never generated-once. Determination is sovereignty-first: (1) operator-set `HOP3_EXTERNAL_IP` / `_IP6`; (2) default-route detection (`ip route get` `src`, a kernel-local probe with no egress, factored into a shared `netinfo` helper); (3) an opt-in `HOP3_EXTERNAL_IP_ECHO_URL` (https-only), off by default — the platform never phones home to learn its own address unless told to. A detected private/loopback/link-local address is **not** returned as public — it fails loud, because returning a private address as `PUBLIC_IP` is fake success. This means auto-detection is best-effort for bare-metal/non-NAT only; **cloud/NAT boxes must set `HOP3_EXTERNAL_IP`**, and the error message says exactly that. `family = "v4"|"v6"` selects.
+
+**Proxied secondary HTTP endpoints** — the missing "second proxied HTTP port" (e.g. an admin UI); raw non-HTTP ports stay in `[[ports]]`. `PortConfig` gains `proxy`/`subdomain`/`path` while **keeping** its shipped `container`/`public`/`https` fields (additive, no break): a named endpoint with `proxy = true` requires exactly one of `subdomain` (served at `<sub>.<host>`) or `path` (served at `<host><path>`, rendered ahead of `location /`). nginx renders the endpoint into the **same** `<app>.conf` (one atomic teardown unit) as an extra `server{}` (subdomain) or `location{}` (path). The container port is reached on loopback — native: the app binds `127.0.0.1:<container>`; Docker: publish `127.0.0.1:<hostport>:<container>` — and a post-start probe **asserts the port answers on loopback AND is refused on a non-loopback address**, so a publicly-bound secondary listener (bypassing nginx/TLS) aborts the deploy rather than silently exposing an admin UI. **TLS:** a `subdomain` adds a hostname the served cert must cover, so issuance must become **multi-SAN** (the self-signed engine accepts a name list; certbot adds `-d` per name), and `verify_cert` runs over **every** secondary FQDN so a missing SAN fails loud rather than serving a mismatch. Teardown is already complete (same conf file, same cert pair); Docker must verify the published loopback port is released so it can't block the next deploy's `get_free_port`.
+
+### Phase 2 build order
+
+1. **No new privilege — ship first:** the backup read-path fix (DB rows + `error` column) → scheduler / retention / `paths` / `exclude`; `external_ip`; `path`-mode secondary endpoints; Docker `[[volumes]]` (compose bind-mounts, no rootd).
+2. **The ADR 041 amendment (P2.0):** the combined `mount.*` + `cgroup.*` families under one threat model. Until merged, the Phase-1 guards stay.
+3. **Unlocked by P2.0:** native `tmpfs`/`bind` volumes; native/Nix `[limits]` enforcement (then `_reject_limits_on_non_docker` is removed) plus server-wide default/ceiling and best-effort mode.
+4. **After multi-SAN cert issuance:** `subdomain` secondary endpoints (they fail loud until then; `path` mode covers the interim).
 
 ## Examples
 
@@ -339,9 +405,9 @@ type = "postgres"
 
 - Secret rotation UX (`hop3 config rotate KEY`?).
 - Per-context (ADR 042) overrides for volumes / limits / generated secrets — likely desirable; deferred.
-- tmpfs/bind and cgroup enforcement on non-systemd OSes.
-- Multi-port proxying: subdomain (chosen default) vs optional path-prefix routing.
-- The server-wide default limit value (and whether it is on by default).
+- tmpfs/bind and cgroup enforcement on non-systemd OSes — Phase 2 (P2.0/P2.2) flags this as the open feasibility risk: the demo runs rootd under supervisor, so systemd cgroup *delegation* is unavailable there and the "rootd writes `hop3.slice` directly" path is unproven.
+- Multi-port proxying — *resolved* in Phase 2 (P2.4): `path` mode ships first (shares the primary cert), `subdomain` after multi-SAN issuance lands; the per-endpoint healthcheck shape and a `$PORT`-style dynamic secondary port remain open.
+- The server-wide default limit — *resolved* to **off by default** in Phase 2 (P2.2); the recommended value for a multi-tenant box, and whether to flip it on once mature, remain open.
 
 ## Future Work
 
