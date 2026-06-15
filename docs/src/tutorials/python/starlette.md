@@ -268,7 +268,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 status --app hop3-tuto-starlette
+hop3 app status --app hop3-tuto-starlette
 ```
 
 ```console
@@ -286,7 +286,7 @@ OK
 View logs:
 
 ```bash
-hop3 logs --app hop3-tuto-starlette
+hop3 app logs --app hop3-tuto-starlette
 
 # Your app will be available at:
 # http://hop3-tuto-starlette.your-hop3-server.example.com
@@ -296,7 +296,7 @@ hop3 logs --app hop3-tuto-starlette
 
 ```bash
 # Restart the application
-hop3 restart --app hop3-tuto-starlette
+hop3 app restart --app hop3-tuto-starlette
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-starlette

@@ -24,9 +24,9 @@ cleez==0.1.14
 click==8.4.1
 colorlog==6.10.1
 coverage==7.14.1
-cryptography==48.0.1
+cryptography==49.0.0
 cyclonedx-bom==7.3.0
-cyclonedx-python-lib==11.9.0
+cyclonedx-python-lib==11.10.0
 dead-code-detector==0.5.0
 deepmerge==2.0
 defusedxml==0.7.1
@@ -35,7 +35,7 @@ deptry==0.25.1
 devtools==0.12.2
 dill==0.4.1
 dishka==1.10.1
-distlib==0.4.2
+distlib==0.4.3
 distro==1.9.0
 docformatter==1.7.8
 docker==7.1.0
@@ -44,16 +44,16 @@ editorconfig==0.17.1
 elementpath==5.1.1
 execnet==2.1.2
 executing==2.2.1
-faker==40.22.0
+faker==40.23.0
 fastjsonschema==2.21.2
-filelock==3.29.1
+filelock==3.29.3
 fqdn==1.5.1
 gevent==26.5.0
-granian==2.7.5
+granian==2.7.6
 greenlet==3.5.1
 grimp==3.14
 h11==0.16.0
-hcloud==2.20.0
+hcloud==2.21.0
 honcho==2.0.0
 hop3-cli==0.5.0
 hop3-installer==0.5.0
@@ -95,7 +95,7 @@ libcst==1.8.6
 librt==0.11.0
 license-expression==30.4.4
 linkify-it-py==2.1.0
-litestar==2.23.0
+litestar==2.24.0
 litestar-htmx==0.5.0
 loguru==0.7.3
 lxml==6.1.1
@@ -152,10 +152,11 @@ pytest-random-order==1.2.0
 pytest-xdist==3.8.0
 python-dateutil==2.9.0.post0
 python-debian==1.1.1
-python-discovery==1.4.0
+python-discovery==1.4.2
 python-dotenv==1.2.2
 python-magic==0.4.27
 python-multipart==0.0.32
+python-whois==0.9.6
 pyyaml==6.0.3
 rdflib==7.6.0
 readme-renderer==45.0
@@ -172,7 +173,7 @@ rfc3987-syntax==1.1.0
 rich==15.0.0
 rich-click==1.9.8
 rpds-py==2026.5.1
-ruff==0.15.16
+ruff==0.15.17
 sbom2dot==0.3.2
 sbom4files==0.4.5
 sbom4python==0.12.6
@@ -191,7 +192,7 @@ toml==0.10.2
 tomli==2.4.1
 tomlkit==0.15.0
 twine==6.2.0
-ty==0.0.46
+ty==0.0.49
 typeguard==4.5.2
 types-markdown==3.10.2.20260518
 types-paramiko==4.0.0.20260518
@@ -213,8 +214,8 @@ urllib3==2.7.0
 uvicorn==0.49.0
 uvloop==0.22.1
 uwsgi==2.0.31
-validoc==0.1.2
-virtualenv==21.4.2
+validoc==0.2.0
+virtualenv==21.4.3
 vulture==2.16
 watchfiles==1.2.0
 webcolors==25.10.0
@@ -224,3 +225,4 @@ xmltodict==1.0.4
 zensical==0.0.45
 zope-event==6.2
 zope-interface==8.5
+zuban==0.8.2

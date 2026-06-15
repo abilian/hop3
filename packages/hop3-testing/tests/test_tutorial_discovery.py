@@ -23,7 +23,12 @@ def _write_tutorial(root: Path, lang: str, framework: str, title: str) -> Path:
     d = root / "docs" / "src" / "tutorials" / lang
     d.mkdir(parents=True, exist_ok=True)
     md = d / f"{framework}.md"
-    md.write_text(f"# {title}\n\nDeploy a {framework} app.\n")
+    # Include an executable validoc block: the scanner intentionally skips
+    # prose-only tutorials (they run no commands → a vacuous pass), so a fixture
+    # without one is discovered as nothing.
+    md.write_text(
+        f"# {title}\n\nDeploy a {framework} app.\n\n```bash exec\necho ok\n```\n"
+    )
     return md
 
 

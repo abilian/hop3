@@ -9,7 +9,7 @@ Every tutorial follows the same four steps:
 1. **Create** a minimal application with the framework.
 2. **Configure** it for Hop3 (a `hop3.toml`, and/or a `Procfile`).
 3. **Deploy** it to your Hop3 server (`hop3 deploy <app>`).
-4. **Verify** it is running (`hop3 status`, then open it in a browser).
+4. **Verify** it is running (`hop3 app status`, then open it in a browser).
 
 Under the hood, Hop3 does the same thing for every app, whatever the language:
 

@@ -67,21 +67,39 @@ def test_reset_builtin_reverts_to_default():
 
 def test_add_and_delete_custom_mode():
     save_mode(
-        "smoke",
+        "myprofile",
         ModeConfig(
-            name="smoke",
+            name="myprofile",
             tiers=["fast"],
             priorities=["P0"],
             targets=["docker"],
-            description="One-off smoke profile",
+            description="One-off custom profile",
         ),
     )
-    assert "smoke" in list_modes()
-    assert get_mode_config("smoke").description == "One-off smoke profile"
+    assert "myprofile" in list_modes()
+    assert get_mode_config("myprofile").description == "One-off custom profile"
 
-    delete_mode("smoke")
+    delete_mode("myprofile")
 
-    assert "smoke" not in list_modes()
+    assert "myprofile" not in list_modes()
+
+
+def test_explicit_test_list_round_trips():
+    """A curated profile's explicit `tests` list persists and reloads."""
+    names = ["apps/test-apps-procfile/000-static", "demos/demo01"]
+    save_mode(
+        "mycurated",
+        ModeConfig(
+            name="mycurated",
+            tiers=[],
+            priorities=[],
+            targets=["docker"],
+            description="hand-picked",
+            tests=names,
+        ),
+    )
+    assert get_mode_config("mycurated").tests == names
+    delete_mode("mycurated")
 
 
 def test_builtin_cannot_be_deleted():
@@ -91,11 +109,13 @@ def test_builtin_cannot_be_deleted():
 
 def test_custom_cannot_be_reset():
     save_mode(
-        "smoke",
-        ModeConfig(name="smoke", tiers=["fast"], priorities=["P0"], targets=["docker"]),
+        "myprofile",
+        ModeConfig(
+            name="myprofile", tiers=["fast"], priorities=["P0"], targets=["docker"]
+        ),
     )
     with pytest.raises(ValueError, match="not a built-in"):
-        reset_mode("smoke")
+        reset_mode("myprofile")
 
 
 def test_malformed_file_falls_back_to_builtins(tmp_path):

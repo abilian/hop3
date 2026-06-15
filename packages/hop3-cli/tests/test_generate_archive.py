@@ -68,3 +68,35 @@ def test_generate_archive():
             assert "venv/lib" not in archived_files
             assert "debug.log" not in archived_files
             assert "config.local.json" not in archived_files
+
+
+def test_dockerignore_does_not_govern_the_deploy_source():
+    """A `.dockerignore` must NOT decide what gets deployed.
+
+    Frameworks like Quarkus ship a `.dockerignore` of `*` + a `target/`
+    allowlist (for `docker build`). If the deploy honored it, pom.xml/src would
+    be excluded and the server would see "no language toolchain". The deploy
+    must fall through to `.gitignore` instead.
+    """
+    with tempfile.TemporaryDirectory() as temp_dir:
+        project_dir = Path(temp_dir)
+
+        # Quarkus-style .dockerignore: exclude everything but built artifacts.
+        (project_dir / ".dockerignore").write_text(
+            "*\n!target/*-runner\n!target/quarkus-app/*\n"
+        )
+        # A normal .gitignore that only excludes build output.
+        (project_dir / ".gitignore").write_text("target/\n")
+
+        (project_dir / "pom.xml").write_text("<project/>")
+        (project_dir / "src").mkdir()
+        (project_dir / "src" / "App.java").write_text("class App {}")
+        (project_dir / "target").mkdir()
+        (project_dir / "target" / "App.class").touch()
+
+        archive_bytes = generate_archive(project_dir)
+        with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode="r:gz") as tar:
+            names = tar.getnames()
+            assert "pom.xml" in names  # source survives (not gutted by dockerignore)
+            assert "src/App.java" in names
+            assert "target/App.class" not in names  # .gitignore still excludes target/

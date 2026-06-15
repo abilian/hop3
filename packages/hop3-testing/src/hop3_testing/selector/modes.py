@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import tomlkit
@@ -40,13 +40,14 @@ class ModeConfig:
     """
 
     name: str
-    """Mode name (dev, ci, nightly, release, package)."""
+    """Mode name (smoke, ci, curated, coverage, nightly, full)."""
 
     tiers: list[str]
-    """Allowed tiers (fast, medium, slow, very-slow)."""
+    """Allowed tiers (fast, medium, slow, very-slow). Ignored when ``tests`` is
+    set (an explicit-list profile bypasses filtering)."""
 
     priorities: list[str]
-    """Allowed priorities (P0, P1, P2)."""
+    """Allowed priorities (P0, P1, P2). Ignored when ``tests`` is set."""
 
     targets: list[str]
     """Allowed target types (docker, remote, local)."""
@@ -63,15 +64,50 @@ class ModeConfig:
     (set-cover). Used by the ``coverage`` mode to hit all significant cases at
     a fraction of nightly's cost."""
 
+    tests: list[str] = field(default_factory=list)
+    """Explicit list of test names (catalog ids). When non-empty this is a
+    *curated* profile: the selector returns exactly these tests, in order, and
+    the tier/priority filters above are ignored. Edited via the Test Lab
+    profile picker; persisted to the overrides file."""
 
-# Pre-defined mode configurations
+
+# Seed for the curated profile: a hand-picked, fast, diverse slice that hits
+# many languages and packaging variants plus the simplest demos and a few
+# tutorials, targeting < 30 min. It's a normal built-in (resettable), and the
+# list is fully editable from the Test Lab profile picker.
+_CURATED_SEED: list[str] = [
+    # deployment — one fast test per language / packaging variant
+    "apps/test-apps-procfile/000-static",
+    "apps/test-apps-procfile/010-flask-pip-wsgi",
+    "apps/test-apps-procfile/020-nodejs-express",
+    "apps/test-apps-procfile/030-golang-gin",
+    "apps/test-apps-procfile/030-rack",
+    "apps/test-apps-procfile/050-clojure",
+    "apps/test-apps-nix/golang-minimal",
+    "apps/test-apps-nix/static-hello",
+    "apps/real-apps-native/adminer",
+    # demos — the three simplest (run in order; fail-fast stops the rest)
+    "demos/demo01",
+    "demos/demo02",
+    "demos/demo03",
+    # tutorials — a diverse language sample
+    "docs/tutorials/python/flask.md",
+    "docs/tutorials/javascript/express.md",
+    "docs/tutorials/go/gin.md",
+    "docs/tutorials/ruby/sinatra.md",
+    "docs/tutorials/static/static-site.md",
+    "docs/tutorials/php/symfony.md",
+]
+
+
+# Pre-defined mode configurations: a size ladder from smallest to largest.
 MODES: dict[str, ModeConfig] = {
-    "dev": ModeConfig(
-        name="dev",
+    "smoke": ModeConfig(
+        name="smoke",
         tiers=["fast"],
         priorities=["P0"],
         targets=["docker"],
-        description="Quick developer tests (fast + P0 + deployment only)",
+        description="Smallest sanity smoke (fast + P0 deployment apps).",
         max_duration_minutes=5,
     ),
     "ci": ModeConfig(
@@ -79,8 +115,21 @@ MODES: dict[str, ModeConfig] = {
         tiers=["fast", "medium"],
         priorities=["P0"],
         targets=["docker"],
-        description="CI tests (fast+medium + P0 + deployment/demo)",
+        description="Pre-merge gate (fast+medium + P0).",
         max_duration_minutes=15,
+    ),
+    "curated": ModeConfig(
+        name="curated",
+        tiers=[],
+        priorities=[],
+        targets=["docker"],
+        description=(
+            "Hand-picked, fast, diverse: a representative test per language and "
+            "packaging variant, the simplest demos, and a few tutorials. Edit "
+            "the list in the Test Lab profile picker. Target < 30 min."
+        ),
+        max_duration_minutes=30,
+        tests=list(_CURATED_SEED),
     ),
     "coverage": ModeConfig(
         name="coverage",
@@ -100,15 +149,15 @@ MODES: dict[str, ModeConfig] = {
         tiers=["fast", "medium", "slow"],
         priorities=["P0", "P1"],
         targets=["docker", "remote"],
-        description="Nightly tests (all tiers except very-slow, P0+P1)",
+        description="Broad nightly (all tiers except very-slow, P0+P1).",
         max_duration_minutes=120,
     ),
-    "release": ModeConfig(
-        name="release",
+    "full": ModeConfig(
+        name="full",
         tiers=["fast", "medium", "slow", "very-slow"],
         priorities=["P0", "P1", "P2"],
         targets=["docker", "remote"],
-        description="Full release validation (everything)",
+        description="Full release validation (everything).",
         max_duration_minutes=480,
     ),
 }
@@ -117,6 +166,14 @@ MODES: dict[str, ModeConfig] = {
 # Built-in mode names: these can be overridden or reset, but never deleted, so
 # `--mode ci` etc. always resolve to something.
 BUILTIN_MODE_NAMES = frozenset(MODES)
+
+# Back-compat aliases: the ladder rename (dev→smoke, release→full) keeps the old
+# names working for `--mode`, the scheduler, and saved runs. Resolved in
+# get_mode_config(); not listed as selectable modes.
+MODE_ALIASES: dict[str, str] = {
+    "dev": "smoke",
+    "release": "full",
+}
 
 
 def _modes_file() -> Path:
@@ -138,6 +195,7 @@ def _mode_from_dict(name: str, data: dict) -> ModeConfig:
         description=str(data.get("description", "")),
         max_duration_minutes=int(max_duration) if max_duration is not None else None,
         representative=bool(data.get("representative")),
+        tests=[str(t) for t in data.get("tests", [])],
     )
 
 
@@ -179,6 +237,8 @@ def _write_overrides(overrides: dict[str, ModeConfig]) -> None:
         if cfg.max_duration_minutes is not None:
             table["max_duration_minutes"] = cfg.max_duration_minutes
         table["representative"] = cfg.representative
+        if cfg.tests:
+            table["tests"] = cfg.tests
         doc[name] = table
     path.write_text(tomlkit.dumps(doc), encoding="utf-8")
 
@@ -226,7 +286,8 @@ def get_mode_config(mode: str) -> ModeConfig:
     """Get configuration for a mode (built-in or user-defined).
 
     Args:
-        mode: Mode name (dev, ci, coverage, nightly, release, or a custom one)
+        mode: Mode name (smoke, ci, curated, coverage, nightly, full, a custom
+            one, or a back-compat alias like ``dev``/``release``).
 
     Returns:
         ModeConfig for the requested mode
@@ -234,7 +295,11 @@ def get_mode_config(mode: str) -> ModeConfig:
     Raises:
         ValueError: If mode is not recognized
     """
+    # Resolve back-compat aliases (dev→smoke, release→full) before lookup, but
+    # only when the alias isn't itself a real (e.g. user-defined) mode.
     modes = load_modes()
+    if mode not in modes:
+        mode = MODE_ALIASES.get(mode, mode)
     if mode not in modes:
         valid_modes = ", ".join(sorted(modes))
         msg = f"Unknown mode: {mode}. Valid modes: {valid_modes}"

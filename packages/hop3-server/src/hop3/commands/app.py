@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from hop3.core.credentials import get_credential_encryptor
 from hop3.core.identifiers import validate_app_name
 from hop3.core.plugins import get_addon
-from hop3.deployers import do_deploy
+from hop3.deployers import do_deploy, stop_previous_instance
 from hop3.deployers.fixed_ports import release_fixed_ports
 from hop3.lib import log
 from hop3.lib.archives import extract_archive_to_dir
@@ -215,6 +215,13 @@ class DeployCmd(Command):
             self.db_session.add(app)
             self.db_session.commit()
             server_log.info("Deploy: created new app", app_name=app_name, app_id=app.id)
+
+        # Stop a still-running previous instance BEFORE replacing its source:
+        # extract_archive_to_dir clears src/, and a live process holding build
+        # outputs there (target/*.jar, node_modules, dist) makes the next
+        # rebuild race it (truncated jar, ENOTEMPTY, ETXTBSY). No-op on a first
+        # deploy. See deployers.deployer.stop_previous_instance.
+        stop_previous_instance(app)
 
         archives_bytes = b64decode(kwargs["repository"])
         extract_archive_to_dir(archives_bytes, app.src_path)

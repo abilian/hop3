@@ -59,12 +59,39 @@ def provision_addons(
 
     for addon_config in addon_configs:
         addon_type = addon_config.get("type")
+        explicit_name = addon_config.get("name")
+        # Legacy form (older [[addons]] and the deprecated [[provider]] alias):
+        # `name` doubled as the type, with no separate instance name. The schema
+        # documents `name` as "legacy: also used as type", so honor it here
+        # rather than dropping the addon.
+        if not addon_type and explicit_name:
+            addon_type = explicit_name
+            explicit_name = None
+
         if not addon_type:
-            log("  Skipping addon with no type", level=1, fg="yellow")
-            continue
+            # Never silently skip a declared addon: the app would deploy without
+            # its backing service and then fail confusingly downstream (e.g. a
+            # migration with no database). Refuse loudly, where the user looks.
+            from hop3.lib import Diagnosis, abort_with_diagnosis  # noqa: PLC0415
+
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Addon provisioning",
+                    action="read an [[addons]] entry in hop3.toml",
+                    reason="the entry has neither 'type' nor 'name'",
+                    hint=(
+                        "Set 'type' to a backing service, e.g. "
+                        'type = "postgresql" (also: mysql, redis).'
+                    ),
+                    troubleshooting=[
+                        '[[addons]]\\ntype = "postgresql"',
+                        "hop3 addon list  # available addon types",
+                    ],
+                )
+            )
 
         # Use explicit name if provided, otherwise generate from app name
-        addon_name = addon_config.get("name", f"{app.name}-{addon_type}")
+        addon_name = explicit_name or f"{app.name}-{addon_type}"
 
         _provision_single_addon(
             app=app,

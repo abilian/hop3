@@ -256,8 +256,8 @@ Now that your app is running, here's how you'll interact with it:
 **Check what's happening:**
 
 ```bash
-hop3 logs myapp      # Recent logs
-hop3 logs myapp -f   # Follow logs in real-time
+hop3 app logs myapp      # Recent logs
+hop3 app logs myapp -f   # Follow logs in real-time
 ```
 
 **See your apps:**
@@ -301,7 +301,7 @@ They will. Here's how to debug.
 **App won't start?** Check the logs:
 
 ```bash
-hop3 logs myapp
+hop3 app logs myapp
 ```
 
 Common culprits:
@@ -331,7 +331,7 @@ Commands you'll use constantly:
 
 ```bash
 hop3 deploy myapp              # Deploy changes
-hop3 logs myapp                # View logs
+hop3 app logs myapp                # View logs
 hop3 apps restart myapp        # Restart
 hop3 apps stop myapp           # Stop
 hop3 apps start myapp          # Start

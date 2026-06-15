@@ -320,7 +320,7 @@ deployed successfully
 Check your application status:
 
 ```bash
-hop3 status --app hop3-tuto-express
+hop3 app status --app hop3-tuto-express
 ```
 
 ```console
@@ -340,7 +340,7 @@ OK
 ### Restart the Application
 
 ```bash
-hop3 restart --app hop3-tuto-express
+hop3 app restart --app hop3-tuto-express
 ```
 
 ### Run Commands in the Application Context
@@ -533,7 +533,7 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 Check the logs for errors:
 
 ```bash
-hop3 logs --app hop3-tuto-express --tail
+hop3 app logs --app hop3-tuto-express --tail
 ```
 
 Common issues:

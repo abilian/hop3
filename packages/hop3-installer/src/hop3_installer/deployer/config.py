@@ -172,6 +172,17 @@ class DeployConfig:
         return self.packages_path / "hop3-rootd"
 
     @property
+    def cli_package_path(self) -> Path:
+        """Path to hop3-cli package.
+
+        Uploaded next to the server source (``/tmp/hop3-cli``) so the installer
+        can put the ``hop3`` client on the server. Tutorial tests run on the
+        server and invoke ``hop3 deploy`` against localhost, so the CLI must be
+        present there. See ``server_installer.python.install_cli_package``.
+        """
+        return self.packages_path / "hop3-cli"
+
+    @property
     def dist_path(self) -> Path:
         """Path to dist directory."""
         return self.project_root / "dist"

@@ -331,6 +331,16 @@ The following steps require a Hop3 server.
 hop3 init --ssh root@your-server.example.com
 ```
 
+### Initialize the Git Repository
+
+Hop3 deploys the committed contents of a Git repository. Ignore `node_modules`
+(it's rebuilt on the server, and its symlinks can't be archived) and commit:
+
+```bash exec id=git-init dir=hop3-tuto-eleventy
+printf 'node_modules/\n_site/\n.env\n' > .gitignore
+git init && git add -A && git commit -m "Initial Eleventy site"
+```
+
 ### Deploy
 
 Deploy the application (first deployment creates the app):
@@ -374,7 +384,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash exec id=check-status timeout=30
-hop3 status --app hop3-tuto-eleventy
+hop3 app status --app hop3-tuto-eleventy
 ```
 
 ```output contains
@@ -393,10 +403,10 @@ Hello from Hop3
 
 ```bash skip
 # Restart the application
-hop3 restart --app hop3-tuto-eleventy
+hop3 app restart --app hop3-tuto-eleventy
 
 # View logs
-hop3 logs --app hop3-tuto-eleventy
+hop3 app logs --app hop3-tuto-eleventy
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-eleventy

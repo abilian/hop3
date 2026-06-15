@@ -25,6 +25,10 @@ class HetznerConfig:
     server_id: int
     image: str
     ssh_key_name: str | None = None
+    # Local private key used to reach the server (e.g. ~/.ssh/id_rsa). When
+    # ssh_key_name is absent, the rebuild auto-derives the registered key by
+    # matching <ssh_key_path>.pub's fingerprint against the Hetzner project.
+    ssh_key_path: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict, env: dict[str, str] | None = None) -> Self:

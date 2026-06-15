@@ -122,14 +122,38 @@ class TestProvisionAddons:
         # No addon calls should be made
         mock_db_session.add.assert_not_called()
 
-    def test_provision_addons_skips_no_type(self, mock_app, mock_db_session):
-        """Test that addons without type are skipped."""
-        addon_configs = [{"name": "no-type-addon"}]
+    def test_provision_addons_aborts_when_no_type_and_no_name(
+        self, mock_app, mock_db_session
+    ):
+        """A declared addon with neither 'type' nor 'name' must fail loudly.
 
-        provision_addons(mock_app, addon_configs, mock_db_session)
+        Silently skipping it would let the app deploy without its backing
+        service and then fail confusingly downstream (e.g. a migration with no
+        database).
+        """
+        from hop3.lib import Abort  # noqa: PLC0415
 
-        # Should not try to create addon
-        mock_db_session.add.assert_not_called()
+        with pytest.raises(Abort):
+            provision_addons(mock_app, [{"plan": "standard"}], mock_db_session)
+
+    @patch("hop3.deployers.addon_provisioning.get_addon")
+    @patch("hop3.deployers.addon_provisioning.get_credential_encryptor")
+    def test_provision_treats_legacy_name_as_type(
+        self, mock_encryptor, mock_get_addon, mock_app, mock_db_session
+    ):
+        """The deprecated [[provider]] / legacy [[addons]] form put the type in
+        'name' with no separate instance name. Honor it instead of dropping it.
+        """
+        mock_addon = MagicMock()
+        mock_addon.get_connection_details.return_value = {"DATABASE_URL": "x"}
+        mock_get_addon.return_value = mock_addon
+        mock_encryptor.return_value.encrypt.return_value = b"encrypted"
+
+        # `name = "postgres"` with no `type` (e.g. [[provider]] name = "postgres")
+        provision_addons(mock_app, [{"name": "postgres"}], mock_db_session)
+
+        # 'postgres' is used as the type; the instance name is auto-generated.
+        mock_get_addon.assert_called_with("postgres", "test-app-postgres")
 
     @patch("hop3.deployers.addon_provisioning.get_addon")
     @patch("hop3.deployers.addon_provisioning.get_credential_encryptor")

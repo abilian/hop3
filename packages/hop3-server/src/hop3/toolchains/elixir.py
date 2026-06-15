@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import shutil
 from typing import TYPE_CHECKING
 
 from hop3.lib import log
@@ -85,15 +84,12 @@ class ElixirToolchain(LanguageToolchain):
         # Install Hex and rebar non-interactively (required before deps.get)
         self._install_hex_and_rebar(mix_env)
 
-        # Clean build directories to avoid stale artifacts
-        # This fixes issues with corrupted _build state on redeploys
-        build_dir = self.src_path / "_build"
-        deps_dir = self.src_path / "deps"
-        if build_dir.exists():
-            log("Cleaning previous build artifacts...", level=2, fg="cyan")
-            shutil.rmtree(build_dir, ignore_errors=True)
-        if deps_dir.exists():
-            shutil.rmtree(deps_dir, ignore_errors=True)
+        # NOTE: do NOT wipe _build/ or deps/ here. Each deploy extracts a fresh
+        # src tree (the upload extractor clears it first), so there's no stale
+        # state to clean — and an app's `before-build` may already have produced
+        # a production release in _build/prod/rel/ (Phoenix's `mix release`).
+        # Deleting _build/ here erased that release, so the runtime's
+        # `_build/prod/rel/<app>/bin/<app>` came up "not found".
 
         # Fetch dependencies
         log("Fetching Elixir dependencies...", level=2, fg="cyan")

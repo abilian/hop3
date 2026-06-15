@@ -16,12 +16,23 @@ import click
 from hop3_testing.catalog import Catalog
 from hop3_testing.catalog.loader import load_test_definition_smart
 from hop3_testing.cli.runners import run_tests
-from hop3_testing.selector import Selector, get_mode_config
+from hop3_testing.selector import Selector, get_mode_config, list_modes
+from hop3_testing.selector.modes import MODE_ALIASES
 from hop3_testing.targets import DockerTarget, RemoteTarget
 from hop3_testing.targets.config import DeploymentConfig, DockerConfig, RemoteConfig
 
 if TYPE_CHECKING:
     from hop3_testing.catalog.models import TestDefinition
+
+
+def _mode_choices() -> list[str]:
+    """Valid ``--mode`` values: the current profiles plus back-compat aliases.
+
+    Dynamic (not a hardcoded list) so renamed/added profiles — including custom
+    ones from the Test Lab — are always accepted. The old hardcoded list is what
+    silently rejected the renamed `smoke`/`curated`/`full` profiles.
+    """
+    return sorted(set(list_modes()) | set(MODE_ALIASES))
 
 
 def _get_default_scan_paths(root: Path) -> list[str]:
@@ -163,9 +174,9 @@ def _lookup_test(
 # Test options
 @click.option(
     "--mode",
-    type=click.Choice(["dev", "ci", "coverage", "nightly", "release"]),
-    default="dev",
-    help="Test mode (filters by tier/priority when no apps specified)",
+    type=click.Choice(_mode_choices()),
+    default="smoke",
+    help="Test profile (filters by tier/priority, or an explicit curated list)",
 )
 @click.option("--keep", is_flag=True, help="Keep target and apps after tests")
 @click.option("-x", "--fail-fast", is_flag=True, help="Stop on first failure")

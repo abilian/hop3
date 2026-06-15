@@ -2,11 +2,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Profiles controller: edit the test modes (dev / ci / nightly / …) from the UI.
+"""Profiles controller: edit the test modes (smoke / ci / curated / …) from the UI.
 
 Modes are seeded in code (``hop3_testing.selector.modes.MODES``) and overlaid by
 a user overrides file that every mode-resolution path reads. Built-in modes can
 be overridden or reset to their default; custom modes can be added or deleted.
+A *curated* profile carries an explicit list of tests, picked in the UI, instead
+of tier/priority filters.
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ from litestar import Controller, Request, get, post
 from litestar.response import Redirect, Template
 from litestar.status_codes import HTTP_303_SEE_OTHER
 
+from hop3_testlab.catalog import mode_counts, tests_grouped, valid_test_names
 from hop3_testlab.web.guards import auth_guard
 
 _NAME_RE = re.compile(r"^[a-z][a-z0-9-]*$")
@@ -55,6 +58,7 @@ class ProfilesController(Controller):
     async def index(self, request: Request) -> Template:
         effective = load_modes()
         customized = customized_mode_names()
+        counts = mode_counts()
         rows = [
             {
                 "name": name,
@@ -66,6 +70,8 @@ class ProfilesController(Controller):
                 "description": cfg.description,
                 "max_duration_minutes": cfg.max_duration_minutes,
                 "representative": cfg.representative,
+                "tests": cfg.tests,
+                "count": counts.get(name),
             }
             for name, cfg in sorted(effective.items())
         ]
@@ -79,6 +85,8 @@ class ProfilesController(Controller):
                 "valid_tiers": list(VALID_TIERS),
                 "valid_priorities": list(VALID_PRIORITIES),
                 "valid_targets": list(VALID_TARGETS),
+                # All tests for the curated-profile picker (embedded as JSON).
+                "all_tests": tests_grouped(),
             },
         )
 
@@ -126,30 +134,65 @@ def _checklist(form, key: str, valid: tuple[str, ...]) -> list[str] | None:
     return values
 
 
+def _duration_from_form(form) -> int | None:
+    """Parse max_duration_minutes as a positive int, or None if empty.
+
+    Raises ValueError on a non-numeric or non-positive value.
+    """
+    raw = (form.get("max_duration_minutes") or "").strip()
+    if not raw:
+        return None
+    value = int(raw)  # ValueError on non-numeric input
+    if value <= 0:
+        msg = "max_duration_minutes must be positive"
+        raise ValueError(msg)
+    return value
+
+
 def _config_from_form(name: str, form) -> ModeConfig | None:
-    """Validate a submitted profile form into a ModeConfig, or None if invalid."""
+    """Validate a submitted profile form into a ModeConfig, or None if invalid.
+
+    Two kinds: a filter profile (tiers/priorities/targets) or a curated profile
+    (``kind=tests``) carrying an explicit, picker-chosen list of test names.
+    """
     if not _NAME_RE.match(name):
         return None
+
+    try:
+        max_duration = _duration_from_form(form)
+    except ValueError:
+        return None
+    description = (form.get("description") or "").strip()
+
+    if (form.get("kind") or "filter").strip() == "tests":
+        chosen = [t for t in form.getall("tests") if t]
+        valid = valid_test_names()
+        # Require a non-empty selection; reject names not in the catalog (unless
+        # the catalog is unavailable, in which case we can't validate — accept).
+        if not chosen or (valid and any(t not in valid for t in chosen)):
+            return None
+        return ModeConfig(
+            name=name,
+            tiers=[],
+            priorities=[],
+            targets=_checklist(form, "targets", VALID_TARGETS) or ["docker"],
+            description=description,
+            max_duration_minutes=max_duration,
+            tests=chosen,
+        )
+
     tiers = _checklist(form, "tiers", VALID_TIERS)
     priorities = _checklist(form, "priorities", VALID_PRIORITIES)
     targets = _checklist(form, "targets", VALID_TARGETS)
     if not tiers or not priorities or not targets:
         return None  # each group must keep at least one value
 
-    raw_duration = (form.get("max_duration_minutes") or "").strip()
-    try:
-        max_duration = int(raw_duration) if raw_duration else None
-    except ValueError:
-        return None
-    if max_duration is not None and max_duration <= 0:
-        return None
-
     return ModeConfig(
         name=name,
         tiers=tiers,
         priorities=priorities,
         targets=targets,
-        description=(form.get("description") or "").strip(),
+        description=description,
         max_duration_minutes=max_duration,
         representative=bool(form.get("representative")),
     )

@@ -21,6 +21,8 @@ from hop3_installer.common import (
     print_warning,
 )
 from hop3_installer.constants import (
+    CLI_PACKAGE_NAME,
+    CLI_PACKAGE_SUBDIR,
     GIT_REPO,
     HOP3_GROUP,
     HOP3_USER,
@@ -108,6 +110,7 @@ def install_package(config: ServerInstallerConfig) -> None:
     print_success("hop3-server installed successfully")
 
     install_rootd_package(config)
+    install_cli_package(config)
 
 
 def install_rootd_package(config: ServerInstallerConfig) -> None:
@@ -152,6 +155,47 @@ def install_rootd_package(config: ServerInstallerConfig) -> None:
         run_as_hop3(f"{pip} install {shlex.quote(package_spec)}")
 
     print_success("hop3-rootd installed successfully")
+
+
+def install_cli_package(config: ServerInstallerConfig) -> None:
+    """Install the hop3-cli (``hop3``) client into the server venv.
+
+    The client isn't needed to *run* the server, but tutorial tests execute on
+    the server and call ``hop3 deploy`` against localhost, so the ``hop3`` binary
+    must be present. Installed from the same source as the server: a sibling
+    local dir (``/tmp/hop3-cli`` next to ``/tmp/hop3-server``), the git
+    subdirectory, or PyPI. A missing local source is non-fatal (the server still
+    runs) but loud — on-server tutorials would have no client.
+    """
+    pip = f"{VENV_DIR}/bin/pip"
+
+    if config.local_path:
+        cli_path = Path(config.local_path).parent / "hop3-cli"
+        if not cli_path.exists():
+            print_warning(
+                f"hop3-cli source not found at {cli_path}. The server won't have "
+                "the `hop3` client; on-server tutorial tests can't deploy. Upload "
+                "it next to the server source and re-run."
+            )
+            return
+        package_spec = str(cli_path)
+        source_desc = f"local path ({cli_path})"
+    elif config.use_git:
+        package_spec = (
+            f"git+{GIT_REPO}@{config.branch}#subdirectory={CLI_PACKAGE_SUBDIR}"
+        )
+        source_desc = f"git ({config.branch} branch)"
+    elif config.version:
+        package_spec = f"{CLI_PACKAGE_NAME}=={config.version}"
+        source_desc = f"PyPI (version {config.version})"
+    else:
+        package_spec = CLI_PACKAGE_NAME
+        source_desc = "PyPI (latest stable)"
+
+    with Spinner(f"Installing hop3-cli from {source_desc}..."):
+        run_as_hop3(f"{pip} install {shlex.quote(package_spec)}")
+
+    print_success("hop3-cli installed successfully")
 
 
 def run_hop3_setup() -> None:

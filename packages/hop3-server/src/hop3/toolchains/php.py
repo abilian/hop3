@@ -108,11 +108,34 @@ class PHPToolchain(LanguageToolchain):
             )
             return
 
+        # If a prebuild step already installed dependencies (vendor/ present),
+        # don't run a second composer install over it. The toolchain's default
+        # command omits app-specific flags the prebuild needs — e.g. Symfony on
+        # a host whose php-redis predates symfony/cache's `ext-redis >= 6.1`
+        # requirement uses `--ignore-platform-req=ext-redis` in before-build;
+        # the toolchain's plain `composer install` then fails where the prebuild
+        # succeeded. The autoloader is already in place; reinstalling buys
+        # nothing.
+        vendor = self.src_path / "vendor"
+        if vendor.is_dir() and (vendor / "autoload.php").exists():
+            log(
+                "vendor/ already present (prebuild installed it); "
+                "skipping toolchain composer install",
+                level=2,
+                fg="cyan",
+            )
+            return
+
         log("Installing PHP dependencies with composer...", level=2, fg="cyan")
         try:
-            # Composer requires HOME to be set for cache directory
+            # Composer requires HOME to be set for cache directory.
+            # --no-dev: this is a production deploy, so never install dev-only
+            # packages (phpunit, nunomaduro/collision, …). Matches the Docker
+            # and Nix builders. Without it, a dev-autoloader gets generated and
+            # framework bootstrap (e.g. Laravel package discovery) tries to load
+            # those packages at runtime and fatals when their files are absent.
             self.shell(
-                "composer install --no-interaction --optimize-autoloader",
+                "composer install --no-dev --no-interaction --optimize-autoloader",
                 env=self._get_env_dict(env),
             )
             log("PHP dependencies installed successfully", level=2, fg="green")

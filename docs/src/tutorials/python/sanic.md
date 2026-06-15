@@ -261,7 +261,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 status --app hop3-tuto-sanic
+hop3 app status --app hop3-tuto-sanic
 ```
 
 ```console
@@ -279,7 +279,7 @@ OK
 View logs:
 
 ```bash
-hop3 logs --app hop3-tuto-sanic
+hop3 app logs --app hop3-tuto-sanic
 
 # Your app will be available at:
 # http://hop3-tuto-sanic.your-hop3-server.example.com
@@ -289,7 +289,7 @@ hop3 logs --app hop3-tuto-sanic
 
 ```bash
 # Restart the application
-hop3 restart --app hop3-tuto-sanic
+hop3 app restart --app hop3-tuto-sanic
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-sanic

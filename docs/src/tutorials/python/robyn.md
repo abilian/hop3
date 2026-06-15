@@ -160,9 +160,10 @@ Test that the application starts correctly (skipped in automated tests - Robyn c
 ```bash
 . venv/bin/activate
 python app.py &
+APP_PID=$!
 sleep 5
 curl -s http://localhost:8080/health
-pkill -f "python app.py" 2>/dev/null || true
+kill "$APP_PID" 2>/dev/null || true
 ```
 
 Verify the application structure:
@@ -263,7 +264,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 status --app hop3-tuto-robyn
+hop3 app status --app hop3-tuto-robyn
 ```
 
 ```console
@@ -281,7 +282,7 @@ OK
 View logs:
 
 ```bash
-hop3 logs --app hop3-tuto-robyn
+hop3 app logs --app hop3-tuto-robyn
 
 # Your app will be available at:
 # http://hop3-tuto-robyn.your-hop3-server.example.com
@@ -291,7 +292,7 @@ hop3 logs --app hop3-tuto-robyn
 
 ```bash
 # Restart the application
-hop3 restart --app hop3-tuto-robyn
+hop3 app restart --app hop3-tuto-robyn
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-robyn

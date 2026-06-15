@@ -27,7 +27,7 @@ ruby -v
 ```
 
 ```output regex
-ruby 3\.
+ruby [3-9]\.
 ```
 
 ```bash exec id=check-bundler
@@ -186,9 +186,10 @@ Test that the application starts correctly (skipped in automated tests - local s
 
 ```bash skip
 bundle exec ruby app.rb &
+APP_PID=$!
 sleep 3
 curl -s http://localhost:4567/health
-pkill -f "ruby app.rb" 2>/dev/null || true
+kill "$APP_PID" 2>/dev/null || true
 ```
 
 Verify the project structure:
@@ -307,7 +308,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash exec id=check-status timeout=30
-hop3 status --app hop3-tuto-sinatra
+hop3 app status --app hop3-tuto-sinatra
 ```
 
 ```output contains
@@ -326,7 +327,7 @@ View logs:
 
 ```bash skip
 # View logs
-hop3 logs --app hop3-tuto-sinatra
+hop3 app logs --app hop3-tuto-sinatra
 
 # Your app will be available at:
 # http://hop3-tuto-sinatra.your-hop3-server.example.com
@@ -336,7 +337,7 @@ hop3 logs --app hop3-tuto-sinatra
 
 ```bash skip
 # Restart the application
-hop3 restart --app hop3-tuto-sinatra
+hop3 app restart --app hop3-tuto-sinatra
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-sinatra

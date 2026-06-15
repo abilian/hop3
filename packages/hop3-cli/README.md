@@ -37,9 +37,9 @@ hop3 apps
 hop3 use myapp
 
 # From here on, app-scoped commands resolve myapp automatically:
-hop3 logs
+hop3 app logs
 hop3 config set KEY=value
-hop3 restart
+hop3 app restart
 ```
 
 ## App Resolution
@@ -59,7 +59,7 @@ Use `hop3 --why <command>` to print the full trace and see which source won. `--
 
 ```bash
 # Explicit (always works):
-hop3 logs --app myapp
+hop3 app logs --app myapp
 hop3 config set --app myapp KEY=value
 
 # Per-shell:

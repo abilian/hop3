@@ -181,6 +181,28 @@ def test_stream_ends_without_complete_event_still_reported() -> None:
     assert "ended unexpectedly" in str(exc.value).lower()
 
 
+def test_complete_event_success_prints_deployed_successfully(capsys) -> None:
+    """A successful deploy must print the 'deployed successfully' phrase to
+    stdout — the phrase the non-streaming path and every tutorial's `output
+    contains` block assert on. (Was 'completed successfully', which silently
+    failed all 21 tutorial deploy checks.)
+    """
+    lines = [
+        "event: complete",
+        'data: {"success": true, "duration": 9.5}',
+        "",
+    ]
+    resp = _FakeResponse(200, lines=lines)
+    with _patched_get(resp):
+        stream_deployment_logs(
+            base_url="http://server:8000",
+            stream_id="x",
+            printer=RichPrinter(quiet=False),
+            token="tok",
+        )
+    assert "deployed successfully" in capsys.readouterr().out
+
+
 # ---- _handle_streaming_response resolves api_url from the context --------
 
 

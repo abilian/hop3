@@ -60,7 +60,7 @@ python3 -m venv venv
 Install Django and create the project:
 
 ```bash exec id=install-django dir=hop3-tuto-django timeout=120
-source venv/bin/activate && pip install django gunicorn psycopg2-binary whitenoise dj-database-url python-decouple
+. venv/bin/activate && pip install django gunicorn psycopg2-binary whitenoise dj-database-url python-decouple
 ```
 
 ```output contains
@@ -68,7 +68,7 @@ Successfully installed
 ```
 
 ```bash exec id=create-django-project dir=hop3-tuto-django
-source venv/bin/activate && django-admin startproject myproject .
+. venv/bin/activate && django-admin startproject myproject .
 ```
 
 ```assert file-exists path=hop3-tuto-django/manage.py
@@ -96,7 +96,7 @@ hop3-tuto-django/
 Create a simple app for the homepage:
 
 ```bash exec id=create-pages-app dir=hop3-tuto-django
-source venv/bin/activate && python manage.py startapp pages
+. venv/bin/activate && python manage.py startapp pages
 ```
 
 ```assert file-exists path=hop3-tuto-django/pages/views.py
@@ -432,7 +432,7 @@ daemon = False
 Run migrations and verify the setup:
 
 ```bash exec id=run-migrations dir=hop3-tuto-django
-source venv/bin/activate && python manage.py migrate --noinput
+. venv/bin/activate && python manage.py migrate --noinput
 ```
 
 ```output contains
@@ -442,7 +442,7 @@ Operations to perform
 Collect static files:
 
 ```bash exec id=collect-static dir=hop3-tuto-django
-source venv/bin/activate && python manage.py collectstatic --noinput
+. venv/bin/activate && python manage.py collectstatic --noinput
 ```
 
 ```output contains
@@ -452,7 +452,7 @@ static files
 Run Django's system checks:
 
 ```bash exec id=django-check dir=hop3-tuto-django
-source venv/bin/activate && python manage.py check
+. venv/bin/activate && python manage.py check
 ```
 
 ```output contains
@@ -620,7 +620,7 @@ sleep 5
 Check your application status:
 
 ```bash exec id=check-status timeout=30
-hop3 status --app hop3-tuto-django
+hop3 app status --app hop3-tuto-django
 ```
 
 ```output contains
@@ -638,7 +638,7 @@ OK
 View logs:
 
 ```bash skip
-hop3 logs --app hop3-tuto-django
+hop3 app logs --app hop3-tuto-django
 ```
 
 Open your application:
@@ -690,7 +690,7 @@ hop3 config set --app hop3-tuto-django NEW_VARIABLE=value
 hop3 config unset --app hop3-tuto-django OLD_VARIABLE
 
 # Restart to apply changes
-hop3 restart --app hop3-tuto-django
+hop3 app restart --app hop3-tuto-django
 ```
 
 ### Scaling
@@ -952,7 +952,7 @@ This backs up:
 ```bash skip
 hop3 backup list hop3-tuto-django
 hop3 backup restore <backup-id>
-hop3 restart --app hop3-tuto-django
+hop3 app restart --app hop3-tuto-django
 ```
 
 ## Troubleshooting
@@ -962,7 +962,7 @@ hop3 restart --app hop3-tuto-django
 Check the logs for errors:
 
 ```bash skip
-hop3 logs --app hop3-tuto-django --tail
+hop3 app logs --app hop3-tuto-django --tail
 ```
 
 Common issues:

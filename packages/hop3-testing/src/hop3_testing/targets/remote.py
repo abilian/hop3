@@ -344,6 +344,30 @@ class RemoteTarget(DeploymentTarget):
         msg = "Target not started"
         raise RuntimeError(msg)
 
+    def upload_file(self, local_path: Path | str, remote_path: str) -> None:
+        """Upload a single file to the server via SFTP.
+
+        Used by the on-server tutorial runner to place a tutorial markdown file
+        on the box before invoking validoc there. Creates the remote parent
+        directory if needed.
+
+        Raises:
+            RuntimeError: if the target isn't started (no SSH client).
+        """
+        if not self._ssh_client:
+            msg = "Target not started"
+            raise RuntimeError(msg)
+
+        remote_dir = remote_path.rsplit("/", 1)[0] if "/" in remote_path else ""
+        if remote_dir:
+            self.exec_run(["mkdir", "-p", remote_dir])
+
+        sftp = self._ssh_client.open_sftp()
+        try:
+            sftp.put(str(local_path), remote_path)
+        finally:
+            sftp.close()
+
     def save_diagnostics(self, generate_html: bool = False) -> Path:
         """Save all diagnostic information to files.
 

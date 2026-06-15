@@ -58,8 +58,10 @@ DEBIAN_BASE_PACKAGES = [
     "python3-pip",
     "python3-venv",
     "python3-setuptools",
-    # Node.js toolchain
-    "nodejs",
+    # Node.js: installed from NodeSource (Node 22 LTS) in
+    # _install_node_toolchain(), NOT from apt here -- Debian/Ubuntu ship
+    # Node 18 (EOL), which modern JS frameworks reject. NodeSource's
+    # `nodejs` package bundles npm, so npm is not installed separately.
     # Ruby toolchain
     "ruby",
     "ruby-dev",
@@ -200,7 +202,10 @@ def _create_debian_package_spec(distro_info: DistroInfo) -> PackageSpec:
         docker_packages=docker_packages,
         mysql_packages=["mysql-server", "mysql-client", "libmysqlclient-dev"],
         redis_packages=["redis-server"],
-        conditional_packages={"npm": "npm"},
+        # npm is not a conditional package: the distro `npm` would drag in
+        # the distro's Node 18 as a dependency. NodeSource's `nodejs`
+        # (installed in _install_node_toolchain) provides npm.
+        conditional_packages={},
     )
 
 
@@ -276,6 +281,64 @@ def _install_go_toolchain(distro_info: DistroInfo) -> None:
         print_success("Go toolchain installed")
 
 
+def _install_node_toolchain() -> None:
+    """Install Node.js 22 LTS from the NodeSource apt repository.
+
+    Debian/Ubuntu ship Node 18, which is EOL and rejected by modern JS
+    frameworks (Astro needs >=22.12, Etherpad/pnpm >=22.13). Installing a
+    modern Node system-wide means *every* build step gets a supported
+    runtime -- the prebuild hooks (which run before the Node toolchain's
+    per-app nodeenv step), the toolchain build, and unpinned apps alike --
+    instead of relying on per-app `node-version` pins that only cover the
+    toolchain phase.
+
+    NodeSource's setup script auto-detects the distro and configures the
+    apt repo; `nodejs` then pulls Node 22 (npm bundled). If the script
+    can't be fetched (offline/mirrored host), fall back to the distro's
+    Node so the install still completes -- loudly, since that Node is too
+    old for modern apps.
+    """
+    setup_script = Path("/tmp/nodesource_setup.sh")
+    apt_env = {"DEBIAN_FRONTEND": "noninteractive"}
+
+    with Spinner("Installing Node.js 22 LTS (NodeSource)..."):
+        fetched = run_cmd(
+            [
+                "curl",
+                "-fsSL",
+                "https://deb.nodesource.com/setup_22.x",
+                "-o",
+                str(setup_script),
+            ],
+            check=False,
+        )
+        if fetched.returncode == 0:
+            run_cmd(["bash", str(setup_script)], env=apt_env, check=False)
+            result = run_cmd(
+                ["apt-get", "install", "-y", "nodejs"], env=apt_env, check=False
+            )
+        else:
+            result = run_cmd(
+                ["apt-get", "install", "-y", "nodejs", "npm"],
+                env=apt_env,
+                check=False,
+            )
+
+    if fetched.returncode != 0:
+        print_warning(
+            "Couldn't fetch the NodeSource setup script; fell back to the "
+            "distro's Node, which may be too old for modern JS apps."
+        )
+
+    version = run_cmd(["node", "--version"], check=False)
+    if version.returncode == 0:
+        print_success(f"Node.js installed: {version.stdout.strip()}")
+    elif result.returncode != 0:
+        print_warning("Node.js installation failed - Node apps may not work")
+        if result.stderr:
+            print_detail(result.stderr.strip().split("\n")[-1])
+
+
 # =============================================================================
 # Installation Functions
 # =============================================================================
@@ -305,6 +368,9 @@ def install_debian_deps(config: ServerInstallerConfig) -> None:
 
     # Install packages
     install_base_packages(spec)
+
+    # Install Node separately from NodeSource (distro Node 18 is too old)
+    _install_node_toolchain()
 
     # Install Go separately (may need backports on older Debian)
     _install_go_toolchain(distro_info)

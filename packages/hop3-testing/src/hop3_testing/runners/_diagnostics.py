@@ -41,8 +41,14 @@ def hop3_apps_snapshot(target: DeploymentTarget) -> str:
     (demos) or mis-derived: it surfaces leftover/stranded apps and an app stuck
     in a transitional (building/starting) state when a deploy timed out.
     """
+    # `hop3` lives in the hop3 user's venv (/home/hop3/venv/bin), which isn't on
+    # root's PATH in the non-login shell exec_run uses — a bare `hop3 apps` then
+    # fails with "hop3: command not found". Prepend the venv (and the usual
+    # install dirs) so the snapshot actually runs; the trailing $PATH keeps the
+    # Docker target working where hop3 is already on PATH.
+    cmd = "PATH=/home/hop3/venv/bin:/usr/local/bin:$PATH hop3 apps"
     try:
-        _code, out, err = target.exec_run("hop3 apps")
+        _code, out, err = target.exec_run(cmd)
     except Exception:
         return ""
     body = (out or "") + (err or "")

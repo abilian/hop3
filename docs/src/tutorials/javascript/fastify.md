@@ -42,10 +42,13 @@ added
 ```javascript
 const fastify = require('fastify')({ logger: true });
 
-// SECURITY: Specify allowed origins explicitly - never use 'true' or '*' in production
+// SECURITY: specify allowed CORS origins explicitly in production. The very
+// first deploy boots before you've set ALLOWED_ORIGINS (you set it with
+// `hop3 config set` below, then redeploy), so default to "no cross-origin
+// access" with a warning rather than crashing the app on startup.
 const allowedOrigins = process.env.ALLOWED_ORIGINS;
 if (!allowedOrigins && process.env.NODE_ENV === 'production') {
-  throw new Error('ALLOWED_ORIGINS must be set in production');
+  console.warn('ALLOWED_ORIGINS is not set; CORS is disabled. Set it for production.');
 }
 
 // Register plugins
@@ -221,6 +224,16 @@ The following steps require a Hop3 server.
 hop3 init --ssh root@your-server.example.com
 ```
 
+### Initialize the Git Repository
+
+Hop3 deploys the committed contents of a Git repository. Ignore `node_modules`
+(it's rebuilt on the server, and its symlinks can't be archived) and commit:
+
+```bash
+printf 'node_modules/\n.env\n' > .gitignore
+git init && git add -A && git commit -m "Initial Fastify application"
+```
+
 ### Deploy
 
 Deploy the application (first deployment creates the app):
@@ -264,7 +277,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 status --app hop3-tuto-fastify
+hop3 app status --app hop3-tuto-fastify
 ```
 
 ```console
@@ -283,10 +296,10 @@ OK
 
 ```bash
 # Restart the application
-hop3 restart --app hop3-tuto-fastify
+hop3 app restart --app hop3-tuto-fastify
 
 # View logs
-hop3 logs --app hop3-tuto-fastify
+hop3 app logs --app hop3-tuto-fastify
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-fastify

@@ -51,11 +51,11 @@ class TestModeConfig:
 class TestPredefinedModes:
     """Tests for predefined mode configurations."""
 
-    def test_dev_mode(self):
-        """Test dev mode configuration."""
-        config = MODES["dev"]
+    def test_smoke_mode(self):
+        """Test smoke mode configuration (was 'dev')."""
+        config = MODES["smoke"]
 
-        assert config.name == "dev"
+        assert config.name == "smoke"
         assert config.tiers == ["fast"]
         assert config.priorities == ["P0"]
         assert config.targets == ["docker"]
@@ -82,21 +82,31 @@ class TestPredefinedModes:
         assert "P0" in config.priorities
         assert "P1" in config.priorities
 
-    def test_release_mode(self):
-        """Test release mode includes everything."""
-        config = MODES["release"]
+    def test_full_mode(self):
+        """Test full mode includes everything (was 'release')."""
+        config = MODES["full"]
 
-        assert config.name == "release"
+        assert config.name == "full"
         assert len(config.tiers) == 4
         assert len(config.priorities) == 3
 
+    def test_curated_mode_is_an_explicit_list(self):
+        """Curated is a hand-picked explicit-list profile (filters empty)."""
+        config = MODES["curated"]
+
+        assert config.name == "curated"
+        assert config.tests  # non-empty explicit list
+        assert config.tiers == []  # filters ignored for explicit-list profiles
+
     def test_all_modes_have_required_fields(self):
-        """Test all predefined modes have required fields."""
+        """Each predefined mode is either filter-based or an explicit list."""
         for name, config in MODES.items():
             assert config.name == name
+            assert len(config.targets) > 0
+            if config.tests:
+                continue  # explicit-list profile bypasses tier/priority filters
             assert len(config.tiers) > 0
             assert len(config.priorities) > 0
-            assert len(config.targets) > 0
 
 
 class TestGetModeConfig:
@@ -104,14 +114,29 @@ class TestGetModeConfig:
 
     def test_get_valid_mode(self):
         """Test getting a valid mode."""
-        config = get_mode_config("dev")
-        assert config.name == "dev"
+        config = get_mode_config("smoke")
+        assert config.name == "smoke"
 
     def test_get_all_valid_modes(self):
         """Test getting all valid modes."""
-        for mode_name in ["dev", "ci", "nightly", "release"]:
+        for mode_name in ["smoke", "ci", "curated", "coverage", "nightly", "full"]:
             config = get_mode_config(mode_name)
             assert config.name == mode_name
+
+    def test_back_compat_aliases_resolve(self):
+        """Old names still resolve (dev→smoke, release→full) for --mode etc."""
+        assert get_mode_config("dev").name == "smoke"
+        assert get_mode_config("release").name == "full"
+
+    def test_cli_mode_choices_cover_every_profile_and_alias(self):
+        """The `hop3-test system --mode` choices must stay in sync with the
+        profiles (+ aliases) — a hardcoded list silently rejected the renamed
+        smoke/curated/full and killed every triggered run."""
+        from hop3_testing.cli.commands.test import _mode_choices  # noqa: PLC0415
+
+        choices = set(_mode_choices())
+        assert set(MODES).issubset(choices)  # every built-in profile
+        assert {"dev", "release"}.issubset(choices)  # back-compat aliases
 
     def test_get_invalid_mode_raises(self):
         """Test getting an invalid mode raises ValueError."""
@@ -126,9 +151,10 @@ class TestListModes:
         """Test list_modes returns all available modes."""
         modes = list_modes()
 
-        assert "dev" in modes
+        assert "smoke" in modes
         assert "ci" in modes
+        assert "curated" in modes
         assert "coverage" in modes
         assert "nightly" in modes
-        assert "release" in modes
-        assert len(modes) == 5
+        assert "full" in modes
+        assert len(modes) == 6

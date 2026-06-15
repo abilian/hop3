@@ -44,8 +44,11 @@ npm -v
 
 Create a new Next.js app with minimal configuration:
 
+Pin to the Next.js 15 generator (the latest stable line; Next 16's Turbopack
+build currently fails prerendering the built-in `/_global-error` page):
+
 ```bash exec id=create-nextjs timeout=300
-CI=true NEXT_TELEMETRY_DISABLED=1 npx --yes create-next-app@latest hop3-tuto-nextjs --yes --typescript --tailwind --eslint --app --src-dir --no-import-alias --use-npm --no-turbopack
+CI=true NEXT_TELEMETRY_DISABLED=1 npx --yes create-next-app@15 hop3-tuto-nextjs --yes --typescript --tailwind --eslint --app --src-dir --no-import-alias --use-npm --no-turbopack
 ```
 
 ```assert file-exists path=hop3-tuto-nextjs/package.json
@@ -167,14 +170,18 @@ export default function Home() {
 
 ## Step 4: Build and Verify
 
-Build the application to ensure it compiles correctly:
+Build the application to ensure it compiles correctly. Force
+`NODE_ENV=production` for the build: `next build` must run in production, or it
+emits dev error pages (`/404`, `/_error`) that import `<Html>` and fail static
+export. (This tutorial otherwise runs with `NODE_ENV=development` so the dev
+dependencies needed to build — TypeScript, ESLint — get installed.)
 
-```bash exec id=build-app dir=hop3-tuto-nextjs timeout=180 continue-on-error
-npm run build && echo "Build completed" || echo "Build step (may have warnings)"
+```bash exec id=build-app dir=hop3-tuto-nextjs timeout=180
+NODE_ENV=production npm run build
 ```
 
 ```output regex
-Build completed|Build step|static pages
+Compiled successfully|✓ Compiled|Generating static pages
 ```
 
 Verify the standalone output was created:
@@ -194,8 +201,9 @@ server.js
 Create a `Procfile` in your project root:
 
 ```file path=hop3-tuto-nextjs/Procfile
-# Pre-build: Install dependencies and build
-prebuild: npm install && npm run build
+# Pre-build: install (incl. devDependencies — TypeScript/ESLint are needed to
+# build even though NODE_ENV=production) and build.
+prebuild: npm install --include=dev && npm run build
 
 # Copy static files to standalone directory
 prerun: cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/ 2>/dev/null || true
@@ -215,8 +223,10 @@ version = "1.0.0"
 title = "My Next.js Application"
 
 [build]
+# --include=dev: TypeScript/ESLint are devDependencies but are required to build,
+# and NODE_ENV=production (below) would otherwise make npm skip them.
 before-build = [
-    "npm install",
+    "npm install --include=dev",
     "npm run build"
 ]
 packages = ["nodejs", "npm"]
@@ -379,7 +389,7 @@ You'll see output showing:
 Check your application status:
 
 ```bash exec id=check-status timeout=30
-hop3 status --app hop3-tuto-nextjs
+hop3 app status --app hop3-tuto-nextjs
 ```
 
 ```output contains
@@ -399,7 +409,7 @@ OK
 ### Restart the Application
 
 ```bash skip
-hop3 restart --app hop3-tuto-nextjs
+hop3 app restart --app hop3-tuto-nextjs
 ```
 
 ### View and Manage Environment Variables
@@ -590,7 +600,7 @@ export async function POST(request: Request) {
 Check the logs for errors:
 
 ```bash skip
-hop3 logs --app hop3-tuto-nextjs --tail
+hop3 app logs --app hop3-tuto-nextjs --tail
 ```
 
 Common issues:

@@ -459,3 +459,37 @@ def test_rich_printer_table_empty_rows():
     # Should show headers even with no rows
     assert "Name" in output
     assert "Status" in output
+
+
+def test_print_error_with_bracketed_text_does_not_crash():
+    """Server-supplied error text routinely contains brackets that are NOT Rich
+    markup — MSBuild appends ``[/path/app.csproj]`` to every diagnostic. Such a
+    closing-bracket sequence used to make Rich raise a MarkupError that masked
+    the real failure. The text must print literally instead.
+    """
+    printer = RichPrinter()
+
+    msbuild_line = (
+        "Program.cs(10,5): error CS1002: ; expected "
+        "[/home/hop3/apps/myapp/src/myapp.csproj]"
+    )
+
+    stderr_capture = StringIO()
+    with patch.object(sys, "stderr", stderr_capture):
+        # Must not raise rich.errors.MarkupError.
+        printer.print([{"t": "error", "text": msbuild_line}])
+
+    output = stderr_capture.getvalue()
+    assert "CS1002" in output
+    assert "myapp.csproj" in output  # the bracketed path survives, not stripped
+
+
+def test_print_success_with_bracketed_text_does_not_crash():
+    """A success line carrying bracketed dynamic text must not trip Rich markup."""
+    printer = RichPrinter()
+
+    stdout_capture = StringIO()
+    with patch.object(sys, "stdout", stdout_capture):
+        printer.print([{"t": "success", "text": "built [/tmp/out] ok"}])
+
+    assert "/tmp/out" in stdout_capture.getvalue()

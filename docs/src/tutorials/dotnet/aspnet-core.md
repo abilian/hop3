@@ -399,7 +399,7 @@ sleep 5
 ### Verify Deployment
 
 ```bash
-hop3 status --app hop3-tuto-aspnet-core
+hop3 app status --app hop3-tuto-aspnet-core
 ```
 
 ```console
@@ -418,7 +418,7 @@ View logs:
 
 ```bash
 # View logs
-hop3 logs --app hop3-tuto-aspnet-core
+hop3 app logs --app hop3-tuto-aspnet-core
 
 # Your app will be available at:
 # http://hop3-tuto-aspnet-core.your-hop3-server.example.com
@@ -428,7 +428,7 @@ hop3 logs --app hop3-tuto-aspnet-core
 
 ```bash
 # Restart the application
-hop3 restart --app hop3-tuto-aspnet-core
+hop3 app restart --app hop3-tuto-aspnet-core
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-aspnet-core

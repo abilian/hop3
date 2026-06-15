@@ -15,8 +15,11 @@
 <form method="post" action="/runs/trigger" class="mb-5 flex items-center gap-2">
   <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
   <span class="text-sm text-gray-600">Run now on <span class="font-mono">{{ default_target }}</span>:</span>
-  <select name="mode" class="border rounded px-2 py-1 text-sm">
-    {% for m in modes %}<option value="{{ m }}" {% if m == default_mode %}selected{% endif %}>{{ m }}</option>{% endfor %}
+  <select name="mode" class="border rounded px-2 py-1 text-sm" title="Profiles sorted smallest → largest">
+    {% for m in modes %}
+    <option value="{{ m.name }}" {% if m.name == default_mode %}selected{% endif %}
+            title="{{ m.description }}">{{ m.name }}{% if m.count is not none %} · {{ m.count }} tests{% endif %}{% if m.max_duration_minutes %} · ~{{ m.max_duration_minutes }} min{% endif %}</option>
+    {% endfor %}
   </select>
   <button type="submit" class="rounded bg-gray-900 text-white px-3 py-1 text-sm hover:bg-gray-700">Run now</button>
 </form>
