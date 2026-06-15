@@ -1,10 +1,18 @@
 # ADR 046: Declarative Application Resources — Generated Secrets, Persistent Volumes, Dynamic Env, and Resource Limits
 
-**Status**: Draft
+**Status**: Accepted
 **Type**: Feature
 **Created**: 2026-06-15
 **Authors**: Stefane Fermigier <sfermigier@gmail.com>
 **Related-ADRs**: 002 (hop3.toml format), 003 (config validation), 011 (encryption), 016 (backup strategy), 024 (backup/restore system), 035 (build artifacts), 040 (network/firewall/ports), 041 (privileged operations agent), 042 (CLI context model), 045 (fixed-port registry)
+
+## Implementation Status
+
+Phase 1 is landing incrementally. Shipped so far:
+
+- **Generated secrets** (`[env] { generate = ... }`) — `hex`/`base64`/`urlsafe`/`password`/`uuid`, generated-once with a CSPRNG, persisted as normal app env, validated at schema time, wired into the deploy pipeline between static `[env]` and `[env.computed]`. Replaces the `hop3 deploy --env KEY=$(...)` workaround. See `deployers/env_provisioning.py::generate_secret_value` / `set_generated_env_vars`, `project/schema.py::EnvGenerate`, `docs/src/reference/config.md` §"Generated secrets".
+
+Not yet implemented: dynamic env references (`{ from, key }`, `external_ip`), `[[volume]]`, `[limits]`, and the folded-in backup/multi-port extensions.
 
 ## Context
 

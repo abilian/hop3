@@ -159,8 +159,36 @@ LOG_LEVEL = "info"
 
 **Notes:**
 
-- Sensitive values should be injected through `hop3 config set`, not hardcoded in hop3.toml.
+- Sensitive values should be injected through `hop3 config set`, not hardcoded in hop3.toml. For secrets the app needs to *exist* before its first boot, use a generated secret (below) instead of a manual `config set`.
 - The `DEBUG` environment variable defaults to `false`. Only set `DEBUG = "true"` in development environments for troubleshooting—never in production.
+
+#### Generated secrets
+
+Some apps require a secret or key to exist *before they boot* (e.g. Phoenix `SECRET_KEY_BASE`, Laravel `APP_KEY`, Rails `secret_key_base`) — the release crashes without it, so there is no chance to set it afterwards. Declare such a value as a generated secret and Hop3 creates it for you on first deploy:
+
+```toml
+[env]
+SECRET_KEY_BASE = { generate = "hex", length = 64 }
+APP_KEY         = { generate = "base64", length = 32, prefix = "base64:" }
+ADMIN_PASSWORD  = { generate = "password", length = 24, display = true }
+SESSION_ID      = { generate = "uuid" }
+```
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `generate` | string | yes | `hex`, `base64`, `urlsafe`, `password`, or `uuid` |
+| `length` | integer | no | Entropy: bytes for `hex`/`base64`/`urlsafe`, characters for `password`; ignored for `uuid`. Per-generator default when omitted (32 bytes / 24 chars) |
+| `prefix` | string | no | Literal string prepended to the value (e.g. `base64:` for Laravel) |
+| `display` | boolean | no | If `true`, the generated value is shown **once** in the deploy output, for bootstrap credentials. Default `false` |
+
+**Semantics:**
+
+- The value is generated with a cryptographically secure RNG only when the variable is currently **unset**, then stored as a normal app env var (visible in `hop3 config show`).
+- It is **generated once and never rotated** on redeploy — so redeploys stay idempotent and a regenerated secret never silently invalidates existing sessions or data. Setting `_policy = "override"` does *not* force rotation.
+- To rotate a generated secret, run `hop3 config unset <app> KEY` and redeploy.
+- A malformed spec (unknown generator, `length < 1`, unknown field) is a hop3.toml validation error — it fails the deploy loudly rather than producing a bad secret.
 
 ### `[domains]` - Application Hostnames
 

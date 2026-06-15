@@ -510,6 +510,24 @@ class Hop3Config:
         env_section = self._data.get("env", {})
         return env_section.get("computed", {})
 
+    @property
+    def env_generated(self) -> dict[str, dict[str, Any]]:
+        """Get [env] entries declaring a generated secret ({ generate = ... }).
+
+        Returns the raw generate-spec dicts keyed by var name. These are
+        excluded from the plain `env` getter (which drops all dict values) and
+        resolved separately at deploy time with generated-once semantics
+        (ADR 046).
+        """
+        raw = self._data.get("env", {})
+        if not isinstance(raw, dict):
+            return {}
+        return {
+            k: v
+            for k, v in raw.items()
+            if isinstance(v, dict) and "generate" in v and not k.startswith("_")
+        }
+
     # =========================================================================
     # [domains] section
     # =========================================================================

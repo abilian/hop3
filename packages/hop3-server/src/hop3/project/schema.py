@@ -649,6 +649,68 @@ class TestSection(BaseModel):
         return v
 
 
+# Secret generators available to `[env]` `{ generate = ... }` (ADR 046).
+# hex/base64/urlsafe/password honour an optional `length`; uuid ignores it.
+GENERATE_KINDS: frozenset[str] = frozenset({
+    "hex",
+    "base64",
+    "urlsafe",
+    "password",
+    "uuid",
+})
+
+
+class EnvGenerate(BaseModel):
+    """An `[env]` value the platform generates once on first deploy (ADR 046).
+
+    Replaces the per-app ``hop3 deploy --env KEY=$(...)`` workaround for apps
+    that need a secret/key to exist before first boot (Phoenix SECRET_KEY_BASE,
+    Laravel APP_KEY, Rails secret_key_base). The value is generated with a
+    CSPRNG when the var is unset, persisted as a normal app env var, and never
+    regenerated on redeploy (generated-once).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    generate: str = Field(
+        description="Generator: 'hex', 'base64', 'urlsafe', 'password', or 'uuid'.",
+    )
+    length: int | None = Field(
+        default=None,
+        description=(
+            "Entropy size: bytes for hex/base64/urlsafe, characters for "
+            "password. Ignored for uuid. Per-generator default when omitted."
+        ),
+    )
+    prefix: str | None = Field(
+        default=None,
+        description="Literal string prepended to the value (e.g. 'base64:').",
+    )
+    display: bool = Field(
+        default=False,
+        description="Surface the value once in deploy output (bootstrap creds).",
+    )
+
+    @field_validator("generate")
+    @classmethod
+    def _check_kind(cls, v: str) -> str:
+        if v not in GENERATE_KINDS:
+            msg = (
+                f"Invalid [env] generator {v!r}. "
+                f"Must be one of: {', '.join(sorted(GENERATE_KINDS))}."
+            )
+            raise ValueError(msg)
+        return v
+
+    @field_validator("length")
+    @classmethod
+    def _check_length(cls, v: int | None) -> int | None:
+        if v is not None and v < 1:
+            msg = f"[env] generate length must be >= 1, got {v}."
+            raise ValueError(msg)
+        return v
+
+
 class Hop3TomlSchema(BaseModel):
     """Complete hop3.toml schema with validation.
 
@@ -780,6 +842,28 @@ class Hop3TomlSchema(BaseModel):
             return v
         for name in v:
             _validate_context_name(name)
+        return v
+
+    @field_validator("env")
+    @classmethod
+    def _validate_env_generate(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
+        # The env value type stays dict[str, Any] (TOML scalars + the `computed`
+        # sub-table + `_policy` sentinel). We deep-validate only `{ generate =
+        # ... }` secret declarations (ADR 046) so a malformed spec fails loud at
+        # deploy instead of silently producing a bad secret. EnvRef `{ from =
+        # ... }` validation lands with that phase.
+        if not v:
+            return v
+        for name, value in v.items():
+            if name == "computed" or name.startswith("_"):
+                continue
+            if isinstance(value, dict) and "generate" in value:
+                try:
+                    EnvGenerate.model_validate(value)
+                except ValidationError as e:
+                    detail = e.errors()[0].get("msg", "invalid generate spec")
+                    msg = f"[env].{name}: {detail}"
+                    raise ValueError(msg) from None
         return v
 
 
