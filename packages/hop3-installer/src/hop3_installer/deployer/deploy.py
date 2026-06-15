@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import json
 import pathlib
 import shlex
 import subprocess
@@ -12,8 +13,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hop3_installer.common import ServiceStartError
+from hop3_installer.common import (
+    ServiceStartError,
+    collect_git_provenance,
+    make_build_info,
+)
 from hop3_installer.constants import (
+    BUILD_INFO_PATH,
     DEFAULT_ADMIN_EMAIL,
     HOP3_SERVER_BIN,
 )
@@ -264,6 +270,10 @@ class Deployer:
             True if deployment succeeded
         """
         try:
+            # Announce what's being deployed (commit/branch) up front so the
+            # deploy log is self-documenting.
+            self._log_deploy_provenance()
+
             # Setup and prepare
             success, step, local_path_on_server = self._setup_and_prepare()
             if not success:
@@ -289,6 +299,10 @@ class Deployer:
                 step += 1
                 self.log_step(step, "Configuring local CLI")
                 self._setup_cli()
+
+            # Record deploy provenance (commit/branch/method) on the server so
+            # `hop3 system info` can report exactly what's running.
+            self._write_build_info()
 
             self._print_completion_message()
             return True
@@ -1064,6 +1078,115 @@ class Deployer:
             self.log(f"CLI configured to connect to {api_url}", "success")
         except FileNotFoundError:
             self.log("hop3 CLI not found, skipping CLI setup", "warning")
+
+    def _deploy_method(self) -> str:
+        """Classify the deploy source: local | git | pypi."""
+        if self.config.use_local_code:
+            return "local"
+        if self.config.use_git:
+            return "git"
+        return "pypi"
+
+    def _log_deploy_provenance(self) -> None:
+        """Print what's about to be deployed (commit/branch), best-effort."""
+        method = self._deploy_method()
+        if method == "local":
+            prov = collect_git_provenance(self.config.project_root)
+            commit = prov.get("git_commit")
+            if commit:
+                dirty = " (dirty)" if prov.get("git_dirty") else ""
+                branch = prov.get("git_branch") or "?"
+                self.log(f"Deploying local code @ {commit[:12]}{dirty} on '{branch}'")
+            else:
+                self.log("Deploying local code (not a git checkout)")
+        elif method == "git":
+            self.log(
+                f"Deploying git branch '{self.config.branch}' "
+                "(commit resolved on the server)"
+            )
+        else:
+            self.log(f"Deploying from PyPI ({self.config.pypi_version or 'latest'})")
+
+    def _write_build_info(self) -> None:
+        """Write the deploy-provenance manifest to the server (best-effort).
+
+        Authoritative per method: for ``--local`` the commit comes from the
+        dev machine's checkout (the server has no ``.git``); for ``git`` it's
+        read back from the server (pip's ``direct_url.json`` or the
+        ``/home/hop3/hop3`` checkout).
+        """
+        method = self._deploy_method()
+        if method == "local":
+            prov = collect_git_provenance(self.config.project_root)
+        elif method == "git":
+            prov = {
+                "git_commit": self._server_git_commit(),
+                "git_branch": self.config.branch,
+                "git_dirty": None,
+            }
+        else:
+            prov = {"git_commit": None, "git_branch": None, "git_dirty": None}
+
+        info = make_build_info(
+            deploy_method=method,
+            version=self._server_installed_version(),
+            deployed_by="hop3-deploy",
+            git_commit=prov.get("git_commit"),
+            git_branch=prov.get("git_branch"),
+            git_dirty=prov.get("git_dirty"),
+        )
+
+        path = str(BUILD_INFO_PATH)
+        content = json.dumps(info, indent=2)
+        # Quoted heredoc: no shell expansion of the JSON payload.
+        write_cmd = (
+            f"cat > {shlex.quote(path)} << 'HOP3_BUILD_EOF'\n"
+            f"{content}\n"
+            f"HOP3_BUILD_EOF\n"
+            f"chown hop3:hop3 {shlex.quote(path)}"
+        )
+        result = self.backend.run(write_cmd, check=False)
+        if result.success:
+            self.log(
+                f"Recorded build info (commit {info['git_commit'] or 'unknown'})",
+                "success",
+            )
+        else:
+            self.log("Could not write build info", "warning")
+
+    def _server_installed_version(self) -> str | None:
+        """Read the hop3-server version installed in the server's venv."""
+        result = self.backend.run(
+            "/home/hop3/venv/bin/python -c "
+            "\"import importlib.metadata as m; print(m.version('hop3_server'))\"",
+            check=False,
+        )
+        if result.success:
+            return result.stdout.strip() or None
+        return None
+
+    def _server_git_commit(self) -> str | None:
+        """Resolve the deployed git commit from the server (git deploys)."""
+        # pip records the commit for ``git+...`` installs (PEP 610).
+        result = self.backend.run(
+            "cat /home/hop3/venv/lib/python*/site-packages/"
+            "hop3_server-*.dist-info/direct_url.json 2>/dev/null",
+            check=False,
+        )
+        if result.success and result.stdout.strip():
+            try:
+                commit = json.loads(result.stdout).get("vcs_info", {}).get("commit_id")
+                if commit:
+                    return commit
+            except (ValueError, AttributeError):
+                pass
+        # Fallback: the editable checkout used by the git-update path.
+        result = self.backend.run(
+            "git -C /home/hop3/hop3 rev-parse HEAD 2>/dev/null", check=False
+        )
+        if result.success and result.stdout.strip():
+            return result.stdout.strip()
+        return None
 
 
 def create_backend(config: DeployConfig) -> DeployBackend:
