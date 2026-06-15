@@ -317,15 +317,6 @@ class Hop3Config:
         return []
 
     @property
-    def ignore_file(self) -> str | None:
-        """Get build.ignore-file (file containing ignore patterns).
-
-        Returns:
-            Path to ignore file, or None if not specified
-        """
-        return self.build.get("ignore-file")
-
-    @property
     def pip_install(self) -> list[str]:
         """Get build.pip-install (Python packages to install)."""
         return self.build.get("pip-install", [])
@@ -510,6 +501,40 @@ class Hop3Config:
         env_section = self._data.get("env", {})
         return env_section.get("computed", {})
 
+    @property
+    def env_generated(self) -> dict[str, dict[str, Any]]:
+        """Get [env] entries declaring a generated secret ({ generate = ... }).
+
+        Returns the raw generate-spec dicts keyed by var name. These are
+        excluded from the plain `env` getter (which drops all dict values) and
+        resolved separately at deploy time with generated-once semantics
+        (ADR 046).
+        """
+        raw = self._data.get("env", {})
+        return {
+            k: v
+            for k, v in raw.items()
+            if isinstance(v, dict) and "generate" in v and not k.startswith("_")
+        }
+
+    @property
+    def env_refs(self) -> dict[str, dict[str, Any]]:
+        """Get [env] entries that are dynamic references (ADR 046 §1b).
+
+        A reference is a table value with ``from`` / ``key`` / ``external_ip``
+        (and not ``generate``); the ``computed`` sub-table and ``_``-sentinels
+        are excluded. Resolved at deploy time against addon and app facts.
+        """
+        raw = self._data.get("env", {})
+        return {
+            k: v
+            for k, v in raw.items()
+            if isinstance(v, dict)
+            and "generate" not in v
+            and not k.startswith("_")
+            and ("from" in v or "key" in v or "external_ip" in v)
+        }
+
     # =========================================================================
     # [domains] section
     # =========================================================================
@@ -584,6 +609,42 @@ class Hop3Config:
             for p in raw
             if isinstance(p, dict) and isinstance(p.get("number"), int)
         ]
+
+    @property
+    def volumes(self) -> list[dict[str, Any]]:
+        """Get the [[volumes]] entries (declarative persistent volumes, ADR 046 §2).
+
+        Each entry is a dict with ``name`` and ``target`` (both required),
+        ``type`` (default ``"persist"``), and optional ``size`` / ``mode`` /
+        ``backup``. Empty list when none are declared.
+        """
+        raw = self._data.get("volumes", [])
+        if not isinstance(raw, list):
+            return []
+        return [
+            {
+                "name": v["name"],
+                "target": v["target"],
+                "type": v.get("type", "persist"),
+                "size": v.get("size"),
+                "mode": v.get("mode"),
+                "backup": v.get("backup"),
+            }
+            for v in raw
+            if isinstance(v, dict) and "name" in v and "target" in v
+        ]
+
+    @property
+    def limits(self) -> dict[str, Any]:
+        """Get the [limits] resource caps (ADR 046 §3).
+
+        Returns a dict of only the set fields (``memory`` / ``cpu`` /
+        ``processes``); empty when no limits are declared.
+        """
+        raw = self._data.get("limits", {})
+        if not isinstance(raw, dict):
+            return {}
+        return {k: v for k, v in raw.items() if v is not None}
 
     @property
     def context_names(self) -> list[str]:
@@ -771,6 +832,8 @@ class Hop3Config:
             "docker": self.docker,
             "addons": self.addons,
             "providers": self.providers,  # Deprecated, kept for compatibility
+            "volumes": self.volumes,
+            "limits": self.limits,
             "workers": self.get_workers_from_run_section(),
             "nix": self._data.get("nix", {}),
             # Raw context blocks; resolution to (server, app, domains, env)

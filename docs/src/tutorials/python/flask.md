@@ -255,6 +255,10 @@ packages = ["python3", "python3-pip", "python3-venv"]
 start = "gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 2 --threads 4"
 
 [env]
+# Flask requires SECRET_KEY in production (see the app config) or it refuses to
+# start. Generated once on the first deploy, persisted, and reused — never
+# committed or rotated (ADR 046).
+SECRET_KEY = { generate = "hex", length = 32 }
 FLASK_ENV = "production"
 PYTHONUNBUFFERED = "1"
 
@@ -365,22 +369,17 @@ hop3 init --ssh root@your-server.example.com
 
 ### Deploy
 
-Deploy the application (first deployment creates the app):
-
-<!-- Note: The first deploy may succeed but the app may crash due to missing SECRET_KEY.
-     We set it via config:set after the app is created. -->
+Deploy the application (first deployment creates the app). `SECRET_KEY` is
+generated automatically from the `hop3.toml` `[env]` declaration before the app
+boots, so the first deploy comes up cleanly — no placeholder, no crash:
 
 ```bash
 hop3 deploy hop3-tuto-flask
 ```
 
-### Set Environment Variables
+### Set Hostname
 
-Set the SECRET_KEY and hostname for the application:
-
-```bash
-hop3 config set --app hop3-tuto-flask SECRET_KEY=flask-insecure-changeme-for-production
-```
+Point nginx at the app:
 
 ```bash
 hop3 config set --app hop3-tuto-flask HOST_NAME=hop3-tuto-flask.$HOP3_TEST_DOMAIN
@@ -772,6 +771,7 @@ start = "gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 2 --threads 4"
 before-run = "flask db upgrade"
 
 [env]
+SECRET_KEY = { generate = "hex", length = 32 }
 FLASK_ENV = "production"
 PYTHONUNBUFFERED = "1"
 

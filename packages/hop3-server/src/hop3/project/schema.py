@@ -115,12 +115,12 @@ class BuildSection(BaseModel):
     )
     ignore: list[str] | None = Field(
         default=None,
-        description="Patterns to ignore when deploying",
-    )
-    ignore_file: str | None = Field(
-        default=None,
-        alias="ignore-file",
-        description="File containing ignore patterns",
+        description=(
+            "Gitignore-style patterns to exclude from the `hop3 deploy` upload, "
+            "on top of Hop3's built-in defaults (ADR 046 §5). The canonical "
+            "ignore mechanism — the `.hop3ignore` sidecar and the `ignore-file` "
+            "pointer are removed."
+        ),
     )
 
     @field_validator("builder")
@@ -649,6 +649,281 @@ class TestSection(BaseModel):
         return v
 
 
+# Secret generators available to `[env]` `{ generate = ... }` (ADR 046).
+# hex/base64/urlsafe/password honour an optional `length`; uuid ignores it.
+GENERATE_KINDS: frozenset[str] = frozenset({
+    "hex",
+    "base64",
+    "urlsafe",
+    "password",
+    "uuid",
+})
+
+
+class EnvGenerate(BaseModel):
+    """An `[env]` value the platform generates once on first deploy (ADR 046).
+
+    Replaces the per-app ``hop3 deploy --env KEY=$(...)`` workaround for apps
+    that need a secret/key to exist before first boot (Phoenix SECRET_KEY_BASE,
+    Laravel APP_KEY, Rails secret_key_base). The value is generated with a
+    CSPRNG when the var is unset, persisted as a normal app env var, and never
+    regenerated on redeploy (generated-once).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    generate: str = Field(
+        description="Generator: 'hex', 'base64', 'urlsafe', 'password', or 'uuid'.",
+    )
+    length: int | None = Field(
+        default=None,
+        description=(
+            "Entropy size: bytes for hex/base64/urlsafe, characters for "
+            "password. Ignored for uuid. Per-generator default when omitted."
+        ),
+    )
+    prefix: str | None = Field(
+        default=None,
+        description="Literal string prepended to the value (e.g. 'base64:').",
+    )
+    display: bool = Field(
+        default=False,
+        description="Surface the value once in deploy output (bootstrap creds).",
+    )
+
+    @field_validator("generate")
+    @classmethod
+    def _check_kind(cls, v: str) -> str:
+        if v not in GENERATE_KINDS:
+            msg = (
+                f"Invalid [env] generator {v!r}. "
+                f"Must be one of: {', '.join(sorted(GENERATE_KINDS))}."
+            )
+            raise ValueError(msg)
+        return v
+
+    @field_validator("length")
+    @classmethod
+    def _check_length(cls, v: int | None) -> int | None:
+        if v is not None and v < 1:
+            msg = f"[env] generate length must be >= 1, got {v}."
+            raise ValueError(msg)
+        return v
+
+
+class EnvRef(BaseModel):
+    """An `[env]` value resolved from a fact at deploy time (ADR 046 §1b).
+
+    For what auto-injection and `[env.computed]` can't express:
+    - ``{ from = "<addon>", key = "<KEY>" }`` copies one attribute from a
+      declared addon's credentials (``key`` is one of the addon's injected
+      var names, e.g. ``DATABASE_URL``).
+    - ``{ key = "domain" }`` (no ``from``) reads an app fact (``domain`` /
+      ``hostname`` / ``name``).
+    - ``{ external_ip = true }`` is the host's public IP (not yet implemented).
+    """
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    from_: str | None = Field(
+        default=None,
+        alias="from",
+        description="Name of a declared addon to read from; omit for app facts.",
+    )
+    key: str | None = Field(
+        default=None,
+        description="Attribute to copy (addon var name, or an app fact).",
+    )
+    external_ip: bool = Field(
+        default=False,
+        description="Resolve to the host's detected public IP.",
+    )
+
+    @model_validator(mode="after")
+    def _check_shape(self) -> EnvRef:
+        if self.external_ip:
+            if self.from_ or self.key:
+                msg = "external_ip cannot be combined with 'from' or 'key'."
+                raise ValueError(msg)
+            return self
+        if not self.key:
+            msg = (
+                "a reference needs 'key' (with optional 'from'), or external_ip = true."
+            )
+            raise ValueError(msg)
+        return self
+
+
+# Volume types for `[[volumes]]` (ADR 046 §2). Only "persist" is implemented;
+# tmpfs/bind need privileged mounts and fail loud at deploy until then.
+VOLUME_TYPES: frozenset[str] = frozenset({"persist", "tmpfs", "bind"})
+
+_VOLUME_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
+
+
+class VolumeBackupSection(BaseModel):
+    """`[volumes.backup]` — per-volume backup policy (ADR 046 §2/§4a).
+
+    A strict table so a typo (e.g. ``inclide = false``) is rejected at deploy
+    time rather than silently leaving the volume in the backup. ``include``
+    (default true) is the only key acted on today.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    include: bool = Field(
+        default=True,
+        description="Whether this volume's data is captured by `hop3 backup create`.",
+    )
+
+
+class VolumeSection(BaseModel):
+    """A `[[volumes]]` entry — a path that survives the source-replacing redeploy.
+
+    ``persist`` (the default, and the only implemented type) links ``target`` —
+    a directory inside the app's source tree — to storage under the app's data
+    root (`<app>/volumes/<name>/`), so writes outlive the redeploy that wipes
+    `src/`.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(
+        description="Logical volume name; storage lives at <app>/volumes/<name>.",
+    )
+    target: str = Field(
+        description="Directory inside the app tree to back with the volume (relative).",
+    )
+    type: str = Field(
+        default="persist", description="persist (default) | tmpfs | bind."
+    )
+    size: str | None = Field(
+        default=None, description="Size cap for a tmpfs volume (e.g. '256M')."
+    )
+    mode: str | None = Field(
+        default=None, description="Octal permissions for the volume directory."
+    )
+    backup: VolumeBackupSection | None = Field(
+        default=None,
+        description="Per-volume backup policy; omit to include the volume in backups.",
+    )
+
+    @field_validator("name")
+    @classmethod
+    def _check_name(cls, v: str) -> str:
+        if not _VOLUME_NAME_RE.match(v):
+            msg = (
+                f"Invalid [[volumes]] name {v!r}. Use letters, digits, '-' or '_' "
+                "(starting with a letter or digit)."
+            )
+            raise ValueError(msg)
+        return v
+
+    @field_validator("type")
+    @classmethod
+    def _check_type(cls, v: str) -> str:
+        if v not in VOLUME_TYPES:
+            msg = (
+                f"Invalid [[volumes]] type {v!r}. "
+                f"Must be one of: {', '.join(sorted(VOLUME_TYPES))}."
+            )
+            raise ValueError(msg)
+        return v
+
+    @field_validator("target")
+    @classmethod
+    def _check_target(cls, v: str) -> str:
+        if not v or v.startswith("/"):
+            msg = (
+                f"[[volumes]] target {v!r} must be a non-empty path relative to the "
+                "app tree (not absolute)."
+            )
+            raise ValueError(msg)
+        if ".." in v.split("/"):
+            msg = (
+                f"[[volumes]] target {v!r} must not contain '..' "
+                "(no escaping the app tree)."
+            )
+            raise ValueError(msg)
+        return v
+
+    @field_validator("mode")
+    @classmethod
+    def _check_mode(cls, v: str | None) -> str | None:
+        if v is not None:
+            try:
+                int(v, 8)
+            except ValueError:
+                msg = f"[[volumes]] mode {v!r} must be an octal string, e.g. '0700'."
+                raise ValueError(msg) from None
+        return v
+
+    @model_validator(mode="after")
+    def _check_size_only_for_tmpfs(self) -> VolumeSection:
+        # `size` only means anything for a (not-yet-implemented) tmpfs volume;
+        # accepting it on a persist volume would silently do nothing.
+        if self.size is not None and self.type != "tmpfs":
+            msg = (
+                f"[[volumes]] {self.name!r}: 'size' is only valid for tmpfs "
+                "volumes (which are not implemented yet)."
+            )
+            raise ValueError(msg)
+        return self
+
+
+_MEMORY_RE = re.compile(r"^\d+[KMGkmg]?$")
+
+
+class LimitsSection(BaseModel):
+    """[limits] section — per-app resource caps (ADR 046 §3).
+
+    A declared limit is a safety guarantee: if the platform can't enforce it the
+    deploy aborts rather than running an app that only *looks* capped. Today
+    enforcement is implemented for the Docker builder (compose mem_limit / cpus /
+    pids_limit); native/Nix enforcement needs cgroups via hop3-rootd and isn't
+    available yet, so [limits] on a non-Docker app fails loud at deploy.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    memory: str | None = Field(
+        default=None, description="Hard memory cap, e.g. '512M' or '1G'."
+    )
+    cpu: float | None = Field(
+        default=None, description="CPU cores, fractional allowed (e.g. 1.5)."
+    )
+    processes: int | None = Field(
+        default=None, description="Max processes/threads (pids cap)."
+    )
+
+    @field_validator("memory")
+    @classmethod
+    def _check_memory(cls, v: str | None) -> str | None:
+        if v is not None and not _MEMORY_RE.match(v):
+            msg = (
+                f"[limits] memory {v!r} must be a number with an optional K/M/G "
+                "suffix, e.g. '512M' or '1G'."
+            )
+            raise ValueError(msg)
+        return v
+
+    @field_validator("cpu")
+    @classmethod
+    def _check_cpu(cls, v: float | None) -> float | None:
+        if v is not None and v <= 0:
+            msg = f"[limits] cpu must be greater than 0, got {v}."
+            raise ValueError(msg)
+        return v
+
+    @field_validator("processes")
+    @classmethod
+    def _check_processes(cls, v: int | None) -> int | None:
+        if v is not None and v < 1:
+            msg = f"[limits] processes must be >= 1, got {v}."
+            raise ValueError(msg)
+        return v
+
+
 class Hop3TomlSchema(BaseModel):
     """Complete hop3.toml schema with validation.
 
@@ -724,6 +999,22 @@ class Hop3TomlSchema(BaseModel):
             "it here."
         ),
     )
+    volumes: list[VolumeSection] | None = Field(
+        default=None,
+        description=(
+            "Declarative persistent volumes (ADR 046 §2). Each links a directory "
+            "in the app tree to storage that survives the source-replacing "
+            "redeploy."
+        ),
+    )
+    limits: LimitsSection | None = Field(
+        default=None,
+        description=(
+            "Per-app resource caps (ADR 046 §3): memory / cpu / processes. "
+            "Enforced for Docker apps; declaring them on a non-Docker app fails "
+            "loud until cgroup enforcement lands."
+        ),
+    )
     provider: list[AddonConfig] | None = Field(
         default=None,
         description="Deprecated: use [[addons]] instead",
@@ -766,6 +1057,18 @@ class Hop3TomlSchema(BaseModel):
                 raise ValueError(msg)
         return v
 
+    @field_validator("volumes")
+    @classmethod
+    def _validate_unique_volumes(
+        cls, v: list[VolumeSection] | None
+    ) -> list[VolumeSection] | None:
+        if v:
+            names = [vol.name for vol in v]
+            if len(names) != len(set(names)):
+                msg = "Duplicate [[volumes]] name"
+                raise ValueError(msg)
+        return v
+
     @field_validator("contexts")
     @classmethod
     def validate_context_names(
@@ -780,6 +1083,42 @@ class Hop3TomlSchema(BaseModel):
             return v
         for name in v:
             _validate_context_name(name)
+        return v
+
+    @field_validator("env")
+    @classmethod
+    def _validate_env_values(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
+        # The env value type stays dict[str, Any] (TOML scalars + the `computed`
+        # sub-table + `_policy` sentinel), but every *table* value must be a
+        # recognised typed form — a generated secret or a reference (ADR 046).
+        # Classifying here is the single source of truth and fails loud on an
+        # unknown shape instead of silently dropping it.
+        if not v:
+            return v
+        for name, value in v.items():
+            if (
+                name == "computed"
+                or name.startswith("_")
+                or not isinstance(value, dict)
+            ):
+                continue
+            if "generate" in value:
+                model: type[BaseModel] = EnvGenerate
+            elif "from" in value or "key" in value or "external_ip" in value:
+                model = EnvRef
+            else:
+                msg = (
+                    f"[env].{name}: unrecognised table value. Use a scalar, a "
+                    f"generated secret ({{ generate = ... }}), or a reference "
+                    f"({{ from = ..., key = ... }} / {{ external_ip = true }})."
+                )
+                raise ValueError(msg)
+            try:
+                model.model_validate(value)
+            except ValidationError as e:
+                detail = e.errors()[0].get("msg", "invalid value")
+                msg = f"[env].{name}: {detail}"
+                raise ValueError(msg) from None
         return v
 
 

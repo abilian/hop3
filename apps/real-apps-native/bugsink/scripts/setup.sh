@@ -11,10 +11,12 @@ export BASE_URL="${BASE_URL:-http://localhost:${PORT:-8080}}"
 # bugsink.wsgi both set DJANGO_SETTINGS_MODULE=bugsink_conf and add
 # cwd to sys.path. The docker template handles DATABASE_URL parsing.
 #
-# Bugsink's docker template reads SECRET_KEY from the environment, but
-# env exports from this before-run script do not propagate to the
-# uWSGI daemon. Persist a random SECRET_KEY directly into the generated
-# conf file on first deploy so it survives across redeploys.
+# Bugsink's docker template reads SECRET_KEY from bugsink_conf.py. NOTE: this
+# conf file lives under src/, which the redeploy wipes, so the SECRET_KEY below
+# is REGENERATED on every deploy (invalidating existing sessions) — it does NOT
+# persist. The durable fix is a [[volumes]] for the conf dir, or generating
+# SECRET_KEY via [env] { generate = ... } and reading it from the environment
+# (ADR 046); tracked as a migration.
 if [ ! -f bugsink_conf.py ]; then
     bugsink-create-conf --template docker \
         --host localhost \

@@ -80,9 +80,8 @@ test = "pytest"                 # Test/smoke test commands
 packages = ["libpq-dev"]        # System packages required for build
 pip-install = ["wheel"]         # Python packages to pre-install
 
-# Ignore patterns
-ignore = ["node_modules", ".git"]
-ignore-file = ".hop3ignore"     # File containing ignore patterns
+# Patterns to exclude from the deploy upload (on top of built-in defaults)
+ignore = ["*.log", "tmp/", "coverage/"]
 ```
 
 Most of this is optional. Hop3 auto-detects your toolchain based on what files exist in your repo:

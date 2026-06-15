@@ -101,9 +101,28 @@ pip-install = ["setuptools", "wheel"]
 - `test` (string | array): Test commands to run after build
 - `packages` (array): System packages required for building
 - `pip-install` (array): Python packages to install during build
+- `ignore` (array): Gitignore-style patterns excluded from the `hop3 deploy` upload (see below)
 
 **Procfile Mapping:**
 - `build.before-build` → Procfile `prebuild`
+
+#### `ignore` - Excluding files from the upload
+
+When you run `hop3 deploy`, the CLI tars your working tree and uploads it. `[build].ignore` is the single, canonical way to say what *not* to upload:
+
+```toml
+[build]
+ignore = ["*.log", "tmp/", "coverage/", "*.sqlite3"]
+```
+
+Patterns use gitignore syntax (including `!` negation), and are added **on top of** Hop3's built-in defaults — VCS metadata and dependency/cache dirs that the server regenerates (`.git/`, `node_modules/`, `.venv/`, `venv/`, `__pycache__/`, `*.py[cod]`, `.idea/`, `.DS_Store`, `.mypy_cache/`, `.pytest_cache/`, `.ruff_cache/`, `*.egg-info/`). So most apps need no `ignore` at all.
+
+**Other ignore files are scoped to their own deployment method — they do *not* affect the `hop3 deploy` upload:**
+
+- **`.gitignore`** applies to the **git-push** deploy path (git itself decides what reaches the server). It is not consulted for the `hop3 deploy` upload.
+- **`.dockerignore`** applies to the server-side **`docker build`** context when `builder = "docker"` (Docker honors it there). It is not applied to the upload.
+
+> The legacy `.hop3ignore` sidecar and the `[build].ignore-file` pointer are removed. Move any `.hop3ignore` patterns into `[build].ignore`; a leftover `.hop3ignore` is still read for one transition release with a deprecation warning, and `[build].ignore-file` is now a hop3.toml validation error.
 
 ### `[run]` - Runtime Configuration
 
@@ -159,8 +178,65 @@ LOG_LEVEL = "info"
 
 **Notes:**
 
-- Sensitive values should be injected through `hop3 config set`, not hardcoded in hop3.toml.
+- Sensitive values should be injected through `hop3 config set`, not hardcoded in hop3.toml. For secrets the app needs to *exist* before its first boot, use a generated secret (below) instead of a manual `config set`.
 - The `DEBUG` environment variable defaults to `false`. Only set `DEBUG = "true"` in development environments for troubleshooting—never in production.
+
+#### Generated secrets
+
+Some apps require a secret or key to exist *before they boot* (e.g. Phoenix `SECRET_KEY_BASE`, Laravel `APP_KEY`, Rails `secret_key_base`) — the release crashes without it, so there is no chance to set it afterwards. Declare such a value as a generated secret and Hop3 creates it for you on first deploy:
+
+```toml
+[env]
+SECRET_KEY_BASE = { generate = "hex", length = 64 }
+APP_KEY         = { generate = "base64", length = 32, prefix = "base64:" }
+ADMIN_PASSWORD  = { generate = "password", length = 24, display = true }
+SESSION_ID      = { generate = "uuid" }
+```
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `generate` | string | yes | `hex`, `base64`, `urlsafe`, `password`, or `uuid` |
+| `length` | integer | no | Entropy: bytes for `hex`/`base64`/`urlsafe`, characters for `password`; ignored for `uuid`. Per-generator default when omitted (32 bytes / 24 chars) |
+| `prefix` | string | no | Literal string prepended to the value (e.g. `base64:` for Laravel) |
+| `display` | boolean | no | If `true`, the generated value is shown **once** in the deploy output, for bootstrap credentials. Default `false` |
+
+**Semantics:**
+
+- The value is generated with a cryptographically secure RNG only when the variable is currently **unset**, then stored as a normal app env var (visible in `hop3 config show`).
+- It is **generated once and never rotated** on redeploy — so redeploys stay idempotent and a regenerated secret never silently invalidates existing sessions or data. Setting `_policy = "override"` does *not* force rotation.
+- To rotate a generated secret, run `hop3 config unset <app> KEY` and redeploy.
+- A malformed spec (unknown generator, `length < 1`, unknown field) is a hop3.toml validation error — it fails the deploy loudly rather than producing a bad secret.
+
+#### Dynamic references
+
+Most apps need nothing here: attaching an addon already injects its standard variables (`DATABASE_URL`, `PGHOST`, `REDIS_URL`, …), and `[env.computed]` assembles custom strings from them. A reference is for the cases those can't express — copying one specific attribute, or reading an app fact:
+
+```toml
+[env]
+# Copy one attribute from a declared addon's credentials. `key` is one of the
+# addon's injected variable names (run `hop3 config show` to see them).
+PRIMARY_DB_HOST = { from = "myapp-db", key = "PGHOST" }
+
+# App facts (no `from`): "domain"/"hostname" → the app's first hostname,
+# "name" → the app name.
+APP_FQDN = { key = "domain" }
+```
+
+**Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `from` | string | Name of an addon attached to this app. Omit for app facts. |
+| `key` | string | The attribute to copy: an addon variable name (with `from`), or an app fact (`domain`, `hostname`, `name`). |
+| `external_ip` | boolean | The host's public IP. **Not implemented yet** — declaring it fails the deploy with a clear message; use `hop3 config set` meanwhile. |
+
+**Semantics:**
+
+- References are **derived** values resolved fresh on every deploy (like `[env.computed]`), so they overwrite. Resolution order is: addon auto-injection → static `[env]` → generated secrets → **references** → `[env.computed]`. A `{ key = "domain" }` ref therefore sees the hostname from `[domains]`, and a `[env.computed]` template can interpolate a resolved reference.
+- Resolution **fails the deploy loudly** if the addon isn't attached, the key doesn't exist (the error lists the available keys), or the app fact is unknown — never a wrong or empty value.
+- `{ from = ..., key = ... }` resolves against this app's own addons only; it can't read another app's credentials.
 
 ### `[domains]` - Application Hostnames
 
@@ -230,6 +306,58 @@ name = "federation"
 - **Native/Nix builds only.** A Docker-deployed app's container does not yet publish declared ports to the host, so for Docker apps the port is *claimed* (conflict-checked) but the firewall is not opened. Use a native or Nix build for an app that needs a fixed host port.
 - Opening the firewall needs the `hop3-rootd` daemon. If it isn't running the port is still *claimed* (so the conflict check works), but it won't be reachable externally until rootd applies the rule.
 
+### `[[volumes]]` - Persistent Volumes
+
+Each deploy replaces your app's source tree (`src/` is wiped and re-extracted), so anything written *inside* it is lost on the next deploy. A `[[volumes]]` declares a directory that must **survive** redeploys:
+
+```toml
+[[volumes]]
+name = "uploads"
+target = "data/uploads"
+```
+
+Hop3 stores the data under the app's data root (`<app>/volumes/<name>/`) — outside `src/` — and links `target` to it on every deploy, so writes persist. On the first deploy, if your source ships content at `target`, it seeds the (empty) volume once; afterwards the volume is the source of truth.
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | yes | Logical name; storage lives at `<app>/volumes/<name>/`. Letters, digits, `-`, `_` |
+| `target` | string | yes | Directory inside the app tree to persist. Relative, no `..` |
+| `type` | string | no | `persist` (default). `tmpfs` / `bind` are recognized but **not implemented yet** (they fail the deploy with a clear message) |
+| `size` | string | no | Size cap for a future `tmpfs` volume (e.g. `"256M"`) |
+| `mode` | string | no | Octal permissions for the volume directory |
+
+**Notes:**
+
+- `target` must be a **directory** path relative to the app's source tree; absolute paths and `..` are rejected. A file already at `target` is an error — volume targets are directories.
+- Persist volumes need no `hop3-rootd`: the link lives under the app's own directories. `tmpfs`/`bind` will need privileged mounts and are deferred.
+- Volumes are included in `hop3 backup create` by default; set `[volumes.backup]` `include = false` to opt a volume out.
+
+### `[limits]` - Resource Caps
+
+Cap an app's resource use so one app can't starve others on the same server:
+
+```toml
+[limits]
+memory = "512M"     # hard memory cap
+cpu = 1.5           # CPU cores (fractional allowed)
+processes = 256     # max processes/threads
+```
+
+**Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `memory` | string | Memory cap: a number with an optional `K`/`M`/`G` suffix (e.g. `512M`, `1G`), or plain bytes |
+| `cpu` | number | CPU cores, fractional allowed (e.g. `1.5`) |
+| `processes` | integer | Maximum processes/threads |
+
+**Notes:**
+
+- A declared limit is a **safety guarantee**: if it can't be enforced, the deploy fails loudly rather than running an app that only *looks* capped.
+- Enforcement is implemented for the **Docker builder** (compose `mem_limit` / `cpus` / `pids_limit`). Native/Nix enforcement needs cgroups via `hop3-rootd` and isn't available yet, so declaring `[limits]` on a non-Docker app **aborts the deploy** with a clear message until then.
+
 ### `[healthcheck]` - Health Check Configuration
 
 Configure health check endpoints for monitoring.
@@ -248,19 +376,21 @@ interval = 60             # Check interval in seconds
 
 ### `[backup]` - Backup Configuration
 
-Configure automated backups for your application.
+Backups are created **on demand** with `hop3 backup create <app>` and restored with `hop3 backup restore <id>`. A backup captures the app's source, environment variables, attached addons (e.g. a Postgres dump), the app's `data/` directory, **and every `[[volumes]]` volume** (each archived as its own unit) — so persistent data round-trips through restore.
 
 ```toml
 [backup]
-enabled = true
-schedule = "0 2 * * *"    # Cron expression (daily at 2 AM)
-retention = 7             # Days to keep backups
+paths = ["data", "var/state"]   # extra directories to include
+exclude = ["*.tmp", "cache/"]    # patterns to leave out
 ```
 
 **Fields:**
-- `enabled` (boolean): Enable/disable automated backups
-- `schedule` (string): Cron expression for backup schedule
-- `retention` (number): Number of days to retain backups
+- `paths` (array): extra directories to include beyond the defaults.
+- `exclude` (array): glob patterns to exclude.
+
+**Notes:**
+- A `[[volumes]]` volume can opt out of backup with `[volumes.backup]` `include = false`.
+- Automated scheduling and retention are not implemented yet; run `hop3 backup create` from a cron job if you need a schedule. (The `paths` / `exclude` fields are reserved and not yet consumed.)
 
 ### `[[addons]]` - Backing Services
 

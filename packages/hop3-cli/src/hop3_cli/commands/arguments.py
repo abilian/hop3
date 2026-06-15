@@ -16,16 +16,12 @@ from typing import TYPE_CHECKING
 
 import pathspec
 
+from hop3_cli.core.hop3_toml import read_hop3_toml
+
 if TYPE_CHECKING:
     from hop3_cli.types import JsonDict
 
 __all__ = ["generate_archive", "get_extra_args", "pack_repository"]
-
-# tomllib is stdlib in Python 3.11+, use toml package for 3.10
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import toml as tomllib
 
 # Archive size limits (in bytes)
 # Soft limit: warn the user but proceed
@@ -33,12 +29,36 @@ else:
 SOFT_SIZE_LIMIT = 100 * 1024 * 1024  # 100 MB
 HARD_SIZE_LIMIT = 1024 * 1024 * 1024  # 1 GB
 
-# Ignore files in priority order (first found is used). NOT .dockerignore: it
-# describes the `docker build` context, not the deploy source — frameworks like
-# Quarkus ship a .dockerignore of `*` + a `target/` allowlist, which would
-# exclude pom.xml/src and leave the server with "no language toolchain". Deploy
-# source is governed by .hop3ignore or .gitignore only.
-IGNORE_FILES = [".hop3ignore", ".gitignore"]
+# What the `hop3 deploy` upload always excludes, regardless of deployment
+# method: VCS metadata, OS/IDE cruft, and dependency/build caches the server
+# regenerates (the toolchain runs npm/pip install; the venv is built
+# server-side). Per-app additions go in hop3.toml [build].ignore (ADR 046 §5).
+#
+# Deliberately NOT consulted for this upload:
+#   - .gitignore     governs the git-push deploy path only, not this upload.
+#   - .dockerignore  scopes the server-side `docker build` context (Docker
+#                    applies it there); e.g. Quarkus ships `*` + a target/
+#                    allowlist, which would gut the upload if honored here.
+_DEFAULT_IGNORE_PATTERNS = [
+    ".git/",
+    ".hg/",
+    ".svn/",
+    ".DS_Store",
+    ".idea/",
+    "__pycache__/",
+    "*.py[cod]",
+    "*.egg-info/",
+    ".venv/",
+    "venv/",
+    "node_modules/",
+    ".mypy_cache/",
+    ".pytest_cache/",
+    ".ruff_cache/",
+]
+
+# Deprecated Hop3-specific sidecar, superseded by hop3.toml [build].ignore.
+# Honored for one transition release with a loud warning, then removed (ADR 046).
+_DEPRECATED_IGNORE_FILE = ".hop3ignore"
 
 
 def get_extra_args(args: list[str], verbosity: int = 1) -> JsonDict:
@@ -295,9 +315,8 @@ def pack_repository(directory: Path = Path(), verbosity: int = 1) -> str:
 def generate_archive(source_dir: Path, verbosity: int = 1) -> bytes:
     """
     Creates an in-memory tar.gz archive of a source directory as a bytes object,
-    excluding files and directories specified in ignore files.
-
-    Ignore files are checked in priority order: .hop3ignore, .gitignore
+    excluding built-in defaults plus the app's hop3.toml [build].ignore patterns
+    (ADR 046 §5). .gitignore and .dockerignore are not consulted for this upload.
 
     Args:
         source_dir: The path to the directory to archive.
@@ -331,16 +350,10 @@ def generate_archive(source_dir: Path, verbosity: int = 1) -> bytes:
     if verbose:
         print(f"Creating archive from: {source_dir}", file=sys.stderr)
 
-    # --- 1. Load ignore rules (.hop3ignore or .gitignore) ---
-    spec, ignore_file = get_ignored_spec(source_dir)
+    # --- 1. Load ignore rules (built-in defaults + hop3.toml [build].ignore) ---
+    spec, ignore_source = get_ignored_spec(source_dir)
     if verbose:
-        if ignore_file:
-            print(f"Using ignore patterns from: {ignore_file}", file=sys.stderr)
-        else:
-            print(
-                "No ignore file found (.hop3ignore, .gitignore)",
-                file=sys.stderr,
-            )
+        print(f"Using ignore patterns from: {ignore_source}", file=sys.stderr)
 
     # --- 2. Walk the directory and gather files to include ---
     if verbose:
@@ -403,8 +416,8 @@ def _check_archive_size(
             f"Directories with most files:\n"
             f"{dir_summary}\n"
             f"\n"
-            f"Add directories to .hop3ignore to exclude them from deployment.\n"
-            f"The server may also have configurable size limits."
+            f"Add patterns to the [build].ignore list in hop3.toml to exclude\n"
+            f"them from deployment. The server may also have configurable size limits."
         )
         raise ValueError(msg)
 
@@ -417,88 +430,64 @@ def _check_archive_size(
         )
 
 
-def get_ignored_spec(source_dir: Path) -> tuple[pathspec.PathSpec | None, str | None]:
-    """Load ignore rules from a directory.
+def get_ignored_spec(source_dir: Path) -> tuple[pathspec.PathSpec, str]:
+    """Build the ignore spec for the `hop3 deploy` upload.
 
-    Checks sources in priority order:
-    1. [build].ignore patterns in hop3.toml
-    2. [build].ignore-file reference in hop3.toml
-    3. .hop3ignore file
-    4. .gitignore file
+    The upload always excludes a built-in set of never-deploy paths
+    (`_DEFAULT_IGNORE_PATTERNS`), extended by the canonical per-app source:
 
-    .dockerignore is deliberately excluded — it scopes the `docker build`
-    context, not the deploy source (e.g. Quarkus ships `*` + a target/ allowlist).
+    1. hop3.toml ``[build].ignore`` — the declarative ignore list (ADR 046 §5).
+    2. ``.hop3ignore`` — DEPRECATED sidecar, still honored for one release with
+       a loud warning; move its patterns into ``[build].ignore``.
 
-    The first source found with patterns is used.
-
-    Returns:
-        Tuple of (PathSpec or None, source description or None)
-    """
-    # 1. Check hop3.toml for inline ignore patterns or ignore-file reference
-    hop3_toml_spec, hop3_toml_source = _get_hop3_toml_ignore_spec(source_dir)
-    if hop3_toml_spec is not None:
-        return hop3_toml_spec, hop3_toml_source
-
-    # 2. Fall back to ignore files in priority order
-    for ignore_file in IGNORE_FILES:
-        ignore_path = source_dir / ignore_file
-        if ignore_path.is_file():
-            lines = ignore_path.read_text(encoding="utf-8").splitlines()
-            spec = pathspec.PathSpec.from_lines("gitignore", lines)  # pyrefly: ignore
-            return spec, ignore_file
-
-    return None, None
-
-
-def _get_hop3_toml_ignore_spec(
-    source_dir: Path,
-) -> tuple[pathspec.PathSpec | None, str | None]:
-    """Extract ignore patterns from hop3.toml if present.
-
-    Checks for:
-    1. [build].ignore - inline list of patterns
-    2. [build].ignore-file - reference to an ignore file
+    ``.gitignore`` (git-push path) and ``.dockerignore`` (server-side
+    ``docker build``) are intentionally NOT consulted here.
 
     Returns:
-        Tuple of (PathSpec or None, source description or None)
+        Tuple of (PathSpec, human-readable description of the pattern sources).
     """
-    # Check for hop3.toml in standard locations
-    hop3_toml_paths = [
+    patterns = list(_DEFAULT_IGNORE_PATTERNS)
+    sources = ["built-in defaults"]
+
+    build_ignore = _get_build_ignore_patterns(source_dir)
+    if build_ignore is not None:
+        patterns.extend(build_ignore)
+        sources.append(f"hop3.toml [build].ignore ({len(build_ignore)} patterns)")
+    else:
+        deprecated = source_dir / _DEPRECATED_IGNORE_FILE
+        if deprecated.is_file():
+            patterns.extend(deprecated.read_text(encoding="utf-8").splitlines())
+            sources.append(f"{_DEPRECATED_IGNORE_FILE} (deprecated)")
+            print(
+                f"Warning: {_DEPRECATED_IGNORE_FILE} is deprecated and will stop "
+                f"being read in a future release. Move its patterns into the "
+                f"[build].ignore list in hop3.toml.",
+                file=sys.stderr,
+            )
+
+    spec = pathspec.PathSpec.from_lines("gitignore", patterns)  # pyrefly: ignore
+    return spec, ", ".join(sources)
+
+
+def _get_build_ignore_patterns(source_dir: Path) -> list[str] | None:
+    """Return hop3.toml ``[build].ignore`` patterns, or None if not declared.
+
+    Reads the app's hop3.toml from the standard locations. ``[build].ignore`` is
+    the canonical, declarative ignore list for the deploy upload (ADR 046 §5);
+    the legacy ``[build].ignore-file`` pointer is no longer supported.
+    """
+    for hop3_toml_path in (
         source_dir / "hop3" / "hop3.toml",
         source_dir / "hop3.toml",
-    ]
-
-    for hop3_toml_path in hop3_toml_paths:
-        if not hop3_toml_path.is_file():
-            continue
-
-        try:
-            content = hop3_toml_path.read_text(encoding="utf-8")
-            data = tomllib.loads(content)
-        except Exception:
-            # If TOML parsing fails, skip and try next location
-            continue
-
-        build_section = data.get("build", {})
+    ):
+        # read_hop3_toml returns {} for a missing or unparseable file.
+        build_section = read_hop3_toml(hop3_toml_path).get("build", {})
         if not isinstance(build_section, dict):
             continue
-
-        # Check for inline ignore patterns
-        ignore_patterns = build_section.get("ignore")
-        if ignore_patterns and isinstance(ignore_patterns, list):
-            spec = pathspec.PathSpec.from_lines("gitignore", ignore_patterns)
-            return spec, f"hop3.toml [build].ignore ({len(ignore_patterns)} patterns)"
-
-        # Check for ignore-file reference
-        ignore_file_ref = build_section.get("ignore-file")
-        if ignore_file_ref and isinstance(ignore_file_ref, str):
-            ignore_file_path = source_dir / ignore_file_ref
-            if ignore_file_path.is_file():
-                lines = ignore_file_path.read_text(encoding="utf-8").splitlines()
-                spec = pathspec.PathSpec.from_lines("gitignore", lines)  # pyrefly: ignore
-                return spec, f"hop3.toml [build].ignore-file -> {ignore_file_ref}"
-
-    return None, None
+        patterns = build_section.get("ignore")
+        if isinstance(patterns, list) and patterns:
+            return [str(p) for p in patterns]
+    return None
 
 
 def _get_top_directories_by_file_count(
@@ -574,21 +563,16 @@ def _check_directory_is_app(source_dir: Path, verbose: bool) -> None:
             )
 
 
-def get_files_to_add(source_dir: Path, spec: pathspec.PathSpec | None) -> list[Path]:
-    """Get list of files to add to archive, excluding gitignored files."""
+def get_files_to_add(source_dir: Path, spec: pathspec.PathSpec) -> list[Path]:
+    """Get list of files to add to archive, excluding ignored files."""
     files_to_add: list[Path] = []
     for file_path in source_dir.rglob("*"):
         relative_path = file_path.relative_to(source_dir)
         relative_str = str(relative_path)
 
-        # Always exclude .git directory (not deployment material)
-        if relative_str.startswith(".git") and (
-            relative_str == ".git" or relative_str.startswith(".git/")
-        ):
-            continue
-
-        # Let pathspec determine if the file should be ignored
-        if spec and spec.match_file(relative_str):
+        # Let pathspec determine if the file should be ignored (.git/ and other
+        # never-deploy paths are in _DEFAULT_IGNORE_PATTERNS).
+        if spec.match_file(relative_str):
             continue
 
         # We only add files to the tar, not directories

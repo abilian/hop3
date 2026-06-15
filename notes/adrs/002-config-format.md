@@ -3,8 +3,8 @@
 **Status**: Accepted
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-04-14
-**Related-ADRs**: 001, 003
+**Updated**: 2026-06-15
+**Related-ADRs**: 001, 003, 046
 
 ## Implementation Status
 
@@ -15,7 +15,7 @@
 - **`[build]`** — `builder` (explicit override), `toolchain` (explicit override), `packages` (apt-install list), `before-build`, `build`.
 - **`[run]`** — `start`, `before-run`, `start-timeout`, `packages`.
 - **`[run.workers]`** — per-role worker commands (same-process-tree).
-- **`[env]`** — static values; `from`/`key` references to addon-provided credentials; `random` password generation.
+- **`[env]`** — static values only. (Correction, 2026-06-15: this entry previously claimed `from`/`key` references and `random` password generation as shipped. They are **not** implemented — the loader silently drops dict-valued entries. The declarative design for generated secrets and dynamic references is specified in ADR 046, which also fixes the silent-drop.)
 - **`[[addons]]`** — `type` (postgres, mysql, redis, s3) drives provisioning; per-addon parameters.
 - **`[healthcheck]`** — `path`, `timeout`; consumed by the deployer's health-check stage and by `hop3-testing`.
 - **`[nix]`** — `template`, `nixpkgs-package`, `exec-target`, `exec-args`, `extra-paths`, `pre-exec`, `local-vars`, `env-exports`, `runtime-env`, `conditional-env`, `config-files`. Drives the eight-template generator (ADR 008).
@@ -32,6 +32,7 @@ Schema validation beyond TOML parse errors; YAML/JSON alternative formats; CLI v
 
 ## Revisions
 
+- v0.4: Corrected the `[env]` implementation status (`from`/`key`/`random` were never shipped); the declarative env model is now specified in ADR 046 (2026-06-15).
 - v0.3: Promoted from Draft to Accepted; reorganised fields into "shipped" vs "reserved"; added `[nix]` section details (2026-04-14).
 - v0.2: Update according to new template (2024-07-25)
 - v0.1: Initial draft (2024-07-17)

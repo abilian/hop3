@@ -11,16 +11,37 @@ and never overwrite existing ones (set via config set or addon provisioning).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import base64
+import secrets
+import string
+import uuid
+from typing import TYPE_CHECKING, Any
 
+from hop3.core.credentials import get_credential_encryptor
 from hop3.lib import log
 from hop3.lib.logging import server_log
-from hop3.orm import EnvVar
+from hop3.orm import AddonCredentialRepository, EnvVar
+from hop3.project.schema import GENERATE_KINDS
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from sqlalchemy.orm import Session
 
     from hop3.orm.app import App
+
+# App facts addressable by a `{ key = ... }` reference (no `from`).
+_APP_FACT_KEYS = frozenset({"domain", "hostname", "name"})
+
+# Default entropy when a generate spec omits `length`: bytes for
+# hex/base64/urlsafe, characters for password (uuid ignores length).
+_DEFAULT_GENERATE_LENGTHS: dict[str, int] = {
+    "hex": 32,
+    "base64": 32,
+    "urlsafe": 32,
+    "password": 24,
+}
+_PASSWORD_ALPHABET = string.ascii_letters + string.digits
 
 
 def set_default_env_vars(
@@ -163,3 +184,187 @@ def set_computed_env_vars(
             level=1,
             fg="green",
         )
+
+
+def generate_secret_value(spec: Mapping[str, Any]) -> str:
+    """Generate one secret value from an [env] ``{ generate = ... }`` spec.
+
+    Pure and CSPRNG-backed (the stdlib ``secrets`` module — never ``random``).
+    The schema validates the spec up front, but this also guards the
+    ``HOP3_SKIP_CONFIG_VALIDATION`` path: an unknown generator raises rather
+    than silently producing nothing (ADR 046).
+
+    Args:
+        spec: A generate spec — ``generate`` (required), optional ``length``
+            and ``prefix``.
+
+    Returns:
+        The generated value, with ``prefix`` prepended when present.
+    """
+    kind = spec.get("generate")
+    if kind not in GENERATE_KINDS:
+        msg = (
+            f"Unknown [env] generator {kind!r}. "
+            f"Must be one of: {', '.join(sorted(GENERATE_KINDS))}."
+        )
+        raise ValueError(msg)
+    kind = str(kind)  # narrowed: a valid generator name past the guard
+
+    length = spec.get("length") or _DEFAULT_GENERATE_LENGTHS.get(kind, 32)
+
+    if kind == "hex":
+        body = secrets.token_hex(length)
+    elif kind == "base64":
+        body = base64.b64encode(secrets.token_bytes(length)).decode("ascii")
+    elif kind == "urlsafe":
+        body = secrets.token_urlsafe(length)
+    elif kind == "password":
+        body = "".join(secrets.choice(_PASSWORD_ALPHABET) for _ in range(length))
+    else:  # uuid
+        body = str(uuid.uuid4())
+
+    prefix = spec.get("prefix") or ""
+    return f"{prefix}{body}"
+
+
+def set_generated_env_vars(
+    app: App,
+    generated_config: dict[str, Any],
+    db_session: Session,
+) -> None:
+    """Materialize [env] generated secrets, once, for vars that are unset.
+
+    Generated-once semantics (ADR 046): a secret is created with a CSPRNG only
+    when the var has no value yet, persisted as a normal env var, and never
+    regenerated on redeploy — so redeploys stay idempotent and secrets don't
+    silently rotate. ``_policy = "override"`` does NOT force rotation; rotate
+    explicitly with ``hop3 config unset`` then redeploy.
+
+    Args:
+        app: The application model.
+        generated_config: Dict of var name -> generate spec (from
+            ``Hop3Config.env_generated``).
+        db_session: Database session for persistence.
+    """
+    # Generated-once: only materialize vars that have no value yet, so a
+    # redeploy never regenerates (and never rotates) a stored secret.
+    existing = {ev.name for ev in app.env_vars}
+    pending = {
+        name: spec for name, spec in generated_config.items() if name not in existing
+    }
+    if not pending:
+        return
+
+    values = {name: generate_secret_value(spec) for name, spec in pending.items()}
+    # Delegate persistence to the shared writer (defaults_only mirrors the
+    # never-overwrite guarantee) instead of hand-rolling EnvVar rows.
+    set_env_vars(app, values, db_session, defaults_only=True)
+
+    log(
+        f"  Generated {len(values)} secret(s): {', '.join(sorted(values))}",
+        level=1,
+        fg="green",
+    )
+    for name, spec in pending.items():
+        if spec.get("display"):
+            log(
+                f"  {name} = {values[name]}  [generated — shown once, store it now]",
+                level=0,
+                fg="yellow",
+            )
+
+
+def resolve_env_refs(
+    app: App,
+    refs_config: dict[str, Any],
+    db_session: Session,
+) -> None:
+    """Resolve dynamic [env] references against addon and app facts (ADR 046).
+
+    Each ``{ from, key }`` / ``{ key }`` / ``{ external_ip }`` entry is a derived
+    value, so (like ``[env.computed]``) it overwrites. Resolution fails loud on
+    an unattached addon, an unknown key, or an unsupported reference, aborting
+    the deploy rather than producing a wrong value.
+
+    Args:
+        app: The application model.
+        refs_config: Dict of var name -> reference spec (from
+            ``Hop3Config.env_refs``).
+        db_session: Database session for addon-credential lookups.
+    """
+    if not refs_config:
+        return
+
+    resolved = {
+        name: _resolve_env_ref(app, name, spec, db_session)
+        for name, spec in refs_config.items()
+    }
+    set_env_vars(app, resolved, db_session, defaults_only=False)
+    log(
+        f"  Resolved {len(resolved)} env reference(s): {', '.join(sorted(resolved))}",
+        level=1,
+        fg="green",
+    )
+
+
+def _resolve_env_ref(
+    app: App, name: str, spec: Mapping[str, Any], db_session: Session
+) -> str:
+    """Resolve a single reference spec to its value (or raise, loudly)."""
+    if spec.get("external_ip"):
+        msg = (
+            f"[env].{name}: external_ip references are not implemented yet "
+            "(ADR 046). Set the value with `hop3 config set` for now."
+        )
+        raise ValueError(msg)
+
+    key = spec.get("key")
+    from_ = spec.get("from")
+    if from_:
+        return _resolve_addon_ref(app, name, from_, key, db_session)
+    return _resolve_app_fact(app, name, key)
+
+
+def _resolve_addon_ref(
+    app: App, name: str, addon_name: str, key: str | None, db_session: Session
+) -> str:
+    """Copy ``key`` from the credentials of the app's addon ``addon_name``."""
+    repo = AddonCredentialRepository(session=db_session)
+    # Match within the app's own addons by name (a ref carries no addon type).
+    credential = next(
+        (c for c in repo.get_by_app_id(app.id) if c.addon_name == addon_name),
+        None,
+    )
+    if credential is None:
+        msg = f"[env].{name}: addon {addon_name!r} is not attached to {app.name!r}."
+        raise ValueError(msg)
+
+    details = get_credential_encryptor().decrypt(credential.encrypted_data)
+    if key not in details:
+        available = ", ".join(sorted(details)) or "(none)"
+        msg = (
+            f"[env].{name}: addon {addon_name!r} exposes no key {key!r}. "
+            f"Available keys: {available}."
+        )
+        raise ValueError(msg)
+    return str(details[key])
+
+
+def _resolve_app_fact(app: App, name: str, key: str | None) -> str:
+    """Resolve an app-level fact: ``domain`` / ``hostname`` / ``name``."""
+    if key in {"domain", "hostname"}:
+        host_name = app.get_runtime_env().get("HOST_NAME", "")
+        first = host_name.split()[0] if host_name else ""
+        if not first:
+            msg = (
+                f"[env].{name}: no hostname is set for {app.name!r} yet. "
+                "Declare [domains] or set HOST_NAME before referencing it."
+            )
+            raise ValueError(msg)
+        return first
+    if key == "name":
+        return app.name
+
+    known = ", ".join(sorted(_APP_FACT_KEYS))
+    msg = f"[env].{name}: unknown app fact {key!r}. Known facts: {known}."
+    raise ValueError(msg)

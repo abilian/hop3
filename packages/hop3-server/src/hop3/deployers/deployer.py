@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 import re
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from hop3.commands._helpers import check_hostname_conflict
 from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
@@ -15,8 +15,14 @@ from hop3.deployers.addon_provisioning import (
     provision_addons,
     reinject_attached_addons,
 )
-from hop3.deployers.env_provisioning import set_computed_env_vars, set_default_env_vars
+from hop3.deployers.env_provisioning import (
+    resolve_env_refs,
+    set_computed_env_vars,
+    set_default_env_vars,
+    set_generated_env_vars,
+)
 from hop3.deployers.fixed_ports import claim_fixed_ports, open_fixed_ports
+from hop3.deployers.volumes import realize_volumes
 from hop3.lib import Diagnosis, abort_with_diagnosis, log, log_diagnosis, shell
 from hop3.lib.logging import server_log
 from hop3.orm.app import AppStateEnum
@@ -29,6 +35,7 @@ if TYPE_CHECKING:
 
     from hop3.core.artifacts import BuildArtifact
     from hop3.orm.app import App
+    from hop3.project.hop3_config import Hop3Config
 
 __all__ = ["do_deploy"]
 
@@ -105,19 +112,8 @@ def do_deploy(
     if app_config.has_hop3_toml:
         _process_config_dependencies(app, app_config, db_session)
 
-    # --- 1.6. Claim declared fixed ports (refuse conflicts BEFORE build) ---
-    # Non-HTTP services (SMTP, XMPP, RTMP, …) bind a host port directly; only
-    # one app can own it. Claiming here fails fast with a clear error if another
-    # app already holds it, and rolls back with the deploy session on failure.
-    claim_fixed_ports(app, app_config, db_session)
-
-    # --- 1.7. Stop the previous instance before rebuilding (safety net) ---
-    # The primary stop happens BEFORE the source is replaced (in DeployCmd /
-    # the git hooks), since that's where the destructive race is — clearing
-    # src/ deletes build outputs the old process holds. This call covers any
-    # do_deploy path that didn't already stop (e.g. restart). It's a no-op when
-    # the app is already stopped. See stop_previous_instance() for details.
-    stop_previous_instance(app)
+    # --- 1.6. Prepare the freshly-extracted source tree for the build ---
+    _prepare_source_for_build(app, app_config, db_session)
 
     # --- 2. Run Prebuild Hook ---
     # This runs BEFORE builder selection because prebuild may fetch source code
@@ -137,6 +133,9 @@ def do_deploy(
 
     builder = get_builder(context)
     log(f"Using builder: '{builder.name}'", level=1, fg="blue")
+
+    _enforce_builder_resource_support(builder.name, app_config.hop3_config)
+
     build_artifact = builder.build()
     log(
         f"Build successful. Artifact: {build_artifact.location} (kind: {build_artifact.kind})",
@@ -654,6 +653,80 @@ def stop_previous_instance(app: App) -> None:
         app.stop()
 
 
+def _enforce_builder_resource_support(
+    builder_name: str, hop3_config: Hop3Config
+) -> None:
+    """Fail loud when declared resources can't be honored by the chosen builder.
+
+    The two resource features have opposite builder support today, so check both
+    after builder selection and before the build: volumes work on native/Nix but
+    not Docker; limits work on Docker but not native/Nix (ADR 046 §2/§3).
+    """
+    _reject_volumes_on_docker(builder_name, hop3_config.volumes)
+    _reject_limits_on_non_docker(builder_name, hop3_config.limits)
+
+
+def _reject_volumes_on_docker(builder_name: str, volumes: list[dict[str, Any]]) -> None:
+    """Abort the deploy if [[volumes]] are declared under the Docker builder.
+
+    Volumes are realized as host-side symlinks into src/ (ADR 046 §2), which a
+    Docker container cannot see — and the generated compose has no bind-mount
+    for them — so the app's data would be silently lost. Fail loud instead.
+    Native/Nix run on the host with cwd=src, so the symlink resolves there.
+    """
+    if builder_name.lower() == "docker" and volumes:
+        msg = (
+            "[[volumes]] is not yet supported for Docker-deployed apps: the "
+            "container cannot see the host volume, so data would be lost. Use "
+            "the native or nix builder, or remove the [[volumes]] declaration."
+        )
+        raise ValueError(msg)
+
+
+def _reject_limits_on_non_docker(builder_name: str, limits: dict[str, Any]) -> None:
+    """Abort the deploy if [limits] are declared but can't be enforced (ADR 046 §3).
+
+    A declared limit is a safety guarantee, so it must never be silently
+    ignored. Enforcement is implemented for the Docker builder (compose
+    mem_limit / cpus / pids_limit); native/Nix enforcement needs cgroups via
+    hop3-rootd and isn't available yet, so fail loud there rather than run an
+    app that only looks capped.
+    """
+    if limits and builder_name.lower() != "docker":
+        msg = (
+            "[limits] resource caps are only enforced for Docker-deployed apps "
+            "today (native/Nix enforcement needs cgroup support via hop3-rootd). "
+            "Use the docker builder, or remove the [limits] section."
+        )
+        raise ValueError(msg)
+
+
+def _prepare_source_for_build(
+    app: App, app_config: AppConfig, db_session: Session | None
+) -> None:
+    """Ready the freshly-extracted source tree before the prebuild/build runs.
+
+    Three ordered steps, all before any build output is produced:
+
+    1. **Claim declared fixed ports.** Non-HTTP services (SMTP, XMPP, RTMP, …)
+       bind a host port directly; only one app can own it. Claiming here fails
+       fast with a clear error if another app holds it, and rolls back with the
+       deploy session on failure.
+    2. **Stop the previous instance** (safety net). The primary stop happens
+       before the source is replaced (in DeployCmd / the git hooks), where the
+       destructive race is — clearing src/ deletes build outputs the old process
+       holds. This covers any do_deploy path that didn't already stop (e.g.
+       restart); it's a no-op when the app is already stopped.
+    3. **Realize declarative volumes** ([[volumes]]). Link persistent volumes into
+       src/ before any build/run writes to them. Storage lives under
+       <app>/volumes/, outside src/, so it survives the redeploy that wipes src/
+       (ADR 046 §2). No-op when none are declared.
+    """
+    claim_fixed_ports(app, app_config, db_session)
+    stop_previous_instance(app)
+    realize_volumes(app, app_config.hop3_config.volumes)
+
+
 def _process_config_dependencies(
     app: App, app_config: AppConfig, db_session: Session | None
 ) -> None:
@@ -709,6 +782,18 @@ def _process_config_dependencies(
         )
         set_default_env_vars(app, env_config, db_session, env_policy=env_policy)
 
+    # Generate declared secrets ([env] { generate = ... }) — once, for any var
+    # still unset. Runs after static [env] and before [env.computed] so a
+    # computed value may reference a generated secret via ${VAR} (ADR 046).
+    generated_config = hop3_config.env_generated
+    if generated_config:
+        log(
+            f"Generating {len(generated_config)} secret(s) from [env]...",
+            level=1,
+            fg="blue",
+        )
+        set_generated_env_vars(app, generated_config, db_session)
+
     # Translate [domains].list into HOST_NAME. Schema already rejects mixing
     # with env.HOST_NAME and combining "_" with other hosts, but we re-check
     # defensively (HOP3_SKIP_CONFIG_VALIDATION can bypass schema in dev).
@@ -717,6 +802,18 @@ def _process_config_dependencies(
         _apply_domains_to_host_name(
             app, domains_config, hop3_config.domains_policy, db_session
         )
+
+    # Resolve dynamic [env] references ({ from, key } / app facts). Runs after
+    # the domains -> HOST_NAME step so a { key = "domain" } ref can see it, and
+    # before [env.computed] so a computed value can interpolate a ref (ADR 046).
+    refs_config = hop3_config.env_refs
+    if refs_config:
+        log(
+            f"Resolving {len(refs_config)} env reference(s)...",
+            level=1,
+            fg="blue",
+        )
+        resolve_env_refs(app, refs_config, db_session)
 
     # Resolve computed env vars from [env.computed] section
     computed_config = hop3_config.env_computed
@@ -729,7 +826,7 @@ def _process_config_dependencies(
         set_computed_env_vars(app, computed_config, db_session)
 
     # Commit changes before continuing with build
-    if addon_configs or env_config or domains_config:
+    if addon_configs or env_config or generated_config or refs_config or domains_config:
         db_session.commit()
         server_log.info(
             "Config dependencies processed",

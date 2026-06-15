@@ -358,9 +358,6 @@ web: gunicorn myproject.wsgi:application --bind 0.0.0.0:$PORT --workers 4
 
 Create a `hop3.toml` in your project root:
 
-<!-- FIXME: SECRET_KEY should use random generation: SECRET_KEY = { random='true', length=50 }
-     This is supported per ADR 002 but needs testing. For now, hardcoded value is used. -->
-
 ```file path=hop3-tuto-django/hop3.toml
 [metadata]
 id = "hop3-tuto-django"
@@ -381,7 +378,9 @@ before-run = [
 
 [env]
 DJANGO_SETTINGS_MODULE = "myproject.settings"
-SECRET_KEY = "CHANGEME-generate-a-secure-random-key-for-production"
+# Django's settings raise without SECRET_KEY in production. Generated once on
+# the first deploy, persisted, and reused — never committed or rotated (ADR 046).
+SECRET_KEY = { generate = "hex", length = 50 }
 
 [port]
 web = 8000
@@ -564,10 +563,8 @@ hop3 addons attach hop3-tuto-django hop3-tuto-django-db
 ### Set Environment Variables
 
 ```bash skip
-# Generate and set the secret key
-hop3 config set --app hop3-tuto-django SECRET_KEY=$(python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())')
-
-# Set Django configuration
+# SECRET_KEY is generated automatically on the first deploy (see hop3.toml [env]).
+# Set the remaining Django configuration:
 hop3 config set --app hop3-tuto-django DEBUG=false
 hop3 config set --app hop3-tuto-django ALLOWED_HOSTS=hop3-tuto-django.your-hop3-server.example.com
 hop3 config set --app hop3-tuto-django DJANGO_SETTINGS_MODULE=myproject.settings
@@ -587,11 +584,8 @@ deployed successfully
 
 ### Set Environment Variables
 
-Set the SECRET_KEY, ALLOWED_HOSTS, and hostname for the application:
-
-```bash exec id=set-secret-key timeout=30
-hop3 config set --app hop3-tuto-django SECRET_KEY=django-insecure-changeme-for-production
-```
+Set ALLOWED_HOSTS and the hostname (`SECRET_KEY` was generated automatically on
+the first deploy):
 
 ```bash exec id=set-allowed-hosts timeout=30
 hop3 config set --app hop3-tuto-django ALLOWED_HOSTS=hop3-tuto-django.$HOP3_TEST_DOMAIN,localhost,127.0.0.1
@@ -1113,6 +1107,7 @@ packages = ["postgresql"]
 
 [env]
 DJANGO_SETTINGS_MODULE = "myproject.settings"
+SECRET_KEY = { generate = "hex", length = 50 }
 PYTHONUNBUFFERED = "1"
 
 [port]

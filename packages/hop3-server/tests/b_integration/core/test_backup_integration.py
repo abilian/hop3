@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import pathlib
 import shutil
+import tarfile
 from unittest.mock import patch
 
 import pytest
@@ -22,6 +23,7 @@ from sqlalchemy.orm import sessionmaker
 
 from hop3.config import HopConfig
 from hop3.core.backup import BackupManager, BackupManifest
+from hop3.deployers.volumes import realize_volumes
 from hop3.orm import AddonCredential, App, Backup, BackupStateEnum, EnvVar
 from hop3.orm.repositories import (
     AddonCredentialRepository,
@@ -573,3 +575,116 @@ class TestBackupManagerDatabaseStateChanges:
         backup = backup_db_session.query(Backup).filter_by(app_id=sample_app.id).first()
         assert backup is not None
         assert backup.state == BackupStateEnum.FAILED
+
+
+@pytest.mark.integration
+class TestVolumeBackupRestore:
+    """Backups must include [[volumes]] data and restore it (ADR 046 §2).
+
+    Regression for the audit's two critical backup findings: (1) volume data was
+    silently excluded from backups, and (2) the in-src volume symlink made
+    restore abort with AbsoluteLinkError for the whole app.
+    """
+
+    def test_volume_data_is_backed_up_and_restored(self, backup_manager, sample_app):
+
+        app = sample_app
+        # Declare a volume and realize it, then write a sentinel through the link.
+        (app.src_path / "hop3.toml").write_text(
+            '[[volumes]]\nname = "store"\ntarget = "data/store"\n'
+        )
+        realize_volumes(
+            app, [{"name": "store", "target": "data/store", "type": "persist"}]
+        )
+        (app.src_path / "data" / "store" / "secret.txt").write_text("precious")
+        assert (app.volumes_path / "store" / "secret.txt").read_text() == "precious"
+
+        # Backup includes the volume as its own member; the manifest records it.
+        _backup_id, backup_dir = backup_manager.create_backup(app, include_addons=False)
+        manifest = BackupManifest.from_file(backup_dir / "metadata.json")
+        assert any(v["name"] == "store" for v in manifest.volumes)
+        assert (backup_dir / "volume-store.tar.gz").exists()
+        assert "volume-store.tar.gz" in manifest.checksums  # integrity-checked
+
+        # The in-src symlink must NOT be in source.tar.gz (else restore aborts).
+        with tarfile.open(backup_dir / "source.tar.gz") as tar:
+            assert "src/data/store" not in tar.getnames()
+
+        # Simulate the live app being gone, then restore the file-level pieces.
+        shutil.rmtree(app.volumes_path)
+        shutil.rmtree(app.src_path)
+        backup_manager._restore_source(app, backup_dir)  # must NOT raise
+        backup_manager._restore_volumes(app, backup_dir, manifest)
+
+        assert (app.volumes_path / "store" / "secret.txt").read_text() == "precious"
+
+    def test_volume_backup_can_be_opted_out(self, backup_manager, sample_app):
+
+        app = sample_app
+        (app.src_path / "hop3.toml").write_text(
+            '[[volumes]]\nname = "store"\ntarget = "data/store"\n'
+            "[volumes.backup]\ninclude = false\n"
+        )
+        realize_volumes(
+            app, [{"name": "store", "target": "data/store", "type": "persist"}]
+        )
+        (app.src_path / "data" / "store" / "x.txt").write_text("data")
+
+        _id, backup_dir = backup_manager.create_backup(app, include_addons=False)
+        manifest = BackupManifest.from_file(backup_dir / "metadata.json")
+        assert manifest.volumes == []  # opted out, not archived
+        assert not (backup_dir / "volume-store.tar.gz").exists()
+
+    def test_backup_without_volumes_is_unaffected(self, backup_manager, sample_app):
+        # An app with no [[volumes]] backs up exactly as before (no volume files).
+
+        _id, backup_dir = backup_manager.create_backup(sample_app, include_addons=False)
+        manifest = BackupManifest.from_file(backup_dir / "metadata.json")
+        assert manifest.volumes == []
+        assert not list(backup_dir.glob("volume-*.tar.gz"))
+
+    def test_unreadable_config_fails_the_backup_loudly(
+        self, backup_db_session, backup_manager, sample_app
+    ):
+        # H1 regression: a malformed hop3.toml must abort the backup, not
+        # silently omit the app's volume data while reporting success.
+        app = sample_app
+        realize_volumes(
+            app, [{"name": "store", "target": "data/store", "type": "persist"}]
+        )
+        (app.src_path / "data" / "store" / "secret.txt").write_text("precious")
+        # Invalid TOML: the loader must raise rather than yield "no volumes".
+        (app.src_path / "hop3.toml").write_text('[[volumes]]\nname = "store"\ntarget =')
+
+        with pytest.raises(RuntimeError):
+            backup_manager.create_backup(app, include_addons=False)
+
+        backup = backup_db_session.query(Backup).filter_by(app_id=app.id).first()
+        assert backup is not None
+        assert backup.state == BackupStateEnum.FAILED
+
+    def test_restore_fails_loud_when_volume_archive_missing(
+        self, backup_manager, sample_app
+    ):
+        # Restore-side twin of H1: the manifest says a volume was backed up,
+        # but its archive is absent. Continuing would let the later deploy
+        # re-seed the volume EMPTY and report success — silent data loss.
+        app = sample_app
+        manifest = BackupManifest(
+            backup_id="x",
+            app_name=app.name,
+            created_at="2026-01-01T00:00:00Z",
+            format_version="1.0",
+            hop3_version="test",
+            size_bytes=0,
+            checksums={},
+            app_metadata={},
+            addons=[],
+            env_vars_count=0,
+            expires_after=0,
+            volumes=[{"name": "store", "backup_file": "volume-store.tar.gz"}],
+        )
+        # app.app_path has no volume-store.tar.gz, so the declared archive is
+        # missing — restore must abort rather than silently skip it.
+        with pytest.raises(FileNotFoundError):
+            backup_manager._restore_volumes(app, app.app_path, manifest)

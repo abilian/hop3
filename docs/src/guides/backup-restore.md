@@ -23,6 +23,7 @@ Every Hop3 backup includes:
 
 - **Source Code**: Complete git repository with all commits and history
 - **Data Directory**: Application data files and user-uploaded content
+- **Persistent Volumes**: Every `[[volumes]]` volume, archived as its own unit (opt out per-volume with `[volumes.backup]` `include = false`)
 - **Environment Variables**: All configuration settings and secrets
 - **Attached Services**: Database dumps (PostgreSQL, etc.) and service data
 - **Application Metadata**: Hostname, port, and deployment configuration

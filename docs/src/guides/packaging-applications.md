@@ -198,12 +198,22 @@ LOG_LEVEL = "info"
 ALLOWED_HOSTS = "myapp.example.com"
 ```
 
-**⚠️ Security Note:** Don't hardcode secrets in `hop3.toml`. Use the CLI to set sensitive values:
+**⚠️ Security Note:** Don't hardcode secrets in `hop3.toml`. There are two cases:
 
-```bash
-hop3 config set --app my-app SECRET_KEY="actual-secret-value"
-hop3 config set --app my-app API_TOKEN="sensitive-token"
-```
+- **App-internal random secrets** (`SECRET_KEY`, `SECRET_KEY_BASE`, `APP_KEY`, …) — values the app only needs to be random and unguessable. Declare them and Hop3 generates one on the first deploy, persists it, and never rotates or commits it:
+
+  ```toml
+  [env]
+  SECRET_KEY = { generate = "hex", length = 32 }
+  ```
+
+  See [Generated secrets](../reference/config.md#generated-secrets) for the available generators.
+
+- **Externally-supplied secrets** (API tokens, third-party passwords) — specific values you provide. Set these with the CLI, never in `hop3.toml`:
+
+  ```bash
+  hop3 config set --app my-app API_TOKEN="sensitive-token"
+  ```
 
 #### `[port]` - Port Configuration
 
@@ -350,7 +360,8 @@ cd django-app
 git init
 git add .
 git commit -m "Initial commit"
-hop3 config set --app django-app SECRET_KEY="$(openssl rand -hex 32)"
+# SECRET_KEY is declared as { generate = "hex", length = 32 } in hop3.toml [env],
+# so it's created automatically on the first deploy — no manual step.
 hop3 deploy
 ```
 
@@ -629,7 +640,8 @@ DATABASE_URL=postgresql://localhost/dev_db
 ```bash
 hop3 config set --app myapp DEBUG=false
 hop3 config set --app myapp DATABASE_URL="postgresql://prod-server/prod_db"
-hop3 config set --app myapp SECRET_KEY="$(openssl rand -hex 32)"
+# SECRET_KEY: declare `{ generate = "hex", length = 32 }` in hop3.toml [env]
+# instead — generated once and persisted, never typed or committed.
 ```
 
 **hop3.toml** (defaults only):
