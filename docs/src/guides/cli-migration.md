@@ -313,7 +313,7 @@ fi
 # Set variables
 hop3 config set myapp DATABASE_URL=postgres://...
 hop3 config set myapp REDIS_URL=redis://...
-hop3 config set myapp SECRET_KEY=abc123
+hop3 config set myapp API_TOKEN=abc123
 
 # Restart
 hop3 restart myapp
@@ -329,7 +329,7 @@ echo "Setting environment variables..."
 hop3 config set myapp \
     DATABASE_URL=postgres://... \
     REDIS_URL=redis://... \
-    SECRET_KEY=abc123 \
+    API_TOKEN=abc123 \
     --quiet
 
 # Verify variables are set

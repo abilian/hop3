@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Generated secrets in `hop3.toml`**: declare an app-internal secret as `KEY = { generate = "hex" | "base64" | "urlsafe" | "password" | "uuid", length = N, prefix = "..." }` under `[env]`. Hop3 generates the value with a CSPRNG on the first deploy, persists it, and never rotates it (generated-once) — replacing the manual `hop3 config set KEY=$(...)` workaround and making first-boot reproducible for apps that require a secret at startup (Phoenix `SECRET_KEY_BASE`, Laravel `APP_KEY`, Rails `secret_key_base`, …). See [Generated secrets](config.md#generated-secrets) (ADR 046).
+
 ## [0.4.0] - TBD
 
 This is a major architectural release that restructures Hop3 into a modern client-server architecture with extensive new features.

@@ -47,7 +47,7 @@ interval = 60
 ## Notes that apply to every Elixir app
 
 - **Releases, not `mix phx.server`.** Production deploys run a compiled OTP release, which bundles the Erlang runtime and your compiled code into one artifact — no Mix or source needed at runtime. Build it in `before-build`, run it in `[run].start`.
-- **Set `SECRET_KEY_BASE`.** Releases refuse to start without it. Generate one with `mix phx.gen.secret` and set it with `hop3 config set --app <app> SECRET_KEY_BASE=<secret>`. It is a runtime config value, not something you commit.
+- **Set `SECRET_KEY_BASE`.** Releases refuse to start without it. Declare `SECRET_KEY_BASE = { generate = "urlsafe", length = 64 }` in `hop3.toml` `[env]` and Hop3 generates one on the first deploy, persists it, and reuses it on every later deploy — no `mix phx.gen.secret`, no manual step, nothing committed.
 - **Hostname and host config.** Set `HOST_NAME` so nginx routes to your app, and `PHX_HOST` so the framework builds correct URLs. After setting them, deploy once more so the changes take effect.
 - **Databases via addons.** Add a PostgreSQL addon and Hop3 injects `DATABASE_URL`; read it in `config/runtime.exs` and run migrations from a `before-run` release-eval step so they apply before the new release serves traffic.
 - **Health checks.** Expose a cheap endpoint (Phoenix ships `/up`) and point `[healthcheck].path` at it so Hop3 knows when the BEAM is actually ready.
