@@ -25,7 +25,11 @@ def main() -> None:
 
     run = sub.add_parser("run", help="Run the test suite once under the target lease")
     run.add_argument("--target", default="docker", help="'docker' or an SSH host")
-    run.add_argument("--mode", default="nightly", help="dev | ci | nightly | release")
+    run.add_argument(
+        "--mode",
+        default="nightly",
+        help="smoke | ci | curated | coverage | nightly | full",
+    )
     run.add_argument("--trigger", default="cli", help="provenance label for the run")
     run.add_argument(
         "--apps", nargs="*", help="specific app path(s) for a per-app build"

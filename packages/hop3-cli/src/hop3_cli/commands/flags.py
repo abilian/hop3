@@ -27,6 +27,19 @@ def _get_env_verbosity() -> int | None:
         return None
 
 
+def _get_env_no_input() -> bool:
+    """Whether HOP3_NO_INPUT=1 requests non-interactive (no-prompt) mode.
+
+    The counterpart to ``run_command_from_args``'s flag→env bridge: ``main``
+    exports ``HOP3_NO_INPUT=1`` when ``--no-input`` is passed so deep prompt
+    helpers can see it. Reading it back here lets a *caller's* environment
+    (CI, scripts, the test harness running ``hop3 deploy`` via validoc) opt
+    into non-interactive mode without threading ``--no-input`` onto every
+    command — otherwise an interactive prompt blocks forever on a tty.
+    """
+    return os.environ.get("HOP3_NO_INPUT", "") == "1"
+
+
 @dataclass(frozen=True)
 class CliFlags:
     """CLI flags that control output and behavior."""
@@ -74,7 +87,9 @@ class CliFlags:
     # ADR 036 G5: `--no-input` refuses to prompt; if input would be needed,
     # the command fails with a one-line "use --flag-X" instruction. For
     # automation/CI; complements `--yes` (which says "yes, take action").
-    no_input: bool = False
+    # Defaults from HOP3_NO_INPUT so a non-interactive environment opts in
+    # without the flag (see _get_env_no_input).
+    no_input: bool = field(default_factory=_get_env_no_input)
 
     # ADR 042 §Deploy preview: `--dry-run` prints the deploy plan and
     # exits without invoking the RPC. Analogous to `--why` but for the
@@ -161,7 +176,10 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
         "why": False,
         "no_alias": False,
         "confirm_value": None,
-        "no_input": False,
+        # Default from the environment so a non-interactive caller (CI, the
+        # tutorial/demo test harness) can set HOP3_NO_INPUT=1 once instead of
+        # appending --no-input to every command. The flag still forces it on.
+        "no_input": _get_env_no_input(),
         "dry_run": False,
         "verbosity": _get_env_verbosity() or 1,
     }

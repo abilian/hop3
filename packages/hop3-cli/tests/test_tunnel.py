@@ -51,12 +51,21 @@ requires_unix = pytest.mark.skipif(
     sys.platform == "win32",
     reason="Test requires Unix-specific modules (pwd, os.geteuid)",
 )
+# These open a real SSH connection to localhost as the current user. Even with
+# a server + keys present, key-based auth to localhost is environment-specific
+# (authorized_keys, host-key policy), so they're opt-in rather than always-on:
+# set HOP3_TEST_SSH_TUNNEL=1 to run them. (Was a bare, reason-less skip.)
+requires_ssh_optin = pytest.mark.skipif(
+    os.environ.get("HOP3_TEST_SSH_TUNNEL") != "1",
+    reason="SSH tunnel integration test; set HOP3_TEST_SSH_TUNNEL=1 (with a "
+    "local SSH server reachable via key auth for the current user) to run it",
+)
 
 
 @requires_unix
 @requires_ssh_server
 @requires_ssh_keys
-@pytest.mark.skip
+@requires_ssh_optin
 def test_custom_tunnel():
     """Test the custom SSHTunnel implementation (currently not used in production)."""
 
@@ -74,7 +83,7 @@ def test_custom_tunnel():
 @requires_unix
 @requires_ssh_server
 @requires_ssh_keys
-@pytest.mark.skip
+@requires_ssh_optin
 def test_sshtunnel():
     """Test the sshtunnel package (used in production for SSH tunneling)."""
     server = SSHTunnelForwarder(

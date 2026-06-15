@@ -60,6 +60,26 @@ class TestDeriveBaseline:
         assert result.by_os_family["debian"] == ("libbrotli-dev",)
         assert result.by_os_family["fedora"] == ("brotli-devel",)
 
+    def test_nodesource_packages_excluded_from_baseline(self, tmp_path):
+        """Node, npm, node-gyp and libnode-dev come from the NodeSource
+        toolchain; letting their distro packages into the apt/dnf baseline
+        conflicts with NodeSource ("held broken packages") and aborts the whole
+        baseline. They must never enter the derived baseline, in any family.
+        """
+        _write_hop3_toml(
+            tmp_path / "a",
+            build=["nodejs", "npm", "node-gyp", "libnode-dev", "ffmpeg"],
+        )
+        result = derive_baseline([tmp_path])
+
+        # Only the non-Node package survives.
+        assert result.canonical == ("ffmpeg",)
+        assert result.by_os_family["debian"] == ("ffmpeg",)
+        # In particular libnode-dev (the conflict) and its fedora translation
+        # (nodejs-devel) are gone.
+        assert "libnode-dev" not in result.by_os_family["debian"]
+        assert "nodejs-devel" not in result.by_os_family["fedora"]
+
     def test_sources_record_provenance(self, tmp_path):
         _write_hop3_toml(tmp_path / "myapp", build=["ffmpeg"], run=["poppler-utils"])
         result = derive_baseline([tmp_path])

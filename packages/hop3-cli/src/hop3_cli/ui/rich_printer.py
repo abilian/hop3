@@ -145,7 +145,11 @@ class RichPrinter:
             self.json_buffer.append(obj)
             return
 
-        text = obj.get("text", "")
+        # Escape the server-supplied text: it routinely contains brackets that
+        # are NOT Rich markup (e.g. MSBuild appends "[/path/app.csproj]" to
+        # every diagnostic). Unescaped, Rich raises a MarkupError that masks the
+        # real failure. Only the static prefix carries markup.
+        text = rich_escape(obj.get("text", ""))
         self.console_err.print(f"[bold red]ERROR:[/bold red] {text}")
 
     def print_success(self, obj: dict) -> None:
@@ -157,7 +161,7 @@ class RichPrinter:
             self.json_buffer.append(obj)
             return
 
-        text = obj.get("text", "")
+        text = rich_escape(obj.get("text", ""))
         self.console.print(f"[bold green]✓[/bold green] {text}")
 
     def print_warning(self, obj: dict) -> None:
@@ -173,7 +177,7 @@ class RichPrinter:
             self.json_buffer.append(obj)
             return
 
-        text = obj.get("text", "")
+        text = rich_escape(obj.get("text", ""))
         self.console_err.print(f"[bold yellow]⚠[/bold yellow] {text}")
 
     def print_info(self, obj: dict) -> None:
@@ -185,7 +189,7 @@ class RichPrinter:
             self.json_buffer.append(obj)
             return
 
-        text = obj.get("text", "")
+        text = rich_escape(obj.get("text", ""))
         self.console_err.print(f"[bold blue]i[/bold blue] {text}")
 
     def print_progress(self, obj: dict) -> None:
@@ -197,7 +201,7 @@ class RichPrinter:
             self.json_buffer.append(obj)
             return
 
-        text = obj.get("text", "")
+        text = rich_escape(obj.get("text", ""))
         # For now, just print with a spinner emoji
         # TODO: Implement real progress bar for long operations
         self.console_err.print(f"[cyan]⏳[/cyan] {text}")

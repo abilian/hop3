@@ -33,8 +33,12 @@ else:
 SOFT_SIZE_LIMIT = 100 * 1024 * 1024  # 100 MB
 HARD_SIZE_LIMIT = 1024 * 1024 * 1024  # 1 GB
 
-# Ignore files in priority order (first found is used)
-IGNORE_FILES = [".hop3ignore", ".dockerignore", ".gitignore"]
+# Ignore files in priority order (first found is used). NOT .dockerignore: it
+# describes the `docker build` context, not the deploy source — frameworks like
+# Quarkus ship a .dockerignore of `*` + a `target/` allowlist, which would
+# exclude pom.xml/src and leave the server with "no language toolchain". Deploy
+# source is governed by .hop3ignore or .gitignore only.
+IGNORE_FILES = [".hop3ignore", ".gitignore"]
 
 
 def get_extra_args(args: list[str], verbosity: int = 1) -> JsonDict:
@@ -293,7 +297,7 @@ def generate_archive(source_dir: Path, verbosity: int = 1) -> bytes:
     Creates an in-memory tar.gz archive of a source directory as a bytes object,
     excluding files and directories specified in ignore files.
 
-    Ignore files are checked in priority order: .hop3ignore, .dockerignore, .gitignore
+    Ignore files are checked in priority order: .hop3ignore, .gitignore
 
     Args:
         source_dir: The path to the directory to archive.
@@ -327,14 +331,14 @@ def generate_archive(source_dir: Path, verbosity: int = 1) -> bytes:
     if verbose:
         print(f"Creating archive from: {source_dir}", file=sys.stderr)
 
-    # --- 1. Load ignore rules (.hop3ignore, .dockerignore, or .gitignore) ---
+    # --- 1. Load ignore rules (.hop3ignore or .gitignore) ---
     spec, ignore_file = get_ignored_spec(source_dir)
     if verbose:
         if ignore_file:
             print(f"Using ignore patterns from: {ignore_file}", file=sys.stderr)
         else:
             print(
-                "No ignore file found (.hop3ignore, .dockerignore, .gitignore)",
+                "No ignore file found (.hop3ignore, .gitignore)",
                 file=sys.stderr,
             )
 
@@ -420,8 +424,10 @@ def get_ignored_spec(source_dir: Path) -> tuple[pathspec.PathSpec | None, str | 
     1. [build].ignore patterns in hop3.toml
     2. [build].ignore-file reference in hop3.toml
     3. .hop3ignore file
-    4. .dockerignore file
-    5. .gitignore file
+    4. .gitignore file
+
+    .dockerignore is deliberately excluded — it scopes the `docker build`
+    context, not the deploy source (e.g. Quarkus ships `*` + a target/ allowlist).
 
     The first source found with patterns is used.
 

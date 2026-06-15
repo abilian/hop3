@@ -466,7 +466,7 @@ You'll see output showing:
 Check your application status:
 
 ```bash
-hop3 status --app hop3-tuto-spring-boot
+hop3 app status --app hop3-tuto-spring-boot
 ```
 
 ```console
@@ -484,7 +484,7 @@ OK
 View logs:
 
 ```bash
-hop3 logs --app hop3-tuto-spring-boot
+hop3 app logs --app hop3-tuto-spring-boot
 ```
 
 Open your application:
@@ -503,7 +503,7 @@ Open your application:
 ### Restart the Application
 
 ```bash
-hop3 restart --app hop3-tuto-spring-boot
+hop3 app restart --app hop3-tuto-spring-boot
 ```
 
 ### View and Manage Environment Variables
@@ -747,7 +747,7 @@ web: ./target/hop3-tuto-spring-boot
 Check the logs for errors:
 
 ```bash
-hop3 logs --app hop3-tuto-spring-boot --tail
+hop3 app logs --app hop3-tuto-spring-boot --tail
 ```
 
 Common issues:

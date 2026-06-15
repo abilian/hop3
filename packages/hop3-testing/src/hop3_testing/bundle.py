@@ -53,6 +53,7 @@ SECTION_NAMES: tuple[str, ...] = (
     "nginx",
     "app",
     "journal",
+    "resources",
     "build",
     "deploy",
     "http",
@@ -446,6 +447,21 @@ def _collect_sections(
         "echo '=== docker logs (tail 100) ==='; "
         f"docker logs --tail 100 $(docker ps -aq --filter name={app} 2>/dev/null "
         "| head -1) 2>&1 || echo '(no docker logs)';"
+        # For nix apps: resolve the GC-root symlink and verify every store path
+        # the runtime references still exists. A MISSING line here is the
+        # smoking gun for a garbage-collected closure (e.g. forgejo's wrapped
+        # ${forgejo}/bin/forgejo → "No such file or directory").
+        "echo '=== nix result (nix apps) ==='; "
+        f"R={HOP3_ROOT}/apps/{app}/.nix-result; "
+        'if [ -e "$R" ] || [ -L "$R" ]; then '
+        'T=$(readlink -f "$R"); echo "link -> $T"; '
+        'ls -la "$T/bin" 2>&1 | head -20; '
+        "echo '--- runtime.json store paths (exist?) ---'; "
+        "grep -oE '/nix/store/[a-z0-9]{32}-[a-zA-Z0-9._+-]+' "
+        '"$T/hop3/runtime.json" 2>/dev/null | sort -u | '
+        'while read -r P; do if [ -e "$P" ]; then echo "OK      $P"; '
+        'else echo "MISSING $P"; fi; done; '
+        "else echo '(not a nix app / no .nix-result)'; fi;"
         "echo '=== listen check ==='; "
         "ss -ltnp 2>/dev/null || netstat -tlnp 2>/dev/null "
         "|| echo '(ss/netstat unavailable — see proxy_probe.txt)'",
@@ -463,6 +479,26 @@ def _collect_sections(
         "else echo '=== supervisor hop3-server ==='; "
         "tail -200 /var/log/supervisor/hop3-server.log 2>&1 || echo '(none)';"
         "tail -200 /var/log/supervisor/hop3-server_err.log 2>&1 || echo '(none)'; fi",
+    )
+
+    # Host resource state — disk/inodes/memory + nix GC roots + OOM kills. A
+    # long run accumulates disk (caches, store, app trees); when it runs low,
+    # builds truncate (spring-boot "zip file is empty"), nix auto-GC deletes
+    # running apps' closures (forgejo), and the OOM killer fells builds (astro
+    # exits with empty output). Capturing this makes those self-evident instead
+    # of black boxes. All commands are fast (no `du` over big trees).
+    sections["resources"] = _section_body(
+        target,
+        'echo "uid=$(id -un)";'
+        "echo '=== df -h ==='; df -h 2>&1;"
+        "echo '=== df -i (inodes) ==='; df -i 2>&1 | head -20;"
+        "echo '=== free -m ==='; free -m 2>&1 || echo '(free unavailable)';"
+        "echo '=== nix gcroots/auto (deployed-app roots) ==='; "
+        "ls -la /nix/var/nix/gcroots/auto/ 2>/dev/null | head -50 "
+        "|| echo '(no nix gcroots/auto)';"
+        "echo '=== OOM kills (dmesg) ==='; "
+        "dmesg -T 2>/dev/null | grep -iE 'killed process|out of memory|oom-kill' "
+        "| tail -10 || echo '(dmesg unavailable or no OOM)'",
     )
 
     sections["build"] = _section_body(

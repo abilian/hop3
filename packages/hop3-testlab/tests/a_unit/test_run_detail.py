@@ -71,13 +71,17 @@ def test_run_detail_shows_results_and_regressions(tmp_path):
     assert "Session details" in response.text
     assert "0.5.0" in response.text  # hop3 version
     assert "ubuntu" in response.text  # from run_metadata
-    # A finished run does NOT auto-refresh.
+    # A finished run does NOT auto-refresh, and shows no manual Refresh button
+    # (nothing left to update).
     assert 'http-equiv="refresh"' not in response.text
+    assert "location.reload()" not in response.text
 
 
 def test_run_detail_in_progress_is_accessible_and_live(tmp_path):
     """A still-running run's finished builds are viewable, with a running state
-    and auto-refresh so new builds appear."""
+    and a manual Refresh button. There is NO meta-refresh: a periodic full
+    reload would wipe scroll position, table sort/filter state, and any
+    in-progress text selection while the operator reads the live run."""
     db = tmp_path / "test-results.db"
     _seed_run_with_failure(
         db, "2026-06-08T00-00-00Z-nightly-live1", "edrix", finished=False
@@ -89,7 +93,8 @@ def test_run_detail_in_progress_is_accessible_and_live(tmp_path):
     assert response.status_code == 200
     assert "edrix" in response.text  # finished build, accessible mid-run
     assert "running" in response.text.lower()  # running indicator
-    assert 'http-equiv="refresh"' in response.text  # auto-refreshes while in progress
+    assert 'http-equiv="refresh"' not in response.text  # no disruptive auto-reload
+    assert "location.reload()" in response.text  # manual Refresh button instead
 
 
 def test_run_detail_table_is_sortable_and_shows_variant(tmp_path):

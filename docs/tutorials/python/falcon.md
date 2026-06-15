@@ -304,7 +304,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash exec id=check-status timeout=30
-hop3 status --app hop3-tuto-falcon
+hop3 app status --app hop3-tuto-falcon
 ```
 
 ```output contains
@@ -322,7 +322,7 @@ OK
 View logs:
 
 ```bash skip
-hop3 logs --app hop3-tuto-falcon
+hop3 app logs --app hop3-tuto-falcon
 
 # Your app will be available at:
 # http://hop3-tuto-falcon.your-hop3-server.example.com
@@ -332,7 +332,7 @@ hop3 logs --app hop3-tuto-falcon
 
 ```bash skip
 # Restart the application
-hop3 restart --app hop3-tuto-falcon
+hop3 app restart --app hop3-tuto-falcon
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-falcon

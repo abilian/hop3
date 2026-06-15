@@ -201,7 +201,27 @@ def open_fixed_ports(app: App, db_session: Session | None) -> None:
             fg="yellow",
         )
     except RootdError as e:
-        log(f"Could not open firewall for fixed ports: {e}", level=1, fg="yellow")
+        # rootd was reachable and *rejected* the command (e.g. a malformed nft
+        # rule, a kernel error). Unlike an unavailable rootd — which reconcile
+        # re-applies later — this fails the same way every time, so degrading
+        # would deploy an app whose declared port never opens while reporting
+        # success. Abort loudly instead of swallowing it as a warning.
+        abort_with_diagnosis(
+            Diagnosis(
+                component="Deployer",
+                action="open the firewall for the app's fixed [[ports]]",
+                reason=str(e),
+                hint=(
+                    "hop3-rootd rejected the firewall rule, so the declared "
+                    "port would not be reachable. This is a platform/rootd bug "
+                    "— check the rootd logs for the failing nft command."
+                ),
+                troubleshooting=[
+                    "journalctl -u hop3-rootd --no-pager | tail -50",
+                    "hop3 app logs <app>",
+                ],
+            )
+        )
 
 
 def release_fixed_ports(app: App, db_session: Session | None) -> None:

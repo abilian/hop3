@@ -783,10 +783,10 @@ hop3 deploy --app myapp-staging
 curl https://myapp-staging.hop3.example.com
 
 # Check logs
-hop3 logs --app myapp-staging
+hop3 app logs --app myapp-staging
 
 # Check status
-hop3 status --app myapp-staging
+hop3 app status --app myapp-staging
 ```
 
 ### 4. Common Issues to Check
@@ -831,7 +831,7 @@ app.listen(8000)  # Won't work!
 
 **Check logs:**
 ```bash
-hop3 logs myapp --tail 100
+hop3 app logs myapp --tail 100
 ```
 
 **Common causes:**
@@ -860,7 +860,7 @@ hop3 logs myapp --tail 100
 
 **Check build logs:**
 ```bash
-hop3 logs myapp --tail 200 | grep -A 10 "BUILD"
+hop3 app logs myapp --tail 200 | grep -A 10 "BUILD"
 ```
 
 **Common causes:**
@@ -932,7 +932,7 @@ start = "gunicorn app:app"
 hop3 config set --app myapp MY_VAR="value"
 
 # Restart to apply
-hop3 restart --app myapp
+hop3 app restart --app myapp
 
 # Verify
 hop3 config show --app myapp

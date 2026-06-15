@@ -31,7 +31,7 @@ def _find_project_root() -> Path:
 
 
 PROJECT_ROOT = _find_project_root()
-TEST_APPS_DIR = PROJECT_ROOT / "apps" / "test-apps"
+TEST_APPS_DIR = PROJECT_ROOT / "apps" / "test-apps-procfile"
 
 
 class TestModels:
@@ -57,9 +57,6 @@ class TestLoader:
     def test_load_static_app(self):
         """Test loading a test.toml file."""
         test_toml = TEST_APPS_DIR / "000-static" / "test.toml"
-        if not test_toml.exists():
-            pytest.skip("Test app not found")
-
         test_def = load_test_definition(test_toml)
 
         assert test_def.name == "000-static"
@@ -69,9 +66,6 @@ class TestLoader:
     def test_load_flask_app(self):
         """Test loading Flask app test.toml."""
         test_toml = TEST_APPS_DIR / "010-flask-pip-wsgi" / "test.toml"
-        if not test_toml.exists():
-            pytest.skip("Test app not found")
-
         test_def = load_test_definition(test_toml)
 
         assert test_def.name == "010-flask-pip-wsgi"
@@ -81,9 +75,6 @@ class TestLoader:
     def test_generate_from_app(self):
         """Test generating test definition from app directory."""
         app_path = TEST_APPS_DIR / "000-static"
-        if not app_path.exists():
-            pytest.skip("Test app not found")
-
         test_def = generate_test_definition_from_app(app_path)
 
         assert test_def.name == "000-static"
@@ -93,9 +84,6 @@ class TestLoader:
     def test_validation_parsing(self):
         """Test that validations are parsed correctly."""
         test_toml = TEST_APPS_DIR / "010-flask-pip-wsgi" / "test.toml"
-        if not test_toml.exists():
-            pytest.skip("Test app not found")
-
         test_def = load_test_definition(test_toml)
 
         assert len(test_def.validations) >= 1

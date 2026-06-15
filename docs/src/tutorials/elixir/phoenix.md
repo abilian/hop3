@@ -64,11 +64,11 @@ phx_new
 Create a new Phoenix application (without Ecto for simplicity):
 
 ```bash
-mix phx.new hop3-tuto-phoenix --no-ecto --no-mailer --no-dashboard --no-gettext --install
+mix phx.new hop3-tuto-phoenix --app hop3_tuto_phoenix --no-ecto --no-mailer --no-dashboard --no-gettext --install
 ```
 
 ```console
-Fetch and install dependencies
+running mix deps.get
 ```
 
 Verify the project structure:
@@ -90,8 +90,8 @@ lib
 Create a health controller:
 
 ```elixir
-defmodule MyappWeb.HealthController do
-  use MyappWeb, :controller
+defmodule Hop3TutoPhoenixWeb.HealthController do
+  use Hop3TutoPhoenixWeb, :controller
 
   def up(conn, _params) do
     text(conn, "OK")
@@ -123,14 +123,14 @@ end
 Update the router to add health routes:
 
 ```elixir
-defmodule MyappWeb.Router do
-  use MyappWeb, :router
+defmodule Hop3TutoPhoenixWeb.Router do
+  use Hop3TutoPhoenixWeb, :router
 
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
     plug :fetch_live_flash
-    plug :put_root_layout, html: {MyappWeb.Layouts, :root}
+    plug :put_root_layout, html: {Hop3TutoPhoenixWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
   end
@@ -139,14 +139,14 @@ defmodule MyappWeb.Router do
     plug :accepts, ["json"]
   end
 
-  scope "/", MyappWeb do
+  scope "/", Hop3TutoPhoenixWeb do
     pipe_through :browser
 
     get "/", PageController, :home
   end
 
   # Health check endpoints (no CSRF protection)
-  scope "/", MyappWeb do
+  scope "/", Hop3TutoPhoenixWeb do
     pipe_through :api
 
     get "/up", HealthController, :up
@@ -161,8 +161,8 @@ end
 Update the page controller:
 
 ```elixir
-defmodule MyappWeb.PageController do
-  use MyappWeb, :controller
+defmodule Hop3TutoPhoenixWeb.PageController do
+  use Hop3TutoPhoenixWeb, :controller
 
   def home(conn, _params) do
     render(conn, :home)
@@ -232,9 +232,9 @@ if config_env() == :prod do
   host = System.get_env("PHX_HOST") || "localhost"
   port = String.to_integer(System.get_env("PORT") || "4000")
 
-  config :hop3-tuto-phoenix, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
+  config :hop3_tuto_phoenix, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
-  config :hop3-tuto-phoenix, MyappWeb.Endpoint,
+  config :hop3_tuto_phoenix, Hop3TutoPhoenixWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [
       ip: {0, 0, 0, 0},
@@ -252,7 +252,7 @@ Update production config:
 ```elixir
 import Config
 
-config :hop3-tuto-phoenix, MyappWeb.Endpoint,
+config :hop3_tuto_phoenix, Hop3TutoPhoenixWeb.Endpoint,
   cache_static_manifest: "priv/static/cache_manifest.json",
   server: true
 
@@ -271,7 +271,17 @@ cat >> mix.exs << 'EOF'
 EOF
 ```
 
-Build assets and create release:
+Compile first, then build assets. Phoenix 1.8 extracts colocated JS/CSS
+(`phoenix-colocated/…`) during `mix compile`, and `mix assets.deploy` (Tailwind)
+imports it — so compiling must come first, in the same `MIX_ENV`:
+
+```bash
+mix compile
+```
+
+```console
+Generated
+```
 
 ```bash
 mix assets.deploy
@@ -286,13 +296,13 @@ MIX_ENV=prod mix compile
 ```
 
 ```console
-Compiled
+Generated
 ```
 
 Verify the application compiles:
 
 ```bash
-ls -la _build/prod/lib/hop3-tuto-phoenix/
+ls -la _build/prod/lib/hop3_tuto_phoenix/
 ```
 
 ```console
@@ -301,15 +311,11 @@ ebin
 
 ## Step 6: Create Deployment Configuration
 
-### Create a Procfile
-
-```procfile
-# Pre-build: Install Hex/Rebar, dependencies and build release
-prebuild: mix local.hex --force --if-missing && mix local.rebar --force --if-missing && mix deps.get --only prod && MIX_ENV=prod mix assets.deploy && MIX_ENV=prod mix release --overwrite
-
-# Main web process
-web: _build/prod/rel/hop3-tuto-phoenix/bin/hop3-tuto-phoenix start
-```
+Hop3 reads a single `hop3.toml` for the build and run configuration. Don't also
+add a `Procfile`: when both exist Hop3 builds from `hop3.toml`, but the
+Procfile's `prebuild:` line is started as a long-running worker that loops
+`mix release --overwrite`, repeatedly overwriting the release while the web
+process tries to exec it (`bin/hop3_tuto_phoenix: not found`).
 
 ### Create hop3.toml
 
@@ -324,13 +330,14 @@ before-build = [
     "mix local.hex --force --if-missing",
     "mix local.rebar --force --if-missing",
     "mix deps.get --only prod",
+    "MIX_ENV=prod mix compile",
     "MIX_ENV=prod mix assets.deploy",
     "MIX_ENV=prod mix release --overwrite"
 ]
 packages = ["erlang", "elixir", "nodejs", "npm"]
 
 [run]
-start = "_build/prod/rel/hop3-tuto-phoenix/bin/hop3-tuto-phoenix start"
+start = "_build/prod/rel/hop3_tuto_phoenix/bin/hop3_tuto_phoenix start"
 
 [env]
 MIX_ENV = "prod"
@@ -347,14 +354,10 @@ timeout = 30
 interval = 60
 ```
 
-Verify the deployment files:
+Verify the deployment file:
 
 ```bash
-ls -la Procfile hop3.toml
-```
-
-```console
-Procfile
+ls -la hop3.toml
 ```
 
 ```console
@@ -391,10 +394,6 @@ erl_crash.dump
 git init
 ```
 
-```console
-Initialized empty Git repository
-```
-
 ```bash
 git add .
 ```
@@ -427,10 +426,13 @@ hop3 config set --app hop3-tuto-phoenix PHX_HOST=hop3-tuto-phoenix.your-server.e
 
 ### Deploy
 
-Deploy the application (first deployment creates the app):
+Deploy the application (first deployment creates the app). The production release
+requires `SECRET_KEY_BASE` at boot (see `runtime.exs`), so generate one and pass
+it as a secret env var with `--env`. Hop3 persists it, so later redeploys reuse
+it — and it never lands in your committed `hop3.toml`:
 
 ```bash
-hop3 deploy hop3-tuto-phoenix
+hop3 deploy hop3-tuto-phoenix --env SECRET_KEY_BASE="$(mix phx.gen.secret)"
 ```
 
 ### Set Hostname
@@ -458,7 +460,7 @@ sleep 5
 ### Verify Deployment
 
 ```bash
-hop3 status --app hop3-tuto-phoenix
+hop3 app status --app hop3-tuto-phoenix
 ```
 
 ```console
@@ -477,10 +479,10 @@ OK
 
 ```bash
 # Restart the application
-hop3 restart --app hop3-tuto-phoenix
+hop3 app restart --app hop3-tuto-phoenix
 
 # View logs
-hop3 logs --app hop3-tuto-phoenix
+hop3 app logs --app hop3-tuto-phoenix
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-phoenix
@@ -496,7 +498,7 @@ hop3 ps scale --app hop3-tuto-phoenix web=2
 
 ```bash
 # Create with Ecto
-mix phx.new hop3-tuto-phoenix --database postgres
+mix phx.new hop3-tuto-phoenix --app hop3_tuto_phoenix --database postgres
 
 # Or add to existing project
 mix ecto.gen.repo
@@ -508,7 +510,7 @@ database_url =
   System.get_env("DATABASE_URL") ||
     raise "DATABASE_URL environment variable is missing"
 
-config :hop3-tuto-phoenix, Myapp.Repo,
+config :hop3_tuto_phoenix, Hop3TutoPhoenix.Repo,
   url: database_url,
   pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10")
 ```
@@ -518,8 +520,8 @@ config :hop3-tuto-phoenix, Myapp.Repo,
 ```elixir
 # Already included by default in Phoenix 1.7+
 # Create a LiveView:
-defmodule MyappWeb.CounterLive do
-  use MyappWeb, :live_view
+defmodule Hop3TutoPhoenixWeb.CounterLive do
+  use Hop3TutoPhoenixWeb, :live_view
 
   def mount(_params, _session, socket) do
     {:ok, assign(socket, count: 0)}
@@ -548,8 +550,8 @@ mix deps.get oban
 
 ```elixir
 # config/config.exs
-config :hop3-tuto-phoenix, Oban,
-  repo: Myapp.Repo,
+config :hop3_tuto_phoenix, Oban,
+  repo: Hop3TutoPhoenix.Repo,
   queues: [default: 10]
 ```
 
@@ -598,14 +600,15 @@ before-build = [
     "mix local.hex --force --if-missing",
     "mix local.rebar --force --if-missing",
     "mix deps.get --only prod",
+    "MIX_ENV=prod mix compile",
     "MIX_ENV=prod mix assets.deploy",
     "MIX_ENV=prod mix release --overwrite"
 ]
 packages = ["erlang", "elixir", "nodejs"]
 
 [run]
-start = "_build/prod/rel/hop3-tuto-phoenix/bin/hop3-tuto-phoenix start"
-before-run = "_build/prod/rel/hop3-tuto-phoenix/bin/hop3-tuto-phoenix eval 'Myapp.Release.migrate()'"
+start = "_build/prod/rel/hop3_tuto_phoenix/bin/hop3_tuto_phoenix start"
+before-run = "_build/prod/rel/hop3_tuto_phoenix/bin/hop3_tuto_phoenix eval 'Hop3TutoPhoenix.Release.migrate()'"
 
 [env]
 MIX_ENV = "prod"
@@ -627,10 +630,3 @@ name = "postgres"
 plan = "standard"
 ```
 
-### Complete Procfile
-
-```procfile
-prebuild: mix local.hex --force --if-missing && mix local.rebar --force --if-missing && mix deps.get --only prod && MIX_ENV=prod mix assets.deploy && MIX_ENV=prod mix release --overwrite
-prerun: _build/prod/rel/hop3-tuto-phoenix/bin/hop3-tuto-phoenix eval 'Myapp.Release.migrate()' || true
-web: _build/prod/rel/hop3-tuto-phoenix/bin/hop3-tuto-phoenix start
-```

@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import Any, cast
 
 from hop3_testing.bundle import (
+    SECTION_NAMES,
     ProxyProbe,
     build_headline,
     classify,
@@ -294,3 +295,22 @@ def test_headline_indeterminate_icon() -> None:
         http_front=None,
     )
     assert headline.startswith("? indeterminate — x")
+
+
+def test_bundle_captures_resources_section(tmp_path) -> None:
+    """The bundle records host disk/mem in a `resources` section, so disk
+    pressure — behind spring-boot's truncated jar and forgejo's GC'd closure —
+    is self-evident instead of a black box. (`df -h` is first in the fake's
+    response map so it wins for the resources command.)"""
+    target = _FakeTarget({
+        "df -h": "Filesystem Size Used Avail Use% Mounted on\n/dev/sda1 40G 40G 0 100% /",
+        "id -un": "root",
+        "ss -ltnp": "LISTEN 0 128 127.0.0.1:22",
+        "nginx/": "proxy_pass http://127.0.0.1:8000;",
+        "curl": "000",
+    })
+    bundle = collect_diagnostic_bundle(
+        cast("Any", target), "someapp", target_kind="ssh", base_dir=tmp_path
+    )
+    assert "resources" in SECTION_NAMES
+    assert "100%" in bundle.sections["resources"]

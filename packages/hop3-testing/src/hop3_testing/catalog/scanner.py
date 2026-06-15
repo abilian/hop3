@@ -10,6 +10,7 @@ Discovers test.toml files and hop3.toml-based test apps to build a unified catal
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -27,6 +28,18 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 IGNORE_FILE = "HOP3_TEST_IGNORE"
+
+# Executable validoc fences (same set the tutorial runner counts). A tutorial
+# markdown with none of these runs no commands — it's documentation, not a test.
+_VALIDOC_BLOCK_RE = re.compile(r"^```(?:bash\s+exec|output|file)\b", re.MULTILINE)
+
+
+def _has_executable_blocks(md_path: Path) -> bool:
+    """True if a tutorial markdown has at least one executable validoc block."""
+    try:
+        return bool(_VALIDOC_BLOCK_RE.search(md_path.read_text(encoding="utf-8")))
+    except OSError:
+        return False
 
 
 class Catalog:
@@ -199,6 +212,14 @@ class Catalog:
             if md.name.lower() in {"index.md", "readme.md"}:
                 continue
             if self._has_ignore_ancestor(md.parent, path):
+                continue
+            # A source tutorial with no executable validoc blocks is pure prose
+            # (e.g. a Nix explainer): it tests nothing, so it's not a runnable
+            # test — skip it like index.md rather than report it as failing
+            # "nothing tested". (Source tree only; the runner still fails loudly
+            # if a 0-block file slips through, e.g. from a misconfigured scan.)
+            if not _has_executable_blocks(md):
+                logger.debug("Skipping doc-only tutorial (no exec blocks): %s", md)
                 continue
             self._load_tutorial(md)
 

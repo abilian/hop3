@@ -149,3 +149,36 @@ def test_reload_proxy_aborts_when_rootd_reload_errors(env, monkeypatch) -> None:
     nginx = NginxVirtualHost(App(name="testapp"), env, {})
     with pytest.raises(Abort):
         nginx.reload_proxy()
+
+
+@pytest.mark.parametrize(
+    ("workers", "expected"),
+    [
+        ({"static": "public"}, True),
+        # Regression: a static site with a build hook must still be static-only;
+        # otherwise the upstream block survives with an unallocated port
+        # (`upstream 127.0.0.1:0`) and nginx rejects the config.
+        ({"prebuild": "build.sh", "static": "public"}, True),
+        ({"build": "make", "static": "dist"}, True),
+        ({"web": "gunicorn app:app"}, False),
+        ({"web": "gunicorn app:app", "static": "public"}, False),
+        ({"wsgi": "app:app", "static": "public"}, False),
+        ({}, False),
+    ],
+)
+def test_is_static_only(workers: dict[str, str], expected: bool) -> None:
+    env = Env({"HOST_NAME": "testapp.com"})
+    nginx = NginxVirtualHost(App(name="testapp"), env, workers)
+    assert nginx._is_static_only() is expected
+
+
+def test_static_only_app_with_build_hook_skips_backend() -> None:
+    """A static site with a prebuild hook is served directly — never proxied to
+    an unallocated port (regression: `upstream 127.0.0.1:0`)."""
+    env = Env({"HOST_NAME": "testapp.com"})
+    nginx = NginxVirtualHost(
+        App(name="testapp"), env, {"prebuild": "x", "static": "public"}
+    )
+    nginx.setup_backend()
+    assert nginx.env.get("HOP3_STATIC_ONLY") == "1"
+    assert nginx.env.get("NGINX_SOCKET", "") == ""

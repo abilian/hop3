@@ -38,17 +38,39 @@ if TYPE_CHECKING:
 STOP_GRACE_SECONDS = 5.0
 
 
-def _hetzner_server_info(cfg: CloudConfig):
-    """Fetch the configured Hetzner server's info (lazy: hcloud is heavy)."""
+def _hetzner_manager(cfg: CloudConfig):
+    """Build a HetznerManager from the cloud config (lazy: hcloud is heavy).
+
+    Carries both ``ssh_key_name`` and ``ssh_key_path`` so the rebuild can resolve
+    the registered key explicitly, or auto-derive it from the local key.
+    """
     from hop3_testing.system_tests.config import HetznerConfig  # noqa: PLC0415
     from hop3_testing.system_tests.hetzner import HetznerManager  # noqa: PLC0415
 
-    hz = HetznerConfig(
-        api_token=cfg.hetzner_token,
-        server_id=cfg.hetzner_server_id,
-        image=cfg.hetzner_image,
+    return HetznerManager(
+        HetznerConfig(
+            api_token=cfg.hetzner_token,
+            server_id=cfg.hetzner_server_id,
+            image=cfg.hetzner_image,
+            ssh_key_name=cfg.hetzner_ssh_key_name,
+            ssh_key_path=cfg.ssh_key_path,
+        )
     )
-    return HetznerManager(hz).get_server_info()
+
+
+def _hetzner_server_info(cfg: CloudConfig):
+    """Fetch the configured Hetzner server's info."""
+    return _hetzner_manager(cfg).get_server_info()
+
+
+def _resolve_hetzner_ssh_key(cfg: CloudConfig) -> None:
+    """Validate that the rebuild can resolve an SSH key to re-inject.
+
+    Raises (loud, explained) if it can't — used by ``run_blockers`` as a
+    pre-flight so the web trigger refuses up-front instead of spawning a run
+    that aborts unseen.
+    """
+    _hetzner_manager(cfg).resolve_ssh_key()
 
 
 def _rebuild_blank_slate(cfg: CloudConfig) -> None:
@@ -56,28 +78,12 @@ def _rebuild_blank_slate(cfg: CloudConfig) -> None:
 
     This is what makes runs reproducible: each run starts from an identical,
     known state instead of inheriting leaked apps/addons/disk from prior runs.
-    Requires ``hetzner.ssh_key_name`` — Hetzner re-injects that key on rebuild;
-    without it the fresh OS would have no SSH access and lock us out, so we skip
-    (loudly) rather than risk it.
+    The rebuild re-injects an SSH key so we keep access — resolved explicitly
+    (hetzner.ssh_key_name) or auto-derived from [ssh] key_path. If no key can be
+    resolved, ``rebuild_server`` aborts loudly rather than silently skipping (a
+    skipped rebuild is how prior runs' test apps piled up for days).
     """
-    if not cfg.hetzner_ssh_key_name:
-        print(
-            "[blank-slate] SKIPPED — set hetzner.ssh_key_name (or "
-            "HETZNER_SSH_KEY_NAME) so the rebuild can re-inject SSH access."
-        )
-        return
-
-    from hop3_testing.system_tests.config import HetznerConfig  # noqa: PLC0415
-    from hop3_testing.system_tests.hetzner import HetznerManager  # noqa: PLC0415
-
-    manager = HetznerManager(
-        HetznerConfig(
-            api_token=cfg.hetzner_token,
-            server_id=cfg.hetzner_server_id,
-            image=cfg.hetzner_image,
-            ssh_key_name=cfg.hetzner_ssh_key_name,
-        )
-    )
+    manager = _hetzner_manager(cfg)
     print(
         f"[blank-slate] rebuilding Hetzner server {cfg.hetzner_server_id} "
         f"with {cfg.hetzner_image} ..."
@@ -117,6 +123,24 @@ def _suite_args(mode: str, apps: list[str] | None) -> list[str]:
     """Engine args: specific app paths (positional) for a per-app build, else
     the whole mode-selected suite."""
     return list(apps) if apps else ["--mode", mode]
+
+
+def run_blockers(target_id: str, apps: list[str] | None) -> str | None:
+    """A human reason this run can't start cleanly, or None if it can.
+
+    Lets the web trigger refuse up-front with a visible message instead of
+    spawning a detached run that aborts where the user never sees it. A
+    full-suite hetzner run rebuilds the OS first, which must be able to re-inject
+    an SSH key (explicit name, or auto-derived from [ssh] key_path); we verify
+    that against the Hetzner project here so a missing/unregistered key surfaces
+    at click-time rather than as a doomed background run.
+    """
+    if target_id == "hetzner" and not apps:
+        try:
+            _resolve_hetzner_ssh_key(load_cloud_config())
+        except Exception as e:  # surface the real reason to the UI
+            return f"Can't start: {e}"
+    return None
 
 
 def _proc_starttime(pid: int) -> int | None:

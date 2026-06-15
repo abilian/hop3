@@ -473,7 +473,7 @@ sleep 5
 Check your application status:
 
 ```bash
-hop3 status --app hop3-tuto-fastapi
+hop3 app status --app hop3-tuto-fastapi
 ```
 
 ```console
@@ -491,7 +491,7 @@ OK
 View logs:
 
 ```bash
-hop3 logs --app hop3-tuto-fastapi
+hop3 app logs --app hop3-tuto-fastapi
 ```
 
 Open your application:
@@ -509,7 +509,7 @@ Open your application:
 ### Restart the Application
 
 ```bash
-hop3 restart --app hop3-tuto-fastapi
+hop3 app restart --app hop3-tuto-fastapi
 ```
 
 ### Run Commands in the Application Context
@@ -803,7 +803,7 @@ async def log_requests(request: Request, call_next):
 Check the logs for errors:
 
 ```bash
-hop3 logs --app hop3-tuto-fastapi --tail
+hop3 app logs --app hop3-tuto-fastapi --tail
 ```
 
 Common issues:

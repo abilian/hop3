@@ -10,6 +10,7 @@ Runs tutorials via validoc or other tutorial runners.
 from __future__ import annotations
 
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -211,15 +212,34 @@ class TutorialTestRunner:
         )
 
     def _run_validoc(self, tutorial_path: Path, cwd: Path) -> dict:
-        """Run tutorial using validoc.
+        """Run a tutorial via validoc, on the server or locally.
 
-        Args:
-            tutorial_path: Path to the tutorial markdown
-            cwd: Working directory
+        On a remote server (prepared by ``ensure_tutorial_host``) validoc runs
+        *on the server* so the scaffold/build steps use the server's toolchains
+        and ``hop3 deploy`` targets localhost — never a local fall-back, which
+        would deploy to the dev's default CLI context (the wrong server).
 
         Returns:
             Dict with success, logs, error
         """
+        if type(self.target).__name__ == "RemoteTarget":
+            return self._run_validoc_remote(tutorial_path)
+        return self._run_validoc_local(tutorial_path, cwd)
+
+    def _run_validoc_remote(self, tutorial_path: Path) -> dict:
+        """Dispatch to on-server validoc, or error if the host wasn't prepared."""
+        token = getattr(self.target, "tutorial_token", None)
+        if not token:
+            reason = getattr(self.target, "tutorial_host_error", "host not prepared")
+            return {
+                "success": False,
+                "error": f"Tutorial host not prepared (validoc/token): {reason}",
+                "logs": "",
+            }
+        return self._run_validoc_on_server(tutorial_path, token)
+
+    def _run_validoc_local(self, tutorial_path: Path, cwd: Path) -> dict:
+        """Run validoc locally (docker/local targets; legacy path)."""
         try:
             # Check if validoc is available
             result = subprocess.run(
@@ -292,6 +312,71 @@ class TutorialTestRunner:
                 "error": str(e),
                 "logs": "",
             }
+
+    def _run_validoc_on_server(self, tutorial_path: Path, token: str) -> dict:
+        """Run validoc on the target server (see ``_run_validoc`` for why).
+
+        Uploads the tutorial markdown to a scratch dir on the server, runs
+        ``validoc run`` there with the env that points ``hop3`` at the local
+        server, captures the combined output, and removes the scratch dir.
+        validoc's own teardown destroys any app it deployed.
+        """
+        target = self.target
+        host = target.info.ssh_host
+        name = re.sub(r"[^A-Za-z0-9._-]", "_", tutorial_path.stem)
+        workdir = f"/tmp/hop3-tut/{name}"
+        remote_md = f"{workdir}/{tutorial_path.name}"
+
+        # The on-server `hop3` client deploys to the local server; the env mirrors
+        # build_test_env but targets localhost with the minted admin token.
+        env = " ".join([
+            "HOP3_NO_INPUT=1",
+            f"HOP3_TEST_DOMAIN={host}.sslip.io",
+            "HOP3_API_URL=http://localhost:8000",
+            f"HOP3_API_TOKEN={shlex.quote(token)}",
+            # validoc runs as root here; composer refuses to run its plugins
+            # as root unless this is set, which breaks e.g. symfony/flex
+            # (`composer require webapp`). Allow it so root builds work.
+            "COMPOSER_ALLOW_SUPERUSER=1",
+            # Rust is installed (rustup) under the hop3 user. Share the
+            # toolchain read-only via RUSTUP_HOME, but give cargo a SEPARATE,
+            # root-owned registry/cache: the scaffold's `cargo build` runs as
+            # root, and if it wrote into /home/hop3/.cargo the later
+            # hop3-user deploy build couldn't read those root-owned registry
+            # files ("Permission denied" reading e.g. fnv-*/lib.rs). The
+            # rustup proxy (on PATH via /usr/local/bin) honours CARGO_HOME,
+            # so cargo still resolves the shared toolchain.
+            "CARGO_HOME=/tmp/hop3-tut-cargo",
+            "RUSTUP_HOME=/home/hop3/.rustup",
+            "PATH=/home/hop3/venv/bin:/usr/local/bin:/home/hop3/.cargo/bin:/usr/bin:/bin:$PATH",
+        ])
+        # Bound the run server-side (the SSH exec has no timeout of its own): a
+        # hung tutorial would otherwise wedge the whole suite. `timeout` sends
+        # SIGTERM at 900s, then SIGKILL 30s later. The env-var prefix applies to
+        # `timeout`, which passes the environment through to validoc.
+        run_cmd = (
+            f"cd {shlex.quote(workdir)} && {env} "
+            f"timeout -k 30 900 "
+            f"/home/hop3/venv/bin/validoc run {shlex.quote(tutorial_path.name)}"
+        )
+
+        try:
+            target.exec_run(["rm", "-rf", workdir])
+            target.upload_file(tutorial_path, remote_md)
+            code, out, err = target.exec_run(run_cmd)
+        except Exception as e:
+            return {"success": False, "error": str(e), "logs": ""}
+        finally:
+            target.exec_run(["rm", "-rf", workdir])
+
+        logs = (out or "") + (err or "")
+        if code != 0:
+            return {
+                "success": False,
+                "error": f"validoc failed with exit code {code}",
+                "logs": logs,
+            }
+        return {"success": True, "logs": logs}
 
     def _run_generic(self, tutorial_path: Path, cwd: Path, runner: str) -> dict:
         """Run tutorial using a generic runner.

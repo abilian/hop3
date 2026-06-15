@@ -16,13 +16,54 @@
 </div>
 {% endmacro %}
 
-{% macro profile_form(p, valid_tiers, valid_priorities, valid_targets) %}
-<form method="post" action="/profiles/save" class="space-y-3">
+{# A profile form: Filter (tier/priority/target) OR Pick tests (explicit list).
+   Used for both editing an existing profile and adding a new one (is_new). #}
+{% macro profile_form(p, valid_tiers, valid_priorities, valid_targets, is_new=False) %}
+<form method="post" action="/profiles/save" class="space-y-3"
+      x-data="profileForm('{{ 'tests' if p.tests else 'filter' }}', {{ p.tests | tojson }})">
   <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+  {% if is_new %}
+  <label class="text-sm block">
+    <span class="block text-xs font-medium text-gray-500 mb-1">Name (lowercase, e.g. <code>my-suite</code>)</span>
+    <input type="text" name="name" required pattern="[a-z][a-z0-9-]*" class="border rounded px-2 py-1 w-64">
+  </label>
+  {% else %}
   <input type="hidden" name="name" value="{{ p.name }}">
-  {{ checkgroup("Tiers", "tiers", valid_tiers, p.tiers) }}
-  {{ checkgroup("Priorities", "priorities", valid_priorities, p.priorities) }}
-  {{ checkgroup("Targets", "targets", valid_targets, p.targets) }}
+  {% endif %}
+  <input type="hidden" name="kind" :value="kind">
+
+  {# Filter vs Pick-tests toggle #}
+  <div class="inline-flex rounded border overflow-hidden text-xs select-none">
+    <button type="button" @click="kind='filter'" :class="kind==='filter' ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'" class="px-2 py-1">Filter</button>
+    <button type="button" @click="kind='tests'" :class="kind==='tests' ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'" class="px-2 py-1">Pick tests</button>
+  </div>
+
+  {# Filter pane #}
+  <div x-show="kind==='filter'" class="space-y-3">
+    {{ checkgroup("Tiers", "tiers", valid_tiers, p.tiers) }}
+    {{ checkgroup("Priorities", "priorities", valid_priorities, p.priorities) }}
+    {{ checkgroup("Targets", "targets", valid_targets, p.targets) }}
+  </div>
+
+  {# Picker pane (curated profiles): search + grouped checkboxes + live count #}
+  <div x-show="kind==='tests'" x-cloak class="space-y-2">
+    <div class="flex items-center gap-3">
+      <input type="search" x-model="q" placeholder="Filter tests…" class="border rounded px-2 py-1 text-sm w-64">
+      <span class="text-xs text-gray-500"><span x-text="selected.length"></span> selected</span>
+    </div>
+    <div class="max-h-72 overflow-y-auto border rounded p-2 space-y-0.5">
+      <template x-for="t in visible" :key="t.name">
+        <label class="flex items-center gap-2 text-xs">
+          <input type="checkbox" name="tests" :value="t.name" x-model="selected">
+          <span x-text="t.title"></span>
+          <span class="text-gray-400 font-mono" x-text="'· ' + t.variant + (t.language ? '/' + t.language : '')"></span>
+        </label>
+      </template>
+      <p x-show="visible.length === 0" class="text-gray-400 text-xs">No tests match.</p>
+    </div>
+  </div>
+
+  {# Common fields #}
   <div class="flex flex-wrap items-end gap-4">
     <label class="text-sm">
       <span class="block text-xs font-medium text-gray-500 mb-1">Description</span>
@@ -32,24 +73,27 @@
       <span class="block text-xs font-medium text-gray-500 mb-1">Max duration (min)</span>
       <input type="number" name="max_duration_minutes" min="1" value="{{ p.max_duration_minutes if p.max_duration_minutes is not none else '' }}" class="border rounded px-2 py-1 w-28">
     </label>
-    <label class="inline-flex items-center gap-1 text-sm pb-1">
+    <label class="inline-flex items-center gap-1 text-sm pb-1" x-show="kind==='filter'">
       <input type="checkbox" name="representative" {% if p.representative %}checked{% endif %}>
       representative (set-cover subset)
     </label>
   </div>
-  <div class="flex items-center gap-3">
-    <button type="submit" class="rounded bg-gray-900 text-white px-3 py-1.5 text-sm hover:bg-gray-700">Save</button>
-  </div>
+  <button type="submit" class="rounded bg-gray-900 text-white px-3 py-1.5 text-sm hover:bg-gray-700">{{ "Add profile" if is_new else "Save" }}</button>
 </form>
 {% endmacro %}
 
 {% block content %}
 <h1 class="text-xl font-semibold mb-1">Profiles</h1>
 <p class="text-sm text-gray-600 mb-4">
-  Test-execution profiles (modes). Edits apply to every trigger — the dashboard
-  button, the scheduler, and <code class="text-xs">hop3-test --mode &lt;name&gt;</code>.
-  Built-in profiles can be overridden or reset; custom ones can be deleted.
+  Test-execution profiles (modes), smallest to largest. Edits apply to every
+  trigger — the dashboard button, the scheduler, and
+  <code class="text-xs">hop3-test --mode &lt;name&gt;</code>. Built-in profiles can
+  be overridden or reset; custom ones can be deleted. A <em>curated</em> profile
+  holds an explicit, hand-picked list of tests (use “Pick tests”).
 </p>
+
+{# All tests for the curated-profile picker — embedded once, shared by every form. #}
+<script type="application/json" id="all-tests">{{ all_tests | tojson }}</script>
 
 {% if flash %}
 <p class="mb-4 rounded px-3 py-2 text-sm {{ 'bg-green-100 text-green-900' if flash[0] == 'ok' else 'bg-amber-100 text-amber-900' }}">
@@ -62,6 +106,7 @@
   <details class="border rounded bg-white" {% if not p.builtin %}open{% endif %}>
     <summary class="cursor-pointer px-3 py-2 flex items-center gap-3 text-sm">
       <span class="font-mono font-semibold">{{ p.name }}</span>
+      {% if p.count is not none %}<span class="rounded bg-gray-100 text-gray-700 px-1.5 py-0.5 text-xs">{{ p.count }} tests</span>{% endif %}
       {% if not p.builtin %}
       <span class="rounded bg-indigo-100 text-indigo-800 px-1.5 py-0.5 text-xs">custom</span>
       {% elif p.customized %}
@@ -70,7 +115,7 @@
       <span class="rounded bg-gray-100 text-gray-600 px-1.5 py-0.5 text-xs">built-in</span>
       {% endif %}
       <span class="text-gray-500 text-xs truncate">
-        {{ p.tiers|join("/") }} · {{ p.priorities|join("/") }} · {{ p.targets|join("/") }}
+        {% if p.tests %}hand-picked{% else %}{{ p.tiers|join("/") }} · {{ p.priorities|join("/") }}{% endif %} · {{ p.targets|join("/") }}
         {%- if p.description %} — {{ p.description }}{% endif %}
       </span>
     </summary>
@@ -101,29 +146,28 @@
 {# --- Add a new custom profile --- #}
 <h2 class="text-sm font-semibold text-gray-700 mt-8 mb-2">Add a custom profile</h2>
 <div class="border rounded bg-white px-3 py-3">
-  <form method="post" action="/profiles/save" class="space-y-3">
-    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-    <label class="text-sm block">
-      <span class="block text-xs font-medium text-gray-500 mb-1">Name (lowercase, e.g. <code>smoke</code>)</span>
-      <input type="text" name="name" required pattern="[a-z][a-z0-9-]*" class="border rounded px-2 py-1 w-64">
-    </label>
-    {{ checkgroup("Tiers", "tiers", valid_tiers, ["fast"]) }}
-    {{ checkgroup("Priorities", "priorities", valid_priorities, ["P0"]) }}
-    {{ checkgroup("Targets", "targets", valid_targets, ["docker"]) }}
-    <div class="flex flex-wrap items-end gap-4">
-      <label class="text-sm">
-        <span class="block text-xs font-medium text-gray-500 mb-1">Description</span>
-        <input type="text" name="description" class="border rounded px-2 py-1 w-80">
-      </label>
-      <label class="text-sm">
-        <span class="block text-xs font-medium text-gray-500 mb-1">Max duration (min)</span>
-        <input type="number" name="max_duration_minutes" min="1" class="border rounded px-2 py-1 w-28">
-      </label>
-      <label class="inline-flex items-center gap-1 text-sm pb-1">
-        <input type="checkbox" name="representative"> representative (set-cover subset)
-      </label>
-    </div>
-    <button type="submit" class="rounded bg-gray-900 text-white px-3 py-1.5 text-sm hover:bg-gray-700">Add profile</button>
-  </form>
+  {{ profile_form(
+       {"name": "", "tiers": ["fast"], "priorities": ["P0"], "targets": ["docker"],
+        "description": "", "max_duration_minutes": none, "representative": False, "tests": []},
+       valid_tiers, valid_priorities, valid_targets, is_new=True) }}
 </div>
+
+<script>
+function profileForm(initialKind, initialSelected) {
+  return {
+    kind: initialKind,
+    selected: initialSelected || [],
+    q: "",
+    // Parsed once per access; the JSON blob is shared across all forms.
+    get all() { return JSON.parse(document.getElementById("all-tests").textContent); },
+    get visible() {
+      const q = this.q.toLowerCase();
+      if (!q) return this.all;
+      return this.all.filter(t =>
+        (t.title + " " + t.name + " " + t.variant + " " + t.language).toLowerCase().includes(q)
+      );
+    },
+  };
+}
+</script>
 {% endblock %}

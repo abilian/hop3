@@ -126,7 +126,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash exec id=check-status timeout=30
-hop3 status --app hop3-tuto-static
+hop3 app status --app hop3-tuto-static
 ```
 
 ```output contains
@@ -150,8 +150,8 @@ Hello from Hop3
 ## Useful Commands
 
 ```bash skip
-hop3 logs --app hop3-tuto-static        # View logs
-hop3 restart --app hop3-tuto-static     # Restart the app
+hop3 app logs --app hop3-tuto-static        # View logs
+hop3 app restart --app hop3-tuto-static     # Restart the app
 hop3 config show --app hop3-tuto-static # Show configuration
 hop3 app destroy --app hop3-tuto-static -y  # Remove the app
 ```

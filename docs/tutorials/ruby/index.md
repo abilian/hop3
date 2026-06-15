@@ -48,7 +48,7 @@ The `[port] web` value is the conventional port for the framework (3000 for Rail
 - **Health checks.** Expose a cheap endpoint (Rails 8 ships `/up`; Sinatra defines one) and point `[healthcheck] path` at it so Hop3 knows when the app is live.
 - **Addons inject env vars.** Attach a `postgres` provider and Hop3 sets `DATABASE_URL`; attach `redis` and it sets `REDIS_URL`. Read those in `config/database.yml` and your job/cable config — never hard-code connection strings.
 - **Migrations and pre-run hooks.** Put schema migrations in `[run] before-run` (or a `prerun:` line in a `Procfile`) so they run once per deploy before the web process boots.
-- **Logs to stdout.** Hop3 captures the process's stdout/stderr. For Rails, set `RAILS_LOG_TO_STDOUT=true`; let `hop3 logs --app <app>` show you everything.
+- **Logs to stdout.** Hop3 captures the process's stdout/stderr. For Rails, set `RAILS_LOG_TO_STDOUT=true`; let `hop3 app logs --app <app>` show you everything.
 - **Secrets via config, not in git.** Set `SECRET_KEY_BASE` and friends with `hop3 config set`; keep `config/master.key` and credentials out of the repo.
 - **Procfile vs. hop3.toml.** Either works for declaring processes; when both exist, `hop3.toml` wins. The guides show both styles — pick one and stay consistent.
 
