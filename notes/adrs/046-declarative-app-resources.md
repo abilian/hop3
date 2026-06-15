@@ -13,8 +13,10 @@ Phase 1 is landing incrementally. Shipped so far:
 - **Generated secrets** (`[env] { generate = ... }`) — `hex`/`base64`/`urlsafe`/`password`/`uuid`, generated-once with a CSPRNG, persisted as normal app env, validated at schema time, wired into the deploy pipeline between static `[env]` and `[env.computed]`. Replaces the `hop3 deploy --env KEY=$(...)` workaround. See `deployers/env_provisioning.py::generate_secret_value` / `set_generated_env_vars`, `project/schema.py::EnvGenerate`, `docs/src/reference/config.md` §"Generated secrets".
 - **Ignore consolidation (§5)** — the `hop3 deploy` upload now excludes a built-in default set plus `[build].ignore`; `.gitignore` is no longer consulted for the upload (git-push only), `.dockerignore` stays a Docker-build concern, `.hop3ignore` is honored for one release with a loud deprecation warning, and `[build].ignore-file` is removed (schema rejects it). See `hop3-cli/commands/arguments.py::get_ignored_spec`, `project/schema.py::BuildSection`, `docs/src/reference/config.md` §"Excluding files from the upload".
 - **Dynamic env references (§1b)** — `{ from = "<addon>", key = "<KEY>" }` copies an attribute from one of the app's addons; `{ key = "domain"/"hostname"/"name" }` reads an app fact. Resolved at step 5 (after the domains→HOST_NAME step, before `[env.computed]`), overwriting like computed; fails loud on an unattached addon / unknown key / unknown fact. The schema validator is now the single classifier for `[env]` table values and rejects unrecognised shapes (the ADR's fail-loud, previously unenforced). `external_ip` is recognised but not implemented — it raises a clear deploy error. See `project/schema.py::EnvRef`, `deployers/env_provisioning.py::resolve_env_refs`, `docs/src/reference/config.md` §"Dynamic references".
+- **Persistent volumes (§2), `persist` type** — `[[volumes]]` links a directory in the app tree to storage under `<app>/volumes/<name>/` (outside `src/`), realized after extract and before the prebuild hook, so it survives the redeploy that wipes `src/`. Seeds an empty volume once from shipped content; idempotent on redeploy; honours `mode` and chowns to the run-user on root deploys; the in-src link is relative. `tmpfs`/`bind` are recognised but raise a clear "not implemented" deploy error (they need privileged mounts via rootd). See `project/schema.py::VolumeSection`, `deployers/volumes.py::realize_volumes`, `docs/src/reference/config.md` §"Persistent Volumes". Proven by `apps/test-apps-procfile/170-flask-volume`.
+- **Volumes integrate safely with the rest of the platform** (audit follow-up): backups archive each volume as its own unit and restore round-trips them (no more silent exclusion / `AbsoluteLinkError`-on-restore); per-volume `[volumes.backup] include = false` opts out; `hop3 app destroy` removes data/volumes as a complete teardown but warns loudly first (its dead "preserve data" branch is gone); and `[[volumes]]` under the Docker builder aborts loudly (the container can't see a host symlink). See `core/backup.py`, `orm/app.py::destroy`, `deployers/deployer.py::_reject_volumes_on_docker`.
 
-Not yet implemented: `external_ip` references, `[[volume]]`, `[limits]`, and the folded-in backup/multi-port extensions.
+Not yet implemented: `external_ip` references, `tmpfs`/`bind` volumes, `[[volumes]]` for the Docker builder, scheduled/retained backups (`[backup].paths`/`exclude` are reserved-but-inert), `[limits]`, and the folded-in multi-port extension.
 
 ## Context
 
@@ -23,7 +25,7 @@ Hop3's `hop3.toml` was modeled on Nua's `nua-config` (Hop3's predecessor). ADR 0
 The four gaps, each one a real blocker we have hit while greening the advertised app/tutorial set:
 
 1. **No generated secrets.** Many apps require a secret/key to exist *before first boot* (the release crashes without it). Hop3 has no way to declare "generate a secret named X once and keep it"; the only paths are hardcoding (forbidden) or out-of-band `hop3 config set` / `hop3 deploy --env X=$(...)`. We hit this with Phoenix (`SECRET_KEY_BASE`), Laravel (`APP_KEY`), and Rails (`secret_key_base`).
-2. **No declarative persistence.** There is no `[[volume]]`-equivalent. An app cannot declare which paths in its tree must survive the source-replacing redeploy, request a tmpfs, or attach a bind mount. The only persisted location is the implicit `data/` dir.
+2. **No declarative persistence.** There is no `[[volumes]]`-equivalent. An app cannot declare which paths in its tree must survive the source-replacing redeploy, request a tmpfs, or attach a bind mount. The only persisted location is the implicit `data/` dir.
 3. **No dynamic env references.** Hop3 auto-injects a *fixed, per-addon-type* env contract (`DATABASE_URL`, `PGHOST`, …). It cannot copy an arbitrary provider attribute, build a custom connection string from parts, reference a second instance, or read the host's public IP.
 4. **No resource limits.** Nothing lets an app declare a memory or CPU cap. On a single box running many apps — Hop3's whole premise — one app can starve the others.
 
@@ -59,7 +61,7 @@ Tenets that bind the whole design:
 Concretely, this ADR specifies:
 
 1. `[env]` typed-value forms for **generated secrets** and **dynamic references** (Phase 1).
-2. A new `[[volume]]` section for **declarative persistence** (Phase 1).
+2. A new `[[volumes]]` section for **declarative persistence** (Phase 1).
 3. A new `[limits]` section for **resource caps** (Phase 1).
 4. Folded-in: `[backup]` **per-resource policy** extending ADR 024 (and superseding the backup-config sketch in ADR 002 §backup); `[port]` **proxied secondary endpoints** extending ADR 040.
 5. Consolidate **deploy ignore patterns** into `[build].ignore`, removing the `.hop3ignore` sidecar and the `[build].ignore-file` pointer; ecosystem-standard ignore files apply only in their native context (`.gitignore` → git-push, `.dockerignore` → docker), never for the generic `hop3 deploy` upload.
@@ -132,15 +134,15 @@ Applied in order; each step fails loud on an unresolvable ref / unknown addon / 
 
 The output is the desired env; the deployer reconciles it against the `EnvVar` store. `_policy = "override"` flips steps 2–4 to overwrite (generated secrets are still generated-once — override does not force rotation).
 
-### 2. `[[volume]]` — declarative persistence
+### 2. `[[volumes]]` — declarative persistence
 
 ```toml
-[[volume]]
+[[volumes]]
 name   = "uploads"          # logical name → storage id "<app>-uploads"
 target = "data/uploads"     # path in the app tree (relative) or absolute
 type   = "persist"          # persist (default) | tmpfs | bind
 
-  [volume.backup]           # optional; ties into ADR 024
+  [volumes.backup]          # optional; ties into ADR 024
   include = true
 ```
 
@@ -148,7 +150,7 @@ type   = "persist"          # persist (default) | tmpfs | bind
 - `type = "tmpfs"`: a RAM-backed dir (`size`, `mode` options) for caches/scratch.
 - `type = "bind"`: an operator-approved host path. Binding arbitrary host paths is a host-escape risk, so this is **default-deny**: only paths under an operator-configured allow-list are accepted; anything else aborts the deploy.
 
-Realization by builder: native/Nix → bind-mount or symlink into the app tree via the deploy shell (privileged mounts through hop3-rootd, ADR 041); Docker → container volume/mount. Per-volume `[volume.backup]` makes ADR 024's backup/restore *resource-aware* (a volume becomes a backup unit).
+Realization by builder: native/Nix → bind-mount or symlink into the app tree via the deploy shell (privileged mounts through hop3-rootd, ADR 041); Docker → container volume/mount. Per-volume `[volumes.backup]` makes ADR 024's backup/restore *resource-aware* (a volume becomes a backup unit).
 
 ### 3. `[limits]` — resource caps
 
@@ -188,7 +190,7 @@ type = "postgres"
   schedule = "0 3 * * *"
 ```
 
-Plus per-`[[volume]]` `[volume.backup]`. This is the config-surface layer over the backup *system* already specified by ADR 024 (which is extended, not replaced); it supersedes the backup-config sketch in ADR 002.
+Plus per-`[[volumes]]` `[volumes.backup]`. This is the config-surface layer over the backup *system* already specified by ADR 024 (which is extended, not replaced); it supersedes the backup-config sketch in ADR 002.
 
 #### 4b. Proxied secondary endpoints — extend ADR 040
 
@@ -264,10 +266,10 @@ type = "postgres"
 [metadata]
 id = "notes"
 
-[[volume]]
+[[volumes]]
 name = "uploads"
 target = "data/uploads"
-  [volume.backup]
+  [volumes.backup]
   include = true
 
 [limits]

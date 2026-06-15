@@ -754,6 +754,107 @@ class EnvRef(BaseModel):
         return self
 
 
+# Volume types for `[[volumes]]` (ADR 046 §2). Only "persist" is implemented;
+# tmpfs/bind need privileged mounts and fail loud at deploy until then.
+VOLUME_TYPES: frozenset[str] = frozenset({"persist", "tmpfs", "bind"})
+
+_VOLUME_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
+
+
+class VolumeSection(BaseModel):
+    """A `[[volumes]]` entry — a path that survives the source-replacing redeploy.
+
+    ``persist`` (the default, and the only implemented type) links ``target`` —
+    a directory inside the app's source tree — to storage under the app's data
+    root (`<app>/volumes/<name>/`), so writes outlive the redeploy that wipes
+    `src/`.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(
+        description="Logical volume name; storage lives at <app>/volumes/<name>.",
+    )
+    target: str = Field(
+        description="Directory inside the app tree to back with the volume (relative).",
+    )
+    type: str = Field(
+        default="persist", description="persist (default) | tmpfs | bind."
+    )
+    size: str | None = Field(
+        default=None, description="Size cap for a tmpfs volume (e.g. '256M')."
+    )
+    mode: str | None = Field(
+        default=None, description="Octal permissions for the volume directory."
+    )
+    backup: dict[str, Any] | None = Field(
+        default=None,
+        description="Per-volume backup policy (ADR 024 integration — not yet acted on).",
+    )
+
+    @field_validator("name")
+    @classmethod
+    def _check_name(cls, v: str) -> str:
+        if not _VOLUME_NAME_RE.match(v):
+            msg = (
+                f"Invalid [[volumes]] name {v!r}. Use letters, digits, '-' or '_' "
+                "(starting with a letter or digit)."
+            )
+            raise ValueError(msg)
+        return v
+
+    @field_validator("type")
+    @classmethod
+    def _check_type(cls, v: str) -> str:
+        if v not in VOLUME_TYPES:
+            msg = (
+                f"Invalid [[volumes]] type {v!r}. "
+                f"Must be one of: {', '.join(sorted(VOLUME_TYPES))}."
+            )
+            raise ValueError(msg)
+        return v
+
+    @field_validator("target")
+    @classmethod
+    def _check_target(cls, v: str) -> str:
+        if not v or v.startswith("/"):
+            msg = (
+                f"[[volumes]] target {v!r} must be a non-empty path relative to the "
+                "app tree (not absolute)."
+            )
+            raise ValueError(msg)
+        if ".." in v.split("/"):
+            msg = (
+                f"[[volumes]] target {v!r} must not contain '..' "
+                "(no escaping the app tree)."
+            )
+            raise ValueError(msg)
+        return v
+
+    @field_validator("mode")
+    @classmethod
+    def _check_mode(cls, v: str | None) -> str | None:
+        if v is not None:
+            try:
+                int(v, 8)
+            except ValueError:
+                msg = f"[[volumes]] mode {v!r} must be an octal string, e.g. '0700'."
+                raise ValueError(msg) from None
+        return v
+
+    @model_validator(mode="after")
+    def _check_size_only_for_tmpfs(self) -> VolumeSection:
+        # `size` only means anything for a (not-yet-implemented) tmpfs volume;
+        # accepting it on a persist volume would silently do nothing.
+        if self.size is not None and self.type != "tmpfs":
+            msg = (
+                f"[[volumes]] {self.name!r}: 'size' is only valid for tmpfs "
+                "volumes (which are not implemented yet)."
+            )
+            raise ValueError(msg)
+        return self
+
+
 class Hop3TomlSchema(BaseModel):
     """Complete hop3.toml schema with validation.
 
@@ -829,6 +930,14 @@ class Hop3TomlSchema(BaseModel):
             "it here."
         ),
     )
+    volumes: list[VolumeSection] | None = Field(
+        default=None,
+        description=(
+            "Declarative persistent volumes (ADR 046 §2). Each links a directory "
+            "in the app tree to storage that survives the source-replacing "
+            "redeploy."
+        ),
+    )
     provider: list[AddonConfig] | None = Field(
         default=None,
         description="Deprecated: use [[addons]] instead",
@@ -868,6 +977,18 @@ class Hop3TomlSchema(BaseModel):
             seen = [(p.number, p.protocol) for p in v]
             if len(seen) != len(set(seen)):
                 msg = "Duplicate (number, protocol) entry in [[ports]]"
+                raise ValueError(msg)
+        return v
+
+    @field_validator("volumes")
+    @classmethod
+    def _validate_unique_volumes(
+        cls, v: list[VolumeSection] | None
+    ) -> list[VolumeSection] | None:
+        if v:
+            names = [vol.name for vol in v]
+            if len(names) != len(set(names)):
+                msg = "Duplicate [[volumes]] name"
                 raise ValueError(msg)
         return v
 

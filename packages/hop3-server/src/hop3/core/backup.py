@@ -19,7 +19,7 @@ import os
 import secrets
 import shutil
 import tarfile
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -146,6 +146,10 @@ class BackupManifest:
     addons: list[dict[str, Any]]
     env_vars_count: int
     expires_after: int
+    # Persistent volumes archived in this backup (ADR 046 §2). Each entry has
+    # {name, backup_file}. Defaulted so backups taken before volumes existed
+    # still load.
+    volumes: list[dict[str, Any]] = field(default_factory=list)
 
     @classmethod
     def from_json(cls, data: dict) -> BackupManifest:
@@ -260,6 +264,10 @@ class BackupManager:
             self._backup_source(app, backup_dir)
             self._backup_data(app, backup_dir)
             self._backup_env(app, backup_dir)
+            # Persistent volumes (ADR 046 §2) are a sibling of src/ and data/,
+            # so they must be archived explicitly or their data is silently
+            # missing from the backup.
+            volumes_info = self._backup_volumes(app, backup_dir)
 
             addons_info = []
             if include_addons:
@@ -272,11 +280,11 @@ class BackupManager:
                 if file_path.exists():
                     checksums[filename] = self._calculate_checksum(file_path)
 
-            for service_info in addons_info:
-                service_file = backup_dir / service_info["backup_file"]
-                if service_file.exists():
-                    checksums[service_info["backup_file"]] = self._calculate_checksum(
-                        service_file
+            for entry in [*addons_info, *volumes_info]:
+                entry_file = backup_dir / entry["backup_file"]
+                if entry_file.exists():
+                    checksums[entry["backup_file"]] = self._calculate_checksum(
+                        entry_file
                     )
 
             # Calculate total size
@@ -303,6 +311,7 @@ class BackupManager:
                 addons=addons_info,
                 env_vars_count=len(app.env_vars),
                 expires_after=0,
+                volumes=volumes_info,
             )
 
             # Write manifest
@@ -451,6 +460,10 @@ class BackupManager:
             # Restore components
             self._restore_source(app, backup_dir)
             self._restore_data(app, backup_dir)
+            # Volumes must be repopulated BEFORE app.deploy() re-links them:
+            # realize_volumes only seeds an *empty* volume, so restored data
+            # already on disk is preserved and simply re-linked (ADR 046 §2).
+            self._restore_volumes(app, backup_dir, manifest)
             self._restore_env(app, backup_dir, manifest)
             self._restore_addons(app, backup_dir, manifest)
 
@@ -620,9 +633,20 @@ class BackupManager:
 
         tar_path = backup_dir / "source.tar.gz"
 
+        # Volume targets are realized as symlinks into src/ pointing OUTSIDE the
+        # tree (ADR 046 §2). Archiving them would (a) store no real data and
+        # (b) abort restore with AbsoluteLinkError under tar's data filter. Skip
+        # them here — their bytes are archived separately by _backup_volumes.
+        volume_arcnames = {
+            "src/" + v["target"].strip("/") for v in self._app_volumes(app)
+        }
+
+        def _skip_volume_links(tarinfo: tarfile.TarInfo) -> tarfile.TarInfo | None:
+            return None if tarinfo.name.rstrip("/") in volume_arcnames else tarinfo
+
         with tarfile.open(tar_path, "w:gz") as tar:
             if src_path.exists():
-                tar.add(src_path, arcname="src")
+                tar.add(src_path, arcname="src", filter=_skip_volume_links)
             if repo_path.exists():
                 tar.add(repo_path, arcname="git")
 
@@ -630,6 +654,46 @@ class BackupManager:
         log(f"Backed up source: {format_size(size)}")
 
         return {"size": size}
+
+    def _app_volumes(self, app: App) -> list[dict]:
+        """Declared [[volumes]] for an app, read from its deployed hop3.toml.
+
+        Returns [] when there is no config or no volumes (or on any parse
+        error) — backup must never fail because the config can't be read.
+        """
+        from hop3.project.config import AppConfig  # noqa: PLC0415
+
+        # from_dir expects the app dir (its src_dir is <app_dir>/src), matching
+        # how the deployer reads the config.
+        try:
+            return AppConfig.from_dir(app.app_path).hop3_config.volumes
+        except Exception:
+            return []
+
+    def _backup_volumes(self, app: App, backup_dir: Path) -> list[dict]:
+        """Archive each persistent volume as its own member (ADR 046 §2).
+
+        Each volume's real bytes live at ``app.volumes_path / <name>`` (outside
+        src/ and data/), so it gets a dedicated ``volume-<name>.tar.gz``. A
+        ``[volumes.backup] include = false`` opts a volume out.
+        """
+        results: list[dict] = []
+        for vol in self._app_volumes(app):
+            name = vol["name"]
+            backup_cfg = vol.get("backup") or {}
+            if backup_cfg.get("include") is False:
+                log(f"Skipping volume '{name}' (backup.include = false)")
+                continue
+
+            vol_dir = app.volumes_path / name
+            backup_file = f"volume-{name}.tar.gz"
+            tar_path = backup_dir / backup_file
+            with tarfile.open(tar_path, "w:gz") as tar:
+                if vol_dir.exists():
+                    tar.add(vol_dir, arcname=name)
+            results.append({"name": name, "backup_file": backup_file})
+            log(f"Backed up volume '{name}': {format_size(tar_path.stat().st_size)}")
+        return results
 
     def _backup_data(self, app: App, backup_dir: Path) -> dict:
         """Backup data directory.
@@ -812,6 +876,36 @@ class BackupManager:
             tar.extractall(app.app_path, filter="data")
 
         log("Restored data directory")
+
+    def _restore_volumes(
+        self, app: App, backup_dir: Path, manifest: BackupManifest
+    ) -> None:
+        """Restore persistent volumes from their per-volume archives (ADR 046 §2).
+
+        Extracts each ``volume-<name>.tar.gz`` back into ``app.volumes_path /
+        <name>`` so that the subsequent ``app.deploy()`` re-links it with the
+        data intact.
+        """
+        volumes = getattr(manifest, "volumes", None) or []
+        if not volumes:
+            return
+
+        volumes_root = app.volumes_path
+        for vol in volumes:
+            name = vol["name"]
+            tar_path = backup_dir / vol["backup_file"]
+            if not tar_path.exists():
+                log(f"Warning: volume archive missing: {vol['backup_file']}")
+                continue
+
+            target_dir = volumes_root / name
+            if target_dir.exists():
+                shutil.rmtree(target_dir)
+            volumes_root.mkdir(parents=True, exist_ok=True)
+            with tarfile.open(tar_path, "r:gz") as tar:
+                tar.extractall(volumes_root, filter="data")
+
+        log("Restored volumes")
 
     def _restore_env(
         self, app: App, backup_dir: Path, manifest: BackupManifest

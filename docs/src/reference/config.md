@@ -306,6 +306,34 @@ name = "federation"
 - **Native/Nix builds only.** A Docker-deployed app's container does not yet publish declared ports to the host, so for Docker apps the port is *claimed* (conflict-checked) but the firewall is not opened. Use a native or Nix build for an app that needs a fixed host port.
 - Opening the firewall needs the `hop3-rootd` daemon. If it isn't running the port is still *claimed* (so the conflict check works), but it won't be reachable externally until rootd applies the rule.
 
+### `[[volumes]]` - Persistent Volumes
+
+Each deploy replaces your app's source tree (`src/` is wiped and re-extracted), so anything written *inside* it is lost on the next deploy. A `[[volumes]]` declares a directory that must **survive** redeploys:
+
+```toml
+[[volumes]]
+name = "uploads"
+target = "data/uploads"
+```
+
+Hop3 stores the data under the app's data root (`<app>/volumes/<name>/`) — outside `src/` — and links `target` to it on every deploy, so writes persist. On the first deploy, if your source ships content at `target`, it seeds the (empty) volume once; afterwards the volume is the source of truth.
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | yes | Logical name; storage lives at `<app>/volumes/<name>/`. Letters, digits, `-`, `_` |
+| `target` | string | yes | Directory inside the app tree to persist. Relative, no `..` |
+| `type` | string | no | `persist` (default). `tmpfs` / `bind` are recognized but **not implemented yet** (they fail the deploy with a clear message) |
+| `size` | string | no | Size cap for a future `tmpfs` volume (e.g. `"256M"`) |
+| `mode` | string | no | Octal permissions for the volume directory |
+
+**Notes:**
+
+- `target` must be a **directory** path relative to the app's source tree; absolute paths and `..` are rejected. A file already at `target` is an error — volume targets are directories.
+- Persist volumes need no `hop3-rootd`: the link lives under the app's own directories. `tmpfs`/`bind` will need privileged mounts and are deferred.
+- A `[volumes.backup]` sub-table is accepted for forward compatibility but not yet acted on (it will tie into the backup system; declaring it logs a notice).
+
 ### `[healthcheck]` - Health Check Configuration
 
 Configure health check endpoints for monitoring.
@@ -324,19 +352,21 @@ interval = 60             # Check interval in seconds
 
 ### `[backup]` - Backup Configuration
 
-Configure automated backups for your application.
+Backups are created **on demand** with `hop3 backup create <app>` and restored with `hop3 backup restore <id>`. A backup captures the app's source, environment variables, attached addons (e.g. a Postgres dump), the app's `data/` directory, **and every `[[volumes]]` volume** (each archived as its own unit) — so persistent data round-trips through restore.
 
 ```toml
 [backup]
-enabled = true
-schedule = "0 2 * * *"    # Cron expression (daily at 2 AM)
-retention = 7             # Days to keep backups
+paths = ["data", "var/state"]   # extra directories to include
+exclude = ["*.tmp", "cache/"]    # patterns to leave out
 ```
 
 **Fields:**
-- `enabled` (boolean): Enable/disable automated backups
-- `schedule` (string): Cron expression for backup schedule
-- `retention` (number): Number of days to retain backups
+- `paths` (array): extra directories to include beyond the defaults.
+- `exclude` (array): glob patterns to exclude.
+
+**Notes:**
+- A `[[volumes]]` volume can opt out of backup with `[volumes.backup]` `include = false`.
+- Automated scheduling and retention are not implemented yet; run `hop3 backup create` from a cron job if you need a schedule. (The `paths` / `exclude` fields are reserved and not yet consumed.)
 
 ### `[[addons]]` - Backing Services
 
