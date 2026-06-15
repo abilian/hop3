@@ -267,6 +267,9 @@ start = "php -S 0.0.0.0:$PORT -t public"
 before-run = "php bin/console cache:clear --env=prod && php bin/console cache:warmup --env=prod"
 
 [env]
+# Generated once on the first deploy, persisted, and reused — never
+# committed or rotated (ADR 046).
+APP_SECRET = { generate = "hex", length = 16 }
 APP_ENV = "prod"
 APP_DEBUG = "0"
 
@@ -351,7 +354,6 @@ hop3 init --ssh root@your-server.example.com
 
 ```bash
 hop3 config set --app hop3-tuto-symfony APP_ENV=prod
-hop3 config set --app hop3-tuto-symfony APP_SECRET=$(openssl rand -hex 16)
 hop3 config set --app hop3-tuto-symfony APP_DEBUG=0
 ```
 
@@ -584,11 +586,7 @@ hop3 run hop3-tuto-symfony php bin/console cache:warmup --env=prod
 ```
 
 ### Missing APP_SECRET
-Generate and set:
-
-```bash
-hop3 config set --app hop3-tuto-symfony APP_SECRET=$(openssl rand -hex 16)
-```
+`APP_SECRET` is generated automatically on the first deploy (declared in `hop3.toml` `[env]`), so there's nothing to set by hand.
 
 ### Database Connection Issues
 Verify DATABASE_URL format:
@@ -627,6 +625,7 @@ start = "php -S 0.0.0.0:$PORT -t public"
 before-run = "php bin/console doctrine:migrations:migrate --no-interaction && php bin/console cache:warmup --env=prod"
 
 [env]
+APP_SECRET = { generate = "hex", length = 16 }
 APP_ENV = "prod"
 APP_DEBUG = "0"
 

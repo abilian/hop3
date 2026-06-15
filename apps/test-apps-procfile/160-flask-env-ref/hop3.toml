@@ -1,0 +1,34 @@
+# Hop3 configuration for the dynamic [env] reference smoke test (ADR 046 §1b).
+
+[metadata]
+id = "flask-env-ref"
+description = "Flask app proving Hop3 dynamic [env] references resolve at deploy"
+
+[[addons]]
+type = "postgres"
+name = "db"
+
+[env]
+# Addon reference: copy one attribute from the 'db' addon's credentials. The
+# addon ALSO auto-injects PGHOST directly, so a correct reference makes
+# DB_HOST_VIA_REF == PGHOST (the app asserts this).
+DB_HOST_VIA_REF = { from = "db", key = "PGHOST" }
+# App-fact reference (no `from`): the app's own name.
+APP_NAME_VIA_REF = { key = "name" }
+
+[test]
+priority = "P1"
+tier = "fast"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["python", "flask", "postgres", "addons", "env-refs"]
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "ENV REF OK"
+
+[[test.validations]]
+path = "/config"
+status = 200
+contains = "DB_HOST_VIA_REF="

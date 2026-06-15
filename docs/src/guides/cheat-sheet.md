@@ -473,7 +473,8 @@ hop3 ps scale myapp worker=2
 ### Configuration
 
 - **Don't hardcode secrets** in `hop3.toml` or Procfile
-- Use `hop3 config set` for sensitive values (API keys, passwords)
+- For app-internal random secrets (`SECRET_KEY`, `APP_KEY`, …), declare `KEY = { generate = "hex", length = 32 }` in `[env]` — generated once on first deploy, persisted, never committed
+- Use `hop3 config set` for externally-supplied secrets (API keys, passwords)
 - Keep `hop3.toml` in version control (without secrets)
 - Use `[env]` for non-sensitive defaults only
 

@@ -60,6 +60,12 @@ class TestCommandError:
         assert "permission denied" in str(err)
         assert err.stderr == "permission denied"
 
+    def test_command_failed_error_carries_stdout(self):
+        """CommandFailedError keeps stdout (defaults to empty)."""
+        assert CommandFailedError(["c"], returncode=1).stdout == ""
+        err = CommandFailedError(["c"], returncode=1, stdout="boom on stdout")
+        assert err.stdout == "boom on stdout"
+
     def test_exception_hierarchy(self):
         """All specific errors inherit from CommandError."""
         assert issubclass(CommandNotFoundError, CommandError)
@@ -164,6 +170,28 @@ class TestRunCommand:
                 text=True,
             )
         assert "text_error" in exc_info.value.stderr
+
+    def test_command_failure_captures_stdout_text(self):
+        """Failure output on stdout (empty stderr) must be captured, not lost.
+
+        Many tools write their real error/traceback to stdout; the exception
+        must carry it so callers (e.g. `hop3 run`) can show more than a bare
+        exit code.
+        """
+        with pytest.raises(CommandFailedError) as exc_info:
+            run_command(
+                ["sh", "-c", "echo failure detail on stdout; exit 1"],
+                text=True,
+            )
+        assert "failure detail on stdout" in exc_info.value.stdout
+        assert exc_info.value.stderr == ""
+
+    def test_command_failure_captures_stdout_bytes(self):
+        """stdout is captured on failure in bytes mode too (text=False)."""
+        with pytest.raises(CommandFailedError) as exc_info:
+            run_command(["sh", "-c", "echo on_stdout; exit 3"])
+        assert "on_stdout" in exc_info.value.stdout
+        assert exc_info.value.returncode == 3
 
     def test_command_with_all_options(self):
         """run_command works with all options combined."""

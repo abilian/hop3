@@ -79,9 +79,19 @@ class CommandTimeoutError(CommandError):
 class CommandFailedError(CommandError):
     """Raised when the command returns non-zero exit code."""
 
-    def __init__(self, cmd: list[str], returncode: int, stderr: str = "") -> None:
+    def __init__(
+        self,
+        cmd: list[str],
+        returncode: int,
+        stderr: str = "",
+        stdout: str = "",
+    ) -> None:
         self.returncode = returncode
         self.stderr = stderr
+        # Captured stdout. Many tools write their real error (and tracebacks) to
+        # stdout, not stderr, so callers that only surface stderr would show a
+        # bare exit code. Kept on the exception so they can surface both.
+        self.stdout = stdout
         message = f"exited with code {returncode}"
         if stderr:
             message += f" ({stderr})"
@@ -137,9 +147,11 @@ def run_command(
     except subprocess.CalledProcessError as e:
         if text:
             stderr = e.stderr.strip() if e.stderr else ""
+            stdout = e.stdout.strip() if e.stdout else ""
         else:
             stderr = e.stderr.decode().strip() if e.stderr else ""
-        raise CommandFailedError(cmd, e.returncode, stderr) from None
+            stdout = e.stdout.decode().strip() if e.stdout else ""
+        raise CommandFailedError(cmd, e.returncode, stderr, stdout) from None
     except FileNotFoundError:
         raise CommandNotFoundError(cmd) from None
     except subprocess.TimeoutExpired:

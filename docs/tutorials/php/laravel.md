@@ -386,6 +386,11 @@ start = "php artisan serve --host=0.0.0.0 --port=$PORT"
 before-run = "php artisan migrate --force && php artisan config:cache && php artisan route:cache"
 
 [env]
+# Laravel needs APP_KEY to encrypt cookies/sessions, or every request (incl.
+# the /up health check) 500s. Generated once on the first deploy — base64: + 32
+# random bytes, exactly like `php artisan key:generate` — then persisted and
+# reused, never committed or rotated (ADR 046).
+APP_KEY = { generate = "base64", length = 32, prefix = "base64:" }
 APP_ENV = "production"
 APP_DEBUG = "false"
 LOG_CHANNEL = "stderr"
@@ -486,15 +491,9 @@ hop3 addons attach hop3-tuto-laravel hop3-tuto-laravel-db
 
 ### Set Environment Variables
 
-```bash skip
-# Generate and set the application key
-hop3 config set --app hop3-tuto-laravel APP_KEY=$(php artisan key:generate --show)
-
-# Set Laravel environment variables
-hop3 config set --app hop3-tuto-laravel APP_ENV=production
-hop3 config set --app hop3-tuto-laravel APP_DEBUG=false
-hop3 config set --app hop3-tuto-laravel LOG_CHANNEL=stderr
-```
+There's nothing to set by hand: `APP_KEY` is generated automatically on the
+first deploy, and `APP_ENV` / `APP_DEBUG` / `LOG_CHANNEL` are declared in
+`hop3.toml` `[env]` (above).
 
 ### Prepare for Deployment
 
@@ -525,18 +524,6 @@ Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
 hop3 config set --app hop3-tuto-laravel HOST_NAME=hop3-tuto-laravel.$HOP3_TEST_DOMAIN
-```
-
-### Set the Application Key
-
-Laravel needs an `APP_KEY` to encrypt cookies and sessions; without it every
-request (including the `/up` health check) returns a 500. Generate one and set
-it as a config var — a secret, so it's set via `hop3 config set`, never
-committed. It's baked into the cached config by the next deploy's
-`php artisan config:cache`:
-
-```bash exec id=set-app-key dir=hop3-tuto-laravel timeout=30
-hop3 config set --app hop3-tuto-laravel APP_KEY="$(php artisan key:generate --show)"
 ```
 
 ### Apply Configuration
@@ -741,7 +728,7 @@ hop3 app logs --app hop3-tuto-laravel --tail
 ```
 
 Common issues:
-- **Missing APP_KEY**: Generate with `php artisan key:generate --show`
+- **Missing APP_KEY**: It's generated automatically on the first deploy via the `[env]` `{ generate = ... }` declaration; check `hop3 config show --app hop3-tuto-laravel` to confirm it's set
 - **Database not connected**: Ensure the addon is attached
 - **Missing PHP extensions**: Check required extensions in `composer.json`
 
@@ -828,6 +815,7 @@ start = "php artisan serve --host=0.0.0.0 --port=$PORT"
 before-run = "php artisan migrate --force && php artisan config:cache && php artisan route:cache && php artisan view:cache"
 
 [env]
+APP_KEY = { generate = "base64", length = 32, prefix = "base64:" }
 APP_ENV = "production"
 APP_DEBUG = "false"
 LOG_CHANNEL = "stderr"
