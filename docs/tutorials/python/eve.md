@@ -293,6 +293,9 @@ packages = ["python3", "python3-pip"]
 start = "gunicorn app:app --bind 0.0.0.0:$PORT"
 
 [env]
+# Generated once on the first deploy, persisted, and reused — never
+# committed or rotated (ADR 046).
+SECRET_KEY = { generate = "hex", length = 32 }
 PYTHONUNBUFFERED = "1"
 
 [port]
@@ -316,9 +319,7 @@ hop3 init --ssh root@your-server.example.com
 
 ### Set Environment Variables
 
-```bash skip
-hop3 config set --app hop3-tuto-eve SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-```
+`SECRET_KEY` is generated automatically on the first deploy (declared in `hop3.toml` `[env]`), so there's nothing to set by hand.
 
 ### Deploy
 
@@ -460,6 +461,9 @@ version = "1.0.0"
 [build]
 [run]
 start = "gunicorn app:app --bind 0.0.0.0:$PORT --workers 2"
+
+[env]
+SECRET_KEY = { generate = "hex", length = 32 }
 
 [port]
 web = 8000

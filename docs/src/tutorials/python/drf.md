@@ -283,6 +283,9 @@ start = "gunicorn config.wsgi --bind 0.0.0.0:$PORT"
 before-run = "python manage.py migrate --noinput"
 
 [env]
+# DRF/Django needs SECRET_KEY in production. Generated once on the first deploy,
+# persisted, and reused — never committed or rotated (ADR 046).
+SECRET_KEY = { generate = "hex", length = 50 }
 PYTHONUNBUFFERED = "1"
 DJANGO_SETTINGS_MODULE = "config.settings"
 
@@ -315,12 +318,8 @@ hop3 deploy hop3-tuto-drf
 
 ### Set Environment Variables
 
-Harden the deployment: replace the dev-insecure fallback `SECRET_KEY` with a
-real one, and set `ALLOWED_HOSTS` and the hostname for the application:
-
-```bash
-hop3 config set --app hop3-tuto-drf SECRET_KEY=drf-insecure-changeme-for-production
-```
+`SECRET_KEY` is generated automatically on the first deploy (see `hop3.toml`
+`[env]`). Set `ALLOWED_HOSTS` and the hostname for the application:
 
 ```bash
 hop3 config set --app hop3-tuto-drf ALLOWED_HOSTS=hop3-tuto-drf.$HOP3_TEST_DOMAIN,localhost,127.0.0.1
@@ -437,6 +436,9 @@ before-build = ["python manage.py collectstatic --noinput"]
 [run]
 start = "gunicorn config.wsgi --bind 0.0.0.0:$PORT --workers 2"
 before-run = "python manage.py migrate --noinput"
+
+[env]
+SECRET_KEY = { generate = "hex", length = 50 }
 
 [port]
 web = 8000

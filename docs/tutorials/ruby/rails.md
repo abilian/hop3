@@ -285,13 +285,16 @@ start = "bundle exec puma -C config/puma.rb"
 before-run = "bin/rails db:migrate"
 
 [env]
+# Generated once on the first deploy (64 random bytes hex, like `bin/rails
+# secret`), persisted, and reused — never committed or rotated (ADR 046).
+# production.rb wires it into config.secret_key_base for real, stable sessions.
+SECRET_KEY_BASE = { generate = "hex", length = 64 }
 RAILS_ENV = "production"
 RAILS_LOG_TO_STDOUT = "true"
 RAILS_SERVE_STATIC_FILES = "true"
-# Let build/boot tasks (assets:precompile, db:migrate) run before you've set a
-# real secret: Rails 7.1+ uses an ephemeral key when SECRET_KEY_BASE_DUMMY is
-# set. For real sessions, set a persistent one:
-#   hop3 config set --app hop3-tuto-rails SECRET_KEY_BASE=$(bin/rails secret)
+# Harmless build/boot fallback: assets:precompile and db:migrate may run before
+# the generated secret reaches the build shell. Rails uses an ephemeral key only
+# when SECRET_KEY_BASE is absent, so this never overrides the real one.
 SECRET_KEY_BASE_DUMMY = "1"
 
 [port]
@@ -456,15 +459,9 @@ hop3 addons attach hop3-tuto-rails myapp-db
 
 ### Set Environment Variables
 
-```bash skip
-# Generate and set the secret key
-hop3 config set --app hop3-tuto-rails SECRET_KEY_BASE=$(bin/rails secret)
-
-# Set Rails environment variables
-hop3 config set --app hop3-tuto-rails RAILS_ENV=production
-hop3 config set --app hop3-tuto-rails RAILS_LOG_TO_STDOUT=true
-hop3 config set --app hop3-tuto-rails RAILS_SERVE_STATIC_FILES=true
-```
+Nothing to set by hand: `SECRET_KEY_BASE` is generated automatically on the
+first deploy, and `RAILS_ENV` / `RAILS_LOG_TO_STDOUT` / `RAILS_SERVE_STATIC_FILES`
+are declared in `hop3.toml` `[env]` (above).
 
 ### Deploy
 
@@ -849,6 +846,7 @@ before-run = "bin/rails db:migrate"
 packages = ["postgresql"]
 
 [env]
+SECRET_KEY_BASE = { generate = "hex", length = 64 }
 RAILS_ENV = "production"
 RAILS_LOG_TO_STDOUT = "true"
 RAILS_SERVE_STATIC_FILES = "true"
