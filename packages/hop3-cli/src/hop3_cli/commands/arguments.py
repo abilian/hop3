@@ -57,6 +57,12 @@ _DEFAULT_IGNORE_PATTERNS = [
     ".venv/",
     "venv/",
     "node_modules/",
+    # Compiled-language build output, rebuilt server-side and never deployed.
+    # `target/` is both Rust's (cargo) and Java/Maven's output dir; cargo
+    # hardlinks the release binary into target/release/deps/, which the
+    # server's safe-extract refuses — and it is hundreds of MB. Same rationale
+    # as node_modules/.venv above.
+    "target/",
     ".mypy_cache/",
     ".pytest_cache/",
     ".ruff_cache/",
