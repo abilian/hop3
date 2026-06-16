@@ -10,6 +10,7 @@
 ## Revisions
 
 - **v0.2 (2026-05-01)**: Current draft. Earlier drafts explored a per-operation policy file with auto_allow / prompt / deny outcomes; that approach was discarded — see Alternatives section.
+- **v0.3 (2026-06-16)**: Phase 2 amendment for ADR 046 — adds the `cgroup.*` and `mount.*` op families (native `[limits]` enforcement and native `[[volumes]]`) under one shared validation/state/allow-list contract and one threat-modelled unit-hardening change. See §18.
 
 ## Context
 
@@ -661,7 +662,7 @@ The architecture is designed so future privileged operations slot in without pro
 3. **`systemd.reload(unit)` / `systemd.restart(unit)`** — replaces the caddy / traefik sudoers fallback in v1.1; clean lifecycle for systemd-managed app units if/when those become a deployer option.
 4. **`namespace.create_for_app(...)`** — only relevant if Hop3 ever introduces per-app network namespaces (a much larger change; out of scope for now, but the daemon would be the right place).
 
-Each addition is a separate ADR revision with its own threat model and expanded error-code taxonomy. None ship in v1.
+Each addition is a separate ADR revision with its own threat model and expanded error-code taxonomy. None ship in v1. (The first such additions — `cgroup.*` and `mount.*` for ADR 046 — are specified in §18.)
 
 ### 17. Connection to ADR 017 (agent-based architecture)
 
@@ -675,6 +676,28 @@ ADR 017 describes an agent abstraction with three phases: a self-healing watchdo
 The two daemons compose: when ADR 017's watchdog decides an app needs a privileged action (e.g., reload nginx because the app's config changed), it asks hop3-server, which asks hop3-rootd. The trust boundary is in exactly one place.
 
 For ADR 017 Phase 3 (multi-node), each node ships its own `hop3-rootd` and its own watchdog. The coordinator talks to a node's watchdog; the watchdog's privileged calls go through that node's rootd. The mental model — "control plane talks to per-node agents" — applies at both levels.
+
+### 18. Phase 2 amendment — `cgroup.*` and `mount.*` op families (ADR 046)
+
+ADR 046 Phase 2 (native `[limits]` enforcement and native `[[volumes]]`) needs privileged kernel operations beyond v1's `firewall.*` / `nginx.*` / `daemon.*`. Per §16 these arrive as one amendment — deliberately *one*, not two, because the two families share a trust budget, a validation surface, and a state discipline; amending the hardened unit twice independently would risk one change silently weakening the other's threat model.
+
+**New op families** (registered via `ops/_base.py::register`, dispatched and audited like v1 ops; kernel failures map to `kernel_error`):
+
+- **`cgroup.*`** (native `[limits]`, ADR 046 §3): `ensure_slice`, `set_limits`, `attach_pids`, `remove`, `read`. A per-app cgroup v2 leaf at `hop3.slice/hop3-app-<name>.scope` carries `memory.max` (+ `memory.swap.max=0` so a cap is a real cap), `cpu.max`, and `pids.max`; `attach_pids` migrates the app's PIDs in; `remove` does `cgroup.kill` then rmdir (a stronger reap surface than `/proc` scanning, including a Nix-store `exec`'d daemon); `read` exposes usage plus the `oom_kill` count for `hop3 app status`. Impl: `hop3_rootd/cgroup.py`, `ops/cgroup.py`.
+- **`mount.*`** (native `[[volumes]]`, ADR 046 §2): `tmpfs`, `bind`, `unmount`, `list`. `tmpfs` is a sized RAM scratch mount; `bind` attaches an operator-allow-listed host source (default-deny, realpath-checked); both run `mount(8)` / `umount(8)` (added to the exec allow-list). `list` is the teardown-verification surface. Impl: `hop3_rootd/mount.py`, `ops/mount.py`.
+
+**Shared contract** (why it is one amendment): *one path-allow-list* — rootd derives `APP_ROOT` from the hop3 user's home and validates `app_name` (the existing `validate_app_name`); every mountpoint/leaf must canonicalize under `<APP_ROOT>/<app>/src` resp. `hop3.slice/hop3-app-<app>.scope`, and callers pass `app_name` + a *relative* `target`, never an absolute path (§1). *One state discipline* — `StoredCgroup` and `StoredMount` join `state.json` (parsed optional, so existing v1 state still loads) under the same atomic-write + startup-reconcile model as firewall rules (`reconcile_cgroups` / `reconcile_mounts`; a host that cannot enforce degrades loudly rather than crashing the daemon, mirroring the nft-missing path). *One bind allow-list* — rootd reads its own copy (`/var/lib/hop3-rootd/bind-allowlist`, default-deny) as the third validation layer (§4); the installer keeps it in sync with the server-side `HOP3_BIND_VOLUME_ALLOWLIST`.
+
+**Trust-budget change (the load-bearing cost).** v1's unit (§10) runs with `CapabilityBoundingSet=CAP_NET_ADMIN`, `ProtectControlGroups=true`, `PrivateMounts=true`. Phase 2 requires, *as a single threat-modelled change*:
+
+- writing the cgroup hierarchy → `ProtectControlGroups=false` (or a systemd-delegated `hop3.slice` via `Delegate=`), with `ReadWritePaths` scoped to exactly that subtree;
+- mounting into the app's namespace → `CAP_SYS_ADMIN` and `MountFlags=shared` (or mounting in the host namespace), because a mount made in rootd's *private* namespace is invisible to the Emperor-spawned app process — a "mounted successfully" report over an empty dir, i.e. silent success.
+
+This is a materially larger kernel surface than CAP_NET_ADMIN-only; it is accepted only with the scoping above and the §1 framing (a hop3-server compromise is already total compromise of the hop3 user — rootd's job is to not *widen* that). The bind allow-list is the real control on `mount.bind` and must stay conservative.
+
+**Fallback.** If this hardening change is rejected, native `[limits]` / `tmpfs` / `bind` are infeasible and only the Docker paths ship (ADR 046's guaranteed-shippable baseline). The Phase-1 guards (`deployer.py::_reject_limits_on_non_docker`; the "not implemented" raise in `deployers/volumes.py` for tmpfs/bind) stay until the matching op is live — removing a guard before enforcement is real would deploy an app that *looks* capped/persisted but isn't, the exact lie this architecture forbids.
+
+The error-code taxonomy is unchanged (`validation_failed` / `kernel_error` / `state_conflict` cover both families). The client surface stays the existing `LocalRootdClient.call(op, args)`; ADR 046's server-side consumers add thin typed wrappers at their call sites.
 
 ## Consequences
 
