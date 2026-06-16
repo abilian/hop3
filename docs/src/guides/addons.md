@@ -65,6 +65,30 @@ hop3 addon show my-database            # Full details for one addon
 hop3 addon status my-database          # Health and connection check
 ```
 
+### Type-specific commands
+
+Each addon type adds a few operations under `hop3 addon <type> <verb> <name>` (the type is part of the command path, so no `--type` flag):
+
+```bash
+# Credentials (all types) — prints the connection env vars; treat as sensitive
+hop3 addon postgres credentials my-database
+hop3 addon redis credentials my-cache
+
+# Dump / restore (postgres, mysql; redis/s3 dump only for now)
+hop3 addon postgres dump my-database              # pg_dump → server backup dir
+hop3 addon postgres restore my-database <path>    # psql restore (prompts)
+hop3 addon mysql dump legacy-db
+hop3 addon redis dump my-cache
+
+# Postgres extensions (allow-listed)
+hop3 addon postgres extensions my-database postgis pgvector
+
+# Redis flush — empties the database, keeps the addon (prompts)
+hop3 addon redis flush my-cache
+```
+
+See the [CLI reference](../reference/cli.md#hop3-addon-type-verb--type-specific-commands) for the full per-type verb matrix.
+
 ## Addon Reference
 
 ### postgres
@@ -200,7 +224,7 @@ hop3 backup create --app my-app           # Includes attached addon data
 hop3 backup create --app my-app --no-addons   # App code + env only
 ```
 
-Per-addon backup commands (`addon backup create <name>`, `addon backup restore`) are planned for 0.6.
+For a single addon, `hop3 addon <type> dump <name>` writes a standalone dump to the server's backup area, and `hop3 addon <type> restore <name> <path>` restores it (postgres and mysql; redis/s3 restore is planned).
 
 ## See Also
 
