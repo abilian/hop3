@@ -97,6 +97,17 @@ class AppsCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("app", "list")
 
     def call(self, *args):
+        # Fail loud on stray args instead of silently listing everything.
+        # Catches e.g. `hop3 apps status` (alias expands to `app list status`),
+        # which used to drop the trailing token and look like `hop3 apps`.
+        if args:
+            got = " ".join(args)
+            msg = (
+                f"'hop3 app list' takes no arguments (got: {got}). "
+                "Did you mean 'hop3 app status <app>'?"
+            )
+            raise ValueError(msg)
+
         app_repo = AppRepository(session=self.db_session)
         apps = sorted(app_repo.get_many(), key=lambda a: a.name)
         if not apps:

@@ -7,7 +7,7 @@ import tarfile
 import tempfile
 from pathlib import Path
 
-from hop3_cli.commands.arguments import generate_archive
+from hop3_cli.commands.arguments import describe_archive, generate_archive
 
 # hop3.toml whose [build].ignore is the canonical, declarative ignore list for
 # the `hop3 deploy` upload (ADR 046 §5).
@@ -164,3 +164,29 @@ def test_build_ignore_takes_precedence_over_hop3ignore(capsys):
         assert "a.txt" not in names  # [build].ignore applied
         assert "b.txt" in names  # .hop3ignore NOT read
         assert ".hop3ignore" not in capsys.readouterr().err  # no deprecation warning
+
+
+def test_describe_archive_shows_included_by_size_and_excludes_ignored():
+    """`hop3 deploy --dry-run` manifest: included files by size, ignored gone."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        project_dir = Path(temp_dir)
+        (project_dir / "hop3.toml").write_text('[build]\nignore = ["data/"]\n')
+        (project_dir / "app.py").write_text("x = 1\n")
+        # Big included file (the culprit a user would want to see).
+        (project_dir / "media").mkdir()
+        (project_dir / "media" / "video.mp4").write_bytes(b"0" * 3_000_000)
+        # Excluded by [build].ignore — must NOT appear or count toward total.
+        (project_dir / "data").mkdir()
+        (project_dir / "data" / "dump.sql").write_bytes(b"0" * 9_000_000)
+        # Excluded by built-in defaults.
+        (project_dir / ".git").mkdir()
+        (project_dir / ".git" / "blob").write_bytes(b"0" * 9_000_000)
+
+        out = describe_archive(project_dir)
+
+        assert "media/video.mp4" in out  # largest included file is surfaced
+        assert "2.9 MB" in out  # human size of the 3,000,000-byte file
+        assert "data/dump.sql" not in out  # ignored: not in manifest
+        assert ".git" not in out  # built-in default: not in manifest
+        # Total reflects only included files (~2.9 MB), not the 21 MB on disk.
+        assert "Deploy archive: 2.9 MB" in out

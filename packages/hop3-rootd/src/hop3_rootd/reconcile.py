@@ -25,8 +25,12 @@ invisible. Operator manual mutations to managed state are unsupported.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
+from hop3_rootd import cgroup as cg, mount as mt
 from hop3_rootd.audit import logger
+from hop3_rootd.cgroup import CgroupError
+from hop3_rootd.mount import MountError
 from hop3_rootd.nft.rule import (
     build_add_argv,
     build_delete_argv,
@@ -148,6 +152,131 @@ def reconcile(state: State) -> ReconcileReport:
             )
 
     return report.build()
+
+
+# --- cgroup reconciliation (ADR 046 §3 / P2.2) ---------------------------
+
+
+@dataclass(frozen=True)
+class CgroupReconcileReport:
+    """Summary of cgroup reconciliation. Surfaced in the startup log."""
+
+    reasserted: int = 0  # stored leaves re-created/refreshed in the kernel
+    orphans_removed: int = 0  # leaves on disk with no state row
+    failed: int = 0  # stored leaves that couldn't be re-asserted
+
+
+def reconcile_cgroups(state: State) -> CgroupReconcileReport:
+    """Re-assert stored cgroup leaves and remove orphans at startup.
+
+    After a reboot the cgroupfs is empty (and the apps' PIDs are gone, to be
+    respawned by the Emperor); re-creating each leaf with its caps means the
+    server's next deploy/reconcile re-attaches PIDs into an already-capped
+    leaf. After a rootd-only restart the leaves persist and this just refreshes
+    them. PIDs are never re-attached here — they belong to the Emperor.
+
+    Raises ``CgroupUnavailableError`` when the host has no cgroup v2 hierarchy;
+    the caller degrades (limits stay unenforceable, surfaced loudly) rather
+    than crashing, mirroring the nft-missing path. A per-leaf failure is
+    counted, not fatal: the next deploy re-applies and fails loud if it can't.
+    """
+    cg.ensure_slice()  # raises CgroupUnavailableError on a non-v2 host
+
+    stored_names: set[str] = set()
+    reasserted = 0
+    failed = 0
+    for stored in state.cgroups:
+        stored_names.add(stored.app_name)
+        try:
+            cg.set_limits(
+                stored.app_name,
+                memory_max=stored.memory_max,
+                cpu_max=stored.cpu_max,
+                pids_max=stored.pids_max,
+            )
+            reasserted += 1
+        except CgroupError as e:
+            logger.error(
+                "reconcile: could not re-assert cgroup for %s: %s",
+                stored.app_name,
+                e,
+            )
+            failed += 1
+
+    orphans_removed = 0
+    for name in cg.list_scopes():
+        if name in stored_names:
+            continue
+        try:
+            cg.remove(name)
+            logger.warning("reconcile: removed orphan cgroup leaf for %s", name)
+            orphans_removed += 1
+        except CgroupError as e:
+            logger.error("reconcile: failed to remove orphan cgroup %s: %s", name, e)
+
+    return CgroupReconcileReport(
+        reasserted=reasserted, orphans_removed=orphans_removed, failed=failed
+    )
+
+
+# --- mount reconciliation (ADR 046 §2 / P2.1) ----------------------------
+
+
+@dataclass(frozen=True)
+class MountReconcileReport:
+    """Summary of mount reconciliation. Surfaced in the startup log."""
+
+    verified: int = 0  # in state and actually mounted
+    state_dropped: int = 0  # in state but not mounted (stale, e.g. post-reboot)
+    orphans_removed: int = 0  # mounted under app_root with no state row
+
+
+def reconcile_mounts(state: State) -> MountReconcileReport:
+    """Reconcile tracked mounts with reality at startup (ADR 046 §2).
+
+    Mounts are *not* re-asserted here: after a reboot the cgroupfs/mountns is
+    empty and the app's src/ may not exist yet — the next deploy re-mounts. So
+    reconcile only makes state honest: a tracked mount that isn't actually
+    mounted is dropped (stale), and a mount under the app root with no state
+    row is an orphan from a crashed run and is unmounted (teardown
+    completeness — no leftover mount).
+
+    Raises ``MountError`` if the app root can't be derived; the caller degrades
+    (mirroring the nft/cgroup paths) rather than crashing the daemon.
+    """
+    kept: list = []
+    verified = 0
+    state_dropped = 0
+    live_mountpoints: set[str] = set()
+    for m in state.mounts:
+        mp = mt.mountpoint_for(m.app_name, m.target)
+        if mt.is_mounted(mp):
+            kept.append(m)
+            verified += 1
+            live_mountpoints.add(str(mp))
+        else:
+            logger.info(
+                "reconcile: dropping stale mount %s:%s (not mounted)",
+                m.app_name,
+                m.target,
+            )
+            state_dropped += 1
+    state.mounts = kept
+
+    orphans_removed = 0
+    for mp_str in mt.list_mounts_under_app_root():
+        if mp_str in live_mountpoints:
+            continue
+        try:
+            mt.unmount_path(Path(mp_str))
+            logger.warning("reconcile: unmounted orphan mount %s", mp_str)
+            orphans_removed += 1
+        except MountError as e:
+            logger.error("reconcile: failed to unmount orphan %s: %s", mp_str, e)
+
+    return MountReconcileReport(
+        verified=verified, state_dropped=state_dropped, orphans_removed=orphans_removed
+    )
 
 
 # --- Builder helper (mutable counterpart of frozen dataclass) ------------

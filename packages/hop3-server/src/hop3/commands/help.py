@@ -219,6 +219,12 @@ class HelpCmd(Command):
         """
         all_commands = lookup(Command)
         commands = {cmd.name: cmd for cmd in all_commands}
+        # Also resolve server-side aliases (e.g. `run` -> `app run`,
+        # `destroy` -> `app destroy`) so `hop3 <alias> --help` works instead
+        # of reporting "Unknown command". Canonical names take precedence.
+        for cmd in all_commands:
+            for alias in getattr(cmd, "aliases", []):
+                commands.setdefault(alias, cmd)
 
         matched = _longest_prefix_match(command_name, commands)
         if matched is None:
@@ -229,6 +235,13 @@ class HelpCmd(Command):
 
         cmd = commands[matched]
         output = self._render_command_block(all_commands, cmd, matched)
+        # If reached via an alias (matched tuple differs from the canonical
+        # name), say so up front so the user isn't surprised the help page is
+        # titled differently from what they typed.
+        if matched != cmd.name:
+            typed = " ".join(matched)
+            canonical = " ".join(cmd.name)
+            output = [f"`{typed}` is an alias for `{canonical}`.", "", *output]
         return [text("\n".join(output))]
 
     def _render_command_block(

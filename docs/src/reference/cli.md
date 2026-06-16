@@ -969,15 +969,21 @@ hop3 app destroy myapp --yes
 
 ---
 
-## Configuration Management
+## Environment Variables
 
-### `hop3 config show`
+The canonical command group is `env`. `config` is a back-compat alias, so
+every `hop3 env <sub>` below also works as `hop3 config <sub>`.
+
+The target app is resolved from context when omitted; pass `--app <name>` to
+target a specific app explicitly.
+
+### `hop3 env show`
 
 Show all environment variables for an app.
 
 **Usage:**
 ```bash
-hop3 config show <app_name>
+hop3 env show [--app <app>]
 ```
 
 **Example Output:**
@@ -992,53 +998,53 @@ LOG_LEVEL=info
 
 **Notes:**
 - Sensitive values masked by default
-- Use `config get` to retrieve specific values
+- Use `env get` to retrieve specific values
 
 ---
 
-### `hop3 config get`
+### `hop3 env get`
 
 Get a specific environment variable value.
 
 **Usage:**
 ```bash
-hop3 config get <app_name> <KEY>
+hop3 env get [--app <app>] <KEY>
 ```
 
 **Example:**
 ```bash
-hop3 config get myapp DATABASE_URL
+hop3 env get --app myapp DATABASE_URL
 # Output: postgresql://user:pass@localhost/db
 ```
 
 ---
 
-### `hop3 config set`
+### `hop3 env set`
 
 Set environment variables for an app.
 
 **Usage:**
 ```bash
-hop3 config set <app_name> KEY1=value1 [KEY2=value2 ...]
+hop3 env set [--app <app>] KEY1=value1 [KEY2=value2 ...]
 ```
 
 **Arguments:**
-- `app_name` - Name of application
+- `--app <app>` - Target application (else resolved from context)
 - `KEY=value` - One or more key-value pairs
 
 **Examples:**
 ```bash
 # Set single variable
-hop3 config set myapp LOG_LEVEL=info
+hop3 env set --app myapp LOG_LEVEL=info
 
 # Set multiple variables
-hop3 config set myapp \
+hop3 env set --app myapp \
   DATABASE_URL=postgresql://localhost/db \
   REDIS_URL=redis://localhost:6379 \
   SECRET_KEY=mysecret
 
 # Set variable with spaces (quote the value)
-hop3 config set myapp MESSAGE="Hello World"
+hop3 env set --app myapp MESSAGE="Hello World"
 ```
 
 **Notes:**
@@ -1048,52 +1054,53 @@ hop3 config set myapp MESSAGE="Hello World"
 
 ---
 
-### `hop3 config unset`
+### `hop3 env unset`
 
 Unset (remove) environment variables for an app.
 
 **Usage:**
 ```bash
-hop3 config unset <app_name> KEY1 [KEY2 ...]
+hop3 env unset [--app <app>] KEY1 [KEY2 ...]
 ```
 
 **Arguments:**
-- `app_name` - Name of application
+- `--app <app>` - Target application (else resolved from context)
 - `KEY` - One or more keys to remove
 
 **Examples:**
 ```bash
 # Remove single variable
-hop3 config unset myapp DEBUG
+hop3 env unset --app myapp DEBUG
 
 # Remove multiple variables
-hop3 config unset myapp OLD_KEY DEPRECATED_VAR UNUSED_SECRET
+hop3 env unset --app myapp OLD_KEY DEPRECATED_VAR UNUSED_SECRET
 ```
 
 ---
 
-### `hop3 config live`
+### `hop3 env live`
 
 Show live runtime environment of running app.
 
 **Usage:**
 ```bash
-hop3 config live <app_name>
+hop3 env live [--app <app>]
 ```
 
 **Notes:**
 - Shows environment as currently loaded by running processes
 - Useful for debugging configuration issues
+- Fails loudly if the running environment can't be inspected (use `env show` for configured values)
 
 ---
 
-### `hop3 config migrate`
+### `hop3 env migrate`
 
 Migrate configuration from other PaaS formats to `hop3.toml`.
 
 **Usage:**
 ```bash
-hop3 config migrate [--format heroku|flyio|procfile] [--dry-run] [--backup]
+hop3 env migrate [--format heroku|flyio|procfile] [--dry-run] [--backup]
 ```
 
 **Options:**
@@ -1105,10 +1112,10 @@ hop3 config migrate [--format heroku|flyio|procfile] [--dry-run] [--backup]
 ```bash
 # Migrate Procfile to hop3.toml
 cd myapp/
-hop3 config migrate --format procfile --dry-run
+hop3 env migrate --format procfile --dry-run
 
 # Apply migration with backup
-hop3 config migrate --format procfile --backup
+hop3 env migrate --format procfile --backup
 ```
 
 ---
@@ -1573,23 +1580,38 @@ Connections: 3 active
 
 ### `hop3 addon list`
 
-List addon instances (aliased to `hop3 addons`).
+List provisioned addon instances (aliased to `hop3 addons`).
 
 **Usage:**
 ```bash
-hop3 addon list [--type <type>]
+hop3 addon list [--app <app>] [--type <type>]
 ```
 
 **Options:**
+- `--app` - Only addons attached to this application
 - `--type` - Filter by addon type (postgres, mysql, redis)
 
 **Example:**
 ```bash
-# List all addon types
+# List all instances on the server
 hop3 addon list
 
-# List PostgreSQL addons
+# List addons attached to an app
+hop3 addon list --app my-app
+
+# List PostgreSQL instances
 hop3 addon list --type postgres
+```
+
+---
+
+### `hop3 addon types`
+
+List the addon types that can be provisioned with `hop3 addon create`.
+
+**Usage:**
+```bash
+hop3 addon types
 ```
 
 ---
@@ -2055,24 +2077,25 @@ hop3 ps scale myapp web=3 worker=2
 
 ---
 
-### `hop3 run`
+### `hop3 app run`
 
-Run a command in the context of an app.
+Run a one-off command in the context of an app. `hop3 run` is a top-level alias.
 
 **Usage:**
 ```bash
-hop3 run <app_name> <command>
+hop3 app run [<app>] <command>      # app resolved from context when omitted
+hop3 run <app> <command>            # top-level alias
 ```
 
 **Examples:**
 ```bash
-# Run database migrations
-hop3 run myapp python manage.py migrate
+# Run database migrations (app from context)
+hop3 app run python manage.py migrate
 
-# Open interactive shell
-hop3 run myapp python manage.py shell
+# Open interactive shell (explicit app)
+hop3 app run myapp python manage.py shell
 
-# Run one-off script
+# One-off script via the alias
 hop3 run myapp node scripts/cleanup.js
 ```
 
@@ -2170,7 +2193,7 @@ instead of hanging.
 
 2. **Use `--dry-run` when available:**
    ```bash
-   hop3 config migrate --dry-run  # Preview changes first
+   hop3 env migrate --dry-run  # Preview changes first
    ```
 
 3. **Check status before and after operations:**

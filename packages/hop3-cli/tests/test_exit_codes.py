@@ -15,6 +15,7 @@ from hop3_cli.exit_codes import (
     map_rpc_code_to_exit,
 )
 from hop3_cli.main import main
+from hop3_cli.rpc.responses import handle_error_response
 
 # ---- D16 numbering is locked ----
 
@@ -54,6 +55,7 @@ def test_back_compat_aliases_point_at_d16_codes() -> None:
         (403, ExitCode.AUTHZ_ERROR),
         (404, ExitCode.RESOLUTION_ERROR),
         (409, ExitCode.CONFLICT_ERROR),
+        (413, ExitCode.USAGE_ERROR),  # payload too large
         (500, ExitCode.NETWORK_ERROR),
         (-32601, ExitCode.RESOLUTION_ERROR),  # method not found
         (-32602, ExitCode.USAGE_ERROR),  # invalid params
@@ -106,3 +108,22 @@ def test_keyboard_interrupt_in_main_exits_130() -> None:
     ):
         main()
     assert exc_info.value.code == 130
+
+
+# ---- 413 deploy diagnostic ----
+
+
+def test_413_replaces_raw_http_error_with_actionable_diagnostic(capsys) -> None:
+    """A 413 must yield a remediation message, not the raw HTTP error."""
+    with pytest.raises(SystemExit) as exc:
+        handle_error_response(
+            413, "HTTP 413 error: 413 Client Error: Payload Too Large for url: ..."
+        )
+    assert exc.value.code == ExitCode.USAGE_ERROR
+
+    out = capsys.readouterr()
+    combined = out.out + out.err
+    assert "too large" in combined.lower()
+    assert "[build].ignore" in combined
+    # The raw HTTP noise is not what the user sees.
+    assert "Client Error: Payload Too Large for url" not in combined
