@@ -10,6 +10,7 @@
 ## Revisions
 
 - **v0.2 (2026-05-01)**: Current draft. Earlier drafts explored a per-operation policy file with auto_allow / prompt / deny outcomes; that approach was discarded — see Alternatives section.
+- **v0.3 (2026-06-16)**: Amendment for ADR 046 — adds the `cgroup.*` and `mount.*` op families (native `[limits]` enforcement and native `[[volumes]]`) under one shared validation/state/allow-list contract and one unit-hardening threat model. See §18.
 
 ## Context
 
@@ -661,7 +662,7 @@ The architecture is designed so future privileged operations slot in without pro
 3. **`systemd.reload(unit)` / `systemd.restart(unit)`** — replaces the caddy / traefik sudoers fallback in v1.1; clean lifecycle for systemd-managed app units if/when those become a deployer option.
 4. **`namespace.create_for_app(...)`** — only relevant if Hop3 ever introduces per-app network namespaces (a much larger change; out of scope for now, but the daemon would be the right place).
 
-Each addition is a separate ADR revision with its own threat model and expanded error-code taxonomy. None ship in v1.
+Each addition is a separate ADR revision with its own threat model and expanded error-code taxonomy. None ship in v1. (The first such additions — `cgroup.*` and `mount.*` for ADR 046 — are specified in §18.)
 
 ### 17. Connection to ADR 017 (agent-based architecture)
 
@@ -675,6 +676,27 @@ ADR 017 describes an agent abstraction with three phases: a self-healing watchdo
 The two daemons compose: when ADR 017's watchdog decides an app needs a privileged action (e.g., reload nginx because the app's config changed), it asks hop3-server, which asks hop3-rootd. The trust boundary is in exactly one place.
 
 For ADR 017 Phase 3 (multi-node), each node ships its own `hop3-rootd` and its own watchdog. The coordinator talks to a node's watchdog; the watchdog's privileged calls go through that node's rootd. The mental model — "control plane talks to per-node agents" — applies at both levels.
+
+### 18. Amendment — `cgroup.*` and `mount.*` op families (ADR 046)
+
+Native `[limits]` enforcement and native `[[volumes]]` (ADR 046) need privileged kernel operations beyond `firewall.*` / `nginx.*` / `daemon.*`. Per §16 they are introduced as **one** amendment, not two: the two families share a trust budget, a validation surface, and a state discipline, and amending the hardened unit twice independently would risk one change silently weakening the other's threat model.
+
+**Op families** (registered, dispatched, and audited like the other ops; kernel failures map to `kernel_error`):
+
+- **`cgroup.*`** (native `[limits]`, ADR 046 §3): `ensure_slice`, `set_limits`, `attach_pids`, `remove`, `read`. A per-app cgroup v2 leaf at `hop3.slice/hop3-app-<name>.scope` carries `memory.max` (with `memory.swap.max=0`, so a cap is a real cap), `cpu.max`, and `pids.max`; `attach_pids` migrates the app's PIDs in; `remove` kills the subtree then rmdirs (a stronger reap surface than `/proc` scanning, including a Nix-store `exec`'d daemon); `read` exposes usage and the `oom_kill` count for `hop3 app status`.
+- **`mount.*`** (native `[[volumes]]`, ADR 046 §2): `tmpfs`, `bind`, `unmount`, `list`. `tmpfs` is a sized RAM scratch mount; `bind` attaches an operator-allow-listed host source (default-deny, realpath-checked); both invoke `mount(8)` / `umount(8)` from the exec allow-list. `list` is the teardown-verification surface.
+
+**One contract, hence one amendment:**
+
+- *One path-allow-list.* rootd derives `APP_ROOT` from the hop3 user's home and validates `app_name` (the existing validator); every mountpoint/leaf must canonicalize under `<APP_ROOT>/<app>/src` resp. `hop3.slice/hop3-app-<app>.scope`. Callers pass `app_name` and a *relative* target, never an absolute path (§1).
+- *One state discipline.* Cgroup leaves and mounts join `state.json` under the same atomic-write + startup-reconcile model as firewall rules (parsed optionally, so older state still loads); a host that cannot enforce degrades loudly rather than crashing the daemon, mirroring the nft-missing path.
+- *One bind allow-list.* rootd holds its own copy (`/var/lib/hop3-rootd/bind-allowlist`, default-deny) as the third validation layer (§4), kept in sync by the installer with the server-side `HOP3_BIND_VOLUME_ALLOWLIST`. This allow-list is the real control on `mount.bind` and is conservative by default; an installer-time check confirms the host provides cgroup v2.
+
+**Unit-hardening threat model.** These ops are incompatible with two of §10's sandbox directives. Writing the cgroup hierarchy requires `ProtectControlGroups` unset (or `hop3.slice` delegated via `Delegate=`), with `ReadWritePaths` scoped to exactly that subtree. Mounting into the app's namespace requires `CAP_SYS_ADMIN` and the host mount namespace (no `PrivateMounts`; `MountFlags=shared`) — load-bearing, because a mount made in rootd's *private* namespace is invisible to the Emperor-spawned app process: a "mounted successfully" report over an empty dir, i.e. silent success, which this architecture forbids. Reconciling §10's hardening with these requirements is a single forward constraint, threat-modelled as one change: the hardened unit keeps `CAP_SYS_ADMIN` and a shared mount namespace and leaves the cgroup subtree writable. This is a materially larger kernel surface than `CAP_NET_ADMIN`-only, accepted only with that scoping and the §1 framing — a hop3-server compromise is already total compromise of the hop3 user, and rootd's job is to not *widen* it.
+
+**Guard discipline and fallback.** A realization is gated on its op: a guard that refuses a resource the platform cannot realize stays until the matching op is live, so no app deploys *looking* capped or persisted when it isn't. If this unit-hardening is not adopted, native `[limits]` / `tmpfs` / `bind` are infeasible and only the Docker paths are available — ADR 046's guaranteed-deployable baseline.
+
+The error-code taxonomy is unchanged (`validation_failed` / `kernel_error` / `state_conflict` cover both families), and the client surface stays `LocalRootdClient.call(op, args)`.
 
 ## Consequences
 

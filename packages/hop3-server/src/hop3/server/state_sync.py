@@ -63,6 +63,13 @@ class StateSyncService:
         self.timeout = timeout
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
+        # Re-attach native cgroup caps every ~60s, not every cycle: attaching is
+        # an idempotent rootd round-trip per capped app, so doing it on the 3s
+        # babysitter cadence would be wasteful. ponytail: a respawned vassal
+        # master is uncapped for up to one window; tighten REATTACH_EVERY if that
+        # window matters.
+        self._cycle = 0
+        self._reattach_every = max(1, round(60.0 / interval))
 
     def start(self) -> None:
         """Start the background sync thread."""
@@ -105,10 +112,30 @@ class StateSyncService:
 
     def _sync_cycle(self) -> None:
         """Run one sync cycle - check all transitional apps."""
+        self._cycle += 1
         with self.session_factory() as session:
             synced_count = self.sync_transitional_apps(session)
             if synced_count > 0:
                 session.commit()
+            if self._cycle % self._reattach_every == 0:
+                self.reattach_native_limits(session)
+
+    def reattach_native_limits(self, session: Session) -> None:
+        """Re-assert cgroup caps on RUNNING native-capped apps (ADR 046 §3).
+
+        Idempotent insurance against a whole-vassal respawn or a rootd restart
+        leaving a running app outside its leaf. Best-effort and read-only on the
+        DB — ``reattach_native_limits`` never raises, so a rootd hiccup can't
+        break the babysitter loop. Public for direct testing without threading.
+        """
+        from hop3.deployers.native_limits import (  # noqa: PLC0415
+            reattach_native_limits,
+        )
+
+        app_repo = AppRepository(session=session)
+        for app in app_repo.list_by_run_states([AppStateEnum.RUNNING]):
+            if app.limits_enforced == "native":
+                reattach_native_limits(app.name)
 
     def sync_transitional_apps(self, session: Session) -> int:
         """Check all apps in transitional states and update them.
