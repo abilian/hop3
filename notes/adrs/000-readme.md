@@ -47,13 +47,15 @@ This process is inspired by [Python's PEP process](https://www.python.org/dev/pe
 | [037](./037-git-deployment-architecture.md) | Git-Based Deployment Architecture | Architecture | Implemented |
 | [038](./038-multi-service-apps.md) | Multi-Service Application Support | Feature | Active (design) |
 | [039](./039-python-deploy-strategies.md) | Python Deploy Strategies | Feature | Active (Phase 1 landed) |
-| [040](./040-network-firewall-and-port-exposure.md) | Network Firewall and Per-App Port Exposure | Feature | Draft |
+| [040](./040-network-firewall-and-port-exposure.md) | Network Firewall and Per-App Port Exposure | Feature | Partially superseded (by 045) |
 | [041](./041-privileged-operations-agent.md) | Privileged Operations Agent (hop3-rootd) | Architecture | Draft |
 | [042](./042-cli-context-model.md) | CLI Context Model — Servers and Project Contexts | Feature (breaking) | Accepted |
 | [043](./043-unified-testing-architecture.md) | Unified Testing Architecture | Process | Draft |
 | [044](./044-nightly-test-lab.md) | Nightly Test Lab — Web App to Run & Report on Tests | Architecture | Draft (provisional) |
-| [045](./045-fixed-port-registry.md) | Fixed Port Registry | Feature | Draft |
+| [045](./045-fixed-port-registry.md) | Fixed Port Registry | Feature | Accepted |
 | [046](./046-declarative-app-resources.md) | Declarative Application Resources — Secrets, Volumes, Dynamic Env, Limits | Feature | Accepted |
+| [047](./047-cli-invocation-context.md) | CLI Invocation Context | Feature | Draft |
+| [048](./048-waf-l7-lewaf.md) | Layer-7 Web Application Firewall (LeWAF) | Feature | Draft |
 
 ## ADRs by Type
 

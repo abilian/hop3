@@ -16,6 +16,7 @@ fix their configuration.
 
 from __future__ import annotations
 
+import ipaddress
 import re
 from typing import Any, cast
 
@@ -517,6 +518,14 @@ class PortDeclaration(BaseModel):
         default=None,
         description="Optional label for diagnostics (e.g. 'rtmp', 'federation').",
     )
+    source: str = Field(
+        default="any",
+        description=(
+            "Who may reach the port: 'any' (the whole internet, default) or an "
+            "IPv4 CIDR (e.g. '10.0.0.0/8') to restrict it to a network. IPv6 "
+            "sources are not supported yet."
+        ),
+    )
 
     @field_validator("number")
     @classmethod
@@ -540,6 +549,25 @@ class PortDeclaration(BaseModel):
             msg = f"Protocol must be 'tcp' or 'udp', got {v!r}"
             raise ValueError(msg)
         return v
+
+    @field_validator("source")
+    @classmethod
+    def _check_source(cls, v: str) -> str:
+        # Mirror rootd's validate_source (hop3_rootd.validation): "any" or a
+        # canonical IPv4 CIDR; IPv6 unsupported in v1. Validating here fails a
+        # bad source at hop3.toml parse time rather than at the rootd boundary
+        # mid-deploy. Canonicalise so '10.0.0.5/24' is stored as '10.0.0.0/24'.
+        if v == "any":
+            return v
+        try:
+            net = ipaddress.ip_network(v, strict=False)
+        except (ValueError, TypeError) as e:
+            msg = f"[[ports]] source {v!r} is not a valid CIDR or 'any' ({e})"
+            raise ValueError(msg) from None
+        if net.version == 6:
+            msg = f"[[ports]] source {v!r}: IPv6 sources are not supported yet"
+            raise ValueError(msg)
+        return str(net)
 
 
 class TestValidation(BaseModel):

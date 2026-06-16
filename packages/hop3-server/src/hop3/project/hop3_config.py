@@ -595,7 +595,8 @@ class Hop3Config:
         """Get the [[ports]] entries (fixed host ports the app binds directly).
 
         Each entry is a dict with ``number`` (int), ``protocol`` (str, default
-        ``"tcp"``) and optional ``name``. Empty list when none are declared.
+        ``"tcp"``), ``source`` (str, default ``"any"``) and optional ``name``.
+        Empty list when none are declared.
         """
         raw = self._data.get("ports", [])
         if not isinstance(raw, list):
@@ -605,6 +606,7 @@ class Hop3Config:
                 "number": p["number"],
                 "protocol": p.get("protocol", "tcp"),
                 "name": p.get("name"),
+                "source": p.get("source", "any"),
             }
             for p in raw
             if isinstance(p, dict) and isinstance(p.get("number"), int)

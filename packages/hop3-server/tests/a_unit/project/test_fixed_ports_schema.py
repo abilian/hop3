@@ -22,12 +22,33 @@ def test_parses_ports():
     cfg = Hop3Config.from_str(
         '[[ports]]\nnumber = 1935\nprotocol = "tcp"\nname = "rtmp"\n'
     )
-    assert cfg.ports == [{"number": 1935, "protocol": "tcp", "name": "rtmp"}]
+    assert cfg.ports == [
+        {"number": 1935, "protocol": "tcp", "name": "rtmp", "source": "any"}
+    ]
 
 
 def test_protocol_defaults_to_tcp():
     cfg = Hop3Config.from_str("[[ports]]\nnumber = 25\n")
     assert cfg.ports[0]["protocol"] == "tcp"
+
+
+def test_source_defaults_to_any():
+    cfg = Hop3Config.from_str("[[ports]]\nnumber = 25\n")
+    assert cfg.ports[0]["source"] == "any"
+
+
+def test_source_cidr_is_parsed():
+    cfg = Hop3Config.from_str('[[ports]]\nnumber = 5432\nsource = "10.0.0.0/8"\n')
+    assert cfg.ports[0]["source"] == "10.0.0.0/8"
+
+
+def test_source_cidr_is_canonicalised_by_validator():
+    # validate_hop3_toml canonicalises a host-bearing CIDR to its network form.
+    schema = validate_hop3_toml(
+        tomllib.loads('[[ports]]\nnumber = 5432\nsource = "10.0.0.5/8"')
+    )
+    assert schema.ports is not None
+    assert schema.ports[0].source == "10.0.0.0/8"
 
 
 def test_no_ports_section_is_empty_list():
@@ -45,6 +66,9 @@ def test_no_ports_section_is_empty_list():
         '[[ports]]\nnumber = 25\nprotocol = "sctp"',  # bad protocol
         "[[ports]]\nnumber = 25\nextra = 1",  # unknown field (extra=forbid)
         "[[ports]]\nnumber = 25\n[[ports]]\nnumber = 25",  # duplicate (number, proto)
+        '[[ports]]\nnumber = 25\nsource = "not-a-cidr"',  # bad source
+        '[[ports]]\nnumber = 25\nsource = "10.0.0.0/33"',  # impossible prefix
+        '[[ports]]\nnumber = 25\nsource = "2001:db8::/32"',  # IPv6 unsupported
     ],
 )
 def test_invalid_ports_rejected(toml):

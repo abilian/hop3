@@ -277,3 +277,82 @@ def test_docker_runtime_skips_firewall(db_session: Session, monkeypatch):
     assert _FakeRootd.added == []  # no firewall rule opened for a Docker app
     # ...but the claim still stands, so conflict detection applies host-wide
     assert PortClaimRepository(session=db_session).find_active(1935, "tcp") is not None
+
+
+def _cfg_src(number: int, protocol: str, source: str):
+    """A stand-in AppConfig for one port with an explicit source."""
+    return cast(
+        "object",
+        SimpleNamespace(
+            ports=[
+                {
+                    "number": number,
+                    "protocol": protocol,
+                    "name": None,
+                    "source": source,
+                }
+            ]
+        ),
+    )
+
+
+class _RecordingRootd:
+    """rootd fake that captures the full add_rule args (not just the port)."""
+
+    add_args: list[dict] = []  # noqa: RUF012
+    removed: list[str] = []  # noqa: RUF012
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def call(self, op: str, args: dict):
+        if op == "firewall.add_rule":
+            _RecordingRootd.add_args.append(args)
+            return {"rule_id": f"rule-{len(_RecordingRootd.add_args)}"}
+        if op == "firewall.remove_rule":
+            _RecordingRootd.removed.append(args["rule_id"])
+            return {"removed": True}
+        if op == "firewall.list_rules":
+            return {"rules": []}
+        return {}
+
+
+def test_source_is_stored_and_passed_to_rootd(db_session: Session, monkeypatch):
+    _RecordingRootd.add_args = []
+    app = _app(db_session, "internal-db")
+    claim_fixed_ports(app, _cfg_src(5432, "tcp", "10.0.0.0/8"), db_session)  # type: ignore[arg-type]
+    claim = PortClaimRepository(session=db_session).find_active(5432, "tcp")
+    assert claim is not None
+    assert claim.source == "10.0.0.0/8"  # stored on the claim
+
+    monkeypatch.setattr("hop3.deployers.fixed_ports.LocalRootdClient", _RecordingRootd)
+    open_fixed_ports(app, db_session)
+    assert _RecordingRootd.add_args[0]["source"] == "10.0.0.0/8"  # not hardcoded "any"
+
+
+def test_redeploy_with_changed_source_rescopes(db_session: Session, monkeypatch):
+    # A redeployed source edit must re-scope: close the stale rule, clear rule_id,
+    # and re-open with the new source — never silently keep the old scope.
+    _RecordingRootd.add_args = []
+    _RecordingRootd.removed = []
+    app = _app(db_session, "internal-db")
+    monkeypatch.setattr("hop3.deployers.fixed_ports.LocalRootdClient", _RecordingRootd)
+
+    claim_fixed_ports(app, _cfg_src(5432, "tcp", "any"), db_session)  # type: ignore[arg-type]
+    open_fixed_ports(app, db_session)
+    repo = PortClaimRepository(session=db_session)
+    first_rule = repo.find_active(5432, "tcp").rule_id  # type: ignore[union-attr]
+
+    # Redeploy with a narrower source.
+    claim_fixed_ports(app, _cfg_src(5432, "tcp", "10.0.0.0/8"), db_session)  # type: ignore[arg-type]
+    rescoped = repo.find_active(5432, "tcp")
+    assert rescoped is not None
+    assert rescoped.source == "10.0.0.0/8"
+    assert rescoped.rule_id is None  # cleared so open re-applies
+    assert first_rule in _RecordingRootd.removed  # stale rule closed
+
+    open_fixed_ports(app, db_session)
+    assert _RecordingRootd.add_args[-1]["source"] == "10.0.0.0/8"  # re-opened narrowed

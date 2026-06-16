@@ -108,12 +108,27 @@ def claim_fixed_ports(
     for spec in declared:
         number = spec["number"]
         protocol = (spec.get("protocol") or "tcp").lower()
+        source = spec.get("source") or "any"
 
         existing = repo.find_active(number, protocol)
         if existing is not None and existing.app_id != app.id:
             _abort_conflict(number, protocol, existing.app_name)
         if existing is not None:
-            continue  # already this app's claim (idempotent redeploy)
+            # Already this app's claim (idempotent redeploy). If only the source
+            # changed, re-scope it: close the stale firewall rule and clear the
+            # rule_id so open_fixed_ports re-applies with the new source. Without
+            # this a redeployed source edit would be silently ignored.
+            if existing.source != source:
+                _close_firewall_rule(existing.rule_id)
+                existing.source = source
+                existing.rule_id = None
+                log(
+                    f"Re-scoped fixed port {number}/{protocol} to source "
+                    f"{source} for '{app.name}'",
+                    level=2,
+                    fg="blue",
+                )
+            continue
 
         # The find_active check above handles the normal case with a clear
         # message. The unique constraint is the race backstop: if another deploy
@@ -126,7 +141,11 @@ def claim_fixed_ports(
         # The deploy aborts regardless — its caller also rolls back.
         db_session.add(
             PortClaim(
-                app_id=app.id, number=number, protocol=protocol, app_name=app.name
+                app_id=app.id,
+                number=number,
+                protocol=protocol,
+                app_name=app.name,
+                source=source,
             )
         )
         try:
@@ -180,7 +199,7 @@ def open_fixed_ports(app: App, db_session: Session | None) -> None:
                     {
                         "port": claim.number,
                         "protocol": claim.protocol,
-                        "source": "any",
+                        "source": claim.source,
                         "app_name": app.name,
                         "description": f"hop3 fixed port for {app.name}",
                     },

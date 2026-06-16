@@ -58,6 +58,7 @@ CORE_ALIASES: tuple[Alias, ...] = (
     Alias("apps", ("app", "list"), "built-in"),
     Alias("addons", ("addon", "list"), "built-in"),
     Alias("plugins", ("plugin", "list"), "built-in"),
+    Alias("ports", ("port", "list"), "built-in"),
     # Cross-platform synonyms.
     # Note: `env` is now a real command group (was an alias for `config show`);
     # `config` is the back-compat alias, registered server-side on each env
