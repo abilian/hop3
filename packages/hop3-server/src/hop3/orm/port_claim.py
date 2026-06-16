@@ -33,6 +33,10 @@ class PortClaim(BigIntAuditBase):
     protocol: Mapped[str] = mapped_column(String(3), default="tcp", nullable=False)
     # App name at claim time — kept for diagnostics even if the app row is gone.
     app_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    # Who may reach the port: "any" (default) or an IPv4 CIDR. Passed to rootd
+    # when the firewall rule is opened; stored so teardown/reconcile and the
+    # `hop3 ports` listing know the declared scope.
+    source: Mapped[str] = mapped_column(String(64), default="any", nullable=False)
     # rootd firewall rule id, set once the port is opened; used to close it on
     # teardown. None when the firewall could not be reached (claim still holds).
     rule_id: Mapped[str | None] = mapped_column(String(64), default=None)

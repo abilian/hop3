@@ -287,6 +287,12 @@ name = "rtmp"        # optional label, for diagnostics
 number = 8448
 protocol = "tcp"
 name = "federation"
+
+[[ports]]
+number = 5432
+protocol = "tcp"
+name = "postgres"
+source = "10.0.0.0/8"   # restrict to a private network instead of the whole internet
 ```
 
 **Fields:**
@@ -296,13 +302,15 @@ name = "federation"
 | `number` | integer | yes | Port number, 1–65535 |
 | `protocol` | string | no | `tcp` (default) or `udp` |
 | `name` | string | no | Human-readable label, for diagnostics only |
+| `source` | string | no | `any` (default, whole internet) or an IPv4 CIDR to restrict who may reach the port |
 
 **Notes:**
 
 - Don't list your HTTP port here — that one is dynamic (`$PORT`) and proxied. `[[ports]]` is only for ports the app binds directly to the host.
 - Two apps declaring the same `(number, protocol)` cannot coexist (there is no proxy to multiplex them). The second deploy is rejected up front with a message naming the app that already holds the port.
 - Ports `22`, `80`, and `443` are reserved by Hop3 (SSH and the reverse proxy) and rejected — HTTP apps use `$PORT` and are proxied.
-- A declared port is opened to the **whole internet** (`source = any`). Restricting it to a CIDR is a planned enhancement; for now declare a port only if it is meant to be publicly reachable.
+- By default a declared port is opened to the **whole internet** (`source = "any"`). Set `source` to an IPv4 CIDR (e.g. `"10.0.0.0/8"`) to restrict it to a network — useful for an addon or admin port that should only be reachable over a VPN or private link. IPv6 source CIDRs aren't supported yet.
+- See what is currently claimed and whether the firewall is actually open with `hop3 ports`.
 - **Native/Nix builds only.** A Docker-deployed app's container does not yet publish declared ports to the host, so for Docker apps the port is *claimed* (conflict-checked) but the firewall is not opened. Use a native or Nix build for an app that needs a fixed host port.
 - Opening the firewall needs the `hop3-rootd` daemon. If it isn't running the port is still *claimed* (so the conflict check works), but it won't be reachable externally until rootd applies the rule.
 
