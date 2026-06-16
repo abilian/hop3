@@ -4,11 +4,12 @@
 **Type**: Feature (breaking)
 **Created**: 2026-05-30
 **Updated**: 2026-06-01
-**Related-ADRs**: 036 (supersedes D7 + D8), 018, 025
+**Related-ADRs**: 036 (supersedes D7 + D8), 018, 025, 047 (invocation-context transport)
 **Supersedes**: ADR 036 §D7 (app resolution chain), §D8 (sticky state: contexts and default app)
 
 ## Revisions
 
+- v0.3 (2026-06-16): Cross-reference ADR 047 (CLI Invocation Context), which specifies how a resolved context is transmitted to the server per call. This ADR remains authoritative for the resolution model; 047 governs the transport. No model change.
 - v0.2 (2026-06-01): Open questions resolved and folded into the relevant sections (env-merge / domains-replace semantics, separate `init` verbs, git-remote as a resolution source, frozen `ResolvedContext`, reserved-name deny-list, project-scoped `hop3 use`). Status Draft → Accepted.
 - v0.1 (2026-05-30): Initial draft. Triggered by a production incident: `hop3 deploy`, run from an unrelated project's directory, overwrote the wrong app because a context-wide sticky `default_app` — set by a `hop3 use` weeks earlier in another shell — outranked nearly every project-local source.
 
@@ -244,6 +245,8 @@ project 'myapp' in ./hop3.toml.
 ```
 
 The trailing line names the resolution source so the operator sees what caused the mismatch. This is the belt to `[metadata].id`'s suspenders: the chain already prefers the CWD project, so the guard fires only when an explicit flag or env var contradicts the CWD — exactly when "yes I mean it" is the right requirement.
+
+The guard is specified here as a client-side check; ADR 047 carries this check's inputs (`app`, `app_source`, `cwd`, `cwd_app_id`) in the per-call invocation context, which lets the same refusal run server-side so the guarantee holds regardless of which client issued the call.
 
 ### Migration (brutally relentless)
 
