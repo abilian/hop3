@@ -408,6 +408,17 @@ class App(BigIntAuditBase):
                 )
                 raise RuntimeError(msg)
 
+        # Drop any native [limits] cgroup leaf (ADR 046 §3) for ALL runtimes: an
+        # app deployed native (with a leaf) then redeployed to Docker would still
+        # have a stale leaf this is the only place that reclaims. Processes are
+        # already reaped (native, above) or torn down (Docker, below), so the leaf
+        # is empty. Idempotent + best-effort (absent leaf is a no-op).
+        from hop3.deployers.native_limits import (  # noqa: PLC0415
+            remove_native_limits,
+        )
+
+        remove_native_limits(app_name)
+
         # First, clean up runtime resources (Docker containers, etc.)
         if self.runtime == "docker-compose":
             self._destroy_docker_compose()

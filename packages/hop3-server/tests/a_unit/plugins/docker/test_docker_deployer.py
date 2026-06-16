@@ -13,7 +13,7 @@ import pytest
 
 from hop3.config import HopConfig
 from hop3.core.protocols import BuildArtifact, DeploymentContext
-from hop3.deployers.deployer import _apply_limits, _reject_limits_on_non_docker
+from hop3.deployers.deployer import _apply_limits
 from hop3.lib import Abort
 from hop3.plugins.docker.deployer import DockerComposeDeployer
 from hop3.project.hop3_config import Hop3Config
@@ -710,20 +710,6 @@ class TestDockerComposeLimits:
         assert "mem_limit: 1g" in deployer._compose_limits_section()
 
 
-class TestLimitsBuilderGuard:
-    """[limits] on a non-Docker builder must fail loud (ADR 046 §3)."""
-
-    def test_limits_on_native_aborts(self):
-        with pytest.raises(ValueError, match="only enforced for Docker"):
-            _reject_limits_on_non_docker("local", {"memory": "512M"})
-
-    def test_limits_on_docker_is_ok(self):
-        _reject_limits_on_non_docker("docker", {"memory": "512M"})  # no raise
-
-    def test_no_limits_on_native_is_ok(self):
-        _reject_limits_on_non_docker("local", {})  # no raise
-
-
 class _FakeLoader:
     """Minimal ConfigLoader stub for a known server-wide [limits] policy."""
 
@@ -800,11 +786,23 @@ class TestApplyLimits:
         with pytest.raises(Abort, match="exceeds the server ceiling"):
             _apply_limits(app, hc, "docker", ctx)
 
-    def test_native_declared_limits_still_aborts(self, tmp_path, set_limits_config):
-        # Native enforcement isn't wired yet, so a declared cap fails loud.
+    def test_native_validates_but_records_nothing(self, tmp_path, set_limits_config):
+        # Native resolves (for the early ceiling check) but does NOT record here —
+        # the cap is applied post-start by enforce_native_limits.
         set_limits_config()
         app = SimpleNamespace(limits_enforced="", limits_detail="")
         hc = Hop3Config.from_str('[limits]\nmemory = "512M"\n')
         ctx = self._ctx(tmp_path, hc.limits)
-        with pytest.raises(ValueError, match="only enforced for Docker"):
+        _apply_limits(app, hc, "local", ctx)  # no raise
+        assert app.limits_enforced == ""
+        # native does not stash into the docker compose dict
+        assert ctx.app_config["hop3_config"]["limits"] == {"memory": "512M"}
+
+    def test_native_over_ceiling_aborts_before_build(self, tmp_path, set_limits_config):
+        # The ceiling check runs for native too, so a bad cap fails before build.
+        set_limits_config(LIMITS_CEILING_MEMORY="2G")
+        app = SimpleNamespace(limits_enforced="", limits_detail="")
+        hc = Hop3Config.from_str('[limits]\nmemory = "4G"\n')
+        ctx = self._ctx(tmp_path, hc.limits)
+        with pytest.raises(Abort, match="exceeds the server ceiling"):
             _apply_limits(app, hc, "local", ctx)
