@@ -105,6 +105,11 @@ class PostgresqlPlugin:
         """Return PostgreSQL health check."""
         return [PostgresHealthCheck()]
 
+    @hookimpl
+    def cli_commands(self) -> list:
+        """Contribute `addon postgres <verb>` commands to the CLI."""
+        return cli.COMMANDS
+
 
 class PostgresPluginProvider(Provider):
     """DI provider for PostgreSQL addon infrastructure.

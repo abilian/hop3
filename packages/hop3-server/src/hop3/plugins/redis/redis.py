@@ -237,6 +237,20 @@ class RedisAddon:
         # Free the db_number for reuse.
         delete_addon_secrets(ADDON_TYPE, self.addon_name)
 
+    def flush(self) -> None:
+        """Remove all keys from this addon's Redis database (FLUSHDB).
+
+        Unlike destroy(), the db_number assignment is kept — the addon stays
+        usable, just emptied.
+        """
+        if self._db_number == 0:
+            msg = f"Redis addon '{self.addon_name}' has no database assigned yet."
+            raise RuntimeError(msg)
+        result = self._db_cmd("FLUSHDB")
+        if result.returncode != 0:
+            msg = f"Failed to flush Redis database {self.db_number}: {result.stderr}"
+            raise RuntimeError(msg)
+
     def get_connection_details(self) -> dict[str, str]:
         """Get environment variables for connecting to this Redis instance.
 
