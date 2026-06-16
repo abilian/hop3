@@ -126,11 +126,12 @@ class LaunchCmd(Command):
     """Create and configure a new app from a source code repository.
 
     Examples:
-        hop3 app launch myapp         # Launch a newly-created app
+        hop3 app create myapp         # Create a new app (then `hop3 deploy`)
     """
 
     db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("app", "launch")
+    name: ClassVar[tuple[str, ...]] = ("app", "create")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("app", "launch")]
 
     def call(self, *args):
         if len(args) != 2:

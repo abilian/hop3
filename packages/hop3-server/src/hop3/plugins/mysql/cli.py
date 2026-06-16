@@ -315,16 +315,17 @@ def _diagnostic(args: tuple, statement: str, label: str, verb: str) -> list[dict
 class AddonMysqlPsCmd(Command):
     """Show active queries on a MySQL addon.
 
-    Usage: hop3 addon mysql ps <name>
+    Usage: hop3 addon mysql activity <name>
 
     Examples:
-        hop3 addon mysql ps mydb
+        hop3 addon mysql activity mydb
     """
 
-    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "ps")
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "activity")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("addon", _TYPE, "ps")]
 
     def call(self, *args):
-        return _diagnostic(args, _PS_SQL, "listing activity", "ps")
+        return _diagnostic(args, _PS_SQL, "listing activity", "activity")
 
 
 @register

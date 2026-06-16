@@ -402,6 +402,8 @@ def test_hook_contributes_all_commands_to_rpc_table():
         ("addon", "mysql", "clone"),
         ("addon", "mysql", "export"),
         ("addon", "mysql", "import"),
+        ("addon", "postgres", "activity"),
+        ("addon", "mysql", "activity"),
         ("addon", "redis", "info"),
         ("addon", "redis", "restore"),
         ("addon", "redis", "clone"),

@@ -539,13 +539,19 @@ class UnsetCmd(Command):
 class MigrateCmd(Command):
     """Migrate configuration from other PaaS formats to hop3.toml.
 
+    This is a one-off project-scaffolding task (Procfile → hop3.toml format
+    conversion), so it lives under `app`, not env-var management.
+
     Examples:
-        hop3 env migrate procfile /path/to/app    # Convert Procfile to hop3.toml
-        hop3 env migrate procfile /path/to/app --dry-run
+        hop3 app migrate procfile /path/to/app    # Convert Procfile to hop3.toml
+        hop3 app migrate procfile /path/to/app --dry-run
     """
 
-    name: ClassVar[tuple[str, ...]] = ("env", "migrate")
-    aliases: ClassVar[list[tuple[str, ...]]] = [("config", "migrate")]
+    name: ClassVar[tuple[str, ...]] = ("app", "migrate")
+    aliases: ClassVar[list[tuple[str, ...]]] = [
+        ("env", "migrate"),
+        ("config", "migrate"),
+    ]
 
     def call(  # noqa: PLR0911 — sequential precondition cascade (usage, format, dir-exists, Procfile-exists, parse, dry-run, output-exists, success) where each return carries its own user-facing message; a state-machine refactor here trades clarity for a metric.
         self,

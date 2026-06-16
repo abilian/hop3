@@ -98,7 +98,8 @@ class DomainsCmd(Command):
         hop3 domains clear myapp
     """
 
-    name: ClassVar[tuple[str, ...]] = ("domains",)
+    name: ClassVar[tuple[str, ...]] = ("domain",)
+    aliases: ClassVar[list[tuple[str, ...]]] = [("domains",)]
 
 
 @register
@@ -112,7 +113,8 @@ class ListCmd(Command):
     """
 
     db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("domains", "list")
+    name: ClassVar[tuple[str, ...]] = ("domain", "list")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("domains", "list")]
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},
         "_args": {"remaining": True},
@@ -153,7 +155,8 @@ class AddCmd(Command):
     """
 
     db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("domains", "add")
+    name: ClassVar[tuple[str, ...]] = ("domain", "add")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("domains", "add")]
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},
         "_args": {"remaining": True},
@@ -227,7 +230,8 @@ class RemoveCmd(Command):
     """
 
     db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("domains", "remove")
+    name: ClassVar[tuple[str, ...]] = ("domain", "remove")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("domains", "remove")]
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},
         "_args": {"remaining": True},
@@ -282,7 +286,8 @@ class SetCmd(Command):
     """
 
     db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("domains", "set")
+    name: ClassVar[tuple[str, ...]] = ("domain", "set")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("domains", "set")]
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},
         "_args": {"remaining": True},
@@ -347,7 +352,8 @@ class ClearCmd(Command):
     """
 
     db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("domains", "clear")
+    name: ClassVar[tuple[str, ...]] = ("domain", "clear")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("domains", "clear")]
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},
         "_args": {"remaining": True},
