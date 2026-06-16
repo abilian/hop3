@@ -95,3 +95,26 @@ def delete_addon_secrets(addon_type: str, addon_name: str) -> None:
     secrets_file = _get_secrets_file(addon_type, addon_name)
     if secrets_file.exists():
         secrets_file.unlink()
+
+
+def list_addon_instances() -> list[tuple[str, str]]:
+    """List all provisioned addon instances.
+
+    The secrets store (HOP3_ROOT/addons/<type>/<name>.json) is the de-facto
+    registry of provisioned instances, so enumerating it works for every
+    addon type without per-plugin support.
+
+    Returns:
+        Sorted list of (addon_type, addon_name) pairs.
+    """
+    addons_dir = HOP3_ROOT / "addons"
+    if not addons_dir.exists():
+        return []
+
+    instances: list[tuple[str, str]] = []
+    for type_dir in sorted(addons_dir.iterdir()):
+        if not type_dir.is_dir():
+            continue
+        for secrets_file in sorted(type_dir.glob("*.json")):
+            instances.append((type_dir.name, secrets_file.stem))
+    return instances

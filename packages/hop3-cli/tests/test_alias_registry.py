@@ -25,8 +25,10 @@ if TYPE_CHECKING:
 
 def test_core_aliases_contain_expected_entries() -> None:
     tokens = {a.source_token for a in CORE_ALIASES}
-    # Per command catalog
-    assert {"apps", "addons", "plugins", "env", "whoami"} <= tokens
+    # Per command catalog. `env` is no longer an alias — it's a real command
+    # group; `config` is its back-compat alias (registered server-side).
+    assert {"apps", "addons", "plugins", "whoami"} <= tokens
+    assert "env" not in tokens
 
 
 def test_core_aliases_have_tuple_expansions() -> None:
@@ -59,15 +61,15 @@ def test_user_alias_adds_when_no_collision() -> None:
 
 
 def test_user_alias_skipped_on_collision_with_core() -> None:
-    # `env` is in core — user tries to shadow
-    user = [Alias("env", ("custom", "env"), "user")]
+    # `apps` is in core — user tries to shadow
+    user = [Alias("apps", ("custom", "apps"), "user")]
     r = build_registry(user_aliases=user)
     # Core entry wins
-    found = r.find("env")
+    found = r.find("apps")
     assert found is not None
     assert found.origin == "built-in"
     # User entry is skipped with a reason
-    assert any(tok == "env" for tok, _ in r.skipped)
+    assert any(tok == "apps" for tok, _ in r.skipped)
 
 
 def test_plugin_alias_skipped_on_collision_with_core() -> None:
@@ -142,8 +144,8 @@ def test_resolve_passes_through_non_alias() -> None:
 
 def test_resolve_forwards_trailing_args() -> None:
     r = build_registry()
-    out, fired = resolve_aliases(["env", "myapp"], r)
-    assert out == ["config", "show", "myapp"]
+    out, fired = resolve_aliases(["addons", "myapp"], r)
+    assert out == ["addon", "list", "myapp"]
     assert fired is not None
 
 

@@ -58,8 +58,10 @@ CORE_ALIASES: tuple[Alias, ...] = (
     Alias("apps", ("app", "list"), "built-in"),
     Alias("addons", ("addon", "list"), "built-in"),
     Alias("plugins", ("plugin", "list"), "built-in"),
-    # Cross-platform synonyms
-    Alias("env", ("config", "show"), "built-in"),
+    # Cross-platform synonyms.
+    # Note: `env` is now a real command group (was an alias for `config show`);
+    # `config` is the back-compat alias, registered server-side on each env
+    # command (hop3/commands/config.py). `hop3 config set ...` still works.
     Alias("whoami", ("auth", "whoami"), "built-in"),
     # Note: `login` and `logout` are NOT aliases here. They are LOCAL commands
     # (packages/hop3-cli/src/hop3_cli/commands/local/login_cmd.py) that handle

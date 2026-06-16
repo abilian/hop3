@@ -22,6 +22,7 @@ from ._helpers import (
     check_hostname_conflict,
     get_app,
     parse_key_value_settings,
+    redact_sensitive_value,
     set_env_var,
     unset_env_var,
 )
@@ -34,38 +35,47 @@ if TYPE_CHECKING:
 
 
 @register
-class ConfigCmd(Command):
-    """Manage application configuration and environment variables.
+class EnvCmd(Command):
+    """Manage application environment variables.
+
+    `config` is a back-compat alias (e.g. `hop3 config set ...` still works).
 
     Examples:
-        hop3 config show myapp         # List env vars
-        hop3 config set myapp KEY=VAL  # Set an env var
-        hop3 config unset myapp KEY    # Remove an env var
+        hop3 env show myapp         # List env vars
+        hop3 env set myapp KEY=VAL  # Set an env var
+        hop3 env unset myapp KEY    # Remove an env var
     """
 
-    name: ClassVar[tuple[str, ...]] = ("config",)
+    name: ClassVar[tuple[str, ...]] = ("env",)
+    aliases: ClassVar[list[tuple[str, ...]]] = [("config",)]
 
 
 @register
 @dataclass(frozen=True)
 class ShowCmd(Command):
-    """Show all configuration variables for an app.
+    """Show all environment variables for an app.
+
+    Secrets are redacted by default (password-like vars and credentials
+    embedded in connection-string URLs). Pass --show-secrets to reveal them.
 
     Flags:
+        --show-secrets  Show full values, including secrets
         --show-compose  Show the generated Docker Compose file (for container apps)
 
 
     Examples:
-        hop3 config show myapp         # List all env vars for myapp
-        hop3 env myapp                 # Same via cross-platform alias
+        hop3 env show myapp                  # List env vars (secrets redacted)
+        hop3 env show --app myapp --show-secrets  # Reveal full values
     """
 
     db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("config", "show")
+    name: ClassVar[tuple[str, ...]] = ("env", "show")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("config", "show")]
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},  # --app <name>
         "show_compose": {"flag": True, "default": False},
+        "show_secrets": {"flag": True, "default": False},
         "_args": {"remaining": True},  # Catches positional args
     }
 
@@ -76,17 +86,18 @@ class ShowCmd(Command):
             parsed["_args"][0] if parsed["_args"] else None
         )
         show_compose = parsed["show_compose"]
+        show_secrets = parsed["show_secrets"]
 
         if not app_name:
             return [
                 text(
-                    "Usage: hop3 config show <app-name> [--show-compose]\n"
-                    "   or: hop3 config show --app <app-name> [--show-compose]\n\n"
+                    "Usage: hop3 env show [--app <app-name>] [--show-secrets] [--show-compose]\n\n"
                     "Flags:\n"
+                    "  --show-secrets  Show full values, including secrets\n"
                     "  --show-compose  Show the generated Docker Compose file\n\n"
                     "Example:\n"
-                    "  hop3 config show myapp\n"
-                    "  hop3 config show myapp --show-compose"
+                    "  hop3 env show myapp\n"
+                    "  hop3 env show --app myapp --show-secrets"
                 )
             ]
 
@@ -100,12 +111,15 @@ class ShowCmd(Command):
         if not env:
             return [text(f"No configuration set for '{app_name}'.")]
 
-        rows = [[k, v] for k, v in sorted(env.items())]
+        rows = [
+            [k, v if show_secrets else redact_sensitive_value(k, v)]
+            for k, v in sorted(env.items())
+        ]
         return [
             text(f"Configured environment for '{app_name}':"),
             table(headers=["Key", "Value"], rows=rows),
             text(
-                "\nNote: These are configured values. Use 'config live' to see actual running values."
+                "\nNote: These are configured values. Use 'env live' to see actual running values."
             ),
         ]
 
@@ -149,14 +163,15 @@ class ShowCmd(Command):
 @register
 @dataclass(frozen=True)
 class GetCmd(Command):
-    """Get a specific configuration variable.
+    """Get a specific environment variable.
 
     Examples:
-        hop3 config get myapp KEY      # Show one env var's value
+        hop3 env get myapp KEY         # Show one env var's value
     """
 
     db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("config", "get")
+    name: ClassVar[tuple[str, ...]] = ("env", "get")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("config", "get")]
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},  # --app <name>
@@ -178,10 +193,10 @@ class GetCmd(Command):
         if not app_name or not setting:
             return [
                 text(
-                    "Usage: hop3 config get <app-name> <key>\n"
-                    "   or: hop3 config get --app <app-name> <key>\n\n"
+                    "Usage: hop3 env get [--app <app-name>] <key>\n\n"
                     "Example:\n"
-                    "  hop3 config get myapp DATABASE_URL"
+                    "  hop3 env get myapp DATABASE_URL\n"
+                    "  hop3 env get --app myapp DATABASE_URL"
                 )
             ]
 
@@ -197,21 +212,26 @@ class GetCmd(Command):
 class LiveCmd(Command):
     """Show actual live environment from running app.
 
-    Unlike config show which shows database values, this inspects
-    the running process/container to show what's actually in effect.
+    Unlike `env show` which shows database values, this inspects the
+    running process/container to show what's actually in effect.
 
-    Usage: hop config live <app> or hop config live --app <app>
+    Secrets are redacted by default; pass --show-secrets to reveal them.
+
+    Usage: hop3 env live [--app <app>] [--show-secrets]
 
 
     Examples:
-        hop3 config live myapp         # Show the live runtime environment as seen by the app
+        hop3 env live myapp            # Live runtime environment (secrets redacted)
+        hop3 env live --app myapp --show-secrets  # Reveal full values
     """
 
     db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("config", "live")
+    name: ClassVar[tuple[str, ...]] = ("env", "live")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("config", "live")]
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},  # --app <name>
+        "show_secrets": {"flag": True, "default": False},
         "_args": {"remaining": True},  # Catches positional args
     }
 
@@ -221,47 +241,51 @@ class LiveCmd(Command):
         app_name = parsed.get("app") or (
             parsed["_args"][0] if parsed["_args"] else None
         )
+        show_secrets = parsed["show_secrets"]
 
         if not app_name:
             return [
                 text(
-                    "Usage: hop3 config live <app-name>\n"
-                    "   or: hop3 config live --app <app-name>\n\n"
+                    "Usage: hop3 env live [--app <app-name>] [--show-secrets]\n\n"
                     "Shows the actual environment variables from the running app.\n"
-                    "Use 'config show' to see configured (pending) values."
+                    "Use 'env show' to see configured (pending) values."
                 )
             ]
 
         app = get_app(self.db_session, app_name)
 
-        # Try to get live environment based on runtime type
+        # Read the live environment based on runtime type. Fail loud if we
+        # can't: returning stored DB values mislabeled as "live" is exactly the
+        # silent fallback this command exists to avoid. Use 'config show' for
+        # the configured values.
         if app.runtime == "docker-compose":
             live_env = self._get_docker_env(app_name)
         elif app.runtime == "uwsgi":
             live_env = self._get_uwsgi_env(app)
         else:
-            live_env = None
+            msg = (
+                f"Can't read live environment for '{app_name}': unsupported or "
+                f"undeployed runtime '{app.runtime or 'none'}'. "
+                f"Use 'hop3 env show {app_name}' for configured values."
+            )
+            raise ValueError(msg)
 
-        if live_env:
-            rows = [[k, v] for k, v in sorted(live_env.items())]
-            return [
-                text(f"Live environment for '{app_name}' (runtime: {app.runtime}):"),
-                table(headers=["Key", "Value"], rows=rows),
-            ]
+        if not live_env:
+            msg = (
+                f"Can't inspect the live environment of '{app_name}' "
+                f"(runtime: {app.runtime}): the app appears stopped or not "
+                f"deployed. Check 'hop3 app status {app_name}', or use "
+                f"'hop3 env show {app_name}' for the configured values."
+            )
+            raise ValueError(msg)
 
-        # Fallback: show database values with warning
-        db_env = app.get_runtime_env()
-        if not db_env:
-            return [text(f"App '{app_name}' is not deployed or has no configuration.")]
-
+        rows = [
+            [k, v if show_secrets else redact_sensitive_value(k, v)]
+            for k, v in sorted(live_env.items())
+        ]
         return [
-            text(f"Could not inspect running {app.runtime} app '{app_name}'."),
-            text("Showing configured values (may not match live environment):"),
-            table(
-                headers=["Key", "Value"],
-                rows=[[k, v] for k, v in sorted(db_env.items())],
-            ),
-            text("\nTip: Run 'hop deploy' to ensure live environment matches config."),
+            text(f"Live environment for '{app_name}' (runtime: {app.runtime}):"),
+            table(headers=["Key", "Value"], rows=rows),
         ]
 
     def _get_docker_env(self, app_name: str) -> dict | None:
@@ -330,16 +354,16 @@ class LiveCmd(Command):
 class SetCmd(Command):
     """Set environment variables for an app.
 
-    Usage: hop config set <app> KEY=VALUE [KEY2=VALUE2 ...]
-       or: hop config set --app <app> KEY=VALUE [KEY2=VALUE2 ...]
+    Usage: hop3 env set [--app <app>] KEY=VALUE [KEY2=VALUE2 ...]
 
     Examples:
-        hop config set myapp DEBUG=true
-        hop config set --app myapp DATABASE_URL=postgres://... REDIS_URL=redis://...
+        hop3 env set myapp DEBUG=true
+        hop3 env set --app myapp DATABASE_URL=postgres://... REDIS_URL=redis://...
     """
 
     db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("config", "set")
+    name: ClassVar[tuple[str, ...]] = ("env", "set")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("config", "set")]
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},  # --app <name>
@@ -361,9 +385,8 @@ class SetCmd(Command):
         if not app_name or not settings:
             return [
                 text(
-                    "Usage: hop config set <app> KEY=VALUE [KEY2=VALUE2 ...]\n"
-                    "   or: hop config set --app <app> KEY=VALUE [KEY2=VALUE2 ...]\n\n"
-                    "Example: hop config set myapp DEBUG=true"
+                    "Usage: hop3 env set [--app <app>] KEY=VALUE [KEY2=VALUE2 ...]\n\n"
+                    "Example: hop3 env set myapp DEBUG=true"
                 )
             ]
 
@@ -415,12 +438,14 @@ class SetCmd(Command):
             result.append(
                 text(
                     f"\nNote: {', '.join(sorted(changed_infra))} changed. "
-                    f"Run 'hop deploy {app_name}' to apply (affects proxy config)."
+                    f"Run 'hop3 deploy --app {app_name}' to apply (affects proxy config)."
                 )
             )
         else:
             result.append(
-                text(f"\nNote: Run 'hop app restart {app_name}' to apply changes.")
+                text(
+                    f"\nNote: Run 'hop3 app restart --app {app_name}' to apply changes."
+                )
             )
 
         # Summary line per ADR 036 D19c: one-line state-change report.
@@ -434,16 +459,16 @@ class SetCmd(Command):
 class UnsetCmd(Command):
     """Unset environment variables for an app.
 
-    Usage: hop config unset <app> KEY [KEY2 ...]
-       or: hop config unset --app <app> KEY [KEY2 ...]
+    Usage: hop3 env unset [--app <app>] KEY [KEY2 ...]
 
     Examples:
-        hop config unset myapp DEBUG
-        hop config unset --app myapp DATABASE_URL REDIS_URL
+        hop3 env unset myapp DEBUG
+        hop3 env unset --app myapp DATABASE_URL REDIS_URL
     """
 
     db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("config", "unset")
+    name: ClassVar[tuple[str, ...]] = ("env", "unset")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("config", "unset")]
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},  # --app <name>
@@ -465,9 +490,8 @@ class UnsetCmd(Command):
         if not app_name or not keys:
             return [
                 text(
-                    "Usage: hop config unset <app> KEY [KEY2 ...]\n"
-                    "   or: hop config unset --app <app> KEY [KEY2 ...]\n\n"
-                    "Example: hop config unset myapp DEBUG"
+                    "Usage: hop3 env unset [--app <app>] KEY [KEY2 ...]\n\n"
+                    "Example: hop3 env unset myapp DEBUG"
                 )
             ]
 
@@ -503,7 +527,7 @@ class UnsetCmd(Command):
         if removed:
             result.append(
                 text(
-                    "\nNote: Run 'hop app restart <app>' to apply changes to running app."
+                    "\nNote: Run 'hop3 app restart --app <app>' to apply changes to running app."
                 )
             )
             result.append(summary(f"unset {', '.join(removed)} on {app_name}."))
@@ -516,11 +540,12 @@ class MigrateCmd(Command):
     """Migrate configuration from other PaaS formats to hop3.toml.
 
     Examples:
-        hop3 config migrate procfile /path/to/app    # Convert Procfile to hop3.toml
-        hop3 config migrate procfile /path/to/app --dry-run
+        hop3 env migrate procfile /path/to/app    # Convert Procfile to hop3.toml
+        hop3 env migrate procfile /path/to/app --dry-run
     """
 
-    name: ClassVar[tuple[str, ...]] = ("config", "migrate")
+    name: ClassVar[tuple[str, ...]] = ("env", "migrate")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("config", "migrate")]
 
     def call(  # noqa: PLR0911 — sequential precondition cascade (usage, format, dir-exists, Procfile-exists, parse, dry-run, output-exists, success) where each return carries its own user-facing message; a state-machine refactor here trades clarity for a metric.
         self,
@@ -540,11 +565,11 @@ class MigrateCmd(Command):
         if not from_format or not app_dir:
             return [
                 text(
-                    "Usage: hop config migrate <from-format> <app-dir> [--dry-run] [--backup]\n\n"
+                    "Usage: hop3 env migrate <from-format> <app-dir> [--dry-run] [--backup]\n\n"
                     "Supported formats:\n"
                     "  procfile    Convert Procfile to hop3.toml\n\n"
                     "Example:\n"
-                    "  hop config migrate procfile /path/to/app"
+                    "  hop3 env migrate procfile /path/to/app"
                 )
             ]
 

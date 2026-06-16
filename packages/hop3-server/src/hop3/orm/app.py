@@ -117,6 +117,11 @@ class App(BigIntAuditBase):
     last_deployed_at: Mapped[datetime | None] = mapped_column(
         DateTime, default=None, nullable=True
     )
+    # Resolved [limits] enforcement outcome (ADR 046 §3 / P2.2), surfaced by
+    # `hop3 app status`: "" (none) | "cgroup" | "docker" | "unenforced".
+    # limits_detail carries the applied caps, or the why-unenforced reason.
+    limits_enforced: Mapped[str] = mapped_column(String(16), default="")
+    limits_detail: Mapped[str] = mapped_column(String(512), default="")
 
     env_vars: Mapped[list[EnvVar]] = relationship(
         back_populates="app", cascade="all, delete-orphan", lazy="selectin"
@@ -402,6 +407,17 @@ class App(BigIntAuditBase):
                     f"(pids {survivors}) and still hold their ports"
                 )
                 raise RuntimeError(msg)
+
+        # Drop any native [limits] cgroup leaf (ADR 046 §3) for ALL runtimes: an
+        # app deployed native (with a leaf) then redeployed to Docker would still
+        # have a stale leaf this is the only place that reclaims. Processes are
+        # already reaped (native, above) or torn down (Docker, below), so the leaf
+        # is empty. Idempotent + best-effort (absent leaf is a no-op).
+        from hop3.deployers.native_limits import (  # noqa: PLC0415
+            remove_native_limits,
+        )
+
+        remove_native_limits(app_name)
 
         # First, clean up runtime resources (Docker containers, etc.)
         if self.runtime == "docker-compose":

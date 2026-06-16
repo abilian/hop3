@@ -114,7 +114,7 @@ class AppCmd(Command):
     Examples:
         hop3 app create myapp        # Create a new app
         hop3 app list                # List all apps
-        hop3 app destroy myapp       # Destroy an app
+        hop3 app destroy --app myapp # Destroy an app
     """
 
     name: ClassVar[tuple[str, ...]] = ("app",)
@@ -168,7 +168,7 @@ class LaunchCmd(Command):
         return [
             text(
                 f"App '{app_name}' launched successfully from {repo_url}.\n"
-                f"Run 'hop deploy {app_name}' to build and run it."
+                f"Run 'hop3 deploy --app {app_name}' to build and run it."
             )
         ]
 
@@ -179,8 +179,8 @@ class DeployCmd(Command):
     """Deploy an application from its configured repository.
 
     Examples:
-        hop3 deploy myapp             # Deploy myapp from its repository
-        hop3 deploy --app myapp       # Same via --app flag
+        hop3 deploy                   # current app (resolved from context)
+        hop3 deploy --app myapp       # explicit app
     """
 
     db_session: Session
@@ -188,7 +188,7 @@ class DeployCmd(Command):
 
     def call(self, *args, **kwargs):
         if not args:
-            msg = "Usage: hop deploy <app_name>"
+            msg = "Usage: hop3 deploy [--app <app>]"
             raise ValueError(msg)
 
         app_name = args[0]
@@ -354,22 +354,54 @@ class DeployCmd(Command):
         return response
 
 
+def _limits_rows(app: App) -> list[list[str]]:
+    """Status rows for resource [limits] (ADR 046 §3): the cap, how it is enforced
+    (native / docker / unenforced), and any OOM kills. Empty when no cap is set."""
+    if not app.limits_enforced:
+        return []
+    rows = [["Limits", f"{app.limits_detail} [{app.limits_enforced}]"]]
+    oom = _oom_kill_count(app)
+    if oom:
+        rows.append(["OOM kills", str(oom)])
+    return rows
+
+
+def _oom_kill_count(app: App) -> int | None:
+    """Live OOM-kill count for a native-capped app (best-effort; None if unreadable).
+
+    Reads the live cgroup leaf via hop3-rootd. None on any rootd error (daemon
+    down, no leaf) — the cap itself is shown from the DB, so a failed live read
+    just omits the OOM line rather than blocking or lying about the count.
+    """
+    if app.limits_enforced != "native":
+        return None
+    from hop3.lib.rootd import LocalRootdClient, RootdError  # noqa: PLC0415
+
+    try:
+        with LocalRootdClient() as client:
+            result = client.call("cgroup.read", {"app_name": app.name})
+    except RootdError:
+        return None
+    return result.get("oom_kill") or None
+
+
 @register
 @dataclass(frozen=True)
 class StatusCmd(Command):
     """Show detailed status of an application.
 
     Examples:
-        hop3 app status myapp         # Show app status
-        hop3 status myapp             # Same via top-level alias
+        hop3 app status               # current app (resolved from context)
+        hop3 app status --app myapp   # explicit app
     """
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "status")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("status",)]
 
     def call(self, *args):
         if not args:
-            msg = "Usage: hop app status <app_name>"
+            msg = "Usage: hop3 app status [--app <app>]"
             raise ValueError(msg)
         app_name = args[0]
         app = get_app(self.db_session, app_name)
@@ -418,6 +450,8 @@ class StatusCmd(Command):
         if db_state == AppStateEnum.FAILED and app.error_message:
             rows.append(["Error", app.error_message])
 
+        rows.extend(_limits_rows(app))
+
         return [table(["Property", "Value"], rows)]
 
 
@@ -426,11 +460,12 @@ class StatusCmd(Command):
 class PingCmd(Command):
     """Check if an application is responding to HTTP requests.
 
-    Usage: hop3 app ping <app_name> [path]
+    Usage: hop3 app ping [--app <app>] [path]
 
     Examples:
-        hop3 app ping myapp           # Ping root path
-        hop3 app ping myapp /health   # Ping health endpoint
+        hop3 app ping                    # current app (resolved from context)
+        hop3 app ping --app myapp        # explicit app, root path
+        hop3 app ping --app myapp /health  # explicit app, health endpoint
     """
 
     db_session: Session
@@ -438,7 +473,7 @@ class PingCmd(Command):
 
     def call(self, *args):  # noqa: PLR0911 — each return is a distinct HTTP/network outcome (stopped, no-port, success, HTTPError, connection-refused, generic URLError, timeout) with its own formatted response; flattening would just rebuild the same shape with mutable bookkeeping.
         if not args:
-            msg = "Usage: hop app ping <app_name> [path]"
+            msg = "Usage: hop3 app ping [--app <app>] [path]"
             raise ValueError(msg)
 
         app_name = args[0]
@@ -515,7 +550,7 @@ class PingCmd(Command):
 class LogsCmd(Command):
     """Show application logs.
 
-    Usage: hop3 app logs <app_name> [options]
+    Usage: hop3 app logs [--app <app>] [options]
 
     Options:
         -n, --lines N      Number of lines to show (default: 100)
@@ -523,14 +558,15 @@ class LogsCmd(Command):
         --since-deploy     Only show logs since the last deployment
 
     Examples:
-        hop3 app logs myapp              # Last 100 lines
-        hop3 app logs myapp -n 50        # Last 50 lines
-        hop3 app logs myapp --grep error # Lines containing 'error'
-        hop3 app logs myapp --since-deploy  # Logs since last deploy
+        hop3 app logs                       # current app, last 100 lines
+        hop3 app logs --app myapp -n 50     # explicit app, last 50 lines
+        hop3 app logs --app myapp --grep error  # lines containing 'error'
+        hop3 app logs --app myapp --since-deploy  # logs since last deploy
     """
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "logs")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("logs",)]
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "app_name": {"positional": True},
@@ -544,7 +580,7 @@ class LogsCmd(Command):
         app_name = parsed.get("app_name")
 
         if not app_name:
-            msg = "Usage: hop3 app logs <app_name> [options]"
+            msg = "Usage: hop3 app logs [--app <app>] [options]"
             raise ValueError(msg)
 
         app = get_app(self.db_session, app_name)
@@ -586,13 +622,14 @@ class LogsCmd(Command):
 class BuildLogsCmd(Command):
     """Show build logs for an application.
 
-    Usage: hop3 app build-logs <app_name>
+    Usage: hop3 app build-logs [--app <app>]
 
     Displays the most recent Docker/local build output for debugging
     deployment issues.
 
     Examples:
-        hop3 app build-logs myapp    # Show build logs for myapp
+        hop3 app build-logs              # current app (resolved from context)
+        hop3 app build-logs --app myapp  # explicit app
     """
 
     db_session: Session
@@ -600,7 +637,7 @@ class BuildLogsCmd(Command):
 
     def call(self, *args):
         if not args:
-            msg = "Usage: hop3 app build-logs <app_name>"
+            msg = "Usage: hop3 app build-logs [--app <app>]"
             raise ValueError(msg)
 
         app_name = args[0]
@@ -630,7 +667,8 @@ class StartCmd(Command):
     """Start a stopped app.
 
     Examples:
-        hop3 app start myapp          # Start a stopped app
+        hop3 app start                # current app (resolved from context)
+        hop3 app start --app myapp    # explicit app
     """
 
     db_session: Session
@@ -638,7 +676,7 @@ class StartCmd(Command):
 
     def call(self, *args):
         if not args:
-            msg = "Usage: hop start <app_name>"
+            msg = "Usage: hop3 app start [--app <app>]"
             raise ValueError(msg)
         app_name = args[0]
         return _run_lifecycle_action(
@@ -670,7 +708,8 @@ class StopCmd(Command):
     """Stop a running app.
 
     Examples:
-        hop3 app stop myapp           # Stop a running app
+        hop3 app stop                 # current app (resolved from context)
+        hop3 app stop --app myapp     # explicit app
     """
 
     db_session: Session
@@ -678,7 +717,7 @@ class StopCmd(Command):
 
     def call(self, *args):
         if not args:
-            msg = "Usage: hop stop <app_name>"
+            msg = "Usage: hop3 app stop [--app <app>]"
             raise ValueError(msg)
         app_name = args[0]
         return _run_lifecycle_action(
@@ -710,16 +749,17 @@ class RestartCmd(Command):
     """Restart an application.
 
     Examples:
-        hop3 app restart myapp        # Restart an app
-        hop3 restart myapp            # Same via top-level alias
+        hop3 app restart              # current app (resolved from context)
+        hop3 app restart --app myapp  # explicit app
     """
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "restart")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("restart",)]
 
     def call(self, *args):
         if not args:
-            msg = "Usage: hop restart <app_name>"
+            msg = "Usage: hop3 app restart [--app <app>]"
             raise ValueError(msg)
         app_name = args[0]
         return _run_lifecycle_action(
@@ -739,15 +779,15 @@ class RestartCmd(Command):
 class DestroyCmd(Command):
     """Destroy an app, removing all files and configuration.
 
-    Usage: hop3 app destroy <app_name> [--force]
+    Usage: hop3 app destroy [--app <app>] [--force]
 
     Options:
       -y, --yes, --force   Skip confirmation prompt
 
 
     Examples:
-        hop3 app destroy myapp        # Destroy an app (prompts for confirmation)
-        hop3 app destroy myapp --force  # Skip prompt
+        hop3 app destroy --app myapp  # explicit app (prompts for confirmation)
+        hop3 app destroy --app myapp --force  # explicit app, skip prompt
     """
 
     db_session: Session
@@ -757,7 +797,7 @@ class DestroyCmd(Command):
 
     def call(self, *args):
         if not args:
-            return [text("Usage: hop3 app destroy <app_name> [--force]")]
+            return [text("Usage: hop3 app destroy [--app <app>] [--force]")]
         app_name = args[0]
 
         app = get_app(self.db_session, app_name)
@@ -922,14 +962,14 @@ class EnvCmd(Command):
     Displays all environment variables for an app, indicating whether each
     variable comes from a user config or was injected by an addon.
 
-    Usage: hop3 app env <app_name> [--show-secrets]
+    Usage: hop3 app env [--app <app>] [--show-secrets]
 
     Options:
         --show-secrets   Show full values for sensitive variables (default: redacted)
 
     Examples:
-        hop3 app env myapp             # Show env vars (secrets redacted)
-        hop3 app env myapp --show-secrets  # Show all values including secrets
+        hop3 app env                   # current app (secrets redacted)
+        hop3 app env --app myapp --show-secrets  # explicit app, show secrets
     """
 
     db_session: Session
@@ -947,10 +987,10 @@ class EnvCmd(Command):
         if not app_name:
             return [
                 text(
-                    "Usage: hop3 app env <app_name> [--show-secrets]\n\n"
+                    "Usage: hop3 app env [--app <app>] [--show-secrets]\n\n"
                     "Examples:\n"
-                    "  hop3 app env myapp\n"
-                    "  hop3 app env myapp --show-secrets"
+                    "  hop3 app env\n"
+                    "  hop3 app env --app myapp --show-secrets"
                 )
             ]
 
@@ -1009,7 +1049,7 @@ class DebugCmd(Command):
     Combines status, logs, environment, and runtime details into a single
     output for debugging issues.
 
-    Usage: hop3 app debug <app_name>
+    Usage: hop3 app debug [--app <app>]
 
     Shows:
         - App status (DB state vs actual state)
@@ -1019,7 +1059,8 @@ class DebugCmd(Command):
         - Generated compose file (for Docker apps)
 
     Examples:
-        hop3 app debug myapp
+        hop3 app debug                # current app (resolved from context)
+        hop3 app debug --app myapp    # explicit app
     """
 
     db_session: Session
@@ -1029,7 +1070,7 @@ class DebugCmd(Command):
         if not args:
             return [
                 text(
-                    "Usage: hop3 app debug <app_name>\n\n"
+                    "Usage: hop3 app debug [--app <app>]\n\n"
                     "Shows comprehensive debug information including:\n"
                     "  - App status and state\n"
                     "  - Container info (Docker apps)\n"
@@ -1098,6 +1139,8 @@ class DebugCmd(Command):
 
         if app.error_message:
             rows.append(["Error", app.error_message])
+
+        rows.extend(_limits_rows(app))
 
         result: list[dict[str, Any]] = [
             text("=== APP STATUS ==="),

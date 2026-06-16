@@ -189,21 +189,27 @@ class PsScaleCmd(Command):
 @register
 @dataclass(frozen=True)
 class RunCmd(Command):
-    """Run a command in the context of an app.
+    """Run a one-off command in the context of an app.
 
-    Usage: hop run <app_name> <command> [args...] [--input <data>]
+    Usage: hop3 app run [<app>] <command> [args...] [--input <data>]
+
+    `hop3 run ...` works as a top-level alias. The app is resolved from
+    context when omitted; otherwise give it as the first positional. (run is
+    the one app command that keeps a positional app, since everything after
+    it is the command line to execute, which would make --app ambiguous.)
 
     Options:
-        --input <data>: Data to send to command's stdin (for non-interactive input)
+        --input <data>: Data to send to the command's stdin (non-interactive).
 
     Examples:
-        hop run myapp flask db upgrade
-        hop run myapp python manage.py migrate
-        hop run myapp flask users change_password user@example.com --input "newpassword"
+        hop3 app run flask db upgrade        # app resolved from context
+        hop3 app run myapp flask db upgrade  # explicit app
+        hop3 run myapp flask users change_password user@example.com --input "newpw"
     """
 
     db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("run",)
+    name: ClassVar[tuple[str, ...]] = ("app", "run")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("run",)]
 
     def call(self, *args):
         if len(args) < 2:
