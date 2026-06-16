@@ -2,9 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the marketplace TOML loader.
+"""Unit tests for the catalog TOML loader.
 
-Locks down load_app (valid TOML -> populated MarketplaceApp; malformed or
+Locks down load_app (valid TOML -> populated CatalogApp; malformed or
 missing -> None, never raising) and load_apps over a directory tree.
 """
 
@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hop3.server.marketplace.loader import load_app, load_apps
+from hop3.server.catalog.loader import load_app, load_apps
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -54,7 +54,7 @@ def write_app(app_dir: Path, toml_text: str) -> Path:
 
 
 class TestLoadApp:
-    """load_app parses one app directory into a MarketplaceApp (or None)."""
+    """load_app parses one app directory into a CatalogApp (or None)."""
 
     def test_valid_toml_populates_core_metadata(self, tmp_path: Path) -> None:
         app_dir = write_app(tmp_path / "nextcloud", VALID_TOML)
@@ -91,7 +91,7 @@ class TestLoadApp:
         assert app.providers == ["postgresql", "redis"]
 
     def test_computes_resource_tier_from_memory(self, tmp_path: Path) -> None:
-        # 128M <= 256 -> "light" per MarketplaceApp.compute_resource_tier.
+        # 128M <= 256 -> "light" per CatalogApp.compute_resource_tier.
         app_dir = write_app(tmp_path / "nextcloud", VALID_TOML)
 
         app = load_app(app_dir)
@@ -198,7 +198,7 @@ class TestLoadApps:
 
         apps = load_apps(tmp_path)
 
-        assert apps[0].icon_url == "/dashboard/marketplace/icons/nextcloud"
+        assert apps[0].icon_url == "/dashboard/catalog/icons/nextcloud"
 
     def test_leaves_icon_url_none_without_icon(self, tmp_path: Path) -> None:
         write_app(tmp_path / "plain", VALID_TOML)

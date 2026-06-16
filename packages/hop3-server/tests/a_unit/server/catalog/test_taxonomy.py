@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for marketplace taxonomy: slugify and category/tag grouping.
+"""Unit tests for catalog taxonomy: slugify and category/tag grouping.
 
 Locks down the pure transforms that turn app tags into URL slugs and into
 grouped/counted Category and Tag aggregates.
@@ -10,8 +10,8 @@ grouped/counted Category and Tag aggregates.
 
 from __future__ import annotations
 
-from hop3.server.marketplace.models import MarketplaceApp
-from hop3.server.marketplace.taxonomy import (
+from hop3.server.catalog.models import CatalogApp
+from hop3.server.catalog.taxonomy import (
     build_categories,
     build_tags,
     get_category_for_app,
@@ -19,9 +19,9 @@ from hop3.server.marketplace.taxonomy import (
 )
 
 
-def make_app(title: str, tags: list[str] | None = None) -> MarketplaceApp:
-    """Build a minimal MarketplaceApp with just a title and tags."""
-    return MarketplaceApp(
+def make_app(title: str, tags: list[str] | None = None) -> CatalogApp:
+    """Build a minimal CatalogApp with just a title and tags."""
+    return CatalogApp(
         id=title.lower(),
         title=title,
         description="",

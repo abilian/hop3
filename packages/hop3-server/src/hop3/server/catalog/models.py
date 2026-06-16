@@ -1,6 +1,6 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Data models for Hop3 Marketplace."""
+"""Data models for Hop3 Catalog."""
 
 from __future__ import annotations
 
@@ -24,10 +24,10 @@ FALLBACK_COLORS = [
 
 
 @dataclass
-class MarketplaceApp:
-    """Represents an application in the marketplace.
+class CatalogApp:
+    """Represents an application in the catalog.
 
-    Named MarketplaceApp to avoid collision with hop3.orm.App.
+    Named CatalogApp to avoid collision with hop3.orm.App.
     """
 
     id: str
@@ -118,7 +118,7 @@ class Category:
     name: str
     description: str = ""
     icon: str = ""
-    apps: list[MarketplaceApp] = field(default_factory=list)
+    apps: list[CatalogApp] = field(default_factory=list)
 
     @property
     def app_count(self) -> int:
@@ -131,7 +131,7 @@ class Tag:
 
     id: str
     name: str
-    apps: list[MarketplaceApp] = field(default_factory=list)
+    apps: list[CatalogApp] = field(default_factory=list)
 
     @property
     def app_count(self) -> int:

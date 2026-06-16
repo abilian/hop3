@@ -3,11 +3,12 @@
 **Status**: Accepted
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-04-14
-**Related-ADRs**: 018, 025, 036
+**Updated**: 2026-06-16
+**Related-ADRs**: 018, 025, 031, 036
 
 ## Revisions
 
+- v0.4 (2026-06-16): Renamed the "Marketplace" command family to "Catalog" to match the ratified terminology in ADR 031 (the free, self-host app collection is the "Catalog"; "Marketplace" is reserved for the future commercial product).
 - v0.3: Recorded that the shipped command surface is wider than the original spec — the original spec was a kernel, not a ceiling — and documented which originally-specified commands remain deferred and why (2026-04-14).
 - v0.2: Status promoted to Accepted with implementation status block.
 - v0.1: Initial draft (2024-07-17)
@@ -41,7 +42,7 @@ The `hop3` CLI aliases `hop` for brevity. Full command listing: `hop3 --help`.
 | `new` (project scaffolding) | Candidate | Low priority; operators adopt Hop3 by adding a `hop3.toml` to an existing repo, not by generating one. |
 | `docker` (run Docker on server) | Out of scope | The server-side SSH shell covers this without a dedicated CLI wrapper. |
 | `upgrade` / `downgrade` | Scheduled with ADR 032 |
-| Marketplace commands (`search`, `info`, `install`) | Deferred | The `server/marketplace/` subsystem is in early design; CLI surface follows the marketplace server work. |
+| Catalog commands (`search`, `info`, `install`) | Deferred | The catalog subsystem (`server/catalog/`, web UI only) has no CLI surface yet; the commands follow the web work. |
 
 ### Ergonomics and help system
 
@@ -68,7 +69,7 @@ The Hop3 project aims to provide a self-hosted PaaS solution that simplifies the
 
 ## Decision
 
-The Hop3 CLI will implement a set of commands categorized into Authentication, Marketplace, Development, System-Level Operations, App-Level Operations, and Service Operations. These commands will interact with the server using JSON-RPC over HTTPS.
+The Hop3 CLI will implement a set of commands categorized into Authentication, Catalog, Development, System-Level Operations, App-Level Operations, and Service Operations. These commands will interact with the server using JSON-RPC over HTTPS.
 
 ## Basic Commands
 
@@ -110,11 +111,11 @@ Credentials are stored in `~/.hop3/credentials.toml` or similar, and may also be
 - `hop3 service status|start|stop <service>`: Manage services (e.g., databases).
 - `hop3 pg|mysql|redis|mongo <command>`: Specific commands for database services (including access to shell).
 
-### Marketplace
+### Catalog
 
-- `hop3 search`: Search the marketplace for available apps (name + short description).
-- `hop3 info`: Get detailed information on a specific app from the marketplace.
-- `hop3 install`: Install (or instantiate) an app from the marketplace.
+- `hop3 search`: Search the catalog for available apps (name + short description).
+- `hop3 info`: Get detailed information on a specific app from the catalog.
+- `hop3 install`: Install (or instantiate) an app from the catalog.
 
 ## Related
 

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from .models import Category, MarketplaceApp, Tag
+from .models import CatalogApp, Category, Tag
 
 # Mapping of tag keywords to categories
 CATEGORY_MAPPING = {
@@ -99,7 +99,7 @@ CATEGORY_DESCRIPTIONS = {
 }
 
 
-def get_category_for_app(app: MarketplaceApp) -> str:
+def get_category_for_app(app: CatalogApp) -> str:
     """Determine the primary category for an app based on its tags."""
     for category, keywords in CATEGORY_MAPPING.items():
         for tag in app.tags:
@@ -108,9 +108,9 @@ def get_category_for_app(app: MarketplaceApp) -> str:
     return "Other"
 
 
-def build_categories(apps: list[MarketplaceApp]) -> list[Category]:
+def build_categories(apps: list[CatalogApp]) -> list[Category]:
     """Build category objects from apps."""
-    category_apps: dict[str, list[MarketplaceApp]] = defaultdict(list)
+    category_apps: dict[str, list[CatalogApp]] = defaultdict(list)
 
     for app in apps:
         category_name = get_category_for_app(app)
@@ -133,9 +133,9 @@ def build_categories(apps: list[MarketplaceApp]) -> list[Category]:
     return categories
 
 
-def build_tags(apps: list[MarketplaceApp]) -> list[Tag]:
+def build_tags(apps: list[CatalogApp]) -> list[Tag]:
     """Build tag objects from apps."""
-    tag_apps: dict[str, list[MarketplaceApp]] = defaultdict(list)
+    tag_apps: dict[str, list[CatalogApp]] = defaultdict(list)
 
     for app in apps:
         for tag in app.tags:

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ app.title }} - Marketplace - Hop3 Dashboard{% endblock %}
+{% block title %}{{ app.title }} - Catalog - Hop3 Dashboard{% endblock %}
 
 {% block content %}
 <div class="px-4 sm:px-6 lg:px-8">
@@ -8,15 +8,15 @@
     <nav class="flex mb-6" aria-label="Breadcrumb">
         <ol class="flex items-center space-x-2">
             <li>
-                <a href="/dashboard/marketplace" class="text-gray-400 hover:text-gray-500">
-                    Marketplace
+                <a href="/dashboard/catalog" class="text-gray-400 hover:text-gray-500">
+                    Catalog
                 </a>
             </li>
             <li>
                 <span class="text-gray-400">/</span>
             </li>
             <li>
-                <a href="/dashboard/marketplace/apps" class="text-gray-400 hover:text-gray-500">
+                <a href="/dashboard/catalog/apps" class="text-gray-400 hover:text-gray-500">
                     Apps
                 </a>
             </li>
@@ -48,7 +48,7 @@
                     <p class="text-sm text-gray-500">by {{ app.author }}</p>
                     <div class="mt-2 flex flex-wrap gap-2">
                         {% if app.category %}
-                        <a href="/dashboard/marketplace/category/{{ app.category|lower|replace(' ', '-') }}"
+                        <a href="/dashboard/catalog/category/{{ app.category|lower|replace(' ', '-') }}"
                            class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100">
                             {{ app.category }}
                         </a>
@@ -176,7 +176,7 @@
                     </div>
                     {% endif %}
 
-                    <form method="post" action="/dashboard/marketplace/apps/{{ app.id }}/install">
+                    <form method="post" action="/dashboard/catalog/apps/{{ app.id }}/install">
                         <div class="space-y-4">
                             <!-- App name -->
                             <div>
@@ -236,7 +236,7 @@
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {% for similar_app in similar_apps %}
             {% set app = similar_app %}
-            {% include "dashboard/marketplace/_app_card.html" %}
+            {% include "dashboard/catalog/_app_card.html" %}
             {% endfor %}
         </div>
     </div>
