@@ -1630,12 +1630,15 @@ hop3 addon mysql credentials <name>
 hop3 addon mysql dump <name>                     # mysqldump
 hop3 addon mysql restore <name> <path>           # ⚠️ overwrites
 hop3 addon mysql query <name> --command "SELECT 1"
+hop3 addon mysql ps <name>                       # Active queries (diagnostics)
+hop3 addon mysql settings <name>                 # Key variables
 
 # Redis
 hop3 addon redis credentials <name>
 hop3 addon redis dump <name>
 hop3 addon redis flush <name>                    # FLUSHDB ⚠️ deletes all keys
 hop3 addon redis query <name> --command "DBSIZE" # Ad-hoc redis-cli command
+hop3 addon redis info <name>                     # Server INFO (diagnostics)
 
 # S3
 hop3 addon s3 credentials <name>
@@ -1652,14 +1655,17 @@ hop3 addon s3 dump <name>                         # Manifest (credentials + meta
 | `extensions` | ✓ | | | |
 | `flush` | | | ✓ | |
 | `query` | ✓ | ✓ | ✓ | |
-| `ps` / `locks` / `settings` | ✓ | | | |
+| `ps` | ✓ | ✓ | | |
+| `locks` | ✓ | | | |
+| `settings` | ✓ | ✓ | | |
+| `info` | | | ✓ | |
 
 **Notes:**
 - `credentials` prints the addon's connection variables (`DATABASE_URL`, `REDIS_URL`, `S3_*`, …) — treat the output as sensitive.
 - `restore` and `redis flush` are destructive and prompt for confirmation (bypass with `-y` / `--confirm=<name>`).
 - `dump` writes to the server's backup area and reports the path; redis/s3 `restore` are not available yet.
 - `query` runs the statement as the addon's own (least-privilege) database user, confined to that addon's database. A SELECT renders as a table; other statements report the affected row count. The SQL/command is passed via `--command "…"`.
-- `ps` / `locks` / `settings` are read-only Postgres diagnostics (active queries, current locks, key config). They run as the superuser so they see the whole database, and render as tables.
+- `ps` / `locks` / `settings` (postgres, mysql) and `redis info` are read-only diagnostics. The SQL ones run as the superuser so they see the whole database, and render as tables; `redis info` returns the server's INFO text.
 
 ---
 
