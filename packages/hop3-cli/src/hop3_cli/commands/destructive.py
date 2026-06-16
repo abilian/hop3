@@ -32,8 +32,12 @@ DESTRUCTIVE_COMMANDS: set[tuple[str, ...]] = {
     # can't prompt interactively — pass --confirm/--yes with it.
     ("addon", "postgres", "restore"),
     ("addon", "mysql", "restore"),
+    ("addon", "redis", "restore"),
+    ("addon", "s3", "restore"),
     ("addon", "postgres", "import"),
     ("addon", "mysql", "import"),
+    ("addon", "redis", "import"),
+    ("addon", "s3", "import"),
     ("addon", "redis", "flush"),
 }
 
