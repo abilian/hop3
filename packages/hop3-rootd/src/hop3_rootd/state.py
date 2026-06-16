@@ -87,6 +87,21 @@ class StoredCgroup:
     applied_at: str
 
 
+@dataclass(frozen=True)
+class StoredMount:
+    """One volume mount as persisted in state.json (ADR 046 §2 / P2.1).
+
+    ``type`` is ``"tmpfs"`` or ``"bind"``; ``source`` is the host path for a
+    bind, None for tmpfs. Identified by (app_name, target).
+    """
+
+    app_name: str
+    target: str
+    type: str
+    source: str | None
+    applied_at: str
+
+
 @dataclass
 class State:
     """In-memory snapshot of rootd's persistent state.
@@ -98,6 +113,7 @@ class State:
     version: int = STATE_VERSION
     rules: list[StoredRule] = field(default_factory=list)
     cgroups: list[StoredCgroup] = field(default_factory=list)
+    mounts: list[StoredMount] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -121,6 +137,16 @@ class State:
                 }
                 for c in self.cgroups
             ],
+            "mounts": [
+                {
+                    "app_name": m.app_name,
+                    "target": m.target,
+                    "type": m.type,
+                    "source": m.source,
+                    "applied_at": m.applied_at,
+                }
+                for m in self.mounts
+            ],
         }
 
     def find_rule(self, rule_id: str) -> StoredRule | None:
@@ -139,6 +165,16 @@ class State:
             if c.app_name == app_name:
                 return c
         return None
+
+    def find_mount(self, app_name: str, target: str) -> StoredMount | None:
+        """Return the stored mount for (app, target), or None."""
+        for m in self.mounts:
+            if m.app_name == app_name and m.target == target:
+                return m
+        return None
+
+    def mounts_for_app(self, app_name: str) -> list[StoredMount]:
+        return [m for m in self.mounts if m.app_name == app_name]
 
 
 # --- Load / save ----------------------------------------------------------
@@ -209,6 +245,31 @@ def _parse_cgroups(obj: dict[str, Any]) -> list[StoredCgroup]:
     return cgroups
 
 
+def _parse_mounts(obj: dict[str, Any]) -> list[StoredMount]:
+    """Extract the optional 'mounts' list. Absent (old v1 files) → []."""
+    raw = obj.get("mounts", [])
+    if not isinstance(raw, list):
+        raise StateCorruptError(f"'mounts' must be a list, got {type(raw).__name__}")
+
+    mounts: list[StoredMount] = []
+    for i, m in enumerate(raw):
+        if not isinstance(m, dict):
+            raise StateCorruptError(f"mounts[{i}] must be an object")
+        try:
+            mounts.append(
+                StoredMount(
+                    app_name=str(m["app_name"]),
+                    target=str(m["target"]),
+                    type=str(m["type"]),
+                    source=m.get("source"),
+                    applied_at=str(m["applied_at"]),
+                )
+            )
+        except (KeyError, TypeError) as e:
+            raise StateCorruptError(f"mounts[{i}] is malformed: {e}") from e
+    return mounts
+
+
 def _coerce_status(value: Any, index: int) -> RuleStatus:
     """Validate that a stored status value is one of RuleStatus's literals."""
     if value not in {"applied", "pending", "removing"}:
@@ -246,7 +307,8 @@ def load(path: Path = DEFAULT_STATE_PATH) -> State:
     version = _parse_version(obj, path)
     rules = _parse_rules(obj)
     cgroups = _parse_cgroups(obj)
-    return State(version=version, rules=rules, cgroups=cgroups)
+    mounts = _parse_mounts(obj)
+    return State(version=version, rules=rules, cgroups=cgroups, mounts=mounts)
 
 
 def save(state: State, path: Path = DEFAULT_STATE_PATH) -> None:

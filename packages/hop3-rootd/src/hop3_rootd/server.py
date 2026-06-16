@@ -30,6 +30,7 @@ from typing import Final
 from hop3_rootd.audit import AuditEntry, AuditLog, logger, sanitise_args
 from hop3_rootd.cgroup import CgroupError
 from hop3_rootd.exec import CommandTimeoutError
+from hop3_rootd.mount import MountError
 from hop3_rootd.nft.rule import NftBinaryNotFoundError, NftCommandError, NftError
 from hop3_rootd.ops import (
     OpContext,
@@ -148,6 +149,8 @@ def dispatch(req: Request, ctx: OpContext) -> Response:  # noqa: PLR0911 — one
     except (NftCommandError, NftBinaryNotFoundError, NftError) as e:
         return error_response(req.id, ErrorCode.KERNEL_ERROR, str(e))
     except CgroupError as e:
+        return error_response(req.id, ErrorCode.KERNEL_ERROR, str(e))
+    except MountError as e:
         return error_response(req.id, ErrorCode.KERNEL_ERROR, str(e))
     except CommandTimeoutError as e:
         return error_response(req.id, ErrorCode.KERNEL_ERROR, str(e))

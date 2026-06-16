@@ -321,6 +321,62 @@ def validate_cgroup_limits(args: dict[str, Any]) -> CgroupLimits:
     )
 
 
+def validate_volume_target(value: Any) -> str:
+    """Validate a volume target: a non-empty relative path with no traversal.
+
+    Mirrors the upstream ``VolumeSection`` target check (defense in depth at the
+    kernel boundary). The daemon builds the mountpoint from this under the app's
+    src dir, so an absolute path or ``..`` must be rejected.
+    """
+    if not isinstance(value, str):
+        raise ValidationError(
+            "target", f"must be a string (got {type(value).__name__})"
+        )
+    if not value or value.startswith("/"):
+        raise ValidationError(
+            "target", f"must be a non-empty relative path (got {value!r})"
+        )
+    if ".." in value.split("/"):
+        raise ValidationError(
+            "target", f"must not contain '..' (no escaping the app tree): {value!r}"
+        )
+    return value
+
+
+def validate_size_bytes(value: Any) -> int:
+    """Validate a tmpfs size in bytes (positive, sanity-capped)."""
+    if isinstance(value, bool):
+        raise ValidationError("size_bytes", "must be an integer (got bool)")
+    if not isinstance(value, int):
+        raise ValidationError(
+            "size_bytes", f"must be an integer (got {type(value).__name__})"
+        )
+    if value < 1:
+        raise ValidationError("size_bytes", f"must be >= 1 (got {value})")
+    if value > MEMORY_MAX_BYTES_CAP:
+        raise ValidationError(
+            "size_bytes", f"exceeds the sanity cap of {MEMORY_MAX_BYTES_CAP} bytes"
+        )
+    return value
+
+
+def validate_mount_mode(value: Any) -> str | None:
+    """Validate an optional octal mode string (e.g. '0700'). None when omitted."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValidationError(
+            "mode", f"must be a string or null (got {type(value).__name__})"
+        )
+    try:
+        int(value, 8)
+    except ValueError:
+        raise ValidationError(
+            "mode", f"must be an octal string, e.g. '0700' (got {value!r})"
+        ) from None
+    return value
+
+
 def validate_description(value: Any) -> str | None:
     """Validate the optional description field.
 
