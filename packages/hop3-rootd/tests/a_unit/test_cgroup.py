@@ -168,3 +168,19 @@ def test_read_returns_caps_usage_and_oom_kill(cgroup_root):
 def test_read_missing_leaf_fails_loud(cgroup_root):
     with pytest.raises(CgroupError, match="no cgroup leaf"):
         cgroup.read("ghost")
+
+
+# --- list_scopes ----------------------------------------------------------
+
+
+def test_list_scopes_returns_app_names(cgroup_root):
+    slice_dir = cgroup_root / "hop3.slice"
+    (slice_dir / "hop3-app-blog.scope").mkdir(parents=True)
+    (slice_dir / "hop3-app-wiki.scope").mkdir()
+    (slice_dir / "system.scope").mkdir()  # not one of ours
+    _mk(slice_dir / "cgroup.subtree_control", "")  # a file, not a scope dir
+    assert set(cgroup.list_scopes()) == {"blog", "wiki"}
+
+
+def test_list_scopes_empty_when_no_slice(cgroup_root):
+    assert cgroup.list_scopes() == []
