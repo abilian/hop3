@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import pytest
 from hop3_rootd import PROTOCOL_VERSION, mount
+from hop3_rootd.mount import MountError
 from hop3_rootd.ops import get_handler
 from hop3_rootd.ops._base import OpContext
 from hop3_rootd.protocol import Request
@@ -107,6 +108,79 @@ def test_tmpfs_replaces_existing_same_target(ctx):
             ctx,
         )
     assert len(ctx.state.mounts) == 1
+
+
+# --- mount.bind ----------------------------------------------------------
+
+
+def test_bind_happy_path_records_state(ctx):
+    handler = get_handler("mount.bind")
+    assert handler is not None
+    with patch.object(
+        mount,
+        "mount_bind",
+        return_value={
+            "mountpoint": "/home/hop3/apps/blog/src/public/media",
+            "type": "bind",
+            "source": "/srv/shared/media",
+            "read_only": False,
+        },
+    ) as mock_mb:
+        result = handler(
+            _req(
+                "mount.bind",
+                app_name="blog",
+                target="public/media",
+                source="/srv/shared/media",
+            ),
+            ctx,
+        )
+    mock_mb.assert_called_once_with(
+        "blog", "public/media", "/srv/shared/media", read_only=False
+    )
+    assert result["type"] == "bind"
+    assert ctx.state.mounts[0].type == "bind"
+    assert ctx.state.mounts[0].source == "/srv/shared/media"
+    assert ctx._saved["count"] == 1
+
+
+def test_bind_rejects_relative_source(ctx):
+    handler = get_handler("mount.bind")
+    assert handler is not None
+    with (
+        patch.object(mount, "mount_bind") as mock_mb,
+        pytest.raises(ValidationError),
+    ):
+        handler(
+            _req("mount.bind", app_name="blog", target="public/media", source="srv/x"),
+            ctx,
+        )
+    mock_mb.assert_not_called()
+    assert ctx.state.mounts == []
+
+
+def test_bind_denied_source_propagates(ctx):
+    """A denied bind source aborts loudly (dispatcher → kernel_error)."""
+    handler = get_handler("mount.bind")
+    assert handler is not None
+    with (
+        patch.object(
+            mount,
+            "mount_bind",
+            side_effect=MountError("not under any operator-allowed"),
+        ),
+        pytest.raises(MountError),
+    ):
+        handler(
+            _req(
+                "mount.bind",
+                app_name="blog",
+                target="public/media",
+                source="/etc/secret",
+            ),
+            ctx,
+        )
+    assert ctx.state.mounts == []
 
 
 # --- mount.unmount -------------------------------------------------------

@@ -377,6 +377,37 @@ def validate_mount_mode(value: Any) -> str | None:
     return value
 
 
+def validate_bind_source(value: Any) -> str:
+    """Validate a bind-mount source: an absolute host path with no traversal.
+
+    Only shape is checked here; whether the path is *allowed* (operator
+    allow-list) and *exists* is enforced in the mount helper, which reads the
+    allow-list and the filesystem.
+    """
+    if not isinstance(value, str):
+        raise ValidationError(
+            "source", f"must be a string (got {type(value).__name__})"
+        )
+    if not value or not value.startswith("/"):
+        raise ValidationError(
+            "source", f"bind source must be an absolute host path (got {value!r})"
+        )
+    if ".." in value.split("/"):
+        raise ValidationError("source", f"must not contain '..' (got {value!r})")
+    return value
+
+
+def validate_read_only(value: Any) -> bool:
+    """Validate the optional read_only flag (default False)."""
+    if value is None:
+        return False
+    if not isinstance(value, bool):
+        raise ValidationError(
+            "read_only", f"must be a boolean (got {type(value).__name__})"
+        )
+    return value
+
+
 def validate_description(value: Any) -> str | None:
     """Validate the optional description field.
 
