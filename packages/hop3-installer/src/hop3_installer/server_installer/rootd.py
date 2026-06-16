@@ -45,6 +45,11 @@ STATE_DIR = Path("/var/lib/hop3-rootd")
 STATE_FILE = STATE_DIR / "state.json"
 LOG_DIR = Path("/var/log/hop3-rootd")
 RUNTIME_DIR = Path("/run/hop3-rootd")
+# Operator bind-volume allow-list rootd reads (ADR 046 §2 / P2.1). Must match
+# hop3_rootd.mount.BIND_ALLOWLIST_PATH.
+BIND_ALLOWLIST_FILE = STATE_DIR / "bind-allowlist"
+# cgroup v2 unified-hierarchy marker; native [limits] need it (ADR 046 §3).
+CGROUP_CONTROLLERS = Path("/sys/fs/cgroup/cgroup.controllers")
 
 
 def _resolve_daemon_command() -> str:
@@ -109,6 +114,12 @@ After=hop3-rootd.socket network.target
 # surfaces, rather than silently restarting forever (a misconfigured unit once
 # looped ~1620 times before anyone noticed). Install-time failures are also
 # caught by _verify_rootd_running.
+#
+# This minimal unit is ALSO what currently permits the ADR 046 Phase 2 ops:
+# cgroup writes (`cgroup.*`, native [limits]) need ProtectControlGroups to stay
+# false/unset, and bind/tmpfs mounts (`mount.*`, native [[volumes]]) need the
+# daemon in the host mount namespace (no PrivateMounts). The v0.6 hardening
+# redesign must preserve both — see ADR 041 §18.
 StartLimitIntervalSec=300
 StartLimitBurst=5
 
@@ -146,6 +157,18 @@ RemoveOnStop=true
 
 [Install]
 WantedBy=sockets.target
+"""
+
+
+BIND_ALLOWLIST_CONTENT = """\
+# hop3-rootd bind-volume allow-list (ADR 046 §2 / P2.1).
+# One absolute host-path prefix per line; '#' and blank lines are ignored.
+# A [[volumes]] entry with type = "bind" is permitted only if its source is at
+# or below one of these prefixes. DEFAULT-DENY: with no prefixes listed, every
+# bind volume is refused. Keep this conservative — a bind mounts host data into
+# an app, so only add paths you intend apps to reach. Example:
+#   /srv/shared
+#   /data/exports
 """
 
 
@@ -238,6 +261,12 @@ def setup_rootd() -> None:
     # just verifies; using add and tolerating EEXIST.
     _ensure_inet_hop3_table()
 
+    # 5b) Default-deny bind allow-list + cgroup v2 host check (ADR 046 P2).
+    # Both run on systemd and non-systemd hosts (before the activation branch
+    # below returns), since rootd runs on both.
+    _ensure_bind_allowlist()
+    _check_cgroup_v2()
+
     # 6) Activation.
     if not systemd:
         print_info(
@@ -294,6 +323,44 @@ def _verify_rootd_running() -> None:
             f"{active.returncode}. Inspect: journalctl -u hop3-rootd -n 50"
         )
         raise ServiceStartError(msg)
+
+
+def _ensure_bind_allowlist() -> None:
+    """Create the default-deny bind allow-list file if missing (idempotent).
+
+    rootd reads this to authorize `[[volumes]]` bind sources (ADR 046 §2);
+    absent or empty = deny all. We ship a commented template so operators can
+    discover where to add prefixes, but never pre-allow anything.
+    """
+    if BIND_ALLOWLIST_FILE.exists():
+        return
+    BIND_ALLOWLIST_FILE.write_text(BIND_ALLOWLIST_CONTENT)
+    BIND_ALLOWLIST_FILE.chmod(0o600)
+    print_success(f"bind allow-list created (default-deny) at {BIND_ALLOWLIST_FILE}")
+
+
+def _check_cgroup_v2() -> None:
+    """Warn loudly at install time if the host lacks a cgroup v2 hierarchy.
+
+    Native `[limits]` (memory/cpu/processes caps, ADR 046 §3) need the cgroup
+    v2 unified hierarchy. Surfacing the gap here means a `[limits]` app fails at
+    install-time diagnosis rather than only at first deploy. Not fatal — a box
+    may run only Docker apps (limits enforced by the container runtime) or no
+    `[limits]` apps at all.
+    """
+    if CGROUP_CONTROLLERS.exists():
+        print_success(
+            "cgroup v2 unified hierarchy present (native [limits] enforceable)"
+        )
+        return
+    print_warning(
+        f"no cgroup v2 unified hierarchy at {CGROUP_CONTROLLERS.parent}; native "
+        "[limits] (memory/cpu/processes caps) cannot be enforced on this host"
+    )
+    print_detail(
+        "boot with systemd.unified_cgroup_hierarchy=1, or use the Docker builder "
+        "for apps that declare [limits]"
+    )
 
 
 def _ensure_inet_hop3_table() -> None:
@@ -373,7 +440,13 @@ def uninstall_rootd() -> None:
     """
     run_cmd(["systemctl", "disable", "--now", "hop3-rootd.service"], check=False)
     run_cmd(["systemctl", "disable", "--now", "hop3-rootd.socket"], check=False)
-    for path in (SERVICE_PATH, SOCKET_PATH, LOGROTATE_PATH, STATE_FILE):
+    for path in (
+        SERVICE_PATH,
+        SOCKET_PATH,
+        LOGROTATE_PATH,
+        STATE_FILE,
+        BIND_ALLOWLIST_FILE,
+    ):
         try:
             path.unlink(missing_ok=True)
         except OSError:
