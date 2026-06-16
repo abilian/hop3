@@ -237,6 +237,41 @@ class AddonEndpointCmd(Command):
 
 @register
 @dataclass(frozen=True)
+class AddonExistsCmd(Command):
+    """Predicate: does an addon exist? (type-agnostic, for scripts/CI).
+
+    Usage: hop3 addon exists <name> [--type <type>]
+
+    A predicate command: it prints nothing and exits 0 if the addon exists, 1
+    if it doesn't (so it composes with shell `&&`/`||`). With `--json` it also
+    prints `{"exists": true|false}`. Pass `--type` to require a specific type.
+
+    Examples:
+        hop3 addon exists mydb && hop3 addon promote mydb --app web
+        hop3 addon exists mydb --type postgres
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", "exists")
+    requires_auth: ClassVar[bool] = True
+    _arg_spec: ClassVar[dict] = {
+        "addon_name": {"positional": True},
+        "type": {"type": str},
+        "service_type": {"type": str},
+    }
+
+    def call(self, *args):
+        parsed = parse_cli_args(args, self._arg_spec)
+        addon_name = parsed.get("addon_name")
+        if not addon_name:
+            return [error("Usage: hop3 addon exists <name> [--type <type>]")]
+        explicit = parsed.get("service_type") or parsed.get("type")
+        types = _resolve_addon_types(addon_name)
+        exists = (explicit in types) if explicit else bool(types)
+        return [data({"exists": exists, "name": addon_name})]
+
+
+@register
+@dataclass(frozen=True)
 class AddonExposeCmd(Command):
     """Expose an addon on a public host port (type-agnostic).
 
