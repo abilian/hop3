@@ -180,6 +180,29 @@ def test_diagnostic_missing_name_returns_usage():
     assert "Usage:" in out[0]["text"]
 
 
+def test_mysql_diagnostics_use_admin_path(monkeypatch):
+    fake = FakeAddon()
+    monkeypatch.setattr(mysql_cli, "get_addon", lambda t, n: fake)
+
+    out = mysql_cli.AddonMysqlPsCmd().call("mydb")
+    mysql_cli.AddonMysqlSettingsCmd().call("mydb")
+
+    sqls = [stmt for (method, stmt) in fake.calls if method == "run_admin_sql"]
+    assert any("processlist" in s.lower() for s in sqls)
+    assert any("variables" in s.lower() for s in sqls)
+    assert out[0]["t"] == "table"
+
+
+def test_redis_info_uses_run_command(monkeypatch):
+    fake = FakeAddon()
+    monkeypatch.setattr(redis_cli, "get_addon", lambda t, n: fake)
+
+    out = redis_cli.AddonRedisInfoCmd().call("mycache")
+
+    assert ("run_command", "INFO") in fake.calls
+    assert out[0]["t"] == "text"
+
+
 def test_missing_args_returns_usage_not_crash():
     # No monkeypatch: must short-circuit on the arg guard before get_addon.
     out = s3_cli.AddonS3CredentialsCmd().call()
@@ -211,6 +234,9 @@ def test_hook_contributes_all_commands_to_rpc_table():
         ("addon", "postgres", "locks"),
         ("addon", "postgres", "settings"),
         ("addon", "mysql", "query"),
+        ("addon", "mysql", "ps"),
+        ("addon", "mysql", "settings"),
+        ("addon", "redis", "info"),
         ("addon", "s3", "credentials"),
         ("addon", "s3", "dump"),
     }
