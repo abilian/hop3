@@ -354,6 +354,37 @@ class DeployCmd(Command):
         return response
 
 
+def _limits_rows(app: App) -> list[list[str]]:
+    """Status rows for resource [limits] (ADR 046 §3): the cap, how it is enforced
+    (native / docker / unenforced), and any OOM kills. Empty when no cap is set."""
+    if not app.limits_enforced:
+        return []
+    rows = [["Limits", f"{app.limits_detail} [{app.limits_enforced}]"]]
+    oom = _oom_kill_count(app)
+    if oom:
+        rows.append(["OOM kills", str(oom)])
+    return rows
+
+
+def _oom_kill_count(app: App) -> int | None:
+    """Live OOM-kill count for a native-capped app (best-effort; None if unreadable).
+
+    Reads the live cgroup leaf via hop3-rootd. None on any rootd error (daemon
+    down, no leaf) — the cap itself is shown from the DB, so a failed live read
+    just omits the OOM line rather than blocking or lying about the count.
+    """
+    if app.limits_enforced != "native":
+        return None
+    from hop3.lib.rootd import LocalRootdClient, RootdError  # noqa: PLC0415
+
+    try:
+        with LocalRootdClient() as client:
+            result = client.call("cgroup.read", {"app_name": app.name})
+    except RootdError:
+        return None
+    return result.get("oom_kill") or None
+
+
 @register
 @dataclass(frozen=True)
 class StatusCmd(Command):
@@ -417,6 +448,8 @@ class StatusCmd(Command):
         # Show error message if in FAILED state
         if db_state == AppStateEnum.FAILED and app.error_message:
             rows.append(["Error", app.error_message])
+
+        rows.extend(_limits_rows(app))
 
         return [table(["Property", "Value"], rows)]
 
@@ -1098,6 +1131,8 @@ class DebugCmd(Command):
 
         if app.error_message:
             rows.append(["Error", app.error_message])
+
+        rows.extend(_limits_rows(app))
 
         result: list[dict[str, Any]] = [
             text("=== APP STATUS ==="),
