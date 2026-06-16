@@ -23,8 +23,17 @@ if TYPE_CHECKING:
 
 
 @hookspec
-def cli_commands() -> None:
-    """Get CLI commands."""
+def cli_commands() -> list:  # type: ignore[empty-body]
+    """Get RPC CLI command classes contributed by this plugin.
+
+    Lets a plugin add `Command` subclasses to the server's dispatch table
+    (e.g. the addon plugins contribute `addon <type> <verb>` commands such as
+    `addon postgres credentials`). Collected by the RPC controller alongside
+    the commands found in `hop3.commands` (see server/controllers/rpc.py).
+
+    Returns:
+        List of `hop3.commands._base.Command` subclasses.
+    """
 
 
 @hookspec
