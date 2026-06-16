@@ -380,17 +380,17 @@ Backups are created **on demand** with `hop3 backup create <app>` and restored w
 
 ```toml
 [backup]
-paths = ["data", "var/state"]   # extra directories to include
-exclude = ["*.tmp", "cache/"]    # patterns to leave out
+paths = ["var/state", "uploads"]   # extra app dirs to also archive
+exclude = ["*.tmp", "cache/*", "node_modules"]  # patterns to prune
 ```
 
 **Fields:**
-- `paths` (array): extra directories to include beyond the defaults.
-- `exclude` (array): glob patterns to exclude.
+- `exclude` (array): glob patterns pruned from the source and `data/` archives. A pattern matches the full path relative to the archived root (`cache/*`), a basename (`*.tmp`), or any single path segment (`node_modules`). Use it to keep regenerable or bulky files out of backups.
+- `paths` (array): **additional** app-relative directories to archive (into `extra.tar.gz`), beyond the whole source tree captured by default. Resolved relative to the app's source dir and **confined to the app tree** — an entry that escapes it (absolute path or `..`) fails the backup loudly. A declared directory that doesn't exist yet is skipped. Restored back into place on `hop3 backup restore`.
 
 **Notes:**
 - A `[[volumes]]` volume can opt out of backup with `[volumes.backup]` `include = false`.
-- Automated scheduling and retention are not implemented yet; run `hop3 backup create` from a cron job if you need a schedule. (The `paths` / `exclude` fields are reserved and not yet consumed.)
+- Automated scheduling and retention are not implemented yet; run `hop3 backup create` from a cron job if you need a schedule.
 
 ### `[[addons]]` - Backing Services
 
