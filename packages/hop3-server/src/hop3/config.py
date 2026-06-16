@@ -170,6 +170,80 @@ class HopConfig:
         """
         return self._config_loader.get_str("ACME_SERVER", "")
 
+    # Resource limits (ADR 046 §3 / P2.2)
+    #
+    # Server-wide [limits] policy. All default OFF/empty so single-tenant boxes
+    # and the test suite are unaffected until an operator opts in. A *default*
+    # fills a cap an app didn't declare; a *ceiling* is a hard max an app may
+    # not exceed (a declared/defaulted value over its ceiling aborts the deploy).
+
+    @property
+    def LIMITS_STRICT(self) -> bool:
+        """Strict (default) aborts a deploy whose [limits] can't be enforced.
+
+        When False (operator opt-in best-effort), the app runs but the
+        unenforced state is recorded and surfaced — never a clean success.
+        """
+        return self._config_loader.get_bool("LIMITS_STRICT", default=True)
+
+    @property
+    def LIMITS_DEFAULT_MEMORY(self) -> str:
+        """Server-wide default memory cap (e.g. '512M'); empty = none."""
+        return self._config_loader.get_str("LIMITS_DEFAULT_MEMORY", "")
+
+    @property
+    def LIMITS_DEFAULT_CPU(self) -> float:
+        """Server-wide default CPU cap in cores; 0 = none."""
+        return self._config_loader.get_float("LIMITS_DEFAULT_CPU", 0.0)
+
+    @property
+    def LIMITS_DEFAULT_PROCESSES(self) -> int:
+        """Server-wide default process/pids cap; 0 = none."""
+        return self._config_loader.get_int("LIMITS_DEFAULT_PROCESSES", 0)
+
+    @property
+    def LIMITS_CEILING_MEMORY(self) -> str:
+        """Hard memory ceiling apps may not exceed (e.g. '2G'); empty = none."""
+        return self._config_loader.get_str("LIMITS_CEILING_MEMORY", "")
+
+    @property
+    def LIMITS_CEILING_CPU(self) -> float:
+        """Hard CPU ceiling in cores; 0 = none."""
+        return self._config_loader.get_float("LIMITS_CEILING_CPU", 0.0)
+
+    @property
+    def LIMITS_CEILING_PROCESSES(self) -> int:
+        """Hard process/pids ceiling; 0 = none."""
+        return self._config_loader.get_int("LIMITS_CEILING_PROCESSES", 0)
+
+    def limits_defaults(self) -> dict[str, Any]:
+        """Server-wide default caps as a dict of only the set dimensions."""
+        return self._limits_group(
+            self.LIMITS_DEFAULT_MEMORY,
+            self.LIMITS_DEFAULT_CPU,
+            self.LIMITS_DEFAULT_PROCESSES,
+        )
+
+    def limits_ceilings(self) -> dict[str, Any]:
+        """Server-wide ceilings as a dict of only the set dimensions."""
+        return self._limits_group(
+            self.LIMITS_CEILING_MEMORY,
+            self.LIMITS_CEILING_CPU,
+            self.LIMITS_CEILING_PROCESSES,
+        )
+
+    @staticmethod
+    def _limits_group(memory: str, cpu: float, processes: int) -> dict[str, Any]:
+        """Assemble a limits dict, omitting unset (empty/zero) dimensions."""
+        out: dict[str, Any] = {}
+        if memory:
+            out["memory"] = memory
+        if cpu > 0:
+            out["cpu"] = cpu
+        if processes > 0:
+            out["processes"] = processes
+        return out
+
     # Derived Paths (Lazy Evaluation)
 
     @property
