@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from hop3.core.identifiers import (
@@ -29,22 +30,36 @@ SENSITIVE_PATTERNS: list[str] = [
     "API_KEY",
 ]
 
+# Credentials embedded in connection-string URLs, e.g.
+# `mysql://user:PASSWORD@host:3306/db` or `redis://:PASSWORD@host`. The name
+# check misses these (DATABASE_URL/REDIS_URL don't match SENSITIVE_PATTERNS),
+# so they would otherwise leak the password in cleartext. Match the password
+# component between `://[user]:` and `@`, keeping the rest for debuggability.
+_URL_PASSWORD_RE = re.compile(r"(://[^:/?#\s@]*:)([^@/?#\s]+)(@)")
+
 
 def redact_sensitive_value(name: str, value: str) -> str:
-    """Redact sensitive values, showing only first 4 characters.
+    """Redact sensitive values for display.
+
+    Two layers, because either the name or the value can carry a secret:
+    - if the variable *name* looks sensitive (password/secret/token/...), the
+      whole value is masked to its first 4 characters;
+    - otherwise, any credential embedded in a connection-string URL value
+      (``scheme://user:password@host``) has its password masked, so vars like
+      ``DATABASE_URL`` don't leak in cleartext.
 
     Args:
         name: Environment variable name
         value: Environment variable value
 
     Returns:
-        Redacted value if name matches sensitive patterns, original otherwise
+        The redacted value (or the original if nothing sensitive was found).
     """
     if any(pattern in name.upper() for pattern in SENSITIVE_PATTERNS):
         if len(value) > 4:
             return value[:4] + "***"
         return "***"
-    return value
+    return _URL_PASSWORD_RE.sub(r"\1***\3", value)
 
 
 def get_app(db_session: Session, app_name: str) -> App:

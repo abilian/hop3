@@ -60,7 +60,9 @@ hop3 addon destroy my-database                 # Permanently delete (prompts)
 ### List and inspect
 
 ```bash
-hop3 addon list                        # All available addon types (alias: addons)
+hop3 addon list                        # All provisioned instances (alias: addons)
+hop3 addon list --app my-app           # Only addons attached to my-app
+hop3 addon types                       # Addon types you can create
 hop3 addon show my-database            # Full details for one addon
 hop3 addon status my-database          # Health and connection check
 ```

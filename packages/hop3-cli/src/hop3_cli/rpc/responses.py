@@ -26,7 +26,12 @@ from hop3_cli.core.suggest import (
     format_did_you_mean,
     load_cached_commands,
 )
-from hop3_cli.exit_codes import ExitCode, map_message_to_exit, map_rpc_code_to_exit
+from hop3_cli.exit_codes import (
+    HTTP_PAYLOAD_TOO_LARGE,
+    ExitCode,
+    map_message_to_exit,
+    map_rpc_code_to_exit,
+)
 from hop3_cli.tokens import JWT_PATTERN
 from hop3_cli.ui.console import err
 
@@ -222,7 +227,9 @@ def handle_error_response(
         clean_message = clean_message.removeprefix(prefix)
 
     # Add helpful hints for specific error codes (ADR 036 D10 — did-you-mean).
-    if code == -32601:  # Method/command not found
+    if code == HTTP_PAYLOAD_TOO_LARGE:  # 413 — deploy archive too big
+        clean_message = _payload_too_large_message()
+    elif code == -32601:  # Method/command not found
         suggestion = _command_not_found_suggestion(clean_message)
         if suggestion:
             clean_message += f"\n\n{suggestion}"
@@ -260,6 +267,24 @@ def handle_error_response(
         err(clean_message)
 
     sys.exit(exit_code)
+
+
+def _payload_too_large_message() -> str:
+    """Actionable diagnostic for an HTTP 413 on deploy (archive too large)."""
+    return (
+        "Deploy archive rejected by the server: it's too large (HTTP 413).\n"
+        "\n"
+        "Run 'hop3 deploy --dry-run' to see exactly what's in the archive\n"
+        "(total size and the largest files/directories).\n"
+        "\n"
+        "The server's default upload limit is 200 MB. To shrink the archive:\n"
+        "  - Exclude large directories via [build].ignore in hop3.toml\n"
+        "    (e.g. data/, media/, uploads/, build output, large assets).\n"
+        "  - .git/, node_modules/, .venv/ are already excluded by default.\n"
+        "\n"
+        "If the archive is legitimately large, ask your server admin to raise\n"
+        "request_max_body_size (Litestar) and client_max_body_size (nginx)."
+    )
 
 
 def _command_not_found_suggestion(error_message: str) -> str | None:

@@ -15,6 +15,7 @@ from hop3.commands.services import (
     AddonCreateCmd,
     AddonDestroyCmd,
     AddonDetachCmd,
+    AddonListCmd,
     AddonShowCmd,
 )
 from hop3.orm import App, EnvVar
@@ -289,6 +290,70 @@ def test_services_destroy_success(mock_addon_credential_repo):
 
         mock_service.destroy.assert_called_once()
         assert "destroyed successfully" in result[0]["text"]
+
+
+def test_addon_list_all_instances(mock_app_repo, mock_addon_credential_repo):
+    """`addon list` lists provisioned instances with their attached apps."""
+    cred = Mock()
+    cred.addon_type = "postgres"
+    cred.addon_name = "db1"
+    cred.app = Mock(name="web")
+    cred.app.name = "web"
+    mock_addon_credential_repo.list_all_with_apps.return_value = [cred]
+
+    cmd = AddonListCmd(
+        app_repo=mock_app_repo, addon_credential_repo=mock_addon_credential_repo
+    )
+    with patch(
+        "hop3.commands.services.list_addon_instances",
+        return_value=[("postgres", "db1"), ("redis", "cache1")],
+    ):
+        result = cmd.call()
+
+    table_item = next(item for item in result if item["t"] == "table")
+    assert ["db1", "postgres", "web"] in table_item["rows"]
+    assert ["cache1", "redis", "-"] in table_item["rows"]
+
+
+def test_addon_list_empty(mock_app_repo, mock_addon_credential_repo):
+    """`addon list` with no instances tells the user how to create one."""
+    cmd = AddonListCmd(
+        app_repo=mock_app_repo, addon_credential_repo=mock_addon_credential_repo
+    )
+    with patch("hop3.commands.services.list_addon_instances", return_value=[]):
+        result = cmd.call()
+
+    assert any("No addon instances" in item.get("text", "") for item in result)
+
+
+def test_addon_list_for_app(mock_app_repo, mock_addon_credential_repo, mock_app):
+    """`addon list --app X` lists addons attached to that app."""
+    cred = Mock()
+    cred.addon_type = "postgres"
+    cred.addon_name = "db1"
+    mock_app.addon_credentials = [cred]
+    mock_app_repo.get_one_or_none.return_value = mock_app
+
+    cmd = AddonListCmd(
+        app_repo=mock_app_repo, addon_credential_repo=mock_addon_credential_repo
+    )
+    result = cmd.call("--app", "test-app")
+
+    table_item = next(item for item in result if item["t"] == "table")
+    assert ["db1", "postgres"] in table_item["rows"]
+
+
+def test_addon_list_for_app_not_found(mock_app_repo, mock_addon_credential_repo):
+    """`addon list --app X` fails loudly when the app does not exist."""
+    mock_app_repo.get_one_or_none.return_value = None
+
+    cmd = AddonListCmd(
+        app_repo=mock_app_repo, addon_credential_repo=mock_addon_credential_repo
+    )
+    result = cmd.call("--app", "ghost")
+
+    assert result[0]["t"] == "error"
+    assert "not found" in result[0]["text"]
 
 
 def test_services_info_success():

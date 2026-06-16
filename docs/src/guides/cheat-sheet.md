@@ -164,7 +164,8 @@ hop3 config migrate procfile /path/to/app --dry-run
 ### Addons (Backing Services)
 
 ```bash
-hop3 addons                           # List addons (alias for `addon list`)
+hop3 addons                           # List instances (alias for `addon list`)
+hop3 addon types                     # List addon types you can create
 hop3 addon create postgres my-db     # Create addon
 hop3 addon attach my-db --app <app>  # Attach (sets DATABASE_URL)
 hop3 addon detach my-db --app <app>  # Detach from app
