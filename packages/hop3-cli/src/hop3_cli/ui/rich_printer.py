@@ -6,7 +6,9 @@
 
 from __future__ import annotations
 
+import base64
 import json
+import sys
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -137,6 +139,20 @@ class RichPrinter:
 
         text = obj.get("text", "")
         self.console.print(text, markup=False, highlight=False)
+
+    def print_blob(self, obj: dict) -> None:
+        """Write a base64 blob's bytes verbatim to stdout.
+
+        Used by `addon <type> export` to stream a dump to the client; the bytes
+        go to stdout (redirect to a file) while status/summary go to stderr.
+        Always emitted (even in quiet mode) — the blob IS the requested output.
+        """
+        if self.json_output:
+            self.json_buffer.append(obj)
+            return
+
+        sys.stdout.buffer.write(base64.b64decode(obj.get("data", "")))
+        sys.stdout.flush()
 
     def print_error(self, obj: dict) -> None:
         """Print error messages in red."""
