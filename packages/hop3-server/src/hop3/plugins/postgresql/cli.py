@@ -17,12 +17,38 @@ from typing import ClassVar
 
 from hop3.commands._base import Command
 from hop3.commands._errors import command_context
-from hop3.commands._response import summary, table, text
+from hop3.commands._response import error, summary, table, text
+from hop3.core.identifiers import InvalidIdentifierError, validate_service_name
 from hop3.core.plugins import get_addon
 from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
 
 _TYPE = "postgres"
+
+
+def _clone(args: tuple) -> list[dict]:
+    """Create a new addon and copy the source addon's data into it.
+
+    Reuses the existing create / backup / restore methods, so it only works
+    for engines whose restore is implemented (postgres, mysql).
+    """
+    if len(args) < 2:
+        return [text(f"Usage: hop3 addon {_TYPE} clone <source> <new-name>")]
+    source, target = args[0], args[1]
+    try:
+        validate_service_name(target)
+    except InvalidIdentifierError as exc:
+        return [error(str(exc))]
+    with command_context("cloning addon", addon_name=source, service_type=_TYPE):
+        dst = get_addon(_TYPE, target)
+        if hasattr(dst, "exists") and dst.exists():
+            return [error(f"Addon '{target}' already exists.")]
+        dst.create()
+        dst.restore(get_addon(_TYPE, source).backup())
+    return [
+        text(f"Cloned {_TYPE} addon '{source}' into '{target}'."),
+        summary(f"cloned addon '{source}' -> '{target}' ({_TYPE})."),
+    ]
 
 
 def _result_items(result: dict) -> list[dict]:
@@ -201,6 +227,26 @@ class AddonPostgresQueryCmd(Command):
         return _result_items(result)
 
 
+@register
+@dataclass(frozen=True)
+class AddonPostgresCloneCmd(Command):
+    """Clone a Postgres addon into a new one (copies all data).
+
+    Usage: hop3 addon postgres clone <source> <new-name>
+
+    Creates <new-name>, then loads a dump of <source> into it. Refuses if
+    <new-name> already exists.
+
+    Examples:
+        hop3 addon postgres clone prod-db staging-db
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "clone")
+
+    def call(self, *args):
+        return _clone(args)
+
+
 # --- Diagnostics (read-only, run as superuser via run_admin_sql) -------------
 
 _PS_SQL = r"""
@@ -308,6 +354,7 @@ COMMANDS: list[type[Command]] = [
     AddonPostgresRestoreCmd,
     AddonPostgresExtensionsCmd,
     AddonPostgresQueryCmd,
+    AddonPostgresCloneCmd,
     AddonPostgresPsCmd,
     AddonPostgresLocksCmd,
     AddonPostgresSettingsCmd,

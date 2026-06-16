@@ -340,6 +340,23 @@ class MySQLAddon:
         )
         return self._exec(connection, statement)
 
+    def exists(self) -> bool:
+        """Return True if this addon's database exists."""
+        admin = self._get_admin()
+        connection = mysql.connector.connect(**admin.get_connection_params())
+        try:
+            cursor = connection.cursor()
+            cursor.execute(
+                "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA "
+                "WHERE SCHEMA_NAME = %s",
+                (self.db_name,),
+            )
+            found = cursor.fetchone() is not None
+            cursor.close()
+            return found
+        finally:
+            connection.close()
+
     def backup(self) -> Path:
         """Create a backup of the MySQL database using mysqldump.
 
