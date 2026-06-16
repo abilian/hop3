@@ -55,12 +55,25 @@ class FakeAddon:
         self.calls.append(("run_admin_sql", statement))
         return {"columns": ["c"], "rows": [["v"]]}
 
+    def create(self) -> None:
+        self.calls.append(("create",))
+
+    def exists(self) -> bool:
+        return False
+
 
 class _FakeStatusAddon:
     """Addon whose run_sql() returns a status (no result set)."""
 
     def run_sql(self, statement: str) -> dict:
         return {"message": "OK (5 row(s) affected)"}
+
+
+class _FakeExistingAddon:
+    """Addon that already exists (for the clone-refuses-existing test)."""
+
+    def exists(self) -> bool:
+        return True
 
 
 def _types(items: list[dict]) -> list[str]:
@@ -193,6 +206,33 @@ def test_mysql_diagnostics_use_admin_path(monkeypatch):
     assert out[0]["t"] == "table"
 
 
+def test_clone_creates_target_and_copies_data(monkeypatch):
+    fake = FakeAddon()
+    monkeypatch.setattr(pg_cli, "get_addon", lambda t, n: fake)
+
+    out = pg_cli.AddonPostgresCloneCmd().call("prod-db", "staging-db")
+
+    methods = [c[0] for c in fake.calls]
+    assert "create" in methods  # target created
+    assert "backup" in methods  # source dumped
+    assert "restore" in methods  # loaded into target
+    assert "summary" in _types(out)
+
+
+def test_clone_refuses_existing_target(monkeypatch):
+    monkeypatch.setattr(pg_cli, "get_addon", lambda t, n: _FakeExistingAddon())
+
+    out = pg_cli.AddonPostgresCloneCmd().call("prod-db", "staging-db")
+
+    assert out[0]["t"] == "error"
+    assert "already exists" in out[0]["text"]
+
+
+def test_clone_missing_args_returns_usage():
+    out = pg_cli.AddonPostgresCloneCmd().call("only-source")
+    assert "Usage:" in out[0]["text"]
+
+
 def test_redis_info_uses_run_command(monkeypatch):
     fake = FakeAddon()
     monkeypatch.setattr(redis_cli, "get_addon", lambda t, n: fake)
@@ -233,9 +273,11 @@ def test_hook_contributes_all_commands_to_rpc_table():
         ("addon", "postgres", "ps"),
         ("addon", "postgres", "locks"),
         ("addon", "postgres", "settings"),
+        ("addon", "postgres", "clone"),
         ("addon", "mysql", "query"),
         ("addon", "mysql", "ps"),
         ("addon", "mysql", "settings"),
+        ("addon", "mysql", "clone"),
         ("addon", "redis", "info"),
         ("addon", "s3", "credentials"),
         ("addon", "s3", "dump"),
