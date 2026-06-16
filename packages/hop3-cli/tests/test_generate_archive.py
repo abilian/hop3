@@ -170,9 +170,7 @@ def test_describe_archive_shows_included_by_size_and_excludes_ignored():
     """`hop3 deploy --dry-run` manifest: included files by size, ignored gone."""
     with tempfile.TemporaryDirectory() as temp_dir:
         project_dir = Path(temp_dir)
-        (project_dir / "hop3.toml").write_text(
-            '[build]\nignore = ["data/"]\n'
-        )
+        (project_dir / "hop3.toml").write_text('[build]\nignore = ["data/"]\n')
         (project_dir / "app.py").write_text("x = 1\n")
         # Big included file (the culprit a user would want to see).
         (project_dir / "media").mkdir()
