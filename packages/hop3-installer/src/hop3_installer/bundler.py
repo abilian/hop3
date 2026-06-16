@@ -323,21 +323,62 @@ def _top_level_names(code: str) -> list[str]:
     return names
 
 
+def _collect_import_statements(source: str) -> set[str]:
+    """Full, normalized stdlib-candidate import statements found in ``source``.
+
+    Uses ``ast`` so multi-line and conditional (e.g. ``if TYPE_CHECKING:``)
+    imports are captured correctly, and — crucially — so the imported *symbols*
+    are preserved verbatim. This is what makes ``from typing import TypedDict``
+    survive bundling: the old line-based path reduced it to the module name
+    ``typing`` and re-emitted a bare ``import typing``, dropping ``TypedDict``
+    unless it happened to be on a hand-maintained allowlist. A missed symbol
+    then surfaced only as a ``NameError`` at install time (the bundle parses and
+    byte-compiles fine — an undefined base class is a runtime error).
+
+    Relative imports and ``__future__`` are skipped: relative code is inlined,
+    and ``from __future__ import annotations`` already lives in the header.
+    """
+    import ast  # noqa: PLC0415
+
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return set()
+
+    statements: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                suffix = f" as {alias.asname}" if alias.asname else ""
+                statements.add(f"import {alias.name}{suffix}")
+        elif isinstance(node, ast.ImportFrom):
+            if node.level or node.module in {None, "__future__"}:
+                continue
+            names = ", ".join(
+                a.name + (f" as {a.asname}" if a.asname else "") for a in node.names
+            )
+            statements.add(f"from {node.module} import {names}")
+    return statements
+
+
 def process_module(filepath: Path) -> tuple[set[str], str]:
     """Process a module file.
 
     Returns:
-        Tuple of (imports, code body)
+        Tuple of (full import statements, code body). The statements are
+        normalized stdlib-candidate imports (see ``_collect_import_statements``);
+        the body has its import lines stripped and is ready to inline.
     """
     source = filepath.read_text()
 
-    # Extract imports
-    imports, source_no_imports = extract_imports(source)
+    # Strip import lines from the body (the returned module-name set is unused
+    # here — emission uses the symbol-preserving statements collected below).
+    _module_names, source_no_imports = extract_imports(source)
 
     # Extract code body
     code = extract_code_body(source_no_imports)
 
-    return imports, code
+    return _collect_import_statements(source), code
 
 
 # =============================================================================
@@ -413,17 +454,14 @@ def bundle_installer(installer_type: str) -> str:
         date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     )
 
-    # Generate import block (only stdlib imports)
-    import_lines = []
-    for imp in sorted(all_imports):
-        if is_stdlib_module(imp):
-            import_lines.append(f"import {imp}")
-        # Skip non-stdlib imports (they should all be relative)
-
-    # Add specific imports needed by bundled code
-    import_lines.append("from dataclasses import dataclass, field")
-    import_lines.append("from pathlib import Path")
-    import_lines.append("from typing import TypedDict, overload")
+    # Generate import block (stdlib only), preserving full statements verbatim
+    # so imported symbols survive — no hand-maintained allowlist to drift out of
+    # sync with the code. Non-stdlib imports are dropped (their code is inlined).
+    import_lines = [
+        stmt
+        for stmt in sorted(all_imports)
+        if (module := _extract_module_name(stmt)) and is_stdlib_module(module)
+    ]
 
     import_block = "\n".join(import_lines) + "\n"
 
