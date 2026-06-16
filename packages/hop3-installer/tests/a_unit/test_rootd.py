@@ -84,6 +84,69 @@ def test_service_template_is_minimal_pending_v06_hardening() -> None:
         assert breaking not in rendered, f"{breaking} re-added without v0.6 review"
 
 
+def test_unit_keeps_cgroup_and_mount_ops_working() -> None:
+    """ADR 046 P2 (§18): the cgroup.*/mount.* ops rely on the unit NOT setting
+    ProtectControlGroups (would block cgroup writes) or PrivateMounts (would hide
+    bind/tmpfs mounts from the app's namespace). Guard against a premature re-add.
+    """
+    rendered = rootd.SERVICE_TEMPLATE.format(daemon_command="/x/hop3-rootd")
+    for breaking in ("ProtectControlGroups=", "PrivateMounts="):
+        assert breaking not in rendered, f"{breaking} would break ADR 046 P2 ops"
+
+
+# ---- _ensure_bind_allowlist ----------------------------------------------
+
+
+def test_ensure_bind_allowlist_creates_default_deny(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    f = tmp_path / "bind-allowlist"
+    monkeypatch.setattr(rootd, "BIND_ALLOWLIST_FILE", f)
+    rootd._ensure_bind_allowlist()
+    assert f.exists()
+    content = f.read_text()
+    assert "DEFAULT-DENY" in content
+    # No non-comment, non-blank lines → deny-all (nothing pre-allowed).
+    active = [
+        ln for ln in content.splitlines() if ln.strip() and not ln.startswith("#")
+    ]
+    assert active == []
+
+
+def test_ensure_bind_allowlist_is_idempotent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An operator-edited allow-list must never be clobbered on re-install."""
+    f = tmp_path / "bind-allowlist"
+    f.write_text("/srv/shared\n")
+    monkeypatch.setattr(rootd, "BIND_ALLOWLIST_FILE", f)
+    rootd._ensure_bind_allowlist()
+    assert f.read_text() == "/srv/shared\n"
+
+
+# ---- _check_cgroup_v2 ----------------------------------------------------
+
+
+def test_check_cgroup_v2_present_is_ok(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    controllers = tmp_path / "cgroup.controllers"
+    controllers.write_text("memory cpu pids")
+    monkeypatch.setattr(rootd, "CGROUP_CONTROLLERS", controllers)
+    rootd._check_cgroup_v2()  # must not raise
+    out = capsys.readouterr()
+    assert "present" in (out.out + out.err)
+
+
+def test_check_cgroup_v2_absent_warns_not_fatal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(rootd, "CGROUP_CONTROLLERS", tmp_path / "nope")
+    rootd._check_cgroup_v2()  # non-fatal: a Docker-only / no-limits box is fine
+    out = capsys.readouterr()
+    assert "no cgroup v2" in (out.out + out.err)
+
+
 # ---- docker (supervisor) launch ------------------------------------------
 
 

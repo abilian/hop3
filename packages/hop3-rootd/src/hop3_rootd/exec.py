@@ -38,6 +38,11 @@ ALLOWED_BINARIES: Final[frozenset[str]] = frozenset({
     "/bin/systemctl",  # some distros
     "/usr/sbin/nginx",
     "/sbin/nginx",  # some distros
+    # Volume mounts (ADR 046 §2 / P2.1) — tmpfs and bind volumes.
+    "/usr/bin/mount",
+    "/bin/mount",  # some distros
+    "/usr/bin/umount",
+    "/bin/umount",  # some distros
 })
 
 

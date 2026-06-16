@@ -7,6 +7,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from hop3.commands._helpers import check_hostname_conflict
+from hop3.config import HopConfig
 from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
 from hop3.core.manifest import RuntimeManifestBuilder
 from hop3.core.plugins import get_builder, get_deployer
@@ -22,8 +23,10 @@ from hop3.deployers.env_provisioning import (
     set_generated_env_vars,
 )
 from hop3.deployers.fixed_ports import claim_fixed_ports, open_fixed_ports
+from hop3.deployers.limits import LimitsError, resolve_limits
+from hop3.deployers.native_limits import enforce_native_limits, format_limits_detail
 from hop3.deployers.volumes import realize_volumes
-from hop3.lib import Diagnosis, abort_with_diagnosis, log, log_diagnosis, shell
+from hop3.lib import Abort, Diagnosis, abort_with_diagnosis, log, log_diagnosis, shell
 from hop3.lib.logging import server_log
 from hop3.orm.app import AppStateEnum
 from hop3.project.config import AppConfig
@@ -40,7 +43,7 @@ if TYPE_CHECKING:
 __all__ = ["do_deploy"]
 
 
-def do_deploy(
+def do_deploy(  # noqa: PLR0915
     app: App,
     *,
     deltas: dict[str, int] | None = None,
@@ -134,7 +137,7 @@ def do_deploy(
     builder = get_builder(context)
     log(f"Using builder: '{builder.name}'", level=1, fg="blue")
 
-    _enforce_builder_resource_support(builder.name, app_config.hop3_config)
+    _enforce_builder_resource_support(app, app_config, builder.name, context)
 
     build_artifact = builder.build()
     log(
@@ -204,6 +207,24 @@ def do_deploy(
     # Now that the app is confirmed running, allow external ingress to the
     # ports it claimed. Skipped silently when no [[ports]] are declared.
     open_fixed_ports(app, db_session)
+
+    # --- 6.6. Apply native [limits] cgroup caps (ADR 046 §3) ---
+    # Post-start: the app's PIDs exist only now. Docker caps were applied by the
+    # compose generator at build time; this is the native/Nix path. Strict mode
+    # aborts here if the cap can't be enforced (no looks-capped-but-isn't).
+    try:
+        enforce_native_limits(app, app_config)
+    except Abort:
+        # The app is RUNNING but its cap couldn't be applied (strict mode). The
+        # guarantee is "capped or not running", so don't leave it running uncapped
+        # — stop + reap it, then re-raise so the deploy fails loudly.
+        log(
+            f"Stopping '{app.name}': [limits] could not be enforced (strict mode)",
+            level=1,
+            fg="red",
+        )
+        app.stop()
+        raise
 
     # Flush decision log summary
     flush_decision_logger()
@@ -654,16 +675,61 @@ def stop_previous_instance(app: App) -> None:
 
 
 def _enforce_builder_resource_support(
-    builder_name: str, hop3_config: Hop3Config
+    app: App, app_config: AppConfig, builder_name: str, context: DeploymentContext
 ) -> None:
     """Fail loud when declared resources can't be honored by the chosen builder.
 
-    The two resource features have opposite builder support today, so check both
-    after builder selection and before the build: volumes work on native/Nix but
-    not Docker; limits work on Docker but not native/Nix (ADR 046 §2/§3).
+    Volumes work on native/Nix but not Docker (ADR 046 §2); limits are resolved
+    against the server-wide defaults/ceilings and applied per builder (§3).
     """
+    hop3_config = app_config.hop3_config
     _reject_volumes_on_docker(builder_name, hop3_config.volumes)
-    _reject_limits_on_non_docker(builder_name, hop3_config.limits)
+    _apply_limits(app, hop3_config, builder_name, context)
+
+
+def _apply_limits(
+    app: App,
+    hop3_config: Hop3Config,
+    builder_name: str,
+    context: DeploymentContext,
+) -> None:
+    """Resolve [limits] against the server policy and apply per builder (ADR 046 §3).
+
+    Resolution (declared caps over the operator's server-wide defaults, with a
+    value over its ceiling aborting loudly) runs here for *both* builders so a bad
+    ceiling fails before the build. Docker stashes the resolved set for the
+    compose generator and records ``limits_enforced=docker`` now. Native/Nix
+    enforcement needs the app's PIDs, which exist only once it is RUNNING, so it
+    happens post-start via ``enforce_native_limits`` — here we only validate.
+    """
+    declared = hop3_config.limits
+    cfg = HopConfig.get_instance()
+    try:
+        resolved = resolve_limits(
+            declared, cfg.limits_defaults(), cfg.limits_ceilings()
+        )
+    except LimitsError as e:
+        abort_with_diagnosis(
+            Diagnosis(
+                component="Limits",
+                action="apply [limits]",
+                reason=str(e),
+                hint="Lower the cap, or adjust the server-wide [limits] policy.",
+                troubleshooting=["See ADR 046 §3 (resource caps)"],
+            )
+        )
+
+    if resolved.is_empty():
+        return
+
+    if builder_name.lower() == "docker":
+        # Hand the resolved caps to the compose generator (it reads this dict),
+        # and record the enforced state for status.
+        context.app_config["hop3_config"]["limits"] = resolved.as_dict()
+        app.limits_enforced = "docker"
+        app.limits_detail = format_limits_detail(resolved.as_dict())
+    # Native/Nix: the cap is applied post-start (enforce_native_limits); the
+    # resolve above already aborted on a ceiling breach, before the build.
 
 
 def _reject_volumes_on_docker(builder_name: str, volumes: list[dict[str, Any]]) -> None:
@@ -679,24 +745,6 @@ def _reject_volumes_on_docker(builder_name: str, volumes: list[dict[str, Any]]) 
             "[[volumes]] is not yet supported for Docker-deployed apps: the "
             "container cannot see the host volume, so data would be lost. Use "
             "the native or nix builder, or remove the [[volumes]] declaration."
-        )
-        raise ValueError(msg)
-
-
-def _reject_limits_on_non_docker(builder_name: str, limits: dict[str, Any]) -> None:
-    """Abort the deploy if [limits] are declared but can't be enforced (ADR 046 §3).
-
-    A declared limit is a safety guarantee, so it must never be silently
-    ignored. Enforcement is implemented for the Docker builder (compose
-    mem_limit / cpus / pids_limit); native/Nix enforcement needs cgroups via
-    hop3-rootd and isn't available yet, so fail loud there rather than run an
-    app that only looks capped.
-    """
-    if limits and builder_name.lower() != "docker":
-        msg = (
-            "[limits] resource caps are only enforced for Docker-deployed apps "
-            "today (native/Nix enforcement needs cgroup support via hop3-rootd). "
-            "Use the docker builder, or remove the [limits] section."
         )
         raise ValueError(msg)
 

@@ -24,7 +24,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import overload
+from typing import TypedDict, overload
 
 from typing_extensions import Self
 
@@ -640,7 +640,15 @@ def create_symlink(source: Path, target: Path) -> bool:
 # =============================================================================
 
 
-def collect_git_provenance(repo_dir: Path) -> dict:
+class GitProvenance(TypedDict):
+    """Git provenance for a working tree. Any value may be None."""
+
+    git_commit: str | None
+    git_branch: str | None
+    git_dirty: bool | None
+
+
+def collect_git_provenance(repo_dir: Path) -> GitProvenance:
     """Collect git commit / branch / dirty state for a working tree.
 
     Runs git inside ``repo_dir`` (git searches upward for the repo root, so a
