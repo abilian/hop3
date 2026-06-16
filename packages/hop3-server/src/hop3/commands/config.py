@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hop3.config import HopConfig
 from hop3.core.identifiers import InvalidIdentifierError, validate_hostname_list
+from hop3.deployers.addon_provisioning import addon_var_names
 from hop3.lib.args import parse_cli_args
 from hop3.lib.registry import register
 from hop3.project.procfile import Procfile
@@ -61,11 +62,13 @@ class ShowCmd(Command):
     Flags:
         --show-secrets  Show full values, including secrets
         --show-compose  Show the generated Docker Compose file (for container apps)
+        --sources       Add a column showing each var's source (addon vs config)
 
 
     Examples:
         hop3 env show myapp                  # List env vars (secrets redacted)
         hop3 env show --app myapp --show-secrets  # Reveal full values
+        hop3 env show myapp --sources        # Show where each var came from
     """
 
     db_session: Session
@@ -76,6 +79,7 @@ class ShowCmd(Command):
         "app": {"type": str},  # --app <name>
         "show_compose": {"flag": True, "default": False},
         "show_secrets": {"flag": True, "default": False},
+        "sources": {"flag": True, "default": False},
         "_args": {"remaining": True},  # Catches positional args
     }
 
@@ -111,10 +115,22 @@ class ShowCmd(Command):
         if not env:
             return [text(f"No configuration set for '{app_name}'.")]
 
-        rows = [
-            [k, v if show_secrets else redact_sensitive_value(k, v)]
-            for k, v in sorted(env.items())
-        ]
+        def _value(key: str, val: str) -> str:
+            return val if show_secrets else redact_sensitive_value(key, val)
+
+        if parsed["sources"]:
+            # 3-column view: which vars came from an attached addon vs config.
+            addon_vars = addon_var_names(app, self.db_session)
+            rows = [
+                ["addon" if k in addon_vars else "config", k, _value(k, v)]
+                for k, v in sorted(env.items())
+            ]
+            return [
+                text(f"Configured environment for '{app_name}':"),
+                table(headers=["Source", "Key", "Value"], rows=rows),
+            ]
+
+        rows = [[k, _value(k, v)] for k, v in sorted(env.items())]
         return [
             text(f"Configured environment for '{app_name}':"),
             table(headers=["Key", "Value"], rows=rows),
