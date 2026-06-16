@@ -155,6 +155,36 @@ def test_is_mounted_false_when_no_mountinfo(tmp_path, monkeypatch):
     assert mount.is_mounted(mount.Path("/whatever")) is False
 
 
+# --- list_mounts_under_app_root + unmount_path ----------------------------
+
+
+def test_list_mounts_under_app_root(app_root, monkeypatch):
+    under = app_root / "blog" / "src" / "var" / "cache"
+    mountinfo = app_root / "mountinfo"
+    mountinfo.write_text(
+        f"36 35 0:1 / {under} rw - tmpfs tmpfs rw\n"
+        "37 35 0:2 / /proc rw - proc proc rw\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mount, "_MOUNTINFO", mountinfo)
+    result = mount.list_mounts_under_app_root()
+    assert str(under) in result
+    assert "/proc" not in result
+
+
+def test_list_mounts_under_app_root_no_mountinfo(app_root, monkeypatch):
+    monkeypatch.setattr(mount, "_MOUNTINFO", app_root / "nope")
+    assert mount.list_mounts_under_app_root() == []
+
+
+def test_unmount_path_returns_method(app_root):
+    with (
+        patch.object(mount, "resolve_allowed_binary", return_value="/usr/bin/umount"),
+        patch.object(mount, "exec_run", return_value=_ok()),
+    ):
+        assert mount.unmount_path(mount.Path("/app/x")) == "umount"
+
+
 # --- bind allow-list ------------------------------------------------------
 
 

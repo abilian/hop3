@@ -37,8 +37,9 @@ from hop3_rootd.audit import (
     logger,
 )
 from hop3_rootd.cgroup import CgroupUnavailableError
+from hop3_rootd.mount import MountError
 from hop3_rootd.nft.rule import NftBinaryNotFoundError
-from hop3_rootd.reconcile import reconcile, reconcile_cgroups
+from hop3_rootd.reconcile import reconcile, reconcile_cgroups, reconcile_mounts
 from hop3_rootd.server import DEFAULT_SOCKET_PATH, Server
 from hop3_rootd.state import (
     DEFAULT_STATE_PATH,
@@ -185,6 +186,35 @@ def _startup_reconcile_cgroups(state: State, state_path: Path) -> None:
     )
 
 
+def _startup_reconcile_mounts(state: State, state_path: Path) -> None:
+    """Reconcile tracked volume mounts at startup. Non-fatal (ADR 046 P2.1).
+
+    Makes state honest (drops stale entries, unmounts orphans). Skipped when
+    there is nothing tracked, so a volume-free host does no mountinfo work. A
+    host where the app root can't be derived degrades loudly, like the cgroup
+    and nft paths.
+    """
+    if not state.mounts:
+        return
+
+    try:
+        report = reconcile_mounts(state)
+    except MountError as e:
+        logger.error("mount reconciliation error: %s", e)
+        return
+    except Exception as e:
+        logger.error("unexpected error in mount reconciliation: %s", e)
+        return
+
+    save(state, state_path)
+    logger.info(
+        "mount reconcile: verified=%d state_dropped=%d orphans_removed=%d",
+        report.verified,
+        report.state_dropped,
+        report.orphans_removed,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     configure_operational_logging(args.log_level)
@@ -216,6 +246,7 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_RECONCILE_ERROR
 
     _startup_reconcile_cgroups(state, args.state_path)
+    _startup_reconcile_mounts(state, args.state_path)
 
     audit = AuditLog(args.audit_log)
 

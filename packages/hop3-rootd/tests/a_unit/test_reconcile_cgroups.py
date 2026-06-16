@@ -41,7 +41,9 @@ def test_reconcile_reasserts_stored_and_removes_orphans():
 def test_reconcile_unavailable_host_propagates():
     """A non-v2 host raises so the caller degrades loudly, not silently."""
     with (
-        patch.object(rec.cg, "ensure_slice", side_effect=CgroupUnavailableError("no v2")),
+        patch.object(
+            rec.cg, "ensure_slice", side_effect=CgroupUnavailableError("no v2")
+        ),
         pytest.raises(CgroupUnavailableError),
     ):
         rec.reconcile_cgroups(_state(StoredCgroup("blog", 1, None, None, "t")))
@@ -69,4 +71,6 @@ def test_reconcile_no_state_no_orphans_is_noop():
         report = rec.reconcile_cgroups(_state())
     mock_set.assert_not_called()
     mock_remove.assert_not_called()
-    assert report == rec.CgroupReconcileReport(reasserted=0, orphans_removed=0, failed=0)
+    assert report == rec.CgroupReconcileReport(
+        reasserted=0, orphans_removed=0, failed=0
+    )

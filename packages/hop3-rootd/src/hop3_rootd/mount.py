@@ -251,29 +251,64 @@ def mount_bind(
     }
 
 
-def unmount(app_name: str, target: str) -> dict[str, Any]:
-    """Unmount the app's ``target``. Idempotent; lazy-detaches a busy mount.
+def _umount(mp: Path) -> str:
+    """umount ``mp``, lazy-detaching a busy mount. Returns the method used.
 
-    Returns ``{unmounted, mountpoint, method|kernel_state}``. A still-busy mount
-    after a lazy detach is a hard error (teardown must not silently leave it).
+    Raises MountError if both the plain and lazy umount fail — teardown must
+    not silently leave a mount behind.
     """
-    mp = mountpoint_for(app_name, target)
-    if not is_mounted(mp):
-        return {"unmounted": False, "mountpoint": str(mp), "kernel_state": "absent"}
-
     try:
         result = exec_run([_umount_bin(), str(mp)], timeout=_MOUNT_TIMEOUT_SECONDS)
     except InvalidBinaryError as e:
         raise MountUnavailableError(str(e)) from e
     if result.success:
-        return {"unmounted": True, "mountpoint": str(mp), "method": "umount"}
+        return "umount"
 
     # Busy (a process with cwd inside) → lazy detach as a fallback.
     lazy = exec_run([_umount_bin(), "-l", str(mp)], timeout=_MOUNT_TIMEOUT_SECONDS)
     if lazy.success:
-        return {"unmounted": True, "mountpoint": str(mp), "method": "umount -l"}
+        return "umount -l"
 
     raise MountError(
         f"could not unmount {mp}: {result.stderr.strip()} "
         f"(lazy detach also failed: {lazy.stderr.strip()})"
     )
+
+
+def unmount(app_name: str, target: str) -> dict[str, Any]:
+    """Unmount the app's ``target``. Idempotent; lazy-detaches a busy mount.
+
+    Returns ``{unmounted, mountpoint, method|kernel_state}``.
+    """
+    mp = mountpoint_for(app_name, target)
+    if not is_mounted(mp):
+        return {"unmounted": False, "mountpoint": str(mp), "kernel_state": "absent"}
+    method = _umount(mp)
+    return {"unmounted": True, "mountpoint": str(mp), "method": method}
+
+
+def unmount_path(mountpoint: Path) -> str:
+    """Unmount a specific path (reconcile orphan cleanup). Returns the method."""
+    return _umount(mountpoint)
+
+
+def list_mounts_under_app_root() -> list[str]:
+    """Active mountpoints under the app root, per /proc/self/mountinfo.
+
+    Only rootd mounts under ``<app_root>/*/src`` (apps run unprivileged and
+    can't mount), so any such mount with no state row is a rootd orphan. []
+    when mountinfo is unavailable (non-Linux dev hosts).
+    """
+    if not _MOUNTINFO.exists():
+        return []
+    prefix = str(app_root()) + os.sep
+    try:
+        text = _MOUNTINFO.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    out: list[str] = []
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) >= 5 and parts[4].startswith(prefix):
+            out.append(parts[4])
+    return out
