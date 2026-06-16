@@ -17,6 +17,7 @@ from hop3.commands._base import Command
 from hop3.commands._errors import command_context
 from hop3.commands._response import summary, table, text
 from hop3.core.plugins import get_addon
+from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
 
 _TYPE = "redis"
@@ -105,9 +106,45 @@ class AddonRedisFlushCmd(Command):
         ]
 
 
+@register
+@dataclass(frozen=True)
+class AddonRedisQueryCmd(Command):
+    """Run an ad-hoc redis-cli command against a Redis addon.
+
+    Usage: hop3 addon redis query <name> --command "<redis command>"
+
+    The command runs scoped to the addon's own database (not db 0).
+
+    Examples:
+        hop3 addon redis query mycache --command "GET session:42"
+        hop3 addon redis query mycache --command "DBSIZE"
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "query")
+    _arg_spec: ClassVar[dict] = {
+        "addon_name": {"positional": True},
+        "command": {"type": str},
+    }
+
+    def call(self, *args):
+        parsed = parse_cli_args(args, self._arg_spec)
+        addon_name = parsed.get("addon_name")
+        command = parsed.get("command")
+        if not addon_name or not command:
+            return [
+                text('Usage: hop3 addon redis query <name> --command "<redis command>"')
+            ]
+        with command_context(
+            "running command", addon_name=addon_name, service_type=_TYPE
+        ):
+            output = get_addon(_TYPE, addon_name).run_command(command)
+        return [text(output or "(empty)")]
+
+
 # Contributed to the RPC dispatch table via RedisPlugin.cli_commands().
 COMMANDS: list[type[Command]] = [
     AddonRedisCredentialsCmd,
     AddonRedisDumpCmd,
     AddonRedisFlushCmd,
+    AddonRedisQueryCmd,
 ]
