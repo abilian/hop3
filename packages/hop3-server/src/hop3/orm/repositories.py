@@ -431,3 +431,7 @@ class PortClaimRepository(BaseRepository[PortClaim]):
     def get_by_app_id(self, app_id: int) -> list[PortClaim]:
         """Return all port claims held by an app."""
         return list(self.get_many(app_id=app_id))
+
+    def find_by_addon(self, addon_type: str, addon_name: str) -> PortClaim | None:
+        """Return the exposure claim for an addon instance, or None."""
+        return self.get_one_or_none(addon_type=addon_type, addon_name=addon_name)

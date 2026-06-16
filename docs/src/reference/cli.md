@@ -1647,6 +1647,46 @@ hop3 addon endpoint <name>
 
 ---
 
+### `hop3 addon expose`
+
+Make an addon reachable from outside the server on a stable, persisted host port, and print a connection URL. The addon normally listens only on `127.0.0.1`; `expose` allocates a public port, opens the firewall for it, and stands up a per-addon `systemd-socket-proxyd` forwarder to the addon's loopback port. The port survives server and addon restarts. Type-agnostic (the type is resolved from the name).
+
+**Usage:**
+```bash
+hop3 addon expose <name> --source <cidr|any> [--host <fqdn>] [--type <type>]
+```
+
+**Options:**
+- `--source <cidr|any>` - **Required.** Who may reach the port: a CIDR (e.g. `203.0.113.0/24`), or `any` to open it to the whole internet. Set `EXPOSE_DEFAULT_SOURCE` in `hop3-server.toml` to make a CIDR the per-server default; with no default and no flag, the command refuses (no accidental public database).
+- `--host <fqdn>` - External hostname for the printed URL. Defaults to the server's canonical domain (`ADMIN_DOMAIN`); required if that isn't set.
+- `--type <type>` - Disambiguate when one name exists across two addon types.
+
+**Examples:**
+```bash
+hop3 addon expose mydb --source 203.0.113.0/24
+# -> postgresql://user:pass@db.example.com:54312/mydb
+hop3 addon expose mydb --source any --host db.example.com
+```
+
+**Notes:**
+- The returned URL contains the addon password — treat it as a secret.
+- `--source any` exposes the database to the entire internet; only the addon credentials protect it. Scope with a CIDR when you can.
+- Idempotent: re-running returns the existing endpoint (no second port).
+- `hop3 addon destroy` automatically unexposes first.
+
+---
+
+### `hop3 addon unexpose`
+
+Remove an addon's public exposure: close the firewall port, remove the forwarder, and free the claim. Idempotent; the addon and its data are untouched.
+
+**Usage:**
+```bash
+hop3 addon unexpose <name> [--type <type>]
+```
+
+---
+
 ### `hop3 addon <type> <verb>` — type-specific commands
 
 Beyond the type-agnostic verbs above, each addon type exposes a few operations specific to it, under `hop3 addon <type> <verb> <name>`. The addon's type is part of the command path, so no `--type` flag is needed.

@@ -10,9 +10,11 @@ from dataclasses import dataclass
 from typing import ClassVar
 from urllib.parse import urlparse
 
+from hop3.config import config
 from hop3.core.credentials import get_credential_encryptor
 from hop3.core.identifiers import InvalidIdentifierError, validate_service_name
 from hop3.core.plugins import get_addon, get_plugin_manager
+from hop3.deployers.expose import connection_url, expose_addon, unexpose_addon
 from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
 from hop3.lib.logging import server_log
@@ -23,6 +25,7 @@ from hop3.orm.repositories import (  # noqa: TC001
     AddonCredentialRepository,
     AppRepository,
     EnvVarRepository,
+    PortClaimRepository,
 )
 from hop3.plugins.addons.secrets import list_addon_instances
 
@@ -143,16 +146,27 @@ def _resolve_addon_types(addon_name: str) -> list[str]:
     return [t for t, n in list_addon_instances() if n == addon_name]
 
 
-def _connection_url(details: dict[str, str]) -> str | None:
-    """Pick the connection URL out of a get_connection_details() dict.
+def _resolve_one_type(addon_name: str, explicit: str | None) -> tuple[str | None, list]:
+    """Resolve a single addon type for a type-agnostic command.
 
-    Every addon returns exactly one ``*_URL`` entry (DATABASE_URL, REDIS_URL,
-    …), so matching on the suffix is engine-agnostic.
+    Returns ``(addon_type, error_items)``. When ``error_items`` is non-empty the
+    caller returns them as-is (unknown name, or ambiguous across types and no
+    explicit ``--type`` given).
     """
-    for key, value in details.items():
-        if key.endswith("_URL"):
-            return value
-    return None
+    if explicit:
+        return explicit, []
+    types = _resolve_addon_types(addon_name)
+    if not types:
+        return None, [error(f"No addon named '{addon_name}'.")]
+    if len(types) > 1:
+        joined = ", ".join(sorted(types))
+        return None, [
+            error(
+                f"Addon name '{addon_name}' is ambiguous (types: {joined}). "
+                "Pass --type <type>."
+            )
+        ]
+    return types[0], []
 
 
 @register
@@ -193,7 +207,7 @@ class AddonEndpointCmd(Command):
             "reading addon endpoint", addon_name=addon_name, service_type=addon_type
         ):
             details = get_addon(addon_type, addon_name).get_connection_details()
-        url = _connection_url(details)
+        url = connection_url(details)
         if url is None:
             return [error(f"Addon '{addon_name}' exposes no connection URL.")]
         parsed = urlparse(url)
@@ -214,6 +228,160 @@ class AddonEndpointCmd(Command):
                     ["URL", url],
                 ],
             ),
+        ]
+
+
+@register
+@dataclass(frozen=True)
+class AddonExposeCmd(Command):
+    """Expose an addon on a public host port (type-agnostic).
+
+    Usage: hop3 addon expose <name> --source <cidr|any> [--host <fqdn>]
+
+    Makes the addon reachable from outside the server on a stable, persisted
+    port (a systemd-socket-proxyd forwarder to its loopback port) and prints a
+    connection URL. The addon's type is resolved from its name.
+
+    --source is required: a CIDR (e.g. 203.0.113.0/24), or `any` to open to the
+    whole internet. The external host comes from --host, else the server's
+    canonical domain.
+
+    Examples:
+        hop3 addon expose mydb --source 203.0.113.0/24
+        hop3 addon expose mydb --source any --host db.example.com
+    """
+
+    port_claim_repo: PortClaimRepository
+    name: ClassVar[tuple[str, ...]] = ("addon", "expose")
+    requires_auth: ClassVar[bool] = True
+    _arg_spec: ClassVar[dict] = {
+        "addon_name": {"positional": True},
+        "source": {"type": str},
+        "host": {"type": str},
+        "type": {"type": str},
+        "service_type": {"type": str},
+    }
+
+    def call(self, *args):
+        parsed = parse_cli_args(args, self._arg_spec)
+        addon_name = parsed.get("addon_name")
+        if not addon_name:
+            return [
+                text(
+                    "Usage: hop3 addon expose <name> --source <cidr|any> [--host <fqdn>]"
+                )
+            ]
+        explicit = parsed.get("service_type") or parsed.get("type")
+        addon_type, errors = _resolve_one_type(addon_name, explicit)
+        if errors:
+            return errors
+        assert addon_type is not None
+
+        source = parsed.get("source") or config.EXPOSE_DEFAULT_SOURCE
+        if not source:
+            return [
+                error(
+                    "--source is required: a CIDR (e.g. 203.0.113.0/24), or 'any' "
+                    "to open to the whole internet. Set EXPOSE_DEFAULT_SOURCE in "
+                    "hop3-server.toml for a per-server default."
+                )
+            ]
+        host = parsed.get("host") or config.ADMIN_DOMAIN
+        if not host:
+            return [
+                error(
+                    "No external host for the URL: pass --host <fqdn>, or set the "
+                    "server's ADMIN_DOMAIN. A reachable hostname is required."
+                )
+            ]
+
+        with command_context(
+            "exposing addon", addon_name=addon_name, service_type=addon_type
+        ):
+            result = expose_addon(
+                addon_type,
+                addon_name,
+                source=source,
+                host=host,
+                db_session=self.port_claim_repo.session,
+            )
+
+        items: list = [
+            data(result),
+            table(
+                headers=["Field", "Value"],
+                rows=[
+                    ["Type", result["type"]],
+                    ["Host", result["host"]],
+                    ["Public port", str(result["public_port"])],
+                    ["Source", result["source"]],
+                    ["URL", result["url"]],
+                ],
+            ),
+        ]
+        if result["source"] == "any":
+            items.append(
+                warning(
+                    "This addon is now reachable from the ENTIRE internet "
+                    "(--source any). Only the addon credentials protect it — "
+                    "scope it with --source <cidr> instead if you can."
+                )
+            )
+        verb = "already exposed" if result.get("already_exposed") else "exposed"
+        items.append(
+            summary(
+                f"{verb} addon '{addon_name}' ({addon_type}) on "
+                f"{result['host']}:{result['public_port']}."
+            )
+        )
+        return items
+
+
+@register
+@dataclass(frozen=True)
+class AddonUnexposeCmd(Command):
+    """Remove an addon's public exposure (type-agnostic).
+
+    Usage: hop3 addon unexpose <name>
+
+    Closes the public port, removes the forwarder, and frees the claim.
+    Idempotent. The addon itself and its data are untouched.
+
+    Examples:
+        hop3 addon unexpose mydb
+    """
+
+    port_claim_repo: PortClaimRepository
+    name: ClassVar[tuple[str, ...]] = ("addon", "unexpose")
+    requires_auth: ClassVar[bool] = True
+    _arg_spec: ClassVar[dict] = {
+        "addon_name": {"positional": True},
+        "type": {"type": str},
+        "service_type": {"type": str},
+    }
+
+    def call(self, *args):
+        parsed = parse_cli_args(args, self._arg_spec)
+        addon_name = parsed.get("addon_name")
+        if not addon_name:
+            return [text("Usage: hop3 addon unexpose <name>")]
+        explicit = parsed.get("service_type") or parsed.get("type")
+        addon_type, errors = _resolve_one_type(addon_name, explicit)
+        if errors:
+            return errors
+        assert addon_type is not None
+
+        with command_context(
+            "unexposing addon", addon_name=addon_name, service_type=addon_type
+        ):
+            removed = unexpose_addon(
+                addon_type, addon_name, db_session=self.port_claim_repo.session
+            )
+        if not removed:
+            return [text(f"Addon '{addon_name}' is not exposed.")]
+        return [
+            text(f"Removed public exposure of {addon_type} addon '{addon_name}'."),
+            summary(f"unexposed addon '{addon_name}' ({addon_type})."),
         ]
 
 
@@ -758,6 +926,16 @@ class AddonDestroyCmd(Command):
                         f"Addon '{addon_name}' of type '{service_type}' does not exist."
                     )
                 ]
+
+            # Tear down any public exposure first (close the port before the data
+            # is touched). Idempotent — a no-op when the addon isn't exposed. The
+            # app-delete cascade doesn't cover addon claims (app_id is null), so
+            # this explicit call is mandatory, not a backstop.
+            unexpose_addon(
+                service_type,
+                addon_name,
+                db_session=self.addon_credential_repo.session,
+            )
 
             # Clean up all stored credentials for this service
             credentials = self.addon_credential_repo.list_by_addon(
