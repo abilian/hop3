@@ -1621,6 +1621,9 @@ hop3 addon postgres dump <name>                 # Back up via pg_dump
 hop3 addon postgres restore <name> <path>       # Restore via psql ⚠️ overwrites
 hop3 addon postgres extensions <name> <ext>...  # Install extensions (allow-listed)
 hop3 addon postgres query <name> --command "SELECT 1"   # Ad-hoc SQL
+hop3 addon postgres ps <name>                   # Active queries (diagnostics)
+hop3 addon postgres locks <name>                # Current locks
+hop3 addon postgres settings <name>             # Key configuration settings
 
 # MySQL
 hop3 addon mysql credentials <name>
@@ -1649,12 +1652,14 @@ hop3 addon s3 dump <name>                         # Manifest (credentials + meta
 | `extensions` | ✓ | | | |
 | `flush` | | | ✓ | |
 | `query` | ✓ | ✓ | ✓ | |
+| `ps` / `locks` / `settings` | ✓ | | | |
 
 **Notes:**
 - `credentials` prints the addon's connection variables (`DATABASE_URL`, `REDIS_URL`, `S3_*`, …) — treat the output as sensitive.
 - `restore` and `redis flush` are destructive and prompt for confirmation (bypass with `-y` / `--confirm=<name>`).
 - `dump` writes to the server's backup area and reports the path; redis/s3 `restore` are not available yet.
 - `query` runs the statement as the addon's own (least-privilege) database user, confined to that addon's database. A SELECT renders as a table; other statements report the affected row count. The SQL/command is passed via `--command "…"`.
+- `ps` / `locks` / `settings` are read-only Postgres diagnostics (active queries, current locks, key config). They run as the superuser so they see the whole database, and render as tables.
 
 ---
 
