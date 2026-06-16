@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3_installer.common import (
+    GitProvenance,
     ServiceStartError,
     collect_git_provenance,
     make_build_info,
@@ -1116,6 +1117,7 @@ class Deployer:
         ``/home/hop3/hop3`` checkout).
         """
         method = self._deploy_method()
+        prov: GitProvenance
         if method == "local":
             prov = collect_git_provenance(self.config.project_root)
         elif method == "git":
@@ -1131,9 +1133,9 @@ class Deployer:
             deploy_method=method,
             version=self._server_installed_version(),
             deployed_by="hop3-deploy",
-            git_commit=prov.get("git_commit"),
-            git_branch=prov.get("git_branch"),
-            git_dirty=prov.get("git_dirty"),
+            git_commit=prov["git_commit"],
+            git_branch=prov["git_branch"],
+            git_dirty=prov["git_dirty"],
         )
 
         path = str(BUILD_INFO_PATH)
