@@ -276,6 +276,23 @@ class AddonCredentialRepository(BaseRepository[AddonCredential]):
         """
         return self.get_one_or_none(addon_name=addon_name)
 
+    def list_by_app_and_type(
+        self, app_id: int, addon_type: str
+    ) -> list[AddonCredential]:
+        """Same-type addon credentials attached to an app, oldest first (by id).
+
+        Used to pick/demote the primary addon among same-type siblings.
+        """
+        stmt = (
+            select(AddonCredential)
+            .where(
+                AddonCredential.app_id == app_id,
+                AddonCredential.addon_type == addon_type,
+            )
+            .order_by(AddonCredential.id)
+        )
+        return list(self.session.scalars(stmt).all())
+
     def list_all_with_apps(self) -> list[AddonCredential]:
         """List all credentials with app information eager loaded.
 
