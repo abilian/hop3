@@ -1757,13 +1757,21 @@ hop3 addon mysql settings <name>                 # Key variables
 # Redis
 hop3 addon redis credentials <name>
 hop3 addon redis dump <name>
+hop3 addon redis restore <name> <path>           # ⚠️ overwrites
 hop3 addon redis flush <name>                    # FLUSHDB ⚠️ deletes all keys
 hop3 addon redis query <name> --command "DBSIZE" # Ad-hoc redis-cli command
+hop3 addon redis clone <source> <new-name>       # Copy data into a new addon
+hop3 addon redis export <name> > dump.rdb        # Stream a dump to your machine
+hop3 addon redis import <name> --confirm=<name> < dump.rdb   # Load a dump
 hop3 addon redis info <name>                     # Server INFO (diagnostics)
 
 # S3
 hop3 addon s3 credentials <name>
 hop3 addon s3 dump <name>                         # Manifest (credentials + metadata)
+hop3 addon s3 restore <name> <path>               # ⚠️ overwrites
+hop3 addon s3 clone <source> <new-name>           # Copy data into a new addon
+hop3 addon s3 export <name> > dump                # Stream a dump to your machine
+hop3 addon s3 import <name> --confirm=<name> < dump   # Load a dump
 ```
 
 **Available verbs by type:**
@@ -1772,12 +1780,12 @@ hop3 addon s3 dump <name>                         # Manifest (credentials + meta
 |------|:---:|:---:|:---:|:---:|
 | `credentials` | ✓ | ✓ | ✓ | ✓ |
 | `dump` | ✓ | ✓ | ✓ | ✓ |
-| `restore` | ✓ | ✓ | — | — |
+| `restore` | ✓ | ✓ | ✓ | ✓ |
 | `extensions` | ✓ | | | |
 | `flush` | | | ✓ | |
 | `query` | ✓ | ✓ | ✓ | |
-| `clone` | ✓ | ✓ | | |
-| `export` / `import` | ✓ | ✓ | | |
+| `clone` | ✓ | ✓ | ✓ | ✓ |
+| `export` / `import` | ✓ | ✓ | ✓ | ✓ |
 | `ps` | ✓ | ✓ | | |
 | `locks` | ✓ | | | |
 | `settings` | ✓ | ✓ | | |
