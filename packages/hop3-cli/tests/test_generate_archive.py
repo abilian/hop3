@@ -71,6 +71,7 @@ def test_builtin_defaults_apply_without_any_config():
             "src/app.pyc",
             ".idea/workspace.xml",
             ".git/HEAD",
+            "target/release/app",  # Rust/Maven build output — never deployed
         ):
             p = project_dir / rel
             p.parent.mkdir(parents=True, exist_ok=True)
@@ -82,6 +83,7 @@ def test_builtin_defaults_apply_without_any_config():
         assert not any(n.startswith(".venv/") for n in names)
         assert not any(n.startswith("__pycache__/") for n in names)
         assert not any(n.startswith(".git/") for n in names)
+        assert not any(n.startswith("target/") for n in names)
         assert "src/app.pyc" not in names
         assert ".idea/workspace.xml" not in names
 

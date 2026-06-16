@@ -34,6 +34,22 @@ class _RemoteTarget(_Target):
     pass
 
 
+class _CmdTarget:
+    """Command-aware fake: distinct answers for `hop3 apps` vs the `ls` fallback."""
+
+    def __init__(self, apps_out="", ls_out=""):
+        self._apps_out = apps_out
+        self._ls_out = ls_out
+
+    def exec_run(self, cmd):
+        if "hop3 apps" in cmd:
+            return (0, self._apps_out, "")
+        return (0, self._ls_out, "")
+
+
+NOT_CONFIGURED = "Hop3 CLI is not configured.\n\nTo get started..."
+
+
 def _boom(*_a, **_k):
     msg = "boom"
     raise RuntimeError(msg)
@@ -52,6 +68,20 @@ def test_apps_snapshot_included_and_labelled():
 
 def test_apps_snapshot_empty_when_exec_raises():
     assert hop3_apps_snapshot(_Target(raises=True)) == ""
+
+
+def test_apps_snapshot_falls_back_to_filesystem_when_cli_unconfigured():
+    # The on-target CLI prints the "not configured" setup wall instead of an app
+    # list; fall back to the filesystem (the ground truth for stranded apps).
+    snap = hop3_apps_snapshot(_CmdTarget(apps_out=NOT_CONFIGURED, ls_out="ghost\n"))
+    assert "not configured" not in snap
+    assert "/home/hop3/apps" in snap
+    assert "ghost" in snap
+
+
+def test_apps_snapshot_empty_when_unconfigured_and_no_apps():
+    # Unconfigured CLI and an empty apps dir → nothing useful → no section.
+    assert hop3_apps_snapshot(_CmdTarget(apps_out=NOT_CONFIGURED, ls_out="")) == ""
 
 
 def test_collect_without_app_name_is_apps_snapshot_only():
