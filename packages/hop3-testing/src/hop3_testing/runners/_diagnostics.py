@@ -50,10 +50,24 @@ def hop3_apps_snapshot(target: DeploymentTarget) -> str:
     try:
         _code, out, err = target.exec_run(cmd)
     except Exception:
-        return ""
+        out = err = ""
     body = (out or "") + (err or "")
-    if not body.strip():
-        return ""
+
+    # The on-target CLI is usually NOT configured to talk to its own server
+    # (the deploy ran with HOP3_API_URL/HOP3_API_TOKEN in its env; this probe
+    # has neither), so `hop3 apps` prints the multi-line "Hop3 CLI is not
+    # configured" setup help — useless and misleading as a diagnostic. Fall back
+    # to the filesystem, which is the ground truth for stranded/leftover apps.
+    if not body.strip() or "is not configured" in body:
+        try:
+            _c, ls_out, _e = target.exec_run("ls -1 /home/hop3/apps 2>/dev/null")
+        except Exception:
+            return ""
+        listing = (ls_out or "").strip()
+        if not listing:
+            return ""
+        return "=== apps on target (/home/hop3/apps) ===\n" + listing
+
     return "=== hop3 apps (target app list) ===\n" + body
 
 
