@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import sys
-from io import StringIO
+from io import BytesIO, StringIO
 from unittest.mock import patch
 
 from hop3_cli.ui.rich_printer import RichPrinter
@@ -68,6 +69,28 @@ def test_rich_printer_print_text_preserves_square_brackets():
     assert "[addon]" in output
     assert "[aliases]" in output
     assert "[current]" in output
+
+
+def test_rich_printer_print_blob_writes_raw_bytes_to_stdout():
+    """A blob item (base64) is decoded and written verbatim to stdout.buffer.
+
+    Used by `addon <type> export` so a dump can be redirected to a file.
+    """
+    printer = RichPrinter()
+    raw_buffer = BytesIO()
+
+    class _FakeStdout:
+        buffer = raw_buffer
+
+        def flush(self):
+            pass
+
+    with patch.object(sys, "stdout", _FakeStdout()):
+        printer.print([
+            {"t": "blob", "data": base64.b64encode(b"DUMP-BYTES\x00\x01").decode()}
+        ])
+
+    assert raw_buffer.getvalue() == b"DUMP-BYTES\x00\x01"
 
 
 def test_rich_printer_print_text_quiet():

@@ -17,6 +17,7 @@ from litestar.response import Response
 
 from hop3 import config
 from hop3.commands import Command
+from hop3.core.plugins import get_plugin_manager
 from hop3.lib import format_diagnosis
 from hop3.lib.console import verbosity_context
 from hop3.lib.logging import server_log
@@ -53,13 +54,37 @@ if TYPE_CHECKING:
 
 # Scan and register all CLI commands (including aliases)
 scan_package("hop3.commands")
-_commands: dict[tuple[str, ...], type[Command]] = {}
-for command in lookup(Command):
-    # Register primary name (ADR 036 D1/D18: name is a tuple of tokens)
-    _commands[command.name] = command
-    # Register aliases (legacy server-side aliases; tuples too)
-    for alias in getattr(command, "aliases", []):
-        _commands[alias] = command
+
+
+def _build_command_table() -> dict[tuple[str, ...], type[Command]]:
+    """Build the RPC dispatch table from core + plugin-contributed commands.
+
+    Core commands live in `hop3.commands` (scanned above and found via the
+    registry). Plugins contribute additional commands through the
+    `cli_commands()` hook — e.g. the addon plugins add `addon <type> <verb>`
+    commands such as `addon postgres credentials`. Calling the hook also
+    forces plugin loading, so this works regardless of import order.
+    """
+    table: dict[tuple[str, ...], type[Command]] = {}
+
+    def add(cmd: type[Command]) -> None:
+        # Register primary name (ADR 036 D1/D18: name is a tuple of tokens)
+        table[cmd.name] = cmd
+        # Register aliases (legacy server-side aliases; tuples too)
+        for alias in getattr(cmd, "aliases", []):
+            table[alias] = cmd
+
+    for command in lookup(Command):
+        add(command)
+
+    for contributed in get_plugin_manager().hook.cli_commands():
+        for command in contributed or []:
+            add(command)
+
+    return table
+
+
+_commands: dict[tuple[str, ...], type[Command]] = _build_command_table()
 commands = _commands
 
 # Maximum command-name depth we're willing to match. Per ADR 036 D3/D12,

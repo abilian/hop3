@@ -626,6 +626,52 @@ class PostgresAddon:
             "PGPORT": str(admin.port),
         }
 
+    @staticmethod
+    def _result_from_cursor(cursor) -> dict:
+        """Shape a cursor into a result set or a status message."""
+        if cursor.description is not None:
+            columns = [col.name for col in cursor.description]
+            rows = [list(row) for row in cursor.fetchall()]
+            return {"columns": columns, "rows": rows}
+        return {"message": f"OK ({cursor.rowcount} row(s) affected)"}
+
+    def run_sql(self, statement: str) -> dict:
+        """Run an ad-hoc SQL statement as the addon's own (app) user.
+
+        Connects with the app-level credentials (not the superuser), so the
+        statement is confined to this addon's database. The password travels
+        in-process via psycopg2 (never on a command line).
+
+        Returns:
+            ``{"columns": [...], "rows": [[...]]}`` for a result set, or
+            ``{"message": "..."}`` for a statement that returns no rows.
+        """
+        conn = psycopg2.connect(self.get_connection_details()["DATABASE_URL"])
+        try:
+            conn.autocommit = True
+            with conn.cursor() as cursor:
+                cursor.execute(statement)
+                return self._result_from_cursor(cursor)
+        finally:
+            conn.close()
+
+    def run_admin_sql(self, statement: str) -> dict:
+        """Run SQL on this addon's database as the superuser.
+
+        For diagnostics (pg_stat_activity, pg_locks, pg_settings, …) that the
+        per-app user can't see in full. Internal use only — callers pass canned
+        queries, never user input (use run_sql for that).
+        """
+        admin = self._get_admin()
+        conn = psycopg2.connect(**admin.get_connection_params(dbname=self.db_name))
+        try:
+            conn.autocommit = True
+            with conn.cursor() as cursor:
+                cursor.execute(statement)
+                return self._result_from_cursor(cursor)
+        finally:
+            conn.close()
+
     def backup(self) -> Path:
         """Create a backup of the PostgreSQL database using pg_dump.
 

@@ -288,6 +288,75 @@ class MySQLAddon:
             "MYSQL_PORT": str(admin.port),
         }
 
+    @staticmethod
+    def _exec(connection, statement: str) -> dict:
+        """Run a statement on a connection; shape rows or a status message."""
+        try:
+            cursor = connection.cursor()
+            cursor.execute(statement)
+            if cursor.description is not None:
+                columns = [col[0] for col in cursor.description]
+                rows = [list(row) for row in cursor.fetchall()]
+                cursor.close()
+                return {"columns": columns, "rows": rows}
+            connection.commit()
+            message = f"OK ({cursor.rowcount} row(s) affected)"
+            cursor.close()
+            return {"message": message}
+        finally:
+            connection.close()
+
+    def run_sql(self, statement: str) -> dict:
+        """Run an ad-hoc SQL statement as the addon's own (app) user.
+
+        Connects with the app-level credentials (not the superuser), so the
+        statement is confined to this addon's database. The password travels
+        in-process via mysql.connector (never on a command line).
+
+        Returns:
+            ``{"columns": [...], "rows": [[...]]}`` for a result set, or
+            ``{"message": "..."}`` for a statement that returns no rows.
+        """
+        details = self.get_connection_details()
+        connection = mysql.connector.connect(
+            host=details["MYSQL_HOST"],
+            port=int(details["MYSQL_PORT"]),
+            user=details["MYSQL_USER"],
+            password=details["MYSQL_PASSWORD"],
+            database=details["MYSQL_DATABASE"],
+        )
+        return self._exec(connection, statement)
+
+    def run_admin_sql(self, statement: str) -> dict:
+        """Run SQL on this addon's database as the superuser.
+
+        For diagnostics (information_schema.processlist, global variables, …)
+        that the per-app user can't see in full. Internal use only — callers
+        pass canned queries, never user input (use run_sql for that).
+        """
+        admin = self._get_admin()
+        connection = mysql.connector.connect(
+            **admin.get_connection_params(database=self.db_name)
+        )
+        return self._exec(connection, statement)
+
+    def exists(self) -> bool:
+        """Return True if this addon's database exists."""
+        admin = self._get_admin()
+        connection = mysql.connector.connect(**admin.get_connection_params())
+        try:
+            cursor = connection.cursor()
+            cursor.execute(
+                "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA "
+                "WHERE SCHEMA_NAME = %s",
+                (self.db_name,),
+            )
+            found = cursor.fetchone() is not None
+            cursor.close()
+            return found
+        finally:
+            connection.close()
+
     def backup(self) -> Path:
         """Create a backup of the MySQL database using mysqldump.
 

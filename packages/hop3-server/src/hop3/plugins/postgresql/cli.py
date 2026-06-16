@@ -1,435 +1,450 @@
 # Copyright (c) 2024-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""CLI commands to manage PostgreSQL databases."""
+"""`addon postgres <verb>` commands — PostgreSQL-specific addon management.
+
+Type-agnostic addon verbs (list/create/attach/detach/destroy/show/status) live
+in `hop3.commands.services`. These are the Postgres-specific level-3 commands;
+they are contributed to the RPC dispatch table via the plugin's `cli_commands()`
+hook (see plugin.py).
+"""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import base64
+import tempfile
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, ClassVar, cast
 
+from hop3.commands._base import Command
+from hop3.commands._errors import command_context
+from hop3.commands._response import blob, error, summary, table, text
+from hop3.core.identifiers import InvalidIdentifierError, validate_service_name
 from hop3.core.plugins import get_addon
-from hop3.lib import echo
-from hop3.lib.decorators import command
-from hop3.plugins.addons import display_credentials
+from hop3.lib.args import parse_cli_args
+from hop3.lib.decorators import register
 
 if TYPE_CHECKING:
-    from argparse import ArgumentParser
+    from .postgres import PostgresAddon
+
+_TYPE = "postgres"
 
 
-@command
-class PgCmd:
-    """Manage a PostgreSQL database."""
+def _addon(name: str) -> PostgresAddon:
+    """Typed accessor for the concrete Postgres addon (engine-specific methods)."""
+    return cast("PostgresAddon", get_addon(_TYPE, name))
 
 
-@command
-class PgCreateCmd:
-    """Create a PostgreSQL database: hop pg:create <name>.
+def _clone(args: tuple) -> list[dict]:
+    """Create a new addon and copy the source addon's data into it.
 
-    This is a convenience command that wraps 'hop services:create postgres <name>'.
+    Reuses the existing create / backup / restore methods, so it only works
+    for engines whose restore is implemented (postgres, mysql).
+    """
+    if len(args) < 2:
+        return [text(f"Usage: hop3 addon {_TYPE} clone <source> <new-name>")]
+    source, target = args[0], args[1]
+    try:
+        validate_service_name(target)
+    except InvalidIdentifierError as exc:
+        return [error(str(exc))]
+    with command_context("cloning addon", addon_name=source, service_type=_TYPE):
+        dst = get_addon(_TYPE, target)
+        if hasattr(dst, "exists") and dst.exists():
+            return [error(f"Addon '{target}' already exists.")]
+        dst.create()
+        dst.restore(get_addon(_TYPE, source).backup())
+    return [
+        text(f"Cloned {_TYPE} addon '{source}' into '{target}'."),
+        summary(f"cloned addon '{source}' -> '{target}' ({_TYPE})."),
+    ]
+
+
+def _result_items(result: dict) -> list[dict]:
+    """Render a run_sql() result (rows or status) as response items.
+
+    Cells are stringified so the payload is JSON-serializable over RPC
+    (query results can contain dates, decimals, None, etc.).
+    """
+    if "columns" in result:
+        rows = [
+            ["" if cell is None else str(cell) for cell in row]
+            for row in result["rows"]
+        ]
+        return [table(headers=result["columns"], rows=rows)]
+    return [text(result["message"])]
+
+
+@register
+@dataclass(frozen=True)
+class AddonPostgresCredentialsCmd(Command):
+    """Show connection credentials for a Postgres addon.
+
+    Usage: hop3 addon postgres credentials <name>
+
+    Examples:
+        hop3 addon postgres credentials mydb
     """
 
-    name = "pg:create"
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "credentials")
 
-    def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument("name", type=str, help="Name of the database service.")
-
-    def run(self, name: str) -> None:
-        echo(f"Creating PostgreSQL database '{name}'...")
-
-        try:
-            # Use the service strategy to create the database
-            service = get_addon("postgres", name)
-            service.create()
-
-            echo(f"Database '{name}' created successfully.")
-            echo(
-                f"\nTo attach this database to an app, run:\n  hop services:attach {name} --app <app-name>"
-            )
-
-        except RuntimeError as e:
-            echo(f"Error: {e}")
-        except Exception as e:
-            echo(f"Unexpected error: {e}")
+    def call(self, *args):
+        if not args:
+            return [text("Usage: hop3 addon postgres credentials <name>")]
+        addon_name = args[0]
+        with command_context(
+            "reading addon credentials", addon_name=addon_name, service_type=_TYPE
+        ):
+            details = get_addon(_TYPE, addon_name).get_connection_details()
+        rows = [[key, value] for key, value in details.items()]
+        return [table(headers=["Variable", "Value"], rows=rows)]
 
 
-@command
-class PgDropCmd:
-    """Drop a PostgreSQL database: hop pg:drop <name>.
+@register
+@dataclass(frozen=True)
+class AddonPostgresDumpCmd(Command):
+    """Dump a Postgres addon to a backup file (pg_dump).
 
-    This is a convenience command that wraps 'hop services destroy <name>'.
-    WARNING: This will permanently delete all data!
+    Usage: hop3 addon postgres dump <name>
+
+    Examples:
+        hop3 addon postgres dump mydb
     """
 
-    name = "pg:drop"
-
-    def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument("name", type=str, help="Name of the database to drop.")
-
-    def run(self, name: str) -> None:
-        echo(f"Dropping database '{name}'...")
-        echo("WARNING: This will permanently delete all data!")
-
-        try:
-            # Use the service strategy to destroy the database
-            service = get_addon("postgres", name)
-            service.destroy()
-
-            echo(f"Database '{name}' dropped successfully.")
-
-        except RuntimeError as e:
-            echo(f"Error: {e}")
-        except Exception as e:
-            echo(f"Unexpected error: {e}")
-
-
-@command
-class PgImportCmd:
-    """Import data into a PostgreSQL database: hop pg:import <name>."""
-
-    name = "pg:import"
-
-    def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument(
-            "name", type=str, help="Name of the database to import data into."
-        )
-
-    def run(self, name: str) -> None:
-        echo(f"Importing data into database '{name}'.")
-        # TODO: Add actual implementation to import data
-        echo(f"Data imported into database '{name}' successfully.")
-
-
-@command
-class PgDumpCmd:
-    """Dump a PostgreSQL database: hop pg:dump <name>."""
-
-    name = "pg:dump"
-
-    def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument("name", type=str, help="Name of the database to dump.")
-
-    def run(self, name: str) -> None:
-        echo(f"Dumping database '{name}'.")
-        # TODO: Add actual implementation to dump the database
-        echo(f"Database '{name}' dumped successfully.")
-
-
-@command
-class PgBackupsCmd:
-    """List database backups: hop pg:backups."""
-
-    name = "pg:backups"
-
-    def run(self) -> None:
-        echo("Listing database backups...")
-        # TODO: Implement logic to list backups
-        echo("Database backups listed successfully.")
-
-
-@command
-class PgBloatCmd:
-    """Show table and index bloat: hop pg:bloat."""
-
-    name = "pg:bloat"
-
-    def run(self) -> None:
-        echo("Analyzing table and index bloat...")
-        # TODO: Implement logic to show bloat
-        echo("Bloat analysis completed.")
-
-
-@command
-class PgBlockingCmd:
-    """Display queries holding locks: hop pg:blocking."""
-
-    name = "pg:blocking"
-
-    def run(self) -> None:
-        echo("Displaying queries holding locks...")
-        # TODO: Implement logic to display blocking queries
-        echo("Blocking queries displayed successfully.")
-
-
-@command
-class PgCopyCmd:
-    """Copy data from source to target database: hop pg:copy <source> <target>."""
-
-    name = "pg:copy"
-
-    def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument("source", type=str, help="Source database.")
-        parser.add_argument("target", type=str, help="Target database.")
-
-    def run(self, source: str, target: str) -> None:
-        echo(f"Copying data from '{source}' to '{target}'...")
-        # TODO: Implement logic to copy data
-        echo("Data copied successfully.")
-
-
-@command
-class PgCredentialsCmd:
-    """Show database credentials: hop pg:credentials <name>."""
-
-    name = "pg:credentials"
-
-    def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument("name", type=str, help="Name of the database.")
-
-    def run(self, name: str) -> None:
-        echo(f"Fetching credentials for database '{name}'...")
-        service = get_addon("postgres", name)
-        display_credentials(service)
-
-
-@command
-class PgDiagnoseCmd:
-    """Run or view diagnostics report: hop pg:diagnose."""
-
-    name = "pg:diagnose"
-
-    def run(self) -> None:
-        echo("Running diagnostics...")
-        # TODO: Implement logic to diagnose issues
-        echo("Diagnostics completed successfully.")
-
-
-@command
-class PgInfoCmd:
-    """Show database information: hop pg:info <name>."""
-
-    name = "pg:info"
-
-    def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument("name", type=str, help="Name of the database.")
-
-    def run(self, name: str) -> None:
-        echo(f"Fetching information for database '{name}'...")
-
-        try:
-            # Use the service strategy to get info
-            service = get_addon("postgres", name)
-            info = service.info()
-
-            # Display the information
-            for key, value in info.items():
-                echo(f"{key}: {value}")
-
-        except RuntimeError as e:
-            echo(f"Error: {e}")
-        except Exception as e:
-            echo(f"Unexpected error: {e}")
-
-
-@command
-class PgKillCmd:
-    """Kill a query: hop pg:kill <query_id>."""
-
-    name = "pg:kill"
-
-    def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument("query_id", type=str, help="Query ID to kill.")
-
-    def run(self, query_id: str) -> None:
-        echo(f"Killing query '{query_id}'...")
-        # TODO: Implement logic to kill a query
-        echo(f"Query '{query_id}' killed successfully.")
-
-
-@command
-class PgKillAllCmd:
-    """Terminate all connections: hop pg:killall."""
-
-    name = "pg:killall"
-
-    def run(self) -> None:
-        echo("Terminating all connections...")
-        # TODO: Implement logic to kill all connections
-        echo("All connections terminated successfully.")
-
-
-@command
-class PgLinksCmd:
-    """List all databases and link information: hop pg:links."""
-
-    name = "pg:links"
-
-    def run(self) -> None:
-        echo("Listing database links...")
-        # TODO: Implement logic to list database links
-        echo("Database links listed successfully.")
-
-
-@command
-class PgLocksCmd:
-    """Display queries with active locks: hop pg:locks."""
-
-    name = "pg:locks"
-
-    def run(self) -> None:
-        echo("Displaying queries with active locks...")
-        # TODO: Implement logic to show locks
-        echo("Active locks displayed successfully.")
-
-
-@command
-class PgMaintenanceCmd:
-    """Show current maintenance information: hop pg:maintenance."""
-
-    name = "pg:maintenance"
-
-    def run(self) -> None:
-        echo("Fetching maintenance information...")
-        # TODO: Implement logic to fetch maintenance info
-        echo("Maintenance information displayed successfully.")
-
-
-@command
-class PgOutliersCmd:
-    """Show top 10 longest queries: hop pg:outliers."""
-
-    name = "pg:outliers"
-
-    def run(self) -> None:
-        echo("Fetching top 10 longest queries...")
-        # TODO: Implement logic to find query outliers
-        echo("Top 10 longest queries displayed successfully.")
-
-
-@command
-class PgPromoteCmd:
-    """Set DATABASE as your DATABASE_URL: hop pg:promote."""
-
-    name = "pg:promote"
-
-    def run(self) -> None:
-        echo("Promoting database...")
-        # TODO: Implement logic to promote the database
-        echo("Database promoted successfully.")
-
-
-@command
-class PgPsCmd:
-    """View active queries: hop pg:ps."""
-
-    name = "pg:ps"
-
-    def run(self) -> None:
-        echo("Fetching active queries...")
-        # TODO: Implement logic to show active queries
-        echo("Active queries displayed successfully.")
-
-
-@command
-class PgPsqlCmd:
-    """Open a psql shell: hop pg:psql."""
-
-    name = "pg:psql"
-
-    def run(self) -> None:
-        echo("Opening psql shell...")
-        # TODO: Implement logic to open psql shell
-        echo("Exited psql shell.")
-
-
-@command
-class PgPullCmd:
-    """Pull Heroku database to local or remote: hop pg:pull <source> <target>."""
-
-    name = "pg:pull"
-
-    def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument("source", type=str, help="Source database.")
-        parser.add_argument("target", type=str, help="Target database.")
-
-    def run(self, source: str, target: str) -> None:
-        echo(f"Pulling database from '{source}' to '{target}'...")
-        # TODO: Implement logic to pull database
-        echo("Database pulled successfully.")
-
-
-@command
-class PgPushCmd:
-    """Push local or remote database to Heroku: hop pg:push <source> <target>."""
-
-    name = "pg:push"
-
-    def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument("source", type=str, help="Source database.")
-        parser.add_argument("target", type=str, help="Target database.")
-
-    def run(self, source: str, target: str) -> None:
-        echo(f"Pushing database from '{source}' to '{target}'...")
-        # TODO: Implement logic to push database
-        echo("Database pushed successfully.")
-
-
-@command
-class PgResetCmd:
-    """Delete all data in DATABASE: hop pg:reset."""
-
-    name = "pg:reset"
-
-    def run(self) -> None:
-        echo("Resetting database...")
-        # TODO: Implement logic to reset database
-        echo("Database reset successfully.")
-
-
-@command
-class PgSettingsCmd:
-    """Show current database settings: hop pg:settings."""
-
-    name = "pg:settings"
-
-    def run(self) -> None:
-        echo("Fetching database settings...")
-        # TODO: Implement logic to fetch database settings
-        echo("Database settings displayed successfully.")
-
-
-@command
-class PgUnfollowCmd:
-    """Stop replica from following: hop pg:unfollow."""
-
-    name = "pg:unfollow"
-
-    def run(self) -> None:
-        echo("Stopping database replica from following...")
-        # TODO: Implement logic to unfollow a replica
-        echo("Database replica unfollowed successfully.")
-
-
-@command
-class PgUpgradeCmd:
-    """Upgrade PostgreSQL version: hop pg:upgrade."""
-
-    name = "pg:upgrade"
-
-    def run(self) -> None:
-        echo("Upgrading PostgreSQL version...")
-        # TODO: Implement logic to upgrade PostgreSQL
-        echo("PostgreSQL upgraded successfully.")
-
-
-@command
-class PgVacuumStatsCmd:
-    """Show vacuum stats: hop pg:vacuum-stats."""
-
-    name = "pg:vacuum-stats"
-
-    def run(self) -> None:
-        echo("Fetching vacuum stats...")
-        # TODO: Implement logic to show vacuum stats
-        echo("Vacuum stats displayed successfully.")
-
-
-@command
-class PgWaitCmd:
-    """Wait for database to be available: hop pg:wait."""
-
-    name = "pg:wait"
-
-    def run(self) -> None:
-        echo("Waiting for database to become available...")
-        # TODO: Implement logic to wait for database
-        echo("Database is now available.")
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "dump")
+
+    def call(self, *args):
+        if not args:
+            return [text("Usage: hop3 addon postgres dump <name>")]
+        addon_name = args[0]
+        with command_context(
+            "dumping addon", addon_name=addon_name, service_type=_TYPE
+        ):
+            path = get_addon(_TYPE, addon_name).backup()
+        return [
+            text(f"Dumped Postgres addon '{addon_name}' to {path}."),
+            summary(f"dumped addon '{addon_name}' ({_TYPE}) to {path}."),
+        ]
+
+
+@register
+@dataclass(frozen=True)
+class AddonPostgresRestoreCmd(Command):
+    """Restore a Postgres addon from a backup file (psql).
+
+    Usage: hop3 addon postgres restore <name> <path>
+
+    WARNING: overwrites the current contents of the database.
+
+    Examples:
+        hop3 addon postgres restore mydb /home/hop3/backups/postgres/mydb_2026.sql
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "restore")
+    destructive: ClassVar[bool] = True
+
+    def call(self, *args):
+        if len(args) < 2:
+            return [text("Usage: hop3 addon postgres restore <name> <path>")]
+        addon_name, backup_path = args[0], args[1]
+        with command_context(
+            "restoring addon", addon_name=addon_name, service_type=_TYPE
+        ):
+            get_addon(_TYPE, addon_name).restore(Path(backup_path))
+        return [
+            text(f"Restored Postgres addon '{addon_name}' from {backup_path}."),
+            summary(f"restored addon '{addon_name}' ({_TYPE}) from {backup_path}."),
+        ]
+
+
+@register
+@dataclass(frozen=True)
+class AddonPostgresExtensionsCmd(Command):
+    """Install PostgreSQL extensions into an addon's database.
+
+    Usage: hop3 addon postgres extensions <name> <extension> [<extension> ...]
+
+    Only extensions on the platform allow-list are installed (superuser-only
+    extensions; trusted ones can be created from app migrations). See the
+    addons guide for the allow-list and operator override.
+
+    Examples:
+        hop3 addon postgres extensions mydb postgis pgvector
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "extensions")
+
+    def call(self, *args):
+        if len(args) < 2:
+            return [
+                text(
+                    "Usage: hop3 addon postgres extensions <name> "
+                    "<extension> [<extension> ...]"
+                )
+            ]
+        addon_name, *extensions = args
+        with command_context(
+            "installing extensions",
+            addon_name=addon_name,
+            service_type=_TYPE,
+            extensions=",".join(extensions),
+        ):
+            _addon(addon_name).install_extensions(list(extensions))
+        return [
+            text(
+                f"Installed extension(s) {', '.join(extensions)} "
+                f"into Postgres addon '{addon_name}'."
+            ),
+            summary(
+                f"installed extensions [{', '.join(extensions)}] "
+                f"on addon '{addon_name}' ({_TYPE})."
+            ),
+        ]
+
+
+@register
+@dataclass(frozen=True)
+class AddonPostgresQueryCmd(Command):
+    """Run an ad-hoc SQL statement against a Postgres addon.
+
+    Usage: hop3 addon postgres query <name> --command "<SQL>"
+
+    Runs as the addon's own database user (least privilege), so it is confined
+    to that addon's database. A SELECT returns a table; other statements report
+    the affected row count.
+
+    Examples:
+        hop3 addon postgres query mydb --command "SELECT count(*) FROM users"
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "query")
+    _arg_spec: ClassVar[dict] = {
+        "addon_name": {"positional": True},
+        "command": {"type": str},
+    }
+
+    def call(self, *args):
+        parsed = parse_cli_args(args, self._arg_spec)
+        addon_name = parsed.get("addon_name")
+        statement = parsed.get("command")
+        if not addon_name or not statement:
+            return [text('Usage: hop3 addon postgres query <name> --command "<SQL>"')]
+        with command_context(
+            "running query", addon_name=addon_name, service_type=_TYPE
+        ):
+            result = _addon(addon_name).run_sql(statement)
+        return _result_items(result)
+
+
+@register
+@dataclass(frozen=True)
+class AddonPostgresCloneCmd(Command):
+    """Clone a Postgres addon into a new one (copies all data).
+
+    Usage: hop3 addon postgres clone <source> <new-name>
+
+    Creates <new-name>, then loads a dump of <source> into it. Refuses if
+    <new-name> already exists.
+
+    Examples:
+        hop3 addon postgres clone prod-db staging-db
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "clone")
+
+    def call(self, *args):
+        return _clone(args)
+
+
+@register
+@dataclass(frozen=True)
+class AddonPostgresExportCmd(Command):
+    """Stream a Postgres addon dump to stdout.
+
+    Usage: hop3 addon postgres export <name> > dump.sql
+
+    Writes a pg_dump of the addon to the client's stdout — redirect it to a
+    file or pipe it elsewhere.
+
+    Examples:
+        hop3 addon postgres export mydb > mydb.sql
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "export")
+
+    def call(self, *args):
+        if not args:
+            return [text("Usage: hop3 addon postgres export <name> > dump.sql")]
+        addon_name = args[0]
+        with command_context(
+            "exporting addon", addon_name=addon_name, service_type=_TYPE
+        ):
+            path = Path(get_addon(_TYPE, addon_name).backup())
+            encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+        return [
+            blob(encoded, filename=path.name),
+            summary(f"exported addon '{addon_name}' ({_TYPE})."),
+        ]
+
+
+@register
+@dataclass(frozen=True)
+class AddonPostgresImportCmd(Command):
+    """Import a dump into a Postgres addon from stdin.
+
+    Usage: hop3 addon postgres import <name> --confirm=<name> < dump.sql
+
+    Loads the piped dump into the addon via psql. Overwrites existing data;
+    since stdin carries the dump (so it can't prompt), pass --confirm=<name>
+    or --yes.
+
+    Examples:
+        hop3 addon postgres import mydb --confirm=mydb < mydb.sql
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "import")
+    destructive: ClassVar[bool] = True
+
+    def call(self, *args, import_data: str | None = None, **kwargs):
+        if not args:
+            return [text("Usage: hop3 addon postgres import <name> < dump.sql")]
+        addon_name = args[0]
+        if not import_data:
+            return [
+                error(
+                    "No dump provided. Pipe one on stdin: "
+                    "hop3 addon postgres import <name> < dump.sql"
+                )
+            ]
+        with command_context(
+            "importing addon", addon_name=addon_name, service_type=_TYPE
+        ):
+            content = base64.b64decode(import_data)
+            with tempfile.NamedTemporaryFile(suffix=".sql", delete=False) as tmp:
+                tmp.write(content)
+                tmp_path = Path(tmp.name)
+            try:
+                get_addon(_TYPE, addon_name).restore(tmp_path)
+            finally:
+                tmp_path.unlink(missing_ok=True)
+        return [
+            text(f"Imported dump into Postgres addon '{addon_name}'."),
+            summary(f"imported dump into addon '{addon_name}' ({_TYPE})."),
+        ]
+
+
+# --- Diagnostics (read-only, run as superuser via run_admin_sql) -------------
+
+_PS_SQL = r"""
+SELECT pid,
+       usename AS "user",
+       state,
+       to_char(now() - query_start, 'HH24:MI:SS') AS runtime,
+       left(regexp_replace(query, '\s+', ' ', 'g'), 80) AS query
+FROM pg_stat_activity
+WHERE datname = current_database()
+  AND pid <> pg_backend_pid()
+  AND state IS NOT NULL
+ORDER BY query_start NULLS LAST
+"""
+
+_LOCKS_SQL = r"""
+SELECT a.pid,
+       a.usename AS "user",
+       l.locktype,
+       l.mode,
+       l.granted,
+       left(regexp_replace(a.query, '\s+', ' ', 'g'), 60) AS query
+FROM pg_locks l
+JOIN pg_stat_activity a ON a.pid = l.pid
+WHERE a.datname = current_database()
+ORDER BY l.granted, a.pid
+"""
+
+_SETTINGS_SQL = r"""
+SELECT name, setting, unit
+FROM pg_settings
+WHERE name IN (
+    'server_version', 'max_connections', 'shared_buffers', 'work_mem',
+    'maintenance_work_mem', 'effective_cache_size', 'wal_level', 'max_wal_size'
+)
+ORDER BY name
+"""
+
+
+def _diagnostic(args: tuple, statement: str, label: str, verb: str) -> list[dict]:
+    """Shared body for the read-only diagnostic commands."""
+    if not args:
+        return [text(f"Usage: hop3 addon postgres {verb} <name>")]
+    addon_name = args[0]
+    with command_context(label, addon_name=addon_name, service_type=_TYPE):
+        result = _addon(addon_name).run_admin_sql(statement)
+    return _result_items(result)
+
+
+@register
+@dataclass(frozen=True)
+class AddonPostgresPsCmd(Command):
+    """Show active queries on a Postgres addon.
+
+    Usage: hop3 addon postgres ps <name>
+
+    Examples:
+        hop3 addon postgres ps mydb
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "ps")
+
+    def call(self, *args):
+        return _diagnostic(args, _PS_SQL, "listing activity", "ps")
+
+
+@register
+@dataclass(frozen=True)
+class AddonPostgresLocksCmd(Command):
+    """Show current locks on a Postgres addon.
+
+    Usage: hop3 addon postgres locks <name>
+
+    Examples:
+        hop3 addon postgres locks mydb
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "locks")
+
+    def call(self, *args):
+        return _diagnostic(args, _LOCKS_SQL, "listing locks", "locks")
+
+
+@register
+@dataclass(frozen=True)
+class AddonPostgresSettingsCmd(Command):
+    """Show key configuration settings of a Postgres addon.
+
+    Usage: hop3 addon postgres settings <name>
+
+    Examples:
+        hop3 addon postgres settings mydb
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "settings")
+
+    def call(self, *args):
+        return _diagnostic(args, _SETTINGS_SQL, "reading settings", "settings")
+
+
+# Contributed to the RPC dispatch table via PostgresqlPlugin.cli_commands().
+COMMANDS: list[type[Command]] = [
+    AddonPostgresCredentialsCmd,
+    AddonPostgresDumpCmd,
+    AddonPostgresRestoreCmd,
+    AddonPostgresExtensionsCmd,
+    AddonPostgresQueryCmd,
+    AddonPostgresCloneCmd,
+    AddonPostgresExportCmd,
+    AddonPostgresImportCmd,
+    AddonPostgresPsCmd,
+    AddonPostgresLocksCmd,
+    AddonPostgresSettingsCmd,
+]

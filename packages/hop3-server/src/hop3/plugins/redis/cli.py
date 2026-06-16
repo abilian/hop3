@@ -1,168 +1,181 @@
 # Copyright (c) 2024-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""CLI commands to manage Redis."""
+"""`addon redis <verb>` commands — Redis-specific addon management.
+
+Type-agnostic addon verbs (list/create/attach/detach/destroy/show/status) live
+in `hop3.commands.services`. These Redis-specific level-3 commands are
+contributed to the RPC dispatch table via the plugin's `cli_commands()` hook.
+"""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, ClassVar, cast
 
-from hop3.lib import echo
-from hop3.lib.decorators import command
+from hop3.commands._base import Command
+from hop3.commands._errors import command_context
+from hop3.commands._response import summary, table, text
+from hop3.core.plugins import get_addon
+from hop3.lib.args import parse_cli_args
+from hop3.lib.decorators import register
 
 if TYPE_CHECKING:
-    from argparse import ArgumentParser
+    from .redis import RedisAddon
+
+_TYPE = "redis"
 
 
-@command
-class RedisCmd:
-    """Manage Redis commands."""
-
-    name = "redis"
+def _addon(name: str) -> RedisAddon:
+    """Typed accessor for the concrete Redis addon (engine-specific methods)."""
+    return cast("RedisAddon", get_addon(_TYPE, name))
 
 
-@command
-class RedisCliCmd:
-    """Opens a Redis prompt: hop redis:cli."""
+@register
+@dataclass(frozen=True)
+class AddonRedisCredentialsCmd(Command):
+    """Show connection credentials for a Redis addon.
 
-    name = "redis:cli"
+    Usage: hop3 addon redis credentials <name>
 
-    def run(self) -> None:
-        echo("Opening Redis CLI prompt...")
-        # TODO: Implement logic to open a Redis prompt
-        echo("Redis CLI session ended.")
+    Examples:
+        hop3 addon redis credentials mycache
+    """
 
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "credentials")
 
-@command
-class RedisCredentialsCmd:
-    """Display credentials information: hop redis:credentials."""
-
-    name = "redis:credentials"
-
-    def run(self) -> None:
-        echo("Fetching Redis credentials...")
-        # TODO: Implement logic to display Redis credentials
-        echo("Credentials displayed successfully.")
-
-
-@command
-class RedisInfoCmd:
-    """Gets information about Redis: hop redis:info."""
-
-    name = "redis:info"
-
-    def run(self) -> None:
-        echo("Fetching Redis information...")
-        # TODO: Implement logic to fetch Redis information
-        echo("Redis information displayed successfully.")
+    def call(self, *args):
+        if not args:
+            return [text("Usage: hop3 addon redis credentials <name>")]
+        addon_name = args[0]
+        with command_context(
+            "reading addon credentials", addon_name=addon_name, service_type=_TYPE
+        ):
+            details = get_addon(_TYPE, addon_name).get_connection_details()
+        rows = [[key, value] for key, value in details.items()]
+        return [table(headers=["Variable", "Value"], rows=rows)]
 
 
-@command
-class RedisKeyspaceNotificationsCmd:
-    """Set the keyspace notifications configuration: hop redis:keyspace-notifications <config>."""
+@register
+@dataclass(frozen=True)
+class AddonRedisDumpCmd(Command):
+    """Dump a Redis addon's keys to a backup file.
 
-    name = "redis:keyspace-notifications"
+    Usage: hop3 addon redis dump <name>
 
-    def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument(
-            "config", type=str, help="Keyspace notification configuration string."
-        )
+    Examples:
+        hop3 addon redis dump mycache
+    """
 
-    def run(self, config: str) -> None:
-        echo(f"Setting keyspace notifications configuration: {config}")
-        # TODO: Implement logic to set keyspace notifications
-        echo("Keyspace notifications configuration updated.")
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "dump")
 
-
-@command
-class RedisMaintenanceCmd:
-    """Manage maintenance windows: hop redis:maintenance."""
-
-    name = "redis:maintenance"
-
-    def run(self) -> None:
-        echo("Managing Redis maintenance windows...")
-        # TODO: Implement logic to manage maintenance windows
-        echo("Redis maintenance windows updated.")
+    def call(self, *args):
+        if not args:
+            return [text("Usage: hop3 addon redis dump <name>")]
+        addon_name = args[0]
+        with command_context(
+            "dumping addon", addon_name=addon_name, service_type=_TYPE
+        ):
+            path = get_addon(_TYPE, addon_name).backup()
+        return [
+            text(f"Dumped Redis addon '{addon_name}' to {path}."),
+            summary(f"dumped addon '{addon_name}' ({_TYPE}) to {path}."),
+        ]
 
 
-@command
-class RedisMaxMemoryCmd:
-    """Set the key eviction policy when instances reach their storage limit: hop redis:maxmemory <policy>."""
+@register
+@dataclass(frozen=True)
+class AddonRedisFlushCmd(Command):
+    """Remove all keys from a Redis addon's database (FLUSHDB).
 
-    name = "redis:maxmemory"
+    Usage: hop3 addon redis flush <name>
 
-    def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument(
-            "policy",
-            type=str,
-            help="Key eviction policy (e.g., allkeys-lru, noeviction).",
-        )
+    WARNING: deletes every key in the addon's database. The addon itself
+    stays usable (its db assignment is kept).
 
-    def run(self, policy: str) -> None:
-        echo(f"Setting max memory eviction policy to '{policy}'.")
-        # TODO: Implement logic to update eviction policy
-        echo("Max memory eviction policy updated.")
+    Examples:
+        hop3 addon redis flush mycache
+    """
 
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "flush")
+    destructive: ClassVar[bool] = True
 
-@command
-class RedisPromoteCmd:
-    """Sets DATABASE as your REDIS_URL: hop redis:promote."""
-
-    name = "redis:promote"
-
-    def run(self) -> None:
-        echo("Promoting Redis instance...")
-        # TODO: Implement logic to promote Redis instance
-        echo("Redis instance promoted successfully.")
-
-
-@command
-class RedisStatsResetCmd:
-    """Reset all Redis stats: hop redis:stats-reset."""
-
-    name = "redis:stats-reset"
-
-    def run(self) -> None:
-        echo("Resetting Redis stats...")
-        # TODO: Implement logic to reset stats using CONFIG RESETSTAT
-        echo("Redis stats reset successfully.")
+    def call(self, *args):
+        if not args:
+            return [text("Usage: hop3 addon redis flush <name>")]
+        addon_name = args[0]
+        with command_context(
+            "flushing addon", addon_name=addon_name, service_type=_TYPE
+        ):
+            _addon(addon_name).flush()
+        return [
+            text(f"Flushed all keys from Redis addon '{addon_name}'."),
+            summary(f"flushed addon '{addon_name}' ({_TYPE})."),
+        ]
 
 
-@command
-class RedisTimeoutCmd:
-    """Set the number of seconds to wait before killing idle connections: hop redis:timeout <seconds>."""
+@register
+@dataclass(frozen=True)
+class AddonRedisQueryCmd(Command):
+    """Run an ad-hoc redis-cli command against a Redis addon.
 
-    name = "redis:timeout"
+    Usage: hop3 addon redis query <name> --command "<redis command>"
 
-    def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument("seconds", type=int, help="Idle timeout in seconds.")
+    The command runs scoped to the addon's own database (not db 0).
 
-    def run(self, seconds: int) -> None:
-        echo(f"Setting Redis idle timeout to {seconds} seconds.")
-        # TODO: Implement logic to set idle timeout
-        echo("Redis idle timeout updated.")
+    Examples:
+        hop3 addon redis query mycache --command "GET session:42"
+        hop3 addon redis query mycache --command "DBSIZE"
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "query")
+    _arg_spec: ClassVar[dict] = {
+        "addon_name": {"positional": True},
+        "command": {"type": str},
+    }
+
+    def call(self, *args):
+        parsed = parse_cli_args(args, self._arg_spec)
+        addon_name = parsed.get("addon_name")
+        command = parsed.get("command")
+        if not addon_name or not command:
+            return [
+                text('Usage: hop3 addon redis query <name> --command "<redis command>"')
+            ]
+        with command_context(
+            "running command", addon_name=addon_name, service_type=_TYPE
+        ):
+            output = _addon(addon_name).run_command(command)
+        return [text(output or "(empty)")]
 
 
-@command
-class RedisUpgradeCmd:
-    """Perform in-place version upgrade: hop redis:upgrade."""
+@register
+@dataclass(frozen=True)
+class AddonRedisInfoCmd(Command):
+    """Show Redis server INFO for a Redis addon (diagnostics).
 
-    name = "redis:upgrade"
+    Usage: hop3 addon redis info <name>
 
-    def run(self) -> None:
-        echo("Upgrading Redis instance...")
-        # TODO: Implement logic to perform an in-place version upgrade
-        echo("Redis instance upgraded successfully.")
+    Examples:
+        hop3 addon redis info mycache
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "info")
+
+    def call(self, *args):
+        if not args:
+            return [text("Usage: hop3 addon redis info <name>")]
+        addon_name = args[0]
+        with command_context("reading info", addon_name=addon_name, service_type=_TYPE):
+            output = _addon(addon_name).run_command("INFO")
+        return [text(output or "(empty)")]
 
 
-@command
-class RedisWaitCmd:
-    """Wait for Redis instance to be available: hop redis:wait."""
-
-    name = "redis:wait"
-
-    def run(self) -> None:
-        echo("Waiting for Redis instance to become available...")
-        # TODO: Implement logic to wait until Redis is available
-        echo("Redis instance is now available.")
+# Contributed to the RPC dispatch table via RedisPlugin.cli_commands().
+COMMANDS: list[type[Command]] = [
+    AddonRedisCredentialsCmd,
+    AddonRedisDumpCmd,
+    AddonRedisFlushCmd,
+    AddonRedisQueryCmd,
+    AddonRedisInfoCmd,
+]

@@ -3,11 +3,12 @@
 **Status**: Accepted — sections D7/D8 **superseded by [ADR 042](042-cli-context-model.md)** (2026-06-01); all other decisions remain authoritative.
 **Type**: Design
 **Created**: 2026-03-05
-**Updated**: 2026-06-01
+**Updated**: 2026-06-16
 **Related ADRs**: 018, 019, 025, 031, 039 (planned), **042 (supersedes D7/D8)**
 
 ## Revisions
 
+- v3.5 (2026-06-16): D17 amended — `env` is now the canonical command group for environment variables, reversing the original `config`-canonical decision. `config` becomes a full back-compat alias (registered server-side on each command). Reason: `config` collided with `hop3.toml`, the app's configuration *file*. See D17 for the rationale.
 - v3.4 (2026-06-01): §D7 (app resolution chain) and §D8 (sticky context state) superseded by ADR 042. The vocabulary split was inverted — "context" now names a project environment, "server" the credentialed binding — and the resolution chains were rewritten end-to-end. See ADR 042 for the authoritative chains. Body of D7/D8 retained for historical record with in-section supersession notes.
 - v3.1 (2026-04-15): Applied the cli-guidelines (clig.dev) review. New D19 on output conventions (stdout/stderr, `-` for file args, state-change summaries); added `--no-input` and `--confirm=<name>` flags; dropped the `--password` flag (stdin / prompt / file only).
 - v3.0 (2026-04-15): Complete redraft: namespace inventory, verb conventions, argument rules, alias mechanism, sticky-state semantics, help format, confirmation rules, exit codes, and hidden-command discipline all locked in. Plugin extension mechanism moved to ADR 039 (planned).
@@ -46,7 +47,7 @@ Decisions are grouped by concern. Each decision has a one-paragraph motivation.
 
 #### D1 — Commands are space-separated, with a hybrid top-level / namespaced surface
 
-All multi-token commands use spaces (`hop3 config set`), not colons. The top-level surface holds (a) daily app-scoped verbs, (b) utilities, and (c) namespace roots. Namespaces hold management and CRUD verbs.
+All multi-token commands use spaces (`hop3 env set`), not colons. The top-level surface holds (a) daily app-scoped verbs, (b) utilities, and (c) namespace roots. Namespaces hold management and CRUD verbs.
 
 *Motivation*: spaces are the modern convention (docker, kubectl, gh, gcloud, aws, fly, railway, helm, terraform). Colons require bash `COMP_WORDBREAKS` hacks and read as retro. Top-level for frequent verbs matches Heroku/Fly/Railway; namespaces scale and add friction to destructive operations.
 
@@ -63,7 +64,7 @@ Everything else — create, destroy, rename, configuration mutation, non-app res
 
 #### D3 — Namespace inventory: 11 canonical namespaces
 
-`app`, `addon`, `backup`, `config`, `context`, `user`, `system`, `auth`, `completion`, `plugin`, `help`.
+`app`, `addon`, `backup`, `env`, `context`, `user`, `system`, `auth`, `completion`, `plugin`, `help`. (`config` is a back-compat alias of `env` — see D17.)
 
 Flattened from today: `admin:user:*` → `user *`. Removed from user-visible surface: `admin`, `git`, `nix`. `sbom` demoted from top-level to `app sbom`.
 
@@ -77,7 +78,7 @@ Flattened from today: `admin:user:*` → `user *`. Removed from user-visible sur
 | `add` / `remove` | Hop3 registers or de-registers an externally-existing entity | `user` (a person), `context` (server reference), `domain` (DNS entry), `access` (grant) |
 | `list` | Summary of many | all |
 | `show` | Full state of one | all |
-| `get` | One specific value (key granularity) | `config get KEY` |
+| `get` | One specific value (key granularity) | `env get KEY` |
 | Domain verbs | Operation-specific, not expressible above | `attach`/`detach`, `enable`/`disable`, `grant-admin`/`revoke-admin`, `set-password`, `generate-token`, `restore`, `ping`, `start`/`stop`/`restart`, `set`/`unset`, `register`, `use`, `rename` |
 
 `info` is dropped entirely; use `show`. `delete` and `destroy` are not both verbs in the vocabulary — only `destroy` for Hop3-instantiated resources, `remove` for externally-existing entities.
@@ -277,10 +278,13 @@ Scripts can distinguish user error (2, 10), resolution (3), auth (4, 5), server 
 
 ### Terminology
 
-#### D17 — `config` and `addon` are the canonical terms
+#### D17 — `env` and `addon` are the canonical terms
 
-- **`config`** for environment variables (Heroku/Piku lineage). `env` is a core alias for `config show`.
+- **`env`** for environment variables. Canonical commands are `env show/get/set/unset/live/migrate`. `config` remains a full back-compat alias, registered server-side on each command, so `hop3 config set …` keeps working — no breakage for existing scripts or docs.
 - **`addon`** for backing services. "Service" is overloaded across modern PaaS (means app components in Railway/Render).
+
+> **Amendment (v3.5, 2026-06): `env` made canonical, reversing the original `config`-canonical decision.**
+> The original D17 made `config` canonical (Heroku/Piku lineage) with `env` only a read-only alias for `config show`. We reverse this. The deciding factor the original analysis missed: `config` collides with `hop3.toml` — the app's *configuration file*. `hop3 config show` listing environment variables while "the config" means the TOML file is a genuine naming clash. `env` names exactly what the commands manage (environment variables), and the `config`/`settings` vocabulary is then freed for future app-level settings. `config` is retained as a full alias purely for compatibility.
 
 ### Extensibility
 
@@ -310,8 +314,8 @@ Pipes keep the data stream clean. `hop3 apps | grep prod` and `hop3 logs | tee l
 **(b) Support `-` for file arguments.** Any flag that accepts a file path accepts `-` to mean stdin (for reads) or stdout (for writes). Examples:
 
 ```
-hop3 config set --from-file -           # read KEY=VAL pairs from stdin
-cat .env | hop3 config set --from-file -
+hop3 env set --from-file -              # read KEY=VAL pairs from stdin
+cat .env | hop3 env set --from-file -
 hop3 backup download <id> -             # stream backup to stdout (future)
 hop3 user set-password alice --password-file -   # read from stdin
 ```
@@ -323,7 +327,7 @@ This is the Unix convention and composes with pipes. `--password-file -` is equi
 Examples:
 
 ```
-$ hop3 config set FOO=bar
+$ hop3 env set FOO=bar
 [prod / myapp] set FOO=bar; restarted web worker.
 
 $ hop3 deploy
