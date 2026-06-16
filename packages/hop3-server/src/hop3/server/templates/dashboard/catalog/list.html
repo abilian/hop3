@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}All Apps - Marketplace - Hop3 Dashboard{% endblock %}
+{% block title %}All Apps - Catalog - Hop3 Dashboard{% endblock %}
 
 {% block content %}
-<div class="px-4 sm:px-6 lg:px-8" x-data="marketplaceData()">
+<div class="px-4 sm:px-6 lg:px-8" x-data="catalogData()">
     <!-- Header -->
     <div class="sm:flex sm:items-center sm:justify-between">
         <div>
             <nav class="flex mb-2" aria-label="Breadcrumb">
                 <ol class="flex items-center space-x-2">
                     <li>
-                        <a href="/dashboard/marketplace" class="text-gray-400 hover:text-gray-500">
-                            Marketplace
+                        <a href="/dashboard/catalog" class="text-gray-400 hover:text-gray-500">
+                            Catalog
                         </a>
                     </li>
                     <li>
@@ -24,7 +24,7 @@
             </nav>
             <h1 class="text-2xl font-semibold leading-6 text-gray-900">All Applications</h1>
             <p class="mt-2 text-sm text-gray-700">
-                Browse all available apps in the marketplace.
+                Browse all available apps in the catalog.
             </p>
         </div>
     </div>
@@ -76,7 +76,7 @@
     <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <template x-for="app in filteredApps" :key="app.id">
             <div class="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
-                <a :href="`/dashboard/marketplace/apps/${app.id}`" class="block p-4">
+                <a :href="`/dashboard/catalog/apps/${app.id}`" class="block p-4">
                     <div class="flex items-start space-x-4">
                         <!-- Icon or initials -->
                         <div class="flex-shrink-0">
@@ -136,7 +136,7 @@
 </div>
 
 <script>
-function marketplaceData() {
+function catalogData() {
     return {
         search: '',
         categoryFilter: 'all',

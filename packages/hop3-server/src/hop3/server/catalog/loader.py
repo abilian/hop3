@@ -1,6 +1,6 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""TOML loader for marketplace app metadata."""
+"""TOML loader for catalog app metadata."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 import markdown
 import tomllib
 
-from .models import MarketplaceApp
+from .models import CatalogApp
 
 # Markdown converter instance
 _md = markdown.Markdown(extensions=["extra", "toc"])
@@ -19,7 +19,7 @@ _md = markdown.Markdown(extensions=["extra", "toc"])
 _h1_pattern = re.compile(r"<h1[^>]*>.*?</h1>\s*", re.IGNORECASE | re.DOTALL)
 
 
-def load_app(app_dir: Path) -> MarketplaceApp | None:
+def load_app(app_dir: Path) -> CatalogApp | None:
     """Load a single app from its directory."""
     toml_path = app_dir / "hop3.toml"
     if not toml_path.exists():
@@ -43,7 +43,7 @@ def load_app(app_dir: Path) -> MarketplaceApp | None:
         if "name" in provider:
             providers.append(provider["name"])
 
-    app = MarketplaceApp(
+    app = CatalogApp(
         id=metadata.get("id", app_dir.name),
         title=metadata.get("title", app_dir.name.title()),
         description=metadata.get("description", ""),
@@ -75,16 +75,16 @@ def load_app(app_dir: Path) -> MarketplaceApp | None:
     return app
 
 
-def load_apps(apps_dir: Path) -> list[MarketplaceApp]:
+def load_apps(apps_dir: Path) -> list[CatalogApp]:
     """Load all apps from the apps directory.
 
     Args:
         apps_dir: Directory containing app subdirectories with hop3.toml files
 
     Returns:
-        List of MarketplaceApp objects
+        List of CatalogApp objects
     """
-    apps: list[MarketplaceApp] = []
+    apps: list[CatalogApp] = []
 
     if not apps_dir.exists():
         return apps
@@ -102,8 +102,8 @@ def load_apps(apps_dir: Path) -> list[MarketplaceApp]:
             if not icon_path.exists():
                 icon_path = app_dir / "icon.png"
             if icon_path.exists():
-                # Icon served via marketplace controller
-                app.icon_url = f"/dashboard/marketplace/icons/{app.id}"
+                # Icon served via catalog controller
+                app.icon_url = f"/dashboard/catalog/icons/{app.id}"
             apps.append(app)
 
     return apps

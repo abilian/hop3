@@ -1,6 +1,6 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Marketplace service for loading and caching app data."""
+"""Catalog service for loading and caching app data."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from .loader import load_apps
 from .taxonomy import build_categories, build_tags
 
 if TYPE_CHECKING:
-    from .models import Category, MarketplaceApp, Tag
+    from .models import CatalogApp, Category, Tag
 
 # Featured apps (curated list)
 FEATURED_APP_IDS = [
@@ -30,26 +30,26 @@ FEATURED_APP_IDS = [
 ]
 
 
-class MarketplaceService:
-    """Singleton service for marketplace data access.
+class CatalogService:
+    """Singleton service for catalog data access.
 
     Loads apps from TOML files and caches them in memory.
     Thread-safe for read operations (no mutation after load).
     """
 
-    _instance: MarketplaceService | None = None
+    _instance: CatalogService | None = None
 
     def __init__(self) -> None:
-        self._apps: list[MarketplaceApp] = []
+        self._apps: list[CatalogApp] = []
         self._categories: list[Category] = []
         self._tags: list[Tag] = []
-        self._apps_by_id: dict[str, MarketplaceApp] = {}
+        self._apps_by_id: dict[str, CatalogApp] = {}
         self._categories_by_id: dict[str, Category] = {}
         self._loaded: bool = False
         self._apps_dir: Path | None = None
 
     @classmethod
-    def get_instance(cls) -> MarketplaceService:
+    def get_instance(cls) -> CatalogService:
         """Get the singleton instance."""
         if cls._instance is None:
             cls._instance = cls()
@@ -61,7 +61,7 @@ class MarketplaceService:
         cls._instance = None
 
     def load(self, apps_dir: Path) -> None:
-        """Load or reload marketplace data from disk.
+        """Load or reload catalog data from disk.
 
         Args:
             apps_dir: Directory containing app subdirectories with hop3.toml files
@@ -80,11 +80,11 @@ class MarketplaceService:
     def ensure_loaded(self) -> None:
         """Ensure data is loaded, using default path if not."""
         if not self._loaded:
-            # Default path: apps/marketplace at repository root
-            # Navigate from: hop3/server/marketplace/service.py
-            # to: apps/marketplace/
+            # Default path: apps/catalog at repository root
+            # Navigate from: hop3/server/catalog/service.py
+            # to: apps/catalog/
             repo_root = Path(__file__).parent.parent.parent.parent.parent.parent.parent
-            default_apps_dir = repo_root / "apps" / "marketplace"
+            default_apps_dir = repo_root / "apps" / "catalog"
             if default_apps_dir.exists():
                 self.load(default_apps_dir)
             else:
@@ -96,12 +96,12 @@ class MarketplaceService:
         """Get the apps directory path."""
         return self._apps_dir
 
-    def get_app(self, app_id: str) -> MarketplaceApp | None:
+    def get_app(self, app_id: str) -> CatalogApp | None:
         """Get an app by ID."""
         self.ensure_loaded()
         return self._apps_by_id.get(app_id)
 
-    def list_apps(self) -> list[MarketplaceApp]:
+    def list_apps(self) -> list[CatalogApp]:
         """Get all apps."""
         self.ensure_loaded()
         return self._apps
@@ -121,7 +121,7 @@ class MarketplaceService:
         self.ensure_loaded()
         return self._tags
 
-    def get_featured_apps(self) -> list[MarketplaceApp]:
+    def get_featured_apps(self) -> list[CatalogApp]:
         """Get featured apps."""
         self.ensure_loaded()
         featured = []
@@ -131,7 +131,7 @@ class MarketplaceService:
                 featured.append(app)
         return featured
 
-    def search(self, query: str) -> list[MarketplaceApp]:
+    def search(self, query: str) -> list[CatalogApp]:
         """Search apps by title, description, or tags.
 
         Args:
@@ -157,7 +157,7 @@ class MarketplaceService:
 
         return results
 
-    def get_apps_by_category(self, category_id: str) -> list[MarketplaceApp]:
+    def get_apps_by_category(self, category_id: str) -> list[CatalogApp]:
         """Get all apps in a category."""
         category = self.get_category(category_id)
         if category:

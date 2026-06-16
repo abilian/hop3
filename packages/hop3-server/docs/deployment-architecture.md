@@ -94,7 +94,7 @@ The deployment engine supports a `source_type` concept for future extensibility:
 
 - `upload`: Tarball uploaded via RPC
 - `git`: Deployed via git push
-- `marketplace`: (Future) Deployed from marketplace
+- `catalog`: (Future) Deployed from catalog
 
 This allows for different handling or logging based on deployment source.
 
@@ -131,6 +131,6 @@ git push hop3 master
 
 ## Future Enhancements
 
-- **Marketplace Deployment**: Deploy from curated application marketplace
+- **Catalog Deployment**: Deploy from curated application catalog
 - **Container Deployment**: Direct container image deployment
 - **Source URLs**: Deploy from public Git URLs without pushing

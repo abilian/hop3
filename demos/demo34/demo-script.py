@@ -197,7 +197,7 @@ def run(ctx: DemoContext) -> None:
     print_info("Benefits of declarative providers:")
     print_info("  - Documents app requirements in hop3.toml")
     print_info("  - Enables future automatic provisioning")
-    print_info("  - Marketplace displays required services")
+    print_info("  - Catalog displays required services")
     print_blank()
 
     if mysql_available:

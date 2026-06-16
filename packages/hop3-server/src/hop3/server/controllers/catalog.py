@@ -1,10 +1,10 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Marketplace controller for Hop3 web interface.
+"""Catalog controller for Hop3 web interface.
 
-This controller handles all marketplace routes including:
-- Marketplace home (featured apps, categories)
+This controller handles all catalog routes including:
+- Catalog home (featured apps, categories)
 - App listing with search and filtering
 - App detail pages
 - Category browsing
@@ -24,9 +24,9 @@ from litestar.params import Body, FromPath
 from litestar.response import File, Redirect, Template
 
 from hop3.orm import App, AppRepository, EnvVar
+from hop3.server.catalog import CatalogService
 from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
-from hop3.server.marketplace import MarketplaceService
 
 # ============================================================================
 # Helper Functions
@@ -69,31 +69,31 @@ def _check_app_exists(app_name: str) -> bool:
 
 
 # ============================================================================
-# Marketplace Controller
+# Catalog Controller
 # ============================================================================
 
 
-class MarketplaceController(Controller):
-    """Marketplace web interface controller.
+class CatalogController(Controller):
+    """Catalog web interface controller.
 
-    Handles all marketplace routes for browsing and installing applications
-    from the marketplace catalog.
+    Handles all catalog routes for browsing and installing applications
+    from the catalog.
     """
 
-    path = "/dashboard/marketplace"
+    path = "/dashboard/catalog"
     guards = [auth_guard]  # noqa: RUF012 - base class defines as instance var
 
     # -------------------------------------------------------------------------
-    # Marketplace Home
+    # Catalog Home
     # -------------------------------------------------------------------------
 
     @get("/", status_code=200, sync_to_thread=False)
-    def marketplace_index(self) -> Template:
-        """Display the marketplace home page.
+    def catalog_index(self) -> Template:
+        """Display the catalog home page.
 
         Shows featured apps and category overview.
         """
-        service = MarketplaceService.get_instance()
+        service = CatalogService.get_instance()
 
         ctx = {
             "featured_apps": service.get_featured_apps(),
@@ -101,21 +101,21 @@ class MarketplaceController(Controller):
             "total_apps": len(service.list_apps()),
         }
 
-        return Template(template_name="dashboard/marketplace/index.html", context=ctx)
+        return Template(template_name="dashboard/catalog/index.html", context=ctx)
 
     # -------------------------------------------------------------------------
     # Icon Serving
     # -------------------------------------------------------------------------
 
-    # AUDIT: guards=[] is intentional — the marketplace catalog is
+    # AUDIT: guards=[] is intentional — the catalog is
     # public by design. See notes/security.md §3.6.1.
     @get("/icons/{app_id:str}", status_code=200, sync_to_thread=False, guards=[])
-    def marketplace_icon(self, app_id: FromPath[str]) -> File | Redirect:
-        """Serve app icon from the marketplace directory.
+    def catalog_icon(self, app_id: FromPath[str]) -> File | Redirect:
+        """Serve app icon from the catalog directory.
 
         Icons are stored in each app's directory as icon.webp or icon.png.
         """
-        service = MarketplaceService.get_instance()
+        service = CatalogService.get_instance()
         apps_dir = service.apps_dir
 
         if not apps_dir:
@@ -142,12 +142,12 @@ class MarketplaceController(Controller):
     # -------------------------------------------------------------------------
 
     @get("/apps", status_code=200, sync_to_thread=False)
-    def marketplace_list(self) -> Template:
-        """Display all marketplace apps.
+    def catalog_list(self) -> Template:
+        """Display all catalog apps.
 
         Provides a searchable, filterable list of all available apps.
         """
-        service = MarketplaceService.get_instance()
+        service = CatalogService.get_instance()
 
         # Convert apps to dicts for JSON serialization in Alpine.js
         apps_data = [app.to_dict() for app in service.list_apps()]
@@ -158,23 +158,23 @@ class MarketplaceController(Controller):
             "categories": service.list_categories(),
         }
 
-        return Template(template_name="dashboard/marketplace/list.html", context=ctx)
+        return Template(template_name="dashboard/catalog/list.html", context=ctx)
 
     # -------------------------------------------------------------------------
     # App Detail
     # -------------------------------------------------------------------------
 
     @get("/apps/{app_id:str}", status_code=200, sync_to_thread=False)
-    def marketplace_detail(self, app_id: FromPath[str]) -> Template | Redirect:
-        """Display marketplace app detail page.
+    def catalog_detail(self, app_id: FromPath[str]) -> Template | Redirect:
+        """Display catalog app detail page.
 
         Shows full app information and install form.
         """
-        service = MarketplaceService.get_instance()
+        service = CatalogService.get_instance()
         app = service.get_app(app_id)
 
         if not app:
-            return Redirect(path="/dashboard/marketplace")
+            return Redirect(path="/dashboard/catalog")
 
         # Get similar apps (same category)
         similar_apps = []
@@ -192,20 +192,20 @@ class MarketplaceController(Controller):
             "app_name": "",
         }
 
-        return Template(template_name="dashboard/marketplace/detail.html", context=ctx)
+        return Template(template_name="dashboard/catalog/detail.html", context=ctx)
 
     # -------------------------------------------------------------------------
     # Category Browsing
     # -------------------------------------------------------------------------
 
     @get("/category/{category_id:str}", status_code=200, sync_to_thread=False)
-    def marketplace_category(self, category_id: FromPath[str]) -> Template | Redirect:
+    def catalog_category(self, category_id: FromPath[str]) -> Template | Redirect:
         """Display apps in a specific category."""
-        service = MarketplaceService.get_instance()
+        service = CatalogService.get_instance()
         category = service.get_category(category_id)
 
         if not category:
-            return Redirect(path="/dashboard/marketplace")
+            return Redirect(path="/dashboard/catalog")
 
         ctx = {
             "category": category,
@@ -214,7 +214,7 @@ class MarketplaceController(Controller):
         }
 
         return Template(
-            template_name="dashboard/marketplace/category.html", context=ctx
+            template_name="dashboard/catalog/category.html", context=ctx
         )
 
     # -------------------------------------------------------------------------
@@ -222,22 +222,22 @@ class MarketplaceController(Controller):
     # -------------------------------------------------------------------------
 
     @post("/apps/{app_id:str}/install", status_code=303, sync_to_thread=True)
-    def marketplace_install(
+    def catalog_install(
         self,
         app_id: FromPath[str],
         data: Annotated[
             dict[str, str], Body(media_type=RequestEncodingType.URL_ENCODED)
         ],
     ) -> Template | Redirect:
-        """Install a marketplace app.
+        """Install a catalog app.
 
-        Creates a new app from the marketplace template.
+        Creates a new app from the catalog template.
         """
-        service = MarketplaceService.get_instance()
-        marketplace_app = service.get_app(app_id)
+        service = CatalogService.get_instance()
+        catalog_app = service.get_app(app_id)
 
-        if not marketplace_app:
-            return Redirect(path="/dashboard/marketplace")
+        if not catalog_app:
+            return Redirect(path="/dashboard/catalog")
 
         # Get and validate app name
         app_name = data.get("app_name", "").strip().lower()
@@ -249,7 +249,7 @@ class MarketplaceController(Controller):
 
         if errors:
             return self._render_install_errors(
-                service, marketplace_app, app_id, app_name, errors
+                service, catalog_app, app_id, app_name, errors
             )
 
         # Create the app
@@ -257,7 +257,7 @@ class MarketplaceController(Controller):
             app = App(name=app_name)
             app.create(setup_git=True)  # Creates directories and sets up git
 
-            _copy_marketplace_source(marketplace_app, app)
+            _copy_catalog_source(catalog_app, app)
             _parse_and_add_env_vars(app, data.get("env_vars", ""))
 
             db_session.add(app)
@@ -272,20 +272,20 @@ class MarketplaceController(Controller):
 
     def _render_install_errors(
         self,
-        service: MarketplaceService,
-        marketplace_app,
+        service: CatalogService,
+        catalog_app,
         app_id: str,
         app_name: str,
         errors: list[str],
     ) -> Template:
         """Re-render detail page with validation errors."""
         similar_apps = []
-        if marketplace_app.category:
+        if catalog_app.category:
             category = next(
                 (
                     c
                     for c in service.list_categories()
-                    if c.name == marketplace_app.category
+                    if c.name == catalog_app.category
                 ),
                 None,
             )
@@ -293,20 +293,20 @@ class MarketplaceController(Controller):
                 similar_apps = [a for a in category.apps if a.id != app_id][:4]
 
         ctx = {
-            "app": marketplace_app,
+            "app": catalog_app,
             "similar_apps": similar_apps,
             "errors": errors,
             "app_name": app_name,
         }
-        return Template(template_name="dashboard/marketplace/detail.html", context=ctx)
+        return Template(template_name="dashboard/catalog/detail.html", context=ctx)
 
 
-def _copy_marketplace_source(marketplace_app, app: App) -> None:
-    """Copy source files from marketplace app to new app."""
-    if not marketplace_app.source_path:
+def _copy_catalog_source(catalog_app, app: App) -> None:
+    """Copy source files from catalog app to new app."""
+    if not catalog_app.source_path:
         return
 
-    src_path = Path(marketplace_app.source_path)
+    src_path = Path(catalog_app.source_path)
     if not src_path.exists():
         return
 

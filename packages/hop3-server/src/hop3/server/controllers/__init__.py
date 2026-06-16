@@ -7,6 +7,9 @@
 from __future__ import annotations
 
 from .auth import AuthController
+
+# Alias for backward compatibility
+from .catalog import CatalogController
 from .dashboard import (
     AddonsController,
     AppsController,
@@ -16,9 +19,6 @@ from .dashboard import (
     EnvVarsController,
     LogsController,
 )
-
-# Alias for backward compatibility
-from .marketplace import MarketplaceController
 from .root import RootController
 from .rpc import RPCController
 from .stream import StreamController
@@ -28,11 +28,11 @@ __all__ = [
     "AppsController",
     "AuthController",
     "BackupsController",
+    "CatalogController",
     "CertificatesController",
     "DashboardIndexController",
     "EnvVarsController",
     "LogsController",
-    "MarketplaceController",
     "RPCController",
     "RootController",
     "StreamController",
