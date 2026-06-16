@@ -31,7 +31,7 @@ from hop3.server.cli.db import DbUpgradeCmd
 if TYPE_CHECKING:
     from pathlib import Path
 
-HEAD_REVISION = "c7d4e8f1a2b9"  # extend port_claim for addon exposure
+HEAD_REVISION = "d8b3f1a6c2e4"  # addon_credential.is_primary
 BASE_REVISION = "d20dd80dafca"
 
 

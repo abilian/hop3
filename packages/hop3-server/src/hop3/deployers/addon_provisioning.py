@@ -15,7 +15,7 @@ all backing service dependencies.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from hop3.core.credentials import get_credential_encryptor
 from hop3.core.plugins import get_addon
@@ -26,9 +26,12 @@ from hop3.orm import AddonCredential
 from hop3.orm.repositories import AddonCredentialRepository
 
 if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
+    from sqlalchemy.orm import Session, scoped_session
 
     from hop3.orm.app import App
+
+    # The session a repository carries (advanced_alchemy types it as a union).
+    DbSession = Session | scoped_session[Session]
 
 
 def provision_addons(
@@ -102,24 +105,70 @@ def provision_addons(
         )
 
 
-def reinject_attached_addons(app: App, db_session: Session) -> None:
-    """Re-derive the app's addon env vars from its stored credentials.
+def addon_var_prefix(addon_name: str) -> str:
+    """ENV-var prefix for a non-primary addon: NAME upper, '-'→'_', trailing '_'."""
+    return addon_name.upper().replace("-", "_") + "_"
 
-    On every deploy, each addon *attached* to the app — whether declared in
-    ``hop3.toml [[addons]]`` or attached manually via ``hop3 addon attach`` —
-    has its decrypted connection details re-injected into the runtime env. This
-    makes the runtime env a function of the ``AddonCredential`` rows (the source
-    of truth) rather than a one-time env-var write at attach time, so
-    ``DATABASE_URL``/``REDIS_URL``/… always survive redeploys and any env churn.
-    Without it, a manually-attached addon (not in ``hop3.toml``) is never
-    re-injected and its env var can silently go missing on redeploy.
+
+def compute_namespaced_vars(
+    details: dict[str, str], *, is_primary: bool, addon_name: str
+) -> dict[str, str]:
+    """Namespace an addon's connection vars.
+
+    Primary addon → ``details`` unchanged (unprefixed ``DATABASE_URL`` etc.);
+    non-primary → every key prefixed with ``<ADDONNAME>_`` so several same-type
+    addons can coexist on one app without clobbering each other.
+    """
+    if is_primary:
+        return dict(details)
+    prefix = addon_var_prefix(addon_name)
+    return {f"{prefix}{key}": value for key, value in details.items()}
+
+
+def _effective_primary_ids(credentials: list[AddonCredential]) -> set[int]:
+    """Pick the effective primary credential id for each addon type.
+
+    An explicit ``is_primary`` flag wins; if a type-group has none flagged
+    (legacy data attached before this field, or a manually-created credential),
+    the oldest (min id) is treated as primary — so a sole addon always injects
+    the unprefixed vars and the unflagged case degrades sensibly.
+    """
+    by_type: dict[str, list[AddonCredential]] = {}
+    for cred in credentials:
+        by_type.setdefault(cred.addon_type, []).append(cred)
+    primary_ids: set[int] = set()
+    for group in by_type.values():
+        ordered = sorted(group, key=lambda c: c.id)
+        flagged = [c for c in ordered if c.is_primary]
+        primary = flagged[0] if flagged else ordered[0]
+        primary_ids.add(primary.id)
+    return primary_ids
+
+
+def sync_addon_env_vars(app: App, db_session: DbSession) -> dict[str, list[str]]:
+    """Make the app's addon-injected env exactly match its AddonCredential rows.
+
+    The single source of truth for addon env: attach, detach, promote and deploy
+    all call this, so the runtime env is always a function of the credential rows
+    (and their ``is_primary`` flags) — ``DATABASE_URL``/``REDIS_URL``/… survive
+    redeploys, and a manually-attached addon is never lost.
+
+    The set of names addons MANAGE is derived from the credentials, not a stored
+    marker: for every attached credential, both the unprefixed and the prefixed
+    spelling of each connection key. Any managed name not in the desired set is
+    pruned — that is what drops the stale spelling when an addon flips between
+    primary and non-primary (or is detached). The desired set is then upserted.
+
+    Returns ``{"set": [names...], "removed": [names...]}``.
     """
     repo = AddonCredentialRepository(session=db_session)
     credentials = repo.get_by_app_id(app.id)
-    if not credentials:
-        return
-
     encryptor = get_credential_encryptor()
+
+    primary_ids = _effective_primary_ids(credentials)
+
+    desired: dict[str, str] = {}
+    managed_names: set[str] = set()
     for credential in credentials:
         try:
             details = encryptor.decrypt(credential.encrypted_data)
@@ -131,12 +180,39 @@ def reinject_attached_addons(app: App, db_session: Session) -> None:
                 fg="yellow",
             )
             continue
-        if details:
-            set_env_vars(app, details, db_session)
-            log(
-                f"  Re-injected env from attached addon '{credential.addon_name}'",
-                level=2,
+        if not details:
+            continue
+        prefix = addon_var_prefix(credential.addon_name)
+        managed_names.update(details.keys())
+        managed_names.update(f"{prefix}{key}" for key in details)
+        desired.update(
+            compute_namespaced_vars(
+                details,
+                is_primary=credential.id in primary_ids,
+                addon_name=credential.addon_name,
             )
+        )
+
+    removed: list[str] = []
+    for env_var in list(app.env_vars):
+        if env_var.name in managed_names and env_var.name not in desired:
+            app.env_vars.remove(env_var)  # delete-orphan cascade removes the row
+            removed.append(env_var.name)
+
+    if desired:
+        set_env_vars(app, desired, cast("Session", db_session))
+    db_session.flush()
+    if desired or removed:
+        log(
+            f"  Synced addon env for '{app.name}': "
+            f"{len(desired)} set, {len(removed)} removed",
+            level=2,
+        )
+    return {"set": sorted(desired), "removed": sorted(removed)}
+
+
+# Back-compat alias: the deploy path and tests import reinject_attached_addons.
+reinject_attached_addons = sync_addon_env_vars
 
 
 def _provision_single_addon(
@@ -239,21 +315,29 @@ def _provision_single_addon(
     # Store credential
     encryptor = get_credential_encryptor()
     if existing_credential:
-        # Update existing credential
+        # Update existing credential (keep its primary status).
         existing_credential.encrypted_data = encryptor.encrypt(connection_details)
         addon_credential_repo.update(existing_credential)
+        is_primary = existing_credential.is_primary
     else:
-        # Create new credential
+        # Create new credential. The first addon of a type on this app is the
+        # primary (unprefixed vars); a later same-type addon is non-primary.
+        is_primary = not addon_credential_repo.list_by_app_and_type(app.id, addon_type)
         credential = AddonCredential(
             app_id=app.id,
             addon_type=addon_type,
             addon_name=addon_name,
             encrypted_data=encryptor.encrypt(connection_details),
+            is_primary=is_primary,
         )
         addon_credential_repo.add(credential)
 
-    # Add env vars to app (addons can update existing values, e.g., when password changes)
-    set_env_vars(app, connection_details, db_session)  # Return value unused here
+    # Inject this addon's env vars, namespaced by primary status. The deploy-level
+    # sync_addon_env_vars (every deploy) reconciles the full picture afterwards.
+    namespaced = compute_namespaced_vars(
+        connection_details, is_primary=is_primary, addon_name=addon_name
+    )
+    set_env_vars(app, namespaced, db_session)
 
     log(f"  Attached addon {addon_name} to {app.name}", level=1, fg="green")
     server_log.info(

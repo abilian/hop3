@@ -1482,30 +1482,24 @@ hop3 addon attach <service_name> --app <app_name> [--service-type <type>]
 
 **Options:**
 - `--service-type` - Service type (default: postgres)
+- `--primary` - Make this the primary addon of its type for the app (see below)
 
 **Example:**
 ```bash
 hop3 addon attach myapp-db --app myapp --service-type postgres
 ```
 
-**Output:**
-```
-Service 'myapp-db' attached to app 'myapp' successfully.
-
-Environment variables:
-  Added DATABASE_URL
-  Added DB_USER
-  Added DB_PASSWORD
-  Added DB_NAME
-
-Restart your app for changes to take effect:
-  hop3 app restart myapp
-```
+**Multiple addons of the same type:** the **first** addon of a type attached to
+an app is the *primary* and injects the unprefixed connection vars
+(`DATABASE_URL`, …). A **second** addon of the same type is *secondary* and its
+vars are prefixed with `<ADDONNAME>_` (e.g. `REPLICA_DATABASE_URL`), so the two
+never clobber each other. Use `--primary` to attach-and-promote (demoting the
+current primary), or `hop3 addon promote` later.
 
 **What Happens:**
-- Service connection details added as environment variables
+- Service connection details added as environment variables (namespaced as above)
 - Credentials stored encrypted in database
-- App must be restarted to use new variables
+- App must be redeployed to use new variables
 
 ---
 
@@ -1524,9 +1518,12 @@ hop3 addon detach myapp-db --app myapp
 ```
 
 **Notes:**
-- Removes environment variables from app
-- Does not destroy the service itself
-- Credentials removed from app
+- Removes the addon's environment variables from the app (both the unprefixed
+  and any prefixed spelling).
+- Does not destroy the service itself; credentials removed from the app.
+- If you detach the **primary** addon and same-type siblings remain, the oldest
+  sibling is **auto-promoted** to primary (so the app keeps an unprefixed
+  `DATABASE_URL`); this is reported in the output.
 
 ---
 
@@ -1684,6 +1681,28 @@ Remove an addon's public exposure: close the firewall port, remove the forwarder
 ```bash
 hop3 addon unexpose <name> [--type <type>]
 ```
+
+---
+
+### `hop3 addon promote`
+
+Make an addon the **primary** one of its type for an app. When several same-type addons are attached, the primary injects the unprefixed connection vars (`DATABASE_URL`, …) and the others are prefixed (`<NAME>_DATABASE_URL`). This flips which one is primary; the previous primary becomes prefixed. Type-agnostic (type resolved from the name).
+
+**Usage:**
+```bash
+hop3 addon promote <name> --app <app> [--type <type>]
+```
+
+**Example:**
+```bash
+hop3 addon promote replica-db --app myapp
+# -> replica-db now owns DATABASE_URL; the old primary becomes <OLD>_DATABASE_URL
+```
+
+**Notes:**
+- Idempotent: promoting the addon that is already primary is a no-op.
+- Errors if the addon isn't attached to the app, or the type is ambiguous (pass `--type`).
+- Redeploy the app for the env change to take effect.
 
 ---
 
