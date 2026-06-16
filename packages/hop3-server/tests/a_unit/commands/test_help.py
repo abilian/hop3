@@ -213,7 +213,7 @@ def test_help_all_verbose_aggregates_full_help():
     assert "Part of: hop" in text
     # Spot-check that specific top-level and namespaced commands are present
     # as full-help headers.
-    for header in ("hop deploy —", "hop config set —", "hop auth login —"):
+    for header in ("hop deploy —", "hop env set —", "hop auth login —"):
         assert header in text, header
 
 
@@ -297,3 +297,25 @@ def test_help_commands_returns_command_list():
 
     # Should not include hidden commands (e.g., git-hook)
     assert "git-hook" not in commands
+
+
+def test_help_resolves_server_aliases():
+    """`help <alias>` resolves server-side aliases instead of 'Unknown command'.
+
+    Regression: `run` -> `app run` and `destroy` -> `app destroy` are aliases;
+    their bare-form help used to report "Unknown command".
+    """
+    cmd = HelpCmd()
+    for alias in (("run",), ("destroy",)):
+        out = cmd._detailed_help(alias)
+        assert "Unknown command" not in out[0]["text"], alias
+
+
+def test_help_notes_alias_for_server_aliases():
+    """`<alias> --help` states it's an alias for the canonical command."""
+    cmd = HelpCmd()
+    note = cmd._detailed_help(("config", "set"))[0]["text"]
+    assert "`config set` is an alias for `env set`." in note
+    # The canonical command does NOT get the alias note.
+    canonical = cmd._detailed_help(("env", "set"))[0]["text"]
+    assert "is an alias for" not in canonical

@@ -47,23 +47,25 @@ _APP_NAMESPACE_SCOPED: set[tuple[str, ...]] = {
     ("app", "env"),
     ("app", "debug"),
     ("app", "sbom"),
+    ("app", "run"),  # canonical form of top-level `run` (alias). See run special-case.
     # ("app", "launch") and ("app", "list") are NOT app-scoped: launch creates
     # an app from a repo arg; list takes no app.
     # ("app", "rename") — second arg is the new name, not a second app; app is positional and unambiguous
 }
 
-# Config commands (all operate on a single app's config).
-_CONFIG_SCOPED: set[tuple[str, ...]] = {
-    (
-        "config",
-    ),  # bare shows namespace help — still app-scoped when user intends a list
-    ("config", "show"),
-    ("config", "get"),
-    ("config", "set"),
-    ("config", "unset"),
-    ("config", "live"),
-    ("config", "migrate"),
+# Env-var commands (all operate on a single app's environment).
+# `config` is the back-compat alias; the client sees whichever the user typed,
+# so both ("env", X) and ("config", X) must be app-scoped. The bare namespace
+# is intentionally absent: `hop3 env` / `hop3 config` shows namespace help and
+# must not error out demanding an app. `migrate` takes a path, not an app.
+_ENV_SCOPED: set[tuple[str, ...]] = {
+    ("env", "show"),
+    ("env", "get"),
+    ("env", "set"),
+    ("env", "unset"),
+    ("env", "live"),
 }
+_CONFIG_SCOPED: set[tuple[str, ...]] = {("config", *rest) for (_, *rest) in _ENV_SCOPED}
 
 # Backup commands.
 _BACKUP_SCOPED: set[tuple[str, ...]] = {
@@ -75,7 +77,11 @@ _BACKUP_SCOPED: set[tuple[str, ...]] = {
 }
 
 APP_SCOPED_COMMANDS: set[tuple[str, ...]] = (
-    _TOP_LEVEL_APP_SCOPED | _APP_NAMESPACE_SCOPED | _CONFIG_SCOPED | _BACKUP_SCOPED
+    _TOP_LEVEL_APP_SCOPED
+    | _APP_NAMESPACE_SCOPED
+    | _ENV_SCOPED
+    | _CONFIG_SCOPED
+    | _BACKUP_SCOPED
 )
 
 

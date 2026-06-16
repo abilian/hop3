@@ -39,7 +39,7 @@ from ._response import text
 
 class Command:
     # Command name as a tuple of tokens (ADR 036 D1/D18). For example:
-    #   `hop3 config set` has name = ("config", "set")
+    #   `hop3 env set` has name = ("env", "set")
     #   `hop3 addon postgres diagnose` has name = ("addon", "postgres", "diagnose")
     # A one-token name (e.g., ("deploy",)) is a top-level command.
     # An empty tuple is the default for the base class only.

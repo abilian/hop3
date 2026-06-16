@@ -230,6 +230,15 @@ def _apply_aliases(
             f"[alias] {fired.source_token!r} -> "
             f"{' '.join(fired.expansion)!r} (source: {fired.origin})"
         )
+    # When asking for help on a client-side alias, note what it expands to:
+    # the alias is gone after this rewrite, and the server only sees the
+    # expanded command. (Server-side aliases like `config`/`run` are noted by
+    # the server's help renderer instead.)
+    if fired and any(arg in {"--help", "-h"} for arg in cli_args):
+        print(
+            f"`{fired.source_token}` is an alias for `{' '.join(fired.expansion)}`.",
+            file=sys.stderr,
+        )
     return rewritten
 
 
@@ -302,9 +311,10 @@ def _inject_resolved_app(
     already_has_positional = bool(remaining) and not remaining[0].startswith("-")
     # Exception: for `run <cmd>`, the first positional is the command to run,
     # not an app — so injection is still needed. Per ADR 036 D5 the app is a
-    # flag; we detect this case by checking the command path.
+    # flag; we detect this case by checking the command path. Both the
+    # canonical `app run` and its top-level `run` alias get this treatment.
     command_tuple = tuple(cli_args[:n_consumed])
-    first_positional_is_app = command_tuple != ("run",)
+    first_positional_is_app = command_tuple not in {("run",), ("app", "run")}
 
     if already_has_positional and first_positional_is_app and flags.app is None:
         return cli_args
@@ -336,7 +346,8 @@ def _inject_resolved_app(
 _MISMATCH_GUARDED_PREFIXES: tuple[tuple[str, ...], ...] = (
     ("deploy",),
     ("restart",),
-    ("config", "set"),
+    ("env", "set"),
+    ("config", "set"),  # back-compat alias for `env set`
     ("app", "destroy"),
 )
 
@@ -441,8 +452,9 @@ def _handle_deploy_preview(
 
     context_name = context_resolution.context if context_resolution else None
     server_name = server_resolution.server if server_resolution else None
+    source_path = _deploy_source_path(cli_args)
     plan = build_plan(
-        source_path=_deploy_source_path(cli_args),
+        source_path=source_path,
         context=context_name,
         server=server_name,
         app=app_resolution.app or "",
@@ -456,8 +468,13 @@ def _handle_deploy_preview(
     if flags.dry_run:
         # --dry-run: print plan to stdout (so it's pipeable for review),
         # warnings to stderr (so a script that redirects stdout still
-        # surfaces the dirty-tree marker), exit 0.
+        # surfaces the dirty-tree marker), exit 0. Also show the resolved
+        # archive manifest so the user can see exactly what would be uploaded
+        # (and what to add to [build].ignore) without guessing.
         print(render_plan(plan))
+        from .commands.arguments import describe_archive  # noqa: PLC0415
+
+        print("\n" + describe_archive(source_path))
         emit_domain_warnings()
         sys.exit(ExitCode.SUCCESS)
 

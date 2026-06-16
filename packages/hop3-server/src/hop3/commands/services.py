@@ -23,6 +23,7 @@ from hop3.orm.repositories import (  # noqa: TC001
     AppRepository,
     EnvVarRepository,
 )
+from hop3.plugins.addons.secrets import list_addon_instances
 
 from ._base import Command
 from ._errors import command_context
@@ -35,8 +36,10 @@ class AddonsCmd(Command):
     """Manage backing services (databases, caches, etc.).
 
     Examples:
-        hop3 addon list                # List backing service instances (alias: 'hop3 addons')
+        hop3 addon list                   # List backing service instances (alias: 'hop3 addons')
+        hop3 addon list --app my-app      # List addons attached to an app
         hop3 addon create postgres mydb   # Provision a new Postgres addon
+        hop3 addon types                  # List available addon types
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon",)
@@ -45,31 +48,118 @@ class AddonsCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonListCmd(Command):
-    """List available addon types.
+    """List addon instances.
 
-    Usage: hop3 addon list
+    Lists the backing-service instances provisioned on this server. Use
+    --app to list only the addons attached to a given application, or
+    --type to filter by addon type.
 
-    Shows all registered addon types that can be created.
+    To list the addon *types* that can be created, use 'hop3 addon types'.
 
+    Usage: hop3 addon list [--app <app>] [--type <type>]
 
     Examples:
-        hop3 addon list                # List all addons
-        hop3 addons                    # Same via alias
+        hop3 addon list                   # All instances on the server
+        hop3 addons                       # Same via alias
+        hop3 addon list --app my-app      # Addons attached to my-app
+        hop3 addon list --type postgres   # Only Postgres instances
     """
 
+    app_repo: AppRepository
+    addon_credential_repo: AddonCredentialRepository
     name: ClassVar[tuple[str, ...]] = ("addon", "list")
+    requires_auth: ClassVar[bool] = True
+    _arg_spec: ClassVar[dict] = {
+        "app": {"type": str},  # --app <name>
+        "type": {"type": str},  # --type <type>
+    }
+
+    def call(self, *args):
+        """List addon instances, optionally scoped to an app or type."""
+        parsed = parse_cli_args(args, self._arg_spec)
+        app_name = parsed.get("app")
+        type_filter = parsed.get("type")
+        server_log.info("addon list called", app=app_name, type=type_filter)
+
+        if app_name:
+            return self._list_for_app(app_name, type_filter)
+        return self._list_all(type_filter)
+
+    def _list_all(self, type_filter: str | None):
+        """List every instance on the server, with its attached apps."""
+        instances = list_addon_instances()
+        if type_filter:
+            instances = [(t, n) for t, n in instances if t == type_filter]
+
+        if not instances:
+            if type_filter:
+                return [text(f"No addon instances of type '{type_filter}'.")]
+            return [
+                text("No addon instances."),
+                text("Create one with: hop3 addon create <type> <name>"),
+            ]
+
+        # Map (addon_type, addon_name) -> [app names] from the attachment table.
+        attachments: dict[tuple[str, str], list[str]] = {}
+        for cred in self.addon_credential_repo.list_all_with_apps():
+            if cred.app:
+                key = (cred.addon_type, cred.addon_name)
+                attachments.setdefault(key, []).append(cred.app.name)
+
+        rows = []
+        for addon_type, addon_name in instances:
+            apps = attachments.get((addon_type, addon_name), [])
+            rows.append([addon_name, addon_type, ", ".join(apps) if apps else "-"])
+
+        return [table(headers=["Name", "Type", "Attached apps"], rows=rows)]
+
+    def _list_for_app(self, app_name: str, type_filter: str | None):
+        """List the addons attached to a single app."""
+        app = self.app_repo.get_one_or_none(name=app_name)
+        if not app:
+            return [error(f"App '{app_name}' not found")]
+
+        creds = list(app.addon_credentials)
+        if type_filter:
+            creds = [c for c in creds if c.addon_type == type_filter]
+
+        if not creds:
+            return [text(f"No addons attached to app '{app_name}'.")]
+
+        rows = [[c.addon_name, c.addon_type] for c in creds]
+        return [
+            text(f"Addons attached to '{app_name}':"),
+            table(headers=["Name", "Type"], rows=rows),
+        ]
+
+
+@register
+@dataclass(frozen=True)
+class AddonTypesCmd(Command):
+    """List available addon types.
+
+    Shows all registered addon types that can be provisioned with
+    'hop3 addon create <type> <name>'.
+
+    Usage: hop3 addon types
+
+    Examples:
+        hop3 addon types               # List all addon types
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", "types")
     requires_auth: ClassVar[bool] = True
 
     def call(self, *args):
         """List available addon types."""
-        server_log.info("addons list called")
+        server_log.info("addon types called")
 
         pm = get_plugin_manager()
         addon_classes_list = pm.hook.get_addons()
         addon_classes = [cls for sublist in addon_classes_list for cls in sublist]
 
         server_log.info(
-            "addons list found addons",
+            "addon types found addons",
             count=len(addon_classes),
             addon_types=[getattr(cls, "name", "?") for cls in addon_classes],
         )

@@ -10,7 +10,7 @@ import base64
 import io
 import sys
 import tarfile
-from collections import Counter
+from operator import itemgetter
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -28,6 +28,12 @@ __all__ = ["generate_archive", "get_extra_args", "pack_repository"]
 # Hard limit: refuse to upload (can be overridden on server)
 SOFT_SIZE_LIMIT = 100 * 1024 * 1024  # 100 MB
 HARD_SIZE_LIMIT = 1024 * 1024 * 1024  # 1 GB
+# The server's documented default upload limit (Litestar request_max_body_size
+# and nginx client_max_body_size). The real limit is server-configured, but at
+# this size a deploy is likely to be rejected with HTTP 413 — warn loudly and
+# show what's big, before wasting the upload. ponytail: hardcoded default; a
+# future /rpc capability handshake could report the server's actual limit.
+DEFAULT_SERVER_UPLOAD_LIMIT = 200 * 1024 * 1024  # 200 MB
 
 # What the `hop3 deploy` upload always excludes, regardless of deployment
 # method: VCS metadata, OS/IDE cruft, and dependency/build caches the server
@@ -406,22 +412,35 @@ def _check_archive_size(
         print(f"Archive created: {size_mb:.2f} MB", file=sys.stderr)
 
     if archive_size > HARD_SIZE_LIMIT:
-        top_dirs = _get_top_directories_by_file_count(files, source_dir)
-        dir_summary = "\n".join(f"  {d}: {c} files" for d, c in top_dirs[:5])
+        dir_summary = _largest_dirs_summary(files, source_dir)
         hard_limit_mb = HARD_SIZE_LIMIT / (1024 * 1024)
 
         msg = (
             f"Archive too large: {size_mb:.1f} MB exceeds the {hard_limit_mb:.0f} MB limit.\n"
             f"\n"
-            f"Directories with most files:\n"
+            f"Largest entries:\n"
             f"{dir_summary}\n"
             f"\n"
+            f"Run 'hop3 deploy --dry-run' to see the full archive manifest.\n"
             f"Add patterns to the [build].ignore list in hop3.toml to exclude\n"
             f"them from deployment. The server may also have configurable size limits."
         )
         raise ValueError(msg)
 
-    if archive_size > SOFT_SIZE_LIMIT:
+    if archive_size > DEFAULT_SERVER_UPLOAD_LIMIT:
+        dir_summary = _largest_dirs_summary(files, source_dir)
+        limit_mb = DEFAULT_SERVER_UPLOAD_LIMIT / (1024 * 1024)
+        print(
+            f"Warning: archive ({size_mb:.1f} MB) exceeds the default server "
+            f"upload limit ({limit_mb:.0f} MB); the deploy will likely be "
+            f"rejected (HTTP 413).\n"
+            f"Largest entries:\n{dir_summary}\n"
+            f"Run 'hop3 deploy --dry-run' to see the full manifest. Exclude large "
+            f"entries via [build].ignore in hop3.toml, or ask the server admin to "
+            f"raise the limit.",
+            file=sys.stderr,
+        )
+    elif archive_size > SOFT_SIZE_LIMIT:
         soft_limit_mb = SOFT_SIZE_LIMIT / (1024 * 1024)
         print(
             f"Warning: Large archive ({size_mb:.1f} MB). "
@@ -490,26 +509,76 @@ def _get_build_ignore_patterns(source_dir: Path) -> list[str] | None:
     return None
 
 
-def _get_top_directories_by_file_count(
-    files: list[Path], source_dir: Path
+def _human_size(num_bytes: int) -> str:
+    """Format a byte count as a short human-readable size (e.g. '207.8 MB')."""
+    size = float(num_bytes)
+    for unit in ("B", "KB", "MB"):
+        if size < 1024:
+            return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} GB"
+
+
+def _aggregate_by_top_dir(
+    sized_files: list[tuple[Path, int]], source_dir: Path
 ) -> list[tuple[str, int]]:
-    """Get the top-level directories sorted by file count.
+    """Total upload size per top-level entry, largest first.
 
-    Args:
-        files: List of file paths
-        source_dir: The source directory (for computing relative paths)
-
-    Returns:
-        List of (directory_name, file_count) tuples, sorted by count descending
+    Size (not file count) is what matters for the 413 limit, and a top-level
+    entry is what you'd actually add to [build].ignore.
     """
-    dir_counts: Counter[str] = Counter()
-    for f in files:
+    dir_sizes: dict[str, int] = {}
+    for f, size in sized_files:
         rel = f.relative_to(source_dir)
-        # Get top-level directory, or "(root)" for files in root
-        top_dir = rel.parts[0] if len(rel.parts) > 1 else "(root)"
-        dir_counts[top_dir] += 1
+        top = rel.parts[0] if len(rel.parts) > 1 else "(root)"
+        dir_sizes[top] = dir_sizes.get(top, 0) + size
+    return sorted(dir_sizes.items(), key=itemgetter(1), reverse=True)
 
-    return dir_counts.most_common()
+
+def _largest_dirs_summary(files: list[Path], source_dir: Path, n: int = 5) -> str:
+    """A few-line summary of the largest top-level entries, by size."""
+    sized = [(f, f.stat().st_size) for f in files]
+    top = _aggregate_by_top_dir(sized, source_dir)[:n]
+    return "\n".join(f"  {_human_size(sz):>10}  {name}" for name, sz in top)
+
+
+def describe_archive(source_dir: Path) -> str:
+    """Human-readable manifest of what `hop3 deploy` would upload.
+
+    Walks the source, applies the SAME ignore rules as the real upload, and
+    reports the total size, the ignore rules in effect, and the largest
+    directories and files — so the user can see exactly what's in the archive
+    (and what to add to [build].ignore) instead of guessing. Stats only; does
+    not build the tarball.
+    """
+    spec, sources = get_ignored_spec(source_dir)
+    files = get_files_to_add(source_dir, spec)
+    sized = [(f, f.stat().st_size) for f in files]
+    total = sum(size for _, size in sized)
+
+    lines = [
+        (
+            f"Deploy archive: {_human_size(total)} across {len(files)} files "
+            f"(uncompressed; the upload itself is gzipped)."
+        ),
+        f"Ignore rules: {sources}.",
+    ]
+
+    top_dirs = _aggregate_by_top_dir(sized, source_dir)
+    if top_dirs:
+        lines.append("\nLargest entries:")
+        lines += [f"  {_human_size(sz):>10}  {name}" for name, sz in top_dirs[:10]]
+
+    largest = sorted(sized, key=itemgetter(1), reverse=True)[:15]
+    if largest:
+        lines.append("\nLargest files:")
+        lines += [
+            f"  {_human_size(sz):>10}  {f.relative_to(source_dir)}"
+            for f, sz in largest
+        ]
+
+    lines.append("\nTo shrink it, add large entries to [build].ignore in hop3.toml.")
+    return "\n".join(lines)
 
 
 def _check_directory_is_app(source_dir: Path, verbose: bool) -> None:
