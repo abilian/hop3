@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import ClassVar
+from urllib.parse import urlparse
 
 from hop3.core.credentials import get_credential_encryptor
 from hop3.core.identifiers import InvalidIdentifierError, validate_service_name
@@ -27,7 +28,7 @@ from hop3.plugins.addons.secrets import list_addon_instances
 
 from ._base import Command
 from ._errors import command_context
-from ._response import error, summary, table, text, warning
+from ._response import data, error, summary, table, text, warning
 
 
 @register
@@ -130,6 +131,89 @@ class AddonListCmd(Command):
         return [
             text(f"Addons attached to '{app_name}':"),
             table(headers=["Name", "Type"], rows=rows),
+        ]
+
+
+def _resolve_addon_types(addon_name: str) -> list[str]:
+    """Return the type(s) of the provisioned addon instance(s) named `addon_name`.
+
+    A name *could* collide across types (a postgres and a redis both named
+    "cache"); the caller disambiguates rather than guessing.
+    """
+    return [t for t, n in list_addon_instances() if n == addon_name]
+
+
+def _connection_url(details: dict[str, str]) -> str | None:
+    """Pick the connection URL out of a get_connection_details() dict.
+
+    Every addon returns exactly one ``*_URL`` entry (DATABASE_URL, REDIS_URL,
+    …), so matching on the suffix is engine-agnostic.
+    """
+    for key, value in details.items():
+        if key.endswith("_URL"):
+            return value
+    return None
+
+
+@register
+@dataclass(frozen=True)
+class AddonEndpointCmd(Command):
+    """Show an addon's connection endpoint (type-agnostic).
+
+    Usage: hop3 addon endpoint <name>
+
+    The addon's type is resolved from its name, so no `--type` is needed.
+    Prints the connection URL plus host/port. `hop3 tunnel` uses this; it is
+    also handy on its own.
+
+    Examples:
+        hop3 addon endpoint mydb
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", "endpoint")
+    requires_auth: ClassVar[bool] = True
+
+    def call(self, *args):
+        if not args:
+            return [text("Usage: hop3 addon endpoint <name>")]
+        addon_name = args[0]
+        types = _resolve_addon_types(addon_name)
+        if not types:
+            return [error(f"No addon named '{addon_name}'.")]
+        if len(types) > 1:
+            joined = ", ".join(sorted(types))
+            return [
+                error(
+                    f"Addon name '{addon_name}' is ambiguous (types: {joined}). "
+                    "Rename one of them; addon names must be unique to tunnel."
+                )
+            ]
+        addon_type = types[0]
+        with command_context(
+            "reading addon endpoint", addon_name=addon_name, service_type=addon_type
+        ):
+            details = get_addon(addon_type, addon_name).get_connection_details()
+        url = _connection_url(details)
+        if url is None:
+            return [error(f"Addon '{addon_name}' exposes no connection URL.")]
+        parsed = urlparse(url)
+        payload = {
+            "type": addon_type,
+            "host": parsed.hostname,
+            "port": parsed.port,
+            "url": url,
+        }
+        return [
+            data(payload),
+            table(
+                headers=["Field", "Value"],
+                rows=[
+                    ["Type", addon_type],
+                    ["Host", str(parsed.hostname)],
+                    ["Port", str(parsed.port)],
+                    ["URL", url],
+                ],
+            ),
         ]
 
 
