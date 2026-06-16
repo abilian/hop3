@@ -1632,6 +1632,21 @@ hop3 addon status <service_name> [--type <type>]
 
 ---
 
+### `hop3 addon endpoint`
+
+Show an addon's connection endpoint (URL, host, port). Type-agnostic: the addon's type is resolved from its name, so no `--type` is needed. This is what `hop3 tunnel` uses under the hood, but it's also handy on its own.
+
+**Usage:**
+```bash
+hop3 addon endpoint <name>
+```
+
+**Notes:**
+- Prints the connection URL plus host and port.
+- Errors if the name is unknown, or ambiguous across two addon types.
+
+---
+
 ### `hop3 addon <type> <verb>` — type-specific commands
 
 Beyond the type-agnostic verbs above, each addon type exposes a few operations specific to it, under `hop3 addon <type> <verb> <name>`. The addon's type is part of the command path, so no `--type` flag is needed.
@@ -2046,6 +2061,27 @@ List installed plugins and their commands.
 **Usage:**
 ```bash
 hop3 plugins
+```
+
+---
+
+### `hop3 tunnel`
+
+Open a local SSH tunnel to a remote addon and print a ready-to-paste local connection URL. This is a client-side command: it forwards a local port to the addon's port on the server over the configured SSH connection, then holds the tunnel open until you press Ctrl-C. The addon's type is resolved from its name (no `--type` needed). Requires an `ssh://` server.
+
+**Usage:**
+```bash
+hop3 tunnel <addon-name> [--port <localport>]
+```
+
+**Options:**
+- `--port <localport>` - Local port to bind (default: the addon's own port). Use this if the default port is already in use.
+
+**Examples:**
+```bash
+hop3 tunnel mydb              # -> postgresql://...@127.0.0.1:5432/mydb
+hop3 tunnel mydb --port 6543  # bind a different local port
+hop3 tunnel mycache           # -> redis://...@127.0.0.1:6379/0
 ```
 
 ---
