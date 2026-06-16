@@ -215,6 +215,27 @@ def sync_addon_env_vars(app: App, db_session: DbSession) -> dict[str, list[str]]
 reinject_attached_addons = sync_addon_env_vars
 
 
+def addon_var_names(app: App, db_session: DbSession) -> set[str]:
+    """Env-var names injected by the app's addons (both prefixed + unprefixed).
+
+    Used to label a variable's source (addon vs user-set) in
+    ``env show --sources``. Mirrors the managed-name set in
+    ``sync_addon_env_vars`` so a non-primary addon's prefixed vars are counted.
+    """
+    repo = AddonCredentialRepository(session=db_session)
+    encryptor = get_credential_encryptor()
+    names: set[str] = set()
+    for credential in repo.get_by_app_id(app.id):
+        try:
+            details = encryptor.decrypt(credential.encrypted_data)
+        except Exception:
+            continue
+        prefix = addon_var_prefix(credential.addon_name)
+        names.update(details.keys())
+        names.update(f"{prefix}{key}" for key in details)
+    return names
+
+
 def _provision_single_addon(
     app: App,
     addon_type: str,

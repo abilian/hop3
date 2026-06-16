@@ -14,6 +14,7 @@ from hop3.server.controllers import rpc
 # (new canonical, old alias) — both must dispatch to the same class.
 RENAMES = [
     (("app", "create"), ("app", "launch")),
+    (("user", "add"), ("auth", "register")),  # P2.1: auth register folded into user add
     (("backup", "show"), ("backup", "info")),
     (("app", "migrate"), ("env", "migrate")),
     (("app", "migrate"), ("config", "migrate")),
