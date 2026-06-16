@@ -11,7 +11,7 @@ contributed to the RPC dispatch table via the plugin's `cli_commands()` hook.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from hop3.commands._base import Command
 from hop3.commands._errors import command_context
@@ -20,7 +20,15 @@ from hop3.core.plugins import get_addon
 from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
 
+if TYPE_CHECKING:
+    from .redis import RedisAddon
+
 _TYPE = "redis"
+
+
+def _addon(name: str) -> RedisAddon:
+    """Typed accessor for the concrete Redis addon (engine-specific methods)."""
+    return cast("RedisAddon", get_addon(_TYPE, name))
 
 
 @register
@@ -99,7 +107,7 @@ class AddonRedisFlushCmd(Command):
         with command_context(
             "flushing addon", addon_name=addon_name, service_type=_TYPE
         ):
-            get_addon(_TYPE, addon_name).flush()
+            _addon(addon_name).flush()
         return [
             text(f"Flushed all keys from Redis addon '{addon_name}'."),
             summary(f"flushed addon '{addon_name}' ({_TYPE})."),
@@ -137,7 +145,7 @@ class AddonRedisQueryCmd(Command):
         with command_context(
             "running command", addon_name=addon_name, service_type=_TYPE
         ):
-            output = get_addon(_TYPE, addon_name).run_command(command)
+            output = _addon(addon_name).run_command(command)
         return [text(output or "(empty)")]
 
 
@@ -159,7 +167,7 @@ class AddonRedisInfoCmd(Command):
             return [text("Usage: hop3 addon redis info <name>")]
         addon_name = args[0]
         with command_context("reading info", addon_name=addon_name, service_type=_TYPE):
-            output = get_addon(_TYPE, addon_name).run_command("INFO")
+            output = _addon(addon_name).run_command("INFO")
         return [text(output or "(empty)")]
 
 
