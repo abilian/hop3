@@ -1644,6 +1644,24 @@ hop3 addon endpoint <name>
 
 ---
 
+### `hop3 addon exists`
+
+Predicate for scripts/CI: exits **0** if the addon exists, **1** if it doesn't. Prints nothing in normal mode (use the exit code); with `--json` it also prints `{"exists": true|false}`. Type-agnostic; pass `--type` to require a specific type.
+
+**Usage:**
+```bash
+hop3 addon exists <name> [--type <type>]
+```
+
+**Examples:**
+```bash
+hop3 addon exists mydb && hop3 addon promote mydb --app web
+hop3 addon exists mydb --type postgres
+hop3 addon exists mydb --json   # -> {"exists": true}
+```
+
+---
+
 ### `hop3 addon expose`
 
 Make an addon reachable from outside the server on a stable, persisted host port, and print a connection URL. The addon normally listens only on `127.0.0.1`; `expose` allocates a public port, opens the firewall for it, and stands up a per-addon `systemd-socket-proxyd` forwarder to the addon's loopback port. The port survives server and addon restarts. Type-agnostic (the type is resolved from the name).
