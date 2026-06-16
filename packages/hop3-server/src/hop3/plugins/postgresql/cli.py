@@ -15,7 +15,7 @@ import base64
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from hop3.commands._base import Command
 from hop3.commands._errors import command_context
@@ -25,7 +25,15 @@ from hop3.core.plugins import get_addon
 from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
 
+if TYPE_CHECKING:
+    from .postgres import PostgresAddon
+
 _TYPE = "postgres"
+
+
+def _addon(name: str) -> PostgresAddon:
+    """Typed accessor for the concrete Postgres addon (engine-specific methods)."""
+    return cast("PostgresAddon", get_addon(_TYPE, name))
 
 
 def _clone(args: tuple) -> list[dict]:
@@ -182,7 +190,7 @@ class AddonPostgresExtensionsCmd(Command):
             service_type=_TYPE,
             extensions=",".join(extensions),
         ):
-            get_addon(_TYPE, addon_name).install_extensions(list(extensions))
+            _addon(addon_name).install_extensions(list(extensions))
         return [
             text(
                 f"Installed extension(s) {', '.join(extensions)} "
@@ -225,7 +233,7 @@ class AddonPostgresQueryCmd(Command):
         with command_context(
             "running query", addon_name=addon_name, service_type=_TYPE
         ):
-            result = get_addon(_TYPE, addon_name).run_sql(statement)
+            result = _addon(addon_name).run_sql(statement)
         return _result_items(result)
 
 
@@ -371,7 +379,7 @@ def _diagnostic(args: tuple, statement: str, label: str, verb: str) -> list[dict
         return [text(f"Usage: hop3 addon postgres {verb} <name>")]
     addon_name = args[0]
     with command_context(label, addon_name=addon_name, service_type=_TYPE):
-        result = get_addon(_TYPE, addon_name).run_admin_sql(statement)
+        result = _addon(addon_name).run_admin_sql(statement)
     return _result_items(result)
 
 
