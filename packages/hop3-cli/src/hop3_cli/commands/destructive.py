@@ -26,6 +26,15 @@ DESTRUCTIVE_COMMANDS: set[tuple[str, ...]] = {
     ("addon", "destroy"),
     ("user", "remove"),
     ("context", "remove"),
+    # Per-type addon operations that overwrite or wipe data. These reach the
+    # generic confirmation prompt (no typed-name needed); --confirm=<name> /
+    # --yes apply as usual. Note: `import` reads its dump from stdin, so it
+    # can't prompt interactively — pass --confirm/--yes with it.
+    ("addon", "postgres", "restore"),
+    ("addon", "mysql", "restore"),
+    ("addon", "postgres", "import"),
+    ("addon", "mysql", "import"),
+    ("addon", "redis", "flush"),
 }
 
 
