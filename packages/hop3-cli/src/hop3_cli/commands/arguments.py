@@ -573,8 +573,7 @@ def describe_archive(source_dir: Path) -> str:
     if largest:
         lines.append("\nLargest files:")
         lines += [
-            f"  {_human_size(sz):>10}  {f.relative_to(source_dir)}"
-            for f, sz in largest
+            f"  {_human_size(sz):>10}  {f.relative_to(source_dir)}" for f, sz in largest
         ]
 
     lines.append("\nTo shrink it, add large entries to [build].ignore in hop3.toml.")

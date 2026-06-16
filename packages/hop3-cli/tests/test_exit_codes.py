@@ -15,6 +15,7 @@ from hop3_cli.exit_codes import (
     map_rpc_code_to_exit,
 )
 from hop3_cli.main import main
+from hop3_cli.rpc.responses import handle_error_response
 
 # ---- D16 numbering is locked ----
 
@@ -114,8 +115,6 @@ def test_keyboard_interrupt_in_main_exits_130() -> None:
 
 def test_413_replaces_raw_http_error_with_actionable_diagnostic(capsys) -> None:
     """A 413 must yield a remediation message, not the raw HTTP error."""
-    from hop3_cli.rpc.responses import handle_error_response
-
     with pytest.raises(SystemExit) as exc:
         handle_error_response(
             413, "HTTP 413 error: 413 Client Error: Payload Too Large for url: ..."
