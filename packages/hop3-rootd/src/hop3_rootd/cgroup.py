@@ -36,6 +36,9 @@ CGROUP_ROOT: Path = Path("/sys/fs/cgroup")
 HOP3_SLICE: Final[str] = "hop3.slice"
 REQUIRED_CONTROLLERS: Final[tuple[str, ...]] = ("memory", "cpu", "pids")
 
+_SCOPE_PREFIX: Final[str] = "hop3-app-"
+_SCOPE_SUFFIX: Final[str] = ".scope"
+
 
 class CgroupError(Exception):
     """A cgroup filesystem operation failed (dispatcher → kernel_error)."""
@@ -58,7 +61,24 @@ def slice_path() -> Path:
 
 def app_scope_path(app_name: str) -> Path:
     """Leaf cgroup for an app. ``app_name`` is assumed already validated."""
-    return slice_path() / f"hop3-app-{app_name}.scope"
+    return slice_path() / f"{_SCOPE_PREFIX}{app_name}{_SCOPE_SUFFIX}"
+
+
+def list_scopes() -> list[str]:
+    """App names that currently have a leaf under hop3.slice (for reconcile).
+
+    Returns [] when the slice doesn't exist yet. Used to find orphan leaves
+    (on disk but not in state) so a restart removes them.
+    """
+    sp = slice_path()
+    if not sp.exists():
+        return []
+    names: list[str] = []
+    for child in sp.iterdir():
+        n = child.name
+        if child.is_dir() and n.startswith(_SCOPE_PREFIX) and n.endswith(_SCOPE_SUFFIX):
+            names.append(n[len(_SCOPE_PREFIX) : -len(_SCOPE_SUFFIX)])
+    return names
 
 
 # --- Low-level fs helpers -------------------------------------------------

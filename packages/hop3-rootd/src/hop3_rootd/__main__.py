@@ -29,14 +29,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Final
 
+from hop3_rootd import cgroup as cg
 from hop3_rootd.audit import (
     DEFAULT_AUDIT_LOG_PATH,
     AuditLog,
     configure_operational_logging,
     logger,
 )
+from hop3_rootd.cgroup import CgroupUnavailableError
 from hop3_rootd.nft.rule import NftBinaryNotFoundError
-from hop3_rootd.reconcile import reconcile
+from hop3_rootd.reconcile import reconcile, reconcile_cgroups
 from hop3_rootd.server import DEFAULT_SOCKET_PATH, Server
 from hop3_rootd.state import (
     DEFAULT_STATE_PATH,
@@ -147,6 +149,42 @@ def _startup_reconcile(state: State, state_path: Path) -> bool:
     return True
 
 
+def _startup_reconcile_cgroups(state: State, state_path: Path) -> None:
+    """Re-assert cgroup leaves at startup. Non-fatal by design (ADR 046 P2.2).
+
+    A host without cgroup v2 degrades — declared limits stay unenforceable and
+    fail loud at the next deploy — but the daemon keeps serving its proxy /
+    process / firewall duties, mirroring the nft-missing path. Skipped entirely
+    when there is nothing to reconcile, so a limits-free host never creates the
+    slice or logs cgroup noise.
+    """
+    if not state.cgroups and not cg.slice_path().exists():
+        return
+
+    try:
+        report = reconcile_cgroups(state)
+    except CgroupUnavailableError as e:
+        log = logger.error if state.cgroups else logger.warning
+        log(
+            "cgroup v2 unavailable (%s); %d app limit(s) will NOT be enforced "
+            "until the host provides cgroup v2. Other operations unaffected.",
+            e,
+            len(state.cgroups),
+        )
+        return
+    except Exception as e:
+        logger.error("cgroup reconciliation error: %s", e)
+        return
+
+    save(state, state_path)
+    logger.info(
+        "cgroup reconcile: reasserted=%d orphans_removed=%d failed=%d",
+        report.reasserted,
+        report.orphans_removed,
+        report.failed,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     configure_operational_logging(args.log_level)
@@ -176,6 +214,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if not _startup_reconcile(state, args.state_path):
         return EXIT_RECONCILE_ERROR
+
+    _startup_reconcile_cgroups(state, args.state_path)
 
     audit = AuditLog(args.audit_log)
 
