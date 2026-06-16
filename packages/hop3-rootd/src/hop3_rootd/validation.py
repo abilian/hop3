@@ -41,6 +41,13 @@ APP_NAME_RE: Final[re.Pattern[str]] = re.compile(
 
 DESCRIPTION_MAX_LEN: Final[int] = 200
 
+# cgroup limits (ADR 046 §3 / P2.2). Sanity bounds at the kernel boundary;
+# the real policy (server-wide ceiling) lives in hop3-server's HopConfig.
+MEMORY_MAX_BYTES_CAP: Final[int] = 2**50  # 1 PiB — rejects nonsensical values
+PID_LIST_MAX_LEN: Final[int] = 4096  # an app shouldn't attach more PIDs at once
+# cgroup v2 cpu.max is "<quota_us> <period_us>" (two positive integers).
+_CPU_MAX_RE: Final[re.Pattern[str]] = re.compile(r"^[1-9]\d* [1-9]\d*$")
+
 
 # --- Exceptions ------------------------------------------------------------
 
@@ -76,6 +83,21 @@ class PortSpec:
     port: int | None = None
     port_range: tuple[int, int] | None = None
     description: str | None = None
+
+
+@dataclass(frozen=True)
+class CgroupLimits:
+    """Validated, kernel-form ``cgroup.set_limits`` args (ADR 046 §3 / P2.2).
+
+    Values are already in cgroup-native form (bytes, ``"quota period"``,
+    pid count); the server maps ``[limits]`` → these before the wire call.
+    At least one dimension is non-None.
+    """
+
+    app_name: str
+    memory_max: int | None = None
+    cpu_max: str | None = None
+    pids_max: int | None = None
 
 
 # --- Individual validators -------------------------------------------------
@@ -187,6 +209,201 @@ def validate_app_name(value: Any) -> str:
         raise ValidationError(
             "app_name",
             f"must match {APP_NAME_RE.pattern!r} (got {value!r})",
+        )
+    return value
+
+
+def validate_memory_max(value: Any) -> int:
+    """Validate a cgroup ``memory.max`` value in bytes.
+
+    Rejects bools, non-ints, non-positive, and absurd values (a sanity cap so
+    a compromised server can't request a nonsensical limit). The server maps
+    ``[limits].memory`` ("512M") → bytes before calling.
+    """
+    if isinstance(value, bool):
+        raise ValidationError("memory_max", "must be an integer (got bool)")
+    if not isinstance(value, int):
+        raise ValidationError(
+            "memory_max",
+            f"must be an integer number of bytes (got {type(value).__name__})",
+        )
+    if value < 1:
+        raise ValidationError("memory_max", f"must be >= 1 byte (got {value})")
+    if value > MEMORY_MAX_BYTES_CAP:
+        raise ValidationError(
+            "memory_max", f"exceeds the sanity cap of {MEMORY_MAX_BYTES_CAP} bytes"
+        )
+    return value
+
+
+def validate_cpu_max(value: Any) -> str:
+    """Validate a cgroup v2 ``cpu.max`` value: ``"<quota_us> <period_us>"``.
+
+    The server maps ``[limits].cpu`` (cores) → ``"150000 100000"`` before
+    calling, so rootd only accepts the concrete two-integer form.
+    """
+    if not isinstance(value, str):
+        raise ValidationError(
+            "cpu_max", f"must be a string (got {type(value).__name__})"
+        )
+    if not _CPU_MAX_RE.match(value):
+        raise ValidationError(
+            "cpu_max",
+            f"must be '<quota_us> <period_us>' (two positive integers), got {value!r}",
+        )
+    return value
+
+
+def validate_pids_max(value: Any) -> int:
+    """Validate a cgroup ``pids.max`` value (max processes/threads)."""
+    if isinstance(value, bool):
+        raise ValidationError("pids_max", "must be an integer (got bool)")
+    if not isinstance(value, int):
+        raise ValidationError(
+            "pids_max", f"must be an integer (got {type(value).__name__})"
+        )
+    if value < 1:
+        raise ValidationError("pids_max", f"must be >= 1 (got {value})")
+    return value
+
+
+def validate_pid_list(value: Any) -> list[int]:
+    """Validate a non-empty, bounded list of positive PIDs to attach."""
+    if not isinstance(value, list):
+        raise ValidationError(
+            "pids", f"must be a list of integers (got {type(value).__name__})"
+        )
+    if not value:
+        raise ValidationError("pids", "must not be empty")
+    if len(value) > PID_LIST_MAX_LEN:
+        raise ValidationError(
+            "pids", f"too many pids ({len(value)} > cap {PID_LIST_MAX_LEN})"
+        )
+    out: list[int] = []
+    for pid in value:
+        if isinstance(pid, bool) or not isinstance(pid, int) or pid < 1:
+            raise ValidationError(
+                "pids", f"each pid must be a positive integer (got {pid!r})"
+            )
+        out.append(pid)
+    return out
+
+
+def validate_cgroup_limits(args: dict[str, Any]) -> CgroupLimits:
+    """Validate ``cgroup.set_limits`` args. At least one dimension required.
+
+    A ``set_limits`` with no dimension would create an uncapped leaf that
+    *looks* enforced — reject it loudly rather than no-op.
+    """
+    app_name = validate_app_name(args.get("app_name"))
+
+    memory_max = None
+    if args.get("memory_max") is not None:
+        memory_max = validate_memory_max(args["memory_max"])
+    cpu_max = None
+    if args.get("cpu_max") is not None:
+        cpu_max = validate_cpu_max(args["cpu_max"])
+    pids_max = None
+    if args.get("pids_max") is not None:
+        pids_max = validate_pids_max(args["pids_max"])
+
+    if memory_max is None and cpu_max is None and pids_max is None:
+        raise ValidationError(
+            "memory_max",
+            "at least one of memory_max / cpu_max / pids_max must be set",
+        )
+
+    return CgroupLimits(
+        app_name=app_name,
+        memory_max=memory_max,
+        cpu_max=cpu_max,
+        pids_max=pids_max,
+    )
+
+
+def validate_volume_target(value: Any) -> str:
+    """Validate a volume target: a non-empty relative path with no traversal.
+
+    Mirrors the upstream ``VolumeSection`` target check (defense in depth at the
+    kernel boundary). The daemon builds the mountpoint from this under the app's
+    src dir, so an absolute path or ``..`` must be rejected.
+    """
+    if not isinstance(value, str):
+        raise ValidationError(
+            "target", f"must be a string (got {type(value).__name__})"
+        )
+    if not value or value.startswith("/"):
+        raise ValidationError(
+            "target", f"must be a non-empty relative path (got {value!r})"
+        )
+    if ".." in value.split("/"):
+        raise ValidationError(
+            "target", f"must not contain '..' (no escaping the app tree): {value!r}"
+        )
+    return value
+
+
+def validate_size_bytes(value: Any) -> int:
+    """Validate a tmpfs size in bytes (positive, sanity-capped)."""
+    if isinstance(value, bool):
+        raise ValidationError("size_bytes", "must be an integer (got bool)")
+    if not isinstance(value, int):
+        raise ValidationError(
+            "size_bytes", f"must be an integer (got {type(value).__name__})"
+        )
+    if value < 1:
+        raise ValidationError("size_bytes", f"must be >= 1 (got {value})")
+    if value > MEMORY_MAX_BYTES_CAP:
+        raise ValidationError(
+            "size_bytes", f"exceeds the sanity cap of {MEMORY_MAX_BYTES_CAP} bytes"
+        )
+    return value
+
+
+def validate_mount_mode(value: Any) -> str | None:
+    """Validate an optional octal mode string (e.g. '0700'). None when omitted."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValidationError(
+            "mode", f"must be a string or null (got {type(value).__name__})"
+        )
+    try:
+        int(value, 8)
+    except ValueError:
+        raise ValidationError(
+            "mode", f"must be an octal string, e.g. '0700' (got {value!r})"
+        ) from None
+    return value
+
+
+def validate_bind_source(value: Any) -> str:
+    """Validate a bind-mount source: an absolute host path with no traversal.
+
+    Only shape is checked here; whether the path is *allowed* (operator
+    allow-list) and *exists* is enforced in the mount helper, which reads the
+    allow-list and the filesystem.
+    """
+    if not isinstance(value, str):
+        raise ValidationError(
+            "source", f"must be a string (got {type(value).__name__})"
+        )
+    if not value or not value.startswith("/"):
+        raise ValidationError(
+            "source", f"bind source must be an absolute host path (got {value!r})"
+        )
+    if ".." in value.split("/"):
+        raise ValidationError("source", f"must not contain '..' (got {value!r})")
+    return value
+
+
+def validate_read_only(value: Any) -> bool:
+    """Validate the optional read_only flag (default False)."""
+    if value is None:
+        return False
+    if not isinstance(value, bool):
+        raise ValidationError(
+            "read_only", f"must be a boolean (got {type(value).__name__})"
         )
     return value
 
