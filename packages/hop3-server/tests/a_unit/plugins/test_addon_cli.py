@@ -11,6 +11,7 @@ contributes them to the RPC dispatch table).
 
 from __future__ import annotations
 
+import base64
 from pathlib import Path
 
 from hop3.plugins.mysql import cli as mysql_cli
@@ -233,6 +234,44 @@ def test_clone_missing_args_returns_usage():
     assert "Usage:" in out[0]["text"]
 
 
+def test_export_streams_dump_as_blob(monkeypatch, tmp_path):
+    dump = tmp_path / "d.sql"
+    dump.write_bytes(b"SELECT 1;\n")
+
+    class _Exporter:
+        def backup(self):
+            return dump
+
+    monkeypatch.setattr(pg_cli, "get_addon", lambda t, n: _Exporter())
+
+    out = pg_cli.AddonPostgresExportCmd().call("mydb")
+
+    blob = next(i for i in out if i["t"] == "blob")
+    assert base64.b64decode(blob["data"]) == b"SELECT 1;\n"
+
+
+def test_import_restores_decoded_dump_and_is_destructive(monkeypatch):
+    seen = {}
+
+    class _Importer:
+        def restore(self, path):
+            seen["content"] = Path(path).read_bytes()
+
+    monkeypatch.setattr(pg_cli, "get_addon", lambda t, n: _Importer())
+
+    assert pg_cli.AddonPostgresImportCmd.destructive is True
+    payload = base64.b64encode(b"CREATE TABLE t();").decode()
+    pg_cli.AddonPostgresImportCmd().call("mydb", import_data=payload)
+
+    assert seen["content"] == b"CREATE TABLE t();"
+
+
+def test_import_without_data_returns_error():
+    out = pg_cli.AddonPostgresImportCmd().call("mydb")  # no import_data
+    assert out[0]["t"] == "error"
+    assert "Pipe one on stdin" in out[0]["text"]
+
+
 def test_redis_info_uses_run_command(monkeypatch):
     fake = FakeAddon()
     monkeypatch.setattr(redis_cli, "get_addon", lambda t, n: fake)
@@ -274,10 +313,14 @@ def test_hook_contributes_all_commands_to_rpc_table():
         ("addon", "postgres", "locks"),
         ("addon", "postgres", "settings"),
         ("addon", "postgres", "clone"),
+        ("addon", "postgres", "export"),
+        ("addon", "postgres", "import"),
         ("addon", "mysql", "query"),
         ("addon", "mysql", "ps"),
         ("addon", "mysql", "settings"),
         ("addon", "mysql", "clone"),
+        ("addon", "mysql", "export"),
+        ("addon", "mysql", "import"),
         ("addon", "redis", "info"),
         ("addon", "s3", "credentials"),
         ("addon", "s3", "dump"),
