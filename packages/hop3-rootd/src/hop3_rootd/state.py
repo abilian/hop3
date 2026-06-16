@@ -71,6 +71,22 @@ class StoredRule:
     status: RuleStatus = "applied"
 
 
+@dataclass(frozen=True)
+class StoredCgroup:
+    """One per-app cgroup leaf as persisted in state.json (ADR 046 §3 / P2.2).
+
+    Records the kernel-form caps so reconcile can re-assert the leaf after a
+    rootd restart. PIDs are *not* stored — they belong to the Emperor and are
+    re-attached by hop3-server on the next deploy/reconcile.
+    """
+
+    app_name: str
+    memory_max: int | None
+    cpu_max: str | None
+    pids_max: int | None
+    applied_at: str
+
+
 @dataclass
 class State:
     """In-memory snapshot of rootd's persistent state.
@@ -81,6 +97,7 @@ class State:
 
     version: int = STATE_VERSION
     rules: list[StoredRule] = field(default_factory=list)
+    cgroups: list[StoredCgroup] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -94,6 +111,16 @@ class State:
                 }
                 for r in self.rules
             ],
+            "cgroups": [
+                {
+                    "app_name": c.app_name,
+                    "memory_max": c.memory_max,
+                    "cpu_max": c.cpu_max,
+                    "pids_max": c.pids_max,
+                    "applied_at": c.applied_at,
+                }
+                for c in self.cgroups
+            ],
         }
 
     def find_rule(self, rule_id: str) -> StoredRule | None:
@@ -105,6 +132,13 @@ class State:
 
     def rules_for_app(self, app_name: str) -> list[StoredRule]:
         return [r for r in self.rules if r.spec.get("app_name") == app_name]
+
+    def find_cgroup(self, app_name: str) -> StoredCgroup | None:
+        """Return the stored cgroup for an app, or None."""
+        for c in self.cgroups:
+            if c.app_name == app_name:
+                return c
+        return None
 
 
 # --- Load / save ----------------------------------------------------------
@@ -150,6 +184,31 @@ def _parse_rules(obj: dict[str, Any]) -> list[StoredRule]:
     return rules
 
 
+def _parse_cgroups(obj: dict[str, Any]) -> list[StoredCgroup]:
+    """Extract the optional 'cgroups' list. Absent (old v1 files) → []."""
+    raw = obj.get("cgroups", [])
+    if not isinstance(raw, list):
+        raise StateCorruptError(f"'cgroups' must be a list, got {type(raw).__name__}")
+
+    cgroups: list[StoredCgroup] = []
+    for i, c in enumerate(raw):
+        if not isinstance(c, dict):
+            raise StateCorruptError(f"cgroups[{i}] must be an object")
+        try:
+            cgroups.append(
+                StoredCgroup(
+                    app_name=str(c["app_name"]),
+                    memory_max=c.get("memory_max"),
+                    cpu_max=c.get("cpu_max"),
+                    pids_max=c.get("pids_max"),
+                    applied_at=str(c["applied_at"]),
+                )
+            )
+        except (KeyError, TypeError) as e:
+            raise StateCorruptError(f"cgroups[{i}] is malformed: {e}") from e
+    return cgroups
+
+
 def _coerce_status(value: Any, index: int) -> RuleStatus:
     """Validate that a stored status value is one of RuleStatus's literals."""
     if value not in {"applied", "pending", "removing"}:
@@ -186,7 +245,8 @@ def load(path: Path = DEFAULT_STATE_PATH) -> State:
 
     version = _parse_version(obj, path)
     rules = _parse_rules(obj)
-    return State(version=version, rules=rules)
+    cgroups = _parse_cgroups(obj)
+    return State(version=version, rules=rules, cgroups=cgroups)
 
 
 def save(state: State, path: Path = DEFAULT_STATE_PATH) -> None:
