@@ -155,10 +155,73 @@ class AddonMysqlQueryCmd(Command):
         return _result_items(result)
 
 
+# --- Diagnostics (read-only, run as superuser via run_admin_sql) -------------
+
+_PS_SQL = """
+SELECT id, user, host, command, time, state, LEFT(info, 80) AS info
+FROM information_schema.processlist
+WHERE db = DATABASE()
+ORDER BY time DESC
+"""
+
+_SETTINGS_SQL = """
+SHOW GLOBAL VARIABLES WHERE Variable_name IN (
+    'version', 'max_connections', 'innodb_buffer_pool_size',
+    'max_allowed_packet', 'character_set_server', 'wait_timeout'
+)
+"""
+
+
+def _diagnostic(args: tuple, statement: str, label: str, verb: str) -> list[dict]:
+    """Shared body for the read-only diagnostic commands."""
+    if not args:
+        return [text(f"Usage: hop3 addon mysql {verb} <name>")]
+    addon_name = args[0]
+    with command_context(label, addon_name=addon_name, service_type=_TYPE):
+        result = get_addon(_TYPE, addon_name).run_admin_sql(statement)
+    return _result_items(result)
+
+
+@register
+@dataclass(frozen=True)
+class AddonMysqlPsCmd(Command):
+    """Show active queries on a MySQL addon.
+
+    Usage: hop3 addon mysql ps <name>
+
+    Examples:
+        hop3 addon mysql ps mydb
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "ps")
+
+    def call(self, *args):
+        return _diagnostic(args, _PS_SQL, "listing activity", "ps")
+
+
+@register
+@dataclass(frozen=True)
+class AddonMysqlSettingsCmd(Command):
+    """Show key configuration variables of a MySQL addon.
+
+    Usage: hop3 addon mysql settings <name>
+
+    Examples:
+        hop3 addon mysql settings mydb
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "settings")
+
+    def call(self, *args):
+        return _diagnostic(args, _SETTINGS_SQL, "reading settings", "settings")
+
+
 # Contributed to the RPC dispatch table via MySQLPlugin.cli_commands().
 COMMANDS: list[type[Command]] = [
     AddonMysqlCredentialsCmd,
     AddonMysqlDumpCmd,
     AddonMysqlRestoreCmd,
     AddonMysqlQueryCmd,
+    AddonMysqlPsCmd,
+    AddonMysqlSettingsCmd,
 ]

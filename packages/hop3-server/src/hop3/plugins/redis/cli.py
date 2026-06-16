@@ -141,10 +141,33 @@ class AddonRedisQueryCmd(Command):
         return [text(output or "(empty)")]
 
 
+@register
+@dataclass(frozen=True)
+class AddonRedisInfoCmd(Command):
+    """Show Redis server INFO for a Redis addon (diagnostics).
+
+    Usage: hop3 addon redis info <name>
+
+    Examples:
+        hop3 addon redis info mycache
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "info")
+
+    def call(self, *args):
+        if not args:
+            return [text("Usage: hop3 addon redis info <name>")]
+        addon_name = args[0]
+        with command_context("reading info", addon_name=addon_name, service_type=_TYPE):
+            output = get_addon(_TYPE, addon_name).run_command("INFO")
+        return [text(output or "(empty)")]
+
+
 # Contributed to the RPC dispatch table via RedisPlugin.cli_commands().
 COMMANDS: list[type[Command]] = [
     AddonRedisCredentialsCmd,
     AddonRedisDumpCmd,
     AddonRedisFlushCmd,
     AddonRedisQueryCmd,
+    AddonRedisInfoCmd,
 ]

@@ -288,6 +288,24 @@ class MySQLAddon:
             "MYSQL_PORT": str(admin.port),
         }
 
+    @staticmethod
+    def _exec(connection, statement: str) -> dict:
+        """Run a statement on a connection; shape rows or a status message."""
+        try:
+            cursor = connection.cursor()
+            cursor.execute(statement)
+            if cursor.description is not None:
+                columns = [col[0] for col in cursor.description]
+                rows = [list(row) for row in cursor.fetchall()]
+                cursor.close()
+                return {"columns": columns, "rows": rows}
+            connection.commit()
+            message = f"OK ({cursor.rowcount} row(s) affected)"
+            cursor.close()
+            return {"message": message}
+        finally:
+            connection.close()
+
     def run_sql(self, statement: str) -> dict:
         """Run an ad-hoc SQL statement as the addon's own (app) user.
 
@@ -307,20 +325,20 @@ class MySQLAddon:
             password=details["MYSQL_PASSWORD"],
             database=details["MYSQL_DATABASE"],
         )
-        try:
-            cursor = connection.cursor()
-            cursor.execute(statement)
-            if cursor.description is not None:
-                columns = [col[0] for col in cursor.description]
-                rows = [list(row) for row in cursor.fetchall()]
-                cursor.close()
-                return {"columns": columns, "rows": rows}
-            connection.commit()
-            message = f"OK ({cursor.rowcount} row(s) affected)"
-            cursor.close()
-            return {"message": message}
-        finally:
-            connection.close()
+        return self._exec(connection, statement)
+
+    def run_admin_sql(self, statement: str) -> dict:
+        """Run SQL on this addon's database as the superuser.
+
+        For diagnostics (information_schema.processlist, global variables, …)
+        that the per-app user can't see in full. Internal use only — callers
+        pass canned queries, never user input (use run_sql for that).
+        """
+        admin = self._get_admin()
+        connection = mysql.connector.connect(
+            **admin.get_connection_params(database=self.db_name)
+        )
+        return self._exec(connection, statement)
 
     def backup(self) -> Path:
         """Create a backup of the MySQL database using mysqldump.
