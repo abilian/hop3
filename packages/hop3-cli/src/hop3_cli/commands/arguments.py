@@ -117,7 +117,30 @@ def get_extra_args(args: list[str], verbosity: int = 1) -> JsonDict:
             # Enable streaming by default for real-time log output
             extra_args["streaming"] = streaming
 
+        case "addon":
+            # `addon <type> import <name> < dump.sql`: ship the piped dump to
+            # the server as a base64 blob (same approach as deploy's upload).
+            if len(args) >= 3 and args[2] == "import":
+                import_data = _read_import_data()
+                if import_data is not None:
+                    extra_args["import_data"] = import_data
+
     return extra_args
+
+
+def _read_import_data() -> str | None:
+    """Read a dump piped on stdin and base64-encode it for transport.
+
+    Returns None when stdin is a terminal (no dump piped) or empty, so the
+    server can emit a clear "pipe a dump" error instead of the CLI hanging on
+    a read from an interactive terminal.
+    """
+    if sys.stdin.isatty():
+        return None
+    raw = sys.stdin.buffer.read()
+    if not raw:
+        return None
+    return base64.b64encode(raw).decode("ascii")
 
 
 def _resolve_run_input(args: list[str]) -> None:
@@ -573,8 +596,7 @@ def describe_archive(source_dir: Path) -> str:
     if largest:
         lines.append("\nLargest files:")
         lines += [
-            f"  {_human_size(sz):>10}  {f.relative_to(source_dir)}"
-            for f, sz in largest
+            f"  {_human_size(sz):>10}  {f.relative_to(source_dir)}" for f, sz in largest
         ]
 
     lines.append("\nTo shrink it, add large entries to [build].ignore in hop3.toml.")

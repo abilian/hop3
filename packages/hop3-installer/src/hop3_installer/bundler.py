@@ -423,7 +423,7 @@ def bundle_installer(installer_type: str) -> str:
     # Add specific imports needed by bundled code
     import_lines.append("from dataclasses import dataclass, field")
     import_lines.append("from pathlib import Path")
-    import_lines.append("from typing import overload")
+    import_lines.append("from typing import TypedDict, overload")
 
     import_block = "\n".join(import_lines) + "\n"
 

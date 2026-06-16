@@ -26,7 +26,8 @@ This document provides a complete reference for all Hop3 CLI commands.
 - [Context Management](#context-management)
 - [Authentication Commands](#authentication-commands)
 - [Application Management](#application-management)
-- [Configuration Management](#configuration-management)
+- [Environment Variables](#environment-variables)
+- [Domain Management](#domain-management)
 - [Nix Commands](#nix-commands)
 - [Backup and Restore](#backup-and-restore)
 - [Services (Addons)](#services-addons)
@@ -1628,6 +1629,76 @@ hop3 addon status <service_name> [--type <type>]
 **Notes:**
 - Shows connection status, health checks, and resource usage
 - More detailed than `addon show`
+
+---
+
+### `hop3 addon <type> <verb>` — type-specific commands
+
+Beyond the type-agnostic verbs above, each addon type exposes a few operations specific to it, under `hop3 addon <type> <verb> <name>`. The addon's type is part of the command path, so no `--type` flag is needed.
+
+**Usage:**
+```bash
+# PostgreSQL
+hop3 addon postgres credentials <name>          # Show connection env vars
+hop3 addon postgres dump <name>                 # Back up via pg_dump
+hop3 addon postgres restore <name> <path>       # Restore via psql ⚠️ overwrites
+hop3 addon postgres extensions <name> <ext>...  # Install extensions (allow-listed)
+hop3 addon postgres query <name> --command "SELECT 1"   # Ad-hoc SQL
+hop3 addon postgres clone <source> <new-name>   # Copy data into a new addon
+hop3 addon postgres export <name> > dump.sql    # Stream a dump to your machine
+hop3 addon postgres import <name> --confirm=<name> < dump.sql   # Load a dump
+hop3 addon postgres ps <name>                   # Active queries (diagnostics)
+hop3 addon postgres locks <name>                # Current locks
+hop3 addon postgres settings <name>             # Key configuration settings
+
+# MySQL
+hop3 addon mysql credentials <name>
+hop3 addon mysql dump <name>                     # mysqldump
+hop3 addon mysql restore <name> <path>           # ⚠️ overwrites
+hop3 addon mysql query <name> --command "SELECT 1"
+hop3 addon mysql clone <source> <new-name>       # Copy data into a new addon
+hop3 addon mysql export <name> > dump.sql        # Stream a dump to your machine
+hop3 addon mysql import <name> --confirm=<name> < dump.sql      # Load a dump
+hop3 addon mysql ps <name>                       # Active queries (diagnostics)
+hop3 addon mysql settings <name>                 # Key variables
+
+# Redis
+hop3 addon redis credentials <name>
+hop3 addon redis dump <name>
+hop3 addon redis flush <name>                    # FLUSHDB ⚠️ deletes all keys
+hop3 addon redis query <name> --command "DBSIZE" # Ad-hoc redis-cli command
+hop3 addon redis info <name>                     # Server INFO (diagnostics)
+
+# S3
+hop3 addon s3 credentials <name>
+hop3 addon s3 dump <name>                         # Manifest (credentials + metadata)
+```
+
+**Available verbs by type:**
+
+| Verb | postgres | mysql | redis | s3 |
+|------|:---:|:---:|:---:|:---:|
+| `credentials` | ✓ | ✓ | ✓ | ✓ |
+| `dump` | ✓ | ✓ | ✓ | ✓ |
+| `restore` | ✓ | ✓ | — | — |
+| `extensions` | ✓ | | | |
+| `flush` | | | ✓ | |
+| `query` | ✓ | ✓ | ✓ | |
+| `clone` | ✓ | ✓ | | |
+| `export` / `import` | ✓ | ✓ | | |
+| `ps` | ✓ | ✓ | | |
+| `locks` | ✓ | | | |
+| `settings` | ✓ | ✓ | | |
+| `info` | | | ✓ | |
+
+**Notes:**
+- `credentials` prints the addon's connection variables (`DATABASE_URL`, `REDIS_URL`, `S3_*`, …) — treat the output as sensitive.
+- `restore` and `redis flush` are destructive and prompt for confirmation (bypass with `-y` / `--confirm=<name>`).
+- `dump` writes to the server's backup area and reports the path; redis/s3 `restore` are not available yet.
+- `query` runs the statement as the addon's own (least-privilege) database user, confined to that addon's database. A SELECT renders as a table; other statements report the affected row count. The SQL/command is passed via `--command "…"`.
+- `clone` creates a brand-new addon and loads a dump of the source into it (it refuses if the target already exists). Postgres/mysql only, since it builds on `restore`.
+- `export` streams a dump to the client's **stdout** (redirect to a file); `import` reads a dump from the client's **stdin**. Because `import` overwrites data *and* stdin is the dump (so it can't prompt), pass `--confirm=<name>` or `--yes` with it. Postgres/mysql only.
+- `ps` / `locks` / `settings` (postgres, mysql) and `redis info` are read-only diagnostics. The SQL ones run as the superuser so they see the whole database, and render as tables; `redis info` returns the server's INFO text.
 
 ---
 

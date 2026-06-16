@@ -37,6 +37,19 @@ def test_is_destructive_command_addon_destroy():
     assert is_destructive_command(["addon", "destroy"]) is True
 
 
+def test_is_destructive_command_addon_data_ops():
+    """Per-type addon ops that overwrite/wipe data require confirmation."""
+    assert is_destructive_command(["addon", "postgres", "restore", "db", "/p"]) is True
+    assert is_destructive_command(["addon", "mysql", "restore", "db", "/p"]) is True
+    assert is_destructive_command(["addon", "postgres", "import", "db"]) is True
+    assert is_destructive_command(["addon", "mysql", "import", "db"]) is True
+    assert is_destructive_command(["addon", "redis", "flush", "cache"]) is True
+    # Read-only / additive per-type ops are NOT destructive.
+    assert is_destructive_command(["addon", "postgres", "dump", "db"]) is False
+    assert is_destructive_command(["addon", "postgres", "query", "db"]) is False
+    assert is_destructive_command(["addon", "redis", "info", "cache"]) is False
+
+
 def test_is_destructive_command_safe_commands():
     """Test that safe commands are not detected as destructive."""
     assert is_destructive_command(["deploy", "my-app"]) is False

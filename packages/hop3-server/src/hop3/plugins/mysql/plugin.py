@@ -109,6 +109,11 @@ class MySQLPlugin:
         """Return MySQL health check."""
         return [MySQLHealthCheck()]
 
+    @hookimpl
+    def cli_commands(self) -> list:
+        """Contribute `addon mysql <verb>` commands to the CLI."""
+        return cli.COMMANDS
+
 
 class MySQLPluginProvider(Provider):
     """DI provider for MySQL addon infrastructure.
