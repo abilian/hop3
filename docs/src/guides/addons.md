@@ -93,7 +93,7 @@ hop3 addon postgres query my-database --command "SELECT count(*) FROM users"
 hop3 addon redis query my-cache --command "DBSIZE"
 ```
 
-See the [CLI reference](../reference/cli.md#hop3-addon-type-verb--type-specific-commands) for the full per-type verb matrix.
+See the [CLI reference](../reference/cli.md#hop3-addon-type-verb-type-specific-commands) for the full per-type verb matrix.
 
 ## Addon Reference
 
