@@ -196,16 +196,17 @@ class BackupListCmd(Command):
 class BackupInfoCmd(Command):
     """Show detailed information about a backup.
 
-    Usage: hop3 backup info <backup-id>
+    Usage: hop3 backup show <backup-id>
 
     Examples:
-        hop3 backup info 20251030_143022_a8f3d9
+        hop3 backup show 20251030_143022_a8f3d9
     """
 
     app_repo: AppRepository
     backup_repo: BackupRepository
     addon_credential_repo: AddonCredentialRepository
-    name: ClassVar[tuple[str, ...]] = ("backup", "info")
+    name: ClassVar[tuple[str, ...]] = ("backup", "show")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("backup", "info")]
 
     def call(self, *args):
         """Get backup information."""
