@@ -7,6 +7,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from hop3.commands._helpers import check_hostname_conflict
+from hop3.config import HopConfig
 from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
 from hop3.core.manifest import RuntimeManifestBuilder
 from hop3.core.plugins import get_builder, get_deployer
@@ -22,6 +23,7 @@ from hop3.deployers.env_provisioning import (
     set_generated_env_vars,
 )
 from hop3.deployers.fixed_ports import claim_fixed_ports, open_fixed_ports
+from hop3.deployers.limits import LimitsError, resolve_limits
 from hop3.deployers.volumes import realize_volumes
 from hop3.lib import Diagnosis, abort_with_diagnosis, log, log_diagnosis, shell
 from hop3.lib.logging import server_log
@@ -134,7 +136,7 @@ def do_deploy(
     builder = get_builder(context)
     log(f"Using builder: '{builder.name}'", level=1, fg="blue")
 
-    _enforce_builder_resource_support(builder.name, app_config.hop3_config)
+    _enforce_builder_resource_support(app, app_config, builder.name, context)
 
     build_artifact = builder.build()
     log(
@@ -654,16 +656,67 @@ def stop_previous_instance(app: App) -> None:
 
 
 def _enforce_builder_resource_support(
-    builder_name: str, hop3_config: Hop3Config
+    app: App, app_config: AppConfig, builder_name: str, context: DeploymentContext
 ) -> None:
     """Fail loud when declared resources can't be honored by the chosen builder.
 
-    The two resource features have opposite builder support today, so check both
-    after builder selection and before the build: volumes work on native/Nix but
-    not Docker; limits work on Docker but not native/Nix (ADR 046 §2/§3).
+    Volumes work on native/Nix but not Docker (ADR 046 §2); limits are resolved
+    against the server-wide defaults/ceilings and applied per builder (§3).
     """
+    hop3_config = app_config.hop3_config
     _reject_volumes_on_docker(builder_name, hop3_config.volumes)
-    _reject_limits_on_non_docker(builder_name, hop3_config.limits)
+    _apply_limits(app, hop3_config, builder_name, context)
+
+
+def _apply_limits(
+    app: App,
+    hop3_config: Hop3Config,
+    builder_name: str,
+    context: DeploymentContext,
+) -> None:
+    """Resolve [limits] and apply them for the chosen builder (ADR 046 §3).
+
+    Docker: resolve the declared caps against the operator's server-wide
+    defaults/ceilings (a value over its ceiling aborts loudly) and stash the
+    resolved set so the compose generator enforces it; record the outcome on
+    the app for `hop3 app status`. Native/Nix: enforcement needs cgroups via
+    hop3-rootd and isn't wired yet, so a *declared* limit still fails loud here
+    (server defaults are not imposed on native until that lands).
+    """
+    declared = hop3_config.limits
+    if builder_name.lower() != "docker":
+        _reject_limits_on_non_docker(builder_name, declared)
+        return
+
+    cfg = HopConfig.get_instance()
+    try:
+        resolved = resolve_limits(
+            declared, cfg.limits_defaults(), cfg.limits_ceilings()
+        )
+    except LimitsError as e:
+        abort_with_diagnosis(
+            Diagnosis(
+                component="Limits",
+                action="apply [limits]",
+                reason=str(e),
+                hint="Lower the cap, or adjust the server-wide [limits] policy.",
+                troubleshooting=["See ADR 046 §3 (resource caps)"],
+            )
+        )
+
+    if resolved.is_empty():
+        return
+
+    # Hand the resolved caps to the compose generator (it reads this dict), and
+    # record the enforced state for status.
+    context.app_config["hop3_config"]["limits"] = resolved.as_dict()
+    app.limits_enforced = "docker"
+    app.limits_detail = _format_limits_detail(resolved.as_dict())
+
+
+def _format_limits_detail(limits: dict[str, Any]) -> str:
+    """One-line caps summary for `hop3 app status` (e.g. 'memory=512M cpu=1.5')."""
+    return " ".join(f"{k}={v}" for k, v in limits.items())
 
 
 def _reject_volumes_on_docker(builder_name: str, volumes: list[dict[str, Any]]) -> None:
