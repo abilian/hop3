@@ -42,6 +42,22 @@ class FakeAddon:
     def flush(self) -> None:
         self.calls.append(("flush",))
 
+    def run_sql(self, statement: str) -> dict:
+        self.calls.append(("run_sql", statement))
+        # A result set with a non-string + None cell, to exercise stringifying.
+        return {"columns": ["n"], "rows": [[1], [None]]}
+
+    def run_command(self, command: str) -> str:
+        self.calls.append(("run_command", command))
+        return "PONG"
+
+
+class _FakeStatusAddon:
+    """Addon whose run_sql() returns a status (no result set)."""
+
+    def run_sql(self, statement: str) -> dict:
+        return {"message": "OK (5 row(s) affected)"}
+
 
 def _types(items: list[dict]) -> list[str]:
     return [item.get("t") for item in items]
@@ -102,6 +118,42 @@ def test_redis_flush_calls_flush_and_is_destructive(monkeypatch):
     assert ("flush",) in fake.calls
 
 
+def test_sql_query_renders_table_with_stringified_cells(monkeypatch):
+    fake = FakeAddon()
+    monkeypatch.setattr(pg_cli, "get_addon", lambda t, n: fake)
+
+    out = pg_cli.AddonPostgresQueryCmd().call("mydb", "--command", "SELECT n FROM t")
+
+    assert ("run_sql", "SELECT n FROM t") in fake.calls
+    tbl = next(i for i in out if i["t"] == "table")
+    assert tbl["headers"] == ["n"]
+    # int -> "1", None -> "" (JSON-safe over RPC)
+    assert tbl["rows"] == [["1"], [""]]
+
+
+def test_sql_query_renders_status_for_non_select(monkeypatch):
+    monkeypatch.setattr(mysql_cli, "get_addon", lambda t, n: _FakeStatusAddon())
+    out = mysql_cli.AddonMysqlQueryCmd().call("mydb", "--command", "DELETE FROM t")
+    assert out[0]["t"] == "text"
+    assert "row(s) affected" in out[0]["text"]
+
+
+def test_redis_query_returns_text(monkeypatch):
+    fake = FakeAddon()
+    monkeypatch.setattr(redis_cli, "get_addon", lambda t, n: fake)
+
+    out = redis_cli.AddonRedisQueryCmd().call("mycache", "--command", "PING")
+
+    assert ("run_command", "PING") in fake.calls
+    assert out[0]["t"] == "text"
+    assert out[0]["text"] == "PONG"
+
+
+def test_query_without_command_returns_usage():
+    out = pg_cli.AddonPostgresQueryCmd().call("mydb")  # no --command
+    assert "Usage:" in out[0]["text"]
+
+
 def test_missing_args_returns_usage_not_crash():
     # No monkeypatch: must short-circuit on the arg guard before get_addon.
     out = s3_cli.AddonS3CredentialsCmd().call()
@@ -127,6 +179,9 @@ def test_hook_contributes_all_commands_to_rpc_table():
         ("addon", "redis", "credentials"),
         ("addon", "redis", "dump"),
         ("addon", "redis", "flush"),
+        ("addon", "redis", "query"),
+        ("addon", "postgres", "query"),
+        ("addon", "mysql", "query"),
         ("addon", "s3", "credentials"),
         ("addon", "s3", "dump"),
     }

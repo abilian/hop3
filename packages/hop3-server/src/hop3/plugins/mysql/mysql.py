@@ -288,6 +288,40 @@ class MySQLAddon:
             "MYSQL_PORT": str(admin.port),
         }
 
+    def run_sql(self, statement: str) -> dict:
+        """Run an ad-hoc SQL statement as the addon's own (app) user.
+
+        Connects with the app-level credentials (not the superuser), so the
+        statement is confined to this addon's database. The password travels
+        in-process via mysql.connector (never on a command line).
+
+        Returns:
+            ``{"columns": [...], "rows": [[...]]}`` for a result set, or
+            ``{"message": "..."}`` for a statement that returns no rows.
+        """
+        details = self.get_connection_details()
+        connection = mysql.connector.connect(
+            host=details["MYSQL_HOST"],
+            port=int(details["MYSQL_PORT"]),
+            user=details["MYSQL_USER"],
+            password=details["MYSQL_PASSWORD"],
+            database=details["MYSQL_DATABASE"],
+        )
+        try:
+            cursor = connection.cursor()
+            cursor.execute(statement)
+            if cursor.description is not None:
+                columns = [col[0] for col in cursor.description]
+                rows = [list(row) for row in cursor.fetchall()]
+                cursor.close()
+                return {"columns": columns, "rows": rows}
+            connection.commit()
+            message = f"OK ({cursor.rowcount} row(s) affected)"
+            cursor.close()
+            return {"message": message}
+        finally:
+            connection.close()
+
     def backup(self) -> Path:
         """Create a backup of the MySQL database using mysqldump.
 

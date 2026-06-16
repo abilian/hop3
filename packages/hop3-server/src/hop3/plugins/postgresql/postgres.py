@@ -626,6 +626,30 @@ class PostgresAddon:
             "PGPORT": str(admin.port),
         }
 
+    def run_sql(self, statement: str) -> dict:
+        """Run an ad-hoc SQL statement as the addon's own (app) user.
+
+        Connects with the app-level credentials (not the superuser), so the
+        statement is confined to this addon's database. The password travels
+        in-process via psycopg2 (never on a command line).
+
+        Returns:
+            ``{"columns": [...], "rows": [[...]]}`` for a result set, or
+            ``{"message": "..."}`` for a statement that returns no rows.
+        """
+        conn = psycopg2.connect(self.get_connection_details()["DATABASE_URL"])
+        try:
+            conn.autocommit = True
+            with conn.cursor() as cursor:
+                cursor.execute(statement)
+                if cursor.description is not None:
+                    columns = [col.name for col in cursor.description]
+                    rows = [list(row) for row in cursor.fetchall()]
+                    return {"columns": columns, "rows": rows}
+                return {"message": f"OK ({cursor.rowcount} row(s) affected)"}
+        finally:
+            conn.close()
+
     def backup(self) -> Path:
         """Create a backup of the PostgreSQL database using pg_dump.
 

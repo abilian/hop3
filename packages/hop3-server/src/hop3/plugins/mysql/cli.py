@@ -18,9 +18,25 @@ from hop3.commands._base import Command
 from hop3.commands._errors import command_context
 from hop3.commands._response import summary, table, text
 from hop3.core.plugins import get_addon
+from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
 
 _TYPE = "mysql"
+
+
+def _result_items(result: dict) -> list[dict]:
+    """Render a run_sql() result (rows or status) as response items.
+
+    Cells are stringified so the payload is JSON-serializable over RPC
+    (query results can contain dates, decimals, None, etc.).
+    """
+    if "columns" in result:
+        rows = [
+            ["" if cell is None else str(cell) for cell in row]
+            for row in result["rows"]
+        ]
+        return [table(headers=result["columns"], rows=rows)]
+    return [text(result["message"])]
 
 
 @register
@@ -105,9 +121,44 @@ class AddonMysqlRestoreCmd(Command):
         ]
 
 
+@register
+@dataclass(frozen=True)
+class AddonMysqlQueryCmd(Command):
+    """Run an ad-hoc SQL statement against a MySQL addon.
+
+    Usage: hop3 addon mysql query <name> --command "<SQL>"
+
+    Runs as the addon's own database user (least privilege), so it is confined
+    to that addon's database. A SELECT returns a table; other statements report
+    the affected row count.
+
+    Examples:
+        hop3 addon mysql query mydb --command "SELECT count(*) FROM orders"
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "query")
+    _arg_spec: ClassVar[dict] = {
+        "addon_name": {"positional": True},
+        "command": {"type": str},
+    }
+
+    def call(self, *args):
+        parsed = parse_cli_args(args, self._arg_spec)
+        addon_name = parsed.get("addon_name")
+        statement = parsed.get("command")
+        if not addon_name or not statement:
+            return [text('Usage: hop3 addon mysql query <name> --command "<SQL>"')]
+        with command_context(
+            "running query", addon_name=addon_name, service_type=_TYPE
+        ):
+            result = get_addon(_TYPE, addon_name).run_sql(statement)
+        return _result_items(result)
+
+
 # Contributed to the RPC dispatch table via MySQLPlugin.cli_commands().
 COMMANDS: list[type[Command]] = [
     AddonMysqlCredentialsCmd,
     AddonMysqlDumpCmd,
     AddonMysqlRestoreCmd,
+    AddonMysqlQueryCmd,
 ]
