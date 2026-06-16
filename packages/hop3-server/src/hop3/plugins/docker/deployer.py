@@ -174,7 +174,12 @@ class DockerComposeDeployer:
 
         lines = []
         if limits.get("memory"):
-            lines.append(f"    mem_limit: {str(limits['memory']).lower()}")
+            mem = str(limits["memory"]).lower()
+            lines.append(f"    mem_limit: {mem}")
+            # Make the cap a real cap (no spill to swap), matching the native
+            # cgroup mapping's memory.swap.max=0: memswap == mem → 0 swap.
+            lines.append(f"    memswap_limit: {mem}")
+            lines.append("    mem_swappiness: 0")
         if limits.get("cpu") is not None:
             lines.append(f"    cpus: {limits['cpu']}")
         if limits.get("processes") is not None:

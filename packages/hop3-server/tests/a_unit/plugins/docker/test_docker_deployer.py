@@ -5,15 +5,18 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from hop3.config import HopConfig
 from hop3.core.protocols import BuildArtifact, DeploymentContext
-from hop3.deployers.deployer import _reject_limits_on_non_docker
+from hop3.deployers.deployer import _apply_limits, _reject_limits_on_non_docker
 from hop3.lib import Abort
 from hop3.plugins.docker.deployer import DockerComposeDeployer
+from hop3.project.hop3_config import Hop3Config
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -692,6 +695,9 @@ class TestDockerComposeLimits:
         assert "mem_limit: 512m" in compose  # lowercased for compose
         assert "cpus: 1.5" in compose
         assert "pids_limit: 256" in compose
+        # Swap-off parity with the native cgroup mapping (memory.swap.max=0).
+        assert "memswap_limit: 512m" in compose
+        assert "mem_swappiness: 0" in compose
 
     def test_compose_has_no_limits_when_none(self, tmp_path, docker_artifact):
         deployer = self._deployer(tmp_path, docker_artifact, {})
@@ -716,3 +722,89 @@ class TestLimitsBuilderGuard:
 
     def test_no_limits_on_native_is_ok(self):
         _reject_limits_on_non_docker("local", {})  # no raise
+
+
+class _FakeLoader:
+    """Minimal ConfigLoader stub for a known server-wide [limits] policy."""
+
+    def __init__(self, values: dict) -> None:
+        self.values = values
+
+    def get_str(self, key, default=""):
+        return self.values.get(key, default)
+
+    def get_bool(self, key, default=False):
+        return self.values.get(key, default)
+
+    def get_int(self, key, default=0):
+        return self.values.get(key, default)
+
+    def get_float(self, key, default=0.0):
+        return self.values.get(key, default)
+
+
+@pytest.fixture
+def set_limits_config():
+    """Install a HopConfig with a given server-wide [limits] policy; reset after."""
+
+    def _set(**values):
+        HopConfig.set_instance(HopConfig(config_loader=_FakeLoader(values)))
+
+    yield _set
+    HopConfig.reset_instance()
+
+
+class TestApplyLimits:
+    """Server-side resolve + record + builder dispatch for [limits] (ADR 046 P2)."""
+
+    def _ctx(self, tmp_path, limits):
+        return DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={"hop3_config": {"limits": dict(limits)}},
+        )
+
+    def test_docker_resolves_records_and_stashes(self, tmp_path, set_limits_config):
+        set_limits_config()  # empty server policy
+        app = SimpleNamespace(limits_enforced="", limits_detail="")
+        hc = Hop3Config.from_str('[limits]\nmemory = "512M"\ncpu = 1.5\n')
+        ctx = self._ctx(tmp_path, hc.limits)
+        _apply_limits(app, hc, "docker", ctx)
+        assert app.limits_enforced == "docker"
+        assert "memory=512M" in app.limits_detail
+        assert ctx.app_config["hop3_config"]["limits"] == {"memory": "512M", "cpu": 1.5}
+
+    def test_docker_no_limits_records_nothing(self, tmp_path, set_limits_config):
+        set_limits_config()
+        app = SimpleNamespace(limits_enforced="", limits_detail="")
+        hc = Hop3Config.from_str('[metadata]\nid = "x"\n')
+        ctx = self._ctx(tmp_path, {})
+        _apply_limits(app, hc, "docker", ctx)
+        assert app.limits_enforced == ""
+
+    def test_docker_applies_server_default(self, tmp_path, set_limits_config):
+        # An app that declares no memory gets the operator's server default.
+        set_limits_config(LIMITS_DEFAULT_MEMORY="512M")
+        app = SimpleNamespace(limits_enforced="", limits_detail="")
+        hc = Hop3Config.from_str('[metadata]\nid = "x"\n')
+        ctx = self._ctx(tmp_path, {})
+        _apply_limits(app, hc, "docker", ctx)
+        assert ctx.app_config["hop3_config"]["limits"]["memory"] == "512M"
+        assert app.limits_enforced == "docker"
+
+    def test_docker_over_ceiling_aborts(self, tmp_path, set_limits_config):
+        set_limits_config(LIMITS_CEILING_MEMORY="2G")
+        app = SimpleNamespace(limits_enforced="", limits_detail="")
+        hc = Hop3Config.from_str('[limits]\nmemory = "4G"\n')
+        ctx = self._ctx(tmp_path, hc.limits)
+        with pytest.raises(Abort, match="exceeds the server ceiling"):
+            _apply_limits(app, hc, "docker", ctx)
+
+    def test_native_declared_limits_still_aborts(self, tmp_path, set_limits_config):
+        # Native enforcement isn't wired yet, so a declared cap fails loud.
+        set_limits_config()
+        app = SimpleNamespace(limits_enforced="", limits_detail="")
+        hc = Hop3Config.from_str('[limits]\nmemory = "512M"\n')
+        ctx = self._ctx(tmp_path, hc.limits)
+        with pytest.raises(ValueError, match="only enforced for Docker"):
+            _apply_limits(app, hc, "local", ctx)
