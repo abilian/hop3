@@ -153,3 +153,102 @@ def test_is_mounted_reads_mountinfo(tmp_path, monkeypatch):
 def test_is_mounted_false_when_no_mountinfo(tmp_path, monkeypatch):
     monkeypatch.setattr(mount, "_MOUNTINFO", tmp_path / "nope")
     assert mount.is_mounted(mount.Path("/whatever")) is False
+
+
+# --- bind allow-list ------------------------------------------------------
+
+
+@pytest.fixture
+def allowlist(tmp_path, monkeypatch):
+    """A bind allow-list file + a permitted source dir under one prefix."""
+    shared = tmp_path / "shared"
+    (shared / "media").mkdir(parents=True)
+    listfile = tmp_path / "bind-allowlist"
+    listfile.write_text(f"# operator allow-list\n{shared}\n\n", encoding="utf-8")
+    monkeypatch.setattr(mount, "BIND_ALLOWLIST_PATH", listfile)
+    return shared
+
+
+def test_bind_allowlist_parses_prefixes(allowlist):
+    prefixes = mount.bind_allowlist()
+    assert prefixes == [mount.Path(str(allowlist))]
+
+
+def test_bind_allowlist_absent_is_deny_all(tmp_path, monkeypatch):
+    monkeypatch.setattr(mount, "BIND_ALLOWLIST_PATH", tmp_path / "nope")
+    assert mount.bind_allowlist() == []
+
+
+# --- mount_bind -----------------------------------------------------------
+
+
+def test_mount_bind_allowed_source(app_root, allowlist):
+    source = allowlist / "media"
+    with (
+        patch.object(mount, "resolve_allowed_binary", return_value="/usr/bin/mount"),
+        patch.object(mount, "exec_run", return_value=_ok()) as mock_run,
+    ):
+        result = mount.mount_bind("blog", "public/media", str(source))
+
+    mp = app_root / "blog" / "src" / "public" / "media"
+    assert result["type"] == "bind"
+    assert result["source"] == str(source)
+    assert result["read_only"] is False
+    assert mock_run.call_args.args[0] == [
+        "/usr/bin/mount",
+        "--bind",
+        str(source),
+        str(mp),
+    ]
+
+
+def test_mount_bind_denies_source_outside_allowlist(app_root, allowlist):
+    outside = app_root.parent / "not-allowed"
+    outside.mkdir()
+    with (
+        patch.object(mount, "exec_run") as mock_run,
+        pytest.raises(mount.MountError, match="not under any operator-allowed"),
+    ):
+        mount.mount_bind("blog", "public/media", str(outside))
+    mock_run.assert_not_called()
+
+
+def test_mount_bind_default_deny_when_no_allowlist(app_root, tmp_path, monkeypatch):
+    monkeypatch.setattr(mount, "BIND_ALLOWLIST_PATH", tmp_path / "nope")
+    src = tmp_path / "x"
+    src.mkdir()
+    with pytest.raises(mount.MountError, match="none configured"):
+        mount.mount_bind("blog", "public/media", str(src))
+
+
+def test_mount_bind_missing_source_fails_loud(app_root, allowlist):
+    missing = allowlist / "does-not-exist"
+    with pytest.raises(mount.MountError, match="does not exist"):
+        mount.mount_bind("blog", "public/media", str(missing))
+
+
+def test_mount_bind_read_only_remounts(app_root, allowlist):
+    source = allowlist / "media"
+    with (
+        patch.object(mount, "resolve_allowed_binary", return_value="/usr/bin/mount"),
+        patch.object(mount, "exec_run", side_effect=[_ok(), _ok()]) as mock_run,
+    ):
+        result = mount.mount_bind("blog", "public/media", str(source), read_only=True)
+    assert result["read_only"] is True
+    assert mock_run.call_args_list[1].args[0][:2] == ["/usr/bin/mount", "-o"]
+    assert "remount,bind,ro" in mock_run.call_args_list[1].args[0]
+
+
+def test_mount_bind_ro_remount_failure_unmounts_and_raises(app_root, allowlist):
+    source = allowlist / "media"
+    # bind ok, remount fails, then umount cleanup.
+    with (
+        patch.object(mount, "resolve_allowed_binary", return_value="/usr/bin/mount"),
+        patch.object(
+            mount, "exec_run", side_effect=[_ok(), _fail("remount denied"), _ok()]
+        ) as mock_run,
+        pytest.raises(mount.MountError, match="read-only"),
+    ):
+        mount.mount_bind("blog", "public/media", str(source), read_only=True)
+    # third call is the cleanup unmount
+    assert mock_run.call_count == 3

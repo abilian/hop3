@@ -35,6 +35,12 @@ HOP3_USER: Final[str] = "hop3"
 # Test override; when None, app_root() derives it from the hop3 user's home.
 APP_ROOT: Path | None = None
 
+# Operator allow-list for bind sources: one absolute path prefix per line
+# (blank / '#' lines ignored). Absent or empty → default-deny (every bind is
+# refused). rootd keeps its own copy (defense in depth); the installer syncs it
+# with the server-side HOP3_BIND_VOLUME_ALLOWLIST.
+BIND_ALLOWLIST_PATH: Path = Path("/var/lib/hop3-rootd/bind-allowlist")
+
 _MOUNTINFO: Path = Path("/proc/self/mountinfo")
 _MOUNT_TIMEOUT_SECONDS: Final[float] = 15.0
 
@@ -76,6 +82,38 @@ def mountpoint_for(app_name: str, target: str) -> Path:
     if norm != src_str and not norm.startswith(src_str + os.sep):
         raise MountError(f"mount target {target!r} escapes the app source tree ({src})")
     return Path(norm)
+
+
+# --- Bind allow-list ------------------------------------------------------
+
+
+def bind_allowlist() -> list[Path]:
+    """Operator-allowed bind source prefixes, realpath-resolved. [] = deny all."""
+    if not BIND_ALLOWLIST_PATH.exists():
+        return []
+    try:
+        text = BIND_ALLOWLIST_PATH.read_text(encoding="utf-8")
+    except OSError as e:
+        raise MountError(
+            f"could not read bind allow-list {BIND_ALLOWLIST_PATH}: {e}"
+        ) from e
+    prefixes: list[Path] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        prefixes.append(Path(os.path.realpath(line)))
+    return prefixes
+
+
+def _is_under(path: Path, prefixes: list[Path]) -> bool:
+    """True if ``path`` is one of, or below, an allow-list prefix."""
+    p = str(path)
+    for prefix in prefixes:
+        pref = str(prefix)
+        if p == pref or p.startswith(pref + os.sep):
+            return True
+    return False
 
 
 # --- Binary resolution ----------------------------------------------------
@@ -151,6 +189,66 @@ def mount_tmpfs(
     if not result.success:
         raise MountError(f"mounting tmpfs at {mp} failed: {result.stderr.strip()}")
     return {"mountpoint": str(mp), "type": "tmpfs"}
+
+
+def mount_bind(
+    app_name: str, target: str, source: str, *, read_only: bool = False
+) -> dict[str, Any]:
+    """Bind-mount an operator-allowed host ``source`` at the app's ``target``.
+
+    Default-deny: the realpath-resolved source must be under an allow-list
+    prefix (rootd's own copy — defense in depth) and must already exist (we
+    never auto-create operator space). ``read_only`` is enforced with a
+    follow-up remount; if that fails the bind is torn down and the deploy
+    fails loud rather than serving a writable mount that asked to be ro.
+    """
+    real_source = Path(os.path.realpath(source))
+    allow = bind_allowlist()
+    if not _is_under(real_source, allow):
+        allowed = ", ".join(str(p) for p in allow) or "(none configured)"
+        raise MountError(
+            f"bind source {source!r} is not under any operator-allowed path "
+            f"({allowed}); add it to the rootd bind allow-list or use a persist volume"
+        )
+    if not real_source.exists():
+        raise MountError(
+            f"bind source {real_source} does not exist; it must be created by the "
+            "operator before an app can bind it"
+        )
+
+    mp = mountpoint_for(app_name, target)
+    try:
+        mp.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        raise MountError(f"could not create mountpoint {mp}: {e}") from e
+
+    result = exec_run(
+        [_mount_bin(), "--bind", str(real_source), str(mp)],
+        timeout=_MOUNT_TIMEOUT_SECONDS,
+    )
+    if not result.success:
+        raise MountError(
+            f"bind-mounting {real_source} at {mp} failed: {result.stderr.strip()}"
+        )
+
+    if read_only:
+        ro = exec_run(
+            [_mount_bin(), "-o", "remount,bind,ro", str(mp)],
+            timeout=_MOUNT_TIMEOUT_SECONDS,
+        )
+        if not ro.success:
+            # Couldn't honor read_only — undo the bind, don't leave it writable.
+            exec_run([_umount_bin(), str(mp)], timeout=_MOUNT_TIMEOUT_SECONDS)
+            raise MountError(
+                f"could not remount bind {mp} read-only: {ro.stderr.strip()}"
+            )
+
+    return {
+        "mountpoint": str(mp),
+        "type": "bind",
+        "source": str(real_source),
+        "read_only": read_only,
+    }
 
 
 def unmount(app_name: str, target: str) -> dict[str, Any]:

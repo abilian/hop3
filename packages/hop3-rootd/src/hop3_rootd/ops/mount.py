@@ -25,7 +25,9 @@ from hop3_rootd.protocol import Request
 from hop3_rootd.state import StoredMount
 from hop3_rootd.validation import (
     validate_app_name,
+    validate_bind_source,
     validate_mount_mode,
+    validate_read_only,
     validate_size_bytes,
     validate_volume_target,
 )
@@ -65,6 +67,51 @@ def mount_tmpfs(req: Request, ctx: OpContext) -> dict[str, Any]:
         "target": target,
         "mountpoint": result["mountpoint"],
         "type": "tmpfs",
+        "applied_at": applied_at,
+    }
+
+
+# --- mount.bind ----------------------------------------------------------
+
+
+@register("mount.bind")
+def mount_bind(req: Request, ctx: OpContext) -> dict[str, Any]:
+    """Bind-mount an operator-allowed host path at the app's target.
+
+    The source must pass rootd's own allow-list check (default-deny); a denied
+    or missing source aborts loudly. Records the resolved source in state.
+    """
+    app_name = validate_app_name(req.args.get("app_name"))
+    target = validate_volume_target(req.args.get("target"))
+    source = validate_bind_source(req.args.get("source"))
+    read_only = validate_read_only(req.args.get("read_only"))
+    applied_at = ctx.now_iso()
+
+    result = mt.mount_bind(app_name, target, source, read_only=read_only)
+
+    ctx.state.mounts = [
+        m
+        for m in ctx.state.mounts
+        if not (m.app_name == app_name and m.target == target)
+    ]
+    ctx.state.mounts.append(
+        StoredMount(
+            app_name=app_name,
+            target=target,
+            type="bind",
+            source=result["source"],
+            applied_at=applied_at,
+        )
+    )
+    ctx.save_state()
+
+    return {
+        "app_name": app_name,
+        "target": target,
+        "mountpoint": result["mountpoint"],
+        "type": "bind",
+        "source": result["source"],
+        "read_only": read_only,
         "applied_at": applied_at,
     }
 
