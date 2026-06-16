@@ -35,6 +35,25 @@ HOP3_UWSGI_ENABLED = "/home/hop3/uwsgi-enabled"
 HOP3_UWSGI_AVAILABLE = "/home/hop3/uwsgi-available"
 
 
+def _app_dir_exists(target: DeploymentTarget, app_name: str) -> bool:
+    """Whether ``/home/hop3/apps/<app>`` exists on the target.
+
+    When a deploy fails client-side (e.g. the upload is rejected before the
+    server creates the app), this directory is absent. Probing it once lets the
+    collector emit a single honest "app was never created" line instead of a
+    cascade of redundant per-subdir errors ("ls: ... No such file", then "no log
+    directory at .../log/", then "no per-app build log" — all saying the same
+    thing). On a probe error, assume it exists: better a noisy bundle than a
+    silently suppressed one.
+    """
+    cmd = f"[ -d {HOP3_APPS}/{app_name} ] && echo __APPDIR_EXISTS__ || true"
+    try:
+        _, out, _ = target.exec_run(cmd)
+    except Exception:
+        return True
+    return "__APPDIR_EXISTS__" in (out or "")
+
+
 def _has_docker_container(target: DeploymentTarget, app_name: str) -> bool:
     """Whether a docker container for this app exists on the target.
 
@@ -106,8 +125,8 @@ def _diagnostic_sections(
                 f'    nix log "$(readlink -f {app_dir}/.nix-result)" 2>&1 '
                 "      | tail -80 || echo '(nix log unavailable)'; "
                 "else "
-                "  echo '(no per-app build log; build output is in the deploy log "
-                f"— hop3 app build-logs {app_name})'; "
+                "  echo '(no per-app build log — the build output is in the deploy "
+                "log shown above.)'; "
                 "fi"
             ),
         ),
@@ -186,10 +205,24 @@ def collect_runtime_logs(
     if target is None or not app_name:
         return ""
 
+    header = "=== Runtime Logs (collected from target) ==="
+
+    # If the app dir is absent the deploy never reached app creation. Say so once
+    # — every per-app section below would otherwise just restate "not found".
+    if not _app_dir_exists(target, app_name):
+        return (
+            f"{header}\n\n"
+            f"--- App directory ---\n"
+            f"(no app directory at {HOP3_APPS}/{app_name} — the app was never "
+            f"created on the server. The deploy failed before or during upload, "
+            f"so there are no per-app logs, nginx/uWSGI configs, or containers to "
+            f"show. See the deploy log above for the actual error.)\n"
+        )
+
     has_docker = _has_docker_container(target, app_name)
     sections = _diagnostic_sections(app_name, has_docker_container=has_docker)
 
-    out: list[str] = ["=== Runtime Logs (collected from target) ==="]
+    out: list[str] = [header]
     for title, cmd in sections:
         out.append("")
         out.append(f"--- {title} ---")

@@ -8,6 +8,8 @@ Regressions this pins (all seen on a real Nix app's failure bundle):
 - docker sections shown for a native/Nix app (no containers) → noise.
 - build-log section guessing "may use docker builder" for a Nix build.
 - a missing nginx vhost surfaced as a raw `cat: … No such file` error.
+- a deploy that failed before app creation leaking a cascade of redundant
+  per-subdir "No such file" errors instead of one honest finding.
 """
 
 from __future__ import annotations
@@ -27,6 +29,20 @@ class _FakeTarget:
 
     def exec_run(self, _cmd: str):
         return (0, self._out, "")
+
+
+class _PresentAppTarget:
+    """Target where the app dir exists but has no docker container.
+
+    The fixed-output ``_FakeTarget`` can't model this: the app-dir probe and the
+    docker probe need different answers. This one says the app dir exists and
+    everything else is empty.
+    """
+
+    def exec_run(self, cmd):
+        if "__APPDIR_EXISTS__" in cmd:
+            return (0, "__APPDIR_EXISTS__\n", "")
+        return (0, "", "")
 
 
 def _by_title(has_docker: bool) -> dict[str, str]:
@@ -53,6 +69,15 @@ def test_build_log_is_nix_aware_not_speculative() -> None:
     assert "nix log" in build  # …and their log is fetched the Nix way
 
 
+def test_build_log_fallback_points_at_deploy_log_not_a_cli_command() -> None:
+    # The testlab already captures the deploy log; telling the reader to run
+    # `hop3 app build-logs` is useless noise (and impossible if the app dir is
+    # gone). Point at what's already in the report instead.
+    build = _by_title(has_docker=False)["Build log"]
+    assert "build-logs" not in build
+    assert "deploy log shown above" in build
+
+
 def test_missing_nginx_is_a_finding_not_a_cat_error() -> None:
     nginx = _by_title(has_docker=False)["Nginx config"]
     assert "if [ -f" in nginx  # guarded — the raw cat error never leaks
@@ -71,7 +96,21 @@ def test_collect_runtime_logs_empty_without_target_or_app() -> None:
 
 
 def test_collect_runtime_logs_native_has_no_docker_noise() -> None:
-    # Container probe returns "" → native app → no docker sections in output.
+    # App dir exists, container probe returns "" → native app → sections present,
+    # no docker noise.
+    blob = collect_runtime_logs(_PresentAppTarget(), "myapp")
+    assert "=== Runtime Logs (collected from target) ===" in blob
+    assert "--- App log files ---" in blob  # real per-app sections ran
+    assert "Docker container" not in blob
+
+
+def test_collect_runtime_logs_collapses_missing_app_dir() -> None:
+    # Deploy failed before app creation → app dir absent. One honest finding,
+    # not a cascade of redundant per-subdir errors.
     blob = collect_runtime_logs(_FakeTarget(""), "myapp")
     assert "=== Runtime Logs (collected from target) ===" in blob
-    assert "Docker container" not in blob
+    assert "the app was never created on the server" in blob
+    # The redundant per-subdir probe sections are skipped entirely.
+    assert "no log directory" not in blob
+    assert "--- App log files ---" not in blob
+    assert "--- uWSGI config ---" not in blob
