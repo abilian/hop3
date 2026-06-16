@@ -62,6 +62,17 @@ def data(payload: dict[str, Any]) -> dict[str, Any]:
     return {"t": "data", "data": payload}
 
 
+def blob(data_b64: str, filename: str = "") -> dict[str, Any]:
+    """Create a binary-blob response item.
+
+    Carries base64-encoded bytes the CLI writes verbatim to stdout (or a
+    file). Used by ``addon <type> export`` to stream a dump to the client
+    without a separate streaming channel — same base64-over-RPC approach the
+    deploy upload uses, in reverse.
+    """
+    return {"t": "blob", "filename": filename, "data": data_b64}
+
+
 def log_entry(msg: str, fg: str = "", level: int = 0) -> dict[str, Any]:
     """Create a log entry response item."""
     return {"t": "log", "msg": msg, "fg": fg, "level": level}

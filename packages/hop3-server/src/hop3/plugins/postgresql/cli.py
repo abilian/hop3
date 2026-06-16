@@ -11,13 +11,15 @@ hook (see plugin.py).
 
 from __future__ import annotations
 
+import base64
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar
 
 from hop3.commands._base import Command
 from hop3.commands._errors import command_context
-from hop3.commands._response import error, summary, table, text
+from hop3.commands._response import blob, error, summary, table, text
 from hop3.core.identifiers import InvalidIdentifierError, validate_service_name
 from hop3.core.plugins import get_addon
 from hop3.lib.args import parse_cli_args
@@ -247,6 +249,83 @@ class AddonPostgresCloneCmd(Command):
         return _clone(args)
 
 
+@register
+@dataclass(frozen=True)
+class AddonPostgresExportCmd(Command):
+    """Stream a Postgres addon dump to stdout.
+
+    Usage: hop3 addon postgres export <name> > dump.sql
+
+    Writes a pg_dump of the addon to the client's stdout — redirect it to a
+    file or pipe it elsewhere.
+
+    Examples:
+        hop3 addon postgres export mydb > mydb.sql
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "export")
+
+    def call(self, *args):
+        if not args:
+            return [text("Usage: hop3 addon postgres export <name> > dump.sql")]
+        addon_name = args[0]
+        with command_context(
+            "exporting addon", addon_name=addon_name, service_type=_TYPE
+        ):
+            path = Path(get_addon(_TYPE, addon_name).backup())
+            encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+        return [
+            blob(encoded, filename=path.name),
+            summary(f"exported addon '{addon_name}' ({_TYPE})."),
+        ]
+
+
+@register
+@dataclass(frozen=True)
+class AddonPostgresImportCmd(Command):
+    """Import a dump into a Postgres addon from stdin.
+
+    Usage: hop3 addon postgres import <name> --confirm=<name> < dump.sql
+
+    Loads the piped dump into the addon via psql. Overwrites existing data;
+    since stdin carries the dump (so it can't prompt), pass --confirm=<name>
+    or --yes.
+
+    Examples:
+        hop3 addon postgres import mydb --confirm=mydb < mydb.sql
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "import")
+    destructive: ClassVar[bool] = True
+
+    def call(self, *args, import_data: str | None = None, **kwargs):
+        if not args:
+            return [text("Usage: hop3 addon postgres import <name> < dump.sql")]
+        addon_name = args[0]
+        if not import_data:
+            return [
+                error(
+                    "No dump provided. Pipe one on stdin: "
+                    "hop3 addon postgres import <name> < dump.sql"
+                )
+            ]
+        with command_context(
+            "importing addon", addon_name=addon_name, service_type=_TYPE
+        ):
+            content = base64.b64decode(import_data)
+            with tempfile.NamedTemporaryFile(suffix=".sql", delete=False) as tmp:
+                tmp.write(content)
+                tmp_path = Path(tmp.name)
+            try:
+                get_addon(_TYPE, addon_name).restore(tmp_path)
+            finally:
+                tmp_path.unlink(missing_ok=True)
+        return [
+            text(f"Imported dump into Postgres addon '{addon_name}'."),
+            summary(f"imported dump into addon '{addon_name}' ({_TYPE})."),
+        ]
+
+
 # --- Diagnostics (read-only, run as superuser via run_admin_sql) -------------
 
 _PS_SQL = r"""
@@ -355,6 +434,8 @@ COMMANDS: list[type[Command]] = [
     AddonPostgresExtensionsCmd,
     AddonPostgresQueryCmd,
     AddonPostgresCloneCmd,
+    AddonPostgresExportCmd,
+    AddonPostgresImportCmd,
     AddonPostgresPsCmd,
     AddonPostgresLocksCmd,
     AddonPostgresSettingsCmd,
