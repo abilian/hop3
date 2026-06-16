@@ -51,6 +51,10 @@ class FakeAddon:
         self.calls.append(("run_command", command))
         return "PONG"
 
+    def run_admin_sql(self, statement: str) -> dict:
+        self.calls.append(("run_admin_sql", statement))
+        return {"columns": ["c"], "rows": [["v"]]}
+
 
 class _FakeStatusAddon:
     """Addon whose run_sql() returns a status (no result set)."""
@@ -154,6 +158,28 @@ def test_query_without_command_returns_usage():
     assert "Usage:" in out[0]["text"]
 
 
+def test_diagnostics_use_superuser_path_and_right_queries(monkeypatch):
+    fake = FakeAddon()
+    monkeypatch.setattr(pg_cli, "get_addon", lambda t, n: fake)
+
+    table_ps = pg_cli.AddonPostgresPsCmd().call("mydb")
+    pg_cli.AddonPostgresLocksCmd().call("mydb")
+    pg_cli.AddonPostgresSettingsCmd().call("mydb")
+
+    sqls = [stmt for (method, stmt) in fake.calls if method == "run_admin_sql"]
+    assert any("pg_stat_activity" in s for s in sqls)
+    assert any("pg_locks" in s for s in sqls)
+    assert any("pg_settings" in s for s in sqls)
+    # diagnostics render their result as a table and are read-only
+    assert table_ps[0]["t"] == "table"
+    assert pg_cli.AddonPostgresPsCmd.destructive is False
+
+
+def test_diagnostic_missing_name_returns_usage():
+    out = pg_cli.AddonPostgresPsCmd().call()
+    assert "Usage:" in out[0]["text"]
+
+
 def test_missing_args_returns_usage_not_crash():
     # No monkeypatch: must short-circuit on the arg guard before get_addon.
     out = s3_cli.AddonS3CredentialsCmd().call()
@@ -181,6 +207,9 @@ def test_hook_contributes_all_commands_to_rpc_table():
         ("addon", "redis", "flush"),
         ("addon", "redis", "query"),
         ("addon", "postgres", "query"),
+        ("addon", "postgres", "ps"),
+        ("addon", "postgres", "locks"),
+        ("addon", "postgres", "settings"),
         ("addon", "mysql", "query"),
         ("addon", "s3", "credentials"),
         ("addon", "s3", "dump"),
