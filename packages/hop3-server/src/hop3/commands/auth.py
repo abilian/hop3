@@ -265,6 +265,8 @@ class AuthMagicLinkCmd(Command):
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("auth", "magic-link")
     requires_auth: ClassVar[bool] = True
+    # Internal primitive behind `hop3 login --web`; off the user-visible surface.
+    hidden: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
         """Generate a magic link token for web login. Admin-only.
