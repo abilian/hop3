@@ -103,6 +103,11 @@ class RedisPlugin:
         """Return Redis health check."""
         return [RedisHealthCheck()]
 
+    @hookimpl
+    def cli_commands(self) -> list:
+        """Contribute `addon redis <verb>` commands to the CLI."""
+        return cli.COMMANDS
+
 
 class RedisPluginProvider(Provider):
     """DI provider for Redis addon infrastructure.

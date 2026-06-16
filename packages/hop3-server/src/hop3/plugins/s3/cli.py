@@ -1,51 +1,81 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
+"""`addon s3 <verb>` commands — S3-specific addon management.
 
-"""CLI commands for the S3 addon.
-
-Most S3 addon operations are handled by the generic
-``hop3 addon ...`` commands (which dispatch to the Addon protocol
-implementation). This module only adds S3-specific convenience
-commands.
+Type-agnostic addon verbs (list/create/attach/detach/destroy/show/status) live
+in `hop3.commands.services`. These S3-specific level-3 commands are contributed
+to the RPC dispatch table via the plugin's `cli_commands()` hook.
 """
 
 from __future__ import annotations
 
-from hop3.lib import echo
-from hop3.lib.decorators import command
+from dataclasses import dataclass
+from typing import ClassVar
+
+from hop3.commands._base import Command
+from hop3.commands._errors import command_context
+from hop3.commands._response import summary, table, text
+from hop3.core.plugins import get_addon
+from hop3.lib.decorators import register
+
+_TYPE = "s3"
 
 
-@command
-class S3Cmd:
-    """Manage S3 addons."""
+@register
+@dataclass(frozen=True)
+class AddonS3CredentialsCmd(Command):
+    """Show connection credentials for an S3 addon.
 
-    name = "s3"
+    Usage: hop3 addon s3 credentials <name>
+
+    Examples:
+        hop3 addon s3 credentials mybucket
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "credentials")
+
+    def call(self, *args):
+        if not args:
+            return [text("Usage: hop3 addon s3 credentials <name>")]
+        addon_name = args[0]
+        with command_context(
+            "reading addon credentials", addon_name=addon_name, service_type=_TYPE
+        ):
+            details = get_addon(_TYPE, addon_name).get_connection_details()
+        rows = [[key, value] for key, value in details.items()]
+        return [table(headers=["Variable", "Value"], rows=rows)]
 
 
-@command
-class S3InfoCmd:
-    """Show server-wide S3 backend info: hop s3:info."""
+@register
+@dataclass(frozen=True)
+class AddonS3DumpCmd(Command):
+    """Dump an S3 addon's manifest (credentials + bucket metadata) to a file.
 
-    name = "s3:info"
+    Usage: hop3 addon s3 dump <name>
 
-    def run(self) -> None:
-        from .backend import get_default_backend  # noqa: PLC0415
+    Examples:
+        hop3 addon s3 dump mybucket
+    """
 
-        try:
-            backend = get_default_backend()
-        except (ValueError, NotImplementedError) as e:
-            echo(f"S3 backend not available: {e}")
-            return
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "dump")
 
-        echo(f"Backend: {backend.name}")
-        echo(f"Endpoint: {backend.endpoint}")
+    def call(self, *args):
+        if not args:
+            return [text("Usage: hop3 addon s3 dump <name>")]
+        addon_name = args[0]
+        with command_context(
+            "dumping addon", addon_name=addon_name, service_type=_TYPE
+        ):
+            path = get_addon(_TYPE, addon_name).backup()
+        return [
+            text(f"Dumped S3 addon '{addon_name}' manifest to {path}."),
+            summary(f"dumped addon '{addon_name}' ({_TYPE}) to {path}."),
+        ]
 
-        try:
-            buckets = backend.list_buckets()
-            hop3_buckets = [b for b in buckets if b.startswith("hop3-")]
-            echo(f"Managed buckets: {len(hop3_buckets)}")
-            for b in hop3_buckets:
-                echo(f"  - {b}")
-        except Exception as e:
-            echo(f"Could not list buckets: {e}")
+
+# Contributed to the RPC dispatch table via S3Plugin.cli_commands().
+COMMANDS: list[type[Command]] = [
+    AddonS3CredentialsCmd,
+    AddonS3DumpCmd,
+]

@@ -82,6 +82,11 @@ class S3Plugin:
         """Return S3 health check."""
         return [S3HealthCheck()]
 
+    @hookimpl
+    def cli_commands(self) -> list:
+        """Contribute `addon s3 <verb>` commands to the CLI."""
+        return cli.COMMANDS
+
 
 # Auto-register plugin instance when module is imported
 plugin = S3Plugin()
