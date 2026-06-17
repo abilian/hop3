@@ -458,12 +458,31 @@ class Deployer:
         # Default: update from PyPI
         return self._update_from_pypi()
 
+    def _feature_install_command(self, python_cmd: str) -> str:
+        """Build the installer command for the feature/redeploy path.
+
+        Forwards ``--acme-email`` so the cert *engine* is configured in
+        ``/etc/default/hop3`` (the default is self-signed — it is NOT
+        necessarily "already configured", which the old code wrongly assumed,
+        silently dropping the flag). ``--skip-acme`` is kept: cert *issuance*
+        stays on the explicit ``hop3 cert renew`` path rather than running
+        certbot on every redeploy (which would hammer Let's Encrypt limits).
+        """
+        cmd = f"{python_cmd} -u /tmp/install-server.py"
+        cmd += f" --with {','.join(self.config.with_features)}"
+        cmd += " --skip-nginx --skip-acme --skip-package-install"
+        if self.config.acme_email:
+            cmd += f" --acme-email {shlex.quote(self.config.acme_email)}"
+        cmd += " --verbose"
+        return cmd
+
     def _install_features(self) -> bool:
         """Install additional features on an existing Hop3 installation.
 
-        Re-runs the installer with --with flags, skipping steps unrelated
-        to feature installation (nginx, postgres, acme are already configured).
-        The installer is idempotent so already-installed features are skipped.
+        Re-runs the installer with --with flags, skipping steps unrelated to
+        feature installation (nginx, package install). ``--acme-email`` is
+        forwarded so the cert engine is configured; the installer is idempotent
+        so already-installed features are skipped.
         """
         if not self.config.with_features:
             return True
@@ -487,10 +506,7 @@ class Deployer:
         # reinstalls hop3-server from PyPI, clobbering whatever the
         # preceding _update() just installed (local code, specific git
         # branch, or specific PyPI version).
-        install_cmd = f"{python_cmd} -u /tmp/install-server.py"
-        install_cmd += f" --with {','.join(self.config.with_features)}"
-        install_cmd += " --skip-nginx --skip-acme --skip-package-install"
-        install_cmd += " --verbose"
+        install_cmd = self._feature_install_command(python_cmd)
 
         self.log(f"Running: {install_cmd}")
         if not self.quiet:
