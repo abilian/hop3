@@ -24,20 +24,28 @@ def setup_environment_file(config: ServerInstallerConfig | None = None) -> str:
     """
     env_file = Path("/etc/default/hop3")
     existing_secret_key = None
+    existing_acme_email = None
 
-    # Check if file already exists and has HOP3_SECRET_KEY
+    # Reuse what a prior install / the operator already set, so a redeploy
+    # doesn't rotate the secret key or silently revert certbot to self-signed.
+    # (The engine is derived from email presence below, so we only need the
+    # email back.)
     if env_file.exists():
         content = env_file.read_text()
         for line in content.splitlines():
             if line.startswith("HOP3_SECRET_KEY="):
                 existing_secret_key = line.split("=", 1)[1].strip()
-                break
+            elif line.startswith("ACME_EMAIL="):
+                existing_acme_email = line.split("=", 1)[1].strip()
 
     # Use existing or generate a new secret key
     secret_key = existing_secret_key or secrets.token_urlsafe(32)
 
-    # Determine ACME configuration based on whether email is provided
-    acme_email = config.acme_email if config and config.acme_email else ""
+    # ACME precedence: an explicit --acme-email wins; otherwise PRESERVE whatever
+    # is already configured (don't revert the operator's certbot setup on a
+    # plain redeploy). Self-signed only on a truly fresh install.
+    cli_email = config.acme_email if config and config.acme_email else ""
+    acme_email = cli_email or existing_acme_email or ""
 
     # Write the environment file
     env_content = f"""# Hop3 Server Environment Variables
@@ -93,23 +101,28 @@ def setup_systemd(config: ServerInstallerConfig | None = None) -> str:
     run_cmd(["systemctl", "enable", "hop3-server"], check=False)
     run_cmd(["systemctl", "enable", "uwsgi-hop3"], check=False)
 
-    # Start services and check for errors
+    # RESTART, not start: this step just (re)wrote the unit files and the
+    # EnvironmentFile (/etc/default/hop3, with ACME_ENGINE/secret key). On a
+    # redeploy the service is already running, so `systemctl start` is a no-op
+    # and the process keeps its STALE environment — the new ACME engine never
+    # takes effect (it silently reports success while serving the old config).
+    # `restart` starts a stopped service and reloads config on a running one.
     services_ok = True
 
-    result = run_cmd(["systemctl", "start", "hop3-server"], check=False)
+    result = run_cmd(["systemctl", "restart", "hop3-server"], check=False)
     if result.returncode != 0:
         services_ok = False
-        print_warning("Failed to start hop3-server service")
+        print_warning("Failed to restart hop3-server service")
         print_detail("Check status with: journalctl -u hop3-server -n 50")
 
-    result = run_cmd(["systemctl", "start", "uwsgi-hop3"], check=False)
+    result = run_cmd(["systemctl", "restart", "uwsgi-hop3"], check=False)
     if result.returncode != 0:
         services_ok = False
-        print_warning("Failed to start uwsgi-hop3 service")
+        print_warning("Failed to restart uwsgi-hop3 service")
         print_detail("Check status with: journalctl -u uwsgi-hop3 -n 50")
 
     if services_ok:
-        print_success("Systemd services configured and started")
+        print_success("Systemd services configured and (re)started")
     else:
         print_warning("Systemd services configured but some failed to start")
 
