@@ -952,6 +952,225 @@ class LimitsSection(BaseModel):
         return v
 
 
+# WAF (ADR 048) — Layer-7 Web Application Firewall config. Engine-independent
+# declarative surface; the platform compiles it to the engine's native form
+# (SecLang for LeWAF) at deploy time.
+
+_WAF_MODES: frozenset[str] = frozenset({"block", "detect"})
+# Ban window/duration: a positive integer with a unit suffix, e.g. "30s", "10m",
+# "1h", "24h". Kept deliberately small — no compound durations.
+_WAF_DURATION_RE = re.compile(r"^[1-9]\d*[smhd]$")
+
+
+def _check_path_regex(pattern: str) -> str:
+    """Validate one access-path pattern: a non-empty, compilable regex.
+
+    Patterns are full-matched against the canonical request path at runtime
+    (ADR 048 §2 / Security invariant 2). Here we only guarantee the pattern is
+    a valid regex so a typo fails at deploy, not at request time. ReDoS bounding
+    (invariant 8) is a runtime concern, not enforced here.
+    """
+    if not pattern or pattern != pattern.strip():
+        msg = "[waf] path pattern must be a non-empty regex without surrounding whitespace"
+        raise ValueError(msg)
+    try:
+        re.compile(pattern)
+    except re.error as e:
+        msg = f"[waf] path pattern {pattern!r} is not a valid regex: {e}"
+        raise ValueError(msg) from None
+    return pattern
+
+
+class WafGate(BaseModel):
+    """A ``[[waf.gate]]`` entry — conditional access (ADR 048 §2, use case 2).
+
+    Matching paths are reachable only when ``require`` holds. v1 supports a
+    named network (operator-defined, resolved at deploy from the DB); ``auth``
+    is reserved but rejected here until Hop3 forward-auth exists (ADR 048 §5 /
+    Security invariant — fail loud, never a silent allow).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    paths: list[str] = Field(
+        description="URL-path regexes (full-matched) this gate covers."
+    )
+    require: str = Field(
+        description="Condition: a named network (v1), or 'auth' (deferred — rejected).",
+    )
+
+    @field_validator("paths")
+    @classmethod
+    def _check_paths(cls, v: list[str]) -> list[str]:
+        if not v:
+            msg = "[[waf.gate]] needs at least one path pattern"
+            raise ValueError(msg)
+        return [_check_path_regex(p) for p in v]
+
+    @field_validator("require")
+    @classmethod
+    def _check_require(cls, v: str) -> str:
+        if v == "auth":
+            msg = (
+                "[[waf.gate]] require = 'auth' needs Hop3 forward-auth, which is "
+                "not available yet (ADR 048 §v1 scope). Use a named network."
+            )
+            raise ValueError(msg)
+        if not v or v != v.strip():
+            msg = (
+                "[[waf.gate]] require must be a named network (non-empty, no "
+                "surrounding whitespace)."
+            )
+            raise ValueError(msg)
+        return v
+
+
+class WafTuning(BaseModel):
+    """A ``[[waf.tuning]]`` entry — scoped CRS false-positive relief (ADR 048 §3).
+
+    Verb-named keys (``disable-rule-ids`` / ``skip-body-inspection``) so the
+    direction is unambiguous (never the old "exclusions"). Scoped to ``paths``;
+    omit ``paths`` for a global entry.
+    """
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    paths: list[str] | None = Field(
+        default=None,
+        description="Path regexes to scope this tuning to; omit for global.",
+    )
+    disable_rule_ids: list[int] | None = Field(
+        default=None,
+        alias="disable-rule-ids",
+        description="CRS rule IDs to turn off (within the scope).",
+    )
+    skip_body_inspection: bool = Field(
+        default=False,
+        alias="skip-body-inspection",
+        description="Don't scan request bodies (within the scope).",
+    )
+    reason: str | None = Field(
+        default=None,
+        description="Why the relief is needed — surfaced for audit.",
+    )
+
+    @field_validator("paths")
+    @classmethod
+    def _check_paths(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        if not v:
+            msg = "[[waf.tuning]] paths, if present, must be non-empty"
+            raise ValueError(msg)
+        return [_check_path_regex(p) for p in v]
+
+    @model_validator(mode="after")
+    def _check_does_something(self) -> WafTuning:
+        # A tuning entry that disables nothing is a no-op typo; reject it so a
+        # mistaken `disabled-rule-ids` key (silently dropped by alias) is caught.
+        if not self.disable_rule_ids and not self.skip_body_inspection:
+            msg = (
+                "[[waf.tuning]] must set 'disable-rule-ids' and/or "
+                "'skip-body-inspection' — an entry that relaxes nothing is a typo."
+            )
+            raise ValueError(msg)
+        return self
+
+
+class WafBans(BaseModel):
+    """The ``[waf.bans]`` table — repeat-offender throttling (ADR 048 §4)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(default=False)
+    threshold: int = Field(
+        default=5, description="Violations within the window before a ban."
+    )
+    window: str = Field(default="10m", description="Scoring window, e.g. '10m'.")
+    duration: str = Field(default="1h", description="Ban TTL, e.g. '1h', '24h'.")
+
+    @field_validator("threshold")
+    @classmethod
+    def _check_threshold(cls, v: int) -> int:
+        if v < 1:
+            msg = f"[waf.bans] threshold must be >= 1, got {v}"
+            raise ValueError(msg)
+        return v
+
+    @field_validator("window", "duration")
+    @classmethod
+    def _check_duration(cls, v: str) -> str:
+        if not _WAF_DURATION_RE.match(v):
+            msg = (
+                f"[waf.bans] duration {v!r} must be a positive integer with a unit "
+                "suffix (s/m/h/d), e.g. '30s', '10m', '1h', '24h'."
+            )
+            raise ValueError(msg)
+        return v
+
+
+class WafSection(BaseModel):
+    """The ``[waf]`` section — per-app Layer-7 WAF policy (ADR 048).
+
+    Two access constructs (ADR 048 §2): ``allow`` (a positive allowlist that, when
+    present, denies everything else — use case 1) and ``[[waf.gate]]`` (conditional
+    access — use case 2). ``[[waf.tuning]]`` relaxes CRS false positives; ``[waf.bans]``
+    throttles repeat offenders. Off by default (``enabled = false``).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(default=False)
+    mode: str = Field(default="block", description="'block' or 'detect' (log-only).")
+    ruleset: str = Field(default="owasp-crs", description="CRS baseline ruleset.")
+    paranoia: int = Field(default=1, description="CRS paranoia level, 1-4.")
+    allow: list[str] | None = Field(
+        default=None,
+        description=(
+            "Positive model: URL-path regexes the app serves. If present, any "
+            "path matching none of these (and no satisfied gate) is denied."
+        ),
+    )
+    gate: list[WafGate] | None = Field(
+        default=None, description="Conditional-access rules ([[waf.gate]])."
+    )
+    tuning: list[WafTuning] | None = Field(
+        default=None, description="CRS false-positive relief ([[waf.tuning]])."
+    )
+    bans: WafBans | None = Field(default=None, description="Ban policy ([waf.bans]).")
+
+    @field_validator("mode")
+    @classmethod
+    def _check_mode(cls, v: str) -> str:
+        if v not in _WAF_MODES:
+            msg = f"[waf] mode {v!r} must be one of: {', '.join(sorted(_WAF_MODES))}"
+            raise ValueError(msg)
+        return v
+
+    @field_validator("paranoia")
+    @classmethod
+    def _check_paranoia(cls, v: int) -> int:
+        if not 1 <= v <= 4:
+            msg = f"[waf] paranoia must be between 1 and 4, got {v}"
+            raise ValueError(msg)
+        return v
+
+    @field_validator("allow")
+    @classmethod
+    def _check_allow(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        if not v:
+            # An empty `allow` would deny *everything* — almost certainly a
+            # mistake. Omit the key to disable the positive model instead.
+            msg = (
+                "[waf] allow, if present, must be non-empty — it enables "
+                "default-deny. Remove the key to serve all paths."
+            )
+            raise ValueError(msg)
+        return [_check_path_regex(p) for p in v]
+
+
 class Hop3TomlSchema(BaseModel):
     """Complete hop3.toml schema with validation.
 
@@ -1041,6 +1260,14 @@ class Hop3TomlSchema(BaseModel):
             "Per-app resource caps (ADR 046 §3): memory / cpu / processes. "
             "Enforced for Docker apps; declaring them on a non-Docker app fails "
             "loud until cgroup enforcement lands."
+        ),
+    )
+    waf: WafSection | None = Field(
+        default=None,
+        description=(
+            "Layer-7 Web Application Firewall policy (ADR 048): positive "
+            "allowlist / conditional gates, CRS tuning, and bans. Off unless "
+            "[waf].enabled = true."
         ),
     )
     provider: list[AddonConfig] | None = Field(

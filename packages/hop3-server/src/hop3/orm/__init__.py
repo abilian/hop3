@@ -9,12 +9,14 @@ from .addon_credential import AddonCredential
 from .app import App, AppStateEnum
 from .backup import Backup, BackupStateEnum
 from .env import EnvVar
+from .network import Network
 from .port_claim import PortClaim
 from .repositories import (
     AddonCredentialRepository,
     AppRepository,
     BackupRepository,
     EnvVarRepository,
+    NetworkRepository,
     PortClaimRepository,
     RevokedTokenRepository,
     RoleRepository,
@@ -35,6 +37,8 @@ __all__ = [
     "BackupStateEnum",
     "EnvVar",
     "EnvVarRepository",
+    "Network",
+    "NetworkRepository",
     "PortClaim",
     "PortClaimRepository",
     "RevokedToken",

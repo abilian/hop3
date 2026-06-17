@@ -649,6 +649,20 @@ class Hop3Config:
         return {k: v for k, v in raw.items() if v is not None}
 
     @property
+    def waf(self) -> dict[str, Any]:
+        """Get the [waf] section — Layer-7 WAF policy (ADR 048).
+
+        Returns the raw ``[waf]`` table (``enabled`` / ``mode`` / ``allow`` /
+        ``gate`` / ``tuning`` / ``bans`` …); empty when no WAF is declared. The
+        schema (:class:`WafSection`) validates shape at load time; the deploy-time
+        compiler turns this into the engine's native config.
+        """
+        raw = self._data.get("waf", {})
+        if not isinstance(raw, dict):
+            return {}
+        return raw
+
+    @property
     def context_names(self) -> list[str]:
         """Declared context names, in TOML declaration order. Empty when none.
 

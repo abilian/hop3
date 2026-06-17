@@ -35,6 +35,7 @@ from .addon_credential import AddonCredential
 from .app import App, AppStateEnum
 from .backup import Backup
 from .env import EnvVar
+from .network import Network
 from .port_claim import PortClaim
 from .revoked_token import RevokedToken
 from .security import Role, User
@@ -431,3 +432,13 @@ class PortClaimRepository(BaseRepository[PortClaim]):
     def get_by_app_id(self, app_id: int) -> list[PortClaim]:
         """Return all port claims held by an app."""
         return list(self.get_many(app_id=app_id))
+
+
+class NetworkRepository(BaseRepository[Network]):
+    """Repository for operator-defined named networks (WAF gates, ADR 048)."""
+
+    model_type = Network
+
+    def get_by_name(self, name: str) -> Network | None:
+        """Return the network named ``name``, or None if undefined."""
+        return self.get_one_or_none(name=name)
