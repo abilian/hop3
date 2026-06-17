@@ -5,12 +5,45 @@
 from __future__ import annotations
 
 import secrets
+import shutil
+import subprocess
 from pathlib import Path
 
 from hop3_installer.common import print_detail, print_success, print_warning, run_cmd
 from hop3_installer.nginx_templates import SYSTEMD_UNIT, UWSGI_UNIT
 
 from .config import ServerInstallerConfig
+
+# ADR 048: canonical home for the JWT signing key — a secrets-tier file,
+# 0640 root:hop3, read by both the hop3-server process and the su-hop3 CLI.
+SECRET_KEY_FILE = Path("/etc/hop3/secret-key")
+
+
+def _read_secret_key_file() -> str | None:
+    """The signing key already persisted to the canonical file, or None."""
+    try:
+        return SECRET_KEY_FILE.read_text().strip() or None
+    except OSError:
+        return None
+
+
+def _write_secret_key_file(secret_key: str) -> None:
+    """Persist the signing key to /etc/hop3/secret-key, 0640 root:hop3.
+
+    This is the single source the running service and the su-hop3 CLI both read
+    (ADR 048). Mirrors the redis-pass writer: chown is best-effort (the hop3
+    group exists by the time systemd setup runs, but stay non-fatal).
+    """
+    SECRET_KEY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    SECRET_KEY_FILE.write_text(secret_key + "\n")
+    SECRET_KEY_FILE.chmod(0o640)
+    chown = shutil.which("chown")
+    if chown:
+        subprocess.run(
+            [chown, "root:hop3", str(SECRET_KEY_FILE)],
+            check=False,
+            capture_output=True,
+        )
 
 
 def setup_environment_file(config: ServerInstallerConfig | None = None) -> str:
@@ -38,8 +71,19 @@ def setup_environment_file(config: ServerInstallerConfig | None = None) -> str:
             elif line.startswith("ACME_EMAIL="):
                 existing_acme_email = line.split("=", 1)[1].strip()
 
-    # Use existing or generate a new secret key
-    secret_key = existing_secret_key or secrets.token_urlsafe(32)
+    # Reuse precedence (ADR 048 §migration): the canonical file if present,
+    # else the value the running service currently uses (/etc/default/hop3),
+    # else generate. Never rotate an existing key.
+    secret_key = (
+        _read_secret_key_file() or existing_secret_key or secrets.token_urlsafe(32)
+    )
+
+    # Persist to the canonical secrets-tier file — the single source the service
+    # and the su-hop3 CLI both read. The HOP3_SECRET_KEY line in /etc/default/hop3
+    # (written below) and the copy in hop3-server.toml remain as transitional
+    # legacy fallbacks; because the reader prefers this file, the three cannot
+    # diverge in effect, so the old desync-→-401 failure mode is closed.
+    _write_secret_key_file(secret_key)
 
     # ACME precedence: an explicit --acme-email wins; otherwise PRESERVE whatever
     # is already configured (don't revert the operator's certbot setup on a

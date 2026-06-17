@@ -12,9 +12,17 @@ from __future__ import annotations
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 import jwt
+
+# ADR 048: the JWT signing key's canonical home is a secrets-tier file,
+# root:hop3 0640, read identically by the running service AND the su-hop3 CLI.
+# Making it the highest-precedence source ends the legacy split where the
+# service read the key from the environment while the CLI read it from
+# hop3-server.toml (a partial install could desync the two → silent 401s).
+SECRET_KEY_FILE = Path("/etc/hop3/secret-key")
 
 
 def _get_config():
@@ -22,6 +30,18 @@ def _get_config():
     from hop3 import config as c  # noqa: PLC0415
 
     return c
+
+
+def _read_secret_key_file() -> str | None:
+    """Return the signing key from the canonical secrets file, or None.
+
+    Any IO error — absent file (legacy install, dev/CI host), no permission —
+    yields None so the environment / hop3-server.toml fallbacks still apply.
+    """
+    try:
+        return SECRET_KEY_FILE.read_text(encoding="utf-8").strip() or None
+    except OSError:
+        return None
 
 
 # Valid scopes that can be assigned to general-purpose tokens.
@@ -39,19 +59,26 @@ MAGIC_LINK_EXPIRY_MINUTES = 5
 def get_secret_key() -> str:
     """Get the secret key for token signing.
 
-    Checks environment variable first (for tests and overrides),
-    then falls back to config file.
+    Resolution order (ADR 048): the canonical ``/etc/hop3/secret-key`` file
+    first, then the ``HOP3_SECRET_KEY`` environment variable (tests, overrides,
+    legacy installs), then ``hop3-server.toml`` (legacy fallback).
 
     Returns:
-        The secret key from config or environment
+        The secret key.
 
     Raises:
-        ValueError: If no secret key is configured
+        ValueError: If no secret key is configured in any source.
     """
-    # Check environment first (for tests and dynamic overrides)
-    secret = os.environ.get("HOP3_SECRET_KEY")
+    # 1. Canonical secrets-tier file (ADR 048): one source read by both the
+    #    running service and the su-hop3 CLI.
+    secret = _read_secret_key_file()
 
-    # Fall back to config file
+    # 2. Environment: tests, explicit overrides, and legacy installs that still
+    #    inject HOP3_SECRET_KEY via /etc/default/hop3.
+    if not secret:
+        secret = os.environ.get("HOP3_SECRET_KEY")
+
+    # 3. Legacy fallback: hop3-server.toml (pre-ADR-048 installs wrote it there).
     if not secret:
         c = _get_config()
         secret = c.HOP3_SECRET_KEY
