@@ -6,13 +6,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from hop3_testing.catalog.models import TargetType
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from hop3_testing.catalog.models import TestDefinition
     from hop3_testing.catalog.scanner import Catalog
 
@@ -143,8 +144,7 @@ def _tag_cells(test: TestDefinition) -> set[str]:
     if test.metadata.spec:
         cells.add(f"spec:{test.metadata.spec}")
     cells.add(f"category:{test.runner_type}")
-    for svc in test.requirements.services:
-        cells.add(f"addon:{svc}")
+    cells.update(f"addon:{svc}" for svc in test.requirements.services)
     return cells
 
 

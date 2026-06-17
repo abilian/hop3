@@ -75,8 +75,12 @@ def _mk(
 
 
 def test_tag_cells_captures_all_axes():
-    t = _mk("apps/real-apps-native/app1", builder="native", toolchain="python",
-            services=("mysql", "redis"))
+    t = _mk(
+        "apps/real-apps-native/app1",
+        builder="native",
+        toolchain="python",
+        services=("mysql", "redis"),
+    )
     cells = _tag_cells(t)
     assert "builder:native" in cells
     assert "toolchain:python" in cells
@@ -115,10 +119,18 @@ def test_combo_cells_identical_when_same_tuple():
 def _tag_matrix() -> list[TestDefinition]:
     """A matrix where two tests cover all tags, the third adds nothing new."""
     return [
-        _mk("apps/native/py-pg", builder="native", toolchain="python",
-            services=("postgres",)),
-        _mk("apps/native/go-pg", builder="native", toolchain="go",
-            services=("postgres",)),
+        _mk(
+            "apps/native/py-pg",
+            builder="native",
+            toolchain="python",
+            services=("postgres",),
+        ),
+        _mk(
+            "apps/native/go-pg",
+            builder="native",
+            toolchain="go",
+            services=("postgres",),
+        ),
         _mk("apps/native/py-x", builder="native", toolchain="python"),
     ]
 
@@ -191,8 +203,12 @@ def test_reduction_is_deterministic():
 
 
 def test_combo_reduction_is_deterministic():
-    a = [t.name for t in reduce_to_representatives(_combo_matrix(), cell_fn=_combo_cells)]
-    b = [t.name for t in reduce_to_representatives(_combo_matrix(), cell_fn=_combo_cells)]
+    a = [
+        t.name for t in reduce_to_representatives(_combo_matrix(), cell_fn=_combo_cells)
+    ]
+    b = [
+        t.name for t in reduce_to_representatives(_combo_matrix(), cell_fn=_combo_cells)
+    ]
     assert a == b
 
 

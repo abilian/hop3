@@ -20,8 +20,15 @@ from hop3_testlab.catalog import (
 def test_mode_counts_cover_the_ladder():
     counts = mode_counts()
     # The seven built-in profiles all get a count, ordered smallest → largest.
-    for name in ("smoke", "ci", "curated", "tag-coverage", "combo-coverage",
-                 "nightly", "full"):
+    for name in (
+        "smoke",
+        "ci",
+        "curated",
+        "tag-coverage",
+        "combo-coverage",
+        "nightly",
+        "full",
+    ):
         assert counts.get(name, 0) > 0
     assert counts["smoke"] <= counts["ci"] <= counts["full"]
 

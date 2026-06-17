@@ -353,7 +353,9 @@ def generate_test_definition_from_app(
         deployment=deployment_config,
         demo=demo_config,
         description=description,
-        metadata=TestMetadata(covers=covers, builder=builder, toolchain=toolchain, spec=spec),
+        metadata=TestMetadata(
+            covers=covers, builder=builder, toolchain=toolchain, spec=spec
+        ),
         source_path=app_path / "test.toml",  # Virtual path
     )
 
