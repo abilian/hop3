@@ -64,6 +64,7 @@ dev = [
 
 [project.scripts]
 hop3-server = "hop3.server.cli:main"
+hop3-catalog = "hop3.server.catalog.publish:main"
 
 # ----------------------------------------
 
