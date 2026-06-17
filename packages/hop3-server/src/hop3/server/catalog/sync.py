@@ -199,6 +199,7 @@ def install_catalog_tarball(
     # Staging lives next to CATALOG_ROOT (same filesystem → atomic rename) and is
     # never under a web-served path. 0700 so a co-tenant can't read/tamper.
     staging = Path(tempfile.mkdtemp(prefix=".catalog-staging-", dir=parent))
+    published = False  # set once _publish has consumed staging (renamed or discarded)
     try:
         extract_verified_tarball(
             tarball_path,
@@ -223,12 +224,12 @@ def install_catalog_tarball(
                 raise CatalogSyncError(msg)
 
             _publish(staging, catalog_root, serial)
-            staging = None  # consumed by _publish (renamed or discarded)
+            published = True
             write_high_water_mark(state_root, serial)
             _gc_old_versions(parent, catalog_root=catalog_root, keep_serial=serial)
         return serial
     finally:
-        if staging is not None and staging.exists():
+        if not published and staging.exists():
             _rmtree(staging)
 
 

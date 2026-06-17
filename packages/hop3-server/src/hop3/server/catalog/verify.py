@@ -302,6 +302,6 @@ def _decode_last_b64_line(text: str, what: str) -> bytes:
 def _b64decode(line: str, what: str) -> bytes:
     try:
         return base64.b64decode(line.strip(), validate=True)
-    except (ValueError, base64.binascii.Error) as e:
+    except ValueError as e:  # binascii.Error (invalid base64) subclasses ValueError
         msg = f"Invalid base64 in minisign {what}"
         raise CatalogVerificationError(msg) from e
