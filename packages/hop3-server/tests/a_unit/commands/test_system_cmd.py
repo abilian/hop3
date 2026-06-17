@@ -254,6 +254,48 @@ def test_info_returns_facts_only():
     assert "Hostname:" in blob
 
 
+def test_info_reports_server_uptime_db_and_tls_engine():
+    """Audit facts beyond the host: server-process uptime, DB backend, TLS engine."""
+    blob = InfoCmd().call()[0]["text"]
+    # Host vs server uptime are distinct lines (server resets on restart).
+    assert "Host uptime:" in blob
+    assert "Server uptime:" in blob
+    # Control-plane backend and the TLS engine actually in effect.
+    assert "Database:" in blob
+    assert "TLS engine:" in blob
+    assert "Features:" in blob
+
+
+def test_info_features_lists_installed_addons(tmp_path, monkeypatch):
+    """`Features` is derived from the installer footprint: addon creds in
+    hop3-server.toml mark postgres/mysql as installed."""
+    (tmp_path / "hop3-server.toml").write_text(
+        'POSTGRES_SUPERUSER_PASSWORD = "x"\nMYSQL_SUPERUSER_PASSWORD = "y"\n'
+    )
+    monkeypatch.setattr(sysmod, "HOP3_ROOT", tmp_path)
+
+    features = sysmod._installed_features()
+    assert "postgres" in features
+    assert "mysql" in features
+
+
+def test_info_features_none_without_addons(tmp_path, monkeypatch):
+    (tmp_path / "hop3-server.toml").write_text('HOP3_SECRET_KEY = "x"\n')
+    monkeypatch.setattr(sysmod, "HOP3_ROOT", tmp_path)
+    # No postgres/mysql creds → neither reported (redis/s3/nix depend on the host).
+    features = sysmod._installed_features()
+    assert "postgres" not in features
+    assert "mysql" not in features
+
+
+def test_database_backend_reports_scheme_not_credentials(monkeypatch):
+    # Never leak a Postgres password into `system info` — scheme only.
+    monkeypatch.setenv("HOP3_DATABASE_URI", "postgresql://u:secret@host/db")
+    assert sysmod._database_backend() == "postgresql"
+    monkeypatch.delenv("HOP3_DATABASE_URI", raising=False)
+    assert sysmod._database_backend() == "sqlite"
+
+
 def test_info_verbose_lists_plugins():
     cmd = InfoCmd()
     result = cmd.call("-v")

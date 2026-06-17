@@ -26,13 +26,21 @@ from sqlalchemy import create_engine, inspect
 
 from hop3.orm import get_session_factory, reset_session_factory_cache
 from hop3.orm.app import App
-from hop3.server.cli.db import DbUpgradeCmd
+from hop3.server.cli.db import (
+    DbUpgradeCmd,
+    _alembic_config,
+    _orphan_db_revision,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 HEAD_REVISION = "b5e2a1c7d3f8"  # add_app_limits_enforced (ADR 046 P2.2)
 BASE_REVISION = "d20dd80dafca"
+# A revision no branch in this tree ships — what a feature-branch DB looks like
+# once that branch is gone (incident: hop3-dev was stamped at one of these
+# after a feat/addons deploy, then a devel deploy couldn't locate it).
+ORPHAN_REVISION = "c7d4e8f1a2b9"
 
 
 @pytest.fixture
@@ -67,6 +75,29 @@ def _create_all_unstamped(uri: str) -> None:
     engine = create_engine(uri)
     App.metadata.create_all(engine)
     engine.dispose()
+
+
+def _stamp_raw(uri: str, revision: str) -> None:
+    """Write ``alembic_version`` directly — even to a revision no script ships.
+
+    ``command.stamp`` validates the revision against the script directory, so it
+    can't reproduce an *orphan* stamp; a feature branch's migration leaves the
+    table pointing at a revision that vanishes when the branch does.
+    """
+    engine = create_engine(uri)
+    try:
+        with engine.begin() as conn:
+            conn.exec_driver_sql(
+                "CREATE TABLE IF NOT EXISTS alembic_version "
+                "(version_num VARCHAR(32) NOT NULL)"
+            )
+            conn.exec_driver_sql("DELETE FROM alembic_version")
+            conn.exec_driver_sql(
+                "INSERT INTO alembic_version (version_num) VALUES (:r)",
+                {"r": revision},
+            )
+    finally:
+        engine.dispose()
 
 
 # ---- the incident: unstamped create_all DB -------------------------------
@@ -137,6 +168,41 @@ def test_upgrade_fills_missing_column_on_behind_head_db(temp_db: str) -> None:
     assert "runtime" in cols  # the genuinely-missing delta was applied
     assert "error_message" in cols  # the present delta was skipped, not dup'd
     assert _current_revision(temp_db) == HEAD_REVISION
+
+
+# ---- orphan revision: DB migrated by a different codebase ----------------
+
+
+def test_orphan_revision_is_detected(temp_db: str) -> None:
+    """A DB stamped at a revision this tree lacks is reported as orphan; a known
+    revision (or an unstamped DB) is not."""
+    _create_all_unstamped(temp_db)
+    _stamp_raw(temp_db, ORPHAN_REVISION)
+    cfg = _alembic_config()
+
+    assert _orphan_db_revision(cfg) == ORPHAN_REVISION
+
+    _stamp_raw(temp_db, HEAD_REVISION)
+    assert _orphan_db_revision(cfg) is None
+
+
+def test_upgrade_on_orphan_revision_fails_loud_and_leaves_db_untouched(
+    temp_db: str, capsys
+) -> None:
+    """The incident: deploying a codebase that lacks the DB's revision must
+    abort with an actionable hint — and must NOT silently re-stamp the DB."""
+    _create_all_unstamped(temp_db)
+    _stamp_raw(temp_db, ORPHAN_REVISION)
+
+    with pytest.raises(SystemExit) as exc:
+        DbUpgradeCmd().run()
+    assert exc.value.code == 1
+
+    stderr = capsys.readouterr().err
+    assert ORPHAN_REVISION in stderr
+    assert "db:stamp head" in stderr
+    # No auto-recovery: the stamp is exactly as we left it.
+    assert _current_revision(temp_db) == ORPHAN_REVISION
 
 
 # ---- session bootstrap: fresh DBs are born stamped -----------------------
