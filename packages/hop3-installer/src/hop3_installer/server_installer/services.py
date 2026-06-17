@@ -5,12 +5,45 @@
 from __future__ import annotations
 
 import secrets
+import shutil
+import subprocess
 from pathlib import Path
 
 from hop3_installer.common import print_detail, print_success, print_warning, run_cmd
 from hop3_installer.nginx_templates import SYSTEMD_UNIT, UWSGI_UNIT
 
 from .config import ServerInstallerConfig
+
+# ADR 048: canonical home for the JWT signing key — a secrets-tier file,
+# 0640 root:hop3, read by both the hop3-server process and the su-hop3 CLI.
+SECRET_KEY_FILE = Path("/etc/hop3/secret-key")
+
+
+def _read_secret_key_file() -> str | None:
+    """The signing key already persisted to the canonical file, or None."""
+    try:
+        return SECRET_KEY_FILE.read_text().strip() or None
+    except OSError:
+        return None
+
+
+def _write_secret_key_file(secret_key: str) -> None:
+    """Persist the signing key to /etc/hop3/secret-key, 0640 root:hop3.
+
+    This is the single source the running service and the su-hop3 CLI both read
+    (ADR 048). Mirrors the redis-pass writer: chown is best-effort (the hop3
+    group exists by the time systemd setup runs, but stay non-fatal).
+    """
+    SECRET_KEY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    SECRET_KEY_FILE.write_text(secret_key + "\n")
+    SECRET_KEY_FILE.chmod(0o640)
+    chown = shutil.which("chown")
+    if chown:
+        subprocess.run(
+            [chown, "root:hop3", str(SECRET_KEY_FILE)],
+            check=False,
+            capture_output=True,
+        )
 
 
 def setup_environment_file(config: ServerInstallerConfig | None = None) -> str:
@@ -24,20 +57,39 @@ def setup_environment_file(config: ServerInstallerConfig | None = None) -> str:
     """
     env_file = Path("/etc/default/hop3")
     existing_secret_key = None
+    existing_acme_email = None
 
-    # Check if file already exists and has HOP3_SECRET_KEY
+    # Reuse what a prior install / the operator already set, so a redeploy
+    # doesn't rotate the secret key or silently revert certbot to self-signed.
+    # (The engine is derived from email presence below, so we only need the
+    # email back.)
     if env_file.exists():
         content = env_file.read_text()
         for line in content.splitlines():
             if line.startswith("HOP3_SECRET_KEY="):
                 existing_secret_key = line.split("=", 1)[1].strip()
-                break
+            elif line.startswith("ACME_EMAIL="):
+                existing_acme_email = line.split("=", 1)[1].strip()
 
-    # Use existing or generate a new secret key
-    secret_key = existing_secret_key or secrets.token_urlsafe(32)
+    # Reuse precedence (ADR 048 §migration): the canonical file if present,
+    # else the value the running service currently uses (/etc/default/hop3),
+    # else generate. Never rotate an existing key.
+    secret_key = (
+        _read_secret_key_file() or existing_secret_key or secrets.token_urlsafe(32)
+    )
 
-    # Determine ACME configuration based on whether email is provided
-    acme_email = config.acme_email if config and config.acme_email else ""
+    # Persist to the canonical secrets-tier file — the single source the service
+    # and the su-hop3 CLI both read. The HOP3_SECRET_KEY line in /etc/default/hop3
+    # (written below) and the copy in hop3-server.toml remain as transitional
+    # legacy fallbacks; because the reader prefers this file, the three cannot
+    # diverge in effect, so the old desync-→-401 failure mode is closed.
+    _write_secret_key_file(secret_key)
+
+    # ACME precedence: an explicit --acme-email wins; otherwise PRESERVE whatever
+    # is already configured (don't revert the operator's certbot setup on a
+    # plain redeploy). Self-signed only on a truly fresh install.
+    cli_email = config.acme_email if config and config.acme_email else ""
+    acme_email = cli_email or existing_acme_email or ""
 
     # Write the environment file
     env_content = f"""# Hop3 Server Environment Variables
@@ -93,23 +145,28 @@ def setup_systemd(config: ServerInstallerConfig | None = None) -> str:
     run_cmd(["systemctl", "enable", "hop3-server"], check=False)
     run_cmd(["systemctl", "enable", "uwsgi-hop3"], check=False)
 
-    # Start services and check for errors
+    # RESTART, not start: this step just (re)wrote the unit files and the
+    # EnvironmentFile (/etc/default/hop3, with ACME_ENGINE/secret key). On a
+    # redeploy the service is already running, so `systemctl start` is a no-op
+    # and the process keeps its STALE environment — the new ACME engine never
+    # takes effect (it silently reports success while serving the old config).
+    # `restart` starts a stopped service and reloads config on a running one.
     services_ok = True
 
-    result = run_cmd(["systemctl", "start", "hop3-server"], check=False)
+    result = run_cmd(["systemctl", "restart", "hop3-server"], check=False)
     if result.returncode != 0:
         services_ok = False
-        print_warning("Failed to start hop3-server service")
+        print_warning("Failed to restart hop3-server service")
         print_detail("Check status with: journalctl -u hop3-server -n 50")
 
-    result = run_cmd(["systemctl", "start", "uwsgi-hop3"], check=False)
+    result = run_cmd(["systemctl", "restart", "uwsgi-hop3"], check=False)
     if result.returncode != 0:
         services_ok = False
-        print_warning("Failed to start uwsgi-hop3 service")
+        print_warning("Failed to restart uwsgi-hop3 service")
         print_detail("Check status with: journalctl -u uwsgi-hop3 -n 50")
 
     if services_ok:
-        print_success("Systemd services configured and started")
+        print_success("Systemd services configured and (re)started")
     else:
         print_warning("Systemd services configured but some failed to start")
 

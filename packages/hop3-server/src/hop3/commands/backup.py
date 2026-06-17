@@ -429,7 +429,7 @@ class BackupRegisterCmd(Command):
 @register
 @dataclass(frozen=True)
 class BackupDestroyCmd(Command):
-    """Delete a backup.
+    """Destroy a backup.
 
     WARNING: This action cannot be undone!
 
@@ -446,7 +446,7 @@ class BackupDestroyCmd(Command):
     destructive: ClassVar[bool] = True
 
     def call(self, *args):
-        """Delete a backup."""
+        """Destroy a backup."""
         if len(args) < 1:
             return [
                 text(

@@ -61,6 +61,18 @@ class VersionCmd(Command):
 
 @register
 @dataclass(frozen=True)
+class PluginCmd(Command):
+    """Manage plugins.
+
+    Examples:
+        hop3 plugin list               # List installed plugins
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("plugin",)
+
+
+@register
+@dataclass(frozen=True)
 class PluginsCmd(Command):
     """List installed plugins and their commands.
 
@@ -101,7 +113,7 @@ class PluginsCmd(Command):
 @register
 @dataclass(frozen=True)
 class PSCmd(Command):
-    """Show process count for an app.
+    """Show process count for an application.
 
     Examples:
         hop3 ps myapp                  # Show processes for myapp
@@ -189,7 +201,7 @@ class PsScaleCmd(Command):
 @register
 @dataclass(frozen=True)
 class RunCmd(Command):
-    """Run a one-off command in the context of an app.
+    """Run a one-off command in the context of an application.
 
     Usage: hop3 app run [<app>] <command> [args...] [--input <data>]
 
@@ -316,7 +328,7 @@ class RunCmd(Command):
 @register
 @dataclass(frozen=True)
 class SbomCmd(Command):
-    """Generate a Software Bill of Materials (SBOM) for an app.
+    """Generate a Software Bill of Materials (SBOM) for an application.
 
     Examples:
         hop3 app sbom myapp            # Generate an SBOM for myapp
