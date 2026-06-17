@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 
@@ -11,6 +12,9 @@ import markdown
 import tomllib
 
 from .models import CatalogApp
+from .policy import CatalogSpecError, validate_catalog_spec
+
+logger = logging.getLogger(__name__)
 
 # Markdown converter instance
 _md = markdown.Markdown(extensions=["extra", "toc"])
@@ -33,6 +37,10 @@ def load_app(app_dir: Path) -> CatalogApp | None:
         return None
 
     metadata = data.get("metadata", {})
+    # Coexistence gate (ADR 049 F7): refuse a spec that would hijack shared proxy
+    # routing. Raised here, handled (excluded + logged loudly) by the callers.
+    validate_catalog_spec(data, metadata.get("id", app_dir.name))
+
     resources = data.get("resources", {})
     port_config = data.get("port", {})
     integration = data.get("integration", {})
@@ -75,14 +83,21 @@ def load_app(app_dir: Path) -> CatalogApp | None:
     return app
 
 
+def _attach_icon(app: CatalogApp, app_dir: Path) -> None:
+    """Set the catalog icon URL if the app ships an icon file."""
+    icon_path = app_dir / "icon.webp"
+    if not icon_path.exists():
+        icon_path = app_dir / "icon.png"
+    if icon_path.exists():
+        app.icon_url = f"/dashboard/catalog/icons/{app.id}"
+
+
 def load_apps(apps_dir: Path) -> list[CatalogApp]:
-    """Load all apps from the apps directory.
+    """Load all apps by scanning ``apps_dir`` (dev/local fallback).
 
-    Args:
-        apps_dir: Directory containing app subdirectories with hop3.toml files
-
-    Returns:
-        List of CatalogApp objects
+    Production loads via :func:`load_apps_from_index` so only the signed,
+    verified file set is executed (ADR 049 F1). This unsigned scan is the
+    fallback for a local checkout that has no ``index.json``.
     """
     apps: list[CatalogApp] = []
 
@@ -95,15 +110,42 @@ def load_apps(apps_dir: Path) -> list[CatalogApp]:
         if app_dir.name.startswith("."):
             continue
 
-        app = load_app(app_dir)
+        try:
+            app = load_app(app_dir)
+        except CatalogSpecError:
+            logger.exception("Excluding catalog app %r from the catalog", app_dir.name)
+            continue
         if app:
-            # Check for icon in app directory
-            icon_path = app_dir / "icon.webp"
-            if not icon_path.exists():
-                icon_path = app_dir / "icon.png"
-            if icon_path.exists():
-                # Icon served via catalog controller
-                app.icon_url = f"/dashboard/catalog/icons/{app.id}"
+            _attach_icon(app, app_dir)
             apps.append(app)
 
+    return apps
+
+
+def load_apps_from_index(apps_dir: Path, index: dict) -> list[CatalogApp]:
+    """Load only the app directories named in the (verified) ``index.json``.
+
+    Drives off the signed index rather than ``iterdir()`` so a stray/leftover
+    directory on disk can never be loaded or installed (ADR 049 F1).
+    """
+    seen: set[str] = set()
+    app_dirs: list[str] = []
+    for app in index.get("apps", []):
+        for entry in app.get("files", []):
+            top = entry["path"].split("/", 1)[0]
+            if top and top not in seen:
+                seen.add(top)
+                app_dirs.append(top)
+
+    apps: list[CatalogApp] = []
+    for name in app_dirs:
+        app_dir = apps_dir / name
+        try:
+            app = load_app(app_dir)
+        except CatalogSpecError:
+            logger.exception("Excluding catalog app %r from the catalog", name)
+            continue
+        if app:
+            _attach_icon(app, app_dir)
+            apps.append(app)
     return apps
