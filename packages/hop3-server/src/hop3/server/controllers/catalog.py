@@ -25,6 +25,7 @@ from litestar.response import File, Redirect, Template
 
 from hop3.orm import App, AppRepository, EnvVar
 from hop3.server.catalog import CatalogService
+from hop3.server.catalog.loader import find_icon
 from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
 
@@ -96,6 +97,7 @@ class CatalogController(Controller):
         service = CatalogService.get_instance()
 
         ctx = {
+            "catalog_available": service.is_available(),
             "featured_apps": service.get_featured_apps(),
             "categories": service.list_categories(),
             "total_apps": len(service.list_apps()),
@@ -111,31 +113,31 @@ class CatalogController(Controller):
     # public by design. See notes/security.md §3.6.1.
     @get("/icons/{app_id:str}", status_code=200, sync_to_thread=False, guards=[])
     def catalog_icon(self, app_id: FromPath[str]) -> File | Redirect:
-        """Serve app icon from the catalog directory.
+        """Serve a catalog app's icon (raster only; never SVG — ADR 049 F6).
 
-        Icons are stored in each app's directory as icon.webp or icon.png.
+        The icon is resolved from the *verified* app's own source directory via
+        ``find_icon``, never by joining the URL ``app_id`` onto a path, so a
+        crafted id cannot traverse the filesystem or serve an SVG XSS payload.
         """
         service = CatalogService.get_instance()
-        apps_dir = service.apps_dir
-
-        if not apps_dir:
+        app = service.get_app(app_id)
+        if app is None:
             return Redirect(path="/static/favicon.png")
 
-        # Check for icon files
-        for ext in ["webp", "png", "svg", "jpg", "jpeg"]:
-            icon_path = apps_dir / app_id / f"icon.{ext}"
-            if icon_path.exists():
-                media_type = {
-                    "webp": "image/webp",
-                    "png": "image/png",
-                    "svg": "image/svg+xml",
-                    "jpg": "image/jpeg",
-                    "jpeg": "image/jpeg",
-                }.get(ext, "image/png")
-                return File(path=icon_path, media_type=media_type)
+        icon_path = find_icon(app)
+        if icon_path is None:
+            return Redirect(path="/static/favicon.png")
 
-        # Fallback to default favicon
-        return Redirect(path="/static/favicon.png")
+        suffix = icon_path.suffix.lower()
+        media_type = {".webp": "image/webp", ".png": "image/png"}.get(
+            suffix, "image/jpeg"
+        )
+        # nosniff so a mislabeled file can't be reinterpreted as active content.
+        return File(
+            path=icon_path,
+            media_type=media_type,
+            headers={"X-Content-Type-Options": "nosniff"},
+        )
 
     # -------------------------------------------------------------------------
     # All Apps Listing
@@ -213,9 +215,7 @@ class CatalogController(Controller):
             "categories": service.list_categories(),
         }
 
-        return Template(
-            template_name="dashboard/catalog/category.html", context=ctx
-        )
+        return Template(template_name="dashboard/catalog/category.html", context=ctx)
 
     # -------------------------------------------------------------------------
     # App Installation
