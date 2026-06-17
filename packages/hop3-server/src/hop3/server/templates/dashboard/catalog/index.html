@@ -10,7 +10,9 @@
             <h1 class="text-2xl font-semibold leading-6 text-gray-900">App Catalog</h1>
             <p class="mt-2 text-sm text-gray-700">
                 Browse and deploy pre-configured applications with one click.
+                {% if catalog_available %}
                 <span class="text-gray-500">{{ total_apps }} apps available.</span>
+                {% endif %}
             </p>
         </div>
         <div class="mt-4 sm:mt-0">
@@ -20,6 +22,16 @@
             </a>
         </div>
     </div>
+
+    {% if not catalog_available %}
+    <div class="mt-6 rounded-md bg-yellow-50 p-4 ring-1 ring-yellow-200">
+        <p class="text-sm font-medium text-yellow-800">Catalog not available</p>
+        <p class="mt-1 text-sm text-yellow-700">
+            No catalog has been synced to this server yet. Run a catalog sync to
+            populate it; until then there are no apps to browse or install.
+        </p>
+    </div>
+    {% endif %}
 
     <!-- Featured Apps -->
     {% if featured_apps %}

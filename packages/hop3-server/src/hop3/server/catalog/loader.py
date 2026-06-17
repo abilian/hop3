@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 
 import markdown
+import nh3
 import tomllib
 
 from .models import CatalogApp
@@ -21,6 +22,28 @@ _md = markdown.Markdown(extensions=["extra", "toc"])
 
 # Pattern to match and remove the first H1 tag
 _h1_pattern = re.compile(r"<h1[^>]*>.*?</h1>\s*", re.IGNORECASE | re.DOTALL)
+
+# Catalog readmes are untrusted (the catalog is fetched from a remote source).
+# Raster icon extensions only — never serve SVG, which is an XSS vector when
+# rendered inline (ADR 049 F6). The loader/render path never emits raw SVG.
+_ICON_EXTENSIONS = ("webp", "png", "jpg", "jpeg")
+
+
+def find_icon(app: CatalogApp) -> Path | None:
+    """Return the app's icon file inside its own source dir, or None.
+
+    Resolves only within ``app.source_path`` (a verified catalog dir) and never
+    returns an SVG, so the public icon route cannot serve an XSS payload or be
+    tricked into path traversal (ADR 049 F6).
+    """
+    if not app.source_path:
+        return None
+    base = Path(app.source_path).resolve()
+    for ext in _ICON_EXTENSIONS:
+        candidate = (base / f"icon.{ext}").resolve()
+        if candidate.parent == base and candidate.is_file():
+            return candidate
+    return None
 
 
 def load_app(app_dir: Path) -> CatalogApp | None:
@@ -78,7 +101,10 @@ def load_app(app_dir: Path) -> CatalogApp | None:
         _md.reset()
         html = _md.convert(app.readme)
         # Remove the first H1 (title is already shown in page header)
-        app.readme_html = _h1_pattern.sub("", html, count=1)
+        html = _h1_pattern.sub("", html, count=1)
+        # The readme is untrusted catalog content — sanitize to an allowlist so a
+        # crafted readme can't inject script/onerror/etc. into the dashboard.
+        app.readme_html = nh3.clean(html)
 
     return app
 
