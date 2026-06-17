@@ -64,6 +64,11 @@ dev = [
 [project.scripts]
 hop3-server = "hop3.server.cli:main"
 
+[project.optional-dependencies]
+waf = [
+    "lewaf>=0.7.4 ; python_full_version >= '3.12'",
+]
+
 # ----------------------------------------
 
 [build-system]
