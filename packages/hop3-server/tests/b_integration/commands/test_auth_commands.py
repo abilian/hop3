@@ -17,7 +17,6 @@ from hop3.commands.auth import (
     AuthLoginCmd,
     AuthLogoutCmd,
     AuthMagicLinkCmd,
-    AuthRegisterCmd,
     AuthWhoamiCmd,
 )
 from hop3.orm.repositories import UserRepository
@@ -84,71 +83,11 @@ def admin_user(db_session: Session):
     return user
 
 
-def test_auth_register_success(user_repo: UserRepository, admin_user: User):
-    """Test successful user registration by an admin."""
-    cmd = AuthRegisterCmd(user_repo=user_repo)
-    result = cmd.call("admin", "newuser", "new@example.com", "password123")
-
-    assert isinstance(result, list)
-    assert any("registered successfully" in str(r.get("text", "")) for r in result)
-
-    # Verify user was created in database
-    user = user_repo.get_by_username("newuser")
-    assert user is not None
-    assert user.email == "new@example.com"
-    assert user.check_password("password123")
-    assert user.active is True
-
-
-def test_auth_register_missing_params(user_repo: UserRepository, admin_user: User):
-    """Test registration with missing parameters."""
-    cmd = AuthRegisterCmd(user_repo=user_repo)
-    result = cmd.call("admin", "newuser", "", "")
-
-    assert isinstance(result, list)
-    assert any("error" in r.get("t", "") for r in result)
-
-
-def test_auth_register_duplicate_username(
-    user_repo: UserRepository, admin_user: User, test_user: User
-):
-    """Test registration with duplicate username."""
-    cmd = AuthRegisterCmd(user_repo=user_repo)
-    result = cmd.call("admin", "testuser", "different@example.com", "password")
-
-    assert isinstance(result, list)
-    assert any("already exists" in str(r.get("text", "")) for r in result)
-
-
-def test_auth_register_duplicate_email(
-    user_repo: UserRepository, admin_user: User, test_user: User
-):
-    """Test registration with duplicate email."""
-    cmd = AuthRegisterCmd(user_repo=user_repo)
-    result = cmd.call("admin", "differentuser", "test@example.com", "password")
-
-    assert isinstance(result, list)
-    assert any("already registered" in str(r.get("text", "")) for r in result)
-
-
-def test_auth_register_rejects_anonymous(user_repo: UserRepository):
-    """Anonymous caller cannot register users (security review C-001/H-002)."""
-    cmd = AuthRegisterCmd(user_repo=user_repo)
-    result = cmd.call("", "newuser", "new@example.com", "password123")
-
-    assert isinstance(result, list)
-    assert any("error" in r.get("t", "") for r in result)
-    assert user_repo.get_by_username("newuser") is None
-
-
-def test_auth_register_rejects_non_admin(user_repo: UserRepository, test_user: User):
-    """Authenticated non-admin caller cannot register users."""
-    cmd = AuthRegisterCmd(user_repo=user_repo)
-    result = cmd.call("testuser", "newuser", "new@example.com", "password123")
-
-    assert isinstance(result, list)
-    assert any("error" in r.get("t", "") for r in result)
-    assert user_repo.get_by_username("newuser") is None
+# `auth register` was dropped (ADR 036 P2.1) — it's now a back-compat alias of
+# `user add`. The account-creation behaviour (success / missing params / dup
+# username+email / admin-gating / anonymous rejection) is covered by
+# test_user_commands_integration.py::TestAdminUserAddCmdIntegration, and the
+# alias resolution by tests/a_unit/commands/test_command_aliases.py.
 
 
 def test_auth_login_success(

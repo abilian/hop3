@@ -102,6 +102,25 @@ class StoredMount:
     applied_at: str
 
 
+@dataclass(frozen=True)
+class StoredProxy:
+    """One addon-exposure TCP forwarder as persisted in state.json.
+
+    A ``systemd-socket-proxyd`` unit pair forwarding ``0.0.0.0:public_port`` →
+    ``127.0.0.1:target_port`` for an addon. Identified by (addon_type,
+    addon_name); ``unit`` is the base systemd unit name. ``source`` is the
+    access scope (the firewall is the real enforcer) kept for diagnostics.
+    """
+
+    addon_type: str
+    addon_name: str
+    unit: str
+    public_port: int
+    target_port: int
+    source: str
+    applied_at: str
+
+
 @dataclass
 class State:
     """In-memory snapshot of rootd's persistent state.
@@ -114,6 +133,7 @@ class State:
     rules: list[StoredRule] = field(default_factory=list)
     cgroups: list[StoredCgroup] = field(default_factory=list)
     mounts: list[StoredMount] = field(default_factory=list)
+    proxies: list[StoredProxy] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -147,6 +167,18 @@ class State:
                 }
                 for m in self.mounts
             ],
+            "proxies": [
+                {
+                    "addon_type": p.addon_type,
+                    "addon_name": p.addon_name,
+                    "unit": p.unit,
+                    "public_port": p.public_port,
+                    "target_port": p.target_port,
+                    "source": p.source,
+                    "applied_at": p.applied_at,
+                }
+                for p in self.proxies
+            ],
         }
 
     def find_rule(self, rule_id: str) -> StoredRule | None:
@@ -175,6 +207,13 @@ class State:
 
     def mounts_for_app(self, app_name: str) -> list[StoredMount]:
         return [m for m in self.mounts if m.app_name == app_name]
+
+    def find_proxy(self, addon_type: str, addon_name: str) -> StoredProxy | None:
+        """Return the stored proxy for (addon_type, addon_name), or None."""
+        for p in self.proxies:
+            if p.addon_type == addon_type and p.addon_name == addon_name:
+                return p
+        return None
 
 
 # --- Load / save ----------------------------------------------------------
@@ -270,6 +309,33 @@ def _parse_mounts(obj: dict[str, Any]) -> list[StoredMount]:
     return mounts
 
 
+def _parse_proxies(obj: dict[str, Any]) -> list[StoredProxy]:
+    """Extract the optional 'proxies' list. Absent (older v1 files) → []."""
+    raw = obj.get("proxies", [])
+    if not isinstance(raw, list):
+        raise StateCorruptError(f"'proxies' must be a list, got {type(raw).__name__}")
+
+    proxies: list[StoredProxy] = []
+    for i, p in enumerate(raw):
+        if not isinstance(p, dict):
+            raise StateCorruptError(f"proxies[{i}] must be an object")
+        try:
+            proxies.append(
+                StoredProxy(
+                    addon_type=str(p["addon_type"]),
+                    addon_name=str(p["addon_name"]),
+                    unit=str(p["unit"]),
+                    public_port=int(p["public_port"]),
+                    target_port=int(p["target_port"]),
+                    source=str(p.get("source", "any")),
+                    applied_at=str(p["applied_at"]),
+                )
+            )
+        except (KeyError, TypeError, ValueError) as e:
+            raise StateCorruptError(f"proxies[{i}] is malformed: {e}") from e
+    return proxies
+
+
 def _coerce_status(value: Any, index: int) -> RuleStatus:
     """Validate that a stored status value is one of RuleStatus's literals."""
     if value not in {"applied", "pending", "removing"}:
@@ -308,7 +374,10 @@ def load(path: Path = DEFAULT_STATE_PATH) -> State:
     rules = _parse_rules(obj)
     cgroups = _parse_cgroups(obj)
     mounts = _parse_mounts(obj)
-    return State(version=version, rules=rules, cgroups=cgroups, mounts=mounts)
+    proxies = _parse_proxies(obj)
+    return State(
+        version=version, rules=rules, cgroups=cgroups, mounts=mounts, proxies=proxies
+    )
 
 
 def save(state: State, path: Path = DEFAULT_STATE_PATH) -> None:

@@ -126,11 +126,12 @@ class LaunchCmd(Command):
     """Create and configure a new app from a source code repository.
 
     Examples:
-        hop3 app launch myapp         # Launch a newly-created app
+        hop3 app create myapp         # Create a new app (then `hop3 deploy`)
     """
 
     db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("app", "launch")
+    name: ClassVar[tuple[str, ...]] = ("app", "create")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("app", "launch")]
 
     def call(self, *args):
         if len(args) != 2:
@@ -545,6 +546,22 @@ class PingCmd(Command):
             return [error(f"Error pinging app: {e}")]
 
 
+def _build_log_response(app, app_name: str) -> list[dict]:
+    """Build-log output, shared by `app logs --build` and `app build-logs`."""
+    build_log_path = app.app_path / "log" / "build.log"
+    if not build_log_path.exists():
+        return [
+            text(
+                f"No build logs found for '{app_name}'.\n"
+                "Build logs are created after the first Docker deployment."
+            )
+        ]
+    try:
+        return [text(build_log_path.read_text())]
+    except Exception as e:
+        return [error(f"Error reading build logs: {e}")]
+
+
 @register
 @dataclass(frozen=True)
 class LogsCmd(Command):
@@ -556,12 +573,14 @@ class LogsCmd(Command):
         -n, --lines N      Number of lines to show (default: 100)
         --grep PATTERN     Filter lines matching pattern
         --since-deploy     Only show logs since the last deployment
+        --build            Show build logs instead of runtime logs
 
     Examples:
         hop3 app logs                       # current app, last 100 lines
         hop3 app logs --app myapp -n 50     # explicit app, last 50 lines
         hop3 app logs --app myapp --grep error  # lines containing 'error'
         hop3 app logs --app myapp --since-deploy  # logs since last deploy
+        hop3 app logs --app myapp --build   # build output (Docker/local build)
     """
 
     db_session: Session
@@ -573,6 +592,7 @@ class LogsCmd(Command):
         "lines": {"short": "-n", "type": int, "default": 100},
         "grep": {"type": str, "default": ""},
         "since_deploy": {"flag": True, "default": False},
+        "build": {"flag": True, "default": False},
     }
 
     def call(self, *args):
@@ -584,6 +604,9 @@ class LogsCmd(Command):
             raise ValueError(msg)
 
         app = get_app(self.db_session, app_name)
+
+        if parsed["build"]:
+            return _build_log_response(app, app_name)
 
         # Determine since timestamp if --since-deploy is used
         since = None
@@ -622,18 +645,15 @@ class LogsCmd(Command):
 class BuildLogsCmd(Command):
     """Show build logs for an application.
 
+    Deprecated (ADR 036 P7): use ``app logs --build``. Kept (hidden) for
+    back-compat; ``hop3 app build-logs`` still works.
+
     Usage: hop3 app build-logs [--app <app>]
-
-    Displays the most recent Docker/local build output for debugging
-    deployment issues.
-
-    Examples:
-        hop3 app build-logs              # current app (resolved from context)
-        hop3 app build-logs --app myapp  # explicit app
     """
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "build-logs")
+    hidden: ClassVar[bool] = True
 
     def call(self, *args):
         if not args:
@@ -642,23 +662,7 @@ class BuildLogsCmd(Command):
 
         app_name = args[0]
         app = get_app(self.db_session, app_name)
-
-        # Look for build.log in app's log directory
-        build_log_path = app.app_path / "log" / "build.log"
-
-        if not build_log_path.exists():
-            return [
-                text(
-                    f"No build logs found for '{app_name}'.\n"
-                    "Build logs are created after the first Docker deployment."
-                )
-            ]
-
-        try:
-            content = build_log_path.read_text()
-            return [text(content)]
-        except Exception as e:
-            return [error(f"Error reading build logs: {e}")]
+        return _build_log_response(app, app_name)
 
 
 @register
@@ -959,21 +963,18 @@ class DestroyCmd(Command):
 class EnvCmd(Command):
     """Show environment variables with their sources.
 
-    Displays all environment variables for an app, indicating whether each
-    variable comes from a user config or was injected by an addon.
+    Deprecated (ADR 036 P2.2): use ``env show --sources``. Kept (hidden) for
+    back-compat; ``hop3 app env`` still works.
 
     Usage: hop3 app env [--app <app>] [--show-secrets]
 
     Options:
         --show-secrets   Show full values for sensitive variables (default: redacted)
-
-    Examples:
-        hop3 app env                   # current app (secrets redacted)
-        hop3 app env --app myapp --show-secrets  # explicit app, show secrets
     """
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "env")
+    hidden: ClassVar[bool] = True
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "app_name": {"positional": True},

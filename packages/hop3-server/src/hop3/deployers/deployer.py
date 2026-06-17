@@ -521,7 +521,7 @@ def _handle_startup_timeout(app: App, timeout: float) -> None:
             hint="See the diagnostics and recent log output above",
             troubleshooting=[
                 f"hop3 app logs {app.name}",
-                f"hop3 app build-logs {app.name}",
+                f"hop3 app logs {app.name} --build",
                 (
                     "Increase start-timeout in hop3.toml: "
                     f"[run] start-timeout = {int(timeout * 2)}"
@@ -574,7 +574,7 @@ def _diagnose_failure(app: App, log_lines: list[str]) -> None:
                 ),
                 troubleshooting=[
                     "See https://hop3.cloud/guides/user-guide/#workers",
-                    "hop3 app build-logs <app>",
+                    "hop3 app logs <app> --build",
                 ],
             )
         )
@@ -633,7 +633,7 @@ def _diagnose_failure(app: App, log_lines: list[str]) -> None:
                     "in hop3.toml are correct"
                 ),
                 troubleshooting=[
-                    "hop3 app build-logs <app>  # confirm all pip installs succeeded",
+                    "hop3 app logs <app> --build  # confirm all pip installs succeeded",
                     "Verify Procfile / hop3.toml entry paths match repo layout",
                 ],
             )
@@ -937,7 +937,7 @@ def _apply_domains_to_host_name(
                 ),
                 hint=(
                     "Remove the conflicting hostname from one of the apps "
-                    "(see `hop3 domains list <app>`)."
+                    "(see `hop3 domain list <app>`)."
                 ),
             )
         )

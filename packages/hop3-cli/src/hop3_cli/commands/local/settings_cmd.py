@@ -93,6 +93,22 @@ def settings_set(args: list[str], config: Config, printer: RichPrinter) -> None:
     if key == "token":
         key = "api_token"
 
+    # Connection details are now owned by `hop3 server` (ADR 042). Setting them
+    # via `settings` creates a second, competing record with no defined winner —
+    # warn (loudly) and point at the canonical command. Still written so existing
+    # scripts don't break.
+    if key in {"api_url", "api_token"}:
+        canonical = (
+            "hop3 server add <name> --url <url>"
+            if key == "api_url"
+            else "hop3 server login <name> --token <token>"
+        )
+        print(
+            f"warning: 'hop3 settings set {key}' is deprecated — connection "
+            f"details are owned by 'hop3 server' (ADR 042). Use: {canonical}",
+            file=sys.stderr,
+        )
+
     # Convert boolean-like values for verify_ssl
     if key == "verify_ssl":
         value = str(value.lower() in {"true", "yes", "1"}).lower()

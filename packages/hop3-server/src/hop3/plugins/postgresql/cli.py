@@ -388,16 +388,17 @@ def _diagnostic(args: tuple, statement: str, label: str, verb: str) -> list[dict
 class AddonPostgresPsCmd(Command):
     """Show active queries on a Postgres addon.
 
-    Usage: hop3 addon postgres ps <name>
+    Usage: hop3 addon postgres activity <name>
 
     Examples:
-        hop3 addon postgres ps mydb
+        hop3 addon postgres activity mydb
     """
 
-    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "ps")
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "activity")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("addon", _TYPE, "ps")]
 
     def call(self, *args):
-        return _diagnostic(args, _PS_SQL, "listing activity", "ps")
+        return _diagnostic(args, _PS_SQL, "listing activity", "activity")
 
 
 @register

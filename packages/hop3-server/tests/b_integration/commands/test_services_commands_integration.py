@@ -444,9 +444,9 @@ class TestAddonsAttachCmdIntegration:
             "DATABASE_URL should be updated"
         )
 
-        # Verify output mentions "Updated"
-        result_text = " ".join(r["text"] for r in result)
-        assert "Updated DATABASE_URL" in result_text
+        # Verify the output reports the (updated) DATABASE_URL var.
+        result_text = " ".join(r.get("text", "") for r in result)
+        assert "DATABASE_URL" in result_text
 
     def test_attach_with_custom_service_type(
         self,

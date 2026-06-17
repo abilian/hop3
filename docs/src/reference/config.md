@@ -96,12 +96,14 @@ pip-install = ["setuptools", "wheel"]
   - `"auto"` (default): Auto-detect based on project files (Dockerfile → docker, otherwise local)
   - `"local"`: Use native language toolchains (Python, Node, Ruby, etc.) directly on host
   - `"docker"`: Build and run using Docker (requires Dockerfile)
+- `toolchain` (string): Force a specific language toolchain (`python`, `node`, `ruby`, `go`, `rust`, `static`, …), overriding auto-detection. Rarely needed — toolchains are normally detected from project files.
 - `build` (string | array): Main build commands
 - `before-build` (string | array): Pre-build commands (maps to Procfile `prebuild`)
 - `test` (string | array): Test commands to run after build
 - `packages` (array): System packages required for building
 - `pip-install` (array): Python packages to install during build
 - `ignore` (array): Gitignore-style patterns excluded from the `hop3 deploy` upload (see below)
+- `static-dir` (string): For a static site (`toolchain = "static"`), the directory to serve, relative to the app root (e.g. `"site"`, `"html"`, `"dist"`). Defaults to `"public"`. See [Static sites](#static-sites) below.
 
 **Procfile Mapping:**
 - `build.before-build` → Procfile `prebuild`
@@ -115,7 +117,7 @@ When you run `hop3 deploy`, the CLI tars your working tree and uploads it. `[bui
 ignore = ["*.log", "tmp/", "coverage/", "*.sqlite3"]
 ```
 
-Patterns use gitignore syntax (including `!` negation), and are added **on top of** Hop3's built-in defaults — VCS metadata and dependency/cache dirs that the server regenerates (`.git/`, `node_modules/`, `.venv/`, `venv/`, `__pycache__/`, `*.py[cod]`, `.idea/`, `.DS_Store`, `.mypy_cache/`, `.pytest_cache/`, `.ruff_cache/`, `*.egg-info/`). So most apps need no `ignore` at all.
+Patterns use gitignore syntax (including `!` negation), and are added **on top of** Hop3's built-in defaults — VCS metadata and dependency/build/cache dirs that the server regenerates (`.git/`, `node_modules/`, `target/`, `.venv/`, `venv/`, `__pycache__/`, `*.py[cod]`, `.idea/`, `.DS_Store`, `.mypy_cache/`, `.pytest_cache/`, `.ruff_cache/`, `*.egg-info/`). So most apps need no `ignore` at all. (`target/` is Rust/Maven build output — the server rebuilds it from source.)
 
 **Other ignore files are scoped to their own deployment method — they do *not* affect the `hop3 deploy` upload:**
 
@@ -123,6 +125,25 @@ Patterns use gitignore syntax (including `!` negation), and are added **on top o
 - **`.dockerignore`** applies to the server-side **`docker build`** context when `builder = "docker"` (Docker honors it there). It is not applied to the upload.
 
 > The legacy `.hop3ignore` sidecar and the `[build].ignore-file` pointer are removed. Move any `.hop3ignore` patterns into `[build].ignore`; a leftover `.hop3ignore` is still read for one transition release with a deprecation warning, and `[build].ignore-file` is now a hop3.toml validation error.
+
+#### Static sites
+
+A static site (`toolchain = "static"`) is served straight from disk by nginx — no app process, and **no Procfile required**. Point Hop3 at the directory of files with `static-dir`:
+
+```toml
+[build]
+toolchain = "static"
+static-dir = "site"     # "html", "dist", … — defaults to "public"
+```
+
+The served directory is resolved in this order (first match wins):
+
+1. `[build].static-dir` — the canonical, first-class key.
+2. `[run.workers].static` — the equivalent worker spelling (back-compat).
+3. A Procfile `static: <dir>` line.
+4. `public` — the default when nothing is declared.
+
+So `[build].static-dir` (or just relying on the `public` default) is all a static site needs; the worker and Procfile forms exist only for compatibility.
 
 ### `[run]` - Runtime Configuration
 
@@ -380,17 +401,17 @@ Backups are created **on demand** with `hop3 backup create <app>` and restored w
 
 ```toml
 [backup]
-paths = ["data", "var/state"]   # extra directories to include
-exclude = ["*.tmp", "cache/"]    # patterns to leave out
+paths = ["var/state", "uploads"]   # extra app dirs to also archive
+exclude = ["*.tmp", "cache/*", "node_modules"]  # patterns to prune
 ```
 
 **Fields:**
-- `paths` (array): extra directories to include beyond the defaults.
-- `exclude` (array): glob patterns to exclude.
+- `exclude` (array): glob patterns pruned from the source and `data/` archives. A pattern matches the full path relative to the archived root (`cache/*`), a basename (`*.tmp`), or any single path segment (`node_modules`). Use it to keep regenerable or bulky files out of backups.
+- `paths` (array): **additional** app-relative directories to archive (into `extra.tar.gz`), beyond the whole source tree captured by default. Resolved relative to the app's source dir and **confined to the app tree** — an entry that escapes it (absolute path or `..`) fails the backup loudly. A declared directory that doesn't exist yet is skipped. Restored back into place on `hop3 backup restore`.
 
 **Notes:**
 - A `[[volumes]]` volume can opt out of backup with `[volumes.backup]` `include = false`.
-- Automated scheduling and retention are not implemented yet; run `hop3 backup create` from a cron job if you need a schedule. (The `paths` / `exclude` fields are reserved and not yet consumed.)
+- Automated scheduling and retention are not implemented yet; run `hop3 backup create` from a cron job if you need a schedule.
 
 ### `[[addons]]` - Backing Services
 

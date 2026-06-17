@@ -89,7 +89,9 @@ def handle_ok_response(
         printer: Output printer
         tunnel_port: Local SSH tunnel port if using SSH tunnel (for streaming)
     """
-    if cli_args and cli_args[0] == "auth login":
+    if cli_args[:2] == ["addon", "exists"]:
+        _handle_predicate_response(result, printer)
+    elif cli_args and cli_args[0] == "auth login":
         handle_login_response(result, config, printer)
     elif is_help_command(cli_args) and not printer.json_output:
         # ADR 036 D11: bare `hop3 help` gets local commands injected, then the
@@ -112,6 +114,32 @@ def handle_ok_response(
         _handle_streaming_response(result, config, printer, tunnel_port=tunnel_port)
     else:
         printer.print(result)
+
+
+def _handle_predicate_response(result: list[dict], printer: RichPrinter) -> None:
+    """Turn an ``addon exists`` data result into a Unix predicate.
+
+    Silent, exit 0 (exists) / 1 (absent), so it composes with shell ``&&``/
+    ``||``. Under ``--json`` the ``{"exists": ...}`` payload is still emitted.
+    Anything unexpected (e.g. a usage error item) is shown and exits 2.
+    """
+    payload: dict | None = None
+    for item in result or []:
+        if item.get("t") == "data" and isinstance(item.get("data"), dict):
+            payload = item["data"]
+            break
+
+    if payload is not None and "exists" in payload:
+        if printer.json_output:
+            printer.print([{"t": "data", "data": payload}])
+            printer.flush_json()
+        sys.exit(ExitCode.SUCCESS if payload["exists"] else 1)
+
+    # No predicate payload (usage error, etc.): surface it and fail non-zero.
+    printer.print(result)
+    if printer.json_output:
+        printer.flush_json()
+    sys.exit(ExitCode.USAGE_ERROR)
 
 
 def _is_streaming_response(result: list[dict]) -> bool:

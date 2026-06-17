@@ -14,11 +14,10 @@ from hop3.commands.services import (
     AddonAttachCmd,
     AddonCreateCmd,
     AddonDestroyCmd,
-    AddonDetachCmd,
     AddonListCmd,
     AddonShowCmd,
 )
-from hop3.orm import App, EnvVar
+from hop3.orm import App
 from hop3.orm.repositories import (
     AddonCredentialRepository,
     AppRepository,
@@ -156,124 +155,14 @@ def test_services_attach_app_not_found(
     assert "not found" in str(exc_info.value)
 
 
-def test_services_attach_success(
-    mock_app_repo, mock_addon_credential_repo, mock_env_var_repo, mock_app
-):
-    """Test successful service attachment."""
-    with (
-        patch("hop3.commands.services.get_addon") as mock_get_service,
-        patch("hop3.commands.services.get_credential_encryptor") as mock_encryptor,
-    ):
-        mock_app_repo.get_one_or_none.return_value = mock_app
-
-        mock_service = Mock()
-        mock_service.get_connection_details.return_value = {
-            "DATABASE_URL": "postgresql://user:pass@localhost/db",
-            "PGHOST": "localhost",
-        }
-        mock_get_service.return_value = mock_service
-
-        # Mock encryptor
-        mock_enc_instance = mock_encryptor.return_value
-        mock_enc_instance.encrypt.return_value = "encrypted_data"
-
-        # Mock credential repo to return no existing credential
-        mock_addon_credential_repo.get_by_app_addon.return_value = None
-
-        # Mock env var repo to return no existing vars
-        mock_env_var_repo.get_by_app_and_name.return_value = None
-
-        cmd = AddonAttachCmd(
-            app_repo=mock_app_repo,
-            addon_credential_repo=mock_addon_credential_repo,
-            env_var_repo=mock_env_var_repo,
-        )
-        result = cmd.call("my-database", "--app", "test-app")
-
-        # 3 informational items + 1 summary item (ADR 036 D19c).
-        assert len(result) == 4
-        assert "attached" in result[0]["text"].lower()
-        assert "DATABASE_URL" in result[1]["text"]
-        assert result[-1]["t"] == "summary"
-        mock_addon_credential_repo.session.commit.assert_called_once()
-
-
-def test_services_attach_updates_existing_vars(
-    mock_app_repo, mock_addon_credential_repo, mock_env_var_repo, mock_app
-):
-    """Test that services:attach updates existing environment variables."""
-    with (
-        patch("hop3.commands.services.get_addon") as mock_get_service,
-        patch("hop3.commands.services.get_credential_encryptor") as mock_encryptor,
-    ):
-        # Create existing env var
-        existing_var = Mock(spec=EnvVar)
-        existing_var.name = "DATABASE_URL"
-        existing_var.value = "old_value"
-        mock_app.env_vars = [existing_var]  # Initialize with existing var
-
-        mock_app_repo.get_one_or_none.return_value = mock_app
-
-        mock_service = Mock()
-        mock_service.get_connection_details.return_value = {
-            "DATABASE_URL": "postgresql://user:pass@localhost/db",
-        }
-        mock_get_service.return_value = mock_service
-
-        # Mock encryptor
-        mock_enc_instance = mock_encryptor.return_value
-        mock_enc_instance.encrypt.return_value = "encrypted_data"
-
-        # Mock credential repo to return no existing credential
-        mock_addon_credential_repo.get_by_app_addon.return_value = None
-
-        # Mock env var repo to return existing var
-        mock_env_var_repo.get_by_app_and_name.return_value = existing_var
-
-        cmd = AddonAttachCmd(
-            app_repo=mock_app_repo,
-            addon_credential_repo=mock_addon_credential_repo,
-            env_var_repo=mock_env_var_repo,
-        )
-        result = cmd.call("my-database", "--app", "test-app")
-
-        assert "Updated DATABASE_URL" in result[1]["text"]
-        assert existing_var.value == "postgresql://user:pass@localhost/db"
-
-
-def test_services_detach_success(
-    mock_app_repo, mock_addon_credential_repo, mock_env_var_repo, mock_app
-):
-    """Test successful service detachment."""
-    with patch("hop3.commands.services.get_credential_encryptor") as mock_encryptor:
-        mock_app_repo.get_one_or_none.return_value = mock_app
-
-        # Mock stored credential
-        mock_credential = Mock()
-        mock_credential.encrypted_data = "encrypted_data"
-        mock_addon_credential_repo.get_by_app_addon.return_value = mock_credential
-
-        # Mock decryptor
-        mock_enc_instance = mock_encryptor.return_value
-        mock_enc_instance.decrypt.return_value = {
-            "DATABASE_URL": "postgresql://user:pass@localhost/db",
-            "PGHOST": "localhost",
-        }
-
-        # Mock existing env var
-        existing_var = Mock(spec=EnvVar)
-        mock_env_var_repo.get_by_app_and_name.return_value = existing_var
-
-        cmd = AddonDetachCmd(
-            app_repo=mock_app_repo,
-            addon_credential_repo=mock_addon_credential_repo,
-            env_var_repo=mock_env_var_repo,
-        )
-        result = cmd.call("my-database", "--app", "test-app")
-
-        assert "detached" in result[0]["text"].lower()
-        mock_addon_credential_repo.delete.assert_called()
-        mock_addon_credential_repo.session.commit.assert_called_once()
+# NOTE: attach/detach now route their env-var injection through
+# `sync_addon_env_vars` (a real encrypt → store → decrypt → namespace round-trip
+# that picks primary vs prefixed vars). That can't be represented with mocked
+# repos/encryptor, and the project prefers state-verification over mock-behavior
+# tests. The full behaviour — attach (primary/secondary/update), detach (removal
+# + auto-promote), and promote — is covered against a real DB in
+# tests/b_integration/commands/test_services_commands_integration.py and
+# test_addon_promote.py. The former white-box attach/detach unit tests lived here.
 
 
 def test_services_destroy_success(mock_addon_credential_repo):
