@@ -9,6 +9,8 @@ from __future__ import annotations
 import sys
 from typing import TYPE_CHECKING
 
+from hop3_cli.core.aliases import CORE_ALIASES
+
 from .local import LOCAL_COMMANDS_INFO
 
 if TYPE_CHECKING:
@@ -200,19 +202,32 @@ def _process_help_text_with_local_commands(
     text: str,
     local_commands: dict[str, str],
 ) -> str:
-    """Process help text and inject local commands into COMMANDS section."""
+    """Inject local commands (and, in `--all`, core aliases) into the list.
+
+    Local commands are tagged ``[local]`` and appear in every COMMANDS view.
+    Built-in core aliases (``apps`` -> ``app list``, ``whoami`` -> ``auth
+    whoami``, ...) are client-side first-token rewrites the server never sees,
+    so they are injected here too — but only into the flat ``ALL COMMANDS``
+    index, tagged ``[alias]`` and pointing at their canonical target.
+    """
     lines = text.split("\n")
     new_lines: list[str] = []
     in_commands_section = False
     is_all_commands = False
 
-    # Align injected local commands to the server's name column so the markers
-    # and descriptions line up (the server widths its column to the longest
-    # command name; we mirror that here).
+    # Align injected entries to the server's name column so the markers and
+    # descriptions line up (the server widths its column to the longest command
+    # name; we mirror that here).
     name_width = _detect_command_name_width(lines)
 
     # Pre-collect server commands to avoid duplicates
     injected = _collect_server_commands(lines)
+
+    # Entries to interleave: name -> (marker, description). Local commands are
+    # present in every view; core aliases are added only for the `--all` index.
+    entries: dict[str, tuple[str, str]] = {
+        name: ("[local]", desc) for name, desc in local_commands.items()
+    }
 
     for line in lines:
         stripped = line.strip()
@@ -221,6 +236,12 @@ def _process_help_text_with_local_commands(
         if stripped in {"ALL COMMANDS", "COMMANDS"}:
             in_commands_section = True
             is_all_commands = stripped == "ALL COMMANDS"
+            if is_all_commands:
+                for alias in CORE_ALIASES:
+                    entries[alias.source_token] = (
+                        "[alias]",
+                        f"→ {' '.join(alias.expansion)}",
+                    )
             new_lines.append(line)
             continue
 
@@ -228,19 +249,19 @@ def _process_help_text_with_local_commands(
         if in_commands_section and stripped and not line.startswith("  "):
             new_lines.extend(
                 _inject_remaining_commands(
-                    local_commands, injected, is_all_commands, name_width
+                    entries, injected, is_all_commands, name_width
                 )
             )
             in_commands_section = False
 
-        # Inject local commands before current command if in section
+        # Inject entries that sort before the current command line
         if in_commands_section and _is_command_line(line):
             current_cmd = _get_command_name(line)
             if current_cmd:
                 new_lines.extend(
                     _inject_commands_before(
                         current_cmd,
-                        local_commands,
+                        entries,
                         injected,
                         is_all_commands,
                         name_width,
@@ -249,10 +270,10 @@ def _process_help_text_with_local_commands(
 
         new_lines.append(line)
 
-    # Handle remaining commands at end of section
+    # Handle remaining entries at end of section
     if in_commands_section:
         remaining = _inject_remaining_commands(
-            local_commands, injected, is_all_commands, name_width
+            entries, injected, is_all_commands, name_width
         )
         if remaining:
             _insert_remaining_at_end(new_lines, remaining)
@@ -280,21 +301,22 @@ def _detect_command_name_width(lines: list[str], default: int = 24) -> int:
 
 
 def _inject_remaining_commands(
-    local_commands: dict[str, str],
+    entries: dict[str, tuple[str, str]],
     injected: set[str],
     is_all_commands: bool = False,
     name_width: int = 24,
 ) -> list[str]:
-    """Return all local commands not yet injected."""
+    """Return all entries not yet injected, alphabetical."""
     lines = []
-    for cmd in sorted(local_commands.keys()):
-        if cmd not in injected:
+    for name in sorted(entries):
+        if name not in injected:
+            marker, description = entries[name]
             lines.append(
                 _format_help_command(
-                    cmd, local_commands[cmd], is_all_commands, name_width
+                    name, marker, description, is_all_commands, name_width
                 )
             )
-            injected.add(cmd)
+            injected.add(name)
     return lines
 
 
@@ -311,26 +333,28 @@ def _get_command_name(line: str) -> str | None:
 
 def _inject_commands_before(
     current_cmd: str,
-    local_commands: dict[str, str],
+    entries: dict[str, tuple[str, str]],
     injected: set[str],
     is_all_commands: bool = False,
     name_width: int = 24,
 ) -> list[str]:
-    """Return local commands that should appear before current_cmd alphabetically."""
+    """Return entries that should appear before current_cmd alphabetically."""
     lines = []
-    for cmd in sorted(local_commands.keys()):
-        if cmd not in injected and cmd < current_cmd:
+    for name in sorted(entries):
+        if name not in injected and name < current_cmd:
+            marker, description = entries[name]
             lines.append(
                 _format_help_command(
-                    cmd, local_commands[cmd], is_all_commands, name_width
+                    name, marker, description, is_all_commands, name_width
                 )
             )
-            injected.add(cmd)
+            injected.add(name)
     return lines
 
 
 def _format_help_command(
     name: str,
+    marker: str,
     description: str,
     wide: bool = False,
     name_width: int = 24,
@@ -339,14 +363,15 @@ def _format_help_command(
 
     Args:
         name: Command name
+        marker: The entry's tag for `--all` mode (``[local]`` or ``[alias]``).
         description: Command description
         wide: If True, this is the `--all` view: emit the same
-            ``name  [marker]  help`` columns the server uses, tagging local
-            commands with a ``[local]`` marker so they line up with server
-            commands. Otherwise use the narrow grouped-view layout.
+            ``name  [marker]  help`` columns the server uses so the injected
+            entry lines up with server commands. Otherwise use the narrow
+            grouped-view layout (no marker column).
         name_width: Width of the name column in `--all` mode (matched to the
             server's column so markers align).
     """
     if wide:
-        return f"  {name:<{name_width}} {'[local]':<10} {description}"
+        return f"  {name:<{name_width}} {marker:<10} {description}"
     return f"  {name:<16} {description}"

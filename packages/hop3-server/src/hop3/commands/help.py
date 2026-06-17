@@ -7,7 +7,7 @@ client then injects local commands (see `hop3_cli/commands/help.py`) and
 appends a status-line + feedback-link footer. `hop3 help <cmd ...>` renders
 a structured page with USAGE -> EXAMPLES -> POSITIONAL -> OPTIONS -> SEE ALSO
 sections. `hop3 help --all` lists every command flat, with `[top]` /
-`[namespace]` markers.
+`[namespace]` / `[alias]` markers (aliases point at their canonical name).
 """
 
 from __future__ import annotations
@@ -162,17 +162,32 @@ class HelpCmd(Command):
         ]
 
         commands = [cmd for cmd in lookup(Command) if not getattr(cmd, "hidden", False)]
-        commands.sort(key=lambda cmd: cmd.name)
+        canonical_names = {cmd.name for cmd in commands}
 
-        # Width the name column to the longest command name so the marker
-        # column lines up even for long names (e.g. "admin
-        # reencrypt-credentials"). The client aligns its injected local
-        # commands to the same columns (see hop3_cli.commands.help).
-        name_width = max((len(" ".join(cmd.name)) for cmd in commands), default=22)
+        # Build the flat index: every canonical command, plus each of its
+        # aliases tagged `[alias]` and pointing at the canonical spelling, so
+        # aliases (`logs` -> `app logs`, `domains` -> `domain`, `apps` ->
+        # `app list`, ...) are discoverable here instead of silently working
+        # but never listed. Entries are (name_tuple, marker, help_text).
+        entries: list[tuple[tuple[str, ...], str, str]] = []
         for cmd in commands:
-            display = " ".join(cmd.name)
-            help_text = self._get_short_help(cmd.__doc__)
             marker = "[top]" if len(cmd.name) == 1 else f"[{cmd.name[0]}]"
+            entries.append((cmd.name, marker, self._get_short_help(cmd.__doc__)))
+            canonical = " ".join(cmd.name)
+            for alias in getattr(cmd, "aliases", []):
+                if alias in canonical_names:
+                    continue  # a real command owns this name; it wins.
+                entries.append((alias, "[alias]", f"→ {canonical}"))
+
+        entries.sort()  # by name tuple (first element); names are unique
+
+        # Width the name column to the longest entry so the marker column lines
+        # up even for long names (e.g. "addon postgres credentials"). The client
+        # aligns its injected local commands to the same column — it auto-detects
+        # this width from the first marker bracket (see hop3_cli.commands.help).
+        name_width = max((len(" ".join(name)) for name, _, _ in entries), default=22)
+        for name, marker, help_text in entries:
+            display = " ".join(name)
             output.append(f"  {display:<{name_width}} {marker:<10} {help_text}")
 
         output.append("")
