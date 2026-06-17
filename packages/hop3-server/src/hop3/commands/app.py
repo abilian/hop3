@@ -26,7 +26,7 @@ from hop3.deployers import do_deploy, stop_previous_instance
 from hop3.deployers.fixed_ports import release_fixed_ports
 from hop3.lib import log
 from hop3.lib.archives import extract_archive_to_dir
-from hop3.lib.args import parse_cli_args
+from hop3.lib.args import parse_cli_args, pop_app_flag
 from hop3.lib.console import capture_logs
 from hop3.lib.logging import server_log
 from hop3.lib.registry import register
@@ -60,6 +60,22 @@ from .apps import _get_instance_count
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+
+
+def _resolve_app(args: tuple[str, ...]) -> tuple[str | None, list[str]]:
+    """Resolve the target app for an app-scoped command (ADR 036 D5).
+
+    The app is taken from the ``--app`` / ``-a`` flag. As a TEMPORARY
+    back-compat fallback (the CLI will stop sending it positionally in a
+    later step), the first positional is accepted as the app when no flag
+    is present. Returns ``(app_name, remaining_positionals)``.
+    """
+    app_name, rest = pop_app_flag(args)
+    if app_name is None:
+        # back-compat: app as first positional (deprecated)
+        app_name = rest[0] if rest else None
+        rest = rest[1:]
+    return app_name, rest
 
 
 def _run_lifecycle_action(
@@ -134,11 +150,19 @@ class LaunchCmd(Command):
     aliases: ClassVar[list[tuple[str, ...]]] = [("app", "launch")]
 
     def call(self, *args):
-        if len(args) != 2:
-            msg = "Usage: hop launch <repo_url> <app_name>"
-            raise ValueError(msg)
+        app_name, rest = pop_app_flag(args)
+        if app_name is None:
+            # back-compat: <repo_url> <app_name> positional form (deprecated)
+            if len(rest) != 2:
+                msg = "Usage: hop launch <repo_url> --app <app_name>"
+                raise ValueError(msg)
+            repo_url, app_name = rest
+        else:
+            if len(rest) != 1:
+                msg = "Usage: hop launch <repo_url> --app <app_name>"
+                raise ValueError(msg)
+            repo_url = rest[0]
 
-        repo_url, app_name = args
         validate_app_name(app_name)
         app_repo = AppRepository(session=self.db_session)
 
@@ -188,11 +212,11 @@ class DeployCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("deploy",)
 
     def call(self, *args, **kwargs):
-        if not args:
+        app_name, _ = _resolve_app(args)
+        if not app_name:
             msg = "Usage: hop3 deploy [--app <app>]"
             raise ValueError(msg)
 
-        app_name = args[0]
         validate_app_name(app_name)
 
         try:
@@ -401,10 +425,10 @@ class StatusCmd(Command):
     aliases: ClassVar[list[tuple[str, ...]]] = [("status",)]
 
     def call(self, *args):
-        if not args:
+        app_name, _ = _resolve_app(args)
+        if not app_name:
             msg = "Usage: hop3 app status [--app <app>]"
             raise ValueError(msg)
-        app_name = args[0]
         app = get_app(self.db_session, app_name)
 
         # Sync state with reality for transitional states (STARTING/STOPPING)
@@ -473,12 +497,12 @@ class PingCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("app", "ping")
 
     def call(self, *args):  # noqa: PLR0911 — each return is a distinct HTTP/network outcome (stopped, no-port, success, HTTPError, connection-refused, generic URLError, timeout) with its own formatted response; flattening would just rebuild the same shape with mutable bookkeeping.
-        if not args:
+        app_name, rest = _resolve_app(args)
+        if not app_name:
             msg = "Usage: hop3 app ping [--app <app>] [path]"
             raise ValueError(msg)
 
-        app_name = args[0]
-        path = args[1] if len(args) > 1 else "/"
+        path = rest[0] if rest else "/"
         app = get_app(self.db_session, app_name)
 
         if app.run_state.name == "STOPPED":
@@ -588,7 +612,8 @@ class LogsCmd(Command):
     aliases: ClassVar[list[tuple[str, ...]]] = [("logs",)]
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
-        "app_name": {"positional": True},
+        "app": {"type": str},  # --app <name> (ADR 036 D5)
+        "app_name": {"positional": True},  # deprecated positional fallback
         "lines": {"short": "-n", "type": int, "default": 100},
         "grep": {"type": str, "default": ""},
         "since_deploy": {"flag": True, "default": False},
@@ -597,7 +622,7 @@ class LogsCmd(Command):
 
     def call(self, *args):
         parsed = parse_cli_args(args, self._arg_spec)
-        app_name = parsed.get("app_name")
+        app_name = parsed.get("app") or parsed.get("app_name")
 
         if not app_name:
             msg = "Usage: hop3 app logs [--app <app>] [options]"
@@ -656,11 +681,11 @@ class BuildLogsCmd(Command):
     hidden: ClassVar[bool] = True
 
     def call(self, *args):
-        if not args:
+        app_name, _ = _resolve_app(args)
+        if not app_name:
             msg = "Usage: hop3 app build-logs [--app <app>]"
             raise ValueError(msg)
 
-        app_name = args[0]
         app = get_app(self.db_session, app_name)
         return _build_log_response(app, app_name)
 
@@ -679,10 +704,10 @@ class StartCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("app", "start")
 
     def call(self, *args):
-        if not args:
+        app_name, _ = _resolve_app(args)
+        if not app_name:
             msg = "Usage: hop3 app start [--app <app>]"
             raise ValueError(msg)
-        app_name = args[0]
         return _run_lifecycle_action(
             self.db_session,
             app_name,
@@ -720,10 +745,10 @@ class StopCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("app", "stop")
 
     def call(self, *args):
-        if not args:
+        app_name, _ = _resolve_app(args)
+        if not app_name:
             msg = "Usage: hop3 app stop [--app <app>]"
             raise ValueError(msg)
-        app_name = args[0]
         return _run_lifecycle_action(
             self.db_session,
             app_name,
@@ -762,10 +787,10 @@ class RestartCmd(Command):
     aliases: ClassVar[list[tuple[str, ...]]] = [("restart",)]
 
     def call(self, *args):
-        if not args:
+        app_name, _ = _resolve_app(args)
+        if not app_name:
             msg = "Usage: hop3 app restart [--app <app>]"
             raise ValueError(msg)
-        app_name = args[0]
         return _run_lifecycle_action(
             self.db_session,
             app_name,
@@ -800,9 +825,9 @@ class DestroyCmd(Command):
     destructive: ClassVar[bool] = True
 
     def call(self, *args):
-        if not args:
+        app_name, _ = _resolve_app(args)
+        if not app_name:
             return [text("Usage: hop3 app destroy [--app <app>] [--force]")]
-        app_name = args[0]
 
         app = get_app(self.db_session, app_name)
 
@@ -977,13 +1002,14 @@ class EnvCmd(Command):
     hidden: ClassVar[bool] = True
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
-        "app_name": {"positional": True},
+        "app": {"type": str},  # --app <name> (ADR 036 D5)
+        "app_name": {"positional": True},  # deprecated positional fallback
         "show_secrets": {"flag": True, "default": False},
     }
 
     def call(self, *args):
         parsed = parse_cli_args(args, self._arg_spec)
-        app_name = parsed.get("app_name")
+        app_name = parsed.get("app") or parsed.get("app_name")
 
         if not app_name:
             return [
@@ -1068,7 +1094,8 @@ class DebugCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("app", "debug")
 
     def call(self, *args):
-        if not args:
+        app_name, _ = _resolve_app(args)
+        if not app_name:
             return [
                 text(
                     "Usage: hop3 app debug [--app <app>]\n\n"
@@ -1081,7 +1108,6 @@ class DebugCmd(Command):
                 )
             ]
 
-        app_name = args[0]
         app = get_app(self.db_session, app_name)
 
         sections = []

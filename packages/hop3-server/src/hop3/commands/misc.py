@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, ClassVar
 from hop3 import config as c
 from hop3.config import HOP3_ROOT, HOP3_USER
 from hop3.deployers import do_deploy
+from hop3.lib.args import pop_app_flag
 from hop3.lib.logging import server_log
 from hop3.lib.registry import lookup, register
 from hop3.lib.util import CommandError, CommandFailedError, run_command
@@ -124,10 +125,15 @@ class PSCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("ps",)
 
     def call(self, *args):
-        if not args:
+        app_name, rest = pop_app_flag(args)
+        if app_name is None:
+            # back-compat: app as first positional (deprecated)
+            app_name = rest[0] if rest else None
+            rest = rest[1:]
+
+        if app_name is None:
             msg = "Usage: hop ps <app_name>"
             raise ValueError(msg)
-        app_name = args[0]
         app = get_app(self.db_session, app_name)
         scaling_file = app.virtualenv_path / "SCALING"
 
@@ -158,11 +164,16 @@ class PsScaleCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("ps", "scale")
 
     def call(self, *args):
-        if len(args) < 2:
+        app_name, rest = pop_app_flag(args)
+        if app_name is None:
+            # back-compat: app as first positional (deprecated)
+            app_name = rest[0] if rest else None
+            rest = rest[1:]
+
+        if app_name is None or not rest:
             return [text("Usage: hop ps scale <app_name> <type>=<count>...")]
 
-        app_name = args[0]
-        settings = args[1:]
+        settings = rest
         app = get_app(self.db_session, app_name)
 
         scaling_file = app.virtualenv_path / "SCALING"
@@ -224,7 +235,17 @@ class RunCmd(Command):
     aliases: ClassVar[list[tuple[str, ...]]] = [("run",)]
 
     def call(self, *args):
-        if len(args) < 2:
+        # Resolve the app from --app first. `run` is special: everything after
+        # the app is the command line to execute, so the positional-app form is
+        # kept as a back-compat fallback (rest[0] is the app, rest[1:] the cmd).
+        app_name, rest = pop_app_flag(args)
+        args_list = rest
+        if app_name is None:
+            # back-compat: app as first positional (deprecated)
+            app_name = args_list[0] if args_list else None
+            args_list = args_list[1:]
+
+        if app_name is None or not args_list:
             return [
                 text(
                     "Usage: hop run <app_name> <command> [args...] [--input <data>]\n\n"
@@ -234,7 +255,6 @@ class RunCmd(Command):
             ]
 
         # Parse --input option
-        args_list = list(args)
         stdin_data = None
         if "--input" in args_list:
             idx = args_list.index("--input")
@@ -244,8 +264,7 @@ class RunCmd(Command):
             else:
                 return [error("--input requires a value")]
 
-        app_name = args_list[0]
-        cmd_to_run = args_list[1:]
+        cmd_to_run = args_list
         app = get_app(self.db_session, app_name)
 
         # Build complete environment with PATH including virtualenv
@@ -338,10 +357,15 @@ class SbomCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("app", "sbom")
 
     def call(self, *args):
-        if not args:
+        app_name, rest = pop_app_flag(args)
+        if app_name is None:
+            # back-compat: app as first positional (deprecated)
+            app_name = rest[0] if rest else None
+            rest = rest[1:]
+
+        if app_name is None:
             msg = "Usage: hop app sbom <app_name>"
             raise ValueError(msg)
-        app_name = args[0]
         app = get_app(self.db_session, app_name)
 
         # This is a Python-specific POC. A real implementation would be pluggable.

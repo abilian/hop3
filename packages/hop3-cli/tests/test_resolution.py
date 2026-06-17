@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
+from hop3_cli.commands.flags import CliFlags
 from hop3_cli.core.resolution import (
     AppResolution,
     ContextResolution,
@@ -21,7 +22,7 @@ from hop3_cli.core.resolution import (
     resolve_server,
 )
 from hop3_cli.exit_codes import ExitCode
-from hop3_cli.main import run_command_from_args
+from hop3_cli.main import _inject_resolved_app, run_command_from_args
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -261,6 +262,37 @@ def test_appresolution_dataclass_is_frozen() -> None:
     r = AppResolution(app="foo", source="test")
     with pytest.raises(FrozenInstanceError):
         setattr(r, "app", "bar")  # noqa: B010  # frozen: assignment must raise
+
+
+# ---- the resolved app is injected as `--app NAME`, never a positional ----
+
+
+def test_resolved_app_injected_as_flag_not_positional() -> None:
+    """ADR 036 D5: the app is injected as `--app NAME`, so a command's own
+    positionals (e.g. `env set KEY=VALUE`) can never be mistaken for an app —
+    this is the proper fix for the `env set --context prod KEY=VALUE` bug."""
+    resolution = AppResolution(app="ac-sciences", source="context default")
+    out = _inject_resolved_app(
+        ["env", "set", "SENTRY_DSN=https://k@o44322.ingest.us.sentry.io/451"],
+        CliFlags(app=None),
+        resolution,
+        MagicMock(),
+    )
+    assert out == [
+        "env",
+        "set",
+        "--app",
+        "ac-sciences",
+        "SENTRY_DSN=https://k@o44322.ingest.us.sentry.io/451",
+    ]
+
+
+def test_resolved_app_injected_for_simple_command() -> None:
+    resolution = AppResolution(app="ac-sciences", source="context default")
+    out = _inject_resolved_app(
+        ["app", "status"], CliFlags(app=None), resolution, MagicMock()
+    )
+    assert out == ["app", "status", "--app", "ac-sciences"]
 
 
 # ---- ADR 036 D14: --why is diagnostic-only (does NOT run the command) ----

@@ -201,3 +201,41 @@ def parse_cli_args(
             result[key] = opts["default"]
 
     return result
+
+
+def pop_app_flag(args: tuple[str, ...] | list[str]) -> tuple[str | None, list[str]]:
+    """Extract the app target from a ``--app`` / ``-a`` flag.
+
+    The app is ALWAYS a flag, never a positional (ADR 036 D5): a command's
+    positional arguments are unambiguously its own (e.g. ``env set KEY=VALUE``,
+    ``domain add host…``), with no chance of a value being mistaken for an app.
+
+    Accepts ``--app NAME``, ``--app=NAME``, ``-a NAME`` and ``-a=NAME``. Returns
+    ``(app_name, remaining_args)`` where ``remaining_args`` is everything that
+    was not the app flag or its value. ``app_name`` is None when no flag is
+    present — the caller decides whether that is an error.
+    """
+    app: str | None = None
+    remaining: list[str] = []
+    items = list(args)
+    i = 0
+    while i < len(items):
+        tok = items[i]
+        if tok in {"--app", "-a"}:
+            if i + 1 < len(items):
+                app = items[i + 1]
+                i += 2
+            else:
+                i += 1  # dangling flag with no value
+            continue
+        if tok.startswith("--app="):
+            app = tok[len("--app=") :]
+            i += 1
+            continue
+        if tok.startswith("-a="):
+            app = tok[len("-a=") :]
+            i += 1
+            continue
+        remaining.append(tok)
+        i += 1
+    return app, remaining

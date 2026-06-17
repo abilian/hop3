@@ -298,33 +298,28 @@ def _inject_resolved_app(
     if not scoped or resolution is None:
         return cli_args
 
+    # The app is ALWAYS a flag, never a positional (ADR 036 D5). `parse_flags`
+    # already stripped any user `--app`/`-a` into `flags.app`, and `resolution`
+    # folds that in at top priority — so there is no positional fallback: if
+    # nothing resolved, fail with the structured "no app resolved" error.
     if not resolution.resolved:
-        remaining = cli_args[n_consumed:]
-        no_positional = not remaining or remaining[0].startswith("-")
-        if no_positional:
-            _exit_no_app_resolved(resolution, cli_args, n_consumed)
-        return cli_args
-
-    # If the user already provided a positional app (e.g., `hop3 logs myapp`),
-    # don't inject again — the explicit positional wins.
-    remaining = cli_args[n_consumed:]
-    already_has_positional = bool(remaining) and not remaining[0].startswith("-")
-    # Exception: for `run <cmd>`, the first positional is the command to run,
-    # not an app — so injection is still needed. Per ADR 036 D5 the app is a
-    # flag; we detect this case by checking the command path. Both the
-    # canonical `app run` and its top-level `run` alias get this treatment.
-    command_tuple = tuple(cli_args[:n_consumed])
-    first_positional_is_app = command_tuple not in {("run",), ("app", "run")}
-
-    if already_has_positional and first_positional_is_app and flags.app is None:
-        return cli_args
+        _exit_no_app_resolved(resolution, cli_args, n_consumed)
 
     resolved_app = resolution.app
     assert resolved_app is not None
-    injected = [*cli_args[:n_consumed], resolved_app, *cli_args[n_consumed:]]
+    # Re-introduce the resolved app as `--app NAME` right after the command
+    # name. The server receives it as a flag, so a command's own positionals
+    # (e.g. `env set KEY=VALUE`, the command for `run <cmd>`) can never be
+    # mistaken for an app name.
+    injected = [
+        *cli_args[:n_consumed],
+        "--app",
+        resolved_app,
+        *cli_args[n_consumed:],
+    ]
     if flags.verbosity >= 2:
         printer.print_debug(
-            f"[app resolution] injected {resolution.app!r} "
+            f"[app resolution] injected --app {resolved_app!r} "
             f"(source: {resolution.source})"
         )
     return injected
@@ -514,7 +509,7 @@ def _update_printer_scope(
     """Populate printer scope so summary lines carry a [context / app] prefix.
 
     We best-effort-extract the app from the argv after app resolution has
-    run (it's injected as the first positional for app-scoped commands).
+    run (it's injected as `--app NAME` for app-scoped commands, ADR 036 D5).
     For non-app-scoped commands we leave app as None and the prefix falls
     back to just [context] (or nothing if no context is active).
     """
@@ -522,9 +517,14 @@ def _update_printer_scope(
     app_name: str | None = None
     scoped, n_consumed = is_app_scoped(cli_args)
     if scoped:
-        remaining = cli_args[n_consumed:]
-        if remaining and not remaining[0].startswith("-"):
-            app_name = remaining[0]
+        rest = cli_args[n_consumed:]
+        for i, tok in enumerate(rest):
+            if tok in {"--app", "-a"} and i + 1 < len(rest):
+                app_name = rest[i + 1]
+                break
+            if tok.startswith("--app="):
+                app_name = tok[len("--app=") :]
+                break
     printer.set_scope(context=context_name, app=app_name)
 
 
