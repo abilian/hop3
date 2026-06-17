@@ -973,6 +973,13 @@ def _check_path_regex(pattern: str) -> str:
     if not pattern or pattern != pattern.strip():
         msg = "[waf] path pattern must be a non-empty regex without surrounding whitespace"
         raise ValueError(msg)
+    if '"' in pattern:
+        # Patterns are embedded in a double-quoted SecLang operator argument; a
+        # literal quote could terminate it and inject directives/actions
+        # (Security invariant 6). A URL-path regex never needs one — reject at
+        # the trust boundary so the compiler needs no fragile escaping.
+        msg = f'[waf] path pattern {pattern!r} must not contain a double quote (")'
+        raise ValueError(msg)
     try:
         re.compile(pattern)
     except re.error as e:
