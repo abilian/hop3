@@ -22,6 +22,10 @@ from hop3 import config as c
 from hop3.core.plugins import get_os_strategy
 from hop3.lib import Abort, echo
 from hop3.lib.registry import register
+from hop3.server.catalog.keys import get_catalog_public_key
+from hop3.server.catalog.refresh import refresh_catalog
+from hop3.server.catalog.sync import CatalogSyncError
+from hop3.server.catalog.verify import CatalogVerificationError
 from hop3.server.cli import Command
 
 
@@ -64,10 +68,36 @@ class SetupCmd(Command):
         self._create_directories(verbose=verbose_setup)
         self._configure_uwsgi(verbose=verbose_setup)
         self.setup_secret_key(verbose=verbose_setup)
+        self._sync_catalog()
 
         if verbose_setup:
             echo("")
             echo("Setup completed successfully!", fg="green")
+
+    def _sync_catalog(self) -> None:
+        """Best-effort initial catalog sync (ADR 049).
+
+        Never aborts setup: with no signing key in the build, or an unreachable
+        source, the server simply comes up with no catalog (the dashboard shows it
+        as unavailable). The outcome is reported here — not silently skipped.
+        """
+        if not get_catalog_public_key().strip():
+            echo(
+                "  Catalog sync skipped: no catalog signing key in this build.",
+                fg="yellow",
+            )
+            return
+        try:
+            serial = refresh_catalog()
+        except (CatalogSyncError, CatalogVerificationError) as e:
+            echo(f"  Catalog sync failed: {e}", fg="red")
+            echo(
+                "  Server will run without a catalog; "
+                "run 'hop3 catalog refresh' once it's reachable.",
+                fg="yellow",
+            )
+            return
+        echo(f"  Catalog synced (serial {serial}).", fg="green")
 
     def _create_directories(self, *, verbose: bool) -> None:
         """Create required directories."""
