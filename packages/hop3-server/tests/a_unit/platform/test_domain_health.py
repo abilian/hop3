@@ -22,11 +22,11 @@ from hop3.platform.domain_health import (
     set_domain_health,
 )
 
-NOW = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+NOW = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)
 
 
 def _dt(year: int, month: int, day: int) -> datetime.datetime:
-    return datetime.datetime(year, month, day, tzinfo=datetime.timezone.utc)
+    return datetime.datetime(year, month, day, tzinfo=datetime.UTC)
 
 
 def _addrinfo(*ips):

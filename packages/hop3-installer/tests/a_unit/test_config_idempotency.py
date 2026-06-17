@@ -10,10 +10,11 @@ time, desyncing the role from every stored credential.
 
 from __future__ import annotations
 
+import stat
 import types
 
 import pytest
-from hop3_installer.server_installer import postgres, verify
+from hop3_installer.server_installer import postgres, services, verify
 
 
 @pytest.fixture
@@ -81,7 +82,9 @@ def test_managed_keys_are_not_echoed_into_preserved_block(home):
 def test_set_postgres_password_reuses_existing(monkeypatch):
     """On redeploy the existing superuser password is reused, not rotated."""
     monkeypatch.setattr(
-        postgres, "run_cmd", lambda *a, **k: types.SimpleNamespace(returncode=0, stderr="")
+        postgres,
+        "run_cmd",
+        lambda *a, **k: types.SimpleNamespace(returncode=0, stderr=""),
     )
     pw = postgres._set_postgres_password(existing="hop3_deadbeefcafe")
     assert pw == "hop3_deadbeefcafe"
@@ -90,9 +93,22 @@ def test_set_postgres_password_reuses_existing(monkeypatch):
 def test_set_postgres_password_generates_fresh_install(monkeypatch):
     """A fresh install (no existing password) still generates a new one."""
     monkeypatch.setattr(
-        postgres, "run_cmd", lambda *a, **k: types.SimpleNamespace(returncode=0, stderr="")
+        postgres,
+        "run_cmd",
+        lambda *a, **k: types.SimpleNamespace(returncode=0, stderr=""),
     )
     pw = postgres._set_postgres_password(existing=None)
     assert pw is not None
     assert pw.startswith("hop3_")
     assert pw != "hop3_deadbeefcafe"
+
+
+def test_secret_key_file_roundtrip_and_mode(tmp_path, monkeypatch):
+    """ADR 048: the signing key persists to the canonical secrets file, 0640,
+    and is read back (so a redeploy reuses it rather than rotating)."""
+    monkeypatch.setattr(services, "SECRET_KEY_FILE", tmp_path / "secret-key")
+    assert services._read_secret_key_file() is None  # nothing yet
+    services._write_secret_key_file("abc123")
+    assert services._read_secret_key_file() == "abc123"
+    mode = stat.S_IMODE((tmp_path / "secret-key").stat().st_mode)
+    assert mode == 0o640

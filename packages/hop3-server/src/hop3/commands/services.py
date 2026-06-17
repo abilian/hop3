@@ -568,7 +568,7 @@ class AddonTypesCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonCreateCmd(Command):
-    """Create a new backing service instance.
+    """Create a new addon.
 
     Usage: hop3 addon create <type> <name>
 
@@ -635,7 +635,7 @@ class AddonCreateCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonAttachCmd(Command):
-    """Attach a service to an application.
+    """Attach an addon to an application.
 
     This command injects the service's connection details as environment
     variables into the specified application.
@@ -712,7 +712,7 @@ class AddonAttachCmd(Command):
             self.addon_credential_repo.add(credential)
 
     def call(self, *args):
-        """Attach a service to an application."""
+        """Attach an addon to an application."""
         server_log.info("addons attach called", args=args)
 
         parsed = parse_cli_args(args, self._arg_spec)
@@ -841,7 +841,7 @@ class AddonAttachCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonDetachCmd(Command):
-    """Detach a service from an application.
+    """Detach an addon from an application.
 
     This removes the service's environment variables from the application.
 
@@ -889,7 +889,7 @@ class AddonDetachCmd(Command):
         return removed
 
     def call(self, *args):
-        """Detach a service from an application."""
+        """Detach an addon from an application."""
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
         app_name = parsed.get("app")
@@ -976,7 +976,7 @@ class AddonDetachCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonDestroyCmd(Command):
-    """Destroy a service instance.
+    """Destroy an addon.
 
     WARNING: This will permanently delete all data in the service!
 
@@ -999,7 +999,7 @@ class AddonDestroyCmd(Command):
     }
 
     def call(self, *args):
-        """Destroy a service instance."""
+        """Destroy an addon."""
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
         service_type = parsed.get("service_type") or parsed.get("type", "postgres")
@@ -1062,7 +1062,7 @@ class AddonDestroyCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonShowCmd(Command):
-    """Get information about a service instance.
+    """Show information about an addon.
 
     Usage: hop3 addon show <name> [--type <type>]
 

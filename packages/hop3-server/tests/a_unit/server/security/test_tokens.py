@@ -25,11 +25,45 @@ from hop3.server.security.tokens import (
 
 
 @pytest.fixture(autouse=True)
-def setup_secret_key():
-    """Set up a test secret key."""
+def setup_secret_key(monkeypatch, tmp_path):
+    """Provide a test signing key via the env, and neutralize the canonical
+    file. ADR 048 reads /etc/hop3/secret-key first; pointing it at an absent
+    path keeps these env-based tests deterministic regardless of host (e.g. a
+    dev machine that is also a provisioned server)."""
+    monkeypatch.setattr(
+        "hop3.server.security.tokens.SECRET_KEY_FILE", tmp_path / "no-secret-key"
+    )
     os.environ["HOP3_SECRET_KEY"] = "test-secret-key-for-testing-only"
     yield
     os.environ.pop("HOP3_SECRET_KEY", None)
+
+
+def test_secret_key_file_takes_precedence(monkeypatch, tmp_path):
+    """The canonical secrets-tier file wins over env and config (one source)."""
+    key_file = tmp_path / "secret-key"
+    key_file.write_text("file-key\n")
+    monkeypatch.setattr("hop3.server.security.tokens.SECRET_KEY_FILE", key_file)
+    monkeypatch.setenv("HOP3_SECRET_KEY", "env-key")
+    assert get_secret_key() == "file-key"
+
+
+def test_secret_key_falls_back_to_env_when_file_absent(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "hop3.server.security.tokens.SECRET_KEY_FILE", tmp_path / "absent"
+    )
+    monkeypatch.setenv("HOP3_SECRET_KEY", "env-key")
+    assert get_secret_key() == "env-key"
+
+
+def test_secret_key_falls_back_to_config_when_file_and_env_absent(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(
+        "hop3.server.security.tokens.SECRET_KEY_FILE", tmp_path / "absent"
+    )
+    monkeypatch.delenv("HOP3_SECRET_KEY", raising=False)
+    monkeypatch.setattr("hop3.config.HOP3_SECRET_KEY", "toml-key")
+    assert get_secret_key() == "toml-key"
 
 
 def test_create_token_basic():
