@@ -119,7 +119,15 @@ class TestGetModeConfig:
 
     def test_get_all_valid_modes(self):
         """Test getting all valid modes."""
-        for mode_name in ["smoke", "ci", "curated", "tag-coverage", "combo-coverage", "nightly", "full"]:
+        for mode_name in [
+            "smoke",
+            "ci",
+            "curated",
+            "tag-coverage",
+            "combo-coverage",
+            "nightly",
+            "full",
+        ]:
             config = get_mode_config(mode_name)
             assert config.name == mode_name
 
