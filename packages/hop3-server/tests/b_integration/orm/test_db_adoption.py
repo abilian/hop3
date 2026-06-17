@@ -40,7 +40,11 @@ BASE_REVISION = "d20dd80dafca"
 # A revision no branch in this tree ships — what a feature-branch DB looks like
 # once that branch is gone (incident: hop3-dev was stamped at one of these
 # after a feat/addons deploy, then a devel deploy couldn't locate it).
-ORPHAN_REVISION = "c7d4e8f1a2b9"
+# Deliberately NOT a 12-hex string: a real-looking hash risks colliding with a
+# migration that later lands on the tree (this constant used to be
+# "c7d4e8f1a2b9", which became the real expose_port_claim revision and silently
+# un-orphaned the test). A non-hex sentinel can never be an auto-generated id.
+ORPHAN_REVISION = "orphan-not-in-tree"  # non-hex, well under VARCHAR(32)
 
 
 @pytest.fixture
