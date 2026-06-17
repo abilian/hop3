@@ -97,6 +97,7 @@ def test_bans_parse():
         {"paranoia": 5},  # above range
         {"allow": []},  # empty allowlist = deny everything (typo)
         {"allow": ["("]},  # invalid regex
+        {"allow": ['/a"b']},  # double quote (SecLang injection surface)
         {"gate": [{"paths": [], "require": "office"}]},  # gate without paths
         {"gate": [{"paths": ["["], "require": "office"}]},  # bad regex in gate
         {"gate": [{"paths": ["/x"]}]},  # gate missing require
