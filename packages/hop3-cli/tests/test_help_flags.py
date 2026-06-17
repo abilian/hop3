@@ -291,7 +291,9 @@ class TestInjectLocalCommandsIntoHelp:
         text = inject_local_commands_into_help(server_help)[0]["text"]
         # No [alias] marker, and no core-alias names leak into the grouped view.
         assert "[alias]" not in text
-        names = [ln.strip().split()[0] for ln in text.split("\n") if ln.startswith("  ")]
+        names = [
+            ln.strip().split()[0] for ln in text.split("\n") if ln.startswith("  ")
+        ]
         assert "whoami" not in names
         assert "apps" not in names
 
