@@ -46,10 +46,6 @@ class BackupCreateCmd(Command):
     def call(self, *args):
         """Create a backup of an application."""
         app_name, rest = pop_app_flag(args)
-        if app_name is None:
-            # back-compat: app as first positional (deprecated)
-            app_name = rest[0] if rest else None
-            rest = rest[1:]
 
         if app_name is None:
             return [

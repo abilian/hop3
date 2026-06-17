@@ -85,10 +85,7 @@ class ShowCmd(Command):
 
     def call(self, *args):
         parsed = parse_cli_args(args, self._arg_spec)
-        # Support both: config show myapp OR config show --app myapp
-        app_name = parsed.get("app") or (
-            parsed["_args"][0] if parsed["_args"] else None
-        )
+        app_name = parsed.get("app")
         show_compose = parsed["show_compose"]
         show_secrets = parsed["show_secrets"]
 
@@ -198,13 +195,8 @@ class GetCmd(Command):
         parsed = parse_cli_args(args, self._arg_spec)
         remaining = parsed["_args"]
 
-        # Support both: config get myapp KEY OR config get --app myapp KEY
-        if parsed.get("app"):
-            app_name = parsed["app"]
-            setting = remaining[0] if remaining else None
-        else:
-            app_name = remaining[0] if len(remaining) > 0 else None
-            setting = remaining[1] if len(remaining) > 1 else None
+        app_name = parsed.get("app")
+        setting = remaining[0] if remaining else None
 
         if not app_name or not setting:
             return [
@@ -253,10 +245,7 @@ class LiveCmd(Command):
 
     def call(self, *args):
         parsed = parse_cli_args(args, self._arg_spec)
-        # Support both: config live myapp OR config live --app myapp
-        app_name = parsed.get("app") or (
-            parsed["_args"][0] if parsed["_args"] else None
-        )
+        app_name = parsed.get("app")
         show_secrets = parsed["show_secrets"]
 
         if not app_name:
@@ -390,13 +379,8 @@ class SetCmd(Command):
         parsed = parse_cli_args(args, self._arg_spec)
         remaining = parsed["_args"]
 
-        # Support both: config set myapp K=V OR config set --app myapp K=V
-        if parsed.get("app"):
-            app_name = parsed["app"]
-            settings = remaining
-        else:
-            app_name = remaining[0] if remaining else None
-            settings = remaining[1:] if len(remaining) > 1 else []
+        app_name = parsed.get("app")
+        settings = remaining
 
         if not app_name or not settings:
             return [
@@ -495,13 +479,8 @@ class UnsetCmd(Command):
         parsed = parse_cli_args(args, self._arg_spec)
         remaining = parsed["_args"]
 
-        # Support both: config unset myapp KEY OR config unset --app myapp KEY
-        if parsed.get("app"):
-            app_name = parsed["app"]
-            keys = remaining
-        else:
-            app_name = remaining[0] if remaining else None
-            keys = remaining[1:] if len(remaining) > 1 else []
+        app_name = parsed.get("app")
+        keys = remaining
 
         if not app_name or not keys:
             return [

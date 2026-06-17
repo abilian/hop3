@@ -122,9 +122,7 @@ class ListCmd(Command):
 
     def call(self, *args):
         parsed = parse_cli_args(args, self._arg_spec)
-        app_name = parsed.get("app") or (
-            parsed["_args"][0] if parsed["_args"] else None
-        )
+        app_name = parsed.get("app")
         if not app_name:
             return [
                 text(
@@ -164,13 +162,8 @@ class AddCmd(Command):
 
     def call(self, *args):
         parsed = parse_cli_args(args, self._arg_spec)
-        remaining = parsed["_args"]
-        if parsed.get("app"):
-            app_name = parsed["app"]
-            new_inputs = list(remaining)
-        else:
-            app_name = remaining[0] if remaining else None
-            new_inputs = list(remaining[1:]) if len(remaining) > 1 else []
+        app_name = parsed.get("app")
+        new_inputs = list(parsed["_args"])
 
         if not app_name or not new_inputs:
             return [
@@ -239,13 +232,8 @@ class RemoveCmd(Command):
 
     def call(self, *args):
         parsed = parse_cli_args(args, self._arg_spec)
-        remaining = parsed["_args"]
-        if parsed.get("app"):
-            app_name = parsed["app"]
-            targets = list(remaining)
-        else:
-            app_name = remaining[0] if remaining else None
-            targets = list(remaining[1:]) if len(remaining) > 1 else []
+        app_name = parsed.get("app")
+        targets = list(parsed["_args"])
 
         if not app_name or not targets:
             return [
@@ -295,13 +283,8 @@ class SetCmd(Command):
 
     def call(self, *args):
         parsed = parse_cli_args(args, self._arg_spec)
-        remaining = parsed["_args"]
-        if parsed.get("app"):
-            app_name = parsed["app"]
-            new_inputs = list(remaining)
-        else:
-            app_name = remaining[0] if remaining else None
-            new_inputs = list(remaining[1:]) if len(remaining) > 1 else []
+        app_name = parsed.get("app")
+        new_inputs = list(parsed["_args"])
 
         if not app_name or not new_inputs:
             return [
@@ -361,9 +344,7 @@ class ClearCmd(Command):
 
     def call(self, *args):
         parsed = parse_cli_args(args, self._arg_spec)
-        app_name = parsed.get("app") or (
-            parsed["_args"][0] if parsed["_args"] else None
-        )
+        app_name = parsed.get("app")
         if not app_name:
             return [
                 text(
