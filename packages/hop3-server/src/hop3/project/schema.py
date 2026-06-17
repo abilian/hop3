@@ -76,6 +76,16 @@ class BuildSection(BaseModel):
         default=None,
         description="Language toolchain: 'python', 'node', 'ruby', 'go', 'rust', etc.",
     )
+    static_dir: str | None = Field(
+        default=None,
+        alias="static-dir",
+        description=(
+            "Directory a static site serves (toolchain = 'static'), relative to "
+            "the app root — e.g. 'site', 'html', 'dist'. The first-class, "
+            "Procfile-free way to point a static app at its content; defaults to "
+            "'public' when unset."
+        ),
+    )
     before_build: str | list[str] | None = Field(
         default=None,
         alias="before-build",

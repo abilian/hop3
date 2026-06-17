@@ -291,6 +291,17 @@ class Hop3Config:
         return self.build.get("builder")
 
     @property
+    def static_dir(self) -> str | None:
+        """Get build.static-dir: the directory a static site serves.
+
+        The first-class, Procfile-free way to point a ``toolchain = "static"``
+        app at its content (e.g. "site", "html", "dist"). The static toolchain
+        falls back to the ``[run.workers].static`` worker, then a Procfile
+        ``static:`` line, then the "public" default.
+        """
+        return self.build.get("static-dir")
+
+    @property
     def toolchain_name(self) -> str | None:
         """Get build.toolchain (explicit toolchain selection).
 
