@@ -255,6 +255,46 @@ class TestInjectLocalCommandsIntoHelp:
             f"markers not aligned; columns seen: {sorted(marker_columns)}"
         )
 
+    def test_all_commands_injects_core_aliases_with_alias_marker(self):
+        """`--all` lists client-side core aliases tagged [alias] -> canonical."""
+        server_help = [
+            {
+                "t": "text",
+                "text": (
+                    "ALL COMMANDS\n"
+                    "  app list    [app]     List all applications.\n"
+                    "  auth whoami [auth]    Show the current user.\n"
+                ),
+            }
+        ]
+        text = inject_local_commands_into_help(server_help)[0]["text"]
+        lines = [ln.strip() for ln in text.split("\n")]
+
+        apps = next((ln for ln in lines if ln.startswith("apps ")), None)
+        assert apps is not None
+        assert "[alias]" in apps
+        assert "app list" in apps  # points at the canonical
+
+        whoami = next((ln for ln in lines if ln.startswith("whoami ")), None)
+        assert whoami is not None
+        assert "[alias]" in whoami
+        assert "auth whoami" in whoami
+
+    def test_grouped_view_does_not_inject_core_aliases(self):
+        """The narrow grouped view (`hop help`) must not list aliases."""
+        server_help = [
+            {
+                "t": "text",
+                "text": ("COMMANDS\n  app      Manage apps.\n  deploy   Deploy.\n"),
+            }
+        ]
+        text = inject_local_commands_into_help(server_help)[0]["text"]
+        # No [alias] marker, and no core-alias names leak into the grouped view.
+        assert "[alias]" not in text
+        names = [ln.strip().split()[0] for ln in text.split("\n") if ln.startswith("  ")]
+        assert "whoami" not in names
+        assert "apps" not in names
+
     def test_empty_result(self):
         """Test with empty result."""
         result = inject_local_commands_into_help([])
