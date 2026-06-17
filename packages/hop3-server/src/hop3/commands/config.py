@@ -587,11 +587,11 @@ class MigrateCmd(Command):
         if not from_format or not app_dir:
             return [
                 text(
-                    "Usage: hop3 env migrate <from-format> <app-dir> [--dry-run] [--backup]\n\n"
+                    "Usage: hop3 app migrate <from-format> <app-dir> [--dry-run] [--backup]\n\n"
                     "Supported formats:\n"
                     "  procfile    Convert Procfile to hop3.toml\n\n"
                     "Example:\n"
-                    "  hop3 env migrate procfile /path/to/app"
+                    "  hop3 app migrate procfile /path/to/app"
                 )
             ]
 

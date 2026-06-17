@@ -213,9 +213,9 @@ class BackupInfoCmd(Command):
         if len(args) < 1:
             return [
                 text(
-                    "Usage: hop3 backup info <backup-id>\n\n"
+                    "Usage: hop3 backup show <backup-id>\n\n"
                     "Example:\n"
-                    "  hop3 backup info 20251030_143022_a8f3d9"
+                    "  hop3 backup show 20251030_143022_a8f3d9"
                 )
             ]
 
