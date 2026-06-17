@@ -227,6 +227,18 @@ class TestMetadata:
     framework: str | None = None
     """Framework (for tutorials)."""
 
+    builder: str | None = None
+    """Builder method: native (local), docker, nix (hand-crafted), nix-template."""
+
+    toolchain: str | None = None
+    """Language/toolchain tag used to build, normalised to a canonical name
+    (e.g. python, php, node, go, ruby, rust, java, elixir, static, generic).
+    Sourced from ``[build].toolchain``, an inferred app type, or — for
+    tutorials — the parent directory name; ``None`` when not discernible."""
+
+    spec: str | None = None
+    """Configuration format: hop3toml, procfile, tutorial, demo."""
+
 
 @dataclass
 class TestDefinition:

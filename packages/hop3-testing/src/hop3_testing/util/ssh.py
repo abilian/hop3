@@ -12,9 +12,9 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Self
 
 import paramiko
-from typing_extensions import Self
 
 
 @dataclass

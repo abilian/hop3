@@ -40,7 +40,7 @@ class ModeConfig:
     """
 
     name: str
-    """Mode name (smoke, ci, curated, coverage, nightly, full)."""
+    """Mode name (smoke, ci, curated, tag-coverage, combo-coverage, nightly, full)."""
 
     tiers: list[str]
     """Allowed tiers (fast, medium, slow, very-slow). Ignored when ``tests`` is
@@ -60,9 +60,9 @@ class ModeConfig:
 
     representative: bool = False
     """If True, reduce the filtered set to a minimal representative subset that
-    still exercises every variant / toolchain / addon / category at least once
-    (set-cover). Used by the ``coverage`` mode to hit all significant cases at
-    a fraction of nightly's cost."""
+    still exercises every significant case (set-cover).  Used by ``tag-coverage``
+    and ``combo-coverage`` to hit all significant cases at a fraction of
+    nightly's cost."""
 
     tests: list[str] = field(default_factory=list)
     """Explicit list of test names (catalog ids). When non-empty this is a
@@ -131,17 +131,30 @@ MODES: dict[str, ModeConfig] = {
         max_duration_minutes=30,
         tests=list(_CURATED_SEED),
     ),
-    "coverage": ModeConfig(
-        name="coverage",
+    "tag-coverage": ModeConfig(
+        name="tag-coverage",
         tiers=["fast", "medium", "slow"],
         priorities=["P0", "P1"],
         targets=["docker"],
         description=(
-            "Representative coverage (docker-only): set-cover deployment apps, "
-            "all tutorials, a sampled floor of demos. Every significant case, "
-            "well under nightly."
+            "Tag coverage (docker-only): minimal subset covering every individual "
+            "tag value (builder, toolchain, addon, category, spec) at least once. "
+            "Fastest way to exercise every significant dimension."
         ),
-        max_duration_minutes=45,
+        max_duration_minutes=30,
+        representative=True,
+    ),
+    "combo-coverage": ModeConfig(
+        name="combo-coverage",
+        tiers=["fast", "medium", "slow"],
+        priorities=["P0", "P1"],
+        targets=["docker"],
+        description=(
+            "Combo coverage (docker-only): minimal subset covering every observed "
+            "5-tuple (builder × toolchain × addons × category × spec) at least "
+            "once. Every unique combination, well under nightly."
+        ),
+        max_duration_minutes=60,
         representative=True,
     ),
     "nightly": ModeConfig(
@@ -173,6 +186,7 @@ BUILTIN_MODE_NAMES = frozenset(MODES)
 MODE_ALIASES: dict[str, str] = {
     "dev": "smoke",
     "release": "full",
+    "coverage": "combo-coverage",  # pre-2026-Q2 name → combo-coverage
 }
 
 
@@ -286,8 +300,9 @@ def get_mode_config(mode: str) -> ModeConfig:
     """Get configuration for a mode (built-in or user-defined).
 
     Args:
-        mode: Mode name (smoke, ci, curated, coverage, nightly, full, a custom
-            one, or a back-compat alias like ``dev``/``release``).
+        mode: Mode name (smoke, ci, curated, tag-coverage, combo-coverage,
+            nightly, full, a custom one, or a back-compat alias like ``dev``/
+            ``release``/``coverage``).
 
     Returns:
         ModeConfig for the requested mode

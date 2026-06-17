@@ -29,6 +29,62 @@ from hop3_installer.constants import (
 
 from .config import ServerInstallerConfig
 
+# Keys this installer owns. Everything else in an existing hop3-server.toml is
+# an operator addition (e.g. ACME_ENGINE / ACME_EMAIL, custom POSTGRES_PORT) and
+# MUST survive a redeploy — see write_server_config.
+_MANAGED_CONFIG_KEYS = (
+    "HOP3_SECRET_KEY",
+    "ADMIN_DOMAIN",
+    "POSTGRES_HOST",
+    "POSTGRES_SUPERUSER_PASSWORD",
+    "MYSQL_HOST",
+    "MYSQL_SUPERUSER",
+    "MYSQL_SUPERUSER_PASSWORD",
+)
+
+
+def read_existing_server_config_value(key: str) -> str | None:
+    """Return a top-level ``KEY = "value"`` from the existing hop3-server.toml.
+
+    Lets a redeploy REUSE a secret the installer wrote on a prior run instead of
+    rotating it: a rotated DB superuser password desyncs the role from the
+    stored credential and breaks every client. Flat line parse (the file is flat
+    key=value) — no TOML dependency, matching ``verify_mysql_config`` below.
+    """
+    config_file = HOME_DIR / "hop3-server.toml"
+    try:
+        content = config_file.read_text()
+    except OSError:
+        return None
+    for line in content.splitlines():
+        key_part, sep, value_part = line.partition("=")
+        if sep and key_part.strip() == key:
+            return value_part.strip().strip('"').strip("'") or None
+    return None
+
+
+def _preserved_operator_lines() -> list[str]:
+    """Existing non-managed ``KEY = value`` lines (e.g. ACME_*) to carry over.
+
+    Read BEFORE the file is rewritten so operator settings are not lost on
+    redeploy. Comments are dropped (values are what matter); blank lines and
+    managed keys are skipped.
+    """
+    config_file = HOME_DIR / "hop3-server.toml"
+    try:
+        content = config_file.read_text()
+    except OSError:
+        return []
+    preserved: list[str] = []
+    for line in content.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        key = stripped.partition("=")[0].strip()
+        if key and key not in _MANAGED_CONFIG_KEYS:
+            preserved.append(stripped)
+    return preserved
+
 
 def write_server_config(
     pg_password: str | None,
@@ -36,8 +92,16 @@ def write_server_config(
     domain: str | None,
     secret_key: str | None = None,
 ) -> None:
-    """Write hop3-server.toml configuration file."""
+    """Write hop3-server.toml configuration file.
+
+    Idempotent on redeploy: operator-added keys (ACME_*, custom settings) are
+    preserved, and the secrets passed in are the *reused* ones (see
+    ``read_existing_server_config_value``), never freshly rotated values.
+    """
     config_file = HOME_DIR / "hop3-server.toml"
+
+    # Capture operator additions before we overwrite the file.
+    preserved = _preserved_operator_lines()
 
     lines = [
         "# Hop3 Server Configuration",
@@ -74,6 +138,15 @@ def write_server_config(
             'MYSQL_HOST = "127.0.0.1"',
             'MYSQL_SUPERUSER = "hop3"',
             f'MYSQL_SUPERUSER_PASSWORD = "{mysql_password}"',
+            "",
+        ])
+
+    # Carry over anything the operator added (e.g. ACME_ENGINE / ACME_EMAIL) so a
+    # redeploy never silently drops it.
+    if preserved:
+        lines.extend([
+            "# Operator settings (preserved across redeploy)",
+            *preserved,
             "",
         ])
 

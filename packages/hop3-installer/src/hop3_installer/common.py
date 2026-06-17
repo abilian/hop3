@@ -24,9 +24,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypedDict, overload
-
-from typing_extensions import Self
+from typing import Self, TypedDict, overload
 
 # Argv tokens we'll redact when stringifying a CommandError. Defense in
 # depth: the right fix is to keep secrets off argv at the call site (we
@@ -712,7 +710,7 @@ def make_build_info(
         # Module-qualified: the single-file bundler rewrites
         # ``from datetime import datetime`` to ``import datetime``, so the bare
         # name would resolve to the module in the bundled installer.
-        "deployed_at": datetime.datetime.now(datetime.timezone.utc).isoformat(
+        "deployed_at": datetime.datetime.now(datetime.UTC).isoformat(
             timespec="seconds"
         ),
     }
