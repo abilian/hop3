@@ -31,7 +31,7 @@ from hop3.server.cli.db import DbUpgradeCmd
 if TYPE_CHECKING:
     from pathlib import Path
 
-HEAD_REVISION = "b5e2a1c7d3f8"  # add_app_limits_enforced (ADR 046 P2.2)
+HEAD_REVISION = "e1f2a3b4c5d6"  # add_network (ADR 048 named networks for WAF gates)
 BASE_REVISION = "d20dd80dafca"
 
 
