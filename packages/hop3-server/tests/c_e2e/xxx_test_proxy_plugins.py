@@ -28,7 +28,7 @@ class TestNginxProxyPlugin:
     @pytest.fixture(scope="class")
     def proxy_container(
         self, docker_client: docker.DockerClient, hop3_image: str
-    ) -> Generator[dict, None, None]:
+    ) -> Generator[dict]:
         """Create container with Nginx proxy."""
         yield from create_proxy_container(docker_client, hop3_image, "nginx")
 
@@ -47,7 +47,7 @@ class TestCaddyProxyPlugin:
     @pytest.fixture(scope="class")
     def proxy_container(
         self, docker_client: docker.DockerClient, hop3_image: str
-    ) -> Generator[dict, None, None]:
+    ) -> Generator[dict]:
         """Create container with Caddy proxy."""
         yield from create_proxy_container(docker_client, hop3_image, "caddy")
 
@@ -64,7 +64,7 @@ class TestTraefikProxyPlugin:
     @pytest.fixture(scope="class")
     def proxy_container(
         self, docker_client: docker.DockerClient, hop3_image: str
-    ) -> Generator[dict, None, None]:
+    ) -> Generator[dict]:
         """Create container with Traefik proxy."""
         yield from create_proxy_container(docker_client, hop3_image, "traefik")
 
@@ -185,7 +185,7 @@ def proxy_info():
 
 def create_proxy_container(
     docker_client: docker.DockerClient, hop3_image: str, proxy_type: str
-) -> Generator[dict, None, None]:
+) -> Generator[dict]:
     """Create a hop3 container with specific proxy type configured.
 
     Args:
