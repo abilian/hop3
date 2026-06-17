@@ -1,12 +1,19 @@
 # ADR 049: Catalog Distribution — Fetching App Specs from a Central Source
 
-**Status**: Proposed
+**Status**: Accepted (phased — v1 node + producer code shipped; signing key, published content, and the install→deploy step deferred)
 **Type**: Feature
 **Created**: 2026-06-16
 **Related-ADRs**: 013 (supply chain), 031 (terminology), 019 (CLI commands), 002 (config format)
 
 ## Revisions
 
+- v0.3 (2026-06-17): Accepted and implemented. Node side (`catalog/{verify,sync,
+  service,loader,policy,refresh,keys}.py`, the `catalog refresh` command, the
+  `hop3-server setup` sub-step) and the producer side (`catalog/publish.py` +
+  `hop3-catalog` CLI) are landed and round-trip-tested. The F7 gate shipped
+  **narrower** than v0.2 specified — see the corrected F7 below. Remaining work is
+  out-of-band: bake a real signing key into `keys.py`, curate + publish content to
+  `https://hop3.dev/catalog/`, and enable `app.deploy()` in `catalog_install`.
 - v0.2 (2026-06-16): Security review (see `/security-review` of this file). Tightened
   three high-severity gaps into the v1 design — the signed index is now **authoritative
   for the file set** (loader iterates the verified index, not `iterdir()`); the
@@ -198,12 +205,20 @@ Authenticity is **necessary but not sufficient** — a *verified* spec is still
 attacker- or mistake-shaped content. These are **in v1 scope**, because v1 is the
 change that first makes catalog content installable; deferring them ships a known hole:
 
-- **Spec-validation gate (F7)**: a hard gate between verify and install. Allowlist the
-  builders/addons/keys a catalog spec may use; reject fixed host ports outside Hop3's
-  `$PORT`, undeclared addon slots, and any proxy `default_server`/catch-all directive —
-  the "apps must coexist" class in CLAUDE.md. Run it at load time (fail loud, name the
-  spec) so a bad spec is refused before it is ever listed. Today `catalog_install`
-  validates only the user-chosen app *name*; this gate is new.
+- **Spec-validation gate (F7)**: a hard gate that refuses a verified-but-hostile spec
+  from claiming an **unmanaged shared resource** ("apps must coexist", CLAUDE.md). As
+  shipped (`catalog/policy.py`) the gate is deliberately **narrow**: the only such
+  resource a `hop3.toml` can actually express is the reverse-proxy default server, so
+  it rejects a `[domains]` (or per-`[context]`) host that is the nginx catch-all `"_"`
+  or a wildcard. The v0.2 wording ("allowlist builders/addons, reject fixed ports/
+  undeclared addon slots") was pared back because those concerns are *already*
+  platform-constrained — `[build].builder` by the strict hop3.toml schema, `[[ports]]`
+  by Hop3's port registry (reserved ports conflict-refused), `[[addons]]` by per-app
+  provisioning — so re-gating them here would be redundant, not defense-in-depth. The
+  gate runs at **publish time** (the primary place, before signing — in
+  `publish.build_index`) and again as a **load-time backstop** on the node (fail loud,
+  name the spec, exclude it). Today `catalog_install` validates only the user-chosen
+  app *name*; this gate is new.
 - **icon/readme XSS (F6)**: the icon route is genuinely public (`guards=[]`) and serves
   `icon.svg` as `image/svg+xml` — a live stored-XSS sink the moment the catalog holds
   attacker-influenced content (which is exactly what this ADR enables). Drop SVG from
@@ -258,10 +273,10 @@ change that first makes catalog content installable; deferring them ships a know
   (F1); `CatalogService` refresh swaps an immutable snapshot reference under a lock
   (F2); the silent-empty `ensure_loaded` else and the warn-and-`return None` loader
   path are replaced with loud reporting.
-- **New for the Hop3 team (operational)**: an offline catalog signing key + a
-  publish/sign step in the release process, and the constraint that the
-  server-release channel stay an independent trust root. Real cost, accepted as the
-  price of not making one static host a fleet-wide RCE.
+- **New for the Hop3 team (operational)**: an offline catalog signing key, the
+  `hop3-catalog publish` step in the release process (the tool now exists), and the
+  constraint that the server-release channel stay an independent trust root. Real
+  cost, accepted as the price of not making one static host a fleet-wide RCE.
 - **Unchanged**: `CatalogApp`, the dashboard controller, the per-app
   `hop3.toml`+readme+icon artifact shape.
 
@@ -306,18 +321,18 @@ for oversights:
   fetch *fails* verification has no last-good — the server must start and report
   "no catalog," not silently run empty or block boot.
 
-## Open Questions
+## Open Questions (resolved at implementation)
 
-1. **Index format**: `index.json` (matches `CatalogApp.to_dict()`) vs `index.toml`
-   (matches the `hop3.toml` ecosystem). Leaning JSON.
-2. **Refresh cadence default**: manual-only (`hop3 catalog refresh`) vs a setup-time
-   systemd timer.
-3. **Minisign format handling**: parse the minisign file format ourselves and call
-   `cryptography`'s Ed25519, vs a tiny vendored parser. (Verification primitive is
-   already available either way.)
-4. **Exact home for the write-protected serial state**: a root-owned file vs a
-   dedicated `HOP3_ROOT/catalog-state/` (resolved to "outside `CATALOG_ROOT`,
-   write-protected" — F4 — but the precise path/ownership is an implementation choice).
+1. **Index format**: **JSON**. `index.json` ships inside the tarball; `publish.py`
+   emits it, `verify`/`loader` consume it.
+2. **Refresh cadence default**: **manual-only** for v1 (`hop3 catalog refresh` + a
+   best-effort `hop3-server setup` sub-step). A systemd timer stays deferred.
+3. **Minisign format handling**: **parse it ourselves** and call `cryptography`'s
+   Ed25519 (`verify.py` for verify, `publish.py` for sign) — no vendored parser, no
+   `minisign` binary in the path. Output stays `minisign -V`-compatible.
+4. **Home for the anti-rollback serial**: **`HOP3_ROOT/catalog-state/`**
+   (`CATALOG_STATE_ROOT`), outside `CATALOG_ROOT` so a swap/teardown can't reset it.
+   Root-owned state (F8) remains a deferred hardening step.
 
 ## References
 
