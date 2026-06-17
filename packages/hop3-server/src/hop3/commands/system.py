@@ -313,7 +313,7 @@ class SystemCmd(Command):
 
 @register
 class StatusCmd(Command):
-    """Show full health status of the Hop3 server.
+    """Show the server's health — services, addons, disk, certs (vs 'system info', static facts).
 
     Default output: one-line identity header + per-section health table.
     Bottom line summarises warnings and failures.
@@ -608,7 +608,7 @@ class StatusCmd(Command):
 
 @register
 class InfoCmd(Command):
-    """Show static facts about this server.
+    """Show static facts about this server — version, host, uptime, features (vs 'system status', live health).
 
     Reports version/provenance, host and *server-process* uptime, the
     control-plane database backend, the TLS issuance engine in effect, and the
