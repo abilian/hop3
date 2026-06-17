@@ -51,11 +51,7 @@ class GitHookCmd(Command):
         Hook data format from stdin: <old-sha> <new-sha> <ref-name>
         Example: aa453216... 68f7abf4... refs/heads/master
         """
-        app_name, rest = pop_app_flag(args)
-        if app_name is None:
-            # back-compat: app as first positional (deprecated)
-            app_name = rest[0] if rest else None
-            rest = rest[1:]
+        app_name, _rest = pop_app_flag(args)
 
         if app_name is None:
             msg = "Usage: hop3 git-hook <app_name>"
@@ -210,11 +206,7 @@ class GitSetupCmd(Command):
     hidden: ClassVar[bool] = True
 
     def call(self, *args):
-        app_name, rest = pop_app_flag(args)
-        if app_name is None:
-            # back-compat: app as first positional (deprecated)
-            app_name = rest[0] if rest else None
-            rest = rest[1:]
+        app_name, _rest = pop_app_flag(args)
 
         if app_name is None:
             msg = "Usage: hop3 git setup <app_name>"

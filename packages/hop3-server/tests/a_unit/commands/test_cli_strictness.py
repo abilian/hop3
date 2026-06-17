@@ -49,4 +49,4 @@ def test_config_live_fails_loud_when_not_running(db_session: Session, test_app: 
     # The fixture app is not actually running, so live inspection can't
     # succeed — this must raise rather than return DB values.
     with pytest.raises(ValueError, match="live environment"):
-        cmd.call("testapp")
+        cmd.call("--app", "testapp")

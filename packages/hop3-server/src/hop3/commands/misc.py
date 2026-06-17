@@ -125,11 +125,7 @@ class PSCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("ps",)
 
     def call(self, *args):
-        app_name, rest = pop_app_flag(args)
-        if app_name is None:
-            # back-compat: app as first positional (deprecated)
-            app_name = rest[0] if rest else None
-            rest = rest[1:]
+        app_name, _rest = pop_app_flag(args)
 
         if app_name is None:
             msg = "Usage: hop ps <app_name>"
@@ -165,10 +161,6 @@ class PsScaleCmd(Command):
 
     def call(self, *args):
         app_name, rest = pop_app_flag(args)
-        if app_name is None:
-            # back-compat: app as first positional (deprecated)
-            app_name = rest[0] if rest else None
-            rest = rest[1:]
 
         if app_name is None or not rest:
             return [text("Usage: hop ps scale <app_name> <type>=<count>...")]
@@ -214,20 +206,17 @@ class PsScaleCmd(Command):
 class RunCmd(Command):
     """Run a one-off command in the context of an application.
 
-    Usage: hop3 app run [<app>] <command> [args...] [--input <data>]
+    Usage: hop3 app run --app <app> <command> [args...] [--input <data>]
 
-    `hop3 run ...` works as a top-level alias. The app is resolved from
-    context when omitted; otherwise give it as the first positional. (run is
-    the one app command that keeps a positional app, since everything after
-    it is the command line to execute, which would make --app ambiguous.)
+    `hop3 run ...` works as a top-level alias. The app is read from the
+    `--app`/`-a` flag; everything that remains is the command line to execute.
 
     Options:
         --input <data>: Data to send to the command's stdin (non-interactive).
 
     Examples:
-        hop3 app run flask db upgrade        # app resolved from context
-        hop3 app run myapp flask db upgrade  # explicit app
-        hop3 run myapp flask users change_password user@example.com --input "newpw"
+        hop3 app run --app myapp flask db upgrade
+        hop3 run --app myapp flask users change_password user@example.com --input "newpw"
     """
 
     db_session: Session
@@ -235,15 +224,10 @@ class RunCmd(Command):
     aliases: ClassVar[list[tuple[str, ...]]] = [("run",)]
 
     def call(self, *args):
-        # Resolve the app from --app first. `run` is special: everything after
-        # the app is the command line to execute, so the positional-app form is
-        # kept as a back-compat fallback (rest[0] is the app, rest[1:] the cmd).
+        # Resolve the app from --app. `run` is special: everything that remains
+        # after the flag is the command line to execute.
         app_name, rest = pop_app_flag(args)
         args_list = rest
-        if app_name is None:
-            # back-compat: app as first positional (deprecated)
-            app_name = args_list[0] if args_list else None
-            args_list = args_list[1:]
 
         if app_name is None or not args_list:
             return [
@@ -357,11 +341,7 @@ class SbomCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("app", "sbom")
 
     def call(self, *args):
-        app_name, rest = pop_app_flag(args)
-        if app_name is None:
-            # back-compat: app as first positional (deprecated)
-            app_name = rest[0] if rest else None
-            rest = rest[1:]
+        app_name, _rest = pop_app_flag(args)
 
         if app_name is None:
             msg = "Usage: hop app sbom <app_name>"

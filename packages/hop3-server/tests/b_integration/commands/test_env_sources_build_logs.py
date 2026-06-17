@@ -54,7 +54,7 @@ class TestEnvShowSources:
         )
         db_session.commit()
 
-        items = ShowCmd(db_session=db_session).call("srcapp", "--sources")
+        items = ShowCmd(db_session=db_session).call("--app", "srcapp", "--sources")
         table = _table(items)
         assert table is not None
         assert table["headers"] == ["Source", "Key", "Value"]
@@ -89,7 +89,7 @@ class TestEnvShowSources:
         db_session.add(EnvVar(app_id=app.id, name="FOO", value="bar"))
         db_session.commit()
 
-        table = _table(ShowCmd(db_session=db_session).call("plainapp"))
+        table = _table(ShowCmd(db_session=db_session).call("--app", "plainapp"))
         assert table["headers"] == ["Key", "Value"]
 
 

@@ -39,7 +39,7 @@ def _texts(result):
 
 
 def test_list_empty(db_session: Session, test_app: App):
-    result = ListCmd(db_session=db_session).call("testapp")
+    result = ListCmd(db_session=db_session).call("--app", "testapp")
     assert "No domains set" in _texts(result)
 
 
@@ -49,7 +49,7 @@ def test_list_shows_hosts(db_session: Session, test_app: App):
     )
     db_session.commit()
 
-    result = ListCmd(db_session=db_session).call("testapp")
+    result = ListCmd(db_session=db_session).call("--app", "testapp")
     text = _texts(result)
     # Plain-text rendering of the table may not include host strings; check
     # the structured row payload instead.
@@ -66,7 +66,9 @@ def test_list_shows_hosts(db_session: Session, test_app: App):
 
 
 def test_add_to_empty(db_session: Session, test_app: App):
-    AddCmd(db_session=db_session).call("testapp", "example.com", "www.example.com")
+    AddCmd(db_session=db_session).call(
+        "--app", "testapp", "example.com", "www.example.com"
+    )
     assert parse_hostname_string(_host_name(db_session)) == [
         "example.com",
         "www.example.com",
@@ -77,7 +79,7 @@ def test_add_is_union(db_session: Session, test_app: App):
     test_app.env_vars.append(EnvVar(name="HOST_NAME", value="a.com", app=test_app))
     db_session.commit()
 
-    AddCmd(db_session=db_session).call("testapp", "b.com", "a.com")
+    AddCmd(db_session=db_session).call("--app", "testapp", "b.com", "a.com")
     # Order: existing first, then new not-already-present (a.com was a dup)
     assert parse_hostname_string(_host_name(db_session)) == ["a.com", "b.com"]
 
@@ -85,7 +87,7 @@ def test_add_is_union(db_session: Session, test_app: App):
 def test_add_rejects_invalid_atomic(db_session: Session, test_app: App):
     """One invalid host aborts the whole operation."""
     result = AddCmd(db_session=db_session).call(
-        "testapp", "valid.com", "not valid host"
+        "--app", "testapp", "valid.com", "not valid host"
     )
     assert any(r.get("t") == "error" for r in result)
     # Nothing should have been written
@@ -96,7 +98,7 @@ def test_add_rejects_catch_all_with_other(db_session: Session, test_app: App):
     test_app.env_vars.append(EnvVar(name="HOST_NAME", value="a.com", app=test_app))
     db_session.commit()
 
-    result = AddCmd(db_session=db_session).call("testapp", "_")
+    result = AddCmd(db_session=db_session).call("--app", "testapp", "_")
     assert any(r.get("t") == "error" for r in result)
     assert _host_name(db_session) == "a.com"
 
@@ -107,7 +109,7 @@ def test_add_conflict_with_other_app(db_session: Session, test_app: App):
     other.env_vars = [EnvVar(name="HOST_NAME", value="example.com", app=other)]
     AppRepository(session=db_session).add(other, auto_commit=True)
 
-    result = AddCmd(db_session=db_session).call("testapp", "example.com")
+    result = AddCmd(db_session=db_session).call("--app", "testapp", "example.com")
     text = _texts(result)
     assert any(r.get("t") == "error" for r in result)
     assert "otherapp" in text
@@ -122,7 +124,7 @@ def test_add_noop_when_all_present(db_session: Session, test_app: App):
     )
     db_session.commit()
 
-    result = AddCmd(db_session=db_session).call("testapp", "a.com", "b.com")
+    result = AddCmd(db_session=db_session).call("--app", "testapp", "a.com", "b.com")
     assert "already set" in _texts(result)
 
 
@@ -137,7 +139,7 @@ def test_remove_existing(db_session: Session, test_app: App):
     )
     db_session.commit()
 
-    RemoveCmd(db_session=db_session).call("testapp", "b.com")
+    RemoveCmd(db_session=db_session).call("--app", "testapp", "b.com")
     assert parse_hostname_string(_host_name(db_session)) == ["a.com", "c.com"]
 
 
@@ -145,7 +147,9 @@ def test_remove_errors_when_absent_atomic(db_session: Session, test_app: App):
     test_app.env_vars.append(EnvVar(name="HOST_NAME", value="a.com", app=test_app))
     db_session.commit()
 
-    result = RemoveCmd(db_session=db_session).call("testapp", "a.com", "missing.com")
+    result = RemoveCmd(db_session=db_session).call(
+        "--app", "testapp", "a.com", "missing.com"
+    )
     assert any(r.get("t") == "error" for r in result)
     # Nothing removed — the present host must remain
     assert parse_hostname_string(_host_name(db_session)) == ["a.com"]
@@ -160,7 +164,7 @@ def test_set_replaces_full_list(db_session: Session, test_app: App):
     test_app.env_vars.append(EnvVar(name="HOST_NAME", value="old.com", app=test_app))
     db_session.commit()
 
-    SetCmd(db_session=db_session).call("testapp", "new.com", "www.new.com")
+    SetCmd(db_session=db_session).call("--app", "testapp", "new.com", "www.new.com")
     assert parse_hostname_string(_host_name(db_session)) == [
         "new.com",
         "www.new.com",
@@ -171,7 +175,9 @@ def test_set_rejects_invalid_atomic(db_session: Session, test_app: App):
     test_app.env_vars.append(EnvVar(name="HOST_NAME", value="old.com", app=test_app))
     db_session.commit()
 
-    result = SetCmd(db_session=db_session).call("testapp", "ok.com", "not valid")
+    result = SetCmd(db_session=db_session).call(
+        "--app", "testapp", "ok.com", "not valid"
+    )
     assert any(r.get("t") == "error" for r in result)
     # Old value untouched
     assert _host_name(db_session) == "old.com"
@@ -182,7 +188,7 @@ def test_set_conflict_with_other_app(db_session: Session, test_app: App):
     other.env_vars = [EnvVar(name="HOST_NAME", value="taken.com", app=other)]
     AppRepository(session=db_session).add(other, auto_commit=True)
 
-    result = SetCmd(db_session=db_session).call("testapp", "taken.com")
+    result = SetCmd(db_session=db_session).call("--app", "testapp", "taken.com")
     assert any(r.get("t") == "error" for r in result)
     assert _host_name(db_session) is None
 
@@ -198,12 +204,12 @@ def test_clear_unsets(db_session: Session, test_app: App):
     )
     db_session.commit()
 
-    ClearCmd(db_session=db_session).call("testapp")
+    ClearCmd(db_session=db_session).call("--app", "testapp")
     assert _host_name(db_session) is None
 
 
 def test_clear_noop_when_empty(db_session: Session, test_app: App):
-    result = ClearCmd(db_session=db_session).call("testapp")
+    result = ClearCmd(db_session=db_session).call("--app", "testapp")
     assert "No domains set" in _texts(result)
 
 

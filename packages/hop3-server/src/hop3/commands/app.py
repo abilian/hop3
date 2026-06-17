@@ -65,17 +65,10 @@ if TYPE_CHECKING:
 def _resolve_app(args: tuple[str, ...]) -> tuple[str | None, list[str]]:
     """Resolve the target app for an app-scoped command (ADR 036 D5).
 
-    The app is taken from the ``--app`` / ``-a`` flag. As a TEMPORARY
-    back-compat fallback (the CLI will stop sending it positionally in a
-    later step), the first positional is accepted as the app when no flag
-    is present. Returns ``(app_name, remaining_positionals)``.
+    The app is taken from the ``--app`` / ``-a`` flag only. Returns
+    ``(app_name, remaining_positionals)``.
     """
-    app_name, rest = pop_app_flag(args)
-    if app_name is None:
-        # back-compat: app as first positional (deprecated)
-        app_name = rest[0] if rest else None
-        rest = rest[1:]
-    return app_name, rest
+    return pop_app_flag(args)
 
 
 def _run_lifecycle_action(
@@ -128,9 +121,9 @@ class AppCmd(Command):
     """Manage applications.
 
     Examples:
-        hop3 app create myapp        # Create a new app
-        hop3 app list                # List all apps
-        hop3 app destroy --app myapp # Destroy an app
+        hop3 app create <repo_url> --app myapp  # Create a new app
+        hop3 app list                           # List all apps
+        hop3 app destroy --app myapp            # Destroy an app
     """
 
     name: ClassVar[tuple[str, ...]] = ("app",)
@@ -142,7 +135,7 @@ class LaunchCmd(Command):
     """Create and configure a new application from a source code repository.
 
     Examples:
-        hop3 app create myapp         # Create a new app (then `hop3 deploy`)
+        hop3 app create <repo_url> --app myapp   # Create from a repo (then `hop3 deploy`)
     """
 
     db_session: Session
@@ -151,17 +144,10 @@ class LaunchCmd(Command):
 
     def call(self, *args):
         app_name, rest = pop_app_flag(args)
-        if app_name is None:
-            # back-compat: <repo_url> <app_name> positional form (deprecated)
-            if len(rest) != 2:
-                msg = "Usage: hop launch <repo_url> --app <app_name>"
-                raise ValueError(msg)
-            repo_url, app_name = rest
-        else:
-            if len(rest) != 1:
-                msg = "Usage: hop launch <repo_url> --app <app_name>"
-                raise ValueError(msg)
-            repo_url = rest[0]
+        if app_name is None or len(rest) != 1:
+            msg = "Usage: hop launch <repo_url> --app <app_name>"
+            raise ValueError(msg)
+        repo_url = rest[0]
 
         validate_app_name(app_name)
         app_repo = AppRepository(session=self.db_session)
@@ -613,7 +599,6 @@ class LogsCmd(Command):
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},  # --app <name> (ADR 036 D5)
-        "app_name": {"positional": True},  # deprecated positional fallback
         "lines": {"short": "-n", "type": int, "default": 100},
         "grep": {"type": str, "default": ""},
         "since_deploy": {"flag": True, "default": False},
@@ -622,7 +607,7 @@ class LogsCmd(Command):
 
     def call(self, *args):
         parsed = parse_cli_args(args, self._arg_spec)
-        app_name = parsed.get("app") or parsed.get("app_name")
+        app_name = parsed.get("app")
 
         if not app_name:
             msg = "Usage: hop3 app logs [--app <app>] [options]"
@@ -1003,13 +988,12 @@ class EnvCmd(Command):
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},  # --app <name> (ADR 036 D5)
-        "app_name": {"positional": True},  # deprecated positional fallback
         "show_secrets": {"flag": True, "default": False},
     }
 
     def call(self, *args):
         parsed = parse_cli_args(args, self._arg_spec)
-        app_name = parsed.get("app") or parsed.get("app_name")
+        app_name = parsed.get("app")
 
         if not app_name:
             return [

@@ -135,7 +135,7 @@ def test_full_destroy_invokes_addon_teardown(test_db: Session):
         patch.object(App, "stop"),
         patch.object(App, "destroy"),
     ):
-        cmd.call("shop")
+        cmd.call("--app", "shop")
 
     assert ("redis", "shop-redis") in destroyed
     # App (and its credentials, via cascade) are gone.
@@ -165,7 +165,9 @@ def test_full_destroy_frees_port_claim_even_if_filesystem_cleanup_fails(test_db)
         patch.object(DestroyCmd, "_reload_nginx"),
         patch("hop3.deployers.fixed_ports.LocalRootdClient", _NoopRootd),
     ):
-        result = cmd.call("streamer")  # must NOT raise despite the cleanup failure
+        result = cmd.call(
+            "--app", "streamer"
+        )  # must NOT raise despite the cleanup failure
 
     # App removed AND the port freed, despite app.destroy() having raised.
     assert test_db.query(App).filter_by(name="streamer").count() == 0
@@ -197,7 +199,7 @@ def test_destroy_reports_incomplete_when_a_native_process_survives(
         patch.object(DestroyCmd, "_reload_nginx"),
         patch("hop3.deployers.fixed_ports.LocalRootdClient", _NoopRootd),
     ):
-        result = cmd.call("streamer2")  # must NOT raise
+        result = cmd.call("--app", "streamer2")  # must NOT raise
 
     blob = str(result)
     assert "incomplete" in blob or "cleanup warnings" in blob
