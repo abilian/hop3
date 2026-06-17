@@ -336,7 +336,7 @@ for oversights:
 
 ## References
 
-- `local-notes/catalog-publishing.md` — the team runbook (keygen, publish, upload, rotation)
+- `docs/src/developers/catalog-publishing.md` — producer guide (keygen, publish, upload, rotation)
 - ADR 013 — Software Supply Chain Security and SBOMs (sha256 pinning; Sigstore deferred)
 - ADR 031 — Project Terminology (Catalog vs Marketplace)
 - ADR 019 — CLI Commands (deferred `hop3 search`/`info`/`install`)

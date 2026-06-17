@@ -170,6 +170,7 @@ nav = [
         { "Operations" = [
             { "Branching Strategy" = "developers/branching-strategy.md" },
             { "DNS Configuration" = "developers/dns-configuration.md" },
+            { "Publishing a Catalog" = "developers/catalog-publishing.md" },
             { "Governance" = "developers/governance.md" },
         ]},
     ]},
