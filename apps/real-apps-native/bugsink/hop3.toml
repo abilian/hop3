@@ -25,7 +25,8 @@ start-timeout = 120
 type = "postgres"
 
 [env]
-SECRET_KEY = { random = true }
+# Generated once on first deploy and stable across redeploys (ADR 046).
+SECRET_KEY = { generate = "urlsafe" }
 
 [healthcheck]
 # Bugsink redirects `/` to the login page when unauthenticated; point
