@@ -19,10 +19,13 @@ class StaticToolchain(LanguageToolchain):
     """Language toolchain for static file applications.
 
     This builder handles applications that serve static files (HTML, CSS, JS,
-    images, etc.) without requiring any build process. A static app is declared
-    either by a Procfile ``static: <dir>`` line or, equivalently, by a ``static``
-    worker in ``hop3.toml`` (``[run.workers]`` with ``static = "<dir>"``) — so a
-    Procfile is not required.
+    images, etc.) without requiring any build process. The served directory is
+    configured in ``hop3.toml`` — a Procfile is never required:
+
+    - ``[build].static-dir = "<dir>"`` — the first-class key (e.g. "site",
+      "html", "dist"); defaults to "public" when unset.
+    - ``[run.workers].static = "<dir>"`` — back-compat (worker-flavored).
+    - a Procfile ``static: <dir>`` line — generic, cross-tool fallback.
     """
 
     name = "Static"
@@ -45,7 +48,8 @@ class StaticToolchain(LanguageToolchain):
         Returns:
             BuildArtifact containing the path to static files
         """
-        # Parse Procfile to find static directory
+        # Resolve the served directory (hop3.toml [run.workers].static, a
+        # Procfile `static:` line, or the "public" default).
         static_dir = self._get_static_dir()
 
         # Verify the directory exists
@@ -54,9 +58,18 @@ class StaticToolchain(LanguageToolchain):
             msg = f"Static directory '{static_dir}' not found at {static_path}"
             raise FileNotFoundError(msg)
 
-        # Static files - no runtime config needed
+        # Declare the served directory as a "static" worker in the artifact
+        # runtime — the same channel every other toolchain uses for its process
+        # model. This is how the deployer and nginx learn the app is served
+        # statically (and from where) without a Procfile: nginx keys both its
+        # static-only detection and its file mapping off this worker. Without
+        # it, an app selected via `[build].toolchain = "static"` (no Procfile,
+        # no [run.workers]) reached nginx with no workers, so nginx fell through
+        # to the proxy path and emitted an invalid `upstream 127.0.0.1:0`.
+        runtime = self._make_runtime_config(workers={"static": static_dir})
         return self._make_build_artifact(
             kind="static",
+            runtime=runtime,
             metadata={"static_dir": static_dir},
         )
 
@@ -71,31 +84,32 @@ class StaticToolchain(LanguageToolchain):
         return static_dir or "public"
 
     def _parse_static_entry(self) -> str | None:
-        """Find the declared static directory, from hop3.toml or the Procfile.
+        """Find the declared static directory. A Procfile is never required.
 
-        Two equivalent declarations are accepted, so a Procfile is not required:
+        Declarations are tried in order of precedence (hop3.toml — Hop3's own
+        config — beats the generic, cross-tool Procfile, matching
+        ``AppConfig.workers``):
 
-        - a ``static`` worker in ``hop3.toml`` (``[run.workers]`` with
-          ``static = "<dir>"``);
-        - a Procfile line ``static: <dir>``.
-
-        ``hop3.toml`` takes precedence when both are present: it is Hop3's own
-        config file, whereas a Procfile is a generic, cross-tool convention that
-        may belong to something else. This matches the worker precedence used
-        everywhere else (``AppConfig.workers``: hop3.toml > Procfile).
+        1. ``[build].static-dir`` — the first-class, Procfile-free key, e.g.
+           ``static-dir = "site"``. The canonical spelling.
+        2. ``[run.workers].static`` — the worker-flavored spelling (back-compat).
+        3. a Procfile line ``static: <dir>``.
 
         Returns:
             The static directory path (relative to src_path) if declared, else None
         """
-        # 1. hop3.toml [run.workers] static = "<dir>" (Hop3-specific config wins)
+        # 1./2. hop3.toml (Hop3-specific config wins over the Procfile)
         hop3_toml_path = self.src_path / "hop3.toml"
         if hop3_toml_path.exists():
             config = Hop3Config.from_file(hop3_toml_path)
-            static_dir = config.named_workers.get("static")
-            if static_dir:
+            # 1. [build].static-dir — the first-class, Procfile-free key.
+            if static_dir := config.static_dir:
+                return static_dir
+            # 2. [run.workers].static worker (back-compat; worker-flavored).
+            if static_dir := config.named_workers.get("static"):
                 return static_dir
 
-        # 2. Procfile "static:" entry (generic, cross-tool fallback)
+        # 3. Procfile "static:" entry (generic, cross-tool fallback)
         procfile_path = self.src_path / "Procfile"
         if procfile_path.exists():
             for line in procfile_path.read_text().splitlines():
