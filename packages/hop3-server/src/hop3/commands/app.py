@@ -109,7 +109,7 @@ def _run_lifecycle_action(
 @register
 @dataclass(frozen=True)
 class AppCmd(Command):
-    """Commands for managing app instances.
+    """Manage applications.
 
     Examples:
         hop3 app create myapp        # Create a new app
@@ -123,7 +123,7 @@ class AppCmd(Command):
 @register
 @dataclass(frozen=True)
 class LaunchCmd(Command):
-    """Create and configure a new app from a source code repository.
+    """Create and configure a new application from a source code repository.
 
     Examples:
         hop3 app create myapp         # Create a new app (then `hop3 deploy`)
@@ -668,7 +668,7 @@ class BuildLogsCmd(Command):
 @register
 @dataclass(frozen=True)
 class StartCmd(Command):
-    """Start a stopped app.
+    """Start a stopped application.
 
     Examples:
         hop3 app start                # current app (resolved from context)
@@ -709,7 +709,7 @@ class StartCmd(Command):
 @register
 @dataclass(frozen=True)
 class StopCmd(Command):
-    """Stop a running app.
+    """Stop a running application.
 
     Examples:
         hop3 app stop                 # current app (resolved from context)
@@ -781,7 +781,7 @@ class RestartCmd(Command):
 @register
 @dataclass(frozen=True)
 class DestroyCmd(Command):
-    """Destroy an app, removing all files and configuration.
+    """Destroy an application, removing all files and configuration.
 
     Usage: hop3 app destroy [--app <app>] [--force]
 

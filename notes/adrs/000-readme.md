@@ -54,6 +54,8 @@ This process is inspired by [Python's PEP process](https://www.python.org/dev/pe
 | [044](./044-nightly-test-lab.md) | Nightly Test Lab — Web App to Run & Report on Tests | Architecture | Draft (provisional) |
 | [045](./045-fixed-port-registry.md) | Fixed Port Registry | Feature | Draft |
 | [046](./046-declarative-app-resources.md) | Declarative Application Resources — Secrets, Volumes, Dynamic Env, Limits | Feature | Accepted |
+| [047](./047-cli-invocation-context.md) | CLI Invocation Context — transmit the resolved app and environment with every call | Feature | Draft |
+| [048](./048-server-config-and-secret-storage.md) | Server Configuration and Secret Storage | Architecture | Accepted |
 
 ## ADRs by Type
 

@@ -15,10 +15,9 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 import httpx
-from typing_extensions import Self
 
 from hop3_testing.exceptions import DeploymentError, TargetOutOfDiskError
 
