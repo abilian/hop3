@@ -59,10 +59,21 @@ class RedisClientFactory:
         if config is None:
             config = Config(env_prefix="REDIS_")
 
+        password = config.get_str("PASSWORD", None)
+        if not password:
+            # The installer enables `requirepass` and stores the password in
+            # /etc/hop3/redis-pass, NOT as REDIS_PASSWORD. Without this fallback,
+            # factory-based clients (notably the `system status` health check)
+            # connect unauthenticated and an auth-enabled Redis rejects the very
+            # first command ("HELLO must be called ... authenticated").
+            from .redis import _load_redis_password  # noqa: PLC0415
+
+            password = _load_redis_password()
+
         return cls(
             host=config.get_str("HOST", "127.0.0.1"),
             port=config.get_int("PORT", 6379),
-            password=config.get_str("PASSWORD", None),
+            password=password,
             max_connections=config.get_int("MAX_CONNECTIONS", 50),
         )
 
