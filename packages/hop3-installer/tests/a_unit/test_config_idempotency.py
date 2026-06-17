@@ -81,7 +81,9 @@ def test_managed_keys_are_not_echoed_into_preserved_block(home):
 def test_set_postgres_password_reuses_existing(monkeypatch):
     """On redeploy the existing superuser password is reused, not rotated."""
     monkeypatch.setattr(
-        postgres, "run_cmd", lambda *a, **k: types.SimpleNamespace(returncode=0, stderr="")
+        postgres,
+        "run_cmd",
+        lambda *a, **k: types.SimpleNamespace(returncode=0, stderr=""),
     )
     pw = postgres._set_postgres_password(existing="hop3_deadbeefcafe")
     assert pw == "hop3_deadbeefcafe"
@@ -90,7 +92,9 @@ def test_set_postgres_password_reuses_existing(monkeypatch):
 def test_set_postgres_password_generates_fresh_install(monkeypatch):
     """A fresh install (no existing password) still generates a new one."""
     monkeypatch.setattr(
-        postgres, "run_cmd", lambda *a, **k: types.SimpleNamespace(returncode=0, stderr="")
+        postgres,
+        "run_cmd",
+        lambda *a, **k: types.SimpleNamespace(returncode=0, stderr=""),
     )
     pw = postgres._set_postgres_password(existing=None)
     assert pw is not None
