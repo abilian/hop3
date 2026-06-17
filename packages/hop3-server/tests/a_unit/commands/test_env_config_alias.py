@@ -21,7 +21,9 @@ def _register():
     scan_package("hop3.commands")
 
 
-@pytest.mark.parametrize("sub", ["show", "get", "set", "unset", "live", "migrate"])
+# `migrate` moved to canonical `app migrate` (with `env`/`config migrate` aliases);
+# its cross-alias resolution is covered by test_command_aliases.py.
+@pytest.mark.parametrize("sub", ["show", "get", "set", "unset", "live"])
 def test_config_alias_resolves_to_env_command(sub):
     env_cls, _ = find_command(["env", sub])
     config_cls, _ = find_command(["config", sub])

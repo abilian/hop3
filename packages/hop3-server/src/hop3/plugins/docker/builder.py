@@ -174,7 +174,7 @@ class DockerBuilder:
                         "pre-built pkgs.X) — a >30-min build is a design smell."
                     ),
                     troubleshooting=[
-                        f"hop3 app build-logs {self.app_name}",
+                        f"hop3 app logs {self.app_name} --build",
                         "Try 'docker build' locally to measure the build time",
                     ],
                 )

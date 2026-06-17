@@ -688,3 +688,97 @@ class TestVolumeBackupRestore:
         # missing — restore must abort rather than silently skip it.
         with pytest.raises(FileNotFoundError):
             backup_manager._restore_volumes(app, app.app_path, manifest)
+
+
+@pytest.mark.integration
+class TestBackupPathsExclude:
+    """[backup].exclude prunes the source/data archives; [backup].paths adds dirs."""
+
+    def _write_src(self, app):
+        """Populate the app's source tree with keep/junk/cache/uploads files."""
+        (app.src_path / "hop3.toml").write_text(
+            '[backup]\npaths = ["uploads"]\nexclude = ["*.tmp", "cache"]\n'
+        )
+        (app.src_path / "keep.py").write_text("print('keep')")
+        (app.src_path / "junk.tmp").write_text("junk")
+        (app.src_path / "cache").mkdir()
+        (app.src_path / "cache" / "big.bin").write_text("x" * 100)
+        (app.src_path / "uploads").mkdir()
+        (app.src_path / "uploads" / "file.dat").write_text("user content")
+
+    def test_exclude_prunes_source_and_paths_archives_extra(
+        self, backup_manager, sample_app
+    ):
+        app = sample_app
+        self._write_src(app)
+
+        _id, backup_dir = backup_manager.create_backup(app, include_addons=False)
+        manifest = BackupManifest.from_file(backup_dir / "metadata.json")
+
+        with tarfile.open(backup_dir / "source.tar.gz") as tar:
+            names = set(tar.getnames())
+        assert "src/keep.py" in names
+        assert "src/uploads/file.dat" in names  # not excluded → in source too
+        assert "src/junk.tmp" not in names  # *.tmp pruned
+        assert "src/cache" not in names  # 'cache' segment pruned (dir + contents)
+        assert "src/cache/big.bin" not in names
+
+        # [backup].paths captured uploads/ as its own member + manifest entry.
+        assert (backup_dir / "extra.tar.gz").exists()
+        assert "extra.tar.gz" in manifest.checksums  # integrity-checked
+        assert "src/uploads" in manifest.extra_paths
+        with tarfile.open(backup_dir / "extra.tar.gz") as tar:
+            assert "src/uploads/file.dat" in tar.getnames()
+
+    def test_restore_roundtrips_excluded_and_extra(self, backup_manager, sample_app):
+        app = sample_app
+        self._write_src(app)
+        _id, backup_dir = backup_manager.create_backup(app, include_addons=False)
+        manifest = BackupManifest.from_file(backup_dir / "metadata.json")
+
+        shutil.rmtree(app.src_path)
+        backup_manager._restore_source(app, backup_dir)
+        backup_manager._restore_extra(app, backup_dir, manifest)
+
+        assert (app.src_path / "keep.py").exists()
+        assert (app.src_path / "uploads" / "file.dat").read_text() == "user content"
+        assert not (app.src_path / "junk.tmp").exists()  # stayed pruned
+        assert not (app.src_path / "cache").exists()
+
+    def test_no_backup_section_is_unaffected(self, backup_manager, sample_app):
+        # An app with no [backup] section produces no extra.tar.gz.
+        _id, backup_dir = backup_manager.create_backup(sample_app, include_addons=False)
+        manifest = BackupManifest.from_file(backup_dir / "metadata.json")
+        assert manifest.extra_paths == []
+        assert not (backup_dir / "extra.tar.gz").exists()
+
+    def test_path_escaping_app_tree_fails_loud(
+        self, backup_db_session, backup_manager, sample_app
+    ):
+        app = sample_app
+        (app.src_path / "hop3.toml").write_text('[backup]\npaths = ["../../etc"]\n')
+
+        with pytest.raises(RuntimeError):
+            backup_manager.create_backup(app, include_addons=False)
+
+        backup = backup_db_session.query(Backup).filter_by(app_id=app.id).first()
+        assert backup is not None
+        assert backup.state == BackupStateEnum.FAILED
+
+    def test_path_through_symlink_outside_tree_fails_loud(
+        self, backup_db_session, backup_manager, sample_app, tmp_path
+    ):
+        # An in-tree symlink to an external dir must not let a backup read
+        # outside the app subtree (realpath confinement, not lexical).
+        app = sample_app
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        (outside / "secret.txt").write_text("should never be archived")
+        (app.src_path / "escape").symlink_to(outside)
+        (app.src_path / "hop3.toml").write_text('[backup]\npaths = ["escape"]\n')
+
+        with pytest.raises(RuntimeError):
+            backup_manager.create_backup(app, include_addons=False)
+
+        backup = backup_db_session.query(Backup).filter_by(app_id=app.id).first()
+        assert backup.state == BackupStateEnum.FAILED

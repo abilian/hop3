@@ -1482,30 +1482,24 @@ hop3 addon attach <service_name> --app <app_name> [--service-type <type>]
 
 **Options:**
 - `--service-type` - Service type (default: postgres)
+- `--primary` - Make this the primary addon of its type for the app (see below)
 
 **Example:**
 ```bash
 hop3 addon attach myapp-db --app myapp --service-type postgres
 ```
 
-**Output:**
-```
-Service 'myapp-db' attached to app 'myapp' successfully.
-
-Environment variables:
-  Added DATABASE_URL
-  Added DB_USER
-  Added DB_PASSWORD
-  Added DB_NAME
-
-Restart your app for changes to take effect:
-  hop3 app restart myapp
-```
+**Multiple addons of the same type:** the **first** addon of a type attached to
+an app is the *primary* and injects the unprefixed connection vars
+(`DATABASE_URL`, …). A **second** addon of the same type is *secondary* and its
+vars are prefixed with `<ADDONNAME>_` (e.g. `REPLICA_DATABASE_URL`), so the two
+never clobber each other. Use `--primary` to attach-and-promote (demoting the
+current primary), or `hop3 addon promote` later.
 
 **What Happens:**
-- Service connection details added as environment variables
+- Service connection details added as environment variables (namespaced as above)
 - Credentials stored encrypted in database
-- App must be restarted to use new variables
+- App must be redeployed to use new variables
 
 ---
 
@@ -1524,9 +1518,12 @@ hop3 addon detach myapp-db --app myapp
 ```
 
 **Notes:**
-- Removes environment variables from app
-- Does not destroy the service itself
-- Credentials removed from app
+- Removes the addon's environment variables from the app (both the unprefixed
+  and any prefixed spelling).
+- Does not destroy the service itself; credentials removed from the app.
+- If you detach the **primary** addon and same-type siblings remain, the oldest
+  sibling is **auto-promoted** to primary (so the app keeps an unprefixed
+  `DATABASE_URL`); this is reported in the output.
 
 ---
 
@@ -1632,6 +1629,101 @@ hop3 addon status <service_name> [--type <type>]
 
 ---
 
+### `hop3 addon endpoint`
+
+Show an addon's connection endpoint (URL, host, port). Type-agnostic: the addon's type is resolved from its name, so no `--type` is needed. This is what `hop3 tunnel` uses under the hood, but it's also handy on its own.
+
+**Usage:**
+```bash
+hop3 addon endpoint <name>
+```
+
+**Notes:**
+- Prints the connection URL plus host and port.
+- Errors if the name is unknown, or ambiguous across two addon types.
+
+---
+
+### `hop3 addon exists`
+
+Predicate for scripts/CI: exits **0** if the addon exists, **1** if it doesn't. Prints nothing in normal mode (use the exit code); with `--json` it also prints `{"exists": true|false}`. Type-agnostic; pass `--type` to require a specific type.
+
+**Usage:**
+```bash
+hop3 addon exists <name> [--type <type>]
+```
+
+**Examples:**
+```bash
+hop3 addon exists mydb && hop3 addon promote mydb --app web
+hop3 addon exists mydb --type postgres
+hop3 addon exists mydb --json   # -> {"exists": true}
+```
+
+---
+
+### `hop3 addon expose`
+
+Make an addon reachable from outside the server on a stable, persisted host port, and print a connection URL. The addon normally listens only on `127.0.0.1`; `expose` allocates a public port, opens the firewall for it, and stands up a per-addon `systemd-socket-proxyd` forwarder to the addon's loopback port. The port survives server and addon restarts. Type-agnostic (the type is resolved from the name).
+
+**Usage:**
+```bash
+hop3 addon expose <name> --source <cidr|any> [--host <fqdn>] [--type <type>]
+```
+
+**Options:**
+- `--source <cidr|any>` - **Required.** Who may reach the port: a CIDR (e.g. `203.0.113.0/24`), or `any` to open it to the whole internet. Set `EXPOSE_DEFAULT_SOURCE` in `hop3-server.toml` to make a CIDR the per-server default; with no default and no flag, the command refuses (no accidental public database).
+- `--host <fqdn>` - External hostname for the printed URL. Defaults to the server's canonical domain (`ADMIN_DOMAIN`); required if that isn't set.
+- `--type <type>` - Disambiguate when one name exists across two addon types.
+
+**Examples:**
+```bash
+hop3 addon expose mydb --source 203.0.113.0/24
+# -> postgresql://user:pass@db.example.com:54312/mydb
+hop3 addon expose mydb --source any --host db.example.com
+```
+
+**Notes:**
+- The returned URL contains the addon password — treat it as a secret.
+- `--source any` exposes the database to the entire internet; only the addon credentials protect it. Scope with a CIDR when you can.
+- Idempotent: re-running returns the existing endpoint (no second port).
+- `hop3 addon destroy` automatically unexposes first.
+
+---
+
+### `hop3 addon unexpose`
+
+Remove an addon's public exposure: close the firewall port, remove the forwarder, and free the claim. Idempotent; the addon and its data are untouched.
+
+**Usage:**
+```bash
+hop3 addon unexpose <name> [--type <type>]
+```
+
+---
+
+### `hop3 addon promote`
+
+Make an addon the **primary** one of its type for an app. When several same-type addons are attached, the primary injects the unprefixed connection vars (`DATABASE_URL`, …) and the others are prefixed (`<NAME>_DATABASE_URL`). This flips which one is primary; the previous primary becomes prefixed. Type-agnostic (type resolved from the name).
+
+**Usage:**
+```bash
+hop3 addon promote <name> --app <app> [--type <type>]
+```
+
+**Example:**
+```bash
+hop3 addon promote replica-db --app myapp
+# -> replica-db now owns DATABASE_URL; the old primary becomes <OLD>_DATABASE_URL
+```
+
+**Notes:**
+- Idempotent: promoting the addon that is already primary is a no-op.
+- Errors if the addon isn't attached to the app, or the type is ambiguous (pass `--type`).
+- Redeploy the app for the env change to take effect.
+
+---
+
 ### `hop3 addon <type> <verb>` — type-specific commands
 
 Beyond the type-agnostic verbs above, each addon type exposes a few operations specific to it, under `hop3 addon <type> <verb> <name>`. The addon's type is part of the command path, so no `--type` flag is needed.
@@ -1665,13 +1757,21 @@ hop3 addon mysql settings <name>                 # Key variables
 # Redis
 hop3 addon redis credentials <name>
 hop3 addon redis dump <name>
+hop3 addon redis restore <name> <path>           # ⚠️ overwrites
 hop3 addon redis flush <name>                    # FLUSHDB ⚠️ deletes all keys
 hop3 addon redis query <name> --command "DBSIZE" # Ad-hoc redis-cli command
+hop3 addon redis clone <source> <new-name>       # Copy data into a new addon
+hop3 addon redis export <name> > dump.rdb        # Stream a dump to your machine
+hop3 addon redis import <name> --confirm=<name> < dump.rdb   # Load a dump
 hop3 addon redis info <name>                     # Server INFO (diagnostics)
 
 # S3
 hop3 addon s3 credentials <name>
 hop3 addon s3 dump <name>                         # Manifest (credentials + metadata)
+hop3 addon s3 restore <name> <path>               # ⚠️ overwrites
+hop3 addon s3 clone <source> <new-name>           # Copy data into a new addon
+hop3 addon s3 export <name> > dump                # Stream a dump to your machine
+hop3 addon s3 import <name> --confirm=<name> < dump   # Load a dump
 ```
 
 **Available verbs by type:**
@@ -1680,12 +1780,12 @@ hop3 addon s3 dump <name>                         # Manifest (credentials + meta
 |------|:---:|:---:|:---:|:---:|
 | `credentials` | ✓ | ✓ | ✓ | ✓ |
 | `dump` | ✓ | ✓ | ✓ | ✓ |
-| `restore` | ✓ | ✓ | — | — |
+| `restore` | ✓ | ✓ | ✓ | ✓ |
 | `extensions` | ✓ | | | |
 | `flush` | | | ✓ | |
 | `query` | ✓ | ✓ | ✓ | |
-| `clone` | ✓ | ✓ | | |
-| `export` / `import` | ✓ | ✓ | | |
+| `clone` | ✓ | ✓ | ✓ | ✓ |
+| `export` / `import` | ✓ | ✓ | ✓ | ✓ |
 | `ps` | ✓ | ✓ | | |
 | `locks` | ✓ | | | |
 | `settings` | ✓ | ✓ | | |
@@ -2046,6 +2146,27 @@ List installed plugins and their commands.
 **Usage:**
 ```bash
 hop3 plugins
+```
+
+---
+
+### `hop3 tunnel`
+
+Open a local SSH tunnel to a remote addon and print a ready-to-paste local connection URL. This is a client-side command: it forwards a local port to the addon's port on the server over the configured SSH connection, then holds the tunnel open until you press Ctrl-C. The addon's type is resolved from its name (no `--type` needed). Requires an `ssh://` server.
+
+**Usage:**
+```bash
+hop3 tunnel <addon-name> [--port <localport>]
+```
+
+**Options:**
+- `--port <localport>` - Local port to bind (default: the addon's own port). Use this if the default port is already in use.
+
+**Examples:**
+```bash
+hop3 tunnel mydb              # -> postgresql://...@127.0.0.1:5432/mydb
+hop3 tunnel mydb --port 6543  # bind a different local port
+hop3 tunnel mycache           # -> redis://...@127.0.0.1:6379/0
 ```
 
 ---

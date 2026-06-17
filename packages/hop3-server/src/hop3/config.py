@@ -130,6 +130,27 @@ class HopConfig:
         """Reverse proxy type: nginx, caddy, traefik."""
         return self._config_loader.get_str("HOP3_PROXY_TYPE", "nginx")
 
+    # Server identity / addon exposure
+
+    @property
+    def ADMIN_DOMAIN(self) -> str:
+        """Server's canonical public domain (the admin Web UI / HTTPS client).
+
+        Written to ``hop3-server.toml`` by the installer from ``--admin-domain``
+        / ``HOP3_DOMAIN``. Reused as the external host in ``hop3 addon expose``
+        URLs. Empty when the server was set up without a domain.
+        """
+        return self._config_loader.get_str("ADMIN_DOMAIN", "")
+
+    @property
+    def EXPOSE_DEFAULT_SOURCE(self) -> str:
+        """Default firewall source scope for ``hop3 addon expose`` (CIDR / 'any').
+
+        Empty (the default) means ``--source`` is required — there is no silent
+        public exposure. Set a CIDR here to make it the per-server default.
+        """
+        return self._config_loader.get_str("EXPOSE_DEFAULT_SOURCE", "")
+
     # ACME Configuration
 
     @property

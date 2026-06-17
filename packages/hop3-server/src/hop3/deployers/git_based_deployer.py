@@ -148,7 +148,7 @@ class Deployer:
                         "run cleanly in the app source directory"
                     ),
                     troubleshooting=[
-                        f"hop3 app build-logs {self.app_name}",
+                        f"hop3 app logs {self.app_name} --build",
                         f"cd {self.src_path} && {command}",
                     ],
                 )
@@ -179,7 +179,7 @@ class Deployer:
                             "sure all its dependencies are declared"
                         ),
                         troubleshooting=[
-                            f"hop3 app build-logs {self.app_name}",
+                            f"hop3 app logs {self.app_name} --build",
                             f"cd {self.src_path} && {build_worker}",
                         ],
                     )
@@ -255,7 +255,7 @@ class Deployer:
                         "after the main build step completes"
                     ),
                     troubleshooting=[
-                        f"hop3 app build-logs {self.app_name}",
+                        f"hop3 app logs {self.app_name} --build",
                         f"cd {self.src_path} && {command}",
                     ],
                 )
