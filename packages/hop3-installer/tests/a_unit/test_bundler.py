@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import re
+
 from hop3_installer.bundler import (
     CLI_MODULES,
     SERVER_MODULES,
@@ -41,8 +43,11 @@ class TestImportSymbolPreservation:
 
     def test_server_bundle_keeps_typeddict_symbol(self):
         # Not just `import typing` — the bare name must be importable at runtime.
+        # Order-independent: the symbol is co-imported (`from typing import Self,
+        # TypedDict, overload`), so match the name within a typing from-import
+        # rather than a brittle exact string a linter can reorder.
         source = bundle_installer("server")
-        assert "from typing import TypedDict" in source
+        assert re.search(r"^from typing import .*\bTypedDict\b", source, re.MULTILINE)
 
 
 # =============================================================================
