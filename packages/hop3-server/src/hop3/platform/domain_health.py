@@ -56,7 +56,7 @@ def check_domain(
     now: datetime.datetime | None = None,
 ) -> DomainHealth:
     """Probe one domain's registration expiry (WHOIS) and DNS — never raises."""
-    now = now or datetime.datetime.now(datetime.timezone.utc)
+    now = now or datetime.datetime.now(datetime.UTC)
     notes: list[str] = []
 
     expiry = _whois_expiry(domain)

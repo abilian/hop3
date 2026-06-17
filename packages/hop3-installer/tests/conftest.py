@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-def clean_env() -> Generator[MutableMapping[str, str], None, None]:
+def clean_env() -> Generator[MutableMapping[str, str]]:
     """Provide a clean environment without HOP3_* variables.
 
     Saves and restores original environment after test.

@@ -223,7 +223,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
 
 
 @pytest.fixture(scope="module")
-def backend(request: pytest.FixtureRequest) -> Generator[Backend, None, None]:
+def backend(request: pytest.FixtureRequest) -> Generator[Backend]:
     """Provide a test backend (Docker, SSH, or Vagrant).
 
     This fixture is dynamically parametrized based on CLI options.
@@ -241,7 +241,7 @@ def backend(request: pytest.FixtureRequest) -> Generator[Backend, None, None]:
 
 
 @pytest.fixture(scope="module")
-def systemd_backend(request: pytest.FixtureRequest) -> Generator[Backend, None, None]:
+def systemd_backend(request: pytest.FixtureRequest) -> Generator[Backend]:
     """Provide a test backend with systemd support.
 
     This fixture is dynamically parametrized based on CLI options.
