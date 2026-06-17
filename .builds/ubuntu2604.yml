@@ -1,0 +1,76 @@
+# Copyright (c) 2023-2024, Abilian SAS
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+image: ubuntu/24.04
+
+# SSH key for e2e test machine
+secrets:
+  - 705a1519-b37e-4205-94a4-354c085dbdcc
+
+packages:
+  # Build tools
+  - software-properties-common
+  - build-essential
+  - make
+  - gcc
+  - g++
+  - git
+  # Python (this is Python 3.12)
+  - python3-dev
+  - python3-pip
+  - python3-venv
+  - python3-wheel
+  # Libraries
+  - libpq-dev
+  - libffi-dev
+  - libsqlite3-dev
+  - libbz2-dev
+  - libxml2-dev
+  - libxslt-dev
+  # Extra tools (TODO: remove)
+  - rsync
+  # For builders
+  - npm
+  - ruby-rubygems
+  - bundler
+  - ruby-dev
+  - golang-go
+  # Docker and friends
+  - docker-buildx
+  - docker.io
+
+tasks:
+  - setup: |
+      cd hop3
+      sudo pip install --break-system-packages -U uv
+      sudo chmod 666 /var/run/docker.sock
+      uv sync
+
+  - lint: |
+      cd hop3
+      uv run make lint
+
+  - test: |
+      cd hop3
+      # check tier: in-process across all packages (no Docker)
+      unset HOP3_DEV_HOST
+      uv run make test
+
+  - test-e2e: |
+      cd hop3
+      # Docker e2e: backups, git-push, real deploys (c_e2e)
+      unset HOP3_DEV_HOST
+      uv run make test-e2e
+
+  - nox: |
+      cd hop3
+      # multi-Python check (supported range: 3.11-3.14)
+      uv run -p 3.11 nox -P 3.11
+      uv run -p 3.12 nox -P 3.12
+      uv run -p 3.13 nox -P 3.13
+      uv run -p 3.14 nox -P 3.14
+
+  - docker-tests: |
+      cd hop3
+      uv run hop3-test system --docker
