@@ -1,16 +1,18 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""The `coverage` mode: a representative subset that still hits every case.
+"""The `tag-coverage` and `combo-coverage` modes.
 
-It must exercise every variant / toolchain / addon / category at least once
-(set-cover) while dropping redundant apps that share a cell — the basis for a
-profile that's a fraction of nightly's cost.
+``tag-coverage``: minimal subset covering every individual tag value at least once.
+``combo-coverage``: minimal subset covering every observed 5-tuple at least once.
+
+Each uses greedy set-cover to drop redundant tests while preserving full coverage
+of the relevant dimension — the basis for profiles that are a fraction of
+nightly's cost.
 """
 
 from __future__ import annotations
 
-from collections import Counter
 from typing import Any, cast
 
 from hop3_testing.catalog.models import (
@@ -25,17 +27,19 @@ from hop3_testing.catalog.models import (
 )
 from hop3_testing.selector import Selector, get_mode_config
 from hop3_testing.selector.selector import (
-    _DEMO_FLOOR,
-    _coverage_cells,
+    _combo_cells,
+    _tag_cells,
     reduce_to_representatives,
-    select_coverage,
+    select_combo_coverage,
+    select_tag_coverage,
 )
 
 
 def _mk(
     name: str,
     *,
-    covers: tuple[str, ...] = (),
+    builder: str | None = None,
+    toolchain: str | None = None,
     services: tuple[str, ...] = (),
     priority: str = "P1",
     tier: str = "fast",
@@ -48,137 +52,173 @@ def _mk(
         "requirements": TestRequirements(
             targets=[TargetType.DOCKER], services=list(services)
         ),
-        "metadata": TestMetadata(covers=list(covers)),
+        "metadata": TestMetadata(
+            builder=builder,
+            toolchain=toolchain,
+            spec="hop3toml",
+        ),
     }
     if kind == "demo":
         kwargs["demo"] = DemoConfig()
+        kwargs["metadata"] = TestMetadata(
+            builder=builder, toolchain=toolchain, spec="demo"
+        )
     elif kind == "tutorial":
         kwargs["tutorial"] = TutorialConfig(path="x")
+        kwargs["metadata"] = TestMetadata(
+            builder=builder, toolchain=toolchain, spec="tutorial"
+        )
     return TestDefinition(**kwargs)
 
 
-def _matrix() -> list[TestDefinition]:
-    """A small but redundant matrix (17 tests across the real dimensions)."""
+# --- Tag cells -------------------------------------------------------------
+
+
+def test_tag_cells_captures_all_axes():
+    t = _mk("apps/real-apps-native/app1", builder="native", toolchain="python",
+            services=("mysql", "redis"))
+    cells = _tag_cells(t)
+    assert "builder:native" in cells
+    assert "toolchain:python" in cells
+    assert "addon:mysql" in cells
+    assert "addon:redis" in cells
+    assert "category:deployment" in cells
+    assert "spec:hop3toml" in cells
+
+
+def test_tag_cells_omits_none_fields():
+    t = _mk("apps/x", builder=None, toolchain=None)
+    cells = _tag_cells(t)
+    assert not any(c.startswith("builder:") for c in cells)
+    assert not any(c.startswith("toolchain:") for c in cells)
+
+
+# --- Combo cells -----------------------------------------------------------
+
+
+def test_combo_cell_is_single_string():
+    t = _mk("apps/x", builder="native", toolchain="python", services=("mysql", "redis"))
+    cells = _combo_cells(t)
+    assert len(cells) == 1
+    assert "combo:native/python/mysql+redis/deployment/hop3toml" in cells
+
+
+def test_combo_cells_identical_when_same_tuple():
+    t1 = _mk("apps/x", builder="native", toolchain="python")
+    t2 = _mk("apps/y", builder="native", toolchain="python")
+    assert _combo_cells(t1) == _combo_cells(t2)
+
+
+# --- Tag coverage ----------------------------------------------------------
+
+
+def _tag_matrix() -> list[TestDefinition]:
+    """A matrix where two tests cover all tags, the third adds nothing new."""
     return [
-        # One PHP app shipped in all four packaging variants (uses mysql).
-        _mk("apps/real-apps-native/shop", covers=("php",), services=("mysql",)),
-        _mk("apps/real-apps-docker/shop", covers=("php",), services=("mysql",)),
-        _mk("apps/real-apps-nix/shop", covers=("php",), services=("mysql",)),
-        _mk("apps/real-apps-nix-gen/shop", covers=("php",), services=("mysql",)),
-        # Redundant python-native apps (no addon) — only one is needed.
-        _mk("apps/real-apps-native/py1", covers=("python",)),
-        _mk("apps/real-apps-native/py2", covers=("python",)),
-        _mk("apps/real-apps-native/py3", covers=("python",)),
-        # Python-docker: two carry distinct addons, three are pure redundancy.
-        _mk("apps/real-apps-docker/pg", covers=("python",), services=("postgres",)),
-        _mk("apps/real-apps-docker/rd", covers=("python",), services=("redis",)),
-        _mk("apps/real-apps-docker/pd1", covers=("python",)),
-        _mk("apps/real-apps-docker/pd2", covers=("python",)),
-        _mk("apps/real-apps-docker/pd3", covers=("python",)),
-        # A Go app.
-        _mk("apps/real-apps-docker/gosvc", covers=("go",)),
-        # Redundant demos + tutorials.
-        _mk("demos/demo1", kind="demo"),
-        _mk("demos/demo2", kind="demo"),
-        _mk("docs/src/tutorials/python/flask", kind="tutorial"),
-        _mk("docs/src/tutorials/go/gin", kind="tutorial"),
+        _mk("apps/native/py-pg", builder="native", toolchain="python",
+            services=("postgres",)),
+        _mk("apps/native/go-pg", builder="native", toolchain="go",
+            services=("postgres",)),
+        _mk("apps/native/py-x", builder="native", toolchain="python"),
     ]
 
 
-def _cells(tests: list[TestDefinition]) -> set[str]:
-    out: set[str] = set()
+def test_tag_coverage_drops_redundant():
+    selected = select_tag_coverage(_tag_matrix())
+    names = {t.name for t in selected}
+    assert "apps/native/py-pg" in names  # covers python, native, postgres
+    assert "apps/native/go-pg" in names  # covers go
+    assert "apps/native/py-x" not in names  # python+native already covered
+
+
+def test_tag_coverage_preserves_all_tag_values():
+    tests = _tag_matrix()
+    reduced = select_tag_coverage(tests)
+    all_tags: set[str] = set()
     for t in tests:
-        out |= _coverage_cells(t)
-    return out
+        all_tags |= _tag_cells(t)
+    reduced_tags: set[str] = set()
+    for t in reduced:
+        reduced_tags |= _tag_cells(t)
+    assert reduced_tags == all_tags
 
 
-def test_coverage_mode_is_representative():
-    cfg = get_mode_config("coverage")
-    assert cfg.representative is True
-    assert cfg.targets == ["docker"]  # docker-only keeps it cheap
+# --- Combo coverage --------------------------------------------------------
 
 
-def test_reduction_preserves_every_cell_but_shrinks_the_set():
-    tests = _matrix()
-    reduced = reduce_to_representatives(tests)
+def _combo_matrix() -> list[TestDefinition]:
+    """Four tests forming three distinct combos."""
+    return [
+        # combo A: native/python/hop3toml
+        _mk("apps/native/py1", builder="native", toolchain="python"),
+        # combo A again — redundant
+        _mk("apps/native/py2", builder="native", toolchain="python"),
+        # combo B: native/go/hop3toml
+        _mk("apps/native/go1", builder="native", toolchain="go"),
+        # combo C: nix/python/hop3toml
+        _mk("apps/nix/py1", builder="nix", toolchain="python"),
+    ]
 
-    # No significant case is lost.
-    assert _cells(reduced) == _cells(tests)
-    # And it's genuinely smaller.
-    assert len(reduced) < len(tests)
+
+def test_combo_coverage_drops_same_combo():
+    selected = select_combo_coverage(_combo_matrix())
+    names = {t.name for t in selected}
+    assert len(names) == 3  # 3 unique combos
+    assert names >= {"apps/native/go1", "apps/nix/py1"}
+    # Exactly one of the two identical-combo tests survives.
+    assert len({"apps/native/py1", "apps/native/py2"} & names) == 1
 
 
-def test_reduction_drops_apps_that_share_a_cell():
-    reduced = {t.name for t in reduce_to_representatives(_matrix())}
+def test_combo_coverage_preserves_every_combo():
+    tests = _combo_matrix()
+    reduced = select_combo_coverage(tests)
+    all_combos: set[str] = set()
+    for t in tests:
+        all_combos |= _combo_cells(t)
+    reduced_combos: set[str] = set()
+    for t in reduced:
+        reduced_combos |= _combo_cells(t)
+    assert reduced_combos == all_combos
 
-    # All four PHP variants survive — each is the only app covering its
-    # variant/php cell (that's a "significant case", not redundancy).
-    for v in ("native", "docker", "nix", "nix-gen"):
-        assert f"apps/real-apps-{v}/shop" in reduced
 
-    # The three addon-less python-docker apps add nothing once pg+redis are in.
-    assert not (
-        {
-            "apps/real-apps-docker/pd1",
-            "apps/real-apps-docker/pd2",
-            "apps/real-apps-docker/pd3",
-        }
-        & reduced
-    )
-    # At most one of the redundant python-native apps is kept.
-    assert (
-        len(
-            {
-                "apps/real-apps-native/py1",
-                "apps/real-apps-native/py2",
-                "apps/real-apps-native/py3",
-            }
-            & reduced
-        )
-        == 1
-    )
-    # One demo and one tutorial language each is enough for their cells.
-    assert len({"demos/demo1", "demos/demo2"} & reduced) == 1
+# --- Determinism -----------------------------------------------------------
 
 
 def test_reduction_is_deterministic():
-    a = [t.name for t in reduce_to_representatives(_matrix())]
-    b = [t.name for t in reduce_to_representatives(_matrix())]
+    a = [t.name for t in reduce_to_representatives(_tag_matrix())]
+    b = [t.name for t in reduce_to_representatives(_tag_matrix())]
     assert a == b
 
 
-def test_coverage_keeps_all_tutorials_floors_demos_setcovers_deploy():
-    tests = []
-    # 20 plain demos (no covers) collapse to one cell under pure set-cover.
-    tests += [_mk(f"demos/demo{i}", kind="demo") for i in range(20)]
-    # Tutorials: two share a language — every one is still a distinct path.
-    for path, lang in [
-        ("python/flask", "python"),
-        ("python/django", "python"),
-        ("go/gin", "go"),
-        ("elixir/phoenix", "elixir"),
-        ("rust/axum", "rust"),
-    ]:
-        tests.append(_mk(f"docs/src/tutorials/{path}", covers=(lang,), kind="tutorial"))
-    # Two redundant python-docker deployment apps -> set-cover keeps one.
-    tests.append(_mk("apps/real-apps-docker/a", covers=("python",)))
-    tests.append(_mk("apps/real-apps-docker/b", covers=("python",)))
-
-    by = Counter(t.runner_type for t in select_coverage(tests))
-    assert by["tutorial"] == 5  # all tutorials kept
-    assert by["demo"] == _DEMO_FLOOR  # floored, not collapsed to 1
-    assert by["deployment"] == 1  # redundant deploy apps collapse
+def test_combo_reduction_is_deterministic():
+    a = [t.name for t in reduce_to_representatives(_combo_matrix(), cell_fn=_combo_cells)]
+    b = [t.name for t in reduce_to_representatives(_combo_matrix(), cell_fn=_combo_cells)]
+    assert a == b
 
 
-def test_demo_floor_caps_at_what_exists():
-    tests = [_mk(f"demos/demo{i}", kind="demo") for i in range(3)]
-    demos = [t for t in select_coverage(tests) if t.runner_type == "demo"]
-    assert len(demos) == 3  # only 3 exist; floor can't invent more
+# --- Modes ----------------------------------------------------------------
+
+
+def test_tag_coverage_mode_exists():
+    cfg = get_mode_config("tag-coverage")
+    assert cfg.representative is True
+    assert cfg.targets == ["docker"]
+
+
+def test_combo_coverage_mode_exists():
+    cfg = get_mode_config("combo-coverage")
+    assert cfg.representative is True
+    assert cfg.targets == ["docker"]
+
+
+def test_old_coverage_is_alias_for_combo():
+    assert get_mode_config("coverage").name == "combo-coverage"
+
+
+# --- Selector routing -----------------------------------------------------
 
 
 class _StubCatalog:
-    """Minimal catalog: returns a fixed list regardless of filter args."""
-
     def __init__(self, tests: list[TestDefinition]) -> None:
         self._tests = tests
 
@@ -186,12 +226,28 @@ class _StubCatalog:
         return list(self._tests)
 
 
-def test_selector_applies_reduction_only_for_coverage_mode():
-    catalog = _StubCatalog(_matrix())
+def test_selector_routes_tag_coverage():
+    catalog = _StubCatalog(_tag_matrix())
     selector = Selector(catalog=cast("Any", catalog))
 
     full = selector.select(get_mode_config("nightly"))
-    covered = selector.select(get_mode_config("coverage"))
+    covered = selector.select(get_mode_config("tag-coverage"))
 
     assert len(covered) < len(full)
-    assert _cells(covered) == _cells(full)  # same coverage, fewer tests
+    all_tags: set[str] = set()
+    for t in full:
+        all_tags |= _tag_cells(t)
+    covered_tags: set[str] = set()
+    for t in covered:
+        covered_tags |= _tag_cells(t)
+    assert covered_tags == all_tags
+
+
+def test_selector_routes_combo_coverage():
+    catalog = _StubCatalog(_combo_matrix())
+    selector = Selector(catalog=cast("Any", catalog))
+
+    full = selector.select(get_mode_config("nightly"))
+    covered = selector.select(get_mode_config("combo-coverage"))
+
+    assert len(covered) < len(full)

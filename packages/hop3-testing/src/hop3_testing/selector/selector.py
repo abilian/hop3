@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -68,10 +69,15 @@ class Selector:
             name_pattern=name_pattern,
         )
 
-        # Coverage modes keep a representative subset that still exercises every
-        # significant case, with a guaranteed floor per suite.
+        # Coverage modes keep a representative subset that exercises every
+        # significant case.  ``tag-coverage`` covers each individual tag value;
+        # ``combo-coverage`` (and the back-compat alias ``coverage``) cover each
+        # observed 5-tuple combination.
         if mode_config.representative:
-            tests = select_coverage(tests)
+            if mode_config.name == "tag-coverage":
+                tests = select_tag_coverage(tests)
+            else:
+                tests = select_combo_coverage(tests)
 
         return tests
 
@@ -119,68 +125,43 @@ class Selector:
 
 _PRIORITY_ORDER = {"P0": 0, "P1": 1, "P2": 2}
 _TIER_ORDER = {"fast": 0, "medium": 1, "slow": 2, "very-slow": 3}
-_LANGUAGES = {
-    "python",
-    "php",
-    "node",
-    "nodejs",
-    "go",
-    "golang",
-    "ruby",
-    "java",
-    "rust",
-    "elixir",
-    "clojure",
-    "dotnet",
-    "static",
-}
-# Variant is encoded in the test's path-based name (see catalog scanner).
-_VARIANT_RULES = (
-    ("real-apps-nix-gen", "nix-template"),
-    ("real-apps-nix", "nix"),
-    ("real-apps-native", "native"),
-    ("real-apps-docker", "docker"),
-    ("test-apps-nix", "nix"),
-    ("test-apps-procfile", "procfile"),
-)
 
 
-def _variant_of(name: str) -> str:
-    """Packaging variant from a test's path-based name."""
-    n = name.replace("\\", "/")
-    for needle, label in _VARIANT_RULES:
-        if needle in n:
-            return label
-    if n.startswith("demos/") or "/demos/" in n:
-        return "demo"
-    if "tutorials" in n or n.startswith("docs/"):
-        return "tutorial"
-    return "other"
+def _tag_cells(test: TestDefinition) -> set[str]:
+    """Individual tag values this test exercises — one cell per axis value.
 
-
-def _language_of(test: TestDefinition) -> str | None:
-    """Primary toolchain/language of a test, if discernible."""
-    if test.metadata.language:
-        return test.metadata.language.lower()
-    for tag in test.metadata.covers:
-        if tag.lower() in _LANGUAGES:
-            return tag.lower()
-    return None
-
-
-def _coverage_cells(test: TestDefinition) -> set[str]:
-    """The significant-case cells a single test exercises."""
-    variant = _variant_of(test.name)
-    cells = {f"variant:{variant}", f"category:{test.runner_type}"}
-    cells |= {f"cover:{c.lower()}" for c in test.metadata.covers}
-    cells |= {f"addon:{s.lower()}" for s in test.requirements.services}
-    language = _language_of(test)
-    if language:
-        cells.add(f"lang:{language}")
-        # The pairwise variant/language cells are what make the set thorough:
-        # every toolchain is exercised in every packaging variant it ships in.
-        cells.add(f"variant+lang:{variant}/{language}")
+    Tag axes: builder, toolchain, addon, category, spec.  Each axis value
+    appears as an independent cell, so a test contributes multiple cells
+    (e.g. ``builder:native``, ``toolchain:python``, ``addon:mysql``,
+    ``category:deployment``, ``spec:hop3toml``).
+    """
+    cells: set[str] = set()
+    if test.metadata.builder:
+        cells.add(f"builder:{test.metadata.builder}")
+    if test.metadata.toolchain:
+        cells.add(f"toolchain:{test.metadata.toolchain}")
+    if test.metadata.spec:
+        cells.add(f"spec:{test.metadata.spec}")
+    cells.add(f"category:{test.runner_type}")
+    for svc in test.requirements.services:
+        cells.add(f"addon:{svc}")
     return cells
+
+
+def _combo_cells(test: TestDefinition) -> set[str]:
+    """A single cell representing the full 5-tuple this test exercises.
+
+    The cell is a single string encoding the observed combination:
+    ``combo:<builder>/<toolchain>/<addons>/<category>/<spec>``.
+    Two tests that share the exact same 5-tuple produce the same cell,
+    so set-cover keeps only one of them.
+    """
+    builder = test.metadata.builder or "?"
+    toolchain = test.metadata.toolchain or "?"
+    addons = "+".join(sorted(test.requirements.services)) or "-"
+    category = test.runner_type
+    spec = test.metadata.spec or "?"
+    return {f"combo:{builder}/{toolchain}/{addons}/{category}/{spec}"}
 
 
 def _sort_key(test: TestDefinition) -> tuple[int, int, str]:
@@ -193,18 +174,20 @@ def _sort_key(test: TestDefinition) -> tuple[int, int, str]:
 
 def reduce_to_representatives(
     tests: list[TestDefinition],
+    *,
+    cell_fn: Callable[[TestDefinition], set[str]] = _tag_cells,
 ) -> list[TestDefinition]:
-    """Minimal subset that still covers every significant case (greedy set-cover).
+    """Minimal subset that covers every cell (greedy set-cover).
 
-    Cells are variant, category, toolchain, variant/toolchain, and addon. We
-    greedily pick the highest-priority/fastest test that adds the most new
-    cells until everything coverable is covered. Deterministic: ties break by
-    (priority, tier, name).
+    ``cell_fn`` maps each test to the set of cells it covers.  We greedily pick
+    the highest-priority/fastest test that adds the most new cells until every
+    coverable cell is covered.  Deterministic: ties break by (priority, tier,
+    name).
     """
     if not tests:
         return []
 
-    cells = {t.name: _coverage_cells(t) for t in tests}
+    cells = {t.name: cell_fn(t) for t in tests}
     ordered = sorted(tests, key=_sort_key)
 
     covered: set[str] = set()
@@ -227,50 +210,19 @@ def reduce_to_representatives(
     return sorted(chosen, key=_sort_key)
 
 
-# Minimum demos to keep in coverage mode. Demos carry little distinguishing
-# metadata, so pure set-cover collapses them to ~1; this floors a representative
-# smoke of the demo machinery without dragging in all ~60.
-_DEMO_FLOOR = 8
+def select_tag_coverage(tests: list[TestDefinition]) -> list[TestDefinition]:
+    """Minimal subset covering every individual tag value at least once.
 
-
-def _floor_representatives(
-    tests: list[TestDefinition], floor: int
-) -> list[TestDefinition]:
-    """Set-cover representatives, topped up to at least ``floor`` tests.
-
-    The set-cover picks distinct-cell representatives first (so addons/covers
-    are still hit); we then add the next highest-priority/fastest tests until
-    the floor is met. Never drops a representative.
+    Each tag axis value (e.g. ``builder:nix``, ``toolchain:go``,
+    ``addon:mysql``) must appear in at least one selected test.
     """
-    reps = reduce_to_representatives(tests)
-    chosen = {t.name for t in reps}
-    result = list(reps)
-    for test in sorted(tests, key=_sort_key):
-        if len(result) >= floor:
-            break
-        if test.name not in chosen:
-            result.append(test)
-            chosen.add(test.name)
-    return sorted(result, key=_sort_key)
+    return reduce_to_representatives(tests, cell_fn=_tag_cells)
 
 
-def select_coverage(tests: list[TestDefinition]) -> list[TestDefinition]:
-    """Representative coverage with a guaranteed floor per suite.
+def select_combo_coverage(tests: list[TestDefinition]) -> list[TestDefinition]:
+    """Minimal subset covering every observed 5-tuple combination at least once.
 
-    - deployment: greedy set-cover (one per variant/toolchain/addon cell);
-    - tutorials: kept in full — each is a distinct documented language path;
-    - demos: a representative sample floored at ``_DEMO_FLOOR``;
-    - anything else: set-cover.
+    Each unique (builder, toolchain, addon-set, category, spec) combination
+    must be represented by at least one test.
     """
-    by_category: dict[str, list[TestDefinition]] = {}
-    for test in tests:
-        by_category.setdefault(test.runner_type, []).append(test)
-
-    selected: list[TestDefinition] = []
-    selected += reduce_to_representatives(by_category.pop("deployment", []))
-    selected += sorted(by_category.pop("tutorial", []), key=_sort_key)
-    selected += _floor_representatives(by_category.pop("demo", []), _DEMO_FLOOR)
-    for remaining in by_category.values():  # any future category
-        selected += reduce_to_representatives(remaining)
-
-    return sorted(selected, key=_sort_key)
+    return reduce_to_representatives(tests, cell_fn=_combo_cells)

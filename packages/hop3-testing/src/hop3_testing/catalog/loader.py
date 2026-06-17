@@ -139,6 +139,9 @@ def _parse_metadata(data: dict[str, Any]) -> TestMetadata:
         covers=data.get("covers", []),
         language=data.get("language"),
         framework=data.get("framework"),
+        builder=data.get("builder"),
+        toolchain=data.get("toolchain"),
+        spec=data.get("spec"),
     )
 
 
@@ -280,6 +283,10 @@ def _build_validations_from_app(app_path: Path) -> list[Validation]:
     return validations
 
 
+# Normalise inferred app types to canonical toolchain tags (see TestMetadata).
+_TOOLCHAIN_MAP = {"nodejs": "node", "golang": "go"}
+
+
 def generate_test_definition_from_app(
     app_path: Path,
     name: str | None = None,
@@ -319,12 +326,18 @@ def generate_test_definition_from_app(
     if app_type:
         covers.append(app_type)
 
+    # Derive builder / toolchain / spec for Procfile-only apps.
+    builder = "native"  # Procfile-only apps run via uWSGI (local builder)
+    toolchain = _TOOLCHAIN_MAP.get(app_type, app_type) if app_type else None
+    spec = _spec_from_source(app_path) or "procfile"
+
     # Determine demo vs deployment by checking for demo-script.py
     demo_config = None
     deployment_config = None
     validations: list[Validation] = []
     if (app_path / "demo-script.py").exists():
         demo_config = DemoConfig(script="demo-script.py", type="script")
+        spec = "demo"  # demo-script.py is the config source, not Procfile
     else:
         deployment_config = DeploymentConfig(
             path=deployment_path,
@@ -344,7 +357,7 @@ def generate_test_definition_from_app(
         deployment=deployment_config,
         demo=demo_config,
         description=description,
-        metadata=TestMetadata(covers=covers),
+        metadata=TestMetadata(covers=covers, builder=builder, toolchain=toolchain, spec=spec),
         source_path=app_path / "test.toml",  # Virtual path
     )
 
@@ -419,6 +432,48 @@ def _get_deployment_type_from_hop3_toml(data: dict[str, Any]) -> str:
     return "native" if builder == "local" else "docker"
 
 
+def _builder_from_hop3_toml(data: dict[str, Any]) -> str | None:
+    """Derive the coverage-tag builder from hop3.toml [build] + [nix].
+
+    Maps ``[build].builder`` to the tag values used by coverage selection:
+    - ``local`` → ``native`` (uWSGI)
+    - ``docker`` → ``docker``
+    - ``nix`` → ``nix`` or ``nix-template`` (depending on ``[nix].template``)
+    - missing → ``None``
+    """
+    build_section = data.get("build") or {}
+    raw = build_section.get("builder", "")
+    if raw == "local":
+        return "native"
+    if raw == "docker":
+        return "docker"
+    if raw == "nix":
+        nix_section = data.get("nix") or {}
+        return "nix-template" if "template" in nix_section else "nix"
+    return None
+
+
+def _toolchain_from_hop3_toml(data: dict[str, Any]) -> str | None:
+    """Toolchain from ``[build].toolchain``, if explicitly set."""
+    build_section = data.get("build") or {}
+    return build_section.get("toolchain") or None
+
+
+def _spec_from_source(app_path: Path) -> str | None:
+    """Configuration format from the source file present.
+
+    - ``hop3.toml`` → ``hop3toml``
+    - ``Procfile`` (no hop3.toml) → ``procfile``
+    - ``demo-script.py`` (no hop3.toml) → ``demo``
+    - tutorial markdown → ``tutorial`` (set by the tutorial loader)
+    """
+    if (app_path / "hop3.toml").exists():
+        return "hop3toml"
+    if (app_path / "Procfile").exists():
+        return "procfile"
+    return None
+
+
 def _derive_unique_name(app_path: Path) -> str:
     """Derive a unique name from the app path.
 
@@ -448,6 +503,14 @@ def _derive_unique_name(app_path: Path) -> str:
 _TARGET_MAP = {"docker": TargetType.DOCKER, "remote": TargetType.REMOTE}
 
 
+def _copy_coverage_overrides(section: dict[str, Any], out: dict[str, Any]) -> None:
+    """Copy explicit coverage-tag overrides (builder/toolchain/spec) from a
+    `[test]` section into ``out``, when present."""
+    for key in ("builder", "toolchain", "spec"):
+        if key in section:
+            out[key] = section[key]
+
+
 def _overrides_from_hop3_test(section: dict[str, Any]) -> dict[str, Any]:
     """Extract TestDefinition overrides from a `[test]` section in hop3.toml."""
     out: dict[str, Any] = {}
@@ -465,6 +528,7 @@ def _overrides_from_hop3_test(section: dict[str, Any]) -> dict[str, Any]:
         out["validations"] = [_parse_validation(v) for v in section["validations"]]
     if "expects-failure" in section:
         out["expects_failure"] = bool(section["expects-failure"])
+    _copy_coverage_overrides(section, out)
     return out
 
 
@@ -482,6 +546,7 @@ def _overrides_from_legacy_test_toml(data: dict[str, Any]) -> dict[str, Any]:
         out["validations"] = [_parse_validation(v) for v in data["validations"]]
     if "expects-failure" in section:
         out["expects_failure"] = bool(section["expects-failure"])
+    _copy_coverage_overrides(section, out)
     metadata = section.get("metadata", {})
     if "covers" in metadata:
         out["covers_prefix"] = list(metadata["covers"])
@@ -539,6 +604,15 @@ def generate_test_definition_from_hop3_toml(
     metadata_kwargs: dict[str, Any] = {"covers": covers}
     if "author" in overrides:
         metadata_kwargs["author"] = overrides["author"]
+    # Derive builder / toolchain / spec from hop3.toml data (overridable via
+    # explicit [test] fields for edge cases).
+    metadata_kwargs["builder"] = overrides.get("builder") or _builder_from_hop3_toml(
+        hop3_data
+    )
+    metadata_kwargs["toolchain"] = overrides.get(
+        "toolchain"
+    ) or _toolchain_from_hop3_toml(hop3_data)
+    metadata_kwargs["spec"] = overrides.get("spec") or _spec_from_source(app_path)
 
     return TestDefinition(
         name=base_name,
@@ -649,6 +723,9 @@ def generate_tutorial_test_definition(md_path: Path) -> TestDefinition:
             language=language,
             framework=framework,
             covers=covers,
+            builder=None,  # tutorials don't use the builder system
+            toolchain=language,  # parent dir name is the toolchain (python, go, etc.)
+            spec="tutorial",
         ),
         source_path=md_path,
     )

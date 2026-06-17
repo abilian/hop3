@@ -20,7 +20,8 @@ def test_profiles_page_lists_builtin_modes():
     with TestClient(app=create_app()) as client:
         response = client.get("/profiles")
     assert response.status_code == 200
-    for name in ("smoke", "ci", "curated", "coverage", "nightly", "full"):
+    for name in ("smoke", "ci", "curated", "tag-coverage", "combo-coverage",
+                 "nightly", "full"):
         assert name in response.text
 
 
