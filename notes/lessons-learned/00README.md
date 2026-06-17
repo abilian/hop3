@@ -1,18 +1,22 @@
 # Lessons Learned
 
-**Updated**: 2026-04-22 — CLI examples migrated from colon syntax to space form per ADR 036.
+**Updated**: 2026-06-17 — adopted thematic-file grouping for new lessons; added `cli-ergonomics.md` (ADR 036) and `privilege-and-isolation.md` (ADR 046).
 
 This directory collects lessons learned during Hop3 development, to help avoid repeating mistakes.
+
+**Convention:** group each new lesson into the thematically closest file below; create a new file if none fits. Keep this `00README.md` an index — don't accumulate full lessons inline. (The numbered "Quick Reference" list below is legacy; new lessons live in their own files.)
 
 ## Topic deep dives
 
 - [`async-thread-boundaries.md`](./async-thread-boundaries.md) — cross-thread `asyncio` pitfalls (the "every deploy takes 30s" bug) and choosing the right primitive per producer/consumer boundary.
+- [`cli-ergonomics.md`](./cli-ergonomics.md) — evolving the CLI command surface safely (rename via alias, deprecate by hiding) and honest help/error messages. (ADR 036)
 - [`database-addon-portability.md`](./database-addon-portability.md) — PostgreSQL and MySQL connectivity across native and Docker deployment.
 - [`deployment-diagnostics.md`](./deployment-diagnostics.md) — Making deployment failures actionable.
 - [`e2e-test-infrastructure.md`](./e2e-test-infrastructure.md) — Building and running the E2E suite.
 - [`multi-distribution-support.md`](./multi-distribution-support.md) — Debian / Red Hat / Fedora parity patterns.
 - [`native-apps-caveats.md`](./native-apps-caveats.md) — Caveats specific to `builder = "local"` native deployments.
 - [`nix-packaging.md`](./nix-packaging.md) — Gotchas from the Nix integration effort.
+- [`privilege-and-isolation.md`](./privilege-and-isolation.md) — privileged ops behind the rootd daemon (default-deny allow-list) and path-list confinement via `realpath`. (ADR 046)
 - [`uwsgi-daemon-management.md`](./uwsgi-daemon-management.md) — Emperor / vassal lifecycle, attach-daemon env propagation.
 
 ---
