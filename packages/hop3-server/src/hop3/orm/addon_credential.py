@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from advanced_alchemy.base import BigIntAuditBase
-from sqlalchemy import ForeignKey, String, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
@@ -65,6 +65,12 @@ class AddonCredential(BigIntAuditBase):
         nullable=False,
         comment="Fernet-encrypted JSON containing credentials",
     )
+
+    # When more than one addon of a type is attached to an app, the primary one
+    # injects the UNPREFIXED connection vars (DATABASE_URL, …); non-primary ones
+    # inject prefixed vars (<ADDONNAME>_DATABASE_URL). At most one primary per
+    # (app_id, addon_type) — enforced in the attach/promote/detach code paths.
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # Relationships
     app: Mapped[App] = relationship(back_populates="addon_credentials")

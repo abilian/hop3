@@ -25,6 +25,7 @@ from .login_cmd import handle_login, handle_login_token
 from .server_cmd import handle_server
 from .settings_cmd import handle_settings, settings_get, settings_set, settings_show
 from .ssh_ops import BootstrapError, extract_token, infer_server_url
+from .tunnel_cmd import handle_tunnel
 from .use_cmd import handle_use
 from .version_cmd import handle_version
 
@@ -47,6 +48,7 @@ __all__ = [
     "handle_login_token",
     "handle_server",
     "handle_settings",
+    "handle_tunnel",
     "handle_use",
     "handle_version",
     "infer_server_url",
@@ -66,6 +68,7 @@ LOCAL_COMMANDS_INFO = {
     "login": "Authenticate to a server.",
     "server": "Manage server bindings (ADR 042).",
     "settings": "Manage local CLI settings (server URL, token, SSL).",
+    "tunnel": "Open a local SSH tunnel to a remote addon.",
     "use": "Set / show / clear the current context's default app.",
     "version": "Show CLI version.",
     "auth": "Authentication commands.",
@@ -112,6 +115,7 @@ _LOCAL_HANDLERS = {
     "server": handle_server,
     "settings": handle_settings,
     "aliases": handle_aliases,
+    "tunnel": handle_tunnel,
     "use": handle_use,
 }
 _VERSION_TOKENS = {"version", "--version", "-V"}

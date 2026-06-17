@@ -91,14 +91,15 @@ class DomainsCmd(Command):
     """Manage hostnames bound to an application.
 
     Examples:
-        hop3 domains list myapp
-        hop3 domains add myapp example.com www.example.com
-        hop3 domains remove myapp www.example.com
-        hop3 domains set myapp example.com www.example.com
-        hop3 domains clear myapp
+        hop3 domain list myapp
+        hop3 domain add myapp example.com www.example.com
+        hop3 domain remove myapp www.example.com
+        hop3 domain set myapp example.com www.example.com
+        hop3 domain clear myapp
     """
 
-    name: ClassVar[tuple[str, ...]] = ("domains",)
+    name: ClassVar[tuple[str, ...]] = ("domain",)
+    aliases: ClassVar[list[tuple[str, ...]]] = [("domains",)]
 
 
 @register
@@ -107,12 +108,13 @@ class ListCmd(Command):
     """List the hostnames currently bound to an app.
 
     Examples:
-        hop3 domains list myapp
-        hop3 domains list --app myapp
+        hop3 domain list myapp
+        hop3 domain list --app myapp
     """
 
     db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("domains", "list")
+    name: ClassVar[tuple[str, ...]] = ("domain", "list")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("domains", "list")]
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},
         "_args": {"remaining": True},
@@ -126,8 +128,8 @@ class ListCmd(Command):
         if not app_name:
             return [
                 text(
-                    "Usage: hop3 domains list <app-name>\n"
-                    "   or: hop3 domains list --app <app-name>"
+                    "Usage: hop3 domain list <app-name>\n"
+                    "   or: hop3 domain list --app <app-name>"
                 )
             ]
 
@@ -147,13 +149,14 @@ class AddCmd(Command):
     """Add one or more hostnames to an app (union, atomic).
 
     Examples:
-        hop3 domains add myapp example.com
-        hop3 domains add myapp example.com www.example.com
-        hop3 domains add --app myapp example.com
+        hop3 domain add myapp example.com
+        hop3 domain add myapp example.com www.example.com
+        hop3 domain add --app myapp example.com
     """
 
     db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("domains", "add")
+    name: ClassVar[tuple[str, ...]] = ("domain", "add")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("domains", "add")]
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},
         "_args": {"remaining": True},
@@ -172,8 +175,8 @@ class AddCmd(Command):
         if not app_name or not new_inputs:
             return [
                 text(
-                    "Usage: hop3 domains add <app> <host> [<host> ...]\n"
-                    "   or: hop3 domains add --app <app> <host> [<host> ...]"
+                    "Usage: hop3 domain add <app> <host> [<host> ...]\n"
+                    "   or: hop3 domain add --app <app> <host> [<host> ...]"
                 )
             ]
 
@@ -194,7 +197,7 @@ class AddCmd(Command):
             return [
                 error(
                     "Refusing to combine '_' with other hostnames on "
-                    f"'{app_name}'. Use 'hop3 domains set' to replace the list."
+                    f"'{app_name}'. Use 'hop3 domain set' to replace the list."
                 )
             ]
 
@@ -222,12 +225,13 @@ class RemoveCmd(Command):
     Errors if any of the requested hostnames is not currently set.
 
     Examples:
-        hop3 domains remove myapp www.example.com
-        hop3 domains remove --app myapp www.example.com
+        hop3 domain remove myapp www.example.com
+        hop3 domain remove --app myapp www.example.com
     """
 
     db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("domains", "remove")
+    name: ClassVar[tuple[str, ...]] = ("domain", "remove")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("domains", "remove")]
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},
         "_args": {"remaining": True},
@@ -246,8 +250,8 @@ class RemoveCmd(Command):
         if not app_name or not targets:
             return [
                 text(
-                    "Usage: hop3 domains remove <app> <host> [<host> ...]\n"
-                    "   or: hop3 domains remove --app <app> <host> [<host> ...]"
+                    "Usage: hop3 domain remove <app> <host> [<host> ...]\n"
+                    "   or: hop3 domain remove --app <app> <host> [<host> ...]"
                 )
             ]
 
@@ -277,12 +281,13 @@ class SetCmd(Command):
     """Replace the full list of hostnames for an app (atomic).
 
     Examples:
-        hop3 domains set myapp example.com www.example.com
-        hop3 domains set --app myapp example.com
+        hop3 domain set myapp example.com www.example.com
+        hop3 domain set --app myapp example.com
     """
 
     db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("domains", "set")
+    name: ClassVar[tuple[str, ...]] = ("domain", "set")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("domains", "set")]
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},
         "_args": {"remaining": True},
@@ -301,8 +306,8 @@ class SetCmd(Command):
         if not app_name or not new_inputs:
             return [
                 text(
-                    "Usage: hop3 domains set <app> <host> [<host> ...]\n"
-                    "   or: hop3 domains set --app <app> <host> [<host> ...]"
+                    "Usage: hop3 domain set <app> <host> [<host> ...]\n"
+                    "   or: hop3 domain set --app <app> <host> [<host> ...]"
                 )
             ]
 
@@ -312,7 +317,7 @@ class SetCmd(Command):
         if not validated:
             return [
                 error(
-                    "No valid hostnames provided. Use 'hop3 domains clear' to "
+                    "No valid hostnames provided. Use 'hop3 domain clear' to "
                     "unset all domains."
                 )
             ]
@@ -342,12 +347,13 @@ class ClearCmd(Command):
     """Clear all hostnames from an app (unsets HOST_NAME).
 
     Examples:
-        hop3 domains clear myapp
-        hop3 domains clear --app myapp
+        hop3 domain clear myapp
+        hop3 domain clear --app myapp
     """
 
     db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("domains", "clear")
+    name: ClassVar[tuple[str, ...]] = ("domain", "clear")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("domains", "clear")]
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},
         "_args": {"remaining": True},
@@ -361,8 +367,8 @@ class ClearCmd(Command):
         if not app_name:
             return [
                 text(
-                    "Usage: hop3 domains clear <app-name>\n"
-                    "   or: hop3 domains clear --app <app-name>"
+                    "Usage: hop3 domain clear <app-name>\n"
+                    "   or: hop3 domain clear --app <app-name>"
                 )
             ]
 

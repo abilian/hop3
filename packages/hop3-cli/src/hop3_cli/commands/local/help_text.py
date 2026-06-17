@@ -259,6 +259,24 @@ Examples:
 """
 
 
+TUNNEL_HELP = """Usage: hop3 tunnel <addon-name> [--port <localport>]
+
+Open a local SSH tunnel to a remote addon and print a ready-to-paste local
+connection URL. Forwards a local port to the addon's port on the server over
+the configured SSH connection, then holds the tunnel open until you press
+Ctrl-C. The addon's type is resolved from its name (no --type needed).
+
+Options:
+  --port <localport>    Local port to bind (default: the addon's own port).
+                        Use this if the default port is already in use.
+
+Examples:
+  hop3 tunnel mydb              # postgresql://...@127.0.0.1:5432/mydb
+  hop3 tunnel mydb --port 6543  # bind a different local port
+  hop3 tunnel mycache           # redis://...@127.0.0.1:6379/0
+"""
+
+
 # Maps each local command name to its long-form help text. Used by
 # `hop3 help --all -v` to aggregate the full client-side help. `auth` is
 # intentionally absent: its real subcommands (auth login/whoami/...) are
@@ -271,6 +289,7 @@ LOCAL_COMMAND_HELP: dict[str, str] = {
     "login": LOGIN_HELP,
     "server": SERVER_HELP,
     "settings": SETTINGS_HELP,
+    "tunnel": TUNNEL_HELP,
     "use": USE_HELP,
 }
 

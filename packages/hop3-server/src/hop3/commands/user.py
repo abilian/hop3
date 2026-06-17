@@ -69,6 +69,9 @@ class UserAddCmd(Command):
     user_repo: UserRepository
     role_repo: RoleRepository
     name: ClassVar[tuple[str, ...]] = ("user", "add")
+    # `auth register` was a duplicate of this command (ADR 036 P2.1) — kept as a
+    # back-compat alias so `hop3 auth register u e p` still works.
+    aliases: ClassVar[list[tuple[str, ...]]] = [("auth", "register")]
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 

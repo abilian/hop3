@@ -8,26 +8,34 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import ClassVar
+from urllib.parse import urlparse
 
+from hop3.config import config
 from hop3.core.credentials import get_credential_encryptor
 from hop3.core.identifiers import InvalidIdentifierError, validate_service_name
 from hop3.core.plugins import get_addon, get_plugin_manager
+from hop3.deployers.addon_provisioning import (
+    addon_var_prefix,
+    sync_addon_env_vars,
+)
+from hop3.deployers.expose import connection_url, expose_addon, unexpose_addon
 from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
 from hop3.lib.logging import server_log
-from hop3.orm import AddonCredential, EnvVar
+from hop3.orm import AddonCredential
 
 # Runtime imports for Dishka DI (not just type hints)
 from hop3.orm.repositories import (  # noqa: TC001
     AddonCredentialRepository,
     AppRepository,
     EnvVarRepository,
+    PortClaimRepository,
 )
 from hop3.plugins.addons.secrets import list_addon_instances
 
 from ._base import Command
 from ._errors import command_context
-from ._response import error, summary, table, text, warning
+from ._response import data, error, summary, table, text, warning
 
 
 @register
@@ -130,6 +138,381 @@ class AddonListCmd(Command):
         return [
             text(f"Addons attached to '{app_name}':"),
             table(headers=["Name", "Type"], rows=rows),
+        ]
+
+
+def _resolve_addon_types(addon_name: str) -> list[str]:
+    """Return the type(s) of the provisioned addon instance(s) named `addon_name`.
+
+    A name *could* collide across types (a postgres and a redis both named
+    "cache"); the caller disambiguates rather than guessing.
+    """
+    return [t for t, n in list_addon_instances() if n == addon_name]
+
+
+def _resolve_one_type(addon_name: str, explicit: str | None) -> tuple[str | None, list]:
+    """Resolve a single addon type for a type-agnostic command.
+
+    Returns ``(addon_type, error_items)``. When ``error_items`` is non-empty the
+    caller returns them as-is (unknown name, or ambiguous across types and no
+    explicit ``--type`` given).
+    """
+    if explicit:
+        return explicit, []
+    types = _resolve_addon_types(addon_name)
+    if not types:
+        return None, [error(f"No addon named '{addon_name}'.")]
+    if len(types) > 1:
+        joined = ", ".join(sorted(types))
+        return None, [
+            error(
+                f"Addon name '{addon_name}' is ambiguous (types: {joined}). "
+                "Pass --type <type>."
+            )
+        ]
+    return types[0], []
+
+
+@register
+@dataclass(frozen=True)
+class AddonEndpointCmd(Command):
+    """Show an addon's connection endpoint (type-agnostic).
+
+    Usage: hop3 addon endpoint <name>
+
+    The addon's type is resolved from its name, so no `--type` is needed.
+    Prints the connection URL plus host/port. `hop3 tunnel` uses this; it is
+    also handy on its own.
+
+    Examples:
+        hop3 addon endpoint mydb
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", "endpoint")
+    requires_auth: ClassVar[bool] = True
+
+    def call(self, *args):
+        if not args:
+            return [text("Usage: hop3 addon endpoint <name>")]
+        addon_name = args[0]
+        types = _resolve_addon_types(addon_name)
+        if not types:
+            return [error(f"No addon named '{addon_name}'.")]
+        if len(types) > 1:
+            joined = ", ".join(sorted(types))
+            return [
+                error(
+                    f"Addon name '{addon_name}' is ambiguous (types: {joined}). "
+                    "Rename one of them; addon names must be unique to tunnel."
+                )
+            ]
+        addon_type = types[0]
+        with command_context(
+            "reading addon endpoint", addon_name=addon_name, service_type=addon_type
+        ):
+            details = get_addon(addon_type, addon_name).get_connection_details()
+        url = connection_url(details)
+        if url is None:
+            return [error(f"Addon '{addon_name}' exposes no connection URL.")]
+        parsed = urlparse(url)
+        payload = {
+            "type": addon_type,
+            "host": parsed.hostname,
+            "port": parsed.port,
+            "url": url,
+        }
+        return [
+            data(payload),
+            table(
+                headers=["Field", "Value"],
+                rows=[
+                    ["Type", addon_type],
+                    ["Host", str(parsed.hostname)],
+                    ["Port", str(parsed.port)],
+                    ["URL", url],
+                ],
+            ),
+        ]
+
+
+@register
+@dataclass(frozen=True)
+class AddonExistsCmd(Command):
+    """Predicate: does an addon exist? (type-agnostic, for scripts/CI).
+
+    Usage: hop3 addon exists <name> [--type <type>]
+
+    A predicate command: it prints nothing and exits 0 if the addon exists, 1
+    if it doesn't (so it composes with shell `&&`/`||`). With `--json` it also
+    prints `{"exists": true|false}`. Pass `--type` to require a specific type.
+
+    Examples:
+        hop3 addon exists mydb && hop3 addon promote mydb --app web
+        hop3 addon exists mydb --type postgres
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", "exists")
+    requires_auth: ClassVar[bool] = True
+    _arg_spec: ClassVar[dict] = {
+        "addon_name": {"positional": True},
+        "type": {"type": str},
+        "service_type": {"type": str},
+    }
+
+    def call(self, *args):
+        parsed = parse_cli_args(args, self._arg_spec)
+        addon_name = parsed.get("addon_name")
+        if not addon_name:
+            return [error("Usage: hop3 addon exists <name> [--type <type>]")]
+        explicit = parsed.get("service_type") or parsed.get("type")
+        types = _resolve_addon_types(addon_name)
+        exists = (explicit in types) if explicit else bool(types)
+        return [data({"exists": exists, "name": addon_name})]
+
+
+@register
+@dataclass(frozen=True)
+class AddonExposeCmd(Command):
+    """Expose an addon on a public host port (type-agnostic).
+
+    Usage: hop3 addon expose <name> --source <cidr|any> [--host <fqdn>]
+
+    Makes the addon reachable from outside the server on a stable, persisted
+    port (a systemd-socket-proxyd forwarder to its loopback port) and prints a
+    connection URL. The addon's type is resolved from its name.
+
+    --source is required: a CIDR (e.g. 203.0.113.0/24), or `any` to open to the
+    whole internet. The external host comes from --host, else the server's
+    canonical domain.
+
+    Examples:
+        hop3 addon expose mydb --source 203.0.113.0/24
+        hop3 addon expose mydb --source any --host db.example.com
+    """
+
+    port_claim_repo: PortClaimRepository
+    name: ClassVar[tuple[str, ...]] = ("addon", "expose")
+    requires_auth: ClassVar[bool] = True
+    _arg_spec: ClassVar[dict] = {
+        "addon_name": {"positional": True},
+        "source": {"type": str},
+        "host": {"type": str},
+        "type": {"type": str},
+        "service_type": {"type": str},
+    }
+
+    def call(self, *args):
+        parsed = parse_cli_args(args, self._arg_spec)
+        addon_name = parsed.get("addon_name")
+        if not addon_name:
+            return [
+                text(
+                    "Usage: hop3 addon expose <name> --source <cidr|any> [--host <fqdn>]"
+                )
+            ]
+        explicit = parsed.get("service_type") or parsed.get("type")
+        addon_type, errors = _resolve_one_type(addon_name, explicit)
+        if errors:
+            return errors
+        assert addon_type is not None
+
+        source = parsed.get("source") or config.EXPOSE_DEFAULT_SOURCE
+        if not source:
+            return [
+                error(
+                    "--source is required: a CIDR (e.g. 203.0.113.0/24), or 'any' "
+                    "to open to the whole internet. Set EXPOSE_DEFAULT_SOURCE in "
+                    "hop3-server.toml for a per-server default."
+                )
+            ]
+        host = parsed.get("host") or config.ADMIN_DOMAIN
+        if not host:
+            return [
+                error(
+                    "No external host for the URL: pass --host <fqdn>, or set the "
+                    "server's ADMIN_DOMAIN. A reachable hostname is required."
+                )
+            ]
+
+        with command_context(
+            "exposing addon", addon_name=addon_name, service_type=addon_type
+        ):
+            result = expose_addon(
+                addon_type,
+                addon_name,
+                source=source,
+                host=host,
+                db_session=self.port_claim_repo.session,
+            )
+
+        items: list = [
+            data(result),
+            table(
+                headers=["Field", "Value"],
+                rows=[
+                    ["Type", result["type"]],
+                    ["Host", result["host"]],
+                    ["Public port", str(result["public_port"])],
+                    ["Source", result["source"]],
+                    ["URL", result["url"]],
+                ],
+            ),
+        ]
+        if result["source"] == "any":
+            items.append(
+                warning(
+                    "This addon is now reachable from the ENTIRE internet "
+                    "(--source any). Only the addon credentials protect it — "
+                    "scope it with --source <cidr> instead if you can."
+                )
+            )
+        verb = "already exposed" if result.get("already_exposed") else "exposed"
+        items.append(
+            summary(
+                f"{verb} addon '{addon_name}' ({addon_type}) on "
+                f"{result['host']}:{result['public_port']}."
+            )
+        )
+        return items
+
+
+@register
+@dataclass(frozen=True)
+class AddonUnexposeCmd(Command):
+    """Remove an addon's public exposure (type-agnostic).
+
+    Usage: hop3 addon unexpose <name>
+
+    Closes the public port, removes the forwarder, and frees the claim.
+    Idempotent. The addon itself and its data are untouched.
+
+    Examples:
+        hop3 addon unexpose mydb
+    """
+
+    port_claim_repo: PortClaimRepository
+    name: ClassVar[tuple[str, ...]] = ("addon", "unexpose")
+    requires_auth: ClassVar[bool] = True
+    _arg_spec: ClassVar[dict] = {
+        "addon_name": {"positional": True},
+        "type": {"type": str},
+        "service_type": {"type": str},
+    }
+
+    def call(self, *args):
+        parsed = parse_cli_args(args, self._arg_spec)
+        addon_name = parsed.get("addon_name")
+        if not addon_name:
+            return [text("Usage: hop3 addon unexpose <name>")]
+        explicit = parsed.get("service_type") or parsed.get("type")
+        addon_type, errors = _resolve_one_type(addon_name, explicit)
+        if errors:
+            return errors
+        assert addon_type is not None
+
+        with command_context(
+            "unexposing addon", addon_name=addon_name, service_type=addon_type
+        ):
+            removed = unexpose_addon(
+                addon_type, addon_name, db_session=self.port_claim_repo.session
+            )
+        if not removed:
+            return [text(f"Addon '{addon_name}' is not exposed.")]
+        return [
+            text(f"Removed public exposure of {addon_type} addon '{addon_name}'."),
+            summary(f"unexposed addon '{addon_name}' ({addon_type})."),
+        ]
+
+
+@register
+@dataclass(frozen=True)
+class AddonPromoteCmd(Command):
+    """Make an addon the primary one of its type for an app (type-agnostic).
+
+    Usage: hop3 addon promote <name> --app <app> [--type <type>]
+
+    When several same-type addons are attached to an app, the primary injects
+    the UNPREFIXED connection vars (DATABASE_URL, …) and the others are prefixed
+    (<NAME>_DATABASE_URL). This flips which one is primary; the previous primary
+    becomes prefixed. Redeploy the app for the env change to take effect.
+
+    Examples:
+        hop3 addon promote db2 --app myapp
+        hop3 addon promote db2 --app myapp --type postgres
+    """
+
+    app_repo: AppRepository
+    addon_credential_repo: AddonCredentialRepository
+    env_var_repo: EnvVarRepository
+    name: ClassVar[tuple[str, ...]] = ("addon", "promote")
+    requires_auth: ClassVar[bool] = True
+    _arg_spec: ClassVar[dict] = {
+        "addon_name": {"positional": True},
+        "app": {"type": str},
+        "type": {"type": str},
+        "service_type": {"type": str},
+    }
+
+    def call(self, *args):
+        parsed = parse_cli_args(args, self._arg_spec)
+        addon_name = parsed.get("addon_name")
+        app_name = parsed.get("app")
+        if not addon_name or not app_name:
+            return [
+                text("Usage: hop3 addon promote <name> --app <app> [--type <type>]")
+            ]
+
+        explicit = parsed.get("service_type") or parsed.get("type")
+        addon_type, errors = _resolve_one_type(addon_name, explicit)
+        if errors:
+            return errors
+        assert addon_type is not None
+
+        app = self.app_repo.get_one_or_none(name=app_name)
+        if not app:
+            return [error(f"App '{app_name}' not found.")]
+
+        with command_context(
+            "promoting addon", addon_name=addon_name, service_type=addon_type
+        ):
+            target = self.addon_credential_repo.get_by_app_addon(
+                app.id, addon_type, addon_name
+            )
+            if target is None:
+                return [
+                    error(
+                        f"Addon '{addon_name}' ({addon_type}) is not attached to "
+                        f"'{app_name}'. Attach it first: "
+                        f"hop3 addon attach {addon_name} --app {app_name}"
+                    )
+                ]
+            if target.is_primary:
+                return [
+                    text(
+                        f"Addon '{addon_name}' is already the primary {addon_type} "
+                        f"for '{app_name}'."
+                    )
+                ]
+
+            siblings = self.addon_credential_repo.list_by_app_and_type(
+                app.id, addon_type
+            )
+            for cred in siblings:
+                cred.is_primary = cred.addon_name == addon_name
+            self.addon_credential_repo.session.flush()
+            sync_addon_env_vars(app, self.addon_credential_repo.session)
+            self.addon_credential_repo.session.commit()
+
+        return [
+            text(
+                f"Promoted '{addon_name}' to the primary {addon_type} for "
+                f"'{app_name}'; it now owns the unprefixed connection vars "
+                "(DATABASE_URL). Redeploy for the change to take effect."
+            ),
+            summary(
+                f"promoted addon '{addon_name}' ({addon_type}) to primary for "
+                f"{app_name}."
+            ),
         ]
 
 
@@ -274,7 +657,33 @@ class AddonAttachCmd(Command):
         "app": {"type": str},  # --app <name>
         "type": {"type": str, "default": "postgres"},  # --type <type>
         "service_type": {"type": str},  # --service-type <type> (preferred alias)
+        "primary": {"flag": True, "default": False},  # attach as the primary
     }
+
+    def _apply_primary(
+        self, app_id: int, service_type: str, addon_name: str, *, want_primary: bool
+    ) -> bool:
+        """Decide + set which same-type addon is primary; return this one's status.
+
+        First addon of a type → primary. A later one → non-primary, unless
+        ``--primary`` is given or there is currently no primary at all. When this
+        addon becomes primary, its same-type siblings are demoted in the same
+        transaction (the one-primary-per-(app,type) invariant).
+        """
+        siblings = self.addon_credential_repo.list_by_app_and_type(app_id, service_type)
+        this = next((c for c in siblings if c.addon_name == addon_name), None)
+        if this is None:
+            return False
+        make_primary = (
+            want_primary
+            or len(siblings) == 1
+            or not any(c.is_primary for c in siblings)
+        )
+        if make_primary:
+            for cred in siblings:
+                cred.is_primary = cred.addon_name == addon_name
+            self.addon_credential_repo.session.flush()
+        return this.is_primary
 
     def _store_or_update_credential(
         self,
@@ -301,66 +710,6 @@ class AddonAttachCmd(Command):
                 encrypted_data=encryptor.encrypt(connection_details),
             )
             self.addon_credential_repo.add(credential)
-
-    def _add_env_vars(self, app, connection_details: dict) -> list[str]:
-        """Add or update environment variables for the app.
-
-        Uses the same pattern as config set - using the relationship and
-        appending to app.env_vars to ensure SQLAlchemy properly tracks changes.
-
-        Args:
-            app: The App ORM object (not just app_id)
-            connection_details: Dict of env var name -> value
-
-        Returns:
-            List of status messages for each variable added/updated
-        """
-        server_log.info(
-            "Adding env vars from addon",
-            app_id=app.id,
-            app_name=app.name,
-            connection_details_keys=list(connection_details.keys()),
-            current_env_vars=[ev.name for ev in app.env_vars],
-        )
-
-        added_vars = []
-        for key, value in connection_details.items():
-            # Truncate value for logging (don't log full URLs with passwords)
-            log_value = value[:30] + "..." if len(str(value)) > 30 else value
-            server_log.debug(
-                "Processing env var",
-                app_id=app.id,
-                key=key,
-                value_preview=log_value,
-            )
-
-            # Check if variable already exists (same pattern as config set)
-            existing = self.env_var_repo.get_by_app_and_name(app.id, key)
-
-            if existing:
-                existing.value = value
-                self.env_var_repo.update(existing)
-                added_vars.append(f"Updated {key}")
-                server_log.info("Updated existing env var", app_id=app.id, key=key)
-            else:
-                # Create EnvVar with app_id and add via repository
-                # Then append to app.env_vars for immediate visibility
-                # This pattern works with both real SQLAlchemy apps and mocks
-                new_var = EnvVar(app_id=app.id, name=key, value=value)
-                self.env_var_repo.add(new_var)
-                # Also append to collection for immediate visibility
-                # (this is what config set does via relationship assignment)
-                app.env_vars.append(new_var)
-                added_vars.append(f"Added {key}")
-                server_log.info("Added new env var", app_id=app.id, key=key)
-
-        server_log.info(
-            "Env vars processing complete",
-            app_id=app.id,
-            added_vars=added_vars,
-            total_env_vars=[ev.name for ev in app.env_vars],
-        )
-        return added_vars
 
     def call(self, *args):
         """Attach a service to an application."""
@@ -435,66 +784,55 @@ class AddonAttachCmd(Command):
                 msg = "No connection details returned from addon"
                 raise ValueError(msg)
 
-            # Store credentials and add environment variables
+            # Store the credential, decide primary-ness, then materialize env
+            # from all of the app's credentials (namespaced by primary).
             self._store_or_update_credential(
                 app.id, service_type, addon_name, connection_details
             )
-            # Pass the app object (not just app.id) to properly track relationships
-            added_vars = self._add_env_vars(app, connection_details)
-
-            # Commit all changes via repository
+            self.addon_credential_repo.session.flush()
+            is_primary = self._apply_primary(
+                app.id,
+                service_type,
+                addon_name,
+                want_primary=bool(parsed.get("primary")),
+            )
+            sync_report = sync_addon_env_vars(app, self.addon_credential_repo.session)
             self.addon_credential_repo.session.commit()
             server_log.info(
                 "addons attach committed",
                 app_id=app.id,
-                added_vars=added_vars,
+                is_primary=is_primary,
+                set_vars=sync_report["set"],
             )
 
-            # Expire all objects to ensure fresh data is loaded for verification
-            self.addon_credential_repo.session.expire_all()
-
-            # Verify env vars were stored by loading app fresh
-            app_after = self.app_repo.get_one_or_none(name=app_name)
-            if app_after:
-                env_var_names = [ev.name for ev in app_after.env_vars]
-                server_log.info(
-                    "addons attach verification",
-                    app_id=app_after.id,
-                    env_vars_count_after=len(env_var_names),
-                    env_vars_names=env_var_names,
-                )
-                # Also verify in the returned message
-                if "DATABASE_URL" not in env_var_names:
-                    server_log.warning(
-                        "DATABASE_URL not found in app env vars after commit!",
-                        app_id=app_after.id,
-                        env_var_names=env_var_names,
-                    )
-
-        # Build response with details about what was added
+        set_vars = sync_report["set"]
+        slot = "primary" if is_primary else "secondary"
+        suffix = (
+            ""
+            if is_primary
+            else f" as a secondary {service_type} (vars prefixed "
+            f"'{addon_name.upper().replace('-', '_')}_')"
+        )
         response = [
-            text(f"Addon '{addon_name}' attached to app '{app_name}' successfully."),
+            text(
+                f"Addon '{addon_name}' attached to app '{app_name}'{suffix}.",
+            ),
         ]
-
-        if added_vars:
+        if set_vars:
             response.append(
-                text("\nEnvironment variables:\n  " + "\n  ".join(added_vars))
+                text("\nEnvironment variables:\n  " + "\n  ".join(set_vars))
             )
         else:
             response.append(warning("\nWARNING: No environment variables were added!"))
-
         response.append(
             text(
                 f"\nRedeploy your app for changes to take effect:\n  hop3 deploy {app_name}"
             )
         )
-
-        # Summary line per ADR 036 D19c.
-        added_count = len(added_vars)
         response.append(
             summary(
-                f"attached addon '{addon_name}' ({service_type}) to {app_name}; "
-                f"added {added_count} env var(s)."
+                f"attached addon '{addon_name}' ({service_type}, {slot}) to "
+                f"{app_name}; {len(set_vars)} env var(s)."
             )
         )
         return response
@@ -526,48 +864,29 @@ class AddonDetachCmd(Command):
         "service_type": {"type": str},  # --service-type <type> (preferred alias)
     }
 
-    def _get_connection_details(
-        self, app_id: int, service_type: str, addon_name: str
-    ) -> dict:
-        """Get connection details from stored credential or service.
-
-        Returns:
-            Dictionary of connection details (may be empty if not found)
-        """
-        credential = self.addon_credential_repo.get_by_app_addon(
-            app_id, service_type, addon_name
-        )
-
-        if credential:
-            encryptor = get_credential_encryptor()
-            connection_details = encryptor.decrypt(credential.encrypted_data)
-            # Remove the credential (pass id, not the object)
-            self.addon_credential_repo.delete(credential.id)
-            return connection_details
-
-        # Fallback: Try to get connection details from service
+    def _addon_details(self, service_type: str, addon_name: str, stored: str) -> dict:
+        """Decrypt the stored credential; fall back to the live addon."""
+        encryptor = get_credential_encryptor()
         try:
-            addon = get_addon(service_type, addon_name)
-            return addon.get_connection_details()
+            details = encryptor.decrypt(stored)
         except Exception:
-            # If we can't get connection details, return empty dict
+            details = {}
+        if details:
+            return details
+        try:
+            return get_addon(service_type, addon_name).get_connection_details()
+        except Exception:
             return {}
 
-    def _remove_env_vars(self, app_id: int, connection_details: dict) -> list[str]:
-        """Remove environment variables from the app.
-
-        Returns:
-            List of removed variable names
-        """
-        removed_vars = []
-        for key in connection_details:
-            env_var = self.env_var_repo.get_by_app_and_name(app_id, key)
-
-            if env_var:
-                self.env_var_repo.delete(env_var.id)
-                removed_vars.append(key)
-
-        return removed_vars
+    def _remove_named_env_vars(self, app, names) -> list[str]:
+        """Remove the app's env vars whose name is in ``names`` (delete-orphan)."""
+        wanted = set(names)
+        removed = []
+        for env_var in list(app.env_vars):
+            if env_var.name in wanted:
+                app.env_vars.remove(env_var)
+                removed.append(env_var.name)
+        return removed
 
     def call(self, *args):
         """Detach a service from an application."""
@@ -591,33 +910,67 @@ class AddonDetachCmd(Command):
         with command_context(
             "detaching addon", addon_name=addon_name, app_name=app_name
         ):
-            # Check if app exists
             app = self.app_repo.get_one_or_none(name=app_name)
-
             if not app:
                 msg = f"App '{app_name}' not found"
                 raise ValueError(msg)
 
-            # Get connection details and remove credential
-            connection_details = self._get_connection_details(
+            credential = self.addon_credential_repo.get_by_app_addon(
                 app.id, service_type, addon_name
             )
+            if credential is None:
+                return [
+                    text(f"Addon '{addon_name}' was not attached to app '{app_name}'.")
+                ]
 
-            # Remove environment variables
-            removed_vars = self._remove_env_vars(app.id, connection_details)
+            was_primary = credential.is_primary
+            details = self._addon_details(
+                service_type, addon_name, credential.encrypted_data
+            )
+            # Remove this addon's OWN env vars in BOTH spellings (unprefixed and
+            # <NAME>_ prefixed) — robust whichever it was using. Must be explicit:
+            # once the credential is deleted, sync no longer knows these names.
+            prefix = addon_var_prefix(addon_name)
+            own_names = set(details) | {f"{prefix}{key}" for key in details}
+            removed_vars = self._remove_named_env_vars(app, own_names)
 
+            self.addon_credential_repo.delete(credential.id)
+            self.addon_credential_repo.session.flush()
+
+            # If we removed the primary, auto-promote the oldest remaining sibling
+            # so the app keeps an unprefixed DATABASE_URL.
+            promoted = None
+            if was_primary:
+                siblings = self.addon_credential_repo.list_by_app_and_type(
+                    app.id, service_type
+                )
+                if siblings:
+                    siblings[0].is_primary = True  # oldest (ordered by id)
+                    promoted = siblings[0].addon_name
+                    self.addon_credential_repo.session.flush()
+
+            # Re-materialize env: flips the promoted sibling's vars to unprefixed.
+            sync_addon_env_vars(app, self.addon_credential_repo.session)
             self.addon_credential_repo.session.commit()
 
+        items = [text(f"Addon '{addon_name}' detached from app '{app_name}'.")]
         if removed_vars:
-            return [
-                text(f"Addon '{addon_name}' detached from app '{app_name}'."),
-                text(f"\nRemoved: {', '.join(removed_vars)}"),
-                summary(
-                    f"detached addon '{addon_name}' from {app_name}; "
-                    f"removed {len(removed_vars)} env var(s)."
-                ),
-            ]
-        return [text(f"Addon '{addon_name}' was not attached to app '{app_name}'.")]
+            items.append(text(f"\nRemoved: {', '.join(sorted(removed_vars))}"))
+        if promoted:
+            items.append(
+                text(
+                    f"Auto-promoted '{promoted}' to primary {service_type}; it now "
+                    "owns the unprefixed connection vars (DATABASE_URL)."
+                )
+            )
+        promote_note = f"; promoted '{promoted}'" if promoted else ""
+        items.append(
+            summary(
+                f"detached addon '{addon_name}' ({service_type}) from "
+                f"{app_name}{promote_note}."
+            )
+        )
+        return items
 
 
 @register
@@ -674,6 +1027,16 @@ class AddonDestroyCmd(Command):
                         f"Addon '{addon_name}' of type '{service_type}' does not exist."
                     )
                 ]
+
+            # Tear down any public exposure first (close the port before the data
+            # is touched). Idempotent — a no-op when the addon isn't exposed. The
+            # app-delete cascade doesn't cover addon claims (app_id is null), so
+            # this explicit call is mandatory, not a backstop.
+            unexpose_addon(
+                service_type,
+                addon_name,
+                db_session=self.addon_credential_repo.session,
+            )
 
             # Clean up all stored credentials for this service
             credentials = self.addon_credential_repo.list_by_addon(

@@ -32,6 +32,7 @@ from hop3.orm.repositories import (
     AppRepository,
     BackupRepository,
     EnvVarRepository,
+    PortClaimRepository,
     RevokedTokenRepository,
     RoleRepository,
     UserRepository,
@@ -47,6 +48,7 @@ REPOSITORY_TYPES: dict[str, type] = {
     "backup_repo": BackupRepository,
     "env_var_repo": EnvVarRepository,
     "revoked_token_repo": RevokedTokenRepository,
+    "port_claim_repo": PortClaimRepository,
 }
 
 if TYPE_CHECKING:
