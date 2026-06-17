@@ -99,7 +99,6 @@ FALLBACK_COMMANDS = [
     "user",
     "set-password",
     # Subcommands - app
-    "app build-logs",
     "app",
     "debug",
     "app",

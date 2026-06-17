@@ -27,7 +27,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from hop3_rootd import cgroup as cg, mount as mt
+from hop3_rootd import cgroup as cg, mount as mt, proxy as px
 from hop3_rootd.audit import logger
 from hop3_rootd.cgroup import CgroupError
 from hop3_rootd.mount import MountError
@@ -38,6 +38,7 @@ from hop3_rootd.nft.rule import (
     run_nft,
 )
 from hop3_rootd.nft.table import ensure_table_exists, list_rules
+from hop3_rootd.proxy import ProxyError, ProxyUnavailableError
 from hop3_rootd.state import State, StoredRule
 from hop3_rootd.validation import validate_port_spec
 
@@ -276,6 +277,63 @@ def reconcile_mounts(state: State) -> MountReconcileReport:
 
     return MountReconcileReport(
         verified=verified, state_dropped=state_dropped, orphans_removed=orphans_removed
+    )
+
+
+# --- proxy reconciliation (addon exposure forwarders) --------------------
+
+
+@dataclass(frozen=True)
+class ProxyReconcileReport:
+    """Summary of proxy reconciliation. Surfaced in the startup log."""
+
+    reasserted: int = 0  # stored forwarders re-written/enabled in systemd
+    orphans_removed: int = 0  # hop3-expose-* units on disk with no state row
+    failed: int = 0  # stored forwarders that couldn't be re-asserted
+
+
+def reconcile_proxies(state: State) -> ProxyReconcileReport:
+    """Re-assert stored addon forwarders and remove orphans at startup.
+
+    Unit files persist on disk and an ``enable``d socket is started by systemd
+    on boot, so this is belt-and-suspenders: re-write+enable each stored
+    forwarder (idempotent; restores a unit file deleted out-of-band) and remove
+    any ``hop3-expose-*`` unit with no state row (a crashed expose).
+
+    Raises ``ProxyUnavailableError`` when systemd / systemd-socket-proxyd is
+    absent; the caller degrades (exposures stay down, surfaced loudly) rather
+    than crashing, mirroring the nft/cgroup paths. A per-unit failure is
+    counted, not fatal.
+    """
+    stored_units: set[str] = set()
+    reasserted = 0
+    failed = 0
+    for sp in state.proxies:
+        stored_units.add(sp.unit)
+        try:
+            px.add_proxy(sp.addon_type, sp.addon_name, sp.public_port, sp.target_port)
+            reasserted += 1
+        except ProxyUnavailableError:
+            # systemd / systemd-socket-proxyd is gone — the whole subsystem is
+            # down; degrade in the caller rather than mislabel every proxy.
+            raise
+        except ProxyError as e:
+            logger.error("reconcile: could not re-assert proxy %s: %s", sp.unit, e)
+            failed += 1
+
+    orphans_removed = 0
+    for unit in px.list_units():
+        if unit in stored_units:
+            continue
+        try:
+            px.remove_proxy(unit)
+            logger.warning("reconcile: removed orphan proxy unit %s", unit)
+            orphans_removed += 1
+        except ProxyError as e:
+            logger.error("reconcile: failed to remove orphan proxy %s: %s", unit, e)
+
+    return ProxyReconcileReport(
+        reasserted=reasserted, orphans_removed=orphans_removed, failed=failed
     )
 
 

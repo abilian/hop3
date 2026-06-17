@@ -279,6 +279,25 @@ class TestSettingsCommands:
         # 'server' should be converted to 'api_url'
         assert temp_config.data["api_url"] == "https://alias-test.com"
 
+    def test_settings_set_connection_key_warns_deprecated(
+        self, temp_config, mock_printer, capsys
+    ):
+        """api_url/api_token are owned by `hop3 server` now — warn but still save."""
+        settings_set(["api_token", "secret-token-value"], temp_config, mock_printer)
+
+        captured = capsys.readouterr()
+        assert "deprecated" in captured.err.lower()
+        assert "hop3 server" in captured.err
+        # Still written for back-compat.
+        assert temp_config.data["api_token"] == "secret-token-value"
+
+    def test_settings_set_non_connection_key_does_not_warn(
+        self, temp_config, mock_printer, capsys
+    ):
+        settings_set(["verify_ssl", "false"], temp_config, mock_printer)
+        assert "deprecated" not in capsys.readouterr().err.lower()
+        assert temp_config.data["verify_ssl"] == "false"
+
     def test_settings_get(self, temp_config, mock_printer, capsys):
         """Test getting a settings value."""
         temp_config.data = {"api_url": "https://test.com"}
@@ -639,7 +658,7 @@ class TestHandleAuth:
         captured = capsys.readouterr()
         assert "Authentication commands" in captured.out
         assert "auth login" in captured.out
-        assert "auth register" in captured.out
+        assert "auth whoami" in captured.out
 
     def test_auth_with_help_flag(self, temp_config, mock_printer, capsys):
         """Test auth --help shows help."""

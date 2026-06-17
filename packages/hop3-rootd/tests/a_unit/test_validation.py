@@ -10,6 +10,8 @@ from hop3_rootd.validation import (
     PORT_RANGE_MAX_SIZE,
     PortSpec,
     ValidationError,
+    validate_addon_name,
+    validate_addon_type,
     validate_app_name,
     validate_description,
     validate_port,
@@ -18,6 +20,31 @@ from hop3_rootd.validation import (
     validate_protocol,
     validate_source,
 )
+
+# --- validate_addon_type / validate_addon_name ----------------------------
+
+
+@pytest.mark.parametrize("value", ["postgres", "mysql", "redis", "pg17"])
+def test_addon_type_accepts_valid(value):
+    assert validate_addon_type(value) == value
+
+
+@pytest.mark.parametrize("value", ["", "Postgres", "1pg", "pg-x", "x" * 33, 5, None])
+def test_addon_type_rejects_invalid(value):
+    with pytest.raises(ValidationError):
+        validate_addon_type(value)
+
+
+@pytest.mark.parametrize("value", ["mydb", "my-db", "prod_db", "abc"])
+def test_addon_name_accepts_valid(value):
+    assert validate_addon_name(value) == value
+
+
+@pytest.mark.parametrize("value", ["", "ab", "../etc", "a/b", "-x-", 5, None])
+def test_addon_name_rejects_invalid(value):
+    with pytest.raises(ValidationError):
+        validate_addon_name(value)
+
 
 # --- validate_port --------------------------------------------------------
 

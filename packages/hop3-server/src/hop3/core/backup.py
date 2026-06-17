@@ -12,6 +12,7 @@ variables, and attached addons.
 from __future__ import annotations
 
 import contextlib
+import fnmatch
 import hashlib
 import importlib.metadata
 import json
@@ -127,6 +128,41 @@ def format_size(size_bytes: float) -> str:
     return f"{size_bytes:.1f} TB"
 
 
+def _strip_arc_root(arcname: str, root: str) -> str:
+    """Path of a tar member relative to its archive root (``src``/``data``)."""
+    name = arcname.rstrip("/")
+    if name == root:
+        return ""
+    prefix = root + "/"
+    return name.removeprefix(prefix)
+
+
+def _matches_exclude(rel: str, patterns: list[str]) -> bool:
+    """True if ``rel`` matches any ``[backup].exclude`` glob.
+
+    A pattern matches the full relative path (``cache/*``), the basename
+    (``*.tmp``), or any single path segment (``node_modules``), so common
+    forms all work without the user thinking about anchoring.
+    """
+    if not rel:
+        return False
+    base = os.path.basename(rel)
+    segments = [s for s in rel.split("/") if s]
+    for pat in patterns:
+        p = pat.rstrip("/")
+        if fnmatch.fnmatch(rel, p) or fnmatch.fnmatch(base, p):
+            return True
+        if any(fnmatch.fnmatch(seg, p) for seg in segments):
+            return True
+    return False
+
+
+def _is_under(path: Path, root: Path) -> bool:
+    """True if ``path`` is ``root`` or below it (both already normalised)."""
+    p, r = str(path), str(root)
+    return p == r or p.startswith(r + os.sep)
+
+
 @dataclass
 class BackupManifest:
     """Represents a backup's metadata.
@@ -150,6 +186,9 @@ class BackupManifest:
     # {name, backup_file}. Defaulted so backups taken before volumes existed
     # still load.
     volumes: list[dict[str, Any]] = field(default_factory=list)
+    # Extra app-relative directories archived from [backup].paths (into
+    # extra.tar.gz, arcnames relative to app_path). Defaulted for old backups.
+    extra_paths: list[str] = field(default_factory=list)
 
     @classmethod
     def from_json(cls, data: dict) -> BackupManifest:
@@ -268,6 +307,8 @@ class BackupManager:
             # so they must be archived explicitly or their data is silently
             # missing from the backup.
             volumes_info = self._backup_volumes(app, backup_dir)
+            # Extra app-relative directories declared in [backup].paths.
+            extra_info = self._backup_extra_paths(app, backup_dir)
 
             addons_info = []
             if include_addons:
@@ -280,7 +321,8 @@ class BackupManager:
                 if file_path.exists():
                     checksums[filename] = self._calculate_checksum(file_path)
 
-            for entry in [*addons_info, *volumes_info]:
+            extra_entries = [extra_info] if extra_info else []
+            for entry in [*addons_info, *volumes_info, *extra_entries]:
                 entry_file = backup_dir / entry["backup_file"]
                 if entry_file.exists():
                     checksums[entry["backup_file"]] = self._calculate_checksum(
@@ -312,6 +354,7 @@ class BackupManager:
                 env_vars_count=len(app.env_vars),
                 expires_after=0,
                 volumes=volumes_info,
+                extra_paths=extra_info["paths"] if extra_info else [],
             )
 
             # Write manifest
@@ -459,6 +502,9 @@ class BackupManager:
         try:
             # Restore components
             self._restore_source(app, backup_dir)
+            # Extra [backup].paths overlay the restored source (they were
+            # archived with arcnames relative to app_path).
+            self._restore_extra(app, backup_dir, manifest)
             self._restore_data(app, backup_dir)
             # Volumes must be repopulated BEFORE app.deploy() re-links them:
             # realize_volumes only seeds an *empty* volume, so restored data
@@ -640,13 +686,21 @@ class BackupManager:
         volume_arcnames = {
             "src/" + v["target"].strip("/") for v in self._app_volumes(app)
         }
+        exclude = self._app_backup_config(app)["exclude"]
 
-        def _skip_volume_links(tarinfo: tarfile.TarInfo) -> tarfile.TarInfo | None:
-            return None if tarinfo.name.rstrip("/") in volume_arcnames else tarinfo
+        def _src_filter(tarinfo: tarfile.TarInfo) -> tarfile.TarInfo | None:
+            name = tarinfo.name.rstrip("/")
+            # Volume targets are symlinks out of the tree — archived separately.
+            if name in volume_arcnames:
+                return None
+            # [backup].exclude patterns prune members of the source tree.
+            if exclude and _matches_exclude(_strip_arc_root(name, "src"), exclude):
+                return None
+            return tarinfo
 
         with tarfile.open(tar_path, "w:gz") as tar:
             if src_path.exists():
-                tar.add(src_path, arcname="src", filter=_skip_volume_links)
+                tar.add(src_path, arcname="src", filter=_src_filter)
             if repo_path.exists():
                 tar.add(repo_path, arcname="git")
 
@@ -695,6 +749,63 @@ class BackupManager:
             log(f"Backed up volume '{name}': {format_size(tar_path.stat().st_size)}")
         return results
 
+    def _app_backup_config(self, app: App) -> dict:
+        """The app's ``[backup]`` section: ``{"paths": [...], "exclude": [...]}``.
+
+        Read from the deployed hop3.toml, like ``_app_volumes``. Empty lists
+        when the app has no ``[backup]`` section.
+        """
+        from hop3.project.config import AppConfig  # noqa: PLC0415
+
+        return AppConfig.from_dir(app.app_path).hop3_config.backup
+
+    def _backup_extra_paths(self, app: App, backup_dir: Path) -> dict | None:
+        """Archive the directories declared in ``[backup].paths`` (additive).
+
+        Each entry is resolved relative to the app's source dir and confined to
+        the app tree (an entry that escapes it is a config error and fails the
+        backup loudly — never a silent skip). A declared dir that doesn't exist
+        yet is skipped with a warning. Archived into ``extra.tar.gz`` with
+        arcnames relative to ``app_path``, so restore puts them back in place.
+        Returns ``{"backup_file", "paths"}`` or None when nothing was archived.
+
+        The confinement check uses ``realpath`` (not a lexical normpath), so a
+        path that traverses an in-tree symlink pointing outside the app tree is
+        rejected — a backup can only ever read data inside the app's subtree.
+        """
+        paths = self._app_backup_config(app)["paths"]
+        if not paths:
+            return None
+
+        # realpath both sides: resolves symlinks so the "stays in the app tree"
+        # check can't be defeated by an in-tree symlink to an external target.
+        app_root = Path(os.path.realpath(app.app_path))
+        archived: list[str] = []
+        tar_path = backup_dir / "extra.tar.gz"
+        with tarfile.open(tar_path, "w:gz") as tar:
+            for rel in paths:
+                real = Path(os.path.realpath(app.src_path / rel))
+                if os.path.isabs(rel) or not _is_under(real, app_root):
+                    msg = (
+                        f"[backup].paths entry {rel!r} escapes the app tree "
+                        f"({app_root}); a backup can only read inside the app"
+                    )
+                    raise RuntimeError(msg)
+                if not real.exists():
+                    log(f"Skipping [backup].paths entry {rel!r}: does not exist")
+                    continue
+                arcname = os.path.relpath(real, app_root)
+                tar.add(real, arcname=arcname)
+                archived.append(arcname)
+
+        if not archived:
+            tar_path.unlink(missing_ok=True)
+            return None
+        log(
+            f"Backed up {len(archived)} extra path(s): {format_size(tar_path.stat().st_size)}"
+        )
+        return {"backup_file": "extra.tar.gz", "paths": archived}
+
     def _backup_data(self, app: App, backup_dir: Path) -> dict:
         """Backup data directory.
 
@@ -715,9 +826,17 @@ class BackupManager:
             return {"size": 0}
 
         tar_path = backup_dir / "data.tar.gz"
+        exclude = self._app_backup_config(app)["exclude"]
+
+        def _data_filter(tarinfo: tarfile.TarInfo) -> tarfile.TarInfo | None:
+            if exclude and _matches_exclude(
+                _strip_arc_root(tarinfo.name.rstrip("/"), "data"), exclude
+            ):
+                return None
+            return tarinfo
 
         with tarfile.open(tar_path, "w:gz") as tar:
-            tar.add(data_path, arcname="data")
+            tar.add(data_path, arcname="data", filter=_data_filter)
 
         size = tar_path.stat().st_size
         log(f"Backed up data: {format_size(size)}")
@@ -854,6 +973,30 @@ class BackupManager:
             )
 
         log("Restored source code")
+
+    def _restore_extra(
+        self, app: App, backup_dir: Path, manifest: BackupManifest
+    ) -> None:
+        """Restore extra [backup].paths from ``extra.tar.gz`` into the app tree.
+
+        Arcnames are relative to ``app_path``, so extracting there puts each
+        directory back where it was. A manifest that records extra paths but is
+        missing the archive is a corrupt/incomplete backup → fail loud (never
+        report success while silently dropping data).
+        """
+        extra_paths = getattr(manifest, "extra_paths", None) or []
+        if not extra_paths:
+            return
+        tar_path = backup_dir / "extra.tar.gz"
+        if not tar_path.exists():
+            msg = (
+                f"Restore can't recover extra paths: extra.tar.gz missing in "
+                f"{backup_dir} (backup is incomplete)"
+            )
+            raise RuntimeError(msg)
+        with tarfile.open(tar_path, "r:gz") as tar:
+            tar.extractall(app.app_path, filter="data")
+        log(f"Restored {len(extra_paths)} extra path(s)")
 
     def _restore_data(self, app: App, backup_dir: Path) -> None:
         """Restore data directory from backup.

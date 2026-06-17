@@ -29,7 +29,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Final
 
-from hop3_rootd import cgroup as cg
+from hop3_rootd import cgroup as cg, proxy as px
 from hop3_rootd.audit import (
     DEFAULT_AUDIT_LOG_PATH,
     AuditLog,
@@ -39,7 +39,13 @@ from hop3_rootd.audit import (
 from hop3_rootd.cgroup import CgroupUnavailableError
 from hop3_rootd.mount import MountError
 from hop3_rootd.nft.rule import NftBinaryNotFoundError
-from hop3_rootd.reconcile import reconcile, reconcile_cgroups, reconcile_mounts
+from hop3_rootd.proxy import ProxyUnavailableError
+from hop3_rootd.reconcile import (
+    reconcile,
+    reconcile_cgroups,
+    reconcile_mounts,
+    reconcile_proxies,
+)
 from hop3_rootd.server import DEFAULT_SOCKET_PATH, Server
 from hop3_rootd.state import (
     DEFAULT_STATE_PATH,
@@ -215,6 +221,42 @@ def _startup_reconcile_mounts(state: State, state_path: Path) -> None:
     )
 
 
+def _startup_reconcile_proxies(state: State, state_path: Path) -> None:
+    """Reconcile addon-exposure forwarders at startup. Non-fatal by design.
+
+    Re-asserts stored forwarders and removes orphan ``hop3-expose-*`` units. A
+    host without systemd / systemd-socket-proxyd degrades — exposures stay down
+    and that is surfaced loudly — but the daemon keeps serving its other duties,
+    mirroring the nft/cgroup/mount paths. Skipped when there is nothing tracked
+    and no orphan units on disk, so an exposure-free host does no unit work.
+    """
+    if not state.proxies and not px.list_units():
+        return
+
+    try:
+        report = reconcile_proxies(state)
+    except ProxyUnavailableError as e:
+        log = logger.error if state.proxies else logger.warning
+        log(
+            "systemd-socket-proxyd unavailable (%s); %d addon exposure(s) will "
+            "NOT be served until systemd is present. Other operations unaffected.",
+            e,
+            len(state.proxies),
+        )
+        return
+    except Exception as e:
+        logger.error("proxy reconciliation error: %s", e)
+        return
+
+    save(state, state_path)
+    logger.info(
+        "proxy reconcile: reasserted=%d orphans_removed=%d failed=%d",
+        report.reasserted,
+        report.orphans_removed,
+        report.failed,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     configure_operational_logging(args.log_level)
@@ -247,6 +289,7 @@ def main(argv: list[str] | None = None) -> int:
 
     _startup_reconcile_cgroups(state, args.state_path)
     _startup_reconcile_mounts(state, args.state_path)
+    _startup_reconcile_proxies(state, args.state_path)
 
     audit = AuditLog(args.audit_log)
 
