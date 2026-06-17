@@ -6,7 +6,36 @@
 
 from __future__ import annotations
 
-from hop3.lib.args import parse_cli_args
+from hop3.lib.args import parse_cli_args, pop_app_flag
+
+
+class TestPopAppFlag:
+    """The app is a flag, never a positional (ADR 036 D5)."""
+
+    def test_extracts_app_and_keeps_settings(self):
+        assert pop_app_flag(["--app", "myapp", "K=V"]) == ("myapp", ["K=V"])
+
+    def test_equals_form(self):
+        assert pop_app_flag(["--app=myapp", "K=V"]) == ("myapp", ["K=V"])
+
+    def test_short_form(self):
+        assert pop_app_flag(["-a", "myapp", "a", "b"]) == ("myapp", ["a", "b"])
+
+    def test_flag_anywhere(self):
+        assert pop_app_flag(["K=V", "--app", "myapp"]) == ("myapp", ["K=V"])
+
+    def test_no_flag_returns_none_and_all_args(self):
+        # A KEY=VALUE is never an app — without --app the caller decides.
+        assert pop_app_flag(["SENTRY_DSN=https://x@y/1"]) == (
+            None,
+            ["SENTRY_DSN=https://x@y/1"],
+        )
+
+    def test_empty(self):
+        assert pop_app_flag([]) == (None, [])
+
+    def test_dangling_flag_no_value(self):
+        assert pop_app_flag(["--app"]) == (None, [])
 
 
 class TestParseCliArgs:

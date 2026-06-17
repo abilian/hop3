@@ -19,6 +19,7 @@ from hop3.core.git import GitManager
 from hop3.core.identifiers import validate_app_name
 from hop3.deployers import do_deploy
 from hop3.lib import log
+from hop3.lib.args import pop_app_flag
 from hop3.lib.registry import register
 from hop3.orm import App, AppRepository
 
@@ -50,11 +51,16 @@ class GitHookCmd(Command):
         Hook data format from stdin: <old-sha> <new-sha> <ref-name>
         Example: aa453216... 68f7abf4... refs/heads/master
         """
-        if not args:
+        app_name, rest = pop_app_flag(args)
+        if app_name is None:
+            # back-compat: app as first positional (deprecated)
+            app_name = rest[0] if rest else None
+            rest = rest[1:]
+
+        if app_name is None:
             msg = "Usage: hop3 git-hook <app_name>"
             raise ValueError(msg)
 
-        app_name = args[0]
         validate_app_name(app_name)
 
         # Get the app from database
@@ -204,11 +210,15 @@ class GitSetupCmd(Command):
     hidden: ClassVar[bool] = True
 
     def call(self, *args):
-        if not args:
+        app_name, rest = pop_app_flag(args)
+        if app_name is None:
+            # back-compat: app as first positional (deprecated)
+            app_name = rest[0] if rest else None
+            rest = rest[1:]
+
+        if app_name is None:
             msg = "Usage: hop3 git setup <app_name>"
             raise ValueError(msg)
-
-        app_name = args[0]
 
         # Get the app from database
         app = get_app(self.db_session, app_name)

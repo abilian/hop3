@@ -17,7 +17,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from hop3.commands.app import BuildLogsCmd, LogsCmd, _build_log_response
-from hop3.commands.config import ShowCmd
+from hop3.commands.config import SetCmd, ShowCmd
 from hop3.core.credentials import get_credential_encryptor
 from hop3.orm import App, EnvVar
 from hop3.orm.addon_credential import AddonCredential
@@ -61,6 +61,26 @@ class TestEnvShowSources:
         by_key = {row[1]: row[0] for row in table["rows"]}
         assert by_key["DATABASE_URL"] == "addon"
         assert by_key["FOO"] == "config"
+
+    def test_set_and_show_accept_the_app_flag(self, db_session: Session):
+        """ADR 036 D5: the app is the `--app` flag, never a positional. The
+        reported bug — `env set --app X KEY=VALUE` rejected because the KEY=VALUE
+        was mistaken for the app — must work, and `env show --app X` must read it
+        back (the LogsCmd/EnvCmd/ShowCmd positional-spec gap)."""
+        app = App(name="flagapp", hostname="f.example.com", port=8002)
+        db_session.add(app)
+        db_session.commit()
+        db_session.refresh(app)
+
+        SetCmd(db_session=db_session).call(
+            "--app", "flagapp", "SENTRY_DSN=https://k@o44322.ingest.us.sentry.io/451"
+        )
+        db_session.commit()
+
+        table = _table(ShowCmd(db_session=db_session).call("--app", "flagapp"))
+        assert table is not None
+        keys = {row[0] for row in table["rows"]}
+        assert "SENTRY_DSN" in keys
 
     def test_without_sources_is_two_columns(self, db_session: Session):
         app = App(name="plainapp", hostname="p.example.com", port=8001)

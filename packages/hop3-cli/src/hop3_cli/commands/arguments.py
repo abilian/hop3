@@ -103,17 +103,12 @@ def get_extra_args(args: list[str], verbosity: int = 1) -> JsonDict:
 
     match command:
         case "deploy":
-            # Parse deploy-specific flags
-            # args[0]="deploy", args[1]=app_name, remaining args may include --env and directory
+            # The app is the `--app` flag (ADR 036 D5), stripped by
+            # _parse_deploy_args — so `remaining_args` is just an optional source
+            # directory (default: the current directory).
             env_vars, remaining_args, streaming = _parse_deploy_args(args[1:])
 
-            # Skip expensive archive generation if no app name provided
-            # Let the server return a proper usage error instead
-            if not remaining_args:
-                return extra_args
-
-            # Directory is the last non-flag argument (if any)
-            directory = Path(remaining_args[-1]) if len(remaining_args) > 1 else Path()
+            directory = Path(remaining_args[0]) if remaining_args else Path()
             extra_args["repository"] = pack_repository(directory, verbosity=verbosity)
 
             # Include env vars if any were specified
@@ -325,6 +320,12 @@ def _parse_deploy_args(args: list[str]) -> tuple[dict[str, str], list[str], bool
         elif arg == "--stream":
             # Explicitly enable streaming (default, but allow explicit)
             streaming = True
+            i += 1
+        elif arg in {"--app", "-a"}:
+            # The app is a flag, not a positional (ADR 036 D5). Skip it (and its
+            # value) so it never gets mistaken for the source directory below.
+            i += 2 if i + 1 < len(args) else 1
+        elif arg.startswith(("--app=", "-a=")):
             i += 1
         else:
             remaining.append(arg)

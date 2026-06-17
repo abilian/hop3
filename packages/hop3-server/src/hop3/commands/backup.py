@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from hop3.core.backup import BackupManager, format_size
-from hop3.lib.args import parse_cli_args
+from hop3.lib.args import parse_cli_args, pop_app_flag
 from hop3.lib.decorators import register
 
 # Runtime imports for Dishka DI (not just type hints)
@@ -45,7 +45,13 @@ class BackupCreateCmd(Command):
 
     def call(self, *args):
         """Create a backup of an application."""
-        if len(args) < 1:
+        app_name, rest = pop_app_flag(args)
+        if app_name is None:
+            # back-compat: app as first positional (deprecated)
+            app_name = rest[0] if rest else None
+            rest = rest[1:]
+
+        if app_name is None:
             return [
                 text(
                     "Usage: hop3 backup create <app> [--no-addons]\n\n"
@@ -54,8 +60,7 @@ class BackupCreateCmd(Command):
                 )
             ]
 
-        app_name = args[0]
-        include_addons = "--no-addons" not in args
+        include_addons = "--no-addons" not in rest
 
         # Check if app exists
         app = self.app_repo.get_one_or_none(name=app_name)
