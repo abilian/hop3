@@ -658,7 +658,7 @@ class TestHandleAuth:
         captured = capsys.readouterr()
         assert "Authentication commands" in captured.out
         assert "auth login" in captured.out
-        assert "auth register" in captured.out
+        assert "auth whoami" in captured.out
 
     def test_auth_with_help_flag(self, temp_config, mock_printer, capsys):
         """Test auth --help shows help."""
