@@ -92,7 +92,7 @@ class ShowCmd(Command):
         if not app_name:
             return [
                 text(
-                    "Usage: hop3 env show [--app <app-name>] [--show-secrets] [--show-compose]\n\n"
+                    "Usage: hop3 env show [--app <app>] [--show-secrets] [--show-compose]\n\n"
                     "Flags:\n"
                     "  --show-secrets  Show full values, including secrets\n"
                     "  --show-compose  Show the generated Docker Compose file\n\n"
@@ -201,7 +201,7 @@ class GetCmd(Command):
         if not app_name or not setting:
             return [
                 text(
-                    "Usage: hop3 env get [--app <app-name>] <key>\n\n"
+                    "Usage: hop3 env get [--app <app>] <key>\n\n"
                     "Example:\n"
                     "  hop3 env get --app myapp DATABASE_URL"
                 )
@@ -250,7 +250,7 @@ class LiveCmd(Command):
         if not app_name:
             return [
                 text(
-                    "Usage: hop3 env live [--app <app-name>] [--show-secrets]\n\n"
+                    "Usage: hop3 env live [--app <app>] [--show-secrets]\n\n"
                     "Shows the actual environment variables from the running app.\n"
                     "Use 'env show' to see configured (pending) values."
                 )
