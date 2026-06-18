@@ -73,15 +73,26 @@ class CatalogApp:
 
     @property
     def memory_mb(self) -> int | None:
-        """Parse memory string to MB."""
+        """Parse a human memory string (``512MB``, ``1GB``, ``256M``, ``2g``) to MB.
+
+        Accepts an optional trailing ``B`` and ``K``/``M``/``G`` units (a bare
+        number is MB). Returns ``None`` if empty or unparseable so a single odd
+        value can't break catalog loading — the resource tier then defaults.
+        """
         if not self.memory:
             return None
-        mem = self.memory.upper().strip()
+        mem = self.memory.upper().strip().replace(" ", "").removesuffix("B")
+        multiplier = 1.0
         if mem.endswith("G"):
-            return int(float(mem[:-1]) * 1024)
-        if mem.endswith("M"):
-            return int(mem[:-1])
-        return int(mem)
+            multiplier, mem = 1024.0, mem[:-1]
+        elif mem.endswith("M"):
+            multiplier, mem = 1.0, mem[:-1]
+        elif mem.endswith("K"):
+            multiplier, mem = 1.0 / 1024, mem[:-1]
+        try:
+            return int(float(mem) * multiplier)
+        except ValueError:
+            return None
 
     def compute_resource_tier(self) -> str:
         """Compute resource tier based on memory."""
