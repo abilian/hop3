@@ -52,6 +52,7 @@ nav = [
         { "Cheat Sheet" = "guides/cheat-sheet.md" },
         { "Administration" = "guides/administration.md" },
         { "Addons" = "guides/addons.md" },
+        { "App Catalog" = "guides/app-catalog.md" },
         { "Backup & Restore" = "guides/backup-restore.md" },
         { "Migration" = [
             { "Migration Guide" = "guides/migration-guide.md" },
