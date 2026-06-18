@@ -14,6 +14,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from hop3_testlab import worker
 from hop3_testlab.cloud_config import CloudConfig
 

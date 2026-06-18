@@ -8,8 +8,9 @@ we opt back in to confirm the middleware is actually wired and enforcing.
 
 from __future__ import annotations
 
-from hop3_testlab.web.asgi import create_app
 from litestar.testing import TestClient
+
+from hop3_testlab.web.asgi import create_app
 
 
 def test_csrf_blocks_post_without_token_when_not_unsafe(monkeypatch):
