@@ -37,6 +37,7 @@ lint.extend-ignore = [
     "RUF067", #  non-empty-init-module
     "S404", #    suspicious-subprocess-import
     "S603", #    subprocess-without-shell-equals-true
+    "S607", #    start-process-with-partial-path (git/hop3-test invoked from PATH by design)
     "C901", #    complex-structure
     "E501", #    line-too-long
     "PERF203", # try-except-in-loop
