@@ -44,11 +44,13 @@ def _mk(
     priority: str = "P1",
     tier: str = "fast",
     kind: str = "deployment",
+    expects_failure: bool = False,
 ) -> TestDefinition:
     kwargs: dict = {
         "name": name,
         "tier": Tier(tier),
         "priority": Priority(priority),
+        "expects_failure": expects_failure,
         "requirements": TestRequirements(
             targets=[TargetType.DOCKER], services=list(services)
         ),
@@ -191,6 +193,22 @@ def test_combo_coverage_preserves_every_combo():
     for t in reduced:
         reduced_combos |= _combo_cells(t)
     assert reduced_combos == all_combos
+
+
+# --- Expected failures excluded --------------------------------------------
+
+
+def test_coverage_excludes_expected_failures():
+    # An xfail app must never be picked as a representative, even when it is the
+    # only test covering its combo — a coverage suite proves the platform works.
+    tests = [
+        _mk("apps/native/py-ok", builder="native", toolchain="python"),
+        _mk("apps/native/go-broken", builder="native", toolchain="go",
+            expects_failure=True),
+    ]
+    names = {t.name for t in select_combo_coverage(tests)}
+    assert names == {"apps/native/py-ok"}
+    assert "apps/native/go-broken" not in names
 
 
 # --- Determinism -----------------------------------------------------------

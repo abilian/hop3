@@ -183,7 +183,11 @@ def reduce_to_representatives(
     the highest-priority/fastest test that adds the most new cells until every
     coverable cell is covered.  Deterministic: ties break by (priority, tier,
     name).
+
+    Tests marked ``expects_failure`` are excluded: a coverage suite proves the
+    platform works, and an app that is *meant* to fail represents nothing.
     """
+    tests = [t for t in tests if not t.expects_failure]
     if not tests:
         return []
 
