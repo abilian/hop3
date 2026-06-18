@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 from __future__ import annotations
 
+import http.client
 import os
 import re
 import time
@@ -282,7 +283,8 @@ def _update_app_model(
         fg="blue",
     )
 
-    if _wait_for_app_start(app, timeout):
+    healthcheck_path = app_config.hop3_config.healthcheck_path
+    if _wait_for_app_start(app, timeout, healthcheck_path):
         log(f"App '{app.name}' is now running.", level=1, fg="green")
     else:
         # App didn't start within timeout - gather diagnostics and fail
@@ -387,7 +389,40 @@ def _process_new_logs(app: App, last_log_lines: int) -> tuple[int, int]:
         return last_log_lines, 0  # Ignore log reading errors
 
 
-def _wait_for_app_start(app: App, timeout: float) -> bool:
+def _app_serves_http(app: App, healthcheck_path: str, timeout: float = 3.0) -> bool:
+    """Whether the app actually answers an HTTP request on its web port.
+
+    A *bound TCP socket* is not proof the app serves: gunicorn (and many
+    servers) bind the listen socket in the master process before forking
+    workers, so a plain ``connect()`` succeeds the instant the master is up —
+    even when the worker is dead or hung and no request is ever answered. Only
+    a real HTTP *response* confirms a worker is serving.
+
+    Any status line (2xx-5xx) counts as "serving" — a 400/404/500 still proves
+    a worker produced it. The point is to distinguish "serving" from "socket
+    bound but nothing answers" (a connect that succeeds but then times out).
+
+    Returns True for apps with no web ``port`` (background workers): there is no
+    HTTP endpoint to probe, so the process/TCP check is all we can assert.
+    """
+    if not app.port:
+        return True
+    path = healthcheck_path or "/"
+    if not path.startswith("/"):
+        path = "/" + path
+    host = getattr(app, "hostname", None) or "localhost"
+    conn = http.client.HTTPConnection("127.0.0.1", app.port, timeout=timeout)
+    try:
+        conn.request("GET", path, headers={"Host": host, "Connection": "close"})
+        conn.getresponse()  # raises on timeout/refusal; a status line == serving
+        return True
+    except (OSError, http.client.HTTPException):
+        return False
+    finally:
+        conn.close()
+
+
+def _wait_for_app_start(app: App, timeout: float, healthcheck_path: str = "") -> bool:
     """Wait for app to start with fail-fast on repeated crashes.
 
     Monitors the app status and logs, failing immediately if:
@@ -395,12 +430,20 @@ def _wait_for_app_start(app: App, timeout: float) -> bool:
     - Multiple crash/respawn cycles detected
     - Clear error messages in logs (missing config, etc.)
 
+    Readiness for a web app means *answering HTTP*, not merely a listening
+    socket: ``check_actual_status()`` returns RUNNING as soon as the port is
+    bound, but a bound socket with a dead/hung worker accepts connections and
+    never replies. We additionally require an HTTP response (``_app_serves_http``)
+    so a "bound but not serving" app is treated as not-ready and fails loud
+    instead of being reported as a successful deploy behind a dead proxy target.
+
     Philosophy: The app is responsible for waiting on dependencies.
     The PaaS should fail fast on unrecoverable errors, not retry blindly.
 
     Args:
         app: The App model instance
         timeout: Maximum seconds to wait
+        healthcheck_path: HTTP path to probe ([healthcheck].path); "" → "/"
 
     Returns:
         True if app started successfully, False if timed out or crashed
@@ -417,7 +460,9 @@ def _wait_for_app_start(app: App, timeout: float) -> bool:
 
     while time.time() < deadline:
         actual_state = app.check_actual_status()
-        if actual_state == AppStateEnum.RUNNING:
+        if actual_state == AppStateEnum.RUNNING and _app_serves_http(
+            app, healthcheck_path
+        ):
             return True
 
         elapsed = time.time() - (deadline - timeout)
@@ -475,6 +520,20 @@ def _handle_startup_timeout(app: App, timeout: float) -> None:
     # Get actual status
     actual_state = app.check_actual_status()
     log(f"  Current actual state: {actual_state.name}", level=0)
+
+    # Reaching here with the port already listening means the socket is bound
+    # but the app never answered an HTTP request — the classic "master bound
+    # the socket, the worker failed to boot / is hung" shape. Name it, because
+    # otherwise "actual state: RUNNING" + "failed to start" reads as a paradox.
+    if actual_state == AppStateEnum.RUNNING and getattr(app, "port", None):
+        log(
+            f"  The app's port ({app.port}) is listening but it did not answer "
+            "an HTTP request: the server bound its socket but no worker is "
+            "serving (e.g. the worker failed to boot or is hung). This is a "
+            "real failure — the app would be unreachable behind the proxy.",
+            level=0,
+            fg="red",
+        )
 
     # Get recent logs and analyze for common failure patterns
     recent_logs: list[str] = []
