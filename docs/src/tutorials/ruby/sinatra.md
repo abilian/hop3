@@ -248,7 +248,7 @@ rm -f Gemfile.lock
 Deploy the application (first deployment creates the app):
 
 ```bash
-hop3 deploy hop3-tuto-sinatra
+hop3 deploy --app hop3-tuto-sinatra
 ```
 
 ```console
@@ -276,7 +276,7 @@ sleep 5
 Redeploy to apply the hostname configuration:
 
 ```bash
-hop3 deploy hop3-tuto-sinatra
+hop3 deploy --app hop3-tuto-sinatra
 ```
 
 ```console

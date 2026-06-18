@@ -371,7 +371,7 @@ hop3 config set --app hop3-tuto-aspnet-core ASPNETCORE_ENVIRONMENT=Production
 Deploy the application (first deployment creates the app):
 
 ```bash
-hop3 deploy hop3-tuto-aspnet-core
+hop3 deploy --app hop3-tuto-aspnet-core
 ```
 
 ### Set Hostname
@@ -387,7 +387,7 @@ hop3 config set --app hop3-tuto-aspnet-core HOST_NAME=hop3-tuto-aspnet-core.$HOP
 Redeploy to apply the hostname configuration:
 
 ```bash
-hop3 deploy hop3-tuto-aspnet-core
+hop3 deploy --app hop3-tuto-aspnet-core
 ```
 
 Wait for the application to start:

@@ -468,7 +468,7 @@ are declared in `hop3.toml` `[env]` (above).
 Deploy the application (first deployment creates the app):
 
 ```bash exec id=deploy dir=hop3-tuto-rails timeout=120
-hop3 deploy hop3-tuto-rails
+hop3 deploy --app hop3-tuto-rails
 ```
 
 ### Set Hostname
@@ -484,7 +484,7 @@ hop3 config set --app hop3-tuto-rails HOST_NAME=hop3-tuto-rails.$HOP3_TEST_DOMAI
 Redeploy to apply the hostname configuration:
 
 ```bash exec id=redeploy dir=hop3-tuto-rails timeout=120
-hop3 deploy hop3-tuto-rails
+hop3 deploy --app hop3-tuto-rails
 ```
 
 Wait for the application to start:
@@ -540,20 +540,20 @@ Open your application:
 Migrations run automatically during deployment via `prerun`. To run manually:
 
 ```bash skip
-hop3 run hop3-tuto-rails bin/rails db:migrate
+hop3 run --app hop3-tuto-rails bin/rails db:migrate
 ```
 
 ### Run Rails Console
 
 ```bash skip
-hop3 run hop3-tuto-rails bin/rails console
+hop3 run --app hop3-tuto-rails bin/rails console
 ```
 
 ### Run Rake Tasks
 
 ```bash skip
-hop3 run hop3-tuto-rails bin/rails db:seed
-hop3 run hop3-tuto-rails bin/rake custom:task
+hop3 run --app hop3-tuto-rails bin/rails db:seed
+hop3 run --app hop3-tuto-rails bin/rake custom:task
 ```
 
 ### View and Manage Environment Variables
@@ -576,7 +576,7 @@ hop3 app restart --app hop3-tuto-rails
 
 ```bash skip
 # Check current processes
-hop3 ps hop3-tuto-rails
+hop3 ps --app hop3-tuto-rails
 
 # Scale web workers
 hop3-tuto-rails web=2
@@ -751,7 +751,7 @@ hop3 config show --app hop3-tuto-rails | grep DATABASE
 Test the connection:
 
 ```bash skip
-hop3 run hop3-tuto-rails bin/rails db:version
+hop3 run --app hop3-tuto-rails bin/rails db:version
 ```
 
 ### Missing Gems in Production

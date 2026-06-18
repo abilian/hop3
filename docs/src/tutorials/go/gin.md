@@ -366,7 +366,7 @@ hop3 config set --app hop3-tuto-gin GIN_MODE=release
 Deploy the application (first deployment creates the app):
 
 ```bash
-hop3 deploy hop3-tuto-gin
+hop3 deploy --app hop3-tuto-gin
 ```
 
 ### Set Hostname
@@ -382,7 +382,7 @@ hop3 config set --app hop3-tuto-gin HOST_NAME=hop3-tuto-gin.$HOP3_TEST_DOMAIN
 Redeploy to apply the hostname configuration:
 
 ```bash
-hop3 deploy hop3-tuto-gin
+hop3 deploy --app hop3-tuto-gin
 ```
 
 Wait for the application to start:

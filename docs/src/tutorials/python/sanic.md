@@ -232,7 +232,7 @@ hop3 init --ssh root@your-server.example.com
 Deploy the application (first deployment creates the app):
 
 ```bash
-hop3 deploy hop3-tuto-sanic
+hop3 deploy --app hop3-tuto-sanic
 ```
 
 ```console
@@ -252,7 +252,7 @@ hop3 config set --app hop3-tuto-sanic HOST_NAME=hop3-tuto-sanic.$HOP3_TEST_DOMAI
 Redeploy to apply the hostname configuration:
 
 ```bash
-hop3 deploy hop3-tuto-sanic
+hop3 deploy --app hop3-tuto-sanic
 ```
 
 ```console

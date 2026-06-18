@@ -457,7 +457,7 @@ hop3 config set --app hop3-tuto-spring-boot SPRING_PROFILES_ACTIVE=production
 Deploy the application (first deployment creates the app):
 
 ```bash exec id=deploy dir=hop3-tuto-spring-boot timeout=120
-hop3 deploy hop3-tuto-spring-boot
+hop3 deploy --app hop3-tuto-spring-boot
 ```
 
 ### Set Hostname
@@ -473,7 +473,7 @@ hop3 config set --app hop3-tuto-spring-boot HOST_NAME=hop3-tuto-spring-boot.$HOP
 Redeploy to apply the hostname configuration:
 
 ```bash exec id=redeploy dir=hop3-tuto-spring-boot timeout=120
-hop3 deploy hop3-tuto-spring-boot
+hop3 deploy --app hop3-tuto-spring-boot
 ```
 
 Wait for the application to start:
@@ -549,7 +549,7 @@ hop3 config unset --app hop3-tuto-spring-boot OLD_VARIABLE
 
 ```bash skip
 # Check current processes
-hop3 ps hop3-tuto-spring-boot
+hop3 ps --app hop3-tuto-spring-boot
 
 # Scale web workers
 hop3 ps scale --app hop3-tuto-spring-boot web=2

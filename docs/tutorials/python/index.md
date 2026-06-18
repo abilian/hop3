@@ -61,7 +61,7 @@ These apply to every framework here:
   ```
 - **Run setup before the web process starts.** Use `[run] before-run` (or a `prerun:` line in the `Procfile`) for database migrations and `collectstatic` — these run on every deploy before the new process takes traffic.
 - **Health checks.** Expose a cheap endpoint (the tutorials use `/up` returning `OK`) and point `[healthcheck] path` at it so Hop3 knows when your app is ready.
-- **One-off and background processes.** Run management commands in the app's environment with `hop3 run <app> <command>` (e.g. `python manage.py migrate`). Background workers (Celery, etc.) are declared as additional processes and scaled with `hop3 ps scale`.
+- **One-off and background processes.** Run management commands in the app's environment with `hop3 run --app <app> <command>` (e.g. `python manage.py migrate`). Background workers (Celery, etc.) are declared as additional processes and scaled with `hop3 ps scale`.
 - **Build caching.** Dependencies are reinstalled into the virtualenv on deploy; keep `requirements.txt` pinned and minimal for fast, reproducible builds.
 
 ## Choose a framework

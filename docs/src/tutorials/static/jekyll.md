@@ -243,7 +243,7 @@ hop3 init --ssh root@your-server.example.com
 Deploy the application (first deployment creates the app):
 
 ```bash
-hop3 deploy hop3-tuto-jekyll
+hop3 deploy --app hop3-tuto-jekyll
 ```
 
 ```console
@@ -263,7 +263,7 @@ hop3 config set --app hop3-tuto-jekyll HOST_NAME=hop3-tuto-jekyll.$HOP3_TEST_DOM
 Redeploy to apply the hostname configuration:
 
 ```bash
-hop3 deploy hop3-tuto-jekyll
+hop3 deploy --app hop3-tuto-jekyll
 ```
 
 ```console

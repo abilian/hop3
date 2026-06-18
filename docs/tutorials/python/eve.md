@@ -329,7 +329,7 @@ hop3 init --ssh root@your-server.example.com
 Deploy the application (first deployment creates the app):
 
 ```bash skip
-hop3 deploy hop3-tuto-eve
+hop3 deploy --app hop3-tuto-eve
 ```
 
 ### Set Hostname
@@ -345,7 +345,7 @@ hop3 config set --app hop3-tuto-eve HOST_NAME=hop3-tuto-eve.your-hop3-server.exa
 Redeploy to apply the hostname configuration:
 
 ```bash skip
-hop3 deploy hop3-tuto-eve
+hop3 deploy --app hop3-tuto-eve
 ```
 
 ### Verify Deployment

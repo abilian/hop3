@@ -515,7 +515,7 @@ git add -A && git commit -m "Prepare for deployment" || true
 Deploy the application (first deployment creates the app):
 
 ```bash exec id=deploy dir=hop3-tuto-laravel timeout=120
-hop3 deploy hop3-tuto-laravel
+hop3 deploy --app hop3-tuto-laravel
 ```
 
 ### Set Hostname
@@ -531,7 +531,7 @@ hop3 config set --app hop3-tuto-laravel HOST_NAME=hop3-tuto-laravel.$HOP3_TEST_D
 Redeploy to apply the hostname configuration:
 
 ```bash exec id=redeploy dir=hop3-tuto-laravel timeout=120
-hop3 deploy hop3-tuto-laravel
+hop3 deploy --app hop3-tuto-laravel
 ```
 
 Wait for the application to start:
@@ -585,18 +585,18 @@ Open your application:
 ### Run Artisan Commands
 
 ```bash skip
-hop3 run hop3-tuto-laravel php artisan migrate
-hop3 run hop3-tuto-laravel php artisan tinker
-hop3 run hop3-tuto-laravel php artisan queue:work --once
+hop3 run --app hop3-tuto-laravel php artisan migrate
+hop3 run --app hop3-tuto-laravel php artisan tinker
+hop3 run --app hop3-tuto-laravel php artisan queue:work --once
 ```
 
 ### Clear Caches
 
 ```bash skip
-hop3 run hop3-tuto-laravel php artisan cache:clear
-hop3 run hop3-tuto-laravel php artisan config:clear
-hop3 run hop3-tuto-laravel php artisan route:clear
-hop3 run hop3-tuto-laravel php artisan view:clear
+hop3 run --app hop3-tuto-laravel php artisan cache:clear
+hop3 run --app hop3-tuto-laravel php artisan config:clear
+hop3 run --app hop3-tuto-laravel php artisan route:clear
+hop3 run --app hop3-tuto-laravel php artisan view:clear
 ```
 
 ### View and Manage Environment Variables
@@ -616,7 +616,7 @@ hop3 config unset --app hop3-tuto-laravel OLD_VARIABLE
 
 ```bash skip
 # Check current processes
-hop3 ps hop3-tuto-laravel
+hop3 ps --app hop3-tuto-laravel
 
 # Scale web workers
 hop3 ps scale --app hop3-tuto-laravel web=2
@@ -737,7 +737,7 @@ Common issues:
 Storage directories need write permissions:
 
 ```bash skip
-hop3 run hop3-tuto-laravel chmod -R 775 storage bootstrap/cache
+hop3 run --app hop3-tuto-laravel chmod -R 775 storage bootstrap/cache
 ```
 
 ### Composer Memory Issues
@@ -759,7 +759,7 @@ hop3 config show --app hop3-tuto-laravel | grep DATABASE
 Test the connection:
 
 ```bash skip
-hop3 run hop3-tuto-laravel php artisan db:show
+hop3 run --app hop3-tuto-laravel php artisan db:show
 ```
 
 ### Asset Compilation Issues

@@ -321,7 +321,7 @@ hop3 init --ssh root@your-server.example.com
 Deploy the application (first deployment creates the app):
 
 ```bash
-hop3 deploy hop3-tuto-astro
+hop3 deploy --app hop3-tuto-astro
 ```
 
 ```console
@@ -349,7 +349,7 @@ sleep 5
 Redeploy to apply the hostname configuration:
 
 ```bash
-hop3 deploy hop3-tuto-astro
+hop3 deploy --app hop3-tuto-astro
 ```
 
 ```console

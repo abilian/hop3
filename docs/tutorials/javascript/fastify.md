@@ -256,7 +256,7 @@ git init && git add -A && git commit -m "Initial Fastify application"
 Deploy the application (first deployment creates the app):
 
 ```bash exec id=deploy dir=hop3-tuto-fastify timeout=120
-hop3 deploy hop3-tuto-fastify
+hop3 deploy --app hop3-tuto-fastify
 ```
 
 ```output contains
@@ -284,7 +284,7 @@ hop3 config set --app hop3-tuto-fastify ALLOWED_ORIGINS=http://hop3-tuto-fastify
 Redeploy to apply the hostname and environment configuration:
 
 ```bash exec id=redeploy dir=hop3-tuto-fastify timeout=120
-hop3 deploy hop3-tuto-fastify
+hop3 deploy --app hop3-tuto-fastify
 ```
 
 ```output contains

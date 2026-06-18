@@ -349,7 +349,7 @@ hop3 init --ssh root@your-server.example.com
 Deploy the application (first deployment creates the app):
 
 ```bash exec id=deploy dir=hop3-tuto-nextjs timeout=120
-hop3 deploy hop3-tuto-nextjs
+hop3 deploy --app hop3-tuto-nextjs
 ```
 
 ### Set Hostname
@@ -373,7 +373,7 @@ sleep 5
 Redeploy to apply the hostname configuration:
 
 ```bash exec id=redeploy dir=hop3-tuto-nextjs timeout=120
-hop3 deploy hop3-tuto-nextjs
+hop3 deploy --app hop3-tuto-nextjs
 ```
 
 ```output contains
@@ -432,7 +432,7 @@ hop3 config unset --app hop3-tuto-nextjs OLD_VARIABLE
 
 ```bash skip
 # Check current processes
-hop3 ps hop3-tuto-nextjs
+hop3 ps --app hop3-tuto-nextjs
 
 # Scale web workers
 hop3 ps scale --app hop3-tuto-nextjs web=2

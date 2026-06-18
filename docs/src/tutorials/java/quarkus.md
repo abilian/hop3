@@ -252,7 +252,7 @@ git ls-files
 Deploy the application (first deployment creates the app):
 
 ```bash
-hop3 deploy hop3-tuto-quarkus
+hop3 deploy --app hop3-tuto-quarkus
 ```
 
 ```console
@@ -272,7 +272,7 @@ hop3 config set --app hop3-tuto-quarkus HOST_NAME=hop3-tuto-quarkus.$HOP3_TEST_D
 Redeploy to apply the hostname configuration:
 
 ```bash
-hop3 deploy hop3-tuto-quarkus
+hop3 deploy --app hop3-tuto-quarkus
 ```
 
 ```console

@@ -466,7 +466,7 @@ first deploy from the `{ generate = "urlsafe", length = 64 }` declaration in
 ever typed by hand or committed:
 
 ```bash exec id=deploy dir=hop3-tuto-phoenix timeout=120
-hop3 deploy hop3-tuto-phoenix
+hop3 deploy --app hop3-tuto-phoenix
 ```
 
 ### Set Hostname
@@ -482,7 +482,7 @@ hop3 config set --app hop3-tuto-phoenix HOST_NAME=hop3-tuto-phoenix.$HOP3_TEST_D
 Redeploy to apply the hostname configuration:
 
 ```bash exec id=redeploy dir=hop3-tuto-phoenix timeout=120
-hop3 deploy hop3-tuto-phoenix
+hop3 deploy --app hop3-tuto-phoenix
 ```
 
 Wait for the application to start:
