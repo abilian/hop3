@@ -190,7 +190,7 @@ EOF
 
     # Deploy application
     echo "Deploying ${APP_NAME}..."
-    if uv run hop3 deploy $APP_NAME $APP_DIR > /dev/null 2>&1; then
+    if uv run hop3 deploy --app $APP_NAME $APP_DIR > /dev/null 2>&1; then
         echo -e "${GREEN}✓ ${APP_NAME} deployed successfully${NC}"
         return 0
     else
@@ -322,7 +322,7 @@ echo ""
 echo "3. Deploy another app:"
 echo -e "   ${YELLOW}export HOP3_API_URL=\"ssh://hop3@localhost:$ACTUAL_SSH_PORT\"${NC}"
 echo -e "   ${YELLOW}export HOP3_SSH_KEY=\"$SSH_KEY\"${NC}"
-echo -e "   ${YELLOW}uv run hop3 deploy myapp /path/to/app${NC}"
+echo -e "   ${YELLOW}uv run hop3 deploy --app myapp /path/to/app${NC}"
 echo ""
 echo "4. Check logs:"
 echo -e "   ${YELLOW}uv run hop3 app:logs blueapp${NC}"

@@ -143,11 +143,11 @@ Examples:
 
   # Commands use dev by default
   hop3 apps
-  hop3 deploy myapp
+  hop3 deploy --app myapp
 
   # Use production explicitly
   hop3 --context prod apps
-  hop3 --context prod deploy myapp
+  hop3 --context prod deploy --app myapp
 
   # Per-project context (ADR 042): from inside a project directory
   cd myproject
