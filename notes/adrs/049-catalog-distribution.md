@@ -31,7 +31,7 @@ Distribute the catalog as a **signed artifact pulled over HTTPS**, verified agai
 
 | Phase | Source | Shape | When |
 |-------|--------|-------|------|
-| **v1** (this ADR) | Static files under `https://hop3.dev/catalog/` | One signed `catalog.tar.gz` | Now |
+| **v1** (this ADR) | Static files under `https://apps.hop3.cloud/catalog/` | One signed `catalog.tar.gz` | Now |
 | **v2** | Same static host | `index.json` + per-app artifacts fetched on demand | When catalog size/icons make whole-tarball refresh wasteful |
 | **v3** | Dedicated catalog service | API + per-app + transparency log | Post-NGI |
 
@@ -46,7 +46,7 @@ Two anchors live on the node and are never re-derived from whatever the origin c
 - **The verifying public key is a compiled-in constant** in the server release — not a runtime file an attacker with a node foothold could swap. The private key never touches a production node.
 - **A monotonic `serial`** in the signed index, persisted outside the catalog directory, blocks rollback to an older but validly-signed catalog.
 
-This is the APT model in miniature — sign the index, the index hashes the artifacts — and aligns with ADR 013 (sha256 pinning; Sigstore deferred). The chain only holds if the **server-release channel is an independent trust root** from the catalog channel; today both originate from `hop3.dev`, so install-time origin integrity is a documented gap (below).
+This is the APT model in miniature — sign the index, the index hashes the artifacts — and aligns with ADR 013 (sha256 pinning; Sigstore deferred). The chain only holds if the **server-release channel is an independent trust root** from the catalog channel; today the catalog (`apps.hop3.cloud`) and the install one-liner (`hop3.cloud`) share the `hop3.cloud` parent domain and operator, so they are not yet independent trust roots — install-time origin integrity is a documented gap (below).
 
 ### How a refresh works
 
@@ -98,7 +98,7 @@ Authenticity is **necessary but not sufficient** — a verified spec is still at
 
 ## Documented Gaps (accepted for v1)
 
-- **Server-release channel integrity**: the wheel + install one-liner carry the pinned key from the same `hop3.dev` origin the catalog uses; if that origin is compromised at install time the whole chain is moot. Needs its own integrity story.
+- **Server-release channel integrity**: the wheel + install one-liner (`hop3.cloud`) and the catalog (`apps.hop3.cloud`) live under the same `hop3.cloud` parent domain and operator, so they are not yet genuinely independent trust roots; if that domain/hosting is compromised at install time the whole chain is moot. Needs its own integrity story (signed installer, independent host/key).
 - **Signing-host / CI compromise**: a compromised signing environment produces a validly-signed malicious catalog. Mitigated only later by transparency logs / two-person signing.
 - **Freshness beyond monotonic serial**: no signed timestamp/TTL, so a NAT'd manual-refresh node can sit on old-but-valid content with no staleness signal.
 - **First-fetch bootstrap**: the first fetch sets the initial serial with nothing to compare against; a fresh node whose first fetch fails verification has no last-good and must start reporting "no catalog," never silently empty.

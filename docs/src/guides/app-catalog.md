@@ -57,7 +57,7 @@ There is no automatic refresh timer yet; run `hop3 catalog refresh` when you wan
 
 The catalog is a **signed artifact that your server pulls** — the source never pushes to your server. Authenticity is mandatory: because installing a catalog app runs code you didn't write, the bundle's signature is verified against a public key **built into your hop3-server release** (not a file on disk that could be swapped). A bundle that fails verification is rejected; it is never loaded "anyway."
 
-The default source is Hop3's own catalog at `https://hop3.dev/catalog/catalog.tar.gz` (with a detached signature at the same URL plus `.minisig`). An empty-but-verified catalog is valid; a *failed fetch* is reported as an error, never silently treated as "zero apps."
+The default source is Hop3's own catalog at `https://apps.hop3.cloud/catalog/catalog.tar.gz` (with a detached signature at the same URL plus `.minisig`). An empty-but-verified catalog is valid; a *failed fetch* is reported as an error, never silently treated as "zero apps."
 
 ## Configuration (operators)
 
@@ -65,7 +65,7 @@ These settings are read from the environment (or your server config); most deplo
 
 | Setting | Default | Purpose |
 |---------|---------|---------|
-| `CATALOG_SOURCE_URL` | `https://hop3.dev/catalog/catalog.tar.gz` | The signed bundle to pull. Override to point at a **staging** catalog or an **air-gapped mirror**. Must be `https://` — the sync refuses any other scheme, and TLS verification is always on. |
+| `CATALOG_SOURCE_URL` | `https://apps.hop3.cloud/catalog/catalog.tar.gz` | The signed bundle to pull. Override to point at a **staging** catalog or an **air-gapped mirror**. Must be `https://` — the sync refuses any other scheme, and TLS verification is always on. |
 | `CATALOG_ROOT` | `$HOP3_ROOT/catalog` | Where the active catalog lives (a symlink the sync manages). |
 | `CATALOG_STATE_ROOT` | `$HOP3_ROOT/catalog-state` | Holds the anti-rollback serial, kept outside `CATALOG_ROOT` so it survives catalog swaps. |
 
