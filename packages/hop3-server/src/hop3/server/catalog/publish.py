@@ -227,6 +227,11 @@ def main(argv: list[str] | None = None) -> int:
     kg = sub.add_parser("keygen", help="generate a catalog signing keypair")
     kg.add_argument("--out-dir", type=Path, default=Path(), help="where to write keys")
 
+    val = sub.add_parser(
+        "validate", help="check specs (runs the coexistence gate, no signing)"
+    )
+    val.add_argument("content_dir", type=Path, help="dir of <app-id>/ dirs")
+
     pub = sub.add_parser("publish", help="build + sign a catalog tarball")
     pub.add_argument("content_dir", type=Path, help="dir of <app-id>/ dirs")
     pub.add_argument("--key", type=Path, required=True, help="secret key file")
@@ -242,6 +247,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.cmd == "keygen":
             return _run_keygen(args.out_dir)
+        if args.cmd == "validate":
+            return _run_validate(args.content_dir)
         return _run_publish(args.content_dir, args.key, args.out_dir, args.serial)
     except (PublishError, OSError) as e:
         print(f"hop3-catalog: {e}", file=sys.stderr)
@@ -258,6 +265,17 @@ def _run_keygen(out_dir: Path) -> int:
     sec_path.chmod(0o600)
     print(f"Wrote {pub_path} and {sec_path} (keep the .key offline + secret).")
     print("Bake the .pub body into hop3.server.catalog.keys.CATALOG_PUBLIC_KEY.")
+    return 0
+
+
+def _run_validate(content_dir: Path) -> int:
+    # build_index runs the coexistence gate + structural checks and raises
+    # PublishError on any problem (caught by main → exit 1). Serial is irrelevant
+    # here, so pass 0.
+    index = build_index(content_dir, serial=0)
+    for app in index["apps"]:
+        print(f"  ok  {app['id']}  ({len(app['files'])} files)")
+    print(f"{len(index['apps'])} app(s) valid.")
     return 0
 
 
