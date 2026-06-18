@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-image: ubuntu/24.04
+image: ubuntu/26.04
 
 # SSH key for e2e test machine
 secrets:
