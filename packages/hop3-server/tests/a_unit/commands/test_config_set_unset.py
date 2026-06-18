@@ -74,7 +74,9 @@ def test_config_set_multiple_variables(db_session: Session, test_app: App):
 def test_config_set_value_with_equals(db_session: Session, test_app: App):
     """Test setting a variable with an equals sign in the value."""
     cmd = SetCmd(db_session=db_session)
-    cmd.call("--app", "testapp", "DATABASE_URL=postgres://user:pass@host/db?param=value")
+    cmd.call(
+        "--app", "testapp", "DATABASE_URL=postgres://user:pass@host/db?param=value"
+    )
 
     # Verify it was saved with the full value including the equals sign
     app_repo = AppRepository(session=db_session)
