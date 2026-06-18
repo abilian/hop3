@@ -15,6 +15,7 @@ import pytest
 from hop3.server.catalog.publish import (
     PublishError,
     generate_keypair,
+    main,
     publish,
 )
 from hop3.server.catalog.sync import install_catalog_tarball, read_high_water_mark
@@ -81,3 +82,13 @@ def test_publish_rejects_app_without_toml(tmp_path):
     (content / "broken" / "readme.md").write_text("orphan")
     with pytest.raises(PublishError, match=r"no hop3\.toml"):
         publish(content, generate_keypair()[1], tmp_path / "dist", serial=1)
+
+
+def test_validate_cli_accepts_good_content(tmp_path):
+    # The content-repo CI gate: validate runs the coexistence check, no signing.
+    assert main(["validate", str(_content(tmp_path))]) == 0
+
+
+def test_validate_cli_rejects_bad_spec(tmp_path):
+    bad = APP_TOML + '\n[domains]\nlist = ["_"]\n'
+    assert main(["validate", str(_content(tmp_path, toml=bad))]) == 1
