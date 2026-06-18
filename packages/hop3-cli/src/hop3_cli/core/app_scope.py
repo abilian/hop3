@@ -76,12 +76,28 @@ _BACKUP_SCOPED: set[tuple[str, ...]] = {
     # Treat like backup create: injection allowed but optional.
 }
 
+# Domain commands (each manages a single app's hostnames). The app is the
+# `--app` flag; the positionals are hostnames. `domains` is the alias the
+# client may also send. The bare namespace is absent (it shows help).
+_DOMAIN_SCOPED: set[tuple[str, ...]] = {
+    ("domain", "add"),
+    ("domain", "remove"),
+    ("domain", "set"),
+    ("domain", "clear"),
+    ("domain", "list"),
+}
+_DOMAINS_SCOPED: set[tuple[str, ...]] = {
+    ("domains", *rest) for (_, *rest) in _DOMAIN_SCOPED
+}
+
 APP_SCOPED_COMMANDS: set[tuple[str, ...]] = (
     _TOP_LEVEL_APP_SCOPED
     | _APP_NAMESPACE_SCOPED
     | _ENV_SCOPED
     | _CONFIG_SCOPED
     | _BACKUP_SCOPED
+    | _DOMAIN_SCOPED
+    | _DOMAINS_SCOPED
 )
 
 
