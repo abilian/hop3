@@ -203,8 +203,12 @@ def test_coverage_excludes_expected_failures():
     # only test covering its combo — a coverage suite proves the platform works.
     tests = [
         _mk("apps/native/py-ok", builder="native", toolchain="python"),
-        _mk("apps/native/go-broken", builder="native", toolchain="go",
-            expects_failure=True),
+        _mk(
+            "apps/native/go-broken",
+            builder="native",
+            toolchain="go",
+            expects_failure=True,
+        ),
     ]
     names = {t.name for t in select_combo_coverage(tests)}
     assert names == {"apps/native/py-ok"}
