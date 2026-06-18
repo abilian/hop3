@@ -28,6 +28,7 @@ packages:
   - libbz2-dev
   - libxml2-dev
   - libxslt-dev
+  - libcrypt-dev
   # Extra tools (TODO: remove)
   - rsync
   # For builders
