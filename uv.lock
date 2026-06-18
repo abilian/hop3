@@ -3782,14 +3782,14 @@ wheels = [
 
 [[package]]
 name = "requirements-parser"
-version = "0.13.0"
+version = "0.13.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "packaging" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/95/96/fb6dbfebb524d5601d359a47c78fe7ba1eef90fc4096404aa60c9a906fbb/requirements_parser-0.13.0.tar.gz", hash = "sha256:0843119ca2cb2331de4eb31b10d70462e39ace698fd660a915c247d2301a4418", size = 22630, upload-time = "2025-05-21T13:42:05.464Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/89/1a/5f3c22d38bf1d87d1f4a961489d9eba35c4370a21395562d94410cdd0e73/requirements_parser-0.13.1.tar.gz", hash = "sha256:78811383b2089b6c5197a1431bc2c12ff950245edca39a23eea3460782038dd3", size = 22783, upload-time = "2026-06-18T07:52:25.291Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bd/60/50fbb6ffb35f733654466f1a90d162bcbea358adc3b0871339254fbc37b2/requirements_parser-0.13.0-py3-none-any.whl", hash = "sha256:2b3173faecf19ec5501971b7222d38f04cb45bb9d87d0ad629ca71e2e62ded14", size = 14782, upload-time = "2025-05-21T13:42:04.007Z" },
+    { url = "https://files.pythonhosted.org/packages/bb/f9/15b44d5e4401b0013bbcefe3c09d7bfddcce28cc3d41b1d3077bcedf5b1f/requirements_parser-0.13.1-py3-none-any.whl", hash = "sha256:6e385663eb32589d16e5b22bb6e5251a57908e73803ffff438b53cd6ea2056e0", size = 14926, upload-time = "2026-06-18T07:52:24.171Z" },
 ]
 
 [[package]]

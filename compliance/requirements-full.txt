@@ -164,7 +164,7 @@ redis==8.0.0
 referencing==0.37.0
 requests==2.34.2
 requests-toolbelt==1.0.0
-requirements-parser==0.13.0
+requirements-parser==0.13.1
 reuse==6.2.0
 rfc3339-validator==0.1.4
 rfc3986==2.0.0
