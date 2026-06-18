@@ -235,8 +235,10 @@ The engine's `collect_diagnostic_bundle(target, app, …)` (`hop3-testing/bundle
 
 `packages/hop3-testlab/tests/a_unit/` holds ~20 unit suites covering the shipped surface: `test_auth`, `test_csrf`, `test_worker`, `test_scheduler`, `test_leasing`, `test_blank_slate`, `test_trigger`, `test_trends`/`test_trends_page`, `test_run_detail`/`test_run_report`, `test_build_detail`, `test_bundles`, `test_running`, `test_progress_by_type`, `test_discriminators`, `test_catalog`, `test_cloud_config`, `test_profiles_page`, `test_app_smoke`. Controllers are exercised via `litestar.testing` with `TESTLAB_UNSAFE` toggled to test both the guard and the authenticated paths; the lease/worker/blank-slate logic is tested with stubbed executors and a Hetzner manager double.
 
+**Layering (updated).** The suites are now classified per ADR 043 by *what a test needs*: `tests/a_unit/` holds the pure suites (`discriminators`, `trends`, `cloud_config`, `catalog`, `blank_slate`) stamped `fast`; the ~16 suites that drive a real SQLite store / the real Litestar app / real git live in `tests/b_integration/` (stamped `integration`). As a thin orchestration shell the Lab is legitimately integration-heavy.
+
 ### Deferred
-- `b_integration` (repos against in-memory SQLite) and `c_e2e` (a real provision→deploy→collect→teardown) layers per ADR 043; a dual-backend (SQLite vs Postgres) lease test (only the SQLite path exists).
+- `c_e2e` (a real provision→deploy→collect→teardown, `needs_docker`) is still empty — it lands with the slice-1 compose-run acceptance test (see `tasks/todo.md`). A dual-backend (SQLite vs Postgres) lease test (only the SQLite path exists).
 
 ---
 
