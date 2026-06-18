@@ -151,7 +151,7 @@ def _proc_starttime(pid: int) -> int | None:
     procfs — e.g. a macOS dev machine), in which case identity can't be checked.
     """
     try:
-        stat = Path(f"/proc/{pid}/stat").read_text()
+        stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
     except (OSError, ValueError):
         return None
     # comm (field 2) is parenthesised and may contain spaces/parens; index from

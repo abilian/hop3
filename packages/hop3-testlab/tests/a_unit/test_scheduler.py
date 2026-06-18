@@ -7,10 +7,11 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
+from litestar.testing import TestClient
+
 from hop3_testlab import scheduler
 from hop3_testlab.cloud_config import load_schedule
 from hop3_testlab.web.asgi import create_app
-from litestar.testing import TestClient
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -80,7 +81,7 @@ def test_nightly_job_runs_target_as_scheduled(monkeypatch):
 
 
 def test_add_nightly_job_registers_cron(monkeypatch):
-    from apscheduler.schedulers.background import BackgroundScheduler  # noqa: PLC0415
+    from apscheduler.schedulers.background import BackgroundScheduler
 
     monkeypatch.setattr(
         scheduler,

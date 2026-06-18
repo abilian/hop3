@@ -6,10 +6,11 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from litestar.testing import TestClient
+
 import hop3_testlab.web.controllers.runs as runs_ctl
 from hop3_testlab import worker
 from hop3_testlab.web.asgi import create_app
-from litestar.testing import TestClient
 
 
 def _capture_spawn(monkeypatch):
@@ -88,10 +89,10 @@ def test_trigger_refuses_full_suite_when_blank_slate_unresolvable(monkeypatch):
 def test_trigger_refuses_when_busy(monkeypatch):
     spawned = _capture_spawn(monkeypatch)
     # Hold the lease on the default target so the trigger sees it busy.
-    from hop3_testlab import leasing  # noqa: PLC0415
-    from hop3_testlab.cloud_config import load_schedule  # noqa: PLC0415
-    from hop3_testlab.config import TestlabConfig  # noqa: PLC0415
-    from hop3_testlab.db import get_session_factory  # noqa: PLC0415
+    from hop3_testlab import leasing
+    from hop3_testlab.cloud_config import load_schedule
+    from hop3_testlab.config import TestlabConfig
+    from hop3_testlab.db import get_session_factory
 
     target = load_schedule().target
     with get_session_factory(str(TestlabConfig.get_instance().DB_PATH))() as s:

@@ -9,10 +9,11 @@ from typing import TYPE_CHECKING
 
 from hop3_testing.results import ResultStore
 from hop3_testing.results.models import TestResultRecord, TestRun
-from hop3_testlab.discriminators import type_of
-from hop3_testlab.repositories import RunsRepository
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
+
+from hop3_testlab.discriminators import type_of
+from hop3_testlab.repositories import RunsRepository
 
 if TYPE_CHECKING:
     from pathlib import Path
