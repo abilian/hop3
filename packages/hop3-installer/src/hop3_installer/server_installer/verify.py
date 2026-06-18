@@ -348,5 +348,5 @@ def print_final_message(config: ServerInstallerConfig) -> None:
     print()
     print(f"  {Colors.BOLD}Next steps:{Colors.RESET}")
     print("    1. Add your SSH key:  ssh-copy-id hop3@your-server")
-    print("    2. Deploy an app:     hop3 deploy your-app.git")
+    print("    2. Deploy an app:     hop3 deploy --app your-app")
     print()

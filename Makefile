@@ -347,7 +347,7 @@ doc-serve:
 doc-deploy:
 	@echo "--> Deploying documentation"
 	make doc
-	cd docs && hop3 deploy hop3-doc
+	cd docs && hop3 deploy --app hop3-doc
 
 #
 # Cleanup
