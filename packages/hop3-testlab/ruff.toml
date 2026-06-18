@@ -1,0 +1,69 @@
+target-version = "py310"
+preview = true
+
+lint.select = [
+    "ALL",
+]
+
+include = [
+    "pyproject.toml",
+    "src/**/*.py",
+    "tests/**/*.py",
+]
+
+lint.extend-ignore = [
+    # Later (or never)
+    "CPY", # Copyright
+    "A",
+    "ANN",
+    "ERA",
+    "FBT",
+    "D",
+    "DOC",
+
+    # False positive (or not)
+    "S101", # Use of `assert` detected
+    "D203", # one-blank-line-before-class
+    "D213", # multi-line-summary-second-line
+    "COM812", # ...
+    "T201", # Print...
+    "PERF401", # list comprehension - explicit append loop is clearer
+
+    # Fix later (or not)
+    "PLR6301", # no-self-use
+    "BLE001", #  blind-except
+    "PLR2004", # magic-value-comparison
+    "RUF029", #  unused-async
+    "RUF067", #  non-empty-init-module
+    "S404", #    suspicious-subprocess-import
+    "S603", #    subprocess-without-shell-equals-true
+    "C901", #    complex-structure
+    "E501", #    line-too-long
+    "PERF203", # try-except-in-loop
+]
+
+[lint.extend-per-file-ignores]
+"tests/**/*.py" = [
+    "BLE001", #  blind-except
+    "D",
+    "DOC",
+    "ANN",
+    "PLR2004",
+    "INP001",
+    "PLC0415", # runtime imports for optional dependencies
+    "E501", # line too long in test assertions
+    "N802", # naming
+    #
+    "ARG005", #  unused-lambda-argument
+    "SLF001", #  private-member-access
+    "ARG001", #  unused-function-argument
+    "RUF069", #  float-equality-comparison
+    "S105", #    hardcoded-password-string
+    "RUF076", #  pytest-fixture-autouse
+    "S106", #    hardcoded-password-func-arg
+]
+
+[lint.isort]
+combine-as-imports = true
+required-imports = ["from __future__ import annotations"]
+known-first-party = ["hop3-testlab"]

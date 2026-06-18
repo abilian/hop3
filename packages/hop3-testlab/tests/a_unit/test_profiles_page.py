@@ -6,8 +6,9 @@ from __future__ import annotations
 
 import pytest
 from hop3_testing.selector import get_mode_config, list_modes
-from hop3_testlab.web.asgi import create_app
 from litestar.testing import TestClient
+
+from hop3_testlab.web.asgi import create_app
 
 
 @pytest.fixture(autouse=True)
