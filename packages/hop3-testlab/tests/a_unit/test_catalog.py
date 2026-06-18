@@ -9,8 +9,11 @@ apps/ tree, so they're real-catalog assertions, not stubs.
 
 from __future__ import annotations
 
+from hop3_testing.targets.helpers import find_project_root
+
 from hop3_testlab.catalog import (
     mode_counts,
+    resolve_selector,
     tests_grouped as grouped_tests,  # avoid test* collection
     title_map,
     valid_test_names,
@@ -55,3 +58,12 @@ def test_valid_test_names_includes_seed():
     names = valid_test_names()
     assert "demos/demo01" in names
     assert "apps/test-apps-procfile/000-static" in names
+
+
+def test_resolve_selector_matches_app_dirs():
+    # A glob resolves server-side against the catalog (real app dirs only).
+    names = resolve_selector(find_project_root(), "apps/test-apps-procfile/*")
+    assert "apps/test-apps-procfile/000-static" in names
+    assert all(n.startswith("apps/test-apps-procfile/") for n in names)
+    # Literal, not shell-expanded: a non-matching pattern selects nothing.
+    assert resolve_selector(find_project_root(), "no-such-dir/*") == []
