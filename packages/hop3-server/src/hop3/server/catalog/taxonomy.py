@@ -58,6 +58,18 @@ CATEGORY_MAPPING = {
     "Translation": ["translation", "localization", "i18n", "l10n"],
     "Networking": ["vpn", "network"],
     "Database": ["database", "data", "no-code", "nocode"],
+    "Content Management": ["cms", "blog", "publishing", "website-builder"],
+    "Business": ["erp", "crm", "accounting", "invoicing", "billing", "finance"],
+    "Identity & Security": ["auth", "sso", "iam", "identity", "oauth", "oidc"],
+    "News & Feeds": ["rss", "feeds", "feed-reader", "news", "aggregator"],
+    "Monitoring": [
+        "monitoring",
+        "status",
+        "uptime",
+        "observability",
+        "error-tracking",
+        "alerting",
+    ],
 }
 
 CATEGORY_ICONS = {
@@ -76,6 +88,11 @@ CATEGORY_ICONS = {
     "Translation": "globe",
     "Networking": "wifi",
     "Database": "database",
+    "Content Management": "file-text",
+    "Business": "briefcase",
+    "Identity & Security": "shield",
+    "News & Feeds": "rss",
+    "Monitoring": "activity",
     "Other": "grid",
 }
 
@@ -95,6 +112,11 @@ CATEGORY_DESCRIPTIONS = {
     "Translation": "Localization and translation management",
     "Networking": "VPN and network tools",
     "Database": "Database and no-code platforms",
+    "Content Management": "Websites, blogs, and publishing",
+    "Business": "ERP, CRM, accounting, and invoicing",
+    "Identity & Security": "Authentication, SSO, and identity",
+    "News & Feeds": "RSS readers and feed aggregators",
+    "Monitoring": "Uptime, status, and error tracking",
     "Other": "Other applications",
 }
 
