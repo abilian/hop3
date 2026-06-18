@@ -313,7 +313,7 @@ hop3 init --ssh root@your-server.example.com
 Deploy the application (first deployment creates the app):
 
 ```bash
-hop3 deploy hop3-tuto-drf
+hop3 deploy --app hop3-tuto-drf
 ```
 
 ### Set Environment Variables
@@ -334,7 +334,7 @@ hop3 config set --app hop3-tuto-drf HOST_NAME=hop3-tuto-drf.$HOP3_TEST_DOMAIN
 Redeploy to apply the configuration:
 
 ```bash
-hop3 deploy hop3-tuto-drf
+hop3 deploy --app hop3-tuto-drf
 ```
 
 ```console

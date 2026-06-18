@@ -379,7 +379,7 @@ git add -A && git commit -m "Prepare for deployment" || true
 Deploy the application (first deployment creates the app):
 
 ```bash
-hop3 deploy hop3-tuto-symfony
+hop3 deploy --app hop3-tuto-symfony
 ```
 
 ### Set Hostname
@@ -395,7 +395,7 @@ hop3 config set --app hop3-tuto-symfony HOST_NAME=hop3-tuto-symfony.$HOP3_TEST_D
 Redeploy to apply the hostname configuration:
 
 ```bash
-hop3 deploy hop3-tuto-symfony
+hop3 deploy --app hop3-tuto-symfony
 ```
 
 Wait for the application to start:
@@ -439,7 +439,7 @@ hop3 app logs --app hop3-tuto-symfony
 hop3 app restart --app hop3-tuto-symfony
 
 # Clear cache
-hop3 run hop3-tuto-symfony php bin/console cache:clear --env=prod
+hop3 run --app hop3-tuto-symfony php bin/console cache:clear --env=prod
 
 # View/set environment variables
 hop3 config show --app hop3-tuto-symfony
@@ -581,8 +581,8 @@ packages = ["php", "nodejs", "npm"]
 Clear and warm up cache:
 
 ```bash
-hop3 run hop3-tuto-symfony php bin/console cache:clear --env=prod
-hop3 run hop3-tuto-symfony php bin/console cache:warmup --env=prod
+hop3 run --app hop3-tuto-symfony php bin/console cache:clear --env=prod
+hop3 run --app hop3-tuto-symfony php bin/console cache:warmup --env=prod
 ```
 
 ### Missing APP_SECRET
@@ -599,7 +599,7 @@ postgresql://user:password@host:5432/database?serverVersion=15
 Ensure var/ directory is writable:
 
 ```bash
-hop3 run hop3-tuto-symfony chmod -R 777 var/
+hop3 run --app hop3-tuto-symfony chmod -R 777 var/
 ```
 
 ## Example Files

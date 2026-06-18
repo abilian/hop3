@@ -346,7 +346,7 @@ git init && git add -A && git commit -m "Initial Eleventy site"
 Deploy the application (first deployment creates the app):
 
 ```bash exec id=deploy dir=hop3-tuto-eleventy timeout=120
-hop3 deploy hop3-tuto-eleventy
+hop3 deploy --app hop3-tuto-eleventy
 ```
 
 ```output contains
@@ -374,7 +374,7 @@ sleep 5
 Redeploy to apply the hostname configuration:
 
 ```bash exec id=redeploy dir=hop3-tuto-eleventy timeout=120
-hop3 deploy hop3-tuto-eleventy
+hop3 deploy --app hop3-tuto-eleventy
 ```
 
 ```output contains

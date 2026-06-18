@@ -149,7 +149,7 @@ Visit `http://localhost:5000` — you should see "Hello from Nix!".
 ## Step 5: Deploy to Hop3
 
 ```bash
-hop3 deploy nix-flask-demo
+hop3 deploy --app nix-flask-demo
 ```
 
 Or via git push:

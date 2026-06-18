@@ -1,6 +1,6 @@
 # Deploying .NET on Hop3
 
-A .NET web app on Hop3 is your published application running as a long-lived Kestrel process. On each deploy Hop3 restores and publishes your project on the server, then starts the resulting DLL (or self-contained binary), which listens on a port Hop3 assigns at runtime. nginx sits in front and proxies your app's hostname to that process. You deploy with `hop3 deploy <app>`, point a hostname at it, and the platform handles the build, the process, and the reverse proxy.
+A .NET web app on Hop3 is your published application running as a long-lived Kestrel process. On each deploy Hop3 restores and publishes your project on the server, then starts the resulting DLL (or self-contained binary), which listens on a port Hop3 assigns at runtime. nginx sits in front and proxies your app's hostname to that process. You deploy with `hop3 deploy --app <app>`, point a hostname at it, and the platform handles the build, the process, and the reverse proxy.
 
 This page covers the concepts shared by every .NET deployment. Read it first, then follow the framework guide below for a complete, runnable walkthrough.
 

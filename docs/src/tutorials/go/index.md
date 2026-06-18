@@ -51,7 +51,7 @@ interval = 60
 - **Addons are env vars too.** Attaching a database or cache exposes a connection string: PostgreSQL via `DATABASE_URL`, Redis via `REDIS_URL`. Pass them straight to your driver, e.g. `gorm.Open(postgres.Open(os.Getenv("DATABASE_URL")), ...)` or `redis.ParseURL(os.Getenv("REDIS_URL"))`. No host/port wiring on your side.
 - **Release mode.** Frameworks behave differently in dev vs. production. For Gin, set `GIN_MODE=release` (the tutorial puts it in `[env]`) to disable debug logging and the dev banner.
 - **Don't commit the binary.** The binary is a build artifact rebuilt on every deploy — add it (and `vendor/`) to `.gitignore`.
-- **The deploy flow is the same for all of them.** `hop3 deploy <app>` (first deploy creates the app) → `hop3 config set --app <app> HOST_NAME=<app>.<your-domain>` → deploy again to apply → verify with `hop3 app status` and a `curl` of the healthcheck path. After that, manage with `hop3 app logs`, `hop3 app restart`, `hop3 config show`, and `hop3 ps scale --app <app> web=N`.
+- **The deploy flow is the same for all of them.** `hop3 deploy --app <app>` (first deploy creates the app) → `hop3 config set --app <app> HOST_NAME=<app>.<your-domain>` → deploy again to apply → verify with `hop3 app status` and a `curl` of the healthcheck path. After that, manage with `hop3 app logs`, `hop3 app restart`, `hop3 config show`, and `hop3 ps scale --app <app> web=N`.
 
 ## Choose a framework
 
