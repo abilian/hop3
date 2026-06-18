@@ -50,7 +50,7 @@ filelock==3.29.4
 fqdn==1.5.1
 gevent==26.5.0
 granian==2.7.6
-greenlet==3.5.1
+greenlet==3.5.2
 grimp==3.14
 h11==0.16.0
 hcloud==2.21.0
@@ -143,7 +143,7 @@ pylint==4.0.6
 pymdown-extensions==10.21.3
 pynacl==1.6.2
 pyparsing==3.3.2
-pyrefly==1.0.0
+pyrefly==1.1.0
 pytest==9.1.0
 pytest-asyncio==1.4.0
 pytest-beartype==0.2.0
@@ -192,7 +192,7 @@ toml==0.10.2
 tomli==2.4.1
 tomlkit==0.15.0
 twine==6.2.0
-ty==0.0.49
+ty==0.0.50
 typeguard==4.5.2
 types-markdown==3.10.2.20260518
 types-paramiko==4.0.0.20260518
