@@ -200,7 +200,7 @@ class HopConfig:
         or an air-gapped mirror.
         """
         return self._config_loader.get_str(
-            "CATALOG_SOURCE_URL", "https://hop3.dev/catalog/catalog.tar.gz"
+            "CATALOG_SOURCE_URL", "https://apps.hop3.cloud/catalog/catalog.tar.gz"
         )
 
     # Resource limits (ADR 046 §3 / P2.2)

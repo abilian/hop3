@@ -62,11 +62,13 @@ holds is refused. If you set `--serial` manually, it must strictly increase.
 ## 3. Upload
 
 Copy both files to your static host at the URL your nodes are configured to fetch
-(`CATALOG_SOURCE_URL`, default `https://hop3.dev/catalog/catalog.tar.gz`):
+(`CATALOG_SOURCE_URL`, default `https://apps.hop3.cloud/catalog/catalog.tar.gz`). The
+official catalog is served under `https://apps.hop3.cloud/` (marketing site) with the
+data at `https://apps.hop3.cloud/catalog/`:
 
 ```
-https://hop3.dev/catalog/catalog.tar.gz
-https://hop3.dev/catalog/catalog.tar.gz.minisig
+https://apps.hop3.cloud/catalog/catalog.tar.gz
+https://apps.hop3.cloud/catalog/catalog.tar.gz.minisig
 ```
 
 HTTPS is mandatory — a node refuses a plaintext URL or an `https → http` redirect and
