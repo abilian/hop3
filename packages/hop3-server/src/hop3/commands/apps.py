@@ -104,7 +104,7 @@ class AppsCmd(Command):
             got = " ".join(args)
             msg = (
                 f"'hop3 app list' takes no arguments (got: {got}). "
-                "Did you mean 'hop3 app status <app>'?"
+                "Did you mean 'hop3 app status --app <app>'?"
             )
             raise ValueError(msg)
 

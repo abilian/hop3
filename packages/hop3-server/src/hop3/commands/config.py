@@ -42,9 +42,9 @@ class EnvCmd(Command):
     `config` is a back-compat alias (e.g. `hop3 config set ...` still works).
 
     Examples:
-        hop3 env show myapp         # List env vars
-        hop3 env set myapp KEY=VAL  # Set an env var
-        hop3 env unset myapp KEY    # Remove an env var
+        hop3 env show --app myapp          # List env vars
+        hop3 env set --app myapp KEY=VAL   # Set an env var
+        hop3 env unset --app myapp KEY     # Remove an env var
     """
 
     name: ClassVar[tuple[str, ...]] = ("env",)
@@ -66,9 +66,9 @@ class ShowCmd(Command):
 
 
     Examples:
-        hop3 env show myapp                  # List env vars (secrets redacted)
+        hop3 env show --app myapp                 # List env vars (secrets redacted)
         hop3 env show --app myapp --show-secrets  # Reveal full values
-        hop3 env show myapp --sources        # Show where each var came from
+        hop3 env show --app myapp --sources       # Show where each var came from
     """
 
     db_session: Session
@@ -97,7 +97,7 @@ class ShowCmd(Command):
                     "  --show-secrets  Show full values, including secrets\n"
                     "  --show-compose  Show the generated Docker Compose file\n\n"
                     "Example:\n"
-                    "  hop3 env show myapp\n"
+                    "  hop3 env show --app myapp\n"
                     "  hop3 env show --app myapp --show-secrets"
                 )
             ]
@@ -179,7 +179,7 @@ class GetCmd(Command):
     """Get a specific environment variable.
 
     Examples:
-        hop3 env get myapp KEY         # Show one env var's value
+        hop3 env get --app myapp KEY   # Show one env var's value
     """
 
     db_session: Session
@@ -203,7 +203,6 @@ class GetCmd(Command):
                 text(
                     "Usage: hop3 env get [--app <app-name>] <key>\n\n"
                     "Example:\n"
-                    "  hop3 env get myapp DATABASE_URL\n"
                     "  hop3 env get --app myapp DATABASE_URL"
                 )
             ]
@@ -229,7 +228,7 @@ class LiveCmd(Command):
 
 
     Examples:
-        hop3 env live myapp            # Live runtime environment (secrets redacted)
+        hop3 env live --app myapp                 # Live runtime environment (secrets redacted)
         hop3 env live --app myapp --show-secrets  # Reveal full values
     """
 
@@ -271,7 +270,7 @@ class LiveCmd(Command):
             msg = (
                 f"Can't read live environment for '{app_name}': unsupported or "
                 f"undeployed runtime '{app.runtime or 'none'}'. "
-                f"Use 'hop3 env show {app_name}' for configured values."
+                f"Use 'hop3 env show --app {app_name}' for configured values."
             )
             raise ValueError(msg)
 
@@ -279,8 +278,8 @@ class LiveCmd(Command):
             msg = (
                 f"Can't inspect the live environment of '{app_name}' "
                 f"(runtime: {app.runtime}): the app appears stopped or not "
-                f"deployed. Check 'hop3 app status {app_name}', or use "
-                f"'hop3 env show {app_name}' for the configured values."
+                f"deployed. Check 'hop3 app status --app {app_name}', or use "
+                f"'hop3 env show --app {app_name}' for the configured values."
             )
             raise ValueError(msg)
 
@@ -362,7 +361,7 @@ class SetCmd(Command):
     Usage: hop3 env set [--app <app>] KEY=VALUE [KEY2=VALUE2 ...]
 
     Examples:
-        hop3 env set myapp DEBUG=true
+        hop3 env set --app myapp DEBUG=true
         hop3 env set --app myapp DATABASE_URL=postgres://... REDIS_URL=redis://...
     """
 
@@ -386,7 +385,7 @@ class SetCmd(Command):
             return [
                 text(
                     "Usage: hop3 env set [--app <app>] KEY=VALUE [KEY2=VALUE2 ...]\n\n"
-                    "Example: hop3 env set myapp DEBUG=true"
+                    "Example: hop3 env set --app myapp DEBUG=true"
                 )
             ]
 
@@ -462,7 +461,7 @@ class UnsetCmd(Command):
     Usage: hop3 env unset [--app <app>] KEY [KEY2 ...]
 
     Examples:
-        hop3 env unset myapp DEBUG
+        hop3 env unset --app myapp DEBUG
         hop3 env unset --app myapp DATABASE_URL REDIS_URL
     """
 
@@ -486,7 +485,7 @@ class UnsetCmd(Command):
             return [
                 text(
                     "Usage: hop3 env unset [--app <app>] KEY [KEY2 ...]\n\n"
-                    "Example: hop3 env unset myapp DEBUG"
+                    "Example: hop3 env unset --app myapp DEBUG"
                 )
             ]
 

@@ -91,11 +91,11 @@ class DomainsCmd(Command):
     """Manage hostnames bound to an application.
 
     Examples:
-        hop3 domain list myapp
-        hop3 domain add myapp example.com www.example.com
-        hop3 domain remove myapp www.example.com
-        hop3 domain set myapp example.com www.example.com
-        hop3 domain clear myapp
+        hop3 domain list --app myapp
+        hop3 domain add --app myapp example.com www.example.com
+        hop3 domain remove --app myapp www.example.com
+        hop3 domain set --app myapp example.com www.example.com
+        hop3 domain clear --app myapp
     """
 
     name: ClassVar[tuple[str, ...]] = ("domain",)
@@ -108,8 +108,8 @@ class ListCmd(Command):
     """List the hostnames currently bound to an app.
 
     Examples:
-        hop3 domain list myapp
         hop3 domain list --app myapp
+        hop3 domain list            # app from the current project/context
     """
 
     db_session: Session
@@ -126,8 +126,7 @@ class ListCmd(Command):
         if not app_name:
             return [
                 text(
-                    "Usage: hop3 domain list <app-name>\n"
-                    "   or: hop3 domain list --app <app-name>"
+                    "Usage: hop3 domain list --app <app-name>"
                 )
             ]
 
@@ -147,9 +146,8 @@ class AddCmd(Command):
     """Add one or more hostnames to an app (union, atomic).
 
     Examples:
-        hop3 domain add myapp example.com
-        hop3 domain add myapp example.com www.example.com
         hop3 domain add --app myapp example.com
+        hop3 domain add --app myapp example.com www.example.com
     """
 
     db_session: Session
@@ -168,8 +166,7 @@ class AddCmd(Command):
         if not app_name or not new_inputs:
             return [
                 text(
-                    "Usage: hop3 domain add <app> <host> [<host> ...]\n"
-                    "   or: hop3 domain add --app <app> <host> [<host> ...]"
+                    "Usage: hop3 domain add --app <app> <host> [<host> ...]"
                 )
             ]
 
@@ -218,7 +215,6 @@ class RemoveCmd(Command):
     Errors if any of the requested hostnames is not currently set.
 
     Examples:
-        hop3 domain remove myapp www.example.com
         hop3 domain remove --app myapp www.example.com
     """
 
@@ -238,8 +234,7 @@ class RemoveCmd(Command):
         if not app_name or not targets:
             return [
                 text(
-                    "Usage: hop3 domain remove <app> <host> [<host> ...]\n"
-                    "   or: hop3 domain remove --app <app> <host> [<host> ...]"
+                    "Usage: hop3 domain remove --app <app> <host> [<host> ...]"
                 )
             ]
 
@@ -269,7 +264,7 @@ class SetCmd(Command):
     """Replace the full list of hostnames for an app (atomic).
 
     Examples:
-        hop3 domain set myapp example.com www.example.com
+        hop3 domain set --app myapp example.com www.example.com
         hop3 domain set --app myapp example.com
     """
 
@@ -289,8 +284,7 @@ class SetCmd(Command):
         if not app_name or not new_inputs:
             return [
                 text(
-                    "Usage: hop3 domain set <app> <host> [<host> ...]\n"
-                    "   or: hop3 domain set --app <app> <host> [<host> ...]"
+                    "Usage: hop3 domain set --app <app> <host> [<host> ...]"
                 )
             ]
 
@@ -330,7 +324,6 @@ class ClearCmd(Command):
     """Clear all hostnames from an app (unsets HOST_NAME).
 
     Examples:
-        hop3 domain clear myapp
         hop3 domain clear --app myapp
     """
 
@@ -348,8 +341,7 @@ class ClearCmd(Command):
         if not app_name:
             return [
                 text(
-                    "Usage: hop3 domain clear <app-name>\n"
-                    "   or: hop3 domain clear --app <app-name>"
+                    "Usage: hop3 domain clear --app <app-name>"
                 )
             ]
 

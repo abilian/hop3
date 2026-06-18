@@ -31,11 +31,11 @@ from ._response import success, summary, table, text
 class BackupCreateCmd(Command):
     """Create a backup of an application.
 
-    Usage: hop3 backup create <app> [--no-addons]
+    Usage: hop3 backup create --app <app> [--no-addons]
 
     Examples:
-        hop3 backup create my-app
-        hop3 backup create my-app --no-addons
+        hop3 backup create --app my-app
+        hop3 backup create --app my-app --no-addons
     """
 
     app_repo: AppRepository
@@ -50,9 +50,9 @@ class BackupCreateCmd(Command):
         if app_name is None:
             return [
                 text(
-                    "Usage: hop3 backup create <app> [--no-addons]\n\n"
+                    "Usage: hop3 backup create --app <app> [--no-addons]\n\n"
                     "Example:\n"
-                    "  hop3 backup create my-app"
+                    "  hop3 backup create --app my-app"
                 )
             ]
 
@@ -496,9 +496,9 @@ class BackupCmd(Command):
     """Manage application backups.
 
     Examples:
-        hop3 backup create myapp       # Create a new backup
-        hop3 backup list myapp         # List backups for myapp
-        hop3 backup restore <id>       # Restore a backup
+        hop3 backup create --app myapp   # Create a new backup
+        hop3 backup list myapp           # List backups for myapp (positional)
+        hop3 backup restore <id>         # Restore a backup
     """
 
     name: ClassVar[tuple[str, ...]] = ("backup",)

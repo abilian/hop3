@@ -117,8 +117,8 @@ class PSCmd(Command):
     """Show process count for an application.
 
     Examples:
-        hop3 ps myapp                  # Show processes for myapp
-        hop3 ps --app myapp            # Same via --app flag
+        hop3 ps --app myapp            # Show processes for myapp
+        hop3 ps                        # app from the current project/context
     """
 
     db_session: Session
@@ -128,7 +128,7 @@ class PSCmd(Command):
         app_name, _rest = pop_app_flag(args)
 
         if app_name is None:
-            msg = "Usage: hop ps <app_name>"
+            msg = "Usage: hop3 ps --app <app>"
             raise ValueError(msg)
         app = get_app(self.db_session, app_name)
         scaling_file = app.virtualenv_path / "SCALING"
@@ -149,11 +149,11 @@ class PSCmd(Command):
 @register
 @dataclass(frozen=True)
 class PsScaleCmd(Command):
-    """Set the process count (e.g., hop ps scale <app_name> web=2 worker=1).
+    """Set the process count (e.g., hop3 ps scale --app <app> web=2 worker=1).
 
     Examples:
-        hop3 ps scale myapp web=2     # Run 2 web workers
-        hop3 ps scale myapp web=2 worker=1
+        hop3 ps scale --app myapp web=2   # Run 2 web workers
+        hop3 ps scale --app myapp web=2 worker=1
     """
 
     db_session: Session
@@ -163,7 +163,7 @@ class PsScaleCmd(Command):
         app_name, rest = pop_app_flag(args)
 
         if app_name is None or not rest:
-            return [text("Usage: hop ps scale <app_name> <type>=<count>...")]
+            return [text("Usage: hop3 ps scale --app <app> <type>=<count>...")]
 
         settings = rest
         app = get_app(self.db_session, app_name)
@@ -334,7 +334,7 @@ class SbomCmd(Command):
     """Generate a Software Bill of Materials (SBOM) for an application.
 
     Examples:
-        hop3 app sbom myapp            # Generate an SBOM for myapp
+        hop3 app sbom --app myapp      # Generate an SBOM for myapp
     """
 
     db_session: Session
@@ -344,7 +344,7 @@ class SbomCmd(Command):
         app_name, _rest = pop_app_flag(args)
 
         if app_name is None:
-            msg = "Usage: hop app sbom <app_name>"
+            msg = "Usage: hop3 app sbom --app <app>"
             raise ValueError(msg)
         app = get_app(self.db_session, app_name)
 
