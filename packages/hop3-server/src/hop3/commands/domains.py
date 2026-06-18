@@ -124,11 +124,7 @@ class ListCmd(Command):
         parsed = parse_cli_args(args, self._arg_spec)
         app_name = parsed.get("app")
         if not app_name:
-            return [
-                text(
-                    "Usage: hop3 domain list --app <app-name>"
-                )
-            ]
+            return [text("Usage: hop3 domain list --app <app>")]
 
         app = get_app(self.db_session, app_name)
         hosts = _current_hosts(app)
@@ -164,11 +160,7 @@ class AddCmd(Command):
         new_inputs = list(parsed["_args"])
 
         if not app_name or not new_inputs:
-            return [
-                text(
-                    "Usage: hop3 domain add --app <app> <host> [<host> ...]"
-                )
-            ]
+            return [text("Usage: hop3 domain add --app <app> <host> [<host> ...]")]
 
         validated, errors = _validate_new_hosts(new_inputs)
         if errors:
@@ -232,11 +224,7 @@ class RemoveCmd(Command):
         targets = list(parsed["_args"])
 
         if not app_name or not targets:
-            return [
-                text(
-                    "Usage: hop3 domain remove --app <app> <host> [<host> ...]"
-                )
-            ]
+            return [text("Usage: hop3 domain remove --app <app> <host> [<host> ...]")]
 
         app = get_app(self.db_session, app_name)
         current = _current_hosts(app)
@@ -282,11 +270,7 @@ class SetCmd(Command):
         new_inputs = list(parsed["_args"])
 
         if not app_name or not new_inputs:
-            return [
-                text(
-                    "Usage: hop3 domain set --app <app> <host> [<host> ...]"
-                )
-            ]
+            return [text("Usage: hop3 domain set --app <app> <host> [<host> ...]")]
 
         validated, errors = _validate_new_hosts(new_inputs)
         if errors:
@@ -339,11 +323,7 @@ class ClearCmd(Command):
         parsed = parse_cli_args(args, self._arg_spec)
         app_name = parsed.get("app")
         if not app_name:
-            return [
-                text(
-                    "Usage: hop3 domain clear --app <app-name>"
-                )
-            ]
+            return [text("Usage: hop3 domain clear --app <app>")]
 
         app = get_app(self.db_session, app_name)
         had = _current_hosts(app)

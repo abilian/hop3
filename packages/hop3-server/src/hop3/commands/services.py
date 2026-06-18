@@ -626,7 +626,7 @@ class AddonCreateCmd(Command):
                 f"Addon '{addon_name}' of type '{service_type}' created successfully."
             ),
             text(
-                f"\nTo attach this service to an app, run:\n  hop3 addon attach {addon_name} --app <app-name>"
+                f"\nTo attach this service to an app, run:\n  hop3 addon attach {addon_name} --app <app>"
             ),
             summary(f"created addon '{addon_name}' ({service_type})."),
         ]
@@ -640,7 +640,7 @@ class AddonAttachCmd(Command):
     This command injects the service's connection details as environment
     variables into the specified application.
 
-    Usage: hop3 addon attach <name> --app <app-name> [--type <type>]
+    Usage: hop3 addon attach <name> --app <app> [--type <type>]
 
     Examples:
         hop3 addon attach my-database --app my-app --type postgres
@@ -723,7 +723,7 @@ class AddonAttachCmd(Command):
         if not addon_name:
             return [
                 text(
-                    "Usage: hop3 addon attach <name> --app <app-name> [--type <type>]\n\n"
+                    "Usage: hop3 addon attach <name> --app <app> [--type <type>]\n\n"
                     "Example:\n"
                     "  hop3 addon attach my-database --app my-app --type postgres"
                 )
@@ -740,7 +740,7 @@ class AddonAttachCmd(Command):
             return [
                 error(
                     "Error: --app parameter is required\n\n"
-                    "Usage: hop3 addon attach <name> --app <app-name>"
+                    "Usage: hop3 addon attach <name> --app <app>"
                 )
             ]
 
@@ -845,7 +845,7 @@ class AddonDetachCmd(Command):
 
     This removes the service's environment variables from the application.
 
-    Usage: hop3 addon detach <name> --app <app-name> [--type <type>]
+    Usage: hop3 addon detach <name> --app <app> [--type <type>]
 
 
     Examples:
@@ -898,7 +898,7 @@ class AddonDetachCmd(Command):
         if not addon_name:
             return [
                 text(
-                    "Usage: hop3 addon detach <name> --app <app-name> [--type <type>]\n\n"
+                    "Usage: hop3 addon detach <name> --app <app> [--type <type>]\n\n"
                     "Example:\n"
                     "  hop3 addon detach my-database --app my-app"
                 )

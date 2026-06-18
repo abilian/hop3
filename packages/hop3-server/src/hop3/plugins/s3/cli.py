@@ -155,6 +155,8 @@ class AddonS3ExportCmd(Command):
     """Stream an S3 addon dump to stdout.
 
     Usage: hop3 addon s3 export <name> > dump
+    Writes the addon's dump (manifest + bucket data) to the client's stdout —
+    redirect it to a file or pipe it elsewhere.
 
     Examples:
         hop3 addon s3 export mybucket > mybucket.dump

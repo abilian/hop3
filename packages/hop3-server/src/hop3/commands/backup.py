@@ -31,7 +31,7 @@ from ._response import success, summary, table, text
 class BackupCreateCmd(Command):
     """Create a backup of an application.
 
-    Usage: hop3 backup create --app <app> [--no-addons]
+    Usage: hop3 backup create [--app <app>] [--no-addons]
 
     Examples:
         hop3 backup create --app my-app
@@ -50,7 +50,7 @@ class BackupCreateCmd(Command):
         if app_name is None:
             return [
                 text(
-                    "Usage: hop3 backup create --app <app> [--no-addons]\n\n"
+                    "Usage: hop3 backup create [--app <app>] [--no-addons]\n\n"
                     "Example:\n"
                     "  hop3 backup create --app my-app"
                 )
