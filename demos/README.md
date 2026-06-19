@@ -26,7 +26,7 @@ If you're a Hop3 developer, tester, or test-writer, this is what you need:
 3. **How do I test my *local* hop3-server changes?** → `--local` (see below)
 4. **How is this different from `hop3-test` / tutorials?** → [Where demos fit](#where-demos-fit)
 5. **How do I write a new demo?** → [Writing a demo](#writing-a-demo)
-6. **Where's the full option reference?** → `python demos/demo.py --help`
+6. **Where's the full option reference?** → `python demos/demo.py run --help` / `list --help`
 
 ---
 
@@ -35,28 +35,48 @@ If you're a Hop3 developer, tester, or test-writer, this is what you need:
 Always run **from the repository root**. The entry point is `demos/demo.py`
 (there is no `demos` package — call the file directly).
 
-There are two backends:
+There are two subcommands — **`run`** and **`list`** — and two backends:
 
 ```bash
 # Local Docker container — no remote server needed (easiest; what CI uses)
-python demos/demo.py --backend docker demo01
+python demos/demo.py run --backend docker demo01
 
 # Remote server over SSH (root@host with key auth)
-python demos/demo.py --host <server_ip> demo01
+python demos/demo.py run --host <server_ip> demo01
 ```
+
+(A bare invocation like `python demos/demo.py --backend docker demo01` is treated
+as `run …`, so old muscle memory keeps working.)
 
 Common variants (the same on either backend):
 
 ```bash
-python demos/demo.py --list                          # names + titles of all demos
-python demos/demo.py --inventory                     # detailed per-demo inventory
-python demos/demo.py --backend docker                # run ALL demos
-python demos/demo.py --backend docker demo01 demo04  # run a few
-python demos/demo.py --backend docker --local demo01 # test LOCAL hop3-server code (rsync)
-python demos/demo.py --backend docker --keep demo01  # leave the app running afterwards
-python demos/demo.py --host <ip> --pause 2 --keep    # screencast pace, keep apps up
-python demos/demo.py --backend docker ~/my-flask-app # run YOUR app (generic demo, no script)
+python demos/demo.py list                                # names + titles of all demos
+python demos/demo.py list -v                             # detailed inventory + feature tags
+python demos/demo.py run --backend docker                # run ALL demos
+python demos/demo.py run --backend docker demo01 demo04  # run a few
+python demos/demo.py run --backend docker --local demo01 # test LOCAL hop3-server code (rsync)
+python demos/demo.py run --backend docker --keep demo01  # leave the app running afterwards
+python demos/demo.py run --host <ip> --pause 2 --keep    # screencast pace, keep apps up
+python demos/demo.py run --backend docker ~/my-flask-app # run YOUR app (generic demo, no script)
 ```
+
+### Selecting demos by feature
+
+Every demo has **namespaced capability tags** computed from its `hop3.toml` and
+the commands it runs — `builder:docker`, `toolchain:go`, `addon:postgres`,
+`extra:backup`, … (a demo script can also declare extras via `FEATURES = {…}`).
+See them with `list -v`, and filter with `--select` / `--skip` (on `run` or
+`list`):
+
+```bash
+python demos/demo.py list --select toolchain:python              # only Python demos
+python demos/demo.py run  --select addon:postgres --skip extra:backup
+python demos/demo.py list --select toolchain:go,toolchain:ruby   # OR within one flag
+```
+
+`--select` is AND across repeated flags (OR within a comma-separated value);
+`--skip` is OR; a bare namespace (`--skip addon`) matches any value in it.
 
 Makefile shortcuts run the whole suite as tests:
 
@@ -66,8 +86,7 @@ make test-demos-ssh      # all demos on $HOP3_DEV_HOST
 make test-demos          # both
 ```
 
-For every flag (`--ssh-user`, `--admin-*`, `--quiet`/`--silent`/`--verbose`,
-`--skip-install`, …) and exit codes, see `python demos/demo.py --help`.
+For every flag, see `python demos/demo.py run --help` (and `list --help`).
 
 ---
 
@@ -119,6 +138,10 @@ DESCRIPTION = "One paragraph: what this demonstrates."
 APP_NAME = "demoXX"
 APP_DIR = Path(__file__).parent / "app"
 REQUIRES: list[str] = []   # e.g. ["docker"] — the demo is skipped if unmet
+# Optional: capability tags that can't be auto-detected (e.g. an addon you
+# provision through a helper). Merged with the computed builder/toolchain/
+# addon/extra tags. Namespaced — see `list -v`.
+FEATURES = {"extra:my-feature"}
 
 def run(ctx: DemoContext) -> None:
     # IMPORTANT: import lib INSIDE run() — the launcher puts demos/ on sys.path
@@ -149,7 +172,7 @@ Conventions that matter (learned the hard way):
   (`demo01` simplest, `demo60` the broad CLI tour) as templates.
 
 **No script needed?** Point the launcher at any Hop3-compatible app directory
-(`python demos/demo.py --backend docker ~/my-app`) and the **generic demo**
+(`python demos/demo.py run --backend docker ~/my-app`) and the **generic demo**
 detects the app type (`hop3.toml`/`Dockerfile`/`requirements.txt`/`package.json`/
 `Procfile`), deploys, hostnames, tests, and cleans up automatically.
 

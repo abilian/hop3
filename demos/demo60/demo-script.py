@@ -67,6 +67,12 @@ USER_NAME = "demo60user"
 # are optional and handled gracefully, so nothing is declared mandatory.
 REQUIRES: list[str] = []
 
+# Extra capability tags that can't be auto-detected: the addon tour provisions
+# all four types through a helper (`addon_type_tour("postgres")` etc.), so the
+# literal `addon create <type>` scanner can't see them. (`extra:*` tags for
+# backup/domains/scaling/… are auto-detected from the commands below.)
+FEATURES = {"addon:postgres", "addon:mysql", "addon:redis", "addon:s3"}
+
 _BACKUP_ID_RE = re.compile(r"\b\d{8}_\d{6}_[0-9a-f]+\b")
 
 
