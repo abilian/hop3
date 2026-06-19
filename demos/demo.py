@@ -29,7 +29,10 @@ DEMOS_DIR = Path(__file__).parent
 if str(DEMOS_DIR) not in sys.path:
     sys.path.insert(0, str(DEMOS_DIR))
 
+import fcntl
+import os
 import secrets
+import tempfile
 import time
 
 from lib.cli import create_parser
@@ -87,12 +90,58 @@ def main() -> int:
     return _cmd_run(args)
 
 
+_RUN_LOCK_PATH = Path(tempfile.gettempdir()) / "hop3-demo-run.lock"
+_run_lock_fd: int | None = None  # held open for the whole process; lock frees on exit
+
+
+def _acquire_run_lock() -> bool:
+    """Take a machine-wide exclusive lock so only one demo run executes at a time.
+
+    Demo runs share a single CLI config home (demos/.cli-home) and mutate a
+    shared target server (deploy/destroy apps, create/destroy addons), so two
+    concurrent runs corrupt each other's CLI context (target + auth) and collide
+    on server resources. Returns False (after explaining why) if another run
+    holds the lock. The lock is released automatically when this process exits —
+    including on a crash/kill — so there is no stale-lock-from-death problem.
+    """
+    global _run_lock_fd
+    fd = os.open(_RUN_LOCK_PATH, os.O_RDWR | os.O_CREAT, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        try:
+            held_by = os.read(fd, 256).decode(errors="replace").strip()
+        except OSError:
+            held_by = ""
+        os.close(fd)
+        print_error(
+            "Another demo run is already in progress"
+            + (f" ({held_by})" if held_by else "")
+            + ".\n  Demo runs share a CLI config home and a target server, so they "
+            "must run one at a time.\n  Wait for it to finish, or remove a stale "
+            f"lock: {_RUN_LOCK_PATH}"
+        )
+        return False
+    os.ftruncate(fd, 0)
+    os.write(
+        fd, f"pid={os.getpid()} since={time.strftime('%Y-%m-%d %H:%M:%S')}".encode()
+    )
+    os.fsync(fd)
+    _run_lock_fd = fd  # keep the fd open; flock releases when it closes (on exit)
+    return True
+
+
 def _cmd_run(args) -> int:
     """Run the selected demos (the `run` subcommand)."""
     if args.backend != "docker" and not args.host:
         print_error("Missing --host (or use --backend docker)")
         print_info("Run 'python demos/demo.py run --help' for usage")
         return 2
+
+    # Serialize demo runs: concurrent runs would clobber the shared CLI config
+    # home and collide on the shared target server.
+    if not _acquire_run_lock():
+        return 3
 
     # Determine output level
     output_level = _get_output_level(args)
