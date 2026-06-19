@@ -8,6 +8,7 @@ stdout is a real terminal, not when piped to a file or another program.
 
 from __future__ import annotations
 
+import sys
 import time
 from typing import TYPE_CHECKING
 
@@ -106,6 +107,22 @@ def print_phase_result(*, success: bool) -> None:
             print(red("FAIL"))
 
 
+def print_failure_detail(error: str, log_dir: object = None) -> None:
+    """Print a concise, actionable failure reason under a quiet FAIL line.
+
+    QUIET only: it comes *after* the completed ``FAIL`` marker (so the progress
+    column stays scannable) and gives the cause plus where to find full output.
+    NORMAL/VERBOSE already print full inline detail; SILENT surfaces errors via
+    the end-of-run summary.
+    """
+    if _output_level != 1:  # QUIET only
+        return
+    if error:
+        print(f"    {red('!')} {error}")
+    if log_dir:
+        print(f"    {dim('logs: ' + str(log_dir))}")
+
+
 def print_step(message: str) -> None:
     """Print a step description."""
     if _output_level < 2:  # SILENT or QUIET
@@ -130,11 +147,18 @@ def print_success(message: str) -> None:
 
 
 def print_error(message: str) -> None:
-    """Print an error message."""
-    if _output_level == 0:  # SILENT
-        print(f"Error: {message}")
-        return
+    """Print an error message.
 
+    QUIET keeps the per-demo flow clean: the inline error is suppressed (the
+    FAIL marker + the end-of-run summary carry the failure, and full detail is
+    in the log file). SILENT emits errors only — to stderr, so stdout stays
+    clean. NORMAL+ prints inline.
+    """
+    if _output_level == 0:  # SILENT — errors only, on stderr
+        print(f"Error: {message}", file=sys.stderr)
+        return
+    if _output_level == 1:  # QUIET — don't shred the result line
+        return
     print(f"{red('[ERROR]')} {message}")
 
 
@@ -146,8 +170,8 @@ def print_info(message: str) -> None:
 
 
 def print_warning(message: str) -> None:
-    """Print a warning message."""
-    if _output_level == 0:  # SILENT
+    """Print a warning message (NORMAL+ only; noise in quiet/silent)."""
+    if _output_level < 2:  # SILENT or QUIET
         return
     print(f"{yellow('[WARN]')} {message}")
 

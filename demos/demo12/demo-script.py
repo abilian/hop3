@@ -109,7 +109,7 @@ def run(ctx: DemoContext) -> None:
     # Create a backup
     print_header("Step 3: Create Backup")
     print_step(f"Creating backup of '{APP_NAME}'...")
-    result = run_hop3(f"backup create {APP_NAME}", check=False)
+    result = run_hop3(f"backup create --app {APP_NAME}", check=False)
 
     backup_id = None
     if result.returncode != 0:
@@ -132,7 +132,7 @@ def run(ctx: DemoContext) -> None:
     if not backup_id:
         print_warning("Could not extract backup ID from output.")
         # Try to get it from backup list
-        list_result = run_hop3(f"backup list {APP_NAME}", check=False, show=False)
+        list_result = run_hop3(f"backup list --app {APP_NAME}", check=False, show=False)
         if list_result.stdout:
             # Look for backup ID in table output (first column after header)
             lines = list_result.stdout.strip().split("\n")

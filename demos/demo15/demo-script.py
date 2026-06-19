@@ -158,7 +158,7 @@ def run(ctx: DemoContext) -> None:
             f"addon detach {DB_NAME} --app {APP_NAME} --service-type postgres",
             check=False,
         )
-        run_hop3(f"addon destroy {DB_NAME} --service-type postgres", check=False)
+        run_hop3(f"addon destroy {DB_NAME} --service-type postgres -y", check=False)
         print_success("Database cleaned up.")
         pause(ctx.pause_between_steps)
     else:

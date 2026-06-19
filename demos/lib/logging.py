@@ -596,7 +596,7 @@ def timed(
 
     Usage:
         with timed("deploy app", category="deploy"):
-            run_hop3("deploy --app myapp")
+            run_hop3("deploy --app myapp --force")
     """
     start = time.time()
     try:

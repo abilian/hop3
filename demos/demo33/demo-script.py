@@ -60,7 +60,7 @@ def run(ctx: DemoContext) -> None:
     app_url = f"https://{app_hostname}"
 
     # Clean up any leftover database from previous failed runs
-    run_hop3(f"addon destroy {DB_NAME} --service-type postgres", check=False, show=False)
+    run_hop3(f"addon destroy {DB_NAME} --service-type postgres -y", check=False, show=False)
 
     # Show app structure
     print_header("Deploying App with Declarative PostgreSQL Provider")
@@ -169,7 +169,7 @@ def run(ctx: DemoContext) -> None:
             f"addon detach {DB_NAME} --app {APP_NAME} --service-type postgres",
             check=False,
         )
-        run_hop3(f"addon destroy {DB_NAME} --service-type postgres", check=False)
+        run_hop3(f"addon destroy {DB_NAME} --service-type postgres -y", check=False)
         print_success("Database cleaned up.")
         pause(ctx.pause_between_steps)
     else:
