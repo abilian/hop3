@@ -182,13 +182,13 @@ For testing and demonstrations, use the demo launcher:
 
 ```bash
 # Basic demo (apps cleaned up after)
-python demos/demo.py --host <your-server-ip> demo1
+python demos/demo.py run --host <your-server-ip> demo01
 
 # Keep apps running with admin domain
-python demos/demo.py --host <your-server-ip> --admin-domain hop3.example.com --keep demo1
+python demos/demo.py run --host <your-server-ip> --admin-domain hop3.example.com --keep demo01
 
 # Use local code (development)
-python demos/demo.py --host <your-server-ip> --local --keep demo1
+python demos/demo.py run --host <your-server-ip> --local --keep demo01
 ```
 
 The demo launcher will:
