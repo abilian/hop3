@@ -60,10 +60,13 @@ def deploy_app(ctx: DemoContext, app_name: str, app_dir: Path) -> None:
     try:
         os.chdir(app_dir)
         with timed(f"deploy {app_name}", category="deploy"):
-            # -y: skip the preview-and-confirm prompt (ADR 042). The demo
-            # runs non-interactively; without it, `hop3 deploy` blocks on
-            # "Deploy? [y/N]" when stdin is an inherited tty.
-            run_hop3(f"deploy --app {app_name} -y")
+            # --force: demos deploy a shared app template under a demo-specific
+            # name (e.g. "demo01"), which need not match the app's
+            # [metadata].id ("hello-hop3"). --force tells the CLI "yes, deploy
+            # the resolved --app here" — bypassing the project-id mismatch guard
+            # — and also implies skip-confirm (so the non-interactive demo
+            # doesn't block on the deploy prompt). See core/project_guard.py.
+            run_hop3(f"deploy --app {app_name} --force")
     finally:
         os.chdir(original_dir)
     print_success("Application deployed")
@@ -103,8 +106,8 @@ def redeploy_app(ctx: DemoContext, app_name: str, app_dir: Path) -> None:
     try:
         os.chdir(app_dir)
         with timed(f"redeploy {app_name}", category="deploy"):
-            # -y: non-interactive deploy (see deploy_app).
-            run_hop3(f"deploy --app {app_name} -y")
+            # --force: bypass the project-id guard + skip-confirm (see deploy_app).
+            run_hop3(f"deploy --app {app_name} --force")
     finally:
         os.chdir(original_dir)
 
@@ -335,48 +338,54 @@ def test_app_via_curl(
         # Got a different error, fail immediately
         break
 
-    # Determine if it's a connection issue or content mismatch
+    # Determine if it's a connection issue or content mismatch (needed for the
+    # raised message regardless of output level).
     if last_result and last_result.returncode == 0 and last_result.stdout:
-        # Got a response but content didn't match
-        print_error(f"Content validation failed for {app_url}")
-        print(f"  {yellow('Expected:')} '{expected_content}'")
-        print(f"  {yellow('Actual response:')} ({len(last_result.stdout)} bytes)")
-        # Show more of the response for debugging
-        print(f"  {last_result.stdout[:500].strip()}")
         error_type = "content_mismatch"
     else:
-        # Connection or other error
-        print_error(f"Failed to access application at {app_url}")
-        print(f"  {yellow('Expected:')} '{expected_content}'")
         error_type = "connection_error"
-        if last_result and last_result.stdout:
-            print(f"  {yellow('Got response:')} ({len(last_result.stdout)} bytes)")
+
+    # Inline diagnostics at NORMAL+ only; in quiet/silent this ~40-line dump
+    # would land mid-line and shred the per-demo result line. The full detail is
+    # logged via log_section below and the failure surfaces in the run summary.
+    if get_output_level() >= 2:  # NORMAL or VERBOSE
+        if error_type == "content_mismatch":
+            print_error(f"Content validation failed for {app_url}")
+            print(f"  {yellow('Expected:')} '{expected_content}'")
+            print(f"  {yellow('Actual response:')} ({len(last_result.stdout)} bytes)")
+            # Show more of the response for debugging
             print(f"  {last_result.stdout[:500].strip()}")
-
-    print(f"  {yellow('Curl command:')} {curl_cmd}")
-    if last_result:
-        print(f"  {yellow('Exit code:')} {last_result.returncode}")
-        if last_result.stderr:
-            print(f"  {yellow('Stderr:')}")
-            print(f"  {last_result.stderr[:200].strip()}")
-
-    # Try to get app logs for debugging
-    # Extract app name from URL (e.g., demo13.hop3.dev -> demo13)
-    app_name_from_url = hostname.split(".")[0] if hostname else None
-    if app_name_from_url:
-        print_info(f"  Fetching logs for '{app_name_from_url}'...")
-        logs_result = run_hop3(
-            f"app logs {app_name_from_url} --lines 50",
-            check=False,
-            show=False,
-            quiet=True,
-        )
-        if logs_result.returncode == 0 and logs_result.stdout:
-            print(f"  {yellow('Recent app logs:')}")
-            for line in logs_result.stdout.strip().split("\n")[-30:]:
-                print(f"    {line}")
         else:
-            print_info("  (No logs available or app not found)")
+            print_error(f"Failed to access application at {app_url}")
+            print(f"  {yellow('Expected:')} '{expected_content}'")
+            if last_result and last_result.stdout:
+                print(f"  {yellow('Got response:')} ({len(last_result.stdout)} bytes)")
+                print(f"  {last_result.stdout[:500].strip()}")
+
+        print(f"  {yellow('Curl command:')} {curl_cmd}")
+        if last_result:
+            print(f"  {yellow('Exit code:')} {last_result.returncode}")
+            if last_result.stderr:
+                print(f"  {yellow('Stderr:')}")
+                print(f"  {last_result.stderr[:200].strip()}")
+
+        # Try to get app logs for debugging
+        # Extract app name from URL (e.g., demo13.hop3.dev -> demo13)
+        app_name_from_url = hostname.split(".")[0] if hostname else None
+        if app_name_from_url:
+            print_info(f"  Fetching logs for '{app_name_from_url}'...")
+            logs_result = run_hop3(
+                f"app logs --app {app_name_from_url} --lines 50",
+                check=False,
+                show=False,
+                quiet=True,
+            )
+            if logs_result.returncode == 0 and logs_result.stdout:
+                print(f"  {yellow('Recent app logs:')}")
+                for line in logs_result.stdout.strip().split("\n")[-30:]:
+                    print(f"    {line}")
+            else:
+                print_info("  (No logs available or app not found)")
 
     # Log curl details to file for debugging
     from lib.logging import log_section

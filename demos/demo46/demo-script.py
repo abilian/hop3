@@ -62,7 +62,7 @@ def run(ctx: DemoContext) -> None:
     pause(ctx.pause_between_steps)
 
     # Clean up any leftover MySQL addon from previous failed runs
-    run_hop3(f"addon destroy {MYSQL_NAME} --service-type mysql", check=False, show=False)
+    run_hop3(f"addon destroy {MYSQL_NAME} --service-type mysql -y", check=False, show=False)
 
     # Show app structure
     print_header("Deploying PHP + MySQL")
@@ -137,7 +137,7 @@ def run(ctx: DemoContext) -> None:
         f"addon detach {MYSQL_NAME} --app {APP_NAME} --service-type mysql",
         check=False,
     )
-    run_hop3(f"addon destroy {MYSQL_NAME} --service-type mysql", check=False)
+    run_hop3(f"addon destroy {MYSQL_NAME} --service-type mysql -y", check=False)
     print_success("MySQL cleaned up.")
 
     cleanup_app(ctx, APP_NAME, app_url)
