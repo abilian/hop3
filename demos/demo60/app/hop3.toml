@@ -1,0 +1,18 @@
+# hop3.toml — demo60 (CLI surface tour app)
+
+[metadata]
+id = "demo60"
+version = "0.1.0"
+title = "Demo 60 — CLI surface tour"
+author = "Hop3 Demo"
+description = "A tiny Flask app used to give the CLI-surface demo a real deploy target."
+
+[build]
+# Local builder — Python toolchain auto-detected from requirements.txt.
+builder = "local"
+
+[run]
+start = "gunicorn --workers 2 --bind 0.0.0.0:$PORT app:app"
+
+[healthcheck]
+path = "/health"

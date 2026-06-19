@@ -38,7 +38,7 @@ def ensure_app_removed(app_name: str) -> None:
         app_name: Name of the application to remove if it exists
     """
     # Try to destroy the app, ignoring errors if it doesn't exist
-    run_hop3(f"app destroy {app_name} -y", check=False, show=False, quiet=True)
+    run_hop3(f"app destroy --app {app_name} -y", check=False, show=False, quiet=True)
     # Wait for uwsgi emperor to fully clean up the process
     # Longer delay helps prevent race conditions with gunicorn workers
     time.sleep(5)
@@ -63,7 +63,7 @@ def deploy_app(ctx: DemoContext, app_name: str, app_dir: Path) -> None:
             # -y: skip the preview-and-confirm prompt (ADR 042). The demo
             # runs non-interactively; without it, `hop3 deploy` blocks on
             # "Deploy? [y/N]" when stdin is an inherited tty.
-            run_hop3(f"deploy {app_name} -y")
+            run_hop3(f"deploy --app {app_name} -y")
     finally:
         os.chdir(original_dir)
     print_success("Application deployed")
@@ -79,7 +79,7 @@ def set_hostname(ctx: DemoContext, app_name: str, hostname: str) -> None:
         hostname: Hostname to set
     """
     print_step(f"Configuring hostname: {hostname}")
-    run_hop3(f"config set {app_name} HOST_NAME={hostname}")
+    run_hop3(f"config set --app {app_name} HOST_NAME={hostname}")
     print_success(f"Hostname set to {hostname}")
     pause(ctx.pause_between_steps)
 
@@ -104,7 +104,7 @@ def redeploy_app(ctx: DemoContext, app_name: str, app_dir: Path) -> None:
         os.chdir(app_dir)
         with timed(f"redeploy {app_name}", category="deploy"):
             # -y: non-interactive deploy (see deploy_app).
-            run_hop3(f"deploy {app_name} -y")
+            run_hop3(f"deploy --app {app_name} -y")
     finally:
         os.chdir(original_dir)
 
@@ -118,7 +118,7 @@ def _get_app_config(app_name: str) -> dict[str, str]:
     Returns:
         Dict of config key-value pairs.
     """
-    result = run_hop3(f"config show {app_name}", check=False, show=False, quiet=True)
+    result = run_hop3(f"config show --app {app_name}", check=False, show=False, quiet=True)
     config = {}
     if result.returncode == 0 and result.stdout:
         lines = result.stdout.strip().split("\n")
@@ -152,7 +152,7 @@ def _restore_app_config(app_name: str, config: dict[str, str]) -> None:
         config: Dict of config key-value pairs
     """
     for key, value in config.items():
-        run_hop3(f"config set {app_name} {key}={value}", show=False, quiet=True)
+        run_hop3(f"config set --app {app_name} {key}={value}", show=False, quiet=True)
 
 
 def wait_for_app(
@@ -205,7 +205,7 @@ def wait_for_app_ready(
 
     while time.time() - start < timeout:
         attempts += 1
-        result = run_hop3(f"app ping {app_name}", check=False, show=False, quiet=True)
+        result = run_hop3(f"app ping --app {app_name}", check=False, show=False, quiet=True)
         if result.returncode == 0:
             elapsed = time.time() - start
             record_timing(
@@ -233,7 +233,7 @@ def check_app_status(ctx: DemoContext, app_name: str) -> None:
         app_name: Name of the application
     """
     print_step("Checking application status...")
-    run_hop3(f"app status {app_name}")
+    run_hop3(f"app status --app {app_name}")
     print_success("Application is running")
     pause(ctx.pause_between_steps)
 
@@ -475,7 +475,7 @@ def test_app_via_hop3(
     if is_static:
         print_info("Static app - skipping internal ping (served directly by nginx).")
     else:
-        run_hop3(f"app ping {app_name}", check=False)
+        run_hop3(f"app ping --app {app_name}", check=False)
     pause(ctx.pause_between_steps)
 
 
@@ -498,7 +498,7 @@ def show_config(ctx: DemoContext, app_name: str) -> None:
         app_name: Name of the application
     """
     print_step("Viewing environment variables...")
-    run_hop3(f"config show {app_name}")
+    run_hop3(f"config show --app {app_name}")
     pause(ctx.pause_between_steps)
 
 
@@ -512,7 +512,7 @@ def set_env_vars(ctx: DemoContext, app_name: str, **env_vars: str) -> None:
     """
     print_step("Setting environment variables...")
     vars_str = " ".join(f"{k}={v}" for k, v in env_vars.items())
-    run_hop3(f"config set {app_name} {vars_str}")
+    run_hop3(f"config set --app {app_name} {vars_str}")
     pause(ctx.pause_between_steps)
 
 
@@ -525,7 +525,7 @@ def restart_app(ctx: DemoContext, app_name: str, wait_seconds: int = 2) -> None:
         wait_seconds: Seconds to wait after restart
     """
     print_step("Restarting application...")
-    run_hop3(f"app restart {app_name}")
+    run_hop3(f"app restart --app {app_name}")
     time.sleep(wait_seconds)
     print_success("Application restarted")
     pause(ctx.pause_between_steps)
@@ -543,7 +543,7 @@ def cleanup_app(ctx: DemoContext, app_name: str, app_url: str) -> None:
         print_header("Cleanup")
         print_step(f"Destroying the {app_name} application...")
         with timed(f"destroy {app_name}", category="cleanup"):
-            run_hop3(f"app destroy {app_name} -y")
+            run_hop3(f"app destroy --app {app_name} -y")
         print_success("Application destroyed")
         # Wait briefly to ensure uwsgi emperor has fully cleaned up the process
         time.sleep(1)

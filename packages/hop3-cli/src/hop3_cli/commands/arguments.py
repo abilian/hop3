@@ -373,7 +373,7 @@ def generate_archive(source_dir: Path, verbosity: int = 1) -> bytes:
             f"Directory not found: {source_dir}\n\n"
             f"Make sure you are in the directory containing your application code,\n"
             f"or specify the path as the last argument:\n"
-            f"  hop3 deploy <app_name> /path/to/app"
+            f"  hop3 deploy --app <app> /path/to/app"
         )
         raise FileNotFoundError(msg)
     if not source_dir.is_dir():
