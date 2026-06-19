@@ -826,7 +826,7 @@ class AddonAttachCmd(Command):
             response.append(warning("\nWARNING: No environment variables were added!"))
         response.append(
             text(
-                f"\nRedeploy your app for changes to take effect:\n  hop3 deploy {app_name}"
+                f"\nRedeploy your app for changes to take effect:\n  hop3 deploy --app {app_name}"
             )
         )
         response.append(
