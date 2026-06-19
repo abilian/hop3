@@ -567,12 +567,19 @@ class AppLauncher:
             env_vars_keys=list(runtime_env.keys()),
         )
 
-        # Always pick a fresh port for each deployment
-        # The uwsgi configs are removed by _handle_auto_restart and recreated,
-        # so nginx and uwsgi will always be in sync with the same port
+        # Keep the app's port STABLE across redeploys: reuse the port already
+        # persisted on the App (assigned on the first deploy) and only allocate
+        # a fresh one when the app has none yet. A port that changes on every
+        # deploy is the root cause of stale-nginx 502s — a redeploy that moves
+        # the port but doesn't re-reach a successful proxy rewrite+reload leaves
+        # nginx proxying the dead old port while the app is healthy on the new one.
         if "PORT" not in env:
-            port = env["PORT"] = str(get_free_port())
-            log(f"Picked free port: {port}", level=3)
+            if self.app.port:
+                port = env["PORT"] = str(self.app.port)
+                log(f"Reusing assigned port: {port}", level=3)
+            else:
+                port = env["PORT"] = str(get_free_port())
+                log(f"Picked free port: {port}", level=3)
 
         if env.get_bool("DISABLE_IPV6"):
             safe_defaults.pop("NGINX_IPV6_ADDRESS", None)
