@@ -37,3 +37,6 @@ demos/.cli-home/
 # hop3-testlab cloud config — holds secrets (token / ssh key); keep the .example
 /config.toml
 /packages/hop3-testlab/config.toml
+
+# Docs
+/docs/src/developers/adrs/
