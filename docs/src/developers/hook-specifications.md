@@ -364,16 +364,11 @@ def get_di_providers() -> list:
         ```python
         from dishka import Provider, provide, Scope
 
-        class MyPluginProvider(Provider):
-            scope = Scope.APP
+        class MyPluginProvider(Provider): scope = Scope.APP
 
-            @provide
-            def get_my_service(self) -> MyService:
-                return MyService()
+            @provide def get_my_service(self) -> MyService: return MyService()
 
-        @hop3_hook_impl
-        def get_di_providers() -> list:
-            return [MyPluginProvider()]
+        @hop3_hook_impl def get_di_providers() -> list: return [MyPluginProvider()]
         ```
     """
 ````

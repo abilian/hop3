@@ -30,8 +30,7 @@ Here is a real slice of the Go/Fiber tutorial (`docs/tutorials/go/fiber.md`):
 Initialize the project:
 
 ```bash exec id=create-project
-mkdir hop3-tuto-fiber && cd hop3-tuto-fiber
-go mod init hop3-tuto-fiber
+mkdir hop3-tuto-fiber && cd hop3-tuto-fiber go mod init hop3-tuto-fiber
 ```
 
 Install Fiber:

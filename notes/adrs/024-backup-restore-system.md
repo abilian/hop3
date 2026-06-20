@@ -44,11 +44,7 @@ Each backup is stored as a **directory** containing:
     └── postgres_<name>.sql
 ```
 
-Path is `HopConfig.BACKUP_ROOT` (defaults to `HOP3_ROOT/backups`).
-`source.tar.gz` archives both the deployed working copy (`src/`) and
-the bare git repo (`git/`) so backups remain meaningful for both deploy
-paths Hop3 supports — git-push (populates the bare repo) and the
-JSON-RPC tarball API (writes directly to `src/`).
+Path is `HopConfig.BACKUP_ROOT` (defaults to `HOP3_ROOT/backups`). `source.tar.gz` archives both the deployed working copy (`src/`) and the bare git repo (`git/`) so backups remain meaningful for both deploy paths Hop3 supports — git-push (populates the bare repo) and the JSON-RPC tarball API (writes directly to `src/`).
 
 ### Key Design Choices
 
@@ -150,14 +146,9 @@ This provides:
 
 ### Restore Behaviour
 
-`hop3 backup restore <id>` repopulates source / data / env / addons
-**and** invokes the build+spawn pipeline at the end. After the
-command returns, the app is running again — equivalent to its
-pre-backup state. This matters for cross-instance restore on a fresh
-host, where there is no prior build state to reuse.
+`hop3 backup restore <id>` repopulates source / data / env / addons **and** invokes the build+spawn pipeline at the end. After the command returns, the app is running again — equivalent to its pre-backup state. This matters for cross-instance restore on a fresh host, where there is no prior build state to reuse.
 
-Pass `--target-app <new-name>` to restore as a clone alongside the
-original, instead of in-place.
+Pass `--target-app <new-name>` to restore as a clone alongside the original, instead of in-place.
 
 ### Cross-Instance Migration
 
@@ -173,11 +164,7 @@ Backups are portable across Hop3 instances. The operator workflow:
 4. **On B**: `hop3 backup restore <id>` (or `... --target-app NAME`
    to restore under a different name).
 
-`backup register` is idempotent and verifies the manifest checksums
-before registering — a corrupted backup is rejected with a clear
-error rather than letting `restore` fail later with a less actionable
-message. Without registration, the destination's `restore_backup`
-DB lookup misses the transferred files entirely.
+`backup register` is idempotent and verifies the manifest checksums before registering — a corrupted backup is rejected with a clear error rather than letting `restore` fail later with a less actionable message. Without registration, the destination's `restore_backup` DB lookup misses the transferred files entirely.
 
 ## Consequences
 

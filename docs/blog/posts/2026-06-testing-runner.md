@@ -79,7 +79,7 @@ The Makefile wraps the common cases: `make test-apps` (the catalog on Docker), `
 The prerequisites follow directly from "it deploys real apps to real machines":
 
 - **For `--docker` (the default):** a working Docker daemon. The runner deploys Hop3 into a container and treats it as the target. This is the path CI uses and the one a developer should reach for first — it needs nothing but Docker and is fast with `--reuse` against a cached image.
-- **For `--ssh --host`:** a reachable target (Ubuntu 22.04/24.04) with **root, key-based SSH**. This is for the system-level behaviour Docker can't fully reproduce — systemd units, the privileged-operations agent ([ADR 041](/developers/adrs/041-privileged-operations-agent/)), nginx reloads, real file permissions.
+- **For `--ssh --host`:** a reachable target (Ubuntu 24.04/26.04) with **root, key-based SSH**. This is for the system-level behaviour Docker can't fully reproduce — systemd units, the privileged-operations agent ([ADR 041](/developers/adrs/041-privileged-operations-agent/)), nginx reloads, real file permissions.
 - **For cloud targets:** a `HETZNER_API_TOKEN` and an SSH key registered with the provider. The runner provisions throwaway servers, deploys to them, and tears them down for cost control.
 - **The catalog itself:** the test apps live under `apps/` (`real-apps-native/`, `real-apps-nix/`, `real-apps-nix-gen/`, `test-apps-procfile/`, `test-apps-nix/`) and the demos under `demos/`. Adding an app to the catalog is as simple as giving it a `[test]` section.
 

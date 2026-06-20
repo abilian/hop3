@@ -297,8 +297,7 @@ No separate bootstrap needed for web portal.
 
 ## Backwards Compatibility
 
-The bootstrap mechanism is additive and layers on top of the existing public
-auth flow, which is unchanged:
+The bootstrap mechanism is additive and layers on top of the existing public auth flow, which is unchanged:
 
 - `auth register` is public (creates non-admin users)
 - `auth login` is public (returns token)
@@ -308,8 +307,7 @@ The bootstrap introduces, without breaking anything above:
 1. **The `hop3-server` CLI** — a server-side entry point.
 2. **The `hop3 init --ssh` command** — a client-side bootstrap convenience.
 
-Existing users and tokens remain valid, and no existing command changes
-behaviour.
+Existing users and tokens remain valid, and no existing command changes behaviour.
 
 ---
 

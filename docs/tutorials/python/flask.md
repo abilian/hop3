@@ -410,9 +410,7 @@ hop3 init --ssh root@your-server.example.com
 
 ### Deploy
 
-Deploy the application (first deployment creates the app). `SECRET_KEY` is
-generated automatically from the `hop3.toml` `[env]` declaration before the app
-boots, so the first deploy comes up cleanly — no placeholder, no crash:
+Deploy the application (first deployment creates the app). `SECRET_KEY` is generated automatically from the `hop3.toml` `[env]` declaration before the app boots, so the first deploy comes up cleanly — no placeholder, no crash:
 
 ```bash exec id=deploy dir=hop3-tuto-flask timeout=120
 hop3 deploy --app hop3-tuto-flask

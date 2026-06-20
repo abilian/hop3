@@ -491,9 +491,7 @@ hop3 addons attach hop3-tuto-laravel hop3-tuto-laravel-db
 
 ### Set Environment Variables
 
-There's nothing to set by hand: `APP_KEY` is generated automatically on the
-first deploy, and `APP_ENV` / `APP_DEBUG` / `LOG_CHANNEL` are declared in
-`hop3.toml` `[env]` (above).
+There's nothing to set by hand: `APP_KEY` is generated automatically on the first deploy, and `APP_ENV` / `APP_DEBUG` / `LOG_CHANNEL` are declared in `hop3.toml` `[env]` (above).
 
 ### Prepare for Deployment
 
@@ -502,8 +500,7 @@ remove the JS manifests so the builder doesn't mistake this for a multi-language
 project (Vite isn't needed for a basic deployment):
 - `package.json` / `package-lock.json` / `vite.config.js` - prevent Node mis-detection
 
-The server runs `composer install --no-dev --optimize-autoloader` from the
-committed `composer.lock` for a reproducible production build.
+The server runs `composer install --no-dev --optimize-autoloader` from the committed `composer.lock` for a reproducible production build.
 
 ```bash exec id=prep-deploy dir=hop3-tuto-laravel
 rm -f package.json package-lock.json vite.config.js

@@ -5,11 +5,7 @@
 **Created**: 2026-03-05
 **Related-ADRs**: 018, 019, 025, 031, 039, 042
 
-The app-resolution chain (D7) and sticky-context state (D8) are superseded by
-[ADR 042](042-cli-context-model.md): "context" names a project environment and
-"server" the credentialed binding, and the resolution chains are redefined there.
-The body of D7/D8 is retained for the record, with in-section supersession notes.
-All other decisions remain authoritative.
+The app-resolution chain (D7) and sticky-context state (D8) are superseded by [ADR 042](042-cli-context-model.md): "context" names a project environment and "server" the credentialed binding, and the resolution chains are redefined there. The body of D7/D8 is retained for the record, with in-section supersession notes. All other decisions remain authoritative.
 
 > **Read alongside**: [ADR 031 (Terminology)](./031-project-terminology.md), [ADR 039 (Plugin CLI extension)](../cli/plugin-mechanism-todo.md), and the evidence in [`notes/cli/`](../cli/README.md).
 

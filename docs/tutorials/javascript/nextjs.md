@@ -44,8 +44,7 @@ npm -v
 
 Create a new Next.js app with minimal configuration:
 
-Pin to the Next.js 15 generator (the latest stable line; Next 16's Turbopack
-build currently fails prerendering the built-in `/_global-error` page):
+Pin to the Next.js 15 generator (the latest stable line; Next 16's Turbopack build currently fails prerendering the built-in `/_global-error` page):
 
 ```bash exec id=create-nextjs timeout=300
 CI=true NEXT_TELEMETRY_DISABLED=1 npx --yes create-next-app@15 hop3-tuto-nextjs --yes --typescript --tailwind --eslint --app --src-dir --no-import-alias --use-npm --no-turbopack
@@ -75,8 +74,7 @@ src
 
 ### Enable Standalone Output
 
-Create `next.config.mjs` to enable standalone output mode (creates a minimal production bundle).
-This will replace any existing Next.js config:
+Create `next.config.mjs` to enable standalone output mode (creates a minimal production bundle). This will replace any existing Next.js config:
 
 ```bash exec id=remove-old-config dir=hop3-tuto-nextjs
 rm -f next.config.ts next.config.mjs next.config.js 2>/dev/null; ls -la next.config* 2>/dev/null || echo "Config files removed"
@@ -170,11 +168,7 @@ export default function Home() {
 
 ## Step 4: Build and Verify
 
-Build the application to ensure it compiles correctly. Force
-`NODE_ENV=production` for the build: `next build` must run in production, or it
-emits dev error pages (`/404`, `/_error`) that import `<Html>` and fail static
-export. (This tutorial otherwise runs with `NODE_ENV=development` so the dev
-dependencies needed to build — TypeScript, ESLint — get installed.)
+Build the application to ensure it compiles correctly. Force `NODE_ENV=production` for the build: `next build` must run in production, or it emits dev error pages (`/404`, `/_error`) that import `<Html>` and fail static export. (This tutorial otherwise runs with `NODE_ENV=development` so the dev dependencies needed to build — TypeScript, ESLint — get installed.)
 
 ```bash exec id=build-app dir=hop3-tuto-nextjs timeout=180
 NODE_ENV=production npm run build

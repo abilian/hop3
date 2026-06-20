@@ -591,9 +591,7 @@ When `builder = "nix"` is set in `[build]`, Hop3 can generate a Nix expression a
 
 ### Template Types
 
-Eight templates are available. Prefer the higher tiers when possible
-— see [Nix reference](nix.md#reproducibility-tiers) for the
-reproducibility implications.
+Eight templates are available. Prefer the higher tiers when possible — see [Nix reference](nix.md#reproducibility-tiers) for the reproducibility implications.
 
 | Template | Use case | Tier |
 |----------|----------|------|
@@ -606,11 +604,7 @@ reproducibility implications.
 | `prebuilt-archive` | Pre-compiled archive with multiple files | 3 |
 | `node-prebuilt` | Node.js apps with pre-built assets | 3 |
 
-**Tier 1 = source-built and reproducible** (use when available).
-**Tier 2 = source-built but not fully hermetic** (depends on PyPI,
-Packagist, etc. at build time).
-**Tier 3 = pre-built binary download** (x86_64-linux only, not
-reproducible from source — use only when nothing in nixpkgs fits).
+**Tier 1 = source-built and reproducible** (use when available). **Tier 2 = source-built but not fully hermetic** (depends on PyPI, Packagist, etc. at build time). **Tier 3 = pre-built binary download** (x86_64-linux only, not reproducible from source — use only when nothing in nixpkgs fits).
 
 ### Common Fields
 
@@ -694,9 +688,7 @@ post-install-dirs = ["storage/logs", "bootstrap/cache"]
 
 ### Complete Example (Gitea via nixpkgs-wrapper — Tier 1)
 
-This is the recommended pattern: wrap a nixpkgs source build with a
-startup script that generates the app.ini config from environment
-variables.
+This is the recommended pattern: wrap a nixpkgs source build with a startup script that generates the app.ini config from environment variables.
 
 ```toml
 [metadata]

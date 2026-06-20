@@ -147,10 +147,7 @@ Hugo makes it easy to create content. Run `hugo new content posts/my-post.md`,
 then edit the markdown file and rebuild your site.
 ```
 
-Add a home-page layout. Themes occasionally lag the installed Hugo release; a
-project-level `layouts/index.html` guarantees the home page renders to
-`public/index.html` regardless of the theme (which still styles the other
-pages):
+Add a home-page layout. Themes occasionally lag the installed Hugo release; a project-level `layouts/index.html` guarantees the home page renders to `public/index.html` regardless of the theme (which still styles the other pages):
 
 ```html
 <!DOCTYPE html>
@@ -167,10 +164,7 @@ pages):
 </html>
 ```
 
-A theme's `404.html` renders through its `baseof.html`, which can reference
-fields a pinned Hugo predates (ananke uses `.Site.Language.Locale`) — that fails
-the *whole* build, not just the 404 page. A self-contained project-level
-`layouts/404.html` renders it without the theme's base template:
+A theme's `404.html` renders through its `baseof.html`, which can reference fields a pinned Hugo predates (ananke uses `.Site.Language.Locale`) — that fails the *whole* build, not just the 404 page. A self-contained project-level `layouts/404.html` renders it without the theme's base template:
 
 ```html
 <!DOCTYPE html>

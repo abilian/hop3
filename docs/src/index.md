@@ -105,7 +105,7 @@ See the [Installation Guide](get-started/server-setup.md) for detailed instructi
 
 | Operating System | Status |
 |------------------|--------|
-| Ubuntu 22.04+ | :material-check: Supported |
+| Ubuntu 24.04+ | :material-check: Supported |
 | Debian 12+ | :material-check: Supported |
 | Rocky Linux 9+ | :material-check: Supported |
 | Arch Linux | :material-check: Supported |

@@ -31,16 +31,14 @@ The tutorials in `tutorials/` use a custom markdown syntax for automated testing
 
 ```markdown
 ```bash exec id=create-project dir=myapp timeout=60
-mkdir myapp && cd myapp
-\```
+mkdir myapp && cd myapp \```
 
 ```output contains
 Success
 \```
 
 ```file path=myapp/main.py
-print("Hello")
-\```
+print("Hello") \```
 
 ```assert file-exists path=myapp/main.py
 \```

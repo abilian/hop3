@@ -11,12 +11,12 @@ This guide covers server administration tasks for Hop3 operators, including inst
 | CPU | 1 core | 2+ cores |
 | RAM | 1 GB | 4+ GB |
 | Disk | 20 GB | 50+ GB SSD |
-| OS | Debian 12, Ubuntu 22.04+ | Debian 12 |
+| OS | Debian 12, Ubuntu 24.04+ | Debian 12 |
 
 ### Supported Operating Systems
 
 - **Debian** 12 (Bookworm) - Recommended
-- **Ubuntu** 22.04 LTS, 24.04 LTS
+- **Ubuntu** 24.04 LTS, 26.04 LTS
 - **Rocky Linux** 9
 - **NixOS** (experimental)
 

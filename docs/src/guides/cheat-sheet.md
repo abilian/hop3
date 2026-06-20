@@ -117,8 +117,7 @@ hop3 app destroy oldapp --confirm=oldapp
 
 ### Sticky App (implicit --app)
 
-Most app-scoped commands don't need `--app` if one is resolvable from the
-current shell or directory.
+Most app-scoped commands don't need `--app` if one is resolvable from the current shell or directory.
 
 ```bash
 # Bind an app to the current context

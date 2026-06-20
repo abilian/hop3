@@ -334,8 +334,7 @@ sqlite3 /home/hop3/hop3.db ".tables"
 
 ## Future Work
 
-See the NGI release plans (0.5, 0.6) for the current
-roadmap, including:
+See the NGI release plans (0.5, 0.6) for the current roadmap, including:
 
 - Web dashboard
 - Multi-server support

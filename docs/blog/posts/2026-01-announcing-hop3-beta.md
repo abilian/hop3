@@ -85,7 +85,7 @@ Choose your reverse proxy:
 
 Hop3 runs on:
 
-- Ubuntu 22.04, 24.04
+- Ubuntu 24.04, 26.04
 - Debian 12, 13
 - Fedora 41+
 - Rocky Linux 9, AlmaLinux 9

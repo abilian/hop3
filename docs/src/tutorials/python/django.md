@@ -554,8 +554,7 @@ deployed successfully
 
 ### Set Environment Variables
 
-Set ALLOWED_HOSTS and the hostname (`SECRET_KEY` was generated automatically on
-the first deploy):
+Set ALLOWED_HOSTS and the hostname (`SECRET_KEY` was generated automatically on the first deploy):
 
 ```bash
 hop3 config set --app hop3-tuto-django ALLOWED_HOSTS=hop3-tuto-django.$HOP3_TEST_DOMAIN,localhost,127.0.0.1
