@@ -36,8 +36,8 @@ Backups are stored as directories containing:
 /var/hop3/backups/apps/<app-name>/<backup-id>/
 ├── metadata.json         # Backup manifest with checksums
 ├── source.tar.gz         # Git repository archive
-├── data.tar.gz          # Application data archive
-├── env.json             # Environment variables
+├── data.tar.gz           # Application data archive
+├── env.json              # Environment variables
 └── services/             # Service backups
     └── postgres_<name>.sql
 ```
@@ -549,20 +549,20 @@ Understanding the backup structure can help with debugging:
 │       - All branches and tags
 │       - .git directory
 │
-├── data.tar.gz           # Application data
+├── data.tar.gz            # Application data
 │   └── Contains:
 │       - User uploads
 │       - Application-generated files
 │       - Runtime data
 │
-├── env.json              # Environment variables
+├── env.json               # Environment variables
 │   └── Contains:
 │       - All config set variables
 │       - System-set variables
 │       - Service URLs
 │
-└── services/             # Service backups
-    └── postgres_mydb.sql # PostgreSQL dump
+└── services/              # Service backups
+    └── postgres_mydb.sql  # PostgreSQL dump
         - SQL dump file
         - Includes schema and data
 ```

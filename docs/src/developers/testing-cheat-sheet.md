@@ -304,12 +304,12 @@ packages/hop3-server/tests/
 
 packages/hop3-testing/    # Test framework
 ├── src/hop3_testing/
-│   ├── catalog/         # Test catalog (reads [test] section from hop3.toml)
-│   ├── cli/             # CLI commands
-│   ├── runners/         # Test runners
-│   ├── results/         # Result storage and reporting
-│   ├── selector/        # Test selection logic
-│   └── targets/         # Deployment targets
+│   ├── catalog/          # Test catalog (reads [test] section from hop3.toml)
+│   ├── cli/              # CLI commands
+│   ├── runners/          # Test runners
+│   ├── results/          # Result storage and reporting
+│   ├── selector/         # Test selection logic
+│   └── targets/          # Deployment targets
 
 apps/test-apps/          # Test applications
 ├── 000-static/

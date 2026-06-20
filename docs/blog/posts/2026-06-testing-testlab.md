@@ -32,7 +32,7 @@ The consequence is that the CLI and the web app are two thin shells over the **s
 
 ```
  Hop3 server (the Lab host)                    Hetzner Cloud (ephemeral targets)
- ┌──────────────────────────────────┐          ┌────────────┐  ┌────────────┐
+ ┌───────────────────────────────────┐          ┌────────────┐  ┌────────────┐
  │  hop3-testlab (deployed by Hop3)  │  SSH/API │ target #1  │  │ target #N  │
  │  scheduler ─► runner(s) ─► engine │ ───────► │ fresh Hop3 │  │ fresh Hop3 │
  │                  │ (hop3-testing) │ ◄─────── │ + apps     │  │ + apps     │
@@ -40,7 +40,7 @@ The consequence is that the CLI and the web app are two thin shells over the **s
  │  PostgreSQL  +  artifact store    │
  │                  ▲                │
  │  web service ────┘ (dashboard/API)│
- └──────────────────────────────────┘
+ └───────────────────────────────────┘
 ```
 
 | Component | Role | Stack |
