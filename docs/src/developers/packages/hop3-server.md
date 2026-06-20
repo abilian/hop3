@@ -22,19 +22,20 @@ The ASGI application built on Litestar:
 ```
 server/
 ├── asgi.py              # Application factory
-├── cli/                 # Server CLI (serve, routes)
+├── cli/                 # Server CLI (serve, db, git, plugins, setup, ...)
 ├── controllers/
 │   ├── auth.py          # Authentication endpoints
-│   ├── dashboard.py     # Dashboard API
+│   ├── dashboard/       # Dashboard API
 │   ├── rpc.py           # JSON-RPC endpoint
+│   ├── stream.py        # Streaming / log-tail endpoint
 │   └── root.py          # Root routes
 ├── security/
-│   ├── auth.py          # JWT authentication
-│   └── permissions.py   # Role-based access
+│   ├── tokens.py        # JWT token handling
+│   └── rate_limit.py    # Request rate limiting
 ├── middleware/          # ASGI middleware
 └── lib/
-    ├── logging.py       # Structured logging
-    └── registry.py      # Service registry
+    ├── database.py      # DB session helpers
+    └── scanner.py       # Command / plugin auto-discovery
 ```
 
 ### Command Layer (`hop3/commands/`)
@@ -43,27 +44,32 @@ RPC command handlers implementing business logic:
 
 ```
 commands/
-├── app.py       # Application CRUD
+├── app.py       # Single-app operations (logs, deploy, restart, ...)
+├── apps.py      # App listing / lifecycle across all apps
 ├── auth.py      # Authentication commands
-├── env.py       # Environment variables
-├── addon.py     # Addon management
+├── config.py    # Environment variable management
+├── services.py  # Addon / service management
 ├── git.py       # Git operations
-├── process.py   # Process control
+├── domains.py   # Domain management
+├── system.py    # Server status / info / cleanup
 └── misc.py      # Utility commands
 ```
 
-Each command follows the pattern:
+Each command is a `Command` subclass, registered with `@register` and
+dispatched by its `name` tuple (the space-separated CLI path). Dependencies
+are declared as dataclass fields and injected at construction:
 
 ```python
-class AppCommands:
-    @rpc_method
-    def apps_list(self) -> list[AppInfo]:
-        """List all applications."""
-        ...
+@register
+@dataclass(frozen=True)
+class AppsCmd(Command):
+    """List all applications."""
 
-    @rpc_method
-    def apps_create(self, name: str) -> AppInfo:
-        """Create a new application."""
+    db_session: Session
+    name: ClassVar[tuple[str, ...]] = ("app", "list")
+
+    def call(self, *args):
+        app_repo = AppRepository(session=self.db_session)
         ...
 ```
 
@@ -87,9 +93,9 @@ Key model: `App`:
 ```python
 class App(Base):
     name: str
-    state: AppState  # RUNNING, STOPPED, PAUSED, FAILED
+    run_state: AppStateEnum  # STOPPED, STARTING, RUNNING, STOPPING, FAILED
     port: int
-    runtime: str
+    runtime: str  # e.g. "uwsgi", "docker-compose"
 
     # Paths
     @property
@@ -118,17 +124,20 @@ core/
 plugins/
 ├── build/
 │   ├── local_build/           # LocalBuilder
+│   ├── nix/                   # Nix builder
 │   └── language_toolchains/   # Python, Node, etc.
+├── docker/                    # DockerBuilder
 ├── deploy/
 │   ├── uwsgi/                 # UWSGIDeployer
 │   └── static/                # StaticDeployer
 ├── proxy/
 │   ├── nginx/                 # NginxVirtualHost
 │   ├── caddy/                 # CaddyVirtualHost
-│   └── traefik/               # TraefikConfig
+│   └── traefik/               # TraefikVirtualHost
 ├── postgresql/                # PostgreSQL addon
 ├── mysql/                     # MySQL addon
 ├── redis/                     # Redis addon
+├── s3/                        # S3/MinIO addon
 └── oses/                      # OS implementations
 ```
 
@@ -138,7 +147,7 @@ Orchestrates the deployment process:
 
 ```
 deployers/
-├── deployer.py           # Main DeploymentOrchestrator
+├── deployer.py           # Main do_deploy() orchestration
 └── git_based_deployer.py # Git-based deployment flow
 ```
 
@@ -146,7 +155,7 @@ Deployment stages:
 
 1. **Receive** - Accept git push or tarball upload
 2. **Checkout** - Extract source to `src/` directory
-3. **Build** - Run builder (LocalBuilder or DockerBuilder)
+3. **Build** - Run builder (LocalBuilder, DockerBuilder, or Nix builder)
 4. **Configure** - Generate uWSGI and proxy configs
 5. **Deploy** - Activate the application
 6. **Verify** - Health check
@@ -158,10 +167,10 @@ uWSGI configuration generation:
 ```
 run/
 ├── spawn.py              # Process spawning
+├── reaper.py             # Reap leftover vassal processes on teardown
 └── uwsgi/
-    ├── config.py         # Config generation
-    ├── worker.py         # Worker management
-    └── templates/        # Config templates
+    ├── settings.py       # uWSGI config generation
+    └── worker.py         # Worker management
 ```
 
 ## Key Concepts
@@ -169,21 +178,22 @@ run/
 ### Application States
 
 ```python
-class AppState(Enum):
-    STOPPED = "stopped"
-    RUNNING = "running"
-    PAUSED = "paused"
-    FAILED = "failed"
-    DEPLOYING = "deploying"
+class AppStateEnum(Enum):
+    STOPPED = 1   # Application is not running
+    STARTING = 2  # Application is starting up (transitional)
+    RUNNING = 3   # Application is running normally
+    STOPPING = 4  # Application is shutting down (transitional)
+    FAILED = 5    # Application failed to start or crashed
 ```
 
 State transitions:
 
 ```
-STOPPED → DEPLOYING → RUNNING
-RUNNING → STOPPED
-RUNNING → PAUSED → RUNNING
-RUNNING → FAILED → STOPPED
+STOPPED → STARTING → RUNNING
+RUNNING → STOPPING → STOPPED
+any state → FAILED        (on error)
+FAILED → STOPPED          (manual recovery)
+FAILED → STARTING         (manual recovery)
 ```
 
 ### Dependency Injection
@@ -208,15 +218,15 @@ class AppController:
 Configuration sources (in order of precedence):
 
 1. Environment variables (`HOP3_*`)
-2. Config file (`/etc/hop3/config.toml`)
+2. Config file (`hop3-server.toml` under `$HOP3_ROOT`)
 3. Defaults
 
 Key settings:
 
 | Setting | Env Var | Default |
 |---------|---------|---------|
-| Home directory | `HOP3_HOME` | `/home/hop3` |
-| Database URL | `HOP3_DATABASE_URL` | `sqlite:///hop3.db` |
+| Root directory | `HOP3_ROOT` | `/home/hop3` |
+| Database URI | `HOP3_DATABASE_URI` | `sqlite:///$HOP3_ROOT/hop3.db` |
 | Secret key | `HOP3_SECRET_KEY` | (required) |
 | Log level | `HOP3_LOG_LEVEL` | `INFO` |
 
@@ -302,7 +312,7 @@ def hop3_container():
 
 - **Authentication**: JWT tokens with configurable expiry
 - **Authorization**: Role-based access (admin, user)
-- **Transport**: HTTPS via Nginx with Let's Encrypt
+- **Transport**: HTTPS via Nginx, with pluggable certificate engines (self-signed or certbot/Let's Encrypt)
 - **Secrets**: Environment variables, never in code
 
 ## Debugging
@@ -319,8 +329,8 @@ Common issues and debugging approaches:
 Useful commands:
 
 ```bash
-# Check uWSGI emperor
-systemctl status uwsgi-emperor
+# Check the uWSGI emperor service
+systemctl status uwsgi-hop3
 
 # View app logs
 tail -f /home/hop3/apps/<name>/log/*.log

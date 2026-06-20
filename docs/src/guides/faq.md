@@ -12,7 +12,7 @@ The number 3 is also a nod to the fact that it's the third iteration of a simila
 
 At its core, Hop3 is built to be highly extensible and customizable through a plugin-oriented architecture. This approach allows users to tailor the platform to their specific needs, extending its functionality without bloating the core system. This level of modularity is rare in the PaaS space, where platforms often trade off customizability for simplicity.
 
-Hop3's open-source nature makes it easy to taylor or enhance the platform, share knowledge, and develop new features. This stands in contrast to many commercial PaaS offerings, where users are subject to the limitations and costs imposed by proprietary technologies and cannot directly influence the platform's development trajectory.
+Hop3's open-source nature makes it easy to tailor or enhance the platform, share knowledge, and develop new features. This stands in contrast to many commercial PaaS offerings, where users are subject to the limitations and costs imposed by proprietary technologies and cannot directly influence the platform's development trajectory.
 
 Hop3 prioritizes direct integration with the host system, offering improved performance and resource utilization over solutions that abstract away the underlying infrastructure. This direct approach also enhances security and reliability, as users maintain closer control over their deployment environments.
 
@@ -34,7 +34,7 @@ While Go, Rust, Erlang, and other languages offer their own set of advantages, i
 
 **Q: Why not just use Piku or Sailor?**
 
-**A:** Both Piku and Sailor offer compelling solutions; however, Hop3 differentiates itself by focusing on providing a broader set of functionalities and a more polished user experience. We aim to support an expansive array of deployment contexts with enhanced ease of use. Although we share roots with Piku and Sailor, including some shared code, Hop3's architecture is conceived to be more openly extensible. This encourages not just the use but also the contribution to its ecosystem, with a particular emphasis on plugins that can broaden its applicability.
+**A:** Both Piku and Sailor offer compelling solutions; however, Hop3 differentiates itself by focusing on providing a broader set of functionalities and a more polished user experience. We aim to support an expansive array of deployment contexts with enhanced ease of use. Although we share roots with Piku and Sailor, including some shared code, Hop3's architecture is conceived to be more openly extensible. This encourages both the use of and the contribution to its ecosystem, with a particular emphasis on plugins that can broaden its applicability.
 
 **Q: Why not use Docker or a similar container-based technology?**
 
@@ -77,9 +77,9 @@ For comprehensive troubleshooting, see the **[Troubleshooting Guide](troubleshoo
 **A:** Use verbose mode and check logs:
 
 ```bash
-hop3 deploy myapp -v          # Verbose output during deploy
-hop3 app build-logs myapp     # View build logs after deploy
-hop3 app logs myapp           # View runtime logs
+hop3 deploy --app myapp -v          # Verbose output during deploy
+hop3 app build-logs --app myapp     # View build logs after deploy
+hop3 app logs --app myapp           # View runtime logs
 ```
 
 See [Deployment Issues](troubleshooting.md#deployment-issues) for detailed diagnosis steps.
@@ -89,8 +89,8 @@ See [Deployment Issues](troubleshooting.md#deployment-issues) for detailed diagn
 **A:** Check that your app is running and listening on the correct port:
 
 ```bash
-hop3 app status myapp         # Check app state
-hop3 app logs myapp           # Look for startup errors
+hop3 app status --app myapp   # Check app state
+hop3 app logs --app myapp     # Look for startup errors
 ```
 
 See [502 Bad Gateway](troubleshooting.md#502-bad-gateway) in the Troubleshooting Guide for common causes and solutions.
@@ -100,6 +100,6 @@ See [502 Bad Gateway](troubleshooting.md#502-bad-gateway) in the Troubleshooting
 **A:** Use the `-v` (verbose) or `--debug` flags:
 
 ```bash
-hop3 deploy myapp -v          # Verbose mode
-hop3 deploy myapp --debug     # Maximum verbosity
+hop3 deploy --app myapp -v          # Verbose mode
+hop3 deploy --app myapp --debug     # Maximum verbosity
 ```

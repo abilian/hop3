@@ -25,20 +25,23 @@ Deploy applications in any popular programming language:
 Push to deploy with simple Git workflows:
 
 ```bash
-# Deploy from local directory
-hop3 deploy myapp
+# Deploy the current project from your local directory
+hop3 deploy --app myapp
 
-# Deploy from Git repository
-hop3 deploy myapp --git https://github.com/user/repo
+# Or enable git-push deployment, then push to the hop3 remote
+hop3 git setup --app myapp
+git remote add hop3 hop3@your-server:myapp
+git push hop3 main
 ```
 
-### Database Addons
+### Addons
 
-Managed database services with automatic connection configuration:
+Managed backing services with automatic connection configuration:
 
 - **PostgreSQL** - Full-featured relational database
 - **MySQL/MariaDB** - Popular relational database
 - **Redis** - In-memory data store and cache
+- **S3/MinIO** - Object storage
 
 ```bash
 hop3 addon create postgres mydb
@@ -67,7 +70,7 @@ Automatic Nginx configuration for each application:
 
 Robust process management via uWSGI:
 
-- Procfile-based worker configuration
+- Declarative worker configuration via `[run.workers]` in hop3.toml
 - Automatic restart on failure
 - Graceful shutdown and reload
 - Multiple worker processes
@@ -77,8 +80,8 @@ Robust process management via uWSGI:
 Flexible configuration management:
 
 ```bash
-hop3 config set myapp KEY=value
-hop3 config show myapp
+hop3 env set --app myapp KEY=value
+hop3 env show --app myapp
 ```
 
 ### CLI Interface
@@ -86,10 +89,10 @@ hop3 config show myapp
 Full-featured command-line interface:
 
 ```bash
-hop3 apps               # List applications
-hop3 app status myapp   # Application details
-hop3 app logs myapp     # View logs
-hop3 app restart myapp  # Restart application
+hop3 apps                      # List applications
+hop3 app status --app myapp    # Application details
+hop3 app logs --app myapp      # View logs
+hop3 app restart --app myapp   # Restart application
 ```
 
 ### Web Dashboard
@@ -110,21 +113,21 @@ Browser-based management interface:
 Declarative application configuration:
 
 ```toml
-[app]
-name = "myapp"
+[metadata]
+id = "myapp"
 
 [build]
 before-build = ["npm install"]
 build = "npm run build"
 
 [run]
-web = "npm start"
+start = "npm start"
 
 [env]
 NODE_ENV = "production"
 
-[[provider]]
-name = "postgres"
+[[addons]]
+type = "postgres"
 ```
 
 See the [Configuration Reference](reference/config.md) for full documentation.
@@ -153,11 +156,11 @@ Hop3 is designed for single-server deployments:
 
 Extensible via plugins:
 
-- **Builders**: Local, Docker, Nix (planned)
+- **Builders**: Local (native toolchains), Docker, Nix
 - **Toolchains**: Language-specific build tools
 - **Deployers**: uWSGI, Docker Compose, Static
-- **Proxies**: Nginx, Caddy (planned), Traefik (planned)
-- **Addons**: PostgreSQL, MySQL, Redis
+- **Proxies**: Nginx (default), Caddy, Traefik
+- **Addons**: PostgreSQL, MySQL, Redis, S3/MinIO
 
 ---
 
@@ -189,7 +192,7 @@ Extensible via plugins:
 ### Health Checks
 
 ```bash
-hop3 system check --verbose
+hop3 system status
 ```
 
 Checks:
@@ -201,15 +204,15 @@ Checks:
 ### Backup & Restore
 
 ```bash
-hop3 backup create mydb
+hop3 backup create --app myapp
 hop3 backup list
-hop3 backup restore mydb --backup <file>
+hop3 backup restore <backup-id> --target-app myapp
 ```
 
 ### Logging
 
 ```bash
-hop3 app logs myapp --follow
+hop3 app logs --app myapp
 hop3 system logs
 ```
 
@@ -219,14 +222,13 @@ hop3 system logs
 
 The following features are planned for future releases:
 
-| Feature | Status | Target |
-|---------|--------|--------|
-| Nix-based builds | In Development | Q2 2026 |
-| Multi-server clustering | Planned | Q3 2026 |
-| Web terminal | Planned | Q2 2026 |
-| LDAP/SSO integration | Planned | Q3 2026 |
-| Advanced monitoring | Planned | Q2 2026 |
-| WAF integration | In Development | Q1 2026 |
+| Feature | Status |
+|---------|--------|
+| Multi-server clustering | Planned |
+| Web terminal | Planned |
+| LDAP/SSO integration | Planned |
+| Advanced monitoring | Planned |
+| WAF integration | In Development |
 
 ---
 
@@ -250,5 +252,5 @@ The following features are planned for future releases:
 
 - **Simplicity**: Single server, no orchestration complexity
 - **Target**: Small to medium deployments
-- **Learning curve**: Minutes to deploy, not days
+- **Learning curve**: Deploy in minutes
 - **Resource efficient**: No cluster overhead

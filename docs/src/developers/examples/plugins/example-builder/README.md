@@ -115,4 +115,4 @@ assert artifact.kind == "virtualenv"
 
 - See [plugin-development.md](../../../plugin-development.md) for comprehensive guide
 - See [protocol-reference.md](../../../protocol-reference.md) for protocol details
-- Check real-world example: `hop3/builders/python.py`
+- Check the real-world Python build implementation: `hop3/toolchains/python.py`

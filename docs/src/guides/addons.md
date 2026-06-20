@@ -76,11 +76,12 @@ Each addon type adds a few operations under `hop3 addon <type> <verb> <name>` (t
 hop3 addon postgres credentials my-database
 hop3 addon redis credentials my-cache
 
-# Dump / restore (postgres, mysql; redis/s3 dump only for now)
+# Dump / restore (all four types support both)
 hop3 addon postgres dump my-database              # pg_dump → server backup dir
 hop3 addon postgres restore my-database <path>    # psql restore (prompts)
 hop3 addon mysql dump legacy-db
 hop3 addon redis dump my-cache
+hop3 addon redis restore my-cache <path>
 
 # Postgres extensions (allow-listed)
 hop3 addon postgres extensions my-database postgis pgvector
@@ -137,7 +138,7 @@ Hop3 enforces an allow-list. The default set covers the PG13+ trusted extensions
 | `MYSQL_HOST` | `localhost` |
 | `MYSQL_PORT` | `3306` |
 
-**Docker apps:** Hop3 grants MySQL access on multiple host patterns (`@'localhost'`, `@'127.0.0.1'`, `@'172.%'`) so apps reaching the host MySQL via the Docker bridge authenticate correctly. You don't need to think about this — it's automatic — but it's worth knowing if you inspect the `mysql.user` table.
+**Docker apps:** Hop3 grants MySQL access on multiple host patterns (`@'localhost'`, `@'127.0.0.1'`, `@'10.%'`, `@'172.%'`, `@'192.168.%'`) so apps reaching the host MySQL from any of the private ranges a Docker network might use authenticate correctly. This is automatic, but it's worth knowing if you inspect the `mysql.user` table.
 
 ### redis
 
@@ -219,7 +220,7 @@ type = "redis"
 name = "job-queue"
 ```
 
-Env-var prefixing for distinct instances is planned for 0.6; in 0.5, only the first attached instance's variables (`REDIS_URL`, etc.) are injected.
+When several addons of the same type are attached to one app, one is the primary and injects the canonical, unprefixed variables (`REDIS_URL`, etc.); each additional instance injects the same keys prefixed with its uppercased name (e.g. `JOB_QUEUE_REDIS_URL`). A single attached addon is always primary. Use `hop3 addon promote <name> --app <app>` to choose which instance is primary.
 
 ## Backup and Restore
 
@@ -230,7 +231,7 @@ hop3 backup create --app my-app           # Includes attached addon data
 hop3 backup create --app my-app --no-addons   # App code + env only
 ```
 
-For a single addon, `hop3 addon <type> dump <name>` writes a standalone dump to the server's backup area, and `hop3 addon <type> restore <name> <path>` restores it (postgres and mysql; redis/s3 restore is planned).
+For a single addon, `hop3 addon <type> dump <name>` writes a standalone dump to the server's backup area, and `hop3 addon <type> restore <name> <path>` restores it. All four types support both verbs.
 
 ## See Also
 

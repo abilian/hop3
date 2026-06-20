@@ -75,7 +75,7 @@ Repository = "https://github.com/yourusername/my-hop3-plugin"
 Issues = "https://github.com/yourusername/my-hop3-plugin/issues"
 
 # Entry point for plugin discovery
-[project.entry-points."hop3.plugins"]
+[project.entry-points."hop3"]
 my_plugin = "my_hop3_plugin.plugin:plugin"
 
 [build-system]
@@ -231,7 +231,7 @@ pip install -e .
 python -c "from hop3.core.plugins import get_plugin_manager; pm = get_plugin_manager(); print([p for p in pm.list_name_plugin()])"
 
 # Test deployment with your plugin
-hop deploy myapp
+hop3 deploy --app myapp
 ```
 
 ## Packaging and Distribution
@@ -354,7 +354,7 @@ pip install my-hop3-plugin
 Deploy a MyFramework application:
 
 ```bash
-hop deploy myapp
+hop3 deploy --app myapp
 ```
 
 The plugin will automatically detect MyFramework applications via `myframework.yaml`.
@@ -364,7 +364,8 @@ The plugin will automatically detect MyFramework applications via `myframework.y
 Set environment variables in `hop3.toml`:
 
 ```toml
-[env] MYFRAMEWORK_VERSION = "2.0"
+[env]
+MYFRAMEWORK_VERSION = "2.0"
 ```
 
 ## Supported Versions
@@ -507,16 +508,16 @@ The simplest possible external plugin:
 ```python
 # src/simple_plugin/plugin.py
 from hop3.core.hooks import hookimpl
-from hop3.builders.python import PythonBuilder
+from hop3.toolchains import PythonToolchain
 
 class SimplePlugin:
     """Minimal plugin example."""
     name = "simple"
 
     @hookimpl
-    def get_builders(self) -> list:
-        # Just re-export existing builder with custom name
-        return [PythonBuilder]
+    def get_language_toolchains(self) -> list:
+        # Just re-export an existing toolchain
+        return [PythonToolchain]
 
 plugin = SimplePlugin()
 ```
@@ -551,7 +552,7 @@ dependencies = [
     "pymysql>=1.0.0",  # Plugin-specific dependency
 ]
 
-[project.entry-points."hop3.plugins"]
+[project.entry-points."hop3"]
 mysql = "mysql_plugin.plugin:plugin"
 ```
 

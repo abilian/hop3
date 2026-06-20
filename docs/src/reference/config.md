@@ -72,7 +72,7 @@ Controls how your application is built and prepared for deployment.
 
 ```toml
 [build]
-# Builder to use: "auto", "local", or "docker"
+# Builder to use: "auto", "local", "docker", or "nix"
 builder = "local"
 
 # Commands to run during build
@@ -96,6 +96,7 @@ pip-install = ["setuptools", "wheel"]
   - `"auto"` (default): Auto-detect based on project files (Dockerfile → docker, otherwise local)
   - `"local"`: Use native language toolchains (Python, Node, Ruby, etc.) directly on host
   - `"docker"`: Build and run using Docker (requires Dockerfile)
+  - `"nix"`: Build with Nix (hand-crafted `hop3.nix` or a generated `[nix]` template — see [`[nix]`](#nix-template-based-nix-builds))
 - `toolchain` (string): Force a specific language toolchain (`python`, `node`, `ruby`, `go`, `rust`, `static`, …), overriding auto-detection. Rarely needed — toolchains are normally detected from project files.
 - `build` (string | array): Main build commands
 - `before-build` (string | array): Pre-build commands (maps to Procfile `prebuild`)
@@ -227,7 +228,7 @@ SESSION_ID      = { generate = "uuid" }
 
 - The value is generated with a cryptographically secure RNG only when the variable is currently **unset**, then stored as a normal app env var (visible in `hop3 config show`).
 - It is **generated once and never rotated** on redeploy — so redeploys stay idempotent and a regenerated secret never silently invalidates existing sessions or data. Setting `_policy = "override"` does *not* force rotation.
-- To rotate a generated secret, run `hop3 config unset <app> KEY` and redeploy.
+- To rotate a generated secret, run `hop3 config unset --app <app> KEY` and redeploy.
 - A malformed spec (unknown generator, `length < 1`, unknown field) is a hop3.toml validation error — it fails the deploy loudly rather than producing a bad secret.
 
 #### Dynamic references
@@ -278,7 +279,7 @@ _policy = "keep-existing"   # optional; "override" to overwrite on every deploy
 
 - `[domains].list` is mutually exclusive with `HOST_NAME` under `[env]`. Setting both is a hop3.toml validation error — use one or the other.
 - At deploy time, the section is translated into the `HOST_NAME` env var that the reverse-proxy plugins (nginx / caddy / traefik) read.
-- An empty list (`list = []`) is a no-op: HOST_NAME is **not** unset. Use `hop3 domains clear <app>` to remove the binding explicitly.
+- An empty list (`list = []`) is a no-op: HOST_NAME is **not** unset. Use `hop3 domains clear --app <app>` to remove the binding explicitly.
 - For CRUD from the CLI, see `hop3 domains` in the CLI reference.
 
 ### `[port]` - Port Configuration
@@ -394,10 +395,11 @@ interval = 60             # Check interval in seconds
 - `path` (string): HTTP path for health checks
 - `timeout` (number): Timeout for health check requests
 - `interval` (number): How often to run health checks
+- `retries` (number): Number of failed checks before the app is marked unhealthy
 
 ### `[backup]` - Backup Configuration
 
-Backups are created **on demand** with `hop3 backup create <app>` and restored with `hop3 backup restore <id>`. A backup captures the app's source, environment variables, attached addons (e.g. a Postgres dump), the app's `data/` directory, **and every `[[volumes]]` volume** (each archived as its own unit) — so persistent data round-trips through restore.
+Backups are created **on demand** with `hop3 backup create --app <app>` and restored with `hop3 backup restore <id>` (where `<id>` is the backup id, not the app). A backup captures the app's source, environment variables, attached addons (e.g. a Postgres dump), the app's `data/` directory, **and every `[[volumes]]` volume** (each archived as its own unit) — so persistent data round-trips through restore.
 
 ```toml
 [backup]
@@ -591,7 +593,7 @@ When `builder = "nix"` is set in `[build]`, Hop3 can generate a Nix expression a
 
 ### Template Types
 
-Eight templates are available. Prefer the higher tiers when possible — see [Nix reference](nix.md#reproducibility-tiers) for the reproducibility implications.
+Nine templates are available. Prefer the higher tiers when possible — see [Nix reference](nix.md#reproducibility-tiers) for the reproducibility implications.
 
 | Template | Use case | Tier |
 |----------|----------|------|
@@ -600,6 +602,7 @@ Eight templates are available. Prefer the higher tiers when possible — see [Ni
 | `php-app` | PHP apps served with `php -S` or `artisan serve` | 2 |
 | `java-war` | Java WAR files served with a JDK from nixpkgs | 1 |
 | `ruby-bundler` | Ruby apps using `bundlerEnv` from `gemset.nix` | 2 |
+| `node-pnpm-install` | Node.js apps installed from npm via `pnpm install` | 2 |
 | `prebuilt-binary` | Pre-compiled single binary from upstream releases | 3 |
 | `prebuilt-archive` | Pre-compiled archive with multiple files | 3 |
 | `node-prebuilt` | Node.js apps with pre-built assets | 3 |
@@ -745,7 +748,7 @@ type = "postgres"
 Use the migration command to convert an existing Procfile:
 
 ```bash
-hop3 config migrate procfile /path/to/app --dry-run
+hop3 app migrate procfile /path/to/app --dry-run
 ```
 
 This will generate a hop3.toml from your Procfile. Review and customize as needed.

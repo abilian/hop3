@@ -37,8 +37,8 @@ heroku config -s --app myapp > .env
 Set environment variables in Hop3:
 
 ```bash
-# Using hop3-cli
-hop3 config set myapp $(cat .env)
+# Using hop3-cli (one or more KEY=VALUE pairs)
+hop3 config set --app myapp DATABASE_URL=postgresql://... SECRET_KEY=...
 
 # Or add to hop3.toml
 [env]
@@ -57,7 +57,7 @@ heroku addon create heroku-postgresql:standard-0
 
 # Hop3
 hop3 addon create postgres myapp-db
-hop3 addon attach myapp myapp-db
+hop3 addon attach myapp-db --app myapp
 ```
 
 **Heroku Redis:**
@@ -67,42 +67,42 @@ heroku addon create heroku-redis:premium-0
 
 # Hop3
 hop3 addon create redis myapp-cache
-hop3 addon attach myapp myapp-cache
+hop3 addon attach myapp-cache --app myapp
 ```
 
 ### Step 4: Deploy
 
 ```bash
-hop3 deploy myapp
+hop3 deploy --app myapp
 ```
 
 ### Heroku → Hop3 Mapping
 
 | Heroku | Hop3 | Notes |
 |--------|------|-------|
-| `heroku create` | `hop3 app launch <repo> myapp` | Create app from repo |
-| `git push heroku main` | `hop3 deploy myapp` | Deploy code |
-| `heroku config set` | `hop3 config set` | Set env vars |
+| `heroku create` | `hop3 app launch <repo> --app myapp` | Create app from repo |
+| `git push heroku main` | `hop3 deploy --app myapp` | Deploy code |
+| `heroku config set` | `hop3 config set --app myapp` | Set env vars |
 | `heroku addon create heroku-postgresql` | `hop3 addon create postgres` | Database |
 | `heroku addon create heroku-redis` | `hop3 addon create redis` | Cache |
-| `heroku ps` | `hop3 ps myapp` | Process status |
-| `heroku logs -t` | `hop3 app logs myapp` | View logs |
-| `heroku restart` | `hop3 app restart myapp` | Restart app |
+| `heroku ps` | `hop3 app status --app myapp` | Process status |
+| `heroku logs -t` | `hop3 app logs --app myapp` | View logs |
+| `heroku restart` | `hop3 app restart --app myapp` | Restart app |
 
 ### Common Gotchas
 
 **1. Buildpacks**
 
-Heroku uses buildpacks for detecting app type. Hop3 also supports buildpacks but provides native build strategies:
+Heroku uses buildpacks to detect the app type. Hop3 detects the language automatically; you can also pin it with the `toolchain` key:
 
 ```bash
 # Heroku
 heroku buildpacks:set heroku/python
 
 # Hop3
-# Automatic detection, or specify in hop3.toml:
+# Automatic detection, or pin the language in hop3.toml:
 [build]
-buildpack = "python"
+toolchain = "python"
 ```
 
 **2. Procfile Commands**
@@ -173,26 +173,26 @@ fly postgres create --name myapp-db
 
 # Hop3
 hop3 addon create postgres myapp-db
-hop3 addon attach myapp myapp-db
+hop3 addon attach myapp-db --app myapp
 ```
 
 ### Step 3: Deploy
 
 ```bash
-hop3 deploy myapp
+hop3 deploy --app myapp
 ```
 
 ### Fly.io → Hop3 Mapping
 
 | Fly.io | Hop3 | Notes |
 |--------|------|-------|
-| `fly launch` | `hop3 app launch <repo> myapp` | Create app from repo |
-| `fly deploy` | `hop3 deploy myapp` | Deploy code |
-| `fly secrets set` | `hop3 config set` | Set secrets |
+| `fly launch` | `hop3 app launch <repo> --app myapp` | Create app from repo |
+| `fly deploy` | `hop3 deploy --app myapp` | Deploy code |
+| `fly secrets set` | `hop3 config set --app myapp` | Set secrets |
 | `fly postgres create` | `hop3 addon create postgres` | Database |
-| `fly status` | `hop3 app status myapp` | App status |
-| `fly logs` | `hop3 app logs myapp` | View logs |
-| `fly restart` | `hop3 app restart myapp` | Restart app |
+| `fly status` | `hop3 app status --app myapp` | App status |
+| `fly logs` | `hop3 app logs --app myapp` | View logs |
+| `fly restart` | `hop3 app restart --app myapp` | Restart app |
 
 ---
 
@@ -279,9 +279,8 @@ before-build = "pip install -r requirements.txt"
 path = "/health/"
 interval = 60
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"
 ```
 
 Hop3 will merge these configurations with `hop3.toml` taking precedence.
@@ -303,7 +302,6 @@ id = "myapp"
 start = "gunicorn app:app --workers 4"
 
 [healthcheck]
-enabled = true
 path = "/health/"
 ```
 
@@ -311,7 +309,7 @@ path = "/health/"
 
 ```bash
 # Production
-hop3 config set myapp LOG_LEVEL=info
+hop3 config set --app myapp LOG_LEVEL=info
 
 # Development/staging (local testing)
 LOG_LEVEL=debug flask run --reload
@@ -327,12 +325,12 @@ After migration, validate your configuration:
 
 ```bash
 # Check app configuration
-hop3 config show myapp
+hop3 config show --app myapp
 
 # Deploy and verify
-hop3 deploy myapp
-hop3 app status myapp
-hop3 app logs myapp
+hop3 deploy --app myapp
+hop3 app status --app myapp
+hop3 app logs --app myapp
 ```
 
 ---

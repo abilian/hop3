@@ -14,8 +14,8 @@ Quick reference for developers running tests.
 | **App tests (Docker)** | `make test-apps` |
 | **Lint & type check** | `make lint` |
 | **System tests (Docker)** | `hop3-test system --docker` |
-| **Hetzner Cloud test** | `hop3-test hetzner --image ubuntu-24.04` |
-| **Multi-distro test** | `hop3-test multi-distro` |
+| **Cloud test (single distro)** | `hop3-test cloud --image ubuntu-24.04` |
+| **Cloud test (multi-distro)** | `hop3-test cloud --images ubuntu-24.04,debian-13` |
 
 ## hop3-test CLI
 
@@ -50,8 +50,19 @@ hop3-test system --ssh --host server.example.com
 export HOP3_TEST_HOST=server.example.com
 hop3-test system --ssh
 
-# Test mode: dev (fast) or ci (more thorough)
+# Test profile: dev (fast P0 only) or ci (fast + medium P0)
 hop3-test system --docker --mode ci
+
+# Install extra server features/addons before testing
+hop3-test system --docker --with nix
+hop3-test system --docker --clean --with all
+
+# Scan a directory or run a specific app (positional)
+hop3-test system --docker apps/test-apps-procfile
+hop3-test system --docker apps/test-apps-procfile/010-flask-pip-wsgi
+
+# Run one app, reusing an existing deployment
+hop3-test system --docker --reuse apps/real-apps-native/edrix
 
 # Keep target running after tests
 hop3-test system --docker --keep
@@ -59,6 +70,8 @@ hop3-test system --docker --keep
 # Generate HTML report
 hop3-test system --docker --report html
 ```
+
+The default `--mode` is `smoke` (the smallest sanity run). Available profiles: `smoke`, `ci`, `curated`, `tag-coverage`, `combo-coverage`, `nightly`, `full` (`dev` is an alias for `smoke`, `release` for `full`).
 
 #### Deploy-from Options
 
@@ -72,26 +85,28 @@ hop3-test system --docker --report html
 
 ### App Testing (Testing Apps, Not Hop3)
 
-Uses a pre-built Docker image with Hop3 already installed.
+App testing runs through the same `system` command. Pass app directories or
+specific app paths as positional arguments; combine with `--reuse` to skip the
+Hop3 deployment and test against an already-running container.
 
 ```bash
-# First, build the ready image (one-time)
-hop3-test build-ready-image
+# Test the default app catalog on Docker
+hop3-test system --docker --clean --with all
 
-# Test all apps
-hop3-test apps
+# Scan a directory
+hop3-test system --docker apps/test-apps-procfile
 
-# Test specific app
-hop3-test apps 010-flask-pip-wsgi
+# Test a specific app
+hop3-test system --docker apps/test-apps-procfile/010-flask-pip-wsgi
 
-# Test by category
-hop3-test apps --category python
+# Reuse an existing deployment for fast iteration on one app
+hop3-test system --docker --reuse apps/real-apps-native/edrix
 
 # Keep apps deployed after testing
-hop3-test apps --keep
+hop3-test system --docker --keep apps/test-apps-procfile/010-flask-pip-wsgi
 
-# Against remote server
-hop3-test apps --target remote --host server.example.com
+# Against a remote server
+hop3-test system --ssh --host server.example.com apps/test-apps-procfile
 ```
 
 ### Listing and Inspecting Tests
@@ -100,71 +115,47 @@ hop3-test apps --target remote --host server.example.com
 # List all tests
 hop3-test list
 
-# Filter by category
-hop3-test list --category deployment
+# Scan only specific directories
+hop3-test list apps/test-apps-procfile demos
 
-# Filter by tier
+# Filter by tier or priority
 hop3-test list --tier fast
+hop3-test list --priority P0
 
-# Show test details
-hop3-test show 010-flask-pip-wsgi
+# Show details of one test
+hop3-test list --show 010-flask-pip-wsgi
+
+# JSON output
+hop3-test list --format json
 ```
 
-### Package Validation
+### Cloud Testing
 
-For package authors testing their apps against stable Hop3.
-
-```bash
-# Validate an app package
-hop3-test package /path/to/my-app
-```
-
-### Building Docker Images
-
-```bash
-# Build ready image (pre-installed Hop3)
-hop3-test build-ready-image
-hop3-test build-ready-image --tag my-hop3:v1
-hop3-test build-ready-image --no-cache
-
-# Build test image (for system tests)
-hop3-test build-test-image
-hop3-test build-test-image --no-cache
-```
-
-### Quick Modes
-
-```bash
-# Developer mode (fast P0 tests only)
-hop3-test dev
-
-# CI mode (fast + medium P0 tests)
-hop3-test ci
-
-# Nightly mode (all tiers, all priorities)
-hop3-test nightly
-```
-
-### Hetzner Cloud Testing
-
-Run E2E tests on real Hetzner Cloud infrastructure. Requires `HETZNER_API_TOKEN`.
+Run E2E tests on real cloud infrastructure (Hetzner by default). Requires
+`HETZNER_API_TOKEN`.
 
 ```bash
 # List available images
-hop3-test multi-distro --list-images
+hop3-test cloud --list-images
 
 # Single distribution test
-hop3-test hetzner --image ubuntu-24.04 --suites test-apps
+hop3-test cloud --image ubuntu-24.04
 
 # Multi-distribution test
-hop3-test multi-distro --images ubuntu-24.04 debian-13 fedora-42
+hop3-test cloud --images ubuntu-24.04,debian-13,fedora-42
 
-# Use local code instead of git
-hop3-test hetzner --use-local-repo
+# All distributions
+hop3-test cloud --images all
+
+# Test specific app directories
+hop3-test cloud --apps apps/test-apps-procfile --apps demos
+
+# Use local code instead of git (default)
+hop3-test cloud --use-local-repo
 
 # Skip phases for debugging
-hop3-test hetzner --skip-reset    # Keep existing server state
-hop3-test hetzner --skip-deploy   # Use existing Hop3 installation
+hop3-test cloud --skip-reset    # Keep existing server state
+hop3-test cloud --skip-deploy   # Use existing Hop3 installation
 ```
 
 ## Pytest Tests
@@ -271,8 +262,8 @@ hop3-test system --docker --mode ci --report html
 # Run with verbose output
 uv run pytest -v -s path/to/test.py::test_name
 
-# Keep target running for inspection
-hop3-test apps --keep 010-flask-pip-wsgi
+# Keep the target running for inspection
+hop3-test system --docker --keep apps/test-apps-procfile/010-flask-pip-wsgi
 
 # Run system tests and keep target
 hop3-test system --docker --keep
@@ -311,15 +302,17 @@ packages/hop3-testing/    # Test framework
 │   ├── selector/         # Test selection logic
 │   └── targets/          # Deployment targets
 
-apps/test-apps/          # Test applications
-├── 000-static/
-├── 010-flask-pip-wsgi/
-├── 020-nodejs-express/
-├── 030-golang-gin/
-├── 040-sinatra/
-├── 100-flask-gunicorn-pip/
-├── 110-flask-gunicorn-poetry/
-└── 130-golang-minimal/
+apps/                            # Test and demo applications
+├── test-apps-procfile/          # Procfile-based test apps (standalone test.toml)
+│   ├── 000-static/
+│   ├── 010-flask-pip-wsgi/
+│   ├── 020-nodejs-express/
+│   └── ...
+├── test-apps-nix/               # Nix-based test apps
+├── real-apps-native/            # Real apps, native toolchains
+├── real-apps-nix/               # Real apps, hand-crafted Nix
+├── real-apps-nix-gen/           # Real apps, Nix from template
+demos/                           # Educational demos
 ```
 
 ## Test Configuration (`[test]` in hop3.toml)
@@ -348,34 +341,31 @@ Legacy standalone `test.toml` files are still used by procfile-only test apps (`
 | `HOP3_TEST_HOST` | SSH target for `--ssh` without `--host` |
 | `HOP3_TEST_SSH_KEY` | SSH key for remote tests |
 | `HOP3_UNSAFE=true` | Disable auth in Docker tests |
-| `HETZNER_API_TOKEN` | Hetzner Cloud API token (for hetzner/multi-distro) |
+| `HETZNER_API_TOKEN` | Hetzner Cloud API token (for `hop3-test cloud`) |
 
 ## Troubleshooting
 
 ### Docker Tests Fail
 
 ```bash
-# Check if container is running
+# Check if the container is running
 docker ps -a | grep hop3
 
-# View container logs
-docker logs hop3-test
+# View container logs (system tests use the hop3-system-test container)
+docker logs hop3-system-test
 
-# Rebuild test image
-hop3-test build-test-image --no-cache
+# Run again with a clean install and verbose output
+hop3-test -v system --docker --clean
 ```
 
-### App Tests Fail (Ready Image)
+### App Tests Fail
 
 ```bash
-# Rebuild ready image
-hop3-test build-ready-image --no-cache
+# Re-run one app with verbose output
+hop3-test -v system --docker apps/test-apps-procfile/010-flask-pip-wsgi
 
-# Test with verbose output
-hop3-test apps -v 010-flask-pip-wsgi
-
-# Check HTML report
-hop3-test apps --report html
+# Keep the target up and generate an HTML report
+hop3-test system --docker --keep --report html apps/test-apps-procfile/010-flask-pip-wsgi
 ```
 
 ### System Tests Timeout
@@ -402,13 +392,13 @@ ssh root@$HOP3_TEST_HOST "systemctl status hop3-server"
 
 | Target | Use Case | Speed |
 |--------|----------|-------|
-| `--docker` | System tests with fresh deploy | Slow (~5 min startup) |
-| `ready` | App tests with pre-built image | Fast (~30s startup) |
+| `--docker` | System tests with a fresh deploy | Slow (~5 min startup) |
+| `--docker --reuse` | App tests against an existing container | Fast (skips deploy) |
 | `--ssh` | Tests against real servers | Variable |
 
 ### When to Use Each
 
 - **`hop3-test system --docker`**: Testing Hop3 changes (deploys Hop3 first)
-- **`hop3-test system --docker --reuse`**: Fast iteration on existing container
+- **`hop3-test system --docker --reuse`**: Fast iteration on an existing container
 - **`hop3-test system --ssh --host X`**: Testing against remote servers
-- **`hop3-test apps`**: Testing app configurations (uses pre-built image)
+- **`hop3-test system --docker <app-path>`**: Testing one app's configuration

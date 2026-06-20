@@ -6,7 +6,7 @@
 
 Your privacy is a core value of the Hop3 project. Our commitment to user sovereignty, security, and transparency extends to the way we handle data. This Privacy Policy explains what information we collect, why we collect it, and how we protect it.
 
-This policy applies to the services we operate to support the Hop3 project, including our websites, community forums, and code repositories. It also clarifies what data the Hop3 software itself does—and does not—collect.
+This policy applies to the services we operate to support the Hop3 project, including our websites, community forums, and code repositories. It also clarifies what data the Hop3 software itself collects when you run it.
 
 ## 1. The Hop3 Software (Self-Hosted)
 

@@ -13,7 +13,7 @@ Hop3 supports Nix-based deployments as an alternative to native buildpacks and D
    Used when the templates don't fit, or when extracted via
    `hop3 nix eject`.
 
-**The two modes are mutually exclusive.** If both a `hop3.nix` file and a `[nix].template` section in `hop3.toml` are present, NixBuilder raises `Abort` rather than silently picking one. The error message points the user to either delete `hop3.nix` or remove the `[nix]` section. To deliberately convert a template to a hand-crafted file, use `hop3 nix eject <app>`.
+**The two modes are mutually exclusive.** If both a `hop3.nix` file and a `[nix].template` section in `hop3.toml` are present, NixBuilder raises `Abort` rather than silently picking one. The error message points the user to either delete `hop3.nix` or remove the `[nix]` section. To deliberately convert a template to a hand-crafted file, use `hop3 nix eject --app <app-name>`.
 
 ## Architecture
 
@@ -114,7 +114,7 @@ Note: Nix `${...}` interpolations in `hop3.nix` are evaluated by Nix at build ti
 
 ## Templates (generated mode)
 
-Eight built-in templates cover common deployment patterns. Templates are selected by setting `template = "<name>"` in the `[nix]` section of `hop3.toml`.
+Nine built-in templates cover common deployment patterns. Templates are selected by setting `template = "<name>"` in the `[nix]` section of `hop3.toml`.
 
 | Template | Use case | Reproducibility tier |
 |----------|----------|----------------------|
@@ -123,6 +123,7 @@ Eight built-in templates cover common deployment patterns. Templates are selecte
 | `php-app` | PHP apps with Composer + extensions | 2 |
 | `java-war` | Java WAR files served with a JDK | 1 (JDK from nixpkgs) |
 | `ruby-bundler` | Ruby apps using `bundlerEnv` from `gemset.nix` | 2 |
+| `node-pnpm-install` | Node.js apps installed from npm via `pnpm install` | 2 |
 | `prebuilt-binary` | Single binary from upstream releases | 3 (compromise) |
 | `prebuilt-archive` | Multi-file archive from upstream releases | 3 (compromise) |
 | `node-prebuilt` | Node.js apps shipped as a pre-built tarball | 3 (compromise) |
@@ -144,7 +145,7 @@ The goal is Tier 1 wherever possible. Tier 3 templates exist as a pragmatic shor
 ## The `nix eject` command
 
 ```bash
-hop3 nix eject <app-name>
+hop3 nix eject --app <app-name>
 ```
 
 Materializes the auto-generated `hop3.nix` from the template into a real file in the app's source directory. After ejection:

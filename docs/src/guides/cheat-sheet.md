@@ -51,8 +51,8 @@ hop3 context add production --server ssh://root@prod.example.com --protected
 # List contexts (* = current)
 hop3 context list
 
-# Show current context and source
-hop3 context current
+# Show current context and source (bare `hop3 context` also shows it)
+hop3 context show
 
 # Switch context (safe - prints export command)
 hop3 context use production
@@ -83,37 +83,39 @@ hop3 context remove old-staging
 
 ```bash
 # Create app from git repository
-hop3 app launch <git-url> <app-name>
+hop3 app launch <git-url> --app <app-name>
 
 # Deploy (from project directory)
-hop3 deploy <app-name>
+hop3 deploy --app <app-name>
 
 # Deploy from a specific directory
-hop3 deploy <app-name> /path/to/app
+hop3 deploy --app <app-name> /path/to/app
 
 # Check status
-hop3 app status <app>
+hop3 app status --app <app>
 
-# View logs (streaming)
-hop3 app logs <app>
+# View logs
+hop3 app logs --app <app>
 
 # Build logs
-hop3 app build-logs <app>
+hop3 app build-logs --app <app>
 
 # Start / Stop / Restart
-hop3 app start <app>
-hop3 app stop <app>
-hop3 app restart <app>
+hop3 app start --app <app>
+hop3 app stop --app <app>
+hop3 app restart --app <app>
 
 # List all apps
 hop3 apps
 
 # Destroy app (requires confirmation)
-hop3 app destroy <app>
+hop3 app destroy --app <app>
 
 # Scriptable destroy — no prompt, still safe
-hop3 app destroy oldapp --confirm=oldapp
+hop3 app destroy --app oldapp --confirm=oldapp
 ```
+
+The app target is the `--app` flag. When an app is resolvable from the current shell or directory (see "Sticky App" below), you can omit `--app` entirely.
 
 ### Sticky App (implicit --app)
 
@@ -142,23 +144,25 @@ Resolution order: `--app` → `$HOP3_APP` → `.hop3-app` → `hop3.toml [cli].a
 
 ```bash
 # View all env vars
-hop3 config show <app>
+hop3 config show --app <app>
 
 # Get single var
-hop3 config get <app> VAR_NAME
+hop3 config get --app <app> VAR_NAME
 
 # Set vars (one or multiple)
-hop3 config set <app> VAR1=value1 VAR2=value2
+hop3 config set --app <app> VAR1=value1 VAR2=value2
 
 # Remove var
-hop3 config unset <app> VAR_NAME
+hop3 config unset --app <app> VAR_NAME
 
 # Live runtime config
-hop3 config live <app>
+hop3 config live --app <app>
 
 # Migrate Procfile to hop3.toml
-hop3 config migrate procfile /path/to/app --dry-run
+hop3 app migrate procfile /path/to/app --dry-run
 ```
+
+(`config` is the back-compat alias for the `env` command group: `hop3 env show --app <app>` is equivalent.)
 
 ### Addons (Backing Services)
 
@@ -177,12 +181,12 @@ See [CLI Reference: Services](../reference/cli.md#services-addons) for complete 
 ### Backups
 
 ```bash
-hop3 backup create <app>           # Create backup
-hop3 backup list <app>             # List backups
-hop3 backup info <backup-id>       # Backup details
+hop3 backup create --app <app>     # Create backup
+hop3 backup list --app <app>       # List backups for an app (bare `backup list` lists all)
+hop3 backup show <backup-id>       # Backup details (alias: backup info)
 hop3 backup restore <backup-id>    # Restore
-hop3 app restart <app>             # Restart after restore
-hop3 backup destroy <backup-id>     # Delete backup
+hop3 app restart --app <app>       # Restart after restore
+hop3 backup destroy <backup-id>    # Delete backup
 ```
 
 See [Backup and Restore Guide](backup-restore.md) for complete documentation.
@@ -191,22 +195,20 @@ See [Backup and Restore Guide](backup-restore.md) for complete documentation.
 
 ```bash
 # View processes
-hop3 ps <app>
+hop3 ps --app <app>
 
 # Scale (web=2, worker=1)
-hop3 ps scale <app> web=2 worker=1
+hop3 ps scale --app <app> web=2 worker=1
 ```
 
 ### System & Admin
 
 ```bash
-# System info
+# Facts about this server (version, host, IPs, uptime)
 hop3 system info
-hop3 system status
-hop3 system uptime
 
-# List all server processes
-hop3 system ps
+# Server health report (services, addons, disk, certs)
+hop3 system status
 
 # Server logs
 hop3 system logs
@@ -273,16 +275,16 @@ hop3 <command> --help
 
 ```bash
 # Get app state in JSON (with structured exit-code on error)
-hop3 app status myapp --json | jq '.data.state'
+hop3 app status --app myapp --json | jq '.data.state'
 
 # Safer scripted destroy: typed-name match + still runs safety checks
-hop3 app destroy myapp --confirm=myapp
+hop3 app destroy --app myapp --confirm=myapp
 
 # CI: refuse to block on prompts — fail fast with instructions
 hop3 user add alice alice@ex.com --password-file ./pw --no-input
 
 # Distinguish "user declined" from other failures
-hop3 app destroy myapp
+hop3 app destroy --app myapp
 case $? in
   0)  echo "destroyed" ;;
   10) echo "declined or non-tty" ;;
@@ -357,15 +359,14 @@ web = 8000
 path = "/health/"
 timeout = 30
 interval = 60
+retries = 3
 
 [backup]
-enabled = true
-schedule = "0 2 * * *"
-retention = 7
+paths = ["data"]
+exclude = ["*.tmp"]
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"
 ```
 
 ### Key Sections
@@ -373,13 +374,13 @@ plan = "standard"
 | Section | Purpose |
 |---------|---------|
 | `[metadata]` | App ID, version, title, author |
-| `[build]` | Build commands, packages |
-| `[run]` | Start command, runtime setup |
+| `[build]` | Build commands, toolchain/builder, packages |
+| `[run]` | Start command, `before-run`, `[run.workers]` |
 | `[env]` | Default environment variables |
 | `[port]` | Port mappings |
-| `[healthcheck]` | Health monitoring |
-| `[backup]` | Automated backup config |
-| `[[provider]]` | Required services (postgres, redis) |
+| `[healthcheck]` | Health monitoring (`path`/`interval`/`timeout`/`retries`) |
+| `[backup]` | Backup `paths` / `exclude` selection |
+| `[[addons]]` | Backing services (postgres, mysql, redis, s3) |
 
 See [hop3.toml Reference](../reference/config.md) for complete documentation.
 
@@ -402,11 +403,11 @@ cd myapp
 # 2. Initialize hop3 (first time)
 hop3 init --ssh root@hop3.example.com
 
-# 3. Deploy (app-name is required)
-hop3 deploy myapp
+# 3. Deploy
+hop3 deploy --app myapp
 
 # 4. Check status
-hop3 app status myapp
+hop3 app status --app myapp
 ```
 
 ### Update an Existing App
@@ -414,14 +415,14 @@ hop3 app status myapp
 ```bash
 # 1. Make code changes
 # 2. (Optional) Create backup first
-hop3 backup create myapp
+hop3 backup create --app myapp
 
 # 3. Deploy
-hop3 deploy myapp
+hop3 deploy --app myapp
 
 # 4. If something breaks, restore
 hop3 backup restore <backup-id>
-hop3 app restart myapp
+hop3 app restart --app myapp
 ```
 
 ### Add a Database
@@ -434,36 +435,36 @@ hop3 addon create postgres myapp-db
 hop3 addon attach myapp-db --app myapp
 
 # 3. Restart to pick up new env var
-hop3 app restart myapp
+hop3 app restart --app myapp
 ```
 
 ### Debug a Problem
 
 ```bash
 # Check app status
-hop3 app status myapp
+hop3 app status --app myapp
 
 # View logs
-hop3 app logs myapp
+hop3 app logs --app myapp
 
 # Build logs
-hop3 app build-logs myapp
+hop3 app build-logs --app myapp
 
 # Full debug info
-hop3 app debug myapp
+hop3 app debug --app myapp
 
 # Check environment
-hop3 config show myapp
+hop3 config show --app myapp
 ```
 
 ### Scale for Traffic
 
 ```bash
 # Scale web workers
-hop3 ps scale myapp web=4
+hop3 ps scale --app myapp web=4
 
 # Add background workers
-hop3 ps scale myapp worker=2
+hop3 ps scale --app myapp worker=2
 ```
 
 ---
@@ -480,26 +481,26 @@ hop3 ps scale myapp worker=2
 
 ### Deployment
 
-- **Back up before deploying** to production: `hop3 backup create <app>`
+- **Back up before deploying** to production: `hop3 backup create --app <app>`
 - Test locally first when possible
 - Use `--dry-run` when available
-- Check logs after deploy: `hop3 app logs <app>`
+- Check logs after deploy: `hop3 app logs --app <app>`
 
 ### Backups
 
-- **Back up before deploying** to production: `hop3 backup create <app>`
-- Enable automated backups in `hop3.toml`:
+- **Back up before deploying** to production: `hop3 backup create --app <app>`
+- Select what `hop3 backup create` captures with `[backup]` in `hop3.toml`:
   ```toml
   [backup]
-  enabled = true
-  schedule = "0 2 * * *"  # Daily at 2 AM
+  paths = ["data"]      # Directories to include
+  exclude = ["*.tmp"]   # Patterns to skip
   ```
 - Test restore procedures periodically
-- See [Backup and Restore Guide](backup-restore.md) for retention policies
+- See [Backup and Restore Guide](backup-restore.md) for scheduling and retention
 
 ### Environment Variables
 
-- Restart after changing config: `hop3 app restart <app>`
+- Restart after changing config: `hop3 app restart --app <app>`
 - Use consistent naming: `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY`
 - Keep production and development configs separate
 
@@ -527,7 +528,7 @@ hop3 ps scale myapp worker=2
 
 | Heroku | Hop3 |
 |--------|------|
-| `heroku create` | `hop3 app launch <repo> <name>` |
+| `heroku create` | `hop3 app launch <repo> --app <name>` |
 | `git push heroku main` | `hop3 deploy` |
 | `heroku config set` | `hop3 config set` |
 | `heroku addon create heroku-postgresql` | `hop3 addon create postgres` |

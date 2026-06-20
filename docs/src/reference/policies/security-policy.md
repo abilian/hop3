@@ -1,6 +1,6 @@
 # Hop3 Security Policy
 
-**Last Updated:** 2025-06-17
+**Last Updated:** 2026-06-20
 
 ## Introduction
 
@@ -24,7 +24,7 @@ We have implemented several measures to ensure the security and integrity of the
 ### Secure Software Development
 
 -   **Code Reviews:** All code contributions are subject to review by project maintainers to identify potential security flaws, bugs, and deviations from best practices.
--   **Static Analysis Security Testing (SAST):** We use automated tools like `bandit` and `ruff` within our CI/CD pipeline to scan our Python codebase for common security vulnerabilities.
+-   **Static Analysis Security Testing (SAST):** Our linter `ruff` runs the `flake8-bandit` (`S`) ruleset to scan our Python codebase for common security vulnerabilities as part of our automated quality checks.
 -   **Software Supply Chain Security:**
     -   We use tools like `safety` to check our dependencies against known vulnerability databases.
     -   We are committed to providing a Software Bill of Materials (SBOM) for our releases, ensuring full transparency of all included components and their licenses.
@@ -48,8 +48,8 @@ Hop3 stores backing service credentials (databases, caches, etc.) encrypted at r
 
 **Encryption Details:**
 - **Algorithm:** Fernet (symmetric AEAD - Authenticated Encryption with Associated Data)
-- **Key Derivation:** PBKDF2-HMAC-SHA256 with 100,000 iterations (OWASP recommended minimum)
-- **Storage:** Credentials encrypted in SQLite database
+- **Key Derivation:** PBKDF2-HMAC-SHA256 with 600,000 iterations (OWASP 2026 baseline), using a per-install salt
+- **Storage:** Credentials encrypted in the Hop3 database (SQLite or PostgreSQL)
 - **Security Properties:**
   - Authenticated encryption (tampering detected automatically)
   - Database backups safe (cannot decrypt without secret key)
@@ -70,13 +70,16 @@ openssl rand -base64 32
 
 **Configuration:**
 
-Set the environment variable before starting the Hop3 server:
+Set the environment variable before starting the Hop3 server. The production installer writes it to the systemd environment file `/etc/default/hop3` as a flat `KEY=value` line:
 
 ```bash
-# In environment file (e.g., /etc/hop3/environment)
-export HOP3_SECRET_KEY="your-generated-secret-key-here"
+# In /etc/default/hop3 (loaded by the hop3-server systemd unit)
+HOP3_SECRET_KEY=your-generated-secret-key-here
+```
 
-# Or in systemd service file
+Equivalently, you can set it directly in the systemd service unit:
+
+```ini
 [Service]
 Environment="HOP3_SECRET_KEY=your-generated-secret-key-here"
 ```
@@ -159,16 +162,18 @@ For automated testing purposes, Hop3 includes a `HOP3_UNSAFE` configuration opti
 Before deploying any Hop3 instance to a network-accessible environment:
 
 ```bash
-# Check environment variables
-env | grep HOP3_UNSAFE  # Should return nothing or "false"
+# Check environment variables (including the systemd environment file)
+env | grep HOP3_UNSAFE          # Should return nothing or "false"
+grep -i HOP3_UNSAFE /etc/default/hop3  # Should not exist or be "false"
 
-# Check configuration file
-grep -i unsafe /etc/hop3/hop3-server.toml  # Should not exist or be "false"
+# Check the server configuration file
+grep -i HOP3_UNSAFE /home/hop3/hop3-server.toml  # Should not exist or be "false"
 
-# Test that authentication is enforced
-curl http://your-server:8080/rpc -X POST \
+# Test that authentication is enforced. The JSON-RPC method is always "cli";
+# the actual command goes in params.cli_args.
+curl http://your-server/rpc -X POST \
   -H "Content-Type: application/json" \
-  -d '{"method":"app:list"}'
+  -d '{"method":"cli","params":{"cli_args":["app","list"],"extra_args":{}}}'
 # Should return 401 Unauthorized
 ```
 
@@ -181,11 +186,15 @@ HOP3_UNSAFE can be enabled via:
 export HOP3_UNSAFE=true  # ONLY in isolated test containers
 ```
 
-2. Configuration file (`hop3-server.toml`):
+2. Configuration file (`hop3-server.toml`), as a flat top-level key:
 ```toml
-[security]
-unsafe = true  # ONLY in isolated test containers
+HOP3_UNSAFE = "true"  # ONLY in isolated test containers
 ```
+
+Two startup interlocks guard this flag:
+
+- **Acknowledgement required:** enabling `HOP3_UNSAFE` also requires `HOP3_UNSAFE_ACK=yes-I-understand`. Without it the server refuses to start, so a stray env file or systemd drop-in cannot silently activate the bypass.
+- **Production override:** when `MODE` is `production` (the default), `HOP3_UNSAFE` is forced off at startup and the event is logged at CRITICAL. The auth bypass therefore has no effect in production even if it is requested.
 
 **Our Commitment:**
 

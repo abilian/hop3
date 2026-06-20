@@ -18,7 +18,7 @@ Browsing and installing are done in the **web dashboard**. The command line has 
 
 From an app's detail page, fill in the **Install** form:
 
-- **App name** — the name your instance will have (lowercase letters, digits and `-`, 2–50 characters; e.g. `my-notes`).
+- **App name** — the name your instance will have (2–50 characters, must start with a lowercase letter and contain only lowercase letters, digits and `-`; e.g. `my-notes`). A small set of names such as `admin`, `api`, and `dashboard` is reserved.
 - **Environment variables** (optional) — any values the app needs.
 
 Installing **creates the app on your server, pre-seeded from the catalog**: it copies the catalog app's source into your new app and applies the environment variables you provided. You then **deploy** it — building and starting it — like any other Hop3 app:
@@ -55,9 +55,9 @@ There is no automatic refresh timer yet; run `hop3 catalog refresh` when you wan
 
 ## Where the catalog comes from
 
-The catalog is a **signed artifact that your server pulls** — the source never pushes to your server. Authenticity is mandatory: because installing a catalog app runs code you didn't write, the bundle's signature is verified against a public key **built into your hop3-server release** (not a file on disk that could be swapped). A bundle that fails verification is rejected; it is never loaded "anyway."
+The catalog is a **signed artifact that your server pulls** — the source never pushes to your server. Authenticity is mandatory: because installing a catalog app runs code you didn't write, the bundle's signature is verified against a public key **built into your hop3-server release** (not a file on disk that could be swapped). A bundle that fails verification is rejected and never loaded.
 
-The default source is Hop3's own catalog at `https://apps.hop3.cloud/catalog/catalog.tar.gz` (with a detached signature at the same URL plus `.minisig`). An empty-but-verified catalog is valid; a *failed fetch* is reported as an error, never silently treated as "zero apps."
+The default source is Hop3's own catalog at `https://apps.hop3.cloud/catalog/catalog.tar.gz` (with a detached signature at the same URL plus `.minisig`). An empty-but-verified catalog is valid; a *failed fetch* is reported as an error rather than treated as an empty catalog.
 
 ## Configuration (operators)
 
@@ -69,7 +69,7 @@ These settings are read from the environment (or your server config); most deplo
 | `CATALOG_ROOT` | `$HOP3_ROOT/catalog` | Where the active catalog lives (a symlink the sync manages). |
 | `CATALOG_STATE_ROOT` | `$HOP3_ROOT/catalog-state` | Holds the anti-rollback serial, kept outside `CATALOG_ROOT` so it survives catalog swaps. |
 
-The signing key is pinned in the release and is not operator-configurable. There is no option to disable signature or TLS verification — verification is not optional.
+The signing key is pinned in the release and is not operator-configurable. There is no option to disable signature or TLS verification; both are always enforced.
 
 To serve your own catalog (e.g. a private internal mirror), publish a signed `catalog.tar.gz` + `catalog.tar.gz.minisig` over HTTPS, point `CATALOG_SOURCE_URL` at it, and ship a hop3-server build whose pinned key matches your signing key.
 

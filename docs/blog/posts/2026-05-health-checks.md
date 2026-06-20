@@ -209,7 +209,7 @@ timeout = 5
 retries = 3
 ```
 
-Then build a `/health` that actually checks your dependencies — not just one that returns 200.
+Then build a `/health` that actually checks your dependencies, rather than one that only returns 200.
 
 ---
 

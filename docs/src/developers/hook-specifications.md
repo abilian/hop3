@@ -17,7 +17,7 @@ from hop3.core.hooks import hookspec
 
 @hookspec
 def get_builders() -> list:
-    """Get build strategies provided by this plugin."""
+    """Get builders provided by this plugin."""
 ```
 
 ### Hook Implementations
@@ -58,10 +58,10 @@ builders = [item for sublist in results for item in sublist]
 ```python
 @hookspec
 def get_builders() -> list:
-    """Get build strategies provided by this plugin.
+    """Get builders provided by this plugin.
 
     Returns:
-        List of Builder classes
+        List of Builder classes (Level 1: orchestration strategies)
     """
 ```
 
@@ -71,33 +71,79 @@ def get_builders() -> list:
 
 ```python
 from hop3.core.hooks import hookimpl
-from .python_builder import PythonBuilder
+from .local_builder import LocalBuilder
 from .docker_builder import DockerBuilder
 
 class MyPlugin:
     @hookimpl
     def get_builders(self) -> list:
-        """Provide Python and Docker build strategies."""
-        return [PythonBuilder, DockerBuilder]
+        """Provide local and Docker builders."""
+        return [LocalBuilder, DockerBuilder]
 ```
+
+Language-specific build logic lives in toolchains contributed via [`get_language_toolchains`](#get_language_toolchains), not in builders.
 
 **Usage in Core**:
 
 The build pipeline uses this hook to discover available builders:
 
 ```python
-from hop3.core.plugins import get_build_strategy
+from hop3.core.plugins import get_builder
 
-# Automatically finds accepting strategy from all registered builders
-strategy = get_build_strategy(context, artifact)
+# Flattens all registered builders and returns the first that accepts the context
+builder = get_builder(context)
 ```
 
 **Notes**:
-- Return strategy **classes**, not instances
+- Return builder **classes**, not instances
 - Each class must have a `name` attribute
 - Each class must implement the `Builder` protocol
-- Multiple plugins can provide build strategies
-- Strategies are tried in registration order until one accepts
+- Multiple plugins can provide builders
+- Builders are tried in registration order until one accepts (or the `[build].builder` key in `hop3.toml` selects one explicitly)
+
+---
+
+### get_language_toolchains
+
+**Purpose**: Register language-specific toolchains (Python, Node, Ruby, Go, Rust, Java, PHP, etc.) used by the local builder.
+
+**Location**: `hop3.core.hookspecs.get_language_toolchains`
+
+**Signature**:
+```python
+@hookspec
+def get_language_toolchains() -> list:
+    """Get language-specific toolchains provided by this plugin.
+
+    Language toolchains are used by LocalBuilder to build applications
+    in specific programming languages (Python, Node, Java, etc.).
+
+    Returns:
+        List of LanguageToolchain classes for building language-specific projects.
+    """
+```
+
+**Returns**: List of classes implementing the `LanguageToolchain` protocol.
+
+**Implementation Example**:
+
+```python
+from hop3.core.hooks import hookimpl
+from .python import PythonToolchain
+from .node import NodeToolchain
+
+class ToolchainPlugin:
+    @hookimpl
+    def get_language_toolchains(self) -> list:
+        """Provide Python and Node toolchains."""
+        return [PythonToolchain, NodeToolchain]
+```
+
+**Notes**:
+- Return toolchain **classes**, not instances
+- Each class must have a `name` attribute
+- Each class must implement `accept()` to detect its language
+- Toolchains are consumed by the local builder, which selects the first that accepts
 
 ---
 
@@ -136,30 +182,30 @@ class MyPlugin:
 
 **Usage in Core**:
 
-Deployment strategies are used in two ways:
+Deployers are used in two ways:
 
 1. **During deployment** (auto-selection):
 ```python
-from hop3.core.plugins import get_deployment_strategy
+from hop3.core.plugins import get_deployer
 
-# Finds strategy that accepts the artifact
-strategy = get_deployment_strategy(context, artifact)
+# Finds the deployer that accepts the build artifact
+deployer = get_deployer(context, artifact)
 ```
 
 2. **For lifecycle operations** (by name):
 ```python
 from hop3.core.plugins import get_deployer_by_name
 
-# Look up strategy by name for start/stop/restart
-strategy = get_deployer_by_name(app, "docker-compose")
+# Look up deployer by name for start/stop/restart/status
+deployer = get_deployer_by_name(app, "docker-compose")
 ```
 
 **Notes**:
-- Return strategy **classes**, not instances
+- Return deployer **classes**, not instances
 - Each class must have a `name` attribute
 - Each class must implement the `Deployer` protocol
-- The `name` attribute is used to match `app.runtime` field
-- Multiple strategies can exist; selection is by `accept()` or by name
+- The `name` attribute is used by `get_deployer_by_name()` for lifecycle lookups
+- Multiple deployers can exist; selection is by `accept()` or by name
 
 ---
 
@@ -198,28 +244,26 @@ class DatabasePlugin:
 
 **Usage in Core**:
 
-Services are managed through the CLI and API:
+Addons are managed through the CLI and API:
 
 ```python
 from hop3.core.plugins import get_addon
 
-# Find service strategy by name
-strategy_class = get_addon("postgres")
+# Look up the addon by type and instantiate it for a specific instance name
+addon = get_addon("postgresql", "mydb")
 
-# Instantiate for specific service instance
-service = strategy_class(service_name="mydb")
-
-# Use service
-service.create()
-connection = service.get_connection_details()
+# Use the addon
+addon.create()
+connection = addon.get_connection_details()
 ```
 
 **Notes**:
-- Return strategy **classes**, not instances
-- Each class must have a `name` attribute (service type)
+- Return addon **classes**, not instances
+- Each class must have a `name` attribute (the addon type)
 - Each class must implement the `Addon` protocol
-- Service instances are created per database/cache/etc.
-- Multiple plugins can provide different service types
+- The constructor takes a keyword-only `addon_name` for the specific instance
+- Addon instances are created per database/cache/etc.
+- Multiple plugins can provide different addon types (PostgreSQL, MySQL, Redis, S3/MinIO)
 
 ---
 
@@ -262,10 +306,10 @@ class DebianPlugin:
 OS strategies are used during server setup:
 
 ```python
-from hop3.core.plugins import detect_os
+from hop3.core.plugins import get_os_strategy
 
 # Auto-detect current OS
-os_strategy = detect_os()  # Calls detect() on each strategy
+os_strategy = get_os_strategy()  # Calls detect() on each strategy
 
 # Setup server
 os_strategy.setup_server()
@@ -316,19 +360,13 @@ class ProxyPlugin:
 
 **Usage in Core**:
 
-Proxies are selected based on configuration:
+Proxies are selected based on the server-wide `HOP3_PROXY_TYPE` setting (`"nginx"`, `"caddy"`, `"traefik"`):
 
 ```python
-from hop3.config import HopConfig
+from hop3.core.plugins import get_proxy_strategy
 
-cfg = HopConfig.get_instance()
-proxy_type = cfg.PROXY_TYPE  # "nginx", "caddy", etc.
-
-# Find matching proxy strategy
-proxy_class = get_proxy_strategy(proxy_type)
-
-# Instantiate and configure
-proxy = proxy_class(app=app, env=env, workers=workers)
+# Reads HOP3_PROXY_TYPE, finds the matching proxy class, and instantiates it
+proxy = get_proxy_strategy(app, env, workers)
 proxy.setup()
 ```
 
@@ -337,7 +375,7 @@ proxy.setup()
 - Should inherit from `BaseProxy` for code reuse
 - Each proxy type should have a unique name
 - Only one proxy type is active per hop3 installation
-- Configuration is in `HopConfig.PROXY_TYPE`
+- The active proxy is set by the `HOP3_PROXY_TYPE` environment variable
 
 ---
 
@@ -368,7 +406,7 @@ def get_di_providers() -> list:
 
             @provide def get_my_service(self) -> MyService: return MyService()
 
-        @hop3_hook_impl def get_di_providers() -> list: return [MyPluginProvider()]
+        @hookimpl def get_di_providers() -> list: return [MyPluginProvider()]
         ```
     """
 ````
@@ -424,59 +462,116 @@ for provider in providers:
 
 ---
 
+### get_health_checks
+
+**Purpose**: Register health checks that verify backing services are configured and reachable.
+
+**Location**: `hop3.core.hookspecs.get_health_checks`
+
+**Signature**:
+```python
+@hookspec
+def get_health_checks() -> list:
+    """Get health checks provided by this plugin.
+
+    Returns:
+        List of HealthCheck instances that can verify service health.
+    """
+```
+
+**Returns**: List of `HealthCheck` **instances** (like `get_di_providers`, this hook returns instances).
+
+**Implementation Example**:
+
+```python
+from hop3.core.hooks import hookimpl
+from hop3.core.protocols import HealthCheckResult
+
+class PostgresHealthCheck:
+    name = "postgresql"
+
+    def is_configured(self) -> bool:
+        ...
+
+    def check(self) -> HealthCheckResult:
+        return HealthCheckResult(name="PostgreSQL", passed=True, message="OK")
+
+class PostgresqlPlugin:
+    @hookimpl
+    def get_health_checks(self) -> list:
+        return [PostgresHealthCheck()]
+```
+
+**Usage in Core**:
+
+Health checks run during server startup (failures are logged) and via
+`hop3 system status`.
+
+**Notes**:
+- Return health check **instances**, not classes
+- Each must implement `is_configured()` and `check()`
+- `check()` returns a `HealthCheckResult`
+
+---
+
 ### cli_commands
 
-**Purpose**: Register custom CLI commands.
+**Purpose**: Contribute RPC command classes to the server's dispatch table.
 
 **Location**: `hop3.core.hookspecs.cli_commands`
 
 **Signature**:
 ```python
 @hookspec
-def cli_commands() -> None:
-    """Get CLI commands."""
+def cli_commands() -> list:
+    """Get RPC CLI command classes contributed by this plugin.
+
+    Returns:
+        List of `hop3.commands._base.Command` subclasses.
+    """
 ```
 
-**Returns**: None (commands are registered via Click decorators).
+**Returns**: List of `Command` subclasses. Each command's `name` is a tuple of tokens (ADR 036) that maps to the space-separated CLI form — for example `("addon", "postgres", "credentials")` is invoked as `hop3 addon postgres credentials`.
 
 **Implementation Example**:
 
 ```python
-import click
+from typing import ClassVar
+from hop3.commands._base import Command
 from hop3.core.hooks import hookimpl
 
-@click.command()
-@click.argument("service_name")
-def create_postgres(service_name):
-    """Create a PostgreSQL database."""
-    # ... implementation
-    click.echo(f"Created PostgreSQL service: {service_name}")
+class AddonPostgresCredentialsCmd(Command):
+    """Show connection credentials for a Postgres addon."""
+
+    name: ClassVar[tuple[str, ...]] = ("addon", "postgres", "credentials")
+
+    def call(self, *args):
+        ...
 
 class PostgresPlugin:
     @hookimpl
-    def cli_commands(self) -> None:
-        """Register postgres CLI command."""
-        # Register with Click CLI
-        from hop3.cli import cli
-        cli.add_command(create_postgres, name="postgres:create")
+    def cli_commands(self) -> list:
+        """Contribute `addon postgres <verb>` commands to the CLI."""
+        return [AddonPostgresCredentialsCmd]
 ```
 
 **Usage in Core**:
 
-CLI commands are loaded during CLI initialization:
+The RPC controller builds its dispatch table from the core commands in `hop3.commands` plus everything returned by this hook (`server/controllers/rpc.py`):
 
 ```python
 from hop3.core.plugins import get_plugin_manager
 
 pm = get_plugin_manager()
-pm.hook.cli_commands()  # Triggers all implementations
+for contributed in pm.hook.cli_commands():
+    for command in contributed or []:
+        table[command.name] = command
 ```
 
 **Notes**:
-- Use Click for command definitions
-- Commands should follow naming convention: `service:action`
-- Commands are added to the main `hop` CLI
-- Return `None` (registration is side-effect based)
+- Return `Command` **subclasses** (not instances, not Click commands)
+- Each command's `name` is a tuple of tokens, matched space-separated on the CLI
+- Contributed commands are dispatched over JSON-RPC alongside the core commands
 
 ---
 
@@ -679,11 +774,11 @@ def test_get_build_strategies():
 Test that the core correctly discovers and uses your strategy:
 
 ```python
-from hop3.core.plugins import get_build_strategy
+from hop3.core.plugins import get_builder
 from hop3.core.protocols import DeploymentContext
 
-def test_strategy_discovery(tmp_path):
-    """Test that build strategy is discovered and used."""
+def test_builder_discovery(tmp_path):
+    """Test that a builder is discovered and used."""
     # Create test app
     (tmp_path / "requirements.txt").write_text("flask==2.0.0")
 
@@ -693,9 +788,9 @@ def test_strategy_discovery(tmp_path):
         app_config={}
     )
 
-    # Should find our Python builder
-    strategy = get_build_strategy(context)
-    assert strategy.name == "python"
+    # Should find a suitable builder
+    builder = get_builder(context)
+    assert builder.name == "local"
 ```
 
 ---
