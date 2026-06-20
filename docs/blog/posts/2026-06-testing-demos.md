@@ -18,7 +18,7 @@ Most projects keep demos and tests in separate worlds. Demos are pretty, hand-cu
 - **Demonstration** — what you show in a screencast or to an evaluator.
 - **Test** — run in CI to catch regressions end-to-end.
 
-That decision is recorded in [ADR 043](/adrs/043-unified-testing-architecture/) (v0.3): *a demo is simultaneously an educational walkthrough, a live demonstration, and a test, so a broken demo is a first-class regression.* The demo engine is kept precisely because removing any one of those three jobs would make the others worse.
+That decision is recorded in [ADR 043](/developers/adrs/043-unified-testing-architecture/) (v0.3): *a demo is simultaneously an educational walkthrough, a live demonstration, and a test, so a broken demo is a first-class regression.* The demo engine is kept precisely because removing any one of those three jobs would make the others worse.
 
 ## Capabilities first
 
@@ -96,7 +96,7 @@ Because a demo is also a test, the launcher has to be *boringly reliable* — an
 - **Non-interactive by construction.** The runner has no human to answer a prompt. Destructive commands (`addon destroy`, `app destroy`) pass `-y`, and every command runs with `stdin` closed — so a command that *tries* to prompt gets EOF and fails loud. The alternative is a run wedged forever on an invisible "Are you sure?".
 - **Bounded.** Every command has a timeout, so a hung RPC becomes a loud, actionable failure within seconds.
 - **Serialized.** Demo runs share an isolated CLI config home *and* mutate a shared target server, so two runs at once would clobber each other's context and collide on server resources. The launcher takes a machine-wide lock and refuses to start a second run — a confound that otherwise produces baffling, "eventually-consistent" flakiness.
-- **App-scoped commands take the target as a `--app` flag** (per [ADR 036](/adrs/036-cli-ergonomics/)). The demos are also the first place CLI-ergonomics regressions get caught, because they exercise the command surface the way a user would.
+- **App-scoped commands take the target as a `--app` flag** (per [ADR 036](/developers/adrs/036-cli-ergonomics/)). The demos are also the first place CLI-ergonomics regressions get caught, because they exercise the command surface the way a user would.
 - **Clean failure output.** In quiet mode each demo is one line — `demo10 (PostgreSQL Addon)... FAIL` — with the actionable cause and a log pointer underneath. The raw multi-line command dump stays out of the progress flow.
 
 All of this exists because a test harness that deploys real apps to real servers has to fail *loudly and legibly* when the platform misbehaves — which is the entire reason the demos exist.
@@ -111,4 +111,4 @@ If you add a demo, the conventions that matter (learned the hard way) are: impor
 
 ---
 
-*Part of a five-part series on [how Hop3 is tested](2026-06-how-hop3-is-tested.md). See also [the test runner](2026-06-testing-runner.md) that runs the demos in CI, and [testable docs with validoc](2026-06-testing-validoc.md) for the documentation-as-test counterpart. The demo strategy is decided in [ADR 043 §9](/adrs/043-unified-testing-architecture/).*
+*Part of a five-part series on [how Hop3 is tested](2026-06-how-hop3-is-tested.md). See also [the test runner](2026-06-testing-runner.md) that runs the demos in CI, and [testable docs with validoc](2026-06-testing-validoc.md) for the documentation-as-test counterpart. The demo strategy is decided in [ADR 043 §9](/developers/adrs/043-unified-testing-architecture/).*

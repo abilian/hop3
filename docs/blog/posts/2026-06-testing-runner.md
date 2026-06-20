@@ -34,7 +34,7 @@ status = 200
 
 Everything else is *derived*: the test's name from `[metadata].id`, its category from `[build].builder`, its backing services from `[[addons]]`, its base healthcheck from `[healthcheck]`. Apps without a `hop3.toml` (Procfile-only fixtures, demos, tutorials, negative-test cases) carry the same contract in a standalone `test.toml`. The runner *scans* this catalog and turns it into a test plan you can filter by priority, tier, and capability tag on the fly.
 
-**The historical reason: deploy-and-verify had been written four times.** This is the finding that triggered the whole testing rework ([ADR 043](/adrs/043-unified-testing-architecture/)). Four separate code paths — the runner, the pytest Docker fixtures, the demo harness, and a tutorial script — *each* stood up a server and verified an app *independently*, all over the one real `hop3-deploy` primitive. Four copies meant four places for a bug to hide, four diagnostic stories (with inverted coverage — the richest collector was wired only to the cloud path), and no single source of truth for "is this app reachable?".
+**The historical reason: deploy-and-verify had been written four times.** This is the finding that triggered the whole testing rework ([ADR 043](/developers/adrs/043-unified-testing-architecture/)). Four separate code paths — the runner, the pytest Docker fixtures, the demo harness, and a tutorial script — *each* stood up a server and verified an app *independently*, all over the one real `hop3-deploy` primitive. Four copies meant four places for a bug to hide, four diagnostic stories (with inverted coverage — the richest collector was wired only to the cloud path), and no single source of truth for "is this app reachable?".
 
 The fix was to make `hop3-test` own the **one** deploy-and-verify path, behind a single abstraction.
 
@@ -79,7 +79,7 @@ The Makefile wraps the common cases: `make test-apps` (the catalog on Docker), `
 The prerequisites follow directly from "it deploys real apps to real machines":
 
 - **For `--docker` (the default):** a working Docker daemon. The runner deploys Hop3 into a container and treats it as the target. This is the path CI uses and the one a developer should reach for first — it needs nothing but Docker and is fast with `--reuse` against a cached image.
-- **For `--ssh --host`:** a reachable target (Ubuntu 22.04/24.04) with **root, key-based SSH**. This is for the system-level behaviour Docker can't fully reproduce — systemd units, the privileged-operations agent ([ADR 041](/adrs/041-privileged-operations-agent/)), nginx reloads, real file permissions.
+- **For `--ssh --host`:** a reachable target (Ubuntu 22.04/24.04) with **root, key-based SSH**. This is for the system-level behaviour Docker can't fully reproduce — systemd units, the privileged-operations agent ([ADR 041](/developers/adrs/041-privileged-operations-agent/)), nginx reloads, real file permissions.
 - **For cloud targets:** a `HETZNER_API_TOKEN` and an SSH key registered with the provider. The runner provisions throwaway servers, deploys to them, and tears them down for cost control.
 - **The catalog itself:** the test apps live under `apps/` (`real-apps-native/`, `real-apps-nix/`, `real-apps-nix-gen/`, `test-apps-procfile/`, `test-apps-nix/`) and the demos under `demos/`. Adding an app to the catalog is as simple as giving it a `[test]` section.
 
@@ -95,4 +95,4 @@ One last design choice that pays off at the top of the pyramid: `hop3-test` is a
 
 ---
 
-*Part of a five-part series on [how Hop3 is tested](2026-06-how-hop3-is-tested.md). The runner executes [the demos](2026-06-testing-demos.md) and [validoc tutorials](2026-06-testing-validoc.md) through one path, and is driven nightly by [the Test Lab](2026-06-testing-testlab.md). Its rationale is [ADR 043: Unified Testing Architecture](/adrs/043-unified-testing-architecture/).*
+*Part of a five-part series on [how Hop3 is tested](2026-06-how-hop3-is-tested.md). The runner executes [the demos](2026-06-testing-demos.md) and [validoc tutorials](2026-06-testing-validoc.md) through one path, and is driven nightly by [the Test Lab](2026-06-testing-testlab.md). Its rationale is [ADR 043: Unified Testing Architecture](/developers/adrs/043-unified-testing-architecture/).*

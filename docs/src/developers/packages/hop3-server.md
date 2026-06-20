@@ -224,27 +224,29 @@ Key settings:
 
 ### Deployment Request
 
-```
-Client                    Server                      Filesystem
-  │                         │                            │
-  │──POST /rpc deploy──────▶│                            │
-  │                         │──Create App record────────▶│
-  │                         │──Extract source───────────▶│ apps/<name>/src/
-  │                         │──Run builder──────────────▶│ apps/<name>/venv/
-  │                         │──Generate uWSGI config────▶│ uwsgi-available/
-  │                         │──Generate nginx config────▶│ nginx/
-  │                         │──Symlink to enabled───────▶│ uwsgi-enabled/
-  │                         │──Reload nginx─────────────▶│
-  │                         │──Update App state─────────▶│
-  │◀─────────────────────────│                            │
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    participant F as Filesystem
+    C->>S: POST /rpc deploy
+    S->>F: Create App record
+    S->>F: Extract source → apps/{name}/src/
+    S->>F: Run builder → apps/{name}/venv/
+    S->>F: Generate uWSGI config → uwsgi-available/
+    S->>F: Generate nginx config → nginx/
+    S->>F: Symlink to enabled → uwsgi-enabled/
+    S->>F: Reload nginx
+    S->>F: Update App state
+    S-->>C: deployed
 ```
 
 ### Request Routing
 
-```
-Internet → Nginx → uWSGI Emperor → App Worker → Response
-               │
-               └→ Static files (if configured)
+```mermaid
+flowchart LR
+    Internet --> Nginx --> Emperor["uWSGI Emperor"] --> Worker["App Worker"] --> Response
+    Nginx --> Static["Static files<br/>(if configured)"]
 ```
 
 ## Testing

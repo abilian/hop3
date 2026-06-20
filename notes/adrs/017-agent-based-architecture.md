@@ -298,7 +298,7 @@ For edge and fog computing scenarios where a central coordinator is unavailable 
 
 This decentralized model is the natural end-state for edge deployments where nodes must operate autonomously under partition. The coordinator-based Phase 3 serves as a pragmatic intermediate step that validates the agent/promise model before removing the central authority.
 
-The Hop3 paper develops the formal argument for this trajectory, grounding it in Promise Theory [PT1] and showing how Nix content-addressed closures enable bandwidth-efficient store-carry-forward updates between disconnected nodes.
+The Hop3 paper develops the formal argument for this trajectory, grounding it in Promise Theory \[PT1\] and showing how Nix content-addressed closures enable bandwidth-efficient store-carry-forward updates between disconnected nodes.
 
 ### Theory of Promises Integration
 
