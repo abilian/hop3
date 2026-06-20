@@ -3,13 +3,7 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2024-10-01
-**Updated**: 2026-04-14
 **Related-ADRs**: 020, 021, 030, 032, 033, 034, 035
-
-## Revisions
-
-- v1.1 (2026-04-14): `Builder` now has three production implementations (LocalBuilder, DockerBuilder, NixBuilder) and `Deployer` three (uWSGI, Docker Compose, static). The pipeline's `BuildArtifact` / `DeploymentInfo` data flow is the stable contract that ADR 035 formalises as the runtime contract.
-- v1.0 (2024-10-01): Original final version.
 
 ## Context
 
@@ -248,9 +242,9 @@ plugin = UWSGIPlugin()
 
 ## Configuration
 
-### Auto-Detection (Current Default)
+### Auto-Detection
 
-Applications are automatically detected based on files present:
+Auto-detection is the default. Applications are detected based on files present:
 
 ```bash
 # Python app with requirements.txt
@@ -269,9 +263,10 @@ index.html  style.css  images/
 # → Auto-selects: StaticBuilder → StaticDeployer
 ```
 
-### Explicit Configuration (Planned)
+### Explicit Configuration
 
-Override auto-detection in `hop3.toml`:
+Auto-detection can be overridden in `hop3.toml`, for the edge cases where the
+codebase does not unambiguously select a strategy:
 
 ```toml
 [build]
@@ -280,8 +275,6 @@ strategy = "docker"  # Force Docker build
 [deploy]
 strategy = "docker"  # Force Docker deployment
 ```
-
-**Status:** Not yet implemented. Auto-detection works well for current use cases.
 
 ## Complete Example: Python Application
 
@@ -539,18 +532,24 @@ Separating build from deployment enables composition:
 | **Stages** | Separate build/deploy | Combined | Enables composition and artifact reuse |
 | **Interface** | Protocol | ABC | Structural typing more Pythonic |
 
-## Implementation Status
+## Strategies
 
-**Fully Implemented.** Current strategies:
+The `Builder` protocol has three production implementations and the `Deployer`
+protocol three, spanning the native, container, and Nix toolchains:
 
 **Build:**
-- `NativeBuildPlugin` - Python, Node.js, Ruby, Go, Clojure, Static sites
-- `DockerBuilder` - Docker-based builds (in progress)
+- `LocalBuilder` (`NativeBuildPlugin`) - native builds for Python, Node.js, Ruby, Go, Clojure, and static sites
+- `DockerBuilder` - Docker-based builds
+- `NixBuilder` - Nix closure builds
 
 **Deployment:**
 - `UWSGIDeployer` - uWSGI application server with Unix sockets
-- `StaticDeployer` - Static file serving via reverse proxy
-- `DockerDeployer` - Container deployment (in progress)
+- `StaticDeployer` - static file serving via reverse proxy
+- `DockerDeployer` - Docker Compose container deployment
+
+The `BuildArtifact` → `DeploymentInfo` data flow is the stable contract between
+the two stages, independent of which strategies fill them. ADR 035 formalises
+this data flow as the runtime contract.
 
 ## Prior Art
 

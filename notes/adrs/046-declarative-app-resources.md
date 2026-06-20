@@ -254,7 +254,7 @@ What makes it one amendment rather than two:
 
 - **One path-allow-list.** rootd re-derives `APP_ROOT` and runs `validate_app_name` for both families; every `mountpoint`/leaf must canonicalize under `<APP_ROOT>/<app>/src/` resp. `hop3.slice/hop3-app-<app>.scope`. Callers never pass arbitrary paths.
 - **One state file + reconcile loop.** Mounts and cgroup leaves join the firewall family's atomic-write/reconcile discipline, so a rootd restart re-asserts or cleans exactly what it owns.
-- **One threat model.** The op families run within rootd's existing root privilege. The larger trust budget the union implies — `CAP_SYS_ADMIN` (mounts), a non-private mount namespace (so an Emperor-spawned process can see a rootd-made mount), and `ProtectControlGroups=false` or a delegated `hop3.slice` — is a forward constraint for the v0.6 unit-hardening pass, threat-modelled as a whole rather than loosened ad hoc.
+- **One threat model.** The op families run within rootd's existing root privilege. The larger trust budget the union implies — `CAP_SYS_ADMIN` (mounts), a non-private mount namespace (so an Emperor-spawned process can see a rootd-made mount), and `ProtectControlGroups=false` or a delegated `hop3.slice` — is a forward constraint for the unit-hardening pass, threat-modelled as a whole rather than loosened ad hoc.
 
 A realization that requires a privileged op is gated on that op: the platform refuses a resource it cannot realize rather than deploy something that only looks capped or persisted. If the amendment were rejected, native tmpfs/bind and native limits would be infeasible and only the Docker paths would be available — the guaranteed-deployable baseline.
 

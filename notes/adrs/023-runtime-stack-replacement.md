@@ -1,34 +1,9 @@
 # ADR 023: Runtime Stack Replacement
 
-**Status**: Draft (nothing implemented; no commitment to execute)
+**Status**: Draft
 **Type**: Feature
 **Created**: 2024-11-01
-**Updated**: 2026-04-22
 **Related-ADRs**: 021, 036
-
-## Revisions
-
-- v1.2: CLI examples migrated to the space form (`hop3 deploy`) per ADR 036 (2026-04-22).
-- v1.1: Status note added — the proposed replacement has not been started; this ADR captures a future direction, not a scheduled workstream (2026-04-14).
-- v1.0: Original draft (2024-11-01)
-
-## Current Status (2026-04-14)
-
-Nothing from this ADR has been implemented. The motivation — uWSGI's development has ceased; hot reconfiguration; reduced complexity — remains valid, but the project has invested in other areas (Nix integration, test-suite diagnostics, app packaging) rather than a runtime-stack replacement. In the meantime the operational pain from uWSGI has been low enough that the replacement has not crossed the priority threshold.
-
-**What still holds from the original motivation:**
-
-- uWSGI's unmaintained status has not produced concrete incidents since this ADR was drafted, but remains a latent risk.
-- Hot reconfiguration is still not provided by the current stack. `hop3 deploy` writes configs and reloads Nginx; there is no atomic-swap pathway.
-- The three-component coupling (uWSGI vassal → Nginx site → optional supervisord) has been refined rather than simplified.
-
-**What would need to happen to revive this ADR:**
-
-1. Concrete incident or security advisory against uWSGI, OR
-2. A hot-reconfiguration requirement from a real operator, OR
-3. A strategic decision to align the runtime with the Nix-based build path (a Nix-packaged Granian + Caddy is closer in spirit to a Nix-first PaaS than the current C-heavy uWSGI).
-
-Until one of those triggers, this ADR stays as a well-worked-out option on the shelf rather than an active workstream. The design below is retained for that future decision.
 
 ## Introduction
 
@@ -147,7 +122,7 @@ Components:
 - ✅ ASGI/WSGI support - Handles Python apps
 - ✅ Hot reload - Process-level reload support
 - ✅ Unix sockets - Native support for nginx-style deployment
-- ✅ ~5% complexity of uWSGI - Does what we need, nothing more
+- ✅ A small fraction of uWSGI's complexity - Does what we need, nothing more
 
 **Granian features we'll use:**
 - WSGI/ASGI interface
@@ -208,7 +183,7 @@ curl -X POST http://localhost:2019/config/ \
 - ✅ Hop3-specific - Exactly our needs, no more
 - ✅ Tight integration - Direct API with hop3-server
 - ✅ Hot reconfiguration - Full control over lifecycle
-- ✅ Simple implementation - ~300-500 lines of Python
+- ✅ Simple implementation - A small Python daemon
 - ✅ asyncio-based - Modern Python patterns
 
 **Core features:**
@@ -379,9 +354,7 @@ await pm.start_app(
 ### Benefits
 
 1. **Simplified Stack**
-   - 3 components with clear roles (vs. 3+ complex components)
-   - Granian: ~1000 LOC Rust (vs. uWSGI: ~100k LOC C)
-   - Custom PM: ~500 LOC Python (vs. supervisor: ~20k LOC)
+   - Three components with clear roles, each substantially smaller and more focused than its predecessor: Granian (Rust) against uWSGI's large C codebase, and a small custom process manager against supervisor.
 
 2. **Hot Reconfiguration**
    - Add apps: instant (Caddy API + PM start)
@@ -420,7 +393,7 @@ await pm.start_app(
    - Different configuration paradigm
 
 2. **Migration Effort**
-   - ~4-6 weeks total implementation + testing
+   - Substantial implementation and testing effort
    - Existing deployments need migration
    - Documentation updates
    - Training/onboarding
@@ -503,7 +476,7 @@ From nginx experience:
 - Tight integration
 
 **Cons:**
-- ~2000+ LOC to implement properly
+- Substantial code to implement properly
 - ACME is complex
 - Proxy performance < Caddy
 - Reinventing the wheel
@@ -642,13 +615,6 @@ From nginx experience:
 - [uWSGI Emperor Mode](https://uwsgi-docs.readthedocs.io/en/latest/Emperor.html)
 - [ACME Protocol (RFC 8555)](https://tools.ietf.org/html/rfc8555)
 - [Let's Encrypt Documentation](https://letsencrypt.org/docs/)
-
-## Notes
-
-- This ADR is marked as "Proposed" pending team discussion and approval
-- Performance benchmarks should be conducted before final decision
-- Migration strategy needs refinement based on deployment patterns
-- Consider phased rollout: new installations first, then migrations
 
 ## Appendix
 

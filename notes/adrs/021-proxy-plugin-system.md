@@ -3,13 +3,7 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2024-10-01
-**Updated**: 2026-04-14
 **Related-ADRs**: 020, 022, 023
-
-## Revisions
-
-- v1.1: Status refreshed. Nginx, Caddy, and Traefik plugins all in production use across the real-apps test corpus; Nginx remains the default; per-server selection via `HOP3_PROXY_TYPE` (2026-04-14).
-- v1.0: Original final version (2024-10-01)
 
 ## Context
 
@@ -22,7 +16,10 @@ We implement proxy configuration as a plugin system with **server-wide configura
 1. **Server-Wide Selection:** Proxy type is set via `HOP3_PROXY_TYPE` environment variable (server config), not per-application
 2. **Proxy Protocol:** A Python `Protocol` defines the interface with `setup(app, env, workers)` method
 3. **Plugin Discovery:** Proxies are discovered via `get_proxies()` hookspec
-4. **Three Implementations:** Nginx (default), Caddy, and Traefik plugins
+4. **Three Implementations:**
+   - **Nginx** (default) — ACME certificates, static file serving, caching, IPv4/IPv6
+   - **Caddy** — automatic HTTPS, simpler configuration, modern features
+   - **Traefik** — cloud-native, dynamic configuration, service discovery
 
 ## Proxy Plugin Interface
 
@@ -292,14 +289,6 @@ A server runs **one reverse proxy instance** listening on ports 80/443:
 | **Scope** | Server-wide | Per-application | Physical constraint (port 80/443) |
 | **Selection** | Explicit config | Auto-detection | Predictability over magic |
 | **Interface** | Protocol | ABC | Structural typing more Pythonic |
-
-## Implementation Status
-
-**Fully Implemented.** Three proxy plugins operational:
-
-- **NginxProxyPlugin** (default) - ACME certificates, static file serving, caching, IPv4/IPv6
-- **CaddyProxyPlugin** - Automatic HTTPS, simpler configuration, modern features
-- **TraefikProxyPlugin** - Cloud-native, dynamic configuration, service discovery
 
 ## Prior Art
 

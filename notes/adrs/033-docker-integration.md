@@ -3,17 +3,11 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2025-12-04
-**Updated**: 2026-04-14
 **Related-ADRs**: 022, 030, 032, 035
-
-## Revisions
-
-- v1.1 (2026-04-14): `localhost → host.docker.internal` substitution is now value-based (regex at host boundaries) rather than a per-env-var-name whitelist, so it catches custom env-var names (e.g. `GF_DATABASE_HOST`) automatically.
-- v1.0 (2025-12-04): Original final version.
 
 ## Context
 
-Hop3 currently supports native deployment using uWSGI and nginx. However, some applications require containerization, either because:
+Hop3 supports native deployment using uWSGI and nginx. However, some applications require containerization, either because:
 
 1. They have complex dependencies that are difficult to install natively
 2. They need process isolation beyond what uWSGI provides
@@ -124,6 +118,20 @@ Hop3 provides these environment variables to the compose file:
 - `HOP3_APP_NAME`: The application name
 - `HOP3_APP_PORT`: The exposed port from Dockerfile (if detected)
 - `PORT`: The allocated host port for the container
+
+#### Host Reference Substitution
+
+A container cannot reach a service bound to `127.0.0.1`/`localhost` on the
+host through that name, since `localhost` inside the container resolves to the
+container itself. When passing environment values into the container, Hop3
+rewrites host references of `localhost` and `127.0.0.1` to
+`host.docker.internal`, the Docker-provided alias for the host.
+
+The substitution is value-based: it matches host references at host boundaries
+within the value (via regex), not against a whitelist of known env-var names.
+A name-based whitelist would silently miss custom variables such as
+`GF_DATABASE_HOST`; a value-based rewrite catches any variable that carries a
+host reference, regardless of its name.
 
 ### Proxy Integration
 
@@ -251,27 +259,19 @@ Ports are discovered in this order:
 2. `docker compose port` command (runtime discovery)
 3. Fallback to 8080
 
-## Future Enhancements
+## Future Work
 
-### Phase 1: Build Improvements
+This design leaves room for the following extensions:
 
-1. **Build arguments**: Pass environment variables as build args
-2. **Multi-stage builds**: Support for complex Dockerfiles
-3. **Buildx support**: Enable BuildKit features
-4. **Image caching**: Reuse layers across deployments
-
-### Phase 2: Advanced Orchestration
-
-1. **Health checks**: Monitor container health via HTTP endpoint
-2. **Rolling updates**: Zero-downtime deployments with blue-green
-3. **Resource limits**: CPU/memory constraints via compose
-4. **Secrets management**: Integrate with Docker secrets or Hop3 secrets
-
-### Phase 3: Multi-Container Apps
-
-1. **Sidecar services**: Support for redis, postgres, etc.
-2. **Service discovery**: Internal DNS for container communication
-3. **Volume management**: Persistent data across deployments
+- **Build improvements**: build arguments derived from environment variables,
+  multi-stage Dockerfiles, BuildKit/buildx features, and layer caching reused
+  across deployments.
+- **Advanced orchestration**: HTTP-endpoint container health checks,
+  zero-downtime blue-green rolling updates, CPU/memory limits expressed via
+  compose, and secrets management integrating Docker secrets or Hop3 secrets.
+- **Multi-container apps**: sidecar services (redis, postgres, etc.), internal
+  DNS for service discovery between containers, and persistent volume
+  management across deployments.
 
 ## Consequences
 

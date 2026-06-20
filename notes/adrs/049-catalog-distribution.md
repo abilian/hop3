@@ -1,16 +1,9 @@
 # ADR 049: Catalog Distribution — Fetching App Specs from a Central Source
 
-**Status**: Accepted (phased — v1 node + producer code shipped; signing key, published content, and the install→deploy step deferred)
+**Status**: Accepted
 **Type**: Feature
 **Created**: 2026-06-16
-**Updated**: 2026-06-18
 **Related-ADRs**: 013 (supply chain), 031 (terminology), 019 (CLI commands), 002 (config format)
-
-## Revisions
-
-- v0.3 (2026-06-17): Accepted; v1 node + producer code landed and round-trip-tested. Remaining work is out-of-band (real signing key, published content, the install→deploy step).
-- v0.2 (2026-06-16): Security review folded in — the signed index is authoritative for the file *set*, the verifying key is compiled in, and spec-validation / sanitization / anti-rollback / resource bounds are pulled into v1 scope.
-- v0.1 (2026-06-16): Initial draft.
 
 ## Context
 
@@ -29,9 +22,9 @@ Distribute the catalog as a **signed artifact pulled over HTTPS**, verified agai
 
 ### Phasing
 
-| Phase | Source | Shape | When |
-|-------|--------|-------|------|
-| **v1** (this ADR) | Static files under `https://apps.hop3.cloud/catalog/` | One signed `catalog.tar.gz` | Now |
+| Phase | Source | Shape | Trigger |
+|-------|--------|-------|---------|
+| **v1** | Static files under `https://apps.hop3.cloud/catalog/` | One signed `catalog.tar.gz` | Baseline |
 | **v2** | Same static host | `index.json` + per-app artifacts fetched on demand | When catalog size/icons make whole-tarball refresh wasteful |
 | **v3** | Dedicated catalog service | API + per-app + transparency log | Post-NGI |
 
@@ -74,7 +67,7 @@ The release process builds and signs the artifact offline with the `hop3-catalog
 
 Authenticity is **necessary but not sufficient** — a verified spec is still attacker- or mistake-shaped content. These are in v1 scope because v1 is the change that first makes catalog content installable; deferring them would ship a known hole. Each maps to a property in the table at the end.
 
-- **Coexistence gate (F7).** A verified spec must not claim an unmanaged shared resource and break the "apps must coexist" invariant. The one such resource a `hop3.toml` can express is the reverse-proxy default server, so the gate rejects a catch-all (`"_"`) or wildcard host; it runs at publish time (primary) and as a load-time backstop. The v0.2 wording ("allowlist builders/addons, reject fixed ports") was pared back: those are already constrained by the hop3.toml schema, the port registry, and per-app addon provisioning, so re-gating them would be redundant rather than defense-in-depth.
+- **Coexistence gate (F7).** A verified spec must not claim an unmanaged shared resource and break the "apps must coexist" invariant. The one such resource a `hop3.toml` can express is the reverse-proxy default server, so the gate rejects a catch-all (`"_"`) or wildcard host; it runs at publish time (primary) and as a load-time backstop. The gate deliberately does not re-validate builders, addons, or fixed ports: those are already constrained by the hop3.toml schema, the port registry, and per-app addon provisioning, so re-gating them would be redundant rather than defense-in-depth.
 - **Untrusted readme/icon (F6).** The public icon route serves raster images only — never SVG, an inline-XSS vector — with `nosniff`, resolved within the app's own verified directory. The readme is rendered through an HTML-sanitizing allowlist.
 - **Resource bounds (F9).** `hop3 catalog refresh` is dashboard-reachable, so download size, uncompressed size, and member count are capped to prevent a zip-bomb / disk-fill DoS with cross-tenant impact.
 - **Privilege separation (F8, deferred hardening).** The `hop3` user verifies the catalog, owns the serial, *and* is the uid a bad spec runs as — so one compromise can disable future verification. Root-owned key/serial state is the hardening target; v1 verifies against the compiled-in constant and keeps the serial outside the catalog dir.

@@ -3,13 +3,7 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2025-11-28
-**Updated**: 2026-04-22
 **Related-ADRs**: 012, 018, 036
-
-## Revisions
-
-- v1.1: CLI examples migrated from colon syntax (`hop3 auth:register`, `hop3 auth:login`, `hop3 auth whoami`) to space form (`hop3 auth register`, `hop3 auth login`, `hop3 auth whoami`) per ADR 036 (2026-04-22).
-- v1.0: Original final version (2025-11-28)
 
 ## Context and Goals
 
@@ -301,23 +295,21 @@ No separate bootstrap needed for web portal.
 
 ---
 
-## Migration from Current State
+## Backwards Compatibility
 
-### Current State
-- `auth:register` is public (creates non-admin users)
-- `auth:login` is public (returns token)
-- No way to create first admin
+The bootstrap mechanism is additive and layers on top of the existing public
+auth flow, which is unchanged:
 
-### Changes
-1. **Add `hop3-server` CLI** - new entry point (additive)
-2. **Add `hop3 init --ssh`** - new command (additive)
-3. **Keep existing auth flow** - no breaking changes
+- `auth register` is public (creates non-admin users)
+- `auth login` is public (returns token)
 
-### Backward Compatibility
+The bootstrap introduces, without breaking anything above:
 
-- No breaking changes to existing auth flow
-- New commands are additive
-- Existing users/tokens remain valid
+1. **The `hop3-server` CLI** — a server-side entry point.
+2. **The `hop3 init --ssh` command** — a client-side bootstrap convenience.
+
+Existing users and tokens remain valid, and no existing command changes
+behaviour.
 
 ---
 
@@ -364,11 +356,11 @@ No separate bootstrap needed for web portal.
 
 ---
 
-## Appendix: Original Discussion (Draft Phase)
+## Appendix: Extended Alternatives Analysis
 
-*The following content was part of the original draft ADR and is preserved for historical reference.*
+This appendix expands the trade-off analysis behind the rejected options.
 
-### Original Comparison Matrix
+### Comparison Matrix
 
 | Criteria | Option 1: CLI | Option 2: Bootstrap Token | Option 3: Seed User | Option 4: Conditional |
 |----------|---------------|---------------------------|---------------------|-----------------------|
@@ -378,7 +370,7 @@ No separate bootstrap needed for web portal.
 | User Experience | ⚠️ Requires server access | ✅ Seamless | ✅ Simple | ✅ Self-service |
 | Implementation | ✅ Simple | ⚠️ Token management | ✅ Simple | ⚠️ Race conditions |
 
-### Original Risk Analysis
+### Risk Analysis
 
 #### Security Risks
 
@@ -403,7 +395,7 @@ No separate bootstrap needed for web portal.
 - Clear error messages with recovery instructions
 - Comprehensive documentation with examples
 
-### Original Option Details
+### Option Details
 
 #### Option 2: Bootstrap Token in Environment (Not Selected)
 

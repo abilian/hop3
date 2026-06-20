@@ -3,30 +3,21 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2025-11-28
-**Updated**: 2026-04-14
 **Implemented-In**: v0.5.0
 **Related-ADRs**: 006, 008, 020, 022, 035
 
-## Revisions
-
-- v1.1: Status refreshed. The two-level split (Builder = how to build: local / Docker / Nix; LanguageToolchain = what to build: Python / Node / Go / Rust / Ruby / Java / PHP / generic) is the production architecture. NixBuilder bypasses the LanguageToolchain layer per ADR 006 §"Architectural Context" — all build logic in Nix lives inside the Nix expression. Cross-references to ADR 006 and ADR 008 added for the Nix-builder integration story (2026-04-14).
-- v1.0: Original final version (2025-11-28)
-
 ## Context
 
-> **Note**: This section describes the problems that existed *before* this ADR was implemented.
-> The two-level architecture is now in place and working.
-
-The original build system conflated two distinct architectural levels into a single hierarchy:
+A build system can conflate two distinct architectural levels into a single hierarchy:
 
 1. **Build orchestration** (HOW to build): Should we build locally, in Docker, with Nix?
 2. **Language-specific tooling** (WHAT to build): How do we build Python vs Node vs Java?
 
 This conflation creates several problems:
 
-### Problem 1: Type Error Reveals Architectural Confusion
+### Problem 1: A Dual Constructor Reveals Architectural Confusion
 
-The mypy error in `hop3/builders/_base.py` is a symptom of deeper confusion:
+A single builder base class that serves both levels needs a dual constructor, and type narrowing fails on it:
 
 ```python
 def __init__(
@@ -39,13 +30,13 @@ def __init__(
         self.app_path = context.source_path.parent  # ❌ Type error
 ```
 
-**Root Cause**: This class tries to serve two purposes:
+**Root Cause**: Such a class tries to serve two purposes:
 - Abstract base for language toolchains (Python, Node, Java)
 - Plugin interface for build orchestration (invoked by plugin system)
 
-### Problem 2: Cannot Support Multiple Build Methods
+### Problem 2: A Flat Hierarchy Cannot Support Multiple Build Methods
 
-Current flat hierarchy:
+A flat hierarchy:
 ```
 Builder (Protocol)
   ├── PythonBuilder
@@ -55,22 +46,22 @@ Builder (Protocol)
 ```
 
 **Issues**:
-- How do we add `DockerBuilder` that builds ALL languages in containers?
-- How do we add `NixBuilder` that builds ALL languages with Nix?
-- How do we support Python+Node in a single app (full-stack)?
+- A `DockerBuilder` that builds ALL languages in containers has no clean place in the hierarchy.
+- A `NixBuilder` that builds ALL languages with Nix has no clean place either.
+- Python+Node in a single app (full-stack) cannot be expressed.
 
-All `*Builder` classes are treated equally by the plugin system, but:
+A flat hierarchy treats all `*Builder` classes equally in the plugin system, but:
 - `PythonBuilder` is language-specific (Level 2)
-- `DockerBuilder` would be language-agnostic (Level 1)
+- `DockerBuilder` is language-agnostic (Level 1)
 - They belong to different architectural levels
 
-### Problem 3: Future Requirements
+### Problem 3: Composite and Alternative Builds
 
 **Multi-language builds**: A Python backend + Node frontend needs:
 - One orchestrator: `LocalBuilder`
 - Two toolchains: `PythonToolchain` + `NodeToolchain`
 
-Current architecture cannot express this cleanly.
+A flat hierarchy cannot express this cleanly.
 
 **Alternative build methods**: Users want to choose:
 - Local builds (fast, uses host tools)
@@ -78,17 +69,22 @@ Current architecture cannot express this cleanly.
 - Nix builds (reproducible, declarative)
 - Buildpack builds (Heroku/Cloud Foundry compatibility)
 
-Current flat hierarchy mixes these concerns with language-specific logic.
+A flat hierarchy mixes these concerns with language-specific logic.
 
 ---
 
 ## Decision
 
-We adopt a **two-level build architecture** that separates orchestration from language-specific tooling.
+Hop3 adopts a **two-level build architecture** that separates orchestration from language-specific tooling:
+
+- **Builder** (Level 1) decides *how* to build: local, Docker, or Nix.
+- **LanguageToolchain** (Level 2) decides *what* to build: Python, Node, Go, Rust, Ruby, Java, PHP, or a generic fallback.
+
+Only the `LocalBuilder` delegates to LanguageToolchains. `DockerBuilder` and `NixBuilder` bypass the LanguageToolchain layer entirely: their build logic lives inside the Dockerfile or the Nix expression (see [ADR 006](006-nix-integration.md) §"Architectural Context" and [ADR 008](008-nix-builders-2.md)).
 
 ### BuildContext vs DeploymentContext
 
-Before defining the protocols, we need to separate build-time and deployment-time concerns:
+The protocols rest on a separation of build-time and deployment-time concerns:
 
 ```python
 @dataclass
@@ -159,14 +155,12 @@ class Builder(Protocol):
 
 ### Level 2: LanguageToolchain (Language-Specific Logic)
 
-**Protocol**: `LanguageToolchain` (new protocol in `hop3/core/protocols.py`)
+**Protocol**: `LanguageToolchain` (in `hop3/core/protocols.py`)
 **Responsibility**: Execute WHAT to build (dependencies, compilation, bundling)
 **Examples**: `PythonToolchain`, `NodeToolchain`, `JavaToolchain`, `RubyToolchain`
 **Selection**: Auto-detection (presence of requirements.txt, package.json, etc.)
 **Hook**: `get_language_toolchains()`
-**Location**:
-- **Currently**: `hop3/builders/` (will be renamed)
-- **Future**: `hop3/plugins/toolchains/` (will become plugins)
+**Location**: `hop3/plugins/build/language_toolchains/`
 
 ```python
 class LanguageToolchain(Protocol):
@@ -230,9 +224,9 @@ LanguageToolchains are specific to LocalBuilder and enable:
 **Domain Language**:
 - DevOps engineers ask: "What builder are you using?"
 - They mean: "Are you building locally, in Docker, or with Nix?"
-- The current `Builder` protocol in `hop3/core/protocols.py` already exists at this level
+- The `Builder` protocol in `hop3/core/protocols.py` lives at this level
 
-**Consistency with Terminology Decision (ADR-TERMINOLOGY)**:
+**Consistency with Terminology**:
 - Follows Heroku-inspired naming (Builder, Deployer, Addon)
 - Avoids generic suffixes like "Strategy" or "Method"
 - Natural and concrete term
@@ -276,14 +270,7 @@ artifact = builder.build()
 
 ### Negative
 
-⚠️ **Breaking Change**: Requires renaming and restructuring
-- `hop3/builders/*Builder` → `*Toolchain`
-- Current `Builder` ABC → `LanguageToolchain`
-- Affects ~10 files
-
-⚠️ **Migration Effort**: Must update all builder implementations
-- Estimated: 1-2 days for renaming and restructuring
-- Estimated: Additional time for new `LocalBuilder` implementation
+⚠️ **Renaming and restructuring**: The original language-specific `*Builder` classes become `*Toolchain`, and the original `Builder` ABC becomes `LanguageToolchain`.
 
 ⚠️ **Complexity**: Two protocols instead of one
 - Requires clear documentation
@@ -291,15 +278,7 @@ artifact = builder.build()
 
 ### Neutral
 
-🔄 **Backwards Compatibility**: The plugin hook can remain `get_builders()` initially
-- Return both Builders and LanguageToolchains
-- Gradually migrate to separate hooks
-
-🔄 **Gradual Migration**: Can implement incrementally
-- Phase 1: Add `LanguageToolchain` protocol
-- Phase 2: Rename existing classes
-- Phase 3: Implement `LocalBuilder`
-- Phase 4: Move toolchains to plugins
+🔄 **Backwards Compatibility**: A single `get_builders()` hook can return both Builders and LanguageToolchains, so the split can be introduced before the hooks are separated into `get_builders()` and `get_language_toolchains()`.
 
 ---
 
@@ -382,22 +361,9 @@ Building with multiple toolchains sequentially may be slow. Consider:
 
 ---
 
-## Success Metrics
-
-This architecture is successful when:
-
-1. Multi-language apps (Python + Node) build correctly
-2. New build methods (Docker, Nix) can be added without changing toolchains
-3. New language toolchains can be added as plugins
-4. Type checking passes with no errors or `# type: ignore` comments
-5. Plugin authors understand when to implement Builder vs LanguageToolchain
-
----
-
 ## References
 
-- **Current Builder Implementation**: `packages/hop3-server/src/hop3/builders/_base.py`
-- **Current Plugin System**: `packages/hop3-server/src/hop3/core/plugins.py`
+- **Plugin System**: `packages/hop3-server/src/hop3/core/plugins.py`
 - **Related ADRs**:
   - ADR 020: Pluggable Architecture
   - ADR 022: Build/Deploy Plugin System

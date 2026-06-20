@@ -3,39 +3,30 @@
 **Status**: Accepted
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-06-15
 **Related-ADRs**: 001, 003, 046
 
-## Implementation Status
+## Specification subset and reserved fields
 
-**The shipped subset of the specification is stable and in production use.** Fields listed below as "reserved" are part of the forward-looking design but not yet consumed by the runtime.
+The format defines a stable core that the runtime consumes, plus forward-looking fields retained in the design but not yet acted upon. An application that sets a reserved field is unaffected, except that nothing acts on it.
 
-### Shipped sections and fields
-- **`[metadata]`** — `id` (required); additional descriptive fields (`version`, `title`, `description`, `homepage`, `license`, `categories`) are parsed as informational metadata and surfaced in listings, but do not change runtime behaviour.
+### Core sections and fields
+- **`[metadata]`** — `id` (required); additional descriptive fields (`version`, `title`, `description`, `homepage`, `license`, `categories`) are informational metadata surfaced in listings, and do not change runtime behaviour.
 - **`[build]`** — `builder` (explicit override), `toolchain` (explicit override), `packages` (apt-install list), `before-build`, `build`.
 - **`[run]`** — `start`, `before-run`, `start-timeout`, `packages`.
 - **`[run.workers]`** — per-role worker commands (same-process-tree).
-- **`[env]`** — static values only. (Correction, 2026-06-15: this entry previously claimed `from`/`key` references and `random` password generation as shipped. They are **not** implemented — the loader silently drops dict-valued entries. The declarative design for generated secrets and dynamic references is specified in ADR 046, which also fixes the silent-drop.)
+- **`[env]`** — static values. Generated secrets and dynamic references (`from`/`key`, `random`) are specified declaratively in ADR 046, not by this ADR.
 - **`[[addons]]`** — `type` (postgres, mysql, redis, s3) drives provisioning; per-addon parameters.
 - **`[healthcheck]`** — `path`, `timeout`; consumed by the deployer's health-check stage and by `hop3-testing`.
-- **`[nix]`** — `template`, `nixpkgs-package`, `exec-target`, `exec-args`, `extra-paths`, `pre-exec`, `local-vars`, `env-exports`, `runtime-env`, `conditional-env`, `config-files`. Drives the eight-template generator (ADR 008).
+- **`[nix]`** — `template`, `nixpkgs-package`, `exec-target`, `exec-args`, `extra-paths`, `pre-exec`, `local-vars`, `env-exports`, `runtime-env`, `conditional-env`, `config-files`. Drives the template generator (ADR 008).
 
-### Reserved / not yet parsed
-These fields appear in the original spec and in some documentation examples but are not currently consumed. They are retained in the design and may be shipped in future releases; an application that sets them today is unaffected except that nothing will act on them:
+### Reserved fields
+These fields appear in the spec and in some documentation examples but are not consumed by the runtime. They are retained in the design:
 - `[metadata]` extras: `author`, `tagline`, `tags`, `profile`, `release`.
 - `[build]` extras: `license`, `src-url`, `src-checksum`, `git-url`, `git-branch`, `base-image`, `method`, `test`.
 - `[backup]` section.
 - Environment-specific overrides: `[env.development]`, `[env.production]`.
 
-### Deferred to ADR 003
-Schema validation beyond TOML parse errors; YAML/JSON alternative formats; CLI validation tooling.
-
-## Revisions
-
-- v0.4: Corrected the `[env]` implementation status (`from`/`key`/`random` were never shipped); the declarative env model is now specified in ADR 046 (2026-06-15).
-- v0.3: Promoted from Draft to Accepted; reorganised fields into "shipped" vs "reserved"; added `[nix]` section details (2026-04-14).
-- v0.2: Update according to new template (2024-07-25)
-- v0.1: Initial draft (2024-07-17)
+Schema validation beyond TOML parse errors, YAML/JSON alternative formats, and CLI validation tooling are the province of ADR 003.
 
 ## Summary
 
@@ -69,8 +60,7 @@ The `hop3.toml` file will be used as the primary configuration format for the Ho
 
 ## Related
 
-- ADR #002: Detailed `hop3.toml` Format
-- ADR #003: Config Parsing and Validation
+- ADR 003: Config Parsing and Validation
 
 ## References
 
@@ -104,7 +94,7 @@ The `hop3.toml` file contains several sections, mandatory or optional. Their ord
 
 ### `[port]`
 
-- **Optional**. However, the current implementation issues a warning if no public port is declared.
+- **Optional**. The deployer issues a warning if no public port is declared.
 - Dictionary of named ports (e.g., `[port.web]`) used by the application.
 
 ### `[healthcheck]`
@@ -412,14 +402,14 @@ ______________________________________________________________________
 ### Section `[port]`
 
 - **Optional**
-- However, the current implementation issues a warning if no public port is declared.
+- The deployer issues a warning if no public port is declared.
 - Dictionary of named ports (e.g., `[port.web]`) used by the application.
 
 ______________________________________________________________________
 
 ### Section `[healthcheck]`
 
-Currently, the `healthcheck` section defines commands and parameters to check the health of the application.
+The `healthcheck` section defines commands and parameters to check the health of the application.
 
 #### Example:
 
