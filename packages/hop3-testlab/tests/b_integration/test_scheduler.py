@@ -67,6 +67,7 @@ def test_nightly_job_runs_target_as_scheduled(monkeypatch):
         "load_schedule",
         lambda: SimpleNamespace(target="hetzner", mode="nightly"),
     )
+    monkeypatch.setattr(scheduler, "run_blockers", lambda target, apps: None)  # clear
     monkeypatch.setattr(
         scheduler, "run_once", lambda target, **kw: captured.update(target=target, **kw)
     )
@@ -78,6 +79,29 @@ def test_nightly_job_runs_target_as_scheduled(monkeypatch):
         "trigger": "scheduled-nightly",
         "mode": "nightly",
     }
+
+
+def test_nightly_job_refused_when_blocked_does_not_run(monkeypatch, caplog):
+    """A doomed nightly (e.g. unauthorized Hetzner token) is refused with the
+    reason and logged loud — never spawned, never a raw scheduler traceback."""
+    monkeypatch.setattr(
+        scheduler,
+        "load_schedule",
+        lambda: SimpleNamespace(target="hetzner", mode="nightly"),
+    )
+    monkeypatch.setattr(
+        scheduler,
+        "run_blockers",
+        lambda target, apps: "Can't start: unable to authenticate (unauthorized)",
+    )
+    ran: list[int] = []
+    monkeypatch.setattr(scheduler, "run_once", lambda *a, **k: ran.append(1))
+
+    with caplog.at_level("ERROR"):
+        scheduler._nightly_job()
+
+    assert ran == []  # doomed run refused, not spawned
+    assert "unauthorized" in caplog.text  # actionable reason surfaced
 
 
 def test_add_nightly_job_registers_cron(monkeypatch):

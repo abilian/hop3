@@ -192,6 +192,24 @@ v2 is mostly *additive*: a queue/dispatcher in front of `run_once`, a source-fet
 
 ---
 
+## Requirements refinement (2026-06-18)
+
+Direction from the user, refining §5 (selection) and §7 (config). Supersedes the prior framing where these were later slices.
+
+- **Postgres is a production requirement, not just a slice-3 seam.** The Lab is deployed on a server, so the store is **Postgres** (concurrent readers + the parallel-runs future). Touches both packages: the engine's `ResultStore` writes the same store, and `create_all`/`_ensure_columns` must be PG-compatible (the SQLite-specific partial-unique index). The Lab is **sync** SQLAlchemy → use **psycopg**, drop the unused `asyncpg`.
+
+- **A profile is `{source, platform_version, selection_rules}`** — the single unit created in the UI and launched with **Start build**. **No manual app selection anywhere**: apps/demos/tutorials are always chosen by *rules*, never a hand-picked list. `selection_rules` **reuse the engine's existing rule machinery** (`modes` + `Selector`, `covers` tags, the type/variant discriminators) resolved against the fetched `source@ref` — not a new DSL; the slice-1 path glob is one rule. **Target is *not* part of a profile** — it's a launch-time / pool choice (*what* to build vs *where*).
+
+- **The old `/profiles` (mode-overrides / curated picker) is scrapped**, replaced by the above. `ProfilesController` + the `~/.hop3/test-modes.toml` override file go. The slice-1 manual `apps=[...]` path (the dashboard per-app trigger, the `apps` list in `run_once`/CLI) is removed as dead weight — selection is rule-based only.
+
+- **UI: create/edit profiles + a Start-build button.** The composition becomes drivable from the web UI (which lives *on* the server — no thin-client needed for it).
+
+- **You never pick a server — the queue does (§3/§6 pulled forward).** A **server pool** is maintained via its own CRUD UI (`Server = {name, target_id, kind, enabled}`; creds stay in config, not the DB). **Start build → enqueue** a `BuildRequest` (no target); the **dispatcher** assigns it to whichever enabled pool server has a **free lease** (`leasing.py` is already per-`target_id` — that's the pool seam) and runs it there. Serial v1 (the dispatcher still *chooses* the server, one running build at a time); **Postgres unlocks parallel** dispatch across the pool (concurrent engine writers need the multi-writer store). The dispatcher runs as an interval job in the in-`serve` scheduler for v1; a dedicated worker process is the later hardening.
+
+**Next slice — "Profiles + Server pool + Queue (UI-driven CI)"**: testlab-owned `Profile`/`Server`/`BuildRequest` models, rule-based selection (reusing `Selector`), profiles + server-pool CRUD, Start-build → enqueue, a dispatcher that picks a free pool server, a queue view, deletion of manual selection + the old profiles — then Postgres → parallel dispatch.
+
+---
+
 ## 10. Open questions
 
 1. **Transport:** reuse hop3-cli's exact JSON-RPC client, or a thin HTTP+token client of its own? (Reuse keeps one auth/tunnel story; own client is simpler to evolve.)

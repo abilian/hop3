@@ -19,6 +19,7 @@ from sqlalchemy import select
 
 from hop3_testlab import leasing
 from hop3_testlab.discriminators import type_of
+from hop3_testlab.models import CANCELLED, QUEUED, BuildRequest, Profile, Server
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -214,3 +215,134 @@ class RunsRepository:
             for result in self.results_for(run):
                 history.setdefault(result.test_name, []).append(bool(result.passed))
         return history
+
+
+# --- Lab-owned write repos (profiles / server pool / build queue) -------------
+
+
+class ProfilesRepository:
+    """CRUD over build profiles (a Lab-owned table)."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def list_all(self) -> list[Profile]:
+        return list(self.session.scalars(select(Profile).order_by(Profile.name)).all())
+
+    def get(self, profile_id: int) -> Profile | None:
+        return self.session.get(Profile, profile_id)
+
+    def create(self, **fields) -> Profile:
+        profile = Profile(**fields)
+        self.session.add(profile)
+        self.session.flush()
+        return profile
+
+    def update(self, profile_id: int, **fields) -> Profile | None:
+        profile = self.session.get(Profile, profile_id)
+        if profile is None:
+            return None
+        for key, value in fields.items():
+            setattr(profile, key, value)
+        self.session.flush()
+        return profile
+
+    def delete(self, profile_id: int) -> bool:
+        profile = self.session.get(Profile, profile_id)
+        if profile is None:
+            return False
+        self.session.delete(profile)
+        self.session.flush()
+        return True
+
+
+class ServersRepository:
+    """CRUD over the server pool (a Lab-owned table)."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def list_all(self, *, enabled_only: bool = False) -> list[Server]:
+        stmt = select(Server).order_by(Server.name)
+        if enabled_only:
+            stmt = stmt.where(Server.enabled.is_(True))
+        return list(self.session.scalars(stmt).all())
+
+    def get(self, server_id: int) -> Server | None:
+        return self.session.get(Server, server_id)
+
+    def create(self, **fields) -> Server:
+        server = Server(**fields)
+        self.session.add(server)
+        self.session.flush()
+        return server
+
+    def update(self, server_id: int, **fields) -> Server | None:
+        server = self.session.get(Server, server_id)
+        if server is None:
+            return None
+        for key, value in fields.items():
+            setattr(server, key, value)
+        self.session.flush()
+        return server
+
+    def delete(self, server_id: int) -> bool:
+        server = self.session.get(Server, server_id)
+        if server is None:
+            return False
+        self.session.delete(server)
+        self.session.flush()
+        return True
+
+
+class BuildQueueRepository:
+    """The build queue (a Lab-owned table): enqueue + lifecycle transitions."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def enqueue(self, profile_id: int, actor: str | None = None) -> BuildRequest:
+        request = BuildRequest(profile_id=profile_id, actor=actor)
+        self.session.add(request)
+        self.session.flush()
+        return request
+
+    def get(self, request_id: int) -> BuildRequest | None:
+        return self.session.get(BuildRequest, request_id)
+
+    def list_recent(self, limit: int = 50) -> list[BuildRequest]:
+        stmt = (
+            select(BuildRequest)
+            .order_by(BuildRequest.created_at.desc(), BuildRequest.id.desc())
+            .limit(limit)
+        )
+        return list(self.session.scalars(stmt).all())
+
+    def next_pending(self) -> BuildRequest | None:
+        """The oldest still-queued request (FIFO), or None."""
+        stmt = (
+            select(BuildRequest)
+            .where(BuildRequest.status == QUEUED)
+            .order_by(BuildRequest.created_at, BuildRequest.id)
+            .limit(1)
+        )
+        return self.session.scalars(stmt).one_or_none()
+
+    def mark(self, request_id: int, status: str, **fields) -> BuildRequest | None:
+        request = self.session.get(BuildRequest, request_id)
+        if request is None:
+            return None
+        request.status = status
+        for key, value in fields.items():
+            setattr(request, key, value)
+        self.session.flush()
+        return request
+
+    def cancel(self, request_id: int) -> bool:
+        """Cancel a *pending* request (a no-op once it's been dispatched)."""
+        request = self.session.get(BuildRequest, request_id)
+        if request is None or request.status != QUEUED:
+            return False
+        request.status = CANCELLED
+        self.session.flush()
+        return True

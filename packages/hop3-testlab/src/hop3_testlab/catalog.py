@@ -21,7 +21,6 @@ from __future__ import annotations
 import fnmatch
 import logging
 from functools import lru_cache
-from operator import itemgetter
 from typing import TYPE_CHECKING
 
 from hop3_testing.catalog import Catalog
@@ -29,42 +28,12 @@ from hop3_testing.selector.modes import get_mode_config, list_modes
 from hop3_testing.selector.selector import Selector
 from hop3_testing.targets.helpers import find_project_root
 
-from hop3_testlab.discriminators import short_app, type_of, variant_of
+from hop3_testlab.discriminators import short_app
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from hop3_testing.catalog.models import TestDefinition
-
 logger = logging.getLogger(__name__)
-
-# Languages a test may exercise — used to derive the picker's language tag from
-# a test's metadata when it isn't stated explicitly.
-_LANGUAGES = frozenset({
-    "python",
-    "php",
-    "node",
-    "nodejs",
-    "go",
-    "golang",
-    "ruby",
-    "java",
-    "rust",
-    "elixir",
-    "clojure",
-    "dotnet",
-    "static",
-})
-
-
-def _language_of(test: TestDefinition) -> str:
-    """Primary language/toolchain of a test, or "" if not discernible."""
-    if test.metadata.language:
-        return test.metadata.language.lower()
-    for tag in test.metadata.covers:
-        if tag.lower() in _LANGUAGES:
-            return tag.lower()
-    return ""
 
 
 def _scan_paths(root: Path) -> list[str]:
@@ -153,28 +122,3 @@ def title_map() -> dict[str, str]:
     if catalog is None:
         return {}
     return {t.name: (t.description or short_app(t.name)) for t in catalog}
-
-
-def valid_test_names() -> set[str]:
-    """Set of catalog test names, for validating a curated profile's picks."""
-    catalog = _safe_catalog()
-    return {t.name for t in catalog} if catalog else set()
-
-
-def tests_grouped() -> list[dict[str, str]]:
-    """All tests with display fields for the profile picker, ordered for grouping."""
-    catalog = _safe_catalog()
-    if catalog is None:
-        return []
-    rows = [
-        {
-            "name": t.name,
-            "title": t.description or short_app(t.name),
-            "type": type_of(t.name),
-            "variant": variant_of(t.name),
-            "language": _language_of(t) or "",
-        }
-        for t in catalog
-    ]
-    rows.sort(key=itemgetter("type", "variant", "name"))
-    return rows
