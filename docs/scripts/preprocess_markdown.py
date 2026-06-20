@@ -11,10 +11,31 @@ This script:
 5. Skips draft posts (no date or filename starts with "draft-")
 6. Generates tag index pages with navigation
 7. Adds "generated file" comment at the top
+8. Wires up multi-part *series* (see below)
+
+Series support
+--------------
+A post joins a series with two frontmatter keys::
+
+    series: How Hop3 is Tested      # the series name
+    series_order: 2                 # 1-based position; falls back to date order
+
+For every post in a series the generated page gets:
+
+* **Title** -- the H1 is prefixed with the series name (``# <Series> -- <Title>``),
+  unless the title already leads with the series name (the landing/overview post).
+* **Series box** -- directly under the title, a "Part N of the series <Series>"
+  heading followed by an ordered list of *all* posts in the series (the current
+  one in bold without a link, the others linked).
+
+Membership and ordering are computed across all source posts at build time, so
+adding or reordering a post updates every sibling's box automatically. Drafts
+are excluded from the series.
 """
 
 from __future__ import annotations
 
+import html
 import re
 import shutil
 from dataclasses import dataclass, field
@@ -41,6 +62,13 @@ class BlogMeta:
     tags: list[str] = field(default_factory=list)
     description: str = ""
     filename: str = ""
+    series: str = ""
+    series_order: int | None = None
+
+    @property
+    def slug(self) -> str:
+        """URL slug = filename without the .md extension."""
+        return self.filename.removesuffix(".md")
 
     @property
     def is_draft(self) -> bool:
@@ -101,12 +129,22 @@ def extract_meta(metadata: dict, body: str, filename: str) -> BlogMeta:
 
     title = extract_title(body)
 
+    series = (metadata.get("series") or "").strip()
+    series_order = metadata.get("series_order")
+    if isinstance(series_order, str):
+        try:
+            series_order = int(series_order)
+        except ValueError:
+            series_order = None
+
     return BlogMeta(
         title=title,
         date=post_date,
         tags=tags,
         description=metadata.get("description", ""),
         filename=filename,
+        series=series,
+        series_order=series_order,
     )
 
 
@@ -141,8 +179,10 @@ def add_blank_lines_before_lists(content: str) -> str:
 def format_metadata_html(meta: BlogMeta) -> str:
     """Format metadata as HTML to insert after title.
 
-    Creates a clean, blog-style metadata block with date and tags.
-    Path is ../../tags/ because posts are at /blog/posts/<slug>/index.html
+    Creates a clean, blog-style metadata block with date and tags. Tag links are
+    root-relative (``/blog/tags/<slug>/``): zensical rewrites *relative* hrefs in
+    raw HTML (adding a ``../`` for the directory-URL transform), which would
+    break a hand-computed relative path. Absolute site paths are left as-is.
     """
     if not meta.date and not meta.tags:
         return ""
@@ -159,8 +199,9 @@ def format_metadata_html(meta: BlogMeta) -> str:
         tag_links = []
         for tag in meta.tags:
             tag_slug = tag.lower().replace(" ", "-")
-            # Use ../../tags/ to go from /blog/posts/<slug>/ up to /blog/tags/
-            tag_links.append(f'<a href="../../tags/{tag_slug}/" class="post-tag">{tag}</a>')
+            tag_links.append(
+                f'<a href="/blog/tags/{tag_slug}/" class="post-tag">{tag}</a>'
+            )
         lines.append(f'  <span class="post-tags">{" ".join(tag_links)}</span>')
 
     lines.append('</div>')
@@ -168,31 +209,84 @@ def format_metadata_html(meta: BlogMeta) -> str:
     return '\n\n' + '\n'.join(lines) + '\n'
 
 
-def add_metadata_after_title(content: str, meta: BlogMeta) -> str:
-    """Add formatted metadata HTML after the H1 title."""
-    metadata_html = format_metadata_html(meta)
-    if not metadata_html:
+def add_metadata_after_title(content: str, meta: BlogMeta, series_nav: str = "") -> str:
+    """Add formatted metadata HTML (and an optional series box) after the H1."""
+    insert = format_metadata_html(meta) + series_nav
+    if not insert:
         return content
 
-    # Find the first H1 and add metadata after it
+    # Find the first H1 and add the header blocks after it
     lines = content.split("\n")
     result = []
-    metadata_added = False
+    added = False
 
     for line in lines:
         result.append(line)
-        if not metadata_added and line.startswith("# "):
-            result.append(metadata_html)
-            metadata_added = True
+        if not added and line.startswith("# "):
+            result.append(insert)
+            added = True
 
     return "\n".join(result)
 
 
-def preprocess_blog_post(src_path: Path, dest_path: Path) -> BlogMeta | None:
+def _title_to_inline_html(title: str) -> str:
+    """Escape a title for inline HTML, rendering `code` spans as <code>."""
+    escaped = html.escape(title, quote=False)
+    return re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped)
+
+
+def prefix_series_title(body: str, meta: BlogMeta) -> str:
+    """Prefix the H1 with the series name, unless it already leads with it.
+
+    ``# The Demos`` -> ``# How Hop3 is Tested -- The Demos``. The landing post,
+    whose title *is* the series name, is left untouched.
+    """
+
+    def repl(match: re.Match) -> str:
+        title = match.group(1).strip()
+        if title.lower().startswith(meta.series.lower()):
+            return match.group(0)
+        return f"# {meta.series} — {title}"
+
+    return re.sub(r"^#\s+(.+)$", repl, body, count=1, flags=re.MULTILINE)
+
+
+def render_series_nav(meta: BlogMeta, series_posts: list[BlogMeta]) -> str:
+    """Render the 'Part N of the series …' box listing every post in order."""
+    items = []
+    current_index = 0
+    for i, post in enumerate(series_posts, start=1):
+        label = _title_to_inline_html(post.title)
+        if post.filename == meta.filename:
+            current_index = i
+            items.append(f'    <li class="current" aria-current="true">{label}</li>')
+        else:
+            # Root-relative href: zensical rewrites RELATIVE hrefs in raw HTML
+            # (adding a "../" for the directory-URL transform), which would break
+            # a hand-computed relative path. Absolute site paths are left as-is.
+            items.append(f'    <li><a href="/blog/posts/{post.slug}/">{label}</a></li>')
+
+    series_name = html.escape(meta.series, quote=False)
+    return (
+        '\n<nav class="series-nav" aria-label="Series navigation">\n'
+        f'  <p class="series-nav-title">Part {current_index} of the series '
+        f"<strong>{series_name}</strong></p>\n"
+        '  <ol class="series-nav-list">\n'
+        + "\n".join(items)
+        + "\n  </ol>\n</nav>\n"
+    )
+
+
+def preprocess_blog_post(
+    src_path: Path,
+    dest_path: Path,
+    series_map: dict[str, list[BlogMeta]] | None = None,
+) -> BlogMeta | None:
     """Preprocess a single blog post.
 
     Returns BlogMeta if the post was processed, None if it was skipped (draft).
     """
+    series_map = series_map or {}
     content = src_path.read_text()
 
     # Parse frontmatter
@@ -207,8 +301,15 @@ def preprocess_blog_post(src_path: Path, dest_path: Path) -> BlogMeta | None:
     # Add blank lines before lists
     body = add_blank_lines_before_lists(body)
 
-    # Add metadata after title
-    body = add_metadata_after_title(body, meta)
+    # Series: prefix the title and build the "Part N of the series …" box.
+    series_nav = ""
+    series_posts = series_map.get(meta.series) if meta.series else None
+    if series_posts and len(series_posts) > 1:
+        body = prefix_series_title(body, meta)
+        series_nav = render_series_nav(meta, series_posts)
+
+    # Add metadata (and the series box) after title
+    body = add_metadata_after_title(body, meta, series_nav)
 
     # Reconstruct with frontmatter
     # Note: Generated comment goes AFTER frontmatter since --- must be first line
@@ -293,12 +394,31 @@ def generate_tags_index(all_tags: dict[str, list[BlogMeta]], dest_dir: Path) -> 
     dest_path.write_text("\n".join(lines))
 
 
-def generate_blog_index(posts: list[BlogMeta], dest_path: Path) -> None:
-    """Generate the main blog index page grouped by year and month."""
-    # Sort posts by date (newest first)
+def generate_blog_index(
+    posts: list[BlogMeta],
+    dest_path: Path,
+    series_map: dict[str, list[BlogMeta]] | None = None,
+) -> None:
+    """Generate the main blog index page grouped by year and month.
+
+    Posts are listed newest-first. Within the same date, a series is shown in
+    *reverse* order (the latest part on top, down to part 1), so a freshly
+    published series reads top-down as 5, 4, 3, 2, 1. Non-series posts (no
+    ``series_order``) keep their existing relative order. Each series entry is
+    annotated with its "Part N of M".
+    """
+    # filename -> "Part N of M" label, for series with more than one part.
+    part_label: dict[str, str] = {}
+    for series_posts in (series_map or {}).values():
+        total = len(series_posts)
+        if total < 2:
+            continue
+        for i, post in enumerate(series_posts, start=1):
+            part_label[post.filename] = f" *(Part {i} of {total})*"
+
     sorted_posts = sorted(
         [p for p in posts if p.date],
-        key=lambda p: p.date,  # type: ignore
+        key=lambda p: (p.date, p.series_order if p.series_order is not None else -1),
         reverse=True,
     )
 
@@ -337,10 +457,13 @@ def generate_blog_index(posts: list[BlogMeta], dest_path: Path) -> None:
             lines.append("")
             current_month = month
 
-        # Format: - **March 20**: [Title](posts/filename.md) - Description
+        # Format: - **March 20**: [Title](posts/filename.md) - Description *(Part N of M)*
         date_str = post.date.strftime("%B %d")
         desc = f" - {post.description}" if post.description else ""
-        lines.append(f"- **{date_str}**: [{post.title}](posts/{post.filename}){desc}")
+        part = part_label.get(post.filename, "")
+        lines.append(
+            f"- **{date_str}**: [{post.title}](posts/{post.filename}){desc}{part}"
+        )
 
     lines.extend([
         "",
@@ -351,6 +474,31 @@ def generate_blog_index(posts: list[BlogMeta], dest_path: Path) -> None:
     ])
 
     dest_path.write_text("\n".join(lines))
+
+
+def build_series_map(src_dir: Path) -> dict[str, list[BlogMeta]]:
+    """Map each series name to its published posts, ordered for display.
+
+    Order key: ``series_order`` (ascending) when given, then date, then filename.
+    Drafts are excluded so they never appear in a sibling's box.
+    """
+    series_map: dict[str, list[BlogMeta]] = {}
+    for src_path in sorted(src_dir.glob("*.md")):
+        metadata, body = parse_frontmatter(src_path.read_text())
+        meta = extract_meta(metadata, body, src_path.name)
+        if meta.is_draft or not meta.series:
+            continue
+        series_map.setdefault(meta.series, []).append(meta)
+
+    for posts in series_map.values():
+        posts.sort(
+            key=lambda p: (
+                p.series_order if p.series_order is not None else 10**9,
+                p.date or date.max,
+                p.filename,
+            )
+        )
+    return series_map
 
 
 def preprocess_all() -> None:
@@ -368,6 +516,12 @@ def preprocess_all() -> None:
         shutil.rmtree(TAGS_DEST_DIR)
     TAGS_DEST_DIR.mkdir(parents=True)
 
+    # First pass: discover series membership across all (published) posts, so
+    # each post's box can list its siblings in order.
+    series_map = build_series_map(BLOG_SRC_DIR)
+    for name, posts in series_map.items():
+        print(f"  Series '{name}': {len(posts)} parts")
+
     # Process each post and collect tags
     all_tags: dict[str, list[BlogMeta]] = {}
     all_posts: list[BlogMeta] = []
@@ -376,7 +530,7 @@ def preprocess_all() -> None:
 
     for src_path in sorted(BLOG_SRC_DIR.glob("*.md")):
         dest_path = BLOG_DEST_DIR / src_path.name
-        meta = preprocess_blog_post(src_path, dest_path)
+        meta = preprocess_blog_post(src_path, dest_path, series_map)
 
         if meta is None:
             draft_count += 1
@@ -400,7 +554,7 @@ def preprocess_all() -> None:
         generate_tags_index(all_tags, TAGS_DEST_DIR)
 
     # Generate blog index
-    generate_blog_index(all_posts, BLOG_INDEX_PATH)
+    generate_blog_index(all_posts, BLOG_INDEX_PATH, series_map)
 
     print(f"Preprocessed {published_count} blog posts, skipped {draft_count} drafts")
     print(f"Generated {len(all_tags)} tag pages in {TAGS_DEST_DIR}")
