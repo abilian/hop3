@@ -19,6 +19,7 @@ if TYPE_CHECKING:
         HealthCheck,
         LanguageToolchain,
         Proxy,
+        WafEngine,
     )
 
 
@@ -92,6 +93,16 @@ def get_proxies() -> list[Proxy]:  # type: ignore[empty-body]
     Returns:
         List of Proxy classes that can configure reverse proxies
         (Nginx, Caddy, Traefik, etc.) for hop3 applications.
+    """
+
+
+@hookspec
+def get_waf_engines() -> list[WafEngine]:  # type: ignore[empty-body]
+    """Get Layer-7 WAF engines provided by this plugin (ADR 048).
+
+    Returns:
+        List of WafEngine classes that compile a per-app `[waf]` policy into
+        their native rules and manage the WAF service (LeWAF, later Coraza).
     """
 
 
