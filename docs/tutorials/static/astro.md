@@ -304,9 +304,7 @@ interval = 60
 
 ## Step 6: Initialize Git Repository
 
-Hop3 deploys the committed contents of a Git repository. Ignore `node_modules`
-and the build output (they're rebuilt on the server, and `node_modules`'
-symlinks can't be archived), then commit:
+Hop3 deploys the committed contents of a Git repository. Ignore `node_modules` and the build output (they're rebuilt on the server, and `node_modules`' symlinks can't be archived), then commit:
 
 ```file path=hop3-tuto-astro/.gitignore
 node_modules/

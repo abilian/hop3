@@ -63,9 +63,7 @@ rails new hop3-tuto-rails --skip-git --skip-docker --skip-action-mailer --skip-a
 create
 ```
 
-Add the PostgreSQL adapter. We use SQLite locally but PostgreSQL in production
-(see `config/database.yml` below); `rails new` only adds `sqlite3` to the
-Gemfile, so add `pg` before installing:
+Add the PostgreSQL adapter. We use SQLite locally but PostgreSQL in production (see `config/database.yml` below); `rails new` only adds `sqlite3` to the Gemfile, so add `pg` before installing:
 
 ```bash
 echo 'gem "pg"' >> Gemfile
@@ -424,9 +422,7 @@ hop3 addons attach hop3-tuto-rails myapp-db
 
 ### Set Environment Variables
 
-Nothing to set by hand: `SECRET_KEY_BASE` is generated automatically on the
-first deploy, and `RAILS_ENV` / `RAILS_LOG_TO_STDOUT` / `RAILS_SERVE_STATIC_FILES`
-are declared in `hop3.toml` `[env]` (above).
+Nothing to set by hand: `SECRET_KEY_BASE` is generated automatically on the first deploy, and `RAILS_ENV` / `RAILS_LOG_TO_STDOUT` / `RAILS_SERVE_STATIC_FILES` are declared in `hop3.toml` `[env]` (above).
 
 ### Deploy
 

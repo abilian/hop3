@@ -136,7 +136,7 @@ See the [Configuration Reference](reference/config.md) for full documentation.
 ### Supported Operating Systems
 
 - Debian 12 (Bookworm) - Recommended
-- Ubuntu 22.04 LTS, 24.04 LTS
+- Ubuntu 24.04 LTS, 26.04 LTS
 - Rocky Linux 9
 - NixOS (experimental)
 

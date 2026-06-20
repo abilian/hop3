@@ -85,8 +85,7 @@ hop3 app logs myapp
 
 ## Global Flags
 
-All commands support these global flags (per ADR 036 D6).
-Flags may appear before or after the subcommand.
+All commands support these global flags (per ADR 036 D6). Flags may appear before or after the subcommand.
 
 ### Output Formatting
 
@@ -173,9 +172,7 @@ hop3 --why logs
 
 ### App Resolution
 
-App-scoped commands (like `hop3 app logs`, `hop3 app restart`, `hop3 config set`)
-don't require an explicit app name. The CLI resolves one by walking this
-chain in order, stopping at the first source that supplies a value (ADR 036 D7):
+App-scoped commands (like `hop3 app logs`, `hop3 app restart`, `hop3 config set`) don't require an explicit app name. The CLI resolves one by walking this chain in order, stopping at the first source that supplies a value (ADR 036 D7):
 
 1. **`--app <name>` / `-a <name>`** - explicit flag wins over everything else.
 2. **`$HOP3_APP`** - environment variable for the current shell session.
@@ -205,9 +202,7 @@ hop3 use              # Show current sticky app
 hop3 use --clear      # Unbind
 ```
 
-Once bound, `hop3 app logs`, `hop3 app restart`, etc. all default to `myapp`
-without needing `--app` or positional. A `.hop3-app` file in the CWD
-takes precedence.
+Once bound, `hop3 app logs`, `hop3 app restart`, etc. all default to `myapp` without needing `--app` or positional. A `.hop3-app` file in the CWD takes precedence.
 
 ---
 
@@ -972,11 +967,9 @@ hop3 app destroy myapp --yes
 
 ## Environment Variables
 
-The canonical command group is `env`. `config` is a back-compat alias, so
-every `hop3 env <sub>` below also works as `hop3 config <sub>`.
+The canonical command group is `env`. `config` is a back-compat alias, so every `hop3 env <sub>` below also works as `hop3 config <sub>`.
 
-The target app is resolved from context when omitted; pass `--app <name>` to
-target a specific app explicitly.
+The target app is resolved from context when omitted; pass `--app <name>` to target a specific app explicitly.
 
 ### `hop3 env show`
 
@@ -1123,15 +1116,9 @@ hop3 env migrate --format procfile --backup
 
 ## Domain Management
 
-Manage the hostnames bound to an app. These commands are a first-class view
-over the `HOST_NAME` env var that the reverse-proxy plugins
-(nginx / caddy / traefik) read. All write operations are atomic: every
-hostname is validated and conflicts with other apps are checked up front
-before anything is persisted. After every write you must redeploy
-(`hop3 deploy <app>`) for the proxy configuration to be updated.
+Manage the hostnames bound to an app. These commands are a first-class view over the `HOST_NAME` env var that the reverse-proxy plugins (nginx / caddy / traefik) read. All write operations are atomic: every hostname is validated and conflicts with other apps are checked up front before anything is persisted. After every write you must redeploy (`hop3 deploy <app>`) for the proxy configuration to be updated.
 
-For the declarative equivalent in `hop3.toml`, see
-[`[domains]`](./config.md#domains-application-hostnames).
+For the declarative equivalent in `hop3.toml`, see [`[domains]`](./config.md#domains-application-hostnames).
 
 ### `hop3 domains list`
 
@@ -1170,8 +1157,7 @@ hop3 domains add abilian-cms fermigier.com www.fermigier.com \
 
 ### `hop3 domains remove`
 
-Remove one or more hostnames from an app. Errors if any of the requested
-hostnames is not currently bound.
+Remove one or more hostnames from an app. Errors if any of the requested hostnames is not currently bound.
 
 **Usage:**
 ```bash
@@ -1214,14 +1200,9 @@ hop3 domains clear --app <app>
 
 ### `hop3 nix eject`
 
-Materialize the auto-generated `hop3.nix` from a `[nix]` template
-config into a real `hop3.nix` file in the app's source directory.
-After ejection, the NixBuilder uses the committed `hop3.nix` instead
-of regenerating from the template, and the `[nix]` section in
-`hop3.toml` is ignored.
+Materialize the auto-generated `hop3.nix` from a `[nix]` template config into a real `hop3.nix` file in the app's source directory. After ejection, the NixBuilder uses the committed `hop3.nix` instead of regenerating from the template, and the `[nix]` section in `hop3.toml` is ignored.
 
-Use `nix eject` when you've outgrown the templates and need to
-customise the generated Nix expression directly.
+Use `nix eject` when you've outgrown the templates and need to customise the generated Nix expression directly.
 
 **Usage:**
 ```bash
@@ -2241,9 +2222,7 @@ hop3 app sbom <app_name>
 
 ## Exit Codes
 
-The Hop3 CLI uses the exit-code table defined in ADR 036 D16. Scripts can
-distinguish user error from server error from "user said no" without parsing
-messages.
+The Hop3 CLI uses the exit-code table defined in ADR 036 D16. Scripts can distinguish user error from server error from "user said no" without parsing messages.
 
 | Code | Meaning |
 |------|---------|
@@ -2260,14 +2239,9 @@ messages.
 | `10`  | Confirmation declined or non-tty blocked |
 | `130` | Interrupted (SIGINT / Ctrl-C) |
 
-JSON output (`--json`) includes `error.exit_code` in the envelope so
-programmatic consumers don't have to mirror this mapping.
+JSON output (`--json`) includes `error.exit_code` in the envelope so programmatic consumers don't have to mirror this mapping.
 
-**Script tip.** Code `10` is your friend: use it to distinguish a user
-typing "no" at a confirmation prompt from an actual operation failure.
-Non-interactive scripts should pass `--confirm=<name>` or `--yes` to avoid
-it altogether, or `--no-input` to fail fast with an actionable message
-instead of hanging.
+**Script tip.** Code `10` is your friend: use it to distinguish a user typing "no" at a confirmation prompt from an actual operation failure. Non-interactive scripts should pass `--confirm=<name>` or `--yes` to avoid it altogether, or `--no-input` to fail fast with an actionable message instead of hanging.
 
 ---
 

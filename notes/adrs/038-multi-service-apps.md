@@ -225,18 +225,9 @@ Existing addon, env, and port handling remain unchanged in the legacy path.
 
 ## Implementation scope
 
-The core of the design is the `[[component]]` schema, the translation of legacy
-`[run]` / `[run.workers]` configs into implicit components, and a `Component`
-dataclass in `project/config.py`. The runtime consumes components rather than raw
-workers: `spawn.py` applies per-component env layering, runs per-component health
-checks via the existing `[healthcheck]` model, and enforces per-component memory
-limits via the uWSGI `mem-limit` option. `hop3 app status --app <app>` reports
-per-component state.
+The core of the design is the `[[component]]` schema, the translation of legacy `[run]` / `[run.workers]` configs into implicit components, and a `Component` dataclass in `project/config.py`. The runtime consumes components rather than raw workers: `spawn.py` applies per-component env layering, runs per-component health checks via the existing `[healthcheck]` model, and enforces per-component memory limits via the uWSGI `mem-limit` option. `hop3 app status --app <app>` reports per-component state.
 
-A set of capabilities sits outside the initial design and is left for later
-iterations: `depends-on` start ordering, independent scaling via
-`hop3 ps scale --app <app> web=2 worker=4`, per-component logs, and
-component-specific addon attachments.
+A set of capabilities sits outside the initial design and is left for later iterations: `depends-on` start ordering, independent scaling via `hop3 ps scale --app <app> web=2 worker=4`, per-component logs, and component-specific addon attachments.
 
 ## Example: Mastodon
 

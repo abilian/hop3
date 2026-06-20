@@ -202,14 +202,7 @@ class HealthController extends AbstractController
 
 ## Step 3: Configure for Production
 
-Configure the committed `.env` for production. Don't replace the
-Flex-generated `.env` — it defines defaults (`DEFAULT_URI`,
-`MESSENGER_TRANSPORT_DSN`, `MAILER_DSN`, …) that `cache:clear` resolves at
-compile time, and dropping them makes the production cache build fail with
-`Environment variable not found`. Edit only what we need: run in `prod` (so the
-post-install `cache:clear` doesn't load the dev-only `DebugBundle` that
-`--no-dev` excludes), give `APP_SECRET` a value, point `DATABASE_URL` at SQLite
-(self-contained — no DB server), and trust the local reverse proxy.
+Configure the committed `.env` for production. Don't replace the Flex-generated `.env` — it defines defaults (`DEFAULT_URI`, `MESSENGER_TRANSPORT_DSN`, `MAILER_DSN`, …) that `cache:clear` resolves at compile time, and dropping them makes the production cache build fail with `Environment variable not found`. Edit only what we need: run in `prod` (so the post-install `cache:clear` doesn't load the dev-only `DebugBundle` that `--no-dev` excludes), give `APP_SECRET` a value, point `DATABASE_URL` at SQLite (self-contained — no DB server), and trust the local reverse proxy.
 
 ```bash exec id=configure-env dir=hop3-tuto-symfony
 sed -i 's/^APP_ENV=dev/APP_ENV=prod/' .env
@@ -396,10 +389,7 @@ remove the JS manifests so the builder doesn't mis-detect this as a
 multi-language project:
 - `package.json` / `package-lock.json` - prevent Node mis-detection
 
-The server runs `composer install --no-dev` from the committed `composer.lock`
-for a reproducible build. The `--ignore-platform-req=ext-redis` flag is there
-because `symfony/cache` wants the phpredis extension at >= 6.1; this app doesn't
-use redis, so we let composer install without it.
+The server runs `composer install --no-dev` from the committed `composer.lock` for a reproducible build. The `--ignore-platform-req=ext-redis` flag is there because `symfony/cache` wants the phpredis extension at >= 6.1; this app doesn't use redis, so we let composer install without it.
 
 ```bash exec id=prep-deploy dir=hop3-tuto-symfony
 rm -f package.json package-lock.json 2>/dev/null || true

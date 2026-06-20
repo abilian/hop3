@@ -17,7 +17,7 @@ Let's deploy a Flask app from scratch. By the end of this post, you'll have a pr
 
 ## What You'll Need
 
-- A server running Ubuntu 22.04+ or Debian 12+ (a $5/month VPS works fine)
+- A server running Ubuntu 24.04+ or Debian 12+ (a $5/month VPS works fine)
 - SSH access to that server
 - A domain name (optional, but satisfying)
 

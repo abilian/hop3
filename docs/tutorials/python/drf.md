@@ -347,8 +347,7 @@ hop3 deploy --app hop3-tuto-drf
 
 ### Set Environment Variables
 
-`SECRET_KEY` is generated automatically on the first deploy (see `hop3.toml`
-`[env]`). Set `ALLOWED_HOSTS` and the hostname for the application:
+`SECRET_KEY` is generated automatically on the first deploy (see `hop3.toml` `[env]`). Set `ALLOWED_HOSTS` and the hostname for the application:
 
 ```bash exec id=set-allowed-hosts timeout=30
 hop3 config set --app hop3-tuto-drf ALLOWED_HOSTS=hop3-tuto-drf.$HOP3_TEST_DOMAIN,localhost,127.0.0.1

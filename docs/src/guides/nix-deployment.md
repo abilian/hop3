@@ -1,7 +1,6 @@
 # Deploying with Nix
 
-This guide explains how to deploy applications on Hop3 using Nix for
-reproducible builds and content-addressed dependency management.
+This guide explains how to deploy applications on Hop3 using Nix for reproducible builds and content-addressed dependency management.
 
 ## Two ways to use Nix
 
@@ -14,12 +13,7 @@ Hop3 supports two modes for Nix-based deployment, in order of preference:
    `hop3.nix` file. Use this when the templates can't express what you
    need.
 
-**Pick exactly one.** If both a `hop3.nix` file and a `[nix].template`
-section in `hop3.toml` are present, NixBuilder refuses to build and
-prints an error pointing you to either delete `hop3.nix` or remove the
-`[nix]` section. To convert a template to a hand-crafted file, run
-`hop3 nix eject <app>` (which writes the file and is the deliberate
-way to switch from generated to hand-crafted mode).
+**Pick exactly one.** If both a `hop3.nix` file and a `[nix].template` section in `hop3.toml` are present, NixBuilder refuses to build and prints an error pointing you to either delete `hop3.nix` or remove the `[nix]` section. To convert a template to a hand-crafted file, run `hop3 nix eject <app>` (which writes the file and is the deliberate way to switch from generated to hand-crafted mode).
 
 ## When to use Nix
 
@@ -33,15 +27,11 @@ Nix-based deployment is a good choice when you want:
   ARM, RISC-V, etc.
 - **Cross-language builds**: a single build system for polyglot apps
 
-For most simple applications, Hop3's native buildpacks (auto-detected
-from `requirements.txt`, `package.json`, etc.) are simpler and faster.
-Use Nix when reproducibility, dependency precision, or non-x86 support
-matters.
+For most simple applications, Hop3's native buildpacks (auto-detected from `requirements.txt`, `package.json`, etc.) are simpler and faster. Use Nix when reproducibility, dependency precision, or non-x86 support matters.
 
 ### Reproducibility tiers
 
-Not all Nix builds are equally reproducible. Hop3 distinguishes three
-tiers:
+Not all Nix builds are equally reproducible. Hop3 distinguishes three tiers:
 
 | Tier | Method | Reproducible | Auditable | Multi-arch |
 |------|--------|--------------|-----------|------------|
@@ -49,14 +39,9 @@ tiers:
 | 2 | Source build with `__noChroot` (pip, composer) | Mostly | Yes | Yes |
 | 3 | Pre-built binary (`fetchurl`) | Hash-pinned, not rebuildable | No | x86_64 only |
 
-**Tier 1 is the goal.** When the upstream is in nixpkgs, prefer the
-`nixpkgs-wrapper` template — you get the maintained nixpkgs build for
-free, including multi-arch support.
+**Tier 1 is the goal.** When the upstream is in nixpkgs, prefer the `nixpkgs-wrapper` template — you get the maintained nixpkgs build for free, including multi-arch support.
 
-**Tier 3 is a known compromise.** Pre-built binary templates
-(`prebuilt-binary`, `prebuilt-archive`, `node-prebuilt`) are convenient
-for apps not yet in nixpkgs, but they sacrifice the very properties Nix
-promises. Use them as a stepping stone, not a destination.
+**Tier 3 is a known compromise.** Pre-built binary templates (`prebuilt-binary`, `prebuilt-archive`, `node-prebuilt`) are convenient for apps not yet in nixpkgs, but they sacrifice the very properties Nix promises. Use them as a stepping stone, not a destination.
 
 ## Prerequisites
 
@@ -67,8 +52,7 @@ promises. Use them as a stepping stone, not a destination.
 
 ## Quick start: template mode
 
-For an app that's already in nixpkgs, you can be deployed in three
-lines of `hop3.toml`. Here's Miniflux:
+For an app that's already in nixpkgs, you can be deployed in three lines of `hop3.toml`. Here's Miniflux:
 
 ```toml
 [metadata]
@@ -111,14 +95,11 @@ No Nix code, no `fetchurl`, no hash to maintain.
 | `prebuilt-archive` | Multi-file archive from upstream releases (Tier 3) |
 | `node-prebuilt` | Node.js apps shipped as a pre-built tarball (Tier 3) |
 
-For full template field reference, see the
-[hop3.toml `[nix]` section](../reference/config.md#nix-template-based-nix-builds).
+For full template field reference, see the [hop3.toml `[nix]` section](../reference/config.md#nix-template-based-nix-builds).
 
 ## Source builds vs pre-built binaries
 
-The nixpkgs-wrapper template builds from source via nixpkgs. The
-`prebuilt-*` and `node-prebuilt` templates download a pre-compiled
-binary from upstream's release page.
+The nixpkgs-wrapper template builds from source via nixpkgs. The `prebuilt-*` and `node-prebuilt` templates download a pre-compiled binary from upstream's release page.
 
 **Pre-built has serious downsides:**
 
@@ -149,15 +130,12 @@ nix-instantiate --eval -E '(import <nixpkgs> {}).<name>.meta.description or "NOT
 
 ## Hand-crafted hop3.nix
 
-When the templates don't fit, write a `hop3.nix` directly. Two cases
-where this is necessary:
+When the templates don't fit, write a `hop3.nix` directly. Two cases where this is necessary:
 
 1. The app needs custom build steps that no template covers
 2. You need to combine nixpkgs sources with custom wrapping
 
-When you `hop3 nix eject <app>`, Hop3 materializes the generated Nix
-expression as a real `hop3.nix` file you can edit (the `[nix]` section
-in `hop3.toml` is then ignored).
+When you `hop3 nix eject <app>`, Hop3 materializes the generated Nix expression as a real `hop3.nix` file you can edit (the `[nix]` section in `hop3.toml` is then ignored).
 
 ### Minimal hand-crafted example
 
@@ -204,16 +182,11 @@ let
 in { package = app; }
 ```
 
-The `runtime.json` is the contract between your Nix derivation and
-Hop3's deployer. See the [Nix reference](../reference/nix.md) for the
-full schema.
+The `runtime.json` is the contract between your Nix derivation and Hop3's deployer. See the [Nix reference](../reference/nix.md) for the full schema.
 
 ### Wrapping a nixpkgs source build
 
-A more advanced pattern: use `pkgs.<name>` for the actual application
-binary but customise the wrapper. This is what the `nixpkgs-wrapper`
-template does, but you can write it directly when you need full
-control:
+A more advanced pattern: use `pkgs.<name>` for the actual application binary but customise the wrapper. This is what the `nixpkgs-wrapper` template does, but you can write it directly when you need full control:
 
 ```nix
 { pkgs ? import <nixpkgs> {} }:
@@ -251,14 +224,11 @@ let
 in { package = app; }
 ```
 
-Notice: no `fetchurl`. The `${gitea}` interpolation is a reference to
-the nixpkgs-built source. Multi-arch and reproducible.
+Notice: no `fetchurl`. The `${gitea}` interpolation is a reference to the nixpkgs-built source. Multi-arch and reproducible.
 
 ## Static sites
 
-Static sites use a special `static` worker. Hop3 detects the
-`"static"` key in `runtime.json` and configures nginx to serve files
-directly — no backend process runs.
+Static sites use a special `static` worker. Hop3 detects the `"static"` key in `runtime.json` and configures nginx to serve files directly — no backend process runs.
 
 ```nix
 { pkgs ? import <nixpkgs> {} }:
@@ -286,10 +256,7 @@ in { package = app; }
 
 ## Using addons
 
-Nix apps work with Hop3 addons (PostgreSQL, MySQL, Redis) just like
-native apps. Addon environment variables (`DATABASE_URL`, `PGHOST`,
-`REDIS_URL`, etc.) are injected at runtime and available to your
-worker process:
+Nix apps work with Hop3 addons (PostgreSQL, MySQL, Redis) just like native apps. Addon environment variables (`DATABASE_URL`, `PGHOST`, `REDIS_URL`, etc.) are injected at runtime and available to your worker process:
 
 ```toml
 # hop3.toml
@@ -308,25 +275,19 @@ type = "postgres"
 type = "redis"
 ```
 
-Your application reads `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`,
-`PGDATABASE`, and `REDIS_URL` from the environment.
+Your application reads `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`, and `REDIS_URL` from the environment.
 
 ## The `nix eject` command
 
-When you've outgrown the templates and need to customise the generated
-Nix expression, run:
+When you've outgrown the templates and need to customise the generated Nix expression, run:
 
 ```bash
 hop3 nix eject <app-name>
 ```
 
-This materializes the auto-generated Nix expression as a real
-`hop3.nix` file in your source directory. After ejection, the
-NixBuilder uses the committed `hop3.nix` and the `[nix]` section in
-`hop3.toml` is ignored.
+This materializes the auto-generated Nix expression as a real `hop3.nix` file in your source directory. After ejection, the NixBuilder uses the committed `hop3.nix` and the `[nix]` section in `hop3.toml` is ignored.
 
-The ejected file includes a header noting which template it came from
-and the date of ejection.
+The ejected file includes a header noting which template it came from and the date of ejection.
 
 ## Debugging
 
@@ -347,13 +308,11 @@ result=$(nix-build hop3.nix --no-out-link)
 cat "$result/hop3/runtime.json"
 ```
 
-Check that the `web` worker command is correct and uses
-`$BIND_ADDRESS:$PORT` (or sets `LISTEN_ADDR` from `$PORT`).
+Check that the `web` worker command is correct and uses `$BIND_ADDRESS:$PORT` (or sets `LISTEN_ADDR` from `$PORT`).
 
 ### Missing runtime.json
 
-The build succeeds but Hop3 can't find the runtime config. Ensure
-your `installPhase` creates `$out/hop3/runtime.json`.
+The build succeeds but Hop3 can't find the runtime config. Ensure your `installPhase` creates `$out/hop3/runtime.json`.
 
 ### Generated Nix isn't what you expected
 
@@ -364,8 +323,7 @@ hop3 nix eject <app-name>
 cat <app-source>/hop3.nix
 ```
 
-The eject command writes the generated file but does not deploy. You
-can review, edit, or revert.
+The eject command writes the generated file but does not deploy. You can review, edit, or revert.
 
 ## Examples
 

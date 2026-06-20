@@ -4,7 +4,7 @@ This guide explains how to set up Hop3 on a server using the installer script. T
 
 ## Prerequisites
 
-- A server running Ubuntu 22.04 or 24.04 LTS (Debian-based distributions also supported)
+- A server running Ubuntu 24.04 or 26.04 LTS (Debian-based distributions also supported)
 - Root access to the server via SSH
 - Python 3.10+ on the server
 - A domain name pointing to your server (required for secure HTTPS; without it, admin UI uses unencrypted HTTP on port 8000)

@@ -364,8 +364,7 @@ The plugin will automatically detect MyFramework applications via `myframework.y
 Set environment variables in `hop3.toml`:
 
 ```toml
-[env]
-MYFRAMEWORK_VERSION = "2.0"
+[env] MYFRAMEWORK_VERSION = "2.0"
 ```
 
 ## Supported Versions
@@ -398,9 +397,7 @@ class MyBuilder:
         myframework.yaml:
 
         ```yaml
-        # myframework.yaml
-        version: "1.0"
-        runtime: myframework
+        # myframework.yaml version: "1.0" runtime: myframework
         ```
     """
 ```

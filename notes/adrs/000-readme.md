@@ -6,10 +6,7 @@ This process is inspired by [Python's PEP process](https://www.python.org/dev/pe
 
 ## ADR Index
 
-The authoritative, always-current index — every ADR with its type and status,
-plus a grouping by status — is generated from the ADR preambles and published at
-**[/developers/adrs/](https://hop3.cloud/developers/adrs/)**. It is intentionally
-not duplicated here, to keep a single source of truth.
+The authoritative, always-current index — every ADR with its type and status, plus a grouping by status — is generated from the ADR preambles and published at **[/developers/adrs/](https://hop3.cloud/developers/adrs/)**. It is intentionally not duplicated here, to keep a single source of truth.
 
 ## ADR Types
 

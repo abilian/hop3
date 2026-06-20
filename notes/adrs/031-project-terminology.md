@@ -30,9 +30,7 @@ We adopt the following terminology as the standard vocabulary for Hop3.
 
 ### Applications and Blueprints
 
-The Blueprint vocabulary is the candidate naming for the packaged-app
-installation use case; the open questions it raises are listed under
-[Unresolved Questions](#unresolved-questions).
+The Blueprint vocabulary is the candidate naming for the packaged-app installation use case; the open questions it raises are listed under [Unresolved Questions](#unresolved-questions).
 
 Hop3 supports two distinct use cases that both result in deployed applications:
 
@@ -335,8 +333,7 @@ This is a critical distinction to avoid confusion:
 
 ## Codebase Alignment
 
-Two identifiers carry forward names that predate this vocabulary and remain
-candidates for alignment:
+Two identifiers carry forward names that predate this vocabulary and remain candidates for alignment:
 
 | Item | Notes |
 |------|-------|
@@ -347,8 +344,7 @@ candidates for alignment:
 
 ## Unresolved Questions
 
-The Blueprint vocabulary names a use case whose terminology is not yet final.
-The following questions remain open.
+The Blueprint vocabulary names a use case whose terminology is not yet final. The following questions remain open.
 
 ### Blueprint Terminology
 

@@ -76,8 +76,7 @@ BUILD PHASE                              RUN PHASE
 
 ### Data Model
 
-`RuntimeConfig` and the extended `BuildArtifact` live in `core/artifacts.py`,
-with JSON serialization for persistence.
+`RuntimeConfig` and the extended `BuildArtifact` live in `core/artifacts.py`, with JSON serialization for persistence.
 
 ```python
 @dataclass
@@ -139,10 +138,7 @@ This is actually **undesirable behavior** we want to prevent:
 
 ### Nix Integration
 
-Nix naturally produces this model. The contract is the basis of NixBuilder's
-output, written to `$out/hop3/runtime.json`, and is consumed without
-language-specific knowledge by the deploy stage. ADR 006 and ADR 008 (template
-generation) both rely on it.
+Nix naturally produces this model. The contract is the basis of NixBuilder's output, written to `$out/hop3/runtime.json`, and is consumed without language-specific knowledge by the deploy stage. ADR 006 and ADR 008 (template generation) both rely on it.
 
 ```python
 # NixBuilder.build()

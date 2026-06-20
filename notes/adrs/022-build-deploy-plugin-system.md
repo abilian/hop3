@@ -265,8 +265,7 @@ index.html  style.css  images/
 
 ### Explicit Configuration
 
-Auto-detection can be overridden in `hop3.toml`, for the edge cases where the
-codebase does not unambiguously select a strategy:
+Auto-detection can be overridden in `hop3.toml`, for the edge cases where the codebase does not unambiguously select a strategy:
 
 ```toml
 [build]
@@ -534,8 +533,7 @@ Separating build from deployment enables composition:
 
 ## Strategies
 
-The `Builder` protocol has three production implementations and the `Deployer`
-protocol three, spanning the native, container, and Nix toolchains:
+The `Builder` protocol has three production implementations and the `Deployer` protocol three, spanning the native, container, and Nix toolchains:
 
 **Build:**
 - `LocalBuilder` (`NativeBuildPlugin`) - native builds for Python, Node.js, Ruby, Go, Clojure, and static sites
@@ -547,9 +545,7 @@ protocol three, spanning the native, container, and Nix toolchains:
 - `StaticDeployer` - static file serving via reverse proxy
 - `DockerDeployer` - Docker Compose container deployment
 
-The `BuildArtifact` → `DeploymentInfo` data flow is the stable contract between
-the two stages, independent of which strategies fill them. ADR 035 formalises
-this data flow as the runtime contract.
+The `BuildArtifact` → `DeploymentInfo` data flow is the stable contract between the two stages, independent of which strategies fill them. ADR 035 formalises this data flow as the runtime contract.
 
 ## Prior Art
 

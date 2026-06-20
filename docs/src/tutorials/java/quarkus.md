@@ -237,8 +237,7 @@ hop3 config set --app hop3-tuto-quarkus QUARKUS_PROFILE=prod
 
 ### Initialize the Git Repository
 
-Hop3 deploys the committed contents of a Git repository, so initialize one and
-commit the project before deploying:
+Hop3 deploys the committed contents of a Git repository, so initialize one and commit the project before deploying:
 
 ```bash
 printf 'target/\n.env\n' > .gitignore
