@@ -114,10 +114,16 @@ class TestDbUpgradeCmd:
             assert exc.value.code == 1
 
     def test_unstamped_db_hint_emitted(self, capsys):
-        """When the error smells like a pre-alembic DB, point at db:stamp."""
+        """When the error smells like a pre-alembic DB, point at db:stamp.
+
+        A truly unstamped DB has no current revision, so _orphan_db_revision
+        returns None; mock it so the test exercises the unstamped branch and
+        does not depend on any ambient hop3.db the orphan check would inspect.
+        """
         err = RuntimeError("duplicate column name: error_message")
         with (
             patch("alembic.command.upgrade", side_effect=err),
+            patch("hop3.server.cli.db._orphan_db_revision", return_value=None),
             pytest.raises(SystemExit),
         ):
             DbUpgradeCmd().run()
