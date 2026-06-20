@@ -136,7 +136,7 @@ info = DeploymentInfo(
 
 | Attribute | Type | Description |
 |-----------|------|-------------|
-| `name` | `str` | Unique identifier (e.g., "python", "docker", "node") |
+| `name` | `str` | Unique identifier (e.g., "local", "docker", "nix") |
 | `context` | `DeploymentContext` | Deployment context with app information |
 
 **Required Methods**:
@@ -195,7 +195,7 @@ def build(self) -> BuildArtifact:
 
 **Complete Example**:
 
-See `packages/hop3-server/src/hop3/builders/python.py` for the canonical Python builder implementation.
+See `packages/hop3-server/src/hop3/toolchains/python.py` for the canonical Python toolchain implementation.
 
 ---
 
@@ -358,8 +358,10 @@ See `packages/hop3-server/src/hop3/plugins/docker/deployer.py` for the Docker Co
 
 | Attribute | Type | Description |
 |-----------|------|-------------|
-| `name` | `str` | Service type (e.g., "postgres", "redis", "mysql") |
-| `service_name` | `str` | Specific instance name for this service |
+| `name` | `str` | Addon type (e.g., "postgres", "redis", "mysql") |
+| `addon_name` | `str` | Specific instance name for this addon |
+
+The addon is constructed with the instance name as a keyword-only argument: `__init__(self, *, addon_name: str)`.
 
 **Required Methods**:
 
@@ -523,7 +525,7 @@ def info(self) -> dict[str, Any]:
 
 **Complete Example**:
 
-See `packages/hop3-server/src/hop3/plugins/postgresql/service.py` for the PostgreSQL service implementation.
+See `packages/hop3-server/src/hop3/plugins/postgresql/postgres.py` for the PostgreSQL addon implementation.
 
 ---
 
@@ -541,7 +543,7 @@ See `packages/hop3-server/src/hop3/plugins/postgresql/service.py` for the Postgr
 |-----------|------|-------------|
 | `app` | `App` | Application database object |
 | `env` | `Env` | Environment variables |
-| `workers` | `dict[str, str]` | Worker configuration from Procfile |
+| `workers` | `dict[str, str]` | Worker configuration (from Procfile and/or the hop3.toml `[run]` section) |
 
 **Required Methods**:
 
@@ -888,8 +890,8 @@ When implementing a strategy, use this checklist to ensure protocol compliance:
 - [ ] `scale()` handles worker scaling
 
 ### Addon
-- [ ] `name` attribute set (service type)
-- [ ] `service_name` attribute set (instance name)
+- [ ] `name` attribute set (addon type)
+- [ ] `addon_name` attribute set (instance name)
 - [ ] `create()` is idempotent
 - [ ] `destroy()` removes all data
 - [ ] `get_connection_details()` returns connection URLs

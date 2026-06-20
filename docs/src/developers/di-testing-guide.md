@@ -113,7 +113,8 @@ def di_container() -> Container:
         container = make_container(
             ConfigProvider(),
             DatabaseProvider(),
-            HopServicesProvider(),
+            RepositoryProvider(),
+            HopCoreProvider(),
         )
 
         yield container
@@ -429,6 +430,6 @@ def test_session_cleanup(di_container):
 ## References
 
 - [Testing Strategy](testing-strategy.md) - Overall testing approach
-- ADR 028 - Pluggy+Dishka integration
+- [ADR 028: Pluggy + Dishka Integration](adrs/028-pluggy-dishka-integration.md) - Plugin-contributed services
 - [Dishka Documentation](https://dishka.readthedocs.io/) - Dishka framework docs
 - [Pytest Documentation](https://docs.pytest.org/) - Pytest testing framework

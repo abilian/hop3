@@ -215,7 +215,7 @@ subprocess.run(["command", user_input])
 
 ### 2. Security Defaults Matter
 
-A long-lived token and an unthrottled login endpoint are not exotic vulnerabilities — they're defaults nobody revisited. Tightening the token lifetime and adding per-IP rate limiting cost little, and both now ship out of the box. Users shouldn't have to configure security; the secure choice should be the one they get for free.
+A long-lived token and an unthrottled login endpoint are ordinary oversights — defaults nobody revisited. Tightening the token lifetime and adding per-IP rate limiting cost little, and both now ship out of the box. Users shouldn't have to configure security; the secure choice should be the one they get for free.
 
 ### 3. Test Security Explicitly
 

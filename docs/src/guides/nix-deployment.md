@@ -41,7 +41,7 @@ Not all Nix builds are equally reproducible. Hop3 distinguishes three tiers:
 
 **Tier 1 is the goal.** When the upstream is in nixpkgs, prefer the `nixpkgs-wrapper` template — you get the maintained nixpkgs build for free, including multi-arch support.
 
-**Tier 3 is a known compromise.** Pre-built binary templates (`prebuilt-binary`, `prebuilt-archive`, `node-prebuilt`) are convenient for apps not yet in nixpkgs, but they sacrifice the very properties Nix promises. Use them as a stepping stone, not a destination.
+**Tier 3 is a known compromise.** Pre-built binary templates (`prebuilt-binary`, `prebuilt-archive`, `node-prebuilt`) are convenient for apps not yet in nixpkgs, but they sacrifice the very properties Nix promises. Treat them as a temporary stepping stone toward a nixpkgs or source build.
 
 ## Prerequisites
 
@@ -52,7 +52,7 @@ Not all Nix builds are equally reproducible. Hop3 distinguishes three tiers:
 
 ## Quick start: template mode
 
-For an app that's already in nixpkgs, you can be deployed in three lines of `hop3.toml`. Here's Miniflux:
+For an app that's already in nixpkgs, a few lines of `hop3.toml` are enough to deploy it. Here's Miniflux:
 
 ```toml
 [metadata]
@@ -339,7 +339,7 @@ Notable examples:
 
 | App | Template / approach | Notes |
 |-----|---------------------|-------|
-| `real-apps-nix-gen/miniflux` | nixpkgs-wrapper | Cleanest case — 5 lines of config |
+| `real-apps-nix-gen/miniflux` | nixpkgs-wrapper | Cleanest case — a short `[nix]` block over a nixpkgs package |
 | `real-apps-nix-gen/gitea` | nixpkgs-wrapper | INI config generation at startup |
 | `real-apps-nix-gen/grafana` | nixpkgs-wrapper | PostgreSQL backend, env-driven homepath |
 | `real-apps-nix-gen/wordpress` | php-app | Composer + writable dir handling |

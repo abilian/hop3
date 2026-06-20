@@ -91,7 +91,7 @@ hop3-test system --docker apps/real-apps-native/edrix  # One app or path
 hop3-test system --ssh --host $HOP3_DEV_HOST    # Remote via SSH
 hop3-test system --reuse --ssh --host $HOP3_DEV_HOST   # Skip deploy, test existing
 hop3-test system --docker --deploy-from git --branch devel  # Deploy from git
-hop3-test system --docker --mode nightly        # Wider matrix (dev | ci | nightly | release)
+hop3-test system --docker --mode nightly        # Wider matrix (smoke | ci | nightly | full | ...)
 
 # List / inspect
 hop3-test list                      # List available app/demo/tutorial tests
@@ -154,12 +154,12 @@ apps/real-apps-native/     # Real apps, native build
 apps/real-apps-docker/     # Real apps, Docker build
 apps/real-apps-nix/        # Real apps, Nix hand-crafted
 apps/real-apps-nix-gen/    # Real apps, Nix from template
-demos/                     # Demos (standalone test.toml)
+demos/                     # Demos (discovered via demo-script.py)
 ```
 
 ### Test Configuration (`[test]` in hop3.toml)
 
-Test configuration lives in the app's `hop3.toml` file under a `[test]` section. One source of truth per app — no separate `test.toml` file (removed 2026-04-21).
+Test configuration lives in the app's `hop3.toml` file under a `[test]` section. Most apps keep all their test config there, with no separate `test.toml` file.
 
 Most fields are *derived* from the rest of `hop3.toml`: the test name from `[metadata].id`, category from `[build].builder`, required services from `[[addons]]`, base healthcheck path from `[healthcheck]`. The `[test]` section only declares what's genuinely test-framework-specific.
 
@@ -188,22 +188,26 @@ contains = "Hello"
 
 Note: `tier` is *only* a report-grouping label — all builds share a single 30-minute budget (see [config.md](../reference/config.md#test-test-harness-metadata)). The legacy `[build].tier` field no longer exists.
 
-**Exceptions — standalone `test.toml` files still exist for:**
+**Standalone `test.toml` files still exist for Procfile-only test apps** (`apps/test-apps-procfile/*/`), which don't pair with a `hop3.toml`. Two other kinds of test are configured differently:
 
-- Procfile-only test apps (`apps/test-apps-procfile/*/`) — they don't pair with a `hop3.toml`.
-- Negative-test cases (`apps/bad/test-apps-bad/*/`) — they test *that deploy is rejected*, not that an app works.
-- Demos (`demos/*/`) and tutorials (`docs/src/tutorials/**/`) — their test-harness shape is different.
+- Negative-test cases live under `apps/bad/` (in `apps/bad/real-apps-native-bad/`, `apps/bad/real-apps-docker-bad/`, `apps/bad/real-apps-nix-bad/`). They carry a normal `hop3.toml`, and the runner treats any deploy under `apps/bad/` as expected-to-fail (a failed deploy counts as PASS). You can also opt any app in with `expects-failure = true` in `[test]`.
+- Demos (`demos/*/`) and tutorials (`docs/tutorials/**/`) are discovered structurally — a demo by its `demo-script.py`, a tutorial by its `bash exec`/`output`/`file` markers — rather than from a `test.toml`.
 
 ### Test Modes
 
-When no apps are named, `--mode` filters the catalog by tier/priority:
+When no apps are named, `--mode` filters the catalog by tier/priority (default: `smoke`):
 
 | Mode | Selection | Use Case |
 |------|-----------|----------|
-| `dev` | fast / P0 only | Quick verification |
-| `ci` | P0 across tiers | CI pipelines |
-| `nightly` | wider matrix, P0 + P1 | Nightly builds |
-| `release` | everything | Release validation |
+| `smoke` | fast + P0 deployment apps | Quick verification |
+| `ci` | fast + medium, P0 | Pre-merge gate |
+| `curated` | hand-picked diverse slice | Representative coverage |
+| `tag-coverage` | smallest subset hitting every tag | Dimension coverage |
+| `combo-coverage` | smallest subset hitting every tag combo | Combination coverage |
+| `nightly` | all tiers except very-slow, P0 + P1 | Nightly builds |
+| `full` | everything (all tiers + priorities) | Release validation |
+
+The old names `dev` (→ `smoke`) and `release` (→ `full`) still work as aliases.
 
 ### Test Targets
 
@@ -260,7 +264,7 @@ test-logs/
 
 ## Continuous Integration
 
-CI runs on **SourceHut** (build manifests live in `.builds/`), not GitHub Actions. A typical pipeline runs:
+CI runs on **SourceHut** (build manifests live in `.builds/`). A typical pipeline runs:
 
 ```bash
 make lint             # Linting and type checking

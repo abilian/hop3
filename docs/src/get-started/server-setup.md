@@ -53,7 +53,8 @@ sudo python3 install-server.py --local-path /path/to/hop3-server
 | Option | Description |
 |--------|-------------|
 | `--domain DOMAIN` | Domain for admin UI (enables Let's Encrypt SSL) |
-| `--with FEATURES` | Install optional features: `mysql`, `redis`, `docker`, or `all` |
+| `--acme-email EMAIL` | Email for Let's Encrypt registration (required when using `--domain`) |
+| `--with FEATURES` | Comma-separated optional features: `mysql`, `redis`, `docker`, `nix`, `s3`, or `all` |
 | `--version VERSION` | Install specific version from PyPI |
 | `--pre` | Allow pre-release versions from PyPI |
 | `--git` | Install from git repository |

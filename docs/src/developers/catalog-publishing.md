@@ -1,6 +1,6 @@
 # Publishing a Catalog
 
-Hop3 distributes its app **Catalog** as a **signed tarball pulled over HTTPS** (see ADR 049). A node fetches `catalog.tar.gz` + its detached signature, verifies the signature against a public key compiled into the release, checks the contents against a signed index, and only then publishes it locally. Authenticity is not optional: a catalog spec becomes code Hop3 runs, so one unsigned or tampered catalog would be a fleet-wide remote-code-execution vector.
+Hop3 distributes its app **Catalog** as a **signed tarball pulled over HTTPS** (see ADR 049). A node fetches `catalog.tar.gz` + its detached signature, verifies the signature against a public key compiled into the release, checks the contents against a signed index, and only then publishes it locally. Every catalog must be authenticated: a catalog spec becomes code Hop3 runs, so one unsigned or tampered catalog would be a fleet-wide remote-code-execution vector.
 
 This page documents the **producer** side — how the Hop3 project builds and signs the official catalog, and how you can run your own (Hop3 is sovereignty-first; `CATALOG_SOURCE_URL` is configurable, so you can point your nodes at a catalog you control).
 
@@ -34,7 +34,7 @@ hop3-catalog publish content/ --key ./catalog-keys/catalog.key --out-dir dist/
 # → dist/index.json, dist/catalog.tar.gz, dist/catalog.tar.gz.minisig
 ```
 
-`publish` validates every spec through the coexistence gate **before signing** — a spec that pins the nginx catch-all host `"_"` or a wildcard host is rejected here, because it would hijack the reverse-proxy default server and shadow every other app on a node. The tarball is built from the generated `index.json`, so the published tree is exactly the signed file set — nothing more, nothing less.
+`publish` validates every spec through the coexistence gate **before signing** — a spec that pins the nginx catch-all host `"_"` or a wildcard host is rejected here, because it would hijack the reverse-proxy default server and shadow every other app on a node. The tarball is built from the generated `index.json`, so the published tree is exactly the signed file set.
 
 `--serial` defaults to the current Unix time, which increases monotonically across releases. Nodes enforce anti-rollback: a serial less than or equal to one a node already holds is refused. If you set `--serial` manually, it must strictly increase.
 

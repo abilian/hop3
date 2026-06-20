@@ -110,9 +110,11 @@ Installs the Hop3 server for hosting applications. Must be run as root.
 6. Configure SSH keys (if root keys exist)
 7. Set up systemd services
 8. Generate SSL certificate (self-signed by default)
-9. Configure nginx as reverse proxy
+9. Configure nginx as reverse proxy (and install `hop3-rootd`, the privileged-operations daemon used for nginx reloads)
 10. Configure PostgreSQL
-11. Install acme.sh and optionally request Let's Encrypt certificate
+11. Configure MySQL (when requested via `--with mysql`)
+
+After these steps the installer writes the server config, installs acme.sh, and verifies the installation.
 
 ### Command-Line Options
 
@@ -122,13 +124,19 @@ Installs the Hop3 server for hosting applications. Must be run as root.
 | `--git` | `HOP3_GIT=1` | Install from git repository |
 | `--branch BRANCH` | `HOP3_BRANCH` | Git branch (default: `main`) |
 | `--local-path PATH` | `HOP3_LOCAL_PACKAGE` | Install from local directory |
+| `--pre` | | Allow pre-release versions when installing from PyPI |
+| `--with FEATURES` | | Comma-separated optional features: `docker`, `mysql`, `redis`, `s3`, `nix`, `all` |
 | `--domain DOMAIN` | `HOP3_DOMAIN` | Domain for Let's Encrypt certificate |
+| `--acme-email EMAIL` | | Email address for Let's Encrypt registration (required for ACME) |
 | `--force` | `HOP3_FORCE=1` | Force reinstall |
 | `--skip-deps` | `HOP3_SKIP_DEPS=1` | Skip system dependency installation |
 | `--skip-nginx` | `HOP3_SKIP_NGINX=1` | Skip nginx setup |
 | `--skip-postgres` | `HOP3_SKIP_POSTGRES=1` | Skip PostgreSQL setup |
 | `--skip-acme` | `HOP3_SKIP_ACME=1` | Skip ACME/Let's Encrypt setup |
+| `--skip-package-install` | | Skip the `hop3-server` package install (when installed separately) |
 | `--verbose` | `HOP3_VERBOSE=1` | Show verbose output |
+
+PostgreSQL is always set up (unless `--skip-postgres`). The other backing services — MySQL, Redis, S3/MinIO object storage — and the optional Docker and Nix runtimes are enabled with `--with`, for example `--with redis,s3` or `--with all`.
 
 ### Examples
 
@@ -137,7 +145,11 @@ Installs the Hop3 server for hosting applications. Must be run as root.
 sudo python3 install-server.py
 
 # Install with Let's Encrypt certificate for a domain
-sudo python3 install-server.py --domain hop3.example.com
+sudo python3 install-server.py --domain hop3.example.com --acme-email you@example.com
+
+# Install with optional backing services and runtimes
+sudo python3 install-server.py --with redis,s3
+sudo python3 install-server.py --with all
 
 # Install from git (specific branch)
 sudo python3 install-server.py --git --branch develop
@@ -159,10 +171,10 @@ By default, the installer generates a **self-signed SSL certificate** for immedi
 - Internal/private servers
 - Initial setup before configuring a domain
 
-To use a **Let's Encrypt certificate**, provide a domain name:
+To use a **Let's Encrypt certificate**, provide a domain name and a registration email:
 
 ```bash
-sudo python3 install-server.py --domain hop3.example.com
+sudo python3 install-server.py --domain hop3.example.com --acme-email you@example.com
 ```
 
 Requirements for Let's Encrypt:
@@ -170,9 +182,9 @@ Requirements for Let's Encrypt:
 - Ports 80 and 443 must be accessible from the internet
 - The server must be reachable at the specified domain
 
-The certificate will be automatically renewed by acme.sh.
+Providing `--acme-email` writes `ACME_ENGINE=certbot` to `/etc/default/hop3`; without it the server stays on `ACME_ENGINE=self-signed`. Certificate renewal is then handled by the configured ACME engine.
 
-**Note:** The installer currently uses nginx as the reverse proxy. Support for alternative proxies (Caddy, Traefik) is planned for future versions.
+**Note:** The installer configures nginx as the reverse proxy. Support for alternative proxies (Caddy, Traefik) is planned for future versions.
 
 ### Supported Distributions
 
@@ -235,13 +247,18 @@ sudo systemctl status nginx
 sudo journalctl -u hop3-server -f
 ```
 
+For an application-level health report (server identity, addons, certificate status), use the CLI once it is installed:
+
+```bash
+hop3 system status
+```
+
 ### API Endpoints
 
-After installation, the Hop3 API is available at:
+After installation, the Hop3 server is reachable at:
 
-- `https://<server-ip>/rpc` - JSON-RPC API endpoint
-- `https://<server-ip>/hop3/` - Web UI (if enabled)
-- `https://<server-ip>/health` - Health check endpoint
+- `https://<server-ip>/rpc` - JSON-RPC API endpoint (used by the CLI and TUI)
+- `https://<server-ip>/dashboard` - Web dashboard (the root URL `/` redirects here, or to `/auth/login` when not signed in)
 
 If using Let's Encrypt with a domain:
 - `https://hop3.example.com/rpc`
@@ -260,55 +277,43 @@ python3 install-cli.py --local-path /path/to/hop3/packages/hop3-cli
 sudo python3 install-server.py --local-path /path/to/hop3/packages/hop3-server
 ```
 
+### Building the single-file installers
+
+The `install-cli.py` and `install-server.py` scripts are generated from the `hop3-installer` package by the bundler. Regenerate them after changing the installer code:
+
+```bash
+# Build both into installer/
+make build-installers
+
+# Or invoke the bundler directly
+uv run hop3-install bundle --all --output-dir dist/
+uv run hop3-install bundle --type server --output install-server.py
+```
+
+### Automated installer tests
+
+The installer's end-to-end tests live in `packages/hop3-installer/tests/c_e2e/` and exercise the CLI and server installers against real targets. Run them with:
+
+```bash
+make test-installer
+```
+
 ### Vagrant Testing
 
-A Vagrantfile is provided for testing in clean VMs:
+A `Vagrantfile` at the repository root provisions a clean Ubuntu VM (the repository is synced to `/vagrant`):
 
 ```bash
-cd installer
+# Start the VM and SSH in
+vagrant up
+vagrant ssh
 
-# Start Ubuntu VM
-vagrant up ubuntu
-
-# Sync local files to VM
-vagrant rsync
-
-# SSH into VM
-vagrant ssh ubuntu
-
-# Test CLI installer (in VM)
+# Inside the VM, test against local package changes
+# (run `make build-installers` on the host first to generate installer/)
 python3 /vagrant/installer/install-cli.py --local-path /vagrant/packages/hop3-cli
-
-# Test server installer (in VM)
 sudo python3 /vagrant/installer/install-server.py --local-path /vagrant/packages/hop3-server
 
-# Destroy VM when done
+# Destroy the VM when done
 vagrant destroy -f
-```
-
-### Docker Testing
-
-For faster iteration, use the Docker test script:
-
-```bash
-./test-installers-docker.py --type cli
-./test-installers-docker.py --type server
-./test-installers-docker.py --all
-```
-
-### Test Script
-
-The `test-installers.py` script automates Vagrant-based testing:
-
-```bash
-# Test CLI installer on Ubuntu
-./test-installers.py --vm ubuntu --type cli
-
-# Test server installer on Ubuntu
-./test-installers.py --vm ubuntu --type server
-
-# Test everything
-./test-installers.py --all
 ```
 
 ## Architecture
