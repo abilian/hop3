@@ -24,7 +24,7 @@ Before the mechanics, the *why*. Hop3's testing strategy follows from a single c
 
 This reframes testing as a continuous experiment against the platform's boundaries. Each deployment probes an edge; a failed one is a *finding* — usually a platform backlog item, occasionally a business-reasons decision to drop the app. The most valuable test is the one that surfaces a gap we didn't know we had.
 
-That conviction produced the testing architecture described in [ADR 043: Unified Testing Architecture](/adrs/043-unified-testing-architecture/), which this post summarises.
+That conviction produced the testing architecture described in [ADR 043: Unified Testing Architecture](/developers/adrs/043-unified-testing-architecture/), which this post summarises.
 
 ## Three runners, three domains
 
@@ -63,7 +63,7 @@ The crux is the **placement rule**: a test's home is decided by one question —
 
 This deliberately pushes work *down* the pyramid: prefer `b_integration` whenever a test can run hermetically. It also produces a happy alignment with coverage — the two *fast* layers (`a_unit`, `b_integration`) are exactly the two that *move the coverage number*, because `c_e2e` runs in a separate process or container where `coverage.py` can't see it.
 
-(This supersedes [ADR 026](/adrs/026-dashboard-ui-test-classification/), which had classified tests by a real-vs-mocked-dependency axis. The Docker/root/host-mutation axis is the better boundary, and was itself enabled by the testability work in [ADR 027](/adrs/027-config-system-refactoring/).)
+(This supersedes [ADR 026](/developers/adrs/026-dashboard-ui-test-classification/), which had classified tests by a real-vs-mocked-dependency axis. The Docker/root/host-mutation axis is the better boundary, and was itself enabled by the testability work in [ADR 027](/developers/adrs/027-config-system-refactoring/).)
 
 ## Four speed tiers
 
@@ -84,7 +84,7 @@ A few deliberate choices fall out of this:
 
 ## One deploy-and-verify path
 
-The original sin that [ADR 043](/adrs/043-unified-testing-architecture/) set out to fix was that *deploy-and-verify was implemented four times over*: the test runner, the pytest Docker fixtures, the demos, and a tutorial script each stood up a server and verified an app independently. Now everything that stands up a server routes through one primitive — the `DeploymentTarget` abstraction over the real `hop3-deploy` command:
+The original sin that [ADR 043](/developers/adrs/043-unified-testing-architecture/) set out to fix was that *deploy-and-verify was implemented four times over*: the test runner, the pytest Docker fixtures, the demos, and a tutorial script each stood up a server and verified an app independently. Now everything that stands up a server routes through one primitive — the `DeploymentTarget` abstraction over the real `hop3-deploy` command:
 
 | Target | When | Gate |
 |--------|------|------|
@@ -96,7 +96,7 @@ One primitive means one place to fix a bug, and one consistent set of diagnostic
 
 ## The silent-502: diagnosis as a first-class feature
 
-The review that produced [ADR 043](/adrs/043-unified-testing-architecture/) was triggered by a specific, infuriating production failure: **a healthy app behind a 502, with no useful diagnostic anywhere.** The app was up and answering on its port; nginx was pointing at the *wrong* port; and no test surface captured it.
+The review that produced [ADR 043](/developers/adrs/043-unified-testing-architecture/) was triggered by a specific, infuriating production failure: **a healthy app behind a 502, with no useful diagnostic anywhere.** The app was up and answering on its port; nginx was pointing at the *wrong* port; and no test surface captured it.
 
 So Hop3 treats diagnosis as a first-class feature. Every runner that touches a real server emits the *same* diagnostic bundle on failure, before teardown (because the logs vanish with the server):
 
@@ -111,7 +111,7 @@ A point of confusion worth stating plainly: **the CI of record is SourceHut (`.b
 
 ## The nightly Test Lab
 
-The top of the pyramid — the full suite against real cloud servers, every night — is run and reported by a dedicated web application, **hop3-testlab** ([ADR 044](/adrs/044-nightly-test-lab/)). It provisions a pool of ephemeral Hetzner servers, deploys Hop3 to each, shards the catalog across them, collects a diagnostic bundle for every test (pass or fail), tears the servers down, and serves a dashboard with trends, flakiness ranking, and a diff against the previous night. It reuses the test runner *as a library*, so a manual CLI run and a scheduled nightly run produce identical, comparable data. The [Test Lab post](2026-06-testing-testlab.md) covers it in depth.
+The top of the pyramid — the full suite against real cloud servers, every night — is run and reported by a dedicated web application, **hop3-testlab** ([ADR 044](/developers/adrs/044-nightly-test-lab/)). It provisions a pool of ephemeral Hetzner servers, deploys Hop3 to each, shards the catalog across them, collects a diagnostic bundle for every test (pass or fail), tears the servers down, and serves a dashboard with trends, flakiness ranking, and a diff against the previous night. It reuses the test runner *as a library*, so a manual CLI run and a scheduled nightly run produce identical, comparable data. The [Test Lab post](2026-06-testing-testlab.md) covers it in depth.
 
 ## The shape of it
 
@@ -128,4 +128,4 @@ Three runners for three domains, three layers placed by what they *need*, four t
 
 ---
 
-*This is the overview of a five-part series on how Hop3 tests itself: [the demos](2026-06-testing-demos.md), [testable docs (validoc)](2026-06-testing-validoc.md), [the test runner](2026-06-testing-runner.md), and [the nightly Test Lab](2026-06-testing-testlab.md). The full rationale lives in [ADR 043: Unified Testing Architecture](/adrs/043-unified-testing-architecture/).*
+*This is the overview of a five-part series on how Hop3 tests itself: [the demos](2026-06-testing-demos.md), [testable docs (validoc)](2026-06-testing-validoc.md), [the test runner](2026-06-testing-runner.md), and [the nightly Test Lab](2026-06-testing-testlab.md). The full rationale lives in [ADR 043: Unified Testing Architecture](/developers/adrs/043-unified-testing-architecture/).*

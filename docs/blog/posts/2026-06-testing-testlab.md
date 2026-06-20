@@ -14,11 +14,11 @@ tags:
 
 Running the whole test suite every night is only the first half of the job. The full matrix — real apps, demos, tutorials, platform e2e, across distros, on real cloud servers — produces a *mountain* of pass/fail data and diagnostic logs. If that data lands in a write-only file nobody can query, the suite is a tree falling in an empty forest. The point of testing is the *finding*, and a finding only counts if someone sees it the next morning.
 
-So Hop3 has a dedicated application for exactly this: **`hop3-testlab`**, specified in [ADR 044](/adrs/044-nightly-test-lab/). It's the consumer that makes a nightly run *actionable* — green/red at a glance, every log for every failure one click away, trends over time, and a scheduler that gets it done before breakfast.
+So Hop3 has a dedicated application for exactly this: **`hop3-testlab`**, specified in [ADR 044](/developers/adrs/044-nightly-test-lab/). It's the consumer that makes a nightly run *actionable* — green/red at a glance, every log for every failure one click away, trends over time, and a scheduler that gets it done before breakfast.
 
 ## Why a whole app for it
 
-[ADR 043](/adrs/043-unified-testing-architecture/) did the hard part: it made the nightly data *exist and be uniform*, via the shared diagnostic bundle that every runner emits. But it left the data inert — a single-file SQLite store with no query API, a static report blind to trends, no scheduler, no way to browse a failed test's full logs, no flakiness view, no way to re-run from a UI. The Test Lab is the complement: [ADR 043](/adrs/043-unified-testing-architecture/) makes the data uniform; [ADR 044](/adrs/044-nightly-test-lab/) makes it *visible, queryable, and scheduled*.
+[ADR 043](/developers/adrs/043-unified-testing-architecture/) did the hard part: it made the nightly data *exist and be uniform*, via the shared diagnostic bundle that every runner emits. But it left the data inert — a single-file SQLite store with no query API, a static report blind to trends, no scheduler, no way to browse a failed test's full logs, no flakiness view, no way to re-run from a UI. The Test Lab is the complement: [ADR 043](/developers/adrs/043-unified-testing-architecture/) makes the data uniform; [ADR 044](/developers/adrs/044-nightly-test-lab/) makes it *visible, queryable, and scheduled*.
 
 It also lands squarely on the project ethos: *packaging apps is system-validation work; each app is a deliberate probe of the platform's edges.* The nightly suite is the instrument; the Test Lab is the readout that turns each failure into a visible platform backlog item.
 
@@ -30,17 +30,23 @@ The consequence is that the CLI and the web app are two thin shells over the **s
 
 ## The shape of it
 
-```
- Hop3 server (the Lab host)                    Hetzner Cloud (ephemeral targets)
- ┌───────────────────────────────────┐          ┌────────────┐  ┌────────────┐
- │  hop3-testlab (deployed by Hop3)  │  SSH/API │ target #1  │  │ target #N  │
- │  scheduler ─► runner(s) ─► engine │ ───────► │ fresh Hop3 │  │ fresh Hop3 │
- │                  │ (hop3-testing) │ ◄─────── │ + apps     │  │ + apps     │
- │                  ▼                │  logs    └────────────┘  └────────────┘
- │  PostgreSQL  +  artifact store    │
- │                  ▲                │
- │  web service ────┘ (dashboard/API)│
- └───────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph lab["Hop3 server (the Lab host)"]
+        direction TB
+        scheduler[scheduler] --> runner["runner(s)"] --> engine["engine<br/>(hop3-testing)"]
+        engine --> store[("PostgreSQL +<br/>artifact store")]
+        store --> web["web service<br/>(dashboard/API)"]
+    end
+    subgraph hetzner["Hetzner Cloud (ephemeral targets)"]
+        direction TB
+        t1["target #1<br/>fresh Hop3 + apps"]
+        tn["target #N<br/>fresh Hop3 + apps"]
+    end
+    engine -->|SSH/API| t1
+    engine -->|SSH/API| tn
+    t1 -->|logs| engine
+    tn -->|logs| engine
 ```
 
 | Component | Role | Stack |
@@ -99,8 +105,8 @@ A manual `run` writes to the same store as the scheduler, so it shows up in the 
 
 ## Where it sits
 
-The Test Lab is the apex of the pyramid in [the testing overview](2026-06-how-hop3-is-tested.md): the **nightly** tier given a home. Below it, the [test runner](2026-06-testing-runner.md) provides the engine, the [demos](2026-06-testing-demos.md) and [validoc tutorials](2026-06-testing-validoc.md) provide much of the catalog, and the shared diagnostic bundle from [ADR 043](/adrs/043-unified-testing-architecture/) provides the data. The Lab's job is to make sure that, every morning, the night's findings are impossible to miss — and that each one reads, correctly, as a platform backlog item.
+The Test Lab is the apex of the pyramid in [the testing overview](2026-06-how-hop3-is-tested.md): the **nightly** tier given a home. Below it, the [test runner](2026-06-testing-runner.md) provides the engine, the [demos](2026-06-testing-demos.md) and [validoc tutorials](2026-06-testing-validoc.md) provide much of the catalog, and the shared diagnostic bundle from [ADR 043](/developers/adrs/043-unified-testing-architecture/) provides the data. The Lab's job is to make sure that, every morning, the night's findings are impossible to miss — and that each one reads, correctly, as a platform backlog item.
 
 ---
 
-*The final part of a five-part series on [how Hop3 is tested](2026-06-how-hop3-is-tested.md). The full design is [ADR 044: Nightly Test Lab](/adrs/044-nightly-test-lab/), which builds on [ADR 043: Unified Testing Architecture](/adrs/043-unified-testing-architecture/).*
+*The final part of a five-part series on [how Hop3 is tested](2026-06-how-hop3-is-tested.md). The full design is [ADR 044: Nightly Test Lab](/developers/adrs/044-nightly-test-lab/), which builds on [ADR 043: Unified Testing Architecture](/developers/adrs/043-unified-testing-architecture/).*

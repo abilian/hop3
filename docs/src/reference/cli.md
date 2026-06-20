@@ -6,7 +6,7 @@
 This document provides a complete reference for all Hop3 CLI commands.
 
 > **Note (0.5.0 breaking changes).** The CLI surface was redesigned under
-> [ADR 036](https://github.com/abilian/hop3/blob/main/notes/adrs/036-cli-ergonomics.md).
+> [ADR 036](/developers/adrs/036-cli-ergonomics/).
 > Key changes from 0.4.x:
 >
 > - Commands use spaces, not colons: `hop3 config set` (was `hop3 config:set`).

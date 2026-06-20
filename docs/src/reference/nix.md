@@ -258,9 +258,9 @@ hop3-test system --docker --clean --with nix apps/real-apps-nix-gen
 
 ## Related
 
-- [ADR 006: Nix Integration](https://git.sr.ht/~sfermigier/hop3/tree/devel/notes/adrs/006-nix-integration.md)
+- [ADR 006: Nix Integration](/developers/adrs/006-nix-integration/)
   — Phase 1 architecture decision
-- [ADR 008: Template-Based Nix Generation](https://git.sr.ht/~sfermigier/hop3/tree/devel/notes/adrs/008-nix-builders-2.md)
+- [ADR 008: Template-Based Nix Generation](/developers/adrs/008-nix-builders-2/)
   — Phase 3 template system
 - [Nix Deployment Guide](../guides/nix-deployment.md) — Tutorial-style
   introduction

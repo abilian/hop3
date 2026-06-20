@@ -14,23 +14,14 @@ This section provides access to the technical deep-dive documentation for each H
 
 ## Package Relationships
 
-```
-                    ┌─────────────┐
-                    │ hop3-server │
-                    │   (core)    │
-                    └──────┬──────┘
-                           │
-              ┌────────────┼────────────┐
-              │            │            │
-              ▼            ▼            ▼
-        ┌──────────┐ ┌──────────┐ ┌──────────┐
-        │ hop3-cli │ │ hop3-tui │ │hop3-test │
-        │ (client) │ │ (client) │ │ (tests)  │
-        └──────────┘ └──────────┘ └──────────┘
-
-        ┌───────────────┐
-        │hop3-installer │  (installs server + cli)
-        └───────────────┘
+```mermaid
+flowchart TD
+    server["hop3-server<br/>(core)"]
+    server --> cli["hop3-cli<br/>(client)"]
+    server --> tui["hop3-tui<br/>(client)"]
+    server --> test["hop3-test<br/>(tests)"]
+    installer["hop3-installer"] -->|installs| server
+    installer -->|installs| cli
 ```
 
 ## Documentation Structure
