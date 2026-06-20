@@ -22,7 +22,12 @@ if TYPE_CHECKING:
 
 
 def _seed_run_with_failure(
-    db_path: Path, run_uid: str, failing: str, *, finished: bool = True
+    db_path: Path,
+    run_uid: str,
+    failing: str,
+    *,
+    finished: bool = True,
+    metadata: dict | None = None,
 ) -> None:
     ResultStore(db_path=db_path)  # ensure schema
     engine = create_engine(f"sqlite:///{db_path}")
@@ -37,7 +42,9 @@ def _seed_run_with_failure(
             failed_tests=1,
             hop3_version="0.5.0",
             git_sha="deadbee",
-            run_metadata={"os_name": "ubuntu", "os_version": "24.04"},
+            run_metadata=metadata
+            if metadata is not None
+            else {"os_name": "ubuntu", "os_version": "24.04"},
             # In-progress runs have no finished_at; a finished one does.
             finished_at=datetime.now(UTC) if finished else None,
         )
@@ -132,3 +139,57 @@ def test_run_detail_unknown_run_is_404(tmp_path):
     with TestClient(app=create_app()) as client:
         response = client.get("/runs/does-not-exist")
     assert response.status_code == 404
+
+
+def _platform_ref_in_session_details(html: str) -> str | None:
+    """The platform_ref value rendered in the Session details bag (or None)."""
+    m = re.search(r"platform_ref</dt><dd[^>]*>([^<]+)</dd>", html)
+    return m.group(1).strip() if m else None
+
+
+def test_run_detail_shows_provenance_tuple(tmp_path):
+    """The composition identity (source / apps_ref / platform_ref) renders in
+    Session details — the dashboard says which composition this run was (§A)."""
+    db = tmp_path / "test-results.db"
+    _seed_run_with_failure(
+        db,
+        "2026-06-18T00-00-00Z-coverage-cmp1",
+        "apps/x",
+        metadata={
+            "source_name": "main-repo",
+            "apps_ref": "devel",
+            "platform_ref": "main",
+            "runner_version": "0.5.0",
+        },
+    )
+    with TestClient(app=create_app()) as client:
+        response = client.get("/runs/2026-06-18T00-00-00Z-coverage-cmp1")
+
+    assert response.status_code == 200
+    assert "apps_ref" in response.text
+    assert "platform_ref" in response.text
+    assert _platform_ref_in_session_details(response.text) == "main"
+
+
+def test_run_detail_distinguishes_compositions_by_platform_ref(tmp_path):
+    """Same apps@devel, two platform refs -> two distinct compositions, each
+    page showing its own platform_ref (the heart of slice 1's value)."""
+    db = tmp_path / "test-results.db"
+    _seed_run_with_failure(
+        db,
+        "2026-06-18T00-00-00Z-cov-main",
+        "apps/x",
+        metadata={"apps_ref": "devel", "platform_ref": "main"},
+    )
+    _seed_run_with_failure(
+        db,
+        "2026-06-18T00-00-00Z-cov-devl",
+        "apps/x",
+        metadata={"apps_ref": "devel", "platform_ref": "devel"},
+    )
+    with TestClient(app=create_app()) as client:
+        page_main = client.get("/runs/2026-06-18T00-00-00Z-cov-main").text
+        page_devl = client.get("/runs/2026-06-18T00-00-00Z-cov-devl").text
+
+    assert _platform_ref_in_session_details(page_main) == "main"
+    assert _platform_ref_in_session_details(page_devl) == "devel"

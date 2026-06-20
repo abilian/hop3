@@ -135,8 +135,12 @@ class RunsController(Controller):
                 status_code=HTTP_303_SEE_OTHER,
             )
 
-        cmd = ["hop3-testlab", "run", "--target", target, "--trigger", "manual"]
-        cmd += ["--apps", app] if app else ["--mode", mode]
+        # `run <mode> [selector]`: a per-app trigger passes the app's catalog name
+        # as the (single) selector, resolved locally; a full run passes mode only.
+        cmd = ["hop3-testlab", "run", mode]
+        if app:
+            cmd.append(app)
+        cmd += ["--target", target, "--trigger", "manual"]
         try:
             # Capture the run wrapper's output to a per-trigger log instead of
             # discarding it: a run that dies before recording anything (a bad

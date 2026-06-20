@@ -14,9 +14,7 @@ from hop3_testing.targets.helpers import find_project_root
 from hop3_testlab.catalog import (
     mode_counts,
     resolve_selector,
-    tests_grouped as grouped_tests,  # avoid test* collection
     title_map,
-    valid_test_names,
 )
 
 
@@ -42,22 +40,6 @@ def test_title_map_uses_human_titles():
     assert titles["apps/real-apps-native/etherpad"] == "Etherpad"
     # Tutorials use their markdown H1.
     assert "Flask" in titles["docs/tutorials/python/flask.md"]
-
-
-def test_tests_grouped_has_display_fields():
-    rows = {r["name"]: r for r in grouped_tests()}
-    demo = rows["demos/demo01"]
-    assert demo["title"] == "Demo 1: uWSGI Deployment"
-    assert demo["type"] == "demo"
-    flask = rows["apps/test-apps-procfile/010-flask-pip-wsgi"]
-    assert flask["language"] == "python"
-    assert flask["variant"] == "procfile"
-
-
-def test_valid_test_names_includes_seed():
-    names = valid_test_names()
-    assert "demos/demo01" in names
-    assert "apps/test-apps-procfile/000-static" in names
 
 
 def test_resolve_selector_matches_app_dirs():
