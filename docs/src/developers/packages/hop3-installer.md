@@ -141,7 +141,7 @@ Installs hop3-server on target machines (requires root):
 ├── uwsgi-available/    # uWSGI configs
 ├── uwsgi-enabled/      # Active configs (symlinks)
 ├── certificates/       # SSL certificates
-└── hop3.db            # SQLite database
+└── hop3.db             # SQLite database
 
 /etc/
 ├── nginx/sites-enabled/hop3-admin.conf

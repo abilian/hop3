@@ -35,7 +35,7 @@ Create a new Python project:
 
 ```
 my-hop3-plugin/
-├── pyproject.toml          # Package metadata and build config
+├── pyproject.toml           # Package metadata and build config
 ├── README.md                # Plugin documentation
 ├── LICENSE                  # License file (Apache 2.0 recommended)
 ├── src/

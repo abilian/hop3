@@ -38,7 +38,7 @@ For most applications, a simple `Procfile` is all you need.
 my-app/
 ├── app.py                  # Your application code
 ├── requirements.txt        # Python dependencies
-└── Procfile               # Process definition
+└── Procfile                # Process definition
 ```
 
 **Procfile:**

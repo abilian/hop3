@@ -125,16 +125,16 @@ Testing utilities and fixtures for E2E testing.
 The packages communicate through well-defined interfaces:
 
 ```
-┌─────────────┐         ┌─────────────────┐
-│  hop3-cli   │──JSON───│   hop3-server   │
-│  hop3-tui   │  -RPC   │                 │
-└─────────────┘         └─────────────────┘
-        │                       │
-        │                       │
-┌───────▼───────┐       ┌───────▼───────┐
-│ hop3-installer│       │ hop3-testing  │
-│ (deploys both)│       │ (tests both)  │
-└───────────────┘       └───────────────┘
+┌──────────────┐        ┌─────────────────┐
+│   hop3-cli   │──JSON──│   hop3-server   │
+│   hop3-tui   │  -RPC  │                 │
+└──────┬───────┘        └────────┬────────┘
+       │                         │
+       │                         │
+┌──────▼───────┐        ┌────────▼────────┐
+│hop3-installer│        │  hop3-testing   │
+│(deploys both)│        │  (tests both)   │
+└──────────────┘        └─────────────────┘
 ```
 
 - **CLI/TUI → Server**: JSON-RPC over SSH tunnel or HTTPS

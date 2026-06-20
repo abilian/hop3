@@ -17,26 +17,26 @@ This document describes both approaches, their purposes, and how to use them eff
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        Testing Strategy                              │
+│                        Testing Strategy                             │
 ├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  pytest Layers              │  Application Testing (hop3-test)  │
-│  ─────────────              │  ────────────────────────────────────  │
-│                             │                                        │
+│                                                                     │
+│  pytest Layers              │  Application Testing (hop3-test)      │
+│  ─────────────              │  ──────────────────────────────────── │
+│                             │                                       │
 │  ┌─────────────┐            │  ┌─────────────────────────────────┐  │
 │  │   E2E       │ Docker     │  │  System Testing                 │  │
 │  │  (c_e2e/)   │            │  │  - Uses hop3-deploy             │  │
 │  ├─────────────┤            │  │  - Tests Hop3 installation      │  │
 │  │ Integration │            │  │  - 5-8 known-good apps          │  │
 │  │(b_integr./) │            │  └─────────────────────────────────┘  │
-│  ├─────────────┤            │                                        │
+│  ├─────────────┤            │                                       │
 │  │   Unit      │ Fast       │  ┌─────────────────────────────────┐  │
 │  │  (a_unit/)  │            │  │  Apps Testing                   │  │
 │  └─────────────┘            │  │  - Uses pre-built image         │  │
 │                             │  │  - Tests app deployments        │  │
 │                             │  │  - Multiple test applications   │  │
 │                             │  └─────────────────────────────────┘  │
-│                             │                                        │
+│                             │                                       │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -187,28 +187,28 @@ The `hop3-test` CLI provides a dedicated system for testing application deployme
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                       hop3-test                                  │
+│                              hop3-test                              │
 ├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  ┌───────────────┐    ┌───────────────┐    ┌───────────────┐       │
-│  │  Test Catalog │    │  Test Runner  │    │   Reporters   │       │
-│  │  - Scans apps │    │  - Deploys    │    │  - Console    │       │
-│  │  - test.toml  │    │  - Validates  │    │  - HTML       │       │
-│  │  - Selection  │    │  - Cleanup    │    │  - Recap      │       │
-│  └───────┬───────┘    └───────┬───────┘    └───────────────┘       │
-│          │                    │                                      │
-│          └────────────────────┼──────────────────────────────────┐  │
-│                               │                                   │  │
-│  ┌────────────────────────────┴────────────────────────────────┐ │  │
-│  │                    Deployment Targets                        │ │  │
-│  ├──────────────────┬──────────────────┬──────────────────────┤ │  │
-│  │ DockerDeployTarget│   ReadyTarget    │   RemoteTarget      │ │  │
-│  │ - hop3-deploy    │ - Pre-built img  │ - SSH to server     │ │  │
-│  │ - Fresh install  │ - Fast startup   │ - Existing Hop3     │ │  │
-│  │ - System testing │ - App testing    │ - Production test   │ │  │
-│  └──────────────────┴──────────────────┴──────────────────────┘ │  │
-│                                                                   │  │
-└───────────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│  ┌───────────────┐    ┌───────────────┐    ┌───────────────┐        │
+│  │ Test Catalog  │    │  Test Runner  │    │   Reporters   │        │
+│  │ - Scans apps  │    │ - Deploys     │    │ - Console     │        │
+│  │ - test.toml   │    │ - Validates   │    │ - HTML        │        │
+│  │ - Selection   │    │ - Cleanup     │    │ - Recap       │        │
+│  └───────┬───────┘    └───────┬───────┘    └───────────────┘        │
+│          │                    │                                     │
+│          └─────────┬──────────┘                                     │
+│                    │                                                │
+│  ┌─────────────────┴──────────────────────────────────────────┐     │
+│  │                     Deployment Targets                     │     │
+│  ├────────────────────┬───────────────────┬───────────────────┤     │
+│  │ DockerDeployTarget │ ReadyTarget       │ RemoteTarget      │     │
+│  │ - hop3-deploy      │ - Pre-built img   │ - SSH to server   │     │
+│  │ - Fresh install    │ - Fast startup    │ - Existing Hop3   │     │
+│  │ - System testing   │ - App testing     │ - Production test │     │
+│  └────────────────────┴───────────────────┴───────────────────┘     │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Test Catalog System
@@ -372,41 +372,41 @@ hop3-test apps --target remote --host server.example.com
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        Test Execution Flow                           │
+│                        Test Execution Flow                          │
 ├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  1. Catalog Scan                                                     │
+│                                                                     │
+│  1. Catalog Scan                                                    │
 │     ├── Discover test.toml files                                    │
 │     ├── Parse configurations                                        │
 │     └── Build test list                                             │
-│                                                                      │
-│  2. Test Selection                                                   │
+│                                                                     │
+│  2. Test Selection                                                  │
 │     ├── Apply mode filters (tier, priority)                         │
 │     ├── Apply category filters                                      │
 │     └── Apply target compatibility                                  │
-│                                                                      │
-│  3. Target Setup                                                     │
+│                                                                     │
+│  3. Target Setup                                                    │
 │     ├── Start Docker container (or connect to remote)               │
 │     ├── Wait for services ready                                     │
 │     └── Verify hop3-server responding                               │
-│                                                                      │
-│  4. For Each Test:                                                   │
+│                                                                     │
+│  4. For Each Test:                                                  │
 │     ├── Prepare app (copy to temp dir, init git)                    │
 │     ├── Deploy (hop3 deploy)                                        │
 │     ├── Verify deployment (hop3 apps)                               │
 │     ├── Run validations (HTTP checks, custom scripts)               │
 │     ├── Collect diagnostics on failure                              │
 │     └── Cleanup (hop3 app destroy)                                  │
-│                                                                      │
-│  5. Reporting                                                        │
+│                                                                     │
+│  5. Reporting                                                       │
 │     ├── Print results (PASS/FAIL per test)                          │
 │     ├── Summary (total passed/failed, duration)                     │
 │     ├── Recap (categories, tiers, technologies)                     │
 │     └── Save diagnostic logs                                        │
-│                                                                      │
-│  6. Cleanup                                                          │
+│                                                                     │
+│  6. Cleanup                                                         │
 │     └── Stop container (unless --keep)                              │
-│                                                                      │
+│                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 

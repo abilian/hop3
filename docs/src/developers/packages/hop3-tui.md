@@ -153,9 +153,9 @@ class SystemStatus(BaseModel):
 | Failed:  1                       | Disk:   ████████░░ 81%           |
 +----------------------------------+----------------------------------+
 | RECENT ACTIVITY                  | QUICK ACTIONS                    |
-| ├─ myapp deployed               | [d] Deploy new app               |
-| ├─ api restarted                | [b] Create backup                |
-| └─ worker stopped               | [l] View system logs             |
+| ├─ myapp deployed                | [d] Deploy new app               |
+| ├─ api restarted                 | [b] Create backup                |
+| └─ worker stopped                | [l] View system logs             |
 +----------------------------------+----------------------------------+
 ```
 
