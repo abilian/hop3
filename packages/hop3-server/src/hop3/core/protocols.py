@@ -14,7 +14,10 @@ __all__ = ["BuildArtifact", "RuntimeConfig"]  # Re-export for backwards compatib
 
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from hop3.orm import App
+    from hop3.project.schema import WafSection
 
     from .env import Env
 
@@ -589,3 +592,33 @@ class OS(Protocol):
             shell: Default shell path
             group: Primary group name
         """
+
+
+class WafEngine(Protocol):
+    """A Layer-7 WAF engine (ADR 048).
+
+    Compiles a per-app ``[waf]`` policy into the engine's native rules and
+    manages the WAF service. LeWAF is the first implementation; Coraza can
+    follow behind the same interface. ``get_waf_engines()`` returns the engine
+    *classes*; the deploy flow instantiates the selected one.
+
+    Service-lifecycle methods (start / stop / reload / check_status /
+    get_upstream) are added with the proxy-running slice; this contract covers
+    the engine-independent config generation built first.
+    """
+
+    name: str
+
+    def configure_app(
+        self, app_name: str, policy: WafSection, networks: Mapping[str, list[str]]
+    ) -> Path:
+        """Write the app's compiled rules; return the rules-file path.
+
+        ``networks`` maps each named network (resolved from the operator
+        registry) to its CIDRs, for gate conditions.
+        """
+        ...
+
+    def remove_app(self, app_name: str) -> None:
+        """Remove the app's compiled rules (on destroy / WAF disabled)."""
+        ...

@@ -311,6 +311,23 @@ class HopConfig:
         """ACME challenge directory."""
         return self.HOP3_ROOT / "acme"
 
+    # WAF Configuration (ADR 048)
+
+    @property
+    def WAF_ROOT(self) -> Path:
+        """Root for L7 WAF state (compiled rules, audit logs)."""
+        return self.HOP3_ROOT / "waf"
+
+    @property
+    def WAF_RULES(self) -> Path:
+        """Per-app compiled SecLang rules files (``<app>.conf``)."""
+        return self.WAF_ROOT / "rules"
+
+    @property
+    def WAF_LOG(self) -> Path:
+        """WAF audit logs."""
+        return self.WAF_ROOT / "log"
+
     @property
     def ROOT_DIRS(self) -> list[Path]:
         """All root directories that should be created on setup."""
