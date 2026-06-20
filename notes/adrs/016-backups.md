@@ -1,28 +1,21 @@
 # ADR 016: Backup Strategy
 
-**Status**: Accepted (phased — Phase 1 shipped via ADR 024; Phases 2–3 deferred)
+**Status**: Accepted
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-04-22
 **Related-ADRs**: 010, 024, 036
-
-## Revisions
-
-- v0.3: CLI example migrated from colon syntax (`hop3 backup:restore`) to space form (`hop3 backup restore`) per ADR 036 (2026-04-22).
-- v0.2: Promoted from Draft to Accepted (phased). Phase 1 (manual full backups, local storage, checksum verification, per-service support) is delivered via ADR 024 (Final). This ADR captures the long-term vision; scheduled / remote / encrypted / incremental backups remain explicit future work (2026-04-14).
-- v0.1: Initial draft (2024-07-17)
 
 ## Context and Goals
 
 Ensuring the availability and integrity of data is critical for the Hop3 platform. A robust backup strategy is essential to protect against data loss, corruption, and ensure quick recovery in case of failures. The goal is to define a comprehensive backup strategy that covers different types of data (e.g., configuration files, application data, and databases) and ensures that backups are performed regularly, stored securely, and can be restored efficiently.
 
-**Note**: This ADR defines the **long-term vision** for Hop3's backup capabilities. See [ADR 024](024-backup-restore-system.md) for the current implementation, which represents Phase 1 of this strategy.
+This ADR defines the long-term vision for Hop3's backup capabilities. [ADR 024](024-backup-restore-system.md) specifies the foundational backup and restore system on which the later phases build.
 
 ## Decision
 
-Hop3 will implement a comprehensive backup strategy that includes regular backups of critical data, secure storage of backup files, and efficient restoration procedures. This strategy will encompass application data, configuration files, and databases.
+Hop3 implements a comprehensive backup strategy that includes regular backups of critical data, secure storage of backup files, and efficient restoration procedures. This strategy encompasses application data, configuration files, and databases.
 
-The implementation is phased:
+The strategy is delivered in phases, so that a usable foundation exists before the more operationally demanding capabilities (scheduling, remote storage, encryption, incremental backups) are layered on:
 
 | Feature | Phase | ADR |
 |---------|-------|-----|
@@ -41,11 +34,11 @@ The implementation is phased:
 
 ### Backup Types and Frequency
 
-**Phase 1 (Current - ADR 024)**:
+**Phase 1** (specified in ADR 024):
 - Manual full backups on demand
 - All application components in one backup
 
-**Phase 2+ (Future)**:
+**Phase 2+**:
 
 1. **Configuration Files**:
    - **Frequency**: Daily backups of configuration files such as `hop3.toml` and other relevant configurations.
@@ -61,12 +54,12 @@ The implementation is phased:
 
 ### Backup Storage and Security
 
-**Phase 1 (Current - ADR 024)**:
+**Phase 1** (specified in ADR 024):
 - Local file-based storage only
 - File permissions (600) for access control
 - SHA256 checksums for integrity
 
-**Phase 2+ (Future)**:
+**Phase 2+**:
 
 1. **Storage Locations**:
    - **Local Storage**: Store backups locally on a dedicated backup server or storage device.
@@ -78,12 +71,12 @@ The implementation is phased:
 
 ### Restoration Procedures
 
-**Phase 1 (Current - ADR 024)**:
+**Phase 1** (specified in ADR 024):
 - Manual restore via CLI (`hop3 backup restore`)
 - Checksum verification before restore
 - Service-specific restore (PostgreSQL via `pg_restore`, etc.)
 
-**Phase 2+ (Future)**:
+**Phase 2+**:
 
 1. **Regular Testing**:
    - **Test Restorations**: Perform regular test restorations to ensure that backup files are not corrupted and can be restored successfully.
@@ -114,7 +107,7 @@ The implementation is phased:
 
 - **Resource Intensive**: Requires significant storage resources and network bandwidth for regular backups.
 - **Management Complexity**: Adds complexity to system management, requiring careful planning and monitoring.
-- **Phased Delivery**: Full feature set not immediately available.
+- **Phased Delivery**: The advanced capabilities (scheduling, remote storage, encryption, incremental backups) depend on operational machinery that the foundational phase does not provide, so they become available only as later phases are built.
 
 ## Risks
 

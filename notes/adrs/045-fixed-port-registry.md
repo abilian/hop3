@@ -1,20 +1,16 @@
 # ADR 045: Fixed-Port Registry — Exclusive Host Ports for Non-HTTP Apps
 
-**Status**: Accepted
+**Status**: Final
 **Type**: Architecture
 **Created**: 2026-06-10
-**Updated**: 2026-06-10
+**Supersedes**: ADR 040
 **Related-ADRs**: 040 (network-firewall-and-port-exposure), 041 (privileged-operations-agent), 043 (unified-testing-architecture), 008 (nix-integration)
-
-## Revisions
-
-- v0.1 (2026-06-10): Initial decision. Adds the `[[ports]]` declaration, the host-wide `PortClaim` registry, pre-flight conflict refusal, and firewall open/close. Records the decision to *not* pursue per-app network isolation for this problem.
 
 ## Context
 
 HTTP/HTTPS is the only protocol Hop3 multiplexes. The reverse proxy (nginx) virtual-hosts by `Host:`, so dozens of apps share `:80`/`:443` with no conflict; each app's web server is assigned a dynamic `$PORT` and proxied. Everything else — SMTP (25/465/587), XMPP (5222/5269), RTMP (1935), Matrix federation (8448), IMAP, TURN, … — has **no proxy and no virtual hosting**. The app binds the host port directly, so physically **exactly one app can own a given (port, protocol) per host**.
 
-Before this ADR, Hop3 was blind to those ports. They are baked into the app, not into `hop3.toml` — e.g. owncast hardcodes RTMP 1935 internally, which appears nowhere in its config. The failure mode (observed with owncast on the Test Lab) was: a second owncast instance, or a leftover one, would fail to bind 1935 and crash on startup, surfacing only as an opaque *"app did not respond to health checks within 120s."* The platform could neither detect the conflict nor explain it.
+Without a registry, Hop3 is blind to those ports. They are baked into the app, not into `hop3.toml` — e.g. owncast hardcodes RTMP 1935 internally, which appears nowhere in its config. The failure mode (observed with owncast on the Test Lab) is: a second owncast instance, or a leftover one, fails to bind 1935 and crashes on startup, surfacing only as an opaque *"app did not respond to health checks within 120s."* The platform can neither detect the conflict nor explain it.
 
 The user requirement: a user who tries to install a second SMTP server (or XMPP, RTMP, …) must get a **clear error up front — before the install attempt — not a confusing system error after the fact.**
 

@@ -1,18 +1,11 @@
 # ADR 043: Unified Testing Architecture
 
-**Status**: Draft
+**Status**: Accepted
 **Type**: Process
 **Created**: 2026-06-05
-**Updated**: 2026-06-06
 **Supersedes**: ADR 026 (Dashboard UI Test Classification)
 **Related-ADRs**: 004 (development-tooling), 026 (superseded), 027 (config-system-refactoring-for-testability), 030 (two-level-build-architecture), 041 (privileged-operations-agent)
-**Related-notes**: `local-notes/logging-observability.md`, `notes/v0.6-rootd-hardening.md`, `local-notes/testing/TESTING-INFRASTRUCTURE.md`, `docs/src/dev/testing-strategy.md` (tenets to update to match this ADR)
-
-## Revisions
-
-- v0.3 (2026-06-06): **Demo strategy decided** — each demo is at once an educational walkthrough, a live demonstration, and a test, so `demos/demo.py` + `demos/lib` are **kept**, not deleted (see §9). Supersedes the demo-deletion items in §9 and Phase 4.
-- v0.2 (2026-06-06): Implementation progress — Phases 0–2 landed; Phase 3 partial (tutorials absorbed via the catalog → `validoc` path; nightly HTML report wired up). Current state in the Migration plan.
-- v0.1 (2026-06-05): Initial draft. Triggered by a review of a sprawling, partly-dead testing surface, and by a production-class failure — a healthy app behind a 502 with no useful diagnostic — that no test surface captured.
+**Related-notes**: `local-notes/logging-observability.md`, `notes/v0.6-rootd-hardening.md`, `local-notes/testing/TESTING-INFRASTRUCTURE.md`, `docs/src/dev/testing-strategy.md`
 
 ## Context
 
@@ -85,7 +78,7 @@ Tiers are named by feedback latency and selected by pytest markers stamped from 
 | **apps** | `hop3-test` — a P0 subset, or one named app | yes | touching deployer/proxy/builders | on-demand |
 | **nightly** | full `hop3-test` app/demo matrix + `validoc` tutorials + multi-distro, **HTML report** | yes | cron / release | SourceHut nightly |
 
-The slow Docker platform tests (backups, git-push, proxy) live in **`check`**, not nightly-only — they are core guarantees and should gate a push. `check` requires Docker, so non-Docker distros run `fast` instead; this matches what `.builds/` already does, made intentional. Bare `pytest` (and `make test`) run the in-process layers only (`a_unit` + `b_integration`) — the `testpaths` default excludes the Docker `c_e2e` layer, so a reflexive `pytest` never spins up Docker; CI invokes `c_e2e` explicitly.
+The slow Docker platform tests (backups, git-push, proxy) live in **`check`**, not nightly-only — they are core guarantees and should gate a push. `check` requires Docker, so non-Docker distros run `fast` instead, matching the `.builds/` split. Bare `pytest` (and `make test`) run the in-process layers only (`a_unit` + `b_integration`) — the `testpaths` default excludes the Docker `c_e2e` layer, so a reflexive `pytest` never spins up Docker; CI invokes `c_e2e` explicitly.
 
 ### 5. Unified entry points
 
@@ -94,8 +87,8 @@ The Makefile targets collapse to a small, all-working set:
 | Target | Runs |
 |--------|------|
 | `make test-fast` | `pytest -m fast` (a_unit + fast integration), < 1 min |
-| `make test` | the `check` tier (subject to the open default decision) |
-| `make lint` / `make check` | ruff + reuse + deptry + pyrefly + mypy (unchanged) |
+| `make test` | the `check` tier |
+| `make lint` / `make check` | ruff + reuse + deptry + pyrefly + mypy |
 | `make test-with-coverage` | `a_unit` + `b_integration` with `--cov` |
 | `make test-apps` / `make test-app APP=…` | `hop3-test system` over a subset / one app |
 | `make test-nightly` | `hop3-test` full matrix + demos + `validoc`, HTML report |
@@ -160,9 +153,7 @@ After a parity window (see migration):
 
 Strictly incremental; each phase ships value alone and is reversible. Ordered by leverage-per-hour.
 
-> **Status (v0.3):** Phases 0–2 done. Phase 3 partial — tutorials absorbed, HTML report wired into nightly, demo strategy decided (keep the engine; the meta runner already exercises every demo). Remaining Phase-3 work: the Docker parity cycle + optional demo/runner de-duplication. Phase 4 now deletes only `scripts/run-all-tutorials.py` and genuinely-unreachable code — not the demo engine.
->
-> **Known issue (separate):** `hop3-test build-ready-image` is referenced (in `targets/docker.py`'s `_start_prebuilt` hint and the docs) as the way to build `hop3-ready:latest`, but the command no longer exists. The fast app-test path therefore has no working build instruction; the intended ready-image lifecycle needs documenting or restoring.
+> **Known constraint:** `hop3-test build-ready-image` is referenced (in `targets/docker.py`'s `_start_prebuilt` hint and the docs) as the way to build `hop3-ready:latest`, but the command does not exist. The fast app-test path therefore has no working build instruction; the intended ready-image lifecycle must be documented or restored.
 
 - **Phase 0 — cheap wins.** Add `make test-fast`. Make `c_e2e` reuse the cached image. Delete the dead `ci.yml`. Rename `d_e2e → c_e2e`; dissolve `c_system`. *(Hold the `testpaths` edit until the bare-`pytest` default is decided.)*
 - **Phase 1 — the silent-502 fix.** Build `collect_diagnostic_bundle` (proxy probe first); wire it into `hop3-test system` and the pytest `c_e2e` fixtures; add `hop3-test why` + the classifier + a bundle-aware result store. Revive the disabled proxy tests into `c_e2e`.
@@ -179,9 +170,9 @@ Strictly incremental; each phase ships value alone and is reversible. Ordered by
 - The duplicated harness code is deleted; all deploy paths route through one primitive (consistent with "Hop3 is responsible for making things work" and functional-core/imperative-shell).
 - Cost: real implementation work in `hop3-testing` for Phases 1 and 3; CI coordination for the GitHub→SourceHut clarification and any required branch-protection checks.
 
-## Decisions
+## Resolved decisions
 
-The points left open during drafting were resolved as the architecture landed:
+Points that could have been left open are resolved as follows:
 
 1. **Bare-`pytest` default.** The `testpaths` default is the in-process layers only (`a_unit` + `b_integration`); the Docker `c_e2e` layer is excluded, so a reflexive `pytest` never triggers Docker and CI invokes `c_e2e` explicitly.
 2. **GitHub Actions.** All three vestigial workflows (`ci.yml`, `test.yml`, `e2e.yml`) are removed; SourceHut is the sole CI.

@@ -3,18 +3,11 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2025-11-08
-**Updated**: 2026-05-06
 **Related-ADRs**: 016, 020
-
-## Revisions
-
-- v1.2 (2026-05-06): Added cross-instance migration support (`hop3 backup register`, source-tree archival, restore now redeploys the app).
-- v1.1 (2026-04-14): Status refreshed; Phase 1 backup/restore shipped as the concrete implementation of the ADR 016 strategy.
-- v1.0 (2025-11-08): Original final version.
 
 ## Relationship to ADR 016
 
-This ADR describes the **Phase 1 implementation** of Hop3's backup system. [ADR 016](016-backups.md) defines the long-term backup strategy including features planned for future phases (automated scheduling, remote storage, encryption, incremental backups). This ADR focuses on the foundational implementation that enables those future enhancements.
+This ADR specifies the foundational implementation of Hop3's backup system. [ADR 016](016-backups.md) defines the long-term backup strategy, including features that build on this foundation (automated scheduling, remote storage, encryption, incremental backups). This ADR focuses on the file-based core that enables those enhancements.
 
 ## Context
 
@@ -35,7 +28,7 @@ The backup system must be:
 
 ## Decision
 
-We have implemented a **file-based backup system** with the following design:
+Hop3 uses a **file-based backup system** with the following design:
 
 ### Backup Format
 
@@ -314,7 +307,7 @@ DB lookup misses the transferred files entirely.
 
 - **Unit Tests:** BackupManifest, checksums, ID generation
 - **Integration Tests:** All CLI commands with mocked filesystem
-- **System Tests:** Real PostgreSQL in Docker (future)
+- **System Tests:** Real PostgreSQL in Docker
 - **E2E (single-instance):** round-trip create / list / info / restore
   / destroy, plus same-instance clone via `--target-app`.
 - **E2E (cross-instance migration):** two independent Docker instances
@@ -353,22 +346,22 @@ def backup(self) -> Path:
 
 ## Future Enhancements
 
-1. **Automated Backups** (Phase 2)
+1. **Automated Backups**
    - Scheduled backups with cron-like syntax
    - Configurable in `hop3.toml`
    - Retention policies with automatic cleanup
 
-2. **Remote Storage** (Phase 3)
+2. **Remote Storage**
    - S3, Backblaze B2, Azure Blob support
    - Pluggable storage backends
    - Automatic replication
 
-3. **Encryption** (Phase 3)
+3. **Encryption**
    - Age or GPG encryption
    - Key management
    - Optional per-backup or global
 
-4. **Incremental Backups** (Phase 3)
+4. **Incremental Backups**
    - rsync-based incremental
    - Hard-link unchanged files
    - Space-efficient

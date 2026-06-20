@@ -1,18 +1,10 @@
 # ADR 017: Distributed, Agent-Based Architecture
 
-**Status**: Draft (no implementation; design not yet fully worked out)
+**Status**: Draft
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-04-14
 **Related-ADRs**: 029
 **Related**: Hop3 paper (Section 7.4: Agent Model)
-
-## Revisions
-
-- v0.4: Status reverted to Draft to reflect that none of the four phases is implemented and the Phase 3/4 coordinator protocol and the CRDT model for decentralised state are not yet fully worked out. (2026-04-14)
-- v0.3: Added the decentralized federation track (Phase 4) with the CRDT/gossip model from the Hop3 paper. (2026-04-03)
-- v0.2: Revised to align with the phased implementation plan and ADR 029. (2025-11-25)
-- v0.1: Initial draft.
 
 ## Introduction
 
@@ -74,9 +66,7 @@ The architecture will be implemented in phases, with each phase delivering stand
 
 ### Phase 1: Single-Server Foundations (ADR 029)
 
-**Status**: Detailed design in ADR 029
-
-Phase 1 implements the core patterns on a single server:
+Phase 1 implements the core patterns on a single server (the detailed design lives in ADR 029):
 
 ```
 ┌─────────────────────────────────────────────────────────┐

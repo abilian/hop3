@@ -1,17 +1,9 @@
 # ADR 039: Python Deploy Strategies — Clarify and Make Explicit
 
-**Status**: Active — Phase 1 landed (2026-04-15); Phases 2–3 deferred to 0.6
+**Status**: Accepted
 **Type**: Feature
 **Created**: 2026-04-15
-**Updated**: 2026-04-22
 **Related-ADRs**: 001 (config files), 002 (`hop3.toml` format), 004 (development tooling), 030 (two-level build architecture), 035 (build artifacts as runtime contract), 036 (CLI ergonomics)
-
-## Revisions
-
-- v1.3: Poetry handling removed — Poetry is out of fashion; a poetry-only `pyproject.toml` is no longer special-cased or rejected (it falls through to `pip install .` via PEP-517) and the negative-test app was dropped (2026-06-09).
-- v1.2: Proposed-CLI examples migrated to ADR 036 space form (2026-04-22).
-- v1.1: Phase 1 implemented (2026-04-15).
-- v1.0: Original design (2026-04-15)
 
 ## Context
 
@@ -50,17 +42,17 @@ When both files exist, `requirements.txt` wins silently. The comment in the code
 
 All 13 Python tutorials under `docs/src/tutorials/python/` teach the same pattern: create a venv, `pip install X`, then `pip freeze > requirements.txt`. This is a 2014 workflow. The tutorials do not cover Poetry, uv, lockfiles, or reproducibility. Users coming from modern Python tooling have no tutorial path; users following the tutorials produce abstract `requirements.txt` files that suffer from Case 2 above.
 
-### What's been tried so far
+### Per-app workarounds are uncoordinated
 
-Individual apps (Bugsink, GlitchTip) have worked around these cases in app-level scripts (e.g. emitting `requirements.txt` from Poetry's lockfile). These workarounds are repeatable but uncoordinated — each packager solves the problem in their own way, and the toolchain is none the wiser.
+Individual apps (Bugsink, GlitchTip) work around these cases in app-level scripts (e.g. emitting `requirements.txt` from Poetry's lockfile). These workarounds are repeatable but uncoordinated — each packager solves the problem in their own way, and the toolchain is none the wiser.
 
 ## Decision
 
 We clarify the Python deployment surface along four axes:
 
 1. **Freeze at packaging time, not at build time.** The packager's intent — which versions to deploy — is captured in the app's source tree in a form that the deployer can read without further resolution. The deployer installs what's declared; it does not compute what should be installed.
-2. **Make the install strategy explicit when ambiguous.** Ambiguity (both `requirements.txt` and `pyproject.toml`, or a pyproject with both `[project]` and `[tool.poetry]` sections) surfaces as a `Diagnosis`, not a silent choice.
-3. **uv first, Poetry supported-but-deprecated, pip-freeze workflow documented but discouraged.** The default new-app recipe is uv. Poetry is a recognised inbound format with a first-class conversion path. Abstract `requirements.txt` is accepted but warned on.
+2. **Make the install strategy explicit when ambiguous.** Ambiguity — chiefly both `requirements.txt` and `pyproject.toml` present — surfaces as a `Diagnosis`, not a silent choice.
+3. **uv first, Poetry not special-cased, pip-freeze workflow documented but discouraged.** The default new-app recipe is uv. A Poetry-only `pyproject.toml` is neither rejected nor singled out: it falls through to `pip install .` via PEP-517, and packagers who want reproducibility export a frozen `requirements.txt` from Poetry's lockfile at packaging time. Abstract `requirements.txt` is accepted but warned on.
 4. **Users can override detection.** `[build.python].strategy` in `hop3.toml` lets packagers state the intended install path when the auto-detection would be ambiguous or wrong.
 
 ### Config surface
@@ -69,7 +61,7 @@ New optional field in `hop3.toml`:
 
 ```toml
 [build.python]
-strategy = "uv-sync"          # one of: uv-sync | requirements | pyproject | poetry-export
+strategy = "uv-sync"          # one of: uv-sync | requirements | pyproject
 ```
 
 Semantics:
@@ -78,17 +70,15 @@ Semantics:
 |-------|------------------------|
 | `uv-sync` | `uv sync --frozen --no-dev`. Requires `uv.lock`. |
 | `requirements` | `pip install --no-deps -r requirements.txt` when the file has pins; `pip install -r requirements.txt` otherwise (and emit a warning — see lint rules below). |
-| `pyproject` | `pip install --no-deps .`. Requires PEP-621 `[project]` with a populated `dependencies` list. |
-| `poetry-export` | Look for a pre-generated `requirements.txt` produced by the packager via `poetry export`; if absent, emit a `Diagnosis` telling the operator to run `poetry export --only=main --without-hashes -f requirements.txt -o requirements.txt` at packaging time and commit the result. |
+| `pyproject` | `pip install --no-deps .`. Resolves dependencies via PEP-517/PEP-621; a Poetry-only `pyproject.toml` is built the same way, with no special-casing. |
 
 Omitting `[build.python].strategy` invokes auto-detection. Auto-detection rules:
 
 1. `uv.lock` present → `uv-sync`.
 2. `requirements.txt` present AND `pyproject.toml` absent → `requirements`.
-3. `pyproject.toml` present AND `requirements.txt` absent AND `[project].dependencies` populated → `pyproject`.
-4. `pyproject.toml` present with `[tool.poetry]` AND no `[project]` → **error** with a `Diagnosis` pointing at `strategy = "poetry-export"` and the conversion command.
-5. Both `requirements.txt` and `pyproject.toml` present → **error** with a `Diagnosis` asking the operator to pick a strategy explicitly.
-6. Neither → **error** (unchanged).
+3. `pyproject.toml` present AND `requirements.txt` absent → `pyproject`. A Poetry-only `pyproject.toml` (dependencies under `[tool.poetry]`, no PEP-621 `[project]`) falls through here to `pip install .` rather than being rejected; packagers who want pinned, reproducible installs export a frozen `requirements.txt` from Poetry's lockfile and select `strategy = "requirements"`.
+4. Both `requirements.txt` and `pyproject.toml` present → **error** with a `Diagnosis` asking the operator to pick a strategy explicitly.
+5. Neither → **error** (unchanged).
 
 ### Install changes
 
@@ -136,14 +126,14 @@ Tutorials that currently teach `pip freeze > requirements.txt` as the production
 
 ### Drawbacks
 
-- **Breaking change for existing deployed apps with abstract `requirements.txt` and `--upgrade` behaviour.** A Phase-1 change that drops `--upgrade` changes semantics: apps that were quietly getting newer library versions on each deploy will stop doing so. Operators will see a change the first time they deploy after the upgrade. Mitigation: call this out in the 0.5.x changelog; document the workaround (delete `requirements.txt`, re-freeze).
-- **Both-files-present now errors.** Apps in the real-world catalogue may today have both files. Mitigation: Phase-1 patch release comes with a migration note + a one-line addition (`[build.python].strategy = "requirements"` or `"pyproject"`) for affected apps. Grep the in-tree test corpus before the change; the fleet is small enough to do this by hand.
+- **Breaking change for existing deployed apps with abstract `requirements.txt` and `--upgrade` behaviour.** Dropping `--upgrade` changes semantics: apps that were quietly getting newer library versions on each deploy stop doing so. Operators see a change the first time they deploy after the upgrade. Mitigation: call this out in the changelog; document the workaround (delete `requirements.txt`, re-freeze).
+- **Both-files-present now errors.** Apps in the real-world catalogue may have both files. Mitigation: a migration note plus a one-line addition (`[build.python].strategy = "requirements"` or `"pyproject"`) for affected apps. The in-tree test corpus is small enough to audit by hand before the change.
 
 ### Risks
 
-- **Poetry path complexity.** `poetry export` has subtle flags (`--only`, `--without`, `--with`, `--without-hashes`) and has broken behaviour historically. We standardise on one invocation; we do *not* run poetry inside Hop3 itself.
-- **uv stability.** uv is young (< 2 years at time of writing); its CLI has changed between minor versions (the `--no-dev` vs `--no-group dev` transition is an example). We pin to a compatible-range in the Hop3 installer rather than tracking head.
-- **Tutorial rewrite scope.** 13 tutorials × 2-3 passes for consistency is a real chunk of doc work, not a code task. Schedule it separately from Phase 1/2.
+- **Poetry path complexity.** `poetry export` has subtle flags (`--only`, `--without`, `--with`, `--without-hashes`) and has had broken behaviour historically. The recommended workflow standardises on one invocation; Hop3 does *not* run poetry itself.
+- **uv stability.** uv is young; its CLI has changed between minor versions (the `--no-dev` vs `--no-group dev` transition is an example). The Hop3 installer pins to a compatible range rather than tracking head.
+- **Tutorial rewrite scope.** The Python tutorial set is a real chunk of doc work, not a code task, and is scheduled separately from the toolchain changes.
 
 ## References
 

@@ -1,30 +1,24 @@
 # ADR 010: Security and Resilience (Umbrella)
 
-**Status**: Accepted (umbrella — individual concerns tracked in child ADRs)
+**Status**: Accepted
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-04-14
 **Related-ADRs**: 011, 012, 013, 014, 024, 029
-
-## Revisions
-
-- v0.2: Reframed from a broad-scope "implement security and resilience" ADR into an umbrella pointing to the individual ADRs that carry the real decisions. The original v0.1 was too generic to validate (it listed "implement encryption, implement RBAC, implement MFA, implement backups, implement monitoring" without committing to any mechanism). The concrete design and status live in the child ADRs below (2026-04-14).
-- v0.1: Initial draft (2024-07-17)
 
 ## Purpose
 
-This ADR serves as the landing page for Hop3's security and resilience design. It exists to enumerate the sub-concerns and point at the ADRs that decide them. It does not, by itself, commit Hop3 to specific mechanisms.
+This ADR is the landing page for Hop3's security and resilience design. It enumerates the sub-concerns and points at the ADRs that decide them. It does not, by itself, commit Hop3 to specific mechanisms; the concrete design for each concern lives in its child ADR. A broad-scope "implement encryption, RBAC, MFA, backups, monitoring" framing is deliberately rejected here: a security decision is only meaningful once it commits to a mechanism, so each mechanism is decided in its own ADR rather than asserted in the aggregate.
 
 ## Sub-concerns and child ADRs
 
-| Concern | Child ADR | Status |
-|---------|-----------|--------|
-| Data encryption at rest (credentials, session data) | [ADR 011](011-encryption.md) | Draft — shipped in practice via Fernet AEAD + PBKDF2-HMAC-SHA256; ADR to be promoted when reviewed. |
-| Multi-factor authentication | [ADR 012](012-mfa.md) | Draft — not yet shipped; post-0.6. |
-| Software supply chain security, SBOM | [ADR 013](013-supply-chain.md) | Draft — SBOM tooling (cyclonedx-bom, spdx-tools) declared in ADR 004; SBOM emission not yet automated. |
-| Authentication bootstrap (first-admin provisioning) | [ADR 014](014-authentication-bootstrap.md) | Final — shipped. |
-| Backup and restore | [ADR 024](024-backup-restore-system.md) | Final — shipped (initial scope per ADR 016). |
-| Reconciliation and health checks | [ADR 029](029-reconciliation-health-checks.md) | Draft — agent loop scheduled for 0.6. |
+| Concern | Child ADR |
+|---------|-----------|
+| Data encryption at rest (credentials, session data) | [ADR 011](011-encryption.md) |
+| Multi-factor authentication | [ADR 012](012-mfa.md) |
+| Software supply chain security, SBOM | [ADR 013](013-supply-chain.md) |
+| Authentication bootstrap (first-admin provisioning) | [ADR 014](014-authentication-bootstrap.md) |
+| Backup and restore | [ADR 024](024-backup-restore-system.md) |
+| Reconciliation and health checks | [ADR 029](029-reconciliation-health-checks.md) |
 
 ## What is out of scope for this umbrella ADR
 
@@ -38,14 +32,14 @@ This ADR serves as the landing page for Hop3's security and resilience design. I
 
 ## Operational posture
 
-The current shipped posture, to be refined as child ADRs mature:
+The umbrella defines a baseline posture that the child ADRs refine:
 
-- **Authentication**: JWT tokens issued on login; every RPC call authenticated; bearer-token handling is case-insensitive per RFC 7235; session lifetime configurable via `HOP3_TOKEN_EXPIRY_HOURS`.
-- **Rate limiting**: In-memory sliding-window limiter on `/auth/login` and `/auth/magic/{token}` (5 requests per minute per IP).
+- **Authentication**: JWT tokens issued on login; every RPC call is authenticated; bearer-token handling is case-insensitive per RFC 7235; session lifetime is configurable via `HOP3_TOKEN_EXPIRY_HOURS`.
+- **Rate limiting**: An in-memory sliding-window limiter guards `/auth/login` and `/auth/magic/{token}` (5 requests per minute per IP).
 - **Credentials at rest**: Fernet AEAD encryption with a server-side `HOP3_SECRET_KEY` (see ADR 011).
 - **Audit**: Structured audit records for security-relevant events.
 - **Transport**: HTTPS or SSH-tunnelled HTTP; no unencrypted RPC in production.
-- **Health checks**: Per-app HTTP probing at the declared health-check path; reconciliation loop (ADR 029) is scheduled work.
+- **Health checks**: Per-app HTTP probing at the declared health-check path; a reconciliation loop is specified in ADR 029.
 - **Backups**: Full backup and restore of app state and addon data (ADR 024).
 
-An **external security review** is scheduled before release 0.6.
+An **external security review** precedes general release.

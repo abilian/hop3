@@ -3,15 +3,8 @@
 **Status**: Accepted
 **Type**: Feature (breaking)
 **Created**: 2026-05-30
-**Updated**: 2026-06-01
 **Related-ADRs**: 036 (supersedes D7 + D8), 018, 025, 047 (invocation-context transport)
 **Supersedes**: ADR 036 §D7 (app resolution chain), §D8 (sticky state: contexts and default app)
-
-## Revisions
-
-- v0.3 (2026-06-16): Cross-reference ADR 047 (CLI Invocation Context), which specifies how a resolved context is transmitted to the server per call. This ADR remains authoritative for the resolution model; 047 governs the transport. No model change.
-- v0.2 (2026-06-01): Open questions resolved and folded into the relevant sections (env-merge / domains-replace semantics, separate `init` verbs, git-remote as a resolution source, frozen `ResolvedContext`, reserved-name deny-list, project-scoped `hop3 use`). Status Draft → Accepted.
-- v0.1 (2026-05-30): Initial draft. Triggered by a production incident: `hop3 deploy`, run from an unrelated project's directory, overwrote the wrong app because a context-wide sticky `default_app` — set by a `hop3 use` weeks earlier in another shell — outranked nearly every project-local source.
 
 ## Context
 
@@ -19,7 +12,7 @@
 
 An operator ran `hop3 deploy` inside a project directory. The system packaged the local code and overwrote an *unrelated* app, because `hop3 use <other-app>` had been run weeks earlier in a different shell, setting a context-wide sticky default that followed the operator into every directory.
 
-Two surface fixes landed immediately (a `--why` flag that prints the resolution and exits; preferring `[metadata].id` over the global context default). The post-mortem then surfaced three deeper problems:
+Two surface mitigations address the symptom (a `--why` flag that prints the resolution and exits; preferring `[metadata].id` over the global context default), but the underlying conflation remains. The post-mortem surfaces three deeper problems:
 
 1. **"Context" is overloaded.** It bundles {server URL, auth token, SSH access, SSL settings, default_app}. The first four describe *which server I connect to*; the last describes *what I'm doing on it*. These should not share a noun or a record.
 2. **There is no first-class "this project, on this server, called this name".** The common case — one codebase deployed to dev/staging/prod, possibly across two servers — has no native shape in the configuration. Users patch around it with sticky `hop3 use` (the trap above) or per-command `--app`/`--context`.
@@ -200,7 +193,7 @@ class ResolvedContext:
 
 #### Duplicate-target warning
 
-When `hop3 context list` (or the deploy preview) sees two contexts resolving to the same `(server, app)` pair, it warns and names both. Never a hard error — legitimate aliasing exists (`prod` and `production` for the same deploy). Lands with Step 5's preview surface.
+When `hop3 context list` (or the deploy preview) sees two contexts resolving to the same `(server, app)` pair, it warns and names both. Never a hard error — legitimate aliasing exists (`prod` and `production` for the same deploy).
 
 ### Deploy preview (the safety mechanic that motivated this design)
 
@@ -256,7 +249,7 @@ No back-compat shims; one breaking release.
 |-----|-----|-----------|
 | `config.toml [contexts.*]` | `servers.toml [servers.*]` | One-shot rewriter on first run: read old, write new, back up old as `config.toml.pre-042.bak`. Each `[contexts.*]` → `[servers.*]` minus `default_app`. |
 | `[contexts.<name>].default_app` | none | If set, the rewriter emits a one-time stderr note pointing to `[contexts.<ctx>].app` or `hop3 server use --default-app`. |
-| `.hop3-context` | `.hop3-local.toml [current].context` | Reader removed outright (Step 7). Stale files have no effect; re-run `hop3 context use <name>` to write a fresh `.hop3-local.toml`. |
+| `.hop3-context` | `.hop3-local.toml [current].context` | Reader removed outright. Stale files have no effect; re-run `hop3 context use <name>` to write a fresh `.hop3-local.toml`. |
 | `hop3 use <app>` (sticky global) | project-scoped | Behavior change. Outside a project, falls back to old global behavior with a one-line stderr note. |
 | `hop3 context <verb>` (global) | project-scoped | Behavior change. For one release the old verbs print a redirect to `hop3 server` and exit nonzero — no silent routing. |
 | ADR 036 §D7 / §D8 | this ADR | ADR 036 gets a Status note; body left intact for the record. |

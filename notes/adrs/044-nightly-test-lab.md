@@ -1,15 +1,10 @@
 # ADR 044: Nightly Test Lab — a Web App to Run and Report on the Full Test Suite
 
-**Status**: Draft (provisional)
+**Status**: Draft
 **Type**: Architecture
 **Created**: 2026-06-05
-**Updated**: 2026-06-05
 **Related-ADRs**: 043 (unified-testing-architecture), 041 (privileged-operations-agent), 042 (cli-context-model), 034 (streaming-deployment-logs), 033 (docker-integration), 018 (cli-server-communication)
 **Related-notes**: `local-notes/logging-observability.md`
-
-## Revisions
-
-- v0.1 (2026-06-05): Initial provisional draft. Fixes the architecture and how it delivers the goals — not the final API.
 
 ## Context
 
@@ -70,7 +65,7 @@ The runner provisions a *pool* of targets (§F), deploys Hop3 to each, and drive
 The reuse boundary is the functional core of `hop3-testing`, promoted to a stable internal API:
 
 - `Orchestrator.run(plan) -> RunResult` — generalizes today's orchestrator to accept a *pool* of targets and a *shard* of the catalog, and to emit results incrementally (callback/queue) so the dashboard fills during the night.
-- `collect_diagnostic_bundle(target, test) -> Bundle` — ADR 043's shared collector, the data source for §C. **This ADR depends on 043 Phase 1.**
+- `collect_diagnostic_bundle(target, test) -> Bundle` — ADR 043's shared collector, the data source for §C. **This ADR depends on ADR 043's diagnostic bundle.**
 - `Catalog.scan() -> [TestSpec]` — unchanged.
 - `ResultStore` — extended with a read/query API and a Postgres backend (§ data model).
 
@@ -147,7 +142,7 @@ hop3-test cloud focalboard --use-local-repo           # mode=cli, tagged cli:<us
 **Negative / costs**
 
 - A new subproject to build and maintain (web + scheduler + worker + schema + UI).
-- Hard dependency on ADR 043 Phase 1 — the product is only as good as the bundle.
+- Hard dependency on ADR 043's diagnostic bundle — the product is only as good as the bundle.
 - Real money: provisioning N Hetzner servers nightly. Needs cost monitoring and teardown guarantees.
 - Promoting `hop3-testing`'s internals to a stable API constrains future refactors there.
 - Artifact storage grows; needs retention/pruning.

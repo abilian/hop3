@@ -1,16 +1,11 @@
 # ADR 040: Network firewall and per-app port exposure
 
-**Status**: Draft — design phase
+**Status**: Superseded
 **Type**: Feature
 **Created**: 2026-04-25
-**Updated**: 2026-05-01
+**Superseded-By**: ADR 045
 **Related-ADRs**: 010 (security and resilience), 016 (backups), 033 (docker integration), 038 (multi-service apps), 041 (privileged operations agent — supersedes the sudo/wrapper privilege-handling sketched here)
 **Related-deliverable**: NGI 0.5 — "Security will be fortified with network-level firewalls and a Web Application Firewall (WAF) using tools like OWASP Core Ruleset and Coraza."
-
-## Revisions
-
-- v0.3 (2026-05-01): Privilege-handling delegated to ADR 041. The grant lifecycle described here (open on deploy, close on destroy) flows through rootd's `firewall.add_rule` / `firewall.remove_rule` ops; deploy-time confirmation lives in the CLI as a y/N summary of the firewall delta. See ADR 041 for the authoritative privilege design.
-- v0.1 (2026-04-25): Initial draft. Proposes declarative per-app port exposure backed by an installer-managed L3/L4 firewall. Explicitly defers the WAF half of the NGI commitment to a separate ADR.
 
 ## Context
 
@@ -65,7 +60,7 @@ Docker writes its own iptables rules in the `DOCKER` chain ahead of any rules uf
 
 The right resolution here is non-trivial and is itself an open question (see "Open questions").
 
-## Decision (proposed)
+## Decision
 
 ### 1. Platform firewall baseline
 
@@ -132,6 +127,8 @@ The deployer reconciles ufw rules against the app's `[[expose]]` declarations:
 - **On config change:** the deployer re-runs the reconciliation. Removed `[[expose]]` entries close their ports; added entries open theirs.
 - **At server startup:** an idempotency check rebuilds the desired-state from the database of deployed apps and applies any missing rules (covers the "operator manually deleted a rule" case).
 
+Privilege handling for these mutations is delegated to ADR 041. The deployer does not invoke `ufw`/`firewall-cmd` directly; the grant lifecycle (open on deploy, close on destroy) flows through rootd's `firewall.add_rule` / `firewall.remove_rule` operations, and deploy-time confirmation is a CLI `y/N` summary of the firewall delta. ADR 041 is the authoritative privilege design.
+
 ### 4. Operator visibility
 
 - Deploy log surfaces `Opening port 1935/tcp for app 'owncast' — RTMP ingest`.
@@ -139,7 +136,7 @@ The deployer reconciles ufw rules against the app's `[[expose]]` declarations:
 - A `hop3 firewall list` command prints all Hop3-managed rules with their owning app and description.
 - A `hop3 firewall verify` command warns when ufw is disabled, when rules drift from declarations, or when Docker-published ports exist that aren't covered by an `[[expose]]` block.
 
-### 5. Docker interaction (provisional)
+### 5. Docker interaction
 
 Generated compose files will bind container ports to `127.0.0.1` rather than `0.0.0.0`, e.g.:
 
@@ -167,12 +164,12 @@ For user-supplied compose files (where Hop3 doesn't own the YAML), the deployer 
 - Apps that need network-level visibility (mail, video, DNS, VPN) become first-class citizens. Today they don't exist in the catalog because they'd be silently broken; this ADR makes them deployable.
 - Operators get an audit trail: every open port has an owning app and a description.
 - The `[[expose]]` block is self-documenting. Reviewing an app's `hop3.toml` answers "what does this app expose?" before deploying.
-- Sets up the Scalingo-style "publicly accessible addon" 0.6 feature cleanly: an addon's `public = true` just synthesises an `[[expose]]` entry under the addon's own deployment.
+- Sets up a Scalingo-style "publicly accessible addon" capability cleanly: an addon's `public = true` just synthesises an `[[expose]]` entry under the addon's own deployment.
 
 ### Negative
 
 - New schema in `hop3.toml`. Existing apps need no change (default = no extra ports), but documentation, tutorials, and the schema validator all need updates.
-- The Docker port-publishing rework is real engineering work. We've been letting compose handle inbound traffic for a year; reverting to "ufw forwards to loopback-bound containers" requires careful testing across docker-compose versions.
+- The Docker port-publishing rework is real engineering work. Where compose currently handles inbound traffic directly, moving to "ufw forwards to loopback-bound containers" requires careful testing across docker-compose versions.
 - Firewall reconciliation introduces a new failure mode: deploy succeeds at the app level but the firewall step fails (e.g., sudo timeout, ufw rule conflict). Need clear rollback and operator-facing diagnostics.
 - Per-app `--reconfigure-firewall` invitations on upgrades will catch some operators who manually adjusted rules outside Hop3's view.
 
@@ -234,18 +231,18 @@ Rejected — modern security practice is firmly allow-list. The deliverable fram
 
 8. **Self-hosted-mail port 25 problem.** Many ISPs and cloud providers block outbound port 25 to fight botnets. A mail-server app would deploy successfully and `[[expose]] port = 25` would open the firewall, but outbound delivery still fails. Hop3 should detect this at deploy time and warn the operator. Out of scope for the firewall mechanism itself but worth a note.
 
-## Implementation sketch
+## Build order and dependencies
 
-Phasing if accepted:
+The design separates into independently deliverable layers:
 
-- **Phase 1 (Wave 5 of the security remediation):** platform baseline only. Installer adds `configure_firewall()`. No per-app declarations yet. Existing apps that need non-HTTP ports (Gitea SSH, Owncast, Matrix federation, Jenkins) get hand-added rules via a transitional `hop3.toml` field or an installer flag, to keep the catalog working until Phase 2 ships.
-- **Phase 2 (post-0.5):** schema for `[[expose]]`, deployer reconciliation, dashboard panel, `hop3 firewall ...` commands, the Docker port-publishing rework. This is a non-trivial chunk; probably a 0.6 milestone.
-- **Phase 3 (0.6 or later):** WAF (separate ADR), cloud-provider firewall integration adapter (if demand exists), nftables backend (if there's value over ufw/firewalld).
+- **Platform baseline** stands alone. The installer's `configure_firewall()` step needs no per-app declarations. Apps that require non-HTTP ports (Gitea SSH, Owncast, Matrix federation, Jenkins) can be kept working in the interim through hand-added rules via a transitional `hop3.toml` field or an installer flag, until per-app reconciliation lands.
+- **Per-app exposure** builds on the baseline: the `[[expose]]` schema, deployer reconciliation, dashboard panel, `hop3 firewall ...` commands, and the Docker port-publishing rework form one coherent chunk.
+- **Follow-ups** are separable from both: the WAF (separate ADR), the cloud-provider firewall integration adapter, and an nftables backend.
 
-The Phase-1 / Phase-2 split avoids blocking the 0.5 tag on the full design, while still delivering on the "network-level firewalls" half of the NGI commitment in 0.5.
+Delivering the baseline first satisfies the "network-level firewalls" half of the NGI commitment without blocking on the full per-app design.
 
 ## References
 
-- ADR 041 — Privileged operations agent (`hop3-rootd`): the kernel-boundary executor that v0.3 of this design routes nft mutations through.
+- ADR 041 — Privileged operations agent (`hop3-rootd`): the kernel-boundary executor that this design routes nft mutations through.
 - NGI 0.5 project plan: `notes/ngi-2024/project-plan.md`
 - ADR 010 (security and resilience), ADR 033 (docker integration), ADR 038 (multi-service apps)

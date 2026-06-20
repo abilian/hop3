@@ -3,27 +3,21 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2025-11-20
-**Updated**: 2026-04-14
 **Related-ADRs**: 001, 002, 003
-
-## Revisions
-
-- v1.1: Status refreshed. The four-module configuration split (`HopConfig`, `Config`, `AppConfig`, `Hop3Config`) is the shipped architecture and is the basis on which ADR 003's Phase 1 dataclass-based parser is built. Tests no longer monkeypatch module-level constants (2026-04-14).
-- v1.0: Original final version (2025-11-20)
 
 ## Introduction
 
-This ADR proposes refactoring Hop3's configuration system from module-level constants to a more testable, flexible architecture that eliminates the need for monkeypatching in tests.
+Hop3's configuration system is built around a configuration object rather than module-level constants, giving a more testable, flexible architecture that removes the need for monkeypatching in tests. The four-module configuration split (`HopConfig`, `Config`, `AppConfig`, `Hop3Config`) is the architecture on which ADR 003's dataclass-based parser builds.
 
 ## Summary
 
-Replace the current module-level constant configuration (`hop3/config.py`) with a configuration object that supports dependency injection, easier testing, and runtime configuration changes. This will eliminate the need for complex monkeypatching in tests while maintaining backward compatibility.
+Hop3 replaces module-level constant configuration (`hop3/config.py`) with a configuration object that supports dependency injection, easier testing, and runtime configuration changes. This removes complex monkeypatching from tests while maintaining backward compatibility.
 
 ## Context and Goals
 
 ### Context
 
-**Current Implementation** (`packages/hop3-server/src/hop3/config.py`):
+The module-level-constant approach this ADR replaces (`packages/hop3-server/src/hop3/config.py`):
 
 ```python
 # Module-level constants computed at import time
@@ -41,11 +35,11 @@ class App:
         return c.APP_ROOT / self.name  # Uses module-level constant
 ```
 
-**Problems with Current Approach:**
+**Problems with the module-level-constant approach:**
 
 1. **Testing Complexity**: Tests require extensive monkeypatching to override config values:
    ```python
-   # Current test setup - brittle and verbose
+   # Brittle and verbose test setup
    monkeypatch.setattr(hop3.config, "HOP3_ROOT", tmp_path)
    monkeypatch.setattr(hop3.config, "APP_ROOT", tmp_path / "apps")
    monkeypatch.setattr(hop3.orm.app.c, "HOP3_ROOT", tmp_path)
@@ -69,7 +63,7 @@ class App:
 
 5. **Unclear Dependencies**: Hard to see what config values a component depends on
 
-6. **Testing Anti-Pattern**: Recent test migration (ADR 026) highlighted this:
+6. **Testing Anti-Pattern**: The test migration in ADR 026 highlighted this:
    > "I don't like monkeypatching the environment. Can we think of something more elegant?"
 
 ### Goals
@@ -92,7 +86,7 @@ class App:
 
 ## Decision
 
-**PROPOSED**: Implement a singleton configuration class with lazy property evaluation and support for dependency injection.
+Hop3 uses a singleton configuration class with lazy property evaluation and support for dependency injection.
 
 ## Detailed Design
 
@@ -577,13 +571,13 @@ def test_app_create(tmp_path):
 
 ## Lessons Learned
 
-### From Current Test Issues
+### From Monkeypatching the Module-Level Constants
 
-The dashboard UI tests (ADR 026) revealed the pain of monkeypatching:
-- Had to patch 4+ different locations
-- Still didn't work until we also mocked `App.create()`
-- Tests broke when import order changed
-- User feedback: "I don't like monkeypatching the environment"
+The dashboard UI tests (ADR 026) exposed the pain of monkeypatching this configuration:
+- Several distinct locations must be patched in lockstep.
+- Patching is insufficient on its own — `App.create()` must also be mocked.
+- Results depend on import order, so tests break when it changes.
+- "I don't like monkeypatching the environment."
 
 ### From Other Projects
 
@@ -733,28 +727,21 @@ def test_something(app_config):
     assert app_config.APP_ROOT == ...
 ```
 
-## Unresolved Questions
+## Resolved Design Questions
 
-1. **Singleton vs Instance**: Should we primarily use singleton pattern or pass instances?
-   - **Proposed**: Singleton for production, instances for testing
+1. **Singleton vs Instance**: Production code uses the singleton; tests pass explicit instances.
 
-2. **Property vs Method**: Should config values be properties or methods?
-   - **Proposed**: Properties for simple values, methods if computation is expensive
+2. **Property vs Method**: Config values are properties for simple values; methods are used only when computation is expensive.
 
-3. **Caching**: Should we cache computed values or always recompute?
-   - **Proposed**: No caching - properties are cheap, and we want fresh values
+3. **Caching**: No caching — properties are cheap and callers want fresh values.
 
-4. **Thread Safety**: Do we need thread-safe config access?
-   - **Proposed**: Not initially - config is read-only after initialization in practice
+4. **Thread Safety**: Config access is not made thread-safe; config is read-only after initialization in practice.
 
-5. **Config Validation**: Should we validate config values on initialization?
-   - **Proposed**: Yes, but only critical values (HOP3_ROOT exists, etc.)
+5. **Config Validation**: Only critical values are validated on initialization (e.g. `HOP3_ROOT` exists).
 
-6. **Environment Variable Override**: Should env vars always override file config?
-   - **Proposed**: Yes, following 12-factor app principles
+6. **Environment Variable Override**: Environment variables always override file config, following 12-factor app principles.
 
-7. **Backward Compatibility Period**: How long to support old module-level constants?
-   - **Proposed**: Two minor versions (e.g., 0.5.0 deprecate, 0.7.0 remove)
+7. **Backward Compatibility Period**: Module-level constants are supported for two minor versions before removal (deprecate, then remove).
 
 ## Future Work
 
@@ -782,9 +769,9 @@ def test_something(app_config):
 
 ## Related
 
-- **ADR 026**: Dashboard UI Test Classification - Highlighted monkeypatching pain
+- **ADR 026**: Dashboard UI Test Classification — highlighted the monkeypatching pain
 - **ADR 001-003**: Original config system ADRs
-- **Testing Strategy** (`docs/src/dev/testing-strategy.md`) - Will need updates
+- **Testing Strategy** (`docs/src/dev/testing-strategy.md`)
 
 ## References
 

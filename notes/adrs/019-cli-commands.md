@@ -3,21 +3,15 @@
 **Status**: Accepted
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-06-16
 **Related-ADRs**: 018, 025, 031, 036
 
-## Revisions
+## Command surface
 
-- v0.4 (2026-06-16): Renamed the "Marketplace" command family to "Catalog" to match the ratified terminology in ADR 031 (the free, self-host app collection is the "Catalog"; "Marketplace" is reserved for the future commercial product).
-- v0.3: Recorded that the shipped command surface is wider than the original spec — the original spec was a kernel, not a ceiling — and documented which originally-specified commands remain deferred and why (2026-04-14).
-- v0.2: Status promoted to Accepted with implementation status block.
-- v0.1: Initial draft (2024-07-17)
+The command set specified here is a kernel, not a ceiling: the CLI may expose a wider surface than the families listed below. The dispatch mechanism lives in `hop3/commands/`, with the `@register` decorator scanning all command modules at startup.
 
-## Implementation Status
+The app collection the catalog commands address is the "Catalog" — the free, self-hostable app collection (ADR 031). "Marketplace" is reserved for the future commercial product and is not a CLI command family.
 
-The shipped CLI covers and extends the originally-specified command set. The dispatch mechanism lives in `hop3/commands/`, with the `@register` decorator scanning all command modules at startup.
-
-### Shipped command families
+### Command families
 
 | Family | Commands (selected) | Role |
 |--------|---------------------|------|
@@ -31,18 +25,17 @@ The shipped CLI covers and extends the originally-specified command set. The dis
 | **Health** | `healthcheck`, `healthcheck:debug` | Diagnostic commands. |
 | **Nix** | `nix:eject` | Template-generated → hand-crafted `hop3.nix` (ADR 008). |
 
-The `hop3` CLI aliases `hop` for brevity. Full command listing: `hop3 --help`.
+The `hop3` CLI aliases `hop` for brevity. The full command listing is available via `hop3 --help`.
 
-### Originally-specified but not shipped
+### Commands deliberately excluded or sequenced behind other work
 
-| Command | Status | Reason |
-|---------|--------|--------|
-| `build` (separate from deploy) | Deferred | Builds are currently tied to deploy. A stand-alone `build` command would be cheap to add; it is not requested by operators. |
-| `revert` | Scheduled with ADR 032 (deployment-strategies / artefact-lifecycle). Requires versioned artefacts. |
-| `new` (project scaffolding) | Candidate | Low priority; operators adopt Hop3 by adding a `hop3.toml` to an existing repo, not by generating one. |
-| `docker` (run Docker on server) | Out of scope | The server-side SSH shell covers this without a dedicated CLI wrapper. |
-| `upgrade` / `downgrade` | Scheduled with ADR 032 |
-| Catalog commands (`search`, `info`, `install`) | Deferred | The catalog subsystem (`server/catalog/`, web UI only) has no CLI surface yet; the commands follow the web work. |
+Some commands named in the original kernel are intentionally not part of the core surface, or depend on machinery that other ADRs own:
+
+- **`build` (separate from deploy)**: builds are tied to deploy. A stand-alone `build` command is cheap to add but is not required by operators, so it is not part of the surface.
+- **`revert`, `upgrade` / `downgrade`**: these depend on versioned artefacts and the deployment-strategies / artefact-lifecycle machinery owned by ADR 032; they are sequenced behind that work.
+- **`new` (project scaffolding)**: operators adopt Hop3 by adding a `hop3.toml` to an existing repo, not by generating one, so scaffolding is low priority.
+- **`docker` (run Docker on server)**: out of scope; the server-side SSH shell covers this without a dedicated CLI wrapper.
+- **Catalog commands (`search`, `info`, `install`)**: the catalog subsystem is addressed through the web UI first; the CLI surface follows that work rather than leading it.
 
 ### Ergonomics and help system
 
@@ -119,8 +112,4 @@ Credentials are stored in `~/.hop3/credentials.toml` or similar, and may also be
 
 ## Related
 
-- CLI commands overview [ADR-018](./018-cli-architecture.md)
-
-## Open Questions
-
-Do we call the command `hop3` or just `hop`?
+- CLI architecture overview: [018-cli-architecture.md](018-cli-architecture.md)

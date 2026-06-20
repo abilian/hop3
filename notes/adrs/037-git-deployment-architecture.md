@@ -1,20 +1,32 @@
 # ADR 037: Git-Based Deployment Architecture
 
-**Status**: Implemented (via Option A)
+**Status**: Final
 **Type**: Architecture
 **Created**: 2026-03-05
-**Updated**: 2026-04-22
 **Related-ADRs**: 036
 
-## Revisions
+## Context
 
-- v1.3: CLI example migrated to the space form (`hop3 deploy`) per ADR 036 (2026-04-22).
-- v1.2: Promoted from Draft to Implemented via Option A (2026-04-14).
-- v1.0: Original draft (2026-03-05).
+Hop3 supports Heroku-style `git push` deployments, where developers push code to a git remote on the Hop3 server, triggering automatic deployment. This is a classic PaaS pattern, and it stands alongside the explicit `hop3 deploy` path: the two are alternatives, not replacements.
 
-## Implementation Status
+Git-based deployment is valuable for:
 
-Implemented as the recommended Option A from the original draft. The body below describes the original problem and decision context; the resulting operator workflow is:
+- A familiar Heroku-style workflow
+- CI/CD integration (push to deploy)
+- Version control as the deployment trigger
+- Deploying without a separate deploy command
+
+A naive implementation runs into an architectural flaw worth recording, because it shaped the decision below. A post-receive hook can be made to call an RPC command:
+
+```bash
+cat | HOP3_ROOT="/home/hop3" hop3-server git-hook <app_name>
+```
+
+where the RPC command reads push data from stdin, extracts the commit to the source directory, and triggers `do_deploy()`. This fails: the server CLI (`hop3-server`) scans `hop3.server.cli` for commands, not `hop3.commands` (the RPC commands), so `hop3-server git-hook` is an unknown command. The deeper issue is conceptual placement — RPC commands exist for client-server communication, whereas a git hook is an internal server operation. Git hook handling therefore belongs in the server CLI, not among the RPC commands.
+
+## Decision
+
+Git hook handling lives as a dedicated server CLI command (Option A below). The operator workflow is:
 
 ```
 git push hop3@server:myapp main
@@ -34,50 +46,16 @@ post-receive hook  →  hop3-server git-hook myapp
 parse push data → git archive → extract to src/ → do_deploy()
 ```
 
-Both `git-receive-pack` and `git-upload-pack` (for clones/fetches) are wired. The `hop3 deploy` path remains available alongside `git push`; they are alternatives, not replacements.
+Both `git-receive-pack` and `git-upload-pack` (for clones/fetches) are wired.
 
-## Context
+### Option A: Server CLI command
 
-Hop3 aims to support Heroku-style `git push` deployments where developers push code to a git remote on the Hop3 server, triggering automatic deployment. This is a classic PaaS pattern.
-
-### Current State (Broken)
-
-The current implementation has an architectural flaw:
-
-1. **Git hook script** (`core/git.py:72-80`) creates a post-receive hook that calls:
-   ```bash
-   cat | HOP3_ROOT="/home/hop3" hop3-server git-hook <app_name>
-   ```
-
-2. **GitHookCmd** (`commands/git.py`) is an RPC command that:
-   - Reads push data from stdin
-   - Extracts the commit to the source directory
-   - Triggers `do_deploy()`
-
-3. **Problem**: The server CLI (`hop3-server`) only scans `hop3.server.cli` for commands, NOT `hop3.commands` (RPC commands). So `hop3-server git-hook` fails with "unknown command".
-
-4. **The command is in the wrong place**: RPC commands are for client-server communication. Git hooks are internal server operations.
-
-### Why This Matters (Future)
-
-Git-based deployment is valuable for:
-- Familiar Heroku-style workflow
-- CI/CD integration (push to deploy)
-- Version control as deployment trigger
-- No need for separate deploy command
-
-## Decision
-
-When git deployment becomes a priority, implement one of these approaches:
-
-### Option A: Server CLI Command (Recommended)
-
-Move git hook handling to a proper server CLI command:
+Git hook handling is a proper server CLI command:
 
 ```
 hop3-server/
 └── src/hop3/server/cli/
-    └── git_hook.py       # New file
+    └── git_hook.py
 ```
 
 ```python
@@ -96,16 +74,19 @@ class GitHook(Command):
         ...
 ```
 
-**Pros:**
-- Clean separation: server CLI for server operations, RPC for client-server
-- Command is discoverable via `hop3-server --help` (if not hidden)
-- Consistent with other server operations
+The command is marked hidden (not user-facing). The previous RPC-command implementation under `hop3/commands/git.py` does not exist; `hop3/core/git.py` creates the post-receive hook that invokes `hop3-server git-hook`.
 
-**Cons:**
-- Some code duplication with current implementation
-- Need to handle DB session creation
+**Why Option A:**
 
-### Option B: Direct Python Script
+- Clean separation of concerns: the server CLI handles server operations, RPC handles client-server communication.
+- The command is discoverable via `hop3-server --help` (unless hidden), consistent with other server operations.
+- It follows the established pattern for server-side operations and is explicit about what `hop3-server` can do.
+
+The trade-off is some code duplication with a hook-script approach, and the command must handle its own DB session creation.
+
+## Alternatives Considered
+
+### Option B: Direct Python script
 
 Replace the bash hook with a Python script that imports deployment functions directly:
 
@@ -120,77 +101,48 @@ push_data = sys.stdin.read()
 deploy_from_push(app_name, push_data)
 ```
 
-**Pros:**
-- Simplest approach, no command abstraction needed
-- Direct import, no CLI parsing overhead
-- Clear that this is internal, not user-facing
+**Pros:** simplest approach, no command abstraction; direct import with no CLI parsing overhead; clearly internal and not user-facing.
 
-**Cons:**
-- Need to handle Python environment/path in hook
-- Less visibility into what's happening
+**Cons:** the hook must manage the Python environment and path itself, and there is less visibility into what is happening.
 
-### Option C: Use `local` Subcommand
+### Option C: Use the `local` subcommand
 
-Update the hook to use the existing `local` command:
+Update the hook to route through the existing `local` command:
 
 ```bash
 cat | hop3-server local git-hook <app_name>
 ```
 
-**Pros:**
-- Minimal changes required
-- Reuses existing infrastructure
+**Pros:** minimal changes; reuses existing infrastructure.
 
-**Cons:**
-- Extra indirection (`local` → RPC command)
-- `git-hook` still in wrong conceptual location (RPC commands)
-- Confusing architecture
+**Cons:** extra indirection (`local` → RPC command); `git-hook` remains in the wrong conceptual location (among RPC commands); the resulting architecture is confusing.
 
-## Recommendation
+## Consequences
 
-**Option A (Server CLI Command)** is recommended because:
+### Positive
 
-1. It correctly separates concerns (server CLI vs RPC)
-2. It's explicit about what `hop3-server` can do
-3. It follows the established pattern for server-side operations
+- The deployment trigger is part of the version-control workflow developers already use.
+- Server operations and client-server RPC are cleanly separated.
+- `git push` and `hop3 deploy` coexist as two paths to the same deployment.
 
-## Implementation Plan
+### Negative
 
-When git deployment becomes a priority:
+- Some logic is duplicated relative to a pure hook-script approach.
+- The server CLI command must create and manage its own DB session.
 
-1. Create `hop3/server/cli/git_hook.py` with the deployment logic
-2. Mark it as `hidden = True` (not user-facing)
-3. Delete `hop3/commands/git.py` (the broken RPC command)
-4. Update `core/git.py` hook creation (should work as-is if command name stays `git-hook`)
-5. Add integration tests that actually invoke the CLI
+## Security Implications
 
-## Files Affected
+Pushes arrive over SSH and are constrained by a forced command in `authorized_keys`, so an incoming key can only run `git-receive-pack` / `git-upload-pack` against its app's repository rather than an arbitrary shell.
 
-| File | Action |
-|------|--------|
-| `commands/git.py` | Delete |
-| `server/cli/git_hook.py` | Create |
-| `core/git.py` | Verify hook script works |
-| Tests | Update to test via CLI |
+## Unresolved Questions
 
-## Open Questions
+1. **Multi-branch deployment.** Only the first ref is processed. A future design could configure which branches trigger deployment.
 
-1. **Should git deployment support multiple branches?**
-   - Current: Only processes first ref
-   - Future: Configure which branches trigger deployment?
+2. **Webhook-based triggers.** GitHub/GitLab webhooks are an alternative to SSH-based `git push`, more familiar for cloud-native workflows, and would require a webhook endpoint in the API.
 
-2. **Should we support GitHub/GitLab webhooks instead?**
-   - Alternative to SSH-based git push
-   - More familiar for cloud-native workflows
-   - Would need webhook endpoint in the API
+3. **Deployment failure handling.** A `git push` can succeed while the subsequent deployment fails: the code is already pushed, and the user sees the error in the terminal. This needs clear error messages and a recovery path.
 
-3. **How to handle deployment failures?**
-   - Git push succeeds but deployment fails
-   - User sees error in terminal but code is already pushed
-   - Need clear error messages and recovery path
+## References
 
-## Related
-
-- [ADR 036: CLI Ergonomics](./036-cli-ergonomics.md) - Hidden commands
-- `hop3/commands/git.py` - Current (broken) implementation
-- `hop3/core/git.py` - Git repository management
+- [ADR 036: CLI Ergonomics](./036-cli-ergonomics.md) — hidden commands and the `hop3 deploy` command form
+- `hop3/core/git.py` — git repository management and hook creation

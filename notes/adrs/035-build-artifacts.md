@@ -1,15 +1,9 @@
 # ADR 035: Build Artifacts as Runtime Contract
 
-**Status**: Accepted (NixBuilder shipping; LocalBuilder retrofit deferred)
+**Status**: Final
 **Type**: Architecture
 **Created**: 2026-02-23
-**Updated**: 2026-04-14
 **Related-ADRs**: 006, 008, 022, 030, 032
-
-## Revisions
-
-- v1.1 (2026-04-14): Promoted from Proposed to Accepted. The contract is the basis of NixBuilder's output (`$out/hop3/runtime.json`) and is consumed without language-specific knowledge by the deploy stage; ADR 006 and ADR 008 (template generation) both rely on it. Retrofitting the LocalBuilder + LanguageToolchain path so `spawn.py` reads `RuntimeConfig` instead of doing per-language detection is deferred — it delivers architectural cleanliness but not new functionality.
-- v1.0 (2026-02-23): Original proposed version.
 
 ## Context
 
@@ -82,6 +76,9 @@ BUILD PHASE                              RUN PHASE
 
 ### Data Model
 
+`RuntimeConfig` and the extended `BuildArtifact` live in `core/artifacts.py`,
+with JSON serialization for persistence.
+
 ```python
 @dataclass
 class RuntimeConfig:
@@ -142,7 +139,10 @@ This is actually **undesirable behavior** we want to prevent:
 
 ### Nix Integration
 
-Nix naturally produces this model:
+Nix naturally produces this model. The contract is the basis of NixBuilder's
+output, written to `$out/hop3/runtime.json`, and is consumed without
+language-specific knowledge by the deploy stage. ADR 006 and ADR 008 (template
+generation) both rely on it.
 
 ```python
 # NixBuilder.build()
@@ -160,7 +160,7 @@ BuildArtifact(
 )
 ```
 
-The `spawn.py` code doesn't change - it just reads the artifact.
+The `spawn.py` code does not know about specific languages - it reads the artifact.
 
 ---
 
@@ -224,29 +224,6 @@ Accept that only ~5 languages need runtime setup and keep them hardcoded.
 - Violates plugin architecture promise
 - Doesn't scale to new languages
 - Blocks Nix integration
-
----
-
-## Implementation Outline
-
-### Phase 1: Data Model
-- Create `RuntimeConfig` and extended `BuildArtifact` in `core/artifacts.py`
-- Add serialization (to/from JSON)
-
-### Phase 2: Toolchains
-- Update each toolchain to return complete `BuildArtifact` with `RuntimeConfig`
-- Add helper methods to base class (`_get_workers()`, `_get_build_id()`)
-
-### Phase 3: Persistence
-- Save `BUILD_ARTIFACT.json` after build in deployer
-
-### Phase 4: Run Phase
-- Add `_load_artifact()` and `_apply_artifact_runtime()` to `spawn.py`
-- Remove hardcoded `_setup_*_paths()` methods
-
-### Phase 5: Testing
-- Unit tests for artifact serialization
-- Integration tests for build → persist → load → run flow
 
 ---
 
