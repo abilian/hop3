@@ -154,29 +154,6 @@ def run_blockers(target_id: str, apps: list[str] | None) -> str | None:
     return None
 
 
-def _proc_starttime(pid: int) -> int | None:
-    """The process start-time (jiffies since boot, ``/proc/<pid>/stat`` field 22).
-
-    A reuse-proof identity for the engine PID: the kernel never reissues the same
-    (pid, starttime) pair. Returns None when unreadable (process gone, or no
-    procfs — e.g. a macOS dev machine), in which case identity can't be checked.
-    """
-    try:
-        stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
-    except (OSError, ValueError):
-        return None
-    # comm (field 2) is parenthesised and may contain spaces/parens; index from
-    # the last ')' so the remaining whitespace-split fields line up.
-    rparen = stat.rfind(")")
-    if rparen == -1:
-        return None
-    fields = stat[rparen + 2 :].split()
-    try:
-        return int(fields[19])  # field 22 overall; 20th after comm -> index 19
-    except (IndexError, ValueError):
-        return None
-
-
 def terminate_engine(pid: int, starttime: int | None = None) -> None:
     """Stop a running engine: SIGTERM its process group, SIGKILL after a grace.
 
@@ -191,7 +168,7 @@ def terminate_engine(pid: int, starttime: int | None = None) -> None:
 
     def _still_our_engine() -> bool:
         if starttime is not None:
-            return _proc_starttime(pid) == starttime
+            return leasing.proc_starttime(pid) == starttime
         # No recorded identity: best-effort liveness probe (the old behaviour).
         try:
             os.killpg(pid, 0)
@@ -220,7 +197,7 @@ def _record_engine_pid(target_id: str, pid: int) -> None:
     factory = get_session_factory(config.STORE_TARGET)
     session = factory()
     try:
-        leasing.set_pid(session, target_id, pid, _proc_starttime(pid))
+        leasing.set_pid(session, target_id, pid, leasing.proc_starttime(pid))
     finally:
         session.close()
 

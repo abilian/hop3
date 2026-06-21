@@ -95,7 +95,7 @@ def test_terminate_engine_skips_recycled_pid(monkeypatch):
     group must NOT be signalled (the whole point of the identity check)."""
     calls: list[tuple] = []
     monkeypatch.setattr(worker.os, "killpg", lambda *a: calls.append(a))
-    monkeypatch.setattr(worker, "_proc_starttime", lambda _pid: 222)  # differs now
+    monkeypatch.setattr(leasing, "proc_starttime", lambda _pid: 222)  # differs now
     worker.terminate_engine(4321, starttime=111)
     assert calls == []  # never signalled the recycled PID
 
@@ -104,7 +104,7 @@ def test_terminate_engine_signals_when_identity_matches(monkeypatch):
     sent: list[int] = []
     monkeypatch.setattr(worker, "STOP_GRACE_SECONDS", 0.01)
     monkeypatch.setattr(worker.os, "killpg", lambda _pid, sig: sent.append(sig))
-    monkeypatch.setattr(worker, "_proc_starttime", lambda _pid: 111)
+    monkeypatch.setattr(leasing, "proc_starttime", lambda _pid: 111)
     worker.terminate_engine(4321, starttime=111)
     assert signal.SIGTERM in sent  # our engine -> SIGTERM its group
 
@@ -126,8 +126,8 @@ def test_terminate_engine_without_starttime_probes_then_skips_when_gone(monkeypa
 def test_proc_starttime_identifies_a_live_process():
     if not Path("/proc/self/stat").exists():
         pytest.skip("no procfs (non-Linux)")
-    assert worker._proc_starttime(os.getpid()) is not None
-    assert worker._proc_starttime(2**31 - 1) is None  # almost certainly no such pid
+    assert leasing.proc_starttime(os.getpid()) is not None
+    assert leasing.proc_starttime(2**31 - 1) is None  # almost certainly no such pid
 
 
 def test_resolve_run_target_plain_host_is_verbatim(monkeypatch):
