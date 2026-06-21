@@ -118,13 +118,12 @@ def load_retention(path: Path | None = None) -> int:
 
 @dataclass(frozen=True)
 class ScheduleConfig:
-    """Nightly scheduler settings."""
+    """Nightly scheduler settings: when to fire, and which profile to enqueue."""
 
     enabled: bool
-    target: str
     hour: int
     minute: int
-    mode: str
+    profile: str | None  # build profile the nightly enqueues (None -> idle)
 
 
 _TRUE = {"1", "true", "yes", "on"}
@@ -150,10 +149,9 @@ def load_schedule(path: Path | None = None) -> ScheduleConfig:
     env = os.environ
     return ScheduleConfig(
         enabled=_as_bool(data.get("enabled"), env.get("TESTLAB_SCHEDULE_ENABLED")),
-        target=data.get("target") or env.get("TESTLAB_SCHEDULE_TARGET") or "hetzner",
         hour=int(data.get("hour", env.get("TESTLAB_SCHEDULE_HOUR", 0))),
         minute=int(data.get("minute", env.get("TESTLAB_SCHEDULE_MINUTE", 0))),
-        mode=data.get("mode") or env.get("TESTLAB_SCHEDULE_MODE") or "nightly",
+        profile=data.get("profile") or env.get("TESTLAB_SCHEDULE_PROFILE") or None,
     )
 
 

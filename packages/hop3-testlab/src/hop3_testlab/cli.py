@@ -99,7 +99,8 @@ def main() -> None:
         from hop3_testlab.scheduler import run_blocking  # noqa: PLC0415
 
         s = load_schedule()
-        print(f"Nightly: {s.target} {s.mode} at {s.hour:02d}:{s.minute:02d} local.")
+        profile = s.profile or "(no profile configured — idle)"
+        print(f"Nightly: enqueue {profile} at {s.hour:02d}:{s.minute:02d} local.")
         run_blocking()
     else:
         parser.print_help()

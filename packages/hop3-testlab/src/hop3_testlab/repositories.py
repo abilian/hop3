@@ -250,6 +250,11 @@ class ProfilesRepository:
     def get(self, profile_id: int) -> Profile | None:
         return self.session.get(Profile, profile_id)
 
+    def by_name(self, name: str) -> Profile | None:
+        return self.session.scalars(
+            select(Profile).where(Profile.name == name)
+        ).one_or_none()
+
     def create(self, **fields) -> Profile:
         profile = Profile(**fields)
         self.session.add(profile)
