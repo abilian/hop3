@@ -172,9 +172,9 @@ Three providers (`di/providers.py`), scopes per the playbook, wired in `di/conta
 
 ## 10. Scheduler & worker (as-built)
 
-**Scheduler (`scheduler.py`).** APScheduler in-process. `build_background_scheduler()` registers a `CronTrigger(hour, minute)` nightly job (`add_nightly_job`, id `"nightly"`); `web/asgi.py` starts it on app startup when `load_schedule().enabled` and stores it on `app.state`, shutting it down gracefully. `hop3-testlab schedule` runs a `BlockingScheduler` (`run_blocking`) for a standalone scheduler process. The nightly job calls `worker.run_once(target, trigger="scheduled-nightly", mode=...)`.
+**Scheduler (`scheduler.py`).** APScheduler in-process. `build_background_scheduler()` registers a `CronTrigger(hour, minute)` nightly job (`add_nightly_job`, id `"nightly"`); `web/asgi.py` starts it on app startup when `load_schedule().enabled` and stores it on `app.state`, shutting it down gracefully. `hop3-testlab schedule` runs a `BlockingScheduler` (`run_blocking`) for a standalone scheduler process — it registers the dispatcher too, so a standalone scheduler runs what it enqueues. The nightly job **enqueues** the configured `[schedule].profile` (a `BuildRequest` with `actor="nightly"`); the dispatcher then runs it on a free pool server — the same single path as the UI's Start build. Idle **loudly** when no profile is configured.
 
-**Worker (`worker.py::run_once(target_id, trigger, mode, apps, executor)`).** The single entry point for the nightly and for queued/dispatcher builds (and the CLI `run`):
+**Worker (`worker.py::run_once(target_id, *, trigger, mode, spec, executor)`).** The single entry point for queued/dispatcher builds and the CLI `run`:
 1. `leasing.try_acquire(...)` — returns `False` (no run) if the target is busy (§11).
 2. `RunsRepository.sweep_orphans()` — clears crashed/unfinished runs.
 3. For a full-suite **Hetzner** run, `_rebuild_blank_slate(cfg)` — OS rebuild + SSH wait; **aborts loudly** if the SSH key can't be resolved or SSH never comes ready. Per-app re-runs and Docker targets skip the rebuild. `run_blockers(...)` does this validation **pre-flight** so a doomed run is refused before spawn (no fake "started").
@@ -193,7 +193,7 @@ Three providers (`di/providers.py`), scopes per the playbook, wired in `di/conta
 
 **Run lease (`leasing.py` over the `run_lease` row).** One row per `target_id`. `try_acquire(session, target_id, holder, run_uid, ttl_seconds=6*3600)` is non-blocking: it claims the row unless a live (unexpired) lease exists, in which case it returns `False` and the caller refuses (the dashboard shows `?run=busy`). `expires_at` is an **epoch float** (works on SQLite and Postgres), so an abandoned lease is reclaimable after TTL. `set_pid`/`current_lease`/`is_held`/`force_release`/`release` round out the API; the PID + starttime power the dashboard **Stop** control. This is the SQLite/row implementation; the Postgres `pg_try_advisory_lock` variant is **not built** (and not needed at single-target).
 
-**Provenance & convergence (built).** `trigger`/`actor`/`mode`/`git_sha` are recorded on `TestRun`, so a CLI `hop3-test` run, a dispatcher build, *and* a nightly all appear in the dashboard, distinguishable by `trigger` (`scheduled-nightly` | `cli` | `build-<id>`). `retry_of` links a re-run to its origin for flakiness.
+**Provenance & convergence (built).** `trigger`/`actor`/`mode`/`git_sha` are recorded on `TestRun`, so a CLI `hop3-test` run, a dispatcher build, *and* a nightly all appear in the dashboard: the run's `trigger` is `cli` or `build-<id>` (queued build), and a queued build's origin is on the `BuildRequest.actor` (`web` | `nightly`). `retry_of` links a re-run to its origin for flakiness.
 
 ### Deferred
 - Postgres advisory-lock lease; duration-aware **bin-packing** / budget projection; **shedding** lowest-priority tests under budget (the `TestRun.shed_tests` / `budget_seconds` / `projected_seconds` columns exist as seams but nothing populates a shed list).

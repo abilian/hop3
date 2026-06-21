@@ -2,13 +2,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""In-process nightly scheduler (ADR 044 §10).
+"""In-process scheduler (ADR 044 §10).
 
-A cron job (default 00:00 local time) runs the suite via the worker, tagged
-``scheduled-nightly``. It embeds in the web server (BackgroundScheduler, started
-on app startup when ``[schedule].enabled``), or runs standalone via
-``hop3-testlab schedule`` (BlockingScheduler). The worker's lease keeps a manual
-run and the nightly from colliding.
+A cron job (default 00:00 local time) **enqueues** the configured build profile,
+tagged ``nightly``; the dispatcher (an interval job) then runs it on a free pool
+server — the same single path the UI's "Start build" uses. Both embed in the web
+server (BackgroundScheduler, started on app startup when ``[schedule].enabled``),
+or run standalone via ``hop3-testlab schedule`` (BlockingScheduler).
 """
 
 from __future__ import annotations
@@ -19,7 +19,9 @@ from typing import TYPE_CHECKING
 from apscheduler.triggers.cron import CronTrigger
 
 from hop3_testlab.cloud_config import load_schedule
-from hop3_testlab.worker import run_blockers, run_once
+from hop3_testlab.config import TestlabConfig
+from hop3_testlab.db import get_session_factory
+from hop3_testlab.repositories import BuildQueueRepository, ProfilesRepository
 
 if TYPE_CHECKING:
     from apscheduler.schedulers.base import BaseScheduler
@@ -32,19 +34,36 @@ DISPATCH_INTERVAL_SECONDS = 10
 
 
 def _nightly_job() -> None:
-    """Run the nightly suite. Config is read at fire time, so edits take effect.
+    """Enqueue the nightly build. Config is read at fire time, so edits take effect.
 
-    Pre-flights like the web trigger: a doomed run (an unauthorized Hetzner token,
-    an unreachable box) is refused with the real reason and logged, rather than
-    crashing deep in the executor as an unhandled scheduler traceback.
+    Enqueues the configured profile; the dispatcher picks a free pool server, runs
+    it, and records failures as build rows (it pre-flights ``run_blockers`` there).
+    Idle **loudly** when no profile is configured — never a silent no-op.
     """
     schedule = load_schedule()
-    blocker = run_blockers(schedule.target, None)
-    if blocker:
-        logger.error("Nightly run refused — %s", blocker)
+    if not schedule.profile:
+        logger.warning(
+            "Nightly idle: no [schedule].profile configured — set it to a profile "
+            "name (or TESTLAB_SCHEDULE_PROFILE) so the nightly has something to run."
+        )
         return
-    if not run_once(schedule.target, trigger="scheduled-nightly", mode=schedule.mode):
-        logger.warning("Nightly run skipped — target %r is busy.", schedule.target)
+    factory = get_session_factory(TestlabConfig.get_instance().STORE_TARGET)
+    session = factory()
+    try:
+        profile = ProfilesRepository(session).by_name(schedule.profile)
+        if profile is None:
+            logger.error(
+                "Nightly profile %r not found — create it or fix [schedule].profile.",
+                schedule.profile,
+            )
+            return
+        request = BuildQueueRepository(session).enqueue(profile.id, actor="nightly")
+        session.commit()
+        logger.info(
+            "Nightly enqueued build %d for profile %r.", request.id, schedule.profile
+        )
+    finally:
+        session.close()
 
 
 def add_nightly_job(scheduler: BaseScheduler) -> BaseScheduler:
@@ -91,7 +110,8 @@ def build_background_scheduler() -> BaseScheduler:
 
 
 def run_blocking() -> None:
-    """Run the nightly scheduler in the foreground (the `schedule` command)."""
+    """Run the scheduler in the foreground (the `schedule` command): nightly cron +
+    the build dispatcher, so enqueued builds actually run."""
     from apscheduler.schedulers.blocking import BlockingScheduler  # noqa: PLC0415
 
-    add_nightly_job(BlockingScheduler()).start()
+    add_dispatch_job(add_nightly_job(BlockingScheduler())).start()
