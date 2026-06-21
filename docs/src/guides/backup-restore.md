@@ -36,9 +36,10 @@ Backups are stored as directories containing:
 /var/hop3/backups/apps/<app-name>/<backup-id>/
 ├── metadata.json         # Backup manifest with checksums
 ├── source.tar.gz         # Git repository archive
-├── data.tar.gz          # Application data archive
-├── env.json             # Environment variables
-└── services/             # Service backups
+├── data.tar.gz           # Application data archive
+├── env.json              # Environment variables
+├── volume-<name>.tar.gz  # One archive per persistent [[volumes]] volume
+└── addons/               # Addon backups
     └── postgres_<name>.sql
 ```
 
@@ -56,7 +57,7 @@ Example: `20251108_143022_a8f3d9`
 
 ```bash
 # Backup an application
-hop3 backup create my-app
+hop3 backup create --app my-app
 
 # Output:
 # Creating backup for app 'my-app'...
@@ -97,7 +98,7 @@ hop3 backup restore 20251108_143022_a8f3d9
 # Port: 8000
 #
 # To start the application:
-#   hop3 app restart my-app
+#   hop3 app restart --app my-app
 ```
 
 ## Creating Backups
@@ -107,12 +108,12 @@ hop3 backup restore 20251108_143022_a8f3d9
 Create a backup of an application:
 
 ```bash
-hop3 backup create <app-name>
+hop3 backup create --app <app-name>
 ```
 
 **Example:**
 ```bash
-hop3 backup create blog
+hop3 backup create --app blog
 ```
 
 This creates a complete backup including:
@@ -123,13 +124,13 @@ This creates a complete backup including:
 
 ### Backup Without Services
 
-To create a backup excluding attached services:
+To create a backup excluding attached addons (databases, caches):
 
 ```bash
-hop3 backup create <app-name> --no-services
+hop3 backup create --app <app-name> --no-addons
 ```
 
-**Use case:** Quickly backup just the application code and data when services are backed up separately.
+**Use case:** Quickly backup just the application code and data when addons are backed up separately.
 
 ### What Happens During Backup?
 
@@ -194,12 +195,14 @@ Shows the 5 most recent backups for the "blog" application.
 ### Get Detailed Information
 
 ```bash
-hop3 backup info <backup-id>
+hop3 backup show <backup-id>
 ```
+
+(`hop3 backup info` is an accepted alias.)
 
 **Example:**
 ```bash
-hop3 backup info 20251108_143022_a8f3d9
+hop3 backup show 20251108_143022_a8f3d9
 ```
 
 **Output:**
@@ -225,7 +228,7 @@ File Checksums:
   ✓ env.json
      sha256:ghi789jkl012...
 
-Services Included: (1)
+Addons Included: (1)
   - postgres:my-database (8.2 MB)
 
 Application State:
@@ -238,7 +241,7 @@ Integrity: ✓ All checksums valid
 
 ### Verify Backup Integrity
 
-The `backup info` command automatically verifies all checksums and reports integrity status.
+The `backup show` command automatically verifies all checksums and reports integrity status.
 
 ## Restoring Backups
 
@@ -290,7 +293,7 @@ The restore process includes **safety checks** at every step.
 After restoring, you typically need to restart the application:
 
 ```bash
-hop3 app restart <app-name>
+hop3 app restart --app <app-name>
 ```
 
 ## Deleting Backups
@@ -377,11 +380,11 @@ Periodically test your backups:
 4. Delete the test application
 
 ```bash
-hop3 backup create prod-app
+hop3 backup create --app prod-app
 hop3 backup restore <backup-id> --target-app prod-app-test
-hop3 app restart prod-app-test
+hop3 app restart --app prod-app-test
 # Test the application
-hop3 app destroy prod-app-test
+hop3 app destroy --app prod-app-test
 ```
 
 ### Security Considerations
@@ -406,14 +409,14 @@ Always create a backup before:
 **Quick pre-deployment checklist:**
 ```bash
 # 1. Create backup
-hop3 backup create myapp
+hop3 backup create --app myapp
 
 # 2. Deploy new version
-hop3 deploy myapp
+hop3 deploy --app myapp
 
 # 3. If something goes wrong, restore
 hop3 backup restore <backup-id>
-hop3 app restart myapp
+hop3 app restart --app myapp
 ```
 
 ## Troubleshooting
@@ -549,20 +552,20 @@ Understanding the backup structure can help with debugging:
 │       - All branches and tags
 │       - .git directory
 │
-├── data.tar.gz           # Application data
+├── data.tar.gz            # Application data
 │   └── Contains:
 │       - User uploads
 │       - Application-generated files
 │       - Runtime data
 │
-├── env.json              # Environment variables
+├── env.json               # Environment variables
 │   └── Contains:
 │       - All config set variables
 │       - System-set variables
 │       - Service URLs
 │
-└── services/             # Service backups
-    └── postgres_mydb.sql # PostgreSQL dump
+└── addons/                # Addon backups
+    └── postgres_mydb.sql  # PostgreSQL dump
         - SQL dump file
         - Includes schema and data
 ```
@@ -604,14 +607,16 @@ INSERT INTO ...
 
 To manually inspect:
 ```bash
-head -50 services/postgres_mydb.sql
+head -50 addons/postgres_mydb.sql
 ```
 
-#### Future Services
+#### Other Addons
 
-Redis, MySQL, and other services will follow similar patterns:
-- Redis: RDB snapshot or AOF file
-- MySQL: mysqldump SQL file
+Other addons are backed up by their own `backup()`/`restore()` implementations:
+
+- MySQL: `mysqldump` SQL file
+- Redis: a JSON dump of the database's keys (via `redis-cli`)
+- S3/MinIO: the bucket's objects
 
 ### Backup Performance
 
@@ -648,7 +653,7 @@ In case of complete server failure:
 3. **Restore applications** one by one:
    ```bash
    hop3 backup restore <backup-id>
-   hop3 app restart <app-name>
+   hop3 app restart --app <app-name>
    ```
 
 **Pro tip:** Keep backups in multiple locations:
@@ -665,16 +670,16 @@ Automate backups in your deployment pipeline:
 # deploy.sh
 
 # Create backup before deployment
-backup_id=$(hop3 backup create myapp | grep "Backup ID:" | awk '{print $3}')
+backup_id=$(hop3 backup create --app myapp | grep "Backup ID:" | awk '{print $3}')
 
 # Deploy new version
-hop3 deploy myapp
+hop3 deploy --app myapp
 
 # If deployment fails, restore
 if [ $? -ne 0 ]; then
     echo "Deployment failed, restoring backup..."
     hop3 backup restore $backup_id
-    hop3 app restart myapp
+    hop3 app restart --app myapp
     exit 1
 fi
 

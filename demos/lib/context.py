@@ -44,6 +44,11 @@ class DemoInfo:
     location: Path
     is_symlink: bool = False
     symlink_target: str | None = None
+    # Namespaced capability tags (e.g. "builder:docker", "toolchain:go",
+    # "addon:postgres", "extra:backup"), computed from hop3.toml + the demo
+    # script and merged with the script's own FEATURES set. See
+    # lib.discovery.compute_app_tags.
+    app_tags: list[str] = field(default_factory=list)
 
 
 @dataclass

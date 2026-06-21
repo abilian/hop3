@@ -265,8 +265,8 @@ class MyPlugin:
 ## Learn More
 
 - [Plugin Development Guide](/developers/plugin-development/)
-- [ADR 020: Pluggable Architecture](/adrs/020-pluggable-architecture/)
-- [ADR 028: Pluggy-Dishka Integration](/adrs/028-pluggy-dishka-integration/)
+- [ADR 020: Pluggable Architecture](/developers/adrs/020-pluggable-architecture/)
+- [ADR 028: Pluggy-Dishka Integration](/developers/adrs/028-pluggy-dishka-integration/)
 
 ---
 

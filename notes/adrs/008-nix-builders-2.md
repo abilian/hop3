@@ -3,33 +3,25 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-04-22
-**Related-ADRs**: 006, 007 (superseded), 009, 020, 022, 030, 031, 035, 036
-**Depends-On**: ADR 006 Phase 1 (completed)
-
-## Revisions
-
-- v0.1: Initial draft (2024-07-17)
-- v0.4: Reframed from "lockfile conversion" to "on-the-fly generation at build time," initially proposing ecosystem tools (poetry2nix, dream2nix, node2nix) (2026-04-04).
-- v0.5: Major rewrite. Ecosystem-tools approach abandoned in favour of a template-based approach that systematises the manual conversion patterns (2026-04-05).
-- v0.6: Promoted to Final. ADR 007 (the originally-planned separate nixpkgs-mode builder) marked Superseded since `nixpkgs-wrapper` covers that case (2026-04-14).
+**Supersedes**: ADR 007
+**Related-ADRs**: 006, 009, 020, 022, 030, 031, 035, 036
 
 ## Context
 
-### What We Have (Phase 1 — Done)
+### What We Have
 
-The NixBuilder plugin (ADR 006, implemented Q1 2026) builds applications from hand-crafted `hop3.nix` files. This works well but requires the developer to write a Nix derivation — a significant barrier given Nix's well-documented learning curve (see Fourné et al., "It's like flossing your teeth: On the importance and challenges of reproducible builds," IEEE S&P 2023). We have 22 production-grade apps with hand-crafted `hop3.nix` files; writing each one took meaningful effort and Nix expertise.
+The NixBuilder plugin (ADR 006) builds applications from hand-crafted `hop3.nix` files. This works well but requires the developer to write a Nix derivation — a significant barrier given Nix's well-documented learning curve (see Fourné et al., "It's like flossing your teeth: On the importance and challenges of reproducible builds," IEEE S&P 2023). The production fleet of hand-crafted `hop3.nix` files demonstrates the model, but writing each one takes meaningful effort and Nix expertise.
 
 ### The Problem
 
 The current situation creates a two-tier experience:
 
-- **With `hop3.nix`**: Content-addressed dependency graph, bandwidth-efficient updates, and a path toward reproducible builds (see "Reproducibility Levels" below for honest caveats). But requires Nix expertise.
+- **With `hop3.nix`**: Content-addressed dependency graph, bandwidth-efficient updates, and a path toward reproducible builds (see "Reproducibility Levels" below for the precise caveats). But requires Nix expertise.
 - **Without `hop3.nix`**: Fast native builds via the LocalBuilder, but no reproducibility guarantees and no content-addressed closure. This is what most developers will use.
 
 We want to close this gap: give developers the structural benefits of Nix (content-addressed closures, atomic upgrades, minimal update deltas) without requiring them to learn the Nix expression language.
 
-### Reproducibility Levels: Honest Assessment
+### Reproducibility Levels
 
 The term "reproducible builds" is often used loosely. In Hop3's context, the actual guarantee depends on the build type:
 
@@ -57,17 +49,17 @@ The term "reproducible builds" is often used loosely. In Hop3's context, the act
 - **Minimal update deltas.** When updating an app, only changed store paths need to be transferred (Proposition 1 from the paper). This holds even for `__noChroot` builds — the delta is still smaller than a Docker image layer replacement.
 - **Explicit dependency graph.** The full closure is inspectable via `nix-store -qR`. No hidden dependencies, unlike Docker's opaque layers or pip's global site-packages.
 
-**Implication for the template approach:** The generated `hop3.nix` expressions provide the structural benefits of Nix (content-addressing, atomic upgrades, closure inspection) but do NOT automatically provide full hermeticity for ecosystems that use `__noChroot`. Moving from `__noChroot` pip/composer to fully-pinned Nix-native dependency resolution is a future evolution (Phase 4), not a template concern. The templates faithfully generate what a human would write today.
+**Implication for the template approach:** The generated `hop3.nix` expressions provide the structural benefits of Nix (content-addressing, atomic upgrades, closure inspection) but do NOT automatically provide full hermeticity for ecosystems that use `__noChroot`. Moving from `__noChroot` pip/composer to fully-pinned Nix-native dependency resolution is a future evolution, not a template concern. The templates faithfully generate what a developer would write by hand.
 
-### Why Not Ecosystem Tools (Revised Position)
+### Why Not Ecosystem Tools
 
-The v0.4 of this ADR proposed using ecosystem-specific Nix tools: `poetry2nix`, `dream2nix`, `node2nix`, `buildGoModule`, `crane`, etc. This turned out to be the wrong approach for three concrete reasons discovered during the spike:
+An obvious alternative is to use ecosystem-specific Nix tools: `poetry2nix`, `dream2nix`, `node2nix`, `buildGoModule`, `crane`, etc. This is the wrong approach for three concrete reasons:
 
-1. **None of our 22 existing `hop3.nix` files use them.** Grep across `apps/real-apps-nix/` finds zero references to `poetry2nix`, `dream2nix`, `node2nix`, or `buildGoModule`. The Ruby test apps use `bundlerEnv` (a built-in nixpkgs function), and everything else uses plain `stdenv.mkDerivation` with `fetchurl` and custom `installPhase`.
+1. **The hand-written `hop3.nix` files don't use them.** The existing files in `apps/real-apps-nix/` contain no references to `poetry2nix`, `dream2nix`, `node2nix`, or `buildGoModule`. The Ruby apps use `bundlerEnv` (a built-in nixpkgs function), and everything else uses plain `stdenv.mkDerivation` with `fetchurl` and a custom `installPhase`.
 
-2. **The ecosystem tools don't cover half our stack.** `poetry2nix` handles Python-with-poetry only. `dream2nix` is in flux. `node2nix` is effectively deprecated. There's no equivalent for **PHP** (our largest ecosystem, 10 apps), Java, or pre-built binaries. Building on tools that don't cover half the fleet is a losing proposition.
+2. **The ecosystem tools don't cover the stack.** `poetry2nix` handles Python-with-poetry only. `dream2nix` is in flux. `node2nix` is effectively deprecated. There's no equivalent for PHP — the largest ecosystem in the fleet — nor for Java or pre-built binaries. Building on tools that don't cover half the fleet is a losing proposition.
 
-3. **The manual conversion pattern is highly regular.** Analysing all 22 hand-written files showed ~60% boilerplate and ~40% per-app logic. The per-app logic is expressible declaratively (paths, env vars, config file contents, exec commands). A template system is a better fit than composing external tools.
+3. **The manual conversion pattern is highly regular.** The hand-written files are roughly 60% boilerplate and 40% per-app logic. The per-app logic is expressible declaratively (paths, env vars, config file contents, exec commands). A template system is a better fit than composing external tools.
 
 ## Decision
 
@@ -79,32 +71,32 @@ The generator is **plugin-based**: each template is a registered plugin implemen
 
 ```
 hop3.nix exists in source?
-  → Yes: Use it directly (ADR 006 Phase 1, current behavior)
+  → Yes: Use it directly (ADR 006)
   → No:  hop3.toml has [nix] section with template name?
     → Yes: Generate hop3.nix from template at build time
     → No:  Fall back to LocalBuilder with native toolchains
 ```
 
+`NixBuilder.accept()` builds an app when it declares `[nix].template`. A hand-written `hop3.nix` and a `[nix].template` are mutually exclusive inputs: when both are present the builder refuses rather than silently choosing one, since the two sources can diverge.
+
 ### Ejection
 
 When a generated template cannot express an app's needs, the developer runs `hop3 nix eject <app>` to materialize the generated `hop3.nix` as a real file in the source tree. After ejection, the committed `hop3.nix` takes precedence and can be customized freely. This mirrors Create React App's eject pattern: auto-generation is progressive disclosure, not lock-in.
 
-## Validated Templates
+## Templates
 
-Seven templates cover **20 of 22 apps** in `apps/real-apps-nix/`, each verified to build via `nix-build`.
+Each template captures one recurring packaging pattern observed in `apps/real-apps-nix/`. The set spans the production stacks:
 
-| Template | Apps covered | Count | Key patterns |
-|----------|-------------|-------|-------------|
-| `prebuilt-binary` | miniflux, gitea | 2 | Single pre-compiled binary, exec args, INI config generation, runtime secret generation |
-| `prebuilt-archive` | focalboard, grafana, mattermost, vikunja | 4 | tar.gz/zip archives, file mappings, store-to-cwd symlink loops (mattermost), JSON/YAML/INI configs |
-| `php-app` | adminer, bookstack, dolibarr, easy-appointments, invoice-ninja, kanboard, limesurvey, matomo, nextcloud, wordpress | 10 | Single file (adminer), composer build, Laravel artisan serve, custom web root (dolibarr), zip with wrapper dir (limesurvey), tar.bz2 (nextcloud), `--ignore-platform-reqs` (invoice-ninja), extra nativeBuildInputs (nodejs for invoice-ninja) |
-| `node-prebuilt` | wiki-js | 1 | Tarball without top-level dir, read-only store symlink loop, YAML config |
-| `java-war` | jenkins | 1 | Single WAR file, JDK runtime, `$JAVA_OPTS` |
-| `python-venv` | isso | 1 | `__noChroot`, pip install inside nix build, runtime INI config |
-| `nixpkgs-wrapper` | radicale | 1 | Wraps existing nixpkgs package (no source fetch, no build) |
-| **Total** | | **20/22** | |
-
-Remaining: `sinatra-hello`, `rack-hello` (Ruby test apps using `bundlerEnv`) — would be covered by an 8th `ruby-bundler` template.
+| Template | Apps covered | Key patterns |
+|----------|-------------|-------------|
+| `prebuilt-binary` | miniflux, gitea | Single pre-compiled binary, exec args, INI config generation, runtime secret generation |
+| `prebuilt-archive` | focalboard, grafana, mattermost, vikunja | tar.gz/zip archives, file mappings, store-to-cwd symlink loops (mattermost), JSON/YAML/INI configs |
+| `php-app` | adminer, bookstack, dolibarr, easy-appointments, invoice-ninja, kanboard, limesurvey, matomo, nextcloud, wordpress | Single file (adminer), composer build, Laravel artisan serve, custom web root (dolibarr), zip with wrapper dir (limesurvey), tar.bz2 (nextcloud), `--ignore-platform-reqs` (invoice-ninja), extra nativeBuildInputs (nodejs for invoice-ninja) |
+| `node-prebuilt` | wiki-js | Tarball without top-level dir, read-only store symlink loop, YAML config |
+| `java-war` | jenkins | Single WAR file, JDK runtime, `$JAVA_OPTS` |
+| `python-venv` | isso | `__noChroot`, pip install inside nix build, runtime INI config |
+| `nixpkgs-wrapper` | radicale | Wraps existing nixpkgs package (no source fetch, no build) |
+| `ruby-bundler` | sinatra-hello, rack-hello | `bundlerEnv` from a Gemfile, rack-based serving |
 
 ## Design Overview
 
@@ -142,10 +134,6 @@ The placeholder pattern is simpler than trying to interleave Nix interpolation w
 
 Inside a Nix `''...''` multi-line string, only `${VAR}` needs escaping (becomes `''${VAR}`). Bare `$VAR`, `$(cmd)`, and `$PWD` pass through literally. A small `nix_escape()` regex function handles all cases.
 
-## Implementation Status
-
-Shipped: the generator is productionized in the `NixBuilder` plugin tree (`plugins/build/nix/gen/`). `hop3.toml` carries a `[nix]` section; `NixBuilder.accept()` builds apps that declare `[nix].template`, generating the `.nix` at build time (and refusing when both a hand-written `hop3.nix` and a `[nix].template` are present). The template set covers the documented stacks, including `ruby-bundler`.
-
 ## Consequences
 
 ### Benefits
@@ -154,19 +142,19 @@ Shipped: the generator is productionized in the `NixBuilder` plugin tree (`plugi
 - **Progressive disclosure via eject.** Developers can drop to hand-crafted `hop3.nix` when needed without changing their workflow.
 - **Same BuildArtifact output.** The rest of the pipeline (deployer, proxy, etc.) is unchanged. The generator is purely a build-time source transformation.
 - **Extensible.** New templates are pure plugins — third parties can publish ecosystem-specific templates as separate packages.
-- **Validated end-to-end.** 20 real apps across 7 templates build correctly on a real system, not just in theory.
+- **Validated end-to-end.** Templates are exercised against real apps that build on a real system via `nix-build`, not just in theory.
 
 ### Drawbacks
 
-- **Per-template maintenance.** Each template has to be kept in sync with nixpkgs conventions and upstream app changes. Mitigated by the fact that each template is small (~150 lines Python + tests) and the patterns are stable (we're not chasing moving targets like poetry2nix releases).
-- **Edge cases escape through `nix:eject`.** Apps that don't fit templates still require hand-crafted files. The 91% coverage (20/22) validates that this is manageable, not catastrophic.
-- **Duplication during migration.** While migrating, an app can have both a hand-crafted `hop3.nix` *and* a `[nix]` section in `hop3.toml`; they're migrated one at a time, verifying each step.
+- **Per-template maintenance.** Each template has to be kept in sync with nixpkgs conventions and upstream app changes. This is mitigated by keeping each template small and by the stability of the patterns — there is no moving target like poetry2nix releases to chase.
+- **Edge cases escape through `nix:eject`.** Apps that don't fit any template still require hand-crafted files. This is manageable rather than catastrophic: the template set covers the bulk of the fleet, and ejection handles the rest.
+- **Duplication during migration.** While migrating, an app can have both a hand-crafted `hop3.nix` *and* a `[nix]` section in `hop3.toml`; they are migrated one at a time, verifying each step.
 
-## Lessons
+## Design Findings
 
-Concrete findings that shaped the design:
+Concrete observations that shape the design:
 
-1. **Roughly 60% boilerplate, not 90%.** Apps like Mattermost (60-line wrapper with symlink loops, JSON config, runtime secret generation) and Invoice Ninja (composer with `--ignore-platform-reqs` + nodejs in build inputs) have real per-app logic that can't be fully abstracted. The template system must be parametric enough to accommodate this.
+1. **Boilerplate dominates but does not exhaust.** The bulk of a hand-written file is boilerplate, but a substantial fraction is real per-app logic. Apps like Mattermost (wrapper with symlink loops, JSON config, runtime secret generation) and Invoice Ninja (composer with `--ignore-platform-reqs` plus nodejs in build inputs) cannot be fully abstracted. The template system must be parametric enough to accommodate this rather than assuming the per-app remainder is negligible.
 
 2. **Placeholder sed-replacement beats in-place Nix interpolation.** Putting `${nodejs}/bin` directly inside the wrapper heredoc conflicts with shell variable escaping (`${PORT:-8080}` also needs special handling). Using placeholders (`NODEBIN`, `PHPBIN`, etc.) that get sed-replaced after Nix interpolation is simpler and composes cleanly.
 
@@ -174,7 +162,7 @@ Concrete findings that shaped the design:
 
 4. **Some apps always need hand-crafting.** Apps with known upstream issues (complex build systems, deprecated dependencies) aren't magically fixed by templates. The template approach scales the easy cases so developers spend hand-crafting effort only where it matters.
 
-5. **Validating with actual `nix-build` catches bugs pattern-matching can't.** Real builds surfaced two bugs that passed both unit tests and `nix-instantiate --parse` (exec-line escaping, and a generated-config indentation bug). End-to-end validation via real builds is essential.
+5. **Validating with actual `nix-build` catches bugs pattern-matching can't.** Real builds surface bugs that pass both unit tests and `nix-instantiate --parse` — exec-line escaping and generated-config indentation being the classes that slip through static checks. End-to-end validation via real builds is therefore part of the design, not an afterthought.
 
 ## Prior Art
 

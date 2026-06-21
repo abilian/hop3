@@ -1,33 +1,9 @@
 # ADR 029: Application Reconciliation and Health Check System
 
-**Status**: Draft (no implementation; design proposal only)
+**Status**: Accepted
 **Type**: Feature
 **Created**: 2025-11-25
-**Updated**: 2026-04-22
 **Related-ADRs**: 017, 036
-
-## Revisions
-
-- v0.3: CLI examples migrated to space form per ADR 036 (2026-04-22).
-- v0.2: Status note — none of the four components is yet implemented; design only (2026-04-14).
-- v0.1: Initial draft (2025-11-25)
-
-## Current Status
-
-This ADR is a design proposal; none of the four components below is yet implemented.
-
-What exists today:
-- The `[healthcheck]` section in `hop3.toml` is parsed.
-- A one-shot health probe runs at the end of `hop3 deploy` to confirm the freshly deployed app responds. Failure surfaces as a `Diagnosis` and the deployment is reported as failed.
-- `hop3 logs --app <app>` lets an operator read worker logs after the fact.
-- The dashboard's HTMX polling triggers `App.sync_state()` on each view — the closest thing to reconciliation today (and exactly the workaround this ADR exists to retire).
-
-What this ADR proposes and what is **not** implemented:
-- A background `WatchdogService` running on the server with a configurable cycle (planned: 30–60 s) reconciling DB state with actual process state.
-- Active periodic health-check probing using the `[healthcheck]` config.
-- A `RestartPolicy` model (NEVER / ON_FAILURE / ALWAYS) with exponential backoff.
-- An immutable `AppEvent` audit log of all state changes.
-- New CLI commands `hop3 app health` and `hop3 app events`.
 
 ## Introduction
 

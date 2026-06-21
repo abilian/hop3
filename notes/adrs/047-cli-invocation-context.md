@@ -1,21 +1,19 @@
 # ADR 047: CLI Invocation Context — transmit the resolved app and environment with every call
 
-**Status**: Draft (proposed; target implementation v0.6)
+**Status**: Draft
 **Type**: Feature (breaking — one coordinated CLI+server release)
 **Created**: 2026-06-04
 **Related-ADRs**: 036 (§D7 implicit app resolution), 042 (resolution chains, project contexts), 039 (plugin command manifest — future)
-**Supersedes (on implementation)**: the client-side app-scoped injection mechanism (`hop3_cli/core/app_scope.py`) introduced as an M2 stopgap
 
-## Revisions
-
-- v0.2 (2026-06-16): Renumbered 043 → 047 and promoted from `local-notes/` to the public ADR set; 043 was already held by ADR 043 (Unified Testing Architecture). No content change.
-- v0.1 (2026-06-04): Initial draft. Triggered by a recurring class of bug where the CLI's hardcoded set of "app-scoped" commands (`core/app_scope.py`) drifts out of sync with the server's command registry — most recently `hop3 app status` demanding an explicit `<app_name>` while its siblings (`app ping`, `app logs`, …) resolved one, because the set still listed the renamed `app show` and was missing `app status`.
+This decision supersedes the client-side app-scoped injection mechanism (`hop3_cli/core/app_scope.py`), a stopgap retired by the design below.
 
 ## Context
 
 ### The stopgap and why it drifts
 
-The CLI must decide *before* the RPC round-trip whether a command operates on a single app, so it can resolve an implicit app (ADR 036 §D7, ADR 042 §Resolution chains) and inject it. Today it makes that decision from a hardcoded `set[tuple[str, ...]]` in `core/app_scope.py`, and on a match injects the resolved app as the first positional argument. The module's own docstring flags this as an M2 stopgap pending ADR 039.
+The CLI must decide *before* the RPC round-trip whether a command operates on a single app, so it can resolve an implicit app (ADR 036 §D7, ADR 042 §Resolution chains) and inject it. It makes that decision from a hardcoded `set[tuple[str, ...]]` in `core/app_scope.py`, and on a match injects the resolved app as the first positional argument. The module is a stopgap pending ADR 039.
+
+The drift it causes is a recurring class of bug: the hardcoded set falls out of sync with the server's command registry, so a renamed or added command silently stops resolving its implicit app. A representative case is `hop3 app status` demanding an explicit `<app_name>` while its siblings (`app ping`, `app logs`, …) resolve one, because the set still lists the renamed `app show` and is missing `app status`.
 
 The set is a hand-maintained copy of a property that actually lives server-side (each `Command` either needs an app or doesn't). So it drifts silently whenever a command is renamed or added, and the failure is quiet: the command still runs, it just stops resolving the implicit app and falls back to "Usage: … `<app_name>`". The same disease appears in two sibling hardcoded sets — `commands/destructive.py::DESTRUCTIVE_COMMANDS` and `main.py::_MISMATCH_GUARDED_PREFIXES` — and the whole approach structurally cannot cover plugin commands (ADR 039), which the CLI has never heard of.
 
@@ -89,7 +87,7 @@ Rejected: adds latency and a network dependency to every command, breaks offline
 
 ### Do nothing (keep the hardcoded set, patched)
 
-This is the v0.5 decision — acceptable short-term, guarded by patching as drift is found. Rejected as the end state because drift is silent and recurring, and plugins can't be covered.
+Acceptable short-term, guarded by patching as drift is found. Rejected as the end state because drift is silent and recurring, and plugins can't be covered.
 
 ## Open questions
 
@@ -101,17 +99,6 @@ This is the v0.5 decision — acceptable short-term, guarded by patching as drif
 
 ## Versioning and migration
 
-One coordinated release (consistent with ADR 042's brutally-relentless stance): the CLI starts sending `_context` and the server starts popping + consuming it in the same v0.6.
+The CLI and server roll out together in one coordinated release (consistent with ADR 042's brutally-relentless stance): the CLI starts sending `_context` and the server starts popping and consuming it in lockstep.
 
-The reserved key **must** be popped by the server dispatch before `command.call(**kwargs)`; today unknown `extra_args` keys would reach the command as kwargs and raise `TypeError`, so an old server cannot silently tolerate a new CLI's `_context`. Mixed old-server / new-client is therefore explicitly unsupported. New-server / old-client keeps working: the server fills `app` from a positional (as today) when `_context` is absent, so the dispatch must treat a missing context as "no ambient app", not an error.
-
-## Implementation order (v0.6)
-
-1. **Resolved-context object** — a frozen dataclass on the CLI assembled from the ADR 042 resolvers (app, server, context, cwd, cwd_app_id, app_source, cli_version); serialize into `extra_args["_context"]`.
-2. **Server dispatch** — pop `_context`; when the target command's signature has an `app`/`app_name` param and no positional app was supplied, fill from `_context.app`. Explicit positional wins.
-3. **Retire injection** — delete `core/app_scope.py`'s injection use in `main.py`; the CLI no longer rewrites argv to inject the app. Keep (or relocate) only what's needed for client-side prompting decisions (pending Q3).
-4. **Move §D14 server-side (optional, Q4)** using `_context`.
-5. **Tests** — a command with an app param resolves from context; explicit positional overrides; a non-app command ignores context.app; missing context (old client) still works via positional.
-6. **Docs** — `docs/src/reference/cli.md` (app resolution), and note the retirement of the hardcoded app-scoped set.
-
-Until v0.6 ships, `core/app_scope.py` remains the mechanism and is patched as drift is found (e.g., the `app show`→`app status` fix in v0.5).
+The reserved key **must** be popped by the server dispatch before `command.call(**kwargs)`; an unknown `extra_args` key would otherwise reach the command as a kwarg and raise `TypeError`, so an old server cannot silently tolerate a new CLI's `_context`. Mixed old-server / new-client is therefore explicitly unsupported. New-server / old-client keeps working: the server fills `app` from a positional (as before) when `_context` is absent, so the dispatch must treat a missing context as "no ambient app", not an error.

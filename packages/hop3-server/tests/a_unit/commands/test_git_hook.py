@@ -55,7 +55,7 @@ def test_git_hook_app_not_found(git_hook_cmd):
         mock_repo = mock_repo_class.return_value
         mock_repo.get_one_or_none.return_value = None
 
-        result = git_hook_cmd.call("nonexistent-app")
+        result = git_hook_cmd.call("--app", "nonexistent-app")
 
         assert len(result) == 1
         assert result[0]["t"] == "error"
@@ -67,7 +67,7 @@ def test_git_hook_no_stdin_data(git_hook_cmd, mock_app):
     with patch("sys.stdin") as mock_stdin:
         mock_stdin.read.return_value = ""
 
-        result = git_hook_cmd.call("test-app")
+        result = git_hook_cmd.call("--app", "test-app")
 
         assert len(result) == 1
         assert result[0]["t"] == "error"
@@ -79,7 +79,7 @@ def test_git_hook_invalid_push_data_format(git_hook_cmd, mock_app):
     with patch("sys.stdin") as mock_stdin:
         mock_stdin.read.return_value = "invalid data"
 
-        result = git_hook_cmd.call("test-app")
+        result = git_hook_cmd.call("--app", "test-app")
 
         assert len(result) == 1
         assert result[0]["t"] == "error"
@@ -97,7 +97,7 @@ def test_git_hook_successful_deployment(git_hook_cmd, mock_app, mock_db_session)
     ):
         mock_stdin.read.return_value = push_data
 
-        result = git_hook_cmd.call("test-app")
+        result = git_hook_cmd.call("--app", "test-app")
 
         # Verify extraction was called with correct commit SHA
         mock_extract.assert_called_once_with(
@@ -153,7 +153,7 @@ def test_extract_commit_handles_multiple_refs(git_hook_cmd, mock_app):
     ):
         mock_stdin.read.return_value = push_data
 
-        git_hook_cmd.call("test-app")
+        git_hook_cmd.call("--app", "test-app")
 
         # Should process only the first ref (master)
         mock_extract.assert_called_once_with(
@@ -175,6 +175,6 @@ def test_deployment_failure_handling(git_hook_cmd, mock_app):
 
         # command_context raises ValueError for JSON-RPC error handling
         with pytest.raises(ValueError) as exc_info:
-            git_hook_cmd.call("test-app")
+            git_hook_cmd.call("--app", "test-app")
 
         assert "missing dependencies" in str(exc_info.value)

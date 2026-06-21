@@ -29,15 +29,17 @@ DEMOS_DIR = Path(__file__).parent
 if str(DEMOS_DIR) not in sys.path:
     sys.path.insert(0, str(DEMOS_DIR))
 
-import contextlib
+import fcntl
+import os
 import secrets
+import tempfile
 import time
 
 from lib.cli import create_parser
 from lib.commands import set_debug_mode
 from lib.context import DemoContext, OutputLevel
-from lib.discovery import discover_demos, resolve_demo
-from lib.display import list_demos, print_banner, print_config, show_inventory
+from lib.discovery import discover_demos, resolve_demo, select_demos
+from lib.display import list_demos, print_banner, print_config
 from lib.logging import (
     end_demo_timing,
     get_log_session,
@@ -62,37 +64,84 @@ from lib.results_db import get_results_db, record_demo_result
 
 
 def main() -> int:
-    """Main entry point."""
+    """Main entry point: dispatch to the `run` or `list` subcommand."""
+    argv = sys.argv[1:]
+    # Ergonomic default: anything that isn't an explicit subcommand or a help
+    # request is treated as `run ...` — so `demo.py --backend docker demo01`
+    # and `demo.py demo01` keep working without typing `run`.
+    if argv and argv[0] not in {"run", "list", "-h", "--help"}:
+        argv = ["run", *argv]
+
     parser = create_parser()
+    args = parser.parse_args(argv)
 
-    # Handle --list before requiring --host
-    if "--list" in sys.argv:
-        demo_dirs = _extract_demo_dirs()
-        list_demos(demo_dirs or None)
+    command = getattr(args, "command", None)
+    if command is None:
+        parser.print_help()
         return 0
-
-    # Handle --inventory before requiring --host
-    if "--inventory" in sys.argv:
-        demo_dirs = _extract_demo_dirs()
-        show_inventory(demo_dirs or None)
+    if command == "list":
+        list_demos(
+            getattr(args, "demo_dirs", None) or None,
+            verbose=args.verbose,
+            select=args.select,
+            skip=args.skip,
+        )
         return 0
+    return _cmd_run(args)
 
-    # Handle case where --host is not provided (required for SSH backend)
-    is_docker_backend = "--backend" in sys.argv and "docker" in sys.argv
-    is_docker_backend = is_docker_backend or ("-b" in sys.argv and "docker" in sys.argv)
 
-    if not is_docker_backend:
-        if "-H" not in sys.argv and "--host" not in sys.argv:
-            if "-h" in sys.argv or "--help" in sys.argv:
-                parser.print_help()
-                return 0
-            print_error(
-                "Missing required argument: --host HOST (or use --backend docker)"
-            )
-            print_info("Run with --help for usage information")
-            return 2
+_RUN_LOCK_PATH = Path(tempfile.gettempdir()) / "hop3-demo-run.lock"
+_run_lock_fd: int | None = None  # held open for the whole process; lock frees on exit
 
-    args = parser.parse_args()
+
+def _acquire_run_lock() -> bool:
+    """Take a machine-wide exclusive lock so only one demo run executes at a time.
+
+    Demo runs share a single CLI config home (demos/.cli-home) and mutate a
+    shared target server (deploy/destroy apps, create/destroy addons), so two
+    concurrent runs corrupt each other's CLI context (target + auth) and collide
+    on server resources. Returns False (after explaining why) if another run
+    holds the lock. The lock is released automatically when this process exits —
+    including on a crash/kill — so there is no stale-lock-from-death problem.
+    """
+    global _run_lock_fd
+    fd = os.open(_RUN_LOCK_PATH, os.O_RDWR | os.O_CREAT, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        try:
+            held_by = os.read(fd, 256).decode(errors="replace").strip()
+        except OSError:
+            held_by = ""
+        os.close(fd)
+        print_error(
+            "Another demo run is already in progress"
+            + (f" ({held_by})" if held_by else "")
+            + ".\n  Demo runs share a CLI config home and a target server, so they "
+            "must run one at a time.\n  Wait for it to finish, or remove a stale "
+            f"lock: {_RUN_LOCK_PATH}"
+        )
+        return False
+    os.ftruncate(fd, 0)
+    os.write(
+        fd, f"pid={os.getpid()} since={time.strftime('%Y-%m-%d %H:%M:%S')}".encode()
+    )
+    os.fsync(fd)
+    _run_lock_fd = fd  # keep the fd open; flock releases when it closes (on exit)
+    return True
+
+
+def _cmd_run(args) -> int:
+    """Run the selected demos (the `run` subcommand)."""
+    if args.backend != "docker" and not args.host:
+        print_error("Missing --host (or use --backend docker)")
+        print_info("Run 'python demos/demo.py run --help' for usage")
+        return 2
+
+    # Serialize demo runs: concurrent runs would clobber the shared CLI config
+    # home and collide on the shared target server.
+    if not _acquire_run_lock():
+        return 3
 
     # Determine output level
     output_level = _get_output_level(args)
@@ -147,17 +196,6 @@ def main() -> int:
 
     # Run phases
     return _run_all_phases(ctx, demos_to_run, results_host)
-
-
-def _extract_demo_dirs() -> list[Path]:
-    """Extract --demo-dir arguments from sys.argv."""
-    demo_dirs = []
-    args_iter = iter(sys.argv[1:])
-    for arg in args_iter:
-        if arg == "--demo-dir":
-            with contextlib.suppress(StopIteration):
-                demo_dirs.append(Path(next(args_iter)))
-    return demo_dirs
 
 
 def _get_output_level(args) -> OutputLevel:
@@ -239,6 +277,20 @@ def _resolve_demos(
             return None
 
         demos_to_run.append((name, demo_dir, is_generic))
+
+    # Feature-tag selection (--select / --skip)
+    select = getattr(args, "select", []) or []
+    skip = getattr(args, "skip", []) or []
+    if (select or skip) and demos_to_run:
+        before = len(demos_to_run)
+        demos_to_run = select_demos(demos_to_run, select, skip)
+        if not demos_to_run:
+            print_warning("No demos match the --select/--skip filter.")
+            return []
+        if len(demos_to_run) != before:
+            print_info(
+                f"Feature filter: {len(demos_to_run)} of {before} demos selected."
+            )
 
     if not demos_to_run:
         # This is OK in quick mode - all tests passed

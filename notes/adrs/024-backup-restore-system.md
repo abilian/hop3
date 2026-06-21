@@ -3,18 +3,11 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2025-11-08
-**Updated**: 2026-05-06
 **Related-ADRs**: 016, 020
-
-## Revisions
-
-- v1.2 (2026-05-06): Added cross-instance migration support (`hop3 backup register`, source-tree archival, restore now redeploys the app).
-- v1.1 (2026-04-14): Status refreshed; Phase 1 backup/restore shipped as the concrete implementation of the ADR 016 strategy.
-- v1.0 (2025-11-08): Original final version.
 
 ## Relationship to ADR 016
 
-This ADR describes the **Phase 1 implementation** of Hop3's backup system. [ADR 016](016-backups.md) defines the long-term backup strategy including features planned for future phases (automated scheduling, remote storage, encryption, incremental backups). This ADR focuses on the foundational implementation that enables those future enhancements.
+This ADR specifies the foundational implementation of Hop3's backup system. [ADR 016](016-backups.md) defines the long-term backup strategy, including features that build on this foundation (automated scheduling, remote storage, encryption, incremental backups). This ADR focuses on the file-based core that enables those enhancements.
 
 ## Context
 
@@ -35,7 +28,7 @@ The backup system must be:
 
 ## Decision
 
-We have implemented a **file-based backup system** with the following design:
+Hop3 uses a **file-based backup system** with the following design:
 
 ### Backup Format
 
@@ -51,11 +44,7 @@ Each backup is stored as a **directory** containing:
     └── postgres_<name>.sql
 ```
 
-Path is `HopConfig.BACKUP_ROOT` (defaults to `HOP3_ROOT/backups`).
-`source.tar.gz` archives both the deployed working copy (`src/`) and
-the bare git repo (`git/`) so backups remain meaningful for both deploy
-paths Hop3 supports — git-push (populates the bare repo) and the
-JSON-RPC tarball API (writes directly to `src/`).
+Path is `HopConfig.BACKUP_ROOT` (defaults to `HOP3_ROOT/backups`). `source.tar.gz` archives both the deployed working copy (`src/`) and the bare git repo (`git/`) so backups remain meaningful for both deploy paths Hop3 supports — git-push (populates the bare repo) and the JSON-RPC tarball API (writes directly to `src/`).
 
 ### Key Design Choices
 
@@ -157,14 +146,9 @@ This provides:
 
 ### Restore Behaviour
 
-`hop3 backup restore <id>` repopulates source / data / env / addons
-**and** invokes the build+spawn pipeline at the end. After the
-command returns, the app is running again — equivalent to its
-pre-backup state. This matters for cross-instance restore on a fresh
-host, where there is no prior build state to reuse.
+`hop3 backup restore <id>` repopulates source / data / env / addons **and** invokes the build+spawn pipeline at the end. After the command returns, the app is running again — equivalent to its pre-backup state. This matters for cross-instance restore on a fresh host, where there is no prior build state to reuse.
 
-Pass `--target-app <new-name>` to restore as a clone alongside the
-original, instead of in-place.
+Pass `--target-app <new-name>` to restore as a clone alongside the original, instead of in-place.
 
 ### Cross-Instance Migration
 
@@ -180,11 +164,7 @@ Backups are portable across Hop3 instances. The operator workflow:
 4. **On B**: `hop3 backup restore <id>` (or `... --target-app NAME`
    to restore under a different name).
 
-`backup register` is idempotent and verifies the manifest checksums
-before registering — a corrupted backup is rejected with a clear
-error rather than letting `restore` fail later with a less actionable
-message. Without registration, the destination's `restore_backup`
-DB lookup misses the transferred files entirely.
+`backup register` is idempotent and verifies the manifest checksums before registering — a corrupted backup is rejected with a clear error rather than letting `restore` fail later with a less actionable message. Without registration, the destination's `restore_backup` DB lookup misses the transferred files entirely.
 
 ## Consequences
 
@@ -314,7 +294,7 @@ DB lookup misses the transferred files entirely.
 
 - **Unit Tests:** BackupManifest, checksums, ID generation
 - **Integration Tests:** All CLI commands with mocked filesystem
-- **System Tests:** Real PostgreSQL in Docker (future)
+- **System Tests:** Real PostgreSQL in Docker
 - **E2E (single-instance):** round-trip create / list / info / restore
   / destroy, plus same-instance clone via `--target-app`.
 - **E2E (cross-instance migration):** two independent Docker instances
@@ -353,22 +333,22 @@ def backup(self) -> Path:
 
 ## Future Enhancements
 
-1. **Automated Backups** (Phase 2)
+1. **Automated Backups**
    - Scheduled backups with cron-like syntax
    - Configurable in `hop3.toml`
    - Retention policies with automatic cleanup
 
-2. **Remote Storage** (Phase 3)
+2. **Remote Storage**
    - S3, Backblaze B2, Azure Blob support
    - Pluggable storage backends
    - Automatic replication
 
-3. **Encryption** (Phase 3)
+3. **Encryption**
    - Age or GPG encryption
    - Key management
    - Optional per-backup or global
 
-4. **Incremental Backups** (Phase 3)
+4. **Incremental Backups**
    - rsync-based incremental
    - Hard-link unchanged files
    - Space-efficient

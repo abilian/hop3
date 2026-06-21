@@ -1,81 +1,61 @@
 # ADR 011: Data Encryption and Protection
 
-**Status**: Accepted (shipped posture; rotation / HSM deferred)
+**Status**: Accepted
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-04-14
 **Related-ADRs**: 010, 012, 013
-
-## Revisions
-
-- v0.2: Promoted from Draft to Accepted. The original Draft was too generic to validate; this revision replaces it with a concrete statement of what is shipped today and what remains future work (2026-04-14).
-- v0.1: Initial draft (2024-07-17)
-
-## Implementation Status
-
-**Shipped posture (production use across the hop3-server control plane):**
-
-- **Credentials at rest**: Addon credentials, session secrets, and magic-link tokens are encrypted with **Fernet AEAD** (AES-128-CBC + HMAC-SHA256) using a key derived from the server's `HOP3_SECRET_KEY` environment variable via **PBKDF2-HMAC-SHA256** (see `hop3/server/security/`).
-- **Passwords**: User passwords hashed with **bcrypt** at cost factor 12 (see ADR 014).
-- **JWT tokens**: Signed with HS256 against `HOP3_SECRET_KEY`; signature verification enforced on every RPC call.
-- **Transport**: HTTPS or SSH-tunnelled HTTP only. No plaintext RPC in production.
-- **Database at rest**: The control-plane SQLite/PostgreSQL file sits on the operator's host filesystem; Hop3 does not encrypt the file itself but relies on host-level protections (filesystem ACLs, optional full-disk encryption). Values the operator should not be able to read in plaintext (addon credentials, session secrets) are encrypted inside the row.
-
-**Deferred (not blocking; tracked here for future work):**
-
-- **Key rotation**: Manual rotation works (change `HOP3_SECRET_KEY`, re-encrypt); there is no automated rotation policy or secondary-key envelope scheme. A rotation-at-deploy-time mechanism is a candidate for post-0.6.
-- **Hardware-backed key storage (HSM, TPM, cloud KMS)**: Not supported. `HOP3_SECRET_KEY` lives in the server's environment; operators who require hardware-backed key storage should integrate at the OS level (sealed systemd credentials, TPM-backed keyrings).
-- **Database-file encryption**: Not provided by Hop3. Left to operator via host-level full-disk encryption.
-- **Per-tenant encryption keys**: Not applicable — Hop3 is single-tenant per deployment.
 
 ## Context and Goals
 
-Data protection is a critical aspect of securing the Hop3 platform. The goal is to ensure that all data handled by Hop3 is protected through robust encryption methods, both at rest and in transit. This will help protect sensitive information, comply with regulatory requirements, and build user trust.
+Data protection is a critical aspect of securing the Hop3 platform. Hop3 must ensure that the data it handles is protected through robust encryption methods, both at rest and in transit. This protects sensitive information, helps comply with regulatory requirements, and builds user trust.
+
+The control plane handles several classes of sensitive data — addon credentials, session secrets, magic-link tokens, user passwords, and RPC traffic — each with different protection requirements. The design must state, concretely, how each class is protected and where the protection boundary lies between Hop3 and the operator's host.
 
 ## Decision
 
-Hop3 will implement comprehensive data encryption strategies to protect data at rest and in transit. This includes using industry-standard encryption algorithms and ensuring that all sensitive data is encrypted to prevent unauthorized access and data breaches.
+Hop3 protects data at rest and in transit using industry-standard encryption algorithms, encrypting sensitive data to prevent unauthorized access and data breaches. The protection posture is defined per data class, and the boundary between platform-provided encryption and operator-provided host protection is made explicit.
 
-## Key Components
+## Detailed Design
 
-### Data Encryption
+### Encryption at Rest
 
-1. **Encryption at Rest**:
+- **Credentials and secrets**: Addon credentials, session secrets, and magic-link tokens are encrypted with **Fernet AEAD** (AES-128-CBC + HMAC-SHA256). The key is derived from the server's `HOP3_SECRET_KEY` environment variable via **PBKDF2-HMAC-SHA256**. The encryption routines live in `hop3/server/security/`.
+- **Passwords**: User passwords are hashed with **bcrypt** at cost factor 12 (see ADR 014).
+- **Database file**: The control-plane SQLite/PostgreSQL file sits on the operator's host filesystem. Hop3 does not encrypt the file itself; it relies on host-level protections (filesystem ACLs, optional full-disk encryption). Values the operator should not be able to read in plaintext — addon credentials, session secrets — are encrypted inside the row. This draws the boundary deliberately: row-level encryption protects secrets even from an operator with read access to the database, while file-level confidentiality is the operator's responsibility.
 
-   - **Database Encryption**: Encrypt all sensitive data stored in databases using strong encryption algorithms.
-   - **File System Encryption**: Ensure that files and backups are encrypted on disk.
+### Encryption in Transit
 
-1. **Encryption in Transit**:
-
-   - **Transport Layer Security (TLS)**: Use TLS to encrypt data transmitted over networks to protect against interception and eavesdropping.
-   - **Secure Communication Protocols**: Implement secure communication protocols for API interactions and data exchanges.
+- **Transport**: RPC traffic travels over HTTPS or SSH-tunnelled HTTP only. No plaintext RPC is permitted in production.
+- **JWT tokens**: Tokens are signed with HS256 against `HOP3_SECRET_KEY`, and signature verification is enforced on every RPC call.
 
 ### Key Management
 
-1. **Key Storage**:
-
-   - **Secure Key Management**: Use secure key management solutions to store and manage encryption keys.
-   - **Access Control**: Restrict access to encryption keys to authorized personnel only.
-
-1. **Key Rotation**:
-
-   - **Regular Key Rotation**: Implement a policy for regular rotation of encryption keys to limit the exposure of compromised keys.
-   - **Automated Key Management**: Use automated tools to manage key rotation and ensure compliance with security policies.
+- **Key storage**: `HOP3_SECRET_KEY` lives in the server's environment. Access is restricted to the server process. Operators who require hardware-backed key storage integrate at the OS level (sealed systemd credentials, TPM-backed keyrings); Hop3 does not embed an HSM, TPM, or cloud KMS dependency.
+- **Key rotation**: Rotation is performed manually by changing `HOP3_SECRET_KEY` and re-encrypting the affected values.
 
 ## Consequences
 
 ### Benefits
 
-- **Data Protection**: Ensures the confidentiality and integrity of sensitive data.
+- **Data Protection**: Ensures the confidentiality and integrity of sensitive data, including against an operator with raw database read access.
 - **Compliance**: Meets regulatory requirements for data protection and encryption.
-- **User Trust**: Enhances user trust by demonstrating a commitment to data security.
+- **User Trust**: Demonstrates a commitment to data security.
 
 ### Drawbacks
 
-- **Performance Overhead**: Encryption and decryption processes may introduce performance overhead.
-- **Complexity**: Managing encryption keys and ensuring proper implementation can add complexity.
+- **Performance Overhead**: Encryption, decryption, and password hashing introduce performance overhead.
+- **Complexity**: Managing encryption keys and ensuring correct implementation adds complexity.
 
 ## Risks
 
-- **Key Management Failures**: Risks associated with improper key management. Mitigation involves using secure key management solutions and regular audits.
-- **Encryption Performance**: Potential performance impact due to encryption. Mitigation includes optimizing encryption processes and using efficient algorithms.
+- **Key Management Failures**: Improper key management is the dominant risk. Mitigation relies on restricting access to `HOP3_SECRET_KEY` and on regular audits.
+- **Encryption Performance**: Encryption may impact performance. Mitigation includes efficient algorithm choices and bounding hashing cost (bcrypt cost factor 12).
+
+## Non-Goals and Boundaries
+
+The following are deliberately outside the scope Hop3 provides, and are left to the operator or to future work:
+
+- **Automated key rotation**: There is no automated rotation policy or secondary-key envelope scheme; rotation is manual.
+- **Hardware-backed key storage (HSM, TPM, cloud KMS)**: Not provided by Hop3. Operators requiring it integrate at the OS level.
+- **Database-file encryption**: Not provided by Hop3. The operator supplies host-level full-disk encryption.
+- **Per-tenant encryption keys**: Not applicable — Hop3 is single-tenant per deployment.

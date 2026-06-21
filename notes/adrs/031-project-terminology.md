@@ -1,15 +1,9 @@
 # ADR 031: Project Terminology (Ubiquitous Language)
 
-**Status**: Active (most terms stable; two ambiguities still open)
+**Status**: Active
 **Type**: Guideline
 **Created**: 2025-11-28
-**Updated**: 2026-04-14
 **Related-ADRs**: 020, 022, 030, 036
-
-## Revisions
-
-- v1.1 (2026-04-14): Most terminology here is stable and in active use. Two terms remain unresolved: (a) the **Blueprint** vocabulary for the "packaged-app installation" use case is *proposed*; (b) the **addon vs service** ambiguity flagged in ADR 036 needs to be resolved (current usage: `addon:*` for the CLI command group but `service-type` as a flag — these should converge).
-- v1.0 (2025-11-28): Original active version.
 
 ## Context
 
@@ -36,7 +30,7 @@ We adopt the following terminology as the standard vocabulary for Hop3.
 
 ### Applications and Blueprints
 
-> **Note**: The Blueprint terminology is **proposed** and under discussion.
+The Blueprint vocabulary is the candidate naming for the packaged-app installation use case; the open questions it raises are listed under [Unresolved Questions](#unresolved-questions).
 
 Hop3 supports two distinct use cases that both result in deployed applications:
 
@@ -50,10 +44,10 @@ Hop3 supports two distinct use cases that both result in deployed applications:
 | Term | Definition | Notes |
 |------|------------|-------|
 | **App** | A deployed application instance | Universal term for any deployed instance |
-| **Blueprint** | A packaged application definition in the catalog | ⚠️ *Proposed* |
+| **Blueprint** | A packaged application definition in the catalog | *Candidate term* |
 | **Custom App** | An App deployed from user's own code | No associated blueprint |
 | **Blueprint App** | An App created from a Blueprint | Has `blueprint_name` reference |
-| **Catalog** | Collection of available Blueprints | Also: "marketplace", "app store" |
+| **Catalog** | Collection of available Blueprints (free, self-host) | Canonical term; "marketplace" reserved for the commercial product (see below) |
 
 #### App Origin
 
@@ -63,6 +57,16 @@ An App can originate from:
 
 The origin is metadata, not a fundamental type distinction. All apps share the same management commands regardless of origin.
 
+#### Catalog vs. Marketplace
+
+**Catalog** is the canonical term for the free, self-host collection of installable Blueprints (browse → install → configure on your own server). It carries no commercial connotation — there are no prices, sellers, or payments.
+
+**Marketplace** is reserved for the future *commercial* product: a hosted, branded "SaaS marketplace" with premium/paid apps. Do not call the free feature a "marketplace" — keeping the two distinct stops a product feature being conflated with a business model.
+
+Spelling: use the US **catalog**, not the British "catalogue", to match the codebase's prevailing US-English convention (`color`, `license`, `behavior`).
+
+The web UI carries this name throughout: the `server/catalog/` package, the `CatalogController`/`CatalogService`/`CatalogApp` classes, and the `/dashboard/catalog` route. See [Migration Notes](#from-previous-terminology).
+
 #### Additional App Terms
 
 | Term | Definition | Notes |
@@ -71,7 +75,7 @@ The origin is metadata, not a fundamental type distinction. All apps share the s
 | **Process Type** | A named entry point in Procfile (e.g., `web`, `worker`) | Heroku-compatible |
 | **Worker** | A running instance of a process type | Can scale horizontally |
 
-#### Data Model (Proposed)
+#### Data Model
 
 ```python
 class App:
@@ -99,7 +103,7 @@ class Blueprint:
     # ... catalog metadata, deployment instructions
 ```
 
-#### CLI Examples (Proposed)
+#### CLI Examples
 
 **Custom App (Developer workflow):**
 ```bash
@@ -198,7 +202,7 @@ This is a critical distinction to avoid confusion:
 | Term | Definition | Context |
 |------|------------|---------|
 | **Backing Service** | 12-factor term for attached resources | We use "Addon" |
-| **Blueprint** | Packaged application definition in the catalog | ⚠️ *Proposed* - App Store use case |
+| **Blueprint** | Packaged application definition in the catalog | *Candidate term* — App Store use case |
 | **Blueprint App** | An App created from a Blueprint | Has `blueprint_name` reference |
 | **Build** | Process of preparing source code for deployment | |
 | **BuildArtifact** | Descriptor of built output | kind, location, metadata |
@@ -211,7 +215,7 @@ This is a critical distinction to avoid confusion:
 | Term | Definition | Context |
 |------|------------|---------|
 | **Caddy** | A reverse proxy implementation | Proxy plugin |
-| **Catalog** | Collection of available Blueprints | ⚠️ *Proposed* - Also: "marketplace" |
+| **Catalog** | Collection of available Blueprints (free, self-host) | Canonical; "marketplace" reserved for the commercial product (see M) |
 | **Container** | Docker/OCI container | Deployment target |
 | **Context** | Information passed to strategies | BuildContext, DeploymentContext |
 | **Custom App** | An App deployed from user's own code | No associated blueprint |
@@ -240,6 +244,12 @@ This is a critical distinction to avoid confusion:
 |------|------------|---------|
 | **LanguageToolchain** | Level 2: Language-specific build tools | PythonToolchain, NodeToolchain |
 | **LocalBuilder** | Builder that uses native toolchains on host | Default builder |
+
+### M
+
+| Term | Definition | Context |
+|------|------------|---------|
+| **Marketplace** | Reserved for the future commercial/hosted ("SaaS marketplace") product | NOT the free catalog — see [Catalog vs. Marketplace](#catalog-vs-marketplace) |
 
 ### N-O
 
@@ -323,25 +333,24 @@ This is a critical distinction to avoid confusion:
 
 ## Codebase Alignment
 
-Open terminology-alignment considerations:
+Two identifiers carry forward names that predate this vocabulary and remain candidates for alignment:
 
 | Item | Notes |
 |------|-------|
-| Rename directory `builders/` → `toolchains/` | Cosmetic; code is correct |
-| Consider `Addon.name` → `Addon.addon_type` | Ties into the addon vs service ambiguity |
+| Directory `builders/` → `toolchains/` | Cosmetic; the code is already correct |
+| `Addon.name` → `Addon.addon_type` | Ties into the addon-vs-service distinction |
 
 ---
 
-## Open Questions (Under Discussion)
+## Unresolved Questions
 
-The following terminology is proposed but not yet finalized:
+The Blueprint vocabulary names a use case whose terminology is not yet final. The following questions remain open.
 
 ### Blueprint Terminology
 
 1. **Is "Blueprint" the right term?**
    - Alternatives considered: Package, Template, Recipe, Offering
-   - "Blueprint" was chosen for its clear metaphor (blueprint → building)
-   - Feedback welcome
+   - "Blueprint" is preferred for its clear metaphor (blueprint → building)
 
 2. **Should blueprints be versioned independently?**
    - Can users upgrade a deployed app to a newer blueprint version?
@@ -374,6 +383,7 @@ The following terminology is proposed but not yet finalized:
 | `PlatformSetupStrategy` | `OS` | Clearer, specific |
 | `ProxyStrategy` | `Proxy` | Simpler |
 | `service_name` (in Addon) | `addon_name` | Consistent with Addon terminology |
+| `Marketplace*` / `server/marketplace/` / `/dashboard/marketplace` | `Catalog*` / `server/catalog/` / `/dashboard/catalog` | "Catalog" is the canonical name for the free feature; this is a UI-only rename, with no DB or RPC change. The `Catalog`-named classes in `hop3-testing`/`hop3-testlab` are a separate package and concept (test-app catalog) — no collision. |
 
 ### Deprecated Terms (Do Not Use)
 

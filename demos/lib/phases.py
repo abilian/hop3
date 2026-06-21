@@ -24,12 +24,14 @@ from lib.output import (
     pause,
     print_command,
     print_error,
+    print_failure_detail,
     print_header,
     print_info,
     print_phase_result,
     print_step,
     print_success,
     red,
+    yellow,
 )
 
 if TYPE_CHECKING:
@@ -549,6 +551,9 @@ def run_demo(
             skip_msg = f"Skipped: {reason}"
             if ctx.output_level >= OutputLevel.NORMAL:
                 print_info(f"Skipping {demo_name}: {reason}")
+            elif ctx.output_level == OutputLevel.QUIET:
+                # Complete the dangling "demoNN (desc)... " progress line.
+                print(f"{yellow('SKIP')} ({reason})")
             log_section("main", "Demo skipped", skip_msg)
             end_demo_logging()
             return DemoResult(
@@ -619,10 +624,16 @@ def run_demo(
         except Exception as capture_err:
             log_section("main", "Failed to capture debug info", str(capture_err))
 
-        # Print log location hint
+        # Actionable reason under the FAIL line (quiet) / log hint (normal).
         log_session = get_log_session()
-        if log_session and log_session.current_demo_dir:
-            print_info(f"  Logs: {log_session.current_demo_dir}")
+        log_dir = (
+            log_session.current_demo_dir
+            if log_session and log_session.current_demo_dir
+            else None
+        )
+        print_failure_detail(error_msg, log_dir)
+        if log_dir:
+            print_info(f"  Logs: {log_dir}")
 
         # Log full traceback to file (not console)
         import traceback

@@ -4,7 +4,7 @@
 
 """Behavioral proof that the compiled SecLang parses and enforces in the real
 engine. Skips when the optional ``lewaf`` extra isn't installed (needs Python
->= 3.12). The slice-3 equivalent of the compile-before-commit dry-run (ADR 048
+>= 3.12). The slice-3 equivalent of the compile-before-commit dry-run (ADR 050
 §5), now covering gates (chain + @ipMatch list) on lewaf >= 0.7.5."""
 
 from __future__ import annotations

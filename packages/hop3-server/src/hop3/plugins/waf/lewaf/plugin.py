@@ -1,7 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""LeWAF WAF-engine plugin registration (ADR 048)."""
+"""LeWAF WAF-engine plugin registration (ADR 050)."""
 
 from __future__ import annotations
 

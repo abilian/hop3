@@ -12,9 +12,15 @@ confirms they're gone, force-killing stragglers.
 
 from __future__ import annotations
 
+import os
 import signal
 
-from hop3.run.reaper import app_pids, proc_belongs_to_app, reap_app_processes
+from hop3.run.reaper import (
+    _protected_pids,
+    app_pids,
+    proc_belongs_to_app,
+    reap_app_processes,
+)
 
 
 class TestProcBelongsToApp:
@@ -57,6 +63,27 @@ def test_app_pids_empty_for_unknown_app():
     # No process has apps/<random>/ in its cmdline/cwd (and on a non-Linux dev
     # box there is no /proc at all) — either way, nothing to reap.
     assert app_pids("no-such-app-zzz-12345") == []
+
+
+def test_protected_pids_includes_self():
+    # The reaper's own process (and, on Linux, its ancestors) must be protected.
+    assert os.getpid() in _protected_pids()
+
+
+def test_app_pids_never_reaps_its_own_process_tree(monkeypatch):
+    """Regression: on a git-push redeploy the reaper runs inside the
+    git-receive-pack subtree (cwd under apps/<name>/), so a blanket cwd match
+    would SIGTERM its own ancestor mid-push. The reaper's process tree must be
+    excluded even when every process "belongs" to the app.
+
+    Forcing proc_belongs_to_app True makes every scanned PID a candidate; the
+    current process (and ancestors) must still be filtered out. On a procfs-less
+    host app_pids returns [] which trivially satisfies the assertion.
+    """
+    monkeypatch.setattr("hop3.run.reaper.proc_belongs_to_app", lambda *a, **k: True)
+    pids = app_pids("anything")
+    assert os.getpid() not in pids
+    assert os.getppid() not in pids
 
 
 def test_reap_returns_empty_when_nothing_running(monkeypatch):

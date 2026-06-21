@@ -72,7 +72,7 @@ Controls how your application is built and prepared for deployment.
 
 ```toml
 [build]
-# Builder to use: "auto", "local", or "docker"
+# Builder to use: "auto", "local", "docker", or "nix"
 builder = "local"
 
 # Commands to run during build
@@ -96,12 +96,15 @@ pip-install = ["setuptools", "wheel"]
   - `"auto"` (default): Auto-detect based on project files (Dockerfile → docker, otherwise local)
   - `"local"`: Use native language toolchains (Python, Node, Ruby, etc.) directly on host
   - `"docker"`: Build and run using Docker (requires Dockerfile)
+  - `"nix"`: Build with Nix (hand-crafted `hop3.nix` or a generated `[nix]` template — see [`[nix]`](#nix-template-based-nix-builds))
+- `toolchain` (string): Force a specific language toolchain (`python`, `node`, `ruby`, `go`, `rust`, `static`, …), overriding auto-detection. Rarely needed — toolchains are normally detected from project files.
 - `build` (string | array): Main build commands
 - `before-build` (string | array): Pre-build commands (maps to Procfile `prebuild`)
 - `test` (string | array): Test commands to run after build
 - `packages` (array): System packages required for building
 - `pip-install` (array): Python packages to install during build
 - `ignore` (array): Gitignore-style patterns excluded from the `hop3 deploy` upload (see below)
+- `static-dir` (string): For a static site (`toolchain = "static"`), the directory to serve, relative to the app root (e.g. `"site"`, `"html"`, `"dist"`). Defaults to `"public"`. See [Static sites](#static-sites) below.
 
 **Procfile Mapping:**
 - `build.before-build` → Procfile `prebuild`
@@ -115,7 +118,7 @@ When you run `hop3 deploy`, the CLI tars your working tree and uploads it. `[bui
 ignore = ["*.log", "tmp/", "coverage/", "*.sqlite3"]
 ```
 
-Patterns use gitignore syntax (including `!` negation), and are added **on top of** Hop3's built-in defaults — VCS metadata and dependency/cache dirs that the server regenerates (`.git/`, `node_modules/`, `.venv/`, `venv/`, `__pycache__/`, `*.py[cod]`, `.idea/`, `.DS_Store`, `.mypy_cache/`, `.pytest_cache/`, `.ruff_cache/`, `*.egg-info/`). So most apps need no `ignore` at all.
+Patterns use gitignore syntax (including `!` negation), and are added **on top of** Hop3's built-in defaults — VCS metadata and dependency/build/cache dirs that the server regenerates (`.git/`, `node_modules/`, `target/`, `.venv/`, `venv/`, `__pycache__/`, `*.py[cod]`, `.idea/`, `.DS_Store`, `.mypy_cache/`, `.pytest_cache/`, `.ruff_cache/`, `*.egg-info/`). So most apps need no `ignore` at all. (`target/` is Rust/Maven build output — the server rebuilds it from source.)
 
 **Other ignore files are scoped to their own deployment method — they do *not* affect the `hop3 deploy` upload:**
 
@@ -123,6 +126,25 @@ Patterns use gitignore syntax (including `!` negation), and are added **on top o
 - **`.dockerignore`** applies to the server-side **`docker build`** context when `builder = "docker"` (Docker honors it there). It is not applied to the upload.
 
 > The legacy `.hop3ignore` sidecar and the `[build].ignore-file` pointer are removed. Move any `.hop3ignore` patterns into `[build].ignore`; a leftover `.hop3ignore` is still read for one transition release with a deprecation warning, and `[build].ignore-file` is now a hop3.toml validation error.
+
+#### Static sites
+
+A static site (`toolchain = "static"`) is served straight from disk by nginx — no app process, and **no Procfile required**. Point Hop3 at the directory of files with `static-dir`:
+
+```toml
+[build]
+toolchain = "static"
+static-dir = "site"     # "html", "dist", … — defaults to "public"
+```
+
+The served directory is resolved in this order (first match wins):
+
+1. `[build].static-dir` — the canonical, first-class key.
+2. `[run.workers].static` — the equivalent worker spelling (back-compat).
+3. A Procfile `static: <dir>` line.
+4. `public` — the default when nothing is declared.
+
+So `[build].static-dir` (or just relying on the `public` default) is all a static site needs; the worker and Procfile forms exist only for compatibility.
 
 ### `[run]` - Runtime Configuration
 
@@ -206,7 +228,7 @@ SESSION_ID      = { generate = "uuid" }
 
 - The value is generated with a cryptographically secure RNG only when the variable is currently **unset**, then stored as a normal app env var (visible in `hop3 config show`).
 - It is **generated once and never rotated** on redeploy — so redeploys stay idempotent and a regenerated secret never silently invalidates existing sessions or data. Setting `_policy = "override"` does *not* force rotation.
-- To rotate a generated secret, run `hop3 config unset <app> KEY` and redeploy.
+- To rotate a generated secret, run `hop3 config unset --app <app> KEY` and redeploy.
 - A malformed spec (unknown generator, `length < 1`, unknown field) is a hop3.toml validation error — it fails the deploy loudly rather than producing a bad secret.
 
 #### Dynamic references
@@ -257,7 +279,7 @@ _policy = "keep-existing"   # optional; "override" to overwrite on every deploy
 
 - `[domains].list` is mutually exclusive with `HOST_NAME` under `[env]`. Setting both is a hop3.toml validation error — use one or the other.
 - At deploy time, the section is translated into the `HOST_NAME` env var that the reverse-proxy plugins (nginx / caddy / traefik) read.
-- An empty list (`list = []`) is a no-op: HOST_NAME is **not** unset. Use `hop3 domains clear <app>` to remove the binding explicitly.
+- An empty list (`list = []`) is a no-op: HOST_NAME is **not** unset. Use `hop3 domains clear --app <app>` to remove the binding explicitly.
 - For CRUD from the CLI, see `hop3 domains` in the CLI reference.
 
 ### `[port]` - Port Configuration
@@ -381,24 +403,25 @@ interval = 60             # Check interval in seconds
 - `path` (string): HTTP path for health checks
 - `timeout` (number): Timeout for health check requests
 - `interval` (number): How often to run health checks
+- `retries` (number): Number of failed checks before the app is marked unhealthy
 
 ### `[backup]` - Backup Configuration
 
-Backups are created **on demand** with `hop3 backup create <app>` and restored with `hop3 backup restore <id>`. A backup captures the app's source, environment variables, attached addons (e.g. a Postgres dump), the app's `data/` directory, **and every `[[volumes]]` volume** (each archived as its own unit) — so persistent data round-trips through restore.
+Backups are created **on demand** with `hop3 backup create --app <app>` and restored with `hop3 backup restore <id>` (where `<id>` is the backup id, not the app). A backup captures the app's source, environment variables, attached addons (e.g. a Postgres dump), the app's `data/` directory, **and every `[[volumes]]` volume** (each archived as its own unit) — so persistent data round-trips through restore.
 
 ```toml
 [backup]
-paths = ["data", "var/state"]   # extra directories to include
-exclude = ["*.tmp", "cache/"]    # patterns to leave out
+paths = ["var/state", "uploads"]   # extra app dirs to also archive
+exclude = ["*.tmp", "cache/*", "node_modules"]  # patterns to prune
 ```
 
 **Fields:**
-- `paths` (array): extra directories to include beyond the defaults.
-- `exclude` (array): glob patterns to exclude.
+- `exclude` (array): glob patterns pruned from the source and `data/` archives. A pattern matches the full path relative to the archived root (`cache/*`), a basename (`*.tmp`), or any single path segment (`node_modules`). Use it to keep regenerable or bulky files out of backups.
+- `paths` (array): **additional** app-relative directories to archive (into `extra.tar.gz`), beyond the whole source tree captured by default. Resolved relative to the app's source dir and **confined to the app tree** — an entry that escapes it (absolute path or `..`) fails the backup loudly. A declared directory that doesn't exist yet is skipped. Restored back into place on `hop3 backup restore`.
 
 **Notes:**
 - A `[[volumes]]` volume can opt out of backup with `[volumes.backup]` `include = false`.
-- Automated scheduling and retention are not implemented yet; run `hop3 backup create` from a cron job if you need a schedule. (The `paths` / `exclude` fields are reserved and not yet consumed.)
+- Automated scheduling and retention are not implemented yet; run `hop3 backup create` from a cron job if you need a schedule.
 
 ### `[[addons]]` - Backing Services
 
@@ -578,9 +601,7 @@ When `builder = "nix"` is set in `[build]`, Hop3 can generate a Nix expression a
 
 ### Template Types
 
-Eight templates are available. Prefer the higher tiers when possible
-— see [Nix reference](nix.md#reproducibility-tiers) for the
-reproducibility implications.
+Nine templates are available. Prefer the higher tiers when possible — see [Nix reference](nix.md#reproducibility-tiers) for the reproducibility implications.
 
 | Template | Use case | Tier |
 |----------|----------|------|
@@ -589,15 +610,12 @@ reproducibility implications.
 | `php-app` | PHP apps served with `php -S` or `artisan serve` | 2 |
 | `java-war` | Java WAR files served with a JDK from nixpkgs | 1 |
 | `ruby-bundler` | Ruby apps using `bundlerEnv` from `gemset.nix` | 2 |
+| `node-pnpm-install` | Node.js apps installed from npm via `pnpm install` | 2 |
 | `prebuilt-binary` | Pre-compiled single binary from upstream releases | 3 |
 | `prebuilt-archive` | Pre-compiled archive with multiple files | 3 |
 | `node-prebuilt` | Node.js apps with pre-built assets | 3 |
 
-**Tier 1 = source-built and reproducible** (use when available).
-**Tier 2 = source-built but not fully hermetic** (depends on PyPI,
-Packagist, etc. at build time).
-**Tier 3 = pre-built binary download** (x86_64-linux only, not
-reproducible from source — use only when nothing in nixpkgs fits).
+**Tier 1 = source-built and reproducible** (use when available). **Tier 2 = source-built but not fully hermetic** (depends on PyPI, Packagist, etc. at build time). **Tier 3 = pre-built binary download** (x86_64-linux only, not reproducible from source — use only when nothing in nixpkgs fits).
 
 ### Common Fields
 
@@ -681,9 +699,7 @@ post-install-dirs = ["storage/logs", "bootstrap/cache"]
 
 ### Complete Example (Gitea via nixpkgs-wrapper — Tier 1)
 
-This is the recommended pattern: wrap a nixpkgs source build with a
-startup script that generates the app.ini config from environment
-variables.
+This is the recommended pattern: wrap a nixpkgs source build with a startup script that generates the app.ini config from environment variables.
 
 ```toml
 [metadata]
@@ -740,7 +756,7 @@ type = "postgres"
 Use the migration command to convert an existing Procfile:
 
 ```bash
-hop3 config migrate procfile /path/to/app --dry-run
+hop3 app migrate procfile /path/to/app --dry-run
 ```
 
 This will generate a hop3.toml from your Procfile. Review and customize as needed.

@@ -342,13 +342,12 @@ hop3 init --ssh root@your-server.example.com
 Deploy the application (first deployment creates the app):
 
 ```bash exec id=deploy dir=hop3-tuto-drf timeout=120
-hop3 deploy hop3-tuto-drf
+hop3 deploy --app hop3-tuto-drf
 ```
 
 ### Set Environment Variables
 
-`SECRET_KEY` is generated automatically on the first deploy (see `hop3.toml`
-`[env]`). Set `ALLOWED_HOSTS` and the hostname for the application:
+`SECRET_KEY` is generated automatically on the first deploy (see `hop3.toml` `[env]`). Set `ALLOWED_HOSTS` and the hostname for the application:
 
 ```bash exec id=set-allowed-hosts timeout=30
 hop3 config set --app hop3-tuto-drf ALLOWED_HOSTS=hop3-tuto-drf.$HOP3_TEST_DOMAIN,localhost,127.0.0.1
@@ -363,7 +362,7 @@ hop3 config set --app hop3-tuto-drf HOST_NAME=hop3-tuto-drf.$HOP3_TEST_DOMAIN
 Redeploy to apply the configuration:
 
 ```bash exec id=redeploy dir=hop3-tuto-drf timeout=120
-hop3 deploy hop3-tuto-drf
+hop3 deploy --app hop3-tuto-drf
 ```
 
 ```output contains

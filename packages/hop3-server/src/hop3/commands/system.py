@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, ClassVar
 
-from hop3.config import HOP3_ROOT
+from hop3.config import HOP3_ROOT, config
 from hop3.core.plugins import get_plugin_manager
 from hop3.lib.args import parse_cli_args
 from hop3.lib.logging import DEFAULT_LOG_FILE
@@ -122,18 +122,95 @@ def _get_ip_addresses() -> list[str]:
     return ips
 
 
+def _format_duration(seconds: float) -> str:
+    """'14d 3h' for ≥1 day, else '3h 7m'."""
+    days, rem = divmod(int(seconds), 86400)
+    hours, rem = divmod(rem, 3600)
+    minutes = rem // 60
+    if days:
+        return f"{days}d {hours}h"
+    return f"{hours}h {minutes}m"
+
+
 def _get_uptime() -> str | None:
     """Human-readable host uptime (e.g. '14d 3h'). Linux-only."""
     try:
         seconds = float(pathlib.Path("/proc/uptime").read_text().split()[0])
     except (FileNotFoundError, ValueError, OSError):
         return None
-    days, rem = divmod(int(seconds), 86400)
-    hours, _ = divmod(rem, 3600)
-    if days:
-        return f"{days}d {hours}h"
-    minutes = rem // 60
-    return f"{hours}h {minutes}m"
+    return _format_duration(seconds)
+
+
+def _process_uptime() -> str | None:
+    """Uptime of THIS hop3-server process (e.g. '2d 3h'). Linux-only.
+
+    Derived from ``/proc/self/stat`` (process start, in clock ticks since boot)
+    and ``/proc/uptime`` (seconds since boot) — no psutil dependency. This is
+    the *server* uptime, distinct from host uptime: it resets on every
+    hop3-server restart.
+    """
+    try:
+        clk_tck = os.sysconf("SC_CLK_TCK")
+        stat = pathlib.Path("/proc/self/stat").read_text()
+        # comm (2nd field) can contain spaces/parens; everything after the final
+        # ')' is state(3), …, so starttime (field 22) is index 19 of that tail.
+        after_comm = stat[stat.rindex(")") + 1 :].split()
+        start_ticks = float(after_comm[19])
+        boot_uptime = float(pathlib.Path("/proc/uptime").read_text().split()[0])
+        return _format_duration(boot_uptime - start_ticks / clk_tck)
+    except (OSError, ValueError, IndexError, ZeroDivisionError):
+        return None
+
+
+def _acme_engine_summary() -> str:
+    """The TLS issuance engine actually in effect on the running server.
+
+    Reads the live config singleton (not the file), so it reflects what the
+    process will use — the answer to "why is my cert self-signed?".
+    """
+    engine = config.ACME_ENGINE
+    if engine == "certbot":
+        email = config.ACME_EMAIL
+        return f"certbot ({email})" if email else "certbot (ACME_EMAIL not set!)"
+    return engine
+
+
+def _database_backend() -> str:
+    """Control-plane DB backend (scheme only — never the URI, which may carry
+    a password). Mirrors the resolution in ``orm.session.get_session_factory``."""
+    uri = os.environ.get("HOP3_DATABASE_URI", "") or f"sqlite:///{HOP3_ROOT}/hop3.db"
+    return uri.split(":", 1)[0] or "unknown"
+
+
+def _installed_features() -> list[str]:
+    """Optional backing services / build features provisioned on this server.
+
+    Detected from the installer's own footprint, not a registry of *available*
+    plugins: addon admin creds in ``hop3-server.toml`` (postgres/mysql), the
+    per-service secret files the installer writes under ``/etc/hop3`` (redis/s3),
+    and the ``nix`` binary on PATH.
+    """
+    features: list[str] = []
+    try:
+        content = (HOP3_ROOT / "hop3-server.toml").read_text(encoding="utf-8")
+    except OSError:
+        content = ""
+    if "POSTGRES_SUPERUSER_PASSWORD" in content:
+        features.append("postgres")
+    if "MYSQL_SUPERUSER_PASSWORD" in content:
+        features.append("mysql")
+
+    # The per-service secrets are the installer's marker for `--with redis|s3`.
+    from hop3.plugins.redis.redis import REDIS_PASS_FILE  # noqa: PLC0415
+    from hop3.plugins.s3.backend import HOP3_S3_ENV_FILE  # noqa: PLC0415
+
+    if pathlib.Path(REDIS_PASS_FILE).exists():
+        features.append("redis")
+    if pathlib.Path(HOP3_S3_ENV_FILE).exists():
+        features.append("s3")
+    if shutil.which("nix"):
+        features.append("nix")
+    return features
 
 
 def _docker_installed() -> bool:
@@ -236,7 +313,7 @@ class SystemCmd(Command):
 
 @register
 class StatusCmd(Command):
-    """Show full health status of the Hop3 server.
+    """Show the server's health — services, addons, disk, certs (vs 'system info', static facts).
 
     Default output: one-line identity header + per-section health table.
     Bottom line summarises warnings and failures.
@@ -531,7 +608,11 @@ class StatusCmd(Command):
 
 @register
 class InfoCmd(Command):
-    """Show static facts about this server.
+    """Show static facts about this server — version, host, uptime, features (vs 'system status', live health).
+
+    Reports version/provenance, host and *server-process* uptime, the
+    control-plane database backend, the TLS issuance engine in effect, and the
+    optional backing services installed (postgres/mysql/redis/s3/nix).
 
     No liveness probes — use ``hop3 system status`` for "is everything OK?".
 
@@ -553,8 +634,10 @@ class InfoCmd(Command):
         os_info = f"{platform.system()} {platform.release()}"
         hostname = socket.gethostname()
         ips = _get_ip_addresses()
-        uptime = _get_uptime() or "unknown"
+        host_uptime = _get_uptime() or "unknown"
+        server_uptime = _process_uptime() or "unknown"
         docker = "installed" if _docker_installed() else "not installed"
+        features = _installed_features()
 
         lines = [
             f"Version:        {version}",
@@ -563,8 +646,12 @@ class InfoCmd(Command):
             f"Platform:       {os_info}",
             f"Hostname:       {hostname}",
             f"IP Addresses:   {', '.join(ips) if ips else 'unknown'}",
-            f"Uptime:         {uptime}",
+            f"Host uptime:    {host_uptime}",
+            f"Server uptime:  {server_uptime}",
+            f"Database:       {_database_backend()}",
+            f"TLS engine:     {_acme_engine_summary()}",
             f"Docker:         {docker}",
+            f"Features:       {', '.join(features) if features else '(none)'}",
         ]
 
         if verbose:

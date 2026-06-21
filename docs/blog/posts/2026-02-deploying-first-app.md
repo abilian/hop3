@@ -11,13 +11,13 @@ tags:
 
 Remember the first time you deployed something to Heroku? `git push heroku main` and suddenly your side project was live on the internet. That feeling of "wait, it just... works?" is what we're chasing with Hop3.
 
-The difference: your code runs on your server, not someone else's cloud. Same simplicity, full control.
+The difference: your code runs on your own server, with the same simplicity and full control.
 
 Let's deploy a Flask app from scratch. By the end of this post, you'll have a production-ready application with a database, custom domain, and SSL—all on a server you own.
 
 ## What You'll Need
 
-- A server running Ubuntu 22.04+ or Debian 12+ (a $5/month VPS works fine)
+- A server running Ubuntu 24.04+ or Debian 12+ (a $5/month VPS works fine)
 - SSH access to that server
 - A domain name (optional, but satisfying)
 

@@ -1,157 +1,96 @@
-# Hop3 0.6.0 Release Plan — Final NGI Version
+# Hop3 0.6.0 Release Plan
 
-**Target:** Early June 2026
-**Theme:** Complete all NGI commitments
-**Depends on:** 0.5.0 released
-**Last updated:** 2026-04-22 — proposed CLI commands migrated from colon syntax (`hop3 server:upgrade`, `hop3 app:upgrade`) to space form per ADR 036.
+**Target:** June 2026
+**Theme:** Completion and dissemination — finish the operational subsystems and put the documentation and design record into a published, audited form
+**Depends on:** 0.5.0 released (tagged 2026-04-22)
+**Last updated:** 2026-06-20 — reframed as an intermediate release; the final NGI deliverable is now 0.7 (see `release-plan-0.7.md`).
 
 ## Goals
 
-Version 0.6 is the final NGI deliverable release. Every milestone
-from the project plan (#2024-04-365) must be either complete or have
-a documented, justified deferral agreed with NGI reviewers.
+0.6 is **not** the final NGI deliverable release; that role moves to 0.7 (`release-plan-0.7.md`). 0.6 is the cycle that closes the operability work begun in 0.5 and turns the documentation and the design record into a form a reviewer can read end to end. Its dominant theme is dissemination: the ADR corpus, the testing-architecture narrative, the migration series, and the second interim technical report. A small number of subsystem milestones also completed in this window; the rest are carried forward to 0.7 with their state recorded plainly.
 
-## NGI Milestone Completion Matrix
+This file records **what was actually done** in the 0.6 cycle (~190 commits since the 0.5.0 tag). Items still open at the close of 0.6 are listed under "Carried to 0.7" and planned in `release-plan-0.7.md`.
 
-After 0.5.0, the following milestones remain open:
+## NGI Milestone Status After 0.6
 
-| Milestone | 0.5 Status | 0.6 Target |
-|-----------|-----------|------------|
-| M2.2 Nix runtime beta | Stabilised | Done |
-| M2.3 Nix runtime 1.0 | Not started | Done |
-| M3.1 Backing services | + S3 addon | + email addon (if not in 0.5) |
-| M3.2 Upgrades | Partial | `hop3 upgrade` |
-| M3.3 Backup migration | Not tested | Automated test |
-| M3.5 Firewalls/WAF | Not started | Done |
-| M3.6 CLI | Working | DX refactor done |
-| M3.7 Web UI | Reviewed | Polished, Git URL deploy |
-| M3.8 Security audit | 4 code fixes done | External review complete |
-| M4.1-4 Packaged apps | Reports started | All 20 reports, production traffic |
-| M5.3 Paper — benchmarks | Not started | Done |
-| M5.3 Paper — final | Interim report refreshed | Submitted and published |
-| M5.6 Screencasts | Not started | 2 screencasts published |
+| Milestone | 0.5 Status | 0.6 Outcome |
+|-----------|-----------|-------------|
+| M2.2 Nix runtime beta | Stabilised | Catalogue maintained; several deferred apps recovered |
+| M2.3 Nix runtime 1.0 | Not started | → 0.7 (docs polish, CI, release notes) |
+| M3.1 Backing services | + S3 addon | S3 shipped in 0.5; email addon → 0.7 |
+| M3.2 Upgrades | Partial | Upgrade path hardened (migrations on upgrade, venv preserved); production `hop3 upgrade` → 0.7 |
+| M3.3 Backup migration | Not tested | **Done** — automated cross-server test |
+| M3.5 Firewalls/WAF | Network design | Network firewall/port registry hardened (Final); WAF → 0.7 |
+| M3.6 CLI | Working | Refinements landed; ADR 042 Accepted, ADR 047 drafted |
+| M3.7 Web UI | Reviewed | Carried; Git-URL deploy stub present but disabled → 0.7 |
+| M3.8 Security audit | 4 code fixes done | Code fixes shipped; external review → 0.7 |
+| M4.1-4 Packaged apps | Reports drafted | 159 app configs; standalone reports remain Draft; production traffic → 0.7 |
+| M5.1 Website / blog | Shipped | **Extended** — 22 posts incl. testing series, 0.5.0 release, migration series started |
+| M5.2 Documentation | Shipped | **Audited** — accuracy pass against the code; full ADR corpus published |
+| M5.3 Paper — benchmarks | Not started | → 0.7 |
+| M5.3 Paper — interim | TR-01 refreshed | **Done** — TR-02 written |
+| M5.6 Screencasts | Not started | → 0.7 |
 
-## Scope
+## What shipped in 0.6
 
-### Firewall / WAF integration (M3.5)
+### Dissemination and documentation (T5) — DONE
 
-- [ ] Review LeWAF codebase (Coraza-based WAF)
-- [ ] Design WAF plugin architecture (per-app enable/disable in
-      `hop3.toml`, probably under `[security]`)
-- [ ] Implement nginx integration module
-- [ ] Test against OWASP Top 10 (SQLi, XSS, path traversal at minimum)
-- [ ] Basic network firewall rules (ufw/nftables) for app isolation
-- [ ] Document in admin guide
+- [x] **ADR corpus published.** `docs/scripts/convert_adrs.py` publishes all 49 ADRs from `notes/adrs/` to `docs/src/developers/adrs/`, rewriting cross-links and generating a status-grouped index in the navigation. The design record is now part of the documentation site rather than living only in the source tree.
+- [x] **ADR accuracy and voice pass.** All ADRs reviewed against the conventions in `000-readme.md`: status vocabulary normalised, stale "draft/deferred" statuses corrected to reflect shipped work, and the prose brought to a timeless architectural-record voice (no changelog-style play-by-play, no line/test counts).
+- [x] **Documentation accuracy audit against the code.** A full pass corrected drift between the docs and the shipped behaviour: the old colon command syntax replaced by the space form (ADR 036), the test taxonomy updated to the three-layer model (`a_unit`/`b_integration`/`c_e2e`, ADR 043), the build tool corrected from MkDocs to Zensical, a documented-but-unimplemented `logs --follow` flag removed, and all tutorials fixed.
+- [x] **Blog.** The 0.5.0 release post; a five-part series on the testing architecture (overview, runner, Test Lab, demos, executable-docs/validoc); and the first "migrating from X" post (Heroku). Conference posts for OW2Con 2025 and OSXP 2025 are live.
+- [x] **Diagrams.** ASCII-art diagrams across the docs aligned and, where the renderer supports it, converted to Mermaid.
+- [x] **TR-02.** The second interim technical report, covering the 0.5 and 0.6 cycles and complementing TR-01 without restating it.
 
-### Upgrade mechanism (M3.2)
+### Resilience (T3, M3.3) — DONE
 
-- [ ] `hop3 server upgrade` command (pulls latest, runs migrations,
-      restarts services)
-- [ ] App-level `hop3 app upgrade --app <app>` (re-deploy from latest source)
-- [ ] Rollback on failure (keep previous version)
-- [ ] Document upgrade procedure for admins
+- [x] **Automated cross-server backup-migration test** (`packages/hop3-server/tests/c_e2e/test_backup_migration.py`): backup on instance A, transfer, register, and restore on instance B, with negative-path coverage (corrupted backup refused, name-collision handling, manifest round-trip, byte-equal source tree).
+- [x] **Backups capture all app data** — volume data and the app `data/` directory are now archived.
 
-### Backup migration test (M3.3)
+### CLI (T3, M3.6) — refinements landed
 
-- [ ] Automated test: backup on server A, restore on server B
-- [ ] Add to `hop3-test` as a system test
-- [ ] Document disaster recovery procedure
+- [x] Post-ADR-036 renames and cleanups: `launch`→`create`, `backup info`→`backup show`, `addon ps`→`addon activity`, `env`→`app migrate`, `domains`→`domain`.
+- [x] Dropped the deprecated positional-app fallback — the app target is `--app` only (ADR 036 D5).
+- [x] **ADR 042 (CLI context model)** Accepted: the server/context vocabulary split. **ADR 047 (CLI invocation context)** drafted.
 
-### Paper benchmarks (M5.3)
+### Upgrade path hardening (T3, M3.2) — groundwork
 
-- [ ] Set up comparison server (Dokku + K3s)
-- [ ] Benchmark 1: Control plane memory (0, 10, 28 apps)
-- [ ] Benchmark 2: Deployment time (5 apps)
-- [ ] Benchmark 3: Nix closure vs Docker image sizes
-- [ ] Benchmark 4: Startup time
-- [ ] Integrate into paper Section 6.2
-- [ ] Submit paper
+- [x] Deploy/upgrade now runs database migrations and no longer clobbers the application venv on upgrade.
+- [x] `db:upgrade` adopts unstamped pre-Alembic databases; freshly created databases are stamped at head on bootstrap.
+- Production `hop3 upgrade` command and app-level upgrade orchestration → 0.7.
 
-### Screencasts (M5.6)
+### Network firewall (T3, M3.5) — hardened
 
-- [ ] Write scripts for both screencasts (~1 page each)
-- [ ] Set up clean dev VM, install Hop3 fresh, dry-run the demos
-- [ ] Record "Zero to Running App in 5 Minutes" (asciinema for
-      terminal, OBS for browser if needed)
-- [ ] Record "Dashboard Tour" (browser screen recording)
-- [ ] Edit, add captions, export, upload to website + PeerTube
-- [ ] Update `docs/src/getting-started.md` to embed the videos
+- [x] Fixed-port registry teardown hardened; firewall errors now fail loud rather than passing silently. **ADR 045 (Fixed-Port Registry)** is Final and supersedes ADR 040.
+- WAF (Coraza / OWASP-CRS) → 0.7.
 
-### Web UI polish (M3.7)
+### Application catalogue (T4) — maintained
 
-- [ ] Visual review with a designer or UX-aware developer
-- [ ] Deploy from Git URL in web UI
-- [ ] Real-time log streaming in browser
-- [ ] Mobile-responsive layout check
+- [x] 159 app configurations: 41 native, 34 hand-crafted Nix, 31 template-generated Nix, 53 Docker.
+- [x] Several previously deferred Nix apps recovered into working variants (etherpad → nix-gen, listmonk → nix-gen, matrix-synapse → nix). HedgeDoc and CryptPad remain under `apps/bad/` with `DEFERRED.md` notes pointing at the platform gap.
 
-### Security external review (M3.8)
+## Carried to 0.7 (the final NGI deliverable)
 
-- [ ] Address any feedback from external review
-- [ ] Accessibility scan (a11y) and fix critical issues
-- [ ] Document security model in admin guide
+Planned in `release-plan-0.7.md`:
 
-### Packaged apps — remaining reports (M4.1-4)
+- M2.3 — Nix runtime "1.0" (docs polish, CI integration, release notes).
+- M3.1 — email/SMTP addon.
+- M3.2 — production `hop3 upgrade` command, app-level upgrade orchestration, rollback on failure.
+- M3.5 — WAF (Coraza / OWASP-CRS) integration.
+- M3.7 — web UI: Git-URL deploy (the form field exists but is disabled), real-time log streaming, visual/accessibility review, mobile-responsive check.
+- M3.8 — external security review and accessibility scan.
+- M4 — production-traffic deployments and finalisation of the 20 experience reports (currently Draft).
+- M5.3 — quantitative benchmarks and final paper submission.
+- M5.6 — two screencasts ("Zero to Running App", "Dashboard Tour").
+- T5 — publish the remaining 21 "migrating from X" drafts.
 
-- [ ] Revise experience reports (already drafted for 0.5)
-- [ ] Application gallery page on hop3.cloud
-- [ ] Per-app README with deployment instructions
+## Release mechanics (0.6)
 
-### Paper follow-up (M5.3)
-
-- [ ] Address reviewer feedback (if submitted in 0.5)
-- [ ] Final camera-ready version
-- [ ] Archive on HAL/arXiv
-
-### Source builds (continued from 0.5)
-
-- [ ] Complete remaining Go source builds started in 0.5
-- [ ] Grafana, Mattermost, Focalboard: source build or documented deferral
-- [ ] Update reproducibility assessment in ADR 008
-
-### Multi-component apps (continued from 0.5)
-
-- [ ] Implement `[run.workers]` for NextCloud cron, Invoice Ninja queue
-- [ ] Test Mastodon-like multi-service deployment if ADR is accepted
-
-### Release mechanics
-
-- [ ] Update version to 0.6.0
-- [ ] Write CHANGELOG
-- [ ] Tag v0.6.0
-- [ ] Blog post: "Hop3 0.6: NGI Complete"
-- [ ] Final NGI project report
+- [ ] Add the missing `[0.5.0]` changelog entry, then a `[0.6.0]` entry (the changelog currently skips from `[0.4.0]` to `[Unreleased]`).
+- [ ] Bump version to 0.6.0 across `pyproject.toml` (still 0.5.0).
+- [ ] Tag v0.6.0.
+- [ ] Blog post: "Hop3 0.6: Documentation, Testing, and the Migration Series".
 
 ## Out of Scope for 0.6
 
-These are valuable but not NGI commitments:
-
-- Agent model (ADR 017) — post-NGI, towards 0.7/1.0
-- SSO / identity management — post-NGI
-- Monitoring / metrics dashboard — post-NGI
-- Multi-server / distributed deployment — post-NGI (JumpGATE)
-- Marketplace — post-NGI
-
-## Effort Estimate
-
-| Area | Days |
-|------|------|
-| Firewall/WAF integration (M3.5) | 5-7 |
-| Upgrade mechanism (M3.2) | 3 |
-| Backup migration (M3.3) | 2 |
-| Paper benchmarks (M5.3) | 4-5 |
-| Paper final + submit (M5.3) | 2 |
-| Screencasts (M5.6) | 2-3 |
-| Web UI polish (M3.7) | 4 |
-| Security external review (M3.8) | 2 |
-| Email addon (if not in 0.5) | 2-3 |
-| Experience reports finalization (M4) | 3 |
-| Release mechanics | 1 |
-| **Total** | **~30-35 days** |
-
-## Risk Register
-
-| Risk | Mitigation |
-|------|------------|
-| External security review delays | Submit early; proceed with internal assessment if external review is slow |
-| Paper rejected | Re-submit to workshop venue; archive on HAL regardless |
-| 21 days doesn't fit in 4 weeks | Prioritise NGI-visible deliverables (M4 reports, M5.3); defer UI polish if needed |
+Valuable but not NGI commitments, post-NGI (towards 0.7+/1.0): the agent model (ADR 017), SSO / identity management, a monitoring / metrics dashboard, multi-server / distributed deployment (JumpGATE), and a marketplace.

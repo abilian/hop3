@@ -49,6 +49,8 @@ class AdminReencryptCredentialsCmd(Command):
     addon_credential_repo: AddonCredentialRepository
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("admin", "reencrypt-credentials")
+    # ADR 036 D3: `admin` is off the user-visible surface (still runnable).
+    hidden: ClassVar[bool] = True
     pass_username: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", *args: str) -> list[dict]:

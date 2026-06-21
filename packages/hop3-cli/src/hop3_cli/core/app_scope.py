@@ -67,6 +67,17 @@ _ENV_SCOPED: set[tuple[str, ...]] = {
 }
 _CONFIG_SCOPED: set[tuple[str, ...]] = {("config", *rest) for (_, *rest) in _ENV_SCOPED}
 
+# Addon attach/detach bind an addon to a single app — the app is the `--app`
+# target. They MUST be app-scoped: `parse_flags` strips the user's `--app` into
+# `flags.app`, and only app-scoped commands get it re-injected into the forwarded
+# argv. Without these entries the explicit `--app` is silently dropped and the
+# server rejects the call with "--app parameter is required". (`addon create` /
+# `destroy` / `show` / `list` operate on the addon, not an app — not scoped.)
+_ADDON_SCOPED: set[tuple[str, ...]] = {
+    ("addon", "attach"),
+    ("addon", "detach"),
+}
+
 # Backup commands.
 _BACKUP_SCOPED: set[tuple[str, ...]] = {
     ("backup", "create"),
@@ -76,12 +87,29 @@ _BACKUP_SCOPED: set[tuple[str, ...]] = {
     # Treat like backup create: injection allowed but optional.
 }
 
+# Domain commands (each manages a single app's hostnames). The app is the
+# `--app` flag; the positionals are hostnames. `domains` is the alias the
+# client may also send. The bare namespace is absent (it shows help).
+_DOMAIN_SCOPED: set[tuple[str, ...]] = {
+    ("domain", "add"),
+    ("domain", "remove"),
+    ("domain", "set"),
+    ("domain", "clear"),
+    ("domain", "list"),
+}
+_DOMAINS_SCOPED: set[tuple[str, ...]] = {
+    ("domains", *rest) for (_, *rest) in _DOMAIN_SCOPED
+}
+
 APP_SCOPED_COMMANDS: set[tuple[str, ...]] = (
     _TOP_LEVEL_APP_SCOPED
     | _APP_NAMESPACE_SCOPED
     | _ENV_SCOPED
     | _CONFIG_SCOPED
+    | _ADDON_SCOPED
     | _BACKUP_SCOPED
+    | _DOMAIN_SCOPED
+    | _DOMAINS_SCOPED
 )
 
 

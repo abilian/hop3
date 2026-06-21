@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Operator-defined named networks — CIDR sets referenced by WAF gates.
 
-A WAF access gate (ADR 048 §2, ``[[waf.gate]] require = "office"``) names a
+A WAF access gate (ADR 050 §2, ``[[waf.gate]] require = "office"``) names a
 network rather than hard-coding CIDRs in the app's ``hop3.toml``: the operator
 owns the address ranges (office / VPN), they can change without redeploying the
 app, and the app config stays portable across servers. Networks are host-wide

@@ -102,7 +102,7 @@ class TestGitSetupCmdIntegration:
         cmd = GitSetupCmd(db_session=db_session)
 
         with pytest.raises(ValueError, match=r"not found"):
-            cmd.call("nonexistent-app")
+            cmd.call("--app", "nonexistent-app")
 
     def test_git_setup_success(self, db_session: Session, test_app_for_git: App):
         """Test successful git setup for an app.
@@ -121,7 +121,7 @@ class TestGitSetupCmdIntegration:
         cmd = GitSetupCmd(db_session=db_session)
 
         with patch("hop3.core.git.GitManager.setup_hook") as mock_setup:
-            result = cmd.call("git-test-app")
+            result = cmd.call("--app", "git-test-app")
 
         # Verify setup_hook was called
         mock_setup.assert_called_once()
@@ -156,7 +156,7 @@ class TestGitSetupCmdIntegration:
         cmd = GitSetupCmd(db_session=db_session)
 
         with patch("hop3.core.git.GitManager.setup_hook"):
-            result = cmd.call("git-test-app")
+            result = cmd.call("--app", "git-test-app")
 
         # Join all result text
         result_text = " ".join(r.get("text", "") for r in result)
@@ -200,7 +200,7 @@ class TestGitSetupCmdIntegration:
             patch("hop3.core.git.GitManager.setup_hook"),
             patch("socket.gethostname", return_value="test-server.local"),
         ):
-            result = cmd.call("no-hostname-app")
+            result = cmd.call("--app", "no-hostname-app")
 
         # Join all result text
         result_text = " ".join(r.get("text", "") for r in result)
@@ -232,7 +232,7 @@ class TestGitSetupCmdIntegration:
         cmd = GitSetupCmd(db_session=db_session)
 
         # Don't mock setup_hook to test actual behavior
-        result = cmd.call("git-test-app")
+        result = cmd.call("--app", "git-test-app")
 
         # Verify success
         assert result[0]["t"] == "success"
@@ -262,11 +262,11 @@ class TestGitSetupCmdIntegration:
         cmd = GitSetupCmd(db_session=db_session)
 
         # First call
-        result1 = cmd.call("git-test-app")
+        result1 = cmd.call("--app", "git-test-app")
         assert result1[0]["t"] == "success"
 
         # Second call should also succeed (idempotent)
-        result2 = cmd.call("git-test-app")
+        result2 = cmd.call("--app", "git-test-app")
         assert result2[0]["t"] == "success"
 
         # Repository should still be valid

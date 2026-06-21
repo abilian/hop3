@@ -445,7 +445,7 @@ hop3 config set --app hop3-tuto-fastapi ENVIRONMENT=production
 Deploy the application (first deployment creates the app):
 
 ```bash
-hop3 deploy hop3-tuto-fastapi
+hop3 deploy --app hop3-tuto-fastapi
 ```
 
 ### Set Hostname
@@ -461,7 +461,7 @@ hop3 config set --app hop3-tuto-fastapi HOST_NAME=hop3-tuto-fastapi.$HOP3_TEST_D
 Redeploy to apply the hostname configuration:
 
 ```bash
-hop3 deploy hop3-tuto-fastapi
+hop3 deploy --app hop3-tuto-fastapi
 ```
 
 Wait for the application to start:
@@ -517,7 +517,7 @@ hop3 app restart --app hop3-tuto-fastapi
 ### Run Commands in the Application Context
 
 ```bash
-hop3 run hop3-tuto-fastapi python -c "from config import get_settings; print(get_settings())"
+hop3 run --app hop3-tuto-fastapi python -c "from config import get_settings; print(get_settings())"
 ```
 
 ### View and Manage Environment Variables
@@ -537,7 +537,7 @@ hop3 config unset --app hop3-tuto-fastapi OLD_VARIABLE
 
 ```bash
 # Check current processes
-hop3 ps hop3-tuto-fastapi
+hop3 ps --app hop3-tuto-fastapi
 
 # Scale web workers
 hop3 ps scale --app hop3-tuto-fastapi web=2

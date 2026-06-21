@@ -22,12 +22,12 @@ The Hop3 CLI has been enhanced with:
 ### 1. Destructive Commands Now Require Confirmation
 
 **Affected commands:**
-- `hop3 app destroy <app>`
+- `hop3 app destroy --app <app>`
 - `hop3 backup destroy <backup-id>`
-- `hop3 addon destroy <service>`
+- `hop3 addon destroy <name>`
 
 **What changed:**
-These commands now prompt for confirmation by typing the app/service name or backup ID.
+These commands now prompt for confirmation by typing the app/addon name or backup ID.
 
 **Migration:**
 
@@ -41,7 +41,7 @@ hop3 backup destroy old-backup-123
 **After (Option 1 - Add -y flag):**
 ```bash
 #!/bin/bash
-hop3 app destroy old-app -y
+hop3 app destroy --app old-app -y
 hop3 backup destroy old-backup-123 -y
 ```
 
@@ -49,7 +49,7 @@ hop3 backup destroy old-backup-123 -y
 ```bash
 #!/bin/bash
 expect << EOF
-spawn hop3 app destroy old-app
+spawn hop3 app destroy --app old-app
 expect "Type the app name to confirm:"
 send "old-app\r"
 expect eof
@@ -72,7 +72,7 @@ EOF
 ```bash
 #!/bin/bash
 # Fragile - breaks if output format changes
-STATUS=$(hop3 app status myapp | grep "Status:" | awk '{print $2}')
+STATUS=$(hop3 app status --app myapp | grep "Status:" | awk '{print $2}')
 if [ "$STATUS" = "RUNNING" ]; then
     echo "App is running"
 fi
@@ -82,7 +82,7 @@ fi
 ```bash
 #!/bin/bash
 # Robust - works with any output format changes
-STATUS=$(hop3 app status myapp --json | jq -r '.data.state')
+STATUS=$(hop3 app status --app myapp --json | jq -r '.data.state')
 if [ "$STATUS" = "RUNNING" ]; then
     echo "App is running"
 fi
@@ -144,9 +144,11 @@ Some commands have been renamed for consistency and clarity.
 
 | Old Command | New Command | Notes |
 |------------|-------------|-------|
-| `hop3 destroy <app>` | `hop3 app destroy <app>` | Namespaced under `app:` |
-| `hop3 status <app>` | `hop3 app status <app>` | Namespaced under `app:` |
-| `hop3 restart <app>` | `hop3 app restart <app>` | Namespaced under `app:` |
+| `hop3 destroy <app>` | `hop3 app destroy --app <app>` | Namespaced under `app` |
+| `hop3 status <app>` | `hop3 app status --app <app>` | Namespaced under `app` |
+| `hop3 restart <app>` | `hop3 app restart --app <app>` | Namespaced under `app` |
+
+The CLI is space-separated (no colon syntax such as `app:status`), and the target app is always passed with the `--app` flag rather than as a positional argument. When you run inside an app's directory or have set a sticky app for the context, `--app` can be omitted and the app is resolved automatically.
 
 **Migration:**
 
@@ -159,12 +161,12 @@ hop3 destroy myapp
 
 **After:**
 ```bash
-hop3 app status myapp
-hop3 app restart myapp
-hop3 app destroy myapp
+hop3 app status --app myapp
+hop3 app restart --app myapp
+hop3 app destroy --app myapp
 ```
 
-**Note:** Old commands may still work as aliases, but we recommend updating to the new names for future compatibility.
+**Note:** The old short names are still accepted as aliases (`hop3 status`, `hop3 restart`, `hop3 destroy`), but we recommend updating to the namespaced names.
 
 ---
 
@@ -195,7 +197,7 @@ echo "Deploying application..."
 hop3 deploy --quiet
 
 echo "Checking status..."
-STATUS=$(hop3 app status myapp --json --quiet | jq -r '.data.state')
+STATUS=$(hop3 app status --app myapp --json --quiet | jq -r '.data.state')
 
 if [ "$STATUS" = "RUNNING" ]; then
     echo "Deployment complete! App is running."
@@ -213,7 +215,7 @@ fi
 #!/bin/bash
 
 # Create backup
-hop3 backup create myapp
+hop3 backup create --app myapp
 
 # Deploy new version
 hop3 deploy
@@ -232,7 +234,7 @@ set -e
 
 # Create backup and capture ID
 echo "Creating backup..."
-BACKUP_RESPONSE=$(hop3 backup create myapp --json --quiet)
+BACKUP_RESPONSE=$(hop3 backup create --app myapp --json --quiet)
 BACKUP_ID=$(echo "$BACKUP_RESPONSE" | jq -r '.data.backup_id')
 echo "Backup created: $BACKUP_ID"
 
@@ -241,11 +243,11 @@ echo "Deploying..."
 hop3 deploy --quiet
 
 # Test deployment
-STATUS=$(hop3 app status myapp --json --quiet | jq -r '.data.state')
+STATUS=$(hop3 app status --app myapp --json --quiet | jq -r '.data.state')
 if [ "$STATUS" != "RUNNING" ]; then
     echo "Deployment failed! Rolling back..."
     hop3 backup restore "$BACKUP_ID" -y
-    hop3 app restart myapp -y
+    hop3 app restart --app myapp -y
     exit 1
 fi
 
@@ -270,7 +272,7 @@ echo "Deployment and cleanup complete!"
 
 for app in app1 app2 app3; do
     echo "Checking $app..."
-    hop3 status "$app"
+    hop3 app status --app "$app"
 done
 ```
 
@@ -284,7 +286,7 @@ echo "========================"
 FAILED=0
 
 for app in app1 app2 app3; do
-    STATUS=$(hop3 app status "$app" --json --quiet 2>/dev/null | jq -r '.data.state')
+    STATUS=$(hop3 app status --app "$app" --json --quiet 2>/dev/null | jq -r '.data.state')
 
     if [ "$STATUS" = "RUNNING" ]; then
         echo "✓ $app: RUNNING"
@@ -311,12 +313,12 @@ fi
 #!/bin/bash
 
 # Set variables
-hop3 config set myapp DATABASE_URL=postgres://...
-hop3 config set myapp REDIS_URL=redis://...
-hop3 config set myapp API_TOKEN=abc123
+hop3 env set --app myapp DATABASE_URL=postgres://...
+hop3 env set --app myapp REDIS_URL=redis://...
+hop3 env set --app myapp API_TOKEN=abc123
 
 # Restart
-hop3 restart myapp
+hop3 app restart --app myapp
 ```
 
 **After:**
@@ -326,7 +328,7 @@ set -e
 
 # Set multiple variables in one command
 echo "Setting environment variables..."
-hop3 config set myapp \
+hop3 env set --app myapp \
     DATABASE_URL=postgres://... \
     REDIS_URL=redis://... \
     API_TOKEN=abc123 \
@@ -334,15 +336,15 @@ hop3 config set myapp \
 
 # Verify variables are set
 echo "Verifying configuration..."
-VARS=$(hop3 config show myapp --json --quiet | jq -r '.data | keys[]')
+VARS=$(hop3 env show --app myapp --json --quiet | jq -r '.data | keys[]')
 echo "Set variables: $VARS"
 
 # Restart application
 echo "Restarting application..."
-hop3 app restart myapp --quiet
+hop3 app restart --app myapp --quiet
 
 # Verify restart
-STATUS=$(hop3 app status myapp --json --quiet | jq -r '.data.state')
+STATUS=$(hop3 app status --app myapp --json --quiet | jq -r '.data.state')
 if [ "$STATUS" = "RUNNING" ]; then
     echo "Configuration updated and app restarted successfully!"
 else
@@ -360,9 +362,8 @@ fi
 Always test migrated scripts in a development or staging environment first:
 
 ```bash
-# Set HOP3_DEV_HOST to target a test server
-export HOP3_DEV_HOST=dev.hop3.example.com
-hop3 login --server $HOP3_DEV_HOST
+# Authenticate against a test server (SSH-based auth)
+hop3 login --ssh root@dev.hop3.example.com
 
 # Run your migrated script
 ./deploy.sh
@@ -374,10 +375,10 @@ Check that your JSON parsing is correct:
 
 ```bash
 # See the full JSON structure
-hop3 app status myapp --json | jq .
+hop3 app status --app myapp --json | jq .
 
 # Test your jq queries
-hop3 app status myapp --json | jq -r '.data.state'
+hop3 app status --app myapp --json | jq -r '.data.state'
 hop3 backup list myapp --json | jq -r '.data[].id'
 ```
 
@@ -387,11 +388,11 @@ Ensure your scripts handle errors gracefully:
 
 ```bash
 # Test with non-existent app
-hop3 app status fake-app --json --quiet
+hop3 app status --app fake-app --json --quiet
 echo "Exit code: $?"
 
 # Test destructive command with -y
-hop3 app destroy test-app -y
+hop3 app destroy --app test-app -y
 ```
 
 ---
@@ -431,7 +432,7 @@ exit 1
 
 echo "Waiting for app to start..."
 for i in {1..30}; do
-    STATUS=$(hop3 app status myapp --json --quiet | jq -r '.data.state')
+    STATUS=$(hop3 app status --app myapp --json --quiet | jq -r '.data.state')
 
     if [ "$STATUS" = "RUNNING" ]; then
         echo "App is running!"
@@ -452,16 +453,16 @@ exit 1
 #!/bin/bash
 
 # Only deploy if app is currently running
-CURRENT_STATUS=$(hop3 app status myapp --json --quiet | jq -r '.data.state')
+CURRENT_STATUS=$(hop3 app status --app myapp --json --quiet | jq -r '.data.state')
 
 if [ "$CURRENT_STATUS" != "RUNNING" ]; then
-    echo "App is not running. Start it first with: hop3 app start myapp"
+    echo "App is not running. Start it first with: hop3 app start --app myapp"
     exit 1
 fi
 
 # Create backup before deploy
 echo "Creating pre-deployment backup..."
-BACKUP_ID=$(hop3 backup create myapp --json --quiet | jq -r '.data.backup_id')
+BACKUP_ID=$(hop3 backup create --app myapp --json --quiet | jq -r '.data.backup_id')
 
 # Deploy
 if hop3 deploy --quiet; then
@@ -469,7 +470,7 @@ if hop3 deploy --quiet; then
 else
     echo "Deploy failed! Restoring from backup $BACKUP_ID"
     hop3 backup restore "$BACKUP_ID" -y
-    hop3 app restart myapp -y
+    hop3 app restart --app myapp -y
     exit 1
 fi
 ```
@@ -501,7 +502,7 @@ export NO_COLOR=1
 
 **A:** Install `jq` - it's the best tool for JSON parsing. Alternatively, use Python:
 ```bash
-hop3 app status myapp --json | python3 -c "import sys, json; print(json.load(sys.stdin)['data']['state'])"
+hop3 app status --app myapp --json | python3 -c "import sys, json; print(json.load(sys.stdin)['data']['state'])"
 ```
 
 ### Q: How do I debug script issues?

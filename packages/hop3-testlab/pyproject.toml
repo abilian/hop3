@@ -22,6 +22,9 @@ dependencies = [
     "apscheduler>=3.10,<4",
     # Renders the narrative run report (markdown -> HTML).
     "markdown>=3.5",
+    "asyncpg>=0.31.0",
+    "pydantic>=2.13.4",
+    "uvicorn>=0.49.0",
 ]
 
 [project.scripts]
@@ -36,4 +39,18 @@ build-backend = "uv_build"
 project-includes = [
     "**/*.py*",
     "**/*.ipynb",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "mypy>=2.1.0",
+    "nox>=2026.4.10",
+    "pre-commit>=4.6.0",
+    "pyrefly>=1.1.0",
+    "pytest>=9.1.0",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.17",
+    "ty>=0.0.50",
 ]

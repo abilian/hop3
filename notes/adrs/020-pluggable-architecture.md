@@ -3,13 +3,7 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2024-10-01
-**Updated**: 2026-04-14
 **Related-ADRs**: 021, 022, 028, 030
-
-## Revisions
-
-- v1.1: Cross-reference added to ADR 030, which extended the decomposition in this ADR by splitting "Build" into Builder (Level 1, how to build — local/Docker/Nix) and LanguageToolchain (Level 2, what to build — Python/Node/Go/…) (2026-04-14).
-- v1.0: Original final version (2024-10-01)
 
 ## Introduction
 
@@ -53,19 +47,33 @@ The new architecture is composed of several key concepts:
     *   Passing data between stages (`BuildArtifact` and `DeploymentInfo` data classes).
 
 2.  **Strategies (Plugins):** These are classes that implement the logic for a specific stage. Each strategy must implement a specific Python `Protocol` (interface):
-    *   **`Builder`**: Defines a `build()` method that takes source code and returns a `BuildArtifact` (e.g., a path to a built directory or a Docker image tag).
-    *   **`Deployer`**: Defines a `deploy()` method that takes a `BuildArtifact` and returns `DeploymentInfo` (e.g., the host/port or socket path of the running application).
-    *   **`ProxyStrategy`**: Defines a `configure()` method that takes `DeploymentInfo` to set up the reverse proxy.
+    *   **`Builder`**: Defines a `build()` method that takes source code and returns a `BuildArtifact` (e.g., a path to a built directory or a Docker image tag). Core builders are `NativeBuildPlugin` (the default, wrapping the per-language builders for Python, Node, Ruby, Go, Static, …) and `DockerBuilder`, with auto-detection through `accept()`.
+    *   **`Deployer`**: Defines a `deploy()` method that takes a `BuildArtifact` and returns `DeploymentInfo` (e.g., the host/port or socket path of the running application). Core deployers are `UWSGIDeployer` (the default for dynamic apps), `StaticDeployer` (for static sites), and `DockerDeployer`, with auto-detection through `accept()`.
+    *   **`ProxyStrategy`**: Defines a `configure()` method that takes `DeploymentInfo` to set up the reverse proxy. Core proxies are `NginxProxyPlugin` (the default), `CaddyProxyPlugin`, and `TraefikProxyPlugin`.
+
+    The Build stage is itself decomposed along two axes (see [030-build-plugin-architecture.md](030-build-plugin-architecture.md)): the Builder (Level 1, *how* to build — local, Docker, or Nix) and the LanguageToolchain (Level 2, *what* to build — Python, Node, Go, …).
 
 3.  **Plugin Management (`pluggy`):**
     *   A central `PluginManager` is initialized at application startup.
-    *   It uses `setuptools` entry points (e.g., `"hop3.build_strategies"`) to discover all installed strategy plugins from both the core Hop3 package and any third-party packages.
+    *   It discovers all installed strategy plugins — from both the core Hop3 package and any third-party packages — via `pkgutil.walk_packages` and standard setuptools entry points (e.g., `"hop3.build_strategies"`). Core plugins export a module-level `plugin` instance so that auto-discovery can find them without explicit registration.
     *   The orchestrator uses the manager to get a list of available strategies for each stage.
+    *   Strategies are defined as Python `Protocol` types (PEP 544, structural subtyping) rather than abstract base classes, for better IDE support and looser coupling between core and plugins.
 
 4.  **Configuration (`hop3.toml`):**
     *   A TOML file placed in the root of an application's repository allows developers to explicitly select which strategy to use for each stage.
     *   Example: `[build] strategy = "docker"`.
     *   If a strategy is not specified, the orchestrator falls back to an **auto-detection** mechanism, where it calls an `accept()` method on each available strategy until one returns `True` (e.g., a `DockerBuilder` would check for the existence of a `Dockerfile`).
+    *   Build and deploy strategies are selected per-application. Proxy selection, by contrast, is server-wide (via the `HOP3_PROXY_TYPE` environment variable), reflecting that one server runs a single reverse proxy for all applications it hosts.
+
+The same plugin mechanism governs two further extension points beyond the core Build → Deploy → Proxy pipeline:
+
+5.  **Addon plugins:** Backing services (PostgreSQL, Redis, …) are provided as plugins that manage a service's lifecycle and connection details. Connection credentials are persisted so they survive server restarts, with the following design:
+    *   A `ServiceCredential` ORM model stores encrypted credentials in the database, with `CASCADE` delete on app removal.
+    *   A `CredentialEncryption` helper performs Fernet AEAD encryption with PBKDF2-HMAC-SHA256 key derivation; the encryption key is supplied through the `HOP3_SECRET_KEY` environment variable, and a single encryptor instance is shared per process.
+    *   Credentials are stored during `services:attach` (when an app context is available) rather than `services:create` (which has no app context). This key decision lets one service attach to multiple apps with separate credential records. They are decrypted on `services:detach` to find the env vars to remove, and removed across all apps on `services:destroy`.
+    *   Security properties follow from this design: authenticated encryption (AEAD) detects tampering (`InvalidToken` on modification); credentials are encrypted at rest, so database backups cannot be decrypted without `HOP3_SECRET_KEY`; ciphertext uses URL-safe base64; and the shared encryptor is thread-safe.
+
+6.  **OS plugins:** Operating-system setup is provided as plugins to support multiple distributions (Debian, Ubuntu, Arch, BSD, …) behind a common interface.
 
 ## Examples and Interactions
 
@@ -150,59 +158,6 @@ This architectural pattern is well-established and draws inspiration from numero
 
 *   Expand the strategy interfaces to include more lifecycle hooks (e.g., `post_deploy`, `pre_stop`).
 *   Create more core plugins for common technologies (e.g., `HelmDeployer`).
-*   Implement explicit strategy selection via `hop3.toml` configuration.
-
-## Implementation Status
-
-The core architecture described in this ADR has been implemented, with the following components operational:
-
-1. **Three-Stage Pipeline**: Build → Deploy → Proxy pipeline.
-2. **Plugin System**: `pluggy`-based plugin manager with auto-discovery via `pkgutil.walk_packages` and setuptools entry points.
-3. **Strategy Protocols**: All strategies implemented as Python `Protocol` types (PEP 544) for structural subtyping.
-4. **Build Strategies**: `NativeBuildPlugin` (default, wraps legacy builders for Python, Node, Ruby, Go, Static, etc.) and `DockerBuilder`, with auto-detection via the `accept()` method.
-5. **Deployment Strategies**: `UWSGIDeployer` (default for dynamic apps), `StaticDeployer` (for static sites), and `DockerDeployer`, with auto-detection via the `accept()` method.
-6. **Proxy Strategies**: `NginxProxyPlugin` (default), `CaddyProxyPlugin`, and `TraefikProxyPlugin`, selected server-wide via the `HOP3_PROXY_TYPE` environment variable.
-
-### Extensions Beyond ADR
-
-The implementation includes value-add features beyond the original ADR scope:
-
-1. **Addon**: Plugin system for managing backing services (PostgreSQL, Redis) with encrypted credential persistence.
-2. **OS**: Plugin system for multi-distribution OS support (Debian, Ubuntu, Arch, BSD, etc.).
-3. **Server-wide Proxy Configuration**: Proxy selection is server-wide (via `HOP3_PROXY_TYPE`), not per-application, reflecting the practical reality that one server uses one reverse proxy for all applications.
-4. **Protocol-based Design**: Using Python `Protocol` instead of ABC for better IDE support and more Pythonic code.
-
-#### Service Credential Persistence
-
-The Addon system has been extended with a credential persistence layer so that service connection details survive server restarts and are managed through the service lifecycle.
-
-**Architecture:**
-- **ServiceCredential ORM Model**: Stores encrypted credentials in the database with CASCADE delete on app removal.
-- **CredentialEncryption Helper**: Fernet AEAD encryption with PBKDF2-HMAC-SHA256 key derivation (100K iterations).
-- **Singleton Encryptor**: Single encryption instance per process for performance.
-- **HOP3_SECRET_KEY**: Environment variable provides the encryption key (required for production).
-
-**Lifecycle Management:**
-1. **services:create** - Service created but credentials not yet stored (no app context).
-2. **services:attach** - Credentials encrypted and stored when service attached to app.
-3. **services:detach** - Credentials decrypted to find env vars to remove, then deleted.
-4. **services:destroy** - All credentials across all apps removed before service destruction.
-
-**Security Properties:**
-- Authenticated Encryption with Associated Data (AEAD) via Fernet.
-- Credentials encrypted at rest in SQLite database.
-- Database backups safe (cannot decrypt without HOP3_SECRET_KEY).
-- Tampering detection built-in (InvalidToken on modification).
-- URL-safe base64 encoding (Fernet standard).
-- Thread-safe singleton encryptor.
-
-**Key Design Decision:** Credentials are stored during `services:attach` (when app context is available) rather than `services:create` (no app context), allowing one service to be attached to multiple apps with separate credential records.
-
-### Notable Architectural Decisions
-
-1. **Protocol over ABC**: The implementation uses Python `Protocol` (structural typing) instead of abstract base classes, providing better IDE support and more flexibility.
-2. **Module-level Plugin Instances**: Core plugins export a `plugin` instance at module level for simple auto-discovery via `pkgutil.walk_packages`.
-3. **Server-wide Proxy Config**: Unlike build/deploy strategies (which are per-app), proxy configuration is server-wide, matching real-world deployment patterns.
 
 ## References
 

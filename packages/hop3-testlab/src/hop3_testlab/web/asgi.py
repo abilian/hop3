@@ -33,8 +33,10 @@ from hop3_testlab.web.controllers import (
     DashboardController,
     HealthController,
     ProfilesController,
+    QueueController,
     RunningController,
     RunsController,
+    ServersController,
     TrendsController,
 )
 
@@ -71,6 +73,12 @@ def create_app() -> Litestar:
     # default) already blunts cross-site POSTs; this is defence in depth for when
     # the dashboard gains broader exposure.
     csrf_config = None if config.UNSAFE else CSRFConfig(secret=config.SECRET_KEY)
+    # JinjaTemplateEngine is a valid engine, but TemplateConfig is invariant in its
+    # engine TypeVar, so the checkers can't unify TemplateConfig[JinjaTemplateEngine]
+    # with the parameter's TemplateConfig[EngineType] (same workaround as hop3-server).
+    template_config = TemplateConfig(
+        directory=TEMPLATES_DIR, engine=JinjaTemplateEngine
+    )
     app = Litestar(
         route_handlers=[
             HealthController,
@@ -82,10 +90,10 @@ def create_app() -> Litestar:
             BuildController,
             TrendsController,
             ProfilesController,
+            ServersController,
+            QueueController,
         ],
-        template_config=TemplateConfig(
-            directory=TEMPLATES_DIR, engine=JinjaTemplateEngine
-        ),
+        template_config=template_config,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         middleware=[session_config.middleware],
         csrf_config=csrf_config,
         stores={"sessions": MemoryStore()},

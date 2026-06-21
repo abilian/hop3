@@ -271,9 +271,7 @@ cat >> mix.exs << 'EOF'
 EOF
 ```
 
-Compile first, then build assets. Phoenix 1.8 extracts colocated JS/CSS
-(`phoenix-colocated/…`) during `mix compile`, and `mix assets.deploy` (Tailwind)
-imports it — so compiling must come first, in the same `MIX_ENV`:
+Compile first, then build assets. Phoenix 1.8 extracts colocated JS/CSS (`phoenix-colocated/…`) during `mix compile`, and `mix assets.deploy` (Tailwind) imports it — so compiling must come first, in the same `MIX_ENV`:
 
 ```bash
 mix compile
@@ -311,11 +309,7 @@ ebin
 
 ## Step 6: Create Deployment Configuration
 
-Hop3 reads a single `hop3.toml` for the build and run configuration. Don't also
-add a `Procfile`: when both exist Hop3 builds from `hop3.toml`, but the
-Procfile's `prebuild:` line is started as a long-running worker that loops
-`mix release --overwrite`, repeatedly overwriting the release while the web
-process tries to exec it (`bin/hop3_tuto_phoenix: not found`).
+Hop3 reads a single `hop3.toml` for the build and run configuration. Don't also add a `Procfile`: when both exist Hop3 builds from `hop3.toml`, but the Procfile's `prebuild:` line is started as a long-running worker that loops `mix release --overwrite`, repeatedly overwriting the release while the web process tries to exec it (`bin/hop3_tuto_phoenix: not found`).
 
 ### Create hop3.toml
 
@@ -420,9 +414,7 @@ hop3 init --ssh root@your-server.example.com
 
 ### Set Environment Variables
 
-`SECRET_KEY_BASE` is generated for you on the first deploy (declared in
-`hop3.toml` `[env]`), so there's no secret to generate or set by hand. Just
-point the app at its public host:
+`SECRET_KEY_BASE` is generated for you on the first deploy (declared in `hop3.toml` `[env]`), so there's no secret to generate or set by hand. Just point the app at its public host:
 
 ```bash
 hop3 config set --app hop3-tuto-phoenix PHX_HOST=hop3-tuto-phoenix.your-server.example.com
@@ -430,14 +422,10 @@ hop3 config set --app hop3-tuto-phoenix PHX_HOST=hop3-tuto-phoenix.your-server.e
 
 ### Deploy
 
-Deploy the application (first deployment creates the app). The production release
-requires `SECRET_KEY_BASE` at boot (see `runtime.exs`); Hop3 generates it on the
-first deploy from the `{ generate = "urlsafe", length = 64 }` declaration in
-`hop3.toml`, persists it, and reuses it on every later deploy — so no secret is
-ever typed by hand or committed:
+Deploy the application (first deployment creates the app). The production release requires `SECRET_KEY_BASE` at boot (see `runtime.exs`); Hop3 generates it on the first deploy from the `{ generate = "urlsafe", length = 64 }` declaration in `hop3.toml`, persists it, and reuses it on every later deploy — so no secret is ever typed by hand or committed:
 
 ```bash
-hop3 deploy hop3-tuto-phoenix
+hop3 deploy --app hop3-tuto-phoenix
 ```
 
 ### Set Hostname
@@ -453,7 +441,7 @@ hop3 config set --app hop3-tuto-phoenix HOST_NAME=hop3-tuto-phoenix.$HOP3_TEST_D
 Redeploy to apply the hostname configuration:
 
 ```bash
-hop3 deploy hop3-tuto-phoenix
+hop3 deploy --app hop3-tuto-phoenix
 ```
 
 Wait for the application to start:

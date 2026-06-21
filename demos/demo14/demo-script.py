@@ -63,7 +63,7 @@ def run(ctx: DemoContext) -> None:
     pause(ctx.pause_between_steps)
 
     # Clean up any leftover Redis addon from previous failed runs
-    run_hop3(f"addon destroy {REDIS_NAME} --service-type redis", check=False, show=False)
+    run_hop3(f"addon destroy {REDIS_NAME} --service-type redis -y", check=False, show=False)
 
     # Show app structure
     print_header("Deploying Redis-Ready Flask App")
@@ -221,7 +221,7 @@ def run(ctx: DemoContext) -> None:
         )
 
         print_step(f"Destroying Redis instance '{REDIS_NAME}'...")
-        run_hop3(f"addon destroy {REDIS_NAME} --service-type redis", check=False)
+        run_hop3(f"addon destroy {REDIS_NAME} --service-type redis -y", check=False)
 
         # Verify Redis database was cleared
         print_step("Verifying Redis database was cleared...")

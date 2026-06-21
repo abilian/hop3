@@ -243,8 +243,7 @@ hop3 init --ssh root@your-server.example.com
 
 ### Initialize the Git Repository
 
-Hop3 deploys the committed contents of a Git repository. Ignore `node_modules`
-(it's rebuilt on the server, and its symlinks can't be archived) and commit:
+Hop3 deploys the committed contents of a Git repository. Ignore `node_modules` (it's rebuilt on the server, and its symlinks can't be archived) and commit:
 
 ```bash exec id=git-init dir=hop3-tuto-fastify
 printf 'node_modules/\n.env\n' > .gitignore
@@ -256,7 +255,7 @@ git init && git add -A && git commit -m "Initial Fastify application"
 Deploy the application (first deployment creates the app):
 
 ```bash exec id=deploy dir=hop3-tuto-fastify timeout=120
-hop3 deploy hop3-tuto-fastify
+hop3 deploy --app hop3-tuto-fastify
 ```
 
 ```output contains
@@ -284,7 +283,7 @@ hop3 config set --app hop3-tuto-fastify ALLOWED_ORIGINS=http://hop3-tuto-fastify
 Redeploy to apply the hostname and environment configuration:
 
 ```bash exec id=redeploy dir=hop3-tuto-fastify timeout=120
-hop3 deploy hop3-tuto-fastify
+hop3 deploy --app hop3-tuto-fastify
 ```
 
 ```output contains

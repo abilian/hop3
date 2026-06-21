@@ -77,6 +77,16 @@ class BuildSection(BaseModel):
         default=None,
         description="Language toolchain: 'python', 'node', 'ruby', 'go', 'rust', etc.",
     )
+    static_dir: str | None = Field(
+        default=None,
+        alias="static-dir",
+        description=(
+            "Directory a static site serves (toolchain = 'static'), relative to "
+            "the app root — e.g. 'site', 'html', 'dist'. The first-class, "
+            "Procfile-free way to point a static app at its content; defaults to "
+            "'public' when unset."
+        ),
+    )
     before_build: str | list[str] | None = Field(
         default=None,
         alias="before-build",
@@ -952,7 +962,7 @@ class LimitsSection(BaseModel):
         return v
 
 
-# WAF (ADR 048) — Layer-7 Web Application Firewall config. Engine-independent
+# WAF (ADR 050) — Layer-7 Web Application Firewall config. Engine-independent
 # declarative surface; the platform compiles it to the engine's native form
 # (SecLang for LeWAF) at deploy time.
 
@@ -966,7 +976,7 @@ def _check_path_regex(pattern: str) -> str:
     """Validate one access-path pattern: a non-empty, compilable regex.
 
     Patterns are full-matched against the canonical request path at runtime
-    (ADR 048 §2 / Security invariant 2). Here we only guarantee the pattern is
+    (ADR 050 §2 / Security invariant 2). Here we only guarantee the pattern is
     a valid regex so a typo fails at deploy, not at request time. ReDoS bounding
     (invariant 8) is a runtime concern, not enforced here.
     """
@@ -989,11 +999,11 @@ def _check_path_regex(pattern: str) -> str:
 
 
 class WafGate(BaseModel):
-    """A ``[[waf.gate]]`` entry — conditional access (ADR 048 §2, use case 2).
+    """A ``[[waf.gate]]`` entry — conditional access (ADR 050 §2, use case 2).
 
     Matching paths are reachable only when ``require`` holds. v1 supports a
     named network (operator-defined, resolved at deploy from the DB); ``auth``
-    is reserved but rejected here until Hop3 forward-auth exists (ADR 048 §5 /
+    is reserved but rejected here until Hop3 forward-auth exists (ADR 050 §5 /
     Security invariant — fail loud, never a silent allow).
     """
 
@@ -1020,7 +1030,7 @@ class WafGate(BaseModel):
         if v == "auth":
             msg = (
                 "[[waf.gate]] require = 'auth' needs Hop3 forward-auth, which is "
-                "not available yet (ADR 048 §v1 scope). Use a named network."
+                "not available yet (ADR 050 §v1 scope). Use a named network."
             )
             raise ValueError(msg)
         if not v or v != v.strip():
@@ -1033,7 +1043,7 @@ class WafGate(BaseModel):
 
 
 class WafTuning(BaseModel):
-    """A ``[[waf.tuning]]`` entry — scoped CRS false-positive relief (ADR 048 §3).
+    """A ``[[waf.tuning]]`` entry — scoped CRS false-positive relief (ADR 050 §3).
 
     Verb-named keys (``disable-rule-ids`` / ``skip-body-inspection``) so the
     direction is unambiguous (never the old "exclusions"). Scoped to ``paths``;
@@ -1085,7 +1095,7 @@ class WafTuning(BaseModel):
 
 
 class WafBans(BaseModel):
-    """The ``[waf.bans]`` table — repeat-offender throttling (ADR 048 §4)."""
+    """The ``[waf.bans]`` table — repeat-offender throttling (ADR 050 §4)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -1117,9 +1127,9 @@ class WafBans(BaseModel):
 
 
 class WafSection(BaseModel):
-    """The ``[waf]`` section — per-app Layer-7 WAF policy (ADR 048).
+    """The ``[waf]`` section — per-app Layer-7 WAF policy (ADR 050).
 
-    Two access constructs (ADR 048 §2): ``allow`` (a positive allowlist that, when
+    Two access constructs (ADR 050 §2): ``allow`` (a positive allowlist that, when
     present, denies everything else — use case 1) and ``[[waf.gate]]`` (conditional
     access — use case 2). ``[[waf.tuning]]`` relaxes CRS false positives; ``[waf.bans]``
     throttles repeat offenders. Off by default (``enabled = false``).
@@ -1272,7 +1282,7 @@ class Hop3TomlSchema(BaseModel):
     waf: WafSection | None = Field(
         default=None,
         description=(
-            "Layer-7 Web Application Firewall policy (ADR 048): positive "
+            "Layer-7 Web Application Firewall policy (ADR 050): positive "
             "allowlist / conditional gates, CRS tuning, and bans. Off unless "
             "[waf].enabled = true."
         ),

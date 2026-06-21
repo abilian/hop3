@@ -19,6 +19,7 @@ from hop3_installer.common import (
 
 from .config import ServerInstallerConfig
 from .docker_utils import get_docker_bridge_ip
+from .verify import read_existing_server_config_value
 
 # Common MySQL config file locations
 MYSQL_CONF_PATHS = [
@@ -432,13 +433,18 @@ def setup_mysql(config: ServerInstallerConfig, distro: str) -> str | None:
         return None
     mysql_root_cmd, mysql_root_env = admin
 
-    # Generate a secure password
-    mysql_password = "hop3_" + secrets.token_hex(16)
+    # Reuse the password from a prior install if present — never rotate the
+    # admin secret on redeploy (rotation desyncs the stored credential from the
+    # MySQL user). Only a fresh install generates a new one.
+    existing_pw = read_existing_server_config_value("MYSQL_SUPERUSER_PASSWORD")
+    mysql_password = existing_pw or ("hop3_" + secrets.token_hex(16))
 
-    # Create hop3 user with privileges
+    # Create-or-update the hop3 user with privileges (idempotent: re-asserts the
+    # same password on redeploy).
     if not _create_mysql_hop3_user(mysql_root_cmd, mysql_root_env, mysql_password):
         return None
-    print_success("MySQL user 'hop3' created with privileges")
+    verb = "reused" if existing_pw else "created"
+    print_success(f"MySQL user 'hop3' {verb} with privileges")
 
     # Configure for Docker container access
     _configure_mysql_for_docker(mysql_root_cmd, mysql_root_env, mysql_password)

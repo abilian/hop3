@@ -85,7 +85,7 @@ Choose your reverse proxy:
 
 Hop3 runs on:
 
-- Ubuntu 22.04, 24.04
+- Ubuntu 24.04, 26.04
 - Debian 12, 13
 - Fedora 41+
 - Rocky Linux 9, AlmaLinux 9
@@ -94,11 +94,9 @@ Hop3 runs on:
 
 Hop3 uses a client-server architecture:
 
-```
-┌─────────────┐         ┌─────────────────┐
-│  hop3 CLI   │──SSH───▶│   hop3-server   │
-│  (local)    │  tunnel │   (remote)      │
-└─────────────┘         └─────────────────┘
+```mermaid
+flowchart LR
+    cli["hop3 CLI<br/>(local)"] -->|SSH tunnel| server["hop3-server<br/>(remote)"]
 ```
 
 The CLI (`hop3`) runs on your development machine. It communicates with `hop3-server` via JSON-RPC over SSH or HTTPS. This means:

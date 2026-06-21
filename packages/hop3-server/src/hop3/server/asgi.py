@@ -33,11 +33,11 @@ from .controllers import (
     AppsController,
     AuthController,
     BackupsController,
+    CatalogController,
     CertificatesController,
     DashboardIndexController,
     EnvVarsController,
     LogsController,
-    MarketplaceController,
     RootController,
     RPCController,
     StreamController,
@@ -154,7 +154,7 @@ def create_app():
         AddonsController,  # Addon management (/dashboard/addons/*)
         BackupsController,  # Backup management (/dashboard/backups/*)
         CertificatesController,  # TLS cert health (/dashboard/certificates)
-        MarketplaceController,  # Marketplace UI (/dashboard/marketplace/*)
+        CatalogController,  # Catalog UI (/dashboard/catalog/*)
         static_handler,  # Static files (/static/*)
     ]
 

@@ -6,458 +6,434 @@ This document provides detailed internal documentation for the hop3-testing pack
 
 hop3-testing provides infrastructure for validating Hop3 deployments:
 
-1. **Test Targets** - Docker containers or remote servers
-2. **App Catalog** - Collection of test applications
+1. **Test Targets** - Docker containers or remote SSH servers
+2. **Catalog** - Discovery of tests defined in `hop3.toml` (or standalone `test.toml`)
 3. **Deployment Sessions** - Automated deploy/verify/cleanup
-4. **pytest Integration** - Fixtures for E2E testing
+4. **Runners** - Deployment, demo, and tutorial execution strategies
+5. **pytest Integration** - the `c_e2e` layer that drives real deploys
+
+The `hop3-test` CLI exposes four subcommands: `system`, `list`, `cloud`, and `why`.
 
 ## Module Structure
 
 ```
 hop3_testing/
 ├── __init__.py
-├── main.py              # CLI entry point
-├── base.py              # Base fixtures and utilities
-├── common.py            # Shared utilities
+├── cli/                  # CLI commands and helpers
+│   ├── __init__.py       # `cli` group + `main` entry point
+│   ├── commands/         # Click command implementations
+│   │   ├── test.py       # `system`
+│   │   ├── catalog.py    # `list`
+│   │   ├── cloud.py      # `cloud`
+│   │   └── why.py        # `why`
+│   ├── runners.py        # Test execution orchestration
+│   └── helpers.py        # Target creation helpers
+├── catalog/
+│   ├── scanner.py        # Catalog - scans for hop3.toml + standalone test.toml
+│   ├── loader.py         # Reads [test] from hop3.toml; falls back to test.toml
+│   └── models.py         # TestDefinition, Tier, Priority, TargetType
 ├── apps/
-│   ├── catalog.py       # App catalog management
-│   └── deployment.py    # Deployment session handling
+│   ├── catalog.py        # AppSource dataclass
+│   └── deployment.py     # DeploymentSession - deploy/verify/cleanup
 ├── targets/
-│   ├── base.py          # Abstract target interface
-│   ├── docker.py        # Docker container target
-│   └── remote.py        # Remote SSH target
+│   ├── base.py           # DeploymentTarget ABC, TargetInfo, CommandResult
+│   ├── config.py         # DeploymentConfig, DockerConfig, RemoteConfig
+│   ├── docker.py         # DockerTarget
+│   └── remote.py         # RemoteTarget
+├── runners/              # Deployment, demo, tutorial runners
+├── results/              # SQLite result storage and reporters
+├── selector/             # Test selection by mode
+├── system_tests/         # Cloud (Hetzner) E2E orchestration
 └── util/
-    ├── console.py       # Output formatting
-    └── backports.py     # Python compatibility
+    └── console.py        # Output formatting
 ```
 
 ## Test Targets
 
 ### Target Interface
 
+`DeploymentTarget` (`targets/base.py`) is the abstract base every target implements. Only `start` and `stop` are abstract; the higher-level operations (`exec_run`, `deploy_app`, `destroy_app`, `get_app_url`, `run_command`, `http_request`, `wait_for_app`, context-manager support) are concrete methods built on those two primitives:
+
 ```python
 class DeploymentTarget(ABC):
-    """Abstract deployment target."""
+    """Abstract base class for deployment targets."""
 
     @abstractmethod
-    def setup(self) -> None:
-        """Prepare target for testing."""
+    def start(self) -> TargetInfo:
+        """Start the target and return its connection details."""
         ...
 
     @abstractmethod
-    def teardown(self) -> None:
-        """Clean up target after testing."""
+    def stop(self) -> None:
+        """Stop and clean up the target."""
         ...
 
-    @abstractmethod
-    def execute(self, command: str) -> CommandResult:
-        """Execute command on target."""
+    def exec_run(self, cmd: str | list[str]) -> tuple[int, str, str]:
+        """Run a command on the target, returning (exit_code, stdout, stderr)."""
         ...
 
-    @abstractmethod
-    def deploy_app(self, app: AppSource) -> DeploymentResult:
-        """Deploy an application."""
+    def deploy_app(
+        self, app_path: Path, app_name: str, ...
+    ) -> DeployResult:
+        """Create a tarball and deploy the application via hop3."""
         ...
 
-    @abstractmethod
+    def destroy_app(self, app_name: str) -> None:
+        """Tear down a deployed application."""
+        ...
+
     def get_app_url(self, app_name: str) -> str:
-        """Get URL for deployed app."""
+        """Return the externally reachable URL for a deployed app."""
         ...
 ```
 
 ### Docker Target
 
-Runs tests in isolated Docker containers:
+`DockerTarget` (`targets/docker.py`) runs tests in an isolated Docker container, configured through a `DockerConfig` dataclass:
 
 ```python
-class DockerTarget(DeploymentTarget):
-    def __init__(
-        self,
-        image: str = "ubuntu:24.04",
-        container_name: str = "hop3-test",
-    ):
-        self.image = image
-        self.container_name = container_name
-        self.client = docker.from_env()
+from hop3_testing.targets import DockerTarget, DockerConfig, DeploymentConfig
 
-    def setup(self) -> None:
-        """Start Docker container with hop3-server."""
-        self.container = self.client.containers.run(
-            self.image,
-            detach=True,
-            name=self.container_name,
-            privileged=True,  # For systemd
-            ports={"8000/tcp": None, "80/tcp": None},
-        )
+# App testing against a pre-built image (fast)
+target = DockerTarget(DockerConfig(image="hop3-ready:latest"))
 
-        # Install hop3-server
-        self.execute("curl ... | python3 -")
+# System testing: deploy Hop3 from local code into a fresh container
+target = DockerTarget(
+    DockerConfig(container_name="hop3-test"),
+    deployment=DeploymentConfig(source="local"),
+)
 
-        # Wait for server to be ready
-        self.wait_for_ready()
-
-    def teardown(self) -> None:
-        """Stop and remove container."""
-        self.container.stop()
-        self.container.remove()
-
-    def execute(self, command: str) -> CommandResult:
-        """Execute command in container."""
-        exit_code, output = self.container.exec_run(command)
-        return CommandResult(exit_code, output.decode())
+# Connect to an existing container (skip deploy, iterate on verification)
+target = DockerTarget(
+    DockerConfig(container_name="hop3-test", reuse_container=True),
+)
 ```
+
+`DockerConfig` defaults to `image="debian:bookworm"` and `container_name="hop3-test"`. The target manages the container lifecycle and the SSH key extraction needed to drive `hop3-deploy`.
 
 ### Remote Target
 
-Runs tests against a remote Hop3 server:
+`RemoteTarget` (`targets/remote.py`) runs tests against a remote Hop3 server over SSH (via paramiko), configured through a `RemoteConfig` dataclass:
 
 ```python
-class RemoteTarget(DeploymentTarget):
-    def __init__(
-        self,
-        host: str,
-        ssh_key: Path | None = None,
-        user: str = "hop3",
-    ):
-        self.host = host
-        self.ssh_key = ssh_key
-        self.user = user
+from hop3_testing.targets import RemoteTarget, RemoteConfig, DeploymentConfig
 
-    def setup(self) -> None:
-        """Verify remote server is ready."""
-        result = self.execute("hop3-server --version")
-        if result.exit_code != 0:
-            raise TargetNotReadyError(f"Server not ready: {result.output}")
+# Connect to an already-provisioned server
+target = RemoteTarget(RemoteConfig(host="server.example.com"))
 
-    def teardown(self) -> None:
-        """Clean up test apps."""
-        # Remove all test apps
-        result = self.execute("hop3 apps --json")
-        apps = json.loads(result.output)
-        for app in apps:
-            if app["name"].startswith("test-"):
-                self.execute(f"hop3 app destroy {app['name']} --confirm")
-
-    def execute(self, command: str) -> CommandResult:
-        """Execute command via SSH."""
-        ssh_cmd = ["ssh"]
-        if self.ssh_key:
-            ssh_cmd.extend(["-i", str(self.ssh_key)])
-        ssh_cmd.extend([f"{self.user}@{self.host}", command])
-
-        result = subprocess.run(ssh_cmd, capture_output=True)
-        return CommandResult(result.returncode, result.stdout.decode())
+# Provision and deploy Hop3 from local code, cleaning first
+target = RemoteTarget(
+    RemoteConfig(host="server.example.com"),
+    deployment=DeploymentConfig(source="local", clean=True),
+)
 ```
 
-## App Catalog
+`RemoteConfig` defaults to `port=22`, `user="root"`, and resolves `ssh_key` from configuration or the environment.
 
-Collection of test applications:
+## Catalog
 
-### Catalog Structure
+`Catalog` (`catalog/scanner.py`) discovers tests across the app and demo trees and indexes them by category, tier, and priority.
+
+### What gets scanned
+
+The scanner walks the test-app directories and reads each test's configuration:
 
 ```
-apps/test-apps/
-├── 010-flask-pip-wsgi/
-│   ├── app.py
-│   ├── requirements.txt
-│   ├── Procfile
-│   └── test.yaml          # Test metadata
-├── 020-nodejs-express/
-│   ├── app.js
-│   ├── package.json
-│   └── test.yaml
-└── ...
+apps/test-apps-procfile/   # Procfile-only apps (standalone test.toml)
+apps/test-apps-nix/        # Nix-based test apps
+apps/real-apps-native/     # Real apps, native toolchains
+apps/real-apps-nix/        # Real apps, hand-crafted Nix
+apps/real-apps-nix-gen/    # Real apps, Nix from template
+demos/                     # Demo walkthroughs
+docs/src/tutorials/        # Tutorial scripts
 ```
 
-### Test Metadata
+Each real app declares its test configuration under a `[test]` section in its own `hop3.toml`. Apps without a `hop3.toml` — Procfile-only test apps, demos, tutorials, and negative-test cases — keep a standalone `test.toml`.
 
-```yaml
-# test.yaml
-name: flask-pip-wsgi
-category: python-simple
-runtime: python
-description: Simple Flask app with pip requirements
+### Test definition
 
-tests:
-  - name: http_check
-    type: http
-    path: /
-    expect:
-      status: 200
-      contains: "Hello"
+The primary shape is a `[test]` section inside the app's `hop3.toml`. Most fields are derived from the rest of the file: the name from `[metadata].id`, the category from `[build].builder`, the services from `[[addons]]`, and the base healthcheck from `[healthcheck]`.
 
-  - name: health_check
-    type: http
-    path: /health
-    expect:
-      status: 200
+```toml
+[metadata]
+id = "flask-hello"
 
-timeout: 120  # seconds
+[build]
+builder = "nix"
+
+[healthcheck]
+path = "/"
+
+[test]
+priority = "P0"                    # P0 | P1 | P2
+tier = "fast"                      # report label only (no longer a timeout)
+targets = ["docker", "remote"]
+covers = ["python", "flask", "nix"]
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "Hello"
+```
+
+For Procfile-only apps, demos, tutorials, and negative-test cases (no `hop3.toml`), the legacy standalone `test.toml` is still supported:
+
+```toml
+[test]
+name = "010-flask-pip-wsgi"
+category = "deployment"
+tier = "fast"
+priority = "P0"
+
+[test.requirements]
+targets = ["docker", "remote"]
+services = []
+
+[[validations]]
+type = "http"
+path = "/"
+[validations.expect]
+status = 200
 ```
 
 ### Catalog API
 
 ```python
-class AppSourceCatalog:
-    """Manage test application catalog."""
+from hop3_testing.catalog import Catalog
 
-    def __init__(self, base_path: Path):
-        self.base_path = base_path
-        self._apps: dict[str, AppSource] = {}
-        self._load_catalog()
+catalog = Catalog(root)
+catalog.scan(paths=["apps/test-apps-procfile", "demos"])
 
-    def _load_catalog(self) -> None:
-        """Load all apps from catalog directory."""
-        for app_dir in self.base_path.iterdir():
-            if app_dir.is_dir() and (app_dir / "test.yaml").exists():
-                app = AppSource.from_directory(app_dir)
-                self._apps[app.name] = app
+# Look up a single test by name
+test = catalog.get_test("010-flask-pip-wsgi")
 
-    def get(self, name: str) -> AppSource:
-        """Get app by name."""
-        return self._apps[name]
-
-    def filter_by_category(self, category: str) -> list[AppSource]:
-        """Get apps by category."""
-        return [a for a in self._apps.values() if a.category == category]
-
-    def all(self) -> list[AppSource]:
-        """Get all apps."""
-        return list(self._apps.values())
+# Filter by tier / priority / tag
+fast_p0 = catalog.filter(tiers=["fast"], priorities=["P0"])
 ```
+
+`Tier` is one of `fast`, `medium`, `slow`, `very-slow` (a report label, no longer a timeout). `Priority` is one of `P0`, `P1`, `P2`.
 
 ## Deployment Sessions
 
-Manages the deploy/verify/cleanup lifecycle:
+`DeploymentSession` (`apps/deployment.py`) is a context manager that orchestrates the deploy/verify/cleanup lifecycle against a target:
 
 ```python
 class DeploymentSession:
-    """Context manager for deployment testing."""
-
-    def __init__(self, target: DeploymentTarget, app: AppSource):
-        self.target = target
-        self.app = app
-        self.deployed = False
+    """Orchestrates deploy / verify / cleanup for one app."""
 
     def __enter__(self) -> "DeploymentSession":
-        self.deploy()
         return self
 
     def __exit__(self, *args) -> None:
         self.cleanup()
 
-    def deploy(self) -> None:
-        """Deploy the application."""
-        result = self.target.deploy_app(self.app)
-        if not result.success:
-            raise DeploymentError(result.error)
-        self.deployed = True
+    def prepare(self) -> None:
+        """Copy the app to a temp dir, initialize git, write the ENV file."""
 
-    def verify_running(self) -> bool:
-        """Check if app is running."""
-        result = self.target.execute(f"hop3 app show {self.app.name} --json")
-        info = json.loads(result.output)
-        return info["state"] == "running"
+    def deploy(self, wait_time: int = 5, deploy_timeout: int = 600) -> None:
+        """Create the tarball and deploy via the hop3 CLI / RPC."""
 
-    def verify_http_response(self) -> bool:
-        """Verify HTTP endpoint responds."""
-        url = self.target.get_app_url(self.app.name)
-        response = requests.get(url, timeout=10)
-        return response.status_code == 200
+    def check_deployed(self) -> bool:
+        """Return True once the app reports as deployed."""
 
-    def run_tests(self) -> TestResults:
-        """Run all tests defined in test.yaml."""
-        results = TestResults()
-        for test in self.app.tests:
-            result = self._run_test(test)
-            results.add(result)
-        return results
+    def test_http_detailed(self) -> dict:
+        """Verify the HTTP endpoint; returns {passed, message, details}."""
+
+    def run_check_script_detailed(self) -> dict:
+        """Run the app's check.py (if present) and return its result."""
 
     def cleanup(self) -> None:
-        """Remove deployed app."""
-        if self.deployed:
-            self.target.execute(f"hop3 app destroy {self.app.name} --confirm")
+        """Destroy the deployed app and its addon state."""
 ```
 
+`__enter__` only arms cleanup; the caller drives `prepare()` and `deploy()` explicitly. `__exit__` always calls `cleanup()`.
+
+Teardown goes through the target's `destroy_app`, which reaps the app's processes, releases its port, and removes its addon slots, so destroying one app never disturbs another.
+
 ## pytest Integration
+
+Real deploy-and-verify tests live in the `c_e2e` layer (see [ADR 043](../adrs/043-unified-testing-architecture.md)). These tests need Docker and a real server, so they run out of process and are pass/fail (coverage is measured on `a_unit` + `b_integration` only). The `c_e2e` fixtures drive the same `DeploymentTarget` ABC the CLI uses.
 
 ### Fixtures
 
 ```python
 # conftest.py
 import pytest
-from hop3_testing import DockerTarget, AppSourceCatalog
+from hop3_testing.targets import DockerTarget, DockerConfig, DeploymentConfig
 
 @pytest.fixture(scope="session")
 def deployment_target():
-    """Provide deployment target for tests."""
-    target = DockerTarget()
-    target.setup()
+    """Provide a Docker target with Hop3 deployed from local code."""
+    target = DockerTarget(
+        DockerConfig(container_name="hop3-test"),
+        deployment=DeploymentConfig(source="local"),
+    )
+    target.start()
     yield target
-    target.teardown()
-
-@pytest.fixture(scope="session")
-def app_catalog():
-    """Provide app catalog."""
-    return AppSourceCatalog(Path("apps/test-apps"))
-
-@pytest.fixture
-def deployment_session(deployment_target, app_catalog, request):
-    """Provide deployment session for specific app."""
-    app_name = getattr(request, "param", "010-flask-pip-wsgi")
-    app = app_catalog.get(app_name)
-    with DeploymentSession(deployment_target, app) as session:
-        yield session
+    target.stop()
 ```
 
 ### Example Test
 
 ```python
-@pytest.mark.parametrize("deployment_session", [
-    "010-flask-pip-wsgi",
-    "020-nodejs-express",
-], indirect=True)
-def test_app_deployment(deployment_session):
-    """Test application deployment."""
-    assert deployment_session.verify_running()
-    assert deployment_session.verify_http_response()
+from pathlib import Path
+from hop3_testing.apps import AppSource, DeploymentSession
 
-    results = deployment_session.run_tests()
-    assert results.all_passed()
+def test_app_deployment(deployment_target):
+    """Deploy an app and verify it responds."""
+    app = AppSource(
+        name="flask-hello",
+        path=Path("apps/test-apps-procfile/010-flask-pip-wsgi"),
+    )
+    with DeploymentSession(app, deployment_target) as session:
+        session.prepare()
+        session.deploy()
+        assert session.check_deployed()
+        result = session.test_http_detailed()
+        assert result["passed"]
 ```
 
 ## CLI Interface
 
+The `hop3-test` CLI has four subcommands. The full flag reference for each is in the package [README](https://github.com/abilian/hop3) and `packages/hop3-testing/docs/internals.md`.
+
+### `hop3-test system`
+
+Deploys Hop3 to a target, then deploys the selected apps and verifies their HTTP responses.
+
 ```bash
-# Run all tests
-hop3-test --target docker
+# Deploy Hop3 + run the default tests on Docker
+hop3-test system --docker
 
-# Run specific app
-hop3-test --target docker 010-flask-pip-wsgi
+# Scan a specific directory
+hop3-test system --docker apps/test-apps-procfile
 
-# Run by category
-hop3-test --target docker --category python-simple
+# Run the full catalog with all addons, clean install
+hop3-test system --docker --clean --with all
 
-# Run against remote server
-hop3-test --target remote --host hop3.example.com
+# Test one app, reusing the existing container (skip the Hop3 deploy)
+hop3-test system --docker --reuse apps/real-apps-native/edrix
 
-# List available apps
-hop3-test --list-apps
+# Run against a remote server over SSH
+hop3-test system --ssh --host server.example.com --clean --with all
 
-# Verbose output
-hop3-test --target docker -v
+# Fast P0-only profile
+hop3-test system --docker --mode dev
 ```
 
-### CLI Implementation
+Key options:
 
-```python
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--target", choices=["docker", "remote"], required=True)
-    parser.add_argument("--host", help="Remote host (for remote target)")
-    parser.add_argument("--category", help="Filter by category")
-    parser.add_argument("apps", nargs="*", help="Apps to test")
-    args = parser.parse_args()
+| Option | Description |
+|--------|-------------|
+| `--docker` / `--ssh` | Target type (one is required) |
+| `--host HOST` | Remote host (for `--ssh`; or set `HOP3_TEST_HOST`) |
+| `--deploy-from {local,git,pypi,none}` | Where to deploy Hop3 from (default `local`) |
+| `--reuse` | Reuse the existing deployment (skip the Hop3 deploy) |
+| `--clean` | Clean install (remove any existing installation first) |
+| `--with FEATURE` | Install extra features/addons (`nix`, `mysql`, `redis`, `all`) |
+| `--mode MODE` | Test profile (filters by tier/priority; e.g. `dev`, `smoke`, `ci`) |
+| `--keep` | Keep the target and apps after the run |
+| `-x, --fail-fast` | Stop on the first failure |
+| `--report {none,text,html}` | Report format |
 
-    # Create target
-    if args.target == "docker":
-        target = DockerTarget()
-    else:
-        target = RemoteTarget(args.host)
+### `hop3-test list`
 
-    # Load catalog
-    catalog = AppSourceCatalog(CATALOG_PATH)
+Discovers and displays available tests.
 
-    # Filter apps
-    if args.apps:
-        apps = [catalog.get(name) for name in args.apps]
-    elif args.category:
-        apps = catalog.filter_by_category(args.category)
-    else:
-        apps = catalog.all()
-
-    # Run tests
-    runner = TestRunner(target, apps)
-    results = runner.run()
-
-    # Report
-    reporter = ResultReporter(results)
-    reporter.print_summary()
-
-    sys.exit(0 if results.all_passed() else 1)
+```bash
+hop3-test list                                # All tests
+hop3-test list apps/test-apps-procfile        # Scan one directory
+hop3-test list demos -t fast                  # Fast demos only
+hop3-test list --show 010-flask-pip-wsgi      # Details for one test
+hop3-test list --format json                  # Machine-readable output
 ```
 
-## App Categories
+Filters: `-t/--tier`, `-p/--priority`, `--tag`. `--show NAME` prints the full definition of a single test.
 
-| Category | Description | Examples |
-|----------|-------------|----------|
-| `python-simple` | Basic Python apps | Flask, FastAPI |
-| `python-complex` | Multi-process Python | Django + Celery |
-| `nodejs` | Node.js applications | Express, Fastify |
-| `ruby` | Ruby applications | Sinatra, Rails |
-| `go` | Go applications | Fiber, Gin |
-| `rust` | Rust applications | Actix-web, Axum |
-| `static` | Static sites | HTML, Hugo, Jekyll |
-| `docker` | Docker-based apps | Dockerfile builds |
+### `hop3-test cloud`
 
-## Test Types
+Runs E2E tests on real cloud infrastructure (Hetzner). Requires the `HETZNER_API_TOKEN` environment variable.
 
-### HTTP Tests
-
-```yaml
-tests:
-  - name: homepage
-    type: http
-    method: GET
-    path: /
-    expect:
-      status: 200
-      contains: "Welcome"
-      headers:
-        content-type: "text/html"
+```bash
+hop3-test cloud --list-images                       # Available OS images
+hop3-test cloud --image ubuntu-24.04                # Single distribution
+hop3-test cloud --images ubuntu-24.04,debian-13     # Multiple distributions
+hop3-test cloud --images all                        # All distributions
+hop3-test cloud --apps apps/test-apps --apps demos  # Specific suites
+hop3-test cloud --skip-reset --skip-deploy          # Only run tests
 ```
 
-### Command Tests
+### `hop3-test why`
 
-```yaml
-tests:
-  - name: health_check
-    type: command
-    command: "hop3 app show {app_name} --json"
-    expect:
-      exit_code: 0
-      json:
-        state: "running"
+Replays the saved diagnostic bundle for a failed run (see ADR 043 §7). The `RUN_ID` is the `<ISO>-<app>-<shortid>` printed in a failure headline.
+
+```bash
+hop3-test why <run-id>                  # Headline + classification + bundle path
+hop3-test why <run-id> --list           # List the bundle's sections
+hop3-test why <run-id> --section proxy  # Replay the proxy-reachability probe
 ```
 
-### Log Tests
+Available sections: `proxy`, `nginx`, `app`, `journal`, `build`, `deploy`, `http`, `dns`.
 
-```yaml
-tests:
-  - name: no_errors
-    type: logs
-    expect:
-      not_contains: ["ERROR", "CRITICAL"]
+## Test Categories
+
+Categories are derived from each app's builder and toolchain. The catalog covers, among others:
+
+| Category | Languages/Frameworks |
+|----------|----------------------|
+| `python` | Flask, FastAPI, Django |
+| `nodejs` | Express, Fastify |
+| `ruby` | Sinatra, Rails |
+| `go` | Fiber, Gin |
+| `rust` | Actix-web, Axum |
+| `static` | HTML, Hugo, Jekyll |
+| `docker` | Dockerfile builds |
+| `nix` | Nix-based builds |
+
+## Validations
+
+A test's expectations are expressed as `[[test.validations]]` entries (in `hop3.toml`) or `[[validations]]` entries (in a standalone `test.toml`). The most common form is an HTTP check:
+
+```toml
+[[test.validations]]
+path = "/"
+status = 200
+contains = "Welcome"
 ```
+
+Each validation hits a `path`, asserts a `status`, and can assert response body content (`contains`). For richer checks, an app can ship a `check.py` exposing a `check(hostname, port)` function, run via `run_check_script_detailed`. Asserting app-specific body content (not just a 200) is the gate before an app is advertised — a 200 can be a placeholder, an error page, or another app's content.
 
 ## Debugging
 
-### Verbose Mode
+### Verbose output
+
+`-v/--verbose` is a group-level flag, so it goes before the subcommand:
 
 ```bash
-hop3-test --target docker -vvv
+hop3-test -v system --docker
 ```
 
-### Keep Target Running
+### Keep the target after a run
 
 ```bash
-hop3-test --target docker --keep-target
-# After tests, container remains running for inspection
+hop3-test system --docker --keep
+# The container stays up for inspection:
 docker exec -it hop3-test bash
 ```
 
-### Single App Test
+### Reuse an existing deployment
 
 ```bash
-hop3-test --target docker 010-flask-pip-wsgi -v --keep-target
+# Iterate on verification against an already-deployed app, without redeploying Hop3
+hop3-test system --docker --reuse apps/real-apps-native/edrix
 ```
+
+### Replay a failure
+
+When a run fails, copy the `RUN_ID` from the failure headline and replay its diagnostic bundle:
+
+```bash
+hop3-test why <run-id> --section proxy
+```
+
+The proxy section captures the silent-502 class (a healthy app behind a front-end 502 because the proxy points at the wrong port/host) that motivated the unified diagnostics in ADR 043.

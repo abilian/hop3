@@ -297,21 +297,26 @@ class LanguageToolchain(ABC):
         self,
         env_vars: dict[str, str] | None = None,
         path_prepend: list[str] | None = None,
+        workers: dict[str, str] | None = None,
     ) -> RuntimeConfig:
         """Create a RuntimeConfig with common defaults.
 
         Args:
             env_vars: Additional environment variables to set
             path_prepend: Paths to prepend to PATH
+            workers: Explicit worker map. Defaults to the Procfile-derived
+                workers; a toolchain that knows its own process model (e.g. the
+                static toolchain) passes it directly so a Procfile is never
+                required.
 
         Returns:
-            RuntimeConfig with workers from Procfile and provided settings
+            RuntimeConfig with the given (or Procfile-derived) workers and settings
         """
         return RuntimeConfig(
             env_vars=env_vars or {},
             path_prepend=path_prepend or [],
             working_dir=str(self.src_path),
-            workers=self._get_workers(),
+            workers=self._get_workers() if workers is None else workers,
         )
 
     def _make_build_artifact(

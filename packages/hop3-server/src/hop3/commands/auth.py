@@ -11,7 +11,6 @@ from datetime import datetime, timezone
 from typing import ClassVar
 
 from hop3.lib.registry import register
-from hop3.orm import User
 
 # Runtime import for Dishka DI (not just type hint)
 from hop3.orm.repositories import UserRepository  # noqa: TC001
@@ -153,66 +152,10 @@ class AuthWhoamiCmd(Command):
         ]
 
 
-@register
-@dataclass(frozen=True)
-class AuthRegisterCmd(Command):
-    """Register a new user account.
-
-    Examples:
-        hop3 auth register newuser user@example.com password123
-    """
-
-    user_repo: UserRepository
-    name: ClassVar[tuple[str, ...]] = ("auth", "register")
-    requires_auth: ClassVar[bool] = True
-
-    def call(
-        self,
-        authenticated_username: str = "",
-        username: str = "",
-        email: str = "",
-        password: str = "",
-        *args,
-    ):
-        """Register a new user. Admin-only.
-
-        Args:
-            authenticated_username: The authenticated user (admin-gated).
-            username: Desired username
-            email: User's email address
-            password: User's password
-
-        Returns:
-            Success message or error
-        """
-        if admin_error := require_admin(authenticated_username, self.user_repo):
-            return admin_error
-
-        if not username or not email or not password:
-            return [error("Usage: hop3 auth register <username> <email> <password>")]
-
-        # Check if username already exists
-        if self.user_repo.username_exists(username):
-            return [error(f"Username '{username}' already exists")]
-
-        # Check if email already exists
-        if self.user_repo.email_exists(email):
-            return [error(f"Email '{email}' already registered")]
-
-        # Create new user
-        user = User(username=username, email=email, password_hash="")
-        user.set_password(password)
-        user.active = True
-        user.confirmed_at = datetime.now(timezone.utc)
-
-        self.user_repo.add(user, auto_commit=True)
-
-        return [
-            text(f"User '{username}' registered successfully!"),
-            text(""),
-            text("You can now login with:"),
-            text(f"hop3 auth login {username} <password>"),
-        ]
+# `auth register` was a duplicate of `user add` (ADR 036 P2.1): both are
+# admin-gated account creation. Dropped — `("auth", "register")` is now a
+# back-compat alias of `UserAddCmd` (see commands/user.py). `user add` is the
+# single canonical path (ADR D4: users are *registered*, not *created*).
 
 
 @register
@@ -322,6 +265,8 @@ class AuthMagicLinkCmd(Command):
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("auth", "magic-link")
     requires_auth: ClassVar[bool] = True
+    # Internal primitive behind `hop3 login --web`; off the user-visible surface.
+    hidden: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
         """Generate a magic link token for web login. Admin-only.

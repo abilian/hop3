@@ -284,9 +284,9 @@ If you are about to file "shell injection via env / command in uWSGI worker", re
 
 ### 3.6 Things that look like info leaks but aren't
 
-#### 3.6.1 Marketplace icons, public catalog endpoints
+#### 3.6.1 Catalog icons, public catalog endpoints
 
-The marketplace catalog (titles, descriptions, icons) is **public by design**. No-auth GET on `/marketplace/icons/<id>` is intentional. Rate-limiting against enumeration is a separate operational concern.
+The app catalog (titles, descriptions, icons) is **public by design**. No-auth GET on `/dashboard/catalog/icons/<id>` is intentional. Rate-limiting against enumeration is a separate operational concern.
 
 #### 3.6.2 Truncated `RepositoryError` strings via RPC
 

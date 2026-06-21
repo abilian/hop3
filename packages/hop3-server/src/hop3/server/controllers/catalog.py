@@ -1,0 +1,337 @@
+# Copyright (c) 2025, Abilian SAS
+# SPDX-License-Identifier: Apache-2.0
+
+"""Catalog controller for Hop3 web interface.
+
+This controller handles all catalog routes including:
+- Catalog home (featured apps, categories)
+- App listing with search and filtering
+- App detail pages
+- Category browsing
+- App installation
+"""
+
+from __future__ import annotations
+
+import re
+import shutil
+from pathlib import Path
+from typing import Annotated
+
+from litestar import Controller, get, post
+from litestar.enums import RequestEncodingType
+from litestar.params import Body, FromPath
+from litestar.response import File, Redirect, Template
+
+from hop3.orm import App, AppRepository, EnvVar
+from hop3.server.catalog import CatalogService
+from hop3.server.catalog.loader import find_icon
+from hop3.server.guards import auth_guard
+from hop3.server.lib.database import get_session
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+
+def _validate_app_name(app_name: str) -> list[str]:
+    """Validate app name and return list of errors."""
+    errors = []
+
+    if not app_name:
+        errors.append("App name is required")
+        return errors
+
+    if len(app_name) < 2:
+        errors.append("App name must be at least 2 characters")
+
+    if len(app_name) > 50:
+        errors.append("App name must be at most 50 characters")
+
+    if not re.match(r"^[a-z][a-z0-9-]*$", app_name):
+        errors.append(
+            "App name must start with a letter and contain only lowercase letters, "
+            "numbers, and hyphens"
+        )
+
+    # Check for reserved names
+    reserved = {"admin", "api", "app", "apps", "dashboard", "hop3", "static", "www"}
+    if app_name in reserved:
+        errors.append(f"'{app_name}' is a reserved name")
+
+    return errors
+
+
+def _check_app_exists(app_name: str) -> bool:
+    """Check if an app with this name already exists."""
+    with get_session() as db_session:
+        app_repo = AppRepository(session=db_session)
+        return app_repo.app_exists(app_name)
+
+
+# ============================================================================
+# Catalog Controller
+# ============================================================================
+
+
+class CatalogController(Controller):
+    """Catalog web interface controller.
+
+    Handles all catalog routes for browsing and installing applications
+    from the catalog.
+    """
+
+    path = "/dashboard/catalog"
+    guards = [auth_guard]  # noqa: RUF012 - base class defines as instance var
+
+    # -------------------------------------------------------------------------
+    # Catalog Home
+    # -------------------------------------------------------------------------
+
+    @get("/", status_code=200, sync_to_thread=False)
+    def catalog_index(self) -> Template:
+        """Display the catalog home page.
+
+        Shows featured apps and category overview.
+        """
+        service = CatalogService.get_instance()
+
+        ctx = {
+            "catalog_available": service.is_available(),
+            "featured_apps": service.get_featured_apps(),
+            "categories": service.list_categories(),
+            "total_apps": len(service.list_apps()),
+        }
+
+        return Template(template_name="dashboard/catalog/index.html", context=ctx)
+
+    # -------------------------------------------------------------------------
+    # Icon Serving
+    # -------------------------------------------------------------------------
+
+    # AUDIT: guards=[] is intentional — the catalog is
+    # public by design. See notes/security.md §3.6.1.
+    @get("/icons/{app_id:str}", status_code=200, sync_to_thread=False, guards=[])
+    def catalog_icon(self, app_id: FromPath[str]) -> File | Redirect:
+        """Serve a catalog app's icon (raster only; never SVG — ADR 049 F6).
+
+        The icon is resolved from the *verified* app's own source directory via
+        ``find_icon``, never by joining the URL ``app_id`` onto a path, so a
+        crafted id cannot traverse the filesystem or serve an SVG XSS payload.
+        """
+        service = CatalogService.get_instance()
+        app = service.get_app(app_id)
+        if app is None:
+            return Redirect(path="/static/favicon.png")
+
+        icon_path = find_icon(app)
+        if icon_path is None:
+            return Redirect(path="/static/favicon.png")
+
+        suffix = icon_path.suffix.lower()
+        media_type = {".webp": "image/webp", ".png": "image/png"}.get(
+            suffix, "image/jpeg"
+        )
+        # nosniff so a mislabeled file can't be reinterpreted as active content.
+        return File(
+            path=icon_path,
+            media_type=media_type,
+            headers={"X-Content-Type-Options": "nosniff"},
+        )
+
+    # -------------------------------------------------------------------------
+    # All Apps Listing
+    # -------------------------------------------------------------------------
+
+    @get("/apps", status_code=200, sync_to_thread=False)
+    def catalog_list(self) -> Template:
+        """Display all catalog apps.
+
+        Provides a searchable, filterable list of all available apps.
+        """
+        service = CatalogService.get_instance()
+
+        # Convert apps to dicts for JSON serialization in Alpine.js
+        apps_data = [app.to_dict() for app in service.list_apps()]
+
+        ctx = {
+            "apps": service.list_apps(),
+            "apps_json": apps_data,
+            "categories": service.list_categories(),
+        }
+
+        return Template(template_name="dashboard/catalog/list.html", context=ctx)
+
+    # -------------------------------------------------------------------------
+    # App Detail
+    # -------------------------------------------------------------------------
+
+    @get("/apps/{app_id:str}", status_code=200, sync_to_thread=False)
+    def catalog_detail(self, app_id: FromPath[str]) -> Template | Redirect:
+        """Display catalog app detail page.
+
+        Shows full app information and install form.
+        """
+        service = CatalogService.get_instance()
+        app = service.get_app(app_id)
+
+        if not app:
+            return Redirect(path="/dashboard/catalog")
+
+        # Get similar apps (same category)
+        similar_apps = []
+        if app.category:
+            category = next(
+                (c for c in service.list_categories() if c.name == app.category), None
+            )
+            if category:
+                similar_apps = [a for a in category.apps if a.id != app_id][:4]
+
+        ctx = {
+            "app": app,
+            "similar_apps": similar_apps,
+            "errors": [],
+            "app_name": "",
+        }
+
+        return Template(template_name="dashboard/catalog/detail.html", context=ctx)
+
+    # -------------------------------------------------------------------------
+    # Category Browsing
+    # -------------------------------------------------------------------------
+
+    @get("/category/{category_id:str}", status_code=200, sync_to_thread=False)
+    def catalog_category(self, category_id: FromPath[str]) -> Template | Redirect:
+        """Display apps in a specific category."""
+        service = CatalogService.get_instance()
+        category = service.get_category(category_id)
+
+        if not category:
+            return Redirect(path="/dashboard/catalog")
+
+        ctx = {
+            "category": category,
+            "apps": category.apps,
+            "categories": service.list_categories(),
+        }
+
+        return Template(template_name="dashboard/catalog/category.html", context=ctx)
+
+    # -------------------------------------------------------------------------
+    # App Installation
+    # -------------------------------------------------------------------------
+
+    @post("/apps/{app_id:str}/install", status_code=303, sync_to_thread=True)
+    def catalog_install(
+        self,
+        app_id: FromPath[str],
+        data: Annotated[
+            dict[str, str], Body(media_type=RequestEncodingType.URL_ENCODED)
+        ],
+    ) -> Template | Redirect:
+        """Install a catalog app.
+
+        Creates a new app from the catalog template.
+        """
+        service = CatalogService.get_instance()
+        catalog_app = service.get_app(app_id)
+
+        if not catalog_app:
+            return Redirect(path="/dashboard/catalog")
+
+        # Get and validate app name
+        app_name = data.get("app_name", "").strip().lower()
+        errors = _validate_app_name(app_name)
+
+        # Check if app already exists
+        if not errors and _check_app_exists(app_name):
+            errors.append(f"An app named '{app_name}' already exists")
+
+        if errors:
+            return self._render_install_errors(
+                service, catalog_app, app_id, app_name, errors
+            )
+
+        # Create the app
+        with get_session() as db_session:
+            app = App(name=app_name)
+            app.create(setup_git=True)  # Creates directories and sets up git
+
+            _copy_catalog_source(catalog_app, app)
+            _parse_and_add_env_vars(app, data.get("env_vars", ""))
+
+            db_session.add(app)
+            db_session.commit()
+
+            # TODO: Trigger deployment (Phase 4)
+            # app.deploy()
+
+        return Redirect(
+            path=f"/dashboard/apps/{app_name}?installed=true", status_code=303
+        )
+
+    def _render_install_errors(
+        self,
+        service: CatalogService,
+        catalog_app,
+        app_id: str,
+        app_name: str,
+        errors: list[str],
+    ) -> Template:
+        """Re-render detail page with validation errors."""
+        similar_apps = []
+        if catalog_app.category:
+            category = next(
+                (
+                    c
+                    for c in service.list_categories()
+                    if c.name == catalog_app.category
+                ),
+                None,
+            )
+            if category:
+                similar_apps = [a for a in category.apps if a.id != app_id][:4]
+
+        ctx = {
+            "app": catalog_app,
+            "similar_apps": similar_apps,
+            "errors": errors,
+            "app_name": app_name,
+        }
+        return Template(template_name="dashboard/catalog/detail.html", context=ctx)
+
+
+def _copy_catalog_source(catalog_app, app: App) -> None:
+    """Copy source files from catalog app to new app."""
+    if not catalog_app.source_path:
+        return
+
+    src_path = Path(catalog_app.source_path)
+    if not src_path.exists():
+        return
+
+    dest_path = Path(app.src_path)
+    dest_path.mkdir(parents=True, exist_ok=True)
+
+    excluded_dirs = {"__pycache__", ".git"}
+    for item in src_path.iterdir():
+        if item.is_file():
+            shutil.copy2(item, dest_path / item.name)
+        elif item.is_dir() and item.name not in excluded_dirs:
+            shutil.copytree(item, dest_path / item.name, dirs_exist_ok=True)
+
+
+def _parse_and_add_env_vars(app: App, env_vars_str: str) -> None:
+    """Parse environment variables string and add to app."""
+    env_vars_str = env_vars_str.strip()
+    if not env_vars_str:
+        return
+
+    for line in env_vars_str.split("\n"):
+        line = line.strip()
+        if "=" in line and not line.startswith("#"):
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip()
+            if key:
+                app.env_vars.append(EnvVar(name=key, value=value))

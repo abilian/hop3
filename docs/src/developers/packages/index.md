@@ -1,6 +1,6 @@
 # Package Documentation
 
-This section provides access to the technical deep-dive documentation for each Hop3 package. The documentation files live in each package's `docs/` directory; this directory contains symlinks to those files for convenient access from the main documentation.
+This section provides access to the technical deep-dive documentation for each Hop3 package. Each package keeps its own deep-dive in `packages/<package-name>/docs/internals.md`; the pages in this directory mirror that content so it is reachable from the main documentation site.
 
 ## Package Overview
 
@@ -14,23 +14,14 @@ This section provides access to the technical deep-dive documentation for each H
 
 ## Package Relationships
 
-```
-                    ┌─────────────┐
-                    │ hop3-server │
-                    │   (core)    │
-                    └──────┬──────┘
-                           │
-              ┌────────────┼────────────┐
-              │            │            │
-              ▼            ▼            ▼
-        ┌──────────┐ ┌──────────┐ ┌──────────┐
-        │ hop3-cli │ │ hop3-tui │ │hop3-test │
-        │ (client) │ │ (client) │ │ (tests)  │
-        └──────────┘ └──────────┘ └──────────┘
-
-        ┌───────────────┐
-        │hop3-installer │  (installs server + cli)
-        └───────────────┘
+```mermaid
+flowchart TD
+    server["hop3-server<br/>(core)"]
+    server --> cli["hop3-cli<br/>(client)"]
+    server --> tui["hop3-tui<br/>(client)"]
+    server --> test["hop3-test<br/>(tests)"]
+    installer["hop3-installer"] -->|installs| server
+    installer -->|installs| cli
 ```
 
 ## Documentation Structure
@@ -41,13 +32,13 @@ Each package has:
 packages/<package-name>/
 ├── README.md           # Quick overview, installation, usage
 ├── docs/
-│   └── internals.md    # Technical deep-dive (symlinked here)
+│   └── internals.md    # Technical deep-dive (mirrored here)
 └── src/
 ```
 
-The symlinks in this directory point to:
-- `hop3-server.md` → `packages/hop3-server/docs/internals.md`
-- `hop3-cli.md` → `packages/hop3-cli/docs/internals.md`
+The pages in this directory mirror each package's `internals.md`:
+- `hop3-server.md` ← `packages/hop3-server/docs/internals.md`
+- `hop3-cli.md` ← `packages/hop3-cli/docs/internals.md`
 - etc.
 
 ## Quick Links

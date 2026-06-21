@@ -74,12 +74,70 @@ class CommandError(Exception):
         self.returncode = returncode
 
 
+def _failure_summary(result: subprocess.CompletedProcess) -> str:
+    """One concise, actionable line explaining a command failure.
+
+    Real errors land on the last meaningful line of stderr (a traceback's
+    final line, a CLI ``[ERROR]``); fall back to stdout. Truncated to fit one
+    terminal line — the full output is always in the log file.
+    """
+    for stream in (result.stderr, result.stdout):
+        lines = [ln.strip() for ln in (stream or "").splitlines() if ln.strip()]
+        if lines:
+            tail = lines[-1]
+            return tail[:200] + ("…" if len(tail) > 200 else "")
+    return ""
+
+
+# Bound every command so a hung RPC/subprocess fails loud instead of hanging the
+# whole run forever. Generous enough for a demo-app build (cold pip/npm install);
+# a genuine hang is capped at this instead of blocking indefinitely.
+DEFAULT_COMMAND_TIMEOUT = 300.0
+
+
+def _run_subprocess(
+    cmd: str, *, env: dict | None = None, timeout: float
+) -> subprocess.CompletedProcess:
+    """``subprocess.run`` that turns a hang into a bounded, loud failure.
+
+    On timeout the child is killed and a synthetic non-zero result (exit 124,
+    the conventional timeout code) is returned with an explanatory stderr, so
+    the normal failure path reports it instead of the whole run blocking forever.
+    """
+    try:
+        return subprocess.run(
+            cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+            timeout=timeout,
+            # No interactive stdin: the runner has no human to answer a prompt.
+            # A destructive command that prompts would otherwise read the
+            # inherited tty and block forever (its prompt is captured, so it's
+            # invisible). DEVNULL gives it EOF instead — it aborts, never hangs.
+            stdin=subprocess.DEVNULL,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout or ""
+        stderr = exc.stderr or ""
+        if isinstance(stdout, bytes):
+            stdout = stdout.decode(errors="replace")
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode(errors="replace")
+        note = f"Command timed out after {timeout:.0f}s and was killed."
+        stderr = f"{stderr}\n{note}".strip()
+        return subprocess.CompletedProcess(cmd, 124, stdout, stderr)
+
+
 def run_local(
     cmd: str,
     *,
     show: bool = True,
     check: bool = True,
     log_name: str = "commands",
+    timeout: float = DEFAULT_COMMAND_TIMEOUT,
 ) -> subprocess.CompletedProcess:
     """Run a command locally.
 
@@ -91,17 +149,21 @@ def run_local(
     """
     if show and get_output_level() >= 2:  # NORMAL or VERBOSE
         print_command(cmd)
-    result = subprocess.run(
-        cmd, shell=True, capture_output=True, text=True, check=False
-    )
+    result = _run_subprocess(cmd, timeout=timeout)
     # Always log command execution
     log_command(log_name, cmd, result)
 
     if check and result.returncode != 0:
-        print_error(f"Command failed with exit code {result.returncode}")
-        if result.stderr:
-            print(f"  {red(result.stderr.strip())}")
-        msg = f"Command failed: {cmd}"
+        # Inline failure detail at NORMAL+ only; in quiet/silent it would shred
+        # the per-demo result line. The CommandError + log file still carry it.
+        if get_output_level() >= OutputLevel.NORMAL:
+            print_error(f"Command failed with exit code {result.returncode}")
+            if result.stderr:
+                print(f"  {red(result.stderr.strip())}")
+        cause = _failure_summary(result)
+        msg = f"{cmd} failed (exit {result.returncode})"
+        if cause:
+            msg += f": {cause}"
         raise CommandError(msg, result.returncode)
     return result
 
@@ -160,13 +222,19 @@ def run_ssh(
         log_command(log_name, f"ssh {ctx.ssh_target} '{cmd}'", result)
 
     if check and result.returncode != 0:
-        print_error(f"Command failed with exit code {result.returncode}")
-        # Show both stdout and stderr on failure (installer errors may be in stdout)
-        if result.stdout:
-            print(f"  {result.stdout.strip()}")
-        if result.stderr:
-            print(f"  {red(result.stderr.strip())}")
-        msg = f"Command failed: {cmd}"
+        # Inline failure detail at NORMAL+ only (quiet/silent keep the result
+        # line clean); the CommandError + log file still carry it.
+        if get_output_level() >= OutputLevel.NORMAL:
+            print_error(f"Command failed with exit code {result.returncode}")
+            # Show both stdout and stderr (installer errors may be in stdout)
+            if result.stdout:
+                print(f"  {result.stdout.strip()}")
+            if result.stderr:
+                print(f"  {red(result.stderr.strip())}")
+        cause = _failure_summary(result)
+        msg = f"{cmd} failed (exit {result.returncode})"
+        if cause:
+            msg += f": {cause}"
         raise CommandError(msg, result.returncode)
     return result
 
@@ -179,6 +247,7 @@ def run_hop3(
     quiet: bool = False,
     verbose: bool | None = None,
     log_name: str = "hop3-commands",
+    timeout: float = DEFAULT_COMMAND_TIMEOUT,
 ) -> subprocess.CompletedProcess:
     """Run a hop3 CLI command.
 
@@ -213,14 +282,7 @@ def run_hop3(
         print_command(full_cmd)
 
     cmd_start = time.time()
-    result = subprocess.run(
-        full_cmd,
-        shell=True,
-        capture_output=True,
-        text=True,
-        check=False,
-        env=cli_env(),
-    )
+    result = _run_subprocess(full_cmd, env=cli_env(), timeout=timeout)
     cmd_elapsed = time.time() - cmd_start
 
     # Record timing for hop3 commands (extract base command for category)
@@ -239,13 +301,19 @@ def run_hop3(
         print(result.stdout)
 
     if check and result.returncode != 0:
-        print_error(f"hop3 command failed with exit code {result.returncode}")
-        # Show stdout on failure too - it contains build logs
-        if result.stdout and (output_level < OutputLevel.NORMAL or quiet):
-            # Only show if we didn't already show it above
-            print(result.stdout)
-        if result.stderr:
-            print(f"  {red(result.stderr.strip())}")
-        msg = f"hop3 command failed: {cmd}"
+        # Inline failure detail at NORMAL+ only; in quiet/silent it would dump
+        # the full build log mid-line and shred the per-demo result line. The
+        # CommandError + log file still carry it; the end-of-run summary too.
+        if output_level >= OutputLevel.NORMAL:
+            print_error(f"hop3 command failed with exit code {result.returncode}")
+            # Show stdout (build logs) only if we didn't already print it above
+            if result.stdout and quiet:
+                print(result.stdout)
+            if result.stderr:
+                print(f"  {red(result.stderr.strip())}")
+        cause = _failure_summary(result)
+        msg = f"hop3 {cmd} failed (exit {result.returncode})"
+        if cause:
+            msg += f": {cause}"
         raise CommandError(msg, result.returncode)
     return result

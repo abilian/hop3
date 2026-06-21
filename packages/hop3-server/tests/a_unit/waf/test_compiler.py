@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Compiler: [waf] policy -> SecLang (ADR 048). Pure tests, no engine needed."""
+"""Compiler: [waf] policy -> SecLang (ADR 050). Pure tests, no engine needed."""
 
 from __future__ import annotations
 

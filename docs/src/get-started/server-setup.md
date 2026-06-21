@@ -4,7 +4,7 @@ This guide explains how to set up Hop3 on a server using the installer script. T
 
 ## Prerequisites
 
-- A server running Ubuntu 22.04 or 24.04 LTS (Debian-based distributions also supported)
+- A server running Ubuntu 24.04 or 26.04 LTS (Debian-based distributions also supported)
 - Root access to the server via SSH
 - Python 3.10+ on the server
 - A domain name pointing to your server (required for secure HTTPS; without it, admin UI uses unencrypted HTTP on port 8000)
@@ -53,7 +53,8 @@ sudo python3 install-server.py --local-path /path/to/hop3-server
 | Option | Description |
 |--------|-------------|
 | `--domain DOMAIN` | Domain for admin UI (enables Let's Encrypt SSL) |
-| `--with FEATURES` | Install optional features: `mysql`, `redis`, `docker`, or `all` |
+| `--acme-email EMAIL` | Email for Let's Encrypt registration (required when using `--domain`) |
+| `--with FEATURES` | Comma-separated optional features: `mysql`, `redis`, `docker`, `nix`, `s3`, or `all` |
 | `--version VERSION` | Install specific version from PyPI |
 | `--pre` | Allow pre-release versions from PyPI |
 | `--git` | Install from git repository |
@@ -181,13 +182,13 @@ For testing and demonstrations, use the demo launcher:
 
 ```bash
 # Basic demo (apps cleaned up after)
-python demos/demo.py --host <your-server-ip> demo1
+python demos/demo.py run --host <your-server-ip> demo01
 
 # Keep apps running with admin domain
-python demos/demo.py --host <your-server-ip> --admin-domain hop3.example.com --keep demo1
+python demos/demo.py run --host <your-server-ip> --admin-domain hop3.example.com --keep demo01
 
 # Use local code (development)
-python demos/demo.py --host <your-server-ip> --local --keep demo1
+python demos/demo.py run --host <your-server-ip> --local --keep demo01
 ```
 
 The demo launcher will:

@@ -3,24 +3,7 @@
 **Status**: Accepted
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-04-22
 **Related-ADRs**: 002, 003
-
-## Future Work
-
-- **Schema validation** beyond TOML parse errors: see ADR 003 Phase 2. The current ad-hoc dataclass + `@property` approach catches structural errors at access time rather than at load time.
-- **YAML / JSON alternative formats**: not yet requested by users. TOML-only is considered sufficient; adding alternatives would be a mechanical translation layer.
-- **CLI validation command** (`hop3 config validate`): useful for CI gating.
-
-### Non-goal
-Supporting arbitrary ad-hoc configuration scripts (Dockerfile-flavoured shell snippets, inline Python) is out of scope. A Hop3 application's configuration surface is `Procfile` + `hop3.toml`; builders and deployers live in plugins, not in per-app scripts.
-
-## Revisions
-
-- v0.4: CLI example migrated from colon syntax (`hop3 config:validate`) to space form (`hop3 config validate`) per ADR 036 (2026-04-22).
-- v0.3: Promoted from Draft to Accepted; clarified shipped vs. deferred. Non-goal clause added (2026-04-14).
-- v0.2: Update according to new template (2024-07-25)
-- v0.1: Initial draft (2024-07-17)
 
 ## Summary
 
@@ -38,9 +21,11 @@ The Hop3 platform needs a robust and flexible configuration method for deploying
 
 Hop3 will support configuration and metadata through multiple file formats to accommodate diverse use cases and existing workflows. The decision includes the following key points:
 
-- **Primary Configuration**: The `hop3.toml` file will serve as the primary configuration file, providing a clear and human-readable format.
-- **Alternative Formats**: Support for alternative formats such as Procfiles and other configuration scripts will be maintained to ensure flexibility and compatibility.
-- **Unified Parsing and Validation**: Regardless of the format, all configuration files will be parsed and validated to ensure consistency and correctness.
+- **Primary Configuration**: The `hop3.toml` file serves as the primary configuration file, providing a clear and human-readable format.
+- **Alternative Formats**: Alternative formats such as Procfiles and other configuration scripts are supported to ensure flexibility and compatibility.
+- **Unified Parsing and Validation**: Regardless of the format, all configuration files are parsed and validated to ensure consistency and correctness.
+
+A Hop3 application's configuration surface is bounded to `Procfile` + `hop3.toml`. Arbitrary ad-hoc configuration scripts (Dockerfile-flavoured shell snippets, inline Python) are out of scope: builders and deployers live in plugins, not in per-app scripts.
 
 ## Consequences
 
@@ -59,6 +44,9 @@ Hop3 will support configuration and metadata through multiple file formats to ac
 
 - A single configuration file format (e.g., only supporting `hop3.toml`), which would simplify the implementation but reduce flexibility and compatibility.
 - Ad-hoc configuration methods without a unified structure, leading to potential inconsistencies and increased complexity in management.
+- Additional serialization formats (YAML, JSON) as alternatives to TOML. TOML-only is sufficient for the configuration surface; further formats would be a mechanical translation layer over the same model and add surface without expressive gain.
+
+Schema validation beyond TOML parse errors is owned by ADR 003. A dataclass plus `@property` model catches structural errors at access time; load-time schema validation, together with a `hop3 config validate` command for CI gating, builds on that model.
 
 ## Related
 

@@ -4,7 +4,9 @@
 
 from __future__ import annotations
 
+import ast
 import re
+import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -16,6 +18,32 @@ if TYPE_CHECKING:
 
 # Demos directory (parent of lib/)
 DEMOS_DIR = Path(__file__).parent.parent
+
+# app_type (language detection) -> canonical toolchain tag value.
+_TOOLCHAIN_FROM_APP_TYPE = {
+    "python": "python",
+    "nodejs": "node",
+    "golang": "go",
+    "ruby": "ruby",
+}
+
+# Substrings that, if present in a hint string (e.g. a nix runtime-package or
+# template name), identify a language toolchain.
+_TOOLCHAIN_HINTS = ("python", "ruby", "node", "php", "rust", "java", "go")
+
+# Markers scanned in the demo-script text -> extra:* capability tag. Keyed on
+# the actual CLI invocation a demo makes, so false positives are unlikely.
+_EXTRA_MARKERS: dict[str, tuple[str, ...]] = {
+    "extra:backup": ("backup create", "backup restore"),
+    "extra:scaling": ("ps scale",),
+    "extra:domains": ("domain add", "domain set"),
+    "extra:expose": ("addon expose",),
+    "extra:tunnel": ("hop3 tunnel", "tunnel "),
+    "extra:sbom": ("app sbom",),
+    "extra:cert": ("cert renew",),
+    "extra:run-cmd": ("app run",),
+    "extra:users": ("user add",),
+}
 
 
 def discover_demos(
@@ -132,6 +160,9 @@ def get_demo_info(demo_name: str, demo_path: Path) -> DemoInfo | None:
     # Detect app type
     app_type = _detect_app_type(app_dir_resolved)
 
+    # Compute namespaced capability tags (builder/toolchain/addon/extra + FEATURES)
+    app_tags = _compute_tags(app_dir_resolved, script, app_type)
+
     # Check for symlinks
     is_symlink, symlink_target = _check_symlink(demo_path, app_subdir)
 
@@ -146,6 +177,7 @@ def get_demo_info(demo_name: str, demo_path: Path) -> DemoInfo | None:
         location=demo_path,
         is_symlink=is_symlink,
         symlink_target=symlink_target,
+        app_tags=app_tags,
     )
 
 
@@ -172,6 +204,138 @@ def _detect_app_type(app_dir: Path) -> str:
     ):
         return "static"
     return "unknown"
+
+
+def _app_subdir_of(script: Path) -> str | None:
+    """Extract the app subdir from an ``APP_DIR = Path(...) / "subdir"`` line."""
+    try:
+        for line in script.read_text().split("\n"):
+            line = line.strip()
+            if line.startswith("APP_DIR") and "/" in line:
+                match = re.search(r'/\s*["\']([^"\']+)["\']', line)
+                if match:
+                    return match.group(1)
+    except Exception:
+        pass
+    return None
+
+
+def _resolve_app_dir(demo_path: Path, app_subdir: str | None) -> Path:
+    """Resolve the actual app directory for a demo (following a subdir/symlink)."""
+    if app_subdir:
+        candidate = demo_path / app_subdir
+        if candidate.exists():
+            return candidate.resolve() if candidate.is_symlink() else candidate
+    return demo_path
+
+
+def _toolchain_from_hint(hint: str) -> str | None:
+    """Map a free-form hint (nix runtime-package/template, …) to a toolchain."""
+    low = hint.lower()
+    for lang in _TOOLCHAIN_HINTS:
+        if lang in low:
+            return "node" if lang == "node" else lang
+    return None
+
+
+def _extract_features(script: Path) -> set[str]:
+    """Read a demo script's ``FEATURES = {...}`` literal without executing it."""
+    try:
+        tree = ast.parse(script.read_text())
+    except Exception:
+        return set()
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "FEATURES" for t in node.targets
+        ):
+            try:
+                value = ast.literal_eval(node.value)
+            except Exception:
+                return set()
+            if isinstance(value, (set, list, tuple)):
+                return {str(x) for x in value}
+    return set()
+
+
+def _scan_script_tags(script: Path) -> set[str]:
+    """Infer tags from a demo script's CLI commands.
+
+    Covers ``extra:*`` capabilities and ``addon:*`` for addons the demo
+    *provisions in-script* (``addon create <type> …``) rather than declaring in
+    its ``hop3.toml``.
+    """
+    try:
+        text = script.read_text()
+    except Exception:
+        return set()
+    tags = {
+        tag
+        for tag, markers in _EXTRA_MARKERS.items()
+        if any(marker in text for marker in markers)
+    }
+    tags.update(f"addon:{t}" for t in re.findall(r"addon create (\w+)", text))
+    return tags
+
+
+def _compute_tags(app_dir: Path, script: Path, app_type: str) -> list[str]:
+    """Core tag computation given a resolved app dir + script. See compute_app_tags."""
+    tags: set[str] = set()
+
+    data: dict = {}
+    toml_path = app_dir / "hop3.toml"
+    if toml_path.exists():
+        try:
+            data = tomllib.loads(toml_path.read_text())
+        except Exception:
+            data = {}
+
+    build = data.get("build", {}) or {}
+    builder = build.get("builder")
+    if builder:
+        tags.add(f"builder:{builder}")
+
+    # Toolchain: explicit [build].toolchain, else a nix template/runtime hint,
+    # else inferred from the detected language.
+    toolchain = build.get("toolchain")
+    if not toolchain and builder == "nix":
+        nix = data.get("nix", {}) or {}
+        toolchain = _toolchain_from_hint(
+            str(nix.get("runtime-package") or nix.get("template") or "")
+        )
+    if not toolchain:
+        toolchain = _TOOLCHAIN_FROM_APP_TYPE.get(app_type)
+    if toolchain:
+        tags.add(f"toolchain:{toolchain}")
+
+    for addon in data.get("addons", []) or []:
+        if isinstance(addon, dict) and addon.get("type"):
+            tags.add(f"addon:{addon['type']}")
+
+    # Builder fallback when hop3.toml didn't declare one (Procfile-only demos).
+    if not builder:
+        tags.add(
+            {"docker": "builder:docker", "static": "builder:static"}.get(
+                app_type, "builder:local"
+            )
+        )
+
+    tags |= _scan_script_tags(script)
+    tags |= _extract_features(script)
+    return sorted(tags)
+
+
+def compute_app_tags(demo_path: Path) -> list[str]:
+    """Compute the namespaced capability tags for a demo.
+
+    Tags are derived from the app's ``hop3.toml`` (``builder:*``, ``toolchain:*``,
+    ``addon:*``), the detected app type, the CLI verbs the demo script exercises
+    (``extra:*``), and the script's own ``FEATURES`` set. Returns a sorted list.
+    """
+    script = demo_path / "demo-script.py"
+    if not script.exists():
+        return []
+    app_dir = _resolve_app_dir(demo_path, _app_subdir_of(script))
+    return _compute_tags(app_dir, script, _detect_app_type(app_dir))
 
 
 def _check_symlink(demo_path: Path, app_subdir: str | None) -> tuple[bool, str | None]:
@@ -238,6 +402,55 @@ def resolve_demo(
         return (expanded_path.name, expanded_path, True)
 
     return (demo_arg, None, False)
+
+
+def _tag_matches(token: str, tags: set[str]) -> bool:
+    """Whether a select/skip token matches a demo's tag set.
+
+    A fully-qualified token (``toolchain:python``) matches exactly; a bare
+    namespace (``toolchain``) matches any tag in that namespace.
+    """
+    if ":" in token:
+        return token in tags
+    return any(t == token or t.startswith(f"{token}:") for t in tags)
+
+
+def _split(tokens: Sequence[str]) -> list[str]:
+    """Flatten comma-separated values from a repeatable flag into single tokens."""
+    return [t.strip() for value in tokens for t in value.split(",") if t.strip()]
+
+
+def select_demos(
+    items: Sequence[tuple[str, Path, bool]],
+    select: Sequence[str] | None,
+    skip: Sequence[str] | None,
+) -> list[tuple[str, Path, bool]]:
+    """Filter resolved demos by feature tags.
+
+    ``select`` is AND across repeated flags, OR within a comma-separated value:
+    ``--select toolchain:python --select addon:postgres`` keeps demos that are
+    both, while ``--select toolchain:python,toolchain:go`` keeps either. ``skip``
+    is OR — a demo is dropped if it matches any skip token. A bare namespace
+    (e.g. ``--skip addon``) matches every tag in that namespace.
+    """
+    select_groups = [
+        [t.strip() for t in value.split(",") if t.strip()] for value in (select or [])
+    ]
+    skip_tokens = _split(skip or [])
+    if not select_groups and not skip_tokens:
+        return list(items)
+
+    out: list[tuple[str, Path, bool]] = []
+    for name, path, is_generic in items:
+        tags = set(compute_app_tags(path))
+        if any(_tag_matches(tok, tags) for tok in skip_tokens):
+            continue
+        if select_groups and not all(
+            any(_tag_matches(tok, tags) for tok in group) for group in select_groups
+        ):
+            continue
+        out.append((name, path, is_generic))
+    return out
 
 
 def load_demo_module(demo_path: Path):

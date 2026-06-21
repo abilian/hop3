@@ -1,19 +1,13 @@
 # ADR 034: Streaming Deployment Logs
 
-**Status**: Implemented
+**Status**: Final
 **Type**: Feature
 **Created**: 2025-12-15
-**Updated**: 2026-04-14
 **Related-ADRs**: 018, 022, 025
-
-## Revisions
-
-- v1.2: SSE-based streaming for deploy and app logs is the production path; ADR 018 cross-references this as the answer to its previously-open in-band-streaming question (2026-04-14).
-- v1.0: Original version (2025-12-15)
 
 ## Context
 
-Currently, the `hop deploy` command returns immediately after initiating a deployment, with output like:
+The `hop deploy` command can return immediately after initiating a deployment, with output like:
 
 ```
 $ hop deploy myapp
@@ -36,34 +30,34 @@ This affects **all deployment types** supported by Hop3:
 - **Docker apps**: docker build
 - **Static sites**: asset processing
 
-The CLI communicates with the server via JSON-RPC over HTTP. JSON-RPC's request-response model doesn't support streaming responses, which contributed to the current fire-and-forget pattern.
+The CLI communicates with the server via JSON-RPC over HTTP. JSON-RPC's request-response model doesn't support streaming responses, which drives the fire-and-forget pattern.
 
 ## Decision
 
-Implement deployment log streaming in two phases:
+Hop3 streams deployment logs through Server-Sent Events (SSE), with a synchronous request-response mode as the fallback when streaming is unavailable.
 
-### Phase 1: Synchronous Deployment (Quick Win)
+### Synchronous Deployment (Fallback Mode)
 
-Change the deploy command to **block until the build completes**, capturing and returning all output in the response.
+The deploy command **blocks until the build completes**, capturing and returning all output in a single JSON-RPC response.
 
-**Server changes:**
-- Modify `deploy_app()` to capture stdout/stderr from the build process
-- Return build output as part of the JSON-RPC response
-- Include success/failure status in response
+**Server responsibilities:**
+- `deploy_app()` captures stdout/stderr from the build process
+- The build output is returned as part of the JSON-RPC response
+- The response includes success/failure status
 
-**CLI changes:**
-- Wait for the full response (with appropriate timeout)
+**CLI responsibilities:**
+- Wait for the full response (with an appropriate timeout)
 - Display build output as it's received
-- Show clear success/failure indication
+- Show a clear success/failure indication
 
 ```python
-# Current behavior (fire-and-forget)
+# Fire-and-forget (insufficient)
 def deploy_app(app_name: str) -> dict:
     app = get_or_create_app(app_name)
     app.deploy()  # Returns immediately, build happens async
     return {"status": "started"}
 
-# Phase 1 behavior (synchronous)
+# Synchronous behavior
 def deploy_app(app_name: str) -> dict:
     app = get_or_create_app(app_name)
     output = app.deploy()  # Blocks until complete, captures output
@@ -75,19 +69,17 @@ def deploy_app(app_name: str) -> dict:
 ```
 
 **Pros:**
-- Minimal changes required
-- Works within existing JSON-RPC framework
-- Immediate improvement to user experience
-- Output captured in single response
+- Works within the existing JSON-RPC framework
+- Output captured in a single response
 
 **Cons:**
 - Long builds may hit HTTP/proxy timeouts
-- No incremental output during build
-- Client must wait for full response
+- No incremental output during the build
+- The client must wait for the full response
 
-### Phase 2: Server-Sent Events Streaming (Full Solution)
+### Server-Sent Events Streaming (Primary Mode)
 
-Add a streaming endpoint that sends build logs in real-time using Server-Sent Events (SSE).
+A streaming endpoint sends build logs in real-time using Server-Sent Events (SSE). This is the production path for both deploy and app logs, and is the answer to the in-band-streaming question left open by [ADR 018](018-cli-architecture.md).
 
 **Architecture:**
 
@@ -190,7 +182,7 @@ async def deploy_with_streaming(app_name: str) -> int:
     stream_id = response.get("stream_id")
 
     if not stream_id:
-        # Fallback to Phase 1 behavior
+        # Fallback to synchronous batch output
         print(response.get("output", ""))
         return 0 if response.get("status") == "success" else 1
 
@@ -206,25 +198,23 @@ async def deploy_with_streaming(app_name: str) -> int:
                         return 0 if data["status"] == "success" else 1
 ```
 
-### Build Cancellation (Future)
+### Build Cancellation
 
-Build cancellation is explicitly deferred to a future phase. For now:
+Build cancellation is out of scope: a deploy, once started, runs to completion regardless of the client connection.
+
 - **Builds continue even if the client disconnects**
-- Server-side build process runs to completion
+- The server-side build process runs to completion
 - Logs are retained for later retrieval
 
-Future implementation would add:
-- `POST /api/stream/{stream_id}/cancel` endpoint
-- Signal handling in build process
-- Cleanup of partial builds
+Adding cancellation would require a `POST /api/stream/{stream_id}/cancel` endpoint, signal handling in the build process, and cleanup of partial builds.
 
 ### SSH Tunneling
 
-SSH tunneling is deprecated. The CLI now communicates with the server over HTTP. This simplifies streaming implementation as we don't need to handle SSH tunnel limitations.
+SSH tunneling is deprecated; the CLI communicates with the server over HTTP. This simplifies the streaming design, since it removes the need to handle SSH tunnel limitations.
 
 ## Runtime Behavior
 
-With Phase 2 SSE streaming, deployment logs are displayed in **real-time** as they happen:
+With SSE streaming, deployment logs are displayed in **real-time** as they happen:
 
 1. CLI sends deploy request with `streaming=True`
 2. Server creates a stream, starts deployment in background thread
@@ -233,7 +223,7 @@ With Phase 2 SSE streaming, deployment logs are displayed in **real-time** as th
 5. Logs are streamed to CLI as they happen
 6. CLI displays `complete` event when done
 
-**SSH Tunnel Limitation:** When using `ssh://` URLs, streaming is not yet supported and falls back to batch mode (logs shown at end). Direct HTTP connections support full streaming.
+**SSH Tunnel Limitation:** Streaming requires a direct HTTP connection. With `ssh://` URLs the CLI falls back to batch mode (logs shown at the end).
 
 ### Alternative Real-Time Monitoring
 
@@ -254,7 +244,7 @@ journalctl -u uwsgi-emperor -f
 
 ### Positive
 
-- Users see build output in real-time (Phase 2) or after completion (Phase 1)
+- Users see build output in real-time (streaming) or after completion (synchronous fallback)
 - Build failures are immediately visible
 - Debugging deployments becomes much easier
 - Better UX aligns with user expectations from other PaaS platforms
@@ -262,10 +252,10 @@ journalctl -u uwsgi-emperor -f
 
 ### Negative
 
-- Phase 1: Long builds may hit timeouts
-- Phase 2: More complex server architecture
+- Synchronous fallback: long builds may hit timeouts
+- Streaming: more complex server architecture
 - SSE requires maintaining connection state
-- Build logs consume memory until stream closes
+- Build logs consume memory until the stream closes
 
 ### Neutral
 

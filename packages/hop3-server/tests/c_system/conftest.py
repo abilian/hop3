@@ -50,7 +50,7 @@ requires_full_infrastructure = pytest.mark.skipif(
 
 
 @pytest.fixture(scope="session")
-def docker_client() -> Generator[docker.DockerClient, None, None]:
+def docker_client() -> Generator[docker.DockerClient]:
     """Provide Docker client for tests."""
     client = docker.from_env()
     # Test Docker connectivity
@@ -112,7 +112,7 @@ def hop3_image(docker_client: docker.DockerClient) -> str:
 @pytest.fixture(scope="session")
 def local_server(
     docker_client: docker.DockerClient, hop3_image: str
-) -> Generator[dict[str, Any], None, None]:
+) -> Generator[dict[str, Any]]:
     """Start a Docker container with hop3-server for testing.
 
     Returns:
@@ -214,7 +214,7 @@ def local_server(
 
 
 @pytest.fixture(scope="session")
-def hop3_config_dir(local_server: dict[str, Any]) -> Generator[Path, None, None]:
+def hop3_config_dir(local_server: dict[str, Any]) -> Generator[Path]:
     """Set up hop3-cli configuration via environment variables."""
     config_dir = Path(tempfile.mkdtemp(prefix="hop3-system-test-config-"))
 
@@ -251,7 +251,7 @@ def hop3_config_dir(local_server: dict[str, Any]) -> Generator[Path, None, None]
 
 
 @pytest.fixture(scope="session")
-def system_auth_token(hop3_config_dir: Path) -> Generator[str, None, None]:
+def system_auth_token(hop3_config_dir: Path) -> Generator[str]:
     """Create test user and get authentication token."""
     print("\n=== Registering test user ===")
     print(f"Running: hop3 auth:register {E2E_TEST_USER} ...")
@@ -393,7 +393,7 @@ e2e_auth_token = system_auth_token
 
 
 @pytest.fixture
-def test_app_dir() -> Generator[Path, None, None]:
+def test_app_dir() -> Generator[Path]:
     """Create a temporary directory for test app deployment."""
     app_dir = Path(tempfile.mkdtemp(prefix="hop3-e2e-app-"))
     yield app_dir
@@ -402,9 +402,7 @@ def test_app_dir() -> Generator[Path, None, None]:
 
 
 @pytest.fixture
-def deployed_app(
-    e2e_auth_token: str, test_app_dir: Path
-) -> Generator[dict, None, None]:
+def deployed_app(e2e_auth_token: str, test_app_dir: Path) -> Generator[dict]:
     """Deploy a test app and return its info, clean up after test."""
     app_name = f"e2e-test-{int(time.time())}"
     deployed = {

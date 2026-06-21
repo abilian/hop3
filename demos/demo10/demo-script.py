@@ -168,7 +168,7 @@ def run(ctx: DemoContext) -> None:
 
         # Debug: Test direct connection (bypass nginx) to confirm app is running
         print_step("Testing direct connection to app (bypassing nginx)...")
-        result = run_hop3(f"app ping {APP_NAME} /db-status", check=False)
+        result = run_hop3(f"app ping --app {APP_NAME} /db-status", check=False)
         if result.returncode != 0:
             print_warning(f"Direct ping failed: {result.stderr or result.stdout}")
         else:
@@ -196,10 +196,10 @@ def run(ctx: DemoContext) -> None:
         # Cleanup: Detach and destroy the database
         print_header("Step 9: Cleanup Database")
         print_step("Detaching database from app...")
-        run_hop3(f"addon detach {DB_NAME} --app {APP_NAME} --service-type postgres", check=False)
+        run_hop3(f"addon detach {DB_NAME} --app {APP_NAME} --service-type postgres -y", check=False)
 
         print_step(f"Destroying database '{DB_NAME}'...")
-        run_hop3(f"addon destroy {DB_NAME} --service-type postgres", check=False)
+        run_hop3(f"addon destroy {DB_NAME} --service-type postgres -y", check=False)
 
         # Verify the database was actually destroyed using addon's own connection
         print_step("Verifying database was removed...")

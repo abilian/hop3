@@ -16,32 +16,29 @@ Both are designed with no external dependencies (stdlib only for installers).
 ```
 hop3_installer/
 ├── __init__.py
-├── main.py              # Unified entry point
-├── common.py            # Shared utilities (Colors, Spinner)
-├── bundler.py           # Single-file bundler
-├── cli/
-│   ├── config.py        # CLI installer configuration
+├── main.py              # Unified entry point for hop3-install
+├── common.py            # Shared utilities (Colors, run_cmd, env helpers)
+├── constants.py         # Shared constants (paths, defaults, package names)
+├── bundler.py           # Single-file installer bundler
+├── validators.py        # Installation validators (CLI + server)
+├── nginx_templates.py   # Nginx and systemd unit templates
+├── cli_installer/       # CLI installer (hop3-install cli)
+│   ├── config.py        # CLIInstallerConfig dataclass
 │   └── installer.py     # CLI installation logic
-├── server/
-│   ├── config.py        # Server installer configuration
-│   └── installer.py     # Server installation logic
-├── deployer/
-│   ├── cli.py           # hop3-deploy CLI
-│   ├── deploy.py        # Deployment orchestration
-│   ├── config.py        # Deployer configuration
-│   └── backends/
-│       ├── base.py      # Abstract backend
-│       ├── ssh.py       # SSH deployment
-│       └── docker.py    # Docker deployment
-└── testing/
-    ├── runner.py        # Test execution
-    ├── validators.py    # Installation validators
+├── server_installer/    # Server installer (hop3-install server)
+│   ├── config.py        # ServerInstallerConfig dataclass
+│   └── installer.py     # Full server setup orchestration
+└── deployer/            # Developer deployment (hop3-deploy)
+    ├── cli.py           # hop3-deploy CLI (argparse)
+    ├── deploy.py        # Deployer class orchestration
+    ├── config.py        # DeployConfig dataclass
     └── backends/
-        ├── base.py      # Abstract test backend
-        ├── docker.py    # Docker containers
-        ├── ssh.py       # SSH remote
-        └── vagrant.py   # Vagrant VMs
+        ├── base.py      # DeployBackend abstract base class
+        ├── ssh.py       # SSHDeployBackend
+        └── docker.py    # DockerDeployBackend
 ```
+
+The `cli_installer/` and `server_installer/` packages use only the Python standard library so they can be bundled into self-contained single-file scripts. The `deployer/` package is a developer tool and is never bundled.
 
 ## Single-File Bundling
 
@@ -50,21 +47,26 @@ The bundler combines multiple Python modules into a single script:
 ### Bundling Process
 
 ```python
-def bundle(installer_type: str, output_path: Path) -> None:
-    """Bundle installer into single file."""
-    # 1. Collect all required modules
-    modules = collect_modules(f"hop3_installer.{installer_type}")
+def bundle_installer(installer_type: str) -> str:
+    """Bundle an installer into a single file.
 
-    # 2. Generate combined source
-    combined = generate_combined_source(modules)
+    installer_type is "cli" or "server"; returns the bundled source.
+    """
+    # 1. Pick the ordered module list (CLI_MODULES or SERVER_MODULES)
+    modules = CLI_MODULES if installer_type == "cli" else SERVER_MODULES
 
-    # 3. Add shebang and metadata
-    script = f"#!/usr/bin/env python3\n# Generated installer\n{combined}"
+    # 2. For each module: collect stdlib imports, strip relative imports
+    #    and docstrings, and inline the code body. Detect top-level name
+    #    collisions across modules and abort if any are found.
 
-    # 4. Write output
-    output_path.write_text(script)
-    output_path.chmod(0o755)
+    # 3. Emit a header (shebang, Python version check), the deduplicated
+    #    stdlib import block, the inlined module bodies, and an entry point.
+
+    # 4. Validate the result with ast.parse() before returning it.
+    ...
 ```
+
+The bundler returns the source as a string; the CLI (`hop3-install bundle`) and `DeployConfig.installer_path` write it to disk and `chmod 0o755` it. Module order matters — `common.py` and `constants.py` come first because later modules depend on them.
 
 ### Why Single-File?
 
@@ -79,22 +81,28 @@ Installs hop3-cli on local machines:
 
 ### Installation Steps
 
-1. Check Python version (3.10+)
-2. Determine installation method:
-   - pipx (preferred)
-   - pip with --user
-   - pip in venv
-3. Install hop3-cli package
-4. Verify installation
+1. Check system requirements (Python 3.10+)
+2. Create a dedicated virtual environment at `~/.hop3-cli/venv`
+3. Install the `hop3-cli` package (from PyPI by default, or `--git` / a local path)
+4. Symlink the `hop3` and `hop` commands into `~/.local/bin`
+5. Configure PATH in the user's shell config (unless `--no-modify-path`)
+6. Verify the installation
+
+The CLI is installed into its own venv with command symlinks rather than via pipx or `pip install --user`, which keeps the install self-contained and easy to remove (`rm -rf ~/.hop3-cli`).
 
 ### Configuration
 
 ```python
 @dataclass
 class CLIInstallerConfig:
-    package: str = "hop3-cli"
     version: str | None = None
-    method: str = "pipx"  # pipx, pip-user, venv
+    use_git: bool = False
+    branch: str = "main"
+    local_path: str | None = None
+    bin_dir: Path = Path.home() / ".local" / "bin"
+    force: bool = False
+    no_modify_path: bool = False
+    verbose: bool = False
 ```
 
 ## Server Installer (`hop3-install server`)
@@ -103,52 +111,46 @@ Installs hop3-server on target machines (requires root):
 
 ### Installation Steps
 
-1. **System check**
-   - Root privileges
-   - OS detection (Debian, Ubuntu, RHEL, etc.)
-   - Python version
+The server installer runs as a numbered sequence of steps (see `server_installer/installer.py`):
 
-2. **User setup**
-   - Create `hop3` user
-   - Setup home directory structure
-   - Configure SSH authorized_keys
+1. **System dependencies** — install base system packages (nginx, uwsgi, git, etc.) plus the catalogue-derived baseline on Debian/Fedora
+2. **Create `hop3` user and group**
+3. **Create the Python virtual environment** at `/home/hop3/venv`
+4. **Install the `hop3-server` package** into the venv
+5. **Run initial setup** (`hop3-server` first-run setup)
+6. **Configure SSH keys**
+7. **Set up systemd services** (writes the secret key, unit files)
+8. **Set up self-signed SSL certificates**
+9. **Configure nginx** (and install `hop3-rootd`, the privileged-operations daemon required for nginx reloads on the deploy path)
+10. **Configure PostgreSQL** (the default database)
+11. **Configure MySQL** (only when requested with `--with mysql`)
 
-3. **Dependencies**
-   - Install system packages (nginx, uwsgi, git, etc.)
-   - Install Python packages in venv
-
-4. **Services**
-   - Configure uWSGI emperor
-   - Configure nginx
-   - Setup systemd services
-
-5. **Database**
-   - PostgreSQL (optional)
-   - MySQL (optional)
-   - Initialize hop3 database
-
-6. **Verification**
-   - Service health checks
-   - Connectivity tests
+Optional toolchains (Rust, Node global packages, Leiningen, Elixir, Nix) and extra features (`redis`, `s3`, `docker`) are installed when requested via `--with`. A final verification step checks the resulting install.
 
 ### Directory Structure Created
 
 ```
 /home/hop3/
-├── .venv/              # Python virtual environment
-├── apps/               # Application storage
-├── nginx/              # Nginx configurations
-├── uwsgi-available/    # uWSGI configs
-├── uwsgi-enabled/      # Active configs (symlinks)
-├── certificates/       # SSL certificates
-└── hop3.db            # SQLite database
+├── venv/               # Python virtual environment (hop3-server, uwsgi, hop3-rootd)
+├── apps/               # Per-app deployment trees
+├── nginx/              # Per-app nginx config fragments
+├── uwsgi-available/    # uWSGI app configs
+├── uwsgi-enabled/      # Active uWSGI configs (symlinks watched by the emperor)
+├── ssl/                # Per-domain SSL certificates
+└── hop3.db             # SQLite database (only when SQLite is used)
 
-/etc/
-├── nginx/sites-enabled/hop3-admin.conf
-└── systemd/system/
-    ├── hop3-server.service
-    └── uwsgi-emperor.service
+/etc/hop3/ssl/          # Self-signed cert/key for initial nginx setup
+
+/etc/nginx/sites-enabled/hop3   # Main nginx site (or conf.d/hop3.conf on RHEL)
+
+/etc/systemd/system/
+├── hop3-server.service        # The API server
+└── uwsgi-hop3.service         # uWSGI emperor
+
+/etc/default/hop3              # EnvironmentFile read by the systemd units
 ```
+
+The default database is PostgreSQL (step 10); `hop3.db` only exists for SQLite-backed installs. The `apps/`, `uwsgi-available/`, and `uwsgi-enabled/` directories under `/home/hop3` are created and populated when apps are deployed, not by the installer itself.
 
 ## Developer Deployer (`hop3-deploy`)
 
@@ -156,41 +158,43 @@ Tool for deploying during development:
 
 ### Backends
 
+Both backends subclass `DeployBackend` and implement the same interface: `setup()`, `run()`, `upload_file()`, `upload_dir()`, `is_hop3_installed()`, `clean()`, `teardown()`, and `get_server_url()`. They take a `DeployConfig`.
+
 #### SSH Backend
 
 ```python
-class SSHBackend:
-    def __init__(self, host: str, user: str = "root"):
-        self.host = host
-        self.user = user
+class SSHDeployBackend(DeployBackend):
+    def __init__(self, config: DeployConfig):
+        ...  # reads config.host, config.ssh_user, config.ssh_port
 
-    def execute(self, command: str) -> tuple[int, str, str]:
-        """Execute command on remote host."""
+    def setup(self) -> bool:
+        """Verify connectivity to the remote host."""
         ...
 
-    def upload_file(self, local: Path, remote: Path) -> None:
-        """Upload file to remote host."""
+    def run(self, command: str, *, check: bool = True,
+            stdin: str | None = None) -> CommandResult:
+        """Run a command on the remote host."""
         ...
 
-    def upload_directory(self, local: Path, remote: Path) -> None:
-        """Upload directory recursively."""
-        ...
+    def upload_file(self, local_path: Path, remote_path: str) -> bool: ...
+    def upload_dir(self, local_path: Path, remote_path: str) -> bool: ...
 ```
 
 #### Docker Backend
 
 ```python
-class DockerBackend:
-    def __init__(self, image: str = "ubuntu:24.04"):
-        self.image = image
-        self.container_name = "hop3-dev"
+class DockerDeployBackend(DeployBackend):
+    def __init__(self, config: DeployConfig):
+        self.container_name = config.docker_container  # default: hop3-dev
+        self.image = self.TEST_IMAGE                   # falls back to ubuntu:24.04
 
-    def start(self) -> None:
-        """Start Docker container with systemd."""
+    def setup(self) -> bool:
+        """Start the container (with supervisor as the process manager)."""
         ...
 
-    def execute(self, command: str) -> tuple[int, str, str]:
-        """Execute command in container."""
+    def run(self, command: str, *, check: bool = True,
+            stdin: str | None = None) -> CommandResult:
+        """Run a command inside the container."""
         ...
 ```
 
@@ -202,73 +206,41 @@ hop3-deploy --local
 1. Check target connectivity (SSH or Docker)
 2. If --clean: remove existing installation
 3. If --local:
-   a. Upload local code to target
-   b. Run installer with --local-path
-4. Else:
-   a. Run installer (pulls from git)
+   a. Upload local package source to the target
+   b. Run the installer against the uploaded source
+4. Else: run the installer, which installs from PyPI by default
+   (--git installs from git, --version pins a PyPI release)
 5. If --admin-domain:
-   a. Setup admin interface
-   b. Create admin user
+   a. Configure the admin interface
+   b. Create the admin user
 6. Configure local CLI (unless --no-cli-setup)
 ```
 
-## Testing Framework
+The default install source is PyPI. Use `--git` (optionally `--branch`) to install from the repository, or `--local` to upload and use working-tree code.
 
-For validating installers across environments:
+## Installation Validators
 
-### Test Runner
-
-```python
-class InstallerTestRunner:
-    def __init__(self, backend: TestBackend):
-        self.backend = backend
-
-    def run_tests(self) -> TestResults:
-        """Run all installation tests."""
-        results = TestResults()
-
-        # Test installation
-        results.add(self.test_installation())
-
-        # Test services
-        results.add(self.test_services())
-
-        # Test deployment
-        results.add(self.test_deployment())
-
-        return results
-```
-
-### Validators
+The `validators.py` module provides validation functions used both as post-install self-tests (run by the installers themselves) and by E2E tests through the deploy backends. Each validator takes a `runner` callable that executes a shell command and returns a `CommandResult`, so the same logic works locally (`LocalRunner`) or remotely (a deploy backend's `run`):
 
 ```python
-class InstallationValidator:
-    """Validate installation correctness."""
+def validate_cli_installation(runner: CommandRunner) -> bool:
+    """Check the CLI venv, the hop3/hop commands, and the PATH symlink."""
+    ...
 
-    def validate_user_exists(self) -> bool:
-        """Check hop3 user exists."""
-        ...
-
-    def validate_services_running(self) -> bool:
-        """Check required services are running."""
-        ...
-
-    def validate_directory_structure(self) -> bool:
-        """Check directory structure is correct."""
-        ...
-
-    def validate_permissions(self) -> bool:
-        """Check file permissions are correct."""
-        ...
+def validate_server_installation(
+    runner: CommandRunner,
+    *,
+    check_systemd: bool = True,
+    verbose: bool = False,
+) -> bool:
+    """Check the hop3 user, venv, hop3-server binary, and (optionally)
+    systemd services: hop3-server, PostgreSQL, and nginx."""
+    ...
 ```
 
-### Test Backends
+`check_systemd=False` is used on Docker targets that run supervisor instead of systemd, where the systemd service checks would not apply.
 
-| Backend | Use Case | Speed |
-|---------|----------|-------|
-| Docker | CI, quick iteration | Fast |
-| SSH | Real server testing | Medium |
-| Vagrant | Multi-OS testing | Slow |
+Broader app/deploy testing lives in the separate `hop3-testing` package (`hop3-test`), which deploys Hop3 to Docker or SSH targets and then deploys and verifies real apps. See the [hop3-testing overview](hop3-testing.md).
 
 ## Environment Variables
 
@@ -276,27 +248,33 @@ class InstallationValidator:
 
 | Variable | Description |
 |----------|-------------|
-| `HOP3_DEV_HOST` | Target server hostname |
+| `HOP3_DEV_HOST` | Target server hostname (alias: `HOP3_TEST_SERVER`) |
 | `HOP3_SSH_USER` | SSH user (default: root) |
-| `HOP3_BRANCH` | Git branch to deploy |
-| `HOP3_LOCAL` | Use local code |
-| `HOP3_CLEAN` | Clean before install |
-| `HOP3_DOCKER` | Use Docker backend |
+| `HOP3_GIT` | Install from git instead of PyPI (PyPI is the default) |
+| `HOP3_BRANCH` | Git branch to deploy (implies `HOP3_GIT`, default: devel) |
+| `HOP3_LOCAL` | Upload and use local working-tree code |
+| `HOP3_CLEAN` | Clean before deploy |
+| `HOP3_DOCKER` | Use the Docker backend instead of SSH |
 
 ### For hop3-install server
 
 | Variable | Description |
 |----------|-------------|
-| `HOP3_DOMAIN` | Server domain name |
-| `HOP3_ADMIN_EMAIL` | Admin email for Let's Encrypt |
-| `HOP3_DB_TYPE` | Database type (sqlite, postgresql) |
+| `HOP3_DOMAIN` | Server domain name (for nginx / ACME) |
+| `HOP3_ACME_EMAIL` | Email for Let's Encrypt registration |
+| `HOP3_WITH` | Optional features (comma-separated: `mysql`, `redis`, `docker`, `nix`, `s3`, `rust`, or `all`) |
+| `HOP3_VERSION` | Specific PyPI version to install |
+| `HOP3_GIT` | Install from git instead of PyPI |
+| `HOP3_BRANCH` | Git branch (implies `HOP3_GIT`) |
+
+PostgreSQL is always installed as the default database; there is no database-type environment variable.
 
 ## Security Considerations
 
 - **Root required** - Server installer must run as root
-- **SSH keys** - Deployer uses SSH key authentication
-- **No passwords** - Never prompt for or store passwords
-- **Minimal privileges** - hop3 user has minimal system access
+- **SSH keys** - Deployer uses SSH key authentication; it never prompts interactively for a password
+- **Admin password** - The deployer auto-generates an admin password when one isn't supplied, and passes it to the server via stdin (not argv) so it never appears in process listings; it's shown only with `--verbose` and only when a new admin user is created
+- **Minimal privileges** - The `hop3` user has minimal system access
 
 ## Debugging
 

@@ -114,10 +114,16 @@ class TestDbUpgradeCmd:
             assert exc.value.code == 1
 
     def test_unstamped_db_hint_emitted(self, capsys):
-        """When the error smells like a pre-alembic DB, point at db:stamp."""
+        """When the error smells like a pre-alembic DB, point at db:stamp.
+
+        A truly unstamped DB has no current revision, so _orphan_db_revision
+        returns None; mock it so the test exercises the unstamped branch and
+        does not depend on any ambient hop3.db the orphan check would inspect.
+        """
         err = RuntimeError("duplicate column name: error_message")
         with (
             patch("alembic.command.upgrade", side_effect=err),
+            patch("hop3.server.cli.db._orphan_db_revision", return_value=None),
             pytest.raises(SystemExit),
         ):
             DbUpgradeCmd().run()
@@ -130,11 +136,32 @@ class TestDbUpgradeCmd:
         err = RuntimeError("some unrelated transient failure")
         with (
             patch("alembic.command.upgrade", side_effect=err),
+            patch("hop3.server.cli.db._orphan_db_revision", return_value=None),
             pytest.raises(SystemExit),
         ):
             DbUpgradeCmd().run()
         stderr = capsys.readouterr().err
         assert "db:stamp" not in stderr
+
+    def test_orphan_revision_hint_emitted(self, capsys):
+        """A DB stamped at a revision this code lacks gets the orphan hint —
+        names the revision, points at recovery, and does NOT auto-recover."""
+        err = RuntimeError("Can't locate revision identified by 'c7d4e8f1a2b9'")
+        with (
+            patch("alembic.command.upgrade", side_effect=err),
+            patch(
+                "hop3.server.cli.db._orphan_db_revision",
+                return_value="c7d4e8f1a2b9",
+            ),
+            pytest.raises(SystemExit),
+        ):
+            DbUpgradeCmd().run()
+        stderr = capsys.readouterr().err
+        assert "c7d4e8f1a2b9" in stderr
+        assert "not part" in stderr  # explains the divergence
+        assert "db:stamp head" in stderr  # offers a recovery path
+        # The unstamped/pre-Alembic advice must NOT also fire (wrong diagnosis).
+        assert "predate Alembic" not in stderr
 
     def test_add_arguments_declares_revision(self):
         """The --revision flag must be declared with a default of head."""

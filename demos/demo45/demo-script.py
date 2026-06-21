@@ -63,7 +63,7 @@ def run(ctx: DemoContext) -> None:
     pause(ctx.pause_between_steps)
 
     # Clean up any leftover PostgreSQL addon from previous failed runs
-    run_hop3(f"addon destroy {POSTGRES_NAME} --service-type postgres", check=False, show=False)
+    run_hop3(f"addon destroy {POSTGRES_NAME} --service-type postgres -y", check=False, show=False)
 
     # Show app structure
     print_header("Deploying Ruby/Sinatra + PostgreSQL")
@@ -138,7 +138,7 @@ def run(ctx: DemoContext) -> None:
         f"addon detach {POSTGRES_NAME} --app {APP_NAME} --service-type postgres",
         check=False,
     )
-    run_hop3(f"addon destroy {POSTGRES_NAME} --service-type postgres", check=False)
+    run_hop3(f"addon destroy {POSTGRES_NAME} --service-type postgres -y", check=False)
     print_success("PostgreSQL cleaned up.")
 
     cleanup_app(ctx, APP_NAME, app_url)

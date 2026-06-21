@@ -275,7 +275,7 @@ hop3 init --ssh root@your-server.example.com
 Deploy the application (first deployment creates the app):
 
 ```bash exec id=deploy dir=hop3-tuto-falcon timeout=120
-hop3 deploy hop3-tuto-falcon
+hop3 deploy --app hop3-tuto-falcon
 ```
 
 ```output contains
@@ -295,7 +295,7 @@ hop3 config set --app hop3-tuto-falcon HOST_NAME=hop3-tuto-falcon.$HOP3_TEST_DOM
 Redeploy to apply the hostname configuration:
 
 ```bash exec id=redeploy dir=hop3-tuto-falcon timeout=120
-hop3 deploy hop3-tuto-falcon
+hop3 deploy --app hop3-tuto-falcon
 ```
 
 ```output contains

@@ -38,7 +38,9 @@ def test_run_surfaces_stdout_on_failure(
 
     monkeypatch.setattr(misc, "run_command", fake_run_command)
 
-    result = misc.RunCmd(db_session=db_session).call("testapp", "python", "script.py")
+    result = misc.RunCmd(db_session=db_session).call(
+        "--app", "testapp", "python", "script.py"
+    )
 
     out = _text_of(result)
     assert "exit code 1" in out
@@ -56,7 +58,7 @@ def test_run_includes_both_streams_on_failure(
 
     monkeypatch.setattr(misc, "run_command", fake_run_command)
 
-    out = _text_of(misc.RunCmd(db_session=db_session).call("testapp", "cmd"))
+    out = _text_of(misc.RunCmd(db_session=db_session).call("--app", "testapp", "cmd"))
     assert "stdout line" in out
     assert "stderr line" in out
     assert "--- stderr ---" in out
@@ -72,7 +74,9 @@ def test_run_says_so_when_no_output_was_captured(
 
     monkeypatch.setattr(misc, "run_command", fake_run_command)
 
-    out = _text_of(misc.RunCmd(db_session=db_session).call("testapp", "python", "x.py"))
+    out = _text_of(
+        misc.RunCmd(db_session=db_session).call("--app", "testapp", "python", "x.py")
+    )
     assert "exit code 1" in out
     assert "$ python x.py" in out  # the exact command is echoed
     assert "no output" in out  # explicit, not a silent bare code
