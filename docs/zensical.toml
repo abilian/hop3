@@ -254,6 +254,7 @@ nav = [
             { "The Demos: One Artifact, Three Jobs" = "blog/posts/2026-06-testing-demos.md" },
             { "Testable Docs: Tutorials That Run Themselves" = "blog/posts/2026-06-testing-validoc.md" },
             { "Hop3 0.5.0 Released" = "blog/posts/2026-06-hop3-050-release.md" },
+            { "Hop3 at OW2Con 2026 — NGI Zero Success Stories" = "blog/posts/2026-06-ow2con.md" },
             { "Migrating from Heroku to Hop3" = "blog/posts/2026-05-migrating-from-heroku.md" },
             { "Knowing When Things Break (Before Users Tell You)" = "blog/posts/2026-05-health-checks.md" },
             { "Internal Security Audit: What We Found and Fixed" = "blog/posts/2026-05-security-audit.md" },

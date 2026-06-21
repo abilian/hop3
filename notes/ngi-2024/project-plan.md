@@ -54,6 +54,7 @@ We will enhance Hop3's resilience and security by introducing robust features an
   - PostgreSQL, MySQL, Redis addons fully implemented with CLI commands
   - `addon create`, `addon attach`, `addon detach`, auto-provisioning from `[[addons]]` in hop3.toml
   - S3-compatible object storage addon shipped in 0.5 (MinIO backend with a plugin abstraction ready for a Garage swap in a future release)
+  - 0.6: a full `addon <type> <verb>` operational surface (ad-hoc query, read-only diagnostics, clone, export/import dump streaming, expose/unexpose, promote, endpoint, `hop3 tunnel`); plus per-app resource limits and volumes (ADR 046 Phase 2, cgroup-v2 + bind/tmpfs)
   - W16: PostgreSQL addon now grants CREATE on the per-app DB + public schema (G1), and `[[addons]].extensions` installs non-trusted extensions (bloom, adminpack) as superuser
   - **Remaining gap:** Email addon (SMTP-relay design agreed, implementation deferred to 0.7)
 
@@ -75,7 +76,7 @@ We will enhance Hop3's resilience and security by introducing robust features an
   - 599 unit + 245 integration + system + E2E tests
 
 - [ ] **M3.5** Firewalls (network-level and WAF) — **Phase 1 done**
-  - LeWAF (Coraza-based) static-WAF Phase 1 shipped per ADR 033; 88 tests passing.
+  - LeWAF (implements the OWASP Core Rule Set) static-WAF Phase 1 shipped per ADR 033; 88 tests passing.
   - Network-level firewall design: see ADR 040 (port exposure) and ADR 041 (`hop3-rootd`, the kernel-boundary executor).
   - Phases 2-4 (dynamic WAF, policy engine, observability) remain in the 0.7 backlog.
 

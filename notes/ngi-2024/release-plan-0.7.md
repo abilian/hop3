@@ -27,7 +27,7 @@ Carried from 0.6 (`release-plan-0.6.md`):
 | M2.3 Nix runtime 1.0 | Beta running; no 1.0 cut | Docs polish, CI, release notes |
 | M3.1 Email addon | Not started | SMTP-relay addon |
 | M3.2 Upgrades | Upgrade path hardened | Production `hop3 upgrade`, rollback |
-| M3.5 Firewalls/WAF | Network firewall Final | WAF (Coraza / OWASP-CRS) |
+| M3.5 Firewalls/WAF | Network firewall Final | WAF (LeWAF / OWASP CRS) |
 | M3.7 Web UI | Stub Git-URL field | Git-URL deploy, log streaming, a11y review |
 | M3.8 Security audit | 4 code fixes shipped | External review + accessibility scan |
 | M4.1-4 Packaged apps | 159 configs; Draft reports | Production traffic, finalised reports |
@@ -77,7 +77,7 @@ The upgrade path was hardened in 0.6 (migrations run on upgrade; the venv is pre
 
 The network-level firewall and fixed-port registry shipped (ADR 045, Final). 0.7 adds the application-layer WAF. Research notes in `local-notes/lewaf/`.
 
-- [ ] Review the LeWAF / Coraza approach and write the WAF ADR (deferred from ADR 040)
+- [ ] Review the LeWAF / OWASP CRS approach and write the WAF ADR (deferred from ADR 040)
 - [ ] WAF plugin architecture: per-app enable/disable in `hop3.toml` (likely under `[security]`)
 - [ ] nginx integration module with the OWASP Core Rule Set
 - [ ] Test against the OWASP Top 10 (SQLi, XSS, path traversal at minimum)
