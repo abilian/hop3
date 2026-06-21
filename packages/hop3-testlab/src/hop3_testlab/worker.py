@@ -21,19 +21,26 @@ import signal
 import subprocess
 import threading
 import time
+from dataclasses import dataclass
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hop3_testing.targets.helpers import find_project_root
+
 from hop3_testlab import leasing
+from hop3_testlab.catalog import build_catalog, resolve_selector
 from hop3_testlab.cloud_config import load_cloud_config
 from hop3_testlab.config import TestlabConfig
 from hop3_testlab.db import get_session_factory
 from hop3_testlab.repositories import RunsRepository
+from hop3_testlab.selection import resolve_selection
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from hop3_testlab.cloud_config import CloudConfig
+    from hop3_testlab.sources import Source
 
 STOP_GRACE_SECONDS = 5.0
 
@@ -151,7 +158,7 @@ def _proc_starttime(pid: int) -> int | None:
     procfs — e.g. a macOS dev machine), in which case identity can't be checked.
     """
     try:
-        stat = Path(f"/proc/{pid}/stat").read_text()
+        stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
     except (OSError, ValueError):
         return None
     # comm (field 2) is parenthesised and may contain spaces/parens; index from
@@ -214,44 +221,78 @@ def _record_engine_pid(target_id: str, pid: int) -> None:
         session.close()
 
 
-def _run_engine(target_id: str, cmd: list[str], env: dict | None) -> None:
+def _run_engine(
+    target_id: str, cmd: list[str], env: dict | None, cwd: Path | None = None
+) -> None:
     """Spawn the engine in its OWN session (killable as a process group) and wait.
 
     ``start_new_session=True`` makes the engine a session/group leader, so the
     dashboard's stop control can ``os.killpg`` the whole run (engine + the docker/
     ssh children it spawns) without touching this worker or the web app. We record
-    the PID on the lease right after spawn, then block until it exits.
+    the PID on the lease right after spawn, then block until it exits. ``cwd`` is
+    the fetched ``source@ref`` workspace the engine resolves apps against (None =
+    the engine's own project root).
     """
-    proc = subprocess.Popen(cmd, start_new_session=True, env=env)
+    proc = subprocess.Popen(cmd, start_new_session=True, env=env, cwd=cwd)
     # Recording the PID is best-effort — never let it abort the run.
     with contextlib.suppress(Exception):
         _record_engine_pid(target_id, proc.pid)
     proc.wait()
 
 
-def _default_executor(target_id: str, mode: str, apps: list[str] | None) -> None:
+def _runner_version() -> str:
+    """Version of the test engine (``hop3-testing``) driving this run."""
+    try:
+        return version("hop3-testing")
+    except PackageNotFoundError:
+        return "unknown"
+
+
+def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once; → RunSpec in slice 2
+    target_id: str,
+    mode: str,
+    apps: list[str] | None,
+    *,
+    platform_ref: str | None = None,
+    cwd: Path | None = None,
+    provenance: dict[str, str] | None = None,
+) -> None:
     """Run the suite via the existing engine (results -> shared store).
 
     ``--with all`` installs every addon feature (mysql/postgresql/redis/nix/…) so
     addon-dependent apps can provision; without it they fail at deploy time
     ("addon can't provision … re-run with --with <feature>"). ``apps`` scopes the
     run to specific app paths (a per-app build); otherwise the full mode suite.
+
+    ``platform_ref`` selects the hop3 ref the engine installs (``--branch``); ``cwd``
+    is the fetched ``source@ref`` workspace the engine scans/deploys from — so apps
+    and platform can be different refs (v2 spec §A). ``provenance`` (the run's
+    composition identity) and any per-target session details are merged into
+    ``HOP3_TEST_META``, which ``ResultStore.start_run`` records on the run.
     """
+    branch = ["--branch", platform_ref] if platform_ref else []
+    meta = dict(provenance or {})
+    env = dict(os.environ)
+
     if target_id in {"docker", ""}:
+        if meta:
+            env["HOP3_TEST_META"] = json.dumps(meta)
         cmd = [
             "hop3-test",
             "system",
             "--docker",
             "--with",
             "all",
+            *branch,
             *_suite_args(mode, apps),
             "--report",
             "html",
         ]
-        _run_engine(target_id, cmd, None)
+        _run_engine(target_id, cmd, env, cwd)
         return
 
-    host, ssh_key, meta = _resolve_run_target(target_id)
+    host, ssh_key, session_meta = _resolve_run_target(target_id)
+    meta.update(session_meta)  # session details join the provenance in run_metadata
 
     # Blank slate for reproducibility: rebuild the Hetzner OS before a
     # full-suite run so every run starts from an identical, known state. Per-app
@@ -259,11 +300,9 @@ def _default_executor(target_id: str, mode: str, apps: list[str] | None) -> None
     if target_id == "hetzner" and not apps:
         _rebuild_blank_slate(load_cloud_config())
 
-    env = dict(os.environ)
     if ssh_key:
         env["HOP3_TEST_SSH_KEY"] = ssh_key
     if meta:
-        # Picked up by ResultStore.start_run -> run_metadata (session details).
         env["HOP3_TEST_META"] = json.dumps(meta)
     cmd = [
         "hop3-test",
@@ -273,11 +312,73 @@ def _default_executor(target_id: str, mode: str, apps: list[str] | None) -> None
         host,
         "--with",
         "all",
+        *branch,
         *_suite_args(mode, apps),
         "--report",
         "html",
     ]
-    _run_engine(target_id, cmd, env)
+    _run_engine(target_id, cmd, env, cwd)
+
+
+@dataclass(frozen=True, slots=True)
+class RunSpec:
+    """What to build (v2 spec §A): a run's composition inputs.
+
+    Apps are resolved against the fetched ``source@source_ref`` workspace, in
+    precedence: a profile's ``selection`` rules (via the engine `Selector`), an
+    ad-hoc glob ``selector``, or a pre-resolved ``apps`` list. ``platform_ref``
+    picks the hop3 ref the engine installs (``--branch``). An empty spec is a
+    legacy local run (the whole ``mode`` suite on the local checkout).
+    """
+
+    source: Source | None = None
+    source_ref: str | None = None
+    platform_ref: str | None = None
+    selector: str | None = None
+    selection: dict | None = None
+    apps: list[str] | None = None
+
+
+def _require_nonempty(apps: list[str] | None, what: str) -> None:
+    """Fail loud: an empty resolution must not fall through to the full mode
+    suite (``_suite_args`` treats ``[]`` as "no apps" → the whole mode)."""
+    if not apps:
+        msg = f"No apps matched {what}."
+        raise ValueError(msg)
+
+
+def _compose_inputs(
+    spec: RunSpec,
+) -> tuple[list[str] | None, Path | None, dict[str, str]]:
+    """Resolve a run's composition: fetch ``source@source_ref`` into a workspace,
+    resolve the apps against it, and build the provenance dict.
+
+    Returns ``(apps, cwd, provenance)`` — ``cwd`` the workspace the engine runs
+    from, ``provenance`` the run's composition identity for ``run_metadata``.
+    """
+    apps = spec.apps
+    provenance: dict[str, str] = {"runner_version": _runner_version()}
+    if spec.platform_ref:
+        provenance["platform_ref"] = spec.platform_ref
+
+    cwd: Path | None
+    if spec.source is not None and spec.source_ref:
+        cwd = spec.source.fetch(spec.source_ref)
+        at = f"{spec.source.name}@{spec.source_ref}"
+        provenance["source_name"] = spec.source.name
+        provenance["apps_ref"] = spec.source_ref
+        if spec.selection is not None:
+            apps = resolve_selection(build_catalog(cwd), spec.selection)
+            _require_nonempty(apps, f"selection in {at}")
+        elif spec.selector:
+            apps = resolve_selector(cwd, spec.selector)
+            _require_nonempty(apps, f"selector {spec.selector!r} in {at}")
+    else:
+        # Legacy/local run (no source): run the engine from the repo root so it
+        # finds the apps/ tree. The Lab's own cwd may be the testlab package
+        # (which has no apps), which makes the engine's default scan abort.
+        cwd = find_project_root()
+    return apps, cwd, provenance
 
 
 def run_once(
@@ -285,15 +386,20 @@ def run_once(
     *,
     trigger: str = "cli",
     mode: str = "nightly",
-    apps: list[str] | None = None,
-    executor: Callable[[str, str, list[str] | None], None] | None = None,
+    spec: RunSpec | None = None,
+    executor: Callable[..., None] | None = None,
 ) -> bool:
     """Run the suite once under the target lease.
 
-    ``apps`` scopes the run to specific app paths (a per-app build); otherwise the
-    full ``mode`` suite. Returns True if it ran, False if the target is busy (a
-    live lease is held). The lease is always released (even if the run raises).
+    ``spec`` (a :class:`RunSpec`) carries the composition inputs — source/ref to
+    fetch, the platform ref to install, and how to pick apps (selection rules,
+    a glob, or a pre-resolved list). An absent spec is the legacy ``mode`` suite
+    on the local checkout.
+
+    Returns True if it ran, False if the target is busy (a live lease is held). The
+    lease is always released (even if fetch or the run raises).
     """
+    spec = spec or RunSpec()
     config = TestlabConfig.get_instance()
     factory = get_session_factory(str(config.DB_PATH))
 
@@ -310,12 +416,21 @@ def run_once(
         session.close()
 
     try:
+        apps, cwd, provenance = _compose_inputs(spec)
+
         # Tag the run via env so the spawned engine's start_run records the
         # provenance (scheduled-nightly vs cli) on the TestRun (ADR 044 §D).
         prev = os.environ.get("HOP3_TEST_TRIGGER")
         os.environ["HOP3_TEST_TRIGGER"] = trigger
         try:
-            (executor or _default_executor)(target_id, mode, apps)
+            (executor or _default_executor)(
+                target_id,
+                mode,
+                apps,
+                platform_ref=spec.platform_ref,
+                cwd=cwd,
+                provenance=provenance,
+            )
         finally:
             if prev is None:
                 os.environ.pop("HOP3_TEST_TRIGGER", None)
