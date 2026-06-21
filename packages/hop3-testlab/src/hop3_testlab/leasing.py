@@ -78,6 +78,26 @@ def try_acquire(
     return True
 
 
+def others_live(session: Session, target_id: str) -> bool:
+    """True if a live lease for *another* target is held (something else is running).
+
+    Lets the orphan-sweep stay safe under concurrent runs (nightly vs dispatcher
+    on different targets): only sweep when nothing else is live, so a healthy run
+    on another target is never aborted.
+    """
+    now = time.time()
+    return bool(
+        session
+        .query(RunLease)
+        .filter(
+            RunLease.target_id != target_id,
+            RunLease.expires_at.isnot(None),
+            RunLease.expires_at > now,
+        )
+        .count()
+    )
+
+
 def is_held(session: Session, target_id: str) -> bool:
     """True if a live (unexpired) lease is held for ``target_id`` (UX check)."""
     now = time.time()
