@@ -98,6 +98,3 @@ class Command:
             output.append(f"Part of: hop {namespace[0]} namespace.")
 
         return [text("\n".join(output))]
-
-    def subcommands(self):
-        return []

@@ -79,13 +79,6 @@ module-root = "src"
 #[tool.uv.sources]
 #hop3-testing = { path = "../hop3-testing", editable = true }
 
-# ----------------------------------------
-
-[tool.pyright]
-exclude = [
-    "src/hop3/util/templating.py",
-]
-
 # -----------------------------------------------------------------------------
 
 [tool.deptry.per_rule_ignores]

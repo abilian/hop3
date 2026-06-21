@@ -14,7 +14,6 @@ from typing import Any
 
 from rich.console import Console
 from rich.markup import escape as rich_escape
-from rich.panel import Panel
 from rich.table import Table
 
 Message = list[dict[str, Any]]
@@ -309,22 +308,6 @@ class RichPrinter:
         # text aren't reinterpreted as style tags.
         self.console_err.print(rich_escape(line))
 
-    def print_panel(self, obj: dict) -> None:
-        """Print text in a panel/box."""
-        if self.quiet:
-            return
-
-        if self.json_output:
-            self.json_buffer.append(obj)
-            return
-
-        text = obj.get("text", "")
-        title = obj.get("title")
-        style = obj.get("style", "cyan")
-
-        panel = Panel(text, title=title, border_style=style)
-        self.console.print(panel)
-
     def print_debug(self, message: str, min_level: int = 2) -> None:
         """Print debug message if verbosity is high enough.
 
@@ -340,25 +323,3 @@ class RichPrinter:
             return
 
         self.console.print(f"[dim][debug][/dim] {message}")
-
-    def confirm(self, message: str, *, default: bool = False) -> bool:
-        """Ask for user confirmation.
-
-        Args:
-            message: The confirmation message
-            default: Default value if user just presses Enter
-
-        Returns:
-            True if user confirmed, False otherwise
-        """
-        if self.json_output:
-            # In JSON mode, auto-confirm (assume -y flag)
-            return True
-
-        prompt = f"{message} [y/N]: " if not default else f"{message} [Y/n]: "
-        response = input(prompt).strip().lower()
-
-        if not response:
-            return default
-
-        return response in {"y", "yes"}
