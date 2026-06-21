@@ -57,7 +57,12 @@ class TestRun(Base):
         DateTime(timezone=True), nullable=True
     )
 
-    run_uid: Mapped[str | None] = mapped_column(String(80), index=True, nullable=True)
+    # No `index=True`: the partial UNIQUE index (`uq_test_runs_run_uid`, created
+    # in store.py::_ensure_columns) is the run_uid index. A plain `index=True`
+    # here created `ix_test_runs_run_uid`, and the unique index reused that exact
+    # name, so `CREATE UNIQUE INDEX IF NOT EXISTS` silently no-op'd on fresh DBs —
+    # uniqueness was never enforced (review #10).
+    run_uid: Mapped[str | None] = mapped_column(String(80), nullable=True)
     """User-facing run handle (<ISO>-<target>-<shortid>); the `why`/`triage` key.
     Unique enforced via a partial index (see ResultStore._ensure_columns)."""
 
