@@ -213,7 +213,7 @@ def _record_engine_pid(target_id: str, pid: int) -> None:
     """Record the engine PID (+ start-time) on the lease so the dashboard can
     stop it without risking a recycled PID."""
     config = TestlabConfig.get_instance()
-    factory = get_session_factory(str(config.DB_PATH))
+    factory = get_session_factory(config.STORE_TARGET)
     session = factory()
     try:
         leasing.set_pid(session, target_id, pid, _proc_starttime(pid))
@@ -237,7 +237,13 @@ def _run_engine(
     # Recording the PID is best-effort — never let it abort the run.
     with contextlib.suppress(Exception):
         _record_engine_pid(target_id, proc.pid)
-    proc.wait()
+    returncode = proc.wait()
+    if returncode != 0:
+        # Fail loud (NON-NEGOTIABLE): a non-zero engine exit is a *failed* build.
+        # Raising here lets run_once propagate it (the lease is freed in `finally`)
+        # so the dispatcher records the build FAILED and the CLI exits non-zero —
+        # never a green build for a run that actually failed.
+        raise subprocess.CalledProcessError(returncode, cmd)
 
 
 def _runner_version() -> str:
@@ -361,6 +367,12 @@ def _compose_inputs(
     if spec.platform_ref:
         provenance["platform_ref"] = spec.platform_ref
 
+    if spec.source is not None and not spec.source_ref:
+        # Fail loud: a source with a blank ref must NOT silently fall through to
+        # the full local suite against the wrong tree.
+        msg = f"source {spec.source.name!r} given without a source_ref"
+        raise ValueError(msg)
+
     cwd: Path | None
     if spec.source is not None and spec.source_ref:
         cwd = spec.source.fetch(spec.source_ref)
@@ -401,7 +413,7 @@ def run_once(
     """
     spec = spec or RunSpec()
     config = TestlabConfig.get_instance()
-    factory = get_session_factory(str(config.DB_PATH))
+    factory = get_session_factory(config.STORE_TARGET)
 
     session = factory()
     try:

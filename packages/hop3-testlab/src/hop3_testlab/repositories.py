@@ -19,7 +19,14 @@ from sqlalchemy import select
 
 from hop3_testlab import leasing
 from hop3_testlab.discriminators import type_of
-from hop3_testlab.models import CANCELLED, QUEUED, BuildRequest, Profile, Server
+from hop3_testlab.models import (
+    CANCELLED,
+    QUEUED,
+    RUNNING,
+    BuildRequest,
+    Profile,
+    Server,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -48,6 +55,17 @@ class RunsRepository:
     def get(self, run_uid: str) -> TestRun | None:
         """Return the run with this user-facing run_uid."""
         stmt = select(TestRun).where(TestRun.run_uid == run_uid)
+        return self.session.scalars(stmt).one_or_none()
+
+    def latest_by_trigger(self, trigger: str) -> TestRun | None:
+        """The most-recent run carrying this provenance ``trigger`` (e.g. a
+        dispatcher's ``build-<id>`` tag), used to link a build to its run."""
+        stmt = (
+            select(TestRun)
+            .where(TestRun.trigger == trigger)
+            .order_by(TestRun.started_at.desc(), TestRun.id.desc())
+            .limit(1)
+        )
         return self.session.scalars(stmt).one_or_none()
 
     def results_for(self, run: TestRun) -> list[TestResultRecord]:
@@ -316,6 +334,11 @@ class BuildQueueRepository:
             .order_by(BuildRequest.created_at.desc(), BuildRequest.id.desc())
             .limit(limit)
         )
+        return list(self.session.scalars(stmt).all())
+
+    def list_running(self) -> list[BuildRequest]:
+        """All requests currently marked running (for the stale-run sweep)."""
+        stmt = select(BuildRequest).where(BuildRequest.status == RUNNING)
         return list(self.session.scalars(stmt).all())
 
     def next_pending(self) -> BuildRequest | None:

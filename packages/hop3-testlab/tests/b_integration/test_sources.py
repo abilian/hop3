@@ -86,3 +86,17 @@ def test_unknown_ref_fails_loud(source):
     src, _ = source
     with pytest.raises(RuntimeError, match="can't resolve ref"):
         src.fetch("no-such-ref")
+
+
+def test_is_allowed_source_url():
+    ok = sources.is_allowed_source_url
+    assert ok("https://github.com/abilian/hop3.git")
+    assert ok("git@github.com:abilian/hop3.git")  # scp-like ssh
+    assert ok("ssh://git@host/repo.git")
+    assert ok("/abs/local/repo")  # absolute local path (the e2e uses this)
+    # Rejected: git transport helpers, option injection, junk.
+    assert not ok("ext::sh -c 'evil'")
+    assert not ok("fd::7")
+    assert not ok("-oProxyCommand=evil")
+    assert not ok("")
+    assert not ok("relative/path")

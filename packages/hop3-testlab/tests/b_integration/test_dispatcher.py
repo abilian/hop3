@@ -143,3 +143,73 @@ def test_dispatch_marks_failed_when_run_crashes(monkeypatch):
         req = BuildQueueRepository(s).get(req_id)
         assert req.status == "failed"
         assert "deploy blew up" in req.detail
+
+
+def test_dispatch_requeues_when_run_loses_the_lease(monkeypatch):
+    """A busy result (lost the lease in the TOCTOU window) requeues, not fails."""
+    with _session() as s:
+        p = _profile(s)
+        ServersRepository(s).create(
+            name="docker-local", target_id="docker", kind="docker"
+        )
+        req_id = BuildQueueRepository(s).enqueue(p.id).id
+        s.commit()
+
+    monkeypatch.setattr(dispatcher, "run_blockers", lambda _t, _a: None)
+    monkeypatch.setattr(dispatcher, "run_once", lambda *a, **k: False)  # busy
+
+    assert dispatcher.dispatch_once() is True
+    with _session() as s:
+        req = BuildQueueRepository(s).get(req_id)
+        assert req.status == "pending"  # requeued, not failed
+        assert req.server_target_id is None  # released for the next pick
+
+
+def test_dispatch_sweeps_a_stale_running_build():
+    """A build left running with no live lease (dispatcher died) is failed, not
+    stuck running forever."""
+    with _session() as s:
+        p = _profile(s)
+        queue = BuildQueueRepository(s)
+        req = queue.enqueue(p.id)
+        queue.mark(req.id, "running", server_target_id="docker")  # no lease held
+        s.commit()
+        req_id = req.id
+
+    dispatcher.dispatch_once()  # _sweep_stale_running runs first
+    with _session() as s:
+        req = BuildQueueRepository(s).get(req_id)
+        assert req.status == "failed"
+        assert "dispatcher restarted" in req.detail
+
+
+def test_dispatch_links_run_uid_to_build(monkeypatch):
+    """A finished build is linked to the run it produced (via its build-<id> tag)."""
+    from hop3_testing.results.models import TestRun
+
+    with _session() as s:
+        p = _profile(s)
+        ServersRepository(s).create(
+            name="docker-local", target_id="docker", kind="docker"
+        )
+        req_id = BuildQueueRepository(s).enqueue(p.id).id
+        s.commit()
+    with _session() as s:  # the run the build will produce, tagged by its trigger
+        s.add(
+            TestRun(
+                run_uid="2026-run-xyz",
+                trigger=f"build-{req_id}",
+                mode="smoke",
+                target_type="docker",
+            )
+        )
+        s.commit()
+
+    monkeypatch.setattr(dispatcher, "run_blockers", lambda _t, _a: None)
+    monkeypatch.setattr(dispatcher, "run_once", lambda *a, **k: True)
+
+    dispatcher.dispatch_once()
+    with _session() as s:
+        req = BuildQueueRepository(s).get(req_id)
+        assert req.status == "done"
+        assert req.run_uid == "2026-run-xyz"

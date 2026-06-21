@@ -274,6 +274,34 @@ def test_default_executor_passes_platform_ref_as_branch_and_cwd(monkeypatch, tmp
     assert cwd == tmp_path  # engine scans/deploys from the workspace
 
 
+def test_run_engine_raises_on_nonzero_exit(monkeypatch):
+    """A non-zero engine exit fails loud (was swallowed → fake-success builds)."""
+
+    class _Proc:
+        pid = 4242
+
+        def wait(self):
+            return 1  # the engine failed
+
+    monkeypatch.setattr(worker.subprocess, "Popen", lambda *a, **k: _Proc())
+    monkeypatch.setattr(worker, "_record_engine_pid", lambda *a, **k: None)
+    with pytest.raises(worker.subprocess.CalledProcessError):
+        worker._run_engine("docker", ["hop3-test", "system"], None)
+
+
+def test_run_once_fails_loud_on_source_without_ref():
+    """A source with a blank ref must raise, not silently run the local suite."""
+
+    class _Src:
+        name = "main-repo"
+
+        def fetch(self, _ref):
+            pytest.fail("must not fetch with a blank ref")
+
+    with pytest.raises(ValueError, match="without a source_ref"):
+        run_once("docker", trigger="t", spec=RunSpec(source=_Src(), source_ref=""))
+
+
 def test_run_once_legacy_run_defaults_cwd_to_repo_root():
     """A no-source run must run the engine from the repo root (where apps/ lives),
     not the Lab's own cwd — else the engine's default scan finds no apps."""

@@ -2,53 +2,37 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Read-side DB access over the shared hop3-testing result store.
+"""DB access over the shared hop3-testing result store.
 
-The Test Lab reads the *same* SQLite database the ``hop3-test`` CLI writes —
-one store, two front-ends (ADR 044 §B/§D). Until the Postgres backend lands
-(M0b), this opens a read engine on that file with ``check_same_thread=False`` +
-WAL + ``busy_timeout``, mirroring ``hop3-server``'s ``orm/session.py`` so the web
-app can read concurrently with CLI writes without locking errors.
+The Test Lab reads/writes the *same* store the ``hop3-test`` CLI writes — one
+store, two front-ends (ADR 044 §B/§D). The store is **SQLite** by default and
+**Postgres** when ``TESTLAB_DATABASE_URI`` is set (a server-resident deploy); the
+dialect-aware engine (PRAGMAs for SQLite, plain for Postgres) is shared with the
+engine via ``hop3_testing.results.store.make_store_engine``.
 
-The *result* schema is delegated to ``ResultStore`` (its ``create_all`` +
-``_ensure_columns``), so the read and write paths can never drift. The Lab's own
-tables (profiles / server pool / build queue) live in the same store under their
-own ``Base`` and are created here too.
+The *result* schema is owned by ``ResultStore`` (its ``create_all`` +
+``_ensure_columns``); the Lab's own tables (profiles / server pool / build queue)
+live in the same store under their own ``Base`` and are created here.
 """
 
 from __future__ import annotations
 
 from functools import cache
-from pathlib import Path
 
 from hop3_testing.results import ResultStore
-from sqlalchemy import create_engine, event
+from hop3_testing.results.store import make_store_engine
 from sqlalchemy.orm import sessionmaker
 
 from hop3_testlab.models import Base as TestlabBase
 
 
-def _configure_sqlite(dbapi_conn, _record) -> None:
-    """Apply the same concurrency PRAGMAs hop3-server uses for SQLite."""
-    cur = dbapi_conn.cursor()
-    cur.execute("PRAGMA journal_mode=WAL")
-    cur.execute("PRAGMA busy_timeout=30000")
-    cur.execute("PRAGMA foreign_keys=ON")
-    cur.close()
-
-
 @cache
-def get_session_factory(db_path: str) -> sessionmaker:
-    """Return a cached sessionmaker for the result DB at ``db_path``."""
-    path = Path(db_path)
-    # Ensure the schema exists (reuses ResultStore.create_all + _ensure_columns,
-    # and creates the parent dir) — the read path never owns the schema.
-    ResultStore(db_path=path)
-    engine = create_engine(
-        f"sqlite:///{path}", connect_args={"check_same_thread": False}
-    )
-    event.listen(engine, "connect", _configure_sqlite)
-    # The Lab's own tables (profiles / server pool / build queue) live in the same
-    # store under their own Base — create them here (idempotent).
+def get_session_factory(target: str) -> sessionmaker:
+    """Cached sessionmaker for the result store ``target`` (a SQLite path or a
+    Postgres DSN — pass ``TestlabConfig.STORE_TARGET``)."""
+    # Ensure the result schema exists (delegated to ResultStore so it never drifts).
+    ResultStore(db_path=target)
+    engine = make_store_engine(target)
+    # The Lab's own tables live in the same store under their own Base (idempotent).
     TestlabBase.metadata.create_all(engine)
     return sessionmaker(bind=engine)

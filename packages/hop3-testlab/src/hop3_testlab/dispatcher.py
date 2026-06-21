@@ -18,9 +18,10 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from hop3_testlab import leasing
 from hop3_testlab.config import TestlabConfig
 from hop3_testlab.db import get_session_factory
-from hop3_testlab.models import DONE, FAILED, RUNNING
+from hop3_testlab.models import DONE, FAILED, QUEUED, RUNNING
 from hop3_testlab.repositories import (
     BuildQueueRepository,
     ProfilesRepository,
@@ -120,18 +121,56 @@ def _run_claim(
         logger.exception("Build %d crashed on %s", claim.request_id, claim.target_id)
         return FAILED, str(e)
     if not ran:
-        return FAILED, f"target {claim.target_id!r} was busy"
+        # Lost the lease in the claim→run window (another process grabbed the
+        # target). It's not a failure — requeue so the next tick retries it.
+        return QUEUED, None
     return DONE, None
 
 
 def _record(
     factory: sessionmaker, request_id: int, status: str, detail: str | None
 ) -> None:
-    """Stamp the build's final status (its own short session)."""
+    """Stamp the build's outcome (its own short session)."""
     session = factory()
     try:
-        BuildQueueRepository(session).mark(request_id, status, detail=detail)
+        fields: dict = {"detail": detail}
+        if status == QUEUED:
+            fields["server_target_id"] = None  # release it for the next pick
+        else:
+            # Link the build to the run it produced (resolved by its trigger tag).
+            run = RunsRepository(session).latest_by_trigger(f"build-{request_id}")
+            if run is not None:
+                fields["run_uid"] = run.run_uid
+        BuildQueueRepository(session).mark(request_id, status, **fields)
         session.commit()
+    finally:
+        session.close()
+
+
+def _sweep_stale_running(factory: sessionmaker) -> None:
+    """Fail builds left ``running`` by a dispatcher that died mid-run.
+
+    A genuinely in-flight build still holds its target's lease; one whose lease is
+    gone is stale (the dispatcher crashed before recording its outcome), so it'd
+    sit ``running`` forever. Mark it failed so the queue tells the truth.
+    """
+    session = factory()
+    try:
+        queue = BuildQueueRepository(session)
+        stale = [
+            r
+            for r in queue.list_running()
+            if r.server_target_id and not leasing.is_held(session, r.server_target_id)
+        ]
+        for r in stale:
+            queue.mark(
+                r.id,
+                FAILED,
+                detail="dispatcher restarted while running; outcome unknown",
+            )
+            logger.error("Build %d stuck running (lease gone) — marked failed", r.id)
+        if stale:
+            session.commit()
     finally:
         session.close()
 
@@ -139,10 +178,11 @@ def _record(
 def dispatch_once(executor: Callable[..., None] | None = None) -> bool:
     """Dispatch at most one queued build to a free server.
 
-    Returns True if it acted on a request (ran it, or marked it failed), False if
-    there was nothing to do. ``executor`` is a test seam passed to ``run_once``.
+    Returns True if it acted on a request (ran/failed/requeued it), False if there
+    was nothing to do. ``executor`` is a test seam passed to ``run_once``.
     """
-    factory = get_session_factory(str(TestlabConfig.get_instance().DB_PATH))
+    factory = get_session_factory(TestlabConfig.get_instance().STORE_TARGET)
+    _sweep_stale_running(factory)
     claim = _claim(factory)
     if isinstance(claim, bool):
         return claim

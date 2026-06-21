@@ -42,14 +42,22 @@ class TestlabConfig:
 
     @property
     def DATABASE_URI(self) -> str:
-        """Result store URI (Postgres, later); empty = use the SQLite DB_PATH."""
+        """Postgres DSN for the result store (``postgresql+psycopg://…``); empty
+        means use the SQLite ``DB_PATH``. Set it for a server-resident deploy."""
         return os.environ.get("TESTLAB_DATABASE_URI", "")
 
     @property
     def DB_PATH(self) -> Path:
-        """Path to the shared SQLite result store the CLI writes (read path)."""
+        """Path to the shared SQLite result store (used when DATABASE_URI is unset)."""
         default = Path.home() / ".hop3" / "test-results.db"
         return Path(os.environ.get("TESTLAB_DB_PATH", str(default)))
+
+    @property
+    def STORE_TARGET(self) -> str:
+        """The result-store target — one value for read *and* write so the Lab and
+        the engine never split across backends: the Postgres DSN when
+        ``DATABASE_URI`` is set, else the SQLite ``DB_PATH``."""
+        return self.DATABASE_URI or str(self.DB_PATH)
 
     @property
     def ARTIFACT_DIR(self) -> Path:
