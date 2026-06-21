@@ -255,8 +255,9 @@ def test_run_once_resolves_profile_selection(monkeypatch, tmp_path):
     assert seen["apps"] == ["apps/a", "apps/b"]
 
 
-def test_default_executor_passes_platform_ref_as_branch_and_cwd(monkeypatch, tmp_path):
-    """platform_ref -> `--branch`; cwd (the workspace) reaches the spawn."""
+def test_default_executor_deploys_platform_ref_from_git(monkeypatch, tmp_path):
+    """platform_ref must be installed FROM GIT (`--deploy-from git --branch X`),
+    not recorded while local code is deployed (review #6); cwd reaches the spawn."""
     calls: list[tuple] = []
     monkeypatch.setattr(
         worker,
@@ -269,9 +270,20 @@ def test_default_executor_passes_platform_ref_as_branch_and_cwd(monkeypatch, tmp
     )
 
     cmd, cwd = calls[0]
-    assert cmd[cmd.index("--branch") + 1] == "main"  # SUT ref -> hop3-deploy --branch
+    assert cmd[cmd.index("--deploy-from") + 1] == "git"  # else --branch is ignored
+    assert cmd[cmd.index("--branch") + 1] == "main"  # platform ref -> hop3-deploy
     assert "apps/foo" in cmd  # resolved app, positional
     assert cwd == tmp_path  # engine scans/deploys from the workspace
+
+
+def test_default_executor_no_platform_ref_stays_local(monkeypatch):
+    """No platform_ref -> no `--deploy-from git` (engine default: local code)."""
+    calls: list[tuple] = []
+    monkeypatch.setattr(
+        worker, "_run_engine", lambda tid, cmd, env, cwd=None: calls.append((cmd, cwd))
+    )
+    worker._default_executor("docker", "smoke", apps=None)
+    assert "--deploy-from" not in calls[0][0]
 
 
 def test_run_engine_raises_on_nonzero_exit(monkeypatch, tmp_path):
