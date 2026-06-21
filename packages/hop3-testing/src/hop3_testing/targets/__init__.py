@@ -26,7 +26,6 @@ from .base import (
     DeploymentTarget,
     DeployResult,
     HttpResponse,
-    TargetCapabilities,
     TargetInfo,
 )
 from .config import DeploymentConfig, DockerConfig, RemoteConfig
@@ -55,7 +54,6 @@ __all__ = [
     "HttpResponse",
     "RemoteConfig",
     "RemoteTarget",
-    "TargetCapabilities",
     "TargetInfo",
     "find_project_root",
 ]

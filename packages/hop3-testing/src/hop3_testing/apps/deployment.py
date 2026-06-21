@@ -22,7 +22,7 @@ from hop3_testing.targets.constants import (
     E2E_TEST_SECRET_KEY,
     create_test_token,
 )
-from hop3_testing.util.console import Console, PrintingConsole, Verbosity
+from hop3_testing.util.console import PrintingConsole, Verbosity
 from hop3_testing.util.streaming import run_streaming
 
 from .debug import DeploymentDebugger
@@ -80,7 +80,7 @@ class DeploymentSession:
         target: DeploymentTarget,
         app_name: str | None = None,
         config: dict[str, Any] | None = None,
-        console: Console | None = None,
+        console: PrintingConsole | None = None,
     ):
         """Initialize deployment session.
 

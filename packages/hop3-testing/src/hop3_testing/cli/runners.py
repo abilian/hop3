@@ -18,7 +18,7 @@ from hop3_testing.runners import (
     DeploymentTestRunner,
     TutorialTestRunner,
 )
-from hop3_testing.util.console import Console, PrintingConsole, Verbosity
+from hop3_testing.util.console import PrintingConsole, Verbosity
 
 from .logging import TestLogWriter
 from .reports import generate_reports
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from hop3_testing.targets.base import DeploymentTarget
 
 
-def _create_console(verbose: bool, quiet: bool = False) -> Console:
+def _create_console(verbose: bool, quiet: bool = False) -> PrintingConsole:
     """Create a console with appropriate verbosity level."""
     console = PrintingConsole()
     if quiet:
@@ -44,7 +44,7 @@ def _create_console(verbose: bool, quiet: bool = False) -> Console:
 def _filter_by_available_services(
     tests: list[TestDefinition],
     available_features: list[str],
-    console: Console,
+    console: PrintingConsole,
 ) -> list[TestDefinition]:
     """Filter out tests whose required services aren't in --with features.
 
@@ -172,7 +172,7 @@ def _execute_tests(
     store: ResultStore,
     reporter: ConsoleReporter,
     log_writer: TestLogWriter,
-    console: Console,
+    console: PrintingConsole,
     *,
     keep: bool,
     verbose: bool,
@@ -320,7 +320,7 @@ def run_tests(
 
 
 def _maybe_prepare_tutorial_host(
-    target: DeploymentTarget, tests: list[TestDefinition], console: Console
+    target: DeploymentTarget, tests: list[TestDefinition], console: PrintingConsole
 ) -> None:
     """Prepare a remote server to run tutorials on it, if the run has any.
 
@@ -348,7 +348,9 @@ def _maybe_prepare_tutorial_host(
         console.error(f"Could not prepare the server for tutorials: {e}")
 
 
-def _emit_startup_diagnostics(target: DeploymentTarget, console: Console) -> None:
+def _emit_startup_diagnostics(
+    target: DeploymentTarget, console: PrintingConsole
+) -> None:
     """Best-effort diagnostics when the target never came up.
 
     Captures whatever a half-started target shows (supervisor/nginx/journal) and
@@ -374,7 +376,7 @@ def run_single_test(
     target: DeploymentTarget,
     cleanup: bool,
     verbose: bool,
-    console: Console | None = None,
+    console: PrintingConsole | None = None,
     debug: bool = False,
 ) -> TestResult:
     """Run a single test with the appropriate runner."""

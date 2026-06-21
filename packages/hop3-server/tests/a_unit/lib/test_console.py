@@ -18,7 +18,6 @@ from hop3.lib.console import (
     PrintingConsole,
     TestingConsole as InMemoryConsole,
     VerbosityContext,
-    black,
     blue,
     bold,
     cyan,
@@ -69,7 +68,6 @@ class TestColorHelpers:
     @pytest.mark.parametrize(
         ("func", "name"),
         [
-            (black, "black"),
             (red, "red"),
             (green, "green"),
             (yellow, "yellow"),

@@ -17,7 +17,7 @@ from hop3_testing.apps.deployment import DeploymentSession
 from hop3_testing.bundle import collect_diagnostic_bundle
 from hop3_testing.exceptions import DeploymentError, TargetOutOfDiskError
 from hop3_testing.runtime_diagnostics import collect_runtime_logs
-from hop3_testing.util.console import Console, PrintingConsole, Verbosity
+from hop3_testing.util.console import PrintingConsole, Verbosity
 
 from .base import TestResult, ValidationResult
 
@@ -66,7 +66,7 @@ class DeploymentTestRunner:
     verbose: bool = False
     """Whether to print verbose output."""
 
-    console: Console = field(default_factory=PrintingConsole)
+    console: PrintingConsole = field(default_factory=PrintingConsole)
     """Console for output."""
 
     def __post_init__(self) -> None:

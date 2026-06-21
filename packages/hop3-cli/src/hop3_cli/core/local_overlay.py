@@ -209,10 +209,6 @@ def atomic_write_toml(target: Path, data: dict[str, Any]) -> None:
     _fsync_dir(target.parent)
 
 
-# Back-compat alias for any in-tree callers that imported the old name.
-_atomic_write_toml = atomic_write_toml
-
-
 def _fsync_dir(directory: Path) -> None:
     """Best-effort fsync of ``directory``.
 

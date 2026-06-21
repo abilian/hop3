@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 from hop3_testing.catalog.models import Validation, ValidationExpect
 from hop3_testing.util import as_text, build_test_env, run_captured
-from hop3_testing.util.console import Console, PrintingConsole, Verbosity
+from hop3_testing.util.console import PrintingConsole, Verbosity
 
 from ._diagnostics import collect_failure_diagnostics
 from .base import TestResult, ValidationResult
@@ -78,7 +78,7 @@ class TutorialTestRunner:
     verbose: bool = False
     """Whether to print verbose output."""
 
-    console: Console = field(default_factory=PrintingConsole)
+    console: PrintingConsole = field(default_factory=PrintingConsole)
     """Console for output."""
 
     def __post_init__(self) -> None:

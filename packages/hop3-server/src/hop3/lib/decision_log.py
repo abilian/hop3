@@ -157,58 +157,6 @@ class DecisionLogger:
             )
         )
 
-    def log_config_decision(
-        self,
-        field: str,
-        source: str,
-        reason: str,
-        *,
-        overrode: str | None = None,
-    ) -> None:
-        """Log a configuration source decision (Procfile vs hop3.toml)."""
-        reason_cat = DecisionReason.OVERRIDE if overrode else DecisionReason.DEFAULT
-        details = {"overrode": overrode} if overrode else None
-        self.log_decision(
-            Decision(
-                type=DecisionType.CONFIG_SOURCE,
-                chosen=f"{field} from {source}",
-                reason=reason,
-                reason_category=reason_cat,
-                details=details,
-            )
-        )
-
-    def log_worker_decision(
-        self,
-        worker_name: str,
-        source: str,
-        reason: str,
-        *,
-        overrode: str | None = None,
-    ) -> None:
-        """Log a worker definition source decision."""
-        reason_cat = DecisionReason.OVERRIDE if overrode else DecisionReason.DEFAULT
-        details = {"overrode": overrode} if overrode else None
-        self.log_decision(
-            Decision(
-                type=DecisionType.WORKER_SOURCE,
-                chosen=f"'{worker_name}' from {source}",
-                reason=reason,
-                reason_category=reason_cat,
-                details=details,
-            )
-        )
-
-    def get_summary(self) -> str:
-        """Get a summary of all decisions made."""
-        if not self.decisions:
-            return "No decisions logged."
-
-        lines = ["Deployment decisions:"]
-        for decision in self.decisions:
-            lines.append(f"  {decision.format()}")
-        return "\n".join(lines)
-
     def flush(self) -> None:
         """Output all decisions as a summary (for end of deployment)."""
         if self._flushed or not self.decisions:

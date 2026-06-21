@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from .console import (
-    Console,
     PrintingConsole,
     Verbosity,
 )
@@ -16,7 +15,6 @@ from .subprocess import as_text, build_test_env, run_captured
 from .timing import format_duration
 
 __all__ = [
-    "Console",
     "PrintingConsole",
     "Verbosity",
     "as_text",

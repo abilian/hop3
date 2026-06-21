@@ -179,17 +179,3 @@ class SSHDeployBackend(DeployBackend):
     def get_server_url(self) -> str:
         """Get the URL to access the server."""
         return f"http://{self.config.host}:8000"
-
-    def get_os_info(self) -> dict[str, str]:
-        """Get OS information from the server."""
-        result = self.run("cat /etc/os-release", check=False)
-        if not result.success:
-            return {}
-
-        info = {}
-        for line in result.stdout.splitlines():
-            if "=" in line:
-                key, value = line.split("=", 1)
-                info[key] = value.strip('"')
-
-        return info

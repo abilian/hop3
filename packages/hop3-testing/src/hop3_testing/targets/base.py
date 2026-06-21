@@ -15,7 +15,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal, Self
+from typing import Any, Self
 
 import httpx
 
@@ -58,36 +58,6 @@ class HttpResponse:
 
 
 @dataclass
-class TargetCapabilities:
-    """What a target can do.
-
-    This describes the capabilities of a deployment target, which
-    determines what tests can run on it.
-    """
-
-    os: str = "unknown"
-    """Operating system (e.g., "debian-12", "ubuntu-24.04")."""
-
-    arch: str = "amd64"
-    """CPU architecture."""
-
-    has_systemd: bool = False
-    """Whether systemd is available (vs supervisor)."""
-
-    has_docker: bool = False
-    """Whether Docker is available (for nested Docker tests)."""
-
-    available_services: list[str] = field(default_factory=list)
-    """Available services (e.g., ["postgresql", "redis"])."""
-
-    network_mode: Literal["isolated", "internet"] = "isolated"
-    """Network access mode."""
-
-    dns_mode: Literal["none", "static", "wildcard"] = "none"
-    """DNS configuration mode."""
-
-
-@dataclass
 class TargetInfo:
     """Information about a deployment target."""
 
@@ -99,7 +69,6 @@ class TargetInfo:
     http_base: str = ""
     api_url: str = ""
     metadata: dict[str, Any] | None = None
-    capabilities: TargetCapabilities | None = None
 
 
 class DeploymentTarget(ABC):
@@ -309,16 +278,6 @@ class DeploymentTarget(ABC):
         except ValueError:
             return None
         return 100 - used_pct
-
-    def capabilities(self) -> TargetCapabilities:
-        """Get target capabilities.
-
-        Override in subclasses to provide accurate capabilities.
-
-        Returns:
-            TargetCapabilities describing what this target supports
-        """
-        return TargetCapabilities()
 
     def deploy_app(
         self,
