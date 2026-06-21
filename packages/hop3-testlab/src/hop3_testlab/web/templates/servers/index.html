@@ -22,9 +22,11 @@
       <td class="px-3 py-2">{{ "yes" if s.enabled else "no" }}</td>
       <td class="px-3 py-2 text-right whitespace-nowrap">
         <form method="post" action="/servers/{{ s.id }}/toggle" class="inline">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <button class="text-blue-700 hover:underline">{{ "disable" if s.enabled else "enable" }}</button>
         </form>
         <form method="post" action="/servers/{{ s.id }}/delete" class="inline ml-3">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <button class="text-red-700 hover:underline">delete</button>
         </form>
       </td>
@@ -36,6 +38,7 @@
 </table>
 
 <form method="post" action="/servers" class="flex flex-wrap items-end gap-3 border rounded p-3">
+  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
   <label class="text-sm">Name<br>
     <input name="name" required class="border rounded px-2 py-1">
   </label>

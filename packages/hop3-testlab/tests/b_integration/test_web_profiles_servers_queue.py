@@ -122,3 +122,35 @@ def test_queue_cancel_pending_build():
 
     with _session() as s:
         assert BuildQueueRepository(s).get(req_id).status == "cancelled"
+
+
+def test_management_forms_carry_csrf_token():
+    """Every management POST form embeds the CSRF token (else 403 in production)."""
+    with _session() as s:
+        p = ProfilesRepository(s).create(
+            name="p",
+            source_name="m",
+            source_url="https://example.com/r.git",
+            source_ref="main",
+            selection={},
+        )
+        ServersRepository(s).create(name="srv", target_id="docker", kind="docker")
+        BuildQueueRepository(s).enqueue(p.id)  # a pending build -> cancel form renders
+        s.commit()
+
+    with TestClient(app=create_app()) as client:
+        for path in ("/profiles", "/servers", "/queue"):
+            assert 'name="_csrf_token"' in client.get(path).text, f"{path} lacks CSRF"
+
+
+def test_profile_create_rejects_unsafe_source_url():
+    """A git transport-helper URL is refused (400), not stored."""
+    with TestClient(app=create_app()) as client:
+        r = client.post(
+            "/profiles",
+            data={"name": "bad", "source_url": "ext::sh -c evil", "source_ref": "main"},
+            follow_redirects=False,
+        )
+        assert r.status_code == 400  # ValidationException
+    with _session() as s:
+        assert ProfilesRepository(s).list_all() == []  # nothing created

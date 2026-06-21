@@ -50,7 +50,7 @@ class DatabaseProvider(Provider):
 
     @provide
     def session(self, config: TestlabConfig) -> Iterator[Session]:
-        factory = get_session_factory(str(config.DB_PATH))
+        factory = get_session_factory(config.STORE_TARGET)
         session = factory()
         try:
             yield session

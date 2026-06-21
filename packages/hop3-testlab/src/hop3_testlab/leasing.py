@@ -16,6 +16,8 @@ import time
 from typing import TYPE_CHECKING
 
 from hop3_testing.results.models import RunLease
+from sqlalchemy import CursorResult, or_, update
+from sqlalchemy.exc import IntegrityError
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -31,22 +33,48 @@ def try_acquire(
     run_uid: str | None = None,
     ttl_seconds: int = DEFAULT_TTL_SECONDS,
 ) -> bool:
-    """Acquire the lease for ``target_id``. Return False if a live one is held."""
+    """Acquire the lease for ``target_id``. Return False if a live one is held.
+
+    Atomic, so two racing acquirers can't both claim the same target: a single
+    conditional UPDATE claims an absent-or-expired lease (the SQLite write lock /
+    Postgres row lock serialises the reclaim), and a brand-new lease is an INSERT
+    guarded by the unique ``target_id`` constraint. The old read-check-write let
+    two acquirers both reclaim one expired row.
+    """
     now = time.time()
     expires = now + ttl_seconds
-    lease = (
-        session.query(RunLease).filter(RunLease.target_id == target_id).one_or_none()
+    result = session.execute(
+        update(RunLease)
+        .where(
+            RunLease.target_id == target_id,
+            or_(RunLease.expires_at.is_(None), RunLease.expires_at <= now),
+        )
+        .values(holder=holder, run_uid=run_uid, acquired_at=now, expires_at=expires)
+        .execution_options(synchronize_session=False)
     )
-    if lease is not None and lease.expires_at and lease.expires_at > now:
-        return False  # held by a live run
-    if lease is None:
-        lease = RunLease(target_id=target_id)
-        session.add(lease)
-    lease.holder = holder
-    lease.run_uid = run_uid
-    lease.acquired_at = now
-    lease.expires_at = expires
-    session.commit()
+    claimed = result.rowcount if isinstance(result, CursorResult) else 0
+    if claimed:
+        session.commit()
+        return True
+
+    # The UPDATE matched nothing: either a live lease holds it, or there's no row.
+    if session.query(RunLease).filter(RunLease.target_id == target_id).count():
+        session.rollback()
+        return False  # a live lease is held
+    try:
+        session.add(
+            RunLease(
+                target_id=target_id,
+                holder=holder,
+                run_uid=run_uid,
+                acquired_at=now,
+                expires_at=expires,
+            )
+        )
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        return False  # a concurrent acquirer inserted first
     return True
 
 

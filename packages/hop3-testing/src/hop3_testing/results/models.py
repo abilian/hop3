@@ -53,7 +53,9 @@ class TestRun(Base):
         default=lambda: datetime.now(tz=timezone.utc),
         nullable=True,
     )
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     run_uid: Mapped[str | None] = mapped_column(String(80), index=True, nullable=True)
     """User-facing run handle (<ISO>-<target>-<shortid>); the `why`/`triage` key.

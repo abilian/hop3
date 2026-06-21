@@ -21,6 +21,10 @@ def isolated_db(tmp_path, monkeypatch):
     # Bypass the auth guard by default (the auth tests opt back in). Mirrors
     # hop3-server's HOP3_UNSAFE test bypass.
     monkeypatch.setenv("TESTLAB_UNSAFE", "true")
+    # Tests run over the plain-HTTP TestClient, so cookies must not be Secure.
+    # Dev mode (DEBUG) gates that off — the auth/csrf tests turn UNSAFE off but
+    # still need cookies to round-trip over http.
+    monkeypatch.setenv("TESTLAB_DEBUG", "true")
     # Isolate config discovery from the developer's ~/.hop3/testlab/config.toml
     # (a non-existent path -> empty config -> defaults). Tests that want config
     # pass an explicit path or set the relevant env vars.

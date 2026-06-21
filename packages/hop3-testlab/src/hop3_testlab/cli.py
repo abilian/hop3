@@ -180,7 +180,7 @@ def _prune(keep: int | None) -> None:
     from hop3_testlab.config import TestlabConfig  # noqa: PLC0415
 
     keep_runs = keep if keep is not None else load_retention()
-    store = ResultStore(db_path=TestlabConfig.get_instance().DB_PATH)
+    store = ResultStore(db_path=TestlabConfig.get_instance().STORE_TARGET)
     deleted = store.prune_build_logs(keep_runs)
     print(f"Pruned {deleted} build-log rows (kept the most recent {keep_runs} runs).")
 
