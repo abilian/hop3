@@ -121,7 +121,14 @@ class ResultStore:
             db_path: a SQLite path (default ~/.hop3/test-results.db) or a
                 SQLAlchemy DSN string for Postgres (``postgresql+psycopg://…``).
         """
-        target = db_path if db_path is not None else self.DEFAULT_DB_PATH
+        # An explicit db_path wins; else honor HOP3_TEST_RESULTS_DB (set by the
+        # Test Lab worker so the engine subprocess writes to the Lab's store — a
+        # SQLite path or a Postgres DSN), else the default local SQLite file.
+        target = (
+            db_path
+            if db_path is not None
+            else os.environ.get("HOP3_TEST_RESULTS_DB") or self.DEFAULT_DB_PATH
+        )
         # SQLite has a file (ensure its dir exists); a Postgres DSN has neither.
         self.db_path = Path(target) if "://" not in str(target) else None
         if self.db_path is not None:
@@ -202,7 +209,7 @@ class ResultStore:
             # UNIQUE can't ride a plain ADD COLUMN on a populated table; use a
             # partial index that tolerates the NULLs of pre-existing rows.
             conn.exec_driver_sql(
-                "CREATE UNIQUE INDEX IF NOT EXISTS ix_test_runs_run_uid "
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_test_runs_run_uid "
                 "ON test_runs(run_uid) WHERE run_uid IS NOT NULL"
             )
             # ADR 044 §data-model: trend/diff query indexes (also added to

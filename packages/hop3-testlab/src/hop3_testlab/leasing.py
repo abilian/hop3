@@ -30,7 +30,6 @@ def try_acquire(
     target_id: str,
     holder: str,
     *,
-    run_uid: str | None = None,
     ttl_seconds: int = DEFAULT_TTL_SECONDS,
 ) -> bool:
     """Acquire the lease for ``target_id``. Return False if a live one is held.
@@ -49,7 +48,7 @@ def try_acquire(
             RunLease.target_id == target_id,
             or_(RunLease.expires_at.is_(None), RunLease.expires_at <= now),
         )
-        .values(holder=holder, run_uid=run_uid, acquired_at=now, expires_at=expires)
+        .values(holder=holder, acquired_at=now, expires_at=expires)
         .execution_options(synchronize_session=False)
     )
     claimed = result.rowcount if isinstance(result, CursorResult) else 0
@@ -66,7 +65,6 @@ def try_acquire(
             RunLease(
                 target_id=target_id,
                 holder=holder,
-                run_uid=run_uid,
                 acquired_at=now,
                 expires_at=expires,
             )

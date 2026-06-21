@@ -16,12 +16,14 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 import os
 import signal
 import subprocess
 import threading
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -43,6 +45,8 @@ if TYPE_CHECKING:
     from hop3_testlab.sources import Source
 
 STOP_GRACE_SECONDS = 5.0
+
+logger = logging.getLogger(__name__)
 
 
 def _hetzner_manager(cfg: CloudConfig):
@@ -233,17 +237,57 @@ def _run_engine(
     the fetched ``source@ref`` workspace the engine resolves apps against (None =
     the engine's own project root).
     """
-    proc = subprocess.Popen(cmd, start_new_session=True, env=env, cwd=cwd)
-    # Recording the PID is best-effort — never let it abort the run.
-    with contextlib.suppress(Exception):
-        _record_engine_pid(target_id, proc.pid)
-    returncode = proc.wait()
+    # Tee the engine's combined output to a per-run breadcrumb log instead of
+    # letting it inherit (and vanish into) the worker's stdout: a run that dies
+    # in setup (bad deploy, refused blank-slate) before recording any row would
+    # otherwise leave nothing the user can look at. Restores `hop3-testlab logs`.
+    log_path = _engine_log_path(env)
+    with log_path.open("w") as log:
+        proc = subprocess.Popen(
+            cmd,
+            start_new_session=True,
+            env=env,
+            cwd=cwd,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+        )
+        # Recording the PID is best-effort — never abort the run — but a failure
+        # silently disables the Stop control, so make it visible (#5).
+        try:
+            _record_engine_pid(target_id, proc.pid)
+        except Exception as e:
+            logger.warning(
+                "Could not record engine PID; Stop control disabled for this run: %s",
+                e,
+            )
+        returncode = proc.wait()
     if returncode != 0:
         # Fail loud (NON-NEGOTIABLE): a non-zero engine exit is a *failed* build.
-        # Raising here lets run_once propagate it (the lease is freed in `finally`)
-        # so the dispatcher records the build FAILED and the CLI exits non-zero —
-        # never a green build for a run that actually failed.
-        raise subprocess.CalledProcessError(returncode, cmd)
+        # Raise with the log path + tail so run_once propagates it, the dispatcher
+        # records the build FAILED **with the real reason** (BuildRequest.detail),
+        # and the CLI exits non-zero — never a green build for a failed run.
+        tail = _tail_of(log_path)
+        msg = f"Engine exited {returncode}. Last output ({log_path}):\n{tail}"
+        raise RuntimeError(msg)
+
+
+def _engine_log_path(env: dict | None) -> Path:
+    """A per-run log file under ``~/.hop3/testlab-logs/`` named by trigger+stamp."""
+    trigger = (env or os.environ).get("HOP3_TEST_TRIGGER") or "run"
+    log_dir = Path.home() / ".hop3" / "testlab-logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    safe = trigger.replace("/", "_").replace(":", "_")
+    return log_dir / f"{safe}-{stamp}.log"
+
+
+def _tail_of(path: Path, lines: int = 25) -> str:
+    """The last ``lines`` of a log file (for an actionable failure detail)."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        return "\n".join(text.splitlines()[-lines:])
+    except OSError:
+        return "(no output captured)"
 
 
 def _runner_version() -> str:
@@ -262,6 +306,7 @@ def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once;
     platform_ref: str | None = None,
     cwd: Path | None = None,
     provenance: dict[str, str] | None = None,
+    blank_slate: bool = False,
 ) -> None:
     """Run the suite via the existing engine (results -> shared store).
 
@@ -279,6 +324,10 @@ def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once;
     branch = ["--branch", platform_ref] if platform_ref else []
     meta = dict(provenance or {})
     env = dict(os.environ)
+    # The engine subprocess must write to the SAME store the Lab reads — its
+    # ResultStore() default is the local SQLite file, which diverges from a
+    # Postgres / custom STORE_TARGET and makes results silently invisible (#4).
+    env["HOP3_TEST_RESULTS_DB"] = str(TestlabConfig.get_instance().STORE_TARGET)
 
     if target_id in {"docker", ""}:
         if meta:
@@ -300,10 +349,13 @@ def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once;
     host, ssh_key, session_meta = _resolve_run_target(target_id)
     meta.update(session_meta)  # session details join the provenance in run_metadata
 
-    # Blank slate for reproducibility: rebuild the Hetzner OS before a
-    # full-suite run so every run starts from an identical, known state. Per-app
-    # re-runs (apps given) test against the live server and skip the rebuild.
-    if target_id == "hetzner" and not apps:
+    # Blank slate for reproducibility: rebuild the Hetzner OS before a clean run
+    # so every run starts from an identical, known state. Driven by explicit
+    # intent (`blank_slate`), not by `not apps` — a v2 dispatched/nightly profile
+    # build always resolves a concrete apps list, so the old heuristic silently
+    # skipped the rebuild on the canonical path (#2/#7). Ad-hoc per-app re-runs
+    # leave it False and test against the live server.
+    if target_id == "hetzner" and blank_slate:
         _rebuild_blank_slate(load_cloud_config())
 
     if ssh_key:
@@ -343,6 +395,9 @@ class RunSpec:
     selector: str | None = None
     selection: dict | None = None
     apps: list[str] | None = None
+    # Rebuild the Hetzner OS first (reproducible clean run). Set by the dispatcher
+    # for queued/nightly profile builds; False for ad-hoc per-app re-runs.
+    blank_slate: bool = False
 
 
 def _require_nonempty(apps: list[str] | None, what: str) -> None:
@@ -446,6 +501,7 @@ def run_once(
                 platform_ref=spec.platform_ref,
                 cwd=cwd,
                 provenance=provenance,
+                blank_slate=spec.blank_slate,
             )
         finally:
             if prev is None:

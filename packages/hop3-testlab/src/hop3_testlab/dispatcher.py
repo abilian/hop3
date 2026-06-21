@@ -100,6 +100,10 @@ def _claim(factory: sessionmaker) -> _Claim | bool:
                 source_ref=profile.source_ref,
                 platform_ref=profile.platform_ref,
                 selection=dict(profile.selection or {}),
+                # A queued/nightly build is a clean, reproducible run: rebuild the
+                # box first (the canonical path the `not apps` heuristic used to
+                # silently skip — review #2/#7).
+                blank_slate=True,
             ),
         )
     finally:

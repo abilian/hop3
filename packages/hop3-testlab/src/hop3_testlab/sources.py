@@ -17,6 +17,7 @@ and private-repo deploy keys are deferred (see ``tasks/todo.md``).
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -97,11 +98,16 @@ class Source:
         rev = self._resolve(ref)
         workspace = WORKSPACES_ROOT / _sanitize(self.name) / _sanitize(ref)
         # Recreate the worktree so it's a clean checkout of `rev`, no stale files.
-        # ponytail: assumes ~/.hop3/testlab worktrees are ours; rm -rf that dir if
-        # it ever gets corrupted out-of-band.
         _git("worktree", "prune", cwd=self.cache)
         if workspace.exists():
-            _git("worktree", "remove", "--force", str(workspace), cwd=self.cache)
+            try:
+                _git("worktree", "remove", "--force", str(workspace), cwd=self.cache)
+            except RuntimeError:
+                # A partial/corrupted worktree can't be `git worktree remove`'d and
+                # would wedge every future fetch of this source — force it gone and
+                # re-prune so the source self-heals (was a manual rm -rf).
+                shutil.rmtree(workspace, ignore_errors=True)
+                _git("worktree", "prune", cwd=self.cache)
         workspace.parent.mkdir(parents=True, exist_ok=True)
         _git(
             "worktree",

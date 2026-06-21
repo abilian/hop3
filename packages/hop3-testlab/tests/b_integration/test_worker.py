@@ -274,8 +274,8 @@ def test_default_executor_passes_platform_ref_as_branch_and_cwd(monkeypatch, tmp
     assert cwd == tmp_path  # engine scans/deploys from the workspace
 
 
-def test_run_engine_raises_on_nonzero_exit(monkeypatch):
-    """A non-zero engine exit fails loud (was swallowed → fake-success builds)."""
+def test_run_engine_raises_on_nonzero_exit(monkeypatch, tmp_path):
+    """A non-zero engine exit fails loud with the log path (was swallowed)."""
 
     class _Proc:
         pid = 4242
@@ -285,7 +285,8 @@ def test_run_engine_raises_on_nonzero_exit(monkeypatch):
 
     monkeypatch.setattr(worker.subprocess, "Popen", lambda *a, **k: _Proc())
     monkeypatch.setattr(worker, "_record_engine_pid", lambda *a, **k: None)
-    with pytest.raises(worker.subprocess.CalledProcessError):
+    monkeypatch.setattr(worker, "_engine_log_path", lambda env: tmp_path / "engine.log")
+    with pytest.raises(RuntimeError, match="Engine exited 1"):
         worker._run_engine("docker", ["hop3-test", "system"], None)
 
 
