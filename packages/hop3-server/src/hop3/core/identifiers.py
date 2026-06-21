@@ -60,14 +60,20 @@ class InvalidIdentifierError(ValueError):
     """
 
 
-def validate_app_name(name: str) -> str:
-    """Return ``name`` if it is a valid app identifier, else raise."""
+def _validate_identifier(name: str, kind: str) -> str:
+    """Validate ``name`` against ``APP_NAME_RE`` for the given ``kind``.
+
+    ``kind`` is the lowercase noun (``"app"`` or ``"service"``) used to build
+    the human-readable error messages. The capitalized form is used for the
+    type-check message and the lowercase form for the format message, exactly
+    matching the messages of the public wrappers.
+    """
     if not isinstance(name, str):
-        msg = f"App name must be a string, got {type(name).__name__}"
+        msg = f"{kind.capitalize()} name must be a string, got {type(name).__name__}"
         raise InvalidIdentifierError(msg)
     if not APP_NAME_RE.fullmatch(name):
         msg = (
-            f"Invalid app name {name!r}: must be 3-63 characters, start and "
+            f"Invalid {kind} name {name!r}: must be 3-63 characters, start and "
             f"end with a letter or digit, and contain only letters, digits, "
             f"hyphens, and underscores."
         )
@@ -75,19 +81,14 @@ def validate_app_name(name: str) -> str:
     return name
 
 
+def validate_app_name(name: str) -> str:
+    """Return ``name`` if it is a valid app identifier, else raise."""
+    return _validate_identifier(name, "app")
+
+
 def validate_service_name(name: str) -> str:
     """Return ``name`` if it is a valid Docker Compose service identifier."""
-    if not isinstance(name, str):
-        msg = f"Service name must be a string, got {type(name).__name__}"
-        raise InvalidIdentifierError(msg)
-    if not APP_NAME_RE.fullmatch(name):
-        msg = (
-            f"Invalid service name {name!r}: must be 3-63 characters, start "
-            f"and end with a letter or digit, and contain only letters, "
-            f"digits, hyphens, and underscores."
-        )
-        raise InvalidIdentifierError(msg)
-    return name
+    return _validate_identifier(name, "service")
 
 
 def validate_env_var_key(key: str) -> str:
