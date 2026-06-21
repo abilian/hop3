@@ -421,9 +421,13 @@ def run_once(
             return False
         # A prior run killed mid-flight (e.g. via the dashboard Stop) or crashed
         # never stamped finished_at; clear such orphans now so they can't
-        # masquerade as this run on the dashboard. v1 runs one suite at a time,
-        # so any unfinished row at acquire time predates this lease.
-        RunsRepository(session).sweep_orphans()
+        # masquerade as this run on the dashboard.
+        # ponytail: skip the sweep when another target's lease is live — the
+        # sweep is unscoped, so it would abort that healthy run (#2). Safe to
+        # skip: its orphan (if any) is cleared at the next idle sweep. A
+        # per-target scoped sweep arrives with parallel dispatch.
+        if not leasing.others_live(session, target_id):
+            RunsRepository(session).sweep_orphans()
     finally:
         session.close()
 

@@ -289,6 +289,31 @@ def test_run_engine_raises_on_nonzero_exit(monkeypatch):
         worker._run_engine("docker", ["hop3-test", "system"], None)
 
 
+def test_sweep_skips_a_run_live_on_another_target():
+    """A healthy run on target B is not aborted by a run starting on target A (#2)."""
+    from hop3_testing.results.models import TestRun
+
+    factory = get_session_factory(TestlabConfig.get_instance().STORE_TARGET)
+    with factory() as s:  # B is running: live lease + an unfinished run
+        leasing.try_acquire(s, "B", "build-B")
+        s.add(
+            TestRun(
+                run_uid="run-B", trigger="build-B", mode="smoke", target_type="docker"
+            )
+        )
+        s.commit()
+
+    seen = {}
+
+    def _exec(_tid, _m, _apps, **_kw):
+        with factory() as s:
+            run_b = s.query(TestRun).filter_by(run_uid="run-B").one()
+            seen["b_finished_at"] = run_b.finished_at
+
+    run_once("A", trigger="build-A", executor=_exec)
+    assert seen["b_finished_at"] is None  # B's run survived A's orphan-sweep
+
+
 def test_run_once_fails_loud_on_source_without_ref():
     """A source with a blank ref must raise, not silently run the local suite."""
 
