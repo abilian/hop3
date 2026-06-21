@@ -71,8 +71,8 @@ def create_app() -> Litestar:
     # session — there's no cross-site flow that needs it relaxed.
     secure_cookies = not (config.UNSAFE or config.DEBUG)
     session_config = ServerSideSessionConfig(secure=secure_cookies, samesite="strict")
-    # CSRF-protect the state-changing POSTs (stop / trigger / login / profiles /
-    # servers / queue). Disabled under the same UNSAFE flag that bypasses auth
+    # CSRF-protect the state-changing POSTs (stop / login / profiles / servers /
+    # queue). Disabled under the same UNSAFE flag that bypasses auth
     # (tests/dev) so the test client doesn't round-trip a token.
     csrf_config = (
         None

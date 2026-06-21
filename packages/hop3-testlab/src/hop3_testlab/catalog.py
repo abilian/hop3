@@ -24,8 +24,6 @@ from functools import lru_cache
 from typing import TYPE_CHECKING
 
 from hop3_testing.catalog import Catalog
-from hop3_testing.selector.modes import get_mode_config, list_modes
-from hop3_testing.selector.selector import Selector
 from hop3_testing.targets.helpers import find_project_root
 
 from hop3_testlab.discriminators import short_app
@@ -99,21 +97,6 @@ def _safe_catalog() -> Catalog | None:
     except Exception as e:  # any scan failure degrades gracefully
         logger.warning("Test Lab catalog unavailable: %s", e)
         return None
-
-
-def mode_counts() -> dict[str, int]:
-    """Number of tests each mode selects (handles set-cover and explicit lists)."""
-    catalog = _safe_catalog()
-    if catalog is None:
-        return {}
-    selector = Selector(catalog)
-    counts: dict[str, int] = {}
-    for name in list_modes():
-        try:
-            counts[name] = len(selector.select(get_mode_config(name)))
-        except Exception as e:  # one bad mode shouldn't blank the rest
-            logger.warning("Count for mode %r failed: %s", name, e)
-    return counts
 
 
 def title_map() -> dict[str, str]:

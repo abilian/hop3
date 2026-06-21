@@ -26,29 +26,6 @@ def test_dashboard_index_renders_when_empty():
     assert "No runs yet" in response.text
 
 
-def test_dashboard_trigger_form_offers_combo_coverage_mode():
-    # The trigger form's mode dropdown must include the "combo-coverage" profile
-    # (regression: it was missing from the hardcoded list in the controller).
-    with TestClient(app=create_app()) as client:
-        response = client.get("/")
-    assert response.status_code == 200
-    assert 'name="mode"' in response.text  # the dropdown exists
-    assert 'value="combo-coverage"' in response.text  # ...and offers combo-coverage
-
-
-def test_dashboard_dropdown_shows_counts_sorted_as_ladder():
-    # Each profile option shows its test count + duration, and options are
-    # ordered smallest → largest (smoke before full).
-    with TestClient(app=create_app()) as client:
-        response = client.get("/")
-    html = response.text
-    assert 'value="smoke"' in html
-    assert 'value="curated"' in html
-    assert "tests" in html  # count label
-    assert "~5 min" in html  # duration label
-    assert html.index('value="smoke"') < html.index('value="full"')
-
-
 def test_dashboard_lists_recent_runs(tmp_path):
     # One store, two front-ends: a run written via the CLI's ResultStore shows up
     # on the web dashboard. (conftest points TESTLAB_DB_PATH at this tmp DB.)
