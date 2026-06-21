@@ -5,78 +5,98 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-06-20
+
+The 0.6 release builds on 0.5 with per-app resource limits and volumes, a much
+richer set of addon-management commands, a signed app catalog, and a published
+design record. Several commands were renamed for consistency, with the old
+names kept as aliases.
+
+### Added
+
+- **Resource limits (ADR 046)**: declare memory and CPU caps for an app under `[limits]`, enforced for both native and containerized apps. The server can set defaults and ceilings, and `hop3 app status` shows the caps and any out-of-memory kills.
+- **Volumes (ADR 046)**: apps can mount persistent bind volumes and tmpfs, provisioned through the privileged daemon behind a default-deny allow-list and reconciled on startup.
+- **Addon management commands**: a consistent `hop3 addon <type> <verb>` surface — ad-hoc queries (SQL / `redis-cli`), read-only diagnostics, clone, streaming a dump in or out (`export` / `import`), and `restore` / `flush` with confirmation. Plus `addon exists`, `addon promote` (per-addon variable namespacing), `addon endpoint`, `addon expose` / `unexpose`, and `hop3 tunnel` for reaching an addon from your own machine.
+- **App catalog (ADR 049)**: Hop3 can load a signed, central catalog of installable apps (`hop3 catalog refresh`) and browse it from the dashboard; publishers get `hop3-catalog validate` / `publish` tooling. (The former "marketplace" is now the "catalog", ADR 031.)
+- **Configurable backup contents**: choose which paths an app's backups include or exclude with `[backup].paths` / `[backup].exclude`.
+- **Static sites without a Procfile**: serve a static app directly from `[build].static-dir`.
+
+### Changed
+
+- **App target is `--app` only (ADR 036)**: the deprecated positional app argument was removed; every app-scoped command takes `--app <name>`.
+- **Command renames (aliases kept)**: `launch` → `create`, `backup info` → `backup show`, `addon ps` → `addon activity`, `domains` → `domain`, the Procfile importer `env migrate` → `app migrate`, and account creation consolidated under `user add`. The old spellings still work as aliases.
+- **Single source for the server secret (ADR 048)**: `HOP3_SECRET_KEY` now lives in one place, ending the environment-vs-config drift that could leave addon credentials unreadable after a restart.
+- **Idempotent redeploys**: re-running the installer reuses existing database secrets and preserves operator configuration instead of regenerating them.
+- **More detail in `hop3 system info`** for diagnostics.
+
+### Fixed
+
+- **Redeploy no longer kills its own push**: the process reaper no longer terminates the in-flight `git receive-pack`, so `git push` deploys complete reliably.
+- **Stable app port across redeploys.**
+- **Smaller deploy uploads**: build-output directories (Rust / Maven `target/`) are excluded from the upload.
+- **Redis health check** authenticates correctly when no password is set in the environment.
+- **Let's Encrypt email** is forwarded to the installer on the redeploy path.
+
+### Documentation
+
+- **Design record published**: the full set of Architecture Decision Records is now part of the documentation site, browsable alongside the guides.
+- **Accuracy pass**: the guides, CLI reference, and tutorials were reviewed against the shipping behaviour and corrected.
+- **Testing series**: a multi-part walkthrough of how Hop3 is tested.
+- **"Migrating from X" series**: guides for moving to Hop3 from other platforms, starting with Heroku.
+- **Second interim technical report** for the NGI project.
+
 ## [0.5.0] - 2026-06-08
 
 ### Highlights
 
-- **CLI server/context model (ADR 042)** — the old "context" is split into *servers* (credentialed host bindings, in `~/.config/hop3-cli/servers.toml`) and per-project *contexts* (deploy targets in `hop3.toml`), ending the sticky-global-default footgun; `hop3 deploy` now previews and confirms.
-- **Unified testing architecture (ADR 043)** — three runners (pytest / `hop3-test` / validoc), one set of speed tiers, and a shared diagnostic bundle (`hop3-test why`) that finally captures the "healthy app behind a 502" failure.
-- **Nightly Test Lab (ADR 044)** — a new `hop3-testlab` web dashboard: run history, a live run panel (progress, ETA, stop), the morning regressions diff, and trends.
-- **Privileged-operations daemon `rootd` (ADR 041)** — a narrow kernel-boundary daemon replaces the sudoers surface.
-- **Security hardening** — several waves across the RPC boundary, authentication, and credential storage (see Security).
+- **CLI server/context model (ADR 042)**: credentialed *servers* are now separate from per-project deploy *contexts*, removing the sticky-global-default footgun; `hop3 deploy` previews the plan and asks for confirmation.
+- **Unified testing architecture (ADR 043)**: one set of speed tiers across the test runners, and a shared diagnostic bundle (`hop3-test why`) that finally captures the "healthy app behind a 502" failure.
+- **Nightly Test Lab (ADR 044)**: a `hop3-testlab` web dashboard with run history, a live run panel, the morning regressions diff, and trends.
+- **Privileged-operations daemon `rootd` (ADR 041)**: a narrow root-boundary daemon replaces broad sudoers rules.
+- **Security hardening**: several waves across the RPC boundary, authentication, and credential storage.
 
 ### Added
 
-- **CLI Ergonomics Overhaul (ADR 036)**: Complete redesign of the `hop3` command surface on branch `cli-refact` (M1–M8, 2026-04-15/16). Space-separated command names (`hop3 config set`, not `hop3 config:set`), implicit-app resolution chain (`--app` → `$HOP3_APP` → `.hop3-app` → `hop3.toml` → context default), sticky context with `hop3 use <app>`, three-source alias mechanism with disjoint-union semantics, did-you-mean suggestions for unknown commands and unknown app names, categorized help (`DAILY OPERATIONS` / `MANAGEMENT` / `ADMINISTRATION` / `UTILITIES`), mandatory `Examples:` section on every command, state-change summary lines prefixed with `[context / app]` to stderr, `--confirm=<name>` scriptable typed-name confirmation, `--no-input` for scripts, `--password-file <path>` / `--stdin` / `--input -` for secret and data inputs, stream discipline per D19 (primary data on stdout; status/errors/warnings on stderr), and an 11-code ADR 036 D16 exit-code table (new: `10` for declined confirmation, `130` for SIGINT). All 1218 tests passing; `--no-input` env-var bridge (`HOP3_NO_INPUT`) exposed to local commands.
-- **Nix Integration (Phase 1-2)**: NixBuilder plugin for hermetic, reproducible builds via `hop3.nix` files. 38 Nix-based application packages (22 production-grade, 8 test apps, 8 under investigation). Installer support for Nix on all supported distributions.
-- **`[env.computed]` Section**: Variable interpolation in hop3.toml using `${VAR}` syntax, resolved after addon vars are injected. Enables mapping platform variables (e.g., `PGHOST`) to application-expected names (e.g., `DATABASE_URL`).
-- **WSGI Auto-Discovery**: Automatically detects WSGI entry points (`wsgi.py`, `app.py`, Django `<project>/wsgi.py`) when no explicit worker is configured. Logs what was detected.
-- **No-Workers Early Warning**: Immediate diagnostic when a Python app has no web-facing workers, instead of waiting for the health check timeout.
-- **Env Var Policy Override**: New `_policy = "override"` option in `[env]` section forces hop3.toml values to overwrite existing env vars on every deploy.
-- **Failure Diagnosis Engine**: `_diagnose_failure()` analyzes logs on health check timeout and detects specific patterns: no-workers mode, daemon throttling, connection refused, missing modules. Provides targeted fix suggestions.
-- **10 Nix Demo Apps**: flask-hello, flask-gunicorn, flask-alt, nodejs-express, golang-gin, golang-minimal, clojure-hello, static-hello, rack-hello, sinatra-hello.
-- **Servers and project contexts (ADR 042)**: `hop3 server` (list/add/remove/show/login/use) manages credentialed host bindings; `hop3 context` (init/use/list/show/add/remove) manages per-project deploy targets under `hop3.toml [contexts.*]`. Layered resolution for server, context, and app (including `git remote` sources), a typed `ResolvedContext`, and a `.hop3-local.toml` overlay for the working checkout.
-- **Deploy preview + project-mismatch guard (ADR 042)**: `hop3 deploy` prints the resolved plan (source, context, server, app, domains, addons, env) and confirms before acting (`--dry-run` / `-y` / `--force`); destructive commands refuse to run when the resolved app contradicts the directory's project.
-- **Shared diagnostic bundle and `hop3-test why` (ADR 043)**: every deploy-and-verify path collects one bundle on failure (proxy probe, nginx logs, app/journal logs, deploy transcript, HTTP/DNS) and classifies it into a one-line headline (`proxy-502` / `build-failure` / `addon-unreachable` / `app-crash` / `timeout`) with on-demand drill-down — closing the silent-502 gap.
-- **`hop3-testlab` nightly dashboard (ADR 044)**: a Litestar web app over the shared result store — run list, run detail with per-build logs, a live run panel (progress/ETA/stop), the regressions diff, flakiness/duration trends, and an in-process scheduler.
-- **`rootd` privileged-operations daemon (ADR 041)**: a small kernel-boundary daemon for the operations that need root, replacing the sudoers configuration.
-- **`[domains]` section and `hop3 domains` commands**: declare and manage an app's hostnames from `hop3.toml` and the CLI.
-- **Backup cross-instance migration (ADR 024)**: restore a backup onto a different Hop3 instance, with end-to-end coverage.
-- **Structured failure diagnoses**: RPC errors are unwrapped into a structured `Diagnosis` (likely cause + suggested fix) instead of opaque tracebacks.
+- **CLI ergonomics overhaul (ADR 036)**: a redesigned command surface — space-separated command names (`hop3 config set`), an implicit current app, a sticky working context (`hop3 use`), command aliases, did-you-mean suggestions, categorized help with an example on every command, scriptable confirmations and non-interactive flags, and secret inputs from a file or stdin.
+- **Nix integration**: hermetic, reproducible builds from a `hop3.nix` file, a starter set of Nix-based application packages, and installer support for Nix on every supported distribution.
+- **Computed environment variables**: interpolate values in `hop3.toml` with `${VAR}`, resolved after addon variables are injected, so platform variables can be mapped to the names an app expects.
+- **WSGI auto-discovery**: Python web entry points are detected automatically when no worker is configured.
+- **Servers and project contexts (ADR 042)**: manage credentialed hosts with `hop3 server` and per-project deploy targets with `hop3 context`.
+- **Deploy preview and project-mismatch guard (ADR 042)**: `hop3 deploy` shows the resolved plan and confirms before acting; destructive commands refuse to run when the resolved app contradicts the current project.
+- **Shared failure diagnosis (ADR 043)**: every deploy-and-verify path collects one diagnostic bundle on failure and classifies it into a one-line cause, closing the silent-502 gap.
+- **Nightly dashboard `hop3-testlab` (ADR 044)**: run history, live progress, the regressions diff, and trends.
+- **Privileged-operations daemon `rootd` (ADR 041)**: the operations that need root run through a small, audited daemon instead of sudoers.
+- **App hostnames**: declare and manage an app's domains from `hop3.toml` and the CLI.
+- **Cross-instance backup migration (ADR 024)**: restore a backup onto a different Hop3 server.
 
 ### Changed
 
-- **Env Var Messaging**: Deploy output now shows `Skipped N env var(s) already set: VAR1, VAR2` instead of opaque `Set 0 env var(s)`.
-- **Addon Host Variables**: MySQL, PostgreSQL, and Redis addons now inject `127.0.0.1` instead of `localhost`, fixing IPv6 resolution issues where runtimes try `::1` first.
-- **Daemon Working Directory**: uWSGI attach-daemon processes now explicitly `cd` to `src/` directory, fixing "No such file or directory" errors for relative paths.
-- **After-Build Virtualenv**: Post-build hooks now run with the Python virtualenv in PATH, so `python manage.py collectstatic` works without absolute paths.
-- **uWSGI Throttle Reset**: `stop()` now waits for old processes to terminate before starting new ones, preventing inherited respawn throttle delays after redeploy.
-- **Health Check Diagnostics**: Timeout output now shows last 20 log lines (was 10) with pattern-based failure analysis.
-- **Shell Command Handling**: `shell()` function now detects shell operators (`&&`, `||`, `;`, `|`) and environment variable assignments, wrapping in `sh -c` instead of incorrectly tokenizing with `shlex.split()`. Fixes 9 native app build failures.
-- **Worker Precedence**: RuntimeManifestBuilder now applies correct layering: Procfile (base) → Builder workers (override) → hop3.toml `[run]` (highest). Fixes cases where downloaded source Procfiles overrode hop3.toml configuration.
-- **Test Runner**: Suite filtering fixed — `_load_catalog()` now only scans paths for configured suites.
-- **Toolchain Count**: Now 12 language toolchains (added .NET, Static, Generic to existing Python, Node.js, Go, Ruby, Rust, Java, PHP, Clojure, Elixir).
-- **App Directory Structure**: Reorganized apps into `real-apps-native/`, `real-apps-nix/`, `test-apps-nix/`, `test-apps-procfile/`, `internal-apps/`.
-- **CLI Command Syntax (BREAKING, ADR 036 D1)**: All multi-token commands use spaces. `hop3 config:set` → `hop3 config set`. Typing the old colon form produces a migration hint pointing at the new syntax. Clean break — no colon-form aliases preserved.
-- **CLI Namespace Reshuffle (BREAKING, ADR 036 D3/D4)**: `admin:user:*` flattened to `user *` (bare `admin` namespace dropped). `addons` → `addon` (singular). `backup:delete` → `backup destroy` (verb normalization). `sbom` demoted from top-level to `app sbom`.
-- **CLI Exit Codes (ADR 036 D16)**: Exit-code table renumbered to the 11-code D16 spec. Scripts relying on the old layout (auth=2, not-found=3, validation=4) need updating: auth is now 4, usage is 2, resolution is 3, authz is 5, conflict is 6, network/server is 7, deployment is 8, plugin is 9, confirmation-declined is 10, SIGINT is 130. JSON envelope includes `error.exit_code`.
-- **CLI vocabulary split (BREAKING, ADR 042)**: the global "context" (URL + token) is now a *server*; "context" means a project deploy target. `~/.config/hop3-cli/config.toml [contexts.*]` is rewritten to `servers.toml [servers.*]` on first run, and the per-context `default_app` is dropped in favour of project contexts. `hop3 use <app>` is now project-scoped; `--global` keeps the old server-level behaviour.
-- **Testing surface consolidated (ADR 043)**: the pytest pyramid is three layers (`a_unit` / `b_integration` / `c_e2e`; `c_system` dissolved, `d_e2e` renamed `c_e2e`), selected by speed tier (`fast` / `check` / `apps` / `nightly`) via `make` targets. Bare `pytest` runs only the in-process layers, so it never triggers Docker.
-- **Addon DB reachability**: MySQL grants and PostgreSQL `pg_hba` now cover every RFC1918 Docker network pool (10/8, 172.16/12, 192.168/16), so containerized apps on Compose networks can reach their database.
-- **PostgreSQL extensions**: the per-app extension allow-list is expanded, with an operator override for installs that need more.
-- **Deploy upgrades**: pending database migrations now run on upgrade, and an existing virtualenv is no longer clobbered.
+- **Command syntax (BREAKING, ADR 036)**: multi-word commands use spaces, not colons (`hop3 config set`, not `hop3 config:set`); the old colon form prints a migration hint.
+- **Command names (BREAKING, ADR 036)**: user management moved under `user`, addon commands to the singular `addon`, and a few verbs were normalized.
+- **Exit codes (ADR 036)**: the exit-code scheme was reorganized; scripts that branch on specific codes may need updating.
+- **Server vs context vocabulary (BREAKING, ADR 042)**: the old global "context" is now a *server*, and "context" means a project deploy target; existing config is migrated on first run.
+- **Testing layers (ADR 043)**: the test suite is three layers selected by speed tier; a plain `pytest` run never starts Docker.
+- **More reliable deploys**: clearer messages about already-set env vars, IPv4 addon hosts to avoid IPv6 resolution issues, and assorted build and worker-precedence fixes.
+- **Safer upgrades**: pending database migrations run on upgrade, and an existing virtualenv is no longer replaced.
+- **Containerized app database access**: addons are reachable from apps on any private Docker network.
 
 ### Fixed
 
-- **MySQL User Creation**: Changed from `@'%'` to `@'localhost'` to fix anonymous user shadowing on MariaDB.
-- **MySQL Socket Detection**: Auto-detects unix socket path and falls back to OS user authentication for local development.
-- **Miniflux Deployment**: Fixed worker command resolution in manifest builder (downloaded Procfile was overriding hop3.toml).
-- **Elixir Toolchain**: Fixed detection and build issues.
-- **hop3.toml Schema**: Added missing fields, fixed validation errors across demo apps.
-- **Deploy log streaming latency**: fixed a cross-thread wake-up bug (an `asyncio.Queue` written from a worker thread) that added a fixed delay to every deploy; logs now stream promptly.
-- **`hop3 --why` / `--app` resolution**: `--why` is now diagnostic-only (prints the resolution trace and exits without running the command); the app also resolves from `hop3.toml [metadata].id`.
+- Faster deploy log streaming (a cross-thread delay was removed).
+- Numerous addon connection fixes (MySQL user creation and socket detection, addon host resolution).
+- `--why` is now diagnostic-only, and the app name also resolves from `hop3.toml`.
 
 ### Security
 
-- **Input validation at the RPC boundary**: untrusted RPC arguments are validated before use.
-- **Authentication hardening**: tightened `HOP3_UNSAFE` handling and the SSE log/deploy stream; closed a pre-authentication admin-takeover path and a production debug-info leak.
-- **Credential encryption v2**: addon credentials and secrets re-encrypted with an automatic migration; archive-bomb defense and stricter permissions on backup directories.
-- **Addon injection fixes**: closed SQL-injection vectors in addon provisioning, password leakage in logs, and Redis database-number collisions across apps.
-- **Privilege boundary**: `rootd` (ADR 041) replaces broad sudoers rules with a narrow, audited daemon. The trust model is documented and defensive guards added across the boundary.
+- Untrusted RPC arguments are validated before use.
+- Authentication hardening across the log and deploy streams; a pre-authentication admin-takeover path and a debug-info leak were closed.
+- Addon credentials and secrets are re-encrypted with an automatic migration; stricter permissions on backup directories and defenses against decompression bombs.
+- Closed injection and credential-leak vectors in addon provisioning.
+- The privilege boundary moved from broad sudoers rules to the narrow, audited `rootd` daemon (ADR 041).
 
 ### Removed
 
-- **GitHub Actions workflows** (`ci.yml`, `test.yml`, `e2e.yml`): the dead/duplicative workflows are removed; SourceHut (`.builds/`) is the CI of record.
+- Dead CI workflows (SourceHut is the CI of record).
 
 ## [0.4.0] - 2026-03-27
 
@@ -375,7 +395,9 @@ Initial release establishing Hop3's core architecture.
 - Established core class-based architecture
 - Major refactoring for better structure and typing
 
-[Unreleased]: https://github.com/abilian/hop3/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/abilian/hop3/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/abilian/hop3/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/abilian/hop3/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/abilian/hop3/compare/v0.4.0b8...v0.4.0
 [0.4.0b8]: https://github.com/abilian/hop3/compare/v0.4.0b7...v0.4.0b8
 [0.4.0b7]: https://github.com/abilian/hop3/compare/v0.4.0b6...v0.4.0b7
