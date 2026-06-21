@@ -46,8 +46,22 @@ def require_admin(username: str, user_repo: UserRepository) -> list[dict] | None
 
 @register
 @dataclass(frozen=True)
+class UserCmd(Command):
+    """Manage user accounts.
+
+    Examples:
+        hop3 user list                 # List all user accounts
+        hop3 user add alice a@ex.com   # Register a new user
+        hop3 user show alice           # Show details for a user
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("user",)
+
+
+@register
+@dataclass(frozen=True)
 class UserAddCmd(Command):
-    """Create a new user account.
+    """Register a new user account.
 
     Usage: hop3 user add <username> <email> [password] [--admin]
                                             (--password-file <path> | --stdin)
@@ -69,6 +83,9 @@ class UserAddCmd(Command):
     user_repo: UserRepository
     role_repo: RoleRepository
     name: ClassVar[tuple[str, ...]] = ("user", "add")
+    # `auth register` was a duplicate of this command (ADR 036 P2.1) — kept as a
+    # back-compat alias so `hop3 auth register u e p` still works.
+    aliases: ClassVar[list[tuple[str, ...]]] = [("auth", "register")]
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -545,12 +562,12 @@ class UserSetPasswordCmd(Command):
 @register
 @dataclass(frozen=True)
 class UserShowCmd(Command):
-    """Display detailed information about a user.
+    """Show detailed information about a user.
 
-    Usage: hop3 user info <username>
+    Usage: hop3 user show <username>
 
     Examples:
-        hop3 user info john
+        hop3 user show john
     """
 
     user_repo: UserRepository

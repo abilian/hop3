@@ -38,7 +38,7 @@ For most applications, a simple `Procfile` is all you need.
 my-app/
 ├── app.py                  # Your application code
 ├── requirements.txt        # Python dependencies
-└── Procfile               # Process definition
+└── Procfile                # Process definition
 ```
 
 **Procfile:**
@@ -91,8 +91,8 @@ id = "my-app"
 [build]
 before-build = "pip install -r requirements-dev.txt"
 
-[[provider]]
-name = "postgres"
+[[addons]]
+type = "postgres"
 ```
 
 Result:
@@ -233,23 +233,21 @@ timeout = 30          # Request timeout (seconds)
 interval = 60         # Check frequency (seconds)
 ```
 
-#### `[[provider]]` - Service Dependencies
+#### `[[addons]]` - Service Dependencies
 
-Use double brackets `[[provider]]` for arrays in TOML.
+Use double brackets `[[addons]]` for arrays in TOML. Each entry declares a backing service (PostgreSQL, MySQL, Redis, or S3/MinIO) whose connection details are injected into the app's environment.
 
 ```toml
 # PostgreSQL database
-[[provider]]
-name = "postgres"
-plan = "standard"
-version = "15"
+[[addons]]
+type = "postgres"
 
 # Redis cache
-[[provider]]
-name = "redis"
-plan = "basic"
-version = "7"
+[[addons]]
+type = "redis"
 ```
+
+(`[[provider]]` with a `name` key is the deprecated spelling of the same section; new configs should use `[[addons]]` with `type`.)
 
 ## Complete Examples by Technology
 
@@ -347,11 +345,10 @@ before-run = "poetry run python manage.py migrate --noinput"
 
 [env]
 DJANGO_SETTINGS_MODULE = "myproject.settings"
-SECRET_KEY = "change-this-in-production"
+SECRET_KEY = { generate = "hex", length = 32 }
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"
 ```
 
 **Deploy:**
@@ -665,19 +662,16 @@ start = "gunicorn app:app"
 
 Migrations run automatically before each deployment.
 
-**Option 2: Separate Command**
+**Option 2: One-off Command**
 
-**Procfile:**
-```
-release: python manage.py migrate
-web: gunicorn app:app
-```
+Run the migration as a one-off command against the deployed app, then deploy:
 
-**Deploy with migrations:**
 ```bash
-hop3 run myapp release  # Run migrations
-hop3 deploy            # Deploy new version
+hop3 run --app myapp python manage.py migrate  # Run migrations
+hop3 deploy --app myapp                          # Deploy new version
 ```
+
+`hop3 run` executes the given command line inside the app's environment (the same virtualenv and env vars the app runs with).
 
 ### Asset Compilation
 
@@ -843,7 +837,7 @@ app.listen(8000)  # Won't work!
 
 **Check logs:**
 ```bash
-hop3 app logs myapp --tail 100
+hop3 app logs --app myapp -n 100
 ```
 
 **Common causes:**
@@ -872,7 +866,7 @@ hop3 app logs myapp --tail 100
 
 **Check build logs:**
 ```bash
-hop3 app logs myapp --tail 200 | grep -A 10 "BUILD"
+hop3 app logs --app myapp --build
 ```
 
 **Common causes:**
@@ -916,8 +910,9 @@ hop3 addon attach myapp-db --app myapp
 static: public
 
 # Or hop3.toml
-[run]
-static-files = "public"
+[build]
+toolchain = "static"
+static-dir = "public"
 ```
 
 **Verify directory exists:**
@@ -982,7 +977,7 @@ public/index.html + Procfile
 
 **With Database:**
 ```
-Add [[provider]] in hop3.toml
+Add [[addons]] in hop3.toml
 ```
 
 **With Build Step:**

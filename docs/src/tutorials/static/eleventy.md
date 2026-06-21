@@ -319,8 +319,7 @@ hop3 init --ssh root@your-server.example.com
 
 ### Initialize the Git Repository
 
-Hop3 deploys the committed contents of a Git repository. Ignore `node_modules`
-(it's rebuilt on the server, and its symlinks can't be archived) and commit:
+Hop3 deploys the committed contents of a Git repository. Ignore `node_modules` (it's rebuilt on the server, and its symlinks can't be archived) and commit:
 
 ```bash
 printf 'node_modules/\n_site/\n.env\n' > .gitignore
@@ -332,7 +331,7 @@ git init && git add -A && git commit -m "Initial Eleventy site"
 Deploy the application (first deployment creates the app):
 
 ```bash
-hop3 deploy hop3-tuto-eleventy
+hop3 deploy --app hop3-tuto-eleventy
 ```
 
 ```console
@@ -360,7 +359,7 @@ sleep 5
 Redeploy to apply the hostname configuration:
 
 ```bash
-hop3 deploy hop3-tuto-eleventy
+hop3 deploy --app hop3-tuto-eleventy
 ```
 
 ```console

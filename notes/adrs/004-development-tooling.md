@@ -1,15 +1,8 @@
 # ADR 004: Development Tooling
 
-**Status**: Final
+**Status**: Active
 **Type**: Process
 **Created**: 2025-10-08
-**Updated**: 2026-04-14
-
-## Revisions
-
-- v1.2: Promoted from Active to Final — tooling selection stable with no material changes (2026-04-14).
-- v1.1: Updated Task Runner section (2025-11-25)
-- v1.0: First version (2025-10-08)
 
 ## Summary
 
@@ -45,12 +38,12 @@ A modern Python project requires a comprehensive toolchain to ensure developer p
 
 ### Task Runner: Make
 
-**Current Tool**: [Make](https://www.gnu.org/software/make/) + [Invoke](https://www.pyinvoke.org/)
+**Tool**: [Make](https://www.gnu.org/software/make/) + [Invoke](https://www.pyinvoke.org/)
 
-**Current State**:
-- `Makefile` in repository root is the primary task runner
-- `tasks.py` provides Invoke-based tasks for sub-repository management
-- Both are actively used for CI/CD and developer workflows
+**Design**:
+- The `Makefile` in the repository root is the primary task runner.
+- `tasks.py` provides Invoke-based tasks for sub-repository management.
+- Both serve CI/CD and developer workflows.
 
 ### Linting and Formatting: Ruff
 

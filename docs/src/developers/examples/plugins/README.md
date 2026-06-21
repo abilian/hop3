@@ -86,10 +86,10 @@ Want to see more examples? Check:
   - `postgresql/` - Service strategy example
   - `docker/` - Build and deployment strategies
   - `proxy/nginx/` - Proxy strategy example
-- **Builder implementations** in `packages/hop3-server/src/hop3/builders/`
-  - `python.py` - Production Python builder
-  - `node.py` - Node.js builder
-  - `static.py` - Static file builder
+- **Language toolchain implementations** in `packages/hop3-server/src/hop3/toolchains/`
+  - `python.py` - Production Python toolchain
+  - `node.py` - Node.js toolchain
+  - `static.py` - Static file toolchain
 
 ## Contributing Examples
 

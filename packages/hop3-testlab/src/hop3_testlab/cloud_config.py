@@ -18,16 +18,11 @@ A UI-managed source can be layered on later.
 from __future__ import annotations
 
 import os
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+import tomllib
 from hop3_testing.system_tests.config import HetznerConfig
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:  # pragma: no cover
-    import tomli as tomllib
 
 
 @dataclass(frozen=True)

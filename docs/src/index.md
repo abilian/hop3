@@ -67,8 +67,8 @@ Lightweight architecture optimized for efficiency. Run multiple applications on 
 
 === "Service Management"
 
-    - **Database addons**: PostgreSQL, MySQL, Redis
-    - **Automatic backups**: Scheduled backup and restore
+    - **Service addons**: PostgreSQL, MySQL, Redis, S3/MinIO object storage
+    - **Backup and restore**: Snapshot and restore app data and addons
     - **SSL certificates**: Let's Encrypt integration
     - **Multiple frontends**: Nginx, Caddy, or Traefik
 
@@ -96,7 +96,7 @@ Lightweight architecture optimized for efficiency. Run multiple applications on 
 3. **Deploy your first app**:
 
     ```bash
-    hop3 deploy myapp
+    hop3 deploy --app myapp
     ```
 
 See the [Installation Guide](get-started/server-setup.md) for detailed instructions.
@@ -105,7 +105,7 @@ See the [Installation Guide](get-started/server-setup.md) for detailed instructi
 
 | Operating System | Status |
 |------------------|--------|
-| Ubuntu 22.04+ | :material-check: Supported |
+| Ubuntu 24.04+ | :material-check: Supported |
 | Debian 12+ | :material-check: Supported |
 | Rocky Linux 9+ | :material-check: Supported |
 | Arch Linux | :material-check: Supported |

@@ -217,8 +217,16 @@ class ResultStore:
         meta = dict(metadata or {})
         env_meta = os.environ.get("HOP3_TEST_META")
         if env_meta:
-            with contextlib.suppress(ValueError):
+            # Fail loud: a malformed payload must not silently drop run provenance
+            # (it's set by the worker via json.dumps, so bad data is a real bug).
+            try:
                 meta.update(json.loads(env_meta))
+            except (ValueError, TypeError) as e:
+                msg = (
+                    f"HOP3_TEST_META is not a valid JSON object: {e}. "
+                    "Expected a JSON object (the worker sets it via json.dumps)."
+                )
+                raise ValueError(msg) from e
 
         session = self.Session()
         try:

@@ -1,20 +1,12 @@
 # ADR 005: Web Terminal for Application Management
 
-**Status**: Deferred (post-0.6)
+**Status**: Deferred
 **Type**: Feature
 **Created**: 2025-01-23
-**Updated**: 2026-04-22
 
-## Revisions
+## Rationale for Deferral
 
-- 2026-04-14: Deferred (post-0.6) — see Deferral Note below.
-- 2025-01-23: Original draft.
-
-## Deferral Note (2026-04-14)
-
-Not shipped; not blocking for 0.5 or 0.6. The web terminal is an operator convenience for cases where SSH is inconvenient or unavailable. The current operational story — SSH into the target, `hop3 logs --app <app>`, `hop3-test` per-test diagnostic logs — covers the in-production need without a browser-side PTY. Revisit post-0.6 once the web UI (M3.7) is past the basic-CRUD milestone and there is concrete demand from operators who cannot use SSH.
-
-The design spec below is the starting point for implementation when this is revisited; it is not active work.
+The web terminal is an operator convenience for cases where SSH is inconvenient or unavailable. The existing operational story — SSH into the target, `hop3 logs --app <app>`, and `hop3-test` per-test diagnostic logs — covers the in-production need without a browser-side PTY. This feature is therefore parked until the web UI has progressed past basic CRUD and there is concrete demand from operators who cannot use SSH. The design below is the specification to implement against when the feature is revisited.
 
 ## Context
 
@@ -551,18 +543,3 @@ max_memory = 536870912  # 512MB
    - Pros: Better UX, accessibility
    - Cons: Additional complexity
    - Recommendation: Phase 2 (basic themes), Phase 4 (full customization)
-
-## Success Metrics
-
-**Adoption:**
-- 50% of active users try terminal in first month
-- 25% of active users use terminal weekly
-
-**Performance:**
-- Terminal connects in < 500ms
-- Output latency < 100ms (P95)
-- Zero security incidents related to terminal
-
-**User Satisfaction:**
-- Terminal feature rated 4+ stars
-- < 5% of support tickets mention terminal issues

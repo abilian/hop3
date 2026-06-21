@@ -340,7 +340,7 @@ hop3 config set --app hop3-tuto-axum RUST_LOG=info
 Deploy the application (first deployment creates the app):
 
 ```bash
-hop3 deploy hop3-tuto-axum
+hop3 deploy --app hop3-tuto-axum
 ```
 
 ```console
@@ -368,7 +368,7 @@ sleep 5
 Redeploy to apply the hostname configuration:
 
 ```bash
-hop3 deploy hop3-tuto-axum
+hop3 deploy --app hop3-tuto-axum
 ```
 
 ```console

@@ -1,17 +1,9 @@
 # ADR 003: Config Parsing and Validation
 
-**Status**: Accepted (phased — Phase 1 shipped, Phase 2 deferred)
+**Status**: Accepted
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-04-14
 **Related-ADRs**: 001, 002
-
-## Revisions
-
-- v0.4: Promoted from Draft to Accepted (phased). Phase 1 (dataclass + `@property`) is the shipped approach; Phase 2 (schema validation with a choice between enhanced dataclasses / Pydantic v2 / attrs+cattrs / msgspec / JSON Schema) remains open as a future enhancement (2026-04-14).
-- v0.3: Replaced Pydantic-specific language with generic validation requirements (2025-12-15)
-- v0.2: Clarified current implementation vs planned migration (2025-11-25)
-- v0.1: Initial draft (2024-07-17)
 
 ## Context
 
@@ -32,15 +24,13 @@ However, we also choose to support JSON and YAML as alternatives because the con
 - Implement schema validation for the `hop3.toml` file (see Validation Requirements below).
 - Add specific code to validate the "env" section (because we don't know the keywords a priori), and possibly other sections.
 
-### Current Implementation Status (Phase 1 — Shipped)
+### Detailed Design
 
-Phase 1 uses property-based access via Python dataclasses and `@property` methods: a `Hop3Config` class with `tomllib` parsing, and an `AppConfig` class merging `Procfile` + `hop3.toml` with property-based access.
+Configuration access is property-based, built on Python dataclasses and `@property` methods: a `Hop3Config` class parses `hop3.toml` with `tomllib`, and an `AppConfig` class merges `Procfile` and `hop3.toml`, exposing fields through property accessors. ADR 001 and ADR 002 document which fields are active.
 
-Validation at load time is limited to TOML parse errors; semantic errors (missing required field, wrong type) surface when the accessor runs. The trade-off is explicit: we defer formal schema validation in exchange for zero additional dependencies and fast iteration on the config surface. ADR 001 and ADR 002 document which fields are active.
+Validation at load time is limited to TOML parse errors; semantic errors (missing required field, wrong type) surface when the accessor runs. This trade-off is deliberate: formal schema validation is deferred in exchange for zero additional dependencies and fast iteration on the config surface.
 
-### Phase 2 (Deferred) — Schema Validation
-
-A full schema-validation layer remains an open design question. The **Validation Requirements** section below captures what any future implementation must deliver; the **Implementation Options** table captures the candidate approaches. A decision is not yet made and is not blocking current work.
+A full schema-validation layer is a deferred design question, not a blocking one. The **Validation Requirements** section below specifies what such a layer must deliver, and the **Implementation Options** table records the candidate approaches; the choice among them is left open, and any approach meeting the requirements is acceptable.
 
 ### Validation Requirements
 
@@ -87,7 +77,7 @@ The implementation choice is left open - any approach that meets the validation 
 
 ### Alternatives
 
-- Status quo (ad-hoc class with `@properties`) - **currently in use**, limited validation
+- Ad-hoc class with `@property` accessors and no schema layer: simple and dependency-free, but offers only limited validation, deferring semantic checks to access time.
 
 ### Consequences
 

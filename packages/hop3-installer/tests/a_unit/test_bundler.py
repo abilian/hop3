@@ -4,14 +4,51 @@
 
 from __future__ import annotations
 
+import re
+
 from hop3_installer.bundler import (
     CLI_MODULES,
     SERVER_MODULES,
+    _collect_import_statements,
+    bundle_installer,
     extract_code_body,
     extract_imports,
     is_stdlib_module,
     validate_bundle,
 )
+
+# =============================================================================
+# Import-symbol preservation (regression: `from typing import TypedDict`
+# must survive bundling — dropping the symbol shipped a NameError at install
+# time. Fast tier so the inner loop catches a bundler-import regression.)
+# =============================================================================
+
+
+class TestImportSymbolPreservation:
+    def test_collect_preserves_from_import_symbols(self):
+        src = "from typing import TypedDict, overload\nimport os\n"
+        stmts = _collect_import_statements(src)
+        assert "from typing import TypedDict, overload" in stmts
+        assert "import os" in stmts
+
+    def test_collect_skips_relative_and_future(self):
+        src = "from __future__ import annotations\nfrom .common import X\n"
+        assert _collect_import_statements(src) == set()
+
+    def test_collect_finds_conditional_imports(self):
+        # imports under `if TYPE_CHECKING:` are still collected (ast.walk).
+        src = "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from typing import ClassVar\n"
+        stmts = _collect_import_statements(src)
+        assert "from typing import ClassVar" in stmts
+
+    def test_server_bundle_keeps_typeddict_symbol(self):
+        # Not just `import typing` — the bare name must be importable at runtime.
+        # Order-independent: the symbol is co-imported (`from typing import Self,
+        # TypedDict, overload`), so match the name within a typing from-import
+        # rather than a brittle exact string a linter can reorder.
+        source = bundle_installer("server")
+        assert re.search(r"^from typing import .*\bTypedDict\b", source, re.MULTILINE)
+
 
 # =============================================================================
 # Constants Tests

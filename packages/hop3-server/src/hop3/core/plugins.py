@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import pkgutil
 import traceback
 from typing import TYPE_CHECKING
@@ -115,17 +116,22 @@ def get_plugin_manager() -> PluginManager:
     #   - Module-level: @hookimpl def get_di_providers() -> list
     #   - Plugin class: PostgresqlPlugin with @hookimpl def get_addons()
     #
-    # Important: To avoid duplicate registration, plugin packages should NOT
-    # export the plugin instance from __init__.py if they also have a plugin.py.
-    # Only plugin.py should export the plugin instance.
+    # Important: register a module's ``plugin`` only when it's a plugin
+    # *instance*, never a module. Importing a ``plugin.py`` submodule binds it
+    # as a ``plugin`` attribute on its parent package (Python's normal import
+    # behaviour), so a package ``__init__`` whose ``plugin.py`` was already
+    # imported would otherwise re-register that submodule under the same name as
+    # the later ``plugin.py`` pass — a duplicate-registration crash that only
+    # surfaces when the submodule is imported before this build runs.
     for module in get_core_plugins():
         # Register the module to capture module-level hooks (like get_di_providers)
         pm.register(module)
 
         # Additionally register the plugin instance if it exists
         # This allows both module-level hooks and plugin-class hooks
-        if hasattr(module, "plugin"):
-            pm.register(module.plugin)
+        plugin = getattr(module, "plugin", None)
+        if plugin is not None and not inspect.ismodule(plugin):
+            pm.register(plugin)
 
     # For plugins that are not built-in, we load them from setuptools entry points
     pm.load_setuptools_entrypoints("hop3")

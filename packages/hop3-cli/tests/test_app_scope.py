@@ -67,6 +67,25 @@ def test_backup_create_is_app_scoped() -> None:
     assert n == 2
 
 
+def test_domain_namespace_is_app_scoped() -> None:
+    # `domain` reads the app from --app and has no positional fallback, so it
+    # must be app-scoped (CLI injects --app) like env/app — otherwise a bare
+    # `hop3 domain list` from a project couldn't resolve the app. The `domains`
+    # alias must scope identically.
+    for verb in ("add", "remove", "set", "clear", "list"):
+        scoped, n = is_app_scoped(["domain", verb])
+        assert scoped, f"domain {verb} should be app-scoped"
+        assert n == 2
+        scoped_alias, _ = is_app_scoped(["domains", verb])
+        assert scoped_alias, f"domains {verb} should be app-scoped"
+
+
+def test_bare_domain_is_not_app_scoped() -> None:
+    """Bare `hop3 domain` shows namespace help; it must not demand an app."""
+    scoped, _ = is_app_scoped(["domain"])
+    assert not scoped
+
+
 def test_apps_list_is_not_app_scoped() -> None:
     """`apps` (list-everything) is not app-scoped."""
     scoped, _ = is_app_scoped(["apps"])

@@ -369,12 +369,10 @@ hop3 init --ssh root@your-server.example.com
 
 ### Deploy
 
-Deploy the application (first deployment creates the app). `SECRET_KEY` is
-generated automatically from the `hop3.toml` `[env]` declaration before the app
-boots, so the first deploy comes up cleanly — no placeholder, no crash:
+Deploy the application (first deployment creates the app). `SECRET_KEY` is generated automatically from the `hop3.toml` `[env]` declaration before the app boots, so the first deploy comes up cleanly — no placeholder, no crash:
 
 ```bash
-hop3 deploy hop3-tuto-flask
+hop3 deploy --app hop3-tuto-flask
 ```
 
 ### Set Hostname
@@ -390,7 +388,7 @@ hop3 config set --app hop3-tuto-flask HOST_NAME=hop3-tuto-flask.$HOP3_TEST_DOMAI
 Redeploy to apply the configuration:
 
 ```bash
-hop3 deploy hop3-tuto-flask
+hop3 deploy --app hop3-tuto-flask
 ```
 
 Wait for the application to start:
@@ -443,7 +441,7 @@ hop3 app restart --app hop3-tuto-flask
 ### Run Commands in the Application Context
 
 ```bash
-hop3 run hop3-tuto-flask python -c "from app import app; print(app.config)"
+hop3 run --app hop3-tuto-flask python -c "from app import app; print(app.config)"
 ```
 
 ### View and Manage Environment Variables
@@ -463,7 +461,7 @@ hop3 config unset --app hop3-tuto-flask OLD_VARIABLE
 
 ```bash
 # Check current processes
-hop3 ps hop3-tuto-flask
+hop3 ps --app hop3-tuto-flask
 
 # Scale web workers
 hop3 ps scale --app hop3-tuto-flask web=2
@@ -523,7 +521,7 @@ hop3 addons attach hop3-tuto-flask hop3-tuto-flask-db
 Run migrations:
 
 ```bash
-hop3 run hop3-tuto-flask flask db upgrade
+hop3 run --app hop3-tuto-flask flask db upgrade
 ```
 
 ### Adding Flask-Migrate for Database Migrations
@@ -709,7 +707,7 @@ hop3 config show --app hop3-tuto-flask | grep DATABASE
 Test the connection:
 
 ```bash
-hop3 run hop3-tuto-flask python -c "from app import db; db.session.execute(db.text('SELECT 1'))"
+hop3 run --app hop3-tuto-flask python -c "from app import db; db.session.execute(db.text('SELECT 1'))"
 ```
 
 ### Import Errors

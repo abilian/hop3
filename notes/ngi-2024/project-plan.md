@@ -53,9 +53,9 @@ We will enhance Hop3's resilience and security by introducing robust features an
 - [ ] **M3.1** Backing services (storage, email…)
   - PostgreSQL, MySQL, Redis addons fully implemented with CLI commands
   - `addon create`, `addon attach`, `addon detach`, auto-provisioning from `[[addons]]` in hop3.toml
-  - S3-compatible object storage addon shipped in 0.5 (MinIO backend with a plugin abstraction ready for Garage in 0.6)
+  - S3-compatible object storage addon shipped in 0.5 (MinIO backend with a plugin abstraction ready for a Garage swap in a future release)
   - W16: PostgreSQL addon now grants CREATE on the per-app DB + public schema (G1), and `[[addons]].extensions` installs non-trusted extensions (bloom, adminpack) as superuser
-  - **Remaining gap:** Email addon (SMTP-relay design agreed, implementation deferred to 0.6)
+  - **Remaining gap:** Email addon (SMTP-relay design agreed, implementation deferred to 0.7)
 
 - [ ] **M3.2** Upgrades (including data migrations) — **partial**
   - Alembic database migrations for Hop3's own schema
@@ -77,7 +77,7 @@ We will enhance Hop3's resilience and security by introducing robust features an
 - [ ] **M3.5** Firewalls (network-level and WAF) — **Phase 1 done**
   - LeWAF (Coraza-based) static-WAF Phase 1 shipped per ADR 033; 88 tests passing.
   - Network-level firewall design: see ADR 040 (port exposure) and ADR 041 (`hop3-rootd`, the kernel-boundary executor).
-  - Phases 2-4 (dynamic WAF, policy engine, observability) remain in the 0.6 backlog.
+  - Phases 2-4 (dynamic WAF, policy engine, observability) remain in the 0.7 backlog.
 
 - [x] **M3.6** CLI — **DONE** (W16)
   - 73+ registered commands with `space`-separated naming (post ADR 036 M1 migration)

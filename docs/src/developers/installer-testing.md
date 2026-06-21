@@ -1,204 +1,181 @@
 # Testing the Hop3 Installers
 
-This document explains how to test the Hop3 installers using the unified test script.
+This document explains how to test the Hop3 installers (`install-cli.py` and `install-server.py`) using the end-to-end test suite in the `hop3-installer` package.
 
 ## Overview
 
-The `hop3-test-installers` command provides a unified interface for testing Hop3 installers across different environments:
+Installer testing is a pytest E2E suite living in `packages/hop3-installer/tests/c_e2e/`. It bundles the single-file installers with `hop3-install bundle`, then runs them against a fresh target and validates the result. The suite supports three backends, selected by command-line options:
 
-| Backend | Command | Use Case |
-|---------|---------|----------|
-| SSH | `hop3-test-installers ssh` | Production-like testing on real servers |
-| Docker | `hop3-test-installers docker` | Quick iteration, CI/CD pipelines |
-| Vagrant | `hop3-test-installers vagrant` | Full system testing with systemd |
+| Backend | Option | Use Case |
+|---------|--------|----------|
+| Docker | `--docker` (default) | Quick iteration, CI/CD pipelines |
+| SSH | `--ssh` / `--ssh-host HOST` | Production-like testing on real servers |
+| Vagrant | `--vagrant` | Full system testing with systemd in a VM |
+
+If no backend option is given, the suite defaults to Docker (plus SSH when `HOP3_TEST_HOST` is configured). When any backend option is given, only the requested backends run.
 
 ## Quick Start
 
 ```bash
-# Test on remote server via SSH
-hop3-test-installers ssh --host root@server.example.com
+# Run installer E2E tests on Docker (default backend)
+uv run pytest packages/hop3-installer/tests/c_e2e --docker
 
-# Test in Docker container
-hop3-test-installers docker --distro ubuntu
+# Run against a remote server via SSH
+uv run pytest packages/hop3-installer/tests/c_e2e --ssh-host root@server.example.com
 
-# Test in Vagrant VM
-hop3-test-installers vagrant --vm ubuntu
+# Run in a Vagrant VM (slow; full systemd)
+uv run pytest packages/hop3-installer/tests/c_e2e --vagrant
 ```
 
-## Common Options
-
-All backends support these options:
-
-| Option | Description |
-|--------|-------------|
-| `--type TYPE` | Installer to test: `cli`, `server`, or `both` (default: `both`) |
-| `--method METHOD` | Installation method: `pypi`, `git`, `local`, or `all` (default: `git`) |
-| `--branch BRANCH` | Git branch for git method (default: `devel`) |
-| `--version VERSION` | Version for pypi method |
-| `--keep` | Keep environment after test |
-| `--verbose` | Show detailed output |
-
-## SSH Backend
-
-Test on remote servers via SSH. This is the most realistic test environment.
-
-### Prerequisites
-
-1. **SSH access** to a target server (key-based authentication recommended)
-2. **Python 3.10+** installed on the target server
-3. **Root/sudo access** for server installer tests
-
-### Usage
+A `make` shortcut builds the bundles and runs the installer tests:
 
 ```bash
-# Set target host (or use --host argument)
-export HOP3_TEST_HOST=user@server.example.com
-
-# Run all tests
-hop3-test-installers ssh --host root@server.example.com
-
-# Test only CLI installer
-hop3-test-installers ssh --host user@server --type cli
-
-# Test git installation from specific branch
-hop3-test-installers ssh --host user@server --method git --branch main
-
-# Dry run (preview commands)
-hop3-test-installers ssh --host user@server --dry-run
-
-# Keep installation after test
-hop3-test-installers ssh --host user@server --keep --verbose
+make test-installer
 ```
 
-### SSH-Specific Options
+## Test Layers
+
+Installer tests follow the three-layer model from [ADR 043](/developers/adrs/043-unified-testing-architecture/). Each layer is decided by what a test needs (Docker, root, host mutation), and lives in its own directory under `packages/hop3-installer/tests/`:
+
+| Layer | Location | Docker / VM? | What it covers |
+|-------|----------|--------------|----------------|
+| Unit | `a_unit/` | no | Bundler, common helpers, per-toolchain install logic |
+| Integration | `b_integration/` | no | Bundler integration (validates the generated single-file scripts) |
+| E2E | `c_e2e/` | yes | Full installer runs against Docker, SSH, or Vagrant targets |
+
+The `a_unit` and `b_integration` layers run as part of `make test` and `make test-fast`; the `c_e2e` layer needs Docker (or an SSH/Vagrant target) and is the subject of this page.
+
+## Backend Options
+
+These options are added by the E2E suite's `conftest.py` and apply to the whole `c_e2e` directory:
 
 | Option | Description |
 |--------|-------------|
-| `--host HOST` | SSH target (user@hostname) |
-| `--dry-run` | Show commands without executing |
+| `--docker` | Enable the Docker backend |
+| `--ssh` | Enable the SSH backend (requires `HOP3_TEST_HOST` or `--ssh-host`) |
+| `--ssh-host HOST` | SSH target in `user@hostname` form (implies `--ssh`) |
+| `--vagrant` | Enable the Vagrant backend (slow; starts VMs) |
 
 ## Docker Backend
 
-Test in Docker containers for fast, isolated testing without needing a remote server.
+The Docker backend starts a throwaway container, uploads the bundled installer, runs it, and validates the result. It is the default and the right choice for fast, isolated iteration and CI.
 
 ### Prerequisites
 
 - Docker installed and running locally
 
+### Distros
+
+The Docker backend can target several base images (`ubuntu` is the default):
+
+| Distro | Image |
+|--------|-------|
+| `ubuntu` | `ubuntu:24.04` |
+| `debian` | `debian:12` |
+| `fedora` | `fedora:40` |
+
+### Systemd tests
+
+Service-level checks (PostgreSQL, nginx, the `hop3-server` systemd unit) require an init system. These tests use a `docker-systemd` backend variant and are marked `slow`. Plain Docker containers without systemd skip them.
+
+## SSH Backend
+
+The SSH backend runs the installer on a remote machine. This is the most production-like environment because it exercises a real init system and a real filesystem layout.
+
+### Prerequisites
+
+1. SSH access to a target server (key-based authentication recommended)
+2. Python 3 installed on the target server
+3. Root or passwordless-sudo access for server-installer tests
+
 ### Usage
 
 ```bash
-# Test on Ubuntu (default)
-hop3-test-installers docker
+# Provide the host on the command line
+uv run pytest packages/hop3-installer/tests/c_e2e --ssh-host root@server.example.com
 
-# Test on specific distro
-hop3-test-installers docker --distro fedora
-
-# Test on all distros
-hop3-test-installers docker --all
-
-# Cleanup containers
-hop3-test-installers docker --cleanup
+# Or set the environment variable and pass --ssh
+export HOP3_TEST_HOST=root@server.example.com
+uv run pytest packages/hop3-installer/tests/c_e2e --ssh
 ```
 
-### Supported Distros
-
-- `ubuntu` - Ubuntu 24.04 LTS
-- `debian` - Debian 12
-- `fedora` - Fedora 40
-
-### Docker-Specific Options
-
-| Option | Description |
-|--------|-------------|
-| `--distro DISTRO` | Distribution to test on (default: `ubuntu`) |
-| `--all` | Test on all available distros |
-| `--cleanup` | Remove all test containers and exit |
-
-### Limitations
-
-- Server installer tests are limited (no systemd in containers)
-- Best for CLI installer testing and quick iteration
+`HOP3_TEST_HOST` carries the hostname; `HOP3_SSH_USER` sets the user when the host has no `user@` prefix (it defaults to `root`).
 
 ## Vagrant Backend
 
-Test in Vagrant VMs for full system testing including systemd services.
+The Vagrant backend provisions a VM, giving full systemd behavior without touching a remote server. It is slower than Docker and is never enabled by default — pass `--vagrant` explicitly.
 
 ### Prerequisites
 
 - Vagrant installed
-- VirtualBox or another Vagrant provider
+- A Vagrant provider (for example VirtualBox or libvirt)
 
 ### Usage
 
 ```bash
-# Test on Ubuntu (default)
-hop3-test-installers vagrant --vm ubuntu
-
-# Test server installer
-hop3-test-installers vagrant --vm ubuntu --type server
-
-# Test on all VMs
-hop3-test-installers vagrant --all
-
-# Keep VMs running
-hop3-test-installers vagrant --keep
-
-# Cleanup all VMs
-hop3-test-installers vagrant --cleanup
+uv run pytest packages/hop3-installer/tests/c_e2e --vagrant
 ```
 
-### Available VMs
-
-- `ubuntu` - Ubuntu 24.04 LTS
-- `debian` - Debian 12
-- `fedora` - Fedora 40
-
-### Vagrant-Specific Options
-
-| Option | Description |
-|--------|-------------|
-| `--vm VM` | VM to test on (default: `ubuntu`) |
-| `--all` | Test on all available VMs |
-| `--cleanup` | Destroy all VMs and exit |
+The Vagrantfiles used by the suite live under `packages/hop3-installer/tests/c_e2e/vagrant/`.
 
 ## Installation Methods
 
-| Method | What It Tests |
-|--------|---------------|
-| `pypi` | Install from PyPI (use `--version` for specific version) |
-| `git` | Install from git repository (use `--branch` option) |
-| `local` | Install from local package directory |
+The bundled installers (`install-cli.py`, `install-server.py`) accept a few source-selection flags. The E2E tests exercise the `--git` and `--local-path` paths:
+
+| Flag | What it tests |
+|------|---------------|
+| `--git --branch BRANCH` | Install from the git repository (default branch: `devel`) |
+| `--local-path PATH` | Install from a local package directory uploaded to the target (used during development) |
+
+Other installer flags used by the suite to keep runs fast and offline:
+
+| Flag | Effect |
+|------|--------|
+| `--skip-acme` | Skip Let's Encrypt certificate issuance (avoids quota and external dependencies in tests) |
+| `--skip-postgres` | Skip PostgreSQL setup to speed up the basic install test |
+| `--no-modify-path` | Don't edit shell rc files (CLI installer) |
+| `--verbose` | Show detailed installer output |
 
 ## What Gets Tested
 
-**CLI Installer Tests:**
+**CLI installer (`test_cli_installer.py`):**
+
 - Virtual environment creation at `~/.hop3-cli/venv`
 - Package installation (`hop3-cli`)
-- Command symlinks (`hop3`, `hop`) in `~/.local/bin`
-- Command execution (`hop3 --help`)
+- The `hop3` (or `hop`) command exists in the venv
+- The command runs (`hop3 version`)
 
-**Server Installer Tests:**
+**Server installer (`test_server_installer.py`):**
+
 - System user/group creation (`hop3`)
 - Virtual environment at `/home/hop3/venv`
-- Package installation (`hop3-server`)
-- Systemd service configuration (`hop3-server.service`)
-- PostgreSQL database and role setup
-- Nginx reverse proxy configuration
-- SSL certificate setup
-- Service status verification
+- Package installation (`hop3-server`) and a working `hop3-server` command
+- Required directories (`/home/hop3/apps`)
+- With systemd (the `slow` tests): PostgreSQL service and `hop3` role, nginx service and a valid config (`nginx -t`), and the `hop3-server` systemd unit being enabled
+
+**Developer deploy tool (`test_deployer.py`):**
+
+- `hop3-deploy --local` against a Docker or SSH target, end to end
+
+## Markers
+
+Installer E2E tests carry the `e2e` marker (and `needs_docker` when stamped from the `c_e2e` layer; see the root `conftest.py`). The heavier systemd/service and deploy tests add the `slow` marker:
+
+```bash
+# Run only the faster E2E tests, skipping the slow service/deploy ones
+uv run pytest packages/hop3-installer/tests/c_e2e --docker -m "not slow"
+```
 
 ## Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `HOP3_TEST_HOST` | SSH target for SSH backend tests |
-| `HOP3_BRANCH` | Git branch to test (default: devel) |
-| `HOP3_VERSION` | Specific version to test |
+| `HOP3_TEST_HOST` | SSH target for the SSH backend (`user@hostname` or bare hostname) |
+| `HOP3_SSH_USER` | SSH user when `HOP3_TEST_HOST` has no `user@` prefix (default: `root`) |
 
 ## CI/CD Integration
 
-For CI/CD pipelines, use the Docker backend:
+For CI pipelines, use the Docker backend:
 
 ```yaml
 # Example GitHub Actions
@@ -206,154 +183,73 @@ test-installers:
   runs-on: ubuntu-latest
   steps:
     - uses: actions/checkout@v4
-    - name: Test CLI installer
-      run: ./installer/test-installers.py docker --type cli --all
+    - name: Install dependencies
+      run: uv sync
+    - name: Test installers on Docker
+      run: uv run pytest packages/hop3-installer/tests/c_e2e --docker
 ```
 
-For more thorough testing, use the SSH backend with a test server:
+For more thorough coverage, run the same suite against a real SSH server:
 
 ```yaml
 test-installers-e2e:
   runs-on: ubuntu-latest
   steps:
     - uses: actions/checkout@v4
-    - name: Test installers on server
+    - name: Install dependencies
+      run: uv sync
+    - name: Test installers on a server
       env:
         HOP3_TEST_HOST: ${{ secrets.TEST_SERVER_HOST }}
-      run: ./installer/test-installers.py ssh --method git
+      run: uv run pytest packages/hop3-installer/tests/c_e2e --ssh
 ```
 
 ## Troubleshooting
 
-### SSH Connection Failed
+### Docker not available
 
-```
-[FAIL] Cannot connect to user@server
+If Docker isn't running, the E2E suite skips the Docker backend (and, with no other backend configured, reports "No backends available"). Verify Docker is up:
+
+```bash
+docker ps
 ```
 
-**Solutions:**
+### SSH connection failed
+
 1. Verify SSH access: `ssh user@server echo ok`
 2. Set up key-based auth: `ssh-copy-id user@server`
-3. Check firewall rules
+3. Check firewall rules and that `HOP3_TEST_HOST` is set or `--ssh-host` is passed
 
-### Python Version Too Old
+### Server tests need root
 
-```
-[FAIL] Python 3 not found on remote host
-```
+Server-installer tests run the installer with `sudo`. Use a `root` target or a user with passwordless sudo on the SSH backend.
 
-**Solutions:**
-1. Install Python 3.10+: `sudo apt install python3.11`
-2. Verify: `python3 --version`
+### Vagrant VM won't start
 
-### Server Tests Need Root
-
-Server installer tests require root or sudo access:
-
-```bash
-# Use root user
-hop3-test-installers ssh --host root@server --type server
-
-# Or ensure sudo works without password
-hop3-test-installers ssh --host user@server --type server
-```
-
-### Package Not Found on PyPI
-
-```
-[FAIL] Installation failed (pypi method)
-```
-
-The package may not be published yet. Use git or local method instead:
-
-```bash
-hop3-test-installers ssh --host user@server --method git
-```
-
-### Docker Container Won't Start
-
-```
-[FAIL] Failed to start container
-```
-
-**Solutions:**
-1. Verify Docker is running: `docker ps`
-2. Check for port conflicts
-3. Run cleanup: `hop3-test-installers docker --cleanup`
-
-### Vagrant VM Won't Start
-
-```
-[FAIL] Failed to start VM
-```
-
-**Solutions:**
-1. Verify Vagrant and VirtualBox are installed
-2. Check VirtualBox settings
-3. Run cleanup: `hop3-test-installers vagrant --cleanup`
-
-## Test Output
-
-Successful test output looks like:
-
-```
-============================================================
-  Hop3 Installer E2E Tests (SSH)
-============================================================
-
-  Host:    user@server.example.com
-  Type:    both
-  Method:  git
-  Branch:  devel
-
-============================================================
-  CLI Installer Tests
-============================================================
-
---- Testing CLI: Git (devel branch) ---
-
-[INFO] Cleaning up CLI installation...
-[PASS] CLI cleanup complete
-[INFO] Running installer (git)...
-[PASS] CLI installer completed
-[INFO] Validating CLI installation...
-[PASS] Virtual environment exists
-[PASS] CLI command installed
-[PASS] Symlink created
-[PASS] CLI command runs successfully
-
-============================================================
-  Test Summary
-============================================================
-
-  Total:   2
-  Passed:  2
-  Failed:  0
-
-  [PASS] cli-git
-  [PASS] server-git
-
-[PASS] All tests passed!
-```
+1. Verify Vagrant and a provider are installed
+2. Check the provider's settings
+3. Inspect the Vagrantfiles under `packages/hop3-installer/tests/c_e2e/vagrant/`
 
 ## Architecture
 
-The test framework uses a modular architecture:
+The E2E suite is organized around a single `Backend` interface with one implementation per target:
 
 ```
-installer/
-├── test-installers.py       # Unified CLI
-└── testing/
-    ├── __init__.py
-    ├── common.py            # Shared utilities (logging, CommandResult)
-    ├── runner.py            # TestRunner, TestConfig, TestResult
-    ├── validators.py        # Validation functions
-    └── backends/
-        ├── __init__.py
-        ├── base.py          # Abstract Backend class
-        ├── ssh.py           # SSHBackend
-        ├── docker.py        # DockerBackend
-        └── vagrant.py       # VagrantBackend
+packages/hop3-installer/tests/c_e2e/
+├── conftest.py                 # CLI options (--docker/--ssh/--ssh-host/--vagrant), fixtures
+├── test_cli_installer.py       # CLI installer tests
+├── test_server_installer.py    # Server installer tests (incl. slow systemd/service tests)
+├── test_deployer.py            # hop3-deploy tests
+├── utils/
+│   ├── installers.py           # bundle_installers(), get_packages_dir()
+│   └── backends/
+│       ├── base.py             # Backend interface
+│       ├── discovery.py        # get_backend(), availability probes
+│       ├── docker.py           # DockerBackend (distro images)
+│       ├── docker_systemd.py   # DockerSystemdBackend (systemd-in-Docker)
+│       ├── ssh.py              # SSHBackend
+│       └── vagrant.py          # VagrantBackend
+└── vagrant/                    # Vagrantfiles for the Vagrant backend
 ```
 
-Each backend implements the same interface, making it easy to add new test environments.
+Each backend implements the same `setup`, `run`, `upload`, `upload_dir`, and cleanup methods, so adding a new target means adding one backend class and wiring it into `get_backend`.

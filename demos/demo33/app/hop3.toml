@@ -1,13 +1,13 @@
 # hop3.toml - Native Python app with declarative PostgreSQL provider
 #
-# This demo showcases the [[provider]] section for declaring addon dependencies.
-# The [[provider]] section declares that this app needs a PostgreSQL database.
+# This demo showcases the [[addons]] section for declaring addon dependencies.
+# The [[addons]] section declares that this app needs a PostgreSQL database.
 
 [metadata]
 id = "demo33-provider-postgres"
 version = "0.1.0"
 title = "Declarative PostgreSQL Demo"
-description = "Demonstrates declarative addon provisioning with [[provider]] section"
+description = "Demonstrates declarative addon provisioning with [[addons]] section"
 tags = ["python", "postgres", "provider"]
 
 [build]
@@ -18,6 +18,6 @@ pip-install = ["-r", "requirements.txt"]
 [run]
 start = "gunicorn --workers 2 --bind 0.0.0.0:$PORT app:app"
 
-# Declarative provider section - this declares that the app needs PostgreSQL
+# Declarative addon dependency — this declares that the app needs PostgreSQL
 [[addons]]
 type = "postgres"

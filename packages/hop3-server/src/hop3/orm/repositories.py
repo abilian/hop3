@@ -277,6 +277,23 @@ class AddonCredentialRepository(BaseRepository[AddonCredential]):
         """
         return self.get_one_or_none(addon_name=addon_name)
 
+    def list_by_app_and_type(
+        self, app_id: int, addon_type: str
+    ) -> list[AddonCredential]:
+        """Same-type addon credentials attached to an app, oldest first (by id).
+
+        Used to pick/demote the primary addon among same-type siblings.
+        """
+        stmt = (
+            select(AddonCredential)
+            .where(
+                AddonCredential.app_id == app_id,
+                AddonCredential.addon_type == addon_type,
+            )
+            .order_by(AddonCredential.id)
+        )
+        return list(self.session.scalars(stmt).all())
+
     def list_all_with_apps(self) -> list[AddonCredential]:
         """List all credentials with app information eager loaded.
 
@@ -433,9 +450,13 @@ class PortClaimRepository(BaseRepository[PortClaim]):
         """Return all port claims held by an app."""
         return list(self.get_many(app_id=app_id))
 
+    def find_by_addon(self, addon_type: str, addon_name: str) -> PortClaim | None:
+        """Return the exposure claim for an addon instance, or None."""
+        return self.get_one_or_none(addon_type=addon_type, addon_name=addon_name)
+
 
 class NetworkRepository(BaseRepository[Network]):
-    """Repository for operator-defined named networks (WAF gates, ADR 048)."""
+    """Repository for operator-defined named networks (WAF gates, ADR 050)."""
 
     model_type = Network
 

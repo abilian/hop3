@@ -20,6 +20,7 @@ from hop3_installer.common import (
 from hop3_installer.constants import HOP3_USER
 
 from .config import ServerInstallerConfig
+from .verify import read_existing_server_config_value
 
 # Common PostgreSQL config directories
 POSTGRES_CONF_DIRS = [
@@ -388,14 +389,25 @@ def _create_postgres_role_and_db() -> bool:
         return False
 
 
-def _set_postgres_password() -> str | None:
-    """Set a password for postgres superuser.
+def _set_postgres_password(existing: str | None = None) -> str | None:
+    """Set (or reuse) the postgres superuser password.
+
+    On redeploy ``existing`` is the password from a prior install: reuse it
+    rather than rotating the superuser secret (rotation desyncs the role from
+    every stored credential and silently breaks addon provisioning). It is still
+    re-asserted via ``ALTER USER`` so role and stored secret stay in sync
+    (idempotent, self-healing). Only a fresh install generates a new password.
 
     Returns:
-        The generated password, or None if failed.
+        The reused-or-generated password, or None if a fresh install failed.
     """
-    pg_password = "hop3_" + secrets.token_hex(16)
+    pg_password = existing or ("hop3_" + secrets.token_hex(16))
     if not _validate_postgres_password(pg_password):
+        if existing:
+            # An operator-customised password we can't safely interpolate into
+            # SQL — leave the role untouched and keep the stored value.
+            print_info("Reusing existing PostgreSQL superuser password")
+            return existing
         print_warning("Generated postgres password failed shape check")
         return None
 
@@ -409,9 +421,15 @@ def _set_postgres_password() -> str | None:
         print_warning("Could not set PostgreSQL superuser password")
         if result.stderr:
             print_detail(result.stderr[:200])
-        return None
+        # On redeploy, keep the existing secret even if the re-assert failed —
+        # never drop a working credential.
+        return existing
 
-    print_success("PostgreSQL superuser password configured")
+    print_success(
+        "PostgreSQL superuser password reused"
+        if existing
+        else "PostgreSQL superuser password configured"
+    )
     return pg_password
 
 
@@ -460,8 +478,9 @@ def setup_postgres(config: ServerInstallerConfig, distro: str) -> str | None:
             "PostgreSQL role/database creation had issues - continuing anyway"
         )
 
-    # Set superuser password
-    pg_password = _set_postgres_password()
+    # Set (or, on redeploy, reuse) the superuser password — never rotate it.
+    existing_pw = read_existing_server_config_value("POSTGRES_SUPERUSER_PASSWORD")
+    pg_password = _set_postgres_password(existing_pw)
     if pg_password is None:
         return None
 

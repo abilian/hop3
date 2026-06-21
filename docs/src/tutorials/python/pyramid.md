@@ -247,7 +247,7 @@ hop3 init --ssh root@your-server.example.com
 Deploy the application (first deployment creates the app):
 
 ```bash
-hop3 deploy hop3-tuto-pyramid
+hop3 deploy --app hop3-tuto-pyramid
 ```
 
 ```console
@@ -267,7 +267,7 @@ hop3 config set --app hop3-tuto-pyramid HOST_NAME=hop3-tuto-pyramid.$HOP3_TEST_D
 Redeploy to apply the hostname configuration:
 
 ```bash
-hop3 deploy hop3-tuto-pyramid
+hop3 deploy --app hop3-tuto-pyramid
 ```
 
 ```console

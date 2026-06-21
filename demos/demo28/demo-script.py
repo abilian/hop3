@@ -146,7 +146,7 @@ def run(ctx: DemoContext) -> None:
                         print_info(f"  {line}")
             # Verify env vars were actually set
             print_step("Verifying environment variables in database...")
-            verify_result = run_hop3(f"app env {APP_NAME}", check=False)
+            verify_result = run_hop3(f"app env --app {APP_NAME}", check=False)
             if verify_result.stdout:
                 has_database_url = "DATABASE_URL" in verify_result.stdout
                 if has_database_url:
@@ -169,7 +169,7 @@ def run(ctx: DemoContext) -> None:
 
         # Debug: Check generated compose file for DATABASE_URL
         print_step("Checking generated compose file for env vars...")
-        compose_check = run_hop3(f"app debug {APP_NAME}", check=False)
+        compose_check = run_hop3(f"app debug --app {APP_NAME}", check=False)
         if compose_check.stdout and "DATABASE_URL" in compose_check.stdout:
             print_success("DATABASE_URL found in compose configuration.")
         elif compose_check.stdout:
@@ -226,7 +226,7 @@ def run(ctx: DemoContext) -> None:
             f"addon detach {DB_NAME} --app {APP_NAME} --service-type mysql",
             check=False,
         )
-        run_hop3(f"addon destroy {DB_NAME} --service-type mysql", check=False)
+        run_hop3(f"addon destroy {DB_NAME} --service-type mysql -y", check=False)
         print_success("Database cleaned up.")
         pause(ctx.pause_between_steps)
     else:

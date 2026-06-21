@@ -20,16 +20,16 @@ hop3-test run demo01 --docker
 uv run hop3-deploy --local --with all --clean
 
 # Docker backend
-python demos/demo.py --backend docker --local
+python demos/demo.py run --backend docker --local
 
 # SSH backend
-python demos/demo.py --host <your-server> --local
+python demos/demo.py run --host <your-server> --local
 
 # Single demo
-python demos/demo.py --backend docker --local demo01
+python demos/demo.py run --backend docker --local demo01
 
 # List available demos
-python demos/demo.py --list
+python demos/demo.py list
 ```
 
 Alternative module syntax:

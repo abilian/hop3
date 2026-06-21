@@ -129,7 +129,7 @@ class TestBackupCreateCommand:
             addon_credential_repo=addon_credential_repo,
         )
 
-        result = cmd.call("test-app", "--no-addons")
+        result = cmd.call("--app", "test-app", "--no-addons")
 
         # Should return success messages
         assert len(result) >= 2
@@ -160,7 +160,7 @@ class TestBackupCreateCommand:
             addon_credential_repo=addon_credential_repo,
         )
 
-        cmd.call("test-app", "--no-addons")
+        cmd.call("--app", "test-app", "--no-addons")
 
         # Find the backup directory
         backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
@@ -187,7 +187,7 @@ class TestBackupCreateCommand:
             addon_credential_repo=addon_credential_repo,
         )
 
-        cmd.call("test-app", "--no-addons")
+        cmd.call("--app", "test-app", "--no-addons")
 
         # Find the backup directory
         backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
@@ -212,7 +212,7 @@ class TestBackupCreateCommand:
             addon_credential_repo=addon_credential_repo,
         )
 
-        cmd.call("test-app", "--no-addons")
+        cmd.call("--app", "test-app", "--no-addons")
 
         # Find the backup directory
         backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
@@ -237,7 +237,7 @@ class TestBackupCreateCommand:
             addon_credential_repo=addon_credential_repo,
         )
 
-        cmd.call("test-app", "--no-addons")
+        cmd.call("--app", "test-app", "--no-addons")
 
         # Find the backup directory
         backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
@@ -270,7 +270,7 @@ class TestBackupCreateCommand:
 
         # App not found raises ValueError for JSON-RPC error handling
         with pytest.raises(ValueError) as exc_info:
-            cmd.call("nonexistent-app")
+            cmd.call("--app", "nonexistent-app")
 
         assert "not found" in str(exc_info.value)
 
@@ -314,7 +314,7 @@ class TestBackupListCommand:
             backup_repo=backup_repo,
             addon_credential_repo=addon_credential_repo,
         )
-        create_cmd.call("test-app", "--no-addons")
+        create_cmd.call("--app", "test-app", "--no-addons")
 
         # List backups
         list_cmd = BackupListCmd(
@@ -342,7 +342,7 @@ class TestBackupListCommand:
             backup_repo=backup_repo,
             addon_credential_repo=addon_credential_repo,
         )
-        create_cmd.call("test-app", "--no-addons")
+        create_cmd.call("--app", "test-app", "--no-addons")
 
         # List backups for this app
         list_cmd = BackupListCmd(
@@ -350,7 +350,7 @@ class TestBackupListCommand:
             backup_repo=backup_repo,
             addon_credential_repo=addon_credential_repo,
         )
-        result = list_cmd.call("test-app")
+        result = list_cmd.call("--app", "test-app")
 
         assert len(result) == 1
         assert result[0]["t"] == "table"
@@ -366,7 +366,7 @@ class TestBackupListCommand:
             backup_repo=backup_repo,
             addon_credential_repo=addon_credential_repo,
         )
-        create_cmd.call("test-app", "--no-addons")
+        create_cmd.call("--app", "test-app", "--no-addons")
 
         # List backups for different app
         list_cmd = BackupListCmd(
@@ -374,7 +374,7 @@ class TestBackupListCommand:
             backup_repo=backup_repo,
             addon_credential_repo=addon_credential_repo,
         )
-        result = list_cmd.call("other-app")
+        result = list_cmd.call("--app", "other-app")
 
         assert len(result) == 1
         assert "No backups found" in result[0]["text"]
@@ -391,7 +391,7 @@ class TestBackupInfoCommand:
             backup_repo=backup_repo,
             addon_credential_repo=addon_credential_repo,
         )
-        create_cmd.call("test-app", "--no-addons")
+        create_cmd.call("--app", "test-app", "--no-addons")
 
         # Extract backup ID from result
         backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
@@ -473,7 +473,7 @@ class TestBackupRestoreCommand:
             backup_repo=backup_repo,
             addon_credential_repo=addon_credential_repo,
         )
-        create_cmd.call("test-app", "--no-addons")
+        create_cmd.call("--app", "test-app", "--no-addons")
 
         # Get backup ID
         backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
@@ -507,7 +507,7 @@ class TestBackupRestoreCommand:
             backup_repo=backup_repo,
             addon_credential_repo=addon_credential_repo,
         )
-        create_cmd.call("test-app", "--no-addons")
+        create_cmd.call("--app", "test-app", "--no-addons")
 
         # Get backup ID
         backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
@@ -539,7 +539,7 @@ class TestBackupRestoreCommand:
             backup_repo=backup_repo,
             addon_credential_repo=addon_credential_repo,
         )
-        create_cmd.call("test-app", "--no-addons")
+        create_cmd.call("--app", "test-app", "--no-addons")
 
         # Get backup ID
         backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
@@ -609,7 +609,7 @@ class TestBackupDeleteCommand:
             backup_repo=backup_repo,
             addon_credential_repo=addon_credential_repo,
         )
-        create_cmd.call("test-app", "--no-addons")
+        create_cmd.call("--app", "test-app", "--no-addons")
 
         # Get backup ID
         backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"

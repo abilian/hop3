@@ -279,9 +279,9 @@ hop3 init --ssh root@your-server.example.com
 Deploy the application:
 
 ```bash skip
-hop3 deploy hop3-tuto-litestar
+hop3 deploy --app hop3-tuto-litestar
 hop3 config set --app hop3-tuto-litestar HOST_NAME=hop3-tuto-litestar.your-hop3-server.example.com
-hop3 deploy hop3-tuto-litestar
+hop3 deploy --app hop3-tuto-litestar
 ```
 
 ### Verify Deployment

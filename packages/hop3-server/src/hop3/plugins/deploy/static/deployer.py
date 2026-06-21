@@ -138,7 +138,9 @@ class StaticDeployer:
             app_config = AppConfig.from_dir(self.app.app_path)
             workers = app_config.workers
 
-        # Get the static path from workers, falling back to artifact location
+        # Get the static path from workers, falling back to artifact location.
+        # The static toolchain always declares a "static" worker (the served
+        # dir), so the proxy can serve files directly without a Procfile.
         static_path = workers.get("static", self.artifact.location)
 
         # Static files are served by nginx directly (its workers run as

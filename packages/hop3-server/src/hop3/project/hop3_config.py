@@ -291,6 +291,17 @@ class Hop3Config:
         return self.build.get("builder")
 
     @property
+    def static_dir(self) -> str | None:
+        """Get build.static-dir: the directory a static site serves.
+
+        The first-class, Procfile-free way to point a ``toolchain = "static"``
+        app at its content (e.g. "site", "html", "dist"). The static toolchain
+        falls back to the ``[run.workers].static`` worker, then a Procfile
+        ``static:`` line, then the "public" default.
+        """
+        return self.build.get("static-dir")
+
+    @property
     def toolchain_name(self) -> str | None:
         """Get build.toolchain (explicit toolchain selection).
 
@@ -637,6 +648,25 @@ class Hop3Config:
         ]
 
     @property
+    def backup(self) -> dict[str, list[str]]:
+        """Get the [backup] section: extra ``paths`` and ``exclude`` patterns.
+
+        ``paths`` are additional app-relative directories to include in a
+        backup (beyond the whole source tree captured by default); ``exclude``
+        are glob patterns pruned from the source/data archives. Both default to
+        empty lists when the section or a field is absent.
+        """
+        raw = self._data.get("backup") or {}
+        if not isinstance(raw, dict):
+            return {"paths": [], "exclude": []}
+        paths = raw.get("paths") or []
+        exclude = raw.get("exclude") or []
+        return {
+            "paths": [str(p) for p in paths if isinstance(p, str)],
+            "exclude": [str(e) for e in exclude if isinstance(e, str)],
+        }
+
+    @property
     def limits(self) -> dict[str, Any]:
         """Get the [limits] resource caps (ADR 046 §3).
 
@@ -650,7 +680,7 @@ class Hop3Config:
 
     @property
     def waf(self) -> dict[str, Any]:
-        """Get the [waf] section — Layer-7 WAF policy (ADR 048).
+        """Get the [waf] section — Layer-7 WAF policy (ADR 050).
 
         Returns the raw ``[waf]`` table (``enabled`` / ``mode`` / ``allow`` /
         ``gate`` / ``tuning`` / ``bans`` …); empty when no WAF is declared. The

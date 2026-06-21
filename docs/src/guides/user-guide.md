@@ -140,7 +140,7 @@ LOG_LEVEL = "info"
 path = "/health/"
 ```
 
-**Key sections:** `[metadata]`, `[build]`, `[run]`, `[env]`, `[port]`, `[healthcheck]`, `[backup]`, `[[provider]]`
+**Key sections:** `[metadata]`, `[build]`, `[run]`, `[env]`, `[[addons]]`, `[healthcheck]`, `[domains]`, `[[volumes]]`, `[[ports]]`, `[limits]`, `[backup]`
 
 For complete documentation of all options, see the **[hop3.toml Reference](../reference/config.md)**.
 
@@ -175,63 +175,63 @@ hop3 settings
 # List all applications
 hop3 apps
 
-# Create and deploy from git repository
-hop3 app launch https://github.com/user/myapp.git myapp
+# Create a new app from a git repository (then deploy it)
+hop3 app create https://github.com/user/myapp.git --app myapp
 
 # Deploy from local directory
 cd myapp/
-hop3 deploy myapp
+hop3 deploy --app myapp
 
 # Start/stop/restart
-hop3 app start myapp
-hop3 app stop myapp
-hop3 app restart myapp
+hop3 app start --app myapp
+hop3 app stop --app myapp
+hop3 app restart --app myapp
 
 # Check status and health
-hop3 app status myapp
-hop3 app ping myapp
+hop3 app status --app myapp
+hop3 app ping --app myapp
 
-# View logs (real-time with -f)
-hop3 app logs myapp
-hop3 app logs myapp -f
+# View logs (last 100 lines, or filter with --grep / -n)
+hop3 app logs --app myapp
+hop3 app logs --app myapp -n 50 --grep error
 
 # Destroy an app (requires confirmation)
-hop3 app destroy myapp
+hop3 app destroy --app myapp
 ```
 
 ### Environment Configuration
 
 ```bash
 # Show all config
-hop3 config show myapp
+hop3 config show --app myapp
 
 # Set variables (restart required to take effect)
-hop3 config set myapp LOG_LEVEL=info MAX_WORKERS=4
-hop3 app restart myapp
+hop3 config set --app myapp LOG_LEVEL=info MAX_WORKERS=4
+hop3 app restart --app myapp
 
 # Get a specific variable
-hop3 config get myapp DATABASE_URL
+hop3 config get --app myapp DATABASE_URL
 
 # Remove variables
-hop3 config unset myapp OLD_KEY
+hop3 config unset --app myapp OLD_KEY
 
 # View live runtime config
-hop3 config live myapp
+hop3 config live --app myapp
 ```
 
 ### Process Management
 
 ```bash
 # Show current process counts
-hop3 ps myapp
+hop3 ps --app myapp
 
 # Scale processes
-hop3 ps scale myapp web=3 worker=2
+hop3 ps scale --app myapp web=3 worker=2
 
 # Run one-off commands in app context
-hop3 run myapp python manage.py migrate
-hop3 run myapp npm run seed
-hop3 run myapp rails console
+hop3 run --app myapp python manage.py migrate
+hop3 run --app myapp npm run seed
+hop3 run --app myapp rails console
 ```
 
 ### Backing Services (Addons)
@@ -242,7 +242,7 @@ hop3 addon create postgres myapp-db
 
 # Attach to app (injects DATABASE_URL)
 hop3 addon attach myapp-db --app myapp
-hop3 app restart myapp
+hop3 app restart --app myapp
 
 # Create and attach Redis
 hop3 addon create redis myapp-cache
@@ -261,10 +261,10 @@ hop3 addon destroy myapp-db
 ### Backups
 
 ```bash
-hop3 backup create myapp     # Create backup
-hop3 backup list myapp       # List backups
-hop3 backup restore <id>     # Restore from backup
-hop3 app restart myapp       # Restart after restore
+hop3 backup create --app myapp   # Create backup
+hop3 backup list myapp           # List backups for an app
+hop3 backup restore <id>         # Restore from backup
+hop3 app restart --app myapp     # Restart after restore
 ```
 
 For complete backup documentation, see the **[Backup and Restore Guide](backup-restore.md)**.
@@ -275,9 +275,8 @@ For complete backup documentation, see the **[Backup and Restore Guide](backup-r
 # System status and info
 hop3 system status
 hop3 system info
-hop3 system uptime
-hop3 system ps
 hop3 system logs
+hop3 system cleanup
 ```
 
 ### User Management (Admin only)
@@ -316,7 +315,7 @@ worker: celery -A myapp worker
 heroku config -s --app myapp > .env
 
 # Set in Hop3
-hop3 config set myapp $(cat .env | xargs)
+hop3 config set --app myapp $(cat .env | xargs)
 ```
 
 **Step 3: Migrate addons**
@@ -329,8 +328,8 @@ hop3 config set myapp $(cat .env | xargs)
 **Step 4: Deploy**
 
 ```bash
-hop3 app launch https://github.com/user/myapp.git myapp
-hop3 deploy myapp
+hop3 app create https://github.com/user/myapp.git --app myapp
+hop3 deploy --app myapp
 ```
 
 ### From Docker Compose
@@ -358,7 +357,7 @@ worker: celery worker
 Move environment variables from `docker-compose.yml` to Hop3:
 
 ```bash
-hop3 config set myapp \
+hop3 config set --app myapp \
   DATABASE_URL=postgresql://... \
   REDIS_URL=redis://...
 ```
@@ -400,9 +399,9 @@ public = true
 
 ```bash
 hop3 addon create postgres mydb
-hop3 app launch <repo-url> myapp
+hop3 app create <repo-url> --app myapp
 hop3 addon attach mydb --app myapp
-hop3 deploy myapp
+hop3 deploy --app myapp
 ```
 
 ### Migration Checklist
@@ -419,15 +418,16 @@ Before migrating, ensure:
 
 ### Automatic Migration Helper
 
+Convert an existing Procfile into a `hop3.toml`. The migrate command takes the
+source format (currently only `procfile`) and the application directory as
+positional arguments.
+
 ```bash
-# Preview migration from Procfile
-hop3 config migrate --format procfile --dry-run
+# Preview the generated hop3.toml without writing it
+hop3 app migrate procfile /path/to/app --dry-run
 
-# Apply migration
-hop3 config migrate --format procfile --backup
-
-# From Heroku format
-hop3 config migrate --format heroku --dry-run
+# Write hop3.toml (backs up the original Procfile by default)
+hop3 app migrate procfile /path/to/app --backup
 ```
 
 ---
@@ -439,25 +439,25 @@ hop3 config migrate --format heroku --dry-run
 ```bash
 # JSON output for scripting
 hop3 apps --json
-hop3 app status myapp --json | jq '.data.state'
+hop3 app status --app myapp --json | jq '.data.state'
 
 # Quiet mode (minimal output)
-hop3 deploy myapp --quiet
+hop3 deploy --app myapp --quiet
 
 # Verbose output for debugging
-hop3 deploy myapp -v
-hop3 deploy myapp --debug  # Maximum verbosity
+hop3 deploy --app myapp -v
+hop3 deploy --app myapp --debug  # Maximum verbosity
 ```
 
 ### Automation
 
 ```bash
 # Skip confirmation prompts
-hop3 app destroy myapp -y
-hop3 backup destroy backup-id -y
+hop3 app destroy --app myapp -y
+hop3 backup destroy <backup-id> -y
 
 # Combine for CI/CD
-hop3 deploy myapp --quiet -y
+hop3 deploy --app myapp --quiet -y
 ```
 
 ### Environment Variables
@@ -479,15 +479,15 @@ export HOP3_DEBUG=1
 
 | Task | Command |
 |------|---------|
-| Deploy new app | `hop3 app launch <repo-url> <name>` |
-| Redeploy | `hop3 deploy <name>` |
-| View logs | `hop3 app logs <name>` |
-| Set config | `hop3 config set <name> KEY=val` |
-| Scale processes | `hop3 ps scale <name> web=2` |
-| Run command | `hop3 run <name> <cmd>` |
+| Create new app | `hop3 app create <repo-url> --app <name>` |
+| Redeploy | `hop3 deploy --app <name>` |
+| View logs | `hop3 app logs --app <name>` |
+| Set config | `hop3 config set --app <name> KEY=val` |
+| Scale processes | `hop3 ps scale --app <name> web=2` |
+| Run command | `hop3 run --app <name> <cmd>` |
 | Add database | `hop3 addon create postgres <db-name>` |
 | Attach database | `hop3 addon attach <db-name> --app <name>` |
-| Create backup | `hop3 backup create <name>` |
+| Create backup | `hop3 backup create --app <name>` |
 | Restore backup | `hop3 backup restore <backup-id>` |
 | System health | `hop3 system status` |
 | Get help | `hop3 help <command>` |

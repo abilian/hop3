@@ -354,11 +354,19 @@ class TestDetectDistro:
         assert "fedora" in content.lower()
 
     def test_returns_unknown_for_missing_file(self):
-        """detect_distro should return 'unknown' when /etc/os-release missing."""
-        with patch("hop3_installer.common.Path") as mock_path:
-            mock_path.return_value.exists.return_value = False
-            result = detect_distro()
-            assert result == "unknown"
+        """detect_distro returns 'unknown' when neither /etc/os-release nor
+        lsb_release yields a distro.
+
+        Both sources must be neutralized: detect_distro falls back to the
+        ``lsb_release`` command, so on a real Linux host (CI) that fallback
+        would otherwise report the host distro (e.g. 'debian' on Ubuntu) and the
+        old, Path-only mock would not catch it.
+        """
+        with (
+            patch("hop3_installer.common._parse_os_release", return_value={}),
+            patch("hop3_installer.common._parse_lsb_release", return_value={}),
+        ):
+            assert detect_distro() == "unknown"
 
 
 # =============================================================================

@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from hop3.core.backup import BackupManager, format_size
-from hop3.lib.args import parse_cli_args
+from hop3.lib.args import parse_cli_args, pop_app_flag
 from hop3.lib.decorators import register
 
 # Runtime imports for Dishka DI (not just type hints)
@@ -31,11 +31,11 @@ from ._response import success, summary, table, text
 class BackupCreateCmd(Command):
     """Create a backup of an application.
 
-    Usage: hop3 backup create <app> [--no-addons]
+    Usage: hop3 backup create [--app <app>] [--no-addons]
 
     Examples:
-        hop3 backup create my-app
-        hop3 backup create my-app --no-addons
+        hop3 backup create --app my-app
+        hop3 backup create --app my-app --no-addons
     """
 
     app_repo: AppRepository
@@ -45,17 +45,18 @@ class BackupCreateCmd(Command):
 
     def call(self, *args):
         """Create a backup of an application."""
-        if len(args) < 1:
+        app_name, rest = pop_app_flag(args)
+
+        if app_name is None:
             return [
                 text(
-                    "Usage: hop3 backup create <app> [--no-addons]\n\n"
+                    "Usage: hop3 backup create [--app <app>] [--no-addons]\n\n"
                     "Example:\n"
-                    "  hop3 backup create my-app"
+                    "  hop3 backup create --app my-app"
                 )
             ]
 
-        app_name = args[0]
-        include_addons = "--no-addons" not in args
+        include_addons = "--no-addons" not in rest
 
         # Check if app exists
         app = self.app_repo.get_one_or_none(name=app_name)
@@ -196,25 +197,26 @@ class BackupListCmd(Command):
 class BackupInfoCmd(Command):
     """Show detailed information about a backup.
 
-    Usage: hop3 backup info <backup-id>
+    Usage: hop3 backup show <backup-id>
 
     Examples:
-        hop3 backup info 20251030_143022_a8f3d9
+        hop3 backup show 20251030_143022_a8f3d9
     """
 
     app_repo: AppRepository
     backup_repo: BackupRepository
     addon_credential_repo: AddonCredentialRepository
-    name: ClassVar[tuple[str, ...]] = ("backup", "info")
+    name: ClassVar[tuple[str, ...]] = ("backup", "show")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("backup", "info")]
 
     def call(self, *args):
         """Get backup information."""
         if len(args) < 1:
             return [
                 text(
-                    "Usage: hop3 backup info <backup-id>\n\n"
+                    "Usage: hop3 backup show <backup-id>\n\n"
                     "Example:\n"
-                    "  hop3 backup info 20251030_143022_a8f3d9"
+                    "  hop3 backup show 20251030_143022_a8f3d9"
                 )
             ]
 
@@ -428,7 +430,7 @@ class BackupRegisterCmd(Command):
 @register
 @dataclass(frozen=True)
 class BackupDestroyCmd(Command):
-    """Delete a backup.
+    """Destroy a backup.
 
     WARNING: This action cannot be undone!
 
@@ -445,7 +447,7 @@ class BackupDestroyCmd(Command):
     destructive: ClassVar[bool] = True
 
     def call(self, *args):
-        """Delete a backup."""
+        """Destroy a backup."""
         if len(args) < 1:
             return [
                 text(
@@ -494,9 +496,9 @@ class BackupCmd(Command):
     """Manage application backups.
 
     Examples:
-        hop3 backup create myapp       # Create a new backup
-        hop3 backup list myapp         # List backups for myapp
-        hop3 backup restore <id>       # Restore a backup
+        hop3 backup create --app myapp   # Create a new backup
+        hop3 backup list myapp           # List backups for myapp (positional)
+        hop3 backup restore <id>         # Restore a backup
     """
 
     name: ClassVar[tuple[str, ...]] = ("backup",)

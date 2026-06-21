@@ -282,6 +282,87 @@ def test_redis_info_uses_run_command(monkeypatch):
     assert out[0]["t"] == "text"
 
 
+# --- redis / s3 now have a restore path (reviewer P1) ------------------------
+
+
+def test_redis_restore_calls_restore_and_is_destructive(monkeypatch):
+    fake = FakeAddon()
+    monkeypatch.setattr(redis_cli, "get_addon", lambda t, n: fake)
+
+    assert redis_cli.AddonRedisRestoreCmd.destructive is True
+    redis_cli.AddonRedisRestoreCmd().call("mycache", "/tmp/dump.rdb")
+
+    assert ("restore", Path("/tmp/dump.rdb")) in fake.calls
+
+
+def test_redis_clone_creates_target_and_copies_data(monkeypatch):
+    fake = FakeAddon()
+    monkeypatch.setattr(redis_cli, "get_addon", lambda t, n: fake)
+
+    out = redis_cli.AddonRedisCloneCmd().call("prod-cache", "staging-cache")
+
+    methods = [c[0] for c in fake.calls]
+    assert {"create", "backup", "restore"} <= set(methods)
+    assert "summary" in _types(out)
+
+
+def test_redis_import_restores_decoded_dump_and_is_destructive(monkeypatch):
+    seen = {}
+
+    class _Importer:
+        def restore(self, path):
+            seen["content"] = Path(path).read_bytes()
+
+    monkeypatch.setattr(redis_cli, "get_addon", lambda t, n: _Importer())
+
+    assert redis_cli.AddonRedisImportCmd.destructive is True
+    payload = base64.b64encode(b"REDISDUMP").decode()
+    redis_cli.AddonRedisImportCmd().call("mycache", import_data=payload)
+
+    assert seen["content"] == b"REDISDUMP"
+
+
+def test_redis_export_streams_dump_as_blob(monkeypatch, tmp_path):
+    dump = tmp_path / "d.rdb"
+    dump.write_bytes(b"\x00rdb\x00")
+
+    class _Exporter:
+        def backup(self):
+            return dump
+
+    monkeypatch.setattr(redis_cli, "get_addon", lambda t, n: _Exporter())
+
+    out = redis_cli.AddonRedisExportCmd().call("mycache")
+    blob = next(i for i in out if i["t"] == "blob")
+    assert base64.b64decode(blob["data"]) == b"\x00rdb\x00"
+
+
+def test_s3_restore_calls_restore_and_is_destructive(monkeypatch):
+    fake = FakeAddon()
+    monkeypatch.setattr(s3_cli, "get_addon", lambda t, n: fake)
+
+    assert s3_cli.AddonS3RestoreCmd.destructive is True
+    s3_cli.AddonS3RestoreCmd().call("mybucket", "/tmp/bucket.dump")
+
+    assert ("restore", Path("/tmp/bucket.dump")) in fake.calls
+
+
+def test_s3_import_restores_decoded_dump(monkeypatch):
+    seen = {}
+
+    class _Importer:
+        def restore(self, path):
+            seen["content"] = Path(path).read_bytes()
+
+    monkeypatch.setattr(s3_cli, "get_addon", lambda t, n: _Importer())
+
+    assert s3_cli.AddonS3ImportCmd.destructive is True
+    s3_cli.AddonS3ImportCmd().call(
+        "mybucket", import_data=base64.b64encode(b"S3DUMP").decode()
+    )
+    assert seen["content"] == b"S3DUMP"
+
+
 def test_missing_args_returns_usage_not_crash():
     # No monkeypatch: must short-circuit on the arg guard before get_addon.
     out = s3_cli.AddonS3CredentialsCmd().call()
@@ -321,9 +402,19 @@ def test_hook_contributes_all_commands_to_rpc_table():
         ("addon", "mysql", "clone"),
         ("addon", "mysql", "export"),
         ("addon", "mysql", "import"),
+        ("addon", "postgres", "activity"),
+        ("addon", "mysql", "activity"),
         ("addon", "redis", "info"),
+        ("addon", "redis", "restore"),
+        ("addon", "redis", "clone"),
+        ("addon", "redis", "export"),
+        ("addon", "redis", "import"),
         ("addon", "s3", "credentials"),
         ("addon", "s3", "dump"),
+        ("addon", "s3", "restore"),
+        ("addon", "s3", "clone"),
+        ("addon", "s3", "export"),
+        ("addon", "s3", "import"),
     }
     assert expected <= set(rpc.commands)
 

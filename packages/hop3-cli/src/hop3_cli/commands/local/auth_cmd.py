@@ -28,7 +28,6 @@ def handle_auth(args: list[str], config: Config, printer: RichPrinter) -> bool:
 
 SUBCOMMANDS
   auth login       Authenticate and receive an API token.
-  auth register    Register a new user account.
   auth whoami      Show current authenticated user.
   auth logout      Invalidate the current session token.
 

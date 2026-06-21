@@ -4,70 +4,58 @@ Before you start, it's important to familiarize yourself with Hop3's core values
 
 ## Development Environment
 
-### Using `uv` and `poetry`
+### Using `uv`
 
-`uv` and `poetry` should be installed on your system. We'll get rif of poetry soon but we're not there yet.
+[`uv`](https://docs.astral.sh/uv/) should be installed on your system. It is the only package manager used by Hop3.
 
-The easiest way to create a development environment is to use the following:
+The easiest way to create a development environment is:
 
 ```bash
 make develop
-. venv/bin/activate # (or activate.fish for fish shell)
 ```
 
-This creates a virtual environment in `.env` using `uv` and installs the dependencies using `poetry`.
+This installs the project's dependencies with `uv sync`, activates the `pre-commit` hooks, and configures a few local git defaults. `uv` manages the virtual environment under `.venv/`; prefix commands with `uv run` (for example `uv run pytest`) to run them inside it.
 
-### Using only `poetry`
-
-At the moment, it should still be possible to use only `poetry` to create a development environment. To do so, run the following command:
+You can also install the dependencies directly:
 
 ```bash
-poetry shell
-poetry install
-inv install
+uv sync
 ```
 
 ### Using Nix
 
-If you are using Nix, you can use the provided `shell.nix` file to create a development environment. To do so, run the following command:
+If you are using Nix, the repository ships a `flake.nix` that provides a development shell. To enter it, run:
 
 ```bash
-nix-shell
+nix develop
+```
+
+An FHS-compatible shell is also available for toolchains that expect a standard filesystem layout:
+
+```bash
+nix develop .#fhs
 ```
 
 ## Tooling
 
-The projects uses several tools to ensure code quality and consistency. These tools are configured in the `pyproject.toml` file, the `setup.cfg` file, and tool-specific files like `ruff.toml` for Ruff.
+The project uses several tools to ensure code quality and consistency. These tools are configured in the `pyproject.toml` file and in tool-specific files like `ruff.toml` for Ruff.
 
 ### Main tools
 
-We're using the following tools. These are pretty much standard in the Python ecosystem:
+We use the following tools, most of which are standard in the Python ecosystem:
 
-- **ruff**: Linter and all-purpose tool
-- **black**: Code formatter
-- **isort**: Import sorter
-- **flake8**: Linter
+- **uv**: Package and virtual environment manager
+- **ruff**: Linter and code formatter
+- **pyrefly**: Static type checker
 - **mypy**: Static type checker
-- **bandit**: Security linter
-- **safety**: Software supply chain checker
-- **poetry**: Dependency management
-- **invoke**: Task runner
-- **make**: Task runner
+- **deptry**: Dependency checker
 - **pre-commit**: Git hooks
 - **pytest**: Testing framework
-- **nox**: Testing automation
-- **mkdocs**: Documentation generator
-- **mkdocs-material**: Documentation theme
-
-Additionally, we use the following tools for specific tasks:
-
-- **uv**: Virtual environment manager
-- **fish**: Shell (optional, but some Makefile commands depende on it)
+- **make**: Task runner
+- **zensical**: Documentation site generator (the Material-for-MkDocs successor)
 
 ### Running Tools
 
-We use two task runners to run the tools: `make` and `inv`.
+`make` is the primary task runner. Typing `make help` will show you the available commands.
 
-Typing `make help` and `inv -l` will show you the available commands.
-
-Why both? Because `make` is more common and `inv` is more powerful. We use `make` for common tasks and `inv` for more complex ones, specially those that need to be executed in all subprojects (due to the monorepo nature of the project).
+A `tasks.py` file with [Invoke](https://www.pyinvoke.org/) tasks also exists for a few monorepo-wide operations; Invoke is not part of the default dependency set, so install it separately if you want to run `inv -l`.

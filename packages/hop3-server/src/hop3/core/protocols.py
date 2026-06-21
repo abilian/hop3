@@ -595,7 +595,7 @@ class OS(Protocol):
 
 
 class WafEngine(Protocol):
-    """A Layer-7 WAF engine (ADR 048).
+    """A Layer-7 WAF engine (ADR 050).
 
     Compiles a per-app ``[waf]`` policy into the engine's native rules and
     manages the WAF service. LeWAF is the first implementation; Coraza can

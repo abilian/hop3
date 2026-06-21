@@ -17,26 +17,26 @@ This document describes both approaches, their purposes, and how to use them eff
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        Testing Strategy                              │
+│                        Testing Strategy                             │
 ├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  pytest Layers              │  Application Testing (hop3-test)  │
-│  ─────────────              │  ────────────────────────────────────  │
-│                             │                                        │
+│                                                                     │
+│  pytest Layers              │  Application Testing (hop3-test)      │
+│  ─────────────              │  ──────────────────────────────────── │
+│                             │                                       │
 │  ┌─────────────┐            │  ┌─────────────────────────────────┐  │
-│  │   E2E       │ Docker     │  │  System Testing                 │  │
-│  │  (c_e2e/)   │            │  │  - Uses hop3-deploy             │  │
-│  ├─────────────┤            │  │  - Tests Hop3 installation      │  │
-│  │ Integration │            │  │  - 5-8 known-good apps          │  │
+│  │   E2E       │ Docker     │  │  hop3-test system               │  │
+│  │  (c_e2e/)   │            │  │  - Deploys Hop3 (hop3-deploy)   │  │
+│  ├─────────────┤            │  │  - Tests Hop3 + app catalog     │  │
+│  │ Integration │            │  │  - Docker or SSH targets        │  │
 │  │(b_integr./) │            │  └─────────────────────────────────┘  │
-│  ├─────────────┤            │                                        │
+│  ├─────────────┤            │                                       │
 │  │   Unit      │ Fast       │  ┌─────────────────────────────────┐  │
-│  │  (a_unit/)  │            │  │  Apps Testing                   │  │
-│  └─────────────┘            │  │  - Uses pre-built image         │  │
-│                             │  │  - Tests app deployments        │  │
-│                             │  │  - Multiple test applications   │  │
+│  │  (a_unit/)  │            │  │  hop3-test cloud                │  │
+│  └─────────────┘            │  │  - Real cloud servers (Hetzner) │  │
+│                             │  │  - Single or multi-distro       │  │
+│                             │  │  - Reset / deploy / test phases │  │
 │                             │  └─────────────────────────────────┘  │
-│                             │                                        │
+│                             │                                       │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -187,28 +187,28 @@ The `hop3-test` CLI provides a dedicated system for testing application deployme
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                       hop3-test                                  │
+│                              hop3-test                              │
 ├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  ┌───────────────┐    ┌───────────────┐    ┌───────────────┐       │
-│  │  Test Catalog │    │  Test Runner  │    │   Reporters   │       │
-│  │  - Scans apps │    │  - Deploys    │    │  - Console    │       │
-│  │  - test.toml  │    │  - Validates  │    │  - HTML       │       │
-│  │  - Selection  │    │  - Cleanup    │    │  - Recap      │       │
-│  └───────┬───────┘    └───────┬───────┘    └───────────────┘       │
-│          │                    │                                      │
-│          └────────────────────┼──────────────────────────────────┐  │
-│                               │                                   │  │
-│  ┌────────────────────────────┴────────────────────────────────┐ │  │
-│  │                    Deployment Targets                        │ │  │
-│  ├──────────────────┬──────────────────┬──────────────────────┤ │  │
-│  │ DockerDeployTarget│   ReadyTarget    │   RemoteTarget      │ │  │
-│  │ - hop3-deploy    │ - Pre-built img  │ - SSH to server     │ │  │
-│  │ - Fresh install  │ - Fast startup   │ - Existing Hop3     │ │  │
-│  │ - System testing │ - App testing    │ - Production test   │ │  │
-│  └──────────────────┴──────────────────┴──────────────────────┘ │  │
-│                                                                   │  │
-└───────────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│  ┌───────────────┐    ┌───────────────┐    ┌───────────────┐        │
+│  │ Test Catalog  │    │  Test Runner  │    │   Reporters   │        │
+│  │ - Scans apps  │    │ - Deploys     │    │ - Console     │        │
+│  │ - hop3.toml   │    │ - Validates   │    │ - HTML        │        │
+│  │ - Selection   │    │ - Cleanup     │    │ - Recap       │        │
+│  └───────┬───────┘    └───────┬───────┘    └───────────────┘        │
+│          │                    │                                     │
+│          └─────────┬──────────┘                                     │
+│                    │                                                │
+│  ┌─────────────────┴──────────────────────────────────────────┐     │
+│  │                     Deployment Targets                     │     │
+│  ├──────────────────────────────┬─────────────────────────────┤     │
+│  │ DockerTarget                 │ RemoteTarget                │     │
+│  │ - hop3-deploy --docker       │ - SSH to server             │     │
+│  │ - Fresh install or --reuse   │ - Existing or fresh Hop3    │     │
+│  │ - Local / Docker testing     │ - Remote / production test  │     │
+│  └──────────────────────────────┴─────────────────────────────┘     │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Test Catalog System
@@ -293,120 +293,119 @@ status = 200
 
 ### Test Modes
 
-Test modes define which tests to run based on tier and priority:
+The `--mode` profile selects which tests run, filtering by tier and priority (a few profiles instead pin an explicit curated list). The default is `smoke`:
 
-| Mode | Tiers | Priorities | Categories | Use Case |
-|------|-------|------------|------------|----------|
-| `dev` | fast | P0 | deployment | Quick developer verification |
-| `ci` | fast, medium | P0 | deployment, demo | CI pipeline |
-| `nightly` | fast, medium, slow | P0, P1 | all | Nightly comprehensive |
-| `release` | all | all | all | Release validation |
+| Mode | Tiers | Priorities | Targets | Use Case |
+|------|-------|------------|---------|----------|
+| `smoke` | fast | P0 | docker | Smallest sanity check (default) |
+| `ci` | fast, medium | P0 | docker | Pre-merge gate |
+| `curated` | explicit list | explicit list | docker | Hand-picked diverse slice (< 30 min) |
+| `tag-coverage` | fast, medium, slow | P0, P1 | docker | Minimal subset hitting every tag once |
+| `combo-coverage` | fast, medium, slow | P0, P1 | docker | Minimal subset hitting every tag combination |
+| `nightly` | fast, medium, slow | P0, P1 | docker, remote | Broad nightly run |
+| `full` | all | all | docker, remote | Full release validation |
+
+The old names `dev` and `release` remain accepted as aliases for `smoke` and `full`.
 
 ```bash
-# Dev mode (default) - ~90 seconds, 5 tests
-hop3-test system
+# Smoke mode (default) - fast + P0 deployment apps
+hop3-test system --docker
 
-# CI mode - ~150 seconds, 8 tests
-hop3-test system --mode ci
+# CI mode - fast + medium, P0
+hop3-test system --docker --mode ci
 
 # Full release validation
-hop3-test system --mode release
+hop3-test system --docker --mode full
 ```
 
 ### Deployment Targets
 
-#### DockerDeployTarget (System Testing)
+#### DockerTarget (`--docker`)
 
-Uses `hop3-deploy --docker` to create a fresh Hop3 installation for each test run.
+Uses `hop3-deploy --docker` to create a fresh Hop3 installation in a Docker container.
 
-**Use case**: Testing Hop3 itself (installation, deployment pipeline)
+**Use case**: Testing Hop3 itself (installation, deployment pipeline) and the app catalog on a local machine.
 
 ```bash
-hop3-test system                    # Default: deploy local code
-hop3-test system --deploy-from git  # Deploy from git
-hop3-test system --clean            # Clean install
+hop3-test system --docker                       # Deploy local code, run defaults
+hop3-test system --docker --deploy-from git     # Deploy from a git branch
+hop3-test system --docker --clean --with all    # Clean install with all addons
+hop3-test system --docker --reuse <app-path>    # Reuse the running container
 ```
 
 **What happens**:
-1. Starts Docker container (ubuntu:24.04)
+1. Starts a Docker container (default image `debian:bookworm`)
 2. Runs `hop3-deploy --docker --local` to install Hop3
 3. Starts services (nginx, PostgreSQL, uWSGI emperor, hop3-server)
-4. Runs test apps sequentially
+4. Runs the selected test apps sequentially
 5. Collects diagnostics on failure
-6. Cleans up container
+6. Cleans up the container (unless `--keep`)
 
-#### ReadyTarget (App Testing)
-
-Uses a pre-built Docker image (`hop3-ready:latest`) with Hop3 already installed.
-
-**Use case**: Testing applications (fast iteration, skip installation)
+To iterate on a single app against an already-running container, pass `--reuse` together with the app path; this skips redeployment and runs only that app's validations.
 
 ```bash
-# Build the image first (one-time)
-hop3-test build-ready-image
+# Deploy the whole catalog on Docker (all addons available)
+hop3-test system --docker --clean --with all
 
-# Run app tests
-hop3-test apps                      # All apps
-hop3-test apps 010-flask-pip-wsgi   # Specific app
-hop3-test apps --category python    # By category
+# Reuse the container and test one app
+hop3-test system --docker --reuse apps/real-apps-native/etherpad
 ```
 
-**What happens**:
-1. Starts container from `hop3-ready:latest`
-2. Services already running
-3. Runs test apps sequentially
-4. Validates HTTP endpoints
-5. Cleans up apps between tests
+#### RemoteTarget (`--ssh`)
 
-#### RemoteTarget (Remote Server Testing)
+Tests against a remote Hop3 server over SSH; the same `--deploy-from` / `--reuse` options apply.
 
-Tests against an existing Hop3 server via SSH.
-
-**Use case**: Testing against real servers, staging validation
+**Use case**: Testing against real servers, staging validation.
 
 ```bash
-hop3-test apps --target remote --host server.example.com
+# Deploy to and test a remote server
+hop3-test system --ssh --host server.example.com --clean --with all
+
+# Skip deployment and test against the existing server
+hop3-test system --ssh --host server.example.com --reuse <app-path>
 ```
+
+The host can also come from the `HOP3_TEST_HOST` environment variable.
 
 ### Test Execution Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        Test Execution Flow                           │
+│                        Test Execution Flow                          │
 ├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  1. Catalog Scan                                                     │
-│     ├── Discover test.toml files                                    │
+│                                                                     │
+│  1. Catalog Scan                                                    │
+│     ├── Discover hop3.toml [test] + standalone test.toml            │
 │     ├── Parse configurations                                        │
 │     └── Build test list                                             │
-│                                                                      │
-│  2. Test Selection                                                   │
+│                                                                     │
+│  2. Test Selection                                                  │
 │     ├── Apply mode filters (tier, priority)                         │
 │     ├── Apply category filters                                      │
 │     └── Apply target compatibility                                  │
-│                                                                      │
-│  3. Target Setup                                                     │
+│                                                                     │
+│  3. Target Setup                                                    │
 │     ├── Start Docker container (or connect to remote)               │
 │     ├── Wait for services ready                                     │
 │     └── Verify hop3-server responding                               │
-│                                                                      │
-│  4. For Each Test:                                                   │
+│                                                                     │
+│  4. For Each Test:                                                  │
 │     ├── Prepare app (copy to temp dir, init git)                    │
 │     ├── Deploy (hop3 deploy)                                        │
-│     ├── Verify deployment (hop3 apps)                               │
+│     ├── Verify deployment (hop3 app list)                           │
 │     ├── Run validations (HTTP checks, custom scripts)               │
 │     ├── Collect diagnostics on failure                              │
 │     └── Cleanup (hop3 app destroy)                                  │
-│                                                                      │
-│  5. Reporting                                                        │
+│                                                                     │
+│  5. Reporting                                                       │
 │     ├── Print results (PASS/FAIL per test)                          │
 │     ├── Summary (total passed/failed, duration)                     │
 │     ├── Recap (categories, tiers, technologies)                     │
 │     └── Save diagnostic logs                                        │
-│                                                                      │
-│  6. Cleanup                                                          │
+│                                                                     │
+│  6. Cleanup                                                         │
 │     └── Stop container (unless --keep)                              │
-│                                                                      │
+│                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -464,9 +463,17 @@ test-logs/
 Diagnostic phases:
 - `setup` - Target initialization
 - `deploy` - Deployment command
-- `service_start` - Service startup
 - `health_check` - Health verification
-- `validation` - Test validations
+- `test` - Test validations
+- `cleanup` - Teardown
+
+To replay the saved diagnostic bundle for a failed run, use the run-id printed in the failure headline:
+
+```bash
+hop3-test why <run-id>             # Show the failure headline and bundle path
+hop3-test why <run-id> --list      # List the sections in the bundle
+hop3-test why <run-id> --section proxy   # Replay one section
+```
 
 ### Test Output
 
@@ -474,14 +481,13 @@ Diagnostic phases:
 
 ```
 ======================================================================
-SYSTEM TESTING MODE
-Testing Hop3 itself with known-good applications
+Deploy Hop3 + run tests
 ======================================================================
 
+Target: docker
 Deploy from: local
-Test mode: ci (CI tests (fast+medium + P0 + deployment/demo))
 Clean install: False
-Tests to run: 8
+Tests to run (8):
 
 Deploying Hop3 via hop3-deploy...
 [... deployment output ...]
@@ -513,7 +519,7 @@ Recap:
 Use `-q/--quiet` to suppress the recap:
 
 ```bash
-hop3-test apps -q
+hop3-test system --docker -q
 ```
 
 ---
@@ -532,7 +538,7 @@ hop3-test apps -q
 
 1. **Keep apps minimal**: Only include what's needed to test the deployment
 2. **Use meaningful names**: `010-flask-pip-wsgi` describes the stack
-3. **Include test.toml**: Define clear validation criteria
+3. **Declare a `[test]` section** in `hop3.toml` (or a standalone `test.toml` for Procfile-only apps): define clear validation criteria
 4. **Set appropriate tier/priority**: fast+P0 for core functionality
 5. **Document covers**: List technologies being tested
 
@@ -627,9 +633,6 @@ uv sync
 
 # Ensure HOP3_DEV_HOST is not set (for Docker tests)
 unset HOP3_DEV_HOST
-
-# Build ready image for app testing
-uv run hop3-test build-ready-image
 ```
 
 ---
@@ -686,17 +689,11 @@ open htmlcov/index.html
 
 ## Part 7: Troubleshooting
 
-### "Image hop3-ready:latest not found"
-
-```bash
-uv run hop3-test build-ready-image
-```
-
 ### Tests Hang
 
 - Check Docker daemon: `docker ps`
-- Use verbose mode: `pytest -v -s` or `hop3-test apps -v`
-- Check container logs: `docker logs hop3-app-test`
+- Use verbose mode: `pytest -v -s` or `hop3-test -v system --docker`
+- Check container logs: `docker logs hop3-system-test`
 - Check for zombie containers: `docker ps -a | grep hop3`
 
 ### Import Errors
@@ -708,14 +705,12 @@ uv sync
 ### Docker Issues
 
 ```bash
-# Clean up containers
-docker rm -f hop3-app-test hop3-system-test
+# Clean up the system-test container
+docker rm -f hop3-system-test
 
-# Clean up images
-docker rmi hop3-ready:latest
-
-# Rebuild
-uv run hop3-test build-ready-image
+# Remove leftover images and start fresh
+docker image prune -f
+hop3-test system --docker --clean
 ```
 
 ### Authentication Issues
@@ -739,7 +734,7 @@ For testing in Docker environments, `HOP3_UNSAFE=true` bypasses authentication.
 ```python
 def test_unauthenticated_request_fails():
     """Test that requests without auth token are rejected."""
-    response = client.post("/rpc", json={"method": "app:list"})
+    response = client.post("/rpc", json={"method": "app list"})
     assert response.status_code == 401
 ```
 
@@ -759,21 +754,27 @@ def test_non_admin_cannot_create_users():
 
 ---
 
-## Part 9: Hetzner Cloud Testing
+## Part 9: Cloud Testing
 
-For comprehensive E2E testing on real cloud infrastructure, Hop3 supports testing on Hetzner Cloud servers.
+For comprehensive E2E testing on real cloud infrastructure, the `hop3-test cloud` command provisions and tests Hop3 on cloud servers. Hetzner Cloud is the default (and currently only) provider; it covers both single-image and multi-distribution runs.
 
 ### Commands
 
 ```bash
 # Single distribution test
-hop3-test hetzner --image ubuntu-24.04 --suites test-apps
+hop3-test cloud --image ubuntu-24.04 --apps apps/test-apps-procfile
 
-# Multi-distribution test (all recommended distros)
-hop3-test multi-distro
+# Multiple distributions
+hop3-test cloud --images ubuntu-24.04,debian-13
+
+# All recommended distros
+hop3-test cloud --images all
 
 # List available images
-hop3-test multi-distro --list-images
+hop3-test cloud --list-images
+
+# Only run tests (skip reset and deploy)
+hop3-test cloud --skip-reset --skip-deploy
 ```
 
 ### Supported Distributions
@@ -787,19 +788,23 @@ hop3-test multi-distro --list-images
 | `rocky-9` | Rocky Linux 9 (RHEL-compatible) |
 | `alma-9` | AlmaLinux 9 (RHEL-compatible) |
 
-### Hetzner Test Options
+### Cloud Test Options
 
 | Option | Description |
 |--------|-------------|
-| `--server-id ID` | Use specific Hetzner server |
-| `--image IMAGE` | OS image to test |
+| `--provider PROVIDER` | Cloud provider (default: `hetzner`) |
+| `--image IMAGE` | Single OS image to test |
+| `--images IMAGES` | Comma-separated images, or `all` |
+| `--list-images` | List available OS images |
+| `--server-id ID` | Use a specific cloud server |
 | `--branch BRANCH` | Git branch (default: devel) |
-| `--use-local-repo` | Deploy from local code |
+| `--use-local-repo` / `--no-local-repo` | Deploy from local code (default) or from git |
 | `--skip-reset` | Skip server reset |
 | `--skip-deploy` | Skip Hop3 deployment |
-| `--skip-tests` | Only reset and deploy |
-| `--suites SUITE` | Test suites to run |
-| `--continue-on-failure` | Don't stop on first failure (multi-distro) |
+| `--skip-tests` | Skip test execution |
+| `--apps DIR` | App directory to test (repeatable) |
+| `--with FEATURES` | Comma-separated addons to install (e.g. `--with redis`) |
+| `-x`, `--fail-fast` | Stop on first failure |
 
 ### Environment Setup
 
@@ -807,12 +812,12 @@ hop3-test multi-distro --list-images
 export HETZNER_API_TOKEN=your_token_here
 
 # Run tests
-hop3-test hetzner --image ubuntu-24.04
+hop3-test cloud --image ubuntu-24.04
 ```
 
 ### Test Phases
 
-The Hetzner test orchestrates these phases:
+The cloud test orchestrates these phases:
 
 1. **Reset** - Reset server to clean OS state
 2. **Deploy** - Install Hop3 from git or local code

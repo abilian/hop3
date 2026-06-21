@@ -52,21 +52,60 @@ def proc_belongs_to_app(cmdline: str, cwd: str, app_name: str) -> bool:
     )
 
 
+def _parent_pid(pid: int) -> int | None:
+    """The parent PID of ``pid`` from procfs, or None if unavailable."""
+    try:
+        for line in Path(f"/proc/{pid}/status").read_text().splitlines():
+            if line.startswith("PPid:"):
+                return int(line.split(":", 1)[1])
+    except (OSError, ValueError):
+        return None
+    return None
+
+
+def _protected_pids() -> set[int]:
+    """The current process and all its ancestors — these are never reaped.
+
+    The reaper runs *inside* the operation that asked for it. On a git-push
+    redeploy that operation is the tree ``git-receive-pack`` → post-receive hook
+    → ``hop3-server git-hook`` → ``do_deploy`` — every member of which runs with
+    a cwd under ``apps/<name>/`` and so matches :func:`proc_belongs_to_app` by
+    cwd. Without this guard the reaper SIGTERMs its own ancestor
+    ``git-receive-pack`` mid-push (the deploy kills the process feeding it the
+    pushed code), which aborts the push. A process the reaper is running inside
+    is by definition deploy machinery, never an app *runtime* process (those are
+    children of the uWSGI Emperor — a separate tree), so excluding self +
+    ancestors is always safe.
+    """
+    protected: set[int] = set()
+    pid: int | None = os.getpid()
+    while pid and pid not in protected:
+        protected.add(pid)
+        pid = _parent_pid(pid)
+    return protected
+
+
 def app_pids(app_name: str) -> list[int]:
     """PIDs of every live process belonging to ``app_name``.
 
     Scans ``/proc`` and matches each process's cmdline and working directory
     (see :func:`proc_belongs_to_app`). Catches Nix-store ``exec``'d daemons that
-    ``pgrep -f apps/<name>`` misses. Returns ``[]`` where there is no procfs (a
-    non-Linux dev machine), where there is nothing to reap anyway.
+    ``pgrep -f apps/<name>`` misses. The reaper's own process tree is excluded
+    (see :func:`_protected_pids`) so a redeploy never kills the in-flight
+    ``git-receive-pack`` it is running under. Returns ``[]`` where there is no
+    procfs (a non-Linux dev machine), where there is nothing to reap anyway.
     """
     proc = Path("/proc")
     if not proc.is_dir():
         return []
+    protected = _protected_pids()
     pids: list[int] = []
     for entry in proc.iterdir():
         if not entry.name.isdigit():
             continue
+        pid = int(entry.name)
+        if pid in protected:
+            continue  # never reap ourselves or an ancestor (e.g. git-receive-pack)
         try:
             cmdline = (entry / "cmdline").read_bytes().replace(b"\x00", b" ")
         except OSError:
@@ -76,7 +115,7 @@ def app_pids(app_name: str) -> list[int]:
         with suppress(OSError):
             cwd = os.readlink(entry / "cwd")
         if proc_belongs_to_app(cmdline.decode("utf-8", "replace"), cwd, app_name):
-            pids.append(int(entry.name))
+            pids.append(pid)
     return pids
 
 

@@ -1,7 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Compile a validated ``[waf]`` policy (ADR 048) into engine-native SecLang.
+"""Compile a validated ``[waf]`` policy (ADR 050) into engine-native SecLang.
 
 The output is the per-app *access overlay* fed to the engine via a rules file
 (`lewaf-proxy --rules-file`); the OWASP CRS baseline is loaded separately. SecLang
@@ -68,7 +68,7 @@ def compile_policy(
             uses ``skip-body-inspection`` (unsupported by the engine).
     """
     lines = [
-        f"# Hop3-generated WAF access overlay for '{app_name}' (ADR 048). DO NOT EDIT.",
+        f"# Hop3-generated WAF access overlay for '{app_name}' (ADR 050). DO NOT EDIT.",
         # Engine stays On; `mode` is encoded per-rule because LeWAF's
         # SecRuleEngine DetectionOnly historically didn't neutralise `deny`.
         "SecRuleEngine On",
@@ -83,7 +83,7 @@ def compile_policy(
             msg = (
                 "[[waf.tuning]] skip-body-inspection is not supported: the WAF "
                 "engine (LeWAF 0.7.5) ignores ctl:requestBodyAccess. Use "
-                "disable-rule-ids, or wait for engine support (ADR 048)."
+                "disable-rule-ids, or wait for engine support (ADR 050)."
             )
             raise WafCompileError(msg)
         ids = tuning.disable_rule_ids or []

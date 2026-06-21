@@ -157,6 +157,10 @@ class DeploymentSession:
             env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
 
         env["HOP3_SECRET_KEY"] = E2E_TEST_SECRET_KEY
+        # The harness deploys non-interactively. Without this, the ADR-042
+        # deploy confirm prompt refuses to run without a tty (exit 10).
+        # Mirrors util/subprocess.build_env (the tutorial/demo path).
+        env["HOP3_NO_INPUT"] = "1"
         return env
 
     def prepare(self):
@@ -237,7 +241,8 @@ class DeploymentSession:
             if full_stderr:
                 # Filter out cryptography warnings
                 stderr_lines = [
-                    line for line in full_stderr.split("\n")
+                    line
+                    for line in full_stderr.split("\n")
                     if "CryptographyDeprecationWarning" not in line
                     and "TripleDES" not in line
                     and line.strip()
@@ -258,7 +263,13 @@ class DeploymentSession:
             DeploymentError: If deployment fails.
         """
         env = self._build_cli_env()
-        cmd = ["hop3", "deploy", self.app_name, str(self._preparation.temp_dir)]
+        cmd = [
+            "hop3",
+            "deploy",
+            "--app",
+            self.app_name,
+            str(self._preparation.temp_dir),
+        ]
 
         verbose = self.config.get("verbose", False)
         debug = self.config.get("debug", False)
@@ -417,7 +428,9 @@ class DeploymentSession:
         is_remote = self.target.info.ssh_host not in {"localhost", "127.0.0.1", None}
         if is_remote:
             return self._test_http_via_nginx_ssh(
-                path, expected_status, max_retries,
+                path,
+                expected_status,
+                max_retries,
             )
 
         # Fall back to local nginx-based testing
@@ -460,7 +473,11 @@ class DeploymentSession:
         #   2. SSH: the server firewall typically blocks random ports
         #      from outside, but localhost is always reachable.
         return self._test_http_via_ssh(
-            port, path, expected_status, max_retries, result,
+            port,
+            path,
+            expected_status,
+            max_retries,
+            result,
         )
 
     def _test_http_via_ssh(
@@ -495,9 +512,7 @@ class DeploymentSession:
                         _, body, _ = self.target.exec_run(
                             f"curl -s --max-time 3 '{url}' | head -c 4096"
                         )
-                        result["details"]["body_preview"] = (
-                            body.strip() if body else ""
-                        )
+                        result["details"]["body_preview"] = body.strip() if body else ""
                         result["passed"] = True
                         result["message"] = f"HTTP {status_code} from {url}"
                         self.console.success(
@@ -575,9 +590,7 @@ class DeploymentSession:
                         _, body, _ = self.target.exec_run(
                             f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c 4096"
                         )
-                        result["details"]["body_preview"] = (
-                            body.strip() if body else ""
-                        )
+                        result["details"]["body_preview"] = body.strip() if body else ""
                         result["passed"] = True
                         result["message"] = f"HTTP {status_code} from {url}"
                         self.console.success(
@@ -678,7 +691,7 @@ class DeploymentSession:
                 self.console.debug(f"Apps before destroy:\n{before.stdout}")
 
             result = subprocess.run(
-                ["hop3", "app", "destroy", self.app_name, "-y"],
+                ["hop3", "app", "destroy", "--app", self.app_name, "-y"],
                 env=env,
                 capture_output=True,
                 text=True,

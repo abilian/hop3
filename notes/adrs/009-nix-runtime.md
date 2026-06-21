@@ -1,41 +1,31 @@
 # ADR 009: Nix Runtime Integration
 
-**Status**: Deferred (Phase 4; post-0.6)
+**Status**: Deferred
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-04-14
 **Related-ADRs**: 006, 008, 023, 035
-**Depends-On**: ADR 006 Phases 1+3 (done)
 
-## Revisions
+## Scope
 
-- v0.4: With Phases 1 and 3 of ADR 006 shipped, scope is now post-0.6 operational hardening. Delineated what's already delivered (basic Nix-built-app runtime via ADR 035 `RuntimeConfig`) vs. what remains (NixOS-level runtime integration) (2026-04-14).
-- v0.3: Mark as Phase 4; note interaction with ADR 023 runtime stack (2026-03-23)
-- v0.2: Tweak following feedback from NLNet (2024-09-23)
-- v0.1: Initial draft (2024-07-17)
+Running Nix-built applications under Hop3's own runtime (uWSGI emperor + nginx) is not part of this ADR's scope: it is covered by ADR 035's `RuntimeConfig` contract. A Nix derivation produces `$out/hop3/runtime.json`; the deployer reads it and launches the workers with no further inference, across both hand-crafted and template-generated derivations.
 
-## Phase Status
+This ADR concerns the further step of letting Nix manage the runtime *itself* — the host OS and backing services — rather than only the applications it builds:
 
-**Already delivered (not in this ADR's scope):**
-- Running Nix-built applications via the standard uWSGI emperor is handled by ADR 035's `RuntimeConfig` contract. A Nix derivation produces `$out/hop3/runtime.json`; the deployer reads it and launches the workers with no further inference.
-- Integration with Hop3's own runtime (uWSGI + nginx) works across the Nix app catalog (both hand-crafted and template-generated derivations).
-
-**Remaining (Phase 4, deferred to post-0.6):**
 - **Full NixOS module generation.** Emit `configuration.nix` fragments so an operator can deploy Hop3 as a NixOS module rather than as a Python-installed daemon.
-- **Nix-managed backing services.** Provision PostgreSQL / MySQL / Redis / MinIO via nixpkgs services rather than via the current OS-package-plus-config approach. Opens a path to per-app NixOS containers.
+- **Nix-managed backing services.** Provision PostgreSQL / MySQL / Redis / MinIO via nixpkgs services rather than via the OS-package-plus-config approach. This opens a path to per-app NixOS containers.
 - **NixOS-native systemd integration.** Use NixOS's systemd module system to express worker lifetimes rather than writing uWSGI vassal `.ini` files.
 
-These are legitimately future work. They deliver additional reproducibility guarantees (the OS itself is now Nix-managed) at the cost of narrowing the installation target from "any Debian/Red-Hat host" to "NixOS host". That trade-off is not worth making before the quantitative evaluation (§5.5 of TR-01) has demonstrated the reproducibility benefits of the current Phase-1+3 integration.
+This is deferred. It delivers additional reproducibility guarantees (the OS itself becomes Nix-managed) at the cost of narrowing the installation target from "any Debian/Red-Hat host" to "NixOS host". That trade-off is not worth making before a quantitative evaluation (§5.5 of TR-01) has demonstrated the reproducibility benefits of the in-scope `RuntimeConfig` integration.
 
-**Open design questions** (to be resolved when the Phase-1+3 evaluation completes): the provisioning semantics for Nix-managed backing services, and the isolation boundary for NixOS containers.
+Two design questions remain open and are to be resolved against the results of that evaluation: the provisioning semantics for Nix-managed backing services, and the isolation boundary for NixOS containers.
 
 ### Interaction with ADR 023 (Runtime Stack Replacement)
 
-Phase 1 Nix support must work with both:
+Nix support must work with both runtime stacks:
 - **Current stack**: uWSGI + nginx + supervisor
 - **Proposed stack** (ADR 023): Granian + Caddy + ProcessManager
 
-The `BuildArtifact.runtime` field provides this abstraction - the run phase reads the artifact and starts the app without knowing how it was built.
+The `BuildArtifact.runtime` field provides this abstraction — the run phase reads the artifact and starts the app without knowing how it was built.
 
 ## Context and Goals
 
@@ -43,7 +33,7 @@ To enable the security, reliability, and operational efficiency of the Hop3 plat
 
 The goal of this ADR is to evaluate and leverage Nix's capabilities to ensure isolation between running applications and to manage applications along with their backing services (such as databases, email servers, certificates, etc.) in a controlled and consistent environment. This aligns with Hop3's objective of offering a secure, reliable, and user-friendly platform.
 
-### Architectural Context (Updated 2026-02)
+### Architectural Context
 
 **Connection to BuildArtifact/RuntimeConfig (ADR 035)**:
 

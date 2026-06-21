@@ -1,23 +1,17 @@
 # ADR 038: Multi-Service Application Support
 
-**Status**: Active — design phase
+**Status**: Accepted
 **Type**: Feature
 **Created**: 2026-04-11
-**Updated**: 2026-04-22
 **Related-ADRs**: 008 (Nix templates), 020 (pluggable architecture), 022 (build/deploy plugins), 032 (deployment strategies), 036 (CLI ergonomics)
-
-## Revisions
-
-- v1.2: CLI examples migrated from colon syntax to the space form per ADR 036 (2026-04-22).
-- v1.0: Original active version (2026-04-11)
 
 ## Context
 
 Hop3's current deployment model assumes a single application = single logical process group. An app can have multiple *workers* via `[run.workers]` (e.g., `web`, `worker`, `scheduler`), but they all share the same source tree, the same environment, the same addons, and the same runtime. This fits a large class of 12-factor apps but breaks down for several real-world cases.
 
-### What the 20-app experience report revealed
+### Three patterns the single-process model handles poorly
 
-Packaging 20 applications for the 0.5 release surfaced three distinct patterns that the single-process model handles poorly:
+Real-world applications fall into three distinct patterns that the single-process model handles poorly:
 
 **Pattern 1: Same-app background tasks.** The main app process runs the web server; a secondary process handles cron jobs, queue workers, or scheduled maintenance. Both share the source tree and the addon credentials. This is common in PHP/Laravel (queue workers), NextCloud (cron), and Rails (Sidekiq when the worker is configured simply).
 
@@ -167,7 +161,7 @@ For independent addons (rare), a component can declare its own:
 type = "redis"  # dedicated Redis for this component
 ```
 
-Deferred to a later iteration — not in the 0.6 scope.
+Per-component addons are a rare case, deferred to a later iteration of this design rather than included in the initial implementation.
 
 ### Lifecycle and dependencies
 
@@ -229,31 +223,15 @@ Existing addon, env, and port handling remain unchanged in the legacy path.
 - **Validation burden.** Per-component resource limits, health checks, and port mappings need validation. Mitigation: reuse the existing `Hop3TomlSchema` approach (Pydantic).
 - **Runtime complexity.** spawn.py grows to handle per-component env layering and resource limits. Mitigation: the component layer is just a richer Worker description; the core spawn loop stays the same.
 
-## Implementation phases
+## Implementation scope
 
-**Phase 1 (0.6):** Schema + parser only.
-- Add `[[component]]` to `Hop3TomlSchema`
-- Add translation layer: legacy `[run]` → implicit components
-- Add `Component` dataclass in `project/config.py`
-- Unit tests for the parser
-- No runtime changes yet — `spawn.py` still reads workers from the legacy path
+The core of the design is the `[[component]]` schema, the translation of legacy `[run]` / `[run.workers]` configs into implicit components, and a `Component` dataclass in `project/config.py`. The runtime consumes components rather than raw workers: `spawn.py` applies per-component env layering, runs per-component health checks via the existing `[healthcheck]` model, and enforces per-component memory limits via the uWSGI `mem-limit` option. `hop3 app status --app <app>` reports per-component state.
 
-**Phase 2 (0.6):** Runtime support.
-- Update `spawn.py` to consume components instead of raw workers
-- Per-component env layering
-- Per-component health checks via the existing `[healthcheck]` model
-- Per-component memory limits via uWSGI `mem-limit` option
-- `hop3 app status --app <app>` shows per-component state
-
-**Phase 3 (0.7 or later):** Advanced features.
-- `depends-on` start ordering
-- Independent scaling via `hop3 ps scale --app <app> web=2 worker=4`
-- Per-component logs
-- Component-specific addon attachments
+A set of capabilities sits outside the initial design and is left for later iterations: `depends-on` start ordering, independent scaling via `hop3 ps scale --app <app> web=2 worker=4`, per-component logs, and component-specific addon attachments.
 
 ## Example: Mastodon
 
-Once Phase 1+2 are in place, Mastodon's `hop3.toml` becomes:
+Mastodon's `hop3.toml` becomes:
 
 ```toml
 [metadata]
@@ -309,9 +287,9 @@ This is the shape the plugin should emit and the shape the user (eventually) wri
 ## Open questions
 
 1. **Port addressing syntax.** Should `port = "web"` refer to a named `[port.*]` entry, or should components declare their own port tables? Decision: named references into the top-level `[port.*]` dict, for consistency with the existing schema.
-2. **What's the default `name` if `[[component]]` omits it?** Decision: the component table index, starting at 0 (e.g., `c0`). This is an error-prone default; we'll probably require `name` explicitly in Phase 1.
-3. **Can a component declare its own builder/toolchain?** The `runtime = "node"` field above suggests yes. Decision: deferred to Phase 2 — in Phase 1, all components share the app's build artifact.
-4. **Cron-style scheduling.** Should `[component.schedule]` exist for cron-like components? Decision: keep the existing `cron` worker type for now; revisit in Phase 3.
+2. **What's the default `name` if `[[component]]` omits it?** A positional default (the component table index, e.g. `c0`) is error-prone, so `name` is required explicitly.
+3. **Can a component declare its own builder/toolchain?** The `runtime = "node"` field above suggests yes. Decision: deferred — initially, all components share the app's build artifact.
+4. **Cron-style scheduling.** Should `[component.schedule]` exist for cron-like components? Decision: keep the existing `cron` worker type for now.
 
 ## References
 

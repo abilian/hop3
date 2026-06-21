@@ -256,8 +256,7 @@ hop3 config set --app hop3-tuto-quarkus QUARKUS_PROFILE=prod
 
 ### Initialize the Git Repository
 
-Hop3 deploys the committed contents of a Git repository, so initialize one and
-commit the project before deploying:
+Hop3 deploys the committed contents of a Git repository, so initialize one and commit the project before deploying:
 
 ```bash exec id=git-init dir=hop3-tuto-quarkus
 printf 'target/\n.env\n' > .gitignore
@@ -271,7 +270,7 @@ git ls-files
 Deploy the application (first deployment creates the app):
 
 ```bash exec id=deploy dir=hop3-tuto-quarkus timeout=120
-hop3 deploy hop3-tuto-quarkus
+hop3 deploy --app hop3-tuto-quarkus
 ```
 
 ```output contains
@@ -291,7 +290,7 @@ hop3 config set --app hop3-tuto-quarkus HOST_NAME=hop3-tuto-quarkus.$HOP3_TEST_D
 Redeploy to apply the hostname configuration:
 
 ```bash exec id=redeploy dir=hop3-tuto-quarkus timeout=120
-hop3 deploy hop3-tuto-quarkus
+hop3 deploy --app hop3-tuto-quarkus
 ```
 
 ```output contains

@@ -39,6 +39,65 @@ def _looks_like_unstamped_db(exc: BaseException) -> bool:
     return any(hint in msg for hint in _UNSTAMPED_HINTS)
 
 
+def _orphan_db_revision(cfg) -> str | None:
+    """The DB's current revision, when this deployment has no script for it.
+
+    Returned non-None means the database was migrated by a *different* codebase
+    — most often a feature branch carrying its own migration, or a newer build
+    you have since rolled back from — so Alembic can't locate the current
+    revision to compute an upgrade path ("Can't locate revision identified by
+    ..."). Distinct from the unstamped case (current is None, handled by
+    adoption): here the DB *is* stamped, just at a revision this code doesn't
+    ship. Returns None when unstamped or when the revision is one we know.
+    """
+    from alembic.runtime.migration import MigrationContext  # noqa: PLC0415
+    from alembic.script import ScriptDirectory  # noqa: PLC0415
+    from sqlalchemy import create_engine  # noqa: PLC0415
+
+    engine = create_engine(_database_url())
+    try:
+        with engine.connect() as conn:
+            current = MigrationContext.configure(conn).get_current_revision()
+    finally:
+        engine.dispose()
+
+    if current is None:
+        return None
+
+    try:
+        ScriptDirectory.from_config(cfg).get_revision(current)
+    except Exception:
+        return current
+    return None
+
+
+def _print_orphan_revision_hint(revision: str) -> None:
+    """Explain an orphan-revision DB and the recovery options.
+
+    We deliberately do NOT auto-recover: stamping/upgrading blindly could mask a
+    real schema divergence or corrupt data, and Hop3's rule is to fail loud, not
+    paper over it. The operator decides, with the facts in hand.
+    """
+    print(
+        f"\nThe database is stamped at revision '{revision}', which is not part "
+        f"of this deployment's migration history. Its schema was migrated by a "
+        f"different codebase — most often a feature branch that carries its own "
+        f"migration, or a newer build you have since rolled back from.\n\n"
+        f"Hop3 will not auto-recover here: it cannot tell whether that schema is "
+        f"compatible with this code, and silently re-stamping could hide a real "
+        f"divergence or corrupt data. Pick a recovery path:\n\n"
+        f"  1. Roll forward (safest): re-deploy the codebase that contains "
+        f"revision '{revision}'.\n"
+        f"  2. If you have verified the live schema already matches THIS code, "
+        f"re-point Alembic at this code's head, then re-deploy:\n\n"
+        f"         hop3-server db:stamp head\n\n"
+        f"     (db:stamp only records the revision; it does not alter the schema.)\n"
+        f"  3. Disposable data (e.g. a dev server): re-deploy with a clean "
+        f"install (hop3-deploy --clean), or restore from a backup.",
+        file=sys.stderr,
+    )
+
+
 def _database_url() -> str:
     """Resolve the DB URL the same way ``alembic/env.py`` does.
 
@@ -187,7 +246,14 @@ class DbUpgradeCmd(Command):
             command.upgrade(cfg, revision)
         except Exception as exc:
             print(f"Error: migration failed: {exc}", file=sys.stderr)
-            if _looks_like_unstamped_db(exc):
+            orphan = None
+            try:
+                orphan = _orphan_db_revision(cfg)
+            except Exception:
+                orphan = None  # detection is best-effort; never mask the original error
+            if orphan:
+                _print_orphan_revision_hint(orphan)
+            elif _looks_like_unstamped_db(exc):
                 print(
                     "\nHint: this database appears to predate Alembic — its "
                     "schema was created via metadata.create_all() and was "

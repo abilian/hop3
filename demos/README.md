@@ -1,249 +1,212 @@
 # Hop3 Demos
 
-Demo applications and scripts for showcasing Hop3 features.
+Scripted, end-to-end demonstrations of Hop3 **platform capabilities** — builders,
+toolchains, addons, scaling, backups, the CLI surface — each deploying a small
+sample app to a real Hop3 server and exercising a feature.
 
-## Quick Start
+A demo is **three things at once**, and is never treated as dead code:
 
-```bash
-# Run all demos on a server
-python -m demos.demo --host <server_ip>
+- **Teaching** — a readable, runnable walk-through of how a feature works.
+- **Demonstration** — what you show in a screencast or to an evaluator.
+- **Test** — run in CI (`make test-demos-*`) to catch regressions end-to-end.
 
-# Run a specific demo
-python -m demos.demo --host <server_ip> demo01
+> Demos showcase *capabilities*, not best-of-breed apps. Real third-party
+> applications (WordPress, Gitea, Miniflux, …) live in the **real-apps catalog**
+> (`apps/real-apps-*/`), packaged in multiple variants with content-checked
+> validations. See *"Where demos fit"* below.
 
-# Run multiple demos
-python -m demos.demo --host <server_ip> demo01 demo02
+---
 
-# Run your own app
-python -m demos.demo --host <server_ip> ~/my-flask-app
-```
+## The essential questions
 
-Note: Run from the hop3 repository root directory.
+If you're a Hop3 developer, tester, or test-writer, this is what you need:
 
-## Available Demos
+1. **How do I run one?** → [Running demos](#running-demos)
+2. **What does a run actually do?** → [What a run does](#what-a-run-does)
+3. **How do I test my *local* hop3-server changes?** → `--local` (see below)
+4. **How is this different from `hop3-test` / tutorials?** → [Where demos fit](#where-demos-fit)
+5. **How do I write a new demo?** → [Writing a demo](#writing-a-demo)
+6. **Where's the full option reference?** → `python demos/demo.py run --help` / `list --help`
 
-### Basic Deployment (demo01-demo08)
+---
 
-Demonstrates different builders and languages.
+## Running demos
 
-| Demo | Description | Builder |
-|------|-------------|---------|
-| demo01 | uWSGI Deployment (Python/Flask) | uwsgi |
-| demo02 | Docker Deployment | docker |
-| demo03 | Static Site (Nginx) | static |
-| demo04 | Node.js Express | nodejs |
-| demo05 | Go with Gin | go |
-| demo06 | Ruby Sinatra | ruby |
-| demo07 | Flask + Gunicorn | python |
-| demo08 | Python (PEP-621) | python |
+Always run **from the repository root**. The entry point is `demos/demo.py`
+(there is no `demos` package — call the file directly).
 
-### Addons & Features (demo10-demo14)
-
-Demonstrates PostgreSQL, Redis, background workers, and hooks.
-
-| Demo | Description | Addons |
-|------|-------------|--------|
-| demo10 | PostgreSQL Addon | PostgreSQL |
-| demo11 | Background Workers | - |
-| demo12 | Backup and Restore | PostgreSQL |
-| demo13 | Build Hooks | - |
-| demo14 | Redis Addon | Redis |
-
-### Docker with Addons (demo15-demo19)
-
-Demonstrates Docker deployments with database addons.
-
-| Demo | Description | Addons |
-|------|-------------|--------|
-| demo15 | Docker + PostgreSQL | PostgreSQL |
-| demo16 | Docker + Redis | Redis |
-| demo17 | Docker Multi-Container | - |
-| demo18 | Docker Node.js | - |
-| demo19 | Docker Go | - |
-
-### Real-World Applications
-
-Real-world third-party apps (WordPress, Ghost, Matomo, Miniflux, …) now live in
-the **`real-apps` catalog** (`apps/real-apps-*/`), where each is packaged and
-tested in multiple variants with content-checked validations — a better home
-than a one-off demo. The demos here focus on platform *capabilities* (builders,
-addons, features), not on showcasing individual apps.
-
-### MySQL Addon Demos (demo28+)
-
-Demos using the MySQL addon.
-
-| Demo | Application | Description | Addons |
-|------|-------------|-------------|--------|
-| demo28 | Page Counter | Simple page view counter (MySQL validation) | MySQL |
-
-Use `python -m demos.demo --list` to see all available demos.
-
-## Command Reference
-
-```
-usage: demo.py --host HOST [options] [demos...]
-
-Required:
-  -H, --host HOST          Target server IP address
-
-Server Options:
-  --ssh-user USER          SSH user for server connection (default: root)
-  --skip-install           Skip Hop3 installation (assume already installed)
-  -l, --local              Sync local hop3-server code via rsync
-  --demo-dir DIR           Additional directory to search for demos (repeatable)
-
-Authentication:
-  --admin-user USER        Admin username to create (default: admin)
-  --admin-email EMAIL      Admin email address (default: admin@example.com)
-  --admin-password PWD     Admin password (auto-generated if not specified)
-
-Demo Execution:
-  -k, --keep               Keep deployed apps running after demo completes
-  -p, --pause SECS         Pause between demo steps in seconds (default: 0.5)
-
-Output Control:
-  -v, --verbose            Show detailed output and stack traces
-  -q, --quiet              Minimal output (phases and results only)
-  -s, --silent             No output except errors (errors go to stderr)
-
-Information:
-  -h, --help               Show this help message and exit
-  --list                   List available demos
-  --inventory              Show detailed inventory of all demos
-```
-
-## Common Use Cases
-
-### Development Mode
-
-Test local code changes without committing:
+There are two subcommands — **`run`** and **`list`** — and two backends:
 
 ```bash
-# Sync local code to server and run demo
-python -m demos.demo --host <server_ip> --local demo01
+# Local Docker container — no remote server needed (easiest; what CI uses)
+python demos/demo.py run --backend docker demo01
 
-# Keep apps running for debugging
-python -m demos.demo --host <server_ip> --local --keep demo02
+# Remote server over SSH (root@host with key auth)
+python demos/demo.py run --host <server_ip> demo01
 ```
 
-The `--local` flag uses rsync to sync your local hop3-server code to the server.
+(A bare invocation like `python demos/demo.py --backend docker demo01` is treated
+as `run …`, so old muscle memory keeps working.)
 
-### Recording Screencasts
+Common variants (the same on either backend):
 
 ```bash
-# Longer pauses, keep apps visible
-python -m demos.demo --host <server_ip> --pause 2 --keep
+python demos/demo.py list                                # names + titles of all demos
+python demos/demo.py list -v                             # detailed inventory + feature tags
+python demos/demo.py run --backend docker                # run ALL demos
+python demos/demo.py run --backend docker demo01 demo04  # run a few
+python demos/demo.py run --backend docker --local demo01 # test LOCAL hop3-server code (rsync)
+python demos/demo.py run --backend docker --keep demo01  # leave the app running afterwards
+python demos/demo.py run --host <ip> --pause 2 --keep    # screencast pace, keep apps up
+python demos/demo.py run --backend docker ~/my-flask-app # run YOUR app (generic demo, no script)
 ```
 
-### CI/CD Integration
+### Selecting demos by feature
+
+Every demo has **namespaced capability tags** computed from its `hop3.toml` and
+the commands it runs — `builder:docker`, `toolchain:go`, `addon:postgres`,
+`extra:backup`, … (a demo script can also declare extras via `FEATURES = {…}`).
+See them with `list -v`, and filter with `--select` / `--skip` (on `run` or
+`list`):
 
 ```bash
-# Minimal output for CI logs
-python -m demos.demo --quiet --host <server_ip> demo01
-
-# Silent mode (errors to stderr only)
-python -m demos.demo --silent --host <server_ip> demo01
-
-# Exit code: 0 = all passed, 1 = some failed
+python demos/demo.py list --select toolchain:python              # only Python demos
+python demos/demo.py run  --select addon:postgres --skip extra:backup
+python demos/demo.py list --select toolchain:go,toolchain:ruby   # OR within one flag
 ```
 
-### Demo Inventory
+`--select` is AND across repeated flags (OR within a comma-separated value);
+`--skip` is OR; a bare namespace (`--skip addon`) matches any value in it.
+
+Makefile shortcuts run the whole suite as tests:
 
 ```bash
-# View detailed info about all demos
-python -m demos.demo --inventory
-
-# Include external demo directories
-python -m demos.demo --inventory --demo-dir ~/my-demos
+make test-demos-docker   # all demos on a local Docker container (--local --quiet)
+make test-demos-ssh      # all demos on $HOP3_DEV_HOST
+make test-demos          # both
 ```
 
-### External Applications
+For every flag, see `python demos/demo.py run --help` (and `list --help`).
 
-Run any Hop3-compatible application:
+---
 
-```bash
-# Your app with hop3.toml, Dockerfile, or requirements.txt
-python -m demos.demo --host <server_ip> ~/my-project
+## What a run does
 
-# Keep it running after demo
-python -m demos.demo --host <server_ip> ~/my-project --keep
+The launcher runs four phases, then summarises pass/fail/skip with timings:
+
+1. **Prerequisites** — reach the target (start the Docker container or SSH in),
+   check the OS, install/update Hop3 (skip with `--skip-install`; sync local code
+   with `--local`).
+2. **Configure CLI** — create/log in an admin user and point an *isolated* CLI
+   config at the target (so demos never touch your real `~/.config/hop3-cli`).
+3. **Run the selected demos** — each `demo-script.py`'s `run(ctx)`; a failure in
+   one doesn't stop the others.
+4. **Summary** — results + durations; admin credentials are printed if `--keep`.
+
+---
+
+## Where demos fit
+
+Hop3 has three complementary end-to-end harnesses — pick by intent:
+
+| Use this | When you want to… | Lives in |
+|----------|-------------------|----------|
+| **demos** (`demos/demo.py`) | show/verify a *platform capability* with a tiny sample app | `demos/` |
+| **`hop3-test`** | deploy the **real-apps catalog** and assert content-checked validations | `apps/real-apps-*/`, `packages/hop3-testing/` |
+| **tutorials** (validoc) | prove the *documentation* is correct (literate, executable `.md`) | `docs/tutorials/` |
+
+All three deploy to a real server; demos are the smallest and most didactic.
+
+---
+
+## Writing a demo
+
+A demo is a directory under `demos/` containing a `demo-script.py` and an `app/`.
+It's auto-discovered — no registration needed.
+
+```python
+# demos/demoXX/demo-script.py
+from __future__ import annotations
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from lib import DemoContext
+
+TITLE = "Demo XX: My Feature"
+DESCRIPTION = "One paragraph: what this demonstrates."
+APP_NAME = "demoXX"
+APP_DIR = Path(__file__).parent / "app"
+REQUIRES: list[str] = []   # e.g. ["docker"] — the demo is skipped if unmet
+# Optional: capability tags that can't be auto-detected (e.g. an addon you
+# provision through a helper). Merged with the computed builder/toolchain/
+# addon/extra tags. Namespaced — see `list -v`.
+FEATURES = {"extra:my-feature"}
+
+def run(ctx: DemoContext) -> None:
+    # IMPORTANT: import lib INSIDE run() — the launcher puts demos/ on sys.path
+    # before loading this module, so a top-level `from lib ...` would fail.
+    from lib import deploy_app, set_hostname, redeploy_app, test_app_via_curl, cleanup_app
+    from lib.commands import run_hop3
+
+    host = ctx.get_app_hostname(APP_NAME)
+    deploy_app(ctx, APP_NAME, APP_DIR)            # packs APP_DIR, `hop3 deploy --app …`
+    set_hostname(ctx, APP_NAME, host)
+    redeploy_app(ctx, APP_NAME, APP_DIR)
+    test_app_via_curl(ctx, f"https://{host}", expected_content="…")
+    run_hop3(f"app status --app {APP_NAME}")      # any CLI command via run_hop3
+    cleanup_app(ctx, APP_NAME, f"https://{host}") # honours --keep
 ```
 
-## Prerequisites
+Conventions that matter (learned the hard way):
 
-- **Target Server**: Ubuntu 22.04 or 24.04 with SSH root access
-- **Local Machine**:
-  - Python 3.10+
-  - Hop3 CLI installed (`pip install hop3-cli`)
-  - SSH key authentication configured
+- **Import `lib` inside `run()`**, not at module top level (see comment above).
+- **App is always `--app <name>`**, never positional (ADR 036 D5). `run_hop3`
+  takes the command without the `hop3` prefix.
+- **Non-interactive**: the launcher runs without a TTY. For commands that prompt
+  (deploy confirm, destroy), the helpers pass `-y`; if you call `run_hop3`
+  directly for a prompting command, set `HOP3_NO_INPUT=1` in the demo's env.
+- **Self-clean**: tear down whatever you create (`cleanup_app`, addon/backup
+  destroys), so re-runs are reproducible and apps don't coexist by accident.
+- See `demos/lib/__init__.py` for the full helper set, and existing demos
+  (`demo01` simplest, `demo60` the broad CLI tour) as templates.
 
-## Troubleshooting
+**No script needed?** Point the launcher at any Hop3-compatible app directory
+(`python demos/demo.py run --backend docker ~/my-app`) and the **generic demo**
+detects the app type (`hop3.toml`/`Dockerfile`/`requirements.txt`/`package.json`/
+`Procfile`), deploys, hostnames, tests, and cleans up automatically.
 
-### SSH Connection Issues
+---
 
-```bash
-# Test connection
-ssh root@<server_ip> echo "Connected"
-
-# Set up SSH keys if needed
-ssh-copy-id root@<server_ip>
-```
-
-### hop3 CLI Not Found
-
-```bash
-pip install hop3-cli
-```
-
-### Installation Takes Too Long
-
-Initial installation takes 5-10 minutes. Use `--skip-install` if Hop3 is already installed.
-
-## Directory Structure
+## Layout
 
 ```
 demos/
-├── __init__.py         # Package marker
-├── demo.py             # Entry point
-├── lib/                # Shared utilities
-│   ├── __init__.py     # Exports
-│   ├── app.py          # Common app management routines
-│   ├── cli.py          # Argument parsing
-│   ├── commands.py     # run_local, run_ssh, run_hop3
-│   ├── context.py      # DemoContext, DemoResult, OutputLevel
-│   ├── discovery.py    # Demo discovery and resolution
-│   ├── display.py      # Banner, list, inventory display
-│   ├── generic_demo.py # Generic demo for any Hop3 app
-│   ├── output.py       # Terminal output helpers
-│   ├── phases.py       # Execution phases (prerequisites, CLI, run)
-│   └── server.py       # Server setup, sync, update
-├── demo01/             # uWSGI (Flask)
-├── demo02/             # Docker
-├── ...
-└── demoNN/             # (one dir per demo, auto-discovered)
+├── demo.py            # launcher (discovery, phases, summary)
+├── lib/               # shared helpers — the demo API
+│   ├── __init__.py    #   exported helpers (deploy_app, run_hop3, print_*, …)
+│   ├── app.py         #   app lifecycle (deploy / hostname / status / cleanup)
+│   ├── commands.py    #   run_hop3 / run_ssh / run_local + isolated CLI env
+│   ├── context.py     #   DemoContext, DemoResult, OutputLevel
+│   ├── phases.py      #   prerequisites → configure-CLI → run
+│   ├── generic_demo.py#   deploy-any-app fallback
+│   └── …              #   discovery, display, output, server setup
+└── demoNN/            # one dir per demo (demo-script.py + app/), auto-discovered
 ```
 
-## Creating a New Demo
+---
 
-### Option 1: Custom Demo Script
+## When something breaks
 
-1. Create directory: `demos/demoXX/`
-2. Create `demo-script.py` with `TITLE`, `DESCRIPTION`, and `run(ctx)` function
-3. Add sample application files in `app/` subdirectory
-4. The demo is auto-discovered
+- `--verbose` for stack traces; `--keep` to leave the app up and inspect it
+  (`hop3 app logs --app <name>`, `hop3 app debug --app <name>`).
+- General platform gotchas (RPC session isolation, build-vs-runtime env, state
+  transitions, 502s, proxy/HOST_NAME) live in
+  [`notes/lessons-learned/`](../notes/lessons-learned/).
 
-### Option 2: Generic Demo (No Script Needed)
+## Prerequisites
 
-Just point to any Hop3-compatible application:
-
-```bash
-python -m demos.demo --host <server_ip> ~/my-app
-```
-
-The generic demo will automatically:
-- Detect app type (Python, Docker, Node.js, etc.)
-- Deploy using the appropriate builder
-- Set up hostname and proxy
-- Test the deployment
-- Clean up (unless `--keep`)
+- **Local**: Python 3.10+, the `hop3` CLI on `PATH`, and (for `--backend docker`)
+  a working Docker daemon.
+- **SSH backend**: Ubuntu 22.04/24.04 target with `root` key-based SSH.
+- First install takes 5–10 min; use `--skip-install` once Hop3 is installed.

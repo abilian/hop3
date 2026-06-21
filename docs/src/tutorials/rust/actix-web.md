@@ -348,7 +348,7 @@ hop3 config set --app hop3-tuto-actix-web ALLOWED_ORIGIN=https://hop3-tuto-actix
 Deploy the application (first deployment creates the app):
 
 ```bash
-hop3 deploy hop3-tuto-actix-web
+hop3 deploy --app hop3-tuto-actix-web
 ```
 
 ```console
@@ -376,7 +376,7 @@ sleep 5
 Redeploy to apply the hostname configuration:
 
 ```bash
-hop3 deploy hop3-tuto-actix-web
+hop3 deploy --app hop3-tuto-actix-web
 ```
 
 ```console

@@ -575,7 +575,7 @@ hop3 config set --app hop3-tuto-django DJANGO_SETTINGS_MODULE=myproject.settings
 Deploy the application (first deployment creates the app):
 
 ```bash exec id=deploy dir=hop3-tuto-django timeout=120
-hop3 deploy hop3-tuto-django
+hop3 deploy --app hop3-tuto-django
 ```
 
 ```output contains
@@ -584,8 +584,7 @@ deployed successfully
 
 ### Set Environment Variables
 
-Set ALLOWED_HOSTS and the hostname (`SECRET_KEY` was generated automatically on
-the first deploy):
+Set ALLOWED_HOSTS and the hostname (`SECRET_KEY` was generated automatically on the first deploy):
 
 ```bash exec id=set-allowed-hosts timeout=30
 hop3 config set --app hop3-tuto-django ALLOWED_HOSTS=hop3-tuto-django.$HOP3_TEST_DOMAIN,localhost,127.0.0.1
@@ -600,7 +599,7 @@ hop3 config set --app hop3-tuto-django HOST_NAME=hop3-tuto-django.$HOP3_TEST_DOM
 Redeploy to apply the configuration:
 
 ```bash exec id=redeploy dir=hop3-tuto-django timeout=120
-hop3 deploy hop3-tuto-django
+hop3 deploy --app hop3-tuto-django
 ```
 
 Wait for the application to start:
@@ -645,7 +644,7 @@ Open your application:
 ### Create a Superuser
 
 ```bash skip
-hop3 run hop3-tuto-django python manage.py createsuperuser
+hop3 run --app hop3-tuto-django python manage.py createsuperuser
 ```
 
 ## Managing Your Application
@@ -655,20 +654,20 @@ hop3 run hop3-tuto-django python manage.py createsuperuser
 Migrations run automatically during deployment via `prerun`. To run manually:
 
 ```bash skip
-hop3 run hop3-tuto-django python manage.py migrate
+hop3 run --app hop3-tuto-django python manage.py migrate
 ```
 
 ### Run Django Shell
 
 ```bash skip
-hop3 run hop3-tuto-django python manage.py shell
+hop3 run --app hop3-tuto-django python manage.py shell
 ```
 
 ### Run Management Commands
 
 ```bash skip
-hop3 run hop3-tuto-django python manage.py loaddata fixtures.json
-hop3 run hop3-tuto-django python manage.py custom_command
+hop3 run --app hop3-tuto-django python manage.py loaddata fixtures.json
+hop3 run --app hop3-tuto-django python manage.py custom_command
 ```
 
 ### View and Manage Environment Variables
@@ -691,7 +690,7 @@ hop3 app restart --app hop3-tuto-django
 
 ```bash skip
 # Check current processes
-hop3 ps hop3-tuto-django
+hop3 ps --app hop3-tuto-django
 
 # Scale web workers
 hop3 ps scale --app hop3-tuto-django web=2
@@ -977,7 +976,7 @@ hop3 config show --app hop3-tuto-django | grep DATABASE
 Test the connection:
 
 ```bash skip
-hop3 run hop3-tuto-django python manage.py dbshell
+hop3 run --app hop3-tuto-django python manage.py dbshell
 ```
 
 ### Static Files Not Loading
@@ -990,7 +989,7 @@ hop3 run hop3-tuto-django python manage.py dbshell
 Run manually to debug:
 
 ```bash skip
-hop3 run hop3-tuto-django python manage.py collectstatic --noinput
+hop3 run --app hop3-tuto-django python manage.py collectstatic --noinput
 ```
 
 ### Migration Errors
@@ -999,10 +998,10 @@ If migrations fail during deployment:
 
 ```bash skip
 # Check migration status
-hop3 run hop3-tuto-django python manage.py showmigrations
+hop3 run --app hop3-tuto-django python manage.py showmigrations
 
 # Run migrations manually with verbose output
-hop3 run hop3-tuto-django python manage.py migrate --verbosity=2
+hop3 run --app hop3-tuto-django python manage.py migrate --verbosity=2
 ```
 
 ### Import Errors
@@ -1014,7 +1013,7 @@ Ensure all packages are in `requirements.txt`:
 pip freeze > requirements.txt
 
 # Or check what's installed
-hop3 run hop3-tuto-django pip list
+hop3 run --app hop3-tuto-django pip list
 ```
 
 ### Gunicorn Workers Timing Out

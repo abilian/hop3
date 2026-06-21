@@ -311,7 +311,7 @@ hop3 init --ssh root@your-server.example.com
 Deploy the application (first deployment creates the app):
 
 ```bash exec id=deploy dir=hop3-tuto-express timeout=120
-hop3 deploy hop3-tuto-express
+hop3 deploy --app hop3-tuto-express
 ```
 
 ### Set Hostname
@@ -335,7 +335,7 @@ sleep 5
 Redeploy to apply the hostname configuration:
 
 ```bash exec id=redeploy dir=hop3-tuto-express timeout=120
-hop3 deploy hop3-tuto-express
+hop3 deploy --app hop3-tuto-express
 ```
 
 ```output contains
@@ -373,7 +373,7 @@ hop3 app restart --app hop3-tuto-express
 ### Run Commands in the Application Context
 
 ```bash skip
-hop3 run hop3-tuto-express node -e "console.log('Hello from server!')"
+hop3 run --app hop3-tuto-express node -e "console.log('Hello from server!')"
 ```
 
 ### View and Manage Environment Variables
@@ -393,7 +393,7 @@ hop3 config unset --app hop3-tuto-express OLD_VARIABLE
 
 ```bash skip
 # Check current processes
-hop3 ps hop3-tuto-express
+hop3 ps --app hop3-tuto-express
 
 # Scale web workers
 hop3 ps scale --app hop3-tuto-express web=2

@@ -2,7 +2,7 @@
 """add network table (named CIDR sets for WAF gates)
 
 Revision ID: e1f2a3b4c5d6
-Revises: c7d4e9f1a2b3
+Revises: d8b3f1a6c2e4
 Create Date: 2026-06-16 00:00:00.000000
 
 """
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 # revision identifiers, used by Alembic.
 revision: str = "e1f2a3b4c5d6"
-down_revision: str | Sequence[str] | None = "c7d4e9f1a2b3"
+down_revision: str | Sequence[str] | None = "d8b3f1a6c2e4"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -31,7 +31,7 @@ def _has_table(name: str) -> bool:
 
 
 def upgrade() -> None:
-    """Create the network table (ADR 048 §2 — named CIDR sets for WAF gates).
+    """Create the network table (ADR 050 §2 — named CIDR sets for WAF gates).
 
     Idempotent: a brand-new database gets all tables via ``create_all`` (then
     stamped at head), so this guard skips the create when such a DB is adopted.

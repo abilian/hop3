@@ -166,10 +166,7 @@ Hugo makes it easy to create content. Run `hugo new content posts/my-post.md`,
 then edit the markdown file and rebuild your site.
 ```
 
-Add a home-page layout. Themes occasionally lag the installed Hugo release; a
-project-level `layouts/index.html` guarantees the home page renders to
-`public/index.html` regardless of the theme (which still styles the other
-pages):
+Add a home-page layout. Themes occasionally lag the installed Hugo release; a project-level `layouts/index.html` guarantees the home page renders to `public/index.html` regardless of the theme (which still styles the other pages):
 
 ```file path=hop3-tuto-hugo/layouts/index.html
 <!DOCTYPE html>
@@ -186,10 +183,7 @@ pages):
 </html>
 ```
 
-A theme's `404.html` renders through its `baseof.html`, which can reference
-fields a pinned Hugo predates (ananke uses `.Site.Language.Locale`) — that fails
-the *whole* build, not just the 404 page. A self-contained project-level
-`layouts/404.html` renders it without the theme's base template:
+A theme's `404.html` renders through its `baseof.html`, which can reference fields a pinned Hugo predates (ananke uses `.Site.Language.Locale`) — that fails the *whole* build, not just the 404 page. A self-contained project-level `layouts/404.html` renders it without the theme's base template:
 
 ```file path=hop3-tuto-hugo/layouts/404.html
 <!DOCTYPE html>
@@ -317,7 +311,7 @@ hop3 init --ssh root@your-server.example.com
 Deploy the application (first deployment creates the app):
 
 ```bash exec id=deploy dir=hop3-tuto-hugo timeout=120
-hop3 deploy hop3-tuto-hugo
+hop3 deploy --app hop3-tuto-hugo
 ```
 
 ### Set Hostname
@@ -333,7 +327,7 @@ hop3 config set --app hop3-tuto-hugo HOST_NAME=hop3-tuto-hugo.$HOP3_TEST_DOMAIN
 Redeploy to apply the hostname configuration:
 
 ```bash exec id=redeploy dir=hop3-tuto-hugo timeout=120
-hop3 deploy hop3-tuto-hugo
+hop3 deploy --app hop3-tuto-hugo
 ```
 
 Wait for the application to start:

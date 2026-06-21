@@ -72,7 +72,7 @@ def _try_project_routing(args: list[str], config: Config, printer: RichPrinter) 
     print(
         f"note: project at {project_hop3} has no [contexts.*] declared. "
         "Using global-server contexts (legacy behavior). "
-        "Run `hop3 context init --server <name>` to switch to "
+        "Run `hop3 context init --server <server>` to switch to "
         "project-scoped contexts.",
         file=sys.stderr,
     )
@@ -306,10 +306,16 @@ def _context_use_default(name: str, context) -> None:
             print("Warning: This is a protected context.")
     print("\nOther options:")
     print(
-        f"  hop3 context use {name} --global  # Set as global default (all terminals)"
+        f"  hop3 context use {name} --global"
+        "       # set as the global default (all terminals)"
     )
     print(
-        "  hop3 context use <name>            # (run inside a project) writes .hop3-local.toml"
+        "  hop3 context init --server <server>"
+        "   # (inside a project) switch it to project-scoped contexts,"
+    )
+    print(
+        f"                                        # after which `hop3 context use {name}`"
+        " writes .hop3-local.toml"
     )
 
 
@@ -361,13 +367,14 @@ def context_use(args: list[str], config: Config, printer: RichPrinter) -> None:
 
 def _print_context_use_usage() -> None:
     print(
-        "Usage: hop3 context use [--global] [--app <name>] <name>",
+        "Usage: hop3 context use [--global] [--app <app>] <context>",
         file=sys.stderr,
     )
     print("\nOptions:")
+    print("  <context>       Name of a declared context (e.g. 'prod')")
     print("  (default)       Print export command for this shell only")
     print("  --global        Set as global default (affects all terminals)")
-    print("  --app <name>    Also set this context's default app (ADR 036 D7/D8)")
+    print("  --app <app>     Also set this context's default app (ADR 036 D7/D8)")
 
 
 def context_rename(args: list[str], config: Config, printer: RichPrinter) -> None:

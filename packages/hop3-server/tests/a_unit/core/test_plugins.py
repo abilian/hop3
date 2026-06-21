@@ -14,11 +14,14 @@ patch it via ``monkeypatch``.
 
 from __future__ import annotations
 
+import inspect
 import types
 from pathlib import Path
 
 import pytest
 
+import hop3.plugins.redis as redis_pkg
+import hop3.plugins.redis.plugin  # noqa: F401 — binds redis_pkg.plugin attribute
 from hop3.core import plugins
 from hop3.core.plugins import (
     _build_deployment_hints,
@@ -32,6 +35,7 @@ from hop3.core.plugins import (
     get_deployer,
     get_deployer_by_name,
     get_os_strategy,
+    get_plugin_manager,
     get_proxy_strategy,
     list_supported_os,
 )
@@ -588,6 +592,30 @@ class TestDeploymentHints:
         assert "'mystery' is not recognized" in joined
         # No available deployers -> the "Available deployers:" line is absent.
         assert "Available deployers:" not in joined
+
+
+# --- get_plugin_manager build (re-entrancy / submodule binding) -----------
+
+
+class TestGetPluginManagerBuild:
+    def test_survives_preimported_plugin_submodule(self, monkeypatch):
+        """Regression: importing a ``plugin.py`` before the manager is built
+        binds it as a ``plugin`` *module* attribute on its parent package
+        (Python import behaviour). The build must skip module-valued ``plugin``
+        attrs, not re-register the submodule and crash with the order-dependent
+        ``Plugin name already registered`` error. Uses redis to prove the fix is
+        class-level, not WAF-specific.
+        """
+        # The trap the guard must avoid: importing redis.plugin (at module top)
+        # bound the parent package's `.plugin` to the submodule, not an instance.
+        assert inspect.ismodule(redis_pkg.plugin)
+
+        # Force a fresh build (singleton restored by monkeypatch teardown).
+        monkeypatch.setattr(plugins, "_plugin_manager", None)
+        pm = get_plugin_manager()  # must not raise
+
+        assert pm is not None
+        assert pm.get_plugins()  # plugins were actually registered
 
 
 # --- _iter_module_names ---------------------------------------------------

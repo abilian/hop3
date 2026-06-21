@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""CLI commands for operator-defined named networks (ADR 048 §2).
+"""CLI commands for operator-defined named networks (ADR 050 §2).
 
 A named network is a set of CIDRs the operator manages once and references by
 name from a WAF gate (``[[waf.gate]] require = "office"``). Keeping the CIDRs

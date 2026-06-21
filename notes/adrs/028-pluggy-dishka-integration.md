@@ -3,13 +3,8 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2025-11-20
-**Updated**: 2026-04-14
+**Authors**: Stefane Fermigier
 **Related-ADRs**: 020
-
-## Revisions
-
-- v1.1: Accepted and shipped — plugins contribute services to the Dishka container via the `get_di_providers()` hook; the global-registry anti-pattern is retired (2026-04-14).
-- v1.0: Original final version (2025-11-20)
 
 ## Context
 
@@ -17,12 +12,12 @@ Hop3 uses two complementary frameworks:
 - **Pluggy**: Plugin system for discovering and executing extension points
 - **Dishka**: Dependency injection framework for managing service lifecycles
 
-Prior to this ADR, these systems operated independently:
-- Plugins registered via Pluggy's hook system
-- Services managed via Dishka's container and providers
-- No mechanism for plugins to contribute services to the DI container
+Absent an integration between them, these systems operate independently:
+- Plugins register via Pluggy's hook system
+- Services are managed via Dishka's container and providers
+- No mechanism lets plugins contribute services to the DI container
 
-This created several problems:
+This separation creates several problems:
 
 ### Problem 1: Manual Service Registration
 Plugins had to manually register services using global registries or singletons:
@@ -100,11 +95,11 @@ We integrate Pluggy with Dishka using a **hook-based provider registration patte
          └──────────────────┘
 ```
 
-### Implementation
+### Detailed Design
 
 #### 1. Hook Specification
 
-Added `get_di_providers()` hook in `hop3/core/hookspecs.py`:
+The `get_di_providers()` hook in `hop3/core/hookspecs.py`:
 
 ```python
 @hookspec
@@ -118,7 +113,7 @@ def get_di_providers() -> list:
 
 #### 2. Container Integration
 
-Updated container creation in `hop3/di/container.py`:
+Container creation in `hop3/di/container.py`:
 
 ```python
 def _get_plugin_providers() -> list:
@@ -359,15 +354,15 @@ def register_services():
 
 ## Related Decisions
 
-- **ADR 027**: Config System Refactoring - Moved to Dishka for configuration
-- **Dishka Migration** (2025-01): Migrated from wireup to Dishka
-- **No Global Singleton** (2025-01): Removed global container pattern
+- **ADR 027**: Config System Refactoring — Dishka manages configuration.
+- Dishka replaces wireup as the dependency-injection framework.
+- The global container singleton is removed in favour of explicitly created containers.
 
 ## Implementation Notes
 
 ### Migration Path
 
-Existing plugins can migrate incrementally:
+Plugins move from global registration to provider contribution:
 
 **Before**:
 ```python
@@ -389,8 +384,6 @@ class PostgresProvider(Provider):
 def get_di_providers() -> list:
     return [PostgresProvider()]
 ```
-
-Both approaches work during migration period.
 
 ### Testing Strategy
 
@@ -430,11 +423,3 @@ def container_with_mock():
 
 - [Pluggy Documentation](https://pluggy.readthedocs.io/)
 - [Dishka Documentation](https://dishka.readthedocs.io/)
-
-## Decision Date
-
-2025-11-22
-
-## Authors
-
-- Stefane Fermigier

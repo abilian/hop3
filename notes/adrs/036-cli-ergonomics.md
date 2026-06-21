@@ -1,21 +1,13 @@
 # ADR 036: CLI Ergonomics and Command Surface
 
-**Status**: Accepted — sections D7/D8 **superseded by [ADR 042](042-cli-context-model.md)** (2026-06-01); all other decisions remain authoritative.
+**Status**: Accepted
 **Type**: Design
 **Created**: 2026-03-05
-**Updated**: 2026-06-16
-**Related ADRs**: 018, 019, 025, 031, 039 (planned), **042 (supersedes D7/D8)**
+**Related-ADRs**: 018, 019, 025, 031, 039, 042
 
-## Revisions
+The app-resolution chain (D7) and sticky-context state (D8) are superseded by [ADR 042](042-cli-context-model.md): "context" names a project environment and "server" the credentialed binding, and the resolution chains are redefined there. The body of D7/D8 is retained for the record, with in-section supersession notes. All other decisions remain authoritative.
 
-- v3.5 (2026-06-16): D17 amended — `env` is now the canonical command group for environment variables, reversing the original `config`-canonical decision. `config` becomes a full back-compat alias (registered server-side on each command). Reason: `config` collided with `hop3.toml`, the app's configuration *file*. See D17 for the rationale.
-- v3.4 (2026-06-01): §D7 (app resolution chain) and §D8 (sticky context state) superseded by ADR 042. The vocabulary split was inverted — "context" now names a project environment, "server" the credentialed binding — and the resolution chains were rewritten end-to-end. See ADR 042 for the authoritative chains. Body of D7/D8 retained for historical record with in-section supersession notes.
-- v3.1 (2026-04-15): Applied the cli-guidelines (clig.dev) review. New D19 on output conventions (stdout/stderr, `-` for file args, state-change summaries); added `--no-input` and `--confirm=<name>` flags; dropped the `--password` flag (stdin / prompt / file only).
-- v3.0 (2026-04-15): Complete redraft: namespace inventory, verb conventions, argument rules, alias mechanism, sticky-state semantics, help format, confirmation rules, exit codes, and hidden-command discipline all locked in. Plugin extension mechanism moved to ADR 039 (planned).
-- v2.0 (2026-04-15): Restructured; adopted space-separated commands and the top-level/namespace boundary rule; supporting evidence moved to `notes/cli/`.
-- v1.0 (2026-03-05): Original draft.
-
-> **Read alongside**: [ADR 031 (Terminology)](./031-project-terminology.md), [ADR 039 (Plugin CLI extension, planned)](../cli/plugin-mechanism-todo.md), and the evidence in [`notes/cli/`](../cli/README.md).
+> **Read alongside**: [ADR 031 (Terminology)](./031-project-terminology.md), [ADR 039 (Plugin CLI extension)](../cli/plugin-mechanism-todo.md), and the evidence in [`notes/cli/`](../cli/README.md).
 
 ## Context
 
@@ -28,7 +20,7 @@ The Hop3 CLI is the primary interface for managing applications. As a PaaS targe
 - [`terminology-research.md`](../cli/terminology-research.md) — `env` vs `config`, `addon` vs `service`.
 - [`addon-commands-analysis.md`](../cli/addon-commands-analysis.md) — addon command gap vs competitors.
 - [`feature-gaps.md`](../cli/feature-gaps.md) — other missing commands.
-- [`discussion.md`](../cli/discussion.md) — design discussion leading to v2.1 and v3.0.
+- [`discussion.md`](../cli/discussion.md) — design discussion behind the command surface.
 - [`command-catalog.md`](../cli/command-catalog.md) — complete canonical command list produced by this ADR.
 
 ### Key empirical findings
@@ -47,7 +39,7 @@ Decisions are grouped by concern. Each decision has a one-paragraph motivation.
 
 #### D1 — Commands are space-separated, with a hybrid top-level / namespaced surface
 
-All multi-token commands use spaces (`hop3 env set`), not colons. The top-level surface holds (a) daily app-scoped verbs, (b) utilities, and (c) namespace roots. Namespaces hold management and CRUD verbs.
+All multi-token commands use spaces (`hop3 env set`), not colons. The top-level surface holds (a) daily app-scoped verbs, (b) utilities, and (c) namespace roots. Namespaces hold management and CRUD verbs. The move from the legacy colon forms is a single breaking change: old colon forms produce a did-you-mean error that explicitly names the new spelling rather than silently aliasing.
 
 *Motivation*: spaces are the modern convention (docker, kubectl, gh, gcloud, aws, fly, railway, helm, terraform). Colons require bash `COMP_WORDBREAKS` hacks and read as retro. Top-level for frequent verbs matches Heroku/Fly/Railway; namespaces scale and add friction to destructive operations.
 
@@ -118,14 +110,14 @@ Flags may appear before or after the subcommand. Environment-variable equivalent
 
 #### D7 — Implicit app resolution
 
-> **Superseded by ADR 042** (2026-06-01). The eight-source resolution chain
-> below is now defined in [ADR 042 §Resolution chains](042-cli-context-model.md#resolution-chains).
-> Notable deltas: the legacy `[contexts.*]` blocks in `config.toml` were renamed
+> **Superseded by ADR 042.** The resolution chain is defined in
+> [ADR 042 §Resolution chains](042-cli-context-model.md#resolution-chains).
+> Notable deltas: the legacy `[contexts.*]` blocks in `config.toml` are renamed
 > to `[servers.*]` in `servers.toml`; `[contexts.<name>]` blocks in `hop3.toml`
-> now name *project* contexts (an environment/target binding) rather than
-> server records; an eighth source — the server-level `default_app` — was
-> added below the existing seven. The body below is retained for historical
-> record only; see ADR 042 for the authoritative chain.
+> name *project* contexts (an environment/target binding) rather than
+> server records; an eighth source — the server-level `default_app` — sits
+> below the existing seven. The body below is retained for the record;
+> see ADR 042 for the authoritative chain.
 
 When a command requires `--app` and none is given, resolve in order:
 
@@ -141,15 +133,14 @@ Unresolvable → fail with the chain printed and a one-line fix suggested.
 
 #### D8 — Sticky state: contexts and default app
 
-> **Superseded by ADR 042** (2026-06-01). The vocabulary split below ("context"
-> = server binding) was inverted: under ADR 042, **server records** live in
+> **Superseded by ADR 042.** The vocabulary split below ("context"
+> = server binding) is inverted: under ADR 042, **server records** live in
 > `~/.config/hop3-cli/servers.toml` (managed by `hop3 server`), and **project
 > contexts** are `[contexts.*]` blocks inside each project's `hop3.toml`
 > (managed by `hop3 context` from inside the project tree). The per-server
 > `default_app` survives as the lowest-priority app-resolution source. The
-> per-project context-name selector moved from `.hop3-context` to
-> `.hop3-local.toml [current].context` (the legacy one-liner was retired in
-> ADR 042 Step 7). Body retained for historical record only.
+> per-project context-name selector moves from `.hop3-context` to
+> `.hop3-local.toml [current].context`. Body retained for the record.
 
 - **Active context** lives in `~/.config/hop3-cli/state.toml` (XDG). Set via `hop3 context use <name>`. Overridable per-shell by `HOP3_CONTEXT`, per-project by `hop3.toml [cli].context`.
 - **Context's default app** lives in the same file under `[contexts.<name>].default_app`. `hop3 use <app>` is sugar for setting the current context's default app.
@@ -199,9 +190,9 @@ Help is layered:
 
 Full format specification in `command-catalog.md`.
 
-#### D12 — Shell completion (already implemented; will be re-targeted)
+#### D12 — Shell completion
 
-Static + dynamic completion for bash, zsh, fish. Static completion is bundled; dynamic refresh via `hop3 completion --refresh` fetches the current server's command tree from the `help:commands` RPC and caches at `~/.cache/hop3/commands.txt`. App-name completion (Phase 5) queries the cached app list.
+Static + dynamic completion for bash, zsh, fish. Static completion is bundled; dynamic refresh via `hop3 completion --refresh` fetches the current server's command tree from the `help:commands` RPC and caches at `~/.cache/hop3/commands.txt`. App-name completion queries the cached app list.
 
 Under D1 (space-separated), the `COMP_WORDBREAKS` bash hack is no longer necessary.
 
@@ -280,20 +271,19 @@ Scripts can distinguish user error (2, 10), resolution (3), auth (4, 5), server 
 
 #### D17 — `env` and `addon` are the canonical terms
 
-- **`env`** for environment variables. Canonical commands are `env show/get/set/unset/live/migrate`. `config` remains a full back-compat alias, registered server-side on each command, so `hop3 config set …` keeps working — no breakage for existing scripts or docs.
+- **`env`** for environment variables. Canonical commands are `env show/get/set/unset/live`. `config` is a full back-compat alias, registered server-side on each command, so `hop3 config set …` keeps working — no breakage for existing scripts or docs. Procfile→`hop3.toml` conversion is `app migrate`, not an `env` subcommand: it is not environment management.
 - **`addon`** for backing services. "Service" is overloaded across modern PaaS (means app components in Railway/Render).
 
-> **Amendment (v3.5, 2026-06): `env` made canonical, reversing the original `config`-canonical decision.**
-> The original D17 made `config` canonical (Heroku/Piku lineage) with `env` only a read-only alias for `config show`. We reverse this. The deciding factor the original analysis missed: `config` collides with `hop3.toml` — the app's *configuration file*. `hop3 config show` listing environment variables while "the config" means the TOML file is a genuine naming clash. `env` names exactly what the commands manage (environment variables), and the `config`/`settings` vocabulary is then freed for future app-level settings. `config` is retained as a full alias purely for compatibility.
+`env` is canonical rather than `config` (the Heroku/Piku lineage) because `config` collides with `hop3.toml`, the app's *configuration file*. `hop3 config show` listing environment variables while "the config" means the TOML file is a genuine naming clash. `env` names exactly what the commands manage (environment variables), and the `config`/`settings` vocabulary is then freed for future app-level settings. `config` is retained as a full alias purely for compatibility.
 
 ### Extensibility
 
 #### D18 — Plugin extension: see ADR 039
 
-Plugins register commands, sub-namespaces, top-level namespaces, and aliases. Full design is ADR 039 (planned); key decisions captured in [`plugin-mechanism-todo.md`](../cli/plugin-mechanism-todo.md):
+Plugins register commands, sub-namespaces, top-level namespaces, and aliases. Full design is ADR 039; key decisions captured in [`plugin-mechanism-todo.md`](../cli/plugin-mechanism-todo.md):
 
 - Command name as tuple of tokens.
-- Sub-namespaces under `addon` for addon type-specific operations (`addon postgres diagnose`).
+- Sub-namespaces under `addon` for addon type-specific operations (`addon postgres diagnose`). An addon subcommand must not reuse a top-level verb name with a different meaning — e.g. the per-addon diagnostic is `addon <type> activity`, not `ps`, since top-level `ps` means scaling.
 - Plugin manifest in `pyproject.toml [tool.hop3.plugin]`.
 - Command tree served by `help:commands` RPC (extended with children + positional/flag schema).
 - 3-level depth is a strong guideline; 4+ discouraged but not hard-rejected.
@@ -341,26 +331,6 @@ Format: bracketed `[context / app]` prefix when both resolve, then the state cha
 
 Silent success is permitted only for pure reads (`logs`, `status`, `apps`) and for explicit-quiet mode (`--quiet`).
 
-## Development Plan
-
-Phase order prioritizes error-prevention over character-savings (per the empirical evidence).
-
-```
-Phase 1:   Quick wins
-Phase 2:   Shell completion
-Phase 2.5: Syntax migration (colon→space)
-Phase 2.6: Implicit app + sticky context
-Phase 2.7: Did-you-mean + bare-command help
-Phase 3:   Core alias table
-Phase 4:   Categorized help
-Phase 5:   Dynamic app-name completion
-Phase 6:   User alias config
-Phase 7:   Confirmation prompts standardized
-Phase 8:   Exit code discipline
-```
-
-The migration-release (Phase 2.5) is a single breaking version; old colon forms produce a did-you-mean error that explicitly names the change.
-
 ## Consequences
 
 ### Positive
@@ -407,7 +377,7 @@ The migration-release (Phase 2.5) is a single breaking version; old colon forms 
 
 | Item | Where |
 |------|-------|
-| Plugin extension mechanism | ADR 039 (planned) |
+| Plugin extension mechanism | ADR 039 |
 | Blueprint commands | Deferred until Blueprint feature is designed (ADR 031) |
 | Top-level `pg` / `psql` shortcuts | Users can add via `[aliases]` config; reassess if usage justifies built-in |
 | `ssh` canonical command | Defined as top-level verb in D2; implementation TBD |
@@ -420,7 +390,7 @@ The migration-release (Phase 2.5) is a single breaking version; old colon forms 
 - [ADR 019: CLI Commands](./019-cli-commands.md)
 - [ADR 025: CLI User Experience](./025-cli-user-experience.md)
 - [ADR 031: Project Terminology](./031-project-terminology.md)
-- ADR 039: Plugin CLI Extension (planned; brief at [`plugin-mechanism-todo.md`](../cli/plugin-mechanism-todo.md))
+- ADR 039: Plugin CLI Extension (brief at [`plugin-mechanism-todo.md`](../cli/plugin-mechanism-todo.md))
 
 ### Supporting evidence and data
 - [`notes/cli/README.md`](../cli/README.md) — index

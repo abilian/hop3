@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
@@ -17,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Backups now capture all app data**: volume data and the app `data/` directory are archived (previously volume data could be silently excluded), and restore no longer aborts for apps that use a volume.
-- **`hop3 app destroy` is honest and loud**: it removes the app and all its data (a complete teardown) and warns about the data/volumes it deletes — the previous "preserves data" docstring and dead code did neither.
+- **`hop3 app destroy` now performs a complete teardown**: it removes the app and all its data and warns about the data/volumes it deletes. The previous "preserves data" docstring and dead code did neither.
 
 ## [0.4.0] - TBD
 

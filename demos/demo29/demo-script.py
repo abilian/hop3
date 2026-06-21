@@ -131,7 +131,7 @@ def run(ctx: DemoContext) -> None:
             print_success("Database attached.")
             # Verify env vars were actually set
             print_step("Verifying environment variables...")
-            verify_result = run_hop3(f"app env {APP_NAME}", check=False)
+            verify_result = run_hop3(f"app env --app {APP_NAME}", check=False)
             if verify_result.stdout and "DATABASE_URL" in verify_result.stdout:
                 print_success("DATABASE_URL is set in app environment.")
             else:
@@ -191,7 +191,7 @@ def run(ctx: DemoContext) -> None:
             f"addon detach {DB_NAME} --app {APP_NAME} --service-type mysql",
             check=False,
         )
-        run_hop3(f"addon destroy {DB_NAME} --service-type mysql", check=False)
+        run_hop3(f"addon destroy {DB_NAME} --service-type mysql -y", check=False)
         print_success("Database cleaned up.")
         pause(ctx.pause_between_steps)
     else:

@@ -200,8 +200,8 @@ Addons manage backing services (databases, caches, etc.). They are independent r
 **Location**: `hop3/plugins/{postgresql,mysql,redis}/`
 
 **Required attributes**:
-- `name` (str): Service type (e.g., "postgres", "redis")
-- `service_name` (str): Specific instance name
+- `name` (str): Addon type (e.g., "postgres", "redis")
+- `addon_name` (str): Specific instance name
 
 **Required methods**:
 - `create() -> None`: Create the service instance
@@ -223,13 +223,13 @@ class RedisService:
 
     name = "redis"
 
-    def __init__(self, service_name: str):
-        self.service_name = service_name
+    def __init__(self, *, addon_name: str):
+        self.addon_name = addon_name
 
     def create(self):
         """Create Redis instance."""
         port = self._allocate_port()
-        config_path = Path(f"/home/hop3/services/redis/{self.service_name}.conf")
+        config_path = Path(f"/home/hop3/services/redis/{self.addon_name}.conf")
 
         # Write Redis config
         config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -237,13 +237,13 @@ class RedisService:
 
         # Start Redis with systemd
         subprocess.run([
-            "systemctl", "start", f"redis-{self.service_name}"
+            "systemctl", "start", f"redis-{self.addon_name}"
         ], check=True)
 
     def destroy(self):
         """Destroy Redis instance."""
         subprocess.run([
-            "systemctl", "stop", f"redis-{self.service_name}"
+            "systemctl", "stop", f"redis-{self.addon_name}"
         ])
 
     def get_connection_details(self) -> dict[str, str]:
@@ -258,7 +258,7 @@ class RedisService:
         # Trigger BGSAVE and copy RDB file
         subprocess.run(["redis-cli", "BGSAVE"])
         # ... implementation details
-        return Path(f"/backups/redis-{self.service_name}.rdb")
+        return Path(f"/backups/redis-{self.addon_name}.rdb")
 
     def restore(self, backup_path: Path):
         """Restore from backup."""
@@ -624,7 +624,7 @@ def test_deploy_with_my_plugin(tmp_path):
 ### 1. Strategy Naming
 
 - Use lowercase names: `"python"`, not `"Python"`
-- Be specific: `"docker-compose"` not just `"docker"`
+- Be specific: prefer `"docker-compose"` over the generic `"docker"`
 - Avoid conflicts with existing strategies
 
 ### 2. Error Handling

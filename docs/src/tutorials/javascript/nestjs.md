@@ -373,7 +373,7 @@ hop3 init --ssh root@your-server.example.com
 Deploy the application (first deployment creates the app):
 
 ```bash
-hop3 deploy hop3-tuto-nestjs
+hop3 deploy --app hop3-tuto-nestjs
 ```
 
 ### Set Hostname
@@ -397,7 +397,7 @@ hop3 config set --app hop3-tuto-nestjs ALLOWED_ORIGINS=http://hop3-tuto-nestjs.$
 Redeploy to apply the hostname and environment configuration:
 
 ```bash
-hop3 deploy hop3-tuto-nestjs
+hop3 deploy --app hop3-tuto-nestjs
 ```
 
 Wait for the application to start:

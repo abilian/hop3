@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, ClassVar
 from hop3 import config as c
 from hop3.config import HOP3_ROOT, HOP3_USER
 from hop3.deployers import do_deploy
+from hop3.lib.args import pop_app_flag
 from hop3.lib.logging import server_log
 from hop3.lib.registry import lookup, register
 from hop3.lib.util import CommandError, CommandFailedError, run_command
@@ -57,6 +58,18 @@ class VersionCmd(Command):
 
 
 # --- Plugins Command ---
+
+
+@register
+@dataclass(frozen=True)
+class PluginCmd(Command):
+    """Manage plugins.
+
+    Examples:
+        hop3 plugin list               # List installed plugins
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("plugin",)
 
 
 @register
@@ -101,21 +114,22 @@ class PluginsCmd(Command):
 @register
 @dataclass(frozen=True)
 class PSCmd(Command):
-    """Show process count for an app.
+    """Show process count for an application.
 
     Examples:
-        hop3 ps myapp                  # Show processes for myapp
-        hop3 ps --app myapp            # Same via --app flag
+        hop3 ps --app myapp            # Show processes for myapp
+        hop3 ps                        # app from the current project/context
     """
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("ps",)
 
     def call(self, *args):
-        if not args:
-            msg = "Usage: hop ps <app_name>"
+        app_name, _rest = pop_app_flag(args)
+
+        if app_name is None:
+            msg = "Usage: hop3 ps --app <app>"
             raise ValueError(msg)
-        app_name = args[0]
         app = get_app(self.db_session, app_name)
         scaling_file = app.virtualenv_path / "SCALING"
 
@@ -135,22 +149,23 @@ class PSCmd(Command):
 @register
 @dataclass(frozen=True)
 class PsScaleCmd(Command):
-    """Set the process count (e.g., hop ps scale <app_name> web=2 worker=1).
+    """Set the process count (e.g., hop3 ps scale --app <app> web=2 worker=1).
 
     Examples:
-        hop3 ps scale myapp web=2     # Run 2 web workers
-        hop3 ps scale myapp web=2 worker=1
+        hop3 ps scale --app myapp web=2   # Run 2 web workers
+        hop3 ps scale --app myapp web=2 worker=1
     """
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("ps", "scale")
 
     def call(self, *args):
-        if len(args) < 2:
-            return [text("Usage: hop ps scale <app_name> <type>=<count>...")]
+        app_name, rest = pop_app_flag(args)
 
-        app_name = args[0]
-        settings = args[1:]
+        if app_name is None or not rest:
+            return [text("Usage: hop3 ps scale --app <app> <type>=<count>...")]
+
+        settings = rest
         app = get_app(self.db_session, app_name)
 
         scaling_file = app.virtualenv_path / "SCALING"
@@ -189,22 +204,19 @@ class PsScaleCmd(Command):
 @register
 @dataclass(frozen=True)
 class RunCmd(Command):
-    """Run a one-off command in the context of an app.
+    """Run a one-off command in the context of an application.
 
-    Usage: hop3 app run [<app>] <command> [args...] [--input <data>]
+    Usage: hop3 app run --app <app> <command> [args...] [--input <data>]
 
-    `hop3 run ...` works as a top-level alias. The app is resolved from
-    context when omitted; otherwise give it as the first positional. (run is
-    the one app command that keeps a positional app, since everything after
-    it is the command line to execute, which would make --app ambiguous.)
+    `hop3 run ...` works as a top-level alias. The app is read from the
+    `--app`/`-a` flag; everything that remains is the command line to execute.
 
     Options:
         --input <data>: Data to send to the command's stdin (non-interactive).
 
     Examples:
-        hop3 app run flask db upgrade        # app resolved from context
-        hop3 app run myapp flask db upgrade  # explicit app
-        hop3 run myapp flask users change_password user@example.com --input "newpw"
+        hop3 app run --app myapp flask db upgrade
+        hop3 run --app myapp flask users change_password user@example.com --input "newpw"
     """
 
     db_session: Session
@@ -212,7 +224,12 @@ class RunCmd(Command):
     aliases: ClassVar[list[tuple[str, ...]]] = [("run",)]
 
     def call(self, *args):
-        if len(args) < 2:
+        # Resolve the app from --app. `run` is special: everything that remains
+        # after the flag is the command line to execute.
+        app_name, rest = pop_app_flag(args)
+        args_list = rest
+
+        if app_name is None or not args_list:
             return [
                 text(
                     "Usage: hop run <app_name> <command> [args...] [--input <data>]\n\n"
@@ -222,7 +239,6 @@ class RunCmd(Command):
             ]
 
         # Parse --input option
-        args_list = list(args)
         stdin_data = None
         if "--input" in args_list:
             idx = args_list.index("--input")
@@ -232,8 +248,7 @@ class RunCmd(Command):
             else:
                 return [error("--input requires a value")]
 
-        app_name = args_list[0]
-        cmd_to_run = args_list[1:]
+        cmd_to_run = args_list
         app = get_app(self.db_session, app_name)
 
         # Build complete environment with PATH including virtualenv
@@ -316,20 +331,21 @@ class RunCmd(Command):
 @register
 @dataclass(frozen=True)
 class SbomCmd(Command):
-    """Generate a Software Bill of Materials (SBOM) for an app.
+    """Generate a Software Bill of Materials (SBOM) for an application.
 
     Examples:
-        hop3 app sbom myapp            # Generate an SBOM for myapp
+        hop3 app sbom --app myapp      # Generate an SBOM for myapp
     """
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "sbom")
 
     def call(self, *args):
-        if not args:
-            msg = "Usage: hop app sbom <app_name>"
+        app_name, _rest = pop_app_flag(args)
+
+        if app_name is None:
+            msg = "Usage: hop3 app sbom --app <app>"
             raise ValueError(msg)
-        app_name = args[0]
         app = get_app(self.db_session, app_name)
 
         # This is a Python-specific POC. A real implementation would be pluggable.

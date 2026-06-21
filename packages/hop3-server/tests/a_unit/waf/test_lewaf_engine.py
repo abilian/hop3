@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""LeWAF engine plugin (ADR 048): config generation + registration.
+"""LeWAF engine plugin (ADR 050): config generation + registration.
 
 No `lewaf` import here — the engine's config generation is engine-independent
 (it writes SecLang), so these run on any Python (no waf extra needed)."""

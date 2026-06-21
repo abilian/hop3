@@ -8,7 +8,7 @@ Hop3's architecture is designed to be open and extensible, encouraging community
 
 ## Core Principles and Values
 
-1. **Efficiency Across Environments:** Optimized for performance not only on low-end devices but also in cloud (small to large VM, bare metal) and edge computing environments, ensuring broad accessibility and adaptability.
+1. **Efficiency Across Environments:** Optimized for performance on low-end devices, in cloud environments (small to large VMs, bare metal), and on edge computing platforms, ensuring broad accessibility and adaptability.
 1. **Inclusivity in Technology:** Designed to be accessible to individual developers, hobbyists, K-12 schools, and small to medium enterprises, promoting digital literacy and innovation across diverse communities.
 1. **Simplicity in Code:** Strives for a maintainable codebase through a modular and plugin-oriented architecture, ensuring that each component is easy to understand and maintain. This approach allows developers to focus on specific areas of the platform without being overwhelmed by its entirety, promoting clarity and efficiency in development.
 1. **Minimal Dependencies:** Maintains a lean architecture with minimal external dependencies to ensure reliability, ease of installation, straightforward updates, and software supply chain independence.

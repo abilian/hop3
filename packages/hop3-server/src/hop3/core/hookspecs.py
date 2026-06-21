@@ -98,7 +98,7 @@ def get_proxies() -> list[Proxy]:  # type: ignore[empty-body]
 
 @hookspec
 def get_waf_engines() -> list[WafEngine]:  # type: ignore[empty-body]
-    """Get Layer-7 WAF engines provided by this plugin (ADR 048).
+    """Get Layer-7 WAF engines provided by this plugin (ADR 050).
 
     Returns:
         List of WafEngine classes that compile a per-app `[waf]` policy into

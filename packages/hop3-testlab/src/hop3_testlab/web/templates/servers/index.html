@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-lg font-semibold mb-1">Server pool</h1>
+<p class="text-sm text-gray-500 mb-4">Targets the dispatcher runs builds on. You never pick a server for a build — the queue does.</p>
+
+<table class="w-full text-sm border mb-6">
+  <thead class="bg-gray-100 text-left">
+    <tr>
+      <th class="px-3 py-2">Name</th>
+      <th class="px-3 py-2">Target</th>
+      <th class="px-3 py-2">Kind</th>
+      <th class="px-3 py-2">Enabled</th>
+      <th class="px-3 py-2"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for s in servers %}
+    <tr class="border-t">
+      <td class="px-3 py-2">{{ s.name }}</td>
+      <td class="px-3 py-2 font-mono text-xs">{{ s.target_id }}</td>
+      <td class="px-3 py-2">{{ s.kind }}</td>
+      <td class="px-3 py-2">{{ "yes" if s.enabled else "no" }}</td>
+      <td class="px-3 py-2 text-right whitespace-nowrap">
+        <form method="post" action="/servers/{{ s.id }}/toggle" class="inline">
+          <button class="text-blue-700 hover:underline">{{ "disable" if s.enabled else "enable" }}</button>
+        </form>
+        <form method="post" action="/servers/{{ s.id }}/delete" class="inline ml-3">
+          <button class="text-red-700 hover:underline">delete</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="px-3 py-2 text-gray-400">No servers yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<form method="post" action="/servers" class="flex flex-wrap items-end gap-3 border rounded p-3">
+  <label class="text-sm">Name<br>
+    <input name="name" required class="border rounded px-2 py-1">
+  </label>
+  <label class="text-sm">Target <span class="text-gray-400">(docker / ssh host / hetzner)</span><br>
+    <input name="target_id" required class="border rounded px-2 py-1">
+  </label>
+  <label class="text-sm">Kind<br>
+    <select name="kind" class="border rounded px-2 py-1">
+      <option>docker</option><option>ssh</option><option>hetzner</option>
+    </select>
+  </label>
+  <button class="bg-blue-700 text-white rounded px-3 py-1">Add server</button>
+</form>
+{% endblock %}

@@ -15,10 +15,9 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 import httpx
-from typing_extensions import Self
 
 from hop3_testing.exceptions import DeploymentError, TargetOutOfDiskError
 
@@ -359,7 +358,7 @@ class DeploymentTarget(ABC):
 
             # Deploy via hop3 CLI
             # Read tarball and pipe to hop3 deploy
-            result = self.run_command("deploy", app_name, timeout=timeout)
+            result = self.run_command("deploy", "--app", app_name, timeout=timeout)
 
             duration = time.time() - start_time
 
@@ -404,7 +403,7 @@ class DeploymentTarget(ABC):
         Raises:
             DeploymentError: If destruction fails.
         """
-        result = self.run_command("destroy", app_name)
+        result = self.run_command("destroy", "--app", app_name)
         if not result.success:
             msg = f"Failed to destroy app '{app_name}': {result.stderr}"
             raise DeploymentError(msg)
@@ -493,7 +492,7 @@ class DeploymentTarget(ABC):
         start_time = time.time()
 
         while time.time() - start_time < timeout:
-            result = self.run_command("app", "status", app_name)
+            result = self.run_command("app", "status", "--app", app_name)
             if result.success and "RUNNING" in result.stdout.upper():
                 return True
             time.sleep(poll_interval)

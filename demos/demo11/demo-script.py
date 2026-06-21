@@ -95,7 +95,7 @@ def run(ctx: DemoContext) -> None:
     # Show process status
     print_header("Step 2: View Process Status")
     print_step("Running 'hop3 ps' to see process types...")
-    run_hop3(f"ps {APP_NAME}")
+    run_hop3(f"ps --app {APP_NAME}")
     pause(ctx.pause_between_steps)
 
     # Test the web endpoint
@@ -124,7 +124,7 @@ def run(ctx: DemoContext) -> None:
     # Demonstrate scaling
     print_header("Step 5: Process Scaling")
     print_step("Scaling worker to 2 instances...")
-    result = run_hop3(f"ps scale {APP_NAME} worker=2", check=False)
+    result = run_hop3(f"ps scale --app {APP_NAME} worker=2", check=False)
     if result.returncode == 0:
         print_success("Worker scaled to 2 instances.")
     else:
@@ -133,12 +133,12 @@ def run(ctx: DemoContext) -> None:
 
     # Show updated process status
     print_step("Checking updated process status...")
-    run_hop3(f"ps {APP_NAME}")
+    run_hop3(f"ps --app {APP_NAME}")
     pause(ctx.pause_between_steps)
 
     # Scale back down
     print_step("Scaling worker back to 1 instance...")
-    run_hop3(f"ps scale {APP_NAME} worker=1", check=False)
+    run_hop3(f"ps scale --app {APP_NAME} worker=1", check=False)
 
     # Cleanup
     cleanup_app(ctx, APP_NAME, app_url)

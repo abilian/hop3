@@ -120,7 +120,7 @@ def _persist_pytest_bundle(app: str, bundle: Any) -> None:
 @pytest.fixture(scope="session")
 def docker_client(
     tmp_path_factory: pytest.TempPathFactory,
-) -> Generator[docker.DockerClient, None, None]:
+) -> Generator[docker.DockerClient]:
     """Provide a Docker client for tests.
 
     Point ``DOCKER_CONFIG`` at a copy of the user's config with the
@@ -354,7 +354,7 @@ def _stop_hop3_container(info: dict[str, Any]) -> None:
 @pytest.fixture(scope="class")
 def hop3_container(
     docker_client: docker.DockerClient, hop3_image: str
-) -> Generator[dict[str, Any], None, None]:
+) -> Generator[dict[str, Any]]:
     """Start a hop3 container for E2E tests.
 
     Scope: class - new container for each test class.
@@ -374,7 +374,7 @@ def hop3_container(
 @pytest.fixture(scope="class")
 def hop3_container_pair(
     hop3_image: str,
-) -> Generator[tuple[Any, Any], None, None]:
+) -> Generator[tuple[Any, Any]]:
     """Yield two independent ``DockerTarget`` instances (A, B) for migration tests.
 
     Both targets are built from the pre-built ``hop3-e2e:test`` image (the

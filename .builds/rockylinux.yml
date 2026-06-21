@@ -6,9 +6,6 @@ image: rockylinux/latest
 
 packages:
   # Python
-  - python3.11
-  - python3.11-pip
-  - python3.11-devel
   - python3.12
   - python3.12-pip
   - python3.12-devel

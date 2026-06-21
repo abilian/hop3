@@ -304,9 +304,7 @@ interval = 60
 
 ## Step 6: Initialize Git Repository
 
-Hop3 deploys the committed contents of a Git repository. Ignore `node_modules`
-and the build output (they're rebuilt on the server, and `node_modules`'
-symlinks can't be archived), then commit:
+Hop3 deploys the committed contents of a Git repository. Ignore `node_modules` and the build output (they're rebuilt on the server, and `node_modules`' symlinks can't be archived), then commit:
 
 ```file path=hop3-tuto-astro/.gitignore
 node_modules/
@@ -338,7 +336,7 @@ hop3 init --ssh root@your-server.example.com
 Deploy the application (first deployment creates the app):
 
 ```bash exec id=deploy dir=hop3-tuto-astro timeout=120
-hop3 deploy hop3-tuto-astro
+hop3 deploy --app hop3-tuto-astro
 ```
 
 ```output contains
@@ -366,7 +364,7 @@ sleep 5
 Redeploy to apply the hostname configuration:
 
 ```bash exec id=redeploy dir=hop3-tuto-astro timeout=120
-hop3 deploy hop3-tuto-astro
+hop3 deploy --app hop3-tuto-astro
 ```
 
 ```output contains

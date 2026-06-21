@@ -190,6 +190,30 @@ def test_help_all_flat_hints_at_verbose():
     assert "FULL HELP" not in text
 
 
+def test_help_all_lists_aliases_with_alias_marker():
+    """`hop help --all` lists aliases tagged [alias], pointing at the canonical."""
+    cmd = HelpCmd()
+    text = cmd.call("--all")[0]["text"]
+    lines = [ln.strip() for ln in text.split("\n")]
+
+    # A top-level alias: `logs` -> `app logs`.
+    logs_alias = next((ln for ln in lines if ln.startswith("logs ")), None)
+    assert logs_alias is not None, "expected the `logs` alias to be listed"
+    assert "[alias]" in logs_alias
+    assert "app logs" in logs_alias  # points at the canonical spelling
+
+    # A namespaced rename alias: `domains` -> `domain`.
+    domains_alias = next((ln for ln in lines if ln.startswith("domains ")), None)
+    assert domains_alias is not None, "expected the `domains` alias to be listed"
+    assert "[alias]" in domains_alias
+    assert "domain" in domains_alias
+
+    # The canonical still shows with its namespace marker, never [alias].
+    app_logs = next((ln for ln in lines if ln.startswith("app logs ")), None)
+    assert app_logs is not None
+    assert "[app]" in app_logs
+
+
 def test_help_all_verbose_aggregates_full_help():
     """`hop help --all -v` aggregates the full help for every command.
 

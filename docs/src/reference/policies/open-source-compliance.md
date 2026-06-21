@@ -115,7 +115,7 @@ Effective communication and awareness are essential to ensure that all team memb
     *   Common pitfalls and how to avoid them.
 *   Use **visual aids** like infographics, flowcharts, and videos to simplify complex compliance concepts and workflows.
 
-By embedding communication and awareness into its organizational practices, the Hop3 Programme ensures that the Open Source Policy is not only understood but actively embraced by all team members. This approach fosters a culture of accountability, collaboration, and continuous improvement, which are essential for effective open source compliance.
+By embedding communication and awareness into its organizational practices, the Hop3 Programme ensures that all team members understand the Open Source Policy and actively embrace it. This approach fosters a culture of accountability, collaboration, and continuous improvement, which are essential for effective open source compliance.
 
 ### Roles and Responsibilities
 

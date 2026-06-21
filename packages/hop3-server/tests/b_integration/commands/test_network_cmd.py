@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""`hop3 network` — operator-defined named networks for WAF gates (ADR 048 §2)."""
+"""`hop3 network` — operator-defined named networks for WAF gates (ADR 050 §2)."""
 
 from __future__ import annotations
 

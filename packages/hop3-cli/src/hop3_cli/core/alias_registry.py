@@ -282,6 +282,7 @@ def cached_subcommand_index() -> dict[str, set[str]]:
             "debug",
             "ping",
             "build-logs",
+            "migrate",
             "start",
             "stop",
             "restart",

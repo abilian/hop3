@@ -124,17 +124,14 @@ Testing utilities and fixtures for E2E testing.
 
 The packages communicate through well-defined interfaces:
 
-```
-┌─────────────┐         ┌─────────────────┐
-│  hop3-cli   │──JSON───│   hop3-server   │
-│  hop3-tui   │  -RPC   │                 │
-└─────────────┘         └─────────────────┘
-        │                       │
-        │                       │
-┌───────▼───────┐       ┌───────▼───────┐
-│ hop3-installer│       │ hop3-testing  │
-│ (deploys both)│       │ (tests both)  │
-└───────────────┘       └───────────────┘
+```mermaid
+flowchart TD
+    cli["hop3-cli"] -->|JSON-RPC| server["hop3-server"]
+    tui["hop3-tui"] -->|JSON-RPC| server
+    installer["hop3-installer<br/>(deploys both)"] -.deploys.-> cli
+    installer -.deploys.-> server
+    testing["hop3-testing<br/>(tests both)"] -.tests.-> cli
+    testing -.tests.-> server
 ```
 
 - **CLI/TUI → Server**: JSON-RPC over SSH tunnel or HTTPS

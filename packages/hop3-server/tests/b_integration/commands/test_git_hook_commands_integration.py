@@ -108,7 +108,7 @@ class TestGitHookCmdIntegration:
         """
         cmd = GitHookCmd(db_session=db_session)
 
-        result = cmd.call("nonexistent-app")
+        result = cmd.call("--app", "nonexistent-app")
 
         assert len(result) == 1
         assert result[0]["t"] == "error"
@@ -132,7 +132,7 @@ class TestGitHookCmdIntegration:
 
         with patch("sys.stdin") as mock_stdin:
             mock_stdin.read.return_value = ""
-            result = cmd.call("test-app")
+            result = cmd.call("--app", "test-app")
 
         assert len(result) == 1
         assert result[0]["t"] == "error"
@@ -158,7 +158,7 @@ class TestGitHookCmdIntegration:
 
         with patch("sys.stdin") as mock_stdin:
             mock_stdin.read.return_value = "invalid data"
-            result = cmd.call("test-app")
+            result = cmd.call("--app", "test-app")
 
         assert len(result) == 1
         assert result[0]["t"] == "error"
@@ -195,7 +195,7 @@ class TestGitHookCmdIntegration:
         ):
             mock_stdin.read.return_value = push_data
 
-            result = cmd.call("test-app")
+            result = cmd.call("--app", "test-app")
 
             # Verify deployment was triggered
             mock_deploy.assert_called_once()
@@ -279,7 +279,7 @@ bb563327e2c4f5af8g7g09552gb67057eecde7b25 79g8bcg5f7g033918900g63cd054fce42c80g9
         ):
             mock_stdin.read.return_value = push_data
 
-            result = cmd.call("test-app")
+            result = cmd.call("--app", "test-app")
 
             # Should process only the first ref (master)
             mock_extract.assert_called_once()
@@ -322,7 +322,7 @@ bb563327e2c4f5af8g7g09552gb67057eecde7b25 79g8bcg5f7g033918900g63cd054fce42c80g9
 
             # command_context raises ValueError for JSON-RPC error handling
             with pytest.raises(ValueError) as exc_info:
-                cmd.call("test-app")
+                cmd.call("--app", "test-app")
 
             assert "missing dependencies" in str(exc_info.value)
 
@@ -353,7 +353,7 @@ bb563327e2c4f5af8g7g09552gb67057eecde7b25 79g8bcg5f7g033918900g63cd054fce42c80g9
         ):
             mock_stdin.read.return_value = push_data
 
-            result = cmd.call("test-app")
+            result = cmd.call("--app", "test-app")
 
             # Verify deployment succeeds with develop branch
             assert len(result) == 2
@@ -457,7 +457,7 @@ bb563327e2c4f5af8g7g09552gb67057eecde7b25 79g8bcg5f7g033918900g63cd054fce42c80g9
         ):
             mock_stdin.read.return_value = push_data
 
-            result = cmd.call("test-app")
+            result = cmd.call("--app", "test-app")
 
             assert len(result) == 2
             assert "Deployment successful" in result[0]["text"]
@@ -494,7 +494,7 @@ bb563327e2c4f5af8g7g09552gb67057eecde7b25 79g8bcg5f7g033918900g63cd054fce42c80g9
         ):
             mock_stdin.read.return_value = push_data
 
-            result = cmd.call("test-app")
+            result = cmd.call("--app", "test-app")
 
             output_text = " ".join(r["text"] for r in result)
             assert short_sha in output_text

@@ -10,6 +10,7 @@ import pytest
 
 from hop3.di import create_container
 from hop3.lib.config import Config
+from hop3.plugins.redis import redis as redis_mod
 from hop3.plugins.redis.factory import RedisClientFactory
 
 
@@ -21,6 +22,30 @@ def test_redis_factory_from_config():
     assert factory.host == "127.0.0.1"
     assert factory.port == 6379
     assert factory.max_connections == 50
+
+
+def test_redis_factory_loads_password_from_file_when_env_unset(monkeypatch):
+    """The requirepass password lives in /etc/hop3/redis-pass, not REDIS_PASSWORD.
+
+    Regression: the `system status` Redis health check connected with no
+    password and an auth-enabled Redis rejected it ("HELLO must be called ...
+    authenticated"). from_config must fall back to the password file.
+    """
+    monkeypatch.setattr(redis_mod, "_load_redis_password", lambda: "filepass")
+    monkeypatch.delenv("REDIS_PASSWORD", raising=False)
+
+    factory = RedisClientFactory.from_config(Config(env_prefix="REDIS_"))
+    assert factory.password == "filepass"
+    assert factory.get_connection_params()["password"] == "filepass"
+
+
+def test_redis_factory_env_password_overrides_file(monkeypatch):
+    """An explicit REDIS_PASSWORD still wins over the password file."""
+    monkeypatch.setattr(redis_mod, "_load_redis_password", lambda: "filepass")
+    monkeypatch.setenv("REDIS_PASSWORD", "envpass")
+
+    factory = RedisClientFactory.from_config(Config(env_prefix="REDIS_"))
+    assert factory.password == "envpass"
 
 
 def test_redis_factory_get_connection_params():

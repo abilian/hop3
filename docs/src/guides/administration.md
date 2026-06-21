@@ -11,12 +11,12 @@ This guide covers server administration tasks for Hop3 operators, including inst
 | CPU | 1 core | 2+ cores |
 | RAM | 1 GB | 4+ GB |
 | Disk | 20 GB | 50+ GB SSD |
-| OS | Debian 12, Ubuntu 22.04+ | Debian 12 |
+| OS | Debian 12, Ubuntu 24.04+ | Debian 12 |
 
 ### Supported Operating Systems
 
 - **Debian** 12 (Bookworm) - Recommended
-- **Ubuntu** 22.04 LTS, 24.04 LTS
+- **Ubuntu** 24.04 LTS, 26.04 LTS
 - **Rocky Linux** 9
 - **NixOS** (experimental)
 
@@ -62,7 +62,7 @@ See the [Server Setup Guide](../get-started/server-setup.md) for complete instal
 
 ```bash
 # Check system health
-hop3 system check
+hop3 system status
 
 # View service status
 systemctl status hop3-server
@@ -78,19 +78,17 @@ systemctl status uwsgi-hop3
 /home/hop3/                    # HOP3_ROOT
 ├── apps/                      # Application deployments
 │   └── myapp/
-│       ├── src/               # Source code
-│       ├── venv/              # Virtual environment
-│       └── BUILD_ARTIFACT.json
-├── repos/                     # Git repositories (bare)
-│   └── myapp.git/
-├── .config/                   # Configuration
-│   └── hop3/
-│       └── server.toml
-└── logs/                      # Application logs
-
-/var/log/hop3/                 # Server logs
-/etc/nginx/sites-enabled/      # Nginx configurations
-/etc/uwsgi-hop3/               # uWSGI configurations
+│       ├── git/               # Bare git repository
+│       ├── src/               # Checked-out source code
+│       ├── data/              # Persistent data
+│       ├── log/               # Log files
+│       └── venv/              # Virtual environment (if applicable)
+├── nginx/                     # Nginx configs and certs
+├── uwsgi-available/           # uWSGI configs
+├── uwsgi-enabled/             # Active uWSGI configs (symlinks)
+├── backups/                   # Application backups
+├── hop3-server.toml           # Server configuration
+└── hop3.db                    # SQLite database
 ```
 
 ---
@@ -99,40 +97,32 @@ systemctl status uwsgi-hop3
 
 ### Server Configuration
 
-**Location:** `/home/hop3/.config/hop3/server.toml`
+**Location:** `/home/hop3/hop3-server.toml`
+
+The server reads top-level keys from this file (each key is also overridable by an environment variable of the same name). It is a flat key/value file — there are no `[section]` tables for these settings.
 
 ```toml
-[server]
-host = "0.0.0.0"
-port = 8000
-debug = false
+HOP3_SECRET_KEY = "your-secret-key-here"
+HOP3_TOKEN_EXPIRY_HOURS = 24
+HOP3_PROXY_TYPE = "nginx"            # nginx, caddy, or traefik
+HOP3_LOG_LEVEL = "INFO"
 
-[database]
-url = "sqlite:////home/hop3/.config/hop3/hop3.db"
+# Addon superuser credentials
+POSTGRES_SUPERUSER = "postgres"
+POSTGRES_SUPERUSER_PASSWORD = "your-postgres-password"
 
-[security]
-secret_key = "your-secret-key-here"
-jwt_algorithm = "HS256"
-token_expiry_hours = 24
+MYSQL_SUPERUSER = "root"
+MYSQL_SUPERUSER_PASSWORD = "your-mysql-password"
 
-[addons.postgres]
-superuser = "postgres"
-superuser_password = "your-postgres-password"
-
-[addons.mysql]
-superuser = "root"
-superuser_password = "your-mysql-password"
-
-[addons.redis]
-host = "localhost"
-port = 6379
+REDIS_HOST = "localhost"
+REDIS_PORT = 6379
 ```
 
 ### Nginx Configuration
 
 Hop3 automatically manages Nginx configurations. Manual changes are not recommended.
 
-**Application configs:** `/etc/nginx/sites-enabled/<appname>.conf`
+**Application configs:** `/home/hop3/nginx/<appname>.conf`
 **Main config:** `/etc/nginx/nginx.conf`
 
 To reload Nginx after manual changes:
@@ -164,20 +154,16 @@ hop3-server admin:create admin admin@example.com
 # Enter password when prompted
 ```
 
-Then configure your local CLI:
+Then register the server in your local CLI (the printed token is the API token):
 ```bash
-hop3 settings set server https://your-server.com
-hop3 settings set token <paste-token-here>
+hop3 server add prod --url https://your-server.com --token <paste-token-here>
 ```
 
 ### Generating API Tokens
 
 ```bash
-# Generate token for automation (run on server)
-hop3-server admin:token --username admin
-
-# Token with custom expiry (hours)
-hop3-server admin:token --username admin --expiry 168
+# Generate a token for an existing user (run on server)
+hop3-server admin:token admin
 ```
 
 ### Listing Users
@@ -205,20 +191,17 @@ hop3 addon destroy mydb                # Delete (requires confirmation)
 
 ### Server Configuration
 
-Configure addon credentials in `/home/hop3/.config/hop3/server.toml`:
+Configure addon credentials as flat keys in `/home/hop3/hop3-server.toml`:
 
 ```toml
-[addons.postgres]
-superuser = "postgres"
-superuser_password = "secure-password"
+POSTGRES_SUPERUSER = "postgres"
+POSTGRES_SUPERUSER_PASSWORD = "secure-password"
 
-[addons.mysql]
-superuser = "root"
-superuser_password = "secure-password"
+MYSQL_SUPERUSER = "root"
+MYSQL_SUPERUSER_PASSWORD = "secure-password"
 
-[addons.redis]
-host = "localhost"
-port = 6379
+REDIS_HOST = "localhost"
+REDIS_PORT = 6379
 ```
 
 ---
@@ -235,10 +218,10 @@ Hop3 automatically provisions SSL certificates via Let's Encrypt when:
 
 ```bash
 # Configure hostname
-hop3 config set myapp HOST_NAME=myapp.example.com
+hop3 config set --app myapp HOST_NAME=myapp.example.com
 
 # Redeploy to provision certificate
-hop3 deploy myapp
+hop3 deploy --app myapp
 ```
 
 ### Manual Certificate Installation
@@ -271,11 +254,11 @@ sudo certbot renew --dry-run
 ### System Health Check
 
 ```bash
-# Comprehensive health check
-hop3 system check
+# Comprehensive health report (services, addons, disk, certs)
+hop3 system status
 
-# Verbose output with details
-hop3 system check --verbose
+# One-line summary, suitable for scripting
+hop3 system status --quiet
 ```
 
 Checks performed:
@@ -292,24 +275,27 @@ Checks performed:
 hop3 apps
 
 # Detailed app info
-hop3 app status myapp
+hop3 app status --app myapp
 ```
 
 ### Log Monitoring
 
 ```bash
 # View application logs
-hop3 app logs myapp
-
-# Follow logs in real-time
-hop3 app logs myapp --follow
+hop3 app logs --app myapp
 
 # View last N lines
-hop3 app logs myapp --lines 100
+hop3 app logs --app myapp --lines 100
+
+# Filter to lines matching a pattern
+hop3 app logs --app myapp --grep error
+
+# Only the logs since the last deployment
+hop3 app logs --app myapp --since-deploy
 
 # System-wide logs
 hop3 system logs
-hop3 system logs --follow
+hop3 system logs --lines 100
 ```
 
 ### Process Monitoring
@@ -331,9 +317,9 @@ For application-level backups, see the **[Backup and Restore Guide](backup-resto
 ### Application Backups
 
 ```bash
-hop3 backup create myapp     # Create app backup
-hop3 backup list myapp       # List backups
-hop3 backup restore <id>     # Restore from backup
+hop3 backup create --app myapp   # Create app backup
+hop3 backup list myapp           # List backups for an app
+hop3 backup restore <id>         # Restore from backup
 ```
 
 ### Full Server Backup
@@ -342,9 +328,9 @@ For disaster recovery, backup these directories:
 
 | Path | Contents |
 |------|----------|
-| `/home/hop3/apps/` | Application deployments |
-| `/home/hop3/.config/hop3/` | Configuration and database |
-| `/home/hop3/repos/` | Git repositories |
+| `/home/hop3/apps/` | Application deployments (source, venv, and bare git repo) |
+| `/home/hop3/hop3-server.toml` | Server configuration |
+| `/home/hop3/hop3.db` | SQLite database |
 
 Example server backup script:
 ```bash
@@ -353,7 +339,7 @@ BACKUP_DIR="/backups/hop3/$(date +%Y-%m-%d)"
 mkdir -p "$BACKUP_DIR"
 
 tar -czf "$BACKUP_DIR/apps.tar.gz" /home/hop3/apps/
-tar -czf "$BACKUP_DIR/config.tar.gz" /home/hop3/.config/hop3/
+cp /home/hop3/hop3-server.toml /home/hop3/hop3.db "$BACKUP_DIR/"
 sudo -u postgres pg_dumpall | gzip > "$BACKUP_DIR/postgres.sql.gz"
 ```
 
@@ -362,7 +348,7 @@ sudo -u postgres pg_dumpall | gzip > "$BACKUP_DIR/postgres.sql.gz"
 1. Install Hop3 on new server
 2. Restore configuration and database files
 3. Restore application directories
-4. Redeploy applications: `hop3 deploy myapp`
+4. Redeploy applications: `hop3 deploy --app myapp`
 
 ---
 
@@ -429,8 +415,8 @@ Each application runs:
 
 Edit application's uWSGI config or set via environment:
 ```bash
-hop3 config set myapp UWSGI_WORKERS=4
-hop3 config set myapp UWSGI_THREADS=2
+hop3 config set --app myapp UWSGI_WORKERS=4
+hop3 config set --app myapp UWSGI_THREADS=2
 ```
 
 ### Nginx Optimization
@@ -518,19 +504,19 @@ docker network create test-network && docker network rm test-network
 
 ```bash
 # Check application logs
-hop3 app logs myapp --lines 50
+hop3 app logs --app myapp --lines 50
 
 # Check uWSGI status
 systemctl status uwsgi-hop3
 
 # Verify environment variables
-hop3 config show myapp
+hop3 config show --app myapp
 ```
 
 #### 502 Bad Gateway
 
 1. Check if application is running: `hop3 apps`
-2. Check application logs: `hop3 app logs myapp`
+2. Check application logs: `hop3 app logs --app myapp`
 3. Verify Nginx config: `sudo nginx -t`
 4. Check uWSGI socket: `ls -la /tmp/uwsgi-*.sock`
 
@@ -541,10 +527,10 @@ hop3 config show myapp
 hop3 addon list
 
 # Check DATABASE_URL is set
-hop3 config show myapp | grep DATABASE
+hop3 config show --app myapp | grep DATABASE
 
-# Test database connection
-hop3 system check --verbose
+# Re-check server health (services and addons)
+hop3 system status
 ```
 
 #### SSL Certificate Issues
@@ -570,8 +556,8 @@ hop3 <command> --help
 # System information
 hop3 system info
 
-# Diagnostic information
-hop3 system check --verbose
+# Health report with diagnostics
+hop3 system status
 ```
 
 ---
@@ -582,7 +568,7 @@ hop3 system check --verbose
 
 **Daily:**
 - Monitor disk space: `df -h`
-- Check application health: `hop3 system check`
+- Check server health: `hop3 system status`
 
 **Weekly:**
 - Review logs for errors
@@ -598,15 +584,12 @@ hop3 system check --verbose
 ### Updating Hop3
 
 ```bash
-# Check current version
-hop3 --version
+# Check the running server version
+hop3 system info
 
-# Update Hop3 server
-pip install --upgrade hop3-server
-
-# Restart services
-sudo systemctl restart hop3-server
-sudo systemctl restart uwsgi-hop3
+# Update Hop3 server by re-running the installer (idempotent: it preserves
+# operator config and secrets, and restarts the services)
+curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 ```
 
 ### Log Rotation
@@ -642,21 +625,21 @@ sudo systemctl restart systemd-journald
 
 | Purpose | Location |
 |---------|----------|
-| Server config | `/home/hop3/.config/hop3/server.toml` |
-| Database | `/home/hop3/.config/hop3/hop3.db` |
+| Server config | `/home/hop3/hop3-server.toml` |
+| Database | `/home/hop3/hop3.db` |
 | Applications | `/home/hop3/apps/` |
-| Git repos | `/home/hop3/repos/` |
-| Nginx configs | `/etc/nginx/sites-enabled/` |
-| uWSGI configs | `/etc/uwsgi-hop3/` |
-| Server logs | `/var/log/hop3/` |
+| Git repos | `/home/hop3/apps/<name>/git/` |
+| Nginx configs | `/home/hop3/nginx/` |
+| uWSGI configs | `/home/hop3/uwsgi-available/`, `/home/hop3/uwsgi-enabled/` |
+| Application logs | `/home/hop3/apps/<name>/log/` |
 | SSL certs | `/etc/letsencrypt/live/` |
 
 ### Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `HOP3_ROOT` | Base directory (`/home/hop3`) |
-| `HOP3_CONFIG` | Config file path |
+| `HOP3_ROOT` | Base directory (`/home/hop3`); the config file is `$HOP3_ROOT/hop3-server.toml` |
+| `HOP3_LOG_LEVEL` | Server log level (default: `INFO`) |
 | `HOP3_UNSAFE` | Disable auth (testing only) |
 | `HOP3_DEBUG` | Enable debug logging |
 

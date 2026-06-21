@@ -130,6 +130,27 @@ class HopConfig:
         """Reverse proxy type: nginx, caddy, traefik."""
         return self._config_loader.get_str("HOP3_PROXY_TYPE", "nginx")
 
+    # Server identity / addon exposure
+
+    @property
+    def ADMIN_DOMAIN(self) -> str:
+        """Server's canonical public domain (the admin Web UI / HTTPS client).
+
+        Written to ``hop3-server.toml`` by the installer from ``--admin-domain``
+        / ``HOP3_DOMAIN``. Reused as the external host in ``hop3 addon expose``
+        URLs. Empty when the server was set up without a domain.
+        """
+        return self._config_loader.get_str("ADMIN_DOMAIN", "")
+
+    @property
+    def EXPOSE_DEFAULT_SOURCE(self) -> str:
+        """Default firewall source scope for ``hop3 addon expose`` (CIDR / 'any').
+
+        Empty (the default) means ``--source`` is required — there is no silent
+        public exposure. Set a CIDR here to make it the per-server default.
+        """
+        return self._config_loader.get_str("EXPOSE_DEFAULT_SOURCE", "")
+
     # ACME Configuration
 
     @property
@@ -169,6 +190,18 @@ class HopConfig:
         real issuance without consuming the production rate limit.
         """
         return self._config_loader.get_str("ACME_SERVER", "")
+
+    @property
+    def CATALOG_SOURCE_URL(self) -> str:
+        """HTTPS URL of the signed catalog tarball (ADR 049).
+
+        The node fetches this, verifies its signature against the compiled-in
+        catalog public key, and loads the verified contents. Override for staging
+        or an air-gapped mirror.
+        """
+        return self._config_loader.get_str(
+            "CATALOG_SOURCE_URL", "https://apps.hop3.cloud/catalog/catalog.tar.gz"
+        )
 
     # Resource limits (ADR 046 §3 / P2.2)
     #
@@ -277,6 +310,25 @@ class HopConfig:
         return self.HOP3_ROOT / "cache"
 
     @property
+    def CATALOG_ROOT(self) -> Path:
+        """Verified catalog directory (ADR 049).
+
+        A symlink to the active versioned ``catalog-<serial>/`` dir, flipped
+        atomically by the catalog sync. Managed by sync, not pre-created as a
+        plain dir at setup.
+        """
+        return self.HOP3_ROOT / "catalog"
+
+    @property
+    def CATALOG_STATE_ROOT(self) -> Path:
+        """Write-protected catalog state (ADR 049 F4).
+
+        Holds the anti-rollback serial high-water-mark, kept *outside*
+        ``CATALOG_ROOT`` so a catalog swap/teardown cannot reset it.
+        """
+        return self.HOP3_ROOT / "catalog-state"
+
+    @property
     def CADDY_ROOT(self) -> Path:
         """Caddy configuration directory."""
         return self.HOP3_ROOT / "caddy"
@@ -311,7 +363,7 @@ class HopConfig:
         """ACME challenge directory."""
         return self.HOP3_ROOT / "acme"
 
-    # WAF Configuration (ADR 048)
+    # WAF Configuration (ADR 050)
 
     @property
     def WAF_ROOT(self) -> Path:
@@ -339,6 +391,7 @@ class HopConfig:
             self.UWSGI_AVAILABLE,
             self.UWSGI_ENABLED,
             self.NGINX_ROOT,
+            self.CATALOG_STATE_ROOT,
         ]
 
     # Constants
@@ -433,6 +486,11 @@ ACME_EMAIL: str = config.ACME_EMAIL
 ACME_SERVER: str = config.ACME_SERVER
 ACME_WWW: Path = config.ACME_WWW
 
+# Catalog (ADR 049)
+CATALOG_SOURCE_URL: str = config.CATALOG_SOURCE_URL
+CATALOG_ROOT: Path = config.CATALOG_ROOT
+CATALOG_STATE_ROOT: Path = config.CATALOG_STATE_ROOT
+
 # Constants
 CRON_REGEXP: str = config.CRON_REGEXP
 ROOT_DIRS: list[Path] = config.ROOT_DIRS
@@ -473,6 +531,10 @@ __all__ = [  # noqa: RUF022
     "ACME_EMAIL",
     "ACME_SERVER",
     "ACME_WWW",
+    # Catalog
+    "CATALOG_SOURCE_URL",
+    "CATALOG_ROOT",
+    "CATALOG_STATE_ROOT",
     # Constants
     "CRON_REGEXP",
     "ROOT_DIRS",

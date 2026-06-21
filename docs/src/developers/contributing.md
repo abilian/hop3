@@ -186,7 +186,7 @@ For comprehensive testing documentation, see:
 
 ## Continuous Integration
 
-Hop3 runs CI on [SourceHut builds](https://builds.sr.ht/), driven by the manifests under `.builds/` (one per target distro, e.g. `ubuntu2404.yml`, `nixos.yml`). All pull requests should pass these checks before being merged.
+Hop3 runs CI on [SourceHut builds](https://builds.sr.ht/), driven by the manifests under `.builds/` (one per target distro, e.g. `ubuntu2404.yml`, `rockylinux.yml`). All pull requests should pass these checks before being merged.
 
 ### Test Runners
 
@@ -222,16 +222,16 @@ When developing CLI commands or modifying server responses, follow these message
 
 ### Message Format
 
-All CLI output is formatted as a list of message dictionaries. Each message has a `"t"` (type) field that determines how it's rendered:
+All CLI output is formatted as a list of message dictionaries. Each message has a `"t"` (type) field that determines how it's rendered. A command's `call()` method returns a plain `list` of these dictionaries, built with the helper functions in `hop3.commands._response`:
 
 ```python
-from hop3.core.result import ok
+from hop3.commands._response import success, table
 
 # Return a list of messages
-return ok([
-    {"t": "success", "text": "Operation completed successfully"},
-    {"t": "table", "headers": ["App", "Status"], "rows": [["myapp", "RUNNING"]]},
-])
+return [
+    success("Operation completed successfully"),
+    table(headers=["App", "Status"], rows=[["myapp", "RUNNING"]]),
+]
 ```
 
 ### Available Message Types
@@ -398,10 +398,12 @@ Data displayed in a formatted table.
 
 Here's a complete example of a well-formatted command response:
 
-```python
-from hop3.core.result import ok
+Helpers exist in `hop3.commands._response` for the common types (`text`, `success`, `error`, `warning`, `table`, `code`, `summary`, `data`, `blob`, `log_entry`, `stream`). Types without a helper (`info`, `progress`, `panel`) are emitted as literal dictionaries.
 
-def backup_create(app_name: str) -> dict:
+```python
+from hop3.commands._response import success, error
+
+def backup_create(app_name: str) -> list:
     """Create a backup of an application."""
     try:
         # Show progress
@@ -413,10 +415,7 @@ def backup_create(app_name: str) -> dict:
         backup_id = perform_backup(app_name)
 
         # Success message
-        messages.append({
-            "t": "success",
-            "text": "Backup created successfully"
-        })
+        messages.append(success("Backup created successfully"))
 
         # Summary panel
         messages.append({
@@ -432,13 +431,10 @@ def backup_create(app_name: str) -> dict:
             "text": f"To restore: hop3 backup restore {backup_id}"
         })
 
-        return ok(messages)
+        return messages
 
     except Exception as e:
-        return ok([{
-            "t": "error",
-            "text": f"Failed to create backup: {e}"
-        }])
+        return [error(f"Failed to create backup: {e}")]
 ```
 
 ### JSON Output Mode
@@ -484,13 +480,13 @@ In quiet mode (`--quiet`), most message types are suppressed:
 ### Implementation Reference
 
 The message type system is implemented in:
-- **Server:** `packages/hop3-server/src/hop3/core/result.py` - Result helpers
-- **CLI:** `packages/hop3-cli/src/hop3_cli/rich_printer.py` - Message rendering
+- **Server:** `packages/hop3-server/src/hop3/commands/_response.py` - Response builder helpers
+- **CLI:** `packages/hop3-cli/src/hop3_cli/ui/rich_printer.py` - Message rendering
 
-**Key classes:**
-- `RichPrinter` - Renders messages with Rich library
-- `ok()` function - Creates successful result with messages
-- `error()` function - Creates error result with messages
+**Key components:**
+- `RichPrinter` - Renders messages with the Rich library
+- `text()`, `success()`, `error()`, `warning()`, `table()`, ... - Build individual response items
+- A command's `call()` method returns a plain `list` of these items
 
 ### Testing Message Types
 
@@ -499,10 +495,7 @@ When writing tests for commands, verify message types:
 ```python
 def test_backup_create_success():
     """Test backup creation shows correct messages."""
-    result = backup_create("myapp")
-
-    assert result["status"] == "success"
-    messages = result["data"]
+    messages = backup_create("myapp")
 
     # Check for progress message
     assert any(msg["t"] == "progress" for msg in messages)

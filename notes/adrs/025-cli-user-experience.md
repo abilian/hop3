@@ -3,14 +3,9 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2025-11-08
-**Updated**: 2026-04-22
 **Related-ADRs**: 018, 019, 024, 034, 036
 
-## Revisions
-
-- v1.2: Historical CLI examples migrated from colon syntax (e.g., `hop3 backup:delete`, `hop3 services:destroy`) to space form (`hop3 backup destroy`, `hop3 addon destroy`) per ADR 036 (2026-04-22).
-- v1.1: Status refreshed. Core UX improvements (confirmations on destructive actions, structured output with message types, streaming via ADR 034) are shipped. Help-text conventions and error-recovery hints are tracked separately in ADR 036 (2026-04-14).
-- v1.0: Original final version (2025-11-08)
+Command syntax uses the space form (`hop3 backup destroy`, `hop3 addon destroy`) rather than the colon form (`hop3 backup:delete`, `hop3 services:destroy`), per [036-cli-ergonomics.md](036-cli-ergonomics.md). Help-text conventions and error-recovery hints are specified in that ADR; streaming output uses the protocol defined in [034-streaming-deployment-logs.md](034-streaming-deployment-logs.md).
 
 ## Context
 
@@ -61,9 +56,9 @@ We will implement a comprehensive set of CLI user experience improvements organi
 - Users can bypass prompts with `-y` / `--yes` / `--force` flags
 
 **Destructive Commands:**
-- `app:destroy` - Destroys application and all data
-- `backup:delete` - Permanently deletes a backup
-- `services:destroy` - Destroys service instance and all data
+- `app destroy` - Destroys application and all data
+- `backup destroy` - Permanently deletes a backup
+- `addon destroy` - Destroys service instance and all data
 
 **Confirmation Format:**
 ```
@@ -222,7 +217,7 @@ Deploying my-app
 **Alternatives Considered:**
 - **Simple dots (...)**: Rejected - less informative
 - **Percentage only**: Rejected - doesn't show what's happening
-- **No progress**: Current state - poor UX
+- **No progress**: Rejected - poor UX
 
 ### 6. Client-Side Validation
 
@@ -256,7 +251,7 @@ Did you mean: 'my-app'?
 - Guides users to correct usage
 
 **Alternatives Considered:**
-- **Server-side only**: Current state - slower feedback
+- **Server-side only**: Rejected - slower feedback (round-trip per error)
 - **Strict validation**: Rejected - too restrictive
 - **No suggestions**: Rejected - less helpful
 

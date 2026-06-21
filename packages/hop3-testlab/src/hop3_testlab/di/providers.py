@@ -20,7 +20,12 @@ from sqlalchemy.orm import Session  # noqa: TC002 -- runtime: Dishka resolves it
 
 from hop3_testlab.config import TestlabConfig
 from hop3_testlab.db import get_session_factory
-from hop3_testlab.repositories import RunsRepository
+from hop3_testlab.repositories import (
+    BuildQueueRepository,
+    ProfilesRepository,
+    RunsRepository,
+    ServersRepository,
+)
 
 
 class ConfigProvider(Provider):
@@ -34,10 +39,11 @@ class ConfigProvider(Provider):
 
 
 class DatabaseProvider(Provider):
-    """REQUEST-scoped: a read session over the shared result store.
+    """REQUEST-scoped: a session over the shared store.
 
-    Generator provider (playbook): the session is closed after the response.
-    Reads don't commit, so there's no commit/rollback dance.
+    Generator provider (playbook): commit on success, roll back on exception,
+    close in ``finally``. The dashboard reads (commit is a no-op); the profiles /
+    servers / queue handlers write through it.
     """
 
     scope = Scope.REQUEST
@@ -48,6 +54,10 @@ class DatabaseProvider(Provider):
         session = factory()
         try:
             yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
         finally:
             session.close()
 
@@ -60,3 +70,15 @@ class RepositoryProvider(Provider):
     @provide
     def runs(self, session: Session) -> RunsRepository:
         return RunsRepository(session)
+
+    @provide
+    def profiles(self, session: Session) -> ProfilesRepository:
+        return ProfilesRepository(session)
+
+    @provide
+    def servers(self, session: Session) -> ServersRepository:
+        return ServersRepository(session)
+
+    @provide
+    def queue(self, session: Session) -> BuildQueueRepository:
+        return BuildQueueRepository(session)

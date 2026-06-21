@@ -168,15 +168,15 @@ export HOP3_SSH_KEY="$SSH_KEY"
 export HOP3_SECRET_KEY="e2e-test-secret-key-do-not-use-in-production"
 
 # Deploy using hop3 CLI
-echo "Running: hop3 deploy $APP_NAME $APP_DIR"
-if uv run hop3 deploy $APP_NAME $APP_DIR; then
+echo "Running: hop3 deploy --app $APP_NAME $APP_DIR"
+if uv run hop3 deploy --app $APP_NAME $APP_DIR; then
     echo -e "${GREEN}✓ Deployment initiated${NC}"
 else
     echo -e "${RED}✗ Deployment failed${NC}"
     echo "Note: You can also deploy manually from the host:"
     echo "  export HOP3_API_URL=\"ssh://hop3@localhost:$ACTUAL_SSH_PORT\""
     echo "  export HOP3_SSH_KEY=\"$SSH_KEY\""
-    echo "  uv run hop3 deploy $APP_NAME $APP_DIR"
+    echo "  uv run hop3 deploy --app $APP_NAME $APP_DIR"
 fi
 
 # Wait for deployment
@@ -247,7 +247,7 @@ echo ""
 echo "3. Deploy another app:"
 echo -e "   ${YELLOW}export HOP3_API_URL=\"ssh://hop3@localhost:$ACTUAL_SSH_PORT\"${NC}"
 echo -e "   ${YELLOW}export HOP3_SSH_KEY=\"$SSH_KEY\"${NC}"
-echo -e "   ${YELLOW}uv run hop3 deploy myapp /path/to/app${NC}"
+echo -e "   ${YELLOW}uv run hop3 deploy --app myapp /path/to/app${NC}"
 echo ""
 echo "4. Check logs:"
 echo -e "   ${YELLOW}uv run hop3 logs $APP_NAME${NC}"

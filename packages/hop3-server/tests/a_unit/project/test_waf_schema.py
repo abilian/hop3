@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Schema + parsing for the [waf] section (ADR 048, Layer-7 WAF).
+"""Schema + parsing for the [waf] section (ADR 050, Layer-7 WAF).
 
 The [waf] block is the engine-independent declarative surface; this guards that
 valid policy parses and malformed policy is rejected at hop3.toml load — before
@@ -115,7 +115,7 @@ def test_invalid_waf_rejected(waf):
 
 
 def test_full_wordpress_example_parses():
-    # The ADR 048 WordPress worked example must validate.
+    # The ADR 050 WordPress worked example must validate.
     toml = """
 [waf]
 enabled = true

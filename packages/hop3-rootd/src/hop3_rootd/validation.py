@@ -41,6 +41,12 @@ APP_NAME_RE: Final[re.Pattern[str]] = re.compile(
 
 DESCRIPTION_MAX_LEN: Final[int] = 200
 
+# Addon-type token (e.g. "postgres", "mysql", "redis"): lowercase alphanumeric,
+# starts with a letter, bounded. Used (with the addon name) to compose the
+# systemd unit name `hop3-expose-<type>-<name>`, so it must never contain a
+# path separator or systemd/shell metacharacter.
+ADDON_TYPE_RE: Final[re.Pattern[str]] = re.compile(r"^[a-z][a-z0-9]{1,31}$")
+
 # cgroup limits (ADR 046 §3 / P2.2). Sanity bounds at the kernel boundary;
 # the real policy (server-wide ceiling) lives in hop3-server's HopConfig.
 MEMORY_MAX_BYTES_CAP: Final[int] = 2**50  # 1 PiB — rejects nonsensical values
@@ -209,6 +215,42 @@ def validate_app_name(value: Any) -> str:
         raise ValidationError(
             "app_name",
             f"must match {APP_NAME_RE.pattern!r} (got {value!r})",
+        )
+    return value
+
+
+def validate_addon_type(value: Any) -> str:
+    """Validate an addon type token ("postgres", "mysql", "redis", …).
+
+    Lowercase, starts with a letter, alphanumeric, bounded. Half of the
+    proxy unit name; the regex guarantees no path/metacharacter can slip in.
+    """
+    if not isinstance(value, str):
+        raise ValidationError(
+            "addon_type", f"must be a string (got {type(value).__name__})"
+        )
+    if not ADDON_TYPE_RE.match(value):
+        raise ValidationError(
+            "addon_type", f"must match {ADDON_TYPE_RE.pattern!r} (got {value!r})"
+        )
+    return value
+
+
+def validate_addon_name(value: Any) -> str:
+    """Validate an addon instance name.
+
+    Same shape as an app name (alphanumeric edges, hyphens/underscores in the
+    middle, length 3-63) — the other half of the proxy unit name. Reuses
+    ``APP_NAME_RE`` so the composed ``hop3-expose-<type>-<name>`` unit filename
+    is always a safe identifier.
+    """
+    if not isinstance(value, str):
+        raise ValidationError(
+            "addon_name", f"must be a string (got {type(value).__name__})"
+        )
+    if not APP_NAME_RE.match(value):
+        raise ValidationError(
+            "addon_name", f"must match {APP_NAME_RE.pattern!r} (got {value!r})"
         )
     return value
 
