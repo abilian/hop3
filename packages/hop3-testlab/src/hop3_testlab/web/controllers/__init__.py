@@ -11,8 +11,10 @@ from .builds import BuildController
 from .bundle import BundleController
 from .dashboard import DashboardController, HealthController
 from .profiles import ProfilesController
+from .queue import QueueController
 from .running import RunningController
 from .runs import RunsController
+from .servers import ServersController
 from .trends import TrendsController
 
 __all__ = [
@@ -22,7 +24,9 @@ __all__ = [
     "DashboardController",
     "HealthController",
     "ProfilesController",
+    "QueueController",
     "RunningController",
     "RunsController",
+    "ServersController",
     "TrendsController",
 ]

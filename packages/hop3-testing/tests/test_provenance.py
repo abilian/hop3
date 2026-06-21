@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
+
 from hop3_testing.results import ResultStore
 
 if TYPE_CHECKING:
@@ -54,6 +56,14 @@ def test_start_run_merges_metadata_param_and_env(tmp_path: Path, monkeypatch):
     assert meta["os_name"] == "ubuntu"  # from $HOP3_TEST_META
     assert meta["server_type"] == "cx43"  # from env
     assert meta["region"] == "eu"  # from the param
+
+
+def test_start_run_rejects_malformed_meta(tmp_path: Path, monkeypatch):
+    """A malformed HOP3_TEST_META fails loud — never silently drops provenance."""
+    monkeypatch.setenv("HOP3_TEST_META", "not-json{")
+    store = ResultStore(db_path=tmp_path / "bad.db")
+    with pytest.raises(ValueError, match="HOP3_TEST_META"):
+        store.start_run(mode="cli", target_type="docker", target_name="t")
 
 
 def test_start_run_autodetects_hop3_version(tmp_path: Path, monkeypatch):

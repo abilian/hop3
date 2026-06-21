@@ -10,8 +10,10 @@ one store, two front-ends (ADR 044 §B/§D). Until the Postgres backend lands
 WAL + ``busy_timeout``, mirroring ``hop3-server``'s ``orm/session.py`` so the web
 app can read concurrently with CLI writes without locking errors.
 
-Schema creation is delegated to ``ResultStore`` (its ``create_all`` +
-``_ensure_columns``), so the read and write paths can never drift.
+The *result* schema is delegated to ``ResultStore`` (its ``create_all`` +
+``_ensure_columns``), so the read and write paths can never drift. The Lab's own
+tables (profiles / server pool / build queue) live in the same store under their
+own ``Base`` and are created here too.
 """
 
 from __future__ import annotations
@@ -22,6 +24,8 @@ from pathlib import Path
 from hop3_testing.results import ResultStore
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
+
+from hop3_testlab.models import Base as TestlabBase
 
 
 def _configure_sqlite(dbapi_conn, _record) -> None:
@@ -44,4 +48,7 @@ def get_session_factory(db_path: str) -> sessionmaker:
         f"sqlite:///{path}", connect_args={"check_same_thread": False}
     )
     event.listen(engine, "connect", _configure_sqlite)
+    # The Lab's own tables (profiles / server pool / build queue) live in the same
+    # store under their own Base — create them here (idempotent).
+    TestlabBase.metadata.create_all(engine)
     return sessionmaker(bind=engine)

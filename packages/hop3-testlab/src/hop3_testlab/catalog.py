@@ -18,9 +18,9 @@ overrides file) are reflected without a rescan.
 
 from __future__ import annotations
 
+import fnmatch
 import logging
 from functools import lru_cache
-from operator import itemgetter
 from typing import TYPE_CHECKING
 
 from hop3_testing.catalog import Catalog
@@ -28,42 +28,12 @@ from hop3_testing.selector.modes import get_mode_config, list_modes
 from hop3_testing.selector.selector import Selector
 from hop3_testing.targets.helpers import find_project_root
 
-from hop3_testlab.discriminators import short_app, type_of, variant_of
+from hop3_testlab.discriminators import short_app
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from hop3_testing.catalog.models import TestDefinition
-
 logger = logging.getLogger(__name__)
-
-# Languages a test may exercise — used to derive the picker's language tag from
-# a test's metadata when it isn't stated explicitly.
-_LANGUAGES = frozenset({
-    "python",
-    "php",
-    "node",
-    "nodejs",
-    "go",
-    "golang",
-    "ruby",
-    "java",
-    "rust",
-    "elixir",
-    "clojure",
-    "dotnet",
-    "static",
-})
-
-
-def _language_of(test: TestDefinition) -> str:
-    """Primary language/toolchain of a test, or "" if not discernible."""
-    if test.metadata.language:
-        return test.metadata.language.lower()
-    for tag in test.metadata.covers:
-        if tag.lower() in _LANGUAGES:
-            return tag.lower()
-    return ""
 
 
 def _scan_paths(root: Path) -> list[str]:
@@ -87,13 +57,35 @@ def _scan_paths(root: Path) -> list[str]:
     return paths
 
 
-@lru_cache(maxsize=1)
-def get_catalog() -> Catalog:
-    """Build and cache the catalog (process-lifetime). ~1-2 s on first call."""
-    root = find_project_root()
+def build_catalog(root: Path) -> Catalog:
+    """Scan ``root``'s app tree into a fresh catalog (uncached).
+
+    Used for both the local repo (cached via :func:`get_catalog`) and a fetched
+    source workspace (``source@ref``), which the worker scans to resolve a run's
+    app selector (v2 spec §A/§5).
+    """
     catalog = Catalog(root)
     catalog.scan(paths=_scan_paths(root))
     return catalog
+
+
+@lru_cache(maxsize=1)
+def get_catalog() -> Catalog:
+    """The local repo's catalog, cached for the process lifetime. ~1-2 s first call."""
+    return build_catalog(find_project_root())
+
+
+def resolve_selector(root: Path, pattern: str) -> list[str]:
+    """Catalog test names under ``root`` matching the literal glob ``pattern``.
+
+    Matched against catalog **names** (repo-relative app paths) so only real test
+    apps are selected, never a stray file. The caller passes ``pattern`` as a
+    literal string (quoted on the CLI); we expand it here — server-side, against
+    the workspace — never the local shell against the caller's disk (v2 spec §1).
+    """
+    names = [t.name for t in build_catalog(root)]
+    # ponytail: fnmatch '*' spans '/', which is fine for the flat apps/<dir> layout.
+    return sorted(n for n in names if fnmatch.fnmatchcase(n, pattern))
 
 
 def _safe_catalog() -> Catalog | None:
@@ -130,28 +122,3 @@ def title_map() -> dict[str, str]:
     if catalog is None:
         return {}
     return {t.name: (t.description or short_app(t.name)) for t in catalog}
-
-
-def valid_test_names() -> set[str]:
-    """Set of catalog test names, for validating a curated profile's picks."""
-    catalog = _safe_catalog()
-    return {t.name for t in catalog} if catalog else set()
-
-
-def tests_grouped() -> list[dict[str, str]]:
-    """All tests with display fields for the profile picker, ordered for grouping."""
-    catalog = _safe_catalog()
-    if catalog is None:
-        return []
-    rows = [
-        {
-            "name": t.name,
-            "title": t.description or short_app(t.name),
-            "type": type_of(t.name),
-            "variant": variant_of(t.name),
-            "language": _language_of(t) or "",
-        }
-        for t in catalog
-    ]
-    rows.sort(key=itemgetter("type", "variant", "name"))
-    return rows

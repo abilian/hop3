@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import pytest
+
 from hop3_testlab.discriminators import short_app, variant_of
 
 

@@ -6,10 +6,11 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from litestar.testing import TestClient
+
 import hop3_testlab.web.controllers.runs as runs_ctl
 from hop3_testlab import worker
 from hop3_testlab.web.asgi import create_app
-from litestar.testing import TestClient
 
 
 def _capture_spawn(monkeypatch):
@@ -41,10 +42,9 @@ def test_trigger_full_run_spawns_mode(monkeypatch):
     assert r.status_code == 303
     assert r.headers["location"] == "/?run=started"
     cmd = spawned[0]
-    assert cmd[:2] == ["hop3-testlab", "run"]
-    assert cmd[cmd.index("--mode") + 1] == "ci"
+    assert cmd[:3] == ["hop3-testlab", "run", "ci"]  # mode is positional
     assert cmd[cmd.index("--target") + 1] == "hetzner"
-    assert "--apps" not in cmd
+    assert cmd[3] == "--target"  # no app selector positional for a full-suite run
 
 
 def test_trigger_per_app_spawns_apps(monkeypatch):
@@ -59,8 +59,13 @@ def test_trigger_per_app_spawns_apps(monkeypatch):
 
     assert r.status_code == 303
     cmd = spawned[0]
-    assert cmd[cmd.index("--apps") + 1] == "apps/real-apps-docker/invoice-ninja"
-    assert "--mode" not in cmd
+    # mode defaults to "ci"; the app is the positional selector after it.
+    assert cmd[:4] == [
+        "hop3-testlab",
+        "run",
+        "ci",
+        "apps/real-apps-docker/invoice-ninja",
+    ]
 
 
 def test_trigger_refuses_full_suite_when_blank_slate_unresolvable(monkeypatch):
@@ -88,10 +93,10 @@ def test_trigger_refuses_full_suite_when_blank_slate_unresolvable(monkeypatch):
 def test_trigger_refuses_when_busy(monkeypatch):
     spawned = _capture_spawn(monkeypatch)
     # Hold the lease on the default target so the trigger sees it busy.
-    from hop3_testlab import leasing  # noqa: PLC0415
-    from hop3_testlab.cloud_config import load_schedule  # noqa: PLC0415
-    from hop3_testlab.config import TestlabConfig  # noqa: PLC0415
-    from hop3_testlab.db import get_session_factory  # noqa: PLC0415
+    from hop3_testlab import leasing
+    from hop3_testlab.cloud_config import load_schedule
+    from hop3_testlab.config import TestlabConfig
+    from hop3_testlab.db import get_session_factory
 
     target = load_schedule().target
     with get_session_factory(str(TestlabConfig.get_instance().DB_PATH))() as s:
