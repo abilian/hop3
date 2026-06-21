@@ -18,13 +18,13 @@ skip-and-proceed based on operator flags.
 from __future__ import annotations
 
 import socket
-import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 from hop3_cli.core.hop3_toml import first_hop3_toml, read_hop3_toml
+from hop3_cli.core.resolution import _default_git_runner
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -402,26 +402,3 @@ def _collect_git_state(
     dirty = bool(status_out and status_out.strip())
 
     return GitState(commit=commit, branch=branch, dirty=dirty, is_repo=True)
-
-
-def _default_git_runner(argv: list[str], cwd: Path) -> str | None:
-    """Run a git command; return stdout or None on any failure.
-
-    Mirrors the runner in ``parse_hop3_git_remote`` — no exceptions, no
-    surprises. Used by ``build_plan`` only as a default; tests inject
-    deterministic stubs.
-    """
-    try:
-        result = subprocess.run(
-            argv,
-            cwd=str(cwd),
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=2,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    if result.returncode != 0:
-        return None
-    return result.stdout

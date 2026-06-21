@@ -71,13 +71,7 @@ def _discover() -> Path | None:
 
 def load_cloud_config(path: Path | None = None) -> CloudConfig:
     """Load cloud config from ``path`` (or the discovered file), then env."""
-    if path is None:
-        path = _discover()
-
-    data: dict = {}
-    if path is not None and path.is_file():
-        with path.open("rb") as f:
-            data = tomllib.load(f)
+    data = _load_data(path)
 
     env = dict(os.environ)
     # HetznerConfig.from_dict already resolves $refs and falls back to env for
@@ -109,12 +103,7 @@ def load_retention(path: Path | None = None) -> int:
     ``[retention].keep_runs`` in the config file, else $TESTLAB_LOG_RETENTION_RUNS,
     else :data:`DEFAULT_KEEP_RUNS`.
     """
-    if path is None:
-        path = _discover()
-    data: dict = {}
-    if path is not None and path.is_file():
-        with path.open("rb") as f:
-            data = tomllib.load(f)
+    data = _load_data(path)
 
     raw = data.get("retention", {}).get("keep_runs")
     if isinstance(raw, str):

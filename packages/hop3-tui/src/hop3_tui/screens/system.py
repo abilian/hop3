@@ -17,6 +17,7 @@ from textual.widgets import Footer, Header, Static
 
 from hop3_tui.screens.processes import ProcessesScreen
 from hop3_tui.screens.system_logs import SystemLogsScreen
+from hop3_tui.widgets.util import make_bar
 
 if TYPE_CHECKING:
     from textual.app import ComposeResult
@@ -55,18 +56,7 @@ class ResourcesPanel(Static):
 
     def _make_bar(self, percent: float, width: int = 10) -> str:
         """Create a progress bar string."""
-        filled = int(percent / 100 * width)
-        empty = width - filled
-
-        # Color based on percentage
-        if percent >= 90:
-            color = "red"
-        elif percent >= 70:
-            color = "yellow"
-        else:
-            color = "green"
-
-        return f"[{color}]{'█' * filled}[/][dim]{'░' * empty}[/]"
+        return make_bar(percent, width)
 
 
 class ServicesPanel(Static):
