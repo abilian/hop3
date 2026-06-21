@@ -34,11 +34,11 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 
 ## T3 — Security & Resilience
 
-**M3.1 — Backing services** — *S3/MinIO shipped in 0.5.0; email/SMTP addon deferred to 0.7*
+**M3.1 — Backing services** — *PostgreSQL/MySQL/Redis/S3 shipped; full operational command set + resource limits & volumes added in 0.6; email/SMTP addon deferred to 0.7*
 
 - <https://hop3.cloud/guides/addons/> — guide: PostgreSQL, MySQL, Redis, S3/MinIO addons
-- <https://hop3.cloud/developers/adrs/046-declarative-app-resources/> — declarative `[[addons]]`, generated secrets/env
-- <https://github.com/abilian/hop3/tree/main/packages/hop3-server/src/hop3/plugins> — `postgresql/`, `mysql/`, `redis/`, `s3/` plugins
+- <https://hop3.cloud/developers/adrs/046-declarative-app-resources/> — declarative `[[addons]]`, generated secrets/env, and (Phase 2) `[limits]` resource caps + volumes
+- <https://github.com/abilian/hop3/tree/main/packages/hop3-server/src/hop3/plugins> — `postgresql/`, `mysql/`, `redis/`, `s3/` plugins; 0.6 adds the `addon <type> <verb>` surface (query/diagnostics/clone/export-import/expose/promote/endpoint) and `hop3 tunnel`
 
 **M3.2 — Upgrades & data migrations** — *partial*
 
@@ -63,7 +63,7 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 - <https://hop3.cloud/developers/adrs/045-fixed-port-registry/> — exclusive host ports + firewall integration (Final)
 - <https://hop3.cloud/developers/adrs/041-privileged-operations-agent/> — `hop3-rootd`, the kernel-boundary executor applying firewall/nginx changes
 - <https://hop3.cloud/developers/adrs/040-network-firewall-and-port-exposure/> — firewall/port-exposure design
-- <https://github.com/abilian/hop3/tree/main/packages/hop3-rootd> — the privileged executor (firewall ops). *WAF (Coraza / OWASP-CRS) integration in the 0.7 backlog.*
+- <https://github.com/abilian/hop3/tree/main/packages/hop3-rootd> — the privileged executor (firewall ops). *WAF (LeWAF / OWASP CRS) integration in the 0.7 backlog.*
 
 **M3.6 — CLI (basic)** ✅
 
