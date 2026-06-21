@@ -12,26 +12,9 @@ from __future__ import annotations
 from hop3_testing.targets.helpers import find_project_root
 
 from hop3_testlab.catalog import (
-    mode_counts,
     resolve_selector,
     title_map,
 )
-
-
-def test_mode_counts_cover_the_ladder():
-    counts = mode_counts()
-    # The seven built-in profiles all get a count, ordered smallest → largest.
-    for name in (
-        "smoke",
-        "ci",
-        "curated",
-        "tag-coverage",
-        "combo-coverage",
-        "nightly",
-        "full",
-    ):
-        assert counts.get(name, 0) > 0
-    assert counts["smoke"] <= counts["ci"] <= counts["full"]
 
 
 def test_title_map_uses_human_titles():

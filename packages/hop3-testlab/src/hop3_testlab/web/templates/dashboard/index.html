@@ -5,24 +5,8 @@
 {% block content %}
 <h1 class="text-2xl font-semibold mb-4">{{ title }}</h1>
 
-{% if flash %}
-<p class="mb-3 rounded px-3 py-2 text-sm {% if flash[0] == 'ok' %}bg-green-100 text-green-800{% else %}bg-amber-100 text-amber-800{% endif %}">{{ flash[1] }}</p>
-{% endif %}
-
 {# Live current-run panel: loads immediately, then self-polls every 3s. #}
 <div id="running-panel" hx-get="/running" hx-trigger="load, every 3s" hx-swap="innerHTML"></div>
-
-<form method="post" action="/runs/trigger" class="mb-5 flex items-center gap-2">
-  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-  <span class="text-sm text-gray-600">Run now on <span class="font-mono">{{ default_target }}</span>:</span>
-  <select name="mode" class="border rounded px-2 py-1 text-sm" title="Profiles sorted smallest → largest">
-    {% for m in modes %}
-    <option value="{{ m.name }}" {% if m.name == default_mode %}selected{% endif %}
-            title="{{ m.description }}">{{ m.name }}{% if m.count is not none %} · {{ m.count }} tests{% endif %}{% if m.max_duration_minutes %} · ~{{ m.max_duration_minutes }} min{% endif %}</option>
-    {% endfor %}
-  </select>
-  <button type="submit" class="rounded bg-gray-900 text-white px-3 py-1 text-sm hover:bg-gray-700">Run now</button>
-</form>
 
 {% if runs %}
 <table class="w-full text-sm border-collapse">
