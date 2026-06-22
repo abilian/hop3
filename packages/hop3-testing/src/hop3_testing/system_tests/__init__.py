@@ -56,5 +56,3 @@ __all__ = [
     "main",
     "run_daily_test",
 ]
-
-__version__ = "0.1.0"

@@ -11,5 +11,12 @@ See notes/adrs/041-privileged-operations-agent.md for the design.
 
 from __future__ import annotations
 
+from importlib.metadata import version
+
+# Single-sourced from package metadata so it can never drift from pyproject (it
+# once hardcoded a stale "0.4.0"). daemon.py re-exports this and reports it in
+# the rootd handshake — ADR 041 version lockstep.
+__version__ = version("hop3-rootd")
+
 # Wire-protocol version. Bump on incompatible protocol changes.
 PROTOCOL_VERSION = 1
