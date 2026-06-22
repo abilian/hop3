@@ -3,7 +3,7 @@
 **Status**: Draft
 **Type**: Feature (breaking — one coordinated CLI+server release)
 **Created**: 2026-06-04
-**Related-ADRs**: 036 (§D7 implicit app resolution), 042 (resolution chains, project contexts), 039 (plugin command manifest — future)
+**Related-ADRs**: 036 (§D7 implicit app resolution), 042 (resolution chains, project contexts), a future command-manifest ADR (plugin command manifest)
 
 This decision supersedes the client-side app-scoped injection mechanism (`hop3_cli/core/app_scope.py`), a stopgap retired by the design below.
 
@@ -11,11 +11,11 @@ This decision supersedes the client-side app-scoped injection mechanism (`hop3_c
 
 ### The stopgap and why it drifts
 
-The CLI must decide *before* the RPC round-trip whether a command operates on a single app, so it can resolve an implicit app (ADR 036 §D7, ADR 042 §Resolution chains) and inject it. It makes that decision from a hardcoded `set[tuple[str, ...]]` in `core/app_scope.py`, and on a match injects the resolved app as the first positional argument. The module is a stopgap pending ADR 039.
+The CLI must decide *before* the RPC round-trip whether a command operates on a single app, so it can resolve an implicit app (ADR 036 §D7, ADR 042 §Resolution chains) and inject it. It makes that decision from a hardcoded `set[tuple[str, ...]]` in `core/app_scope.py`, and on a match injects the resolved app as the first positional argument. The module is a stopgap pending a future command-manifest ADR.
 
 The drift it causes is a recurring class of bug: the hardcoded set falls out of sync with the server's command registry, so a renamed or added command silently stops resolving its implicit app. A representative case is `hop3 app status` demanding an explicit `<app_name>` while its siblings (`app ping`, `app logs`, …) resolve one, because the set still lists the renamed `app show` and is missing `app status`.
 
-The set is a hand-maintained copy of a property that actually lives server-side (each `Command` either needs an app or doesn't). So it drifts silently whenever a command is renamed or added, and the failure is quiet: the command still runs, it just stops resolving the implicit app and falls back to "Usage: … `<app_name>`". The same disease appears in two sibling hardcoded sets — `commands/destructive.py::DESTRUCTIVE_COMMANDS` and `main.py::_MISMATCH_GUARDED_PREFIXES` — and the whole approach structurally cannot cover plugin commands (ADR 039), which the CLI has never heard of.
+The set is a hand-maintained copy of a property that actually lives server-side (each `Command` either needs an app or doesn't). So it drifts silently whenever a command is renamed or added, and the failure is quiet: the command still runs, it just stops resolving the implicit app and falls back to "Usage: … `<app_name>`". The same disease appears in two sibling hardcoded sets — `commands/destructive.py::DESTRUCTIVE_COMMANDS` and `main.py::_MISMATCH_GUARDED_PREFIXES` — and the whole approach structurally cannot cover plugin commands (a future command-manifest ADR), which the CLI has never heard of.
 
 The constraint that makes "just ask the server per command" a non-starter is real: app resolution happens before any round-trip, must work offline (`--why`, error messages), must not add latency to every call, and must work before authentication (`auth login` cannot query a gated endpoint to learn it is not app-scoped).
 
@@ -79,7 +79,7 @@ The ADR 042 §D14 guard compares the resolved app against the CWD project's `[me
 
 The server exposes a machine-readable command manifest (name, `app_scoped`, `destructive`, …); the CLI caches it (the `completion --refresh` cache + `cached_subcommand_index()` already do exactly this for aliases) and derives the injection decision from the cache instead of a hardcoded set. This fixes drift and covers plugins, and keeps positional injection unchanged.
 
-Rejected as the primary mechanism because it still requires the CLI to *make a per-command decision* (and keep a cache fresh) to do something the server could just do from the context. The invocation context is simpler: the CLI ships ambient state unconditionally and the consumer decides. The manifest remains a good complement for the *client-side* concerns the context can't cover (destructive prompting, did-you-mean), and is the natural ADR 039 surface.
+Rejected as the primary mechanism because it still requires the CLI to *make a per-command decision* (and keep a cache fresh) to do something the server could just do from the context. The invocation context is simpler: the CLI ships ambient state unconditionally and the consumer decides. The manifest remains a good complement for the *client-side* concerns the context can't cover (destructive prompting, did-you-mean), and is the natural surface for a future command-manifest ADR.
 
 ### Per-command round-trip ("ask the server if this needs an app")
 

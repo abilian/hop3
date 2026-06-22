@@ -1,25 +1,22 @@
 # ADR 050: Layer-7 Web Application Firewall (LeWAF)
 
-**Status**: Draft — design only (no implementation in this pass)
+**Status**: Accepted
 **Type**: Feature
 **Created**: 2026-06-16
-**Updated**: 2026-06-16
 **Related-ADRs**: 040 (network firewall — defers the WAF half here), 041 (privileged operations agent), 045 (fixed-port registry), 021 (proxy plugin system), 020 (pluggable architecture)
-**Related-deliverable**: NGI 0.5 — "Security will be fortified with network-level firewalls and a **Web Application Firewall (WAF)** using tools like OWASP Core Ruleset and Coraza."
-**Supersedes**: the WAF half deferred by ADR 040 §6; replaces the earlier planning note `local-notes/plans/03-waf.md` (now removed — its durable content is harvested here), which mis-cited "ADR 033" as the driving ADR.
 
-> **Design stance.** Start minimal and prove it before adding power. The access model below is deliberately restricted to the two use cases that are real (§Decision 2); speculative-but-interesting features (in-app middleware, kernel-level bans, auth-gated URLs, honeypot lists) are named and **deferred** until customer feedback justifies them (§v1 scope). This ADR records the *shape* we commit to, not a maximal feature set.
+> **Design stance.** Start minimal and prove it before adding power. The access model below is restricted to the two use cases that are real (§Decision 2); speculative features (in-app middleware, kernel-level bans, auth-gated URLs, honeypot lists) are named and **deferred** until customer feedback justifies them (§v1 scope).
 
 ## Context
 
-The NGI deliverable commits to two distinct security layers. ADR 040/045 cover the **L3/L4** half — dropping/allowing packets by port (`[[ports]]` → rootd → `nft`). This ADR covers the **L7** half — inspecting HTTP requests for SQLi / XSS / RCE / path-traversal patterns, and applying a per-app access policy, before requests reach the app.
+The NGI 0.5 deliverable commits to two distinct security layers: network-level firewalls and a Web Application Firewall built on the OWASP Core Ruleset and a ModSecurity-compatible engine. ADR 040/045 cover the **L3/L4** half — dropping/allowing packets by port (`[[ports]]` → rootd → `nft`). This ADR covers the **L7** half — inspecting HTTP requests for SQLi / XSS / RCE / path-traversal patterns, and applying a per-app access policy, before requests reach the app. It supersedes the WAF half deferred by ADR 040 §6 and carries forward the durable content of the earlier WAF planning note.
 
 The two layers are orthogonal and compose: the firewall decides *whether a packet may reach a port*; the WAF decides *whether an HTTP request that reached the app's port is acceptable*. An app can use either, both, or neither.
 
 **Engine: LeWAF.** [LeWAF](https://pypi.org/project/lewaf/) (v0.7.5, Apache-2.0, Python ≥3.12; on **PyPI**) is Abilian's pure-Python, ModSecurity-compatible WAF engine: a SecLang parser, the OWASP Core Rule Set (681 rules), per-framework integrations (Flask / FastAPI / Starlette / Django), **and a standalone reverse-proxy mode** (`lewaf-proxy`). Choosing it over the NGI-named Coraza is deliberate:
 
 - **Pure Python, no CGo / no binary.** Coraza is Go; libmodsecurity is C. LeWAF drops into Hop3's existing Python toolchain and process model with no extra build/runtime story.
-- **Sovereignty.** Hop3's ethos is owning the stack; LeWAF is a project we control, so rule-engine bugs and gaps are fixable in-house rather than vendored.
+- **Sovereignty.** Hop3's ethos is owning the stack; LeWAF is a project we control, so rule-engine bugs and gaps are fixable in-house.
 - **Same rules.** LeWAF speaks SecLang and ships the OWASP CRS, so the NGI "OWASP Core Ruleset" commitment is met regardless of engine.
 
 Coraza is not rejected — it is kept as a *future alternative engine* behind the same plugin interface (§Decision 6), for operators who want a non-Python, higher-throughput engine.
@@ -33,9 +30,9 @@ Coraza is not rejected — it is kept as a *future alternative engine* behind th
 5. Operators can see what the WAF blocked and manage runtime state (bans, networks) via CLI/UI.
 6. The engine is pluggable — LeWAF first, Coraza later, behind one interface.
 
-## Decision (proposed)
+## Decision
 
-### 1. Deployment shape: a platform-managed proxy process (decided)
+### 1. Deployment shape: a platform-managed proxy process
 
 LeWAF runs as a **long-lived reverse-proxy service managed by Hop3**, not as in-app middleware. Request flow for a WAF-enabled app:
 
@@ -107,11 +104,11 @@ reason               = "rich-text editor posts HTML as an authed admin"
 
 Each `[[waf.tuning]]` entry is scoped to `paths` (omit = global). Keys are imperatives (`disable_rule_ids`, `skip_body_inspection`) so direction is unambiguous. Method-handling false positives (e.g. WebDAV verbs tripping CRS rule 911100) are tuning, not access policy.
 
-**CRS distribution:** ship a minimal rule bundle for offline installs; `hop3 waf update-rules` fetches the full OWASP CRS on demand. (Resolved here rather than left open — it's a packaging detail, not a design fork.)
+**CRS distribution:** ship a minimal rule bundle for offline installs; `hop3 waf update-rules` fetches the full OWASP CRS on demand.
 
 ### 4. Bans — detect (L7) → score → enforce
 
-A repeated attacker should be cut off, not re-inspected on every request. The pipeline:
+A repeated attacker should be cut off once and for all, sparing the cost of re-inspecting every subsequent request. The pipeline:
 
 - **LeWAF detects** — a denied request (allow-miss or gate-fail) or a CRS match writes a structured violation to the audit stream.
 - **A Hop3 scorer** consumes that stream and keeps a per-source score over a sliding window.
@@ -125,7 +122,7 @@ window    = "10m"
 duration  = "1h"
 ```
 
-**v1 enforces bans at L7** (LeWAF holds an in-memory denylist and 403s the source). This needs no new privilege and no rootd change. The **proven-later upgrade** is an L3/L4 drop via rootd: an `nft` set `banned` with per-element `timeout` (kernel-level drop on *all* ports, self-expiring — `nft add element inet hop3 banned { 1.2.3.4 timeout 1h }`). That is strictly better but requires teaching rootd a **deny capability** it does not have today (ADR 041 §5: "rootd never expresses denials"), so it is deferred until bans earn it (§v1 scope).
+**v1 enforces bans at L7** (LeWAF holds an in-memory denylist and 403s the source). This needs no new privilege and no rootd change. The **proven-later upgrade** is an L3/L4 drop via rootd: an `nft` set `banned` with per-element `timeout` (kernel-level drop on *all* ports, self-expiring — `nft add element inet hop3 banned { 1.2.3.4 timeout 1h }`). That is strictly better but requires teaching rootd a **deny capability** it does not have today (ADR 041 §5: rootd's `Firewall` protocol only grants/revokes port rules and has no source-drop capability), so it is deferred until bans earn it (§v1 scope).
 
 ### 5. Failure policy (fail loud)
 
@@ -150,7 +147,7 @@ Two clean tiers, so an admin UI can manage the operational parts without editing
 | **Declarative policy** | `hop3.toml` (in the app repo) | `enabled`, `mode`, `allow`, `[[waf.gate]]`, `[[waf.tuning]]`, `[waf.bans]` thresholds |
 | **Runtime state** | hop3 DB (CLI/UI-managed) | named networks, active bans, a per-app `detect↔block` override for incident response |
 
-v1's only architectural commitment here is to put **named networks and active bans in the DB** (not a flat file), so a future UI/CLI can list/add/clear them. The UI itself is not built in v1.
+v1's only architectural commitment here is to put **named networks and active bans in the DB**, so a future UI/CLI can list/add/clear them. The UI itself is not built in v1.
 
 ### 9. CLI & observability
 
@@ -165,9 +162,9 @@ Each audit entry is one JSON record — and is the exact contract the ban scorer
 
 A WAF that can be bypassed is worse than none — it advertises protection it doesn't deliver. These are **normative**: the implementation must satisfy them and tests must cover them. The first two are load-bearing — they are where positive-security WAFs are most often defeated.
 
-1. **Trusted client IP (no client-supplied `X-Forwarded-For` trust).** Gates (`require = <network>`) and bans decide on the client's source IP, so that IP must be unforgeable. If violated: `X-Forwarded-For: <office-ip>` bypasses a network gate (authorization bypass), and a spoofed or shared IP lets an attacker ban arbitrary victims — amplified to all ports once the L3/L4 ban (§4) lands. **With LeWAF 0.7.5** this is handled correctly via `trusted_proxy_count`: XFF is honored only when N trusted proxies are declared, and the client is the **Nth entry from the right** (so client-forged leftmost entries are ignored); the default `0` ignores XFF entirely and uses the connecting peer. **Slice-4 requirement:** run `lewaf-proxy` with `trusted_proxy_count` = the number of proxies in front of it (nginx ⇒ `1`), so it reads the real client and not nginx. A slice-4 test must assert a forged XFF does **not** satisfy a network gate.
+1. **Trusted client IP (no client-supplied `X-Forwarded-For` trust).** Gates (`require = <network>`) and bans decide on the client's source IP, so that IP must be unforgeable. If violated: `X-Forwarded-For: <office-ip>` bypasses a network gate (authorization bypass), and a spoofed or shared IP lets an attacker ban arbitrary victims — amplified to all ports once the L3/L4 ban (§4) lands. LeWAF handles this via `trusted_proxy_count`: XFF is honored only when N trusted proxies are declared, and the client is the **Nth entry from the right** (so client-forged leftmost entries are ignored); the default `0` ignores XFF entirely and uses the connecting peer. `lewaf-proxy` must be run with `trusted_proxy_count` set to the number of proxies in front of it (nginx ⇒ `1`), so it reads the real client and not nginx. Tests must assert a forged XFF does **not** satisfy a network gate.
 
-2. **One canonical path; matched == routed.** `allow` / `gate` / CRS matching runs on a single normalized form: percent-decoded once, dot-segments (`.` / `..`) resolved, slashes collapsed, with an explicit case policy. Ambiguous or double-encoded paths are rejected, not guessed. The matched form must equal what the backend routes on — otherwise `/%61dmin`, `/admin/../x`, or `/Admin` slip past a gate. Full-match anchoring (§2) is necessary but not sufficient; normalization is the load-bearing part.
+2. **One canonical path; matched == routed.** `allow` / `gate` / CRS matching runs on a single normalized form: percent-decoded once, dot-segments (`.` / `..`) resolved, slashes collapsed, with an explicit case policy. Ambiguous or double-encoded paths are rejected outright. The matched form must equal what the backend routes on — otherwise `/%61dmin`, `/admin/../x`, or `/Admin` slip past a gate. Full-match anchoring (§2) is necessary but not sufficient; normalization is the load-bearing part.
 
 3. **No path around the WAF.** For a WAF-enabled app the backend is reachable **only** via the LeWAF socket: the app's web socket/port is loopback/unix-only and not otherwise exposed. Scope boundary: services that bind host ports directly via `[[ports]]` (ADR 045) are **not** behind the WAF — L7 coverage is the nginx-proxied HTTP path only; those ports get L3/L4 firewalling, not request inspection. "WAF enabled" must not be read as "every listener protected."
 
@@ -194,7 +191,7 @@ Shipped in v1: proxy shape, `enabled`/`mode`/`ruleset`, the two-construct access
 Deferred until customer feedback justifies the complexity:
 
 - **In-app middleware engine** — proxy only for now.
-- **L3/L4 bans via rootd** — L7 bans first; the rootd deny-capability is a real extension, not built on spec.
+- **L3/L4 bans via rootd** — L7 bans first; the rootd deny-capability is a real extension, built once bans prove their value.
 - **`auth` gate condition** — needs a Hop3 forward-auth/SSO layer that doesn't exist yet; validated as an error until it does.
 - **`[[waf.tuning]] skip-body-inspection`** — `ctl:requestBodyAccess` is a no-op in lewaf 0.7.5 (bug-report follow-up); the compiler fails loud on it until the engine supports it. `disable-rule-ids` tuning works.
 - **Honeypot/`instant_ban_paths`** — subsumed by default-deny in use case 1.
@@ -239,7 +236,7 @@ window = "10m"
 duration = "1h"
 ```
 
-**Nextcloud** — the WAF-hostile case: WebDAV methods + chunked uploads are CRS tuning, not access policy:
+**Nextcloud** — the WAF-hostile case: WebDAV methods + chunked uploads are handled as CRS tuning:
 
 ```toml
 [waf]
@@ -271,55 +268,40 @@ duration = "2h"
 
 **Positive**: meets the NGI WAF commitment with OWASP CRS; language-agnostic; the access model is two constructs a packager grasps immediately; default-deny makes scanner-banning automatic; content-checked blocking is testable; pluggable so Coraza can follow; networks/bans in the DB make a future admin UI cheap.
 
-**Negative**: a new long-lived platform service to supervise; one extra network hop for WAF-enabled apps; CRS false-positive tuning is ongoing work; regex full-match has a learning edge (the bare-prefix gotcha); the WAF is a hard dependency in the request path — **fail-closed by default** (Security invariant 4), so a WAF outage takes WAF-enabled apps down until it recovers; the security invariants (trusted-IP, canonicalization, no-bypass) are non-trivial to get right and must be tested, not assumed.
+**Negative**: a new long-lived platform service to supervise; one extra network hop for WAF-enabled apps; CRS false-positive tuning is ongoing work; regex full-match has a learning edge (the bare-prefix gotcha); the WAF is a hard dependency in the request path — **fail-closed by default** (Security invariant 4), so a WAF outage takes WAF-enabled apps down until it recovers; the security invariants (trusted-IP, canonicalization, no-bypass) are non-trivial to get right and must be tested explicitly.
 
 ## Open questions
 
 1. **Per-app `fail_open` override.** The runtime default is **fail-closed** (Security invariant 4): if LeWAF is down, WAF-enabled apps return 5xx. The only remaining question is whether to offer an explicit, audited per-app `fail_open` escape hatch for availability-over-security apps.
-2. **Process model — one proxy per app (resolved).** `lewaf-proxy` is single-upstream (one `--upstream`), so the fit is **one proxy process per WAF-enabled app**, supervised by Hop3 — not a shared multi-tenant process. A vhost-routing multi-tenant mode would be an upstream LeWAF contribution; not needed for v1.
-3. **Performance under load.** Pure-Python inspection cost per request; benchmark before advertising; Coraza is the escape hatch.
-4. **Response-phase inspection** (CRS phases 3/4) — LeWAF's proxy-mode support needs verifying.
-5. **Config format (resolved).** The proxy consumes a **SecLang rules file** (`--rules-file`); LeWAF's richer YAML config (`rules` / `rule_files` / `storage` / `audit_logging` / `request_limits`) drives the library path. The §6 compiler emits SecLang per app. (Gap: the proxy CLI doesn't yet accept the YAML config — see "LeWAF integration reality".)
+2. **Performance under load.** Pure-Python inspection cost per request; benchmark before advertising; Coraza is the escape hatch.
+3. **Response-phase inspection** (CRS phases 3/4) — LeWAF's proxy-mode support needs verifying.
 
-## LeWAF integration reality (verified against v0.7.5, 2026-06-17)
+## LeWAF engine facts
 
-Inspected + behaviorally tested the engine (PyPI `lewaf` 0.7.5) to ground slices 3–4:
+On the pinned floor `lewaf>=0.7.5`, the engine has these properties that shape the integration:
 
-- **Proxy shape**: `lewaf-proxy --upstream <url> --rules-file <seclang> [--host --port --timeout --max-connections]` — a uvicorn/Starlette ASGI app forwarding via httpx. Single upstream ⇒ **one proxy per WAF-enabled app**.
-- **Rules**: SecLang. Network gates / IP bans compile to `SecRule REMOTE_ADDR "@ipMatch <cidrs>"`-style rules. `lewaf-validate` exists → use it for the compile-before-commit dry-run (§5).
+- **Proxy shape**: `lewaf-proxy --upstream <url> --rules-file <seclang> [--host --port --timeout --max-connections]` — a uvicorn/Starlette ASGI app forwarding via httpx. The proxy is single-upstream (one `--upstream`), so the fit is **one proxy process per WAF-enabled app**, supervised by Hop3 — a shared multi-tenant, vhost-routing mode would be an upstream LeWAF contribution and is not needed for v1.
+- **Rules**: SecLang. Network gates / IP bans compile to `SecRule REMOTE_ADDR "@ipMatch <cidrs>"`-style rules. `lewaf-validate` is the compile-before-commit dry-run (§5).
+- **Config format**: the proxy consumes a SecLang **rules file** (`--rules-file`); LeWAF's richer YAML config (`rules` / `rule_files` / `storage` / `audit_logging` / `request_limits`) drives the library path. The §6 compiler emits SecLang per app.
 - **Audit**: YAML `audit_logging` supports `format: json` + `mask_sensitive: true` (helps Security invariant 7).
-- **`drop` == `deny`** (no TCP drop in pure-Python middleware) — confirms real bans need the L3/L4 rootd path (§4), not LeWAF.
+- **`drop` == `deny`** (no TCP drop in pure-Python middleware) — real bans need the L3/L4 rootd path (§4).
+- **Trusted client IP** is handled via `trusted_proxy_count` (Security invariant 1): the middleware reads XFF safely, taking the Nth entry from the right and ignoring client-forged leftmost entries. `lewaf-proxy` runs with `trusted_proxy_count=1` for the single nginx hop, with no nginx XFF-rewrite needed.
 
-1. **Real client IP behind nginx — RESOLVED in 0.7.5 via `trusted_proxy_count`.** The middleware reads XFF safely (Nth-entry-from-the-right, honored only when N trusted proxies are declared; default `0` ignores XFF and uses the connecting peer — see Security invariant 1). Slice 4 runs `lewaf-proxy` with `trusted_proxy_count=1` for the single nginx hop; no nginx XFF-rewrite needed.
-2. **Proxy config knobs.** The `lewaf-proxy` CLI is rules-file-only; `create_proxy_app` accepts a `waf_config_file`, but the CLI doesn't expose it — storage (redis) / audit / limits, **and `trusted_proxy_count` (needed for #1)** need a `--config` flag / CLI args / env wiring. **Verify in slice 4**; if absent, it's a small LeWAF contribution.
-
-Neither blocks slices 1–3; the `trusted_proxy_count` wiring lands in slice 4.
-
-**Behavioral findings (verified by running real transactions). Slice 3 found these broken on 0.7.4; all were FIXED in lewaf 0.7.5 (re-verified) — bug report: `local-notes/lewaf/2026-06-17-bug-report.md`:**
-
-| SecLang feature | 0.7.4 | 0.7.5 | Used for |
-|---|---|---|---|
-| `!@rx` deny on `REQUEST_URI` | ✅ | ✅ | `allow` (use case 1) |
-| `@ipMatch` with a CIDR **list** | ❌ single-only | ✅ | gate network condition |
-| `chain` (AND two variables) | ❌ child not evaluated | ✅ | gate (path AND not-in-network) |
-| rule exclusion (`ctl:ruleRemoveById`, `SecRuleRemoveById`) | ❌ absent | ✅ | `[[waf.tuning]] disable-rule-ids` |
-| `SecRuleEngine DetectionOnly` neutralises `deny` | ❌ | ✅ | (we still encode `mode` per-rule — engine-independent) |
-| `REQUEST_FILENAME` populated by `process_uri` | ❌ empty | ✅ | (compiler matches `REQUEST_URI`; proxy feeds path-only) |
-| `ctl:requestBodyAccess=Off` | ❌ | ❌ **still a no-op** | `[[waf.tuning]] skip-body-inspection` |
-
-So on **lewaf >= 0.7.5** (the pinned floor) the compiler emits, all verified behaviorally:
+The §6 compiler emits, for the pinned floor:
 
 - **`allow`** → `!@rx` deny on `REQUEST_URI` (use case 1).
 - **`[[waf.gate]]`** → `chain` of (path `@rx`) + (`REMOTE_ADDR !@ipMatch <network cidrs>`) (use case 2).
 - **`[[waf.tuning]] disable-rule-ids`** → path-scoped `ctl:ruleRemoveById` (or global `SecRuleRemoveById`).
 
-The **one remaining gap** is `[[waf.tuning]] skip-body-inspection` (`ctl:requestBodyAccess` is still ignored — follow-up filed in the bug report); the compiler **fails loud** on it rather than silently not inspect.
+The **one remaining gap** is `[[waf.tuning]] skip-body-inspection`: `ctl:requestBodyAccess` is still a no-op in the engine, so the compiler **fails loud** on it rather than silently not inspect.
+
+The `lewaf-proxy` CLI is rules-file-only; `create_proxy_app` accepts a `waf_config_file`, but the CLI does not expose it, so storage (redis) / audit / limits and `trusted_proxy_count` need a `--config` flag / CLI args / env wiring — a small LeWAF contribution if absent.
 
 ## Dependencies, prior art, and acceptance
 
 **Dependency:** `lewaf>=0.7.5` from **PyPI** (Apache-2.0, Python ≥3.12) plus the OWASP CRS. Wired as the optional extra `hop3-server[waf]` with a `python_full_version >= '3.12'` marker (the base workspace supports 3.11, lewaf doesn't) — non-WAF installs and 3.11 installs don't carry it. It pulls `starlette` (the rest — httpx / redis / pyyaml — hop3-server already has). CRS distribution per §3.
 
-**Prior art — reference, not reuse.** An earlier WAF attempt was implemented on an abandoned `waf-integration` branch at commit **`77e4046a`** ("feat: step 1 of WAF integration", 2025-12-04): ~2,500 lines including `commands/waf.py`, `lib/waf_logging.py`, `plugins/waf/lewaf/engine.py`, and four test files. It is **not** an ancestor of any live branch and uses the **pre-050 schema** (`[waf]` + `[security.rules]`). Consult it for the LeWAF engine wrapper and audit-logging mechanics; do not cherry-pick wholesale — the access model in §2 supersedes it. (SHA recorded so the commit survives git gc.)
+**Prior art — reference, not reuse.** An earlier WAF attempt was implemented on an abandoned `waf-integration` branch at commit **`77e4046a`** ("feat: step 1 of WAF integration"), including `commands/waf.py`, `lib/waf_logging.py`, and `plugins/waf/lewaf/engine.py`. It is **not** an ancestor of any live branch and uses the **pre-050 schema** (`[waf]` + `[security.rules]`). Consult it for the LeWAF engine wrapper and audit-logging mechanics; do not cherry-pick wholesale — the access model in §2 supersedes it. (SHA recorded so the commit survives git gc.)
 
 **Acceptance criteria (v1):**
 
@@ -328,5 +310,3 @@ The **one remaining gap** is `[[waf.tuning]] skip-body-inspection` (`ctl:request
 3. Under use case 1, a request outside `allow` is denied and, after `threshold` hits in `window`, the source is banned.
 4. `hop3 waf status` shows the service running; `hop3 waf logs` contains structured audit entries.
 5. A malformed rule, or `require = auth` before forward-auth exists, **aborts the deploy** with a clear diagnosis — no silent pass-through.
-
-This ADR is design-only; implementation has not started in-tree.

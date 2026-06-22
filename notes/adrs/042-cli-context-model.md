@@ -1,10 +1,9 @@
 # ADR 042: CLI Context Model — Servers and Project Contexts
 
 **Status**: Accepted
-**Type**: Feature (breaking)
+**Type**: Feature
 **Created**: 2026-05-30
-**Related-ADRs**: 036 (supersedes D7 + D8), 018, 025, 047 (invocation-context transport)
-**Supersedes**: ADR 036 §D7 (app resolution chain), §D8 (sticky state: contexts and default app)
+**Related-ADRs**: 036, 018, 025, 047
 
 ## Context
 
@@ -21,6 +20,12 @@ Two surface mitigations address the symptom (a `--why` flag that prints the reso
 ### Why now
 
 Pre-1.0, with explicit license to make breaking changes. Carrying the conflated `context` noun into 1.0 hardens a known footgun and a known UX dead-end; one coordinated breaking change now is far cheaper than patching around the conflation indefinitely.
+
+This decision supersedes ADR 036 §D7 (the app resolution chain) and §D8 (sticky state: contexts and the default app).
+
+### Backwards compatibility
+
+This is a breaking change. The "context" noun is renamed and re-scoped, `default_app` moves off the server record, and the local-overlay file changes shape. There are no back-compat shims; the transition is a single breaking release, with one-shot rewriters and one-time stderr notes covering the moves (see §Migration).
 
 ## Decision
 
@@ -217,11 +222,11 @@ Three flags govern the prompt:
 
 - `-y` / `--yes` — skip it (CI, scripting).
 - `--dry-run` — print the plan and exit (the *action plan*, vs `--why`'s *resolution trace*).
-- `--force` — bypass the project-mismatch check (§D14) without disabling the prompt.
+- `--force` — bypass the project-mismatch check without disabling the prompt.
 
 The preview is computed client-side from the resolved tuple + `hop3.toml`. A future server-side `deploy --dry-run` RPC can enrich it ("addon X already exists", domain collisions); the client-side version is enough for the safety story.
 
-### Project-mismatch sanity check (§D14)
+### Project-mismatch sanity check
 
 For destructive commands (`deploy`, `restart`, `config set`, `app destroy`): if the CLI runs in a directory whose `hop3.toml [metadata].id` does not match the resolved app *and* the resolved app came from a non-CWD source (env var, global default), the command refuses and prints:
 

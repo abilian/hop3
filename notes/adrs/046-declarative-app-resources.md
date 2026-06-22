@@ -21,13 +21,13 @@ The four gaps, each a real blocker hit while greening the advertised app/tutoria
 3. **No dynamic env references.** Hop3 auto-injects a *fixed, per-addon-type* env contract (`DATABASE_URL`, `PGHOST`, …). It cannot copy an arbitrary provider attribute, build a custom connection string from parts, reference a second instance, or read the host's public IP.
 4. **No resource limits.** Nothing lets an app declare a memory or CPU cap. On a single box running many apps — Hop3's whole premise — one app can starve the others.
 
-A correctness defect compounds the gap: ADR 002 lists `[env]` `from`/`key`/`random` password generation as shipped, but they are unimplemented — the loader (`Hop3Config.env`) drops dict-valued entries, so `SECRET = { generate = true }` or `DB_HOST = { from = "database", key = "hostname" }` is **silently discarded**. A silent skip is exactly what the platform's non-negotiable rules forbid: the format promises a feature the runtime ignores.
+A correctness defect compounds the gap: the `[env]` `from`/`key`/`random` password-generation forms appear in examples but were never implemented — the loader (`Hop3Config.env`) drops dict-valued entries, so `SECRET = { generate = "hex" }` or `DB_HOST = { from = "database", key = "hostname" }` is **silently discarded**. A silent skip is exactly what the platform's non-negotiable rules forbid: the documented form promises a feature the runtime ignores.
 
 This ADR is a single **umbrella** decision: it sets the direction and design principles for the whole declarative-resource surface, specifies the four capabilities above, **folds in and extends** two overlapping areas (backups → ADR 016/024; multi-port proxying → ADR 040), and defers the remainder (source-acquisition-by-config, descriptive metadata, addon version pinning) to *Future Work*.
 
 ## Motivation
 
-The platform is about to advertise a curated set of apps as "working", and robustness is a feature, not a nice-to-have. Each of the four gaps otherwise ships as a bespoke workaround embedded in an app's deploy command or `hop3.toml` — the warning sign the ethos calls out:
+The platform is about to advertise a curated set of apps as "working", where robustness is a core feature. Each of the four gaps otherwise ships as a bespoke workaround embedded in an app's deploy command or `hop3.toml` — the warning sign the ethos calls out:
 
 - Generated secrets: framework tutorials carry a `hop3 deploy … --env KEY="$(…)"` workaround a fresh user must reproduce by hand, and that is not reproducible across redeploys.
 - Persistence: stateful apps work "by accident" only as long as their data happens to land in `data/`; anything else is wiped by the redeploy's `git clean`.
@@ -59,7 +59,7 @@ Concretely, this ADR specifies:
 5. Consolidate **deploy ignore patterns** into `[build].ignore`, removing the `.hop3ignore` sidecar and the `[build].ignore-file` pointer.
 6. Realize the privilege-crossing parts (kernel mounts, cgroups) through the hop3-rootd agent under one op contract (ADR 041).
 
-It also corrects ADR 002, which listed `from`/`key`/`random` as shipped though they were never implemented; this model defines and interprets them as `generate` secrets and dynamic `from`/`key` references.
+It also closes the defect where the `from`/`key`/`random` `[env]` forms were documented in examples but never implemented; this model defines and interprets them as `generate` secrets and dynamic `from`/`key` references.
 
 ## Detailed Design
 
@@ -310,7 +310,7 @@ type = "postgres"
 - Closes the four gaps; removes the per-app workarounds the ethos warns against.
 - Fixes the silent-drop defect — config is honored or rejected, never quietly ignored.
 - Generated-once secrets make first-boot reproducible and redeploys idempotent.
-- Declarative persistence makes stateful apps survive redeploys by design, not by luck.
+- Declarative persistence makes stateful apps survive redeploys by design, where they previously survived only when their data happened to land in `data/`.
 - Per-app limits make the multi-tenant single box production-safe.
 - Aligns the documented format (ADR 002) with the runtime, and the docs with the schema.
 
@@ -334,7 +334,7 @@ type = "postgres"
 
 - Additive: static `[env]`, existing `[[addons]]`, `[run]`, etc. are unchanged.
 - The one change: dict-valued `[env]` entries previously dropped are now interpreted (known forms) or rejected at validation (unknown shapes). This is a fix; the migration note calls it out and validation flags affected files.
-- ADR 002 status corrected (`from`/`key`/`random` were never shipped). ADR 016 and 024 extended for resource-aware backup policy; ADR 040 extended for proxied secondary endpoints. No deployed app breaks.
+- The `from`/`key`/`random` `[env]` forms — documented but never implemented — are now defined and interpreted. ADR 016 and 024 extended for resource-aware backup policy; ADR 040 extended for proxied secondary endpoints. No deployed app breaks.
 - `.hop3ignore` is replaced by `[build].ignore`, and `[build].ignore-file` is removed. A present `.hop3ignore` is honoured for one release with a loud deprecation warning that points to `[build].ignore`, then dropped (no silent shim). The CLI's `.gitignore` fallback for the upload is removed — `.gitignore` belongs to the git-push path. git-push users (relying on `.gitignore`) and Docker users (relying on `.dockerignore`) are unaffected.
 
 ## Alternatives Considered

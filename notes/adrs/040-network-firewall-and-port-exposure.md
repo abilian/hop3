@@ -1,19 +1,12 @@
 # ADR 040: Network firewall and per-app port exposure
 
-**Status**: Partially superseded — the per-app declaration design (`[[expose]]`) was superseded by **ADR 045** (`[[ports]]`), which shipped. The platform-firewall baseline and the Docker port-publishing rework remain open.
+**Status**: Superseded
+**Superseded-By**: ADR 045
 **Type**: Feature
 **Created**: 2026-04-25
-**Updated**: 2026-06-16
 **Related-ADRs**: 010 (security and resilience), 016 (backups), 033 (docker integration), 038 (multi-service apps), 041 (privileged operations agent — supersedes the sudo/wrapper privilege-handling sketched here), 045 (fixed-port registry — the per-app declaration mechanism that actually shipped)
-**Related-deliverable**: NGI 0.5 — "Security will be fortified with network-level firewalls and a Web Application Firewall (WAF) using tools like OWASP Core Ruleset and Coraza."
 
-> **Reader's note (2026-06-16).** The per-app port-exposure half of this ADR was implemented under a different name. Apps declare fixed host ports with **`[[ports]]`** (not the `[[expose]]` block sketched below); the host-wide registry, pre-flight conflict refusal, and firewall open/close on deploy/teardown are described in **ADR 045 (Accepted)** and live in `deployers/fixed_ports.py` + `orm/port_claim.py`. Per-port `source` (CIDR) scoping shipped on `[[ports]]` too. The user-facing reference is `docs/src/reference/config.md` §`[[ports]]`. The two parts of this ADR that are **not** yet done — and remain the live backlog — are: (1) the **installer platform-firewall baseline** (§"Decision 1") and (2) the **Docker port-publishing rework** (§"Decision 5" / open question 1). The L7 WAF half is tracked separately in **ADR 050**.
-
-## Revisions
-
-- v0.4 (2026-06-16): Marked partially superseded. The `[[expose]]` per-app design was implemented as `[[ports]]` (ADR 045); reader's note added pointing to the shipped mechanism. Platform baseline and Docker port-publishing remain open. WAF half moved to ADR 050.
-- v0.3 (2026-05-01): Privilege-handling delegated to ADR 041. The grant lifecycle described here (open on deploy, close on destroy) flows through rootd's `firewall.add_rule` / `firewall.remove_rule` ops; deploy-time confirmation lives in the CLI as a y/N summary of the firewall delta. See ADR 041 for the authoritative privilege design.
-- v0.1 (2026-04-25): Initial draft. Proposes declarative per-app port exposure backed by an installer-managed L3/L4 firewall. Explicitly defers the WAF half of the NGI commitment to a separate ADR.
+The per-app port-exposure design shipped as `[[ports]]` (ADR 045); the L7 WAF half is ADR 050; the installer platform-firewall baseline and the Docker port-publishing rework remain open follow-ups (tracked in the release plan).
 
 ## Context
 
@@ -68,7 +61,7 @@ Docker writes its own iptables rules in the `DOCKER` chain ahead of any rules uf
 
 The right resolution here is non-trivial and is itself an open question (see "Open questions").
 
-## Decision (proposed)
+## Decision
 
 ### 1. Platform firewall baseline
 
@@ -142,7 +135,7 @@ The deployer reconciles ufw rules against the app's `[[expose]]` declarations:
 - A `hop3 firewall list` command prints all Hop3-managed rules with their owning app and description.
 - A `hop3 firewall verify` command warns when ufw is disabled, when rules drift from declarations, or when Docker-published ports exist that aren't covered by an `[[expose]]` block.
 
-### 5. Docker interaction (provisional)
+### 5. Docker interaction
 
 Generated compose files will bind container ports to `127.0.0.1` rather than `0.0.0.0`, e.g.:
 
@@ -170,7 +163,7 @@ For user-supplied compose files (where Hop3 doesn't own the YAML), the deployer 
 - Apps that need network-level visibility (mail, video, DNS, VPN) become first-class citizens. Today they don't exist in the catalog because they'd be silently broken; this ADR makes them deployable.
 - Operators get an audit trail: every open port has an owning app and a description.
 - The `[[expose]]` block is self-documenting. Reviewing an app's `hop3.toml` answers "what does this app expose?" before deploying.
-- Sets up the Scalingo-style "publicly accessible addon" 0.6 feature cleanly: an addon's `public = true` just synthesises an `[[expose]]` entry under the addon's own deployment.
+- Sets up the Scalingo-style "publicly accessible addon" capability cleanly: an addon's `public = true` just synthesises a `[[ports]]` entry under the addon's own deployment.
 
 ### Negative
 
@@ -239,13 +232,13 @@ Rejected — modern security practice is firmly allow-list. The deliverable fram
 
 ## Implementation sketch
 
-Phasing if accepted:
+The design splits into three layers of effort:
 
-- **Phase 1 (Wave 5 of the security remediation):** platform baseline only. Installer adds `configure_firewall()`. No per-app declarations yet. Existing apps that need non-HTTP ports (Gitea SSH, Owncast, Matrix federation, Jenkins) get hand-added rules via a transitional `hop3.toml` field or an installer flag, to keep the catalog working until Phase 2 ships.
-- **Phase 2 (post-0.5):** schema for `[[expose]]`, deployer reconciliation, dashboard panel, `hop3 firewall ...` commands, the Docker port-publishing rework. This is a non-trivial chunk; probably a 0.6 milestone.
-- **Phase 3 (0.6 or later):** WAF (separate ADR), cloud-provider firewall integration adapter (if demand exists), nftables backend (if there's value over ufw/firewalld).
+- **Platform baseline.** The installer adds `configure_firewall()`. No per-app declarations are required at this layer. Existing apps that need non-HTTP ports (Gitea SSH, Owncast, Matrix federation, Jenkins) get hand-added rules via a transitional `hop3.toml` field or an installer flag, to keep the catalog working until per-app declarations land.
+- **Per-app declarations.** Schema for `[[expose]]`, deployer reconciliation, dashboard panel, `hop3 firewall ...` commands, and the Docker port-publishing rework. This is a non-trivial chunk.
+- **Adjacent layers.** WAF (separate ADR), cloud-provider firewall integration adapter (if demand exists), nftables backend (if there's value over ufw/firewalld).
 
-The Phase-1 / Phase-2 split avoids blocking the 0.5 tag on the full design, while still delivering on the "network-level firewalls" half of the NGI commitment in 0.5.
+Splitting the platform baseline from the per-app declarations lets the "network-level firewalls" half of the NGI commitment ship without waiting on the full design.
 
 ## References
 
