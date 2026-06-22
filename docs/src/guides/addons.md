@@ -2,7 +2,7 @@
 
 Addons are backing services — databases, caches, object storage — that your app depends on. Hop3 manages their lifecycle (create, attach, detach, destroy) and injects the connection details into your app as environment variables on deploy.
 
-This guide covers the four addons shipped in Hop3 0.5: `postgres`, `mysql`, `redis`, and `s3`.
+This guide covers the four addons shipped in Hop3 0.5 — `postgres`, `mysql`, `redis`, and `s3` — plus the experimental `email` (SMTP relay) addon added in 0.7.
 
 ## Quick Start
 
@@ -171,6 +171,111 @@ Provisions a bucket (named `hop3-<addon-name>`) and a scoped access key on the c
 | `S3_USE_PATH_STYLE` | `true` |
 
 Path-style URLs are required for MinIO; virtual-host style will arrive with the Garage backend.
+
+### email (experimental)
+
+> **Experimental (0.7).** The command surface is marked subject to change and may evolve after real use. Every `addon email` command prints a one-line experimental banner.
+
+Hop3 never runs a mail server — deliverability, IP reputation, and abuse make it a losing game, and most clouds block outbound port 25. The email addon stores your existing provider's **SMTP submission credentials** and injects them into attached apps. It is **outbound transactional email only**: no inbound, IMAP, or MX.
+
+Because no two frameworks read the same variable names, the addon injects one transport under every common spelling, so a stock Django, Flask, or Node app sends mail with no code change.
+
+**Configure it** — with any SMTP provider (Resend, Amazon SES, Postmark, Brevo, Mailgun, a corporate relay, …). Unlike the other addons, email is configured with a type-specific command that carries the credentials, not the generic `addon create`:
+
+```bash
+hop3 addon email create mail \
+    --smtp-host smtp.resend.com \
+    --smtp-user resend \
+    --smtp-password @./smtp.secret \
+    --from noreply@example.com
+# --smtp-port defaults to 587 (STARTTLS); pass 465 for implicit TLS. Only 587/465.
+```
+
+Keep the password out of your shell history (ADR 036): `--smtp-password @<path>` reads it from a file, `--smtp-password -` reads it from stdin.
+
+**Attach and check** (the type isn't inferred from the name, so pass `--type email`):
+
+```bash
+hop3 addon attach mail --app my-app --type email
+hop3 addon email status mail            # shows host / port / from — never the password
+```
+
+**Injected env vars** — one transport, every common spelling:
+
+| Variables | Consumer |
+|-----------|----------|
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_TLS` | neutral / Node |
+| `SMTP_URL` (`smtp://…:587` or `smtps://…:465`) | Node / nodemailer, URL parsers |
+| `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `EMAIL_USE_SSL`, `DEFAULT_FROM_EMAIL` | Django (`django.core.mail`) |
+| `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_USE_TLS`, `MAIL_USE_SSL`, `MAIL_DEFAULT_SENDER` | Flask-Mail |
+
+So **Django**, **Flask-Mail**, and **Node/nodemailer** read their native names directly — no remapping.
+
+**Frameworks that read no SMTP env** need one line of app-side glue (env injection can't reach them):
+
+- **Rails (ActionMailer)** — in `config/environments/production.rb`:
+  ```ruby
+  config.action_mailer.smtp_settings = {
+    address: ENV["SMTP_HOST"], port: ENV["SMTP_PORT"].to_i,
+    user_name: ENV["SMTP_USER"], password: ENV["SMTP_PASSWORD"],
+    authentication: :plain, enable_starttls_auto: true,
+  }
+  ```
+- **WordPress** — stock `wp_mail()` uses PHP `mail()` and ignores env. Install an SMTP plugin (WP Mail SMTP, FluentSMTP) and point it at `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD`, or map those into constants in `wp-config.php`.
+
+> Email is configured imperatively, so don't declare it in `[[addons]]`: a declarative block has no credentials to provision, and the deploy fails loud telling you to run `addon email create`.
+
+#### Deliverability is your job, at the provider
+
+Hop3 only hands the message to your provider; whether it reaches the inbox is gated by DNS **on your sending domain**, not by Hop3:
+
+- Publish **SPF**, **DKIM**, and **DMARC** for the From-domain at your provider (its dashboard generates the exact records). Since 2024, Gmail/Yahoo/Microsoft reject or spam-folder unauthenticated mail.
+- The unit you authenticate is the **domain**, not the address. Once `example.com` is verified, any From on it — `noreply@`, `support@`, `billing@` — sends for free.
+- Sending **as** `support@example.com` does not mean Hop3 hosts that mailbox; replies follow your domain's existing MX (Google Workspace, etc.).
+
+`hop3 addon email create` and `hop3 addon email status` check **SPF and DMARC** for the domain via DNS and report what's missing — never claiming "ready" over unpublished records. DKIM and the exact per-provider SPF include are shown as guidance for now; auto-verifying those arrives with the named-provider profiles.
+
+#### Wiring it into apps (recipes)
+
+Attaching the addon injects the superset above. A few apps read those names directly; most read their own names and need a short `[env]` remap (Hop3's `${VAR}` interpolation, resolved *after* addon injection). Two recurring gotchas:
+
+- **TLS flag:** the injected `SMTP_TLS` means **STARTTLS on 587**. Apps with an implicit-TLS/465 boolean or an enum (`EMAIL_SMTP_SECURE`, `SMTP_SECURE_ENABLED`, `SMTP_SECURITY`) should be set **literally** for a 587 relay — don't pipe `SMTP_TLS`.
+- **Combined host:port:** Grafana and Gitea want one `host:port` string — splice it with `[env.computed]` (e.g. `GF_SMTP_HOST = "${SMTP_HOST}:${SMTP_PORT}"`).
+
+**Works on attach (no remap):** BookWyrm, Bugsink (Django `EMAIL_*`).
+
+**Laravel** (Monica, BookStack, Invoice Ninja):
+
+```toml
+[env]
+MAIL_MAILER = "smtp"
+MAIL_HOST = "${SMTP_HOST}"
+MAIL_PORT = "${SMTP_PORT}"
+MAIL_USERNAME = "${SMTP_USER}"
+MAIL_PASSWORD = "${SMTP_PASSWORD}"
+MAIL_ENCRYPTION = "tls"
+MAIL_FROM_ADDRESS = "${SMTP_FROM}"   # BookStack uses MAIL_FROM instead
+```
+
+**Bespoke-prefix apps** — the `[env]` lines beyond a bare attach:
+
+| App | `[env]` remap (values are `${SMTP_*}` unless quoted literal) |
+|-----|-------------------------------------------------------------|
+| GoToSocial | `GTS_SMTP_HOST`, `GTS_SMTP_PORT`, `GTS_SMTP_USERNAME=${SMTP_USER}`, `GTS_SMTP_PASSWORD`, `GTS_SMTP_FROM` |
+| Vikunja | `VIKUNJA_MAILER_ENABLED="true"`, `_HOST`, `_PORT`, `_USERNAME=${SMTP_USER}`, `_PASSWORD`, `_FROMEMAIL=${SMTP_FROM}` |
+| Forgejo / Gitea | `GITEA__mailer__ENABLED="true"`, `__PROTOCOL="smtp+starttls"`, `__SMTP_ADDR=${SMTP_HOST}`, `__SMTP_PORT`, `__USER`, `__PASSWD=${SMTP_PASSWORD}`, `__FROM=${SMTP_FROM}` |
+| Discourse | `DISCOURSE_SMTP_ADDRESS=${SMTP_HOST}`, `_PORT`, `_USER_NAME=${SMTP_USER}`, `_PASSWORD`, `_ENABLE_START_TLS="true"`, `DISCOURSE_NOTIFICATION_EMAIL=${SMTP_FROM}` |
+| Mattermost | `MM_EMAILSETTINGS_SMTPSERVER=${SMTP_HOST}`, `_SMTPPORT`, `_SMTPUSERNAME=${SMTP_USER}`, `_SMTPPASSWORD`, `_ENABLESMTPAUTH="true"`, `_CONNECTIONSECURITY="STARTTLS"`, `_SENDEMAILNOTIFICATIONS="true"`, `_FEEDBACKEMAIL=${SMTP_FROM}` |
+| Mastodon | `SMTP_SERVER=${SMTP_HOST}`, `SMTP_LOGIN=${SMTP_USER}`, `SMTP_FROM_ADDRESS=${SMTP_FROM}` (`SMTP_PORT`/`SMTP_PASSWORD` already match) |
+| Directus | `EMAIL_TRANSPORT="smtp"`, `EMAIL_SMTP_HOST=${SMTP_HOST}`, `_PORT`, `_USER=${SMTP_USER}`, `_PASSWORD`, `EMAIL_FROM=${SMTP_FROM}`, `EMAIL_SMTP_SECURE="false"` |
+| Formbricks | core `SMTP_HOST/PORT/USER/PASSWORD` direct; add `MAIL_FROM=${SMTP_FROM}`, `SMTP_SECURE_ENABLED="0"` |
+| Vaultwarden | `SMTP_HOST/PORT/FROM` direct; add `SMTP_USERNAME=${SMTP_USER}`, `SMTP_SECURITY="starttls"` |
+| Grafana | `GF_SMTP_ENABLED="true"`, `GF_SMTP_USER=${SMTP_USER}`, `GF_SMTP_PASSWORD`, `GF_SMTP_FROM_ADDRESS=${SMTP_FROM}`, and `[env.computed] GF_SMTP_HOST="${SMTP_HOST}:${SMTP_PORT}"` |
+| GlitchTip | `EMAIL_URL="smtp://${SMTP_USER}:${SMTP_PASSWORD}@${SMTP_HOST}:${SMTP_PORT}"` (URL-encode user/pass if they contain `@ : /`) |
+
+> A few apps ship with their mailer toggled **off** in Hop3's generated config (Forgejo/Gitea `[mailer] ENABLED=false`, Vikunja `VIKUNJA_MAILER_ENABLED=false`); the remap above only takes effect once that default is cleared.
+
+**Not yet reachable by env:** apps that read SMTP from a config file or DB — Nextcloud, Matrix-Synapse, MediaWiki, Keycloak, Wiki.js, Redmine, Dolibarr, Kanboard, LimeSurvey, Ghost — can't be wired by `[env]` today. They need a per-app config-file/post-deploy step; see the internal catalog-fit note.
 
 ## Common Patterns
 
