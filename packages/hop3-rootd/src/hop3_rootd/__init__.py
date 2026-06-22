@@ -11,7 +11,5 @@ See notes/adrs/041-privileged-operations-agent.md for the design.
 
 from __future__ import annotations
 
-__version__ = "0.4.0"
-
 # Wire-protocol version. Bump on incompatible protocol changes.
 PROTOCOL_VERSION = 1

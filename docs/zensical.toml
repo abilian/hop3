@@ -167,6 +167,7 @@ nav = [
                 { "ADR 041: Privileged Operations Agent (hop3-rootd)" = "developers/adrs/041-privileged-operations-agent.md" },
                 { "ADR 042: CLI Context Model — Servers and Project Contexts" = "developers/adrs/042-cli-context-model.md" },
                 { "ADR 043: Unified Testing Architecture" = "developers/adrs/043-unified-testing-architecture.md" },
+                { "ADR 044: Nightly Test Lab — a Web App to Run and Report o..." = "developers/adrs/044-nightly-test-lab.md" },
                 { "ADR 045: Fixed-Port Registry — Exclusive Host Ports for N..." = "developers/adrs/045-fixed-port-registry.md" },
                 { "ADR 046: Declarative Application Resources — Generated Se..." = "developers/adrs/046-declarative-app-resources.md" },
                 { "ADR 048: Server Configuration and Secret Storage" = "developers/adrs/048-server-config-and-secret-storage.md" },
@@ -198,7 +199,6 @@ nav = [
             { "Draft" = [
                 { "ADR 017: Distributed, Agent-Based Architecture" = "developers/adrs/017-agent-based-architecture.md" },
                 { "ADR 023: Runtime Stack Replacement" = "developers/adrs/023-runtime-stack-replacement.md" },
-                { "ADR 044: Nightly Test Lab — a Web App to Run and Report o..." = "developers/adrs/044-nightly-test-lab.md" },
                 { "ADR 047: CLI Invocation Context — transmit the resolved a..." = "developers/adrs/047-cli-invocation-context.md" },
             ]},
             { "Deferred" = [

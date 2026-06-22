@@ -1,6 +1,6 @@
 # Hop3 CLI Reference
 
-**Version:** 0.5.0dev
+**Version:** 0.6.0
 **Last Updated:** 2026-04-17
 
 This document provides a complete reference for all Hop3 CLI commands.
