@@ -16,6 +16,8 @@ and private-repo deploy keys are deferred (see ``tasks/todo.md``).
 
 from __future__ import annotations
 
+import re
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +25,27 @@ from pathlib import Path
 # Source clones and per-ref worktrees, sibling to the result store under ~/.hop3.
 SOURCES_ROOT = Path.home() / ".hop3" / "testlab" / "sources"
 WORKSPACES_ROOT = Path.home() / ".hop3" / "testlab" / "workspaces"
+
+_ALLOWED_URL_PREFIXES = ("https://", "http://", "git://", "ssh://", "file://")
+_SCP_LIKE = re.compile(r"^[A-Za-z0-9_.+-]+@[A-Za-z0-9_.-]+:")
+
+
+def is_allowed_source_url(url: str) -> bool:
+    """True if ``url`` is a safe git source: an allowed scheme, an scp-like
+    ``user@host:path``, or an absolute local path.
+
+    Rejects a leading ``-`` (git option injection) and the ``ext::``/``fd::``
+    transport helpers (which can run commands on the host). Validated at
+    profile-create time so a malicious URL never reaches ``git clone``.
+    """
+    url = url.strip()
+    if not url or url.startswith("-"):
+        return False
+    if "::" in url.split("/", 1)[0]:  # ext::, fd:: and friends
+        return False
+    if url.startswith("/") or url.startswith(_ALLOWED_URL_PREFIXES):
+        return True
+    return bool(_SCP_LIKE.match(url))
 
 
 def _git(*args: str, cwd: Path | None = None) -> str:
@@ -68,17 +91,23 @@ class Source:
         """
         if not (self.cache / ".git").exists():
             self.cache.parent.mkdir(parents=True, exist_ok=True)
-            _git("clone", self.url, str(self.cache))
+            # `--` ends options so a URL can't be parsed as a git flag.
+            _git("clone", "--", self.url, str(self.cache))
         _git("fetch", "--tags", "--force", "origin", cwd=self.cache)
 
         rev = self._resolve(ref)
         workspace = WORKSPACES_ROOT / _sanitize(self.name) / _sanitize(ref)
         # Recreate the worktree so it's a clean checkout of `rev`, no stale files.
-        # ponytail: assumes ~/.hop3/testlab worktrees are ours; rm -rf that dir if
-        # it ever gets corrupted out-of-band.
         _git("worktree", "prune", cwd=self.cache)
         if workspace.exists():
-            _git("worktree", "remove", "--force", str(workspace), cwd=self.cache)
+            try:
+                _git("worktree", "remove", "--force", str(workspace), cwd=self.cache)
+            except RuntimeError:
+                # A partial/corrupted worktree can't be `git worktree remove`'d and
+                # would wedge every future fetch of this source — force it gone and
+                # re-prune so the source self-heals (was a manual rm -rf).
+                shutil.rmtree(workspace, ignore_errors=True)
+                _git("worktree", "prune", cwd=self.cache)
         workspace.parent.mkdir(parents=True, exist_ok=True)
         _git(
             "worktree",

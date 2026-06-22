@@ -52,6 +52,27 @@ def _get_plugin_providers() -> list:
     return [provider for sublist in provider_lists for provider in sublist]
 
 
+def _build_providers() -> list:
+    """Assemble the full provider list (core providers + plugin providers).
+
+    Returns:
+        List of provider instances to register in a container.
+    """
+    # Collect core providers
+    providers = [
+        ConfigProvider(),
+        DatabaseProvider(),
+        HopCoreProvider(),
+        RepositoryProvider(),
+    ]
+
+    # Add plugin providers
+    plugin_providers = _get_plugin_providers()
+    providers.extend(plugin_providers)
+
+    return providers
+
+
 def create_container() -> Container:
     """Create a new synchronous application container.
 
@@ -72,19 +93,7 @@ def create_container() -> Container:
         finally:
             container.close()
     """
-    # Collect core providers
-    providers = [
-        ConfigProvider(),
-        DatabaseProvider(),
-        HopCoreProvider(),
-        RepositoryProvider(),
-    ]
-
-    # Add plugin providers
-    plugin_providers = _get_plugin_providers()
-    providers.extend(plugin_providers)
-
-    return make_container(*providers)
+    return make_container(*_build_providers())
 
 
 def create_async_container() -> AsyncContainer:
@@ -105,16 +114,4 @@ def create_async_container() -> AsyncContainer:
         container = create_async_container()
         setup_dishka(container, app=app)
     """
-    # Collect core providers
-    providers = [
-        ConfigProvider(),
-        DatabaseProvider(),
-        HopCoreProvider(),
-        RepositoryProvider(),
-    ]
-
-    # Add plugin providers
-    plugin_providers = _get_plugin_providers()
-    providers.extend(plugin_providers)
-
-    return make_async_container(*providers)
+    return make_async_container(*_build_providers())

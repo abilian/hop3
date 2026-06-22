@@ -24,7 +24,7 @@ from hop3_testlab.config import TestlabConfig
 from hop3_testlab.db import get_session_factory
 from hop3_testlab.repositories import RunsRepository
 from hop3_testlab.sources import Source
-from hop3_testlab.worker import run_once
+from hop3_testlab.worker import RunSpec, run_once
 
 # Fastest real app (a static file server — no build, no addons).
 STATIC_APP = "apps/test-apps-procfile/000-static"
@@ -73,10 +73,12 @@ def test_compose_run_deploys_from_source_ref_and_stamps_provenance(monkeypatch):
         "docker",
         trigger="e2e-compose",
         mode="smoke",
-        source=Source("local", str(repo)),
-        source_ref=ref,
-        selector=STATIC_APP,
-        platform_ref=ref,
+        spec=RunSpec(
+            source=Source("local", str(repo)),
+            source_ref=ref,
+            selector=STATIC_APP,
+            platform_ref=ref,
+        ),
     )
     assert ran is True  # lease acquired + run executed (not "busy")
 

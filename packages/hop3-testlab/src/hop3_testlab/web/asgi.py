@@ -66,13 +66,19 @@ def _on_shutdown(app: Litestar) -> None:
 def create_app() -> Litestar:
     """Build the Test Lab Litestar application."""
     config = TestlabConfig.get_instance()
-    session_config = ServerSideSessionConfig()
-    # CSRF-protect the state-changing POSTs (stop / trigger / login). Disabled
-    # under the same UNSAFE flag that bypasses auth (tests/dev), so the test
-    # client doesn't have to round-trip a token. SameSite=Lax (the cookie
-    # default) already blunts cross-site POSTs; this is defence in depth for when
-    # the dashboard gains broader exposure.
-    csrf_config = None if config.UNSAFE else CSRFConfig(secret=config.SECRET_KEY)
+    # Secure cookies in production (the Lab is dogfooded over HTTPS); off under
+    # UNSAFE/DEBUG so local HTTP dev still works. SameSite=strict on the admin
+    # session — there's no cross-site flow that needs it relaxed.
+    secure_cookies = not (config.UNSAFE or config.DEBUG)
+    session_config = ServerSideSessionConfig(secure=secure_cookies, samesite="strict")
+    # CSRF-protect the state-changing POSTs (stop / login / profiles / servers /
+    # queue). Disabled under the same UNSAFE flag that bypasses auth
+    # (tests/dev) so the test client doesn't round-trip a token.
+    csrf_config = (
+        None
+        if config.UNSAFE
+        else CSRFConfig(secret=config.SECRET_KEY, cookie_secure=secure_cookies)
+    )
     # JinjaTemplateEngine is a valid engine, but TemplateConfig is invariant in its
     # engine TypeVar, so the checkers can't unify TemplateConfig[JinjaTemplateEngine]
     # with the parameter's TemplateConfig[EngineType] (same workaround as hop3-server).

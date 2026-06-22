@@ -30,7 +30,7 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 
 - <https://github.com/abilian/hop3/tree/main/apps/bad> — per-app `DEFERRED.md` notes documenting where an upstream app can't be Nix-built (each points at a platform gap)
 
-**M2.3 — Final "1.0"** — *in progress, depends on M2.2* (docs polish, CI, release notes).
+**M2.3 — Final "1.0"** — *not started; carried to 0.7* (docs polish, CI, release notes).
 
 ## T3 — Security & Resilience
 
@@ -91,6 +91,7 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 - <https://github.com/abilian/hop3/tree/main/apps/real-apps-native> — 41 native-toolchain app configs
 - <https://github.com/abilian/hop3/tree/main/apps/real-apps-nix> — 34 hand-crafted Nix apps
 - <https://github.com/abilian/hop3/tree/main/apps/real-apps-nix-gen> — 31 template-generated Nix apps
+- <https://github.com/abilian/hop3/tree/main/apps/real-apps-docker> — 53 Docker app configs
 - <https://hop3.cloud/guides/packaging-applications/> — how an app is described + tested
 - Coverage incl. WordPress, Gitea/Forgejo, Nextcloud, Matomo, Grafana, Mastodon, Matrix Synapse, Vaultwarden, BookStack, … each verified via `hop3-test`. Platform-gap findings captured per deferred app under `apps/bad/*/DEFERRED.md`.
 
@@ -98,7 +99,7 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 
 **M5.1 — Website & blog** ✅
 
-- <https://hop3.cloud/> and <https://hop3.cloud/blog/> — 22 posts (release notes, architecture, security, the 5-part testing series, a "migrating from X" series)
+- <https://hop3.cloud/> and <https://hop3.cloud/blog/> — 23 posts (release notes, architecture, security, the 5-part testing series, a "migrating from X" series, conference write-ups)
 
 **M5.2 — Documentation (devs/admins/end-users)** ✅
 
@@ -112,7 +113,8 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 **M5.4 — Conference presentation / workshop**
 
 - <https://hop3.cloud/blog/posts/2025-06-ow2con/> — Hop3 at OW2Con 2025
-- <https://hop3.cloud/blog/posts/2025-12-osxp/> — Hop3 at OSXP 2025 (OW2Con 2026 scheduled)
+- <https://hop3.cloud/blog/posts/2025-12-osxp/> — Hop3 at OSXP 2025
+- <https://hop3.cloud/blog/posts/2026-06-ow2con/> — Hop3 at OW2Con 2026
 
 **M5.6 — Videos / screencasts** — *not yet recorded*
 

@@ -160,8 +160,3 @@ def get_registration(op_name: str) -> OpRegistration | None:
 def all_ops() -> list[str]:
     """Return the list of registered op names. For diagnostics / health."""
     return sorted(_REGISTRY.keys())
-
-
-def clear_registry() -> None:
-    """Reset the registry. Test-only."""
-    _REGISTRY.clear()

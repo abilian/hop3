@@ -93,24 +93,38 @@ def _wire(monkeypatch, calls):
     monkeypatch.setattr(worker, "_run_engine", lambda *a, **k: calls.append("engine"))
 
 
-def test_full_suite_hetzner_run_rebuilds_first(monkeypatch):
+def test_blank_slate_hetzner_run_rebuilds_first(monkeypatch):
     calls: list[str] = []
     _wire(monkeypatch, calls)
-    worker._default_executor("hetzner", "nightly", apps=None)
+    worker._default_executor("hetzner", "nightly", apps=None, blank_slate=True)
     assert calls == ["rebuild", "engine"]  # blank slate, then run
+
+
+def test_dispatched_profile_build_rebuilds_even_with_apps(monkeypatch):
+    # Review #2/#7 regression: a dispatched/nightly profile build resolves a
+    # NON-empty apps list AND is a clean run (blank_slate=True), so it must STILL
+    # rebuild. The old `not apps` gate silently skipped the rebuild here.
+    calls: list[str] = []
+    _wire(monkeypatch, calls)
+    worker._default_executor(
+        "hetzner", "nightly", apps=["apps/real-apps-nix/x"], blank_slate=True
+    )
+    assert calls == ["rebuild", "engine"]
 
 
 def test_per_app_rerun_skips_rebuild(monkeypatch):
     calls: list[str] = []
     _wire(monkeypatch, calls)
-    worker._default_executor("hetzner", "nightly", apps=["apps/real-apps-docker/x"])
-    assert calls == ["engine"]  # quick re-run against the live server
+    worker._default_executor(
+        "hetzner", "nightly", apps=["apps/real-apps-docker/x"], blank_slate=False
+    )
+    assert calls == ["engine"]  # ad-hoc re-run against the live server
 
 
 def test_other_ssh_host_does_not_rebuild(monkeypatch):
     calls: list[str] = []
     _wire(monkeypatch, calls)
-    worker._default_executor("box.example.com", "nightly", apps=None)
+    worker._default_executor("box.example.com", "nightly", apps=None, blank_slate=True)
     assert calls == ["engine"]  # only the managed "hetzner" target is rebuilt
 
 
@@ -120,5 +134,5 @@ def test_docker_target_does_not_rebuild(monkeypatch):
         worker, "_rebuild_blank_slate", lambda cfg: calls.append("rebuild")
     )
     monkeypatch.setattr(worker, "_run_engine", lambda *a, **k: calls.append("engine"))
-    worker._default_executor("docker", "nightly", apps=None)
+    worker._default_executor("docker", "nightly", apps=None, blank_slate=True)
     assert "rebuild" not in calls

@@ -79,7 +79,10 @@ def reconcile(state: State) -> ReconcileReport:
         else:
             by_rule_id[rid] = kr.handle
 
-    report = _ReconcileBuilder()
+    verified = 0
+    reapplied = 0
+    orphans_removed = 0
+    state_dropped = 0
 
     # State-side rules: re-apply any missing from kernel, drop any that
     # can't be parsed.
@@ -89,7 +92,7 @@ def reconcile(state: State) -> ReconcileReport:
             # Verified — both sides agree this rule exists.
             logger.info("reconcile: verified rule %s", stored.rule_id)
             new_state_rules.append(stored)
-            report.verified += 1
+            verified += 1
             # Remove from the dict so leftover entries are orphans.
             by_rule_id.pop(stored.rule_id)
             continue
@@ -103,14 +106,14 @@ def reconcile(state: State) -> ReconcileReport:
                 "reconcile: re-applied missing kernel rule %s", stored.rule_id
             )
             new_state_rules.append(stored)
-            report.reapplied += 1
+            reapplied += 1
         except Exception as e:
             logger.error(
                 "reconcile: could not re-apply rule %s — dropping from state: %s",
                 stored.rule_id,
                 e,
             )
-            report.state_dropped += 1
+            state_dropped += 1
             # Don't append — this rule is gone.
 
     state.rules = new_state_rules
@@ -124,7 +127,7 @@ def reconcile(state: State) -> ReconcileReport:
             logger.warning(
                 "reconcile: removed orphan kernel rule %s (handle %d)", rid, handle
             )
-            report.orphans_removed += 1
+            orphans_removed += 1
         except Exception as e:
             logger.error(
                 "reconcile: failed to remove orphan rule %s (handle %d): %s",
@@ -144,7 +147,7 @@ def reconcile(state: State) -> ReconcileReport:
                 "from inet hop3 table — operator should not edit this table directly",
                 handle,
             )
-            report.orphans_removed += 1
+            orphans_removed += 1
         except Exception as e:
             logger.error(
                 "reconcile: failed to remove foreign rule (handle %d): %s",
@@ -152,7 +155,12 @@ def reconcile(state: State) -> ReconcileReport:
                 e,
             )
 
-    return report.build()
+    return ReconcileReport(
+        verified=verified,
+        reapplied=reapplied,
+        orphans_removed=orphans_removed,
+        state_dropped=state_dropped,
+    )
 
 
 # --- cgroup reconciliation (ADR 046 §3 / P2.2) ---------------------------
@@ -335,22 +343,3 @@ def reconcile_proxies(state: State) -> ProxyReconcileReport:
     return ProxyReconcileReport(
         reasserted=reasserted, orphans_removed=orphans_removed, failed=failed
     )
-
-
-# --- Builder helper (mutable counterpart of frozen dataclass) ------------
-
-
-class _ReconcileBuilder:
-    def __init__(self) -> None:
-        self.verified = 0
-        self.reapplied = 0
-        self.orphans_removed = 0
-        self.state_dropped = 0
-
-    def build(self) -> ReconcileReport:
-        return ReconcileReport(
-            verified=self.verified,
-            reapplied=self.reapplied,
-            orphans_removed=self.orphans_removed,
-            state_dropped=self.state_dropped,
-        )

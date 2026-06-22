@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import contextlib
 import json
 import os
 import subprocess
@@ -15,7 +14,8 @@ from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import sessionmaker
 
 from hop3_testing.bundle_ids import make_run_id
@@ -87,24 +87,54 @@ def _format_validations(validations) -> str:
     return "\n".join(lines)
 
 
+def store_url(target: object) -> str:
+    """SQLAlchemy URL for ``target``: a DSN (``postgresql+psycopg://…``) passes
+    through; a filesystem path becomes a ``sqlite:///`` URL."""
+    text = str(target)
+    return text if "://" in text else f"sqlite:///{text}"
+
+
+def make_store_engine(target: object):
+    """Create the result-store engine, dialect-aware.
+
+    SQLite gets ``check_same_thread=False`` + the concurrency PRAGMAs (so CLI
+    writes and a dashboard read coexist without "database is locked"); Postgres
+    gets a plain engine. ``target`` is a path (→ SQLite) or a DSN string.
+    """
+    url = store_url(target)
+    if url.startswith("sqlite"):
+        engine = create_engine(url, connect_args={"check_same_thread": False})
+        event.listen(engine, "connect", _configure_sqlite_conn)
+        return engine
+    return create_engine(url)
+
+
 class ResultStore:
-    """Stores and retrieves test results in SQLite."""
+    """Stores and retrieves test results (SQLite by default, or Postgres)."""
 
     DEFAULT_DB_PATH = Path.home() / ".hop3" / "test-results.db"
 
-    def __init__(self, db_path: Path | None = None):
+    def __init__(self, db_path: Path | str | None = None):
         """Initialize the result store.
 
         Args:
-            db_path: Path to SQLite database. Defaults to ~/.hop3/test-results.db
+            db_path: a SQLite path (default ~/.hop3/test-results.db) or a
+                SQLAlchemy DSN string for Postgres (``postgresql+psycopg://…``).
         """
-        self.db_path = db_path or self.DEFAULT_DB_PATH
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-
-        self.engine = create_engine(
-            f"sqlite:///{self.db_path}", connect_args={"check_same_thread": False}
+        # An explicit db_path wins; else honor HOP3_TEST_RESULTS_DB (set by the
+        # Test Lab worker so the engine subprocess writes to the Lab's store — a
+        # SQLite path or a Postgres DSN), else the default local SQLite file.
+        target = (
+            db_path
+            if db_path is not None
+            else os.environ.get("HOP3_TEST_RESULTS_DB") or self.DEFAULT_DB_PATH
         )
-        event.listen(self.engine, "connect", _configure_sqlite_conn)
+        # SQLite has a file (ensure its dir exists); a Postgres DSN has neither.
+        self.db_path = Path(target) if "://" not in str(target) else None
+        if self.db_path is not None:
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+
+        self.engine = make_store_engine(target)
         Base.metadata.create_all(self.engine)
         self._ensure_columns()
         self.Session = sessionmaker(bind=self.engine)
@@ -155,24 +185,31 @@ class ResultStore:
                 ("phase_timings", "JSON"),
             ],
         }
+        inspector = inspect(self.engine)
+        for table, cols in specs.items():
+            existing = {c["name"] for c in inspector.get_columns(table)}
+            for name, sqltype in cols:
+                if name in existing:
+                    continue
+                # Each ALTER in its OWN transaction: on Postgres a failed statement
+                # aborts the whole transaction, so a tolerated duplicate must not
+                # poison the rest. Quote the name so reserved words (`trigger`) work.
+                try:
+                    with self.engine.begin() as conn:
+                        conn.exec_driver_sql(
+                            f'ALTER TABLE {table} ADD COLUMN "{name}" {sqltype}'
+                        )
+                except (OperationalError, ProgrammingError) as e:
+                    # Tolerate only "already exists" (a concurrent xdist init beat
+                    # us); any other migration error is real — fail loud.
+                    text = str(e).lower()
+                    if "exist" not in text and "duplicate" not in text:
+                        raise
         with self.engine.begin() as conn:
-            for table, cols in specs.items():
-                existing = {
-                    row[1]
-                    for row in conn.exec_driver_sql(f"PRAGMA table_info({table})")
-                }
-                for name, sqltype in cols:
-                    if name not in existing:
-                        # concurrent xdist init may have added it already.
-                        # Quote the name so reserved words (e.g. `trigger`) are safe.
-                        with contextlib.suppress(Exception):
-                            conn.exec_driver_sql(
-                                f'ALTER TABLE {table} ADD COLUMN "{name}" {sqltype}'
-                            )
             # UNIQUE can't ride a plain ADD COLUMN on a populated table; use a
             # partial index that tolerates the NULLs of pre-existing rows.
             conn.exec_driver_sql(
-                "CREATE UNIQUE INDEX IF NOT EXISTS ix_test_runs_run_uid "
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_test_runs_run_uid "
                 "ON test_runs(run_uid) WHERE run_uid IS NOT NULL"
             )
             # ADR 044 §data-model: trend/diff query indexes (also added to

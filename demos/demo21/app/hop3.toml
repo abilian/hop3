@@ -1,0 +1,31 @@
+# Templated Nix deployment — no hand-written Nix. The [nix] section drives the
+# nixpkgs-wrapper template, which generates the hop3.nix expression for you.
+[metadata]
+id = "demo21-nix-templated"
+version = "0.1.0"
+title = "Templated Nix Deployment"
+author = "Hop3 Demo"
+description = "A static site deployed via the nixpkgs-wrapper [nix] template."
+
+[build]
+builder = "nix"
+
+[nix]
+# Wrap a stock nixpkgs package (python3) — no source fetch, no build step.
+# Hop3's nix-gen turns these few lines into a full hop3.nix.
+template = "nixpkgs-wrapper"
+nixpkgs-package = "python3"
+exec-target = "python3"
+exec-args = ['-m', 'http.server', '${PORT:-8080}', '--bind', '0.0.0.0']
+
+# The template writes this into the app's runtime directory before launch;
+# http.server serves the working directory, so it is reachable at "/".
+[[nix.config-files]]
+path = "index.html"
+format = "raw"
+raw-content = """
+<!doctype html>
+<title>Hop3 — Templated Nix</title>
+<h1>Hello from a templated Nix deployment</h1>
+<p>Five lines of TOML — the nixpkgs-wrapper template generated the Nix expression.</p>
+"""

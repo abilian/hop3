@@ -99,7 +99,8 @@ def main() -> None:
         from hop3_testlab.scheduler import run_blocking  # noqa: PLC0415
 
         s = load_schedule()
-        print(f"Nightly: {s.target} {s.mode} at {s.hour:02d}:{s.minute:02d} local.")
+        profile = s.profile or "(no profile configured — idle)"
+        print(f"Nightly: enqueue {profile} at {s.hour:02d}:{s.minute:02d} local.")
         run_blocking()
     else:
         parser.print_help()
@@ -180,7 +181,7 @@ def _prune(keep: int | None) -> None:
     from hop3_testlab.config import TestlabConfig  # noqa: PLC0415
 
     keep_runs = keep if keep is not None else load_retention()
-    store = ResultStore(db_path=TestlabConfig.get_instance().DB_PATH)
+    store = ResultStore(db_path=TestlabConfig.get_instance().STORE_TARGET)
     deleted = store.prune_build_logs(keep_runs)
     print(f"Pruned {deleted} build-log rows (kept the most recent {keep_runs} runs).")
 

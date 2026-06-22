@@ -14,7 +14,6 @@ what to say from how to present it. It supports:
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import Any
 
@@ -22,7 +21,6 @@ from attrs import define, field
 from termcolor import colored
 
 __all__ = [
-    "Console",
     "PrintingConsole",
     "Verbosity",
     "blue",
@@ -100,91 +98,12 @@ debug = dim
 
 
 # -----------------------------------------------------------------------------
-# Console ABC
-# -----------------------------------------------------------------------------
-
-
-class Console(ABC):
-    """Abstract base class for console operations.
-
-    This defines an interface for structured console output that separates
-    the semantics of what to output from the presentation.
-    """
-
-    @property
-    @abstractmethod
-    def verbosity(self) -> Verbosity:
-        """Current verbosity level."""
-
-    @abstractmethod
-    def set_verbosity(self, level: Verbosity) -> None:
-        """Set verbosity level."""
-
-    # Low-level output
-    @abstractmethod
-    def echo(self, msg: str, fg: str = "") -> None:
-        """Print message with optional color."""
-
-    # High-level semantic output
-    @abstractmethod
-    def status(self, message: str, details: dict[str, Any] | None = None) -> None:
-        """Print a status message (normal verbosity)."""
-
-    @abstractmethod
-    def progress(self, message: str, current: int = 0, total: int = 0) -> None:
-        """Print a progress message (normal verbosity)."""
-
-    @abstractmethod
-    def success(self, message: str) -> None:
-        """Print a success message (normal verbosity)."""
-
-    @abstractmethod
-    def error(self, message: str, details: dict[str, Any] | None = None) -> None:
-        """Print an error message (always shown)."""
-
-    @abstractmethod
-    def warning(self, message: str) -> None:
-        """Print a warning message (normal verbosity)."""
-
-    @abstractmethod
-    def info(self, message: str) -> None:
-        """Print an info message (verbose only)."""
-
-    @abstractmethod
-    def debug(self, message: str) -> None:
-        """Print a debug message (verbose only)."""
-
-    # Phase tracking
-    @abstractmethod
-    def start_phase(self, phase: str) -> None:
-        """Start a named phase (e.g., 'deploy', 'test')."""
-
-    @abstractmethod
-    def end_phase(self, phase: str, success: bool = True) -> None:
-        """End the current phase."""
-
-    # Section formatting
-    @abstractmethod
-    def header(self, title: str, width: int = 70) -> None:
-        """Print a section header."""
-
-    @abstractmethod
-    def separator(self, char: str = "=", width: int = 70) -> None:
-        """Print a separator line."""
-
-    # Testing support (non-abstract with default implementations)
-    def output(self) -> str:
-        """Return buffered output (for testing)."""
-        return ""
-
-
-# -----------------------------------------------------------------------------
 # PrintingConsole - Terminal output
 # -----------------------------------------------------------------------------
 
 
 @define
-class PrintingConsole(Console):
+class PrintingConsole:
     """Console that prints to stdout with colors."""
 
     _verbosity: Verbosity = field(default=Verbosity.NORMAL)

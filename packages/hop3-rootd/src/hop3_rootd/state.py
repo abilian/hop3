@@ -191,29 +191,8 @@ class State:
     def rules_for_app(self, app_name: str) -> list[StoredRule]:
         return [r for r in self.rules if r.spec.get("app_name") == app_name]
 
-    def find_cgroup(self, app_name: str) -> StoredCgroup | None:
-        """Return the stored cgroup for an app, or None."""
-        for c in self.cgroups:
-            if c.app_name == app_name:
-                return c
-        return None
-
-    def find_mount(self, app_name: str, target: str) -> StoredMount | None:
-        """Return the stored mount for (app, target), or None."""
-        for m in self.mounts:
-            if m.app_name == app_name and m.target == target:
-                return m
-        return None
-
     def mounts_for_app(self, app_name: str) -> list[StoredMount]:
         return [m for m in self.mounts if m.app_name == app_name]
-
-    def find_proxy(self, addon_type: str, addon_name: str) -> StoredProxy | None:
-        """Return the stored proxy for (addon_type, addon_name), or None."""
-        for p in self.proxies:
-            if p.addon_type == addon_type and p.addon_name == addon_name:
-                return p
-        return None
 
 
 # --- Load / save ----------------------------------------------------------

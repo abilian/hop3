@@ -11,6 +11,9 @@ from litestar.testing import TestClient
 
 from hop3_testlab import scheduler
 from hop3_testlab.cloud_config import load_schedule
+from hop3_testlab.config import TestlabConfig
+from hop3_testlab.db import get_session_factory
+from hop3_testlab.repositories import BuildQueueRepository, ProfilesRepository
 from hop3_testlab.web.asgi import create_app
 
 if TYPE_CHECKING:
@@ -18,9 +21,9 @@ if TYPE_CHECKING:
 
 _VARS = (
     "TESTLAB_SCHEDULE_ENABLED",
-    "TESTLAB_SCHEDULE_TARGET",
     "TESTLAB_SCHEDULE_HOUR",
-    "TESTLAB_SCHEDULE_MODE",
+    "TESTLAB_SCHEDULE_MINUTE",
+    "TESTLAB_SCHEDULE_PROFILE",
     # NB: not TESTLAB_CONFIG — the conftest sets it to isolate tests from the
     # developer's ~/.hop3/testlab/config.toml; deleting it would re-read that.
 )
@@ -31,27 +34,28 @@ def _clear(monkeypatch):
         monkeypatch.delenv(var, raising=False)
 
 
+def _session():
+    return get_session_factory(TestlabConfig.get_instance().STORE_TARGET)()
+
+
 def test_schedule_defaults(tmp_path: Path, monkeypatch):
     _clear(monkeypatch)
     s = load_schedule(tmp_path / "nope.toml")
     assert s.enabled is False  # off by default (no surprise nightly in dev)
-    assert s.target == "hetzner"
     assert (s.hour, s.minute) == (0, 0)  # 00:00 local
-    assert s.mode == "nightly"
+    assert s.profile is None  # idle until a profile is configured
 
 
 def test_schedule_from_toml(tmp_path: Path, monkeypatch):
     _clear(monkeypatch)
     cfg = tmp_path / "config.toml"
     cfg.write_text(
-        '[schedule]\nenabled = true\ntarget = "docker"\nhour = 3\nminute = 30\n'
-        'mode = "ci"\n'
+        '[schedule]\nenabled = true\nhour = 3\nminute = 30\nprofile = "nightly-suite"\n'
     )
     s = load_schedule(cfg)
     assert s.enabled is True
-    assert s.target == "docker"
     assert (s.hour, s.minute) == (3, 30)
-    assert s.mode == "ci"
+    assert s.profile == "nightly-suite"
 
 
 def test_schedule_env_enable(tmp_path: Path, monkeypatch):
@@ -60,48 +64,54 @@ def test_schedule_env_enable(tmp_path: Path, monkeypatch):
     assert load_schedule(tmp_path / "nope.toml").enabled is True
 
 
-def test_nightly_job_runs_target_as_scheduled(monkeypatch):
-    captured = {}
+def test_nightly_job_enqueues_configured_profile(monkeypatch):
+    """The nightly enqueues its profile (the dispatcher then runs it) — no direct
+    run, so it shares the single queue path with the UI's Start build."""
+    with _session() as s:
+        profile = ProfilesRepository(s).create(
+            name="nightly-suite",
+            source_name="m",
+            source_url="u",
+            source_ref="main",
+            selection={"mode": "nightly"},
+        )
+        s.commit()
+        pid = profile.id
     monkeypatch.setattr(
-        scheduler,
-        "load_schedule",
-        lambda: SimpleNamespace(target="hetzner", mode="nightly"),
-    )
-    monkeypatch.setattr(scheduler, "run_blockers", lambda target, apps: None)  # clear
-    monkeypatch.setattr(
-        scheduler, "run_once", lambda target, **kw: captured.update(target=target, **kw)
+        scheduler, "load_schedule", lambda: SimpleNamespace(profile="nightly-suite")
     )
 
     scheduler._nightly_job()
 
-    assert captured == {
-        "target": "hetzner",
-        "trigger": "scheduled-nightly",
-        "mode": "nightly",
-    }
+    with _session() as s:
+        pending = BuildQueueRepository(s).next_pending()
+        assert pending is not None
+        assert pending.profile_id == pid
+        assert pending.actor == "nightly"
 
 
-def test_nightly_job_refused_when_blocked_does_not_run(monkeypatch, caplog):
-    """A doomed nightly (e.g. unauthorized Hetzner token) is refused with the
-    reason and logged loud — never spawned, never a raw scheduler traceback."""
+def test_nightly_job_idle_when_no_profile(monkeypatch, caplog):
+    """No profile configured -> a loud, visible no-op (never a silent skip)."""
     monkeypatch.setattr(
-        scheduler,
-        "load_schedule",
-        lambda: SimpleNamespace(target="hetzner", mode="nightly"),
+        scheduler, "load_schedule", lambda: SimpleNamespace(profile=None)
     )
-    monkeypatch.setattr(
-        scheduler,
-        "run_blockers",
-        lambda target, apps: "Can't start: unable to authenticate (unauthorized)",
-    )
-    ran: list[int] = []
-    monkeypatch.setattr(scheduler, "run_once", lambda *a, **k: ran.append(1))
+    with caplog.at_level("WARNING"):
+        scheduler._nightly_job()
+    assert "no [schedule].profile" in caplog.text
+    with _session() as s:
+        assert BuildQueueRepository(s).next_pending() is None  # nothing enqueued
 
+
+def test_nightly_job_missing_profile_fails_loud(monkeypatch, caplog):
+    """A configured-but-absent profile is logged loud, not silently dropped."""
+    monkeypatch.setattr(
+        scheduler, "load_schedule", lambda: SimpleNamespace(profile="ghost")
+    )
     with caplog.at_level("ERROR"):
         scheduler._nightly_job()
-
-    assert ran == []  # doomed run refused, not spawned
-    assert "unauthorized" in caplog.text  # actionable reason surfaced
+    assert "not found" in caplog.text
+    with _session() as s:
+        assert BuildQueueRepository(s).next_pending() is None
 
 
 def test_add_nightly_job_registers_cron(monkeypatch):
@@ -110,7 +120,7 @@ def test_add_nightly_job_registers_cron(monkeypatch):
     monkeypatch.setattr(
         scheduler,
         "load_schedule",
-        lambda: SimpleNamespace(target="hetzner", mode="nightly", hour=0, minute=0),
+        lambda: SimpleNamespace(profile="nightly-suite", hour=0, minute=0),
     )
     sched = scheduler.add_nightly_job(BackgroundScheduler())
     sched.start(paused=True)  # register pending jobs without running them

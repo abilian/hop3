@@ -15,7 +15,6 @@ import sys
 __all__ = [
     "Abort",
     "CapturingConsole",
-    "black",
     "blue",
     "bold",
     "capture_logs",
@@ -58,10 +57,6 @@ from termcolor import colored
 
 
 # Color helpers
-def black(text):
-    return colored(text, "black")
-
-
 def red(text):
     return colored(text, "red")
 
