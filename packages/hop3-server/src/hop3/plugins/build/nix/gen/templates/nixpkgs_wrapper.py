@@ -23,6 +23,7 @@ import dataclasses
 
 from hop3.plugins.build.nix.gen.spec import AppSpec
 from hop3.plugins.build.nix.gen.templates.base import (
+    PINNED_NIXPKGS_HEADER,
     format_nix_env_attrs,
     format_paths_json,
     format_runtime_env_json,
@@ -157,7 +158,7 @@ class NixpkgsWrapperTemplate:
 #
 # Run 'hop3 nix eject {spec.pname}' to materialize for customization.
 
-{{ pkgs ? import <nixpkgs> {{}} }}:
+{PINNED_NIXPKGS_HEADER}
 
 let
   {binding} = {package_expr};{let_extra_block}
