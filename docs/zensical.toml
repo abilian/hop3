@@ -167,9 +167,11 @@ nav = [
                 { "ADR 041: Privileged Operations Agent (hop3-rootd)" = "developers/adrs/041-privileged-operations-agent.md" },
                 { "ADR 042: CLI Context Model — Servers and Project Contexts" = "developers/adrs/042-cli-context-model.md" },
                 { "ADR 043: Unified Testing Architecture" = "developers/adrs/043-unified-testing-architecture.md" },
+                { "ADR 045: Fixed-Port Registry — Exclusive Host Ports for N..." = "developers/adrs/045-fixed-port-registry.md" },
                 { "ADR 046: Declarative Application Resources — Generated Se..." = "developers/adrs/046-declarative-app-resources.md" },
                 { "ADR 048: Server Configuration and Secret Storage" = "developers/adrs/048-server-config-and-secret-storage.md" },
                 { "ADR 049: Catalog Distribution — Fetching App Specs from a..." = "developers/adrs/049-catalog-distribution.md" },
+                { "ADR 050: Layer-7 Web Application Firewall (LeWAF)" = "developers/adrs/050-waf-l7-lewaf.md" },
             ]},
             { "Final" = [
                 { "ADR 008: Template-Based Nix Expression Generation" = "developers/adrs/008-nix-builders-2.md" },
@@ -187,7 +189,6 @@ nav = [
                 { "ADR 034: Streaming Deployment Logs" = "developers/adrs/034-streaming-deployment-logs.md" },
                 { "ADR 035: Build Artifacts as Runtime Contract" = "developers/adrs/035-build-artifacts.md" },
                 { "ADR 037: Git-Based Deployment Architecture" = "developers/adrs/037-git-deployment-architecture.md" },
-                { "ADR 045: Fixed-Port Registry — Exclusive Host Ports for N..." = "developers/adrs/045-fixed-port-registry.md" },
             ]},
             { "Active" = [
                 { "ADR 004: Development Tooling" = "developers/adrs/004-development-tooling.md" },
