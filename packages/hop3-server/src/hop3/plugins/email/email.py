@@ -146,20 +146,22 @@ class EmailAddon:
         )
 
     def create(self) -> None:
-        """Generic-create guard.
+        """Generic-create guard — always refuses.
 
-        An email addon needs a transport, which the generic
-        ``addon create <type> <name>`` path cannot supply — so refuse loudly and
-        point at the real command rather than create a broken, credential-less
-        instance (Hop3's no-fake-success rule).
+        The generic ``addon create <type> <name>`` path cannot supply or validate
+        the SMTP credentials an email addon needs, so it is never a valid way to
+        create one — configured or not. Fail loud and point at the typed command,
+        rather than let the generic path silently no-op over an already-stored
+        transport (Hop3's no-fake-success rule). The real entry point is
+        ``addon email create``, which calls :meth:`configure`.
         """
-        if self._load_transport() is None:
-            msg = (
-                f"Email addon {self.addon_name!r} needs SMTP credentials. Create it "
-                f"with:\n  hop3 addon email create {self.addon_name} "
-                "--smtp-host <h> --smtp-user <u> --smtp-password <pw> --from <addr>"
-            )
-            raise RuntimeError(msg)
+        msg = (
+            f"Email addon {self.addon_name!r} needs SMTP credentials the generic "
+            "`addon create` cannot supply. Create it with:\n"
+            f"  hop3 addon email create {self.addon_name} "
+            "--smtp-host <h> --smtp-user <u> --smtp-password <pw> --from <addr>"
+        )
+        raise RuntimeError(msg)
 
     def destroy(self) -> None:
         """Remove the stored transport. Idempotent."""

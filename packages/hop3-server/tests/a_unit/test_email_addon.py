@@ -54,6 +54,15 @@ def test_create_fails_loud_without_transport(email_root):
         EmailAddon(addon_name="mail").create()
 
 
+def test_create_refuses_even_when_configured(email_root):
+    """The generic create() path must fail loud even after the addon is already
+    configured — it can never validly create an email addon, so it must redirect
+    rather than silently no-op over an existing transport."""
+    _configured()  # writes the 'mail' addon
+    with pytest.raises(RuntimeError, match="addon email create"):
+        EmailAddon(addon_name="mail").create()
+
+
 def test_connection_details_emit_every_spelling(email_root):
     env = _configured().get_connection_details()
     # neutral / Node
