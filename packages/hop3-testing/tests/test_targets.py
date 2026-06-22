@@ -10,7 +10,6 @@ from hop3_testing.targets.base import (
     CommandResult,
     DeployResult,
     HttpResponse,
-    TargetCapabilities,
     TargetInfo,
 )
 
@@ -114,42 +113,6 @@ class TestHttpResponse:
         assert response.duration == 0.0  # default value
 
 
-class TestTargetCapabilities:
-    """Tests for TargetCapabilities dataclass."""
-
-    def test_default_capabilities(self):
-        """Test default capability values."""
-        caps = TargetCapabilities()
-
-        assert caps.os == "unknown"
-        assert caps.arch == "amd64"
-        assert caps.has_systemd is False
-        assert caps.has_docker is False
-        assert caps.available_services == []
-        assert caps.network_mode == "isolated"
-        assert caps.dns_mode == "none"
-
-    def test_custom_capabilities(self):
-        """Test custom capability values."""
-        caps = TargetCapabilities(
-            os="debian-12",
-            arch="arm64",
-            has_systemd=True,
-            has_docker=True,
-            available_services=["postgresql", "redis"],
-            network_mode="internet",
-            dns_mode="wildcard",
-        )
-
-        assert caps.os == "debian-12"
-        assert caps.arch == "arm64"
-        assert caps.has_systemd is True
-        assert caps.has_docker is True
-        assert caps.available_services == ["postgresql", "redis"]
-        assert caps.network_mode == "internet"
-        assert caps.dns_mode == "wildcard"
-
-
 class TestTargetInfo:
     """Tests for TargetInfo dataclass."""
 
@@ -169,8 +132,6 @@ class TestTargetInfo:
 
     def test_full_target_info(self):
         """Test creating full target info."""
-        caps = TargetCapabilities(os="ubuntu-24.04", has_systemd=True)
-
         info = TargetInfo(
             ssh_host="hop3@server.example.com",
             ssh_port=22,
@@ -178,7 +139,6 @@ class TestTargetInfo:
             http_base="http://server.example.com",
             api_url="http://server.example.com:8000",
             metadata={"container_id": "abc123"},
-            capabilities=caps,
         )
 
         assert info.ssh_host == "hop3@server.example.com"
@@ -188,7 +148,3 @@ class TestTargetInfo:
         metadata = info.metadata
         assert metadata is not None
         assert metadata["container_id"] == "abc123"
-        capabilities = info.capabilities
-        assert capabilities is not None
-        assert capabilities.os == "ubuntu-24.04"
-        assert capabilities.has_systemd is True

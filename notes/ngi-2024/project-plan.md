@@ -1,6 +1,6 @@
 # Project plan for the NGI project (#2024-04-365)
 
-**Last reviewed:** 2026-04-18
+**Last reviewed:** 2026-06-21 (0.6 cut)
 
 ## T1 - Nix Build Plugins for Hop3
 
@@ -22,6 +22,8 @@ Deliverables include developing a Nix "native" builder for applications with an 
   - `nix eject` command to materialize for customization
   - 119 unit tests for the generator
   - **Note:** We replaced Dream2nix/poetry2nix/node2nix with our own template approach after finding ecosystem tools didn't match our actual usage patterns. See ADR 008 v0.5 for rationale.
+
+<!-- Note: the signed app catalog (ADR 049; `hop3 catalog refresh`, dashboard browse, `hop3-catalog validate`/`publish`) and the single-source server secret (ADR 048, HOP3_SECRET_KEY) shipped in 0.6; see M3.1/M3.6/M3.7 and CHANGES.md [0.6.0]. -->
 
 ## T2 - Nix Runtime
 
@@ -50,11 +52,11 @@ We will enhance Hop3's resilience and security by introducing robust features an
 
 ### Milestone(s)
 
-- [ ] **M3.1** Backing services (storage, email…)
+- [x] **M3.1** Backing services (storage, email…) — **mostly done** (email deferred to 0.7)
   - PostgreSQL, MySQL, Redis addons fully implemented with CLI commands
   - `addon create`, `addon attach`, `addon detach`, auto-provisioning from `[[addons]]` in hop3.toml
   - S3-compatible object storage addon shipped in 0.5 (MinIO backend with a plugin abstraction ready for a Garage swap in a future release)
-  - 0.6: a full `addon <type> <verb>` operational surface (ad-hoc query, read-only diagnostics, clone, export/import dump streaming, expose/unexpose, promote, endpoint, `hop3 tunnel`); plus per-app resource limits and volumes (ADR 046 Phase 2, cgroup-v2 + bind/tmpfs)
+  - **0.6 (shipped):** the full `addon <type> <verb>` operational surface (ad-hoc query, read-only diagnostics, clone, export/import dump streaming, restore/flush, exists, expose/unexpose, promote, endpoint, `hop3 tunnel`); plus per-app resource limits and volumes (ADR 046: memory/CPU caps for native + containerized apps shown in `hop3 app status`; bind + tmpfs volumes via the privileged daemon behind a default-deny allow-list)
   - W16: PostgreSQL addon now grants CREATE on the per-app DB + public schema (G1), and `[[addons]].extensions` installs non-trusted extensions (bloom, adminpack) as superuser
   - **Remaining gap:** Email addon (SMTP-relay design agreed, implementation deferred to 0.7)
 
@@ -75,13 +77,15 @@ We will enhance Hop3's resilience and security by introducing robust features an
   - Direct port testing, SSH curl, nginx testing for static apps
   - 599 unit + 245 integration + system + E2E tests
 
-- [ ] **M3.5** Firewalls (network-level and WAF) — **Phase 1 done**
-  - LeWAF (implements the OWASP Core Rule Set) static-WAF Phase 1 shipped per ADR 033; 88 tests passing.
+- [ ] **M3.5** Firewalls (network-level and WAF) — **network firewall done; WAF deferred to 0.7**
+  - Network-level firewall + fixed-port registry shipped (ADR 045, Final, superseding ADR 040).
+  - LeWAF (implements the OWASP Core Rule Set) static-WAF Phase 1 prototyped per ADR 033; 88 tests passing.
   - Network-level firewall design: see ADR 040 (port exposure) and ADR 041 (`hop3-rootd`, the kernel-boundary executor).
-  - Phases 2-4 (dynamic WAF, policy engine, observability) remain in the 0.7 backlog.
+  - WAF integration (LeWAF / OWASP CRS, dynamic WAF, policy engine, observability) is carried to the 0.7 backlog.
 
-- [x] **M3.6** CLI — **DONE** (W16)
+- [x] **M3.6** CLI — **DONE** (W16; finalized in 0.6)
   - 73+ registered commands with `space`-separated naming (post ADR 036 M1 migration)
+  - 0.6 completed the ADR 036 migration: the deprecated positional app argument was removed (app target is `--app <name>` only), and several commands were renamed with the old spellings kept as aliases (`launch`→`create`, `backup info`→`backup show`, `addon ps`→`addon activity`, `domains`→`domain`, `env migrate`→`app migrate`, account creation under `user add`).
   - SSH tunneling, JSON-RPC, streaming deploy output
   - Multi-server contexts, auto-authentication
   - ADR 036 (CLI Ergonomics) Accepted: colon→space syntax, implicit app + sticky context, aliases, categorized help with mandatory EXAMPLES, did-you-mean suggestions, confirmations / `--confirm=<name>` / `--no-input` / `--password-file`, D16 exit-code table (11 codes), alias diagnostics, app-name cache.
@@ -91,7 +95,8 @@ We will enhance Hop3's resilience and security by introducing robust features an
   - Dashboard with app management, addon management, backup management
   - Environment variable editing, log viewing
   - 14 HTML templates
-  - **Gap:** App creation from UI is basic; no Git URL deploy from web; needs UI review
+  - 0.6: dashboard can browse the signed app catalog (ADR 049)
+  - **Gap:** App creation from UI is basic; no Git URL deploy from web (deferred to 0.7); needs UI review
 
 - [ ] **M3.8** Process outcomes of security audit and accessibility scan
   - Internal security audit completed (3 critical, 5 high, 8 medium, 6 low)
@@ -132,13 +137,14 @@ This task focuses on promoting Hop3 through an enriched website and blog with re
   - User guide, installation guide, CLI reference, hop3.toml reference
   - Developer documentation (plugin development, architecture)
 
-- [ ] **M5.3** Technical report and/or research paper — **~75% done**
+- [ ] **M5.3** Technical report and/or research paper — **~85% done**
   - TR-01 refactored into proper technical-report form in W16: abstract, keywords, related work, system design, preliminary evaluation, threats to validity, references. App counts and ADR 008 / 039 sections reflect current state.
+  - TR-02 (second interim technical report) written for the 0.6 cycle, covering the 0.5 and 0.6 cycles (see `notes/reports/TR-02.md`).
   - Appendix E updated for new ADRs (036, 038, 039).
-  - **Missing:** Benchmarks (control plane memory, deployment time, Nix closures, startup time). Cannot submit without quantitative evaluation.
+  - **Missing:** Benchmarks (control plane memory, deployment time, Nix closures, startup time). Cannot submit the final paper without quantitative evaluation.
 
-- [x] **M5.4** Conference presentation or workshop — **partial**
-  - Hop3 talks already done at OW2Con 2025, OSXP 2025, and scheduled for OW2Con 2026
+- [x] **M5.4** Conference presentation or workshop
+  - Hop3 talks done at OW2Con 2025, OSXP 2025, and OW2Con 2026 (a blog post for OW2Con 2026 is drafted under `docs/blog/posts/2026-06-ow2con.md`).
 
 - [ ] **M5.6** Videos/screencasts — **not started**
   - Plan exists

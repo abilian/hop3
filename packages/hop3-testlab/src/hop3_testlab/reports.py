@@ -118,6 +118,12 @@ def _failure_block(row: dict) -> list[str]:
     return lines
 
 
+def _inline_code(text: object) -> str:
+    """Inline-code a value safely: strip backticks so it can't break out of the
+    span (the report is rendered with ``| safe``)."""
+    return f"`{str(text).replace('`', '')}`"
+
+
 def build_run_report_md(
     run: dict, results: list[dict], diff: RunDiff | None = None
 ) -> str:
@@ -147,7 +153,7 @@ def build_run_report_md(
     lines += [summary, ""]
     meta_bits = []
     if run.get("git_sha"):
-        meta_bits.append(f"git `{run['git_sha']}`")
+        meta_bits.append(f"git {_inline_code(run['git_sha'])}")
     if run.get("started_at"):
         meta_bits.append(f"started {html.escape(str(run['started_at']))}")
     if meta_bits:
@@ -160,7 +166,7 @@ def build_run_report_md(
         regressions = diff["regressions"]
         lines += [f"## Regressions ({len(regressions)})", ""]
         for name in regressions:
-            lines.append(f"- `{name}`")
+            lines.append(f"- {_inline_code(name)}")
         lines.append("")
 
     grouped = _group_failures(results)

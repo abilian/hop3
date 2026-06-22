@@ -29,7 +29,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Final
+from typing import Any
 
 from hop3_rootd import PROTOCOL_VERSION
 
@@ -244,9 +244,3 @@ def error_response(
 def error_from_protocol_error(exc: ProtocolError) -> Response:
     """Convenience: build an error Response from a raised ProtocolError."""
     return error_response(exc.request_id, exc.code, exc.message)
-
-
-# Constants exported for tests and other modules ----------------------------
-
-HANDSHAKE_OP: Final[str] = "daemon.handshake"
-HEALTH_OP: Final[str] = "daemon.health"

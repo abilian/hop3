@@ -36,15 +36,6 @@ def test_d16_numbering() -> None:
     assert ExitCode.INTERRUPTED == 130
 
 
-def test_back_compat_aliases_point_at_d16_codes() -> None:
-    """Old names left as aliases must point at the D16 numbers, not their old values."""
-    assert ExitCode.NOT_FOUND == ExitCode.RESOLUTION_ERROR == 3
-    assert ExitCode.VALIDATION_ERROR == ExitCode.USAGE_ERROR == 2
-    assert ExitCode.SERVER_ERROR == ExitCode.NETWORK_ERROR == 7
-    assert ExitCode.CONNECTION_ERROR == ExitCode.NETWORK_ERROR == 7
-    assert ExitCode.TIMEOUT_ERROR == ExitCode.NETWORK_ERROR == 7
-
-
 # ---- map_rpc_code_to_exit ----
 
 

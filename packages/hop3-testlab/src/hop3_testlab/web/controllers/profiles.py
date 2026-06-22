@@ -18,6 +18,7 @@ from dishka.integrations.litestar import inject
 from hop3_testing.selector.modes import list_modes
 from litestar import Controller, get, post
 from litestar.enums import RequestEncodingType
+from litestar.exceptions import ValidationException
 from litestar.params import Body, FromPath
 from litestar.response import Redirect, Template
 from litestar.status_codes import HTTP_303_SEE_OTHER
@@ -26,6 +27,7 @@ from hop3_testlab.repositories import (  # noqa: TC001 -- runtime: @inject resol
     BuildQueueRepository,
     ProfilesRepository,
 )
+from hop3_testlab.sources import is_allowed_source_url
 from hop3_testlab.web.guards import auth_guard
 
 _FORM = Annotated[dict, Body(media_type=RequestEncodingType.URL_ENCODED)]
@@ -82,15 +84,26 @@ class ProfilesController(Controller):
     ) -> Redirect:
         name = (data.get("name") or "").strip()
         source_url = (data.get("source_url") or "").strip()
-        if name and source_url:
-            profiles.create(
-                name=name,
-                source_name=(data.get("source_name") or "main-repo").strip(),
-                source_url=source_url,
-                source_ref=(data.get("source_ref") or "main").strip(),
-                platform_ref=(data.get("platform_ref") or "").strip() or None,
-                selection=_selection_from_form(data),
-            )
+        source_ref = (data.get("source_ref") or "main").strip()
+        if not name or not source_url:
+            return Redirect(
+                path="/profiles", status_code=HTTP_303_SEE_OTHER
+            )  # blank form
+        # Fail loud on bad input rather than storing a profile that breaks at run.
+        if not is_allowed_source_url(source_url):
+            msg = f"Unsafe or unsupported source URL: {source_url!r}"
+            raise ValidationException(msg)
+        if not source_ref:
+            msg = "source_ref must not be empty"
+            raise ValidationException(msg)
+        profiles.create(
+            name=name,
+            source_name=(data.get("source_name") or "main-repo").strip(),
+            source_url=source_url,
+            source_ref=source_ref,
+            platform_ref=(data.get("platform_ref") or "").strip() or None,
+            selection=_selection_from_form(data),
+        )
         return Redirect(path="/profiles", status_code=HTTP_303_SEE_OTHER)
 
     @post("/{profile_id:int}/start")

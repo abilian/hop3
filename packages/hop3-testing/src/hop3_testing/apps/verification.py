@@ -20,7 +20,7 @@ from urllib.parse import urlparse
 
 import httpx
 
-from hop3_testing.util.console import Console, PrintingConsole
+from hop3_testing.util.console import PrintingConsole
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -59,7 +59,7 @@ class HttpVerifier:
     app_name: str
     """Name of the deployed app."""
 
-    console: Console = field(default_factory=PrintingConsole)
+    console: PrintingConsole = field(default_factory=PrintingConsole)
     """Console for output."""
 
     def test(
@@ -218,7 +218,7 @@ class CheckScriptRunner:
     app_name: str
     """Name of the deployed app."""
 
-    console: Console = field(default_factory=PrintingConsole)
+    console: PrintingConsole = field(default_factory=PrintingConsole)
     """Console for output."""
 
     def run(self) -> bool:
@@ -319,7 +319,7 @@ class AppVerifier:
     app_name: str
     """Name of the deployed app."""
 
-    console: Console = field(default_factory=PrintingConsole)
+    console: PrintingConsole = field(default_factory=PrintingConsole)
     """Console for output."""
 
     http_verifier: HttpVerifier = field(init=False)

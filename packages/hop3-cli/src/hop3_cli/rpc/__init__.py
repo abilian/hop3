@@ -5,8 +5,7 @@
 """JSON-RPC communication layer for the Hop3 CLI.
 
 This package handles all communication with the Hop3 server:
-- client: RPC client with SSH tunnel support
-- tunnel: SSH tunnel implementation (reference, uses sshtunnel package)
+- client: RPC client with SSH tunnel support (via the sshtunnel package)
 - responses: Response parsing and handling
 """
 

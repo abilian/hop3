@@ -19,7 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from hop3_testing.util.console import Console, PrintingConsole
+from hop3_testing.util.console import PrintingConsole
 
 if TYPE_CHECKING:
     from hop3_testing.diagnostics import DiagnosticCollector
@@ -40,7 +40,7 @@ class DeploymentDebugger:
     app_name: str
     """Name of the deployed app."""
 
-    console: Console = field(default_factory=PrintingConsole)
+    console: PrintingConsole = field(default_factory=PrintingConsole)
     """Console for output."""
 
     diagnostics: DiagnosticCollector | None = field(default=None)

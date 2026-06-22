@@ -16,12 +16,14 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 import os
 import signal
 import subprocess
 import threading
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -43,6 +45,8 @@ if TYPE_CHECKING:
     from hop3_testlab.sources import Source
 
 STOP_GRACE_SECONDS = 5.0
+
+logger = logging.getLogger(__name__)
 
 
 def _hetzner_manager(cfg: CloudConfig):
@@ -150,29 +154,6 @@ def run_blockers(target_id: str, apps: list[str] | None) -> str | None:
     return None
 
 
-def _proc_starttime(pid: int) -> int | None:
-    """The process start-time (jiffies since boot, ``/proc/<pid>/stat`` field 22).
-
-    A reuse-proof identity for the engine PID: the kernel never reissues the same
-    (pid, starttime) pair. Returns None when unreadable (process gone, or no
-    procfs — e.g. a macOS dev machine), in which case identity can't be checked.
-    """
-    try:
-        stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
-    except (OSError, ValueError):
-        return None
-    # comm (field 2) is parenthesised and may contain spaces/parens; index from
-    # the last ')' so the remaining whitespace-split fields line up.
-    rparen = stat.rfind(")")
-    if rparen == -1:
-        return None
-    fields = stat[rparen + 2 :].split()
-    try:
-        return int(fields[19])  # field 22 overall; 20th after comm -> index 19
-    except (IndexError, ValueError):
-        return None
-
-
 def terminate_engine(pid: int, starttime: int | None = None) -> None:
     """Stop a running engine: SIGTERM its process group, SIGKILL after a grace.
 
@@ -187,7 +168,7 @@ def terminate_engine(pid: int, starttime: int | None = None) -> None:
 
     def _still_our_engine() -> bool:
         if starttime is not None:
-            return _proc_starttime(pid) == starttime
+            return leasing.proc_starttime(pid) == starttime
         # No recorded identity: best-effort liveness probe (the old behaviour).
         try:
             os.killpg(pid, 0)
@@ -213,10 +194,10 @@ def _record_engine_pid(target_id: str, pid: int) -> None:
     """Record the engine PID (+ start-time) on the lease so the dashboard can
     stop it without risking a recycled PID."""
     config = TestlabConfig.get_instance()
-    factory = get_session_factory(str(config.DB_PATH))
+    factory = get_session_factory(config.STORE_TARGET)
     session = factory()
     try:
-        leasing.set_pid(session, target_id, pid, _proc_starttime(pid))
+        leasing.set_pid(session, target_id, pid, leasing.proc_starttime(pid))
     finally:
         session.close()
 
@@ -233,11 +214,57 @@ def _run_engine(
     the fetched ``source@ref`` workspace the engine resolves apps against (None =
     the engine's own project root).
     """
-    proc = subprocess.Popen(cmd, start_new_session=True, env=env, cwd=cwd)
-    # Recording the PID is best-effort — never let it abort the run.
-    with contextlib.suppress(Exception):
-        _record_engine_pid(target_id, proc.pid)
-    proc.wait()
+    # Tee the engine's combined output to a per-run breadcrumb log instead of
+    # letting it inherit (and vanish into) the worker's stdout: a run that dies
+    # in setup (bad deploy, refused blank-slate) before recording any row would
+    # otherwise leave nothing the user can look at. Restores `hop3-testlab logs`.
+    log_path = _engine_log_path(env)
+    with log_path.open("w") as log:
+        proc = subprocess.Popen(
+            cmd,
+            start_new_session=True,
+            env=env,
+            cwd=cwd,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+        )
+        # Recording the PID is best-effort — never abort the run — but a failure
+        # silently disables the Stop control, so make it visible (#5).
+        try:
+            _record_engine_pid(target_id, proc.pid)
+        except Exception as e:
+            logger.warning(
+                "Could not record engine PID; Stop control disabled for this run: %s",
+                e,
+            )
+        returncode = proc.wait()
+    if returncode != 0:
+        # Fail loud (NON-NEGOTIABLE): a non-zero engine exit is a *failed* build.
+        # Raise with the log path + tail so run_once propagates it, the dispatcher
+        # records the build FAILED **with the real reason** (BuildRequest.detail),
+        # and the CLI exits non-zero — never a green build for a failed run.
+        tail = _tail_of(log_path)
+        msg = f"Engine exited {returncode}. Last output ({log_path}):\n{tail}"
+        raise RuntimeError(msg)
+
+
+def _engine_log_path(env: dict | None) -> Path:
+    """A per-run log file under ``~/.hop3/testlab-logs/`` named by trigger+stamp."""
+    trigger = (env or os.environ).get("HOP3_TEST_TRIGGER") or "run"
+    log_dir = Path.home() / ".hop3" / "testlab-logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    safe = trigger.replace("/", "_").replace(":", "_")
+    return log_dir / f"{safe}-{stamp}.log"
+
+
+def _tail_of(path: Path, lines: int = 25) -> str:
+    """The last ``lines`` of a log file (for an actionable failure detail)."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        return "\n".join(text.splitlines()[-lines:])
+    except OSError:
+        return "(no output captured)"
 
 
 def _runner_version() -> str:
@@ -256,6 +283,7 @@ def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once;
     platform_ref: str | None = None,
     cwd: Path | None = None,
     provenance: dict[str, str] | None = None,
+    blank_slate: bool = False,
 ) -> None:
     """Run the suite via the existing engine (results -> shared store).
 
@@ -264,15 +292,24 @@ def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once;
     ("addon can't provision … re-run with --with <feature>"). ``apps`` scopes the
     run to specific app paths (a per-app build); otherwise the full mode suite.
 
-    ``platform_ref`` selects the hop3 ref the engine installs (``--branch``); ``cwd``
+    ``platform_ref`` is the hop3 ref the engine installs **from git**
+    (``--deploy-from git --branch``); ``cwd``
     is the fetched ``source@ref`` workspace the engine scans/deploys from — so apps
     and platform can be different refs (v2 spec §A). ``provenance`` (the run's
     composition identity) and any per-target session details are merged into
     ``HOP3_TEST_META``, which ``ResultStore.start_run`` records on the run.
     """
-    branch = ["--branch", platform_ref] if platform_ref else []
+    # Install the platform at the requested ref FROM GIT. `--branch` alone is
+    # ignored: the engine defaults to `--deploy-from local` (deploys local code),
+    # so the run would *record* platform_ref while *testing* the local tree
+    # (review #6). No platform_ref => the engine default (local).
+    deploy = ["--deploy-from", "git", "--branch", platform_ref] if platform_ref else []
     meta = dict(provenance or {})
     env = dict(os.environ)
+    # The engine subprocess must write to the SAME store the Lab reads — its
+    # ResultStore() default is the local SQLite file, which diverges from a
+    # Postgres / custom STORE_TARGET and makes results silently invisible (#4).
+    env["HOP3_TEST_RESULTS_DB"] = str(TestlabConfig.get_instance().STORE_TARGET)
 
     if target_id in {"docker", ""}:
         if meta:
@@ -283,7 +320,7 @@ def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once;
             "--docker",
             "--with",
             "all",
-            *branch,
+            *deploy,
             *_suite_args(mode, apps),
             "--report",
             "html",
@@ -294,10 +331,13 @@ def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once;
     host, ssh_key, session_meta = _resolve_run_target(target_id)
     meta.update(session_meta)  # session details join the provenance in run_metadata
 
-    # Blank slate for reproducibility: rebuild the Hetzner OS before a
-    # full-suite run so every run starts from an identical, known state. Per-app
-    # re-runs (apps given) test against the live server and skip the rebuild.
-    if target_id == "hetzner" and not apps:
+    # Blank slate for reproducibility: rebuild the Hetzner OS before a clean run
+    # so every run starts from an identical, known state. Driven by explicit
+    # intent (`blank_slate`), not by `not apps` — a v2 dispatched/nightly profile
+    # build always resolves a concrete apps list, so the old heuristic silently
+    # skipped the rebuild on the canonical path (#2/#7). Ad-hoc per-app re-runs
+    # leave it False and test against the live server.
+    if target_id == "hetzner" and blank_slate:
         _rebuild_blank_slate(load_cloud_config())
 
     if ssh_key:
@@ -312,7 +352,7 @@ def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once;
         host,
         "--with",
         "all",
-        *branch,
+        *deploy,
         *_suite_args(mode, apps),
         "--report",
         "html",
@@ -337,6 +377,9 @@ class RunSpec:
     selector: str | None = None
     selection: dict | None = None
     apps: list[str] | None = None
+    # Rebuild the Hetzner OS first (reproducible clean run). Set by the dispatcher
+    # for queued/nightly profile builds; False for ad-hoc per-app re-runs.
+    blank_slate: bool = False
 
 
 def _require_nonempty(apps: list[str] | None, what: str) -> None:
@@ -360,6 +403,12 @@ def _compose_inputs(
     provenance: dict[str, str] = {"runner_version": _runner_version()}
     if spec.platform_ref:
         provenance["platform_ref"] = spec.platform_ref
+
+    if spec.source is not None and not spec.source_ref:
+        # Fail loud: a source with a blank ref must NOT silently fall through to
+        # the full local suite against the wrong tree.
+        msg = f"source {spec.source.name!r} given without a source_ref"
+        raise ValueError(msg)
 
     cwd: Path | None
     if spec.source is not None and spec.source_ref:
@@ -401,7 +450,7 @@ def run_once(
     """
     spec = spec or RunSpec()
     config = TestlabConfig.get_instance()
-    factory = get_session_factory(str(config.DB_PATH))
+    factory = get_session_factory(config.STORE_TARGET)
 
     session = factory()
     try:
@@ -409,9 +458,13 @@ def run_once(
             return False
         # A prior run killed mid-flight (e.g. via the dashboard Stop) or crashed
         # never stamped finished_at; clear such orphans now so they can't
-        # masquerade as this run on the dashboard. v1 runs one suite at a time,
-        # so any unfinished row at acquire time predates this lease.
-        RunsRepository(session).sweep_orphans()
+        # masquerade as this run on the dashboard.
+        # ponytail: skip the sweep when another target's lease is live — the
+        # sweep is unscoped, so it would abort that healthy run (#2). Safe to
+        # skip: its orphan (if any) is cleared at the next idle sweep. A
+        # per-target scoped sweep arrives with parallel dispatch.
+        if not leasing.others_live(session, target_id):
+            RunsRepository(session).sweep_orphans()
     finally:
         session.close()
 
@@ -430,6 +483,7 @@ def run_once(
                 platform_ref=spec.platform_ref,
                 cwd=cwd,
                 provenance=provenance,
+                blank_slate=spec.blank_slate,
             )
         finally:
             if prev is None:

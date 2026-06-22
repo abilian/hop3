@@ -22,9 +22,11 @@
       <td class="px-3 py-2 font-mono text-xs">{{ p.selection|tojson }}</td>
       <td class="px-3 py-2 text-right whitespace-nowrap">
         <form method="post" action="/profiles/{{ p.id }}/start" class="inline">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <button class="bg-green-700 text-white rounded px-2 py-1">Start build</button>
         </form>
         <form method="post" action="/profiles/{{ p.id }}/delete" class="inline ml-3">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <button class="text-red-700 hover:underline">delete</button>
         </form>
       </td>
@@ -36,6 +38,7 @@
 </table>
 
 <form method="post" action="/profiles" class="border rounded p-3 grid grid-cols-2 gap-3 max-w-3xl">
+  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
   <label class="text-sm">Name<br>
     <input name="name" required class="border rounded px-2 py-1 w-full">
   </label>

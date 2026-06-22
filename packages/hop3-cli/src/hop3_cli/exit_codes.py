@@ -43,15 +43,6 @@ class ExitCode:
     CONFIRMATION_DECLINED = 10
     INTERRUPTED = 130
 
-    # Back-compat names from the pre-D16 layout. New code should use the
-    # D16-aligned names above. These aliases let older call sites keep
-    # working while the sweep finishes.
-    NOT_FOUND = RESOLUTION_ERROR
-    VALIDATION_ERROR = USAGE_ERROR
-    SERVER_ERROR = NETWORK_ERROR
-    CONNECTION_ERROR = NETWORK_ERROR
-    TIMEOUT_ERROR = NETWORK_ERROR
-
 
 # JSON-RPC error codes
 RPC_METHOD_NOT_FOUND = -32601

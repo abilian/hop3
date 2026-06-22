@@ -95,7 +95,7 @@ def test_terminate_engine_skips_recycled_pid(monkeypatch):
     group must NOT be signalled (the whole point of the identity check)."""
     calls: list[tuple] = []
     monkeypatch.setattr(worker.os, "killpg", lambda *a: calls.append(a))
-    monkeypatch.setattr(worker, "_proc_starttime", lambda _pid: 222)  # differs now
+    monkeypatch.setattr(leasing, "proc_starttime", lambda _pid: 222)  # differs now
     worker.terminate_engine(4321, starttime=111)
     assert calls == []  # never signalled the recycled PID
 
@@ -104,7 +104,7 @@ def test_terminate_engine_signals_when_identity_matches(monkeypatch):
     sent: list[int] = []
     monkeypatch.setattr(worker, "STOP_GRACE_SECONDS", 0.01)
     monkeypatch.setattr(worker.os, "killpg", lambda _pid, sig: sent.append(sig))
-    monkeypatch.setattr(worker, "_proc_starttime", lambda _pid: 111)
+    monkeypatch.setattr(leasing, "proc_starttime", lambda _pid: 111)
     worker.terminate_engine(4321, starttime=111)
     assert signal.SIGTERM in sent  # our engine -> SIGTERM its group
 
@@ -126,8 +126,8 @@ def test_terminate_engine_without_starttime_probes_then_skips_when_gone(monkeypa
 def test_proc_starttime_identifies_a_live_process():
     if not Path("/proc/self/stat").exists():
         pytest.skip("no procfs (non-Linux)")
-    assert worker._proc_starttime(os.getpid()) is not None
-    assert worker._proc_starttime(2**31 - 1) is None  # almost certainly no such pid
+    assert leasing.proc_starttime(os.getpid()) is not None
+    assert leasing.proc_starttime(2**31 - 1) is None  # almost certainly no such pid
 
 
 def test_resolve_run_target_plain_host_is_verbatim(monkeypatch):
@@ -255,8 +255,9 @@ def test_run_once_resolves_profile_selection(monkeypatch, tmp_path):
     assert seen["apps"] == ["apps/a", "apps/b"]
 
 
-def test_default_executor_passes_platform_ref_as_branch_and_cwd(monkeypatch, tmp_path):
-    """platform_ref -> `--branch`; cwd (the workspace) reaches the spawn."""
+def test_default_executor_deploys_platform_ref_from_git(monkeypatch, tmp_path):
+    """platform_ref must be installed FROM GIT (`--deploy-from git --branch X`),
+    not recorded while local code is deployed (review #6); cwd reaches the spawn."""
     calls: list[tuple] = []
     monkeypatch.setattr(
         worker,
@@ -269,9 +270,74 @@ def test_default_executor_passes_platform_ref_as_branch_and_cwd(monkeypatch, tmp
     )
 
     cmd, cwd = calls[0]
-    assert cmd[cmd.index("--branch") + 1] == "main"  # SUT ref -> hop3-deploy --branch
+    assert cmd[cmd.index("--deploy-from") + 1] == "git"  # else --branch is ignored
+    assert cmd[cmd.index("--branch") + 1] == "main"  # platform ref -> hop3-deploy
     assert "apps/foo" in cmd  # resolved app, positional
     assert cwd == tmp_path  # engine scans/deploys from the workspace
+
+
+def test_default_executor_no_platform_ref_stays_local(monkeypatch):
+    """No platform_ref -> no `--deploy-from git` (engine default: local code)."""
+    calls: list[tuple] = []
+    monkeypatch.setattr(
+        worker, "_run_engine", lambda tid, cmd, env, cwd=None: calls.append((cmd, cwd))
+    )
+    worker._default_executor("docker", "smoke", apps=None)
+    assert "--deploy-from" not in calls[0][0]
+
+
+def test_run_engine_raises_on_nonzero_exit(monkeypatch, tmp_path):
+    """A non-zero engine exit fails loud with the log path (was swallowed)."""
+
+    class _Proc:
+        pid = 4242
+
+        def wait(self):
+            return 1  # the engine failed
+
+    monkeypatch.setattr(worker.subprocess, "Popen", lambda *a, **k: _Proc())
+    monkeypatch.setattr(worker, "_record_engine_pid", lambda *a, **k: None)
+    monkeypatch.setattr(worker, "_engine_log_path", lambda env: tmp_path / "engine.log")
+    with pytest.raises(RuntimeError, match="Engine exited 1"):
+        worker._run_engine("docker", ["hop3-test", "system"], None)
+
+
+def test_sweep_skips_a_run_live_on_another_target():
+    """A healthy run on target B is not aborted by a run starting on target A (#2)."""
+    from hop3_testing.results.models import TestRun
+
+    factory = get_session_factory(TestlabConfig.get_instance().STORE_TARGET)
+    with factory() as s:  # B is running: live lease + an unfinished run
+        leasing.try_acquire(s, "B", "build-B")
+        s.add(
+            TestRun(
+                run_uid="run-B", trigger="build-B", mode="smoke", target_type="docker"
+            )
+        )
+        s.commit()
+
+    seen = {}
+
+    def _exec(_tid, _m, _apps, **_kw):
+        with factory() as s:
+            run_b = s.query(TestRun).filter_by(run_uid="run-B").one()
+            seen["b_finished_at"] = run_b.finished_at
+
+    run_once("A", trigger="build-A", executor=_exec)
+    assert seen["b_finished_at"] is None  # B's run survived A's orphan-sweep
+
+
+def test_run_once_fails_loud_on_source_without_ref():
+    """A source with a blank ref must raise, not silently run the local suite."""
+
+    class _Src:
+        name = "main-repo"
+
+        def fetch(self, _ref):
+            pytest.fail("must not fetch with a blank ref")
+
+    with pytest.raises(ValueError, match="without a source_ref"):
+        run_once("docker", trigger="t", spec=RunSpec(source=_Src(), source_ref=""))
 
 
 def test_run_once_legacy_run_defaults_cwd_to_repo_root():

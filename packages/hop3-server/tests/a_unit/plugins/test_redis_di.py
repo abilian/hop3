@@ -77,21 +77,6 @@ def test_redis_factory_get_connection_params_no_password():
     assert "password" not in params
 
 
-def test_redis_factory_get_url():
-    """Test Redis URL generation."""
-    factory = RedisClientFactory(
-        host="testhost",
-        port=6380,
-        password="testpass",
-    )
-
-    url = factory.get_url(db=1, include_password=False)
-    assert url == "redis://testhost:6380/1"
-
-    url_with_pass = factory.get_url(db=1, include_password=True)
-    assert url_with_pass == "redis://:testpass@testhost:6380/1"
-
-
 @pytest.fixture
 def container():
     """Create container with plugin providers."""

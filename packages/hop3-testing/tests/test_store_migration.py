@@ -14,8 +14,11 @@ from __future__ import annotations
 import sqlite3
 from typing import TYPE_CHECKING, ClassVar
 
+import pytest
 from hop3_testing.bundle import Bundle
 from hop3_testing.results import ResultStore
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -222,3 +225,15 @@ def test_ok_bundle_is_not_persisted(tmp_path: Path) -> None:
     )
     store.save(_result_with_bundle(bundle))
     assert store.get_result_by_run_id("rid-ok") is None
+
+
+def test_run_uid_uniqueness_enforced_on_fresh_store(tmp_path: Path) -> None:
+    """A FRESH DB rejects a duplicate run_uid. Regression for review #10: the
+    model's `index=True` once created `ix_test_runs_run_uid`, and the unique
+    index reused that name, so `CREATE UNIQUE INDEX IF NOT EXISTS` silently
+    no-op'd and uniqueness was never enforced on new databases."""
+    store = ResultStore(db_path=tmp_path / "fresh.db")
+    with store.engine.begin() as conn:
+        conn.execute(text("INSERT INTO test_runs (run_uid, mode) VALUES ('dup', 'ci')"))
+    with pytest.raises(IntegrityError), store.engine.begin() as conn:
+        conn.execute(text("INSERT INTO test_runs (run_uid, mode) VALUES ('dup', 'ci')"))

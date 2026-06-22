@@ -4,14 +4,14 @@
 
 This document now describes **what is actually built** in `packages/hop3-testlab/` (and the `hop3-testing` engine it drives), cited by path/symbol, with a clearly-marked **Deferred / not yet built** list per area. The v0.1 draft (2026-06-06) was a pre-implementation design; where the implementation diverged from that design, this version follows the code, and the original design intent is kept only as rationale or as a deferred item.
 
-**One-paragraph summary of the shipped v1.** `hop3-testlab` is a Litestar + Dishka web app (Granian factory) over the **shared `hop3-testing` result store**. An APScheduler cron fires a nightly run; a manual run is triggered from the dashboard. Either way the **worker** (`worker.run_once`) takes a single-target **run lease**, blank-slate-rebuilds the Hetzner box (full-suite runs only), and spawns `hop3-test system …` as a killable subprocess; the engine writes results/bundles to the store as today. The web app reads that store and renders a morning dashboard, a live "running" panel (HTMX polling), per-run / per-build detail, browsable diagnostic bundles, trends, and mode profiles, behind session-cookie auth + CSRF. v1 is deliberately small (single Hetzner target, SQLite, in-process scheduler); the larger ADR-044 ambitions (Advanced-Alchemy schema, `Artifact`/`StoredObject`, incremental `on_result` writer, `HetznerPool` + sharding, redaction, SSE) are **not built** and are tracked as gaps below.
+**One-paragraph summary of the shipped v1.** `hop3-testlab` is a Litestar + Dishka web app (Granian factory) over the **shared `hop3-testing` result store**. An APScheduler cron fires a nightly run (the dashboard is read-only; runs are also started via the CLI `run` command). Either way the **worker** (`worker.run_once`) takes a single-target **run lease**, blank-slate-rebuilds the Hetzner box (full-suite runs only), and spawns `hop3-test system …` as a killable subprocess; the engine writes results/bundles to the store as today. The web app reads that store and renders a morning dashboard, a live "running" panel (HTMX polling), per-run / per-build detail, browsable diagnostic bundles, trends, and mode profiles, behind session-cookie auth + CSRF. v1 is deliberately small (single Hetzner target, SQLite, in-process scheduler); the larger ADR-044 ambitions (Advanced-Alchemy schema, `Artifact`/`StoredObject`, incremental `on_result` writer, `HetznerPool` + sharding, redaction, SSE) are **not built** and are tracked as gaps below.
 
 ---
 
 ## 1. Guiding constraints (unchanged intent)
 
 1. **Mirror hop3-server's stack** — Litestar + Dishka + SQLAlchemy (sync) + Jinja/HTMX/Alpine/Tailwind + Granian. The Test Lab is itself a Hop3 app (dogfooded). **Built.**
-2. **One engine, one store** (ADR 044 §B/§D) — the CLI (`hop3-test cloud` / `hop3-test system`) and the Test Lab read/write the *same* `hop3-testing` result store; the Lab never parses CLI text. **Built** for the read path and the trigger path; the *write* path is still the engine's existing stateful `ResultStore.save()` (the incremental `on_result` writer is deferred, §7).
+2. **One engine, one store** (ADR 044 §B/§D) — the CLI (`hop3-test cloud` / `hop3-test system`) and the Test Lab read/write the *same* `hop3-testing` result store; the Lab never parses CLI text. **Built** for the read path; the dashboard is read-only and the run path is the nightly scheduler / CLI `run` driving the worker. The *write* path is still the engine's existing stateful `ResultStore.save()` (the incremental `on_result` writer is deferred, §7).
 3. **Follow the playbook** — `litestar-dishka/{COMMON-GOTCHAS,CHECKLISTS}.md`. **Built** (Dishka `@inject`+`FromDishka`, `LitestarProvider`, generator session, APP/REQUEST scopes).
 4. **v1 scope is deliberately small** — a *single* Hetzner (or Docker) target, the Lab's own credentials, in-process scheduling, SQLite. **Built as such.** The seams for pool/sharding/Postgres are *partially* present (config fields, lease epoch timestamps) but those features are not implemented.
 
@@ -60,7 +60,7 @@ packages/hop3-testlab/
 │   ├── repositories.py            # RunsRepository (read side over the shared store)
 │   ├── trends.py                  # diff_results / suite_rollup / predict_progress (ETA) / flakiness
 │   ├── reports.py                 # build_run_report_md() — narrative markdown export
-│   ├── catalog.py                 # cached Catalog + title_map() + mode_counts()
+│   ├── catalog.py                 # cached Catalog + title_map()
 │   ├── discriminators.py          # variant_of / type_of / short_app (test-name classification)
 │   ├── bundles.py                 # read_bundle_sections() — read filesystem bundle dirs
 │   ├── di/{container,providers}.py
@@ -82,7 +82,7 @@ ADR 044 §B's reuse boundary is the `hop3-testing` functional core. Current stat
 
 ### Imported / consumed as-is (built)
 - `targets/base.py` `DeploymentTarget` ABC and the Docker/SSH targets — driven by the engine the worker spawns.
-- `catalog/scanner.py` `Catalog` + `catalog/models.py` `TestDefinition` — wrapped by `hop3_testlab/catalog.py` (cached, with `title_map`/`mode_counts`).
+- `catalog/scanner.py` `Catalog` + `catalog/models.py` `TestDefinition` — wrapped by `hop3_testlab/catalog.py` (cached, with `title_map`).
 - `bundle.py` `collect_diagnostic_bundle` + `bundle_ids.py` — the engine writes bundle dirs under `~/.hop3/test-runs/<run_id>/`; the Lab reads them via `bundles.read_bundle_sections` (§12).
 - `results/store.py` `ResultStore` + `results/models.py` — the shared schema the engine writes and the Lab reads (§6).
 
@@ -97,7 +97,7 @@ ADR 044 §B's reuse boundary is the `hop3-testing` functional core. Current stat
 ### Built in `hop3-testlab` (the product shell)
 - **G8/G10** Web service (dashboard + detail + trends + bundle viewer), §9.
 - **G9** APScheduler + per-run subprocess worker + run lease + blank-slate, §10/§11.
-- **G11** Auth/CSRF + lease-based exposure + trigger breadcrumb logging, §11/§14.
+- **G11** Auth/CSRF + lease-based exposure, §11/§14.
 
 ---
 
@@ -152,7 +152,7 @@ Three providers (`di/providers.py`), scopes per the playbook, wired in `di/conta
 | `HealthController` | `/health` | `GET /` (public liveness) |
 | `AuthController` | `/auth` | `GET /login`, `POST /login`, `GET /logout` |
 | `DashboardController` | `/` | `GET /` — morning dashboard |
-| `RunsController` | `/runs` | `POST /trigger`, `GET /{run_uid}`, `GET /{run_uid}/report.md` |
+| `RunsController` | `/runs` | `GET /{run_uid}`, `GET /{run_uid}/report.md` |
 | `RunningController` | `/running` | `GET /` (live panel), `POST /stop` |
 | `BuildController` | `/builds` | `GET /{result_id}` — per-phase build logs |
 | `BundleController` | `/bundle` | `GET /{bundle_run_id}` — browse bundle sections |
@@ -161,7 +161,7 @@ Three providers (`di/providers.py`), scopes per the playbook, wired in `di/conta
 
 **Views (built):** morning dashboard (overall + per-suite rollup + diff-vs-previous + schedule/flash status); run detail (results table failed-first, diff, markdown report export); the **running** panel; build detail; bundle viewer (sections from disk); trends (pass/fail history + flakiness); and **mode profiles** (save/reset/delete named run configs — an addition not in the v0.1 draft).
 
-**HTMX patterns (built):** the running panel auto-refreshes via `hx-get` polling (~5s) — `RunningController` + `running/_panel.html`. Triggering a run is a `POST /runs/trigger` that fire-and-forgets a subprocess (§10). Templates: `base.html` (CDN htmx/alpine/tailwind) + per-view dirs.
+**HTMX patterns (built):** the running panel auto-refreshes via `hx-get` polling (~5s) — `RunningController` + `running/_panel.html`. The dashboard is read-only; runs are started by the nightly scheduler or the CLI `run` command driving the worker (§10), not by a web POST. Templates: `base.html` (CDN htmx/alpine/tailwind) + per-view dirs.
 
 ### Deferred
 - **SSE live-fill** (the draft's `Stream(text/event-stream)` during the night) — not built; the running panel polls instead.
@@ -172,9 +172,9 @@ Three providers (`di/providers.py`), scopes per the playbook, wired in `di/conta
 
 ## 10. Scheduler & worker (as-built)
 
-**Scheduler (`scheduler.py`).** APScheduler in-process. `build_background_scheduler()` registers a `CronTrigger(hour, minute)` nightly job (`add_nightly_job`, id `"nightly"`); `web/asgi.py` starts it on app startup when `load_schedule().enabled` and stores it on `app.state`, shutting it down gracefully. `hop3-testlab schedule` runs a `BlockingScheduler` (`run_blocking`) for a standalone scheduler process. The nightly job calls `worker.run_once(target, trigger="scheduled-nightly", mode=...)`.
+**Scheduler (`scheduler.py`).** APScheduler in-process. `build_background_scheduler()` registers a `CronTrigger(hour, minute)` nightly job (`add_nightly_job`, id `"nightly"`); `web/asgi.py` starts it on app startup when `load_schedule().enabled` and stores it on `app.state`, shutting it down gracefully. `hop3-testlab schedule` runs a `BlockingScheduler` (`run_blocking`) for a standalone scheduler process — it registers the dispatcher too, so a standalone scheduler runs what it enqueues. The nightly job **enqueues** the configured `[schedule].profile` (a `BuildRequest` with `actor="nightly"`); the dispatcher then runs it on a free pool server — the same single path as the UI's Start build. Idle **loudly** when no profile is configured.
 
-**Worker (`worker.py::run_once(target_id, trigger, mode, apps, executor)`).** The single entry point for both the nightly and a manual trigger:
+**Worker (`worker.py::run_once(target_id, *, trigger, mode, spec, executor)`).** The single entry point for queued/dispatcher builds and the CLI `run`:
 1. `leasing.try_acquire(...)` — returns `False` (no run) if the target is busy (§11).
 2. `RunsRepository.sweep_orphans()` — clears crashed/unfinished runs.
 3. For a full-suite **Hetzner** run, `_rebuild_blank_slate(cfg)` — OS rebuild + SSH wait; **aborts loudly** if the SSH key can't be resolved or SSH never comes ready. Per-app re-runs and Docker targets skip the rebuild. `run_blockers(...)` does this validation **pre-flight** so a doomed run is refused before spawn (no fake "started").
@@ -182,7 +182,7 @@ Three providers (`di/providers.py`), scopes per the playbook, wired in `di/conta
 5. `_record_engine_pid` stores the PID + `/proc` starttime on the lease for reuse-proof stop control; `terminate_engine(pid, starttime)` SIGTERMs the process group then SIGKILLs after a grace period.
 6. The lease is released in a `finally`.
 
-**Trigger + breadcrumb (built).** `RunsController.trigger` (`POST /runs/trigger`) fire-and-forgets `hop3-testlab run …` with `start_new_session=True`, redirecting `/?run=busy` if the lease is held and refusing with a surfaced reason if `run_blockers` fails. Subprocess stdout/stderr is teed to `~/.hop3/testlab-logs/trigger-<target>-<stamp>.log` (`_open_trigger_log`) so a run that dies before recording a row still leaves a breadcrumb (ADR 044 §C).
+**Pre-flight (built).** Before any spawn, `run_blockers(...)` validates the run (SSH key resolvable, box reachable) and **refuses** a doomed run rather than reporting "started" (no fake success). The dashboard's manual run-trigger (the old `RunsController.trigger` / `POST /runs/trigger` and its `~/.hop3/testlab-logs/trigger-*.log` breadcrumb) was **removed in v2**: runs now start via a Profile → "Start build" (enqueue a `BuildRequest`) → the dispatcher picks a free pool server and drives the worker, tagging the run `build-<id>`.
 
 ### Deferred
 - 6h wall-clock **budget enforcement** beyond the lease TTL; **arq** promotion; multi-shard fan-out.
@@ -193,7 +193,7 @@ Three providers (`di/providers.py`), scopes per the playbook, wired in `di/conta
 
 **Run lease (`leasing.py` over the `run_lease` row).** One row per `target_id`. `try_acquire(session, target_id, holder, run_uid, ttl_seconds=6*3600)` is non-blocking: it claims the row unless a live (unexpired) lease exists, in which case it returns `False` and the caller refuses (the dashboard shows `?run=busy`). `expires_at` is an **epoch float** (works on SQLite and Postgres), so an abandoned lease is reclaimable after TTL. `set_pid`/`current_lease`/`is_held`/`force_release`/`release` round out the API; the PID + starttime power the dashboard **Stop** control. This is the SQLite/row implementation; the Postgres `pg_try_advisory_lock` variant is **not built** (and not needed at single-target).
 
-**Provenance & convergence (built).** `trigger`/`actor`/`mode`/`git_sha` are recorded on `TestRun`, so a manual `hop3-test` run *and* a nightly both appear in the dashboard, distinguishable by `trigger` (`scheduled-nightly` | `cli` | `manual`). `retry_of` links a re-run to its origin for flakiness.
+**Provenance & convergence (built).** `trigger`/`actor`/`mode`/`git_sha` are recorded on `TestRun`, so a CLI `hop3-test` run, a dispatcher build, *and* a nightly all appear in the dashboard: the run's `trigger` is `cli` or `build-<id>` (queued build), and a queued build's origin is on the `BuildRequest.actor` (`web` | `nightly`). `retry_of` links a re-run to its origin for flakiness.
 
 ### Deferred
 - Postgres advisory-lock lease; duration-aware **bin-packing** / budget projection; **shedding** lowest-priority tests under budget (the `TestRun.shed_tests` / `budget_seconds` / `projected_seconds` columns exist as seams but nothing populates a shed list).
@@ -233,7 +233,7 @@ The engine's `collect_diagnostic_bundle(target, app, …)` (`hop3-testing/bundle
 
 ## 15. Testing (as-built)
 
-`packages/hop3-testlab/tests/a_unit/` holds ~20 unit suites covering the shipped surface: `test_auth`, `test_csrf`, `test_worker`, `test_scheduler`, `test_leasing`, `test_blank_slate`, `test_trigger`, `test_trends`/`test_trends_page`, `test_run_detail`/`test_run_report`, `test_build_detail`, `test_bundles`, `test_running`, `test_progress_by_type`, `test_discriminators`, `test_catalog`, `test_cloud_config`, `test_profiles_page`, `test_app_smoke`. Controllers are exercised via `litestar.testing` with `TESTLAB_UNSAFE` toggled to test both the guard and the authenticated paths; the lease/worker/blank-slate logic is tested with stubbed executors and a Hetzner manager double.
+`packages/hop3-testlab/tests/a_unit/` holds ~20 unit suites covering the shipped surface: `test_auth`, `test_csrf`, `test_worker`, `test_scheduler`, `test_leasing`, `test_blank_slate`, `test_trends`/`test_trends_page`, `test_run_detail`/`test_run_report`, `test_build_detail`, `test_bundles`, `test_running`, `test_progress_by_type`, `test_discriminators`, `test_catalog`, `test_cloud_config`, `test_profiles_page`, `test_app_smoke`. Controllers are exercised via `litestar.testing` with `TESTLAB_UNSAFE` toggled to test both the guard and the authenticated paths; the lease/worker/blank-slate logic is tested with stubbed executors and a Hetzner manager double.
 
 **Layering (updated).** The suites are now classified per ADR 043 by *what a test needs*: `tests/a_unit/` holds the pure suites (`discriminators`, `trends`, `cloud_config`, `catalog`, `blank_slate`) stamped `fast`; the ~16 suites that drive a real SQLite store / the real Litestar app / real git live in `tests/b_integration/` (stamped `integration`). As a thin orchestration shell the Lab is legitimately integration-heavy.
 
@@ -250,7 +250,7 @@ The engine's `collect_diagnostic_bundle(target, app, …)` (`hop3-testing/bundle
 | **M1** Query API + parameterized writer | incremental `on_result`, trends service | **Partial** — read repos + trend functions built (§7); incremental writer (G7) not done |
 | **M2** Bundle everywhere + artifacts + redaction | collect on pass, redact, `Artifact` rows | **Partial** — failure-bundles + headline + viewer built; every-test + redaction + artifact rows not done (§12) |
 | **M3** Web service (read-only) | factory + DI + auth + views | **Done** — dashboard / run / build / bundle / trends / profiles, session auth + CSRF (§8/§9/§14) |
-| **M4** Scheduler + worker + lease (single target) | APScheduler → subprocess, lease, blank-slate | **Done** — incl. trigger breadcrumb + stop control + blank-slate (§10/§11) |
+| **M4** Scheduler + worker + lease (single target) | APScheduler → subprocess, lease, blank-slate | **Done** — incl. pre-flight `run_blockers` + stop control + blank-slate (§10/§11) |
 | **M5** Re-run + trends polish + retention | re-run button, flakiness, retention | **Partial** — flakiness + markdown report + `prune` built; per-test Re-run button + retention job not done |
 | **M6+** Pool + sharding + budget autoscale + arq | additive scale-out | **Not started** (G1/G2, §5) |
 

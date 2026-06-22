@@ -35,11 +35,6 @@ _TEMPLATES: dict[str, Template] = {
 }
 
 
-def register_template(template: Template) -> None:
-    """Register a new template. Used by plugins in the real implementation."""
-    _TEMPLATES[template.name] = template
-
-
 def get_template(name: str) -> Template:
     """Look up a template by name."""
     if name not in _TEMPLATES:

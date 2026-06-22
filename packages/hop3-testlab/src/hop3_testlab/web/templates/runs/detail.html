@@ -188,11 +188,6 @@
           <template x-if="r.bundle_run_id">
             <code class="text-gray-500" x-text="'hop3-test why ' + r.bundle_run_id + (r.classification ? ' --section ' + r.classification : '')"></code>
           </template>
-          <form method="post" action="/runs/trigger" class="inline">
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="app" :value="r.test_name">
-            <button type="submit" class="text-gray-500 hover:text-gray-900" title="Re-run this app">&#8635; re-run</button>
-          </form>
         </div>
       </div>
     </div>

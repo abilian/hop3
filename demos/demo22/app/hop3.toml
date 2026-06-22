@@ -1,0 +1,21 @@
+# A Flask app deployed via the python-venv [nix] template (templated Nix — no
+# hand-written Nix). Flask + gunicorn are pip-installed into a Nix-built
+# virtualenv; the local app.py is run under gunicorn.
+[metadata]
+id = "demo22-flask-nix"
+version = "0.1.0"
+title = "Flask App (templated Nix)"
+author = "Hop3 Demo"
+description = "A Flask web app deployed via the python-venv Nix template."
+
+[build]
+builder = "nix"
+
+[nix]
+# python-venv: pip-install the dependencies into a Nix-built virtualenv and run
+# the local app.py (app:app) under gunicorn. No hand-written Nix expression.
+template = "python-venv"
+runtime-package = "python3"
+pip-packages = ['flask', 'gunicorn']
+exec-target = "gunicorn"
+exec-args = ['app:app', '--bind', '0.0.0.0:${PORT:-8080}', '--pythonpath', '.']

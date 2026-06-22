@@ -98,17 +98,3 @@ class RedisClientFactory:
             params["password"] = self.password
 
         return params
-
-    def get_url(self, db: int = 0, *, include_password: bool = False) -> str:
-        """Get Redis connection URL.
-
-        Args:
-            db: Redis database number
-            include_password: Whether to include password in URL
-
-        Returns:
-            Redis connection URL string
-        """
-        if include_password and self.password:
-            return f"redis://:{self.password}@{self.host}:{self.port}/{db}"
-        return f"redis://{self.host}:{self.port}/{db}"
