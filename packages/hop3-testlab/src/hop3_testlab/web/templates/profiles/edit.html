@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center justify-between mb-1">
+  <h1 class="text-lg font-semibold">Edit profile</h1>
+  <a href="/profiles/{{ p.id }}" class="text-sm text-blue-700 hover:underline">&larr; Back to profile</a>
+</div>
+<p class="text-sm text-gray-500 mb-4">Change what this profile builds. Leave Platform ref blank for the engine default.</p>
+
+<form method="post" action="/profiles/{{ p.id }}/edit" class="border rounded p-3 grid grid-cols-2 gap-3 max-w-3xl">
+  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+  <label class="text-sm">Name<br>
+    <input name="name" value="{{ p.name }}" required class="border rounded px-2 py-1 w-full">
+  </label>
+  <label class="text-sm">Source label<br>
+    <input name="source_name" value="{{ p.source_name }}" class="border rounded px-2 py-1 w-full">
+  </label>
+  <label class="text-sm col-span-2">Source URL <span class="text-gray-400">(git url or local path)</span><br>
+    <input name="source_url" value="{{ p.source_url }}" required class="border rounded px-2 py-1 w-full">
+  </label>
+  <label class="text-sm">Source ref <span class="text-gray-400">(apps)</span><br>
+    <input name="source_ref" value="{{ p.source_ref }}" class="border rounded px-2 py-1 w-full">
+  </label>
+  <label class="text-sm">Platform ref <span class="text-gray-400">(blank = engine default)</span><br>
+    <input name="platform_ref" value="{{ p.platform_ref or '' }}" class="border rounded px-2 py-1 w-full">
+  </label>
+  <label class="text-sm">Mode preset<br>
+    <select name="mode" class="border rounded px-2 py-1 w-full">
+      <option value="" {% if not form.mode %}selected{% endif %}>(filters below)</option>
+      {% for m in modes %}<option {% if form.mode == m %}selected{% endif %}>{{ m }}</option>{% endfor %}
+    </select>
+  </label>
+  <label class="text-sm">Types <span class="text-gray-400">(app, demo, tutorial)</span><br>
+    <input name="types" value="{{ form.types }}" placeholder="app, demo" class="border rounded px-2 py-1 w-full">
+  </label>
+  <label class="text-sm">Priorities <span class="text-gray-400">(P0, P1, P2)</span><br>
+    <input name="priorities" value="{{ form.priorities }}" placeholder="P0, P1" class="border rounded px-2 py-1 w-full">
+  </label>
+  <label class="text-sm">Tiers <span class="text-gray-400">(fast, medium, slow)</span><br>
+    <input name="tiers" value="{{ form.tiers }}" placeholder="fast" class="border rounded px-2 py-1 w-full">
+  </label>
+  <label class="text-sm">Tags <span class="text-gray-400">(covers)</span><br>
+    <input name="tags" value="{{ form.tags }}" placeholder="python, flask" class="border rounded px-2 py-1 w-full">
+  </label>
+  <div class="col-span-2 flex items-center gap-3">
+    <button class="bg-blue-700 text-white rounded px-3 py-1">Save changes</button>
+    <a href="/profiles/{{ p.id }}" class="text-sm text-gray-600 hover:underline">Cancel</a>
+  </div>
+</form>
+{% endblock %}

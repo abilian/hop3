@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center justify-between mb-1">
+  <h1 class="text-lg font-semibold">{{ p.name }}</h1>
+  <a href="/profiles" class="text-sm text-blue-700 hover:underline">&larr; All profiles</a>
+</div>
+<p class="text-sm text-gray-500 mb-4">A saved build spec — what to build (a source <code>@ref</code>, a platform ref, and rules to select apps / demos / tutorials).</p>
+
+<dl class="grid grid-cols-[10rem_1fr] gap-x-4 gap-y-2 text-sm border rounded p-4 mb-4 max-w-3xl">
+  <dt class="text-gray-500">Name</dt><dd>{{ p.name }}</dd>
+  <dt class="text-gray-500">Source label</dt><dd>{{ p.source_name }}</dd>
+  <dt class="text-gray-500">Source URL</dt><dd class="font-mono text-xs break-all">{{ p.source_url }}</dd>
+  <dt class="text-gray-500">Source ref</dt><dd class="font-mono text-xs">{{ p.source_ref }}</dd>
+  <dt class="text-gray-500">Platform ref</dt><dd class="font-mono text-xs">{{ p.platform_ref or "(engine default)" }}</dd>
+  <dt class="text-gray-500">Selection</dt><dd class="font-mono text-xs">{{ p.selection|tojson }}</dd>
+  <dt class="text-gray-500">Created</dt><dd>{{ p.created_at }}</dd>
+  <dt class="text-gray-500">Updated</dt><dd>{{ p.updated_at }}</dd>
+</dl>
+
+<div class="flex items-center gap-3 max-w-3xl">
+  <form method="post" action="/profiles/{{ p.id }}/start" class="inline">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <button class="bg-green-700 text-white rounded px-3 py-1">Start build</button>
+  </form>
+  <a href="/profiles/{{ p.id }}/edit" class="bg-blue-700 text-white rounded px-3 py-1">Edit</a>
+  <form method="post" action="/profiles/{{ p.id }}/duplicate" class="inline">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <button class="border rounded px-3 py-1">Duplicate</button>
+  </form>
+  <form method="post" action="/profiles/{{ p.id }}/delete" class="inline ml-auto"
+        onsubmit="return confirm('Delete profile {{ p.name }}?');">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <button class="text-red-700 hover:underline">Delete</button>
+  </form>
+</div>
+{% endblock %}
