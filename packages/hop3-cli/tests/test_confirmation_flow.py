@@ -91,6 +91,56 @@ def test_confirm_destructive_action_app_destroy_no_arg():
     assert result is True
 
 
+def test_confirm_destructive_action_app_destroy_via_app_flag_confirmed():
+    """Regression: the app is injected as `--app NAME`, so the confirmation
+    target is the flag VALUE, not the literal `--app` (ADR 036 D5)."""
+    printer = RichPrinter()
+    with patch("builtins.input", return_value="demo18"):
+        result = confirm_destructive_action(
+            ["app", "destroy", "--app", "demo18"], printer
+        )
+        assert result is True
+
+
+def test_confirm_destructive_action_app_destroy_via_app_flag_rejects_literal():
+    """Regression: typing the flag literal `--app` must NOT confirm (the old
+    bug prompted `Type '--app' to confirm` and accepted it)."""
+    printer = RichPrinter()
+    with patch("builtins.input", return_value="--app"):
+        result = confirm_destructive_action(
+            ["app", "destroy", "--app", "demo18"], printer
+        )
+        assert result is False
+
+
+def test_confirm_destructive_action_app_destroy_app_flag_equals_form():
+    """`--app=NAME` form resolves to the value too."""
+    printer = RichPrinter()
+    with patch("builtins.input", return_value="demo18"):
+        result = confirm_destructive_action(
+            ["app", "destroy", "--app=demo18"], printer
+        )
+        assert result is True
+
+
+def test_confirm_destructive_action_destroy_alias_via_app_flag():
+    """The bare `destroy` alias is app-scoped the same way."""
+    printer = RichPrinter()
+    with patch("builtins.input", return_value="demo18"):
+        result = confirm_destructive_action(["destroy", "--app", "demo18"], printer)
+        assert result is True
+
+
+def test_confirm_app_flag_confirm_value_matches_app_name():
+    """`--confirm <name>` must match the --app VALUE, not the flag literal."""
+    printer = RichPrinter()
+    flags = CliFlags(confirm_value="demo18")
+    result = confirm_destructive_action(
+        ["app", "destroy", "--app", "demo18"], printer, flags=flags
+    )
+    assert result is True
+
+
 def test_confirm_destructive_action_backup_delete_confirmed():
     """Test backup:delete confirmation when user confirms."""
     printer = RichPrinter()
