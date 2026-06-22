@@ -54,7 +54,7 @@ Beyond the named milestones, 0.6 also delivered two cross-cutting platform featu
 
 ### Dissemination and documentation (T5) — DONE
 
-- [x] **ADR corpus published.** `docs/scripts/convert_adrs.py` publishes all 49 ADRs from `notes/adrs/` to `docs/src/developers/adrs/`, rewriting cross-links and generating a status-grouped index in the navigation. The design record is now part of the documentation site rather than living only in the source tree.
+- [x] **ADR corpus published.** `docs/scripts/convert_adrs.py` publishes all ADRs from `notes/adrs/` to `docs/src/developers/adrs/`, rewriting cross-links and generating a status-grouped index in the navigation. The design record is now part of the documentation site rather than living only in the source tree.
 - [x] **ADR accuracy and voice pass.** All ADRs reviewed against the conventions in `000-readme.md`: status vocabulary normalised, stale "draft/deferred" statuses corrected to reflect shipped work, and the prose brought to a timeless architectural-record voice (no changelog-style play-by-play, no line/test counts).
 - [x] **Documentation accuracy audit against the code.** A full pass corrected drift between the docs and the shipped behaviour: the old colon command syntax replaced by the space form (ADR 036), the test taxonomy updated to the three-layer model (`a_unit`/`b_integration`/`c_e2e`, ADR 043), the build tool corrected from MkDocs to Zensical, a documented-but-unimplemented `logs --follow` flag removed, and all tutorials fixed.
 - [x] **Blog.** The 0.5.0 release post; a five-part series on the testing architecture (overview, runner, Test Lab, demos, executable-docs/validoc); and the first "migrating from X" post (Heroku). Conference posts for OW2Con 2025, OSXP 2025, and OW2Con 2026 are live.

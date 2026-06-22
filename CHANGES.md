@@ -5,12 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.6.0] - 2026-06-20
+## [0.6.0] - 2026-06-22
 
-The 0.6 release builds on 0.5 with per-app resource limits and volumes, a much
-richer set of addon-management commands, a signed app catalog, and a published
-design record. Several commands were renamed for consistency, with the old
-names kept as aliases.
+The 0.6 release builds on 0.5 with per-app resource limits and volumes, a much richer set of addon-management commands, a signed app catalog, and a published design record. Several commands were renamed for consistency, with the old names kept as aliases.
 
 ### Added
 
@@ -20,10 +17,13 @@ names kept as aliases.
 - **App catalog (ADR 049)**: Hop3 can load a signed, central catalog of installable apps (`hop3 catalog refresh`) and browse it from the dashboard; publishers get `hop3-catalog validate` / `publish` tooling. (The former "marketplace" is now the "catalog", ADR 031.)
 - **Configurable backup contents**: choose which paths an app's backups include or exclude with `[backup].paths` / `[backup].exclude`.
 - **Static sites without a Procfile**: serve a static app directly from `[build].static-dir`.
+- **Fixed-port registry (ADR 045)**: non-HTTP apps (game servers, RTMP, and the like) can claim a stable host port from `hop3.toml`, optionally restricted to source CIDRs; `hop3 ports` lists the active claims. This replaces apps grabbing a fixed port outside Hop3's control.
+- **Generated env secrets**: declare `SECRET_KEY = { generate = "urlsafe" }` under `[env]` and Hop3 provisions a stable, per-app secret instead of you hand-rolling one.
 
 ### Changed
 
 - **App target is `--app` only (ADR 036)**: the deprecated positional app argument was removed; every app-scoped command takes `--app <name>`.
+- **Minimum Python is now 3.12 (BREAKING)**: support for Python 3.11 was dropped.
 - **Command renames (aliases kept)**: `launch` → `create`, `backup info` → `backup show`, `addon ps` → `addon activity`, `domains` → `domain`, the Procfile importer `env migrate` → `app migrate`, and account creation consolidated under `user add`. The old spellings still work as aliases.
 - **Single source for the server secret (ADR 048)**: `HOP3_SECRET_KEY` now lives in one place, ending the environment-vs-config drift that could leave addon credentials unreadable after a restart.
 - **Idempotent redeploys**: re-running the installer reuses existing database secrets and preserves operator configuration instead of regenerating them.
@@ -36,6 +36,10 @@ names kept as aliases.
 - **Smaller deploy uploads**: build-output directories (Rust / Maven `target/`) are excluded from the upload.
 - **Redis health check** authenticates correctly when no password is set in the environment.
 - **Let's Encrypt email** is forwarded to the installer on the redeploy path.
+
+### Security
+
+- **Hardened catalog dashboard**: untrusted catalog content is sanitized — app READMEs render safely and only raster icons are accepted — and an "unavailable" banner is shown when the catalog source can't be reached.
 
 ### Documentation
 
@@ -395,8 +399,8 @@ Initial release establishing Hop3's core architecture.
 - Established core class-based architecture
 - Major refactoring for better structure and typing
 
-[Unreleased]: https://github.com/abilian/hop3/compare/v0.6.0...HEAD
-[0.6.0]: https://github.com/abilian/hop3/compare/v0.5.0...v0.6.0
+[Unreleased]: https://github.com/abilian/hop3/compare/0.6.0...HEAD
+[0.6.0]: https://github.com/abilian/hop3/compare/0.5.0...0.6.0
 [0.5.0]: https://github.com/abilian/hop3/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/abilian/hop3/compare/v0.4.0b8...v0.4.0
 [0.4.0b8]: https://github.com/abilian/hop3/compare/v0.4.0b7...v0.4.0b8

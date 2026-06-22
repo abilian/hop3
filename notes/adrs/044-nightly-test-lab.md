@@ -1,6 +1,6 @@
 # ADR 044: Nightly Test Lab — a Web App to Run and Report on the Full Test Suite
 
-**Status**: Draft
+**Status**: Accepted
 **Type**: Architecture
 **Created**: 2026-06-05
 **Related-ADRs**: 043 (unified-testing-architecture), 041 (privileged-operations-agent), 042 (cli-context-model), 034 (streaming-deployment-logs), 033 (docker-integration), 018 (cli-architecture)
