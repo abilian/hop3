@@ -65,6 +65,49 @@ def is_destructive_command(cli_args: list[str]) -> bool:
     return _match_destructive_prefix(cli_args) is not None
 
 
+def _extract_app_flag(args: list[str]) -> str | None:
+    """Return the value of `--app NAME` / `-a NAME` / `--app=NAME`, if present.
+
+    App-scoped commands receive the app as a flag (ADR 036 D5), never as a
+    positional, so the confirmation target must come from here — reading
+    ``args[0]`` would grab the literal ``"--app"``.
+    """
+    for i, tok in enumerate(args):
+        if tok in {"--app", "-a"} and i + 1 < len(args):
+            return args[i + 1]
+        if tok.startswith("--app="):
+            return tok[len("--app=") :]
+    return None
+
+
+def _first_positional(args: list[str]) -> str | None:
+    """First non-flag token (skipping `--app`/`-a` and the value it consumes)."""
+    skip_next = False
+    for tok in args:
+        if skip_next:
+            skip_next = False
+            continue
+        if tok in {"--app", "-a"}:
+            skip_next = True
+            continue
+        if tok.startswith("-"):
+            continue
+        return tok
+    return None
+
+
+def _resolve_target_name(command: tuple[str, ...], args: list[str]) -> str | None:
+    """The resource name the user must type (or pass to `--confirm`).
+
+    App-scoped destroy takes the app from `--app NAME` (never positional);
+    every other destructive command names its resource positionally (addon
+    type, backup id, username, context). Returns None when absent.
+    """
+    if command in {("app", "destroy"), ("destroy",)}:
+        return _extract_app_flag(args) or _first_positional(args)
+    return _first_positional(args)
+
+
 def _confirm_protected_context(config: Config | None) -> tuple[bool, str | None]:
     """Check if context is protected and confirm if needed.
 
@@ -130,12 +173,12 @@ def confirm_destructive_action(  # noqa: PLR0911 — sequential decision tree, e
         return True
     args = cli_args[len(command) :]
 
-    # Check if required arguments are present BEFORE any confirmation prompts.
-    # If missing, let the server handle the error message.
-    if not _has_required_args(command, args):
+    # Resolve the resource the user must confirm. App-scoped commands pass the
+    # app as `--app NAME` (ADR 036 D5, never positional); reading args[0] would
+    # grab the literal "--app". Missing target → let the server error.
+    target_name = _resolve_target_name(command, args)
+    if target_name is None:
         return True
-
-    target_name = args[0]
 
     # ADR 036 G6: --confirm=<name> matches → accept silently. This still
     # runs the protected-context check (which has its own confirmation),
@@ -179,15 +222,15 @@ def confirm_destructive_action(  # noqa: PLR0911 — sequential decision tree, e
 
     # app destroy (or destroy alias) - requires type-to-confirm
     if command in {("app", "destroy"), ("destroy",)}:
-        return _confirm_app_destroy(args, is_protected, context_name)
+        return _confirm_app_destroy(target_name, is_protected, context_name)
 
     # backup destroy command
     if command == ("backup", "destroy"):
-        return _confirm_backup_delete(args)
+        return _confirm_backup_delete(target_name)
 
     # addon destroy command
     if command == ("addon", "destroy"):
-        return _confirm_service_destroy(args, is_protected, context_name)
+        return _confirm_service_destroy(target_name, is_protected, context_name)
 
     # Unknown destructive command (shouldn't happen)
     return confirm("This action cannot be undone. Continue?")
@@ -211,26 +254,10 @@ def _maybe_show_context_warning(config: Config | None) -> None:
         )
 
 
-def _has_required_args(command: tuple[str, ...], args: list[str]) -> bool:
-    """Check if a destructive command has its required arguments.
-
-    Args:
-        command: The command name tuple
-        args: The arguments (excluding the command itself)
-
-    Returns:
-        True if required args are present, False otherwise
-    """
-    # All destructive commands currently require at least one positional argument
-    # (the name of the resource being destroyed).
-    return len(args) >= 1
-
-
 def _confirm_app_destroy(
-    args: list[str], is_protected: bool, context_name: str | None
+    app_name: str, is_protected: bool, context_name: str | None
 ) -> bool:
     """Confirm app destroy command."""
-    app_name = args[0]
     show_destructive_warning(
         "destroy",
         f"app '{app_name}'",
@@ -246,9 +273,8 @@ def _confirm_app_destroy(
     return type_to_confirm(f"Type '{app_name}' to confirm:", app_name)
 
 
-def _confirm_backup_delete(args: list[str]) -> bool:
+def _confirm_backup_delete(backup_id: str) -> bool:
     """Confirm backup destroy command."""
-    backup_id = args[0]
     show_destructive_warning(
         "delete",
         f"backup '{backup_id}'",
@@ -258,10 +284,9 @@ def _confirm_backup_delete(args: list[str]) -> bool:
 
 
 def _confirm_service_destroy(
-    args: list[str], is_protected: bool, context_name: str | None
+    addon_name: str, is_protected: bool, context_name: str | None
 ) -> bool:
     """Confirm services destroy command."""
-    addon_name = args[0]
     show_destructive_warning(
         "destroy",
         f"service '{addon_name}'",

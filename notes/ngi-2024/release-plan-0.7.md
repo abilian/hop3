@@ -96,7 +96,7 @@ The dashboard exists (9 controllers, 17 templates). The Git-URL deploy form fiel
 
 ### Security external review (M3.8)
 
-The four internal-audit code fixes shipped in 0.5 (magic-link default removed, auth rate-limiting, RFC-7235 bearer matching, configurable token lifetime).
+The four internal-audit code fixes shipped in 0.5 (magic-link default removed, auth rate-limiting, RFC-7235 bearer matching, configurable token lifetime); the security/credential hardening continued through 0.6 (single-source `HOP3_SECRET_KEY`, ADR 048).
 
 - [ ] Engage the external NGI security review; address feedback
 - [ ] Accessibility scan (covered jointly with M3.7)
@@ -135,7 +135,7 @@ The 34 scripted demos under `demos/` are the basis (walkthrough + screencast sou
 
 ## Out of Scope for 0.7
 
-Valuable but not NGI commitments, deferred post-NGI: the agent model (ADR 017), SSO / identity management, a monitoring / metrics dashboard, multi-server / distributed deployment (JumpGATE), and a marketplace.
+Valuable but not NGI commitments, deferred post-NGI: the agent model (ADR 017), SSO / identity management, a monitoring / metrics dashboard, and multi-server / distributed deployment (JumpGATE).
 
 ## Effort Estimate
 

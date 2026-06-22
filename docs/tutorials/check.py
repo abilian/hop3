@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check all Hop3 tutorials using tutotest.
+"""Check all Hop3 tutorials using validoc.
 
 This script validates and optionally runs all tutorial markdown files
 organized by language subdirectory.
@@ -48,20 +48,20 @@ def get_tutorials(language: str | None = None) -> list[Path]:
     return tutorials
 
 
-def run_tutotest(command: str, tutorial: Path) -> bool:
-    """Run tutotest with the given command on a tutorial file."""
-    cmd = ["tutotest", command, str(tutorial)]
+def run_validoc(command: str, tutorial: Path) -> bool:
+    """Run validoc with the given command on a tutorial file."""
+    cmd = ["validoc", command, str(tutorial)]
     result = subprocess.run(cmd, capture_output=False)
     return result.returncode == 0
 
 
 def check_tutorials(tutorials: list[Path]) -> tuple[list[Path], list[Path]]:
-    """Run 'tutotest check' on all tutorials."""
+    """Run 'validoc check' on all tutorials."""
     passed = []
     failed = []
 
     print("=" * 60)
-    print("PHASE 1: Syntax Check (tutotest check)")
+    print("PHASE 1: Syntax Check (validoc check)")
     print("=" * 60)
     print()
 
@@ -69,7 +69,7 @@ def check_tutorials(tutorials: list[Path]) -> tuple[list[Path], list[Path]]:
         relative = tutorial.relative_to(TUTORIALS_DIR)
         print(f"Checking {relative}...", end=" ", flush=True)
 
-        if run_tutotest("check", tutorial):
+        if run_validoc("check", tutorial):
             print("OK")
             passed.append(tutorial)
         else:
@@ -84,12 +84,12 @@ def check_tutorials(tutorials: list[Path]) -> tuple[list[Path], list[Path]]:
 
 
 def run_tutorials(tutorials: list[Path]) -> tuple[list[Path], list[Path]]:
-    """Run 'tutotest run' on all tutorials."""
+    """Run 'validoc run' on all tutorials."""
     passed = []
     failed = []
 
     print("=" * 60)
-    print("PHASE 2: Execute Tutorials (tutotest run)")
+    print("PHASE 2: Execute Tutorials (validoc run)")
     print("=" * 60)
     print()
 
@@ -99,7 +99,7 @@ def run_tutorials(tutorials: list[Path]) -> tuple[list[Path], list[Path]]:
         print(f"Running {relative}")
         print("=" * 60)
 
-        if run_tutotest("run", tutorial):
+        if run_validoc("run", tutorial):
             print(f"PASSED: {relative}")
             passed.append(tutorial)
         else:
@@ -133,7 +133,7 @@ def list_tutorials(tutorials: list[Path]) -> None:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Check and run Hop3 tutorials using tutotest"
+        description="Check and run Hop3 tutorials using validoc"
     )
     parser.add_argument(
         "--run",

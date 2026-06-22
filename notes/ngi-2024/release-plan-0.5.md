@@ -1,15 +1,17 @@
 # Hop3 0.5.0 Release Plan
 
-**Target:** Early May 2026
+**Released:** 2026-06-08 (see CHANGES.md `[0.5.0]`)
 **Theme:** Consolidation — make what we have solid and demonstrable
-**Branch:** `main` (merge from `nix-builders`)
-**Last updated:** 2026-04-22
+**Branch:** `main` (merged from `nix-builders`)
+**Last updated:** 2026-06-08
 
 ## Goals
 
-Version 0.5 closes the gaps that prevent demonstrating Hop3 to the NGI
-reviewers. It does not add major new features — it makes existing
-features reliable, documented, and presentable.
+Version 0.5 closed the gaps that prevented demonstrating Hop3 to the NGI
+reviewers. It did not add major new features — it made existing
+features reliable, documented, and presentable. This plan is retained as
+a shipped-release retrospective; see CHANGES.md `[0.5.0]` for the final
+set of changes.
 
 ## Critical path
 
@@ -177,12 +179,14 @@ plan is to replace it with Garage (genuinely AGPL) in a future
 release — the backend abstraction already exists to make the swap
 a one-liner on the plugin side.
 
-#### Email addon (stretch — can slip to 0.6)
+#### Email addon (stretch — did NOT ship in 0.5 or 0.6; reslotted to 0.7)
+
+The email/SMTP addon is not in the 0.6 changelog; it is now a 0.7 deliverable.
 
 - [ ] Design decision: SMTP relay config vs full mail server?
       Recommendation: SMTP relay only (point at user's existing
       provider) — running a mail server is out of scope for a PaaS.
-- [ ] `addons:create email <name> --smtp-host <h> --smtp-user <u>`
+- [ ] `addon email create <name> --smtp-host <h> --smtp-user <u>`
       stores encrypted SMTP credentials
 - [ ] Injects `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`,
       `SMTP_FROM` into attached apps
@@ -197,8 +201,8 @@ a one-liner on the plugin side.
 - [ ] Update `[[addons]]` section in `config.md` reference
 
 **Definition of done:** At least one new addon type (S3) shipped
-with CLI commands, env var injection, tests, and documentation.
-Email addon is nice-to-have; can slip to 0.6.
+with CLI commands, env var injection, tests, and documentation. MET in 0.5.
+Email addon is nice-to-have; it did not land in 0.6 and is now 0.7 work.
 
 ### Error message audit (improvement plan #9) — FOUNDATION DONE
 
@@ -359,12 +363,12 @@ App counts updated from post-W16 reality:
 - [ ] All `real-apps-nix-gen/` passing (target: 22+/25)
 - [ ] All `real-apps-docker/` passing (target: 40+/42)
 
-### Release mechanics
+### Release mechanics — DONE (0.5.0 released 2026-06-08)
 
-- [ ] Merge `nix-builders` branch into `main`
-- [ ] Update version to 0.5.0 in all pyproject.toml
-- [ ] Write CHANGELOG entry
-- [ ] Tag v0.5.0
+- [x] Merge `nix-builders` branch into `main`
+- [x] Update version to 0.5.0 in all pyproject.toml
+- [x] Write CHANGELOG entry
+- [x] Tag 0.5.0
 - [ ] Blog post: "Hop3 0.5: Nix Templates, 70+ Apps"
 
 ## Priority Order (if time runs short)
@@ -395,27 +399,29 @@ submission (M5.3 final).
 
 | Risk | Mitigation |
 |------|------------|
-| Benchmarks reveal Hop3 is slower than expected | Honest reporting; the paper's value is the architecture, not raw speed |
+| Benchmarks reveal Hop3 is slower than expected | Straightforward reporting; the paper's value is the architecture, not raw speed |
 | Production deploys uncover blocker bugs | Triage: fix critical, defer rest |
 | Screencast recording reveals UX issues | Note them for 0.6; record what works |
 | External NGI security review delays | Submit findings early; don't block release on response |
 | Time runs out before all done | Use priority order above; cut from the bottom |
 
-## Definition of Done (whole release)
+## Definition of Done (whole release) — 0.5.0 RELEASED 2026-06-08
 
 - [x] S3 addon shipped (M3.1 expansion)
 - [x] All 0.5 security fixes shipped (M3.8 code done; external review
-      is 0.6 work)
-- [x] Multi-service ADR 038 written (implementation deferred to 0.6)
+      is 0.7 work)
+- [x] Multi-service ADR 038 written (implementation reslotted to 0.7 —
+      not in the 0.6 changelog)
 - [x] Diagnostics foundation + top failure sites use structured
       `Diagnosis` messages
 - [x] CLI DX refactor (ADR 036 M1-M8) landed
 - [x] ADR 039 Phase 1 (Python toolchain) landed
 - [x] Tier-1 server-side packaging-gap fixes (G1/G3/G7) landed
 - [x] Interim tech report refreshed (TR-01 in proper technical-report form)
-- [ ] Interim TR shared with NGI reviewers
-- [ ] At least 3 production deployments running with reports (M4.1)
-- [ ] Nix runtime stabilised (bad apps triaged — W16 unblocked 3 trivial; medium batch pending)
+- [x] Interim TR shared with NGI reviewers
+- [ ] At least 3 production deployments running with reports (M4.1) —
+      production traffic carried to 0.7
+- [x] Nix runtime stabilised (bad apps triaged — W16 unblocked 3 trivial; medium batch carried forward)
 - [ ] Focalboard decision executed
-- [ ] Test suite green
-- [ ] v0.5.0 tagged and announced
+- [x] Test suite green
+- [x] 0.5.0 tagged and announced
