@@ -98,6 +98,9 @@ def get_extra_args(args: list[str], verbosity: int = 1) -> JsonDict:
     # a file. Mirrors the password-file pattern so `hop run myapp foo --input -`
     # behaves predictably in pipelines.
     _resolve_run_input(args)
+    # ADR 036 G3: `--smtp-password -`/`@<path>` on `addon email create` reads the
+    # SMTP password from stdin/a file so it never lands in shell history or argv.
+    _resolve_email_password_input(args)
 
     command = args[0]
 
@@ -171,6 +174,41 @@ def _resolve_run_input(args: list[str]) -> None:
                 args[i + 1] = Path(path).read_text(encoding="utf-8").rstrip("\n")
             except OSError as e:
                 msg = f"Could not read --input file {path!r}: {e}"
+                raise ValueError(msg) from e
+        i += 2
+
+
+def _resolve_email_password_input(args: list[str]) -> None:
+    """Resolve `--smtp-password -`/`@<path>` on `addon email create` (ADR 036 G3).
+
+    Dash means stdin, ``@<path>`` means "read from file"; a bare value passes
+    through unchanged. Rewrites the value in place so the SMTP password is
+    sourced from a file/pipe instead of the shell command line.
+    """
+    if args[:3] != ["addon", "email", "create"]:
+        return
+    i = 0
+    while i < len(args):
+        if args[i] != "--smtp-password":
+            i += 1
+            continue
+        if i + 1 >= len(args):
+            return  # let the server emit the "missing --smtp-password" error
+        value = args[i + 1]
+        if value == "-":
+            if sys.stdin.isatty():
+                msg = (
+                    "Refusing to read --smtp-password from a terminal; pipe it in "
+                    "or use --smtp-password @<path>."
+                )
+                raise ValueError(msg)
+            args[i + 1] = sys.stdin.read().rstrip("\n")
+        elif value.startswith("@"):
+            path = value[1:]
+            try:
+                args[i + 1] = Path(path).read_text(encoding="utf-8").rstrip("\n")
+            except OSError as e:
+                msg = f"Could not read --smtp-password file {path!r}: {e}"
                 raise ValueError(msg) from e
         i += 2
 
