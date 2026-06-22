@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for --password-file / --stdin handling on user commands (ADR 036 G3)."""
+"""Tests for --password-file / --stdin handling on user commands (ADR 036 §D14)."""
 
 from __future__ import annotations
 
@@ -164,7 +164,7 @@ def test_stdin_from_tty_refused() -> None:
         _resolve_password_inputs(args)
 
 
-# ---- _resolve_run_input (ADR 036 G3 for `hop run --input`) ----
+# ---- _resolve_run_input (ADR 036 §D14 for `hop run --input`) ----
 
 
 def test_run_input_dash_reads_stdin() -> None:
@@ -213,7 +213,7 @@ def test_run_input_dash_from_tty_refused() -> None:
         _resolve_run_input(args)
 
 
-# ---- _resolve_email_password_input (ADR 036 G3 for `addon email create`) ----
+# ---- _resolve_email_password_input (ADR 036 §D14 for `addon email create`) ----
 
 
 def test_email_password_dash_reads_stdin() -> None:
