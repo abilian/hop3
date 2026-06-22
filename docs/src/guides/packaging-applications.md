@@ -731,6 +731,59 @@ build = "npm run build"
 # npm automatically runs postbuild after build
 ```
 
+### Wiring config from injected credentials
+
+When you attach an addon, Hop3 injects its connection details as environment variables (`DATABASE_URL`, `REDIS_URL`, `SMTP_HOST`, …). An app that reads those from the environment is configured the moment it's attached — no further work. Some apps instead read their settings from a **config file** (`homeserver.yaml`, `LocalSettings.php`, an INI section) or from their own **database** (set through a CLI like `occ`). Environment injection cannot reach those, so render the config from the injected environment in a `before-run` command — it runs on every deploy with every injected variable present:
+
+```toml
+[run]
+before-run = "bash scripts/render-config.sh"
+```
+
+```bash
+# scripts/render-config.sh
+set -euo pipefail
+# Fail loud: the injected SMTP_HOST must be present (addon attached) before we render.
+: "${SMTP_HOST:?attach an email addon — this app cannot send mail without one}"
+
+# Render the app's own config file from the injected values.
+cat > config/mail.yaml <<EOF
+smtp_host: ${SMTP_HOST}
+smtp_port: ${SMTP_PORT:-587}
+smtp_user: ${SMTP_USER}
+smtp_pass: ${SMTP_PASSWORD}
+EOF
+chmod 600 config/mail.yaml
+```
+
+Four conventions keep these scripts correct — each targets a real failure seen while packaging the catalog:
+
+**Never hardcode a feature off.** A generated config that pins `MAIL_MAILER=log` or `MAILER_ENABLED=false` *shadows* the injected value and silently disables the feature. Default *through* the injected value so an attached addon (or an `[env]` remap) wins:
+
+```bash
+MAIL_MAILER=log              # bad — drops all mail even with an addon attached
+MAIL_MAILER=${MAIL_MAILER:-log}   # good — log unless something set it
+```
+
+**Keep secrets out of `argv`.** Interpolating a secret into a command line leaks it to the process list (`ps`, `/proc/<pid>/cmdline`) for every local user. Prefer a CLI's environment or stdin channel where it has one (Nextcloud's `occ` reads the admin password from `OC_PASS`); fall back to `--value=$SECRET` only when the tool offers nothing else:
+
+```bash
+myapp-cli set-smtp-password --value="$SMTP_PASSWORD"          # leaks to `ps`
+printf '%s' "$SMTP_PASSWORD" | myapp-cli set-smtp-password --stdin   # better
+```
+
+**Fail loud.** Start with `set -euo pipefail` and assert required variables (`: "${SMTP_HOST:?…}"`), so a missing credential aborts the deploy instead of writing a half-rendered config with a literal `${SMTP_PASSWORD}` left in it.
+
+**Make setup commands idempotent.** A `before-run` step runs on every redeploy. Guard a non-idempotent command (an installer, an import) with a probe so it doesn't double-apply:
+
+```bash
+if ! php occ status | grep -q 'installed: true'; then
+  php occ maintenance:install ...
+fi
+```
+
+> A future Hop3 release may add a declarative form of this — `[[config-files]]` to render a file and `[[setup]]` to run a guarded command — that applies these rules by construction (see [ADR 051](/developers/adrs/051-config-injection/)). Until then, a `before-run` script held to the four conventions is the supported way to wire a config-file or DB app.
+
 ## Testing Your Package
 
 ### 1. Test Locally First
