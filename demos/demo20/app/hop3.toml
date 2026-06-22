@@ -1,0 +1,12 @@
+# Custom Nix deployment — the app ships a hand-written hop3.nix expression.
+[metadata]
+id = "demo20-nix-custom"
+version = "0.1.0"
+title = "Custom Nix Deployment"
+author = "Hop3 Demo"
+description = "A static site built from a hand-written hop3.nix Nix expression."
+
+[build]
+# The "nix" builder reads hop3.nix, runs nix-build, and uses the
+# $out/hop3/runtime.json contract the expression produces.
+builder = "nix"
