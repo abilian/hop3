@@ -75,7 +75,7 @@ Every ADR should start with a structured metadata block:
 **Status**: Draft | Accepted | Rejected | Deferred | Final | Active | Inactive | Superseded
 **Type**: Feature | Process | Guideline
 **Created**: YYYY-MM-DD
-**Authors**: Name <email>
+**Authors**: Name <email> (optional)
 **Implemented-In**: vX.Y.Z (for Final status)
 **Superseded-By**: ADR NNN (if superseded)
 **Related-ADRs**: NNN, NNN, NNN

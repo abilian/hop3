@@ -120,6 +120,7 @@ Authenticity is **necessary but not sufficient** — a verified spec is still at
 ## References
 
 - `docs/src/developers/catalog-publishing.md` — producer guide (keygen, publish, upload, rotation)
+- ADR 002 — Detailed hop3.toml Format (the schema the coexistence gate relies on)
 - ADR 013 — Software Supply Chain Security and SBOMs (sha256 pinning; Sigstore deferred)
 - ADR 031 — Project Terminology (Catalog vs Marketplace)
 - ADR 019 — CLI Commands

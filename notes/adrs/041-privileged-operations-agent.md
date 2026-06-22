@@ -3,8 +3,7 @@
 **Status**: Accepted
 **Type**: Architecture
 **Created**: 2026-04-24
-**Related-ADRs**: 010 (security and resilience), 017 (agent-based architecture), 020 (pluggable architecture), 036 (CLI ergonomics), 040 (network firewall and per-app port exposure), 046 (native limits and volumes)
-**Supersedes**: privilege-handling assumptions in ADR 040
+**Related-ADRs**: 010 (security and resilience), 017 (agent-based architecture), 020 (pluggable architecture), 036 (CLI ergonomics), 040 (network firewall and per-app port exposure), 045 (fixed-port registry — the `[[ports]]` mechanism that drives rootd's firewall ops), 046 (declarative app resources — the cgroup/mount ops)
 
 ## Context
 
@@ -142,17 +141,16 @@ The choice of plain JSON-over-UDS rather than gRPC, D-Bus, or HTTP is deliberate
 
 ### 4. Schema for the firewall op
 
-ADR 040 settles the developer-facing schema in `hop3.toml`:
+ADR 045 settles the developer-facing schema in `hop3.toml`: a `[[ports]]` array whose entries declare the fixed host ports an app binds directly.
 
 ```toml
-[[expose]]
-port = 8448           # or port-range = "49152-65535"
+[[ports]]
+number = 8448         # the fixed host port
 protocol = "tcp"      # "tcp" | "udp"
-source = "10.0.0.0/8" # optional, default "any"
-description = "..."   # optional, useful for the audit log + prompt
+name = "federation"   # optional label, useful for the audit log + prompt
 ```
 
-The bind address is implicit — apps bind loopback (`127.0.0.1`) internally per Hop3 convention; the firewall handles external traffic. There is no `bind = "0.0.0.0"` knob. "Exposed" means "all interfaces" by definition.
+The bind address is implicit — apps bind loopback (`127.0.0.1`) internally per Hop3 convention; the firewall handles external traffic. There is no `bind = "0.0.0.0"` knob. "Exposed" means "all interfaces" by definition. ADR 045 owns the registry side: a host-wide `PortClaim` table enforces "exactly one app per `(number, protocol)`", and on a successful deploy `open_fixed_ports` calls `firewall.add_rule` via the rootd client (storing the returned `rule_id`), while teardown's `release_fixed_ports` calls `firewall.remove_rule`. This ADR owns the rootd ops those calls land on.
 
 Translating to rootd's `firewall.add_rule(spec)`:
 
@@ -195,8 +193,8 @@ Response — a `Rule` object:
 
 #### Validation discipline (three layers, intentionally redundant)
 
-1. **`Hop3TomlSchema` in hop3-server** — Pydantic schema for `[[expose]]` blocks, via an `ExposeBlock` model. Fails the deploy at `hop3.toml` parse time if the app's declaration is malformed. Same place where `TestValidation`'s `status_in` lives.
-2. **hop3-server's CompositeFirewall plugin** — Translates ExposeBlock → rootd request. Catches "port already held by another app" via the central registry (see §5).
+1. **`Hop3TomlSchema` in hop3-server** — Pydantic schema for `[[ports]]` entries (ADR 045), via a `PortEntry` model. Fails the deploy at `hop3.toml` parse time if the app's declaration is malformed. Same place where `TestValidation`'s `status_in` lives.
+2. **hop3-server's CompositeFirewall plugin** — Translates a `[[ports]]` entry → rootd request. Catches "port already held by another app" via the `PortClaim` registry (see §5 and ADR 045).
 3. **rootd-side validator** — Re-validates the wire format. Defense in depth: catches anything that slipped past hop3-server, plus catches a hypothetical second client.
 
 The redundancy is deliberate. Each layer has a different threat model: layer 1 catches developer typos with the best error messages; layer 2 catches cross-app conflicts only the server can know about; layer 3 catches hop3-server bugs (or compromise) before they touch the kernel.
@@ -206,7 +204,7 @@ The redundancy is deliberate. Each layer has a different threat model: layer 1 c
 The schema is a deliberately-narrow subset of cloud-provider firewall APIs (Hetzner, AWS SG, DigitalOcean, Scaleway). Common fields map 1:1 (protocol, port, source CIDR, description). Intentional omissions:
 
 - **`direction` is implicit `in`** — no outbound rules.
-- **`source` is single-valued** — multi-source rules are expressed as multiple `[[expose]]` blocks. Cloud-side translation may compose them into a single rule with a source list (Hetzner allows this); rootd-internally they're separate rules.
+- **`source` is single-valued** — multi-source rules are expressed as multiple rootd `add_rule` calls. Cloud-side translation may compose them into a single rule with a source list (Hetzner allows this); rootd-internally they're separate rules.
 - **Protocols restricted to tcp/udp** — ICMP/ESP/GRE rejected. None of our catalog apps need them.
 
 Cloud-firewall plugins translate between rootd's typed shape and the provider's wire format — a thin function (≤20 lines per provider). No impedance mismatch.
@@ -337,9 +335,9 @@ Confirmation lives in the CLI and web UI, not in rootd. Before `hop3 deploy` act
 
 #### When the prompt fires
 
-**Only when the privileged-op set differs from the previous deploy of this app** (delta-only). Routine code updates with no `[[expose]]` changes proceed silently. First deploy of an app with `[[expose]]` declarations triggers the prompt for the full set. Re-deploy with one port added → prompts for the addition. Re-deploy with one port removed → prompts for the revoke.
+**Only when the privileged-op set differs from the previous deploy of this app** (delta-only). Routine code updates with no `[[ports]]` changes proceed silently. First deploy of an app with `[[ports]]` declarations triggers the prompt for the full set. Re-deploy with one port added → prompts for the addition. Re-deploy with one port removed → prompts for the revoke.
 
-Diff is computed by comparing the new app's `[[expose]]` set against the rules currently held for that app in rootd's state (via `firewall.list_rules({app_name})`).
+Diff is computed by comparing the new app's `[[ports]]` set against the rules currently held for that app in rootd's state (via `firewall.list_rules({app_name})`).
 
 Nginx reload doesn't trigger the prompt — it's part of every web deploy and would create noise.
 
@@ -621,7 +619,7 @@ Skipped in unprivileged CI; runs in the Docker test target (which is already roo
 
 #### c_system (full stack via deployment_target)
 
-`packages/hop3-server/tests/c_system/test_firewall.py` — extends the existing `deployment_target` fixture. Container is built with hop3-rootd installed; both services start; tests deploy an app with `[[expose]]` declarations via the RPC interface; assertions cover kernel state and audit log.
+`packages/hop3-server/tests/c_system/test_firewall.py` — extends the existing `deployment_target` fixture. Container is built with hop3-rootd installed; both services start; tests deploy an app with `[[ports]]` declarations via the RPC interface; assertions cover kernel state and audit log.
 
 The `deployment_target` fixture is updated to:
 
@@ -702,7 +700,7 @@ The error-code taxonomy is unchanged (`validation_failed` / `kernel_error` / `st
 - **Pre-figures ADR 017 Phase 3** (multi-node): each node ships its own rootd; the same protocol shape extends.
 - **Retires `/etc/sudoers.d/hop3`**: nginx-reload no longer needs a sudoers fragment.
 - **Defends ADR 040's design choices**: per-port grants are now backed by a clean execution model rather than a sudoers fragment.
-- **Honest threat model**: the ADR explicitly names "hop3-server compromise = total compromise" rather than pretending to defend against it.
+- **Explicit threat model**: the ADR names "hop3-server compromise = total compromise" rather than pretending to defend against it.
 
 ### Negative
 
@@ -746,7 +744,7 @@ Run each app in its own `unshare(CLONE_NEWNET)` namespace. The local-firewall pr
 
 ### G. Per-operation policy file with auto_allow / prompt / deny outcomes
 
-A `/etc/hop3/rootd-policy.toml` file with per-port-range / per-bind-interface outcomes. **Rejected.** Two problems: (1) The "prompt" outcome would force operators to edit a config file as root and retry, contradicting the "single click to grant a port" UX goal; the deploy-time y/N prompt in the CLI (§9) handles "did you mean this?" without any policy-edit cycle. (2) The auth layer would be theatre against a compromised hop3-server: SO_PEERCRED only authenticates the hop3 user; per-app authorization claims are unverifiable. Acknowledging the threat model explicitly (hop3-server compromise = total compromise) and omitting the policy file is more honest and keeps the daemon's code surface smaller.
+A `/etc/hop3/rootd-policy.toml` file with per-port-range / per-bind-interface outcomes. **Rejected.** Two problems: (1) The "prompt" outcome would force operators to edit a config file as root and retry, contradicting the "single click to grant a port" UX goal; the deploy-time y/N prompt in the CLI (§9) handles "did you mean this?" without any policy-edit cycle. (2) The auth layer would be theatre against a compromised hop3-server: SO_PEERCRED only authenticates the hop3 user; per-app authorization claims are unverifiable. Acknowledging the threat model explicitly (hop3-server compromise = total compromise) and omitting the policy file describes what is actually defended and keeps the daemon's code surface smaller.
 
 If real demand for finer-grained policy emerges, the schema can be reintroduced later with a clear-eyed understanding of what it does and doesn't defend against.
 
@@ -760,7 +758,7 @@ Rather than "edit policy, retry", expose a `hop3 firewall pending` / `hop3 firew
 
 2. **`hop3-server.toml` schema redesign** — the flat-key format is extended with new keys for cloud-firewall. The administration guide describes a sectioned format (`[server]`, `[addons.postgres]`, etc.) that doesn't match reality. Whole-file redesign deserves its own ADR; this ADR uses the existing flat format.
 
-3. **`description` field surface** — ADR 040's `[[expose]]` schema doesn't currently include `description`, but the deploy-time prompt and the audit log both benefit from it. It is added as an optional field in `Hop3TomlSchema`'s `ExposeBlock` model.
+3. **Label field surface** — the deploy-time prompt and the audit log both benefit from a free-text label per port. ADR 045's `[[ports]]` schema carries an optional `name` field for this, exposed as an optional field on `Hop3TomlSchema`'s `PortEntry` model and threaded into rootd's `description` arg.
 
 4. **Caddy / Traefik reload migration timing** — the exact release window for the follow-on depends on whether the nginx-reload migration uncovers issues that should land before adding more ops. Plan: ship rootd, gather real-world feedback for one release, then add caddy + traefik.
 
@@ -824,4 +822,6 @@ The daemon is intentionally small — stdlib Python plus its tests, small enough
 - ADR 017 — agent-based architecture (the LocalAgent / multi-node story this composes with)
 - ADR 010 — security and resilience (parent decision on the unprivileged-hop3-user model)
 - ADR 036 — CLI ergonomics (exit code conventions, `-y` flag, `--no-input` mode)
+- ADR 045 — fixed-port registry (the `[[ports]]` mechanism that drives rootd's firewall ops)
+- ADR 046 — declarative app resources (the cgroup/mount ops)
 - `packages/hop3-installer/` — the existing "no external dependencies" Python pattern this daemon mirrors

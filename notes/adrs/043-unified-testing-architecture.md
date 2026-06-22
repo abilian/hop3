@@ -4,8 +4,8 @@
 **Type**: Process
 **Created**: 2026-06-05
 **Supersedes**: ADR 026 (Dashboard UI Test Classification)
-**Related-ADRs**: 004 (development-tooling), 026 (superseded), 027 (config-system-refactoring-for-testability), 030 (two-level-build-architecture), 041 (privileged-operations-agent)
-**Related-notes**: `local-notes/logging-observability.md`, `notes/v0.6-rootd-hardening.md`, `local-notes/testing/TESTING-INFRASTRUCTURE.md`, `docs/src/dev/testing-strategy.md`
+**Related-ADRs**: 004 (development-tooling), 027 (config-system-refactoring-for-testability), 030 (two-level-build-architecture), 041 (privileged-operations-agent)
+**Related-notes**: `notes/v0.6-rootd-hardening.md`, `docs/src/dev/testing-strategy.md`
 
 ## Context
 
@@ -179,4 +179,4 @@ Points that could have been left open are resolved as follows:
 3. **Supported-Python contract.** 3.11–3.14 (`requires-python = ">=3.11,<3.15"`); `nox` fans out across those. 3.10 and 3.15 are dropped.
 4. **Postgres-backup test placement.** The real-deploy `c_e2e` backup test (`c_e2e/test_backup.py`) owns the coverage; the legacy `c_system` variant is retired.
 5. **`check` naming.** `make check` stays the lint alias; the check *tier* is `make test`.
-6. **Bundle retention.** Build logs are auto-pruned to a recent-run count (`[retention].keep_runs`, via `hop3-testlab prune`), not kept forever.
+6. **Bundle retention.** Build logs are auto-pruned to a recent-run count (`[retention].keep_runs`, via `hop3-test prune`), not kept forever.

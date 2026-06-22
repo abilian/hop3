@@ -58,12 +58,13 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 - <https://hop3.cloud/developers/testing-strategy/> — testing strategy doc
 - <https://github.com/abilian/hop3/tree/main/packages/hop3-testing> — the `hop3-test` runner (Docker/SSH/cloud targets; 100+ app catalog)
 
-**M3.5 — Firewalls (network + WAF)** — *network firewall done; WAF Phase 1*
+**M3.5 — Firewalls (network + WAF)** — *network firewall Final; WAF compile slice merged, proxy slice in 0.7*
 
 - <https://hop3.cloud/developers/adrs/045-fixed-port-registry/> — exclusive host ports + firewall integration (Final)
+- <https://hop3.cloud/developers/adrs/050-waf-l7-lewaf/> — L7 WAF design (LeWAF engine, OWASP Core Rule Set; Coraza as a future alternative)
 - <https://hop3.cloud/developers/adrs/041-privileged-operations-agent/> — `hop3-rootd`, the kernel-boundary executor applying firewall/nginx changes
 - <https://hop3.cloud/developers/adrs/040-network-firewall-and-port-exposure/> — firewall/port-exposure design
-- <https://github.com/abilian/hop3/tree/main/packages/hop3-rootd> — the privileged executor (firewall ops). *WAF (LeWAF / OWASP CRS) integration in the 0.7 backlog.*
+- <https://github.com/abilian/hop3/tree/main/packages/hop3-server/src/hop3/waf> — WAF policy compiler + LeWAF engine (declarative `[waf]` → SecLang, compile-before-commit). *Proxy lifecycle + nginx integration land in 0.7.*
 
 **M3.6 — CLI (basic)** ✅
 

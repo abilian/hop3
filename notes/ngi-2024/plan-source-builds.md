@@ -12,6 +12,18 @@ design and decision trail.
 **Goal:** Eliminate pre-built binary reliance for 7 Nix-packaged apps
 **Ref:** ADR 008, `notes/experience-reports/00-aggregate.md`
 
+---
+
+**Reproducibility status (2026-06-22, for the NGI 0.7 review).** This plan delivered *source builds* — converting opaque `prebuilt-binary` apps to `nixpkgs-wrapper`, removing the x86_64-only, trust-the-vendor-binary problem. It did **not** deliver *reproducible* builds in the full Nix sense, and the "reproducible, multi-arch" phrasing in Approach A below overreaches on its own:
+
+- **nixpkgs is not pinned.** Every generated and hand-crafted expression uses the ambient `import <nixpkgs> {}`, resolved against the moving `nixos-24.11` channel (`nix-channel --update`). Two builds on different dates/hosts can produce different closures, so builds are not bit-for-bit reproducible.
+- **Some builds are not hermetic.** The `python-venv` / `pnpm` / `composer` paths set `__noChroot = true` (network during build), and several templated apps float their language deps (e.g. unversioned `pip-packages`).
+- Two Definition-of-Done items below were **never completed** (`nix-build` on aarch64; the ADR 008 reproducibility-tier update), so the "DONE" banner applies to the *source-build conversion*, not to reproducibility.
+
+The honest baseline is **ADR 008's reproducibility-tiers table**, which names these gaps explicitly (it does not overclaim). Closing them — pinned nixpkgs (flake / `npins`), hermetic fixed-output dependency derivations, lock-pinned deps, and a reproducibility CI gate — is the **Nix-reproducibility workstream tracked in `release-plan-0.7.md` (M1/M2)**, where pinning nixpkgs lands in the 0.7 cut and the hermetic work in 0.7.x. Treat this file as the source-build decision trail; treat 0.7/0.7.x as where "full Nix philosophy / reproducible builds" is actually delivered.
+
+---
+
 ## Context
 
 7 of 20 Nix-packaged apps use `prebuilt-binary`, `prebuilt-archive`,

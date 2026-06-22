@@ -77,11 +77,12 @@ We will enhance Hop3's resilience and security by introducing robust features an
   - Direct port testing, SSH curl, nginx testing for static apps
   - 599 unit + 245 integration + system + E2E tests
 
-- [ ] **M3.5** Firewalls (network-level and WAF) — **network firewall done; WAF deferred to 0.7**
-  - Network-level firewall + fixed-port registry shipped (ADR 045, Final, superseding ADR 040).
-  - LeWAF (implements the OWASP Core Rule Set) static-WAF Phase 1 prototyped per ADR 033; 88 tests passing.
-  - Network-level firewall design: see ADR 040 (port exposure) and ADR 041 (`hop3-rootd`, the kernel-boundary executor).
-  - WAF integration (LeWAF / OWASP CRS, dynamic WAF, policy engine, observability) is carried to the 0.7 backlog.
+- [ ] **M3.5** Firewalls (network-level and WAF) — **network firewall done; WAF in progress (0.7)**
+  - Network-level firewall + fixed-port registry shipped (ADR 045, Final, superseding ADR 040's per-app design).
+  - L7 WAF design: **ADR 050 (LeWAF)** — Abilian's pure-Python OWASP-CRS engine; Coraza kept as a future alternative engine behind the same `WafEngine` interface. (Replaces the WAF half deferred by ADR 040.)
+  - WAF policy-compilation slice merged (branch `feat/waf-integration`): `[waf]`/`[[waf.gate]]` schema, declarative→SecLang compiler, pluggable `WafEngine` interface + LeWAF engine, named networks (`hop3 network` CLI + migration), unit tests.
+  - Remaining for 0.7: the proxy-running slice — LeWAF proxy lifecycle, nginx integration, deploy activation, L7 bans, OWASP Top 10 tests, docs.
+  - Privileged firewall ops via ADR 041 (`hop3-rootd`); network-firewall/port design in ADR 040.
 
 - [x] **M3.6** CLI — **DONE** (W16; finalized in 0.6)
   - 73+ registered commands with `space`-separated naming (post ADR 036 M1 migration)

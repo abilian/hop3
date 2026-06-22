@@ -117,9 +117,7 @@ def test_confirm_destructive_action_app_destroy_app_flag_equals_form():
     """`--app=NAME` form resolves to the value too."""
     printer = RichPrinter()
     with patch("builtins.input", return_value="demo18"):
-        result = confirm_destructive_action(
-            ["app", "destroy", "--app=demo18"], printer
-        )
+        result = confirm_destructive_action(["app", "destroy", "--app=demo18"], printer)
         assert result is True
 
 

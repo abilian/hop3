@@ -3,7 +3,7 @@
 **Status**: Accepted
 **Type**: Architecture
 **Created**: 2026-06-17
-**Related-ADRs**: 027 (config loader; ratifies its open question on env-vs-file precedence), 041 (privileged-operations agent; this is the `hop3-server.toml` schema ADR it defers, and rootd's read access is covered below), 011 (application-data encryption), 042 (CLI-side config, distinct from server-side), 043 (unified testing architecture; the test-fixture impact is a consequence below)
+**Related-ADRs**: 027 (config loader; this ADR adds the secrets carve-out to its env-vs-file precedence), 041 (privileged-operations agent; this is the `hop3-server.toml` schema ADR it defers, and rootd's read access is covered below), 011 (application-data encryption), 042 (CLI-side config, distinct from server-side), 043 (unified testing architecture; the test-fixture impact is a consequence below)
 
 ## Context
 
@@ -22,7 +22,7 @@ Three problems follow:
 
 2. **`HOP3_SECRET_KEY` has two sources.** The running service reads it from `/etc/default/hop3` (systemd injects it; env wins in the loader); an SSH-invoked CLI runs as `su - hop3` and cannot read that `root:root 0600` file, so it reads the copy in `hop3-server.toml`. The installer writes the same value to both and "reconciles" them. A partial or interrupted install desyncs the two: token minting still reports success, but every subsequent RPC fails authentication.
 
-3. **The precedence and placement rules are unwritten.** The env-over-file precedence is an open question in ADR 027; ADR 041 explicitly defers the `hop3-server.toml` schema to a future ADR. There is no taxonomy that says what belongs where.
+3. **The precedence and placement rules are unwritten.** ADR 027 resolved the general env-over-file precedence (the environment always wins) but did not carve out secrets, which is the concern this ADR addresses; ADR 041 explicitly defers the `hop3-server.toml` schema to a future ADR. There is no taxonomy that says what belongs where.
 
 Two facts constrain any design. First, two distinct principals read server secrets: the **service** (systemd starts it as root, then drops to `User=hop3`) and the **SSH-invoked CLI** (`su - hop3`, never root). Second, the platform is single-server and self-hosted; an external secrets manager or at-rest encryption of the control plane is disproportionate (ADR 011 already governs application-data encryption, a separate concern).
 
@@ -33,7 +33,7 @@ Two facts constrain any design. First, two distinct principals read server secre
 1. **Secrets are not configuration.** A secret (a credential, key, or token) lives in a dedicated, narrowly-permissioned file. Non-secret configuration lives in `hop3-server.toml`. The two never mix in one file.
 2. **One secret, one source.** No secret is written to more than one location. Every reader of a given secret reads the same file.
 3. **Location follows the reader; ownership follows least privilege.** A secret both written by root (the installer) and read by the `hop3` principal is `root:hop3 0640` — root owns it, the `hop3` group reads it, nothing else can. A secret only the `hop3` user touches is `hop3:hop3 0600`.
-4. **Secrets never reach an argv.** They are passed to child processes through the environment or a credential file (`PGPASSWORD`, `MYSQL_PWD`, `REDISCLI_AUTH`, `MC_HOST_*`), never as command-line arguments visible in `/proc/<pid>/cmdline`. This ratifies existing practice (documented in `security.md §3.4`) as a standing rule, not a fix for a current violation.
+4. **Secrets never reach an argv.** They are passed to child processes through the environment or a credential file (`PGPASSWORD`, `MYSQL_PWD`, `REDISCLI_AUTH`, `MC_HOST_*`), never as command-line arguments visible in `/proc/<pid>/cmdline`. This ratifies existing practice (documented in `security.md §3.4`) as a standing rule that future code must continue to uphold.
 
 ### Storage layout
 
@@ -60,11 +60,11 @@ The secret files are named canonically (one concern per file) so the layout is f
 
 `/etc/default/hop3` holds no secret. The signing key moves to the secrets tier and the ACME settings move to `hop3-server.toml` (non-secret config), so nothing the platform manages needs to be injected as environment. The systemd `EnvironmentFile` is therefore optional: it exists only to carry a genuinely environment-shaped, non-secret override (for example, a non-default `HOP3_ROOT`), and on a standard install it is empty or absent. It is never a parallel home for settings that belong in `hop3-server.toml`.
 
-`hop3-server.toml` is genuine TOML, not a flat key-value file that merely resembles one. The server parses it with a TOML loader; the historical `KEY = "value"` form the installer emits is valid TOML, but the installer serialises through a TOML writer rather than string interpolation, so a value that needs quoting or escaping cannot produce a file the loader rejects. Operator-added settings must likewise remain valid TOML.
+`hop3-server.toml` is genuine TOML, even where its `KEY = "value"` lines resemble a flat key-value file. The server parses it with a TOML loader; the historical `KEY = "value"` form the installer emits is valid TOML, but the installer serialises through a TOML writer rather than string interpolation, so a value that needs quoting or escaping cannot produce a file the loader rejects. Operator-added settings must likewise remain valid TOML.
 
 ### Configuration precedence
 
-This ratifies the open question in ADR 027. Non-secret configuration resolves, highest first:
+This adopts the precedence ADR 027 resolved, and adds the secrets carve-out below. Non-secret configuration resolves, highest first:
 
 1. an explicit process environment variable,
 2. the value in `hop3-server.toml`,

@@ -3,12 +3,12 @@
 **Status**: Draft
 **Type**: Architecture
 **Created**: 2026-06-05
-**Related-ADRs**: 043 (unified-testing-architecture), 041 (privileged-operations-agent), 042 (cli-context-model), 034 (streaming-deployment-logs), 033 (docker-integration), 018 (cli-server-communication)
+**Related-ADRs**: 043 (unified-testing-architecture), 041 (privileged-operations-agent), 042 (cli-context-model), 034 (streaming-deployment-logs), 033 (docker-integration), 018 (cli-architecture)
 **Related-notes**: `local-notes/logging-observability.md`
 
 ## Context
 
-ADR 043 establishes a **nightly tier**: the full suite (real apps, demos, tutorials, platform e2e) run against real servers, producing an HTML report and finishing overnight. The machinery for *running* that suite already exists in `hop3-testing`: the `DailyTestOrchestrator` (`INIT → RESET → DEPLOY → TEST → REPORT`), `HetznerManager` for provisioning, the `DeploymentTarget` ABC, the catalog scanner, the SQLAlchemy result models, `generate_html_report()`, and the `hop3-test cloud` command that drives them.
+ADR 043 establishes a **nightly tier**: the full suite (real apps, demos, tutorials, platform e2e) run against real servers, producing an HTML report and finishing overnight. The machinery for *running* that suite already exists in `hop3-testing`: the `DailyTestOrchestrator` (`INIT → RESET → DEPLOY → TEST → REPORT`), `HetznerManager` for provisioning, the `DeploymentTarget` ABC, the catalog scanner, the SQLAlchemy result models, `generate_html_report`, and the `hop3-test cloud` command that drives them.
 
 What is **missing** is the consumer that makes a nightly run actionable every morning: the result store is effectively write-only (no query API, single-file SQLite), the report is static and trend-blind, and there is no scheduler, no way to browse a failed test's full logs, no trend/flakiness view, and no way to trigger or re-run from a UI. ADR 043 also found that the most common deployment failure — a healthy app behind a 502, the "silent-502" class — is captured by no surface.
 

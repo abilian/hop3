@@ -71,7 +71,7 @@ We keep `[run.workers]` for Pattern 1 (shared-env background tasks) and introduc
 | Background queue, same env as web | `[run.workers.worker]` |
 | Separate memory limit per process | `[[component]]` |
 | Different health check per process | `[[component]]` |
-| Independent scaling (2 web + 4 worker) | `[[component]]` |
+| Independent scaling (2 web + 4 sidekiq) | `[[component]]` |
 | Truly independent components (Mastodon, AppFlowy) | `[[component]]` |
 
 The rule of thumb: **`[run.workers]` when the processes are variants of the main app; `[[component]]` when they have distinct lifecycles, configs, or resource needs.**
@@ -161,7 +161,7 @@ For independent addons (rare), a component can declare its own:
 type = "redis"  # dedicated Redis for this component
 ```
 
-Per-component addons are a rare case, deferred to a later iteration of this design rather than included in the initial implementation.
+Per-component addons are out of scope for this design; the supported model is top-level addons shared by all components.
 
 ### Lifecycle and dependencies
 
@@ -222,12 +222,6 @@ Existing addon, env, and port handling remain unchanged in the legacy path.
 - **Schema complexity.** `hop3.toml` grows. Mitigation: keep the simple case (`[run].start`) unchanged — users only touch `[[component]]` when they need it.
 - **Validation burden.** Per-component resource limits, health checks, and port mappings need validation. Mitigation: reuse the existing `Hop3TomlSchema` approach (Pydantic).
 - **Runtime complexity.** spawn.py grows to handle per-component env layering and resource limits. Mitigation: the component layer is just a richer Worker description; the core spawn loop stays the same.
-
-## Implementation scope
-
-The core of the design is the `[[component]]` schema, the translation of legacy `[run]` / `[run.workers]` configs into implicit components, and a `Component` dataclass in `project/config.py`. The runtime consumes components rather than raw workers: `spawn.py` applies per-component env layering, runs per-component health checks via the existing `[healthcheck]` model, and enforces per-component memory limits via the uWSGI `mem-limit` option. `hop3 app status --app <app>` reports per-component state.
-
-A set of capabilities sits outside the initial design and is left for later iterations: `depends-on` start ordering, independent scaling via `hop3 ps scale --app <app> web=2 worker=4`, per-component logs, and component-specific addon attachments.
 
 ## Example: Mastodon
 
