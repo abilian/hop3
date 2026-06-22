@@ -67,13 +67,21 @@ Remaining (the proxy-running slice):
 - [ ] OWASP Top 10 tests (SQLi, XSS, path traversal at minimum) + a false-positive / per-app-exemption pass
 - [ ] Document `[waf]` in the admin guide
 
-### Email addon (M3.1)
+### Email addon (M3.1) — experimental
 
-SMTP-relay design (point at the operator's existing provider; running a mail server is out of scope for a PaaS). Exact command surface and credential storage TBD as part of this work.
+Relay through the operator's existing provider; Hop3 never runs a mail server (deliverability, IP reputation, and abuse make it a losing game, and clouds block outbound port 25). The design separates two concerns: the **transport** (how mail leaves — SMTP submission credentials, which every provider exposes, so one generic SMTP path covers them all without per-provider code) and the **sending identity** (the verified From-domain — once a domain is authenticated with SPF/DKIM/DMARC, any address on it sends for free, so the unit to provision is the domain, not the address). **This surface is experimental: it ships marked as such in the CLI, the changelog, and the docs, and may change after real use** — the transport/identity split, the command shape, and named-provider profiles are all tentative. To deliver for NGI this week the 0.7 cut keeps the smallest useful slice (per-app SMTP credentials, no server-level transport or provider profiles yet); the refinements that the model implies are tracked under 0.7.x below.
 
-- [ ] `addon create email <name> --smtp-host <h> --smtp-user <u>` storing encrypted SMTP credentials
-- [ ] Inject `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` into attached apps
-- [ ] Document in `docs/src/guides/addons.md`
+Firm 0.7 (the minimal, shippable slice):
+
+_Status (2026-06-22): the full firm-0.7 slice is implemented and tested — the addon, both CLI verbs, the superset injection, the experimental banner, domain-boundary validation, the `--smtp-password` stdin/file input (ADR 036), the SPF/DMARC DNS pre-flight, and the docs (`docs/src/guides/addons.md`) — across `plugins/email/`, `tests/a_unit/test_email_addon.py`, and the `hop3-cli` secret-input tests; full gate green (`make lint` + `make test`). Remaining (not firm-0.7): an optional SMTP-auth pre-flight on `create`, a real-deploy attach test, and per-provider exact-DKIM/SPF auto-verification (rides the 0.7.x provider profiles)._
+
+- [x] `hop3 addon email create <name> --smtp-host <h> --smtp-port <p> --smtp-user <u> --smtp-password <pw> --from <addr>` — per-app SMTP submission credentials (works with any provider), stored in the existing `addons/email/<name>.json` store (0600, then Fernet-encrypted into the per-app credential on `attach`, same as every other addon); `attach`/`promote`/`detach` inherited from the addon model, so no new credential machinery. (A type-scoped verb, like `addon s3 …`, because the generic `addon create` cannot carry type-specific flags; the generic `addon create email` path fails loud and points here.)
+- [x] Inject one source of truth in the spellings real frameworks actually read (mirroring the S3 addon's `S3_*`/`AWS_*` aliasing) so it works beyond Node: `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD`/`SMTP_FROM`/`SMTP_TLS`, an `SMTP_URL` (`smtp://…:587`, `smtps://…:465`), Django `EMAIL_*`, and Flask `MAIL_*`. Default to 587/STARTTLS. (A bare `SMTP_*` set alone reaches almost no stock framework — Django wants `EMAIL_*`, Flask wants `MAIL_*`, Rails/WordPress read no env at all.)
+- [x] Deliverability is a fail-loud pre-flight, never a silent claim: `create` and `addon email status` run a DNS check that auto-verifies SPF and DMARC for the From-domain (via `dig`; a missing resolver reports "unverified", never a fake "OK"), surfaces the missing records to publish, and never reports "ready" over missing/unverified DNS. DKIM and the exact per-provider SPF include are shown as guidance — auto-verifying those needs the named-provider profiles (0.7.x).
+- [x] Document in `docs/src/guides/addons.md` with an explicit "experimental, subject to change" note, and the one-line Rails-initializer / WordPress-SMTP-plugin maps that env injection alone cannot cover (Rails and WordPress read no SMTP env).
+- [x] On success, `addon email create` (and `addon email status`) print a one-line `⚠ experimental: this command's surface may change` banner, so the caveat appears at the point of use, not only in the docs.
+
+Out of scope (M3.1): inbound / IMAP / MX, and running any MTA-to-the-internet. Sending *as* `support@example.com` never means Hop3 hosts that mailbox — replies follow the domain's existing MX.
 
 ### Web UI — basic, clean, usable (M3.7)
 
@@ -174,6 +182,17 @@ Pinning nixpkgs (in 0.7) removes the moving-channel problem. The remaining work 
 - [ ] The external firm's review runs; address feedback
 - [ ] Accessibility scan (with the M3.7 polish)
 
+### Email addon — refinements (M3.1) — 0.7.x
+
+The 0.7 cut ships a deliberately minimal, experimental email addon (above). The refinements the transport/identity model implies, deferred so the cut ships this week and so the surface can settle after real use:
+
+- [ ] **Server-level shared transport** — set provider credentials once (`hop3 server email …`) and have per-app email addons reference them, instead of repeating SMTP creds per app (mirrors the Postgres admin-config → per-app-resource pattern).
+- [ ] **Named-provider profiles** — declarative profiles (SMTP endpoint + API-key var + DNS-record templates) for Resend / Postmark / Brevo / Mailgun / SES / Scaleway TEM, community-extensible; a pluggy plugin only for the few needing real logic (SES IAM→SMTP-password derivation; HTTP-API mode on port 443 for networks that block 587/465). EU-sovereign providers (Brevo, Mailgun-EU, Scaleway TEM) first-class.
+- [ ] **Local relay** — an opt-in host Postfix null-client on `localhost:25` + `/usr/sbin/sendmail` forwarding to the configured transport, so WordPress / PHP `mail()` / cron / Rails-without-config work with zero injection. Feasible precisely because Hop3 is no-Docker / single-server (every container-based peer lacks this). Postfix, not msmtp (spool + retry; msmtp drops on a transient outage = silent loss). Treat the shared MTA as a managed coexistence resource: per-app envelope sender, teardown never touches it, fail loud if no transport is configured.
+- [ ] **Dev catcher** — a Mailpit backend mode so the same app code captures mail in dev and relays it in prod.
+- [ ] **Platform notifications** — reuse the transport for Hop3's own cert / deploy / outage alerts (ties into the TLS + monitoring roadmap).
+- [ ] **Per-app sub-credentials** — a distinct provider key per app for reputation isolation and revoke-one-app, where the provider supports it.
+
 ### Migration series (T5) — 0.7.x
 
 - [ ] Publish the 21 drafted "migrating from X" posts (`local-notes/blog/`) on a staggered schedule
@@ -228,7 +247,7 @@ Valuable but not NGI commitments: the agent model (ADR 017), SSO / identity mana
 ## Definition of Done — 0.7 (the cut)
 
 - [ ] WAF integrated with the OWASP Core Rule Set, per-app toggle (M3.5)
-- [ ] Email addon shipped (M3.1)
+- [ ] Email addon shipped (M3.1, experimental — flagged subject-to-change in CLI/docs/changelog)
 - [ ] Web UI is basic, clean, and usable; core flows work from the UI (M3.7)
 - [ ] One or two internal audit rounds done; the external firm engaged (M3.8)
 - [ ] Nix-runtime beta gaps closed or formally deferred (M2.2)
