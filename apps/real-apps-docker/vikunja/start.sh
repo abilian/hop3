@@ -22,7 +22,9 @@ export VIKUNJA_DATABASE_DATABASE="$PGDATABASE"
 export VIKUNJA_DATABASE_USER="$PGUSER"
 export VIKUNJA_DATABASE_PASSWORD="$PGPASSWORD"
 export VIKUNJA_FILES_BASEPATH="/app/files"
-export VIKUNJA_MAILER_ENABLED="false"
+# Default off, but honor an injected value so the email-addon remap
+# (VIKUNJA_MAILER_ENABLED=true in [env]) can enable real delivery.
+export VIKUNJA_MAILER_ENABLED="${VIKUNJA_MAILER_ENABLED:-false}"
 export VIKUNJA_LOG_LEVEL="info"
 
 chown -R vikunja:vikunja /app
