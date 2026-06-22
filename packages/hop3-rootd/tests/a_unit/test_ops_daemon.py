@@ -23,6 +23,15 @@ def _ctx() -> OpContext:
     )
 
 
+def test_version_is_a_nonempty_string():
+    """Guard the symbol daemon.py re-exports for the handshake: the
+    "prepare release 0.6.0" commit dropped `__version__` from the package while
+    daemon.py still imported it, crash-looping rootd with an ImportError at
+    daemon import (203/EXEC) and breaking every deploy. Keep it present."""
+    assert isinstance(__version__, str)
+    assert __version__
+
+
 def test_registry_includes_daemon_ops():
     ops = all_ops()
     assert "daemon.handshake" in ops
