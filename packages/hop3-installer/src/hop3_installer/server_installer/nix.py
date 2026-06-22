@@ -309,18 +309,12 @@ def _configure_hop3_nix_access(*, daemon_mode: bool) -> None:
     else:
         _write_nix_conf_setting(HOME_DIR / ".config" / "nix" / "nix.conf", as_hop3=True)
 
-    # Pin the nixpkgs channel to nixos-24.11 (stable, packages are cached)
-    # Without this, Nix may use a rolling channel where packages like
-    # nodejs aren't in the binary cache yet, causing hours-long builds.
-    for profile in [NIX_DAEMON_PROFILE, NIX_SINGLE_USER_PROFILE]:
-        if profile.exists():
-            print_detail("Setting nixpkgs channel to nixos-24.11 (stable)")
-            run_as_hop3(
-                f'. "{profile}" && '
-                "nix-channel --add https://nixos.org/channels/nixos-24.11 nixpkgs"
-                " && nix-channel --update"
-            )
-            break
+    # No nixpkgs channel is configured. Every Hop3 build expression pins its own
+    # nixpkgs via `import (fetchTarball { url; sha256; })` at a specific nixos-24.11
+    # commit (see the nix-gen templates' base.py and the hand-crafted hop3.nix
+    # files), so `<nixpkgs>` / NIX_PATH is never consulted and there is no channel
+    # to keep updated. The pinned commit's binaries are in cache.nixos.org, so the
+    # cache-miss / slow-build risk the channel used to guard against is gone.
 
 
 def _verify_nix_installation() -> bool:
