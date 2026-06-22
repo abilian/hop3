@@ -129,8 +129,8 @@ The deliverable was two narrated walkthroughs; it is now massively over-delivere
 
 NLNet/NGI fund reproducibility/sovereignty work and will inspect the Nix implementation closely. Today every expression uses the unpinned `import <nixpkgs> {}` against a moving channel, so builds are not reproducible across hosts/dates. Pinning nixpkgs is cheap and is the single highest-value reproducibility win — so it lands in the 0.7 cut; the deeper hermetic-build work is 0.7.x (see below).
 
-- [ ] Ship one in-tree pinned nixpkgs input (flake.nix + flake.lock, or `npins` / `fetchTarball`+sha256)
-- [ ] Make the generator emit the pinned import instead of `import <nixpkgs> {}`, for templates and hand-crafted expressions
+- [x] Ship one in-tree pinned nixpkgs input — a pinned rev + sha256 (`fetchTarball`) lives in the nix-gen `templates/base.py` (`NIXPKGS_REV` / `NIXPKGS_SHA256` / `PINNED_NIXPKGS_HEADER`), updatable in one place.
+- [x] The generator emits the pinned import — all 9 nix-gen templates render `import (fetchTarball {…}) {}` instead of `<nixpkgs>`, verified to resolve via `nix-instantiate`; nix-gen tests + full gate green. *Remaining:* the 34 hand-crafted `apps/real-apps-nix/*/hop3.nix` still emit `<nixpkgs>` — a separate sweep (decide shared-source vs per-file duplication, since each builds from its own context).
 - [ ] Stop the installer relying on `nix-channel --update`
 
 ### Release mechanics
