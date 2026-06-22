@@ -132,7 +132,7 @@ NLNet/NGI fund reproducibility/sovereignty work and will inspect the Nix impleme
 - [x] Ship one in-tree pinned nixpkgs input — a pinned rev + sha256 (`fetchTarball`) lives in the nix-gen `templates/base.py` (`NIXPKGS_REV` / `NIXPKGS_SHA256` / `PINNED_NIXPKGS_HEADER`), updatable in one place.
 - [x] The generator emits the pinned import — all 9 nix-gen templates render `import (fetchTarball {…}) {}` instead of `<nixpkgs>` (one shared pin in `templates/base.py`), verified via `nix-instantiate`; nix-gen tests + full gate green.
 - [x] Hand-crafted expressions pinned — all 34 `apps/real-apps-nix/*/hop3.nix` inline the same pin. Each is its own build context (no shared import possible), so the pin is duplicated per file; updating it means editing `base.py` + a sed across the 34. Verified: all 34 parse, and Python / prebuilt-binary / PHP samples evaluate to a `.drv` with the pinned nixpkgs.
-- [ ] Stop the installer relying on `nix-channel --update`
+- [x] Stop the installer relying on `nix-channel --update` — removed the `nix-channel --add … nixos-24.11 && nix-channel --update` block from `server_installer/nix.py`; nothing consults `<nixpkgs>`/`NIX_PATH` now (no `nix-env`, the builder sets no `NIX_PATH`), and the pinned commit's binaries are cached, so cache hits / build speed are preserved. Gate green.
 
 ### Release mechanics
 
@@ -254,7 +254,7 @@ Valuable but not NGI commitments: the agent model (ADR 017), SSO / identity mana
 - [ ] Nix-runtime beta gaps closed or formally deferred (M2.2)
 - [ ] Upgrade scope missing pieces shipped (M3.2)
 - [ ] The 68 screencasts reviewed, uploaded, and published (M5.6)
-- [ ] nixpkgs pinned in-tree; the generator no longer emits unpinned `import <nixpkgs> {}` (M1/M2)
+- [x] nixpkgs pinned in-tree; the generator no longer emits unpinned `import <nixpkgs> {}` (M1/M2) — generator (9 templates) + 34 hand-crafted expressions pinned, installer no longer relies on `nix-channel --update`
 - [ ] v0.7.0 tagged and announced
 
 ## Definition of Done — 0.7.x (NGI complete)
