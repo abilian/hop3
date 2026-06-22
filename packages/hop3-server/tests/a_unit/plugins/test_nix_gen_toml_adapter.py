@@ -180,7 +180,8 @@ def test_end_to_end_generate_from_toml():
     spec = app_spec_from_config(nix_config, metadata, "miniflux")
     nix_text = generate(spec)
 
-    assert "{ pkgs ? import <nixpkgs> {} }" in nix_text
+    assert "import (fetchTarball {" in nix_text  # pinned nixpkgs, not <nixpkgs>
+    assert "<nixpkgs>" not in nix_text
     assert 'pname = "miniflux"' in nix_text
     assert 'version = "2.1.1"' in nix_text
     assert "''${PORT:-8080}" in nix_text
