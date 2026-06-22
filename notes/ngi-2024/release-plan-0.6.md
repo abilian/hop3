@@ -2,7 +2,7 @@
 
 **Target:** June 2026
 **Theme:** Resource controls and a richer addon surface, the app catalog, and the documentation and design record put into a published, audited form
-**Depends on:** 0.5.0 released (tagged 2026-04-22)
+**Depends on:** 0.5.0 released (tagged 2026-06-08)
 **Last updated:** 2026-06-20 — reframed as an intermediate release; the final NGI deliverable is now 0.7 (see `release-plan-0.7.md`).
 
 ## Goals
@@ -21,11 +21,11 @@ This file records **what was actually done** in the 0.6 cycle (~190 commits sinc
 | M3.2 Upgrades | Partial | Upgrade path hardened (migrations on upgrade, venv preserved); production `hop3 upgrade` → 0.7 |
 | M3.3 Backup migration | Not tested | **Done** — automated cross-server test |
 | M3.5 Firewalls/WAF | Network design | Network firewall/port registry hardened (Final); WAF → 0.7 |
-| M3.6 CLI | Working | Refinements landed; ADR 042 Accepted, ADR 047 drafted |
+| M3.6 CLI | Working | Refinements landed; ADR 047 drafted (on the ADR-042 model from 0.5) |
 | M3.7 Web UI | Reviewed | Carried; Git-URL deploy stub present but disabled → 0.7 |
 | M3.8 Security audit | 4 code fixes done | Code fixes shipped; external review → 0.7 |
 | M4.1-4 Packaged apps | Reports drafted | 159 app configs; standalone reports remain Draft; production traffic → 0.7 |
-| M5.1 Website / blog | Shipped | **Extended** — 22 posts incl. testing series, 0.5.0 release, migration series started |
+| M5.1 Website / blog | Shipped | **Extended** — 23 posts incl. testing series, 0.5.0 release, migration series started, OW2Con 2026 |
 | M5.2 Documentation | Shipped | **Audited** — accuracy pass against the code; full ADR corpus published |
 | M5.3 Paper — benchmarks | Not started | → 0.7 |
 | M5.3 Paper — interim | TR-01 refreshed | **Done** — TR-02 written |
@@ -57,7 +57,7 @@ Beyond the named milestones, 0.6 also delivered two cross-cutting platform featu
 - [x] **ADR corpus published.** `docs/scripts/convert_adrs.py` publishes all 49 ADRs from `notes/adrs/` to `docs/src/developers/adrs/`, rewriting cross-links and generating a status-grouped index in the navigation. The design record is now part of the documentation site rather than living only in the source tree.
 - [x] **ADR accuracy and voice pass.** All ADRs reviewed against the conventions in `000-readme.md`: status vocabulary normalised, stale "draft/deferred" statuses corrected to reflect shipped work, and the prose brought to a timeless architectural-record voice (no changelog-style play-by-play, no line/test counts).
 - [x] **Documentation accuracy audit against the code.** A full pass corrected drift between the docs and the shipped behaviour: the old colon command syntax replaced by the space form (ADR 036), the test taxonomy updated to the three-layer model (`a_unit`/`b_integration`/`c_e2e`, ADR 043), the build tool corrected from MkDocs to Zensical, a documented-but-unimplemented `logs --follow` flag removed, and all tutorials fixed.
-- [x] **Blog.** The 0.5.0 release post; a five-part series on the testing architecture (overview, runner, Test Lab, demos, executable-docs/validoc); and the first "migrating from X" post (Heroku). Conference posts for OW2Con 2025 and OSXP 2025 are live.
+- [x] **Blog.** The 0.5.0 release post; a five-part series on the testing architecture (overview, runner, Test Lab, demos, executable-docs/validoc); and the first "migrating from X" post (Heroku). Conference posts for OW2Con 2025, OSXP 2025, and OW2Con 2026 are live.
 - [x] **Diagrams.** ASCII-art diagrams across the docs aligned and, where the renderer supports it, converted to Mermaid.
 - [x] **TR-02.** The second interim technical report, covering the 0.5 and 0.6 cycles and complementing TR-01 without restating it.
 
@@ -68,9 +68,9 @@ Beyond the named milestones, 0.6 also delivered two cross-cutting platform featu
 
 ### CLI (T3, M3.6) — refinements landed
 
-- [x] Post-ADR-036 renames and cleanups: `launch`→`create`, `backup info`→`backup show`, `addon ps`→`addon activity`, `env`→`app migrate`, `domains`→`domain`.
+- [x] Post-ADR-036 renames and cleanups: `launch`→`create`, `backup info`→`backup show`, `addon ps`→`addon activity`, the Procfile importer `env migrate`→`app migrate`, `domains`→`domain`, and account creation consolidated under `user add`. Old spellings kept as aliases.
 - [x] Dropped the deprecated positional-app fallback — the app target is `--app` only (ADR 036 D5).
-- [x] **ADR 042 (CLI context model)** Accepted: the server/context vocabulary split. **ADR 047 (CLI invocation context)** drafted.
+- [x] **ADR 047 (CLI invocation context)** drafted, building on the ADR-042 server/context model that shipped in 0.5.
 
 ### Upgrade path hardening (T3, M3.2) — groundwork
 
