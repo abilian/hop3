@@ -18,7 +18,7 @@ from dishka.integrations.litestar import inject
 from hop3_testing.selector.modes import list_modes
 from litestar import Controller, get, post
 from litestar.enums import RequestEncodingType
-from litestar.exceptions import ValidationException
+from litestar.exceptions import NotFoundException, ValidationException
 from litestar.params import Body, FromPath
 from litestar.response import Redirect, Template
 from litestar.status_codes import HTTP_303_SEE_OTHER
@@ -49,6 +49,27 @@ def _selection_from_form(data: dict) -> dict:
     return selection
 
 
+def _selection_to_form(selection: dict) -> dict:
+    """Reverse of `_selection_from_form`: flatten a selection dict back to the
+    form's string fields, so the edit form can be pre-filled."""
+    out = {"mode": selection.get("mode", "")}
+    for key in _LIST_RULES:
+        value = selection.get(key) or []
+        out[key] = ", ".join(value) if isinstance(value, list) else str(value)
+    return out
+
+
+def _validate_source(source_url: str, source_ref: str) -> None:
+    """Fail loud on bad source input rather than storing a profile that breaks
+    at run. Shared by create and update."""
+    if not is_allowed_source_url(source_url):
+        msg = f"Unsafe or unsupported source URL: {source_url!r}"
+        raise ValidationException(msg)
+    if not source_ref:
+        msg = "source_ref must not be empty"
+        raise ValidationException(msg)
+
+
 def _profile_row(profile) -> dict:
     return {
         "id": profile.id,
@@ -59,8 +80,55 @@ def _profile_row(profile) -> dict:
     }
 
 
+def _profile_detail(profile) -> dict:
+    return {
+        "id": profile.id,
+        "name": profile.name,
+        "source_name": profile.source_name,
+        "source_url": profile.source_url,
+        "source_ref": profile.source_ref,
+        "platform_ref": profile.platform_ref,
+        "selection": profile.selection or {},
+        "created_at": profile.created_at,
+        "updated_at": profile.updated_at,
+    }
+
+
+def _unique_copy_name(profiles: ProfilesRepository, base: str) -> str:
+    """A free name for a duplicate (the column is unique): '<base> (copy)', then
+    '<base> (copy 2)', ..."""
+    candidate = f"{base} (copy)"
+    n = 2
+    while profiles.by_name(candidate) is not None:
+        candidate = f"{base} (copy {n})"
+        n += 1
+    return candidate
+
+
+def _fields_from_form(data: dict) -> dict | None:
+    """Validate and extract the writable profile fields from a create/edit form.
+
+    Returns None when the form is blank (no name / no source URL) so the caller
+    can bounce back to the form; raises ValidationException on bad input.
+    """
+    name = (data.get("name") or "").strip()
+    source_url = (data.get("source_url") or "").strip()
+    source_ref = (data.get("source_ref") or "main").strip()
+    if not name or not source_url:
+        return None
+    _validate_source(source_url, source_ref)
+    return {
+        "name": name,
+        "source_name": (data.get("source_name") or "main-repo").strip(),
+        "source_url": source_url,
+        "source_ref": source_ref,
+        "platform_ref": (data.get("platform_ref") or "").strip() or None,
+        "selection": _selection_from_form(data),
+    }
+
+
 class ProfilesController(Controller):
-    """Build profiles: create / start / delete (no manual app selection)."""
+    """Build profiles: list / view / create / edit / duplicate / start / delete."""
 
     path = "/profiles"
     guards = [auth_guard]  # noqa: RUF012
@@ -77,34 +145,99 @@ class ProfilesController(Controller):
             },
         )
 
+    @get("/{profile_id:int}")
+    @inject
+    async def detail(
+        self, profile_id: FromPath[int], profiles: FromDishka[ProfilesRepository]
+    ) -> Template:
+        profile = profiles.get(profile_id)
+        if profile is None:
+            msg = f"No profile {profile_id}"
+            raise NotFoundException(msg)
+        return Template(
+            template_name="profiles/detail.html",
+            context={
+                "title": f"Profile: {profile.name}",
+                "p": _profile_detail(profile),
+            },
+        )
+
+    @get("/{profile_id:int}/edit")
+    @inject
+    async def edit_form(
+        self, profile_id: FromPath[int], profiles: FromDishka[ProfilesRepository]
+    ) -> Template:
+        profile = profiles.get(profile_id)
+        if profile is None:
+            msg = f"No profile {profile_id}"
+            raise NotFoundException(msg)
+        return Template(
+            template_name="profiles/edit.html",
+            context={
+                "title": f"Edit: {profile.name}",
+                "p": _profile_detail(profile),
+                "form": _selection_to_form(profile.selection or {}),
+                "modes": list_modes(),
+            },
+        )
+
     @post("/")
     @inject
     async def create(
         self, data: _FORM, profiles: FromDishka[ProfilesRepository]
     ) -> Redirect:
-        name = (data.get("name") or "").strip()
-        source_url = (data.get("source_url") or "").strip()
-        source_ref = (data.get("source_ref") or "main").strip()
-        if not name or not source_url:
-            return Redirect(
-                path="/profiles", status_code=HTTP_303_SEE_OTHER
-            )  # blank form
-        # Fail loud on bad input rather than storing a profile that breaks at run.
-        if not is_allowed_source_url(source_url):
-            msg = f"Unsafe or unsupported source URL: {source_url!r}"
-            raise ValidationException(msg)
-        if not source_ref:
-            msg = "source_ref must not be empty"
-            raise ValidationException(msg)
-        profiles.create(
-            name=name,
-            source_name=(data.get("source_name") or "main-repo").strip(),
-            source_url=source_url,
-            source_ref=source_ref,
-            platform_ref=(data.get("platform_ref") or "").strip() or None,
-            selection=_selection_from_form(data),
-        )
+        fields = _fields_from_form(data)
+        if fields is None:  # blank form
+            return Redirect(path="/profiles", status_code=HTTP_303_SEE_OTHER)
+        profiles.create(**fields)
         return Redirect(path="/profiles", status_code=HTTP_303_SEE_OTHER)
+
+    @post("/{profile_id:int}/edit")
+    @inject
+    async def update(
+        self,
+        profile_id: FromPath[int],
+        data: _FORM,
+        profiles: FromDishka[ProfilesRepository],
+    ) -> Redirect:
+        if profiles.get(profile_id) is None:
+            msg = f"No profile {profile_id}"
+            raise NotFoundException(msg)
+        fields = _fields_from_form(data)
+        if fields is None:  # blank form — back to the editor
+            return Redirect(
+                path=f"/profiles/{profile_id}/edit", status_code=HTTP_303_SEE_OTHER
+            )
+        # The name column is unique; refuse a rename onto another profile loudly
+        # rather than 500 on the constraint.
+        clash = profiles.by_name(fields["name"])
+        if clash is not None and clash.id != profile_id:
+            msg = f"A profile named {fields['name']!r} already exists"
+            raise ValidationException(msg)
+        profiles.update(profile_id, **fields)
+        return Redirect(path=f"/profiles/{profile_id}", status_code=HTTP_303_SEE_OTHER)
+
+    @post("/{profile_id:int}/duplicate")
+    @inject
+    async def duplicate(
+        self, profile_id: FromPath[int], profiles: FromDishka[ProfilesRepository]
+    ) -> Redirect:
+        """Copy a profile under a fresh name and land on its edit form."""
+        src = profiles.get(profile_id)
+        if src is None:
+            msg = f"No profile {profile_id}"
+            raise NotFoundException(msg)
+        copy = profiles.create(
+            name=_unique_copy_name(profiles, src.name),
+            source_name=src.source_name,
+            source_url=src.source_url,
+            source_ref=src.source_ref,
+            platform_ref=src.platform_ref,
+            selection=dict(src.selection or {}),
+        )
+        return Redirect(
+            path=f"/profiles/{copy.id}/edit", status_code=HTTP_303_SEE_OTHER
+        )
 
     @post("/{profile_id:int}/start")
     @inject

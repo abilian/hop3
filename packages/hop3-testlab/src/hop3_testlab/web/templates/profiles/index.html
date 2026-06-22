@@ -16,7 +16,7 @@
   <tbody>
     {% for p in profiles %}
     <tr class="border-t">
-      <td class="px-3 py-2">{{ p.name }}</td>
+      <td class="px-3 py-2"><a href="/profiles/{{ p.id }}" class="text-blue-700 hover:underline">{{ p.name }}</a></td>
       <td class="px-3 py-2 font-mono text-xs">{{ p.source }}</td>
       <td class="px-3 py-2 font-mono text-xs">{{ p.platform_ref }}</td>
       <td class="px-3 py-2 font-mono text-xs">{{ p.selection|tojson }}</td>
@@ -24,6 +24,11 @@
         <form method="post" action="/profiles/{{ p.id }}/start" class="inline">
           <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <button class="bg-green-700 text-white rounded px-2 py-1">Start build</button>
+        </form>
+        <a href="/profiles/{{ p.id }}/edit" class="text-blue-700 hover:underline ml-3">edit</a>
+        <form method="post" action="/profiles/{{ p.id }}/duplicate" class="inline ml-3">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <button class="text-gray-700 hover:underline">duplicate</button>
         </form>
         <form method="post" action="/profiles/{{ p.id }}/delete" class="inline ml-3">
           <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
