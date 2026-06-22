@@ -39,11 +39,11 @@ A JSON object under a reserved key in `extra_args` (proposed: `_context`, mirror
 {
   "_context": {
     "app":        "ac-sciences",          // resolved ambient app, or null
-    "app_source": "hop3.toml [metadata].id at /…/ac-sciences",  // for --why and §D14
+    "app_source": "hop3.toml [metadata].id at /…/ac-sciences",  // for --why and the project-mismatch check
     "server":     "prod",                 // resolved server name (ADR 042), or null
     "context":    "prod",                 // resolved project context name, or null
     "cwd":        "/Users/…/ac-sciences", // operator's working directory
-    "cwd_app_id": "ac-sciences",          // [metadata].id at/above cwd (for §D14), or null
+    "cwd_app_id": "ac-sciences",          // [metadata].id at/above cwd (for the project-mismatch check), or null
     "cli_version": "0.6.0"
   }
 }
@@ -67,11 +67,11 @@ The server already introspects command signatures for an `app` parameter (`serve
 
 `core/app_scope.py`'s injection role disappears: the CLI stops maintaining a set to decide *whether* to inject, because it always resolves and transmits. A command that needs an app and didn't get one (no positional, empty `_context.app`) errors server-side with the same structured "no app resolved — here's how to fix" message (ADR 036 §D10), which can be sourced from `_context.app_source`'s trace.
 
-Whether the **destructive-confirmation** set (`DESTRUCTIVE_COMMANDS`) and the **§D14 mismatch guard** (`_MISMATCH_GUARDED_PREFIXES`) also fold into this model is an open question (below) — they are related (both are per-command metadata the CLI hardcodes) but distinct concerns (they gate *client-side prompting*, which still needs to happen before the round-trip).
+Whether the **destructive-confirmation** set (`DESTRUCTIVE_COMMANDS`) and the **project-mismatch guard** (`_MISMATCH_GUARDED_PREFIXES`) also fold into this model is an open question (below) — they are related (both are per-command metadata the CLI hardcodes) but distinct concerns (they gate *client-side prompting*, which still needs to happen before the round-trip).
 
-### Bonus: the §D14 mismatch guard gets cleaner
+### Bonus: the project-mismatch guard gets cleaner
 
-The ADR 042 §D14 guard compares the resolved app against the CWD project's `[metadata].id`. With `_context` carrying `app`, `app_source`, `cwd`, and `cwd_app_id` together, the check has everything it needs in one structure — and could move server-side (refuse the destructive RPC) so the guarantee holds regardless of which client issued it.
+The ADR 042 project-mismatch guard compares the resolved app against the CWD project's `[metadata].id`. With `_context` carrying `app`, `app_source`, `cwd`, and `cwd_app_id` together, the check has everything it needs in one structure — and could move server-side (refuse the destructive RPC) so the guarantee holds regardless of which client issued it.
 
 ## Rejected alternatives
 
@@ -93,8 +93,8 @@ Acceptable short-term, guarded by patching as drift is found. Rejected as the en
 
 1. **Reserved-key name and shape.** `_context` (underscore = reserved/context param, like `_token`) vs a flatter set of `_`-prefixed keys. Nested is more extensible; flat is simpler to pop.
 2. **Eager vs lazy resolution.** Resolving the ambient app walks the filesystem (and possibly git) on every invocation. Cheap, but pointless for purely-local commands (`version`, `settings`) that never reach the server. Gate resolution on "command will hit the server", or accept the cost for uniformity?
-3. **Do destructive-confirmation and the §D14 guard fold in here, into a manifest, or stay hardcoded?** They need *client-side* per-command knowledge (to prompt before sending), which the context alone does not provide.
-4. **Server-side §D14.** Move the mismatch refusal server-side (using `_context`), or keep it client-side with richer context?
+3. **Do destructive-confirmation and the project-mismatch guard fold in here, into a manifest, or stay hardcoded?** They need *client-side* per-command knowledge (to prompt before sending), which the context alone does not provide.
+4. **Server-side mismatch guard.** Move the mismatch refusal server-side (using `_context`), or keep it client-side with richer context?
 5. **Trust.** `_context` is client-supplied. The server must treat `cwd`, `cwd_app_id`, etc. as untrusted hints (fine for UX and the mismatch guard, never for authorization). Confirm no security decision keys off context fields.
 
 ## Versioning and migration
