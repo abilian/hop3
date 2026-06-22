@@ -208,7 +208,7 @@ class TestRunner:
             log_file.write_text(f"ERROR: {e}")
             duration = time.time() - start_time
             print(
-                f"{Colors.RED}[FAIL]{Colors.NC} (error running tutotest, {duration:.0f}s)"
+                f"{Colors.RED}[FAIL]{Colors.NC} (error running validoc, {duration:.0f}s)"
             )
             return TutorialResult(
                 name=full_name,
