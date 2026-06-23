@@ -22,8 +22,12 @@ before-build = "bash scripts/download.sh"
 build = "chmod -R 755 . && chmod -R 777 data plugins"
 
 [run]
-# Create config before starting
-before-run = "bash scripts/setup-config.sh"
+# Create config, then migrate to completion BEFORE serving. Kanboard otherwise
+# migrates lazily on the first web request; the deploy readiness probe interrupts
+# that mid-DDL (picodb takes no lock), so version_106 re-runs and fails with
+# "table task_has_files already exists". `cli db:migrate` runs once, serialized,
+# and suppresses the lazy web-bootstrap migration.
+before-run = ["bash scripts/setup-config.sh", "php cli db:migrate"]
 
 # Run with PHP built-in server
 start = "php -S 0.0.0.0:${PORT:-8080} -t ."
