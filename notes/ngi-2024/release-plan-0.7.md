@@ -3,7 +3,7 @@
 **Target:** 0.7 cut the week of 2026-06-22; the remaining NGI deliverables land in 0.7.x point releases over the following weeks.
 **Theme:** Ship the remaining subsystem features in the 0.7 cut (WAF, email, a basic Web UI, Nix beta gaps, pinned-nixpkgs reproducibility); finish the longer-tail deliverables (benchmarks + paper, Nix runtime 1.0, app validation, external security review) as 0.7.x.
 **Depends on:** 0.6.0 released (2026-06-20)
-**Last updated:** 2026-06-22 — reconciled against the full annex (T1–T5); scope split into the 0.7 cut and 0.7.x point releases.
+**Last updated:** 2026-06-22 — email addon (M3.1, experimental) and nixpkgs pinning (M1/M2) landed in the cut; scope split into the 0.7 cut and 0.7.x point releases, reconciled against the full annex (T1–T5).
 
 ## Goals
 
@@ -19,16 +19,16 @@ This plan deliberately does not pretend ~40 person-days of remaining work fit in
 
 ## NGI Milestone Completion Matrix (full annex, T1–T5)
 
-Every annex milestone, with status and where it lands, so a reviewer can reconcile the whole project plan (#2024-04-365). Status as of the 0.6 cut.
+Every annex milestone, with status and where it lands, so a reviewer can reconcile the whole project plan (#2024-04-365). Status as the 0.7 cut is assembled: the email addon (M3.1) and nixpkgs pinning (M1/M2) have landed; WAF, Web UI, the upgrade command, and the Nix-beta gaps remain.
 
 | Task | Milestone | Status | Lands in |
 |------|-----------|--------|----------|
-| **T1** Nix builders | M1.1 Native Nix builder | ✅ done (0.5) | shipped; pin-nixpkgs in 0.7, hermetic in 0.7.x |
+| **T1** Nix builders | M1.1 Native Nix builder | ✅ done (0.5) | shipped; pin-nixpkgs ✅ done (0.7), hermetic → 0.7.x |
 | | M1.2 Nix template builders (Py/Node/Ruby/Go/Rust/Java) | ✅ done (0.5) | shipped; reproducibility as above |
 | **T2** Nix runtime | M2.1 Spec & PoC | ✅ done (0.5) | shipped |
 | | M2.2 Beta implementation | ◐ partial | **0.7** — close the actual remaining gaps |
 | | M2.3 Final "1.0" | ○ not started | **0.7.x / 0.8** — after the 20-app testing pass |
-| **T3** Security & resilience | M3.1 Backing services | ◐ partial | **0.7** — email/SMTP addon (storage/DB/cache shipped) |
+| **T3** Security & resilience | M3.1 Backing services | ◐ partial | **0.7** — email/SMTP addon shipped (experimental); provider profiles + local relay → 0.7.x |
 | | M3.2 Upgrades + migrations | ◐ partial | **0.7** — scope to confirm (Alembic works) |
 | | M3.3 Backups + migration tests | ✅ done (0.6) | shipped |
 | | M3.4 Testing framework + canary | ✅ done | shipped |
@@ -248,7 +248,7 @@ Valuable but not NGI commitments: the agent model (ADR 017), SSO / identity mana
 ## Definition of Done — 0.7 (the cut)
 
 - [ ] WAF integrated with the OWASP Core Rule Set, per-app toggle (M3.5)
-- [ ] Email addon shipped (M3.1, experimental — flagged subject-to-change in CLI/docs/changelog)
+- [x] Email addon shipped (M3.1, experimental — flagged subject-to-change in CLI/docs/changelog)
 - [ ] Web UI is basic, clean, and usable; core flows work from the UI (M3.7)
 - [ ] One or two internal audit rounds done; the external firm engaged (M3.8)
 - [ ] Nix-runtime beta gaps closed or formally deferred (M2.2)
