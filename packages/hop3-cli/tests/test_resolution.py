@@ -28,6 +28,23 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
+@pytest.fixture(autouse=True)
+def _isolate_servers_toml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Isolate the servers.toml read from the developer's real ~/.config.
+
+    These tests assume "no servers.toml on disk" (see _fake_config). Without
+    this, a developer's real ~/.config/hop3-cli/servers.toml leaks server
+    records into resolution and breaks the single-server / host-match
+    assertions. Point the registry at a missing tmp file so load_registry()
+    returns an empty set and only the in-memory config.data is consulted —
+    the same isolation `test_server_cmd.py::redirect_servers_path` uses.
+    """
+    monkeypatch.setattr(
+        "hop3_cli.core.server_registry.default_servers_path",
+        lambda: tmp_path / "servers.toml",
+    )
+
+
 def _fake_config(context_name: str = "prod", default_app: str = "") -> MagicMock:
     """Build a minimal Config-like mock for the resolver.
 
