@@ -49,7 +49,9 @@ When Hop3 deploys a Nix app:
    - **Hand-crafted mode**: uses the existing `hop3.nix`
    - **Generated mode**: generates a `hop3.nix` from the `[nix]`
      section using the appropriate template
-4. Runs: `nix-build hop3.nix -A package --no-out-link`
+4. Runs: `nix-build hop3.nix -A package --out-link .nix-result`
+   (`--out-link` registers a GC root so nix's garbage collector can't
+   delete a running app's closure).
 5. Reads `$out/hop3/runtime.json` from the built store path
 6. Produces a `BuildArtifact` with:
    - `kind="nix"` (or `kind="static"` for static-only apps)
@@ -220,7 +222,9 @@ hop3-test system --docker --clean --with nix apps/real-apps-nix-gen
   The installer handles this when `--with nix` is passed.
 - First builds can be slow as the Nix store is populated. Subsequent
   builds and re-deploys are fast (Nix caches everything).
-- No flake support yet (standard `import <nixpkgs>` only).
+- No flake support yet. nixpkgs is pinned to a specific commit
+  (nixos-24.11) via fetchTarball, not resolved through a channel /
+  NIX_PATH.
 - The `prebuilt-*` templates are x86_64-linux only and not
   reproducible from source. Use `nixpkgs-wrapper` when possible.
 - Some apps in nixpkgs (e.g., Wiki.js) ship as a raw source tree
