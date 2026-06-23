@@ -359,11 +359,11 @@ class TestBackupMigrationE2E:
 
             # 2. Distinguishing env vars (we'll re-read them on B post-restore).
             for kv in ("MARKER=A1B2C3", "DEBUG=true"):
-                res = a.run_command("config", "set", deployed_name, kv)
+                res = a.run_command("config", "set", "--app", deployed_name, kv)
                 assert res.success, f"failed to set {kv} on A: {res.stderr}"
 
             # 3. Backup on A.
-            res = a.run_command("backup", "create", deployed_name)
+            res = a.run_command("backup", "create", "--app", deployed_name)
             assert res.success, f"backup create failed on A: {res.stderr}"
             backup_id = extract_backup_id(res.stdout)
             assert backup_id, f"could not extract backup_id from: {res.stdout!r}"
@@ -424,7 +424,7 @@ class TestBackupMigrationE2E:
         # `config show` renders a Rich table; assert both the key and
         # the value appear in the output rather than coupling on the
         # exact `KEY=VALUE` form.
-        cfg = b.run_command("config", "show", deployed_name, "--show-secrets")
+        cfg = b.run_command("config", "show", "--app", deployed_name, "--show-secrets")
         assert cfg.success, f"config show failed on B: {cfg.stderr}"
         for key, value in (("MARKER", "A1B2C3"), ("DEBUG", "true")):
             assert key in cfg.stdout, (
@@ -470,7 +470,7 @@ class TestBackupMigrationE2E:
             AppSource(name=name, path=src_a), a, app_name=name
         ) as session_a:
             session_a.deploy()
-            res = a.run_command("backup", "create", name)
+            res = a.run_command("backup", "create", "--app", name)
             assert res.success, f"backup create failed on A: {res.stderr}"
             backup_id = extract_backup_id(res.stdout)
             assert backup_id
@@ -528,7 +528,7 @@ class TestBackupMigrationE2E:
             AppSource(name=name, path=src_a), a, app_name=name
         ) as session_a:
             session_a.deploy()
-            res = a.run_command("backup", "create", name)
+            res = a.run_command("backup", "create", "--app", name)
             assert res.success
             backup_id = extract_backup_id(res.stdout)
 
@@ -569,7 +569,7 @@ class TestBackupMigrationE2E:
 
             # Best-effort cleanup of the clone (the session destroys
             # the original at __exit__; the clone is a separate app).
-            b.run_command("app", "destroy", clone_name)
+            b.run_command("app", "destroy", "--app", clone_name)
 
     def test_manifest_round_trip(self, hop3_container_pair, tmp_path: Path):
         """`backup info <id>` returns equivalent output on A and B post-migration.
@@ -588,8 +588,8 @@ class TestBackupMigrationE2E:
             AppSource(name=name, path=src), a, app_name=name
         ) as session_a:
             session_a.deploy()
-            a.run_command("config", "set", name, "RT_MARKER=present")
-            res = a.run_command("backup", "create", name)
+            a.run_command("config", "set", "--app", name, "RT_MARKER=present")
+            res = a.run_command("backup", "create", "--app", name)
             assert res.success, f"backup create failed: {res.stderr}"
             backup_id = extract_backup_id(res.stdout)
 
@@ -666,7 +666,7 @@ class TestBackupMigrationE2E:
             AppSource(name=name, path=src), a, app_name=name
         ) as session_a:
             session_a.deploy()
-            res = a.run_command("backup", "create", name)
+            res = a.run_command("backup", "create", "--app", name)
             assert res.success
             backup_id = extract_backup_id(res.stdout)
 
@@ -695,7 +695,7 @@ class TestBackupMigrationE2E:
 
         # Best-effort cleanup: destroy on B (the session destroyed
         # only A's app at exit).
-        b.run_command("app", "destroy", name)
+        b.run_command("app", "destroy", "--app", name)
 
     def test_register_refuses_corrupted_backup(
         self, hop3_container_pair, tmp_path: Path
@@ -716,7 +716,7 @@ class TestBackupMigrationE2E:
             AppSource(name=name, path=src), a, app_name=name
         ) as session_a:
             session_a.deploy()
-            res = a.run_command("backup", "create", name)
+            res = a.run_command("backup", "create", "--app", name)
             assert res.success
             backup_id = extract_backup_id(res.stdout)
 

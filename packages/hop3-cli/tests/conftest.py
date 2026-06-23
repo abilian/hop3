@@ -15,7 +15,13 @@ Without it, tests pick up:
   resolution sources #4 and #5);
 - ``$HOP3_APP``, ``$HOP3_SERVER``, ``$HOP3_CONTEXT``, etc. from the
   shell, all of which short-circuit the resolver chain at sources #1-2;
-- ``$HOP3_DEV_MODE`` which silently switches the API URL to localhost.
+- ``$HOP3_DEV_MODE`` which silently switches the API URL to localhost;
+- the developer's real ``~/.config/hop3-cli/{config.toml,servers.toml}``
+  — both are discovered via ``platformdirs.user_config_dir`` (not a
+  ``HOP3_*`` var), so the registry read in ``resolve_app`` / ``resolve_server``
+  (source #8 and the server host/single-server fallbacks) leaks real
+  ``[servers]`` records into otherwise-mocked tests. Redirecting
+  ``XDG_CONFIG_HOME`` to an empty tmp dir closes that hole.
 
 Each of these has, at least once, caused a test pass-or-fail to depend
 on developer machine state rather than the code under test. The fixture
@@ -61,11 +67,18 @@ def _isolate_cli_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
       empty directory.
     - Delete every known ``HOP3_*`` env var so resolver sources #1-2 are
       empty unless the test explicitly sets one.
+    - Point ``XDG_CONFIG_HOME`` at an empty tmp dir so ``platformdirs``
+      resolves the CLI config dir (``config.toml`` + ``servers.toml``)
+      under tmp instead of the developer's real ``~/.config/hop3-cli``.
 
-    Individual tests can override either side by calling
+    Individual tests can override any side by calling
     ``monkeypatch.chdir(other_path)`` or ``monkeypatch.setenv("HOP3_X", "v")``
     — those calls happen after this fixture and win.
     """
     monkeypatch.chdir(tmp_path)
     for var in _HOP3_ENV_VARS:
         monkeypatch.delenv(var, raising=False)
+    # Redirect platformdirs' config-dir discovery (config.toml + servers.toml)
+    # to an empty per-test location. Without this, the server registry read
+    # in resolve_app/resolve_server picks up the developer's real servers.toml.
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg-config-home"))
