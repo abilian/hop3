@@ -131,9 +131,9 @@ def test_auth_login_flow(client, db):
     })
     assert response.status_code == 200
 
-    # Login
+    # Mint a token
     response = client.post("/rpc", json={
-        "method": "auth login",
+        "method": "auth get-token",
         "params": {"username": "test", "password": "secret123"}
     })
     assert response.status_code == 200

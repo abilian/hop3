@@ -190,7 +190,7 @@ def _resolve_password_inputs(args: list[str]) -> None:
     Applies to the three commands that take a password:
       hop3 user add <username> <email> <password>
       hop3 user set-password <username> <password>
-      hop3 auth login <username> <password>
+      hop3 auth get-token <username> <password>
     """
     insert_at = _password_insert_index(args)
     if insert_at is None:
@@ -218,8 +218,8 @@ def _password_insert_index(args: list[str]) -> int | None:
     if args[0] == "user" and args[1] == "set-password":
         # user set-password <username> <password>
         return 3
-    if args[0] == "auth" and args[1] == "login":
-        # auth login <username> <password>
+    if args[0] == "auth" and args[1] == "get-token":
+        # auth get-token <username> <password>
         return 3
     return None
 

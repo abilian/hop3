@@ -22,7 +22,7 @@ from .ssh_ops import (
     get_magic_link_via_ssh,
     get_ssh_token,
     get_token_via_ssh,
-    infer_server_url,
+    infer_web_url,
 )
 
 if TYPE_CHECKING:
@@ -77,6 +77,56 @@ def handle_login(args: list[str], config: Config, printer: RichPrinter) -> None:
         handle_login_password(args, config, printer)
 
 
+def handle_logout(args: list[str], config: Config, printer: RichPrinter) -> None:
+    """Log out: revoke the token on the server and clear it locally.
+
+    Usage:
+        hop3 logout        # or: hop3 auth logout
+    """
+    if "--help" in args or "-h" in args:
+        print(
+            "hop3 logout — Log out and clear the local token.\n\n"
+            "Revokes the current token on the server (so it can't be reused) and\n"
+            "removes it from this machine's config. Alias of `hop3 auth logout`."
+        )
+        return
+
+    if not config.get_api_token():
+        print("Not logged in (no local token to clear).")
+        return
+
+    # Revoke server-side first, while the token is still in the config so the
+    # request can authenticate. We surface a revoke failure loudly but still
+    # clear the local token — logging out of THIS machine must always succeed.
+    import contextlib  # noqa: PLC0415
+
+    from hop3_cli.rpc import Client  # noqa: PLC0415
+
+    revoke_failed: str | None = None
+    try:
+        with Client(config=config) as client:
+            client.rpc("cli", ["auth", "logout"])
+    except Exception as e:
+        # Network/server errors here are non-fatal: we still clear the local
+        # token so logging out of THIS machine always succeeds.
+        revoke_failed = str(e)
+
+    # No context to clear is fine (token may have come from env/legacy config).
+    with contextlib.suppress(KeyError):
+        config.update_context_token("")
+
+    if revoke_failed:
+        print(
+            "Local token cleared, but the server could not revoke it: "
+            f"{revoke_failed}\n"
+            "The token stays valid on the server until it expires.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    print("Logged out. Token revoked on the server and cleared locally.")
+
+
 def handle_login_password(
     args: list[str], config: Config, printer: RichPrinter
 ) -> None:
@@ -90,7 +140,7 @@ def handle_login_password(
     username = _parse_username_arg(args)
     username, password = _prompt_credentials(username)
 
-    # Call auth login via RPC
+    # Verify the password and mint a token via the server's get-token primitive.
     print(f"\nAuthenticating as {username}...")
 
     # Import here to avoid circular import
@@ -98,7 +148,7 @@ def handle_login_password(
 
     with Client(config=config) as client:
         try:
-            response = client.rpc("cli", ["auth", "login", username, password])
+            response = client.rpc("cli", ["auth", "get-token", username, password])
             _handle_login_response(response, username, config, printer)
 
         except Exception as e:
@@ -173,7 +223,7 @@ def _prompt_credentials(username: str | None) -> tuple[str, str]:
 def _handle_login_response(
     response, username: str, config: Config, printer: RichPrinter
 ) -> None:
-    """Handle the RPC response from auth login."""
+    """Handle the RPC response from the password path's `auth get-token` call."""
     match response:
         case Ok(result=result):
             token = _extract_token_from_login_response(result)
@@ -201,10 +251,10 @@ def _handle_login_response(
 
 
 def _extract_token_from_login_response(result: list[dict]) -> str | None:
-    """Extract JWT token from auth login response.
+    """Extract the JWT token from the `auth get-token` response.
 
     Args:
-        result: The RPC response from auth login
+        result: The RPC response from `auth get-token`
 
     Returns:
         The JWT token or None if not found
@@ -234,14 +284,19 @@ def handle_login_web(args: list[str], config: Config, printer: RichPrinter) -> N
     print(f"\nConnecting to {ssh_target}...")
 
     try:
-        token = get_magic_link_via_ssh(ssh_target, username)
+        result = get_magic_link_via_ssh(ssh_target, username)
     except BootstrapError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Construct the magic link URL
-    server_url = infer_server_url(ssh_target)
-    magic_link = f"{server_url}/auth/magic/{token}"
+    # The server returns a full URL when it has a public admin domain (it knows
+    # its own scheme/host then). Otherwise it returns a bare token and we point
+    # the browser at the app's HTTP port directly — without an admin domain the
+    # dashboard isn't fronted by nginx/TLS on 443 (that path 404s).
+    if result.startswith(("http://", "https://")):
+        magic_link = result
+    else:
+        magic_link = f"{infer_web_url(ssh_target)}/auth/magic/{result}"
 
     print()
     print("Magic link generated!")

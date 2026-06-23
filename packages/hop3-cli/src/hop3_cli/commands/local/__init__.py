@@ -21,7 +21,7 @@ from .auth_cmd import handle_auth
 from .completion_cmd import handle_completion
 from .context_cmd import handle_context
 from .init_cmd import handle_init
-from .login_cmd import handle_login, handle_login_token
+from .login_cmd import handle_login, handle_login_token, handle_logout
 from .server_cmd import handle_server
 from .settings_cmd import handle_settings, settings_get, settings_set, settings_show
 from .ssh_ops import BootstrapError, extract_token, infer_server_url
@@ -46,6 +46,7 @@ __all__ = [
     "handle_local_command",
     "handle_login",
     "handle_login_token",
+    "handle_logout",
     "handle_server",
     "handle_settings",
     "handle_tunnel",
@@ -65,7 +66,8 @@ LOCAL_COMMANDS_INFO = {
     "completion": "Generate shell completion scripts.",
     "context": "Manage project deploy contexts (or legacy server contexts).",
     "init": "Initialize connection to a Hop3 server via SSH.",
-    "login": "Authenticate to a server.",
+    "login": "Authenticate to a server (alias of `auth login`).",
+    "logout": "Log out and clear the local token (alias of `auth logout`).",
     "server": "Manage server bindings (ADR 042).",
     "settings": "Manage local CLI settings (server URL, token, SSL).",
     "tunnel": "Open a local SSH tunnel to a remote addon.",
@@ -82,8 +84,10 @@ def is_local_command(args: list[str]) -> bool:
 
     With space-separated commands (ADR 036 D1), most LOCAL_COMMANDS own their
     entire subtree (e.g., `settings show`, `context use prod`, `completion bash`
-    are all handled locally). The exception is `auth`: `hop3 auth` bare shows
-    help locally, but `hop3 auth login` / `auth whoami` / etc. go to the server.
+    are all handled locally). The exception is `auth`: bare `hop3 auth` shows
+    help locally, `auth login` / `auth logout` are the rich local flows (aliased
+    as `hop3 login` / `hop3 logout`), and every other `auth <verb>` (whoami,
+    get-token, ...) goes to the server.
     """
     if not args:
         return False
@@ -97,10 +101,16 @@ def is_local_command(args: list[str]) -> bool:
     if command not in LOCAL_COMMANDS:
         return False
 
-    # Special case: `auth <verb>` is a server command (ADR 036 D9: `login`,
-    # `logout`, `whoami` are top-level aliases; canonical lives in the server's
-    # `auth` namespace). Bare `hop3 auth` and `hop3 auth --help` stay local.
-    return not (command == "auth" and len(args) > 1 and not args[1].startswith("-"))
+    if command != "auth":
+        return True
+
+    # Bare `hop3 auth` and `hop3 auth --help` stay local.
+    if len(args) <= 1 or args[1].startswith("-"):
+        return True
+
+    # `auth login` / `auth logout` are local (SSH/token/--web/config side
+    # effects); other `auth <verb>` are forwarded to the server.
+    return args[1] in {"login", "logout"}
 
 
 # Dispatch table for local commands. Each entry maps a CLI token to its
@@ -112,6 +122,7 @@ _LOCAL_HANDLERS = {
     "context": handle_context,
     "init": handle_init,
     "login": handle_login,
+    "logout": handle_logout,
     "server": handle_server,
     "settings": handle_settings,
     "aliases": handle_aliases,

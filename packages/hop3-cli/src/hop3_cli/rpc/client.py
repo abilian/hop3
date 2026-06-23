@@ -323,9 +323,9 @@ class Client:
         error_msg = (
             "Authentication required.\n\n"
             "Log in with the credentials an administrator created for you:\n"
-            "  hop auth login <username> <password>\n\n"
-            "After logging in, save the token to ~/.config/hop3-cli/config.toml\n"
-            "or set the HOP3_API_TOKEN environment variable."
+            "  hop3 login\n\n"
+            "This saves the token for you. For scripts, mint one explicitly:\n"
+            "  hop3 auth get-token <username> --password-file -"
         )
         return Error(401, error_msg, "", request_id)
 

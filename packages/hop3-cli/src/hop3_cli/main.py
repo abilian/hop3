@@ -667,13 +667,14 @@ def requires_authentication(cli_args: list[str]) -> bool:
     #
     # Matching rules:
     # - ("help",), ("version",): match as a prefix (help or any subcommand of help).
-    # - ("auth", "login"), ("auth", "register"): match as a prefix (positional args OK).
+    # - ("auth", "get-token"), ("auth", "register"): match as a prefix (positional args OK).
     # - ("auth",): exact match only — bare `hop3 auth` shows help without auth,
-    #   but `hop3 auth whoami` / `auth logout` require auth.
+    #   but `hop3 auth whoami` requires auth. (`auth login` / `auth logout` are
+    #   handled locally and never reach this RPC-auth gate.)
     prefix_no_auth: set[tuple[str, ...]] = {
         ("help",),
         ("version",),
-        ("auth", "login"),
+        ("auth", "get-token"),
         ("auth", "register"),
     }
     exact_no_auth: set[tuple[str, ...]] = {

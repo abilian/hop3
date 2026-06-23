@@ -20,6 +20,7 @@ from hop3_cli.commands.local import (
     handle_init,
     handle_login,
     handle_login_token,
+    handle_logout,
     handle_version,
     infer_server_url,
     is_local_command,
@@ -90,9 +91,12 @@ class TestIsLocalCommand:
         assert is_local_command(["apps"]) is False
         assert is_local_command(["deploy"]) is False
         assert is_local_command(["status"]) is False
-        # auth:* subcommands should go to server
-        assert is_local_command(["auth", "login"]) is False
+        # `auth login` / `auth logout` are the rich local flows...
+        assert is_local_command(["auth", "login"]) is True
+        assert is_local_command(["auth", "logout"]) is True
+        # ...but other auth subcommands go to the server.
         assert is_local_command(["auth", "whoami"]) is False
+        assert is_local_command(["auth", "get-token"]) is False
 
 
 class TestExtractToken:
@@ -507,12 +511,107 @@ class TestHandleLogin:
         default_ctx = temp_config.data["contexts"]["default"]
         assert default_ctx["api_token"] == mock_token
 
+    def test_login_web_invokes_colon_command(self, temp_config, mock_printer, capsys):
+        """Regression: `hop3 login --web` must call `hop3-server auth:magic-link`.
+
+        The space form (`auth magic-link`) makes hop3-server parse `auth` as the
+        command and fail with "Unknown command 'auth'", breaking web login.
+        """
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_result.stdout = _FAKE_JWT_ADMIN
+        mock_result.stderr = ""
+
+        with patch(
+            "hop3_cli.commands.local.ssh_ops.subprocess.run",
+            return_value=mock_result,
+        ) as mock_run:
+            handle_login(
+                ["--web", "root@test.com"],
+                temp_config,
+                mock_printer,
+            )
+
+        remote_cmd = mock_run.call_args[0][0][2]  # ["ssh", target, remote_cmd]
+        assert "auth:magic-link" in remote_cmd
+        assert "auth magic-link" not in remote_cmd
+
+    def test_login_web_bare_token_builds_app_port_url(
+        self, temp_config, mock_printer, capsys
+    ):
+        """Bare token -> magic link must point at the app's HTTP port (:8000).
+
+        Regression: it used to build `https://{host}` (nginx/TLS on 443), which
+        doesn't proxy `/auth/*` without an admin domain, so the link 404'd.
+        """
+        with patch(
+            "hop3_cli.commands.local.login_cmd.get_magic_link_via_ssh",
+            return_value=_FAKE_JWT_ADMIN,
+        ):
+            handle_login(["--web", "root@test.com"], temp_config, mock_printer)
+
+        out = capsys.readouterr().out
+        assert f"http://test.com:8000/auth/magic/{_FAKE_JWT_ADMIN}" in out
+        assert "https://test.com/auth/magic" not in out
+
+    def test_login_web_uses_full_url_from_server(
+        self, temp_config, mock_printer, capsys
+    ):
+        """When the server returns a full URL (admin domain), print it verbatim."""
+        full = f"https://admin.example.com/auth/magic/{_FAKE_JWT_ADMIN}"
+        with patch(
+            "hop3_cli.commands.local.login_cmd.get_magic_link_via_ssh",
+            return_value=full,
+        ):
+            handle_login(["--web", "root@test.com"], temp_config, mock_printer)
+
+        assert full in capsys.readouterr().out
+
     def test_login_password_unconfigured(self, temp_config, mock_printer):
         """Test password login fails when server not configured."""
         # Config is empty, so server is not configured
         with pytest.raises(SystemExit) as exc_info:
             handle_login([], temp_config, mock_printer)
         assert exc_info.value.code == 1
+
+    def test_auth_login_dispatches_to_local_handler(self, temp_config, mock_printer):
+        """`hop3 auth login ...` runs the rich local handler, not an RPC call."""
+        with patch(
+            "hop3_cli.commands.local.auth_cmd.handle_login"
+        ) as mock_handle_login:
+            handled = handle_auth(
+                ["login", "--ssh", "root@test.com"], temp_config, mock_printer
+            )
+
+        assert handled is True
+        mock_handle_login.assert_called_once_with(
+            ["--ssh", "root@test.com"], temp_config, mock_printer
+        )
+
+    def test_logout_not_logged_in(self, temp_config, mock_printer, capsys):
+        """Logout with no token just reports it — no server call."""
+        with patch("hop3_cli.rpc.Client") as mock_client:
+            handle_logout([], temp_config, mock_printer)
+        mock_client.assert_not_called()
+        assert "Not logged in" in capsys.readouterr().out
+
+    def test_logout_revokes_and_clears_token(self, temp_config, mock_printer, capsys):
+        """Logout revokes the token server-side and clears it locally."""
+        temp_config.data["contexts"] = {
+            "default": {"api_url": "https://test.com", "api_token": _FAKE_JWT_USER}
+        }
+        temp_config.data["current_context"] = "default"
+
+        client_instance = MagicMock()
+        client_cm = MagicMock()
+        client_cm.__enter__.return_value = client_instance
+
+        with patch("hop3_cli.rpc.Client", return_value=client_cm):
+            handle_logout([], temp_config, mock_printer)
+
+        client_instance.rpc.assert_called_once_with("cli", ["auth", "logout"])
+        assert temp_config.data["contexts"]["default"]["api_token"] == ""
+        assert "Logged out" in capsys.readouterr().out
 
     def test_login_token_success(self, temp_config, mock_printer, capsys):
         """Test successful token-based login."""

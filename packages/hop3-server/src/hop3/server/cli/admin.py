@@ -452,5 +452,13 @@ class AuthMagicLink(Command):
             # Generate magic link token
             token = create_magic_token(username)
 
-            # Output just the token (for CLI consumption)
-            print(token)
+            # When the server has a public admin domain (nginx + TLS front the
+            # dashboard there), emit the full URL — only the server knows its
+            # own scheme/host. Without a domain, print the bare token and let
+            # the CLI point at the app's HTTP port directly.
+            from hop3.config import config  # noqa: PLC0415
+
+            if config.ADMIN_DOMAIN:
+                print(f"https://{config.ADMIN_DOMAIN}/auth/magic/{token}")
+            else:
+                print(token)
