@@ -108,6 +108,33 @@ def test_start_build_enqueues_and_shows_in_queue():
         assert reqs[0].actor == "web"
 
 
+def test_queue_shows_build_number_and_folds_the_detail():
+    """The queue lists the build number and keeps the (long) failure reason in a
+    folded <details> so it doesn't blow out the row."""
+    with _session() as s:
+        p = ProfilesRepository(s).create(
+            name="p-fail",
+            source_name="m",
+            source_url="u",
+            source_ref="main",
+            selection={"mode": "smoke"},
+        )
+        s.commit()
+        bq = BuildQueueRepository(s)
+        req_id = bq.enqueue(p.id).id
+        s.commit()
+        bq.mark(req_id, "failed", detail="hop3-deploy failed: boom")
+        s.commit()
+
+    with TestClient(app=create_app()) as client:
+        page = client.get("/queue").text
+
+    assert f"#{req_id}" in page  # build number column
+    assert "hop3-deploy failed: boom" in page  # the reason is present...
+    assert "<details>" in page  # ...inside a foldable section
+    assert "<details open" not in page  # folded by default
+
+
 def test_queue_cancel_pending_build():
     with _session() as s:
         p = ProfilesRepository(s).create(
