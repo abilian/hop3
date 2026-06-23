@@ -39,6 +39,12 @@ def test_variant_of(name, expected):
         ("demos/demo14", "demo14"),
         ("focalboard", "focalboard"),
         (None, "—"),
+        # A generic container leaf is skipped in favour of the parent, so two
+        # demos' app subdirs don't both collapse to the indistinguishable "app".
+        ("demos/demo15/app", "demo15"),
+        ("demos/demo16/app", "demo16"),
+        ("apps/real-apps-native/monica/src", "monica"),
+        ("app", "app"),  # bare generic leaf: nothing to fall back to
     ],
 )
 def test_short_app(name, expected):
