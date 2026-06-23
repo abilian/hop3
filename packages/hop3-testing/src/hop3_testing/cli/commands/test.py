@@ -339,6 +339,6 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
         logs_dir=logs_dir,
         start_message=start_msg,
         mode_label="system" if deploy_from != "none" else "reuse",
-        selection_mode=mode,  # dev/ci/nightly/release -> the dashboard "scope"
+        selection_mode=mode,  # smoke/ci/broad/full -> the dashboard "scope"
         available_features=list(features) if features else None,
     )

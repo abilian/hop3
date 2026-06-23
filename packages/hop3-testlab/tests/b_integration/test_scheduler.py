@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import threading
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
@@ -131,6 +132,43 @@ def test_add_nightly_job_registers_cron(monkeypatch):
         assert "minute='0'" in str(job.trigger)
     finally:
         sched.shutdown(wait=False)
+
+
+def test_dispatch_job_is_non_blocking_and_serial(monkeypatch):
+    """The poll spawns the run on a worker thread and returns at once; while that
+    thread is alive a second poll is a no-op (serial v1). This is what keeps
+    apscheduler's max_instances=1 from skipping every tick (the warning flood)."""
+    started = threading.Event()
+    release = threading.Event()
+    calls: list[int] = []
+
+    def fake_dispatch(executor=None):
+        calls.append(1)
+        started.set()
+        release.wait(timeout=5)
+        return True
+
+    monkeypatch.setattr("hop3_testlab.dispatcher.dispatch_once", fake_dispatch)
+    scheduler._dispatch_thread = None  # isolate from any prior test's thread
+
+    try:
+        scheduler._dispatch_job()  # spawns the worker, returns immediately
+        assert started.wait(timeout=2)  # the run is happening off-thread
+        scheduler._dispatch_job()  # second poll while the run is still in flight
+        assert calls == [1]  # ...is a no-op (serial v1)
+
+        started.clear()
+        release.set()  # let the first run finish
+        scheduler._dispatch_thread.join(timeout=2)
+
+        scheduler._dispatch_job()  # thread is done -> a new run starts
+        assert started.wait(timeout=2)
+        assert calls == [1, 1]
+    finally:
+        release.set()
+        if scheduler._dispatch_thread is not None:
+            scheduler._dispatch_thread.join(timeout=2)
+        scheduler._dispatch_thread = None
 
 
 def test_serve_starts_and_stops_scheduler_when_enabled(monkeypatch):

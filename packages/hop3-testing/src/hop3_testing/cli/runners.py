@@ -276,7 +276,7 @@ def run_tests(
     _maybe_prepare_tutorial_host(target, tests, console)
 
     try:
-        # Record the test-selection scope (dev/ci/nightly/release) as the run's
+        # Record the test-selection scope (smoke/ci/broad/full) as the run's
         # mode — that's what the dashboard shows and what the regressions diff
         # compares against. ``mode_label`` (system/reuse, the deploy style) stays
         # the per-run log-dir label. Older callers that don't pass a selection

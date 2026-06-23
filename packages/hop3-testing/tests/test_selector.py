@@ -71,11 +71,11 @@ class TestPredefinedModes:
         assert config.priorities == ["P0"]
         assert config.max_duration_minutes == 15
 
-    def test_nightly_mode(self):
-        """Test nightly mode configuration."""
-        config = MODES["nightly"]
+    def test_broad_mode(self):
+        """Test broad mode configuration (the suite the nightly cron runs)."""
+        config = MODES["broad"]
 
-        assert config.name == "nightly"
+        assert config.name == "broad"
         assert "fast" in config.tiers
         assert "medium" in config.tiers
         assert "slow" in config.tiers
@@ -125,16 +125,17 @@ class TestGetModeConfig:
             "curated",
             "tag-coverage",
             "combo-coverage",
-            "nightly",
+            "broad",
             "full",
         ]:
             config = get_mode_config(mode_name)
             assert config.name == mode_name
 
     def test_back_compat_aliases_resolve(self):
-        """Old names still resolve (dev→smoke, release→full) for --mode etc."""
+        """Old names still resolve (dev→smoke, release→full, nightly→broad)."""
         assert get_mode_config("dev").name == "smoke"
         assert get_mode_config("release").name == "full"
+        assert get_mode_config("nightly").name == "broad"
 
     def test_cli_mode_choices_cover_every_profile_and_alias(self):
         """The `hop3-test system --mode` choices must stay in sync with the
@@ -144,7 +145,7 @@ class TestGetModeConfig:
 
         choices = set(_mode_choices())
         assert set(MODES).issubset(choices)  # every built-in profile
-        assert {"dev", "release"}.issubset(choices)  # back-compat aliases
+        assert {"dev", "release", "nightly"}.issubset(choices)  # back-compat aliases
 
     def test_get_invalid_mode_raises(self):
         """Test getting an invalid mode raises ValueError."""
@@ -164,6 +165,6 @@ class TestListModes:
         assert "curated" in modes
         assert "tag-coverage" in modes
         assert "combo-coverage" in modes
-        assert "nightly" in modes
+        assert "broad" in modes
         assert "full" in modes
         assert len(modes) == 7
