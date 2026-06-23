@@ -44,7 +44,7 @@ Apps: clojure-hello, flask-alt, flask-gunicorn, flask-hello, golang-gin, golang-
 
 Production-ready applications built with Nix. Each has a `hop3.nix` that downloads and packages the application using `fetchurl`, `buildGoModule`, or similar Nix builders.
 
-Apps: adminer, bookstack, cryptpad, dolibarr, easy-appointments, etherpad, focalboard, gitea, grafana, hedgedoc, invoice-ninja, isso, jenkins, kanboard, limesurvey, listmonk, matomo, matrix-synapse, mattermost, miniflux, nextcloud, radicale, searxng, sonarqube, vikunja, wiki-js, wordpress, xwiki
+Apps: adminer, bookstack, cryptpad, dolibarr, easy-appointments, etherpad, gitea, grafana, hedgedoc, invoice-ninja, isso, jenkins, kanboard, limesurvey, listmonk, matomo, matrix-synapse, mattermost, miniflux, nextcloud, radicale, searxng, sonarqube, vikunja, wiki-js, wordpress, xwiki
 
 ## real-apps-docker/
 
