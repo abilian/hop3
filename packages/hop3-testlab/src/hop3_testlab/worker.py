@@ -18,6 +18,7 @@ import contextlib
 import json
 import logging
 import os
+import re
 import signal
 import subprocess
 import threading
@@ -243,8 +244,8 @@ def _run_engine(
         # Raise with the log path + tail so run_once propagates it, the dispatcher
         # records the build FAILED **with the real reason** (BuildRequest.detail),
         # and the CLI exits non-zero — never a green build for a failed run.
-        tail = _tail_of(log_path)
-        msg = f"Engine exited {returncode}. Last output ({log_path}):\n{tail}"
+        detail = _failure_summary(log_path)
+        msg = f"Engine exited {returncode}. See {log_path}\n{detail}"
         raise RuntimeError(msg)
 
 
@@ -265,6 +266,46 @@ def _tail_of(path: Path, lines: int = 25) -> str:
         return "\n".join(text.splitlines()[-lines:])
     except OSError:
         return "(no output captured)"
+
+
+# Cap the surfaced failure block so the detail stays readable in the queue's
+# `detail` column and the dispatcher log (the full log path is in the message).
+_FAILURE_BLOCK_MAX_LINES = 50
+
+
+def _failure_summary(path: Path, tail_lines: int = 25) -> str:
+    """The engine's "which tests failed and why" block, for the build detail.
+
+    A non-zero engine exit ends with the summary an operator needs — a
+    "N of M tests failed" banner and a "Failed tests:" block naming each failure
+    and its verdict. That block is **not** at the end of the log: the run keeps
+    going past it with a passing-demos recap, the saved-report path, and target
+    teardown. A plain tail therefore shows only "OK" lines and hides the real
+    cause. Return the failure block when the engine printed one; fall back to the
+    tail when it died before it could (a setup/deploy abort prints no banner).
+    """
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return "(no output captured)"
+
+    headline = next(
+        (
+            i
+            for i in reversed(range(len(lines)))
+            if re.search(r"\b\d+ of \d+ tests? failed\b", lines[i])
+        ),
+        None,
+    )
+    if headline is None:
+        return "\n".join(lines[-tail_lines:])
+
+    end = min(headline + _FAILURE_BLOCK_MAX_LINES, len(lines))
+    for i in range(headline + 1, end):
+        if lines[i].startswith("Full per-test logs"):
+            end = i + 1
+            break
+    return "\n".join(lines[headline:end])
 
 
 def _runner_version() -> str:

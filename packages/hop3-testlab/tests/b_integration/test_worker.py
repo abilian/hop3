@@ -302,6 +302,58 @@ def test_run_engine_raises_on_nonzero_exit(monkeypatch, tmp_path):
         worker._run_engine("docker", ["hop3-test", "system"], None)
 
 
+def test_failure_summary_surfaces_failed_tests_not_the_ok_tail(tmp_path):
+    """The engine prints its "Failed tests" block, then keeps going with a
+    passing-demos recap + teardown. A plain tail shows only the trailing OK
+    lines and hides the real cause — the detail must surface the failures."""
+    log = tmp_path / "engine.log"
+    log.write_text(
+        "\n".join([
+            "[discourse] Deploying discourse-1782127545...",
+            "============================================================",
+            "2 of 29 tests failed",
+            "Total time: 2158.95s",
+            "============================================================",
+            "",
+            "Failed tests:",
+            "  ✗ discourse",
+            "      ✗ build-failure — discourse-1782127545",
+            "  ✗ focalboard",
+            "      ✗ app-crash — focalboard-1782128505",
+            "",
+            "Full per-test logs: test-logs/system-20260622/app-logs/",
+            "",
+            "Per-app results:",
+            "  - discourse (apps/real-apps-docker/discourse): FAIL",
+            # the misleading all-OK tail the old tail-only detail would show:
+            *(f"  - demos/demo0{i}: OK" for i in range(1, 7)),
+            "Stopping target...",
+            "Remote target cleanup complete (server keeps running).",
+        ]),
+        encoding="utf-8",
+    )
+    summary = worker._failure_summary(log)
+    assert "2 of 29 tests failed" in summary
+    assert "discourse" in summary
+    assert "build-failure" in summary
+    assert "focalboard" in summary
+    assert "app-crash" in summary
+    # stops at the per-test-logs boundary — no trailing OK / teardown leakage
+    assert "demos/demo06: OK" not in summary
+    assert "Remote target cleanup complete" not in summary
+
+
+def test_failure_summary_falls_back_to_tail_without_a_failed_block(tmp_path):
+    """A setup/deploy abort prints no "N of M tests failed" banner, so the
+    detail falls back to the tail rather than going blank."""
+    log = tmp_path / "engine.log"
+    log.write_text(
+        "fetching source...\nblank-slate refused: dirty server\nABORTED\n",
+        encoding="utf-8",
+    )
+    assert "ABORTED" in worker._failure_summary(log)
+
+
 def test_sweep_skips_a_run_live_on_another_target():
     """A healthy run on target B is not aborted by a run starting on target A (#2)."""
     from hop3_testing.results.models import TestRun
