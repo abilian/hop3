@@ -89,35 +89,35 @@ def test_no_password_flag_is_noop() -> None:
 def test_unrelated_command_is_noop() -> None:
     args = ["deploy", "myapp", "--password-file", "/tmp/x"]
     _resolve_password_inputs(args)
-    # Untouched: only user add / user set-password / auth login get the rewrite.
+    # Untouched: only user add / user set-password / auth get-token get the rewrite.
     assert args == ["deploy", "myapp", "--password-file", "/tmp/x"]
 
 
-def test_auth_login_with_password_file(tmp_path: Path) -> None:
+def test_auth_get_token_with_password_file(tmp_path: Path) -> None:
     pw_file = tmp_path / "pw.txt"
     pw_file.write_text("s3cret\n", encoding="utf-8")
 
-    args = ["auth", "login", "alice", "--password-file", str(pw_file)]
+    args = ["auth", "get-token", "alice", "--password-file", str(pw_file)]
     _resolve_password_inputs(args)
 
-    assert args == ["auth", "login", "alice", "s3cret"]
+    assert args == ["auth", "get-token", "alice", "s3cret"]
 
 
-def test_auth_login_with_stdin() -> None:
-    args = ["auth", "login", "alice", "--stdin"]
+def test_auth_get_token_with_stdin() -> None:
+    args = ["auth", "get-token", "alice", "--stdin"]
     fake_stdin = io.StringIO("from-stdin\n")
     with (
         patch.object(sys, "stdin", fake_stdin),
         patch.object(sys.stdin, "isatty", lambda: False, create=True),
     ):
         _resolve_password_inputs(args)
-    assert args == ["auth", "login", "alice", "from-stdin"]
+    assert args == ["auth", "get-token", "alice", "from-stdin"]
 
 
-def test_auth_login_no_flag_is_noop() -> None:
-    args = ["auth", "login", "alice", "literal-password"]
+def test_auth_get_token_no_flag_is_noop() -> None:
+    args = ["auth", "get-token", "alice", "literal-password"]
     _resolve_password_inputs(args)
-    assert args == ["auth", "login", "alice", "literal-password"]
+    assert args == ["auth", "get-token", "alice", "literal-password"]
 
 
 def test_missing_password_file_path_raises() -> None:

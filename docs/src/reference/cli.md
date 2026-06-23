@@ -62,10 +62,10 @@ export HOP3_API_URL="https://your-hop3-server.com"
 # or
 export HOP3_API_URL="ssh://user@your-hop3-server.com"
 
-# Login
-hop3 auth login <username> <password>
+# Login (interactive; saves the token to the active context)
+hop3 login            # short form of `hop3 auth login`
 
-# The returned token is stored in the active context in
+# The token is stored in the active context in
 # ~/.config/hop3-cli/config.toml (or override with HOP3_API_TOKEN)
 ```
 
@@ -532,34 +532,43 @@ hop3 auth register alice alice@example.com mypassword123
 
 ### `hop3 auth login`
 
-Authenticate and receive an API token.
+Log in to a server. `hop3 login` is the short form of this command.
+
+This is the interactive, full-featured login: it supports SSH bootstrap, token
+URLs, magic links (`--web`) and password entry, and it saves the resulting
+token to the active context. It takes no positional username/password — for a
+non-interactive, scriptable token use [`hop3 auth get-token`](#hop3-auth-get-token).
 
 **Usage:**
 ```bash
-hop3 auth login <username> <password>
-```
-
-**Arguments:**
-- `username` - Your username
-- `password` - Your password
-
-**Example:**
-```bash
-hop3 auth login alice mypassword123
-```
-
-**Output:**
-```
-Login successful for user: alice
-
-Your API token:
-eyJ0eXAiOiJKV1QiLCJhbGc...
+hop3 login                      # password (prompted) for the active server
+hop3 login --ssh root@server    # SSH bootstrap (no password needed)
+hop3 login --web                # magic link for the web dashboard
 ```
 
 **Notes:**
 - Token stored in the active context in `~/.config/hop3-cli/config.toml`
 - Token valid for 30 days by default
 - Set `HOP3_API_TOKEN` environment variable to override
+
+---
+
+### `hop3 auth get-token`
+
+Verify credentials and **print** an API token — for scripts and automation. It
+does not save anything; capture the token yourself. Pass the password without
+putting it on the command line.
+
+**Usage:**
+```bash
+hop3 auth get-token <username> --password-file -    # read password from stdin
+hop3 auth get-token <username> --password-file pw   # read password from a file
+```
+
+**Example:**
+```bash
+TOKEN=$(printf '%s' "$HOP3_PASSWORD" | hop3 auth get-token alice --password-file -)
+```
 
 ---
 

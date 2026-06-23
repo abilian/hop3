@@ -38,11 +38,15 @@ def test_core_aliases_have_tuple_expansions() -> None:
         assert len(alias.expansion) >= 1
 
 
-def test_login_logout_are_not_aliases() -> None:
-    """`login`/`logout` are LOCAL commands with custom SSH flows, not aliases."""
-    tokens = {a.source_token for a in CORE_ALIASES}
-    assert "login" not in tokens
-    assert "logout" not in tokens
+def test_login_logout_are_aliases_of_auth() -> None:
+    """`login`/`logout` are short forms of the canonical `auth login`/`auth logout`.
+
+    Both spellings resolve to the same rich local handlers (kept local in
+    is_local_command), so the alias is safe.
+    """
+    by_token = {a.source_token: a.expansion for a in CORE_ALIASES}
+    assert by_token["login"] == ("auth", "login")
+    assert by_token["logout"] == ("auth", "logout")
 
 
 # ---- Registry build ----

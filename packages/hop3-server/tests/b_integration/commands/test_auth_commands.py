@@ -14,7 +14,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from hop3.commands.auth import (
-    AuthLoginCmd,
+    AuthGetTokenCmd,
     AuthLogoutCmd,
     AuthMagicLinkCmd,
     AuthWhoamiCmd,
@@ -94,14 +94,15 @@ def test_auth_login_success(
     db_session: Session, user_repo: UserRepository, test_user: User
 ):
     """Test successful login."""
-    cmd = AuthLoginCmd(user_repo=user_repo)
+    cmd = AuthGetTokenCmd(user_repo=user_repo)
     result = cmd.call("testuser", "testpass123")
 
     assert isinstance(result, list)
-    assert any("Login successful" in str(r.get("text", "")) for r in result)
 
-    # Check that a token was returned
-    assert any("Your API token:" in str(r.get("text", "")) for r in result)
+    # Output is the bare token, so callers can capture it directly.
+    tokens = [r.get("text", "") for r in result if r.get("t") == "text"]
+    assert len(tokens) == 1
+    assert tokens[0].count(".") == 2  # JWT: header.payload.signature
 
     # Verify login tracking was updated
     db_session.refresh(test_user)
@@ -111,7 +112,7 @@ def test_auth_login_success(
 
 def test_auth_login_wrong_password(user_repo: UserRepository, test_user: User):
     """Test login with wrong password."""
-    cmd = AuthLoginCmd(user_repo=user_repo)
+    cmd = AuthGetTokenCmd(user_repo=user_repo)
     result = cmd.call("testuser", "wrongpassword")
 
     assert isinstance(result, list)
@@ -121,7 +122,7 @@ def test_auth_login_wrong_password(user_repo: UserRepository, test_user: User):
 
 def test_auth_login_nonexistent_user(user_repo: UserRepository):
     """Test login with nonexistent user."""
-    cmd = AuthLoginCmd(user_repo=user_repo)
+    cmd = AuthGetTokenCmd(user_repo=user_repo)
     result = cmd.call("nosuchuser", "password")
 
     assert isinstance(result, list)
@@ -135,7 +136,7 @@ def test_auth_login_inactive_user(
     test_user.active = False
     db_session.commit()
 
-    cmd = AuthLoginCmd(user_repo=user_repo)
+    cmd = AuthGetTokenCmd(user_repo=user_repo)
     result = cmd.call("testuser", "testpass123")
 
     assert isinstance(result, list)
@@ -145,7 +146,7 @@ def test_auth_login_inactive_user(
 
 def test_auth_login_missing_params(user_repo: UserRepository):
     """Test login with missing parameters."""
-    cmd = AuthLoginCmd(user_repo=user_repo)
+    cmd = AuthGetTokenCmd(user_repo=user_repo)
     result = cmd.call("", "")
 
     assert isinstance(result, list)
@@ -156,14 +157,16 @@ def test_auth_login_admin_user_gets_admin_scope(
     user_repo: UserRepository, admin_user: User
 ):
     """Test that admin users get admin scope in their token."""
-    cmd = AuthLoginCmd(user_repo=user_repo)
+    cmd = AuthGetTokenCmd(user_repo=user_repo)
     result = cmd.call("admin", "adminpass")
 
     assert isinstance(result, list)
-    assert any("Login successful" in str(r.get("text", "")) for r in result)
 
-    # The token should be in the result - we could decode it to verify admin scope
-    # but for now just check that login succeeded
+    # The admin's token is returned (bare). Decoding to assert the admin scope
+    # is left to the token tests; here we just confirm a token came back.
+    tokens = [r.get("text", "") for r in result if r.get("t") == "text"]
+    assert len(tokens) == 1
+    assert tokens[0].count(".") == 2
 
 
 def test_auth_whoami_success(user_repo: UserRepository, test_user: User):
@@ -205,7 +208,7 @@ def test_auth_login_increments_login_count(
     db_session: Session, user_repo: UserRepository, test_user: User
 ):
     """Test that login count is incremented on each login."""
-    cmd = AuthLoginCmd(user_repo=user_repo)
+    cmd = AuthGetTokenCmd(user_repo=user_repo)
 
     # First login
     cmd.call("testuser", "testpass123")

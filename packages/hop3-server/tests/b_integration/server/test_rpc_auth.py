@@ -68,15 +68,15 @@ def test_rpc_public_command_without_auth(client: TestClient):
     assert "result" in data
 
 
-def test_rpc_auth_login_without_token(client: TestClient):
-    """Test that auth:login works without authentication."""
+def test_rpc_auth_get_token_without_token(client: TestClient):
+    """Test that auth:get-token works without authentication."""
     response = client.post(
         "/rpc",
         json={
             "jsonrpc": "2.0",
             "method": "cli",
             "params": {
-                "cli_args": ["auth", "login", "testuser", "password"],
+                "cli_args": ["auth", "get-token", "testuser", "password"],
                 "extra_args": {},
             },
             "id": 1,

@@ -65,11 +65,11 @@ CORE_ALIASES: tuple[Alias, ...] = (
     # `config` is the back-compat alias, registered server-side on each env
     # command (hop3/commands/config.py). `hop3 config set ...` still works.
     Alias("whoami", ("auth", "whoami"), "built-in"),
-    # Note: `login` and `logout` are NOT aliases here. They are LOCAL commands
-    # (packages/hop3-cli/src/hop3_cli/commands/local/login_cmd.py) that handle
-    # SSH-based auth flows locally with side effects (token fetch, config
-    # write). They are NOT simply `auth login` forwarded to the server, so
-    # aliasing them would break local behavior. Users who want to hit the
-    # server's auth commands explicitly can type `hop3 auth login` /
-    # `hop3 auth logout`.
+    # `login` / `logout` are short forms of the canonical `auth login` /
+    # `auth logout`. Both spellings resolve to the same rich LOCAL handlers
+    # (SSH/token/--web/config side effects) — `auth login`/`auth logout` are
+    # kept local in is_local_command(), so the alias is safe. `login`/`logout`
+    # also stay registered as local commands so `--no-alias` still bootstraps.
+    Alias("login", ("auth", "login"), "built-in"),
+    Alias("logout", ("auth", "logout"), "built-in"),
 )

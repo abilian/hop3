@@ -250,11 +250,11 @@ class ConnectionError(CLIError):
 ## Authentication Flow
 
 ```
-1. User runs: hop3 auth login
+1. User runs: hop3 login   (canonical: hop3 auth login; handled locally)
 2. CLI prompts for credentials
-3. CLI sends: auth.login(username, password)
-4. Server returns: JWT token
-5. CLI stores token in config file
+3. CLI sends: cli(["auth", "get-token", username, password])
+4. Server verifies them and returns a JWT token
+5. CLI stores the token in the active context
 6. Subsequent requests include: Authorization: Bearer <token>
 ```
 

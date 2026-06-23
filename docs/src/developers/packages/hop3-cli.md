@@ -271,15 +271,19 @@ The JSON envelope includes `error.exit_code` so JSON consumers don't have to map
 
 ## Authentication Flow
 
-Password-based login goes through the server's `auth login` command:
+`hop3 login` (canonical spelling: `hop3 auth login`) is a local handler. Its
+password path goes through the server's `auth get-token` primitive:
 
 ```
-1. User runs: hop3 auth login <username> <password>
-2. CLI forwards it as cli(["auth", "login", ...])
-3. Server verifies the credentials and returns a JWT token
-4. User stores the token in the config file (api_token) or HOP3_API_TOKEN
+1. User runs: hop3 login   (prompts for username/password)
+2. CLI forwards the credentials as cli(["auth", "get-token", user, pass])
+3. Server verifies them and returns a JWT token
+4. CLI saves the token to the active context (api_token)
 5. Subsequent requests include: Authorization: Bearer <token>
 ```
+
+`hop3 auth get-token <user> --password-file -` exposes that same primitive
+directly, for scripts that want to capture a token without saving config.
 
 When the API URL uses an `ssh://` scheme, the CLI can also obtain a token over SSH automatically: on a 401 it runs the SSH bootstrap, fetches a token, saves it to the current context, and retries the request. This is what the local `hop3 init` and `hop3 login` commands rely on.
 
