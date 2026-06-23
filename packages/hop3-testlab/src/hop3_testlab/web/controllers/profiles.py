@@ -105,6 +105,14 @@ def _unique_copy_name(profiles: ProfilesRepository, base: str) -> str:
     return candidate
 
 
+def _slug_from_url(url: str) -> str:
+    """A short, filesystem-friendly label for a source, derived from the repo
+    URL's last path segment. It only names the source's git cache dir (never used
+    for lookup), so it needn't be unique or user-supplied."""
+    leaf = url.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git").strip()
+    return leaf or "repo"
+
+
 def _fields_from_form(data: dict) -> dict | None:
     """Validate and extract the writable profile fields from a create/edit form.
 
@@ -119,7 +127,8 @@ def _fields_from_form(data: dict) -> dict | None:
     _validate_source(source_url, source_ref)
     return {
         "name": name,
-        "source_name": (data.get("source_name") or "main-repo").strip(),
+        # Auto-derived from the URL — names the git cache dir, not a user field.
+        "source_name": _slug_from_url(source_url),
         "source_url": source_url,
         "source_ref": source_ref,
         "platform_ref": (data.get("platform_ref") or "").strip() or None,

@@ -40,7 +40,7 @@ class ModeConfig:
     """
 
     name: str
-    """Mode name (smoke, ci, curated, tag-coverage, combo-coverage, nightly, full)."""
+    """Mode name (smoke, ci, curated, tag-coverage, combo-coverage, broad, full)."""
 
     tiers: list[str]
     """Allowed tiers (fast, medium, slow, very-slow). Ignored when ``tests`` is
@@ -61,8 +61,8 @@ class ModeConfig:
     representative: bool = False
     """If True, reduce the filtered set to a minimal representative subset that
     still exercises every significant case (set-cover).  Used by ``tag-coverage``
-    and ``combo-coverage`` to hit all significant cases at a fraction of
-    nightly's cost."""
+    and ``combo-coverage`` to hit all significant cases at a fraction of the
+    broad suite's cost."""
 
     tests: list[str] = field(default_factory=list)
     """Explicit list of test names (catalog ids). When non-empty this is a
@@ -152,17 +152,17 @@ MODES: dict[str, ModeConfig] = {
         description=(
             "Combo coverage (docker-only): minimal subset covering every observed "
             "5-tuple (builder × toolchain × addons × category × spec) at least "
-            "once. Every unique combination, well under nightly."
+            "once. Every unique combination, well under the broad suite."
         ),
         max_duration_minutes=60,
         representative=True,
     ),
-    "nightly": ModeConfig(
-        name="nightly",
+    "broad": ModeConfig(
+        name="broad",
         tiers=["fast", "medium", "slow"],
         priorities=["P0", "P1"],
         targets=["docker", "remote"],
-        description="Broad nightly (all tiers except very-slow, P0+P1).",
+        description="Broad suite — all tiers except very-slow, P0+P1 (the nightly cron's default).",
         max_duration_minutes=120,
     ),
     "full": ModeConfig(
@@ -180,12 +180,15 @@ MODES: dict[str, ModeConfig] = {
 # `--mode ci` etc. always resolve to something.
 BUILTIN_MODE_NAMES = frozenset(MODES)
 
-# Back-compat aliases: the ladder rename (dev→smoke, release→full) keeps the old
-# names working for `--mode`, the scheduler, and saved runs. Resolved in
-# get_mode_config(); not listed as selectable modes.
+# Back-compat aliases: renames (dev→smoke, release→full, nightly→broad) keep the
+# old names working for `--mode`, saved profiles, and saved runs. Resolved in
+# get_mode_config(); not listed as selectable modes. NB: "nightly" is now only a
+# schedule cadence (the cron), never a test-selection scope — the suite it runs
+# is "broad".
 MODE_ALIASES: dict[str, str] = {
     "dev": "smoke",
     "release": "full",
+    "nightly": "broad",
     "coverage": "combo-coverage",  # pre-2026-Q2 name → combo-coverage
 }
 
@@ -301,8 +304,8 @@ def get_mode_config(mode: str) -> ModeConfig:
 
     Args:
         mode: Mode name (smoke, ci, curated, tag-coverage, combo-coverage,
-            nightly, full, a custom one, or a back-compat alias like ``dev``/
-            ``release``/``coverage``).
+            broad, full, a custom one, or a back-compat alias like ``dev``/
+            ``release``/``nightly``/``coverage``).
 
     Returns:
         ModeConfig for the requested mode

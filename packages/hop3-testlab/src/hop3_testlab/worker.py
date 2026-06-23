@@ -29,6 +29,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hop3_testing.selector.modes import get_mode_config
 from hop3_testing.targets.helpers import find_project_root
 
 from hop3_testlab import leasing
@@ -132,9 +133,32 @@ def _resolve_run_target(target_id: str) -> tuple[str, str | None, dict]:
 
 
 def _suite_args(mode: str, apps: list[str] | None) -> list[str]:
-    """Engine args: specific app paths (positional) for a per-app build, else
-    the whole mode-selected suite."""
-    return list(apps) if apps else ["--mode", mode]
+    """Engine args: the explicit app paths (positional) when a selection resolved
+    to a concrete list, else the whole mode-selected suite. ``--mode`` is always
+    passed: with positional apps the engine ignores it for *selecting* (the apps
+    win) and uses it only as the run's recorded scope label, so the dashboard
+    shows the real selection instead of the engine's ``--mode`` default."""
+    return [*(apps or []), "--mode", mode]
+
+
+def _scope_label(spec: RunSpec, fallback: str) -> str:
+    """The run's scope = the mode the profile's selection named, else the
+    explicit/legacy ``mode``."""
+    if spec.selection:
+        named = spec.selection.get("mode")
+        if isinstance(named, str) and named:
+            return named
+    return fallback
+
+
+def _canonical_scope(name: str) -> str:
+    """Resolve a scope name through the mode aliases to its canonical mode name
+    (so a renamed mode like nightly→broad records under the new name). An unknown
+    name falls back to ``broad`` so the engine's ``--mode`` Choice accepts it."""
+    try:
+        return get_mode_config(name).name
+    except ValueError:
+        return "broad"
 
 
 def run_blockers(target_id: str, apps: list[str] | None) -> str | None:
@@ -471,11 +495,12 @@ def _compose_inputs(
     return apps, cwd, provenance
 
 
-def run_once(
+def run_once(  # noqa: PLR0913
     target_id: str = "docker",
     *,
     trigger: str = "cli",
-    mode: str = "nightly",
+    trigger_kind: str = "cli",
+    mode: str = "broad",
     spec: RunSpec | None = None,
     executor: Callable[..., None] | None = None,
 ) -> bool:
@@ -511,15 +536,20 @@ def run_once(
 
     try:
         apps, cwd, provenance = _compose_inputs(spec)
+        provenance["trigger_kind"] = trigger_kind
+        # Record the run's true selection scope: the mode the profile's selection
+        # named (resolved to its canonical name), not the engine's --mode default
+        # ("smoke"), which is what got recorded when apps were passed positionally.
+        scope = _canonical_scope(_scope_label(spec, mode))
 
         # Tag the run via env so the spawned engine's start_run records the
-        # provenance (scheduled-nightly vs cli) on the TestRun (ADR 044 §D).
+        # provenance (scheduled vs cli) on the TestRun (ADR 044 §D).
         prev = os.environ.get("HOP3_TEST_TRIGGER")
         os.environ["HOP3_TEST_TRIGGER"] = trigger
         try:
             (executor or _default_executor)(
                 target_id,
-                mode,
+                scope,
                 apps,
                 platform_ref=spec.platform_ref,
                 cwd=cwd,

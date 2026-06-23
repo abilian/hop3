@@ -14,6 +14,7 @@ or run standalone via ``hop3-testlab schedule`` (BlockingScheduler).
 from __future__ import annotations
 
 import logging
+import threading
 from typing import TYPE_CHECKING
 
 from apscheduler.triggers.cron import CronTrigger
@@ -31,6 +32,14 @@ logger = logging.getLogger(__name__)
 NIGHTLY_JOB_ID = "nightly"
 DISPATCH_JOB_ID = "dispatch"
 DISPATCH_INTERVAL_SECONDS = 10
+
+# The build currently running (serial v1). The 10s poll spawns the run on this
+# thread and returns at once; while it's alive the poll is a no-op, so a build
+# never blocks the scheduler thread — which would trip apscheduler's
+# max_instances=1 and log "maximum instances reached" every tick for the whole
+# (multi-hour) run.
+_dispatch_thread: threading.Thread | None = None
+_dispatch_lock = threading.Lock()
 
 
 def _nightly_job() -> None:
@@ -78,16 +87,38 @@ def add_nightly_job(scheduler: BaseScheduler) -> BaseScheduler:
     return scheduler
 
 
-def _dispatch_job() -> None:
-    """Dispatch one queued build to a free pool server (no-op if nothing's ready)."""
+def _run_dispatch() -> None:
+    """Worker-thread body: dispatch one queued build (claim → run → record). Runs
+    off the scheduler thread so a multi-hour build doesn't block the 10s poll."""
     from hop3_testlab.dispatcher import dispatch_once  # noqa: PLC0415
 
     dispatch_once()
 
 
+def _dispatch_job() -> None:
+    """Poll: start one queued build on a dedicated worker thread and return at
+    once (a no-op if a build is already running). Keeping the poll fast is what
+    stops apscheduler's ``max_instances=1`` from skipping every tick — and logging
+    a 'maximum instances reached' warning — for the whole duration of a run.
+
+    The worker is a daemon: if the process is killed mid-build the run is
+    abandoned, and the dispatcher's stale-RUNNING sweep + lease TTL recover it on
+    the next start (the same path used when a dispatcher dies mid-run)."""
+    global _dispatch_thread  # noqa: PLW0603 — lock-guarded module singleton
+    with _dispatch_lock:
+        if _dispatch_thread is not None and _dispatch_thread.is_alive():
+            return  # a build is already running — serial v1, nothing to do
+        _dispatch_thread = threading.Thread(
+            target=_run_dispatch, name="testlab-dispatch", daemon=True
+        )
+        _dispatch_thread.start()
+
+
 def add_dispatch_job(scheduler: BaseScheduler) -> BaseScheduler:
-    """Register the build dispatcher as an interval job (``max_instances=1`` so a
-    long-running build can't be double-dispatched — serial v1)."""
+    """Register the build-dispatch poll as a 10s interval job. The poll spawns the
+    run on a worker thread and returns at once (``_dispatch_job``), so a long build
+    never blocks it; ``max_instances=1`` stays as a belt-and-suspenders guard
+    against overlapping polls — serial v1."""
     from apscheduler.triggers.interval import IntervalTrigger  # noqa: PLC0415
 
     scheduler.add_job(
