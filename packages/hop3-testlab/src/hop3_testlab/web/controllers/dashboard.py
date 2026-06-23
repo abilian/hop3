@@ -23,6 +23,19 @@ from hop3_testlab.repositories import (
 from hop3_testlab.web.guards import auth_guard
 
 
+def _display_trigger(run) -> str:
+    """The run's initiator kind (web / scheduled / cli) for the dashboard, from
+    the recorded provenance. Legacy queue runs without a recorded kind show
+    'queued' rather than the bare 'build-N' request id."""
+    kind = (run.run_metadata or {}).get("trigger_kind")
+    if kind:
+        return kind
+    trigger = run.trigger or ""
+    if trigger.startswith("build-"):
+        return "queued"
+    return trigger or "—"
+
+
 class HealthController(Controller):
     """Liveness probe — always public, no DI."""
 
@@ -48,7 +61,7 @@ class DashboardController(Controller):
             {
                 "run_uid": run.run_uid,
                 "mode": run.mode,
-                "trigger": run.trigger,
+                "trigger": _display_trigger(run),
                 "target": run.target_name or run.target_type,
                 "started_at": run.started_at,
                 "total": run.total_tests,
