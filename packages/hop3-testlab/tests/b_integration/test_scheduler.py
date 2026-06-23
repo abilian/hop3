@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
@@ -169,6 +170,19 @@ def test_dispatch_job_is_non_blocking_and_serial(monkeypatch):
         if scheduler._dispatch_thread is not None:
             scheduler._dispatch_thread.join(timeout=2)
         scheduler._dispatch_thread = None
+
+
+def test_scheduler_quiets_apscheduler_info_noise():
+    """Building a scheduler lifts apscheduler to WARNING — otherwise the 10s
+    dispatch poll floods INFO ('Running job … executed successfully') every tick."""
+    log = logging.getLogger("apscheduler")
+    prev = log.level
+    try:
+        log.setLevel(logging.INFO)  # a noisy default
+        scheduler.build_background_scheduler()
+        assert log.level == logging.WARNING
+    finally:
+        log.setLevel(prev)
 
 
 def test_serve_starts_and_stops_scheduler_when_enabled(monkeypatch):
