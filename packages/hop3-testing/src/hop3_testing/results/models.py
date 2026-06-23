@@ -147,7 +147,12 @@ class TestResultRecord(Base):
     run_id: Mapped[int] = mapped_column(ForeignKey("test_runs.id"), nullable=True)
 
     test_name: Mapped[str] = mapped_column(String(100), nullable=True)
-    """Test identifier."""
+    """Test identifier (the catalog name, e.g. ``bugsink``)."""
+
+    test_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    """The test's source path (e.g. ``apps/real-apps-docker/bugsink/hop3.toml``).
+    The packaging variant (docker / native / nix / nix-template / demo / tutorial)
+    is derived from it — the bare ``test_name`` doesn't encode it."""
 
     category: Mapped[str] = mapped_column(String(20), nullable=True)
     """Test category (deployment, demo, tutorial)."""

@@ -171,6 +171,7 @@ class ResultStore:
                 ("pid_starttime", "INTEGER"),
             ],
             "test_results": [
+                ("test_path", "TEXT"),
                 ("bundle_run_id", "VARCHAR(80)"),
                 ("bundle_path", "TEXT"),
                 ("classification", "VARCHAR(24)"),
@@ -311,6 +312,11 @@ class ResultStore:
             record = TestResultRecord(
                 run_id=self._current_run.id if self._current_run else None,
                 test_name=result.test.name,
+                # The path encodes the packaging variant; test_name (a bare id)
+                # does not. Stored so the report can show docker/native/nix/…
+                test_path=(
+                    str(src) if (src := getattr(result.test, "source_path", None)) else None
+                ),
                 category=result.test.runner_type,
                 tier=result.test.tier.value,
                 priority=result.test.priority.value,
