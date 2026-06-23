@@ -131,12 +131,21 @@ def add_dispatch_job(scheduler: BaseScheduler) -> BaseScheduler:
     return scheduler
 
 
+def _quiet_apscheduler() -> None:
+    """apscheduler logs every job execution at INFO, so the 10s dispatch poll
+    prints two lines per tick forever. Lift its logger to WARNING — genuine
+    misfires/errors still surface; the routine 'Running job … executed
+    successfully' noise is dropped."""
+    logging.getLogger("apscheduler").setLevel(logging.WARNING)
+
+
 def build_background_scheduler() -> BaseScheduler:
     """A BackgroundScheduler with the nightly + dispatch jobs, ready to .start()."""
     from apscheduler.schedulers.background import (  # noqa: PLC0415
         BackgroundScheduler,
     )
 
+    _quiet_apscheduler()
     return add_dispatch_job(add_nightly_job(BackgroundScheduler()))
 
 
@@ -145,4 +154,5 @@ def run_blocking() -> None:
     the build dispatcher, so enqueued builds actually run."""
     from apscheduler.schedulers.blocking import BlockingScheduler  # noqa: PLC0415
 
+    _quiet_apscheduler()
     add_dispatch_job(add_nightly_job(BlockingScheduler())).start()
