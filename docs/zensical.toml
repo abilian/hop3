@@ -200,6 +200,7 @@ nav = [
                 { "ADR 017: Distributed, Agent-Based Architecture" = "developers/adrs/017-agent-based-architecture.md" },
                 { "ADR 023: Runtime Stack Replacement" = "developers/adrs/023-runtime-stack-replacement.md" },
                 { "ADR 047: CLI Invocation Context — transmit the resolved a..." = "developers/adrs/047-cli-invocation-context.md" },
+                { "ADR 051: Config Injection — Wiring config-file and DB app..." = "developers/adrs/051-config-injection.md" },
             ]},
             { "Deferred" = [
                 { "ADR 005: Web Terminal for Application Management" = "developers/adrs/005-web-terminal.md" },
