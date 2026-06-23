@@ -42,7 +42,9 @@ def _result_row(r, titles: dict[str, str] | None = None) -> dict:
         "test_name": r.test_name,
         "app": short_app(r.test_name),
         "title": titles.get(r.test_name) or short_app(r.test_name),
-        "variant": variant_of(r.test_name),
+        # Variant (docker/native/nix/…) lives in the path, not the bare name.
+        # Legacy rows have no test_path → fall back (they show "other").
+        "variant": variant_of(getattr(r, "test_path", None) or r.test_name),
         "category": r.category,
         "priority": r.priority,
         "passed": bool(r.passed),
