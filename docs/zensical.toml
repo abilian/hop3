@@ -51,8 +51,11 @@ nav = [
         { "User Guide" = "guides/user-guide.md" },
         { "Cheat Sheet" = "guides/cheat-sheet.md" },
         { "Administration" = "guides/administration.md" },
+        { "Domains & Hostnames" = "guides/domains.md" },
         { "Addons" = "guides/addons.md" },
         { "App Catalog" = "guides/app-catalog.md" },
+        { "Packaging Applications" = "guides/packaging-applications.md" },
+        { "Deploying with Nix" = "guides/nix-deployment.md" },
         { "Backup & Restore" = "guides/backup-restore.md" },
         { "Migration" = [
             { "Migration Guide" = "guides/migration-guide.md" },
@@ -130,6 +133,9 @@ nav = [
         { ".NET" = [
             { ".NET Overview" = "tutorials/dotnet/index.md" },
             { "ASP.NET Core" = "tutorials/dotnet/aspnet-core.md" },
+        ]},
+        { "Nix" = [
+            { "Deploy a Flask App with Nix" = "tutorials/nix/nix-flask.md" },
         ]},
     ]},
 
@@ -286,6 +292,7 @@ nav = [
         { "Overview" = "reference/index.md" },
         { "CLI Reference" = "reference/cli.md" },
         { "Configuration" = "reference/config.md" },
+        { "Nix Integration" = "reference/nix.md" },
         { "Policies" = [
             { "Overview" = "reference/policies/index.md" },
             { "Security Policy" = "reference/policies/security-policy.md" },
