@@ -168,9 +168,7 @@ def test_default_executor_per_app_build(monkeypatch):
         worker, "_run_engine", lambda tid, cmd, env, cwd=None: calls.append(cmd)
     )
 
-    worker._default_executor(
-        "docker", "broad", ["apps/real-apps-docker/invoice-ninja"]
-    )
+    worker._default_executor("docker", "broad", ["apps/real-apps-docker/invoice-ninja"])
 
     cmd = calls[0]
     assert "apps/real-apps-docker/invoice-ninja" in cmd
