@@ -67,6 +67,8 @@ This keeps the wrapper as a single-quoted heredoc (no expansion at all), then pa
 
 ### The Channel Problem
 
+> **Note (Hop3 0.7+):** the installer and code generator no longer use nix-channel; nixpkgs is pinned in-tree (`packages/hop3-server/.../gen/templates/base.py`, nixos-24.11). The channel steps below are kept for historical reference and for operators on pre-0.7 versions.
+
 Nix's binary cache (`cache.nixos.org`) only caches packages from official release channels. If the server uses a rolling channel (`nixpkgs-unstable`) or no channel at all, packages like `nodejs_22` may not be cached and Nix builds them from source (~30 minutes for Node.js).
 
 **Fix:** Pin the channel to a stable release during installation:

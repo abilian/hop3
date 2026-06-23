@@ -127,7 +127,7 @@ The deliverable was two narrated walkthroughs; it is now massively over-delivere
 
 ### Pin nixpkgs — the reproducibility quick win (M1/M2)
 
-NLNet/NGI fund reproducibility/sovereignty work and will inspect the Nix implementation closely. Today every expression uses the unpinned `import <nixpkgs> {}` against a moving channel, so builds are not reproducible across hosts/dates. Pinning nixpkgs is cheap and is the single highest-value reproducibility win — so it lands in the 0.7 cut; the deeper hermetic-build work is 0.7.x (see below).
+NLNet/NGI fund reproducibility/sovereignty work and will inspect the Nix implementation closely. Before this cut, every expression used the unpinned `import <nixpkgs> {}` against a moving channel, so builds were not reproducible across hosts/dates. Pinning nixpkgs is cheap and was the single highest-value reproducibility win — so it landed in the 0.7 cut (done below); the deeper hermetic-build work is 0.7.x.
 
 - [x] Ship one in-tree pinned nixpkgs input — a pinned rev + sha256 (`fetchTarball`) lives in the nix-gen `templates/base.py` (`NIXPKGS_REV` / `NIXPKGS_SHA256` / `PINNED_NIXPKGS_HEADER`), updatable in one place.
 - [x] The generator emits the pinned import — all 9 nix-gen templates render `import (fetchTarball {…}) {}` instead of `<nixpkgs>` (one shared pin in `templates/base.py`), verified via `nix-instantiate`; nix-gen tests + full gate green.
