@@ -4,18 +4,14 @@ version = "1.0.0"
 title = "Elixir Prerequisite Test"
 
 [build]
-# Clean all build artifacts before rebuilding to avoid stale state
-# MIX_HOME and HEX_HOME are in parent directory (..), deps/_build are in current directory
-before-build = ["rm -rf _build deps ../.mix ../.hex", "mix local.hex --force", "mix local.rebar --force", "mix deps.clean --all", "mix deps.get", "mix compile"]
+# The Elixir toolchain installs Hex/rebar (mix local.hex/rebar --force) and runs
+# deps.get + compile with app-local MIX_HOME/HEX_HOME, then bakes those into the
+# runtime — so there is nothing to hand-roll here, and no app should hardcode
+# MIX_HOME/HEX_HOME (a literal "demo59" path crash-loops any other app name).
 packages = ["elixir", "erlang"]
 
 [run]
 start = "elixir --no-halt -S mix run"
-
-[env]
-MIX_ENV = "prod"
-MIX_HOME = "/home/hop3/apps/demo59/.mix"
-HEX_HOME = "/home/hop3/apps/demo59/.hex"
 
 [port]
 web = 4000
