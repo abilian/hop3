@@ -250,6 +250,7 @@ nav = [
     { "Blog" = [
         { "All Posts" = "blog/index.md" },
         { "2026" = [
+            { "Hop3 0.6.0 Released" = "blog/posts/2026-06-hop3-060-release.md" },
             { "The Test Lab: Making the Nightly Suite Legible" = "blog/posts/2026-06-testing-testlab.md" },
             { "How Hop3 is Tested" = "blog/posts/2026-06-how-hop3-is-tested.md" },
             { "The Test Runner: Why `hop3-test` Exists" = "blog/posts/2026-06-testing-runner.md" },
