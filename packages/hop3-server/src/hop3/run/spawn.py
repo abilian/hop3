@@ -105,6 +105,18 @@ class AppLauncher:
 
         return True
 
+    def _toolchain_owned_keys(self) -> set[str]:
+        """Env keys owned by the build artifact's toolchain.
+
+        These hold absolute, per-app, per-deploy paths (MIX_HOME, HEX_HOME, …)
+        the toolchain bakes into the artifact runtime. A persisted [env] must
+        never override them: a hardcoded value (another app's MIX_HOME) would
+        point the runtime at a directory the toolchain never populated.
+        """
+        if not self.artifact or not self.artifact.runtime:
+            return set()
+        return set(self.artifact.runtime.env_vars)
+
     # Build/run-once hooks — never persistent processes, so they must never be
     # handed to uWSGI as daemons. Matches RuntimeManifestBuilder's filter.
     _LIFECYCLE_HOOKS = frozenset({"prebuild", "postbuild", "prerun"})
@@ -557,14 +569,35 @@ class AppLauncher:
             self._setup_ruby_paths(env)
             self._setup_python_paths(env)
 
-        # Load environment variables from the ORM
+        # Load environment variables from the ORM (the persisted [env] block),
+        # but never let them clobber a toolchain-owned absolute path. The build
+        # artifact's runtime env_vars (MIX_HOME, HEX_HOME, …) are computed per
+        # app, per deploy by the toolchain; a stale or hand-copied [env] value
+        # (e.g. another app's MIX_HOME) would point the runtime at a directory
+        # the toolchain never populated. This mirrors the precedence
+        # RuntimeManifestBuilder already applies at build time: toolchain wins.
+        toolchain_keys = self._toolchain_owned_keys()
         runtime_env = self.app.get_runtime_env()
-        env.update(runtime_env)
+        overridden = sorted(toolchain_keys & set(runtime_env))
+        applied_env = {k: v for k, v in runtime_env.items() if k not in toolchain_keys}
+        env.update(applied_env)
+        if overridden:
+            log(
+                f"Ignoring [env] override of toolchain-owned {', '.join(overridden)} "
+                f"for '{self.app_name}' — the build artifact's value wins",
+                level=1,
+                fg="yellow",
+            )
+            server_log.warning(
+                "Ignored [env] override of toolchain-owned keys",
+                app_name=self.app_name,
+                keys=overridden,
+            )
         server_log.info(
             "Loaded runtime env_vars from ORM",
             app_name=self.app_name,
-            env_vars_count=len(runtime_env),
-            env_vars_keys=list(runtime_env.keys()),
+            env_vars_count=len(applied_env),
+            env_vars_keys=list(applied_env.keys()),
         )
 
         # Keep the app's port STABLE across redeploys: reuse the port already
