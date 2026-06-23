@@ -1,272 +1,185 @@
-# ADR 042: CLI Context Model — Servers and Project Contexts
+# ADR 042: CLI Context Model — One Context, One Connection
 
 **Status**: Accepted
 **Type**: Feature
 **Created**: 2026-05-30
+**Updated**: 2026-06-23
 **Related-ADRs**: 036, 018, 025, 047
 
 ## Context
 
-### What broke
+This ADR revises its own earlier decision *in place*. The original ADR 042 split the overloaded "context" concept into two nouns — a global **server** (URL, token, SSH, SSL, protected) and a project-scoped **context** (a deploy target inside `hop3.toml`). This revision walks that split back to a single noun. ("Server" throughout this document means the remote Hop3 instance, not the retired noun.)
 
-An operator ran `hop3 deploy` inside a project directory. The system packaged the local code and overwrote an *unrelated* app, because `hop3 use <other-app>` had been run weeks earlier in a different shell, setting a context-wide sticky default that followed the operator into every directory.
+### Why the split existed
 
-Two surface mitigations address the symptom (a `--why` flag that prints the resolution and exits; preferring `[metadata].id` over the global context default), but the underlying conflation remains. The post-mortem surfaces three deeper problems:
+One footgun motivated everything. An operator ran `hop3 deploy` inside a project and overwrote an *unrelated* app, because `hop3 use <other-app>` weeks earlier had set a server-wide sticky `default_app` that followed the operator into every directory. The original ADR concluded the cure was to move app selection into project-scoped contexts so the deploy target was pinned by the checkout, not by global state.
 
-1. **"Context" is overloaded.** It bundles {server URL, auth token, SSH access, SSL settings, default_app}. The first four describe *which server I connect to*; the last describes *what I'm doing on it*. These should not share a noun or a record.
-2. **There is no first-class "this project, on this server, called this name".** The common case — one codebase deployed to dev/staging/prod, possibly across two servers — has no native shape in the configuration. Users patch around it with sticky `hop3 use` (the trap above) or per-command `--app`/`--context`.
-3. **The local-checkout overlay is anaemic.** `.hop3-context` holds a single context name and nothing else — no symmetric override for an app, a domain, or anything else a developer working across branches/environments needs.
+### Why we revise it
 
-### Why now
+The footgun is killed by **one rule**: *resolve the app from where you stand* — flag, env, then CWD-rooted files (`.hop3-app`, `hop3.toml`), never from any global or server-level sticky default. The original ADR adopted that rule too; the only non-CWD app sources it kept (the context-derived `[contexts.<current>].app` and the server-level `default_app`) were exactly the two that could mis-resolve. Once the app is CWD-rooted, the wrong-app scenario cannot happen — regardless of how many server nouns exist.
 
-Pre-1.0, with explicit license to make breaking changes. Carrying the conflated `context` noun into 1.0 hardens a known footgun and a known UX dead-end; one coordinated breaking change now is far cheaper than patching around the conflation indefinitely.
+The split, then, bought no extra safety. It cost a second noun (`server`), a second file (`servers.toml`), a second flag (`--server/-s`), and a second verb namespace (`hop3 server`) that users had to learn alongside `hop3 context`. Worse, mid-migration it produced *two disagreeing sources of truth* on real machines. One noun plus the app-from-CWD rule is strictly simpler and exactly as safe.
 
-This decision supersedes ADR 036 §D7 (the app resolution chain) and §D8 (sticky state: contexts and the default app).
-
-### Backwards compatibility
-
-This is a breaking change. The "context" noun is renamed and re-scoped, `default_app` moves off the server record, and the local-overlay file changes shape. There are no back-compat shims; the transition is a single breaking release, with one-shot rewriters and one-time stderr notes covering the moves (see §Migration).
+This decision continues to supersede ADR 036 §D7 (app resolution) and §D8 (sticky state).
 
 ## Decision
 
-### Core vocabulary change
+There is exactly **one** user-facing concept for "which Hop3 server am I talking to": the **context**. A context is a named *connection* — the context *is* the server; there is no second noun.
 
-The existing "context" concept is split in two:
+| Concept | Lives in | Fields | Selected by |
+|---------|----------|--------|-------------|
+| **Context** | global CLI config (`~/.config/hop3-cli/config.toml`) | `url`, `token`, `ssh_user`, `ssh_port`, `ssh_key`, `ssl_cert`, `verify_ssl`, `protected` | `hop3 context use <name>`, `--context/-c`, `$HOP3_CONTEXT` |
 
-| New noun | Lives in | What it is | Cardinality |
-|----------|----------|------------|-------------|
-| **Server** | global CLI config | A Hop3 server binding: URL, auth token, SSH settings, SSL settings, protected flag | One per reachable Hop3 host |
-| **Context** | project `hop3.toml` | A deploy target on a server: which server, app name, domains, env var overrides | Per project, one per deploy target (dev / staging / prod / …) |
-
-The verb `context` keeps its place in the CLI surface, but its meaning is now project-scoped. The previously-global object (server URL + auth) is now spelled `server`.
+It holds a token, so it is **never committed**. The **app** is a separate axis, resolved entirely from where the operator stands (see below). `hop3.toml` is unchanged for app configuration (domains, env, addons, `[metadata].id`) and carries **no** connection info and **no** `[contexts.*]` deploy-target blocks.
 
 ### File layout
 
-#### Global server registry — `~/.config/hop3-cli/servers.toml`
+| File | Scope | Holds |
+|------|-------|-------|
+| `~/.config/hop3-cli/config.toml` | global | all contexts (connections) + the global current-context pointer |
+| `hop3.toml` | project, committed | app config only — `[metadata].id`, domains, env, addons. **No** connection info, **no** `[contexts.*]`. |
+| `.hop3-local.toml` (gitignored) | per-checkout | `[current].context` — the per-tree context override |
+| `.hop3-app` (gitignored) | per-checkout | the per-tree app selection written by `hop3 use` |
 
 ```toml
-[servers.dev]
-url = "https://hop3-dev.abilian.com"
-token = "<jwt>"
-ssh_user = "root"
-ssh_port = 22
-protected = false
-
-[servers.prod]
+# ~/.config/hop3-cli/config.toml — global context (never committed; holds a token)
+[contexts.prod]
 url = "https://hop3.abilian.com"
 token = "<jwt>"
 ssh_user = "root"
 ssh_port = 22
-protected = true       # blocks destructive ops without --confirm/--force
+protected = true        # blocks destructive ops without --confirm/--force
 verify_ssl = true
 ```
 
-Holds *all* the fields currently on `Context` (`api_url`, `api_token`, `ssh_user`, `ssh_port`, `ssh_key`, `ssl_cert`, `verify_ssl`, `protected`). The `default_app` field is removed — its functions move to project contexts and the resolution chain.
-
-#### Project file — `hop3.toml` gains `[contexts.*]`
-
-```toml
-[metadata]
-id = "myapp"                # canonical project name; default app when no context selected
-
-[contexts.dev]
-server = "dev"              # name of a server in ~/.config/hop3-cli/servers.toml
-app = "myapp-dev"
-domains = ["dev.myapp.example.com"]
-
-[contexts.staging]
-server = "dev"              # same server, different app
-app = "myapp-staging"
-domains = ["staging.myapp.example.com"]
-
-[contexts.prod]
-server = "prod"
-app = "myapp"
-domains = ["myapp.example.com"]
-
-[contexts.prod.env]         # optional: env-var overrides scoped to this context
-DEBUG = "false"
-LOG_LEVEL = "warning"
-```
-
-Every key under `[contexts.<name>]` other than `server` is optional and inherits from the top-level sections (`[domains]`, `[env]`, `[addons]`, …) when absent. Most projects need only `server` and `app`.
-
-#### Local overlay — `.hop3-local.toml` (gitignored)
-
-```toml
-[current]
-context = "dev"             # which [contexts.*] block I'm working in right now
-```
-
-`hop3 init` writes this file with a sensible default and appends it to `.gitignore`. It replaces the `.hop3-context` one-liner, which is retired outright (see §Migration).
+`servers.toml` and `state.toml`'s `current_server` pointer are removed. The connection records and the current-context pointer live in `config.toml`; one writer, one source of truth.
 
 ### Resolution chains
 
-Three things resolve through layered chains: server, context, app. A `git remote get-url hop3-<env>` source feeds all three, so `git push hop3-prod main` and `hop3 deploy --context prod` reach the same target without duplication.
+Two chains, not three. The separate "server" chain is gone.
 
-#### Server resolution
+#### Context (the connection)
 
-1. `--server <name>` flag
-2. `$HOP3_SERVER`
-3. The server named by the resolved current context (`[contexts.<current>].server`)
-4. Git remote: a `hop3-<name>` remote parsing as `hop3@<host>:<app>` whose `<host>` matches a known server URL
-5. Single-server fallback: if exactly one server is defined
-6. Error: "no server resolves; run `hop3 server use <name>` or pass `--server`"
-
-#### Context resolution
-
-1. `--context <name>` flag
+1. `--context` / `-c`
 2. `$HOP3_CONTEXT`
-3. `.hop3-local.toml [current].context` in CWD or any ancestor up to `$HOME`
-4. Git remote: exactly one `hop3-<name>` remote whose `<name>` matches a declared `[contexts.<name>]`
-5. If `hop3.toml` defines exactly one `[contexts.*]` block, use it
-6. None — fall back to the `[metadata].id`-only path (single-app project, no deploy targets defined)
+3. `.hop3-local.toml [current].context` — CWD or any ancestor up to `$HOME`
+4. global current context (persisted in `config.toml`)
+5. single-context fallback: exactly one context exists
+6. error: *"no context; run `hop3 context use <name>` or pass `--context`"*
 
-#### App resolution (extends ADR 036 §D7)
+#### App (always from where you stand)
 
-1. `--app` / `-a` flag
+1. `--app` / `-a`
 2. `$HOP3_APP`
-3. `.hop3-app` file in CWD or any ancestor
-4. `hop3.toml [cli].app` in CWD or any ancestor
-5. **`hop3.toml [contexts.<current>].app`** (NEW — only when a context resolves)
-6. `hop3.toml [metadata].id` in CWD or any ancestor
-7. Git remote: parse the `<app>` portion of `hop3-<resolved-context>`'s URL
-8. Server-level fallback: `default_app` on the resolved server's record
-9. Error
+3. `.hop3-app` — CWD or any ancestor
+4. `hop3.toml [cli].app` — CWD or any ancestor
+5. `hop3.toml [metadata].id` — CWD or any ancestor
+6. error
 
-Source #5 is the load-bearing addition: it makes "same codebase, deployed as `foo-dev` to one place and `foo-prod` to another" work without sticky global state. The git-remote sources are integration glue for `git push hop3-prod`; they never override an explicit declaration. Server-level `default_app` (#8) is the lowest-priority fallback and never beats a context-derived value.
+No context-derived app. No server-level `default_app` fallback. This drops the original ADR's two non-CWD app sources — the context-derived `[contexts.<current>].app` and the server-level `default_app` — which were the only sources that could ever produce the wrong-app footgun.
 
-#### Typed resolver surface
+The committed `hop3.toml [cli].app` pins the app in version control; `hop3 use <app>` writes the gitignored per-tree `.hop3-app` override, which the App chain reads at step 3 and which therefore wins over the committed `[cli].app`. The two coexist deliberately: `[cli].app` is the shared default in the repo, `.hop3-app` is the local operator's per-checkout choice.
 
-The resolver exposes a single typed object rather than a raw dict:
-
-```python
-@dataclass(frozen=True, slots=True)
-class ResolvedContext:
-    name: str            # the context name (or "" when no context resolved)
-    server: str          # server alias (key into ~/.config/hop3-cli/servers.toml)
-    app: str             # resolved app name
-    domains: list[str]   # final hostname list (see §Merge semantics)
-    env: dict[str, str]  # final env-var map (see §Merge semantics)
-```
-
-`Hop3Config.resolve_context(name) -> ResolvedContext` is the entry point. The raw-dict accessors (`contexts`, `get_context`) remain for diagnostics / `--json` / `to_dict()`. Call sites that *use* the resolved view consume `ResolvedContext`; those that *inspect* raw config consume the dicts. (A frozen dataclass matches `CLAUDE.md` §Data Structures and catches typo'd-key access at the boundary.)
-
-#### Merge semantics
-
-- **`server`** — required on every context; no top-level analog.
-- **`app`** — replaces `[metadata].id` for the resolved context.
-- **`domains`** — **full replacement.** When `[contexts.<name>].domains` is declared (any length, including `[]`), the resolver ignores top-level `[domains].list` for that context. No per-context `_policy`. Predictable replacement is easier to reason about for the load-bearing reverse-proxy input than union semantics.
-- **`env`** — **merge, context-wins.** Context env layers on top of top-level `[env]`: matching keys take the context value, unmatched top-level keys are inherited. The top-level `[env]._policy` and `[env.computed]` apply to the *merged* map; per-context `_policy`/`computed` are not honored. Layered merge is what every multi-environment system does; replace would force boilerplate.
+**Git-remote-driven resolution is dropped.** The original wove `hop3-<env>` git remotes into all three chains so that `git push hop3-prod` and `hop3 deploy --context prod` resolved to the same target. That coupling existed to serve the project-scoped contexts it fed, and goes with them. Git push-to-deploy survives as a deploy *mechanism*; what is removed is inferring a *context* or *app* from a remote's name. Out of scope for this revision — it can return alongside a future `[environments]` feature (see Rejected alternatives).
 
 ### CLI verbs
 
-#### Servers (global; manages `~/.config/hop3-cli/servers.toml`)
+A single `hop3 context` namespace manages connections.
 
 | Command | Effect |
 |---------|--------|
-| `hop3 server list` | list configured servers + which is default (single-server case) |
-| `hop3 server add <name>` | interactive flow: URL, then login |
-| `hop3 server remove <name>` | requires `--force` if any reachable `hop3.toml` context references it |
-| `hop3 server show <name>` | URL, masked token, protected flag, last-used, `default_app` if set |
-| `hop3 server login <name>` | re-auth (token rotation, SSO, …) |
-| `hop3 server use <name>` | set a global single-server default in `state.toml` |
-| `hop3 server use --default-app <app>` | set `default_app` on the current server's record — the lowest-priority app-resolution fallback (#8), for one-app-per-server users who skip `[contexts]` |
+| `hop3 context list` | list configured contexts + which is current |
+| `hop3 context show [name]` | URL, masked token, SSH/SSL settings, protected flag |
+| `hop3 context use <name>` | set the global current context |
+| `hop3 context add <name> --url <url> [--token ..] [--ssh-user ..] [--protected]` | register a context |
+| `hop3 context remove <name>` | delete a context |
+| `hop3 context rename <old> <new>` | rename a context |
+| `hop3 context login <name>` | (re-)authenticate (token rotation, SSO, …) |
+| `hop3 init` | bootstrap the **first** context over SSH (role unchanged) |
 
-#### Contexts (project-scoped; reads `hop3.toml`, writes `.hop3-local.toml`)
+App selection stays project-scoped and never global-sticky:
 
-| Command | Effect |
-|---------|--------|
-| `hop3 context init` | bootstrap a starter `[contexts.*]` block in the project's `hop3.toml` and write `.hop3-local.toml` (gitignored). Run inside a project. |
-| `hop3 context list` | list contexts in the nearest `hop3.toml` + which is `[current]`. Warns on duplicate `(server, app)` targets (see below). |
-| `hop3 context use <name>` | write `[current].context = <name>` to `.hop3-local.toml` |
-| `hop3 context show [name]` | print the resolved `ResolvedContext(server, app, domains, env)` |
-| `hop3 context add <name>` | add a stub `[contexts.<name>]` block (interactive: server, app, domains) |
-| `hop3 context remove <name>` | remove from `hop3.toml`; warn if it was `[current]` |
+| Command / flag | Effect |
+|----------------|--------|
+| `--app` / `-a` | pick an app for one command |
+| `hop3 use <app>` | write the gitignored `.hop3-app` in the project root (the file the App chain reads at step 3); errors outside a project |
 
-#### Existing verbs that change behavior
+**Removed:** the entire `hop3 server` verb namespace and the `--server` / `-s` flag (with `$HOP3_SERVER`).
 
-| Verb | Old | New |
-|------|-----|-----|
-| `hop3 use <app>` | sets the current context's `default_app` (global stickiness) | sets `.hop3-local.toml [current].app` (project-scoped); errors outside a project. `hop3 use --global` preserves the old server-level behavior |
-| `hop3 context` (bare) | shows active context + defaults | shows active project context + resolved `(server, app, domains)` |
-| `hop3 init` | creates the first global context | creates the first server in `servers.toml`; run from anywhere. Project bootstrapping is the separate `hop3 context init` — typical usage is one global `init`, then many per-project `context init` |
+#### Obsoleted commands
 
-#### Reserved context names
+- `hop3 server use --default-app` — obsolete; `default_app` is gone.
+- The duplicate-target warning (`hop3 context list` / deploy preview warning on a duplicate `(server, app)` pair) — obsolete; with one noun there is no `(server, app)` pair to collide.
+- `hop3 context init` (per-project bootstrap, distinct from global `hop3 init`) — folded into `hop3 init`; there is no project-scoped context to bootstrap.
 
-`default`, `current`, `global`, `all`, `none` are rejected at schema-validation time with an actionable error, keeping them free for CLI keyword use (e.g. `hop3 context show --all`). Enforced in the context-name validator. The list is deliberately small — adding to it later is a breaking change for any project already using the name.
+#### Reserved names
 
-#### Duplicate-target warning
+`current`, `all`, `none` stay reserved for CLI keyword use (e.g. `hop3 context show --all`) and are rejected by the name validator. Two names the original reserved are now **un-reserved**: `default` (sensible and already in use) and `global` (the `--global` flag and `hop3 server use` that motivated reserving it are gone). Un-reserving these requires removing them from `_RESERVED_CONTEXT_NAMES` in **both** `packages/hop3-cli/src/hop3_cli/core/context_names.py` and `packages/hop3-server/src/hop3/project/schema.py` (the two validators are deliberately kept in sync), and updating the drift test that pins the two sets equal — flipping only the CLI side would break the drift test and let a name through that the server still rejects at deploy time.
 
-When `hop3 context list` (or the deploy preview) sees two contexts resolving to the same `(server, app)` pair, it warns and names both. Never a hard error — legitimate aliasing exists (`prod` and `production` for the same deploy).
+### Deploy preview & project-mismatch guard
 
-### Deploy preview (the safety mechanic that motivated this design)
-
-`hop3 deploy` becomes preview-and-confirm: it prints the plan the resolver knows atomically, then prompts.
+Both are kept. `hop3 deploy` stays preview-and-confirm. The deploy preview now shows a `Context:` line and no `Server:` line (`deploy_preview.py` drops the `Server:` line and the `plan.server` field):
 
 ```
 $ hop3 deploy
 About to deploy:
   Source:   ./myapp (main @ a1b2c3d, dirty)
-  Context:  dev
-  Server:   hop3-dev.example.com  (server: dev)
-  App:      myapp-dev
-  Domains:  dev.myapp.example.com
+  Context:  prod
+  App:      myapp
+  Domains:  myapp.example.com
   Addons:   postgres (existing)
   Env vars: 2 keep-existing, 0 new
 
 Proceed? [y/N]
 ```
 
-Three flags govern the prompt:
+The preview's governing flags are unchanged from the original: `-y` / `--yes` skips the prompt (CI, scripting), `--dry-run` prints the plan and exits, and `--force` bypasses the project-mismatch check without disabling the prompt.
 
-- `-y` / `--yes` — skip it (CI, scripting).
-- `--dry-run` — print the plan and exit (the *action plan*, vs `--why`'s *resolution trace*).
-- `--force` — bypass the project-mismatch check without disabling the prompt.
+The project-mismatch guard is **preserved unchanged** from the original's Project-mismatch sanity check — including the destructive-command set (`deploy`, `restart`, `config set`, `app destroy`) and the `--force` bypass. It fires when the resolved app comes from a non-CWD source (flag/env) and disagrees with `hop3.toml [metadata].id` in the directory. Its inputs (`app`, `app_source`, `cwd`, `cwd_app_id`) are exactly those ADR 047 carries in the per-call invocation context, so the same refusal can run server-side. The guard operates on the app-from-CWD rule, which this revision keeps intact.
 
-The preview is computed client-side from the resolved tuple + `hop3.toml`. A future server-side `deploy --dry-run` RPC can enrich it ("addon X already exists", domain collisions); the client-side version is enough for the safety story.
+Per-context merge semantics (domains full-replacement, env context-wins) and the `ResolvedContext` typed surface are moot — with no `[contexts.*]` blocks there is nothing to merge; the `Domains:` and `Env vars:` preview lines come straight from `hop3.toml`.
 
-### Project-mismatch sanity check
+### Migration
 
-For destructive commands (`deploy`, `restart`, `config set`, `app destroy`): if the CLI runs in a directory whose `hop3.toml [metadata].id` does not match the resolved app *and* the resolved app came from a non-CWD source (env var, global default), the command refuses and prints:
-
-```
-Refusing to <verb>: resolved app 'otherapp' does not match
-project 'myapp' in ./hop3.toml.
-
-  - To <verb> the project you are standing in:
-      hop3 <verb>  (after `hop3 context use <name>` to pick a target)
-  - To <verb> the resolved app from any directory:
-      hop3 <verb> --force
-
-(resolved app came from: <source>)
-```
-
-The trailing line names the resolution source so the operator sees what caused the mismatch. This is the belt to `[metadata].id`'s suspenders: the chain already prefers the CWD project, so the guard fires only when an explicit flag or env var contradicts the CWD — exactly when "yes I mean it" is the right requirement.
-
-The guard is specified here as a client-side check; ADR 047 carries this check's inputs (`app`, `app_source`, `cwd`, `cwd_app_id`) in the per-call invocation context, which lets the same refusal run server-side so the guarantee holds regardless of which client issued the call.
-
-### Migration (brutally relentless)
-
-No back-compat shims; one breaking release.
+One breaking release, no compat shims — the same stance the original ADR took. A one-shot rewriter runs on first launch and drains every legacy shape into `config.toml`. Because the original ADR 042 shipped only partially, three shapes coexist on real machines and the rewriter must handle all three:
 
 | Old | New | Migration |
 |-----|-----|-----------|
-| `config.toml [contexts.*]` | `servers.toml [servers.*]` | One-shot rewriter on first run: read old, write new, back up old as `config.toml.pre-042.bak`. Each `[contexts.*]` → `[servers.*]` minus `default_app`. |
-| `[contexts.<name>].default_app` | none | If set, the rewriter emits a one-time stderr note pointing to `[contexts.<ctx>].app` or `hop3 server use --default-app`. |
-| `.hop3-context` | `.hop3-local.toml [current].context` | Reader removed outright. Stale files have no effect; re-run `hop3 context use <name>` to write a fresh `.hop3-local.toml`. |
-| `hop3 use <app>` (sticky global) | project-scoped | Behavior change. Outside a project, falls back to old global behavior with a one-line stderr note. |
-| `hop3 context <verb>` (global) | project-scoped | Behavior change. For one release the old verbs print a redirect to `hop3 server` and exit nonzero — no silent routing. |
-| ADR 036 §D7 / §D8 | this ADR | ADR 036 gets a Status note; body left intact for the record. |
+| legacy `config.toml [contexts.*]` (fields `api_url` / `api_token`) | `config.toml [contexts.*]` (fields `url` / `token`) | Rename `api_url` → `url`, `api_token` → `token`. A machine on the legacy CLI may have *only* this shape (no `servers.toml`), so the rewriter reads it directly. Back up as `config.toml.pre-042r.bak`. Reuses/extends `migrate_legacy_records`, which already performs the `api_url`→`url` / `api_token`→`token` normalization. |
+| `servers.toml [servers.*]` (fields `url` / `token`) | `config.toml [contexts.*]` | Each `[servers.*]` → a context, **dropping** `default_app`. If a same-name/same-URL context already exists, **merge** (prefer the record that has a token) — never duplicate. Back up as `servers.toml.pre-042r.bak`, then delete `servers.toml`. |
+| current-pointer (today in *both* `state.toml current_server` and legacy `config.toml current_context`) | `config.toml` global current-context pointer | Consolidate into the single pointer. The three-source merge in `_known_server_records` is deleted. Back up `state.toml` as `state.toml.pre-042r.bak`, then remove `current_server`. |
+| `hop3 server <verb>`, `--server` / `-s`, `$HOP3_SERVER` | `hop3 context <verb>`, `--context` / `-c` | Removed. For one release the old invocations print a one-line redirect to `hop3 context` and exit nonzero — no silent routing. |
+| `.hop3-context` | `.hop3-local.toml [current].context` | `.hop3-context` retired; `.hop3-local.toml` kept, now selecting a *connection*. |
 
-The wrong-app scenario from §What broke becomes: `hop3.toml` declares `[contexts.prod]`, `.hop3-local.toml` declares `context = "prod"`, and `hop3 deploy` does the right thing from anywhere in the tree — and from outside it errors with "no project context resolves".
+`hop3 context login` is **new** to the context namespace and must be ported from `server_cmd.py:server_login`; `hop3 context rename` (currently context-only) is retained. The two handlers merge into one `hop3 context` namespace.
+
+`default_app` is simply discarded by the rewriter (app is CWD-rooted now), so the original's "one-time stderr note" affordance for guiding users to a moved field is intentionally dropped — there is nowhere to guide to.
+
+The code-deletion inventory for removing the two non-CWD app sources is deferred to an implementation ticket but is concretely: `resolve_app`'s `config` parameter and the `_known_server_records` call (`resolution.py`), the `AppSource.SERVER_DEFAULT` and `AppSource.CONTEXT_APP` enum members and their entries in `_CWD_ROOTED_APP_SOURCES`, `_extract_app_keys`'s context handling, and the `resolved_context` param threaded through `resolve_app` / `_resolve_from_hop3_toml`.
 
 ## Rejected alternatives
 
-**Keep "context" as-is, introduce "target" for the project concept.** Less migration, additive, no verb renames. Rejected: "context" is already the wrong word for "server binding" (it clashes with the kubectl/terraform/gh meaning), and this option puts the worse name on the *more-typed* concept — users type `--context` rarely but would type `--target` constantly. A clean rename pre-1.0 is cheaper than living with awkward vocabulary.
+This revision supersedes the four rejected alternatives the original ADR weighed; two are re-carried below (with the noun collapse folded in), and the original's "context vs target naming" alternative is mooted by this wholesale noun re-decision.
 
-**A single `[contexts]` table, no `[metadata].id` fallback.** Require every project to define a context. Rejected: many one-app projects have no environments; forcing a `[contexts.default]` block is paperwork. `[metadata].id` already exists and is free to reuse as the no-context default.
+**Keep the server/context split (the original ADR 042).** Two nouns, two files, two flags, two verb namespaces. Rejected: the split's sole justification was the wrong-app footgun, which the app-from-CWD rule kills on its own (see §Context). The extra noun bought no safety, doubled the surface users had to learn, and — mid-migration — produced two disagreeing sources of truth on real machines. We are pre-1.0 with license to make the breaking change; collapsing now is cheaper than carrying the conflated surface into 1.0.
 
-**Server bindings inside `hop3.toml`.** Rejected: tokens are credentials and `hop3.toml` is committed. Keeping server bindings (with creds) in `~/.config` and project context (no creds) in `hop3.toml` keeps secrets out of version control by construction.
+**Per-repo multi-environment via `hop3.toml [contexts.*]`.** Deploy one codebase as `foo-dev`/`foo-prod` from committed deploy-target blocks. Rejected as YAGNI: it reintroduces the project-scoped app override (the `[contexts.<current>].app` source we just dropped) and a committed file that points at named connections. Multi-environment-per-repo is out of scope; if the need is ever genuinely real it returns as an explicit, separate `[environments]` feature, decoupled from the connection noun — never as a second core noun.
 
-**`.hop3-local.toml` as a `[local]` section inside `hop3.toml`.** Rejected: treating part of a committed file as gitignored leaks complexity. Two files with two purposes is a well-understood pattern (`.env` / `.env.local`).
+**`.hop3-local.toml` as a `[local]` section inside `hop3.toml`.** Rejected, unchanged from the original: `.hop3-local.toml` survives as a separate gitignored file. Folding it into the committed `hop3.toml` would put a per-checkout connection pointer into version control; keeping it separate and gitignored keeps per-tree state out of commits by construction.
+
+**Server bindings inside `hop3.toml`.** Rejected, unchanged from the original: tokens are credentials and `hop3.toml` is committed. Keeping connections in `~/.config` and app config in `hop3.toml` keeps secrets out of version control by construction.
+
+## Consequences
+
+### Positive
+
+- One noun, one flag (`--context`), one verb namespace, one global file — versus two of each in the split.
+- One source of truth for connections; no merge of legacy/early/canonical shapes, no mid-migration disagreement.
+- The wrong-app footgun stays closed via the app-from-CWD rule alone.
+- `hop3.toml` is purely app config — no credentials, no connection drift between commits and `~/.config`.
+
+### Negative
+
+- Breaking change: `hop3 server`, `--server`, `$HOP3_SERVER`, and `servers.toml` are gone; scripts and muscle memory must move to `hop3 context`. One redirect release softens the landing.
+- No built-in "same codebase, different app per environment". Operators who relied on per-context `app` override use `--app`/`$HOP3_APP` or `.hop3-app`, or wait for a future explicit `[environments]` feature (see Rejected alternatives).
+- Migration deletes `servers.toml` after rewriting; the one-shot rewriter must be correct on first run (a `.pre-042r.bak` backup is taken before any deletion).
