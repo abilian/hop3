@@ -48,6 +48,13 @@ class _Claim:
     request_id: int
     target_id: str
     spec: RunSpec
+    actor: str | None = None
+
+
+def _kind_from_actor(actor: str | None) -> str:
+    """The run's trigger kind for the dashboard, from the request's actor: the
+    web button, the nightly cron, or an API caller. Unknown/absent → 'manual'."""
+    return {"nightly": "scheduled", "web": "web"}.get(actor or "", actor or "manual")
 
 
 def _free_server(session: Session) -> Server | None:
@@ -95,6 +102,7 @@ def _claim(factory: sessionmaker) -> _Claim | bool:
         return _Claim(
             request_id=request.id,
             target_id=server.target_id,
+            actor=request.actor,
             spec=RunSpec(
                 source=Source(profile.source_name, profile.source_url),
                 source_ref=profile.source_ref,
@@ -118,6 +126,7 @@ def _run_claim(
         ran = run_once(
             claim.target_id,
             trigger=f"build-{claim.request_id}",
+            trigger_kind=_kind_from_actor(claim.actor),
             spec=claim.spec,
             executor=executor,
         )

@@ -31,8 +31,8 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument(
         "mode",
         nargs="?",
-        default="nightly",
-        help="smoke | ci | curated | coverage | nightly | full",
+        default="broad",
+        help="smoke | ci | curated | coverage | broad | full",
     )
     run.add_argument(
         "selector",
