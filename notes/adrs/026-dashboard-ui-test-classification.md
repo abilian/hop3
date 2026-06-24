@@ -400,7 +400,7 @@ Then both options become easier:
 - No mocking or configuration complexity
 
 **Cons:**
-- Very slow feedback compared to in-process tests
+- Slow feedback compared to in-process tests
 - Poor developer experience
 - Violates testing pyramid principles
 

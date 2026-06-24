@@ -131,7 +131,7 @@ for url in \
 done
 ```
 
-When upstream genuinely has no prebuilt binary, document the constraint in a per-app `DEFERRED.md` under `apps/bad/` rather than silently skipping.
+When upstream has no prebuilt binary, document the constraint in a per-app `DEFERRED.md` under `apps/bad/` rather than silently skipping.
 
 ## Upstream Behaviour Change Between Major Versions
 

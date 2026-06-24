@@ -3,7 +3,7 @@
 **Target:** 0.7 cut the week of 2026-06-22; the remaining NGI deliverables land in 0.7.x point releases over the following weeks.
 **Theme:** Ship the remaining subsystem features in the 0.7 cut (WAF, email, a basic Web UI, Nix beta gaps, pinned-nixpkgs reproducibility); finish the longer-tail deliverables (benchmarks + paper, Nix runtime 1.0, app validation, external security review) as 0.7.x.
 **Depends on:** 0.6.0 released (2026-06-20)
-**Last updated:** 2026-06-22 — reconciled against the full annex (T1–T5); scope split into the 0.7 cut and 0.7.x point releases.
+**Last updated:** 2026-06-22 — email addon (M3.1, experimental) and nixpkgs pinning (M1/M2) landed in the cut; scope split into the 0.7 cut and 0.7.x point releases, reconciled against the full annex (T1–T5).
 
 ## Goals
 
@@ -19,16 +19,16 @@ This plan deliberately does not pretend ~40 person-days of remaining work fit in
 
 ## NGI Milestone Completion Matrix (full annex, T1–T5)
 
-Every annex milestone, with status and where it lands, so a reviewer can reconcile the whole project plan (#2024-04-365). Status as of the 0.6 cut.
+Every annex milestone, with status and where it lands, so a reviewer can reconcile the whole project plan (#2024-04-365). Status as the 0.7 cut is assembled: the email addon (M3.1) and nixpkgs pinning (M1/M2) have landed; WAF, Web UI, the upgrade command, and the Nix-beta gaps remain.
 
 | Task | Milestone | Status | Lands in |
 |------|-----------|--------|----------|
-| **T1** Nix builders | M1.1 Native Nix builder | ✅ done (0.5) | shipped; pin-nixpkgs in 0.7, hermetic in 0.7.x |
+| **T1** Nix builders | M1.1 Native Nix builder | ✅ done (0.5) | shipped; pin-nixpkgs ✅ done (0.7), hermetic → 0.7.x |
 | | M1.2 Nix template builders (Py/Node/Ruby/Go/Rust/Java) | ✅ done (0.5) | shipped; reproducibility as above |
 | **T2** Nix runtime | M2.1 Spec & PoC | ✅ done (0.5) | shipped |
 | | M2.2 Beta implementation | ◐ partial | **0.7** — close the actual remaining gaps |
 | | M2.3 Final "1.0" | ○ not started | **0.7.x / 0.8** — after the 20-app testing pass |
-| **T3** Security & resilience | M3.1 Backing services | ◐ partial | **0.7** — email/SMTP addon (storage/DB/cache shipped) |
+| **T3** Security & resilience | M3.1 Backing services | ◐ partial | **0.7** — email/SMTP addon shipped (experimental); provider profiles + local relay → 0.7.x |
 | | M3.2 Upgrades + migrations | ◐ partial | **0.7** — scope to confirm (Alembic works) |
 | | M3.3 Backups + migration tests | ✅ done (0.6) | shipped |
 | | M3.4 Testing framework + canary | ✅ done | shipped |
@@ -67,13 +67,21 @@ Remaining (the proxy-running slice):
 - [ ] OWASP Top 10 tests (SQLi, XSS, path traversal at minimum) + a false-positive / per-app-exemption pass
 - [ ] Document `[waf]` in the admin guide
 
-### Email addon (M3.1)
+### Email addon (M3.1) — experimental
 
-SMTP-relay design (point at the operator's existing provider; running a mail server is out of scope for a PaaS). Exact command surface and credential storage TBD as part of this work.
+Relay through the operator's existing provider; Hop3 never runs a mail server (deliverability, IP reputation, and abuse make it a losing game, and clouds block outbound port 25). The design separates two concerns: the **transport** (how mail leaves — SMTP submission credentials, which every provider exposes, so one generic SMTP path covers them all without per-provider code) and the **sending identity** (the verified From-domain — once a domain is authenticated with SPF/DKIM/DMARC, any address on it sends for free, so the unit to provision is the domain, not the address). **This surface is experimental: it ships marked as such in the CLI, the changelog, and the docs, and may change after real use** — the transport/identity split, the command shape, and named-provider profiles are all tentative. To deliver for NGI this week the 0.7 cut keeps the smallest useful slice (per-app SMTP credentials, no server-level transport or provider profiles yet); the refinements that the model implies are tracked under 0.7.x below.
 
-- [ ] `addon create email <name> --smtp-host <h> --smtp-user <u>` storing encrypted SMTP credentials
-- [ ] Inject `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` into attached apps
-- [ ] Document in `docs/src/guides/addons.md`
+Firm 0.7 (the minimal, shippable slice):
+
+_Status (2026-06-22): the full firm-0.7 slice is implemented and tested — the addon, both CLI verbs, the superset injection, the experimental banner, domain-boundary validation, the `--smtp-password` stdin/file input (ADR 036), the SPF/DMARC DNS pre-flight, and the docs (`docs/src/guides/addons.md`) — across `plugins/email/`, `tests/a_unit/test_email_addon.py`, and the `hop3-cli` secret-input tests; full gate green (`make lint` + `make test`). Remaining (not firm-0.7): an optional SMTP-auth pre-flight on `create`, a real-deploy attach test, and per-provider exact-DKIM/SPF auto-verification (rides the 0.7.x provider profiles)._
+
+- [x] `hop3 addon email create <name> --smtp-host <h> --smtp-port <p> --smtp-user <u> --smtp-password <pw> --from <addr>` — per-app SMTP submission credentials (works with any provider), stored in the existing `addons/email/<name>.json` store (0600, then Fernet-encrypted into the per-app credential on `attach`, same as every other addon); `attach`/`promote`/`detach` inherited from the addon model, so no new credential machinery. (A type-scoped verb, like `addon s3 …`, because the generic `addon create` cannot carry type-specific flags; the generic `addon create email` path fails loud and points here.)
+- [x] Inject one source of truth in the spellings real frameworks actually read (mirroring the S3 addon's `S3_*`/`AWS_*` aliasing) so it works beyond Node: `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD`/`SMTP_FROM`/`SMTP_TLS`, an `SMTP_URL` (`smtp://…:587`, `smtps://…:465`), Django `EMAIL_*`, and Flask `MAIL_*`. Default to 587/STARTTLS. (A bare `SMTP_*` set alone reaches almost no stock framework — Django wants `EMAIL_*`, Flask wants `MAIL_*`, Rails/WordPress read no env at all.)
+- [x] Deliverability is a fail-loud pre-flight, never a silent claim: `create` and `addon email status` run a DNS check that auto-verifies SPF and DMARC for the From-domain (via `dig`; a missing resolver reports "unverified", never a fake "OK"), surfaces the missing records to publish, and never reports "ready" over missing/unverified DNS. DKIM and the exact per-provider SPF include are shown as guidance — auto-verifying those needs the named-provider profiles (0.7.x).
+- [x] Document in `docs/src/guides/addons.md` with an explicit "experimental, subject to change" note, and the one-line Rails-initializer / WordPress-SMTP-plugin maps that env injection alone cannot cover (Rails and WordPress read no SMTP env).
+- [x] On success, `addon email create` (and `addon email status`) print a one-line `⚠ experimental: this command's surface may change` banner, so the caveat appears at the point of use, not only in the docs.
+
+Out of scope (M3.1): inbound / IMAP / MX, and running any MTA-to-the-internet. Sending *as* `support@example.com` never means Hop3 hosts that mailbox — replies follow the domain's existing MX.
 
 ### Web UI — basic, clean, usable (M3.7)
 
@@ -101,7 +109,7 @@ The beta runs end to end for the 34 + 31 Nix apps. 0.7 closes only what is *actu
 
 ### Upgrade mechanism (M3.2) — confirm scope
 
-Hop3-server's own Alembic schema migrations exist and work (they run on upgrade; the venv is preserved; pre-Alembic databases are adopted). The annex deliverable is "seamless platform *and application* updates with safe data migrations." Open question: what, beyond the working migrations, is genuinely required? Candidate scope below — confirm before building, as part of this may already be satisfied by migrations + redeploy.
+Hop3-server's own Alembic schema migrations exist and work (they run on upgrade; the venv is preserved; pre-Alembic databases are adopted). The annex deliverable is "seamless platform *and application* updates with safe data migrations." Open question: what, beyond the working migrations, is required? Candidate scope below — confirm before building, as part of this may already be satisfied by migrations + redeploy.
 
 - [ ] Confirm whether a production `hop3 server upgrade` (pull + migrate + restart) is needed beyond the current path -> OK for "hop3 server upgrade". This assumes admin right. Non-admin users can't run this command.
 - [ ] Confirm whether app-level upgrade orchestration is more than the existing redeploy -> YES. Upgrading could mean: (1) backup data, (2) backup code, (3) upgrade and run the upgrade script (app-specific - like "alembic upgrade head"), (4) rollback in case of an error, (5) allow the operator to rollback to the previous state (using the backups) using the CLI or the Web UI.
@@ -119,11 +127,12 @@ The deliverable was two narrated walkthroughs; it is now massively over-delivere
 
 ### Pin nixpkgs — the reproducibility quick win (M1/M2)
 
-NLNet/NGI fund reproducibility/sovereignty work and will inspect the Nix implementation closely. Today every expression uses the unpinned `import <nixpkgs> {}` against a moving channel, so builds are not reproducible across hosts/dates. Pinning nixpkgs is cheap and is the single highest-value reproducibility win — so it lands in the 0.7 cut; the deeper hermetic-build work is 0.7.x (see below).
+NLNet/NGI fund reproducibility/sovereignty work and will inspect the Nix implementation closely. Before this cut, every expression used the unpinned `import <nixpkgs> {}` against a moving channel, so builds were not reproducible across hosts/dates. Pinning nixpkgs is cheap and was the single highest-value reproducibility win — so it landed in the 0.7 cut (done below); the deeper hermetic-build work is 0.7.x.
 
-- [ ] Ship one in-tree pinned nixpkgs input (flake.nix + flake.lock, or `npins` / `fetchTarball`+sha256)
-- [ ] Make the generator emit the pinned import instead of `import <nixpkgs> {}`, for templates and hand-crafted expressions
-- [ ] Stop the installer relying on `nix-channel --update`
+- [x] Ship one in-tree pinned nixpkgs input — a pinned rev + sha256 (`fetchTarball`) lives in the nix-gen `templates/base.py` (`NIXPKGS_REV` / `NIXPKGS_SHA256` / `PINNED_NIXPKGS_HEADER`), updatable in one place.
+- [x] The generator emits the pinned import — all 9 nix-gen templates render `import (fetchTarball {…}) {}` instead of `<nixpkgs>` (one shared pin in `templates/base.py`), verified via `nix-instantiate`; nix-gen tests + full gate green.
+- [x] Hand-crafted expressions pinned — all 34 `apps/real-apps-nix/*/hop3.nix` inline the same pin. Each is its own build context (no shared import possible), so the pin is duplicated per file; updating it means editing `base.py` + a sed across the 34. Verified: all 34 parse, and Python / prebuilt-binary / PHP samples evaluate to a `.drv` with the pinned nixpkgs.
+- [x] Stop the installer relying on `nix-channel --update` — removed the `nix-channel --add … nixos-24.11 && nix-channel --update` block from `server_installer/nix.py`; nothing consults `<nixpkgs>`/`NIX_PATH` now (no `nix-env`, the builder sets no `NIX_PATH`), and the pinned commit's binaries are cached, so cache hits / build speed are preserved. Gate green.
 
 ### Release mechanics
 
@@ -133,7 +142,7 @@ NLNet/NGI fund reproducibility/sovereignty work and will inspect the Nix impleme
 
 ## Deferred to 0.7.x (following weeks)
 
-Each item below is an NGI deliverable that is genuinely not a blocker for the 0.7 tag and finishes in a near-term point release, with a documented disposition.
+Each item below is an NGI deliverable that is not a blocker for the 0.7 tag and finishes in a near-term point release, with a documented disposition.
 
 ### Benchmarks + final paper (M5.3) — 0.7.x, next week
 
@@ -173,6 +182,17 @@ Pinning nixpkgs (in 0.7) removes the moving-channel problem. The remaining work 
 
 - [ ] The external firm's review runs; address feedback
 - [ ] Accessibility scan (with the M3.7 polish)
+
+### Email addon — refinements (M3.1) — 0.7.x
+
+The 0.7 cut ships a deliberately minimal, experimental email addon (above). The refinements the transport/identity model implies, deferred so the cut ships this week and so the surface can settle after real use:
+
+- [ ] **Server-level shared transport** — set provider credentials once (`hop3 server email …`) and have per-app email addons reference them, instead of repeating SMTP creds per app (mirrors the Postgres admin-config → per-app-resource pattern).
+- [ ] **Named-provider profiles** — declarative profiles (SMTP endpoint + API-key var + DNS-record templates) for Resend / Postmark / Brevo / Mailgun / SES / Scaleway TEM, community-extensible; a pluggy plugin only for the few needing real logic (SES IAM→SMTP-password derivation; HTTP-API mode on port 443 for networks that block 587/465). EU-sovereign providers (Brevo, Mailgun-EU, Scaleway TEM) first-class.
+- [ ] **Local relay** — an opt-in host Postfix null-client on `localhost:25` + `/usr/sbin/sendmail` forwarding to the configured transport, so WordPress / PHP `mail()` / cron / Rails-without-config work with zero injection. Feasible precisely because Hop3 is no-Docker / single-server (every container-based peer lacks this). Postfix, not msmtp (spool + retry; msmtp drops on a transient outage = silent loss). Treat the shared MTA as a managed coexistence resource: per-app envelope sender, teardown never touches it, fail loud if no transport is configured.
+- [ ] **Dev catcher** — a Mailpit backend mode so the same app code captures mail in dev and relays it in prod.
+- [ ] **Platform notifications** — reuse the transport for Hop3's own cert / deploy / outage alerts (ties into the TLS + monitoring roadmap).
+- [ ] **Per-app sub-credentials** — a distinct provider key per app for reputation isolation and revoke-one-app, where the provider supports it.
 
 ### Migration series (T5) — 0.7.x
 
@@ -228,13 +248,13 @@ Valuable but not NGI commitments: the agent model (ADR 017), SSO / identity mana
 ## Definition of Done — 0.7 (the cut)
 
 - [ ] WAF integrated with the OWASP Core Rule Set, per-app toggle (M3.5)
-- [ ] Email addon shipped (M3.1)
+- [x] Email addon shipped (M3.1, experimental — flagged subject-to-change in CLI/docs/changelog)
 - [ ] Web UI is basic, clean, and usable; core flows work from the UI (M3.7)
 - [ ] One or two internal audit rounds done; the external firm engaged (M3.8)
 - [ ] Nix-runtime beta gaps closed or formally deferred (M2.2)
 - [ ] Upgrade scope missing pieces shipped (M3.2)
 - [ ] The 68 screencasts reviewed, uploaded, and published (M5.6)
-- [ ] nixpkgs pinned in-tree; the generator no longer emits unpinned `import <nixpkgs> {}` (M1/M2)
+- [x] nixpkgs pinned in-tree; the generator no longer emits unpinned `import <nixpkgs> {}` (M1/M2) — generator (9 templates) + 34 hand-crafted expressions pinned, installer no longer relies on `nix-channel --update`
 - [ ] v0.7.0 tagged and announced
 
 ## Definition of Done — 0.7.x (NGI complete)

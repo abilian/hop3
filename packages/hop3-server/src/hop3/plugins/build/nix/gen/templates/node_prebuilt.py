@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from hop3.plugins.build.nix.gen.spec import AppSpec
 from hop3.plugins.build.nix.gen.templates.base import (
+    PINNED_NIXPKGS_HEADER,
     format_nix_env_attrs,
     format_paths_json,
     format_runtime_env_json,
@@ -75,7 +76,7 @@ class NodePrebuiltTemplate:
 # GENERATED from template 'node-prebuilt' by hop3-nix-gen.
 # Run 'hop3 nix eject {spec.pname}' to materialize for customization.
 
-{{ pkgs ? import <nixpkgs> {{}} }}:
+{PINNED_NIXPKGS_HEADER}
 
 let
   version = "{spec.version}";

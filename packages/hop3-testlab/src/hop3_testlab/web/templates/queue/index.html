@@ -6,17 +6,20 @@
 <table class="w-full text-sm border">
   <thead class="bg-gray-100 text-left">
     <tr>
+      <th class="px-3 py-2">Build</th>
       <th class="px-3 py-2">Status</th>
       <th class="px-3 py-2">Profile</th>
       <th class="px-3 py-2">Server</th>
       <th class="px-3 py-2">By</th>
+      <th class="px-3 py-2">Created</th>
       <th class="px-3 py-2">Detail</th>
       <th class="px-3 py-2"></th>
     </tr>
   </thead>
   <tbody>
     {% for b in builds %}
-    <tr class="border-t">
+    <tr class="border-t align-top">
+      <td class="px-3 py-2 font-mono text-xs">#{{ b.id }}</td>
       <td class="px-3 py-2">
         {% if b.status == "failed" %}<span class="text-red-700">{{ b.status }}</span>
         {% elif b.status == "running" %}<span class="text-blue-700">{{ b.status }}</span>
@@ -26,7 +29,15 @@
       <td class="px-3 py-2">{{ b.profile }}</td>
       <td class="px-3 py-2 font-mono text-xs">{{ b.server }}</td>
       <td class="px-3 py-2">{{ b.actor }}</td>
-      <td class="px-3 py-2 text-xs text-gray-600">{{ b.detail }}</td>
+      <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-600">{{ b.created_at.strftime("%Y-%m-%d %H:%M") if b.created_at else "—" }}</td>
+      <td class="px-3 py-2 text-xs text-gray-600">
+        {% if b.detail %}
+        <details>
+          <summary class="cursor-pointer select-none text-gray-500 hover:underline">show</summary>
+          <div class="mt-1 max-w-md whitespace-pre-wrap break-words">{{ b.detail }}</div>
+        </details>
+        {% else %}—{% endif %}
+      </td>
       <td class="px-3 py-2 text-right">
         {% if b.status == "pending" %}
         <form method="post" action="/queue/{{ b.id }}/cancel" class="inline">
@@ -37,7 +48,7 @@
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="6" class="px-3 py-2 text-gray-400">Queue is empty.</td></tr>
+    <tr><td colspan="8" class="px-3 py-2 text-gray-400">Queue is empty.</td></tr>
     {% endfor %}
   </tbody>
 </table>

@@ -653,7 +653,7 @@ class Container(containers.DeclarativeContainer):
     app_service = providers.Factory(AppService, config=config)
 ```
 
-**Pros**: Industry standard, very flexible
+**Pros**: Industry standard, highly flexible
 **Cons**: Heavy dependency, steep learning curve, over-engineered for our needs
 
 **Rejected**: Too complex for Hop3's needs

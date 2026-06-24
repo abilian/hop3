@@ -11,6 +11,7 @@ error rather than silently picking one.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from typing import TYPE_CHECKING
 
@@ -127,3 +128,35 @@ def test_nix_build_registers_gc_root_via_out_link(tmp_path: Path, monkeypatch):
     assert "--out-link" in captured["cmd"]
     # GC root sits in the app directory (parent of source_path), not src/.
     assert str(tmp_path.parent / ".nix-result") in captured["cmd"]
+
+
+def test_nix_build_keeps_previous_gc_root(tmp_path: Path, monkeypatch):
+    """A rebuild must not orphan the immediately-prior closure. The current
+    .nix-result is demoted to .nix-result-prev so a still-running old worker's
+    hardcoded store path stays rooted until the next rebuild — a GC mid-cutover
+    would otherwise kill forgejo's wrapper (execs ${forgejo}/bin/forgejo). The
+    even-older root is reclaimed (its worker is long gone)."""
+
+    def fake_run(self, cmd, cwd=None):
+        return subprocess.CompletedProcess(
+            args=cmd, returncode=0, stdout="/nix/store/new-app\n", stderr=""
+        )
+
+    monkeypatch.setattr(NixBuilder, "_run_nix_command", fake_run)
+    src = tmp_path / "src"
+    src.mkdir()
+    builder = NixBuilder(_make_context(src, {"hop3_config": {}}))
+    nix_file = src / "hop3.nix"
+    nix_file.write_text("# placeholder")
+
+    # A stale prev from an even-earlier build, plus the current root.
+    (tmp_path / ".nix-result-prev").symlink_to("/nix/store/ancient-app")
+    (tmp_path / ".nix-result").symlink_to("/nix/store/old-app")
+
+    builder._nix_build(nix_file)
+
+    # The current root was demoted (old closure still rooted); the ancient one
+    # was dropped, so exactly one prior generation is retained.
+    prev = tmp_path / ".nix-result-prev"
+    assert prev.is_symlink()
+    assert os.readlink(prev) == "/nix/store/old-app"

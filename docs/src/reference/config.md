@@ -539,7 +539,7 @@ For CLI-level addon management (`addon create`, `addon attach`, `addon detach`, 
 
 ### `[test]` - Test Harness Metadata
 
-Optional section for the `hop3-test` framework. Holds fields that are genuinely test-specific; everything else (app name, description, addons, healthcheck path) is derived from the rest of `hop3.toml`. Replaces the separate `test.toml` file (removed 2026-04-21 — one source of truth per app).
+Optional section for the `hop3-test` framework. Holds fields that are test-specific; everything else (app name, description, addons, healthcheck path) is derived from the rest of `hop3.toml`. Replaces the separate `test.toml` file (removed 2026-04-21 — one source of truth per app).
 
 ```toml
 [test]

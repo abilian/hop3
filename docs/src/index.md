@@ -109,7 +109,7 @@ See the [Installation Guide](get-started/server-setup.md) for detailed instructi
 | Debian 12+ | :material-check: Supported |
 | Rocky Linux 9+ | :material-check: Supported |
 | Arch Linux | :material-check: Supported |
-| NixOS | :material-flask: Experimental |
+| NixOS | :material-flask: Experimental (via Nix flake) |
 | FreeBSD | :material-flask: Experimental |
 
 ## Community

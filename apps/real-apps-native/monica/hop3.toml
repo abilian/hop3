@@ -32,3 +32,10 @@ APP_ENV = "production"
 
 [healthcheck]
 path = "/"
+
+[test]
+# Deferred, not advertised: Monica's production force-HTTPS middleware 301-redirects
+# every page to https with no clean opt-out, so it can't be verified over Hop3's
+# plain-HTTP healthcheck. Without this flag the loader auto-derives GET / -> 200 and
+# treats it as a must-pass app. See local-notes/stacks-and-apps/DEFERRED-APPS.md.
+expects-failure = true

@@ -175,7 +175,7 @@ storage or email. The 0.5 goal was to add at least one; S3 shipped.
       to the addon end-to-end (passes on SSH + Docker targets)
 
 **Licensing note:** MinIO moved toward source-available in 2025. The
-plan is to replace it with Garage (genuinely AGPL) in a future
+plan is to replace it with Garage (truly AGPL) in a future
 release — the backend abstraction already exists to make the swap
 a one-liner on the plugin side.
 

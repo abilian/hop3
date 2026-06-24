@@ -12,16 +12,14 @@ throwing ``no such column`` on the first query.
 from __future__ import annotations
 
 import sqlite3
-from typing import TYPE_CHECKING, ClassVar
+from pathlib import Path
+from typing import ClassVar
 
 import pytest
 from hop3_testing.bundle import Bundle
 from hop3_testing.results import ResultStore
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 # Old schema: the columns that existed BEFORE Phase 1 (no run_uid / bundle_*).
 _OLD_RUNS = """
@@ -155,6 +153,26 @@ def test_save_derives_status_pass_and_fail(tmp_path: Path) -> None:
     )
     assert rows["good-app"] == "pass"
     assert rows["bad-app"] == "fail"
+
+
+def test_save_records_test_path_for_variant_derivation(tmp_path: Path) -> None:
+    """The result stores the test's source path so the report can derive the
+    packaging variant (docker/native/nix/…) — the bare test_name can't encode it."""
+    db = tmp_path / "r.db"
+    store = ResultStore(db_path=db)
+    store.start_run(mode="ci", target_type="docker", target_name="t")
+
+    result = _passing_result("bugsink")
+    result.test.source_path = Path("apps/real-apps-docker/bugsink/hop3.toml")
+    store.save(result)
+
+    (path,) = (
+        sqlite3
+        .connect(db)
+        .execute("SELECT test_path FROM test_results WHERE test_name = 'bugsink'")
+        .fetchone()
+    )
+    assert path == "apps/real-apps-docker/bugsink/hop3.toml"
 
 
 def _result_with_bundle(bundle: Bundle):

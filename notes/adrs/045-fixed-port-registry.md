@@ -44,7 +44,7 @@ The apps that need it are declared accordingly: owncast (`1935/tcp`) and matrix-
 
 **Per-app network isolation (network namespace / always-containerize) — rejected.** It does not solve the actual problem: an *external* fixed port must be reachable from outside on one host `IP:port`, which isolation cannot multiplex (the outside world still reaches a single listener). Isolation would only help *internal* (localhost-only) ports — and those are better solved without it (below). The cost (a netns/container per native/nix app) buys nothing for the case at hand.
 
-**Do internal ports need allocation?** Reviewed against real apps, essentially never in a way that needs a *fixed* port or isolation: a bundled datastore should use a Hop3 **addon** (already per-app, collision-free); a frontend↔backend or worker port should be a **dynamic** port Hop3 hands the app via env, or a Unix socket. A hardcoded internal port that can't be configured is a packaging defect, not a platform requirement. So the future direction for "an app needs a second port" is **dynamic allocation**, not isolation.
+**Do internal ports need allocation?** Reviewed against real apps, effectively never in a way that needs a *fixed* port or isolation: a bundled datastore should use a Hop3 **addon** (already per-app, collision-free); a frontend↔backend or worker port should be a **dynamic** port Hop3 hands the app via env, or a Unix socket. A hardcoded internal port that can't be configured is a packaging defect, not a platform requirement. So the future direction for "an app needs a second port" is **dynamic allocation**, not isolation.
 
 ## Deferred / follow-ups
 
@@ -57,5 +57,5 @@ The apps that need it are declared accordingly: owncast (`1935/tcp`) and matrix-
 
 - **Positive:** non-HTTP apps coexist predictably; a conflicting second install fails fast with a clear, pre-build message; ports are firewalled on deploy and freed on teardown; the mechanism is uniform across SMTP/XMPP/RTMP/federation/etc.
 - **Positive:** the opaque owncast "health-check timeout" becomes either a clean deploy (port free) or a precise conflict error.
-- **Negative / limits:** a fixed port is genuinely single-instance per host — by design, you cannot run two apps on the same fixed port (the error explains this). Docker-deployed apps additionally need their container to *publish* the declared port to the host for external reachability; that wiring is a follow-up (the registry + conflict refusal already apply).
+- **Negative / limits:** a fixed port is single-instance per host — by design, you cannot run two apps on the same fixed port (the error explains this). Docker-deployed apps additionally need their container to *publish* the declared port to the host for external reachability; that wiring is a follow-up (the registry + conflict refusal already apply).
 - **Migration:** a new `port_claim` table (Alembic migration; `create_all` covers fresh DBs). No change to existing apps that declare no `[[ports]]`.

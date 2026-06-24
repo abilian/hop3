@@ -193,7 +193,7 @@ A modern Python project requires a comprehensive toolchain to ensure developer p
 
 ### Drawbacks
 
-1. **Tooling Proliferation**: Still quite a few tools despite consolidation efforts
+1. **Tooling Proliferation**: Still several tools despite consolidation efforts
 
 ### Trade-offs
 

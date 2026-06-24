@@ -51,8 +51,11 @@ nav = [
         { "User Guide" = "guides/user-guide.md" },
         { "Cheat Sheet" = "guides/cheat-sheet.md" },
         { "Administration" = "guides/administration.md" },
+        { "Domains & Hostnames" = "guides/domains.md" },
         { "Addons" = "guides/addons.md" },
         { "App Catalog" = "guides/app-catalog.md" },
+        { "Packaging Applications" = "guides/packaging-applications.md" },
+        { "Deploying with Nix" = "guides/nix-deployment.md" },
         { "Backup & Restore" = "guides/backup-restore.md" },
         { "Migration" = [
             { "Migration Guide" = "guides/migration-guide.md" },
@@ -131,6 +134,9 @@ nav = [
             { ".NET Overview" = "tutorials/dotnet/index.md" },
             { "ASP.NET Core" = "tutorials/dotnet/aspnet-core.md" },
         ]},
+        { "Nix" = [
+            { "Deploy a Flask App with Nix" = "tutorials/nix/nix-flask.md" },
+        ]},
     ]},
 
     # -------------------------------------------------------------------------
@@ -200,6 +206,7 @@ nav = [
                 { "ADR 017: Distributed, Agent-Based Architecture" = "developers/adrs/017-agent-based-architecture.md" },
                 { "ADR 023: Runtime Stack Replacement" = "developers/adrs/023-runtime-stack-replacement.md" },
                 { "ADR 047: CLI Invocation Context — transmit the resolved a..." = "developers/adrs/047-cli-invocation-context.md" },
+                { "ADR 051: Config Injection — Wiring config-file and DB app..." = "developers/adrs/051-config-injection.md" },
             ]},
             { "Deferred" = [
                 { "ADR 005: Web Terminal for Application Management" = "developers/adrs/005-web-terminal.md" },
@@ -285,6 +292,7 @@ nav = [
         { "Overview" = "reference/index.md" },
         { "CLI Reference" = "reference/cli.md" },
         { "Configuration" = "reference/config.md" },
+        { "Nix Integration" = "reference/nix.md" },
         { "Policies" = [
             { "Overview" = "reference/policies/index.md" },
             { "Security Policy" = "reference/policies/security-policy.md" },

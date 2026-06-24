@@ -316,6 +316,19 @@ class NixBuilder:
         # destroyed (robust_rmtree of app_path), so teardown also lets nix
         # reclaim the closure. nix-build still prints the store path to stdout.
         gcroot = self.context.source_path.parent / ".nix-result"
+        # Retain the IMMEDIATELY-PRIOR build's GC root across this rebuild. A
+        # still-running old worker may exec a hardcoded store path baked into the
+        # previous closure (forgejo's wrapper execs ${forgejo}/bin/forgejo); if a
+        # GC runs between this rebuild and the new worker's cutover, it reclaims
+        # that closure and the old daemon dies "No such file or directory".
+        # Demoting the current root to .nix-result-prev keeps the old closure
+        # rooted until the NEXT rebuild — by when the old worker is gone. Both
+        # roots live in the app dir, so destroy() (rmtree of app_path) frees them.
+        prev_gcroot = self.context.source_path.parent / ".nix-result-prev"
+        if prev_gcroot.is_symlink() or prev_gcroot.exists():
+            prev_gcroot.unlink()
+        if gcroot.is_symlink() or gcroot.exists():
+            gcroot.rename(prev_gcroot)
         # --option build-timeout: 30-minute wall clock.
         # --option build-max-silent-time: 5-minute no-output watchdog (the
         #   real guard against lock waits and stalled downloads).
