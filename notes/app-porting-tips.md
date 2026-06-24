@@ -15,7 +15,7 @@ Each packaged app should ship in four parallel variants under `apps/real-apps-*/
 | **nix hand-crafted** | `real-apps-nix/` | Operator-written `hop3.nix`. Maximum flexibility. |
 | **nix from template** | `real-apps-nix-gen/` | Generated from one of the eight templates via `[nix]` in `hop3.toml`. |
 
-When a variant is genuinely infeasible, defer it to `apps/bad/real-apps-*-bad/<app>/` with a `DEFERRED.md` naming the blocker and the unblocker. Silent gaps are worse than explicit ones.
+When a variant is infeasible, defer it to `apps/bad/real-apps-*-bad/<app>/` with a `DEFERRED.md` naming the blocker and the unblocker. Silent gaps are worse than explicit ones.
 
 ### 1.2 URL preflight
 
@@ -383,7 +383,7 @@ A deferred app is not a failed app — it's an explicit record of scope and work
 ## 12. Further reading
 
 - [ADR 039 — Python deploy strategies](./adrs/039-python-deploy-strategies.md): the plan for Poetry / pyproject / uv / requirements precedence.
-- [ADR 038 — Multi-service applications](./adrs/038-multi-service-apps.md): the plan for apps with genuinely independent components.
+- [ADR 038 — Multi-service applications](./adrs/038-multi-service-apps.md): the plan for apps with independent components.
 - [ADR 008 — Template-based Nix generation](./adrs/008-nix-builders-2.md) and [Appendix B of TR-01](./reports/TR-01.md#appendix-b--nix-template-reference): the eight templates.
 - [`lessons-learned/nix-packaging.md`](./lessons-learned/nix-packaging.md): deep dive on Nix-specific gotchas.
 - [`lessons-learned/database-addon-portability.md`](./lessons-learned/database-addon-portability.md): deep dive on PostgreSQL and MySQL connectivity.
