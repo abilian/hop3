@@ -211,6 +211,7 @@
 
               propagatedBuildInputs = [
                 python-prev.toml
+                python-prev.tomlkit  # comment-preserving TOML round-trip for hop3.toml/context edits
                 python-final.jsonrpcclient
                 python-prev.requests
                 python-prev.tabulate
