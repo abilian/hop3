@@ -59,11 +59,10 @@ class CliFlags:
     # This allows -vv, -vvv, -qq, etc.
     verbosity: int = field(default_factory=lambda: _get_env_verbosity() or 1)
 
-    # ADR 042 r2: `--context <name>` selects a deploy environment inside a
-    # project; `--server <addr>` is a thin ambient selector for *project-less*
-    # commands (`hop3 apps` outside a project) — an address, not a managed noun.
-    context: str | None = None  # --context <name>: select a project environment
-    server: str | None = None  # --server <addr>: target server for global commands
+    # ADR 042: `--context <name>` is the single target selector for every
+    # command — app-bound or project-less. It resolves project-first (hop3.toml)
+    # then global (config.toml). There is no `--server` flag.
+    context: str | None = None  # --context <name>: select a context (= a target)
 
     # ADR 036 D5: `--app` / `-a` is always a flag, never positional.
     # ADR 036 D7: if not set, the CLI will resolve one via the app-resolution
@@ -214,7 +213,6 @@ _FORCE_FLAG = "--force"
 # Two-token "--flag value" pairs.
 _PAIR_FLAGS: dict[tuple[str, ...], str] = {
     ("--context", "-c"): "context",
-    ("--server",): "server",
     ("--app", "-a"): "app",
     ("--confirm",): "confirm_value",
 }
