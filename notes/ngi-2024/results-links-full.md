@@ -55,7 +55,8 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 - <https://hop3.cloud/developers/adrs/043-unified-testing-architecture/> — unified testing architecture
 - <https://hop3.cloud/developers/adrs/044-nightly-test-lab/> — the nightly Test Lab
 - <https://hop3.cloud/developers/testing-strategy/> — testing strategy doc
-- <https://git.sr.ht/~sfermigier/hop3/tree/main/packages/hop3-testing> — the `hop3-test` runner (Docker/SSH/cloud targets; 100+ app catalog)
+- <https://git.sr.ht/~sfermigier/hop3/tree/main/packages/hop3-testing> — the `hop3-test` runner (Docker/SSH/cloud targets; 100+ app and demos catalog)
+- CI on SourceHut: <https://builds.sr.ht/~sfermigier/hop3/commits>
 - Testlab demo: <https://testlab.hop3-dev.abilian.com/>
 
 **M3.5 — Firewalls (network + WAF)** — *network firewall Final; WAF compile slice merged, proxy slice in 0.7*
