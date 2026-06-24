@@ -106,6 +106,10 @@ class App(BigIntAuditBase):
         IntEnum(AppStateEnum), default=AppStateEnum.STOPPED
     )
     port: Mapped[int] = mapped_column(default=0)
+    # L7 WAF (ADR 050): loopback port of the per-app LeWAF proxy that fronts the
+    # app's web socket when [waf].enabled. 0 = no WAF proxy. When set, nginx
+    # points here instead of `port`, and the proxy upstreams to `port`.
+    waf_port: Mapped[int] = mapped_column(default=0)
     hostname: Mapped[str] = mapped_column(default="")
     error_message: Mapped[str] = mapped_column(String(1024), default="")
     state_changed_at: Mapped[datetime | None] = mapped_column(

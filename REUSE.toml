@@ -45,3 +45,10 @@ precedence = "aggregate"
 SPDX-FileCopyrightText = "2023-2024 Abilian SAS <contact@abilian.com>"
 SPDX-License-Identifier = "CC-BY-4.0"
 SPDX-FileComment = "Directory may also includes code with other licenses and other copyright holders but those are clearly identified in the source code with prefixed comments. Only the not-explicitly licensed portions are licensed with information described here."
+
+[[annotations]]
+path = ["packages/hop3-server/src/hop3/waf/crs/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "OWASP Core Rule Set project"
+SPDX-License-Identifier = "Apache-2.0"
+SPDX-FileComment = "Vendored OWASP CRS rules + data (ADR 050), upstream Apache-2.0. Not Abilian-authored; the repo-wide AGPL default does not apply."

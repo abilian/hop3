@@ -401,6 +401,74 @@ source = "10.0.0.0/8"   # restrict to a private network instead of the whole int
 - **Native/Nix builds only.** A Docker-deployed app's container does not yet publish declared ports to the host, so for Docker apps the port is *claimed* (conflict-checked) but the firewall is not opened. Use a native or Nix build for an app that needs a fixed host port.
 - Opening the firewall needs the `hop3-rootd` daemon. If it isn't running the port is still *claimed* (so the conflict check works), but it won't be reachable externally until rootd applies the rule.
 
+### `[waf]` - Web Application Firewall (Layer 7)
+
+Where `[[ports]]` is the L3/L4 firewall (which *packets* may reach a port), `[waf]` is the L7 firewall (which *HTTP requests* are acceptable). When enabled, Hop3 runs a per-app reverse proxy (LeWAF, the OWASP Core Rule Set) in front of the app: `nginx → WAF proxy → app`. It inspects every request for SQLi / XSS / RCE / path-traversal and applies your access policy *before* the request reaches the app. Apps that don't declare `[waf]` are unchanged.
+
+```toml
+[waf]
+enabled = true
+mode    = "block"          # "block" (deny) or "detect" (log-only, for safe rollout)
+ruleset = "owasp-crs"      # managed attack ruleset
+paranoia = 1               # CRS aggressiveness, 1 (default) … 4
+```
+
+The access policy has exactly two constructs — pick the one that fits your app. Both match the request **path** (no query string) as a Python regex, **full-matched** (`/admin/.*` does not match `/administrator`; write the bare prefix as `/admin(/.*)?`).
+
+**Use case 1 — positive model (default-deny).** List the path patterns the app actually serves; everything else is denied (and counts as a probe for the ban scorer). Best for an app with a known, small URL surface:
+
+```toml
+allow = ["/", "/static/.*", "/api/.*", "/health"]
+```
+
+**Use case 2 — conditional access (gate).** Make some paths reachable only from a **named network** (operator-managed; see below). Best for an admin area on an app with too many routes for an allowlist (e.g. WordPress):
+
+```toml
+[[waf.gate]]
+paths   = ["/wp-admin/.*", "/wp-login\\.php"]
+require = "office"          # a named network
+```
+
+**Tuning — silence CRS false positives**, scoped to paths (omit `paths` to apply globally). Keys are imperatives, so the direction is never ambiguous:
+
+```toml
+[[waf.tuning]]
+paths                = ["/remote.php/dav/.*"]
+disable_rule_ids     = [920420, 920470]   # turn off these CRS rules, here only
+skip_body_inspection = true               # don't scan request bodies on these paths
+reason               = "Nextcloud sync clients are not browsers"
+```
+
+**Bans — cut off repeat offenders.** A source that trips the threshold within the window is denied for the TTL. Operator-named networks are always exempt, so a too-narrow `allow` can't lock out trusted users:
+
+```toml
+[waf.bans]
+enabled   = true
+threshold = 5
+window    = "10m"          # <int><s|m|h|d>
+duration  = "1h"
+```
+
+**Named networks** live at the operator level (not in `hop3.toml`), referenced by name from a gate so the CIDRs change without redeploying the app and configs stay portable:
+
+```
+hop3 network add office 203.0.113.0/24
+hop3 network list
+```
+
+**Operating it:**
+
+- `hop3 waf status` — per-app proxy port, supervision, active ban count.
+- `hop3 waf logs [<app>]` — recent blocked-request audit entries.
+- `hop3 waf bans list` / `hop3 waf bans clear <app> [<ip>]` — inspect/lift bans.
+
+**Notes:**
+
+- The `waf` extra (`hop3-server[waf]`, Python 3.12+) must be installed on the server; a WAF-enabled app whose policy can't compile, or whose engine is missing, **fails the deploy loudly** rather than running unprotected.
+- **Fail-closed:** if the WAF proxy is down, the app returns 5xx — it never silently serves unprotected traffic.
+- The WAF covers the nginx-proxied HTTP path only. Services on direct host ports (`[[ports]]`) get L3/L4 firewalling, not request inspection.
+- Roll out with `mode = "detect"` first (logs, doesn't block), watch `hop3 waf logs`, then switch to `mode = "block"`.
+
 ### `[[volumes]]` - Persistent Volumes
 
 Each deploy replaces your app's source tree (`src/` is wiped and re-extracted), so anything written *inside* it is lost on the next deploy. A `[[volumes]]` declares a directory that must **survive** redeploys:
