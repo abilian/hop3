@@ -7,9 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-06-24
+
+A consolidation release on top of 0.6.0: it simplifies the context model to a single noun, pins nixpkgs across every Nix recipe for reproducible builds, adds an experimental email/SMTP addon, and lands a broad round of test-lab, CI, and app-packaging fixes.
+
+### Added
+
+- **Experimental email / SMTP relay addon (M3.1)**: provision an outbound SMTP relay as an addon and have its settings injected into apps. Pulled forward from the 0.7 plan.
+- **Config-injection conventions (ADR 051)**: a documented contract for how Hop3 injects addon-derived settings (SMTP, and the like) into an app's environment; vikunja and monica now honor injected SMTP.
+- **`hop3 auth get-token`**: print the current bearer token. `hop3 login` and `hop3 auth login` are unified, and `login --web` is fixed.
+
 ### Changed
 
-- **One context model (BREAKING, ADR 042 second revision)**: the two nouns from 0.5 — credentialed *servers* and project *contexts* — are consolidated into a single managed noun. A *context* is now a deploy environment (dev / staging / prod) declared in the app's committed `hop3.toml` under `[contexts.<name>]` (a non-secret bundle of server address, app, domains, and env). The `hop3 server` command and the `servers.toml` file are removed; credentials are invisible plumbing. Bearer tokens move to a per-server credential store (`~/.config/hop3-cli/credentials.toml`, mode `0600`), and `config.toml` becomes secret-free — keeping only local preferences and an optional default-server pointer. Existing `config.toml` connections are migrated to the credential store on first run.
+- **One context model (BREAKING, ADR 042)**: the two nouns from 0.5/0.6.0 — credentialed *servers* and project *contexts* — are consolidated into a single managed noun. A *context* is a deploy environment (dev / staging / prod) declared in the app's committed `hop3.toml` under `[contexts.<name>]` (a non-secret bundle of server address, app, domains, and env). `--context` is the single target selector; the `--server` flag, the `hop3 server` command, and the `servers.toml` file are removed. Credentials become invisible plumbing in a per-server credential store (`~/.config/hop3-cli/credentials.toml`, mode `0600`), and `config.toml` becomes secret-free — local preferences and an optional default-context pointer only. Existing `config.toml` connections are migrated to the credential store on first run.
+- **Reproducible Nix builds — nixpkgs pinned (M1/M2)**: the 33 hand-crafted `hop3.nix` expressions and the nix-gen template generator pin nixpkgs to a specific commit via `fetchTarball`, and the installer no longer relies on a mutable `nix-channel`. A build resolves the same toolchain regardless of the host's channel state.
+
+### Fixed
+
+- **`--context` resolution fails loud**: when a context can't be resolved, the CLI errors with the full resolution chain instead of silently falling back to a default server.
+- **Nix GC root retained across rebuilds**: the previous build's GC root is kept until the next rebuild, so a running worker's closure can't be garbage-collected mid-deploy.
+- **Elixir runtime env**: a hardcoded `[env]` value no longer clobbers the toolchain's `MIX_HOME` at runtime.
+- **Discourse**: assets are precompiled at build time so the container binds `$PORT` within the health-check window.
+- **Kanboard**: schema migrations run to completion before the app serves, so the readiness probe can't interrupt them mid-DDL.
+- **Addon `create`**: closed a generic-path edge that could report success when the addon was not created.
+- **Nix flake builds and the NixOS CI**: the `flake.nix` package definitions were repaired and the NixOS build pipeline re-enabled.
+- **App packaging**: archived Focalboard dropped from the advertised set; shlink/piwigo validations corrected; bugsink start-timeout raised; native Monica marked expects-failure (force-HTTPS can't be verified over plain HTTP).
+- **Test Lab reporting**: a completed run with failing tests is recorded as *failed*, not *crashed*; the run report shows the packaging variant instead of "other" and the demo name instead of "app"; dispatch runs off-thread with quieter scheduler logs; the queue view gains build number, created time, and a foldable detail.
 
 ### Security
 

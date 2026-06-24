@@ -188,7 +188,7 @@
             # hop3-cli package
             hop3-cli = python-final.buildPythonPackage {
               pname = "hop3-cli";
-              version = "0.6.0";
+              version = "0.6.1";
               format = "pyproject";
 
               src = ./packages/hop3-cli;
@@ -234,7 +234,7 @@
             # hop3-server package
             hop3-server = python-final.buildPythonPackage {
               pname = "hop3-server";
-              version = "0.6.0";
+              version = "0.6.1";
               format = "pyproject";
 
               src = ./packages/hop3-server;
