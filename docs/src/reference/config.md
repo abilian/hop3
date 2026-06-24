@@ -284,7 +284,12 @@ _policy = "keep-existing"   # optional; "override" to overwrite on every deploy
 
 ### `[contexts.<name>]` - Deploy Environments
 
-A **context** is a named deploy environment — `dev`, `staging`, `prod` — declared in the **committed** `hop3.toml`. One codebase, many environments: each context is a distinct app instance, usually on a different server, with its own domains and non-secret configuration. See [ADR 042](https://github.com/abilian/hop3/blob/main/notes/adrs/042-cli-context-model.md) for the full model.
+A **context** is a named target, and `--context <name>` is the one CLI selector for every command. A context exists at two scopes, and `[contexts.<name>]` appears in **two files**:
+
+- In the **committed `hop3.toml`** (documented here): a full deploy environment — `dev`, `staging`, `prod` — each a distinct app instance, usually on a different server, with its own domains and non-secret configuration. One codebase, many environments.
+- In the per-developer **`config.toml`**: a *global* context, the same block pared to just `server = "<addr>"` — a name bound to a server address, so project-less commands (`hop3 apps --context prod`) can target a server by name. Server-only, no `app`/`domains`/`env`.
+
+`--context <name>` resolves **project-first, then global**. Neither file holds a secret: the `server` is always a literal address, and the bearer token lives only in the credential store (see below). See [ADR 042](https://github.com/abilian/hop3/blob/main/notes/adrs/042-cli-context-model.md) for the full model.
 
 ```toml
 [metadata]

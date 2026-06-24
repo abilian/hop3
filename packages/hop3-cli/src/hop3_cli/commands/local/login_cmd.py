@@ -384,19 +384,31 @@ def _get_ssh_target_from_config(config: Config) -> str | None:
 
 
 def record_server_login(config: Config, server_url: str, token: str) -> None:
-    """ADR 042 r2: stash the token in the per-server store + set the default server.
+    """ADR 042: stash the token + set this server as the default target.
 
     This is the *only* place a login persists credentials: the token goes to the
-    per-server credential store (keyed by canonical address) and the server
-    becomes the default target for project-less commands. config.toml stays
-    secret-free. Surfaces a default-server change so `hop3 login` never silently
-    retargets `hop3 apps` & friends.
+    per-server credential store (keyed by canonical address); config.toml stays
+    secret-free. When the user named the login with ``--context <name>``, the
+    server is recorded as that **global context** (so `--context <name>` selects
+    it project-lessly) and becomes the default context. Otherwise it sets the
+    unnamed default server. Either way the change is surfaced, so a login never
+    silently retargets `hop3 apps` & friends.
     """
     if not server_url:
         return
     from hop3_cli.core import credential_store  # noqa: PLC0415
 
     credential_store.set_token(server_url, token)
+
+    context_name = config.get_context_override()
+    if context_name:
+        config.set_context_server(context_name, server_url)
+        previous = config.get_default_context()
+        config.set_default_context(context_name)
+        if previous != context_name:
+            print(f"  context {context_name!r} -> {server_url} (now the default)")
+        return
+
     previous = config.get_default_server()
     config.set_default_server(server_url)
     if previous != server_url:

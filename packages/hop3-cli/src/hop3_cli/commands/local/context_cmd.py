@@ -2,20 +2,26 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""`hop3 context` — manage deploy environments in the project's hop3.toml.
+"""`hop3 context` — manage contexts (the one target selector, ADR 042).
 
-ADR 042 (2nd revision): a *context* is a named deploy environment
-(`[contexts.<name>]` in the committed `hop3.toml`) carrying non-secret config —
-server address, app instance name, domains, env. The verbs here are the
-imperative counterpart to hand-editing `hop3.toml`:
+A *context* is a named target. It exists at two scopes, and the verbs operate on
+whichever fits where you stand (``--global`` forces the global scope):
 
-- ``list`` / ``show``      — read `[contexts.*]` from the nearest hop3.toml
-- ``add`` / ``remove`` / ``rename`` — edit `[contexts.*]` (committed, shared)
-- ``use``                 — pin a context for this checkout via
+- **Project** (inside a project, in the committed `hop3.toml`): a deploy
+  environment — server address + app instance + domains + env.
+- **Global** (outside a project, in `~/.config/hop3-cli/config.toml`): just a
+  named server, so `hop3 apps --context prod` works project-lessly.
+
+`--context <name>` resolves project-first, then global. Verbs:
+
+- ``list`` / ``show``      — read contexts at the current scope
+- ``add`` / ``remove`` / ``rename`` — edit them (project hop3.toml or global config.toml)
+- ``use``                 — pin a project context for this checkout via
   ``.hop3-local.toml [local].context`` (gitignored, not committed)
 
 Writes preserve the file's comments/order (tomlkit round-trip). No secrets ever
-land in `hop3.toml`: the server is a literal address, never a token.
+land in either file: the server is a literal address; the token lives in the
+credential store.
 """
 
 from __future__ import annotations
@@ -44,26 +50,35 @@ def _validate_context_name(name: str) -> bool:
     return bool(_CONTEXT_NAME_RE.fullmatch(name))
 
 
+def _use_global_scope(args: list[str]) -> bool:
+    """Whether context verbs target GLOBAL contexts (config.toml).
+
+    Global when ``--global``/``-g`` is passed, or when there is no project
+    hop3.toml at or above the CWD. Otherwise verbs edit the project hop3.toml.
+    """
+    return "--global" in args or "-g" in args or _locate_project_toml() is None
+
+
 def handle_context(args: list[str], config: Config, printer: RichPrinter) -> None:
     """Dispatch `hop3 context <subcommand>` (ADR 042 r2)."""
     if args and args[0] in {"--help", "-h"}:
         print_context_help()
         return
     if not args:
-        _context_bare()
+        _context_bare(config)
         return
 
     subcommand, sub_args = args[0], args[1:]
     if subcommand == "list":
-        context_list()
+        context_list(config)
     elif subcommand == "show":
-        context_show(sub_args)
+        context_show(sub_args, config)
     elif subcommand == "use":
         context_use(sub_args)
     elif subcommand == "add":
         context_add(sub_args, config)
     elif subcommand == "remove":
-        context_remove(sub_args)
+        context_remove(sub_args, config)
     elif subcommand == "rename":
         context_rename(sub_args)
     else:
@@ -135,10 +150,23 @@ def _current_selection() -> str | None:
     return read_overlay().current_context
 
 
-def _context_bare() -> None:
+def _context_bare(config: Config) -> None:
     path = _locate_project_toml()
     if path is None:
-        print("No hop3.toml here — `hop3 context` works inside a project.")
+        # Project-less: show GLOBAL contexts (named servers).
+        glob = config.list_global_contexts()
+        default = config.get_default_context()
+        if glob:
+            print("Global contexts (config.toml):")
+            for name in sorted(glob):
+                marker = "*" if name == default else " "
+                print(f"  {marker} {name}  ->  {glob[name]}")
+            print(f"\nDefault: {default or '(none)'}")
+            print("Select one with `--context <name>` on any command.")
+        else:
+            print("No global contexts defined (and no project hop3.toml here).")
+            print("  Name a server: hop3 context add prod --server ssh://root@host")
+            print("  or while logging in: hop3 login --context prod --ssh root@host")
         print("\nSubcommands: list, show, use, add, remove, rename")
         return
 
@@ -158,8 +186,26 @@ def _context_bare() -> None:
     print("Run `hop3 context --help` for details.")
 
 
-def context_list() -> None:
-    """List `[contexts.*]` in the nearest hop3.toml + the current selection."""
+def context_list(config: Config) -> None:
+    """List contexts at the current scope (global when outside a project)."""
+    if _use_global_scope([]):
+        glob = config.list_global_contexts()
+        default = config.get_default_context()
+        if not glob:
+            print("No global contexts defined.")
+            print("\nTo add one:")
+            print("  hop3 context add prod --server ssh://root@prod.example.com")
+            print("  (or: hop3 login --context prod --ssh root@prod.example.com)")
+            return
+        print("Global contexts (config.toml):\n")
+        for name in sorted(glob):
+            marker = "*" if name == default else " "
+            print(f"  {marker} {name}")
+            print(f"      server: {glob[name]}")
+        print(f"\nDefault context: {default or '(none)'}")
+        print("Select one with `--context <name>` on any command.")
+        return
+
     path = _require_project_toml()
     contexts = _read_contexts(path)
     current = _current_selection()
@@ -186,8 +232,26 @@ def context_list() -> None:
     )
 
 
-def context_show(args: list[str]) -> None:
-    """Show one context block (by name, or the current selection)."""
+def context_show(args: list[str], config: Config) -> None:
+    """Show one context (global when outside a project, else from hop3.toml)."""
+    if _use_global_scope(args):
+        name = next((a for a in args if not a.startswith("-")), None)
+        name = name or config.get_default_context()
+        if not name:
+            print("No context selected. Pass a name, e.g. `hop3 context show prod`.")
+            return
+        server = config.get_context_server(name)
+        if server is None:
+            print(f"Global context {name!r} is not defined.", file=sys.stderr)
+            glob = config.list_global_contexts()
+            if glob:
+                print(f"\nDefined: {', '.join(sorted(glob))}", file=sys.stderr)
+            sys.exit(1)
+        is_default = name == config.get_default_context()
+        print(f"Context: {name}{' (default)' if is_default else ''}  [global]")
+        print(f"  server:  {server}")
+        return
+
     path = _require_project_toml()
     contexts = _read_contexts(path)
     target = args[0] if args and not args[0].startswith("-") else _current_selection()
@@ -255,8 +319,34 @@ def _parse_add_args(
     return server, domains, env
 
 
+def _context_add_global(
+    name: str, server: str, has_project_fields: bool, config: Config
+) -> None:
+    """Define a global context (a named server) in config.toml — secret-free."""
+    if has_project_fields:
+        # A global context is just a named server; refuse the project-only fields
+        # rather than silently dropping them.
+        print(
+            "Error: a global context is just a named server — --app / --domain /"
+            " --env describe a project context. Run `hop3 context add` inside a"
+            " project for those.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if config.get_context_server(name) is not None:
+        print(
+            f"Global context {name!r} already exists. Remove it first with "
+            f"`hop3 context remove {name}`.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    config.set_context_server(name, server)
+    print(f"Added global context {name!r} -> {server} (config.toml).")
+    print(f"  select it anywhere with: hop3 <command> --context {name}")
+
+
 def context_add(args: list[str], config: Config) -> None:
-    """Add `[contexts.<name>]` to the project's hop3.toml (committed, no secrets)."""
+    """Add a context — a project `[contexts.<name>]` (hop3.toml) or a global one."""
     if not args or args[0] in {"--help", "-h"}:
         print(
             "Usage: hop3 context add <name> --server <addr> [--app <app>] "
@@ -275,13 +365,25 @@ def context_add(args: list[str], config: Config) -> None:
         )
         sys.exit(1)
 
-    server, domains, env = _parse_add_args(args[1:])
+    rest = [a for a in args[1:] if a not in {"--global", "-g"}]
+    server, domains, env = _parse_add_args(rest)
     # --app is consumed by the global flag parser and reaches us via the override.
     app = config.get_app_override() or ""
     if not server:
         print("Error: --server <addr> is required.", file=sys.stderr)
         sys.exit(1)
 
+    if _use_global_scope(args):
+        _context_add_global(name, server, bool(domains or env or app), config)
+        return
+
+    _context_add_project(name, server, app, domains, env)
+
+
+def _context_add_project(
+    name: str, server: str, app: str, domains: list[str], env: dict[str, str]
+) -> None:
+    """Add a project `[contexts.<name>]` to the nearest hop3.toml (comments kept)."""
     path = _require_project_toml()
     doc = _load_doc(path)
     contexts = doc.get("contexts")
@@ -319,12 +421,21 @@ def context_add(args: list[str], config: Config) -> None:
     print("  modified hop3.toml — commit it to share this environment.")
 
 
-def context_remove(args: list[str]) -> None:
-    """Delete `[contexts.<name>]` from the project's hop3.toml."""
-    if not args:
+def context_remove(args: list[str], config: Config) -> None:
+    """Delete a context (global when outside a project, else from hop3.toml)."""
+    positional = [a for a in args if not a.startswith("-")]
+    if not positional:
         print("Usage: hop3 context remove <name>", file=sys.stderr)
         sys.exit(1)
-    name = args[0]
+    name = positional[0]
+
+    if _use_global_scope(args):
+        if not config.remove_global_context(name):
+            print(f"Global context {name!r} is not defined.", file=sys.stderr)
+            sys.exit(1)
+        print(f"Removed global context {name!r} (config.toml).")
+        return
+
     path = _require_project_toml()
     doc = _load_doc(path)
     contexts = doc.get("contexts")
@@ -385,11 +496,12 @@ def context_rename(args: list[str]) -> None:
 
 def context_use(args: list[str]) -> None:
     """Pin a context for this checkout via .hop3-local.toml (not committed)."""
-    if "--global" in args:
+    if "--global" in args or "-g" in args:
         print(
-            "Error: --global was retired in ADR 042 r2 — a context is per-project "
-            "now. `hop3 context use <name>` pins it for this checkout via "
-            ".hop3-local.toml.",
+            "Error: `hop3 context use` pins a project context for THIS checkout "
+            "(.hop3-local.toml) — it has no global form. To make a global context "
+            "the default target, log in naming it (`hop3 login --context <name>`), "
+            "or select per-command with `--context <name>`.",
             file=sys.stderr,
         )
         sys.exit(2)

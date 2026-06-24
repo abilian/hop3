@@ -63,18 +63,35 @@ hop3 context use production
 # Override for one shell (ambient)
 export HOP3_CONTEXT=production
 
-# Use context for single command
+# Use context for single command (the one selector — works for any command)
 hop3 --context production apps
 
 # Remove context
 hop3 context remove old-staging
 ```
 
+**Project-less commands target a context too — `--context` is the one selector:**
+
+```bash
+# Name a global server (login authenticates, names the global context, makes it default)
+hop3 login --context prod --ssh root@prod.example.com
+# (or, without logging in: hop3 context add prod --server ssh://root@prod.example.com)
+
+# Now target it by name with no project — same flag as an in-project deploy:
+hop3 apps --context prod
+hop3 system info --context prod
+
+# A bare project-less command targets [cli].default_context:
+hop3 apps
+```
+
 **Context priority (highest to lowest):**
 1. `--context` flag
 2. `HOP3_CONTEXT` environment variable
 3. `.hop3-local.toml [local].context` (per project checkout, ADR 042)
-4. Single-context fallback (when hop3.toml declares exactly one context)
+4. Single-context fallback (project: exactly one context in hop3.toml) / `[cli].default_context` (project-less)
+
+The chosen name resolves **project-first, then global** (`hop3.toml` then `config.toml`). There is no `--server` flag.
 
 ### Application Lifecycle
 
@@ -245,7 +262,7 @@ hop3 <command> --help
 | `-y` / `--yes` / `--force` | Skip confirmations |
 | `--confirm=<name>` | Scriptable typed-name confirmation (safer than `--yes`) |
 | `--no-input` | Refuse to prompt; fail fast with a hint |
-| `--context <name>` / `-c` | Use a specific server context |
+| `--context <name>` / `-c` | Select the target context (the one selector — project-then-global; no `--server` flag) |
 | `--app <name>` / `-a` | Override the resolved app |
 | `--why` | Print app/context/alias resolution trace to stderr |
 | `--no-alias` | Bypass the alias table (run the typed command literally) |
@@ -505,8 +522,8 @@ hop3 ps scale --app myapp worker=2
 
 - **Declare them in hop3.toml:** `hop3 context add prod --server ssh://root@prod --app myapp`
 - **Select one for this checkout:** `hop3 context use prod` (writes the gitignored `.hop3-local.toml`), or `export HOP3_CONTEXT=prod` for one shell, or `--context prod` for one command.
-- **Log into a server (store its token):** `hop3 login --ssh root@your-server.com` — sets it as the default server too.
-- **Project-less commands** (`hop3 apps`) target the default server, or pass `--server <addr>`.
+- **Log into a server (store its token):** `hop3 login --ssh root@your-server.com` — sets it as the default target too. Add `--context prod` to also name it as a global context and make it the default: `hop3 login --context prod --ssh root@prod.example.com`.
+- **Project-less commands** (`hop3 apps`, `hop3 system info`): select a server by name with the same flag — `hop3 apps --context prod` — or, with no `--context`, target the default context. `--context` is the one selector; there is no `--server` flag.
 - **Create shell aliases:**
   ```bash
   alias hop3-prod='HOP3_CONTEXT=production hop3'
