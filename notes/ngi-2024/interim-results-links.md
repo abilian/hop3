@@ -10,13 +10,13 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 - <https://hop3.cloud/reference/nix/> — `hop3.nix` / `[nix]` reference
 - <https://hop3.cloud/developers/adrs/006-nix-integration/> — design decision
 - <https://github.com/abilian/hop3/tree/main/packages/hop3-server/src/hop3/plugins/build/nix> — the NixBuilder (reads `hop3.nix`, runs `nix-build`, extracts `runtime.json`)
-- <https://github.com/abilian/hop3/tree/main/apps/real-apps-nix> — 34 hand-crafted `hop3.nix` apps, deployed & verified via `hop3-test`
+- <https://github.com/abilian/hop3/tree/main/apps/real-apps-nix> — 33 hand-crafted `hop3.nix` apps, deployed & verified via `hop3-test`
 
 **M1.2 — Nix alternatives to existing builders (Python/Node/Ruby/Go/Rust/Java), 12-factor**
 
 - <https://hop3.cloud/developers/adrs/008-nix-builders-2/> — template-based generation from `[nix]` (8 templates incl. `nixpkgs-wrapper`, `python-venv`, `node-prebuilt`, `ruby-bundler`, `java-war`); rationale for replacing Dream2nix is inside
 - <https://github.com/abilian/hop3/tree/main/packages/hop3-server/src/hop3/plugins/build/nix/gen/templates> — generator, templates, `nix eject`
-- <https://github.com/abilian/hop3/tree/main/apps/real-apps-nix-gen> — 31 template-generated apps validated via `hop3-test`
+- <https://github.com/abilian/hop3/tree/main/apps/real-apps-nix-gen> — 30 template-generated apps validated via `hop3-test`
 
 ## T2 — Nix Runtime
 
@@ -26,7 +26,7 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 - <https://hop3.cloud/developers/adrs/035-build-artifacts/> — the runtime contract: `BuildArtifact`/`RuntimeConfig` carries Nix store paths, env, workers (`runtime.json`)
 - <https://hop3.cloud/blog/posts/2026-03-build-artifact-pattern/> — blog explaining the build/run separation (the PoC mechanism)
 
-**M2.2 — Beta (≈90%; a few upstream apps deferred)** — the 34 + 31 Nix apps above run end-to-end on the Nix runtime via the uWSGI deployer.
+**M2.2 — Beta (≈90%; a few upstream apps deferred)** — the 33 + 30 Nix apps above run end-to-end on the Nix runtime via the uWSGI deployer.
 
 - <https://github.com/abilian/hop3/tree/main/apps/bad> — per-app `DEFERRED.md` notes documenting where an upstream app can't be Nix-built (each points at a platform gap)
 
@@ -34,11 +34,11 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 
 ## T3 — Security & Resilience
 
-**M3.1 — Backing services** — *PostgreSQL/MySQL/Redis/S3 shipped; full operational command set + resource limits & volumes added in 0.6; email/SMTP addon deferred to 0.7*
+**M3.1 — Backing services** — *PostgreSQL/MySQL/Redis/S3 shipped; full operational command set + resource limits & volumes added in 0.6; experimental email/SMTP relay addon added in 0.6*
 
 - <https://hop3.cloud/guides/addons/> — guide: PostgreSQL, MySQL, Redis, S3/MinIO addons
 - <https://hop3.cloud/developers/adrs/046-declarative-app-resources/> — declarative `[[addons]]`, generated secrets/env, and (Phase 2) `[limits]` resource caps + volumes
-- <https://github.com/abilian/hop3/tree/main/packages/hop3-server/src/hop3/plugins> — `postgresql/`, `mysql/`, `redis/`, `s3/` plugins; 0.6 adds the `addon <type> <verb>` surface (query/diagnostics/clone/export-import/expose/promote/endpoint) and `hop3 tunnel`
+- <https://github.com/abilian/hop3/tree/main/packages/hop3-server/src/hop3/plugins> — `postgresql/`, `mysql/`, `redis/`, `s3/`, `email/` plugins; 0.6 adds the `addon <type> <verb>` surface (query/diagnostics/clone/export-import/expose/promote/endpoint) and `hop3 tunnel`
 
 **M3.2 — Upgrades & data migrations** — *partial*
 
@@ -89,10 +89,10 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 
 **M4.1–M4.4 — 20 apps + experience reports** — *well past 20 configured & tested; standalone per-app reports being formatted; production-traffic deployments in progress*
 
-- <https://github.com/abilian/hop3/tree/main/apps/real-apps-native> — 41 native-toolchain app configs
-- <https://github.com/abilian/hop3/tree/main/apps/real-apps-nix> — 34 hand-crafted Nix apps
-- <https://github.com/abilian/hop3/tree/main/apps/real-apps-nix-gen> — 31 template-generated Nix apps
-- <https://github.com/abilian/hop3/tree/main/apps/real-apps-docker> — 53 Docker app configs
+- <https://github.com/abilian/hop3/tree/main/apps/real-apps-native> — 40 native-toolchain app configs
+- <https://github.com/abilian/hop3/tree/main/apps/real-apps-nix> — 33 hand-crafted Nix apps
+- <https://github.com/abilian/hop3/tree/main/apps/real-apps-nix-gen> — 30 template-generated Nix apps
+- <https://github.com/abilian/hop3/tree/main/apps/real-apps-docker> — 52 Docker app configs
 - <https://hop3.cloud/guides/packaging-applications/> — how an app is described + tested
 - Coverage incl. WordPress, Gitea/Forgejo, Nextcloud, Matomo, Grafana, Mastodon, Matrix Synapse, Vaultwarden, BookStack, … each verified via `hop3-test`. Platform-gap findings captured per deferred app under `apps/bad/*/DEFERRED.md`.
 
@@ -104,7 +104,7 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 
 **M5.2 — Documentation (devs/admins/end-users)** ✅
 
-- <https://hop3.cloud/guides/> · <https://hop3.cloud/reference/> · <https://hop3.cloud/developers/> · <https://hop3.cloud/tutorials/> — and 49 published ADRs at <https://hop3.cloud/developers/adrs/>
+- <https://hop3.cloud/guides/> · <https://hop3.cloud/reference/> · <https://hop3.cloud/developers/> · <https://hop3.cloud/tutorials/> — and 51 published ADRs at <https://hop3.cloud/developers/adrs/>
 
 **M5.3 — Technical report / paper** — *≈75%; benchmarks pending*
 
@@ -119,4 +119,4 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 
 **M5.6 — Videos / screencasts** — *not yet recorded*
 
-- <https://github.com/abilian/hop3/tree/main/demos> — 34 scripted demos (walkthrough + screencast source + regression test) as the basis; two screencasts ("Zero to Running App", "Dashboard Tour") to follow.
+- <https://github.com/abilian/hop3/tree/main/demos> — 36 scripted demos (walkthrough + screencast source + regression test) as the basis; two screencasts ("Zero to Running App", "Dashboard Tour") to follow.
