@@ -76,7 +76,7 @@ A test's layer is decided by **what it needs** — Docker, root, or host-mutatio
 **Purpose**: Test individual functions and classes in complete isolation.
 
 **Characteristics**:
-- Very fast execution (< 1 second total)
+- Fast execution (< 1 second total)
 - No external dependencies (uses in-memory SQLite for database)
 - Test business logic and service behavior
 - Use dependency injection fixtures for services

@@ -45,7 +45,8 @@ def test_output_contains_required_elements(
     spec: AppSpec = request.getfixturevalue(fixture_name)
     output = generate(spec)
 
-    assert "{ pkgs ? import <nixpkgs> {} }" in output
+    assert "import (fetchTarball {" in output  # pinned nixpkgs, not <nixpkgs>
+    assert "<nixpkgs>" not in output
     assert "\nlet\n" in output
     assert f'pname = "{spec.pname}"' in output
     assert "package = app;" in output

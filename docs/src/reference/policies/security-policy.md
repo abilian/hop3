@@ -206,7 +206,7 @@ Two startup interlocks guard this flag:
 
 ## Responsible Disclosure Policy
 
-We take security vulnerabilities very seriously. If you believe you have found a security vulnerability in the Hop3 software or our project infrastructure, we ask that you report it to us privately to allow us time to investigate and remediate the issue.
+We take security vulnerabilities seriously. If you believe you have found a security vulnerability in the Hop3 software or our project infrastructure, we ask that you report it to us privately to allow us time to investigate and remediate the issue.
 
 ### How to Report a Vulnerability
 

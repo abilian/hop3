@@ -41,7 +41,7 @@ Not all Nix builds are equally reproducible. Hop3 distinguishes three tiers:
 
 **Tier 1 is the goal.** When the upstream is in nixpkgs, prefer the `nixpkgs-wrapper` template — you get the maintained nixpkgs build for free, including multi-arch support.
 
-**Tier 3 is a known compromise.** Pre-built binary templates (`prebuilt-binary`, `prebuilt-archive`, `node-prebuilt`) are convenient for apps not yet in nixpkgs, but they sacrifice the very properties Nix promises. Treat them as a temporary stepping stone toward a nixpkgs or source build.
+**Tier 3 is a known compromise.** Pre-built binary templates (`prebuilt-binary`, `prebuilt-archive`, `node-prebuilt`) are convenient for apps not yet in nixpkgs, but they sacrifice the properties Nix promises. Treat them as a temporary stepping stone toward a nixpkgs or source build.
 
 ## Prerequisites
 
@@ -116,7 +116,7 @@ The nixpkgs-wrapper template builds from source via nixpkgs. The `prebuilt-*` an
 - Multi-arch (x86_64-linux, aarch64-linux, armv7l-linux, riscv64-linux,
   and more)
 - Source hash and dependency closure tracked by Nix
-- Updates via the nixpkgs channel — no per-app maintenance
+- Reproducible via a pinned nixpkgs commit (nixos-24.11) — no per-app version maintenance
 
 **The rule:** if `pkgs.<your-app>` exists in nixpkgs, use
 `nixpkgs-wrapper`. Only fall back to a `prebuilt-*` template when there
@@ -125,7 +125,7 @@ is no nixpkgs alternative.
 To check if your app is in nixpkgs:
 
 ```bash
-nix-instantiate --eval -E '(import <nixpkgs> {}).<name>.meta.description or "NOT FOUND"'
+nix-instantiate --eval -E '(import (builtins.fetchTarball "https://github.com/NixOS/nixpkgs/archive/50ab793786d9de88ee30ec4e4c24fb4236fc2674.tar.gz") {}).<name>.meta.description or "NOT FOUND"'
 ```
 
 ## Hand-crafted hop3.nix
@@ -142,7 +142,10 @@ When you `hop3 nix eject <app>`, Hop3 materializes the generated Nix expression 
 A simple Python Flask app:
 
 ```nix
-{ pkgs ? import <nixpkgs> {} }:
+{ pkgs ? import (fetchTarball {
+  url = "https://github.com/NixOS/nixpkgs/archive/50ab793786d9de88ee30ec4e4c24fb4236fc2674.tar.gz";
+  sha256 = "1s2gr5rcyqvpr58vxdcb095mdhblij9bfzaximrva2243aal3dgx";
+}) {} }:
 
 let
   pythonEnv = pkgs.python3.withPackages (ps: with ps; [
@@ -189,7 +192,10 @@ The `runtime.json` is the contract between your Nix derivation and Hop3's deploy
 A more advanced pattern: use `pkgs.<name>` for the actual application binary but customise the wrapper. This is what the `nixpkgs-wrapper` template does, but you can write it directly when you need full control:
 
 ```nix
-{ pkgs ? import <nixpkgs> {} }:
+{ pkgs ? import (fetchTarball {
+  url = "https://github.com/NixOS/nixpkgs/archive/50ab793786d9de88ee30ec4e4c24fb4236fc2674.tar.gz";
+  sha256 = "1s2gr5rcyqvpr58vxdcb095mdhblij9bfzaximrva2243aal3dgx";
+}) {} }:
 
 let
   gitea = pkgs.gitea;
@@ -231,7 +237,10 @@ Notice: no `fetchurl`. The `${gitea}` interpolation is a reference to the nixpkg
 Static sites use a special `static` worker. Hop3 detects the `"static"` key in `runtime.json` and configures nginx to serve files directly — no backend process runs.
 
 ```nix
-{ pkgs ? import <nixpkgs> {} }:
+{ pkgs ? import (fetchTarball {
+  url = "https://github.com/NixOS/nixpkgs/archive/50ab793786d9de88ee30ec4e4c24fb4236fc2674.tar.gz";
+  sha256 = "1s2gr5rcyqvpr58vxdcb095mdhblij9bfzaximrva2243aal3dgx";
+}) {} }:
 
 let
   app = pkgs.stdenv.mkDerivation {

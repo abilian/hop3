@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for --password-file / --stdin handling on user commands (ADR 036 G3)."""
+"""Tests for --password-file / --stdin handling on user commands (ADR 036 §D14)."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 import pytest
 from hop3_cli.commands.arguments import (
+    _resolve_email_password_input,
     _resolve_password_inputs,
     _resolve_run_input,
 )
@@ -163,7 +164,7 @@ def test_stdin_from_tty_refused() -> None:
         _resolve_password_inputs(args)
 
 
-# ---- _resolve_run_input (ADR 036 G3 for `hop run --input`) ----
+# ---- _resolve_run_input (ADR 036 §D14 for `hop run --input`) ----
 
 
 def test_run_input_dash_reads_stdin() -> None:
@@ -210,3 +211,52 @@ def test_run_input_dash_from_tty_refused() -> None:
         pytest.raises(ValueError, match="Refusing to read --input"),
     ):
         _resolve_run_input(args)
+
+
+# ---- _resolve_email_password_input (ADR 036 §D14 for `addon email create`) ----
+
+
+def test_email_password_dash_reads_stdin() -> None:
+    args = ["addon", "email", "create", "mail", "--smtp-password", "-"]
+    fake_stdin = io.StringIO("re_secret\n")
+    with (
+        patch.object(sys, "stdin", fake_stdin),
+        patch.object(sys.stdin, "isatty", lambda: False, create=True),
+    ):
+        _resolve_email_password_input(args)
+    assert args[-1] == "re_secret"
+
+
+def test_email_password_at_path_reads_file(tmp_path: Path) -> None:
+    f = tmp_path / "smtp.secret"
+    f.write_text("re_fromfile\n", encoding="utf-8")
+    args = ["addon", "email", "create", "mail", "--smtp-password", f"@{f}"]
+    _resolve_email_password_input(args)
+    assert args[-1] == "re_fromfile"
+
+
+def test_email_password_literal_unchanged() -> None:
+    args = ["addon", "email", "create", "mail", "--smtp-password", "re_literal"]
+    _resolve_email_password_input(args)
+    assert args[-1] == "re_literal"
+
+
+def test_email_password_unrelated_command_noop() -> None:
+    args = ["addon", "postgres", "create", "db", "--smtp-password", "-"]
+    _resolve_email_password_input(args)
+    assert args == ["addon", "postgres", "create", "db", "--smtp-password", "-"]
+
+
+def test_email_password_at_path_missing_file() -> None:
+    args = ["addon", "email", "create", "mail", "--smtp-password", "@/nope/missing"]
+    with pytest.raises(ValueError, match="Could not read --smtp-password file"):
+        _resolve_email_password_input(args)
+
+
+def test_email_password_dash_from_tty_refused() -> None:
+    args = ["addon", "email", "create", "mail", "--smtp-password", "-"]
+    with (
+        patch.object(sys.stdin, "isatty", lambda: True, create=True),
+        pytest.raises(ValueError, match="Refusing to read --smtp-password"),
+    ):
+        _resolve_email_password_input(args)

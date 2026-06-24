@@ -50,7 +50,7 @@ def test_override_builtin_persists_and_resolves(tmp_path):
     assert get_mode_config("ci").tiers == ["fast"]
     assert load_modes()["ci"].description == "CI, fast only"
     # Other built-ins are untouched.
-    assert get_mode_config("nightly").tiers == MODES["nightly"].tiers
+    assert get_mode_config("broad").tiers == MODES["broad"].tiers
 
 
 def test_reset_builtin_reverts_to_default():

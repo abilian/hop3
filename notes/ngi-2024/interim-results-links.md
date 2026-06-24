@@ -30,7 +30,7 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 
 - <https://github.com/abilian/hop3/tree/main/apps/bad> — per-app `DEFERRED.md` notes documenting where an upstream app can't be Nix-built (each points at a platform gap)
 
-**M2.3 — Final "1.0"** — *not started; carried to 0.7* (docs polish, CI, release notes).
+**M2.3 — Final "1.0"** — *carried to 0.7* (docs polish, CI, release notes).
 
 ## T3 — Security & Resilience
 

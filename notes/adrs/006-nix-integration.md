@@ -75,11 +75,14 @@ Hop3 will integrate Nix to take advantage of its strengths in reproducible build
 
 1. **hop3.nix File Format**:
 
-   A `hop3.nix` file in the application root defines how to build and run the app:
+   A `hop3.nix` file in the application root defines how to build and run the app. Both generated and hand-crafted expressions pin nixpkgs to a specific commit (nixos-24.11) so the toolchain is reproducible across machines and dates:
 
    ```nix
    # hop3.nix - minimal example
-   { pkgs ? import <nixpkgs> {} }:
+   { pkgs ? import (fetchTarball {
+     url = "https://github.com/NixOS/nixpkgs/archive/50ab793786d9de88ee30ec4e4c24fb4236fc2674.tar.gz";
+     sha256 = "1s2gr5rcyqvpr58vxdcb095mdhblij9bfzaximrva2243aal3dgx";
+   }) {} }:
    {
      # Required: the built package
      package = pkgs.python3Packages.buildPythonApplication {

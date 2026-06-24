@@ -91,7 +91,7 @@ Authenticity is **necessary but not sufficient** — a verified spec is still at
 
 ## Documented Gaps (accepted for v1)
 
-- **Server-release channel integrity**: the wheel + install one-liner (`hop3.cloud`) and the catalog (`apps.hop3.cloud`) live under the same `hop3.cloud` parent domain and operator, so they are not yet genuinely independent trust roots; if that domain/hosting is compromised at install time the whole chain is moot. Needs its own integrity story (signed installer, independent host/key).
+- **Server-release channel integrity**: the wheel + install one-liner (`hop3.cloud`) and the catalog (`apps.hop3.cloud`) live under the same `hop3.cloud` parent domain and operator, so they are not yet independent trust roots; if that domain/hosting is compromised at install time the whole chain is moot. Needs its own integrity story (signed installer, independent host/key).
 - **Signing-host / CI compromise**: a compromised signing environment produces a validly-signed malicious catalog. Mitigated only later by transparency logs / two-person signing.
 - **Freshness beyond monotonic serial**: no signed timestamp/TTL, so a NAT'd manual-refresh node can sit on old-but-valid content with no staleness signal.
 - **First-fetch bootstrap**: the first fetch sets the initial serial with nothing to compare against; a fresh node whose first fetch fails verification has no last-good and must start reporting "no catalog," never silently empty.
