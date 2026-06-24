@@ -602,9 +602,9 @@ class WafEngine(Protocol):
     follow behind the same interface. ``get_waf_engines()`` returns the engine
     *classes*; the deploy flow instantiates the selected one.
 
-    Service-lifecycle methods (start / stop / reload / check_status /
-    get_upstream) are added with the proxy-running slice; this contract covers
-    the engine-independent config generation built first.
+    The platform supervises the proxy process itself (a uWSGI Emperor vassal,
+    ADR 050 §1); the engine only generates config, validates it, and builds the
+    command that runs the proxy.
     """
 
     name: str
@@ -621,4 +621,31 @@ class WafEngine(Protocol):
 
     def remove_app(self, app_name: str) -> None:
         """Remove the app's compiled rules (on destroy / WAF disabled)."""
+        ...
+
+    def validate(self, app_name: str) -> None:
+        """Load the compiled rules into the engine; raise on a parse error.
+
+        The compile-before-commit gate (ADR 050 §5) — the deploy aborts rather
+        than front an app with rules the engine can't load.
+        """
+        ...
+
+    def proxy_command(
+        self, app_name: str, upstream_url: str, listen_port: int
+    ) -> list[str]:
+        """The argv that runs the WAF proxy: fronts ``upstream_url`` for the app
+        on ``listen_port`` (loopback), reading the real client IP from the single
+        trusted nginx hop (Security invariant 1)."""
+        ...
+
+    def audit_path(self, app_name: str) -> Path:
+        """Path of the JSONL audit stream the proxy writes (the scorer's input)."""
+        ...
+
+    def write_bans(self, app_name: str, banned: list[str]) -> Path:
+        """Rewrite the app's ban denylist from the active set; return its path.
+
+        The ban scorer applies it by reloading the proxy (ADR 050 §4).
+        """
         ...

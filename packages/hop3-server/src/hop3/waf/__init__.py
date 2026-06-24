@@ -5,6 +5,24 @@
 
 from __future__ import annotations
 
-from .compiler import WafCompileError, compile_policy
+from pathlib import Path
 
-__all__ = ["WafCompileError", "compile_policy"]
+from .compiler import (
+    WafCompileError,
+    compile_bans,
+    compile_policy,
+    compile_rules_file,
+)
+
+__all__ = [
+    "WafCompileError",
+    "compile_bans",
+    "compile_policy",
+    "compile_rules_file",
+    "crs_dir",
+]
+
+
+def crs_dir() -> Path:
+    """Filesystem path to the vendored OWASP CRS bundle (``hop3/waf/crs/``)."""
+    return Path(__file__).parent / "crs"

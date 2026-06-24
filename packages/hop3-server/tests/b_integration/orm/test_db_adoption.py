@@ -35,7 +35,7 @@ from hop3.server.cli.db import (
 if TYPE_CHECKING:
     from pathlib import Path
 
-HEAD_REVISION = "e1f2a3b4c5d6"  # add_network (ADR 050 named networks for WAF gates)
+HEAD_REVISION = "a7b8c9d0e1f2"  # add_ban (ADR 050 per-app L7 WAF bans)
 BASE_REVISION = "d20dd80dafca"
 # A revision no branch in this tree ships — what a feature-branch DB looks like
 # once that branch is gone (incident: hop3-dev was stamped at one of these

@@ -134,6 +134,11 @@ hop3-testing = { workspace = true }
 hop3-tui = { workspace = true }
 hop3-rootd = { workspace = true }
 hop3-testlab = { workspace = true }
+# DEV ONLY (ADR 050): pin LeWAF to the local checkout. The PyPI 0.7.5 wheel uses
+# stdlib `re` and can't parse OWASP CRS 4.21 (`\x` escapes); the local repo
+# migrated to the `regex` module with a bounded matcher. Replace with a real
+# `lewaf>=0.7.6` PyPI release before shipping the `waf` extra.
+lewaf = { path = "../../lewaf", editable = true }
 
 [build-system]
 requires = ["uv-build>=0.8.4,<0.9.0"]

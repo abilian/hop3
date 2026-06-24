@@ -34,6 +34,7 @@ if TYPE_CHECKING:
         Builder,
         Deployer,
         Proxy,
+        WafEngine,
     )
 
 # Singleton instance of the PluginManager.
@@ -448,6 +449,30 @@ def get_addon(addon_type: str, addon_name: str) -> Addon:
 
     available_addons = [getattr(cls, "name", "?") for cls in addon_classes]
     msg = f"Addon type '{addon_type}' not found. Available addons: {available_addons}"
+    raise RuntimeError(msg)
+
+
+def get_waf_engine(name: str = "lewaf") -> WafEngine:
+    """Return the Layer-7 WAF engine named ``name`` (ADR 050; default LeWAF).
+
+    Args:
+        name: the engine name (``[waf].engine``); defaults to ``lewaf``.
+
+    Returns:
+        An instance of the matching ``WafEngine``.
+
+    Raises:
+        RuntimeError: if no engine with that name is registered.
+    """
+    pm = get_plugin_manager()
+    engine_classes: list[type[WafEngine]] = [
+        cls for sublist in pm.hook.get_waf_engines() for cls in sublist
+    ]
+    for engine_class in engine_classes:
+        if getattr(engine_class, "name", None) == name:
+            return engine_class()
+    available = [getattr(c, "name", "?") for c in engine_classes]
+    msg = f"WAF engine '{name}' not found. Available engines: {available}"
     raise RuntimeError(msg)
 
 
