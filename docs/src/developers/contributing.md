@@ -515,7 +515,7 @@ def test_backup_create_success():
 2. **Use appropriate types:** Don't use `error` for warnings or `success` for info
 3. **Provide context:** Include relevant details in messages (IDs, filenames, etc.)
 4. **Test both modes:** Verify output works correctly in both text and JSON modes
-5. **Respect quiet mode:** Only show errors in quiet mode unless absolutely necessary
+5. **Respect quiet mode:** Only show errors in quiet mode unless necessary
 6. **Use tables for lists:** Lists of items should use `table` type, not multiple `text` messages
 7. **Group related info:** Use `panel` to group related information together
 8. **Show progress:** Use `progress` type for operations that take >1 second

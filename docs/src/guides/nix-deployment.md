@@ -41,7 +41,7 @@ Not all Nix builds are equally reproducible. Hop3 distinguishes three tiers:
 
 **Tier 1 is the goal.** When the upstream is in nixpkgs, prefer the `nixpkgs-wrapper` template — you get the maintained nixpkgs build for free, including multi-arch support.
 
-**Tier 3 is a known compromise.** Pre-built binary templates (`prebuilt-binary`, `prebuilt-archive`, `node-prebuilt`) are convenient for apps not yet in nixpkgs, but they sacrifice the very properties Nix promises. Treat them as a temporary stepping stone toward a nixpkgs or source build.
+**Tier 3 is a known compromise.** Pre-built binary templates (`prebuilt-binary`, `prebuilt-archive`, `node-prebuilt`) are convenient for apps not yet in nixpkgs, but they sacrifice the properties Nix promises. Treat them as a temporary stepping stone toward a nixpkgs or source build.
 
 ## Prerequisites
 

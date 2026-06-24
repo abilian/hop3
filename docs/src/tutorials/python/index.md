@@ -37,7 +37,7 @@ timeout = 30
 interval = 60
 ```
 
-The only line that really changes between frameworks is `[run] start` — the command that launches your server bound to `$PORT`. A one-line `Procfile` (`web: gunicorn wsgi:app --bind 0.0.0.0:$PORT`) is equivalent and Heroku-compatible; you can use either or both. When both declare the same process, `hop3.toml` wins.
+The only line that changes between frameworks is `[run] start` — the command that launches your server bound to `$PORT`. A one-line `Procfile` (`web: gunicorn wsgi:app --bind 0.0.0.0:$PORT`) is equivalent and Heroku-compatible; you can use either or both. When both declare the same process, `hop3.toml` wins.
 
 ## WSGI vs ASGI: pick the right server
 

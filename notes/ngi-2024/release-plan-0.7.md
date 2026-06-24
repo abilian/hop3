@@ -109,7 +109,7 @@ The beta runs end to end for the 34 + 31 Nix apps. 0.7 closes only what is *actu
 
 ### Upgrade mechanism (M3.2) — confirm scope
 
-Hop3-server's own Alembic schema migrations exist and work (they run on upgrade; the venv is preserved; pre-Alembic databases are adopted). The annex deliverable is "seamless platform *and application* updates with safe data migrations." Open question: what, beyond the working migrations, is genuinely required? Candidate scope below — confirm before building, as part of this may already be satisfied by migrations + redeploy.
+Hop3-server's own Alembic schema migrations exist and work (they run on upgrade; the venv is preserved; pre-Alembic databases are adopted). The annex deliverable is "seamless platform *and application* updates with safe data migrations." Open question: what, beyond the working migrations, is required? Candidate scope below — confirm before building, as part of this may already be satisfied by migrations + redeploy.
 
 - [ ] Confirm whether a production `hop3 server upgrade` (pull + migrate + restart) is needed beyond the current path -> OK for "hop3 server upgrade". This assumes admin right. Non-admin users can't run this command.
 - [ ] Confirm whether app-level upgrade orchestration is more than the existing redeploy -> YES. Upgrading could mean: (1) backup data, (2) backup code, (3) upgrade and run the upgrade script (app-specific - like "alembic upgrade head"), (4) rollback in case of an error, (5) allow the operator to rollback to the previous state (using the backups) using the CLI or the Web UI.
@@ -142,7 +142,7 @@ NLNet/NGI fund reproducibility/sovereignty work and will inspect the Nix impleme
 
 ## Deferred to 0.7.x (following weeks)
 
-Each item below is an NGI deliverable that is genuinely not a blocker for the 0.7 tag and finishes in a near-term point release, with a documented disposition.
+Each item below is an NGI deliverable that is not a blocker for the 0.7 tag and finishes in a near-term point release, with a documented disposition.
 
 ### Benchmarks + final paper (M5.3) — 0.7.x, next week
 

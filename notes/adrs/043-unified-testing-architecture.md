@@ -31,7 +31,7 @@ The project accumulated several parallel testing approaches, each added for a go
 
 ### Why now
 
-Pre-1.0, with license to make breaking changes. The cost of carrying a broken, fast-loop-less, diagnosis-less testing surface into 1.0 is far higher than consolidating now. Critically, the consolidation is *mostly clarification and deletion*, not a rewrite — the one genuinely new component is a shared diagnostic bundle, which we owe the operator regardless.
+Pre-1.0, with license to make breaking changes. The cost of carrying a broken, fast-loop-less, diagnosis-less testing surface into 1.0 is far higher than consolidating now. Critically, the consolidation is *mostly clarification and deletion*, not a rewrite — the one new component is a shared diagnostic bundle, which we owe the operator regardless.
 
 ## Decision
 
