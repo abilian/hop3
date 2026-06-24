@@ -213,3 +213,82 @@ def test_dispatch_links_run_uid_to_build(monkeypatch):
         req = BuildQueueRepository(s).get(req_id)
         assert req.status == "done"
         assert req.run_uid == "2026-run-xyz"
+
+
+def test_engine_exit_with_results_is_completed_not_crash(monkeypatch, tmp_path):
+    """Engine exit 1 *after* recording results is a completed run with failing
+    tests — not a crash. The build is FAILED, but the detail names the failing
+    tests (the actionable signal) and carries none of the 'Engine exited'
+    crash noise."""
+    from hop3_testing.results.models import TestResultRecord, TestRun
+
+    from hop3_testlab.worker import EngineExitError
+
+    with _session() as s:
+        p = _profile(s)
+        ServersRepository(s).create(
+            name="docker-local", target_id="docker", kind="docker"
+        )
+        req_id = BuildQueueRepository(s).enqueue(p.id).id
+        s.commit()
+    with _session() as s:  # the engine recorded a run + results, then exited 1
+        run = TestRun(
+            run_uid=f"run-completed-{req_id}",
+            trigger=f"build-{req_id}",
+            mode="broad",
+            target_type="docker",
+        )
+        s.add(run)
+        s.flush()
+        s.add_all([
+            TestResultRecord(run_id=run.id, test_name="forgejo", passed=False),
+            TestResultRecord(run_id=run.id, test_name="discourse", passed=False),
+            TestResultRecord(run_id=run.id, test_name="flask-hello", passed=True),
+        ])
+        s.commit()
+
+    log = tmp_path / "engine.log"
+
+    def _exit1(*_a, **_k):
+        raise EngineExitError(1, log, f"Engine exited 1. See {log}")
+
+    monkeypatch.setattr(dispatcher, "run_blockers", lambda _t, _a: None)
+    monkeypatch.setattr(dispatcher, "run_once", _exit1)
+
+    assert dispatcher.dispatch_once() is True
+    with _session() as s:
+        req = BuildQueueRepository(s).get(req_id)
+        assert req.status == "failed"  # still red — never green for a failed run
+        assert "2 of 3 test(s) failed" in req.detail
+        assert "forgejo" in req.detail
+        assert "discourse" in req.detail
+        assert "Engine exited" not in req.detail  # not framed as a crash
+        assert req.run_uid == f"run-completed-{req_id}"  # linked for the dashboard
+
+
+def test_engine_exit_without_results_is_a_real_crash(monkeypatch, tmp_path):
+    """Engine exit 1 with no recorded run/results is a genuine setup/deploy
+    crash: keep the loud engine message (with the log path) as the reason."""
+    from hop3_testlab.worker import EngineExitError
+
+    with _session() as s:
+        p = _profile(s)
+        ServersRepository(s).create(
+            name="docker-local", target_id="docker", kind="docker"
+        )
+        req_id = BuildQueueRepository(s).enqueue(p.id).id
+        s.commit()
+
+    log = tmp_path / "crash.log"
+
+    def _exit1(*_a, **_k):
+        raise EngineExitError(1, log, f"Engine exited 1. See {log}\nABORTED")
+
+    monkeypatch.setattr(dispatcher, "run_blockers", lambda _t, _a: None)
+    monkeypatch.setattr(dispatcher, "run_once", _exit1)
+
+    assert dispatcher.dispatch_once() is True
+    with _session() as s:
+        req = BuildQueueRepository(s).get(req_id)
+        assert req.status == "failed"
+        assert "Engine exited 1" in req.detail  # the loud, log-pointing reason
