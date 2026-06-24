@@ -14,10 +14,12 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from hop3_cli.commands.local.login_cmd import record_server_login
 from hop3_cli.config import Config
 from hop3_cli.core import credential_store as cs
-from hop3_cli.main import _resolve_active_server
+from hop3_cli.exit_codes import ExitCode
+from hop3_cli.main import _require_context_server, _resolve_active_server
 
 ADDR = "ssh://root@prod.example.com"
 
@@ -30,24 +32,71 @@ def _write_toml(text: str) -> None:
     (Path.cwd() / "hop3.toml").write_text(text)
 
 
-# ---- _resolve_active_server (context name -> hop3.toml server) ----
+# ---- _resolve_active_server: context name -> server (project, then global) ----
 
 
 def test_resolve_active_server_from_hop3_toml():
     _write_toml(f'[metadata]\nid="a"\n[contexts.prod]\nserver="{ADDR}"\n')
-    assert _resolve_active_server(_ctx_res("prod")) == ADDR
+    assert _resolve_active_server(_ctx_res("prod"), Config(data={})) == ADDR
+
+
+def test_resolve_active_server_from_global_context():
+    # No project context here; the name resolves from a global config.toml context.
+    cfg = Config(data={"contexts": {"prod": {"server": ADDR}}})
+    assert _resolve_active_server(_ctx_res("prod"), cfg) == ADDR
+
+
+def test_resolve_active_server_project_wins_over_global():
+    _write_toml(f'[metadata]\nid="a"\n[contexts.prod]\nserver="{ADDR}"\n')
+    cfg = Config(data={"contexts": {"prod": {"server": "ssh://global"}}})
+    assert _resolve_active_server(_ctx_res("prod"), cfg) == ADDR  # project first
 
 
 def test_resolve_active_server_none_when_no_context():
-    assert _resolve_active_server(None) is None
-    assert _resolve_active_server(_ctx_res(None)) is None
+    assert _resolve_active_server(None, Config(data={})) is None
+    assert _resolve_active_server(_ctx_res(None), Config(data={})) is None
 
 
 def test_resolve_active_server_unknown_or_serverless():
     _write_toml('[metadata]\nid="a"\n[contexts.prod]\nserver="x"\n')
-    assert _resolve_active_server(_ctx_res("dev")) is None  # not declared
+    assert _resolve_active_server(_ctx_res("dev"), Config(data={})) is None  # unknown
     _write_toml('[metadata]\nid="a"\n[contexts.prod]\napp="a"\n')
-    assert _resolve_active_server(_ctx_res("prod")) is None  # no server field
+    assert (
+        _resolve_active_server(_ctx_res("prod"), Config(data={})) is None
+    )  # no server
+
+
+# ---- _require_context_server: explicit --context must resolve or fail loud ----
+# Regression: `hop3 apps --context prod` used to silently fall back to the default
+# (dev) server while accepting the flag. ADR 042: --context is the one selector
+# for every command; it resolves project-then-global, or the command aborts.
+
+
+def test_require_context_server_resolves_project():
+    _write_toml(f'[metadata]\nid="a"\n[contexts.prod]\nserver="{ADDR}"\n')
+    assert _require_context_server("prod", Config(data={})) == ADDR
+
+
+def test_require_context_server_resolves_global_project_lessly():
+    # The whole point: `hop3 apps --context prod` works with NO project present.
+    cfg = Config(data={"contexts": {"prod": {"server": ADDR}}})
+    assert _require_context_server("prod", cfg) == ADDR
+
+
+def test_require_context_server_undefined_aborts(capsys):
+    with pytest.raises(SystemExit) as exc:
+        _require_context_server("prod", Config(data={}))
+    assert exc.value.code == ExitCode.RESOLUTION_ERROR
+    err = capsys.readouterr().err
+    assert "not defined" in err  # says the name is unknown
+    assert "hop3 context add" in err  # and how to define it
+
+
+def test_require_context_server_lists_known_contexts(capsys):
+    cfg = Config(data={"contexts": {"dev": {"server": "x"}}})
+    with pytest.raises(SystemExit):
+        _require_context_server("prod", cfg)
+    assert "dev" in capsys.readouterr().err  # lists what IS defined
 
 
 # ---- Config honors the active server ----

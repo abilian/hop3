@@ -41,10 +41,14 @@ def test_startup_migration_runs_and_drains_legacy(tmp_path: Path, capsys) -> Non
     run_command_from_args(["version"])
 
     # Stage 1 (r1) drained servers.toml + consolidated into config.toml; stage 2
-    # (r2) then drained the tokens to the store and left config.toml secret-free.
+    # (r2) drained the tokens to the store and kept the named contexts address-only
+    # (so `--context prod` still selects them — ADR 042 unified model).
     assert not (cfgdir / "servers.toml").exists()
     cfg = tomllib.loads((cfgdir / "config.toml").read_text())
-    assert "contexts" not in cfg
+    # contexts kept, but address-only (no token / no api_token in config.toml).
+    assert cfg["contexts"]["prod"] == {"server": "https://p"}
+    assert cfg["contexts"]["dev"] == {"server": "https://d"}
+    assert "token" not in cfg["contexts"]["prod"]
     assert cs.get_token("https://p") == "T"
     assert cs.get_token("https://d") == "D"
     err = capsys.readouterr().err
