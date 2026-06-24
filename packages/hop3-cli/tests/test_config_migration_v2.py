@@ -67,11 +67,15 @@ def test_drains_tokens_leaves_secret_free():
     assert cs.get_token("https://dev.example.com") == "eyJdev"
 
     cfg = tomllib.loads(_config_text(d))
-    assert "contexts" not in cfg
-    assert "current_context" not in cfg
+    # Named contexts KEPT, but address-only (ADR 042 unified model) — so
+    # `--context prod` still selects them. No token anywhere in the file.
+    assert cfg["contexts"]["prod"] == {"server": "ssh://root@prod.example.com"}
+    assert cfg["contexts"]["dev"] == {"server": "https://dev.example.com"}
+    assert "current_context" not in cfg.get("cli", {})
     assert "eyJ" not in _config_text(d)  # no token anywhere in the file
-    # Default-server seeded from the old current-context's address.
-    assert cfg["cli"]["default_server"] == "ssh://root@prod.example.com"
+    assert "protected" not in _config_text(d)  # r1 cruft dropped
+    # Default *context* seeded from the old current-context name.
+    assert cfg["cli"]["default_context"] == "prod"
     assert cfg["theme"] == "dark"  # unrelated prefs preserved
     assert notes
 
