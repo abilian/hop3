@@ -142,20 +142,7 @@ def run_command_from_args(cli_args: list[str]) -> None:
     # the project-mismatch guard, and the deploy preview. Avoids running
     # the git subprocess twice.
     context_resolution, app_resolution = _compute_resolutions(cli_args, flags, config)
-
-    # ADR 042 r2: when a context resolves to a [contexts.<name>].server in the
-    # project hop3.toml, that address is the connection target + token-store key
-    # for this invocation. The connection (url + token) then flows from it via
-    # config.get_api_url()/get_api_token(); legacy config.toml contexts remain
-    # the fallback when no project context resolves.
-    if active_server := _resolve_active_server(context_resolution):
-        config.set_active_server(active_server)
-    elif requires_authentication(cli_args) and (
-        ambient := _resolve_ambient_server(flags, config)
-    ):
-        # ADR 042 r2: project-less commands (hop3 apps outside a project) pick a
-        # server from the ambient chain (--server / default-server / sole store).
-        config.set_active_server(ambient)
+    _wire_active_server(cli_args, flags, config, context_resolution)
 
     if flags.why:
         # Always print the resolution trace to stderr, regardless of verbosity
@@ -274,6 +261,87 @@ def _resolve_active_server(context_resolution) -> str | None:
     if isinstance(block, dict) and isinstance(block.get("server"), str):
         return block["server"]
     return None
+
+
+def _wire_active_server(
+    cli_args: list[str], flags: CliFlags, config: Config, context_resolution
+) -> None:
+    """Set this invocation's active server, the connection target (ADR 042 r2).
+
+    When a context resolves to a ``[contexts.<name>].server`` in the project
+    hop3.toml, that address is the connection target + token-store key; the
+    connection then flows from it via ``config.get_api_url()``/``get_api_token()``.
+    An explicit ``--context`` MUST resolve (or abort loud); otherwise we fall back
+    to the resolved project context, then to the ambient server for project-less
+    commands. Legacy config.toml contexts remain the fallback when nothing here
+    sets an active server.
+    """
+    if flags.context and not flags.why:
+        # An explicit --context MUST resolve to a server. Never silently fall
+        # back to the ambient/default server — that would run the command against
+        # the wrong instance while accepting the flag (fail loud).
+        # (--why is left to print its diagnostic trace instead of hard-exiting.)
+        config.set_active_server(_require_context_server(flags.context))
+    elif active_server := _resolve_active_server(context_resolution):
+        config.set_active_server(active_server)
+    elif requires_authentication(cli_args) and (
+        ambient := _resolve_ambient_server(flags, config)
+    ):
+        # Project-less commands (hop3 apps outside a project) pick a server from
+        # the ambient chain (--server / default-server / sole store).
+        config.set_active_server(ambient)
+
+
+def _require_context_server(name: str) -> str:
+    """Resolve an explicit ``--context <name>`` to its server address, or exit loud.
+
+    ADR 042 r2: a context is a deploy *environment* declared in a project's
+    committed ``hop3.toml`` (`[contexts.<name>]`). When the user passes
+    ``--context <name>`` we MUST honour it — resolving the named context's server
+    — and must NEVER silently fall back to the ambient/default server, which would
+    target the *wrong* instance. Each failure says exactly what's wrong and how to
+    fix it (and, for project-less server targeting, points at ``--server``).
+    """
+    from hop3_cli.core.hop3_toml import first_hop3_toml  # noqa: PLC0415
+
+    path, data = first_hop3_toml(Path.cwd(), Path.home())
+    contexts = data.get("contexts") if isinstance(data, dict) else None
+    contexts = contexts if isinstance(contexts, dict) else {}
+
+    if path is None:
+        print(
+            f"Error: --context {name!r} selects a deploy environment declared in a\n"
+            f"project's hop3.toml, but no hop3.toml was found here or in any parent.\n"
+            f"\nA context is project-scoped now (ADR 042). To target a server directly\n"
+            f"(e.g. for `hop3 apps` / `hop3 system info`), use:\n"
+            f"  hop3 <command> --server <addr>\n"
+            f"Or run from inside a project whose hop3.toml declares [contexts.{name}].",
+            file=sys.stderr,
+        )
+        sys.exit(ExitCode.RESOLUTION_ERROR)
+
+    block = contexts.get(name)
+    if not isinstance(block, dict):
+        declared = ", ".join(sorted(contexts)) or "(none declared)"
+        print(
+            f"Error: context {name!r} is not declared in {path}.\n"
+            f"  Declared contexts: {declared}\n"
+            f"  Add one with: hop3 context add {name} --server <addr>",
+            file=sys.stderr,
+        )
+        sys.exit(ExitCode.RESOLUTION_ERROR)
+
+    server = block.get("server")
+    if not isinstance(server, str) or not server:
+        print(
+            f"Error: context {name!r} in {path} declares no `server` address.\n"
+            f'  Add `server = "ssh://root@host"` to [contexts.{name}],\n'
+            f"  or target a server directly with --server <addr>.",
+            file=sys.stderr,
+        )
+        sys.exit(ExitCode.RESOLUTION_ERROR)
+
+    return server
 
 
 def _resolve_ambient_server(flags: CliFlags, config: Config) -> str | None:
