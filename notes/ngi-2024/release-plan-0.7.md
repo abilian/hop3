@@ -146,7 +146,7 @@ Each item below is an NGI deliverable that is not a blocker for the 0.7 tag and 
 
 ### Benchmarks + final paper (M5.3) — 0.7.x, next week
 
-Plan at `local-notes/plans/05-paper-benchmarks.md`. This is the longest single chain (harness → measurements → write-up, ~8–9 days) and is explicitly scheduled for the week after the 0.7 cut.
+Plan at the paper benchmarks plan. This is the longest single chain (harness → measurements → write-up, ~8–9 days) and is explicitly scheduled for the week after the 0.7 cut.
 
 - [ ] Comparison baseline (Dokku + K3s, or Docker Compose + bare uWSGI)
 - [ ] B1 control-plane memory (0/10/28 apps); B2 deployment latency by build strategy; B3 Nix closure vs Docker image size; B4 cold-start latency; B5 bit-for-bit reproducibility across rebuilds
@@ -196,7 +196,7 @@ The 0.7 cut ships a deliberately minimal, experimental email addon (above). The 
 
 ### Migration series (T5) — 0.7.x
 
-- [ ] Publish the 21 drafted "migrating from X" posts (`local-notes/blog/`) on a staggered schedule
+- [ ] Publish the 21 drafted "migrating from X" posts on a staggered schedule
 
 ### Final NGI report
 

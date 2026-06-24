@@ -1,9 +1,9 @@
 # ADR 006: Nix Integration with Hop3
 
-**Status**: Accepted
-**Type**: Feature
-**Created**: 2024-07-17
-**Related-ADRs**: 007, 008, 009, 020, 022, 030, 031, 032, 035
+- **Status**: Accepted
+- **Type**: Feature
+- **Created**: 2024-07-17
+- **Related-ADRs**: 007, 008, 009, 020, 022, 030, 031, 032, 035
 
 ## Context
 

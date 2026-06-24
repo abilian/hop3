@@ -1,9 +1,9 @@
 # ADR 041: Privileged Operations Agent (hop3-rootd)
 
-**Status**: Accepted
-**Type**: Architecture
-**Created**: 2026-04-24
-**Related-ADRs**: 010 (security and resilience), 017 (agent-based architecture), 020 (pluggable architecture), 036 (CLI ergonomics), 040 (network firewall and per-app port exposure), 045 (fixed-port registry — the `[[ports]]` mechanism that drives rootd's firewall ops), 046 (declarative app resources — the cgroup/mount ops)
+- **Status**: Accepted
+- **Type**: Architecture
+- **Created**: 2026-04-24
+- **Related-ADRs**: 010 (security and resilience), 017 (agent-based architecture), 020 (pluggable architecture), 036 (CLI ergonomics), 040 (network firewall and per-app port exposure), 045 (fixed-port registry — the `[[ports]]` mechanism that drives rootd's firewall ops), 046 (declarative app resources — the cgroup/mount ops)
 
 ## Context
 

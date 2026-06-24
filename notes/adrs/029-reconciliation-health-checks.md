@@ -1,9 +1,9 @@
 # ADR 029: Application Reconciliation and Health Check System
 
-**Status**: Accepted
-**Type**: Feature
-**Created**: 2025-11-25
-**Related-ADRs**: 017, 036
+- **Status**: Accepted
+- **Type**: Feature
+- **Created**: 2025-11-25
+- **Related-ADRs**: 017, 036
 
 ## Introduction
 

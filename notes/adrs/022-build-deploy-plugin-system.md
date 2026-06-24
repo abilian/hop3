@@ -1,9 +1,9 @@
 # ADR 022: Build and Deployment Plugin System
 
-**Status**: Final
-**Type**: Feature
-**Created**: 2024-10-01
-**Related-ADRs**: 020, 021, 030, 032, 033, 034, 035
+- **Status**: Final
+- **Type**: Feature
+- **Created**: 2024-10-01
+- **Related-ADRs**: 020, 021, 030, 032, 033, 034, 035
 
 ## Context
 

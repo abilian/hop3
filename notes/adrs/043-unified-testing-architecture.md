@@ -1,11 +1,11 @@
 # ADR 043: Unified Testing Architecture
 
-**Status**: Accepted
-**Type**: Process
-**Created**: 2026-06-05
-**Supersedes**: ADR 026 (Dashboard UI Test Classification)
-**Related-ADRs**: 004 (development-tooling), 027 (config-system-refactoring-for-testability), 030 (two-level-build-architecture), 041 (privileged-operations-agent)
-**Related-notes**: `notes/v0.6-rootd-hardening.md`, `docs/src/dev/testing-strategy.md`
+- **Status**: Accepted
+- **Type**: Process
+- **Created**: 2026-06-05
+- **Supersedes**: ADR 026 (Dashboard UI Test Classification)
+- **Related-ADRs**: 004 (development-tooling), 027 (config-system-refactoring-for-testability), 030 (two-level-build-architecture), 041 (privileged-operations-agent)
+- **Related-notes**: `notes/v0.6-rootd-hardening.md`, `docs/src/dev/testing-strategy.md`
 
 ## Context
 

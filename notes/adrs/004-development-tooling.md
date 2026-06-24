@@ -1,8 +1,8 @@
 # ADR 004: Development Tooling
 
-**Status**: Active
-**Type**: Process
-**Created**: 2025-10-08
+- **Status**: Active
+- **Type**: Process
+- **Created**: 2025-10-08
 
 ## Summary
 

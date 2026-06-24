@@ -1,10 +1,10 @@
 # ADR 042: CLI Context Model — Context = Deploy Environment
 
-**Status**: Accepted
-**Type**: Feature
-**Created**: 2026-05-30
-**Updated**: 2026-06-24
-**Related-ADRs**: 014, 018, 019, 025, 031, 036, 047
+- **Status**: Accepted
+- **Type**: Feature
+- **Created**: 2026-05-30
+- **Updated**: 2026-06-24
+- **Related-ADRs**: 014, 018, 019, 025, 031, 036, 047
 
 > **Revised twice.** The original split deploy targets into a global *server*
 > (connection) and a project-scoped *context*. The first revision collapsed both

@@ -1,9 +1,9 @@
 # ADR 013: Software Supply Chain Security and SBOMs
 
-**Status**: Accepted
-**Type**: Feature
-**Created**: 2024-07-17
-**Related-ADRs**: 006, 008, 010
+- **Status**: Accepted
+- **Type**: Feature
+- **Created**: 2024-07-17
+- **Related-ADRs**: 006, 008, 010
 
 ## Context and Goals
 

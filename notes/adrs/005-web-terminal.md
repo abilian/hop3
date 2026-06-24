@@ -1,8 +1,8 @@
 # ADR 005: Web Terminal for Application Management
 
-**Status**: Deferred
-**Type**: Feature
-**Created**: 2025-01-23
+- **Status**: Deferred
+- **Type**: Feature
+- **Created**: 2025-01-23
 
 ## Rationale for Deferral
 
