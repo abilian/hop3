@@ -1,9 +1,9 @@
 # ADR 034: Streaming Deployment Logs
 
-**Status**: Final
-**Type**: Feature
-**Created**: 2025-12-15
-**Related-ADRs**: 018, 022, 025
+- **Status**: Final
+- **Type**: Feature
+- **Created**: 2025-12-15
+- **Related-ADRs**: 018, 022, 025
 
 ## Context
 

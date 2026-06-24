@@ -109,7 +109,7 @@ The beta runs end to end for the 34 + 31 Nix apps. 0.7 closes only what is *actu
 
 ### Upgrade mechanism (M3.2) — confirm scope
 
-Hop3-server's own Alembic schema migrations exist and work (they run on upgrade; the venv is preserved; pre-Alembic databases are adopted). The annex deliverable is "seamless platform *and application* updates with safe data migrations." Open question: what, beyond the working migrations, is genuinely required? Candidate scope below — confirm before building, as part of this may already be satisfied by migrations + redeploy.
+Hop3-server's own Alembic schema migrations exist and work (they run on upgrade; the venv is preserved; pre-Alembic databases are adopted). The annex deliverable is "seamless platform *and application* updates with safe data migrations." Open question: what, beyond the working migrations, is required? Candidate scope below — confirm before building, as part of this may already be satisfied by migrations + redeploy.
 
 - [ ] Confirm whether a production `hop3 server upgrade` (pull + migrate + restart) is needed beyond the current path -> OK for "hop3 server upgrade". This assumes admin right. Non-admin users can't run this command.
 - [ ] Confirm whether app-level upgrade orchestration is more than the existing redeploy -> YES. Upgrading could mean: (1) backup data, (2) backup code, (3) upgrade and run the upgrade script (app-specific - like "alembic upgrade head"), (4) rollback in case of an error, (5) allow the operator to rollback to the previous state (using the backups) using the CLI or the Web UI.
@@ -127,7 +127,7 @@ The deliverable was two narrated walkthroughs; it is now massively over-delivere
 
 ### Pin nixpkgs — the reproducibility quick win (M1/M2)
 
-NLNet/NGI fund reproducibility/sovereignty work and will inspect the Nix implementation closely. Today every expression uses the unpinned `import <nixpkgs> {}` against a moving channel, so builds are not reproducible across hosts/dates. Pinning nixpkgs is cheap and is the single highest-value reproducibility win — so it lands in the 0.7 cut; the deeper hermetic-build work is 0.7.x (see below).
+NLNet/NGI fund reproducibility/sovereignty work and will inspect the Nix implementation closely. Before this cut, every expression used the unpinned `import <nixpkgs> {}` against a moving channel, so builds were not reproducible across hosts/dates. Pinning nixpkgs is cheap and was the single highest-value reproducibility win — so it landed in the 0.7 cut (done below); the deeper hermetic-build work is 0.7.x.
 
 - [x] Ship one in-tree pinned nixpkgs input — a pinned rev + sha256 (`fetchTarball`) lives in the nix-gen `templates/base.py` (`NIXPKGS_REV` / `NIXPKGS_SHA256` / `PINNED_NIXPKGS_HEADER`), updatable in one place.
 - [x] The generator emits the pinned import — all 9 nix-gen templates render `import (fetchTarball {…}) {}` instead of `<nixpkgs>` (one shared pin in `templates/base.py`), verified via `nix-instantiate`; nix-gen tests + full gate green.
@@ -142,11 +142,11 @@ NLNet/NGI fund reproducibility/sovereignty work and will inspect the Nix impleme
 
 ## Deferred to 0.7.x (following weeks)
 
-Each item below is an NGI deliverable that is genuinely not a blocker for the 0.7 tag and finishes in a near-term point release, with a documented disposition.
+Each item below is an NGI deliverable that is not a blocker for the 0.7 tag and finishes in a near-term point release, with a documented disposition.
 
 ### Benchmarks + final paper (M5.3) — 0.7.x, next week
 
-Plan at `local-notes/plans/05-paper-benchmarks.md`. This is the longest single chain (harness → measurements → write-up, ~8–9 days) and is explicitly scheduled for the week after the 0.7 cut.
+Plan at the paper benchmarks plan. This is the longest single chain (harness → measurements → write-up, ~8–9 days) and is explicitly scheduled for the week after the 0.7 cut.
 
 - [ ] Comparison baseline (Dokku + K3s, or Docker Compose + bare uWSGI)
 - [ ] B1 control-plane memory (0/10/28 apps); B2 deployment latency by build strategy; B3 Nix closure vs Docker image size; B4 cold-start latency; B5 bit-for-bit reproducibility across rebuilds
@@ -196,7 +196,7 @@ The 0.7 cut ships a deliberately minimal, experimental email addon (above). The 
 
 ### Migration series (T5) — 0.7.x
 
-- [ ] Publish the 21 drafted "migrating from X" posts (`local-notes/blog/`) on a staggered schedule
+- [ ] Publish the 21 drafted "migrating from X" posts on a staggered schedule
 
 ### Final NGI report
 

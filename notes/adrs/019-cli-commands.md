@@ -1,9 +1,10 @@
 # ADR 019: Basic Commands for the Hop3 Command-Line
 
-**Status**: Accepted
-**Type**: Feature
-**Created**: 2024-07-17
-**Related-ADRs**: 018, 025, 031, 036
+- **Status**: Accepted
+- **Type**: Feature
+- **Created**: 2024-07-17
+- **Updated**: 2026-06-23
+- **Related-ADRs**: 018, 025, 031, 036, 042
 
 ## Command surface
 
@@ -71,7 +72,7 @@ The Hop3 CLI will implement a set of commands categorized into Authentication, C
 - `hop3 login`: Log in to the Hop3 server.
 - `hop3 logout`: Log out from the Hop3 server.
 
-Credentials are stored in `~/.hop3/credentials.toml` or similar, and may also be provided by environment variables (e.g., `HOP3_TOKEN`, `HOP3_LOGIN`, `HOP3_PASSWORD`, `HOP3_SERVER_URI`).
+Credentials are stored in `~/.config/hop3-cli/config.toml`, and may also be provided by environment variables (`HOP3_API_TOKEN`, `HOP3_API_URL`). *(Updated 2026-06-23: the original sketch named `~/.hop3/credentials.toml` and illustrative `HOP3_TOKEN`/`HOP3_SERVER_URI` vars; corrected to the implemented location and variables — see [ADR 042](042-cli-context-model.md).)*
 
 ### Development
 

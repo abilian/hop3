@@ -33,11 +33,21 @@ def test_read_overlay_missing_file_returns_empty(tmp_path: Path) -> None:
 
 
 def test_read_overlay_finds_in_cwd(tmp_path: Path) -> None:
-    """A .hop3-local.toml in CWD is read."""
+    """A .hop3-local.toml in CWD is read (legacy [current] key — read-tolerance)."""
     (tmp_path / LOCAL_OVERLAY_FILENAME).write_text('[current]\ncontext = "dev"\n')
     overlay = read_overlay(cwd=tmp_path, home=tmp_path)
     assert overlay.path == tmp_path / LOCAL_OVERLAY_FILENAME
     assert overlay.current_context == "dev"
+
+
+def test_read_overlay_canonical_local_key(tmp_path: Path) -> None:
+    """ADR 042 r2: the canonical key is [local].context; it wins over a stale
+    legacy [current] if both are present."""
+    (tmp_path / LOCAL_OVERLAY_FILENAME).write_text(
+        '[current]\ncontext = "stale"\n[local]\ncontext = "prod"\n'
+    )
+    overlay = read_overlay(cwd=tmp_path, home=tmp_path)
+    assert overlay.current_context == "prod"
 
 
 def test_read_overlay_walks_up_to_home(tmp_path: Path) -> None:

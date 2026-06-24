@@ -49,7 +49,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECRET_KEY: a dev-insecure fallback keeps `migrate` and the very first deploy
+# SECRET_KEY: a dev-insecure fallback keeps `migrate` and the first deploy
 # working before any secrets are set. Override it in production with
 # `hop3 config set --app <app> SECRET_KEY=...` (see the deploy step below).
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-only-change-me')

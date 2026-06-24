@@ -74,11 +74,20 @@ def _declared_hosts(data: Mapping) -> Iterator[str]:
         yield from _as_str_list(domains.get("list"))
         yield from _as_str_list(domains.get("hosts"))
 
-    contexts = data.get("context")
+    # ADR 042 r2: per-environment contexts live under the plural `contexts` key,
+    # and a context's domains use the same [domains] shape (a `list`/`hosts`
+    # table) — so they must run the same host-safety checks as top-level domains.
+    contexts = data.get("contexts")
     if isinstance(contexts, Mapping):
         for ctx in contexts.values():
-            if isinstance(ctx, Mapping):
-                yield from _as_str_list(ctx.get("domains"))
+            if not isinstance(ctx, Mapping):
+                continue
+            dom = ctx.get("domains")
+            if isinstance(dom, Mapping):
+                yield from _as_str_list(dom.get("list"))
+                yield from _as_str_list(dom.get("hosts"))
+            else:
+                yield from _as_str_list(dom)  # tolerate a bare list defensively
 
 
 def _as_str_list(value: object) -> Iterator[str]:

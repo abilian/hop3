@@ -83,10 +83,9 @@ def test_auth_commands_available():
     )
 
     # This is informational - don't fail if auth not available
-    if not (
-        "auth:" in result.stdout
-        or "auth register" in result.stdout
-        or "auth login" in result.stdout
+    if not any(
+        marker in result.stdout
+        for marker in ("auth:", "auth login", "auth get-token", "auth whoami")
     ):
         pytest.skip("Authentication commands not available on server")
 
@@ -124,12 +123,18 @@ def test_auth_register_command():
 
 
 @remote_server_only
-def test_auth_login_command():
-    """Test if auth:login command works."""
+def test_auth_get_token_command():
+    """Test that `auth get-token` verifies credentials and prints a JWT.
+
+    `auth get-token` is the non-interactive primitive behind `hop3 login`: it
+    takes a username + password and prints the bare token (for scripts). The
+    interactive `auth login` / `hop3 login` flow is client-side and prompts, so
+    it can't be exercised non-interactively here.
+    """
     os.environ["HOP3_API_URL"] = f"ssh://{E2E_SERVER}"
 
     result = subprocess.run(
-        ["hop3", "auth", "login", "test-diagnostic-user", "test-pass-12345"],
+        ["hop3", "auth", "get-token", "test-diagnostic-user", "test-pass-12345"],
         check=False,
         capture_output=True,
         text=True,
@@ -147,13 +152,17 @@ def test_auth_login_command():
         pytest.skip("Authentication not enabled on server")
 
     assert result.returncode == 0, (
-        f"auth:login failed (exit code {result.returncode}):\n"
+        f"auth get-token failed (exit code {result.returncode}):\n"
         f"stdout: {result.stdout[:200]}\n"
         f"stderr: {result.stderr[:200]}"
     )
-    # Check for either the old format (raw token) or new format (saved token)
-    assert (
-        "Your API token:" in result.stdout
-        or "API token saved to" in result.stdout
-        or "Login successful" in result.stdout
-    ), f"auth:login did not show success:\nstdout: {result.stdout[:200]}"
+    # Output is the bare JWT (header.payload.signature).
+    token = next(
+        (
+            line.strip()
+            for line in result.stdout.splitlines()
+            if line.strip().count(".") == 2 and line.strip().startswith("ey")
+        ),
+        None,
+    )
+    assert token, f"auth get-token did not return a JWT:\nstdout: {result.stdout[:200]}"

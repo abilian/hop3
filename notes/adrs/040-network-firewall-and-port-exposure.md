@@ -1,10 +1,10 @@
 # ADR 040: Network firewall and per-app port exposure
 
-**Status**: Superseded
-**Superseded-By**: ADR 045
-**Type**: Feature
-**Created**: 2026-04-25
-**Related-ADRs**: 010 (security and resilience), 016 (backups), 033 (docker integration), 038 (multi-service apps), 041 (privileged operations agent — supersedes the sudo/wrapper privilege-handling sketched here), 045 (fixed-port registry — the per-app declaration mechanism that actually shipped)
+- **Status**: Superseded
+- **Superseded-By**: ADR 045
+- **Type**: Feature
+- **Created**: 2026-04-25
+- **Related-ADRs**: 010 (security and resilience), 016 (backups), 033 (docker integration), 038 (multi-service apps), 041 (privileged operations agent — supersedes the sudo/wrapper privilege-handling sketched here), 045 (fixed-port registry — the per-app declaration mechanism that actually shipped)
 
 The per-app port-exposure design shipped as `[[ports]]` (ADR 045); the L7 WAF half is ADR 050; the installer platform-firewall baseline and the Docker port-publishing rework remain open follow-ups (tracked in the release plan).
 

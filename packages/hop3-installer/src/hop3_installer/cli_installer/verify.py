@@ -49,7 +49,7 @@ def print_final_message(bin_dir: Path, *, path_is_active: bool) -> None:
     print(f"  {Colors.BOLD}Get started:{Colors.RESET}")
     if path_is_active:
         print("    hop3 --help           Show available commands")
-        print("    hop3 auth login       Log in to your Hop3 server")
+        print("    hop3 login            Log in to your Hop3 server")
     else:
         # Show full path since hop3 isn't in PATH yet
         print(f"    {bin_dir}/hop3 --help")

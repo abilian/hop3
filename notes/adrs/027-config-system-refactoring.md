@@ -1,9 +1,9 @@
 # ADR 027: Configuration System Refactoring for Testability
 
-**Status**: Final
-**Type**: Feature
-**Created**: 2025-11-20
-**Related-ADRs**: 001, 002, 003
+- **Status**: Final
+- **Type**: Feature
+- **Created**: 2025-11-20
+- **Related-ADRs**: 001, 002, 003
 
 ## Introduction
 
@@ -63,8 +63,7 @@ class App:
 
 5. **Unclear Dependencies**: Hard to see what config values a component depends on
 
-6. **Testing Anti-Pattern**: The test migration in ADR 026 highlighted this:
-   > "I don't like monkeypatching the environment. Can we think of something more elegant?"
+6. **Testing Anti-Pattern**: The test migration in ADR 026 highlighted this: > "I don't like monkeypatching the environment. Can we think of something more elegant?"
 
 ### Goals
 
@@ -653,7 +652,7 @@ class Container(containers.DeclarativeContainer):
     app_service = providers.Factory(AppService, config=config)
 ```
 
-**Pros**: Industry standard, very flexible
+**Pros**: Industry standard, highly flexible
 **Cons**: Heavy dependency, steep learning curve, over-engineered for our needs
 
 **Rejected**: Too complex for Hop3's needs

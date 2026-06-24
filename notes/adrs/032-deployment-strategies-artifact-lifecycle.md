@@ -1,9 +1,9 @@
 # ADR 032: Deployment Strategies and Artifact Lifecycle
 
-**Status**: Accepted
-**Type**: Feature
-**Created**: 2025-12-03
-**Related-ADRs**: 022, 030, 031, 035, 036
+- **Status**: Accepted
+- **Type**: Feature
+- **Created**: 2025-12-03
+- **Related-ADRs**: 022, 030, 031, 035, 036
 
 ## Context
 

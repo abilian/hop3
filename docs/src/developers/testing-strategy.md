@@ -76,7 +76,7 @@ A test's layer is decided by **what it needs** — Docker, root, or host-mutatio
 **Purpose**: Test individual functions and classes in complete isolation.
 
 **Characteristics**:
-- Very fast execution (< 1 second total)
+- Fast execution (< 1 second total)
 - No external dependencies (uses in-memory SQLite for database)
 - Test business logic and service behavior
 - Use dependency injection fixtures for services
@@ -131,9 +131,9 @@ def test_auth_login_flow(client, db):
     })
     assert response.status_code == 200
 
-    # Login
+    # Mint a token
     response = client.post("/rpc", json={
-        "method": "auth login",
+        "method": "auth get-token",
         "params": {"username": "test", "password": "secret123"}
     })
     assert response.status_code == 200

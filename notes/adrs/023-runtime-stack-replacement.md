@@ -1,9 +1,9 @@
 # ADR 023: Runtime Stack Replacement
 
-**Status**: Draft
-**Type**: Feature
-**Created**: 2024-11-01
-**Related-ADRs**: 021, 036
+- **Status**: Draft
+- **Type**: Feature
+- **Created**: 2024-11-01
+- **Related-ADRs**: 021, 036
 
 ## Introduction
 

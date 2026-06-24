@@ -32,7 +32,8 @@ def test_wildcard_host_rejected():
 
 
 def test_catch_all_in_context_rejected():
-    spec = {"context": {"prod": {"domains": ["_"]}}}
+    # ADR 042 r2: plural `contexts` key, domains in the [domains].list shape.
+    spec = {"contexts": {"prod": {"domains": {"list": ["_"]}}}}
     with pytest.raises(CatalogSpecError, match="catch-all"):
         validate_catalog_spec(spec, "x")
 

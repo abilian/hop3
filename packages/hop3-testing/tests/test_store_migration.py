@@ -167,7 +167,8 @@ def test_save_records_test_path_for_variant_derivation(tmp_path: Path) -> None:
     store.save(result)
 
     (path,) = (
-        sqlite3.connect(db)
+        sqlite3
+        .connect(db)
         .execute("SELECT test_path FROM test_results WHERE test_name = 'bugsink'")
         .fetchone()
     )

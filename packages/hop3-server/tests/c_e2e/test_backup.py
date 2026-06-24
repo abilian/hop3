@@ -22,8 +22,8 @@ appends a timestamp to the name to avoid cross-test collisions.
 
 Each test exercises one CLI flow end-to-end against the deployed app:
 
-  - `hop3 backup create <app>` returns a backup_id (extracted from
-    stdout via `extract_backup_id`).
+  - `hop3 backup create --app <app>` returns a backup_id (extracted
+    from stdout via `extract_backup_id`).
   - `hop3 backup list --json` returns a structured table of backups
     (parsed via `find_json_table` / `backup_in_table`).
   - `hop3 backup info <id>` shows the manifest, including env-var
@@ -84,7 +84,9 @@ class TestBackupRestoreE2E:
             assert session.check_deployed(), "App not properly deployed"
 
             # Create backup
-            result = deployment_target.run_command("backup", "create", session.app_name)
+            result = deployment_target.run_command(
+                "backup", "create", "--app", session.app_name
+            )
             assert result.success, f"Backup creation failed: {result.stderr}"
             assert "Backup created successfully!" in result.stdout
 
@@ -125,12 +127,14 @@ class TestBackupRestoreE2E:
 
             # Set environment variable
             result = deployment_target.run_command(
-                "config", "set", session.app_name, "SECRET_KEY=my-secret-value"
+                "config", "set", "--app", session.app_name, "SECRET_KEY=my-secret-value"
             )
             assert result.success, f"Failed to set env var: {result.stderr}"
 
             # Create backup
-            result = deployment_target.run_command("backup", "create", session.app_name)
+            result = deployment_target.run_command(
+                "backup", "create", "--app", session.app_name
+            )
             assert result.success
 
             backup_id = extract_backup_id(result.stdout)
@@ -150,7 +154,9 @@ class TestBackupRestoreE2E:
             session.deploy()  # Raises DeploymentError on failure
 
             # Create backup
-            result = deployment_target.run_command("backup", "create", session.app_name)
+            result = deployment_target.run_command(
+                "backup", "create", "--app", session.app_name
+            )
             assert result.success
 
             backup_id = extract_backup_id(result.stdout)
@@ -184,7 +190,9 @@ def index():
             session.deploy()  # Raises DeploymentError on failure
 
             # Create backup
-            result = deployment_target.run_command("backup", "create", session.app_name)
+            result = deployment_target.run_command(
+                "backup", "create", "--app", session.app_name
+            )
             assert result.success
 
             backup_id = extract_backup_id(result.stdout)
@@ -215,7 +223,7 @@ def index():
                 session.deploy()  # Raises DeploymentError on failure
 
                 result = deployment_target.run_command(
-                    "backup", "create", session.app_name
+                    "backup", "create", "--app", session.app_name
                 )
                 assert result.success
 
@@ -245,7 +253,9 @@ def index():
             session.deploy()  # Raises DeploymentError on failure
 
             # Create backup
-            result = deployment_target.run_command("backup", "create", session.app_name)
+            result = deployment_target.run_command(
+                "backup", "create", "--app", session.app_name
+            )
             assert result.success
 
             backup_id = extract_backup_id(result.stdout)
@@ -307,7 +317,9 @@ conn.close()""",
             assert result.success, f"Failed to attach PostgreSQL: {result.stderr}"
 
             # Create backup (should include PostgreSQL dump)
-            result = deployment_target.run_command("backup", "create", session.app_name)
+            result = deployment_target.run_command(
+                "backup", "create", "--app", session.app_name
+            )
             assert result.success
 
             backup_id = extract_backup_id(result.stdout)

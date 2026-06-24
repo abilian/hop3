@@ -1,6 +1,6 @@
 # Tutorial: Deploy a Flask App with Nix
 
-This tutorial walks you through deploying a Flask application on Hop3 using Nix for a fully reproducible build. By the end, you'll have a working web app where every dependency — from Python to Gunicorn — is pinned by Nix.
+This tutorial walks you through deploying a Flask application on Hop3 using Nix. Hop3 pins nixpkgs to a specific commit (nixos-24.11) so the toolchain is reproducible across machines and dates. By the end, you'll have a working web app where every dependency — from Python to Gunicorn — comes from that pinned nixpkgs. Because this example sources Flask and Gunicorn from nixpkgs (via `python3.withPackages`), those packages are pinned too; templates that instead run pip / npm or fetch upstream binaries at build time are not bit-for-bit reproducible.
 
 ## Prerequisites
 
@@ -42,10 +42,13 @@ def health():
 Create `hop3.nix`:
 
 ```nix
-{ pkgs ? import <nixpkgs> {} }:
+{ pkgs ? import (fetchTarball {
+  url = "https://github.com/NixOS/nixpkgs/archive/50ab793786d9de88ee30ec4e4c24fb4236fc2674.tar.gz";
+  sha256 = "1s2gr5rcyqvpr58vxdcb095mdhblij9bfzaximrva2243aal3dgx";
+}) {} }:
 
 let
-  # Define our Python environment with exact packages
+  # Define our Python environment with exact packages, drawn from the pinned nixpkgs above
   pythonEnv = pkgs.python3.withPackages (ps: with ps; [
     flask
     gunicorn
@@ -200,7 +203,7 @@ database_url = os.environ.get("DATABASE_URL")
 |--------|-------------------|-----|
 | Dependencies | `requirements.txt` | `hop3.nix` (nixpkgs) |
 | Build tool | pip in virtualenv | nix-build |
-| Reproducibility | Depends on PyPI state | Fully deterministic |
+| Reproducibility | Depends on PyPI state | Reproducible (toolchain pinned via nixpkgs) |
 | Build speed | Fast (pip cache) | Slower first build, cached after |
 | Configuration | Automatic detection | Explicit `hop3.nix` |
 

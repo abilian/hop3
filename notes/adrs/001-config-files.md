@@ -1,9 +1,9 @@
 # ADR 001: Config Files for Hop3
 
-**Status**: Accepted
-**Type**: Feature
-**Created**: 2024-07-17
-**Related-ADRs**: 002, 003
+- **Status**: Accepted
+- **Type**: Feature
+- **Created**: 2024-07-17
+- **Related-ADRs**: 002, 003
 
 ## Summary
 

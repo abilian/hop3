@@ -10,7 +10,7 @@ so the set of movie links can be reported to NGI/NLNet (deliverable M5.6).
 
 This records against a server you set up yourself (e.g. hop3-dev.abilian.com).
 It never reinstalls hop3 per screencast: demos run with `--skip-install`, and
-tutorials target the existing server via the `hop3` CLI (HOP3_SERVER /
+tutorials target the existing server via the `hop3` CLI (HOP3_API_URL /
 HOP3_TEST_DOMAIN). You install hop3 on the server once; this just runs and
 records each demo/tutorial against it.
 
@@ -108,12 +108,12 @@ def discover_demos(
 def discover_tutorials(*, host: str, domain: str) -> list[Item]:
     """Each `docs/tutorials/<lang>/*.md` (except index.md) is one tutorial.
 
-    Tutorials deploy to the existing server via the `hop3` CLI; HOP3_SERVER and
-    HOP3_TEST_DOMAIN point them at it. No install happens here.
+    Tutorials deploy to the existing server via the `hop3` CLI; HOP3_API_URL
+    (an SSH-tunnel URL) and HOP3_TEST_DOMAIN point them at it. No install here.
     """
     env: dict[str, str] = {}
     if host:
-        env["HOP3_SERVER"] = host
+        env["HOP3_API_URL"] = f"ssh://root@{host}"
     if domain:
         env["HOP3_TEST_DOMAIN"] = domain
 
@@ -271,7 +271,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--host", default="",
                         help="server already running hop3 (e.g. hop3-dev.abilian.com); "
                              "demos run against it with --skip-install, tutorials via "
-                             "HOP3_SERVER")
+                             "HOP3_API_URL (ssh://root@<host>)")
     parser.add_argument("--domain", default="",
                         help="app domain for tutorials (HOP3_TEST_DOMAIN) and the demo "
                              "admin UI; defaults to --host")
@@ -388,7 +388,7 @@ def _self_test() -> int:
     # No reinstall: demo commands must carry --skip-install and the host.
     assert all("--skip-install" in i.command and "--host srv" in i.command for i in demos)
     # Tutorials must target the server via env, not a reinstall.
-    assert all(i.env.get("HOP3_SERVER") == "srv" for i in tuts)
+    assert all(i.env.get("HOP3_API_URL") == "ssh://root@srv" for i in tuts)
     assert all(i.env.get("HOP3_TEST_DOMAIN") == "dom" for i in tuts)
     print(f"self-test OK ({len(demos)} demos, {len(tuts)} tutorials discovered)")
     return 0

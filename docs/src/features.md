@@ -141,7 +141,9 @@ See the [Configuration Reference](reference/config.md) for full documentation.
 - Debian 12 (Bookworm) - Recommended
 - Ubuntu 24.04 LTS, 26.04 LTS
 - Rocky Linux 9
-- NixOS (experimental)
+- NixOS (experimental — via the Nix flake / `services.hop3` module)
+
+On the distros above, hop3-server is installed by the standard installer; on NixOS it is deployed via the Nix flake and the `services.hop3` NixOS module. (Separately, the Nix package manager is also available as an app *builder* on any supported host.)
 
 ### Single-Server Architecture
 

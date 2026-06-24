@@ -42,10 +42,11 @@ def test_401_error_message():
 
     # Check that the error message is helpful
     assert "Authentication required" in response.message
-    assert "hop auth login" in response.message
+    assert "hop3 login" in response.message
+    # ...and points scripts at the non-interactive token command.
+    assert "get-token" in response.message
     # Self-registration isn't offered — accounts are created by an admin (hop3 user add).
     assert "register" not in response.message
-    assert "config.toml" in response.message or "HOP3_API_TOKEN" in response.message
 
 
 def test_other_http_errors():

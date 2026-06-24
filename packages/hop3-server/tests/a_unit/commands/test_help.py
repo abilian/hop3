@@ -237,7 +237,7 @@ def test_help_all_verbose_aggregates_full_help():
     assert "Part of: hop" in text
     # Spot-check that specific top-level and namespaced commands are present
     # as full-help headers.
-    for header in ("hop deploy —", "hop env set —", "hop auth login —"):
+    for header in ("hop deploy —", "hop env set —", "hop auth get-token —"):
         assert header in text, header
 
 

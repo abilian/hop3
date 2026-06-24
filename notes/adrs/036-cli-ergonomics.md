@@ -1,11 +1,12 @@
 # ADR 036: CLI Ergonomics and Command Surface
 
-**Status**: Accepted
-**Type**: Design
-**Created**: 2026-03-05
-**Related-ADRs**: 018, 019, 025, 031, 039, 042
+- **Status**: Accepted
+- **Type**: Design
+- **Created**: 2026-03-05
+- **Updated**: 2026-06-24
+- **Related-ADRs**: 018, 019, 025, 031, 039, 042
 
-The app-resolution chain (D7) and sticky-context state (D8) are superseded by [ADR 042](042-cli-context-model.md): "context" names a project environment and "server" the credentialed binding, and the resolution chains are redefined there. The body of D7/D8 is retained for the record, with in-section supersession notes. All other decisions remain authoritative.
+The app-resolution chain (D7) and sticky-context state (D8) are superseded by [ADR 042](042-cli-context-model.md). Under ADR 042's second revision a *context* is a per-project deploy **environment** declared in the project's committed `hop3.toml` as `[contexts.<name>]` (server address + app + domains + non-secret env); the global `config.toml [contexts.*]` connection model was retired, `config.toml` holds no contexts (only prefs/aliases and an optional default-server address), and the per-server token lives in `~/.config/hop3-cli/credentials.toml`. The per-context `default_app` and the git-remote app source were dropped, and the resolution chains were redefined. The body of D7/D8 is retained for the record, with in-section supersession notes. (Updated for ADR 042 r2 on 2026-06-24; an earlier note here described the r1 "global connection in config.toml" model, which was itself superseded.) All other decisions remain authoritative.
 
 > **Read alongside**: [ADR 031 (Terminology)](./031-project-terminology.md), [ADR 039 (Plugin CLI extension)](../cli/plugin-mechanism-todo.md), and the evidence in [`notes/cli/`](../cli/README.md).
 
@@ -111,13 +112,15 @@ Flags may appear before or after the subcommand. Environment-variable equivalent
 #### D7 — Implicit app resolution
 
 > **Superseded by ADR 042.** The resolution chain is defined in
-> [ADR 042 §Resolution chains](042-cli-context-model.md#resolution-chains).
-> Notable deltas: the legacy `[contexts.*]` blocks in `config.toml` are renamed
-> to `[servers.*]` in `servers.toml`; `[contexts.<name>]` blocks in `hop3.toml`
-> name *project* contexts (an environment/target binding) rather than
-> server records; an eighth source — the server-level `default_app` — sits
-> below the existing seven. The body below is retained for the record;
-> see ADR 042 for the authoritative chain.
+> [ADR 042 §Resolution](042-cli-context-model.md#resolution).
+> Notable deltas: the app now resolves **CWD-rooted** — sources 6 (`default_app`)
+> and 7 (git remote) below are **dropped**, and `hop3 use <app>` writes a
+> `.hop3-app` pin (source 3) instead of a context default. Project-scoped
+> `[contexts.*]` in the committed `hop3.toml` is the source of truth; the r1
+> global `config.toml [contexts.*]` was retired (ADR 042 r2, 2026-06-24). The
+> selected context's app is a *conditionally-trusted* source (ADR 042
+> §Resolution). The body below is retained for the record; see ADR 042 for the
+> authoritative chain.
 
 When a command requires `--app` and none is given, resolve in order:
 
@@ -133,14 +136,16 @@ Unresolvable → fail with the chain printed and a one-line fix suggested.
 
 #### D8 — Sticky state: contexts and default app
 
-> **Superseded by ADR 042.** The vocabulary split below ("context"
-> = server binding) is inverted: under ADR 042, **server records** live in
-> `~/.config/hop3-cli/servers.toml` (managed by `hop3 server`), and **project
-> contexts** are `[contexts.*]` blocks inside each project's `hop3.toml`
-> (managed by `hop3 context` from inside the project tree). The per-server
-> `default_app` survives as the lowest-priority app-resolution source. The
-> per-project context-name selector moves from `.hop3-context` to
-> `.hop3-local.toml [current].context`. Body retained for the record.
+> **Superseded by ADR 042.** Under ADR 042 r2 a **context** is a per-project
+> deploy environment declared in the committed `hop3.toml` as `[contexts.<name>]`
+> (server address + app + domains + non-secret env), managed by `hop3 context`
+> (there is no `hop3 server`, no `servers.toml`, and no per-context `default_app`).
+> The server connection is invisible plumbing: the bearer token lives in
+> `~/.config/hop3-cli/credentials.toml` keyed by server address, and `config.toml`
+> is secret-free (prefs + an optional default-server pointer). `hop3 use <app>`
+> now pins the app for the current directory by writing `.hop3-app`. The
+> per-checkout context selector is `.hop3-local.toml [local].context`
+> (`.hop3-context` was retired). Body retained for the record.
 
 - **Active context** lives in `~/.config/hop3-cli/state.toml` (XDG). Set via `hop3 context use <name>`. Overridable per-shell by `HOP3_CONTEXT`, per-project by `hop3.toml [cli].context`.
 - **Context's default app** lives in the same file under `[contexts.<name>].default_app`. `hop3 use <app>` is sugar for setting the current context's default app.

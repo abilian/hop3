@@ -2,21 +2,23 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""`hop3 use` — set / show / clear the current context's default app.
+"""`hop3 use` — pin / show / clear the app for the current directory.
 
-Per ADR 036 D7/D8, `hop3 use <app>` is sugar for setting the active context's
-`default_app`, which then acts as source #5 of the implicit-app chain
-(see `hop3_cli.core.resolution`).
+Per ADR 042 the app resolves from the CWD only. `hop3 use <app>` writes a
+`.hop3-app` file in the current directory (app-resolution source #4 in
+`hop3_cli.core.resolution`); `--clear` removes it. There is no per-context
+default app anymore.
 
 Usage:
-    hop3 use <app>        Set the current context's default app.
+    hop3 use <app>        Pin <app> for this directory (writes .hop3-app).
     hop3 use              Show the currently resolved app and its source.
-    hop3 use --clear      Clear the default app for the current context.
+    hop3 use --clear      Remove the .hop3-app pin for this directory.
 """
 
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3_cli.core.resolution import resolve_app
@@ -24,6 +26,8 @@ from hop3_cli.core.resolution import resolve_app
 if TYPE_CHECKING:
     from hop3_cli.config import Config
     from hop3_cli.ui.rich_printer import RichPrinter
+
+_APP_PIN = Path(".hop3-app")
 
 
 def handle_use(args: list[str], config: Config, printer: RichPrinter) -> None:
@@ -58,29 +62,24 @@ def _show_help() -> None:
 
 
 def _set(app: str, config: Config) -> None:
-    try:
-        context = config.set_default_app(app)
-    except KeyError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return
-    print(f"✓ Default app for context '{context}' set to '{app}'.")
+    _APP_PIN.write_text(f"{app}\n")
+    print(f"✓ Pinned app '{app}' for this directory (wrote {_APP_PIN}).")
     print(
-        "Commands that take --app will now use this value automatically. "
+        "Commands run from here will target this app automatically. "
         "Override with --app <name> or clear with `hop3 use --clear`."
     )
 
 
 def _clear(config: Config) -> None:
-    try:
-        context = config.set_default_app(None)
-    except KeyError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return
-    print(f"✓ Cleared default app for context '{context}'.")
+    if _APP_PIN.exists():
+        _APP_PIN.unlink()
+        print(f"✓ Removed the app pin for this directory ({_APP_PIN}).")
+    else:
+        print("No app pin set for this directory.")
 
 
 def _show(config: Config) -> None:
-    resolution = resolve_app(cli_app=None, config=config)
+    resolution = resolve_app(cli_app=None)
     if resolution.resolved:
         print(f"app:     {resolution.app}")
         print(f"source:  {resolution.source}")

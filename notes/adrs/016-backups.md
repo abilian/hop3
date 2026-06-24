@@ -1,9 +1,9 @@
 # ADR 016: Backup Strategy
 
-**Status**: Accepted
-**Type**: Feature
-**Created**: 2024-07-17
-**Related-ADRs**: 010, 024, 036
+- **Status**: Accepted
+- **Type**: Feature
+- **Created**: 2024-07-17
+- **Related-ADRs**: 010, 024, 036
 
 ## Context and Goals
 

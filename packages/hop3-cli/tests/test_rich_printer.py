@@ -47,7 +47,7 @@ def test_rich_printer_print_text_preserves_square_brackets():
 
     Help output uses literal brackets the user must see: the ``[top]`` /
     ``[addon]`` markers in ``hop help --all`` and ``[options]`` / ``[aliases]``
-    / ``[current]`` in command help. Rich's markup parser would otherwise treat
+    / ``[local]`` in command help. Rich's markup parser would otherwise treat
     these as style tags and strip them.
     """
     printer = RichPrinter()
@@ -60,7 +60,7 @@ def test_rich_printer_print_text_preserves_square_brackets():
                 "text": (
                     "  addon attach    [addon]   Attach a service.\n"
                     "Add it under the [aliases] section.\n"
-                    "  3. .hop3-local.toml [current].context"
+                    "  3. .hop3-local.toml [local].context"
                 ),
             }
         ])
@@ -68,7 +68,7 @@ def test_rich_printer_print_text_preserves_square_brackets():
     output = stdout_capture.getvalue()
     assert "[addon]" in output
     assert "[aliases]" in output
-    assert "[current]" in output
+    assert "[local]" in output
 
 
 def test_rich_printer_print_blob_writes_raw_bytes_to_stdout():

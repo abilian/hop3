@@ -38,6 +38,11 @@ if TYPE_CHECKING:
 # Path to hop3-server on the remote server
 HOP_SERVER_PATH = "/home/hop3/venv/bin/hop3-server"
 
+# Default HTTP port the hop3-server ASGI app binds to. Used to build the
+# magic-link URL when the server has no public admin domain (so the dashboard
+# is reachable only on the app port, not via nginx/TLS on 443).
+DEFAULT_WEB_PORT = 8000
+
 
 class BootstrapError(Exception):
     """Error during bootstrap process."""
@@ -243,9 +248,9 @@ def extract_token(output: str) -> str | None:
 
 
 def get_magic_link_via_ssh(ssh_target: str, username: str = "admin") -> str:
-    """Get a magic link token via SSH for passwordless web login.
+    """Get a magic link via SSH for passwordless web login.
 
-    This calls auth magic-link on the server which generates a short-lived,
+    This calls auth:magic-link on the server which generates a short-lived,
     single-use token that can be used to log into the web dashboard.
 
     Args:
@@ -253,12 +258,14 @@ def get_magic_link_via_ssh(ssh_target: str, username: str = "admin") -> str:
         username: Username to generate the magic link for (default: admin)
 
     Returns:
-        The magic link token
+        Either a bare token, or a full URL when the server has a public admin
+        domain configured (it knows its own scheme/host then; the CLI does not).
+        The caller decides how to turn a bare token into a URL.
 
     Raises:
         BootstrapError: If the command fails
     """
-    hop3_cmd = f"{HOP_SERVER_PATH} auth magic-link {shlex.quote(username)}"
+    hop3_cmd = f"{HOP_SERVER_PATH} auth:magic-link {shlex.quote(username)}"
     remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
 
     result = subprocess.run(
@@ -282,6 +289,12 @@ def get_magic_link_via_ssh(ssh_target: str, username: str = "admin") -> str:
     return token
 
 
+def _host_from_ssh_target(ssh_target: str) -> str:
+    """Extract the bare host from an SSH target (user@host[:port] -> host)."""
+    host = ssh_target.split("@")[1] if "@" in ssh_target else ssh_target
+    return host.split(":")[0]  # strip any SSH port
+
+
 def infer_server_url(ssh_target: str) -> str:
     """Infer HTTPS URL from SSH target.
 
@@ -291,14 +304,18 @@ def infer_server_url(ssh_target: str) -> str:
     Returns:
         HTTPS URL for the server
     """
-    # user@host -> host
-    if "@" in ssh_target:
-        host = ssh_target.split("@")[1]
-    else:
-        host = ssh_target
+    return f"https://{_host_from_ssh_target(ssh_target)}"
 
-    # Strip SSH port if present
-    if ":" in host:
-        host = host.split(":")[0]
 
-    return f"https://{host}"
+def infer_web_url(ssh_target: str) -> str:
+    """Best-effort base URL for the web dashboard of a server reached over SSH.
+
+    Used to build the magic-link URL when the server returns a bare token (i.e.
+    it has no public admin domain): the dashboard is then reachable only on the
+    app's HTTP port, not via nginx/TLS on 443.
+
+    Returns e.g. ``http://server.example.com:8000``.
+    """
+    # ponytail: assumes the default hop3-server HTTP port. Upgrade path: have
+    # the server report its bind port alongside the token.
+    return f"http://{_host_from_ssh_target(ssh_target)}:{DEFAULT_WEB_PORT}"

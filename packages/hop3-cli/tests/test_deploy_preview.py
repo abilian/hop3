@@ -59,7 +59,6 @@ def test_build_plan_minimal_no_hop3_toml(tmp_path: Path) -> None:
     plan = build_plan(
         source_path=tmp_path,
         context=None,
-        server=None,
         app="myapp",
         git_runner=runner,
     )
@@ -96,7 +95,6 @@ def test_build_plan_reads_top_level_domains_addons_env(tmp_path: Path) -> None:
     plan = build_plan(
         source_path=tmp_path,
         context=None,
-        server="prod",
         app="myapp",
         git_runner=runner,
     )
@@ -124,7 +122,6 @@ def test_build_plan_context_overrides_top_level_domains(tmp_path: Path) -> None:
     plan = build_plan(
         source_path=tmp_path,
         context="staging",
-        server="dev",
         app="myapp-staging",
         git_runner=runner,
     )
@@ -150,7 +147,6 @@ def test_build_plan_context_env_overrides_top_level(tmp_path: Path) -> None:
     plan = build_plan(
         source_path=tmp_path,
         context="staging",
-        server=None,
         app="x",
         git_runner=runner,
     )
@@ -173,7 +169,6 @@ def test_build_plan_context_with_empty_domains_list(tmp_path: Path) -> None:
     plan = build_plan(
         source_path=tmp_path,
         context="staging",
-        server=None,
         app="x",
         git_runner=runner,
     )
@@ -189,7 +184,6 @@ def test_build_plan_dirty_git_detected(tmp_path: Path) -> None:
     plan = build_plan(
         source_path=tmp_path,
         context=None,
-        server=None,
         app="x",
         git_runner=runner,
     )
@@ -205,7 +199,6 @@ def test_build_plan_legacy_provider_section(tmp_path: Path) -> None:
     plan = build_plan(
         source_path=tmp_path,
         context=None,
-        server=None,
         app="x",
         git_runner=runner,
     )
@@ -233,7 +226,6 @@ def test_build_plan_ignores_ancestor_hop3_toml_for_metadata(tmp_path: Path) -> N
     plan = build_plan(
         source_path=subdir,
         context=None,
-        server=None,
         app="myapp",
         home=tmp_path.parent,
         git_runner=runner,
@@ -257,7 +249,6 @@ def test_build_plan_no_ancestor_warning_when_source_has_own(tmp_path: Path) -> N
     plan = build_plan(
         source_path=subdir,
         context=None,
-        server=None,
         app="y",
         home=tmp_path.parent,
         git_runner=runner,
@@ -292,7 +283,6 @@ def test_build_plan_ancestor_walk_stops_at_home(tmp_path: Path) -> None:
     plan = build_plan(
         source_path=cwd,
         context=None,
-        server=None,
         app="myapp",
         home=home,
         git_runner=runner,
@@ -307,7 +297,6 @@ def test_build_plan_unparseable_hop3_toml_safe(tmp_path: Path) -> None:
     plan = build_plan(
         source_path=tmp_path,
         context=None,
-        server=None,
         app="x",
         git_runner=runner,
     )
@@ -324,7 +313,6 @@ def _plan(**overrides) -> DeployPlan:
         "source_path": Path("/tmp/proj"),
         "git": GitState(is_repo=False),
         "context": None,
-        "server": None,
         "app": "myapp",
         "domains": (),
         "addons": (),
@@ -341,7 +329,6 @@ def test_render_plan_minimal() -> None:
     assert "Source:" in out
     assert "App:      myapp" in out
     assert "Context:  (none)" in out
-    assert "Server:   (none)" in out
     assert "Domains:  (none)" in out
     assert "Addons:   (none)" in out
     assert "Env vars: (none)" in out
@@ -351,7 +338,6 @@ def test_render_plan_full() -> None:
     out = render_plan(
         _plan(
             context="staging",
-            server="dev",
             domains=("a.example.com", "b.example.com"),
             addons=("postgresql",),
             env_keys=("API_KEY", "DEBUG"),
@@ -359,7 +345,6 @@ def test_render_plan_full() -> None:
         )
     )
     assert "Context:  staging" in out
-    assert "Server:   dev" in out
     assert "Domains:  a.example.com, b.example.com" in out
     assert "Addons:   postgresql" in out
     assert "Env vars: API_KEY, DEBUG" in out
@@ -403,7 +388,7 @@ def test_build_plan_includes_host_name_env_as_domain(tmp_path: Path) -> None:
     )
     runner = _stub_runner({("git", "rev-parse", "HEAD"): None})
     plan = build_plan(
-        source_path=tmp_path, context=None, server=None, app="edrix", git_runner=runner
+        source_path=tmp_path, context=None, app="edrix", git_runner=runner
     )
     assert "edrix.eu" in plan.domains
 
@@ -419,9 +404,7 @@ def test_build_plan_host_name_multi_and_dedup(tmp_path: Path) -> None:
         'HOST_NAME = "a.example.com b.example.com _"\n'
     )
     runner = _stub_runner({("git", "rev-parse", "HEAD"): None})
-    plan = build_plan(
-        source_path=tmp_path, context=None, server=None, app="a", git_runner=runner
-    )
+    plan = build_plan(source_path=tmp_path, context=None, app="a", git_runner=runner)
     assert plan.domains == ("a.example.com", "b.example.com")  # deduped, no "_"
 
 
