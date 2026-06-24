@@ -206,34 +206,6 @@ The 0.7 cut ships a deliberately minimal, experimental email addon (above). The 
 
 Valuable but not NGI commitments: the agent model (ADR 017), SSO / identity management, a monitoring / metrics dashboard, and multi-server / distributed deployment (JumpGATE).
 
-## Effort estimate
-
-**0.7 cut (this week):**
-
-| Area | Days |
-|------|------|
-| WAF integration (M3.5) | 5-7 |
-| Email addon (M3.1) | 2-3 |
-| Web UI — basic, clean, usable (M3.7) | 2 |
-| Internal audit rounds + engage firm (M3.8) | 2 |
-| Nix beta gaps (M2.2) | 1-2 |
-| Upgrade scope (M3.2, once confirmed) | 1-3 |
-| Screencasts — review + upload + publish (M5.6) | 1-2 |
-| Pin nixpkgs (M1/M2) | 1-2 |
-| Release mechanics | 1 |
-| **0.7 cut total** | **~16-24 days** |
-
-**0.7.x (following weeks):**
-
-| Area | Days |
-|------|------|
-| Benchmarks + final paper (M5.3) | 8-9 |
-| Nix runtime 1.0 (M2.3) | 3 |
-| Full Nix reproducibility — hermetic (M1/M2) | 4-6 |
-| App final pass + production validation + reports (M4) | 4 |
-| External security review (M3.8) | 2 |
-| Migration-series publishing (T5) | 1 |
-| **0.7.x total** | **~22-25 days** |
 
 ## Risk register
 
