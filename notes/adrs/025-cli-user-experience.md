@@ -1,9 +1,9 @@
 # ADR 025: CLI User Experience Improvements
 
-**Status**: Final
-**Type**: Feature
-**Created**: 2025-11-08
-**Related-ADRs**: 018, 019, 024, 034, 036
+- **Status**: Final
+- **Type**: Feature
+- **Created**: 2025-11-08
+- **Related-ADRs**: 018, 019, 024, 034, 036
 
 Command syntax uses the space form (`hop3 backup destroy`, `hop3 addon destroy`) rather than the colon form (`hop3 backup:delete`, `hop3 services:destroy`), per [036-cli-ergonomics.md](036-cli-ergonomics.md). Help-text conventions and error-recovery hints are specified in that ADR; streaming output uses the protocol defined in [034-streaming-deployment-logs.md](034-streaming-deployment-logs.md).
 
@@ -92,8 +92,7 @@ Type the app name to confirm: _
   - **Tables**: Colored headers, aligned columns
   - **Panels**: Boxed text for important messages
 
-**Output Message Protocol:**
-Messages from server include type field `"t"`:
+**Output Message Protocol:** Messages from server include type field `"t"`:
 - `"success"` - Success messages (green)
 - `"error"` - Error messages (red, stderr)
 - `"warning"` - Warning messages (yellow)

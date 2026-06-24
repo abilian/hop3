@@ -1,9 +1,9 @@
 # ADR 021: Proxy Plugin System for Reverse Proxy Configuration
 
-**Status**: Final
-**Type**: Feature
-**Created**: 2024-10-01
-**Related-ADRs**: 020, 022, 023
+- **Status**: Final
+- **Type**: Feature
+- **Created**: 2024-10-01
+- **Related-ADRs**: 020, 022, 023
 
 ## Context
 

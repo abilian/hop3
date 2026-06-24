@@ -29,7 +29,7 @@ from hop3_testlab.repositories import (
     ServersRepository,
 )
 from hop3_testlab.sources import Source
-from hop3_testlab.worker import RunSpec, run_blockers, run_once
+from hop3_testlab.worker import EngineExitError, RunSpec, run_blockers, run_once
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -119,7 +119,9 @@ def _claim(factory: sessionmaker) -> _Claim | bool:
 
 
 def _run_claim(
-    claim: _Claim, executor: Callable[..., None] | None
+    factory: sessionmaker,
+    claim: _Claim,
+    executor: Callable[..., None] | None,
 ) -> tuple[str, str | None]:
     """Run a claimed build (blocking). Returns its ``(status, detail)`` outcome."""
     try:
@@ -130,6 +132,12 @@ def _run_claim(
             spec=claim.spec,
             executor=executor,
         )
+    except EngineExitError as e:
+        # The engine ran but exited non-zero. That's either a completed run with
+        # failing tests (results recorded — the normal red build) or a genuine
+        # crash before any result was recorded. Both stay FAILED, but only the
+        # latter is a "crash"; tell them apart from the run the engine produced.
+        return _classify_engine_exit(factory, claim, e)
     except Exception as e:  # the run crashed — surface the reason, don't drop it
         logger.exception("Build %d crashed on %s", claim.request_id, claim.target_id)
         return FAILED, str(e)
@@ -138,6 +146,61 @@ def _run_claim(
         # target). It's not a failure — requeue so the next tick retries it.
         return QUEUED, None
     return DONE, None
+
+
+# BuildRequest.detail is String(500); keep the breadcrumb under it (the full
+# failed-test list lives on the run the dashboard links to).
+_DETAIL_MAX = 480
+
+
+def _classify_engine_exit(
+    factory: sessionmaker, claim: _Claim, exc: EngineExitError
+) -> tuple[str, str | None]:
+    """Distinguish a completed-with-failures run from a genuine engine crash.
+
+    A completed run records a :class:`TestRun` with per-test results *before* the
+    engine exits 1, so its presence is the discriminator. When results exist we
+    log a plain "completed with N failures" (no traceback) and surface the
+    failing test names — the actionable signal the operator wants — instead of
+    mislabelling the routine red build as a crash. With no recorded results the
+    engine died in setup/deploy/blank-slate: that *is* a crash, logged loudly
+    with the engine log path. Either way the build stays FAILED.
+    """
+    session = factory()
+    try:
+        runs = RunsRepository(session)
+        run = runs.latest_by_trigger(f"build-{claim.request_id}")
+        results = runs.results_for(run) if run is not None else []
+    finally:
+        session.close()
+
+    if run is not None and results:
+        failed = [r.test_name for r in results if not r.passed]
+        logger.warning(
+            "Build %d completed on %s: %d/%d test(s) failed",
+            claim.request_id,
+            claim.target_id,
+            len(failed),
+            len(results),
+        )
+        return FAILED, _failed_detail(failed, len(results))
+
+    logger.error(
+        "Build %d crashed on %s — engine exited %d before recording any result. See %s",
+        claim.request_id,
+        claim.target_id,
+        exc.returncode,
+        exc.log_path,
+    )
+    return FAILED, str(exc)
+
+
+def _failed_detail(failed: list[str], total: int) -> str:
+    """A concise, actionable build detail: how many failed and which ones."""
+    detail = f"{len(failed)} of {total} test(s) failed: {', '.join(failed)}"
+    if len(detail) <= _DETAIL_MAX:
+        return detail
+    return detail[: _DETAIL_MAX - 1] + "…"
 
 
 def _record(
@@ -199,6 +262,6 @@ def dispatch_once(executor: Callable[..., None] | None = None) -> bool:
     claim = _claim(factory)
     if isinstance(claim, bool):
         return claim
-    status, detail = _run_claim(claim, executor)  # blocks; the lease serialises
+    status, detail = _run_claim(factory, claim, executor)  # blocks; lease serialises
     _record(factory, claim.request_id, status, detail)
     return True

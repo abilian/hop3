@@ -293,7 +293,7 @@ Initial Next.js application
 
 ## Step 7: Deploy to Hop3
 
-The following steps require a Hop3 server. Set the `HOP3_SERVER` environment variable to your server address before running these commands.
+The following steps require a Hop3 server. Log into yours first — for example, `hop3 login --ssh root@your-server.com` — so the CLI knows where to deploy.
 
 ### Configure the CLI
 

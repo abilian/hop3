@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **One context model (BREAKING, ADR 042 second revision)**: the two nouns from 0.5 — credentialed *servers* and project *contexts* — are consolidated into a single managed noun. A *context* is now a deploy environment (dev / staging / prod) declared in the app's committed `hop3.toml` under `[contexts.<name>]` (a non-secret bundle of server address, app, domains, and env). The `hop3 server` command and the `servers.toml` file are removed; credentials are invisible plumbing. Bearer tokens move to a per-server credential store (`~/.config/hop3-cli/credentials.toml`, mode `0600`), and `config.toml` becomes secret-free — keeping only local preferences and an optional default-server pointer. Existing `config.toml` connections are migrated to the credential store on first run.
+
+### Security
+
+- **`hop3.toml` holds zero secrets**: a committed-credential tripwire rejects secret-shaped values in committed `hop3.toml` env at validation time. Per-environment secrets are set server-side with `hop3 env set`; the per-server credential store is the only place bearer tokens are written.
+
 ## [0.6.0] - 2026-06-22
 
 The 0.6 release builds on 0.5 with per-app resource limits and volumes, a much richer set of addon-management commands, a signed app catalog, and a published design record. Several commands were renamed for consistency, with the old names kept as aliases.

@@ -1,11 +1,9 @@
 # ADR 044: Nightly Test Lab — a Web App to Run and Report on the Full Test Suite
 
-**Status**: Accepted
-**Type**: Architecture
-**Created**: 2026-06-05
-**Related-ADRs**: 043 (unified-testing-architecture), 041 (privileged-operations-agent), 042 (cli-context-model), 034 (streaming-deployment-logs), 033 (docker-integration), 018 (cli-architecture)
-**Related-notes**: `local-notes/logging-observability.md`
-
+- **Status**: Accepted
+- **Type**: Architecture
+- **Created**: 2026-06-05
+- **Related-ADRs**: 043 (unified-testing-architecture), 041 (privileged-operations-agent), 042 (cli-context-model), 034 (streaming-deployment-logs), 033 (docker-integration), 018 (cli-architecture)
 ## Context
 
 ADR 043 establishes a **nightly tier**: the full suite (real apps, demos, tutorials, platform e2e) run against real servers, producing an HTML report and finishing overnight. The machinery for *running* that suite already exists in `hop3-testing`: the `DailyTestOrchestrator` (`INIT → RESET → DEPLOY → TEST → REPORT`), `HetznerManager` for provisioning, the `DeploymentTarget` ABC, the catalog scanner, the SQLAlchemy result models, `generate_html_report`, and the `hop3-test cloud` command that drives them.

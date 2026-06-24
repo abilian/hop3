@@ -1,10 +1,10 @@
 # ADR 008: Template-Based Nix Expression Generation
 
-**Status**: Final
-**Type**: Feature
-**Created**: 2024-07-17
-**Supersedes**: ADR 007
-**Related-ADRs**: 006, 009, 020, 022, 030, 031, 035, 036
+- **Status**: Final
+- **Type**: Feature
+- **Created**: 2024-07-17
+- **Supersedes**: ADR 007
+- **Related-ADRs**: 006, 009, 020, 022, 030, 031, 035, 036
 
 ## Context
 

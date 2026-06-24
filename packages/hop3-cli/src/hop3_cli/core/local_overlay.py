@@ -10,9 +10,10 @@ alongside ``hop3.toml`` and is the sole carrier for "which context is
 current" — the legacy single-line ``.hop3-context`` file was retired in
 ADR 042 Step 7.
 
-Shape::
+Shape (ADR 042 r2 renamed ``[current]`` → ``[local]``; the old key is still
+read for one release)::
 
-    [current]
+    [local]
     context = "dev"
 
 The writer is atomic (mkstemp + ``os.replace``) and automatically appends
@@ -43,8 +44,9 @@ class LocalOverlay:
     Attributes:
         path: The discovered file path, or None when no overlay exists.
         data: The parsed TOML data, or empty dict when no overlay exists.
-        current_context: Shortcut for ``data['current']['context']`` (or
-            None when the field isn't set).
+        current_context: Shortcut for ``data['local']['context']`` (or
+            None when the field isn't set). The legacy ``[current].context``
+            key is read as a one-release fallback (ADR 042 r2 renamed it).
     """
 
     path: Path | None
@@ -52,13 +54,18 @@ class LocalOverlay:
 
     @property
     def current_context(self) -> str | None:
-        """Return ``[current].context`` if set and non-empty, else None."""
-        current = self.data.get("current")
-        if not isinstance(current, dict):
-            return None
-        value = current.get("context")
-        if isinstance(value, str) and value.strip():
-            return value.strip()
+        """Return the selected context, or None.
+
+        Canonical key is ``[local].context`` (ADR 042 r2); ``[current].context``
+        is read as a one-release fallback so existing checkouts don't lose their
+        selection across the rename.
+        """
+        for section in ("local", "current"):
+            block = self.data.get(section)
+            if isinstance(block, dict):
+                value = block.get("context")
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
         return None
 
 
@@ -117,8 +124,8 @@ def write_overlay(
     2. ``cwd / LOCAL_OVERLAY_FILENAME`` otherwise.
 
     ``updates`` is a dict whose values are merged into the existing data
-    one level deep. So passing ``{"current": {"context": "dev"}}`` adds
-    or overwrites only that key under ``[current]`` while leaving other
+    one level deep. So passing ``{"local": {"context": "dev"}}`` adds
+    or overwrites only that key under ``[local]`` while leaving other
     sub-keys untouched.
 
     Args:
@@ -186,6 +193,16 @@ def atomic_write_toml(target: Path, data: dict[str, Any]) -> None:
     Shared by the overlay writer and the project ``hop3.toml`` writers
     so they have the same durability profile.
     """
+    atomic_write_text(target, toml.dumps(data))
+
+
+def atomic_write_text(target: Path, text: str) -> None:
+    """Write ``text`` to ``target`` atomically and durably.
+
+    Same tmpfile-then-rename + fsync discipline as ``atomic_write_toml``, but
+    for a pre-rendered string — used by the ``hop3.toml`` context writers, which
+    round-trip via tomlkit (comment-preserving) and so produce text, not a dict.
+    """
     target.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_path = tempfile.mkstemp(
         prefix=f".{target.name}.",
@@ -194,7 +211,7 @@ def atomic_write_toml(target: Path, data: dict[str, Any]) -> None:
     )
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
-            toml.dump(data, f)
+            f.write(text)
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp_path, target)

@@ -18,7 +18,9 @@ This guide covers server administration tasks for Hop3 operators, including inst
 - **Debian** 12 (Bookworm) - Recommended
 - **Ubuntu** 24.04 LTS, 26.04 LTS
 - **Rocky Linux** 9
-- **NixOS** (experimental)
+- **NixOS** (experimental — via the Nix flake / `services.hop3` module)
+
+On the distros above, hop3-server is installed by the standard installer; on NixOS it is deployed via the Nix flake and the `services.hop3` NixOS module. (Separately, the Nix package manager is also available as an app *builder* on any supported host.)
 
 ---
 
@@ -154,9 +156,9 @@ hop3-server admin:create admin admin@example.com
 # Enter password when prompted
 ```
 
-Then register the server in your local CLI (the printed token is the API token):
+Then log into the server from your local CLI (the printed token is the API token):
 ```bash
-hop3 server add prod --url https://your-server.com --token <paste-token-here>
+hop3 login --token <paste-token-here> --url https://your-server.com
 ```
 
 ### Generating API Tokens

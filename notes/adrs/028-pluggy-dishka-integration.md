@@ -1,10 +1,10 @@
 # ADR 028: Pluggy + Dishka Integration for Plugin-Contributed Services
 
-**Status**: Final
-**Type**: Feature
-**Created**: 2025-11-20
-**Authors**: Stefane Fermigier
-**Related-ADRs**: 020
+- **Status**: Final
+- **Type**: Feature
+- **Created**: 2025-11-20
+- **Authors**: Stefane Fermigier
+- **Related-ADRs**: 020
 
 ## Context
 

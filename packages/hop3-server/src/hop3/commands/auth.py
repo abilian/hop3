@@ -27,9 +27,10 @@ class AuthCmd(Command):
     """Authentication commands.
 
     Examples:
-        hop3 auth login alice          # Log in
+        hop3 auth login                # Log in (alias: hop3 login)
         hop3 auth whoami               # Show the current user
-        hop3 auth logout               # Invalidate the token
+        hop3 auth logout               # Log out (alias: hop3 logout)
+        hop3 auth get-token alice      # Print a token for scripts/automation
     """
 
     name: ClassVar[tuple[str, ...]] = ("auth",)
@@ -38,20 +39,25 @@ class AuthCmd(Command):
 
 @register
 @dataclass(frozen=True)
-class AuthLoginCmd(Command):
-    """Authenticate and receive an API token.
+class AuthGetTokenCmd(Command):
+    """Verify credentials and print an API token (for scripts / automation).
 
-    Examples:
-        hop3 auth login alice          # Prompted for password
-        hop3 auth login alice password123    # Password on command line (avoid — see history)
+    This is the non-interactive primitive behind the interactive `hop3 login`
+    flow: it takes a username and password and returns a token. It does NOT
+    write any local config — it just prints the token. To actually log in
+    (token saved to your context), use `hop3 login` / `hop3 auth login`.
+
+    Pass the password without putting it on the command line:
+        hop3 auth get-token alice --password-file -    # read from stdin
+        hop3 auth get-token alice --password-file pw    # read from a file
     """
 
     user_repo: UserRepository
-    name: ClassVar[tuple[str, ...]] = ("auth", "login")
+    name: ClassVar[tuple[str, ...]] = ("auth", "get-token")
     requires_auth: ClassVar[bool] = False  # Public command
 
     def call(self, username: str = "", password: str = "", *args):
-        """Authenticate a user and return an API token.
+        """Verify credentials and return an API token.
 
         Args:
             username: The username to authenticate
@@ -61,7 +67,7 @@ class AuthLoginCmd(Command):
             Response with token or error message
         """
         if not username or not password:
-            return [error("Usage: hop3 auth login <username> <password>")]
+            return [error("Usage: hop3 auth get-token <username> <password>")]
 
         # Look up the user
         user = self.user_repo.get_by_username(username)
@@ -89,20 +95,9 @@ class AuthLoginCmd(Command):
 
         token = create_token(username, scopes=scopes)
 
-        return [
-            text(f"Login successful for user: {username}"),
-            text(""),
-            text("Your API token:"),
-            text(token),
-            text(""),
-            text(
-                "Save this token to your config file (~/.config/hop3-cli/config.toml):"
-            ),
-            text(f'api_token = "{token}"'),
-            text(""),
-            text("Or set the environment variable:"),
-            text(f"export HOP3_API_TOKEN={token}"),
-        ]
+        # Print only the token so callers can capture it directly, e.g.
+        #   TOKEN=$(hop3 auth get-token alice --password-file -)
+        return [text(token)]
 
 
 @register

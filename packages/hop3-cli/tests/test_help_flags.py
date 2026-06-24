@@ -72,8 +72,10 @@ def test_requires_authentication():
     assert requires_authentication(["help", "--all"]) is False
     assert requires_authentication(["version"]) is False
     assert requires_authentication(["auth"]) is False
-    assert requires_authentication(["auth", "login"]) is False
-    assert requires_authentication(["auth", "login", "user", "pass"]) is False
+    # `auth login` / `auth logout` are handled locally and never reach this RPC
+    # gate; `auth get-token` is the public no-auth command behind login.
+    assert requires_authentication(["auth", "get-token"]) is False
+    assert requires_authentication(["auth", "get-token", "user", "pass"]) is False
     assert requires_authentication(["auth", "register"]) is False
 
     # Commands that DO require authentication

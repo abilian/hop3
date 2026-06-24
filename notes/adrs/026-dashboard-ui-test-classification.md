@@ -1,10 +1,10 @@
 # ADR 026: Dashboard UI Test Classification
 
-**Status**: Superseded
-**Type**: Guideline
-**Created**: 2025-11-20
-**Superseded-By**: ADR 043
-**Related-ADRs**: 020, 024, 043
+- **Status**: Superseded
+- **Type**: Guideline
+- **Created**: 2025-11-20
+- **Superseded-By**: ADR 043
+- **Related-ADRs**: 020, 024, 043
 
 ## Superseding Context
 
@@ -400,7 +400,7 @@ Then both options become easier:
 - No mocking or configuration complexity
 
 **Cons:**
-- Very slow feedback compared to in-process tests
+- Slow feedback compared to in-process tests
 - Poor developer experience
 - Violates testing pyramid principles
 

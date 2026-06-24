@@ -15,12 +15,19 @@ from __future__ import annotations
 
 import io
 from typing import TYPE_CHECKING
-from unittest.mock import patch
+from unittest.mock import PropertyMock, patch
 
 import pytest
 
+from hop3.config import HopConfig
 from hop3.orm import Role, User
-from hop3.server.cli.admin import AdminCreate, AdminList, AdminResetPassword, AdminToken
+from hop3.server.cli.admin import (
+    AdminCreate,
+    AdminList,
+    AdminResetPassword,
+    AdminToken,
+    AuthMagicLink,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -432,3 +439,60 @@ class TestAdminResetPasswordIntegration:
             cmd.run(username="nonexistent", password_stdin=False)
 
         assert exc_info.value.code == 1
+
+
+@pytest.mark.integration
+class TestAuthMagicLinkIntegration:
+    """auth:magic-link emits a full URL when an admin domain is set, else a token."""
+
+    @staticmethod
+    def _make_admin(db_session: Session) -> None:
+        user = User(username="admin", email="admin@example.com", password_hash="")
+        user.set_password("pw")
+        user.active = True
+        db_session.add(user)
+        db_session.commit()
+
+    def test_with_admin_domain_prints_full_url(self, db_session: Session, monkeypatch):
+        """With an admin domain, the server emits the full https URL itself."""
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
+        self._make_admin(db_session)
+        captured = io.StringIO()
+
+        with (
+            patch.object(
+                HopConfig,
+                "ADMIN_DOMAIN",
+                new_callable=PropertyMock,
+                return_value="admin.example.com",
+            ),
+            patch("sys.stdout", captured),
+        ):
+            AuthMagicLink().run(username="admin")
+
+        out = captured.getvalue().strip()
+        assert out.startswith("https://admin.example.com/auth/magic/")
+        assert out.rsplit("/auth/magic/", 1)[1].count(".") == 2  # JWT
+
+    def test_without_admin_domain_prints_bare_token(
+        self, db_session: Session, monkeypatch
+    ):
+        """Without an admin domain, the server prints a bare token (CLI builds URL)."""
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
+        self._make_admin(db_session)
+        captured = io.StringIO()
+
+        with (
+            patch.object(
+                HopConfig,
+                "ADMIN_DOMAIN",
+                new_callable=PropertyMock,
+                return_value="",
+            ),
+            patch("sys.stdout", captured),
+        ):
+            AuthMagicLink().run(username="admin")
+
+        out = captured.getvalue().strip()
+        assert "://" not in out  # a bare token, not a URL
+        assert out.count(".") == 2  # JWT

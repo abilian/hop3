@@ -94,24 +94,20 @@ def append_feedback_footer(result: list[dict]) -> list[dict]:
 
 
 def emit_status_line(config: Config) -> None:
-    """Emit the dynamic 'Active context / Current app' line to stderr (D19).
+    """Emit the dynamic 'Active context' line to stderr (D19).
 
-    Per ADR 036 D11: bare `hop3 help` shows the active context and resolved
-    default app so users can predict what app-scoped commands will target.
-    This line goes to stderr (D19: dynamic/status output is stderr, not stdout)
-    so it does not contaminate `hop3 help | grep ...` pipelines.
+    Per ADR 036 D11: bare `hop3 help` shows the active context so users can
+    predict what their commands will target. ADR 042 dropped the per-context
+    default app — the app now resolves from the CWD — so the status line shows
+    only the context. This goes to stderr (D19: dynamic/status output is
+    stderr, not stdout) so it does not contaminate `hop3 help | grep ...`
+    pipelines.
     """
     context_name = config.get_current_context_name()
     if not context_name:
         return  # No context active — no status line.
 
-    default_app = config.get_default_app()
-    app_part = (
-        f"Current app: {default_app}"
-        if default_app
-        else "Current app: (none — set with `hop3 use <app>`)"
-    )
-    print(f"\nActive context: {context_name}      {app_part}", file=sys.stderr)
+    print(f"\nActive context: {context_name}", file=sys.stderr)
 
 
 def append_local_commands_full_help(result: list[dict]) -> list[dict]:

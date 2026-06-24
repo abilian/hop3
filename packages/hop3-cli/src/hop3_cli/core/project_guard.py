@@ -109,9 +109,11 @@ def check_project_mismatch(
             resolved_source=resolved_source,
         )
 
-    # Names differ. If the resolution came from a CWD-rooted source,
-    # that's fine — the operator explicitly mapped this project to a
-    # different app name via [cli].app or [contexts.<n>].app.
+    # Names differ. If the resolution came from a CWD-rooted source, that's
+    # fine — the operator explicitly mapped this project to a different app name
+    # via [cli].app, or via a context whose selection was itself CWD-rooted
+    # (AppSource.CONTEXT_APP; an AMBIENT context selection is NOT cwd-rooted and
+    # falls through to the refusal below — ADR 042 r2 footgun protection).
     if is_cwd_rooted(resolved_kind):
         return ProjectMismatch(
             is_mismatch=False,

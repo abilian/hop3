@@ -296,12 +296,12 @@ def system_auth_token(hop3_config_dir: Path) -> Generator[str]:
             pytest.fail(f"Failed to register test user: {error_output}")
 
     print("\n=== Logging in ===")
-    print(f"Running: hop3 auth:login {E2E_TEST_USER} ...")
+    print(f"Running: hop3 auth get-token {E2E_TEST_USER} ...")
 
-    # Login to get token with timeout
+    # Get a token (non-interactive, prints the bare token) with timeout
     try:
         result = subprocess.run(
-            ["hop3", "auth", "login", E2E_TEST_USER, E2E_TEST_PASSWORD],
+            ["hop3", "auth", "get-token", E2E_TEST_USER, E2E_TEST_PASSWORD],
             check=False,
             capture_output=True,
             text=True,
@@ -332,34 +332,19 @@ def system_auth_token(hop3_config_dir: Path) -> Generator[str]:
         yield ""  # Return empty string for token
         return
 
-    # Extract token from output
-    # Format can be:
-    # 1. Old format: "Your API token:" followed by token on next line
-    # 2. New format: "API token saved to /path/to/config.toml"
+    # `hop3 auth get-token` prints just the JWT. Pick the JWT-looking line
+    # (header.payload.signature) so any stray log lines don't trip us up.
     token = None
-    lines = result.stdout.split("\n")
-
-    # Try to find token in old format
-    for i, line in enumerate(lines):
-        if "Your API token:" in line:
-            # Token is on the next line
-            if i + 1 < len(lines):
-                token = lines[i + 1].strip()
-                break
-
-    # If token was saved to config file, we don't need to extract it
-    # The CLI will read it from the config file automatically
-    if not token and "API token saved to" in result.stdout:
-        print("\n=== Token saved to config file by CLI ===")
-        print("CLI will use token from config file automatically")
-        # Return dummy token since we don't need to set it manually
-        yield "token-saved-to-config"
-        return
+    for line in result.stdout.split("\n"):
+        candidate = line.strip()
+        if candidate.count(".") == 2 and candidate.startswith("ey"):
+            token = candidate
+            break
 
     if not token:
         # Debug output
         debug_info = f"""
-Could not extract token from login output.
+Could not extract token from `hop3 auth get-token` output.
 
 stdout:
 {result.stdout}
@@ -367,7 +352,7 @@ stdout:
 stderr:
 {result.stderr}
 
-Looking for line containing 'Your API token:' followed by token on next line.
+Expected a single JWT line (header.payload.signature).
 """
         raise AssertionError(debug_info)
 

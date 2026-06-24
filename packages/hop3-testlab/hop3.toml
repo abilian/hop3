@@ -1,0 +1,30 @@
+# Hop3 deployment config for the Test Lab dashboard (ADR 044).
+# Litestar/ASGI app; reads/writes the shared hop3-testing result store.
+
+[metadata]
+id = "hop3-testlab"
+
+[build]
+builder = "local"
+
+[run]
+# ASGI -> explicit uvicorn start bound to $PORT (uWSGI's WSGI mode can't drive it).
+# Single worker on purpose: an in-process APScheduler starts on app startup when
+# [schedule].enabled, so >1 worker would run the nightly N times.
+start = "uvicorn hop3_testlab.web.asgi:app --host 0.0.0.0 --port $PORT --log-level info"
+
+[env]
+TESTLAB_DEBUG = "false"
+TESTLAB_UNSAFE = "false"   # never bypass auth in production
+
+[[addons]]
+type = "postgres"
+
+[env.computed]
+# The store needs the psycopg-v3 dialect (only psycopg[binary] is installed, no
+# psycopg2). The addon injects bare postgresql:// in DATABASE_URL, so rebuild the
+# DSN from the PG* parts with the +psycopg scheme the app expects.
+TESTLAB_DATABASE_URI = "postgresql+psycopg://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"
+
+[healthcheck]
+path = "/health"

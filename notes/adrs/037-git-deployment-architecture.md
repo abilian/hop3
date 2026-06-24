@@ -1,9 +1,9 @@
 # ADR 037: Git-Based Deployment Architecture
 
-**Status**: Final
-**Type**: Architecture
-**Created**: 2026-03-05
-**Related-ADRs**: 036
+- **Status**: Final
+- **Type**: Architecture
+- **Created**: 2026-03-05
+- **Related-ADRs**: 036
 
 ## Context
 

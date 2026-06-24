@@ -1,9 +1,9 @@
 # ADR 031: Project Terminology (Ubiquitous Language)
 
-**Status**: Active
-**Type**: Guideline
-**Created**: 2025-11-28
-**Related-ADRs**: 020, 022, 030, 036
+- **Status**: Active
+- **Type**: Guideline
+- **Created**: 2025-11-28
+- **Related-ADRs**: 020, 022, 030, 036
 
 ## Context
 

@@ -13,7 +13,7 @@ Without it, tests pick up:
   (the resolver reads it as context source #3);
 - ``./.hop3-app`` and ``./hop3.toml`` from CWD or an ancestor (app
   resolution sources #4 and #5);
-- ``$HOP3_APP``, ``$HOP3_SERVER``, ``$HOP3_CONTEXT``, etc. from the
+- ``$HOP3_APP``, ``$HOP3_CONTEXT``, etc. from the
   shell, all of which short-circuit the resolver chain at sources #1-2;
 - ``$HOP3_DEV_MODE`` which silently switches the API URL to localhost.
 
@@ -47,7 +47,6 @@ _HOP3_ENV_VARS = (
     "HOP3_DEV_HOST",
     "HOP3_DEV_MODE",
     "HOP3_NO_INPUT",
-    "HOP3_SERVER",
     "HOP3_VERBOSITY",
 )
 
@@ -62,10 +61,18 @@ def _isolate_cli_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     - Delete every known ``HOP3_*`` env var so resolver sources #1-2 are
       empty unless the test explicitly sets one.
 
-    Individual tests can override either side by calling
+    - point ``$HOP3_CONFIG_DIR`` at a per-test tmp dir so the config dir
+      (``config.toml`` / ``servers.toml`` / ``state.toml``) — resolved through
+      ``core.paths.config_dir`` — is isolated from the developer's real
+      ``~/.config/hop3-cli``. Without this, any test reaching ``get_config`` /
+      ``default_servers_path`` / the ADR-042 migration would read (and, for the
+      migration, REWRITE/DELETE) the operator's real config.
+
+    Individual tests can override any side by calling
     ``monkeypatch.chdir(other_path)`` or ``monkeypatch.setenv("HOP3_X", "v")``
     — those calls happen after this fixture and win.
     """
     monkeypatch.chdir(tmp_path)
     for var in _HOP3_ENV_VARS:
         monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("HOP3_CONFIG_DIR", str(tmp_path / "hop3-config"))

@@ -13,6 +13,23 @@ def show_unconfigured_message(cli_args: list[str]) -> None:
     Args:
         cli_args: The command-line arguments (for context)
     """
+    from hop3_cli.core import credential_store  # noqa: PLC0415
+
+    # ADR 042 r2: if the operator is logged into servers but none is selected for
+    # this project-less command (e.g. two known, no default), guide them to pick
+    # one rather than telling them to run `hop3 init` from scratch.
+    known = credential_store.known_servers()
+    if known:
+        print("No server selected for this command.\n")
+        print("You're logged into these servers:")
+        for server in known:
+            print(f"  - {server}")
+        print("\nPick one:")
+        print("  hop3 --server <addr> <command>   # target a server for this command")
+        print("  hop3 login <addr>                # log in (and make it the default)")
+        print("\nInside a project, `hop3 context use <name>` selects an environment.")
+        return
+
     print("Hop3 CLI is not configured.\n")
     print("To get started, connect to your Hop3 server:\n")
     print("  hop3 init --ssh root@your-server.com\n")

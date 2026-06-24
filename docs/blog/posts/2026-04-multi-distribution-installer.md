@@ -9,7 +9,7 @@ tags:
 
 # Building a Multi-Distribution Installer
 
-Hop3 runs on Ubuntu, Debian, Fedora, Rocky Linux, and AlmaLinux. Making this work required solving some surprisingly tricky problems around package names, version detection, and distribution-specific quirks.
+Hop3 runs on Ubuntu, Debian, Fedora, Rocky Linux, and AlmaLinux. Making this work required solving some unexpectedly tricky problems around package names, version detection, and distribution-specific quirks.
 
 ## The Challenge
 

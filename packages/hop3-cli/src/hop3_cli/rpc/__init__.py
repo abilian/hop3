@@ -14,7 +14,6 @@ from __future__ import annotations
 from .client import Client
 from .responses import (
     handle_error_response,
-    handle_login_response,
     handle_ok_response,
     handle_response,
 )
@@ -22,7 +21,6 @@ from .responses import (
 __all__ = [
     "Client",
     "handle_error_response",
-    "handle_login_response",
     "handle_ok_response",
     "handle_response",
 ]

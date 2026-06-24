@@ -29,23 +29,6 @@ from pydantic import (
     model_validator,
 )
 
-# Context names live in user-facing flags (`hop3 context use <name>`) and
-# in the .hop3-local.toml [current].context field. Keep them shell-friendly:
-# start with a letter, then letters / digits / dash / underscore.
-_CONTEXT_NAME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_-]*$")
-
-# Names reserved for current/future CLI keywords (per ADR 042 §Reserved
-# context names). Rejected at schema time so they never appear in a
-# deployed config. Comparison is case-insensitive: `Default` and `DEFAULT`
-# collide with `default` in CLI usage and are reserved too.
-_RESERVED_CONTEXT_NAMES: frozenset[str] = frozenset({
-    "default",
-    "current",
-    "global",
-    "all",
-    "none",
-})
-
 
 class MetadataSection(BaseModel):
     """[metadata] section - Application identity and catalog info."""
@@ -311,179 +294,6 @@ class DomainsSection(BaseModel):
             )
             raise ValueError(msg)
         return v
-
-
-class ContextSection(BaseModel):
-    """A single [contexts.<name>] block — one project deploy target.
-
-    A "context" in the ADR-042 sense is a (server, app, domains, env)
-    bundle: it answers "where does *this* project go when I run a command
-    against context <name>?". Multiple contexts cover the dev / staging /
-    prod story for the same codebase.
-
-    Field semantics:
-    - ``server`` (required) names a server defined in the user's global
-      registry (``~/.config/hop3-cli/servers.toml``). The schema does
-      **not** validate cross-file references — a server name unknown to
-      the schema may still be valid at runtime.
-    - ``app``, ``domains``, ``env`` are optional overrides. When absent,
-      the resolver falls back to top-level ``[metadata].id`` / ``[domains]``
-      / ``[env]`` respectively.
-
-    Notable asymmetries with top-level sections (deliberate, see ADR 042):
-    - ``domains`` is a bare ``list[str]`` here (no ``_policy`` field).
-      A context's domains *replace* the top-level ``[domains].list``
-      when the resolver builds the deploy target. Per-context policy
-      and merge semantics are ADR 042 open question #3 / #5.
-    - ``env`` is a flat ``dict[str, Any]`` — the same value type as the
-      top-level ``[env]`` so TOML scalars (booleans, ints) are accepted
-      without quoting — but ``_policy`` and ``[env.computed]`` sub-tables
-      are *not* honored at the context layer. Per-context env merge
-      semantics with top-level ``[env]`` are ADR 042 open question #3.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    server: str = Field(
-        description=(
-            "Name of a server defined in the global server registry "
-            "(~/.config/hop3-cli/servers.toml). Required."
-        ),
-    )
-    app: str | None = Field(
-        default=None,
-        description=(
-            "App name on the target server. When absent, inherits from [metadata].id."
-        ),
-    )
-    domains: list[str] | None = Field(
-        default=None,
-        description=(
-            "Hostnames for this context. When absent, inherits from the "
-            "top-level [domains].list. When present, fully replaces the "
-            "top-level list — no merge, no per-context _policy."
-        ),
-    )
-    env: dict[str, Any] | None = Field(
-        default=None,
-        description=(
-            "Env-var overrides scoped to this context. Value type matches "
-            "the top-level [env] section (any TOML scalar). Per-context "
-            "_policy and [env.computed] sub-tables are not honored."
-        ),
-    )
-
-    @field_validator("server")
-    @classmethod
-    def validate_server(cls, v: str) -> str:
-        # Reject empty AND whitespace-padded; do not silently strip.
-        # Returning a value different from what the user wrote would
-        # produce confusing diagnostics later (`server = " dev "` on disk
-        # vs `server == "dev"` in resolution traces).
-        if not v or v != v.strip():
-            msg = (
-                "Context.server must be a non-empty server name without "
-                "leading or trailing whitespace."
-            )
-            raise ValueError(msg)
-        return v
-
-    @field_validator("app")
-    @classmethod
-    def validate_app(cls, v: str | None) -> str | None:
-        # Per ADR 042 §App resolution, a context's `app` is a load-bearing
-        # source for app identity. An empty or whitespace-only string here
-        # would silently override the [metadata].id fallback with "the app
-        # named empty-string" — caught at schema time to avoid an opaque
-        # deploy-time failure.
-        if v is None:
-            return v
-        if not v or v != v.strip():
-            msg = (
-                "Context.app must be a non-empty app name without leading "
-                "or trailing whitespace. To inherit from [metadata].id, "
-                "omit the `app` field entirely."
-            )
-            raise ValueError(msg)
-        return v
-
-    @field_validator("domains")
-    @classmethod
-    def validate_domains(cls, v: list[str] | None) -> list[str] | None:
-        # Two checks, both local to ContextSection so the section is
-        # self-validating (avoiding action-at-a-distance with the top-level
-        # [domains] block):
-        # 1) Reject empty/whitespace-only entries — parity with `server`
-        #    and `app` validators above; a literal "" hostname is never
-        #    what the user meant.
-        # 2) Mirror DomainsSection.validate_hosts: "_" is the nginx catch-
-        #    all; it is meaningful only as the sole entry.
-        if v is None:
-            return v
-        for entry in v:
-            if not entry or entry != entry.strip():
-                msg = (
-                    "Context.domains entries must be non-empty hostnames "
-                    "without leading or trailing whitespace."
-                )
-                raise ValueError(msg)
-        if "_" in v and len(v) > 1:
-            msg = (
-                "The catch-all hostname '_' cannot be combined with other "
-                "hostnames in a context's domains list."
-            )
-            raise ValueError(msg)
-        return v
-
-    @model_validator(mode="after")
-    def validate_domains_vs_env_hostname(self) -> ContextSection:
-        # Same invariant as the top-level Hop3TomlSchema validator: declaring
-        # both a context-level `domains` list and a context-level
-        # `env.HOST_NAME` would let the resolver silently pick one. Catch at
-        # schema time so the error names the bad context section explicitly.
-        if (
-            self.domains is not None
-            and self.env is not None
-            and "HOST_NAME" in self.env
-        ):
-            msg = (
-                "HOST_NAME cannot be set in a context's [env] when the same "
-                "context also declares `domains`. Keep one or the other."
-            )
-            raise ValueError(msg)
-        return self
-
-
-def _validate_context_name(name: str) -> str:
-    """Reject context names that won't survive shell/CLI surfaces.
-
-    Context names appear unquoted on the command line and as keys in
-    .hop3-local.toml. Two checks, in order so the user sees the most
-    specific error first:
-
-    1. **Reserved names** (case-insensitive): ``default``, ``current``,
-       ``global``, ``all``, ``none`` — reserved for current/future CLI
-       keywords. Rejected with an actionable message naming the full
-       reserved set.
-    2. **Identifier shape**: must start with a letter, then letters /
-       digits / dash / underscore. Covers ``dev``, ``staging``, ``prod``,
-       ``pre-prod``, ``qual_2`` and similar.
-    """
-    if name.lower() in _RESERVED_CONTEXT_NAMES:
-        reserved = ", ".join(sorted(_RESERVED_CONTEXT_NAMES))
-        msg = (
-            f"Context name {name!r} is reserved for CLI keywords. "
-            f"Reserved names (case-insensitive): {reserved}. "
-            "Pick a different name."
-        )
-        raise ValueError(msg)
-    if not _CONTEXT_NAME_RE.match(name):
-        msg = (
-            f"Invalid context name {name!r}. Context names must start with "
-            "a letter and contain only letters, digits, '-' or '_'."
-        )
-        raise ValueError(msg)
-    return name
 
 
 class AddonConfig(BaseModel):
@@ -1188,6 +998,142 @@ class WafSection(BaseModel):
         return [_check_path_regex(p) for p in v]
 
 
+# Context names appear unquoted on the CLI and as TOML keys; keep them
+# shell-friendly. Same shape as the CLI validator
+# (hop3_cli.commands.local.context_cmd._CONTEXT_NAME_RE).
+_CONTEXT_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+
+# Committed-credential tripwire (ADR 042, 2nd revision). hop3.toml is secret-free
+# by convention; this backs the convention with a LOUD refusal when an obvious
+# secret is committed. Best-effort known-shapes, not a proof — high-entropy
+# heuristics are deliberately omitted (too many false positives on legit hashes).
+_SECRET_PREFIXES = (
+    "sk_live_",
+    "sk_test_",
+    "rk_live_",
+    "ghp_",
+    "gho_",
+    "github_pat_",
+    "xoxb-",
+    "xoxp-",
+    "AKIA",
+    "ASIA",
+)
+_CREDS_IN_URL = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.\-]*://[^/@\s]*:[^/@\s]+@")
+_SECRET_QUERY = re.compile(r"[?&](token|password|secret|api_key)=", re.IGNORECASE)
+
+
+def _secret_reason(value: str) -> str | None:
+    """Return a reason if ``value`` looks like a committed secret, else None."""
+    if any(value.startswith(p) for p in _SECRET_PREFIXES):
+        return "a known API-key prefix"
+    if _CREDS_IN_URL.match(value):
+        return "a connection string with embedded credentials"
+    return None
+
+
+def _reject_committed_env_secret(name: str, value: object, where: str) -> None:
+    """Fail loud if a scalar env value under ``where`` looks like a secret."""
+    if isinstance(value, str) and (reason := _secret_reason(value)):
+        msg = (
+            f"{where}.{name} looks like a credential ({reason}). hop3.toml is "
+            "committed and must stay secret-free — set it server-side with "
+            "`hop3 env set` instead."
+        )
+        raise ValueError(msg)
+
+
+class ContextSection(BaseModel):
+    """A single ``[contexts.<name>]`` block — one deploy environment (ADR 042 r2).
+
+    A "context" is a (server, app, domains, env) bundle answering "where does
+    *this* project go for environment ``<name>``?". Multiple contexts express the
+    dev / staging / prod story for one codebase. Carries NO secrets: ``server``
+    is a literal address (the token lives in the CLI's per-server store), and a
+    committed-credential tripwire rejects secret-shaped values. Resolved
+    CLIENT-SIDE; the deployer ignores ``[contexts.*]``.
+    """
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    server: str = Field(
+        description=(
+            "Literal address of the target Hop3 instance, e.g. "
+            "ssh://root@prod.example.com. Never a symbolic name, never credentials."
+        ),
+    )
+    app: str | None = Field(
+        default=None,
+        description="App instance name for this environment; inherits [metadata].id when absent.",
+    )
+    domains: DomainsSection | None = Field(
+        default=None,
+        description=(
+            "Hostnames for this environment — same shape as top-level [domains] "
+            "(a `list = [...]` table). Full-replaces top-level when present."
+        ),
+    )
+    env: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Non-secret env overrides; merge over top-level [env]. Secrets go "
+            "server-side via `hop3 env set`, never here."
+        ),
+    )
+
+    @field_validator("server")
+    @classmethod
+    def validate_server(cls, v: str) -> str:
+        if not v or v != v.strip():
+            msg = "Context.server must be a non-empty address without surrounding whitespace."
+            raise ValueError(msg)
+        if _CREDS_IN_URL.match(v) or _SECRET_QUERY.search(v):
+            msg = (
+                f"Context.server {v!r} embeds a credential. The address must be "
+                "secret-free (no `user:password@`, no `token=`/`password=` "
+                "params); the token is stored locally, never in committed config."
+            )
+            raise ValueError(msg)
+        return v
+
+    @field_validator("app")
+    @classmethod
+    def validate_app(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not v or v != v.strip():
+            msg = (
+                "Context.app must be a non-empty app name without surrounding "
+                "whitespace. Omit it to inherit [metadata].id."
+            )
+            raise ValueError(msg)
+        return v
+
+    @field_validator("env")
+    @classmethod
+    def validate_env_secret_free(
+        cls, v: dict[str, Any] | None
+    ) -> dict[str, Any] | None:
+        if v:
+            for name, value in v.items():
+                _reject_committed_env_secret(name, value, "[contexts.*.env]")
+        return v
+
+    @model_validator(mode="after")
+    def validate_domains_vs_env_hostname(self) -> ContextSection:
+        if (
+            self.domains is not None
+            and self.env is not None
+            and "HOST_NAME" in self.env
+        ):
+            msg = (
+                "HOST_NAME cannot be set in a context's [env] when the context "
+                "also declares `domains`. Keep one or the other."
+            )
+            raise ValueError(msg)
+        return self
+
+
 class Hop3TomlSchema(BaseModel):
     """Complete hop3.toml schema with validation.
 
@@ -1243,16 +1189,16 @@ class Hop3TomlSchema(BaseModel):
             "exclusive with setting HOST_NAME under [env]."
         ),
     )
+    addons: list[AddonConfig] | None = None
     contexts: dict[str, ContextSection] | None = Field(
         default=None,
         description=(
-            "Per-project deploy targets (ADR 042). Each [contexts.<name>] "
-            "block bundles (server, app, domains, env) for one operational "
-            "mode — typically dev / staging / prod. Pure data at this stage; "
-            "resolution happens in the CLI."
+            "Per-project deploy environments (ADR 042, 2nd revision). Each "
+            "[contexts.<name>] bundles (server, app, domains, env) for one "
+            "environment — dev/staging/prod. Non-secret; resolved client-side; "
+            "ignored by the deployer."
         ),
     )
-    addons: list[AddonConfig] | None = None
     ports: list[PortDeclaration] | None = Field(
         default=None,
         description=(
@@ -1343,18 +1289,17 @@ class Hop3TomlSchema(BaseModel):
 
     @field_validator("contexts")
     @classmethod
-    def validate_context_names(
+    def _validate_context_names(
         cls, v: dict[str, ContextSection] | None
     ) -> dict[str, ContextSection] | None:
-        # Pydantic doesn't validate dict keys natively for typed-value dicts.
-        # Running the check as a field_validator (rather than a model_validator)
-        # means a bad name (`[contexts.has spaces]`) surfaces with `contexts`
-        # in the error path, not an empty loc — operators reading the error
-        # message get a breadcrumb to the offending section.
-        if v is None:
-            return v
-        for name in v:
-            _validate_context_name(name)
+        if v:
+            for name in v:
+                if not _CONTEXT_NAME_RE.match(name):
+                    msg = (
+                        f"Invalid context name {name!r}. Names start with a "
+                        "letter or digit, then letters/digits/'-'/'_', max 64 chars."
+                    )
+                    raise ValueError(msg)
         return v
 
     @field_validator("env")
@@ -1364,15 +1309,15 @@ class Hop3TomlSchema(BaseModel):
         # sub-table + `_policy` sentinel), but every *table* value must be a
         # recognised typed form — a generated secret or a reference (ADR 046).
         # Classifying here is the single source of truth and fails loud on an
-        # unknown shape instead of silently dropping it.
+        # unknown shape instead of silently dropping it. Scalar string values are
+        # scanned by the committed-credential tripwire (ADR 042 r2).
         if not v:
             return v
         for name, value in v.items():
-            if (
-                name == "computed"
-                or name.startswith("_")
-                or not isinstance(value, dict)
-            ):
+            if name == "computed" or name.startswith("_"):
+                continue
+            if not isinstance(value, dict):
+                _reject_committed_env_secret(name, value, "[env]")
                 continue
             if "generate" in value:
                 model: type[BaseModel] = EnvGenerate

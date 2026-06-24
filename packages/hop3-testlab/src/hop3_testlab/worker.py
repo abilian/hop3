@@ -227,6 +227,27 @@ def _record_engine_pid(target_id: str, pid: int) -> None:
         session.close()
 
 
+class EngineExitError(RuntimeError):
+    """The test engine subprocess exited non-zero.
+
+    Subclasses ``RuntimeError`` so every existing caller (and test) that catches
+    a ``RuntimeError`` keeps working. Carries the ``returncode`` and ``log_path``
+    so the dispatcher can tell two very different outcomes apart:
+
+    - a run that *completed* and recorded per-test results, then exited 1 because
+      some tests failed (the normal **red** build — not a crash); versus
+    - the engine dying during setup/deploy/blank-slate before it recorded
+      anything (a genuine crash).
+
+    Both are failures, but only the second deserves a "crashed" + traceback.
+    """
+
+    def __init__(self, returncode: int, log_path: Path, message: str) -> None:
+        super().__init__(message)
+        self.returncode = returncode
+        self.log_path = log_path
+
+
 def _run_engine(
     target_id: str, cmd: list[str], env: dict | None, cwd: Path | None = None
 ) -> None:
@@ -267,10 +288,12 @@ def _run_engine(
         # Fail loud (NON-NEGOTIABLE): a non-zero engine exit is a *failed* build.
         # Raise with the log path + tail so run_once propagates it, the dispatcher
         # records the build FAILED **with the real reason** (BuildRequest.detail),
-        # and the CLI exits non-zero — never a green build for a failed run.
+        # and the CLI exits non-zero — never a green build for a failed run. The
+        # dispatcher inspects returncode/log_path to frame it as "completed with
+        # failures" vs. a genuine "crashed" (see EngineExitError).
         detail = _failure_summary(log_path)
         msg = f"Engine exited {returncode}. See {log_path}\n{detail}"
-        raise RuntimeError(msg)
+        raise EngineExitError(returncode, log_path, msg)
 
 
 def _engine_log_path(env: dict | None) -> Path:

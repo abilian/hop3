@@ -61,7 +61,7 @@ The same UI/stack as the hop3-server dashboard (Litestar + HTMX), so a single ap
 
 ## Dogfooded, and itself a probe
 
-The Test Lab **runs on a Hop3 server and is deployed by Hop3** — it's a real app in the catalog. This goes beyond dogfooding: a Litestar + Postgres + background-scheduler app is a genuinely demanding workload, so deploying the Lab *is itself* a platform probe. The thing that reports on Hop3's failures is also one of the apps testing for them.
+The Test Lab **runs on a Hop3 server and is deployed by Hop3** — it's a real app in the catalog. This goes beyond dogfooding: a Litestar + Postgres + background-scheduler app is a demanding workload, so deploying the Lab *is itself* a platform probe. The thing that reports on Hop3's failures is also one of the apps testing for them.
 
 It then **remote-controls Hetzner**: the runner provisions a *pool* of ephemeral targets, deploys Hop3 to each, and shards the catalog across them. Targets are torn down at run end for cost control (unless `--keep` is set for debugging).
 

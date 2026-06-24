@@ -1,17 +1,18 @@
 # ADR 014: Authentication Bootstrap Process
 
-**Status**: Final
-**Type**: Feature
-**Created**: 2025-11-28
-**Related-ADRs**: 012, 018, 036
+- **Status**: Final
+- **Type**: Feature
+- **Created**: 2025-11-28
+- **Updated**: 2026-06-23
+- **Related-ADRs**: 012, 018, 036
 
 ## Context and Goals
 
 Hop3 uses JWT-based bearer token authentication for API access. The current authentication flow requires users to:
 
 1. Register an account (`hop3 auth register`)
-2. Login to receive a JWT token (`hop3 auth login`)
-3. Store the token in `~/.config/hop3-cli/config.toml`
+2. Log in to receive a JWT token (`hop3 login`, which saves it for you)
+3. The token is stored in `~/.config/hop3-cli/config.toml`
 4. Include the token in subsequent requests via `Authorization: Bearer <token>` header
 
 However, there is a bootstrap problem: **How do we create the first admin user and obtain the initial authentication token?**
@@ -155,7 +156,7 @@ echo "$ADMIN_PASSWORD" | hop3 init \
   --ssh deploy@my-server.com \
   --username admin \
   --email admin@company.com \
-  --server https://my-server.com \
+  --url https://my-server.com \
   --password-stdin \
   --yes
 ```
@@ -300,7 +301,7 @@ No separate bootstrap needed for web portal.
 The bootstrap mechanism is additive and layers on top of the existing public auth flow, which is unchanged:
 
 - `auth register` is public (creates non-admin users)
-- `auth login` is public (returns token)
+- `auth get-token` is public (verifies credentials and returns a token)
 
 The bootstrap introduces, without breaking anything above:
 
@@ -308,6 +309,12 @@ The bootstrap introduces, without breaking anything above:
 2. **The `hop3 init --ssh` command** — a client-side bootstrap convenience.
 
 Existing users and tokens remain valid, and no existing command changes behaviour.
+
+### Update (2026-06): login/logout are client-side; `auth get-token` is the primitive
+
+The interactive login flow — `hop3 login`, and its canonical spelling `hop3 auth login` — is handled entirely **client-side**: it bootstraps over SSH, accepts token URLs and magic links (`--web`), prompts for a password, and saves the resulting token to the active context. `hop3 logout` / `hop3 auth logout` mirror it (revoke the token server-side, then clear it locally). `login`/`logout` are registered as short-form aliases of `auth login`/`auth logout`.
+
+The public server RPC that verifies a username + password and returns a token — originally named `auth login` in this ADR — is now **`auth get-token`**. It simply prints the token, for scripts and automation; the interactive login flow calls it under the hood. See ADR 036 (CLI ergonomics and command surface) for the alias and command-surface rationale.
 
 ---
 

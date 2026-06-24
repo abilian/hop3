@@ -38,6 +38,7 @@ FALLBACK_COMMANDS = [
     "context",
     "init",
     "login",
+    "logout",
     "settings",
     # Server commands - top-level
     "addons",
@@ -121,12 +122,10 @@ FALLBACK_COMMANDS = [
     "stop",
     # Subcommands - auth
     "auth login",
-    "auth",
-    "logout",
-    "auth",
-    "register",
-    "auth",
-    "whoami",
+    "auth logout",
+    "auth whoami",
+    "auth get-token",
+    "auth register",
     # Subcommands - backup
     "backup create",
     "backup",
@@ -173,6 +172,7 @@ LOCAL_COMMANDS = [
     "context",
     "init",
     "login",
+    "logout",
     "settings",
 ]
 

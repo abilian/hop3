@@ -6,8 +6,7 @@
 
 Covers the integration of `_check_project_mismatch`, `_check_stray_dry_run`,
 `_handle_deploy_preview`, `_deploy_source_path`, `_matches_guarded_prefix`,
-plus the regression test for the 3-tuple `parse_hop3_git_remote` /
-`resolve_server` shape mismatch that nearly shipped.
+and `_compute_resolutions` (context + app only — ADR 042).
 """
 
 from __future__ import annotations
@@ -177,8 +176,8 @@ def test_guard_not_fired_when_source_is_cwd_rooted(tmp_path: Path) -> None:
             _flags(),
             _Resolution(
                 "myapp-staging",
-                "hop3.toml [contexts.staging].app at /tmp/x",
-                kind=AppSource.CONTEXT_APP,
+                "hop3.toml [cli].app at /tmp/x",
+                kind=AppSource.CLI_APP,
             ),
         )  # must not raise
 
@@ -254,7 +253,6 @@ def test_dry_run_for_deploy_prints_plan_and_exits(tmp_path: Path, capsys) -> Non
             Config(data={}),
             _Resolution("myapp", "$HOP3_APP"),
             None,
-            None,
         )
     assert exc.value.code == ExitCode.SUCCESS
     captured = capsys.readouterr()
@@ -272,7 +270,6 @@ def test_dry_run_for_non_deploy_does_not_short_circuit(tmp_path: Path) -> None:
         Config(data={}),
         _Resolution("myapp", "$HOP3_APP"),
         None,
-        None,
     )  # must not raise
 
 
@@ -283,45 +280,29 @@ def test_preview_no_op_when_app_unresolved() -> None:
         Config(data={}),
         _Resolution(None),
         None,
-        None,
     )  # must not raise
 
 
 # ============================================================================
-# _compute_resolutions — regression for the 3-tuple BLOCKER
+# _compute_resolutions — context + app only (no server chain, no git-remote)
 # ============================================================================
 
 
-def test_compute_resolutions_handles_hop3_git_remote(
+def test_compute_resolutions_returns_context_and_app(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """REGRESSION: ``parse_hop3_git_remote`` returns ``(env, host, app)``,
-    but ``resolve_server`` declares ``git_remote_hint: tuple[str, str] | None``
-    and unpacks ``host, _app = git_remote_hint``. Passing the 3-tuple
-    crashed with ``ValueError: too many values to unpack (expected 2, got 3)``
-    on any deploy from a checkout with a ``hop3-*`` remote.
+    """ADR 042: `_compute_resolutions` returns a 2-tuple `(context, app)`.
 
-    This regression-locks the 3→2 conversion in main._compute_resolutions.
+    There is no server resolution and no git-remote inference; the app
+    resolves CWD-only. The call must complete without git/server work.
     """
-    # Clear env vars so resolve_server can't short-circuit at sources 1/2/3.
-    for var in ("HOP3_SERVER", "HOP3_APP"):
+    for var in ("HOP3_CONTEXT", "HOP3_APP"):
         monkeypatch.delenv(var, raising=False)
 
-    # Stub parse_hop3_git_remote to return a realistic 3-tuple.
-    monkeypatch.setattr(
-        "hop3_cli.main.parse_hop3_git_remote",
-        lambda: ("prod", "example.com", "myapp"),
-    )
-
-    config = Config(data={"contexts": {}, "current_context": None})
-
-    # The call must not raise. If the 3-tuple is passed through unchanged,
-    # this raises ``ValueError`` inside resolve_server.
+    config = Config(data={"contexts": {}})
     flags, _ = parse_flags(["deploy", "myapp"])
-    _ctx, _srv, app = _compute_resolutions(["deploy", "myapp"], flags, config)
-    # The app resolution should at least *attempt* — we don't assert its
-    # value here (depends on resolver chain), but the call must complete.
-    assert app is not None
+    _ctx, app = _compute_resolutions(["deploy", "myapp"], flags, config)
+    assert app is not None  # app-scoped → resolver ran (returns an AppResolution)
 
 
 # ============================================================================

@@ -1,9 +1,9 @@
 # ADR 010: Security and Resilience (Umbrella)
 
-**Status**: Accepted
-**Type**: Feature
-**Created**: 2024-07-17
-**Related-ADRs**: 011, 012, 013, 014, 024, 029
+- **Status**: Accepted
+- **Type**: Feature
+- **Created**: 2024-07-17
+- **Related-ADRs**: 011, 012, 013, 014, 024, 029
 
 ## Purpose
 

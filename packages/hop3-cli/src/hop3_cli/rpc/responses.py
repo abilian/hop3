@@ -32,7 +32,6 @@ from hop3_cli.exit_codes import (
     map_message_to_exit,
     map_rpc_code_to_exit,
 )
-from hop3_cli.tokens import JWT_PATTERN
 from hop3_cli.ui.console import err
 
 if TYPE_CHECKING:
@@ -91,8 +90,6 @@ def handle_ok_response(
     """
     if cli_args[:2] == ["addon", "exists"]:
         _handle_predicate_response(result, printer)
-    elif cli_args and cli_args[0] == "auth login":
-        handle_login_response(result, config, printer)
     elif is_help_command(cli_args) and not printer.json_output:
         # ADR 036 D11: bare `hop3 help` gets local commands injected, then the
         # feedback-link footer (G7), and a dynamic context/app status line
@@ -391,84 +388,3 @@ def _extract_typed_command(error_message: str) -> str | None:
     if end == -1:
         return None
     return error_message[start + 1 : end]
-
-
-def handle_login_response(
-    result: list[dict], config: Config, printer: RichPrinter
-) -> None:
-    """Handle auth login response - extract and save token, then print modified output.
-
-    Args:
-        result: The RPC response from auth login
-        config: The config object to save the token to
-        printer: Printer for output
-    """
-    token = None
-    modified_result = []
-    found_token = False
-
-    # Keywords that indicate manual token save instructions
-    skip_keywords = [
-        "your api token",
-        "save this token",
-        "config file",
-        "api_token =",
-        "environment variable",
-        "export hop3_api_token",
-    ]
-
-    for item in result:
-        if item.get("t") == "text":
-            text = item.get("text", "")
-
-            # Check if this text contains a JWT token
-            match = JWT_PATTERN.search(text)
-            if match and not found_token:
-                token = match.group(0)
-                found_token = True
-                # Skip the line containing the JWT token itself
-                continue
-
-            # Skip all manual instruction messages (before or after token)
-            if any(keyword in text.lower() for keyword in skip_keywords):
-                continue
-
-            # Skip empty or whitespace-only text
-            if not text.strip():
-                continue
-
-            # Keep other text messages (success message, etc.)
-            modified_result.append(item)
-        else:
-            # Keep non-text messages (tables, errors, etc.)
-            modified_result.append(item)
-
-    # Save token if found
-    if token:
-        try:
-            config.save({"api_token": token})
-            # Add success message about saving the token
-            modified_result.append({
-                "t": "text",
-                "text": f"\nAPI token saved to {config.config_file}",
-            })
-            modified_result.append({
-                "t": "text",
-                "text": "You can now use hop3 commands without additional authentication.",
-            })
-        except Exception as e:
-            modified_result.append({
-                "t": "error",
-                "text": f"Failed to save token to config: {e}",
-            })
-            modified_result.append({
-                "t": "text",
-                "text": f"\nYour API token: {token}",
-            })
-            modified_result.append({
-                "t": "text",
-                "text": f"Please save it manually to {config.config_file or '~/.config/hop3-cli/config.toml'}",
-            })
-
-    # Print the modified result
-    printer.print(modified_result)

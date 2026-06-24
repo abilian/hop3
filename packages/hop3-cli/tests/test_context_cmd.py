@@ -2,199 +2,189 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for the context namespace commands (ADR 036 M2b)."""
+"""Tests for `hop3 context` — deploy environments in hop3.toml (ADR 042 r2).
+
+The conftest autouse fixture chdir's into an isolated tmp dir, so `Path.cwd()`
+is empty until a test writes a hop3.toml there.
+"""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-from unittest.mock import MagicMock
+from pathlib import Path
 
 import pytest
+import tomllib
 from hop3_cli.commands.local.context_cmd import (
-    _context_bare,
-    _parse_context_use_args,
+    context_add,
+    context_list,
+    context_remove,
     context_rename,
     context_show,
     context_use,
 )
-from hop3_cli.config import Config, Context
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
-@pytest.fixture
-def tmp_config(tmp_path: Path) -> Config:
-    """Config backed by a real temporary file with two contexts."""
-    cfg_file = tmp_path / "config.toml"
-    cfg = Config(data={}, config_file=cfg_file)
-    cfg.add_context(name="dev", api_url="ssh://dev.example.com")
-    cfg.add_context(name="prod", api_url="ssh://prod.example.com", protected=True)
-    # Make "dev" the current context at the global level
-    cfg.set_global_context("dev")
-    return cfg
+class _Cfg:
+    """Minimal stand-in: context_add only reads the --app global override."""
+
+    def __init__(self, app: str | None = None) -> None:
+        self._app = app
+
+    def get_app_override(self) -> str | None:
+        return self._app
 
 
-# ---- _parse_context_use_args ----
-# Post-ADR-042-Step-7: --local was removed; the returned tuple shape is
-# (name, use_global, app).
+def _write_toml(text: str) -> Path:
+    p = Path.cwd() / "hop3.toml"
+    p.write_text(text)
+    return p
 
 
-def test_parse_context_use_plain_name():
-    name, glob, app = _parse_context_use_args(["prod"])
-    assert (name, glob, app) == ("prod", False, None)
+def _contexts() -> dict:
+    return tomllib.loads((Path.cwd() / "hop3.toml").read_text()).get("contexts", {})
 
 
-def test_parse_context_use_with_app_long():
-    name, _, app = _parse_context_use_args(["--app", "myapp", "prod"])
-    assert name == "prod"
-    assert app == "myapp"
+# ---- add ----
 
 
-def test_parse_context_use_with_app_short():
-    name, _, app = _parse_context_use_args(["-a", "myapp", "prod"])
-    assert name == "prod"
-    assert app == "myapp"
+def test_add_writes_block_no_secret(capsys):
+    _write_toml('[metadata]\nid = "myapp"\n')
+    context_add(
+        ["prod", "--server", "ssh://root@prod.example.com", "--domain", "myapp.com"],
+        _Cfg(),
+    )
+    block = _contexts()["prod"]
+    assert block["server"] == "ssh://root@prod.example.com"
+    assert block["domains"]["list"] == ["myapp.com"]  # unified [domains].list shape
+    assert "token" not in (Path.cwd() / "hop3.toml").read_text().lower()
+    out = capsys.readouterr().out
+    assert "Added [contexts.prod]" in out
+    assert "commit" in out.lower()
 
 
-def test_parse_context_use_with_global_and_app():
-    name, glob, app = _parse_context_use_args(["--global", "--app", "myapp", "prod"])
-    assert name == "prod"
-    assert glob is True
-    assert app == "myapp"
+def test_add_app_from_override():
+    _write_toml('[metadata]\nid = "myapp"\n')
+    context_add(["prod", "--server", "ssh://root@h"], _Cfg(app="myapp-prod"))
+    assert _contexts()["prod"]["app"] == "myapp-prod"
 
 
-def test_parse_context_use_rejects_retired_local_flag(capsys):
-    """ADR 042 Step 7: --local is retired; the parser must refuse it
-    loudly rather than silently dropping it (the old habit would
-    otherwise fall through to the global-export-instruction path).
-    """
-    with pytest.raises(SystemExit) as exc:
-        _parse_context_use_args(["--local", "staging"])
-    assert exc.value.code == 2
-    captured = capsys.readouterr()
-    assert "--local was retired" in captured.err
-    assert ".hop3-local.toml" in captured.err
+def test_add_env_pairs():
+    _write_toml('[metadata]\nid = "myapp"\n')
+    context_add(
+        ["prod", "--server", "ssh://root@h", "--env", "LOG_LEVEL=warning"], _Cfg()
+    )
+    assert _contexts()["prod"]["env"] == {"LOG_LEVEL": "warning"}
 
 
-# ---- context_show ----
+def test_add_requires_server(capsys):
+    _write_toml('[metadata]\nid = "myapp"\n')
+    with pytest.raises(SystemExit):
+        context_add(["prod"], _Cfg())
+    assert "--server" in capsys.readouterr().err
 
 
-def test_context_show_by_name(capsys, tmp_config):
-    context_show(["prod"], tmp_config, MagicMock())
+def test_add_no_hop3_toml(capsys):
+    with pytest.raises(SystemExit):
+        context_add(["prod", "--server", "ssh://root@h"], _Cfg())
+    assert "no hop3.toml" in capsys.readouterr().err.lower()
+
+
+def test_add_duplicate_rejected(capsys):
+    _write_toml('[metadata]\nid = "myapp"\n[contexts.prod]\nserver = "ssh://root@h"\n')
+    with pytest.raises(SystemExit):
+        context_add(["prod", "--server", "ssh://root@h"], _Cfg())
+    assert "already exists" in capsys.readouterr().err
+
+
+def test_add_invalid_name(capsys):
+    _write_toml('[metadata]\nid = "myapp"\n')
+    with pytest.raises(SystemExit):
+        context_add(["has space", "--server", "ssh://root@h"], _Cfg())
+    assert "Invalid context name" in capsys.readouterr().err
+
+
+def test_add_preserves_comments():
+    _write_toml('# my project\n[metadata]\nid = "myapp"  # the app\n')
+    context_add(["prod", "--server", "ssh://root@h"], _Cfg())
+    text = (Path.cwd() / "hop3.toml").read_text()
+    assert "# my project" in text  # tomlkit round-trip keeps comments
+    assert "# the app" in text
+
+
+# ---- list / show ----
+
+
+def test_list(capsys):
+    _write_toml(
+        '[metadata]\nid="myapp"\n'
+        '[contexts.dev]\nserver="ssh://root@dev"\napp="myapp-dev"\n'
+        '[contexts.prod]\nserver="ssh://root@prod"\n'
+    )
+    context_list()
+    out = capsys.readouterr().out
+    assert "dev" in out
+    assert "prod" in out
+    assert "ssh://root@dev" in out
+
+
+def test_show(capsys):
+    _write_toml(
+        '[metadata]\nid="myapp"\n[contexts.prod]\nserver="ssh://root@prod"\napp="myapp"\n'
+    )
+    context_show(["prod"])
     out = capsys.readouterr().out
     assert "Context: prod" in out
-    assert "Protected:" in out
-    assert "ssh://prod.example.com" in out
+    assert "ssh://root@prod" in out
 
 
-def test_context_show_current_when_no_arg(capsys, tmp_config):
-    context_show([], tmp_config, MagicMock())
-    out = capsys.readouterr().out
-    assert "Context: dev" in out
-    assert "(active)" in out
-
-
-def test_context_show_includes_default_app(capsys, tmp_config):
-    tmp_config.set_default_app("myapp", context_name="prod")
-    context_show(["prod"], tmp_config, MagicMock())
-    out = capsys.readouterr().out
-    assert "Default app: myapp" in out
-
-
-def test_context_show_unknown_context_errors(capsys, tmp_config):
+def test_show_unknown(capsys):
+    _write_toml('[metadata]\nid="myapp"\n')
     with pytest.raises(SystemExit):
-        context_show(["nonexistent"], tmp_config, MagicMock())
+        context_show(["nope"])
+    assert "not found" in capsys.readouterr().err
 
 
-# ---- context_use with --app ----
+# ---- remove / rename ----
 
 
-def test_context_use_sets_default_app(capsys, tmp_config):
-    context_use(["--app", "myapp", "prod"], tmp_config, MagicMock())
+def test_remove(capsys):
+    _write_toml('[metadata]\nid="myapp"\n[contexts.prod]\nserver="ssh://root@h"\n')
+    context_remove(["prod"])
+    assert "prod" not in _contexts()
+    assert "Removed" in capsys.readouterr().out
+
+
+def test_rename(capsys):
+    _write_toml(
+        '[metadata]\nid="myapp"\n[contexts.old]\nserver="ssh://root@h"\napp="a"\n'
+    )
+    context_rename(["old", "new"])
+    ctxs = _contexts()
+    assert "old" not in ctxs
+    assert ctxs["new"] == {"server": "ssh://root@h", "app": "a"}
+
+
+# ---- use (writes the gitignored per-checkout pin) ----
+
+
+def test_use_writes_overlay(capsys):
+    _write_toml('[metadata]\nid="myapp"\n[contexts.dev]\nserver="ssh://root@dev"\n')
+    context_use(["dev"])
+    overlay = tomllib.loads((Path.cwd() / ".hop3-local.toml").read_text())
+    assert overlay["local"]["context"] == "dev"  # ADR 042 r2 renamed [current]->[local]
     out = capsys.readouterr().out
-    assert "default app for context 'prod' to 'myapp'" in out.lower()
-    # Check it was persisted
-    assert tmp_config.get_default_app(context_name="prod") == "myapp"
+    assert "not committed" in out.lower()
 
 
-def test_context_use_without_app_does_not_touch_default(tmp_config):
-    tmp_config.set_default_app("existing", context_name="prod")
-    context_use(["prod"], tmp_config, MagicMock())
-    assert tmp_config.get_default_app(context_name="prod") == "existing"
-
-
-# ---- context_rename ----
-
-
-def test_context_rename_success(capsys, tmp_config):
-    tmp_config.set_default_app("myapp", context_name="prod")
-    context_rename(["prod", "production"], tmp_config, MagicMock())
-    out = capsys.readouterr().out
-    assert "Renamed context 'prod' -> 'production'" in out
-    contexts = tmp_config.get_contexts()
-    assert "prod" not in contexts
-    assert "production" in contexts
-    # default_app preserved
-    assert tmp_config.get_default_app(context_name="production") == "myapp"
-
-
-def test_context_rename_preserves_other_fields(tmp_config):
-    # protected=True on prod
-    context_rename(["prod", "production"], tmp_config, MagicMock())
-    assert tmp_config.get_contexts()["production"].protected is True
-
-
-def test_context_rename_retargets_global_current_if_needed(tmp_config):
-    tmp_config.set_global_context("prod")
-    context_rename(["prod", "production"], tmp_config, MagicMock())
-    # global current_context should now point to the new name
-    assert tmp_config.data.get("current_context") == "production"
-
-
-def test_context_rename_unknown_old_fails(tmp_config):
+def test_use_unknown_context(capsys):
+    _write_toml('[metadata]\nid="myapp"\n[contexts.dev]\nserver="ssh://root@dev"\n')
     with pytest.raises(SystemExit):
-        context_rename(["nonexistent", "new"], tmp_config, MagicMock())
+        context_use(["nope"])
+    assert "not found" in capsys.readouterr().err
 
 
-def test_context_rename_collision_fails(tmp_config):
+def test_use_rejects_global(capsys):
+    _write_toml('[metadata]\nid="myapp"\n[contexts.dev]\nserver="ssh://root@dev"\n')
     with pytest.raises(SystemExit):
-        context_rename(["prod", "dev"], tmp_config, MagicMock())
-
-
-def test_context_rename_too_few_args_fails(tmp_config):
-    with pytest.raises(SystemExit):
-        context_rename(["prod"], tmp_config, MagicMock())
-
-
-# ---- _context_bare ----
-
-
-def test_context_bare_with_active_context(capsys, tmp_config):
-    _context_bare(tmp_config, MagicMock())
-    out = capsys.readouterr().out
-    assert "Current context: dev" in out
-    assert "ssh://dev.example.com" in out
-    assert "(none" in out  # default_app is (none - ...)
-    assert "Subcommands" in out
-
-
-def test_context_bare_shows_default_app(capsys, tmp_config):
-    tmp_config.set_default_app("myapp", context_name="dev")
-    _context_bare(tmp_config, MagicMock())
-    out = capsys.readouterr().out
-    assert "Default app: myapp" in out
-
-
-def test_context_bare_no_contexts(capsys, tmp_path: Path):
-    cfg = Config(data={}, config_file=tmp_path / "config.toml")
-    _context_bare(cfg, MagicMock())
-    out = capsys.readouterr().out
-    assert "No active context" in out
-    assert "add" in out.lower()
-
-
-def test_context_show_dataclass_field_default() -> None:
-    """Sanity: Context.default_app defaults to empty string."""
-    ctx = Context(name="x", api_url="")
-    assert ctx.default_app == ""
+        context_use(["dev", "--global"])
+    assert "retired" in capsys.readouterr().err

@@ -1,10 +1,10 @@
 # ADR 046: Declarative Application Resources — Generated Secrets, Persistent Volumes, Dynamic Env, and Resource Limits
 
-**Status**: Accepted
-**Type**: Feature
-**Created**: 2026-06-15
-**Authors**: Stefane Fermigier <sfermigier@gmail.com>
-**Related-ADRs**: 002 (hop3.toml format), 003 (config validation), 011 (encryption), 016 (backup strategy), 024 (backup/restore system), 035 (build artifacts), 040 (network/firewall/ports), 041 (privileged operations agent), 042 (CLI context model), 045 (fixed-port registry)
+- **Status**: Accepted
+- **Type**: Feature
+- **Created**: 2026-06-15
+- **Authors**: Stefane Fermigier <sfermigier@gmail.com>
+- **Related-ADRs**: 002 (hop3.toml format), 003 (config validation), 011 (encryption), 016 (backup strategy), 024 (backup/restore system), 035 (build artifacts), 040 (network/firewall/ports), 041 (privileged operations agent), 042 (CLI context model), 045 (fixed-port registry)
 
 ## Abstract
 
@@ -12,7 +12,7 @@ This ADR establishes a declarative model for application resources in `hop3.toml
 
 ## Context
 
-Hop3's `hop3.toml` was modeled on Nua's `nua-config` (Hop3's predecessor). ADR 002 reserved a number of Nua-derived fields against future implementation, but several were never realized, and a side-by-side comparison of the two formats (`local-notes/nua-vs-hop3-config-comparison.md`) surfaced four capabilities that Nua expressed declaratively and Hop3 cannot. Each one forces a *per-app workaround* — which, by the project ethos, is a signal that the platform is missing something, not that the app is special.
+Hop3's `hop3.toml` was modeled on Nua's `nua-config` (Hop3's predecessor). ADR 002 reserved a number of Nua-derived fields against future implementation, but several were never realized, and a side-by-side comparison of the two formats surfaced four capabilities that Nua expressed declaratively and Hop3 cannot. Each one forces a *per-app workaround* — which, by the project ethos, is a signal that the platform is missing something, not that the app is special.
 
 The four gaps, each a real blocker hit while greening the advertised app/tutorial set:
 
@@ -371,7 +371,6 @@ type = "postgres"
 
 ## References
 
-- `local-notes/nua-vs-hop3-config-comparison.md` — the gap analysis that motivated this ADR.
 - ADRs 002, 003, 011, 016, 024, 035, 040, 041, 042, 045.
 - Nua specs: `sandbox/nua/doc/src/dev/specifications/{nua-config,configuration}.md`.
 - Python `secrets`; systemd resource control; Docker resource constraints.
