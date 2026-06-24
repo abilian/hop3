@@ -165,7 +165,7 @@ nav = [
                 { "ADR 038: Multi-Service Application Support" = "developers/adrs/038-multi-service-apps.md" },
                 { "ADR 039: Python Deploy Strategies — Clarify and Make Expl..." = "developers/adrs/039-python-deploy-strategies.md" },
                 { "ADR 041: Privileged Operations Agent (hop3-rootd)" = "developers/adrs/041-privileged-operations-agent.md" },
-                { "ADR 042: CLI Context Model — One Context, One Connection" = "developers/adrs/042-cli-context-model.md" },
+                { "ADR 042: CLI Context Model — Context = Deploy Environment" = "developers/adrs/042-cli-context-model.md" },
                 { "ADR 043: Unified Testing Architecture" = "developers/adrs/043-unified-testing-architecture.md" },
                 { "ADR 044: Nightly Test Lab — a Web App to Run and Report o..." = "developers/adrs/044-nightly-test-lab.md" },
                 { "ADR 045: Fixed-Port Registry — Exclusive Host Ports for N..." = "developers/adrs/045-fixed-port-registry.md" },

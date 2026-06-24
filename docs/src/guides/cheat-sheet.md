@@ -41,30 +41,27 @@ hop3 auth whoami
 hop3 version
 ```
 
-### Context Management (Multiple Servers)
+### Deploy Environments (dev / staging / prod)
 
 ```bash
-# Add server contexts
-hop3 context add staging --server ssh://root@staging.example.com
-hop3 context add production --server ssh://root@prod.example.com --protected
+# Declare environments in this project's hop3.toml (committed, no secrets)
+hop3 context add staging --server ssh://root@staging.example.com --app myapp-staging
+hop3 context add prod    --server ssh://root@prod.example.com    --app myapp
 
-# List contexts (* = current)
+# List them; pin one for this checkout (writes the gitignored .hop3-local.toml)
 hop3 context list
+hop3 context use staging
 
 # Show current context and source (bare `hop3 context` also shows it)
 hop3 context show
 
-# Switch context (safe - prints export command)
-hop3 context use production
-# Output: export HOP3_CONTEXT=production
-
-# Switch context for this project (run from inside the project tree;
+# Pin a context for this checkout (run from inside the project tree;
 # writes .hop3-local.toml, auto-gitignored — ADR 042)
 cd myproject/
-hop3 context use staging
+hop3 context use production
 
-# Switch context globally (affects all terminals - use with caution!)
-hop3 context use production --global
+# Override for one shell (ambient)
+export HOP3_CONTEXT=production
 
 # Use context for single command
 hop3 --context production apps
@@ -76,8 +73,8 @@ hop3 context remove old-staging
 **Context priority (highest to lowest):**
 1. `--context` flag
 2. `HOP3_CONTEXT` environment variable
-3. `.hop3-local.toml [current].context` (per project checkout, ADR 042)
-4. Global config
+3. `.hop3-local.toml [local].context` (per project checkout, ADR 042)
+4. Single-context fallback (when hop3.toml declares exactly one context)
 
 ### Application Lifecycle
 
@@ -138,7 +135,7 @@ echo myapp > .hop3-app
 hop3 --why logs
 ```
 
-Resolution order: `--app` → `$HOP3_APP` → `.hop3-app` → `hop3.toml [cli].app` → context default. See [CLI Reference: App Resolution](../reference/cli.md#app-resolution).
+Resolution order: `--app` → `$HOP3_APP` → `.hop3-app` → `hop3.toml [cli].app`. See [CLI Reference: App Resolution](../reference/cli.md#app-resolution).
 
 ### Configuration / Environment
 
@@ -504,12 +501,12 @@ hop3 ps scale --app myapp worker=2
 - Use consistent naming: `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY`
 - Keep production and development configs separate
 
-### Working with Multiple Servers
+### Working with Multiple Environments
 
-- **Mark production as protected:** `hop3 context add production --server ... --protected`
-- **Use environment variable for safety:** `export HOP3_CONTEXT=staging` in your shell
-- **Per-project contexts (ADR 042):** `cd` into the project tree and run `hop3 context use <name>` — the project-scoped verb writes `.hop3-local.toml` and adds it to `.gitignore` automatically. The legacy `--local` flag was retired in Step 7.
-- **Avoid global context switches:** Don't use `--global` for production contexts
+- **Declare them in hop3.toml:** `hop3 context add prod --server ssh://root@prod --app myapp`
+- **Select one for this checkout:** `hop3 context use prod` (writes the gitignored `.hop3-local.toml`), or `export HOP3_CONTEXT=prod` for one shell, or `--context prod` for one command.
+- **Log into a server (store its token):** `hop3 login --ssh root@your-server.com` — sets it as the default server too.
+- **Project-less commands** (`hop3 apps`) target the default server, or pass `--server <addr>`.
 - **Create shell aliases:**
   ```bash
   alias hop3-prod='HOP3_CONTEXT=production hop3'

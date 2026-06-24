@@ -61,10 +61,8 @@ from .core.deploy_preview import (  # noqa: E402
 from .core.project_guard import check_project_mismatch  # noqa: E402
 from .core.resolution import (  # noqa: E402
     format_trace,
-    parse_hop3_git_remote,
     resolve_app,
     resolve_context,
-    resolve_server,
 )
 from .exit_codes import ExitCode  # noqa: E402
 from .rpc import Client, handle_response  # noqa: E402
@@ -109,6 +107,13 @@ def run_command_from_args(cli_args: list[str]) -> None:
         json_output=flags.json_output,
         debug=flags.debug,
     )
+
+    # ADR 042: one-shot migration of legacy server/context state into
+    # config.toml. Runs before the config is loaded so every command — and the
+    # very first invocation after an upgrade — sees the unified shape. No-op
+    # (zero disk writes) on a fresh or already-migrated machine.
+    _run_config_migration()
+
     config = load_config()
 
     _apply_flag_overrides(config, flags)
@@ -136,9 +141,21 @@ def run_command_from_args(cli_args: list[str]) -> None:
     # ADR 042: compute resolutions once, then reuse them for app injection,
     # the project-mismatch guard, and the deploy preview. Avoids running
     # the git subprocess twice.
-    context_resolution, server_resolution, app_resolution = _compute_resolutions(
-        cli_args, flags, config
-    )
+    context_resolution, app_resolution = _compute_resolutions(cli_args, flags, config)
+
+    # ADR 042 r2: when a context resolves to a [contexts.<name>].server in the
+    # project hop3.toml, that address is the connection target + token-store key
+    # for this invocation. The connection (url + token) then flows from it via
+    # config.get_api_url()/get_api_token(); legacy config.toml contexts remain
+    # the fallback when no project context resolves.
+    if active_server := _resolve_active_server(context_resolution):
+        config.set_active_server(active_server)
+    elif requires_authentication(cli_args) and (
+        ambient := _resolve_ambient_server(flags, config)
+    ):
+        # ADR 042 r2: project-less commands (hop3 apps outside a project) pick a
+        # server from the ambient chain (--server / default-server / sole store).
+        config.set_active_server(ambient)
 
     if flags.why:
         # Always print the resolution trace to stderr, regardless of verbosity
@@ -153,16 +170,17 @@ def run_command_from_args(cli_args: list[str]) -> None:
     cli_args = _inject_resolved_app(cli_args, flags, app_resolution, printer)
     _check_project_mismatch(cli_args, flags, app_resolution)
     _check_stray_dry_run(cli_args, flags)
-    _handle_deploy_preview(
-        cli_args, flags, config, app_resolution, context_resolution, server_resolution
-    )
+    _handle_deploy_preview(cli_args, flags, config, app_resolution, context_resolution)
     _update_printer_scope(printer, config, cli_args)
     _check_prerequisites(cli_args, config, printer, flags)
 
     if flags.verbosity >= 2:
         printer.print_debug("Executing RPC command...")
 
-    extra_args = _get_extra_args_safe(cli_args, flags.verbosity)
+    deploy_override = _context_deploy_override(cli_args, context_resolution)
+    extra_args = _get_extra_args_safe(
+        cli_args, flags.verbosity, hop3_toml_override=deploy_override
+    )
     _execute_rpc_command(cli_args, config, extra_args, printer)
 
 
@@ -171,15 +189,10 @@ def _apply_flag_overrides(config: Config, flags: CliFlags) -> None:
 
     These are global flags consumed by ``parse_flags`` before the subcommand
     runs. App-scoped commands read them via the resolvers; local config-
-    authoring commands (``hop3 context init/add``, the forthcoming
-    ``hop3 server`` namespace) read them off the config — without this the
-    documented ``hop3 context init --server <s>`` would have its ``--server``
-    silently discarded and print usage instead of running.
+    authoring commands read them off the config.
     """
     if flags.context:
         config.set_context_override(flags.context)
-    if flags.server:
-        config.set_server_override(flags.server)
     if flags.app:
         config.set_app_override(flags.app)
 
@@ -242,43 +255,63 @@ def _apply_aliases(
     return rewritten
 
 
-def _compute_resolutions(cli_args: list[str], flags: CliFlags, config: Config):
-    """Run the context+server+app resolvers (or no-op when not needed).
+def _resolve_active_server(context_resolution) -> str | None:
+    """Map a resolved context name to its server address (ADR 042 r2).
 
-    Returns ``(context_resolution, server_resolution, app_resolution)``.
-    All three may be None when the command is not app-scoped and
-    ``--why`` wasn't requested — the resolvers do real work (git
-    subprocess, file reads) and must not fire for ``hop3 version``,
-    ``hop3 help``, etc.
+    Reads ``[contexts.<name>].server`` from the nearest project hop3.toml. That
+    address becomes the connection target and token-store key for this
+    invocation. Returns None when no context resolved or it declares no server
+    (in which case the legacy config.toml connection is used).
+    """
+    name = getattr(context_resolution, "context", None)
+    if not name:
+        return None
+    from hop3_cli.core.hop3_toml import first_hop3_toml  # noqa: PLC0415
+
+    _, data = first_hop3_toml(Path.cwd(), Path.home())
+    block = data.get("contexts", {})
+    block = block.get(name) if isinstance(block, dict) else None
+    if isinstance(block, dict) and isinstance(block.get("server"), str):
+        return block["server"]
+    return None
+
+
+def _resolve_ambient_server(flags: CliFlags, config: Config) -> str | None:
+    """Server for a project-less command (ADR 042 r2 §Global / ambient commands).
+
+    Chain: ``--server <addr>`` → ``config.toml`` default-server → the *sole* entry
+    in the per-server token store → None. None means "ambiguous or empty" — the
+    prerequisite check then reports it (server-aware via ``known_servers``).
+    """
+    if flags.server:
+        return flags.server
+    if default := config.get_default_server():
+        return default
+    from hop3_cli.core import credential_store  # noqa: PLC0415
+
+    known = credential_store.known_servers()
+    return known[0] if len(known) == 1 else None
+
+
+def _compute_resolutions(cli_args: list[str], flags: CliFlags, config: Config):
+    """Run the context+app resolvers (or no-op when not needed).
+
+    Returns ``(context_resolution, app_resolution)``. Both may be None when the
+    command is not app-scoped and ``--why`` wasn't requested — the resolvers do
+    real work (file reads) and must not fire for ``hop3 version``/``hop3 help``.
+
+    ADR 042: the context IS the server (one noun), so there is no separate
+    server resolution; the app resolves CWD-only.
     """
     scoped, _ = is_app_scoped(cli_args)
     if not scoped and not flags.why:
-        return None, None, None
+        return None, None
 
-    # ADR 042 §Resolution chains: context resolves first (with the
-    # parsed git remote as a hint), then its name feeds app and
-    # server resolution.
-    git_remote = parse_hop3_git_remote()
-    git_env = git_remote[0] if git_remote else None
-
-    context_resolution = resolve_context(
-        cli_context=flags.context, git_remote_hint=git_env
-    )
-    # parse_hop3_git_remote returns (env, host, app); resolve_server
-    # expects (host, app). Drop the env to avoid a 3-vs-2 unpack crash.
-    server_hint = (git_remote[1], git_remote[2]) if git_remote else None
-    server_resolution = resolve_server(
-        cli_server=flags.server,
-        config=config,
-        resolved_context=context_resolution.context,
-        git_remote_hint=server_hint,
-    )
-    app_resolution = resolve_app(
-        cli_app=flags.app,
-        config=config,
-        resolved_context=context_resolution.context,
-    )
-    return context_resolution, server_resolution, app_resolution
+    context_resolution = resolve_context(cli_context=flags.context)
+    # ADR 042 r2: the resolved context supplies app source #5
+    # ([contexts.<sel>].app), trusted per the context's selection provenance.
+    app_resolution = resolve_app(cli_app=flags.app, context=context_resolution)
+    return context_resolution, app_resolution
 
 
 def _inject_resolved_app(
@@ -428,7 +461,6 @@ def _handle_deploy_preview(
     config: Config,
     app_resolution,
     context_resolution,
-    server_resolution,
 ) -> None:
     """ADR 042 §Deploy preview: ``hop3 deploy`` prints a plan and exits when
     ``--dry-run`` is set. The interactive preview-and-confirm flow on plain
@@ -446,12 +478,10 @@ def _handle_deploy_preview(
         return
 
     context_name = context_resolution.context if context_resolution else None
-    server_name = server_resolution.server if server_resolution else None
     source_path = _deploy_source_path(cli_args)
     plan = build_plan(
         source_path=source_path,
         context=context_name,
-        server=server_name,
         app=app_resolution.app or "",
     )
     domain_warnings = domain_target_warnings(plan.domains, config.get_api_url())
@@ -535,18 +565,48 @@ def _print_debug_info(printer: RichPrinter, cli_args: list[str], config, flags) 
 
     context_name = config.get_current_context_name()
     if context_name:
-        context = config.get_current_context()
-        protected_marker = " [protected]" if context and context.protected else ""
-        printer.print_debug(f"Context: {context_name}{protected_marker}")
+        printer.print_debug(f"Context: {context_name}")
 
     api_url = config.get_api_url() or "(not configured)"
     printer.print_debug(f"API URL: {api_url}")
 
 
-def _get_extra_args_safe(cli_args: list[str], verbosity: int) -> dict:
+def _context_deploy_override(cli_args: list[str], context_resolution) -> bytes | None:
+    """Context-flattened hop3.toml bytes for a `hop3 deploy` upload (ADR 042 r2 §E1).
+
+    Strips every ``[contexts.*]`` (never uploaded) and merges the selected
+    context's env/domains into the top level, so the server deploys the effective
+    config — matching the deploy preview. Returns None when the command is not a
+    deploy, the source has no hop3.toml, or there is nothing to flatten.
+    """
+    if not cli_args or cli_args[0] != "deploy":
+        return None
+    source_path = _deploy_source_path(cli_args)
+    own = source_path / "hop3.toml"
+    if not own.is_file():
+        return None
+
+    import toml  # noqa: PLC0415
+
+    from hop3_cli.core.deploy_preview import flatten_for_context  # noqa: PLC0415
+    from hop3_cli.core.hop3_toml import read_hop3_toml  # noqa: PLC0415
+
+    raw = read_hop3_toml(own)
+    ctx = getattr(context_resolution, "context", None)
+    if "contexts" not in raw and not ctx:
+        return None  # nothing to merge or strip — upload the file as-is
+    effective = flatten_for_context(raw, ctx)
+    return toml.dumps(effective).encode("utf-8")
+
+
+def _get_extra_args_safe(
+    cli_args: list[str], verbosity: int, hop3_toml_override: bytes | None = None
+) -> dict:
     """Get extra args with error handling."""
     try:
-        return get_extra_args(cli_args, verbosity=verbosity)
+        return get_extra_args(
+            cli_args, verbosity=verbosity, hop3_toml_override=hop3_toml_override
+        )
     except FileNotFoundError as e:
         err(f"File or directory not found: {e}")
         sys.exit(ExitCode.RESOLUTION_ERROR)
@@ -769,6 +829,36 @@ def _handle_connection_error(e: Exception, rpc_url: str) -> None:
 def load_config() -> Config:
     """Load configuration from the standard user location."""
     return get_config()
+
+
+def _run_config_migration() -> None:
+    """Run the one-shot ADR-042 config migration before anything reads config.
+
+    No-op once migrated. Aborts loudly (exit 1, nothing changed) on malformed
+    input; prints a one-line summary per migration to stderr otherwise.
+    """
+    from hop3_cli.core.config_migration import (  # noqa: PLC0415
+        MigrationError,
+        migrate_legacy_config_042,
+    )
+    from hop3_cli.core.config_migration_v2 import (  # noqa: PLC0415  # noqa: PLC0415
+        MigrationError as MigrationErrorV2,
+        migrate_config_to_token_store,
+    )
+    from hop3_cli.core.paths import config_dir  # noqa: PLC0415
+
+    cfg_dir = config_dir()
+    try:
+        # Stage 1 (ADR 042 r1): consolidate every legacy shape into
+        # config.toml [contexts.*]. Stage 2 (r2): drain those tokens into the
+        # per-server store and leave config.toml secret-free. Sequential.
+        notes = migrate_legacy_config_042(cfg_dir)
+        notes += migrate_config_to_token_store(cfg_dir)
+    except (MigrationError, MigrationErrorV2) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(ExitCode.GENERAL_ERROR)
+    for note in notes:
+        print(f"hop3: {note}", file=sys.stderr)
 
 
 def verify_authentication(config: Config) -> None:

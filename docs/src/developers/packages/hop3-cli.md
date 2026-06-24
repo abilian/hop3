@@ -16,26 +16,31 @@ hop3-cli is a thin client that communicates with hop3-server via JSON-RPC. It ha
 ```
 hop3_cli/
 ├── main.py              # Entry point, argument parsing, command flow
-├── config.py            # Configuration and context management
+├── config.py            # Configuration and context resolution
 ├── exit_codes.py        # Exit codes (ADR 036 D16)
 ├── exceptions.py        # CLI exception classes
+├── tokens.py            # JWT extraction helpers
 ├── types.py             # Type definitions
 ├── rpc/
 │   ├── client.py        # JSON-RPC client with SSH tunnel support
-│   ├── tunnel.py        # SSH tunnel helpers
 │   ├── responses.py     # Response handling
 │   └── streaming.py     # Streaming (live deploy/log) responses
 ├── commands/
 │   ├── flags.py         # CLI flag parsing
+│   ├── arguments.py     # Argument parsing helpers
 │   ├── destructive.py   # Confirmation prompts
 │   ├── help.py          # Help system
-│   └── local/           # Commands handled without the server
+│   └── local/           # Commands handled without the server (a package)
 │       ├── init_cmd.py
 │       ├── login_cmd.py
 │       ├── settings_cmd.py
 │       ├── context_cmd.py
+│       ├── tunnel_cmd.py
 │       └── ...
-├── core/                # Resolution, aliases, project context (ADR 036/042)
+├── core/                # Resolution, aliases, credential store, project context
+│   ├── credential_store.py  # Per-server bearer-token store (credentials.toml)
+│   ├── paths.py             # Config-dir resolution (platformdirs / $HOP3_CONFIG_DIR)
+│   └── ...
 └── ui/
     ├── console.py       # Output formatting
     ├── rich_printer.py  # Rich terminal output
@@ -128,7 +133,7 @@ Commands are organized by type:
 
 ### Remote Commands
 
-Most commands are forwarded to the server as the `cli` method, with the command tokens passed verbatim. The app target is always the `--app NAME` flag (ADR 036 D5); when omitted, the CLI resolves it from context (env var, `.hop3-app`, `hop3.toml`, or the context default) and injects it as `--app` before forwarding.
+Most commands are forwarded to the server as the `cli` method, with the command tokens passed verbatim. The app target is always the `--app NAME` flag (ADR 036 D5); when omitted, the CLI resolves it from where you stand (env var `$HOP3_APP`, a `.hop3-app` file in the CWD or an ancestor, or `hop3.toml`) and injects it as `--app` before forwarding. There is no per-context default app (ADR 042).
 
 ```bash
 # These are forwarded to the server as cli(["<tokens>"])
@@ -141,7 +146,7 @@ hop3 app logs                  # same, app resolved from context
 
 ### Local Commands
 
-Some commands run entirely on the client, without an RPC call (see `commands/local/`): `init`, `login`, `settings`, `context`, `server`, `use`, `tunnel`, `aliases`, `completion`, `version`, and bare `auth`.
+Some commands run entirely on the client, without an RPC call (see `commands/local/`): `init`, `login`, `settings`, `context`, `use`, `tunnel`, `aliases`, `completion`, `version`, and bare `auth`.
 
 ```bash
 # These don't call the server
@@ -153,28 +158,38 @@ hop3 help              # Show help
 
 ## Configuration
 
-### Config File
+Under ADR 042 r2 the CLI's on-disk state is split in two: a **secret-free** `config.toml` for local preferences, and a **per-server credential store** (`credentials.toml`) for bearer tokens. Connection environments ("contexts") are not stored here at all — they live in the project's committed `hop3.toml`.
 
-Location: `~/.config/hop3-cli/config.toml` (resolved via `platformdirs`, so the exact path is platform-specific). The file holds the JWT auth token, so it is written atomically and `chmod 0600`.
+### Config File (`config.toml`)
 
-Connection details are stored as named **contexts**; `current_context` selects the active one. Each context carries its API URL, token, and SSH/TLS settings:
+Location: `~/.config/hop3-cli/config.toml`, resolved via `platformdirs` (so the exact path is platform-specific) and honoring `$HOP3_CONFIG_DIR`. It holds only local preferences plus an optional `[cli].default_server` pointer (and a legacy `[cli].current_context`, read-only for one release). It does **not** hold bearer tokens and does **not** hold `[contexts.*]` connection records.
 
 ```toml
-current_context = "production"
-
-[contexts.production]
-api_url = "ssh://root@hop3.example.com"
-api_token = "..."
-protected = true
-ssh_user = "root"
-ssh_port = 22
-verify_ssl = true
-default_app = ""
+[cli]
+default_server = "ssh://root@hop3.example.com"  # target for project-less commands
+# current_context = "production"                # legacy, read-only fallback
 ```
+
+The file is written atomically (tmpfile + `os.replace`) and `chmod 0600` defensively, even though it carries no secrets.
+
+### Credential Store (`credentials.toml`)
+
+Bearer tokens live in `~/.config/hop3-cli/credentials.toml` (same config dir), keyed by the **canonical** server address:
+
+```toml
+[servers."ssh://root@hop3.example.com:22"]
+token = "eyJ..."
+```
+
+This file is invisible plumbing: `hop3 login` / `hop3 init` populate it, deploy/RPC read it, and it is never hand-edited. It is created file-mode `0o600` with parent dir `0o700`, and the store **aborts loudly** rather than ever leaving it group/world-readable (Hop3's "errors are never silent" rule). See `core/credential_store.py`.
+
+### Contexts (deploy environments)
+
+A *context* is a named deploy environment declared under `[contexts.<name>]` in the app's committed `hop3.toml` (server address, app instance name, domains, env) — **not** a `config.toml` connection record. It is non-secret config: the `server` is a literal address, never a token. Contexts are managed with `hop3 context add|use|list|show|remove|rename` (see `commands/local/context_cmd.py`); the per-checkout selection is pinned in the gitignored `.hop3-local.toml`.
 
 ### Config Class
 
-`Config` wraps the parsed TOML `data` dict and resolves values with a fixed priority: environment variable (`HOP3_<KEY>`), then config-file value, then a per-call default, then class defaults. Contexts are read from `data["contexts"]`.
+`Config` wraps the parsed TOML `data` dict and resolves the connection with a fixed priority. For project-less commands the API URL resolves as: `HOP3_API_URL` env → the resolved context's server (`_active_server`) → `[cli].default_server` → legacy `config.toml` context (read fallback) → dev-mode default. The token comes from the credential store keyed by the active/default server, or from `HOP3_API_TOKEN`.
 
 ```python
 @dataclass
@@ -183,8 +198,8 @@ class Config:
     config_file: Path | None = None
 
     def get_api_url(self) -> str | None: ...
-    def get_api_token(self) -> str | None: ...
-    def get_current_context(self) -> Context | None: ...
+    def get_api_token(self) -> str | None: ...   # reads the credential store
+    def get_default_server(self) -> str | None: ...
 ```
 
 ### Environment Variables
@@ -194,10 +209,8 @@ class Config:
 | `HOP3_API_URL` | API URL; `ssh://` scheme enables tunneling, `http(s)://` connects directly |
 | `HOP3_API_TOKEN` | Authentication (bearer) token |
 | `HOP3_CONTEXT` | Select the active context by name |
-| `HOP3_APP` | Default app for app-scoped commands |
+| `HOP3_CONFIG_DIR` | Override the config directory (config.toml + credentials.toml) |
 | `HOP3_DEV_MODE` | When truthy, defaults the API URL to `http://localhost:8000` |
-| `HOP3_VERBOSITY` | Default verbosity level (0–3) |
-| `HOP3_NO_INPUT` | When `1`, refuse interactive prompts (non-interactive mode) |
 
 ## Output Formatting
 
@@ -278,14 +291,15 @@ password path goes through the server's `auth get-token` primitive:
 1. User runs: hop3 login   (prompts for username/password)
 2. CLI forwards the credentials as cli(["auth", "get-token", user, pass])
 3. Server verifies them and returns a JWT token
-4. CLI saves the token to the active context (api_token)
+4. CLI saves the token to the per-server credential store (credentials.toml)
+   and records the server as the default target
 5. Subsequent requests include: Authorization: Bearer <token>
 ```
 
 `hop3 auth get-token <user> --password-file -` exposes that same primitive
 directly, for scripts that want to capture a token without saving config.
 
-When the API URL uses an `ssh://` scheme, the CLI can also obtain a token over SSH automatically: on a 401 it runs the SSH bootstrap, fetches a token, saves it to the current context, and retries the request. This is what the local `hop3 init` and `hop3 login` commands rely on.
+`hop3 login --ssh <target>` obtains the token over SSH and stores it the same way — in the per-server credential store, keyed by the canonical server address, with the server set as the project-less default. `config.toml` is never where the token goes. When the API URL uses an `ssh://` scheme, the CLI can also obtain a token over SSH automatically: on a 401 it runs the SSH bootstrap, fetches a token, stores it, and retries the request. This is what the local `hop3 init` and `hop3 login` commands rely on.
 
 ## Development Notes
 
@@ -313,4 +327,4 @@ pytest --cov hop3_cli tests src
 - [ ] Interactive mode (REPL)
 - [ ] Richer progress reporting for long-running deploys
 
-Multi-server support and shell completion already exist (named contexts and the `completion` command, respectively).
+Multi-server support and shell completion already exist (per-project contexts plus the `[cli].default_server` pointer, and the `completion` command, respectively).

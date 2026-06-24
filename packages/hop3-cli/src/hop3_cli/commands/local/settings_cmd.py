@@ -93,19 +93,22 @@ def settings_set(args: list[str], config: Config, printer: RichPrinter) -> None:
     if key == "token":
         key = "api_token"
 
-    # Connection details are now owned by `hop3 server` (ADR 042). Setting them
-    # via `settings` creates a second, competing record with no defined winner —
-    # warn (loudly) and point at the canonical command. Still written so existing
-    # scripts don't break.
+    # Connection details are no longer settings (ADR 042 r2). The server address
+    # belongs to a deploy environment declared in hop3.toml (`hop3 context add
+    # <name> --server <addr>`), and the bearer token belongs to the per-server
+    # credential store, written only by `hop3 login`. Setting them here creates a
+    # competing record with no defined winner — warn (loudly) and point at the
+    # canonical commands. Still written so existing scripts don't break.
     if key in {"api_url", "api_token"}:
         canonical = (
-            "hop3 server add <name> --url <url>"
+            "hop3 context add <name> --server <addr>"
             if key == "api_url"
-            else "hop3 server login <name> --token <token>"
+            else "hop3 login  (writes the per-server credential store)"
         )
         print(
             f"warning: 'hop3 settings set {key}' is deprecated — connection "
-            f"details are owned by 'hop3 server' (ADR 042). Use: {canonical}",
+            f"details are owned by 'hop3 context' / 'hop3 login' (ADR 042). "
+            f"Use: {canonical}",
             file=sys.stderr,
         )
 

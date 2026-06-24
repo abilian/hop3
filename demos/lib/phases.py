@@ -327,7 +327,7 @@ def configure_cli(ctx: DemoContext) -> bool:
             config_cmd = (
                 f"echo '{ctx.admin_password}' | hop3 login "
                 f"--username {ctx.admin_user} "
-                f"--server {server_url} "
+                f"--url {server_url} "
                 f"--password-stdin"
             )
 
@@ -351,7 +351,7 @@ def configure_cli(ctx: DemoContext) -> bool:
             f"--ssh {ctx.ssh_target} "
             f"--username {ctx.admin_user} "
             f"--email {ctx.admin_email} "
-            f"--server {server_url} "
+            f"--url {server_url} "
             f"--password-stdin --yes"
         )
         if ctx.output_level >= OutputLevel.NORMAL:
@@ -378,7 +378,7 @@ def configure_cli(ctx: DemoContext) -> bool:
                 login_cmd = (
                     f"hop3 login --ssh {ctx.ssh_target} "
                     f"--username {ctx.admin_user} "
-                    f"--server {server_url}"
+                    f"--url {server_url}"
                 )
                 step_start = time.time()
                 result = subprocess.run(

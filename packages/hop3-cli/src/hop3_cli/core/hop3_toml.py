@@ -12,7 +12,6 @@ stopping at $HOME, parse the first hop3.toml found, swallow TOML errors":
 - ``core.resolution._context_server_from_hop3_toml``
 - ``core.project_guard._read_cwd_metadata_id``
 - ``core.deploy_preview._read_nearest_hop3_toml``
-- ``commands.local.project_context_cmd.find_project_hop3_toml``
 
 Each had subtly different error-swallowing. Consolidating prevents the
 class of bug where one walker tightens its boundary and the others miss
@@ -75,9 +74,8 @@ def iter_hop3_toml(start: Path, home: Path) -> Iterator[tuple[Path, dict[str, An
 def read_hop3_toml(path: Path) -> dict[str, Any]:
     """Parse a single hop3.toml; return ``{}`` on OSError or TOMLDecodeError.
 
-    Public because ``project_context_cmd`` opens specific hop3.toml paths
-    (already located by ``find_project_hop3_toml``) and needs the same
-    error-swallowing contract as the walk-and-parse callers.
+    Public because callers that open a specific hop3.toml path (already
+    located by the walkers above) need the same error-swallowing contract.
     """
     try:
         with path.open("rb") as f:

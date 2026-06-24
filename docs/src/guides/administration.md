@@ -154,9 +154,9 @@ hop3-server admin:create admin admin@example.com
 # Enter password when prompted
 ```
 
-Then register the server in your local CLI (the printed token is the API token):
+Then log into the server from your local CLI (the printed token is the API token):
 ```bash
-hop3 server add prod --url https://your-server.com --token <paste-token-here>
+hop3 login --token <paste-token-here> --url https://your-server.com
 ```
 
 ### Generating API Tokens

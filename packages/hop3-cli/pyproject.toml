@@ -9,6 +9,7 @@ requires-python = "<4.0,>=3.10"
 dependencies = [
     # Configuration
     "toml<1.0.0,>=0.10.2",
+    "tomlkit>=0.13.0",  # comment-preserving TOML round-trip for hop3.toml edits
     # Communication
     "jsonrpcclient<5.0.0,>=4.0.3",
     "requests<3.0.0,>=2.32.3",
