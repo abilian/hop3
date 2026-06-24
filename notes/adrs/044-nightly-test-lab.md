@@ -156,7 +156,7 @@ hop3-test cloud focalboard --use-local-repo           # mode=cli, tagged cli:<us
 
 - **Off-the-shelf CI as runner + reporter (GitHub Actions / GitLab / Woodpecker / SourceHut).** Generic CI gives logs and history but not the test-specific deployment diagnostics (the silent-502 probe, the per-app bundle, the apps-as-probe framing), nor easy orchestration of a scaled Hetzner pool, nor dogfooding. A hybrid (CI as executor, Lab as reporting/trends layer) is possible — noted as future work.
 - **Static report only (pytest-html / Allure / `generate_html_report`).** No scheduling, trigger, trends, scaling, or live fill. Kept as an export, not the product.
-- **Extend the hop3-server dashboard instead of a new app.** Rejected for now: keeps test infrastructure and Hetzner credentials out of the product server; the Lab has a different lifecycle and blast radius.
+- **Extend the hop3-server dashboard instead of a new app.** Rejected for now: keeps test infrastructure and Hetzner credentials out of the product server; the Lab has a different lifecycle and failure domain.
 - **Shell out to and parse the `hop3-test` CLI.** Rejected: lossy and risks CLI/web divergence (§B/§D).
 
 ## Open questions / decisions
