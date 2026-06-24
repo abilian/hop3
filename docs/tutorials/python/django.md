@@ -565,9 +565,9 @@ hop3 addons attach hop3-tuto-django hop3-tuto-django-db
 ```bash skip
 # SECRET_KEY is generated automatically on the first deploy (see hop3.toml [env]).
 # Set the remaining Django configuration:
-hop3 config set --app hop3-tuto-django DEBUG=false
-hop3 config set --app hop3-tuto-django ALLOWED_HOSTS=hop3-tuto-django.your-hop3-server.example.com
-hop3 config set --app hop3-tuto-django DJANGO_SETTINGS_MODULE=myproject.settings
+hop3 env set --app hop3-tuto-django DEBUG=false
+hop3 env set --app hop3-tuto-django ALLOWED_HOSTS=hop3-tuto-django.your-hop3-server.example.com
+hop3 env set --app hop3-tuto-django DJANGO_SETTINGS_MODULE=myproject.settings
 ```
 
 ### Deploy
@@ -587,11 +587,11 @@ deployed successfully
 Set ALLOWED_HOSTS and the hostname (`SECRET_KEY` was generated automatically on the first deploy):
 
 ```bash exec id=set-allowed-hosts timeout=30
-hop3 config set --app hop3-tuto-django ALLOWED_HOSTS=hop3-tuto-django.$HOP3_TEST_DOMAIN,localhost,127.0.0.1
+hop3 env set --app hop3-tuto-django ALLOWED_HOSTS=hop3-tuto-django.$HOP3_TEST_DOMAIN,localhost,127.0.0.1
 ```
 
 ```bash exec id=set-hostname timeout=30
-hop3 config set --app hop3-tuto-django HOST_NAME=hop3-tuto-django.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-django HOST_NAME=hop3-tuto-django.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -674,13 +674,13 @@ hop3 run --app hop3-tuto-django python manage.py custom_command
 
 ```bash skip
 # List all variables
-hop3 config show --app hop3-tuto-django
+hop3 env show --app hop3-tuto-django
 
 # Set a variable
-hop3 config set --app hop3-tuto-django NEW_VARIABLE=value
+hop3 env set --app hop3-tuto-django NEW_VARIABLE=value
 
 # Remove a variable
-hop3 config unset --app hop3-tuto-django OLD_VARIABLE
+hop3 env unset --app hop3-tuto-django OLD_VARIABLE
 
 # Restart to apply changes
 hop3 app restart --app hop3-tuto-django
@@ -803,7 +803,7 @@ MEDIA_ROOT = config('MEDIA_ROOT', default=str(BASE_DIR / 'media'))
 Set the storage path on Hop3:
 
 ```bash skip
-hop3 config set --app hop3-tuto-django MEDIA_ROOT=/var/hop3/apps/hop3-tuto-django/data/media
+hop3 env set --app hop3-tuto-django MEDIA_ROOT=/var/hop3/apps/hop3-tuto-django/data/media
 ```
 
 For serving media files in production, add to `myproject/urls.py`:
@@ -960,7 +960,7 @@ hop3 app logs --app hop3-tuto-django --tail
 
 Common issues:
 
-- **Missing SECRET_KEY**: Set it with `hop3 config set`
+- **Missing SECRET_KEY**: Set it with `hop3 env set`
 - **Database not connected**: Ensure the addon is attached and `DATABASE_URL` is set
 - **Static files not found**: Ensure `collectstatic` runs in `prerun`
 - **Module not found**: Check `requirements.txt` includes all dependencies
@@ -970,7 +970,7 @@ Common issues:
 Verify the database is attached:
 
 ```bash skip
-hop3 config show --app hop3-tuto-django | grep DATABASE
+hop3 env show --app hop3-tuto-django | grep DATABASE
 ```
 
 Test the connection:

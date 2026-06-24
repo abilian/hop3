@@ -380,7 +380,7 @@ hop3 deploy --app hop3-tuto-flask
 Point nginx at the app:
 
 ```bash
-hop3 config set --app hop3-tuto-flask HOST_NAME=hop3-tuto-flask.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-flask HOST_NAME=hop3-tuto-flask.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -448,13 +448,13 @@ hop3 run --app hop3-tuto-flask python -c "from app import app; print(app.config)
 
 ```bash
 # List all variables
-hop3 config show --app hop3-tuto-flask
+hop3 env show --app hop3-tuto-flask
 
 # Set a variable
-hop3 config set --app hop3-tuto-flask NEW_VARIABLE=value
+hop3 env set --app hop3-tuto-flask NEW_VARIABLE=value
 
 # Remove a variable
-hop3 config unset --app hop3-tuto-flask OLD_VARIABLE
+hop3 env unset --app hop3-tuto-flask OLD_VARIABLE
 ```
 
 ### Scaling
@@ -692,7 +692,7 @@ hop3 app logs --app hop3-tuto-flask --tail
 ```
 
 Common issues:
-- **Missing SECRET_KEY**: Set it with `hop3 config set`
+- **Missing SECRET_KEY**: Set it with `hop3 env set`
 - **Module not found**: Ensure all dependencies are in `requirements.txt`
 - **Port binding**: Ensure Gunicorn binds to `0.0.0.0:$PORT`
 
@@ -701,7 +701,7 @@ Common issues:
 Verify the database is attached:
 
 ```bash
-hop3 config show --app hop3-tuto-flask | grep DATABASE
+hop3 env show --app hop3-tuto-flask | grep DATABASE
 ```
 
 Test the connection:
