@@ -207,7 +207,7 @@ If OK → increase to 25%, 50%, 100%
 If bad → rollback immediately
 ```
 
-- ✅ Minimal blast radius
+- ✅ Isolated from other services
 - ✅ Real production testing
 - ❌ Complex routing logic
 - ❌ Requires traffic splitting support
