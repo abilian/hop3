@@ -15,17 +15,32 @@ hop3-cli is a thin client that communicates with hop3-server via JSON-RPC. It ha
 
 ```
 hop3_cli/
-├── main.py              # Entry point, argument parsing
-├── config.py            # Configuration management
-├── tunnel.py            # SSH tunnel management
+├── main.py              # Entry point, argument parsing, command flow
+├── config.py            # Configuration and context resolution
+├── exit_codes.py        # Exit codes (ADR 036 D16)
+├── exceptions.py        # CLI exception classes
+├── tokens.py            # JWT extraction helpers
 ├── types.py             # Type definitions
 ├── rpc/
-│   └── client.py        # JSON-RPC client
+│   ├── client.py        # JSON-RPC client with SSH tunnel support
+│   ├── responses.py     # Response handling
+│   └── streaming.py     # Streaming (live deploy/log) responses
 ├── commands/
-│   ├── local.py         # Local commands (init, config)
-│   ├── help.py          # Help system
 │   ├── flags.py         # CLI flag parsing
-│   └── destructive.py   # Confirmation prompts
+│   ├── arguments.py     # Argument parsing helpers
+│   ├── destructive.py   # Confirmation prompts
+│   ├── help.py          # Help system
+│   └── local/           # Commands handled without the server (a package)
+│       ├── init_cmd.py
+│       ├── login_cmd.py
+│       ├── settings_cmd.py
+│       ├── context_cmd.py
+│       ├── tunnel_cmd.py
+│       └── ...
+├── core/                # Resolution, aliases, credential store, project context
+│   ├── credential_store.py  # Per-server bearer-token store (credentials.toml)
+│   ├── paths.py             # Config-dir resolution (platformdirs / $HOP3_CONFIG_DIR)
+│   └── ...
 └── ui/
     ├── console.py       # Output formatting
     ├── rich_printer.py  # Rich terminal output
@@ -44,7 +59,7 @@ CLI → HTTP → hop3-server:8000 → JSON-RPC response → CLI
 
 Configuration:
 ```bash
-export HOP3_SERVER_URL="http://localhost:8000"
+export HOP3_API_URL="http://localhost:8000"
 ```
 
 ### SSH Tunnel Mode
@@ -55,35 +70,32 @@ For production servers (secure communication):
 CLI → SSH Tunnel → localhost:random_port → hop3-server:8000 → response
 ```
 
-Configuration:
+The connection mode is selected by the scheme of the API URL: an `ssh://` (or `ssh+http://`) URL routes RPC through an SSH tunnel, while an `http(s)://` URL connects directly.
+
 ```bash
-export HOP3_SERVER="user@hop3.example.com"
+export HOP3_API_URL="ssh://user@hop3.example.com"
 ```
 
-The tunnel is created using `sshtunnel` and `paramiko`:
+The tunnel is created by the `Client` (in `rpc/client.py`) using `sshtunnel` (which wraps `paramiko`). On construction, the client parses the API URL and, when the scheme is `ssh`/`ssh+http`, opens an `SSHTunnelForwarder` that binds the remote server port (default 8000) to a local port. RPC then targets `http://localhost:<local_port>/rpc`. The client is a context manager, so the tunnel is closed reliably on exit:
 
 ```python
-def create_tunnel(host: str, ssh_key: Path | None = None) -> SSHTunnelForwarder:
-    """Create SSH tunnel to hop3 server."""
-    tunnel = SSHTunnelForwarder(
-        host,
-        ssh_pkey=str(ssh_key) if ssh_key else None,
-        remote_bind_address=("127.0.0.1", 8000),
-    )
-    tunnel.start()
-    return tunnel
+with Client(config=config) as client:
+    response = client.rpc("cli", ["app", "list"])
 ```
 
 ## JSON-RPC Protocol
 
-The CLI uses JSON-RPC 2.0 for communication:
+The CLI uses JSON-RPC 2.0 over HTTP, posting to the server's `/rpc` endpoint. The CLI does not map each command to a distinct RPC method. Instead it forwards the raw command tokens under a single `cli` method, and the server parses, dispatches, and executes them. This keeps the client thin: command names, subcommands, and their behavior live entirely server-side.
 
 ```json
-// Request
+// Request — `hop3 app list` forwarded as the `cli` method
 {
     "jsonrpc": "2.0",
-    "method": "apps.list",
-    "params": {},
+    "method": "cli",
+    "params": {
+        "cli_args": ["app", "list"],
+        "extra_args": {}
+    },
     "id": 1
 }
 
@@ -97,27 +109,22 @@ The CLI uses JSON-RPC 2.0 for communication:
 }
 ```
 
+`extra_args` carries out-of-band values that don't belong in the argv (for example file contents read locally and passed to the server).
+
 ### RPC Client
 
-```python
-class RPCClient:
-    def __init__(self, base_url: str, token: str | None = None):
-        self.base_url = base_url
-        self.token = token
+The `Client` (in `rpc/client.py`) takes the loaded `Config`, resolves the API URL, and opens an SSH tunnel when needed. Its `rpc()` method takes the method name (`"cli"`) and the list of command tokens, attaches the bearer token, and parses the JSON-RPC response. If the server returns 401 and an SSH URL is configured, it transparently re-authenticates over SSH and retries once.
 
-    def call(self, method: str, **params) -> Any:
-        """Make an RPC call."""
-        response = requests.post(
-            f"{self.base_url}/rpc",
-            json={
-                "jsonrpc": "2.0",
-                "method": method,
-                "params": params,
-                "id": self._next_id(),
-            },
-            headers=self._auth_headers(),
-        )
-        return self._handle_response(response)
+```python
+class Client:
+    def rpc(self, method: str, cli_args: list[str], **extra_args: Any) -> Response:
+        """Call a remote method with automatic SSH-based authentication."""
+        response = self._do_rpc(method, cli_args, **extra_args)
+        if isinstance(response, Error) and response.code == 401:
+            if self._can_auto_auth():
+                self._auto_authenticate()
+                response = self._do_rpc(method, cli_args, **extra_args)
+        return response
 ```
 
 ## Command Structure
@@ -126,75 +133,85 @@ Commands are organized by type:
 
 ### Remote Commands
 
-Most commands are forwarded to the server:
+Most commands are forwarded to the server as the `cli` method, with the command tokens passed verbatim. The app target is always the `--app NAME` flag (ADR 036 D5); when omitted, the CLI resolves it from where you stand (env var `$HOP3_APP`, a `.hop3-app` file in the CWD or an ancestor, or `hop3.toml`) and injects it as `--app` before forwarding.
 
-```python
-# These call server RPC methods
-hop3 apps                      # → apps.list
-hop3 app launch foo            # → apps.create(name="foo")
-hop3 deploy                    # → apps.deploy(...)
-hop3 logs --app myapp          # → apps.logs(name="myapp")
-# (or just `hop3 logs` with an app resolved from $HOP3_APP / .hop3-app /
-#  hop3.toml [cli].app / context default — see ADR 036 D7 and
-#  hop3_cli/core/resolution.py)
+```bash
+# These are forwarded to the server as cli(["<tokens>"])
+hop3 app list                  # `apps` is a built-in alias for `app list`
+hop3 app launch foo            # alias for `app create foo`
+hop3 deploy                    # package the current project and deploy
+hop3 app logs --app myapp      # show logs for an explicit app
+hop3 app logs                  # same, app resolved from context
 ```
 
 ### Local Commands
 
-Some commands run entirely on the client:
+Some commands run entirely on the client, without an RPC call (see `commands/local/`): `init`, `login`, `settings`, `context`, `use`, `tunnel`, `aliases`, `completion`, `version`, and bare `auth`.
 
-```python
+```bash
 # These don't call the server
-hop3 init              # Create hop3.toml
-hop3 config            # Manage local configuration
+hop3 init              # Bootstrap a server connection via SSH
+hop3 settings show     # Manage local CLI settings
+hop3 context list      # Manage deploy environments in the project hop3.toml
+hop3 version           # Show CLI version
 hop3 help              # Show help
 ```
 
 ## Configuration
 
-### Config File
+Under ADR 042 r2 the CLI's on-disk state is split in two: a **secret-free** `config.toml` for local preferences, and a **per-server credential store** (`credentials.toml`) for bearer tokens. Connection environments ("contexts") are not stored here at all — they live in the project's committed `hop3.toml`.
 
-Location: `~/.config/hop3/config.toml`
+### Config File (`config.toml`)
+
+Location: `~/.config/hop3-cli/config.toml`, resolved via `platformdirs` (so the exact path is platform-specific) and honoring `$HOP3_CONFIG_DIR`. It holds only local preferences plus an optional `[cli].default_server` pointer (and a legacy `[cli].current_context`, read-only for one release). It does **not** hold bearer tokens and does **not** hold `[contexts.*]` connection records.
 
 ```toml
-[server]
-url = "https://hop3.example.com"
-# or
-host = "user@hop3.example.com"
-
-[auth]
-token = "..."
-
-[output]
-format = "human"  # human, json, quiet
-color = true
+[cli]
+default_server = "ssh://root@hop3.example.com"  # target for project-less commands
+# current_context = "production"                # legacy, read-only fallback
 ```
 
+The file is written atomically (tmpfile + `os.replace`) and `chmod 0600` defensively, even though it carries no secrets.
+
+### Credential Store (`credentials.toml`)
+
+Bearer tokens live in `~/.config/hop3-cli/credentials.toml` (same config dir), keyed by the **canonical** server address:
+
+```toml
+[servers."ssh://root@hop3.example.com:22"]
+token = "eyJ..."
+```
+
+This file is invisible plumbing: `hop3 login` / `hop3 init` populate it, deploy/RPC read it, and it is never hand-edited. It is created file-mode `0o600` with parent dir `0o700`, and the store **aborts loudly** rather than ever leaving it group/world-readable (Hop3's "errors are never silent" rule). See `core/credential_store.py`.
+
+### Contexts (deploy environments)
+
+A *context* is a named deploy environment declared under `[contexts.<name>]` in the app's committed `hop3.toml` (server address, app instance name, domains, env). It is non-secret config — the `server` is a literal address, never a token. Contexts are managed with `hop3 context add|use|list|show|remove|rename` (see `commands/local/context_cmd.py`); the per-checkout selection is pinned in the gitignored `.hop3-local.toml`.
+
 ### Config Class
+
+`Config` wraps the parsed TOML `data` dict and resolves the connection with a fixed priority. For project-less commands the API URL resolves as: `HOP3_API_URL` env → the resolved context's server (`_active_server`) → `[cli].default_server` → legacy `config.toml` context (read fallback) → dev-mode default. The token comes from the credential store keyed by the active/default server, or from `HOP3_API_TOKEN`.
 
 ```python
 @dataclass
 class Config:
-    server_url: str | None = None
-    server_host: str | None = None
-    auth_token: str | None = None
-    output_format: str = "human"
+    data: dict = field(default_factory=dict)
+    config_file: Path | None = None
 
-    @classmethod
-    def load(cls) -> "Config":
-        """Load config from file and environment."""
-        ...
+    def get_api_url(self) -> str | None: ...
+    def get_api_token(self) -> str | None: ...   # reads the credential store
+    def get_default_server(self) -> str | None: ...
 ```
 
 ### Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `HOP3_SERVER_URL` | Direct HTTP URL |
-| `HOP3_SERVER` | SSH host (enables tunneling) |
-| `HOP3_AUTH_TOKEN` | Authentication token |
-| `HOP3_CONFIG_DIR` | Config directory |
-| `HOP3_OUTPUT_FORMAT` | Output format |
+| `HOP3_API_URL` | API URL; `ssh://` scheme enables tunneling, `http(s)://` connects directly |
+| `HOP3_API_TOKEN` | Authentication (bearer) token |
+| `HOP3_CONTEXT` | Select the active context by name |
+| `HOP3_CONFIG_DIR` | Override the config directory (config.toml + credentials.toml) |
+| `HOP3_DEV_MODE` | When truthy, defaults the API URL to `http://localhost:8000` |
 
 ## Output Formatting
 
@@ -233,52 +250,45 @@ The CLI handles errors at multiple levels:
 3. **RPC errors** - Server-side command failures
 4. **User errors** - Invalid input
 
-```python
-class CLIError(Exception):
-    """Base class for CLI errors."""
-    exit_code: int = 1
-
-class AuthenticationError(CLIError):
-    """Authentication failed."""
-    exit_code: int = 2
-
-class ConnectionError(CLIError):
-    """Could not connect to server."""
-    exit_code: int = 3
-```
+CLI exceptions derive from `CliError` (in `exceptions.py`); exit codes are defined centrally in `exit_codes.py` (ADR 036 D16) rather than as per-exception attributes, so scripts can distinguish failure classes (auth, resolution, network, deployment, …). The JSON envelope includes `error.exit_code` so JSON consumers don't have to map error strings.
 
 ## Authentication Flow
 
+`hop3 login` (canonical spelling: `hop3 auth login`) is a local handler. Its password path goes through the server's `auth get-token` primitive:
+
 ```
-1. User runs: hop3 login   (canonical: hop3 auth login; handled locally)
-2. CLI prompts for credentials
-3. CLI sends: cli(["auth", "get-token", username, password])
-4. Server verifies them and returns a JWT token
-5. CLI stores the token in the active context
-6. Subsequent requests include: Authorization: Bearer <token>
+1. User runs: hop3 login   (prompts for username/password)
+2. CLI forwards the credentials as cli(["auth", "get-token", user, pass])
+3. Server verifies them and returns a JWT token
+4. CLI stores the token in the per-server credential store (credentials.toml)
+   and records the server as the default target
+5. Subsequent requests include: Authorization: Bearer <token>
 ```
+
+`hop3 login --ssh <target>` obtains a token over SSH and stores it the same way: the token goes to the per-server credential store (keyed by canonical address) and the server becomes the default for project-less commands. `config.toml` is never where the token goes. When the API URL uses an `ssh://` scheme, the CLI can also obtain a token over SSH automatically: on a 401 it runs the SSH bootstrap, fetches a token, stores it, and retries the request. This is what `hop3 init` and `hop3 login` rely on.
 
 ## Development Notes
 
 ### Adding a New Command
 
-1. Add RPC method to hop3-server
-2. Add CLI command in `commands/`
-3. Update help text
+Most commands are implemented server-side; the CLI just forwards the tokens via the `cli` RPC method. To add one:
+
+1. Add a `Command` subclass in hop3-server's `commands/` (it defines its own `name` and help text)
+2. Nothing is usually needed in the CLI — the new command is reachable as soon as the server exposes it
+
+A purely client-side command (one with local side effects, like `init` or `settings`) is added under `commands/local/` and registered in `LOCAL_COMMANDS_INFO`.
 
 ### Testing
 
 ```bash
-# Unit tests
-pytest tests/unit/
+# Run the CLI test suite
+pytest -x -p no:randomly src tests
 
-# Integration tests (requires server)
-pytest tests/integration/
+# With coverage
+pytest --cov hop3_cli tests src
 ```
 
 ## Future Improvements
 
-- [ ] Command auto-completion
 - [ ] Interactive mode (REPL)
-- [ ] Multi-server support
-- [ ] Config profiles
+- [ ] Richer progress reporting for long-running deploys

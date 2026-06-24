@@ -7,7 +7,7 @@
 ``hop3 deploy`` becomes "destructive-ish": before sending the deploy
 RPC, the CLI prints a plan of what's about to happen and prompts the
 operator for confirmation. The plan is what the new resolver knows
-atomically — source path + git state, context, server, app, domains,
+atomically — source path + git state, context, app, domains,
 addons, env-var changes.
 
 Pure rendering layer: this module computes and formats the plan; the
@@ -24,7 +24,6 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 from hop3_cli.core.hop3_toml import first_hop3_toml, read_hop3_toml
-from hop3_cli.core.resolution import _default_git_runner
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -66,7 +65,6 @@ class DeployPlan:
     source_path: Path
     git: GitState
     context: str | None
-    server: str | None
     app: str
     domains: tuple[str, ...]
     addons: tuple[str, ...]
@@ -82,7 +80,6 @@ def build_plan(
     *,
     source_path: Path,
     context: str | None,
-    server: str | None,
     app: str,
     home: Path | None = None,
     git_runner: Callable[[list[str], Path], str | None] | None = None,
@@ -110,8 +107,8 @@ def build_plan(
         source_path: The directory the deploy is being driven from.
             ``source_path / hop3.toml`` is the only TOML the deploy will
             ever see.
-        context: Resolved context name (or None when unresolved).
-        server: Resolved server name (or None).
+        context: Resolved context name (or None when unresolved). The context
+            IS the server (ADR 042).
         app: Resolved app name.
         home: Upper bound for the ancestor-walk diagnostic (defaults to
             ``Path.home()``).
@@ -120,12 +117,16 @@ def build_plan(
     git = _collect_git_state(source_path, git_runner)
 
     own_path = source_path / "hop3.toml"
-    data = read_hop3_toml(own_path) if own_path.is_file() else {}
-    context_block = _context_block(data, context) if context else None
+    raw = read_hop3_toml(own_path) if own_path.is_file() else {}
+    # Flatten the selected context in (merge env, replace domains, strip
+    # [contexts.*]) so the preview reflects EXACTLY the effective config the
+    # deploy uploads — preview == deploy (ADR 042 r2 §E1). With the context
+    # already merged, the display helpers run with no separate context block.
+    data = flatten_for_context(raw, context)
 
-    domains = _all_domains(data, context_block)
+    domains = _all_domains(data)
     addons = _addon_names(data)
-    env_keys = _resolved_env_keys(data, context_block)
+    env_keys = _resolved_env_keys(data)
 
     # Ancestor-hop3-toml diagnostic. Only fires when source_path itself
     # has no hop3.toml but an ancestor does — the "operator is deploying
@@ -141,7 +142,6 @@ def build_plan(
         source_path=source_path,
         git=git,
         context=context,
-        server=server,
         app=app,
         domains=tuple(domains),
         addons=tuple(addons),
@@ -160,7 +160,6 @@ def render_plan(plan: DeployPlan) -> str:
     lines = ["About to deploy:"]
     lines.append(f"  Source:   {plan.source_path} ({plan.git.descriptor})")
     lines.append(f"  Context:  {plan.context or '(none)'}")
-    lines.append(f"  Server:   {plan.server or '(none)'}")
     lines.append(f"  App:      {plan.app}")
     lines.append(f"  Domains:  {', '.join(plan.domains) if plan.domains else '(none)'}")
     lines.append(f"  Addons:   {', '.join(plan.addons) if plan.addons else '(none)'}")
@@ -281,41 +280,59 @@ def _context_block(data: dict[str, Any], context: str) -> dict[str, Any] | None:
     return None
 
 
-def _all_domains(
-    data: dict[str, Any], context_block: dict[str, Any] | None
-) -> list[str]:
+def flatten_for_context(
+    data: dict[str, Any], context_name: str | None
+) -> dict[str, Any]:
+    """Produce the EFFECTIVE hop3.toml for a deploy (ADR 042 r2, §E1).
+
+    Merges the selected context into the top level and strips every
+    ``[contexts.*]`` block (the latter is never uploaded — decision §E1):
+
+    - ``domains``: the context's domains (the ``[domains].list`` shape, or a
+      bare list, both tolerated) fully REPLACE top-level ``[domains]`` when set.
+    - ``env``: the context's ``env`` keys MERGE over top-level ``[env]``.
+
+    Both the deploy preview and the actual upload call this, so the preview shows
+    exactly what is deployed. Returns a new dict; ``data`` is not mutated.
+    """
+    result = dict(data)
+    block = _context_block(data, context_name) if context_name else None
+    if block is not None:
+        if "domains" in block:
+            raw = block.get("domains")
+            hosts = raw.get("list", []) if isinstance(raw, dict) else (raw or [])
+            result["domains"] = {"list": [str(h) for h in hosts if isinstance(h, str)]}
+        ctx_env = block.get("env")
+        if isinstance(ctx_env, dict):
+            merged = dict(data.get("env") or {})
+            merged.update(ctx_env)
+            result["env"] = merged
+    result.pop("contexts", None)
+    return result
+
+
+def _all_domains(data: dict[str, Any]) -> list[str]:
     """Every hostname this app will be served at (deduped, order-preserving).
 
-    Union of ``[domains].list`` / context ``domains`` AND the legacy
-    ``HOST_NAME`` env var (the proxy serves whatever HOST_NAME names).
-    Without the HOST_NAME source, an app that sets only ``[env].HOST_NAME``
-    (like many real apps) shows "Domains: (none)" in the preview and is
-    skipped by the DNS host-check — which is exactly how a deploy-to-the-
-    wrong-server 502 slips through unnoticed.
+    Union of ``[domains].list`` AND the legacy ``HOST_NAME`` env var (the proxy
+    serves whatever HOST_NAME names). ``data`` is already context-flattened by
+    ``flatten_for_context`` before this runs, so there is no separate context
+    block to consider. Without the HOST_NAME source, an app that sets only
+    ``[env].HOST_NAME`` (like many real apps) shows "Domains: (none)" in the
+    preview and is skipped by the DNS host-check — which is exactly how a
+    deploy-to-the-wrong-server 502 slips through unnoticed.
     """
     out: list[str] = []
     seen: set[str] = set()
-    for d in (
-        *_resolved_domains(data, context_block),
-        *_host_name_domains(data, context_block),
-    ):
+    for d in (*_resolved_domains(data), *_host_name_domains(data)):
         if d and d not in seen:
             seen.add(d)
             out.append(d)
     return out
 
 
-def _resolved_domains(
-    data: dict[str, Any], context_block: dict[str, Any] | None
-) -> list[str]:
-    """Mirror Hop3Config.resolve_context's full-replace semantics.
-
-    Context wins when present; otherwise fall back to top-level
-    [domains].list.
-    """
-    if context_block is not None and "domains" in context_block:
-        ctx_d = context_block.get("domains") or []
-        return [str(d) for d in ctx_d if isinstance(d, str)]
+def _resolved_domains(data: dict[str, Any]) -> list[str]:
+    """The hostnames from the (already context-flattened) ``[domains].list``."""
     top = data.get("domains", {})
     if isinstance(top, dict):
         lst = top.get("list", []) or []
@@ -323,23 +340,17 @@ def _resolved_domains(
     return []
 
 
-def _host_name_domains(
-    data: dict[str, Any], context_block: dict[str, Any] | None
-) -> list[str]:
+def _host_name_domains(data: dict[str, Any]) -> list[str]:
     """Domains derived from the merged ``HOST_NAME`` env var.
 
     HOST_NAME may name multiple hosts (whitespace/comma-separated); the
-    catch-all ``_`` and blanks are excluded. Context env wins over the
-    top-level on collision (mirrors resolve_context's env merge).
+    catch-all ``_`` and blanks are excluded. ``data`` is already
+    context-flattened, so the merged HOST_NAME is just ``[env].HOST_NAME``.
     """
     host_name = ""
     base_env = data.get("env", {})
     if isinstance(base_env, dict) and isinstance(base_env.get("HOST_NAME"), str):
         host_name = base_env["HOST_NAME"]
-    if context_block is not None:
-        ctx_env = context_block.get("env", {})
-        if isinstance(ctx_env, dict) and isinstance(ctx_env.get("HOST_NAME"), str):
-            host_name = ctx_env["HOST_NAME"]
     return [h for h in host_name.replace(",", " ").split() if h and h != "_"]
 
 
@@ -358,14 +369,11 @@ def _addon_names(data: dict[str, Any]) -> list[str]:
     return out
 
 
-def _resolved_env_keys(
-    data: dict[str, Any], context_block: dict[str, Any] | None
-) -> list[str]:
-    """Names (not values) of env vars in the merged top-level + context view.
+def _resolved_env_keys(data: dict[str, Any]) -> list[str]:
+    """Names (not values) of env vars in the (context-flattened) ``[env]``.
 
-    Mirrors the merge semantics from Hop3Config.resolve_context: both
-    sides filtered of ``_policy`` / nested sub-tables; context keys
-    override top-level on collision.
+    ``_policy`` / nested sub-tables are filtered out. ``data`` is already
+    context-flattened, so this is just the merged top-level ``[env]``.
     """
     keys: set[str] = set()
     base = data.get("env", {})
@@ -373,13 +381,32 @@ def _resolved_env_keys(
         for k, v in base.items():
             if not k.startswith("_") and not isinstance(v, dict):
                 keys.add(k)
-    if context_block is not None:
-        ctx_env = context_block.get("env", {})
-        if isinstance(ctx_env, dict):
-            for k, v in ctx_env.items():
-                if not k.startswith("_") and not isinstance(v, dict):
-                    keys.add(k)
     return sorted(keys)
+
+
+def _default_git_runner(argv: list[str], cwd: Path) -> str | None:
+    """Run a git command and return stdout. Returns None on any failure.
+
+    Kept tiny and side-effect-free: we don't raise on missing git, on a
+    non-git directory, or on a command failure — those all just mean
+    "no git state to show here".
+    """
+    import subprocess  # noqa: PLC0415
+
+    try:
+        result = subprocess.run(
+            argv,
+            cwd=str(cwd),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout
 
 
 def _collect_git_state(

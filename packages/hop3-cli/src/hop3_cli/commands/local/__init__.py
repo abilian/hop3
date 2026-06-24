@@ -22,7 +22,6 @@ from .completion_cmd import handle_completion
 from .context_cmd import handle_context
 from .init_cmd import handle_init
 from .login_cmd import handle_login, handle_login_token, handle_logout
-from .server_cmd import handle_server
 from .settings_cmd import handle_settings, settings_get, settings_set, settings_show
 from .ssh_ops import BootstrapError, extract_token, infer_server_url
 from .tunnel_cmd import handle_tunnel
@@ -47,7 +46,6 @@ __all__ = [
     "handle_login",
     "handle_login_token",
     "handle_logout",
-    "handle_server",
     "handle_settings",
     "handle_tunnel",
     "handle_use",
@@ -64,14 +62,13 @@ __all__ = [
 LOCAL_COMMANDS_INFO = {
     "aliases": "List all effective aliases (built-in, plugin, user).",
     "completion": "Generate shell completion scripts.",
-    "context": "Manage project deploy contexts (or legacy server contexts).",
+    "context": "Manage deploy environments (hop3.toml [contexts.*]).",
     "init": "Initialize connection to a Hop3 server via SSH.",
     "login": "Authenticate to a server (alias of `auth login`).",
     "logout": "Log out and clear the local token (alias of `auth logout`).",
-    "server": "Manage server bindings (ADR 042).",
     "settings": "Manage local CLI settings (server URL, token, SSL).",
     "tunnel": "Open a local SSH tunnel to a remote addon.",
-    "use": "Set / show / clear the current context's default app.",
+    "use": "Pin / show / clear the app for the current directory.",
     "version": "Show CLI version.",
     "auth": "Authentication commands.",
 }
@@ -123,7 +120,6 @@ _LOCAL_HANDLERS = {
     "init": handle_init,
     "login": handle_login,
     "logout": handle_logout,
-    "server": handle_server,
     "settings": handle_settings,
     "aliases": handle_aliases,
     "tunnel": handle_tunnel,

@@ -73,7 +73,9 @@ _DEFAULT_IGNORE_PATTERNS = [
 _DEPRECATED_IGNORE_FILE = ".hop3ignore"
 
 
-def get_extra_args(args: list[str], verbosity: int = 1) -> JsonDict:
+def get_extra_args(
+    args: list[str], verbosity: int = 1, hop3_toml_override: bytes | None = None
+) -> JsonDict:
     """Generate a dictionary of extra arguments for RPC commands.
 
     Args:
@@ -109,7 +111,9 @@ def get_extra_args(args: list[str], verbosity: int = 1) -> JsonDict:
             env_vars, remaining_args, streaming = _parse_deploy_args(args[1:])
 
             directory = Path(remaining_args[0]) if remaining_args else Path()
-            extra_args["repository"] = pack_repository(directory, verbosity=verbosity)
+            extra_args["repository"] = pack_repository(
+                directory, verbosity=verbosity, hop3_toml_override=hop3_toml_override
+            )
 
             # Include env vars if any were specified
             if env_vars:
@@ -334,7 +338,11 @@ def _parse_deploy_args(args: list[str]) -> tuple[dict[str, str], list[str], bool
     return env_vars, remaining, streaming
 
 
-def pack_repository(directory: Path = Path(), verbosity: int = 1) -> str:
+def pack_repository(
+    directory: Path = Path(),
+    verbosity: int = 1,
+    hop3_toml_override: bytes | None = None,
+) -> str:
     """Pack a directory into a base64-encoded tar.gz archive.
 
     Args:
@@ -344,11 +352,15 @@ def pack_repository(directory: Path = Path(), verbosity: int = 1) -> str:
     Returns:
         Base64-encoded tar.gz archive
     """
-    tar_gz = generate_archive(directory, verbosity=verbosity)
+    tar_gz = generate_archive(
+        directory, verbosity=verbosity, hop3_toml_override=hop3_toml_override
+    )
     return base64.b64encode(tar_gz).decode("ascii")
 
 
-def generate_archive(source_dir: Path, verbosity: int = 1) -> bytes:
+def generate_archive(
+    source_dir: Path, verbosity: int = 1, hop3_toml_override: bytes | None = None
+) -> bytes:
     """
     Creates an in-memory tar.gz archive of a source directory as a bytes object,
     excluding built-in defaults plus the app's hop3.toml [build].ignore patterns
@@ -412,8 +424,18 @@ def generate_archive(source_dir: Path, verbosity: int = 1) -> bytes:
     with tarfile.open(fileobj=fileobj, mode="w:gz") as tar:
         for file_path in files_to_add:
             relative_path = file_path.relative_to(source_dir)
-            arcname = Path() / relative_path
-            tar.add(file_path, arcname=str(arcname))
+            arcname = str(Path() / relative_path)
+            if hop3_toml_override is not None and arcname == "hop3.toml":
+                # ADR 042 r2 §E1: upload the context-flattened hop3.toml (env/
+                # domains merged for the selected context, [contexts.*] stripped)
+                # in place of the on-disk file. The committed file is untouched.
+                info = tarfile.TarInfo(name=arcname)
+                info.size = len(hop3_toml_override)
+                info.mode = 0o644
+                info.mtime = int(file_path.stat().st_mtime)
+                tar.addfile(info, io.BytesIO(hop3_toml_override))
+            else:
+                tar.add(file_path, arcname=arcname)
 
     archive_bytes = fileobj.getvalue()
     _check_archive_size(archive_bytes, files_to_add, source_dir, verbose)

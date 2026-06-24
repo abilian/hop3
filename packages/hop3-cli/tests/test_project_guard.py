@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from hop3_cli.core.project_guard import check_project_mismatch
-from hop3_cli.core.resolution import AppSource
+from hop3_cli.core.resolution import AppSource, is_cwd_rooted
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -58,18 +58,7 @@ def test_mismatch_with_cwd_rooted_source_no_fire(tmp_path: Path) -> None:
     project to a different app name; guard must NOT fire.
     """
     _write_hop3_toml(tmp_path, "myapp")
-    # `[contexts.staging].app = "myapp-staging"` is a legitimate rename.
-    result = check_project_mismatch(
-        resolved_app="myapp-staging",
-        resolved_source="hop3.toml [contexts.staging].app at /tmp/x",
-        resolved_kind=AppSource.CONTEXT_APP,
-        verb="deploy",
-        cwd=tmp_path,
-        home=tmp_path.parent,
-    )
-    assert result.is_mismatch is False
-
-    # And [cli].app — the other CWD-rooted marker.
+    # `[cli].app = "myapp-alt"` is a legitimate per-project rename.
     result2 = check_project_mismatch(
         resolved_app="myapp-alt",
         resolved_source="hop3.toml [cli].app at /tmp/x",
@@ -122,18 +111,15 @@ def test_mismatch_with_env_var_source_fires(tmp_path: Path) -> None:
     assert "'myapp'" in result.message
 
 
-def test_mismatch_with_server_default_app_fires(tmp_path: Path) -> None:
-    """Server-level default-app falls back to no CWD marker → fires."""
-    _write_hop3_toml(tmp_path, "myapp")
-    result = check_project_mismatch(
-        resolved_app="other-app",
-        resolved_source="server 'prod' default app",
-        resolved_kind=AppSource.SERVER_DEFAULT,
-        verb="deploy",
-        cwd=tmp_path,
-        home=tmp_path.parent,
-    )
-    assert result.is_mismatch is True
+def test_is_cwd_rooted_classification() -> None:
+    """The guard's whole contract: CWD-rooted sources never fire it; flag/env
+    (and unresolved) sources can. Regression for ADR 042 dropping the two
+    non-CWD app sources — the surviving set must classify correctly.
+    """
+    for kind in (AppSource.DOTFILE, AppSource.CLI_APP, AppSource.METADATA_ID):
+        assert is_cwd_rooted(kind) is True, kind
+    for kind in (AppSource.FLAG, AppSource.ENV, AppSource.UNRESOLVED):
+        assert is_cwd_rooted(kind) is False, kind
 
 
 def test_mismatch_with_flag_source_fires(tmp_path: Path) -> None:

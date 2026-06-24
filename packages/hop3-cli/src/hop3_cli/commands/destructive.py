@@ -108,34 +108,7 @@ def _resolve_target_name(command: tuple[str, ...], args: list[str]) -> str | Non
     return _first_positional(args)
 
 
-def _confirm_protected_context(config: Config | None) -> tuple[bool, str | None]:
-    """Check if context is protected and confirm if needed.
-
-    Returns:
-        Tuple of (is_protected, context_name).
-        Returns (False, None) if user cancelled the confirmation.
-    """
-    if not config:
-        return False, None
-
-    is_protected = config.is_protected_context()
-    context_name = config.get_current_context_name()
-
-    if not is_protected:
-        return False, context_name
-
-    # Show extra warning for protected contexts
-    print(f"\n  WARNING: You are operating on protected context '{context_name}'")
-    print("  This context is marked as protected to prevent accidental changes.\n")
-
-    if not confirm("Are you sure you want to continue with this destructive action?"):
-        # Signal cancellation by returning special value
-        return True, None  # is_protected=True but context_name=None means cancelled
-
-    return True, context_name
-
-
-def confirm_destructive_action(  # noqa: PLR0911 — sequential decision tree, each return is a distinct escape hatch (json mode, no-match, missing-args, --confirm, --no-input, protected context, …) with its own side effects; flattening into a result var would obscure the safety story.
+def confirm_destructive_action(  # noqa: PLR0911 — sequential decision tree, each return is a distinct escape hatch (json mode, no-match, missing-args, --confirm, --no-input, …) with its own side effects; flattening into a result var would obscure the safety story.
     cli_args: list[str],
     printer: RichPrinter,
     config: Config | None = None,
@@ -180,9 +153,8 @@ def confirm_destructive_action(  # noqa: PLR0911 — sequential decision tree, e
     if target_name is None:
         return True
 
-    # ADR 036 G6: --confirm=<name> matches → accept silently. This still
-    # runs the protected-context check (which has its own confirmation),
-    # so --confirm is *not* a global safety bypass like --force.
+    # ADR 036 G6: --confirm=<name> matches → accept silently. Unlike --force it
+    # is not a global safety bypass: the value must match the resource name.
     if flags and flags.confirm_value is not None:
         if flags.confirm_value != target_name:
             print(
@@ -191,9 +163,7 @@ def confirm_destructive_action(  # noqa: PLR0911 — sequential decision tree, e
                 file=sys.stderr,
             )
             return False
-        # Still check protected context (has its own confirmation prompt).
-        is_protected, context_name = _confirm_protected_context(config)
-        return not (is_protected and context_name is None)
+        return True
 
     # ADR 036 G5: --no-input refuses to prompt with an actionable message.
     # The implicit non-tty case is left to the prompt helpers, which catch
@@ -210,19 +180,13 @@ def confirm_destructive_action(  # noqa: PLR0911 — sequential decision tree, e
         )
         return False
 
-    # Check if this is a protected context
-    is_protected, context_name = _confirm_protected_context(config)
-    if is_protected and context_name is None:
-        # User cancelled protected context confirmation
-        return False
-
     # ADR 036 D14: context-mismatch warning. If the user is about to act
     # on a resource in a non-default context, surface that explicitly.
     _maybe_show_context_warning(config)
 
     # app destroy (or destroy alias) - requires type-to-confirm
     if command in {("app", "destroy"), ("destroy",)}:
-        return _confirm_app_destroy(target_name, is_protected, context_name)
+        return _confirm_app_destroy(target_name)
 
     # backup destroy command
     if command == ("backup", "destroy"):
@@ -230,7 +194,7 @@ def confirm_destructive_action(  # noqa: PLR0911 — sequential decision tree, e
 
     # addon destroy command
     if command == ("addon", "destroy"):
-        return _confirm_service_destroy(target_name, is_protected, context_name)
+        return _confirm_service_destroy(target_name)
 
     # Unknown destructive command (shouldn't happen)
     return confirm("This action cannot be undone. Continue?")
@@ -254,22 +218,13 @@ def _maybe_show_context_warning(config: Config | None) -> None:
         )
 
 
-def _confirm_app_destroy(
-    app_name: str, is_protected: bool, context_name: str | None
-) -> bool:
+def _confirm_app_destroy(app_name: str) -> bool:
     """Confirm app destroy command."""
     show_destructive_warning(
         "destroy",
         f"app '{app_name}'",
         "All files, data, and configuration will be permanently deleted.",
     )
-
-    # For protected contexts, require typing context name AND app name
-    if is_protected and context_name:
-        confirm_text = f"{context_name}/{app_name}"
-        return type_to_confirm(
-            f"Type '{confirm_text}' to confirm (context/app):", confirm_text
-        )
     return type_to_confirm(f"Type '{app_name}' to confirm:", app_name)
 
 
@@ -283,20 +238,11 @@ def _confirm_backup_delete(backup_id: str) -> bool:
     return confirm("Are you sure you want to delete this backup?")
 
 
-def _confirm_service_destroy(
-    addon_name: str, is_protected: bool, context_name: str | None
-) -> bool:
+def _confirm_service_destroy(addon_name: str) -> bool:
     """Confirm services destroy command."""
     show_destructive_warning(
         "destroy",
         f"service '{addon_name}'",
         "All data in this service will be permanently deleted.",
     )
-
-    # For protected contexts, require typing context name AND service name
-    if is_protected and context_name:
-        confirm_text = f"{context_name}/{addon_name}"
-        return type_to_confirm(
-            f"Type '{confirm_text}' to confirm (context/service):", confirm_text
-        )
     return type_to_confirm(f"Type '{addon_name}' to confirm:", addon_name)

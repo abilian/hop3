@@ -155,11 +155,10 @@ hop3-server admin:create admin admin@example.com
 # Copy the displayed token
 ```
 
-Then configure your local CLI:
+Then log into the server from your local CLI:
 
 ```bash
-hop3 settings set server https://your-server.com
-hop3 settings set token <paste-token-here>
+hop3 login --token <paste-token-here> --url https://your-server.com
 ```
 
 ### For Automation (CI/CD)
@@ -171,7 +170,7 @@ echo "$ADMIN_PASSWORD" | hop3 init \
   --ssh deploy@my-server.com \
   --username admin \
   --email admin@company.com \
-  --server https://my-server.com \
+  --url https://my-server.com \
   --password-stdin \
   --yes
 ```

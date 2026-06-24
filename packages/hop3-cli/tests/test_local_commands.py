@@ -33,6 +33,7 @@ from hop3_cli.commands.local.login_cmd import (
     _verify_token,
 )
 from hop3_cli.config import Config
+from hop3_cli.core import credential_store as cs
 from hop3_cli.exit_codes import ExitCode
 from hop3_cli.ui.rich_printer import RichPrinter
 from jsonrpcclient import Ok
@@ -286,12 +287,12 @@ class TestSettingsCommands:
     def test_settings_set_connection_key_warns_deprecated(
         self, temp_config, mock_printer, capsys
     ):
-        """api_url/api_token are owned by `hop3 server` now — warn but still save."""
+        """api_url/api_token are owned by `hop3 context` now — warn but still save."""
         settings_set(["api_token", "secret-token-value"], temp_config, mock_printer)
 
         captured = capsys.readouterr()
         assert "deprecated" in captured.err.lower()
-        assert "hop3 server" in captured.err
+        assert "hop3 context" in captured.err
         # Still written for back-compat.
         assert temp_config.data["api_token"] == "secret-token-value"
 
@@ -368,29 +369,26 @@ class TestHandleInit:
                 mock_printer,
             )
 
-        # Credentials are saved to a "default" context when no context exists
-        default_ctx = temp_config.data["contexts"]["default"]
-        assert default_ctx["api_token"] == mock_token
-        assert "https://test.com" in default_ctx["api_url"]
+        # ADR 042 r2: token goes to the per-server store, server becomes default.
+        assert cs.get_token("https://test.com") == mock_token
+        assert temp_config.get_default_server() == "https://test.com"
+        # config.toml stays secret-free — no [contexts.*] written.
+        assert "contexts" not in temp_config.data
 
-    def test_init_password_stdin_reads_server_from_global_override(
+    def test_init_password_stdin_does_not_prompt_for_server(
         self, temp_config, mock_printer
     ):
-        """Regression: `hop3 init --server <url> --password-stdin`.
-
-        The global flag parser consumes --server before init runs, so init must
-        read it from the config override and must NOT prompt for the server URL
-        — otherwise that prompt consumes the piped password line, leaving the
-        password empty ("Password cannot be empty").
+        """Regression: `hop3 init --ssh <target> --password-stdin` must NOT
+        prompt for the server URL — it infers one from the SSH target —
+        otherwise the prompt consumes the piped password line, leaving the
+        password empty ("Password cannot be empty"). (ADR 042 removed the
+        global `--server` override this used to rely on.)
         """
         captured = {}
 
         def fake_create(ssh_target, username, email, password):
             captured["password"] = password
             return _FAKE_JWT_ADMIN
-
-        # Simulate parse_flags having stashed the stripped `--server <url>`.
-        temp_config.set_server_override("https://hop3.example.com")
 
         with (
             patch(
@@ -416,10 +414,8 @@ class TestHandleInit:
             )
 
         assert captured["password"] == "s3cret"
-        assert (
-            temp_config.data["contexts"]["default"]["api_url"]
-            == "https://hop3.example.com"
-        )
+        assert temp_config.get_default_server() == "https://hop3.example.com"
+        assert cs.get_token("https://hop3.example.com") == _FAKE_JWT_ADMIN
 
     def test_init_password_stdin_does_not_prompt_when_no_server(
         self, temp_config, mock_printer
@@ -458,7 +454,7 @@ class TestHandleInit:
 
         assert captured["password"] == "pw42"
         # URL inferred from the SSH host, not prompted.
-        assert "host.example.com" in temp_config.data["contexts"]["default"]["api_url"]
+        assert temp_config.get_default_server() == "https://host.example.com"
 
 
 class TestHandleLogin:
@@ -507,9 +503,11 @@ class TestHandleLogin:
                 mock_printer,
             )
 
-        # Credentials are saved to a "default" context when no context exists
-        default_ctx = temp_config.data["contexts"]["default"]
-        assert default_ctx["api_token"] == mock_token
+        # ADR 042 r2: SSH login stores the token in the per-server store keyed by
+        # the SSH-tunnel URL, and sets it as the default server.
+        assert cs.get_token("ssh://root@test.com") == mock_token
+        assert temp_config.get_default_server() == "ssh://root@test.com"
+        assert "contexts" not in temp_config.data
 
     def test_login_web_invokes_colon_command(self, temp_config, mock_printer, capsys):
         """Regression: `hop3 login --web` must call `hop3-server auth:magic-link`.
@@ -596,11 +594,11 @@ class TestHandleLogin:
         assert "Not logged in" in capsys.readouterr().out
 
     def test_logout_revokes_and_clears_token(self, temp_config, mock_printer, capsys):
-        """Logout revokes the token server-side and clears it locally."""
-        temp_config.data["contexts"] = {
-            "default": {"api_url": "https://test.com", "api_token": _FAKE_JWT_USER}
-        }
-        temp_config.data["current_context"] = "default"
+        """Logout revokes the token server-side and clears it from the store."""
+        # ADR 042 r2: the token lives in the per-server store, keyed by the
+        # default server — not in a config.toml context.
+        temp_config.set_default_server("https://test.com")
+        cs.set_token("https://test.com", _FAKE_JWT_USER)
 
         client_instance = MagicMock()
         client_cm = MagicMock()
@@ -610,7 +608,7 @@ class TestHandleLogin:
             handle_logout([], temp_config, mock_printer)
 
         client_instance.rpc.assert_called_once_with("cli", ["auth", "logout"])
-        assert temp_config.data["contexts"]["default"]["api_token"] == ""
+        assert cs.get_token("https://test.com") is None
         assert "Logged out" in capsys.readouterr().out
 
     def test_login_token_success(self, temp_config, mock_printer, capsys):
@@ -621,24 +619,20 @@ class TestHandleLogin:
             "hop3_cli.commands.local.login_cmd._verify_token", return_value="testuser"
         ):
             handle_login_token(
-                ["--token", mock_token, "--server", "http://localhost:8000"],
+                ["--token", mock_token, "--url", "http://localhost:8000"],
                 temp_config,
                 mock_printer,
             )
 
-        # Credentials are saved to a "default" context when no context exists
-        default_ctx = temp_config.data["contexts"]["default"]
-        assert default_ctx["api_token"] == mock_token
-        assert default_ctx["api_url"] == "http://localhost:8000"
+        # ADR 042 r2: token to the per-server store keyed by the --url server.
+        assert cs.get_token("http://localhost:8000") == mock_token
+        assert temp_config.get_default_server() == "http://localhost:8000"
 
     def test_login_token_with_existing_server(self, temp_config, mock_printer, capsys):
-        """Test token login uses existing server config."""
+        """Test token login uses the existing default server when no --url given."""
         mock_token = _FAKE_JWT_TEST
-        # Pre-configure server with existing context
-        temp_config.data["contexts"] = {
-            "default": {"api_url": "https://existing-server.com", "api_token": ""}
-        }
-        temp_config.data["current_context"] = "default"
+        # Pre-configure the default server (no --url on the command line).
+        temp_config.set_default_server("https://existing-server.com")
 
         with patch(
             "hop3_cli.commands.local.login_cmd._verify_token", return_value="testuser"
@@ -649,9 +643,8 @@ class TestHandleLogin:
                 mock_printer,
             )
 
-        default_ctx = temp_config.data["contexts"]["default"]
-        assert default_ctx["api_token"] == mock_token
-        assert default_ctx["api_url"] == "https://existing-server.com"
+        assert cs.get_token("https://existing-server.com") == mock_token
+        assert temp_config.get_default_server() == "https://existing-server.com"
 
     def test_login_token_missing_token(self, temp_config, mock_printer):
         """Test token login fails when token not provided."""
@@ -668,7 +661,7 @@ class TestHandleLogin:
         ):
             with pytest.raises(SystemExit) as exc_info:
                 handle_login_token(
-                    ["--token", mock_token, "--server", "http://localhost:8000"],
+                    ["--token", mock_token, "--url", "http://localhost:8000"],
                     temp_config,
                     mock_printer,
                 )
@@ -689,10 +682,9 @@ class TestHandleLogin:
         ):
             handle_login([url_with_token], temp_config, mock_printer)
 
-        # Credentials are saved to a "default" context when no context exists
-        default_ctx = temp_config.data["contexts"]["default"]
-        assert default_ctx["api_token"] == mock_token
-        assert default_ctx["api_url"] == "http://localhost:8000"
+        # ADR 042 r2: token to the per-server store keyed by the embedded URL.
+        assert cs.get_token("http://localhost:8000") == mock_token
+        assert temp_config.get_default_server() == "http://localhost:8000"
 
     def test_login_url_with_token_and_path(self, temp_config, mock_printer, capsys):
         """Test login with URL containing path and embedded token."""
@@ -704,10 +696,9 @@ class TestHandleLogin:
         ):
             handle_login([url_with_token], temp_config, mock_printer)
 
-        # Credentials are saved to a "default" context when no context exists
-        default_ctx = temp_config.data["contexts"]["default"]
-        assert default_ctx["api_token"] == mock_token
-        assert default_ctx["api_url"] == "https://my-server.com/api"
+        # ADR 042 r2: token to the per-server store keyed by the embedded URL.
+        assert cs.get_token("https://my-server.com/api") == mock_token
+        assert temp_config.get_default_server() == "https://my-server.com/api"
 
 
 class TestHandleVersion:

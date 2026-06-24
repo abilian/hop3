@@ -156,7 +156,7 @@ echo "$ADMIN_PASSWORD" | hop3 init \
   --ssh deploy@my-server.com \
   --username admin \
   --email admin@company.com \
-  --server https://my-server.com \
+  --url https://my-server.com \
   --password-stdin \
   --yes
 ```

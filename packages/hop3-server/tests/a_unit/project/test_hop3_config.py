@@ -478,3 +478,19 @@ not_a_real_field = 42
 """
             )
         )
+
+
+def test_contexts_section_accepted():
+    """ADR 042 (2nd revision): project-scoped ``[contexts.*]`` is back as a
+    non-secret deploy-environment block. The schema accepts it (the deployer
+    ignores it). See test_hop3_config_contexts.py for the full coverage.
+    """
+    content = """
+[metadata]
+id = "my-app"
+
+[contexts.dev]
+server = "ssh://root@dev.example.com"
+"""
+    cfg = Hop3Config.from_str(content)  # must not raise
+    assert cfg.app_id == "my-app"

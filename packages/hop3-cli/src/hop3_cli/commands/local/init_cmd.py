@@ -36,12 +36,6 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> None:
         parsed
     )
 
-    # The global flag parser (commands/flags.py) consumes --server before
-    # local commands run, so `hop3 init --server <url>` arrives via the config
-    # override, not in args. Fall back to it before inferring/prompting.
-    if not server_url:
-        server_url = config.get_server_override()
-
     # Infer the server URL from the SSH target if still unknown.
     if not server_url:
         server_url = infer_server_url(ssh_target)
@@ -68,32 +62,13 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> None:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Determine target context name
-    target_context = context_name
-    if not target_context:
-        target_context = config.get_current_context_name()
+    # ADR 042 r2: persist the token in the per-server credential store and set
+    # this server as the default target. config.toml stays secret-free; deploy
+    # environments ("contexts") are declared per-project via `hop3 context add`.
+    from hop3_cli.commands.local.login_cmd import record_server_login  # noqa: PLC0415
 
-    if target_context:
-        # Update existing context or create specified context
-        if context_name:
-            config.add_context(
-                name=context_name,
-                api_url=server_url,
-                api_token=token,
-            )
-            config.set_global_context(context_name)
-        else:
-            config.update_context_credentials(api_url=server_url, api_token=token)
-    else:
-        # No context exists - create a "default" context
-        target_context = "default"
-        config.add_context(
-            name=target_context,
-            api_url=server_url,
-            api_token=token,
-        )
-
-    _print_init_success(username, config, target_context)
+    record_server_login(config, server_url, token)
+    _print_init_success(username, server_url, context_name)
 
 
 def _parse_init_args(
@@ -125,7 +100,7 @@ def _parse_init_args(
         elif arg == "--email" and i + 1 < len(args):
             email = args[i + 1]
             i += 2
-        elif arg == "--server" and i + 1 < len(args):
+        elif arg == "--url" and i + 1 < len(args):
             server_url = args[i + 1]
             i += 2
         elif arg == "--context" and i + 1 < len(args):
@@ -200,12 +175,20 @@ def _gather_init_credentials(
 
 def _print_init_success(
     username: str,
-    config: Config,
-    context_name: str,
+    server_url: str,
+    context_name: str | None = None,
 ) -> None:
     """Print success message after init."""
     print(f"\nAdmin user '{username}' created successfully.")
-    print(f"Credentials saved to context '{context_name}'")
+    print(f"Token stored for {server_url}")
+    if context_name:
+        # `--context` no longer writes a config.toml connection (ADR 042 r2):
+        # contexts are deploy environments declared in the app's hop3.toml.
+        print(
+            f"\nTo deploy to this server as context '{context_name}', declare it in\n"
+            f"your app's hop3.toml:\n"
+            f"  hop3 context add {context_name} --server {server_url}"
+        )
     print("\nYou're all set! Try:")
     print("  hop3 apps           # List applications")
     print("  hop3 auth whoami    # Check current user")

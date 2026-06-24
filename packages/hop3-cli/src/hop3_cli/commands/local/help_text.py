@@ -18,20 +18,21 @@ INIT_HELP = """Usage: hop3 init --ssh <user@server> [options]
 Bootstrap a new Hop3 server with a custom admin user.
 
 NOTE: For most cases, you don't need this command anymore!
-Simply use 'hop3 context add' and authentication happens automatically:
+Authenticate once over SSH, then declare your deploy environment:
 
-  hop3 context add dev --server ssh://root@my-server.com --default
-  hop3 apps  # Auto-authenticates via SSH
+  hop3 login --ssh root@my-server.com
+  hop3 context add dev --server ssh://root@my-server.com --app myapp
+  hop3 apps  # uses the resolved context
 
 Use 'init' only if you want to create a specific admin user with
 a custom username, email, and password.
 
 Options:
   --ssh <user@server>    SSH target for the server (required)
-  --context <name>       Create a named context for this server
+  --context <name>       Suggest a hop3.toml context name for this server
   --username <name>      Admin username (prompted if not provided)
   --email <email>        Admin email (prompted if not provided)
-  --server <url>         Server URL (inferred from SSH target if not provided)
+  --url <url>            Server URL (inferred from SSH target if not provided)
   --password-stdin       Read password from stdin
   -y, --yes              Skip confirmation prompts
 
@@ -85,9 +86,8 @@ Other authentication methods:
 Options:
   --ssh <user@server>    SSH-based authentication (recommended)
   --username <name>      Specific user (optional, defaults to auto-select)
-  --url <url>            Use HTTP API instead of SSH tunnel
+  --url <url>            Server URL (HTTP API; pair with --token for token auth)
   --token <token>        Use a pre-generated API token
-  --server <url>         Server URL (for --token)
   -d, -dd, -ddd          Debug output (more d's = more verbose)
 
 Examples:
@@ -107,60 +107,43 @@ automatically when you run commands. See 'hop3 context --help'.
 
 CONTEXT_HELP = """Usage: hop3 context <subcommand> [args]
 
-Manage multiple server contexts (similar to kubectl contexts).
+Manage deploy environments (dev / staging / prod) for this project. A context
+is a [contexts.<name>] block in the committed hop3.toml: a non-secret bundle of
+server address + app instance + domains + env (ADR 042).
 
-Quick start (SSH-based servers):
-  hop3 context add dev --server ssh://root@dev.example.com --default
-  hop3 context add prod --server ssh://root@prod.example.com --protected
-  hop3 apps  # Just works - auto-authenticates via SSH!
+Quick start:
+  hop3 context add prod --server ssh://root@prod.example.com --app myapp
+  hop3 context add dev  --server ssh://root@dev.example.com  --app myapp-dev
+  hop3 context use dev        # pin this checkout to dev
+  hop3 deploy                 # deploys the selected environment
 
 Subcommands:
-  (bare)            Show current state (active context + default app + source)
-  list              List all configured contexts
-  show [<context>]  Show details of a context (current by default)
-  use <context>     Switch to a different context
-  add <context> [opts]  Add a new context
-  remove <context>  Remove a context
+  (bare)              Show the selected context + what's declared
+  list                List the [contexts.*] in the nearest hop3.toml
+  show [<name>]       Show one context (the selected one by default)
+  add <name> [opts]   Add a [contexts.<name>] block to hop3.toml
+  remove <name>       Remove a [contexts.<name>] block
   rename <old> <new>  Rename a context
+  use <name>          Pin a context for THIS checkout (.hop3-local.toml)
 
-Add options:
-  --server <url>    Server URL (required, e.g., ssh://root@server.com)
-  --protected       Mark as protected (extra confirmation for destructive ops)
-  --default         Set as the default context
-  --token <token>   API token (optional - auto-fetched via SSH if not provided)
-  --ssh-user <user> SSH username (default: root)
-  --ssh-port <port> SSH port (default: 22)
+Add options (write hop3.toml — no secrets):
+  --server <addr>   Target server address (required), e.g. ssh://root@host
+  --app <name>      App instance name (optional; inherits [metadata].id)
+  --domain <host>   Hostname (repeatable)
+  --env KEY=VALUE   Non-secret env override (repeatable)
 
-Use options:
-  (default)         Print 'export HOP3_CONTEXT=...' for this shell only
-  --global          Set as global default (affects ALL terminals)
-  --app <app>       Also set this context's default app (ADR 036 D7/D8)
+Which file each verb touches:
+  add / remove / rename  ->  hop3.toml         (committed, shared — commit it)
+  use                    ->  .hop3-local.toml  (per-checkout, gitignored)
 
-Examples:
-  # Setup for development and production
-  hop3 context add dev --server ssh://root@dev.example.com --default
-  hop3 context add prod --server ssh://root@prod.example.com --protected
-
-  # Commands use dev by default
-  hop3 apps
-  hop3 deploy --app myapp
-
-  # Use production explicitly
-  hop3 --context prod apps
-  hop3 --context prod deploy --app myapp
-
-  # Per-project context (ADR 042): from inside a project directory
-  cd myproject
-  hop3 context use prod        # writes .hop3-local.toml
-
-Context priority (highest to lowest):
+Context selection (highest to lowest):
   1. --context flag
   2. HOP3_CONTEXT environment variable
-  3. .hop3-local.toml [current].context (per-project, ADR 042)
-  4. Global config file
+  3. .hop3-local.toml [local].context
+  4. single-context fallback (when hop3.toml declares exactly one)
 
-Protected contexts require extra confirmation for destructive operations.
-SSH-based contexts auto-authenticate - no login needed!
+Secrets never go in hop3.toml: the server is a literal address, and per-env
+secrets are set server-side with `hop3 env set`.
 """
 
 
@@ -229,33 +212,17 @@ Examples:
 """
 
 
-SERVER_HELP = """Usage: hop3 server <subcommand> [options]
-
-Manage server bindings — the global registry of Hop3 hosts.
-
-Subcommands:
-  list                List configured servers.
-  add <name> --url <u> [--token <t>] [--ssh-user <u>] [--ssh-port <p>]
-                       [--protected]
-                      Register a new server.
-  remove <name>       Drop a server.
-  show <name>         Display a server's details.
-  use <name>          Set the global single-server default.
-  use --default-app <app>
-                      Set the current server's default app
-                      (app-resolution source #8).
-  login <name>        Re-authenticate to a server (token rotation).
-"""
-
-
 USE_HELP = """Usage: hop3 use [app]
 
-Set / show / clear the current context's default app (ADR 036 D7/D8).
+Pin / show / clear the app for the current directory (ADR 042).
+
+Writes a `.hop3-app` file in the current directory — the app then resolves
+from the CWD (app-resolution source #4). There is no per-context default app.
 
 Examples:
-  hop3 use myapp        # Set default app for the current context
+  hop3 use myapp        # Pin myapp for this directory (writes .hop3-app)
   hop3 use              # Show the currently resolved app and its source
-  hop3 use --clear      # Clear the default app for the current context
+  hop3 use --clear      # Remove the .hop3-app pin for this directory
 """
 
 
@@ -287,7 +254,6 @@ LOCAL_COMMAND_HELP: dict[str, str] = {
     "context": CONTEXT_HELP,
     "init": INIT_HELP,
     "login": LOGIN_HELP,
-    "server": SERVER_HELP,
     "settings": SETTINGS_HELP,
     "tunnel": TUNNEL_HELP,
     "use": USE_HELP,

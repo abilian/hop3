@@ -3,7 +3,12 @@
 **Status**: Draft
 **Type**: Feature (breaking — one coordinated CLI+server release)
 **Created**: 2026-06-04
+**Updated**: 2026-06-24
 **Related-ADRs**: 036 (§D7 implicit app resolution), 042 (resolution chains, project contexts), a future command-manifest ADR (plugin command manifest)
+
+> **Updated 2026-06-24:** `_context.server` is the selected context's literal
+> *address* (`ssh://root@host`), not a symbolic name — ADR 042 r2 has no symbolic
+> server names. Field example corrected below.
 
 This decision supersedes the client-side app-scoped injection mechanism (`hop3_cli/core/app_scope.py`), a stopgap retired by the design below.
 
@@ -11,7 +16,7 @@ This decision supersedes the client-side app-scoped injection mechanism (`hop3_c
 
 ### The stopgap and why it drifts
 
-The CLI must decide *before* the RPC round-trip whether a command operates on a single app, so it can resolve an implicit app (ADR 036 §D7, ADR 042 §Resolution chains) and inject it. It makes that decision from a hardcoded `set[tuple[str, ...]]` in `core/app_scope.py`, and on a match injects the resolved app as the first positional argument. The module is a stopgap pending a future command-manifest ADR.
+The CLI must decide *before* the RPC round-trip whether a command operates on a single app, so it can resolve an implicit app (ADR 036 §D7, ADR 042 §Resolution) and inject it. It makes that decision from a hardcoded `set[tuple[str, ...]]` in `core/app_scope.py`, and on a match injects the resolved app as the first positional argument. The module is a stopgap pending a future command-manifest ADR.
 
 The drift it causes is a recurring class of bug: the hardcoded set falls out of sync with the server's command registry, so a renamed or added command silently stops resolving its implicit app. A representative case is `hop3 app status` demanding an explicit `<app_name>` while its siblings (`app ping`, `app logs`, …) resolve one, because the set still lists the renamed `app show` and is missing `app status`.
 
@@ -40,7 +45,7 @@ A JSON object under a reserved key in `extra_args` (proposed: `_context`, mirror
   "_context": {
     "app":        "ac-sciences",          // resolved ambient app, or null
     "app_source": "hop3.toml [metadata].id at /…/ac-sciences",  // for --why and the project-mismatch check
-    "server":     "prod",                 // resolved server name (ADR 042), or null
+    "server":     "ssh://root@prod.example.com",  // the selected context's server ADDRESS (ADR 042 r2) — never a symbolic name; or null
     "context":    "prod",                 // resolved project context name, or null
     "cwd":        "/Users/…/ac-sciences", // operator's working directory
     "cwd_app_id": "ac-sciences",          // [metadata].id at/above cwd (for the project-mismatch check), or null

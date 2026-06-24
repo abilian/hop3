@@ -36,13 +36,13 @@ def handle_login(args: list[str], config: Config, printer: RichPrinter) -> None:
     Supports multiple authentication methods:
     - URL with token: http://server:port?token=eyJ... (easiest for local dev)
     - --ssh user@server: SSH-based authentication (for remote servers)
-    - --token <token>: Use a pre-generated token with separate --server
+    - --token <token>: Use a pre-generated token with separate --url
     - (default): Username/password authentication via the server API
 
     Usage:
         hop3 login "http://localhost:8000?token=eyJ..."  # URL with embedded token
         hop3 login --ssh user@server                     # SSH-based auth
-        hop3 login --token <token> --server <url>        # Separate token and server
+        hop3 login --token <token> --url <url>           # Separate token and server
         hop3 login                                       # Username/password auth
     """
     # Check for help first
@@ -61,7 +61,7 @@ def handle_login(args: list[str], config: Config, printer: RichPrinter) -> None:
                 # Reconstruct server URL without the token parameter
                 server_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
                 handle_login_token(
-                    ["--token", token, "--server", server_url], config, printer
+                    ["--token", token, "--url", server_url], config, printer
                 )
                 return
 
@@ -95,11 +95,9 @@ def handle_logout(args: list[str], config: Config, printer: RichPrinter) -> None
         print("Not logged in (no local token to clear).")
         return
 
-    # Revoke server-side first, while the token is still in the config so the
+    # Revoke server-side first, while the token is still in the store so the
     # request can authenticate. We surface a revoke failure loudly but still
     # clear the local token — logging out of THIS machine must always succeed.
-    import contextlib  # noqa: PLC0415
-
     from hop3_cli.rpc import Client  # noqa: PLC0415
 
     revoke_failed: str | None = None
@@ -111,9 +109,8 @@ def handle_logout(args: list[str], config: Config, printer: RichPrinter) -> None
         # token so logging out of THIS machine always succeeds.
         revoke_failed = str(e)
 
-    # No context to clear is fine (token may have come from env/legacy config).
-    with contextlib.suppress(KeyError):
-        config.update_context_token("")
+    # Clear the token from the per-server credential store (no-op if absent).
+    config.update_context_token("")
 
     if revoke_failed:
         print(
@@ -228,18 +225,18 @@ def _handle_login_response(
         case Ok(result=result):
             token = _extract_token_from_login_response(result)
             if token:
-                context_name = config.get_current_context_name()
-                if context_name:
-                    config.update_context_token(token)
-                else:
-                    # No context exists - must have one to do password login
+                # Password login runs against an already-configured server
+                # (_ensure_server_configured ran first), so the connection
+                # address is known; stash the token in its per-server store.
+                server_url = config.get_api_url()
+                if not server_url:
                     print(
-                        "Error: No context configured. Use 'hop3 init' or 'hop3 login --ssh' first.",
+                        "Error: No server configured. Use 'hop3 init' or 'hop3 login --ssh' first.",
                         file=sys.stderr,
                     )
                     sys.exit(1)
+                record_server_login(config, server_url, token)
                 print(f"Logged in as {username}")
-                print(f"Token saved to context '{context_name}'")
             else:
                 printer.print(result)
         case Error(message=message):
@@ -386,11 +383,31 @@ def _get_ssh_target_from_config(config: Config) -> str | None:
     return None
 
 
+def record_server_login(config: Config, server_url: str, token: str) -> None:
+    """ADR 042 r2: stash the token in the per-server store + set the default server.
+
+    This is the *only* place a login persists credentials: the token goes to the
+    per-server credential store (keyed by canonical address) and the server
+    becomes the default target for project-less commands. config.toml stays
+    secret-free. Surfaces a default-server change so `hop3 login` never silently
+    retargets `hop3 apps` & friends.
+    """
+    if not server_url:
+        return
+    from hop3_cli.core import credential_store  # noqa: PLC0415
+
+    credential_store.set_token(server_url, token)
+    previous = config.get_default_server()
+    config.set_default_server(server_url)
+    if previous != server_url:
+        print(f"  default server is now {server_url}")
+
+
 def handle_login_token(args: list[str], config: Config, printer: RichPrinter) -> None:
     """Handle token-based login for local development or automation.
 
     Usage:
-        hop3 login --token <token> --server http://localhost:8000
+        hop3 login --token <token> --url http://localhost:8000
         hop3 login --token <token>  # Uses existing server config
     """
     token, server_url = _parse_token_args(args)
@@ -401,21 +418,16 @@ def handle_login_token(args: list[str], config: Config, printer: RichPrinter) ->
     if not username:
         sys.exit(1)
 
-    # Save configuration only after successful verification
-    context_name = config.get_current_context_name()
-    if context_name:
-        config.update_context_credentials(api_url=server_url, api_token=token)
-    else:
-        # No context exists - create a "default" context
-        context_name = "default"
-        config.add_context(name=context_name, api_url=server_url, api_token=token)
-
+    # Save credentials only after successful verification: token to the
+    # per-server store, server as the default target. config.toml stays
+    # secret-free (ADR 042 r2).
+    record_server_login(config, server_url, token)
     print(f"\nLogged in as {username}")
-    print(f"Credentials saved to context '{context_name}'")
+    print(f"Token stored for {server_url}")
 
 
 def _parse_token_args(args: list[str]) -> tuple[str, str | None]:
-    """Parse --token and --server arguments."""
+    """Parse --token and --url arguments."""
     token = None
     server_url = None
 
@@ -425,7 +437,7 @@ def _parse_token_args(args: list[str]) -> tuple[str, str | None]:
         if arg == "--token" and i + 1 < len(args):
             token = args[i + 1]
             i += 2
-        elif arg == "--server" and i + 1 < len(args):
+        elif arg == "--url" and i + 1 < len(args):
             server_url = args[i + 1]
             i += 2
         else:
@@ -549,31 +561,28 @@ def _determine_save_url(
     token: str,
     config: Config,
     debug_level: int,
-) -> tuple[str, dict]:
-    """Determine the API URL to save and any extra config kwargs.
+) -> str:
+    """Determine the API URL to record for this login.
 
-    Returns:
-        Tuple of (save_url, extra_kwargs)
+    Returns the connection address: the explicit ``--url`` (verified for HTTPS,
+    aborting on an untrusted cert) or an SSH-tunnel URL built from the target.
     """
-    extra_kwargs = {}
     if api_url:
         # User explicitly provided URL - use HTTP API
-        save_url = api_url
         if debug_level >= 1:
             print(f"[debug] Will use HTTP API at: {api_url}")
         # For HTTPS, verify the connection works with system CA bundle
+        # (aborts the login on an untrusted certificate).
         if api_url.startswith("https://"):
             config_data = {"api_url": api_url, "api_token": token}
             _verify_https_connection(api_url, token, config, config_data, debug_level)
-            if "verify_ssl" in config_data:
-                extra_kwargs["verify_ssl"] = config_data["verify_ssl"]
-    else:
-        # Default: use SSH tunnel for all subsequent commands
-        save_url = _build_ssh_url(ssh_target)
-        if debug_level >= 1:
-            print(f"[debug] Will use SSH tunnel: {save_url}")
+        return api_url
 
-    return save_url, extra_kwargs
+    # Default: use SSH tunnel for all subsequent commands
+    save_url = _build_ssh_url(ssh_target)
+    if debug_level >= 1:
+        print(f"[debug] Will use SSH tunnel: {save_url}")
+    return save_url
 
 
 def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> None:
@@ -614,29 +623,13 @@ def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> N
         print(f"[debug] Token received: {token[:20]}...{token[-10:]}")
 
     # Determine API URL to save
-    save_url, extra_kwargs = _determine_save_url(
-        api_url, ssh_target, token, config, debug_level
-    )
+    save_url = _determine_save_url(api_url, ssh_target, token, config, debug_level)
 
-    context_name = config.get_current_context_name()
-    if context_name:
-        config.update_context_credentials(
-            api_url=save_url, api_token=token, **extra_kwargs
-        )
-    else:
-        # No context exists - create a "default" context
-        context_name = "default"
-        config.add_context(
-            name=context_name,
-            api_url=save_url,
-            api_token=token,
-            **extra_kwargs,
-        )
-
+    record_server_login(config, save_url, token)
     if debug_level >= 1:
-        print(f"[debug] Credentials saved to context: {context_name}")
+        print(f"[debug] Token stored for: {save_url}")
 
-    _print_login_success(display_username, config, context_name)
+    _print_login_success(display_username, save_url)
 
 
 def _build_ssh_url(ssh_target: str) -> str:
@@ -778,10 +771,10 @@ def _extract_host(url: str) -> str:
     return f"root@{host}"
 
 
-def _print_login_success(username: str, config: Config, context_name: str) -> None:
+def _print_login_success(username: str, server_url: str) -> None:
     """Print success message after login."""
     print(f"\nToken generated for user '{username}'")
-    print(f"Credentials saved to context '{context_name}'")
+    print(f"Token stored for {server_url}")
     print("\nWelcome back! Try:")
     print("  hop3 apps           # List applications")
     print("  hop3 auth whoami    # Check current user")

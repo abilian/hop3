@@ -54,11 +54,10 @@ Install the CLI on your local machine:
 hop3-install cli
 ```
 
-Register your server and point the CLI at it:
+Log into your server (this stores its token and makes it the default target):
 
 ```bash
-hop3 server add prod --url ssh://root@your-server.com
-hop3 server use prod
+hop3 login --ssh root@your-server.com
 ```
 
 ## Step 2: Export Your Heroku Configuration

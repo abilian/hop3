@@ -22,14 +22,14 @@ _debug_mode: bool = False
 
 # Env vars the hop3 CLI uses to *steer* resolution (ADR 042, precedence #2 —
 # above any stored config). A developer's shell almost always exports these
-# (e.g. HOP3_SERVER via direnv) pointing at their real server. If they leak
+# (e.g. HOP3_CONTEXT via direnv) pointing at their real server. If they leak
 # into the demo's `hop3` subprocesses they silently override the localhost
 # context the demo logs into, so `hop3 deploy` targets the wrong server and
 # fails the stream auth (302 -> /auth/login). Strip them so resolution falls
 # through to the context the demo established via `hop3 login`.
-_CLI_STEERING_ENV_VARS = ("HOP3_SERVER", "HOP3_APP", "HOP3_CONTEXT")
+_CLI_STEERING_ENV_VARS = ("HOP3_APP", "HOP3_CONTEXT")
 
-# A demo-private CLI config home. The hop3 CLI stores config.toml / servers.toml
+# A demo-private CLI config home. The hop3 CLI stores config.toml
 # / state.toml under ``$XDG_CONFIG_HOME/hop3-cli`` (ADR 042). Pointing the demo's
 # `hop3` subprocesses at a dedicated dir keeps them off the developer's real
 # ~/.config/hop3-cli (which holds their prod/dev contexts): the demo neither
