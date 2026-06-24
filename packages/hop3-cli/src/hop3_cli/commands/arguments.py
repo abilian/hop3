@@ -92,14 +92,17 @@ def get_extra_args(
     if not args:
         return extra_args
 
-    # ADR 036 G3: read password from --password-file/--stdin and rewrite argv
+    # ADR 036 §D14: read password from --password-file/--stdin and rewrite argv
     # in place so the secret never appears in the user's shell history or
     # `ps` output. The positional form still works but is discouraged.
     _resolve_password_inputs(args)
-    # ADR 036 G3: `--input -` reads from stdin; `--input @<path>` reads from
+    # ADR 036 §D14: `--input -` reads from stdin; `--input @<path>` reads from
     # a file. Mirrors the password-file pattern so `hop run myapp foo --input -`
     # behaves predictably in pipelines.
     _resolve_run_input(args)
+    # ADR 036 §D14: `--smtp-password -`/`@<path>` on `addon email create` reads the
+    # SMTP password from stdin/a file so it never lands in shell history or argv.
+    _resolve_email_password_input(args)
 
     command = args[0]
 
@@ -151,7 +154,7 @@ def _read_import_data() -> str | None:
 def _resolve_run_input(args: list[str]) -> None:
     """Resolve --input -/@path on `hop run` so the server gets literal bytes.
 
-    Per ADR 036 G3, dash means stdin and ``@<path>`` means "read from file".
+    Per ADR 036 §D14, dash means stdin and ``@<path>`` means "read from file".
     Bare strings are passed through unchanged. Only applies to ``hop run``.
     """
     if not args or args[0] != "run":
@@ -179,12 +182,47 @@ def _resolve_run_input(args: list[str]) -> None:
         i += 2
 
 
+def _resolve_email_password_input(args: list[str]) -> None:
+    """Resolve `--smtp-password -`/`@<path>` on `addon email create` (ADR 036 §D14).
+
+    Dash means stdin, ``@<path>`` means "read from file"; a bare value passes
+    through unchanged. Rewrites the value in place so the SMTP password is
+    sourced from a file/pipe instead of the shell command line.
+    """
+    if args[:3] != ["addon", "email", "create"]:
+        return
+    i = 0
+    while i < len(args):
+        if args[i] != "--smtp-password":
+            i += 1
+            continue
+        if i + 1 >= len(args):
+            return  # let the server emit the "missing --smtp-password" error
+        value = args[i + 1]
+        if value == "-":
+            if sys.stdin.isatty():
+                msg = (
+                    "Refusing to read --smtp-password from a terminal; pipe it in "
+                    "or use --smtp-password @<path>."
+                )
+                raise ValueError(msg)
+            args[i + 1] = sys.stdin.read().rstrip("\n")
+        elif value.startswith("@"):
+            path = value[1:]
+            try:
+                args[i + 1] = Path(path).read_text(encoding="utf-8").rstrip("\n")
+            except OSError as e:
+                msg = f"Could not read --smtp-password file {path!r}: {e}"
+                raise ValueError(msg) from e
+        i += 2
+
+
 def _resolve_password_inputs(args: list[str]) -> None:
     """Replace --password-file/--stdin on user-management commands with positional.
 
-    Per ADR 036 G3, password input flows are:
+    Per ADR 036 §D14, password input flows are:
       --password-file <path>   read password from a file
-      --password-file -        read password from stdin (G3 dash convention)
+      --password-file -        read password from stdin (the §D14 dash convention)
       --stdin                  read password from stdin (alias for the above)
 
     Mutates ``args`` in place: removes the flag(s) and inserts the password as
@@ -256,7 +294,7 @@ def _extract_password_flag(args: list[str]) -> str | None:
 
 
 def _read_password_source(path: str) -> str:
-    """Read a password from a file path; ``-`` means stdin (ADR 036 G3)."""
+    """Read a password from a file path; ``-`` means stdin (ADR 036 §D14)."""
     if path == "-":
         if sys.stdin.isatty():
             msg = (

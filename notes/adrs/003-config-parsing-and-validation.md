@@ -1,9 +1,9 @@
 # ADR 003: Config Parsing and Validation
 
-**Status**: Accepted
-**Type**: Feature
-**Created**: 2024-07-17
-**Related-ADRs**: 001, 002
+- **Status**: Accepted
+- **Type**: Feature
+- **Created**: 2024-07-17
+- **Related-ADRs**: 001, 002
 
 ## Context
 

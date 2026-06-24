@@ -1,64 +1,28 @@
 # ADR 042: CLI Context Model — Context = Deploy Environment
 
-**Status**: Accepted
-**Type**: Feature
-**Created**: 2026-05-30
-**Updated**: 2026-06-24
-**Related-ADRs**: 014, 018, 019, 025, 031, 036, 047
+- **Status**: Accepted
+- **Type**: Feature
+- **Created**: 2026-05-30
+- **Updated**: 2026-06-24
+- **Related-ADRs**: 014, 018, 019, 025, 031, 036, 047
 
-> **Revised three times.** The original split deploy targets into a global
-> *server* (connection) and a project-scoped *context*. The first revision
-> collapsed both into one global *connection* called "context". The second made a
-> *context* a deploy **environment** in the committed `hop3.toml` and dropped the
-> connection to invisible plumbing — but it made contexts *project-only*, so
-> project-less commands (`hop3 apps`) lost a named target and grew a separate
-> `--server` flag. **This third revision** removes that split: a *context* is the
-> **one selector** for every command, existing at two scopes — a **global** named
-> server (`config.toml`, for project-less use) and a **project** environment
-> (`hop3.toml`). `--context <name>` resolves project-first, then global; there is
-> no `--server`. Superseded prose is replaced in place; the decision below is the
-> current one.
+> **Revised three times.** The original split deploy targets into a global *server* (connection) and a project-scoped *context*. The first revision collapsed both into one global *connection* called "context". The second made a *context* a deploy **environment** in the committed `hop3.toml` and dropped the connection to invisible plumbing — but it made contexts *project-only*, so project-less commands (`hop3 apps`) lost a named target and grew a separate `--server` flag. **This third revision** removes that split: a *context* is the **one selector** for every command, existing at two scopes — a **global** named server (`config.toml`, for project-less use) and a **project** environment (`hop3.toml`). `--context <name>` resolves project-first, then global; there is no `--server`. Superseded prose is replaced in place; the decision below is the current one.
 
 ## Context
 
-A real deployment story is **one codebase, many environments** — `dev`,
-`qualif`, `preprod`, `prod` — each a distinct app instance, often on a different
-server, with its own domains and (non-secret) configuration. The first revision
-removed the only mechanism that expressed this (`[contexts.*]` in `hop3.toml`),
-on the grounds that a project-scoped deploy target reintroduced the *wrong-app
-footgun* and overlapped a second noun.
+A real deployment story is **one codebase, many environments** — `dev`, `qualif`, `preprod`, `prod` — each a distinct app instance, often on a different server, with its own domains and (non-secret) configuration. The first revision removed the only mechanism that expressed this (`[contexts.*]` in `hop3.toml`), on the grounds that a project-scoped deploy target reintroduced the *wrong-app footgun* and overlapped a second noun.
 
 Two facts make bringing it back **clean** this time:
 
-1. **The footgun is contained by trusting the *selection source*, not by banning
-   a context app.** The original footgun was a *global* sticky `default_app` that
-   followed you across projects, so a stray `hop3 destroy` from the wrong
-   directory hit the wrong app. A context legitimately names its app (`myapp-prod`
-   vs `myapp-dev`); the fix is to trust that name **only when the context was
-   selected by a CWD-rooted signal** — an explicit `--context`, or a
-   `.hop3-local.toml` *inside* the project tree. A context chosen by an *ambient*
-   signal (`$HOP3_CONTEXT`, or a `.hop3-local.toml` inherited from an ancestor
-   directory) is untrusted: if its app differs from the directory you stand in,
-   the project-mismatch guard (ADR 047) fires. Keying trust on the selection's
-   provenance — rather than whitelisting "the app is in this project's
-   `[contexts.*]`" — keeps the cross-project leak closed.
+1. **The footgun is contained by trusting the *selection source*, not by banning a context app.** The original footgun was a *global* sticky `default_app` that followed you across projects, so a stray `hop3 destroy` from the wrong directory hit the wrong app. A context legitimately names its app (`myapp-prod` vs `myapp-dev`); the fix is to trust that name **only when the context was selected by a CWD-rooted signal** — an explicit `--context`, or a `.hop3-local.toml` *inside* the project tree. A context chosen by an *ambient* signal (`$HOP3_CONTEXT`, or a `.hop3-local.toml` inherited from an ancestor directory) is untrusted: if its app differs from the directory you stand in, the project-mismatch guard (ADR 047) fires. Keying trust on the selection's provenance — rather than whitelisting "the app is in this project's `[contexts.*]`" — keeps the cross-project leak closed.
 
-2. **`hop3.toml` can hold zero secrets.** Every secret already lives server-side,
-   in the database, per app instance: autogenerated keys (`SECRET_KEY`) created on
-   first deploy; addon credentials (`DATABASE_URL`) stored encrypted; third-party
-   keys (Stripe, Sentry) set with `hop3 env set`. Because **each context deploys a
-   distinct app instance**, third-party secrets are already scoped per environment
-   by per-app storage — no shared-secret machinery, no Vault (which earns its keep
-   only at fleet scale; deferred).
+2. **`hop3.toml` can hold zero secrets.** Every secret already lives server-side, in the database, per app instance: autogenerated keys (`SECRET_KEY`) created on first deploy; addon credentials (`DATABASE_URL`) stored encrypted; third-party keys (Stripe, Sentry) set with `hop3 env set`. Because **each context deploys a distinct app instance**, third-party secrets are already scoped per environment by per-app storage — no shared-secret machinery, no Vault (which earns its keep only at fleet scale; deferred).
 
-So the choice is not "footgun vs no footgun" — it is "express multi-environment
-in the committed file where it belongs, now that nothing in it is secret."
+So the choice is not "footgun vs no footgun" — it is "express multi-environment in the committed file where it belongs, now that nothing in it is secret."
 
 ## Decision
 
-**One managed noun: `context` = a named target.** Its fullest form is a deploy
-environment in the project's committed `hop3.toml` as `[contexts.<name>]`,
-carrying only non-secret config:
+**One managed noun: `context` = a named target.** Its fullest form is a deploy environment in the project's committed `hop3.toml` as `[contexts.<name>]`, carrying only non-secret config:
 
 | Field | Meaning | Example |
 |-------|---------|---------|
@@ -67,27 +31,13 @@ carrying only non-secret config:
 | `[contexts.<name>.domains]` | hostnames (`list = [...]`, same shape as top-level `[domains]`; full-replace) | `list = ["myapp.com"]` |
 | `[contexts.<name>.env]` | non-secret env overrides (merge over top-level `[env]`) | `LOG_LEVEL = "warning"` |
 
-A **global** context (in `config.toml`, for project-less commands) is the same
-shape pared to just `server` — a name bound to an address.
+A **global** context (in `config.toml`, for project-less commands) is the same shape pared to just `server` — a name bound to an address.
 
-The `server` is a **literal address**, not a symbolic name: the repo is the
-single source of truth and the local token store is keyed directly by it.
+The `server` is a **literal address**, not a symbolic name: the repo is the single source of truth and the local token store is keyed directly by it.
 
-**A context can also be just a named server — `--context` is the one selector.**
-A *global* context (in `config.toml`) is a name bound to a server address and
-nothing else; it exists so project-less commands can target a server by name —
-`hop3 apps --context prod` — exactly like an in-project deploy. `--context <name>`
-resolves **project-first, then global**, for every command alike. There is no
-`--server` flag: naming the target is the context's job. (`--context` is honoured
-strictly — an explicit `--context <name>` that resolves to no server aborts
-loud; it never silently retargets a different instance.)
+**`--context` is the one selector.** A global context exists so project-less commands can target a server by name — `hop3 apps --context prod` — exactly like an in-project deploy. `--context <name>` resolves **project-first, then global**, for every command alike. There is no `--server` flag: naming the target is the context's job. (`--context` is honoured strictly — an explicit `--context <name>` that resolves to no server aborts loud; it never silently retargets a different instance.)
 
-**Credentials are plumbing.** The only thing the CLI stores about *connections*
-(as opposed to contexts) is a **per-server token store** keyed by the canonical
-server address — invisible, like `~/.docker/config.json`. It is populated by
-`hop3 login` / `hop3 init`, and because **SSH access is authentication** it is
-re-bootstrapped on demand. There is no `hop3 server` noun and no `servers.toml`:
-a connection is a token keyed by an address, never a managed object.
+**Credentials are plumbing.** The only thing the CLI stores about *connections* (as opposed to contexts) is a **per-server token store** keyed by the canonical server address — invisible, like `~/.docker/config.json`. It is populated by `hop3 login` / `hop3 init`, and because **SSH access is authentication** it is re-bootstrapped on demand. There is no `hop3 server` noun and no `servers.toml`: a connection is a token keyed by an address, never a managed object.
 
 ### File layout
 
@@ -99,9 +49,7 @@ a connection is a token keyed by an address, never a managed object.
 | `.hop3-local.toml` (gitignored) | per-checkout | `[local].context` — which project environment this checkout targets | no |
 | `.hop3-app` (gitignored) | per-checkout | per-tree app pin written by `hop3 use` | no |
 
-Both files hold `[contexts.*]` but neither holds a secret: a global context is
-just `{server = "<addr>"}`, a project context adds app/domains/env, and the token
-always lives in the credential store.
+Both files hold `[contexts.*]` but neither holds a secret: a global context is just `{server = "<addr>"}`, a project context adds app/domains/env, and the token always lives in the credential store.
 
 ### Example
 
@@ -127,10 +75,7 @@ list = ["myapp.com", "www.myapp.com"]
 LOG_LEVEL = "warning"
 ```
 
-`hop3 deploy --context prod` reads `[contexts.prod]`, looks up the token for that
-server, and deploys app `myapp` with its domains and env. A teammate clones the
-repo, runs `hop3 login` once per server (or lets SSH bootstrap the token on first
-deploy), and gets the identical environments for free.
+`hop3 deploy --context prod` reads `[contexts.prod]`, looks up the token for that server, and deploys app `myapp` with its domains and env. A teammate clones the repo, runs `hop3 login` once per server (or lets SSH bootstrap the token on first deploy), and gets the identical environments for free.
 
 ## Resolution
 
@@ -142,21 +87,11 @@ Context resolution stays **client-side**. First the *name* is chosen:
 4. single-context fallback (project) / `[cli].default_context` (project-less)
 5. otherwise none (an error for flows that require a context)
 
-The name then resolves to a context **project-first, then global**: the nearest
-`hop3.toml [contexts.<name>]`, else `config.toml [contexts.<name>]`. An explicit
-`--context` that resolves to nothing aborts loud. The CLI reads the chosen block,
-extracts the server address, looks up its token, computes the effective config
-(the context's `app`; its `domains` and `env` merged per the rules below), and
-applies it. The server is never asked to interpret `[contexts.*]`.
+The name then resolves to a context **project-first, then global**: the nearest `hop3.toml [contexts.<name>]`, else `config.toml [contexts.<name>]`. An explicit `--context` that resolves to nothing aborts loud. The CLI reads the chosen block, extracts the server address, looks up its token, computes the effective config (the context's `app`; its `domains` and `env` merged per the rules below), and applies it. The server is never asked to interpret `[contexts.*]`.
 
-**Merge rules.** `context.domains`, when present, *fully replaces* top-level
-`[domains]`; when absent, top-level is inherited. `context.env` merges **over**
-top-level `[env]`, key by key. (`domains` and `HOST_NAME` stay mutually
-exclusive — a context setting both is rejected.)
+**Merge rules.** `context.domains`, when present, *fully replaces* top-level `[domains]`; when absent, top-level is inherited. `context.env` merges **over** top-level `[env]`, key by key. (`domains` and `HOST_NAME` stay mutually exclusive — a context setting both is rejected.)
 
-**App resolution is project-rooted** — the nearest `hop3.toml` at or above the
-CWD. The chain gains the selected context's app as a *conditionally-trusted*
-source:
+**App resolution is project-rooted** — the nearest `hop3.toml` at or above the CWD. The chain gains the selected context's app as a *conditionally-trusted* source:
 
 1. `--app` / `-a`
 2. `$HOP3_APP`
@@ -165,111 +100,55 @@ source:
 5. the selected context's `app`
 6. `hop3.toml [metadata].id`
 
-Source 5 is **trusted only when the context was selected CWD-rooted** (`--context`
-or an in-tree `.hop3-local.toml`); a context selected ambiently (`$HOP3_CONTEXT`,
-an ancestor overlay, or the single-context fallback) is untrusted, and the
-project-mismatch guard fires if its app is foreign to where you stand. Destructive
-verbs additionally go through ADR 047's guard. There is no `protected`-context
-flag.
+Source 5 is **trusted only when the context was selected CWD-rooted** (`--context` or an in-tree `.hop3-local.toml`); a context selected ambiently (`$HOP3_CONTEXT`, an ancestor overlay, or the single-context fallback) is untrusted, and the project-mismatch guard fires if its app is foreign to where you stand. Destructive verbs additionally go through ADR 047's guard. There is no `protected`-context flag.
 
 ### Global / ambient commands
 
-Project-less commands (`hop3 apps`, `hop3 status`) have no project context, so
-they select a **global** context — by the same `--context <name>` flag. With no
-flag the active server falls back through: `[cli].default_context` → a legacy
-unnamed default-server → the sole entry in the token store (when exactly one is
-known) → error. So `hop3 apps --context prod` works exactly like an in-project
-selection, and a bare `hop3 apps` targets your default context.
+Project-less commands (`hop3 apps`, `hop3 status`) have no project context, so they select a **global** context — by the same `--context <name>` flag. With no flag the active server falls back through: `[cli].default_context` → a legacy unnamed default-server → the sole entry in the token store (when exactly one is known) → error. So `hop3 apps --context prod` works exactly like an in-project selection, and a bare `hop3 apps` targets your default context.
 
 ## Server side
 
-The server stays a **pure app-config processor**: context resolution does not move
-server-side. A committed `hop3.toml` now *contains* `[contexts.*]`, and the server
-parses uploaded files (notably on git-push deploys), so the schema **accepts**
-`[contexts.*]` via a validation-only `ContextSection`; the deployer ignores it
-(the CLI already applied the chosen environment).
+The server stays a **pure app-config processor**: context resolution does not move server-side. A committed `hop3.toml` now *contains* `[contexts.*]`, and the server parses uploaded files (notably on git-push deploys), so the schema **accepts** `[contexts.*]` via a validation-only `ContextSection`; the deployer ignores it (the CLI already applied the chosen environment).
 
-`hop3.toml` is secret-free *by convention* — secrets belong server-side — and the
-schema backs that with a **committed-credential tripwire** that fails the upload
-loud on an obvious secret: a `server` address with embedded credentials, or an env
-value matching a known secret shape (`sk_live_…`, `ghp_…`, `AKIA…`, a connection
-string, high-entropy material). Best-effort, not a proof, but it turns "a Stripe
-key got committed" from silent into a refused deploy. Per-context `domains` run the
-same host-safety checks (the wildcard/catch-all ban) as top-level domains.
+`hop3.toml` is secret-free *by convention* — secrets belong server-side — and the schema backs that with a **committed-credential tripwire** that fails the upload loud on an obvious secret: a `server` address with embedded credentials, or an env value matching a known secret shape (`sk_live_…`, `ghp_…`, `AKIA…`, a connection string, high-entropy material). Best-effort, not a proof, but it turns "a Stripe key got committed" from silent into a refused deploy. Per-context `domains` run the same host-safety checks (the wildcard/catch-all ban) as top-level domains.
 
 ## CLI verbs
 
-The `hop3 context` verbs operate at whichever scope fits where you stand —
-**project** (hop3.toml) inside a project, **global** (config.toml) outside one;
-`--global`/`-g` forces global.
+The `hop3 context` verbs operate at whichever scope fits where you stand — **project** (hop3.toml) inside a project, **global** (config.toml) outside one; `--global`/`-g` forces global.
 
 - `hop3 context list / show [name]` — read contexts at the current scope
-- `hop3 context add / remove / rename` — define/edit them (a global context is a
-  named server; a project context adds app/domains/env)
-- `hop3 context use <name>` — pin a *project* context for this checkout
-  (`.hop3-local.toml [local].context`)
-- `hop3 login [--context <name>]` / `hop3 init` — authenticate to a server, store
-  its token, and (when named) record it as a global context + the default
+- `hop3 context add / remove / rename` — define/edit them (a global context is a named server; a project context adds app/domains/env)
+- `hop3 context use <name>` — pin a *project* context for this checkout (`.hop3-local.toml [local].context`)
+- `hop3 login [--context <name>]` / `hop3 init` — authenticate to a server, store its token, and (when named) record it as a global context + the default
 - `hop3 deploy [--context <name>]` — deploy the resolved environment
 
-A context can be hand-written in the file or created with `hop3 context add`
-(mirroring `[env]` vs `hop3 env set` — two interfaces, neither privileged).
-`add`/`remove`/`rename` edit a **shared** file (committed `hop3.toml`, or the
-per-developer `config.toml`); `use` edits the **gitignored** `.hop3-local.toml`.
-Each verb names the file and its sharing in its output.
+A context can be hand-written in the file or created with `hop3 context add` (mirroring `[env]` vs `hop3 env set` — two interfaces, neither privileged). `add`/`remove`/`rename` edit a **shared** file (committed `hop3.toml`, or the per-developer `config.toml`); `use` edits the **gitignored** `.hop3-local.toml`. Each verb names the file and its sharing in its output.
 
 ## Migration
 
-Machines that already ran the first-revision rewriter have `[contexts.*]` with
-tokens in `config.toml`. An automatic, idempotent one-shot migration drains each
-token into the per-server store and rewrites each context **address-only**
-(`{server = url}`) — so an old named connection ("prod") survives as a **global
-context** you still select with `--context prod`. The old current-context seeds
-`[cli].default_context`. `ssh://` servers re-mint tokens on demand (SSH-is-auth);
-`http(s)://` tokens are preserved by the drain, never stranded. The per-checkout
-selector key was renamed `[current].context` → `[local].context`, with the legacy
-key still read for one transitional release.
+Machines that already ran the first-revision rewriter have `[contexts.*]` with tokens in `config.toml`. An automatic, idempotent one-shot migration drains each token into the per-server store and rewrites each context **address-only** (`{server = url}`) — so an old named connection ("prod") survives as a **global context** you still select with `--context prod`. The old current-context seeds `[cli].default_context`. `ssh://` servers re-mint tokens on demand (SSH-is-auth); `http(s)://` tokens are preserved by the drain, never stranded. The per-checkout selector key was renamed `[current].context` → `[local].context`, with the legacy key still read for one transitional release.
 
-`[contexts.*]` is a new top-level section, so a v2 `hop3.toml` deploys only to a
-server new enough to parse it; an older server fails validation **loud**. We
-deliberately do **not** add a CLI shim that strips `[contexts.*]` for old servers
-— that is the silent compatibility behaviour this project forbids. Pre-1.0: one
-breaking release, no compat shim.
+`[contexts.*]` is a new top-level section, so a v2 `hop3.toml` deploys only to a server new enough to parse it; an older server fails validation **loud**. We deliberately do **not** add a CLI shim that strips `[contexts.*]` for old servers — that is the silent compatibility behaviour this project forbids. Pre-1.0: one breaking release, no compat shim.
 
 ## Consequences
 
 **Positive**
-- One noun (`context`) and **one selector** (`--context`) for every command — no
-  `--server`, nothing to remember about which flag applies where.
-- The same name works project-lessly (global, a named server) and in a project
-  (full environment); multi-environment and multi-server are both first-class.
-- No secrets in any committed or config file (enforced by the committed-credential
-  tripwire); the token lives only in the credential store.
-- The wrong-app footgun stays closed — by trusting a project context's selection
-  source, not by banning a context app.
+
+- One noun (`context`) and **one selector** (`--context`) for every command — no `--server`, nothing to remember about which flag applies where.
+- The same name works project-lessly (global, a named server) and in a project (full environment); multi-environment and multi-server are both first-class.
+- No secrets in any committed or config file (enforced by the committed-credential tripwire); the token lives only in the credential store.
+- The wrong-app footgun stays closed — by trusting a project context's selection source, not by banning a context app.
 
 **Negative**
-- "Context" carries two shapes (a bare named server vs a full environment); the
-  scope is implicit from where you stand (with `--global` to force it).
-- A migration for already-migrated machines (`https` tokens are preserved, not
-  re-minted).
-- Per-environment *secret* env is still set manually per instance (`hop3 env set`)
-  until a fleet-scale secret system exists.
-- Secret-freeness rests on a best-effort tripwire, not a proof — a novel secret
-  shape could slip through to the committed file.
+
+- "Context" carries two shapes (a bare named server vs a full environment); the scope is implicit from where you stand (with `--global` to force it).
+- A migration for already-migrated machines (`https` tokens are preserved, not re-minted).
+- Per-environment *secret* env is still set manually per instance (`hop3 env set`) until a fleet-scale secret system exists.
+- Secret-freeness rests on a best-effort tripwire, not a proof — a novel secret shape could slip through to the committed file.
 
 ## Rejected alternatives
 
-- **Contexts project-only, with a separate `--server` for project-less commands
-  (the second revision).** Rejected: it forced users to learn which flag applied
-  to which command, and silently retargeted the default server when `--context`
-  couldn't resolve. The single `--context` selector (project-then-global) removes
-  both problems.
-- **Credentials inside `hop3.toml`.** Tokens are secrets and `hop3.toml` is
-  committed; only the non-secret address lives there.
-- **A rich `hop3 server` noun with its own verb namespace.** Rejected: a global
-  context is already a name→address binding managed by `hop3 context` / `hop3
-  login`; a connection (the token) is plumbing, not a second managed object.
-- **Vault-style shared secrets now.** Premature: per-app server-side storage
-  already scopes secrets per environment; cross-environment sharing matters only
-  at fleet scale.
+- **Contexts project-only, with a separate `--server` for project-less commands (the second revision).** Rejected: it forced users to learn which flag applied to which command, and silently retargeted the default server when `--context` couldn't resolve. The single `--context` selector (project-then-global) removes both problems.
+- **Credentials inside `hop3.toml`.** Tokens are secrets and `hop3.toml` is committed; only the non-secret address lives there.
+- **A rich `hop3 server` noun with its own verb namespace.** Rejected: a global context is already a name→address binding managed by `hop3 context` / `hop3 login`; a connection (the token) is plumbing, not a second managed object.
+- **Vault-style shared secrets now.** Premature: per-app server-side storage already scopes secrets per environment; cross-environment sharing matters only at fleet scale.

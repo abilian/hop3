@@ -159,19 +159,20 @@ def test_default_executor_installs_addons_full_suite(monkeypatch):
 
 
 def test_default_executor_per_app_build(monkeypatch):
-    # Per-app build: the app path is passed positionally, not via --mode.
+    # Per-app build: the app path scopes the run (positional). --mode is still
+    # passed, but only as the recorded scope label — the engine ignores it for
+    # *selection* when explicit apps are given, so the dashboard shows the real
+    # selection instead of the engine's --mode default.
     calls = []
     monkeypatch.setattr(
         worker, "_run_engine", lambda tid, cmd, env, cwd=None: calls.append(cmd)
     )
 
-    worker._default_executor(
-        "docker", "nightly", ["apps/real-apps-docker/invoice-ninja"]
-    )
+    worker._default_executor("docker", "broad", ["apps/real-apps-docker/invoice-ninja"])
 
     cmd = calls[0]
     assert "apps/real-apps-docker/invoice-ninja" in cmd
-    assert "--mode" not in cmd  # scoped to the app, not the whole suite
+    assert cmd[cmd.index("--mode") + 1] == "broad"  # record-only label
     assert cmd[cmd.index("--with") + 1] == "all"
 
 

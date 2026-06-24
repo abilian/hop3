@@ -22,11 +22,9 @@ tier = "slow"
 targets = ["docker"]
 covers = ["docker", "shlink"]
 
-[[test.validations]]
-path = "/"
-status = 200
-contains = "Shlink"
-
+# Shlink has no landing page at "/": it is a REST API + short-URL redirector.
+# With no DEFAULT_DOMAIN redirect configured, "/" returns 404 ("Not Found | Shlink")
+# by design. Validate the health endpoint instead, which proves the app is up.
 [[test.validations]]
 path = "/rest/health"
 status = 200

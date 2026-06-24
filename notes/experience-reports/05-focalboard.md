@@ -60,7 +60,7 @@ Nix derivation, estimated at significant (Go + Node hybrid build) effort.
 - Hybrid Go+Node apps are the hardest category to build natively because they require two full toolchains and a coordinated build process.
 - Using a pre-built archive simplifies deployment enormously and sidesteps the dual-toolchain problem entirely.
 - The config.json must be generated from environment variables at startup time, not at build time, to support per-environment configuration.
-- This app demonstrates why the prebuilt-archive template exists: some apps are simply too complex to build reliably in every environment.
+- This app demonstrates why the prebuilt-archive template exists: some apps are too complex to build reliably in every environment.
 
 ## Cross-Method Comparison
 

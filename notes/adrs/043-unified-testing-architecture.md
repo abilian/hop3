@@ -1,11 +1,11 @@
 # ADR 043: Unified Testing Architecture
 
-**Status**: Accepted
-**Type**: Process
-**Created**: 2026-06-05
-**Supersedes**: ADR 026 (Dashboard UI Test Classification)
-**Related-ADRs**: 004 (development-tooling), 027 (config-system-refactoring-for-testability), 030 (two-level-build-architecture), 041 (privileged-operations-agent)
-**Related-notes**: `notes/v0.6-rootd-hardening.md`, `docs/src/dev/testing-strategy.md`
+- **Status**: Accepted
+- **Type**: Process
+- **Created**: 2026-06-05
+- **Supersedes**: ADR 026 (Dashboard UI Test Classification)
+- **Related-ADRs**: 004 (development-tooling), 027 (config-system-refactoring-for-testability), 030 (two-level-build-architecture), 041 (privileged-operations-agent)
+- **Related-notes**: `notes/v0.6-rootd-hardening.md`, `docs/src/dev/testing-strategy.md`
 
 ## Context
 
@@ -19,7 +19,7 @@ The project accumulated several parallel testing approaches, each added for a go
 4. **Deploy-and-verify is implemented four times over the same path.** `hop3-test system`, the pytest Docker fixtures, `demos/demo.py` + `demos/lib`, and `scripts/run-all-tutorials.py` each stand up a server and verify an app independently — over the one real `hop3-deploy` primitive that `hop3-testing`'s `DeploymentTarget` ABC already wraps.
 5. **Diagnostics are forked, with inverted coverage.** The richest collector (journalctl, nginx error/access, docker daemon) is wired *only* to the Hetzner path; the everyday Docker run gets the leanest bundle; the pytest Docker layers collect **nothing** on failure. Crucially, no surface has a proxy-reachability probe — so the most common production failure, a healthy app behind a front-end 502 because nginx points at the wrong port/host (the "silent-502" class), is captured by *none*. This is the failure that motivated the review.
 6. **The pyramid has collapsed in practice.** `c_system` no longer pulls its weight: its only live tests are one fully-skipped module and one in-process `TestClient` + in-memory-DB test (which belongs in `b_integration`). Every test embodying the original "CLI ↔ server in a container, no deploys" intent is disabled. The real boundary today is `b_integration` (in-process, fast) vs `d_e2e` (Docker, real deploy).
-7. **Three incompatible speed taxonomies, none load-bearing.** Directory layers, decorative pytest markers, and `hop3-test`'s `P0/P1/P2` + tier labels. `pytest -m "not slow"` cannot select a fast lane because the markers aren't applied.
+7. **Three incompatible speed taxonomies, none meaningful in practice.** Directory layers, decorative pytest markers, and `hop3-test`'s `P0/P1/P2` + tier labels. `pytest -m "not slow"` cannot select a fast lane because the markers aren't applied.
 8. **Whole packages run in no CI.** `hop3-installer`, `hop3-rootd` (security-sensitive — ADR 041 and the v0.6 hardening note), `hop3-tui`, and `hop3-testing` appear in no Makefile target and no workflow.
 
 ### What is actually good (and must be kept)
@@ -31,7 +31,7 @@ The project accumulated several parallel testing approaches, each added for a go
 
 ### Why now
 
-Pre-1.0, with license to make breaking changes. The cost of carrying a broken, fast-loop-less, diagnosis-less testing surface into 1.0 is far higher than consolidating now. Critically, the consolidation is *mostly clarification and deletion*, not a rewrite — the one genuinely new component is a shared diagnostic bundle, which we owe the operator regardless.
+Pre-1.0, with license to make breaking changes. The cost of carrying a broken, fast-loop-less, diagnosis-less testing surface into 1.0 is far higher than consolidating now. Critically, the consolidation is *mostly clarification and deletion*, not a rewrite — the one new component is a shared diagnostic bundle, which we owe the operator regardless.
 
 ## Decision
 

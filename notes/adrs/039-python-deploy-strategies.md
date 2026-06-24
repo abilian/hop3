@@ -1,9 +1,9 @@
 # ADR 039: Python Deploy Strategies — Clarify and Make Explicit
 
-**Status**: Accepted
-**Type**: Feature
-**Created**: 2026-04-15
-**Related-ADRs**: 001 (config files), 002 (`hop3.toml` format), 004 (development tooling), 023 (runtime stack), 030 (two-level build architecture), 035 (build artifacts as runtime contract), 036 (CLI ergonomics)
+- **Status**: Accepted
+- **Type**: Feature
+- **Created**: 2026-04-15
+- **Related-ADRs**: 001 (config files), 002 (`hop3.toml` format), 004 (development tooling), 023 (runtime stack), 030 (two-level build architecture), 035 (build artifacts as runtime contract), 036 (CLI ergonomics)
 
 ## Context
 

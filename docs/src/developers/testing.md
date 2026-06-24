@@ -161,7 +161,7 @@ demos/                     # Demos (discovered via demo-script.py)
 
 Test configuration lives in the app's `hop3.toml` file under a `[test]` section. Most apps keep all their test config there, with no separate `test.toml` file.
 
-Most fields are *derived* from the rest of `hop3.toml`: the test name from `[metadata].id`, category from `[build].builder`, required services from `[[addons]]`, base healthcheck path from `[healthcheck]`. The `[test]` section only declares what's genuinely test-framework-specific.
+Most fields are *derived* from the rest of `hop3.toml`: the test name from `[metadata].id`, category from `[build].builder`, required services from `[[addons]]`, base healthcheck path from `[healthcheck]`. The `[test]` section only declares what's test-framework-specific.
 
 ```toml
 [metadata]

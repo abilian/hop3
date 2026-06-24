@@ -5,7 +5,8 @@ builder = "nix"
 type = "postgres"
 
 [run]
-start-timeout = 120
+# Cold migrate + Django first-request on the Nix venv over SSH can exceed 120s.
+start-timeout = 240
 
 [test]
 priority = "P1"

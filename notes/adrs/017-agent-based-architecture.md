@@ -1,10 +1,10 @@
 # ADR 017: Distributed, Agent-Based Architecture
 
-**Status**: Draft
-**Type**: Feature
-**Created**: 2024-07-17
-**Related-ADRs**: 029
-**Related**: Hop3 paper (Section 7.4: Agent Model)
+- **Status**: Draft
+- **Type**: Feature
+- **Created**: 2024-07-17
+- **Related-ADRs**: 029
+- **Related**: Hop3 paper (Section 7.4: Agent Model)
 
 ## Introduction
 

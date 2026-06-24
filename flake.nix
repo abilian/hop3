@@ -188,7 +188,7 @@
             # hop3-cli package
             hop3-cli = python-final.buildPythonPackage {
               pname = "hop3-cli";
-              version = "0.4.0.beta1";
+              version = "0.6.0";
               format = "pyproject";
 
               src = ./packages/hop3-cli;
@@ -211,6 +211,7 @@
 
               propagatedBuildInputs = [
                 python-prev.toml
+                python-prev.tomlkit  # comment-preserving TOML round-trip for hop3.toml/context edits
                 python-final.jsonrpcclient
                 python-prev.requests
                 python-prev.tabulate
@@ -233,7 +234,7 @@
             # hop3-server package
             hop3-server = python-final.buildPythonPackage {
               pname = "hop3-server";
-              version = "0.4.0.beta1";
+              version = "0.6.0";
               format = "pyproject";
 
               src = ./packages/hop3-server;
@@ -251,7 +252,8 @@
                   --replace-fail 'build-backend = "uv_build"' 'build-backend = "hatchling.build"' \
                   --replace-fail '"granian[reload]>=2.2.0"' '"uvicorn>=0.30.0"' \
                   --replace-fail '"psycopg2-binary>=2.9.10"' '"psycopg2>=2.9.10"' \
-                  --replace-fail '"pydantic>=2.12.5"' '"pydantic>=2.12.0"'
+                  --replace-fail '"pydantic>=2.12.5"' '"pydantic>=2.12.0"' \
+                  --replace-fail '"litestar[standard]>=2.22.0"' '"litestar[standard]>=2.21.0"'
 
                 # Remove deps not in nixpkgs (these are optional at runtime anyway)
                 sed -i '/"cyclonedx-bom/d' pyproject.toml
@@ -280,6 +282,7 @@
                 # Misc
                 python-prev.termcolor
                 python-prev.markdown
+                python-prev.nh3  # HTML sanitizer for untrusted catalog readme (ADR 049)
                 python-prev.toml
                 python-prev.devtools
                 # Security
@@ -297,6 +300,8 @@
                 # Config
                 python-prev.pyyaml
                 python-prev.python-multipart
+                # Domain health monitoring (WHOIS registration expiry)
+                python-prev.python-whois
                 python-prev.anyio
                 python-prev.sniffio
               ];

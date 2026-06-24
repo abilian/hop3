@@ -1,9 +1,9 @@
 # ADR 009: Nix Runtime Integration
 
-**Status**: Deferred
-**Type**: Feature
-**Created**: 2024-07-17
-**Related-ADRs**: 006, 008, 023, 035
+- **Status**: Deferred
+- **Type**: Feature
+- **Created**: 2024-07-17
+- **Related-ADRs**: 006, 008, 023, 035
 
 ## Scope
 
