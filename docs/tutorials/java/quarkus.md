@@ -251,7 +251,7 @@ hop3 init --ssh root@your-server.example.com
 ### Set Environment Variables
 
 ```bash skip
-hop3 config set --app hop3-tuto-quarkus QUARKUS_PROFILE=prod
+hop3 env set --app hop3-tuto-quarkus QUARKUS_PROFILE=prod
 ```
 
 ### Initialize the Git Repository
@@ -282,7 +282,7 @@ deployed successfully
 Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
-hop3 config set --app hop3-tuto-quarkus HOST_NAME=hop3-tuto-quarkus.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-quarkus HOST_NAME=hop3-tuto-quarkus.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -332,8 +332,8 @@ hop3 app logs --app hop3-tuto-quarkus
 hop3 app restart --app hop3-tuto-quarkus
 
 # View/set environment variables
-hop3 config show --app hop3-tuto-quarkus
-hop3 config set --app hop3-tuto-quarkus NEW_VAR=value
+hop3 env show --app hop3-tuto-quarkus
+hop3 env set --app hop3-tuto-quarkus NEW_VAR=value
 
 # Scale workers
 hop3 ps scale --app hop3-tuto-quarkus web=2
