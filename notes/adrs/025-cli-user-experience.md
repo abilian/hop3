@@ -92,8 +92,7 @@ Type the app name to confirm: _
   - **Tables**: Colored headers, aligned columns
   - **Panels**: Boxed text for important messages
 
-**Output Message Protocol:**
-Messages from server include type field `"t"`:
+**Output Message Protocol:** Messages from server include type field `"t"`:
 - `"success"` - Success messages (green)
 - `"error"` - Error messages (red, stderr)
 - `"warning"` - Warning messages (yellow)

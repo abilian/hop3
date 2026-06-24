@@ -75,7 +75,7 @@ Hop3 will integrate Nix to take advantage of its strengths in reproducible build
 
 1. **hop3.nix File Format**:
 
-   A `hop3.nix` file in the application root defines how to build and run the app. Both generated and hand-crafted expressions pin nixpkgs to a specific commit (nixos-24.11) so the toolchain is reproducible across machines and dates:
+A `hop3.nix` file in the application root defines how to build and run the app. Both generated and hand-crafted expressions pin nixpkgs to a specific commit (nixos-24.11) so the toolchain is reproducible across machines and dates:
 
    ```nix
    # hop3.nix - minimal example

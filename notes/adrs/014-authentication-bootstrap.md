@@ -312,19 +312,9 @@ Existing users and tokens remain valid, and no existing command changes behaviou
 
 ### Update (2026-06): login/logout are client-side; `auth get-token` is the primitive
 
-The interactive login flow — `hop3 login`, and its canonical spelling
-`hop3 auth login` — is handled entirely **client-side**: it bootstraps over
-SSH, accepts token URLs and magic links (`--web`), prompts for a password, and
-saves the resulting token to the active context. `hop3 logout` /
-`hop3 auth logout` mirror it (revoke the token server-side, then clear it
-locally). `login`/`logout` are registered as short-form aliases of
-`auth login`/`auth logout`.
+The interactive login flow — `hop3 login`, and its canonical spelling `hop3 auth login` — is handled entirely **client-side**: it bootstraps over SSH, accepts token URLs and magic links (`--web`), prompts for a password, and saves the resulting token to the active context. `hop3 logout` / `hop3 auth logout` mirror it (revoke the token server-side, then clear it locally). `login`/`logout` are registered as short-form aliases of `auth login`/`auth logout`.
 
-The public server RPC that verifies a username + password and returns a token
-— originally named `auth login` in this ADR — is now **`auth get-token`**. It
-simply prints the token, for scripts and automation; the interactive login
-flow calls it under the hood. See ADR 036 (CLI ergonomics and command surface)
-for the alias and command-surface rationale.
+The public server RPC that verifies a username + password and returns a token — originally named `auth login` in this ADR — is now **`auth get-token`**. It simply prints the token, for scripts and automation; the interactive login flow calls it under the hood. See ADR 036 (CLI ergonomics and command surface) for the alias and command-surface rationale.
 
 ---
 

@@ -63,8 +63,7 @@ class App:
 
 5. **Unclear Dependencies**: Hard to see what config values a component depends on
 
-6. **Testing Anti-Pattern**: The test migration in ADR 026 highlighted this:
-   > "I don't like monkeypatching the environment. Can we think of something more elegant?"
+6. **Testing Anti-Pattern**: The test migration in ADR 026 highlighted this: > "I don't like monkeypatching the environment. Can we think of something more elegant?"
 
 ### Goals
 
