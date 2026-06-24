@@ -107,43 +107,48 @@ automatically when you run commands. See 'hop3 context --help'.
 
 CONTEXT_HELP = """Usage: hop3 context <subcommand> [args]
 
-Manage deploy environments (dev / staging / prod) for this project. A context
-is a [contexts.<name>] block in the committed hop3.toml: a non-secret bundle of
-server address + app instance + domains + env (ADR 042).
+A context is a named target — the one selector for every command. Select one with
+`--context <name>` (or `-c`); it resolves project-first, then global. Two scopes:
 
-Quick start:
+  Global   ~/.config/hop3-cli/config.toml — just a named server, so commands like
+           `hop3 apps --context prod` work with no project. Defined outside a
+           project (or with --global).
+  Project  the committed hop3.toml — a deploy environment: server + app + domains
+           + env. Defined inside a project.
+
+Quick start (project-less — manage your servers by name):
+  hop3 login --context prod --ssh root@prod.example.com   # name + authenticate
+  hop3 apps --context prod                                # target it anywhere
+
+Quick start (in a project — per-environment deploys):
   hop3 context add prod --server ssh://root@prod.example.com --app myapp
-  hop3 context add dev  --server ssh://root@dev.example.com  --app myapp-dev
-  hop3 context use dev        # pin this checkout to dev
-  hop3 deploy                 # deploys the selected environment
+  hop3 context use prod        # pin this checkout to prod
+  hop3 deploy                  # deploys the selected environment
 
-Subcommands:
-  (bare)              Show the selected context + what's declared
-  list                List the [contexts.*] in the nearest hop3.toml
-  show [<name>]       Show one context (the selected one by default)
-  add <name> [opts]   Add a [contexts.<name>] block to hop3.toml
-  remove <name>       Remove a [contexts.<name>] block
-  rename <old> <new>  Rename a context
-  use <name>          Pin a context for THIS checkout (.hop3-local.toml)
+Subcommands (operate on the current scope; --global forces global):
+  (bare)              Show contexts at the current scope
+  list                List contexts (global outside a project, else project)
+  show [<name>]       Show one context
+  add <name> [opts]   Define a context (global = named server; project = full)
+  remove <name>       Remove a context
+  rename <old> <new>  Rename a project context
+  use <name>          Pin a PROJECT context for THIS checkout (.hop3-local.toml)
 
-Add options (write hop3.toml — no secrets):
+Add options:
   --server <addr>   Target server address (required), e.g. ssh://root@host
-  --app <name>      App instance name (optional; inherits [metadata].id)
-  --domain <host>   Hostname (repeatable)
-  --env KEY=VALUE   Non-secret env override (repeatable)
-
-Which file each verb touches:
-  add / remove / rename  ->  hop3.toml         (committed, shared — commit it)
-  use                    ->  .hop3-local.toml  (per-checkout, gitignored)
+  --global, -g      Define a global (named-server) context in config.toml
+  --app <name>      App instance name        (project context only)
+  --domain <host>   Hostname (repeatable)    (project context only)
+  --env KEY=VALUE   Non-secret env override  (project context only)
 
 Context selection (highest to lowest):
   1. --context flag
   2. HOP3_CONTEXT environment variable
-  3. .hop3-local.toml [local].context
-  4. single-context fallback (when hop3.toml declares exactly one)
+  3. .hop3-local.toml [local].context  (per-checkout, project)
+  4. single-context fallback (project) / default global context (project-less)
 
-Secrets never go in hop3.toml: the server is a literal address, and per-env
-secrets are set server-side with `hop3 env set`.
+No secrets anywhere: a context's server is a literal address; the token lives in
+the credential store; per-env secrets are set server-side with `hop3 env set`.
 """
 
 

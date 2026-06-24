@@ -300,6 +300,10 @@ class Config:
         """Check if a context override is set (from --context flag)."""
         return self._context_override is not None
 
+    def get_context_override(self) -> str | None:
+        """Return the context name passed via ``--context`` / ``-c``, if any."""
+        return self._context_override
+
     def set_app_override(self, app: str | None) -> None:
         """Set an app override (from the --app flag)."""
         self._app_override = app
@@ -351,9 +355,9 @@ class Config:
     def get_default_server(self) -> str | None:
         """The default-server address for project-less commands (ADR 042 r2).
 
-        Stored at ``[cli].default_server`` in config.toml. Used by global commands
-        (``hop3 apps``) when no ``--server`` is given and there is no project
-        context to resolve. A thin address selector — not a managed noun.
+        Stored at ``[cli].default_server`` in config.toml. The legacy *unnamed*
+        default target for project-less commands, used when no ``--context`` and no
+        ``[cli].default_context`` resolve a server. Prefer a named default context.
         """
         cli = self.data.get("cli")
         if isinstance(cli, dict) and isinstance(cli.get("default_server"), str):
@@ -370,6 +374,75 @@ class Config:
             cli["default_server"] = address
         else:
             cli.pop("default_server", None)
+        self.save()
+
+    # ---- global contexts (ADR 042: named, project-less, secret-free) --------
+    # A *global* context names a server you can select project-lessly with
+    # ``--context <name>`` (e.g. `hop3 apps --context prod`). It lives in
+    # config.toml as ``[contexts.<name>].server`` — an address only; the token
+    # stays in the credential store, so config.toml is still secret-free.
+
+    def get_context_server(self, name: str) -> str | None:
+        """Server address for a global context, or None if it isn't defined."""
+        contexts = self.data.get("contexts")
+        if isinstance(contexts, dict):
+            block = contexts.get(name)
+            if isinstance(block, dict) and isinstance(block.get("server"), str):
+                return block["server"] or None
+        return None
+
+    def set_context_server(self, name: str, server: str) -> None:
+        """Define (or update) a global context's server address. Persists."""
+        contexts = self.data.get("contexts")
+        if not isinstance(contexts, dict):
+            contexts = {}
+            self.data["contexts"] = contexts
+        block = contexts.get(name)
+        if not isinstance(block, dict):
+            block = {}
+            contexts[name] = block
+        block["server"] = server
+        self.save()
+
+    def remove_global_context(self, name: str) -> bool:
+        """Drop a global context. Returns True if it existed. Persists."""
+        contexts = self.data.get("contexts")
+        if isinstance(contexts, dict) and name in contexts:
+            del contexts[name]
+            if self.get_default_context() == name:
+                self.set_default_context(None)  # also saves
+            else:
+                self.save()
+            return True
+        return False
+
+    def list_global_contexts(self) -> dict[str, str]:
+        """Map of ``name -> server`` for every global context with an address."""
+        contexts = self.data.get("contexts")
+        out: dict[str, str] = {}
+        if isinstance(contexts, dict):
+            for name, block in contexts.items():
+                if isinstance(block, dict) and isinstance(block.get("server"), str):
+                    out[name] = block["server"]
+        return out
+
+    def get_default_context(self) -> str | None:
+        """The default context name for project-less commands (``[cli].default_context``)."""
+        cli = self.data.get("cli")
+        if isinstance(cli, dict) and isinstance(cli.get("default_context"), str):
+            return cli["default_context"] or None
+        return None
+
+    def set_default_context(self, name: str | None) -> None:
+        """Set (or clear) the default context name. Persists immediately."""
+        cli = self.data.get("cli")
+        if not isinstance(cli, dict):
+            cli = {}
+            self.data["cli"] = cli
+        if name:
+            cli["default_context"] = name
+        else:
+            cli.pop("default_context", None)
         self.save()
 
     def get_current_context(self) -> Context | None:
