@@ -7,11 +7,7 @@
 
 ## Goals
 
-Version 0.5 closed the gaps that prevented demonstrating Hop3 to the NGI
-reviewers. It did not add major new features — it made existing
-features reliable, documented, and presentable. This plan is retained as
-a shipped-release retrospective; see CHANGES.md `[0.5.0]` for the final
-set of changes.
+Version 0.5 closed the gaps that prevented demonstrating Hop3 to the NGI reviewers. It did not add major new features — it made existing features reliable, documented, and presentable. This plan is retained as a shipped-release retrospective; see CHANGES.md `[0.5.0]` for the final set of changes.
 
 ## Critical path
 
@@ -28,15 +24,12 @@ This is the longest blocking chain. Everything else can run in parallel.
 
 #### Triage `apps/bad/real-apps-nix-bad/` (8 apps) — TRIAGED
 
-All 8 apps debugged on Docker target (2026-04-11). Root causes
-identified for all; full report at `/tmp/nix-triage/findings.md`.
+All 8 apps debugged on Docker target (2026-04-11). Root causes identified for all; full report at `/tmp/nix-triage/findings.md`.
 
 **Infrastructure bugs found and fixed (c65f5509):**
 - Bundler silent name collision (`_has_systemd` in nix.py vs s3.py)
-- `has_systemd()` false-positive in containers → shared
-  `/proc/1/comm`-based helper in `common.py`
-- Single-user nix never wrote `sandbox = relaxed` → `__noChroot`
-  rejected
+- `has_systemd()` false-positive in containers → shared `/proc/1/comm`-based helper in `common.py`
+- Single-user nix never wrote `sandbox = relaxed` → `__noChroot` rejected
 - Bundler now AST-detects top-level name collisions
 - Test log writer missing `mkdir parents=True`
 
@@ -113,9 +106,7 @@ Re-evaluate / drop:
 
 ### Source builds for Go apps (replace pre-built binaries) — DONE
 
-6 of 7 Nix apps converted from pre-built binaries to nixpkgs source
-builds via the `nixpkgs-wrapper` template. Multi-arch support gained
-(aarch64, ARM, RISC-V, etc.). See `plan-source-builds.md`.
+6 of 7 Nix apps converted from pre-built binaries to nixpkgs source builds via the `nixpkgs-wrapper` template. Multi-arch support gained (aarch64, ARM, RISC-V, etc.). See `plan-source-builds.md`.
 
 - [x] Miniflux: `pkgs.miniflux` (built from source by nixpkgs)
 - [x] Gitea: `pkgs.gitea`
@@ -154,9 +145,7 @@ builds via the `nixpkgs-wrapper` template. Multi-arch support gained
 
 ### Backing services (M3.1) — S3 DONE
 
-The current addon set (PostgreSQL, MySQL, Redis) covered most
-applications but left visible gaps for apps that need object
-storage or email. The 0.5 goal was to add at least one; S3 shipped.
+The current addon set (PostgreSQL, MySQL, Redis) covered most applications but left visible gaps for apps that need object storage or email. The 0.5 goal was to add at least one; S3 shipped.
 
 #### S3-compatible storage addon — DONE
 
@@ -175,9 +164,7 @@ storage or email. The 0.5 goal was to add at least one; S3 shipped.
       to the addon end-to-end (passes on SSH + Docker targets)
 
 **Licensing note:** MinIO moved toward source-available in 2025. The
-plan is to replace it with Garage (truly AGPL) in a future
-release — the backend abstraction already exists to make the swap
-a one-liner on the plugin side.
+plan is to replace it with Garage (truly AGPL) in a future release — the backend abstraction already exists to make the swap a one-liner on the plugin side.
 
 #### Email addon (stretch — did NOT ship in 0.5 or 0.6; reslotted to 0.7)
 
@@ -201,8 +188,7 @@ The email/SMTP addon is not in the 0.6 changelog; it is now a 0.7 deliverable.
 - [ ] Update `[[addons]]` section in `config.md` reference
 
 **Definition of done:** At least one new addon type (S3) shipped
-with CLI commands, env var injection, tests, and documentation. MET in 0.5.
-Email addon is nice-to-have; it did not land in 0.6 and is now 0.7 work.
+with CLI commands, env var injection, tests, and documentation. MET in 0.5. Email addon is nice-to-have; it did not land in 0.6 and is now 0.7 work.
 
 ### Error message audit (improvement plan #9) — FOUNDATION DONE
 
@@ -227,14 +213,11 @@ Email addon is nice-to-have; it did not land in 0.6 and is now 0.7 work.
       broken apps and verify the new messages surface
 
 **Definition of done:** The `Diagnosis` pattern is in place and the
-highest-traffic failure paths use it; next-batch sites (health,
-ports, nginx) can land in 0.5 or 0.6 as time allows.
+highest-traffic failure paths use it; next-batch sites (health, ports, nginx) can land in 0.5 or 0.6 as time allows.
 
 ### CLI DX pass (M3.6) — DONE (W16, ADR 036 M1-M8 shipped)
 
-The "full refactor" previously deferred to 0.6 was actually
-executed across W16 (Apr 15–17) on the `cli-refact` branch and
-merged. ADR 036 moved from Draft to Accepted.
+The "full refactor" previously deferred to 0.6 was actually executed across W16 (Apr 15–17) on the `cli-refact` branch and merged. ADR 036 moved from Draft to Accepted.
 
 - [x] Colon→space command syntax migration (M1): `hop3 config:set`
       → `hop3 config set`. 71 server commands, 1033 tests green.
@@ -270,11 +253,7 @@ Test count trajectory: 1033 → 1218 passing across M1-M8.
 
 ### Interim technical report review (M5.3) — DONE (W16)
 
-TR-01 was refactored into proper technical-report form in W16:
-abstract, keywords, related work, system design, preliminary
-evaluation, threats to validity, references. Appendix E updated
-for ADR 039 Phase 1. App counts and Nix/ADR 008 content reflect
-current state.
+TR-01 was refactored into proper technical-report form in W16: abstract, keywords, related work, system design, preliminary evaluation, threats to validity, references. Appendix E updated for ADR 039 Phase 1. App counts and Nix/ADR 008 content reflect current state.
 
 - [x] Re-read TR-01 against 0.5 state
 - [x] Nix section reflects ADR 008 (template-based generation, 8 templates, reproducibility tiers)
@@ -283,13 +262,11 @@ current state.
 - [x] Interim PDF rendered at `notes/reports/TR-01.pdf`
 - [ ] Share with NGI reviewers for feedback
 
-(Screencasts M5.6, paper benchmarks, and final paper submission
-are all deferred to 0.6 — see `release-plan-0.6.md`.)
+(Screencasts M5.6, paper benchmarks, and final paper submission are all deferred to 0.6 — see `release-plan-0.6.md`.)
 
 ### Server-side packaging-gap fixes — DONE (W16, Tier 1)
 
-Surfaced from the 30-app packaging effort (G1–G7 gaps). Tier 1 landed
-in W16 as commit `2c3c698e` on devel:
+Surfaced from the 30-app packaging effort (G1–G7 gaps). Tier 1 landed in W16 as commit `2c3c698e` on devel:
 
 - [x] **G1 — Postgres CREATE grants.** `plugins/postgresql/postgres.py`
       now grants `CREATE ON DATABASE` + `CREATE, USAGE ON SCHEMA
@@ -311,8 +288,7 @@ in W16 as commit `2c3c698e` on devel:
       `[build.python].strategy`, lint rules, tutorial rewrite)
       deferred to 0.6.
 
-Tier 2 (G2 `[build].packages`, G5 `nix-env-exports`) and Tier 3
-(G4 Rust toolchain, G6 `node-npm-install`) remain open.
+Tier 2 (G2 `[build].packages`, G5 `nix-env-exports`) and Tier 3 (G4 Rust toolchain, G6 `node-npm-install`) remain open.
 
 ### New ADRs in 0.5 window
 
@@ -321,9 +297,7 @@ Tier 2 (G2 `[build].packages`, G5 `nix-env-exports`) and Tier 3
 
 ### Tier-F fediverse packaging (new track, W16)
 
-A dedicated Tier F for fediverse apps was added to the internal
-packaging priority list explicitly because NGI has been the primary
-funder of the fediverse ecosystem. W16 batch landed:
+A dedicated Tier F for fediverse apps was added to the internal packaging priority list explicitly because NGI has been the primary funder of the fediverse ecosystem. W16 batch landed:
 
 - [x] GoToSocial (3/4 variants — nix-gen deferred)
 - [x] WriteFreely (3/4 — nix-gen deferred; hybrid nixpkgs+tarball)
@@ -331,9 +305,7 @@ funder of the fediverse ecosystem. W16 batch landed:
 
 ### Packaged apps — experience reports (M4.1-4)
 
-20 draft reports already exist in `notes/experience-reports/`.
-This task converts them from descriptive drafts into real-world
-reports based on actual production deployments.
+20 draft reports already exist in `notes/experience-reports/`. This task converts them from descriptive drafts into real-world reports based on actual production deployments.
 
 **Apps to deploy (in order, easiest first):**
 1. Miniflux (RSS, single-user)
@@ -350,8 +322,7 @@ reports based on actual production deployments.
       what broke, what would have helped
 
 **Definition of done:** At least 5 apps running in production for 1+
-week, 5 updated experience reports published. (Remaining 15 reports
-stay as drafts; finalised in 0.6.)
+week, 5 updated experience reports published. (Remaining 15 reports stay as drafts; finalised in 0.6.)
 
 ### Test suite green
 
@@ -373,27 +344,19 @@ App counts updated from post-W16 reality:
 
 ## Priority Order (if time runs short)
 
-1. **Nix bad-app fixes (trivial batch)** — searxng, xwiki, matrix-synapse
-   sed bug (~1 hour total, unblocks 3 apps)
-2. **postgres.py supervisord fallback** — unblocks all 5 addon-needing
-   nix apps in Docker CI
+1. **Nix bad-app fixes (trivial batch)** — searxng, xwiki, matrix-synapse sed bug (~1 hour total, unblocks 3 apps)
+2. **postgres.py supervisord fallback** — unblocks all 5 addon-needing nix apps in Docker CI
 3. **Production deploys** — M4 reports need real data
 4. **Web UI review** — M3.7
-5. **Nix bad-app fixes (medium batch)** — hedgedoc, matrix-synapse
-   libzstd, etherpad, cryptpad
+5. **Nix bad-app fixes (medium batch)** — hedgedoc, matrix-synapse libzstd, etherpad, cryptpad
 6. **Interim tech report review** — reflect 0.5 state for NGI feedback
 7. **Error message audit (next batch)** — health/ports/nginx
 8. **Nix CI integration** — infrastructure polish
 9. **Focalboard decision** — trivial cleanup
 
-Done in earlier iterations: S3 addon (M3.1), multi-service ADR 038,
-diagnostics foundation + top failure sites, nix bad-app triage +
-installer infra fixes, **CLI DX refactor (ADR 036 M1-M8)**,
-**Tier-1 server-side packaging fixes (G1/G3/G7 + ADR 039 Phase 1)**,
-**interim TR-01 refactor**, **nix trivial-batch bad-app fixes**.
+Done in earlier iterations: S3 addon (M3.1), multi-service ADR 038, diagnostics foundation + top failure sites, nix bad-app triage + installer infra fixes, **CLI DX refactor (ADR 036 M1-M8)**, **Tier-1 server-side packaging fixes (G1/G3/G7 + ADR 039 Phase 1)**, **interim TR-01 refactor**, **nix trivial-batch bad-app fixes**.
 
-Moved to 0.6: paper benchmarks, screencasts (M5.6), final paper
-submission (M5.3 final).
+Moved to 0.6: paper benchmarks, screencasts (M5.6), final paper submission (M5.3 final).
 
 ## Risks
 
