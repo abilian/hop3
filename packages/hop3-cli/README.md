@@ -76,10 +76,10 @@ echo myapp > .hop3-app
 hop3 --why logs
 ```
 
-The ADR 042 (second revision) model has a single managed noun: the **context**.
+The ADR 042 model has a single managed noun — the **context** — and a single selector, `--context <name>`, for every command (app-bound or not).
 
-- **Contexts** — deploy environments (dev / staging / prod) for a project. Declared as `[contexts.<name>]` blocks inside the committed `hop3.toml`: a non-secret bundle of server address + app + domains + env. Managed with `hop3 context` from inside a project tree (`add` / `use` / `list` / `show` / `remove` / `rename`). The currently-selected one is recorded in `.hop3-local.toml` (gitignored automatically).
-- **Credentials are invisible plumbing** — there is no "server" noun to manage. `hop3 login` stores a bearer token in the per-server credential store (`~/.config/hop3-cli/credentials.toml`, mode `0600`), keyed by the server's canonical address, and records that server as the default target. `config.toml` stays secret-free (local preferences plus an optional `[cli].default_server` pointer).
+- **Contexts** — a named target at two scopes. A **project** context (dev / staging / prod) is declared as a `[contexts.<name>]` block inside the committed `hop3.toml`: a non-secret bundle of server address + app + domains + env. A **global** context is a name bound to a server address in the per-developer `config.toml` (`[contexts.<name>].server`), so project-less commands (`hop3 apps --context prod`) can target a server by name. `--context` resolves project-first, then global; there is no `--server` flag. Managed with `hop3 context` (`add` / `use` / `list` / `show` / `remove` / `rename`) — project scope inside a project tree, global scope outside one (or with `--global`). The per-checkout project selection is recorded in `.hop3-local.toml` (gitignored automatically).
+- **Credentials are invisible plumbing** — there is no "server" noun to manage. `hop3 login` stores a bearer token in the per-server credential store (`~/.config/hop3-cli/credentials.toml`, mode `0600`), keyed by the server's canonical address, and records that server as the default target; `hop3 login --context <name>` also names it as a global context and the default. `config.toml` stays secret-free (local preferences, global contexts, `[cli].default_context`).
 
 A `hop3 deploy` from a project tree resolves the context (which environment of this project, and therefore which server and app), and shows a preview-and-confirm prompt with the plan before invoking the deploy RPC. `--dry-run` exits after printing the plan; `--force` bypasses the project-mismatch safety guard.
 
