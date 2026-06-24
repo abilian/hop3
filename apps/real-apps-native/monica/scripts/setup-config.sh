@@ -28,8 +28,9 @@ DB_PASSWORD=${MYSQL_PASSWORD:-}
 HASH_SALT=$(head -c 20 /dev/urandom | base64)
 HASH_LENGTH=18
 
-# Disable features that need additional setup
-MAIL_MAILER=log
+# Queue stays sync. MAIL_MAILER defaults to log, but honors an injected value so
+# the email-addon remap (set MAIL_MAILER=smtp in [env]) enables real delivery.
+MAIL_MAILER=${MAIL_MAILER:-log}
 QUEUE_CONNECTION=sync
 EOF
 

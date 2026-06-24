@@ -1,10 +1,10 @@
 # ADR 019: Basic Commands for the Hop3 Command-Line
 
-**Status**: Accepted
-**Type**: Feature
-**Created**: 2024-07-17
-**Updated**: 2026-06-23
-**Related-ADRs**: 018, 025, 031, 036, 042
+- **Status**: Accepted
+- **Type**: Feature
+- **Created**: 2024-07-17
+- **Updated**: 2026-06-23
+- **Related-ADRs**: 018, 025, 031, 036, 042
 
 ## Command surface
 

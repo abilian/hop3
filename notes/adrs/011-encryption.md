@@ -1,9 +1,9 @@
 # ADR 011: Data Encryption and Protection
 
-**Status**: Accepted
-**Type**: Feature
-**Created**: 2024-07-17
-**Related-ADRs**: 010, 012, 013
+- **Status**: Accepted
+- **Type**: Feature
+- **Created**: 2024-07-17
+- **Related-ADRs**: 010, 012, 013
 
 ## Context and Goals
 

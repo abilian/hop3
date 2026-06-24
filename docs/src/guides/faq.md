@@ -30,7 +30,7 @@ While Go, Rust, Erlang, and other languages offer their own set of advantages, i
 
 **Q: Why not just use Dokku?**
 
-**A:** While Dokku was the original "self-hosted and lightweight Heroku-clone", Hop3 seeks to address certain limitations inherent in Dokku's architecture. Specifically, Dokku can be somewhat heavy for small-scale deployments or low-end hardware, and its customization options are limited by its reliance on Docker. Hop3 is engineered to be leaner, offering improved performance and security, and its modular, plugin-oriented design affords a level of flexibility and extensibility that Dokku lacks.
+**A:** While Dokku was the original "self-hosted and lightweight Heroku-clone", Hop3 seeks to address certain limitations inherent in Dokku's architecture. Specifically, Dokku can be heavier for small-scale deployments or low-end hardware, and its customization options are limited by its reliance on Docker. Hop3 is engineered to be leaner, offering improved performance and security, and its modular, plugin-oriented design affords a level of flexibility and extensibility that Dokku lacks.
 
 **Q: Why not just use Piku or Sailor?**
 

@@ -14,6 +14,27 @@ from typing import Protocol
 from hop3.plugins.build.nix.gen.escaping import nix_escape
 from hop3.plugins.build.nix.gen.spec import AppSpec, ConfigFile
 
+# ---------------------------------------------------------------------------
+# Pinned nixpkgs
+# ---------------------------------------------------------------------------
+
+# A specific nixpkgs commit, so generated expressions are reproducible across
+# hosts and dates instead of resolving the moving `<nixpkgs>` channel through
+# NIX_PATH. The sha256 pins the exact bytes — a wrong one fails every build.
+# To update: pick a commit and recompute the hash, e.g.
+#   nix-prefetch-url --unpack https://github.com/NixOS/nixpkgs/archive/<REV>.tar.gz
+NIXPKGS_REV = "50ab793786d9de88ee30ec4e4c24fb4236fc2674"  # nixos-24.11
+NIXPKGS_SHA256 = "1s2gr5rcyqvpr58vxdcb095mdhblij9bfzaximrva2243aal3dgx"
+
+# The `pkgs ?` default header every generated expression opens with. A caller
+# may still override `pkgs`; absent an override, the pinned nixpkgs is fetched.
+PINNED_NIXPKGS_HEADER = (
+    "{ pkgs ? import (fetchTarball {\n"
+    f'  url = "https://github.com/NixOS/nixpkgs/archive/{NIXPKGS_REV}.tar.gz";\n'
+    f'  sha256 = "{NIXPKGS_SHA256}";\n'
+    "}) {} }:"
+)
+
 
 class Template(Protocol):
     """A template generates a hop3.nix expression from an AppSpec."""

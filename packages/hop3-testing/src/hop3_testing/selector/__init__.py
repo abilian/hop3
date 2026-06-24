@@ -6,7 +6,7 @@
 
 This module provides:
 - Selector: Selects tests based on mode and filters
-- Mode configurations for dev, ci, nightly, release, package
+- Mode configurations: smoke, ci, curated, tag-coverage, combo-coverage, broad, full
 """
 
 from __future__ import annotations

@@ -16,11 +16,11 @@ design and decision trail.
 
 **Reproducibility status (2026-06-22, for the NGI 0.7 review).** This plan delivered *source builds* — converting opaque `prebuilt-binary` apps to `nixpkgs-wrapper`, removing the x86_64-only, trust-the-vendor-binary problem. It did **not** deliver *reproducible* builds in the full Nix sense, and the "reproducible, multi-arch" phrasing in Approach A below overreaches on its own:
 
-- **nixpkgs is not pinned.** Every generated and hand-crafted expression uses the ambient `import <nixpkgs> {}`, resolved against the moving `nixos-24.11` channel (`nix-channel --update`). Two builds on different dates/hosts can produce different closures, so builds are not bit-for-bit reproducible.
+- **nixpkgs is now pinned (0.7, M1/M2).** Every generated and hand-crafted expression imports a specific nixpkgs commit (nixos-24.11) via `import (fetchTarball { url; sha256; }) {}` — no moving channel, and `<nixpkgs>`/`NIX_PATH` is never consulted — so two builds on different dates/hosts resolve the same nixpkgs. (When this plan closed in 2026-04, expressions still used the ambient `import <nixpkgs> {}` against the moving channel; that gap is now closed.)
 - **Some builds are not hermetic.** The `python-venv` / `pnpm` / `composer` paths set `__noChroot = true` (network during build), and several templated apps float their language deps (e.g. unversioned `pip-packages`).
 - Two Definition-of-Done items below were **never completed** (`nix-build` on aarch64; the ADR 008 reproducibility-tier update), so the "DONE" banner applies to the *source-build conversion*, not to reproducibility.
 
-The honest baseline is **ADR 008's reproducibility-tiers table**, which names these gaps explicitly (it does not overclaim). Closing them — pinned nixpkgs (flake / `npins`), hermetic fixed-output dependency derivations, lock-pinned deps, and a reproducibility CI gate — is the **Nix-reproducibility workstream tracked in `release-plan-0.7.md` (M1/M2)**, where pinning nixpkgs lands in the 0.7 cut and the hermetic work in 0.7.x. Treat this file as the source-build decision trail; treat 0.7/0.7.x as where "full Nix philosophy / reproducible builds" is actually delivered.
+The honest baseline is **ADR 008's reproducibility-tiers table**, which names these gaps explicitly (it does not overclaim). The remaining levers — hermetic fixed-output dependency derivations, lock-pinned deps, and a reproducibility CI gate — are the **Nix-reproducibility workstream tracked in `release-plan-0.7.md` (M1/M2)**: pinning nixpkgs landed in the 0.7 cut, and the hermetic-build work is 0.7.x. Treat this file as the source-build decision trail; treat 0.7/0.7.x as where "full Nix philosophy / reproducible builds" is actually delivered.
 
 ---
 

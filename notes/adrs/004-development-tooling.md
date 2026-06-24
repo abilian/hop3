@@ -1,8 +1,8 @@
 # ADR 004: Development Tooling
 
-**Status**: Active
-**Type**: Process
-**Created**: 2025-10-08
+- **Status**: Active
+- **Type**: Process
+- **Created**: 2025-10-08
 
 ## Summary
 
@@ -193,7 +193,7 @@ A modern Python project requires a comprehensive toolchain to ensure developer p
 
 ### Drawbacks
 
-1. **Tooling Proliferation**: Still quite a few tools despite consolidation efforts
+1. **Tooling Proliferation**: Still several tools despite consolidation efforts
 
 ### Trade-offs
 

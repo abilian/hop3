@@ -55,8 +55,22 @@ def type_of(test_name: str | None) -> str:
     return "app"
 
 
+# Generic container dirs that aren't a useful display name on their own: a demo
+# packaged at demos/demo15/app should show as "demo15", not "app". Mirrors the
+# catalog's _derive_unique_name, which avoids the same generic leaves.
+_GENERIC_LEAVES = frozenset({"app", "src", "web", "server", "application", "site"})
+
+
 def short_app(test_name: str | None) -> str:
-    """The leaf name (``bugsink``) of a path-based test name."""
+    """The display name of a path-based test name (``bugsink``).
+
+    Skips a generic container leaf (``app``/``src``/…) in favour of its parent,
+    so ``demos/demo15/app`` shows as ``demo15`` — otherwise every demo's app
+    subdir collapses to the indistinguishable ``app``.
+    """
     if not test_name:
         return "—"
-    return test_name.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+    parts = [p for p in test_name.replace("\\", "/").rstrip("/").split("/") if p]
+    while len(parts) > 1 and parts[-1].lower() in _GENERIC_LEAVES:
+        parts.pop()
+    return parts[-1] if parts else "—"

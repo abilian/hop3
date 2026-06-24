@@ -330,7 +330,7 @@ Two applications are explicitly deferred with documented upstream-blocker analys
 
 While a quantitative benchmark is deferred (§10), the 99-variant test harness has produced observations we regard as significant qualitative evidence for the architectural claims of §3:
 
-- **R1 (Determinism, Nix path):** template-generated deployments for all 20 apps in the nix-gen corpus produce byte-identical store paths on repeated builds from the same source.
+- **R1 (Determinism, Nix path):** byte-identical store paths on repeated builds from the same source are achieved for the *Tier-1* (nixpkgs-source) subset of the nix-gen corpus, which inherits Nix's build hermeticity. This holds only once nixpkgs is pinned to a specific commit (nixos-24.11); that pinning landed in the 0.7 line and postdates this April-2026 evaluation, so the byte-identical property reported here should be read as a property of the pinned 0.7+ builder rather than of the evaluated snapshot. The Tier-2 templates (`python_venv`/`php_app`, which run `pip`/`composer` under `__noChroot` with network access) and the Tier-3 templates (pre-built binary wrappers that fetch upstream release artifacts) are *not* bit-for-bit reproducible, and we do not claim store-path identity for them.
 - **R2 (Bounded overhead):** the control plane (Litestar ASGI single process) holds a steady-state resident-set of approximately 100 MB with all 99 application records loaded. Per-app resident-set memory is dominated by the application process itself, not by Hop3. A formal measurement methodology is part of the planned benchmark.
 - **R3 (Autonomy):** the deployment target operates without connectivity to external control planes; build artifacts are materialised on disk (`BuildArtifact` JSON) so that `restart` and `rollback` operations require no network.
 - **R4 (Encrypted secrets):** addon credentials are encrypted at rest with Fernet AEAD and a node-local key (`HOP3_SECRET_KEY`); the key is never transmitted over RPC.
@@ -341,7 +341,7 @@ While a quantitative benchmark is deferred (§10), the 99-variant test harness h
 |----------|------------------|-------------------|-------------------|---------------|
 | Native toolchain | No (OS-dependent) | No | Yes | Low |
 | Docker | Partial (mutable base) | Yes | No (cgroup overhead) | High |
-| Nix | Yes (hermetic) | No | Yes | Medium (Nix store) |
+| Nix | Yes for Tier-1 (nixpkgs-source, hermetic); partial/no for Tier-2 (`__noChroot`) and Tier-3 (prebuilt) | No | Yes | Medium (Nix store) |
 
 The "disk overhead" column is qualitative and remains to be quantified in the planned benchmark.
 

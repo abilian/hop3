@@ -1,9 +1,9 @@
 # ADR 035: Build Artifacts as Runtime Contract
 
-**Status**: Final
-**Type**: Architecture
-**Created**: 2026-02-23
-**Related-ADRs**: 006, 008, 022, 030, 032
+- **Status**: Final
+- **Type**: Architecture
+- **Created**: 2026-02-23
+- **Related-ADRs**: 006, 008, 022, 030, 032
 
 ## Context
 

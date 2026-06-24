@@ -1,9 +1,9 @@
 # ADR 033: Docker Integration Strategy
 
-**Status**: Final
-**Type**: Feature
-**Created**: 2025-12-04
-**Related-ADRs**: 022, 030, 032, 035
+- **Status**: Final
+- **Type**: Feature
+- **Created**: 2025-12-04
+- **Related-ADRs**: 022, 030, 032, 035
 
 ## Context
 
@@ -255,15 +255,9 @@ Ports are discovered in this order:
 
 This design leaves room for the following extensions:
 
-- **Build improvements**: build arguments derived from environment variables,
-  multi-stage Dockerfiles, BuildKit/buildx features, and layer caching reused
-  across deployments.
-- **Advanced orchestration**: HTTP-endpoint container health checks,
-  zero-downtime blue-green rolling updates, CPU/memory limits expressed via
-  compose, and secrets management integrating Docker secrets or Hop3 secrets.
-- **Multi-container apps**: sidecar services (redis, postgres, etc.), internal
-  DNS for service discovery between containers, and persistent volume
-  management across deployments.
+- **Build improvements**: build arguments derived from environment variables, multi-stage Dockerfiles, BuildKit/buildx features, and layer caching reused across deployments.
+- **Advanced orchestration**: HTTP-endpoint container health checks, zero-downtime blue-green rolling updates, CPU/memory limits expressed via compose, and secrets management integrating Docker secrets or Hop3 secrets.
+- **Multi-container apps**: sidecar services (redis, postgres, etc.), internal DNS for service discovery between containers, and persistent volume management across deployments.
 
 ## Consequences
 

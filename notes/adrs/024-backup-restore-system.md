@@ -1,9 +1,9 @@
 # ADR 024: Backup and Restore System
 
-**Status**: Final
-**Type**: Feature
-**Created**: 2025-11-08
-**Related-ADRs**: 016, 020
+- **Status**: Final
+- **Type**: Feature
+- **Created**: 2025-11-08
+- **Related-ADRs**: 016, 020
 
 ## Relationship to ADR 016
 
@@ -154,15 +154,10 @@ Pass `--target-app <new-name>` to restore as a clone alongside the original, ins
 
 Backups are portable across Hop3 instances. The operator workflow:
 
-1. **On A**: `hop3 backup create <app>` produces a directory under
-   `BACKUP_ROOT/apps/<app>/<id>/`.
+1. **On A**: `hop3 backup create <app>` produces a directory under `BACKUP_ROOT/apps/<app>/<id>/`.
 2. **Transport**: copy that directory to instance B (e.g. `scp -r`).
-3. **On B**: `hop3 backup register <path>` reads the manifest,
-   ensures an app row exists for the original app name, and inserts a
-   `Backup` row pointing at the directory — making it findable by
-   `restore`.
-4. **On B**: `hop3 backup restore <id>` (or `... --target-app NAME`
-   to restore under a different name).
+3. **On B**: `hop3 backup register <path>` reads the manifest, ensures an app row exists for the original app name, and inserts a `Backup` row pointing at the directory — making it findable by `restore`.
+4. **On B**: `hop3 backup restore <id>` (or `... --target-app NAME` to restore under a different name).
 
 `backup register` is idempotent and verifies the manifest checksums before registering — a corrupted backup is rejected with a clear error rather than letting `restore` fail later with a less actionable message. Without registration, the destination's `restore_backup` DB lookup misses the transferred files entirely.
 
@@ -295,13 +290,8 @@ Backups are portable across Hop3 instances. The operator workflow:
 - **Unit Tests:** BackupManifest, checksums, ID generation
 - **Integration Tests:** All CLI commands with mocked filesystem
 - **System Tests:** Real PostgreSQL in Docker
-- **E2E (single-instance):** round-trip create / list / info / restore
-  / destroy, plus same-instance clone via `--target-app`.
-- **E2E (cross-instance migration):** two independent Docker instances
-  paired by a fixture; covers `register`, restore equivalence
-  (registry / env vars / HTTP body byte-equality), name collisions,
-  cross-instance clone, manifest checksum round-trip, and
-  corrupted-manifest refusal.
+- **E2E (single-instance):** round-trip create / list / info / restore / destroy, plus same-instance clone via `--target-app`.
+- **E2E (cross-instance migration):** two independent Docker instances paired by a fixture; covers `register`, restore equivalence (registry / env vars / HTTP body byte-equality), name collisions, cross-instance clone, manifest checksum round-trip, and corrupted-manifest refusal.
 
 ### Service Integration
 

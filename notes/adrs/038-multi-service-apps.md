@@ -1,9 +1,9 @@
 # ADR 038: Multi-Service Application Support
 
-**Status**: Accepted
-**Type**: Feature
-**Created**: 2026-04-11
-**Related-ADRs**: 008 (Nix templates), 020 (pluggable architecture), 022 (build/deploy plugins), 032 (deployment strategies), 036 (CLI ergonomics)
+- **Status**: Accepted
+- **Type**: Feature
+- **Created**: 2026-04-11
+- **Related-ADRs**: 008 (Nix templates), 020 (pluggable architecture), 022 (build/deploy plugins), 032 (deployment strategies), 036 (CLI ergonomics)
 
 ## Context
 

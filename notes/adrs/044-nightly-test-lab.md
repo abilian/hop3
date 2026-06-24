@@ -1,11 +1,9 @@
 # ADR 044: Nightly Test Lab — a Web App to Run and Report on the Full Test Suite
 
-**Status**: Accepted
-**Type**: Architecture
-**Created**: 2026-06-05
-**Related-ADRs**: 043 (unified-testing-architecture), 041 (privileged-operations-agent), 042 (cli-context-model), 034 (streaming-deployment-logs), 033 (docker-integration), 018 (cli-architecture)
-**Related-notes**: `local-notes/logging-observability.md`
-
+- **Status**: Accepted
+- **Type**: Architecture
+- **Created**: 2026-06-05
+- **Related-ADRs**: 043 (unified-testing-architecture), 041 (privileged-operations-agent), 042 (cli-context-model), 034 (streaming-deployment-logs), 033 (docker-integration), 018 (cli-architecture)
 ## Context
 
 ADR 043 establishes a **nightly tier**: the full suite (real apps, demos, tutorials, platform e2e) run against real servers, producing an HTML report and finishing overnight. The machinery for *running* that suite already exists in `hop3-testing`: the `DailyTestOrchestrator` (`INIT → RESET → DEPLOY → TEST → REPORT`), `HetznerManager` for provisioning, the `DeploymentTarget` ABC, the catalog scanner, the SQLAlchemy result models, `generate_html_report`, and the `hop3-test cloud` command that drives them.
@@ -158,7 +156,7 @@ hop3-test cloud focalboard --use-local-repo           # mode=cli, tagged cli:<us
 
 - **Off-the-shelf CI as runner + reporter (GitHub Actions / GitLab / Woodpecker / SourceHut).** Generic CI gives logs and history but not the test-specific deployment diagnostics (the silent-502 probe, the per-app bundle, the apps-as-probe framing), nor easy orchestration of a scaled Hetzner pool, nor dogfooding. A hybrid (CI as executor, Lab as reporting/trends layer) is possible — noted as future work.
 - **Static report only (pytest-html / Allure / `generate_html_report`).** No scheduling, trigger, trends, scaling, or live fill. Kept as an export, not the product.
-- **Extend the hop3-server dashboard instead of a new app.** Rejected for now: keeps test infrastructure and Hetzner credentials out of the product server; the Lab has a different lifecycle and blast radius.
+- **Extend the hop3-server dashboard instead of a new app.** Rejected for now: keeps test infrastructure and Hetzner credentials out of the product server; the Lab has a different lifecycle and failure domain.
 - **Shell out to and parse the `hop3-test` CLI.** Rejected: lossy and risks CLI/web divergence (§B/§D).
 
 ## Open questions / decisions

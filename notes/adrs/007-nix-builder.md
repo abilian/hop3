@@ -1,10 +1,10 @@
 # ADR 007: Nix Builders for Existing Packages (Nixpkgs Mode)
 
-**Status**: Superseded
-**Type**: Feature
-**Created**: 2024-07-17
-**Superseded-By**: ADR 008
-**Related-ADRs**: 006, 008, 009, 020, 022, 030, 031, 035
+- **Status**: Superseded
+- **Type**: Feature
+- **Created**: 2024-07-17
+- **Superseded-By**: ADR 008
+- **Related-ADRs**: 006, 008, 009, 020, 022, 030, 031, 035
 
 ## Supersession Note
 

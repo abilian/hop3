@@ -1,10 +1,10 @@
 # ADR 030: Two-Level Build Architecture
 
-**Status**: Final
-**Type**: Feature
-**Created**: 2025-11-28
-**Implemented-In**: v0.5.0
-**Related-ADRs**: 006, 008, 020, 022, 035
+- **Status**: Final
+- **Type**: Feature
+- **Created**: 2025-11-28
+- **Implemented-In**: v0.5.0
+- **Related-ADRs**: 006, 008, 020, 022, 035
 
 ## Context
 

@@ -1,9 +1,9 @@
 # ADR 032: Deployment Strategies and Artifact Lifecycle
 
-**Status**: Accepted
-**Type**: Feature
-**Created**: 2025-12-03
-**Related-ADRs**: 022, 030, 031, 035, 036
+- **Status**: Accepted
+- **Type**: Feature
+- **Created**: 2025-12-03
+- **Related-ADRs**: 022, 030, 031, 035, 036
 
 ## Context
 
@@ -207,7 +207,7 @@ If OK → increase to 25%, 50%, 100%
 If bad → rollback immediately
 ```
 
-- ✅ Minimal blast radius
+- ✅ Isolated from other services
 - ✅ Real production testing
 - ❌ Complex routing logic
 - ❌ Requires traffic splitting support

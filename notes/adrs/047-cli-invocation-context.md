@@ -1,10 +1,10 @@
 # ADR 047: CLI Invocation Context — transmit the resolved app and environment with every call
 
-**Status**: Draft
-**Type**: Feature (breaking — one coordinated CLI+server release)
-**Created**: 2026-06-04
-**Updated**: 2026-06-24
-**Related-ADRs**: 036 (§D7 implicit app resolution), 042 (resolution chains, project contexts), a future command-manifest ADR (plugin command manifest)
+- **Status**: Draft
+- **Type**: Feature (breaking — one coordinated CLI+server release)
+- **Created**: 2026-06-04
+- **Updated**: 2026-06-24
+- **Related-ADRs**: 036 (§D7 implicit app resolution), 042 (resolution chains, project contexts), a future command-manifest ADR (plugin command manifest)
 
 > **Updated 2026-06-24:** `_context.server` is the selected context's literal
 > *address* (`ssh://root@host`), not a symbolic name — ADR 042 r2 has no symbolic

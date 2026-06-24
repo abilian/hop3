@@ -1,9 +1,9 @@
 # ADR 020: Pluggable Architecture for Core Deployment Workflow
 
-**Status**: Final
-**Type**: Feature
-**Created**: 2024-10-01
-**Related-ADRs**: 021, 022, 028, 030
+- **Status**: Final
+- **Type**: Feature
+- **Created**: 2024-10-01
+- **Related-ADRs**: 021, 022, 028, 030
 
 ## Introduction
 

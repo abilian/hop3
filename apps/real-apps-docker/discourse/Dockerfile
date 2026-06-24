@@ -72,6 +72,16 @@ RUN bundle config set --local deployment 'true' \
     && yarn cache clean \
     && chown -R discourse:discourse /home/discourse
 
+# Precompile assets at BUILD time so the container binds $PORT promptly instead
+# of running the multi-minute Ember/webpack compile inside the deploy health
+# window. SKIP_DB_AND_REDIS lets Discourse precompile without a live DB/Redis;
+# SECRET_KEY_BASE is a throwaway here (assets don't embed it — the runtime
+# script generates a real one).
+RUN SECRET_KEY_BASE=precompile_placeholder \
+    SKIP_DB_AND_REDIS=1 \
+    bundle exec rake assets:precompile \
+    && chown -R discourse:discourse /home/discourse
+
 # Create startup script
 RUN echo '#!/bin/bash\n\
 set -e\n\
@@ -89,10 +99,7 @@ export DISCOURSE_REDIS_HOST="${REDIS_HOST:-localhost}"\n\
 export DISCOURSE_REDIS_PORT="${REDIS_PORT:-6379}"\n\
 export SECRET_KEY_BASE="${SECRET_KEY_BASE:-$(head -c 64 /dev/urandom | base64)}"\n\
 \n\
-# Precompile assets\n\
-bundle exec rake assets:precompile\n\
-\n\
-# Run migrations\n\
+# Run migrations (assets are precompiled at build time)\n\
 bundle exec rake db:migrate\n\
 \n\
 # Start Discourse\n\
