@@ -35,7 +35,7 @@ When env vars from hop3.toml aren't applied on redeploy, logging "Set 0 env var(
 
 ```
 Skipped 4 env var(s) already set: DEBUG, SECRET_KEY, DB_HOST, DB_PORT
-(use 'hop3 config set' to update, or set _policy = "override" in [env])
+(use 'hop3 env set' to update, or set _policy = "override" in [env])
 ```
 
 The cost of a verbose skip message is zero. The cost of a user debugging "why didn't my config change take effect" is hours.

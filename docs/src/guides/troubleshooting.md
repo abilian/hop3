@@ -124,16 +124,16 @@ source ../venv/bin/activate
 ss -tlnp | grep <port>
 
 # Verify PORT environment variable
-hop3 config show --app myapp | grep PORT
+hop3 env show --app myapp | grep PORT
 ```
 
 **Missing environment variables:**
 ```bash
 # List all config
-hop3 config show --app myapp
+hop3 env show --app myapp
 
 # Set missing variables
-hop3 config set --app myapp KEY=value
+hop3 env set --app myapp KEY=value
 ```
 
 ---
@@ -202,7 +202,7 @@ Application returns 404 for all routes.
 #### Diagnosis
 ```bash
 # Check if app has HOST_NAME configured
-hop3 config show --app myapp | grep HOST_NAME
+hop3 env show --app myapp | grep HOST_NAME
 
 # Verify Nginx config exists
 ls /home/hop3/nginx/myapp.conf
@@ -213,7 +213,7 @@ ls /home/hop3/nginx/myapp.conf
 **Missing HOST_NAME:**
 ```bash
 # Set hostname
-hop3 config set --app myapp HOST_NAME=myapp.example.com
+hop3 env set --app myapp HOST_NAME=myapp.example.com
 
 # Redeploy
 hop3 deploy --app myapp
@@ -248,7 +248,7 @@ Application fails to connect to PostgreSQL or MySQL.
 hop3 addon list
 
 # Check if DATABASE_URL is set
-hop3 config show --app myapp | grep DATABASE
+hop3 env show --app myapp | grep DATABASE
 
 # Test database service
 hop3 system status
@@ -395,7 +395,7 @@ hop3 app logs --app myapp | grep -i slow
 
 **Increase workers:**
 ```bash
-hop3 config set --app myapp UWSGI_PROCESSES=4
+hop3 env set --app myapp UWSGI_PROCESSES=4
 hop3 app restart --app myapp
 ```
 
@@ -432,7 +432,7 @@ sudo mkswap /swapfile
 sudo swapon /swapfile
 
 # Reduce worker memory
-hop3 config set --app myapp UWSGI_PROCESSES=2
+hop3 env set --app myapp UWSGI_PROCESSES=2
 ```
 
 ### Disk Full
@@ -481,7 +481,7 @@ sudo ufw status
 # Apps bind to 127.0.0.1:$PORT and are reached through the reverse proxy.
 # External access comes from setting HOST_NAME and pointing DNS at the server,
 # not from exposing the app port directly.
-hop3 config set --app myapp HOST_NAME=myapp.example.com
+hop3 env set --app myapp HOST_NAME=myapp.example.com
 hop3 deploy --app myapp
 ```
 
