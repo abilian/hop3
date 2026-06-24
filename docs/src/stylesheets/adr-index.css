@@ -1,0 +1,199 @@
+/* ADR Overview page: filter controls, sortable table, colored type/status
+   badges. Paired with docs/src/javascripts/adr-index.js and the table emitted
+   by docs/scripts/convert_adrs.py. */
+
+.adr-index {
+  margin: 1rem 0 2rem;
+}
+
+/* Manual breadcrumb on individual ADR pages (they're not in the nav, so the
+   theme's navigation.path breadcrumb can't render a trail to them). */
+.adr-breadcrumb {
+  font-size: 0.78rem;
+  opacity: 0.7;
+  margin-bottom: 0.75rem;
+}
+.adr-breadcrumb a {
+  color: inherit;
+}
+.adr-breadcrumb a:hover {
+  color: var(--md-accent-fg-color, #526cfe);
+}
+
+/* --- Controls (search + filter chips) --- */
+.adr-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.adr-search {
+  flex: 1 1 12rem;
+  min-width: 9rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--md-default-fg-color--lighter, #ccc);
+  border-radius: 0.4rem;
+  background: var(--md-default-bg-color, #fff);
+  color: var(--md-default-fg-color, #000);
+  font-size: 0.82rem;
+}
+
+.adr-facet {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.adr-facet-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.65;
+  margin-right: 0.15rem;
+}
+
+.adr-chip {
+  border: 1px solid var(--md-default-fg-color--lighter, #ccc);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.18rem 0.6rem;
+  border-radius: 1rem;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.adr-chip:hover {
+  border-color: var(--md-accent-fg-color, #526cfe);
+}
+
+.adr-chip.is-active {
+  background: var(--md-accent-fg-color, #526cfe);
+  border-color: var(--md-accent-fg-color, #526cfe);
+  color: #fff;
+}
+
+.adr-count {
+  font-size: 0.78rem;
+  opacity: 0.65;
+  margin: 0.15rem 0 0.5rem;
+}
+
+/* --- Table --- */
+.adr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.adr-table th,
+.adr-table td {
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest, #eee);
+  vertical-align: top;
+}
+
+.adr-table th.adr-sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.adr-table th.adr-sortable::after {
+  content: " \2195"; /* up-down arrow */
+  opacity: 0.35;
+  font-size: 0.8em;
+}
+
+.adr-table th.adr-sortable[aria-sort="ascending"]::after {
+  content: " \2191";
+  opacity: 0.9;
+}
+
+.adr-table th.adr-sortable[aria-sort="descending"]::after {
+  content: " \2193";
+  opacity: 0.9;
+}
+
+.adr-table td.adr-num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.adr-table tr[hidden] {
+  display: none;
+}
+
+/* --- Badges --- */
+.adr-badge {
+  display: inline-block;
+  padding: 0.08rem 0.45rem;
+  border-radius: 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.55;
+  white-space: nowrap;
+}
+
+.adr-none {
+  background: #f0f1f3;
+  color: #868d95;
+}
+
+/* Status — soft tints; settled (green/blue), in-progress (amber),
+   parked/obsolete (grey/red). */
+.adr-status-accepted {
+  background: #edf6f0;
+  color: #3d7a56;
+}
+.adr-status-final {
+  background: #edf1fb;
+  color: #46618f;
+}
+.adr-status-active {
+  background: #ebf5f2;
+  color: #387a71;
+}
+.adr-status-implemented {
+  background: #edf6f0;
+  color: #3d7a56;
+}
+.adr-status-draft {
+  background: #fbf5e4;
+  color: #8a6a28;
+}
+.adr-status-deferred {
+  background: #f0f1f3;
+  color: #6c757d;
+}
+.adr-status-superseded {
+  background: #f8edee;
+  color: #9c545c;
+}
+
+/* Type — a distinct, muted hue per category. */
+.adr-type-feature {
+  background: #efebfa;
+  color: #584ca0;
+}
+.adr-type-architecture {
+  background: #ecf1fc;
+  color: #46618f;
+}
+.adr-type-process {
+  background: #fbede3;
+  color: #955d3f;
+}
+.adr-type-guideline {
+  background: #eaf4f6;
+  color: #38717a;
+}
+.adr-type-design {
+  background: #fbeaf2;
+  color: #954d80;
+}
