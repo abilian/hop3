@@ -1,9 +1,9 @@
 # ADR 033: Docker Integration Strategy
 
-**Status**: Final
-**Type**: Feature
-**Created**: 2025-12-04
-**Related-ADRs**: 022, 030, 032, 035
+- **Status**: Final
+- **Type**: Feature
+- **Created**: 2025-12-04
+- **Related-ADRs**: 022, 030, 032, 035
 
 ## Context
 

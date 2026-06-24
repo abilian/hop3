@@ -1,9 +1,9 @@
 # ADR 002: Detailed `hop3.toml` Format
 
-**Status**: Accepted
-**Type**: Feature
-**Created**: 2024-07-17
-**Related-ADRs**: 001, 003, 046
+- **Status**: Accepted
+- **Type**: Feature
+- **Created**: 2024-07-17
+- **Related-ADRs**: 001, 003, 046
 
 ## Specification subset and reserved fields
 

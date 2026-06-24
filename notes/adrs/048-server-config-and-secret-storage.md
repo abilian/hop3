@@ -1,9 +1,9 @@
 # ADR 048: Server Configuration and Secret Storage
 
-**Status**: Accepted
-**Type**: Architecture
-**Created**: 2026-06-17
-**Related-ADRs**: 027 (config loader; this ADR adds the secrets carve-out to its env-vs-file precedence), 041 (privileged-operations agent; this is the `hop3-server.toml` schema ADR it defers, and rootd's read access is covered below), 011 (application-data encryption), 042 (CLI-side config, distinct from server-side), 043 (unified testing architecture; the test-fixture impact is a consequence below)
+- **Status**: Accepted
+- **Type**: Architecture
+- **Created**: 2026-06-17
+- **Related-ADRs**: 027 (config loader; this ADR adds the secrets carve-out to its env-vs-file precedence), 041 (privileged-operations agent; this is the `hop3-server.toml` schema ADR it defers, and rootd's read access is covered below), 011 (application-data encryption), 042 (CLI-side config, distinct from server-side), 043 (unified testing architecture; the test-fixture impact is a consequence below)
 
 ## Context
 

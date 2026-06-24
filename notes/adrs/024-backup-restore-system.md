@@ -1,9 +1,9 @@
 # ADR 024: Backup and Restore System
 
-**Status**: Final
-**Type**: Feature
-**Created**: 2025-11-08
-**Related-ADRs**: 016, 020
+- **Status**: Final
+- **Type**: Feature
+- **Created**: 2025-11-08
+- **Related-ADRs**: 016, 020
 
 ## Relationship to ADR 016
 

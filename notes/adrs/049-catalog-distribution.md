@@ -1,9 +1,9 @@
 # ADR 049: Catalog Distribution — Fetching App Specs from a Central Source
 
-**Status**: Accepted
-**Type**: Feature
-**Created**: 2026-06-16
-**Related-ADRs**: 013 (supply chain), 031 (terminology), 019 (CLI commands), 002 (config format)
+- **Status**: Accepted
+- **Type**: Feature
+- **Created**: 2026-06-16
+- **Related-ADRs**: 013 (supply chain), 031 (terminology), 019 (CLI commands), 002 (config format)
 
 ## Context
 

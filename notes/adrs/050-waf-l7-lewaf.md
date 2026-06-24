@@ -1,9 +1,9 @@
 # ADR 050: Layer-7 Web Application Firewall (LeWAF)
 
-**Status**: Accepted
-**Type**: Feature
-**Created**: 2026-06-16
-**Related-ADRs**: 040 (network firewall — defers the WAF half here), 041 (privileged operations agent), 045 (fixed-port registry), 021 (proxy plugin system), 020 (pluggable architecture)
+- **Status**: Accepted
+- **Type**: Feature
+- **Created**: 2026-06-16
+- **Related-ADRs**: 040 (network firewall — defers the WAF half here), 041 (privileged operations agent), 045 (fixed-port registry), 021 (proxy plugin system), 020 (pluggable architecture)
 
 > **Design stance.** Start minimal and prove it before adding power. The access model below is restricted to the two use cases that are real (§Decision 2); speculative features (in-app middleware, kernel-level bans, auth-gated URLs, honeypot lists) are named and **deferred** until customer feedback justifies them (§v1 scope).
 

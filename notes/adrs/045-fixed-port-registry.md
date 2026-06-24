@@ -1,10 +1,10 @@
 # ADR 045: Fixed-Port Registry — Exclusive Host Ports for Non-HTTP Apps
 
-**Status**: Accepted
-**Type**: Architecture
-**Created**: 2026-06-10
-**Supersedes**: ADR 040
-**Related-ADRs**: 041 (privileged-operations-agent), 043 (unified-testing-architecture), 008 (template-based-nix-expression-generation)
+- **Status**: Accepted
+- **Type**: Architecture
+- **Created**: 2026-06-10
+- **Supersedes**: ADR 040
+- **Related-ADRs**: 041 (privileged-operations-agent), 043 (unified-testing-architecture), 008 (template-based-nix-expression-generation)
 
 ## Context
 

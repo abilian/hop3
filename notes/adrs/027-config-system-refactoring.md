@@ -1,9 +1,9 @@
 # ADR 027: Configuration System Refactoring for Testability
 
-**Status**: Final
-**Type**: Feature
-**Created**: 2025-11-20
-**Related-ADRs**: 001, 002, 003
+- **Status**: Final
+- **Type**: Feature
+- **Created**: 2025-11-20
+- **Related-ADRs**: 001, 002, 003
 
 ## Introduction
 

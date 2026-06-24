@@ -1,9 +1,9 @@
 # ADR 051: Config Injection — Wiring config-file and DB apps from the injected environment
 
-**Status**: Draft
-**Type**: Architecture
-**Created**: 2026-06-22
-**Related-ADRs**: 002 (hop3.toml format — the `[run].before-run` hook), 046 (declarative-app-resources), 008 (template-based-nix-expression-generation), 041 (privileged-operations-agent)
+- **Status**: Draft
+- **Type**: Architecture
+- **Created**: 2026-06-22
+- **Related-ADRs**: 002 (hop3.toml format — the `[run].before-run` hook), 046 (declarative-app-resources), 008 (template-based-nix-expression-generation), 041 (privileged-operations-agent)
 
 ## Context
 

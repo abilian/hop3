@@ -1,8 +1,8 @@
 # ADR 015: Documentation and Community Engagement
 
-**Status**: Active
-**Type**: Process
-**Created**: 2024-07-17
+- **Status**: Active
+- **Type**: Process
+- **Created**: 2024-07-17
 
 ## Context
 
