@@ -14,10 +14,12 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from hop3_cli.commands.local.login_cmd import record_server_login
 from hop3_cli.config import Config
 from hop3_cli.core import credential_store as cs
-from hop3_cli.main import _resolve_active_server
+from hop3_cli.exit_codes import ExitCode
+from hop3_cli.main import _require_context_server, _resolve_active_server
 
 ADDR = "ssh://root@prod.example.com"
 
@@ -48,6 +50,45 @@ def test_resolve_active_server_unknown_or_serverless():
     assert _resolve_active_server(_ctx_res("dev")) is None  # not declared
     _write_toml('[metadata]\nid="a"\n[contexts.prod]\napp="a"\n')
     assert _resolve_active_server(_ctx_res("prod")) is None  # no server field
+
+
+# ---- _require_context_server: explicit --context must resolve or fail loud ----
+# Regression: `hop3 apps --context prod` outside a project used to silently fall
+# back to the default (dev) server while accepting the flag. ADR 042 r2: an
+# explicit --context must resolve to a server, or the command aborts.
+
+
+def test_require_context_server_resolves_in_project():
+    _write_toml(f'[metadata]\nid="a"\n[contexts.prod]\nserver="{ADDR}"\n')
+    assert _require_context_server("prod") == ADDR
+
+
+def test_require_context_server_no_project_aborts(capsys):
+    # No hop3.toml here: --context cannot resolve; must NOT silently fall back.
+    with pytest.raises(SystemExit) as exc:
+        _require_context_server("prod")
+    assert exc.value.code == ExitCode.RESOLUTION_ERROR
+    err = capsys.readouterr().err
+    assert "no hop3.toml" in err  # says why
+    assert "--server" in err  # and the actionable alternative
+
+
+def test_require_context_server_unknown_name_aborts(capsys):
+    _write_toml('[metadata]\nid="a"\n[contexts.prod]\nserver="x"\n')
+    with pytest.raises(SystemExit) as exc:
+        _require_context_server("staging")
+    assert exc.value.code == ExitCode.RESOLUTION_ERROR
+    err = capsys.readouterr().err
+    assert "not declared" in err  # says the name is unknown
+    assert "prod" in err  # and lists what IS declared
+
+
+def test_require_context_server_serverless_aborts(capsys):
+    _write_toml('[metadata]\nid="a"\n[contexts.prod]\napp="a"\n')
+    with pytest.raises(SystemExit) as exc:
+        _require_context_server("prod")
+    assert exc.value.code == ExitCode.RESOLUTION_ERROR
+    assert "no `server`" in capsys.readouterr().err
 
 
 # ---- Config honors the active server ----
