@@ -27,7 +27,9 @@ class _RecordingBackend:
         return SimpleNamespace(success=self._ok, stdout="", stderr="", returncode=0)
 
 
-def _persist_commands(domain: str = "hop3.abilian.com", *, ok: bool = True) -> list[str]:
+def _persist_commands(
+    domain: str = "hop3.abilian.com", *, ok: bool = True
+) -> list[str]:
     backend = _RecordingBackend(ok=ok)
     deployer = Deployer(DeployConfig(quiet=True), backend=backend)  # type: ignore[arg-type]
     deployer._persist_admin_domain(domain)
