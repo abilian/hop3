@@ -125,7 +125,9 @@ class _RecordingBackend:
             ok = self._cert_present
         else:
             ok = True
-        return SimpleNamespace(success=ok, stdout="", stderr="", returncode=0 if ok else 1)
+        return SimpleNamespace(
+            success=ok, stdout="", stderr="", returncode=0 if ok else 1
+        )
 
 
 def _install_cert_commands(*, acme_ok: bool, cert_present: bool) -> list[str]:
@@ -138,7 +140,11 @@ def _install_cert_commands(*, acme_ok: bool, cert_present: bool) -> list[str]:
 def test_install_cert_uses_noop_reload_not_sudo():
     """acme.sh runs as hop3; its reloadcmd must not `sudo systemctl reload nginx`
     (rootd retires that sudo right) — use a no-op; the deploy reloads as root."""
-    install = next(c for c in _install_cert_commands(acme_ok=True, cert_present=True) if "--install-cert" in c)
+    install = next(
+        c
+        for c in _install_cert_commands(acme_ok=True, cert_present=True)
+        if "--install-cert" in c
+    )
     assert "--reloadcmd true" in install
     assert "sudo systemctl reload nginx" not in install
 

@@ -971,7 +971,9 @@ class Deployer:
 
         acme_sh = "/home/hop3/.acme.sh/acme.sh"
         if not self.backend.run(f"test -f {acme_sh}", check=False).success:
-            return "acme.sh is not installed on the server (reinstall without --skip-acme)"
+            return (
+                "acme.sh is not installed on the server (reinstall without --skip-acme)"
+            )
         return None
 
     def _request_letsencrypt_cert(self, domain: str, cert_dir: str) -> bool:
