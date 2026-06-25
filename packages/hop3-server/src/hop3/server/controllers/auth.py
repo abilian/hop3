@@ -17,6 +17,11 @@ from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
 from hop3.server.security.rate_limit import RateLimiter, RateLimitError
 from hop3.server.security.tokens import validate_magic_token
+from hop3.server.security.web_auth import (
+    auth_cookie,
+    clear_auth_cookie,
+    current_identity,
+)
 
 if TYPE_CHECKING:
     from litestar.params import FromPath
@@ -54,8 +59,8 @@ class AuthController(Controller):
         Returns:
             Template response with login form or redirect if already authenticated
         """
-        # Check if user is authenticated via session
-        if request.session.get("user_id"):
+        # Already authenticated → straight to the dashboard.
+        if current_identity(request):
             return Redirect(path="/dashboard")
 
         ctx = {
@@ -107,17 +112,15 @@ class AuthController(Controller):
                     path=f"/auth/login?error=Invalid username or password&username={username}"
                 )
 
-            # Store user ID in session using Litestar's session API
-            request.set_session({"user_id": user.id, "username": user.username})
-
             # Update login tracking
             user.last_login_at = user.current_login_at
             user.current_login_at = datetime.now(timezone.utc)
             user.login_count += 1
             user_repo.update(user, auto_commit=True)
+            username = user.username
 
-        # Redirect to dashboard
-        return Redirect(path="/dashboard")
+        # Issue the signed auth cookie (stateless — survives restarts).
+        return Redirect(path="/dashboard", cookies=[auth_cookie(username)])
 
     @get("/logout", sync_to_thread=False)
     def logout(self, request: Request) -> Redirect:
@@ -129,11 +132,8 @@ class AuthController(Controller):
         Returns:
             Redirect to login page
         """
-        # Clear session using Litestar's session API
-        request.clear_session()
-
-        # Redirect to login
-        return Redirect(path="/auth/login")
+        # Delete the auth cookie.
+        return Redirect(path="/auth/login", cookies=[clear_auth_cookie()])
 
     @get("/profile", guards=[auth_guard], sync_to_thread=False)
     def profile(self, request: Request) -> Template | Redirect:
@@ -145,12 +145,13 @@ class AuthController(Controller):
         Returns:
             Template response with profile information or redirect to login
         """
-        # Get username from session (auth_guard ensures user_id exists)
-        username = request.session.get("username")
+        # Identity from the verified auth cookie (auth_guard already passed).
+        identity = current_identity(request)
+        username = identity.get("username") if identity else None
         if not username:
-            # Session exists but no username - shouldn't happen, but handle it
-            request.clear_session()
-            return Redirect(path="/auth/login")
+            # No valid credential — shouldn't happen past the guard, but clear
+            # any stale cookie and send them back to login.
+            return Redirect(path="/auth/login", cookies=[clear_auth_cookie()])
 
         # Get user from database
         with get_session() as db_session:
@@ -159,9 +160,8 @@ class AuthController(Controller):
             user = user_repo.get_by_username(username)
 
             if not user:
-                # Session is invalid, clear it
-                request.clear_session()
-                return Redirect(path="/auth/login")
+                # Credential names an unknown user — clear it.
+                return Redirect(path="/auth/login", cookies=[clear_auth_cookie()])
 
             ctx = {
                 "user": {
@@ -225,14 +225,12 @@ class AuthController(Controller):
             if not user.active:
                 return Redirect(path="/auth/login?error=User account is disabled.")
 
-            # Store user ID in session
-            request.set_session({"user_id": user.id, "username": user.username})
-
             # Update login tracking
             user.last_login_at = user.current_login_at
             user.current_login_at = datetime.now(timezone.utc)
             user.login_count += 1
             user_repo.update(user, auto_commit=True)
+            username = user.username
 
-        # Redirect to dashboard
-        return Redirect(path="/dashboard")
+        # Issue the signed auth cookie (stateless — survives restarts).
+        return Redirect(path="/dashboard", cookies=[auth_cookie(username)])
