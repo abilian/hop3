@@ -35,6 +35,10 @@ class DeployConfig:
     # SSH settings
     ssh_user: str = DEFAULT_SSH_USER
     ssh_port: int = 22
+    # Explicit private key for the deploy's ssh/scp (-i). None -> ssh's default
+    # identity (~/.ssh/id_*, agent). Needed when the invoking user has no usable
+    # default key, e.g. a server-resident automation user.
+    ssh_key: str | None = None
 
     # Installation settings
     branch: str = DEFAULT_BRANCH

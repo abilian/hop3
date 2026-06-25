@@ -32,6 +32,10 @@ class SSHDeployBackend(DeployBackend):
             "-o",
             "ConnectTimeout=10",
         ]
+        # Use an explicit identity when given (else ssh's default key/agent). This
+        # threads through every ssh/scp call below since they splat _ssh_opts.
+        if config.ssh_key:
+            self._ssh_opts.extend(["-i", config.ssh_key])
         # Add port option if not default
         if config.ssh_port != 22:
             self._ssh_opts.extend(["-p", str(config.ssh_port)])

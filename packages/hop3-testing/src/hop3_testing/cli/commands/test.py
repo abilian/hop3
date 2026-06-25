@@ -170,7 +170,11 @@ def _lookup_test(
 @click.option("--host", help="Remote host (for --ssh)")
 @click.option("--port", type=int, default=22, help="SSH port")
 @click.option("--user", default="root", help="SSH user")
-@click.option("--ssh-key", help="SSH key path")
+@click.option(
+    "--ssh-key",
+    envvar="HOP3_TEST_SSH_KEY",
+    help="SSH key path (default: $HOP3_TEST_SSH_KEY)",
+)
 # Test options
 @click.option(
     "--mode",

@@ -218,6 +218,7 @@ class RemoteTarget(DeploymentTarget):
                 branch=deployment.branch,
                 verbose=deployment.verbose,
                 features=deployment.features,
+                ssh_key=config.ssh_key,
                 diagnostics=self.diagnostics,
             )
 

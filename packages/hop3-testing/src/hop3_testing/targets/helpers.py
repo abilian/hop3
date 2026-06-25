@@ -791,6 +791,7 @@ def _build_deploy_command(
     branch: str,
     verbose: bool,
     features: list[str] | None = None,
+    ssh_key: str | None = None,
 ) -> list[str]:
     """Build hop3-deploy command arguments."""
     cmd = ["hop3-deploy"]
@@ -808,6 +809,10 @@ def _build_deploy_command(
             msg = "host is required for SSH deployment"
             raise ValueError(msg)
         cmd.extend(["--host", host, "--ssh-user", user])
+        if ssh_key:
+            # The deploy's ssh otherwise uses its default identity, which a
+            # server-resident runtime user doesn't have -> Permission denied.
+            cmd.extend(["--ssh-key", ssh_key])
 
     if use_local:
         cmd.append("--local")
@@ -835,6 +840,7 @@ def run_hop3_deploy(
     branch: str = "devel",
     verbose: bool = False,
     features: list[str] | None = None,
+    ssh_key: str | None = None,
     diagnostics: DiagnosticCollector | None = None,
 ) -> tuple[bool, float]:
     """Run hop3-deploy via subprocess.
@@ -869,6 +875,7 @@ def run_hop3_deploy(
         branch=branch,
         verbose=verbose,
         features=features,
+        ssh_key=ssh_key,
     )
 
     print(f"\nRunning: {' '.join(cmd)}\n")
