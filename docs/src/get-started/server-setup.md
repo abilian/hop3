@@ -144,22 +144,58 @@ You're all set! Try:
   hop3 auth whoami    # Check current user
 ```
 
-### Alternative: Manual Setup
+### Alternative: Server-Side Commands
 
-SSH into your server and run:
+The installer does **not** create an admin user or print a token — you create
+the first admin yourself. SSH in and run the `hop3-server` admin commands as the
+`hop3` user (so the database stays owned by `hop3`, not `root`):
 
 ```bash
 ssh root@your-server.com
-hop3-server admin:create admin admin@example.com
-# Enter password when prompted
-# Copy the displayed token
+
+# Create the first admin and print an API token:
+sudo -u hop3 /home/hop3/venv/bin/hop3-server admin:create admin admin@example.com
+#   ... enter a password when prompted, then copy the printed token.
+
+# Issue a fresh token for an existing user:
+sudo -u hop3 /home/hop3/venv/bin/hop3-server admin:token admin
+
+# Set or change a password:
+sudo -u hop3 /home/hop3/venv/bin/hop3-server admin:reset-password admin
+
+# List users (sanity check):
+sudo -u hop3 /home/hop3/venv/bin/hop3-server admin:list
 ```
 
-Then log into the server from your local CLI:
+Then log into the server from your local CLI with the token:
 
 ```bash
 hop3 login --token <paste-token-here> --url https://your-server.com
 ```
+
+> `hop3 login --ssh root@your-server.com` does all of the above in one step
+> (SSH access ⇒ admin access): it runs `admin:ssh-token` on the server,
+> auto-creating a default `admin` if none exists, and stores the token locally.
+
+### Magic Links (passwordless Web UI login)
+
+Once an [admin domain](#admin-ui-access) is configured, you can sign into the
+Web UI without a password using a one-time magic link. From your workstation:
+
+```bash
+hop3 login --web root@your-server.com
+```
+
+This prints a `https://<admin-domain>/auth/magic/<token>` URL — open it in a
+browser. The link expires after **5 minutes** and is single-use. To mint one
+directly on the server:
+
+```bash
+sudo -u hop3 /home/hop3/venv/bin/hop3-server auth:magic-link admin
+```
+
+A magic link is only usable when the Web UI is reachable at a hostname — i.e.
+when an admin domain is set (see [Admin UI Access](#admin-ui-access)).
 
 ### For Automation (CI/CD)
 
@@ -251,6 +287,37 @@ If using a domain and getting 404:
 1. Verify nginx config: `sudo nginx -t`
 2. Check nginx is proxying to hop3-server: `cat /etc/nginx/sites-available/hop3`
 3. Ensure hop3-server is running on port 8000
+
+### Bare Host Serves the Wrong App (or the Default Nginx Page)
+
+**Symptom**: `http://your-server/` shows the default nginx welcome page, or
+`https://your-server/` shows one of your deployed apps (with the wrong TLS
+certificate) instead of the Hop3 Web UI.
+
+**Cause**: the control plane isn't claiming the bare host. Each app's nginx
+vhost matches only its own `server_name`, so a request to a host that matches no
+app falls through to whichever vhost nginx loaded first — the distro default on
+port 80, an arbitrary app on port 443. This happens on servers installed before
+the control plane started pinning nginx's `default_server`.
+
+**Fix**: redeploy. `hop3-deploy --host your-server.com` now makes
+`your-server.com` the admin hostname automatically and pins the Hop3 control
+plane as nginx's `default_server`, so the bare host — and any unmatched Host —
+reaches the Web UI instead of a random app. To serve the Web UI on a *different*
+hostname, pass it explicitly:
+
+```bash
+# Developer tool — a different admin hostname:
+hop3-deploy --local --host your-server.com --admin-domain admin.your-server.com
+
+# Production installer (uses --domain):
+curl -LsSf https://hop3.cloud/install-server.py | sudo python3 - --domain your-server.com
+```
+
+> The admin-domain step runs on every deploy, so a redeploy re-asserts the
+> control-plane vhost and self-heals an older box — no `--clean` required.
+> (On RHEL/Fedora the `default_server` pin is skipped to avoid clashing with the
+> stock `nginx.conf`; the `server_name` match still routes the admin host.)
 
 ## Support
 
