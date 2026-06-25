@@ -91,6 +91,26 @@ def test_rebuild_raises_if_ssh_command_never_ready():
         worker._rebuild_blank_slate(_cfg("hop3-ci"), "203.0.113.7")
 
 
+def test_configure_ssh_identity_writes_idempotent_host_block(tmp_path, monkeypatch):
+    # The deploy's ssh passes no -i; an ~/.ssh/config IdentityFile makes it use the
+    # credential key for the host (else 'Permission denied (publickey)' on a server
+    # whose runtime user has no default key).
+    monkeypatch.setenv("HOME", str(tmp_path))  # Path.home() -> tmp
+    worker._configure_ssh_identity("203.0.113.7", "/data/keys/k.key")
+    config = tmp_path / ".ssh" / "config"
+    text = config.read_text()
+    assert "Host 203.0.113.7" in text
+    assert "IdentityFile /data/keys/k.key" in text
+    assert oct(config.stat().st_mode)[-3:] == "600"
+
+    # Rewritten each run: a second call replaces the block, never duplicates it.
+    worker._configure_ssh_identity("203.0.113.7", "/data/keys/k2.key")
+    text2 = config.read_text()
+    assert text2.count("Host 203.0.113.7") == 1
+    assert "k2.key" in text2
+    assert "k.key" not in text2
+
+
 def test_purge_known_host_runs_ssh_keygen_remove():
     with patch("hop3_testlab.worker.subprocess.run") as run:
         worker._purge_known_host("203.0.113.7")
@@ -163,6 +183,38 @@ def test_per_app_rerun_skips_rebuild(monkeypatch):
         "hetzner", "nightly", apps=["apps/real-apps-docker/x"], blank_slate=False
     )
     assert calls == ["engine"]  # ad-hoc re-run against the live server
+
+
+def test_ssh_run_passes_credential_key_to_engine(monkeypatch):
+    # The engine's paramiko connect needs the key as --ssh-key (else 'No
+    # authentication methods' for a server user with no default key/agent).
+    captured: dict = {}
+    monkeypatch.setattr(
+        worker, "_resolve_run_target", lambda t: ("1.2.3.4", "/data/keys/k.key", {})
+    )
+    monkeypatch.setattr(worker, "load_cloud_config", lambda: _cfg("hop3-ci"))
+    monkeypatch.setattr(worker, "_configure_ssh_identity", lambda host, key: None)
+    monkeypatch.setattr(
+        worker, "_run_engine", lambda target, cmd, env, cwd: captured.update(cmd=cmd)
+    )
+    worker._default_executor("hetzner", "nightly", apps=["apps/x"], blank_slate=False)
+    cmd = captured["cmd"]
+    assert cmd[cmd.index("--ssh-key") + 1] == "/data/keys/k.key"
+
+
+def test_engine_env_carries_a_git_identity(monkeypatch):
+    # The engine `git commit`s each test app; without an identity it exits 128 on a
+    # server user that has none.
+    captured: dict = {}
+    monkeypatch.setattr(worker, "_resolve_run_target", lambda t: ("1.2.3.4", None, {}))
+    monkeypatch.setattr(worker, "load_cloud_config", lambda: _cfg("hop3-ci"))
+    monkeypatch.setattr(
+        worker, "_run_engine", lambda target, cmd, env, cwd: captured.update(env=env)
+    )
+    worker._default_executor("hetzner", "nightly", apps=["apps/x"], blank_slate=False)
+    env = captured["env"]
+    assert env["GIT_AUTHOR_EMAIL"]
+    assert env["GIT_COMMITTER_NAME"]
 
 
 def test_other_ssh_host_does_not_rebuild(monkeypatch):
