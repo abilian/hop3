@@ -107,7 +107,19 @@ class AppPreparation:
                 capture_output=True,
             )
             subprocess.run(
-                ["git", "commit", "-m", "Initial commit"],
+                # Identity inline so the commit never depends on the caller's git
+                # config — a server-resident runtime user has none ('git commit'
+                # exits 128: "Please tell me who you are").
+                [
+                    "git",
+                    "-c",
+                    "user.name=Hop3 Test Lab",
+                    "-c",
+                    "user.email=testlab@hop3.local",
+                    "commit",
+                    "-m",
+                    "Initial commit",
+                ],
                 cwd=self.temp_dir,
                 check=True,
                 capture_output=True,
