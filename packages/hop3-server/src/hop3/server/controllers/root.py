@@ -6,12 +6,11 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from litestar import Controller, get
+from litestar import Controller, Request, get
 from litestar.response import Redirect
 
 from hop3 import config
+from hop3.server.security.web_auth import current_identity
 
 
 class RootController(Controller):
@@ -23,25 +22,18 @@ class RootController(Controller):
     path = "/"
 
     @get("/", sync_to_thread=False)
-    def root_redirect(self, scope: Any) -> Redirect:
-        """Redirect root to dashboard or login.
+    def root_redirect(self, request: Request) -> Redirect:
+        """Redirect root to the dashboard when authenticated, else to login.
+
+        Auth is the stateless signed cookie (``current_identity``); there is no
+        server-side session. ``HOP3_UNSAFE`` (testing) skips the check.
 
         Args:
-            scope: ASGI scope for request context (dict-like object)
+            request: HTTP request
 
         Returns:
             Redirect to dashboard or login page
         """
-        # If HOP3_UNSAFE is true (testing mode), skip authentication
-        if config.HOP3_UNSAFE:
+        if config.HOP3_UNSAFE or current_identity(request):
             return Redirect(path="/dashboard")
-
-        # Check if auth middleware provided user
-        if "user" not in scope:
-            return Redirect(path="/auth/login")
-
-        # Check authentication status
-        if scope["user"].is_authenticated:
-            return Redirect(path="/dashboard")
-
         return Redirect(path="/auth/login")

@@ -37,7 +37,7 @@ from hop3.orm.repositories import (
     RoleRepository,
     UserRepository,
 )
-from hop3.server.security.tokens import validate_token
+from hop3.server.security.web_auth import current_identity
 
 # Mapping of repository types to their classes for dependency injection
 REPOSITORY_TYPES: dict[str, type] = {
@@ -383,32 +383,6 @@ class RPCController(Controller):
             media_type="application/json",
         )
 
-    def _authenticate_from_bearer_token(self, request: Request) -> bool:
-        """Try to authenticate using Bearer token from Authorization header.
-
-        Args:
-            request: HTTP request
-
-        Returns:
-            True if authentication succeeded, False otherwise
-        """
-        auth_header = request.headers.get("authorization", "")
-        # RFC 7235: auth-scheme is case-insensitive
-        if auth_header[:7].lower() != "bearer ":
-            return False
-
-        token = auth_header[7:].strip()
-        token_info = validate_token(token)
-        if not token_info:
-            return False
-
-        # Token is valid - set session data
-        username = token_info["username"]
-        request.session["user_id"] = username
-        request.session["username"] = username
-        request.session["scopes"] = token_info["scopes"]
-        return True
-
     def _check_authentication(
         self, request: Request, command_class: type[Command] | None
     ) -> Response | None:
@@ -417,6 +391,10 @@ class RPCController(Controller):
         For security, authentication is checked BEFORE revealing if the command
         exists. This prevents information disclosure about available commands.
 
+        The credential is the stateless signed JWT (``current_identity``),
+        accepted from the ``Authorization: Bearer`` header (CLI / API) or the
+        ``hop3_auth`` cookie (dashboard) — no server-side session.
+
         Args:
             request: HTTP request
             command_class: The command class (may be None if not found)
@@ -424,14 +402,7 @@ class RPCController(Controller):
         Returns:
             Error response if authentication failed, None if OK
         """
-        # Check session first
-        user_id = request.session.get("user_id")
-        if user_id:
-            return None
-
-        # Try Bearer token authentication (always try to extract user info)
-        # This populates the session with username even if auth is not required
-        token_valid = self._authenticate_from_bearer_token(request)
+        authenticated = current_identity(request) is not None
 
         # Skip authentication enforcement in unsafe testing mode
         if config.HOP3_UNSAFE:
@@ -441,8 +412,7 @@ class RPCController(Controller):
         if command_class is not None and not requires_authentication(command_class):
             return None
 
-        # If token was valid, we're authenticated
-        if token_valid:
+        if authenticated:
             return None
 
         # Authentication failed
@@ -476,9 +446,9 @@ class RPCController(Controller):
 
         # Pass authenticated username to commands that need it
         if command_needs_username(command_class):
-            username = request.session.get("username")
-            if username:
-                prepared_args = (username, *prepared_args)
+            identity = current_identity(request)
+            if identity and identity.get("username"):
+                prepared_args = (identity["username"], *prepared_args)
 
         # Pass token information to commands that need it (e.g., logout)
         if command_needs_token_info(command_class):

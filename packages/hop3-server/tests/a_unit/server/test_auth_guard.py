@@ -2,14 +2,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for auth_guard's dual-credential acceptance.
+"""Tests for auth_guard's stateless credential acceptance.
 
-Regression: the guard used to accept ONLY a web session cookie. A
-token-only client (the CLI streaming deploy logs from
-``/api/stream/<id>``) therefore failed the guard, got redirected to
-``/auth/login`` by ``handle_401``, and — unable to follow the redirect —
-reported the deploy as an opaque stream failure. The guard must accept
-the same Bearer token ``/rpc`` accepts.
+The guard accepts the single signed JWT credential over either transport: the
+``hop3_auth`` cookie (dashboard) or an ``Authorization: Bearer`` header (CLI /
+API) — via ``current_identity``, with no server-side session.
+
+Regression: the guard once accepted ONLY a web session cookie, so a token-only
+client (the CLI streaming deploy logs from ``/api/stream/<id>``) failed the
+guard, got redirected to ``/auth/login`` by ``handle_401``, and — unable to
+follow the redirect — reported the deploy as an opaque stream failure. It must
+accept the same token ``/rpc`` accepts.
 """
 
 from __future__ import annotations
@@ -21,6 +24,7 @@ from litestar.exceptions import NotAuthorizedException
 
 from hop3.server import guards
 from hop3.server.guards import auth_guard
+from hop3.server.security.web_auth import AUTH_COOKIE, issue_web_token
 
 if TYPE_CHECKING:
     from litestar.connection import ASGIConnection
@@ -33,18 +37,20 @@ def _run_guard(conn: object) -> None:
 
 
 class _FakeConnection:
-    """Minimal ASGIConnection stand-in: just .headers and .session."""
+    """Minimal ASGIConnection stand-in: just .headers and .cookies.
+
+    Header lookup is case-insensitive in Litestar; the auth code reads
+    "authorization" lowercase, so a plain dict is enough here.
+    """
 
     def __init__(
         self,
         *,
-        session: dict | None = None,
         headers: dict | None = None,
+        cookies: dict | None = None,
     ) -> None:
-        self.session = session or {}
-        # Header lookup is case-insensitive in Litestar; the guard reads
-        # "authorization" lowercase, so a plain dict is enough here.
         self._headers = headers or {}
+        self.cookies = cookies or {}
 
     @property
     def headers(self):
@@ -53,93 +59,60 @@ class _FakeConnection:
 
 @pytest.fixture(autouse=True)
 def _force_safe_mode(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Ensure the guard exercises the real auth path (not the UNSAFE bypass)."""
+    """Exercise the real auth path (not the UNSAFE bypass) with a stable key."""
     monkeypatch.setattr(guards.config, "HOP3_UNSAFE", False)
+    monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-for-auth-guard")
 
 
-# ---- session-cookie path -------------------------------------------------
+# ---- cookie path (dashboard) --------------------------------------------
 
 
-def test_session_cookie_authenticates() -> None:
-    conn = _FakeConnection(session={"user_id": "alice"})
+def test_cookie_authenticates() -> None:
+    conn = _FakeConnection(cookies={AUTH_COOKIE: issue_web_token("alice")})
     _run_guard(conn)  # must not raise
 
 
-def test_no_credentials_rejected() -> None:
-    conn = _FakeConnection()
-    with pytest.raises(NotAuthorizedException):
-        _run_guard(conn)
+# ---- bearer-token path (CLI / API — the streaming-client regression) -----
 
 
-# ---- bearer-token path (the fix) ----------------------------------------
-
-
-def test_valid_bearer_token_authenticates(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        guards, "validate_token", lambda t: {"username": "bob", "scopes": ["admin"]}
+def test_valid_bearer_token_authenticates() -> None:
+    conn = _FakeConnection(
+        headers={"authorization": f"Bearer {issue_web_token('bob')}"}
     )
-    conn = _FakeConnection(headers={"authorization": "Bearer good-token"})
     _run_guard(conn)  # must not raise
 
 
-def test_bearer_scheme_is_case_insensitive(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(guards, "validate_token", lambda t: {"username": "bob"})
-    conn = _FakeConnection(headers={"authorization": "bearer good-token"})
+def test_bearer_scheme_is_case_insensitive() -> None:
+    conn = _FakeConnection(
+        headers={"authorization": f"bearer {issue_web_token('bob')}"}
+    )
     _run_guard(conn)  # must not raise
 
 
-def test_invalid_bearer_token_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(guards, "validate_token", lambda t: None)
-    conn = _FakeConnection(headers={"authorization": "Bearer bad-token"})
+def test_invalid_bearer_token_rejected() -> None:
+    conn = _FakeConnection(headers={"authorization": "Bearer not-a-jwt"})
     with pytest.raises(NotAuthorizedException):
         _run_guard(conn)
 
 
-def test_non_bearer_authorization_header_rejected(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # Basic-auth header must not be treated as a token, and validate_token
-    # must not even be consulted for it.
-    called = {"hit": False}
-
-    def _spy(_t):
-        called["hit"] = True
-        return {"username": "x"}
-
-    monkeypatch.setattr(guards, "validate_token", _spy)
+def test_non_bearer_authorization_header_rejected() -> None:
     conn = _FakeConnection(headers={"authorization": "Basic dXNlcjpwYXNz"})
     with pytest.raises(NotAuthorizedException):
         _run_guard(conn)
-    assert called["hit"] is False
 
 
-def test_session_cookie_wins_without_consulting_token(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A logged-in session short-circuits before token validation."""
-    called = {"hit": False}
-
-    def _spy(_t):
-        called["hit"] = True
-
-    monkeypatch.setattr(guards, "validate_token", _spy)
-    conn = _FakeConnection(
-        session={"user_id": "alice"},
-        headers={"authorization": "Bearer whatever"},
-    )
-    _run_guard(conn)
-    assert called["hit"] is False
+# ---- no credential -------------------------------------------------------
 
 
-def test_bearer_token_does_not_mutate_session(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The guard authorises without issuing a session (no surprise cookie
-    for a Bearer client)."""
-    monkeypatch.setattr(guards, "validate_token", lambda t: {"username": "bob"})
-    conn = _FakeConnection(headers={"authorization": "Bearer good-token"})
-    _run_guard(conn)
-    assert conn.session == {}
+def test_no_credentials_rejected() -> None:
+    with pytest.raises(NotAuthorizedException):
+        _run_guard(_FakeConnection())
+
+
+def test_garbage_cookie_rejected() -> None:
+    conn = _FakeConnection(cookies={AUTH_COOKIE: "tampered"})
+    with pytest.raises(NotAuthorizedException):
+        _run_guard(conn)
 
 
 # ---- unsafe-mode bypass --------------------------------------------------
@@ -147,5 +120,4 @@ def test_bearer_token_does_not_mutate_session(
 
 def test_unsafe_mode_skips_auth(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(guards.config, "HOP3_UNSAFE", True)
-    conn = _FakeConnection()  # no creds at all
-    _run_guard(conn)  # must not raise
+    _run_guard(_FakeConnection())  # no creds at all — must not raise

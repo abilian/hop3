@@ -296,6 +296,15 @@ The app catalog (titles, descriptions, icons) is **public by design**. No-auth G
 
 Two self-signed cert paths exist; both use 365-day validity. `packages/hop3-server/src/hop3/platform/certificates.py::generate_self_signed` covers the per-app cert path (RSA-4096); `packages/hop3-installer/src/hop3_installer/server_installer/ssl.py` (driven by `SSL_CERT_VALIDITY_DAYS` in `constants.py`) covers the system-level cert path used during install. Both fall back to self-signed only when ACME is unavailable; ACME-via-certbot is the documented production path. Documented in [ADR 011](./adrs/011-encryption.md).
 
+### 3.7 Cookie-authenticated routes and CSRF (known gap)
+
+Dashboard web auth is a signed JWT in an httponly `hop3_auth` cookie (`packages/hop3-server/src/hop3/server/security/web_auth.py`), `samesite=lax`. hop3-server has **no CSRF middleware** (it never did — the prior server-side-session design had the same posture). `lax` blocks the cookie on cross-site POSTs, so the genuinely dangerous mutations (app create/destroy, restart/stop/backup, catalog install) are POST and thus safe. Two pre-existing follow-ups remain (neither introduced by the stateless-cookie refactor):
+
+- **Logout is a `GET /auth/logout`** (`controllers/auth.py`) — a state-changing GET that `lax` still sends the cookie to, so it is CSRF-able (forced logout: low impact, idempotent, no data loss). Fix: make logout a POST (a small form/button in `base.html` instead of the `<a href>` links). Cheapest robust fix.
+- **`Secure` cookie over plain `http://`**: `auth_cookie` sets `secure=not HOP3_DEBUG`, so over `http://host:8000` (no admin domain / no TLS) the browser accepts the Set-Cookie but never returns it → login silently loops. Surface an operator-facing notice on `/auth/login` when the request arrived over http (don't let it loop silently — fail loud).
+
+The class-level fix (a CSRF/double-submit token for every cookie-authenticated mutating route) is a separate platform-hardening item. Note: the web cookie token and the CLI bearer token are the same credential (one credential, two transports) — a leaked dashboard cookie is a full programmatic admin token; future hardening could mint web tokens with a distinct scope.
+
 ---
 
 ## 4. Filing a real finding
