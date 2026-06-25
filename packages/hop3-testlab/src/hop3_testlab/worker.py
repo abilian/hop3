@@ -26,6 +26,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3_testing.selector.modes import get_mode_config
@@ -41,7 +42,6 @@ from hop3_testlab.selection import resolve_selection
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from pathlib import Path
 
     from hop3_testlab.cloud_config import CloudConfig
     from hop3_testlab.sources import Source
@@ -132,6 +132,52 @@ def _purge_known_host(host: str) -> None:
     the deploy's ssh then accepts the box's fresh key via ``accept-new``.
     """
     subprocess.run(["ssh-keygen", "-R", host], capture_output=True, check=False)
+
+
+_SSH_CONFIG_BEGIN = "# >>> hop3-testlab managed >>>"
+_SSH_CONFIG_END = "# <<< hop3-testlab managed <<<"
+
+
+def _configure_ssh_identity(host: str, ssh_key: str) -> None:
+    """Make the user's ``ssh`` use the credential key for ``host`` without ``-i``.
+
+    ``hop3-deploy`` (and the engine's ssh-binary calls) pass no identity, so they
+    fall back to the default key. On a server the runtime user has none and the
+    uploaded credential key is never wired in -> 'Permission denied (publickey)' at
+    target setup. Write an ``~/.ssh/config`` Host block (IdentityFile = the
+    credential key) so every ``ssh <user>@<host>`` picks it up, no deployer change.
+
+    The block is marker-delimited and rewritten each run, so it stays idempotent
+    (serial v1: one target at a time).
+    """
+    ssh_dir = Path.home() / ".ssh"
+    ssh_dir.mkdir(mode=0o700, exist_ok=True)
+    config = ssh_dir / "config"
+    block = (
+        f"{_SSH_CONFIG_BEGIN}\n"
+        f"Host {host}\n"
+        f"    IdentityFile {ssh_key}\n"
+        f"    IdentitiesOnly yes\n"
+        f"    StrictHostKeyChecking accept-new\n"
+        f"{_SSH_CONFIG_END}\n"
+    )
+    existing = config.read_text() if config.exists() else ""
+    config.write_text(_strip_managed_block(existing) + block)
+    config.chmod(0o600)
+
+
+def _strip_managed_block(text: str) -> str:
+    """Drop a previously written hop3-testlab block (keeps ``~/.ssh/config`` idempotent)."""
+    out: list[str] = []
+    skipping = False
+    for line in text.splitlines(keepends=True):
+        if line.strip() == _SSH_CONFIG_BEGIN:
+            skipping = True
+        if not skipping:
+            out.append(line)
+        if line.strip() == _SSH_CONFIG_END:
+            skipping = False
+    return "".join(out)
 
 
 def _wait_ssh_command_ready(
@@ -454,6 +500,16 @@ def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once;
     # ResultStore() default is the local SQLite file, which diverges from a
     # Postgres / custom STORE_TARGET and makes results silently invisible (#4).
     env["HOP3_TEST_RESULTS_DB"] = str(TestlabConfig.get_instance().STORE_TARGET)
+    # The engine `git init && git commit`s each test app for deploy; a server's
+    # runtime user has no git identity -> `git commit` exits 128. Provide one via
+    # git's standard env vars so the commit never depends on global config.
+    for key, value in {
+        "GIT_AUTHOR_NAME": "Hop3 Test Lab",
+        "GIT_AUTHOR_EMAIL": "testlab@hop3.local",
+        "GIT_COMMITTER_NAME": "Hop3 Test Lab",
+        "GIT_COMMITTER_EMAIL": "testlab@hop3.local",
+    }.items():
+        env.setdefault(key, value)
 
     if target_id in {"docker", ""}:
         if meta:
@@ -486,6 +542,10 @@ def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once;
 
     if ssh_key:
         env["HOP3_TEST_SSH_KEY"] = ssh_key
+        # hop3-deploy's ssh passes no -i, so point the user's ssh at the credential
+        # key for this host (else it falls back to a default key the server's runtime
+        # user doesn't have -> 'Permission denied (publickey)' at target setup).
+        _configure_ssh_identity(host, ssh_key)
     if meta:
         env["HOP3_TEST_META"] = json.dumps(meta)
     cmd = [
@@ -494,6 +554,10 @@ def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once;
         "--ssh",
         "--host",
         host,
+        # Pass the credential key explicitly: the engine's paramiko connect uses it
+        # as key_filename (env alone isn't read by the released CLI), and a server's
+        # runtime user has no default key/agent -> 'No authentication methods'.
+        *(["--ssh-key", ssh_key] if ssh_key else []),
         "--with",
         "all",
         *deploy,
