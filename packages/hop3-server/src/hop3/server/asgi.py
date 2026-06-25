@@ -2,9 +2,6 @@
 from __future__ import annotations
 
 import logging
-import os
-import secrets
-import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -12,17 +9,16 @@ from dishka.integrations.litestar import setup_dishka
 from litestar import Litestar, Request
 from litestar.exceptions import NotAuthorizedException
 from litestar.logging import LoggingConfig
-from litestar.middleware.session.server_side import ServerSideSessionConfig
 from litestar.plugins.jinja import JinjaTemplateEngine
 from litestar.response import Redirect
 from litestar.static_files import create_static_files_router
-from litestar.stores.memory import MemoryStore
 from litestar.template.config import TemplateConfig
 
 from hop3.config import HOP3_DEBUG
 from hop3.core.unsafe_gate import enforce_unsafe_mode_policy
 from hop3.di import create_async_container
 from hop3.orm import get_session_factory
+from hop3.server.security.web_auth import current_identity
 
 from .cert_renewal_service import (
     start_cert_renewal_service,
@@ -50,6 +46,7 @@ from .health import verify_addon_health
 from .state_sync import start_state_sync_service, stop_state_sync_service
 
 if TYPE_CHECKING:
+    from litestar.template import TemplateEngineProtocol
     from litestar.types import ControllerRouterHandler
 
 DEBUG = HOP3_DEBUG
@@ -115,22 +112,25 @@ def on_shutdown() -> None:
     stop_domain_health_service()
 
 
+def _register_template_callables(engine: TemplateEngineProtocol) -> None:
+    """Expose ``get_current_user()`` to templates.
+
+    Auth is a stateless signed cookie (no server-side session), so templates
+    resolve the current user by validating that cookie via ``current_identity``
+    rather than reading ``request.session``. Returns the identity dict (with
+    ``username``) or None.
+    """
+    engine.register_template_callable(
+        "get_current_user",
+        lambda context: current_identity(context["request"]),
+    )
+
+
 def create_app():
     """Create Litestar application with Dishka DI integration."""
     # Suppress tracebacks for expected HTTP exceptions (401, 404)
     litestar_logger = logging.getLogger("litestar")
     litestar_logger.addFilter(SuppressHTTPExceptionTraceback())
-
-    # Get session secret for middleware
-    session_secret = os.environ.get("HOP3_SESSION_SECRET")
-    if not session_secret:
-        session_secret = secrets.token_urlsafe(32)
-        if not DEBUG:
-            warnings.warn(
-                "HOP3_SESSION_SECRET not set. Using generated key. "
-                "Set HOP3_SESSION_SECRET environment variable for production.",
-                stacklevel=2,
-            )
 
     # Create Litestar app with all controllers
     # Using native Litestar session middleware (Phase 2 migration)
@@ -158,21 +158,17 @@ def create_app():
         static_handler,  # Static files (/static/*)
     ]
 
-    # Configure Litestar server-side session middleware
-    # Note: Session data is stored server-side in MemoryStore
-    # The secret is not needed since sessions are server-side
-    session_config = ServerSideSessionConfig(
-        max_age=1209600,  # 14 days in seconds
-        httponly=True,
-        secure=not DEBUG,  # Only use secure cookies in production
-        samesite="lax",
-    )
+    # Authentication is a stateless signed JWT cookie (see security/web_auth.py),
+    # so there is no session middleware and no server-side session store — which
+    # is exactly why a redeploy no longer logs everyone out.
 
-    # Configure template engine
+    # Configure template engine. `get_current_user()` lets templates resolve the
+    # logged-in user from the auth cookie (there is no request.session anymore).
     templates_dir = Path(__file__).parent / "templates"
     template_config = TemplateConfig(
         directory=templates_dir,
         engine=JinjaTemplateEngine,
+        engine_callback=_register_template_callables,
     )
 
     # Configure logging - disable Litestar's request logging since Uvicorn already logs requests
@@ -186,7 +182,6 @@ def create_app():
         configure_root_logger=False,  # Don't configure root logger
     )
 
-    # Create app with Litestar session middleware and memory store
     # Allow larger request bodies for deployment packages (default is 10MB)
     # Compiled binaries (Rust, Go) can be 50-100MB+
     # Note: type ignores are for ty's overly strict generic variance checking
@@ -194,10 +189,8 @@ def create_app():
     app = Litestar(
         route_handlers=route_handlers,
         debug=DEBUG,
-        middleware=[session_config.middleware],
         template_config=template_config,  # type: ignore[arg-type]
         logging_config=logging_config,
-        stores={"sessions": MemoryStore()},
         exception_handlers={  # type: ignore[arg-type]
             NotAuthorizedException: handle_401,
         },

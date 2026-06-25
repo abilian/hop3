@@ -1,6 +1,6 @@
 [project]
 name = "hop3-server"
-version = "0.6.0"
+version = "0.6.1"
 description = "Simple PaaS - Deploy and manage web applications on a single server"
 license = "Apache-2.0"
 authors = [

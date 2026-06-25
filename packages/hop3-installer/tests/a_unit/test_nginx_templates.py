@@ -18,6 +18,7 @@ from hop3_installer.nginx_templates import (
     generate_http_only_config,
     generate_https_redirect_config,
     generate_https_server_config,
+    is_fqdn,
 )
 
 
@@ -98,6 +99,65 @@ def test_full_ssl_config_accepts_valid():
     # Both blocks present, both reference the validated name.
     assert "server_name admin.example.com;" in out
     assert "ssl_certificate /etc/cert.pem;" in out
+
+
+class TestDefaultServer:
+    """The platform vhost may claim nginx's ``default_server`` so the control
+    plane owns the bare host / any unmatched Host (off by default — per-app
+    vhosts must never carry it)."""
+
+    def test_default_server_off_by_default(self):
+        assert "listen 80;" in generate_http_only_config("admin.example.com")
+        assert "default_server" not in generate_http_only_config("admin.example.com")
+
+    def test_http_only_default_server(self):
+        out = generate_http_only_config("admin.example.com", default_server=True)
+        assert "listen 80 default_server;" in out
+
+    def test_redirect_default_server(self):
+        out = generate_https_redirect_config("admin.example.com", default_server=True)
+        assert "listen 80 default_server;" in out
+
+    def test_https_server_default_server(self):
+        out = generate_https_server_config(
+            "admin.example.com",
+            ssl_cert="/c.pem",
+            ssl_key="/k.pem",
+            default_server=True,
+        )
+        assert "listen 443 ssl http2 default_server;" in out
+
+    def test_full_ssl_default_server_on_both_sockets(self):
+        out = generate_full_ssl_config(
+            "admin.example.com",
+            ssl_cert="/c.pem",
+            ssl_key="/k.pem",
+            default_server=True,
+        )
+        assert "listen 80 default_server;" in out
+        assert "listen 443 ssl http2 default_server;" in out
+
+    def test_full_ssl_no_default_server_by_default(self):
+        out = generate_full_ssl_config(
+            "admin.example.com", ssl_cert="/c.pem", ssl_key="/k.pem"
+        )
+        assert "default_server" not in out
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["example.com", "admin.example.com", "deep.sub.example.org", "abc.co"],
+)
+def test_is_fqdn_accepts_domains(value):
+    assert is_fqdn(value) is True
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["1.2.3.4", "192.168.0.1", "localhost", "_", "", "no-tld", "host name.com"],
+)
+def test_is_fqdn_rejects_non_domains(value):
+    assert is_fqdn(value) is False
 
 
 def test_underscore_wildcard_is_accepted():
