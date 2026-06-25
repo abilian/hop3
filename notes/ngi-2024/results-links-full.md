@@ -29,6 +29,8 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 
 - <https://git.sr.ht/~sfermigier/hop3/tree/main/apps/bad> — per-app `DEFERRED.md` notes documenting where an upstream app can't be Nix-built (each points at a platform gap)
 
+**M2.3 — Final "1.0"** — *carried to 0.7* (docs polish, CI, release notes).
+
 ## T3 — Security & Resilience
 
 **M3.1 — Backing services** — *PostgreSQL/MySQL/Redis/S3 shipped; full operational command set + resource limits & volumes added in 0.6; experimental email/SMTP relay addon added in 0.6* ✅
@@ -36,6 +38,16 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 - <https://hop3.cloud/guides/addons/> — guide: PostgreSQL, MySQL, Redis, S3/MinIO addons
 - <https://hop3.cloud/developers/adrs/046-declarative-app-resources/> — declarative `[[addons]]`, generated secrets/env, and (Phase 2) `[limits]` resource caps + volumes
 - <https://git.sr.ht/~sfermigier/hop3/tree/main/packages/hop3-server/src/hop3/plugins> — `postgresql/`, `mysql/`, `redis/`, `s3/`, `email/` plugins; 0.6 adds the `addon <type> <verb>` surface (query/diagnostics/clone/export-import/expose/promote/endpoint) and `hop3 tunnel`
+
+**M3.2 — Upgrades & data migrations** — *partial*
+
+- <https://git.sr.ht/~sfermigier/hop3/tree/main/packages/hop3-server/src/hop3/orm/alembic> — Alembic schema migrations; upgrade deploy path hardened in 0.6 (migrations run on upgrade, venv preserved). Production `hop3 upgrade` command planned for 0.7.
+
+**M3.3 — Backups** — *cross-server migration test automated*
+
+- <https://hop3.cloud/guides/backup-restore/> — backup/restore guide
+- <https://hop3.cloud/developers/adrs/024-backup-restore-system/> — backup & restore system (Final)
+- <https://git.sr.ht/~sfermigier/hop3/blob/main/packages/hop3-server/tests/c_e2e/test_backup_migration.py> — automated cross-server backup → restore test (backup on instance A, register and restore on instance B; plus negative-path cases)
 
 **M3.4 — Testing framework & infrastructure** ✅
 
@@ -47,6 +59,14 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 - CI on SourceHut: <https://builds.sr.ht/~sfermigier/hop3/commits>
 - Testlab demo: <https://testlab.hop3-dev.abilian.com/>
 
+**M3.5 — Firewalls (network + WAF)** — *network firewall Final; WAF compile slice merged, proxy slice in 0.7*
+
+- <https://hop3.cloud/developers/adrs/045-fixed-port-registry/> — exclusive host ports + firewall integration (Final)
+- <https://hop3.cloud/developers/adrs/050-waf-l7-lewaf/> — L7 WAF design (LeWAF engine, OWASP Core Rule Set; Coraza as a future alternative)
+- <https://hop3.cloud/developers/adrs/041-privileged-operations-agent/> — `hop3-rootd`, the kernel-boundary executor applying firewall/nginx changes
+- <https://hop3.cloud/developers/adrs/040-network-firewall-and-port-exposure/> — firewall/port-exposure design
+- <https://git.sr.ht/~sfermigier/hop3/tree/main/packages/hop3-server/src/hop3/waf> — WAF policy compiler + LeWAF engine (declarative `[waf]` → SecLang, compile-before-commit). *Proxy lifecycle + nginx integration land in 0.7.*
+
 **M3.6 — CLI (basic)** ✅
 
 - <https://hop3.cloud/reference/cli/> — full CLI reference (~120 commands, space-separated, `--app` model)
@@ -54,6 +74,28 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 - <https://hop3.cloud/developers/adrs/042-cli-context-model/> — servers & project contexts
 - <https://hop3.cloud/guides/cli-migration/> — migration from the old colon syntax
 - <https://git.sr.ht/~sfermigier/hop3/tree/main/packages/hop3-cli>
+
+**M3.7 — Web UI (basic)** — *review/polish in 0.7*
+
+- <https://git.sr.ht/~sfermigier/hop3/tree/main/packages/hop3-server/src/hop3/server/controllers/dashboard> — dashboard controllers
+- <https://git.sr.ht/~sfermigier/hop3/tree/main/packages/hop3-server/src/hop3/server/templates/dashboard> — 20 templates (app/addon/backup management, env editing, log viewing)
+
+**M3.8 — Security-audit & accessibility outcomes** — *external NGI review + accessibility scan pending*
+
+- <https://hop3.cloud/blog/posts/2026-05-security-audit/> — internal audit: findings and fixes (command-injection sweep, per-IP rate-limiting, RFC-7235 bearer matching, archive-extraction guards, configurable token lifetime)
+- <https://hop3.cloud/developers/adrs/048-server-config-and-secret-storage/> — secret storage
+- <https://hop3.cloud/developers/adrs/011-encryption/> — encryption posture
+
+## T4 — Packaged Applications
+
+**M4.1–M4.4 — 20 apps + experience reports** — *well past 20 configured & tested; standalone per-app reports being formatted; production-traffic deployments in progress*
+
+- <https://git.sr.ht/~sfermigier/hop3/tree/main/apps/real-apps-native> — 40 native-toolchain app configs
+- <https://git.sr.ht/~sfermigier/hop3/tree/main/apps/real-apps-nix> — 33 hand-crafted Nix apps
+- <https://git.sr.ht/~sfermigier/hop3/tree/main/apps/real-apps-nix-gen> — 30 template-generated Nix apps
+- <https://git.sr.ht/~sfermigier/hop3/tree/main/apps/real-apps-docker> — 52 Docker app configs
+- <https://hop3.cloud/guides/packaging-applications/> — how an app is described + tested
+- Coverage incl. WordPress, Gitea/Forgejo, Nextcloud, Matomo, Grafana, Mastodon, Matrix Synapse, Vaultwarden, BookStack, … each verified via `hop3-test`. Platform-gap findings captured per deferred app under `apps/bad/*/DEFERRED.md`.
 
 ## T5 — Dissemination & Engagement
 
@@ -65,8 +107,17 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 
 - <https://hop3.cloud/guides/> · <https://hop3.cloud/reference/> · <https://hop3.cloud/developers/> · <https://hop3.cloud/tutorials/> — and 51 published ADRs at <https://hop3.cloud/developers/adrs/>
 
+**M5.3 — Technical report / paper** — *≈75%; benchmarks pending*
+
+- <https://git.sr.ht/~sfermigier/hop3/blob/main/notes/reports/TR-01.md> — first interim technical report (draft)
+- <https://git.sr.ht/~sfermigier/hop3/blob/main/notes/reports/TR-02.md> — second interim technical report (draft)
+
 **M5.4 — Conference presentation / workshop** ✅
 
 - <https://hop3.cloud/blog/posts/2025-06-ow2con/> — Hop3 at OW2Con 2025
 - <https://hop3.cloud/blog/posts/2025-12-osxp/> — Hop3 at OSXP 2025
 - <https://hop3.cloud/blog/posts/2026-06-ow2con/> — Hop3 at OW2Con 2026
+
+**M5.6 — Videos / screencasts** — *not yet recorded*
+
+- <https://git.sr.ht/~sfermigier/hop3/tree/main/demos> — 36 scripted demos (walkthrough + screencast source + regression test) as the basis; two screencasts ("Zero to Running App", "Dashboard Tour") to follow.

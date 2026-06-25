@@ -9,7 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **One context model (BREAKING, ADR 042 second revision)**: the two nouns from 0.5 — credentialed *servers* and project *contexts* — are consolidated into a single managed noun. A *context* is now a deploy environment (dev / staging / prod) declared in the app's committed `hop3.toml` under `[contexts.<name>]` (a non-secret bundle of server address, app, domains, and env). The `hop3 server` command and the `servers.toml` file are removed; credentials are invisible plumbing. Bearer tokens move to a per-server credential store (`~/.config/hop3-cli/credentials.toml`, mode `0600`), and `config.toml` becomes secret-free — keeping only local preferences and an optional default-server pointer. Existing `config.toml` connections are migrated to the credential store on first run.
+- **The deploy host doubles as the admin domain**: `hop3-deploy --host h.example.com` now serves the Web UI at `https://h.example.com/` with no extra flag — when `--admin-domain` is omitted, the deploy host (if it's a real FQDN) becomes the admin hostname. An IP, `localhost`, or a Docker target keeps the previous behavior (Web UI on port 8000). Pass `--admin-domain` to use a different hostname.
+
+### Fixed
+
+- **Bare host no longer serves the wrong app**: the Hop3 control-plane nginx vhost now claims nginx's `default_server` (on Debian/Ubuntu), so a request to the bare deploy host — or any Host matching no app — reaches the Web UI instead of the default nginx page (port 80) or an arbitrary app's page with a mismatched certificate (port 443). The competing distro `default` site is removed whenever the platform vhost is (re)written, and a redeploy re-asserts it, self-healing older servers.
+- **Admin-domain TLS no longer fails on rootd hosts**: acme.sh's certificate-install step ran `sudo systemctl reload nginx` as the `hop3` user, which the `hop3-rootd` security model (ADR 041) deliberately strips — so the reload failed and aborted the whole cert install. The deploy now reloads nginx itself (as root) and judges success by the cert being on disk, not acme.sh's exit code.
+- **Self-signed placeholder upgrades to Let's Encrypt**: a previously-issued self-signed admin certificate is now replaced with a Let's Encrypt one once a usable `--acme-email` is supplied, instead of being cached forever; a real CA certificate is still never re-issued on every deploy. When a self-signed cert is used, the deploy now says *why* (e.g. no `--acme-email`) instead of silently falling back.
+- **Server learns its own admin domain**: `hop3-deploy` now records `ADMIN_DOMAIN` in `hop3-server.toml`, so the server emits `https://<domain>/…` magic links and `hop3 addon expose` URLs instead of bare tokens / `http://<host>:8000/…`.
+- **Dashboard login survives redeploys (stateless web auth)**: web authentication no longer uses a server-side session (which was wiped on every server restart, logging everyone out on each redeploy). The dashboard now authenticates with a signed JWT in an httponly cookie — the same credential the CLI uses, signed with the persistent server key — so it stays valid across restarts/redeploys with no server-side store, and web + CLI are unified on one credential.
+- **`HOP3_UNSAFE` production override now actually reaches the auth guards**: the safety interlock forced the bypass off in production by setting an env var, but the guards read an import-time snapshot that never saw the change — so the documented production backstop silently did nothing. The snapshot is now re-grounded to the enforced value. (The `HOP3_UNSAFE_ACK` requirement always blocked accidental activation; this closes the case where an operator set it deliberately and trusted the production override.)
+
+## [0.6.1] - 2026-06-24
+
+A consolidation release on top of 0.6.0: it simplifies the context model to a single noun, pins nixpkgs across every Nix recipe for reproducible builds, adds an experimental email/SMTP addon, and lands a broad round of test-lab, CI, and app-packaging fixes.
+
+### Added
+
+- **Experimental email / SMTP relay addon (M3.1)**: provision an outbound SMTP relay as an addon and have its settings injected into apps. Pulled forward from the 0.7 plan.
+- **Config-injection conventions (ADR 051)**: a documented contract for how Hop3 injects addon-derived settings (SMTP, and the like) into an app's environment; vikunja and monica now honor injected SMTP.
+- **`hop3 auth get-token`**: print the current bearer token. `hop3 login` and `hop3 auth login` are unified, and `login --web` is fixed.
+
+### Changed
+
+- **One context model (BREAKING, ADR 042)**: the two nouns from 0.5/0.6.0 — credentialed *servers* and project *contexts* — are consolidated into a single managed noun. A *context* is a deploy environment (dev / staging / prod) declared in the app's committed `hop3.toml` under `[contexts.<name>]` (a non-secret bundle of server address, app, domains, and env). `--context` is the single target selector; the `--server` flag, the `hop3 server` command, and the `servers.toml` file are removed. Credentials become invisible plumbing in a per-server credential store (`~/.config/hop3-cli/credentials.toml`, mode `0600`), and `config.toml` becomes secret-free — local preferences and an optional default-context pointer only. Existing `config.toml` connections are migrated to the credential store on first run.
+- **Reproducible Nix builds — nixpkgs pinned (M1/M2)**: the 33 hand-crafted `hop3.nix` expressions and the nix-gen template generator pin nixpkgs to a specific commit via `fetchTarball`, and the installer no longer relies on a mutable `nix-channel`. A build resolves the same toolchain regardless of the host's channel state.
+
+### Fixed
+
+- **`--context` resolution fails loud**: when a context can't be resolved, the CLI errors with the full resolution chain instead of silently falling back to a default server.
+- **Nix GC root retained across rebuilds**: the previous build's GC root is kept until the next rebuild, so a running worker's closure can't be garbage-collected mid-deploy.
+- **Elixir runtime env**: a hardcoded `[env]` value no longer clobbers the toolchain's `MIX_HOME` at runtime.
+- **Discourse**: assets are precompiled at build time so the container binds `$PORT` within the health-check window.
+- **Kanboard**: schema migrations run to completion before the app serves, so the readiness probe can't interrupt them mid-DDL.
+- **Addon `create`**: closed a generic-path edge that could report success when the addon was not created.
+- **Nix flake builds and the NixOS CI**: the `flake.nix` package definitions were repaired and the NixOS build pipeline re-enabled.
+- **App packaging**: archived Focalboard dropped from the advertised set; shlink/piwigo validations corrected; bugsink start-timeout raised; native Monica marked expects-failure (force-HTTPS can't be verified over plain HTTP).
+- **Test Lab reporting**: a completed run with failing tests is recorded as *failed*, not *crashed*; the run report shows the packaging variant instead of "other" and the demo name instead of "app"; dispatch runs off-thread with quieter scheduler logs; the queue view gains build number, created time, and a foldable detail.
 
 ### Security
 

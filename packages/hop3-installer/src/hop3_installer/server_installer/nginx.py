@@ -75,21 +75,29 @@ def setup_nginx(config: ServerInstallerConfig) -> None:
     # Determine server name
     server_name = config.domain or "_"
 
+    # Determine config path. Debian/Ubuntu: sites-available + sites-enabled
+    # symlink. Fedora/RHEL: conf.d (no sites-enabled).
+    nginx_config_path = Path("/etc/nginx/sites-available/hop3")
+    nginx_enabled_path: Path | None = Path("/etc/nginx/sites-enabled/hop3")
+    if not Path("/etc/nginx/sites-available").exists():
+        nginx_config_path = Path("/etc/nginx/conf.d/hop3.conf")
+        nginx_enabled_path = None
+
+    # Claim nginx's default_server so the bare host / any unmatched Host reaches
+    # the Hop3 control plane, not whichever app vhost nginx parsed first. Only
+    # safe on the sites-enabled (Debian) path, where we remove the distro's
+    # `default` site below; on RHEL/conf.d the stock nginx.conf already ships a
+    # `listen 80 default_server`, and a second one fails `nginx -t`. There we
+    # rely on an explicit server_name match instead.
+    use_default_server = nginx_enabled_path is not None
+
     # Generate nginx config
     nginx_config = generate_full_ssl_config(
         server_name=server_name,
         ssl_cert=str(SYSTEM_SSL_CERT),
         ssl_key=str(SYSTEM_SSL_KEY),
+        default_server=use_default_server,
     )
-
-    # Write config file
-    nginx_config_path = Path("/etc/nginx/sites-available/hop3")
-    nginx_enabled_path: Path | None = Path("/etc/nginx/sites-enabled/hop3")
-
-    # For Fedora/RHEL, use conf.d instead
-    if not Path("/etc/nginx/sites-available").exists():
-        nginx_config_path = Path("/etc/nginx/conf.d/hop3.conf")
-        nginx_enabled_path = None
 
     nginx_config_path.parent.mkdir(parents=True, exist_ok=True)
     nginx_config_path.write_text(nginx_config)

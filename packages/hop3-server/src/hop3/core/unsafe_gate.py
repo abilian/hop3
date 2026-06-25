@@ -23,9 +23,12 @@ This module enforces two interlocks called once at server startup:
    regardless of what the operator asked for, and the event is logged at
    CRITICAL. The server still starts, but with auth enabled.
 
-The consumers of ``config.HOP3_UNSAFE`` read from the live environment on
-every access, so overwriting ``os.environ["HOP3_UNSAFE"]`` here is
-sufficient — they see the sanitized value immediately.
+The auth guards read the module-level ``config.HOP3_UNSAFE`` constant, which is
+a snapshot taken at import time — NOT the live ``HopConfig`` property. So
+overwriting ``os.environ["HOP3_UNSAFE"]`` alone would never reach them (the
+production override would silently do nothing). This module therefore also
+re-grounds that snapshot to the sanitized value, so the enforcement points see
+the policy decision.
 """
 
 from __future__ import annotations
@@ -87,3 +90,11 @@ def enforce_unsafe_mode_policy() -> None:
             mode,
         )
         os.environ["HOP3_UNSAFE"] = "false"
+
+    # Re-ground the import-time snapshot (``config.HOP3_UNSAFE``) that the auth
+    # guards actually read, to the sanitized live value. Without this the
+    # production override above forces the env var but never reaches the
+    # enforcement points — a silent full-auth bypass.
+    import hop3.config as config_module  # noqa: PLC0415
+
+    config_module.HOP3_UNSAFE = config_module.config.HOP3_UNSAFE
