@@ -18,6 +18,9 @@ def isolated_db(tmp_path, monkeypatch):
     and the per-path session-factory cache is cleared around it.
     """
     monkeypatch.setenv("TESTLAB_DB_PATH", str(tmp_path / "test-results.db"))
+    # Per-app-instance data (keys, source clones, worktrees, artifacts) -> tmp, so
+    # tests never touch the developer's ~/.hop3/testlab.
+    monkeypatch.setenv("TESTLAB_DATA_DIR", str(tmp_path / "data"))
     # Bypass the auth guard by default (the auth tests opt back in). Mirrors
     # hop3-server's HOP3_UNSAFE test bypass.
     monkeypatch.setenv("TESTLAB_UNSAFE", "true")

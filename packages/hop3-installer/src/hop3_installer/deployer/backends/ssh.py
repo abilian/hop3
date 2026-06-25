@@ -43,11 +43,26 @@ class SSHDeployBackend(DeployBackend):
         """Verify SSH connectivity to the target."""
         result = self.run("echo 'SSH OK'", check=False)
         if not result.success:
+            self._report_setup_failure("SSH connectivity", result)
             return False
 
         # Check Python is available
         result = self.run("python3 --version", check=False)
-        return result.success
+        if not result.success:
+            self._report_setup_failure("python3 availability", result)
+            return False
+        return True
+
+    def _report_setup_failure(self, what: str, result: CommandResult) -> None:
+        """Print the real reason a setup check failed — fail loud, not a bare False.
+
+        ``StrictHostKeyChecking=accept-new`` rejects a *changed* host key (common
+        for ephemeral/rebuilt targets), so that message surfaces here for the
+        operator instead of being swallowed behind a generic "Failed to setup
+        deployment target".
+        """
+        detail = (result.stderr or result.stdout or "").strip() or "(no output)"
+        print(f"  ✗ {what} check failed for {self.config.ssh_target}:\n{detail}")
 
     def teardown(self) -> None:
         """No teardown needed for SSH."""

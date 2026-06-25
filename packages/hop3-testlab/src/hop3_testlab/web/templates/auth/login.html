@@ -5,6 +5,9 @@
 {% block content %}
 <div class="max-w-sm mx-auto mt-10">
   <h1 class="text-xl font-semibold mb-4">Sign in</h1>
+  {% if notice %}
+  <p class="mb-3 rounded bg-amber-100 text-amber-800 px-3 py-2 text-sm">{{ notice }}</p>
+  {% endif %}
   {% if error %}
   <p class="mb-3 rounded bg-red-100 text-red-800 px-3 py-2 text-sm">{{ error }}</p>
   {% endif %}

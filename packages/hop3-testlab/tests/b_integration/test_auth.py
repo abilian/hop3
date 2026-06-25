@@ -67,3 +67,33 @@ def test_health_is_public(monkeypatch):
     with TestClient(app=create_app()) as client:
         response = client.get("/health")
     assert response.status_code == 200
+
+
+def test_session_survives_a_restart(monkeypatch):
+    """Client-side sessions live (encrypted) in the cookie, so a logged-in session
+    stays valid across a process restart — a fresh app instance with the same
+    secret. The old in-memory store was wiped on every restart/redeploy, which
+    forced a re-login each time."""
+    monkeypatch.setenv("TESTLAB_UNSAFE", "false")
+    monkeypatch.setenv("TESTLAB_PASSWORD", "s3cret")
+    monkeypatch.setenv("TESTLAB_SECRET_KEY", "stable-secret-across-restarts")
+
+    # Log in against the first instance; capture the cookies it set.
+    with TestClient(app=create_app()) as client:
+        client.get("/auth/login")
+        token = client.cookies.get("csrftoken")
+        login = client.post(
+            "/auth/login",
+            data={"username": "admin", "password": "s3cret", "_csrf_token": token},
+            follow_redirects=False,
+        )
+        assert login.status_code == 303
+        cookies = dict(client.cookies)
+
+    # A brand-new app instance == a restart. The same session cookie must still
+    # authenticate: a guarded page returns 200, not a redirect to /auth/login.
+    with TestClient(app=create_app()) as restarted:
+        restarted.cookies.update(cookies)
+        page = restarted.get("/", follow_redirects=False)
+    assert page.status_code == 200
+    assert "Hop3 Test Lab" in page.text

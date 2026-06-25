@@ -139,14 +139,21 @@ def _quiet_apscheduler() -> None:
     logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
 
-def build_background_scheduler() -> BaseScheduler:
-    """A BackgroundScheduler with the nightly + dispatch jobs, ready to .start()."""
+def build_background_scheduler(*, nightly: bool = True) -> BaseScheduler:
+    """A BackgroundScheduler with the dispatch poll, ready to .start().
+
+    The dispatch poll is **always** added so UI-triggered builds actually run; the
+    nightly enqueue is added only when ``nightly`` (i.e. ``[schedule].enabled``).
+    """
     from apscheduler.schedulers.background import (  # noqa: PLC0415
         BackgroundScheduler,
     )
 
     _quiet_apscheduler()
-    return add_dispatch_job(add_nightly_job(BackgroundScheduler()))
+    scheduler = add_dispatch_job(BackgroundScheduler())
+    if nightly:
+        add_nightly_job(scheduler)
+    return scheduler
 
 
 def run_blocking() -> None:

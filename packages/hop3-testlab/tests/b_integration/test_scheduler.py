@@ -195,7 +195,25 @@ def test_serve_starts_and_stops_scheduler_when_enabled(monkeypatch):
 
 
 def test_serve_skips_scheduler_when_disabled(monkeypatch):
-    _clear(monkeypatch)  # enabled defaults to False
+    _clear(monkeypatch)  # enabled defaults to False (DEBUG/UNSAFE stay on in tests)
     app = create_app()
     with TestClient(app=app):
         assert getattr(app.state, "scheduler", None) is None
+
+
+def test_serve_runs_dispatcher_when_serving_for_real_even_with_nightly_off(monkeypatch):
+    """The bug: a UI-triggered build sat 'pending' forever because the dispatch poll
+    only ran when the nightly was enabled. In a real serve (not DEBUG/UNSAFE) the
+    scheduler must run the dispatch poll even with the nightly disabled — and add no
+    nightly job."""
+    _clear(monkeypatch)  # nightly disabled
+    monkeypatch.setenv("TESTLAB_DEBUG", "false")
+    monkeypatch.setenv("TESTLAB_UNSAFE", "false")
+    app = create_app()
+    with TestClient(app=app):
+        sched = app.state.scheduler
+        assert sched.running
+        job_ids = {job.id for job in sched.get_jobs()}
+        assert scheduler.DISPATCH_JOB_ID in job_ids  # the queue is drained
+        assert scheduler.NIGHTLY_JOB_ID not in job_ids  # but no auto-nightly
+    assert not app.state.scheduler.running

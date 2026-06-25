@@ -60,9 +60,43 @@ class TestlabConfig:
         return self.DATABASE_URI or str(self.DB_PATH)
 
     @property
+    def DATA_DIR(self) -> Path:
+        """Base directory for this app instance's own data — keys, source clones,
+        worktrees, artifacts.
+
+        Per-app-instance, not a shared dotfile: a server-resident deploy points
+        ``TESTLAB_DATA_DIR`` at ``/home/hop3/apps/<app>/data`` (see hop3.toml).
+        Defaults to ``~/.hop3/testlab`` for local/dev use. (The SQLite result store
+        is deliberately *not* here — it's shared with the engine; see ``DB_PATH``.)
+        """
+        default = Path.home() / ".hop3" / "testlab"
+        return Path(os.environ.get("TESTLAB_DATA_DIR", str(default)))
+
+    @property
     def ARTIFACT_DIR(self) -> Path:
-        default = Path.home() / ".hop3" / "testlab" / "artifacts"
-        return Path(os.environ.get("TESTLAB_ARTIFACT_DIR", str(default)))
+        return Path(
+            os.environ.get("TESTLAB_ARTIFACT_DIR", str(self.DATA_DIR / "artifacts"))
+        )
+
+    @property
+    def KEYS_DIR(self) -> Path:
+        """Directory where a credential's SSH private key is materialized (0600).
+
+        Credentials live in the DB, but the engine subprocess (paramiko) needs the
+        key as a *file path* — ``credentials.materialize_key`` writes it here and
+        ``load_cloud_config`` hands the path to the run as ``ssh_key_path``.
+        """
+        return Path(os.environ.get("TESTLAB_KEYS_DIR", str(self.DATA_DIR / "keys")))
+
+    @property
+    def SOURCES_DIR(self) -> Path:
+        """Per-source git clones (objects shared across refs)."""
+        return self.DATA_DIR / "sources"
+
+    @property
+    def WORKSPACES_DIR(self) -> Path:
+        """Per-ref checked-out worktrees the engine deploys from."""
+        return self.DATA_DIR / "workspaces"
 
     # --- Auth (v1: the Lab's own single admin credential, ADR 044 OQ#7) ------
     @property

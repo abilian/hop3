@@ -46,10 +46,10 @@ def _make_origin(tmp_path):
 
 
 @pytest.fixture
-def source(tmp_path, monkeypatch):
+def source(tmp_path):
+    # Source clones/worktrees go under config.DATA_DIR, which the conftest isolates
+    # to tmp_path/data — so this needs no path patching.
     origin, devel_sha = _make_origin(tmp_path)
-    monkeypatch.setattr(sources, "SOURCES_ROOT", tmp_path / "cache")
-    monkeypatch.setattr(sources, "WORKSPACES_ROOT", tmp_path / "ws")
     return sources.Source("repo", str(origin)), devel_sha
 
 

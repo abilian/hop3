@@ -35,4 +35,26 @@ def get_session_factory(target: str) -> sessionmaker:
     engine = make_store_engine(target)
     # The Lab's own tables live in the same store under their own Base (idempotent).
     TestlabBase.metadata.create_all(engine)
+    _widen_build_detail(engine)
     return sessionmaker(bind=engine)
+
+
+def _widen_build_detail(engine) -> None:
+    """Widen ``testlab_build_request.detail`` from varchar(500) to text on existing
+    Postgres deploys.
+
+    ``create_all`` never alters an existing column, so a deploy created before this
+    change keeps the 500-char cap that truncated build errors (and once overflowed,
+    crashing the recorder). SQLite ignores varchar length (TEXT affinity), so this
+    is a Postgres-only, idempotent, no-rewrite change. It runs here — before any
+    detail is written through the cached factory — so the column is already text by
+    the time the dispatcher records an outcome.
+    """
+    if engine.dialect.name != "postgresql":
+        return
+    from sqlalchemy import text  # noqa: PLC0415
+
+    with engine.begin() as conn:
+        conn.execute(
+            text("ALTER TABLE testlab_build_request ALTER COLUMN detail TYPE text")
+        )

@@ -63,15 +63,59 @@ def test_run_blockers_skip_resolver_for_per_app_and_docker(monkeypatch):
     assert worker.run_blockers("docker", None) is None  # docker: fresh container
 
 
-def test_rebuild_runs_and_waits_when_key_configured():
+def test_rebuild_purges_host_key_and_waits_for_ssh_command():
     manager = MagicMock()
     manager.wait_for_ssh_ready.return_value = True
-    with patch(
-        "hop3_testing.system_tests.hetzner.HetznerManager", return_value=manager
+    with (
+        patch("hop3_testing.system_tests.hetzner.HetznerManager", return_value=manager),
+        patch.object(worker, "_purge_known_host") as purge,
+        patch.object(worker, "_wait_ssh_command_ready", return_value=True) as ready,
     ):
-        worker._rebuild_blank_slate(_cfg("hop3-ci"))
+        worker._rebuild_blank_slate(_cfg("hop3-ci"), "203.0.113.7")
     manager.rebuild_server.assert_called_once()
-    manager.wait_for_ssh_ready.assert_called_once()
+    # The rebuild changed the box's host key -> drop the stale known_hosts entry,
+    # then confirm the ssh binary (what the deploy uses) actually answers.
+    purge.assert_called_once_with("203.0.113.7")
+    ready.assert_called_once()
+
+
+def test_rebuild_raises_if_ssh_command_never_ready():
+    manager = MagicMock()
+    manager.wait_for_ssh_ready.return_value = True  # paramiko ok...
+    with (
+        patch("hop3_testing.system_tests.hetzner.HetznerManager", return_value=manager),
+        patch.object(worker, "_purge_known_host"),
+        patch.object(worker, "_wait_ssh_command_ready", return_value=False),  # ...but ssh isn't
+        pytest.raises(RuntimeError, match="never answered"),
+    ):
+        worker._rebuild_blank_slate(_cfg("hop3-ci"), "203.0.113.7")
+
+
+def test_purge_known_host_runs_ssh_keygen_remove():
+    with patch("hop3_testlab.worker.subprocess.run") as run:
+        worker._purge_known_host("203.0.113.7")
+    run.assert_called_once()
+    assert run.call_args[0][0] == ["ssh-keygen", "-R", "203.0.113.7"]
+
+
+def test_wait_ssh_command_ready_retries_then_succeeds(monkeypatch):
+    from types import SimpleNamespace
+
+    results = [SimpleNamespace(returncode=255), SimpleNamespace(returncode=0)]
+    with patch("hop3_testlab.worker.subprocess.run", side_effect=results) as run:
+        ok = worker._wait_ssh_command_ready("203.0.113.7", "/k", attempts=3, delay=0)
+    assert ok is True
+    assert run.call_count == 2
+    cmd = run.call_args[0][0]
+    assert cmd[0] == "ssh"
+    assert cmd[cmd.index("-i") + 1] == "/k"  # uses the credential's key
+    assert cmd[-2] == "root@203.0.113.7"  # connects as the deploy does
+
+
+def test_wait_ssh_command_ready_gives_up():
+    fail = type("R", (), {"returncode": 255})()
+    with patch("hop3_testlab.worker.subprocess.run", return_value=fail):
+        assert worker._wait_ssh_command_ready("h", None, attempts=2, delay=0) is False
 
 
 def test_rebuild_raises_if_ssh_never_ready():
@@ -81,14 +125,14 @@ def test_rebuild_raises_if_ssh_never_ready():
         patch("hop3_testing.system_tests.hetzner.HetznerManager", return_value=manager),
         pytest.raises(RuntimeError),
     ):
-        worker._rebuild_blank_slate(_cfg("hop3-ci"))
+        worker._rebuild_blank_slate(_cfg("hop3-ci"), "203.0.113.7")
 
 
 def _wire(monkeypatch, calls):
     monkeypatch.setattr(worker, "_resolve_run_target", lambda t: ("1.2.3.4", None, {}))
     monkeypatch.setattr(worker, "load_cloud_config", lambda: _cfg("hop3-ci"))
     monkeypatch.setattr(
-        worker, "_rebuild_blank_slate", lambda cfg: calls.append("rebuild")
+        worker, "_rebuild_blank_slate", lambda cfg, host: calls.append("rebuild")
     )
     monkeypatch.setattr(worker, "_run_engine", lambda *a, **k: calls.append("engine"))
 
@@ -131,7 +175,7 @@ def test_other_ssh_host_does_not_rebuild(monkeypatch):
 def test_docker_target_does_not_rebuild(monkeypatch):
     calls: list[str] = []
     monkeypatch.setattr(
-        worker, "_rebuild_blank_slate", lambda cfg: calls.append("rebuild")
+        worker, "_rebuild_blank_slate", lambda cfg, host: calls.append("rebuild")
     )
     monkeypatch.setattr(worker, "_run_engine", lambda *a, **k: calls.append("engine"))
     worker._default_executor("docker", "nightly", apps=None, blank_slate=True)

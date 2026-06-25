@@ -181,3 +181,41 @@ def test_profile_create_rejects_unsafe_source_url():
         assert r.status_code == 400  # ValidationException
     with _session() as s:
         assert ProfilesRepository(s).list_all() == []  # nothing created
+
+
+def test_queue_log_view_renders_the_engine_log():
+    """A build's engine log is fetched from disk and shown in the UI — not left as a
+    'diagnostics saved to <path>' pointer the user can't reach."""
+    with _session() as s:
+        p = ProfilesRepository(s).create(
+            name="p-log", source_name="m", source_url="u", source_ref="main", selection={}
+        )
+        rid = BuildQueueRepository(s).enqueue(p.id).id
+        BuildQueueRepository(s).mark(rid, "failed", detail="setup failed")
+        s.commit()
+
+    # The worker writes the engine log under DATA_DIR/logs (conftest isolates -> tmp).
+    logs = TestlabConfig.get_instance().DATA_DIR / "logs"
+    logs.mkdir(parents=True, exist_ok=True)
+    (logs / f"build-{rid}-20260101T000000Z.log").write_text(
+        "ENGINE OUTPUT\n✗ Failed to setup deployment target\n"
+        "Host key verification failed.\n"
+    )
+
+    with TestClient(app=create_app()) as client:
+        page = client.get(f"/queue/{rid}/log").text
+        assert "Host key verification failed." in page  # the full log, in the UI
+        assert f"/queue/{rid}/log" in client.get("/queue").text  # listing links to it
+
+
+def test_queue_log_view_handles_missing_log():
+    with _session() as s:
+        p = ProfilesRepository(s).create(
+            name="p-nolog", source_name="m", source_url="u", source_ref="main", selection={}
+        )
+        rid = BuildQueueRepository(s).enqueue(p.id).id
+        s.commit()
+    with TestClient(app=create_app()) as client:
+        r = client.get(f"/queue/{rid}/log")
+    assert r.status_code == 200
+    assert "No engine log" in r.text

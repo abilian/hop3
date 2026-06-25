@@ -24,6 +24,8 @@ from pathlib import Path
 import tomllib
 from hop3_testing.system_tests.config import HetznerConfig
 
+from hop3_testlab.config import TestlabConfig
+
 
 @dataclass(frozen=True)
 class CloudConfig:
@@ -69,19 +71,55 @@ def _discover() -> Path | None:
     return None
 
 
+def _db_hetzner() -> tuple[dict, str | None] | None:
+    """The active Hetzner credential from the DB as ``(hetzner_dict, ssh_key_path)``.
+
+    Returns ``None`` when there's no credential row, so ``load_cloud_config`` falls
+    back to the file/env chain (the path manual ``hop3-test`` still uses). Imports
+    are local: the worker imports this module early and the DB stack is heavy.
+    """
+    from hop3_testlab.credentials import materialize_key  # noqa: PLC0415
+    from hop3_testlab.db import get_session_factory  # noqa: PLC0415
+    from hop3_testlab.repositories import CredentialsRepository  # noqa: PLC0415
+
+    factory = get_session_factory(TestlabConfig.get_instance().STORE_TARGET)
+    with factory() as session:
+        cred = CredentialsRepository(session).active("hetzner")
+        if cred is None:
+            return None
+        data = {
+            "api_token": cred.api_token,
+            "server_id": cred.server_id or "",
+            "image": cred.image,
+            "ssh_key_name": cred.ssh_key_name,
+        }
+        key = materialize_key(cred.name, cred.private_key)
+    return data, (str(key) if key else None)
+
+
 def load_cloud_config(path: Path | None = None) -> CloudConfig:
-    """Load cloud config from ``path`` (or the discovered file), then env."""
-    data = _load_data(path)
+    """Resolve cloud config: the active DB credential wins, else config.toml → env.
 
+    A server-resident Lab is configured via the dashboard (DB credentials). With no
+    credential row — e.g. manual ``hop3-test`` on a laptop — it falls back to the
+    discovered file then env, unchanged.
+    """
     env = dict(os.environ)
-    # HetznerConfig.from_dict already resolves $refs and falls back to env for
-    # api_token / server_id, so the file→env→default chain is reused.
-    hetzner = HetznerConfig.from_dict(data.get("hetzner", {}), env)
-
-    ssh = data.get("ssh", {})
-    key_path = _resolve_ref(str(ssh.get("key_path", "")), env) or env.get(
-        "HOP3_TEST_SSH_KEY", ""
-    )
+    db = _db_hetzner()
+    if db is not None:
+        hetzner_data, key_path = db
+        hetzner = HetznerConfig.from_dict(hetzner_data, env)
+    else:
+        data = _load_data(path)
+        # HetznerConfig.from_dict resolves $refs and falls back to env for
+        # api_token / server_id, so the file→env→default chain is reused.
+        hetzner = HetznerConfig.from_dict(data.get("hetzner", {}), env)
+        ssh = data.get("ssh", {})
+        key_path = (
+            _resolve_ref(str(ssh.get("key_path", "")), env)
+            or env.get("HOP3_TEST_SSH_KEY", "")
+            or None
+        )
 
     return CloudConfig(
         hetzner_token=hetzner.api_token,

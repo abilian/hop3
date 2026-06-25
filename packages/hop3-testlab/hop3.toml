@@ -16,6 +16,9 @@ start = "uvicorn hop3_testlab.web.asgi:app --host 0.0.0.0 --port $PORT --log-lev
 [env]
 TESTLAB_DEBUG = "false"
 TESTLAB_UNSAFE = "false"   # never bypass auth in production
+# Per-app-instance data (uploaded SSH keys, source clones, worktrees, artifacts)
+# lives under the app's own data dir, not a shared ~/.hop3 dotfile.
+TESTLAB_DATA_DIR = "/home/hop3/apps/hop3-testlab/data"
 
 [[addons]]
 type = "postgres"
