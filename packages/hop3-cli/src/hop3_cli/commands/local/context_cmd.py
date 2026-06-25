@@ -74,7 +74,7 @@ def handle_context(args: list[str], config: Config, printer: RichPrinter) -> Non
     elif subcommand == "show":
         context_show(sub_args, config)
     elif subcommand == "use":
-        context_use(sub_args)
+        context_use(sub_args, config)
     elif subcommand == "add":
         context_add(sub_args, config)
     elif subcommand == "remove":
@@ -494,7 +494,7 @@ def context_rename(args: list[str]) -> None:
 # --------------------------------------------------------------------------
 
 
-def context_use(args: list[str]) -> None:
+def context_use(args: list[str], config: Config) -> None:
     """Pin a context for this checkout via .hop3-local.toml (not committed)."""
     if "--global" in args or "-g" in args:
         print(
@@ -514,6 +514,19 @@ def context_use(args: list[str]) -> None:
     path = _require_project_toml()
     contexts = _read_contexts(path)
     if name not in contexts:
+        # The name may be a GLOBAL context (config.toml). `use` only pins
+        # PROJECT contexts (ADR 042), so don't dead-end on the project file —
+        # name the global context and point at the mechanism that applies to it.
+        if config.get_context_server(name):
+            print(
+                f"Context {name!r} is a global context, but `hop3 context use` "
+                f"only pins PROJECT contexts for this checkout (.hop3-local.toml).\n"
+                f"To make {name!r} your default target, log in naming it "
+                f"(`hop3 login --context {name}`), or select it per-command with "
+                f"`--context {name}`.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
         print(f"Context {name!r} not found in {path}.", file=sys.stderr)
         if contexts:
             print(f"\nDeclared: {', '.join(sorted(contexts))}")
