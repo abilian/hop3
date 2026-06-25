@@ -35,3 +35,15 @@ def test_setup_succeeds_when_checks_pass(monkeypatch):
     backend = SSHDeployBackend(DeployConfig(host="198.51.100.9"))
     monkeypatch.setattr(backend, "run", lambda *a, **k: CommandResult(returncode=0))
     assert backend.setup() is True
+
+
+def test_ssh_key_is_passed_as_identity():
+    # A server-resident runtime user has no default key, so the deploy must use the
+    # explicit credential key (-i) — else 'Permission denied (publickey)'.
+    backend = SSHDeployBackend(DeployConfig(host="h", ssh_key="/data/keys/k.key"))
+    assert backend._ssh_opts[backend._ssh_opts.index("-i") + 1] == "/data/keys/k.key"
+
+
+def test_no_ssh_key_uses_default_identity():
+    backend = SSHDeployBackend(DeployConfig(host="h"))
+    assert "-i" not in backend._ssh_opts

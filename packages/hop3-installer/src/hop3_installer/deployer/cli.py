@@ -98,6 +98,11 @@ Examples:
         default=DEFAULT_SSH_USER,
         help=f"SSH user (default: {DEFAULT_SSH_USER})",
     )
+    target.add_argument(
+        "--ssh-key",
+        "-i",
+        help="Path to the SSH private key for the deploy (default: ssh's own identity)",
+    )
 
     # Installation options
     install = parser.add_argument_group("Installation")
@@ -247,6 +252,8 @@ def _apply_target_overrides(config: DeployConfig, args: argparse.Namespace) -> N
         config.docker_container = args.docker_container
     if args.ssh_user != DEFAULT_SSH_USER:
         config.ssh_user = args.ssh_user
+    if args.ssh_key:
+        config.ssh_key = args.ssh_key
 
 
 def _apply_install_overrides(config: DeployConfig, args: argparse.Namespace) -> None:
