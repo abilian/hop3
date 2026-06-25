@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center justify-between mb-3">
+  <h1 class="text-lg font-semibold">Build #{{ request_id }} — engine log{% if status %} <span class="text-sm text-gray-500">({{ status }})</span>{% endif %}</h1>
+  <a href="/queue" class="text-sm text-blue-700 hover:underline">← back to queue</a>
+</div>
+{% if log %}
+<pre class="text-xs bg-gray-900 text-gray-100 rounded p-3 overflow-auto whitespace-pre-wrap break-words" style="max-height: 75vh">{{ log }}</pre>
+{% else %}
+<p class="text-sm text-amber-700">No engine log for this build yet (it may be pending, cancelled, or from before logs were stored under the app data dir).</p>
+{% endif %}
+{% endblock %}

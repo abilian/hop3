@@ -38,12 +38,14 @@
         </details>
         {% else %}—{% endif %}
       </td>
-      <td class="px-3 py-2 text-right">
+      <td class="px-3 py-2 text-right whitespace-nowrap">
         {% if b.status == "pending" %}
         <form method="post" action="/queue/{{ b.id }}/cancel" class="inline">
           <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <button class="text-red-700 hover:underline">cancel</button>
         </form>
+        {% elif b.status != "cancelled" %}
+        <a href="/queue/{{ b.id }}/log" class="text-blue-700 hover:underline">log</a>
         {% endif %}
       </td>
     </tr>

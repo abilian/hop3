@@ -148,9 +148,11 @@ def _run_claim(
     return DONE, None
 
 
-# BuildRequest.detail is String(500); keep the breadcrumb under it (the full
-# failed-test list lives on the run the dashboard links to).
-_DETAIL_MAX = 480
+# BuildRequest.detail is now Text, so this is just a sanity backstop against a
+# pathological dump — generous enough that a real deploy/crash summary (the
+# engine's ~25-line failure tail) is stored whole instead of truncated mid-error.
+# The full output always lives in the engine log the detail points to.
+_DETAIL_MAX = 6000
 
 
 def _classify_engine_exit(
@@ -203,13 +205,30 @@ def _failed_detail(failed: list[str], total: int) -> str:
     return detail[: _DETAIL_MAX - 1] + "…"
 
 
+def _cap_detail(detail: str | None) -> str | None:
+    """Bound a detail to the column width so recording an outcome can never
+    overflow ``BuildRequest.detail`` (varchar 500).
+
+    A crash detail (the engine-log tail) once exceeded it and threw
+    ``StringDataRightTruncation`` *inside* ``_record`` — killing the dispatch
+    thread, leaving the build wedged, which the orphan sweep then mislabelled as
+    "dispatcher restarted while running". The full text lives in the engine log
+    the detail points to, so truncating the stored summary loses nothing.
+    """
+    if detail is None or len(detail) <= _DETAIL_MAX:
+        return detail
+    return detail[: _DETAIL_MAX - 1] + "…"
+
+
 def _record(
     factory: sessionmaker, request_id: int, status: str, detail: str | None
 ) -> None:
     """Stamp the build's outcome (its own short session)."""
     session = factory()
     try:
-        fields: dict = {"detail": detail}
+        # Cap centrally: every outcome write goes through here, so no caller (the
+        # crash path returns an uncapped str(exc)) can overflow the detail column.
+        fields: dict = {"detail": _cap_detail(detail)}
         if status == QUEUED:
             fields["server_target_id"] = None  # release it for the next pick
         else:

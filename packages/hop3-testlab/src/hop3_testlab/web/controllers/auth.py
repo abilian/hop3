@@ -26,8 +26,17 @@ class AuthController(Controller):
     path = "/auth"
 
     @get("/login", sync_to_thread=False)
-    def login_form(self) -> Template:
-        return Template(template_name="auth/login.html", context={"title": "Sign in"})
+    def login_form(self, request: Request) -> Template:
+        # ``?retry=1`` lands here after the CSRF handler cleared a wedged token.
+        notice = (
+            "Your session expired — please sign in again."
+            if request.query_params.get("retry")
+            else None
+        )
+        return Template(
+            template_name="auth/login.html",
+            context={"title": "Sign in", "notice": notice},
+        )
 
     @post("/login", sync_to_thread=False)
     def login(self, data: _FORM, request: Request) -> Template | Redirect:

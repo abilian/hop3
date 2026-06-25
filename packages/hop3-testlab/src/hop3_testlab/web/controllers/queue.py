@@ -20,11 +20,31 @@ from litestar.params import (
 from litestar.response import Redirect, Template
 from litestar.status_codes import HTTP_303_SEE_OTHER
 
+from hop3_testlab.config import TestlabConfig
 from hop3_testlab.repositories import (  # noqa: TC001 -- runtime: @inject resolves them
     BuildQueueRepository,
     ProfilesRepository,
 )
 from hop3_testlab.web.guards import auth_guard
+
+_LOG_MAX_BYTES = 200_000
+
+
+def _build_log_text(request_id: int) -> str | None:
+    """The engine run log for build N (the full ``hop3-test`` output), read from the
+    app data dir (``DATA_DIR/logs/build-<id>-*.log``, newest match).
+
+    Tail-capped so a huge log doesn't blow up the page; the file on disk keeps it
+    all. Returns None when no log exists yet (pending/cancelled, or pre-move runs).
+    """
+    log_dir = TestlabConfig.get_instance().DATA_DIR / "logs"
+    matches = sorted(log_dir.glob(f"build-{request_id}-*.log"))
+    if not matches:
+        return None
+    text = matches[-1].read_text(encoding="utf-8", errors="replace")
+    if len(text) > _LOG_MAX_BYTES:
+        return "… (truncated; full log on the server) …\n" + text[-_LOG_MAX_BYTES:]
+    return text
 
 
 class QueueController(Controller):
@@ -56,6 +76,24 @@ class QueueController(Controller):
         return Template(
             template_name="queue/index.html",
             context={"title": "Queue", "builds": builds},
+        )
+
+    @get("/{request_id:int}/log")
+    @inject
+    async def log(
+        self, request_id: FromPath[int], queue: FromDishka[BuildQueueRepository]
+    ) -> Template:
+        """The build's engine log, fetched from disk and shown in the UI — so a
+        failure is readable here instead of a 'diagnostics saved to <path>' pointer."""
+        build = queue.get(request_id)
+        return Template(
+            template_name="queue/log.html",
+            context={
+                "title": f"Build #{request_id} log",
+                "request_id": request_id,
+                "status": build.status if build else None,
+                "log": _build_log_text(request_id),
+            },
         )
 
     @post("/{request_id:int}/cancel")

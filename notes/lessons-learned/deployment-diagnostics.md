@@ -149,3 +149,24 @@ When a deploy fails, gather and display (in order):
 3. **Runtime hints** (uWSGI config path, Docker logs command, etc.)
 4. **Timeout suggestion** (`start-timeout = 120` in hop3.toml)
 5. **Full logs command** (`hop3 logs --app <app>` for the complete output)
+
+## Verify the running process — "stored" ≠ "what the process sees"
+
+**Updated 2026-06-25.** When debugging "I changed config X but the app behaves as if I didn't", the question is never what's *stored* — it's what the *live process* sees. `hop3 env show` lists the stored config; it does **not** prove the running worker has it. The definitive check is the process's own environment:
+
+```bash
+ssh root@<host> 'tr "\0" "\n" < /proc/$(pgrep -f "uvicorn <app>")/environ | grep <VAR>'
+```
+
+Confirmed finding worth keeping: **`hop3 env set` + `hop3 app restart` *does* re-bake env into the uWSGI daemon command** (the `sh -c "export VAR=...; exec uvicorn ..."` that uWSGI runs in no-workers mode) and recycles the process — so for this platform, stored == live after a restart. (See [`uwsgi-daemon-management.md`](./uwsgi-daemon-management.md) for the attach-daemon env mechanism.)
+
+The meta-lesson is sharper than the finding: **the moment your own evidence contradicts a hypothesis, drop the hypothesis — don't leave a hedge standing.** During this exact bug I floated "a restart may not re-bake the env" *after* having already shown the new password worked at login (which only happens if the running process sees it). The user's correction — "don't guess, verify" — was right: read `/proc/<pid>/environ`, settle it, move on. A plausible-sounding maybe, left next to evidence that disproves it, is worse than silence.
+
+## A queued user action that nothing advances is a silent failure
+
+**Updated 2026-06-25.** In hop3-testlab, the queue-drain (the dispatch poll that runs UI-triggered builds) was bundled into the **nightly scheduler**, which only starts when `[schedule].enabled`. On a server with the nightly off, a build the user explicitly clicked "Start" on sat `pending` **forever** — nothing would ever pick it up, and nothing said so.
+
+Two rules:
+
+- **A user-initiated action must not be gated behind an unrelated background-feature toggle.** Clicking "Start" enqueued the work; whether the *nightly cron* is enabled is irrelevant to whether that manual build runs. Decouple them: the dispatcher runs whenever the app serves for real; only the nightly *enqueue* is gated.
+- **A `pending`/`queued` state that nothing can advance is a silent lie** (CLAUDE.md "fail loud"). Either make it run, or surface *why* it can't (no worker, no credentials, no free target) where the user looks — never leave it sitting with a `—` detail.

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -78,6 +78,31 @@ class Server(Base):
     )
 
 
+class Credential(Base):
+    """A cloud-provider credential the worker uses to reach run targets.
+
+    Secrets (``api_token``, ``private_key``) live here in the DB like other
+    app-level secrets — redacted wherever displayed. ``load_cloud_config``
+    resolves the active credential of a ``kind`` and materializes ``private_key``
+    to a 0600 file for the engine subprocess. Several providers/accounts = several
+    rows; a ``Server`` row will pick a specific one in a later slice.
+    """
+
+    __tablename__ = "testlab_credential"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    kind: Mapped[str] = mapped_column(String(40))  # hetzner | ...
+    api_token: Mapped[str] = mapped_column(Text)
+    server_id: Mapped[int | None] = mapped_column(Integer, default=None)
+    image: Mapped[str] = mapped_column(String(120), default="ubuntu-24.04")
+    ssh_key_name: Mapped[str | None] = mapped_column(String(200), default=None)
+    private_key: Mapped[str | None] = mapped_column(Text, default=None)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow
+    )
+
+
 class BuildRequest(Base):
     """A queued build. Start-build enqueues one (no target); the dispatcher
     assigns a free pool server and records the resulting run."""
@@ -93,7 +118,10 @@ class BuildRequest(Base):
     run_uid: Mapped[str | None] = mapped_column(String(120), default=None)
     actor: Mapped[str | None] = mapped_column(String(120), default=None)
     # Failure reason / breadcrumb — fail loud, never silently drop a request.
-    detail: Mapped[str | None] = mapped_column(String(500), default=None)
+    # Text, not String(500): a real deploy/crash reason runs to many lines and was
+    # being truncated mid-error (and once overflowed varchar(500), crashing the
+    # recorder). Existing Postgres deploys are widened by db._widen_build_detail.
+    detail: Mapped[str | None] = mapped_column(Text, default=None)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, index=True
     )

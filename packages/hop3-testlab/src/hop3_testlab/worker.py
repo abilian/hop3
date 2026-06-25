@@ -26,7 +26,6 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from importlib.metadata import PackageNotFoundError, version
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3_testing.selector.modes import get_mode_config
@@ -42,6 +41,7 @@ from hop3_testlab.selection import resolve_selection
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from pathlib import Path
 
     from hop3_testlab.cloud_config import CloudConfig
     from hop3_testlab.sources import Source
@@ -86,7 +86,7 @@ def _resolve_hetzner_ssh_key(cfg: CloudConfig) -> None:
     _hetzner_manager(cfg).resolve_ssh_key()
 
 
-def _rebuild_blank_slate(cfg: CloudConfig) -> None:
+def _rebuild_blank_slate(cfg: CloudConfig, host: str) -> None:
     """Rebuild the Hetzner server to a fresh OS before a full-suite run.
 
     This is what makes runs reproducible: each run starts from an identical,
@@ -105,7 +105,62 @@ def _rebuild_blank_slate(cfg: CloudConfig) -> None:
     if not manager.wait_for_ssh_ready(timeout=300):
         msg = "Blank-slate rebuild: SSH never became ready after rebuild"
         raise RuntimeError(msg)
+    # The rebuild reinstalls the OS, so the box now presents a NEW SSH host key on
+    # the same IP. The deployer's ssh uses StrictHostKeyChecking=accept-new, which
+    # REFUSES a *changed* key — a stale known_hosts entry from a prior run would
+    # fail every rebuild-then-deploy with host-key verification. Drop it so the
+    # fresh key is accepted (we purge because *we* changed the key, not blindly).
+    _purge_known_host(host)
+    # paramiko said ready, but the ssh *binary* the deployer uses can still be
+    # refused for a few seconds while a freshly-rebuilt box finishes booting.
+    # Confirm with the same tool the deploy uses (accept-new also records the fresh
+    # host key here), so the deploy starts against a genuinely ready target instead
+    # of failing target setup with no usable error.
+    if not _wait_ssh_command_ready(host, cfg.ssh_key_path):
+        msg = (
+            f"Blank-slate rebuild: ssh to {host} never answered after the rebuild "
+            "(the deploy's target-setup check would fail)."
+        )
+        raise RuntimeError(msg)
     print("[blank-slate] server rebuilt; SSH ready")
+
+
+def _purge_known_host(host: str) -> None:
+    """Remove ``host`` from SSH ``known_hosts`` (its key changed after a rebuild).
+
+    ``ssh-keygen -R`` is a no-op when the entry is absent, so it's safe to call;
+    the deploy's ssh then accepts the box's fresh key via ``accept-new``.
+    """
+    subprocess.run(["ssh-keygen", "-R", host], capture_output=True, check=False)
+
+
+def _wait_ssh_command_ready(
+    host: str, ssh_key: str | None, *, attempts: int = 10, delay: float = 6.0
+) -> bool:
+    """Poll the box with the ``ssh`` binary — what the deployer uses — until it
+    answers, or give up.
+
+    paramiko's ``wait_for_ssh_ready`` can pass while a freshly-rebuilt box still
+    refuses the ``ssh``-binary connectivity check the deployer runs moments later
+    (sshd bouncing as boot finalises). Retrying that exact check makes the deploy
+    start against a genuinely ready target; the accept-new connection also records
+    the box's fresh host key, so the deploy's own ssh connects cleanly.
+    """
+    cmd = [
+        "ssh",
+        "-o", "StrictHostKeyChecking=accept-new",
+        "-o", "BatchMode=yes",
+        "-o", "ConnectTimeout=10",
+    ]
+    if ssh_key:
+        cmd += ["-i", ssh_key]
+    cmd += [f"root@{host}", "true"]
+    for attempt in range(attempts):
+        if subprocess.run(cmd, capture_output=True, check=False).returncode == 0:
+            return True
+        if attempt < attempts - 1:
+            time.sleep(delay)
+    return False
 
 
 def _resolve_run_target(target_id: str) -> tuple[str, str | None, dict]:
@@ -297,9 +352,10 @@ def _run_engine(
 
 
 def _engine_log_path(env: dict | None) -> Path:
-    """A per-run log file under ``~/.hop3/testlab-logs/`` named by trigger+stamp."""
+    """A per-run log file under the app's data dir (``DATA_DIR/logs``), named by
+    trigger+stamp. The dashboard reads it back by globbing ``build-<id>-*.log``."""
     trigger = (env or os.environ).get("HOP3_TEST_TRIGGER") or "run"
-    log_dir = Path.home() / ".hop3" / "testlab-logs"
+    log_dir = TestlabConfig.get_instance().DATA_DIR / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     safe = trigger.replace("/", "_").replace(":", "_")
@@ -426,7 +482,7 @@ def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once;
     # skipped the rebuild on the canonical path (#2/#7). Ad-hoc per-app re-runs
     # leave it False and test against the live server.
     if target_id == "hetzner" and blank_slate:
-        _rebuild_blank_slate(load_cloud_config())
+        _rebuild_blank_slate(load_cloud_config(), host)
 
     if ssh_key:
         env["HOP3_TEST_SSH_KEY"] = ssh_key

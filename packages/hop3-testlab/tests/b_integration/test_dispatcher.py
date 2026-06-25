@@ -266,6 +266,40 @@ def test_engine_exit_with_results_is_completed_not_crash(monkeypatch, tmp_path):
         assert req.run_uid == f"run-completed-{req_id}"  # linked for the dashboard
 
 
+def test_record_caps_overlong_crash_detail(monkeypatch, tmp_path):
+    """A crash detail (the engine-log tail) longer than the detail column once
+    overflowed ``varchar(500)`` and crashed the recorder thread *inside* _record
+    (StringDataRightTruncation), leaving the build wedged for the orphan sweep to
+    mislabel as "dispatcher restarted". _record must cap it so the outcome is
+    always recorded. (SQLite doesn't enforce the width, so assert the cap directly.)"""
+    from hop3_testlab.worker import EngineExitError
+
+    with _session() as s:
+        p = _profile(s)
+        ServersRepository(s).create(
+            name="docker-local", target_id="docker", kind="docker"
+        )
+        req_id = BuildQueueRepository(s).enqueue(p.id).id
+        s.commit()
+
+    log = tmp_path / "engine.log"
+    long_msg = f"Engine exited 1. See {log}\n" + "boom " * 2000  # >> _DETAIL_MAX
+
+    def _crash(*_a, **_k):  # no results recorded -> the uncapped crash path
+        raise EngineExitError(1, log, long_msg)
+
+    monkeypatch.setattr(dispatcher, "run_blockers", lambda _t, _a: None)
+    monkeypatch.setattr(dispatcher, "run_once", _crash)
+
+    assert dispatcher.dispatch_once() is True
+    with _session() as s:
+        req = BuildQueueRepository(s).get(req_id)
+        assert req.status == "failed"
+        assert len(req.detail) <= dispatcher._DETAIL_MAX  # capped — no overflow
+        assert req.detail.endswith("…")
+        assert req.detail.startswith("Engine exited 1")  # actionable prefix survives
+
+
 def test_engine_exit_without_results_is_a_real_crash(monkeypatch, tmp_path):
     """Engine exit 1 with no recorded run/results is a genuine setup/deploy
     crash: keep the loud engine message (with the log path) as the reason."""

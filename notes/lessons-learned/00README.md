@@ -19,6 +19,7 @@ This directory collects lessons learned during Hop3 development, to help avoid r
 - [`nix-packaging.md`](./nix-packaging.md) — Gotchas from the Nix integration effort.
 - [`privilege-and-isolation.md`](./privilege-and-isolation.md) — privileged ops behind the rootd daemon (default-deny allow-list) and path-list confinement via `realpath`. (ADR 046)
 - [`uwsgi-daemon-management.md`](./uwsgi-daemon-management.md) — Emperor / vassal lifecycle, attach-daemon env propagation.
+- [`web-auth-and-csrf.md`](./web-auth-and-csrf.md) — cookie-based CSRF/session auth pitfalls (Litestar): why rotating a password wedged login permanently (`CSRF token verification failed`), self-healing on failure, never showing raw JSON to a browser.
 
 ---
 

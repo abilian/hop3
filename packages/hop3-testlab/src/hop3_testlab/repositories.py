@@ -24,6 +24,7 @@ from hop3_testlab.models import (
     QUEUED,
     RUNNING,
     BuildRequest,
+    Credential,
     Profile,
     Server,
 )
@@ -314,6 +315,45 @@ class ServersRepository:
         if server is None:
             return False
         self.session.delete(server)
+        self.session.flush()
+        return True
+
+
+class CredentialsRepository:
+    """CRUD over cloud-provider credentials (a Lab-owned table). Holds secrets."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def list_all(self) -> list[Credential]:
+        stmt = select(Credential).order_by(Credential.name)
+        return list(self.session.scalars(stmt).all())
+
+    def get(self, credential_id: int) -> Credential | None:
+        return self.session.get(Credential, credential_id)
+
+    def active(self, kind: str) -> Credential | None:
+        """The active credential of ``kind`` (the one the worker uses)."""
+        # ponytail: first row of this kind is "the active one". A `default` flag /
+        # per-Server selection arrives in Slice 2 (several accounts in parallel).
+        stmt = (
+            select(Credential)
+            .where(Credential.kind == kind)
+            .order_by(Credential.name)
+        )
+        return self.session.scalars(stmt).first()
+
+    def create(self, **fields) -> Credential:
+        credential = Credential(**fields)
+        self.session.add(credential)
+        self.session.flush()
+        return credential
+
+    def delete(self, credential_id: int) -> bool:
+        credential = self.session.get(Credential, credential_id)
+        if credential is None:
+            return False
+        self.session.delete(credential)
         self.session.flush()
         return True
 

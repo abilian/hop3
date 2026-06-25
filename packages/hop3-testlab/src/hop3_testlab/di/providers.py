@@ -22,6 +22,7 @@ from hop3_testlab.config import TestlabConfig
 from hop3_testlab.db import get_session_factory
 from hop3_testlab.repositories import (
     BuildQueueRepository,
+    CredentialsRepository,
     ProfilesRepository,
     RunsRepository,
     ServersRepository,
@@ -78,6 +79,10 @@ class RepositoryProvider(Provider):
     @provide
     def servers(self, session: Session) -> ServersRepository:
         return ServersRepository(session)
+
+    @provide
+    def credentials(self, session: Session) -> CredentialsRepository:
+        return CredentialsRepository(session)
 
     @provide
     def queue(self, session: Session) -> BuildQueueRepository:

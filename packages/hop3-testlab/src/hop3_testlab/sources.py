@@ -20,11 +20,15 @@ import re
 import shutil
 import subprocess
 from dataclasses import dataclass
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-# Source clones and per-ref worktrees, sibling to the result store under ~/.hop3.
-SOURCES_ROOT = Path.home() / ".hop3" / "testlab" / "sources"
-WORKSPACES_ROOT = Path.home() / ".hop3" / "testlab" / "workspaces"
+from hop3_testlab.config import TestlabConfig
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+# Source clones and per-ref worktrees live under the app instance's data dir
+# (config.DATA_DIR / sources|workspaces) — see TestlabConfig.SOURCES_DIR.
 
 _ALLOWED_URL_PREFIXES = ("https://", "http://", "git://", "ssh://", "file://")
 _SCP_LIKE = re.compile(r"^[A-Za-z0-9_.+-]+@[A-Za-z0-9_.-]+:")
@@ -79,7 +83,7 @@ class Source:
     @property
     def cache(self) -> Path:
         """The persistent clone for this source (objects shared across refs)."""
-        return SOURCES_ROOT / _sanitize(self.name)
+        return TestlabConfig.get_instance().SOURCES_DIR / _sanitize(self.name)
 
     def fetch(self, ref: str) -> Path:
         """Check out ``ref`` into an isolated worktree; return its path.
@@ -96,7 +100,11 @@ class Source:
         _git("fetch", "--tags", "--force", "origin", cwd=self.cache)
 
         rev = self._resolve(ref)
-        workspace = WORKSPACES_ROOT / _sanitize(self.name) / _sanitize(ref)
+        workspace = (
+            TestlabConfig.get_instance().WORKSPACES_DIR
+            / _sanitize(self.name)
+            / _sanitize(ref)
+        )
         # Recreate the worktree so it's a clean checkout of `rev`, no stale files.
         _git("worktree", "prune", cwd=self.cache)
         if workspace.exists():

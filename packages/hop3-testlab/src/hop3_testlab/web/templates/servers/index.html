@@ -52,4 +52,71 @@
   </label>
   <button class="bg-blue-700 text-white rounded px-3 py-1">Add server</button>
 </form>
+
+<h2 class="text-base font-semibold mt-8 mb-1">Cloud credentials</h2>
+<p class="text-sm text-gray-500 mb-3">How the worker reaches run targets — a provider API token and (optionally) an SSH private key. Stored in the DB, never shown here. Use a dedicated deploy key.</p>
+
+<table class="w-full text-sm border mb-4">
+  <thead class="bg-gray-100 text-left">
+    <tr>
+      <th class="px-3 py-2">Name</th>
+      <th class="px-3 py-2">Kind</th>
+      <th class="px-3 py-2">Server ID</th>
+      <th class="px-3 py-2">SSH key name</th>
+      <th class="px-3 py-2">Token</th>
+      <th class="px-3 py-2">Key</th>
+      <th class="px-3 py-2"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in credentials %}
+    <tr class="border-t">
+      <td class="px-3 py-2">{{ c.name }}</td>
+      <td class="px-3 py-2">{{ c.kind }}</td>
+      <td class="px-3 py-2 font-mono text-xs">{{ c.server_id if c.server_id is not none else "—" }}</td>
+      <td class="px-3 py-2 font-mono text-xs">{{ c.ssh_key_name or "—" }}</td>
+      <td class="px-3 py-2 font-mono text-xs">{{ c.token }}</td>
+      <td class="px-3 py-2">{{ "yes" if c.has_key else "no" }}</td>
+      <td class="px-3 py-2 text-right">
+        <form method="post" action="/servers/credentials/{{ c.id }}/delete" class="inline">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <button class="text-red-700 hover:underline">delete</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="px-3 py-2 text-amber-700">No credentials — SSH / Hetzner runs can't connect until you add one.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<form method="post" action="/servers/credentials" class="border rounded p-3">
+  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+  <div class="flex flex-wrap items-end gap-3 mb-3">
+    <label class="text-sm">Name<br>
+      <input name="name" required class="border rounded px-2 py-1">
+    </label>
+    <label class="text-sm">Kind<br>
+      <select name="kind" class="border rounded px-2 py-1">
+        <option>hetzner</option>
+      </select>
+    </label>
+    <label class="text-sm">Server ID<br>
+      <input name="server_id" inputmode="numeric" class="border rounded px-2 py-1">
+    </label>
+    <label class="text-sm">Image<br>
+      <input name="image" value="ubuntu-24.04" class="border rounded px-2 py-1">
+    </label>
+    <label class="text-sm">SSH key name <span class="text-gray-400">(registered with the provider)</span><br>
+      <input name="ssh_key_name" class="border rounded px-2 py-1">
+    </label>
+  </div>
+  <label class="text-sm">API token
+    <input name="api_token" type="password" required class="border rounded px-2 py-1 mt-1 w-full font-mono text-xs">
+  </label>
+  <label class="text-sm block mt-3">Private key <span class="text-gray-400">(optional — a dedicated deploy key)</span>
+    <textarea name="private_key" rows="5" class="border rounded px-2 py-1 mt-1 w-full font-mono text-xs" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;…&#10;-----END OPENSSH PRIVATE KEY-----"></textarea>
+  </label>
+  <button class="bg-blue-700 text-white rounded px-3 py-1 mt-3">Add credential</button>
+</form>
 {% endblock %}
