@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The deploy host doubles as the admin domain**: `hop3-deploy --host h.example.com` now serves the Web UI at `https://h.example.com/` with no extra flag — when `--admin-domain` is omitted, the deploy host (if it's a real FQDN) becomes the admin hostname. An IP, `localhost`, or a Docker target keeps the previous behavior (Web UI on port 8000). Pass `--admin-domain` to use a different hostname.
+
+### Fixed
+
+- **Bare host no longer serves the wrong app**: the Hop3 control-plane nginx vhost now claims nginx's `default_server` (on Debian/Ubuntu), so a request to the bare deploy host — or any Host matching no app — reaches the Web UI instead of the default nginx page (port 80) or an arbitrary app's page with a mismatched certificate (port 443). The competing distro `default` site is removed whenever the platform vhost is (re)written, and a redeploy re-asserts it, self-healing older servers.
+- **Admin-domain TLS no longer fails on rootd hosts**: acme.sh's certificate-install step ran `sudo systemctl reload nginx` as the `hop3` user, which the `hop3-rootd` security model (ADR 041) deliberately strips — so the reload failed and aborted the whole cert install. The deploy now reloads nginx itself (as root) and judges success by the cert being on disk, not acme.sh's exit code.
+- **Self-signed placeholder upgrades to Let's Encrypt**: a previously-issued self-signed admin certificate is now replaced with a Let's Encrypt one once a usable `--acme-email` is supplied, instead of being cached forever; a real CA certificate is still never re-issued on every deploy. When a self-signed cert is used, the deploy now says *why* (e.g. no `--acme-email`) instead of silently falling back.
+- **Server learns its own admin domain**: `hop3-deploy` now records `ADMIN_DOMAIN` in `hop3-server.toml`, so the server emits `https://<domain>/…` magic links and `hop3 addon expose` URLs instead of bare tokens / `http://<host>:8000/…`.
+
 ## [0.6.1] - 2026-06-24
 
 A consolidation release on top of 0.6.0: it simplifies the context model to a single noun, pins nixpkgs across every Nix recipe for reproducible builds, adds an experimental email/SMTP addon, and lands a broad round of test-lab, CI, and app-packaging fixes.

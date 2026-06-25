@@ -127,6 +127,38 @@ class TestDeployConfigSshTarget:
             _ = config.ssh_target
 
 
+class TestEffectiveAdminDomain:
+    """The Web UI hostname defaults to the deploy host (your design: `--host`
+    alone serves the Web UI there), unless `--admin-domain` overrides it."""
+
+    def test_defaults_to_fqdn_host(self):
+        config = DeployConfig(host="hop3.example.com")
+        assert config.effective_admin_domain == "hop3.example.com"
+
+    def test_explicit_admin_domain_wins(self):
+        config = DeployConfig(
+            host="hop3.example.com", admin_domain="admin.hop3.example.com"
+        )
+        assert config.effective_admin_domain == "admin.hop3.example.com"
+
+    def test_ip_host_yields_none(self):
+        """An IP can't be an nginx server_name — Web UI stays on port 8000."""
+        config = DeployConfig(host="192.168.1.10")
+        assert config.effective_admin_domain is None
+
+    def test_localhost_yields_none(self):
+        config = DeployConfig(host="localhost")
+        assert config.effective_admin_domain is None
+
+    def test_docker_yields_none(self):
+        config = DeployConfig(use_docker=True, host="hop3.example.com")
+        assert config.effective_admin_domain is None
+
+    def test_no_host_yields_none(self):
+        config = DeployConfig()
+        assert config.effective_admin_domain is None
+
+
 class TestDeployConfigValidate:
     """Tests for DeployConfig.validate() method."""
 

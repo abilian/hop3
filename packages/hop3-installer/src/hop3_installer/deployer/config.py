@@ -19,6 +19,7 @@ from hop3_installer.constants import (
     DOCKER_CONTAINER_NAME,
     DOCKER_IMAGE,
 )
+from hop3_installer.nginx_templates import is_fqdn
 
 
 @dataclass
@@ -85,6 +86,25 @@ class DeployConfig:
             msg = "Host not set"
             raise ValueError(msg)
         return f"{self.ssh_user}@{self.host}"
+
+    @property
+    def effective_admin_domain(self) -> str | None:
+        """The hostname the Web UI is served at — the admin domain or the host.
+
+        ``hop3-deploy --host h.example.com`` is enough to serve the Web UI at
+        ``https://h.example.com/``: when ``--admin-domain`` isn't given, the
+        deploy host itself becomes the admin hostname. Pass ``--admin-domain``
+        to use a different one (e.g. ``admin.h.example.com``).
+
+        Returns None for a Docker target, or when the host is not a servable
+        FQDN (an IP address or ``localhost``) — there is no vhost to name, so
+        the Web UI stays on port 8000.
+        """
+        if self.admin_domain:
+            return self.admin_domain
+        if self.use_docker or not self.host:
+            return None
+        return self.host if is_fqdn(self.host) else None
 
     @property
     def install_source(self) -> str:
