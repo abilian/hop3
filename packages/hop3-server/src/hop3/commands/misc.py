@@ -128,7 +128,7 @@ class PSCmd(Command):
         app_name, _rest = pop_app_flag(args)
 
         if app_name is None:
-            msg = "Usage: hop3 ps --app <app>"
+            msg = "Usage: hop3 ps [--app <app>]"
             raise ValueError(msg)
         app = get_app(self.db_session, app_name)
         scaling_file = app.virtualenv_path / "SCALING"
@@ -163,7 +163,7 @@ class PsScaleCmd(Command):
         app_name, rest = pop_app_flag(args)
 
         if app_name is None or not rest:
-            return [text("Usage: hop3 ps scale --app <app> <type>=<count>...")]
+            return [text("Usage: hop3 ps scale [--app <app>] <type>=<count>...")]
 
         settings = rest
         app = get_app(self.db_session, app_name)
@@ -206,7 +206,7 @@ class PsScaleCmd(Command):
 class RunCmd(Command):
     """Run a one-off command in the context of an application.
 
-    Usage: hop3 app run --app <app> <command> [args...] [--input <data>]
+    Usage: hop3 app run [--app <app>] <command> [args...] [--input <data>]
 
     `hop3 run ...` works as a top-level alias. The app is read from the
     `--app`/`-a` flag; everything that remains is the command line to execute.
@@ -232,7 +232,7 @@ class RunCmd(Command):
         if app_name is None or not args_list:
             return [
                 text(
-                    "Usage: hop run <app_name> <command> [args...] [--input <data>]\n\n"
+                    "Usage: hop3 run [--app <app>] <command> [args...] [--input <data>]\n\n"
                     "Options:\n"
                     "  --input <data>  Data to send to stdin (for password prompts, etc.)"
                 )
@@ -344,7 +344,7 @@ class SbomCmd(Command):
         app_name, _rest = pop_app_flag(args)
 
         if app_name is None:
-            msg = "Usage: hop3 app sbom --app <app>"
+            msg = "Usage: hop3 app sbom [--app <app>]"
             raise ValueError(msg)
         app = get_app(self.db_session, app_name)
 

@@ -119,11 +119,11 @@ class BackupCreateCmd(Command):
 class BackupListCmd(Command):
     """List all backups, optionally filtered by application.
 
-    Usage: hop3 backup list [app] [--limit N]
+    Usage: hop3 backup list [--app <app>] [--limit N]
 
     Examples:
         hop3 backup list
-        hop3 backup list my-app
+        hop3 backup list --app my-app
         hop3 backup list --limit 50
     """
 
@@ -131,16 +131,16 @@ class BackupListCmd(Command):
     backup_repo: BackupRepository
     addon_credential_repo: AddonCredentialRepository
     name: ClassVar[tuple[str, ...]] = ("backup", "list")
-    # Argument specification for declarative parsing
+    # The app filter is the `--app` flag (ADR 036 D5), never a positional —
+    # so the CLI-injected `--app NAME` lands here instead of being dropped.
     _arg_spec: ClassVar[dict] = {
-        "app_name": {"positional": True},
         "limit": {"type": int, "default": 20},  # --limit N
     }
 
     def call(self, *args):
         """List available backups."""
-        parsed = parse_cli_args(args, self._arg_spec)
-        app_name = parsed.get("app_name")
+        app_name, rest = pop_app_flag(args)
+        parsed = parse_cli_args(rest, self._arg_spec)
         limit = parsed.get("limit", 20)
 
         with command_context("listing backups", app_name=app_name or "all"):

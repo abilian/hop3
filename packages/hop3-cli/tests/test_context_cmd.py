@@ -190,7 +190,7 @@ def test_rename(capsys):
 
 def test_use_writes_overlay(capsys):
     _write_toml('[metadata]\nid="myapp"\n[contexts.dev]\nserver="ssh://root@dev"\n')
-    context_use(["dev"])
+    context_use(["dev"], _cfg())
     overlay = tomllib.loads((Path.cwd() / ".hop3-local.toml").read_text())
     assert overlay["local"]["context"] == "dev"  # ADR 042 r2 renamed [current]->[local]
     out = capsys.readouterr().out
@@ -200,15 +200,30 @@ def test_use_writes_overlay(capsys):
 def test_use_unknown_context(capsys):
     _write_toml('[metadata]\nid="myapp"\n[contexts.dev]\nserver="ssh://root@dev"\n')
     with pytest.raises(SystemExit):
-        context_use(["nope"])
+        context_use(["nope"], _cfg())
     assert "not found" in capsys.readouterr().err
 
 
 def test_use_rejects_global(capsys):
     _write_toml('[metadata]\nid="myapp"\n[contexts.dev]\nserver="ssh://root@dev"\n')
     with pytest.raises(SystemExit):
-        context_use(["dev", "--global"])
+        context_use(["dev", "--global"], _cfg())
     assert "no global form" in capsys.readouterr().err
+
+
+def test_use_global_context_name_redirects(capsys):
+    """A name that exists only as a GLOBAL context must not dead-end on the
+    project file — it names the global context and points at the right
+    mechanism (regression for the misleading 'not found in <cwd>/hop3.toml')."""
+    _write_toml('[metadata]\nid="myapp"\n[contexts.dev]\nserver="ssh://root@dev"\n')
+    config = _cfg()
+    config.set_context_server("prod", "ssh://root@prod")  # global, not in project
+    with pytest.raises(SystemExit) as exc:
+        context_use(["prod"], config)
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    assert "global context" in err
+    assert "--context prod" in err
 
 
 # ---- global contexts (project-less) ----

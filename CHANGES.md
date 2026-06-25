@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **The deploy host doubles as the admin domain**: `hop3-deploy --host h.example.com` now serves the Web UI at `https://h.example.com/` with no extra flag — when `--admin-domain` is omitted, the deploy host (if it's a real FQDN) becomes the admin hostname. An IP, `localhost`, or a Docker target keeps the previous behavior (Web UI on port 8000). Pass `--admin-domain` to use a different hostname.
+- **Follow-up command hints echo your selectors**: when a command suggests a next step (e.g. after `hop3 domain add`, "run `hop3 deploy` to apply"), the CLI now renders that suggestion with the `--context` / `--app` you actually typed. A server-rendered string can't carry `--context` (it's a CLI-local selector that never reaches the server), so the old hint would have silently pointed at the *default* context — a different server. Copy-pasting the suggestion now stays on the same target.
+- **Usage strings show `--app` as optional**: every app-scoped command's usage now reads `[--app <app>]` instead of a bare `--app <app>`, reflecting that the app is normally resolved implicitly (from the project / context) and the flag is a one-time override.
+- **`hop3 app env` removed**: the deprecated, hidden duplicate of `hop3 env show --sources` (a third spelling for one feature) is gone. Use `hop3 env show --sources` for the per-variable source column.
 
 ### Fixed
 
@@ -19,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Server learns its own admin domain**: `hop3-deploy` now records `ADMIN_DOMAIN` in `hop3-server.toml`, so the server emits `https://<domain>/…` magic links and `hop3 addon expose` URLs instead of bare tokens / `http://<host>:8000/…`.
 - **Dashboard login survives redeploys (stateless web auth)**: web authentication no longer uses a server-side session (which was wiped on every server restart, logging everyone out on each redeploy). The dashboard now authenticates with a signed JWT in an httponly cookie — the same credential the CLI uses, signed with the persistent server key — so it stays valid across restarts/redeploys with no server-side store, and web + CLI are unified on one credential.
 - **`HOP3_UNSAFE` production override now actually reaches the auth guards**: the safety interlock forced the bypass off in production by setting an env var, but the guards read an import-time snapshot that never saw the change — so the documented production backstop silently did nothing. The snapshot is now re-grounded to the enforced value. (The `HOP3_UNSAFE_ACK` requirement always blocked accidental activation; this closes the case where an operator set it deliberately and trusted the production override.)
+- **CLI arguments fail loud instead of vanishing**: the RPC argument parser now rejects any token it can't place (an unknown `--flag` or a stray positional) with an actionable error, instead of silently dropping it. Previously `hop3 app env set KEY=VALUE` (and similar misroutings) parsed as a no-op that *looked* like success. This also fixed a latent bug where `hop3 backup list --app X` silently ignored the filter and listed every app's backups.
+- **`hop3 context use <name>` no longer dead-ends on a global context**: pinning a context that exists only globally (in `config.toml`) used to report "not found in <cwd>/hop3.toml". It now recognizes the global context by name and points at the right mechanism (`hop3 login --context <name>`, or `--context <name>` per command), since `use` only pins *project* contexts.
 
 ## [0.6.1] - 2026-06-24
 
