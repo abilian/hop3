@@ -57,9 +57,7 @@ class RichPrinter:
         self._scope["context"] = context
         self._scope["app"] = app
 
-    def set_suggestion_selectors(
-        self, *, context: str | None, app: str | None
-    ) -> None:
+    def set_suggestion_selectors(self, *, context: str | None, app: str | None) -> None:
         """Record the ``--context``/``--app`` the user actually TYPED.
 
         Follow-up suggestions (``hint`` items) reproduce these verbatim so a
