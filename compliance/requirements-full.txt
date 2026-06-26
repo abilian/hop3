@@ -1,6 +1,6 @@
 abilian-devtools==0.9.3
 advanced-alchemy==1.11.0
-alembic==1.18.4
+alembic==1.18.5
 annotated-types==0.7.0
 anyio==4.14.1
 apscheduler==3.11.2
@@ -175,7 +175,7 @@ rfc3987-syntax==1.1.0
 rich==15.0.0
 rich-click==1.9.8
 rpds-py==2026.5.1
-ruff==0.15.19
+ruff==0.15.20
 sbom2dot==0.3.2
 sbom4files==0.4.5
 sbom4python==0.12.6
@@ -194,7 +194,7 @@ toml==0.10.2
 tomli==2.4.1
 tomlkit==0.15.0
 twine==6.2.0
-ty==0.0.53
+ty==0.0.54
 typeguard==4.5.2
 types-markdown==3.10.2.20260518
 types-paramiko==4.0.0.20260518
