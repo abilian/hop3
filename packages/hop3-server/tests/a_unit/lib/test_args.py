@@ -176,9 +176,7 @@ class TestParseCliArgs:
         `set`/`remaining` slot; the trailing tokens must error, not vanish."""
         spec = {"app": {"type": str}, "show_secrets": {"flag": True}}
         with pytest.raises(ValueError, match=r"set.*APP_SECRET_KEY"):
-            parse_cli_args(
-                ("--app", "myapp", "set", "APP_SECRET_KEY=zzz"), spec
-            )
+            parse_cli_args(("--app", "myapp", "set", "APP_SECRET_KEY=zzz"), spec)
 
     def test_list_input(self):
         """Test that list input works same as tuple."""

@@ -442,9 +442,7 @@ class SetCmd(Command):
                 )
             )
         else:
-            result.append(
-                hint("app restart", "\nNote: Run {cmd} to apply changes.")
-            )
+            result.append(hint("app restart", "\nNote: Run {cmd} to apply changes."))
 
         # Summary line per ADR 036 D19c: one-line state-change report.
         keys_set = ", ".join(sorted(key_values.keys()))
