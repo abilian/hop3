@@ -3,7 +3,7 @@
 
 [project]
 name = "hop3-rootd"
-version = "0.6.1"
+version = "0.6.2"
 description = "Privileged operations agent for Hop3 (kernel-boundary executor)"
 readme = "README.md"
 license = "Apache-2.0"
