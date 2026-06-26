@@ -249,9 +249,15 @@ def test_config_set_restart_reminder(db_session: Session, test_app: App):
     cmd = SetCmd(db_session=db_session)
     result = cmd.call("--app", "testapp", "VAR=value")
 
-    result_text = " ".join(r.get("text", "") for r in result)
-    assert "restart" in result_text.lower()
-    assert "apply changes" in result_text.lower()
+    # The restart reminder is a `hint` item (rendered client-side with the
+    # user's own --context/--app): "restart" rides its `command`, "apply
+    # changes" its `message`.
+    result_text = " ".join(
+        f"{r.get('text', '')} {r.get('message', '')} {r.get('command', '')}"
+        for r in result
+    ).lower()
+    assert "restart" in result_text
+    assert "apply changes" in result_text
 
 
 def test_config_unset_restart_reminder(db_session: Session, test_app: App):
@@ -259,6 +265,12 @@ def test_config_unset_restart_reminder(db_session: Session, test_app: App):
     cmd = UnsetCmd(db_session=db_session)
     result = cmd.call("--app", "testapp", "EXISTING_VAR")
 
-    result_text = " ".join(r.get("text", "") for r in result)
-    assert "restart" in result_text.lower()
-    assert "apply changes" in result_text.lower()
+    # The restart reminder is a `hint` item (rendered client-side with the
+    # user's own --context/--app): "restart" rides its `command`, "apply
+    # changes" its `message`.
+    result_text = " ".join(
+        f"{r.get('text', '')} {r.get('message', '')} {r.get('command', '')}"
+        for r in result
+    ).lower()
+    assert "restart" in result_text
+    assert "apply changes" in result_text

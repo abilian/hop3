@@ -107,6 +107,10 @@ def run_command_from_args(cli_args: list[str]) -> None:
         json_output=flags.json_output,
         debug=flags.debug,
     )
+    # Follow-up `hint` items echo the selectors the user actually typed, so a
+    # suggested next command stays on the same context/app (a server-rendered
+    # string can't carry --context — it never reaches the server).
+    printer.set_suggestion_selectors(context=flags.context, app=flags.app)
 
     # ADR 042: one-shot migration of legacy server/context state into
     # config.toml. Runs before the config is loaded so every command — and the
@@ -323,6 +327,21 @@ def _require_context_server(name: str, config: Config) -> str:
     sys.exit(ExitCode.RESOLUTION_ERROR)
 
 
+def _effective_default_context(config: Config) -> str | None:
+    """The default context name iff it's what selected the active server.
+
+    Shown in the deploy preview when no context was explicitly resolved, so the
+    operator sees which context (not just which server) the deploy targets.
+    Returns None when the active server came from elsewhere (HOP3_API_URL, the
+    legacy default_server, or a sole known server), so the preview never names a
+    context that isn't actually in play.
+    """
+    default = config.get_default_context()
+    if default and _context_server(default, config) == config.get_api_url():
+        return default
+    return None
+
+
 def _resolve_ambient_server(config: Config) -> str | None:
     """Server for a project-less command with no ``--context`` (ADR 042).
 
@@ -531,6 +550,8 @@ def _handle_deploy_preview(
         source_path=source_path,
         context=context_name,
         app=app_resolution.app or "",
+        server=config.get_api_url(),
+        default_context=None if context_name else _effective_default_context(config),
     )
     domain_warnings = domain_target_warnings(plan.domains, config.get_api_url())
 

@@ -69,6 +69,15 @@ class DeployPlan:
     domains: tuple[str, ...]
     addons: tuple[str, ...]
     env_keys: tuple[str, ...] = field(default_factory=tuple)
+    # The address the deploy will actually connect to (ADR 042: the context IS
+    # the server). Resolved by the caller from the active/ambient server, so the
+    # preview names the real target, not just the context label.
+    server: str | None = None
+    # When no context was explicitly resolved, the default context that selected
+    # ``server`` (``[cli].default_context``). Display-only: the upload still
+    # flattens on ``context`` so preview == deploy. None when the server came
+    # from elsewhere (env var, default_server, sole known server).
+    default_context: str | None = None
     # Path of an ancestor hop3.toml that EXISTS but isn't being packaged
     # (the deploy archive root is ``source_path``, so the ancestor's
     # domains/addons/env won't make it to the server). Surfaces as a
@@ -81,6 +90,8 @@ def build_plan(
     source_path: Path,
     context: str | None,
     app: str,
+    server: str | None = None,
+    default_context: str | None = None,
     home: Path | None = None,
     git_runner: Callable[[list[str], Path], str | None] | None = None,
 ) -> DeployPlan:
@@ -108,8 +119,12 @@ def build_plan(
             ``source_path / hop3.toml`` is the only TOML the deploy will
             ever see.
         context: Resolved context name (or None when unresolved). The context
-            IS the server (ADR 042).
+            IS the server (ADR 042). Used to flatten the hop3.toml, so the
+            preview matches the upload exactly.
         app: Resolved app name.
+        server: The address the deploy will connect to (display-only).
+        default_context: The default context that selected ``server`` when no
+            context was explicitly resolved (display-only).
         home: Upper bound for the ancestor-walk diagnostic (defaults to
             ``Path.home()``).
         git_runner: Test seam.
@@ -146,6 +161,8 @@ def build_plan(
         domains=tuple(domains),
         addons=tuple(addons),
         env_keys=tuple(env_keys),
+        server=server,
+        default_context=default_context,
         ancestor_hop3_toml=ancestor,
     )
 
@@ -159,7 +176,13 @@ def render_plan(plan: DeployPlan) -> str:
     """
     lines = ["About to deploy:"]
     lines.append(f"  Source:   {plan.source_path} ({plan.git.descriptor})")
-    lines.append(f"  Context:  {plan.context or '(none)'}")
+    if plan.context:
+        lines.append(f"  Context:  {plan.context}")
+    elif plan.default_context:
+        lines.append(f"  Context:  {plan.default_context} (default)")
+    else:
+        lines.append("  Context:  (none)")
+    lines.append(f"  Server:   {plan.server or '(none)'}")
     lines.append(f"  App:      {plan.app}")
     lines.append(f"  Domains:  {', '.join(plan.domains) if plan.domains else '(none)'}")
     lines.append(f"  Addons:   {', '.join(plan.addons) if plan.addons else '(none)'}")

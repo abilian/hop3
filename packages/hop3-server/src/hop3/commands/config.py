@@ -27,7 +27,7 @@ from ._helpers import (
     set_env_var,
     unset_env_var,
 )
-from ._response import code, error, success, summary, table, text
+from ._response import code, error, hint, success, summary, table, text
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -435,17 +435,14 @@ class SetCmd(Command):
 
         if changed_infra:
             result.append(
-                text(
+                hint(
+                    "deploy",
                     f"\nNote: {', '.join(sorted(changed_infra))} changed. "
-                    f"Run 'hop3 deploy --app {app_name}' to apply (affects proxy config)."
+                    f"Run {{cmd}} to apply (affects proxy config).",
                 )
             )
         else:
-            result.append(
-                text(
-                    f"\nNote: Run 'hop3 app restart --app {app_name}' to apply changes."
-                )
-            )
+            result.append(hint("app restart", "\nNote: Run {cmd} to apply changes."))
 
         # Summary line per ADR 036 D19c: one-line state-change report.
         keys_set = ", ".join(sorted(key_values.keys()))
@@ -520,8 +517,9 @@ class UnsetCmd(Command):
 
         if removed:
             result.append(
-                text(
-                    "\nNote: Run 'hop3 app restart --app <app>' to apply changes to running app."
+                hint(
+                    "app restart",
+                    "\nNote: Run {cmd} to apply changes to running app.",
                 )
             )
             result.append(summary(f"unset {', '.join(removed)} on {app_name}."))

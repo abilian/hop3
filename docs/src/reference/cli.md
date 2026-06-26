@@ -1000,21 +1000,6 @@ hop3 app debug [--app <app>]
 
 ---
 
-### `hop3 app env`
-
-Show environment variables with their sources.
-
-**Usage:**
-```bash
-hop3 app env [--app <app>]
-```
-
-**Notes:**
-- Shows where each variable comes from (hop3.toml, config set, addon, etc.)
-- Useful for debugging configuration issues
-
----
-
 ### `hop3 app ping`
 
 Check if an application is responding to HTTP requests.
@@ -1080,8 +1065,11 @@ Show all environment variables for an app.
 
 **Usage:**
 ```bash
-hop3 env show [--app <app>]
+hop3 env show [--app <app>] [--sources]
 ```
+
+Pass `--sources` to add a column showing where each variable comes from
+(addon vs config) — this replaces the former `hop3 app env`.
 
 **Example Output:**
 ```
