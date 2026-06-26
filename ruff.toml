@@ -58,10 +58,6 @@ lint.extend-ignore = [
     "PERF401", #  7 - PERF401	manual-list-comprehension
     "RUF067", # `__init__` module should only contain docstrings and re-exports
     "RUF070", # ...
-    "RUF076", # pytest-fixture-autouse — autouse is the idiomatic pattern for our
-    #           test-isolation/setup fixtures (env reset, redirect state paths to
-    #           tmp_path, reset module singletons); applying them to every test is
-    #           exactly the intent, not an accident.
     "E501", #    line-too-long
     "RUF001", #  ambiguous-unicode-character-string
     #
