@@ -21,4 +21,17 @@ to plans / weeklies / commit messages as they're picked up.
   Scope: probably ship as part of the 0.5.0 release prep, after the
   migration-gate work lands.
 
+## CLI
+
+- **Add `hop3 validate`.** A local, client-side lint of a project's `hop3.toml`:
+  run the server's schema validation (`ContextSection`, the committed-credential
+  tripwire, field/host-safety checks) on the file at/above the CWD and exit
+  0/non-zero, no server required — for CI gating. Top-level and project-rooted,
+  the dry sibling of `hop3 deploy` (no `--app`; the app comes from
+  `[metadata].id`). Renamed from the obsolete `hop3 config validate` idea, which
+  clashed with the `config`→`env` alias (ADR 036 D17). Original intent: ADR 001
+  §Consequences, ADR 027 §Developer Experience. (ADR 027 also lists a stale
+  `hop3 config show` / `config export` from the same wishlist — revisit if those
+  are still wanted.)
+
 ## (other items as they come up)

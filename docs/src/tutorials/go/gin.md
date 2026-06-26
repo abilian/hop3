@@ -358,7 +358,7 @@ hop3 init --ssh root@your-server.example.com
 ### Set Environment Variables
 
 ```bash
-hop3 config set --app hop3-tuto-gin GIN_MODE=release
+hop3 env set --app hop3-tuto-gin GIN_MODE=release
 ```
 
 ### Deploy
@@ -374,7 +374,7 @@ hop3 deploy --app hop3-tuto-gin
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config set --app hop3-tuto-gin HOST_NAME=hop3-tuto-gin.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-gin HOST_NAME=hop3-tuto-gin.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -419,8 +419,8 @@ hop3 app restart --app hop3-tuto-gin
 hop3 app logs --app hop3-tuto-gin
 
 # View/set environment variables
-hop3 config show --app hop3-tuto-gin
-hop3 config set --app hop3-tuto-gin NEW_VAR=value
+hop3 env show --app hop3-tuto-gin
+hop3 env set --app hop3-tuto-gin NEW_VAR=value
 
 # Scale workers
 hop3 ps scale --app hop3-tuto-gin web=2

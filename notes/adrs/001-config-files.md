@@ -46,7 +46,7 @@ A Hop3 application's configuration surface is bounded to `Procfile` + `hop3.toml
 - Ad-hoc configuration methods without a unified structure, leading to potential inconsistencies and increased complexity in management.
 - Additional serialization formats (YAML, JSON) as alternatives to TOML. TOML-only is sufficient for the configuration surface; further formats would be a mechanical translation layer over the same model and add surface without expressive gain.
 
-Schema validation beyond TOML parse errors is owned by ADR 003. A dataclass plus `@property` model catches structural errors at access time; load-time schema validation, together with a `hop3 config validate` command for CI gating, builds on that model.
+Schema validation beyond TOML parse errors is owned by ADR 003. A dataclass plus `@property` model catches structural errors at access time; load-time schema validation, together with a `hop3 validate` command for CI gating, builds on that model.
 
 ## Related
 

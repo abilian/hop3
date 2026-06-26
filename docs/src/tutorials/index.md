@@ -18,7 +18,7 @@ Under the hood, Hop3 does the same thing for every app, whatever the language:
 - **Proxies** it through nginx, which routes requests to your app by hostname (`HOST_NAME`) and terminates TLS, so many apps share ports 80/443.
 - **Wires addons** (PostgreSQL, Redis, …) by injecting connection strings as environment variables such as `DATABASE_URL` and `REDIS_URL` — no host/port plumbing on your side.
 
-Set configuration with `hop3 config set --app <app> KEY=value` — the most important is `HOST_NAME`, which tells nginx which domain to serve. App-internal secrets like `SECRET_KEY` are best **declared** in `hop3.toml` `[env]` as `{ generate = ... }`, so Hop3 creates them on the first deploy and never commits them; reserve `hop3 config set` for secrets you supply yourself (API keys).
+Set configuration with `hop3 env set --app <app> KEY=value` — the most important is `HOST_NAME`, which tells nginx which domain to serve. App-internal secrets like `SECRET_KEY` are best **declared** in `hop3.toml` `[env]` as `{ generate = ... }`, so Hop3 creates them on the first deploy and never commits them; reserve `hop3 env set` for secrets you supply yourself (API keys).
 
 ## Prerequisites
 

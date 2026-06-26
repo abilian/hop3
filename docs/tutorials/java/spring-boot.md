@@ -446,10 +446,10 @@ hop3 init --ssh root@your-server.example.com
 
 ```bash skip
 # Set JVM options
-hop3 config set --app hop3-tuto-spring-boot JAVA_OPTS="-Xmx512m -Xms256m"
+hop3 env set --app hop3-tuto-spring-boot JAVA_OPTS="-Xmx512m -Xms256m"
 
 # Set Spring profile
-hop3 config set --app hop3-tuto-spring-boot SPRING_PROFILES_ACTIVE=production
+hop3 env set --app hop3-tuto-spring-boot SPRING_PROFILES_ACTIVE=production
 ```
 
 ### Deploy
@@ -465,7 +465,7 @@ hop3 deploy --app hop3-tuto-spring-boot
 Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
-hop3 config set --app hop3-tuto-spring-boot HOST_NAME=hop3-tuto-spring-boot.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-spring-boot HOST_NAME=hop3-tuto-spring-boot.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -536,13 +536,13 @@ hop3 app restart --app hop3-tuto-spring-boot
 
 ```bash skip
 # List all variables
-hop3 config show --app hop3-tuto-spring-boot
+hop3 env show --app hop3-tuto-spring-boot
 
 # Set a variable
-hop3 config set --app hop3-tuto-spring-boot NEW_VARIABLE=value
+hop3 env set --app hop3-tuto-spring-boot NEW_VARIABLE=value
 
 # Remove a variable
-hop3 config unset --app hop3-tuto-spring-boot OLD_VARIABLE
+hop3 env unset --app hop3-tuto-spring-boot OLD_VARIABLE
 ```
 
 ### Scaling
@@ -696,7 +696,7 @@ public class ScheduledTasks {
 Set JVM options for production:
 
 ```bash skip
-hop3 config set --app hop3-tuto-spring-boot JAVA_OPTS="-Xmx512m -Xms256m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+hop3 env set --app hop3-tuto-spring-boot JAVA_OPTS="-Xmx512m -Xms256m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
 ```
 
 Update `Procfile`:
@@ -787,10 +787,10 @@ Java applications can be memory-hungry. Tune the JVM:
 
 ```bash skip
 # Limit heap size
-hop3 config set --app hop3-tuto-spring-boot JAVA_OPTS="-Xmx256m -Xms128m"
+hop3 env set --app hop3-tuto-spring-boot JAVA_OPTS="-Xmx256m -Xms128m"
 
 # Use G1GC for better memory management
-hop3 config set --app hop3-tuto-spring-boot JAVA_OPTS="-Xmx256m -XX:+UseG1GC"
+hop3 env set --app hop3-tuto-spring-boot JAVA_OPTS="-Xmx256m -XX:+UseG1GC"
 ```
 
 ### Slow Startup

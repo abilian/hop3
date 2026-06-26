@@ -295,7 +295,7 @@ hop3 deploy --app hop3-tuto-express
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config set --app hop3-tuto-express HOST_NAME=hop3-tuto-express.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-express HOST_NAME=hop3-tuto-express.$HOP3_TEST_DOMAIN
 ```
 
 ### Wait for Process Stop
@@ -356,13 +356,13 @@ hop3 run --app hop3-tuto-express node -e "console.log('Hello from server!')"
 
 ```bash
 # List all variables
-hop3 config show --app hop3-tuto-express
+hop3 env show --app hop3-tuto-express
 
 # Set a variable
-hop3 config set --app hop3-tuto-express NEW_VARIABLE=value
+hop3 env set --app hop3-tuto-express NEW_VARIABLE=value
 
 # Remove a variable
-hop3 config unset --app hop3-tuto-express OLD_VARIABLE
+hop3 env unset --app hop3-tuto-express OLD_VARIABLE
 ```
 
 ### Scaling
@@ -548,7 +548,7 @@ Common issues:
 Node.js can consume significant memory. Set limits:
 
 ```bash
-hop3 config set --app hop3-tuto-express NODE_OPTIONS="--max-old-space-size=512"
+hop3 env set --app hop3-tuto-express NODE_OPTIONS="--max-old-space-size=512"
 ```
 
 ### Module Not Found Errors

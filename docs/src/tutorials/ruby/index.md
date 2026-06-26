@@ -49,7 +49,7 @@ The `[port] web` value is the conventional port for the framework (3000 for Rail
 - **Addons inject env vars.** Attach a `postgres` provider and Hop3 sets `DATABASE_URL`; attach `redis` and it sets `REDIS_URL`. Read those in `config/database.yml` and your job/cable config — never hard-code connection strings.
 - **Migrations and pre-run hooks.** Put schema migrations in `[run] before-run` (or a `prerun:` line in a `Procfile`) so they run once per deploy before the web process boots.
 - **Logs to stdout.** Hop3 captures the process's stdout/stderr. For Rails, set `RAILS_LOG_TO_STDOUT=true`; let `hop3 app logs --app <app>` show you everything.
-- **Secrets via config, not in git.** Declare `SECRET_KEY_BASE = { generate = "hex", length = 64 }` in `hop3.toml` `[env]` so Hop3 generates it on the first deploy — never committed. Keep `config/master.key` and credentials out of the repo; use `hop3 config set` for secrets you supply yourself.
+- **Secrets via config, not in git.** Declare `SECRET_KEY_BASE = { generate = "hex", length = 64 }` in `hop3.toml` `[env]` so Hop3 generates it on the first deploy — never committed. Keep `config/master.key` and credentials out of the repo; use `hop3 env set` for secrets you supply yourself.
 - **Procfile vs. hop3.toml.** Either works for declaring processes; when both exist, `hop3.toml` wins. The guides show both styles — pick one and stay consistent.
 
 ## Choose a framework
