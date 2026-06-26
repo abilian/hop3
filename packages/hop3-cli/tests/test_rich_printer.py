@@ -516,3 +516,38 @@ def test_print_success_with_bracketed_text_does_not_crash():
         printer.print([{"t": "success", "text": "built [/tmp/out] ok"}])
 
     assert "/tmp/out" in stdout_capture.getvalue()
+
+
+def _render_hint(item, *, context=None, app):
+    """Render a single `hint` item with the given typed selectors; return stdout."""
+    printer = RichPrinter()
+    printer.set_suggestion_selectors(context=context, app=app)
+    stdout_capture = StringIO()
+    with patch.object(sys, "stdout", stdout_capture):
+        printer.print([item])
+    return stdout_capture.getvalue()
+
+
+def test_hint_echoes_typed_context():
+    """A follow-up suggestion carries the --context the user typed, so a
+    copy-paste stays on the same server (it never reaches the server itself)."""
+    item = {"t": "hint", "command": "deploy", "message": "Run {cmd} to apply."}
+    out = _render_hint(item, context="prod", app=None)
+    assert "hop3 deploy --context prod" in out
+    assert "{cmd}" not in out  # placeholder was substituted
+
+
+def test_hint_echoes_typed_app():
+    item = {"t": "hint", "command": "deploy", "message": "Run {cmd}."}
+    out = _render_hint(item, context="prod", app="myapp")
+    assert "hop3 deploy --context prod --app myapp" in out
+
+
+def test_hint_omits_implicit_selectors():
+    """No --app/--context typed (implicit resolution) → suggestion omits them and
+    resolves the same way on the next run."""
+    item = {"t": "hint", "command": "deploy", "message": "Run {cmd}."}
+    out = _render_hint(item, context=None, app=None)
+    assert "hop3 deploy" in out
+    assert "--context" not in out
+    assert "--app" not in out
