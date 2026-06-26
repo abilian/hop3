@@ -44,7 +44,6 @@ _APP_NAMESPACE_SCOPED: set[tuple[str, ...]] = {
     ("app", "start"),
     ("app", "stop"),
     ("app", "restart"),
-    ("app", "env"),
     ("app", "debug"),
     ("app", "sbom"),
     ("app", "run"),  # canonical form of top-level `run` (alias). See run special-case.

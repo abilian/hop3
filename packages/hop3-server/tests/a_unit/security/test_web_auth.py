@@ -29,7 +29,7 @@ from hop3.server.security.web_auth import (
 @pytest.fixture(autouse=True)
 def _secret(monkeypatch):
     # get_secret_key() reads /etc/hop3/secret-key, then HOP3_SECRET_KEY.
-    monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-for-web-auth")
+    monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-for-web-auth--padding")
 
 
 def _conn(*, bearer: str | None = None, cookie: str | None = None):
