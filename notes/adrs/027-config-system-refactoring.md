@@ -762,7 +762,7 @@ def test_something(app_config):
 ### Developer Experience
 
 1. **CLI Tool**: `hop3 config show` to display current config
-2. **Config Validation**: `hop3 config validate` to check config file
+2. **Config Validation**: `hop3 validate` to check the app's `hop3.toml`
 3. **Config Export**: `hop3 config export` to generate config template
 4. **Type Stubs**: Generate `.pyi` files for better IDE support
 

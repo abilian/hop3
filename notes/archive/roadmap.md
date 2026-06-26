@@ -109,7 +109,7 @@ The following ADRs are marked as partially implemented and need completion:
 - [ ] Add environment-specific sections: `[env.development]`, `[env.production]`
 - [ ] Implement schema validation (see ADR 003 for requirements and options)
 - [ ] Add YAML/JSON format support (or remove from spec)
-- [ ] Add `hop3 config validate` CLI command
+- [ ] Add `hop3 validate` CLI command
 
 **ADR 018 - CLI-Server Communication** (Status: Accepted):
 - [ ] Implement streaming via JSON-RPC (currently only REST endpoints)
