@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-06-26
+
 ### Changed
 
 - **The deploy host doubles as the admin domain**: `hop3-deploy --host h.example.com` now serves the Web UI at `https://h.example.com/` when no `--admin-domain` is given. IPs, `localhost`, or Docker targets keep the previous behavior (UI on port 8000).
