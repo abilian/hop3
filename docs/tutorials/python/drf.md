@@ -73,7 +73,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECRET_KEY: a dev-insecure fallback keeps `migrate` and the first deploy
 # working before any secrets are set. Override it in production with
-# `hop3 config set --app <app> SECRET_KEY=...` (see the deploy step below).
+# `hop3 env set --app <app> SECRET_KEY=...` (see the deploy step below).
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-only-change-me')
 DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
@@ -350,11 +350,11 @@ hop3 deploy --app hop3-tuto-drf
 `SECRET_KEY` is generated automatically on the first deploy (see `hop3.toml` `[env]`). Set `ALLOWED_HOSTS` and the hostname for the application:
 
 ```bash exec id=set-allowed-hosts timeout=30
-hop3 config set --app hop3-tuto-drf ALLOWED_HOSTS=hop3-tuto-drf.$HOP3_TEST_DOMAIN,localhost,127.0.0.1
+hop3 env set --app hop3-tuto-drf ALLOWED_HOSTS=hop3-tuto-drf.$HOP3_TEST_DOMAIN,localhost,127.0.0.1
 ```
 
 ```bash exec id=set-hostname timeout=30
-hop3 config set --app hop3-tuto-drf HOST_NAME=hop3-tuto-drf.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-drf HOST_NAME=hop3-tuto-drf.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -403,8 +403,8 @@ hop3 app logs --app hop3-tuto-drf
 hop3 app restart --app hop3-tuto-drf
 
 # View/set environment variables
-hop3 config show --app hop3-tuto-drf
-hop3 config set --app hop3-tuto-drf NEW_VAR=value
+hop3 env show --app hop3-tuto-drf
+hop3 env set --app hop3-tuto-drf NEW_VAR=value
 
 # Scale workers
 hop3 ps scale --app hop3-tuto-drf web=2

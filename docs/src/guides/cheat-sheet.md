@@ -140,7 +140,7 @@ Most app-scoped commands don't need `--app` if one is resolvable from the curren
 hop3 use myapp
 hop3 app logs          # no positional needed
 hop3 app restart
-hop3 config show
+hop3 env show
 
 # Or set for a single shell
 export HOP3_APP=myapp
@@ -158,19 +158,19 @@ Resolution order: `--app` → `$HOP3_APP` → `.hop3-app` → `hop3.toml [cli].a
 
 ```bash
 # View all env vars
-hop3 config show --app <app>
+hop3 env show --app <app>
 
 # Get single var
-hop3 config get --app <app> VAR_NAME
+hop3 env get --app <app> VAR_NAME
 
 # Set vars (one or multiple)
-hop3 config set --app <app> VAR1=value1 VAR2=value2
+hop3 env set --app <app> VAR1=value1 VAR2=value2
 
 # Remove var
-hop3 config unset --app <app> VAR_NAME
+hop3 env unset --app <app> VAR_NAME
 
 # Live runtime config
-hop3 config live --app <app>
+hop3 env live --app <app>
 
 # Migrate Procfile to hop3.toml
 hop3 app migrate procfile /path/to/app --dry-run
@@ -468,7 +468,7 @@ hop3 app build-logs --app myapp
 hop3 app debug --app myapp
 
 # Check environment
-hop3 config show --app myapp
+hop3 env show --app myapp
 ```
 
 ### Scale for Traffic
@@ -489,7 +489,7 @@ hop3 ps scale --app myapp worker=2
 
 - **Don't hardcode secrets** in `hop3.toml` or Procfile
 - For app-internal random secrets (`SECRET_KEY`, `APP_KEY`, …), declare `KEY = { generate = "hex", length = 32 }` in `[env]` — generated once on first deploy, persisted, never committed
-- Use `hop3 config set` for externally-supplied secrets (API keys, passwords)
+- Use `hop3 env set` for externally-supplied secrets (API keys, passwords)
 - Keep `hop3.toml` in version control (without secrets)
 - Use `[env]` for non-sensitive defaults only
 
@@ -544,7 +544,7 @@ hop3 ps scale --app myapp worker=2
 |--------|------|
 | `heroku create` | `hop3 app launch <repo> --app <name>` |
 | `git push heroku main` | `hop3 deploy` |
-| `heroku config set` | `hop3 config set` |
+| `heroku config set` | `hop3 env set` |
 | `heroku addon create heroku-postgresql` | `hop3 addon create postgres` |
 | `heroku logs -t` | `hop3 app logs` |
 | `heroku ps` | `hop3 ps` |

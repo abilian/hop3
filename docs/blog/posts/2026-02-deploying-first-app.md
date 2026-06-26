@@ -320,7 +320,7 @@ Make sure you're binding to `0.0.0.0:$PORT`, not `127.0.0.1` or a hardcoded port
 **Database connection failed?** Check that the addon is attached:
 
 ```bash
-hop3 config show --app myapp
+hop3 env show --app myapp
 ```
 
 Look for `DATABASE_URL` in the output.
@@ -336,8 +336,8 @@ hop3 apps restart myapp        # Restart
 hop3 apps stop myapp           # Stop
 hop3 apps start myapp          # Start
 hop3 apps destroy myapp        # Delete (careful!)
-hop3 config set --app myapp KEY=val  # Set environment variable
-hop3 config show --app myapp         # View configuration
+hop3 env set --app myapp KEY=val  # Set environment variable
+hop3 env show --app myapp         # View configuration
 ```
 
 ## What's Next?
