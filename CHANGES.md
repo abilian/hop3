@@ -94,7 +94,7 @@ The 0.6 release builds on 0.5 with per-app resource limits and volumes, a much r
 
 ### Added
 
-- **CLI ergonomics overhaul (ADR 036)**: a redesigned command surface — space-separated command names (`hop3 config set`), an implicit current app, a sticky working context (`hop3 use`), command aliases, did-you-mean suggestions, categorized help with an example on every command, scriptable confirmations and non-interactive flags, and secret inputs from a file or stdin.
+- **CLI ergonomics overhaul (ADR 036)**: a redesigned command surface — space-separated command names (`hop3 env set`), an implicit current app, a sticky working context (`hop3 use`), command aliases, did-you-mean suggestions, categorized help with an example on every command, scriptable confirmations and non-interactive flags, and secret inputs from a file or stdin.
 - **Nix integration**: hermetic, reproducible builds from a `hop3.nix` file, a starter set of Nix-based application packages, and installer support for Nix on every supported distribution.
 - **Computed environment variables**: interpolate values in `hop3.toml` with `${VAR}`, resolved after addon variables are injected, so platform variables can be mapped to the names an app expects.
 - **WSGI auto-discovery**: Python web entry points are detected automatically when no worker is configured.
@@ -108,7 +108,7 @@ The 0.6 release builds on 0.5 with per-app resource limits and volumes, a much r
 
 ### Changed
 
-- **Command syntax (BREAKING, ADR 036)**: multi-word commands use spaces, not colons (`hop3 config set`, not `hop3 config:set`); the old colon form prints a migration hint.
+- **Command syntax (BREAKING, ADR 036)**: multi-word commands use spaces, not colons (`hop3 env set`, not `hop3 config:set`); the old colon form prints a migration hint.
 - **Command names (BREAKING, ADR 036)**: user management moved under `user`, addon commands to the singular `addon`, and a few verbs were normalized.
 - **Exit codes (ADR 036)**: the exit-code scheme was reorganized; scripts that branch on specific codes may need updating.
 - **Server vs context vocabulary (BREAKING, ADR 042)**: the old global "context" is now a *server*, and "context" means a project deploy target; existing config is migrated on first run.
