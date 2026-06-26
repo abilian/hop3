@@ -316,7 +316,7 @@ hop3 deploy --app hop3-tuto-nextjs
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config set --app hop3-tuto-nextjs HOST_NAME=hop3-tuto-nextjs.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-nextjs HOST_NAME=hop3-tuto-nextjs.$HOP3_TEST_DOMAIN
 ```
 
 ### Wait for Process Stop
@@ -378,13 +378,13 @@ hop3 app restart --app hop3-tuto-nextjs
 
 ```bash
 # List all variables
-hop3 config show --app hop3-tuto-nextjs
+hop3 env show --app hop3-tuto-nextjs
 
 # Set a variable
-hop3 config set --app hop3-tuto-nextjs NEXT_PUBLIC_API_URL=https://api.example.com
+hop3 env set --app hop3-tuto-nextjs NEXT_PUBLIC_API_URL=https://api.example.com
 
 # Remove a variable
-hop3 config unset --app hop3-tuto-nextjs OLD_VARIABLE
+hop3 env unset --app hop3-tuto-nextjs OLD_VARIABLE
 ```
 
 ### Scaling
@@ -449,10 +449,10 @@ Next.js exposes environment variables prefixed with `NEXT_PUBLIC_` to the browse
 
 ```bash
 # Server-side only (secure)
-hop3 config set --app hop3-tuto-nextjs DATABASE_URL=postgres://...
+hop3 env set --app hop3-tuto-nextjs DATABASE_URL=postgres://...
 
 # Client-side (visible in browser)
-hop3 config set --app hop3-tuto-nextjs NEXT_PUBLIC_API_URL=https://api.example.com
+hop3 env set --app hop3-tuto-nextjs NEXT_PUBLIC_API_URL=https://api.example.com
 ```
 
 !!! warning "Security Note"
@@ -582,7 +582,7 @@ If the build fails:
 Next.js can consume significant memory during build:
 
 ```bash
-hop3 config set --app hop3-tuto-nextjs NODE_OPTIONS="--max-old-space-size=2048"
+hop3 env set --app hop3-tuto-nextjs NODE_OPTIONS="--max-old-space-size=2048"
 ```
 
 ### Static Assets Not Loading

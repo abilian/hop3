@@ -270,7 +270,7 @@ deployed successfully
 Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
-hop3 config set --app hop3-tuto-bottle HOST_NAME=hop3-tuto-bottle.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-bottle HOST_NAME=hop3-tuto-bottle.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -313,8 +313,8 @@ hop3 app restart --app hop3-tuto-bottle
 hop3 app logs --app hop3-tuto-bottle
 
 # View/set environment variables
-hop3 config show --app hop3-tuto-bottle
-hop3 config set --app hop3-tuto-bottle NEW_VAR=value
+hop3 env show --app hop3-tuto-bottle
+hop3 env set --app hop3-tuto-bottle NEW_VAR=value
 
 # Scale workers
 hop3 ps scale --app hop3-tuto-bottle web=2

@@ -300,7 +300,7 @@ hop3 deploy --app hop3-tuto-hugo
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config set --app hop3-tuto-hugo HOST_NAME=hop3-tuto-hugo.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-hugo HOST_NAME=hop3-tuto-hugo.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -352,8 +352,8 @@ hop3 app logs --app hop3-tuto-hugo
 hop3 app restart --app hop3-tuto-hugo
 
 # View/set environment variables
-hop3 config show --app hop3-tuto-hugo
-hop3 config set --app hop3-tuto-hugo NEW_VAR=value
+hop3 env show --app hop3-tuto-hugo
+hop3 env set --app hop3-tuto-hugo NEW_VAR=value
 
 # Scale workers
 hop3 ps scale --app hop3-tuto-hugo web=2

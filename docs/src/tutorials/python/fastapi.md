@@ -437,7 +437,7 @@ hop3 init --ssh root@your-server.example.com
 
 ```bash
 # Set environment
-hop3 config set --app hop3-tuto-fastapi ENVIRONMENT=production
+hop3 env set --app hop3-tuto-fastapi ENVIRONMENT=production
 ```
 
 ### Deploy
@@ -453,7 +453,7 @@ hop3 deploy --app hop3-tuto-fastapi
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config set --app hop3-tuto-fastapi HOST_NAME=hop3-tuto-fastapi.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-fastapi HOST_NAME=hop3-tuto-fastapi.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -524,13 +524,13 @@ hop3 run --app hop3-tuto-fastapi python -c "from config import get_settings; pri
 
 ```bash
 # List all variables
-hop3 config show --app hop3-tuto-fastapi
+hop3 env show --app hop3-tuto-fastapi
 
 # Set a variable
-hop3 config set --app hop3-tuto-fastapi NEW_VARIABLE=value
+hop3 env set --app hop3-tuto-fastapi NEW_VARIABLE=value
 
 # Remove a variable
-hop3 config unset --app hop3-tuto-fastapi OLD_VARIABLE
+hop3 env unset --app hop3-tuto-fastapi OLD_VARIABLE
 ```
 
 ### Scaling
@@ -809,7 +809,7 @@ hop3 app logs --app hop3-tuto-fastapi --tail
 ```
 
 Common issues:
-- **Missing SECRET_KEY**: Set it with `hop3 config set`
+- **Missing SECRET_KEY**: Set it with `hop3 env set`
 - **Module not found**: Ensure all dependencies are in `requirements.txt`
 - **Port binding**: Ensure Uvicorn binds to `0.0.0.0:$PORT`
 
@@ -818,7 +818,7 @@ Common issues:
 Verify the database is attached:
 
 ```bash
-hop3 config show --app hop3-tuto-fastapi | grep DATABASE
+hop3 env show --app hop3-tuto-fastapi | grep DATABASE
 ```
 
 For async connections, ensure you're using `asyncpg`:

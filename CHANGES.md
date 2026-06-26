@@ -110,6 +110,17 @@ Per-app resource limits and volumes, richer addon commands, a signed app catalog
 
 ### Added
 
+- **CLI ergonomics overhaul (ADR 036)**: a redesigned command surface — space-separated command names (`hop3 env set`), an implicit current app, a sticky working context (`hop3 use`), command aliases, did-you-mean suggestions, categorized help with an example on every command, scriptable confirmations and non-interactive flags, and secret inputs from a file or stdin.
+- **Nix integration**: hermetic, reproducible builds from a `hop3.nix` file, a starter set of Nix-based application packages, and installer support for Nix on every supported distribution.
+- **Computed environment variables**: interpolate values in `hop3.toml` with `${VAR}`, resolved after addon variables are injected, so platform variables can be mapped to the names an app expects.
+- **WSGI auto-discovery**: Python web entry points are detected automatically when no worker is configured.
+- **Servers and project contexts (ADR 042)**: manage credentialed hosts with `hop3 server` and per-project deploy targets with `hop3 context`.
+- **Deploy preview and project-mismatch guard (ADR 042)**: `hop3 deploy` shows the resolved plan and confirms before acting; destructive commands refuse to run when the resolved app contradicts the current project.
+- **Shared failure diagnosis (ADR 043)**: every deploy-and-verify path collects one diagnostic bundle on failure and classifies it into a one-line cause, closing the silent-502 gap.
+- **Nightly dashboard `hop3-testlab` (ADR 044)**: run history, live progress, the regressions diff, and trends.
+- **Privileged-operations daemon `rootd` (ADR 041)**: the operations that need root run through a small, audited daemon instead of sudoers.
+- **App hostnames**: declare and manage an app's domains from `hop3.toml` and the CLI.
+- **Cross-instance backup migration (ADR 024)**: restore a backup onto a different Hop3 server.
 - **CLI ergonomics overhaul (ADR 036)**: space-separated commands, implicit app, sticky context, aliases, did-you-mean suggestions, categorized help, scriptable confirmations, secret inputs.
 - **Nix integration**: hermetic builds from `hop3.nix`, starter app packages, Nix installer support.
 - **Computed env variables**: `${VAR}` interpolation in `hop3.toml`.
@@ -124,6 +135,14 @@ Per-app resource limits and volumes, richer addon commands, a signed app catalog
 
 ### Changed
 
+- **Command syntax (BREAKING, ADR 036)**: multi-word commands use spaces, not colons (`hop3 env set`, not `hop3 config:set`); the old colon form prints a migration hint.
+- **Command names (BREAKING, ADR 036)**: user management moved under `user`, addon commands to the singular `addon`, and a few verbs were normalized.
+- **Exit codes (ADR 036)**: the exit-code scheme was reorganized; scripts that branch on specific codes may need updating.
+- **Server vs context vocabulary (BREAKING, ADR 042)**: the old global "context" is now a *server*, and "context" means a project deploy target; existing config is migrated on first run.
+- **Testing layers (ADR 043)**: the test suite is three layers selected by speed tier; a plain `pytest` run never starts Docker.
+- **More reliable deploys**: clearer messages about already-set env vars, IPv4 addon hosts to avoid IPv6 resolution issues, and assorted build and worker-precedence fixes.
+- **Safer upgrades**: pending database migrations run on upgrade, and an existing virtualenv is no longer replaced.
+- **Containerized app database access**: addons are reachable from apps on any private Docker network.
 - **Space-separated commands (BREAKING, ADR 036)**: `hop3 config set` not `hop3 config:set`.
 - **Exit codes reorganized (ADR 036)**.
 - **Server vs context vocabulary (BREAKING, ADR 042)**: existing config migrated on first run.
