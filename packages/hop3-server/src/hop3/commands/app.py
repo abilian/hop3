@@ -19,7 +19,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from hop3.core.credentials import get_credential_encryptor
 from hop3.core.identifiers import validate_app_name
 from hop3.core.plugins import get_addon
 from hop3.deployers import do_deploy, stop_previous_instance
@@ -966,90 +965,6 @@ class DestroyCmd(Command):
 
         # Silently continue if reload fails - nginx will pick up changes eventually
         log("nginx reload skipped (no reload method available)", level=3)
-
-
-@register
-@dataclass(frozen=True)
-class EnvCmd(Command):
-    """Show environment variables with their sources.
-
-    Deprecated (ADR 036 P2.2): use ``env show --sources``. Kept (hidden) for
-    back-compat; ``hop3 app env`` still works.
-
-    Usage: hop3 app env [--app <app>] [--show-secrets]
-
-    Options:
-        --show-secrets   Show full values for sensitive variables (default: redacted)
-    """
-
-    db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("app", "env")
-    hidden: ClassVar[bool] = True
-    # Argument specification for declarative parsing
-    _arg_spec: ClassVar[dict] = {
-        "app": {"type": str},  # --app <name> (ADR 036 D5)
-        "show_secrets": {"flag": True, "default": False},
-    }
-
-    def call(self, *args):
-        parsed = parse_cli_args(args, self._arg_spec)
-        app_name = parsed.get("app")
-
-        if not app_name:
-            return [
-                text(
-                    "Usage: hop3 app env [--app <app>] [--show-secrets]\n\n"
-                    "Examples:\n"
-                    "  hop3 app env\n"
-                    "  hop3 app env --app myapp --show-secrets"
-                )
-            ]
-
-        show_secrets = parsed["show_secrets"]
-        app = get_app(self.db_session, app_name)
-
-        # Get addon-injected variable names
-        addon_vars = self._get_addon_var_names(app)
-
-        # Build output rows
-        rows = []
-        for env_var in sorted(app.env_vars, key=lambda x: x.name):
-            source = "addon" if env_var.name in addon_vars else "config"
-            value = (
-                env_var.value
-                if show_secrets
-                else redact_sensitive_value(env_var.name, env_var.value)
-            )
-            rows.append([source, env_var.name, value])
-
-        if not rows:
-            return [text(f"No environment variables set for '{app_name}'.")]
-
-        return [table(["Source", "Name", "Value"], rows)]
-
-    def _get_addon_var_names(self, app) -> set[str]:
-        """Get the names of environment variables injected by addons.
-
-        Returns:
-            Set of variable names that were injected by addons
-        """
-        addon_vars: set[str] = set()
-
-        # Query addon credentials for this app using repository
-        addon_credential_repo = AddonCredentialRepository(session=self.db_session)
-        credentials = addon_credential_repo.get_by_app_id(app.id)
-
-        encryptor = get_credential_encryptor()
-        for credential in credentials:
-            try:
-                # Decrypt to get the connection details (which are the env var names)
-                connection_details = encryptor.decrypt(credential.encrypted_data)
-                addon_vars.update(connection_details.keys())
-            except Exception:
-                # If decryption fails, skip this credential
-                pass
-
-        return addon_vars
 
 
 @register

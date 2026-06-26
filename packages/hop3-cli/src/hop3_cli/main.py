@@ -107,6 +107,10 @@ def run_command_from_args(cli_args: list[str]) -> None:
         json_output=flags.json_output,
         debug=flags.debug,
     )
+    # Follow-up `hint` items echo the selectors the user actually typed, so a
+    # suggested next command stays on the same context/app (a server-rendered
+    # string can't carry --context — it never reaches the server).
+    printer.set_suggestion_selectors(context=flags.context, app=flags.app)
 
     # ADR 042: one-shot migration of legacy server/context state into
     # config.toml. Runs before the config is loaded so every command — and the
