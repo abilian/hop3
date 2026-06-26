@@ -8,6 +8,7 @@ import logging
 
 import pytest
 
+from hop3.server.catalog import loader
 from hop3.server.catalog.loader import load_apps
 from hop3.server.catalog.policy import CatalogSpecError, validate_catalog_spec
 
@@ -50,7 +51,7 @@ def _write_app(catalog_dir, app_id, *, toml: str):
     (d / "hop3.toml").write_text(toml)
 
 
-def test_loader_excludes_violating_app_loudly(tmp_path, caplog):
+def test_loader_excludes_violating_app_loudly(tmp_path):
     cat = tmp_path / "catalog"
     _write_app(cat, "good", toml='[metadata]\nid = "good"\ntitle = "Good"\n')
     _write_app(
@@ -59,8 +60,16 @@ def test_loader_excludes_violating_app_loudly(tmp_path, caplog):
         toml='[metadata]\nid = "hijacker"\n[domains]\nlist = ["_"]\n',
     )
 
-    with caplog.at_level(logging.ERROR):
+    # Capture log records explicitly — more robust than caplog across environments.
+    records: list[logging.LogRecord] = []
+    handler = logging.Handler()
+    handler.emit = records.append
+    handler.setLevel(logging.ERROR)
+    loader.logger.addHandler(handler)
+    try:
         apps = load_apps(cat)
+    finally:
+        loader.logger.removeHandler(handler)
 
     assert {a.id for a in apps} == {"good"}  # violator excluded
-    assert any("hijacker" in r.message for r in caplog.records)  # surfaced, not silent
+    assert any("hijacker" in r.getMessage() for r in records)  # surfaced, not silent

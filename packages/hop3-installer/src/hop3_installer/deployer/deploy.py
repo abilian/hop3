@@ -164,8 +164,9 @@ class Deployer:
         print("Deployment complete!")
         print(f"Server URL: {self.backend.get_server_url()}")
 
-        if self.config.admin_domain:
-            print(f"Admin URL: https://{self.config.admin_domain}")
+        admin_domain = self.config.effective_admin_domain
+        if admin_domain:
+            print(f"Admin URL: https://{admin_domain}")
             print(f"Admin user: {self.config.admin_user}")
             # Only show password if we created a new user.
             # SECURITY: do not print partial-masked forms (e.g. first-4 +
@@ -243,26 +244,66 @@ class Deployer:
         Returns:
             Tuple of (success, updated_step_count).
         """
-        if not self.config.admin_domain:
+        admin_domain = self.config.effective_admin_domain
+        if not admin_domain:
             return True, step
 
         # Configure nginx
         step += 1
         self.log_step(step, "Configuring nginx for domain")
-        if not self._setup_admin_nginx(self.config.admin_domain):
+        if not self._setup_admin_nginx(admin_domain):
             return False, step
 
         # Setup SSL certificate
         step += 1
         self.log_step(step, "Setting up SSL certificate")
-        self._setup_admin_ssl(self.config.admin_domain)
+        self._setup_admin_ssl(admin_domain)
 
         # Create admin user
         step += 1
         self.log_step(step, "Creating admin user")
         self._create_admin_user()
 
+        # Tell the server its own public domain, so it emits https://<domain>
+        # magic links and `hop3 addon expose` URLs instead of http://host:8000.
+        step += 1
+        self.log_step(step, "Recording admin domain in server config")
+        self._persist_admin_domain(admin_domain)
+
         return True, step
+
+    def _persist_admin_domain(self, domain: str) -> bool:
+        """Record ``ADMIN_DOMAIN`` in the server config (``hop3-server.toml``).
+
+        The deployer fronts the domain in nginx, but the server reads its own
+        canonical domain from ``ADMIN_DOMAIN`` in ``/home/hop3/hop3-server.toml``.
+        Without it the server doesn't know its public URL, so ``auth:magic-link``
+        returns a bare token and the CLI falls back to ``http://<host>:8000`` —
+        even though TLS fronts the dashboard at the domain. Idempotent
+        (update-or-append); preserves file ownership.
+        """
+        cfg = "/home/hop3/hop3-server.toml"
+        # ``domain`` already passed RFC-1035 validation in _setup_admin_nginx, so
+        # it is only [A-Za-z0-9.-] — safe to embed in the sed/printf below.
+        line = f'ADMIN_DOMAIN = "{domain}"'
+        script = (
+            f'set -e; f={shlex.quote(cfg)}; touch "$f"; '
+            f"if grep -q '^ADMIN_DOMAIN' \"$f\"; then "
+            f"sed -i 's|^ADMIN_DOMAIN.*|{line}|' \"$f\"; "
+            f"else printf '\\n# Admin UI domain (set by hop3-deploy)\\n%s\\n' "
+            f"'{line}' >> \"$f\"; fi; "
+            f'chown hop3:hop3 "$f"'
+        )
+        result = self.backend.run(script, check=False)
+        if not result.success:
+            self.log("Failed to record ADMIN_DOMAIN in server config", "warning")
+            self.log_output(result)
+            return False
+        # Restart so the running server (addon-expose URLs, etc.) sees the new
+        # value; the auth:magic-link CLI reads the file fresh and doesn't need it.
+        self.backend.run("systemctl restart hop3-server", check=False)
+        self.log(f"Server ADMIN_DOMAIN set to {domain}", "success")
+        return True
 
     def deploy(self) -> bool:
         """Run full deployment.
@@ -757,6 +798,27 @@ class Deployer:
         self.log("Local code deployed", "success")
         return True
 
+    def _platform_nginx_target(self) -> tuple[str, bool]:
+        """Where the platform vhost lives, and whether it may own default_server.
+
+        Debian/Ubuntu (``sites-available`` present): the platform vhost goes to
+        ``/etc/nginx/sites-available/hop3`` and we remove the distro ``default``
+        site so the platform vhost can be the sole ``default_server`` — making
+        the Hop3 control plane the deterministic owner of the bare host / any
+        unmatched Host. RHEL/Fedora (``conf.d``): no ``default_server`` (the
+        stock ``nginx.conf`` already ships one, and a duplicate fails
+        ``nginx -t``); an explicit ``server_name`` match carries the routing.
+        """
+        on_debian = self.backend.run(
+            "test -d /etc/nginx/sites-available", check=False
+        ).success
+        if on_debian:
+            # Idempotent: drop the distro welcome site so our default_server is
+            # unique (it otherwise wins :80 and shows the default nginx page).
+            self.backend.run("rm -f /etc/nginx/sites-enabled/default", check=False)
+            return "/etc/nginx/sites-available/hop3", True
+        return "/etc/nginx/conf.d/hop3.conf", False
+
     def _setup_admin_nginx(self, domain: str) -> bool:
         """Configure nginx for the admin domain.
 
@@ -773,18 +835,13 @@ class Deployer:
             self.log(f"Removing conflicting app config: {app_config}", "warning")
             self.backend.run(f"rm -f {shlex.quote(app_config)}", check=False)
 
-        # Determine which nginx config path to use
-        # Debian-based: /etc/nginx/sites-available/hop3
-        # RHEL-based: /etc/nginx/conf.d/hop3.conf
-        result = self.backend.run("test -d /etc/nginx/sites-available", check=False)
-        if result.success:
-            config_path = "/etc/nginx/sites-available/hop3"
-        else:
-            config_path = "/etc/nginx/conf.d/hop3.conf"
+        config_path, use_default_server = self._platform_nginx_target()
 
         # Generate nginx config for the admin domain
         # This proxies to the hop3-server running on port 8000
-        nginx_config = generate_http_only_config(domain)
+        nginx_config = generate_http_only_config(
+            domain, default_server=use_default_server
+        )
         safe_config_path = shlex.quote(config_path)
 
         # Write the config file using a heredoc
@@ -819,46 +876,105 @@ class Deployer:
         otherwise falls back to a self-signed certificate.
         """
         cert_dir = f"/home/hop3/ssl/{domain}"
+        cert_file = f"{cert_dir}/fullchain.pem"
 
-        # Check if certificate already exists and is installed
-        result = self.backend.run(
-            f"test -f {shlex.quote(cert_dir)}/fullchain.pem", check=False
-        )
-        if result.success:
-            self.log(f"SSL certificate already installed for {domain}", "success")
-            # Update nginx config to use SSL (in case it wasn't)
-            self._update_nginx_for_ssl(domain, cert_dir)
-            return
+        # A certificate is already on disk. Keep it — UNLESS it's a self-signed
+        # placeholder AND the operator has now supplied a usable --acme-email, in
+        # which case upgrade to Let's Encrypt rather than caching the placeholder
+        # forever. A real (CA-issued) cert is never re-issued here (Let's Encrypt
+        # rate limits); renewal is a separate concern.
+        cert_exists = self.backend.run(
+            f"test -f {shlex.quote(cert_file)}", check=False
+        ).success
+        if cert_exists:
+            upgrade = (
+                self._letsencrypt_skip_reason() is None
+                and self._is_self_signed_cert(cert_file)
+            )
+            if not upgrade:
+                self.log(f"SSL certificate already installed for {domain}", "success")
+                # Re-assert nginx points at the cert (in case it wasn't).
+                self._update_nginx_for_ssl(domain, cert_dir)
+                return
+            self.log(
+                f"Replacing the self-signed certificate for {domain} with a "
+                "Let's Encrypt certificate",
+                "info",
+            )
 
         # Determine if we should use Let's Encrypt or self-signed
-        use_letsencrypt = self._should_use_letsencrypt()
-
-        if use_letsencrypt:
+        skip_reason = self._letsencrypt_skip_reason()
+        if skip_reason is None:
             success = self._request_letsencrypt_cert(domain, cert_dir)
             if success:
                 return
-            # Fall back to self-signed if Let's Encrypt fails
-            self.log("Falling back to self-signed certificate")
+            self.log(
+                "Let's Encrypt issuance failed; falling back to a self-signed "
+                f"certificate. Check that {domain}'s DNS points to this server "
+                "and ports 80/443 are open, then redeploy.",
+                "warning",
+            )
+        else:
+            # A self-signed cert is never a silent default — say why, and what
+            # to pass to get a trusted one.
+            self.log(
+                f"Using a self-signed certificate for {domain}: {skip_reason}. "
+                "For a browser-trusted cert, redeploy with "
+                "--acme-email <you@domain> (with public DNS for "
+                f"{domain} pointing here and ports 80/443 open).",
+                "warning",
+            )
 
         # Generate self-signed certificate
         self._generate_self_signed_cert(domain, cert_dir)
 
-    def _should_use_letsencrypt(self) -> bool:
-        """Check if we should try Let's Encrypt."""
-        # Don't use Let's Encrypt if email is not provided or is the default placeholder
-        if not self.config.acme_email:
-            return False
-        if self.config.acme_email == DEFAULT_ADMIN_EMAIL:
-            return False
-        if self.config.acme_email == "admin@example.com":
-            return False
-        if "@example.com" in self.config.acme_email:
-            return False
+    def _is_self_signed_cert(self, cert_file: str) -> bool:
+        """True if the installed leaf cert is self-signed (issuer == subject).
 
-        # Check if acme.sh is installed
+        Our placeholder cert is self-signed (issued for ``/CN=<domain>/O=Hop3``);
+        a Let's Encrypt cert is issued by the LE CA, so its issuer differs from
+        its subject. Only the placeholder is auto-replaced. If openssl can't read
+        the cert, returns False — leave it alone rather than churn the CA.
+        """
+        result = self.backend.run(
+            f"openssl x509 -in {shlex.quote(cert_file)} -noout -issuer -subject",
+            check=False,
+        )
+        if not result.success:
+            return False
+        issuer = subject = ""
+        for line in result.stdout.splitlines():
+            if line.startswith("issuer="):
+                issuer = line[len("issuer=") :].strip()
+            elif line.startswith("subject="):
+                subject = line[len("subject=") :].strip()
+        return bool(issuer) and issuer == subject
+
+    def _should_use_letsencrypt(self) -> bool:
+        """Whether Let's Encrypt should be attempted (i.e. no skip reason)."""
+        return self._letsencrypt_skip_reason() is None
+
+    def _letsencrypt_skip_reason(self) -> str | None:
+        """Why Let's Encrypt won't be used, or None when it will be.
+
+        Returned (not just a bool) so ``_setup_admin_ssl`` can tell the operator
+        *why* it chose self-signed — an unexplained fallback to a degraded path
+        is the silent failure the platform must not produce.
+        """
+        email = self.config.acme_email
+        if not email:
+            return "no --acme-email was provided"
+        # DEFAULT_ADMIN_EMAIL is admin@example.com; reject it and any other
+        # example.com placeholder (Let's Encrypt would reject them anyway).
+        if email == DEFAULT_ADMIN_EMAIL or "@example.com" in email:
+            return f"--acme-email {email!r} is a placeholder address"
+
         acme_sh = "/home/hop3/.acme.sh/acme.sh"
-        result = self.backend.run(f"test -f {acme_sh}", check=False)
-        return result.success
+        if not self.backend.run(f"test -f {acme_sh}", check=False).success:
+            return (
+                "acme.sh is not installed on the server (reinstall without --skip-acme)"
+            )
+        return None
 
     def _request_letsencrypt_cert(self, domain: str, cert_dir: str) -> bool:
         """Request a Let's Encrypt certificate. Returns True on success."""
@@ -949,20 +1065,34 @@ class Deployer:
         self.backend.run(f"mkdir -p {shlex.quote(cert_dir)}", check=False)
         self.backend.run("chown -R hop3:hop3 /home/hop3/ssl", check=False)
 
+        # acme.sh runs as the hop3 user, so its --reloadcmd must NOT shell out to
+        # `sudo systemctl reload nginx`: the rootd security model (ADR 041 §12)
+        # removes hop3's nginx sudo rights, so that prompts for a password with
+        # no tty and fails. Use a no-op reload here — the deploy reloads nginx
+        # itself, as root, in _update_nginx_for_ssl below.
+        key_file = f"{cert_dir}/key.pem"
+        full_file = f"{cert_dir}/fullchain.pem"
         install_cmd = (
             f"sudo -u hop3 {acme_sh} --install-cert "
             f"-d {safe_domain} "
-            f"--key-file {shlex.quote(cert_dir)}/key.pem "
-            f"--fullchain-file {shlex.quote(cert_dir)}/fullchain.pem "
-            "--reloadcmd 'sudo systemctl reload nginx'"
+            f"--key-file {shlex.quote(key_file)} "
+            f"--fullchain-file {shlex.quote(full_file)} "
+            "--reloadcmd true"
         )
         result = self.backend.run(install_cmd, check=False)
-        if not result.success:
+
+        # Success is the cert being on disk, not acme.sh's exit code — a failing
+        # reloadcmd must not abort the deploy (the platform reloads nginx itself).
+        installed = self.backend.run(
+            f"test -s {shlex.quote(full_file)}", check=False
+        ).success
+        if not installed:
             self.log("Failed to install SSL certificate", "warning")
             self.log_output(result)
             return
 
-        # Update nginx config to use SSL
+        # Update nginx config to use SSL and reload nginx (as root — works
+        # regardless of the rootd sudoers retirement).
         self._update_nginx_for_ssl(domain, cert_dir)
 
         self.log(f"SSL certificate installed for {domain}", "success")
@@ -971,20 +1101,25 @@ class Deployer:
         """Update nginx config to use SSL."""
         ssl_cert = f"{cert_dir}/fullchain.pem"
         ssl_key = f"{cert_dir}/key.pem"
-        nginx_config = generate_full_ssl_config(domain, ssl_cert, ssl_key)
-        # Use the same config path as _setup_admin_nginx
-        result = self.backend.run("test -d /etc/nginx/sites-available", check=False)
-        if result.success:
-            config_path = "/etc/nginx/sites-available/hop3"
-        else:
-            config_path = "/etc/nginx/conf.d/hop3.conf"
-
+        config_path, use_default_server = self._platform_nginx_target()
+        nginx_config = generate_full_ssl_config(
+            domain, ssl_cert, ssl_key, default_server=use_default_server
+        )
         safe_config_path = shlex.quote(config_path)
 
         write_cmd = f"cat > {safe_config_path} << 'NGINX_EOF'\n{nginx_config}NGINX_EOF"
         result = self.backend.run(write_cmd, check=False)
         if not result.success:
             self.log("Failed to update nginx config for SSL", "warning")
+            return
+
+        # Validate before reload — a broken config (e.g. a duplicate
+        # default_server) must surface here, not silently keep the old config
+        # running while we report success.
+        test_result = self.backend.run("nginx -t", check=False)
+        if not test_result.success:
+            self.log("nginx config test failed after SSL update", "error")
+            self.log_output(test_result)
             return
 
         self.backend.run("systemctl reload nginx", check=False)

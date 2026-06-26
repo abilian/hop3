@@ -11,6 +11,7 @@ import os
 
 import pytest
 
+import hop3.config as cfg
 from hop3.core.unsafe_gate import (
     ACK_VALUE,
     UnsafeModeError,
@@ -25,6 +26,43 @@ def clean_env(monkeypatch):
     monkeypatch.delenv("HOP3_UNSAFE_ACK", raising=False)
     monkeypatch.delenv("MODE", raising=False)
     return monkeypatch
+
+
+@pytest.fixture(autouse=True)
+def _restore_unsafe_snapshot():
+    """The gate re-grounds the module-level config.HOP3_UNSAFE snapshot; restore
+    it after each test so re-grounding can't leak across the suite."""
+
+    original = cfg.HOP3_UNSAFE
+    yield
+    cfg.HOP3_UNSAFE = original
+
+
+def test_production_force_regrounds_module_snapshot(clean_env) -> None:
+    """The forced-off policy must reach config.HOP3_UNSAFE — the snapshot the
+    auth guards actually read — not just os.environ (regression for a silent
+    full-auth bypass in production)."""
+
+    clean_env.setenv("HOP3_UNSAFE", "true")
+    clean_env.setenv("HOP3_UNSAFE_ACK", ACK_VALUE)
+    clean_env.setenv("MODE", "production")
+
+    enforce_unsafe_mode_policy()
+
+    assert os.environ["HOP3_UNSAFE"] == "false"
+    assert cfg.HOP3_UNSAFE is False  # what auth_guard reads
+
+
+def test_dev_passthrough_regrounds_snapshot_true(clean_env) -> None:
+    """In development the bypass really is on — and the snapshot reflects it."""
+
+    clean_env.setenv("HOP3_UNSAFE", "true")
+    clean_env.setenv("HOP3_UNSAFE_ACK", ACK_VALUE)
+    clean_env.setenv("MODE", "development")
+
+    enforce_unsafe_mode_policy()
+
+    assert cfg.HOP3_UNSAFE is True
 
 
 def test_no_unsafe_requested_is_noop(clean_env) -> None:

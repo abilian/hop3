@@ -168,6 +168,12 @@ def validate_token(token: str) -> dict[str, Any] | None:  # noqa: PLR0911 — se
         if jti and is_token_revoked(jti, scopes=token_scopes):
             return None
 
+        # Subject (username) must be a non-empty string — `require: ["sub"]`
+        # only ensures the claim is present, not that it carries a real user.
+        sub = payload.get("sub")
+        if not isinstance(sub, str) or not sub:
+            return None
+
         # Validate that the token has proper scopes
         scopes = payload.get("scopes", [])
         if not isinstance(scopes, list):
@@ -183,7 +189,7 @@ def validate_token(token: str) -> dict[str, Any] | None:  # noqa: PLR0911 — se
 
         # Extract user info from payload
         return {
-            "username": payload.get("sub"),
+            "username": sub,
             "scopes": scopes,
             "issued_at": payload.get("iat"),
             "expires_at": payload.get("exp"),

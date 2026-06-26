@@ -83,6 +83,30 @@ def stream(stream_id: str) -> dict[str, Any]:
     return {"t": "stream", "stream_id": stream_id}
 
 
+def hint(command: str, message: str) -> dict[str, Any]:
+    """A follow-up-command suggestion the CLI renders in the user's own dialect.
+
+    ``command`` is the bare verb path (e.g. ``"deploy"`` or ``"app restart"``)
+    with NO target flags. The CLI prepends ``hop3 `` and appends the
+    ``--context`` / ``--app`` selectors the user actually typed, then substitutes
+    the result into ``message`` at the ``{cmd}`` placeholder.
+
+    This keeps a suggested next step on the same context (server) the user is
+    already targeting. A server-rendered string can't do this: ``--context`` is
+    a CLI-local selector that never reaches the server, so a literal
+    ``Run 'hop3 deploy'`` baked here would silently point at the *default*
+    context — a different server.
+
+    Example::
+
+        return [
+            text("Domains updated."),
+            hint("deploy", "\\nNote: HOST_NAME changed. Run {cmd} to apply."),
+        ]
+    """
+    return {"t": "hint", "command": command, "message": message}
+
+
 def summary(message: str) -> dict[str, Any]:
     """Create a state-change summary item (ADR 036 D19c).
 

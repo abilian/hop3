@@ -34,6 +34,10 @@ class RichPrinter:
     # ADR 036 D19c: current context/app used to build the [ctx / app] prefix
     # for summary lines. Populated by set_scope() after resolution.
     _scope: dict[str, str | None] = field(init=False, repr=False, compare=False)
+    # The --context/--app the user actually TYPED, used to render `hint` items
+    # (follow-up suggestions) in the user's own dialect. Populated by
+    # set_suggestion_selectors().
+    _suggest: dict[str, str | None] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Initialize console after dataclass creation."""
@@ -41,6 +45,7 @@ class RichPrinter:
         object.__setattr__(self, "_console_err", Console(stderr=True))
         object.__setattr__(self, "_json_buffer", [])
         object.__setattr__(self, "_scope", {"context": None, "app": None})
+        object.__setattr__(self, "_suggest", {"context": None, "app": None})
 
     def set_scope(self, *, context: str | None, app: str | None) -> None:
         """Set the active context/app used to prefix summary lines (ADR 036 D19c).
@@ -51,6 +56,17 @@ class RichPrinter:
         """
         self._scope["context"] = context
         self._scope["app"] = app
+
+    def set_suggestion_selectors(self, *, context: str | None, app: str | None) -> None:
+        """Record the ``--context``/``--app`` the user actually TYPED.
+
+        Follow-up suggestions (``hint`` items) reproduce these verbatim so a
+        copy-pasted next command lands on the same target. Typed — not resolved:
+        if the user relied on implicit app/context resolution, the suggestion
+        omits the flag and resolves the same way on the next run.
+        """
+        self._suggest["context"] = context
+        self._suggest["app"] = app
 
     @property
     def verbosity(self) -> int:
@@ -138,6 +154,38 @@ class RichPrinter:
 
         text = obj.get("text", "")
         self.console.print(text, markup=False, highlight=False)
+
+    def print_hint(self, obj: dict) -> None:
+        """Render a follow-up-command suggestion in the user's own dialect.
+
+        The server provides the bare verb (``command``, no target flags) and a
+        ``message`` carrying a ``{cmd}`` placeholder. We fill the placeholder
+        with ``hop3 <command>`` plus the ``--context``/``--app`` the user typed,
+        so a copy-paste targets the same context the user is already on.
+        """
+        if self.quiet:
+            return
+
+        if self.json_output:
+            self.json_buffer.append(obj)
+            return
+
+        cmd = self._render_suggested_command(obj.get("command", ""))
+        # "{cmd}" is a literal placeholder in the server-supplied message, not an
+        # f-string — the command is substituted in here, CLI-side.
+        message = obj.get("message", "").replace("{cmd}", f"'{cmd}'")  # noqa: RUF027
+        self.console.print(message, markup=False, highlight=False)
+
+    def _render_suggested_command(self, command: str) -> str:
+        """Build ``hop3 <command>`` + the typed --context/--app selectors."""
+        parts = ["hop3", command]
+        ctx = self._suggest.get("context")
+        app = self._suggest.get("app")
+        if ctx:
+            parts.append(f"--context {ctx}")
+        if app:
+            parts.append(f"--app {app}")
+        return " ".join(p for p in parts if p)
 
     def print_blob(self, obj: dict) -> None:
         """Write a base64 blob's bytes verbatim to stdout.

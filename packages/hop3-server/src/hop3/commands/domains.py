@@ -29,7 +29,7 @@ from ._helpers import (
     set_env_var,
     unset_env_var,
 )
-from ._response import error, summary, table, text
+from ._response import error, hint, summary, table, text
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -37,8 +37,11 @@ if TYPE_CHECKING:
     from hop3.orm import App
 
 
-_REDEPLOY_HINT = (
-    "\nNote: HOST_NAME changed. Run 'hop deploy {app}' to apply (affects proxy config)."
+# Rendered by the CLI with the user's own --context/--app (see _response.hint):
+# {cmd} becomes e.g. `hop3 deploy --context prod`, so the suggested redeploy
+# stays on the context the user is already targeting.
+_REDEPLOY_HINT_MSG = (
+    "\nNote: HOST_NAME changed. Run {cmd} to apply (affects proxy config)."
 )
 
 
@@ -124,7 +127,7 @@ class ListCmd(Command):
         parsed = parse_cli_args(args, self._arg_spec)
         app_name = parsed.get("app")
         if not app_name:
-            return [text("Usage: hop3 domain list --app <app>")]
+            return [text("Usage: hop3 domain list [--app <app>]")]
 
         app = get_app(self.db_session, app_name)
         hosts = _current_hosts(app)
@@ -160,7 +163,7 @@ class AddCmd(Command):
         new_inputs = list(parsed["_args"])
 
         if not app_name or not new_inputs:
-            return [text("Usage: hop3 domain add --app <app> <host> [<host> ...]")]
+            return [text("Usage: hop3 domain add [--app <app>] <host> [<host> ...]")]
 
         validated, errors = _validate_new_hosts(new_inputs)
         if errors:
@@ -194,7 +197,7 @@ class AddCmd(Command):
 
         result = [text(f"Added {len(added)} domain(s) to '{app_name}':")]
         result.extend(text(f"  + {h}") for h in added)
-        result.append(text(_REDEPLOY_HINT.format(app=app_name)))
+        result.append(hint("deploy", _REDEPLOY_HINT_MSG))
         result.append(summary(f"added {', '.join(added)} to {app_name}."))
         return result
 
@@ -224,7 +227,7 @@ class RemoveCmd(Command):
         targets = list(parsed["_args"])
 
         if not app_name or not targets:
-            return [text("Usage: hop3 domain remove --app <app> <host> [<host> ...]")]
+            return [text("Usage: hop3 domain remove [--app <app>] <host> [<host> ...]")]
 
         app = get_app(self.db_session, app_name)
         current = _current_hosts(app)
@@ -241,7 +244,7 @@ class RemoveCmd(Command):
 
         result = [text(f"Removed {len(targets)} domain(s) from '{app_name}':")]
         result.extend(text(f"  - {h}") for h in targets)
-        result.append(text(_REDEPLOY_HINT.format(app=app_name)))
+        result.append(hint("deploy", _REDEPLOY_HINT_MSG))
         result.append(summary(f"removed {', '.join(targets)} from {app_name}."))
         return result
 
@@ -270,7 +273,7 @@ class SetCmd(Command):
         new_inputs = list(parsed["_args"])
 
         if not app_name or not new_inputs:
-            return [text("Usage: hop3 domain set --app <app> <host> [<host> ...]")]
+            return [text("Usage: hop3 domain set [--app <app>] <host> [<host> ...]")]
 
         validated, errors = _validate_new_hosts(new_inputs)
         if errors:
@@ -297,7 +300,7 @@ class SetCmd(Command):
             text(f"Set domains for '{app_name}':"),
             table(headers=["Hostname"], rows=[[h] for h in validated]),
         ]
-        result.append(text(_REDEPLOY_HINT.format(app=app_name)))
+        result.append(hint("deploy", _REDEPLOY_HINT_MSG))
         result.append(summary(f"set {', '.join(validated)} on {app_name}."))
         return result
 
@@ -323,7 +326,7 @@ class ClearCmd(Command):
         parsed = parse_cli_args(args, self._arg_spec)
         app_name = parsed.get("app")
         if not app_name:
-            return [text("Usage: hop3 domain clear --app <app>")]
+            return [text("Usage: hop3 domain clear [--app <app>]")]
 
         app = get_app(self.db_session, app_name)
         had = _current_hosts(app)
@@ -333,6 +336,6 @@ class ClearCmd(Command):
         _persist(app, [], self.db_session)
 
         result = [text(f"Cleared {len(had)} domain(s) from '{app_name}'.")]
-        result.append(text(_REDEPLOY_HINT.format(app=app_name)))
+        result.append(hint("deploy", _REDEPLOY_HINT_MSG))
         result.append(summary(f"cleared HOST_NAME on {app_name}."))
         return result
