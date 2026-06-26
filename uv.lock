@@ -1376,7 +1376,7 @@ wheels = [
 
 [[package]]
 name = "hop3"
-version = "0.6.1"
+version = "0.6.2"
 source = { virtual = "." }
 dependencies = [
     { name = "hop3-cli" },
@@ -1495,7 +1495,7 @@ doc = [{ name = "zensical" }]
 
 [[package]]
 name = "hop3-cli"
-version = "0.6.1"
+version = "0.6.2"
 source = { editable = "packages/hop3-cli" }
 dependencies = [
     { name = "jsonrpcclient" },
@@ -1528,7 +1528,7 @@ requires-dist = [
 
 [[package]]
 name = "hop3-installer"
-version = "0.6.1"
+version = "0.6.2"
 source = { editable = "packages/hop3-installer" }
 
 [package.dev-dependencies]
@@ -1549,7 +1549,7 @@ dev = [
 
 [[package]]
 name = "hop3-rootd"
-version = "0.6.1"
+version = "0.6.2"
 source = { editable = "packages/hop3-rootd" }
 
 [package.dev-dependencies]
@@ -1568,7 +1568,7 @@ dev = [
 
 [[package]]
 name = "hop3-server"
-version = "0.6.1"
+version = "0.6.2"
 source = { editable = "packages/hop3-server" }
 dependencies = [
     { name = "advanced-alchemy" },
@@ -1662,7 +1662,7 @@ dev = [
 
 [[package]]
 name = "hop3-testing"
-version = "0.6.1"
+version = "0.6.2"
 source = { editable = "packages/hop3-testing" }
 dependencies = [
     { name = "attrs" },
@@ -1710,7 +1710,7 @@ requires-dist = [
 
 [[package]]
 name = "hop3-testlab"
-version = "0.6.1"
+version = "0.6.2"
 source = { editable = "packages/hop3-testlab" }
 dependencies = [
     { name = "advanced-alchemy" },
@@ -1773,7 +1773,7 @@ dev = [
 
 [[package]]
 name = "hop3-tui"
-version = "0.6.1"
+version = "0.6.2"
 source = { editable = "packages/hop3-tui" }
 dependencies = [
     { name = "httpx" },
