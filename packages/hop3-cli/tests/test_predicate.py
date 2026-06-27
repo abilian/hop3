@@ -6,17 +6,30 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from dataclasses import dataclass
 
 import pytest
 from hop3_cli.exit_codes import ExitCode
 from hop3_cli.rpc.responses import _handle_predicate_response
 
 
+@dataclass
+class _StubPrinter:
+    """Tracks print/flush calls via state, not mock assertions."""
+
+    json_output: bool = False
+    printed: bool = False
+    flushed: bool = False
+
+    def print(self, *args, **kwargs):
+        self.printed = True
+
+    def flush_json(self):
+        self.flushed = True
+
+
 def _printer(*, json_output=False):
-    p = MagicMock()
-    p.json_output = json_output
-    return p
+    return _StubPrinter(json_output=json_output)
 
 
 def test_exists_true_exits_zero_silently(capsys):
@@ -24,7 +37,7 @@ def test_exists_true_exits_zero_silently(capsys):
     with pytest.raises(SystemExit) as exc:
         _handle_predicate_response([{"t": "data", "data": {"exists": True}}], printer)
     assert exc.value.code == ExitCode.SUCCESS
-    printer.print.assert_not_called()  # silent in normal mode
+    assert not printer.printed  # silent in normal mode
 
 
 def test_exists_false_exits_one(capsys):
@@ -39,8 +52,8 @@ def test_json_mode_emits_payload_and_exits():
     with pytest.raises(SystemExit) as exc:
         _handle_predicate_response([{"t": "data", "data": {"exists": True}}], printer)
     assert exc.value.code == ExitCode.SUCCESS
-    printer.print.assert_called_once()
-    printer.flush_json.assert_called_once()
+    assert printer.printed
+    assert printer.flushed
 
 
 def test_no_payload_is_usage_error():
