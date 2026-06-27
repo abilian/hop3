@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import tomlkit
+import tomlkit.exceptions  # ken: explicit import for except clause below
 
 from hop3_cli.commands.local.help_text import print_context_help
 from hop3_cli.core.hop3_toml import first_hop3_toml, read_hop3_toml
