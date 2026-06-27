@@ -24,8 +24,7 @@ from hop3_cli.commands.local.tunnel_cmd import (
 )
 from hop3_cli.exit_codes import ExitCode
 from jsonrpcclient import Error, Ok
-
-from conftest import StubClient
+from stubs import StubClient
 
 _PG_URL = "postgresql://u:secret@127.0.0.1:5432/mydb"
 _ENDPOINT = {"type": "postgres", "host": "127.0.0.1", "port": 5432, "url": _PG_URL}

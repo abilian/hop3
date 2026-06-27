@@ -107,6 +107,7 @@ def test_guard_fires_on_ambient_context_foreign_app(tmp_path):
     r = resolve_app(
         None, context=_ctx("prod", ContextSource.ENV), cwd=tmp_path, home=tmp_path
     )
+    assert r.app is not None
     m = check_project_mismatch(
         r.app, r.source, r.kind, "destroy", cwd=tmp_path, home=tmp_path
     )
@@ -118,6 +119,7 @@ def test_guard_passes_on_cwd_rooted_context_foreign_app(tmp_path):
     r = resolve_app(
         None, context=_ctx("prod", ContextSource.FLAG), cwd=tmp_path, home=tmp_path
     )
+    assert r.app is not None
     m = check_project_mismatch(
         r.app, r.source, r.kind, "destroy", cwd=tmp_path, home=tmp_path
     )
@@ -132,6 +134,7 @@ def test_guard_fires_on_single_fallback_foreign_app(tmp_path):
         cwd=tmp_path,
         home=tmp_path,
     )
+    assert r.app is not None
     m = check_project_mismatch(
         r.app, r.source, r.kind, "destroy", cwd=tmp_path, home=tmp_path
     )

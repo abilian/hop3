@@ -35,51 +35,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 # ===========================================================================
-# Shared test stubs — plain objects, not MagicMock, so tests verify state
-# not implementation. (ken: anti-pattern 1 — over-mocking)
-# ===========================================================================
-
-from dataclasses import dataclass
-from types import SimpleNamespace
-from typing import Any
-
-
-@dataclass
-class StubClient:
-    """Context-manager RPC client returning a canned response."""
-
-    response: Any  # an Ok or Error from jsonrpcclient
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        return False
-
-    def rpc(self, *args, **kwargs):
-        return self.response
-
-
-def make_http_response(
-    status_code: int,
-    *,
-    json_body: dict[str, Any] | None = None,
-    ok: bool | None = None,
-) -> SimpleNamespace:
-    """Build a stub ``requests.Response`` with .status_code, .json(), .ok.
-
-    ``ok`` defaults to ``200 <= status_code < 400`` (matching requests).
-    """
-    if ok is None:
-        ok = 200 <= status_code < 400
-    return SimpleNamespace(
-        status_code=status_code,
-        ok=ok,
-        json=lambda: (json_body or {}),
-    )
-
-
-# ===========================================================================
 # Environment isolation fixture
 # ===========================================================================
 

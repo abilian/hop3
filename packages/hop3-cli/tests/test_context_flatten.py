@@ -96,7 +96,9 @@ def test_generate_archive_substitutes_hop3_toml(tmp_path):
     override = b'[metadata]\nid = "flattened"\n'
     tgz = generate_archive(tmp_path, hop3_toml_override=override)
     with tarfile.open(fileobj=io.BytesIO(tgz), mode="r:gz") as tar:
-        content = tar.extractfile("hop3.toml").read()
+        member = tar.extractfile("hop3.toml")
+        assert member is not None
+        content = member.read()
     assert content == override
     # The committed on-disk file is untouched.
     assert "orig" in (tmp_path / "hop3.toml").read_text()
@@ -111,6 +113,7 @@ def test_deploy_override_flattens_for_context():
         '[contexts.prod.env]\nA="2"\n'
     )
     ov = _context_deploy_override(["deploy"], SimpleNamespace(context="prod"))
+    assert ov is not None
     eff = tomllib.loads(ov.decode())
     assert "contexts" not in eff
     assert eff["env"] == {"A": "2"}

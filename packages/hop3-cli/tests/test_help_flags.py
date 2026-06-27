@@ -15,17 +15,7 @@ from hop3_cli.commands.help import (
 from hop3_cli.main import requires_authentication
 from hop3_cli.rpc.responses import handle_ok_response
 from hop3_cli.ui import RichPrinter
-
-
-class _StubConfig:
-    """Minimal config for the help post-processing path.
-
-    `emit_status_line` returns early when there is no active context, so this
-    only needs to answer the context-name query.
-    """
-
-    def get_current_context_name(self):
-        return None
+from stubs import StubConfig
 
 
 def test_help_flags_basic():
@@ -143,7 +133,7 @@ def test_verbose_help_all_appends_full_local_help(capsys):
     ]
     printer = RichPrinter(verbose=True)
 
-    handle_ok_response(server_doc, ["help", "--all"], _StubConfig(), printer)
+    handle_ok_response(server_doc, ["help", "--all"], StubConfig(), printer)
 
     out = capsys.readouterr().out
     assert "CLIENT-SIDE (LOCAL) COMMANDS" in out
@@ -165,7 +155,7 @@ def test_nonverbose_help_all_keeps_oneliner_injection(capsys):
     ]
     printer = RichPrinter(verbose=False)
 
-    handle_ok_response(server_doc, ["help", "--all"], _StubConfig(), printer)
+    handle_ok_response(server_doc, ["help", "--all"], StubConfig(), printer)
 
     out = capsys.readouterr().out
     # No full-help appendix in the terse mode.
