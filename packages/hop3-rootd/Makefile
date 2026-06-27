@@ -24,6 +24,11 @@ test-with-coverage:
 	pytest --cov $(PKG) tests/a_unit
 	@echo ""
 
+test-cov:
+	@echo "--> Running Python tests with coverage"
+	uv run pytest --cov=$(PKG) --cov-report term-missing tests/a_unit
+	@echo ""
+
 
 ## Lint / check typing
 lint:
@@ -36,4 +41,4 @@ format:
 	ruff check --fix
 	ruff format
 
-.PHONY: all test test-integration test-with-coverage lint format
+.PHONY: all test test-integration test-with-coverage test-cov lint format
