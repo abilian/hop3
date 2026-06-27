@@ -135,3 +135,11 @@ label = "e2e"
 name = "c_system"
 root = "tests/c_system"
 label = "system"
+
+[tool.coverage.report]
+exclude_also = [
+    "if typing.TYPE_CHECKING:",
+    "if TYPE_CHECKING:",
+]
+skip_covered = true
+skip_empty = true

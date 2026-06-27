@@ -55,3 +55,11 @@ dev = [
     "ruff>=0.15.17",
     "ty>=0.0.50",
 ]
+
+[tool.coverage.report]
+exclude_also = [
+    "if typing.TYPE_CHECKING:",
+    "if TYPE_CHECKING:",
+]
+skip_covered = true
+skip_empty = true
