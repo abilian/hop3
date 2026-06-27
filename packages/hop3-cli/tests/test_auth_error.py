@@ -11,8 +11,7 @@ from unittest.mock import Mock, patch
 from hop3_cli.config import Config
 from hop3_cli.rpc import Client
 from jsonrpcclient import Error
-
-from conftest import make_http_response
+from stubs import make_http_response
 
 
 def _make_config(api_url: str = "http://localhost:8000") -> Config:
@@ -71,14 +70,18 @@ def test_jsonrpc_error_with_http_404():
     config = _make_config()
     client = Client(config=config)
 
-    mock_response = make_http_response(404, ok=False, json_body={
-        "jsonrpc": "2.0",
-        "error": {
-            "code": -32601,
-            "message": "Command 'xxx' not found",
+    mock_response = make_http_response(
+        404,
+        ok=False,
+        json_body={
+            "jsonrpc": "2.0",
+            "error": {
+                "code": -32601,
+                "message": "Command 'xxx' not found",
+            },
+            "id": 1,
         },
-        "id": 1,
-    })
+    )
 
     with patch("hop3_cli.rpc.client.requests.post", return_value=mock_response):
         response = client.rpc("cli", ["xxx"])
@@ -97,15 +100,19 @@ def test_jsonrpc_error_with_data_field():
     config = _make_config()
     client = Client(config=config)
 
-    mock_response = make_http_response(400, ok=False, json_body={
-        "jsonrpc": "2.0",
-        "error": {
-            "code": -32602,
-            "message": "Invalid params",
-            "data": "Missing required parameter 'app_name'",
+    mock_response = make_http_response(
+        400,
+        ok=False,
+        json_body={
+            "jsonrpc": "2.0",
+            "error": {
+                "code": -32602,
+                "message": "Invalid params",
+                "data": "Missing required parameter 'app_name'",
+            },
+            "id": 1,
         },
-        "id": 1,
-    })
+    )
 
     with patch("hop3_cli.rpc.client.requests.post", return_value=mock_response):
         response = client.rpc("cli", ["app", "start"])
