@@ -12,6 +12,8 @@ from hop3_cli.config import Config
 from hop3_cli.rpc import Client
 from jsonrpcclient import Error
 
+from conftest import make_http_response
+
 
 def _make_config(api_url: str = "http://localhost:8000") -> Config:
     """Create a Config with context-based configuration."""
@@ -28,10 +30,7 @@ def test_401_error_message():
     config = _make_config()
     client = Client(config=config)
 
-    # Mock the requests.post to return a 401 response
-    mock_response = Mock()
-    mock_response.status_code = 401
-    mock_response.json.return_value = {}
+    mock_response = make_http_response(401)
 
     with patch("hop3_cli.rpc.client.requests.post", return_value=mock_response):
         response = client.rpc("cli", ["auth"])
@@ -54,11 +53,10 @@ def test_other_http_errors():
     config = _make_config()
     client = Client(config=config)
 
-    # Mock the requests.post to return a 500 response
-    mock_response = Mock()
-    mock_response.status_code = 500
-    mock_response.json.return_value = {}
-    mock_response.raise_for_status.side_effect = Exception("Internal Server Error")
+    mock_response = make_http_response(500, ok=False)
+    mock_response.raise_for_status = Mock(
+        side_effect=Exception("Internal Server Error")
+    )
 
     with patch("hop3_cli.rpc.client.requests.post", return_value=mock_response):
         response = client.rpc("cli", ["auth"])
@@ -69,26 +67,18 @@ def test_other_http_errors():
 
 
 def test_jsonrpc_error_with_http_404():
-    """Test that JSON-RPC errors returned with HTTP 404 are parsed correctly.
-
-    The server returns HTTP 404 with a JSON-RPC error body for "command not found".
-    The client should extract the clean error message, not show the HTTP error.
-    """
+    """Test that JSON-RPC errors returned with HTTP 404 are parsed correctly."""
     config = _make_config()
     client = Client(config=config)
 
-    # Mock the requests.post to return a 404 with JSON-RPC error body
-    mock_response = Mock()
-    mock_response.status_code = 404
-    mock_response.ok = False
-    mock_response.json.return_value = {
+    mock_response = make_http_response(404, ok=False, json_body={
         "jsonrpc": "2.0",
         "error": {
             "code": -32601,
             "message": "Command 'xxx' not found",
         },
         "id": 1,
-    }
+    })
 
     with patch("hop3_cli.rpc.client.requests.post", return_value=mock_response):
         response = client.rpc("cli", ["xxx"])
@@ -107,10 +97,7 @@ def test_jsonrpc_error_with_data_field():
     config = _make_config()
     client = Client(config=config)
 
-    mock_response = Mock()
-    mock_response.status_code = 400
-    mock_response.ok = False
-    mock_response.json.return_value = {
+    mock_response = make_http_response(400, ok=False, json_body={
         "jsonrpc": "2.0",
         "error": {
             "code": -32602,
@@ -118,7 +105,7 @@ def test_jsonrpc_error_with_data_field():
             "data": "Missing required parameter 'app_name'",
         },
         "id": 1,
-    }
+    })
 
     with patch("hop3_cli.rpc.client.requests.post", return_value=mock_response):
         response = client.rpc("cli", ["app", "start"])

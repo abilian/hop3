@@ -25,6 +25,8 @@ from hop3_cli.commands.local.tunnel_cmd import (
 from hop3_cli.exit_codes import ExitCode
 from jsonrpcclient import Error, Ok
 
+from conftest import StubClient
+
 _PG_URL = "postgresql://u:secret@127.0.0.1:5432/mydb"
 _ENDPOINT = {"type": "postgres", "host": "127.0.0.1", "port": 5432, "url": _PG_URL}
 
@@ -89,24 +91,16 @@ def test_ssh_params_rejects_non_ssh_url():
 # ---- _fetch_endpoint ----
 
 
-def _client_returning(response):
-    client = MagicMock()
-    client.__enter__.return_value = client
-    client.__exit__.return_value = False
-    client.rpc.return_value = response
-    return client
-
-
 def test_fetch_endpoint_extracts_data_payload():
     response = Ok([{"t": "data", "data": _ENDPOINT}], 1)
-    with patch("hop3_cli.rpc.Client", return_value=_client_returning(response)):
+    with patch("hop3_cli.rpc.Client", return_value=StubClient(response)):
         assert _fetch_endpoint(MagicMock(), "mydb") == _ENDPOINT
 
 
 def test_fetch_endpoint_error_response_exits_resolution():
     response = Error(404, "not found", None, 1)
     with (
-        patch("hop3_cli.rpc.Client", return_value=_client_returning(response)),
+        patch("hop3_cli.rpc.Client", return_value=StubClient(response)),
         pytest.raises(SystemExit) as exc,
     ):
         _fetch_endpoint(MagicMock(), "mydb")
@@ -116,7 +110,7 @@ def test_fetch_endpoint_error_response_exits_resolution():
 def test_fetch_endpoint_no_data_item_exits_resolution():
     response = Ok([{"t": "text", "text": "nope"}], 1)
     with (
-        patch("hop3_cli.rpc.Client", return_value=_client_returning(response)),
+        patch("hop3_cli.rpc.Client", return_value=StubClient(response)),
         pytest.raises(SystemExit) as exc,
     ):
         _fetch_endpoint(MagicMock(), "mydb")
