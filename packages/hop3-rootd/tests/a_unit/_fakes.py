@@ -21,6 +21,33 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
+class SaveSpy:
+    """Callable that counts how many times it was invoked.
+
+    Stands in for ``OpContext.save_state`` (a ``Callable[[], None]``) so a test
+    can assert the op persisted state, without monkeypatching a private attr
+    onto ``OpContext``. Use via a pair of fixtures::
+
+        @pytest.fixture
+        def save_spy() -> SaveSpy:
+            return SaveSpy()
+
+        @pytest.fixture
+        def ctx(save_spy: SaveSpy) -> OpContext:
+            return OpContext(..., save_state=save_spy)
+
+        def test_op_persisted(ctx, save_spy):
+            ...
+            assert save_spy.count == 1
+    """
+
+    def __init__(self) -> None:
+        self.count = 0
+
+    def __call__(self) -> None:
+        self.count += 1
+
+
 def ok(stdout: str = "") -> CommandResult:
     """A successful CommandResult (rc 0)."""
     return CommandResult(argv=[], returncode=0, stdout=stdout, stderr="")
