@@ -22,26 +22,25 @@ from hop3_rootd.protocol import Request
 from hop3_rootd.state import State, StoredCgroup
 from hop3_rootd.validation import ValidationError
 
+from tests.a_unit._fakes import SaveSpy
+
 # --- Fixtures -------------------------------------------------------------
 
 
 @pytest.fixture
-def ctx():
-    state = State()
-    saved = {"count": 0}
+def save_spy() -> SaveSpy:
+    return SaveSpy()
 
-    def save_state():
-        saved["count"] += 1
 
-    context = OpContext(
-        state=state,
+@pytest.fixture
+def ctx(save_spy: SaveSpy) -> OpContext:
+    return OpContext(
+        state=State(),
         state_path=None,
-        save_state=save_state,
+        save_state=save_spy,
         now_iso=lambda: "2026-04-24T15:30:00+00:00",
         new_rule_id=lambda: "rule-test-1",
     )
-    context._saved = saved  # type: ignore[attr-defined]  # test introspection
-    return context
 
 
 def _req(op: str, **args) -> Request:
@@ -83,7 +82,7 @@ def test_ensure_slice_unavailable_propagates(ctx):
 # --- cgroup.set_limits ---------------------------------------------------
 
 
-def test_set_limits_happy_path(ctx):
+def test_set_limits_happy_path(ctx, save_spy):
     handler = get_handler("cgroup.set_limits")
     assert handler is not None
     with patch.object(
@@ -114,7 +113,7 @@ def test_set_limits_happy_path(ctx):
     assert len(ctx.state.cgroups) == 1
     assert ctx.state.cgroups[0].app_name == "blog"
     assert ctx.state.cgroups[0].memory_max == 536870912
-    assert ctx._saved["count"] == 1
+    assert save_spy.count == 1
 
 
 def test_set_limits_no_dimension_is_validation_error(ctx):
@@ -202,7 +201,7 @@ def test_attach_pids_empty_list_rejected(ctx):
 # --- cgroup.remove -------------------------------------------------------
 
 
-def test_remove_drops_state_and_reports(ctx):
+def test_remove_drops_state_and_reports(ctx, save_spy):
     ctx.state.cgroups.append(
         StoredCgroup("blog", 100, None, None, "2026-01-01T00:00:00+00:00")
     )
@@ -215,7 +214,7 @@ def test_remove_drops_state_and_reports(ctx):
     assert result["removed"] is True
     assert result["killed_pids"] == [42]
     assert ctx.state.cgroups == []
-    assert ctx._saved["count"] == 1
+    assert save_spy.count == 1
 
 
 def test_remove_absent_leaf_is_idempotent(ctx):
