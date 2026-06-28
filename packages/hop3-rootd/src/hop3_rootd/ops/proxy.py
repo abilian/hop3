@@ -44,7 +44,9 @@ def add_proxy(req: Request, ctx: OpContext) -> dict[str, Any]:
     source = validate_source(req.args.get("source", "any"))
     applied_at = ctx.now_iso()
 
-    result = px.add_proxy(addon_type, addon_name, public_port, target_port)
+    result = px.add_proxy(
+        addon_type, addon_name, public_port, target_port, exec=ctx.exec
+    )
 
     ctx.state.proxies = [
         p
@@ -88,7 +90,7 @@ def remove_proxy(req: Request, ctx: OpContext) -> dict[str, Any]:
     addon_name = validate_addon_name(req.args.get("addon_name"))
 
     base = px.unit_base_name(addon_type, addon_name)
-    result = px.remove_proxy(base)
+    result = px.remove_proxy(base, exec=ctx.exec)
 
     ctx.state.proxies = [
         p

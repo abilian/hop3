@@ -7,38 +7,43 @@ all: lint test
 # testing & checking
 #
 
-## Run unit tests (no privileges needed)
+## Run python tests
 test:
-	@echo "--> Running Python unit tests"
-	pytest -x -p no:randomly tests/a_unit
+	@echo "--> Running Python tests"
+	pytest -x -p no:randomly
 	@echo ""
 
-## Run integration tests (requires root + nftables)
-test-integration:
-	@echo "--> Running integration tests (requires root)"
-	pytest -x tests/b_integration
+test-randomly:
+	@echo "--> Running Python tests in random order"
+	pytest
 	@echo ""
 
 test-with-coverage:
-	@echo "--> Running tests with coverage"
-	pytest --cov $(PKG) tests/a_unit
+	@echo "--> Running Python tests"
+	py.test --cov $(PKG)
+	@echo ""
+
+test-with-typeguard:
+	@echo "--> Running Python tests with typeguard"
+	pytest --typeguard-packages=${PKG}
 	@echo ""
 
 test-cov:
 	@echo "--> Running Python tests with coverage"
-	uv run pytest --cov=$(PKG) --cov-report term-missing tests/a_unit
+	uv run pytest --cov=$(PKG)
 	@echo ""
 
 
 ## Lint / check typing
 lint:
-	ruff check
-
+	ruff check src tests
+	ty check src tests
 
 ## Format
 format:
-	ruff format
-	ruff check --fix
-	ruff format
+	ruff format src tests
+	ruff check --fix src tests
+	ruff format src tests
 
-.PHONY: all test test-integration test-with-coverage test-cov lint format
+
+.PHONY: all test test-randomly test-with-coverage test-with-typeguard test-cov lint

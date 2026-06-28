@@ -44,7 +44,7 @@ def mount_tmpfs(req: Request, ctx: OpContext) -> dict[str, Any]:
     mode = validate_mount_mode(req.args.get("mode"))
     applied_at = ctx.now_iso()
 
-    result = mt.mount_tmpfs(app_name, target, size_bytes, mode)
+    result = mt.mount_tmpfs(app_name, target, size_bytes, mode, exec=ctx.exec)
 
     ctx.state.mounts = [
         m
@@ -87,7 +87,7 @@ def mount_bind(req: Request, ctx: OpContext) -> dict[str, Any]:
     read_only = validate_read_only(req.args.get("read_only"))
     applied_at = ctx.now_iso()
 
-    result = mt.mount_bind(app_name, target, source, read_only=read_only)
+    result = mt.mount_bind(app_name, target, source, read_only=read_only, exec=ctx.exec)
 
     ctx.state.mounts = [
         m
@@ -130,7 +130,7 @@ def unmount(req: Request, ctx: OpContext) -> dict[str, Any]:
     app_name = validate_app_name(req.args.get("app_name"))
     target = validate_volume_target(req.args.get("target"))
 
-    result = mt.unmount(app_name, target)
+    result = mt.unmount(app_name, target, exec=ctx.exec)
 
     ctx.state.mounts = [
         m

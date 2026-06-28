@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 from hop3_rootd import PROTOCOL_VERSION, proxy
@@ -66,7 +66,7 @@ def test_add_records_state(ctx):
             ctx,
         )
 
-    mock_add.assert_called_once_with("postgres", "mydb", 54312, 5432)
+    mock_add.assert_called_once_with("postgres", "mydb", 54312, 5432, exec=ANY)
     assert result["unit"] == "hop3-expose-postgres-mydb"
     assert result["source"] == "203.0.113.0/24"
     assert len(ctx.state.proxies) == 1
@@ -157,7 +157,7 @@ def test_remove_drops_state(ctx):
         return_value={"removed": True, "unit": "hop3-expose-redis-cache"},
     ) as mock_rm:
         result = handler_remove(ctx, addon_type="redis", addon_name="cache")
-    mock_rm.assert_called_once_with("hop3-expose-redis-cache")
+    mock_rm.assert_called_once_with("hop3-expose-redis-cache", exec=ANY)
     assert result["removed"] is True
     assert ctx.state.proxies == []
     assert ctx._saved["count"] == 1

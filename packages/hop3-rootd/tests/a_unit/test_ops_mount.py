@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 from hop3_rootd import PROTOCOL_VERSION, mount
@@ -60,7 +60,7 @@ def test_tmpfs_happy_path_records_state(ctx):
             ),
             ctx,
         )
-    mock_mt.assert_called_once_with("blog", "var/cache", 1048576, None)
+    mock_mt.assert_called_once_with("blog", "var/cache", 1048576, None, exec=ANY)
     assert result["mountpoint"].endswith("var/cache")
     assert len(ctx.state.mounts) == 1
     assert ctx.state.mounts[0].type == "tmpfs"
@@ -136,7 +136,7 @@ def test_bind_happy_path_records_state(ctx):
             ctx,
         )
     mock_mb.assert_called_once_with(
-        "blog", "public/media", "/srv/shared/media", read_only=False
+        "blog", "public/media", "/srv/shared/media", read_only=False, exec=ANY
     )
     assert result["type"] == "bind"
     assert ctx.state.mounts[0].type == "bind"
