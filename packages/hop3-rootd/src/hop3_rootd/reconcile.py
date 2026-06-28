@@ -33,6 +33,7 @@ from hop3_rootd.cgroup import CgroupError
 from hop3_rootd.exec import DEFAULT_EXEC, Exec
 from hop3_rootd.mount import MountError
 from hop3_rootd.nft.rule import (
+    NftError,
     build_add_argv,
     build_delete_argv,
     parse_comment,
@@ -41,7 +42,7 @@ from hop3_rootd.nft.rule import (
 from hop3_rootd.nft.table import ensure_table_exists, list_rules
 from hop3_rootd.proxy import ProxyError, ProxyUnavailableError
 from hop3_rootd.state import State, StoredRule
-from hop3_rootd.validation import validate_port_spec
+from hop3_rootd.validation import ValidationError, validate_port_spec
 
 
 @dataclass(frozen=True)
@@ -108,7 +109,7 @@ def reconcile(state: State, *, exec: Exec = DEFAULT_EXEC) -> ReconcileReport:
             )
             new_state_rules.append(stored)
             reapplied += 1
-        except Exception as e:
+        except (ValidationError, NftError) as e:
             logger.error(
                 "reconcile: could not re-apply rule %s — dropping from state: %s",
                 stored.rule_id,
@@ -129,7 +130,7 @@ def reconcile(state: State, *, exec: Exec = DEFAULT_EXEC) -> ReconcileReport:
                 "reconcile: removed orphan kernel rule %s (handle %d)", rid, handle
             )
             orphans_removed += 1
-        except Exception as e:
+        except NftError as e:
             logger.error(
                 "reconcile: failed to remove orphan rule %s (handle %d): %s",
                 rid,
@@ -149,7 +150,7 @@ def reconcile(state: State, *, exec: Exec = DEFAULT_EXEC) -> ReconcileReport:
                 handle,
             )
             orphans_removed += 1
-        except Exception as e:
+        except NftError as e:
             logger.error(
                 "reconcile: failed to remove foreign rule (handle %d): %s",
                 handle,

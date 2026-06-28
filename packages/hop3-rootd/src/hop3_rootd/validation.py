@@ -175,7 +175,7 @@ def validate_protocol(value: Any) -> Literal["tcp", "udp"]:
             "protocol",
             f"must be one of {sorted(ALLOWED_PROTOCOLS)} (got {value!r})",
         )
-    return value  # type: ignore[return-value]  # narrowed by the membership check
+    return "tcp" if value == "tcp" else "udp"
 
 
 def validate_source(value: Any) -> str:
