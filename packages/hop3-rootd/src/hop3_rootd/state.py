@@ -214,7 +214,7 @@ def _parse_version(obj: dict[str, Any], path: Path) -> int:
 
 def _parse_rules(obj: dict[str, Any]) -> list[StoredRule]:
     """Extract and validate the 'rules' list. Raises on any malformed entry."""
-    rules_raw = obj.get("rules", [])
+    rules_raw: list[Any] = obj.get("rules", [])
     if not isinstance(rules_raw, list):
         raise StateCorruptError(
             f"'rules' must be a list, got {type(rules_raw).__name__}"
@@ -240,7 +240,7 @@ def _parse_rules(obj: dict[str, Any]) -> list[StoredRule]:
 
 def _parse_cgroups(obj: dict[str, Any]) -> list[StoredCgroup]:
     """Extract the optional 'cgroups' list. Absent (old v1 files) → []."""
-    raw = obj.get("cgroups", [])
+    raw: list[Any] = obj.get("cgroups", [])
     if not isinstance(raw, list):
         raise StateCorruptError(f"'cgroups' must be a list, got {type(raw).__name__}")
 
@@ -265,7 +265,7 @@ def _parse_cgroups(obj: dict[str, Any]) -> list[StoredCgroup]:
 
 def _parse_mounts(obj: dict[str, Any]) -> list[StoredMount]:
     """Extract the optional 'mounts' list. Absent (old v1 files) → []."""
-    raw = obj.get("mounts", [])
+    raw: list[Any] = obj.get("mounts", [])
     if not isinstance(raw, list):
         raise StateCorruptError(f"'mounts' must be a list, got {type(raw).__name__}")
 
@@ -290,7 +290,7 @@ def _parse_mounts(obj: dict[str, Any]) -> list[StoredMount]:
 
 def _parse_proxies(obj: dict[str, Any]) -> list[StoredProxy]:
     """Extract the optional 'proxies' list. Absent (older v1 files) → []."""
-    raw = obj.get("proxies", [])
+    raw: list[Any] = obj.get("proxies", [])
     if not isinstance(raw, list):
         raise StateCorruptError(f"'proxies' must be a list, got {type(raw).__name__}")
 

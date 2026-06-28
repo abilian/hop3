@@ -24,7 +24,7 @@ import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, Literal, Self
+from typing import Any, Final, Literal, Self, TextIO
 
 Outcome = Literal["applied", "error"]
 
@@ -159,11 +159,11 @@ class AuditLog:
 
     def __init__(self, path: Path = DEFAULT_AUDIT_LOG_PATH):
         self.path = path
-        self._fd: Any = None  # file object; type avoids stub gymnastics
+        self._fd: TextIO | None = None
 
-    def _ensure_open(self) -> None:
+    def _ensure_open(self) -> TextIO:
         if self._fd is not None and not self._fd.closed:
-            return
+            return self._fd
         # Create directory if missing (StateDirectory= should have made it).
         self.path.parent.mkdir(parents=True, exist_ok=True)
         # Open append-only; create with restrictive default mode.
@@ -179,6 +179,7 @@ class AuditLog:
                 self.path,
                 DEFAULT_AUDIT_LOG_MODE,
             )
+        return self._fd
 
     def write(self, entry: AuditEntry) -> None:
         """Append one entry as a JSON line, flushing through to disk.
@@ -188,11 +189,11 @@ class AuditLog:
         op) is acceptable: rootd ops are infrequent and durability of the
         audit trail is more valuable than throughput here. ADR 041 §13.
         """
-        self._ensure_open()
-        self._fd.write(entry.to_json_line() + "\n")
-        self._fd.flush()
+        fd = self._ensure_open()
+        fd.write(entry.to_json_line() + "\n")
+        fd.flush()
         try:
-            os.fsync(self._fd.fileno())
+            os.fsync(fd.fileno())
         except OSError as exc:
             # fsync can fail on some filesystems (procfs, certain tmpfs
             # layouts) — best-effort only. The flush above already gets

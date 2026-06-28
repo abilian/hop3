@@ -144,13 +144,17 @@ def _nft_comment_token(rule_id: str) -> str:
 
 
 def _format_port_or_range(spec: PortSpec) -> str:
-    """Render the dport argument as a single nft token."""
+    """Render the dport argument as a single nft token.
+
+    ``validate_port_spec`` guarantees one of port / port_range is set, so the
+    ``port_range is None`` case is unreachable in practice — the assert pins
+    that invariant for the type checker and crashes loud if it ever breaks.
+    """
     if spec.port is not None:
         return str(spec.port)
-    if spec.port_range is not None:
-        start, end = spec.port_range
-        return f"{start}-{end}"
-    raise ValueError("PortSpec has neither port nor port_range — should be unreachable")
+    assert spec.port_range is not None, "PortSpec must set port or port_range"
+    start, end = spec.port_range
+    return f"{start}-{end}"
 
 
 def build_delete_argv(handle: int, *, exec: Exec = DEFAULT_EXEC) -> list[str]:
