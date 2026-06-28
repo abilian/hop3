@@ -18,11 +18,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from hop3_rootd.exec import (
-    InvalidBinaryError,
-    resolve_allowed_binary,
-    run as exec_run,
-)
+from hop3_rootd.exec import Exec, InvalidBinaryError
 from hop3_rootd.ops._base import OpContext, register
 from hop3_rootd.protocol import Request
 
@@ -35,15 +31,15 @@ class NginxBinaryNotFoundError(Exception):
 
 # Reload methods, in preferred order. We try them sequentially until one
 # succeeds. Mirrors the existing fallback chain in the proxy plugin.
-def _reload_methods() -> list[tuple[list[str], str]]:
+def _reload_methods(exec: Exec) -> list[tuple[list[str], str]]:
     """Construct the ordered list of reload commands to try, given the
     binaries actually present on this host. Each entry is (argv, label).
     """
     methods: list[tuple[list[str], str]] = []
-    systemctl = resolve_allowed_binary("systemctl")
+    systemctl = exec.resolve("systemctl")
     if systemctl is not None:
         methods.append(([systemctl, "reload", "nginx"], "systemctl"))
-    nginx = resolve_allowed_binary("nginx")
+    nginx = exec.resolve("nginx")
     if nginx is not None:
         methods.append(([nginx, "-s", "reload"], "nginx -s reload"))
     return methods
@@ -53,7 +49,7 @@ def _reload_methods() -> list[tuple[list[str], str]]:
 
 
 @register("nginx.reload")
-def reload_nginx(_req: Request, _ctx: OpContext) -> dict[str, Any]:
+def reload_nginx(_req: Request, ctx: OpContext) -> dict[str, Any]:
     """Reload nginx config without dropping connections.
 
     Tries systemctl first, then `nginx -s reload`. Reports which method
@@ -64,7 +60,7 @@ def reload_nginx(_req: Request, _ctx: OpContext) -> dict[str, Any]:
 
     Raises NginxBinaryNotFoundError if no working method is available.
     """
-    methods = _reload_methods()
+    methods = _reload_methods(ctx.exec)
     if not methods:
         raise NginxBinaryNotFoundError(
             "no nginx-reload method available "
@@ -74,7 +70,7 @@ def reload_nginx(_req: Request, _ctx: OpContext) -> dict[str, Any]:
     last_error: str | None = None
     for argv, label in methods:
         try:
-            result = exec_run(argv, timeout=10.0)
+            result = ctx.exec.run(argv, timeout=10.0)
         except InvalidBinaryError as e:
             last_error = str(e)
             continue
@@ -94,21 +90,21 @@ def reload_nginx(_req: Request, _ctx: OpContext) -> dict[str, Any]:
 
 
 @register("nginx.validate_config", audit=False)
-def validate_config(_req: Request, _ctx: OpContext) -> dict[str, Any]:
+def validate_config(_req: Request, ctx: OpContext) -> dict[str, Any]:
     """Run `nginx -t` to validate the current nginx config files.
 
     Pure read — doesn't reload anything. nginx -t exits non-zero on
     config errors, so rc != 0 isn't a kernel_error — it's a structured
     {valid: False, errors: [...]} result.
     """
-    nginx = resolve_allowed_binary("nginx")
+    nginx = ctx.exec.resolve("nginx")
     if nginx is None:
         raise NginxBinaryNotFoundError(
             "nginx not on allow-list (not found on PATH or not whitelisted)"
         )
 
     try:
-        result = exec_run([nginx, "-t"], timeout=10.0)
+        result = ctx.exec.run([nginx, "-t"], timeout=10.0)
     except InvalidBinaryError as e:
         raise NginxBinaryNotFoundError(str(e)) from e
 

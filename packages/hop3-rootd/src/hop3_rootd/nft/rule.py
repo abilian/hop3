@@ -18,10 +18,10 @@ from dataclasses import dataclass
 from typing import Any, Final
 
 from hop3_rootd.exec import (
+    DEFAULT_EXEC,
     CommandResult,
+    Exec,
     InvalidBinaryError,
-    resolve_allowed_binary,
-    run as exec_run,
 )
 from hop3_rootd.validation import PortSpec
 
@@ -60,12 +60,12 @@ class NftCommandError(NftError):
 # --- nft path resolution --------------------------------------------------
 
 
-def find_nft_binary() -> str:
+def find_nft_binary(exec: Exec = DEFAULT_EXEC) -> str:
     """Return the absolute path to nft, or raise NftBinaryNotFoundError.
 
-    Wraps `resolve_allowed_binary` to keep the nft-specific error message.
+    Wraps the exec seam's ``resolve`` to keep the nft-specific error message.
     """
-    path = resolve_allowed_binary("nft")
+    path = exec.resolve("nft")
     if path is None:
         raise NftBinaryNotFoundError(
             "nft binary not found on PATH or not on the exec allow-list"
@@ -95,7 +95,9 @@ def parse_comment(comment: str | None) -> str | None:
 # --- Building the nft argv -------------------------------------------------
 
 
-def build_add_argv(spec: PortSpec, rule_id: str) -> list[str]:
+def build_add_argv(
+    spec: PortSpec, rule_id: str, *, exec: Exec = DEFAULT_EXEC
+) -> list[str]:
     """Construct the `nft add rule …` argv for a PortSpec.
 
     The rule layout:
@@ -105,7 +107,7 @@ def build_add_argv(spec: PortSpec, rule_id: str) -> list[str]:
     saddr clause is omitted when source == "any". Otherwise:
       ip saddr <cidr>     for IPv4
     """
-    nft = find_nft_binary()
+    nft = find_nft_binary(exec)
     argv: list[str] = [
         nft,
         "add",
@@ -151,14 +153,14 @@ def _format_port_or_range(spec: PortSpec) -> str:
     raise ValueError("PortSpec has neither port nor port_range — should be unreachable")
 
 
-def build_delete_argv(handle: int) -> list[str]:
+def build_delete_argv(handle: int, *, exec: Exec = DEFAULT_EXEC) -> list[str]:
     """Construct `nft delete rule … handle <N>`.
 
     Deletion in nftables is by handle, not by content. Handles are
     returned in the JSON output of `nft -j list table …` and are stable
     until the next ruleset reload (which we don't trigger).
     """
-    nft = find_nft_binary()
+    nft = find_nft_binary(exec)
     return [
         nft,
         "delete",
@@ -174,10 +176,12 @@ def build_delete_argv(handle: int) -> list[str]:
 # --- Running nft commands -------------------------------------------------
 
 
-def run_nft(argv: list[str], *, timeout: float = 10.0) -> CommandResult:
+def run_nft(
+    argv: list[str], *, timeout: float = 10.0, exec: Exec = DEFAULT_EXEC
+) -> CommandResult:
     """Run an nft command, raising NftCommandError on non-zero exit."""
     try:
-        result = exec_run(argv, timeout=timeout)
+        result = exec.run(argv, timeout=timeout)
     except InvalidBinaryError as e:
         raise NftBinaryNotFoundError(str(e)) from e
     if not result.success:
