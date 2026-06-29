@@ -650,6 +650,9 @@ class DockerServiceManager:
             f'export HOP3_SECRET_KEY="{E2E_TEST_SECRET_KEY}" && '
             'export HOP3_UNSAFE="true" && '
             'export HOP3_UNSAFE_ACK="yes-I-understand" && '
+            # Without a non-production MODE the unsafe gate forces the auth
+            # bypass off (see core/unsafe_gate.py) and tests hit real auth.
+            'export MODE="development" && '
             'export HOP3_DB_URL="sqlite:////home/hop3/hop3.db" && '
             'export ACME_ENGINE="self-signed" && '
             "nohup /home/hop3/venv/bin/hop3-server serve "
@@ -722,9 +725,15 @@ def configure_server_test_mode(
         # HOP3_UNSAFE_ACK is the safety interlock added in wave-2 hardening:
         # the daemon refuses to start with HOP3_UNSAFE set unless the ACK is
         # also present. Test mode opts into both.
+        #
+        # MODE=development is REQUIRED, not decorative: the unsafe gate
+        # (core/unsafe_gate.py) forces HOP3_UNSAFE=false whenever MODE is
+        # production (the default), so without this the auth bypass silently has
+        # no effect and every test fails with "Authentication required".
         override_content = """[Service]
 Environment="HOP3_UNSAFE=true"
 Environment="HOP3_UNSAFE_ACK=yes-I-understand"
+Environment="MODE=development"
 """
         result = backend.run(
             f"cat > /etc/systemd/system/hop3-server.service.d/test-mode.conf << 'EOF'\n{override_content}EOF",
