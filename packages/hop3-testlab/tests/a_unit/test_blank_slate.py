@@ -85,7 +85,9 @@ def test_rebuild_raises_if_ssh_command_never_ready():
     with (
         patch("hop3_testing.system_tests.hetzner.HetznerManager", return_value=manager),
         patch.object(worker, "_purge_known_host"),
-        patch.object(worker, "_wait_ssh_command_ready", return_value=False),  # ...but ssh isn't
+        patch.object(
+            worker, "_wait_ssh_command_ready", return_value=False
+        ),  # ...but ssh isn't
         pytest.raises(RuntimeError, match="never answered"),
     ):
         worker._rebuild_blank_slate(_cfg("hop3-ci"), "203.0.113.7")
