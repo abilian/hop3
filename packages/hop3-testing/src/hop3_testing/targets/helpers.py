@@ -647,12 +647,11 @@ class DockerServiceManager:
         print("  Starting hop3-server...")
         self.backend.run(
             "su - hop3 -c '"
+            # Auth is real: the server signs/validates with this known test key,
+            # and the harness mints tokens with the same key (no HOP3_UNSAFE
+            # bypass). This inline start has no /etc/hop3/secret-key file, so the
+            # env key is the effective one.
             f'export HOP3_SECRET_KEY="{E2E_TEST_SECRET_KEY}" && '
-            'export HOP3_UNSAFE="true" && '
-            'export HOP3_UNSAFE_ACK="yes-I-understand" && '
-            # Without a non-production MODE the unsafe gate forces the auth
-            # bypass off (see core/unsafe_gate.py) and tests hit real auth.
-            'export MODE="development" && '
             'export HOP3_DB_URL="sqlite:////home/hop3/hop3.db" && '
             'export ACME_ENGINE="self-signed" && '
             "nohup /home/hop3/venv/bin/hop3-server serve "
@@ -687,93 +686,61 @@ class DockerServiceManager:
             raise ServiceStartError(msg)
 
 
-def configure_server_test_mode(
+def read_server_secret_key(
     backend: CommandRunner,
     diagnostics: DiagnosticCollector | None = None,
-) -> None:
-    """Configure a remote server for test mode (disable authentication).
+) -> str:
+    """Read the deployed server's JWT signing key.
 
-    This sets HOP3_UNSAFE=true in the systemd service and restarts it.
-    WARNING: This should only be used for testing purposes.
+    The harness authenticates for real — it mints a token signed with the
+    server's own key (``create_test_token(secret_key=...)``) instead of
+    disabling authentication with ``HOP3_UNSAFE``. We therefore need the key the
+    server actually validates with.
 
-    Args:
-        backend: Backend to run commands on (e.g., SSHDeployBackend)
-        diagnostics: Optional diagnostics collector for logging
+    Mirrors the server's ``get_secret_key`` precedence (ADR 048): the canonical
+    ``/etc/hop3/secret-key`` file first, then ``HOP3_SECRET_KEY`` in
+    ``/etc/default/hop3``. Reads as the SSH user (root), so the 0600 file is
+    readable.
 
     Raises:
-        ConfigurationError: If configuration fails.
+        ConfigurationError: if no key can be read — we fail loud rather than
+            fall back to a key the server would reject (which would surface
+            later as an opaque "Authentication required").
     """
-    print("Configuring server for test mode (HOP3_UNSAFE=true)...")
+    print("Reading the server's signing key (for real-auth test tokens)...")
 
     try:
-        # Create systemd override directory
         result = backend.run(
-            "mkdir -p /etc/systemd/system/hop3-server.service.d",
+            "cat /etc/hop3/secret-key 2>/dev/null "
+            "|| grep -h '^HOP3_SECRET_KEY=' /etc/default/hop3 2>/dev/null "
+            "| head -n1 | cut -d= -f2-",
             check=False,
         )
-        if not result.success:
+        key = (result.stdout or "").strip().strip('"').strip("'")
+        if not key:
+            msg = (
+                "Could not read the server's JWT signing key from "
+                "/etc/hop3/secret-key or /etc/default/hop3. The harness needs it "
+                "to mint tokens the server accepts; aborting rather than using a "
+                "key the server would reject."
+            )
             if diagnostics:
                 diagnostics.add_failure(
                     layer="server",
-                    operation="create_override_dir",
-                    message=f"Failed to create override directory: {result.stderr}",
+                    operation="read_secret_key",
+                    message=msg,
+                    stdout=result.stdout,
                 )
-            msg = f"Failed to create override directory: {result.stderr}"
             raise ConfigurationError(msg)
-
-        # Create override file with HOP3_UNSAFE=true
-        # HOP3_UNSAFE_ACK is the safety interlock added in wave-2 hardening:
-        # the daemon refuses to start with HOP3_UNSAFE set unless the ACK is
-        # also present. Test mode opts into both.
-        #
-        # MODE=development is REQUIRED, not decorative: the unsafe gate
-        # (core/unsafe_gate.py) forces HOP3_UNSAFE=false whenever MODE is
-        # production (the default), so without this the auth bypass silently has
-        # no effect and every test fails with "Authentication required".
-        override_content = """[Service]
-Environment="HOP3_UNSAFE=true"
-Environment="HOP3_UNSAFE_ACK=yes-I-understand"
-Environment="MODE=development"
-"""
-        result = backend.run(
-            f"cat > /etc/systemd/system/hop3-server.service.d/test-mode.conf << 'EOF'\n{override_content}EOF",
-            check=False,
-        )
-        if not result.success:
-            if diagnostics:
-                diagnostics.add_failure(
-                    layer="server",
-                    operation="create_override_file",
-                    message=f"Failed to create override file: {result.stderr}",
-                )
-            msg = f"Failed to create override file: {result.stderr}"
-            raise ConfigurationError(msg)
-
-        # Reload systemd and restart hop3-server
-        result = backend.run(
-            "systemctl daemon-reload && systemctl restart hop3-server",
-            check=False,
-        )
-        if not result.success:
-            if diagnostics:
-                diagnostics.add_failure(
-                    layer="server",
-                    operation="restart_service",
-                    message=f"Failed to restart service: {result.stderr}",
-                )
-            msg = f"Failed to restart service: {result.stderr}"
-            raise ConfigurationError(msg)
-
-        # Wait a moment for service to start
-        time.sleep(3)
 
         if diagnostics:
             diagnostics.add_success(
                 layer="server",
-                operation="configure_test_mode",
-                message="Server configured for test mode (HOP3_UNSAFE=true)",
+                operation="read_secret_key",
+                message="Read server signing key for real-auth test tokens",
             )
-        print("  ✓ Test mode configured")
+        print("  ✓ Server signing key read")
+        return key
 
     except ConfigurationError:
         raise
@@ -781,10 +748,10 @@ Environment="MODE=development"
         if diagnostics:
             diagnostics.add_failure(
                 layer="server",
-                operation="configure_test_mode",
-                message=f"Exception configuring test mode: {e}",
+                operation="read_secret_key",
+                message=f"Exception reading server signing key: {e}",
             )
-        msg = f"Exception configuring test mode: {e}"
+        msg = f"Exception reading server signing key: {e}"
         raise ConfigurationError(msg) from e
 
 

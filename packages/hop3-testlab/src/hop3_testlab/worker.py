@@ -194,9 +194,12 @@ def _wait_ssh_command_ready(
     """
     cmd = [
         "ssh",
-        "-o", "StrictHostKeyChecking=accept-new",
-        "-o", "BatchMode=yes",
-        "-o", "ConnectTimeout=10",
+        "-o",
+        "StrictHostKeyChecking=accept-new",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=10",
     ]
     if ssh_key:
         cmd += ["-i", ssh_key]
