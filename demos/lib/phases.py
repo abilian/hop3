@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from lib.commands import cli_env, run_hop3
+from lib.commands import cli_env, reset_cli_home, run_hop3
 from lib.context import DemoResult, OutputLevel
 from lib.discovery import load_demo_module
 from lib.logging import (
@@ -245,6 +245,12 @@ def configure_cli(ctx: DemoContext) -> bool:
 
     print_header("Configuring CLI", phase=True)
     phase_start = time.time()
+
+    # Start from a clean CLI config: the demo's config home persists across runs,
+    # and a stale default context from a prior run (against a different host)
+    # would shadow this run's login and send commands to the wrong server with
+    # an expired token (401). See reset_cli_home().
+    reset_cli_home()
 
     # Check if hop3 CLI is available
     print_step("Checking hop3 CLI availability...")

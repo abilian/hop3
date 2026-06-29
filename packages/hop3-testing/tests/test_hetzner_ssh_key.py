@@ -14,7 +14,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from hop3_testing.system_tests.config import HetznerConfig
+from hop3_testing.system_tests.config import Config, HetznerConfig
 from hop3_testing.system_tests.hetzner import (
     HetznerManager,
     ServerResetError,
@@ -96,5 +96,35 @@ def test_autoderive_no_match_raises_loudly(tmp_path):
 
 
 def test_no_name_no_keypath_raises_loudly():
-    with pytest.raises(ServerResetError, match="neither"):
+    with pytest.raises(ServerResetError, match="ssh_key_name"):
         _manager().resolve_ssh_key()
+
+
+# --- config loading (regression: the key was never read from file/env) ----
+
+
+def test_from_dict_carries_ssh_key_path():
+    """[hetzner].ssh_key_path must survive loading. It used to be dropped, so the
+    auto-derive path was dead code and the rebuild aborted even when it was set."""
+    h = HetznerConfig.from_dict(
+        {"api_token": "t", "server_id": "1", "ssh_key_path": "~/.ssh/id"}, env={}
+    )
+    assert h.ssh_key_path == "~/.ssh/id"
+
+
+def test_from_dict_reads_ssh_key_name_from_env():
+    h = HetznerConfig.from_dict(
+        {"api_token": "t", "server_id": "1"},
+        env={"HETZNER_SSH_KEY_NAME": "lab-key"},
+    )
+    assert h.ssh_key_name == "lab-key"
+
+
+def test_from_env_supplies_rebuild_key(monkeypatch):
+    """An env-only run (no --config) must be able to name the rebuild key —
+    otherwise reset always aborts. Regression for the user-reported failure."""
+    monkeypatch.setenv("HETZNER_API_TOKEN", "t")
+    monkeypatch.setenv("HETZNER_SERVER_ID", "1")
+    monkeypatch.setenv("HETZNER_SSH_KEY_PATH", "/home/me/.ssh/id")
+    cfg = Config.from_env()
+    assert cfg.hetzner.ssh_key_path == "/home/me/.ssh/id"
