@@ -146,9 +146,9 @@ def test_add_credential_rejects_bad_input(tmp_path, monkeypatch):
 def test_delete_credential(tmp_path, monkeypatch):
     monkeypatch.setenv("TESTLAB_KEYS_DIR", str(tmp_path / "keys"))
     with _session() as s:
-        cid = CredentialsRepository(s).create(
-            name="x", kind="hetzner", api_token="t"
-        ).id
+        cid = (
+            CredentialsRepository(s).create(name="x", kind="hetzner", api_token="t").id
+        )
         s.commit()
 
     with TestClient(app=create_app()) as client:

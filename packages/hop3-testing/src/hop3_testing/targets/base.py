@@ -68,6 +68,10 @@ class TargetInfo:
     ssh_password: str | None = None
     http_base: str = ""
     api_url: str = ""
+    # The server's JWT signing key, so the harness can mint tokens the server
+    # accepts (real auth, no HOP3_UNSAFE bypass). None → the E2E default key,
+    # correct for a server the harness started with that key (Docker).
+    secret_key: str | None = None
     metadata: dict[str, Any] | None = None
 
 
@@ -158,8 +162,12 @@ class DeploymentTarget(ABC):
         # Fall back to SSH tunnel for remote targets
         if target_info.api_url:
             env["HOP3_API_URL"] = target_info.api_url
-            # Direct HTTP requires API token for authentication
-            env["HOP3_API_TOKEN"] = create_test_token()
+            # Direct HTTP authenticates with a real JWT signed with the key the
+            # server validates with (no HOP3_UNSAFE bypass). See
+            # apps.deployment.DeploymentSession._build_cli_env for the rationale.
+            env["HOP3_API_TOKEN"] = create_test_token(
+                secret_key=target_info.secret_key or E2E_TEST_SECRET_KEY
+            )
         else:
             # SSH tunnel provides implicit authentication via SSH keys
             env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"

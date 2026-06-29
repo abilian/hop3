@@ -96,5 +96,5 @@ def make_http_response(
     return SimpleNamespace(
         status_code=status_code,
         ok=ok,
-        json=lambda: (json_body or {}),
+        json=lambda: json_body or {},
     )

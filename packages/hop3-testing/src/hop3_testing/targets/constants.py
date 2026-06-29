@@ -66,16 +66,23 @@ E2E_TEST_USERNAME = "e2e-test-user"
 
 
 def create_test_token(
-    username: str = E2E_TEST_USERNAME, expires_hours: int = 24
+    username: str = E2E_TEST_USERNAME,
+    expires_hours: int = 24,
+    secret_key: str = E2E_TEST_SECRET_KEY,
 ) -> str:
     """Create a JWT token for E2E testing.
 
-    This creates a valid JWT token using the E2E test secret key.
-    The token is valid for the specified duration and has authenticated scope.
+    Creates a valid JWT signed with ``secret_key`` — which MUST be the key the
+    target server validates with, or the server rejects the token. For a server
+    the harness started with ``E2E_TEST_SECRET_KEY`` (Docker), the default is
+    correct; for a real install (which generates its own key), pass the key read
+    from the server (see ``helpers.read_server_secret_key``). This is what lets
+    the harness authenticate for real instead of relying on ``HOP3_UNSAFE``.
 
     Args:
         username: Username to embed in token (default: e2e-test-user)
         expires_hours: Hours until token expires (default: 24)
+        secret_key: HS256 signing key (default: the E2E test key)
 
     Returns:
         A valid JWT token string
@@ -91,4 +98,4 @@ def create_test_token(
         "jti": secrets.token_urlsafe(16),
     }
 
-    return jwt.encode(payload, E2E_TEST_SECRET_KEY, algorithm="HS256")
+    return jwt.encode(payload, secret_key, algorithm="HS256")

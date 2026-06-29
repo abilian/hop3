@@ -32,7 +32,7 @@ from .helpers import (
     DiagnosticsHelper,
     HealthChecker,
     SSHCommandRunner,
-    configure_server_test_mode,
+    read_server_secret_key,
     run_hop3_deploy,
 )
 
@@ -122,6 +122,9 @@ class RemoteTarget(DeploymentTarget):
         self._ssh_client: paramiko.SSHClient | None = None
         self._command_runner: SSHCommandRunner | None = None
         self._started = False
+        # The deployed server's JWT signing key, read in start() so the harness
+        # can mint tokens the server accepts (real auth, no HOP3_UNSAFE bypass).
+        self._secret_key: str | None = None
 
     def start(self) -> TargetInfo:
         """Start the remote target.
@@ -171,6 +174,9 @@ class RemoteTarget(DeploymentTarget):
         if not self._check_server_ready_ssh():
             msg = "Remote server is not ready (hop3-server not responding)"
             raise RuntimeError(msg)
+
+        # Read the signing key for real-auth test tokens (same as the deploy path).
+        self._secret_key = read_server_secret_key(self._command_runner)
 
         # Build target info
         self._info = self._build_target_info()
@@ -235,13 +241,17 @@ class RemoteTarget(DeploymentTarget):
             command_runner = SSHCommandRunner(self._ssh_client)
             self._command_runner = command_runner
 
-            # Configure server for test mode
-            self.diagnostics.set_phase("configure_test_mode")
+            # Read the server's signing key so the harness can authenticate for
+            # real (real-auth test tokens), instead of disabling auth with
+            # HOP3_UNSAFE.
+            self.diagnostics.set_phase("read_secret_key")
             try:
-                configure_server_test_mode(command_runner, self.diagnostics)
+                self._secret_key = read_server_secret_key(
+                    command_runner, self.diagnostics
+                )
             except Exception as e:
                 self._save_diagnostics_on_error()
-                msg = f"Failed to configure test mode: {e}"
+                msg = f"Failed to read server signing key: {e}"
                 raise RuntimeError(msg) from e
 
             # Wait for server to be ready
@@ -433,6 +443,7 @@ class RemoteTarget(DeploymentTarget):
             ssh_password=config.password,
             http_base=config.http_base or f"http://{config.host}",
             api_url=config.api_url or f"http://{config.host}:8000",
+            secret_key=self._secret_key,
             metadata={
                 "host": config.host,
                 "user": config.user,

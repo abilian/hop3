@@ -337,9 +337,7 @@ class CredentialsRepository:
         # ponytail: first row of this kind is "the active one". A `default` flag /
         # per-Server selection arrives in Slice 2 (several accounts in parallel).
         stmt = (
-            select(Credential)
-            .where(Credential.kind == kind)
-            .order_by(Credential.name)
+            select(Credential).where(Credential.kind == kind).order_by(Credential.name)
         )
         return self.session.scalars(stmt).first()
 
