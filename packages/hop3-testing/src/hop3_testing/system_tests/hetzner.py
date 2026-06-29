@@ -206,8 +206,14 @@ class HetznerManager:
         key_path = self.config.ssh_key_path
         if not key_path:
             msg = (
-                "Can't determine which SSH key to re-inject on rebuild: neither "
-                "hetzner.ssh_key_name nor [ssh] key_path is set."
+                "Can't determine which SSH key to re-inject on rebuild — a "
+                "rebuild with no key locks us out of the server. Set one of:\n"
+                "  - hetzner.ssh_key_name (or env HETZNER_SSH_KEY_NAME): the name "
+                "of an SSH key already registered in your Hetzner project "
+                "(`hcloud ssh-key list`); or\n"
+                "  - hetzner.ssh_key_path (or env HETZNER_SSH_KEY_PATH): path to a "
+                "private key whose <path>.pub is registered there (its fingerprint "
+                "is matched against the project)."
             )
             raise ServerResetError(msg)
 

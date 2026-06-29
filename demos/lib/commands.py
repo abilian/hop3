@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -23,11 +24,24 @@ _debug_mode: bool = False
 # Env vars the hop3 CLI uses to *steer* resolution (ADR 042, precedence #2 —
 # above any stored config). A developer's shell almost always exports these
 # (e.g. HOP3_CONTEXT via direnv) pointing at their real server. If they leak
-# into the demo's `hop3` subprocesses they silently override the localhost
-# context the demo logs into, so `hop3 deploy` targets the wrong server and
-# fails the stream auth (302 -> /auth/login). Strip them so resolution falls
-# through to the context the demo established via `hop3 login`.
-_CLI_STEERING_ENV_VARS = ("HOP3_APP", "HOP3_CONTEXT")
+# into the demo's `hop3` subprocesses they silently override the context the
+# demo logs into. This MUST include the auth/target vars, not just app/context:
+# get_api_token()/get_api_url() read HOP3_API_TOKEN/HOP3_API_URL *ahead* of the
+# stored context, and HOP3_DEV_MODE switches the target to localhost. So a stale
+# value left in the shell (direnv, an earlier manual `export`, a prior test run)
+# overrides the context the demo just established via `hop3 login` — `hop3
+# deploy` hits the wrong server, or `hop3 auth whoami` sends a token signed with
+# an old key and gets a 401. Strip them all so resolution falls through to the
+# demo's logged-in context.
+_CLI_STEERING_ENV_VARS = (
+    "HOP3_API_TOKEN",
+    "HOP3_API_URL",
+    "HOP3_APP",
+    "HOP3_CONFIG_DIR",
+    "HOP3_CONTEXT",
+    "HOP3_DEV_HOST",
+    "HOP3_DEV_MODE",
+)
 
 # A demo-private CLI config home. The hop3 CLI stores config.toml
 # / state.toml under ``$XDG_CONFIG_HOME/hop3-cli`` (ADR 042). Pointing the demo's
@@ -53,6 +67,25 @@ def cli_env() -> dict[str, str]:
         env.pop(var, None)
     env["XDG_CONFIG_HOME"] = str(_DEMO_CLI_CONFIG_HOME)
     return env
+
+
+def reset_cli_home() -> None:
+    """Wipe the demo's private CLI config so each run starts hermetic.
+
+    ``_DEMO_CLI_CONFIG_HOME`` persists between runs. Left alone it accumulates
+    cross-run, cross-host state: a stale ``[cli].default_context`` from a prior
+    run against a different server silently SHADOWS the fresh ``default_server``
+    this run's ``hop3 login`` sets — ADR-042 resolution checks the default
+    context first — so commands target the wrong server with that context's
+    (now-expired) token and fail with a 401. The machine-wide run lock (see
+    demo.py ``_acquire_run_lock``) serializes runs, so wiping here is safe.
+
+    Only the ``hop3-cli`` subdir is removed (the CLI's config/credentials/state);
+    the config-home dir itself is left for the CLI to repopulate on login.
+    """
+    cli_config = _DEMO_CLI_CONFIG_HOME / "hop3-cli"
+    if cli_config.exists():
+        shutil.rmtree(cli_config, ignore_errors=True)
 
 
 def set_debug_mode(*, enabled: bool) -> None:
