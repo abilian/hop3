@@ -17,8 +17,38 @@ from types import SimpleNamespace
 import jwt
 import pytest
 from hop3_testing.exceptions import ConfigurationError
-from hop3_testing.targets.constants import E2E_TEST_SECRET_KEY, create_test_token
+from hop3_testing.targets.constants import (
+    E2E_TEST_SECRET_KEY,
+    create_test_token,
+    hermetic_cli_env,
+)
 from hop3_testing.targets.helpers import read_server_secret_key
+
+
+def test_hermetic_cli_env_strips_steering_vars(monkeypatch):
+    """The harness must not be steered by ambient HOP3_* vars — a leaked
+    HOP3_DEV_MODE/HOP3_CONTEXT/HOP3_API_TOKEN in the launch environment (e.g. the
+    testlab worker's app-runtime env) would silently redirect the deploy and 401.
+    Regression for the testlab/hop3-test seam."""
+    for var in (
+        "HOP3_DEV_MODE",
+        "HOP3_CONTEXT",
+        "HOP3_API_TOKEN",
+        "HOP3_API_URL",
+        "HOP3_CONFIG_DIR",
+        "HOP3_DEV_HOST",
+        "HOP3_APP",
+    ):
+        monkeypatch.setenv(var, "leaked")
+    monkeypatch.setenv("PATH", "/usr/bin")  # a non-steering var must survive
+
+    env = hermetic_cli_env()
+
+    assert "HOP3_DEV_MODE" not in env
+    assert "HOP3_CONTEXT" not in env
+    assert "HOP3_API_TOKEN" not in env
+    assert "HOP3_CONFIG_DIR" not in env
+    assert env.get("PATH") == "/usr/bin"
 
 
 def test_token_is_signed_with_the_given_key():

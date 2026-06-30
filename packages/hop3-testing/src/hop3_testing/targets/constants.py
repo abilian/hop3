@@ -99,3 +99,36 @@ def create_test_token(
     }
 
     return jwt.encode(payload, secret_key, algorithm="HS256")
+
+
+# Ambient HOP3_* vars that steer the hop3 CLI's target/auth resolution AHEAD of
+# the HOP3_API_URL/HOP3_API_TOKEN the harness sets explicitly — HOP3_DEV_MODE is
+# get_api_url()'s #1 priority, so a single leaked value silently redirects a
+# deploy to the wrong server/credential (a 401). We strip them from the env of
+# every hop3 CLI call so the harness is hermetic: it talks to the target it
+# deployed, with the token it minted, regardless of the (possibly polluted)
+# environment it was launched in — e.g. the testlab worker's app-runtime env,
+# which a clean developer shell doesn't have. (Same class as the demo cli_env
+# strip and audit finding C4.)
+_CLI_STEERING_ENV_VARS = (
+    "HOP3_API_TOKEN",
+    "HOP3_API_URL",
+    "HOP3_APP",
+    "HOP3_CONFIG_DIR",
+    "HOP3_CONTEXT",
+    "HOP3_DEV_HOST",
+    "HOP3_DEV_MODE",
+)
+
+
+def hermetic_cli_env() -> dict[str, str]:
+    """A copy of the process environment with the HOP3_* steering vars removed.
+
+    The caller then sets the explicit HOP3_API_URL / HOP3_API_TOKEN it wants
+    honored. Use this instead of ``os.environ.copy()`` for any hop3 CLI
+    invocation so ambient HOP3_* vars can't override the harness's target.
+    """
+    env = dict(os.environ)
+    for var in _CLI_STEERING_ENV_VARS:
+        env.pop(var, None)
+    return env
