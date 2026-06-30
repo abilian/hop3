@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from hop3.lib.args import parse_cli_args, pop_app_flag
+from hop3.lib.args import parse_cli_args, pop_app_flag, reject_extra_args
 
 
 class TestPopAppFlag:
@@ -375,3 +375,40 @@ class TestParseCliArgs:
         result = parse_cli_args(("myapp", "DATABASE_URL"), spec)
         assert result == {"app_name": "myapp", "keys": ["DATABASE_URL"]}
         # For config:get, we'd use keys[0] if available
+
+
+# ---- L10: a named value-option accepts a value starting with '-' ------------
+
+
+def test_value_option_accepts_leading_dash_value():
+    """`--grep -foo` searches for "-foo"; the value must not be lost/misread."""
+    spec = {"grep": {"type": str, "default": ""}}
+    result = parse_cli_args(("--grep", "-foo"), spec)
+    assert result["grep"] == "-foo"
+
+
+def test_value_option_at_end_without_value_keeps_default():
+    spec = {"grep": {"type": str, "default": "x"}}
+    result = parse_cli_args(("--grep",), spec)
+    assert result["grep"] == "x"
+
+
+def test_flag_before_value_option_value_still_parses():
+    """A real flag is still a flag; only named value-options eat the next token."""
+    spec = {"verbose": {"flag": True}, "grep": {"type": str, "default": ""}}
+    result = parse_cli_args(("--verbose", "--grep", "-x"), spec)
+    assert result["verbose"] is True
+    assert result["grep"] == "-x"
+
+
+# ---- C9: reject_extra_args fails loud on leftover tokens --------------------
+
+
+def test_reject_extra_args_raises_on_leftovers():
+    with pytest.raises(ValueError, match="Unrecognized argument"):
+        reject_extra_args(["--no-addon"])  # the singular typo must not be ignored
+
+
+def test_reject_extra_args_accepts_empty():
+    reject_extra_args([])  # no raise
+    reject_extra_args(())  # no raise

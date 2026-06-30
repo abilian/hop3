@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from hop3.core.backup import BackupManager, format_size
-from hop3.lib.args import parse_cli_args, pop_app_flag
+from hop3.lib.args import parse_cli_args, pop_app_flag, reject_extra_args
 from hop3.lib.decorators import register
 
 # Runtime imports for Dishka DI (not just type hints)
@@ -57,6 +57,10 @@ class BackupCreateCmd(Command):
             ]
 
         include_addons = "--no-addons" not in rest
+        # Reject anything else (e.g. the `--no-addon` typo) instead of silently
+        # backing up WITH addons while the user asked to exclude them (audit C9).
+        rest = [tok for tok in rest if tok != "--no-addons"]
+        reject_extra_args(rest)
 
         # Check if app exists
         app = self.app_repo.get_one_or_none(name=app_name)

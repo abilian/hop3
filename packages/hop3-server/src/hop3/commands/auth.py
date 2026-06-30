@@ -181,49 +181,20 @@ class AuthLogoutCmd(Command):
         Returns:
             Logout success message
         """
-        from datetime import datetime, timezone  # noqa: PLC0415
+        from hop3.server.security.tokens import revoke_jwt  # noqa: PLC0415
 
-        import jwt  # noqa: PLC0415
-
-        from hop3.server.security.tokens import (  # noqa: PLC0415
-            get_secret_key,
-            revoke_token,
-        )
-
-        # Decode the token to get jti and expiration
-        if _token:
-            try:
-                secret_key = get_secret_key()
-                payload = jwt.decode(
-                    _token,
-                    secret_key,
-                    algorithms=["HS256"],
-                    options={"verify_exp": False},
-                )
-
-                jti = payload.get("jti")
-                exp = payload.get("exp")
-
-                if jti and exp:
-                    # Convert expiration timestamp to datetime
-                    expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
-
-                    # Revoke the token
-                    revoke_token(jti, expires_at, reason="user_logout")
-
-                    return [
-                        success(f"Logged out user: {username}"),
-                        text(""),
-                        text("Your token has been revoked and is no longer valid."),
-                        text(""),
-                        text("Remove the token from your config file or environment:"),
-                        text(
-                            "  - Delete 'api_token' from ~/.config/hop3-cli/config.toml"
-                        ),
-                        text("  - Or unset HOP3_API_TOKEN environment variable"),
-                    ]
-            except Exception:
-                pass  # Fall through to generic message
+        # Revoke the token (shared with the web logout path so both invalidate,
+        # not merely drop, the credential).
+        if _token and revoke_jwt(_token, reason="user_logout"):
+            return [
+                success(f"Logged out user: {username}"),
+                text(""),
+                text("Your token has been revoked and is no longer valid."),
+                text(""),
+                text("Remove the token from your config file or environment:"),
+                text("  - Delete 'api_token' from ~/.config/hop3-cli/config.toml"),
+                text("  - Or unset HOP3_API_TOKEN environment variable"),
+            ]
 
         # Fallback if token couldn't be revoked
         return [
@@ -260,6 +231,12 @@ class AuthMagicLinkCmd(Command):
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("auth", "magic-link")
     requires_auth: ClassVar[bool] = True
+    # Admin-gated: the RPC layer must inject the *verified* caller identity into
+    # `authenticated_username`. Without this the attacker-supplied first
+    # positional lands there and `require_admin` checks a name of the caller's
+    # choosing (e.g. "admin") — a privilege-escalation path to mint a magic
+    # token for any user. (Audit 2026-06 A1.)
+    pass_username: ClassVar[bool] = True
     # Internal primitive behind `hop3 login --web`; off the user-visible surface.
     hidden: ClassVar[bool] = True
 

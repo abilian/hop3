@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from hop3.commands.app import DeployCmd, RestartCmd, _resolve_app
 from hop3.commands.apps import AppsCmd
 from hop3.commands.config import LiveCmd
 
@@ -50,3 +51,40 @@ def test_config_live_fails_loud_when_not_running(db_session: Session, test_app: 
     # succeed — this must raise rather than return DB values.
     with pytest.raises(ValueError, match="live environment"):
         cmd.call("--app", "testapp")
+
+
+# ---- C9: app-scoped commands reject stray args; deploy keeps its source dir ----
+
+
+def test_resolve_app_rejects_stray_arg_by_default():
+    """A no-positional app command rejects a stray token (e.g. `restart --bogus`)."""
+    with pytest.raises(ValueError, match="Unrecognized argument"):
+        _resolve_app(("--app", "myapp", "--bogus"))
+
+
+def test_resolve_app_allow_extra_keeps_trailing_positional():
+    """Commands that DO take a positional (deploy <dir>, ping <path>) opt out."""
+    assert _resolve_app(("--app", "myapp", "/tmp/src"), allow_extra=True) == (
+        "myapp",
+        ["/tmp/src"],
+    )
+
+
+def test_app_restart_rejects_stray_args(db_session: Session):
+    """`app restart --app x --bogus` must fail loud, not silently plain-restart."""
+    with pytest.raises(ValueError, match="Unrecognized argument"):
+        RestartCmd(db_session=db_session).call("--app", "testapp", "--bogus")
+
+
+def test_deploy_tolerates_source_dir_positional(db_session: Session):
+    """`hop3 deploy --app X <dir>` forwards the source-dir positional, which the
+    server ignores (source arrives as the uploaded tarball). Deploy must NOT
+    reject it as a stray arg — the C9 over-reach that broke every e2e deploy.
+
+    An invalid app name makes validation fire immediately after arg-resolution,
+    so we prove the trailing positional got PAST ``_resolve_app`` without
+    running a real deploy.
+    """
+    with pytest.raises(ValueError) as exc:
+        DeployCmd(db_session=db_session).call("--app", "Bad Name", "/tmp/src")
+    assert "Unrecognized argument" not in str(exc.value)

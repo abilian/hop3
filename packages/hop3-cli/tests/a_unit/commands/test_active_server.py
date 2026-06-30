@@ -19,7 +19,12 @@ from hop3_cli.commands.local.login_cmd import record_server_login
 from hop3_cli.config import Config
 from hop3_cli.core import credential_store as cs
 from hop3_cli.exit_codes import ExitCode
-from hop3_cli.main import _require_context_server, _resolve_active_server
+from hop3_cli.main import (
+    _abort_if_env_url_shadows_context,
+    _compute_resolutions,
+    _require_context_server,
+    _resolve_active_server,
+)
 
 ADDR = "ssh://root@prod.example.com"
 
@@ -97,6 +102,52 @@ def test_require_context_server_lists_known_contexts(capsys):
     with pytest.raises(SystemExit):
         _require_context_server("prod", cfg)
     assert "dev" in capsys.readouterr().err  # lists what IS defined
+
+
+# ---- C1: explicit --context must not be silently overridden by an env URL ----
+# `hop3 deploy --context prod` with HOP3_API_URL set used to connect to the env
+# URL (get_api_url consults it first) while authenticating as prod — a
+# wrong-target write. Now it aborts loud.
+
+
+def test_env_url_shadowing_explicit_context_aborts(monkeypatch, capsys):
+    monkeypatch.setenv("HOP3_API_URL", "ssh://root@other.example.com")
+    with pytest.raises(SystemExit) as exc:
+        _abort_if_env_url_shadows_context("prod", ADDR, Config(data={}))
+    assert exc.value.code == ExitCode.RESOLUTION_ERROR
+    err = capsys.readouterr().err
+    assert "prod" in err
+    assert "other.example.com" in err
+
+
+def test_env_url_matching_context_does_not_abort(monkeypatch):
+    # Same server (address forms differ only by the default ssh port) -> fine.
+    monkeypatch.setenv("HOP3_API_URL", ADDR)
+    _abort_if_env_url_shadows_context("prod", ADDR, Config(data={}))  # no raise
+
+
+def test_no_env_url_does_not_abort(monkeypatch):
+    monkeypatch.delenv("HOP3_API_URL", raising=False)
+    monkeypatch.delenv("HOP3_DEV_MODE", raising=False)
+    _abort_if_env_url_shadows_context("prod", ADDR, Config(data={}))  # no raise
+
+
+# ---- C2: non-app-scoped auth commands resolve a context for server targeting --
+
+
+def test_non_app_scoped_auth_command_resolves_context():
+    # `hop3 apps` is not app-scoped but still targets a server, so the context
+    # (HOP3_CONTEXT / .hop3-local.toml / sole project context) must be resolved.
+    flags = SimpleNamespace(why=False, context=None, app=None)
+    ctx_res, app_res = _compute_resolutions(["apps"], flags, Config(data={}))
+    assert ctx_res is not None  # resolved for server targeting (C2)
+    assert app_res is None  # but the command is not app-scoped
+
+
+def test_non_connecting_command_skips_resolution():
+    # `version`/`help` don't connect -> no file reads, no resolution.
+    flags = SimpleNamespace(why=False, context=None, app=None)
+    assert _compute_resolutions(["version"], flags, Config(data={})) == (None, None)
 
 
 # ---- Config honors the active server ----

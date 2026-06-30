@@ -237,6 +237,25 @@ def test_resolved_app_injected_for_simple_command() -> None:
     assert out == ["app", "status", "--app", "ac-sciences"]
 
 
+def test_explicit_app_on_non_app_scoped_command_aborts() -> None:
+    """L1: `cert renew --app X` must not silently drop --app (and renew ALL).
+
+    `cert renew` is not app-scoped, so the typed --app can't be forwarded —
+    refuse loudly rather than ignore it.
+    """
+    with pytest.raises(SystemExit) as exc:
+        _inject_resolved_app(
+            ["cert", "renew"], CliFlags(app="myapp"), None, MagicMock()
+        )
+    assert exc.value.code == ExitCode.RESOLUTION_ERROR
+
+
+def test_non_app_scoped_without_explicit_app_passes_through() -> None:
+    """Without a typed --app, a non-app-scoped command is left untouched."""
+    out = _inject_resolved_app(["cert", "renew"], CliFlags(app=None), None, MagicMock())
+    assert out == ["cert", "renew"]
+
+
 # ---- ADR 036 D14: --why is diagnostic-only (does NOT run the command) ----
 
 

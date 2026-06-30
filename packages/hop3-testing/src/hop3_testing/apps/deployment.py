@@ -20,6 +20,7 @@ from hop3_testing.exceptions import CleanupError, DeploymentError
 from hop3_testing.targets.constants import (
     E2E_TEST_SECRET_KEY,
     create_test_token,
+    hermetic_cli_cwd,
     hermetic_cli_env,
 )
 from hop3_testing.util.console import PrintingConsole, Verbosity
@@ -300,7 +301,9 @@ class DeploymentSession:
 
         # Always use streaming with timeout to prevent silent hangs
         timeout = getattr(self, "_deploy_timeout", 600)
-        result = run_streaming(cmd, on_output=on_output, env=env, timeout=timeout)
+        result = run_streaming(
+            cmd, on_output=on_output, env=env, timeout=timeout, cwd=hermetic_cli_cwd()
+        )
         stdout = result.stdout
         returncode = result.returncode
         # Keep the full deploy output for every build (success or failure), not
@@ -365,6 +368,7 @@ class DeploymentSession:
             result = subprocess.run(
                 ["hop3", "apps"],
                 env=env,
+                cwd=hermetic_cli_cwd(),
                 capture_output=True,
                 text=True,
                 check=False,
@@ -694,6 +698,7 @@ class DeploymentSession:
                 before = subprocess.run(
                     ["hop3", "apps"],
                     env=env,
+                    cwd=hermetic_cli_cwd(),
                     capture_output=True,
                     text=True,
                     check=False,
@@ -703,6 +708,7 @@ class DeploymentSession:
             result = subprocess.run(
                 ["hop3", "app", "destroy", "--app", self.app_name, "-y"],
                 env=env,
+                cwd=hermetic_cli_cwd(),
                 capture_output=True,
                 text=True,
                 check=False,
@@ -757,6 +763,7 @@ class DeploymentSession:
         after = subprocess.run(
             ["hop3", "apps"],
             env=env,
+            cwd=hermetic_cli_cwd(),
             capture_output=True,
             text=True,
             check=False,

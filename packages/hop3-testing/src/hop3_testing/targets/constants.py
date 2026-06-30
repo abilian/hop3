@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import os
 import secrets
+import tempfile
 from datetime import datetime, timedelta, timezone
+from functools import cache
 
 import jwt
 
@@ -132,3 +134,20 @@ def hermetic_cli_env() -> dict[str, str]:
     for var in _CLI_STEERING_ENV_VARS:
         env.pop(var, None)
     return env
+
+
+@cache
+def hermetic_cli_cwd() -> str:
+    """A directory with NO ``hop3.toml`` in its ancestry — the CWD for every
+    harness ``hop3`` subprocess.
+
+    The harness always targets apps explicitly (``--app NAME``), so the CLI
+    needs no project context from the working directory. But the CLI resolves a
+    project — and runs the project-mismatch guard — relative to its CWD. So a
+    stray ``hop3.toml`` in the directory the test runner launched from (e.g. the
+    repo root) makes ``hop3 deploy`` / ``app destroy`` refuse with a project
+    mismatch. Running from a dedicated empty dir makes the harness hermetic
+    w.r.t. CWD, the same way ``hermetic_cli_env`` makes it hermetic w.r.t. env.
+    ``@cache`` so every call shares one empty directory.
+    """
+    return tempfile.mkdtemp(prefix="hop3-cli-cwd-")
