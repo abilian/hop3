@@ -47,7 +47,9 @@ class HetznerConfig:
         # (env wins nothing here — explicit config first, env as fallback). Both
         # ssh_key_name AND ssh_key_path must be carried: resolve_ssh_key() uses
         # the name if set, else derives the registered key from <ssh_key_path>.pub.
-        ssh_key_name = data.get("ssh_key_name") or env.get("HETZNER_SSH_KEY_NAME") or None
+        ssh_key_name = (
+            data.get("ssh_key_name") or env.get("HETZNER_SSH_KEY_NAME") or None
+        )
         ssh_key_path = (
             data.get("ssh_key_path")
             or env.get("HETZNER_SSH_KEY_PATH")
