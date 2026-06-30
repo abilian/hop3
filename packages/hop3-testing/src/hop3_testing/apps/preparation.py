@@ -43,6 +43,18 @@ class AppPreparation:
     temp_dir: Path | None = field(default=None, init=False)
     """Temporary directory for prepared app."""
 
+    @property
+    def test_hostname(self) -> str:
+        """The hostname a Procfile app is deployed under (its nginx server_name).
+
+        The HTTP validation MUST send this exact value as the Host header — a
+        mismatch falls through to the platform's default_server, which 301-
+        redirects (HTTP→HTTPS), so the check sees a 301 instead of the app. A
+        non-public `.test.local` FQDN: it gets a self-signed cert and never
+        collides with a real domain.
+        """
+        return f"{self.app_name}.test.local"
+
     def prepare(self) -> Path:
         """Prepare the application for deployment.
 
@@ -84,8 +96,7 @@ class AppPreparation:
 
         env_file = self.temp_dir / "ENV"
         if not env_file.exists() and self.app.has_procfile:
-            hostname = f"{self.app_name}.test.local"
-            env_file.write_text(f"HOST_NAME={hostname}\n")
+            env_file.write_text(f"HOST_NAME={self.test_hostname}\n")
 
     def _ensure_git_repo(self) -> None:
         """Ensure the temp directory is a git repository."""
