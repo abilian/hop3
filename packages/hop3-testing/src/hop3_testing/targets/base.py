@@ -20,7 +20,12 @@ import httpx
 
 from hop3_testing.exceptions import DeploymentError, TargetOutOfDiskError
 
-from .constants import E2E_TEST_SECRET_KEY, create_test_token, hermetic_cli_env
+from .constants import (
+    E2E_TEST_SECRET_KEY,
+    create_test_token,
+    hermetic_cli_cwd,
+    hermetic_cli_env,
+)
 
 
 @dataclass
@@ -182,6 +187,7 @@ class DeploymentTarget(ABC):
         result = subprocess.run(
             cmd_args,
             env=env,
+            cwd=hermetic_cli_cwd(),
             capture_output=True,
             text=True,
             check=False,

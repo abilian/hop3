@@ -400,6 +400,16 @@ def record_server_login(config: Config, server_url: str, token: str) -> None:
 
     credential_store.set_token(server_url, token)
 
+    # A successful login is a lie if an exported HOP3_API_TOKEN keeps shadowing
+    # it (get_api_token returns the env var first). Surface it so the user isn't
+    # left acting as the wrong identity (audit 2026-06 C4).
+    if os.environ.get("HOP3_API_TOKEN"):
+        print(
+            "  warning: HOP3_API_TOKEN is set in your environment and overrides "
+            "this stored token for every command until you `unset HOP3_API_TOKEN`.",
+            file=sys.stderr,
+        )
+
     context_name = config.get_context_override()
     if context_name:
         config.set_context_server(context_name, server_url)

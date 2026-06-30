@@ -257,6 +257,42 @@ def revoke_token(jti: str, expires_at: datetime, reason: str | None = None) -> N
         repo.add(revoked_token, auto_commit=True)
 
 
+def revoke_jwt(token: str, reason: str | None = None) -> bool:
+    """Decode a (possibly expired) JWT and revoke it by ``jti``.
+
+    The single decode-and-revoke used by BOTH logout paths (CLI and web) so they
+    stay symmetric — a logout invalidates the token, it doesn't merely drop the
+    local copy. The signature is verified with the server key (a forged/garbage
+    token can't poison the revocation list) but expiry is NOT (``verify_exp``
+    off), so a near-expiry token is still revoked.
+
+    Args:
+        token: The JWT to revoke.
+        reason: Optional reason recorded on the revocation entry.
+
+    Returns:
+        True if the token was decoded and revoked, False if it couldn't be
+        decoded or lacked a ``jti``/``exp``.
+    """
+    try:
+        payload = jwt.decode(
+            token,
+            get_secret_key(),
+            algorithms=["HS256"],
+            options={"verify_exp": False},
+        )
+    except jwt.InvalidTokenError:
+        return False
+
+    jti = payload.get("jti")
+    exp = payload.get("exp")
+    if not jti or not exp:
+        return False
+
+    revoke_token(jti, datetime.fromtimestamp(exp, tz=timezone.utc), reason=reason)
+    return True
+
+
 def generate_api_key() -> str:
     """Generate a random API key for long-lived tokens.
 

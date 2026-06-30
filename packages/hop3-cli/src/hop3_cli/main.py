@@ -59,12 +59,12 @@ from .core.deploy_preview import (  # noqa: E402
     render_plan,
 )
 from .core.project_guard import check_project_mismatch  # noqa: E402
-from .core.workspace_guard import check_workspace_dependency  # noqa: E402
 from .core.resolution import (  # noqa: E402
     format_trace,
     resolve_app,
     resolve_context,
 )
+from .core.workspace_guard import check_workspace_dependency  # noqa: E402
 from .exit_codes import ExitCode  # noqa: E402
 from .rpc import Client, handle_response  # noqa: E402
 from .ui import (  # noqa: E402
@@ -288,7 +288,9 @@ def _wire_active_server(
     context, then the default global context, then the sole known server.
     """
     if flags.context and not flags.why:
-        config.set_active_server(_require_context_server(flags.context, config))
+        server = _require_context_server(flags.context, config)
+        _abort_if_env_url_shadows_context(flags.context, server, config)
+        config.set_active_server(server)
         return
     if active_server := _resolve_active_server(context_resolution, config):
         config.set_active_server(active_server)
@@ -324,6 +326,48 @@ def _require_context_server(name: str, config: Config) -> str:
         f"  Known contexts — {'; '.join(known)}\n"
         f"  Define it with:            hop3 context add {name} --server <addr>\n"
         f"  or while authenticating:   hop3 login --context {name} --ssh <target>",
+        file=sys.stderr,
+    )
+    sys.exit(ExitCode.RESOLUTION_ERROR)
+
+
+def _env_override_url(config: Config) -> str | None:
+    """The connection URL ``get_api_url()`` takes from the environment, ahead of
+    any resolved context — ``HOP3_DEV_MODE``'s localhost, then ``HOP3_API_URL``.
+    None when no env override is in play.
+    """
+    import os  # noqa: PLC0415
+
+    if os.environ.get("HOP3_DEV_MODE", "").lower() in {"true", "1", "yes"}:
+        return config.get("api_url", "http://localhost:8000")
+    return os.environ.get("HOP3_API_URL")
+
+
+def _abort_if_env_url_shadows_context(
+    name: str, context_server: str, config: Config
+) -> None:
+    """An explicit ``--context`` must not be silently overridden by an ambient
+    ``HOP3_API_URL`` / ``HOP3_DEV_MODE`` (which ``get_api_url`` consults first).
+    Connecting to the env URL while the operator asked for ``name`` would ignore
+    their explicit selection and target a different server — abort loud rather
+    than retarget invisibly (audit 2026-06 C1).
+    """
+    env_url = _env_override_url(config)
+    if not env_url:
+        return
+
+    from hop3_cli.core import credential_store  # noqa: PLC0415
+
+    if credential_store.canonicalize(env_url) == credential_store.canonicalize(
+        context_server
+    ):
+        return
+
+    print(
+        f"Error: --context {name!r} targets {context_server}, but "
+        f"HOP3_API_URL / HOP3_DEV_MODE overrides the connection to {env_url}.\n"
+        f"  Connecting there would silently ignore your explicit --context.\n"
+        f"  Unset the env override, or drop --context to use the env URL.",
         file=sys.stderr,
     )
     sys.exit(ExitCode.RESOLUTION_ERROR)
@@ -373,14 +417,21 @@ def _compute_resolutions(cli_args: list[str], flags: CliFlags, config: Config):
     server resolution; the app resolves CWD-only.
     """
     scoped, _ = is_app_scoped(cli_args)
-    if not scoped and not flags.why:
-        return None, None
+    if scoped or flags.why:
+        context_resolution = resolve_context(cli_context=flags.context)
+        # ADR 042 r2: the resolved context supplies app source #5
+        # ([contexts.<sel>].app), trusted per the context's selection provenance.
+        app_resolution = resolve_app(cli_app=flags.app, context=context_resolution)
+        return context_resolution, app_resolution
 
-    context_resolution = resolve_context(cli_context=flags.context)
-    # ADR 042 r2: the resolved context supplies app source #5
-    # ([contexts.<sel>].app), trusted per the context's selection provenance.
-    app_resolution = resolve_app(cli_app=flags.app, context=context_resolution)
-    return context_resolution, app_resolution
+    # Non-app-scoped commands (apps, addon list, backup list, …) still target a
+    # server, so they must honor $HOP3_CONTEXT / the .hop3-local.toml pin / a
+    # sole project context — not silently fall through to the global default
+    # (audit 2026-06 C2). Resolve the context for them too, but only when the
+    # command actually connects, so `version`/`help` still read no files.
+    if requires_authentication(cli_args):
+        return resolve_context(cli_context=flags.context), None
+    return None, None
 
 
 def _inject_resolved_app(
@@ -397,7 +448,23 @@ def _inject_resolved_app(
     structured "no app resolved" error (ADR 036 D10).
     """
     scoped, n_consumed = is_app_scoped(cli_args)
-    if not scoped or resolution is None:
+    if not scoped:
+        # `parse_flags` stripped any typed `--app`/`-a` into flags.app. For an
+        # app-scoped command it's re-injected below; for a command that ISN'T
+        # app-scoped there's nowhere to forward it, so dropping it silently would
+        # act on the wrong scope — e.g. `cert renew --app X` silently renewed ALL
+        # certs (audit 2026-06 L1). Refuse loudly instead.
+        if flags.app:
+            cmd = " ".join(t for t in cli_args[:2] if not t.startswith("-")) or "this"
+            print(
+                f"Error: `hop3 {cmd}` does not take --app; the flag would be "
+                f"silently ignored.\n"
+                f"  Re-run without --app, or use a command that targets one app.",
+                file=sys.stderr,
+            )
+            sys.exit(ExitCode.RESOLUTION_ERROR)
+        return cli_args
+    if resolution is None:
         return cli_args
 
     # The app is ALWAYS a flag, never a positional (ADR 036 D5). `parse_flags`

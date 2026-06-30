@@ -326,3 +326,33 @@ def test_auth_magic_link_rejects_non_admin(user_repo: UserRepository, test_user:
 
     assert isinstance(result, list)
     assert any("error" in r.get("t", "") for r in result)
+
+
+def test_auth_magic_link_pass_username_blocks_spoofed_admin(
+    user_repo: UserRepository, test_user: User
+):
+    """A1 regression: the admin gate must read the VERIFIED caller, not arg1.
+
+    The privesc was that ``AuthMagicLinkCmd`` lacked ``pass_username``, so the
+    RPC layer never injected the caller's verified identity and the
+    attacker-supplied first positional ("admin") landed in
+    ``authenticated_username``. We assert the declarative fix and reproduce the
+    RPC's arg-injection for the attack payload from a non-admin identity.
+    """
+    from hop3.server.controllers.rpc import command_needs_username  # noqa: PLC0415
+
+    # The fix: the command opts into verified-identity injection.
+    assert command_needs_username(AuthMagicLinkCmd) is True
+
+    # Attack: a non-admin token's holder POSTs ["auth","magic-link","admin",<victim>].
+    verified_caller = "testuser"  # the real, non-admin identity from the token
+    attacker_args = ("admin", "victim")  # arg1 spoofs the well-known admin name
+
+    # Mirror rpc._prepare_command_args: inject the verified identity first.
+    prepared_args = (verified_caller, *attacker_args)
+    result = AuthMagicLinkCmd(user_repo=user_repo).call(*prepared_args)
+
+    # require_admin now sees 'testuser' (non-admin) -> refused, no token minted.
+    assert isinstance(result, list)
+    assert any("error" in r.get("t", "") for r in result)
+    assert not any(r.get("t") == "text" for r in result)  # no token returned
