@@ -561,12 +561,13 @@ class DeploymentSession:
     ) -> dict[str, Any]:
         """Test HTTP via nginx on the remote server (for static/no-port apps).
 
-        Runs curl on the server targeting localhost:80 with the app's
-        hostname as Host header. Uses the app name as hostname since
-        nginx is configured with HOST_NAME (or catch-all '_').
+        Runs curl on the server targeting localhost:80 with the Host header set
+        to the hostname the app was actually deployed under. This MUST match the
+        nginx server_name (HOST_NAME) the harness set in prepare(); otherwise the
+        request misses the app's vhost, falls through to the platform
+        default_server, and gets a 301 (HTTP→HTTPS) instead of the app.
         """
-        # Use the app name as hostname for the Host header
-        host = self.app_name
+        host = self._preparation.test_hostname
         url = f"http://127.0.0.1{path}"
         result: dict[str, Any] = {
             "passed": False,
