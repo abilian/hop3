@@ -87,3 +87,20 @@ def test_read_server_secret_key_fails_loud_when_absent():
     required')."""
     with pytest.raises(ConfigurationError, match="signing key"):
         read_server_secret_key(_backend(""))
+
+
+def test_hermetic_cli_cwd_is_empty_and_cached():
+    """The harness runs every `hop3` from a dir with no hop3.toml, so a stray
+    hop3.toml in the test runner's CWD (e.g. the repo root) can't trigger the
+    CLI's project-mismatch guard and refuse a deploy/destroy."""
+    from pathlib import Path
+
+    from hop3_testing.targets.constants import hermetic_cli_cwd
+
+    first = hermetic_cli_cwd()
+    assert hermetic_cli_cwd() == first  # cached: one shared dir
+
+    d = Path(first)
+    assert d.is_dir()
+    assert not (d / "hop3.toml").exists()
+    assert list(d.iterdir()) == []  # freshly-made, empty

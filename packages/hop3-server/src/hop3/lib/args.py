@@ -96,12 +96,16 @@ def _handle_long_option(  # noqa: PLR0911 — one return per option form (flag, 
 
     # Handle --key value format
     if key in spec:
-        if i + 1 < len(args_list) and not args_list[i + 1].startswith("-"):
+        if i + 1 < len(args_list):
+            # The user named a value-option explicitly, so the next token IS its
+            # value — even one starting with '-' (e.g. `--grep -foo` searching
+            # for "-foo"). Refusing leading-'-' values turned a legitimate value
+            # into a misleading "Unrecognized argument" (audit 2026-06 L10).
             converter = spec[key].get("type", str)
             result[key] = converter(args_list[i + 1])
             return i + 2
-        # Known option missing its value: consume the flag token (existing
-        # tolerant behavior — the command sees the default).
+        # Known option at end of args with no value: consume the flag token
+        # (existing tolerant behavior — the command sees the default).
         return i + 1
 
     # Unknown --option: not handled here. Returning None lets parse_cli_args
@@ -260,3 +264,20 @@ def pop_app_flag(args: tuple[str, ...] | list[str]) -> tuple[str | None, list[st
         remaining.append(tok)
         i += 1
     return app, remaining
+
+
+def reject_extra_args(remaining: tuple[str, ...] | list[str]) -> None:
+    """Fail loud on leftover tokens after a command consumed its known args.
+
+    The counterpart to ``pop_app_flag`` for commands that take NO further
+    positionals: a stray flag or typo (``--no-addon`` instead of
+    ``--no-addons``) must be rejected, not silently ignored — silent ignoring
+    reports success while doing the wrong thing (audit 2026-06 C9).
+    """
+    if remaining:
+        joined = ", ".join(repr(tok) for tok in remaining)
+        msg = (
+            f"Unrecognized argument(s): {joined}. "
+            "Check the command's usage (run it with --help)."
+        )
+        raise ValueError(msg)

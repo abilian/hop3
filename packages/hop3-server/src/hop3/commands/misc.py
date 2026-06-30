@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, ClassVar
 from hop3 import config as c
 from hop3.config import HOP3_ROOT, HOP3_USER
 from hop3.deployers import do_deploy
-from hop3.lib.args import pop_app_flag
+from hop3.lib.args import pop_app_flag, reject_extra_args
 from hop3.lib.logging import server_log
 from hop3.lib.registry import lookup, register
 from hop3.lib.util import CommandError, CommandFailedError, run_command
@@ -125,7 +125,8 @@ class PSCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("ps",)
 
     def call(self, *args):
-        app_name, _rest = pop_app_flag(args)
+        app_name, rest = pop_app_flag(args)
+        reject_extra_args(rest)  # `ps` takes no positionals (audit C9)
 
         if app_name is None:
             msg = "Usage: hop3 ps [--app <app>]"
@@ -341,7 +342,8 @@ class SbomCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("app", "sbom")
 
     def call(self, *args):
-        app_name, _rest = pop_app_flag(args)
+        app_name, rest = pop_app_flag(args)
+        reject_extra_args(rest)  # `app sbom` takes no positionals (audit C9)
 
         if app_name is None:
             msg = "Usage: hop3 app sbom [--app <app>]"
