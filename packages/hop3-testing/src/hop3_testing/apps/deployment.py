@@ -10,7 +10,6 @@ the full test lifecycle: prepare, deploy, verify, cleanup.
 
 from __future__ import annotations
 
-import os
 import subprocess
 import time
 import traceback
@@ -21,6 +20,7 @@ from hop3_testing.exceptions import CleanupError, DeploymentError
 from hop3_testing.targets.constants import (
     E2E_TEST_SECRET_KEY,
     create_test_token,
+    hermetic_cli_env,
 )
 from hop3_testing.util.console import PrintingConsole, Verbosity
 from hop3_testing.util.streaming import run_streaming
@@ -143,7 +143,11 @@ class DeploymentSession:
             and HOP3_API_TOKEN set as appropriate.
         """
         target_info = self.target.info
-        env = os.environ.copy()
+        # Hermetic: strip ambient HOP3_* steering vars so the deploy can't be
+        # silently redirected by the (possibly polluted) launch environment —
+        # e.g. the testlab worker's app-runtime env. We then set the explicit
+        # target URL + token below.
+        env = hermetic_cli_env()
 
         # Prefer direct HTTP API URL when available (Docker without SSH port mapping)
         # Fall back to SSH tunnel for remote targets

@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import contextlib
-import os
 import subprocess
 import tarfile
 import tempfile
@@ -21,7 +20,7 @@ import httpx
 
 from hop3_testing.exceptions import DeploymentError, TargetOutOfDiskError
 
-from .constants import E2E_TEST_SECRET_KEY, create_test_token
+from .constants import E2E_TEST_SECRET_KEY, create_test_token, hermetic_cli_env
 
 
 @dataclass
@@ -157,7 +156,10 @@ class DeploymentTarget(ABC):
         target_info = self.info
         start_time = time.time()
 
-        env = os.environ.copy()
+        # Hermetic: strip ambient HOP3_* steering vars (see hermetic_cli_env) so
+        # the launch environment can't redirect this hop3 call; explicit target
+        # URL + token are set below.
+        env = hermetic_cli_env()
         # Prefer direct HTTP API URL when available (Docker without SSH port mapping)
         # Fall back to SSH tunnel for remote targets
         if target_info.api_url:
