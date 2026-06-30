@@ -59,6 +59,7 @@ from .core.deploy_preview import (  # noqa: E402
     render_plan,
 )
 from .core.project_guard import check_project_mismatch  # noqa: E402
+from .core.workspace_guard import check_workspace_dependency  # noqa: E402
 from .core.resolution import (  # noqa: E402
     format_trace,
     resolve_app,
@@ -160,6 +161,7 @@ def run_command_from_args(cli_args: list[str]) -> None:
 
     cli_args = _inject_resolved_app(cli_args, flags, app_resolution, printer)
     _check_project_mismatch(cli_args, flags, app_resolution)
+    _check_workspace_dependency(cli_args, flags)
     _check_stray_dry_run(cli_args, flags)
     _handle_deploy_preview(cli_args, flags, config, app_resolution, context_resolution)
     _update_printer_scope(printer, config, cli_args)
@@ -485,6 +487,20 @@ def _check_project_mismatch(
         # NOT confirmation-declined (a UX event from a prompt that never
         # ran). Scripts can match on 3 to distinguish "wrong project"
         # from "user said no".
+        sys.exit(ExitCode.RESOLUTION_ERROR)
+
+
+def _check_workspace_dependency(cli_args: list[str], flags: CliFlags) -> None:
+    """Refuse to deploy a uv-workspace member in isolation when it depends on a
+    sibling workspace package (which would silently install from PyPI instead of
+    the local source). See ``core.workspace_guard``. ``--force`` overrides.
+    """
+    if cli_args[:1] != ["deploy"] or flags.force:
+        return
+
+    issue = check_workspace_dependency(_deploy_source_path(cli_args))
+    if issue.is_problem:
+        print(issue.message, file=sys.stderr)
         sys.exit(ExitCode.RESOLUTION_ERROR)
 
 
