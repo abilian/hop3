@@ -153,7 +153,13 @@ class RichPrinter:
             return
 
         text = obj.get("text", "")
-        self.console.print(text, markup=False, highlight=False)
+        # soft_wrap=True: without it Rich word-wraps at the console width (80
+        # when stdout is piped/not a TTY), injecting hard newlines mid-string.
+        # That corrupts machine-consumable single-line values — most visibly
+        # `hop3 auth get-token` (built for TOKEN=$(...)), whose JWT would be
+        # split across lines. Soft wrap emits the literal text; a TTY still
+        # wraps visually.
+        self.console.print(text, markup=False, highlight=False, soft_wrap=True)
 
     def print_hint(self, obj: dict) -> None:
         """Render a follow-up-command suggestion in the user's own dialect.

@@ -71,6 +71,30 @@ def test_rich_printer_print_text_preserves_square_brackets():
     assert "[local]" in output
 
 
+def test_rich_printer_does_not_wrap_long_single_line_value():
+    """A long single-line value must not be word-wrapped.
+
+    `hop3 auth get-token` prints a bare JWT for `TOKEN=$(...)`. When stdout is
+    piped (not a TTY) Rich defaults to 80 cols and would word-wrap the token,
+    injecting hard newlines that corrupt it. soft_wrap keeps it on one line.
+    """
+    token = (
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+        "eyJzdWIiOiJ0ZXN0LWRpYWdub3N0aWMtdXNlciIsInNjb3BlcyI6WyJhdXRoZW50aWNhdGVkIl0."
+        "qdGkiOiJfa0pLZEFERWtvcDU5SDF5Uk1xVi1nSQ"
+    )
+    printer = RichPrinter()
+
+    stdout_capture = StringIO()
+    with patch.object(sys, "stdout", stdout_capture):
+        printer.print([{"t": "text", "text": token}])
+
+    output = stdout_capture.getvalue()
+    lines = [ln.strip() for ln in output.splitlines() if ln.strip()]
+    # Mirrors the script-side parser: a single line that IS the JWT.
+    assert token in lines, f"token was wrapped across lines: {output!r}"
+
+
 def test_rich_printer_print_blob_writes_raw_bytes_to_stdout():
     """A blob item (base64) is decoded and written verbatim to stdout.buffer.
 
