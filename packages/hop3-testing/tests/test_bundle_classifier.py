@@ -280,8 +280,37 @@ def test_collect_bundle_ok_is_not_persisted(tmp_path) -> None:
         base_dir=tmp_path,
     )
     assert bundle.classifier == "ok"
-    assert bundle.artifact_dir is None  # ok bundles are never persisted
+    assert bundle.artifact_dir is None  # ok bundles are never persisted by default
     assert list(tmp_path.iterdir()) == []
+
+
+def test_collect_bundle_ok_is_persisted_when_forced(tmp_path) -> None:
+    """force_persist writes even an ok-classified bundle: a check.py / HTTP-
+    `contains` failure serves fine (classifier ok) yet must leave a bundle that
+    `hop3-test why` can replay. Regression for check.py failures showing
+    'No bundle found'."""
+    ss_table = (
+        "State Recv-Q Send-Q Local Address:Port\n"
+        "LISTEN 0 128 127.0.0.1:55489 0.0.0.0:*\n"
+    )
+    target = _FakeTarget({
+        "ss -ltnp": ss_table,
+        "curl": "200",
+        "uwsgi-enabled": "uwsgi",
+        "nginx/": "location / { proxy_pass http://127.0.0.1:55489; }",
+        "id -un": "root",
+    })
+    bundle = collect_diagnostic_bundle(
+        cast("Any", target),
+        "flask-hello",
+        target_kind="docker",
+        base_dir=tmp_path,
+        force_persist=True,
+    )
+    assert bundle.classifier == "ok"
+    assert bundle.artifact_dir is not None  # forced -> written despite ok
+    assert bundle.artifact_dir.name == bundle.run_id
+    assert (bundle.artifact_dir / "manifest.json").exists()
 
 
 def test_headline_indeterminate_icon() -> None:

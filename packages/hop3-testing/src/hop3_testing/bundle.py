@@ -687,12 +687,17 @@ def collect_diagnostic_bundle(
     target_kind: str = "docker",
     base_dir: Path | None = None,
     persist: bool = True,
+    force_persist: bool = False,
 ) -> Bundle:
     """Collect a target-agnostic diagnostic bundle BEFORE teardown.
 
-    Only call this on a real failure — an ``ok`` classification is never
-    persisted. Never raises: per-section isolation + a probe that degrades to
-    ``indeterminate`` rather than emitting a confident-but-wrong verdict.
+    Only call this on a real failure. By default an ``ok`` classification is not
+    written to disk — but some failures classify ``ok`` at the runtime layer
+    (the app serves fine; a check.py body assertion or HTTP `contains` is what
+    failed). For those, pass ``force_persist=True`` so the bundle is still
+    written and ``why <run-id>`` can replay it. Never raises: per-section
+    isolation + a probe that degrades to ``indeterminate`` rather than emitting a
+    confident-but-wrong verdict.
     """
     kind = _detect_kind(target, app)
     sections = _collect_sections(
@@ -722,6 +727,6 @@ def collect_diagnostic_bundle(
         sections=sections,
         probe=probe,
     )
-    if persist and classifier != "ok":
+    if persist and (force_persist or classifier != "ok"):
         bundle = write_bundle(bundle, base_dir)
     return bundle
