@@ -36,6 +36,7 @@ hop3 = "hop3_cli.main:main"
 requires = ["uv-build>=0.8.4,<0.9.0"]
 build-backend = "uv_build"
 
+# ----------------------------------------
 
 [tool.pytest.ini_options]
 filterwarnings = [
