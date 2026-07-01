@@ -35,8 +35,12 @@ dev = [
 [project.scripts]
 # Unified installer command with subcommands (cli, server, bundle)
 hop3-install = "hop3_installer.main:main"
-# Deployment tool for developers
-hop3-deploy = "hop3_installer.deployer:main"
+# Deployment tool for developers. Named -server so it doesn't read as the
+# client's `hop3 deploy` (deploy an app); this deploys the server/platform.
+# `hop3-deploy` stays a deprecated warn-and-delegate alias for one release
+# (ADR 052 D10).
+hop3-deploy-server = "hop3_installer.deployer:main"
+hop3-deploy = "hop3_installer.deployer:deprecated_main"
 
 #
 # build

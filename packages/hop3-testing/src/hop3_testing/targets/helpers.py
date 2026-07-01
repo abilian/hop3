@@ -769,8 +769,8 @@ def _build_deploy_command(
     features: list[str] | None = None,
     ssh_key: str | None = None,
 ) -> list[str]:
-    """Build hop3-deploy command arguments."""
-    cmd = ["hop3-deploy"]
+    """Build hop3-deploy-server command arguments."""
+    cmd = ["hop3-deploy-server"]
 
     if docker:
         cmd.extend([
@@ -907,7 +907,7 @@ def _log_deploy_failure(
         diagnostics.add_failure(
             layer="deployer",
             operation="deploy",
-            message=f"hop3-deploy failed (exit {result.returncode})",
+            message=f"hop3-deploy-server failed (exit {result.returncode})",
             duration=duration,
             stdout=result.stdout,
             stderr=result.stderr,
@@ -925,7 +925,7 @@ def _log_deploy_timeout(
         diagnostics.add_failure(
             layer="deployer",
             operation="deploy",
-            message=f"hop3-deploy timed out after {duration:.0f}s",
+            message=f"hop3-deploy-server timed out after {duration:.0f}s",
             duration=duration,
             stdout=result.stdout,
             stderr=result.stderr,
@@ -942,7 +942,7 @@ def _log_deploy_success(
         diagnostics.add_success(
             layer="deployer",
             operation="deploy",
-            message=f"hop3-deploy completed in {duration:.1f}s",
+            message=f"hop3-deploy-server completed in {duration:.1f}s",
             duration=duration,
         )
 
@@ -951,12 +951,12 @@ def _log_deploy_not_found(
     diagnostics: DiagnosticCollector | None,
     duration: float,
 ) -> None:
-    """Log hop3-deploy not found error."""
+    """Log hop3-deploy-server not found error."""
     if diagnostics:
         diagnostics.add_failure(
             layer="deployer",
             operation="deploy",
-            message="hop3-deploy not found - is hop3-installer installed?",
+            message="hop3-deploy-server not found - is hop3-installer installed?",
             duration=duration,
         )
-    print("Error: hop3-deploy command not found")
+    print("Error: hop3-deploy-server command not found")
