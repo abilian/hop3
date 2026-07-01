@@ -68,12 +68,15 @@ class ServerInstallerConfig:
     def from_env(cls) -> ServerInstallerConfig:
         """Create config from environment variables."""
         features = parse_features(env_str("HOP3_WITH", ""))
+        # HOP3_FROM is the canonical source selector (pypi|git|local); HOP3_GIT /
+        # HOP3_LOCAL_PACKAGE still work. HOP3_PATH aliases HOP3_LOCAL_PACKAGE.
+        from_source = env_str("HOP3_FROM", "").lower().strip()
 
         return cls(
             version=env_str("HOP3_VERSION"),
-            use_git=env_bool("HOP3_GIT"),
+            use_git=env_bool("HOP3_GIT") or from_source == "git",
             branch=env_str("HOP3_BRANCH", DEFAULT_BRANCH_PRODUCTION),
-            local_path=env_str("HOP3_LOCAL_PACKAGE"),
+            local_path=env_str("HOP3_LOCAL_PACKAGE") or env_str("HOP3_PATH"),
             pre_release=env_bool("HOP3_PRE"),
             force=env_bool("HOP3_FORCE"),
             skip_deps=env_bool("HOP3_SKIP_DEPS"),

@@ -51,7 +51,8 @@ def test_system_accepts_the_flags_the_testlab_passes():
         "--docker",
         "--ssh",
         "--host",
-        "--ssh-key",
+        "--identity",  # ADR 052 D2 canonical SSH key flag
+        "--ssh-key",  # back-compat alias (same option)
         "--with",
         "--mode",
         "--report",

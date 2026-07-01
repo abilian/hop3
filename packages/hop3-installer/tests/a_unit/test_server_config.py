@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import pytest
 from hop3_installer.constants import ALL_FEATURES
+from hop3_installer.server_installer.cli import config_from_args, create_parser
 from hop3_installer.server_installer.config import (
     ServerInstallerConfig,
     parse_features,
@@ -70,3 +71,33 @@ class TestParseFeatures:
         assert (
             "mysql" not in msg.split("Valid", maxsplit=1)[0]
         )  # the known one isn't the offender
+
+
+class TestServerFromSource:
+    """`--from {pypi,git,local}` on hop3-install server (ADR 052 D3)."""
+
+    def test_from_git_sets_use_git(self, clean_env):
+        cfg = config_from_args(create_parser().parse_args(["--from", "git"]))
+        assert cfg.use_git is True
+
+    def test_from_local_with_path(self, clean_env):
+        cfg = config_from_args(
+            create_parser().parse_args(["--from", "local", "--path", "/src"])
+        )
+        assert cfg.local_path == "/src"
+
+    def test_path_is_alias_for_local_path(self, clean_env):
+        cfg = config_from_args(create_parser().parse_args(["--path", "/src"]))
+        assert cfg.local_path == "/src"
+
+    def test_from_local_without_path_raises(self, clean_env):
+        with pytest.raises(ValueError, match="--from local requires --path"):
+            config_from_args(create_parser().parse_args(["--from", "local"]))
+
+    def test_hop3_from_env_selects_git(self, clean_env):
+        clean_env["HOP3_FROM"] = "git"
+        assert ServerInstallerConfig.from_env().use_git is True
+
+    def test_default_branch_is_main(self, clean_env):
+        # The installer already defaults to main; confirm it's unchanged.
+        assert create_parser().parse_args([]).branch == "main"

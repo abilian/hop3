@@ -560,7 +560,7 @@ def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once;
         # Pass the credential key explicitly: the engine's paramiko connect uses it
         # as key_filename (env alone isn't read by the released CLI), and a server's
         # runtime user has no default key/agent -> 'No authentication methods'.
-        *(["--ssh-key", ssh_key] if ssh_key else []),
+        *(["--identity", ssh_key] if ssh_key else []),
         "--with",
         "all",
         *deploy,

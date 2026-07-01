@@ -239,7 +239,13 @@ class DeployConfig:
             HOP3_QUIET - Quiet mode (1 or true)
             HOP3_DOCKER - Use Docker instead of SSH (1 or true)
         """
-        host = env_str("HOP3_DEV_HOST") or env_str("HOP3_TEST_SERVER")
+        # HOP3_HOST is the canonical target var; HOP3_DEV_HOST / HOP3_TEST_SERVER
+        # still work (ADR 052 D2).
+        host = (
+            env_str("HOP3_HOST")
+            or env_str("HOP3_DEV_HOST")
+            or env_str("HOP3_TEST_SERVER")
+        )
         features = env_list("HOP3_WITH")
         branch = env_str("HOP3_BRANCH", DEFAULT_BRANCH)
 
@@ -257,6 +263,7 @@ class DeployConfig:
             host=host,
             use_docker=env_bool("HOP3_DOCKER"),
             ssh_user=env_str("HOP3_SSH_USER", DEFAULT_SSH_USER),
+            ssh_key=env_str("HOP3_SSH_KEY"),
             branch=branch,
             use_local_code=use_local,
             use_git=use_git,
