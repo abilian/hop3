@@ -109,8 +109,8 @@ units = ["*"]
 # counter = "internal"   # or "cloc"
 
 # Source units to exclude from analysis (a reason is required):
-# [tool.tepyd.exclude]
-# faker = "why this is not tested"
+[tool.tepyd.exclude]
+alembic = "You don't test alembic"
 
 [[tool.tepyd.tiers]]
 name = "a_unit"
