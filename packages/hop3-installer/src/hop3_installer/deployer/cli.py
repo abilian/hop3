@@ -38,6 +38,7 @@ Environment Variables:
   HOP3_PYPI_VERSION  Specific PyPI version to install
   HOP3_PYPI_PRE      Allow pre-release versions (1 or true)
   HOP3_CLEAN         Clean before deploy (1 or true)
+  HOP3_SKIP_MIGRATIONS  Skip DB migrations after install (1 or true)
   HOP3_WITH          Features to install (comma-separated)
   HOP3_DOCKER        Use Docker instead of SSH (1 or true)
   HOP3_QUIET         Quiet mode - minimal output (1 or true)
@@ -82,20 +83,23 @@ Examples:
         action="store_true",
         help="Deploy to local Docker container instead of SSH",
     )
+    # default=None (not the literal default) so an EXPLICIT flag equal to the
+    # default still overrides an env-supplied value. See _apply_*_overrides and
+    # test_deploy_config_precedence (ADR 052 D7).
     target.add_argument(
         "--docker-image",
-        default=DOCKER_IMAGE,
+        default=None,
         help=f"Docker image to use (default: {DOCKER_IMAGE})",
     )
     target.add_argument(
         "--docker-container",
-        default=DOCKER_CONTAINER_NAME,
+        default=None,
         help=f"Docker container name (default: {DOCKER_CONTAINER_NAME})",
     )
     target.add_argument(
         "--ssh-user",
         "-u",
-        default=DEFAULT_SSH_USER,
+        default=None,
         help=f"SSH user (default: {DEFAULT_SSH_USER})",
     )
     target.add_argument(
@@ -115,7 +119,7 @@ Examples:
     install.add_argument(
         "--branch",
         "-b",
-        default=DEFAULT_BRANCH,
+        default=None,
         help=f"Git branch to deploy (implies --git, default: {DEFAULT_BRANCH})",
     )
     install.add_argument(
@@ -176,12 +180,12 @@ Examples:
     )
     admin.add_argument(
         "--admin-user",
-        default=DEFAULT_ADMIN_USER,
+        default=None,
         help=f"Admin username (default: {DEFAULT_ADMIN_USER})",
     )
     admin.add_argument(
         "--admin-email",
-        default=DEFAULT_ADMIN_EMAIL,
+        default=None,
         help=f"Admin email (default: {DEFAULT_ADMIN_EMAIL})",
     )
     admin.add_argument(
@@ -241,16 +245,21 @@ Examples:
 
 
 def _apply_target_overrides(config: DeployConfig, args: argparse.Namespace) -> None:
-    """Apply target-related CLI overrides to config."""
+    """Apply target-related CLI overrides to config.
+
+    Value options apply on ``is not None`` (the flag was PROVIDED), not on
+    ``!= default``: an explicit ``--ssh-user root`` must win over an env-supplied
+    value even though ``root`` is the default (ADR 052 D7).
+    """
     if args.host:
         config.host = args.host
     if args.docker:
         config.use_docker = True
-    if args.docker_image != DOCKER_IMAGE:
+    if args.docker_image is not None:
         config.docker_image = args.docker_image
-    if args.docker_container != DOCKER_CONTAINER_NAME:
+    if args.docker_container is not None:
         config.docker_container = args.docker_container
-    if args.ssh_user != DEFAULT_SSH_USER:
+    if args.ssh_user is not None:
         config.ssh_user = args.ssh_user
     if args.ssh_key:
         config.ssh_key = args.ssh_key
@@ -260,7 +269,7 @@ def _apply_install_overrides(config: DeployConfig, args: argparse.Namespace) -> 
     """Apply installation-related CLI overrides to config."""
     if args.git:
         config.use_git = True
-    if args.branch != DEFAULT_BRANCH:
+    if args.branch is not None:
         config.branch = args.branch
         config.use_git = True  # --branch implies --git
     if args.use_local:
@@ -285,9 +294,9 @@ def _apply_admin_overrides(config: DeployConfig, args: argparse.Namespace) -> No
     """Apply admin user CLI overrides to config."""
     if args.admin_domain:
         config.admin_domain = args.admin_domain
-    if args.admin_user != DEFAULT_ADMIN_USER:
+    if args.admin_user is not None:
         config.admin_user = args.admin_user
-    if args.admin_email != DEFAULT_ADMIN_EMAIL:
+    if args.admin_email is not None:
         config.admin_email = args.admin_email
     if args.admin_password:
         config.admin_password = args.admin_password

@@ -54,6 +54,33 @@ def _has_executable_blocks(md_path: Path) -> bool:
         return False
 
 
+def default_scan_paths(root: Path) -> list[str]:
+    """Default catalog scan set: every ``apps/`` subdir, ``demos/``, tutorials.
+
+    The single source of truth for "what to scan when no paths are given",
+    shared by the ``hop3-test`` CLI and the Test Lab (which used to keep its own
+    copy). Scans the *source* tutorials tree (``docs/tutorials``), not the
+    rendered one — validoc's executable ``bash exec``/``output``/``file`` fences
+    are stripped out of ``docs/src/tutorials`` during the docs build, so scanning
+    that yields a vacuous "0 passed".
+    """
+    paths: list[str] = []
+    apps_dir = root / "apps"
+    if apps_dir.is_dir():
+        paths += [
+            str(child.relative_to(root))
+            for child in sorted(apps_dir.iterdir())
+            if child.is_dir()
+        ]
+    if (root / "demos").is_dir():
+        paths.append("demos")
+    if (root / "docs/tutorials").is_dir():
+        paths.append("docs/tutorials")
+    elif (root / "docs/src/tutorials").is_dir():
+        paths.append("docs/src/tutorials")
+    return paths
+
+
 class Catalog:
     """Discovers and indexes all tests in the project.
 
