@@ -15,7 +15,9 @@ from hop3_installer.constants import (
     ALL_FEATURES,
     DEFAULT_ADMIN_EMAIL,
     DEFAULT_ADMIN_USER,
-    DEFAULT_BRANCH_DEVELOPMENT as DEFAULT_BRANCH,
+    # ADR 052 D3: the default git branch is `main` (production/safe) everywhere;
+    # a dev workflow passes `--branch devel` explicitly. Was DEVELOPMENT (devel).
+    DEFAULT_BRANCH_PRODUCTION as DEFAULT_BRANCH,
     DEFAULT_SSH_USER,
     DOCKER_CONTAINER_NAME,
     DOCKER_IMAGE,
@@ -241,17 +243,24 @@ class DeployConfig:
         features = env_list("HOP3_WITH")
         branch = env_str("HOP3_BRANCH", DEFAULT_BRANCH)
 
-        # --branch implies --git if a non-default branch is specified
-        use_git = env_bool("HOP3_GIT") or (branch != DEFAULT_BRANCH)
+        # HOP3_FROM is the canonical source selector (pypi|git|local); the older
+        # HOP3_GIT/HOP3_LOCAL/HOP3_PYPI booleans still work (ADR 052 D3). A
+        # non-default --branch still implies git.
+        from_source = env_str("HOP3_FROM", "").lower().strip()
+        use_git = (
+            env_bool("HOP3_GIT") or (branch != DEFAULT_BRANCH) or from_source == "git"
+        )
+        use_local = env_bool("HOP3_LOCAL") or from_source == "local"
+        use_pypi = env_bool("HOP3_PYPI") or from_source == "pypi"
 
         return cls(
             host=host,
             use_docker=env_bool("HOP3_DOCKER"),
             ssh_user=env_str("HOP3_SSH_USER", DEFAULT_SSH_USER),
             branch=branch,
-            use_local_code=env_bool("HOP3_LOCAL"),
+            use_local_code=use_local,
             use_git=use_git,
-            use_pypi=env_bool("HOP3_PYPI"),
+            use_pypi=use_pypi,
             pypi_version=env_str("HOP3_PYPI_VERSION"),
             pypi_pre=env_bool("HOP3_PYPI_PRE"),
             clean_before=env_bool("HOP3_CLEAN"),

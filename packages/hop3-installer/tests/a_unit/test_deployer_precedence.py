@@ -69,3 +69,37 @@ def test_explicit_branch_equal_default_applies_and_implies_git(clean_env):
 def test_branch_absent_does_not_imply_git(clean_env):
     config = _config(["--docker"])
     assert config.use_git is False
+
+
+# --- ADR 052 D3: --from install-source selector -----------------------------
+
+
+def test_from_git_selects_git(clean_env):
+    config = _config(["--docker", "--from", "git"])
+    assert config.use_git is True
+    assert "git" in config.install_source
+
+
+def test_from_local_selects_local(clean_env):
+    config = _config(["--docker", "--from", "local"])
+    assert config.use_local_code is True
+    assert config.install_source == "local code"
+
+
+def test_from_pypi_is_default_source(clean_env):
+    config = _config(["--docker", "--from", "pypi"])
+    assert config.use_git is False
+    assert config.use_local_code is False
+    assert "PyPI" in config.install_source
+
+
+def test_hop3_from_env_selects_source(clean_env):
+    clean_env["HOP3_FROM"] = "git"
+    config = _config(["--docker"])
+    assert config.use_git is True
+
+
+def test_default_branch_is_main(clean_env):
+    # No --branch, --from git -> the safe default branch (main), not devel.
+    config = _config(["--docker", "--from", "git"])
+    assert config.branch == "main"

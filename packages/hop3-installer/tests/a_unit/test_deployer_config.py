@@ -29,8 +29,9 @@ class TestConstants:
     """Tests for module constants."""
 
     def test_default_branch(self):
-        """DEFAULT_BRANCH should be devel."""
-        assert DEFAULT_BRANCH == "devel"
+        """DEFAULT_BRANCH is now main (ADR 052 D3): safe/prod branch is the
+        default; a dev workflow passes --branch devel explicitly."""
+        assert DEFAULT_BRANCH == "main"
 
     def test_default_ssh_user(self):
         """DEFAULT_SSH_USER should be root."""

@@ -111,10 +111,17 @@ Examples:
     # Installation options
     install = parser.add_argument_group("Installation")
     install.add_argument(
+        "--from",
+        dest="from_source",
+        choices=["pypi", "git", "local"],
+        default=None,
+        help="Install source: pypi | git | local (preferred over --git/--local/--pypi)",
+    )
+    install.add_argument(
         "--git",
         "-g",
         action="store_true",
-        help="Install from git instead of PyPI",
+        help="Install from git instead of PyPI (deprecated: use --from git)",
     )
     install.add_argument(
         "--branch",
@@ -265,8 +272,23 @@ def _apply_target_overrides(config: DeployConfig, args: argparse.Namespace) -> N
         config.ssh_key = args.ssh_key
 
 
+def _apply_from_source(config: DeployConfig, from_source: str | None) -> None:
+    """Map the canonical ``--from {pypi,git,local}`` selector onto config flags.
+
+    ``--git``/``--local``/``--pypi`` still work (applied by the caller); ``--from``
+    is the preferred spelling (ADR 052 D3).
+    """
+    if from_source == "git":
+        config.use_git = True
+    elif from_source == "local":
+        config.use_local_code = True
+    elif from_source == "pypi":
+        config.use_pypi = True
+
+
 def _apply_install_overrides(config: DeployConfig, args: argparse.Namespace) -> None:
     """Apply installation-related CLI overrides to config."""
+    _apply_from_source(config, args.from_source)
     if args.git:
         config.use_git = True
     if args.branch is not None:

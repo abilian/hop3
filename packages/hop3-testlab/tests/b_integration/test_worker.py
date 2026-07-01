@@ -257,7 +257,7 @@ def test_run_once_resolves_profile_selection(monkeypatch, tmp_path):
 
 
 def test_default_executor_deploys_platform_ref_from_git(monkeypatch, tmp_path):
-    """platform_ref must be installed FROM GIT (`--deploy-from git --branch X`),
+    """platform_ref must be installed FROM GIT (`--from git --branch X`),
     not recorded while local code is deployed (review #6); cwd reaches the spawn."""
     calls: list[tuple] = []
     monkeypatch.setattr(
@@ -271,8 +271,10 @@ def test_default_executor_deploys_platform_ref_from_git(monkeypatch, tmp_path):
     )
 
     cmd, cwd = calls[0]
-    assert cmd[cmd.index("--deploy-from") + 1] == "git"  # else --branch is ignored
-    assert cmd[cmd.index("--branch") + 1] == "main"  # platform ref -> hop3-deploy
+    assert cmd[cmd.index("--from") + 1] == "git"  # else --branch is ignored
+    assert (
+        cmd[cmd.index("--branch") + 1] == "main"
+    )  # platform ref -> hop3-deploy-server
     assert "apps/foo" in cmd  # resolved app, positional
     assert cwd == tmp_path  # engine scans/deploys from the workspace
 
