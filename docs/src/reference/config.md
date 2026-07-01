@@ -459,13 +459,15 @@ Configure health check endpoints for monitoring.
 
 ```toml
 [healthcheck]
-path = "/health/"          # Health check endpoint path
-timeout = 30              # Request timeout in seconds
-interval = 60             # Check interval in seconds
+path = "/health/"            # Health check endpoint path
+contains = '{"status":"ok"}' # Required substring in the response body
+timeout = 30                 # Request timeout in seconds
+interval = 60                # Check interval in seconds
 ```
 
 **Fields:**
-- `path` (string): HTTP path for health checks
+- `path` (string): HTTP path for health checks. Preferred over the legacy `[run].healthcheck`; used by the deploy-time readiness probe.
+- `contains` (string): Expected substring in the health-check response body. When set, the deploy is considered ready only once the endpoint returns a body containing it — a status-only 200 can be a placeholder, an error page, or another app's `default_server` content. The `hop3-test` harness mirrors this as the default validation's body assertion.
 - `timeout` (number): Timeout for health check requests
 - `interval` (number): How often to run health checks
 - `retries` (number): Number of failed checks before the app is marked unhealthy

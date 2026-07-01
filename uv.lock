@@ -1443,6 +1443,7 @@ dev = [
     { name = "snoop" },
     { name = "spdx-tools" },
     { name = "tach" },
+    { name = "tepyd" },
     { name = "twine" },
     { name = "ty" },
     { name = "types-markdown" },
@@ -1503,6 +1504,7 @@ dev = [
     { name = "snoop", specifier = ">=0.6.0" },
     { name = "spdx-tools", specifier = ">=0.8.3" },
     { name = "tach", specifier = ">=0.35.0" },
+    { name = "tepyd", specifier = ">=0.7.0" },
     { name = "twine", specifier = ">=6.2.0" },
     { name = "ty", specifier = ">=0.0.0a7" },
     { name = "types-markdown", specifier = ">=3.10.0.20251106" },
@@ -4369,6 +4371,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/4b/0f/e1842c063d0ac7be804797fab569ac782ef8a9fa349092c71125bc628e4d/tach-0.35.0-cp37-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:e9275b65ff31e7ff9842b3bd7417a393115dbadd1fa8c3d953ae330cff7fbefb", size = 4565068, upload-time = "2026-05-12T12:49:06.024Z" },
     { url = "https://files.pythonhosted.org/packages/2e/e5/054784261781dbcb8ac663a5d09af6c7996f5bde5230282b4c062dcf1f1f/tach-0.35.0-cp37-abi3-win32.whl", hash = "sha256:72dd6553d9fdd1e72fbd8e5b71892a463e8cd70b3ff6377b4f682aab100937d3", size = 3378975, upload-time = "2026-05-12T12:49:00.79Z" },
     { url = "https://files.pythonhosted.org/packages/4b/1d/5dddf88fa9433bf4fcc76afad18e49d8e50e24f1f40c981c286edccd6c2d/tach-0.35.0-cp37-abi3-win_amd64.whl", hash = "sha256:746271a5313c348e00c1b85927260e3e1a75351d86b2da1746e85c5dd77051e6", size = 3671788, upload-time = "2026-05-12T12:48:59.619Z" },
+]
+
+[[package]]
+name = "tepyd"
+version = "0.7.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fc/90/62b78a920235f829def0dcef0f9b741546ae5dc825afe32d4e5d96760b0a/tepyd-0.7.0.tar.gz", hash = "sha256:b84adf06688997aa50d97b47321be98107c9569a7284e2653410fb2994892882", size = 64411, upload-time = "2026-06-30T09:07:47.09Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/eb/83/6fb7458c4b6b32983b02542d16b350ea7386607f2ce8fa7f9658aebd243e/tepyd-0.7.0-py3-none-any.whl", hash = "sha256:7602339fe4e122b7580e660b32367369a422a6c73f048656ff7866389aff301a", size = 64413, upload-time = "2026-06-30T09:07:46.019Z" },
 ]
 
 [[package]]

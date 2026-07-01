@@ -132,6 +132,21 @@ def test_healthcheck_path_is_normalised(http_server: tuple[int, list[int]]) -> N
     assert _app_serves_http(app, "up", timeout=2.0) is True  # no leading slash
 
 
+def test_contains_match_counts_as_serving(http_server: tuple[int, list[int]]) -> None:
+    # The fixture serves body "ok"; [healthcheck].contains="ok" is satisfied.
+    port, _ = http_server
+    app = SimpleNamespace(port=port, hostname="localhost")
+    assert _app_serves_http(app, "/", timeout=2.0, healthcheck_contains="ok") is True
+
+
+def test_contains_mismatch_is_not_serving(http_server: tuple[int, list[int]]) -> None:
+    # A 200 whose body lacks the required substring is NOT "serving" — the whole
+    # point of [healthcheck].contains: a status-only 200 can be the wrong content.
+    port, _ = http_server
+    app = SimpleNamespace(port=port, hostname="localhost")
+    assert _app_serves_http(app, "/", timeout=2.0, healthcheck_contains="nope") is False
+
+
 # --- _wait_for_app_start gate ---------------------------------------------
 
 

@@ -81,9 +81,6 @@ build-backend = "uv_build"
 module-name = "hop3"
 module-root = "src"
 
-#[tool.uv.sources]
-#hop3-testing = { path = "../hop3-testing", editable = true }
-
 # -----------------------------------------------------------------------------
 
 [tool.deptry.per_rule_ignores]
