@@ -281,9 +281,16 @@ def main() -> int:
     """
     check_python_version()
 
-    parser = create_parser()
-    args = parser.parse_args()
-    config = config_from_args(args)
+    # parse_features (via create_parser's env defaults and config_from_args)
+    # rejects an unknown --with value loudly; surface it as a clean error, not a
+    # traceback.
+    try:
+        parser = create_parser()
+        args = parser.parse_args()
+        config = config_from_args(args)
+    except ValueError as e:
+        print_error(str(e))
+        return 1
 
     # Header
     print_header("Hop3 Server Installer")
