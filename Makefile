@@ -326,4 +326,4 @@ clean:
 	rm -rf docs/site
 	rm -rf docs/.cache
 	rm -rf test-logs/
-	adt clean
+	# adt clean

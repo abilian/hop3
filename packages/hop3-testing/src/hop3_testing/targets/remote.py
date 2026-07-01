@@ -219,7 +219,7 @@ class RemoteTarget(DeploymentTarget):
                 docker=False,
                 host=config.host,
                 user=config.user,
-                use_local=deployment.source == "local",
+                source=deployment.source,
                 clean=deployment.clean,
                 branch=deployment.branch,
                 verbose=deployment.verbose,
