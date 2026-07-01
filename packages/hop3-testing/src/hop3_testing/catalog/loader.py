@@ -414,16 +414,20 @@ def _extract_env_vars_from_hop3_toml(data: dict[str, Any]) -> dict[str, str]:
 
 
 def _extract_healthcheck_from_hop3_toml(data: dict[str, Any]) -> dict[str, Any]:
-    """Extract the healthcheck path from hop3.toml.
+    """Extract healthcheck config (path + optional body assertion) from hop3.toml.
 
-    Only ``path`` is read. Body assertions belong in ``[[test.validations]]``
-    (``contains``), which the server ignores but the harness reads. The runtime
-    ``[healthcheck]`` section is liveness config with ``extra="forbid"`` and
-    rejects a ``contains`` field at deploy time — so an app can never carry one
-    there. Apps that need a default body assertion declare a ``[[test.validations]]``.
+    ``[healthcheck].contains`` is a first-class field (see the server's
+    HealthcheckSection): the runtime readiness probe requires the endpoint to
+    return that substring, and the harness mirrors it as the default validation's
+    body assertion — so a green test means the app served its own content, not a
+    bare 200. Apps needing checks beyond the single healthcheck endpoint add
+    ``[[test.validations]]``.
     """
     healthcheck = data.get("healthcheck", {})
-    return {"path": healthcheck.get("path", "/")}
+    return {
+        "path": healthcheck.get("path", "/"),
+        "contains": healthcheck.get("contains"),
+    }
 
 
 def _get_deployment_type_from_hop3_toml(data: dict[str, Any]) -> str:
@@ -602,7 +606,7 @@ def generate_test_definition_from_hop3_toml(
         Validation(
             type="http",
             path=healthcheck["path"],
-            expect=ValidationExpect(status=200),
+            expect=ValidationExpect(status=200, contains=healthcheck["contains"]),
         )
     ]
 
