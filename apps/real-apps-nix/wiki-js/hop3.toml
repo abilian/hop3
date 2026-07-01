@@ -20,3 +20,4 @@ covers = ["nodejs", "wiki-js", "nix", "postgres"]
 [[test.validations]]
 path = "/healthz"
 status = 200
+contains = '{"ok":true}'

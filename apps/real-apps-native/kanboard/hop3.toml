@@ -51,3 +51,4 @@ covers = ["php", "mysql"]
 [[test.validations]]
 path = "/"
 status = 302
+contains = "Kanboard"

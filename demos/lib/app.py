@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import os
 import re
 import subprocess
 import time
@@ -56,19 +55,16 @@ def deploy_app(ctx: DemoContext, app_name: str, app_dir: Path) -> None:
     ensure_app_removed(app_name)
 
     print_step(f"Deploying {app_name} application...")
-    original_dir = os.getcwd()
-    try:
-        os.chdir(app_dir)
-        with timed(f"deploy {app_name}", category="deploy"):
-            # --force: demos deploy a shared app template under a demo-specific
-            # name (e.g. "demo01"), which need not match the app's
-            # [metadata].id ("hello-hop3"). --force tells the CLI "yes, deploy
-            # the resolved --app here" — bypassing the project-id mismatch guard
-            # — and also implies skip-confirm (so the non-interactive demo
-            # doesn't block on the deploy prompt). See core/project_guard.py.
-            run_hop3(f"deploy --app {app_name} --force")
-    finally:
-        os.chdir(original_dir)
+    with timed(f"deploy {app_name}", category="deploy"):
+        # cwd=app_dir: deploy is the one demo command that needs a project in
+        # its CWD (the CLI reads the app dir there). Everything else runs from a
+        # hermetic dir (see run_hop3). --force: demos deploy a shared app
+        # template under a demo-specific name (e.g. "demo01"), which need not
+        # match the app's [metadata].id ("hello-hop3"). --force tells the CLI
+        # "yes, deploy the resolved --app here" — bypassing the project-id
+        # mismatch guard — and also implies skip-confirm (so the non-interactive
+        # demo doesn't block on the deploy prompt). See core/project_guard.py.
+        run_hop3(f"deploy --app {app_name} --force", cwd=str(app_dir))
     print_success("Application deployed")
     pause(ctx.pause_between_steps)
 
@@ -102,14 +98,9 @@ def redeploy_app(ctx: DemoContext, app_name: str, app_dir: Path) -> None:
 
     # Simply redeploy - the app already exists with its config
     # DeployCmd handles existing apps by retrieving them, preserving env_vars
-    original_dir = os.getcwd()
-    try:
-        os.chdir(app_dir)
-        with timed(f"redeploy {app_name}", category="deploy"):
-            # --force: bypass the project-id guard + skip-confirm (see deploy_app).
-            run_hop3(f"deploy --app {app_name} --force")
-    finally:
-        os.chdir(original_dir)
+    with timed(f"redeploy {app_name}", category="deploy"):
+        # cwd=app_dir + --force: see deploy_app.
+        run_hop3(f"deploy --app {app_name} --force", cwd=str(app_dir))
 
     print_success("Application redeployed")
     pause(ctx.pause_between_steps)
