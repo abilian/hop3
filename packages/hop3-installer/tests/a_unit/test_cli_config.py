@@ -150,3 +150,25 @@ class TestCLIInstallerConfigFromEnv:
         clean_env["HOP3_VERBOSE"] = "true"
         config = CLIInstallerConfig.from_env()
         assert config.verbose is True
+
+
+class TestCleanReinstall:
+    """`--clean` is the canonical reinstall flag; `--force` stays an alias (D6)."""
+
+    def test_clean_sets_force(self, clean_env):
+        from hop3_installer.cli_installer.cli import (  # noqa: PLC0415
+            config_from_args,
+            create_parser,
+        )
+
+        cfg = config_from_args(create_parser().parse_args(["--clean"]))
+        assert cfg.force is True
+
+    def test_force_alias_still_accepted(self, clean_env):
+        from hop3_installer.cli_installer.cli import (  # noqa: PLC0415
+            config_from_args,
+            create_parser,
+        )
+
+        cfg = config_from_args(create_parser().parse_args(["--force"]))
+        assert cfg.force is True

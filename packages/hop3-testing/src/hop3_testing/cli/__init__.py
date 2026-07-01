@@ -5,12 +5,10 @@
 """CLI for hop3-testing.
 
 Commands:
-- hop3-test system: Deploy Hop3 and run tests
-- hop3-test apps: Test apps against pre-deployed Hop3
-- hop3-test list: List available tests
-- hop3-test show: Show test details
-- hop3-test hetzner: Test on Hetzner Cloud
-- hop3-test multi-distro: Test across Linux distributions
+- hop3-test run: Deploy Hop3 and run the catalog (``system`` is a deprecated alias)
+- hop3-test list: List available tests (``--show NAME`` for one test's details)
+- hop3-test cloud: E2E on cloud infrastructure (single image or a distro matrix)
+- hop3-test why: Replay a saved diagnostic bundle for a failed run
 """
 
 from __future__ import annotations

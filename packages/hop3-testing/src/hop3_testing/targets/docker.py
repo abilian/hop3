@@ -169,7 +169,7 @@ class DockerTarget(DeploymentTarget):
             msg = (
                 f"Docker container '{self.docker_config.container_name}' "
                 f"doesn't exist. `--reuse` expects a container created by a "
-                f"previous `hop3-test system --docker` run — but non-"
+                f"previous `hop3-test run --docker` run — but non-"
                 f"`--keep` runs stop and remove the container at the end. "
                 f"Either: re-run without `--reuse` to deploy from scratch, "
                 f"or re-run the previous command with `--keep` so the "

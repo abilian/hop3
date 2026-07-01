@@ -27,7 +27,7 @@ pip install hop3-testing
 hop3-test list
 
 # Run system tests on Docker
-hop3-test system --docker
+hop3-test run --docker
 
 # Test specific apps
 hop3-test apps 010-flask-pip-wsgi
@@ -43,7 +43,7 @@ hop3-test ci
 
 | Command | Description |
 |---------|-------------|
-| `hop3-test system` | Deploy Hop3 and run system tests |
+| `hop3-test run` | Deploy Hop3 and run system tests |
 | `hop3-test apps` | Test apps against pre-deployed Hop3 |
 | `hop3-test list` | List available tests |
 | `hop3-test show <name>` | Show test details |

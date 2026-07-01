@@ -4,7 +4,7 @@
 
 """The run worker: take the lease, run the suite, release.
 
-v1 reuses the existing engine by spawning ``hop3-test system`` as a subprocess
+v1 reuses the existing engine by spawning ``hop3-test run`` as a subprocess
 (the per-run-subprocess model in the spec §10); its results land in the shared
 store, which the dashboard reads. The HetznerPool provisioning, the
 Orchestrator(pool, shard) generalization, incremental/streamed persistence, and
@@ -519,7 +519,7 @@ def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once;
             env["HOP3_TEST_META"] = json.dumps(meta)
         cmd = [
             "hop3-test",
-            "system",
+            "run",
             "--docker",
             "--with",
             "all",
@@ -553,7 +553,7 @@ def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once;
         env["HOP3_TEST_META"] = json.dumps(meta)
     cmd = [
         "hop3-test",
-        "system",
+        "run",
         "--ssh",
         "--host",
         host,

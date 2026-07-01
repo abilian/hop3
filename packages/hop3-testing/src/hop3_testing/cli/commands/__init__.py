@@ -27,7 +27,8 @@ __all__ = [
 
 def register_commands(cli: click.Group) -> None:
     """Register all commands with the CLI group."""
-    cli.add_command(system_test)
+    cli.add_command(system_test)  # registered under its name, "run" (ADR 052 D9)
+    cli.add_command(system_test, name="system")  # deprecated alias; same command
     cli.add_command(list_tests)
     cli.add_command(cloud_test)
     cli.add_command(why_cmd)
