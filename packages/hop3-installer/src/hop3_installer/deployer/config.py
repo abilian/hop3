@@ -12,6 +12,7 @@ from hop3_installer.common import env_bool, env_list, env_str, find_project_root
 
 # Import shared constants
 from hop3_installer.constants import (
+    ALL_FEATURES,
     DEFAULT_ADMIN_EMAIL,
     DEFAULT_ADMIN_USER,
     DEFAULT_BRANCH_DEVELOPMENT as DEFAULT_BRANCH,
@@ -287,5 +288,19 @@ class DeployConfig:
 
         if self.verbose and self.quiet:
             errors.append("Cannot use both --verbose and --quiet")
+
+        # Reject unknown --with features early (before upload/connect), so a
+        # typo fails here instead of deep inside install-server (ADR 052 D4).
+        # postgres = always-on baseline; all = expand. Same valid set the
+        # server installer's parse_features enforces.
+        valid_features = ALL_FEATURES | {"postgres", "postgresql", "all"}
+        unknown = [
+            f for f in self.with_features if f.lower().strip() not in valid_features
+        ]
+        if unknown:
+            errors.append(
+                f"Unknown --with feature(s): {', '.join(unknown)}. "
+                f"Valid: {', '.join(sorted(ALL_FEATURES))} (or 'all')."
+            )
 
         return errors

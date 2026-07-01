@@ -34,8 +34,10 @@ Optional Features (--with):
   mysql       MySQL database
   nix         Nix package manager (multi-user daemon mode)
   redis       Redis cache/store
+  rust        Rust toolchain (rustup)
   s3          S3-compatible object storage (MinIO)
   all         Install all optional features
+  (PostgreSQL is always installed and is not a feature. Unknown values error.)
 """,
     )
 
@@ -98,7 +100,7 @@ Optional Features (--with):
         dest="with_features",
         metavar="FEATURES",
         default=",".join(env_config.features) if env_config.features else "",
-        help="Comma-separated list of features (mysql,redis,docker,nix,s3,all)",
+        help="Comma-separated features: docker,mysql,redis,nix,s3,rust (or 'all')",
     )
     parser.add_argument(
         "--skip-acme",
