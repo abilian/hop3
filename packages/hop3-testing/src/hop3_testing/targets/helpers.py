@@ -762,14 +762,22 @@ def _build_deploy_command(
     user: str,
     container_name: str,
     image: str,
-    use_local: bool,
+    source: str = "local",
     clean: bool,
     branch: str,
     verbose: bool,
     features: list[str] | None = None,
     ssh_key: str | None = None,
 ) -> list[str]:
-    """Build hop3-deploy-server command arguments."""
+    """Build the hop3-deploy-server command (canonical ADR 052 flags).
+
+    ``source`` is the install source ("local" | "git" | "pypi"), emitted as
+    ``--from``. For git the branch is passed ALWAYS and explicitly, so the
+    deployer installs exactly this ref regardless of its own default branch
+    (``main``). This fixes the footgun where an unspecified/default branch on a
+    git deploy silently fell back to PyPI (the old ``if branch != "devel"``
+    skip, made wrong by the default flip).
+    """
     cmd = ["hop3-deploy-server"]
 
     if docker:
@@ -784,18 +792,17 @@ def _build_deploy_command(
         if not host:
             msg = "host is required for SSH deployment"
             raise ValueError(msg)
-        cmd.extend(["--host", host, "--ssh-user", user])
+        cmd.extend(["--host", host, "--user", user])
         if ssh_key:
             # The deploy's ssh otherwise uses its default identity, which a
             # server-resident runtime user doesn't have -> Permission denied.
-            cmd.extend(["--ssh-key", ssh_key])
+            cmd.extend(["--identity", ssh_key])
 
-    if use_local:
-        cmd.append("--local")
+    cmd.extend(["--from", source])
+    if source == "git":
+        cmd.extend(["--branch", branch])
     if clean:
         cmd.append("--clean")
-    if branch != "devel":
-        cmd.extend(["--branch", branch])
     if verbose:
         cmd.append("--verbose")
     if features:
@@ -811,18 +818,18 @@ def run_hop3_deploy(
     user: str = "root",
     container_name: str = "hop3-test",
     image: str = DEFAULT_DOCKER_IMAGE,
-    use_local: bool = True,
+    source: str = "local",
     clean: bool = False,
-    branch: str = "devel",
+    branch: str = "main",
     verbose: bool = False,
     features: list[str] | None = None,
     ssh_key: str | None = None,
     diagnostics: DiagnosticCollector | None = None,
 ) -> tuple[bool, float]:
-    """Run hop3-deploy via subprocess.
+    """Run hop3-deploy-server via subprocess.
 
-    This invokes hop3-deploy as a CLI tool rather than importing its internals,
-    maintaining proper separation between hop3-testing and hop3-installer.
+    This invokes hop3-deploy-server as a CLI tool rather than importing its
+    internals, keeping hop3-testing decoupled from hop3-installer.
 
     Args:
         docker: If True, deploy to Docker container
@@ -830,9 +837,9 @@ def run_hop3_deploy(
         user: SSH user for remote deployment
         container_name: Docker container name
         image: Docker base image
-        use_local: Use local code (--local flag)
+        source: Install source ("local" | "git" | "pypi"), emitted as --from
         clean: Clean before deploy (--clean flag)
-        branch: Git branch to deploy
+        branch: Git branch to deploy (only used when source == "git")
         verbose: Enable verbose output
         features: Features to install (docker, mysql, redis, nix, etc.)
         diagnostics: Optional diagnostics collector
@@ -846,7 +853,7 @@ def run_hop3_deploy(
         user=user,
         container_name=container_name,
         image=image,
-        use_local=use_local,
+        source=source,
         clean=clean,
         branch=branch,
         verbose=verbose,

@@ -21,9 +21,9 @@ def test_deploy_command_uses_renamed_binary_docker():
         user="root",
         container_name="c",
         image="i",
-        use_local=False,
+        source="local",
         clean=False,
-        branch="devel",
+        branch="main",
         verbose=False,
     )
     assert cmd[0] == "hop3-deploy-server"
@@ -36,9 +36,9 @@ def test_deploy_command_uses_renamed_binary_ssh():
         user="root",
         container_name="c",
         image="i",
-        use_local=True,
+        source="local",
         clean=False,
-        branch="devel",
+        branch="main",
         verbose=False,
     )
     assert cmd[0] == "hop3-deploy-server"

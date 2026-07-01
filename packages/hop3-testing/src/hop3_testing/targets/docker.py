@@ -402,7 +402,7 @@ class DockerTarget(DeploymentTarget):
                 docker=True,
                 container_name=self.docker_config.container_name,
                 image=self.docker_config.image,
-                use_local=self.deployment.source == "local",
+                source=self.deployment.source,
                 clean=self.deployment.clean,
                 branch=self.deployment.branch,
                 verbose=self.deployment.verbose,

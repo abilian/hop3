@@ -230,8 +230,9 @@ class DeploymentManager:
             self.host,
         ]
 
-        if self.config.use_local_code:
-            cmd.append("--local")
+        # Canonical --from (ADR 052 D3): local uploads the working tree, else
+        # the deployer's default (PyPI). The cloud path doesn't deploy git.
+        cmd.extend(["--from", "local" if self.config.use_local_code else "pypi"])
 
         if self.config.clean_before:
             cmd.append("--clean")
