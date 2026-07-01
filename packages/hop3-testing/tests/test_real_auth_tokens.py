@@ -12,6 +12,7 @@ server's key (fail-loud, no silent fallback to a key the server would reject).
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import jwt
@@ -20,6 +21,7 @@ from hop3_testing.exceptions import ConfigurationError
 from hop3_testing.targets.constants import (
     E2E_TEST_SECRET_KEY,
     create_test_token,
+    hermetic_cli_cwd,
     hermetic_cli_env,
 )
 from hop3_testing.targets.helpers import read_server_secret_key
@@ -93,10 +95,6 @@ def test_hermetic_cli_cwd_is_empty_and_cached():
     """The harness runs every `hop3` from a dir with no hop3.toml, so a stray
     hop3.toml in the test runner's CWD (e.g. the repo root) can't trigger the
     CLI's project-mismatch guard and refuse a deploy/destroy."""
-    from pathlib import Path
-
-    from hop3_testing.targets.constants import hermetic_cli_cwd
-
     first = hermetic_cli_cwd()
     assert hermetic_cli_cwd() == first  # cached: one shared dir
 

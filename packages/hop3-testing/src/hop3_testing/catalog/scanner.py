@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 from .loader import (
     TestDefinitionError,
+    _under_bad_dir,
     generate_test_definition_from_app,
     generate_tutorial_test_definition,
     load_test_definition_smart,
@@ -28,6 +29,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 IGNORE_FILE = "HOP3_TEST_IGNORE"
+
+# A DEFERRED.md under apps/bad/** is OVERLOADED: it marks BOTH a deploys-fine
+# business-drop (e.g. focalboard — "dropped for business reasons, not a platform
+# limitation") AND a genuine platform blocker (e.g. monica — a "## Blocker" that
+# really fails to deploy). Only the former is skipped from the run (it is not a
+# negative test); a genuine blocker STAYS a negative test, so DEFERRED.md
+# existence alone must NOT be the skip signal. The business-drop is distinguished
+# by the deliberate "not a platform limitation" marker line in its DEFERRED.md
+# (CLAUDE.md's "business-reasons decision" language). (audit C6)
+DEFERRED_FILE = "DEFERRED.md"
+_BUSINESS_DROP_MARKER = "not a platform limitation"
 
 # Executable validoc fences (same set the tutorial runner counts). A tutorial
 # markdown with none of these runs no commands — it's documentation, not a test.
@@ -150,7 +162,27 @@ class Catalog:
             current = current.parent
         return False
 
-    def _scan_directory(self, path: Path, rel_path: str) -> None:  # noqa: C901
+    def _is_deferred_business_drop(self, app_dir: Path) -> bool:
+        """True only for a deploys-fine business-drop under apps/bad/** — a
+        DEFERRED.md that explicitly marks itself "not a platform limitation".
+
+        Such apps are skipped from the run (they aren't negative tests). A
+        genuine bad recipe — a DEFERRED.md documenting a real ``## Blocker`` that
+        fails to deploy, or no DEFERRED.md at all — is NOT skipped; it stays a
+        negative test so its builder-rejection coverage is preserved (audit C6).
+        """
+        if not _under_bad_dir(app_dir):
+            return False
+        deferred = app_dir / DEFERRED_FILE
+        if not deferred.is_file():
+            return False
+        try:
+            text = deferred.read_text(encoding="utf-8").lower()
+        except OSError:
+            return False
+        return _BUSINESS_DROP_MARKER in text
+
+    def _scan_directory(self, path: Path, rel_path: str) -> None:  # noqa: C901, PLR0912
         """Scan a single directory for tests.
 
         Scans for:
@@ -172,6 +204,9 @@ class Catalog:
             app_dir = test_toml.parent
             if self._has_ignore_ancestor(app_dir, path):
                 continue
+            if self._is_deferred_business_drop(app_dir):
+                logger.debug("Skipping deferred business-drop: %s", app_dir)
+                continue
             if app_dir not in processed_dirs and app_dir not in demo_internal_dirs:
                 self._load_test_smart(app_dir)
                 processed_dirs.add(app_dir)
@@ -180,6 +215,9 @@ class Catalog:
         for hop3_toml in sorted(path.rglob("hop3.toml")):
             app_dir = hop3_toml.parent
             if self._has_ignore_ancestor(app_dir, path):
+                continue
+            if self._is_deferred_business_drop(app_dir):
+                logger.debug("Skipping deferred business-drop: %s", app_dir)
                 continue
             # Skip internal demo subdirectories (e.g., demos/demoNN/app/)
             if app_dir in demo_internal_dirs:

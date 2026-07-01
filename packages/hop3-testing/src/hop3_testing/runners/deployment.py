@@ -9,13 +9,17 @@ from __future__ import annotations
 import time
 import traceback
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 from hop3_testing.apps.catalog import AppSource
 from hop3_testing.apps.deployment import DeploymentSession
 from hop3_testing.bundle import collect_diagnostic_bundle
-from hop3_testing.exceptions import DeploymentError, TargetOutOfDiskError
+from hop3_testing.exceptions import (
+    DeploymentError,
+    DeployTimeoutError,
+    TargetOutOfDiskError,
+)
 from hop3_testing.runtime_diagnostics import collect_runtime_logs
 from hop3_testing.util.console import PrintingConsole, Verbosity
 
@@ -25,6 +29,14 @@ if TYPE_CHECKING:
     from hop3_testing.bundle import Bundle
     from hop3_testing.catalog.models import TestDefinition
     from hop3_testing.targets.base import DeploymentTarget
+
+
+# The hop3-server venv Python. hop3-server depends on httpx (pyproject), so this
+# interpreter is guaranteed present and can run any check.py that imports httpx —
+# no `uv`, no `--with httpx`, no reliance on ~/.local/bin being on a non-login
+# SSH PATH (which it isn't). VENV_DIR = /home/hop3/venv (installer constants),
+# and the harness hardcodes /home/hop3 throughout.
+_HOP3_VENV_PYTHON = "/home/hop3/venv/bin/python3"
 
 
 def _target_kind(target: DeploymentTarget) -> str:
@@ -100,10 +112,27 @@ class DeploymentTestRunner:
         app_source: AppSource,
         validation_results: list[ValidationResult],
     ) -> str | None:
-        """Run HTTP validations from test.toml, or default for Procfile apps."""
+        """Run HTTP validations from test.toml, or default for Procfile apps.
+
+        A passing HTTP check MUST assert app-specific body content, not just a
+        status code — otherwise an app goes green on a bare 200: a placeholder /
+        install-wizard page, a 200-rendered error page, or (via a Host mismatch)
+        another app's default_server content. So at least one validation must
+        carry a `contains`, OR the app must ship a check.py (which asserts
+        content and now runs on remote too). An app with neither fails loud
+        rather than passing on the wrong thing (audit C8).
+        """
         http_validations = [v for v in test.validations if v.type == "http"]
 
         if http_validations:
+            if not any(v.expect.contains for v in http_validations) and (
+                not app_source.has_check_script
+            ):
+                return self._fail_no_body_assertion(
+                    test,
+                    validation_results,
+                    "HTTP validation asserts only a status code",
+                )
             for v in http_validations:
                 path = v.path or "/"
                 # Prefer status_in (list) over status (int) when both are
@@ -124,10 +153,38 @@ class DeploymentTestRunner:
                 ):
                     return error
         elif app_source.has_procfile:
-            # Legacy: no [[validations]] in test.toml, default check
+            if not app_source.has_check_script:
+                return self._fail_no_body_assertion(
+                    test,
+                    validation_results,
+                    "Procfile app declares no [[validations]]",
+                )
             return self._run_http_test(session, validation_results)
 
         return None
+
+    def _fail_no_body_assertion(
+        self,
+        test: TestDefinition,
+        validation_results: list[ValidationResult],
+        reason: str,
+    ) -> str:
+        """Record a loud failure: the app asserts no body content (audit C8)."""
+        msg = (
+            f"{test.name}: {reason} and the app has no check.py — a bare-status "
+            "pass is not allowed. Add a body assertion (`contains` on a "
+            "[[test.validations]] entry or `[healthcheck].contains`), or a "
+            "check.py, so a green test proves the app served its own content."
+        )
+        validation_results.append(
+            ValidationResult(
+                passed=False,
+                message=msg,
+                duration=0.0,
+                validation_type="http",
+            )
+        )
+        return msg
 
     def _run_http_validation(
         self,
@@ -177,23 +234,16 @@ class DeploymentTestRunner:
         parsed_http = urlparse(target_info.http_base)
         is_remote_target = parsed_http.hostname not in {"localhost", "127.0.0.1"}
 
-        if is_remote_target:
-            validation_results.append(
-                ValidationResult(
-                    passed=True,
-                    message="Check script skipped (remote target)",
-                    duration=0.0,
-                    validation_type="check_script",
-                    details={
-                        "skipped": True,
-                        "reason": "Remote targets don't support localhost-based check scripts",
-                    },
-                )
-            )
-            return None
-
         check_start = time.time()
-        check_result = session.run_check_script_detailed()
+        if is_remote_target:
+            # Was: silently fabricated passed=True. check.py asserts app-specific
+            # body content, so skipping it on remote meant the ONLY assertion
+            # that distinguishes the app from a bare 200 never ran. Run it ON the
+            # server instead (where localhost is the app's nginx), and never pass
+            # when it can't run (audit C8).
+            check_result = self._run_check_script_remote(session)
+        else:
+            check_result = session.run_check_script_detailed()
         validation_results.append(
             ValidationResult(
                 passed=check_result["passed"],
@@ -207,6 +257,50 @@ class DeploymentTestRunner:
             return check_result["message"]
         return None
 
+    def _run_check_script_remote(self, session: DeploymentSession) -> dict[str, Any]:
+        """Execute check.py ON the remote server (where localhost == nginx).
+
+        The local runner can't run check.py against a remote box: check.py hits
+        ``http://localhost:{port}`` with a Host header, and on the test client
+        ``localhost`` is the client, not the server. So upload the script and run
+        it on the server, where ``localhost:80`` is the app's nginx and the Host
+        header selects the app vhost. NEVER silently passes: a server that cannot
+        run check.py is a hard FAIL (audit C8).
+        """
+        host = session.test_hostname
+        check_path = session.app.path / "check.py"
+        remote_path = f"/tmp/hop3-check-{session.app_name}.py"
+        try:
+            self.target.upload_file(check_path, remote_path)
+            # Run with the hop3-server venv Python (has httpx). Bare `uv` isn't on
+            # the non-login SSH PATH (exit 127); this interpreter always is.
+            exit_code, stdout, stderr = self.target.exec_run(
+                f"{_HOP3_VENV_PYTHON} {remote_path} {host} 80"
+            )
+        except Exception as e:  # upload/exec failed -> fail loud, never pass
+            return {
+                "passed": False,
+                "message": f"check.py could not run on remote server: {e}",
+                "details": {"remote": True, "script": str(check_path)},
+            }
+        passed = exit_code == 0
+        message = (
+            f"check.py passed on server (Host: {host})"
+            if passed
+            else f"check.py FAILED on server (exit {exit_code}): "
+            f"{(stderr or stdout)[:300]}"
+        )
+        return {
+            "passed": passed,
+            "message": message,
+            "details": {
+                "remote": True,
+                "script": str(check_path),
+                "host": host,
+                "exit_code": exit_code,
+            },
+        }
+
     # Single generous deploy timeout. Matches the server-side build
     # timeout (see hop3/plugins/docker/builder.py::BUILD_TIMEOUT_SECONDS);
     # anything above 30 min is a design smell, not a tier problem.
@@ -218,22 +312,43 @@ class DeploymentTestRunner:
         session: DeploymentSession,
         start_time: float,
         validation_results: list[ValidationResult],
-    ) -> tuple[str, str | None]:
-        """Run deployment and verification, return (deploy_logs, error or None)."""
+    ) -> tuple[str, str | None, bool]:
+        """Run deployment and verification.
+
+        Returns ``(deploy_logs, error or None, infra_failed)``. ``infra_failed``
+        is True for the two UNAMBIGUOUS infrastructure failures — target out of
+        disk and deploy timeout — which are hard-failed regardless of
+        ``expects_failure`` so they can't invert into a green negative test
+        (audit C7). A genuine builder/deployer rejection stays ``infra_failed``
+        False and may still satisfy an ``expects-failure`` test.
+
+        ponytail: a server-unreachable deploy (a non-zero CLI exit that isn't a
+        builder rejection) is NOT yet classified as infra, so it can still turn
+        a negative test green — that carve-out needs the CLI to reliably emit
+        ExitCode.DEPLOYMENT_ERROR (8) for builder rejections vs NETWORK_ERROR (7)
+        for outages, which isn't validated. Disk + timeout are the cases the
+        audit names; add the exit-code carve-out once rejections are confirmed
+        to exit 8.
+        """
         # Reclaim disk before deploying so a full target fails with one clear
         # message instead of cascading misleading ENOSPC per-app errors.
         try:
             self.target.ensure_disk_headroom()
         except TargetOutOfDiskError as e:
-            return "", str(e)
+            return "", str(e), True
 
         session.prepare()
 
         try:
             session.deploy(deploy_timeout=self._DEPLOY_TIMEOUT_SECONDS)
+        except DeployTimeoutError as e:
+            # Hung deploy = infra. Never satisfies a negative test. (Subclass of
+            # DeploymentError, so this except MUST precede the base one below.)
+            deploy_logs = session.last_deploy_error or str(e)
+            return deploy_logs, f"Deploy failed: {deploy_logs}", True
         except DeploymentError as e:
             deploy_logs = session.last_deploy_error or str(e)
-            return deploy_logs, f"Deploy failed: {deploy_logs}"
+            return deploy_logs, f"Deploy failed: {deploy_logs}", False
 
         deploy_duration = time.time() - start_time
         # Keep the FULL deploy output (always), prefixed with the timing summary.
@@ -256,6 +371,7 @@ class DeploymentTestRunner:
             return (
                 deploy_logs,
                 f"App not found in deployment list after deploy.\nhop3 apps output: {check_output}",
+                False,
             )
 
         validation_results.append(
@@ -267,7 +383,7 @@ class DeploymentTestRunner:
             )
         )
 
-        return deploy_logs, None
+        return deploy_logs, None, False
 
     def _handle_expects_failure(
         self,
@@ -346,12 +462,17 @@ class DeploymentTestRunner:
             expected_port = session.get_app_port()
         except Exception:  # diagnostics must never crash the run
             expected_port = None
+        # _collect_bundle is only ever called on a failed test, so force the
+        # bundle to disk even when the runtime classifier says "ok" — a check.py
+        # / HTTP-`contains` failure serves fine yet still needs a replayable
+        # bundle for `hop3-test why`.
         return collect_diagnostic_bundle(
             self.target,
             session.app_name,
             deploy_logs=deploy_logs,
             expected_port=expected_port,
             target_kind=_target_kind(self.target),
+            force_persist=True,
         )
 
     def _safe_cleanup(self, test: TestDefinition, session: DeploymentSession) -> None:
@@ -397,7 +518,7 @@ class DeploymentTestRunner:
             )
         return None
 
-    def run(self, test: TestDefinition) -> TestResult:
+    def run(self, test: TestDefinition) -> TestResult:  # noqa: PLR0911 — one return per distinct deploy/validation outcome (infra fail, expects-failure, deploy error, http error, check error, success); coalescing would obscure them
         """Run a deployment test.
 
         Args:
@@ -452,14 +573,19 @@ class DeploymentTestRunner:
             return result
 
         try:
-            deploy_logs, error = self._run_deploy_and_verify(
+            deploy_logs, error, infra_failed = self._run_deploy_and_verify(
                 test, session, start_time, validation_results
             )
-            # Negative test cases: a failed deploy is the expected
-            # outcome (e.g., an input the builder is expected to
-            # reject — see apps/bad/). We record a
-            # PASS, skip the HTTP/check-script stages (there's no
-            # running app to probe), and short-circuit to cleanup.
+            # Infrastructure failures (target out of disk, hung deploy timeout)
+            # are HARD fails regardless of expects_failure — they must never
+            # invert into a green negative test and mask a total outage (C7).
+            if infra_failed:
+                return _fail_result(error, deploy_logs=deploy_logs)
+            # Negative test cases: a genuine builder/deployer REJECTION is the
+            # expected outcome (e.g., an input the builder is expected to
+            # reject — see apps/bad/). We record a PASS, skip the
+            # HTTP/check-script stages (there's no running app to probe), and
+            # short-circuit to cleanup.
             if test.expects_failure:
                 return self._handle_expects_failure(
                     test=test,
