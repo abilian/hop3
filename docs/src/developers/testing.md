@@ -66,10 +66,10 @@ make test-app APP=apps/real-apps-native/edrix
 | `make test-fast` | Unit only, all packages, no Docker | < 1min |
 | `make test` | Check tier: unit + integration, all packages, no Docker | ~30s |
 | `make test-e2e` | The Docker e2e layer (`c_e2e`): real deploys, backups, git-push | ~10min |
-| `make test-with-coverage` | Coverage on the in-process layers (unit + integration) | ~1min |
+| `make test-cov` | Coverage on the in-process layers (unit + integration) | ~1min |
 | `make test-apps` | Deploy the real-app catalog on Docker (`hop3-test`) | ~5min |
-| `make test-list` | List available app/demo/tutorial tests | instant |
-| `make test-nightly` | Full app/demo/tutorial matrix on Docker + HTML report | long |
+| `uv run hop3-test list` | List available app/demo/tutorial tests | instant |
+| `uv run hop3-test system --docker --mode nightly` | Full app/demo/tutorial matrix on Docker + HTML report | long |
 | `make test-installer` | Test the installers | ~5min |
 | `make lint` | Linting and type checking | ~30s |
 
@@ -275,7 +275,7 @@ make test-e2e         # The Docker e2e layer (c_e2e)
 The wider app/demo/tutorial matrix runs nightly:
 
 ```bash
-make test-nightly     # hop3-test system --docker --mode nightly + HTML report
+uv run hop3-test system --docker --mode nightly --report html
 ```
 
 See: <https://builds.sr.ht/~sfermigier/hop3/>
@@ -286,7 +286,7 @@ Coverage is measured on the in-process layers only (`a_unit` + `b_integration`) 
 
 ```bash
 # Coverage on the in-process layers
-make test-with-coverage
+make test-cov
 
 # Or directly (HTML report)
 pytest --cov=hop3 --cov-report=html \

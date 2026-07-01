@@ -89,9 +89,9 @@ The Makefile targets collapse to a small, all-working set:
 | `make test-fast` | `pytest -m fast` (a_unit + fast integration), < 1 min |
 | `make test` | the `check` tier |
 | `make lint` / `make check` | ruff + reuse + deptry + pyrefly + mypy |
-| `make test-with-coverage` | `a_unit` + `b_integration` with `--cov` |
+| `make test-cov` | `a_unit` + `b_integration` with `--cov` |
 | `make test-apps` / `make test-app APP=…` | `hop3-test system` over a subset / one app |
-| `make test-nightly` | `hop3-test` full matrix + demos + `validoc`, HTML report |
+| `uv run hop3-test system --docker --mode nightly` | `hop3-test` full matrix + demos + `validoc`, HTML report |
 
 All dead targets are removed, and `hop3-test`'s advertised-but-unregistered commands are dropped from the docs.
 
