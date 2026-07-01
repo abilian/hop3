@@ -135,12 +135,15 @@ def _lookup_test(
 @click.option(
     "--ssh", "target_type", flag_value="remote", help="Test using SSH to remote host"
 )
-# Deployment
+# Deployment. `--from` is the canonical spelling (ADR 052 D3); `--deploy-from`
+# stays accepted (same dest) so existing callers keep working.
 @click.option(
+    "--from",
     "--deploy-from",
+    "deploy_from",
     type=click.Choice(["local", "git", "pypi", "none"]),
     default="local",
-    help="Deploy from: local code, git branch, pypi, or none (reuse existing)",
+    help="Install source: local | git | pypi | none (reuse existing)",
 )
 @click.option("--reuse", is_flag=True, help="Reuse existing deployment (skip deploy)")
 @click.option("--branch", default="devel", help="Git branch (if --deploy-from git)")
