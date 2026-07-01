@@ -126,7 +126,10 @@ def _lookup_test(
     return None, f"Test not found: {name}"
 
 
-@click.command("system")
+# `run` is the canonical name (ADR 052 D9): deploy to one target and run the
+# catalog. `system` stays registered as an alias (see register_commands). The
+# function keeps its historical name.
+@click.command("run")
 @click.argument("app_names", nargs=-1)
 # Target type
 @click.option(
@@ -220,20 +223,20 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
 
     \b
     Examples:
-      hop3-test system --docker                  # Deploy + test defaults
-      hop3-test system --docker apps/test-apps   # Scan a directory
-      hop3-test system --docker --clean --with all demos
-      hop3-test system --ssh --host X            # Remote
-      hop3-test system --ssh demos/demo03        # Specific app
-      hop3-test system --reuse --ssh --host X    # Skip deploy
+      hop3-test run --docker                  # Deploy + test defaults
+      hop3-test run --docker apps/test-apps   # Scan a directory
+      hop3-test run --docker --clean --with all demos
+      hop3-test run --ssh --host X            # Remote
+      hop3-test run --ssh demos/demo03        # Specific app
+      hop3-test run --reuse --ssh --host X    # Skip deploy
     """
     verbose = ctx.obj["verbose"]
 
     if not target_type:
         click.echo("Error: Must specify --docker or --ssh", err=True)
         click.echo("\nExamples:")
-        click.echo("  hop3-test system --docker")
-        click.echo("  hop3-test system --ssh --host server.com")
+        click.echo("  hop3-test run --docker")
+        click.echo("  hop3-test run --ssh --host server.com")
         sys.exit(1)
 
     assert target_type is not None

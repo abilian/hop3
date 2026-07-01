@@ -3,7 +3,7 @@
 
 """Engine CLI contract consumed by hop3-testlab (ADR 052 safety net, Phase 0).
 
-The Test Lab (`hop3_testlab/worker.py`) shells out to `hop3-test system` with a
+The Test Lab (`hop3_testlab/worker.py`) shells out to `hop3-test run` with a
 fixed set of flags. Renaming/removing any of them (planned by ADR 052) silently
 breaks the nightly unless done in lockstep with the Lab. These tests pin the
 current CLI surface so a break shows up here in `make test`, not at 3am.
@@ -34,15 +34,22 @@ def _flags(command: click.Command) -> set[str]:
 def test_registered_subcommands_present():
     group = click.Group("hop3-test")
     register_commands(group)
-    for name in ("system", "list", "cloud", "why"):
+    # `run` is canonical (ADR 052 D9); `system` stays as a registered alias.
+    for name in ("run", "system", "list", "cloud", "why"):
         assert name in group.commands, f"hop3-test lost the '{name}' subcommand"
     # Silence unused-import linters — these are the command objects under test.
     assert {system_test.name, cloud_test.name, list_tests.name, why_cmd.name} == {
-        "system",
+        "run",
         "cloud",
         "list",
         "why",
     }
+
+
+def test_system_is_an_alias_of_run():
+    group = click.Group("hop3-test")
+    register_commands(group)
+    assert group.commands["system"] is group.commands["run"]  # same command object
 
 
 def test_system_accepts_the_flags_the_testlab_passes():
@@ -61,13 +68,13 @@ def test_system_accepts_the_flags_the_testlab_passes():
         "--branch",
     }
     missing = required - _flags(system_test)
-    assert not missing, f"`hop3-test system` no longer accepts: {sorted(missing)}"
+    assert not missing, f"`hop3-test run` no longer accepts: {sorted(missing)}"
 
 
 def test_system_docker_argv_parses():
     # The Lab's docker invocation must parse without error (arity/choices intact).
     ctx = system_test.make_context(
-        "system",
+        "run",
         ["--docker", "--with", "all", "--mode", "smoke", "--report", "html"],
     )
     assert ctx.params["target_type"] == "docker"
@@ -75,7 +82,7 @@ def test_system_docker_argv_parses():
 
 def test_system_ssh_argv_parses():
     ctx = system_test.make_context(
-        "system",
+        "run",
         [
             "--ssh",
             "--host",
@@ -99,5 +106,5 @@ def test_system_ssh_argv_parses():
 def test_from_and_deploy_from_are_the_same_option():
     # ADR 052 D3: --from is canonical; --deploy-from stays as an accepted alias.
     for flag in ("--from", "--deploy-from"):
-        ctx = system_test.make_context("system", ["--docker", flag, "git"])
+        ctx = system_test.make_context("run", ["--docker", flag, "git"])
         assert ctx.params["deploy_from"] == "git"

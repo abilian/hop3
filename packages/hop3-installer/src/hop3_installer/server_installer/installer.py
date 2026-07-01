@@ -178,7 +178,7 @@ def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
     _install_optional_toolchains(config)
 
     # Step 3: Virtual environment
-    # Idempotent: keeps an existing venv unless --force is set. Critical
+    # Idempotent: keeps an existing venv unless --clean is set. Critical
     # for re-runs (e.g. feature installs), where wiping the venv would
     # silently destroy the package install done in a prior step.
     print_step(3, TOTAL_STEPS, "Creating virtual environment...")

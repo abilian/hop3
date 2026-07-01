@@ -65,20 +65,20 @@ class TestListShowOption:
 class TestSystemCommand:
     """Tests for the system command."""
 
-    def test_system_help(self):
-        """Test system command help."""
+    def test_run_help(self):
+        """Test the `run` command help (ADR 052 D9; `system` is an alias)."""
         runner = CliRunner()
-        result = runner.invoke(cli, ["system", "--help"])
+        result = runner.invoke(cli, ["run", "--help"])
 
         assert result.exit_code == 0
         assert "--docker" in result.output
         assert "--ssh" in result.output
-        assert "--deploy-from" in result.output
+        assert "--from" in result.output  # canonical source selector
 
-    def test_system_requires_target(self):
-        """Test system command requires --docker or --ssh."""
+    def test_run_requires_target(self):
+        """Test the `run` command requires --docker or --ssh."""
         runner = CliRunner()
-        result = runner.invoke(cli, ["system"])
+        result = runner.invoke(cli, ["run"])
 
         # Should fail with error about missing target
         assert result.exit_code != 0
@@ -89,9 +89,9 @@ class TestSystemReuse:
     """Test that --reuse replaces the old 'apps' command."""
 
     def test_reuse_requires_target(self):
-        """Test system --reuse still requires --docker or --ssh."""
+        """Test `run --reuse` still requires --docker or --ssh."""
         runner = CliRunner()
-        result = runner.invoke(cli, ["system", "--reuse"])
+        result = runner.invoke(cli, ["run", "--reuse"])
 
         assert result.exit_code != 0
         assert "Must specify --docker or --ssh" in result.output

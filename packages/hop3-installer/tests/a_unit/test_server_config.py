@@ -101,3 +101,17 @@ class TestServerFromSource:
     def test_default_branch_is_main(self, clean_env):
         # The installer already defaults to main; confirm it's unchanged.
         assert create_parser().parse_args([]).branch == "main"
+
+
+class TestCleanReinstall:
+    """`--clean` is the canonical reinstall flag; `--force` is a deprecated alias
+    (ADR 052 D6 — `--force` is reserved for the client's guard-bypass)."""
+
+    def test_clean_sets_force(self, clean_env):
+        assert config_from_args(create_parser().parse_args(["--clean"])).force is True
+
+    def test_force_alias_still_accepted(self, clean_env):
+        assert config_from_args(create_parser().parse_args(["--force"])).force is True
+
+    def test_neither_defaults_false(self, clean_env):
+        assert config_from_args(create_parser().parse_args([])).force is False
