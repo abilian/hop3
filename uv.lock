@@ -21,7 +21,7 @@ members = [
 
 [[package]]
 name = "abilian-devtools"
-version = "0.9.3"
+version = "0.9.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cleez" },
@@ -42,9 +42,9 @@ dependencies = [
     { name = "ty" },
     { name = "vulture" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/19/7e/d3b139589c341024fdce1aafa4de954347b587b5ce6945f5aaf4c222f937/abilian_devtools-0.9.3.tar.gz", hash = "sha256:8f20f58b48ad789455fe5f9bec06b2345e26ac030349a6e7f5da1035377e3cb8", size = 197567, upload-time = "2026-02-09T13:51:03.6Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ca/30/611e865e4fcbcad8c12212aa42fe2c29744706192804720fe124a62e909d/abilian_devtools-0.9.4.tar.gz", hash = "sha256:d082475e276d22d293f5a0d49285c39a21acd358a276873115123e5099c68c75", size = 26165, upload-time = "2026-07-01T15:32:50.377Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6a/8e/44836955a97f55821e7ca1b778df4dc326c2565ce32684a3d206bae262cd/abilian_devtools-0.9.3-py3-none-any.whl", hash = "sha256:67e297d5ee029d85e6a32d54f66cbc18d7773df6a0e9f83c530480b1f99aaeeb", size = 35520, upload-time = "2026-02-09T13:51:01.994Z" },
+    { url = "https://files.pythonhosted.org/packages/39/d4/a1ad8a86c12ece819bf5a08d9240688439bb9d11faa71e8b9348385c63cb/abilian_devtools-0.9.4-py3-none-any.whl", hash = "sha256:89d06b39994c6a68af7273c198be17ebe3244a7e4e4f5a57ed69e97912216af6", size = 37862, upload-time = "2026-07-01T15:32:49.43Z" },
 ]
 
 [[package]]
@@ -992,14 +992,14 @@ wheels = [
 
 [[package]]
 name = "faker"
-version = "40.27.0"
+version = "40.28.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "tzdata", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1a/7b/c62c98764137c949be240ad83f763b6f96cf76055952a3e2835359acc3af/faker-40.27.0.tar.gz", hash = "sha256:f697cf07f461474ad7d511164c21f45317e69f1d531d25f3e0f872b639e346a1", size = 2018361, upload-time = "2026-06-30T18:05:17.775Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d4/70/195da553acbd4fdcabed8de15ccb42b9a7294dfe5dda15cd7f5b42a0cc8b/faker-40.28.0.tar.gz", hash = "sha256:a6d028347e9bd40bffa17b072d2d61b79ff4d84eb760978dde7f354104a4125c", size = 2022279, upload-time = "2026-07-01T15:43:30.054Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c6/b2/788aae329da3d7e4f08f8e1a82e82243c3376c0f3f49b75ae29eea40b371/faker-40.27.0-py3-none-any.whl", hash = "sha256:6099bd6d7bc79041b46c28e100815e2558952bcf384b76ce6c71c8bdca744256", size = 2057897, upload-time = "2026-06-30T18:05:15.555Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/06/4e296b7afe4b662748d88a165a16889ebb84ec2b41f1ead581ca0cb3921c/faker-40.28.0-py3-none-any.whl", hash = "sha256:c5d0c7bab37c1649326386ae2baa2830eb6ee9366664e55a5efede610acc2f05", size = 2060862, upload-time = "2026-07-01T15:43:28.265Z" },
 ]
 
 [[package]]

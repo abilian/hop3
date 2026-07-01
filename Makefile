@@ -170,7 +170,7 @@ test-cov:
 ## Run demos on Docker (SSH backend: python demos/demo.py run --host $$HOP3_DEV_HOST --local)
 test-demos:
 	@echo "--> Resetting test server (docker)"
-	hop3-deploy --docker --local --with all --clean
+	hop3-deploy-server --docker --local --with all --clean
 	@echo "--> Running demos on Docker backend"
 	python demos/demo.py run --backend docker --local --quiet
 	@echo ""
@@ -227,12 +227,12 @@ test-installer: build-installers
 ## Deploy to development server (set HOP3_DEV_HOST)
 deploy:
 	@echo "--> Deploying to ${HOP3_DEV_HOST}"
-	uv run hop3-deploy --local
+	uv run hop3-deploy-server --local
 
 ## Deploy to local Docker container
 deploy-docker:
 	@echo "--> Deploying to Docker container"
-	uv run hop3-deploy --local --docker
+	uv run hop3-deploy-server --local --docker
 
 ## Clean development server (WARNING: removes everything)
 clean-server:
