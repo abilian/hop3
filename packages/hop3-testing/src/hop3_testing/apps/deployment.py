@@ -16,7 +16,11 @@ import traceback
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
-from hop3_testing.exceptions import CleanupError, DeploymentError
+from hop3_testing.exceptions import (
+    CleanupError,
+    DeploymentError,
+    DeployTimeoutError,
+)
 from hop3_testing.targets.constants import (
     E2E_TEST_SECRET_KEY,
     create_test_token,
@@ -125,6 +129,13 @@ class DeploymentSession:
     def temp_dir(self):
         """Get the temp directory path."""
         return self._preparation.temp_dir
+
+    @property
+    def test_hostname(self) -> str:
+        """The nginx server_name the app is reachable under (its declared host,
+        or the harness-injected ``{app_name}.test.local``). The Host header for
+        every HTTP/check probe must use this exact value (audit L5/C8)."""
+        return self._preparation.test_hostname
 
     @property
     def last_deploy_error(self) -> str | None:
@@ -314,7 +325,9 @@ class DeploymentSession:
             mins = timeout // 60
             self._last_deploy_error = f"Deploy timed out after {mins} minutes"
             self.console.error(self._last_deploy_error)
-            raise DeploymentError(self._last_deploy_error)
+            # A hung deploy is infrastructure, not a builder rejection — raise
+            # the dedicated type so a negative test can't go green on it (C7).
+            raise DeployTimeoutError(self._last_deploy_error)
 
         if returncode != 0:
             self._last_deploy_error = self._build_deploy_error_message(
@@ -446,10 +459,16 @@ class DeploymentSession:
                 max_retries,
             )
 
-        # Fall back to local nginx-based testing
+        # Fall back to local nginx-based testing. Send the app's real
+        # server_name (its declared host, or the injected {app_name}.test.local)
+        # as the Host header so the request hits the app's vhost instead of the
+        # platform default_server (audit L5).
         verifier = self._get_verifier()
         return verifier.verify_http_detailed(
-            hostname, path, expected_status, max_retries
+            hostname or self._preparation.test_hostname,
+            path,
+            expected_status,
+            max_retries,
         )
 
     def _test_http_direct(
