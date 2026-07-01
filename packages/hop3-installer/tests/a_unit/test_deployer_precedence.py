@@ -103,3 +103,38 @@ def test_default_branch_is_main(clean_env):
     # No --branch, --from git -> the safe default branch (main), not devel.
     config = _config(["--docker", "--from", "git"])
     assert config.branch == "main"
+
+
+# --- ADR 052 D2: canonical target flags (--user / --identity) ---------------
+
+
+def test_user_is_alias_for_ssh_user(clean_env):
+    config = _config(["--host", "h", "--user", "deploy"])
+    assert config.ssh_user == "deploy"
+
+
+def test_ssh_user_still_accepted(clean_env):
+    config = _config(["--host", "h", "--ssh-user", "deploy"])
+    assert config.ssh_user == "deploy"
+
+
+def test_identity_is_alias_for_ssh_key(clean_env):
+    config = _config(["--host", "h", "--identity", "/k"])
+    assert config.ssh_key == "/k"
+
+
+def test_ssh_key_still_accepted(clean_env):
+    config = _config(["--host", "h", "--ssh-key", "/k"])
+    assert config.ssh_key == "/k"
+
+
+def test_hop3_host_env_is_canonical_target(clean_env):
+    clean_env["HOP3_HOST"] = "canonical.example"
+    config = _config([])
+    assert config.host == "canonical.example"
+
+
+def test_hop3_ssh_key_env(clean_env):
+    clean_env["HOP3_SSH_KEY"] = "/env/key"
+    config = _config(["--host", "h"])
+    assert config.ssh_key == "/env/key"

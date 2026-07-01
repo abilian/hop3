@@ -97,15 +97,19 @@ Examples:
         help=f"Docker container name (default: {DOCKER_CONTAINER_NAME})",
     )
     target.add_argument(
+        "--user",
         "--ssh-user",
         "-u",
+        dest="ssh_user",
         default=None,
         help=f"SSH user (default: {DEFAULT_SSH_USER})",
     )
     target.add_argument(
+        "--identity",
         "--ssh-key",
         "-i",
-        help="Path to the SSH private key for the deploy (default: ssh's own identity)",
+        dest="ssh_key",
+        help="SSH private key for the deploy (like `ssh -i`; default: ssh's own identity)",
     )
 
     # Installation options

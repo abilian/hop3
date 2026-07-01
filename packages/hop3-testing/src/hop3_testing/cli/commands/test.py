@@ -152,10 +152,14 @@ def _lookup_test(
 @click.option("--host", help="Remote host (for --ssh)")
 @click.option("--port", type=int, default=22, help="SSH port")
 @click.option("--user", default="root", help="SSH user")
+# `--identity` is the canonical name (like `ssh -i`); `--ssh-key` stays as an
+# accepted alias. HOP3_SSH_KEY is the canonical env; HOP3_TEST_SSH_KEY still works.
 @click.option(
+    "--identity",
     "--ssh-key",
-    envvar="HOP3_TEST_SSH_KEY",
-    help="SSH key path (default: $HOP3_TEST_SSH_KEY)",
+    "ssh_key",
+    envvar=["HOP3_SSH_KEY", "HOP3_TEST_SSH_KEY"],
+    help="SSH private key path (like `ssh -i`; default: $HOP3_SSH_KEY)",
 )
 # Test options
 @click.option(

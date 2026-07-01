@@ -280,13 +280,15 @@ def test_default_executor_deploys_platform_ref_from_git(monkeypatch, tmp_path):
 
 
 def test_default_executor_no_platform_ref_stays_local(monkeypatch):
-    """No platform_ref -> no `--deploy-from git` (engine default: local code)."""
+    """No platform_ref -> no `--from git` (engine default: local code)."""
     calls: list[tuple] = []
     monkeypatch.setattr(
         worker, "_run_engine", lambda tid, cmd, env, cwd=None: calls.append((cmd, cwd))
     )
     worker._default_executor("docker", "smoke", apps=None)
-    assert "--deploy-from" not in calls[0][0]
+    cmd = calls[0][0]
+    assert "--from" not in cmd
+    assert "--deploy-from" not in cmd  # neither spelling
 
 
 def test_run_engine_raises_on_nonzero_exit(monkeypatch, tmp_path):
