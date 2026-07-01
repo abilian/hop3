@@ -82,11 +82,16 @@ Optional Features (--with):
         default=env_config.pre_release,
         help="Allow pre-release versions when installing from PyPI",
     )
+    # `--clean` is the canonical spelling for "start fresh / reinstall over an
+    # existing install" (ADR 052 D6); `--force` stays as an alias. `--force` is
+    # reserved elsewhere for the client's guard-bypass, so it is not that here.
     parser.add_argument(
+        "--clean",
         "--force",
+        dest="force",
         action="store_true",
         default=env_config.force,
-        help="Force reinstall",
+        help="Clean reinstall over an existing install (recreates the venv)",
     )
     parser.add_argument(
         "--skip-deps",

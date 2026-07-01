@@ -304,7 +304,7 @@ def test_run_engine_raises_on_nonzero_exit(monkeypatch, tmp_path):
     monkeypatch.setattr(worker, "_record_engine_pid", lambda *a, **k: None)
     monkeypatch.setattr(worker, "_engine_log_path", lambda env: tmp_path / "engine.log")
     with pytest.raises(RuntimeError, match="Engine exited 1"):
-        worker._run_engine("docker", ["hop3-test", "system"], None)
+        worker._run_engine("docker", ["hop3-test", "run"], None)
 
 
 def test_failure_summary_surfaces_failed_tests_not_the_ok_tail(tmp_path):

@@ -29,7 +29,7 @@ Examples:
   python3 install-cli.py --git              Install from git (main branch)
   python3 install-cli.py --git --branch dev Install from git (dev branch)
   python3 install-cli.py --version 0.4.0    Install specific version
-  python3 install-cli.py --force            Force reinstall
+  python3 install-cli.py --clean            Clean reinstall
 
 Environment Variables:
   HOP3_VERSION          Install specific version
@@ -77,11 +77,14 @@ Environment Variables:
         help=f"Directory for command symlinks (default: {CLI_DEFAULT_BIN_DIR})",
     )
 
+    # `--clean` is canonical (ADR 052 D6); `--force` stays as an alias.
     parser.add_argument(
+        "--clean",
         "--force",
+        dest="force",
         action="store_true",
         default=env_config.force,
-        help="Force reinstall even if already installed",
+        help="Clean reinstall even if already installed",
     )
 
     parser.add_argument(

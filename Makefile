@@ -186,21 +186,21 @@ test-tutorials:
 # `hop3-test` is the interface; the targets below are just front doors. For
 # other variants, call the CLI directly:
 #   list available tests    uv run hop3-test list
-#   deploy from local code   uv run hop3-test system --from local [--clean]
-#   Nix suite                uv run hop3-test system --docker --with nix apps/test-apps-nix apps/real-apps-nix-gen
-#   nightly matrix + report  uv run hop3-test system --docker --mode nightly --report html
+#   deploy from local code   uv run hop3-test run --from local [--clean]
+#   Nix suite                uv run hop3-test run --docker --with nix apps/test-apps-nix apps/real-apps-nix-gen
+#   nightly matrix + report  uv run hop3-test run --docker --mode nightly --report html
 #
 
 ## Deploy Hop3 + run the app catalog on Docker (the apps tier)
 test-apps:
-	@echo "--> Testing apps on Docker (hop3-test system)"
-	uv run hop3-test system --docker
+	@echo "--> Testing apps on Docker (hop3-test run)"
+	uv run hop3-test run --docker
 	@echo ""
 
 ## Test one app or path: make test-app APP=apps/real-apps-native/edrix
 test-app:
 	@if [ -z "$(APP)" ]; then echo "Usage: make test-app APP=<app-path-or-name>"; exit 1; fi
-	uv run hop3-test system --docker $(APP)
+	uv run hop3-test run --docker $(APP)
 
 #
 # Installer Testing
