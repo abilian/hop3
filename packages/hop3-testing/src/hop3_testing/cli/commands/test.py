@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Literal, cast
 
 import click
 
-from hop3_testing.catalog import Catalog
+from hop3_testing.catalog import Catalog, default_scan_paths
 from hop3_testing.catalog.loader import load_test_definition_smart
 from hop3_testing.cli.runners import run_tests
 from hop3_testing.selector import Selector, get_mode_config, list_modes
@@ -35,27 +35,6 @@ def _mode_choices() -> list[str]:
     return sorted(set(list_modes()) | set(MODE_ALIASES))
 
 
-def _get_default_scan_paths(root: Path) -> list[str]:
-    """Get default scan paths: all subdirs of apps/, plus demos/ and tutorials."""
-    paths: list[str] = []
-    apps_dir = root / "apps"
-    if apps_dir.is_dir():
-        for child in sorted(apps_dir.iterdir()):
-            if child.is_dir():
-                paths.append(str(child.relative_to(root)))
-    if (root / "demos").is_dir():
-        paths.append("demos")
-    # Scan the *source* tutorials tree, not the rendered one: validoc executes
-    # the `bash exec`/`output`/`file` markers, which are stripped out of
-    # docs/src/tutorials during the docs build (scanning that yields a vacuous
-    # "0 passed" success). The source lives in docs/tutorials.
-    if (root / "docs/tutorials").is_dir():
-        paths.append("docs/tutorials")
-    elif (root / "docs/src/tutorials").is_dir():
-        paths.append("docs/src/tutorials")
-    return paths
-
-
 def _resolve_tests(
     app_names: tuple[str, ...],
     root: Path,
@@ -72,7 +51,7 @@ def _resolve_tests(
     if not app_names:
         # No args: scan everything, use mode-based selection
         catalog = Catalog(root)
-        catalog.scan(paths=_get_default_scan_paths(root))
+        catalog.scan(paths=default_scan_paths(root))
         mode_config = get_mode_config(mode)
         selector = Selector(catalog)
         return selector.select_for_target(mode_config, target_type)

@@ -225,6 +225,7 @@ class DeployConfig:
             HOP3_PYPI_VERSION - Specific PyPI version
             HOP3_PYPI_PRE - Allow pre-release versions (1 or true)
             HOP3_CLEAN - Clean before deploy (1 or true)
+            HOP3_SKIP_MIGRATIONS - Skip DB migrations after install (1 or true)
             HOP3_WITH - Features to install (comma-separated)
             HOP3_ADMIN_DOMAIN - Admin domain
             HOP3_ADMIN_USER - Admin username
