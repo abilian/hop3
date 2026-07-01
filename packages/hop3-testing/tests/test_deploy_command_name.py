@@ -43,3 +43,18 @@ def test_deploy_command_uses_renamed_binary_ssh():
     )
     assert cmd[0] == "hop3-deploy-server"
     assert "--host" in cmd
+
+
+def test_cloud_deploy_manager_uses_renamed_binary():
+    # The `hop3-test cloud` path has its OWN deploy wrapper (system_tests) —
+    # Phase 3 initially missed it, emitting the deprecation warning which the
+    # cloud path then mis-reported as the failure. Pin it here.
+    from hop3_testing.system_tests.config import DeploymentConfig  # noqa: PLC0415
+    from hop3_testing.system_tests.deployment import (  # noqa: PLC0415
+        DeploymentManager,
+    )
+
+    mgr = DeploymentManager(host="h.example", config=DeploymentConfig())
+    cmd = mgr._build_deploy_command()
+    assert "hop3-deploy-server" in cmd
+    assert "hop3-deploy" not in cmd  # not the deprecated bare name

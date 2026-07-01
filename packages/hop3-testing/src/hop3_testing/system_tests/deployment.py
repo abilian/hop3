@@ -136,7 +136,7 @@ class DeploymentManager:
         return target_dir
 
     def deploy(self) -> DeploymentResult:
-        """Run hop3-deploy to install Hop3 on the target server.
+        """Run hop3-deploy-server to install Hop3 on the target server.
 
         Returns:
             DeploymentResult with outcome and logs.
@@ -148,7 +148,7 @@ class DeploymentManager:
             if self.repo_path is None:
                 self.clone_repo()
 
-            # Build hop3-deploy command
+            # Build hop3-deploy-server command
             cmd = self._build_deploy_command()
             self._log(f"Running: {' '.join(cmd)}")
 
@@ -221,11 +221,11 @@ class DeploymentManager:
             )
 
     def _build_deploy_command(self) -> list[str]:
-        """Build the hop3-deploy command with appropriate flags."""
+        """Build the hop3-deploy-server command with appropriate flags."""
         cmd = [
             "uv",
             "run",
-            "hop3-deploy",
+            "hop3-deploy-server",
             "--host",
             self.host,
         ]

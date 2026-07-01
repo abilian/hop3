@@ -194,6 +194,20 @@ class TestDeployConfigValidate:
         errors = config.validate()
         assert any("verbose" in e.lower() and "quiet" in e.lower() for e in errors)
 
+    def test_validate_unknown_with_feature_errors(self):
+        """An unknown --with feature is rejected early, before upload (D4)."""
+        config = DeployConfig(use_docker=True, with_features=["bogus"])
+        errors = config.validate()
+        assert any("Unknown --with feature" in e and "bogus" in e for e in errors)
+
+    def test_validate_valid_with_features_ok(self):
+        """docker/all/rust/s3/postgres are all accepted."""
+        config = DeployConfig(
+            use_docker=True, with_features=["docker", "rust", "s3", "postgres", "all"]
+        )
+        errors = config.validate()
+        assert not any("Unknown --with feature" in e for e in errors)
+
     def test_validate_local_code_missing_package(self, tmp_path: Path):
         """validate() should error when local code path doesn't exist."""
         config = DeployConfig(

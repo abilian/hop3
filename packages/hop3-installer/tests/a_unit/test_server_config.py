@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import pytest
 from hop3_installer.constants import ALL_FEATURES
 from hop3_installer.server_installer.config import (
     ServerInstallerConfig,
@@ -40,3 +41,32 @@ class TestParseFeatures:
 
     def test_all_features_set_includes_rust(self):
         assert "rust" in ALL_FEATURES
+
+    def test_empty_is_empty_set(self):
+        assert parse_features("") == set()
+
+    def test_postgres_is_baseline_noop(self):
+        # postgres is the always-on baseline: accepted, not returned as a feature.
+        assert parse_features("postgres") == set()
+        assert parse_features("mysql,postgres") == {"mysql"}
+
+    def test_postgresql_long_spelling_also_baseline(self):
+        # The cloud path passes "postgresql" (long spelling); accept it too, or a
+        # `hop3-test cloud` deploy fails on "Unknown --with feature: postgresql".
+        assert parse_features("postgresql") == set()
+        assert parse_features("docker,mysql,postgresql") == {"docker", "mysql"}
+
+    def test_unknown_feature_raises_loud(self):
+        # The core D4 fix: an unknown --with value must not be silently dropped.
+        with pytest.raises(ValueError, match="Unknown --with feature"):
+            parse_features("bogus")
+
+    def test_unknown_names_the_offender_and_lists_valid(self):
+        with pytest.raises(ValueError) as exc:
+            parse_features("mysql,typo")
+        msg = str(exc.value)
+        assert "typo" in msg
+        assert "rust" in msg  # lists the valid set
+        assert (
+            "mysql" not in msg.split("Valid", maxsplit=1)[0]
+        )  # the known one isn't the offender

@@ -169,7 +169,7 @@ Examples:
         "--with",
         "-w",
         dest="features",
-        help="Features to install (comma-separated: docker,mysql,redis,nix)",
+        help="Features to install (comma-separated: docker,mysql,redis,nix,s3,rust)",
     )
 
     # Admin options
