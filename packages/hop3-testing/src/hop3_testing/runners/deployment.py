@@ -580,6 +580,9 @@ class DeploymentTestRunner:
             # are HARD fails regardless of expects_failure — they must never
             # invert into a green negative test and mask a total outage (C7).
             if infra_failed:
+                # _run_deploy_and_verify always pairs infra_failed with a
+                # non-None message (disk-full / deploy-timeout); narrow for it.
+                assert error is not None, "infra_failed implies a failure message"
                 return _fail_result(error, deploy_logs=deploy_logs)
             # Negative test cases: a genuine builder/deployer REJECTION is the
             # expected outcome (e.g., an input the builder is expected to
