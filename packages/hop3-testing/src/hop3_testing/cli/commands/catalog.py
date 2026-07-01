@@ -11,8 +11,7 @@ import sys
 
 import click
 
-from hop3_testing.catalog import Catalog
-from hop3_testing.cli.commands.test import _get_default_scan_paths
+from hop3_testing.catalog import Catalog, default_scan_paths
 
 
 @click.command("list")
@@ -50,7 +49,7 @@ def list_tests(
     """
     root = ctx.obj["root"]
     catalog = Catalog(root)
-    paths = list(scan_paths) if scan_paths else _get_default_scan_paths(root)
+    paths = list(scan_paths) if scan_paths else default_scan_paths(root)
     catalog.scan(paths=paths)
 
     # Show details for a specific test

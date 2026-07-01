@@ -23,7 +23,7 @@ import logging
 from functools import lru_cache
 from typing import TYPE_CHECKING
 
-from hop3_testing.catalog import Catalog
+from hop3_testing.catalog import Catalog, default_scan_paths
 from hop3_testing.targets.helpers import find_project_root
 
 from hop3_testlab.discriminators import short_app
@@ -34,36 +34,16 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _scan_paths(root: Path) -> list[str]:
-    """Default scan set: every apps/ subdir, demos, and the tutorial source.
-
-    Mirrors ``hop3_testing.cli.commands.test._get_default_scan_paths`` (source
-    tutorials, not the rendered tree, which has the executable markers stripped).
-    """
-    paths: list[str] = []
-    apps = root / "apps"
-    if apps.is_dir():
-        paths += [
-            str(c.relative_to(root)) for c in sorted(apps.iterdir()) if c.is_dir()
-        ]
-    if (root / "demos").is_dir():
-        paths.append("demos")
-    if (root / "docs/tutorials").is_dir():
-        paths.append("docs/tutorials")
-    elif (root / "docs/src/tutorials").is_dir():
-        paths.append("docs/src/tutorials")
-    return paths
-
-
 def build_catalog(root: Path) -> Catalog:
     """Scan ``root``'s app tree into a fresh catalog (uncached).
 
     Used for both the local repo (cached via :func:`get_catalog`) and a fetched
     source workspace (``source@ref``), which the worker scans to resolve a run's
-    app selector (v2 spec §A/§5).
+    app selector (v2 spec §A/§5). Scan set comes from the engine's shared
+    ``default_scan_paths`` — one source of truth, no Lab-local copy to drift.
     """
     catalog = Catalog(root)
-    catalog.scan(paths=_scan_paths(root))
+    catalog.scan(paths=default_scan_paths(root))
     return catalog
 
 
