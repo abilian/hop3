@@ -278,7 +278,7 @@ hop3-test system --docker --report html
 ### Test Coverage
 
 ```bash
-make test-with-coverage
+make test-cov
 
 # HTML report
 uv run pytest --cov=hop3 --cov-report=html

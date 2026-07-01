@@ -281,7 +281,7 @@ Make targets:
 make test-fast          # unit, all packages, no Docker (< 1 min)
 make test               # check tier: a_unit + b_integration, all packages, no Docker
 make test-e2e           # the Docker e2e layer (c_e2e): real deploys, backups, git-push
-make test-with-coverage # coverage on the in-process layers (a_unit + b_integration)
+make test-cov # coverage on the in-process layers (a_unit + b_integration)
 ```
 
 When a Docker e2e or app test fails, a diagnostic bundle is collected; run `hop3-test why <run-id>` to inspect it.

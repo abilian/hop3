@@ -193,7 +193,7 @@ Hop3 runs CI on [SourceHut builds](https://builds.sr.ht/), driven by the manifes
 Three runners cover three domains. Only pytest produces coverage.
 
 - **pytest** — platform code (unit → integration → e2e). The only runner that produces coverage.
-- **hop3-test** — applications: real apps and demos, deployed and verified over the `DeploymentTarget` ABC (Docker, SSH, Hetzner). See `make test-apps` / `make test-list`.
+- **hop3-test** — applications: real apps and demos, deployed and verified over the `DeploymentTarget` ABC (Docker, SSH, Hetzner). See `make test-apps` / `uv run hop3-test list`.
 - **validoc** — narratives: tutorials-as-tests. See `make test-tutorials`.
 
 On failure of a Docker e2e or app test, a diagnostic bundle is collected; run `hop3-test why <run-id>` to inspect it.
@@ -206,12 +206,12 @@ Before submitting a PR, you can run the same checks locally:
 make lint                # Linting and type checks
 make test                # Check tier: unit + integration, all packages, no Docker
 make test-e2e            # Docker e2e layer (real deploys, slow)
-make test-with-coverage  # Coverage on the in-process layers (what coverage.py sees)
+make test-cov  # Coverage on the in-process layers (what coverage.py sees)
 ```
 
 ### Coverage Requirements
 
-Coverage is produced by pytest on the in-process layers only (`a_unit` + `b_integration`) — the Docker e2e layer does not contribute coverage. Run `make test-with-coverage` to reproduce it. While we don't enforce strict coverage requirements, we expect:
+Coverage is produced by pytest on the in-process layers only (`a_unit` + `b_integration`) — the Docker e2e layer does not contribute coverage. Run `make test-cov` to reproduce it. While we don't enforce strict coverage requirements, we expect:
 - New features to include tests that cover the main code paths
 - Bug fixes to include regression tests
 - Coverage not to decrease significantly with new changes

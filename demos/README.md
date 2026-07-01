@@ -81,9 +81,8 @@ python demos/demo.py list --select toolchain:go,toolchain:ruby   # OR within one
 Makefile shortcuts run the whole suite as tests:
 
 ```bash
-make test-demos-docker   # all demos on a local Docker container (--local --quiet)
-make test-demos-ssh      # all demos on $HOP3_DEV_HOST
-make test-demos          # both
+make test-demos          # all demos on a local Docker container (--local --quiet)
+python demos/demo.py run --host $HOP3_DEV_HOST --local   # all demos on an SSH target
 ```
 
 For every flag, see `python demos/demo.py run --help` (and `list --help`).

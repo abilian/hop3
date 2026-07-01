@@ -46,13 +46,10 @@ python -m demos.demo --host hop3.dev all
 
 ```bash
 # Run demos on Docker backend
-make test-demos-docker
+make test-demos
 
 # Run demos on SSH backend (requires HOP3_DEV_HOST)
-make test-demos-ssh
-
-# Run both
-make test-demos
+python demos/demo.py run --host $HOP3_DEV_HOST --local
 ```
 
 ## Environment Variables
