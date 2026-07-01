@@ -55,7 +55,8 @@ def test_system_accepts_the_flags_the_testlab_passes():
         "--with",
         "--mode",
         "--report",
-        "--deploy-from",
+        "--from",  # ADR 052 D3 canonical source selector
+        "--deploy-from",  # back-compat alias (same option)
         "--branch",
     }
     missing = required - _flags(system_test)
@@ -92,3 +93,10 @@ def test_system_ssh_argv_parses():
     )
     assert ctx.params["target_type"] == "remote"
     assert ctx.params["host"] == "h.example"
+
+
+def test_from_and_deploy_from_are_the_same_option():
+    # ADR 052 D3: --from is canonical; --deploy-from stays as an accepted alias.
+    for flag in ("--from", "--deploy-from"):
+        ctx = system_test.make_context("system", ["--docker", flag, "git"])
+        assert ctx.params["deploy_from"] == "git"

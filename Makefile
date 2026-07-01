@@ -170,7 +170,7 @@ test-cov:
 ## Run demos on Docker (SSH backend: python demos/demo.py run --host $$HOP3_DEV_HOST --local)
 test-demos:
 	@echo "--> Resetting test server (docker)"
-	hop3-deploy-server --docker --local --with all --clean
+	hop3-deploy-server --docker --from local --with all --clean
 	@echo "--> Running demos on Docker backend"
 	python demos/demo.py run --backend docker --local --quiet
 	@echo ""
@@ -186,7 +186,7 @@ test-tutorials:
 # `hop3-test` is the interface; the targets below are just front doors. For
 # other variants, call the CLI directly:
 #   list available tests    uv run hop3-test list
-#   deploy from local code   uv run hop3-test system --deploy-from local [--clean]
+#   deploy from local code   uv run hop3-test system --from local [--clean]
 #   Nix suite                uv run hop3-test system --docker --with nix apps/test-apps-nix apps/real-apps-nix-gen
 #   nightly matrix + report  uv run hop3-test system --docker --mode nightly --report html
 #
@@ -227,12 +227,12 @@ test-installer: build-installers
 ## Deploy to development server (set HOP3_DEV_HOST)
 deploy:
 	@echo "--> Deploying to ${HOP3_DEV_HOST}"
-	uv run hop3-deploy-server --local
+	uv run hop3-deploy-server --from local
 
 ## Deploy to local Docker container
 deploy-docker:
 	@echo "--> Deploying to Docker container"
-	uv run hop3-deploy-server --local --docker
+	uv run hop3-deploy-server --from local --docker
 
 ## Clean development server (WARNING: removes everything)
 clean-server:
