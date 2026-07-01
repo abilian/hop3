@@ -35,3 +35,4 @@ covers = ["php", "kanboard", "nix", "project-management"]
 [[test.validations]]
 path = "/"
 status = 302
+contains = "Kanboard"

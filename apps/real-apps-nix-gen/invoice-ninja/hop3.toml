@@ -71,3 +71,4 @@ covers = ["php", "invoice-ninja", "nix", "invoicing", "laravel"]
 [[test.validations]]
 path = "/"
 status = 302
+contains = "/setup"

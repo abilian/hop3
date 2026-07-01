@@ -7,7 +7,9 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import tempfile
 import time
+from functools import cache
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -50,6 +52,27 @@ _CLI_STEERING_ENV_VARS = (
 # reads those contexts — so resolution lands cleanly on the demo server it logs
 # into — nor clobbers them with its throwaway localhost context.
 _DEMO_CLI_CONFIG_HOME = Path(__file__).resolve().parent.parent / ".cli-home"
+
+
+@cache
+def _hermetic_cli_cwd() -> str:
+    """A directory with NO ``hop3.toml`` in its ancestry — the CWD for demo
+    `hop3` subprocesses that don't need a project context.
+
+    Demos always target apps explicitly (``--app NAME``), so the CLI needs no
+    project from the working directory. But the CLI resolves a project — and
+    runs the project-mismatch guard (``deploy``/``restart``/``config set``/
+    ``app destroy``) — relative to its CWD. The runner is launched from the repo
+    root, which carries a ``hop3.toml`` (the Test Lab's own deploy config, ADR
+    044). Standing there, ``config set --app demoNN`` resolves to demoNN but
+    sees project ``hop3-testlab`` and refuses (exit 3); ``app destroy`` refuses
+    the same way but is swallowed by ``check=False``. Running non-deploy
+    commands from a dedicated empty dir makes them hermetic w.r.t. CWD — the
+    same treatment ``cli_env`` gives the environment. Deploy still runs from the
+    app dir (see ``app.deploy_app``), with ``--force`` for the template-id
+    mismatch. ``@cache`` so every call shares one empty directory.
+    """
+    return tempfile.mkdtemp(prefix="hop3-demo-cli-cwd-")
 
 
 def cli_env() -> dict[str, str]:
@@ -129,7 +152,7 @@ DEFAULT_COMMAND_TIMEOUT = 300.0
 
 
 def _run_subprocess(
-    cmd: str, *, env: dict | None = None, timeout: float
+    cmd: str, *, env: dict | None = None, timeout: float, cwd: str | None = None
 ) -> subprocess.CompletedProcess:
     """``subprocess.run`` that turns a hang into a bounded, loud failure.
 
@@ -145,6 +168,7 @@ def _run_subprocess(
             text=True,
             check=False,
             env=env,
+            cwd=cwd,
             timeout=timeout,
             # No interactive stdin: the runner has no human to answer a prompt.
             # A destructive command that prompts would otherwise read the
@@ -281,6 +305,7 @@ def run_hop3(
     verbose: bool | None = None,
     log_name: str = "hop3-commands",
     timeout: float = DEFAULT_COMMAND_TIMEOUT,
+    cwd: str | None = None,
 ) -> subprocess.CompletedProcess:
     """Run a hop3 CLI command.
 
@@ -292,6 +317,10 @@ def run_hop3(
         verbose: If True, pass -v flag to hop3 for detailed output.
                  If None (default), uses verbose mode when output_level >= VERBOSE
         log_name: Name of log file to write to (default: "hop3-commands")
+        cwd: Working directory for the subprocess. Defaults to a hermetic
+             empty dir (``_hermetic_cli_cwd``) with no ``hop3.toml`` above it,
+             so the project-mismatch guard never fires on a stray repo-root
+             ``hop3.toml``. Deploy passes the app dir explicitly.
     """
     output_level = get_output_level()
 
@@ -315,7 +344,9 @@ def run_hop3(
         print_command(full_cmd)
 
     cmd_start = time.time()
-    result = _run_subprocess(full_cmd, env=cli_env(), timeout=timeout)
+    result = _run_subprocess(
+        full_cmd, env=cli_env(), timeout=timeout, cwd=cwd or _hermetic_cli_cwd()
+    )
     cmd_elapsed = time.time() - cmd_start
 
     # Record timing for hop3 commands (extract base command for category)
