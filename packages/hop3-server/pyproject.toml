@@ -128,11 +128,6 @@ name = "c_e2e"
 root = "tests/c_e2e"
 label = "e2e"
 
-[[tool.tepyd.tiers]]
-name = "c_system"
-root = "tests/c_system"
-label = "system"
-
 [tool.coverage.report]
 exclude_also = [
     "if typing.TYPE_CHECKING:",

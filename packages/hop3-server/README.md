@@ -73,8 +73,7 @@ hop3-server/
 └── tests/
     ├── a_unit/           # Unit tests
     ├── b_integration/    # Integration tests
-    ├── c_system/         # System tests
-    └── d_e2e/            # End-to-end tests
+    └── c_e2e/            # End-to-end tests (Docker, real deploy)
 ```
 
 ### Filesystem Layout
@@ -101,8 +100,8 @@ uv run pytest tests/a_unit/ -v
 # Integration tests
 uv run pytest tests/b_integration/ -v
 
-# System tests (requires Docker)
-uv run pytest tests/c_system/ -v
+# End-to-end tests (requires Docker)
+uv run pytest tests/c_e2e/ -v
 
 # Lint and format
 uv run ruff check src/
