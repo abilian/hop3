@@ -23,8 +23,8 @@ from .deploy import create_backend, deploy
 def create_parser() -> argparse.ArgumentParser:
     """Create argument parser."""
     parser = argparse.ArgumentParser(
-        prog="hop3-deploy",
-        description="Deploy Hop3 to a server or Docker container",
+        prog="hop3-deploy-server",
+        description="Deploy Hop3 (the server/platform) to a server or Docker container",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Environment Variables:
@@ -45,28 +45,28 @@ Environment Variables:
 
 Examples:
   # Deploy to remote server (from PyPI, the default)
-  hop3-deploy --host 192.168.1.100
+  hop3-deploy-server --host 192.168.1.100
 
   # Deploy specific version from PyPI
-  hop3-deploy --host server.example.com --version 0.4.0
+  hop3-deploy-server --host server.example.com --version 0.4.0
 
   # Deploy latest including pre-releases
-  hop3-deploy --host server.example.com --pre
+  hop3-deploy-server --host server.example.com --pre
 
   # Deploy from git (devel branch)
-  hop3-deploy --host server.example.com --git
+  hop3-deploy-server --host server.example.com --git
 
   # Deploy from specific git branch
-  hop3-deploy --host server.example.com --branch main
+  hop3-deploy-server --host server.example.com --branch main
 
   # Deploy to Docker container
-  hop3-deploy --docker
+  hop3-deploy-server --docker
 
   # Deploy with local code changes
-  hop3-deploy --host server.example.com --local
+  hop3-deploy-server --host server.example.com --local
 
   # Clean install with admin setup
-  hop3-deploy --host server.example.com --clean --admin-domain admin.example.com
+  hop3-deploy-server --host server.example.com --clean --admin-domain admin.example.com
 """,
     )
 
@@ -411,6 +411,19 @@ def _handle_validation_errors(errors: list[str]) -> int:
     print()
     print("Use --help for usage information")
     return 1
+
+
+def deprecated_main() -> int:
+    """Back-compat entry for the old ``hop3-deploy`` name (ADR 052 D10).
+
+    ``hop3-deploy`` read as a synonym for the client's ``hop3 deploy`` (which
+    deploys an *app*); this tool deploys the *server/platform*. It is renamed
+    ``hop3-deploy-server``; the old name warns and delegates for one release.
+    """
+    from hop3_installer.deprecation import warn_deprecated  # noqa: PLC0415
+
+    warn_deprecated("hop3-deploy", "hop3-deploy-server", kind="command")
+    return main()
 
 
 def main() -> int:
