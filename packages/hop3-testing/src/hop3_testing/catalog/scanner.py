@@ -151,34 +151,24 @@ class Catalog:
             "Catalog loaded: %d tests, %d errors", len(self._tests), len(self._errors)
         )
 
-    def _find_demo_internal_dirs(self, path: Path, rel_path: str) -> set[Path]:
-        """Find subdirectories that are internal to demo directories.
+    def _has_demo_ancestor(self, path: Path, root: Path) -> bool:
+        """True if ``path`` sits inside a demo directory (one with demo-script.py).
 
-        For demos/, demo directories often contain app/ subdirectories with
-        hop3.toml files. These should NOT be treated as separate tests.
-
-        Args:
-            path: Directory to scan
-            rel_path: Relative path for context
-
-        Returns:
-            Set of paths that are internal to demos (should be skipped)
+        A demo's inner ``app/`` (``demos/demoNN/app/``, carrying its own
+        ``hop3.toml``) is the demo's private deploy target, driven by
+        ``demo-script.py`` — not a standalone test. Walk ancestors up to and
+        including ``root`` so this holds however the scan entered: ``demos/``,
+        ``demos/demoNN``, or ``demos/demoNN/app``. (The old child-scan only
+        worked when the scan path was the ``demos/`` parent, so a demo dir passed
+        directly leaked its inner app — the demo60/app regression.)
         """
-        demo_internal_dirs: set[Path] = set()
-        is_demos_dir = "demos" in rel_path or rel_path == "demos"
-
-        if not is_demos_dir:
-            return demo_internal_dirs
-
-        # Find all demo directories and their subdirectories
-        for item in path.iterdir():
-            if item.is_dir() and (item / "demo-script.py").exists():
-                # This is a demo directory - mark all its subdirs as internal
-                for subdir in item.rglob("*"):
-                    if subdir.is_dir():
-                        demo_internal_dirs.add(subdir)
-
-        return demo_internal_dirs
+        current = path.parent
+        while True:
+            if (current / "demo-script.py").exists():
+                return True
+            if current in {root, current.parent}:
+                return False
+            current = current.parent
 
     def _has_ignore_ancestor(self, path: Path, root: Path) -> bool:
         """Check if any ancestor of path (up to root) contains HOP3_TEST_IGNORE."""
@@ -224,7 +214,6 @@ class Catalog:
             return
 
         processed_dirs: set[Path] = set()
-        demo_internal_dirs = self._find_demo_internal_dirs(path, rel_path)
 
         # Check for test.toml files recursively (sorted for deterministic order)
         for test_toml in sorted(path.rglob("test.toml")):
@@ -234,7 +223,11 @@ class Catalog:
             if self._is_deferred_business_drop(app_dir):
                 logger.debug("Skipping deferred business-drop: %s", app_dir)
                 continue
-            if app_dir not in processed_dirs and app_dir not in demo_internal_dirs:
+            # Skip a demo's private deploy target (demos/demoNN/app/).
+            if self._has_demo_ancestor(app_dir, path):
+                logger.debug("Skipping internal demo directory: %s", app_dir)
+                continue
+            if app_dir not in processed_dirs:
                 self._load_test_smart(app_dir)
                 processed_dirs.add(app_dir)
 
@@ -246,8 +239,8 @@ class Catalog:
             if self._is_deferred_business_drop(app_dir):
                 logger.debug("Skipping deferred business-drop: %s", app_dir)
                 continue
-            # Skip internal demo subdirectories (e.g., demos/demoNN/app/)
-            if app_dir in demo_internal_dirs:
+            # Skip a demo's private deploy target (demos/demoNN/app/).
+            if self._has_demo_ancestor(app_dir, path):
                 logger.debug("Skipping internal demo directory: %s", app_dir)
                 continue
             if app_dir not in processed_dirs:
