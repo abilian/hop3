@@ -46,8 +46,9 @@ def test_install_node_toolchain_uses_nodesource():
     assert any(
         "https://deb.nodesource.com/setup_22.x" in arg for call in calls for arg in call
     )
-    # ...and `nodejs` is installed from the configured repo (no distro `npm`).
-    assert ["apt-get", "install", "-y", "nodejs"] in calls
+    # ...and `nodejs` is installed from the configured repo (no distro `npm`),
+    # with the fresh-boot apt lock timeout (APT_LOCK_FLAGS).
+    assert ["apt-get", "install", "-y", *deps_common.APT_LOCK_FLAGS, "nodejs"] in calls
 
 
 def test_install_node_toolchain_falls_back_when_setup_unfetchable():
@@ -66,7 +67,15 @@ def test_install_node_toolchain_falls_back_when_setup_unfetchable():
         deps_debian._install_node_toolchain()
 
     calls = [c.args[0] for c in run_cmd.call_args_list]
-    assert ["apt-get", "install", "-y", "nodejs", "npm"] in calls
+    expected = [
+        "apt-get",
+        "install",
+        "-y",
+        *deps_common.APT_LOCK_FLAGS,
+        "nodejs",
+        "npm",
+    ]
+    assert expected in calls
     assert warn.called  # the fallback (old Node) is surfaced, not silent
 
 

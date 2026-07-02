@@ -7,7 +7,7 @@ This document provides detailed internal documentation for the hop3-installer pa
 hop3-installer serves two distinct purposes:
 
 1. **Production installers** (`hop3-install`) - Single-file scripts for end users
-2. **Developer deployment** (`hop3-deploy`) - Tool for development workflow
+2. **Developer deployment** (`hop3-deploy-server`) - Tool for development workflow
 
 Both are designed with no external dependencies (stdlib only for installers).
 
@@ -28,8 +28,8 @@ hop3_installer/
 ├── server_installer/    # Server installer (hop3-install server)
 │   ├── config.py        # ServerInstallerConfig dataclass
 │   └── installer.py     # Full server setup orchestration
-└── deployer/            # Developer deployment (hop3-deploy)
-    ├── cli.py           # hop3-deploy CLI (argparse)
+└── deployer/            # Developer deployment (hop3-deploy-server)
+    ├── cli.py           # hop3-deploy-server CLI (argparse)
     ├── deploy.py        # Deployer class orchestration
     ├── config.py        # DeployConfig dataclass
     └── backends/
@@ -152,7 +152,7 @@ Optional toolchains (Rust, Node global packages, Leiningen, Elixir, Nix) and ext
 
 The default database is PostgreSQL (step 10); `hop3.db` only exists for SQLite-backed installs. The `apps/`, `uwsgi-available/`, and `uwsgi-enabled/` directories under `/home/hop3` are created and populated when apps are deployed, not by the installer itself.
 
-## Developer Deployer (`hop3-deploy`)
+## Developer Deployer (`hop3-deploy-server`)
 
 Tool for deploying during development:
 
@@ -201,7 +201,7 @@ class DockerDeployBackend(DeployBackend):
 ### Deployment Flow
 
 ```
-hop3-deploy --local
+hop3-deploy-server --from local
 
 1. Check target connectivity (SSH or Docker)
 2. If --clean: remove existing installation
@@ -244,7 +244,7 @@ Broader app/deploy testing lives in the separate `hop3-testing` package (`hop3-t
 
 ## Environment Variables
 
-### For hop3-deploy
+### For hop3-deploy-server
 
 | Variable | Description |
 |----------|-------------|
@@ -290,6 +290,6 @@ PostgreSQL is always installed as the default database; there is no database-typ
 ### Verbose Mode
 
 ```bash
-hop3-deploy --verbose  # Detailed output
-hop3-deploy --dry-run  # Show what would happen
+hop3-deploy-server --verbose  # Detailed output
+hop3-deploy-server --dry-run  # Show what would happen
 ```

@@ -12,7 +12,7 @@ hop3-testing provides infrastructure for validating Hop3 deployments:
 4. **Runners** - Deployment, demo, and tutorial execution strategies
 5. **pytest Integration** - the `c_e2e` layer that drives real deploys
 
-The `hop3-test` CLI exposes four subcommands: `system`, `list`, `cloud`, and `why`.
+The `hop3-test` CLI exposes four subcommands: `run`, `list`, `cloud`, and `why`.
 
 ## Module Structure
 
@@ -22,7 +22,7 @@ hop3_testing/
 ├── cli/                  # CLI commands and helpers
 │   ├── __init__.py       # `cli` group + `main` entry point
 │   ├── commands/         # Click command implementations
-│   │   ├── test.py       # `system`
+│   │   ├── test.py       # `run`
 │   │   ├── catalog.py    # `list`
 │   │   ├── cloud.py      # `cloud`
 │   │   └── why.py        # `why`
@@ -109,7 +109,7 @@ target = DockerTarget(
 )
 ```
 
-`DockerConfig` defaults to `image="debian:bookworm"` and `container_name="hop3-test"`. The target manages the container lifecycle and the SSH key extraction needed to drive `hop3-deploy`.
+`DockerConfig` defaults to `image="debian:bookworm"` and `container_name="hop3-test"`. The target manages the container lifecycle and the SSH key extraction needed to drive `hop3-deploy-server`.
 
 ### Remote Target
 
@@ -297,28 +297,28 @@ def test_app_deployment(deployment_target):
 
 The `hop3-test` CLI has four subcommands. The full flag reference for each is in the package [README](https://github.com/abilian/hop3) and `packages/hop3-testing/docs/internals.md`.
 
-### `hop3-test system`
+### `hop3-test run`
 
 Deploys Hop3 to a target, then deploys the selected apps and verifies their HTTP responses.
 
 ```bash
 # Deploy Hop3 + run the default tests on Docker
-hop3-test system --docker
+hop3-test run --docker
 
 # Scan a specific directory
-hop3-test system --docker apps/test-apps-procfile
+hop3-test run --docker apps/test-apps-procfile
 
 # Run the full catalog with all addons, clean install
-hop3-test system --docker --clean --with all
+hop3-test run --docker --clean --with all
 
 # Test one app, reusing the existing container (skip the Hop3 deploy)
-hop3-test system --docker --reuse apps/real-apps-native/edrix
+hop3-test run --docker --reuse apps/real-apps-native/edrix
 
 # Run against a remote server over SSH
-hop3-test system --ssh --host server.example.com --clean --with all
+hop3-test run --ssh --host server.example.com --clean --with all
 
 # Fast P0-only profile
-hop3-test system --docker --mode dev
+hop3-test run --docker --mode dev
 ```
 
 Key options:
@@ -327,7 +327,7 @@ Key options:
 |--------|-------------|
 | `--docker` / `--ssh` | Target type (one is required) |
 | `--host HOST` | Remote host (for `--ssh`; or set `HOP3_TEST_HOST`) |
-| `--deploy-from {local,git,pypi,none}` | Where to deploy Hop3 from (default `local`) |
+| `--from {local,git,pypi,none}` | Where to deploy Hop3 from (default `local`) |
 | `--reuse` | Reuse the existing deployment (skip the Hop3 deploy) |
 | `--clean` | Clean install (remove any existing installation first) |
 | `--with FEATURE` | Install extra features/addons (`nix`, `mysql`, `redis`, `all`) |
@@ -410,13 +410,13 @@ Each validation hits a `path`, asserts a `status`, and can assert response body 
 `-v/--verbose` is a group-level flag, so it goes before the subcommand:
 
 ```bash
-hop3-test -v system --docker
+hop3-test -v run --docker
 ```
 
 ### Keep the target after a run
 
 ```bash
-hop3-test system --docker --keep
+hop3-test run --docker --keep
 # The container stays up for inspection:
 docker exec -it hop3-test bash
 ```
@@ -425,7 +425,7 @@ docker exec -it hop3-test bash
 
 ```bash
 # Iterate on verification against an already-deployed app, without redeploying Hop3
-hop3-test system --docker --reuse apps/real-apps-native/edrix
+hop3-test run --docker --reuse apps/real-apps-native/edrix
 ```
 
 ### Replay a failure

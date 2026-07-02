@@ -37,7 +37,7 @@ This will:
 Install from a specific git branch:
 
 ```bash
-sudo python3 install-server.py --git --branch main
+sudo python3 install-server.py --from git --branch main
 ```
 
 ### From Local Path
@@ -45,7 +45,7 @@ sudo python3 install-server.py --git --branch main
 For development or testing with local code:
 
 ```bash
-sudo python3 install-server.py --local-path /path/to/hop3-server
+sudo python3 install-server.py --path /path/to/hop3-server
 ```
 
 ### All Options
@@ -57,9 +57,9 @@ sudo python3 install-server.py --local-path /path/to/hop3-server
 | `--with FEATURES` | Comma-separated optional features: `mysql`, `redis`, `docker`, `nix`, `s3`, or `all` |
 | `--version VERSION` | Install specific version from PyPI |
 | `--pre` | Allow pre-release versions from PyPI |
-| `--git` | Install from git repository |
+| `--from git` | Install from git repository |
 | `--branch BRANCH` | Git branch to install (default: main) |
-| `--local-path PATH` | Install from local directory |
+| `--path PATH` | Install from local directory |
 | `--force` | Force reinstall |
 | `--skip-deps` | Skip system dependency installation |
 | `--skip-nginx` | Skip nginx configuration |
@@ -300,7 +300,7 @@ app falls through to whichever vhost nginx loaded first — the distro default o
 port 80, an arbitrary app on port 443. This happens on servers installed before
 the control plane started pinning nginx's `default_server`.
 
-**Fix**: redeploy. `hop3-deploy --host your-server.com` now makes
+**Fix**: redeploy. `hop3-deploy-server --host your-server.com` now makes
 `your-server.com` the admin hostname automatically and pins the Hop3 control
 plane as nginx's `default_server`, so the bare host — and any unmatched Host —
 reaches the Web UI instead of a random app. To serve the Web UI on a *different*
@@ -308,7 +308,7 @@ hostname, pass it explicitly:
 
 ```bash
 # Developer tool — a different admin hostname:
-hop3-deploy --local --host your-server.com --admin-domain admin.your-server.com
+hop3-deploy-server --from local --host your-server.com --admin-domain admin.your-server.com
 
 # Production installer (uses --domain):
 curl -LsSf https://hop3.cloud/install-server.py | sudo python3 - --domain your-server.com

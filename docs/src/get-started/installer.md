@@ -121,9 +121,9 @@ After these steps the installer writes the server config, installs acme.sh, and 
 | Option | Environment Variable | Description |
 |--------|---------------------|-------------|
 | `--version VERSION` | `HOP3_VERSION` | Install specific version |
-| `--git` | `HOP3_GIT=1` | Install from git repository |
+| `--from git` | `HOP3_GIT=1` | Install from git repository |
 | `--branch BRANCH` | `HOP3_BRANCH` | Git branch (default: `main`) |
-| `--local-path PATH` | `HOP3_LOCAL_PACKAGE` | Install from local directory |
+| `--path PATH` | `HOP3_LOCAL_PACKAGE` | Install from local directory |
 | `--pre` | | Allow pre-release versions when installing from PyPI |
 | `--with FEATURES` | | Comma-separated optional features: `docker`, `mysql`, `redis`, `s3`, `nix`, `all` |
 | `--domain DOMAIN` | `HOP3_DOMAIN` | Domain for Let's Encrypt certificate |
@@ -152,10 +152,10 @@ sudo python3 install-server.py --with redis,s3
 sudo python3 install-server.py --with all
 
 # Install from git (specific branch)
-sudo python3 install-server.py --git --branch develop
+sudo python3 install-server.py --from git --branch develop
 
 # Install from local directory (for development)
-sudo python3 install-server.py --local-path /path/to/hop3/packages/hop3-server
+sudo python3 install-server.py --path /path/to/hop3/packages/hop3-server
 
 # Skip optional components
 sudo python3 install-server.py --skip-postgres --skip-acme
@@ -274,7 +274,7 @@ For testing installers with local package changes:
 python3 install-cli.py --local-path /path/to/hop3/packages/hop3-cli
 
 # Server
-sudo python3 install-server.py --local-path /path/to/hop3/packages/hop3-server
+sudo python3 install-server.py --path /path/to/hop3/packages/hop3-server
 ```
 
 ### Building the single-file installers
@@ -310,7 +310,7 @@ vagrant ssh
 # Inside the VM, test against local package changes
 # (run `make build-installers` on the host first to generate installer/)
 python3 /vagrant/installer/install-cli.py --local-path /vagrant/packages/hop3-cli
-sudo python3 /vagrant/installer/install-server.py --local-path /vagrant/packages/hop3-server
+sudo python3 /vagrant/installer/install-server.py --path /vagrant/packages/hop3-server
 
 # Destroy the VM when done
 vagrant destroy -f

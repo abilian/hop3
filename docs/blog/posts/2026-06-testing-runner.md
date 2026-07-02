@@ -59,9 +59,9 @@ The real, registered surface is small and consistent:
 hop3-test list
 
 # Deploy Hop3 to a target, then deploy + verify the apps
-hop3-test system --docker --clean --with all        # fresh Docker, all addons
-hop3-test system --docker --reuse apps/real-apps-native/edrix   # one app, skip redeploy
-hop3-test system --ssh --host $HOP3_DEV_HOST --with all
+hop3-test run --docker --clean --with all        # fresh Docker, all addons
+hop3-test run --docker --reuse apps/real-apps-native/edrix   # one app, skip redeploy
+hop3-test run --ssh --host $HOP3_DEV_HOST --with all
 
 # Drive ephemeral cloud targets (Hetzner)
 hop3-test cloud ...
@@ -70,7 +70,7 @@ hop3-test cloud ...
 hop3-test why <run-id> --section nginx|journal|build|http|proxy
 ```
 
-The lifecycle behind `system` is a small state machine — initialise the target, reset it to a blank slate, deploy Hop3, deploy and verify each app in the plan, then report — with a diagnostic bundle captured for every app *before* teardown, since the logs vanish with the server.
+The lifecycle behind `run` is a small state machine — initialise the target, reset it to a blank slate, deploy Hop3, deploy and verify each app in the plan, then report — with a diagnostic bundle captured for every app *before* teardown, since the logs vanish with the server.
 
 The Makefile wraps the common cases: `make test-apps` (the catalog on Docker), `make test-app APP=<path>` (one app), `make test-list`, `make test-nightly` (the full matrix with an HTML report).
 

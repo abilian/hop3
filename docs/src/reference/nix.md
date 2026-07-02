@@ -212,8 +212,8 @@ cat "$result/hop3/runtime.json" | python3 -m json.tool
 ### Validate all Nix apps
 
 ```bash
-hop3-test system --docker --clean --with nix apps/real-apps-nix
-hop3-test system --docker --clean --with nix apps/real-apps-nix-gen
+hop3-test run --docker --clean --with nix apps/real-apps-nix
+hop3-test run --docker --clean --with nix apps/real-apps-nix-gen
 ```
 
 ## Limitations
