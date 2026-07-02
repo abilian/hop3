@@ -115,3 +115,11 @@ class TestCleanReinstall:
 
     def test_neither_defaults_false(self, clean_env):
         assert config_from_args(create_parser().parse_args([])).force is False
+
+    def test_hop3_clean_env_canonical(self, clean_env):
+        clean_env["HOP3_CLEAN"] = "1"
+        assert ServerInstallerConfig.from_env().force is True
+
+    def test_hop3_force_env_legacy_alias(self, clean_env):
+        clean_env["HOP3_FORCE"] = "true"
+        assert ServerInstallerConfig.from_env().force is True
