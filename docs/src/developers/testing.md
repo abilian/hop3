@@ -69,7 +69,7 @@ make test-app APP=apps/real-apps-native/edrix
 | `make test-cov` | Coverage on the in-process layers (unit + integration) | ~1min |
 | `make test-apps` | Deploy the real-app catalog on Docker (`hop3-test`) | ~5min |
 | `uv run hop3-test list` | List available app/demo/tutorial tests | instant |
-| `uv run hop3-test system --docker --mode nightly` | Full app/demo/tutorial matrix on Docker + HTML report | long |
+| `uv run hop3-test run --docker --mode nightly` | Full app/demo/tutorial matrix on Docker + HTML report | long |
 | `make test-installer` | Test the installers | ~5min |
 | `make lint` | Linting and type checking | ~30s |
 
@@ -84,14 +84,14 @@ make test-app APP=apps/real-apps-native/edrix
 
 ```bash
 # System testing (deploys Hop3, then deploys + verifies apps)
-hop3-test system --docker                       # Deploy + test defaults on Docker
-hop3-test system --docker --clean --with all    # Clean install with all addons
-hop3-test system --docker apps/real-apps-native # Scan a directory
-hop3-test system --docker apps/real-apps-native/edrix  # One app or path
-hop3-test system --ssh --host $HOP3_DEV_HOST    # Remote via SSH
-hop3-test system --reuse --ssh --host $HOP3_DEV_HOST   # Skip deploy, test existing
-hop3-test system --docker --deploy-from git --branch devel  # Deploy from git
-hop3-test system --docker --mode nightly        # Wider matrix (smoke | ci | nightly | full | ...)
+hop3-test run --docker                       # Deploy + test defaults on Docker
+hop3-test run --docker --clean --with all    # Clean install with all addons
+hop3-test run --docker apps/real-apps-native # Scan a directory
+hop3-test run --docker apps/real-apps-native/edrix  # One app or path
+hop3-test run --ssh --host $HOP3_DEV_HOST    # Remote via SSH
+hop3-test run --reuse --ssh --host $HOP3_DEV_HOST   # Skip deploy, test existing
+hop3-test run --docker --from git --branch devel  # Deploy from git
+hop3-test run --docker --mode nightly        # Wider matrix (smoke | ci | nightly | full | ...)
 
 # List / inspect
 hop3-test list                      # List available app/demo/tutorial tests
@@ -211,7 +211,7 @@ The old names `dev` (→ `smoke`) and `release` (→ `full`) still work as alias
 
 ### Test Targets
 
-The `system` command picks a target via a flag (the `DeploymentTarget` ABC covers Docker, SSH, and cloud):
+The `run` command picks a target via a flag (the `DeploymentTarget` ABC covers Docker, SSH, and cloud):
 
 | Target | Description | Flag |
 |--------|-------------|------|
@@ -275,7 +275,7 @@ make test-e2e         # The Docker e2e layer (c_e2e)
 The wider app/demo/tutorial matrix runs nightly:
 
 ```bash
-uv run hop3-test system --docker --mode nightly --report html
+uv run hop3-test run --docker --mode nightly --report html
 ```
 
 See: <https://builds.sr.ht/~sfermigier/hop3/>
