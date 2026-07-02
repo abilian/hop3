@@ -44,11 +44,11 @@ hop3-test run --docker --reuse
 hop3-test run --docker --from none
 
 # Remote server via SSH
-hop3-test run --ssh --host server.example.com
+hop3-test run --host server.example.com
 
 # SSH using HOP3_TEST_HOST env var
 export HOP3_TEST_HOST=server.example.com
-hop3-test run --ssh
+hop3-test run
 
 # Test profile: dev (fast P0 only) or ci (fast + medium P0)
 hop3-test run --docker --mode ci
@@ -106,7 +106,7 @@ hop3-test run --docker --reuse apps/real-apps-native/edrix
 hop3-test run --docker --keep apps/test-apps-procfile/010-flask-pip-wsgi
 
 # Against a remote server
-hop3-test run --ssh --host server.example.com apps/test-apps-procfile
+hop3-test run --host server.example.com apps/test-apps-procfile
 ```
 
 ### Listing and Inspecting Tests
@@ -338,7 +338,7 @@ Legacy standalone `test.toml` files are still used by procfile-only test apps (`
 | Variable | Purpose |
 |----------|---------|
 | `HOP3_DEV_HOST` | SSH target for deployment |
-| `HOP3_TEST_HOST` | SSH target for `--ssh` without `--host` |
+| `HOP3_TEST_HOST` | Remote target host when `--host` is omitted |
 | `HOP3_TEST_SSH_KEY` | SSH key for remote tests |
 | `HOP3_UNSAFE=true` | Disable auth in Docker tests |
 | `HETZNER_API_TOKEN` | Hetzner Cloud API token (for `hop3-test cloud`) |
@@ -394,11 +394,11 @@ ssh root@$HOP3_TEST_HOST "systemctl status hop3-server"
 |--------|----------|-------|
 | `--docker` | System tests with a fresh deploy | Slow (~5 min startup) |
 | `--docker --reuse` | App tests against an existing container | Fast (skips deploy) |
-| `--ssh` | Tests against real servers | Variable |
+| `--host X` | Tests against a real server | Variable |
 
 ### When to Use Each
 
 - **`hop3-test run --docker`**: Testing Hop3 changes (deploys Hop3 first)
 - **`hop3-test run --docker --reuse`**: Fast iteration on an existing container
-- **`hop3-test run --ssh --host X`**: Testing against remote servers
+- **`hop3-test run --host X`**: Testing against remote servers
 - **`hop3-test run --docker <app-path>`**: Testing one app's configuration
