@@ -16,6 +16,7 @@ import paramiko
 from rich.console import Console
 from rich.panel import Panel
 
+from hop3_testing.catalog.features import merge_features
 from hop3_testing.util import find_project_root, find_project_root_optional
 from hop3_testing.util.ssh import (
     SSHConnection,
@@ -30,7 +31,7 @@ from .hetzner import HetznerError, HetznerManager, ServerInfo
 from .runner import AllSuitesResult, TestRunnerManager
 
 if TYPE_CHECKING:
-    from .config import Config
+    from .config import Config, DeploymentConfig
 
 
 class Phase(Enum):
@@ -193,6 +194,55 @@ class DailyTestOrchestrator:
             # Non-fatal: if catalog loading fails, tests will fail later with details
             pass
 
+    def _deploy_config_with_required_features(self) -> DeploymentConfig:
+        """Deploy config augmented with the features the selected apps require.
+
+        Unions the apps' declared addons (a fail-loud catalog scan) plus the nix
+        toolchain (a builder, detected by suite name) onto the configured
+        features, so the server is installed with what the apps need rather than
+        deploying defaults and failing on a missing ``--with``.
+        """
+        from .config import DeploymentConfig  # noqa: PLC0415
+
+        deploy_config = self.config.deployment
+        extra = list(self._required_addon_features())
+        if any("nix" in s for s in self.config.tests.suites):
+            extra.append("nix")
+        merged = merge_features(deploy_config.features, extra)
+        newly = [f for f in merged if f not in deploy_config.features]
+        if not newly:
+            return deploy_config
+
+        self.console.print(
+            f"  Auto-enabled feature(s) the apps require: {', '.join(newly)}"
+        )
+        return DeploymentConfig(
+            branch=deploy_config.branch,
+            domain=deploy_config.domain,
+            acme_email=deploy_config.acme_email,
+            use_local_repo=deploy_config.use_local_repo,
+            use_local_code=deploy_config.use_local_code,
+            clean_before=deploy_config.clean_before,
+            verbose=deploy_config.verbose,
+            features=merged,
+            local_repo_path=deploy_config.local_repo_path,
+        )
+
+    def _required_addon_features(self) -> set[str]:
+        """Installer features the selected apps' declared addons require.
+
+        Fail loud on a scan failure (unlike the display-only ``except: pass`` of
+        ``_show_test_plan``): if we can't resolve what to provision, don't
+        silently deploy defaults and let an app hit the opaque "Was the server
+        installed with '--with s3'?" error.
+        """
+        from hop3_testing.catalog.features import features_for_suites  # noqa: PLC0415
+
+        project_root = find_project_root_optional()
+        if not project_root:
+            return set()
+        return features_for_suites(project_root, self.config.tests.suites)
+
     def _run_init_phase(self) -> PhaseResult:
         """Initialize managers and validate configuration."""
         start_time = time.time()
@@ -338,7 +388,7 @@ class DailyTestOrchestrator:
                 message=f"Unexpected error: {e}",
             )
 
-    def _run_deploy_phase(self) -> PhaseResult:  # noqa: C901, PLR0912
+    def _run_deploy_phase(self) -> PhaseResult:
         """Deploy Hop3 to the server."""
         start_time = time.time()
         self._log_phase("Hop3 Deployment")
@@ -354,26 +404,9 @@ class DailyTestOrchestrator:
         try:  # noqa: PLW0717 — try/except/finally pairs the deploy attempt with `self._deployment.cleanup()` in finally. The DeploymentManager is constructed inside the try, so the cleanup MUST wrap the entire deploy+verify sequence; splitting would either leak temp dirs on early-return paths or duplicate the cleanup at every exit.
             server_ip = self._result.server_info.ipv4
 
-            # Auto-detect nix feature from suites
-            from .config import DeploymentConfig  # noqa: PLC0415
-
-            deploy_config = self.config.deployment
-            if any("nix" in s for s in self.config.tests.suites):
-                if "nix" not in deploy_config.features:
-                    deploy_config = DeploymentConfig(
-                        branch=deploy_config.branch,
-                        domain=deploy_config.domain,
-                        acme_email=deploy_config.acme_email,
-                        use_local_repo=deploy_config.use_local_repo,
-                        use_local_code=deploy_config.use_local_code,
-                        clean_before=deploy_config.clean_before,
-                        verbose=deploy_config.verbose,
-                        features=[*deploy_config.features, "nix"],
-                        local_repo_path=deploy_config.local_repo_path,
-                    )
-                    self.console.print(
-                        "  Auto-enabled 'nix' feature for nix app suites"
-                    )
+            # Provision the features the selected apps require (their declared
+            # addons + nix), so the server is installed with what the apps need.
+            deploy_config = self._deploy_config_with_required_features()
 
             self._deployment = DeploymentManager(
                 host=server_ip,
