@@ -78,3 +78,20 @@ def canonicalize_flags(argv: list[str], aliases: dict[str, str]) -> list[str]:
         else:
             out.append(token)
     return out
+
+
+def warn_deprecated_flags(argv: list[str], aliases: dict[str, str]) -> None:
+    """Warn (once each) for any deprecated flag present in ``argv`` — no rewrite.
+
+    Unlike :func:`canonicalize_flags`, this only emits the notice; the old option
+    strings stay registered on the parser so they still parse. Use it when the
+    canonical spelling takes a value the old one didn't (``--git`` → ``--from
+    git``) or when the old name is an argparse alias on the same argument
+    (``--ssh-key`` → ``--identity``), where a token rewrite can't help. ``aliases``
+    maps ``--old`` → the human suggestion (e.g. ``--from git``).
+    """
+    for token in argv:
+        name = token.partition("=")[0]
+        new = aliases.get(name)
+        if new is not None:
+            warn_deprecated(name, new)
