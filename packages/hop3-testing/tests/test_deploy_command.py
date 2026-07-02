@@ -10,6 +10,9 @@ back to PyPI).
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
+from hop3_testing.targets import helpers
 from hop3_testing.targets.helpers import _build_deploy_command
 
 
@@ -76,3 +79,44 @@ def test_git_default_branch_is_not_dropped():
     cmd = _cmd(source="git", branch="devel")
     assert cmd[cmd.index("--from") + 1] == "git"
     assert cmd[cmd.index("--branch") + 1] == "devel"
+
+
+# --- 7b.2: admin-domain / acme-email emission (must reach the deployer or the
+#     cloud path silently loses admin/ACME setup). ---
+
+
+def test_admin_domain_emitted_when_set():
+    cmd = _cmd(domain="admin.example.com")
+    assert cmd[cmd.index("--admin-domain") + 1] == "admin.example.com"
+
+
+def test_acme_email_emitted_when_set():
+    cmd = _cmd(acme_email="ops@example.com")
+    assert cmd[cmd.index("--acme-email") + 1] == "ops@example.com"
+
+
+def test_admin_domain_and_acme_absent_by_default():
+    cmd = _cmd()
+    assert "--admin-domain" not in cmd
+    assert "--acme-email" not in cmd
+
+
+# --- 7b.4: command_prefix + cwd threading (a cloud caller deploying from a
+#     checkout runs `uv run hop3-deploy-server` with cwd=<repo>). ---
+
+
+def test_command_prefix_and_cwd_forwarded(monkeypatch):
+    captured: dict = {}
+
+    def fake_run_streaming(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["cwd"] = kwargs.get("cwd")
+        return SimpleNamespace(timed_out=False, returncode=0)
+
+    monkeypatch.setattr(helpers, "run_streaming", fake_run_streaming)
+    ok, _duration = helpers.run_hop3_deploy(
+        host="203.0.113.7", command_prefix=["uv", "run"], cwd="/tmp/repo"
+    )
+    assert ok is True
+    assert captured["cmd"][:3] == ["uv", "run", "hop3-deploy-server"]
+    assert str(captured["cwd"]) == "/tmp/repo"

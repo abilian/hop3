@@ -47,3 +47,16 @@ def test_canonical_run_is_silent(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["hop3-test", "run", "--from", "git"])
     result = CliRunner().invoke(cli, ["run"])
     assert "deprecated" not in result.stderr
+
+
+def test_cloud_subcommand_warns():
+    # `--list-images` just prints a constant list (no network) then returns.
+    result = CliRunner().invoke(cli, ["cloud", "--list-images"])
+    assert "deprecated" in result.stderr
+    assert "'cloud'" in result.stderr
+    assert "'matrix'" in result.stderr
+
+
+def test_matrix_subcommand_is_silent():
+    result = CliRunner().invoke(cli, ["matrix", "--list-images"])
+    assert "deprecated" not in result.stderr

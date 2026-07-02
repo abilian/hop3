@@ -33,6 +33,13 @@ class DeploymentConfig:
     verbose: bool = False
     """Whether to show verbose deployment output."""
 
+    domain: str | None = None
+    """Admin domain, emitted as --admin-domain (enables admin setup). Used by the
+    cloud path; None on the plain run path means no admin domain is configured."""
+
+    acme_email: str | None = None
+    """Email for Let's Encrypt registration, emitted as --acme-email (cloud path)."""
+
     features: list[str] = field(default_factory=list)
     """Features to install (e.g., docker, mysql, redis, nix, or 'all')."""
 

@@ -768,6 +768,8 @@ def _build_deploy_command(
     verbose: bool,
     features: list[str] | None = None,
     ssh_key: str | None = None,
+    domain: str | None = None,
+    acme_email: str | None = None,
 ) -> list[str]:
     """Build the hop3-deploy-server command (canonical ADR 052 flags).
 
@@ -807,6 +809,13 @@ def _build_deploy_command(
         cmd.append("--verbose")
     if features:
         cmd.extend(["--with", ",".join(features)])
+    # Admin/ACME setup (cloud path). Emitted only when configured, so the plain
+    # run path (domain=None) is unaffected — but when the cloud caller sets a
+    # domain, it must reach the deployer or admin/ACME setup silently vanishes.
+    if domain:
+        cmd.extend(["--admin-domain", domain])
+    if acme_email:
+        cmd.extend(["--acme-email", acme_email])
 
     return cmd
 
@@ -824,6 +833,10 @@ def run_hop3_deploy(
     verbose: bool = False,
     features: list[str] | None = None,
     ssh_key: str | None = None,
+    domain: str | None = None,
+    acme_email: str | None = None,
+    command_prefix: list[str] | None = None,
+    cwd: Path | str | None = None,
     diagnostics: DiagnosticCollector | None = None,
 ) -> tuple[bool, float]:
     """Run hop3-deploy-server via subprocess.
@@ -842,6 +855,11 @@ def run_hop3_deploy(
         branch: Git branch to deploy (only used when source == "git")
         verbose: Enable verbose output
         features: Features to install (docker, mysql, redis, nix, etc.)
+        domain: Admin domain, emitted as --admin-domain (cloud path)
+        acme_email: Let's Encrypt email, emitted as --acme-email (cloud path)
+        command_prefix: Prepended to the command (e.g. ["uv", "run"]) so a caller
+            deploying from a source checkout can invoke the deployer via uv
+        cwd: Working directory for the deploy subprocess (e.g. a cloned repo)
         diagnostics: Optional diagnostics collector
 
     Returns:
@@ -859,7 +877,11 @@ def run_hop3_deploy(
         verbose=verbose,
         features=features,
         ssh_key=ssh_key,
+        domain=domain,
+        acme_email=acme_email,
     )
+    if command_prefix:
+        cmd = [*command_prefix, *cmd]
 
     print(f"\nRunning: {' '.join(cmd)}\n")
 
@@ -879,6 +901,7 @@ def run_hop3_deploy(
             cmd,
             on_output=lambda line: print(line, flush=True),
             timeout=4 * 3600,
+            cwd=cwd,
         )
     except FileNotFoundError:
         duration = time.time() - start_time
