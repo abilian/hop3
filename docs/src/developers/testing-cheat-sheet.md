@@ -14,8 +14,8 @@ Quick reference for developers running tests.
 | **App tests (Docker)** | `make test-apps` |
 | **Lint & type check** | `make lint` |
 | **System tests (Docker)** | `hop3-test run --docker` |
-| **Cloud test (single distro)** | `hop3-test cloud --image ubuntu-24.04` |
-| **Cloud test (multi-distro)** | `hop3-test cloud --images ubuntu-24.04,debian-13` |
+| **Cloud test (single distro)** | `hop3-test matrix --image ubuntu-24.04` |
+| **Cloud test (multi-distro)** | `hop3-test matrix --images ubuntu-24.04,debian-13` |
 
 ## hop3-test CLI
 
@@ -136,26 +136,25 @@ Run E2E tests on real cloud infrastructure (Hetzner by default). Requires
 
 ```bash
 # List available images
-hop3-test cloud --list-images
+hop3-test matrix --list-images
 
 # Single distribution test
-hop3-test cloud --image ubuntu-24.04
+hop3-test matrix --image ubuntu-24.04
 
 # Multi-distribution test
-hop3-test cloud --images ubuntu-24.04,debian-13,fedora-42
+hop3-test matrix --images ubuntu-24.04,debian-13,fedora-42
 
 # All distributions
-hop3-test cloud --images all
+hop3-test matrix --images all
 
-# Test specific app directories
-hop3-test cloud --apps apps/test-apps-procfile --apps demos
+# Test specific app directories (positional, like `run`)
+hop3-test matrix apps/test-apps-procfile demos
 
-# Use local code instead of git (default)
-hop3-test cloud --use-local-repo
+# Install source (default: local; --from pypi to install from PyPI)
+hop3-test matrix --from local
 
-# Skip phases for debugging
-hop3-test cloud --skip-reset    # Keep existing server state
-hop3-test cloud --skip-deploy   # Use existing Hop3 installation
+# Test against an existing server (no rebuild, no deploy)
+hop3-test run --host server.example.com --reuse
 ```
 
 ## Pytest Tests
@@ -341,7 +340,7 @@ Legacy standalone `test.toml` files are still used by procfile-only test apps (`
 | `HOP3_TEST_HOST` | Remote target host when `--host` is omitted |
 | `HOP3_TEST_SSH_KEY` | SSH key for remote tests |
 | `HOP3_UNSAFE=true` | Disable auth in Docker tests |
-| `HETZNER_API_TOKEN` | Hetzner Cloud API token (for `hop3-test cloud`) |
+| `HETZNER_API_TOKEN` | Hetzner Cloud API token (for `hop3-test matrix`) |
 
 ## Troubleshooting
 

@@ -17,11 +17,14 @@ aliases until the Lab is migrated.
 from __future__ import annotations
 
 import click
+from click.testing import CliRunner
+from hop3_testing.cli import cli
 from hop3_testing.cli.commands import (
     list_tests,
     matrix_test,
     register_commands,
     system_test,
+    test as testmod,
     why_cmd,
 )
 
@@ -115,3 +118,24 @@ def test_from_and_deploy_from_are_the_same_option():
     for flag in ("--from", "--deploy-from"):
         ctx = system_test.make_context("run", ["--docker", flag, "git"])
         assert ctx.params["deploy_from"] == "git"
+
+
+def test_host_alone_selects_remote(monkeypatch):
+    # ADR 052 D2: --host implies the remote target — the Lab now passes --host
+    # WITHOUT --ssh. Short-circuit test resolution so we assert target selection
+    # without deploying.
+    monkeypatch.setattr(testmod, "_resolve_tests", lambda *a, **k: [])
+    monkeypatch.delenv("HOP3_TEST_HOST", raising=False)
+    result = CliRunner().invoke(cli, ["run", "--host", "1.2.3.4"])
+    # Remote was selected: no "specify --docker/--host" error, and it reaches the
+    # "No tests found" early return (exit 0).
+    assert result.exit_code == 0
+    assert "No tests found" in result.output
+    assert "specify --docker" not in (result.stderr or "")
+
+
+def test_no_target_and_no_host_errors(monkeypatch):
+    monkeypatch.delenv("HOP3_TEST_HOST", raising=False)
+    result = CliRunner().invoke(cli, ["run"])
+    assert result.exit_code != 0
+    assert "specify --docker" in result.stderr

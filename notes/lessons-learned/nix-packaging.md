@@ -406,9 +406,9 @@ The `--fix-hashes` flag detects `got: sha256-...` in nix-build errors, replaces 
 ### E2E Testing
 
 ```bash
-# Test nix apps on a real server
-hop3-test cloud --use-local-repo --apps apps/test-apps-nix
-hop3-test cloud --use-local-repo --apps apps/real-apps-nix
+# Test nix apps on a real server (positional apps, --from local like `run`)
+hop3-test matrix --from local apps/test-apps-nix
+hop3-test matrix --from local apps/real-apps-nix
 ```
 
 The test runner auto-enables the `nix` feature when any suite path contains "nix", so `nix-build` is available on the server.

@@ -113,6 +113,7 @@ Optional Features (--with):
     )
     parser.add_argument(
         "--with",
+        "-w",
         dest="with_features",
         metavar="FEATURES",
         default=",".join(env_config.features) if env_config.features else "",
