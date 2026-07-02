@@ -46,7 +46,7 @@ At the centre is the `DeploymentTarget` abstraction — a clean interface over t
 |--------|------|------|----------------|
 | Docker container | `--docker` | the default; dev + CI | ✅ the only one wired into routine CI |
 | Remote server (SSH) | `--host <ip>` | systemd-specific paths (rootd, nginx reload, `www-data` perms) Docker can't fully exercise | nightly / manual |
-| Hetzner Cloud | via `hop3-test cloud` | multi-distro, real-server release validation | release gate |
+| Hetzner Cloud | via `hop3-test matrix` | multi-distro, real-server release validation | release gate |
 
 Every runner that touches a real server — the app tests, the demos, the validoc tutorials, even the pytest `c_e2e` fixtures — now goes through this same primitive. Fix a deploy bug once, and every surface benefits. Collect diagnostics once, and every failure looks the same.
 
@@ -63,8 +63,8 @@ hop3-test run --docker --clean --with all        # fresh Docker, all addons
 hop3-test run --docker --reuse apps/real-apps-native/edrix   # one app, skip redeploy
 hop3-test run --host $HOP3_DEV_HOST --with all
 
-# Drive ephemeral cloud targets (Hetzner)
-hop3-test cloud ...
+# Drive a matrix of cloud OS images (Hetzner)
+hop3-test matrix --images ubuntu-24.04,debian-13
 
 # Explain a failure from its saved diagnostic bundle
 hop3-test why <run-id> --section nginx|journal|build|http|proxy

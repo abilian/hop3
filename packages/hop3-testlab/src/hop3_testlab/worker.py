@@ -554,7 +554,7 @@ def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once;
     cmd = [
         "hop3-test",
         "run",
-        "--ssh",
+        # --host implies the remote target (ADR 052 D2); no --ssh mode flag needed.
         "--host",
         host,
         # Pass the credential key explicitly: the engine's paramiko connect uses it

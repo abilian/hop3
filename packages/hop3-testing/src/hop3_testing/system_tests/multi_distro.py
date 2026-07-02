@@ -41,35 +41,37 @@ class TestResult:
 def run_test_for_image(
     image: str,
     console: Console,
-    use_local_repo: bool = True,
-    suites: str = "apps/test-apps-procfile",
+    *,
+    app_names: tuple[str, ...] = ("apps/test-apps-procfile",),
+    source: str = "local",
+    branch: str = "devel",
     extra_args: list[str] | None = None,
+    verbose: bool = False,
 ) -> TestResult:
     """Run test suite for a specific image.
 
     Args:
         image: Image name (e.g., "ubuntu-24.04").
         console: Rich console for output.
-        use_local_repo: Whether to use local repository.
-        suites: Test suites to run.
-        extra_args: Additional arguments to pass.
+        app_names: App names/paths, passed as `run`'s positional args.
+        source: Install source for `run --from` (local | git | pypi).
+        branch: Git branch (used when source == "git").
+        extra_args: Additional arguments to pass (e.g. repeated --with).
+        verbose: Emit the group-level -v before the `run` subcommand.
 
     Returns:
         TestResult with success status and duration.
     """
-    cmd = [
-        sys.executable,
-        "-m",
-        "hop3_testing.system_tests.hetzner_cli",
-        "run",
-        "--image",
-        image,
-        "--suites",
-        suites,
-    ]
-
-    if use_local_repo:
-        cmd.append("--use-local-repo")
+    # ADR 052 7b.7: each sweep leg is a full `hop3-test run --provider hetzner`,
+    # so it provisions + deploys + tests + PERSISTS to the shared result store
+    # (server_id/token inherited via HETZNER_* env; HOP3_TEST_RESULTS_DB too).
+    cmd = [sys.executable, "-m", "hop3_testing.cli"]
+    if verbose:
+        cmd.append("-v")  # group-level flag, must precede the `run` subcommand
+    cmd += ["run", "--provider", "hetzner", "--image", image, "--from", source]
+    if source == "git":
+        cmd += ["--branch", branch]
+    cmd += list(app_names)  # positional app-names, mirrors `run`
 
     if extra_args:
         cmd.extend(extra_args)
@@ -152,19 +154,23 @@ def _print_summary(
 
 def run_multi_distro_tests(
     images: list[str] | None = None,
-    use_local_repo: bool = True,
-    suites: str = "apps/test-apps-procfile",
+    *,
+    app_names: tuple[str, ...] = ("apps/test-apps-procfile",),
+    source: str = "local",
+    branch: str = "devel",
     stop_on_failure: bool = True,
+    verbose: bool = False,
     extra_args: list[str] | None = None,
 ) -> list[TestResult]:
     """Run tests across multiple distributions.
 
     Args:
         images: List of images to test. Uses HETZNER_IMAGES if None.
-        use_local_repo: Whether to use local repository.
-        suites: Test suites to run.
+        app_names: App names/paths, passed as `run`'s positional args.
+        source: Install source for `run --from` (local | git | pypi).
+        branch: Git branch (used when source == "git").
         stop_on_failure: Stop on first failure.
-        extra_args: Additional arguments to pass.
+        extra_args: Additional arguments to pass (e.g. repeated --with).
 
     Returns:
         List of TestResult objects.
@@ -179,7 +185,7 @@ def run_multi_distro_tests(
 
     console.print("\n[bold green]Multi-Distribution Test Runner[/]")
     console.print(f"Images to test: {', '.join(images)}")
-    console.print(f"Suites: {suites}")
+    console.print(f"Apps: {', '.join(app_names)}")
     console.print(f"Stop on failure: {stop_on_failure}")
     console.print()
 
@@ -187,9 +193,11 @@ def run_multi_distro_tests(
         result = run_test_for_image(
             image=image,
             console=console,
-            use_local_repo=use_local_repo,
-            suites=suites,
+            app_names=app_names,
+            source=source,
+            branch=branch,
             extra_args=extra_args,
+            verbose=verbose,
         )
         results.append(result)
 
@@ -208,89 +216,3 @@ def run_multi_distro_tests(
     _print_summary(console, results, images, total_duration)
 
     return results
-
-
-def main() -> int:
-    """CLI entry point for multi-distro testing."""
-    # Import here to avoid loading argparse when module is imported as library
-    import argparse  # noqa: PLC0415
-
-    parser = argparse.ArgumentParser(
-        description="Run Hop3 tests across multiple Linux distributions."
-    )
-    parser.add_argument(
-        "--images",
-        nargs="+",
-        default=None,
-        help="Images to test (default: all recommended images).",
-    )
-    parser.add_argument(
-        "--suites",
-        default="apps/test-apps-procfile",
-        help="Test suites to run (default: test-apps).",
-    )
-    parser.add_argument(
-        "--use-local-repo",
-        action="store_true",
-        default=True,
-        help="Use local repository (default: True).",
-    )
-    parser.add_argument(
-        "--no-local-repo",
-        action="store_true",
-        help="Don't use local repository.",
-    )
-    parser.add_argument(
-        "--continue-on-failure",
-        action="store_true",
-        help="Continue testing even after a failure.",
-    )
-    parser.add_argument(
-        "--list-images",
-        action="store_true",
-        help="List recommended images and exit.",
-    )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Verbose output.",
-    )
-
-    args, extra_args = parser.parse_known_args()
-
-    console = Console()
-
-    if args.list_images:
-        console.print("\n[bold]Recommended Images for Hop3 Testing[/]\n")
-        table = Table()
-        table.add_column("Image Name", style="cyan")
-        table.add_column("Description")
-        table.add_column("Notes")
-        for image, desc, notes in HETZNER_IMAGES:
-            table.add_row(image, desc, notes)
-        console.print(table)
-        return 0
-
-    use_local_repo = args.use_local_repo and not args.no_local_repo
-
-    # Add verbose flag if specified
-    if args.verbose and "-v" not in extra_args and "--verbose" not in extra_args:
-        extra_args.append("-v")
-
-    results = run_multi_distro_tests(
-        images=args.images,
-        use_local_repo=use_local_repo,
-        suites=args.suites,
-        stop_on_failure=not args.continue_on_failure,
-        extra_args=extra_args or None,
-    )
-
-    # Return non-zero if any test failed
-    if any(not r.success for r in results):
-        return 1
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

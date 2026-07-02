@@ -40,13 +40,15 @@ def create_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Environment Variables:
-  HOP3_DEV_HOST      Target server hostname (alternative to --host)
-  HOP3_TEST_SERVER   Alias for HOP3_DEV_HOST
+  HOP3_HOST          Target server hostname (alternative to --host)
+  HOP3_DEV_HOST      Deprecated alias for HOP3_HOST
+  HOP3_TEST_SERVER   Deprecated alias for HOP3_HOST
   HOP3_SSH_USER      SSH user (default: root)
-  HOP3_GIT           Install from git (1 or true)
-  HOP3_BRANCH        Git branch (implies HOP3_GIT, default: devel)
-  HOP3_LOCAL         Use local code (1 or true)
-  HOP3_PYPI          Install from PyPI (1 or true, this is the default)
+  HOP3_FROM          Install source: pypi | git | local
+  HOP3_GIT           Deprecated: install from git (use HOP3_FROM=git)
+  HOP3_BRANCH        Git branch (implies --from git, default: main)
+  HOP3_LOCAL         Deprecated: use local code (use HOP3_FROM=local)
+  HOP3_PYPI          Deprecated: install from PyPI, the default (use HOP3_FROM=pypi)
   HOP3_VERSION       Specific PyPI version to install (was HOP3_PYPI_VERSION)
   HOP3_PRE           Allow pre-release versions (1 or true) (was HOP3_PYPI_PRE)
   HOP3_CLEAN         Clean before deploy (1 or true)
@@ -65,17 +67,17 @@ Examples:
   # Deploy latest including pre-releases
   hop3-deploy-server --host server.example.com --pre
 
-  # Deploy from git (devel branch)
-  hop3-deploy-server --host server.example.com --git
+  # Deploy from git (main branch)
+  hop3-deploy-server --host server.example.com --from git
 
   # Deploy from specific git branch
-  hop3-deploy-server --host server.example.com --branch main
+  hop3-deploy-server --host server.example.com --branch dev
 
   # Deploy to Docker container
   hop3-deploy-server --docker
 
   # Deploy with local code changes
-  hop3-deploy-server --host server.example.com --local
+  hop3-deploy-server --host server.example.com --from local
 
   # Clean install with admin setup
   hop3-deploy-server --host server.example.com --clean --admin-domain admin.example.com
@@ -87,7 +89,7 @@ Examples:
     target.add_argument(
         "--host",
         "-H",
-        help="Target server hostname or IP (or set HOP3_DEV_HOST)",
+        help="Target server hostname or IP (or set HOP3_HOST)",
     )
     target.add_argument(
         "--docker",
@@ -143,27 +145,27 @@ Examples:
         "--branch",
         "-b",
         default=None,
-        help=f"Git branch to deploy (implies --git, default: {DEFAULT_BRANCH})",
+        help=f"Git branch to deploy (implies --from git, default: {DEFAULT_BRANCH})",
     )
     install.add_argument(
         "--local",
         "-l",
         action="store_true",
         dest="use_local",
-        help="Upload and use local code instead of PyPI",
+        help="Upload and use local code (deprecated: use --from local)",
     )
     install.add_argument(
         "--pypi",
         "-p",
         action="store_true",
-        help="Install from PyPI (this is the default)",
+        help="Install from PyPI, the default (deprecated: use --from pypi)",
     )
     install.add_argument(
         "--version",
         "-V",
         metavar="VERSION",
         dest="pypi_version",
-        help="Install specific version from PyPI (e.g., 0.4.0, implies --pypi)",
+        help="Install specific version from PyPI (e.g., 0.4.0, implies --from pypi)",
     )
     install.add_argument(
         "--pre",

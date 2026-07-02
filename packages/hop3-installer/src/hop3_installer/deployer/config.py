@@ -220,12 +220,13 @@ class DeployConfig:
         """Create config from environment variables.
 
         Supported environment variables:
-            HOP3_DEV_HOST / HOP3_TEST_SERVER - Target server
+            HOP3_HOST - Target server (HOP3_DEV_HOST / HOP3_TEST_SERVER deprecated aliases)
             HOP3_SSH_USER - SSH user (default: root)
-            HOP3_GIT - Install from git (1 or true)
-            HOP3_BRANCH - Git branch (implies HOP3_GIT if not default)
-            HOP3_LOCAL - Use local code (1 or true)
-            HOP3_PYPI - Install from PyPI (1 or true, this is the default)
+            HOP3_FROM - Install source: pypi | git | local
+            HOP3_GIT - Deprecated: install from git (use HOP3_FROM=git)
+            HOP3_BRANCH - Git branch (implies --from git if not default)
+            HOP3_LOCAL - Deprecated: use local code (use HOP3_FROM=local)
+            HOP3_PYPI - Deprecated: install from PyPI, the default (use HOP3_FROM=pypi)
             HOP3_VERSION - Specific PyPI version (was HOP3_PYPI_VERSION)
             HOP3_PRE - Allow pre-release versions (1 or true) (was HOP3_PYPI_PRE)
             HOP3_CLEAN - Clean before deploy (1 or true)

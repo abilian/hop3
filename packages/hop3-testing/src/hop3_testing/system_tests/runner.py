@@ -3,8 +3,8 @@
 
 """Test runner integration with hop3-testing framework.
 
-This module provides the bridge between the daily system test orchestrator
-and the hop3-testing framework, enabling execution of:
+This module provides the bridge between the cloud system-test path and the
+hop3-testing framework, enabling execution of:
 - Deployment tests (test apps)
 - Demo tests
 - Tutorial tests

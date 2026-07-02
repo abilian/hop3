@@ -6,7 +6,7 @@
 - **Related-ADRs**: 043 (unified-testing-architecture), 041 (privileged-operations-agent), 042 (cli-context-model), 034 (streaming-deployment-logs), 033 (docker-integration), 018 (cli-architecture)
 ## Context
 
-ADR 043 establishes a **nightly tier**: the full suite (real apps, demos, tutorials, platform e2e) run against real servers, producing an HTML report and finishing overnight. The machinery for *running* that suite already exists in `hop3-testing`: the `DailyTestOrchestrator` (`INIT → RESET → DEPLOY → TEST → REPORT`), `HetznerManager` for provisioning, the `DeploymentTarget` ABC, the catalog scanner, the SQLAlchemy result models, `generate_html_report`, and the `hop3-test cloud` command that drives them.
+ADR 043 establishes a **nightly tier**: the full suite (real apps, demos, tutorials, platform e2e) run against real servers, producing an HTML report and finishing overnight. The machinery for *running* that suite already exists in `hop3-testing`: the per-run runner (`hop3-test run` — provision, deploy, test, persist), `HetznerManager` for provisioning, the `DeploymentTarget` ABC, the catalog scanner, the SQLAlchemy result models, `generate_html_report`, and the `hop3-test matrix` sweep that drives them across OS images.
 
 What is **missing** is the consumer that makes a nightly run actionable every morning: the result store is effectively write-only (no query API, single-file SQLite), the report is static and trend-blind, and there is no scheduler, no way to browse a failed test's full logs, no trend/flakiness view, and no way to trigger or re-run from a UI. ADR 043 also found that the most common deployment failure — a healthy app behind a 502, the "silent-502" class — is captured by no surface.
 
@@ -20,7 +20,7 @@ ADR 043 makes the nightly data *exist and be uniform* (the shared `collect_diagn
 
 1. **Morning status at a glance** — the whole suite's status (apps, docs/tutorials, demos, platform e2e): green/red, counts, duration, and the diff against the previous run (newly-failing / newly-fixed / still-failing).
 2. **All the logs for failures** — for any failed test, everything potentially useful: build, app/server, nginx access + error, the journal, the deploy transcript, the HTTP exchange, and the silent-502 proxy probe.
-3. **Runs on a Hop3 server, remote-controls Hetzner** — dogfooded on a Hop3 host; provisions and drives Hetzner targets as `hop3-test cloud` does today (other providers later).
+3. **Runs on a Hop3 server, remote-controls Hetzner** — dogfooded on a Hop3 host; provisions and drives Hetzner targets as `hop3-test matrix` does today (other providers later).
 4. **Beautiful dashboard + trends** — history, per-app trend lines, flakiness, duration creep — not just a pass/fail dump.
 5. **Always under 6 hours** — the run must reliably finish overnight, which over time means scaling out to multiple targets.
 
@@ -36,7 +36,7 @@ Create a new subproject, **`hop3-testlab`**:
 | **Datastore** | Queryable results + trends | **PostgreSQL** (extends the existing SQLAlchemy models) |
 | **Artifact store** | Per-test diagnostic bundles | filesystem volume now; object storage later |
 
-**Key principle: one engine, two front-ends.** The Test Lab does **not** shell out to and parse the `hop3-test` CLI. It imports the `hop3-testing` functional core (orchestrator, targets ABC, catalog, ADR 043's `collect_diagnostic_bundle`) and writes structured results to the shared store. The CLI (`hop3-test cloud`) and the web app are two thin shells over the **same** engine and the **same** store, so a manual CLI run and a scheduled web run produce identical, comparable data (§D). The Lab is itself deployed by Hop3 onto a Hop3 server — a real app in the catalog, and so also a platform probe.
+**Key principle: one engine, two front-ends.** The Test Lab does **not** shell out to and parse the `hop3-test` CLI. It imports the `hop3-testing` functional core (runner, targets ABC, catalog, ADR 043's `collect_diagnostic_bundle`) and writes structured results to the shared store. The CLI (`hop3-test run`) and the web app are two thin shells over the **same** engine and the **same** store, so a manual CLI run and a scheduled web run produce identical, comparable data (§D). The Lab is itself deployed by Hop3 onto a Hop3 server — a real app in the catalog, and so also a platform probe.
 
 ## Detailed design
 
@@ -83,11 +83,11 @@ This is the heart of the product: ADR 043's bundle made first-class and browsabl
 
 The failure mode to avoid is *two systems with two truths*. The single engine/store (§B) is what forces convergence:
 
-- **One store.** Both `hop3-test cloud` and the scheduler write to the same Postgres store with the same schema and bundle format, so a manual run **shows up in the dashboard** automatically, tagged `mode=cli` and attributed to the operator.
+- **One store.** Both `hop3-test run` and the scheduler write to the same Postgres store with the same schema and bundle format, so a manual run **shows up in the dashboard** automatically, tagged `mode=cli` and attributed to the operator.
 - **Provenance.** Every run records who/what started it (`scheduled-nightly`, `cli:<user>`, `web:<user>`), git SHA, branch, target distro/image. Trends can filter to nightly-only so ad-hoc runs don't pollute the baseline.
 - **Concurrency & isolation.** Each run owns its provisioned target(s); a lightweight lease prevents two runs from claiming the same server, and the nightly scheduler queues (or refuses) if a conflicting run holds the pool.
-- **Re-run one from anywhere.** The web UI's "re-run this failed test" and `hop3-test cloud <app> --reuse` are the same single-test path; the result attaches to the original run as a retry, feeding flakiness detection (§E).
-- **Local-repo parity.** The CLI's `--use-local-repo` is preserved; scheduled runs default to a branch/SHA. Both record exactly what was tested.
+- **Re-run one from anywhere.** The web UI's "re-run this failed test" and `hop3-test run <app> --reuse` are the same single-test path; the result attaches to the original run as a retry, feeding flakiness detection (§E).
+- **Local-repo parity.** The CLI's `--from local` is preserved; scheduled runs default to a branch/SHA. Both record exactly what was tested.
 
 ### E. The dashboard: status, drill-down, trends
 
@@ -121,7 +121,7 @@ Serial real deploys of the full catalog will not fit 6 h on one server, and the 
 hop3-testlab run --suite all --pool 4 --branch main   # provision 4 targets, shard, run, collect, report
 
 # A developer's manual run lands in the same dashboard:
-hop3-test cloud focalboard --use-local-repo           # mode=cli, tagged cli:<user>
+hop3-test matrix focalboard --from local              # mode=cli, tagged cli:<user>
 
 # Morning: dashboard shows "3 regressions". Click focalboard → headline: proxy_pass :8000 but app
 #   LISTENing :8001 → nginx tab → "connect() failed (111) upstream 127.0.0.1:8000" → one-click "Re-run".

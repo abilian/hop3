@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 
 from hop3_installer.common import env_bool, env_str
 from hop3_installer.constants import ALL_FEATURES, DEFAULT_BRANCH_PRODUCTION
-from hop3_installer.deprecation import env_bool_with_alias
+from hop3_installer.deprecation import env_bool_with_alias, env_with_alias
 
 
 @dataclass
@@ -70,14 +70,15 @@ class ServerInstallerConfig:
         """Create config from environment variables."""
         features = parse_features(env_str("HOP3_WITH", ""))
         # HOP3_FROM is the canonical source selector (pypi|git|local); HOP3_GIT /
-        # HOP3_LOCAL_PACKAGE still work. HOP3_PATH aliases HOP3_LOCAL_PACKAGE.
+        # HOP3_LOCAL_PACKAGE still work. HOP3_PATH is canonical; HOP3_LOCAL_PACKAGE
+        # is the deprecated alias (canonical wins, warns on the old one — D7).
         from_source = env_str("HOP3_FROM", "").lower().strip()
 
         return cls(
             version=env_str("HOP3_VERSION"),
             use_git=env_bool("HOP3_GIT") or from_source == "git",
             branch=env_str("HOP3_BRANCH", DEFAULT_BRANCH_PRODUCTION),
-            local_path=env_str("HOP3_LOCAL_PACKAGE") or env_str("HOP3_PATH"),
+            local_path=env_with_alias("HOP3_PATH", "HOP3_LOCAL_PACKAGE"),
             pre_release=env_bool("HOP3_PRE"),
             force=env_bool_with_alias("HOP3_CLEAN", "HOP3_FORCE"),
             skip_deps=env_bool("HOP3_SKIP_DEPS"),

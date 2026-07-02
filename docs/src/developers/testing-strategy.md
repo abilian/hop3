@@ -31,7 +31,7 @@ This document describes both approaches, their purposes, and how to use them eff
 │  │(b_integr./) │            │  └─────────────────────────────────┘  │
 │  ├─────────────┤            │                                       │
 │  │   Unit      │ Fast       │  ┌─────────────────────────────────┐  │
-│  │  (a_unit/)  │            │  │  hop3-test cloud                │  │
+│  │  (a_unit/)  │            │  │  hop3-test matrix               │  │
 │  └─────────────┘            │  │  - Real cloud servers (Hetzner) │  │
 │                             │  │  - Single or multi-distro       │  │
 │                             │  │  - Reset / deploy / test phases │  │
@@ -756,25 +756,25 @@ def test_non_admin_cannot_create_users():
 
 ## Part 9: Cloud Testing
 
-For comprehensive E2E testing on real cloud infrastructure, the `hop3-test cloud` command provisions and tests Hop3 on cloud servers. Hetzner Cloud is the default (and currently only) provider; it covers both single-image and multi-distribution runs.
+For comprehensive E2E testing on real cloud infrastructure, the `hop3-test matrix` command provisions and tests Hop3 on cloud servers. Hetzner Cloud is the default (and currently only) provider; it covers both single-image and multi-distribution runs. Each image is a full `hop3-test run --provider hetzner`, so `matrix` takes the same deploy lexicon as `run` (positional app names, `--from`, `--branch`, `--with`).
 
 ### Commands
 
 ```bash
 # Single distribution test
-hop3-test cloud --image ubuntu-24.04 --apps apps/test-apps-procfile
+hop3-test matrix --image ubuntu-24.04 apps/test-apps-procfile
 
 # Multiple distributions
-hop3-test cloud --images ubuntu-24.04,debian-13
+hop3-test matrix --images ubuntu-24.04,debian-13
 
 # All recommended distros
-hop3-test cloud --images all
+hop3-test matrix --images all
 
 # List available images
-hop3-test cloud --list-images
+hop3-test matrix --list-images
 
-# Only run tests (skip reset and deploy)
-hop3-test cloud --skip-reset --skip-deploy
+# Test against an existing server (no rebuild, no deploy)
+hop3-test run --host server.example.com --reuse
 ```
 
 ### Supported Distributions
@@ -793,18 +793,17 @@ hop3-test cloud --skip-reset --skip-deploy
 | Option | Description |
 |--------|-------------|
 | `--provider PROVIDER` | Cloud provider (default: `hetzner`) |
-| `--image IMAGE` | Single OS image to test |
+| `--image IMAGE` | Single OS image — a sweep-of-one |
 | `--images IMAGES` | Comma-separated images, or `all` |
 | `--list-images` | List available OS images |
-| `--server-id ID` | Use a specific cloud server |
-| `--branch BRANCH` | Git branch (default: devel) |
-| `--use-local-repo` / `--no-local-repo` | Deploy from local code (default) or from git |
-| `--skip-reset` | Skip server reset |
-| `--skip-deploy` | Skip Hop3 deployment |
-| `--skip-tests` | Skip test execution |
-| `--apps DIR` | App directory to test (repeatable) |
-| `--with FEATURES` | Comma-separated addons to install (e.g. `--with redis`) |
-| `-x`, `--fail-fast` | Stop on first failure |
+| `--from {local,git,pypi}` | Install source (same as `run`; default: local) |
+| `--branch BRANCH` | Git branch (with `--from git`; default: devel) |
+| `[APP_NAMES]...` | App directories/names to test (positional, like `run`) |
+| `--with FEATURES` | Extra addons on top of the apps' declared ones (repeatable or comma-separated) |
+| `-x`, `--fail-fast` | Stop on the first failing image |
+
+The Hetzner server (`HETZNER_SERVER_ID`, a dedicated throwaway box) and API token
+(`HETZNER_API_TOKEN`) come from the environment.
 
 ### Environment Setup
 
@@ -812,19 +811,20 @@ hop3-test cloud --skip-reset --skip-deploy
 export HETZNER_API_TOKEN=your_token_here
 
 # Run tests
-hop3-test cloud --image ubuntu-24.04
+hop3-test matrix --image ubuntu-24.04
 ```
 
-### Test Phases
+### How it works
 
-The cloud test orchestrates these phases:
+Each image in the matrix is a full `hop3-test run --provider hetzner`:
 
-1. **Reset** - Reset server to clean OS state
-2. **Deploy** - Install Hop3 from git or local code
-3. **Test** - Run configured test suites
-4. **Report** - Generate HTML test report
+1. **Provision** - rebuild the server to a clean OS image
+2. **Deploy** - install Hop3 from local code (or PyPI)
+3. **Test** - run the selected apps, persisting results to the shared store —
+   so cloud runs appear in the dashboard and `hop3-test why`
 
-Skip phases with `--skip-reset`, `--skip-deploy`, or `--skip-tests` for debugging.
+To test an already-provisioned server without a rebuild, use
+`hop3-test run --host <server> --reuse`.
 
 ---
 

@@ -84,6 +84,7 @@ known-first-party = ["hop3"]
 
 [lint.per-file-ignores]
 "**/tests/**/*.py" = [
+    "ANN",
     # Legit
     "PLC2701", # import-private-name
     "SLF001", #  private-member-access

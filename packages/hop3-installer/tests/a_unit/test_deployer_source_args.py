@@ -11,6 +11,7 @@ use --path / --from git instead. Regression guard for that R2 lockstep miss.
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import cast
 
 from hop3_installer.deployer.deploy import Deployer
 
@@ -22,7 +23,8 @@ def _source_args(local_path, **config_fields):
         use_git=False, branch="main", pypi_version=None, pypi_pre=False
     )
     cfg.__dict__.update(config_fields)
-    return Deployer._build_source_args(SimpleNamespace(config=cfg), local_path)
+    stub = cast("Deployer", SimpleNamespace(config=cfg))
+    return Deployer._build_source_args(stub, local_path)
 
 
 def test_local_source_uses_canonical_path():

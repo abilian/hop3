@@ -26,7 +26,7 @@ It also lands squarely on the project ethos: *packaging apps is system-validatio
 
 The cardinal rule that keeps the CLI and the dashboard from ever diverging: **the Test Lab does not shell out to the `hop3-test` CLI and parse its text.** It imports the [test runner](2026-06-testing-runner.md)'s functional core — the orchestrator, the `DeploymentTarget` abstraction, the catalog scanner, the shared `collect_diagnostic_bundle` — *as a library*, and writes structured results to a shared store.
 
-The consequence is that the CLI and the web app are two thin shells over the **same** engine and the **same** store. A developer's manual `hop3-test cloud` run and a scheduled nightly run produce *identical, comparable* data — a manual run even shows up in the dashboard automatically, tagged with its provenance (`scheduled-nightly`, `cli:<user>`, `web:<user>`), git SHA, branch, and target distro. There is exactly one truth, and you can never accidentally build a second.
+The consequence is that the CLI and the web app are two thin shells over the **same** engine and the **same** store. A developer's manual `hop3-test run` and a scheduled nightly run produce *identical, comparable* data — a manual run even shows up in the dashboard automatically, tagged with its provenance (`scheduled-nightly`, `cli:<user>`, `web:<user>`), git SHA, branch, and target distro. There is exactly one truth, and you can never accidentally build a second.
 
 ## The shape of it
 
