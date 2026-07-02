@@ -8,6 +8,8 @@ import argparse
 import sys
 from pathlib import Path
 
+from hop3_installer.deprecation import warn_deprecated_flags
+
 from .config import (
     DEFAULT_ADMIN_EMAIL,
     DEFAULT_ADMIN_USER,
@@ -18,6 +20,16 @@ from .config import (
     DeployConfig,
 )
 from .deploy import create_backend, deploy
+
+# Deprecated flag spellings still accepted (ADR 052 Migration); each maps to the
+# canonical suggestion printed in the notice. Dropped next release (Phase 8).
+_DEPRECATED_FLAGS = {
+    "--ssh-user": "--user",
+    "--ssh-key": "--identity",
+    "--git": "--from git",
+    "--local": "--from local",
+    "--pypi": "--from pypi",
+}
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -456,6 +468,7 @@ def main() -> int:
     """Main entry point."""
     parser = create_parser()
     args = parser.parse_args()
+    warn_deprecated_flags(sys.argv[1:], _DEPRECATED_FLAGS)
     config = config_from_args(args)
 
     # Handle special actions

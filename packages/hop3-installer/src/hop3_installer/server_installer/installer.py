@@ -30,6 +30,7 @@ from hop3_installer.common import (
     print_step,
     print_warning,
 )
+from hop3_installer.deprecation import warn_deprecated_flags
 
 from .acme import setup_acme
 from .cli import TOTAL_STEPS, config_from_args, create_parser
@@ -287,6 +288,10 @@ def main() -> int:
     try:
         parser = create_parser()
         args = parser.parse_args()
+        warn_deprecated_flags(
+            sys.argv[1:],
+            {"--git": "--from git", "--local-path": "--path", "--force": "--clean"},
+        )
         config = config_from_args(args)
     except ValueError as e:
         print_error(str(e))

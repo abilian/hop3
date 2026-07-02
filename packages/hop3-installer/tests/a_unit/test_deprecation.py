@@ -11,7 +11,16 @@ from hop3_installer.deprecation import (
     env_bool_with_alias,
     env_with_alias,
     warn_deprecated,
+    warn_deprecated_flags,
 )
+
+_DEPLOY_ALIASES = {
+    "--ssh-user": "--user",
+    "--ssh-key": "--identity",
+    "--git": "--from git",
+    "--local": "--from local",
+    "--pypi": "--from pypi",
+}
 
 
 @pytest.fixture(autouse=True)
@@ -28,6 +37,31 @@ def test_warn_deprecated_once_per_name(capsys):
     assert err.count("--ssh-key") == 1
     assert "'--ssh-key' is deprecated" in err
     assert "use '--identity'" in err
+
+
+def test_warn_deprecated_flags_warns_present(capsys):
+    # A store_true source flag (--git) and a same-arg alias (--ssh-key): both
+    # present -> both warned, each pointing at the canonical spelling.
+    warn_deprecated_flags(["--git", "--host", "h", "--ssh-key", "k"], _DEPLOY_ALIASES)
+    err = capsys.readouterr().err
+    assert "use '--from git'" in err
+    assert "use '--identity'" in err
+
+
+def test_warn_deprecated_flags_silent_when_absent(capsys):
+    # Canonical spelling only -> no notice at all.
+    warn_deprecated_flags(["--from", "git", "--identity", "k"], _DEPLOY_ALIASES)
+    assert capsys.readouterr().err == ""
+
+
+def test_warn_deprecated_flags_equals_form(capsys):
+    warn_deprecated_flags(["--ssh-user=deploy"], _DEPLOY_ALIASES)
+    assert "use '--user'" in capsys.readouterr().err
+
+
+def test_warn_deprecated_flags_deduped(capsys):
+    warn_deprecated_flags(["--git", "--git"], _DEPLOY_ALIASES)
+    assert capsys.readouterr().err.count("--git") == 1
 
 
 def test_env_with_alias_prefers_new(monkeypatch, capsys):
