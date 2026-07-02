@@ -45,7 +45,7 @@ At the centre is the `DeploymentTarget` abstraction — a clean interface over t
 | Target | Flag | When | In routine CI? |
 |--------|------|------|----------------|
 | Docker container | `--docker` | the default; dev + CI | ✅ the only one wired into routine CI |
-| Remote server (SSH) | `--ssh --host <ip>` | systemd-specific paths (rootd, nginx reload, `www-data` perms) Docker can't fully exercise | nightly / manual |
+| Remote server (SSH) | `--host <ip>` | systemd-specific paths (rootd, nginx reload, `www-data` perms) Docker can't fully exercise | nightly / manual |
 | Hetzner Cloud | via `hop3-test cloud` | multi-distro, real-server release validation | release gate |
 
 Every runner that touches a real server — the app tests, the demos, the validoc tutorials, even the pytest `c_e2e` fixtures — now goes through this same primitive. Fix a deploy bug once, and every surface benefits. Collect diagnostics once, and every failure looks the same.
@@ -61,7 +61,7 @@ hop3-test list
 # Deploy Hop3 to a target, then deploy + verify the apps
 hop3-test run --docker --clean --with all        # fresh Docker, all addons
 hop3-test run --docker --reuse apps/real-apps-native/edrix   # one app, skip redeploy
-hop3-test run --ssh --host $HOP3_DEV_HOST --with all
+hop3-test run --host $HOP3_DEV_HOST --with all
 
 # Drive ephemeral cloud targets (Hetzner)
 hop3-test cloud ...
@@ -79,7 +79,7 @@ The Makefile wraps the common cases: `make test-apps` (the catalog on Docker), `
 The prerequisites follow directly from "it deploys real apps to real machines":
 
 - **For `--docker` (the default):** a working Docker daemon. The runner deploys Hop3 into a container and treats it as the target. This is the path CI uses and the one a developer should reach for first — it needs nothing but Docker and is fast with `--reuse` against a cached image.
-- **For `--ssh --host`:** a reachable target (Ubuntu 24.04/26.04) with **root, key-based SSH**. This is for the system-level behaviour Docker can't fully reproduce — systemd units, the privileged-operations agent ([ADR 041](/developers/adrs/041-privileged-operations-agent/)), nginx reloads, real file permissions.
+- **For `--host`:** a reachable target (Ubuntu 24.04/26.04) with **root, key-based SSH**. This is for the system-level behaviour Docker can't fully reproduce — systemd units, the privileged-operations agent ([ADR 041](/developers/adrs/041-privileged-operations-agent/)), nginx reloads, real file permissions.
 - **For cloud targets:** a `HETZNER_API_TOKEN` and an SSH key registered with the provider. The runner provisions throwaway servers, deploys to them, and tears them down for cost control.
 - **The catalog itself:** the test apps live under `apps/` (`real-apps-native/`, `real-apps-nix/`, `real-apps-nix-gen/`, `test-apps-procfile/`, `test-apps-nix/`) and the demos under `demos/`. Adding an app to the catalog is as simple as giving it a `[test]` section.
 

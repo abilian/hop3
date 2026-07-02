@@ -88,8 +88,8 @@ hop3-test run --docker                       # Deploy + test defaults on Docker
 hop3-test run --docker --clean --with all    # Clean install with all addons
 hop3-test run --docker apps/real-apps-native # Scan a directory
 hop3-test run --docker apps/real-apps-native/edrix  # One app or path
-hop3-test run --ssh --host $HOP3_DEV_HOST    # Remote via SSH
-hop3-test run --reuse --ssh --host $HOP3_DEV_HOST   # Skip deploy, test existing
+hop3-test run --host $HOP3_DEV_HOST    # Remote via SSH
+hop3-test run --reuse --host $HOP3_DEV_HOST   # Skip deploy, test existing
 hop3-test run --docker --from git --branch devel  # Deploy from git
 hop3-test run --docker --mode nightly        # Wider matrix (smoke | ci | nightly | full | ...)
 
@@ -216,7 +216,7 @@ The `run` command picks a target via a flag (the `DeploymentTarget` ABC covers D
 | Target | Description | Flag |
 |--------|-------------|------|
 | Docker | Fresh Hop3 deployed into a local container | `--docker` |
-| SSH    | Existing remote server | `--ssh --host X` |
+| SSH    | Existing remote server | `--host X` |
 | Cloud  | Provisioned cloud server(s) (Hetzner) | `hop3-test cloud` |
 
 ## Test Output
