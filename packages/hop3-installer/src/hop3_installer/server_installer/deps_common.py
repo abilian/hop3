@@ -30,6 +30,27 @@ from .s3 import configure_s3
 from .user import run_as_hop3
 
 # =============================================================================
+# Non-interactive apt (Debian/Ubuntu)
+# =============================================================================
+
+# DEBIAN_FRONTEND=noninteractive alone does NOT suppress needrestart's whiptail
+# "which services should be restarted?" dialog on Ubuntu 24.04 (Launchpad
+# #1941716) -- that prompt reads the controlling terminal and blocks the whole
+# install forever. NEEDRESTART_MODE=a makes needrestart restart services
+# automatically, no prompt. Applied to EVERY apt invocation on the Debian family.
+APT_NONINTERACTIVE_ENV = {
+    "DEBIAN_FRONTEND": "noninteractive",
+    "NEEDRESTART_MODE": "a",
+}
+
+# A freshly-booted cloud image runs apt-daily / unattended-upgrades on first
+# boot, holding /var/lib/dpkg/lock-frontend for minutes. These flags make
+# apt-get wait (bounded) for the lock instead of failing instantly or hanging
+# unbounded, and are appended to every apt-get command.
+APT_LOCK_FLAGS = ["-o", "DPkg::Lock::Timeout=600"]
+
+
+# =============================================================================
 # Declarative Package Specification
 # =============================================================================
 
@@ -364,9 +385,12 @@ def install_catalogue_baseline(os_family: str) -> None:
 
     # `apt-get install` if already-installed is a near-noop.
     pkg_manager = "apt-get" if os_family == "debian" else "dnf"
-    install_cmd = [pkg_manager, "install", "-y", *packages]
+    is_apt = pkg_manager == "apt-get"
+    lock_flags = APT_LOCK_FLAGS if is_apt else []
+    apt_env = APT_NONINTERACTIVE_ENV if is_apt else None
+    install_cmd = [pkg_manager, "install", "-y", *lock_flags, *packages]
     with Spinner(f"Installing catalogue baseline ({len(packages)} package(s))..."):
-        result = run_cmd(install_cmd, check=False)
+        result = run_cmd(install_cmd, env=apt_env, check=False)
 
     if result.returncode == 0:
         print_success(f"Catalogue baseline installed ({len(packages)} packages)")
@@ -582,7 +606,11 @@ def install_elixir() -> None:
     if not cmd_exists("erl"):
         print_info("Installing Erlang/OTP (for Elixir)...")
         with Spinner("Installing erlang-nox..."):
-            result = run_cmd(["apt-get", "install", "-y", "erlang-nox"], check=False)
+            result = run_cmd(
+                ["apt-get", "install", "-y", *APT_LOCK_FLAGS, "erlang-nox"],
+                env=APT_NONINTERACTIVE_ENV,
+                check=False,
+            )
         if result.returncode != 0 or not cmd_exists("erl"):
             print_error("Elixir install failed: could not install Erlang/OTP")
             if result.stderr:
@@ -760,13 +788,13 @@ def install_dotnet_sdk_debian() -> None:
 
     # Update package lists
     with Spinner("Updating package lists..."):
-        run_cmd(["apt-get", "update", "-q"], check=False)
+        run_cmd(["apt-get", "update", "-q", *APT_LOCK_FLAGS], check=False)
 
     # Install .NET SDKs
     with Spinner("Installing .NET SDK 8 (LTS)..."):
         result = run_cmd(
-            ["apt-get", "install", "-y", "dotnet-sdk-8.0"],
-            env={"DEBIAN_FRONTEND": "noninteractive"},
+            ["apt-get", "install", "-y", *APT_LOCK_FLAGS, "dotnet-sdk-8.0"],
+            env=APT_NONINTERACTIVE_ENV,
             check=False,
         )
         if result.returncode == 0:
@@ -776,8 +804,8 @@ def install_dotnet_sdk_debian() -> None:
 
     with Spinner("Installing .NET SDK 9..."):
         result = run_cmd(
-            ["apt-get", "install", "-y", "dotnet-sdk-9.0"],
-            env={"DEBIAN_FRONTEND": "noninteractive"},
+            ["apt-get", "install", "-y", *APT_LOCK_FLAGS, "dotnet-sdk-9.0"],
+            env=APT_NONINTERACTIVE_ENV,
             check=False,
         )
         if result.returncode == 0:

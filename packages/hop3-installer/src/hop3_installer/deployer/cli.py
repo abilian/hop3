@@ -35,8 +35,8 @@ Environment Variables:
   HOP3_BRANCH        Git branch (implies HOP3_GIT, default: devel)
   HOP3_LOCAL         Use local code (1 or true)
   HOP3_PYPI          Install from PyPI (1 or true, this is the default)
-  HOP3_PYPI_VERSION  Specific PyPI version to install
-  HOP3_PYPI_PRE      Allow pre-release versions (1 or true)
+  HOP3_VERSION       Specific PyPI version to install (was HOP3_PYPI_VERSION)
+  HOP3_PRE           Allow pre-release versions (1 or true) (was HOP3_PYPI_PRE)
   HOP3_CLEAN         Clean before deploy (1 or true)
   HOP3_SKIP_MIGRATIONS  Skip DB migrations after install (1 or true)
   HOP3_WITH          Features to install (comma-separated)

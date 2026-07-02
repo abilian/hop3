@@ -32,6 +32,7 @@ SRC_DIR = Path(__file__).parent
 CLI_MODULES = [
     "common.py",
     "constants.py",
+    "deprecation.py",  # env/flag aliases; used by config.py (ADR 052)
     "cli_installer/config.py",
     "cli_installer/cli.py",
     "cli_installer/checks.py",
@@ -44,6 +45,7 @@ CLI_MODULES = [
 SERVER_MODULES = [
     "common.py",
     "constants.py",
+    "deprecation.py",  # env/flag aliases; used by config.py (ADR 052)
     "nginx_templates.py",
     "server_installer/config.py",
     "server_installer/cli.py",

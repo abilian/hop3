@@ -163,6 +163,11 @@ class DeploymentManager:
                     cwd=self.repo_path,
                     check=False,
                     timeout=1800,  # 30 minute timeout
+                    # No inherited stdin: a deploy step that prompts (ssh
+                    # host-key on the freshly-rebuilt box, apt, sudo) would
+                    # otherwise read the parent's stdin and hang the whole 30
+                    # minutes. DEVNULL gives it EOF -> it fails fast and loud.
+                    stdin=subprocess.DEVNULL,
                 )
                 returncode = result.returncode
                 stdout = result.stdout
@@ -202,13 +207,25 @@ class DeploymentManager:
                 server_url=server_url,
             )
 
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as exc:
             duration = time.time() - start_time
+            # Surface whatever the deploy emitted before the timeout. A blank
+            # "timed out" hides WHERE it got stuck (which install step, which
+            # host) — fail loud, where the user looks.
+            out = exc.stdout or ""
+            err = exc.stderr or ""
+            if isinstance(out, bytes):
+                out = out.decode(errors="replace")
+            if isinstance(err, bytes):
+                err = err.decode(errors="replace")
+            partial = f"{out}\n{err}".strip()
+            if partial:
+                self._log(f"Partial deploy output before timeout:\n{partial}")
             return DeploymentResult(
                 success=False,
                 duration=duration,
                 log_output=self._get_log(),
-                error="Deployment timed out after 30 minutes",
+                error="Deployment timed out after 30 minutes (see partial output above)",
             )
 
         except Exception as e:
@@ -367,6 +384,7 @@ class DeploymentManager:
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            stdin=subprocess.DEVNULL,  # a prompting step gets EOF, never hangs
             text=True,
             cwd=self.repo_path,
             bufsize=1,  # Line buffered
