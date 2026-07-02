@@ -14,6 +14,11 @@ from typing import TYPE_CHECKING, Literal, cast
 import click
 
 from hop3_testing.catalog import Catalog, default_scan_paths
+from hop3_testing.catalog.features import (
+    merge_features,
+    required_features_from_tests,
+    validate_features,
+)
 from hop3_testing.catalog.loader import load_test_definition_smart
 from hop3_testing.cli.deprecation import warn_deprecated
 from hop3_testing.cli.runners import run_tests
@@ -292,16 +297,32 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
         click.echo(f"  - {t.name}")
     click.echo("")
 
+    # Auto-provision the addons the selected apps DECLARE (hop3.toml [[addons]]),
+    # so the server is installed with them. The framework installs what the apps
+    # need — no manual --with, and no silently-skipped app.
+    required_addons = required_features_from_tests(tests)
+
     # Build deployment config
     deployment: DeploymentConfig | None = None
+    available_features = list(features) if features else None
     if deploy_from != "none":
+        validate_features(required_addons)  # loud abort on an unprovisionable addon
+        deploy_features = merge_features(features, required_addons)
+        newly = [f for f in deploy_features if f not in features]
+        if newly:
+            click.echo(
+                f"Auto-enabling addon feature(s) the apps require: {', '.join(newly)}"
+            )
         deployment = DeploymentConfig(
             source=cast("Literal['local', 'git', 'pypi']", deploy_from),
             branch=branch,
             clean=clean,
             verbose=verbose,
-            features=list(features),
+            features=deploy_features,
         )
+        # available_features must reflect what we PROVISIONED, or the service
+        # filter would skip the very apps we just installed addons for.
+        available_features = deploy_features
 
     # Create target
     target_obj: DockerTarget | RemoteTarget
@@ -341,5 +362,5 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
         start_message=start_msg,
         mode_label="system" if deploy_from != "none" else "reuse",
         selection_mode=mode,  # smoke/ci/broad/full -> the dashboard "scope"
-        available_features=list(features) if features else None,
+        available_features=available_features,
     )

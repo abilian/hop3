@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 from hop3_testing.apps.debug import DeploymentDebugger
 from hop3_testing.bundle import collect_diagnostic_bundle
+from hop3_testing.catalog.features import feature_for_addon
 from hop3_testing.results import ConsoleReporter, ResultStore, narrate_timings
 from hop3_testing.runners import (
     DemoTestRunner,
@@ -58,20 +59,15 @@ def _filter_by_available_services(
     if "all" in available_features:
         return tests
 
-    # Split comma-separated features (e.g., "nix,mysql,redis" → 3 items)
+    # Split comma-separated features and normalize addon aliases (e.g.
+    # postgres -> postgresql) through the single map in catalog/features.
     available: set[str] = set()
     for feat in available_features:
-        available.update(part.strip() for part in feat.split(","))
-
-    # Map common aliases
-    if "postgres" in available:
-        available.add("postgresql")
-    if "postgresql" in available:
-        available.add("postgres")
+        available.update(feature_for_addon(part.strip()) for part in feat.split(","))
 
     filtered = []
     for test in tests:
-        required = set(test.requirements.services)
+        required = {feature_for_addon(s) for s in test.requirements.services}
         missing = required - available
         if missing:
             console.warning(

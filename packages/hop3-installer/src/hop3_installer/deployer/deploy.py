@@ -364,11 +364,15 @@ class Deployer:
         Returns:
             String of command-line arguments for the installer
         """
+        # Canonical installer spellings (ADR 052): --path / --from git. The
+        # deployer must NOT pass the deprecated --local-path/--git or the server
+        # installer prints a deprecation warning into every deploy log for the
+        # platform's own internal call (self-inflicted; R2 lockstep).
         if local_path:
-            return f" --local-path {shlex.quote(local_path)}"
+            return f" --path {shlex.quote(local_path)}"
 
         if self.config.use_git:
-            return f" --git --branch {shlex.quote(self.config.branch)}"
+            return f" --from git --branch {shlex.quote(self.config.branch)}"
 
         # Default: install from PyPI
         args = ""

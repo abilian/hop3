@@ -45,16 +45,27 @@ def test_deploy_command_uses_renamed_binary_ssh():
     assert "--host" in cmd
 
 
-def test_cloud_deploy_manager_uses_renamed_binary():
-    # The `hop3-test cloud` path has its OWN deploy wrapper (system_tests) —
-    # Phase 3 initially missed it, emitting the deprecation warning which the
-    # cloud path then mis-reported as the failure. Pin it here.
-    from hop3_testing.system_tests.config import DeploymentConfig  # noqa: PLC0415
+def test_cloud_deploy_manager_delegates_to_shared_builder():
+    # ADR 052 Phase 7b collapsed the two wrappers: the `hop3-test cloud` path no
+    # longer has its OWN deploy command builder — DeploymentManager.deploy()
+    # delegates to run_hop3_deploy, so it inherits the shared _build_deploy_command
+    # (tested above to emit the renamed binary). A fix to the binary name now
+    # reaches BOTH paths — the class of bug that bit Phase 3 can't recur.
     from hop3_testing.system_tests.deployment import (  # noqa: PLC0415
         DeploymentManager,
     )
 
-    mgr = DeploymentManager(host="h.example", config=DeploymentConfig())
-    cmd = mgr._build_deploy_command()
-    assert "hop3-deploy-server" in cmd
-    assert "hop3-deploy" not in cmd  # not the deprecated bare name
+    assert not hasattr(DeploymentManager, "_build_deploy_command")
+    # The shared builder the cloud path now uses emits the renamed binary:
+    cmd = _build_deploy_command(
+        docker=False,
+        host="h.example",
+        user="root",
+        container_name="c",
+        image="i",
+        source="local",
+        clean=False,
+        branch="main",
+        verbose=False,
+    )
+    assert cmd[0] == "hop3-deploy-server"

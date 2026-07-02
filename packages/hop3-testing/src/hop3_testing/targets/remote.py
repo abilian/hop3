@@ -225,6 +225,13 @@ class RemoteTarget(DeploymentTarget):
                 verbose=deployment.verbose,
                 features=deployment.features,
                 ssh_key=config.ssh_key,
+                # Admin/ACME setup: None on the plain run path (no flags emitted),
+                # set by the cloud path so its domain/cert setup isn't silently lost.
+                domain=deployment.domain,
+                acme_email=deployment.acme_email,
+                # Cloud path only: run `uv run hop3-deploy-server` from a checkout.
+                command_prefix=deployment.command_prefix,
+                cwd=deployment.cwd,
                 diagnostics=self.diagnostics,
             )
 
