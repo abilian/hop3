@@ -315,7 +315,7 @@ hop3-test run --docker --clean --with all
 hop3-test run --docker --reuse apps/real-apps-native/edrix
 
 # Run against a remote server over SSH
-hop3-test run --ssh --host server.example.com --clean --with all
+hop3-test run --host server.example.com --clean --with all
 
 # Fast P0-only profile
 hop3-test run --docker --mode dev
@@ -325,8 +325,8 @@ Key options:
 
 | Option | Description |
 |--------|-------------|
-| `--docker` / `--ssh` | Target type (one is required) |
-| `--host HOST` | Remote host (for `--ssh`; or set `HOP3_TEST_HOST`) |
+| `--docker` / `--host` | Target type (Docker, or `--host` for a remote server) |
+| `--host HOST` | Remote target server (or set `HOP3_TEST_HOST`) |
 | `--from {local,git,pypi,none}` | Where to deploy Hop3 from (default `local`) |
 | `--reuse` | Reuse the existing deployment (skip the Hop3 deploy) |
 | `--clean` | Clean install (remove any existing installation first) |

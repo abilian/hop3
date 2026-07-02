@@ -351,7 +351,7 @@ hop3-test run --docker --clean --with all
 hop3-test run --docker --reuse apps/real-apps-native/etherpad
 ```
 
-#### RemoteTarget (`--ssh`)
+#### RemoteTarget (`--host`)
 
 Tests against a remote Hop3 server over SSH; the same `--from` / `--reuse` options apply.
 
@@ -359,10 +359,10 @@ Tests against a remote Hop3 server over SSH; the same `--from` / `--reuse` optio
 
 ```bash
 # Deploy to and test a remote server
-hop3-test run --ssh --host server.example.com --clean --with all
+hop3-test run --host server.example.com --clean --with all
 
 # Skip deployment and test against the existing server
-hop3-test run --ssh --host server.example.com --reuse <app-path>
+hop3-test run --host server.example.com --reuse <app-path>
 ```
 
 The host can also come from the `HOP3_TEST_HOST` environment variable.
