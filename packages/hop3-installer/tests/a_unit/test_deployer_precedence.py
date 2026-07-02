@@ -16,6 +16,7 @@ from hop3_installer.deployer.config import (
     DEFAULT_ADMIN_USER,
     DEFAULT_SSH_USER,
     DOCKER_IMAGE,
+    DeployConfig,
 )
 
 
@@ -138,3 +139,32 @@ def test_hop3_ssh_key_env(clean_env):
     clean_env["HOP3_SSH_KEY"] = "/env/key"
     config = _config(["--host", "h"])
     assert config.ssh_key == "/env/key"
+
+
+# --- ADR 052 D7/Phase 8a: canonical env vars (HOP3_VERSION / HOP3_PRE) -------
+
+
+def test_env_version_canonical(clean_env):
+    clean_env["HOP3_VERSION"] = "1.2.3"
+    assert DeployConfig.from_env().pypi_version == "1.2.3"
+
+
+def test_env_version_legacy_alias(clean_env):
+    clean_env["HOP3_PYPI_VERSION"] = "0.9"
+    assert DeployConfig.from_env().pypi_version == "0.9"
+
+
+def test_env_version_new_wins_over_legacy(clean_env):
+    clean_env["HOP3_VERSION"] = "1.2.3"
+    clean_env["HOP3_PYPI_VERSION"] = "0.9"
+    assert DeployConfig.from_env().pypi_version == "1.2.3"
+
+
+def test_env_pre_canonical(clean_env):
+    clean_env["HOP3_PRE"] = "1"
+    assert DeployConfig.from_env().pypi_pre is True
+
+
+def test_env_pre_legacy_alias(clean_env):
+    clean_env["HOP3_PYPI_PRE"] = "true"
+    assert DeployConfig.from_env().pypi_pre is True

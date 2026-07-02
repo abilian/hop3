@@ -8,6 +8,7 @@ import pytest
 from hop3_installer import deprecation
 from hop3_installer.deprecation import (
     canonicalize_flags,
+    env_bool_with_alias,
     env_with_alias,
     warn_deprecated,
 )
@@ -73,3 +74,28 @@ def test_canonicalize_flags_leaves_values_untouched():
 def test_canonicalize_flags_passthrough():
     argv = ["--docker", "--with", "all"]
     assert canonicalize_flags(argv, {"--ssh-user": "--user"}) == argv
+
+
+def test_env_bool_with_alias_new_wins(monkeypatch, capsys):
+    monkeypatch.setenv("HOP3_CLEAN", "1")
+    monkeypatch.setenv("HOP3_FORCE", "1")
+    assert env_bool_with_alias("HOP3_CLEAN", "HOP3_FORCE") is True
+    assert capsys.readouterr().err == ""  # new set -> no notice
+
+
+def test_env_bool_with_alias_old_warns(monkeypatch, capsys):
+    monkeypatch.delenv("HOP3_CLEAN", raising=False)
+    monkeypatch.setenv("HOP3_FORCE", "true")
+    assert env_bool_with_alias("HOP3_CLEAN", "HOP3_FORCE") is True
+    assert "HOP3_FORCE" in capsys.readouterr().err
+
+
+def test_env_bool_with_alias_neither_is_false(monkeypatch):
+    monkeypatch.delenv("HOP3_CLEAN", raising=False)
+    monkeypatch.delenv("HOP3_FORCE", raising=False)
+    assert env_bool_with_alias("HOP3_CLEAN", "HOP3_FORCE") is False
+
+
+def test_env_bool_with_alias_non_truthy_is_false(monkeypatch):
+    monkeypatch.setenv("HOP3_CLEAN", "no")
+    assert env_bool_with_alias("HOP3_CLEAN", "HOP3_FORCE") is False

@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 
 from hop3_installer.common import env_bool, env_str
 from hop3_installer.constants import ALL_FEATURES, DEFAULT_BRANCH_PRODUCTION
+from hop3_installer.deprecation import env_bool_with_alias
 
 
 @dataclass
@@ -78,7 +79,7 @@ class ServerInstallerConfig:
             branch=env_str("HOP3_BRANCH", DEFAULT_BRANCH_PRODUCTION),
             local_path=env_str("HOP3_LOCAL_PACKAGE") or env_str("HOP3_PATH"),
             pre_release=env_bool("HOP3_PRE"),
-            force=env_bool("HOP3_FORCE"),
+            force=env_bool_with_alias("HOP3_CLEAN", "HOP3_FORCE"),
             skip_deps=env_bool("HOP3_SKIP_DEPS"),
             skip_nginx=env_bool("HOP3_SKIP_NGINX"),
             skip_postgres=env_bool("HOP3_SKIP_POSTGRES"),

@@ -36,7 +36,7 @@ Environment Variables:
   HOP3_GIT              Install from git (1 or true)
   HOP3_BRANCH           Git branch (default: main)
   HOP3_LOCAL_PACKAGE    Install from local path
-  HOP3_FORCE            Force reinstall (1 or true)
+  HOP3_CLEAN            Clean reinstall (1 or true) (was HOP3_FORCE)
   HOP3_NO_MODIFY_PATH   Don't modify shell config (1 or true)
 """,
     )

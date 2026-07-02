@@ -48,6 +48,15 @@ def env_with_alias(
     return default
 
 
+def env_bool_with_alias(new_var: str, old_var: str) -> bool:
+    """Boolean env with ``new_var`` preferred, ``old_var`` warned (see env_with_alias).
+
+    Truthy is ``1``/``true`` (case-insensitive), matching ``common.env_bool``.
+    """
+    value = env_with_alias(new_var, old_var)
+    return value is not None and value.strip().lower() in {"1", "true"}
+
+
 def canonicalize_flags(argv: list[str], aliases: dict[str, str]) -> list[str]:
     """Rewrite deprecated long flags in ``argv`` to their canonical spelling.
 
