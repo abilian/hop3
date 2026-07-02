@@ -155,7 +155,7 @@ Other installer flags used by the suite to keep runs fast and offline:
 
 **Developer deploy tool (`test_deployer.py`):**
 
-- `hop3-deploy --local` against a Docker or SSH target, end to end
+- `hop3-deploy-server --from local` against a Docker or SSH target, end to end
 
 ## Markers
 
@@ -239,7 +239,7 @@ packages/hop3-installer/tests/c_e2e/
 ├── conftest.py                 # CLI options (--docker/--ssh/--ssh-host/--vagrant), fixtures
 ├── test_cli_installer.py       # CLI installer tests
 ├── test_server_installer.py    # Server installer tests (incl. slow systemd/service tests)
-├── test_deployer.py            # hop3-deploy tests
+├── test_deployer.py            # hop3-deploy-server tests
 ├── utils/
 │   ├── installers.py           # bundle_installers(), get_packages_dir()
 │   └── backends/

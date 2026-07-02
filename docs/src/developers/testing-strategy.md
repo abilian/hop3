@@ -2,7 +2,7 @@
 
 > **Updated by ADR 043.** The pytest pyramid is now **three** layers — `a_unit` (fast, no Docker) · `b_integration` (in-process, real in-memory DB, no Docker) · `c_e2e` (Docker/real-deploy, renamed from `d_e2e`). The old `c_system` layer is **dissolved**. A test's layer is decided by whether it needs Docker/root/host-mutation, not by complexity; coverage is measured on `a_unit` + `b_integration` only (e2e runs out-of-process). Markers (`fast`/`integration`/`e2e`/`needs_docker`) are stamped from the directory layer (root `conftest.py`), so `pytest -m fast` / `-m "not needs_docker"` work everywhere.
 >
-> **Entry points:** `make test-fast` (unit, all packages, < 1 min) · `make test` (check tier: in-process across all 6 packages) · `make test-e2e` (Docker e2e) · `make test-apps` / `test-app APP=…` (deploy real apps via `hop3-test`) · `uv run hop3-test system --docker --mode nightly` (full matrix).
+> **Entry points:** `make test-fast` (unit, all packages, < 1 min) · `make test` (check tier: in-process across all 6 packages) · `make test-e2e` (Docker e2e) · `make test-apps` / `test-app APP=…` (deploy real apps via `hop3-test`) · `uv run hop3-test run --docker --mode nightly` (full matrix).
 
 ## Overview
 
@@ -24,7 +24,7 @@ This document describes both approaches, their purposes, and how to use them eff
 │  ─────────────              │  ──────────────────────────────────── │
 │                             │                                       │
 │  ┌─────────────┐            │  ┌─────────────────────────────────┐  │
-│  │   E2E       │ Docker     │  │  hop3-test system               │  │
+│  │   E2E       │ Docker     │  │  hop3-test run                  │  │
 │  │  (c_e2e/)   │            │  │  - Deploys Hop3 (hop3-deploy)   │  │
 │  ├─────────────┤            │  │  - Tests Hop3 + app catalog     │  │
 │  │ Integration │            │  │  - Docker or SSH targets        │  │
@@ -203,7 +203,7 @@ The `hop3-test` CLI provides a dedicated system for testing application deployme
 │  │                     Deployment Targets                     │     │
 │  ├──────────────────────────────┬─────────────────────────────┤     │
 │  │ DockerTarget                 │ RemoteTarget                │     │
-│  │ - hop3-deploy --docker       │ - SSH to server             │     │
+│  │ - hop3-deploy-server --docker│ - SSH to server             │     │
 │  │ - Fresh install or --reuse   │ - Existing or fresh Hop3    │     │
 │  │ - Local / Docker testing     │ - Remote / production test  │     │
 │  └──────────────────────────────┴─────────────────────────────┘     │
@@ -309,33 +309,33 @@ The old names `dev` and `release` remain accepted as aliases for `smoke` and `fu
 
 ```bash
 # Smoke mode (default) - fast + P0 deployment apps
-hop3-test system --docker
+hop3-test run --docker
 
 # CI mode - fast + medium, P0
-hop3-test system --docker --mode ci
+hop3-test run --docker --mode ci
 
 # Full release validation
-hop3-test system --docker --mode full
+hop3-test run --docker --mode full
 ```
 
 ### Deployment Targets
 
 #### DockerTarget (`--docker`)
 
-Uses `hop3-deploy --docker` to create a fresh Hop3 installation in a Docker container.
+Uses `hop3-deploy-server --docker` to create a fresh Hop3 installation in a Docker container.
 
 **Use case**: Testing Hop3 itself (installation, deployment pipeline) and the app catalog on a local machine.
 
 ```bash
-hop3-test system --docker                       # Deploy local code, run defaults
-hop3-test system --docker --deploy-from git     # Deploy from a git branch
-hop3-test system --docker --clean --with all    # Clean install with all addons
-hop3-test system --docker --reuse <app-path>    # Reuse the running container
+hop3-test run --docker                       # Deploy local code, run defaults
+hop3-test run --docker --from git     # Deploy from a git branch
+hop3-test run --docker --clean --with all    # Clean install with all addons
+hop3-test run --docker --reuse <app-path>    # Reuse the running container
 ```
 
 **What happens**:
 1. Starts a Docker container (default image `debian:bookworm`)
-2. Runs `hop3-deploy --docker --local` to install Hop3
+2. Runs `hop3-deploy-server --docker --from local` to install Hop3
 3. Starts services (nginx, PostgreSQL, uWSGI emperor, hop3-server)
 4. Runs the selected test apps sequentially
 5. Collects diagnostics on failure
@@ -345,24 +345,24 @@ To iterate on a single app against an already-running container, pass `--reuse` 
 
 ```bash
 # Deploy the whole catalog on Docker (all addons available)
-hop3-test system --docker --clean --with all
+hop3-test run --docker --clean --with all
 
 # Reuse the container and test one app
-hop3-test system --docker --reuse apps/real-apps-native/etherpad
+hop3-test run --docker --reuse apps/real-apps-native/etherpad
 ```
 
 #### RemoteTarget (`--ssh`)
 
-Tests against a remote Hop3 server over SSH; the same `--deploy-from` / `--reuse` options apply.
+Tests against a remote Hop3 server over SSH; the same `--from` / `--reuse` options apply.
 
 **Use case**: Testing against real servers, staging validation.
 
 ```bash
 # Deploy to and test a remote server
-hop3-test system --ssh --host server.example.com --clean --with all
+hop3-test run --ssh --host server.example.com --clean --with all
 
 # Skip deployment and test against the existing server
-hop3-test system --ssh --host server.example.com --reuse <app-path>
+hop3-test run --ssh --host server.example.com --reuse <app-path>
 ```
 
 The host can also come from the `HOP3_TEST_HOST` environment variable.
@@ -489,7 +489,7 @@ Deploy from: local
 Clean install: False
 Tests to run (8):
 
-Deploying Hop3 via hop3-deploy...
+Deploying Hop3 via hop3-deploy-server...
 [... deployment output ...]
 
 [000-static] Deploying 000-static-1768057582...
@@ -519,7 +519,7 @@ Recap:
 Use `-q/--quiet` to suppress the recap:
 
 ```bash
-hop3-test system --docker -q
+hop3-test run --docker -q
 ```
 
 ---
@@ -657,7 +657,7 @@ app-tests:
 
 # Stage 4: Nightly
 nightly:
-  - uv run hop3-test system --docker --mode nightly --report html  # full matrix
+  - uv run hop3-test run --docker --mode nightly --report html  # full matrix
 ```
 
 ### Current CI (SourceHut)
@@ -692,7 +692,7 @@ open htmlcov/index.html
 ### Tests Hang
 
 - Check Docker daemon: `docker ps`
-- Use verbose mode: `pytest -v -s` or `hop3-test -v system --docker`
+- Use verbose mode: `pytest -v -s` or `hop3-test -v run --docker`
 - Check container logs: `docker logs hop3-system-test`
 - Check for zombie containers: `docker ps -a | grep hop3`
 
@@ -710,7 +710,7 @@ docker rm -f hop3-system-test
 
 # Remove leftover images and start fresh
 docker image prune -f
-hop3-test system --docker --clean
+hop3-test run --docker --clean
 ```
 
 ### Authentication Issues
