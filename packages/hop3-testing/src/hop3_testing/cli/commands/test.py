@@ -15,6 +15,7 @@ import click
 
 from hop3_testing.catalog import Catalog, default_scan_paths
 from hop3_testing.catalog.loader import load_test_definition_smart
+from hop3_testing.cli.deprecation import warn_deprecated
 from hop3_testing.cli.runners import run_tests
 from hop3_testing.selector import Selector, get_mode_config, list_modes
 from hop3_testing.selector.modes import MODE_ALIASES
@@ -23,21 +24,6 @@ from hop3_testing.targets.config import DeploymentConfig, DockerConfig, RemoteCo
 
 if TYPE_CHECKING:
     from hop3_testing.catalog.models import TestDefinition
-
-# Deprecated spellings still accepted (ADR 052 Migration); dropped next release.
-# hop3-testing deliberately does not import hop3-installer, so this mirrors that
-# package's warn_deprecated rather than sharing it.
-_DEPRECATION_WARNED: set[str] = set()
-
-
-def _warn_deprecated(old: str, new: str, *, kind: str = "option") -> None:
-    """Print a one-line deprecation notice to stderr (deduped per old name)."""
-    if old in _DEPRECATION_WARNED:
-        return
-    _DEPRECATION_WARNED.add(old)
-    click.echo(
-        f"hop3: warning: the {kind} '{old}' is deprecated; use '{new}'", err=True
-    )
 
 
 def _mode_choices() -> list[str]:
@@ -247,10 +233,10 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
     """
     # ADR 052 D9/D2/D3 deprecated spellings (still work; notice guides migration).
     if ctx.info_name == "system":
-        _warn_deprecated("system", "run", kind="command")
+        warn_deprecated("system", "run", kind="command")
     for old, new in (("--deploy-from", "--from"), ("--ssh-key", "--identity")):
         if any(tok == old or tok.startswith(f"{old}=") for tok in sys.argv[1:]):
-            _warn_deprecated(old, new)
+            warn_deprecated(old, new)
 
     verbose = ctx.obj["verbose"]
 
