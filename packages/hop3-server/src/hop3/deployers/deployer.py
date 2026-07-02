@@ -255,9 +255,12 @@ def _update_app_model(
     # Update runtime so start/stop commands know how to handle this app
     app.runtime = runtime
 
-    # Update port from deployment info
-    if deployment_info.port:
-        app.port = deployment_info.port
+    # Update port from deployment info. A port-less deployment (static: nginx
+    # serves the files directly) has no worker port — clear any stale value from
+    # a prior deploy. Otherwise _app_serves_http() probes that dead port and the
+    # deploy fails a health check for a site nginx is actually already serving
+    # (the "static deploy fails, then works after a restart" bug).
+    app.port = deployment_info.port or 0
 
     # Update hostname from environment config (from ORM)
     runtime_env = app.get_runtime_env()
@@ -271,6 +274,20 @@ def _update_app_model(
         level=2,
         fg="blue",
     )
+
+    # A port-less deployment (static — nginx serves the files directly) has no
+    # worker process to boot: the deployer configured the proxy synchronously
+    # before returning, so the app is already serving. The health check below is
+    # for uWSGI/docker workers that start asynchronously; running it on a static
+    # app would probe a nonexistent worker port and wrongly fail the deploy.
+    if not deployment_info.port:
+        log(
+            f"App '{app.name}' is served directly by the proxy "
+            "(no worker process to wait for).",
+            level=1,
+            fg="green",
+        )
+        return
 
     # The deployer has set the state to RUNNING, but for uWSGI the process
     # starts asynchronously via the emperor. Wait for it to actually be running.
