@@ -1,10 +1,11 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Cloud command: run E2E tests on cloud infrastructure.
+"""Matrix command: run E2E tests on cloud infrastructure (ADR 052 D9).
 
-Supports multiple cloud providers (Hetzner Cloud by default).
-Merges the former 'hetzner' and 'multi-distro' commands.
+Canonical name is `matrix` (multi-distro across cloud images); `cloud` stays
+registered as a deprecated alias. Supports multiple cloud providers (Hetzner
+Cloud by default). Merges the former 'hetzner' and 'multi-distro' commands.
 """
 
 from __future__ import annotations
@@ -12,6 +13,8 @@ from __future__ import annotations
 import sys
 
 import click
+
+from hop3_testing.cli.deprecation import warn_deprecated
 
 
 def _build_daily_argv(
@@ -73,7 +76,7 @@ def _normalize_paths(paths: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(p.rstrip("/") for p in paths)
 
 
-@click.command("cloud")
+@click.command("matrix")
 # Provider
 @click.option(
     "--provider",
@@ -125,7 +128,7 @@ def _normalize_paths(paths: tuple[str, ...]) -> tuple[str, ...]:
 )
 @click.option("-v", "--verbose", is_flag=True, help="Verbose output")
 @click.pass_context
-def cloud_test(
+def matrix_test(
     ctx: click.Context,
     provider: str,
     image: str | None,
@@ -146,22 +149,26 @@ def cloud_test(
     with_features: str | None,
     verbose: bool,
 ) -> None:
-    """Run E2E tests on cloud infrastructure.
+    """Run E2E tests on cloud infrastructure (a distro matrix).
 
     Tests Hop3 on real cloud servers. Supports single-image and
     multi-distribution testing.
 
     \b
     Examples:
-      hop3-test cloud --image ubuntu-24.04              # Single distro
-      hop3-test cloud --images ubuntu-24.04,debian-13   # Multiple
-      hop3-test cloud --images all                      # All distros
-      hop3-test cloud --list-images                     # Available images
-      hop3-test cloud --apps apps/test-apps --apps demos  # Specific dirs
-      hop3-test cloud --skip-reset --skip-deploy        # Only run tests
+      hop3-test matrix --images ubuntu-24.04,debian-13   # Multiple distros
+      hop3-test matrix --images all                      # All distros
+      hop3-test matrix --image ubuntu-24.04              # Single distro
+      hop3-test matrix --list-images                     # Available images
+      hop3-test matrix --apps apps/test-apps --apps demos  # Specific dirs
+      hop3-test matrix --skip-reset --skip-deploy        # Only run tests
 
     Requires HETZNER_API_TOKEN environment variable (for Hetzner provider).
     """
+    # ADR 052 D9: `cloud` is a deprecated alias for `matrix` (still works).
+    if ctx.info_name == "cloud":
+        warn_deprecated("cloud", "matrix", kind="command")
+
     # Convert --apps paths to suite names for the underlying system
     # e.g., "apps/test-apps" -> "apps/test-apps-procfile", "demos" -> "demos"
     suites = _normalize_paths(apps)
