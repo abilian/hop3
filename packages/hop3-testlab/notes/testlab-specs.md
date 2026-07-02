@@ -88,7 +88,7 @@ ADR 044 §B's reuse boundary is the `hop3-testing` functional core. Current stat
 
 ### ADR-044 substrate gaps — **still open** (the "one engine, one store" hardening is partial)
 - **G1 — Pool provisioning/teardown: NOT BUILT.** `system_tests/hetzner.py::HetznerManager` still only `rebuild`/`reboot`s ONE pre-existing `server_id`; there is no `HetznerPool`/`create_server`/`delete_server`. `system_tests/multi_distro.py` is still subprocess fan-out.
-- **G2 — `Orchestrator.run(pool, shard, on_result)`: NOT BUILT.** `system_tests/orchestrator.py::DailyTestOrchestrator` is single-target, `rich.Console`-coupled, and emits at end-of-run (no incremental callback). The Lab does not call it directly — it shells `hop3-test system` (§10).
+- **G2 — `Orchestrator.run(pool, shard, on_result)`: NOT BUILT.** There is no in-process incremental orchestrator; the old `system_tests/orchestrator.py::DailyTestOrchestrator` was single-target, `rich.Console`-coupled, and emitted only at end-of-run — it was removed (ADR 052 7b.7, folded into `hop3-test run --provider`). The Lab does not call any such thing directly — it shells `hop3-test run` (§10).
 - **G3 — Bundle-on-every-test + redaction: PARTIAL / NOT BUILT.** Bundles are collected on **failure** paths (`runners/deployment.py:493 if not passed`), not uniformly on every passing test; there is **no secret redaction** anywhere (§12).
 - **G4 — Postgres + real migrations + engine abstraction: NOT BUILT.** SQLite only, `create_all` + hand-rolled `_ensure_columns` (§13).
 - **G5 — Advanced-Alchemy base + `Artifact` model: NOT BUILT.** Models are plain `DeclarativeBase`/Integer PKs; there is no `Artifact` row and no `StoredObject` (§6).

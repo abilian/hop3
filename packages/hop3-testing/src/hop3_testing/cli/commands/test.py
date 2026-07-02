@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, cast
@@ -139,10 +138,13 @@ def _lookup_test(
 @click.argument("app_names", nargs=-1)
 # Target type
 @click.option(
-    "--docker", "target_type", flag_value="docker", help="Test using Docker container"
+    "--docker", "target_type", flag_value="docker", help="Test using a Docker container"
 )
 @click.option(
-    "--ssh", "target_type", flag_value="remote", help="Test using SSH to remote host"
+    "--ssh",
+    "target_type",
+    flag_value="remote",
+    help="Deprecated: --host (or $HOP3_HOST) implies the remote target",
 )
 # Deployment. `--from` is the canonical spelling (ADR 052 D3); `--deploy-from`
 # stays accepted (same dest) so existing callers keep working.
@@ -155,10 +157,14 @@ def _lookup_test(
     help="Install source: local | git | pypi | none (reuse existing)",
 )
 @click.option("--reuse", is_flag=True, help="Reuse existing deployment (skip deploy)")
-@click.option("--branch", default="devel", help="Git branch (if --deploy-from git)")
+@click.option("--branch", default="devel", help="Git branch (if --from git)")
 @click.option("--clean", is_flag=True, help="Clean install (remove existing)")
 # Connection
-@click.option("--host", help="Remote host (for --ssh)")
+@click.option(
+    "--host",
+    envvar=["HOP3_HOST", "HOP3_TEST_HOST"],
+    help="Remote server hostname/IP — selects the remote target (or $HOP3_HOST)",
+)
 @click.option("--port", type=int, default=22, help="SSH port")
 @click.option("--user", default="root", help="SSH user")
 # `--identity` is the canonical name (like `ssh -i`); `--ssh-key` stays as an
@@ -169,6 +175,25 @@ def _lookup_test(
     "ssh_key",
     envvar=["HOP3_SSH_KEY", "HOP3_TEST_SSH_KEY"],
     help="SSH private key path (like `ssh -i`; default: $HOP3_SSH_KEY)",
+)
+# Cloud provisioning (ADR 052 7b.7): --provider rebuilds a fresh server first,
+# then deploys+tests it via the normal remote path.
+@click.option(
+    "--provider",
+    type=click.Choice(["hetzner"]),
+    default=None,
+    help="Rebuild a fresh cloud server before deploying (e.g. hetzner)",
+)
+@click.option(
+    "--server-id",
+    type=int,
+    default=None,
+    help="Cloud server ID to rebuild for --provider (or HETZNER_SERVER_ID)",
+)
+@click.option(
+    "--image",
+    default=None,
+    help="OS image for --provider (e.g. ubuntu-24.04)",
 )
 # Test options
 @click.option(
@@ -197,7 +222,7 @@ def _lookup_test(
     "--with",
     "features",
     multiple=True,
-    help="Features to install (e.g., nix, mysql, redis, or 'all')",
+    help="Extra features on top of the apps' auto-provisioned addons — repeatable or comma-separated (e.g. --with nix,redis, or --with all)",
 )
 @click.pass_context
 def system_test(  # noqa: C901, PLR0912, PLR0915
@@ -212,6 +237,9 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
     port: int,
     user: str,
     ssh_key: str | None,
+    provider: str | None,
+    server_id: int | None,
+    image: str | None,
     mode: str,
     keep: bool,
     fail_fast: bool,
@@ -232,39 +260,68 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
       hop3-test run --docker                  # Deploy + test defaults
       hop3-test run --docker apps/test-apps   # Scan a directory
       hop3-test run --docker --clean --with all demos
-      hop3-test run --ssh --host X            # Remote
-      hop3-test run --ssh demos/demo03        # Specific app
-      hop3-test run --reuse --ssh --host X    # Skip deploy
+      hop3-test run --host X                  # Remote (--host implies remote)
+      hop3-test run --host X demos/demo03     # Specific app on a remote
+      hop3-test run --reuse --host X          # Skip deploy
+      hop3-test run --provider hetzner --image ubuntu-24.04  # Provision a fresh cloud box
     """
     # ADR 052 D9/D2/D3 deprecated spellings (still work; notice guides migration).
     if ctx.info_name == "system":
         warn_deprecated("system", "run", kind="command")
-    for old, new in (("--deploy-from", "--from"), ("--ssh-key", "--identity")):
+    for old, new in (
+        ("--deploy-from", "--from"),
+        ("--ssh-key", "--identity"),
+        ("--ssh", "--host"),
+    ):
         if any(tok == old or tok.startswith(f"{old}=") for tok in sys.argv[1:]):
             warn_deprecated(old, new)
 
     verbose = ctx.obj["verbose"]
 
-    if not target_type:
-        click.echo("Error: Must specify --docker or --ssh", err=True)
+    # Accept both the repeatable form (--with nix --with redis) and the
+    # comma-separated form (--with nix,redis), so one spelling works across
+    # run / matrix / deploy-server / install-server (ADR 052 D1).
+    features = tuple(
+        part.strip() for feat in features for part in feat.split(",") if part.strip()
+    )
+
+    # ADR 052 7b.7: --provider rebuilds a fresh cloud server, then falls through
+    # to the normal remote deploy+test (which writes the shared result store, so
+    # cloud runs show up in the dashboard and `why`).
+    if provider:
+        from hop3_testing.system_tests.provision import (  # noqa: PLC0415
+            provision_server,
+        )
+
+        host = provision_server(
+            provider=provider, server_id=server_id, image=image, verbose=verbose
+        )
+        target_type = "remote"
+
+    # ADR 052 D2: --host (resolved from $HOP3_HOST / $HOP3_TEST_HOST by click)
+    # implies the remote target — no separate --ssh mode flag needed. --docker
+    # still selects Docker; --ssh stays as a deprecated alias (warned above).
+    if target_type is None and host:
+        target_type = "remote"
+
+    if target_type is None:
+        click.echo(
+            "Error: specify --docker, or --host <server> for a remote target", err=True
+        )
         click.echo("\nExamples:")
         click.echo("  hop3-test run --docker")
-        click.echo("  hop3-test run --ssh --host server.com")
+        click.echo("  hop3-test run --host server.com")
         sys.exit(1)
-
-    assert target_type is not None
 
     if reuse:
         deploy_from = "none"
 
-    # For SSH, get host from env if not provided
+    # A remote target needs a host (from --host or $HOP3_HOST) — e.g. bare --ssh.
     if target_type == "remote" and not host:
-        host = os.environ.get("HOP3_TEST_HOST")
-        if not host:
-            click.echo(
-                "Error: --host required for --ssh (or set HOP3_TEST_HOST)", err=True
-            )
-            sys.exit(1)
+        click.echo(
+            "Error: remote target needs --host <server> (or $HOP3_HOST)", err=True
+        )
+        sys.exit(1)
 
     # Resolve tests
     root = ctx.obj["root"]

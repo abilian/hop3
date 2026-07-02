@@ -350,17 +350,20 @@ hop3-test list --format json                  # Machine-readable output
 
 Filters: `-t/--tier`, `-p/--priority`, `--tag`. `--show NAME` prints the full definition of a single test.
 
-### `hop3-test cloud`
+### `hop3-test matrix`
 
-Runs E2E tests on real cloud infrastructure (Hetzner). Requires the `HETZNER_API_TOKEN` environment variable.
+Runs E2E tests across cloud OS images (Hetzner). Each image is a full
+`hop3-test run --provider hetzner`, so `matrix` shares `run`'s lexicon
+(positional apps, `--from`, `--with`). Requires `HETZNER_API_TOKEN` and
+`HETZNER_SERVER_ID`. (`cloud` stays as a deprecated alias.)
 
 ```bash
-hop3-test cloud --list-images                       # Available OS images
-hop3-test cloud --image ubuntu-24.04                # Single distribution
-hop3-test cloud --images ubuntu-24.04,debian-13     # Multiple distributions
-hop3-test cloud --images all                        # All distributions
-hop3-test cloud --apps apps/test-apps --apps demos  # Specific suites
-hop3-test cloud --skip-reset --skip-deploy          # Only run tests
+hop3-test matrix --list-images                    # Available OS images
+hop3-test matrix --image ubuntu-24.04             # Single distribution
+hop3-test matrix --images ubuntu-24.04,debian-13  # Multiple distributions
+hop3-test matrix --images all                     # All distributions
+hop3-test matrix apps/test-apps demos             # Specific suites (positional)
+hop3-test run --host server.example.com --reuse   # Test an existing server
 ```
 
 ### `hop3-test why`
