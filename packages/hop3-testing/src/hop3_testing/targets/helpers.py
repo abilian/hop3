@@ -30,6 +30,8 @@ from .constants import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from hop3_testing.diagnostics import DiagnosticCollector
 
 
@@ -837,6 +839,7 @@ def run_hop3_deploy(
     acme_email: str | None = None,
     command_prefix: list[str] | None = None,
     cwd: Path | str | None = None,
+    on_output: Callable[[str], None] | None = None,
     diagnostics: DiagnosticCollector | None = None,
 ) -> tuple[bool, float]:
     """Run hop3-deploy-server via subprocess.
@@ -860,6 +863,9 @@ def run_hop3_deploy(
         command_prefix: Prepended to the command (e.g. ["uv", "run"]) so a caller
             deploying from a source checkout can invoke the deployer via uv
         cwd: Working directory for the deploy subprocess (e.g. a cloned repo)
+        on_output: Called for each output line (in addition to printing), so a
+            caller can capture the deploy transcript (e.g. the cloud path's
+            DeploymentResult.log_output)
         diagnostics: Optional diagnostics collector
 
     Returns:
@@ -896,10 +902,15 @@ def run_hop3_deploy(
     # while still capturing the full log for the diagnostics failure
     # report. A 4-hour timeout is generous but bounded — the process
     # group gets killed on timeout so no orphaned nix-build / docker.
+    def _emit(line: str) -> None:
+        print(line, flush=True)
+        if on_output is not None:
+            on_output(line)
+
     try:
         result = run_streaming(
             cmd,
-            on_output=lambda line: print(line, flush=True),
+            on_output=_emit,
             timeout=4 * 3600,
             cwd=cwd,
         )
