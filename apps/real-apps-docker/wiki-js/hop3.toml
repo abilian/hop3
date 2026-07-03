@@ -17,13 +17,14 @@ type = "postgres"
 WIKI_ADMIN_EMAIL = "admin@example.com"
 
 [healthcheck]
-path = "/healthz"
+path = "/"
 
 [test]
 priority = "P1"
 tier = "medium"
 
 [[test.validations]]
-path = "/healthz"
+path = "/"
 status = 200
-contains = '{"ok":true}'
+# Fresh wiki-js serves its setup wizard on every route; match the app name.
+contains = "Wiki.js"
