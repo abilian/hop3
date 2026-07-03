@@ -58,11 +58,23 @@ def provision_server(
         msg = "--server-id (or HETZNER_SERVER_ID) is required for --provider hetzner"
         raise ConfigurationError(msg)
 
-    manager = HetznerManager(config, verbose=verbose, console=console or Console())
+    console = console or Console()
+    manager = HetznerManager(config, verbose=verbose, console=console)
+
+    # Provisioning is a multi-minute OS rebuild + SSH wait; announce each phase
+    # unconditionally (not gated on --verbose) so the console never looks hung —
+    # a silent `run --provider` reads as a frozen command, not "reinstalling".
+    console.print(
+        f"\n[bold]Provisioning a fresh {provider} server[/] — rebuilding server "
+        f"{config.server_id} to image '{config.image or 'default'}'. "
+        "This takes a few minutes (OS reinstall + SSH)…"
+    )
     # rebuild_server re-injects the resolved SSH key (raises loud if unresolvable)
     # and resets the host key; wait_for_ssh_ready updates known_hosts.
     info = manager.rebuild_server(image=config.image, timeout=600)
+    console.print(f"  OS rebuilt at {info.ipv4}; waiting for SSH…")
     if not manager.wait_for_ssh_ready(timeout=300):
         msg = f"SSH never came up on the rebuilt server {info.ipv4} within 5 minutes"
         raise ServiceStartError(msg)
+    console.print(f"  [green]✓[/] Server ready at {info.ipv4}; deploying Hop3…")
     return info.ipv4
