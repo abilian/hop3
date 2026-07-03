@@ -53,7 +53,8 @@ class TestParseFeatures:
 
     def test_postgresql_long_spelling_also_baseline(self):
         # The cloud path passes "postgresql" (long spelling); accept it too, or a
-        # `hop3-test cloud` deploy fails on "Unknown --with feature: postgresql".
+        # `hop3-test run --provider hetzner` deploy fails on "Unknown --with
+        # feature: postgresql".
         assert parse_features("postgresql") == set()
         assert parse_features("docker,mysql,postgresql") == {"docker", "mysql"}
 

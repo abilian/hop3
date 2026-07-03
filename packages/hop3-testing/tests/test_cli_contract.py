@@ -21,7 +21,6 @@ from click.testing import CliRunner
 from hop3_testing.cli import cli
 from hop3_testing.cli.commands import (
     list_tests,
-    matrix_test,
     register_commands,
     system_test,
     test as testmod,
@@ -37,16 +36,14 @@ def _flags(command: click.Command) -> set[str]:
 def test_registered_subcommands_present():
     group = click.Group("hop3-test")
     register_commands(group)
-    # `run`/`matrix` are canonical (ADR 052 D9); `system`/`cloud` stay as aliases.
-    for name in ("run", "system", "list", "matrix", "cloud", "why"):
+    # `run` is canonical; `system` stays a deprecated alias. The image sweep
+    # folded into `run --images` (ADR 052 D9) — no separate matrix/cloud command.
+    for name in ("run", "system", "list", "why"):
         assert name in group.commands, f"hop3-test lost the '{name}' subcommand"
+    for gone in ("matrix", "cloud"):
+        assert gone not in group.commands, f"'{gone}' should be folded into run"
     # Silence unused-import linters — these are the command objects under test.
-    assert {system_test.name, matrix_test.name, list_tests.name, why_cmd.name} == {
-        "run",
-        "matrix",
-        "list",
-        "why",
-    }
+    assert {system_test.name, list_tests.name, why_cmd.name} == {"run", "list", "why"}
 
 
 def test_system_is_an_alias_of_run():
@@ -55,11 +52,10 @@ def test_system_is_an_alias_of_run():
     assert group.commands["system"] is group.commands["run"]  # same command object
 
 
-def test_cloud_is_an_alias_of_matrix():
-    group = click.Group("hop3-test")
-    register_commands(group)
-    # ADR 052 D9: `cloud` stays registered as a deprecated alias of `matrix`.
-    assert group.commands["cloud"] is group.commands["matrix"]
+def test_run_provides_the_image_sweep_surface():
+    # The former `matrix` flags now live on `run` (ADR 052 D9).
+    for flag in ("--images", "--list-images", "--provider", "--image"):
+        assert flag in _flags(system_test), f"`run` lost {flag} after the matrix fold"
 
 
 def test_system_accepts_the_flags_the_testlab_passes():

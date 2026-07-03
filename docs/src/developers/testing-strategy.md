@@ -31,7 +31,7 @@ This document describes both approaches, their purposes, and how to use them eff
 │  │(b_integr./) │            │  └─────────────────────────────────┘  │
 │  ├─────────────┤            │                                       │
 │  │   Unit      │ Fast       │  ┌─────────────────────────────────┐  │
-│  │  (a_unit/)  │            │  │  hop3-test matrix               │  │
+│  │  (a_unit/)  │            │  │  hop3-test run --provider       │  │
 │  └─────────────┘            │  │  - Real cloud servers (Hetzner) │  │
 │                             │  │  - Single or multi-distro       │  │
 │                             │  │  - Reset / deploy / test phases │  │
@@ -756,22 +756,22 @@ def test_non_admin_cannot_create_users():
 
 ## Part 9: Cloud Testing
 
-For comprehensive E2E testing on real cloud infrastructure, the `hop3-test matrix` command provisions and tests Hop3 on cloud servers. Hetzner Cloud is the default (and currently only) provider; it covers both single-image and multi-distribution runs. Each image is a full `hop3-test run --provider hetzner`, so `matrix` takes the same deploy lexicon as `run` (positional app names, `--from`, `--branch`, `--with`).
+For comprehensive E2E testing on real cloud infrastructure, `hop3-test run --provider hetzner` provisions and tests Hop3 on cloud servers. Hetzner Cloud is the default (and currently only) provider; it covers both single-image and multi-distribution runs. Each image is a full `hop3-test run --provider hetzner`, so a cloud run takes the same deploy lexicon as any other `run` (positional app names, `--from`, `--branch`, `--with`).
 
 ### Commands
 
 ```bash
 # Single distribution test
-hop3-test matrix --image ubuntu-24.04 apps/test-apps-procfile
+hop3-test run --provider hetzner --image ubuntu-24.04 apps/test-apps-procfile
 
 # Multiple distributions
-hop3-test matrix --images ubuntu-24.04,debian-13
+hop3-test run --provider hetzner --images ubuntu-24.04,debian-13
 
 # All recommended distros
-hop3-test matrix --images all
+hop3-test run --provider hetzner --images all
 
 # List available images
-hop3-test matrix --list-images
+hop3-test run --list-images
 
 # Test against an existing server (no rebuild, no deploy)
 hop3-test run --host server.example.com --reuse
@@ -811,7 +811,7 @@ The Hetzner server (`HETZNER_SERVER_ID`, a dedicated throwaway box) and API toke
 export HETZNER_API_TOKEN=your_token_here
 
 # Run tests
-hop3-test matrix --image ubuntu-24.04
+hop3-test run --provider hetzner --image ubuntu-24.04
 ```
 
 ### How it works

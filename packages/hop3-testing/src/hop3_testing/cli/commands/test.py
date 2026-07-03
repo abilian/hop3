@@ -131,6 +131,52 @@ def _lookup_test(
     return None, f"Test not found: {name}"
 
 
+def _run_image_sweep(
+    ctx: click.Context,
+    *,
+    images: str,
+    app_names: tuple[str, ...],
+    source: str,
+    branch: str,
+    fail_fast: bool,
+    features: tuple[str, ...],
+    verbose: bool,
+) -> None:
+    """Sweep a matrix of cloud OS images (ADR 052 D9, formerly the `matrix` cmd).
+
+    Each image is a full `run --provider hetzner --image X` (provision → deploy →
+    test → persist to the shared store), run serially and aggregated. Exits 1 if
+    any image fails.
+    """
+    from hop3_testing.system_tests.multi_distro import (  # noqa: PLC0415
+        HETZNER_IMAGES,
+        run_multi_distro_tests,
+    )
+
+    if images == "all":
+        image_list = [img[0] for img in HETZNER_IMAGES]
+    else:
+        image_list = [i.strip() for i in images.split(",") if i.strip()]
+
+    # --with adds EXTRA features; the apps' declared addons are auto-provisioned
+    # by each per-image `run`. Pass each as its own --with (the `run` grammar).
+    extra_args: list[str] = []
+    for feat in features:
+        extra_args += ["--with", feat]
+
+    results = run_multi_distro_tests(
+        images=image_list,
+        app_names=app_names or ("apps/test-apps-procfile",),
+        source=source,
+        branch=branch,
+        stop_on_failure=fail_fast,
+        verbose=verbose,
+        extra_args=extra_args or None,
+    )
+    if any(not r.success for r in results):
+        ctx.exit(1)
+
+
 # `run` is the canonical name (ADR 052 D9): deploy to one target and run the
 # catalog. `system` stays registered as an alias (see register_commands). The
 # function keeps its historical name.
@@ -195,6 +241,15 @@ def _lookup_test(
     default=None,
     help="OS image for --provider (e.g. ubuntu-24.04)",
 )
+# --images sweeps a matrix of cloud OS images (ADR 052 D9): each image is a full
+# `run --provider hetzner --image X`. Replaces the former `matrix`/`cloud` command.
+@click.option(
+    "--images",
+    default=None,
+    help="Sweep several cloud OS images: comma-separated or 'all' "
+    "(e.g. ubuntu-24.04,debian-13). Implies --provider hetzner.",
+)
+@click.option("--list-images", is_flag=True, help="List available cloud OS images")
 # Test options
 @click.option(
     "--mode",
@@ -240,6 +295,8 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
     provider: str | None,
     server_id: int | None,
     image: str | None,
+    images: str | None,
+    list_images: bool,
     mode: str,
     keep: bool,
     fail_fast: bool,
@@ -263,7 +320,10 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
       hop3-test run --host X                  # Remote (--host implies remote)
       hop3-test run --host X demos/demo03     # Specific app on a remote
       hop3-test run --reuse --host X          # Skip deploy
-      hop3-test run --provider hetzner --image ubuntu-24.04  # Provision a fresh cloud box
+      hop3-test run --provider hetzner --image ubuntu-24.04       # One fresh cloud box
+      hop3-test run --provider hetzner --images ubuntu-24.04,debian-13  # Sweep several
+      hop3-test run --provider hetzner --images all               # Sweep every image
+      hop3-test run --list-images                                 # Available cloud images
     """
     # ADR 052 D9/D2/D3 deprecated spellings (still work; notice guides migration).
     if ctx.info_name == "system":
@@ -280,10 +340,40 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
 
     # Accept both the repeatable form (--with nix --with redis) and the
     # comma-separated form (--with nix,redis), so one spelling works across
-    # run / matrix / deploy-server / install-server (ADR 052 D1).
+    # run / deploy-server / install-server (ADR 052 D1).
     features = tuple(
         part.strip() for feat in features for part in feat.split(",") if part.strip()
     )
+
+    # ADR 052 D9: --list-images / --images fold the former `matrix`/`cloud`
+    # command into `run`. --images sweeps a matrix of cloud OS images — each image
+    # is a full `run --provider hetzner --image X` (provision → deploy → test →
+    # persist), aggregated. Cardinality is a flag, not a separate command.
+    if list_images:
+        from hop3_testing.system_tests.multi_distro import (  # noqa: PLC0415
+            show_images,
+        )
+
+        show_images(provider or "hetzner")
+        return
+
+    if images:
+        if target_type == "docker":
+            click.echo(
+                "Error: --images sweeps cloud OS images; drop --docker.", err=True
+            )
+            sys.exit(1)
+        _run_image_sweep(
+            ctx,
+            images=images,
+            app_names=app_names,
+            source=deploy_from if deploy_from != "none" else "local",
+            branch=branch,
+            fail_fast=fail_fast,
+            features=features,
+            verbose=verbose,
+        )
+        return
 
     # ADR 052 7b.7: --provider rebuilds a fresh cloud server, then falls through
     # to the normal remote deploy+test (which writes the shared result store, so

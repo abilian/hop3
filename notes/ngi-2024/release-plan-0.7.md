@@ -7,9 +7,9 @@
 
 ## Goals
 
-0.7 is the final NGI deliverable release. Every milestone from the project plan (#2024-04-365) is either complete, scheduled into the 0.7 cut, or carried into a 0.7.x point release with a documented, NGI-agreed disposition. The 0.5 cycle made the platform operable; 0.6 published the documentation and design record; 0.7 (this week) closes the remaining subsystem features, and the 0.7.x series finishes the deliverables that have a genuine longer tail — quantitative benchmarks + the paper (M5.3), the Nix runtime 1.0 cut (M2.3), production-traffic app validation (M4), and the external security review (M3.8). None of those four blocks the 0.7 tag; together with the 0.7 cut they complete the NGI commitment.
+0.7 is the final NGI deliverable release. Every milestone from the project plan (#2024-04-365) is either complete, scheduled into the 0.7 cut, or carried into a 0.7.x point release with a documented, NGI-agreed disposition. The 0.5 cycle made the platform operable; 0.6 published the documentation and design record; 0.7 (this week) closes the remaining subsystem features, and the 0.7.x series finishes the deliverables that have a longer tail — quantitative benchmarks + the paper (M5.3), the Nix runtime 1.0 cut (M2.3), production-traffic app validation (M4), and the external security review (M3.8). None of those four blocks the 0.7 tag; together with the 0.7 cut they complete the NGI commitment.
 
-This plan deliberately does not pretend ~40 person-days of remaining work fit into the cut week. It separates what ships now from what ships in the following weeks, so the NGI reviewers see an honest, sequenced completion rather than a slip.
+This plan deliberately does not pretend ~40 person-days of remaining work fit into the cut week. It separates what ships now from what ships in the following weeks, so the NGI reviewers see a realistic, sequenced completion rather than a slip.
 
 ## Scope split
 
@@ -215,7 +215,7 @@ Valuable but not NGI commitments: the agent model (ADR 017), SSO / identity mana
 | Benchmarks reveal Hop3 is slower than a baseline | Report accurately; the paper's contribution is the architecture and reproducibility story, not raw speed |
 | External review surfaces issues late | The internal rounds before engagement reduce this; address findings in 0.7.x |
 | Production deploys uncover blocker bugs | Triage: fix critical, defer the rest with notes |
-| Reproducibility claims questioned at review | Pin nixpkgs in 0.7 (removes the worst gap); ADR 008 already documents the tiers honestly; hermetic work + CI gate land in 0.7.x |
+| Reproducibility claims questioned at review | Pin nixpkgs in 0.7 (removes the worst gap); ADR 008 already documents the tiers accurately; hermetic work + CI gate land in 0.7.x |
 
 ## Definition of Done — 0.7 (the cut)
 

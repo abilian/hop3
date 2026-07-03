@@ -3,9 +3,9 @@
 
 """Module entry point so `python -m hop3_testing.cli` works (PATH-independent).
 
-The matrix sweep spawns one `python -m hop3_testing.cli run --provider hetzner
---image X` per image, using the same interpreter rather than relying on the
-`hop3-test` console script being on PATH.
+The image sweep (`run --images`) spawns one `python -m hop3_testing.cli run
+--provider hetzner --image X` per image, using the same interpreter rather than
+relying on the `hop3-test` console script being on PATH.
 """
 
 from __future__ import annotations
