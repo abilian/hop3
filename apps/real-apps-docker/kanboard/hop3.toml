@@ -25,5 +25,7 @@ tier = "medium"
 
 [[test.validations]]
 path = "/"
-status = 200
+# Kanboard's `/` 302-redirects to the board/login (same as the native/nix
+# variants); assert the redirect and let the framework follow it for `contains`.
+status = 302
 contains = "Kanboard"
