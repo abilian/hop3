@@ -347,11 +347,16 @@ class DeploymentTestRunner:
         except DeployTimeoutError as e:
             # Hung deploy = infra. Never satisfies a negative test. (Subclass of
             # DeploymentError, so this except MUST precede the base one below.)
-            deploy_logs = session.last_deploy_error or str(e)
-            return deploy_logs, f"Deploy failed: {deploy_logs}", True
+            # Persist the FULL transcript (1st return → bundle/DB); the console
+            # message (2nd return) keeps the truncated head+tail. Otherwise the
+            # root error is lost whenever it isn't in the last 2000 chars.
+            shown = session.last_deploy_error or str(e)
+            full = session.last_deploy_output or shown
+            return full, f"Deploy failed: {shown}", True
         except DeploymentError as e:
-            deploy_logs = session.last_deploy_error or str(e)
-            return deploy_logs, f"Deploy failed: {deploy_logs}", False
+            shown = session.last_deploy_error or str(e)
+            full = session.last_deploy_output or shown
+            return full, f"Deploy failed: {shown}", False
 
         deploy_duration = time.time() - start_time
         # Keep the FULL deploy output (always), prefixed with the timing summary.
@@ -469,7 +474,7 @@ class DeploymentTestRunner:
         # bundle to disk even when the runtime classifier says "ok" — a check.py
         # / HTTP-`contains` failure serves fine yet still needs a replayable
         # bundle for `hop3-test why`.
-        return collect_diagnostic_bundle(
+        bundle = collect_diagnostic_bundle(
             self.target,
             session.app_name,
             deploy_logs=deploy_logs,
@@ -477,6 +482,12 @@ class DeploymentTestRunner:
             target_kind=_target_kind(self.target),
             force_persist=True,
         )
+        # Point the developer at the durable copy NOW, at the failure. The app
+        # is torn down next (_safe_cleanup), so the deploy transcript's own
+        # `hop3 app logs --app <app> --build` pointer is already dead here — the
+        # bundle is where every section (build, deploy, journal, nginx, …) lives.
+        self.console.info(f"Full logs recorded → {bundle.why}")
+        return bundle
 
     def _safe_cleanup(self, test: TestDefinition, session: DeploymentSession) -> None:
         """Run cleanup but swallow any error.

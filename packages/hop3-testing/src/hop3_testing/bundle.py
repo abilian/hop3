@@ -127,6 +127,20 @@ class Bundle:
     probe: ProxyProbe | None = None
     artifact_dir: Path | None = None
 
+    @property
+    def why(self) -> str:
+        """The `hop3-test why` command that replays this bundle's most useful
+        section.
+
+        This is the test-context replacement for the server's own
+        `hop3 app logs --app <app> --build` pointer: under `hop3-test` the app
+        is destroyed right after the failure, so that pointer is dead — but the
+        bundle is durable (every section is recorded under
+        ``~/.hop3/test-runs/<run-id>/``).
+        """
+        section = _SECTION_HINT.get(self.classifier, "app")
+        return f"hop3-test why {self.run_id} --section {section}"
+
     def manifest(self) -> dict:
         return {
             "schema_version": 1,
