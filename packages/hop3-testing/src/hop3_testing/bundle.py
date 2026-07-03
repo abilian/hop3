@@ -146,7 +146,14 @@ _PROXY_PASS_RE = re.compile(r"proxy_pass\s+https?://[\d.]+:(\d+)")
 _UPSTREAM_RE = re.compile(
     r"upstream\s+\S+\s*\{[^}]*?server\s+127\.0\.0\.1:(\d+)", re.DOTALL
 )
-_LISTEN_LINE_RE = re.compile(r"127\.0\.0\.1:(\d+)")
+# A listener nginx's `proxy_pass http://127.0.0.1:PORT` can actually reach — not
+# just a literal 127.0.0.1 bind. gunicorn/uwsgi default to `--bind 0.0.0.0:$PORT`
+# (all interfaces, loopback included), so matching only "127.0.0.1:PORT" made the
+# app's own port invisible and produced a FALSE proxy-502 for a healthy app that
+# curl(127.0.0.1:PORT) reached fine. Accept the wildcard binds too (0.0.0.0, *,
+# [::], ::). The peer column (`0.0.0.0:*`) can't false-match: its port is `*`,
+# not digits.
+_LISTEN_LINE_RE = re.compile(r"(?:127\.0\.0\.1|0\.0\.0\.0|\*|\[::\]|::):(\d+)")
 _SS_OWNER_RE = re.compile(r'users:\(\("([^"]+)"')
 _NETSTAT_OWNER_RE = re.compile(r"LISTEN\s+\d+/(\S+)")
 
@@ -189,7 +196,12 @@ def _decode_proc_net_tcp(text: str) -> list[int]:
 
 
 def parse_listen_ports(text: str) -> tuple[tuple[int, ...], bool, dict[int, str]]:
-    """Parse 127.0.0.1 LISTEN ports from ss / netstat / /proc/net/tcp output.
+    """Parse loopback-reachable LISTEN ports from ss / netstat / /proc/net/tcp.
+
+    "Loopback-reachable" = bound to 127.0.0.1 OR a wildcard (0.0.0.0 / * / [::] /
+    ::), since a connect to 127.0.0.1:PORT reaches all of those. Matching only a
+    literal 127.0.0.1 bind missed apps that listen on 0.0.0.0:$PORT (the gunicorn
+    default) and mislabelled them proxy-502.
 
     Returns ``(ports, table_available, owner_by_port)``. ``table_available`` is
     False when nothing parseable was produced (no tool present + non-root) — the

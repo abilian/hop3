@@ -115,6 +115,62 @@ def test_parse_listen_unavailable() -> None:
     assert available is False
 
 
+def test_parse_listen_ss_wildcard_bind() -> None:
+    # gunicorn's default `--bind 0.0.0.0:$PORT` shows as a 0.0.0.0 listen. A
+    # `proxy_pass http://127.0.0.1:55767` reaches it, so it must be captured —
+    # missing it produced the false proxy-502 for a healthy app.
+    out = (
+        "State  Recv-Q Send-Q Local Address:Port Peer Address:Port Process\n"
+        'LISTEN 0      511    0.0.0.0:55767      0.0.0.0:*  users:(("gunicorn",pid=40432,fd=5))\n'
+    )
+    ports, available, owners = parse_listen_ports(out)
+    assert ports == (55767,)
+    assert available is True
+    assert owners[55767] == "gunicorn"
+
+
+def test_parse_listen_netstat_wildcard_and_ipv6() -> None:
+    out = (
+        "Proto Recv-Q Send-Q Local Address  Foreign Address State  PID/Program\n"
+        "tcp   0      0      0.0.0.0:55767  0.0.0.0:*       LISTEN 40432/gunicorn\n"
+        "tcp6  0      0      :::8080        :::*            LISTEN 55/python\n"
+    )
+    ports, _available, owners = parse_listen_ports(out)
+    assert ports == (8080, 55767)
+    assert owners[55767] == "gunicorn"
+
+
+def test_parse_listen_peer_wildcard_port_not_matched() -> None:
+    # The peer column `0.0.0.0:*` has `*` for a port, not digits — must not be
+    # mistaken for a listen port.
+    out = (
+        "State  Recv-Q Send-Q Local Address:Port Peer Address:Port\n"
+        "LISTEN 0      511    0.0.0.0:55767      0.0.0.0:*\n"
+    )
+    ports, _, _ = parse_listen_ports(out)
+    assert ports == (55767,)
+
+
+def test_classify_wildcard_bound_app_is_not_proxy_502() -> None:
+    # End-to-end shape from the report: the app is bound 0.0.0.0:55767 (gunicorn
+    # default) and nginx proxies to :55767. Parse the real listen line, then
+    # classify — with the wildcard bind now captured, it's healthy, NOT proxy-502.
+    # (Revert the regex fix and parse yields (), _proxy_mismatch fires, this fails.)
+    ss = (
+        "State Recv-Q Send-Q Local Address:Port Peer Address:Port\n"
+        "LISTEN 0 511 0.0.0.0:55767 0.0.0.0:*\n"
+    )
+    listen_ports, available, _ = parse_listen_ports(ss)
+    probe = _probe(
+        proxy_pass_port=55767,
+        expected_port=55767,
+        listen_table_available=available,
+        listen_ports=listen_ports,
+        curl_status=200,
+    )
+    assert classify({}, probe, kind="uwsgi", http_front=None, hint=None) != "proxy-502"
+
+
 # --------------------------------------------------------------------------- #
 # classify — precedence
 # --------------------------------------------------------------------------- #
