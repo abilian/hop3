@@ -13,8 +13,9 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
+from hop3.config import APP_ROOT
 from hop3.core.protocols import BuildArtifact, BuildContext, RuntimeConfig
-from hop3.lib import Abort
+from hop3.lib import Abort, log
 
 # See docker/builder.py for the rationale — single generous timeout + a
 # silent-time watchdog, no per-app tier declarations.
@@ -339,11 +340,44 @@ class NixBuilder:
         )
         result = self._run_nix_command(cmd, cwd=nix_file.parent)
 
+        # Persist the full nix-build output (success OR failure) so a failed nix
+        # build (e.g. a dangling store reference) is retrievable via `hop3 app
+        # logs --build` and the test diagnostic bundle, instead of vanishing with
+        # the deploy stream. NixBuilder previously wrote no build.log at all.
+        self._save_build_log(
+            f"{result.stdout}\n{result.stderr}".strip(),
+            success=result.returncode == 0,
+        )
+
         if result.returncode != 0:
             msg = f"nix-build failed: {result.stderr}"
             raise RuntimeError(msg)
 
         return result.stdout.strip()
+
+    def _save_build_log(self, output: str, *, success: bool) -> None:
+        """Write the nix-build output to APP_ROOT/<app>/log/build.log.
+
+        Same sink every reader uses (`hop3 app logs --build`, the diagnostic
+        bundle); best-effort, never fatal.
+        """
+        try:
+            app_log_dir = APP_ROOT / self.context.app_name / "log"
+            app_log_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            status = "SUCCESS" if success else "FAILED"
+            content = (
+                "=== Nix Build Log ===\n"
+                f"Timestamp: {timestamp}\n"
+                f"App: {self.context.app_name}\n"
+                f"Status: {status}\n"
+                "Builder: nix\n\n"
+                f"=== BUILD OUTPUT ===\n{output}\n"
+            )
+            (app_log_dir / "build.log").write_text(content)
+            log(f"Build log saved to: {app_log_dir / 'build.log'}", level=2)
+        except Exception as e:  # logging must never break a build
+            log(f"Could not save nix build log: {e}", level=1, fg="yellow")
 
     def _run_nix_command(
         self,
@@ -372,8 +406,6 @@ class NixBuilder:
         else:
             # No profile found, try running directly (might work if in PATH)
             shell_cmd = cmd
-
-        from hop3.lib import log  # noqa: PLC0415
 
         # Stream stderr for real-time build progress while capturing stdout
         proc = subprocess.Popen(
