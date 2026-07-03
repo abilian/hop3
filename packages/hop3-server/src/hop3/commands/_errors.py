@@ -31,6 +31,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from hop3.lib import Abort
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator
 
@@ -88,6 +90,21 @@ class ErrorContext:
 
         # Default formatting by exception type
         match exc:
+            case Abort() as abort:
+                # An Abort already logged its full message when constructed
+                # (Abort.__init__ → log). During a streaming deploy that detail
+                # was sent live to the client, so re-appending it here would
+                # print the same block twice (builder's `> ...` line, then the
+                # wrapped `ERROR: ... failed: ...`). Emit a concise signal when a
+                # stream is active; otherwise the streamed copy never reached the
+                # client, so carry the detail in the wrapped message.
+                from hop3.server.streaming import (  # noqa: PLC0415
+                    get_current_stream,
+                )
+
+                if get_current_stream() is not None:
+                    return f"{self.operation} failed"
+                return f"{self.operation} failed: {abort.msg}"
             case subprocess.CalledProcessError():
                 return _format_subprocess_error(exc)
             case FileNotFoundError(filename=filename) if filename:

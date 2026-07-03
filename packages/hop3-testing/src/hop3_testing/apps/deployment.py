@@ -62,6 +62,25 @@ def _format_expected(expected: int | Iterable[int]) -> str:
     return ", ".join(str(c) for c in codes[:-1]) + f", or {codes[-1]}"
 
 
+def _extract_deploy_root_cause(output: str) -> str:
+    """Concise, actionable tail of a failed deploy.
+
+    Drops the high-volume "step succeeded" noise (DB migrations, per-file build
+    progress — lines ending in " OK") that otherwise buries the real error under
+    hundreds of lines, and keeps the last handful that remain. The full
+    transcript is preserved separately (``_last_deploy_output`` → the diagnostic
+    bundle, ``hop3-test why <run-id> --section deploy``), so nothing is lost —
+    this is only what the console shows.
+    """
+    kept = [
+        stripped.lstrip("> ")
+        for line in output.splitlines()
+        if (stripped := line.strip()) and not stripped.endswith(" OK")
+    ]
+    tail = kept[-12:] if kept else ["(no output captured)"]
+    return "\n".join(tail)[:1200]
+
+
 class DeploymentSession:
     """Manages the deployment and testing of a test application.
 
@@ -232,47 +251,15 @@ class DeploymentSession:
     def _build_deploy_error_message(
         self, returncode: int, stdout: str, stderr: str | None = None
     ) -> str:
-        """Build detailed error message from deploy failure.
+        """Concise, root-cause-focused deploy error for the console.
 
-        Shows the TAIL of long output (the error is at the end, not the
-        beginning). For Docker builds, also extracts the first few lines
-        (which have the hop3 context) and the last lines (the actual error).
+        The full transcript is kept elsewhere (``_last_deploy_output`` → the
+        diagnostic bundle); here we surface only the actionable tail so the
+        error isn't buried under hundreds of build/migration log lines (and
+        isn't a multi-KB dump the reporter then repeats).
         """
-        error_parts = [f"Exit code: {returncode}"]
-        full_stdout = stdout.strip()
-
-        if full_stdout:
-            limit = 3000
-            if len(full_stdout) <= limit:
-                error_parts.append(f"stdout: {full_stdout}")
-            else:
-                # Show head (hop3 context) + tail (actual error)
-                lines = full_stdout.split("\n")
-                # First 5 lines for context, last lines for the error
-                head = "\n".join(lines[:5])
-                tail = full_stdout[-2000:]
-                error_parts.append(
-                    f"stdout (head): {head}\n"
-                    f"... ({len(full_stdout)} chars total, showing last 2000) ...\n"
-                    f"stdout (tail): {tail}"
-                )
-
-        if stderr:
-            full_stderr = stderr.strip()
-            if full_stderr:
-                # Filter out cryptography warnings
-                stderr_lines = [
-                    line
-                    for line in full_stderr.split("\n")
-                    if "CryptographyDeprecationWarning" not in line
-                    and "TripleDES" not in line
-                    and line.strip()
-                ]
-                if stderr_lines:
-                    stderr_preview = "\n".join(stderr_lines)[-2000:]
-                    error_parts.append(f"stderr: {stderr_preview}")
-
-        return " | ".join(error_parts)
+        source = stdout.strip() or (stderr or "").strip()
+        return f"Exit code: {returncode} | {_extract_deploy_root_cause(source)}"
 
     def _deploy_via_cli(self) -> None:
         """Deploy via hop3 CLI subprocess.
@@ -333,7 +320,10 @@ class DeploymentSession:
             self._last_deploy_error = self._build_deploy_error_message(
                 returncode, stdout
             )
-            self.console.error(f"Deploy failed: {self._last_deploy_error}")
+            # No console.error here: the streamed progress already showed the
+            # failure line live, and the runner/reporter renders the result
+            # once (report_test + the "Full logs recorded → hop3-test why …"
+            # pointer). Printing it here too is the double-print we saw.
             raise DeploymentError(self._last_deploy_error)
 
         # Extract the app's direct port from deploy output.

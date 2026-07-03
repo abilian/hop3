@@ -14,6 +14,7 @@ from typing import Any, cast
 
 from hop3_testing.bundle import (
     SECTION_NAMES,
+    Bundle,
     ProxyProbe,
     build_headline,
     classify,
@@ -22,6 +23,30 @@ from hop3_testing.bundle import (
     parse_proxy_pass_port,
 )
 from hop3_testing.targets.base import HttpResponse
+
+
+def _bundle(classifier: str, run_id: str = "rid") -> Bundle:
+    return Bundle(
+        run_id=run_id,
+        app="discourse",
+        target_kind="ssh",
+        classifier=classifier,  # type: ignore[arg-type]
+        headline="(unused)",
+    )
+
+
+def test_bundle_why_points_at_build_section_for_build_failure():
+    # A build failure's durable log lives in the `build` section; the pointer
+    # must name it (the app is destroyed, so `hop3 app logs` is dead here).
+    assert (
+        _bundle("build-failure", run_id="rid-123").why
+        == "hop3-test why rid-123 --section build"
+    )
+
+
+def test_bundle_why_falls_back_to_app_section():
+    # Unknown/ok classifiers default to the `app` section, never crash.
+    assert _bundle("ok").why == "hop3-test why rid --section app"
 
 
 def _probe(**overrides) -> ProxyProbe:
