@@ -540,9 +540,15 @@ class DeploymentSession:
                     result["details"]["attempts"] = attempt + 1
 
                     if _status_match(status_code, expected_status):
-                        # Fetch body for contains checks
+                        # Fetch body for contains checks. Follow redirects (-L):
+                        # a `contains` assertion is about CONTENT, which for an
+                        # app whose entry point 302/307-redirects (kanboard→board,
+                        # easy-appointments→installer) lives at the redirect
+                        # target — the 3xx response itself has an empty body. The
+                        # STATUS check above is NOT followed, so a validation can
+                        # still assert the immediate redirect (`status = 302`).
                         _, body, _ = self.target.exec_run(
-                            f"curl -s --max-time 3 '{url}' | head -c 4096"
+                            f"curl -s -L --max-redirs 5 --max-time 5 '{url}' | head -c 4096"
                         )
                         result["details"]["body_preview"] = body.strip() if body else ""
                         result["passed"] = True
@@ -556,9 +562,10 @@ class DeploymentSession:
                         time.sleep(1)
                         continue
 
-                    # Get body preview for non-matching status
+                    # Get body preview for non-matching status (follow redirects
+                    # so the diagnostic shows the real page, not an empty 3xx).
                     _, body, _ = self.target.exec_run(
-                        f"curl -s --max-time 3 '{url}' | head -c 4096"
+                        f"curl -s -L --max-redirs 5 --max-time 5 '{url}' | head -c 4096"
                     )
                     body_text = body.strip() if body else ""
                     result["details"]["body_preview"] = body_text

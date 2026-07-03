@@ -341,19 +341,84 @@ class Certificate:
         if e.stdout:
             details.append(f"stdout: {e.stdout}")
         certbot_log = certbot_root / "logs" / "letsencrypt.log"
+        log_text = ""
         if certbot_log.exists():
             with suppress(Exception):
-                tail = certbot_log.read_text().strip().split("\n")[-20:]
+                log_text = certbot_log.read_text()
+                tail = log_text.strip().split("\n")[-20:]
                 details.append(f"certbot log ({certbot_log}):\n" + "\n".join(tail))
+        haystack = f"{e.stderr or ''}\n{e.stdout or ''}\n{log_text}"
         return (
             "Certificate generation failed:\n"
             + "\n".join(details)
-            + "\n\nCommon causes:\n"
-            "  - Domain DNS not pointing to this server\n"
-            "  - Port 80 not accessible from the internet\n"
-            "  - Rate limit exceeded (https://letsencrypt.org/docs/rate-limits/)\n\n"
-            "To use a self-signed cert instead, set ACME_ENGINE=self-signed"
+            + "\n\n"
+            + _certbot_failure_hint(haystack)
+            + "\n\nTo use a self-signed cert instead, set ACME_ENGINE=self-signed"
         )
+
+
+# certbot fails at two layers whose fixes are opposite. Reaching Let's Encrypt's
+# API is an OUTBOUND TLS/egress problem on THIS server (the request fails before
+# any challenge). The challenge failing is INBOUND — Let's Encrypt can't reach
+# your domain (DNS / port 80). These markers, from certbot's own output, mean the
+# former: the client couldn't even talk to the ACME server. They are kept specific
+# (not bare "connection refused", which also appears in an inbound challenge
+# failure against your server) so we don't misclassify the two.
+_ACME_UNREACHABLE_MARKERS = (
+    "max retries exceeded",
+    "acme-v02.api.letsencrypt.org",
+    "acme-staging-v02.api.letsencrypt.org",
+    "unexpected_eof",
+    "ssleoferror",
+    "sslerror",
+    "failed to establish a new connection",
+    "newconnectionerror",
+    "get_directory",
+    "temporary failure in name resolution",
+)
+_ACME_RATE_LIMIT_MARKERS = (
+    "rate limit",
+    "too many certificates",
+    "too many failed authorizations",
+)
+
+
+def _certbot_failure_hint(output: str) -> str:
+    """Cause-specific certbot guidance keyed off certbot's own output.
+
+    A single generic cause list ("check your DNS / port 80") sent operators to
+    debug their (correct) domain when the real failure was the server's OUTBOUND
+    path to Let's Encrypt — the call died before any ACME challenge, so DNS and
+    inbound :80 were irrelevant. Name the layer that actually failed so the
+    operator debugs the right side of the connection.
+    """
+    text = output.lower()
+    if any(m in text for m in _ACME_UNREACHABLE_MARKERS):
+        return (
+            "Cause: this server could not reach Let's Encrypt's API "
+            "(acme-v02.api.letsencrypt.org:443). The call failed BEFORE any ACME "
+            "challenge, so your domain's DNS and inbound port 80 are NOT the "
+            "problem — debug the server's OUTBOUND path to Let's Encrypt:\n"
+            "  - Egress firewall / security group blocking outbound 443 to Let's Encrypt\n"
+            "  - Broken IPv6 route (certbot may try LE over IPv6 and get an EOF) — "
+            "fix or disable IPv6 egress, then retry\n"
+            "  - MTU/PMTU blackhole dropping the TLS handshake (tunnels/VPNs)\n"
+            "  - An intercepting proxy/DPI resetting the handshake\n"
+            "  - A transient Let's Encrypt or network blip — retry"
+        )
+    if any(m in text for m in _ACME_RATE_LIMIT_MARKERS):
+        return (
+            "Cause: Let's Encrypt rate limit for this domain. Wait out the window, "
+            "or point ACME_SERVER at the staging environment while iterating. "
+            "See https://letsencrypt.org/docs/rate-limits/"
+        )
+    return (
+        "Common causes (Let's Encrypt could not reach your domain to validate the "
+        "challenge):\n"
+        "  - Domain DNS not pointing to this server\n"
+        "  - Port 80 not accessible from the internet\n"
+        "  - Rate limit exceeded (https://letsencrypt.org/docs/rate-limits/)"
+    )
 
 
 class CertEngine:
