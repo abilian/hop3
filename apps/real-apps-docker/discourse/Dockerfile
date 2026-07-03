@@ -76,8 +76,11 @@ RUN bundle config set --local deployment 'true' \
 # of running the multi-minute Ember/webpack compile inside the deploy health
 # window. SKIP_DB_AND_REDIS lets Discourse precompile without a live DB/Redis;
 # SECRET_KEY_BASE is a throwaway here (assets don't embed it — the runtime
-# script generates a real one).
-RUN SECRET_KEY_BASE=precompile_placeholder \
+# script generates a real one). It MUST be a valid long value (128 hex chars):
+# Discourse rejects a short/invalid placeholder and falls back to reading the
+# secret from Redis (global_setting.rb `safe_secret_key_base`), which isn't
+# running at build time → `Redis::CannotConnectError` aborts assets:precompile.
+RUN SECRET_KEY_BASE=deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef \
     SKIP_DB_AND_REDIS=1 \
     bundle exec rake assets:precompile \
     && chown -R discourse:discourse /home/discourse

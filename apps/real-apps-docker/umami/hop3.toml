@@ -26,4 +26,7 @@ tier = "medium"
 [[test.validations]]
 path = "/api/heartbeat"
 status = 200
-contains = '"ok":true'
+# umami v2.10.1's heartbeat returns an empty JSON object `{}` (200) as its
+# liveness signal — not the `{"ok":true}` older versions emitted. Assert the
+# observed response (a proxy 502 / error page would be HTML, not `{}`).
+contains = "{}"

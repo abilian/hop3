@@ -34,8 +34,18 @@ APP_ENV = "production"
 path = "/"
 
 [test]
-# Deferred, not advertised: Monica's production force-HTTPS middleware 301-redirects
-# every page to https with no clean opt-out, so it can't be verified over Hop3's
-# plain-HTTP healthcheck. Without this flag the loader auto-derives GET / -> 200 and
-# treats it as a must-pass app. See local-notes/stacks-and-apps/DEFERRED-APPS.md.
-expects-failure = true
+# Monica deploys and runs; its production force-HTTPS middleware redirects GET /
+# to https, so it can't be *content*-verified over Hop3's plain HTTP yet (that
+# needs HTTPS test support — see local-notes/stacks-and-apps/DEFERRED-APPS.md).
+# So we assert the redirect itself — the same pattern kanboard / invoice-ninja /
+# easy-appointments use — which proves the app is up and behaving as it does in
+# production, and keeps the deploy path (PHP/composer/npm/mysql/before-run) under
+# test. `status-in` accepts the redirect family rather than pinning one code.
+#
+# This replaces `expects-failure = true`, which mis-declared a clean deploy as a
+# rejection case: once the deploy started succeeding it flipped to a false FAIL
+# ("unexpected deploy success"). expects-failure is for apps that must be
+# REJECTED (apps/bad/**), not for apps that deploy but can't be HTTP-verified.
+[[test.validations]]
+path = "/"
+status-in = [301, 302, 307, 308]
