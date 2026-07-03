@@ -11,6 +11,7 @@ several OS images (no separate `matrix`/`cloud` command). These pin the WIRING
 
 from __future__ import annotations
 
+from io import StringIO
 from types import SimpleNamespace
 
 import hop3_testing.cli.commands.test as testmod
@@ -48,6 +49,37 @@ def test_provision_requires_server_id(monkeypatch):
     monkeypatch.delenv("HETZNER_SERVER_ID", raising=False)
     with pytest.raises(ConfigurationError, match="server-id"):
         provision_server(provider="hetzner", server_id=None)
+
+
+def test_provision_announces_progress_unconditionally(monkeypatch):
+    """`run --provider hetzner` OS-rebuilds for minutes; provisioning must print
+    each phase even without --verbose, so the console never looks hung."""
+    monkeypatch.setenv("HETZNER_API_TOKEN", "tok")
+
+    class _FakeManager:
+        def __init__(self, config, verbose=False, console=None):
+            pass
+
+        def rebuild_server(self, image=None, timeout=600):
+            return SimpleNamespace(ipv4="203.0.113.7")
+
+        def wait_for_ssh_ready(self, timeout=300):
+            return True
+
+    monkeypatch.setattr(
+        "hop3_testing.system_tests.provision.HetznerManager", _FakeManager
+    )
+
+    buf = StringIO()
+    console = Console(file=buf, force_terminal=False, width=100)
+    # verbose=False (the default) — progress must still show.
+    ip = provision_server(provider="hetzner", server_id=123, console=console)
+
+    out = buf.getvalue()
+    assert ip == "203.0.113.7"
+    assert "Provisioning a fresh hetzner server" in out
+    assert "203.0.113.7" in out
+    assert "Server ready" in out
 
 
 # --- run --provider wiring: provisions, then targets the new IP ------------

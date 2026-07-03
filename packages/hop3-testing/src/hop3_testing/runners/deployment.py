@@ -207,10 +207,13 @@ class DeploymentTestRunner:
             body = http_result.get("details", {}).get("body_preview", "")
             actual = http_result.get("details", {}).get("status_code", "?")
             if contains not in body:
+                # Show the whole checked body (not a 200-char stub): a `contains`
+                # miss is undiagnosable without seeing where the marker should be.
+                shown = body if len(body) <= 8000 else body[:8000] + "…[truncated]"
                 http_result["passed"] = False
                 http_result["message"] = (
-                    f"HTTP {actual} OK but body does not contain "
-                    f"'{contains}'. Got: {body[:200]}"
+                    f"HTTP {actual} OK but body does not contain '{contains}' "
+                    f"(checked {len(body)} chars of the response):\n{shown}"
                 )
 
         validation_results.append(
