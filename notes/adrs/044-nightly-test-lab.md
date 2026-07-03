@@ -6,7 +6,7 @@
 - **Related-ADRs**: 043 (unified-testing-architecture), 041 (privileged-operations-agent), 042 (cli-context-model), 034 (streaming-deployment-logs), 033 (docker-integration), 018 (cli-architecture)
 ## Context
 
-ADR 043 establishes a **nightly tier**: the full suite (real apps, demos, tutorials, platform e2e) run against real servers, producing an HTML report and finishing overnight. The machinery for *running* that suite already exists in `hop3-testing`: the per-run runner (`hop3-test run` — provision, deploy, test, persist), `HetznerManager` for provisioning, the `DeploymentTarget` ABC, the catalog scanner, the SQLAlchemy result models, `generate_html_report`, and the `hop3-test matrix` sweep that drives them across OS images.
+ADR 043 establishes a **nightly tier**: the full suite (real apps, demos, tutorials, platform e2e) run against real servers, producing an HTML report and finishing overnight. The machinery for *running* that suite already exists in `hop3-testing`: the per-run runner (`hop3-test run` — provision, deploy, test, persist), `HetznerManager` for provisioning, the `DeploymentTarget` ABC, the catalog scanner, the SQLAlchemy result models, `generate_html_report`, and the `hop3-test run --images` sweep that drives them across OS images.
 
 What is **missing** is the consumer that makes a nightly run actionable every morning: the result store is effectively write-only (no query API, single-file SQLite), the report is static and trend-blind, and there is no scheduler, no way to browse a failed test's full logs, no trend/flakiness view, and no way to trigger or re-run from a UI. ADR 043 also found that the most common deployment failure — a healthy app behind a 502, the "silent-502" class — is captured by no surface.
 
@@ -20,7 +20,7 @@ ADR 043 makes the nightly data *exist and be uniform* (the shared `collect_diagn
 
 1. **Morning status at a glance** — the whole suite's status (apps, docs/tutorials, demos, platform e2e): green/red, counts, duration, and the diff against the previous run (newly-failing / newly-fixed / still-failing).
 2. **All the logs for failures** — for any failed test, everything potentially useful: build, app/server, nginx access + error, the journal, the deploy transcript, the HTTP exchange, and the silent-502 proxy probe.
-3. **Runs on a Hop3 server, remote-controls Hetzner** — dogfooded on a Hop3 host; provisions and drives Hetzner targets as `hop3-test matrix` does today (other providers later).
+3. **Runs on a Hop3 server, remote-controls Hetzner** — dogfooded on a Hop3 host; provisions and drives Hetzner targets as `hop3-test run --provider hetzner` does today (other providers later).
 4. **Beautiful dashboard + trends** — history, per-app trend lines, flakiness, duration creep — not just a pass/fail dump.
 5. **Always under 6 hours** — the run must reliably finish overnight, which over time means scaling out to multiple targets.
 
@@ -121,7 +121,7 @@ Serial real deploys of the full catalog will not fit 6 h on one server, and the 
 hop3-testlab run --suite all --pool 4 --branch main   # provision 4 targets, shard, run, collect, report
 
 # A developer's manual run lands in the same dashboard:
-hop3-test matrix focalboard --from local              # mode=cli, tagged cli:<user>
+hop3-test run --provider hetzner focalboard --from local   # mode=cli, tagged cli:<user>
 
 # Morning: dashboard shows "3 regressions". Click focalboard → headline: proxy_pass :8000 but app
 #   LISTENing :8001 → nginx tab → "connect() failed (111) upstream 127.0.0.1:8000" → one-click "Re-run".

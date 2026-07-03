@@ -14,8 +14,8 @@ Quick reference for developers running tests.
 | **App tests (Docker)** | `make test-apps` |
 | **Lint & type check** | `make lint` |
 | **System tests (Docker)** | `hop3-test run --docker` |
-| **Cloud test (single distro)** | `hop3-test matrix --image ubuntu-24.04` |
-| **Cloud test (multi-distro)** | `hop3-test matrix --images ubuntu-24.04,debian-13` |
+| **Cloud test (single distro)** | `hop3-test run --provider hetzner --image ubuntu-24.04` |
+| **Cloud test (multi-distro)** | `hop3-test run --provider hetzner --images ubuntu-24.04,debian-13` |
 
 ## hop3-test CLI
 
@@ -136,22 +136,22 @@ Run E2E tests on real cloud infrastructure (Hetzner by default). Requires
 
 ```bash
 # List available images
-hop3-test matrix --list-images
+hop3-test run --list-images
 
 # Single distribution test
-hop3-test matrix --image ubuntu-24.04
+hop3-test run --provider hetzner --image ubuntu-24.04
 
 # Multi-distribution test
-hop3-test matrix --images ubuntu-24.04,debian-13,fedora-42
+hop3-test run --provider hetzner --images ubuntu-24.04,debian-13,fedora-42
 
 # All distributions
-hop3-test matrix --images all
+hop3-test run --provider hetzner --images all
 
 # Test specific app directories (positional, like `run`)
-hop3-test matrix apps/test-apps-procfile demos
+hop3-test run --provider hetzner apps/test-apps-procfile demos
 
 # Install source (default: local; --from pypi to install from PyPI)
-hop3-test matrix --from local
+hop3-test run --provider hetzner --from local --images all
 
 # Test against an existing server (no rebuild, no deploy)
 hop3-test run --host server.example.com --reuse
@@ -340,7 +340,7 @@ Legacy standalone `test.toml` files are still used by procfile-only test apps (`
 | `HOP3_TEST_HOST` | Remote target host when `--host` is omitted |
 | `HOP3_TEST_SSH_KEY` | SSH key for remote tests |
 | `HOP3_UNSAFE=true` | Disable auth in Docker tests |
-| `HETZNER_API_TOKEN` | Hetzner Cloud API token (for `hop3-test matrix`) |
+| `HETZNER_API_TOKEN` | Hetzner Cloud API token (for `hop3-test run --provider hetzner`) |
 
 ## Troubleshooting
 

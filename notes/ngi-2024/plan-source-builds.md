@@ -20,7 +20,7 @@ design and decision trail.
 - **Some builds are not hermetic.** The `python-venv` / `pnpm` / `composer` paths set `__noChroot = true` (network during build), and several templated apps float their language deps (e.g. unversioned `pip-packages`).
 - Two Definition-of-Done items below were **never completed** (`nix-build` on aarch64; the ADR 008 reproducibility-tier update), so the "DONE" banner applies to the *source-build conversion*, not to reproducibility.
 
-The honest baseline is **ADR 008's reproducibility-tiers table**, which names these gaps explicitly (it does not overclaim). The remaining levers — hermetic fixed-output dependency derivations, lock-pinned deps, and a reproducibility CI gate — are the **Nix-reproducibility workstream tracked in `release-plan-0.7.md` (M1/M2)**: pinning nixpkgs landed in the 0.7 cut, and the hermetic-build work is 0.7.x. Treat this file as the source-build decision trail; treat 0.7/0.7.x as where "full Nix philosophy / reproducible builds" is actually delivered.
+The accurate baseline is **ADR 008's reproducibility-tiers table**, which names these gaps explicitly (it does not overclaim). The remaining levers — hermetic fixed-output dependency derivations, lock-pinned deps, and a reproducibility CI gate — are the **Nix-reproducibility workstream tracked in `release-plan-0.7.md` (M1/M2)**: pinning nixpkgs landed in the 0.7 cut, and the hermetic-build work is 0.7.x. Treat this file as the source-build decision trail; treat 0.7/0.7.x as where "full Nix philosophy / reproducible builds" is actually delivered.
 
 ---
 

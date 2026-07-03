@@ -5,9 +5,10 @@
 """CLI for hop3-testing.
 
 Commands:
-- hop3-test run: Deploy Hop3 and run the catalog (``system`` is a deprecated alias)
+- hop3-test run: Deploy Hop3 and run the catalog (``system`` is a deprecated alias).
+  Cloud runs and the OS-image sweep are flags on `run`: ``--provider hetzner``,
+  ``--images ubuntu-24.04,debian-13`` (ADR 052 D9).
 - hop3-test list: List available tests (``--show NAME`` for one test's details)
-- hop3-test matrix: E2E on cloud infrastructure, a distro matrix (``cloud`` is a deprecated alias)
 - hop3-test why: Replay a saved diagnostic bundle for a failed run
 """
 

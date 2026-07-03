@@ -14,7 +14,7 @@ tags:
 
 Documentation rots faster than code, and tutorials rot fastest of all. A tutorial is a *promise*: "type these commands in this order and you'll get this result." The moment a flag changes, an output format shifts, or a default moves, the promise breaks — silently, because nothing executes a tutorial except a frustrated newcomer.
 
-Hop3's answer is **validoc**: tutorials are Markdown files whose code blocks are *executed and asserted* against a real Hop3 server. The document is the test. [ADR 043](/developers/adrs/043-unified-testing-architecture/) calls it a "genuine literate-test substrate," and it's one of Hop3's three test runners — the one that **verifies the docs match reality**.
+Hop3's answer is **validoc**: tutorials are Markdown files whose code blocks are *executed and asserted* against a real Hop3 server. The document is the test. [ADR 043](/developers/adrs/043-unified-testing-architecture/) calls it a "literate-test substrate," and it's one of Hop3's three test runners — the one that **verifies the docs match reality**.
 
 ## The idea: literate tests
 
