@@ -548,7 +548,7 @@ class DeploymentSession:
                         # STATUS check above is NOT followed, so a validation can
                         # still assert the immediate redirect (`status = 302`).
                         _, body, _ = self.target.exec_run(
-                            f"curl -s -L --max-redirs 5 --max-time 5 '{url}' | head -c 4096"
+                            f"curl -s -L --max-redirs 5 --max-time 5 '{url}' | head -c 16384"
                         )
                         result["details"]["body_preview"] = body.strip() if body else ""
                         result["passed"] = True
@@ -565,7 +565,7 @@ class DeploymentSession:
                     # Get body preview for non-matching status (follow redirects
                     # so the diagnostic shows the real page, not an empty 3xx).
                     _, body, _ = self.target.exec_run(
-                        f"curl -s -L --max-redirs 5 --max-time 5 '{url}' | head -c 4096"
+                        f"curl -s -L --max-redirs 5 --max-time 5 '{url}' | head -c 16384"
                     )
                     body_text = body.strip() if body else ""
                     result["details"]["body_preview"] = body_text
@@ -628,7 +628,7 @@ class DeploymentSession:
                     if _status_match(status_code, expected_status):
                         # Fetch body for contains checks
                         _, body, _ = self.target.exec_run(
-                            f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c 4096"
+                            f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c 16384"
                         )
                         result["details"]["body_preview"] = body.strip() if body else ""
                         result["passed"] = True
@@ -644,7 +644,7 @@ class DeploymentSession:
 
                     # Non-matching status — get body for diagnostics
                     _, body, _ = self.target.exec_run(
-                        f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c 4096"
+                        f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c 16384"
                     )
                     body_text = body.strip() if body else ""
                     result["details"]["body_preview"] = body_text
