@@ -38,9 +38,14 @@ else
     export database__connection__filename="/var/lib/ghost/content/data/ghost.db"
 fi
 
-# Set site URL from HOST_NAME if provided
+# Set site URL from HOST_NAME if provided.
+# Use http:// (not https://): Hop3's nginx terminates TLS and proxies plain HTTP
+# to the app's internal port. With an https url Ghost "forces SSL" and 301-
+# redirects every non-secure request — including the internal HTTP healthcheck
+# and readiness probe (which hit 127.0.0.1:$PORT directly, with no
+# X-Forwarded-Proto), sending them to https on a port that has no TLS: a dead end.
 if [ -n "$HOST_NAME" ]; then
-    export url="https://${HOST_NAME}"
+    export url="http://${HOST_NAME}"
     echo "==> Site URL: $url"
 else
     export url="http://localhost:2368"
