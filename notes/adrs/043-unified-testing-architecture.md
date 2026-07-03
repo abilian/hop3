@@ -25,7 +25,7 @@ The project accumulated several parallel testing approaches, each added for a go
 ### What is actually good (and must be kept)
 
 - The `DeploymentTarget` ABC (`hop3-testing/targets/`) is a clean abstraction over docker/ssh/hetzner — the right single deploy-and-verify primitive.
-- `validoc` is a genuine literate-test substrate: tutorials are Markdown with executable, asserted code blocks. It can drive *any* CLI scenario, not just tutorials.
+- `validoc` is a literate-test substrate: tutorials are Markdown with executable, asserted code blocks. It can drive *any* CLI scenario, not just tutorials.
 - An HTML report generator already exists (`diagnostics.py::generate_html_report`) — the nightly artifact we want.
 - `nox` is alive as SourceHut's multi-Python driver; only the GitHub workflow that referenced non-existent sessions is dead.
 

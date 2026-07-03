@@ -1,11 +1,12 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Fold single-cloud into `run` (ADR 052 Phase 7b.7).
+"""Fold cloud provisioning + the image sweep into `run` (ADR 052 D9).
 
 `hop3-test run --provider hetzner` rebuilds a fresh box (provision_server) then
-deploys+tests it via the normal remote path; `matrix` is `run x N images`. These
-pin the WIRING (make test). The actual OS rebuild needs a Hetzner cloud smoke.
+deploys+tests it via the normal remote path; `run --images a,b` sweeps that over
+several OS images (no separate `matrix`/`cloud` command). These pin the WIRING
+(make test). The actual OS rebuild needs a Hetzner cloud smoke.
 """
 
 from __future__ import annotations
@@ -78,18 +79,37 @@ def test_run_provider_provisions_then_targets_the_new_ip(monkeypatch):
     assert captured["config"].host == "203.0.113.99"
 
 
-# --- matrix sweep wiring ---------------------------------------------------
+# --- `run --images` sweep wiring -------------------------------------------
 
 
-def test_matrix_single_image_is_a_sweep_of_one(monkeypatch):
+def test_run_images_sweeps(monkeypatch):
+    # --images (even a single value) routes through the sweep engine.
     captured: dict = {}
     monkeypatch.setattr(
         "hop3_testing.system_tests.multi_distro.run_multi_distro_tests",
         lambda **kw: captured.update(kw) or [],
     )
-    result = CliRunner().invoke(cli, ["matrix", "--image", "debian-13"])
+    result = CliRunner().invoke(cli, ["run", "--images", "debian-13"])
     assert result.exit_code == 0, result.output
     assert captured["images"] == ["debian-13"]
+
+
+def test_run_list_images(monkeypatch):
+    called: dict = {}
+    monkeypatch.setattr(
+        "hop3_testing.system_tests.multi_distro.show_images",
+        lambda provider: called.setdefault("provider", provider),
+    )
+    result = CliRunner().invoke(cli, ["run", "--list-images"])
+    assert result.exit_code == 0, result.output
+    assert called["provider"] == "hetzner"
+
+
+def test_run_images_rejects_docker(monkeypatch):
+    # --images is a cloud sweep; combining with --docker is a loud error.
+    result = CliRunner().invoke(cli, ["run", "--docker", "--images", "debian-13"])
+    assert result.exit_code != 0
+    assert "--docker" in result.stderr
 
 
 def test_sweep_leg_invokes_run_provider_via_module(monkeypatch):
@@ -118,9 +138,9 @@ def test_sweep_leg_invokes_run_provider_via_module(monkeypatch):
     assert "apps/test-apps-procfile" in cmd
 
 
-def test_matrix_shares_run_lexicon(monkeypatch):
-    """matrix accepts the same deploy lexicon as run: positional apps, --from,
-    repeatable --with — and threads them into the sweep (ADR 052 D1)."""
+def test_run_images_threads_deploy_lexicon(monkeypatch):
+    """`run --images` threads the deploy lexicon (positional apps, --from,
+    repeatable --with) into the sweep (ADR 052 D1/D9)."""
     captured: dict = {}
     monkeypatch.setattr(
         "hop3_testing.system_tests.multi_distro.run_multi_distro_tests",
@@ -129,8 +149,8 @@ def test_matrix_shares_run_lexicon(monkeypatch):
     result = CliRunner().invoke(
         cli,
         [
-            "matrix",
-            "--image",
+            "run",
+            "--images",
             "debian-13",
             "--from",
             "pypi",
@@ -154,16 +174,3 @@ def test_matrix_shares_run_lexicon(monkeypatch):
         "--with",
         "s3",
     ]
-
-
-def test_matrix_use_local_repo_alias_maps_to_from(monkeypatch):
-    """The old boolean --no-local-repo folds onto --from pypi (ADR 052 D7)."""
-    captured: dict = {}
-    monkeypatch.setattr(
-        "hop3_testing.system_tests.multi_distro.run_multi_distro_tests",
-        lambda **kw: captured.update(kw) or [],
-    )
-    result = CliRunner().invoke(cli, ["matrix", "--no-local-repo"])
-    assert result.exit_code == 0, result.output
-    assert captured["source"] == "pypi"
-    assert "deprecated" in result.stderr.lower()

@@ -365,7 +365,7 @@ Hop3 is a single-server PaaS by design, not an edge-native system. We do not cla
 - The single-server model operates without external dependencies at steady state; a node can redeploy or roll back without uplink connectivity.
 - Under the Nix build path, application updates transfer only the new closure elements rather than a full image. The bandwidth benefit is intuitive but not yet measured.
 
-A genuine multi-node edge variant of Hop3 would require: (i) a gossip-based or eventually-consistent state-synchronisation protocol between nodes; (ii) workload-placement policies that account for node heterogeneity and intermittent connectivity; (iii) conflict-resolution semantics for concurrent configuration changes on disconnected nodes. None of these are implemented. We flag this as a possible direction for follow-on work, not as a contribution of this paper.
+A multi-node edge variant of Hop3 would require: (i) a gossip-based or eventually-consistent state-synchronisation protocol between nodes; (ii) workload-placement policies that account for node heterogeneity and intermittent connectivity; (iii) conflict-resolution semantics for concurrent configuration changes on disconnected nodes. None of these are implemented. We flag this as a possible direction for follow-on work, not as a contribution of this paper.
 
 ### 7.3 Comparison with Alternative Approaches
 

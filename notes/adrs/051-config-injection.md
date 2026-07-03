@@ -91,7 +91,7 @@ It is rejected as the engine for three reasons. Jinja's `{{ }}` / `{% %}` delimi
 
 ### One unified `[[provision]]` step list
 
-A single ordered tagged-union list (render-file or run-command) expresses arbitrary interleaving of files and commands under one mental model. The interleaving it buys — command, then file, then command — is needed by none of the surveyed apps; the one real ordering need, render a file then run a command that consumes it, is met by the fixed "files before commands" order of two sections. Two named sections read more honestly against the file-versus-DB taxonomy and keep each schema tight — a file step has `mode` and `format`, a command step has `argv` and `unless` — where the unified list forces both into one shape. The single-mechanism elegance does not pay for the lost readability.
+A single ordered tagged-union list (render-file or run-command) expresses arbitrary interleaving of files and commands under one mental model. The interleaving it buys — command, then file, then command — is needed by none of the surveyed apps; the one real ordering need, render a file then run a command that consumes it, is met by the fixed "files before commands" order of two sections. Two named sections map more cleanly onto the file-versus-DB taxonomy and keep each schema tight — a file step has `mode` and `format`, a command step has `argv` and `unless` — where the unified list forces both into one shape. The single-mechanism elegance does not pay for the lost readability.
 
 ### Build the declarative layer now, instead of using the `before-run` baseline
 

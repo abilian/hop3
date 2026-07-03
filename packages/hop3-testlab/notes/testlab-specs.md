@@ -11,7 +11,7 @@ This document now describes **what is actually built** in `packages/hop3-testlab
 ## 1. Guiding constraints (unchanged intent)
 
 1. **Mirror hop3-server's stack** — Litestar + Dishka + SQLAlchemy (sync) + Jinja/HTMX/Alpine/Tailwind + Granian. The Test Lab is itself a Hop3 app (dogfooded). **Built.**
-2. **One engine, one store** (ADR 044 §B/§D) — the CLI (`hop3-test cloud` / `hop3-test system`) and the Test Lab read/write the *same* `hop3-testing` result store; the Lab never parses CLI text. **Built** for the read path; the dashboard is read-only and the run path is the nightly scheduler / CLI `run` driving the worker. The *write* path is still the engine's existing stateful `ResultStore.save()` (the incremental `on_result` writer is deferred, §7).
+2. **One engine, one store** (ADR 044 §B/§D) — the CLI (`hop3-test run`) and the Test Lab read/write the *same* `hop3-testing` result store; the Lab never parses CLI text. **Built** for the read path; the dashboard is read-only and the run path is the nightly scheduler / CLI `run` driving the worker. The *write* path is still the engine's existing stateful `ResultStore.save()` (the incremental `on_result` writer is deferred, §7).
 3. **Follow the playbook** — `litestar-dishka/{COMMON-GOTCHAS,CHECKLISTS}.md`. **Built** (Dishka `@inject`+`FromDishka`, `LitestarProvider`, generator session, APP/REQUEST scopes).
 4. **v1 scope is deliberately small** — a *single* Hetzner (or Docker) target, the Lab's own credentials, in-process scheduling, SQLite. **Built as such.** The seams for pool/sharding/Postgres are *partially* present (config fields, lease epoch timestamps) but those features are not implemented.
 

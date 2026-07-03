@@ -46,8 +46,8 @@ def test_deploy_command_uses_renamed_binary_ssh():
 
 
 def test_cloud_deploy_manager_delegates_to_shared_builder():
-    # ADR 052 Phase 7b collapsed the two wrappers: the `hop3-test cloud` path no
-    # longer has its OWN deploy command builder — DeploymentManager.deploy()
+    # ADR 052 Phase 7b collapsed the two wrappers: the cloud path (`run --provider
+    # hetzner`) no longer has its OWN deploy command builder — DeploymentManager.deploy()
     # delegates to run_hop3_deploy, so it inherits the shared _build_deploy_command
     # (tested above to emit the renamed binary). A fix to the binary name now
     # reaches BOTH paths — the class of bug that bit Phase 3 can't recur.

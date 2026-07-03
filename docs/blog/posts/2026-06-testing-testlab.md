@@ -67,7 +67,7 @@ It then **remote-controls Hetzner**: the runner provisions a *pool* of ephemeral
 
 ## Blank slate, every run
 
-A nightly result is only trustworthy if it doesn't depend on what ran before it. So a Test Lab run starts from a genuine blank slate — for cloud targets, that means a full **OS rebuild of the throwaway server**, the Hop3 install included. This has sharp operational edges that are worth being explicit about, because a run that *silently* tests a dirty server is worse than no run at all:
+A nightly result is only trustworthy if it doesn't depend on what ran before it. So a Test Lab run starts from a blank slate — for cloud targets, that means a full **OS rebuild of the throwaway server**, the Hop3 install included. This has sharp operational edges that are worth being explicit about, because a run that *silently* tests a dirty server is worse than no run at all:
 
 - It needs a registered SSH key and a **dedicated, disposable** server to rebuild — the rebuild **wipes the entire box**, so it must never point at anything you care about.
 - If it can't reach a true blank slate, it **aborts loudly**, refusing to run against leftover state. (A silent "SKIPPED" against a dirty server is the cardinal sin the whole testing rework was meant to kill.)

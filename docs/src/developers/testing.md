@@ -77,8 +77,8 @@ make test-app APP=apps/real-apps-native/edrix
 
 | Command | Description |
 |---------|-------------|
-| `hop3-test matrix --image ubuntu-24.04` | Run e2e/app tests on a cloud server (Hetzner) |
-| `hop3-test matrix --images ubuntu-24.04,debian-13` | Test across multiple Linux distributions |
+| `hop3-test run --provider hetzner --image ubuntu-24.04` | Run e2e/app tests on a cloud server (Hetzner) |
+| `hop3-test run --provider hetzner --images ubuntu-24.04,debian-13` | Test across multiple Linux distributions |
 
 ### hop3-test CLI
 
@@ -217,7 +217,7 @@ The `run` command picks a target via a flag (the `DeploymentTarget` ABC covers D
 |--------|-------------|------|
 | Docker | Fresh Hop3 deployed into a local container | `--docker` |
 | SSH    | Existing remote server | `--host X` |
-| Cloud  | Provisioned cloud server(s) (Hetzner) | `hop3-test matrix` |
+| Cloud  | Provisioned cloud server(s) (Hetzner) | `--provider hetzner` |
 
 ## Test Output
 
@@ -298,23 +298,23 @@ open htmlcov/index.html
 
 ## Cloud Testing
 
-For E2E testing on real cloud infrastructure, use `hop3-test matrix`. Requires the `HETZNER_API_TOKEN` environment variable (Hetzner provider).
+For E2E testing on real cloud infrastructure, use `hop3-test run --provider hetzner`. Requires the `HETZNER_API_TOKEN` environment variable (Hetzner provider).
 
 ```bash
 # List available images
-hop3-test matrix --list-images
+hop3-test run --list-images
 
 # Test on a single distribution
-hop3-test matrix --image ubuntu-24.04
+hop3-test run --provider hetzner --image ubuntu-24.04
 
 # Test across multiple distributions
-hop3-test matrix --images ubuntu-24.04,debian-13
+hop3-test run --provider hetzner --images ubuntu-24.04,debian-13
 
 # Choose which app directories to test (positional, like `run`)
-hop3-test matrix apps/real-apps-native demos
+hop3-test run --provider hetzner apps/real-apps-native demos
 
 # Use local code (the default; --from pypi installs from PyPI instead)
-hop3-test matrix --from local
+hop3-test run --provider hetzner --from local --images all
 
 # Test against an already-provisioned server (no rebuild, no deploy)
 hop3-test run --host <server> --reuse

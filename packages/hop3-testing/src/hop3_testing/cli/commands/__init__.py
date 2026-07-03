@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .catalog import list_tests
-from .cloud import matrix_test
 from .test import system_test
 from .why import why_cmd
 
@@ -18,7 +17,6 @@ if TYPE_CHECKING:
 
 __all__ = [
     "list_tests",
-    "matrix_test",
     "register_commands",
     "system_test",
     "why_cmd",
@@ -26,10 +24,12 @@ __all__ = [
 
 
 def register_commands(cli: click.Group) -> None:
-    """Register all commands with the CLI group."""
+    """Register all commands with the CLI group.
+
+    The image sweep (formerly `matrix`/`cloud`) folded into `run --images`
+    (ADR 052 D9), so there is no separate cloud command.
+    """
     cli.add_command(system_test)  # registered under its name, "run" (ADR 052 D9)
     cli.add_command(system_test, name="system")  # deprecated alias; same command
     cli.add_command(list_tests)
-    cli.add_command(matrix_test)  # registered under its name, "matrix" (ADR 052 D9)
-    cli.add_command(matrix_test, name="cloud")  # deprecated alias; same command
     cli.add_command(why_cmd)

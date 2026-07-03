@@ -5,7 +5,7 @@
 
 End-to-end testing infrastructure for Hop3 on real Hetzner Cloud servers.
 Cloud runs go through `hop3-test run --provider hetzner` (single) and
-`hop3-test matrix` (image sweep); this subpackage provides the Hetzner
+`hop3-test run --images ...` (image sweep); this subpackage provides the Hetzner
 lifecycle (rebuild/wait), the shared deploy wrapper, and provisioning
 (ADR 052 7b.7).
 

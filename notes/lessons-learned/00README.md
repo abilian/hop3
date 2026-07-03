@@ -10,7 +10,7 @@ This directory collects lessons learned during Hop3 development, to help avoid r
 
 - [`app-deploy-runtime-model.md`](./app-deploy-runtime-model.md) — how an app behaves config → build → run: RPC session isolation, deploy-vs-redeploy state transitions, build-vs-runtime env, 502s, eventual consistency, HOST_NAME/proxy semantics.
 - [`async-thread-boundaries.md`](./async-thread-boundaries.md) — cross-thread `asyncio` pitfalls (the "every deploy takes 30s" bug) and choosing the right primitive per producer/consumer boundary.
-- [`cli-ergonomics.md`](./cli-ergonomics.md) — evolving the CLI command surface safely (rename via alias, deprecate by hiding) and honest help/error messages. (ADR 036)
+- [`cli-ergonomics.md`](./cli-ergonomics.md) — evolving the CLI command surface safely (rename via alias, deprecate by hiding) and clear help/error messages. (ADR 036)
 - [`database-addon-portability.md`](./database-addon-portability.md) — PostgreSQL and MySQL connectivity across native and Docker deployment.
 - [`deployment-diagnostics.md`](./deployment-diagnostics.md) — Making deployment failures actionable.
 - [`e2e-test-infrastructure.md`](./e2e-test-infrastructure.md) — Building and running the E2E suite.

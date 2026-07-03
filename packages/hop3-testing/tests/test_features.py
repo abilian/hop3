@@ -3,7 +3,7 @@
 
 """The deploy must install the addons the selected apps DECLARE.
 
-Bug: `hop3-test matrix/run --apps .../150-flask-s3` deployed the server without
+Bug: `hop3-test run .../150-flask-s3` deployed the server without
 s3, so the app's s3 addon couldn't be provisioned ("Was the server installed
 with '--with s3'?"). The framework already knows the app needs s3 (hop3.toml
 [[addons]] type="s3"); these pin that it now unions those addons into the deploy

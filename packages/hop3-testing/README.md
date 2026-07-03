@@ -46,7 +46,7 @@ hop3-test ci
 | `hop3-test run` | Deploy Hop3 and run the catalog (`system` is a deprecated alias) |
 | `hop3-test run --reuse` | Test against an existing deployment (skip deploy) |
 | `hop3-test list` | List available tests (`--show NAME` for one test's details) |
-| `hop3-test matrix` | E2E across cloud OS images (`cloud` is a deprecated alias) |
+| `hop3-test run --provider hetzner --images ...` | E2E across cloud OS images (Hetzner) |
 | `hop3-test why <run-id>` | Replay a saved diagnostic bundle for a failed run |
 
 Test profile (fast/CI/full) is selected with `--mode` on `run`, not a separate
@@ -94,32 +94,29 @@ hop3-testing/
 | `rust` | Actix-web, Axum |
 | `static` | HTML, Hugo, Jekyll |
 
-## Cloud Matrix Testing
+## Cloud Runs & the Image Sweep
 
-Run full E2E tests across cloud OS images. Each image is a full
-`hop3-test run --provider hetzner` (provision a fresh box → deploy → test →
-persist), so `matrix` shares `run`'s lexicon: positional app names, `--from`,
-`--branch`, `--with`. Requires `HETZNER_API_TOKEN` and `HETZNER_SERVER_ID`
-(a dedicated throwaway box).
+Run full E2E tests across cloud OS images with `hop3-test run --provider hetzner
+--images ...`. Each image is a full `hop3-test run --provider hetzner` (provision a
+fresh box → deploy → test → persist), so a cloud run shares `run`'s lexicon:
+positional app names, `--from`, `--branch`, `--with`. Requires `HETZNER_API_TOKEN`
+and `HETZNER_SERVER_ID` (a dedicated throwaway box).
 
 ```bash
 # List available images
-hop3-test matrix --list-images
+hop3-test run --list-images
 
 # Single distribution (a sweep-of-one)
-hop3-test matrix --image ubuntu-24.04 apps/test-apps-procfile
+hop3-test run --provider hetzner --image ubuntu-24.04 apps/test-apps-procfile
 
 # Across multiple distributions
-hop3-test matrix --images ubuntu-24.04,debian-13,fedora-42
+hop3-test run --provider hetzner --images ubuntu-24.04,debian-13,fedora-42
 
 # From PyPI instead of local code
-hop3-test matrix --from pypi
-
-# One distro without the sweep wrapper
-hop3-test run --provider hetzner --image ubuntu-24.04
+hop3-test run --provider hetzner --from pypi --images all
 ```
 
-### Matrix Options
+### Cloud Run Options (`run --provider hetzner`)
 
 | Option | Description |
 |--------|-------------|

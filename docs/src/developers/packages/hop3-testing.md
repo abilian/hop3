@@ -12,7 +12,7 @@ hop3-testing provides infrastructure for validating Hop3 deployments:
 4. **Runners** - Deployment, demo, and tutorial execution strategies
 5. **pytest Integration** - the `c_e2e` layer that drives real deploys
 
-The `hop3-test` CLI exposes four subcommands: `run`, `list`, `cloud`, and `why`.
+The `hop3-test` CLI exposes three subcommands: `run`, `list`, and `why`.
 
 ## Module Structure
 
@@ -24,7 +24,6 @@ hop3_testing/
 │   ├── commands/         # Click command implementations
 │   │   ├── test.py       # `run`
 │   │   ├── catalog.py    # `list`
-│   │   ├── cloud.py      # `cloud`
 │   │   └── why.py        # `why`
 │   ├── runners.py        # Test execution orchestration
 │   └── helpers.py        # Target creation helpers
@@ -295,7 +294,7 @@ def test_app_deployment(deployment_target):
 
 ## CLI Interface
 
-The `hop3-test` CLI has four subcommands. The full flag reference for each is in the package [README](https://github.com/abilian/hop3) and `packages/hop3-testing/docs/internals.md`.
+The `hop3-test` CLI has three subcommands. The full flag reference for each is in the package [README](https://github.com/abilian/hop3) and `packages/hop3-testing/docs/internals.md`.
 
 ### `hop3-test run`
 
@@ -350,20 +349,21 @@ hop3-test list --format json                  # Machine-readable output
 
 Filters: `-t/--tier`, `-p/--priority`, `--tag`. `--show NAME` prints the full definition of a single test.
 
-### `hop3-test matrix`
+### Cloud runs & the image sweep (`run --provider hetzner --images`)
 
-Runs E2E tests across cloud OS images (Hetzner). Each image is a full
-`hop3-test run --provider hetzner`, so `matrix` shares `run`'s lexicon
+Cloud E2E testing is part of `run`: `hop3-test run --provider hetzner --images ...`
+runs the suite across cloud OS images (Hetzner). Each image is a full
+`hop3-test run --provider hetzner`, so a cloud run shares `run`'s lexicon
 (positional apps, `--from`, `--with`). Requires `HETZNER_API_TOKEN` and
-`HETZNER_SERVER_ID`. (`cloud` stays as a deprecated alias.)
+`HETZNER_SERVER_ID`.
 
 ```bash
-hop3-test matrix --list-images                    # Available OS images
-hop3-test matrix --image ubuntu-24.04             # Single distribution
-hop3-test matrix --images ubuntu-24.04,debian-13  # Multiple distributions
-hop3-test matrix --images all                     # All distributions
-hop3-test matrix apps/test-apps demos             # Specific suites (positional)
-hop3-test run --host server.example.com --reuse   # Test an existing server
+hop3-test run --list-images                                       # Available OS images
+hop3-test run --provider hetzner --image ubuntu-24.04            # Single distribution
+hop3-test run --provider hetzner --images ubuntu-24.04,debian-13 # Multiple distributions
+hop3-test run --provider hetzner --images all                    # All distributions
+hop3-test run --provider hetzner apps/test-apps demos           # Specific suites (positional)
+hop3-test run --host server.example.com --reuse                  # Test an existing server
 ```
 
 ### `hop3-test why`

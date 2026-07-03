@@ -28,6 +28,19 @@ HETZNER_IMAGES = [
 ]
 
 
+def show_images(provider: str) -> None:
+    """Print the OS images available for a provider (`run --list-images`)."""
+    console = Console()
+    console.print(f"\n[bold]Available OS images ({provider})[/]\n")
+    table = Table()
+    table.add_column("Image Name", style="cyan")
+    table.add_column("Description")
+    table.add_column("Notes")
+    for img_name, desc, notes in HETZNER_IMAGES:  # only Hetzner today
+        table.add_row(img_name, desc, notes)
+    console.print(table)
+
+
 @dataclass
 class TestResult:
     """Result of a single distro test run."""

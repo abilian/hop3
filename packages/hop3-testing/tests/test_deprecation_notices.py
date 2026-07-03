@@ -63,14 +63,12 @@ def test_canonical_run_is_silent(monkeypatch):
     assert "deprecated" not in result.stderr
 
 
-def test_cloud_subcommand_warns():
-    # `--list-images` just prints a constant list (no network) then returns.
-    result = CliRunner().invoke(cli, ["cloud", "--list-images"])
-    assert "deprecated" in result.stderr
-    assert "'cloud'" in result.stderr
-    assert "'matrix'" in result.stderr
-
-
-def test_matrix_subcommand_is_silent():
-    result = CliRunner().invoke(cli, ["matrix", "--list-images"])
-    assert "deprecated" not in result.stderr
+def test_matrix_and_cloud_commands_are_gone():
+    # Folded into `run --images` (ADR 052 D9); neither is a subcommand anymore.
+    for gone in ("matrix", "cloud"):
+        result = CliRunner().invoke(cli, [gone, "--list-images"])
+        assert result.exit_code != 0
+        assert (
+            "No such command" in result.output
+            or "no such command" in result.output.lower()
+        )
