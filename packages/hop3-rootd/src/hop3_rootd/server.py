@@ -1,7 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM101, PLC0415, SIM105
 
 """Socket server: accept loop + dispatcher.
 
@@ -18,6 +17,7 @@ from __future__ import annotations
 
 import grp
 import os
+import pwd
 import select
 import socket
 import struct
@@ -72,7 +72,6 @@ _ALLOWED_USERNAMES: Final[tuple[str, ...]] = ("hop3", "root")
 
 def _resolve_allowed_uids() -> set[int]:
     """Look up the UIDs of the allowed usernames at startup."""
-    import pwd
 
     uids: set[int] = set()
     for name in _ALLOWED_USERNAMES:
@@ -122,7 +121,6 @@ def _make_op_context(state: State, state_path: Path, stats: DaemonStats) -> OpCo
     """Build the OpContext passed to every op handler."""
     return OpContext(
         state=state,
-        state_path=state_path,
         save_state=lambda: save_state(state, state_path),
         now_iso=_now_iso,
         new_rule_id=_new_rule_id,

@@ -25,7 +25,6 @@ def _ctx() -> tuple[OpContext, FakeExec]:
     fake = FakeExec()
     return OpContext(
         state=State(),
-        state_path=None,
         save_state=lambda: None,
         now_iso=lambda: "2026-04-24T15:30:00+00:00",
         new_rule_id=lambda: "rule-test",

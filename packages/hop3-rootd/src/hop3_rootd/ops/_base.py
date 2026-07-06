@@ -1,7 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM102, TC001, TC003
 
 """Op protocol and registry.
 
@@ -27,10 +26,14 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from hop3_rootd.exec import DEFAULT_EXEC, Exec
 from hop3_rootd.protocol import Request
+
+if TYPE_CHECKING:
+    # cycle-free: state.py imports nothing from ops
+    from hop3_rootd.state import State
 
 # --- Errors --------------------------------------------------------------
 
@@ -89,9 +92,8 @@ class OpContext:
     ops directly testable: pass a fake state, a fake clock, etc.
     """
 
-    state: Any  # hop3_rootd.state.State (kept Any to avoid circular import)
-    state_path: Any  # Path to state.json; ops persist after mutations
-    save_state: Callable[[], None]  # callable that persists the current state
+    state: State
+    save_state: Callable[[], None]  # persists the current state to state.json
     now_iso: Callable[[], str]  # returns current UTC time as ISO-8601 string
     new_rule_id: Callable[[], str]  # returns a fresh rule_id (UUID4 string)
     stats: DaemonStats = field(default_factory=DaemonStats)

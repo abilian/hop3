@@ -1,7 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TC001
 
 """Startup reconciliation between state.json and the inet hop3 table.
 

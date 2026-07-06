@@ -1,7 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM101, EM102, TC001
 
 """Firewall ops: add_rule, remove_rule, list_rules.
 
