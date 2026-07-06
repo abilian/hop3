@@ -5,7 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.0] - Unreleased
+
+### Changed
+
+- **Consistent command-line names**: the developer deploy tool is now `hop3-deploy-server` (renamed from `hop3-deploy`), part of a pass to give every Hop3 tool one consistent set of flags and verbs.
+- **Failed deploys show the real cause**: `hop3 deploy` now surfaces the actual error line once — not a repeated, buried backtrace — with a working pointer to the full log (`hop3 app logs --app <app> --build`).
+
+### Added
+
+- **Content-aware health checks**: set `[healthcheck].contains = "..."` and a deploy is only reported healthy when your app actually serves its own page — a bare `200` can be a placeholder or an error page.
+
+### Fixed
+
+- **Nix apps survive garbage collection**: a running Nix app no longer loses its files to a `nix` garbage-collect — new installs pin auto-GC off and rebuilds keep the previous version rooted — and if anything is ever missing the deploy fails fast with a clear message instead of a slow timeout. Apps that need a newer package set can pin their own nixpkgs revision.
+- **More bundled apps deploy and verify correctly**, from packaging and content-check fixes across several apps.
+- **Authentication hardening**: remediated the findings from the June 2026 auth audit.
+- **DNS**: fixed some server-side DNS resolution issues.
 
 ## [0.6.2] - 2026-06-26
 

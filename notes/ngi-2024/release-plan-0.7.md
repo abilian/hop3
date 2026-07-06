@@ -3,7 +3,9 @@
 **Target:** 0.7 cut the week of 2026-06-22; the remaining NGI deliverables land in 0.7.x point releases over the following weeks.
 **Theme:** Ship the remaining subsystem features in the 0.7 cut (WAF, email, a basic Web UI, Nix beta gaps, pinned-nixpkgs reproducibility); finish the longer-tail deliverables (benchmarks + paper, Nix runtime 1.0, app validation, external security review) as 0.7.x.
 **Depends on:** 0.6.0 released (2026-06-20)
-**Last updated:** 2026-06-22 — email addon (M3.1, experimental) and nixpkgs pinning (M1/M2) landed in the cut; scope split into the 0.7 cut and 0.7.x point releases, reconciled against the full annex (T1–T5).
+**Last updated:** 2026-07-06 — status reconciliation: the 0.7 cut slipped, the email addon (M3.1) and nixpkgs pinning (M1/M2) actually shipped as 0.6.1/0.6.2, and the intervening weeks went to platform-robustness / DX work (see the note below). (2026-06-22: scope split into the 0.7 cut and 0.7.x point releases, reconciled against the full annex T1–T5.)
+
+> **Status reconciliation (2026-07-06).** The 0.7 cut slipped past the 2026-06-22 target: the tree is still on **0.6.2** and **0.7.0 is not yet tagged**. Two "in the 0.7 cut" items actually shipped earlier — as **0.6.1 (2026-06-24)**, carried through **0.6.2 (2026-06-26)**: the **email/SMTP addon** (experimental) and **nixpkgs pinning** (M1/M2). Their `[x]` boxes below are genuinely done, just tagged under 0.6.x rather than a 0.7 cut. The intervening ~2 weeks went to platform-robustness and DX work that gates advertising a curated app set, not to the remaining cut items: **ADR 052** CLI-argument consistency (one flag lexicon — `hop3-deploy` → `hop3-deploy-server`; `hop3-test matrix`/`cloud` → `run --images`), a **failed-deploy observability overhaul** (one concise root cause, deduped across builder → deployer → RPC, a durable `hop3-test why` bundle pointer), **content-aware healthchecks** (`[healthcheck].contains`), **testlab hardening**, a **2026-06 auth-audit remediation**, and an **app-packaging + nix-reliability pass** (forgejo GC-root retention across a rebuild; a per-app nixpkgs pin override — see the M1/M2 section below). **Still-open cut items:** WAF proxy slice (M3.5), Web-UI polish (M3.7), screencast publish/upload (M5.6), upgrade-command scope (M3.2), and the v0.7.0 tag itself.
 
 ## Goals
 
@@ -23,12 +25,12 @@ Every annex milestone, with status and where it lands, so a reviewer can reconci
 
 | Task | Milestone | Status | Lands in |
 |------|-----------|--------|----------|
-| **T1** Nix builders | M1.1 Native Nix builder | ✅ done (0.5) | shipped; pin-nixpkgs ✅ done (0.7), hermetic → 0.7.x |
+| **T1** Nix builders | M1.1 Native Nix builder | ✅ done (0.5) | shipped; pin-nixpkgs ✅ done (0.6.1), per-app pin override (0.7), hermetic → 0.7.x |
 | | M1.2 Nix template builders (Py/Node/Ruby/Go/Rust/Java) | ✅ done (0.5) | shipped; reproducibility as above |
 | **T2** Nix runtime | M2.1 Spec & PoC | ✅ done (0.5) | shipped |
-| | M2.2 Beta implementation | ◐ partial | **0.7** — close the actual remaining gaps |
+| | M2.2 Beta implementation | ◐ partial | **0.7** — a few complex apps run (met); needs the closure pre-flight + a basic `make test-nix` gate + a contract doc. 20-app pass / per-app sign-off → M2.3 (plan: `local-notes/plans/19-nix-runtime.md`) |
 | | M2.3 Final "1.0" | ○ not started | **0.7.x / 0.8** — after the 20-app testing pass |
-| **T3** Security & resilience | M3.1 Backing services | ◐ partial | **0.7** — email/SMTP addon shipped (experimental); provider profiles + local relay → 0.7.x |
+| **T3** Security & resilience | M3.1 Backing services | ◐ partial | email/SMTP addon shipped (experimental) in **0.6.1**; provider profiles + local relay → 0.7.x |
 | | M3.2 Upgrades + migrations | ◐ partial | **0.7** — scope to confirm (Alembic works) |
 | | M3.3 Backups + migration tests | ✅ done (0.6) | shipped |
 | | M3.4 Testing framework + canary | ✅ done | shipped |
@@ -102,10 +104,14 @@ The four internal-audit code fixes shipped in 0.5; credential hardening continue
 
 ### Nix runtime beta — close the real gaps (M2.2)
 
-The beta runs end to end for the 34 + 31 Nix apps. 0.7 closes only what is *actually* missing rather than vague polish.
+The beta runs end to end across the ~33 hand-crafted + ~30 nix-gen Nix apps, including reasonably-complex ones (keycloak-gen, directus, matrix-synapse, gitea, grafana). Per **ADR 035** the runtime is the `runtime.json → RuntimeConfig → uWSGI-vassal` contract (*not* the deferred ADR 009). The beta bar is deliberately light — a few complex apps running as Nix packages, hardened and gated; the *full* 20-app pass and per-app sign-off are **M2.3**. Detailed working plan: `local-notes/plans/19-nix-runtime.md`.
 
-- [ ] Recover or formally defer the remaining bad apps (HedgeDoc, CryptPad) — with the reason recorded
-- [ ] Fix any concrete beta gaps surfaced by the 20-app testing pass
+- [x] A few reasonably-complex apps run end to end as Nix packages (keycloak-gen, directus, matrix-synapse, …) — the beta bar, already met.
+- [x] Fail-loud closure-integrity pre-flight — **code landed** (`spawn.py::_verify_nix_closure_intact`). A *deploy-time* check in `spawn_app` verifies each Nix worker's `/nix/store` closure still exists before uWSGI starts and aborts loud on a reclaimed path, instead of a 180 s timeout (the forgejo GC class). Deploy-time, not build-time on purpose — at build time the closure exists by construction; the reclaim only shows at run time. Logic unit-tested; **needs a nix box** to confirm `nix-store` is on the server PATH and that it catches a real GC'd closure.
+- [x] A basic contract gate — `make test-nix` added + a runtime-level `runtime.json → spawn → exec` test (`test_spawn_nix_runtime_contract.py`), both in `make test`.
+- [ ] A runtime-contract reference doc — ADR 035's `runtime.json` / `RuntimeConfig` schema + the wrapper exec model.
+
+**Reclassified out of M2.2** (build/upstream, not runtime): **HedgeDoc** (crashes at config-load in a nixpkgs-transformed `config/index.js` — a build/nixpkgs issue, needs a nix box or `hop3 app shell` to inspect) and **CryptPad** (~1 GB npm install exceeds the build cap → `pkgs.cryptpad` via `nixpkgs-wrapper` or drop). Formal per-app dispositions (incl. focalboard, sonarqube, xwiki) and the 20-app pass move to M2.3.
 
 ### Upgrade mechanism (M3.2) — confirm scope
 
@@ -133,6 +139,7 @@ NLNet/NGI fund reproducibility/sovereignty work and will inspect the Nix impleme
 - [x] The generator emits the pinned import — all 9 nix-gen templates render `import (fetchTarball {…}) {}` instead of `<nixpkgs>` (one shared pin in `templates/base.py`), verified via `nix-instantiate`; nix-gen tests + full gate green.
 - [x] Hand-crafted expressions pinned — all 34 `apps/real-apps-nix/*/hop3.nix` inline the same pin. Each is its own build context (no shared import possible), so the pin is duplicated per file; updating it means editing `base.py` + a sed across the 34. Verified: all 34 parse, and Python / prebuilt-binary / PHP samples evaluate to a `.drv` with the pinned nixpkgs.
 - [x] Stop the installer relying on `nix-channel --update` — removed the `nix-channel --add … nixos-24.11 && nix-channel --update` block from `server_installer/nix.py`; nothing consults `<nixpkgs>`/`NIX_PATH` now (no `nix-env`, the builder sets no `NIX_PATH`), and the pinned commit's binaries are cached, so cache hits / build speed are preserved. Gate green.
+- [x] **Per-app pin override (2026-07).** The single global pin can be too old for a package added to nixpkgs later (etherpad-lite entered nixpkgs in nixos-25.05, not the default 24.11). The `nixpkgs-wrapper` template now accepts an optional `[nix].nixpkgs-rev` / `nixpkgs-sha256` overriding the global pin for one app, threaded `toml_adapter → spec → templates/base.py::pinned_nixpkgs_header`; rejected loudly on templates that can't honour it, so it never silently no-ops. (etherpad's `hop3.toml` carries the placeholder pin; the concrete 25.05 rev + `nix-prefetch-url` hash are filled on a nix box.)
 
 ### Release mechanics
 
