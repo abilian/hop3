@@ -134,3 +134,14 @@ known-first-party = ["hop3"]
     # Real imports are needed by the bundler
     "TC001"
 ]
+"packages/hop3-rootd/src/**/*.py" = [
+    # Daemon raises rich exceptions with inline interpolated messages
+    "TRY003", # raise-vanilla-args
+    "EM101",  # raw-string-in-exception
+    "EM102",  # f-string-in-exception
+    # AGENTS.md: imports stay at top level (no TYPE_CHECKING shuffling)
+    "TC001", # move-first-party-import-to-type-checking-block
+    "TC003", # move-standard-library-import-to-type-checking-block
+    # Explicit try/except reads clearer at our error / audit boundaries
+    "SIM105", # suppress-context-manager
+]
