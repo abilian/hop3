@@ -226,15 +226,27 @@ def _run_nix_installer(installer_path: Path, *, daemon_mode: bool) -> bool:
 
 
 def _write_nix_conf_setting(path: Path, *, as_hop3: bool) -> None:
-    """Write ``sandbox = relaxed`` to a nix.conf, creating it if needed.
+    """Write Hop3's required settings (``sandbox = relaxed``, ``min-free = 0``)
+    to a nix.conf, creating it if needed.
 
     Args:
         path: Target nix.conf path.
         as_hop3: If True, the parent dir and file are created/owned
             by the hop3 user (single-user install). Otherwise as root.
     """
-    line = "sandbox = relaxed"
-    header = "# Allow __noChroot builds for apps needing network"
+    # Two settings Hop3 requires in nix.conf:
+    #  * sandbox = relaxed — allow __noChroot builds (apps that run
+    #    npm/pip/composer install during the build phase).
+    #  * min-free = 0 — pin auto-GC OFF. A disk-pressure garbage collect must
+    #    never reclaim a *running* app's nix closure mid-deploy: forgejo's
+    #    wrapper execs a hardcoded ${forgejo}/bin path, and a GC firing during a
+    #    rebuild would delete it → the daemon dies "No such file or directory".
+    #    The builder holds per-app GC roots; this removes the external trigger.
+    settings = "sandbox = relaxed\nmin-free = 0"
+    header = "# Hop3 nix settings (see server_installer/nix.py)"
+    # Idempotency keys on the NEWEST setting so an upgrade from a nix.conf that
+    # only had `sandbox = relaxed` still appends `min-free = 0`.
+    marker = "min-free = 0"
 
     if as_hop3:
         # Single-user: ~/.config/nix/nix.conf must be created by hop3
@@ -243,24 +255,24 @@ def _write_nix_conf_setting(path: Path, *, as_hop3: bool) -> None:
         # under the hop3 home so this is safe.
         run_as_hop3(f"mkdir -p {path.parent}")
         existing = run_as_hop3(f"cat {path} 2>/dev/null || true").stdout or ""
-        if line in existing:
-            print_detail(f"Nix sandbox already relaxed in {path}")
+        if marker in existing:
+            print_detail(f"Nix settings already present in {path}")
             return
         with path.open("a") as f:
-            f.write(f"\n{header}\n{line}\n")
+            f.write(f"\n{header}\n{settings}\n")
         run_cmd(["chown", "hop3:hop3", str(path)], check=False)
-        print_detail(f"Wrote {line} to {path}")
+        print_detail(f"Wrote nix settings to {path}")
         return
 
     # Daemon mode: write as root.
     path.parent.mkdir(parents=True, exist_ok=True)
     existing = path.read_text() if path.exists() else ""
-    if line in existing:
-        print_detail(f"Nix sandbox already relaxed in {path}")
+    if marker in existing:
+        print_detail(f"Nix settings already present in {path}")
         return
     with path.open("a") as f:
-        f.write(f"\n{header}\n{line}\n")
-    print_detail(f"Wrote {line} to {path}")
+        f.write(f"\n{header}\n{settings}\n")
+    print_detail(f"Wrote nix settings to {path}")
 
 
 def _configure_hop3_nix_access(*, daemon_mode: bool) -> None:
@@ -308,6 +320,13 @@ def _configure_hop3_nix_access(*, daemon_mode: bool) -> None:
             run_cmd(["systemctl", "restart", "nix-daemon"])
     else:
         _write_nix_conf_setting(HOME_DIR / ".config" / "nix" / "nix.conf", as_hop3=True)
+
+    # Belt-and-suspenders with min-free=0: also stop any periodic GC timer a
+    # host/channel image may ship, so a scheduled `nix-collect-garbage` can't
+    # reclaim a running app's closure between deploys. Best-effort — absent on
+    # most hosts (hence check=False + suppress).
+    with contextlib.suppress(Exception):
+        run_cmd(["systemctl", "disable", "--now", "nix-gc.timer"], check=False)
 
     # No nixpkgs channel is configured. Every Hop3 build expression pins its own
     # nixpkgs via `import (fetchTarball { url; sha256; })` at a specific nixos-24.11

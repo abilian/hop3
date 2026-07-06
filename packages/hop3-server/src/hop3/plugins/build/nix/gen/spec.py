@@ -213,6 +213,13 @@ class AppSpec:
     # writable home (e.g., "KC_HOME_DIR" for Keycloak). Only consulted
     # when `writable_home_at_runtime` is True.
     writable_home_env_var: str | None = None
+    # Per-app nixpkgs pin override. Absent → the generator's default pin (see
+    # templates/base.py NIXPKGS_REV). Set BOTH together when an app needs a
+    # package the default pin predates (e.g. etherpad-lite, added in nixos-25.05
+    # while the default is nixos-24.11). Only honoured by the nixpkgs-wrapper
+    # template; toml_adapter rejects it on other templates (no silent-ignore).
+    nixpkgs_rev: str | None = None
+    nixpkgs_sha256: str | None = None
     # Internal: raw shell emitted at the top of the wrapper (after
     # shebang, before local vars). Populated by templates; NOT mapped
     # from hop3.toml directly. Emitted without nix_escape so
