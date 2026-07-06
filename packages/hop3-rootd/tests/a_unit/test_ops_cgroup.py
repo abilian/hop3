@@ -36,7 +36,6 @@ def save_spy() -> SaveSpy:
 def ctx(save_spy: SaveSpy) -> OpContext:
     return OpContext(
         state=State(),
-        state_path=None,
         save_state=save_spy,
         now_iso=lambda: "2026-04-24T15:30:00+00:00",
         new_rule_id=lambda: "rule-test-1",

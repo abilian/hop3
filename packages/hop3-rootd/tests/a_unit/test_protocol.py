@@ -243,3 +243,18 @@ def test_error_from_protocol_error_no_id():
     exc = ProtocolError(ErrorCode.MALFORMED_REQUEST, "...")
     resp = error_from_protocol_error(exc)
     assert resp.id == ""
+
+
+# --- Envelope invariant ---------------------------------------------------
+
+
+def test_response_rejects_ok_with_error():
+    """ok=True must not carry an error — to_dict() would emit a malformed envelope."""
+    with pytest.raises(ValueError):
+        Response(v=1, id="r1", ok=True, error={"code": "x", "message": "y"})
+
+
+def test_response_rejects_error_with_result():
+    """ok=False must not carry a result."""
+    with pytest.raises(ValueError):
+        Response(v=1, id="r1", ok=False, result={"some": "value"})
