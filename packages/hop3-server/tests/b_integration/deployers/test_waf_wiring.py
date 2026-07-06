@@ -59,7 +59,13 @@ def test_resolve_networks_maps_name_to_cidrs(db_session):
 
 
 def test_daemon_command_execs_and_redirects_to_log():
-    cmd = ["/venv/bin/python", "-m", "hop3.plugins.waf.lewaf._proxy_main", "--port", "9000"]
+    cmd = [
+        "/venv/bin/python",
+        "-m",
+        "hop3.plugins.waf.lewaf._proxy_main",
+        "--port",
+        "9000",
+    ]
     daemon = _daemon_command(cmd, "/home/hop3/apps/x/log/waf.1.log")
     # exec (clean reaping) + both streams appended to the app log (never /dev/null)
     assert daemon.startswith('sh -c "exec ')
@@ -86,13 +92,11 @@ def _write_audit(engine, app_name, ip, count, now):
     audit = engine.audit_path(app_name)
     audit.parent.mkdir(parents=True, exist_ok=True)
     lines = [
-        json.dumps(
-            {
-                "action": "blocked",
-                "client_ip": ip,
-                "timestamp": (now - timedelta(minutes=i)).isoformat(),
-            }
-        )
+        json.dumps({
+            "action": "blocked",
+            "client_ip": ip,
+            "timestamp": (now - timedelta(minutes=i)).isoformat(),
+        })
         for i in range(count)
     ]
     audit.write_text("\n".join(lines) + "\n")
@@ -122,7 +126,9 @@ def test_reconcile_bans_bans_repeat_offender(db_session, tmp_path, monkeypatch):
     assert "198.51.100.9" in engine._bans_path(app.name).read_text()
 
 
-def test_reconcile_bans_spares_sources_under_threshold(db_session, tmp_path, monkeypatch):
+def test_reconcile_bans_spares_sources_under_threshold(
+    db_session, tmp_path, monkeypatch
+):
     engine = _tmp_engine(tmp_path, monkeypatch)
     app = _app(db_session)
     now = utcnow()
@@ -161,7 +167,10 @@ def test_reconcile_bans_expires_elapsed_bans(db_session, tmp_path, monkeypatch):
     engine.audit_path(app.name).write_text("")
     later = now + timedelta(hours=2)
     active = reconcile_bans(
-        app, _bans_config(threshold=5, window="10m", duration="1h"), db_session, now=later
+        app,
+        _bans_config(threshold=5, window="10m", duration="1h"),
+        db_session,
+        now=later,
     )
     assert active == 0
     assert "198.51.100.9" not in engine._bans_path(app.name).read_text()

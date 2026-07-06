@@ -116,15 +116,13 @@ def test_logs_shows_audit_entries(db_session, tmp_path, monkeypatch):
     audit = engine.audit_path("myapp")
     audit.parent.mkdir(parents=True, exist_ok=True)
     audit.write_text(
-        json.dumps(
-            {
-                "timestamp": "2026-06-25T12:00:00",
-                "client_ip": "198.51.100.9",
-                "action": "blocked",
-                "rule_id": 942100,
-                "request_uri": "/wp-admin",
-            }
-        )
+        json.dumps({
+            "timestamp": "2026-06-25T12:00:00",
+            "client_ip": "198.51.100.9",
+            "action": "blocked",
+            "rule_id": 942100,
+            "request_uri": "/wp-admin",
+        })
         + "\n"
     )
     out = WafLogsCmd(db_session=db_session).call()
