@@ -109,7 +109,7 @@ The beta runs end to end across the ~33 hand-crafted + ~30 nix-gen Nix apps, inc
 - [x] A few reasonably-complex apps run end to end as Nix packages (keycloak-gen, directus, matrix-synapse, …) — the beta bar, already met.
 - [x] Fail-loud closure-integrity pre-flight — **code landed** (`spawn.py::_verify_nix_closure_intact`). A *deploy-time* check in `spawn_app` verifies each Nix worker's `/nix/store` closure still exists before uWSGI starts and aborts loud on a reclaimed path, instead of a 180 s timeout (the forgejo GC class). Deploy-time, not build-time on purpose — at build time the closure exists by construction; the reclaim only shows at run time. Logic unit-tested; **needs a nix box** to confirm `nix-store` is on the server PATH and that it catches a real GC'd closure.
 - [x] A basic contract gate — `make test-nix` added + a runtime-level `runtime.json → spawn → exec` test (`test_spawn_nix_runtime_contract.py`), both in `make test`.
-- [ ] A runtime-contract reference doc — ADR 035's `runtime.json` / `RuntimeConfig` schema + the wrapper exec model.
+- [x] Runtime contract documented — the complete `runtime.json` / `RuntimeConfig` schema + a *Run-Phase Behaviour* section folded into **ADR 035** (Nix closure safeguards in **ADR 053**), rather than a separate side-doc that would drift from the ADR.
 
 **Reclassified out of M2.2** (build/upstream, not runtime): **HedgeDoc** (crashes at config-load in a nixpkgs-transformed `config/index.js` — a build/nixpkgs issue, needs a nix box or `hop3 app shell` to inspect) and **CryptPad** (~1 GB npm install exceeds the build cap → `pkgs.cryptpad` via `nixpkgs-wrapper` or drop). Formal per-app dispositions (incl. focalboard, sonarqube, xwiki) and the 20-app pass move to M2.3.
 
