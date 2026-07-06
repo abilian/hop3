@@ -2,7 +2,7 @@
 .PHONY: testlab-serve testlab-prune testlab-schedule testlab-run
 .PHONY: deploy deploy-docker clean-server clean-and-deploy
 .PHONY: test-e2e test-cov test-demos test-tutorials
-.PHONY: test-installer build-installers test-apps test-app
+.PHONY: test-installer build-installers test-apps test-app test-nix
 
 # For tests, set HOP3_DEV_HOST in your environment
 
@@ -187,7 +187,6 @@ test-tutorials:
 # other variants, call the CLI directly:
 #   list available tests    uv run hop3-test list
 #   deploy from local code   uv run hop3-test run --from local [--clean]
-#   Nix suite                uv run hop3-test run --docker --with nix apps/test-apps-nix apps/real-apps-nix-gen
 #   nightly matrix + report  uv run hop3-test run --docker --mode nightly --report html
 #
 
@@ -201,6 +200,12 @@ test-apps:
 test-app:
 	@if [ -z "$(APP)" ]; then echo "Usage: make test-app APP=<app-path-or-name>"; exit 1; fi
 	uv run hop3-test run --docker $(APP)
+
+## Deploy Hop3 + run the Nix suite on Docker (the M2.2 nix-runtime gate)
+test-nix:
+	@echo "--> Testing Nix apps on Docker (hop3-test run --with nix)"
+	uv run hop3-test run --docker --with nix apps/test-apps-nix apps/real-apps-nix-gen
+	@echo ""
 
 #
 # Installer Testing
