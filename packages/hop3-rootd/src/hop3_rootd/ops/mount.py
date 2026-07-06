@@ -1,7 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TC001
 
 """mount ops: native ``[[volumes]]`` realization (ADR 046 §2 / P2.1).
 

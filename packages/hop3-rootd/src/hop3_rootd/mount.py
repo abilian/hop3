@@ -1,7 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM101, EM102
 
 """Volume mount operations for native ``[[volumes]]`` (ADR 046 §2 / P2.1).
 
@@ -143,20 +142,22 @@ def _umount_bin(exec: Exec = DEFAULT_EXEC) -> str:
 def is_mounted(mountpoint: Path) -> bool:
     """True if ``mountpoint`` is an active mount per /proc/self/mountinfo.
 
-    Returns False when mountinfo is unavailable (non-Linux dev hosts); the
-    real teardown verification runs on Linux where it exists.
+    Returns False when mountinfo is absent (non-Linux dev hosts) — the real
+    teardown verification runs on Linux where it exists. A mountinfo that
+    *exists* but can't be read is a kernel-health fault, not "not mounted":
+    raising stops reconcile from silently dropping a live mount's state row
+    on a transient read error.
     """
     if not _MOUNTINFO.exists():
         return False
-    target = str(mountpoint)
     try:
         text = _MOUNTINFO.read_text(encoding="utf-8")
-    except OSError:
-        return False
+    except OSError as e:
+        raise MountError(f"could not read {_MOUNTINFO}: {e}") from e
     for line in text.splitlines():
         # mountinfo: "<id> <pid> <maj:min> <root> <mount-point> <opts> ..."
         parts = line.split()
-        if len(parts) >= 5 and parts[4] == target:
+        if len(parts) >= 5 and parts[4] == str(mountpoint):
             return True
     return False
 
@@ -307,15 +308,16 @@ def list_mounts_under_app_root() -> list[str]:
 
     Only rootd mounts under ``<app_root>/*/src`` (apps run unprivileged and
     can't mount), so any such mount with no state row is a rootd orphan. []
-    when mountinfo is unavailable (non-Linux dev hosts).
+    when mountinfo is absent (non-Linux dev hosts); a present-but-unreadable
+    mountinfo raises MountError so the orphan scan degrades loud, not silent.
     """
     if not _MOUNTINFO.exists():
         return []
     prefix = str(app_root()) + os.sep
     try:
         text = _MOUNTINFO.read_text(encoding="utf-8")
-    except OSError:
-        return []
+    except OSError as e:
+        raise MountError(f"could not read {_MOUNTINFO}: {e}") from e
     out: list[str] = []
     for line in text.splitlines():
         parts = line.split()

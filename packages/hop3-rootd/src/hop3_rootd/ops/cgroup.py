@@ -1,7 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TC001
 
 """cgroup ops: native ``[limits]`` enforcement via cgroup v2 (ADR 046 §3 / P2.2).
 
