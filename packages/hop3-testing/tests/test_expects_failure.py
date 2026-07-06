@@ -101,6 +101,7 @@ class TestLoaderParsesExpectsFailure:
 class _FakeSession:
     app_name: str = "fake-app"
     last_deploy_error: str | None = None
+    last_deploy_output: str | None = None  # full transcript (runner → bundle)
     cleaned: bool = False
     prepared: bool = False
     will_fail: bool = True

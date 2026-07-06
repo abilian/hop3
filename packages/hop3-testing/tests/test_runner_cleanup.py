@@ -34,6 +34,9 @@ class _FakeSession:
     def __init__(self, **_kwargs):
         self.app_name = "owncast-x"
         self.last_deploy_error = "RTMP daemon failed to bind"
+        # Full transcript the runner persists to the bundle (falls back to the
+        # short error); mirrors the real DeploymentSession attribute.
+        self.last_deploy_output = "About to deploy...\nRTMP daemon failed to bind"
         self.cleaned = False
 
     def prepare(self) -> None:
