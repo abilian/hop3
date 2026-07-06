@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 from hop3_rootd import reconcile as rec
@@ -41,7 +41,9 @@ def test_reconcile_keeps_live_drops_stale_removes_orphan():
     assert report.state_dropped == 1
     assert report.orphans_removed == 1
     assert [m.target for m in state.mounts] == ["a"]  # stale dropped, live kept
-    mock_un.assert_called_once_with(Path("/app/orphan"))  # live mount NOT touched
+    mock_un.assert_called_once_with(
+        Path("/app/orphan"), exec=ANY
+    )  # live mount NOT touched
 
 
 def test_reconcile_mounts_app_root_underivable_propagates():

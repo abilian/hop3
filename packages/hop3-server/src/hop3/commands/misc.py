@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, ClassVar
 from hop3 import config as c
 from hop3.config import HOP3_ROOT, HOP3_USER
 from hop3.deployers import do_deploy
-from hop3.lib.args import pop_app_flag
+from hop3.lib.args import pop_app_flag, reject_extra_args
 from hop3.lib.logging import server_log
 from hop3.lib.registry import lookup, register
 from hop3.lib.util import CommandError, CommandFailedError, run_command
@@ -125,10 +125,11 @@ class PSCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("ps",)
 
     def call(self, *args):
-        app_name, _rest = pop_app_flag(args)
+        app_name, rest = pop_app_flag(args)
+        reject_extra_args(rest)  # `ps` takes no positionals (audit C9)
 
         if app_name is None:
-            msg = "Usage: hop3 ps --app <app>"
+            msg = "Usage: hop3 ps [--app <app>]"
             raise ValueError(msg)
         app = get_app(self.db_session, app_name)
         scaling_file = app.virtualenv_path / "SCALING"
@@ -163,7 +164,7 @@ class PsScaleCmd(Command):
         app_name, rest = pop_app_flag(args)
 
         if app_name is None or not rest:
-            return [text("Usage: hop3 ps scale --app <app> <type>=<count>...")]
+            return [text("Usage: hop3 ps scale [--app <app>] <type>=<count>...")]
 
         settings = rest
         app = get_app(self.db_session, app_name)
@@ -206,7 +207,7 @@ class PsScaleCmd(Command):
 class RunCmd(Command):
     """Run a one-off command in the context of an application.
 
-    Usage: hop3 app run --app <app> <command> [args...] [--input <data>]
+    Usage: hop3 app run [--app <app>] <command> [args...] [--input <data>]
 
     `hop3 run ...` works as a top-level alias. The app is read from the
     `--app`/`-a` flag; everything that remains is the command line to execute.
@@ -232,7 +233,7 @@ class RunCmd(Command):
         if app_name is None or not args_list:
             return [
                 text(
-                    "Usage: hop run <app_name> <command> [args...] [--input <data>]\n\n"
+                    "Usage: hop3 run [--app <app>] <command> [args...] [--input <data>]\n\n"
                     "Options:\n"
                     "  --input <data>  Data to send to stdin (for password prompts, etc.)"
                 )
@@ -341,10 +342,11 @@ class SbomCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("app", "sbom")
 
     def call(self, *args):
-        app_name, _rest = pop_app_flag(args)
+        app_name, rest = pop_app_flag(args)
+        reject_extra_args(rest)  # `app sbom` takes no positionals (audit C9)
 
         if app_name is None:
-            msg = "Usage: hop3 app sbom --app <app>"
+            msg = "Usage: hop3 app sbom [--app <app>]"
             raise ValueError(msg)
         app = get_app(self.db_session, app_name)
 

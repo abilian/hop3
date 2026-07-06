@@ -13,8 +13,9 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
+from hop3.config import APP_ROOT
 from hop3.core.protocols import BuildArtifact, BuildContext, RuntimeConfig
-from hop3.lib import Abort
+from hop3.lib import Abort, log
 
 # See docker/builder.py for the rationale — single generous timeout + a
 # silent-time watchdog, no per-app tier declarations.
@@ -316,19 +317,42 @@ class NixBuilder:
         # destroyed (robust_rmtree of app_path), so teardown also lets nix
         # reclaim the closure. nix-build still prints the store path to stdout.
         gcroot = self.context.source_path.parent / ".nix-result"
-        # Retain the IMMEDIATELY-PRIOR build's GC root across this rebuild. A
-        # still-running old worker may exec a hardcoded store path baked into the
-        # previous closure (forgejo's wrapper execs ${forgejo}/bin/forgejo); if a
-        # GC runs between this rebuild and the new worker's cutover, it reclaims
-        # that closure and the old daemon dies "No such file or directory".
-        # Demoting the current root to .nix-result-prev keeps the old closure
-        # rooted until the NEXT rebuild — by when the old worker is gone. Both
-        # roots live in the app dir, so destroy() (rmtree of app_path) frees them.
         prev_gcroot = self.context.source_path.parent / ".nix-result-prev"
-        if prev_gcroot.is_symlink() or prev_gcroot.exists():
-            prev_gcroot.unlink()
-        if gcroot.is_symlink() or gcroot.exists():
-            gcroot.rename(prev_gcroot)
+        # Keep the IMMEDIATELY-PRIOR closure rooted THROUGHOUT this rebuild. A
+        # still-running old worker may exec a store path baked into the previous
+        # closure (forgejo's wrapper execs ${forgejo}/bin/forgejo); a GC firing
+        # mid-rebuild would reclaim it and the old daemon dies "No such file or
+        # directory". Two things this has to get right, both of which the old
+        # `gcroot.rename(prev_gcroot)` got wrong:
+        #   * Register a REAL indirect GC root. `Path.rename` cannot carry a nix
+        #     root: nix keeps gcroots/auto/<hash> pointing at the *old name*
+        #     (.nix-result), so the renamed .nix-result-prev is a plain dangling
+        #     symlink, NOT a root — the previous closure was never actually held.
+        #   * Register it BEFORE nix-build, not after. Rotating first left the old
+        #     closure unrooted for the build's whole multi-minute duration.
+        # `nix-store --realise <old> --add-root prev --indirect` roots the EXISTING
+        # old path independently of .nix-result. Both roots live in the app dir, so
+        # destroy() (rmtree of app_path) frees them and lets nix reclaim the closure.
+        if gcroot.is_symlink():
+            old_store = os.path.realpath(gcroot)
+            if os.path.exists(old_store):
+                if prev_gcroot.is_symlink() or prev_gcroot.exists():
+                    prev_gcroot.unlink()
+                prev_result = self._run_nix_command(
+                    f"nix-store --realise {shlex.quote(old_store)}"
+                    f" --add-root {shlex.quote(str(prev_gcroot))} --indirect",
+                    cwd=nix_file.parent,
+                )
+                if prev_result.returncode != 0:
+                    # Non-fatal to THIS deploy (the new closure still gets rooted
+                    # below), but surface it: a GC during the rebuild could now
+                    # disrupt the still-running old worker.
+                    log(
+                        "Warning: could not retain previous nix closure root: "
+                        f"{prev_result.stderr.strip()}",
+                        level=1,
+                        fg="yellow",
+                    )
         # --option build-timeout: 30-minute wall clock.
         # --option build-max-silent-time: 5-minute no-output watchdog (the
         #   real guard against lock waits and stalled downloads).
@@ -339,11 +363,44 @@ class NixBuilder:
         )
         result = self._run_nix_command(cmd, cwd=nix_file.parent)
 
+        # Persist the full nix-build output (success OR failure) so a failed nix
+        # build (e.g. a dangling store reference) is retrievable via `hop3 app
+        # logs --build` and the test diagnostic bundle, instead of vanishing with
+        # the deploy stream. NixBuilder previously wrote no build.log at all.
+        self._save_build_log(
+            f"{result.stdout}\n{result.stderr}".strip(),
+            success=result.returncode == 0,
+        )
+
         if result.returncode != 0:
             msg = f"nix-build failed: {result.stderr}"
             raise RuntimeError(msg)
 
         return result.stdout.strip()
+
+    def _save_build_log(self, output: str, *, success: bool) -> None:
+        """Write the nix-build output to APP_ROOT/<app>/log/build.log.
+
+        Same sink every reader uses (`hop3 app logs --build`, the diagnostic
+        bundle); best-effort, never fatal.
+        """
+        try:
+            app_log_dir = APP_ROOT / self.context.app_name / "log"
+            app_log_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            status = "SUCCESS" if success else "FAILED"
+            content = (
+                "=== Nix Build Log ===\n"
+                f"Timestamp: {timestamp}\n"
+                f"App: {self.context.app_name}\n"
+                f"Status: {status}\n"
+                "Builder: nix\n\n"
+                f"=== BUILD OUTPUT ===\n{output}\n"
+            )
+            (app_log_dir / "build.log").write_text(content)
+            log(f"Build log saved to: {app_log_dir / 'build.log'}", level=2)
+        except Exception as e:  # logging must never break a build
+            log(f"Could not save nix build log: {e}", level=1, fg="yellow")
 
     def _run_nix_command(
         self,
@@ -372,8 +429,6 @@ class NixBuilder:
         else:
             # No profile found, try running directly (might work if in PATH)
             shell_cmd = cmd
-
-        from hop3.lib import log  # noqa: PLC0415
 
         # Stream stderr for real-time build progress while capturing stdout
         proc = subprocess.Popen(

@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 from typing import Final
 
+from hop3_rootd.exec import DEFAULT_EXEC, Exec
 from hop3_rootd.nft.rule import (
     CHAIN_NAME,
     TABLE_FAMILY,
@@ -39,7 +40,7 @@ _TABLE_EXISTS_MARKERS: Final[tuple[str, ...]] = (
 )
 
 
-def ensure_table_exists() -> None:
+def ensure_table_exists(*, exec: Exec = DEFAULT_EXEC) -> None:
     """Create the `inet hop3` table + `input` chain if absent. Idempotent.
 
     Safe to call multiple times. nft's behaviour:
@@ -48,12 +49,12 @@ def ensure_table_exists() -> None:
         we tolerate)
       - same for `nft add chain ...`
     """
-    nft = find_nft_binary()
+    nft = find_nft_binary(exec)
 
     # Create table.
     add_table = [nft, "add", "table", TABLE_FAMILY, TABLE_NAME]
     try:
-        run_nft(add_table)
+        run_nft(add_table, exec=exec)
     except NftCommandError as e:
         if not _is_already_exists(e.stderr):
             raise
@@ -82,7 +83,7 @@ def ensure_table_exists() -> None:
         "}",
     ]
     try:
-        run_nft(add_chain)
+        run_nft(add_chain, exec=exec)
     except NftCommandError as e:
         if not _is_already_exists(e.stderr):
             raise
@@ -93,7 +94,7 @@ def _is_already_exists(stderr: str) -> bool:
     return any(marker in stderr for marker in _TABLE_EXISTS_MARKERS)
 
 
-def list_rules() -> list[KernelRule]:
+def list_rules(*, exec: Exec = DEFAULT_EXEC) -> list[KernelRule]:
     """Return all rules currently in the `inet hop3 input` chain.
 
     Calls `nft -j list table inet hop3` and parses the JSON output.
@@ -103,9 +104,9 @@ def list_rules() -> list[KernelRule]:
     should treat this as fatal and surface it (the daemon's reconcile
     loop refuses to start in that case).
     """
-    nft = find_nft_binary()
+    nft = find_nft_binary(exec)
     argv = [nft, "-j", "list", "table", TABLE_FAMILY, TABLE_NAME]
-    result = run_nft(argv, timeout=5.0)
+    result = run_nft(argv, timeout=5.0, exec=exec)
 
     try:
         obj = json.loads(result.stdout)
@@ -120,17 +121,17 @@ def list_rules() -> list[KernelRule]:
     return parse_list_output(obj)
 
 
-def delete_table() -> None:
+def delete_table(*, exec: Exec = DEFAULT_EXEC) -> None:
     """Remove the `inet hop3` table entirely.
 
     Called only on uninstall (ADR 041 §"Uninstall semantics"). The daemon
     itself never calls this on shutdown — `systemctl stop` preserves
     rules.
     """
-    nft = find_nft_binary()
+    nft = find_nft_binary(exec)
     argv = [nft, "delete", "table", TABLE_FAMILY, TABLE_NAME]
     try:
-        run_nft(argv)
+        run_nft(argv, exec=exec)
     except NftCommandError as e:
         # If the table doesn't exist, that's also success — nothing to do.
         if "No such file or directory" in e.stderr or "doesn't exist" in e.stderr:

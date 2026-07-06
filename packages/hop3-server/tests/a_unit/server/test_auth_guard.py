@@ -61,7 +61,7 @@ class _FakeConnection:
 def _force_safe_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     """Exercise the real auth path (not the UNSAFE bypass) with a stable key."""
     monkeypatch.setattr(guards.config, "HOP3_UNSAFE", False)
-    monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-for-auth-guard")
+    monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-for-auth-guard-padding")
 
 
 # ---- cookie path (dashboard) --------------------------------------------

@@ -49,8 +49,8 @@ uv run pytest packages/hop3-server/tests/d_e2e/ -v
 ### Using Makefile
 
 ```bash
-make test-apps      # Test apps against pre-built image
-make test-system    # Run system tests
+make test-apps                                    # Test apps against pre-built image
+uv run hop3-test system --deploy-from local       # Run system tests from local code
 ```
 
 ## Test Configuration

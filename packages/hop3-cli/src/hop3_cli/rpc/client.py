@@ -33,6 +33,40 @@ if TYPE_CHECKING:
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
+def resolve_ssl_verification(api_url: str, config: Config) -> bool | str:
+    """The ``verify`` value for ``requests`` given the connection URL + config.
+
+    Shared by the RPC client AND the SSE streaming path so both honor a pinned
+    ``ssl_cert`` (chain-verify against it) and parse a string ``verify_ssl``
+    ("false"/"0"/"no") identically. A non-HTTPS URL needs no verification.
+
+    The streaming path used to hand-roll ``config.get("verify_ssl", True)``,
+    which ignored a pinned ``ssl_cert`` (so the stream failed while ``/rpc``
+    succeeded, reporting failure on a running deploy) and passed a *string*
+    ``"false"`` straight to ``requests`` (read as a CA-bundle path → opaque
+    OSError). Routing both through this one resolver closes that (audit
+    2026-06 B1).
+    """
+    if urlparse(api_url).scheme != "https":
+        return False
+
+    ssl_cert_value = config.get("ssl_cert", None)
+    if ssl_cert_value:
+        # Pinned cert: verify the chain against it (hostname/SAN included).
+        return str(ssl_cert_value)
+
+    return not _verify_ssl_disabled(config.get("verify_ssl", None))
+
+
+def _verify_ssl_disabled(verify_ssl_config: str | bool | None) -> bool:
+    """Whether ``verify_ssl`` is explicitly disabled (handles str + bool)."""
+    if verify_ssl_config is None:
+        return False
+    if isinstance(verify_ssl_config, str):
+        return verify_ssl_config.lower() in {"false", "0", "no"}
+    return not bool(verify_ssl_config)
+
+
 @dataclass
 class Client:
     """Hop3 RPC client with reliable SSH tunnel cleanup.
@@ -245,43 +279,13 @@ class Client:
     def _get_ssl_verification(self) -> bool | str:
         """Determine SSL verification mode based on config.
 
-        A pinned ``ssl_cert`` is always returned (chain-verified
-        against the cert, including hostname/SAN); operators wanting
-        IP-based access must include the IP in the cert's SAN. See
-        notes/security.md §3.4 for the trust-model rationale.
+        A pinned ``ssl_cert`` is always returned (chain-verified against the
+        cert, including hostname/SAN); operators wanting IP-based access must
+        include the IP in the cert's SAN. See notes/security.md §3.4 for the
+        trust-model rationale. Delegates to the module-level
+        ``resolve_ssl_verification`` shared with the streaming path.
         """
-        parsed_url = urlparse(self.api_url)
-
-        if parsed_url.scheme != "https":
-            return False
-
-        ssl_cert_value = self.config.get("ssl_cert", None)
-        ssl_cert: str | None = str(ssl_cert_value) if ssl_cert_value else None
-        verify_ssl_config = self.config.get("verify_ssl", None)
-
-        # Check if verification is explicitly disabled
-        verify_ssl_disabled = self._is_verify_ssl_disabled(verify_ssl_config)
-
-        if ssl_cert:
-            # Pinned cert: verify chain against it. If the host is an
-            # IP and the cert lacks an IP SAN, the request will fail —
-            # that's correct; it forces the operator to fix the cert
-            # rather than silently accepting any cert.
-            return ssl_cert
-
-        # Default to system CA bundle unless explicitly disabled
-        return not verify_ssl_disabled
-
-    def _is_verify_ssl_disabled(
-        self,
-        verify_ssl_config: str | bool | None,
-    ) -> bool:
-        """Check if SSL verification is explicitly disabled in config."""
-        if verify_ssl_config is None:
-            return False
-        if isinstance(verify_ssl_config, str):
-            return verify_ssl_config.lower() in {"false", "0", "no"}
-        return not bool(verify_ssl_config)
+        return resolve_ssl_verification(self.api_url, self.config)
 
     def _build_headers(self) -> dict[str, str]:
         """Build request headers with authentication."""

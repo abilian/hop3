@@ -23,7 +23,9 @@ def create_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  sudo python3 install-server.py                  Install with PostgreSQL only
+  sudo python3 install-server.py                  Install (PyPI, PostgreSQL only)
+  sudo python3 install-server.py --from git       Install from git (main branch)
+  sudo python3 install-server.py --from local --path /src   Install from a dir
   sudo python3 install-server.py --with docker    Install with PostgreSQL + Docker
   sudo python3 install-server.py --with all       Install all optional features
   sudo python3 install-server.py --domain hop3.example.com
@@ -34,11 +36,20 @@ Optional Features (--with):
   mysql       MySQL database
   nix         Nix package manager (multi-user daemon mode)
   redis       Redis cache/store
+  rust        Rust toolchain (rustup)
   s3          S3-compatible object storage (MinIO)
   all         Install all optional features
+  (PostgreSQL is always installed and is not a feature. Unknown values error.)
 """,
     )
 
+    parser.add_argument(
+        "--from",
+        dest="from_source",
+        choices=["pypi", "git", "local"],
+        default=None,
+        help="Install source: pypi | git | local (preferred over --git/--path)",
+    )
     parser.add_argument(
         "--version",
         metavar="VERSION",
@@ -49,7 +60,7 @@ Optional Features (--with):
         "--git",
         action="store_true",
         default=env_config.use_git,
-        help="Install from git repository",
+        help="Install from git repository (deprecated: use --from git)",
     )
     parser.add_argument(
         "--branch",
@@ -58,10 +69,12 @@ Optional Features (--with):
         help=f"Git branch to install from (default: {DEFAULT_BRANCH_PRODUCTION})",
     )
     parser.add_argument(
+        "--path",
         "--local-path",
+        dest="local_path",
         metavar="PATH",
         default=env_config.local_path,
-        help="Install from a local directory",
+        help="Local directory to install from (use with --from local)",
     )
     parser.add_argument(
         "--pre",
@@ -69,11 +82,16 @@ Optional Features (--with):
         default=env_config.pre_release,
         help="Allow pre-release versions when installing from PyPI",
     )
+    # `--clean` is the canonical spelling for "start fresh / reinstall over an
+    # existing install" (ADR 052 D6); `--force` stays as an alias. `--force` is
+    # reserved elsewhere for the client's guard-bypass, so it is not that here.
     parser.add_argument(
+        "--clean",
         "--force",
+        dest="force",
         action="store_true",
         default=env_config.force,
-        help="Force reinstall",
+        help="Clean reinstall over an existing install (recreates the venv)",
     )
     parser.add_argument(
         "--skip-deps",
@@ -95,10 +113,11 @@ Optional Features (--with):
     )
     parser.add_argument(
         "--with",
+        "-w",
         dest="with_features",
         metavar="FEATURES",
         default=",".join(env_config.features) if env_config.features else "",
-        help="Comma-separated list of features (mysql,redis,docker,nix,s3,all)",
+        help="Comma-separated features: docker,mysql,redis,nix,s3,rust (or 'all')",
     )
     parser.add_argument(
         "--skip-acme",
@@ -136,11 +155,19 @@ Optional Features (--with):
 
 
 def config_from_args(args: argparse.Namespace) -> ServerInstallerConfig:
-    """Create ServerInstallerConfig from parsed arguments."""
+    """Create ServerInstallerConfig from parsed arguments.
+
+    ``--from {pypi,git,local}`` is the canonical source selector (ADR 052 D3);
+    ``--git``/``--path`` still work. ``--from local`` requires ``--path``.
+    """
     features = parse_features(args.with_features)
+    if args.from_source == "local" and not args.local_path:
+        msg = "--from local requires --path <dir> (a local directory to install from)"
+        raise ValueError(msg)
+    use_git = args.git or args.from_source == "git"
     return ServerInstallerConfig(
         version=args.version,
-        use_git=args.git,
+        use_git=use_git,
         branch=args.branch,
         local_path=args.local_path,
         pre_release=args.pre,

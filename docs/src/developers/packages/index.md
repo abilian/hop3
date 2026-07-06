@@ -8,7 +8,7 @@ This section provides access to the technical deep-dive documentation for each H
 |---------|---------|-------------|---------------|
 | [hop3-server](hop3-server.md) | Core platform server | `hop3-server` | [internals](hop3-server.md) |
 | [hop3-cli](hop3-cli.md) | Command-line interface | `hop3` / `hop` | [internals](hop3-cli.md) |
-| [hop3-installer](hop3-installer.md) | Installation toolkit | `hop3-install`, `hop3-deploy` | [internals](hop3-installer.md) |
+| [hop3-installer](hop3-installer.md) | Installation toolkit | `hop3-install`, `hop3-deploy-server` | [internals](hop3-installer.md) |
 | [hop3-tui](hop3-tui.md) | Terminal user interface | `hop3-tui` | [internals](hop3-tui.md) |
 | [hop3-testing](hop3-testing.md) | Testing framework | `hop3-test` | [internals](hop3-testing.md) |
 

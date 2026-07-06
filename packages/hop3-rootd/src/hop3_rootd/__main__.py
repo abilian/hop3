@@ -36,10 +36,10 @@ from hop3_rootd.audit import (
     configure_operational_logging,
     logger,
 )
-from hop3_rootd.cgroup import CgroupUnavailableError
+from hop3_rootd.cgroup import CgroupError, CgroupUnavailableError
 from hop3_rootd.mount import MountError
-from hop3_rootd.nft.rule import NftBinaryNotFoundError
-from hop3_rootd.proxy import ProxyUnavailableError
+from hop3_rootd.nft.rule import NftBinaryNotFoundError, NftError
+from hop3_rootd.proxy import ProxyError, ProxyUnavailableError
 from hop3_rootd.reconcile import (
     reconcile,
     reconcile_cgroups,
@@ -141,7 +141,7 @@ def _startup_reconcile(state: State, state_path: Path) -> bool:
             len(state.rules),
         )
         return True
-    except Exception as e:
+    except NftError as e:
         logger.error("reconciliation failed: %s", e)
         return False
 
@@ -179,7 +179,7 @@ def _startup_reconcile_cgroups(state: State, state_path: Path) -> None:
             len(state.cgroups),
         )
         return
-    except Exception as e:
+    except CgroupError as e:
         logger.error("cgroup reconciliation error: %s", e)
         return
 
@@ -207,9 +207,6 @@ def _startup_reconcile_mounts(state: State, state_path: Path) -> None:
         report = reconcile_mounts(state)
     except MountError as e:
         logger.error("mount reconciliation error: %s", e)
-        return
-    except Exception as e:
-        logger.error("unexpected error in mount reconciliation: %s", e)
         return
 
     save(state, state_path)
@@ -244,7 +241,7 @@ def _startup_reconcile_proxies(state: State, state_path: Path) -> None:
             len(state.proxies),
         )
         return
-    except Exception as e:
+    except ProxyError as e:
         logger.error("proxy reconciliation error: %s", e)
         return
 

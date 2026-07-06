@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from hop3.deployers import deployer as dep
 from hop3.deployers.deployer import _app_serves_http, _wait_for_app_start
 from hop3.orm.app import AppStateEnum
 
@@ -132,6 +133,21 @@ def test_healthcheck_path_is_normalised(http_server: tuple[int, list[int]]) -> N
     assert _app_serves_http(app, "up", timeout=2.0) is True  # no leading slash
 
 
+def test_contains_match_counts_as_serving(http_server: tuple[int, list[int]]) -> None:
+    # The fixture serves body "ok"; [healthcheck].contains="ok" is satisfied.
+    port, _ = http_server
+    app = SimpleNamespace(port=port, hostname="localhost")
+    assert _app_serves_http(app, "/", timeout=2.0, healthcheck_contains="ok") is True
+
+
+def test_contains_mismatch_is_not_serving(http_server: tuple[int, list[int]]) -> None:
+    # A 200 whose body lacks the required substring is NOT "serving" — the whole
+    # point of [healthcheck].contains: a status-only 200 can be the wrong content.
+    port, _ = http_server
+    app = SimpleNamespace(port=port, hostname="localhost")
+    assert _app_serves_http(app, "/", timeout=2.0, healthcheck_contains="nope") is False
+
+
 # --- _wait_for_app_start gate ---------------------------------------------
 
 
@@ -155,3 +171,72 @@ def test_wait_succeeds_when_app_answers(http_server: tuple[int, list[int]]) -> N
         get_logs=lambda lines=50: [],
     )
     assert _wait_for_app_start(app, timeout=3.0) is True
+
+
+# --- _update_app_model: port-less (static) deploys skip the worker check ----
+
+
+def test_static_deploy_clears_stale_port_and_skips_health_check(monkeypatch) -> None:
+    """A port-less (static) deploy must not be failed by a stale port.
+
+    Regression: `_update_app_model` only *set* app.port (never cleared it), so a
+    static redeploy (deployment_info.port is None) kept the previous deploy's
+    port (e.g. 48477). `_app_serves_http` then probed that dead port, the wait
+    timed out, and the deploy FAILED for a site nginx was already serving — yet
+    a plain `hop3 app restart` fixed it. nginx serves static files directly;
+    there is no worker to boot, so the worker-boot check must not run.
+    """
+
+    waited = {"called": False}
+    monkeypatch.setattr(
+        dep,
+        "_wait_for_app_start",
+        lambda *a, **k: waited.__setitem__("called", True) or True,
+    )
+
+    app = SimpleNamespace(
+        name="docs",
+        runtime="uwsgi",  # stale runtime from a prior (dynamic) deploy
+        port=48477,  # stale port from a prior deploy
+        hostname=None,
+        get_runtime_env=dict,
+    )
+    deployment_info = SimpleNamespace(port=None, address="site", protocol="static")
+    app_config = SimpleNamespace(
+        start_timeout=60.0,
+        hop3_config=SimpleNamespace(healthcheck_path="", healthcheck_contains=""),
+    )
+
+    dep._update_app_model(app, "static", deployment_info, app_config)
+
+    assert app.port == 0, "stale port must be cleared for a port-less deploy"
+    assert waited["called"] is False, "static deploy must skip the worker-boot check"
+
+
+def test_process_deploy_still_runs_health_check(monkeypatch) -> None:
+    """A normal (uWSGI/docker) deploy with a real port still gets health-checked."""
+
+    waited = {"called": False}
+    monkeypatch.setattr(
+        dep,
+        "_wait_for_app_start",
+        lambda *a, **k: waited.__setitem__("called", True) or True,
+    )
+
+    app = SimpleNamespace(
+        name="web",
+        runtime="uwsgi",
+        port=0,
+        hostname=None,
+        get_runtime_env=dict,
+    )
+    deployment_info = SimpleNamespace(port=8080, address="127.0.0.1", protocol="http")
+    app_config = SimpleNamespace(
+        start_timeout=1.0,
+        hop3_config=SimpleNamespace(healthcheck_path="", healthcheck_contains=""),
+    )
+
+    dep._update_app_model(app, "uwsgi", deployment_info, app_config)
+
+    assert app.port == 8080
+    assert waited["called"] is True, "a real worker port must still be health-checked"

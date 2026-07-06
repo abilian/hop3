@@ -42,11 +42,11 @@ def check_existing_installation(*, force: bool) -> bool:
     """
     if CLI_VENV_DIR.exists():
         if force:
-            print_info("Existing installation found, will reinstall (--force)")
+            print_info("Existing installation found, will reinstall (--clean)")
             return True
         print_warning("Hop3 CLI is already installed")
         print_detail(f"Location: {CLI_INSTALL_DIR}")
-        print_detail("Use --force to reinstall")
+        print_detail("Use --clean to reinstall")
         return False
     return True
 

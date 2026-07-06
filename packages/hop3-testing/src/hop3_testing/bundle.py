@@ -127,6 +127,20 @@ class Bundle:
     probe: ProxyProbe | None = None
     artifact_dir: Path | None = None
 
+    @property
+    def why(self) -> str:
+        """The `hop3-test why` command that replays this bundle's most useful
+        section.
+
+        This is the test-context replacement for the server's own
+        `hop3 app logs --app <app> --build` pointer: under `hop3-test` the app
+        is destroyed right after the failure, so that pointer is dead — but the
+        bundle is durable (every section is recorded under
+        ``~/.hop3/test-runs/<run-id>/``).
+        """
+        section = _SECTION_HINT.get(self.classifier, "app")
+        return f"hop3-test why {self.run_id} --section {section}"
+
     def manifest(self) -> dict:
         return {
             "schema_version": 1,
@@ -146,7 +160,14 @@ _PROXY_PASS_RE = re.compile(r"proxy_pass\s+https?://[\d.]+:(\d+)")
 _UPSTREAM_RE = re.compile(
     r"upstream\s+\S+\s*\{[^}]*?server\s+127\.0\.0\.1:(\d+)", re.DOTALL
 )
-_LISTEN_LINE_RE = re.compile(r"127\.0\.0\.1:(\d+)")
+# A listener nginx's `proxy_pass http://127.0.0.1:PORT` can actually reach — not
+# just a literal 127.0.0.1 bind. gunicorn/uwsgi default to `--bind 0.0.0.0:$PORT`
+# (all interfaces, loopback included), so matching only "127.0.0.1:PORT" made the
+# app's own port invisible and produced a FALSE proxy-502 for a healthy app that
+# curl(127.0.0.1:PORT) reached fine. Accept the wildcard binds too (0.0.0.0, *,
+# [::], ::). The peer column (`0.0.0.0:*`) can't false-match: its port is `*`,
+# not digits.
+_LISTEN_LINE_RE = re.compile(r"(?:127\.0\.0\.1|0\.0\.0\.0|\*|\[::\]|::):(\d+)")
 _SS_OWNER_RE = re.compile(r'users:\(\("([^"]+)"')
 _NETSTAT_OWNER_RE = re.compile(r"LISTEN\s+\d+/(\S+)")
 
@@ -189,7 +210,12 @@ def _decode_proc_net_tcp(text: str) -> list[int]:
 
 
 def parse_listen_ports(text: str) -> tuple[tuple[int, ...], bool, dict[int, str]]:
-    """Parse 127.0.0.1 LISTEN ports from ss / netstat / /proc/net/tcp output.
+    """Parse loopback-reachable LISTEN ports from ss / netstat / /proc/net/tcp.
+
+    "Loopback-reachable" = bound to 127.0.0.1 OR a wildcard (0.0.0.0 / * / [::] /
+    ::), since a connect to 127.0.0.1:PORT reaches all of those. Matching only a
+    literal 127.0.0.1 bind missed apps that listen on 0.0.0.0:$PORT (the gunicorn
+    default) and mislabelled them proxy-502.
 
     Returns ``(ports, table_available, owner_by_port)``. ``table_available`` is
     False when nothing parseable was produced (no tool present + non-root) — the
@@ -687,12 +713,17 @@ def collect_diagnostic_bundle(
     target_kind: str = "docker",
     base_dir: Path | None = None,
     persist: bool = True,
+    force_persist: bool = False,
 ) -> Bundle:
     """Collect a target-agnostic diagnostic bundle BEFORE teardown.
 
-    Only call this on a real failure — an ``ok`` classification is never
-    persisted. Never raises: per-section isolation + a probe that degrades to
-    ``indeterminate`` rather than emitting a confident-but-wrong verdict.
+    Only call this on a real failure. By default an ``ok`` classification is not
+    written to disk — but some failures classify ``ok`` at the runtime layer
+    (the app serves fine; a check.py body assertion or HTTP `contains` is what
+    failed). For those, pass ``force_persist=True`` so the bundle is still
+    written and ``why <run-id>`` can replay it. Never raises: per-section
+    isolation + a probe that degrades to ``indeterminate`` rather than emitting a
+    confident-but-wrong verdict.
     """
     kind = _detect_kind(target, app)
     sections = _collect_sections(
@@ -722,6 +753,6 @@ def collect_diagnostic_bundle(
         sections=sections,
         probe=probe,
     )
-    if persist and classifier != "ok":
+    if persist and (force_persist or classifier != "ok"):
         bundle = write_bundle(bundle, base_dir)
     return bundle

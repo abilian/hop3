@@ -40,3 +40,4 @@ covers = ["php", "mysql"]
 [[test.validations]]
 path = "/"
 status = 307
+contains = "Easy!Appointments"

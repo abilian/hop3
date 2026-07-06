@@ -12,13 +12,17 @@ from hop3_installer.common import env_bool, env_list, env_str, find_project_root
 
 # Import shared constants
 from hop3_installer.constants import (
+    ALL_FEATURES,
     DEFAULT_ADMIN_EMAIL,
     DEFAULT_ADMIN_USER,
-    DEFAULT_BRANCH_DEVELOPMENT as DEFAULT_BRANCH,
+    # ADR 052 D3: the default git branch is `main` (production/safe) everywhere;
+    # a dev workflow passes `--branch devel` explicitly. Was DEVELOPMENT (devel).
+    DEFAULT_BRANCH_PRODUCTION as DEFAULT_BRANCH,
     DEFAULT_SSH_USER,
     DOCKER_CONTAINER_NAME,
     DOCKER_IMAGE,
 )
+from hop3_installer.deprecation import env_bool_with_alias, env_with_alias
 from hop3_installer.nginx_templates import is_fqdn
 
 
@@ -216,15 +220,17 @@ class DeployConfig:
         """Create config from environment variables.
 
         Supported environment variables:
-            HOP3_DEV_HOST / HOP3_TEST_SERVER - Target server
+            HOP3_HOST - Target server (HOP3_DEV_HOST / HOP3_TEST_SERVER deprecated aliases)
             HOP3_SSH_USER - SSH user (default: root)
-            HOP3_GIT - Install from git (1 or true)
-            HOP3_BRANCH - Git branch (implies HOP3_GIT if not default)
-            HOP3_LOCAL - Use local code (1 or true)
-            HOP3_PYPI - Install from PyPI (1 or true, this is the default)
-            HOP3_PYPI_VERSION - Specific PyPI version
-            HOP3_PYPI_PRE - Allow pre-release versions (1 or true)
+            HOP3_FROM - Install source: pypi | git | local
+            HOP3_GIT - Deprecated: install from git (use HOP3_FROM=git)
+            HOP3_BRANCH - Git branch (implies --from git if not default)
+            HOP3_LOCAL - Deprecated: use local code (use HOP3_FROM=local)
+            HOP3_PYPI - Deprecated: install from PyPI, the default (use HOP3_FROM=pypi)
+            HOP3_VERSION - Specific PyPI version (was HOP3_PYPI_VERSION)
+            HOP3_PRE - Allow pre-release versions (1 or true) (was HOP3_PYPI_PRE)
             HOP3_CLEAN - Clean before deploy (1 or true)
+            HOP3_SKIP_MIGRATIONS - Skip DB migrations after install (1 or true)
             HOP3_WITH - Features to install (comma-separated)
             HOP3_ADMIN_DOMAIN - Admin domain
             HOP3_ADMIN_USER - Admin username
@@ -235,23 +241,37 @@ class DeployConfig:
             HOP3_QUIET - Quiet mode (1 or true)
             HOP3_DOCKER - Use Docker instead of SSH (1 or true)
         """
-        host = env_str("HOP3_DEV_HOST") or env_str("HOP3_TEST_SERVER")
+        # HOP3_HOST is the canonical target var; HOP3_DEV_HOST / HOP3_TEST_SERVER
+        # still work (ADR 052 D2).
+        host = (
+            env_str("HOP3_HOST")
+            or env_str("HOP3_DEV_HOST")
+            or env_str("HOP3_TEST_SERVER")
+        )
         features = env_list("HOP3_WITH")
         branch = env_str("HOP3_BRANCH", DEFAULT_BRANCH)
 
-        # --branch implies --git if a non-default branch is specified
-        use_git = env_bool("HOP3_GIT") or (branch != DEFAULT_BRANCH)
+        # HOP3_FROM is the canonical source selector (pypi|git|local); the older
+        # HOP3_GIT/HOP3_LOCAL/HOP3_PYPI booleans still work (ADR 052 D3). A
+        # non-default --branch still implies git.
+        from_source = env_str("HOP3_FROM", "").lower().strip()
+        use_git = (
+            env_bool("HOP3_GIT") or (branch != DEFAULT_BRANCH) or from_source == "git"
+        )
+        use_local = env_bool("HOP3_LOCAL") or from_source == "local"
+        use_pypi = env_bool("HOP3_PYPI") or from_source == "pypi"
 
         return cls(
             host=host,
             use_docker=env_bool("HOP3_DOCKER"),
             ssh_user=env_str("HOP3_SSH_USER", DEFAULT_SSH_USER),
+            ssh_key=env_str("HOP3_SSH_KEY"),
             branch=branch,
-            use_local_code=env_bool("HOP3_LOCAL"),
+            use_local_code=use_local,
             use_git=use_git,
-            use_pypi=env_bool("HOP3_PYPI"),
-            pypi_version=env_str("HOP3_PYPI_VERSION"),
-            pypi_pre=env_bool("HOP3_PYPI_PRE"),
+            use_pypi=use_pypi,
+            pypi_version=env_with_alias("HOP3_VERSION", "HOP3_PYPI_VERSION"),
+            pypi_pre=env_bool_with_alias("HOP3_PRE", "HOP3_PYPI_PRE"),
             clean_before=env_bool("HOP3_CLEAN"),
             skip_migrations=env_bool("HOP3_SKIP_MIGRATIONS"),
             with_features=features or ["docker"],
@@ -286,5 +306,19 @@ class DeployConfig:
 
         if self.verbose and self.quiet:
             errors.append("Cannot use both --verbose and --quiet")
+
+        # Reject unknown --with features early (before upload/connect), so a
+        # typo fails here instead of deep inside install-server (ADR 052 D4).
+        # postgres = always-on baseline; all = expand. Same valid set the
+        # server installer's parse_features enforces.
+        valid_features = ALL_FEATURES | {"postgres", "postgresql", "all"}
+        unknown = [
+            f for f in self.with_features if f.lower().strip() not in valid_features
+        ]
+        if unknown:
+            errors.append(
+                f"Unknown --with feature(s): {', '.join(unknown)}. "
+                f"Valid: {', '.join(sorted(ALL_FEATURES))} (or 'all')."
+            )
 
         return errors

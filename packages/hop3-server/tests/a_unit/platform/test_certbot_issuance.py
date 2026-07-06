@@ -68,3 +68,47 @@ def test_certbot_command_omits_server_by_default(certbot_env, monkeypatch):
     Certificate(DOMAIN).generate_with_certbot(force=False)
 
     assert "--server" not in certbot_env["cmd"]
+
+
+# --- cause-aware failure hints (the misleading-"check your DNS" fix) --------
+
+# The real transcript from a server whose OUTBOUND TLS to Let's Encrypt failed:
+# the call died at get_directory (the first ACME call), before any challenge.
+_UNREACHABLE_LOG = (
+    "requests.exceptions.SSLError: HTTPSConnectionPool("
+    "host='acme-v02.api.letsencrypt.org', port=443): Max retries exceeded with "
+    "url: /directory (Caused by SSLError(SSLEOFError(8, "
+    "'[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol')))"
+    '\n  File ".../acme/client.py", line 330, in get_directory'
+)
+
+
+def test_hint_names_egress_when_acme_api_unreachable():
+    hint = certificates._certbot_failure_hint(_UNREACHABLE_LOG)
+    # It must point at the server's OUTBOUND path, not the domain's DNS/port 80.
+    assert "OUTBOUND" in hint
+    assert "IPv6" in hint
+    assert "NOT the problem" in hint
+    # And must NOT send the operator to check their (correct) domain DNS.
+    assert "Domain DNS not pointing" not in hint
+
+
+def test_hint_keeps_dns_advice_for_a_real_challenge_failure():
+    challenge_log = (
+        "Certbot failed to authenticate some domains (authenticator: webroot). "
+        "The Certificate Authority reported these problems:\n"
+        "  Domain: app.example.com\n"
+        "  Type: connection\n"
+        "  Detail: Timeout during connect (likely firewall problem)"
+    )
+    hint = certificates._certbot_failure_hint(challenge_log)
+    assert "Domain DNS not pointing to this server" in hint
+    assert "OUTBOUND" not in hint
+
+
+def test_hint_flags_rate_limit():
+    hint = certificates._certbot_failure_hint(
+        "Error creating new order :: too many certificates already issued"
+    )
+    assert "rate limit" in hint.lower()
+    assert "OUTBOUND" not in hint

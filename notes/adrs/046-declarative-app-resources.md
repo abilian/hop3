@@ -16,7 +16,7 @@ Hop3's `hop3.toml` was modeled on Nua's `nua-config` (Hop3's predecessor). ADR 0
 
 The four gaps, each a real blocker hit while greening the advertised app/tutorial set:
 
-1. **No generated secrets.** Many apps require a secret/key to exist *before first boot* (the release crashes without it). Hop3 has no way to declare "generate a secret named X once and keep it"; the only paths are hardcoding (forbidden) or out-of-band `hop3 config set` / `hop3 deploy --env X=$(...)`. This bites Phoenix (`SECRET_KEY_BASE`), Laravel (`APP_KEY`), and Rails (`secret_key_base`).
+1. **No generated secrets.** Many apps require a secret/key to exist *before first boot* (the release crashes without it). Hop3 has no way to declare "generate a secret named X once and keep it"; the only paths are hardcoding (forbidden) or out-of-band `hop3 env set` / `hop3 deploy --env X=$(...)`. This bites Phoenix (`SECRET_KEY_BASE`), Laravel (`APP_KEY`), and Rails (`secret_key_base`).
 2. **No declarative persistence.** There is no `[[volumes]]`-equivalent. An app cannot declare which paths in its tree must survive the source-replacing redeploy, request a tmpfs, or attach a bind mount. The only persisted location is the implicit `data/` dir.
 3. **No dynamic env references.** Hop3 auto-injects a *fixed, per-addon-type* env contract (`DATABASE_URL`, `PGHOST`, …). It cannot copy an arbitrary provider attribute, build a custom connection string from parts, reference a second instance, or read the host's public IP.
 4. **No resource limits.** Nothing lets an app declare a memory or CPU cap. On a single box running many apps — Hop3's whole premise — one app can starve the others.
@@ -88,7 +88,7 @@ SESSION_ID      = { generate = "uuid" }
 - `prefix` (optional): literal string prepended after generation (Laravel needs `base64:`).
 - `display` (optional, default `false`): surface the generated value **once** in deploy output, for bootstrap admin credentials. This is the only time a generated secret is shown.
 
-**Semantics.** Generation uses the `secrets` module (CSPRNG — `token_hex`/`token_urlsafe`/`token_bytes`), never `random`. A value is generated only if the var is **unset**, then stored as a normal app `EnvVar` (encrypted at rest once ADR 011 lands) and **never regenerated**. This slots into the existing keep-existing/`_policy` model: a generated secret is a default that, once materialized, is preserved. Rotation is explicit: `hop3 config unset KEY && hop3 deploy` (a dedicated `hop3 config rotate` is Future Work).
+**Semantics.** Generation uses the `secrets` module (CSPRNG — `token_hex`/`token_urlsafe`/`token_bytes`), never `random`. A value is generated only if the var is **unset**, then stored as a normal app `EnvVar` (encrypted at rest once ADR 011 lands) and **never regenerated**. This slots into the existing keep-existing/`_policy` model: a generated secret is a default that, once materialized, is preserved. Rotation is explicit: `hop3 env unset KEY && hop3 deploy` (a dedicated `hop3 env rotate` is Future Work).
 
 This replaces the framework workarounds: Phoenix's `--env SECRET_KEY_BASE=$(mix phx.gen.secret)` becomes `SECRET_KEY_BASE = { generate = "hex", length = 64 }` in committed config, with no secret in the repo and reproducible first-boot.
 
@@ -340,7 +340,7 @@ type = "postgres"
 ## Alternatives Considered
 
 - **Adopt Nua's inline-dict env model wholesale** (`{from, key, random}` as the primary mechanism, injection opt-in). Rejected: auto-injection is more ergonomic for the overwhelmingly common single-database case; the hybrid keeps that and adds power only where needed.
-- **Secrets only via `hop3 config set`.** Rejected: cannot run before the first deploy, which is exactly when boot-crashing releases (Phoenix) need the value; not reproducible from the repo.
+- **Secrets only via `hop3 env set`.** Rejected: cannot run before the first deploy, which is exactly when boot-crashing releases (Phoenix) need the value; not reproducible from the repo.
 - **Regenerate secrets every deploy.** Rejected: non-idempotent; rotates sessions/keys and corrupts data on every redeploy.
 - **Resource limits via uWSGI knobs only.** Rejected: incomplete and runtime-specific; the cgroup boundary is the real enforcement surface and covers Docker/Nix too.
 - **No volumes; rely on the implicit `data/`.** Rejected: apps cannot declare which tree paths persist, forcing bespoke layout hacks.
@@ -356,7 +356,7 @@ type = "postgres"
 
 ## Unresolved Questions
 
-- Secret rotation UX (`hop3 config rotate KEY`?).
+- Secret rotation UX (`hop3 env rotate KEY`?).
 - Per-context (ADR 042) overrides for volumes / limits / generated secrets — likely desirable.
 - cgroup enforcement on non-systemd hosts: native limits write `hop3.slice` directly via rootd (no systemd delegation), which is the open feasibility risk where rootd runs under a supervisor rather than systemd; `tmpfs`/`bind` inherit it.
 - The recommended server-wide default limit for a multi-tenant box, and whether to enable it by default once mature.
@@ -367,7 +367,7 @@ type = "postgres"
 - **Source-acquisition-by-config**: generalize the Nix `url` + `sha256` story to `[build]` `src-url` + `src-checksum`, `git-url`/`git-branch`, and `base-image` + `method = "wrap"`.
 - **Descriptive metadata**: `tagline`, `release`, `profile` (low priority).
 - **Addon version pinning** and a `mongodb` addon type.
-- `hop3 config rotate` for secret rotation.
+- `hop3 env rotate` for secret rotation.
 
 ## References
 

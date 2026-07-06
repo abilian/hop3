@@ -179,3 +179,30 @@ class SelectorTests:
         for test in tests:
             assert test.tier in {Tier.FAST, Tier.MEDIUM}
             assert test.priority == Priority.P0
+
+
+def test_demo_internal_app_not_discovered_when_scanning_demo_dir():
+    """A demo's private deploy target (demos/demoNN/app/) must not be discovered
+    as a standalone test — however the scan entered.
+
+    Regression: `hop3-test run demos/demo60` scans the demo dir directly, so the
+    old child-scan guard saw only `app/` (no demo-script.py inside it) and let
+    `demos/demo60/app/hop3.toml` leak as its own app test — which then failed the
+    bare-status / proxy-502 checks. The thing to run is the demo, not its app.
+    """
+    # a) Scan the demo dir directly — the failing entry point.
+    catalog = Catalog(PROJECT_ROOT)
+    catalog.scan(paths=["demos/demo60"])
+    names = {t.name for t in catalog.all_tests()}
+    assert not any(n.endswith("/app") for n in names), (
+        f"demo-internal app leaked: {names}"
+    )
+    assert any(t.runner_type == "demo" for t in catalog.all_tests()), (
+        "the demo itself must still be discovered"
+    )
+
+    # b) Scan the demos/ parent — no inner app may leak from any demo.
+    catalog = Catalog(PROJECT_ROOT)
+    catalog.scan(paths=["demos"])
+    leaked = [t.name for t in catalog.all_tests() if t.name.endswith("/app")]
+    assert not leaked, f"inner demo apps leaked from parent scan: {leaked}"

@@ -27,7 +27,7 @@ pip install hop3-testing
 hop3-test list
 
 # Run system tests on Docker
-hop3-test system --docker
+hop3-test run --docker
 
 # Test specific apps
 hop3-test apps 010-flask-pip-wsgi
@@ -43,14 +43,14 @@ hop3-test ci
 
 | Command | Description |
 |---------|-------------|
-| `hop3-test system` | Deploy Hop3 and run system tests |
-| `hop3-test apps` | Test apps against pre-deployed Hop3 |
-| `hop3-test list` | List available tests |
-| `hop3-test show <name>` | Show test details |
-| `hop3-test ci` | Run CI tests (fast+medium, P0) |
-| `hop3-test dev` | Run developer tests (fast, P0 only) |
-| `hop3-test hetzner` | Run E2E tests on Hetzner Cloud |
-| `hop3-test multi-distro` | Test across multiple Linux distributions |
+| `hop3-test run` | Deploy Hop3 and run the catalog (`system` is a deprecated alias) |
+| `hop3-test run --reuse` | Test against an existing deployment (skip deploy) |
+| `hop3-test list` | List available tests (`--show NAME` for one test's details) |
+| `hop3-test run --provider hetzner --images ...` | E2E across cloud OS images (Hetzner) |
+| `hop3-test why <run-id>` | Replay a saved diagnostic bundle for a failed run |
+
+Test profile (fast/CI/full) is selected with `--mode` on `run`, not a separate
+subcommand: `hop3-test run --docker --mode ci`.
 
 ### Common Options
 
@@ -94,40 +94,39 @@ hop3-testing/
 | `rust` | Actix-web, Axum |
 | `static` | HTML, Hugo, Jekyll |
 
-## Hetzner Cloud Testing
+## Cloud Runs & the Image Sweep
 
-Run full E2E tests on real Hetzner Cloud servers. Requires `HETZNER_API_TOKEN` environment variable.
+Run full E2E tests across cloud OS images with `hop3-test run --provider hetzner
+--images ...`. Each image is a full `hop3-test run --provider hetzner` (provision a
+fresh box → deploy → test → persist), so a cloud run shares `run`'s lexicon:
+positional app names, `--from`, `--branch`, `--with`. Requires `HETZNER_API_TOKEN`
+and `HETZNER_SERVER_ID` (a dedicated throwaway box).
 
 ```bash
 # List available images
-hop3-test multi-distro --list-images
+hop3-test run --list-images
 
-# Run tests on a single distribution
-hop3-test hetzner --image ubuntu-24.04 --suites test-apps
+# Single distribution (a sweep-of-one)
+hop3-test run --provider hetzner --image ubuntu-24.04 apps/test-apps-procfile
 
-# Run tests across multiple distributions
-hop3-test multi-distro --images ubuntu-24.04 debian-13 fedora-42
+# Across multiple distributions
+hop3-test run --provider hetzner --images ubuntu-24.04,debian-13,fedora-42
 
-# Use local code instead of git
-hop3-test hetzner --use-local-repo
-
-# Skip phases for debugging
-hop3-test hetzner --skip-reset    # Keep existing server state
-hop3-test hetzner --skip-deploy   # Use existing Hop3 installation
-hop3-test hetzner --skip-tests    # Only reset and deploy
+# From PyPI instead of local code
+hop3-test run --provider hetzner --from pypi --images all
 ```
 
-### Hetzner Options
+### Cloud Run Options (`run --provider hetzner`)
 
 | Option | Description |
 |--------|-------------|
-| `--server-id ID` | Use specific Hetzner server |
-| `--image IMAGE` | OS image (e.g., ubuntu-24.04) |
-| `--branch BRANCH` | Git branch to test (default: devel) |
-| `--use-local-repo` | Deploy from local code |
-| `--skip-reset` | Skip server reset |
-| `--skip-deploy` | Skip Hop3 deployment |
-| `--suites SUITE` | Test suites to run |
+| `--image IMAGE` | Single OS image — a sweep-of-one (e.g. ubuntu-24.04) |
+| `--images LIST` | Comma-separated images or `all` |
+| `--list-images` | List available OS images |
+| `--from {local,git,pypi}` | Install source (same as `run`; default: local) |
+| `--branch BRANCH` | Git branch (with `--from git`; default: devel) |
+| `--with FEATURES` | Extra server features (repeatable or comma-separated) |
+| `-x, --fail-fast` | Stop on the first failing image |
 | `--continue-on-failure` | Don't stop on first failure (multi-distro) |
 
 ## Development

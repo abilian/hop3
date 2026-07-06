@@ -43,11 +43,28 @@ class HetznerConfig:
         if not server_id:
             server_id = int(env.get("HETZNER_SERVER_ID", "0"))
 
+        # The rebuild key may come from the [hetzner] table or the environment
+        # (env wins nothing here — explicit config first, env as fallback). Both
+        # ssh_key_name AND ssh_key_path must be carried: resolve_ssh_key() uses
+        # the name if set, else derives the registered key from <ssh_key_path>.pub.
+        ssh_key_name = (
+            data.get("ssh_key_name") or env.get("HETZNER_SSH_KEY_NAME") or None
+        )
+        ssh_key_path = (
+            data.get("ssh_key_path")
+            or env.get("HETZNER_SSH_KEY_PATH")
+            # The key the harness already uses to reach the server — its .pub is
+            # registered in the project, so it's the natural rebuild key.
+            or env.get("HOP3_TEST_SSH_KEY")
+            or None
+        )
+
         return cls(
             api_token=api_token,
             server_id=server_id,
             image=data.get("image", "ubuntu-24.04"),
-            ssh_key_name=data.get("ssh_key_name"),
+            ssh_key_name=ssh_key_name,
+            ssh_key_path=ssh_key_path,
         )
 
 
@@ -138,6 +155,16 @@ class Config:
                 api_token=env.get("HETZNER_API_TOKEN", ""),
                 server_id=int(env.get("HETZNER_SERVER_ID", "0")),
                 image=env.get("HETZNER_IMAGE", "ubuntu-24.04"),
+                # Without this, an env-only run (no --config) has no way to name
+                # the rebuild key and aborts at reset. resolve_ssh_key() needs
+                # one of these set; HOP3_TEST_SSH_KEY (the key the harness already
+                # uses to reach the server) is the natural fallback.
+                ssh_key_name=env.get("HETZNER_SSH_KEY_NAME") or None,
+                ssh_key_path=(
+                    env.get("HETZNER_SSH_KEY_PATH")
+                    or env.get("HOP3_TEST_SSH_KEY")
+                    or None
+                ),
             ),
             deployment=DeploymentConfig(
                 branch=env.get("HOP3_BRANCH", "devel"),
@@ -213,6 +240,7 @@ def _apply_overrides(config: Config, overrides: dict) -> Config:
             server_id=overrides.get("server_id", hetzner.server_id),
             image=overrides.get("image", hetzner.image),
             ssh_key_name=hetzner.ssh_key_name,
+            ssh_key_path=hetzner.ssh_key_path,
         )
 
     if overrides.get("branch"):

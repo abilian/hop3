@@ -42,11 +42,11 @@ Either way, Hop3 skips the language toolchains and application servers and confi
 Every static tutorial uses the same four-step flow, so once you have learned one you have learned them all:
 
 1. **Deploy** — `hop3 deploy --app <app>` (the first deploy creates the app).
-2. **Set the hostname** — `hop3 config set --app <app> HOST_NAME=<app>.<your-domain>`.
+2. **Set the hostname** — `hop3 env set --app <app> HOST_NAME=<app>.<your-domain>`.
 3. **Apply it** — deploy once more so nginx picks up the hostname.
 4. **Verify** — `hop3 app status --app <app>` and `curl` the site.
 
-Managing a static app is the same as any Hop3 app: `hop3 app logs`, `hop3 app restart`, `hop3 config show`, `hop3 app destroy`.
+Managing a static app is the same as any Hop3 app: `hop3 app logs`, `hop3 app restart`, `hop3 env show`, `hop3 app destroy`.
 
 ## Choose a guide
 

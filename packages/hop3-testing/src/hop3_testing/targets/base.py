@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import contextlib
-import os
 import subprocess
 import tarfile
 import tempfile
@@ -21,7 +20,12 @@ import httpx
 
 from hop3_testing.exceptions import DeploymentError, TargetOutOfDiskError
 
-from .constants import E2E_TEST_SECRET_KEY, create_test_token
+from .constants import (
+    E2E_TEST_SECRET_KEY,
+    create_test_token,
+    hermetic_cli_cwd,
+    hermetic_cli_env,
+)
 
 
 @dataclass
@@ -68,6 +72,10 @@ class TargetInfo:
     ssh_password: str | None = None
     http_base: str = ""
     api_url: str = ""
+    # The server's JWT signing key, so the harness can mint tokens the server
+    # accepts (real auth, no HOP3_UNSAFE bypass). None → the E2E default key,
+    # correct for a server the harness started with that key (Docker).
+    secret_key: str | None = None
     metadata: dict[str, Any] | None = None
 
 
@@ -153,13 +161,20 @@ class DeploymentTarget(ABC):
         target_info = self.info
         start_time = time.time()
 
-        env = os.environ.copy()
+        # Hermetic: strip ambient HOP3_* steering vars (see hermetic_cli_env) so
+        # the launch environment can't redirect this hop3 call; explicit target
+        # URL + token are set below.
+        env = hermetic_cli_env()
         # Prefer direct HTTP API URL when available (Docker without SSH port mapping)
         # Fall back to SSH tunnel for remote targets
         if target_info.api_url:
             env["HOP3_API_URL"] = target_info.api_url
-            # Direct HTTP requires API token for authentication
-            env["HOP3_API_TOKEN"] = create_test_token()
+            # Direct HTTP authenticates with a real JWT signed with the key the
+            # server validates with (no HOP3_UNSAFE bypass). See
+            # apps.deployment.DeploymentSession._build_cli_env for the rationale.
+            env["HOP3_API_TOKEN"] = create_test_token(
+                secret_key=target_info.secret_key or E2E_TEST_SECRET_KEY
+            )
         else:
             # SSH tunnel provides implicit authentication via SSH keys
             env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
@@ -172,6 +187,7 @@ class DeploymentTarget(ABC):
         result = subprocess.run(
             cmd_args,
             env=env,
+            cwd=hermetic_cli_cwd(),
             capture_output=True,
             text=True,
             check=False,

@@ -296,14 +296,17 @@ class ResultStore:
         """Save a test result, returning the new record id.
 
         Records the diagnostic bundle pointer (bundle_run_id / bundle_path /
-        classification / headline) when ``result.bundle`` is present and the run
-        actually failed (an ``ok`` classification is not persisted).
+        classification / headline) exactly when the bundle was written to disk
+        (``artifact_dir`` set) — so ``why <run-id>`` never resolves to a pointer
+        with no bundle behind it. Keyed on the on-disk artifact rather than the
+        classifier: a check.py / HTTP-`contains` failure classifies ``ok`` at the
+        runtime layer but is still persisted (see ``collect_diagnostic_bundle``).
         """
         bundle = getattr(result, "bundle", None)
         b_run_id = b_path = b_class = b_headline = None
-        if bundle is not None and bundle.classifier != "ok":
+        if bundle is not None and bundle.artifact_dir is not None:
             b_run_id = bundle.run_id
-            b_path = str(bundle.artifact_dir) if bundle.artifact_dir else None
+            b_path = str(bundle.artifact_dir)
             b_class = bundle.classifier
             b_headline = bundle.headline
         status = _derive_status(result)

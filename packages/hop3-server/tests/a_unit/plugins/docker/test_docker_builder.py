@@ -13,7 +13,7 @@ import pytest
 
 from hop3.core.protocols import BuildContext
 from hop3.lib import Abort
-from hop3.plugins.docker.builder import DockerBuilder
+from hop3.plugins.docker.builder import DockerBuilder, _extract_build_error
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -252,3 +252,62 @@ class TestDockerBuilderBuild:
 
             # subprocess.run was invoked with the fixed timeout.
             assert mock_run.call_args.kwargs["timeout"] == 30 * 60
+
+
+# --- build-failure reporting: one concise root cause, not a 3x backtrace dump --
+
+
+def test_extract_build_error_prefers_exception_line():
+    # The real discourse failure: root cause is an exception line buried under a
+    # "Couldn't connect" notice, a git warning, and (below) a huge backtrace.
+    out = (
+        "#12 5.195 Couldn't connect to Redis\n"
+        "#12 5.207 fatal: not a git repository\n"
+        "#12 5.383 rake aborted!\n"
+        "#12 5.383 Redis::CannotConnectError: Error connecting to Redis on "
+        "localhost:6379 (Errno::ECONNREFUSED)\n"
+        "#12 5.384 .../redis/client.rb:398:in `establish_connection'\n"
+    )
+    assert _extract_build_error(out) == (
+        "Redis::CannotConnectError: Error connecting to Redis on "
+        "localhost:6379 (Errno::ECONNREFUSED)"
+    )
+
+
+def test_extract_build_error_marker_fallback():
+    out = "Step 3/9 : RUN make\nmake: *** No rule to make target. Stop.\nerror: build failed\n"
+    # no exception class → first strong marker line
+    assert _extract_build_error(out) == "error: build failed"
+
+
+def test_extract_build_error_empty():
+    assert _extract_build_error("") == "(no build output)"
+
+
+def test_build_failure_message_is_concise_with_pointer(tmp_path, monkeypatch):
+    """The raised Abort carries the root-cause line + a `--build` pointer, NOT the
+    full backtrace (which now lives once in build.log)."""
+    monkeypatch.setattr("hop3.plugins.docker.builder.APP_ROOT", tmp_path)
+    builder = MagicMock()
+    builder.app_name = "myapp"
+    # Use the REAL _save_build_log so we can assert the full output is persisted.
+    builder._save_build_log = DockerBuilder._save_build_log.__get__(builder)
+
+    huge = "\n".join(f"trace line {i}" for i in range(500))
+    err = subprocess.CalledProcessError(1, "docker build")
+    err.stderr = (
+        "Redis::CannotConnectError: Error connecting to Redis on localhost:6379\n"
+        + huge
+    )
+    err.stdout = ""
+
+    with pytest.raises(Abort) as exc:
+        DockerBuilder._handle_build_failure(builder, err, "img:tag", 0.0)
+
+    msg = str(exc.value)
+    assert "Redis::CannotConnectError" in msg
+    assert "hop3 app logs --app myapp --build" in msg
+    assert "trace line 400" not in msg  # backtrace is NOT re-dumped in the error
+    # the full output IS persisted once, to build.log
+    build_log = (tmp_path / "myapp" / "log" / "build.log").read_text()
+    assert "trace line 499" in build_log

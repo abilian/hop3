@@ -8,6 +8,8 @@ import argparse
 import sys
 from pathlib import Path
 
+from hop3_installer.deprecation import warn_deprecated_flags
+
 from .config import (
     DEFAULT_ADMIN_EMAIL,
     DEFAULT_ADMIN_USER,
@@ -19,53 +21,66 @@ from .config import (
 )
 from .deploy import create_backend, deploy
 
+# Deprecated flag spellings still accepted (ADR 052 Migration); each maps to the
+# canonical suggestion printed in the notice. Dropped next release (Phase 8).
+_DEPRECATED_FLAGS = {
+    "--ssh-user": "--user",
+    "--ssh-key": "--identity",
+    "--git": "--from git",
+    "--local": "--from local",
+    "--pypi": "--from pypi",
+}
+
 
 def create_parser() -> argparse.ArgumentParser:
     """Create argument parser."""
     parser = argparse.ArgumentParser(
-        prog="hop3-deploy",
-        description="Deploy Hop3 to a server or Docker container",
+        prog="hop3-deploy-server",
+        description="Deploy Hop3 (the server/platform) to a server or Docker container",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Environment Variables:
-  HOP3_DEV_HOST      Target server hostname (alternative to --host)
-  HOP3_TEST_SERVER   Alias for HOP3_DEV_HOST
+  HOP3_HOST          Target server hostname (alternative to --host)
+  HOP3_DEV_HOST      Deprecated alias for HOP3_HOST
+  HOP3_TEST_SERVER   Deprecated alias for HOP3_HOST
   HOP3_SSH_USER      SSH user (default: root)
-  HOP3_GIT           Install from git (1 or true)
-  HOP3_BRANCH        Git branch (implies HOP3_GIT, default: devel)
-  HOP3_LOCAL         Use local code (1 or true)
-  HOP3_PYPI          Install from PyPI (1 or true, this is the default)
-  HOP3_PYPI_VERSION  Specific PyPI version to install
-  HOP3_PYPI_PRE      Allow pre-release versions (1 or true)
+  HOP3_FROM          Install source: pypi | git | local
+  HOP3_GIT           Deprecated: install from git (use HOP3_FROM=git)
+  HOP3_BRANCH        Git branch (implies --from git, default: main)
+  HOP3_LOCAL         Deprecated: use local code (use HOP3_FROM=local)
+  HOP3_PYPI          Deprecated: install from PyPI, the default (use HOP3_FROM=pypi)
+  HOP3_VERSION       Specific PyPI version to install (was HOP3_PYPI_VERSION)
+  HOP3_PRE           Allow pre-release versions (1 or true) (was HOP3_PYPI_PRE)
   HOP3_CLEAN         Clean before deploy (1 or true)
+  HOP3_SKIP_MIGRATIONS  Skip DB migrations after install (1 or true)
   HOP3_WITH          Features to install (comma-separated)
   HOP3_DOCKER        Use Docker instead of SSH (1 or true)
   HOP3_QUIET         Quiet mode - minimal output (1 or true)
 
 Examples:
   # Deploy to remote server (from PyPI, the default)
-  hop3-deploy --host 192.168.1.100
+  hop3-deploy-server --host 192.168.1.100
 
   # Deploy specific version from PyPI
-  hop3-deploy --host server.example.com --version 0.4.0
+  hop3-deploy-server --host server.example.com --version 0.4.0
 
   # Deploy latest including pre-releases
-  hop3-deploy --host server.example.com --pre
+  hop3-deploy-server --host server.example.com --pre
 
-  # Deploy from git (devel branch)
-  hop3-deploy --host server.example.com --git
+  # Deploy from git (main branch)
+  hop3-deploy-server --host server.example.com --from git
 
   # Deploy from specific git branch
-  hop3-deploy --host server.example.com --branch main
+  hop3-deploy-server --host server.example.com --branch dev
 
   # Deploy to Docker container
-  hop3-deploy --docker
+  hop3-deploy-server --docker
 
   # Deploy with local code changes
-  hop3-deploy --host server.example.com --local
+  hop3-deploy-server --host server.example.com --from local
 
   # Clean install with admin setup
-  hop3-deploy --host server.example.com --clean --admin-domain admin.example.com
+  hop3-deploy-server --host server.example.com --clean --admin-domain admin.example.com
 """,
     )
 
@@ -74,7 +89,7 @@ Examples:
     target.add_argument(
         "--host",
         "-H",
-        help="Target server hostname or IP (or set HOP3_DEV_HOST)",
+        help="Target server hostname or IP (or set HOP3_HOST)",
     )
     target.add_argument(
         "--docker",
@@ -82,61 +97,75 @@ Examples:
         action="store_true",
         help="Deploy to local Docker container instead of SSH",
     )
+    # default=None (not the literal default) so an EXPLICIT flag equal to the
+    # default still overrides an env-supplied value. See _apply_*_overrides and
+    # test_deploy_config_precedence (ADR 052 D7).
     target.add_argument(
         "--docker-image",
-        default=DOCKER_IMAGE,
+        default=None,
         help=f"Docker image to use (default: {DOCKER_IMAGE})",
     )
     target.add_argument(
         "--docker-container",
-        default=DOCKER_CONTAINER_NAME,
+        default=None,
         help=f"Docker container name (default: {DOCKER_CONTAINER_NAME})",
     )
     target.add_argument(
+        "--user",
         "--ssh-user",
         "-u",
-        default=DEFAULT_SSH_USER,
+        dest="ssh_user",
+        default=None,
         help=f"SSH user (default: {DEFAULT_SSH_USER})",
     )
     target.add_argument(
+        "--identity",
         "--ssh-key",
         "-i",
-        help="Path to the SSH private key for the deploy (default: ssh's own identity)",
+        dest="ssh_key",
+        help="SSH private key for the deploy (like `ssh -i`; default: ssh's own identity)",
     )
 
     # Installation options
     install = parser.add_argument_group("Installation")
     install.add_argument(
+        "--from",
+        dest="from_source",
+        choices=["pypi", "git", "local"],
+        default=None,
+        help="Install source: pypi | git | local (preferred over --git/--local/--pypi)",
+    )
+    install.add_argument(
         "--git",
         "-g",
         action="store_true",
-        help="Install from git instead of PyPI",
+        help="Install from git instead of PyPI (deprecated: use --from git)",
     )
     install.add_argument(
         "--branch",
         "-b",
-        default=DEFAULT_BRANCH,
-        help=f"Git branch to deploy (implies --git, default: {DEFAULT_BRANCH})",
+        default=None,
+        help=f"Git branch to deploy (implies --from git, default: {DEFAULT_BRANCH})",
     )
     install.add_argument(
         "--local",
         "-l",
         action="store_true",
         dest="use_local",
-        help="Upload and use local code instead of PyPI",
+        help="Upload and use local code (deprecated: use --from local)",
     )
     install.add_argument(
         "--pypi",
         "-p",
         action="store_true",
-        help="Install from PyPI (this is the default)",
+        help="Install from PyPI, the default (deprecated: use --from pypi)",
     )
     install.add_argument(
         "--version",
         "-V",
         metavar="VERSION",
         dest="pypi_version",
-        help="Install specific version from PyPI (e.g., 0.4.0, implies --pypi)",
+        help="Install specific version from PyPI (e.g., 0.4.0, implies --from pypi)",
     )
     install.add_argument(
         "--pre",
@@ -165,7 +194,7 @@ Examples:
         "--with",
         "-w",
         dest="features",
-        help="Features to install (comma-separated: docker,mysql,redis,nix)",
+        help="Features to install (comma-separated: docker,mysql,redis,nix,s3,rust)",
     )
 
     # Admin options
@@ -176,12 +205,12 @@ Examples:
     )
     admin.add_argument(
         "--admin-user",
-        default=DEFAULT_ADMIN_USER,
+        default=None,
         help=f"Admin username (default: {DEFAULT_ADMIN_USER})",
     )
     admin.add_argument(
         "--admin-email",
-        default=DEFAULT_ADMIN_EMAIL,
+        default=None,
         help=f"Admin email (default: {DEFAULT_ADMIN_EMAIL})",
     )
     admin.add_argument(
@@ -241,26 +270,46 @@ Examples:
 
 
 def _apply_target_overrides(config: DeployConfig, args: argparse.Namespace) -> None:
-    """Apply target-related CLI overrides to config."""
+    """Apply target-related CLI overrides to config.
+
+    Value options apply on ``is not None`` (the flag was PROVIDED), not on
+    ``!= default``: an explicit ``--ssh-user root`` must win over an env-supplied
+    value even though ``root`` is the default (ADR 052 D7).
+    """
     if args.host:
         config.host = args.host
     if args.docker:
         config.use_docker = True
-    if args.docker_image != DOCKER_IMAGE:
+    if args.docker_image is not None:
         config.docker_image = args.docker_image
-    if args.docker_container != DOCKER_CONTAINER_NAME:
+    if args.docker_container is not None:
         config.docker_container = args.docker_container
-    if args.ssh_user != DEFAULT_SSH_USER:
+    if args.ssh_user is not None:
         config.ssh_user = args.ssh_user
     if args.ssh_key:
         config.ssh_key = args.ssh_key
 
 
+def _apply_from_source(config: DeployConfig, from_source: str | None) -> None:
+    """Map the canonical ``--from {pypi,git,local}`` selector onto config flags.
+
+    ``--git``/``--local``/``--pypi`` still work (applied by the caller); ``--from``
+    is the preferred spelling (ADR 052 D3).
+    """
+    if from_source == "git":
+        config.use_git = True
+    elif from_source == "local":
+        config.use_local_code = True
+    elif from_source == "pypi":
+        config.use_pypi = True
+
+
 def _apply_install_overrides(config: DeployConfig, args: argparse.Namespace) -> None:
     """Apply installation-related CLI overrides to config."""
+    _apply_from_source(config, args.from_source)
     if args.git:
         config.use_git = True
-    if args.branch != DEFAULT_BRANCH:
+    if args.branch is not None:
         config.branch = args.branch
         config.use_git = True  # --branch implies --git
     if args.use_local:
@@ -285,9 +334,9 @@ def _apply_admin_overrides(config: DeployConfig, args: argparse.Namespace) -> No
     """Apply admin user CLI overrides to config."""
     if args.admin_domain:
         config.admin_domain = args.admin_domain
-    if args.admin_user != DEFAULT_ADMIN_USER:
+    if args.admin_user is not None:
         config.admin_user = args.admin_user
-    if args.admin_email != DEFAULT_ADMIN_EMAIL:
+    if args.admin_email is not None:
         config.admin_email = args.admin_email
     if args.admin_password:
         config.admin_password = args.admin_password
@@ -404,10 +453,24 @@ def _handle_validation_errors(errors: list[str]) -> int:
     return 1
 
 
+def deprecated_main() -> int:
+    """Back-compat entry for the old ``hop3-deploy`` name (ADR 052 D10).
+
+    ``hop3-deploy`` read as a synonym for the client's ``hop3 deploy`` (which
+    deploys an *app*); this tool deploys the *server/platform*. It is renamed
+    ``hop3-deploy-server``; the old name warns and delegates for one release.
+    """
+    from hop3_installer.deprecation import warn_deprecated  # noqa: PLC0415
+
+    warn_deprecated("hop3-deploy", "hop3-deploy-server", kind="command")
+    return main()
+
+
 def main() -> int:
     """Main entry point."""
     parser = create_parser()
     args = parser.parse_args()
+    warn_deprecated_flags(sys.argv[1:], _DEPRECATED_FLAGS)
     config = config_from_args(args)
 
     # Handle special actions

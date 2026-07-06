@@ -11,7 +11,7 @@ This document now describes **what is actually built** in `packages/hop3-testlab
 ## 1. Guiding constraints (unchanged intent)
 
 1. **Mirror hop3-server's stack** — Litestar + Dishka + SQLAlchemy (sync) + Jinja/HTMX/Alpine/Tailwind + Granian. The Test Lab is itself a Hop3 app (dogfooded). **Built.**
-2. **One engine, one store** (ADR 044 §B/§D) — the CLI (`hop3-test cloud` / `hop3-test system`) and the Test Lab read/write the *same* `hop3-testing` result store; the Lab never parses CLI text. **Built** for the read path; the dashboard is read-only and the run path is the nightly scheduler / CLI `run` driving the worker. The *write* path is still the engine's existing stateful `ResultStore.save()` (the incremental `on_result` writer is deferred, §7).
+2. **One engine, one store** (ADR 044 §B/§D) — the CLI (`hop3-test run`) and the Test Lab read/write the *same* `hop3-testing` result store; the Lab never parses CLI text. **Built** for the read path; the dashboard is read-only and the run path is the nightly scheduler / CLI `run` driving the worker. The *write* path is still the engine's existing stateful `ResultStore.save()` (the incremental `on_result` writer is deferred, §7).
 3. **Follow the playbook** — `litestar-dishka/{COMMON-GOTCHAS,CHECKLISTS}.md`. **Built** (Dishka `@inject`+`FromDishka`, `LitestarProvider`, generator session, APP/REQUEST scopes).
 4. **v1 scope is deliberately small** — a *single* Hetzner (or Docker) target, the Lab's own credentials, in-process scheduling, SQLite. **Built as such.** The seams for pool/sharding/Postgres are *partially* present (config fields, lease epoch timestamps) but those features are not implemented.
 
@@ -88,7 +88,7 @@ ADR 044 §B's reuse boundary is the `hop3-testing` functional core. Current stat
 
 ### ADR-044 substrate gaps — **still open** (the "one engine, one store" hardening is partial)
 - **G1 — Pool provisioning/teardown: NOT BUILT.** `system_tests/hetzner.py::HetznerManager` still only `rebuild`/`reboot`s ONE pre-existing `server_id`; there is no `HetznerPool`/`create_server`/`delete_server`. `system_tests/multi_distro.py` is still subprocess fan-out.
-- **G2 — `Orchestrator.run(pool, shard, on_result)`: NOT BUILT.** `system_tests/orchestrator.py::DailyTestOrchestrator` is single-target, `rich.Console`-coupled, and emits at end-of-run (no incremental callback). The Lab does not call it directly — it shells `hop3-test system` (§10).
+- **G2 — `Orchestrator.run(pool, shard, on_result)`: NOT BUILT.** There is no in-process incremental orchestrator; the old `system_tests/orchestrator.py::DailyTestOrchestrator` was single-target, `rich.Console`-coupled, and emitted only at end-of-run — it was removed (ADR 052 7b.7, folded into `hop3-test run --provider`). The Lab does not call any such thing directly — it shells `hop3-test run` (§10).
 - **G3 — Bundle-on-every-test + redaction: PARTIAL / NOT BUILT.** Bundles are collected on **failure** paths (`runners/deployment.py:493 if not passed`), not uniformly on every passing test; there is **no secret redaction** anywhere (§12).
 - **G4 — Postgres + real migrations + engine abstraction: NOT BUILT.** SQLite only, `create_all` + hand-rolled `_ensure_columns` (§13).
 - **G5 — Advanced-Alchemy base + `Artifact` model: NOT BUILT.** Models are plain `DeclarativeBase`/Integer PKs; there is no `Artifact` row and no `StoredObject` (§6).
