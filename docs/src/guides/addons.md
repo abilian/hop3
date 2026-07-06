@@ -214,6 +214,16 @@ hop3 addon email create mail --from noreply@example.com   # inherits; no creds r
 
 An app can still bring its own provider by passing `--smtp-*`, which overrides the server transport for that app (a partial `--smtp-*` is refused — all three creds or none). Rotating the server transport propagates to every inheriting app. Inheriting is refused if `--from` is not on the server's verified sending domain.
 
+**Get alerted when things break.** Reuse the server transport to email yourself on server events (cert-renewal failures today; more with the monitoring roadmap) — opt-in, admin-only. The recipient defaults to your ACME email:
+
+```bash
+hop3 server email notifications on --to ops@example.com
+hop3 server email notifications test        # send a test message now
+hop3 server email notifications status      # enabled? and actually deliverable?
+```
+
+`status` tells you loudly if notifications are on but can't send (no transport / no recipient), so a misconfigured alert channel never stays silently broken.
+
 **Attach and check** (the type isn't inferred from the name, so pass `--type email`):
 
 ```bash
