@@ -487,8 +487,6 @@ class BanRepository(BaseRepository[Ban]):
     def list_all_active(self, now: datetime) -> list[Ban]:
         """Active bans across all apps, ordered by app then source (for listing)."""
         stmt = (
-            select(Ban)
-            .where(Ban.expires_at > now)
-            .order_by(Ban.app_name, Ban.source)
+            select(Ban).where(Ban.expires_at > now).order_by(Ban.app_name, Ban.source)
         )
         return list(self.session.scalars(stmt).all())

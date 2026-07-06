@@ -68,7 +68,7 @@ hop3-catalog = "hop3.server.catalog.publish:main"
 
 [project.optional-dependencies]
 waf = [
-    "lewaf>=0.7.5 ; python_full_version >= '3.12'",
+    "lewaf>=0.7.6 ; python_full_version >= '3.12'",
 ]
 
 # ----------------------------------------

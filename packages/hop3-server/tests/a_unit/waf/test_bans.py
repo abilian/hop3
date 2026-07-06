@@ -35,17 +35,13 @@ def test_is_exempt_matches_cidr():
 
 def test_bans_source_over_threshold_in_window():
     entries = [_blocked("1.2.3.4", NOW - timedelta(minutes=i)) for i in range(5)]
-    result = sources_to_ban(
-        entries, threshold=5, window=timedelta(minutes=10), now=NOW
-    )
+    result = sources_to_ban(entries, threshold=5, window=timedelta(minutes=10), now=NOW)
     assert result == {"1.2.3.4": 5}
 
 
 def test_under_threshold_is_not_banned():
     entries = [_blocked("1.2.3.4", NOW - timedelta(minutes=i)) for i in range(4)]
-    result = sources_to_ban(
-        entries, threshold=5, window=timedelta(minutes=10), now=NOW
-    )
+    result = sources_to_ban(entries, threshold=5, window=timedelta(minutes=10), now=NOW)
     assert result == {}
 
 
@@ -55,17 +51,16 @@ def test_events_outside_window_do_not_count():
         _blocked("1.2.3.4", NOW - timedelta(minutes=2)),
         *[_blocked("1.2.3.4", NOW - timedelta(minutes=30)) for _ in range(5)],  # stale
     ]
-    result = sources_to_ban(
-        entries, threshold=5, window=timedelta(minutes=10), now=NOW
-    )
+    result = sources_to_ban(entries, threshold=5, window=timedelta(minutes=10), now=NOW)
     assert result == {}  # only 2 recent < threshold 5
 
 
 def test_allowed_events_are_ignored():
     entries = [_blocked("1.2.3.4", NOW, action="allowed") for _ in range(9)]
-    assert sources_to_ban(
-        entries, threshold=5, window=timedelta(minutes=10), now=NOW
-    ) == {}
+    assert (
+        sources_to_ban(entries, threshold=5, window=timedelta(minutes=10), now=NOW)
+        == {}
+    )
 
 
 def test_exempt_network_is_never_banned():
@@ -83,9 +78,10 @@ def test_exempt_network_is_never_banned():
 
 def test_malformed_timestamps_are_skipped():
     entries = [{"action": "blocked", "client_ip": "1.2.3.4", "timestamp": "nope"}]
-    assert sources_to_ban(
-        entries, threshold=1, window=timedelta(minutes=10), now=NOW
-    ) == {}
+    assert (
+        sources_to_ban(entries, threshold=1, window=timedelta(minutes=10), now=NOW)
+        == {}
+    )
 
 
 def test_aware_timestamps_are_normalized():
@@ -98,9 +94,7 @@ def test_aware_timestamps_are_normalized():
         }
         for _ in range(5)
     ]
-    result = sources_to_ban(
-        entries, threshold=5, window=timedelta(minutes=10), now=NOW
-    )
+    result = sources_to_ban(entries, threshold=5, window=timedelta(minutes=10), now=NOW)
     assert result == {"1.2.3.4": 5}
 
 

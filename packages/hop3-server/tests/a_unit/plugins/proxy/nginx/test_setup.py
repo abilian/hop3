@@ -24,7 +24,11 @@ def test_get_static_paths_0() -> None:
 
 
 def _backend_env() -> Env:
-    return Env({"HOST_NAME": "testapp.com", "BIND_ADDRESS": "127.0.0.1", "PORT": "8000"})
+    return Env({
+        "HOST_NAME": "testapp.com",
+        "BIND_ADDRESS": "127.0.0.1",
+        "PORT": "8000",
+    })
 
 
 def test_setup_backend_proxies_to_app_when_no_waf() -> None:

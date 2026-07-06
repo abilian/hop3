@@ -132,7 +132,9 @@ def test_crs_blocks_sqli_and_passes_clean_traffic(tmp_path):
 
 
 def test_request_outside_allowlist_is_denied(tmp_path):
-    with _proxy({"enabled": True, "allow": ["/", "/items(/.*)?"]}, {}, tmp_path) as base:
+    with _proxy(
+        {"enabled": True, "allow": ["/", "/items(/.*)?"]}, {}, tmp_path
+    ) as base:
         assert httpx.get(f"{base}/wp-admin", timeout=10).status_code == 403
 
 

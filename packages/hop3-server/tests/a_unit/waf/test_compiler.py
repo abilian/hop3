@@ -114,7 +114,11 @@ def test_tuning_combines_disable_ids_and_body_skip():
         "app",
         _policy({
             "tuning": [
-                {"paths": ["/dav/.*"], "disable-rule-ids": [920420], "skip-body-inspection": True}
+                {
+                    "paths": ["/dav/.*"],
+                    "disable-rule-ids": [920420],
+                    "skip-body-inspection": True,
+                }
             ]
         }),
         {},
@@ -202,7 +206,9 @@ def test_wordpress_worked_example_compiles():
         ],
         "bans": {"enabled": True, "threshold": 8, "window": "10m", "duration": "1h"},
     }
-    out = compile_rules_file("wp", _policy(waf), {"office": ["203.0.113.0/24"]}, crs_dir())
+    out = compile_rules_file(
+        "wp", _policy(waf), {"office": ["203.0.113.0/24"]}, crs_dir()
+    )
     assert "@ipMatch 203.0.113.0/24" in out
     assert "ctl:ruleRemoveById=941100" in out
 
