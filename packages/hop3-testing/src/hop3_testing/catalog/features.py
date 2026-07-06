@@ -56,13 +56,21 @@ def required_features_from_tests(tests: Iterable[TestDefinition]) -> set[str]:
 
 
 def merge_features(base: Iterable[str], extra: Iterable[str]) -> list[str]:
-    """Order-stable union: everything in ``base`` first, then unseen ``extra``."""
+    """Order-stable union: everything in ``base`` first, then unseen ``extra``.
+
+    ``all`` is the installer's install-everything sentinel — it subsumes every
+    specific feature. When it is present the result collapses to just ``["all"]``
+    rather than a redundant ``all,postgresql,mysql`` (e.g. ``--with all`` plus the
+    addons the selected apps declare).
+    """
     out = list(base)
     seen = set(out)
     for feat in extra:
         if feat not in seen:
             out.append(feat)
             seen.add(feat)
+    if "all" in seen:
+        return ["all"]
     return out
 
 
