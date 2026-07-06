@@ -116,7 +116,29 @@ class CertRenewalService:
         for label, err in outcome.failed:
             log(f"✗ Cert renewal failed for {label}: {err}", level=1, fg="red")
             server_log.error("Cert renewal failed", target=label, error=err)
+        if outcome.failed:
+            _notify_renewal_failures(outcome.failed)
         return outcome
+
+
+def _notify_renewal_failures(failed: list[tuple[str, str]]) -> None:
+    """Best-effort operator alert for cert-renewal failures.
+
+    A no-op unless the operator enabled notifications (`server email
+    notifications on`); never raises, so it can't disrupt the renewal cycle.
+    Imported lazily to keep the email plugin off the service's import path.
+    """
+    from hop3.plugins.email.notifications import notify  # noqa: PLC0415
+
+    body = "\n".join(f"- {label}: {err}" for label, err in failed)
+    notify(
+        "cert-renewal-failure",
+        f"[Hop3] {len(failed)} certificate renewal(s) failed",
+        "Certificate renewal failed for:\n\n"
+        + body
+        + "\n\nThese certificates will expire if not renewed. Check the server "
+        "logs and `hop3 cert renew`.",
+    )
 
 
 # Global instance for server integration (mirrors state_sync.py).
