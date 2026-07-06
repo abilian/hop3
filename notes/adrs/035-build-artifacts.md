@@ -3,7 +3,7 @@
 - **Status**: Final
 - **Type**: Architecture
 - **Created**: 2026-02-23
-- **Related-ADRs**: 006, 008, 022, 030, 032
+- **Related-ADRs**: 006, 008, 022, 030, 032, 053
 
 ## Context
 
@@ -82,10 +82,14 @@ BUILD PHASE                              RUN PHASE
 @dataclass
 class RuntimeConfig:
     """Everything the run phase needs - computed at build time."""
-    env_vars: dict[str, str]      # PYTHONPATH, NODE_PATH, etc.
+    env_vars: dict[str, str]      # PYTHONPATH, NODE_PATH, etc. (toolchain-owned)
     path_prepend: list[str]       # Paths to add to PATH
     working_dir: str              # Working directory for processes
     workers: dict[str, str]       # From Procfile, resolved commands
+    before_run: list[str]         # Commands run once before workers start
+    static_paths: dict[str, str]  # URL path -> filesystem path (proxy-served)
+    healthcheck_path: str         # HTTP readiness path
+    healthcheck_timeout: int      # Seconds to wait for a healthy response
 
 @dataclass
 class BuildArtifact:
@@ -99,6 +103,18 @@ class BuildArtifact:
     runtime: RuntimeConfig        # Complete runtime configuration
     metadata: dict[str, Any]      # For debugging/auditing
 ```
+
+The authoritative dataclass lives in `core/artifacts.py`.
+
+### Run-Phase Behaviour
+
+`spawn.py` (`AppLauncher`) reads `BUILD_ARTIFACT.json` and applies the contract generically:
+
+- **Environment.** `env_vars` are applied, but never over a key the user set explicitly. Because they are per-app, per-deploy absolute paths the toolchain baked in (e.g. `MIX_HOME`), a persisted `[env]` block may **not** clobber them — a stale hand-copied value pointing at another app's directory would break the runtime. Precedence: **toolchain wins**. `path_prepend` is then prepended to `PATH`.
+- **Workers.** Started as uWSGI vassals, with lifecycle hooks (`prebuild` / `postbuild` / `prerun`) filtered out — those are build steps, never daemons.
+- **Absent artifact.** The run phase falls back to legacy per-language detection (the pre-contract behaviour), so the migration is incremental.
+
+For Nix apps, the wrapper execs hardcoded `/nix/store` paths; keeping those alive across garbage collection is the subject of **ADR 053**.
 
 ### Key Changes
 
@@ -227,5 +243,6 @@ Accept that only ~5 languages need runtime setup and keep them hardcoded.
 
 - ADR 030: Two-Level Build Architecture (Builder vs LanguageToolchain)
 - ADR 032: Deployment Strategies and Artifact Lifecycle
+- ADR 053: Nix Closure Lifetime (keeping a Nix app's exec'd store paths alive across GC)
 - [The Twelve-Factor App: Build, Release, Run](https://12factor.net/build-release-run)
 - [Nix: Reproducible Builds](https://nixos.org/guides/how-nix-works.html)
