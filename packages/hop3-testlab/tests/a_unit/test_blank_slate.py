@@ -85,7 +85,9 @@ def test_rebuild_raises_if_ssh_command_never_ready():
     with (
         patch("hop3_testing.system_tests.hetzner.HetznerManager", return_value=manager),
         patch.object(worker, "_purge_known_host"),
-        patch.object(worker, "_wait_ssh_command_ready", return_value=False),  # ...but ssh isn't
+        patch.object(
+            worker, "_wait_ssh_command_ready", return_value=False
+        ),  # ...but ssh isn't
         pytest.raises(RuntimeError, match="never answered"),
     ):
         worker._rebuild_blank_slate(_cfg("hop3-ci"), "203.0.113.7")
@@ -186,8 +188,9 @@ def test_per_app_rerun_skips_rebuild(monkeypatch):
 
 
 def test_ssh_run_passes_credential_key_to_engine(monkeypatch):
-    # The engine's paramiko connect needs the key as --ssh-key (else 'No
-    # authentication methods' for a server user with no default key/agent).
+    # The engine's paramiko connect needs the key as --identity (ADR 052 D2;
+    # was --ssh-key) — else 'No authentication methods' for a server user with
+    # no default key/agent.
     captured: dict = {}
     monkeypatch.setattr(
         worker, "_resolve_run_target", lambda t: ("1.2.3.4", "/data/keys/k.key", {})
@@ -199,7 +202,7 @@ def test_ssh_run_passes_credential_key_to_engine(monkeypatch):
     )
     worker._default_executor("hetzner", "nightly", apps=["apps/x"], blank_slate=False)
     cmd = captured["cmd"]
-    assert cmd[cmd.index("--ssh-key") + 1] == "/data/keys/k.key"
+    assert cmd[cmd.index("--identity") + 1] == "/data/keys/k.key"
 
 
 def test_engine_env_carries_a_git_identity(monkeypatch):

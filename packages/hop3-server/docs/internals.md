@@ -253,8 +253,7 @@ Test layers in `tests/`:
 
 - `a_unit/` - Unit tests (mocked dependencies)
 - `b_integration/` - Component integration
-- `c_system/` - Full server in Docker
-- `d_e2e/` - Complete deployment workflows
+- `c_e2e/` - Complete deployment workflows (full server in Docker)
 
 Key fixtures:
 

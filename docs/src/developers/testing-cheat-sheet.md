@@ -13,9 +13,9 @@ Quick reference for developers running tests.
 | **Docker e2e (real deploys, backups, git-push)** | `make test-e2e` |
 | **App tests (Docker)** | `make test-apps` |
 | **Lint & type check** | `make lint` |
-| **System tests (Docker)** | `hop3-test system --docker` |
-| **Cloud test (single distro)** | `hop3-test cloud --image ubuntu-24.04` |
-| **Cloud test (multi-distro)** | `hop3-test cloud --images ubuntu-24.04,debian-13` |
+| **System tests (Docker)** | `hop3-test run --docker` |
+| **Cloud test (single distro)** | `hop3-test run --provider hetzner --image ubuntu-24.04` |
+| **Cloud test (multi-distro)** | `hop3-test run --provider hetzner --images ubuntu-24.04,debian-13` |
 
 ## hop3-test CLI
 
@@ -23,52 +23,52 @@ The unified test runner for Hop3 deployment testing.
 
 ### System Testing (Testing Hop3 Itself)
 
-Deploys Hop3 using `hop3-deploy`, then runs tests against it.
+Deploys Hop3 using `hop3-deploy-server`, then runs tests against it.
 
 ```bash
 # Deploy local code to Docker and test
-hop3-test system --docker
+hop3-test run --docker
 
 # Deploy from git branch
-hop3-test system --docker --deploy-from git --branch main
+hop3-test run --docker --from git --branch main
 
 # Deploy from PyPI
-hop3-test system --docker --deploy-from pypi
+hop3-test run --docker --from pypi
 
 # Clean install (remove existing)
-hop3-test system --docker --clean
+hop3-test run --docker --clean
 
 # Reuse existing deployment (skip deploy)
-hop3-test system --docker --reuse
+hop3-test run --docker --reuse
 # Or equivalently:
-hop3-test system --docker --deploy-from none
+hop3-test run --docker --from none
 
 # Remote server via SSH
-hop3-test system --ssh --host server.example.com
+hop3-test run --host server.example.com
 
 # SSH using HOP3_TEST_HOST env var
 export HOP3_TEST_HOST=server.example.com
-hop3-test system --ssh
+hop3-test run
 
 # Test profile: dev (fast P0 only) or ci (fast + medium P0)
-hop3-test system --docker --mode ci
+hop3-test run --docker --mode ci
 
 # Install extra server features/addons before testing
-hop3-test system --docker --with nix
-hop3-test system --docker --clean --with all
+hop3-test run --docker --with nix
+hop3-test run --docker --clean --with all
 
 # Scan a directory or run a specific app (positional)
-hop3-test system --docker apps/test-apps-procfile
-hop3-test system --docker apps/test-apps-procfile/010-flask-pip-wsgi
+hop3-test run --docker apps/test-apps-procfile
+hop3-test run --docker apps/test-apps-procfile/010-flask-pip-wsgi
 
 # Run one app, reusing an existing deployment
-hop3-test system --docker --reuse apps/real-apps-native/edrix
+hop3-test run --docker --reuse apps/real-apps-native/edrix
 
 # Keep target running after tests
-hop3-test system --docker --keep
+hop3-test run --docker --keep
 
 # Generate HTML report
-hop3-test system --docker --report html
+hop3-test run --docker --report html
 ```
 
 The default `--mode` is `smoke` (the smallest sanity run). Available profiles: `smoke`, `ci`, `curated`, `tag-coverage`, `combo-coverage`, `nightly`, `full` (`dev` is an alias for `smoke`, `release` for `full`).
@@ -77,36 +77,36 @@ The default `--mode` is `smoke` (the smallest sanity run). Available profiles: `
 
 | Option | Description |
 |--------|-------------|
-| `--deploy-from local` | Upload and install local code (default) |
-| `--deploy-from git` | Clone and install from git branch |
-| `--deploy-from pypi` | Install from PyPI |
-| `--deploy-from none` | Skip deployment, use existing |
-| `--reuse` | Alias for `--deploy-from none` |
+| `--from local` | Upload and install local code (default) |
+| `--from git` | Clone and install from git branch |
+| `--from pypi` | Install from PyPI |
+| `--from none` | Skip deployment, use existing |
+| `--reuse` | Alias for `--from none` |
 
 ### App Testing (Testing Apps, Not Hop3)
 
-App testing runs through the same `system` command. Pass app directories or
+App testing runs through the same `run` command. Pass app directories or
 specific app paths as positional arguments; combine with `--reuse` to skip the
 Hop3 deployment and test against an already-running container.
 
 ```bash
 # Test the default app catalog on Docker
-hop3-test system --docker --clean --with all
+hop3-test run --docker --clean --with all
 
 # Scan a directory
-hop3-test system --docker apps/test-apps-procfile
+hop3-test run --docker apps/test-apps-procfile
 
 # Test a specific app
-hop3-test system --docker apps/test-apps-procfile/010-flask-pip-wsgi
+hop3-test run --docker apps/test-apps-procfile/010-flask-pip-wsgi
 
 # Reuse an existing deployment for fast iteration on one app
-hop3-test system --docker --reuse apps/real-apps-native/edrix
+hop3-test run --docker --reuse apps/real-apps-native/edrix
 
 # Keep apps deployed after testing
-hop3-test system --docker --keep apps/test-apps-procfile/010-flask-pip-wsgi
+hop3-test run --docker --keep apps/test-apps-procfile/010-flask-pip-wsgi
 
 # Against a remote server
-hop3-test system --ssh --host server.example.com apps/test-apps-procfile
+hop3-test run --host server.example.com apps/test-apps-procfile
 ```
 
 ### Listing and Inspecting Tests
@@ -136,26 +136,25 @@ Run E2E tests on real cloud infrastructure (Hetzner by default). Requires
 
 ```bash
 # List available images
-hop3-test cloud --list-images
+hop3-test run --list-images
 
 # Single distribution test
-hop3-test cloud --image ubuntu-24.04
+hop3-test run --provider hetzner --image ubuntu-24.04
 
 # Multi-distribution test
-hop3-test cloud --images ubuntu-24.04,debian-13,fedora-42
+hop3-test run --provider hetzner --images ubuntu-24.04,debian-13,fedora-42
 
 # All distributions
-hop3-test cloud --images all
+hop3-test run --provider hetzner --images all
 
-# Test specific app directories
-hop3-test cloud --apps apps/test-apps-procfile --apps demos
+# Test specific app directories (positional, like `run`)
+hop3-test run --provider hetzner apps/test-apps-procfile demos
 
-# Use local code instead of git (default)
-hop3-test cloud --use-local-repo
+# Install source (default: local; --from pypi to install from PyPI)
+hop3-test run --provider hetzner --from local --images all
 
-# Skip phases for debugging
-hop3-test cloud --skip-reset    # Keep existing server state
-hop3-test cloud --skip-deploy   # Use existing Hop3 installation
+# Test against an existing server (no rebuild, no deploy)
+hop3-test run --host server.example.com --reuse
 ```
 
 ## Pytest Tests
@@ -239,7 +238,7 @@ make test       # Check tier: unit + integration, all packages, no Docker
 
 ```bash
 # Fast tests against Docker
-hop3-test system --docker --mode dev
+hop3-test run --docker --mode dev
 ```
 
 ### Full Validation
@@ -253,7 +252,7 @@ make test-e2e
 make test-apps
 
 # Or run the system suite manually
-hop3-test system --docker --mode ci --report html
+hop3-test run --docker --mode ci --report html
 ```
 
 ### Debug a Failing Test
@@ -263,22 +262,22 @@ hop3-test system --docker --mode ci --report html
 uv run pytest -v -s path/to/test.py::test_name
 
 # Keep the target running for inspection
-hop3-test system --docker --keep apps/test-apps-procfile/010-flask-pip-wsgi
+hop3-test run --docker --keep apps/test-apps-procfile/010-flask-pip-wsgi
 
 # Run system tests and keep target
-hop3-test system --docker --keep
+hop3-test run --docker --keep
 
 # Reuse container for fast iteration
-hop3-test system --docker --reuse --keep
+hop3-test run --docker --reuse --keep
 
 # Generate HTML report for analysis
-hop3-test system --docker --report html
+hop3-test run --docker --report html
 ```
 
 ### Test Coverage
 
 ```bash
-make test-with-coverage
+make test-cov
 
 # HTML report
 uv run pytest --cov=hop3 --cov-report=html
@@ -338,10 +337,10 @@ Legacy standalone `test.toml` files are still used by procfile-only test apps (`
 | Variable | Purpose |
 |----------|---------|
 | `HOP3_DEV_HOST` | SSH target for deployment |
-| `HOP3_TEST_HOST` | SSH target for `--ssh` without `--host` |
+| `HOP3_TEST_HOST` | Remote target host when `--host` is omitted |
 | `HOP3_TEST_SSH_KEY` | SSH key for remote tests |
 | `HOP3_UNSAFE=true` | Disable auth in Docker tests |
-| `HETZNER_API_TOKEN` | Hetzner Cloud API token (for `hop3-test cloud`) |
+| `HETZNER_API_TOKEN` | Hetzner Cloud API token (for `hop3-test run --provider hetzner`) |
 
 ## Troubleshooting
 
@@ -355,24 +354,24 @@ docker ps -a | grep hop3
 docker logs hop3-system-test
 
 # Run again with a clean install and verbose output
-hop3-test -v system --docker --clean
+hop3-test -v run --docker --clean
 ```
 
 ### App Tests Fail
 
 ```bash
 # Re-run one app with verbose output
-hop3-test -v system --docker apps/test-apps-procfile/010-flask-pip-wsgi
+hop3-test -v run --docker apps/test-apps-procfile/010-flask-pip-wsgi
 
 # Keep the target up and generate an HTML report
-hop3-test system --docker --keep --report html apps/test-apps-procfile/010-flask-pip-wsgi
+hop3-test run --docker --keep --report html apps/test-apps-procfile/010-flask-pip-wsgi
 ```
 
 ### System Tests Timeout
 
 ```bash
 # Reuse existing container to debug
-hop3-test system --docker --reuse --keep
+hop3-test run --docker --reuse --keep
 
 # Inspect the diagnostic bundle collected on a failed Docker e2e/app run
 hop3-test why <run-id>
@@ -394,11 +393,11 @@ ssh root@$HOP3_TEST_HOST "systemctl status hop3-server"
 |--------|----------|-------|
 | `--docker` | System tests with a fresh deploy | Slow (~5 min startup) |
 | `--docker --reuse` | App tests against an existing container | Fast (skips deploy) |
-| `--ssh` | Tests against real servers | Variable |
+| `--host X` | Tests against a real server | Variable |
 
 ### When to Use Each
 
-- **`hop3-test system --docker`**: Testing Hop3 changes (deploys Hop3 first)
-- **`hop3-test system --docker --reuse`**: Fast iteration on an existing container
-- **`hop3-test system --ssh --host X`**: Testing against remote servers
-- **`hop3-test system --docker <app-path>`**: Testing one app's configuration
+- **`hop3-test run --docker`**: Testing Hop3 changes (deploys Hop3 first)
+- **`hop3-test run --docker --reuse`**: Fast iteration on an existing container
+- **`hop3-test run --host X`**: Testing against remote servers
+- **`hop3-test run --docker <app-path>`**: Testing one app's configuration

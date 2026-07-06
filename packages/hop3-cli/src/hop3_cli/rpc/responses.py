@@ -184,7 +184,7 @@ def _handle_streaming_response(
 
     # Determine the base URL for streaming
     base_url: str
-    verify_ssl: bool
+    verify_ssl: bool | str
     if tunnel_port is not None:
         # SSH tunnel mode: use localhost with the forwarded port
         base_url = f"http://localhost:{tunnel_port}"
@@ -201,9 +201,14 @@ def _handle_streaming_response(
         ])
         return
     else:
-        # Direct HTTP/HTTPS connection
+        # Direct HTTP/HTTPS connection. Resolve TLS the SAME way the RPC client
+        # does (honor a pinned ssl_cert; parse a string verify_ssl) so the
+        # stream doesn't fail the deploy report on a deploy that succeeded over
+        # /rpc (audit 2026-06 B1).
+        from hop3_cli.rpc.client import resolve_ssl_verification  # noqa: PLC0415
+
         base_url = api_url
-        verify_ssl = config.get("verify_ssl", True)
+        verify_ssl = resolve_ssl_verification(api_url, config)
 
     # Get token for authentication
     token: str | None = config.get_api_token()

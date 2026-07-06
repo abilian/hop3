@@ -39,3 +39,4 @@ covers = ["python", "isso"]
 [[test.validations]]
 path = "/"
 status = 400
+contains = "missing uri query"

@@ -30,6 +30,8 @@ from hop3_rootd.nft.rule import (
 )
 from hop3_rootd.validation import PortSpec
 
+from tests.a_unit._fakes import FakeExec, fail
+
 # --- Comment helpers ------------------------------------------------------
 
 
@@ -196,25 +198,18 @@ def test_delete_argv(patched_nft):
 
 
 def test_run_nft_returns_result_on_success():
-    with patch.object(nft_rule, "exec_run") as mock_run:
-        mock_run.return_value.returncode = 0
-        mock_run.return_value.success = True
-        mock_run.return_value.stdout = "ok"
-        mock_run.return_value.stderr = ""
-        result = run_nft(["/usr/sbin/nft", "list", "ruleset"])
+    fake = FakeExec()
+    result = run_nft(["/usr/sbin/nft", "list", "ruleset"], exec=fake)
     assert result.success
+    assert fake.calls == [["/usr/sbin/nft", "list", "ruleset"]]
 
 
 def test_run_nft_raises_command_error_on_failure():
-    with patch.object(nft_rule, "exec_run") as mock_run:
-        mock_run.return_value.returncode = 1
-        mock_run.return_value.success = False
-        mock_run.return_value.stdout = ""
-        mock_run.return_value.stderr = "Error: something broke"
-        with pytest.raises(NftCommandError) as e:
-            run_nft(["/usr/sbin/nft", "list", "ruleset"])
-        assert e.value.returncode == 1
-        assert "something broke" in e.value.stderr
+    fake = FakeExec().on(lambda argv: True, fail("Error: something broke"))
+    with pytest.raises(NftCommandError) as e:
+        run_nft(["/usr/sbin/nft", "list", "ruleset"], exec=fake)
+    assert e.value.returncode == 1
+    assert "something broke" in e.value.stderr
 
 
 # --- parse_list_output ----------------------------------------------------

@@ -248,12 +248,12 @@ Applications often need configuration through environment variables. Hop3 makes 
 
 Set a single environment variable:
 ```bash
-hop3 config set --app hello-hop3 LOG_LEVEL=info
+hop3 env set --app hello-hop3 LOG_LEVEL=info
 ```
 
 Set multiple variables at once:
 ```bash
-hop3 config set --app hello-hop3 LOG_LEVEL=info MAX_WORKERS=4 SECRET_KEY=your-secret
+hop3 env set --app hello-hop3 LOG_LEVEL=info MAX_WORKERS=4 SECRET_KEY=your-secret
 ```
 
 !!! note "About DEBUG mode"
@@ -263,7 +263,7 @@ hop3 config set --app hello-hop3 LOG_LEVEL=info MAX_WORKERS=4 SECRET_KEY=your-se
 
 List all environment variables for your app:
 ```bash
-hop3 config show --app hello-hop3
+hop3 env show --app hello-hop3
 ```
 
 You'll see a formatted table:
@@ -280,12 +280,12 @@ You'll see a formatted table:
 
 Get a specific variable's value:
 ```bash
-hop3 config get --app hello-hop3 DEBUG
+hop3 env get --app hello-hop3 DEBUG
 ```
 
 **For scripts**, use JSON output:
 ```bash
-hop3 config show --app hello-hop3 --json
+hop3 env show --app hello-hop3 --json
 ```
 ```json
 {
@@ -303,7 +303,7 @@ hop3 config show --app hello-hop3 --json
 
 Remove a variable:
 ```bash
-hop3 config unset --app hello-hop3 DEBUG
+hop3 env unset --app hello-hop3 DEBUG
 ```
 
 !!! note "Restart Required"

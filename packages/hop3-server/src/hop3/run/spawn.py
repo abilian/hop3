@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -17,13 +18,35 @@ from hop3.config import HOP3_ROOT, HOP3_USER, UWSGI_ENABLED
 from hop3.core.artifacts import BuildArtifact
 from hop3.core.env import Env
 from hop3.core.plugins import get_proxy_strategy
-from hop3.lib import Diagnosis, echo, get_free_port, log, log_diagnosis, shell
+from hop3.lib import (
+    Diagnosis,
+    abort_with_diagnosis,
+    echo,
+    get_free_port,
+    log,
+    log_diagnosis,
+    shell,
+)
 from hop3.lib.logging import server_log
 from hop3.lib.settings import write_settings
 from hop3.project.config import AppConfig
 from hop3.project.procfile import parse_procfile
 
 from .uwsgi import spawn_uwsgi_worker
+
+# A top-level Nix store path `/nix/store/<hash>-<name>` (the hash is 32 base-32
+# chars). Stops at the next `/`, so `…-forgejo-11.0.1/bin/forgejo web` yields the
+# store-path ROOT, which is what `nix-store -q --requisites` takes.
+_NIX_STORE_PATH_RE = re.compile(r"/nix/store/[a-z0-9]{32}-[^\s/]+")
+
+
+def _extract_nix_store_paths(commands) -> list[str]:
+    """The distinct `/nix/store/<hash>-<name>` roots referenced by worker commands."""
+    paths: set[str] = set()
+    for cmd in commands:
+        paths.update(_NIX_STORE_PATH_RE.findall(cmd or ""))
+    return sorted(paths)
+
 
 if TYPE_CHECKING:
     from hop3.orm import App
@@ -422,6 +445,84 @@ class AppLauncher:
             except OSError:
                 pass
 
+    def _verify_nix_closure_intact(self) -> None:
+        """Fail loud, at deploy time, if a Nix app's runtime closure is broken.
+
+        A nix wrapper execs hardcoded `/nix/store` paths (forgejo's wrapper execs
+        `${forgejo}/bin/forgejo`). If a garbage-collect reclaimed any path in that
+        closure, the worker dies "No such file or directory" and today only
+        surfaces as a 180s health-check timeout. Checking the closure here turns
+        that into an immediate, named error before uWSGI ever starts.
+
+        Deploy-time, not build-time, on purpose: at build time the whole closure
+        exists by construction (it was just realised) — the reclaim happens
+        later, so a build-time check is vacuous for this class. Best-effort:
+        aborts only on a POSITIVELY-missing path; if `nix-store` can't answer
+        (not on PATH, times out, errors) it logs and continues — a guard that
+        can't run must never block an otherwise-working deploy.
+        """
+        if not (self.artifact and self.artifact.kind == "nix"):
+            return
+        roots = _extract_nix_store_paths(self.workers.values())
+        if not roots:
+            return
+
+        missing: list[str] = []
+        for root in roots:
+            if not os.path.exists(root):
+                missing.append(root)
+                continue
+            try:
+                result = subprocess.run(
+                    ["nix-store", "-q", "--requisites", root],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    check=False,
+                )
+            except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+                log(
+                    f"Nix closure check skipped for '{self.app_name}' "
+                    f"(nix-store unavailable: {e})",
+                    level=2,
+                    fg="yellow",
+                )
+                continue
+            if result.returncode != 0:
+                log(
+                    f"Nix closure check inconclusive for '{self.app_name}': "
+                    f"{result.stderr.strip()[:200]}",
+                    level=2,
+                    fg="yellow",
+                )
+                continue
+            missing.extend(
+                p for p in result.stdout.split() if p and not os.path.exists(p)
+            )
+
+        if missing:
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="uWSGI spawner",
+                    action="start Nix app",
+                    reason=(
+                        f"'{self.app_name}' references {len(missing)} Nix store "
+                        f"path(s) that no longer exist (garbage-collected): "
+                        f"{missing[0]}"
+                    ),
+                    hint=(
+                        "The runtime closure was reclaimed by a nix "
+                        "garbage-collect. Redeploy to rebuild it — the installer "
+                        "now pins auto-GC off (min-free = 0, nix-gc.timer "
+                        "disabled) to prevent recurrence."
+                    ),
+                    troubleshooting=[
+                        f"nix-store -q --requisites {roots[0]}",
+                        f"hop3 app deploy --app {self.app_name}",
+                    ],
+                )
+            )
+
     def spawn_app(self) -> None:
         """Create the app's workers by setting up web worker configurations and
         handling environment-specific setups, including nginx and uwsgi
@@ -439,6 +540,11 @@ class AppLauncher:
             worker_source=worker_source,
         )
         log(f"Workers ({worker_source}): {list(self.workers.keys())}", level=2)
+
+        # Fail loud early if a Nix app's runtime closure was garbage-collected,
+        # instead of letting the worker crash-loop into a 180s health-check
+        # timeout (the forgejo class).
+        self._verify_nix_closure_intact()
 
         # Early detection: Python app with no web-facing workers
         if not self.web_workers and self.artifact:

@@ -103,9 +103,9 @@ class Config:
 
         from hop3_cli.core import credential_store  # noqa: PLC0415
 
-        server = self._active_server or self.get_default_server()
-        if server:
-            return bool(credential_store.get_token(server))
+        server = self._resolve_token_server()
+        if server and credential_store.get_token(server):
+            return True
 
         context = self.get_current_context()
         return bool(context and context.api_token)
@@ -151,24 +151,47 @@ class Config:
         """Get the API token if configured, None otherwise.
 
         Priority:
-        1. HOP3_API_TOKEN environment variable
-        2. The per-server credential store, keyed by the active or default server
+        1. HOP3_API_TOKEN environment variable (only when non-empty — see below)
+        2. The per-server credential store, keyed by the connection's server
         3. Legacy config.toml context (one-release read fallback)
+
+        An *empty* HOP3_API_TOKEN is ignored (treated as unset). The presence
+        test used to disagree with ``is_authenticated``'s truthy test, so an
+        empty value passed the local auth gate yet sent no Authorization header
+        — a 401 with nothing explaining why a good stored token was ignored
+        (audit 2026-06 C4).
         """
-        if "HOP3_API_TOKEN" in os.environ:
-            return os.environ["HOP3_API_TOKEN"]
+        env_token = os.environ.get("HOP3_API_TOKEN")
+        if env_token:
+            return env_token
 
         from hop3_cli.core import credential_store  # noqa: PLC0415
 
-        server = self._active_server or self.get_default_server()
+        server = self._resolve_token_server()
         if server:
-            return credential_store.get_token(server)
+            token = credential_store.get_token(server)
+            if token:
+                return token
 
         context = self.get_current_context()
         if context and context.api_token:
             return context.api_token
 
         return None
+
+    def _resolve_token_server(self) -> str | None:
+        """The credential-store key for the current connection's bearer token.
+
+        All three token paths — the readers (``get_api_token``,
+        ``is_authenticated``) and the writer (``update_context_token``) — MUST
+        resolve the SAME key, keyed by the address we actually connect to
+        (``get_api_url``). Otherwise a token written under one key is invisible
+        to the readers: a successful login that still 401s, or prod's token
+        keyed by an ``HOP3_API_URL`` host it was never minted for (audit 2026-06
+        C1/C3). Keying by ``get_api_url`` makes URL and token resolve together by
+        construction, so they can never point at different servers.
+        """
+        return self.get_api_url()
 
     @staticmethod
     def from_dict(data: dict) -> Config:
@@ -468,7 +491,7 @@ class Config:
         """
         from hop3_cli.core import credential_store  # noqa: PLC0415
 
-        server = self._active_server or self.get_default_server() or self.get_api_url()
+        server = self._resolve_token_server()
         if not server:
             return
         if token:

@@ -232,7 +232,7 @@ hop3 init --ssh root@your-server.example.com
 ### Set Environment Variables
 
 ```bash
-hop3 config set --app hop3-tuto-sinatra RACK_ENV=production
+hop3 env set --app hop3-tuto-sinatra RACK_ENV=production
 ```
 
 ### Prepare for Deployment
@@ -260,7 +260,7 @@ deployed successfully
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config set --app hop3-tuto-sinatra HOST_NAME=hop3-tuto-sinatra.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-sinatra HOST_NAME=hop3-tuto-sinatra.$HOP3_TEST_DOMAIN
 ```
 
 ### Wait for Process Stop
@@ -318,8 +318,8 @@ hop3 app logs --app hop3-tuto-sinatra
 hop3 app restart --app hop3-tuto-sinatra
 
 # View/set environment variables
-hop3 config show --app hop3-tuto-sinatra
-hop3 config set --app hop3-tuto-sinatra NEW_VAR=value
+hop3 env show --app hop3-tuto-sinatra
+hop3 env set --app hop3-tuto-sinatra NEW_VAR=value
 
 # Scale workers
 hop3 ps scale --app hop3-tuto-sinatra web=2

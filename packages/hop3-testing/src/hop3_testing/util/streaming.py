@@ -129,6 +129,10 @@ def run_streaming(
         shell=shell,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
+        # No inherited stdin: a deploy step that prompts (ssh host-key on a
+        # freshly-rebuilt box, apt, sudo) would otherwise read the parent's
+        # stdin and hang the full timeout. DEVNULL gives it EOF -> fail fast.
+        stdin=subprocess.DEVNULL,
         cwd=cwd,
         env=env,
         # Start in its own session so _terminate_process_tree can kill

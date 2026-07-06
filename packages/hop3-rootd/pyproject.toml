@@ -3,7 +3,7 @@
 
 [project]
 name = "hop3-rootd"
-version = "0.6.1"
+version = "0.6.2"
 description = "Privileged operations agent for Hop3 (kernel-boundary executor)"
 readme = "README.md"
 license = "Apache-2.0"
@@ -36,9 +36,31 @@ dev = [
 [project.scripts]
 hop3-rootd = "hop3_rootd.__main__:main"
 
+#
+# build
+#
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv-build>=0.8.4,<0.9.0"]
+build-backend = "uv_build"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/hop3_rootd"]
+[tool.uv.build-backend]
+module-name = "hop3_rootd"
+module-root = "src"
+
+# [build-system]
+# requires = ["hatchling"]
+# build-backend = "hatchling.build"
+
+# [tool.hatch.build.targets.wheel]
+# packages = ["src/hop3_rootd"]
+
+#
+# Tools
+#
+[tool.coverage.report]
+exclude_also = [
+    "if typing.TYPE_CHECKING:",
+    "if TYPE_CHECKING:",
+]
+skip_covered = true
+skip_empty = true

@@ -10,17 +10,22 @@ the full test lifecycle: prepare, deploy, verify, cleanup.
 
 from __future__ import annotations
 
-import os
 import subprocess
 import time
 import traceback
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
-from hop3_testing.exceptions import CleanupError, DeploymentError
+from hop3_testing.exceptions import (
+    CleanupError,
+    DeploymentError,
+    DeployTimeoutError,
+)
 from hop3_testing.targets.constants import (
     E2E_TEST_SECRET_KEY,
     create_test_token,
+    hermetic_cli_cwd,
+    hermetic_cli_env,
 )
 from hop3_testing.util.console import PrintingConsole, Verbosity
 from hop3_testing.util.streaming import run_streaming
@@ -55,6 +60,25 @@ def _format_expected(expected: int | Iterable[int]) -> str:
     if len(codes) == 2:
         return f"{codes[0]} or {codes[1]}"
     return ", ".join(str(c) for c in codes[:-1]) + f", or {codes[-1]}"
+
+
+def _extract_deploy_root_cause(output: str) -> str:
+    """Concise, actionable tail of a failed deploy.
+
+    Drops the high-volume "step succeeded" noise (DB migrations, per-file build
+    progress — lines ending in " OK") that otherwise buries the real error under
+    hundreds of lines, and keeps the last handful that remain. The full
+    transcript is preserved separately (``_last_deploy_output`` → the diagnostic
+    bundle, ``hop3-test why <run-id> --section deploy``), so nothing is lost —
+    this is only what the console shows.
+    """
+    kept = [
+        stripped.lstrip("> ")
+        for line in output.splitlines()
+        if (stripped := line.strip()) and not stripped.endswith(" OK")
+    ]
+    tail = kept[-12:] if kept else ["(no output captured)"]
+    return "\n".join(tail)[:1200]
 
 
 class DeploymentSession:
@@ -126,6 +150,13 @@ class DeploymentSession:
         return self._preparation.temp_dir
 
     @property
+    def test_hostname(self) -> str:
+        """The nginx server_name the app is reachable under (its declared host,
+        or the harness-injected ``{app_name}.test.local``). The Host header for
+        every HTTP/check probe must use this exact value (audit L5/C8)."""
+        return self._preparation.test_hostname
+
+    @property
     def last_deploy_error(self) -> str | None:
         """Get the last deployment error message."""
         return self._last_deploy_error
@@ -143,14 +174,23 @@ class DeploymentSession:
             and HOP3_API_TOKEN set as appropriate.
         """
         target_info = self.target.info
-        env = os.environ.copy()
+        # Hermetic: strip ambient HOP3_* steering vars so the deploy can't be
+        # silently redirected by the (possibly polluted) launch environment —
+        # e.g. the testlab worker's app-runtime env. We then set the explicit
+        # target URL + token below.
+        env = hermetic_cli_env()
 
         # Prefer direct HTTP API URL when available (Docker without SSH port mapping)
         # Fall back to SSH tunnel for remote targets
         if target_info.api_url:
             env["HOP3_API_URL"] = target_info.api_url
-            # Direct HTTP requires API token for authentication
-            env["HOP3_API_TOKEN"] = create_test_token()
+            # Direct HTTP authenticates with a real JWT — signed with the key the
+            # target server actually validates with (read from the server for a
+            # real install; the E2E default for a Docker server started with it).
+            # This is why the harness no longer needs the HOP3_UNSAFE auth bypass.
+            env["HOP3_API_TOKEN"] = create_test_token(
+                secret_key=target_info.secret_key or E2E_TEST_SECRET_KEY
+            )
         else:
             # SSH tunnel provides implicit authentication via SSH keys
             env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
@@ -211,47 +251,15 @@ class DeploymentSession:
     def _build_deploy_error_message(
         self, returncode: int, stdout: str, stderr: str | None = None
     ) -> str:
-        """Build detailed error message from deploy failure.
+        """Concise, root-cause-focused deploy error for the console.
 
-        Shows the TAIL of long output (the error is at the end, not the
-        beginning). For Docker builds, also extracts the first few lines
-        (which have the hop3 context) and the last lines (the actual error).
+        The full transcript is kept elsewhere (``_last_deploy_output`` → the
+        diagnostic bundle); here we surface only the actionable tail so the
+        error isn't buried under hundreds of build/migration log lines (and
+        isn't a multi-KB dump the reporter then repeats).
         """
-        error_parts = [f"Exit code: {returncode}"]
-        full_stdout = stdout.strip()
-
-        if full_stdout:
-            limit = 3000
-            if len(full_stdout) <= limit:
-                error_parts.append(f"stdout: {full_stdout}")
-            else:
-                # Show head (hop3 context) + tail (actual error)
-                lines = full_stdout.split("\n")
-                # First 5 lines for context, last lines for the error
-                head = "\n".join(lines[:5])
-                tail = full_stdout[-2000:]
-                error_parts.append(
-                    f"stdout (head): {head}\n"
-                    f"... ({len(full_stdout)} chars total, showing last 2000) ...\n"
-                    f"stdout (tail): {tail}"
-                )
-
-        if stderr:
-            full_stderr = stderr.strip()
-            if full_stderr:
-                # Filter out cryptography warnings
-                stderr_lines = [
-                    line
-                    for line in full_stderr.split("\n")
-                    if "CryptographyDeprecationWarning" not in line
-                    and "TripleDES" not in line
-                    and line.strip()
-                ]
-                if stderr_lines:
-                    stderr_preview = "\n".join(stderr_lines)[-2000:]
-                    error_parts.append(f"stderr: {stderr_preview}")
-
-        return " | ".join(error_parts)
+        source = stdout.strip() or (stderr or "").strip()
+        return f"Exit code: {returncode} | {_extract_deploy_root_cause(source)}"
 
     def _deploy_via_cli(self) -> None:
         """Deploy via hop3 CLI subprocess.
@@ -291,7 +299,9 @@ class DeploymentSession:
 
         # Always use streaming with timeout to prevent silent hangs
         timeout = getattr(self, "_deploy_timeout", 600)
-        result = run_streaming(cmd, on_output=on_output, env=env, timeout=timeout)
+        result = run_streaming(
+            cmd, on_output=on_output, env=env, timeout=timeout, cwd=hermetic_cli_cwd()
+        )
         stdout = result.stdout
         returncode = result.returncode
         # Keep the full deploy output for every build (success or failure), not
@@ -302,13 +312,18 @@ class DeploymentSession:
             mins = timeout // 60
             self._last_deploy_error = f"Deploy timed out after {mins} minutes"
             self.console.error(self._last_deploy_error)
-            raise DeploymentError(self._last_deploy_error)
+            # A hung deploy is infrastructure, not a builder rejection — raise
+            # the dedicated type so a negative test can't go green on it (C7).
+            raise DeployTimeoutError(self._last_deploy_error)
 
         if returncode != 0:
             self._last_deploy_error = self._build_deploy_error_message(
                 returncode, stdout
             )
-            self.console.error(f"Deploy failed: {self._last_deploy_error}")
+            # No console.error here: the streamed progress already showed the
+            # failure line live, and the runner/reporter renders the result
+            # once (report_test + the "Full logs recorded → hop3-test why …"
+            # pointer). Printing it here too is the double-print we saw.
             raise DeploymentError(self._last_deploy_error)
 
         # Extract the app's direct port from deploy output.
@@ -356,6 +371,7 @@ class DeploymentSession:
             result = subprocess.run(
                 ["hop3", "apps"],
                 env=env,
+                cwd=hermetic_cli_cwd(),
                 capture_output=True,
                 text=True,
                 check=False,
@@ -433,10 +449,16 @@ class DeploymentSession:
                 max_retries,
             )
 
-        # Fall back to local nginx-based testing
+        # Fall back to local nginx-based testing. Send the app's real
+        # server_name (its declared host, or the injected {app_name}.test.local)
+        # as the Host header so the request hits the app's vhost instead of the
+        # platform default_server (audit L5).
         verifier = self._get_verifier()
         return verifier.verify_http_detailed(
-            hostname, path, expected_status, max_retries
+            hostname or self._preparation.test_hostname,
+            path,
+            expected_status,
+            max_retries,
         )
 
     def _test_http_direct(
@@ -508,9 +530,15 @@ class DeploymentSession:
                     result["details"]["attempts"] = attempt + 1
 
                     if _status_match(status_code, expected_status):
-                        # Fetch body for contains checks
+                        # Fetch body for contains checks. Follow redirects (-L):
+                        # a `contains` assertion is about CONTENT, which for an
+                        # app whose entry point 302/307-redirects (kanboard→board,
+                        # easy-appointments→installer) lives at the redirect
+                        # target — the 3xx response itself has an empty body. The
+                        # STATUS check above is NOT followed, so a validation can
+                        # still assert the immediate redirect (`status = 302`).
                         _, body, _ = self.target.exec_run(
-                            f"curl -s --max-time 3 '{url}' | head -c 4096"
+                            f"curl -s -L --max-redirs 5 --max-time 5 '{url}' | head -c 16384"
                         )
                         result["details"]["body_preview"] = body.strip() if body else ""
                         result["passed"] = True
@@ -524,9 +552,10 @@ class DeploymentSession:
                         time.sleep(1)
                         continue
 
-                    # Get body preview for non-matching status
+                    # Get body preview for non-matching status (follow redirects
+                    # so the diagnostic shows the real page, not an empty 3xx).
                     _, body, _ = self.target.exec_run(
-                        f"curl -s --max-time 3 '{url}' | head -c 4096"
+                        f"curl -s -L --max-redirs 5 --max-time 5 '{url}' | head -c 16384"
                     )
                     body_text = body.strip() if body else ""
                     result["details"]["body_preview"] = body_text
@@ -556,12 +585,13 @@ class DeploymentSession:
     ) -> dict[str, Any]:
         """Test HTTP via nginx on the remote server (for static/no-port apps).
 
-        Runs curl on the server targeting localhost:80 with the app's
-        hostname as Host header. Uses the app name as hostname since
-        nginx is configured with HOST_NAME (or catch-all '_').
+        Runs curl on the server targeting localhost:80 with the Host header set
+        to the hostname the app was actually deployed under. This MUST match the
+        nginx server_name (HOST_NAME) the harness set in prepare(); otherwise the
+        request misses the app's vhost, falls through to the platform
+        default_server, and gets a 301 (HTTP→HTTPS) instead of the app.
         """
-        # Use the app name as hostname for the Host header
-        host = self.app_name
+        host = self._preparation.test_hostname
         url = f"http://127.0.0.1{path}"
         result: dict[str, Any] = {
             "passed": False,
@@ -588,7 +618,7 @@ class DeploymentSession:
                     if _status_match(status_code, expected_status):
                         # Fetch body for contains checks
                         _, body, _ = self.target.exec_run(
-                            f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c 4096"
+                            f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c 16384"
                         )
                         result["details"]["body_preview"] = body.strip() if body else ""
                         result["passed"] = True
@@ -604,7 +634,7 @@ class DeploymentSession:
 
                     # Non-matching status — get body for diagnostics
                     _, body, _ = self.target.exec_run(
-                        f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c 4096"
+                        f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c 16384"
                     )
                     body_text = body.strip() if body else ""
                     result["details"]["body_preview"] = body_text
@@ -684,6 +714,7 @@ class DeploymentSession:
                 before = subprocess.run(
                     ["hop3", "apps"],
                     env=env,
+                    cwd=hermetic_cli_cwd(),
                     capture_output=True,
                     text=True,
                     check=False,
@@ -693,6 +724,7 @@ class DeploymentSession:
             result = subprocess.run(
                 ["hop3", "app", "destroy", "--app", self.app_name, "-y"],
                 env=env,
+                cwd=hermetic_cli_cwd(),
                 capture_output=True,
                 text=True,
                 check=False,
@@ -747,6 +779,7 @@ class DeploymentSession:
         after = subprocess.run(
             ["hop3", "apps"],
             env=env,
+            cwd=hermetic_cli_cwd(),
             capture_output=True,
             text=True,
             check=False,

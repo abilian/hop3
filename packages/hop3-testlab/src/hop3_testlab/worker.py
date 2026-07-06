@@ -4,7 +4,7 @@
 
 """The run worker: take the lease, run the suite, release.
 
-v1 reuses the existing engine by spawning ``hop3-test system`` as a subprocess
+v1 reuses the existing engine by spawning ``hop3-test run`` as a subprocess
 (the per-run-subprocess model in the spec §10); its results land in the shared
 store, which the dashboard reads. The HetznerPool provisioning, the
 Orchestrator(pool, shard) generalization, incremental/streamed persistence, and
@@ -194,9 +194,12 @@ def _wait_ssh_command_ready(
     """
     cmd = [
         "ssh",
-        "-o", "StrictHostKeyChecking=accept-new",
-        "-o", "BatchMode=yes",
-        "-o", "ConnectTimeout=10",
+        "-o",
+        "StrictHostKeyChecking=accept-new",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=10",
     ]
     if ssh_key:
         cmd += ["-i", ssh_key]
@@ -483,17 +486,17 @@ def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once;
     run to specific app paths (a per-app build); otherwise the full mode suite.
 
     ``platform_ref`` is the hop3 ref the engine installs **from git**
-    (``--deploy-from git --branch``); ``cwd``
+    (``--from git --branch``); ``cwd``
     is the fetched ``source@ref`` workspace the engine scans/deploys from — so apps
     and platform can be different refs (v2 spec §A). ``provenance`` (the run's
     composition identity) and any per-target session details are merged into
     ``HOP3_TEST_META``, which ``ResultStore.start_run`` records on the run.
     """
     # Install the platform at the requested ref FROM GIT. `--branch` alone is
-    # ignored: the engine defaults to `--deploy-from local` (deploys local code),
-    # so the run would *record* platform_ref while *testing* the local tree
-    # (review #6). No platform_ref => the engine default (local).
-    deploy = ["--deploy-from", "git", "--branch", platform_ref] if platform_ref else []
+    # ignored: the engine defaults to `--from local` (deploys local code), so the
+    # run would *record* platform_ref while *testing* the local tree (review #6).
+    # No platform_ref => the engine default (local).
+    deploy = ["--from", "git", "--branch", platform_ref] if platform_ref else []
     meta = dict(provenance or {})
     env = dict(os.environ)
     # The engine subprocess must write to the SAME store the Lab reads — its
@@ -516,7 +519,7 @@ def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once;
             env["HOP3_TEST_META"] = json.dumps(meta)
         cmd = [
             "hop3-test",
-            "system",
+            "run",
             "--docker",
             "--with",
             "all",
@@ -550,14 +553,14 @@ def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once;
         env["HOP3_TEST_META"] = json.dumps(meta)
     cmd = [
         "hop3-test",
-        "system",
-        "--ssh",
+        "run",
+        # --host implies the remote target (ADR 052 D2); no --ssh mode flag needed.
         "--host",
         host,
         # Pass the credential key explicitly: the engine's paramiko connect uses it
         # as key_filename (env alone isn't read by the released CLI), and a server's
         # runtime user has no default key/agent -> 'No authentication methods'.
-        *(["--ssh-key", ssh_key] if ssh_key else []),
+        *(["--identity", ssh_key] if ssh_key else []),
         "--with",
         "all",
         *deploy,

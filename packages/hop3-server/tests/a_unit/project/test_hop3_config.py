@@ -130,6 +130,38 @@ start = "gunicorn app:app"
     assert config.healthcheck_timeout == 30  # default
 
 
+def test_healthcheck_section_path_wins_and_contains_is_read():
+    """[healthcheck].path is preferred over [run].healthcheck; contains is read.
+
+    Also asserts the schema accepts [healthcheck].contains (from_str validates).
+    """
+    content = """
+[run]
+start = "gunicorn app:app"
+healthcheck = "/legacy"
+
+[healthcheck]
+path = "/health"
+contains = '{"status":"ok"}'
+"""
+    config = Hop3Config.from_str(content)
+
+    assert config.healthcheck_path == "/health"  # section wins over [run]
+    assert config.healthcheck_contains == '{"status":"ok"}'
+
+
+def test_healthcheck_contains_defaults_empty():
+    """No [healthcheck].contains -> empty string (no body assertion)."""
+    content = """
+[healthcheck]
+path = "/health"
+"""
+    config = Hop3Config.from_str(content)
+
+    assert config.healthcheck_path == "/health"
+    assert config.healthcheck_contains == ""
+
+
 def test_run_section_static_empty():
     """Test static_paths returns empty dict when not specified."""
     content = """

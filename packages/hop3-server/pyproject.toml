@@ -1,6 +1,6 @@
 [project]
 name = "hop3-server"
-version = "0.6.1"
+version = "0.6.2"
 description = "Simple PaaS - Deploy and manage web applications on a single server"
 license = "Apache-2.0"
 authors = [
@@ -81,9 +81,6 @@ build-backend = "uv_build"
 module-name = "hop3"
 module-root = "src"
 
-#[tool.uv.sources]
-#hop3-testing = { path = "../hop3-testing", editable = true }
-
 # -----------------------------------------------------------------------------
 
 [tool.deptry.per_rule_ignores]
@@ -112,8 +109,8 @@ units = ["*"]
 # counter = "internal"   # or "cloc"
 
 # Source units to exclude from analysis (a reason is required):
-# [tool.tepyd.exclude]
-# faker = "why this is not tested"
+[tool.tepyd.exclude]
+alembic = "You don't test alembic"
 
 [[tool.tepyd.tiers]]
 name = "a_unit"
@@ -131,7 +128,10 @@ name = "c_e2e"
 root = "tests/c_e2e"
 label = "e2e"
 
-[[tool.tepyd.tiers]]
-name = "c_system"
-root = "tests/c_system"
-label = "system"
+[tool.coverage.report]
+exclude_also = [
+    "if typing.TYPE_CHECKING:",
+    "if TYPE_CHECKING:",
+]
+skip_covered = true
+skip_empty = true

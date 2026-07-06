@@ -19,12 +19,10 @@ from .config import (
     DeploymentConfig,
     HetznerConfig,
     TestConfig,
-    load_config,
 )
 from .deployment import DeploymentManager
 from .hetzner import HetznerManager
 from .multi_distro import HETZNER_IMAGES
-from .orchestrator import DailyTestOrchestrator
 from .runner import TestRunnerManager
 
 VERSION = "0.1.0"
@@ -39,97 +37,6 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
-
-    # --- run command ---
-    run_parser = subparsers.add_parser(
-        "run",
-        help="Run the daily system test",
-        description="""Run the daily system test.
-
-This command orchestrates a complete end-to-end test:
-  1. Reset the Hetzner server to a clean state
-  2. Deploy Hop3 from the specified branch
-  3. Run all configured test suites
-  4. Generate an HTML report
-
-Environment variables:
-  HETZNER_API_TOKEN  Hetzner Cloud API token (required)
-  HETZNER_SERVER_ID  Server ID to use for testing
-  HOP3_BRANCH        Git branch to test (default: devel)
-""",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    run_parser.add_argument(
-        "--server-id", type=int, help="Hetzner server ID to test on."
-    )
-    run_parser.add_argument("--branch", default="devel", help="Git branch to test.")
-    run_parser.add_argument(
-        "--image",
-        default=None,
-        help="OS image to use (e.g., ubuntu-24.04, debian-13, fedora-41, rocky-9).",
-    )
-    run_parser.add_argument(
-        "--config", dest="config_file", type=Path, help="Path to configuration file."
-    )
-    run_parser.add_argument(
-        "--report-dir",
-        type=Path,
-        default=Path("./reports"),
-        help="Directory for test reports.",
-    )
-    run_parser.add_argument(
-        "--skip-reset",
-        action="store_true",
-        help="Skip server reset (use existing state).",
-    )
-    run_parser.add_argument(
-        "--skip-deploy",
-        action="store_true",
-        help="Skip Hop3 deployment (use existing installation).",
-    )
-    run_parser.add_argument(
-        "--skip-tests",
-        action="store_true",
-        help="Skip test execution (only reset and deploy).",
-    )
-    run_parser.add_argument(
-        "--suites",
-        nargs="+",
-        help="Paths to test (e.g., apps/test-apps-procfile, apps/real-apps-nix, demos).",
-    )
-    run_parser.add_argument(
-        "-x", "--fail-fast", action="store_true", help="Stop on first test failure."
-    )
-    run_parser.add_argument(
-        "--random",
-        dest="random_order",
-        action="store_true",
-        help="Run tests in random order.",
-    )
-    run_parser.add_argument(
-        "--with",
-        dest="features",
-        default=None,
-        help=(
-            "Comma-separated server features/addons to install on top of the "
-            "baseline (docker,mysql,postgresql), e.g. '--with redis' or "
-            "'--with redis,nix'. Needed for apps whose hop3.toml declares "
-            "those addons."
-        ),
-    )
-    run_parser.add_argument(
-        "--use-local-repo",
-        action="store_true",
-        help="Use local working directory instead of cloning from git.",
-    )
-    run_parser.add_argument(
-        "--local-repo-path",
-        type=Path,
-        help="Path to local Hop3 repo (defaults to current directory).",
-    )
-    run_parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Enable verbose output."
-    )
 
     # --- status command ---
     status_parser = subparsers.add_parser(
@@ -236,72 +143,6 @@ Example:
     )
 
     return parser
-
-
-def _build_overrides(args: argparse.Namespace) -> dict:
-    """Build configuration overrides from CLI arguments."""
-    overrides: dict = {}
-    if args.server_id:
-        overrides["server_id"] = args.server_id
-    if args.branch != "devel":
-        overrides["branch"] = args.branch
-    if args.image:
-        overrides["image"] = args.image
-    if args.suites:
-        overrides["suites"] = list(args.suites)
-    if args.fail_fast:
-        overrides["fail_fast"] = True
-    if args.random_order:
-        overrides["random_order"] = True
-    if args.report_dir:
-        overrides["report_dir"] = args.report_dir
-    if args.use_local_repo:
-        overrides["use_local_repo"] = True
-    if args.local_repo_path:
-        overrides["local_repo_path"] = args.local_repo_path
-    if args.features:
-        overrides["features"] = [
-            f.strip() for f in args.features.split(",") if f.strip()
-        ]
-    return overrides
-
-
-def cmd_run(args: argparse.Namespace) -> None:
-    """Execute the 'run' command."""
-    console = Console()
-
-    overrides = _build_overrides(args)
-
-    # Load configuration
-    try:
-        config = load_config(args.config_file, overrides)
-    except Exception as e:
-        console.print(f"[red]Error loading configuration: {e}[/red]")
-        sys.exit(1)
-
-    # Validate configuration
-    errors = config.validate()
-    if errors:
-        console.print("[red]Configuration errors:[/red]")
-        for error in errors:
-            console.print(f"  - {error}")
-        sys.exit(1)
-
-    # If skipping deploy, must also skip reset (no point resetting then not deploying)
-    skip_reset = args.skip_reset
-    if args.skip_deploy and not skip_reset:
-        skip_reset = True
-
-    # Run the test
-    orchestrator = DailyTestOrchestrator(config, console, verbose=args.verbose)
-    result = orchestrator.run(
-        skip_reset=skip_reset,
-        skip_deploy=args.skip_deploy,
-        skip_tests=args.skip_tests,
-    )
-
-    # Exit with appropriate code
-    sys.exit(0 if result.success else 1)
 
 
 def cmd_list_images(args: argparse.Namespace) -> None:
@@ -570,7 +411,6 @@ def main() -> None:
 
     # Dispatch to command handler
     commands = {
-        "run": cmd_run,
         "list-images": cmd_list_images,
         "status": cmd_status,
         "reset": cmd_reset,

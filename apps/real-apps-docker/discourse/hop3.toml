@@ -21,3 +21,4 @@ DISCOURSE_HOSTNAME = "localhost"
 
 [healthcheck]
 path = "/"
+contains = "Discourse"

@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 import jwt
 import pytest
 
+from hop3.server.security import tokens as tokens_module
 from hop3.server.security.tokens import (
     MAGIC_LINK_EXPIRY_MINUTES,
     MAGIC_LINK_SCOPE,
@@ -19,6 +20,7 @@ from hop3.server.security.tokens import (
     create_token,
     generate_api_key,
     get_secret_key,
+    revoke_jwt,
     validate_magic_token,
     validate_token,
 )
@@ -302,3 +304,41 @@ def test_magic_token_unique_jti():
     payload2 = jwt.decode(token2, secret_key, algorithms=["HS256"])
 
     assert payload1["jti"] != payload2["jti"]
+
+
+# ---- revoke_jwt: shared decode-and-revoke for CLI + web logout (audit C5) ----
+
+
+def test_revoke_jwt_decodes_and_revokes_valid_token(monkeypatch):
+    """A valid token is decoded and handed to revoke_token with its jti/reason."""
+    calls = []
+    monkeypatch.setattr(
+        tokens_module,
+        "revoke_token",
+        lambda jti, expires_at, reason=None: calls.append((jti, reason)),
+    )
+    token = create_token("user1", scopes=["authenticated"])
+
+    assert revoke_jwt(token, reason="web_logout") is True
+    assert len(calls) == 1
+    assert calls[0][1] == "web_logout"
+    assert calls[0][0]  # a non-empty jti was extracted
+
+
+def test_revoke_jwt_rejects_garbage(monkeypatch):
+    """A non-JWT can't be revoked and must not reach revoke_token."""
+    called = []
+    monkeypatch.setattr(tokens_module, "revoke_token", lambda *a, **k: called.append(1))
+    assert revoke_jwt("not-a-jwt", reason="web_logout") is False
+    assert not called
+
+
+def test_revoke_jwt_rejects_forged_signature(monkeypatch):
+    """A token signed with a different key must NOT poison the revocation list."""
+    called = []
+    monkeypatch.setattr(tokens_module, "revoke_token", lambda *a, **k: called.append(1))
+    forged = jwt.encode(
+        {"jti": "x", "exp": 9999999999}, "attacker-key", algorithm="HS256"
+    )
+    assert revoke_jwt(forged, reason="web_logout") is False
+    assert not called

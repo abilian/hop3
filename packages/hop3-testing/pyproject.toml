@@ -1,6 +1,6 @@
 [project]
 name = "hop3-testing"
-version = "0.6.1"
+version = "0.6.2"
 description = "Testing utilities for Hop3"
 readme = "README.md"
 license = "Apache-2.0"
@@ -57,3 +57,11 @@ project-includes = [
     "**/*.py*",
     "**/*.ipynb",
 ]
+
+[tool.coverage.report]
+exclude_also = [
+    "if typing.TYPE_CHECKING:",
+    "if TYPE_CHECKING:",
+]
+skip_covered = true
+skip_empty = true

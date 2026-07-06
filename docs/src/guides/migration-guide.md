@@ -38,7 +38,7 @@ Set environment variables in Hop3:
 
 ```bash
 # Using hop3-cli (one or more KEY=VALUE pairs)
-hop3 config set --app myapp DATABASE_URL=postgresql://... SECRET_KEY=...
+hop3 env set --app myapp DATABASE_URL=postgresql://... SECRET_KEY=...
 
 # Or add to hop3.toml
 [env]
@@ -82,7 +82,7 @@ hop3 deploy --app myapp
 |--------|------|-------|
 | `heroku create` | `hop3 app launch <repo> --app myapp` | Create app from repo |
 | `git push heroku main` | `hop3 deploy --app myapp` | Deploy code |
-| `heroku config set` | `hop3 config set --app myapp` | Set env vars |
+| `heroku config set` | `hop3 env set --app myapp` | Set env vars |
 | `heroku addon create heroku-postgresql` | `hop3 addon create postgres` | Database |
 | `heroku addon create heroku-redis` | `hop3 addon create redis` | Cache |
 | `heroku ps` | `hop3 app status --app myapp` | Process status |
@@ -188,7 +188,7 @@ hop3 deploy --app myapp
 |--------|------|-------|
 | `fly launch` | `hop3 app launch <repo> --app myapp` | Create app from repo |
 | `fly deploy` | `hop3 deploy --app myapp` | Deploy code |
-| `fly secrets set` | `hop3 config set --app myapp` | Set secrets |
+| `fly secrets set` | `hop3 env set --app myapp` | Set secrets |
 | `fly postgres create` | `hop3 addon create postgres` | Database |
 | `fly status` | `hop3 app status --app myapp` | App status |
 | `fly logs` | `hop3 app logs --app myapp` | View logs |
@@ -309,13 +309,13 @@ path = "/health/"
 
 ```bash
 # Production
-hop3 config set --app myapp LOG_LEVEL=info
+hop3 env set --app myapp LOG_LEVEL=info
 
 # Development/staging (local testing)
 LOG_LEVEL=debug flask run --reload
 ```
 
-For local development, run your app directly without Hop3. For deployed environments, use `hop3 config set` to configure environment-specific variables.
+For local development, run your app directly without Hop3. For deployed environments, use `hop3 env set` to configure environment-specific variables.
 
 ---
 
@@ -325,7 +325,7 @@ After migration, validate your configuration:
 
 ```bash
 # Check app configuration
-hop3 config show --app myapp
+hop3 env show --app myapp
 
 # Deploy and verify
 hop3 deploy --app myapp

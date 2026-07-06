@@ -7,8 +7,8 @@ Supports both SSH (remote servers) and Docker (local containers) backends.
 
 Usage:
     # Via CLI
-    hop3-deploy --host 192.168.1.100
-    hop3-deploy --docker
+    hop3-deploy-server --host 192.168.1.100
+    hop3-deploy-server --docker
 
     # Via Make
     make deploy                    # Deploy to HOP3_DEV_HOST
@@ -21,8 +21,15 @@ Usage:
 
 from __future__ import annotations
 
-from .cli import main
+from .cli import deprecated_main, main
 from .config import DeployConfig
 from .deploy import Deployer, create_backend, deploy
 
-__all__ = ["DeployConfig", "Deployer", "create_backend", "deploy", "main"]
+__all__ = [
+    "DeployConfig",
+    "Deployer",
+    "create_backend",
+    "deploy",
+    "deprecated_main",
+    "main",
+]

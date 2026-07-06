@@ -222,6 +222,15 @@ class HealthcheckSection(BaseModel):
         default=None,
         description="Health check HTTP path",
     )
+    contains: str | None = Field(
+        default=None,
+        description=(
+            "Expected substring in the health-check response body. When set, the "
+            "app counts as ready only once the endpoint returns a body containing "
+            "it — a status-only 200 can be a placeholder, an error page, or "
+            "another app's default_server content."
+        ),
+    )
     interval: int | None = Field(
         default=None,
         description="Check interval in seconds",

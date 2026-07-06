@@ -52,7 +52,7 @@ Add `gunicorn` or `uvicorn` to your `requirements.txt` accordingly. The developm
 
 These apply to every framework here:
 
-- **Configuration via environment.** Set values with `hop3 config set --app <app> KEY=value`. `HOST_NAME` defines the public hostname nginx serves. App-internal secrets like `SECRET_KEY` are declared in `hop3.toml` `[env]` as `SECRET_KEY = { generate = "hex", length = 32 }` — generated once on the first deploy and never committed; use `hop3 config set` only for secrets you supply yourself (API keys).
+- **Configuration via environment.** Set values with `hop3 env set --app <app> KEY=value`. `HOST_NAME` defines the public hostname nginx serves. App-internal secrets like `SECRET_KEY` are declared in `hop3.toml` `[env]` as `SECRET_KEY = { generate = "hex", length = 32 }` — generated once on the first deploy and never committed; use `hop3 env set` only for secrets you supply yourself (API keys).
 - **Databases and caches are addons.** Create and attach a service, and Hop3 injects its connection string for you: PostgreSQL exposes `DATABASE_URL`, Redis exposes `REDIS_URL`. Read them with `os.environ` and never hardcode credentials.
 
   ```bash

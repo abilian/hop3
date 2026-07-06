@@ -89,7 +89,7 @@ The original sin that [ADR 043](/developers/adrs/043-unified-testing-architectur
 | Target | When | Gate |
 |--------|------|------|
 | `--docker` | default; dev + CI | the only one wired into routine CI |
-| `--ssh --host …` | systemd-specific paths (rootd, nginx reload) Docker can't fully exercise | nightly / manual |
+| `--host …` | systemd-specific paths (rootd, nginx reload) Docker can't fully exercise | nightly / manual |
 | Hetzner Cloud | multi-distro, real-server release validation | release gate |
 
 One primitive means one place to fix a bug, and one consistent set of diagnostics on failure.

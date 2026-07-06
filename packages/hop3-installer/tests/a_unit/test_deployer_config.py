@@ -29,8 +29,9 @@ class TestConstants:
     """Tests for module constants."""
 
     def test_default_branch(self):
-        """DEFAULT_BRANCH should be devel."""
-        assert DEFAULT_BRANCH == "devel"
+        """DEFAULT_BRANCH is now main (ADR 052 D3): safe/prod branch is the
+        default; a dev workflow passes --branch devel explicitly."""
+        assert DEFAULT_BRANCH == "main"
 
     def test_default_ssh_user(self):
         """DEFAULT_SSH_USER should be root."""
@@ -193,6 +194,20 @@ class TestDeployConfigValidate:
         config = DeployConfig(use_docker=True, verbose=True, quiet=True)
         errors = config.validate()
         assert any("verbose" in e.lower() and "quiet" in e.lower() for e in errors)
+
+    def test_validate_unknown_with_feature_errors(self):
+        """An unknown --with feature is rejected early, before upload (D4)."""
+        config = DeployConfig(use_docker=True, with_features=["bogus"])
+        errors = config.validate()
+        assert any("Unknown --with feature" in e and "bogus" in e for e in errors)
+
+    def test_validate_valid_with_features_ok(self):
+        """docker/all/rust/s3/postgres are all accepted."""
+        config = DeployConfig(
+            use_docker=True, with_features=["docker", "rust", "s3", "postgres", "all"]
+        )
+        errors = config.validate()
+        assert not any("Unknown --with feature" in e for e in errors)
 
     def test_validate_local_code_missing_package(self, tmp_path: Path):
         """validate() should error when local code path doesn't exist."""

@@ -146,7 +146,7 @@ For each component process, environment variables are layered in this order (lat
 2. Addon-injected vars (`DATABASE_URL`, `PGHOST`, `REDIS_URL`, ...)
 3. Top-level `[env]` (shared across all components)
 4. `[component.env]` (per-component overrides)
-5. Admin overrides via `hop3 config set --app <app> KEY=val`
+5. Admin overrides via `hop3 env set --app <app> KEY=val`
 
 This matches how `[env]` already works but adds a component layer.
 

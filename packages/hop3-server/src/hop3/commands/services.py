@@ -429,7 +429,7 @@ class AddonUnexposeCmd(Command):
 class AddonPromoteCmd(Command):
     """Make an addon the primary one of its type for an app (type-agnostic).
 
-    Usage: hop3 addon promote <name> --app <app> [--type <type>]
+    Usage: hop3 addon promote <name> [--app <app>] [--type <type>]
 
     When several same-type addons are attached to an app, the primary injects
     the UNPREFIXED connection vars (DATABASE_URL, …) and the others are prefixed
@@ -459,7 +459,7 @@ class AddonPromoteCmd(Command):
         app_name = parsed.get("app")
         if not addon_name or not app_name:
             return [
-                text("Usage: hop3 addon promote <name> --app <app> [--type <type>]")
+                text("Usage: hop3 addon promote <name> [--app <app>] [--type <type>]")
             ]
 
         explicit = parsed.get("service_type") or parsed.get("type")
@@ -640,7 +640,7 @@ class AddonAttachCmd(Command):
     This command injects the service's connection details as environment
     variables into the specified application.
 
-    Usage: hop3 addon attach <name> --app <app> [--type <type>]
+    Usage: hop3 addon attach <name> [--app <app>] [--type <type>]
 
     Examples:
         hop3 addon attach my-database --app my-app --type postgres
@@ -723,7 +723,7 @@ class AddonAttachCmd(Command):
         if not addon_name:
             return [
                 text(
-                    "Usage: hop3 addon attach <name> --app <app> [--type <type>]\n\n"
+                    "Usage: hop3 addon attach <name> [--app <app>] [--type <type>]\n\n"
                     "Example:\n"
                     "  hop3 addon attach my-database --app my-app --type postgres"
                 )
@@ -740,7 +740,7 @@ class AddonAttachCmd(Command):
             return [
                 error(
                     "Error: --app parameter is required\n\n"
-                    "Usage: hop3 addon attach <name> --app <app>"
+                    "Usage: hop3 addon attach <name> [--app <app>]"
                 )
             ]
 
@@ -845,7 +845,7 @@ class AddonDetachCmd(Command):
 
     This removes the service's environment variables from the application.
 
-    Usage: hop3 addon detach <name> --app <app> [--type <type>]
+    Usage: hop3 addon detach <name> [--app <app>] [--type <type>]
 
 
     Examples:
@@ -898,7 +898,7 @@ class AddonDetachCmd(Command):
         if not addon_name:
             return [
                 text(
-                    "Usage: hop3 addon detach <name> --app <app> [--type <type>]\n\n"
+                    "Usage: hop3 addon detach <name> [--app <app>] [--type <type>]\n\n"
                     "Example:\n"
                     "  hop3 addon detach my-database --app my-app"
                 )

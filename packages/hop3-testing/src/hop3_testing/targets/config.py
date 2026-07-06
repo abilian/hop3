@@ -33,8 +33,24 @@ class DeploymentConfig:
     verbose: bool = False
     """Whether to show verbose deployment output."""
 
+    domain: str | None = None
+    """Admin domain, emitted as --admin-domain (enables admin setup). Used by the
+    cloud path; None on the plain run path means no admin domain is configured."""
+
+    acme_email: str | None = None
+    """Email for Let's Encrypt registration, emitted as --acme-email (cloud path)."""
+
     features: list[str] = field(default_factory=list)
     """Features to install (e.g., docker, mysql, redis, nix, or 'all')."""
+
+    command_prefix: list[str] | None = None
+    """Prepended to the deploy command, e.g. ["uv", "run"]. The cloud path (7b.5)
+    deploys from a source checkout via `uv run hop3-deploy-server`; the plain run
+    path leaves this None and invokes the installed console script directly."""
+
+    cwd: Path | None = None
+    """Working directory for the deploy subprocess (the cloud path's cloned/local
+    repo). None on the run path -> current directory."""
 
 
 @dataclass

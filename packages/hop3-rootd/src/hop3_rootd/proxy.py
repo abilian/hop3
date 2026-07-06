@@ -31,9 +31,9 @@ from pathlib import Path
 from typing import Any, Final
 
 from hop3_rootd.exec import (
+    DEFAULT_EXEC,
+    Exec,
     InvalidBinaryError,
-    resolve_allowed_binary,
-    run as exec_run,
 )
 
 # systemd system-unit directory (test override via this attribute).
@@ -125,19 +125,19 @@ def _write_unit(path: Path, content: str) -> None:
 # --- systemctl driver -----------------------------------------------------
 
 
-def _systemctl(*args: str, check: bool = True) -> None:
+def _systemctl(*args: str, exec: Exec = DEFAULT_EXEC, check: bool = True) -> None:
     """Run ``systemctl <args>``; raise ProxyError on failure when ``check``.
 
     ``check=False`` is used for best-effort teardown steps (stopping a unit
     that may already be gone), where a non-zero exit is not an error.
     """
-    binary = resolve_allowed_binary("systemctl")
+    binary = exec.resolve("systemctl")
     if binary is None:
         raise ProxyUnavailableError(
             "systemctl not available/allow-listed; cannot manage proxy units"
         )
     try:
-        result = exec_run([binary, *args], timeout=_SYSTEMCTL_TIMEOUT_SECONDS)
+        result = exec.run([binary, *args], timeout=_SYSTEMCTL_TIMEOUT_SECONDS)
     except InvalidBinaryError as e:
         raise ProxyUnavailableError(str(e)) from e
     if check and not result.success:
@@ -148,7 +148,12 @@ def _systemctl(*args: str, check: bool = True) -> None:
 
 
 def add_proxy(
-    addon_type: str, addon_name: str, public_port: int, target_port: int
+    addon_type: str,
+    addon_name: str,
+    public_port: int,
+    target_port: int,
+    *,
+    exec: Exec = DEFAULT_EXEC,
 ) -> dict[str, Any]:
     """Write + enable the socket-proxy unit pair for an exposed addon.
 
@@ -165,13 +170,13 @@ def add_proxy(
     _write_unit(socket_path, _socket_unit(addon_type, addon_name, public_port))
     _write_unit(service_path, service_content)
 
-    _systemctl("daemon-reload")
-    _systemctl("enable", "--now", f"{base}.socket")
+    _systemctl("daemon-reload", exec=exec)
+    _systemctl("enable", "--now", f"{base}.socket", exec=exec)
 
     return {"unit": base, "public_port": public_port, "target_port": target_port}
 
 
-def remove_proxy(base: str) -> dict[str, Any]:
+def remove_proxy(base: str, *, exec: Exec = DEFAULT_EXEC) -> dict[str, Any]:
     """Stop, disable and delete a proxy unit pair. Idempotent.
 
     ``base`` is the bare ``hop3-expose-<type>-<name>`` name (composed by the op
@@ -183,8 +188,8 @@ def remove_proxy(base: str) -> dict[str, Any]:
     present = socket_path.exists() or service_path.exists()
 
     # Best-effort stop/disable (the units may already be inactive/gone).
-    _systemctl("disable", "--now", f"{base}.socket", check=False)
-    _systemctl("stop", f"{base}.service", check=False)
+    _systemctl("disable", "--now", f"{base}.socket", exec=exec, check=False)
+    _systemctl("stop", f"{base}.service", exec=exec, check=False)
 
     for path in (socket_path, service_path):
         try:
@@ -193,7 +198,7 @@ def remove_proxy(base: str) -> dict[str, Any]:
             raise ProxyError(f"could not remove {path}: {e}") from e
 
     # daemon-reload so systemd forgets the now-deleted units.
-    _systemctl("daemon-reload", check=False)
+    _systemctl("daemon-reload", exec=exec, check=False)
 
     return {"removed": present, "unit": base}
 

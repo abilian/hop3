@@ -1,10 +1,8 @@
 .PHONY: all develop test test-fast lint clean doc format build serve
 .PHONY: testlab-serve testlab-prune testlab-schedule testlab-run
 .PHONY: deploy deploy-docker clean-server clean-and-deploy
-.PHONY: test-e2e test-with-coverage test-with-typeguard
-.PHONY: test-demos test-demos-docker test-demos-ssh test-tutorials
-.PHONY: test-installer build-installers test-list test-nightly
-.PHONY: test-system test-system-clean test-apps test-app test-nix
+.PHONY: test-e2e test-cov test-demos test-tutorials
+.PHONY: test-installer build-installers test-apps test-app test-nix
 
 # For tests, set HOP3_DEV_HOST in your environment
 
@@ -162,38 +160,19 @@ test-e2e:
 	@echo ""
 
 ## Coverage — the in-process layers (what coverage.py can actually see)
-test-with-coverage:
+test-cov:
 	@echo "--> Coverage (unit + integration)"
 	uv run pytest --cov=hop3 --cov-report term-missing \
 	  packages/hop3-server/tests/a_unit \
 	  packages/hop3-server/tests/b_integration
 	@echo ""
 
-## Run tests with runtime type checking
-test-with-typeguard:
-	@echo "--> Running Python tests with typeguard"
-	uv run pytest --typeguard-packages=hop3,hop3_agent,hop3_server,hop3_web,hop3_lib
-	@echo ""
-
-## Run demos on both backends
-test-demos: test-demos-docker test-demos-ssh
-
-## Run demos on Docker backend
-test-demos-docker:
+## Run demos on Docker (SSH backend: python demos/demo.py run --host $$HOP3_DEV_HOST --local)
+test-demos:
 	@echo "--> Resetting test server (docker)"
-	hop3-deploy --docker --local --with all --clean
+	hop3-deploy-server --docker --from local --with all --clean
 	@echo "--> Running demos on Docker backend"
 	python demos/demo.py run --backend docker --local --quiet
-	@echo ""
-
-## Run demos on SSH backend (requires HOP3_DEV_HOST)
-test-demos-ssh:
-	@echo "--> Resetting test server (${HOP3_DEV_HOST})"
-	hop3-deploy --local --with all --clean
-	@echo "--> Performing additional system cleanup"
-	hop3 system:cleanup
-	@echo "--> Running demos on SSH backend (${HOP3_DEV_HOST})"
-	python demos/demo.py run --host ${HOP3_DEV_HOST} --local --quiet
 	@echo ""
 
 ## Run tutorials (validoc doc-as-tests)
@@ -203,46 +182,29 @@ test-tutorials:
 	@echo ""
 
 #
-# App / deploy testing (hop3-test) — deploys real apps to a target
+# App / deploy testing (hop3-test) — deploys real apps to a target.
+# `hop3-test` is the interface; the targets below are just front doors. For
+# other variants, call the CLI directly:
+#   list available tests    uv run hop3-test list
+#   deploy from local code   uv run hop3-test run --from local [--clean]
+#   nightly matrix + report  uv run hop3-test run --docker --mode nightly --report html
 #
-
-## List available app/demo/tutorial tests
-test-list:
-	@uv run hop3-test list
-
-## Test Hop3 system with hop3-deploy (local code)
-test-system:
-	@echo "--> Testing Hop3 system (via hop3-deploy)"
-	uv run hop3-test system --deploy-from local
-	@echo ""
-
-## Test Hop3 system with clean install
-test-system-clean:
-	@echo "--> Testing Hop3 system (clean install)"
-	uv run hop3-test system --deploy-from local --clean
-	@echo ""
 
 ## Deploy Hop3 + run the app catalog on Docker (the apps tier)
 test-apps:
-	@echo "--> Testing apps on Docker (hop3-test system)"
-	uv run hop3-test system --docker
+	@echo "--> Testing apps on Docker (hop3-test run)"
+	uv run hop3-test run --docker
 	@echo ""
 
 ## Test one app or path: make test-app APP=apps/real-apps-native/edrix
 test-app:
 	@if [ -z "$(APP)" ]; then echo "Usage: make test-app APP=<app-path-or-name>"; exit 1; fi
-	uv run hop3-test system --docker $(APP)
+	uv run hop3-test run --docker $(APP)
 
-## Run Nix-focused test suite (test-apps-nix + real-apps-nix-gen, Docker)
+## Deploy Hop3 + run the Nix suite on Docker (the M2.2 nix-runtime gate)
 test-nix:
-	@echo "--> Running Nix test suite (Docker, --with nix)"
-	uv run hop3-test system --docker --with nix apps/test-apps-nix apps/real-apps-nix-gen
-	@echo ""
-
-## Nightly — full app/demo/tutorial matrix on Docker, with HTML report
-test-nightly:
-	@echo "--> Nightly suite (hop3-test system --docker --mode nightly, HTML report)"
-	uv run hop3-test system --docker --mode nightly --report html
+	@echo "--> Testing Nix apps on Docker (hop3-test run --with nix)"
+	uv run hop3-test run --docker --with nix apps/test-apps-nix apps/real-apps-nix-gen
 	@echo ""
 
 #
@@ -270,12 +232,12 @@ test-installer: build-installers
 ## Deploy to development server (set HOP3_DEV_HOST)
 deploy:
 	@echo "--> Deploying to ${HOP3_DEV_HOST}"
-	uv run hop3-deploy --local
+	uv run hop3-deploy-server --from local
 
 ## Deploy to local Docker container
 deploy-docker:
 	@echo "--> Deploying to Docker container"
-	uv run hop3-deploy --local --docker
+	uv run hop3-deploy-server --from local --docker
 
 ## Clean development server (WARNING: removes everything)
 clean-server:
@@ -369,4 +331,4 @@ clean:
 	rm -rf docs/site
 	rm -rf docs/.cache
 	rm -rf test-logs/
-	adt clean
+	# adt clean

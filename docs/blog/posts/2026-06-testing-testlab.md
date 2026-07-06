@@ -26,7 +26,7 @@ It also lands squarely on the project ethos: *packaging apps is system-validatio
 
 The cardinal rule that keeps the CLI and the dashboard from ever diverging: **the Test Lab does not shell out to the `hop3-test` CLI and parse its text.** It imports the [test runner](2026-06-testing-runner.md)'s functional core — the orchestrator, the `DeploymentTarget` abstraction, the catalog scanner, the shared `collect_diagnostic_bundle` — *as a library*, and writes structured results to a shared store.
 
-The consequence is that the CLI and the web app are two thin shells over the **same** engine and the **same** store. A developer's manual `hop3-test cloud` run and a scheduled nightly run produce *identical, comparable* data — a manual run even shows up in the dashboard automatically, tagged with its provenance (`scheduled-nightly`, `cli:<user>`, `web:<user>`), git SHA, branch, and target distro. There is exactly one truth, and you can never accidentally build a second.
+The consequence is that the CLI and the web app are two thin shells over the **same** engine and the **same** store. A developer's manual `hop3-test run` and a scheduled nightly run produce *identical, comparable* data — a manual run even shows up in the dashboard automatically, tagged with its provenance (`scheduled-nightly`, `cli:<user>`, `web:<user>`), git SHA, branch, and target distro. There is exactly one truth, and you can never accidentally build a second.
 
 ## The shape of it
 
@@ -67,7 +67,7 @@ It then **remote-controls Hetzner**: the runner provisions a *pool* of ephemeral
 
 ## Blank slate, every run
 
-A nightly result is only trustworthy if it doesn't depend on what ran before it. So a Test Lab run starts from a genuine blank slate — for cloud targets, that means a full **OS rebuild of the throwaway server**, the Hop3 install included. This has sharp operational edges that are worth being explicit about, because a run that *silently* tests a dirty server is worse than no run at all:
+A nightly result is only trustworthy if it doesn't depend on what ran before it. So a Test Lab run starts from a blank slate — for cloud targets, that means a full **OS rebuild of the throwaway server**, the Hop3 install included. This has sharp operational edges that are worth being explicit about, because a run that *silently* tests a dirty server is worse than no run at all:
 
 - It needs a registered SSH key and a **dedicated, disposable** server to rebuild — the rebuild **wipes the entire box**, so it must never point at anything you care about.
 - If it can't reach a true blank slate, it **aborts loudly**, refusing to run against leftover state. (A silent "SKIPPED" against a dirty server is the cardinal sin the whole testing rework was meant to kill.)

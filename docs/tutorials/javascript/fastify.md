@@ -58,7 +58,7 @@ const fastify = require('fastify')({ logger: true });
 
 // SECURITY: specify allowed CORS origins explicitly in production. The very
 // first deploy boots before you've set ALLOWED_ORIGINS (you set it with
-// `hop3 config set` below, then redeploy), so default to "no cross-origin
+// `hop3 env set` below, then redeploy), so default to "no cross-origin
 // access" with a warning rather than crashing the app on startup.
 const allowedOrigins = process.env.ALLOWED_ORIGINS;
 if (!allowedOrigins && process.env.NODE_ENV === 'production') {
@@ -267,7 +267,7 @@ deployed successfully
 Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
-hop3 config set --app hop3-tuto-fastify HOST_NAME=hop3-tuto-fastify.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-fastify HOST_NAME=hop3-tuto-fastify.$HOP3_TEST_DOMAIN
 ```
 
 ### Set Environment Variables
@@ -275,7 +275,7 @@ hop3 config set --app hop3-tuto-fastify HOST_NAME=hop3-tuto-fastify.$HOP3_TEST_D
 Configure additional environment variables:
 
 ```bash exec id=set-env timeout=30
-hop3 config set --app hop3-tuto-fastify ALLOWED_ORIGINS=http://hop3-tuto-fastify.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-fastify ALLOWED_ORIGINS=http://hop3-tuto-fastify.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -318,8 +318,8 @@ hop3 app restart --app hop3-tuto-fastify
 hop3 app logs --app hop3-tuto-fastify
 
 # View/set environment variables
-hop3 config show --app hop3-tuto-fastify
-hop3 config set --app hop3-tuto-fastify NEW_VAR=value
+hop3 env show --app hop3-tuto-fastify
+hop3 env set --app hop3-tuto-fastify NEW_VAR=value
 
 # Scale workers
 hop3 ps scale --app hop3-tuto-fastify web=2

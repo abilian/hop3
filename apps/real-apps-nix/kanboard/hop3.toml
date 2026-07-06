@@ -20,3 +20,6 @@ covers = ["php", "kanboard", "nix", "project-management"]
 [[test.validations]]
 path = "/"
 status = 302
+# `/` 302s to the login page (title "Login"); "Kanboard" only shows once
+# authenticated. Match the login form's own controller instead.
+contains = "AuthController"

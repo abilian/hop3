@@ -215,23 +215,23 @@ def _setup_docker_repo_for_rhel():
 
 ## Testing Across Distributions
 
-We use Hetzner Cloud to spin up VMs for each distribution. The `hop3-test cloud` command drives a single image, a list, or the whole matrix:
+We use Hetzner Cloud to spin up VMs for each distribution. The `hop3-test run --provider hetzner` command drives a single image, a list, or the whole matrix:
 
 ```bash
 # Test on Ubuntu 24.04
-hop3-test cloud --image ubuntu-24.04
+hop3-test run --provider hetzner --image ubuntu-24.04
 
 # Test on Rocky Linux 9
-hop3-test cloud --image rocky-9
+hop3-test run --provider hetzner --image rocky-9
 
 # Test several at once
-hop3-test cloud --images debian-13,fedora-42,alma-9
+hop3-test run --provider hetzner --images debian-13,fedora-42,alma-9
 
 # Or the full matrix
-hop3-test cloud --images all
+hop3-test run --provider hetzner --images all
 
 # List the images we know about
-hop3-test cloud --list-images
+hop3-test run --list-images
 ```
 
 Each test:

@@ -14,10 +14,12 @@ from __future__ import annotations
 
 import os
 import signal
+import subprocess
 import sys
 import time
 
 import pytest
+from hop3_testing.util import streaming
 from hop3_testing.util.streaming import run_streaming
 
 pytestmark = pytest.mark.skipif(
@@ -31,6 +33,23 @@ def test_timed_out_flag_set_on_deadline() -> None:
     result = run_streaming(["sleep", "10"], timeout=1)
     assert result.timed_out is True
     assert result.returncode != 0
+
+
+def test_run_streaming_uses_devnull_stdin(monkeypatch) -> None:
+    """No inherited stdin: a prompting deploy step (ssh host-key/apt/sudo) must
+    get EOF and fail fast, not hang the whole timeout. Both deploy wrappers now
+    share this via the one runner (ADR 052 Phase 7b.1)."""
+    captured: dict = {}
+    real_popen = subprocess.Popen
+
+    def spy_popen(*args, **kwargs):
+        captured["stdin"] = kwargs.get("stdin")
+        return real_popen(*args, **kwargs)
+
+    monkeypatch.setattr(streaming.subprocess, "Popen", spy_popen)
+    result = run_streaming(["true"])
+    assert result.returncode == 0
+    assert captured["stdin"] is subprocess.DEVNULL
 
 
 def test_timeout_kills_grandchild_process(tmp_path) -> None:

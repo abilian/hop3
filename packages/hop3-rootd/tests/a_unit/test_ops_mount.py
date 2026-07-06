@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 from hop3_rootd import PROTOCOL_VERSION, mount
@@ -16,24 +16,23 @@ from hop3_rootd.protocol import Request
 from hop3_rootd.state import State, StoredMount
 from hop3_rootd.validation import ValidationError
 
+from tests.a_unit._fakes import SaveSpy
+
 
 @pytest.fixture
-def ctx():
-    state = State()
-    saved = {"count": 0}
+def save_spy() -> SaveSpy:
+    return SaveSpy()
 
-    def save_state():
-        saved["count"] += 1
 
-    context = OpContext(
-        state=state,
+@pytest.fixture
+def ctx(save_spy: SaveSpy) -> OpContext:
+    return OpContext(
+        state=State(),
         state_path=None,
-        save_state=save_state,
+        save_state=save_spy,
         now_iso=lambda: "2026-04-24T15:30:00+00:00",
         new_rule_id=lambda: "rule-test-1",
     )
-    context._saved = saved  # type: ignore[attr-defined]
-    return context
 
 
 def _req(op: str, **args) -> Request:
@@ -43,7 +42,7 @@ def _req(op: str, **args) -> Request:
 # --- mount.tmpfs ---------------------------------------------------------
 
 
-def test_tmpfs_happy_path_records_state(ctx):
+def test_tmpfs_happy_path_records_state(ctx, save_spy):
     handler = get_handler("mount.tmpfs")
     assert handler is not None
     with patch.object(
@@ -60,12 +59,12 @@ def test_tmpfs_happy_path_records_state(ctx):
             ),
             ctx,
         )
-    mock_mt.assert_called_once_with("blog", "var/cache", 1048576, None)
+    mock_mt.assert_called_once_with("blog", "var/cache", 1048576, None, exec=ANY)
     assert result["mountpoint"].endswith("var/cache")
     assert len(ctx.state.mounts) == 1
     assert ctx.state.mounts[0].type == "tmpfs"
     assert ctx.state.mounts[0].target == "var/cache"
-    assert ctx._saved["count"] == 1
+    assert save_spy.count == 1
 
 
 def test_tmpfs_rejects_absolute_target(ctx):
@@ -113,7 +112,7 @@ def test_tmpfs_replaces_existing_same_target(ctx):
 # --- mount.bind ----------------------------------------------------------
 
 
-def test_bind_happy_path_records_state(ctx):
+def test_bind_happy_path_records_state(ctx, save_spy):
     handler = get_handler("mount.bind")
     assert handler is not None
     with patch.object(
@@ -136,12 +135,12 @@ def test_bind_happy_path_records_state(ctx):
             ctx,
         )
     mock_mb.assert_called_once_with(
-        "blog", "public/media", "/srv/shared/media", read_only=False
+        "blog", "public/media", "/srv/shared/media", read_only=False, exec=ANY
     )
     assert result["type"] == "bind"
     assert ctx.state.mounts[0].type == "bind"
     assert ctx.state.mounts[0].source == "/srv/shared/media"
-    assert ctx._saved["count"] == 1
+    assert save_spy.count == 1
 
 
 def test_bind_rejects_relative_source(ctx):
@@ -186,7 +185,7 @@ def test_bind_denied_source_propagates(ctx):
 # --- mount.unmount -------------------------------------------------------
 
 
-def test_unmount_drops_state(ctx):
+def test_unmount_drops_state(ctx, save_spy):
     ctx.state.mounts.append(
         StoredMount("blog", "var/cache", "tmpfs", None, "2026-01-01T00:00:00+00:00")
     )
@@ -202,7 +201,7 @@ def test_unmount_drops_state(ctx):
         )
     assert result["unmounted"] is True
     assert ctx.state.mounts == []
-    assert ctx._saved["count"] == 1
+    assert save_spy.count == 1
 
 
 def test_unmount_only_drops_matching_target(ctx):

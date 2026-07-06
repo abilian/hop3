@@ -220,7 +220,7 @@ Hop3 automatically provisions SSL certificates via Let's Encrypt when:
 
 ```bash
 # Configure hostname
-hop3 config set --app myapp HOST_NAME=myapp.example.com
+hop3 env set --app myapp HOST_NAME=myapp.example.com
 
 # Redeploy to provision certificate
 hop3 deploy --app myapp
@@ -417,8 +417,8 @@ Each application runs:
 
 Edit application's uWSGI config or set via environment:
 ```bash
-hop3 config set --app myapp UWSGI_WORKERS=4
-hop3 config set --app myapp UWSGI_THREADS=2
+hop3 env set --app myapp UWSGI_WORKERS=4
+hop3 env set --app myapp UWSGI_THREADS=2
 ```
 
 ### Nginx Optimization
@@ -512,7 +512,7 @@ hop3 app logs --app myapp --lines 50
 systemctl status uwsgi-hop3
 
 # Verify environment variables
-hop3 config show --app myapp
+hop3 env show --app myapp
 ```
 
 #### 502 Bad Gateway
@@ -529,7 +529,7 @@ hop3 config show --app myapp
 hop3 addon list
 
 # Check DATABASE_URL is set
-hop3 config show --app myapp | grep DATABASE
+hop3 env show --app myapp | grep DATABASE
 
 # Re-check server health (services and addons)
 hop3 system status

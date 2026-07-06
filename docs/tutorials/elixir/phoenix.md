@@ -446,7 +446,7 @@ hop3 init --ssh root@your-server.example.com
 `SECRET_KEY_BASE` is generated for you on the first deploy (declared in `hop3.toml` `[env]`), so there's no secret to generate or set by hand. Just point the app at its public host:
 
 ```bash skip
-hop3 config set --app hop3-tuto-phoenix PHX_HOST=hop3-tuto-phoenix.your-server.example.com
+hop3 env set --app hop3-tuto-phoenix PHX_HOST=hop3-tuto-phoenix.your-server.example.com
 ```
 
 ### Deploy
@@ -462,7 +462,7 @@ hop3 deploy --app hop3-tuto-phoenix
 Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
-hop3 config set --app hop3-tuto-phoenix HOST_NAME=hop3-tuto-phoenix.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-phoenix HOST_NAME=hop3-tuto-phoenix.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -507,8 +507,8 @@ hop3 app restart --app hop3-tuto-phoenix
 hop3 app logs --app hop3-tuto-phoenix
 
 # View/set environment variables
-hop3 config show --app hop3-tuto-phoenix
-hop3 config set --app hop3-tuto-phoenix NEW_VAR=value
+hop3 env show --app hop3-tuto-phoenix
+hop3 env set --app hop3-tuto-phoenix NEW_VAR=value
 
 # Scale workers
 hop3 ps scale --app hop3-tuto-phoenix web=2
