@@ -296,7 +296,8 @@ def test_build_failure_message_is_concise_with_pointer(tmp_path, monkeypatch):
     huge = "\n".join(f"trace line {i}" for i in range(500))
     err = subprocess.CalledProcessError(1, "docker build")
     err.stderr = (
-        "Redis::CannotConnectError: Error connecting to Redis on localhost:6379\n" + huge
+        "Redis::CannotConnectError: Error connecting to Redis on localhost:6379\n"
+        + huge
     )
     err.stdout = ""
 
@@ -305,7 +306,7 @@ def test_build_failure_message_is_concise_with_pointer(tmp_path, monkeypatch):
 
     msg = str(exc.value)
     assert "Redis::CannotConnectError" in msg
-    assert "hop3 app logs myapp --build" in msg
+    assert "hop3 app logs --app myapp --build" in msg
     assert "trace line 400" not in msg  # backtrace is NOT re-dumped in the error
     # the full output IS persisted once, to build.log
     build_log = (tmp_path / "myapp" / "log" / "build.log").read_text()

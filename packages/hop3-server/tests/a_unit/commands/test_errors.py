@@ -22,9 +22,7 @@ def test_abort_detail_carried_when_not_streaming(monkeypatch):
     monkeypatch.setattr("hop3.server.streaming.get_current_stream", lambda: None)
 
     ctx = ErrorContext(operation="deploying app")
-    assert (
-        ctx.format_error(abort) == "deploying app failed: Docker build failed: boom"
-    )
+    assert ctx.format_error(abort) == "deploying app failed: Docker build failed: boom"
 
 
 def test_abort_detail_not_repeated_when_streaming(monkeypatch):
