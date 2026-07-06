@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from hop3_rootd.exec import DEFAULT_EXEC, Exec
 from hop3_rootd.nft.rule import (
     NftCommandError,
     build_add_argv,
@@ -53,9 +54,9 @@ def add_rule(req: Request, ctx: OpContext) -> dict[str, Any]:
     applied_at = ctx.now_iso()
     spec_dict = _spec_to_dict(spec)
 
-    argv = build_add_argv(spec, rule_id=rule_id)
-    run_nft(argv)
-    nft_handle = _resolve_handle_for_rule_id(rule_id)
+    argv = build_add_argv(spec, rule_id=rule_id, exec=ctx.exec)
+    run_nft(argv, exec=ctx.exec)
+    nft_handle = _resolve_handle_for_rule_id(rule_id, exec=ctx.exec)
 
     ctx.state.rules.append(
         StoredRule(
@@ -96,7 +97,7 @@ def remove_rule(req: Request, ctx: OpContext) -> dict[str, Any]:
     if stored is None:
         raise StateConflictError(f"rule_id {rule_id!r} not found in state")
 
-    handle = _resolve_handle_for_rule_id(rule_id)
+    handle = _resolve_handle_for_rule_id(rule_id, exec=ctx.exec)
     if handle is None:
         # State has it, kernel doesn't. Drop from state and report.
         ctx.state.rules = [r for r in ctx.state.rules if r.rule_id != rule_id]
@@ -107,7 +108,7 @@ def remove_rule(req: Request, ctx: OpContext) -> dict[str, Any]:
     # and state persist leaves a stale row in state — reconcile re-applies
     # at next start, which is the safe direction (rule reappears rather
     # than silently disappearing).
-    run_nft(build_delete_argv(handle))
+    run_nft(build_delete_argv(handle, exec=ctx.exec), exec=ctx.exec)
     ctx.state.rules = [r for r in ctx.state.rules if r.rule_id != rule_id]
     ctx.save_state()
     return {"removed": True, "rule_id": rule_id}
@@ -163,14 +164,16 @@ def _spec_to_dict(spec: Any) -> dict[str, Any]:
     return out
 
 
-def _resolve_handle_for_rule_id(rule_id: str) -> int | None:
+def _resolve_handle_for_rule_id(
+    rule_id: str, *, exec: Exec = DEFAULT_EXEC
+) -> int | None:
     """Find the nftables `handle` of the kernel rule whose comment matches.
 
     Returns None if no such rule is in the kernel right now (e.g., the rule
     was removed out-of-band, or hasn't been applied yet).
     """
     try:
-        kernel_rules = nft_list_rules()
+        kernel_rules = nft_list_rules(exec=exec)
     except NftCommandError:
         # If list fails (e.g., table doesn't exist), surface that as "no
         # match". add_rule's caller will see the error from its own nft

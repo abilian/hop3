@@ -5,34 +5,40 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 from hop3_rootd import PROTOCOL_VERSION, proxy
 from hop3_rootd.ops import get_handler
-from hop3_rootd.ops._base import OpContext
+from hop3_rootd.ops._base import OpContext, OpHandler
 from hop3_rootd.protocol import Request
 from hop3_rootd.state import State, StoredProxy
 from hop3_rootd.validation import ValidationError
 
+from tests.a_unit._fakes import SaveSpy
+
 
 @pytest.fixture
-def ctx():
-    state = State()
-    saved = {"count": 0}
+def save_spy() -> SaveSpy:
+    return SaveSpy()
 
-    def save_state():
-        saved["count"] += 1
 
-    context = OpContext(
-        state=state,
+@pytest.fixture
+def ctx(save_spy: SaveSpy) -> OpContext:
+    return OpContext(
+        state=State(),
         state_path=None,
-        save_state=save_state,
+        save_state=save_spy,
         now_iso=lambda: "2026-06-16T10:00:00+00:00",
         new_rule_id=lambda: "rule-1",
     )
-    context._saved = saved  # type: ignore[attr-defined]
-    return context
+
+
+def _handler(op: str) -> OpHandler:
+    """Narrowed handler — fails the test if ``op`` isn't registered."""
+    handler = get_handler(op)
+    assert handler is not None, f"op {op!r} not registered"
+    return handler
 
 
 def _req(op: str, **args) -> Request:
@@ -42,9 +48,8 @@ def _req(op: str, **args) -> Request:
 # --- proxy.add -----------------------------------------------------------
 
 
-def test_add_records_state(ctx):
-    handler = get_handler("proxy.add")
-    assert handler is not None
+def test_add_records_state(ctx, save_spy):
+    handler = _handler("proxy.add")
     with patch.object(
         proxy,
         "add_proxy",
@@ -66,7 +71,7 @@ def test_add_records_state(ctx):
             ctx,
         )
 
-    mock_add.assert_called_once_with("postgres", "mydb", 54312, 5432)
+    mock_add.assert_called_once_with("postgres", "mydb", 54312, 5432, exec=ANY)
     assert result["unit"] == "hop3-expose-postgres-mydb"
     assert result["source"] == "203.0.113.0/24"
     assert len(ctx.state.proxies) == 1
@@ -77,7 +82,7 @@ def test_add_records_state(ctx):
         54312,
         5432,
     )
-    assert ctx._saved["count"] == 1
+    assert save_spy.count == 1
 
 
 def test_add_replaces_existing_for_same_addon(ctx):
@@ -95,7 +100,7 @@ def test_add_replaces_existing_for_same_addon(ctx):
             "target_port": 5432,
         },
     ):
-        get_handler("proxy.add")(
+        _handler("proxy.add")(
             _req(
                 "proxy.add",
                 addon_type="postgres",
@@ -115,7 +120,7 @@ def test_add_rejects_bad_addon_name(ctx):
         patch.object(proxy, "add_proxy") as mock_add,
         pytest.raises(ValidationError),
     ):
-        get_handler("proxy.add")(
+        _handler("proxy.add")(
             _req(
                 "proxy.add",
                 addon_type="postgres",
@@ -130,7 +135,7 @@ def test_add_rejects_bad_addon_name(ctx):
 
 def test_add_rejects_bad_port(ctx):
     with pytest.raises(ValidationError):
-        get_handler("proxy.add")(
+        _handler("proxy.add")(
             _req(
                 "proxy.add",
                 addon_type="postgres",
@@ -145,7 +150,7 @@ def test_add_rejects_bad_port(ctx):
 # --- proxy.remove --------------------------------------------------------
 
 
-def test_remove_drops_state(ctx):
+def test_remove_drops_state(ctx, save_spy):
     ctx.state.proxies.append(
         StoredProxy(
             "redis", "cache", "hop3-expose-redis-cache", 54000, 6379, "any", "t"
@@ -157,10 +162,10 @@ def test_remove_drops_state(ctx):
         return_value={"removed": True, "unit": "hop3-expose-redis-cache"},
     ) as mock_rm:
         result = handler_remove(ctx, addon_type="redis", addon_name="cache")
-    mock_rm.assert_called_once_with("hop3-expose-redis-cache")
+    mock_rm.assert_called_once_with("hop3-expose-redis-cache", exec=ANY)
     assert result["removed"] is True
     assert ctx.state.proxies == []
-    assert ctx._saved["count"] == 1
+    assert save_spy.count == 1
 
 
 def test_remove_idempotent_when_absent(ctx):
@@ -175,7 +180,7 @@ def test_remove_idempotent_when_absent(ctx):
 
 
 def handler_remove(ctx, **args):
-    return get_handler("proxy.remove")(_req("proxy.remove", **args), ctx)
+    return _handler("proxy.remove")(_req("proxy.remove", **args), ctx)
 
 
 # --- proxy.list ----------------------------------------------------------

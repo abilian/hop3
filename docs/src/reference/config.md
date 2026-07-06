@@ -200,7 +200,7 @@ LOG_LEVEL = "info"
 
 **Notes:**
 
-- Sensitive values should be injected through `hop3 config set`, not hardcoded in hop3.toml. For secrets the app needs to *exist* before its first boot, use a generated secret (below) instead of a manual `config set`.
+- Sensitive values should be injected through `hop3 env set`, not hardcoded in hop3.toml. For secrets the app needs to *exist* before its first boot, use a generated secret (below) instead of a manual `config set`.
 - The `DEBUG` environment variable defaults to `false`. Only set `DEBUG = "true"` in development environments for troubleshooting—never in production.
 
 #### Generated secrets
@@ -226,9 +226,9 @@ SESSION_ID      = { generate = "uuid" }
 
 **Semantics:**
 
-- The value is generated with a cryptographically secure RNG only when the variable is currently **unset**, then stored as a normal app env var (visible in `hop3 config show`).
+- The value is generated with a cryptographically secure RNG only when the variable is currently **unset**, then stored as a normal app env var (visible in `hop3 env show`).
 - It is **generated once and never rotated** on redeploy — so redeploys stay idempotent and a regenerated secret never silently invalidates existing sessions or data. Setting `_policy = "override"` does *not* force rotation.
-- To rotate a generated secret, run `hop3 config unset --app <app> KEY` and redeploy.
+- To rotate a generated secret, run `hop3 env unset --app <app> KEY` and redeploy.
 - A malformed spec (unknown generator, `length < 1`, unknown field) is a hop3.toml validation error — it fails the deploy loudly rather than producing a bad secret.
 
 #### Dynamic references
@@ -238,7 +238,7 @@ Most apps need nothing here: attaching an addon already injects its standard var
 ```toml
 [env]
 # Copy one attribute from a declared addon's credentials. `key` is one of the
-# addon's injected variable names (run `hop3 config show` to see them).
+# addon's injected variable names (run `hop3 env show` to see them).
 PRIMARY_DB_HOST = { from = "myapp-db", key = "PGHOST" }
 
 # App facts (no `from`): "domain"/"hostname" → the app's first hostname,
@@ -252,7 +252,7 @@ APP_FQDN = { key = "domain" }
 |-------|------|-------------|
 | `from` | string | Name of an addon attached to this app. Omit for app facts. |
 | `key` | string | The attribute to copy: an addon variable name (with `from`), or an app fact (`domain`, `hostname`, `name`). |
-| `external_ip` | boolean | The host's public IP. **Not implemented yet** — declaring it fails the deploy with a clear message; use `hop3 config set` meanwhile. |
+| `external_ip` | boolean | The host's public IP. **Not implemented yet** — declaring it fails the deploy with a clear message; use `hop3 env set` meanwhile. |
 
 **Semantics:**
 
@@ -273,7 +273,7 @@ _policy = "keep-existing"   # optional; "override" to overwrite on every deploy
 **Fields:**
 
 - `list` (array of strings, required when section is present): hostnames bound to this app, in declaration order. Each entry must be a valid RFC-1123 hostname. The special value `"_"` is the nginx catch-all and may only appear alone.
-- `_policy` (string, optional, default `"keep-existing"`): merge policy. Mirrors `[env]._policy`. With `"keep-existing"`, a manually set HOST_NAME (via `hop3 config set` or `hop3 domains`) is preserved across deploys. With `"override"`, the value from `hop3.toml` is reapplied on every deploy.
+- `_policy` (string, optional, default `"keep-existing"`): merge policy. Mirrors `[env]._policy`. With `"keep-existing"`, a manually set HOST_NAME (via `hop3 env set` or `hop3 domains`) is preserved across deploys. With `"override"`, the value from `hop3.toml` is reapplied on every deploy.
 
 **Notes:**
 
@@ -527,13 +527,15 @@ Configure health check endpoints for monitoring.
 
 ```toml
 [healthcheck]
-path = "/health/"          # Health check endpoint path
-timeout = 30              # Request timeout in seconds
-interval = 60             # Check interval in seconds
+path = "/health/"            # Health check endpoint path
+contains = '{"status":"ok"}' # Required substring in the response body
+timeout = 30                 # Request timeout in seconds
+interval = 60                # Check interval in seconds
 ```
 
 **Fields:**
-- `path` (string): HTTP path for health checks
+- `path` (string): HTTP path for health checks. Preferred over the legacy `[run].healthcheck`; used by the deploy-time readiness probe.
+- `contains` (string): Expected substring in the health-check response body. When set, the deploy is considered ready only once the endpoint returns a body containing it — a status-only 200 can be a placeholder, an error page, or another app's `default_server` content. The `hop3-test` harness mirrors this as the default validation's body assertion.
 - `timeout` (number): Timeout for health check requests
 - `interval` (number): How often to run health checks
 - `retries` (number): Number of failed checks before the app is marked unhealthy

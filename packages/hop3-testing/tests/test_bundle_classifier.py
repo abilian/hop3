@@ -14,6 +14,7 @@ from typing import Any, cast
 
 from hop3_testing.bundle import (
     SECTION_NAMES,
+    Bundle,
     ProxyProbe,
     build_headline,
     classify,
@@ -22,6 +23,30 @@ from hop3_testing.bundle import (
     parse_proxy_pass_port,
 )
 from hop3_testing.targets.base import HttpResponse
+
+
+def _bundle(classifier: str, run_id: str = "rid") -> Bundle:
+    return Bundle(
+        run_id=run_id,
+        app="discourse",
+        target_kind="ssh",
+        classifier=classifier,  # type: ignore[arg-type]
+        headline="(unused)",
+    )
+
+
+def test_bundle_why_points_at_build_section_for_build_failure():
+    # A build failure's durable log lives in the `build` section; the pointer
+    # must name it (the app is destroyed, so `hop3 app logs` is dead here).
+    assert (
+        _bundle("build-failure", run_id="rid-123").why
+        == "hop3-test why rid-123 --section build"
+    )
+
+
+def test_bundle_why_falls_back_to_app_section():
+    # Unknown/ok classifiers default to the `app` section, never crash.
+    assert _bundle("ok").why == "hop3-test why rid --section app"
 
 
 def _probe(**overrides) -> ProxyProbe:
@@ -113,6 +138,62 @@ def test_parse_listen_unavailable() -> None:
     ports, available, _ = parse_listen_ports("(ss/netstat unavailable)")
     assert ports == ()
     assert available is False
+
+
+def test_parse_listen_ss_wildcard_bind() -> None:
+    # gunicorn's default `--bind 0.0.0.0:$PORT` shows as a 0.0.0.0 listen. A
+    # `proxy_pass http://127.0.0.1:55767` reaches it, so it must be captured —
+    # missing it produced the false proxy-502 for a healthy app.
+    out = (
+        "State  Recv-Q Send-Q Local Address:Port Peer Address:Port Process\n"
+        'LISTEN 0      511    0.0.0.0:55767      0.0.0.0:*  users:(("gunicorn",pid=40432,fd=5))\n'
+    )
+    ports, available, owners = parse_listen_ports(out)
+    assert ports == (55767,)
+    assert available is True
+    assert owners[55767] == "gunicorn"
+
+
+def test_parse_listen_netstat_wildcard_and_ipv6() -> None:
+    out = (
+        "Proto Recv-Q Send-Q Local Address  Foreign Address State  PID/Program\n"
+        "tcp   0      0      0.0.0.0:55767  0.0.0.0:*       LISTEN 40432/gunicorn\n"
+        "tcp6  0      0      :::8080        :::*            LISTEN 55/python\n"
+    )
+    ports, _available, owners = parse_listen_ports(out)
+    assert ports == (8080, 55767)
+    assert owners[55767] == "gunicorn"
+
+
+def test_parse_listen_peer_wildcard_port_not_matched() -> None:
+    # The peer column `0.0.0.0:*` has `*` for a port, not digits — must not be
+    # mistaken for a listen port.
+    out = (
+        "State  Recv-Q Send-Q Local Address:Port Peer Address:Port\n"
+        "LISTEN 0      511    0.0.0.0:55767      0.0.0.0:*\n"
+    )
+    ports, _, _ = parse_listen_ports(out)
+    assert ports == (55767,)
+
+
+def test_classify_wildcard_bound_app_is_not_proxy_502() -> None:
+    # End-to-end shape from the report: the app is bound 0.0.0.0:55767 (gunicorn
+    # default) and nginx proxies to :55767. Parse the real listen line, then
+    # classify — with the wildcard bind now captured, it's healthy, NOT proxy-502.
+    # (Revert the regex fix and parse yields (), _proxy_mismatch fires, this fails.)
+    ss = (
+        "State Recv-Q Send-Q Local Address:Port Peer Address:Port\n"
+        "LISTEN 0 511 0.0.0.0:55767 0.0.0.0:*\n"
+    )
+    listen_ports, available, _ = parse_listen_ports(ss)
+    probe = _probe(
+        proxy_pass_port=55767,
+        expected_port=55767,
+        listen_table_available=available,
+        listen_ports=listen_ports,
+        curl_status=200,
+    )
+    assert classify({}, probe, kind="uwsgi", http_front=None, hint=None) != "proxy-502"
 
 
 # --------------------------------------------------------------------------- #
@@ -280,8 +361,37 @@ def test_collect_bundle_ok_is_not_persisted(tmp_path) -> None:
         base_dir=tmp_path,
     )
     assert bundle.classifier == "ok"
-    assert bundle.artifact_dir is None  # ok bundles are never persisted
+    assert bundle.artifact_dir is None  # ok bundles are never persisted by default
     assert list(tmp_path.iterdir()) == []
+
+
+def test_collect_bundle_ok_is_persisted_when_forced(tmp_path) -> None:
+    """force_persist writes even an ok-classified bundle: a check.py / HTTP-
+    `contains` failure serves fine (classifier ok) yet must leave a bundle that
+    `hop3-test why` can replay. Regression for check.py failures showing
+    'No bundle found'."""
+    ss_table = (
+        "State Recv-Q Send-Q Local Address:Port\n"
+        "LISTEN 0 128 127.0.0.1:55489 0.0.0.0:*\n"
+    )
+    target = _FakeTarget({
+        "ss -ltnp": ss_table,
+        "curl": "200",
+        "uwsgi-enabled": "uwsgi",
+        "nginx/": "location / { proxy_pass http://127.0.0.1:55489; }",
+        "id -un": "root",
+    })
+    bundle = collect_diagnostic_bundle(
+        cast("Any", target),
+        "flask-hello",
+        target_kind="docker",
+        base_dir=tmp_path,
+        force_persist=True,
+    )
+    assert bundle.classifier == "ok"
+    assert bundle.artifact_dir is not None  # forced -> written despite ok
+    assert bundle.artifact_dir.name == bundle.run_id
+    assert (bundle.artifact_dir / "manifest.json").exists()
 
 
 def test_headline_indeterminate_icon() -> None:

@@ -7,8 +7,8 @@ Regression focus: the `--with` feature override must UNION onto the
 baseline (docker/mysql/postgresql) rather than replace it, and must
 survive being applied alongside other overrides (branch, use_local_repo)
 — which previously silently reset `features` to the default. This is the
-gap that left `hop3-test cloud` unable to install redis for apps like
-bookwyrm (which needs postgres AND redis).
+gap that left the cloud path (`hop3-test run --provider hetzner`) unable to
+install redis for apps like bookwyrm (which needs postgres AND redis).
 """
 
 from __future__ import annotations
@@ -47,8 +47,8 @@ def test_with_dedups_already_present_feature() -> None:
 def test_features_survive_use_local_repo_override() -> None:
     """The use_local_repo rebuild must not clobber a requested feature.
 
-    Both overrides arrive together in the real `hop3-test cloud
-    --use-local-repo --with redis` path; the redis must persist.
+    Both overrides arrive together in the real `hop3-test run --provider hetzner
+    --from local --with redis` path; the redis must persist.
     """
     cfg = _apply_overrides(_base(), {"use_local_repo": True, "features": ["redis"]})
     assert cfg.deployment.use_local_repo is True

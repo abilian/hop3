@@ -26,6 +26,7 @@ from hop3_installer.common import (
     print_step,
     print_warning,
 )
+from hop3_installer.deprecation import warn_deprecated_flags
 
 from .checks import check_existing_installation, check_system_requirements
 from .cli import TOTAL_STEPS, config_from_args, create_parser
@@ -71,6 +72,7 @@ def main() -> int:
 
     parser = create_parser()
     args = parser.parse_args()
+    warn_deprecated_flags(sys.argv[1:], {"--force": "--clean"})
     config = config_from_args(args)
 
     print_header("Hop3 CLI Installer")

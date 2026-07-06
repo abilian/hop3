@@ -26,6 +26,8 @@ from hop3_installer.common import (
 
 from .config import ServerInstallerConfig
 from .deps_common import (
+    APT_LOCK_FLAGS,
+    APT_NONINTERACTIVE_ENV,
     PackageSpec,
     install_base_packages,
     install_dotnet_sdk_debian,
@@ -195,9 +197,9 @@ def _create_debian_package_spec(distro_info: DistroInfo) -> PackageSpec:
 
     return PackageSpec(
         pkg_manager="apt-get",
-        update_cmd=["apt-get", "update", "-q"],
-        env_vars={"DEBIAN_FRONTEND": "noninteractive"},
-        install_flags=["--no-install-recommends"],
+        update_cmd=["apt-get", "update", "-q", *APT_LOCK_FLAGS],
+        env_vars=dict(APT_NONINTERACTIVE_ENV),
+        install_flags=["--no-install-recommends", *APT_LOCK_FLAGS],
         base_packages=packages,
         docker_packages=docker_packages,
         mysql_packages=["mysql-server", "mysql-client", "libmysqlclient-dev"],
@@ -265,13 +267,13 @@ def _install_go_toolchain(distro_info: DistroInfo) -> None:
     if use_backports:
         target = f"{distro_info.codename}-backports"
         print_info(f"Installing Go from {target}")
-        cmd = ["apt-get", "install", "-y", "-t", target, "golang-go"]
+        cmd = ["apt-get", "install", "-y", *APT_LOCK_FLAGS, "-t", target, "golang-go"]
     else:
         print_info("Installing Go from main repository")
-        cmd = ["apt-get", "install", "-y", "golang-go"]
+        cmd = ["apt-get", "install", "-y", *APT_LOCK_FLAGS, "golang-go"]
 
     with Spinner("Installing Go toolchain..."):
-        result = run_cmd(cmd, env={"DEBIAN_FRONTEND": "noninteractive"}, check=False)
+        result = run_cmd(cmd, env=APT_NONINTERACTIVE_ENV, check=False)
 
     if result.returncode != 0:
         print_warning("Go installation failed - Go apps may not work")
@@ -299,7 +301,7 @@ def _install_node_toolchain() -> None:
     old for modern apps.
     """
     setup_script = Path("/tmp/nodesource_setup.sh")
-    apt_env = {"DEBIAN_FRONTEND": "noninteractive"}
+    apt_env = APT_NONINTERACTIVE_ENV
 
     with Spinner("Installing Node.js 22 LTS (NodeSource)..."):
         fetched = run_cmd(
@@ -315,11 +317,13 @@ def _install_node_toolchain() -> None:
         if fetched.returncode == 0:
             run_cmd(["bash", str(setup_script)], env=apt_env, check=False)
             result = run_cmd(
-                ["apt-get", "install", "-y", "nodejs"], env=apt_env, check=False
+                ["apt-get", "install", "-y", *APT_LOCK_FLAGS, "nodejs"],
+                env=apt_env,
+                check=False,
             )
         else:
             result = run_cmd(
-                ["apt-get", "install", "-y", "nodejs", "npm"],
+                ["apt-get", "install", "-y", *APT_LOCK_FLAGS, "nodejs", "npm"],
                 env=apt_env,
                 check=False,
             )

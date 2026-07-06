@@ -28,7 +28,7 @@ class TestDeployer:
     def check_deploy_command(self):
         """Skip if hop3-deploy is not available."""
         result = subprocess.run(
-            ["which", "hop3-deploy"],
+            ["which", "hop3-deploy-server"],
             capture_output=True,
             check=False,
         )
@@ -63,10 +63,10 @@ class TestDeployer:
         The deploy_target fixture is dynamically parametrized based on CLI options.
         """
         if deploy_target == "docker":
-            deploy_args = ["hop3-deploy", "--docker", "--local"]
+            deploy_args = ["hop3-deploy-server", "--docker", "--local"]
         else:  # ssh
             host = ssh_raw_host()
-            deploy_args = ["hop3-deploy", "--host", host, "--local", "--clean"]
+            deploy_args = ["hop3-deploy-server", "--host", host, "--local", "--clean"]
 
         # Run hop3-deploy
         result = subprocess.run(  # ty: ignore[no-matching-overload]
@@ -143,7 +143,7 @@ class TestDeployerHelp:
     def test_deploy_help(self) -> None:
         """Test hop3-deploy --help works."""
         result = subprocess.run(
-            ["hop3-deploy", "--help"],
+            ["hop3-deploy-server", "--help"],
             capture_output=True,
             text=True,
             check=False,
@@ -156,7 +156,7 @@ class TestDeployerHelp:
     def test_deploy_requires_target(self) -> None:
         """Test hop3-deploy without --docker or --host fails gracefully."""
         result = subprocess.run(
-            ["hop3-deploy"],
+            ["hop3-deploy-server"],
             capture_output=True,
             text=True,
             check=False,

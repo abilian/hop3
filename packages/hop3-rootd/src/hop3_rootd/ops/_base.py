@@ -29,6 +29,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from hop3_rootd.exec import DEFAULT_EXEC, Exec
 from hop3_rootd.protocol import Request
 
 # --- Errors --------------------------------------------------------------
@@ -94,6 +95,7 @@ class OpContext:
     now_iso: Callable[[], str]  # returns current UTC time as ISO-8601 string
     new_rule_id: Callable[[], str]  # returns a fresh rule_id (UUID4 string)
     stats: DaemonStats = field(default_factory=DaemonStats)
+    exec: Exec = DEFAULT_EXEC  # subprocess seam; tests inject a recording fake
 
 
 # --- Op protocol --------------------------------------------------------

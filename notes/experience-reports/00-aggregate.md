@@ -83,7 +83,7 @@ shortcut but conflicts with Hop3's stated goals:
 using Nix. For Go apps (6 of the 7), this means writing a `buildGoModule`
 derivation. For Wiki.js (Node.js), a `buildNpmPackage` or equivalent.
 This is significant Nix packaging work per app but is the right long-term
-approach. In the meantime, the pre-built templates are honest about their
+approach. In the meantime, the pre-built templates are upfront about their
 limitations and should be documented as a "Tier 2" deployment — functional
 but not fully reproducible.
 

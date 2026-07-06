@@ -279,7 +279,7 @@ Scripts can distinguish user error (2, 10), resolution (3), auth (4, 5), server 
 - **`env`** for environment variables. Canonical commands are `env show/get/set/unset/live`. `config` is a full back-compat alias, registered server-side on each command, so `hop3 config set …` keeps working — no breakage for existing scripts or docs. Procfile→`hop3.toml` conversion is `app migrate`, not an `env` subcommand: it is not environment management.
 - **`addon`** for backing services. "Service" is overloaded across modern PaaS (means app components in Railway/Render).
 
-`env` is canonical rather than `config` (the Heroku/Piku lineage) because `config` collides with `hop3.toml`, the app's *configuration file*. `hop3 config show` listing environment variables while "the config" means the TOML file is a genuine naming clash. `env` names exactly what the commands manage (environment variables), and the `config`/`settings` vocabulary is then freed for future app-level settings. `config` is retained as a full alias purely for compatibility.
+`env` is canonical rather than `config` (the Heroku/Piku lineage) because `config` collides with `hop3.toml`, the app's *configuration file*. `hop3 config show` listing environment variables while "the config" means the TOML file is a naming clash. `env` names exactly what the commands manage (environment variables), and the `config`/`settings` vocabulary is then freed for future app-level settings. `config` is retained as a full alias purely for compatibility.
 
 ### Extensibility
 

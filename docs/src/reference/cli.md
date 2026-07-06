@@ -9,7 +9,7 @@ This document provides a complete reference for all Hop3 CLI commands.
 > [ADR 036](/developers/adrs/036-cli-ergonomics/).
 > Key changes from 0.4.x:
 >
-> - Commands use spaces, not colons: `hop3 config set` (was `hop3 config:set`).
+> - Commands use spaces, not colons: `hop3 env set` (was `hop3 config:set`).
 > - Implicit `--app` resolution chain with sticky context (`hop3 use <app>`).
 > - Alias mechanism: `hop3 apps`, `hop3 addons`, `hop3 plugins`, `hop3 whoami` are built-in aliases (`env` is a real command group, with `config` as its back-compat alias).
 > - Did-you-mean suggestions on typos for both commands and app names.
@@ -174,7 +174,7 @@ hop3 --why logs
 
 ### App Resolution
 
-App-scoped commands (like `hop3 app logs`, `hop3 app restart`, `hop3 config set`) don't require an explicit app name. The CLI resolves one by walking this chain in order, stopping at the first source that supplies a value (ADR 036 D7):
+App-scoped commands (like `hop3 app logs`, `hop3 app restart`, `hop3 env set`) don't require an explicit app name. The CLI resolves one by walking this chain in order, stopping at the first source that supplies a value (ADR 036 D7):
 
 1. **`--app <name>` / `-a <name>`** - explicit flag wins over everything else.
 2. **`$HOP3_APP`** - environment variable for the current shell session.
@@ -1000,21 +1000,6 @@ hop3 app debug [--app <app>]
 
 ---
 
-### `hop3 app env`
-
-Show environment variables with their sources.
-
-**Usage:**
-```bash
-hop3 app env [--app <app>]
-```
-
-**Notes:**
-- Shows where each variable comes from (hop3.toml, config set, addon, etc.)
-- Useful for debugging configuration issues
-
----
-
 ### `hop3 app ping`
 
 Check if an application is responding to HTTP requests.
@@ -1080,8 +1065,11 @@ Show all environment variables for an app.
 
 **Usage:**
 ```bash
-hop3 env show [--app <app>]
+hop3 env show [--app <app>] [--sources]
 ```
+
+Pass `--sources` to add a column showing where each variable comes from
+(addon vs config) — this replaces the former `hop3 app env`.
 
 **Example Output:**
 ```

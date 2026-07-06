@@ -25,7 +25,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
+from typing import Final, Protocol
 
 # --- Allow-list of binary paths --------------------------------------------
 # Absolute paths only. Anything else is rejected with InvalidBinaryError.
@@ -199,3 +199,58 @@ def _decode(b: bytes | str | None) -> str:
     if isinstance(b, str):
         return b
     return b.decode("utf-8", errors="replace")
+
+
+# --- Exec seam (dependency injection / testability) ----------------------
+
+
+class Exec(Protocol):
+    """Capability for running allow-listed binaries and resolving them.
+
+    The single seam through which all privileged subprocess invocation
+    flows. Injected via ``OpContext`` (and threaded into reconcile) so ops
+    are testable without monkeypatching module globals: a test passes a
+    recording fake and asserts on final state, not call order.
+    """
+
+    def run(
+        self,
+        argv: list[str],
+        *,
+        timeout: float = ...,
+        stdin_data: bytes | None = ...,
+        extra_env: dict[str, str] | None = ...,
+        check: bool = ...,
+    ) -> CommandResult: ...
+
+    def resolve(self, name: str) -> str | None:
+        """Absolute path of ``name`` iff present and on the allow-list."""
+        ...
+
+
+class RealExec:
+    """Production ``Exec``: delegates to this module's functions."""
+
+    def run(
+        self,
+        argv: list[str],
+        *,
+        timeout: float = DEFAULT_TIMEOUT_SECONDS,
+        stdin_data: bytes | None = None,
+        extra_env: dict[str, str] | None = None,
+        check: bool = False,
+    ) -> CommandResult:
+        return run(
+            argv,
+            timeout=timeout,
+            stdin_data=stdin_data,
+            extra_env=extra_env,
+            check=check,
+        )
+
+    def resolve(self, name: str) -> str | None:
+        return resolve_allowed_binary(name)
+
+
+#: Shared production instance. Tests inject their own ``Exec``.
+DEFAULT_EXEC: Exec = RealExec()

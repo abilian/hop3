@@ -188,7 +188,11 @@ def test_queue_log_view_renders_the_engine_log():
     'diagnostics saved to <path>' pointer the user can't reach."""
     with _session() as s:
         p = ProfilesRepository(s).create(
-            name="p-log", source_name="m", source_url="u", source_ref="main", selection={}
+            name="p-log",
+            source_name="m",
+            source_url="u",
+            source_ref="main",
+            selection={},
         )
         rid = BuildQueueRepository(s).enqueue(p.id).id
         BuildQueueRepository(s).mark(rid, "failed", detail="setup failed")
@@ -211,7 +215,11 @@ def test_queue_log_view_renders_the_engine_log():
 def test_queue_log_view_handles_missing_log():
     with _session() as s:
         p = ProfilesRepository(s).create(
-            name="p-nolog", source_name="m", source_url="u", source_ref="main", selection={}
+            name="p-nolog",
+            source_name="m",
+            source_url="u",
+            source_ref="main",
+            selection={},
         )
         rid = BuildQueueRepository(s).enqueue(p.id).id
         s.commit()

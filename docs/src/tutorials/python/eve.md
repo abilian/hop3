@@ -310,7 +310,7 @@ hop3 deploy --app hop3-tuto-eve
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config set --app hop3-tuto-eve HOST_NAME=hop3-tuto-eve.your-hop3-server.example.com
+hop3 env set --app hop3-tuto-eve HOST_NAME=hop3-tuto-eve.your-hop3-server.example.com
 ```
 
 ### Apply Configuration
@@ -344,8 +344,8 @@ hop3 app logs --app hop3-tuto-eve
 hop3 app restart --app hop3-tuto-eve
 
 # View/set environment variables
-hop3 config show --app hop3-tuto-eve
-hop3 config set --app hop3-tuto-eve NEW_VAR=value
+hop3 env show --app hop3-tuto-eve
+hop3 env set --app hop3-tuto-eve NEW_VAR=value
 
 # Scale workers
 hop3 ps scale --app hop3-tuto-eve web=2

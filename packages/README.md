@@ -8,7 +8,7 @@ This directory contains the core packages that make up the Hop3 platform.
 |---------|-------------|-------------|
 | **hop3-server** | `hop3-server` | Core platform server that orchestrates deployments |
 | **hop3-cli** | `hop3` / `hop` | Command-line client for interacting with Hop3 servers |
-| **hop3-installer** | `hop3-install` / `hop3-deploy` | Installation and deployment toolkit |
+| **hop3-installer** | `hop3-install` / `hop3-deploy-server` | Installation and deployment toolkit |
 | **hop3-tui** | `hop3-tui` | Terminal UI for managing applications |
 | **hop3-testing** | `hop3-test` | Test framework and E2E testing utilities |
 
@@ -31,7 +31,7 @@ Thin client for developers to interact with Hop3 servers. Communicates via JSON-
 
 Two distinct tools:
 - `hop3-install` - Production installer for end users/sysadmins
-- `hop3-deploy` - Developer tool for deploying/updating Hop3 during development
+- `hop3-deploy-server` - Developer tool for deploying/updating Hop3 during development
 
 Uses only Python stdlib for maximum portability.
 

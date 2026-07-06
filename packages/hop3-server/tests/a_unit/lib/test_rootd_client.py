@@ -7,7 +7,7 @@
 
 Uses a tmp Unix socket and a tiny in-process fake daemon (one thread
 per connection running the protocol envelope by hand). End-to-end
-testing of the real daemon lives in tests/c_system/.
+testing of the real daemon lives in the e2e layer (tests/c_e2e/).
 
 Note: AF_UNIX socket paths are limited to ~104/107 chars on macOS/Linux,
 so tests use a short tempdir under /tmp rather than pytest's tmp_path

@@ -41,3 +41,4 @@ covers = ["python", "django", "postgres", "redis"]
 [[test.validations]]
 path = "/_health/"
 status = 200
+contains = "ok"

@@ -124,7 +124,12 @@ class AuthController(Controller):
 
     @get("/logout", sync_to_thread=False)
     def logout(self, request: Request) -> Redirect:
-        """Handle logout.
+        """Handle logout: revoke the cookie's token, then clear the cookie.
+
+        The dashboard cookie IS a full bearer token, so dropping it client-side
+        is not enough — a separately-captured copy would stay valid for the
+        token's full lifetime. We revoke it server-side (the same mechanism the
+        CLI logout uses) so web and CLI logout are symmetric (audit 2026-06 C5).
 
         Args:
             request: HTTP request
@@ -132,7 +137,12 @@ class AuthController(Controller):
         Returns:
             Redirect to login page
         """
-        # Delete the auth cookie.
+        from hop3.server.security.tokens import revoke_jwt  # noqa: PLC0415
+        from hop3.server.security.web_auth import AUTH_COOKIE  # noqa: PLC0415
+
+        token = request.cookies.get(AUTH_COOKIE)
+        if token:
+            revoke_jwt(token, reason="web_logout")
         return Redirect(path="/auth/login", cookies=[clear_auth_cookie()])
 
     @get("/profile", guards=[auth_guard], sync_to_thread=False)

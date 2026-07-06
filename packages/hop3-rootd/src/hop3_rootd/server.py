@@ -130,7 +130,7 @@ def _make_op_context(state: State, state_path: Path, stats: DaemonStats) -> OpCo
     )
 
 
-def dispatch(req: Request, ctx: OpContext) -> Response:  # noqa: PLR0911 — one return per except clause is the canonical exception-translation shape; collapsing them would require a per-exception lookup table whose only payoff is appeasing this lint.
+def dispatch(req: Request, ctx: OpContext) -> Response:
     """Look up the op, run it, translate exceptions into Response errors.
 
     Public for testability. Doesn't touch the audit log; see handle_one().
@@ -146,13 +146,14 @@ def dispatch(req: Request, ctx: OpContext) -> Response:  # noqa: PLR0911 — one
         return error_response(req.id, ErrorCode.VALIDATION_FAILED, str(e))
     except StateConflictError as e:
         return error_response(req.id, ErrorCode.STATE_CONFLICT, str(e))
-    except (NftCommandError, NftBinaryNotFoundError, NftError) as e:
-        return error_response(req.id, ErrorCode.KERNEL_ERROR, str(e))
-    except CgroupError as e:
-        return error_response(req.id, ErrorCode.KERNEL_ERROR, str(e))
-    except MountError as e:
-        return error_response(req.id, ErrorCode.KERNEL_ERROR, str(e))
-    except CommandTimeoutError as e:
+    except (
+        NftCommandError,
+        NftBinaryNotFoundError,
+        NftError,
+        CgroupError,
+        MountError,
+        CommandTimeoutError,
+    ) as e:
         return error_response(req.id, ErrorCode.KERNEL_ERROR, str(e))
     except Exception as e:
         # Unexpected. Log full traceback to journald; return opaque message.

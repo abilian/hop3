@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 
 from hop3_installer.common import env_bool, env_str
 from hop3_installer.constants import ALL_FEATURES, DEFAULT_BRANCH_PRODUCTION
+from hop3_installer.deprecation import env_bool_with_alias, env_with_alias
 
 
 @dataclass
@@ -68,14 +69,18 @@ class ServerInstallerConfig:
     def from_env(cls) -> ServerInstallerConfig:
         """Create config from environment variables."""
         features = parse_features(env_str("HOP3_WITH", ""))
+        # HOP3_FROM is the canonical source selector (pypi|git|local); HOP3_GIT /
+        # HOP3_LOCAL_PACKAGE still work. HOP3_PATH is canonical; HOP3_LOCAL_PACKAGE
+        # is the deprecated alias (canonical wins, warns on the old one — D7).
+        from_source = env_str("HOP3_FROM", "").lower().strip()
 
         return cls(
             version=env_str("HOP3_VERSION"),
-            use_git=env_bool("HOP3_GIT"),
+            use_git=env_bool("HOP3_GIT") or from_source == "git",
             branch=env_str("HOP3_BRANCH", DEFAULT_BRANCH_PRODUCTION),
-            local_path=env_str("HOP3_LOCAL_PACKAGE"),
+            local_path=env_with_alias("HOP3_PATH", "HOP3_LOCAL_PACKAGE"),
             pre_release=env_bool("HOP3_PRE"),
-            force=env_bool("HOP3_FORCE"),
+            force=env_bool_with_alias("HOP3_CLEAN", "HOP3_FORCE"),
             skip_deps=env_bool("HOP3_SKIP_DEPS"),
             skip_nginx=env_bool("HOP3_SKIP_NGINX"),
             skip_postgres=env_bool("HOP3_SKIP_POSTGRES"),
@@ -89,36 +94,53 @@ class ServerInstallerConfig:
 
 
 def parse_features(features_str: str) -> set[str]:
-    """Parse comma-separated feature list.
+    """Parse a comma-separated feature list; reject unknown features loudly.
+
+    An unknown ``--with`` value used to be silently dropped (a fail-loud
+    violation — the user asked for something they didn't get, with no word).
+    Now any unknown token raises ``ValueError`` listing the valid features.
+    ``postgres`` is accepted but ignored: it is the always-on baseline, not an
+    optional feature. ``all`` expands to every optional feature.
 
     Args:
         features_str: Comma-separated features (e.g., "mysql,redis" or "all")
 
     Returns:
         Set of feature names to install
+
+    Raises:
+        ValueError: if any token is not a known feature, ``all``, or ``postgres``.
     """
     if not features_str:
         return set()
 
     features_str = features_str.lower().strip()
-
-    # Handle "all" keyword
     if features_str == "all":
         return ALL_FEATURES.copy()
 
-    # Parse comma-separated list
-    features = set()
-    for feature in features_str.split(","):
-        feature = feature.strip()
+    features: set[str] = set()
+    unknown: list[str] = []
+    for raw in features_str.split(","):
+        feature = raw.strip()
+        if not feature:
+            continue
         if feature == "all":
             features.update(ALL_FEATURES)
         elif feature in ALL_FEATURES:
             features.add(feature)
-        elif feature == "postgres":
-            # PostgreSQL is always installed by default, ignore
-            pass
-        elif feature:
-            # Unknown feature - will be warned about in main
-            pass
+        elif feature in {"postgres", "postgresql"}:
+            # Always-on baseline (either spelling); accepted, not a feature.
+            continue
+        else:
+            unknown.append(feature)
+
+    if unknown:
+        valid = ", ".join(sorted(ALL_FEATURES))
+        msg = (
+            f"Unknown --with feature(s): {', '.join(unknown)}. "
+            f"Valid features: {valid} (or 'all'). "
+            f"PostgreSQL is the always-installed baseline, not a feature."
+        )
+        raise ValueError(msg)
 
     return features

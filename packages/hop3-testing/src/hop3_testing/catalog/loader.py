@@ -102,10 +102,10 @@ def _parse_test_definition(data: dict[str, Any], path: Path) -> TestDefinition:
         description=test_section.get("description"),
         metadata=metadata,
         # Apps under apps/bad/ are "bad recipes": negative tests expected to
-        # fail. A config flag can also opt any app in.
-        expects_failure=(
-            bool(test_section.get("expects-failure", False)) or _under_bad_dir(path)
-        ),
+        # fail BY DEFAULT. An explicit `expects-failure = false` opts back out
+        # (e.g. a business-drop under apps/bad/ that still deploys fine), so the
+        # path-derived default must lose to an explicit config value (audit C6).
+        expects_failure=bool(test_section.get("expects-failure", _under_bad_dir(path))),
         source_path=path,
     )
 
@@ -413,10 +413,21 @@ def _extract_env_vars_from_hop3_toml(data: dict[str, Any]) -> dict[str, str]:
     return data.get("env", {})
 
 
-def _extract_healthcheck_from_hop3_toml(data: dict[str, Any]) -> str:
-    """Extract healthcheck path from hop3.toml."""
+def _extract_healthcheck_from_hop3_toml(data: dict[str, Any]) -> dict[str, Any]:
+    """Extract healthcheck config (path + optional body assertion) from hop3.toml.
+
+    ``[healthcheck].contains`` is a first-class field (see the server's
+    HealthcheckSection): the runtime readiness probe requires the endpoint to
+    return that substring, and the harness mirrors it as the default validation's
+    body assertion — so a green test means the app served its own content, not a
+    bare 200. Apps needing checks beyond the single healthcheck endpoint add
+    ``[[test.validations]]``.
+    """
     healthcheck = data.get("healthcheck", {})
-    return healthcheck.get("path", "/")
+    return {
+        "path": healthcheck.get("path", "/"),
+        "contains": healthcheck.get("contains"),
+    }
 
 
 def _get_deployment_type_from_hop3_toml(data: dict[str, Any]) -> str:
@@ -571,7 +582,7 @@ def generate_test_definition_from_hop3_toml(
 
     services = _extract_services_from_hop3_toml(hop3_data)
     env_vars = _extract_env_vars_from_hop3_toml(hop3_data)
-    healthcheck_path = _extract_healthcheck_from_hop3_toml(hop3_data)
+    healthcheck = _extract_healthcheck_from_hop3_toml(hop3_data)
     deployment_type = _get_deployment_type_from_hop3_toml(hop3_data)
 
     base_covers = ["docker" if deployment_type == "docker" else "native", *services]
@@ -594,8 +605,8 @@ def generate_test_definition_from_hop3_toml(
     validations = overrides.get("validations") or [
         Validation(
             type="http",
-            path=healthcheck_path,
-            expect=ValidationExpect(status=200),
+            path=healthcheck["path"],
+            expect=ValidationExpect(status=200, contains=healthcheck["contains"]),
         )
     ]
 
@@ -625,11 +636,13 @@ def generate_test_definition_from_hop3_toml(
         ),
         description=description,
         metadata=TestMetadata(**metadata_kwargs),
-        # Bad recipes (apps/bad/**) are negative tests even when configured via
-        # hop3.toml — match the standalone-test.toml path so they're xfail, not
-        # red. An explicit [test] expects-failure flag still opts any app in.
-        expects_failure=overrides.get("expects_failure", False)
-        or _under_bad_dir(app_path),
+        # Bad recipes (apps/bad/**) are negative tests BY DEFAULT, even when
+        # configured via hop3.toml — match the standalone-test.toml path so
+        # they're xfail, not red. An explicit [test] `expects-failure = false`
+        # opts back out (a deferred business-drop that still deploys fine). The
+        # DEFERRED.md scanner skip is what actually drops focalboard & co.; this
+        # only honors an explicit opt-out (audit C6).
+        expects_failure=overrides.get("expects_failure", _under_bad_dir(app_path)),
         source_path=app_path / "hop3.toml",
     )
 

@@ -5,8 +5,11 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
+import tempfile
 import time
+from functools import cache
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -23,11 +26,24 @@ _debug_mode: bool = False
 # Env vars the hop3 CLI uses to *steer* resolution (ADR 042, precedence #2 —
 # above any stored config). A developer's shell almost always exports these
 # (e.g. HOP3_CONTEXT via direnv) pointing at their real server. If they leak
-# into the demo's `hop3` subprocesses they silently override the localhost
-# context the demo logs into, so `hop3 deploy` targets the wrong server and
-# fails the stream auth (302 -> /auth/login). Strip them so resolution falls
-# through to the context the demo established via `hop3 login`.
-_CLI_STEERING_ENV_VARS = ("HOP3_APP", "HOP3_CONTEXT")
+# into the demo's `hop3` subprocesses they silently override the context the
+# demo logs into. This MUST include the auth/target vars, not just app/context:
+# get_api_token()/get_api_url() read HOP3_API_TOKEN/HOP3_API_URL *ahead* of the
+# stored context, and HOP3_DEV_MODE switches the target to localhost. So a stale
+# value left in the shell (direnv, an earlier manual `export`, a prior test run)
+# overrides the context the demo just established via `hop3 login` — `hop3
+# deploy` hits the wrong server, or `hop3 auth whoami` sends a token signed with
+# an old key and gets a 401. Strip them all so resolution falls through to the
+# demo's logged-in context.
+_CLI_STEERING_ENV_VARS = (
+    "HOP3_API_TOKEN",
+    "HOP3_API_URL",
+    "HOP3_APP",
+    "HOP3_CONFIG_DIR",
+    "HOP3_CONTEXT",
+    "HOP3_DEV_HOST",
+    "HOP3_DEV_MODE",
+)
 
 # A demo-private CLI config home. The hop3 CLI stores config.toml
 # / state.toml under ``$XDG_CONFIG_HOME/hop3-cli`` (ADR 042). Pointing the demo's
@@ -36,6 +52,27 @@ _CLI_STEERING_ENV_VARS = ("HOP3_APP", "HOP3_CONTEXT")
 # reads those contexts — so resolution lands cleanly on the demo server it logs
 # into — nor clobbers them with its throwaway localhost context.
 _DEMO_CLI_CONFIG_HOME = Path(__file__).resolve().parent.parent / ".cli-home"
+
+
+@cache
+def _hermetic_cli_cwd() -> str:
+    """A directory with NO ``hop3.toml`` in its ancestry — the CWD for demo
+    `hop3` subprocesses that don't need a project context.
+
+    Demos always target apps explicitly (``--app NAME``), so the CLI needs no
+    project from the working directory. But the CLI resolves a project — and
+    runs the project-mismatch guard (``deploy``/``restart``/``config set``/
+    ``app destroy``) — relative to its CWD. The runner is launched from the repo
+    root, which carries a ``hop3.toml`` (the Test Lab's own deploy config, ADR
+    044). Standing there, ``config set --app demoNN`` resolves to demoNN but
+    sees project ``hop3-testlab`` and refuses (exit 3); ``app destroy`` refuses
+    the same way but is swallowed by ``check=False``. Running non-deploy
+    commands from a dedicated empty dir makes them hermetic w.r.t. CWD — the
+    same treatment ``cli_env`` gives the environment. Deploy still runs from the
+    app dir (see ``app.deploy_app``), with ``--force`` for the template-id
+    mismatch. ``@cache`` so every call shares one empty directory.
+    """
+    return tempfile.mkdtemp(prefix="hop3-demo-cli-cwd-")
 
 
 def cli_env() -> dict[str, str]:
@@ -53,6 +90,25 @@ def cli_env() -> dict[str, str]:
         env.pop(var, None)
     env["XDG_CONFIG_HOME"] = str(_DEMO_CLI_CONFIG_HOME)
     return env
+
+
+def reset_cli_home() -> None:
+    """Wipe the demo's private CLI config so each run starts hermetic.
+
+    ``_DEMO_CLI_CONFIG_HOME`` persists between runs. Left alone it accumulates
+    cross-run, cross-host state: a stale ``[cli].default_context`` from a prior
+    run against a different server silently SHADOWS the fresh ``default_server``
+    this run's ``hop3 login`` sets — ADR-042 resolution checks the default
+    context first — so commands target the wrong server with that context's
+    (now-expired) token and fail with a 401. The machine-wide run lock (see
+    demo.py ``_acquire_run_lock``) serializes runs, so wiping here is safe.
+
+    Only the ``hop3-cli`` subdir is removed (the CLI's config/credentials/state);
+    the config-home dir itself is left for the CLI to repopulate on login.
+    """
+    cli_config = _DEMO_CLI_CONFIG_HOME / "hop3-cli"
+    if cli_config.exists():
+        shutil.rmtree(cli_config, ignore_errors=True)
 
 
 def set_debug_mode(*, enabled: bool) -> None:
@@ -96,7 +152,7 @@ DEFAULT_COMMAND_TIMEOUT = 300.0
 
 
 def _run_subprocess(
-    cmd: str, *, env: dict | None = None, timeout: float
+    cmd: str, *, env: dict | None = None, timeout: float, cwd: str | None = None
 ) -> subprocess.CompletedProcess:
     """``subprocess.run`` that turns a hang into a bounded, loud failure.
 
@@ -112,6 +168,7 @@ def _run_subprocess(
             text=True,
             check=False,
             env=env,
+            cwd=cwd,
             timeout=timeout,
             # No interactive stdin: the runner has no human to answer a prompt.
             # A destructive command that prompts would otherwise read the
@@ -248,6 +305,7 @@ def run_hop3(
     verbose: bool | None = None,
     log_name: str = "hop3-commands",
     timeout: float = DEFAULT_COMMAND_TIMEOUT,
+    cwd: str | None = None,
 ) -> subprocess.CompletedProcess:
     """Run a hop3 CLI command.
 
@@ -259,6 +317,10 @@ def run_hop3(
         verbose: If True, pass -v flag to hop3 for detailed output.
                  If None (default), uses verbose mode when output_level >= VERBOSE
         log_name: Name of log file to write to (default: "hop3-commands")
+        cwd: Working directory for the subprocess. Defaults to a hermetic
+             empty dir (``_hermetic_cli_cwd``) with no ``hop3.toml`` above it,
+             so the project-mismatch guard never fires on a stray repo-root
+             ``hop3.toml``. Deploy passes the app dir explicitly.
     """
     output_level = get_output_level()
 
@@ -282,7 +344,9 @@ def run_hop3(
         print_command(full_cmd)
 
     cmd_start = time.time()
-    result = _run_subprocess(full_cmd, env=cli_env(), timeout=timeout)
+    result = _run_subprocess(
+        full_cmd, env=cli_env(), timeout=timeout, cwd=cwd or _hermetic_cli_cwd()
+    )
     cmd_elapsed = time.time() - cmd_start
 
     # Record timing for hop3 commands (extract base command for category)

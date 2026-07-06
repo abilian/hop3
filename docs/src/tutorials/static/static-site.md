@@ -92,7 +92,7 @@ deployed successfully
 Configure the hostname for the nginx proxy:
 
 ```bash
-hop3 config set --app hop3-tuto-static HOST_NAME=hop3-tuto-static.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-static HOST_NAME=hop3-tuto-static.$HOP3_TEST_DOMAIN
 ```
 
 ### Wait for Process Stop
@@ -144,7 +144,7 @@ Hello from Hop3
 ```bash
 hop3 app logs --app hop3-tuto-static        # View logs
 hop3 app restart --app hop3-tuto-static     # Restart the app
-hop3 config show --app hop3-tuto-static # Show configuration
+hop3 env show --app hop3-tuto-static # Show configuration
 hop3 app destroy --app hop3-tuto-static -y  # Remove the app
 ```
 

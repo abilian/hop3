@@ -28,17 +28,22 @@ test-with-typeguard:
 	pytest --typeguard-packages=${PKG}
 	@echo ""
 
+test-cov:
+	@echo "--> Running Python tests with coverage"
+	uv run pytest --cov=$(PKG)
+	@echo ""
+
 
 ## Lint / check typing
 lint:
-	ruff check
-	ty check
+	ruff check src tests
+	ty check src tests
 
 ## Format
 format:
-	ruff format
-	ruff check --fix
-	ruff format
+	ruff format src tests
+	ruff check --fix src tests
+	ruff format src tests
 
 
-.PHONY: all test test-randomly test-with-coverage test-with-typeguard lint
+.PHONY: all test test-randomly test-with-coverage test-with-typeguard test-cov lint

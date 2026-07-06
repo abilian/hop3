@@ -11,8 +11,7 @@ import sys
 
 import click
 
-from hop3_testing.catalog import Catalog
-from hop3_testing.cli.commands.test import _get_default_scan_paths
+from hop3_testing.catalog import Catalog, default_scan_paths
 
 
 @click.command("list")
@@ -44,13 +43,13 @@ def list_tests(
     \b
     Examples:
       hop3-test list                           # All tests
-      hop3-test list apps/docker-apps          # Only docker apps
+      hop3-test list apps/real-apps-docker     # Only docker apps
       hop3-test list demos -t fast             # Fast demos
       hop3-test list --show 010-flask-pip-wsgi # Show details
     """
     root = ctx.obj["root"]
     catalog = Catalog(root)
-    paths = list(scan_paths) if scan_paths else _get_default_scan_paths(root)
+    paths = list(scan_paths) if scan_paths else default_scan_paths(root)
     catalog.scan(paths=paths)
 
     # Show details for a specific test

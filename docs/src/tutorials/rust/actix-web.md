@@ -339,8 +339,8 @@ hop3 init --ssh root@your-server.example.com
 ### Set Environment Variables
 
 ```bash
-hop3 config set --app hop3-tuto-actix-web RUST_LOG=info
-hop3 config set --app hop3-tuto-actix-web ALLOWED_ORIGIN=https://hop3-tuto-actix-web.your-hop3-server.example.com
+hop3 env set --app hop3-tuto-actix-web RUST_LOG=info
+hop3 env set --app hop3-tuto-actix-web ALLOWED_ORIGIN=https://hop3-tuto-actix-web.your-hop3-server.example.com
 ```
 
 ### Deploy
@@ -360,7 +360,7 @@ deployed successfully
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config set --app hop3-tuto-actix-web HOST_NAME=hop3-tuto-actix-web.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-actix-web HOST_NAME=hop3-tuto-actix-web.$HOP3_TEST_DOMAIN
 ```
 
 ### Wait for Process Stop
@@ -418,8 +418,8 @@ hop3 app logs --app hop3-tuto-actix-web
 hop3 app restart --app hop3-tuto-actix-web
 
 # View/set environment variables
-hop3 config show --app hop3-tuto-actix-web
-hop3 config set --app hop3-tuto-actix-web NEW_VAR=value
+hop3 env show --app hop3-tuto-actix-web
+hop3 env set --app hop3-tuto-actix-web NEW_VAR=value
 
 # Scale workers
 hop3 ps scale --app hop3-tuto-actix-web web=2

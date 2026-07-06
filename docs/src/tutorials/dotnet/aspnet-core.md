@@ -363,7 +363,7 @@ hop3 init --ssh root@your-server.example.com
 ### Set Environment Variables
 
 ```bash
-hop3 config set --app hop3-tuto-aspnet-core ASPNETCORE_ENVIRONMENT=Production
+hop3 env set --app hop3-tuto-aspnet-core ASPNETCORE_ENVIRONMENT=Production
 ```
 
 ### Deploy
@@ -379,7 +379,7 @@ hop3 deploy --app hop3-tuto-aspnet-core
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config set --app hop3-tuto-aspnet-core HOST_NAME=hop3-tuto-aspnet-core.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-aspnet-core HOST_NAME=hop3-tuto-aspnet-core.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -431,8 +431,8 @@ hop3 app logs --app hop3-tuto-aspnet-core
 hop3 app restart --app hop3-tuto-aspnet-core
 
 # View/set environment variables
-hop3 config show --app hop3-tuto-aspnet-core
-hop3 config set --app hop3-tuto-aspnet-core NEW_VAR=value
+hop3 env show --app hop3-tuto-aspnet-core
+hop3 env set --app hop3-tuto-aspnet-core NEW_VAR=value
 
 # Scale workers
 hop3 ps scale --app hop3-tuto-aspnet-core web=2
@@ -595,7 +595,7 @@ Host=localhost;Database=hop3-tuto-aspnet-core;Username=user;Password=pass
 .NET is generally efficient, but monitor with `/health` endpoint. Set memory limits:
 
 ```bash
-hop3 config set --app hop3-tuto-aspnet-core DOTNET_GCHeapHardLimit=268435456
+hop3 env set --app hop3-tuto-aspnet-core DOTNET_GCHeapHardLimit=268435456
 ```
 
 ### Slow Startup

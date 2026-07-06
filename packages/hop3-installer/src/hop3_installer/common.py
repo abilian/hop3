@@ -282,6 +282,12 @@ def run_cmd(
             text=True,
             env=run_env,
             timeout=timeout,
+            # No inherited stdin: a command that tries to prompt (a dpkg
+            # conffile question, an apt confirmation) gets EOF and fails fast
+            # instead of blocking forever on a terminal the installer may not
+            # have. (needrestart's whiptail reads /dev/tty, not stdin -- that
+            # one is handled by NEEDRESTART_MODE=a in the apt environment.)
+            stdin=subprocess.DEVNULL,
         )
     except subprocess.TimeoutExpired:
         # Return a failed result on timeout

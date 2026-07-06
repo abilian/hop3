@@ -30,8 +30,10 @@ from pathlib import Path
 from hop3_rootd import cgroup as cg, mount as mt, proxy as px
 from hop3_rootd.audit import logger
 from hop3_rootd.cgroup import CgroupError
+from hop3_rootd.exec import DEFAULT_EXEC, Exec
 from hop3_rootd.mount import MountError
 from hop3_rootd.nft.rule import (
+    NftError,
     build_add_argv,
     build_delete_argv,
     parse_comment,
@@ -40,7 +42,7 @@ from hop3_rootd.nft.rule import (
 from hop3_rootd.nft.table import ensure_table_exists, list_rules
 from hop3_rootd.proxy import ProxyError, ProxyUnavailableError
 from hop3_rootd.state import State, StoredRule
-from hop3_rootd.validation import validate_port_spec
+from hop3_rootd.validation import ValidationError, validate_port_spec
 
 
 @dataclass(frozen=True)
@@ -53,7 +55,7 @@ class ReconcileReport:
     state_dropped: int = 0  # in state but couldn't be re-applied; dropped
 
 
-def reconcile(state: State) -> ReconcileReport:
+def reconcile(state: State, *, exec: Exec = DEFAULT_EXEC) -> ReconcileReport:
     """Reconcile in-memory state with kernel state. Mutates `state` in place.
 
     Caller is responsible for persisting state.json after this returns.
@@ -62,9 +64,9 @@ def reconcile(state: State) -> ReconcileReport:
     or listed); the daemon refuses to start in that case.
     """
     # Make sure the table+chain exist before anything else.
-    ensure_table_exists()
+    ensure_table_exists(exec=exec)
 
-    kernel_rules = list_rules()
+    kernel_rules = list_rules(exec=exec)
 
     # Index kernel rules by their rule_id (extracted from the comment).
     # Foreign rules (rules in our table without our comment marker) shouldn't
@@ -100,14 +102,14 @@ def reconcile(state: State) -> ReconcileReport:
         # Missing from kernel. Try to re-apply.
         try:
             spec = validate_port_spec(stored.spec)
-            argv = build_add_argv(spec, rule_id=stored.rule_id)
-            run_nft(argv)
+            argv = build_add_argv(spec, rule_id=stored.rule_id, exec=exec)
+            run_nft(argv, exec=exec)
             logger.warning(
                 "reconcile: re-applied missing kernel rule %s", stored.rule_id
             )
             new_state_rules.append(stored)
             reapplied += 1
-        except Exception as e:
+        except (ValidationError, NftError) as e:
             logger.error(
                 "reconcile: could not re-apply rule %s — dropping from state: %s",
                 stored.rule_id,
@@ -123,12 +125,12 @@ def reconcile(state: State) -> ReconcileReport:
     # persisting state. Remove them.
     for rid, handle in by_rule_id.items():
         try:
-            run_nft(build_delete_argv(handle))
+            run_nft(build_delete_argv(handle, exec=exec), exec=exec)
             logger.warning(
                 "reconcile: removed orphan kernel rule %s (handle %d)", rid, handle
             )
             orphans_removed += 1
-        except Exception as e:
+        except NftError as e:
             logger.error(
                 "reconcile: failed to remove orphan rule %s (handle %d): %s",
                 rid,
@@ -141,14 +143,14 @@ def reconcile(state: State) -> ReconcileReport:
     # be putting rules in `inet hop3`. Log loudly.
     for handle in foreign_handles:
         try:
-            run_nft(build_delete_argv(handle))
+            run_nft(build_delete_argv(handle, exec=exec), exec=exec)
             logger.warning(
                 "reconcile: removed foreign (unmarked) rule with handle %d "
                 "from inet hop3 table — operator should not edit this table directly",
                 handle,
             )
             orphans_removed += 1
-        except Exception as e:
+        except NftError as e:
             logger.error(
                 "reconcile: failed to remove foreign rule (handle %d): %s",
                 handle,
@@ -240,7 +242,9 @@ class MountReconcileReport:
     orphans_removed: int = 0  # mounted under app_root with no state row
 
 
-def reconcile_mounts(state: State) -> MountReconcileReport:
+def reconcile_mounts(
+    state: State, *, exec: Exec = DEFAULT_EXEC
+) -> MountReconcileReport:
     """Reconcile tracked mounts with reality at startup (ADR 046 §2).
 
     Mounts are *not* re-asserted here: after a reboot the cgroupfs/mountns is
@@ -277,7 +281,7 @@ def reconcile_mounts(state: State) -> MountReconcileReport:
         if mp_str in live_mountpoints:
             continue
         try:
-            mt.unmount_path(Path(mp_str))
+            mt.unmount_path(Path(mp_str), exec=exec)
             logger.warning("reconcile: unmounted orphan mount %s", mp_str)
             orphans_removed += 1
         except MountError as e:
@@ -300,7 +304,9 @@ class ProxyReconcileReport:
     failed: int = 0  # stored forwarders that couldn't be re-asserted
 
 
-def reconcile_proxies(state: State) -> ProxyReconcileReport:
+def reconcile_proxies(
+    state: State, *, exec: Exec = DEFAULT_EXEC
+) -> ProxyReconcileReport:
     """Re-assert stored addon forwarders and remove orphans at startup.
 
     Unit files persist on disk and an ``enable``d socket is started by systemd
@@ -319,7 +325,9 @@ def reconcile_proxies(state: State) -> ProxyReconcileReport:
     for sp in state.proxies:
         stored_units.add(sp.unit)
         try:
-            px.add_proxy(sp.addon_type, sp.addon_name, sp.public_port, sp.target_port)
+            px.add_proxy(
+                sp.addon_type, sp.addon_name, sp.public_port, sp.target_port, exec=exec
+            )
             reasserted += 1
         except ProxyUnavailableError:
             # systemd / systemd-socket-proxyd is gone — the whole subsystem is
@@ -334,7 +342,7 @@ def reconcile_proxies(state: State) -> ProxyReconcileReport:
         if unit in stored_units:
             continue
         try:
-            px.remove_proxy(unit)
+            px.remove_proxy(unit, exec=exec)
             logger.warning("reconcile: removed orphan proxy unit %s", unit)
             orphans_removed += 1
         except ProxyError as e:

@@ -13,29 +13,15 @@ from __future__ import annotations
 import json
 from unittest.mock import patch
 
-import pytest
 from hop3_rootd import PROTOCOL_VERSION, server as srv
 from hop3_rootd.audit import AuditLog
-from hop3_rootd.exec import CommandResult
-from hop3_rootd.nft import rule as nft_rule, table as nft_table
 from hop3_rootd.ops import OpRegistration
 from hop3_rootd.ops._base import OpContext
 from hop3_rootd.protocol import ErrorCode, Request, decode_request, encode_request
 from hop3_rootd.server import dispatch, handle_one
 from hop3_rootd.state import State, StoredRule
 
-
-@pytest.fixture
-def patched_nft():
-    with (
-        patch.object(nft_rule, "find_nft_binary", return_value="/usr/sbin/nft"),
-        patch.object(nft_table, "find_nft_binary", return_value="/usr/sbin/nft"),
-    ):
-        yield
-
-
-def _ok(stdout: str = "") -> CommandResult:
-    return CommandResult(argv=[], returncode=0, stdout=stdout, stderr="")
+from tests.a_unit._fakes import FakeExec, fail, ok
 
 
 def _ctx_for(state: State):
@@ -45,6 +31,7 @@ def _ctx_for(state: State):
         save_state=lambda: None,
         now_iso=lambda: "2026-04-24T15:30:00+00:00",
         new_rule_id=lambda: "rule-x",
+        exec=FakeExec(),
     )
 
 
@@ -81,7 +68,7 @@ def test_dispatch_handshake_succeeds():
     assert result["accepted"] is True
 
 
-def test_dispatch_validation_error_returns_validation_failed_code(patched_nft):
+def test_dispatch_validation_error_returns_validation_failed_code():
     state = State()
     req = Request(
         v=PROTOCOL_VERSION,
@@ -111,23 +98,18 @@ def test_dispatch_state_conflict_returns_state_conflict_code():
     assert err["code"] == ErrorCode.STATE_CONFLICT.value
 
 
-def test_dispatch_kernel_error_returns_kernel_error_code(patched_nft):
+def test_dispatch_kernel_error_returns_kernel_error_code():
     """nft failure surfaces as kernel_error."""
     state = State()
+    ctx = _ctx_for(state)
+    ctx.exec.on(lambda argv: True, fail("Error: bad rule"))
     req = Request(
         v=PROTOCOL_VERSION,
         id="r1",
         op="firewall.add_rule",
         args={"port": 8448, "protocol": "tcp", "source": "any", "app_name": "matrix"},
     )
-    with patch.object(nft_rule, "exec_run") as mock_exec:
-        mock_exec.return_value = CommandResult(
-            argv=[],
-            returncode=1,
-            stdout="",
-            stderr="Error: bad rule",
-        )
-        resp = dispatch(req, _ctx_for(state))
+    resp = dispatch(req, ctx)
 
     assert not resp.ok
     err = resp.error
@@ -157,28 +139,28 @@ def test_dispatch_unexpected_exception_returns_internal_error():
 # --- handle_one (with audit) ---------------------------------------------
 
 
-def test_handle_one_success_writes_audit_for_mutating_op(tmp_path, patched_nft):
+def test_handle_one_success_writes_audit_for_mutating_op(tmp_path):
     """Mutating ops (audit=True) write an audit entry on success."""
     audit_path = tmp_path / "audit.log"
     audit = AuditLog(audit_path)
     state = State()
-    nft_list_output = (
-        '{"nftables":[{"rule":{"handle":47,"comment":"hop3:rule:rule-x"}}]}'
+    ctx = _ctx_for(state)
+    ctx.exec.on(
+        lambda argv: "list" in argv,
+        ok(stdout='{"nftables":[{"rule":{"handle":47,"comment":"hop3:rule:rule-x"}}]}'),
     )
 
-    with patch.object(nft_rule, "exec_run") as mock_exec:
-        mock_exec.side_effect = [_ok(), _ok(stdout=nft_list_output)]
-        line = encode_request(
-            op="firewall.add_rule",
-            args={
-                "port": 8448,
-                "protocol": "tcp",
-                "source": "any",
-                "app_name": "matrix-fed",
-            },
-            request_id="r1",
-        )
-        response_bytes = handle_one(line, _ctx_for(state), audit, caller_uid=1000)
+    line = encode_request(
+        op="firewall.add_rule",
+        args={
+            "port": 8448,
+            "protocol": "tcp",
+            "source": "any",
+            "app_name": "matrix-fed",
+        },
+        request_id="r1",
+    )
+    response_bytes = handle_one(line, ctx, audit, caller_uid=1000)
     audit.close()
 
     parsed = json.loads(response_bytes.decode().rstrip("\n"))
@@ -207,7 +189,7 @@ def test_handle_one_success_skips_audit_for_readonly_op(tmp_path):
     assert not audit_path.exists() or audit_path.read_text() == ""
 
 
-def test_handle_one_validation_error_writes_audit(tmp_path, patched_nft):
+def test_handle_one_validation_error_writes_audit(tmp_path):
     audit_path = tmp_path / "audit.log"
     audit = AuditLog(audit_path)
     state = State()
@@ -240,7 +222,7 @@ def test_handle_one_protocol_error_writes_audit(tmp_path):
     assert audit_entry["op"] == "(undecoded)"
 
 
-def test_handle_one_redacts_secret_args_in_error_path(tmp_path, patched_nft):
+def test_handle_one_redacts_secret_args_in_error_path(tmp_path):
     """Sanitisation: token/password/secret fields in args are redacted in audit.
 
     Uses an error path on a mutating op so the audit fires regardless of
@@ -317,7 +299,7 @@ def test_handle_one_round_trip(tmp_path):
     assert parsed["result"]["rules"][0]["rule_id"] == "r1"
 
 
-def test_decode_round_trip_via_dispatch(patched_nft):
+def test_decode_round_trip_via_dispatch():
     """Encode → decode → dispatch, end to end without sockets."""
     state = State()
     raw = encode_request(op="daemon.handshake", args={}, request_id="x")

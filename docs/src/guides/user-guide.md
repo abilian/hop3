@@ -203,20 +203,20 @@ hop3 app destroy --app myapp
 
 ```bash
 # Show all config
-hop3 config show --app myapp
+hop3 env show --app myapp
 
 # Set variables (restart required to take effect)
-hop3 config set --app myapp LOG_LEVEL=info MAX_WORKERS=4
+hop3 env set --app myapp LOG_LEVEL=info MAX_WORKERS=4
 hop3 app restart --app myapp
 
 # Get a specific variable
-hop3 config get --app myapp DATABASE_URL
+hop3 env get --app myapp DATABASE_URL
 
 # Remove variables
-hop3 config unset --app myapp OLD_KEY
+hop3 env unset --app myapp OLD_KEY
 
 # View live runtime config
-hop3 config live --app myapp
+hop3 env live --app myapp
 ```
 
 ### Process Management
@@ -315,7 +315,7 @@ worker: celery -A myapp worker
 heroku config -s --app myapp > .env
 
 # Set in Hop3
-hop3 config set --app myapp $(cat .env | xargs)
+hop3 env set --app myapp $(cat .env | xargs)
 ```
 
 **Step 3: Migrate addons**
@@ -357,7 +357,7 @@ worker: celery worker
 Move environment variables from `docker-compose.yml` to Hop3:
 
 ```bash
-hop3 config set --app myapp \
+hop3 env set --app myapp \
   DATABASE_URL=postgresql://... \
   REDIS_URL=redis://...
 ```
@@ -482,7 +482,7 @@ export HOP3_DEBUG=1
 | Create new app | `hop3 app create <repo-url> --app <name>` |
 | Redeploy | `hop3 deploy --app <name>` |
 | View logs | `hop3 app logs --app <name>` |
-| Set config | `hop3 config set --app <name> KEY=val` |
+| Set config | `hop3 env set --app <name> KEY=val` |
 | Scale processes | `hop3 ps scale --app <name> web=2` |
 | Run command | `hop3 run --app <name> <cmd>` |
 | Add database | `hop3 addon create postgres <db-name>` |

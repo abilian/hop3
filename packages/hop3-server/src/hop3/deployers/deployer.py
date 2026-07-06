@@ -97,7 +97,7 @@ def do_deploy(  # noqa: PLR0915
                 hint=("Ensure the app has a valid Procfile or hop3.toml at its root"),
                 troubleshooting=[
                     "See docs/src/hop3-toml-reference.md for the schema",
-                    f"hop3 app logs {app.name}",
+                    f"hop3 app logs --app {app.name}",
                 ],
             )
         )
@@ -261,9 +261,12 @@ def _update_app_model(
     # Update runtime so start/stop commands know how to handle this app
     app.runtime = runtime
 
-    # Update port from deployment info
-    if deployment_info.port:
-        app.port = deployment_info.port
+    # Update port from deployment info. A port-less deployment (static: nginx
+    # serves the files directly) has no worker port — clear any stale value from
+    # a prior deploy. Otherwise _app_serves_http() probes that dead port and the
+    # deploy fails a health check for a site nginx is actually already serving
+    # (the "static deploy fails, then works after a restart" bug).
+    app.port = deployment_info.port or 0
 
     # Update hostname from environment config (from ORM)
     runtime_env = app.get_runtime_env()
@@ -278,6 +281,20 @@ def _update_app_model(
         fg="blue",
     )
 
+    # A port-less deployment (static — nginx serves the files directly) has no
+    # worker process to boot: the deployer configured the proxy synchronously
+    # before returning, so the app is already serving. The health check below is
+    # for uWSGI/docker workers that start asynchronously; running it on a static
+    # app would probe a nonexistent worker port and wrongly fail the deploy.
+    if not deployment_info.port:
+        log(
+            f"App '{app.name}' is served directly by the proxy "
+            "(no worker process to wait for).",
+            level=1,
+            fg="green",
+        )
+        return
+
     # The deployer has set the state to RUNNING, but for uWSGI the process
     # starts asynchronously via the emperor. Wait for it to actually be running.
     # This ensures deploy doesn't return until the app is confirmed running.
@@ -290,7 +307,8 @@ def _update_app_model(
     )
 
     healthcheck_path = app_config.hop3_config.healthcheck_path
-    if _wait_for_app_start(app, timeout, healthcheck_path):
+    healthcheck_contains = app_config.hop3_config.healthcheck_contains
+    if _wait_for_app_start(app, timeout, healthcheck_path, healthcheck_contains):
         log(f"App '{app.name}' is now running.", level=1, fg="green")
     else:
         # App didn't start within timeout - gather diagnostics and fail
@@ -395,7 +413,12 @@ def _process_new_logs(app: App, last_log_lines: int) -> tuple[int, int]:
         return last_log_lines, 0  # Ignore log reading errors
 
 
-def _app_serves_http(app: App, healthcheck_path: str, timeout: float = 3.0) -> bool:
+def _app_serves_http(
+    app: App,
+    healthcheck_path: str,
+    timeout: float = 3.0,
+    healthcheck_contains: str = "",
+) -> bool:
     """Whether the app actually answers an HTTP request on its web port.
 
     A *bound TCP socket* is not proof the app serves: gunicorn (and many
@@ -404,9 +427,14 @@ def _app_serves_http(app: App, healthcheck_path: str, timeout: float = 3.0) -> b
     even when the worker is dead or hung and no request is ever answered. Only
     a real HTTP *response* confirms a worker is serving.
 
-    Any status line (2xx-5xx) counts as "serving" — a 400/404/500 still proves
-    a worker produced it. The point is to distinguish "serving" from "socket
-    bound but nothing answers" (a connect that succeeds but then times out).
+    Without ``healthcheck_contains``, any status line (2xx-5xx) counts as
+    "serving" — a 400/404/500 still proves a worker produced it; the point is to
+    distinguish "serving" from "socket bound but nothing answers".
+
+    With ``healthcheck_contains`` set ([healthcheck].contains), "serving" is
+    stricter: the response body must contain that substring. This makes the
+    readiness gate content-aware, so a status-only 200 (placeholder, error page,
+    wrong app behind the proxy) is NOT mistaken for a healthy deploy.
 
     Returns True for apps with no web ``port`` (background workers): there is no
     HTTP endpoint to probe, so the process/TCP check is all we can assert.
@@ -420,15 +448,25 @@ def _app_serves_http(app: App, healthcheck_path: str, timeout: float = 3.0) -> b
     conn = http.client.HTTPConnection("127.0.0.1", app.port, timeout=timeout)
     try:
         conn.request("GET", path, headers={"Host": host, "Connection": "close"})
-        conn.getresponse()  # raises on timeout/refusal; a status line == serving
-        return True
+        resp = conn.getresponse()  # raises on timeout/refusal
+        if not healthcheck_contains:
+            return True  # a status line alone == serving
+        # Bounded read: a healthcheck body is small, and the socket timeout
+        # already caps a slow/streaming response.
+        body = resp.read(262144).decode("utf-8", "replace")
+        return healthcheck_contains in body
     except (OSError, http.client.HTTPException):
         return False
     finally:
         conn.close()
 
 
-def _wait_for_app_start(app: App, timeout: float, healthcheck_path: str = "") -> bool:
+def _wait_for_app_start(
+    app: App,
+    timeout: float,
+    healthcheck_path: str = "",
+    healthcheck_contains: str = "",
+) -> bool:
     """Wait for app to start with fail-fast on repeated crashes.
 
     Monitors the app status and logs, failing immediately if:
@@ -450,6 +488,8 @@ def _wait_for_app_start(app: App, timeout: float, healthcheck_path: str = "") ->
         app: The App model instance
         timeout: Maximum seconds to wait
         healthcheck_path: HTTP path to probe ([healthcheck].path); "" → "/"
+        healthcheck_contains: required body substring ([healthcheck].contains);
+            "" → any status line counts as serving (no content assertion)
 
     Returns:
         True if app started successfully, False if timed out or crashed
@@ -467,7 +507,7 @@ def _wait_for_app_start(app: App, timeout: float, healthcheck_path: str = "") ->
     while time.time() < deadline:
         actual_state = app.check_actual_status()
         if actual_state == AppStateEnum.RUNNING and _app_serves_http(
-            app, healthcheck_path
+            app, healthcheck_path, healthcheck_contains=healthcheck_contains
         ):
             return True
 
@@ -572,7 +612,7 @@ def _handle_startup_timeout(app: App, timeout: float) -> None:
             level=0,
         )
         log("  - Check container status: docker ps -a", level=0)
-    log(f"  - View full logs: hop3 app logs {app.name}", level=0)
+    log(f"  - View full logs: hop3 app logs --app {app.name}", level=0)
     log(
         f"  - Increase timeout in hop3.toml: [run] start-timeout = {int(timeout * 2)}",
         level=0,
@@ -585,8 +625,8 @@ def _handle_startup_timeout(app: App, timeout: float) -> None:
             reason=(f"'{app.name}' did not respond to health checks within {timeout}s"),
             hint="See the diagnostics and recent log output above",
             troubleshooting=[
-                f"hop3 app logs {app.name}",
-                f"hop3 app logs {app.name} --build",
+                f"hop3 app logs --app {app.name}",
+                f"hop3 app logs --app {app.name} --build",
                 (
                     "Increase start-timeout in hop3.toml: "
                     f"[run] start-timeout = {int(timeout * 2)}"

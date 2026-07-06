@@ -8,6 +8,7 @@ from __future__ import annotations
 import pytest
 
 from hop3.plugins.build.nix.gen import generate
+from hop3.plugins.build.nix.gen.templates.base import pinned_nixpkgs_header
 from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
 
 
@@ -34,6 +35,50 @@ def test_minimal_spec():
 def test_missing_template_raises():
     with pytest.raises(ValueError, match="template is required"):
         app_spec_from_config({}, {}, "test")
+
+
+def test_nixpkgs_pin_override_threaded_into_spec():
+    # An app needing a package the default pin predates (etherpad-lite lives in
+    # nixos-25.05, not the default 24.11) overrides the nixpkgs pin per-app.
+    nix_config = {
+        "template": "nixpkgs-wrapper",
+        "nixpkgs-package": "etherpad-lite",
+        "nixpkgs-rev": "deadbeef",
+        "nixpkgs-sha256": "sha-xyz",
+    }
+    spec = app_spec_from_config(nix_config, {"id": "etherpad"}, "etherpad")
+    assert spec.nixpkgs_rev == "deadbeef"
+    assert spec.nixpkgs_sha256 == "sha-xyz"
+
+
+def test_nixpkgs_pin_override_requires_both_keys():
+    # A rev needs its fetchTarball hash — one without the other is an error.
+    with pytest.raises(ValueError, match="must be set together"):
+        app_spec_from_config(
+            {"template": "nixpkgs-wrapper", "nixpkgs-rev": "deadbeef"}, {}, "x"
+        )
+
+
+def test_nixpkgs_pin_override_rejected_on_non_wrapper_template():
+    # Fail loud rather than silently ignore a pin the template can't honour.
+    with pytest.raises(ValueError, match=r"only.*nixpkgs-wrapper"):
+        app_spec_from_config(
+            {
+                "template": "python-venv",
+                "nixpkgs-rev": "deadbeef",
+                "nixpkgs-sha256": "sha-xyz",
+            },
+            {},
+            "x",
+        )
+
+
+def test_pinned_nixpkgs_header_override():
+    overridden = pinned_nixpkgs_header("REV123", "SHA456")
+    assert "REV123" in overridden
+    assert "SHA456" in overridden
+    # The default (unoverridden) header keeps the global pin.
+    assert "REV123" not in pinned_nixpkgs_header()
 
 
 def test_metadata_fallbacks():

@@ -138,7 +138,7 @@ class TestGetModeConfig:
         assert get_mode_config("nightly").name == "broad"
 
     def test_cli_mode_choices_cover_every_profile_and_alias(self):
-        """The `hop3-test system --mode` choices must stay in sync with the
+        """The `hop3-test run --mode` choices must stay in sync with the
         profiles (+ aliases) — a hardcoded list silently rejected the renamed
         smoke/curated/full and killed every triggered run."""
         from hop3_testing.cli.commands.test import _mode_choices  # noqa: PLC0415

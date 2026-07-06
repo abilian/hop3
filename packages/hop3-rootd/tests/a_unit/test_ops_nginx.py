@@ -1,38 +1,36 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for nginx ops (mocked exec)."""
+"""Unit tests for nginx ops.
+
+The exec seam is faked via ``OpContext.exec`` (a ``FakeExec``); no real
+nginx/systemctl runs. Tests pin resolved paths with ``set_path`` and route
+``run`` calls, then assert on the result + recorded argvs.
+"""
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
 import pytest
 from hop3_rootd import PROTOCOL_VERSION
-from hop3_rootd.exec import CommandResult
-from hop3_rootd.ops import get_handler, nginx as nginx_ops
+from hop3_rootd.ops import get_handler
 from hop3_rootd.ops._base import OpContext
 from hop3_rootd.ops.nginx import NginxBinaryNotFoundError
 from hop3_rootd.protocol import Request
 from hop3_rootd.state import State
 
+from tests.a_unit._fakes import FakeExec, fail, ok
 
-def _ctx() -> OpContext:
+
+def _ctx() -> tuple[OpContext, FakeExec]:
+    fake = FakeExec()
     return OpContext(
         state=State(),
         state_path=None,
         save_state=lambda: None,
         now_iso=lambda: "2026-04-24T15:30:00+00:00",
         new_rule_id=lambda: "rule-test",
-    )
-
-
-def _ok(stderr: str = "") -> CommandResult:
-    return CommandResult(argv=[], returncode=0, stdout="", stderr=stderr)
-
-
-def _fail(stderr: str, returncode: int = 1) -> CommandResult:
-    return CommandResult(argv=[], returncode=returncode, stdout="", stderr=stderr)
+        exec=fake,
+    ), fake
 
 
 def _req(op: str) -> Request:
@@ -45,79 +43,61 @@ def _req(op: str) -> Request:
 def test_reload_uses_systemctl_when_available():
     handler = get_handler("nginx.reload")
     assert handler is not None
-    with (
-        patch("shutil.which") as mock_which,
-        patch.object(nginx_ops, "exec_run") as mock_exec,
-    ):
-        # systemctl found and on allow-list; nginx not installed
-        def which_side(cmd):
-            return "/usr/bin/systemctl" if cmd == "systemctl" else None
+    ctx, fake = _ctx()
+    fake.set_path("systemctl", "/usr/bin/systemctl")
+    fake.set_path("nginx", None)  # nginx not installed
 
-        mock_which.side_effect = which_side
-        mock_exec.return_value = _ok()
-        result = handler(_req("nginx.reload"), _ctx())
+    result = handler(_req("nginx.reload"), ctx)
 
     assert result == {"method": "systemctl"}
-    args, _ = mock_exec.call_args
-    assert args[0][0] == "/usr/bin/systemctl"
-    assert "reload" in args[0]
-    assert "nginx" in args[0]
+    reload_calls = [c for c in fake.calls if "reload" in c]
+    assert reload_calls[0][0] == "/usr/bin/systemctl"
+    assert "nginx" in reload_calls[0]
 
 
 def test_reload_falls_back_to_nginx_s_reload():
     """systemctl missing or fails → try `nginx -s reload`."""
     handler = get_handler("nginx.reload")
     assert handler is not None
-    with (
-        patch("shutil.which") as mock_which,
-        patch.object(nginx_ops, "exec_run") as mock_exec,
-    ):
+    ctx, fake = _ctx()
+    fake.set_path("systemctl", "/usr/bin/systemctl")
+    fake.set_path("nginx", "/usr/sbin/nginx")
+    # systemctl reload fails; `nginx -s reload` succeeds (default ok()).
+    fake.on(
+        lambda argv: any("systemctl" in tok for tok in argv),
+        fail("systemd not running"),
+    )
 
-        def which_side(cmd):
-            return {
-                "systemctl": "/usr/bin/systemctl",
-                "nginx": "/usr/sbin/nginx",
-            }.get(cmd)
-
-        mock_which.side_effect = which_side
-        mock_exec.side_effect = [_fail("systemd not running"), _ok()]
-        result = handler(_req("nginx.reload"), _ctx())
+    result = handler(_req("nginx.reload"), ctx)
 
     assert result == {"method": "nginx -s reload"}
-    assert mock_exec.call_count == 2
+    # Both methods were attempted.
+    assert fake.calls_with("/usr/bin/systemctl")
+    assert fake.calls_with("-s")  # the `nginx -s reload` fallback
 
 
 def test_reload_raises_when_no_method_available():
     """No systemctl, no nginx → raise."""
     handler = get_handler("nginx.reload")
     assert handler is not None
-    with (
-        patch("shutil.which", return_value=None),
-        pytest.raises(NginxBinaryNotFoundError, match="no nginx-reload method"),
-    ):
-        handler(_req("nginx.reload"), _ctx())
+    ctx, fake = _ctx()
+    fake.set_path("systemctl", None)
+    fake.set_path("nginx", None)
+    with pytest.raises(NginxBinaryNotFoundError, match="no nginx-reload method"):
+        handler(_req("nginx.reload"), ctx)
 
 
 def test_reload_raises_when_all_methods_fail():
     handler = get_handler("nginx.reload")
     assert handler is not None
-    with (
-        patch("shutil.which") as mock_which,
-        patch.object(nginx_ops, "exec_run") as mock_exec,
+    ctx, fake = _ctx()
+    fake.set_path("systemctl", "/usr/bin/systemctl")
+    fake.set_path("nginx", "/usr/sbin/nginx")
+    fake.on(lambda argv: True, fail("error"))
+    with pytest.raises(
+        NginxBinaryNotFoundError, match="all nginx-reload methods failed"
     ):
-
-        def which_side(cmd):
-            return {
-                "systemctl": "/usr/bin/systemctl",
-                "nginx": "/usr/sbin/nginx",
-            }.get(cmd)
-
-        mock_which.side_effect = which_side
-        mock_exec.return_value = _fail("error")
-        with pytest.raises(
-            NginxBinaryNotFoundError, match="all nginx-reload methods failed"
-        ):
-            handler(_req("nginx.reload"), _ctx())
+        handler(_req("nginx.reload"), ctx)
 
 
 # --- nginx.validate_config -----------------------------------------------
@@ -126,31 +106,29 @@ def test_reload_raises_when_all_methods_fail():
 def test_validate_returns_valid_true_on_success():
     handler = get_handler("nginx.validate_config")
     assert handler is not None
-    with (
-        patch("shutil.which", return_value="/usr/sbin/nginx"),
-        patch.object(nginx_ops, "exec_run") as mock_exec,
-    ):
-        mock_exec.return_value = _ok(stderr="syntax is ok\n... test is successful")
-        result = handler(_req("nginx.validate_config"), _ctx())
+    ctx, fake = _ctx()
+    fake.set_path("nginx", "/usr/sbin/nginx")
+    # rc 0 → valid. (nginx -t writes diagnostics to stderr even on success,
+    # but the success path doesn't read it.)
+    fake.on(lambda argv: True, ok())
+    result = handler(_req("nginx.validate_config"), ctx)
     assert result == {"valid": True}
 
 
 def test_validate_returns_valid_false_with_errors():
     handler = get_handler("nginx.validate_config")
     assert handler is not None
+    ctx, fake = _ctx()
+    fake.set_path("nginx", "/usr/sbin/nginx")
     stderr = (
         "nginx: [emerg] unexpected '}' in /etc/nginx/sites-enabled/default:42\n"
         "nginx: configuration file /etc/nginx/nginx.conf test failed\n"
     )
-    with (
-        patch("shutil.which", return_value="/usr/sbin/nginx"),
-        patch.object(nginx_ops, "exec_run") as mock_exec,
-    ):
-        mock_exec.return_value = _fail(stderr=stderr)
-        result = handler(_req("nginx.validate_config"), _ctx())
+    fake.on(lambda argv: True, fail(stderr=stderr))
+
+    result = handler(_req("nginx.validate_config"), ctx)
 
     assert result["valid"] is False
-    # Parsed errors include the [emerg] line and the verdict.
     assert any("[emerg]" in line for line in result["errors"])
     assert any("test failed" in line for line in result["errors"])
     assert "raw_stderr" in result
@@ -159,13 +137,12 @@ def test_validate_returns_valid_false_with_errors():
 def test_validate_filters_warnings_in_errors_list():
     handler = get_handler("nginx.validate_config")
     assert handler is not None
+    ctx, fake = _ctx()
+    fake.set_path("nginx", "/usr/sbin/nginx")
     stderr = "Some chatter\nnginx: [warn] something weird\nnginx: [emerg] real error\n"
-    with (
-        patch("shutil.which", return_value="/usr/sbin/nginx"),
-        patch.object(nginx_ops, "exec_run") as mock_exec,
-    ):
-        mock_exec.return_value = _fail(stderr=stderr)
-        result = handler(_req("nginx.validate_config"), _ctx())
+    fake.on(lambda argv: True, fail(stderr=stderr))
+
+    result = handler(_req("nginx.validate_config"), ctx)
     # Both [warn] and [emerg] lines surface in errors; "Some chatter" is dropped.
     assert any("[warn]" in line for line in result["errors"])
     assert any("[emerg]" in line for line in result["errors"])
@@ -173,20 +150,14 @@ def test_validate_filters_warnings_in_errors_list():
 
 
 def test_validate_raises_when_nginx_missing():
+    """nginx resolves to None (not on PATH / not allow-listed) → raise."""
     handler = get_handler("nginx.validate_config")
     assert handler is not None
-    with (
-        patch("shutil.which", return_value=None),
-        pytest.raises(NginxBinaryNotFoundError, match="not on allow-list"),
-    ):
-        handler(_req("nginx.validate_config"), _ctx())
-
-
-def test_validate_raises_when_nginx_not_in_allowlist():
-    handler = get_handler("nginx.validate_config")
-    assert handler is not None
-    with (
-        patch("shutil.which", return_value="/opt/sketchy/nginx"),
-        pytest.raises(NginxBinaryNotFoundError, match="not on allow-list"),
-    ):
-        handler(_req("nginx.validate_config"), _ctx())
+    ctx, fake = _ctx()
+    fake.set_path("nginx", None)
+    with pytest.raises(NginxBinaryNotFoundError, match="not on allow-list"):
+        handler(_req("nginx.validate_config"), ctx)
+    # Allow-list rejection itself is covered at the exec seam
+    # (test_find_nft_binary_raises_when_not_in_allowlist); the op only owns
+    # the None → raise contract.
+    assert fake.calls == []

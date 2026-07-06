@@ -1,6 +1,6 @@
 [project]
 name = "hop3"
-version = "0.6.1"
+version = "0.6.2"
 description = "Simple PaaS - Deploy and manage web applications on a single server"
 authors = [
     { name = "Stefane Fermigier", email = "sf@abilian.com" },
@@ -52,6 +52,7 @@ dev = [
     "ty>=0.0.0a7",
     "mypy>=1.19.1",
     "pylint>=4.0.5",
+    "zuban>=0.8.2",
     # Used by `inv watch`
     "watchfiles >= 0.24.0",
     # Used by `make run` to manage multiple processes
@@ -91,31 +92,12 @@ dev = [
     "dead-code-detector>=0.5.0; python_version >= '3.12'",
     "md2typst>=0.3.3; python_version >= '3.12'",
     "libcst>=1.8.6",
-    "zuban>=0.8.2",
+    "tach>=0.35.0",
+    "tepyd>=0.7.0",
 ]
 
 doc = [
     "zensical",
-    # # MkDocs core and extensions
-    # "mkdocs",
-    # "mkdocs-material",
-    # "mkdocs-material-extensions",
-    # # MkDocs plugins
-    # "mkdocs-coverage>=1.0",
-    # "mkdocs-gen-files>=0.5",
-    # "mkdocs-git-revision-date-localized-plugin>=1.2",
-    # "mkdocs-include-markdown-plugin",
-    # "mkdocs-literate-nav>=0.6",
-    # "mkdocs-minify-plugin>=0.8",
-    # "mkdocs-roamlinks-plugin",
-    # "mkdocstrings[python]",
-    # # Markdown extensions
-    # "markdown-callouts>=0.4",
-    # "markdown-exec>=1.8",
-    # # Syntax highlighting
-    # "pygments",
-    # # Documentation linting
-    # "pydoclint[flake8]>=0.5.9",
 ]
 
 # ------------------------------------
@@ -164,6 +146,11 @@ testpaths = [
     "packages/hop3-server/tests/a_unit",
     "packages/hop3-server/tests/b_integration",
     "packages/hop3-cli/tests",
+]
+filterwarnings = [
+    # sshtunnel 0.4.0 has 'return' in a 'finally' block (Python 3.14 SyntaxWarning)
+    # Fixed by scripts/fix-sshtunnel.py — keep filter as backstop for fresh venvs.
+    "ignore::SyntaxWarning:sshtunnel",
 ]
 markers = [
     "fast: Fast, hermetic tests — no Docker/root/network (the inner loop).",

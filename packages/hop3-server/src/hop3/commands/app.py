@@ -19,7 +19,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from hop3.core.credentials import get_credential_encryptor
 from hop3.core.identifiers import validate_app_name
 from hop3.core.plugins import get_addon
 from hop3.deployers import do_deploy, stop_previous_instance
@@ -27,7 +26,7 @@ from hop3.deployers.fixed_ports import release_fixed_ports
 from hop3.deployers.waf import teardown_waf
 from hop3.lib import log
 from hop3.lib.archives import extract_archive_to_dir
-from hop3.lib.args import parse_cli_args, pop_app_flag
+from hop3.lib.args import parse_cli_args, pop_app_flag, reject_extra_args
 from hop3.lib.console import capture_logs
 from hop3.lib.logging import server_log
 from hop3.lib.registry import register
@@ -63,13 +62,25 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-def _resolve_app(args: tuple[str, ...]) -> tuple[str | None, list[str]]:
+def _resolve_app(
+    args: tuple[str, ...], *, allow_extra: bool = False
+) -> tuple[str | None, list[str]]:
     """Resolve the target app for an app-scoped command (ADR 036 D5).
 
     The app is taken from the ``--app`` / ``-a`` flag only. Returns
     ``(app_name, remaining_positionals)``.
+
+    Most app-scoped commands take NO further positionals, so by default any
+    leftover token after the app flag is a typo or stray flag and is rejected
+    loudly — a silently-ignored ``hop3 app restart --app x --no-such-flag`` would
+    otherwise report success while doing a plain restart (audit 2026-06 C9).
+    Commands that legitimately take positionals (e.g. ``app ping <path>``) pass
+    ``allow_extra=True`` and validate the remainder themselves.
     """
-    return pop_app_flag(args)
+    app_name, rest = pop_app_flag(args)
+    if not allow_extra:
+        reject_extra_args(rest)
+    return app_name, rest
 
 
 def _run_lifecycle_action(
@@ -199,7 +210,11 @@ class DeployCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("deploy",)
 
     def call(self, *args, **kwargs):
-        app_name, _ = _resolve_app(args)
+        # allow_extra: `hop3 deploy --app X <dir>` forwards the source-dir
+        # positional to the server, which ignores it (the source arrives as the
+        # uploaded tarball in kwargs). Deploy legitimately carries that trailing
+        # positional, so it must NOT be rejected like a stray arg (C9).
+        app_name, _ = _resolve_app(args, allow_extra=True)
         if not app_name:
             msg = "Usage: hop3 deploy [--app <app>]"
             raise ValueError(msg)
@@ -484,7 +499,7 @@ class PingCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("app", "ping")
 
     def call(self, *args):  # noqa: PLR0911 — each return is a distinct HTTP/network outcome (stopped, no-port, success, HTTPError, connection-refused, generic URLError, timeout) with its own formatted response; flattening would just rebuild the same shape with mutable bookkeeping.
-        app_name, rest = _resolve_app(args)
+        app_name, rest = _resolve_app(args, allow_extra=True)
         if not app_name:
             msg = "Usage: hop3 app ping [--app <app>] [path]"
             raise ValueError(msg)
@@ -971,90 +986,6 @@ class DestroyCmd(Command):
 
         # Silently continue if reload fails - nginx will pick up changes eventually
         log("nginx reload skipped (no reload method available)", level=3)
-
-
-@register
-@dataclass(frozen=True)
-class EnvCmd(Command):
-    """Show environment variables with their sources.
-
-    Deprecated (ADR 036 P2.2): use ``env show --sources``. Kept (hidden) for
-    back-compat; ``hop3 app env`` still works.
-
-    Usage: hop3 app env [--app <app>] [--show-secrets]
-
-    Options:
-        --show-secrets   Show full values for sensitive variables (default: redacted)
-    """
-
-    db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("app", "env")
-    hidden: ClassVar[bool] = True
-    # Argument specification for declarative parsing
-    _arg_spec: ClassVar[dict] = {
-        "app": {"type": str},  # --app <name> (ADR 036 D5)
-        "show_secrets": {"flag": True, "default": False},
-    }
-
-    def call(self, *args):
-        parsed = parse_cli_args(args, self._arg_spec)
-        app_name = parsed.get("app")
-
-        if not app_name:
-            return [
-                text(
-                    "Usage: hop3 app env [--app <app>] [--show-secrets]\n\n"
-                    "Examples:\n"
-                    "  hop3 app env\n"
-                    "  hop3 app env --app myapp --show-secrets"
-                )
-            ]
-
-        show_secrets = parsed["show_secrets"]
-        app = get_app(self.db_session, app_name)
-
-        # Get addon-injected variable names
-        addon_vars = self._get_addon_var_names(app)
-
-        # Build output rows
-        rows = []
-        for env_var in sorted(app.env_vars, key=lambda x: x.name):
-            source = "addon" if env_var.name in addon_vars else "config"
-            value = (
-                env_var.value
-                if show_secrets
-                else redact_sensitive_value(env_var.name, env_var.value)
-            )
-            rows.append([source, env_var.name, value])
-
-        if not rows:
-            return [text(f"No environment variables set for '{app_name}'.")]
-
-        return [table(["Source", "Name", "Value"], rows)]
-
-    def _get_addon_var_names(self, app) -> set[str]:
-        """Get the names of environment variables injected by addons.
-
-        Returns:
-            Set of variable names that were injected by addons
-        """
-        addon_vars: set[str] = set()
-
-        # Query addon credentials for this app using repository
-        addon_credential_repo = AddonCredentialRepository(session=self.db_session)
-        credentials = addon_credential_repo.get_by_app_id(app.id)
-
-        encryptor = get_credential_encryptor()
-        for credential in credentials:
-            try:
-                # Decrypt to get the connection details (which are the env var names)
-                connection_details = encryptor.decrypt(credential.encrypted_data)
-                addon_vars.update(connection_details.keys())
-            except Exception:
-                # If decryption fails, skip this credential
-                pass
-
-        return addon_vars
 
 
 @register

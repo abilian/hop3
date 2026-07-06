@@ -7,7 +7,7 @@ Installation toolkit for deploying Hop3 to servers and containers.
 hop3-installer provides two main tools:
 
 - **hop3-install**: Production installer for end users and sysadmins
-- **hop3-deploy**: Developer tool for deploying during development
+- **hop3-deploy-server**: Developer tool for deploying during development
 
 The installers use only Python standard library, making them easy to distribute as single-file scripts.
 
@@ -39,21 +39,21 @@ sudo hop3-install server
 curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 ```
 
-### Developer Deployment (hop3-deploy)
+### Developer Deployment (hop3-deploy-server)
 
 ```bash
 # Deploy to remote server
 export HOP3_DEV_HOST=server.example.com
-hop3-deploy
+hop3-deploy-server
 
 # Deploy with local code changes
-hop3-deploy --local
+hop3-deploy-server --from local
 
 # Deploy to Docker container
-hop3-deploy --docker
+hop3-deploy-server --docker
 
 # Clean installation
-hop3-deploy --clean
+hop3-deploy-server --clean
 ```
 
 ## Commands
@@ -67,7 +67,7 @@ hop3-deploy --clean
 | `bundle` | Generate single-file installers |
 | `test` | Test installers on Docker or SSH targets |
 
-### hop3-deploy
+### hop3-deploy-server
 
 | Option | Description |
 |--------|-------------|
@@ -89,7 +89,7 @@ hop3-installer/
 │   │   └── installer.py
 │   ├── server/           # Server installer
 │   │   └── installer.py
-│   ├── deployer/         # Developer deployment (hop3-deploy)
+│   ├── deployer/         # Developer deployment (hop3-deploy-server)
 │   │   ├── cli.py
 │   │   ├── deploy.py
 │   │   └── backends/     # SSH, Docker backends

@@ -30,6 +30,8 @@ from .constants import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from hop3_testing.diagnostics import DiagnosticCollector
 
 
@@ -647,9 +649,11 @@ class DockerServiceManager:
         print("  Starting hop3-server...")
         self.backend.run(
             "su - hop3 -c '"
+            # Auth is real: the server signs/validates with this known test key,
+            # and the harness mints tokens with the same key (no HOP3_UNSAFE
+            # bypass). This inline start has no /etc/hop3/secret-key file, so the
+            # env key is the effective one.
             f'export HOP3_SECRET_KEY="{E2E_TEST_SECRET_KEY}" && '
-            'export HOP3_UNSAFE="true" && '
-            'export HOP3_UNSAFE_ACK="yes-I-understand" && '
             'export HOP3_DB_URL="sqlite:////home/hop3/hop3.db" && '
             'export ACME_ENGINE="self-signed" && '
             "nohup /home/hop3/venv/bin/hop3-server serve "
@@ -684,87 +688,61 @@ class DockerServiceManager:
             raise ServiceStartError(msg)
 
 
-def configure_server_test_mode(
+def read_server_secret_key(
     backend: CommandRunner,
     diagnostics: DiagnosticCollector | None = None,
-) -> None:
-    """Configure a remote server for test mode (disable authentication).
+) -> str:
+    """Read the deployed server's JWT signing key.
 
-    This sets HOP3_UNSAFE=true in the systemd service and restarts it.
-    WARNING: This should only be used for testing purposes.
+    The harness authenticates for real — it mints a token signed with the
+    server's own key (``create_test_token(secret_key=...)``) instead of
+    disabling authentication with ``HOP3_UNSAFE``. We therefore need the key the
+    server actually validates with.
 
-    Args:
-        backend: Backend to run commands on (e.g., SSHDeployBackend)
-        diagnostics: Optional diagnostics collector for logging
+    Mirrors the server's ``get_secret_key`` precedence (ADR 048): the canonical
+    ``/etc/hop3/secret-key`` file first, then ``HOP3_SECRET_KEY`` in
+    ``/etc/default/hop3``. Reads as the SSH user (root), so the 0600 file is
+    readable.
 
     Raises:
-        ConfigurationError: If configuration fails.
+        ConfigurationError: if no key can be read — we fail loud rather than
+            fall back to a key the server would reject (which would surface
+            later as an opaque "Authentication required").
     """
-    print("Configuring server for test mode (HOP3_UNSAFE=true)...")
+    print("Reading the server's signing key (for real-auth test tokens)...")
 
     try:
-        # Create systemd override directory
         result = backend.run(
-            "mkdir -p /etc/systemd/system/hop3-server.service.d",
+            "cat /etc/hop3/secret-key 2>/dev/null "
+            "|| grep -h '^HOP3_SECRET_KEY=' /etc/default/hop3 2>/dev/null "
+            "| head -n1 | cut -d= -f2-",
             check=False,
         )
-        if not result.success:
+        key = (result.stdout or "").strip().strip('"').strip("'")
+        if not key:
+            msg = (
+                "Could not read the server's JWT signing key from "
+                "/etc/hop3/secret-key or /etc/default/hop3. The harness needs it "
+                "to mint tokens the server accepts; aborting rather than using a "
+                "key the server would reject."
+            )
             if diagnostics:
                 diagnostics.add_failure(
                     layer="server",
-                    operation="create_override_dir",
-                    message=f"Failed to create override directory: {result.stderr}",
+                    operation="read_secret_key",
+                    message=msg,
+                    stdout=result.stdout,
                 )
-            msg = f"Failed to create override directory: {result.stderr}"
             raise ConfigurationError(msg)
-
-        # Create override file with HOP3_UNSAFE=true
-        # HOP3_UNSAFE_ACK is the safety interlock added in wave-2 hardening:
-        # the daemon refuses to start with HOP3_UNSAFE set unless the ACK is
-        # also present. Test mode opts into both.
-        override_content = """[Service]
-Environment="HOP3_UNSAFE=true"
-Environment="HOP3_UNSAFE_ACK=yes-I-understand"
-"""
-        result = backend.run(
-            f"cat > /etc/systemd/system/hop3-server.service.d/test-mode.conf << 'EOF'\n{override_content}EOF",
-            check=False,
-        )
-        if not result.success:
-            if diagnostics:
-                diagnostics.add_failure(
-                    layer="server",
-                    operation="create_override_file",
-                    message=f"Failed to create override file: {result.stderr}",
-                )
-            msg = f"Failed to create override file: {result.stderr}"
-            raise ConfigurationError(msg)
-
-        # Reload systemd and restart hop3-server
-        result = backend.run(
-            "systemctl daemon-reload && systemctl restart hop3-server",
-            check=False,
-        )
-        if not result.success:
-            if diagnostics:
-                diagnostics.add_failure(
-                    layer="server",
-                    operation="restart_service",
-                    message=f"Failed to restart service: {result.stderr}",
-                )
-            msg = f"Failed to restart service: {result.stderr}"
-            raise ConfigurationError(msg)
-
-        # Wait a moment for service to start
-        time.sleep(3)
 
         if diagnostics:
             diagnostics.add_success(
                 layer="server",
-                operation="configure_test_mode",
-                message="Server configured for test mode (HOP3_UNSAFE=true)",
+                operation="read_secret_key",
+                message="Read server signing key for real-auth test tokens",
             )
-        print("  ✓ Test mode configured")
+        print("  ✓ Server signing key read")
+        return key
 
     except ConfigurationError:
         raise
@@ -772,10 +750,10 @@ Environment="HOP3_UNSAFE_ACK=yes-I-understand"
         if diagnostics:
             diagnostics.add_failure(
                 layer="server",
-                operation="configure_test_mode",
-                message=f"Exception configuring test mode: {e}",
+                operation="read_secret_key",
+                message=f"Exception reading server signing key: {e}",
             )
-        msg = f"Exception configuring test mode: {e}"
+        msg = f"Exception reading server signing key: {e}"
         raise ConfigurationError(msg) from e
 
 
@@ -786,15 +764,25 @@ def _build_deploy_command(
     user: str,
     container_name: str,
     image: str,
-    use_local: bool,
+    source: str = "local",
     clean: bool,
     branch: str,
     verbose: bool,
     features: list[str] | None = None,
     ssh_key: str | None = None,
+    domain: str | None = None,
+    acme_email: str | None = None,
 ) -> list[str]:
-    """Build hop3-deploy command arguments."""
-    cmd = ["hop3-deploy"]
+    """Build the hop3-deploy-server command (canonical ADR 052 flags).
+
+    ``source`` is the install source ("local" | "git" | "pypi"), emitted as
+    ``--from``. For git the branch is passed ALWAYS and explicitly, so the
+    deployer installs exactly this ref regardless of its own default branch
+    (``main``). This fixes the footgun where an unspecified/default branch on a
+    git deploy silently fell back to PyPI (the old ``if branch != "devel"``
+    skip, made wrong by the default flip).
+    """
+    cmd = ["hop3-deploy-server"]
 
     if docker:
         cmd.extend([
@@ -808,22 +796,28 @@ def _build_deploy_command(
         if not host:
             msg = "host is required for SSH deployment"
             raise ValueError(msg)
-        cmd.extend(["--host", host, "--ssh-user", user])
+        cmd.extend(["--host", host, "--user", user])
         if ssh_key:
             # The deploy's ssh otherwise uses its default identity, which a
             # server-resident runtime user doesn't have -> Permission denied.
-            cmd.extend(["--ssh-key", ssh_key])
+            cmd.extend(["--identity", ssh_key])
 
-    if use_local:
-        cmd.append("--local")
+    cmd.extend(["--from", source])
+    if source == "git":
+        cmd.extend(["--branch", branch])
     if clean:
         cmd.append("--clean")
-    if branch != "devel":
-        cmd.extend(["--branch", branch])
     if verbose:
         cmd.append("--verbose")
     if features:
         cmd.extend(["--with", ",".join(features)])
+    # Admin/ACME setup (cloud path). Emitted only when configured, so the plain
+    # run path (domain=None) is unaffected — but when the cloud caller sets a
+    # domain, it must reach the deployer or admin/ACME setup silently vanishes.
+    if domain:
+        cmd.extend(["--admin-domain", domain])
+    if acme_email:
+        cmd.extend(["--acme-email", acme_email])
 
     return cmd
 
@@ -835,18 +829,23 @@ def run_hop3_deploy(
     user: str = "root",
     container_name: str = "hop3-test",
     image: str = DEFAULT_DOCKER_IMAGE,
-    use_local: bool = True,
+    source: str = "local",
     clean: bool = False,
-    branch: str = "devel",
+    branch: str = "main",
     verbose: bool = False,
     features: list[str] | None = None,
     ssh_key: str | None = None,
+    domain: str | None = None,
+    acme_email: str | None = None,
+    command_prefix: list[str] | None = None,
+    cwd: Path | str | None = None,
+    on_output: Callable[[str], None] | None = None,
     diagnostics: DiagnosticCollector | None = None,
 ) -> tuple[bool, float]:
-    """Run hop3-deploy via subprocess.
+    """Run hop3-deploy-server via subprocess.
 
-    This invokes hop3-deploy as a CLI tool rather than importing its internals,
-    maintaining proper separation between hop3-testing and hop3-installer.
+    This invokes hop3-deploy-server as a CLI tool rather than importing its
+    internals, keeping hop3-testing decoupled from hop3-installer.
 
     Args:
         docker: If True, deploy to Docker container
@@ -854,11 +853,19 @@ def run_hop3_deploy(
         user: SSH user for remote deployment
         container_name: Docker container name
         image: Docker base image
-        use_local: Use local code (--local flag)
+        source: Install source ("local" | "git" | "pypi"), emitted as --from
         clean: Clean before deploy (--clean flag)
-        branch: Git branch to deploy
+        branch: Git branch to deploy (only used when source == "git")
         verbose: Enable verbose output
         features: Features to install (docker, mysql, redis, nix, etc.)
+        domain: Admin domain, emitted as --admin-domain (cloud path)
+        acme_email: Let's Encrypt email, emitted as --acme-email (cloud path)
+        command_prefix: Prepended to the command (e.g. ["uv", "run"]) so a caller
+            deploying from a source checkout can invoke the deployer via uv
+        cwd: Working directory for the deploy subprocess (e.g. a cloned repo)
+        on_output: Called for each output line (in addition to printing), so a
+            caller can capture the deploy transcript (e.g. the cloud path's
+            DeploymentResult.log_output)
         diagnostics: Optional diagnostics collector
 
     Returns:
@@ -870,13 +877,17 @@ def run_hop3_deploy(
         user=user,
         container_name=container_name,
         image=image,
-        use_local=use_local,
+        source=source,
         clean=clean,
         branch=branch,
         verbose=verbose,
         features=features,
         ssh_key=ssh_key,
+        domain=domain,
+        acme_email=acme_email,
     )
+    if command_prefix:
+        cmd = [*command_prefix, *cmd]
 
     print(f"\nRunning: {' '.join(cmd)}\n")
 
@@ -891,11 +902,17 @@ def run_hop3_deploy(
     # while still capturing the full log for the diagnostics failure
     # report. A 4-hour timeout is generous but bounded — the process
     # group gets killed on timeout so no orphaned nix-build / docker.
+    def _emit(line: str) -> None:
+        print(line, flush=True)
+        if on_output is not None:
+            on_output(line)
+
     try:
         result = run_streaming(
             cmd,
-            on_output=lambda line: print(line, flush=True),
+            on_output=_emit,
             timeout=4 * 3600,
+            cwd=cwd,
         )
     except FileNotFoundError:
         duration = time.time() - start_time
@@ -931,7 +948,7 @@ def _log_deploy_failure(
         diagnostics.add_failure(
             layer="deployer",
             operation="deploy",
-            message=f"hop3-deploy failed (exit {result.returncode})",
+            message=f"hop3-deploy-server failed (exit {result.returncode})",
             duration=duration,
             stdout=result.stdout,
             stderr=result.stderr,
@@ -949,7 +966,7 @@ def _log_deploy_timeout(
         diagnostics.add_failure(
             layer="deployer",
             operation="deploy",
-            message=f"hop3-deploy timed out after {duration:.0f}s",
+            message=f"hop3-deploy-server timed out after {duration:.0f}s",
             duration=duration,
             stdout=result.stdout,
             stderr=result.stderr,
@@ -966,7 +983,7 @@ def _log_deploy_success(
         diagnostics.add_success(
             layer="deployer",
             operation="deploy",
-            message=f"hop3-deploy completed in {duration:.1f}s",
+            message=f"hop3-deploy-server completed in {duration:.1f}s",
             duration=duration,
         )
 
@@ -975,12 +992,12 @@ def _log_deploy_not_found(
     diagnostics: DiagnosticCollector | None,
     duration: float,
 ) -> None:
-    """Log hop3-deploy not found error."""
+    """Log hop3-deploy-server not found error."""
     if diagnostics:
         diagnostics.add_failure(
             layer="deployer",
             operation="deploy",
-            message="hop3-deploy not found - is hop3-installer installed?",
+            message="hop3-deploy-server not found - is hop3-installer installed?",
             duration=duration,
         )
-    print("Error: hop3-deploy command not found")
+    print("Error: hop3-deploy-server command not found")

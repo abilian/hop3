@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 from .loader import (
     TestDefinitionError,
+    _under_bad_dir,
     generate_test_definition_from_app,
     generate_tutorial_test_definition,
     load_test_definition_smart,
@@ -29,6 +30,17 @@ logger = logging.getLogger(__name__)
 
 IGNORE_FILE = "HOP3_TEST_IGNORE"
 
+# A DEFERRED.md under apps/bad/** is OVERLOADED: it marks BOTH a deploys-fine
+# business-drop (e.g. focalboard — "dropped for business reasons, not a platform
+# limitation") AND a genuine platform blocker (e.g. monica — a "## Blocker" that
+# really fails to deploy). Only the former is skipped from the run (it is not a
+# negative test); a genuine blocker STAYS a negative test, so DEFERRED.md
+# existence alone must NOT be the skip signal. The business-drop is distinguished
+# by the deliberate "not a platform limitation" marker line in its DEFERRED.md
+# (CLAUDE.md's "business-reasons decision" language). (audit C6)
+DEFERRED_FILE = "DEFERRED.md"
+_BUSINESS_DROP_MARKER = "not a platform limitation"
+
 # Executable validoc fences (same set the tutorial runner counts). A tutorial
 # markdown with none of these runs no commands — it's documentation, not a test.
 _VALIDOC_BLOCK_RE = re.compile(r"^```(?:bash\s+exec|output|file)\b", re.MULTILINE)
@@ -40,6 +52,33 @@ def _has_executable_blocks(md_path: Path) -> bool:
         return bool(_VALIDOC_BLOCK_RE.search(md_path.read_text(encoding="utf-8")))
     except OSError:
         return False
+
+
+def default_scan_paths(root: Path) -> list[str]:
+    """Default catalog scan set: every ``apps/`` subdir, ``demos/``, tutorials.
+
+    The single source of truth for "what to scan when no paths are given",
+    shared by the ``hop3-test`` CLI and the Test Lab (which used to keep its own
+    copy). Scans the *source* tutorials tree (``docs/tutorials``), not the
+    rendered one — validoc's executable ``bash exec``/``output``/``file`` fences
+    are stripped out of ``docs/src/tutorials`` during the docs build, so scanning
+    that yields a vacuous "0 passed".
+    """
+    paths: list[str] = []
+    apps_dir = root / "apps"
+    if apps_dir.is_dir():
+        paths += [
+            str(child.relative_to(root))
+            for child in sorted(apps_dir.iterdir())
+            if child.is_dir()
+        ]
+    if (root / "demos").is_dir():
+        paths.append("demos")
+    if (root / "docs/tutorials").is_dir():
+        paths.append("docs/tutorials")
+    elif (root / "docs/src/tutorials").is_dir():
+        paths.append("docs/src/tutorials")
+    return paths
 
 
 class Catalog:
@@ -112,34 +151,24 @@ class Catalog:
             "Catalog loaded: %d tests, %d errors", len(self._tests), len(self._errors)
         )
 
-    def _find_demo_internal_dirs(self, path: Path, rel_path: str) -> set[Path]:
-        """Find subdirectories that are internal to demo directories.
+    def _has_demo_ancestor(self, path: Path, root: Path) -> bool:
+        """True if ``path`` sits inside a demo directory (one with demo-script.py).
 
-        For demos/, demo directories often contain app/ subdirectories with
-        hop3.toml files. These should NOT be treated as separate tests.
-
-        Args:
-            path: Directory to scan
-            rel_path: Relative path for context
-
-        Returns:
-            Set of paths that are internal to demos (should be skipped)
+        A demo's inner ``app/`` (``demos/demoNN/app/``, carrying its own
+        ``hop3.toml``) is the demo's private deploy target, driven by
+        ``demo-script.py`` — not a standalone test. Walk ancestors up to and
+        including ``root`` so this holds however the scan entered: ``demos/``,
+        ``demos/demoNN``, or ``demos/demoNN/app``. (The old child-scan only
+        worked when the scan path was the ``demos/`` parent, so a demo dir passed
+        directly leaked its inner app — the demo60/app regression.)
         """
-        demo_internal_dirs: set[Path] = set()
-        is_demos_dir = "demos" in rel_path or rel_path == "demos"
-
-        if not is_demos_dir:
-            return demo_internal_dirs
-
-        # Find all demo directories and their subdirectories
-        for item in path.iterdir():
-            if item.is_dir() and (item / "demo-script.py").exists():
-                # This is a demo directory - mark all its subdirs as internal
-                for subdir in item.rglob("*"):
-                    if subdir.is_dir():
-                        demo_internal_dirs.add(subdir)
-
-        return demo_internal_dirs
+        current = path.parent
+        while True:
+            if (current / "demo-script.py").exists():
+                return True
+            if current in {root, current.parent}:
+                return False
+            current = current.parent
 
     def _has_ignore_ancestor(self, path: Path, root: Path) -> bool:
         """Check if any ancestor of path (up to root) contains HOP3_TEST_IGNORE."""
@@ -150,7 +179,27 @@ class Catalog:
             current = current.parent
         return False
 
-    def _scan_directory(self, path: Path, rel_path: str) -> None:  # noqa: C901
+    def _is_deferred_business_drop(self, app_dir: Path) -> bool:
+        """True only for a deploys-fine business-drop under apps/bad/** — a
+        DEFERRED.md that explicitly marks itself "not a platform limitation".
+
+        Such apps are skipped from the run (they aren't negative tests). A
+        genuine bad recipe — a DEFERRED.md documenting a real ``## Blocker`` that
+        fails to deploy, or no DEFERRED.md at all — is NOT skipped; it stays a
+        negative test so its builder-rejection coverage is preserved (audit C6).
+        """
+        if not _under_bad_dir(app_dir):
+            return False
+        deferred = app_dir / DEFERRED_FILE
+        if not deferred.is_file():
+            return False
+        try:
+            text = deferred.read_text(encoding="utf-8").lower()
+        except OSError:
+            return False
+        return _BUSINESS_DROP_MARKER in text
+
+    def _scan_directory(self, path: Path, rel_path: str) -> None:  # noqa: C901, PLR0912
         """Scan a single directory for tests.
 
         Scans for:
@@ -165,14 +214,20 @@ class Catalog:
             return
 
         processed_dirs: set[Path] = set()
-        demo_internal_dirs = self._find_demo_internal_dirs(path, rel_path)
 
         # Check for test.toml files recursively (sorted for deterministic order)
         for test_toml in sorted(path.rglob("test.toml")):
             app_dir = test_toml.parent
             if self._has_ignore_ancestor(app_dir, path):
                 continue
-            if app_dir not in processed_dirs and app_dir not in demo_internal_dirs:
+            if self._is_deferred_business_drop(app_dir):
+                logger.debug("Skipping deferred business-drop: %s", app_dir)
+                continue
+            # Skip a demo's private deploy target (demos/demoNN/app/).
+            if self._has_demo_ancestor(app_dir, path):
+                logger.debug("Skipping internal demo directory: %s", app_dir)
+                continue
+            if app_dir not in processed_dirs:
                 self._load_test_smart(app_dir)
                 processed_dirs.add(app_dir)
 
@@ -181,8 +236,11 @@ class Catalog:
             app_dir = hop3_toml.parent
             if self._has_ignore_ancestor(app_dir, path):
                 continue
-            # Skip internal demo subdirectories (e.g., demos/demoNN/app/)
-            if app_dir in demo_internal_dirs:
+            if self._is_deferred_business_drop(app_dir):
+                logger.debug("Skipping deferred business-drop: %s", app_dir)
+                continue
+            # Skip a demo's private deploy target (demos/demoNN/app/).
+            if self._has_demo_ancestor(app_dir, path):
                 logger.debug("Skipping internal demo directory: %s", app_dir)
                 continue
             if app_dir not in processed_dirs:

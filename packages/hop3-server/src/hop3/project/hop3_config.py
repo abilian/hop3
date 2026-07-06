@@ -314,12 +314,35 @@ class Hop3Config:
 
     @property
     def healthcheck_path(self) -> str:
-        """Get run.healthcheck (HTTP path for health checks).
+        """HTTP path for health checks.
+
+        Prefers the dedicated ``[healthcheck].path``; falls back to the legacy
+        ``[run].healthcheck``. Empty string when neither is set (the probe then
+        defaults to "/").
 
         Returns:
             Health check path, e.g., "/health"
         """
+        healthcheck = self._data.get("healthcheck", {})
+        if isinstance(healthcheck, dict) and healthcheck.get("path"):
+            return str(healthcheck["path"])
         return self.run.get("healthcheck", "")
+
+    @property
+    def healthcheck_contains(self) -> str:
+        """Expected substring in the health-check response body.
+
+        From ``[healthcheck].contains``. Empty string when unset: readiness then
+        only requires the endpoint to answer (any status line), not specific
+        content.
+
+        Returns:
+            The required substring, or "" when no body assertion is declared.
+        """
+        healthcheck = self._data.get("healthcheck", {})
+        if isinstance(healthcheck, dict) and healthcheck.get("contains"):
+            return str(healthcheck["contains"])
+        return ""
 
     @property
     def healthcheck_timeout(self) -> int:

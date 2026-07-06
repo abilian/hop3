@@ -291,8 +291,10 @@ class CheckScriptRunner:
         parsed = urlparse(http_base)
 
         if parsed.hostname == "localhost":
-            # Local Docker target - use app-specific hostname
-            hostname = f"{self.app_name}.test.local"
+            # Local Docker target - use the app's real server_name: its declared
+            # host (hop3.toml [domains]/[env].HOST_NAME) when it pins one, else
+            # the harness-injected {app_name}.test.local (audit L5).
+            hostname = self.app.declared_hostname or f"{self.app_name}.test.local"
             http_port = parsed.port or 80
         else:
             # Remote target - use the actual remote hostname

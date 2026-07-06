@@ -26,3 +26,4 @@ tier = "slow"
 [[test.validations]]
 path = "/"
 status = 302
+contains = "/setup"

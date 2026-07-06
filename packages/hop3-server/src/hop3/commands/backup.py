@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from hop3.core.backup import BackupManager, format_size
-from hop3.lib.args import parse_cli_args, pop_app_flag
+from hop3.lib.args import parse_cli_args, pop_app_flag, reject_extra_args
 from hop3.lib.decorators import register
 
 # Runtime imports for Dishka DI (not just type hints)
@@ -57,6 +57,10 @@ class BackupCreateCmd(Command):
             ]
 
         include_addons = "--no-addons" not in rest
+        # Reject anything else (e.g. the `--no-addon` typo) instead of silently
+        # backing up WITH addons while the user asked to exclude them (audit C9).
+        rest = [tok for tok in rest if tok != "--no-addons"]
+        reject_extra_args(rest)
 
         # Check if app exists
         app = self.app_repo.get_one_or_none(name=app_name)
@@ -119,11 +123,11 @@ class BackupCreateCmd(Command):
 class BackupListCmd(Command):
     """List all backups, optionally filtered by application.
 
-    Usage: hop3 backup list [app] [--limit N]
+    Usage: hop3 backup list [--app <app>] [--limit N]
 
     Examples:
         hop3 backup list
-        hop3 backup list my-app
+        hop3 backup list --app my-app
         hop3 backup list --limit 50
     """
 
@@ -131,16 +135,16 @@ class BackupListCmd(Command):
     backup_repo: BackupRepository
     addon_credential_repo: AddonCredentialRepository
     name: ClassVar[tuple[str, ...]] = ("backup", "list")
-    # Argument specification for declarative parsing
+    # The app filter is the `--app` flag (ADR 036 D5), never a positional —
+    # so the CLI-injected `--app NAME` lands here instead of being dropped.
     _arg_spec: ClassVar[dict] = {
-        "app_name": {"positional": True},
         "limit": {"type": int, "default": 20},  # --limit N
     }
 
     def call(self, *args):
         """List available backups."""
-        parsed = parse_cli_args(args, self._arg_spec)
-        app_name = parsed.get("app_name")
+        app_name, rest = pop_app_flag(args)
+        parsed = parse_cli_args(rest, self._arg_spec)
         limit = parsed.get("limit", 20)
 
         with command_context("listing backups", app_name=app_name or "all"):

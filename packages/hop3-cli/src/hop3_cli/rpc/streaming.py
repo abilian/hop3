@@ -45,7 +45,7 @@ def stream_deployment_logs(
     stream_id: str,
     printer: RichPrinter,
     token: str | None = None,
-    verify_ssl: bool = True,
+    verify_ssl: bool | str = True,
 ) -> None:
     """Connect to SSE stream and display logs in real-time.
 
@@ -164,6 +164,16 @@ def stream_deployment_logs(
             }
         ])
         msg = f"Connection error: {e}"
+        raise DeploymentError(msg) from e
+    except (requests.exceptions.RequestException, OSError) as e:
+        # TLS/CA misconfiguration surfaces here: an SSLError (e.g. a pinned
+        # ssl_cert that doesn't match), or an OSError when requests is handed a
+        # bogus CA-bundle path (the old `verify="false"` string bug). Without
+        # this, such errors escaped as a raw exception that bypassed the
+        # caller's DeploymentError handler and reported an opaque GENERAL_ERROR
+        # on a deploy that actually ran (audit 2026-06 B1).
+        msg = f"Stream connection failed (TLS/transport): {e}"
+        printer.print([{"t": "error", "text": msg}])
         raise DeploymentError(msg) from e
     except KeyboardInterrupt:
         printer.print([

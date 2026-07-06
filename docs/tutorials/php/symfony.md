@@ -378,8 +378,8 @@ hop3 init --ssh root@your-server.example.com
 ### Set Environment Variables
 
 ```bash skip
-hop3 config set --app hop3-tuto-symfony APP_ENV=prod
-hop3 config set --app hop3-tuto-symfony APP_DEBUG=0
+hop3 env set --app hop3-tuto-symfony APP_ENV=prod
+hop3 env set --app hop3-tuto-symfony APP_DEBUG=0
 ```
 
 ### Prepare for Deployment
@@ -409,7 +409,7 @@ hop3 deploy --app hop3-tuto-symfony
 Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
-hop3 config set --app hop3-tuto-symfony HOST_NAME=hop3-tuto-symfony.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-symfony HOST_NAME=hop3-tuto-symfony.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -464,8 +464,8 @@ hop3 app restart --app hop3-tuto-symfony
 hop3 run --app hop3-tuto-symfony php bin/console cache:clear --env=prod
 
 # View/set environment variables
-hop3 config show --app hop3-tuto-symfony
-hop3 config set --app hop3-tuto-symfony NEW_VAR=value
+hop3 env show --app hop3-tuto-symfony
+hop3 env set --app hop3-tuto-symfony NEW_VAR=value
 
 # Scale workers
 hop3 ps scale --app hop3-tuto-symfony web=2

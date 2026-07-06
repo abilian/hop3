@@ -30,6 +30,7 @@ from hop3_installer.common import (
     print_step,
     print_warning,
 )
+from hop3_installer.deprecation import warn_deprecated_flags
 
 from .acme import setup_acme
 from .cli import TOTAL_STEPS, config_from_args, create_parser
@@ -178,7 +179,7 @@ def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
     _install_optional_toolchains(config)
 
     # Step 3: Virtual environment
-    # Idempotent: keeps an existing venv unless --force is set. Critical
+    # Idempotent: keeps an existing venv unless --clean is set. Critical
     # for re-runs (e.g. feature installs), where wiping the venv would
     # silently destroy the package install done in a prior step.
     print_step(3, TOTAL_STEPS, "Creating virtual environment...")
@@ -281,9 +282,20 @@ def main() -> int:
     """
     check_python_version()
 
-    parser = create_parser()
-    args = parser.parse_args()
-    config = config_from_args(args)
+    # parse_features (via create_parser's env defaults and config_from_args)
+    # rejects an unknown --with value loudly; surface it as a clean error, not a
+    # traceback.
+    try:
+        parser = create_parser()
+        args = parser.parse_args()
+        warn_deprecated_flags(
+            sys.argv[1:],
+            {"--git": "--from git", "--local-path": "--path", "--force": "--clean"},
+        )
+        config = config_from_args(args)
+    except ValueError as e:
+        print_error(str(e))
+        return 1
 
     # Header
     print_header("Hop3 Server Installer")

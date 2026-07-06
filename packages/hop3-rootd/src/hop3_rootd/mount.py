@@ -25,9 +25,9 @@ from pathlib import Path
 from typing import Any, Final
 
 from hop3_rootd.exec import (
+    DEFAULT_EXEC,
+    Exec,
     InvalidBinaryError,
-    resolve_allowed_binary,
-    run as exec_run,
 )
 
 HOP3_USER: Final[str] = "hop3"
@@ -119,8 +119,8 @@ def _is_under(path: Path, prefixes: list[Path]) -> bool:
 # --- Binary resolution ----------------------------------------------------
 
 
-def _mount_bin() -> str:
-    binary = resolve_allowed_binary("mount")
+def _mount_bin(exec: Exec = DEFAULT_EXEC) -> str:
+    binary = exec.resolve("mount")
     if binary is None:
         raise MountUnavailableError(
             "the 'mount' binary is not available/allow-listed on this host"
@@ -128,8 +128,8 @@ def _mount_bin() -> str:
     return binary
 
 
-def _umount_bin() -> str:
-    binary = resolve_allowed_binary("umount")
+def _umount_bin(exec: Exec = DEFAULT_EXEC) -> str:
+    binary = exec.resolve("umount")
     if binary is None:
         raise MountUnavailableError(
             "the 'umount' binary is not available/allow-listed on this host"
@@ -165,7 +165,12 @@ def is_mounted(mountpoint: Path) -> bool:
 
 
 def mount_tmpfs(
-    app_name: str, target: str, size_bytes: int, mode: str | None = None
+    app_name: str,
+    target: str,
+    size_bytes: int,
+    mode: str | None = None,
+    *,
+    exec: Exec = DEFAULT_EXEC,
 ) -> dict[str, Any]:
     """Mount a sized tmpfs at the app's ``target``. Idempotent-ish.
 
@@ -182,8 +187,8 @@ def mount_tmpfs(
     if mode is not None:
         opts += f",mode={mode}"
 
-    result = exec_run(
-        [_mount_bin(), "-t", "tmpfs", "-o", opts, "tmpfs", str(mp)],
+    result = exec.run(
+        [_mount_bin(exec), "-t", "tmpfs", "-o", opts, "tmpfs", str(mp)],
         timeout=_MOUNT_TIMEOUT_SECONDS,
     )
     if not result.success:
@@ -192,7 +197,12 @@ def mount_tmpfs(
 
 
 def mount_bind(
-    app_name: str, target: str, source: str, *, read_only: bool = False
+    app_name: str,
+    target: str,
+    source: str,
+    *,
+    read_only: bool = False,
+    exec: Exec = DEFAULT_EXEC,
 ) -> dict[str, Any]:
     """Bind-mount an operator-allowed host ``source`` at the app's ``target``.
 
@@ -222,8 +232,8 @@ def mount_bind(
     except OSError as e:
         raise MountError(f"could not create mountpoint {mp}: {e}") from e
 
-    result = exec_run(
-        [_mount_bin(), "--bind", str(real_source), str(mp)],
+    result = exec.run(
+        [_mount_bin(exec), "--bind", str(real_source), str(mp)],
         timeout=_MOUNT_TIMEOUT_SECONDS,
     )
     if not result.success:
@@ -232,13 +242,13 @@ def mount_bind(
         )
 
     if read_only:
-        ro = exec_run(
-            [_mount_bin(), "-o", "remount,bind,ro", str(mp)],
+        ro = exec.run(
+            [_mount_bin(exec), "-o", "remount,bind,ro", str(mp)],
             timeout=_MOUNT_TIMEOUT_SECONDS,
         )
         if not ro.success:
             # Couldn't honor read_only — undo the bind, don't leave it writable.
-            exec_run([_umount_bin(), str(mp)], timeout=_MOUNT_TIMEOUT_SECONDS)
+            exec.run([_umount_bin(exec), str(mp)], timeout=_MOUNT_TIMEOUT_SECONDS)
             raise MountError(
                 f"could not remount bind {mp} read-only: {ro.stderr.strip()}"
             )
@@ -251,21 +261,21 @@ def mount_bind(
     }
 
 
-def _umount(mp: Path) -> str:
+def _umount(mp: Path, *, exec: Exec = DEFAULT_EXEC) -> str:
     """umount ``mp``, lazy-detaching a busy mount. Returns the method used.
 
     Raises MountError if both the plain and lazy umount fail — teardown must
     not silently leave a mount behind.
     """
     try:
-        result = exec_run([_umount_bin(), str(mp)], timeout=_MOUNT_TIMEOUT_SECONDS)
+        result = exec.run([_umount_bin(exec), str(mp)], timeout=_MOUNT_TIMEOUT_SECONDS)
     except InvalidBinaryError as e:
         raise MountUnavailableError(str(e)) from e
     if result.success:
         return "umount"
 
     # Busy (a process with cwd inside) → lazy detach as a fallback.
-    lazy = exec_run([_umount_bin(), "-l", str(mp)], timeout=_MOUNT_TIMEOUT_SECONDS)
+    lazy = exec.run([_umount_bin(exec), "-l", str(mp)], timeout=_MOUNT_TIMEOUT_SECONDS)
     if lazy.success:
         return "umount -l"
 
@@ -275,7 +285,7 @@ def _umount(mp: Path) -> str:
     )
 
 
-def unmount(app_name: str, target: str) -> dict[str, Any]:
+def unmount(app_name: str, target: str, *, exec: Exec = DEFAULT_EXEC) -> dict[str, Any]:
     """Unmount the app's ``target``. Idempotent; lazy-detaches a busy mount.
 
     Returns ``{unmounted, mountpoint, method|kernel_state}``.
@@ -283,13 +293,13 @@ def unmount(app_name: str, target: str) -> dict[str, Any]:
     mp = mountpoint_for(app_name, target)
     if not is_mounted(mp):
         return {"unmounted": False, "mountpoint": str(mp), "kernel_state": "absent"}
-    method = _umount(mp)
+    method = _umount(mp, exec=exec)
     return {"unmounted": True, "mountpoint": str(mp), "method": method}
 
 
-def unmount_path(mountpoint: Path) -> str:
+def unmount_path(mountpoint: Path, *, exec: Exec = DEFAULT_EXEC) -> str:
     """Unmount a specific path (reconcile orphan cleanup). Returns the method."""
-    return _umount(mountpoint)
+    return _umount(mountpoint, exec=exec)
 
 
 def list_mounts_under_app_root() -> list[str]:

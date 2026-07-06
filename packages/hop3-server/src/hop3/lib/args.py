@@ -59,7 +59,7 @@ def _handle_short_option(
     return None
 
 
-def _handle_long_option(
+def _handle_long_option(  # noqa: PLR0911 — one return per option form (flag, --k=v known/unknown, --k v known/missing-value, unknown); a flat cascade reads clearer than nesting.
     arg: str,
     args_list: list,
     i: int,
@@ -84,22 +84,33 @@ def _handle_long_option(
 
     # Handle --key=value format
     if "=" in arg:
-        key, value = arg[2:].split("=", 1)
-        key = key.replace("-", "_")
-        if key in spec:
-            converter = spec[key].get("type", str)
-            result[key] = converter(value)
-        return i + 1
+        raw_key, value = arg[2:].split("=", 1)
+        eq_key = raw_key.replace("-", "_")
+        if eq_key in spec:
+            converter = spec[eq_key].get("type", str)
+            result[eq_key] = converter(value)
+            return i + 1
+        # Unknown --key=value: return None so parse_cli_args flags it loudly
+        # rather than silently swallowing it.
+        return None
 
     # Handle --key value format
-    if key in spec and i + 1 < len(args_list):
-        next_arg = args_list[i + 1]
-        if not next_arg.startswith("-"):
+    if key in spec:
+        if i + 1 < len(args_list):
+            # The user named a value-option explicitly, so the next token IS its
+            # value — even one starting with '-' (e.g. `--grep -foo` searching
+            # for "-foo"). Refusing leading-'-' values turned a legitimate value
+            # into a misleading "Unrecognized argument" (audit 2026-06 L10).
             converter = spec[key].get("type", str)
-            result[key] = converter(next_arg)
+            result[key] = converter(args_list[i + 1])
             return i + 2
+        # Known option at end of args with no value: consume the flag token
+        # (existing tolerant behavior — the command sees the default).
+        return i + 1
 
-    return i + 1
+    # Unknown --option: not handled here. Returning None lets parse_cli_args
+    # collect it as unrecognized and fail loud.
+    return None
 
 
 def _handle_positional_arg(
@@ -173,6 +184,7 @@ def parse_cli_args(
     if remaining_key:
         result[remaining_key] = []
 
+    unrecognized: list[str] = []
     while i < len(args_list):
         arg = args_list[i]
 
@@ -193,7 +205,20 @@ def parse_cli_args(
             i += 1
             continue
 
+        # Nothing claimed this token: an unknown --option, or an extra
+        # positional with no slot to land in. Collect it and fail loud below
+        # rather than silently dropping it — a dropped `set KEY=VALUE` reads as
+        # success while doing nothing (Hop3 fail-loud rule, NON-NEGOTIABLE).
+        unrecognized.append(arg)
         i += 1
+
+    if unrecognized:
+        joined = ", ".join(repr(tok) for tok in unrecognized)
+        msg = (
+            f"Unrecognized argument(s): {joined}. "
+            "Check the command's usage (run it with --help)."
+        )
+        raise ValueError(msg)
 
     # Apply defaults
     for key, opts in spec.items():
@@ -239,3 +264,20 @@ def pop_app_flag(args: tuple[str, ...] | list[str]) -> tuple[str | None, list[st
         remaining.append(tok)
         i += 1
     return app, remaining
+
+
+def reject_extra_args(remaining: tuple[str, ...] | list[str]) -> None:
+    """Fail loud on leftover tokens after a command consumed its known args.
+
+    The counterpart to ``pop_app_flag`` for commands that take NO further
+    positionals: a stray flag or typo (``--no-addon`` instead of
+    ``--no-addons``) must be rejected, not silently ignored — silent ignoring
+    reports success while doing the wrong thing (audit 2026-06 C9).
+    """
+    if remaining:
+        joined = ", ".join(repr(tok) for tok in remaining)
+        msg = (
+            f"Unrecognized argument(s): {joined}. "
+            "Check the command's usage (run it with --help)."
+        )
+        raise ValueError(msg)

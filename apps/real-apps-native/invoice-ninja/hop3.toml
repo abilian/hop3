@@ -43,3 +43,4 @@ covers = ["php", "laravel", "mysql"]
 [[test.validations]]
 path = "/"
 status = 302
+contains = "/setup"

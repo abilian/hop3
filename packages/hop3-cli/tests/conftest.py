@@ -27,12 +27,22 @@ its defaults).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import sys
+from pathlib import Path
 
 import pytest
 
-if TYPE_CHECKING:
-    from pathlib import Path
+# `stubs.py` lives in this directory and is imported as a top-level module
+# (`from stubs import ...`) by tests nested under tests/ (a_unit/commands,
+# a_unit/rpc). The repo-root pytest config uses --import-mode=importlib, which
+# does NOT add test directories to sys.path, so a bare `import stubs` fails for
+# those nested tests. This conftest is loaded before any test under tests/, so
+# putting its own directory on sys.path makes `stubs` importable everywhere.
+sys.path.insert(0, str(Path(__file__).parent))
+
+# ===========================================================================
+# Environment isolation fixture
+# ===========================================================================
 
 # Every HOP3_* var the CLI reads (across config.py, main.py,
 # commands/flags.py, resolution.py). Add to this list when a new

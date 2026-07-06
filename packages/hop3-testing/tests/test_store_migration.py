@@ -231,7 +231,9 @@ def test_save_records_and_reads_back_bundle(tmp_path: Path) -> None:
     assert bundle_path.endswith("2026-06-05T00-00-00Z-myapp-abc123")
 
 
-def test_ok_bundle_is_not_persisted(tmp_path: Path) -> None:
+def test_unwritten_bundle_is_not_recorded(tmp_path: Path) -> None:
+    # No artifact_dir (nothing on disk) -> no pointer recorded, so `why` won't
+    # resolve to a bundle that isn't there. Classifier is irrelevant.
     store = ResultStore(db_path=tmp_path / "r.db")
     store.start_run(mode="ci", target_type="docker", target_name="t")
     bundle = Bundle(
@@ -243,6 +245,29 @@ def test_ok_bundle_is_not_persisted(tmp_path: Path) -> None:
     )
     store.save(_result_with_bundle(bundle))
     assert store.get_result_by_run_id("rid-ok") is None
+
+
+def test_ok_classified_but_written_bundle_is_why_findable(tmp_path: Path) -> None:
+    # A check.py / HTTP-`contains` failure classifies "ok" (the app serves) but
+    # is force-persisted (artifact_dir set). The store must record the pointer so
+    # `hop3-test why <run-id>` finds it instead of "No bundle found".
+    store = ResultStore(db_path=tmp_path / "r.db")
+    store.start_run(mode="ci", target_type="docker", target_name="t")
+    rid = "2026-06-05T00-00-00Z-okapp-abc123"
+    bundle = Bundle(
+        run_id=rid,
+        app="okapp",
+        target_kind="docker",
+        classifier="ok",
+        headline="ok — okapp (check.py failed)",
+        sections={},
+        artifact_dir=tmp_path / "test-runs" / rid,
+    )
+    store.save(_result_with_bundle(bundle))
+    record = store.get_result_by_run_id(rid)
+    assert record is not None
+    assert record.bundle_path is not None
+    assert record.bundle_path.endswith(rid)
 
 
 def test_run_uid_uniqueness_enforced_on_fresh_store(tmp_path: Path) -> None:

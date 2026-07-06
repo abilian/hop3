@@ -66,10 +66,10 @@ make test-app APP=apps/real-apps-native/edrix
 | `make test-fast` | Unit only, all packages, no Docker | < 1min |
 | `make test` | Check tier: unit + integration, all packages, no Docker | ~30s |
 | `make test-e2e` | The Docker e2e layer (`c_e2e`): real deploys, backups, git-push | ~10min |
-| `make test-with-coverage` | Coverage on the in-process layers (unit + integration) | ~1min |
+| `make test-cov` | Coverage on the in-process layers (unit + integration) | ~1min |
 | `make test-apps` | Deploy the real-app catalog on Docker (`hop3-test`) | ~5min |
-| `make test-list` | List available app/demo/tutorial tests | instant |
-| `make test-nightly` | Full app/demo/tutorial matrix on Docker + HTML report | long |
+| `uv run hop3-test list` | List available app/demo/tutorial tests | instant |
+| `uv run hop3-test run --docker --mode nightly` | Full app/demo/tutorial matrix on Docker + HTML report | long |
 | `make test-installer` | Test the installers | ~5min |
 | `make lint` | Linting and type checking | ~30s |
 
@@ -77,21 +77,21 @@ make test-app APP=apps/real-apps-native/edrix
 
 | Command | Description |
 |---------|-------------|
-| `hop3-test cloud --image ubuntu-24.04` | Run e2e/app tests on a cloud server (Hetzner) |
-| `hop3-test cloud --images ubuntu-24.04,debian-13` | Test across multiple Linux distributions |
+| `hop3-test run --provider hetzner --image ubuntu-24.04` | Run e2e/app tests on a cloud server (Hetzner) |
+| `hop3-test run --provider hetzner --images ubuntu-24.04,debian-13` | Test across multiple Linux distributions |
 
 ### hop3-test CLI
 
 ```bash
 # System testing (deploys Hop3, then deploys + verifies apps)
-hop3-test system --docker                       # Deploy + test defaults on Docker
-hop3-test system --docker --clean --with all    # Clean install with all addons
-hop3-test system --docker apps/real-apps-native # Scan a directory
-hop3-test system --docker apps/real-apps-native/edrix  # One app or path
-hop3-test system --ssh --host $HOP3_DEV_HOST    # Remote via SSH
-hop3-test system --reuse --ssh --host $HOP3_DEV_HOST   # Skip deploy, test existing
-hop3-test system --docker --deploy-from git --branch devel  # Deploy from git
-hop3-test system --docker --mode nightly        # Wider matrix (smoke | ci | nightly | full | ...)
+hop3-test run --docker                       # Deploy + test defaults on Docker
+hop3-test run --docker --clean --with all    # Clean install with all addons
+hop3-test run --docker apps/real-apps-native # Scan a directory
+hop3-test run --docker apps/real-apps-native/edrix  # One app or path
+hop3-test run --host $HOP3_DEV_HOST    # Remote via SSH
+hop3-test run --reuse --host $HOP3_DEV_HOST   # Skip deploy, test existing
+hop3-test run --docker --from git --branch devel  # Deploy from git
+hop3-test run --docker --mode nightly        # Wider matrix (smoke | ci | nightly | full | ...)
 
 # List / inspect
 hop3-test list                      # List available app/demo/tutorial tests
@@ -211,13 +211,13 @@ The old names `dev` (→ `smoke`) and `release` (→ `full`) still work as alias
 
 ### Test Targets
 
-The `system` command picks a target via a flag (the `DeploymentTarget` ABC covers Docker, SSH, and cloud):
+The `run` command picks a target via a flag (the `DeploymentTarget` ABC covers Docker, SSH, and cloud):
 
 | Target | Description | Flag |
 |--------|-------------|------|
 | Docker | Fresh Hop3 deployed into a local container | `--docker` |
-| SSH    | Existing remote server | `--ssh --host X` |
-| Cloud  | Provisioned cloud server(s) (Hetzner) | `hop3-test cloud` |
+| SSH    | Existing remote server | `--host X` |
+| Cloud  | Provisioned cloud server(s) (Hetzner) | `--provider hetzner` |
 
 ## Test Output
 
@@ -275,7 +275,7 @@ make test-e2e         # The Docker e2e layer (c_e2e)
 The wider app/demo/tutorial matrix runs nightly:
 
 ```bash
-make test-nightly     # hop3-test system --docker --mode nightly + HTML report
+uv run hop3-test run --docker --mode nightly --report html
 ```
 
 See: <https://builds.sr.ht/~sfermigier/hop3/>
@@ -286,7 +286,7 @@ Coverage is measured on the in-process layers only (`a_unit` + `b_integration`) 
 
 ```bash
 # Coverage on the in-process layers
-make test-with-coverage
+make test-cov
 
 # Or directly (HTML report)
 pytest --cov=hop3 --cov-report=html \
@@ -298,26 +298,26 @@ open htmlcov/index.html
 
 ## Cloud Testing
 
-For E2E testing on real cloud infrastructure, use `hop3-test cloud`. Requires the `HETZNER_API_TOKEN` environment variable (Hetzner provider).
+For E2E testing on real cloud infrastructure, use `hop3-test run --provider hetzner`. Requires the `HETZNER_API_TOKEN` environment variable (Hetzner provider).
 
 ```bash
 # List available images
-hop3-test cloud --list-images
+hop3-test run --list-images
 
 # Test on a single distribution
-hop3-test cloud --image ubuntu-24.04
+hop3-test run --provider hetzner --image ubuntu-24.04
 
 # Test across multiple distributions
-hop3-test cloud --images ubuntu-24.04,debian-13
+hop3-test run --provider hetzner --images ubuntu-24.04,debian-13
 
-# Choose which app directories to test
-hop3-test cloud --apps apps/real-apps-native --apps demos
+# Choose which app directories to test (positional, like `run`)
+hop3-test run --provider hetzner apps/real-apps-native demos
 
-# Use local code
-hop3-test cloud --use-local-repo
+# Use local code (the default; --from pypi installs from PyPI instead)
+hop3-test run --provider hetzner --from local --images all
 
-# Skip phases for debugging
-hop3-test cloud --skip-reset --skip-deploy  # Only run tests
+# Test against an already-provisioned server (no rebuild, no deploy)
+hop3-test run --host <server> --reuse
 ```
 
 ### Supported Images

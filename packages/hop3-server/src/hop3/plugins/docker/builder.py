@@ -11,12 +11,13 @@ be deployed using DockerComposeDeployer.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from hop3.config import HOP3_ROOT
+from hop3.config import APP_ROOT
 from hop3.core.protocols import BuildArtifact, BuildContext
 from hop3.lib import Abort, Diagnosis, abort_with_diagnosis, log
 from hop3.lib.logging import server_log
@@ -30,6 +31,39 @@ if TYPE_CHECKING:
 # minutes is a design smell — use a lighter packaging profile (docker-gen,
 # nixpkgs-wrapper against a pre-built pkgs.X) rather than cranking this up.
 BUILD_TIMEOUT_SECONDS = 30 * 60
+
+# An exception class name, e.g. Redis::CannotConnectError, LoadError, NameError.
+_BUILD_EXCEPTION_RE = re.compile(r"\b[A-Z][\w:]*(?:Error|Exception|Refused)\b.*")
+# Fallback markers when no exception class is present (BuildKit / shell errors).
+_BUILD_ERROR_MARKERS = (
+    "rake aborted",
+    "error:",
+    "cannot ",
+    "no such file",
+    "failed to ",
+    "not found",
+    "fatal",
+)
+
+
+def _extract_build_error(output: str) -> str:
+    """Best-effort one-line root cause from a build log.
+
+    The real error is a needle in a haystack of backtrace + BuildKit noise.
+    Prefer the first exception line (`Foo::BarError: …`), else the first strong
+    error marker, else the last non-empty line. Trimmed to keep the summary one
+    line; the full log lives in build.log.
+    """
+    lines = [ln.strip() for ln in output.splitlines() if ln.strip()]
+    for ln in lines:
+        m = _BUILD_EXCEPTION_RE.search(ln)
+        if m:
+            return m.group(0)[:300]
+    for ln in lines:
+        low = ln.lower()
+        if any(mk in low for mk in _BUILD_ERROR_MARKERS):
+            return ln[:300]
+    return lines[-1][:300] if lines else "(no build output)"
 
 
 @dataclass(frozen=True)
@@ -174,7 +208,7 @@ class DockerBuilder:
                         "pre-built pkgs.X) — a >30-min build is a design smell."
                     ),
                     troubleshooting=[
-                        f"hop3 app logs {self.app_name} --build",
+                        f"hop3 app logs --app {self.app_name} --build",
                         "Try 'docker build' locally to measure the build time",
                     ],
                 )
@@ -209,50 +243,38 @@ class DockerBuilder:
     def _handle_build_failure(
         self, e: subprocess.CalledProcessError, image_tag: str, start_time: float
     ) -> None:
-        """Handle failed Docker build."""
+        """Handle a failed Docker build — report it ONCE.
+
+        The full output is the one durable copy in build.log (retrievable via
+        `hop3 app logs <app> --build`); the raised error carries only a concise
+        root-cause line + a pointer, not the whole backtrace re-dumped at every
+        layer (builder → deployer → RPC). Dumping it three times buried the one
+        useful line in ~180 lines of repeated stack trace.
+        """
         elapsed = time.time() - start_time
-
-        # Log error at normal level (always visible)
-        log(f"Docker build failed with exit code {e.returncode}:", level=0, fg="red")
-
-        # Docker buildx outputs build logs to stderr, so check both
+        # Docker buildx writes build logs to stderr, so check both.
         build_output = e.stderr or e.stdout or ""
 
-        # Show full build output for debugging (level=1 = normal, always visible)
-        if build_output:
-            log("Build output:", level=1, fg="yellow")
-            self._log_output(build_output, level=1, prefix="  ")
-
-        # Save build logs for later retrieval
+        # The single full copy: build.log (path fixed to APP_ROOT above).
         self._save_build_log(e.stdout or "", e.stderr or "", elapsed, success=False)
 
-        # Log to server log (truncated for structured logging)
         server_log.error(
             "Docker build failed",
             app_name=self.app_name,
             image_tag=image_tag,
             exit_code=e.returncode,
             duration_seconds=round(elapsed, 1),
-            stderr=build_output[:1000] if build_output else "",
+            stderr=build_output[:1000],
         )
 
-        # Include full build output in the error message (up to 8000 chars)
-        # This is critical for debugging Docker build failures remotely
         if build_output:
-            # Take last 8000 chars to capture the actual error (which is usually at the end)
-            output_preview = (
-                build_output[-8000:] if len(build_output) > 8000 else build_output
-            )
-            if len(build_output) > 8000:
-                output_preview = (
-                    f"...(truncated {len(build_output) - 8000} chars)...\n"
-                    + output_preview
-                )
             msg = (
-                f"Docker build failed with exit code {e.returncode}:\n{output_preview}"
+                f"Docker build failed (exit {e.returncode}):\n"
+                f"  {_extract_build_error(build_output)}\n"
+                f"Full build log: hop3 app logs --app {self.app_name} --build"
             )
         else:
-            msg = f"Docker build failed with exit code {e.returncode} (no output captured)"
+            msg = f"Docker build failed (exit {e.returncode}); no output captured"
         raise Abort(msg)
 
     def _log_output(
@@ -277,8 +299,13 @@ class DockerBuilder:
             success: Whether build succeeded
         """
         try:
-            # Determine log directory - use app path if available
-            app_log_dir = HOP3_ROOT / self.app_name / "log"
+            # App log dir sits under APP_ROOT (= HOP3_ROOT/apps), NOT HOP3_ROOT
+            # itself. Using HOP3_ROOT dropped build.log into /home/hop3/<app>/log/
+            # — orphaned, since every reader (`hop3 app logs --build`, the test
+            # diagnostic bundle) looks under /home/hop3/apps/<app>/log/. A failed
+            # Docker build was captured but unretrievable. (Same fix the local
+            # builder already carries.)
+            app_log_dir = APP_ROOT / self.app_name / "log"
             app_log_dir.mkdir(parents=True, exist_ok=True)
 
             build_log_path = app_log_dir / "build.log"

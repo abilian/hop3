@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import select
 import shutil
 import subprocess
 import tempfile
@@ -16,6 +15,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import httpx
+
+from hop3_testing.targets.helpers import run_hop3_deploy
 
 if TYPE_CHECKING:
     from rich.console import Console
@@ -136,7 +137,7 @@ class DeploymentManager:
         return target_dir
 
     def deploy(self) -> DeploymentResult:
-        """Run hop3-deploy to install Hop3 on the target server.
+        """Run hop3-deploy-server to install Hop3 on the target server.
 
         Returns:
             DeploymentResult with outcome and logs.
@@ -144,45 +145,41 @@ class DeploymentManager:
         start_time = time.time()
 
         try:
-            # Ensure we have a repo path
+            # Ensure we have a repo path (the local tree run_hop3_deploy uploads).
             if self.repo_path is None:
                 self.clone_repo()
 
-            # Build hop3-deploy command
-            cmd = self._build_deploy_command()
-            self._log(f"Running: {' '.join(cmd)}")
-
-            # Run deployment - use streaming output in verbose mode
-            if self.verbose and self.console:
-                returncode, stdout, stderr = self._run_with_streaming(cmd)
-            else:
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    cwd=self.repo_path,
-                    check=False,
-                    timeout=1800,  # 30 minute timeout
-                )
-                returncode = result.returncode
-                stdout = result.stdout
-                stderr = result.stderr
-
+            # Delegate the actual deploy to the shared run_hop3_deploy so the
+            # cloud path and the `run` path build+run it identically (ADR 052
+            # Phase 7b): ONE command-builder + ONE streaming runner, with the
+            # stdin=DEVNULL hang-guard and the process-group-killed timeout.
+            # command_prefix=["uv","run"] + cwd=repo_path reproduce the cloud
+            # invocation (`uv run hop3-deploy-server` from the checkout).
+            success, _duration = run_hop3_deploy(
+                host=self.host,
+                source="local" if self.config.use_local_code else "pypi",
+                clean=self.config.clean_before,
+                branch=self.config.branch,
+                verbose=self.config.verbose,
+                features=list(self.config.features),
+                domain=self.config.domain,
+                acme_email=self.config.acme_email,
+                command_prefix=["uv", "run"],
+                cwd=self.repo_path,
+                on_output=self._log,
+            )
             duration = time.time() - start_time
-            self._log(stdout)
 
-            if returncode != 0:
-                self._log(f"Deployment failed: {stderr}")
-                # Extract meaningful error from stderr
-                error_msg = self._extract_error_message(stderr, stdout)
+            if not success:
+                transcript = self._get_log()
                 return DeploymentResult(
                     success=False,
                     duration=duration,
-                    log_output=self._get_log(),
-                    error=error_msg,
+                    log_output=transcript,
+                    error=self._extract_error_message("", transcript),
                 )
 
-            # Verify installation
+            # Verify installation (network-level GET / + POST /rpc ping).
             server_url = f"http://{self.host}:8000"
             verified, verify_error = self._verify_installation(server_url)
             if not verified:
@@ -202,15 +199,6 @@ class DeploymentManager:
                 server_url=server_url,
             )
 
-        except subprocess.TimeoutExpired:
-            duration = time.time() - start_time
-            return DeploymentResult(
-                success=False,
-                duration=duration,
-                log_output=self._get_log(),
-                error="Deployment timed out after 30 minutes",
-            )
-
         except Exception as e:
             duration = time.time() - start_time
             return DeploymentResult(
@@ -219,37 +207,6 @@ class DeploymentManager:
                 log_output=self._get_log(),
                 error=str(e),
             )
-
-    def _build_deploy_command(self) -> list[str]:
-        """Build the hop3-deploy command with appropriate flags."""
-        cmd = [
-            "uv",
-            "run",
-            "hop3-deploy",
-            "--host",
-            self.host,
-        ]
-
-        if self.config.use_local_code:
-            cmd.append("--local")
-
-        if self.config.clean_before:
-            cmd.append("--clean")
-
-        if self.config.verbose:
-            cmd.append("--verbose")
-
-        if self.config.domain:
-            cmd.extend(["--admin-domain", self.config.domain])
-
-        if self.config.acme_email:
-            cmd.extend(["--acme-email", self.config.acme_email])
-
-        # Add features (docker, mysql, redis, etc.)
-        if self.config.features:
-            cmd.extend(["--with", ",".join(self.config.features)])
-
-        return cmd
 
     def _verify_installation(
         self,
@@ -349,101 +306,6 @@ class DeploymentManager:
         if self._temp_dir and self._temp_dir.exists():
             shutil.rmtree(self._temp_dir)
             self._temp_dir = None
-
-    def _run_with_streaming(self, cmd: list[str]) -> tuple[int, str, str]:
-        """Run command with streaming output to console.
-
-        Args:
-            cmd: Command to run.
-
-        Returns:
-            Tuple of (returncode, stdout, stderr).
-        """
-        stdout_lines: list[str] = []
-        stderr_lines: list[str] = []
-
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            cwd=self.repo_path,
-            bufsize=1,  # Line buffered
-        )
-
-        # Use select to read from both stdout and stderr
-        while True:
-            if process.poll() is not None:
-                self._read_remaining_output(process, stdout_lines, stderr_lines)
-                break
-
-            readable = self._get_readable_streams(process)
-            if not readable:
-                break
-
-            ready = self._select_ready_streams(readable)
-            self._process_ready_streams(ready, process, stdout_lines, stderr_lines)
-
-        return process.returncode or 0, "\n".join(stdout_lines), "\n".join(stderr_lines)
-
-    def _read_remaining_output(
-        self,
-        process: subprocess.Popen,
-        stdout_lines: list[str],
-        stderr_lines: list[str],
-    ) -> None:
-        """Read any remaining output after process finishes."""
-        if process.stdout:
-            for line in process.stdout:
-                line = line.rstrip()
-                stdout_lines.append(line)
-                if self.console:
-                    self.console.print(f"    {line}")
-        if process.stderr:
-            for line in process.stderr:
-                line = line.rstrip()
-                stderr_lines.append(line)
-                if self.console:
-                    self.console.print(f"    [dim]{line}[/dim]")
-
-    def _get_readable_streams(self, process: subprocess.Popen) -> list:
-        """Get list of readable streams from process."""
-        readable = []
-        if process.stdout:
-            readable.append(process.stdout)
-        if process.stderr:
-            readable.append(process.stderr)
-        return readable
-
-    def _select_ready_streams(self, readable: list) -> list:
-        """Select streams ready for reading."""
-        try:
-            ready, _, _ = select.select(readable, [], [], 0.1)
-        except (ValueError, OSError):
-            # Fallback for Windows or closed pipes
-            ready = readable
-        return ready
-
-    def _process_ready_streams(
-        self,
-        ready: list,
-        process: subprocess.Popen,
-        stdout_lines: list[str],
-        stderr_lines: list[str],
-    ) -> None:
-        """Process lines from ready streams."""
-        for stream in ready:
-            line = stream.readline()
-            if line:
-                line = line.rstrip()
-                if stream == process.stdout:
-                    stdout_lines.append(line)
-                    if self.console:
-                        self.console.print(f"    {line}")
-                else:
-                    stderr_lines.append(line)
-                    if self.console:
-                        self.console.print(f"    [dim]{line}[/dim]")
 
     def _log(self, message: str) -> None:
         """Add message to log buffer."""

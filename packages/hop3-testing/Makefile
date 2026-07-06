@@ -1,3 +1,5 @@
+PKG:=hop3_testing
+
 .PHONY: all develop test lint clean doc format
 .PHONY: clean clean-build clean-pyc clean-test coverage dist docs install lint lint/flake8
 
@@ -38,6 +40,11 @@ test:
 test-randomly:
 	@echo "--> Running Python tests in random order"
 	pytest
+
+test-cov:
+	@echo "--> Running Python tests with coverage"
+	uv run pytest --cov=$(PKG) --cov-report term-missing
+	@echo ""
 
 ## Lint / check typing
 lint:

@@ -212,7 +212,7 @@ ALLOWED_HOSTS = "myapp.example.com"
 - **Externally-supplied secrets** (API tokens, third-party passwords) — specific values you provide. Set these with the CLI, never in `hop3.toml`:
 
   ```bash
-  hop3 config set --app my-app API_TOKEN="sensitive-token"
+  hop3 env set --app my-app API_TOKEN="sensitive-token"
   ```
 
 #### `[port]` - Port Configuration
@@ -635,8 +635,8 @@ DATABASE_URL=postgresql://localhost/dev_db
 
 **Production (via CLI):**
 ```bash
-hop3 config set --app myapp DEBUG=false
-hop3 config set --app myapp DATABASE_URL="postgresql://prod-server/prod_db"
+hop3 env set --app myapp DEBUG=false
+hop3 env set --app myapp DATABASE_URL="postgresql://prod-server/prod_db"
 # SECRET_KEY: declare `{ generate = "hex", length = 32 }` in hop3.toml [env]
 # instead — generated once and persisted, never typed or committed.
 ```
@@ -853,10 +853,10 @@ hop3 app status --app myapp-staging
 **Environment variables:**
 ```bash
 # Verify all required env vars are set
-hop3 config show --app myapp
+hop3 env show --app myapp
 
 # Add missing vars
-hop3 config set --app myapp DATABASE_URL="..."
+hop3 env set --app myapp DATABASE_URL="..."
 ```
 
 **Port binding:**
@@ -942,7 +942,7 @@ hop3 app logs --app myapp --build
 
 **Check DATABASE_URL:**
 ```bash
-hop3 config get --app myapp DATABASE_URL
+hop3 env get --app myapp DATABASE_URL
 ```
 
 **Verify database service:**
@@ -989,13 +989,13 @@ start = "gunicorn app:app"
 **Set via CLI:**
 ```bash
 # Set the variable
-hop3 config set --app myapp MY_VAR="value"
+hop3 env set --app myapp MY_VAR="value"
 
 # Restart to apply
 hop3 app restart --app myapp
 
 # Verify
-hop3 config show --app myapp
+hop3 env show --app myapp
 ```
 
 ## Best Practices Checklist

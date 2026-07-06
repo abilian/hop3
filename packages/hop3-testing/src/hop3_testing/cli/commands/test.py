@@ -6,15 +6,20 @@
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, cast
 
 import click
 
-from hop3_testing.catalog import Catalog
+from hop3_testing.catalog import Catalog, default_scan_paths
+from hop3_testing.catalog.features import (
+    merge_features,
+    required_features_from_tests,
+    validate_features,
+)
 from hop3_testing.catalog.loader import load_test_definition_smart
+from hop3_testing.cli.deprecation import warn_deprecated
 from hop3_testing.cli.runners import run_tests
 from hop3_testing.selector import Selector, get_mode_config, list_modes
 from hop3_testing.selector.modes import MODE_ALIASES
@@ -35,27 +40,6 @@ def _mode_choices() -> list[str]:
     return sorted(set(list_modes()) | set(MODE_ALIASES))
 
 
-def _get_default_scan_paths(root: Path) -> list[str]:
-    """Get default scan paths: all subdirs of apps/, plus demos/ and tutorials."""
-    paths: list[str] = []
-    apps_dir = root / "apps"
-    if apps_dir.is_dir():
-        for child in sorted(apps_dir.iterdir()):
-            if child.is_dir():
-                paths.append(str(child.relative_to(root)))
-    if (root / "demos").is_dir():
-        paths.append("demos")
-    # Scan the *source* tutorials tree, not the rendered one: validoc executes
-    # the `bash exec`/`output`/`file` markers, which are stripped out of
-    # docs/src/tutorials during the docs build (scanning that yields a vacuous
-    # "0 passed" success). The source lives in docs/tutorials.
-    if (root / "docs/tutorials").is_dir():
-        paths.append("docs/tutorials")
-    elif (root / "docs/src/tutorials").is_dir():
-        paths.append("docs/src/tutorials")
-    return paths
-
-
 def _resolve_tests(
     app_names: tuple[str, ...],
     root: Path,
@@ -72,7 +56,7 @@ def _resolve_tests(
     if not app_names:
         # No args: scan everything, use mode-based selection
         catalog = Catalog(root)
-        catalog.scan(paths=_get_default_scan_paths(root))
+        catalog.scan(paths=default_scan_paths(root))
         mode_config = get_mode_config(mode)
         selector = Selector(catalog)
         return selector.select_for_target(mode_config, target_type)
@@ -147,34 +131,125 @@ def _lookup_test(
     return None, f"Test not found: {name}"
 
 
-@click.command("system")
+def _run_image_sweep(
+    ctx: click.Context,
+    *,
+    images: str,
+    app_names: tuple[str, ...],
+    source: str,
+    branch: str,
+    fail_fast: bool,
+    features: tuple[str, ...],
+    verbose: bool,
+) -> None:
+    """Sweep a matrix of cloud OS images (ADR 052 D9, formerly the `matrix` cmd).
+
+    Each image is a full `run --provider hetzner --image X` (provision → deploy →
+    test → persist to the shared store), run serially and aggregated. Exits 1 if
+    any image fails.
+    """
+    from hop3_testing.system_tests.multi_distro import (  # noqa: PLC0415
+        HETZNER_IMAGES,
+        run_multi_distro_tests,
+    )
+
+    if images == "all":
+        image_list = [img[0] for img in HETZNER_IMAGES]
+    else:
+        image_list = [i.strip() for i in images.split(",") if i.strip()]
+
+    # --with adds EXTRA features; the apps' declared addons are auto-provisioned
+    # by each per-image `run`. Pass each as its own --with (the `run` grammar).
+    extra_args: list[str] = []
+    for feat in features:
+        extra_args += ["--with", feat]
+
+    results = run_multi_distro_tests(
+        images=image_list,
+        app_names=app_names or ("apps/test-apps-procfile",),
+        source=source,
+        branch=branch,
+        stop_on_failure=fail_fast,
+        verbose=verbose,
+        extra_args=extra_args or None,
+    )
+    if any(not r.success for r in results):
+        ctx.exit(1)
+
+
+# `run` is the canonical name (ADR 052 D9): deploy to one target and run the
+# catalog. `system` stays registered as an alias (see register_commands). The
+# function keeps its historical name.
+@click.command("run")
 @click.argument("app_names", nargs=-1)
 # Target type
 @click.option(
-    "--docker", "target_type", flag_value="docker", help="Test using Docker container"
+    "--docker", "target_type", flag_value="docker", help="Test using a Docker container"
 )
 @click.option(
-    "--ssh", "target_type", flag_value="remote", help="Test using SSH to remote host"
+    "--ssh",
+    "target_type",
+    flag_value="remote",
+    help="Deprecated: --host (or $HOP3_HOST) implies the remote target",
 )
-# Deployment
+# Deployment. `--from` is the canonical spelling (ADR 052 D3); `--deploy-from`
+# stays accepted (same dest) so existing callers keep working.
 @click.option(
+    "--from",
     "--deploy-from",
+    "deploy_from",
     type=click.Choice(["local", "git", "pypi", "none"]),
     default="local",
-    help="Deploy from: local code, git branch, pypi, or none (reuse existing)",
+    help="Install source: local | git | pypi | none (reuse existing)",
 )
 @click.option("--reuse", is_flag=True, help="Reuse existing deployment (skip deploy)")
-@click.option("--branch", default="devel", help="Git branch (if --deploy-from git)")
+@click.option("--branch", default="devel", help="Git branch (if --from git)")
 @click.option("--clean", is_flag=True, help="Clean install (remove existing)")
 # Connection
-@click.option("--host", help="Remote host (for --ssh)")
+@click.option(
+    "--host",
+    envvar=["HOP3_HOST", "HOP3_TEST_HOST"],
+    help="Remote server hostname/IP — selects the remote target (or $HOP3_HOST)",
+)
 @click.option("--port", type=int, default=22, help="SSH port")
 @click.option("--user", default="root", help="SSH user")
+# `--identity` is the canonical name (like `ssh -i`); `--ssh-key` stays as an
+# accepted alias. HOP3_SSH_KEY is the canonical env; HOP3_TEST_SSH_KEY still works.
 @click.option(
+    "--identity",
     "--ssh-key",
-    envvar="HOP3_TEST_SSH_KEY",
-    help="SSH key path (default: $HOP3_TEST_SSH_KEY)",
+    "ssh_key",
+    envvar=["HOP3_SSH_KEY", "HOP3_TEST_SSH_KEY"],
+    help="SSH private key path (like `ssh -i`; default: $HOP3_SSH_KEY)",
 )
+# Cloud provisioning (ADR 052 7b.7): --provider rebuilds a fresh server first,
+# then deploys+tests it via the normal remote path.
+@click.option(
+    "--provider",
+    type=click.Choice(["hetzner"]),
+    default=None,
+    help="Rebuild a fresh cloud server before deploying (e.g. hetzner)",
+)
+@click.option(
+    "--server-id",
+    type=int,
+    default=None,
+    help="Cloud server ID to rebuild for --provider (or HETZNER_SERVER_ID)",
+)
+@click.option(
+    "--image",
+    default=None,
+    help="OS image for --provider (e.g. ubuntu-24.04)",
+)
+# --images sweeps a matrix of cloud OS images (ADR 052 D9): each image is a full
+# `run --provider hetzner --image X`. Replaces the former `matrix`/`cloud` command.
+@click.option(
+    "--images",
+    default=None,
+    help="Sweep several cloud OS images: comma-separated or 'all' "
+    "(e.g. ubuntu-24.04,debian-13). Implies --provider hetzner.",
+)
+@click.option("--list-images", is_flag=True, help="List available cloud OS images")
 # Test options
 @click.option(
     "--mode",
@@ -202,7 +277,7 @@ def _lookup_test(
     "--with",
     "features",
     multiple=True,
-    help="Features to install (e.g., nix, mysql, redis, or 'all')",
+    help="Extra features on top of the apps' auto-provisioned addons — repeatable or comma-separated (e.g. --with nix,redis, or --with all)",
 )
 @click.pass_context
 def system_test(  # noqa: C901, PLR0912, PLR0915
@@ -217,6 +292,11 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
     port: int,
     user: str,
     ssh_key: str | None,
+    provider: str | None,
+    server_id: int | None,
+    image: str | None,
+    images: str | None,
+    list_images: bool,
     mode: str,
     keep: bool,
     fail_fast: bool,
@@ -234,35 +314,104 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
 
     \b
     Examples:
-      hop3-test system --docker                  # Deploy + test defaults
-      hop3-test system --docker apps/test-apps   # Scan a directory
-      hop3-test system --docker --clean --with all demos
-      hop3-test system --ssh --host X            # Remote
-      hop3-test system --ssh demos/demo03        # Specific app
-      hop3-test system --reuse --ssh --host X    # Skip deploy
+      hop3-test run --docker                  # Deploy + test defaults
+      hop3-test run --docker apps/test-apps   # Scan a directory
+      hop3-test run --docker --clean --with all demos
+      hop3-test run --host X                  # Remote (--host implies remote)
+      hop3-test run --host X demos/demo03     # Specific app on a remote
+      hop3-test run --reuse --host X          # Skip deploy
+      hop3-test run --provider hetzner --image ubuntu-24.04       # One fresh cloud box
+      hop3-test run --provider hetzner --images ubuntu-24.04,debian-13  # Sweep several
+      hop3-test run --provider hetzner --images all               # Sweep every image
+      hop3-test run --list-images                                 # Available cloud images
     """
+    # ADR 052 D9/D2/D3 deprecated spellings (still work; notice guides migration).
+    if ctx.info_name == "system":
+        warn_deprecated("system", "run", kind="command")
+    for old, new in (
+        ("--deploy-from", "--from"),
+        ("--ssh-key", "--identity"),
+        ("--ssh", "--host"),
+    ):
+        if any(tok == old or tok.startswith(f"{old}=") for tok in sys.argv[1:]):
+            warn_deprecated(old, new)
+
     verbose = ctx.obj["verbose"]
 
-    if not target_type:
-        click.echo("Error: Must specify --docker or --ssh", err=True)
-        click.echo("\nExamples:")
-        click.echo("  hop3-test system --docker")
-        click.echo("  hop3-test system --ssh --host server.com")
-        sys.exit(1)
+    # Accept both the repeatable form (--with nix --with redis) and the
+    # comma-separated form (--with nix,redis), so one spelling works across
+    # run / deploy-server / install-server (ADR 052 D1).
+    features = tuple(
+        part.strip() for feat in features for part in feat.split(",") if part.strip()
+    )
 
-    assert target_type is not None
+    # ADR 052 D9: --list-images / --images fold the former `matrix`/`cloud`
+    # command into `run`. --images sweeps a matrix of cloud OS images — each image
+    # is a full `run --provider hetzner --image X` (provision → deploy → test →
+    # persist), aggregated. Cardinality is a flag, not a separate command.
+    if list_images:
+        from hop3_testing.system_tests.multi_distro import (  # noqa: PLC0415
+            show_images,
+        )
+
+        show_images(provider or "hetzner")
+        return
+
+    if images:
+        if target_type == "docker":
+            click.echo(
+                "Error: --images sweeps cloud OS images; drop --docker.", err=True
+            )
+            sys.exit(1)
+        _run_image_sweep(
+            ctx,
+            images=images,
+            app_names=app_names,
+            source=deploy_from if deploy_from != "none" else "local",
+            branch=branch,
+            fail_fast=fail_fast,
+            features=features,
+            verbose=verbose,
+        )
+        return
+
+    # ADR 052 7b.7: --provider rebuilds a fresh cloud server, then falls through
+    # to the normal remote deploy+test (which writes the shared result store, so
+    # cloud runs show up in the dashboard and `why`).
+    if provider:
+        from hop3_testing.system_tests.provision import (  # noqa: PLC0415
+            provision_server,
+        )
+
+        host = provision_server(
+            provider=provider, server_id=server_id, image=image, verbose=verbose
+        )
+        target_type = "remote"
+
+    # ADR 052 D2: --host (resolved from $HOP3_HOST / $HOP3_TEST_HOST by click)
+    # implies the remote target — no separate --ssh mode flag needed. --docker
+    # still selects Docker; --ssh stays as a deprecated alias (warned above).
+    if target_type is None and host:
+        target_type = "remote"
+
+    if target_type is None:
+        click.echo(
+            "Error: specify --docker, or --host <server> for a remote target", err=True
+        )
+        click.echo("\nExamples:")
+        click.echo("  hop3-test run --docker")
+        click.echo("  hop3-test run --host server.com")
+        sys.exit(1)
 
     if reuse:
         deploy_from = "none"
 
-    # For SSH, get host from env if not provided
+    # A remote target needs a host (from --host or $HOP3_HOST) — e.g. bare --ssh.
     if target_type == "remote" and not host:
-        host = os.environ.get("HOP3_TEST_HOST")
-        if not host:
-            click.echo(
-                "Error: --host required for --ssh (or set HOP3_TEST_HOST)", err=True
-            )
-            sys.exit(1)
+        click.echo(
+            "Error: remote target needs --host <server> (or $HOP3_HOST)", err=True
+        )
+        sys.exit(1)
 
     # Resolve tests
     root = ctx.obj["root"]
@@ -295,16 +444,32 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
         click.echo(f"  - {t.name}")
     click.echo("")
 
+    # Auto-provision the addons the selected apps DECLARE (hop3.toml [[addons]]),
+    # so the server is installed with them. The framework installs what the apps
+    # need — no manual --with, and no silently-skipped app.
+    required_addons = required_features_from_tests(tests)
+
     # Build deployment config
     deployment: DeploymentConfig | None = None
+    available_features = list(features) if features else None
     if deploy_from != "none":
+        validate_features(required_addons)  # loud abort on an unprovisionable addon
+        deploy_features = merge_features(features, required_addons)
+        newly = [f for f in deploy_features if f not in features]
+        if newly:
+            click.echo(
+                f"Auto-enabling addon feature(s) the apps require: {', '.join(newly)}"
+            )
         deployment = DeploymentConfig(
             source=cast("Literal['local', 'git', 'pypi']", deploy_from),
             branch=branch,
             clean=clean,
             verbose=verbose,
-            features=list(features),
+            features=deploy_features,
         )
+        # available_features must reflect what we PROVISIONED, or the service
+        # filter would skip the very apps we just installed addons for.
+        available_features = deploy_features
 
     # Create target
     target_obj: DockerTarget | RemoteTarget
@@ -344,5 +509,5 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
         start_message=start_msg,
         mode_label="system" if deploy_from != "none" else "reuse",
         selection_mode=mode,  # smoke/ci/broad/full -> the dashboard "scope"
-        available_features=list(features) if features else None,
+        available_features=available_features,
     )

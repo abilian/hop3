@@ -437,7 +437,7 @@ hop3 deploy --app hop3-tuto-rails
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config set --app hop3-tuto-rails HOST_NAME=hop3-tuto-rails.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-rails HOST_NAME=hop3-tuto-rails.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -521,13 +521,13 @@ hop3 run --app hop3-tuto-rails bin/rake custom:task
 
 ```bash
 # List all variables
-hop3 config show --app hop3-tuto-rails
+hop3 env show --app hop3-tuto-rails
 
 # Set a variable
-hop3 config set --app hop3-tuto-rails NEW_VARIABLE=value
+hop3 env set --app hop3-tuto-rails NEW_VARIABLE=value
 
 # Remove a variable
-hop3 config unset --app hop3-tuto-rails OLD_VARIABLE
+hop3 env unset --app hop3-tuto-rails OLD_VARIABLE
 
 # Restart to apply changes
 hop3 app restart --app hop3-tuto-rails
@@ -596,7 +596,7 @@ production:
 Set the storage path:
 
 ```bash
-hop3 config set --app hop3-tuto-rails STORAGE_PATH=/var/hop3/apps/myapp/data/storage
+hop3 env set --app hop3-tuto-rails STORAGE_PATH=/var/hop3/apps/myapp/data/storage
 ```
 
 ### Health Checks
@@ -697,7 +697,7 @@ hop3 app logs --app hop3-tuto-rails --tail
 ```
 
 Common issues:
-- **Missing SECRET_KEY_BASE**: Set it with `hop3 config set`
+- **Missing SECRET_KEY_BASE**: Set it with `hop3 env set`
 - **Database not connected**: Ensure the addon is attached
 - **Asset compilation failed**: Check for JavaScript/CSS errors
 
@@ -706,7 +706,7 @@ Common issues:
 Verify the database is attached:
 
 ```bash
-hop3 config show --app hop3-tuto-rails | grep DATABASE
+hop3 env show --app hop3-tuto-rails | grep DATABASE
 ```
 
 Test the connection:

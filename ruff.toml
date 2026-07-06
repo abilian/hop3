@@ -57,17 +57,11 @@ lint.extend-ignore = [
     "TRY300", # Consider moving this statement to an `else` block
     "PERF401", #  7 - PERF401	manual-list-comprehension
     "RUF067", # `__init__` module should only contain docstrings and re-exports
-    "RUF070", # ...
-    "RUF076", # pytest-fixture-autouse — autouse is the idiomatic pattern for our
-    #           test-isolation/setup fixtures (env reset, redirect state paths to
-    #           tmp_path, reset module singletons); applying them to every test is
-    #           exactly the intent, not an accident.
-    "E501", #    line-too-long
-    "RUF001", #  ambiguous-unicode-character-string
+    "RUF070", # unnecessary-assign-before-yield
+    "RUF001", # ambiguous-unicode-character-string
     #
     # Fix this (later)
     #
-    # "PLW0717", # too-many-statements-in-try-clause
     "PLW2901", # redefined-loop-name
     "PLR0917", # too-many-positional-arguments
     "PERF203", # try-except-in-loop
@@ -89,6 +83,25 @@ required-imports = ["from __future__ import annotations"]
 known-first-party = ["hop3"]
 
 [lint.per-file-ignores]
+"**/tests/**/*.py" = [
+    "ANN",
+    # Legit
+    "PLC2701", # import-private-name
+    "SLF001", #  private-member-access
+    "RUF069", #  float-equality-comparison
+    "PT012", #   pytest-raises-with-multiple-statements
+    #
+    "PT011", #   pytest-raises-too-broad
+    "N806", #    non-lowercase-variable-in-function
+    "PLR0915", # too-many-statements
+    "B904", #    raise-without-from-inside-except
+    "C901", #    complex-structure
+    "PLR0912", # too-many-branches
+]
+"**/noxfile.py" = [
+    "INP001", # implicit namespace package
+]
+
 "**/src/**/*.py" = [
     "PT", # Pytest warnings in source code are probably false positives
 ]
@@ -120,21 +133,4 @@ known-first-party = ["hop3"]
 "packages/hop3-installer/src/hop3_installer/server_installer/*.py" = [
     # Real imports are needed by the bundler
     "TC001"
-]
-
-
-"**/tests/**/*.py" = [
-    "SLF001", #  private-member-access
-    "RUF069", #  float-equality-comparison
-    "PT011", #   pytest-raises-too-broad
-    "N806", #    non-lowercase-variable-in-function
-    "PT012", #   pytest-raises-with-multiple-statements
-    "PLR0915", # too-many-statements
-    "B904", #    raise-without-from-inside-except
-    "PLC2701", # import-private-name
-    "C901", #    complex-structure
-    "PLR0912", # too-many-branches
-]
-"**/noxfile.py" = [
-    "INP001", # implicit namespace package
 ]

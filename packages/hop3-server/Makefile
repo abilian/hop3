@@ -1,3 +1,5 @@
+PKG:=hop3
+
 .PHONY: all develop test lint clean doc format
 .PHONY: clean clean-build clean-pyc clean-test coverage dist docs install lint lint/flake8
 
@@ -35,7 +37,7 @@ update-deps:
 #
 # testing & checking
 #
-.PHONY: test test-randomly test-with-coverage test-with-typeguard clean-test lint audit
+.PHONY: test test-randomly test-with-coverage test-with-typeguard test-cov clean-test lint audit
 
 ## Run python tests
 test:
@@ -62,6 +64,11 @@ test-with-coverage:
 test-with-typeguard:
 	@echo "--> Running Python tests with typeguard"
 	pytest --typeguard-packages=${PKG} tests src
+	@echo ""
+
+test-cov:
+	@echo "--> Running Python tests with coverage"
+	uv run pytest --cov=$(PKG) --cov-report term-missing tests src
 	@echo ""
 
 ## Cleanup tests artifacts

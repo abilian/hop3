@@ -10,12 +10,15 @@ testing and CI. It is **never** imported by ``hop3-install`` (the
 production server installer) — see ``packages/hop3-installer/CLAUDE.md``
 for the entry-point split.
 
-Consequently the hardcoded ``E2E_TEST_SECRET_KEY`` below — which makes
-every test container share the same JWT signing key — is intentional
-and safe: the test harness needs a known key to mint admin tokens
-against the just-spun-up container, and the container is ephemeral
-and bound to localhost ports. If this module is ever loaded in a
-context where ``MODE=production``, that is a bug; we abort at backend
+The hardcoded ``E2E_TEST_SECRET_KEY`` below is the supervisor's
+*fallback* JWT signing key, used only when the installer hasn't written
+``/etc/hop3/secret-key`` (which the server reads first, and which the
+installer normally generates). The harness doesn't assume this key: it
+reads whichever key the container actually validates with
+(``DockerTarget._read_server_secret_key``) and mints tokens with that.
+Keeping a known fallback is still safe — the container is ephemeral and
+bound to localhost ports. If this module is ever loaded in a context
+where ``MODE=production``, that is a bug; we abort at backend
 construction time rather than risk shipping the test key into a
 real deploy.
 """
@@ -88,7 +91,7 @@ directory=/home/hop3
 user=hop3
 autostart=true
 autorestart=true
-environment=HOME="/home/hop3",HOP3_SECRET_KEY="{E2E_TEST_SECRET_KEY}",HOP3_UNSAFE="true",HOP3_UNSAFE_ACK="yes-I-understand",HOP3_DB_URL="sqlite:////home/hop3/hop3.db",ACME_ENGINE="self-signed"
+environment=HOME="/home/hop3",HOP3_SECRET_KEY="{E2E_TEST_SECRET_KEY}",HOP3_DB_URL="sqlite:////home/hop3/hop3.db",ACME_ENGINE="self-signed"
 stdout_logfile=/var/log/supervisor/hop3-server.log
 stderr_logfile=/var/log/supervisor/hop3-server_err.log
 """
