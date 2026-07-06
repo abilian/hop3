@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Content-aware health checks**: set `[healthcheck].contains = "..."` and a deploy is only reported healthy when your app actually serves its own page — a bare `200` can be a placeholder or an error page.
+- **Server-level email transport** *(experimental)*: set your SMTP submission credentials once with `hop3 server email set … --from-domain example.com`, and per-app email addons created without their own `--smtp-*` inherit them — no credentials repeated per app. An app can still override with its own provider, and rotating the server transport propagates to every inheriting app.
+- **Email provider profiles + DKIM auto-verify** *(experimental)*: `hop3 server email set --provider <name>` fills the SMTP host/port for a known provider (`--list-providers`: Resend, Postmark, Brevo, Mailgun/Mailgun-EU, Scaleway TEM — EU-hosted ones flagged). The deliverability pre-flight now also **verifies DKIM** once its selector is known (`--dkim-selector`, or automatically for Resend), instead of only SPF/DMARC.
 
 ### Fixed
 

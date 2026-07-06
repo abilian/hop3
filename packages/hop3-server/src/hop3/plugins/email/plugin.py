@@ -8,10 +8,11 @@ from __future__ import annotations
 
 from hop3.core.hooks import hookimpl
 
-from . import cli
+from . import cli, server_cli
 from .email import EmailAddon
 
 assert cli  # imported for side effects (command registration)
+assert server_cli
 
 
 class EmailPlugin:
@@ -26,8 +27,8 @@ class EmailPlugin:
 
     @hookimpl
     def cli_commands(self) -> list:
-        """Contribute `addon email <verb>` commands to the CLI."""
-        return cli.COMMANDS
+        """Contribute `addon email` + `server email` commands to the CLI."""
+        return cli.COMMANDS + server_cli.SERVER_COMMANDS
 
 
 # Auto-registered when this module is imported by scan_package("hop3.plugins").

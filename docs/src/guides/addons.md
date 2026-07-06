@@ -2,7 +2,7 @@
 
 Addons are backing services — databases, caches, object storage — that your app depends on. Hop3 manages their lifecycle (create, attach, detach, destroy) and injects the connection details into your app as environment variables on deploy.
 
-This guide covers the four addons shipped in Hop3 0.5 — `postgres`, `mysql`, `redis`, and `s3` — plus the experimental `email` (SMTP relay) addon added in 0.7.
+This guide covers the four addons shipped in Hop3 0.5 — `postgres`, `mysql`, `redis`, and `s3` — plus the experimental `email` (SMTP relay) addon added in 0.6.1.
 
 ## Quick Start
 
@@ -174,7 +174,7 @@ Path-style URLs are required for MinIO; virtual-host style will arrive with the 
 
 ### email (experimental)
 
-> **Experimental (0.7).** The command surface is marked subject to change and may evolve after real use. Every `addon email` command prints a one-line experimental banner.
+> **Experimental (added 0.6.1).** The command surface is marked subject to change and may evolve after real use. Every `addon email` / `server email` command prints a one-line experimental banner.
 
 Hop3 never runs a mail server — deliverability, IP reputation, and abuse make it a losing game, and most clouds block outbound port 25. The email addon stores your existing provider's **SMTP submission credentials** and injects them into attached apps. It is **outbound transactional email only**: no inbound, IMAP, or MX.
 
@@ -192,6 +192,27 @@ hop3 addon email create mail \
 ```
 
 Keep the password out of your shell history (ADR 036): `--smtp-password @<path>` reads it from a file, `--smtp-password -` reads it from stdin.
+
+**Set the transport once (server level).** Rather than repeat the SMTP credentials per app, an operator can set them once and have every app inherit them (admin-only). Name a known provider with `--provider` and Hop3 fills the SMTP host/port for you (`--list-providers` to see them — Resend, Postmark, Brevo, Mailgun / Mailgun-EU, Scaleway TEM; EU-hosted ones flagged):
+
+```bash
+hop3 server email set --provider brevo \
+    --smtp-user <user> \
+    --smtp-password @./smtp.secret \
+    --from-domain example.com
+# or spell out the endpoint yourself:
+hop3 server email set --smtp-host smtp.example.com --smtp-user u \
+    --smtp-password @./pw --from-domain example.com --dkim-selector s1
+hop3 server email status                # host / port / sending domain — never the password
+```
+
+Then create per-app addons **without** `--smtp-*` — they inherit the server transport, sending from any address on the verified domain:
+
+```bash
+hop3 addon email create mail --from noreply@example.com   # inherits; no creds repeated
+```
+
+An app can still bring its own provider by passing `--smtp-*`, which overrides the server transport for that app (a partial `--smtp-*` is refused — all three creds or none). Rotating the server transport propagates to every inheriting app. Inheriting is refused if `--from` is not on the server's verified sending domain.
 
 **Attach and check** (the type isn't inferred from the name, so pass `--type email`):
 
@@ -233,7 +254,7 @@ Hop3 only hands the message to your provider; whether it reaches the inbox is ga
 - The unit you authenticate is the **domain**, not the address. Once `example.com` is verified, any From on it — `noreply@`, `support@`, `billing@` — sends for free.
 - Sending **as** `support@example.com` does not mean Hop3 hosts that mailbox; replies follow your domain's existing MX (Google Workspace, etc.).
 
-`hop3 addon email create` and `hop3 addon email status` check **SPF and DMARC** for the domain via DNS and report what's missing — never claiming "ready" over unpublished records. DKIM and the exact per-provider SPF include are shown as guidance for now; auto-verifying those arrives with the named-provider profiles.
+These commands check **SPF and DMARC** for the domain via DNS and report what's missing — never claiming "ready" over unpublished records. **DKIM is auto-verified too once its selector is known**: pass `--dkim-selector <sel>` (copy it from your provider's dashboard), or use `--provider resend` (Resend's selector is fixed, so it's supplied automatically). Without a selector the DKIM row stays guidance — Hop3 never guesses a selector and reports a fake "missing".
 
 #### Wiring it into apps (recipes)
 
