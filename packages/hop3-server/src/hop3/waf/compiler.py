@@ -165,9 +165,7 @@ def compile_bans(banned: list[str]) -> str:
     return f"{header}\n{rule}\n"
 
 
-def _overlay_lines(
-    policy: WafSection, networks: Mapping[str, list[str]]
-) -> list[str]:
+def _overlay_lines(policy: WafSection, networks: Mapping[str, list[str]]) -> list[str]:
     """The access-overlay rules: tuning exclusions, gates, positive allowlist."""
     # block -> deny (interrupt); detect -> pass,log (log-only rollout).
     action = "pass,log" if policy.mode == "detect" else "deny,status:403,log"
@@ -256,16 +254,14 @@ def _crs_baseline_lines(crs_dir: Path | None, paranoia: int) -> list[str]:
     if not request_files:
         msg = f"CRS bundle at {crs_dir} contains no REQUEST-*.conf rule files."
         raise WafCompileError(msg)
-    setvars = ",".join(
-        [
-            "pass",
-            "nolog",
-            f"setvar:tx.crs_setup_version={_CRS_SETUP_VERSION}",
-            f"setvar:tx.detection_paranoia_level={paranoia}",
-            f"setvar:tx.blocking_paranoia_level={paranoia}",
-            f"setvar:tx.allowed_methods={_CRS_ALLOWED_METHODS}",
-        ]
-    )
+    setvars = ",".join([
+        "pass",
+        "nolog",
+        f"setvar:tx.crs_setup_version={_CRS_SETUP_VERSION}",
+        f"setvar:tx.detection_paranoia_level={paranoia}",
+        f"setvar:tx.blocking_paranoia_level={paranoia}",
+        f"setvar:tx.allowed_methods={_CRS_ALLOWED_METHODS}",
+    ])
     lines = [
         "# --- OWASP CRS baseline (anomaly-scoring mode) ---",
         f'SecAction "id:900000,phase:1,{setvars}"',

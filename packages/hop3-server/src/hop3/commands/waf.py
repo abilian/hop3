@@ -57,14 +57,12 @@ class WafStatusCmd(Command):
         rows = []
         for app in waf_apps:
             vassal = c.UWSGI_ENABLED / f"{app.name}_waf.1.ini"
-            rows.append(
-                [
-                    app.name,
-                    str(app.waf_port),
-                    "supervised" if vassal.exists() else "stopped",
-                    str(len(ban_repo.list_active(app.id, now))),
-                ]
-            )
+            rows.append([
+                app.name,
+                str(app.waf_port),
+                "supervised" if vassal.exists() else "stopped",
+                str(len(ban_repo.list_active(app.id, now))),
+            ])
         return [table(headers=["App", "Proxy port", "Proxy", "Active bans"], rows=rows)]
 
 
@@ -88,7 +86,9 @@ class WafLogsCmd(Command):
         app_filter = args[0] if args else None
         apps = AppRepository(session=self.db_session).list_all_ordered()
         targets = [
-            a for a in apps if a.waf_port and (app_filter is None or a.name == app_filter)
+            a
+            for a in apps
+            if a.waf_port and (app_filter is None or a.name == app_filter)
         ]
         if app_filter and not targets:
             return [error(f"No WAF-enabled app named '{app_filter}'.")]
