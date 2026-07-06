@@ -56,6 +56,15 @@ def test_merge_features_is_order_stable_union():
     ]
 
 
+def test_merge_features_collapses_all_sentinel():
+    # `--with all` + apps declaring postgres/mysql must NOT become
+    # `all,postgresql,mysql` — `all` already subsumes them.
+    assert merge_features(["all"], ["postgresql", "mysql"]) == ["all"]
+    assert merge_features(["docker"], ["all"]) == ["all"]
+    # No `all` → normal union, unchanged.
+    assert merge_features(["nix"], ["postgresql"]) == ["nix", "postgresql"]
+
+
 def test_validate_aborts_on_unprovisionable_addon():
     # An addon with no installer feature is a platform gap — fail loud, don't drop.
     with pytest.raises(ConfigurationError):
