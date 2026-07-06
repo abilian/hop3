@@ -26,14 +26,30 @@ from hop3.plugins.build.nix.gen.spec import AppSpec, ConfigFile
 NIXPKGS_REV = "50ab793786d9de88ee30ec4e4c24fb4236fc2674"  # nixos-24.11
 NIXPKGS_SHA256 = "1s2gr5rcyqvpr58vxdcb095mdhblij9bfzaximrva2243aal3dgx"
 
-# The `pkgs ?` default header every generated expression opens with. A caller
-# may still override `pkgs`; absent an override, the pinned nixpkgs is fetched.
-PINNED_NIXPKGS_HEADER = (
-    "{ pkgs ? import (fetchTarball {\n"
-    f'  url = "https://github.com/NixOS/nixpkgs/archive/{NIXPKGS_REV}.tar.gz";\n'
-    f'  sha256 = "{NIXPKGS_SHA256}";\n'
-    "}) {} }:"
-)
+
+def pinned_nixpkgs_header(rev: str | None = None, sha256: str | None = None) -> str:
+    """The ``{ pkgs ? import (fetchTarball …) {} }:`` header every generated
+    expression opens with.
+
+    Defaults to the global pin (``NIXPKGS_REV``/``NIXPKGS_SHA256``). Pass a
+    per-app ``rev``/``sha256`` (both together) to override it for an app that
+    needs a package the global pin predates — e.g. ``etherpad-lite`` exists in
+    nixos-25.05 but not the default nixos-24.11. A caller may still override
+    ``pkgs`` at eval time.
+    """
+    rev = rev or NIXPKGS_REV
+    sha256 = sha256 or NIXPKGS_SHA256
+    return (
+        "{ pkgs ? import (fetchTarball {\n"
+        f'  url = "https://github.com/NixOS/nixpkgs/archive/{rev}.tar.gz";\n'
+        f'  sha256 = "{sha256}";\n'
+        "}) {} }:"
+    )
+
+
+# Back-compat: the default (unoverridden) header, used by templates that don't
+# support a per-app pin.
+PINNED_NIXPKGS_HEADER = pinned_nixpkgs_header()
 
 
 class Template(Protocol):

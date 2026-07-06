@@ -48,6 +48,23 @@ def app_spec_from_config(
         msg = "[nix].template is required"
         raise ValueError(msg)
 
+    # Per-app nixpkgs pin override — both keys together, wrapper-only. Fail loud
+    # rather than silently ignore a pin the template can't honour.
+    nixpkgs_rev = nix_config.get("nixpkgs-rev")
+    nixpkgs_sha256 = nix_config.get("nixpkgs-sha256")
+    if (nixpkgs_rev is None) != (nixpkgs_sha256 is None):
+        msg = (
+            "[nix].nixpkgs-rev and [nix].nixpkgs-sha256 must be set together "
+            "(a rev needs its fetchTarball sha256, and vice versa)"
+        )
+        raise ValueError(msg)
+    if nixpkgs_rev is not None and template != "nixpkgs-wrapper":
+        msg = (
+            "[nix].nixpkgs-rev / nixpkgs-sha256 (per-app nixpkgs pin) is only "
+            f"supported by the 'nixpkgs-wrapper' template, not {template!r}"
+        )
+        raise ValueError(msg)
+
     # Build Source from [nix] fields
     source = Source(
         url=nix_config.get("url", ""),
@@ -88,6 +105,8 @@ def app_spec_from_config(
         extra_native_build_inputs=nix_config.get("extra-native-build-inputs", []),
         # nixpkgs-wrapper fields
         nixpkgs_package=nix_config.get("nixpkgs-package"),
+        nixpkgs_rev=nixpkgs_rev,
+        nixpkgs_sha256=nixpkgs_sha256,
         install_extra=nix_config.get("install-extra"),
         exec_prefix=nix_config.get("exec-prefix"),
         nixpkgs_overrides=nix_config.get("nixpkgs-overrides", {}),

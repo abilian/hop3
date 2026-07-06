@@ -11,7 +11,6 @@ error rather than silently picking one.
 
 from __future__ import annotations
 
-import os
 import subprocess
 from typing import TYPE_CHECKING
 
@@ -130,14 +129,21 @@ def test_nix_build_registers_gc_root_via_out_link(tmp_path: Path, monkeypatch):
     assert str(tmp_path.parent / ".nix-result") in captured["cmd"]
 
 
-def test_nix_build_keeps_previous_gc_root(tmp_path: Path, monkeypatch):
-    """A rebuild must not orphan the immediately-prior closure. The current
-    .nix-result is demoted to .nix-result-prev so a still-running old worker's
-    hardcoded store path stays rooted until the next rebuild — a GC mid-cutover
-    would otherwise kill forgejo's wrapper (execs ${forgejo}/bin/forgejo). The
-    even-older root is reclaimed (its worker is long gone)."""
+def test_nix_build_reregisters_previous_gc_root(tmp_path: Path, monkeypatch):
+    """A rebuild must keep the immediately-prior closure rooted THROUGHOUT the
+    build: a still-running old worker execs a hardcoded store path (forgejo's
+    wrapper execs ${forgejo}/bin/forgejo), and a GC mid-rebuild would delete it.
+
+    The builder must register a REAL indirect GC root for the old closure
+    (`nix-store --realise <old> --add-root .nix-result-prev --indirect`) BEFORE
+    nix-build. A plain `Path.rename` cannot carry a nix root (the gcroots/auto
+    entry keeps pointing at the old name), and rotating after the build leaves an
+    unrooted window — so this asserts the command, and that it precedes the build.
+    """
+    captured: list[str] = []
 
     def fake_run(self, cmd, cwd=None):
+        captured.append(cmd)
         return subprocess.CompletedProcess(
             args=cmd, returncode=0, stdout="/nix/store/new-app\n", stderr=""
         )
@@ -149,14 +155,20 @@ def test_nix_build_keeps_previous_gc_root(tmp_path: Path, monkeypatch):
     nix_file = src / "hop3.nix"
     nix_file.write_text("# placeholder")
 
-    # A stale prev from an even-earlier build, plus the current root.
-    (tmp_path / ".nix-result-prev").symlink_to("/nix/store/ancient-app")
-    (tmp_path / ".nix-result").symlink_to("/nix/store/old-app")
+    # The current root must point at a path that EXISTS on disk (a real prior
+    # closure) — otherwise there is nothing to re-root.
+    old_store = tmp_path / "old-app"
+    old_store.mkdir()
+    (tmp_path / ".nix-result").symlink_to(old_store)
 
     builder._nix_build(nix_file)
 
-    # The current root was demoted (old closure still rooted); the ancient one
-    # was dropped, so exactly one prior generation is retained.
-    prev = tmp_path / ".nix-result-prev"
-    assert prev.is_symlink()
-    assert os.readlink(prev) == "/nix/store/old-app"
+    reroot = [c for c in captured if "--add-root" in c and "--indirect" in c]
+    assert reroot, "expected a nix-store --add-root --indirect for the old closure"
+    assert "old-app" in reroot[0]
+    assert ".nix-result-prev" in reroot[0]
+    # Register-then-build: the old closure is rooted BEFORE nix-build starts, so
+    # there is no unrooted window during the (multi-minute) build.
+    build = [c for c in captured if "nix-build" in c]
+    assert build, "expected a nix-build command"
+    assert captured.index(reroot[0]) < captured.index(build[0])
