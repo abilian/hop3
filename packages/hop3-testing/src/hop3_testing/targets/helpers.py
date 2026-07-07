@@ -329,7 +329,10 @@ class DiagnosticsHelper:
         """
         print(self.diagnostics.dump_to_console())
         log_path = self.diagnostics.save_logs()
-        print(f"\nDiagnostic logs saved to: {log_path}")
+        # Distinct from the diagnostic *bundle* (~/.hop3/test-runs/<run-id>) that
+        # the runner prints on a startup failure: this is the raw deploy-phase
+        # capture. Two different artifacts — don't label both "saved to".
+        print(f"\nDeploy logs saved to: {log_path}")
         return log_path
 
     def save(self, generate_html: bool = False) -> Path:

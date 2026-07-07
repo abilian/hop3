@@ -97,7 +97,24 @@ def write_server_config(
     Idempotent on redeploy: operator-added keys (ACME_*, custom settings) are
     preserved, and the secrets passed in are the *reused* ones (see
     ``read_existing_server_config_value``), never freshly rotated values.
+
+    A managed value not (re)generated this run is REUSED from the existing file
+    rather than dropped: a plain redeploy — or one that omits ``--with mysql`` /
+    ``--with postgres`` — must not wipe a working DB password (the service and
+    role still exist on the box), the signing key, or the admin domain. Without
+    this, the file is rebuilt from a template each run and any managed key whose
+    value arrives as ``None`` silently vanishes.
     """
+    # Reuse managed values not supplied this run (never rotate, never drop).
+    secret_key = secret_key or read_existing_server_config_value("HOP3_SECRET_KEY")
+    domain = domain or read_existing_server_config_value("ADMIN_DOMAIN")
+    pg_password = pg_password or read_existing_server_config_value(
+        "POSTGRES_SUPERUSER_PASSWORD"
+    )
+    mysql_password = mysql_password or read_existing_server_config_value(
+        "MYSQL_SUPERUSER_PASSWORD"
+    )
+
     config_file = HOME_DIR / "hop3-server.toml"
 
     # Capture operator additions before we overwrite the file.
