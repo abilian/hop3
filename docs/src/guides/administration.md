@@ -101,11 +101,11 @@ journalctl -u hop3-server -n 100 --no-pager     # why the new server didn't star
 sudo -u hop3 /home/hop3/venv/bin/hop3-server db:current   # current schema revision
 ```
 
-Because platform migrations are forward-only, if the previous code cannot run on the already-migrated schema, restore a database backup taken before the upgrade (see [Backup & Restore](#backup--restore)).
+Because platform migrations are forward-only, if the previous code cannot run on the already-migrated schema, restore a database backup taken before the upgrade (see [Backup & Restore](#backup-restore)).
 
 ### Upgrading an application
 
-Individual apps have their own safe-upgrade command that snapshots, redeploys, and rolls back automatically on failure — see [Backup & Restore](#backup--restore):
+Individual apps have their own safe-upgrade command that snapshots, redeploys, and rolls back automatically on failure — see [Backup & Restore](#backup-restore):
 
 ```bash
 hop3 app upgrade --app myapp      # snapshot -> redeploy + migrate -> verify -> auto-rollback on failure

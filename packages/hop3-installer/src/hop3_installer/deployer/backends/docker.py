@@ -526,6 +526,15 @@ class DockerDeployBackend(DeployBackend):
             return result.stdout.strip()
         return None
 
+    def service_restart_command(self, service: str) -> str:
+        """Supervisor manages services in the container — there is no systemd.
+
+        The upgrade path restarts hop3-server here; using ``systemctl`` would
+        silently no-op (systemctl can't run without a systemd PID 1), leaving
+        the old code serving while the deploy reports success.
+        """
+        return f"supervisorctl restart {service}"
+
     def start_services(self) -> None:
         """Start supervisor to manage services after Hop3 installation.
 

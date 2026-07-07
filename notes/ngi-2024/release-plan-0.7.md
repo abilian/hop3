@@ -17,7 +17,7 @@ Every annex milestone accounted for, so a reviewer can reconcile the whole proje
 | | M2.2 Beta implementation | ✅ | **0.7** — beta done (contract + gate + hardening code); 1.0 → M2.3 |
 | | M2.3 Final "1.0" | ○ | 0.7.x / 0.8 |
 | **T3** Security & resilience | M3.1 Backing services (email) | ◐ | 0.6.1 (experimental); refinements → 0.7.x |
-| | M3.2 Upgrades + migrations | ◐ | **0.7** — scope to confirm |
+| | M3.2 Upgrades + migrations | ◐ | **0.7** — server-verify + app upgrade/rollback shipped; e2e upgrade test remains |
 | | M3.3 Backups + migration tests | ✅ | 0.6 |
 | | M3.4 Testing framework + canary | ✅ | shipped |
 | | M3.5 Firewalls + WAF | ◐ | **0.7** — proxy slice remains |
@@ -58,12 +58,15 @@ Internal fixes shipped in 0.5–0.6; the external review is 0.7.x.
 - [ ] Engage the external security-audit firm
 - [ ] Document the security model in the admin guide
 
-### Upgrade mechanism (M3.2) — confirm scope
-Hop3-server's own Alembic migrations work. Beyond that:
+### Upgrade mechanism (M3.2)
+Hop3-server's own Alembic migrations work. Scope confirmed (`local-notes/specs/upgrades.md`): the server upgrade is the installer/deployer's job (and ultimately the `hop3-server` command), **not** a `hop3` client command — there is no `hop3 server upgrade` RPC and no in-product self-upgrade.
 
-- [ ] Production `hop3 server upgrade` (pull + migrate + restart; admin-only)
-- [ ] App-level upgrade orchestration: back up data + code → run the app's upgrade script → roll back on error → operator-driven rollback from CLI / Web UI
-- [ ] Rollback-on-failure + an admin-guide upgrade procedure
+- [x] Server upgrade defined, documented, and made fail-loud: after installing new code and migrating, the deployer verifies hop3-server actually answers before reporting "complete" — on failure it prints the exact command to revert to the previous release (plus the pre-upgrade-DB-restore caveat) instead of leaving a silently dead server. Admin guide gained an "Upgrading Hop3" section.
+- [x] App-level upgrade orchestration: `hop3 app upgrade --app <app>` snapshots → redeploys + runs the app's `before-run` migrations → health-verifies → auto-rolls-back to the pre-upgrade snapshot on any failure.
+- [x] Rollback-on-failure + operator-driven rollback: `hop3 app rollback --app <app> [--to <backup-id>]` (default: most recent, app-scoped; a foreign backup id is refused).
+- [x] Restart + nginx reload are process-manager-aware (systemd on real servers, `supervisorctl` / `nginx -s reload` on the Docker/supervisor target) — the Docker restart was a silent `systemctl` no-op, so it kept serving old code while reporting success.
+- [ ] e2e (Test Lab, **remote target only**): upgrade hop3-server N → N+1 across a schema migration. Cannot run on `--docker` — that backend recreates the container each deploy, so the in-place update path is never reached; needs a persistent host. §1 logic is unit-tested; the e2e is a throwaway-remote Test Lab job.
+- [ ] App-upgrade `--to <git-ref|version>` source-fetch (→ 0.7.x); today `upgrade` is the safe redeploy of current source that a plain deploy lacks. Web UI rollback also → 0.7.x (CLI first).
 
 ### Screencasts — publish (M5.6)
 68 asciicasts recorded (33 demos + 35 tutorials, each a real run).
