@@ -28,7 +28,7 @@ from typing import Any
 from hop3.config import HopConfig
 from hop3.core.plugins import get_addon
 from hop3.lib import log
-from hop3.orm import App, Backup, BackupStateEnum, EnvVar
+from hop3.orm import App, AppStateEnum, Backup, BackupStateEnum, EnvVar
 
 # Runtime imports for Dishka DI (not just type hints)
 from hop3.orm.repositories import (  # noqa: TC001
@@ -494,10 +494,12 @@ class BackupManager:
             self.app_repo.add(app, auto_commit=True)
             app.create(setup_git=True)  # Create directories and set up git
 
-        # Stop app if running
-        if app.is_running:
-            log(f"Stopping app {app_name} for restore")
-            # TODO: Call app.stop() when implemented
+        # Quiesce a running/failed instance before overwriting its files, so the
+        # restore doesn't race live workers holding the source/data we replace.
+        # app.stop() reaps and confirms (a no-op only when already stopped).
+        if app.run_state != AppStateEnum.STOPPED:
+            log(f"Stopping app {app_name} before restore")
+            app.stop()
 
         try:
             # Restore components
@@ -1091,6 +1093,11 @@ class BackupManager:
     ) -> None:
         """Restore addons from backup.
 
+        Fails loud: a missing addon backup file, or a failed addon restore,
+        aborts the whole restore. A silently-skipped addon would let a restore
+        (and the rollback built on it) report success while an addon database was
+        never restored — a rollback that lies about the state it returned to.
+
         Args:
             app: Application to restore to
             backup_dir: Backup directory
@@ -1102,20 +1109,15 @@ class BackupManager:
             backup_file = backup_dir / service_info["backup_file"]
 
             if not backup_file.exists():
-                log(f"Warning: Addon backup not found: {backup_file}")
-                continue
+                msg = (
+                    f"Addon backup file missing: {backup_file} "
+                    f"({service_type}/{addon_name}) — the backup is incomplete."
+                )
+                raise RuntimeError(msg)
 
-            try:
-                # Get or create service
-                addon = get_addon(service_type, addon_name)
-
-                # Restore service
-                addon.restore(backup_file)
-
-                log(f"Restored service {addon_name} ({service_type})")
-
-            except Exception as e:
-                log(f"Warning: Failed to restore service {addon_name}: {e}")
+            addon = get_addon(service_type, addon_name)
+            addon.restore(backup_file)
+            log(f"Restored addon {addon_name} ({service_type})")
 
     def _get_attached_addons(self, app: App) -> list[tuple[str, str]]:
         """Get list of attached addons for an app.

@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from hop3.core.backup import BackupManager
 from hop3.core.identifiers import validate_app_name
 from hop3.core.plugins import get_addon
 from hop3.deployers import do_deploy, stop_previous_instance
@@ -35,6 +36,7 @@ from hop3.orm import (
     App,
     AppRepository,
     AppStateEnum,
+    BackupRepository,
     EnvVar,
     get_session_factory,
 )
@@ -1197,3 +1199,187 @@ class DebugCmd(Command):
                 result.append(text("No compose file found."))
 
         return result
+
+
+# ---- Upgrade & rollback (M3.2) ----------------------------------------------
+#
+# `upgrade` = a *safe* redeploy: snapshot -> rebuild + `before-run` migrations +
+# health-verify -> restore the snapshot on any failure. `rollback` = restore a
+# chosen backup. Both are thin transactions over BackupManager + do_deploy (which
+# already builds and health-verifies, raising on failure) — no new machinery.
+
+
+def _backup_manager(db_session: Session) -> BackupManager:
+    """A BackupManager bound to this command's session (its repos share it)."""
+    return BackupManager(
+        backup_repo=BackupRepository(session=db_session),
+        app_repo=AppRepository(session=db_session),
+        addon_credential_repo=AddonCredentialRepository(session=db_session),
+    )
+
+
+@register
+@dataclass(frozen=True)
+class AppUpgradeCmd(Command):
+    """Safely redeploy an app, rolling back automatically on failure.
+
+    Snapshots the app (source + data + config + addons), redeploys it —
+    rebuilding and running the app's `before-run` migrations — and verifies it
+    comes back healthy. If the build, a migration, or the health check fails,
+    the app is automatically restored to the pre-upgrade snapshot.
+
+    Fetching a new version is not part of this command yet: deploy new code the
+    normal way (git push / `hop3 deploy`); `upgrade` is the safe redeploy with a
+    snapshot and automatic rollback that a plain deploy lacks.
+
+    Usage: hop3 app upgrade [--app <app>]
+
+    Examples:
+        hop3 app upgrade --app myapp
+    """
+
+    db_session: Session
+    name: ClassVar[tuple[str, ...]] = ("app", "upgrade")
+
+    def call(self, *args) -> list[dict]:
+        app_name, _ = _resolve_app(args)
+        if not app_name:
+            msg = "Usage: hop3 app upgrade [--app <app>]"
+            raise ValueError(msg)
+        app = get_app(self.db_session, app_name)
+        if app.last_deployed_at is None:
+            msg = f"App '{app_name}' has never been deployed — nothing to upgrade."
+            raise ValueError(msg)
+
+        manager = _backup_manager(self.db_session)
+        error_msg = None
+        with capture_logs() as captured:
+            # A backup failure aborts here (fail loud): no snapshot => no safe
+            # upgrade, and nothing has changed yet so there is nothing to undo.
+            with command_context("backing up app before upgrade", app_name=app_name):
+                backup_id, _ = manager.create_backup(app)
+            try:
+                do_deploy(app, db_session=self.db_session)
+                app.last_deployed_at = datetime.now(UTC)
+                self.db_session.commit()
+            except Exception as deploy_error:
+                # Transaction boundary: any deploy/migration/health failure is
+                # recovered by restoring the snapshot, then reported — not hidden.
+                with contextlib.suppress(Exception):
+                    self.db_session.rollback()
+                error_msg = self._rollback(app_name, manager, backup_id, deploy_error)
+
+        if error_msg:
+            response = logs_to_response(captured.get_logs())
+            response.append(error(error_msg))
+            error_with_logs = f"LOGS:{json.dumps(response)}|||{error_msg}"
+            raise ValueError(error_with_logs)
+
+        response = build_log_response(
+            captured, [f"App '{app_name}' upgraded (pre-upgrade backup: {backup_id})."]
+        )
+        response.append(summary(f"upgraded {app_name}."))
+        return response
+
+    def _rollback(
+        self,
+        app_name: str,
+        manager: BackupManager,
+        backup_id: str,
+        deploy_error: Exception,
+    ) -> str:
+        """Restore the pre-upgrade snapshot; return the message to fail with."""
+        try:
+            manager.restore_backup(backup_id)
+            self.db_session.commit()
+        except Exception as rollback_error:
+            # Worst case: report BOTH failures + the backup id — never a fake OK.
+            return (
+                f"Upgrade of '{app_name}' FAILED and the automatic rollback ALSO "
+                f"FAILED.\n  upgrade error: {deploy_error}\n  rollback error: "
+                f"{rollback_error}\nRestore manually: "
+                f"hop3 backup restore {backup_id} --app {app_name}"
+            )
+        return (
+            f"Upgrade of '{app_name}' failed and was rolled back to the pre-upgrade "
+            f"snapshot ({backup_id}): {deploy_error}"
+        )
+
+
+@register
+@dataclass(frozen=True)
+class AppRollbackCmd(Command):
+    """Restore an app to a previous backup (source + data + config + addons).
+
+    Rolls the app back to a snapshot and brings it running again. Defaults to
+    the most recent backup; pass `--to <backup-id>` for a specific one
+    (`hop3 backup list --app <app>` lists the ids). Overwrites live data —
+    writes made since the backup are lost.
+
+    Usage: hop3 app rollback [--app <app>] [--to <backup-id>]
+
+    Examples:
+        hop3 app rollback --app myapp
+        hop3 app rollback --app myapp --to 20260707_120000_ab12cd
+    """
+
+    db_session: Session
+    name: ClassVar[tuple[str, ...]] = ("app", "rollback")
+    destructive: ClassVar[bool] = True
+
+    def call(self, *args) -> list[dict]:
+        app_name, rest = _resolve_app(args, allow_extra=True)
+        if not app_name:
+            msg = "Usage: hop3 app rollback [--app <app>] [--to <backup-id>]"
+            raise ValueError(msg)
+        target = parse_cli_args(rest, {"to": {"type": str}}).get("to", "")
+
+        get_app(self.db_session, app_name)  # existence + name validation (raises)
+        manager = _backup_manager(self.db_session)
+        backup_id = self._resolve_backup_id(manager, app_name, target)
+
+        with (
+            capture_logs() as captured,
+            command_context("rolling back app", app_name=app_name),
+        ):
+            manager.restore_backup(backup_id)
+            self.db_session.commit()
+
+        response = build_log_response(
+            captured, [f"App '{app_name}' rolled back to backup {backup_id}."]
+        )
+        response.append(summary(f"rolled back {app_name} to {backup_id}."))
+        return response
+
+    @staticmethod
+    def _resolve_backup_id(manager: BackupManager, app_name: str, target: str) -> str:
+        """The backup to restore: an explicit --to (verified to belong to this
+        app), else the most recent for this app.
+
+        A backup from *another* app is refused: `restore_backup` targets the
+        backup's OWN manifest app, so restoring a foreign id would silently stop
+        and overwrite that other app while reporting this one was rolled back.
+        """
+        if not target:
+            recent = manager.list_backups(app_name, limit=1)
+            if not recent:
+                msg = (
+                    f"No backup to roll back to for '{app_name}'. "
+                    f"Take one with `hop3 backup create --app {app_name}`."
+                )
+                raise ValueError(msg)
+            return recent[0].backup_id
+
+        try:
+            info = manager.get_backup_info(target)
+        except FileNotFoundError as exc:
+            msg = f"Backup '{target}' not found."
+            raise ValueError(msg) from exc
+        if info.app_name != app_name:
+            msg = (
+                f"Backup '{target}' belongs to app '{info.app_name}', not "
+                f"'{app_name}'. Roll that app back with "
+                f"`hop3 app rollback --app {info.app_name} --to {target}`."
+            )
+            raise ValueError(msg)
+        return target
