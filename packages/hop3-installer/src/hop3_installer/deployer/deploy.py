@@ -268,7 +268,8 @@ class Deployer:
         # Setup SSL certificate
         step += 1
         self.log_step(step, "Setting up SSL certificate")
-        self._setup_admin_ssl(admin_domain)
+        if not self._setup_admin_ssl(admin_domain):
+            return False, step
 
         # Create admin user
         step += 1
@@ -315,7 +316,8 @@ class Deployer:
         # value, and verify it comes back up: this is the LAST restart before the
         # deploy reports success, so an unverified one would let a dead server be
         # reported as "Deployment complete".
-        recovery = f"remove or fix ADMIN_DOMAIN in {cfg} and restart hop3-server"
+        restart = self.backend.service_restart_command("hop3-server")
+        recovery = f"remove or fix ADMIN_DOMAIN in {cfg} and run {restart}"
         if not self._restart_and_verify("setting the admin domain", recovery):
             return False
         self.log(f"Server ADMIN_DOMAIN set to {domain}", "success")
@@ -627,7 +629,7 @@ class Deployer:
         message only once this returns True.
         """
         self.log("Restarting server")
-        self.backend.run("systemctl restart hop3-server", check=False)
+        self.backend.restart_service("hop3-server")
 
         if self._wait_until_server_healthy():
             return True
@@ -710,10 +712,10 @@ class Deployer:
             return False
 
         ref = old_ref or "<previous commit>"
+        restart = self.backend.service_restart_command("hop3-server")
         revert = (
             f"cd /home/hop3/hop3 && git reset --hard {ref} && "
-            "/home/hop3/venv/bin/pip install -e packages/hop3-server && "
-            "systemctl restart hop3-server"
+            f"/home/hop3/venv/bin/pip install -e packages/hop3-server && {restart}"
         )
         return self._finish_upgrade(revert, "Update complete")
 
@@ -759,8 +761,9 @@ class Deployer:
             return False
 
         version = old_version or "<previous-version>"
+        restart = self.backend.service_restart_command("hop3-server")
         revert = (
-            f"{pip} install hop3-server=={version} && systemctl restart hop3-server "
+            f"{pip} install hop3-server=={version} && {restart} "
             "(the upgrade bumped dependencies eagerly; if the old server still "
             "fails, reinstall into a fresh venv)"
         )
@@ -952,21 +955,24 @@ class Deployer:
             self.log_output(result)
             return False
 
-        # Reload nginx
-        result = self.backend.run("systemctl reload nginx", check=False)
-        if not result.success:
-            self.log("Failed to reload nginx", "warning")
-            self.log_output(result)
-        else:
-            self.log(f"Nginx configured for {domain}", "success")
+        # Reload nginx (systemctl on systemd hosts; `nginx -s reload` where
+        # there is no systemd — the Docker target runs nginx under supervisor).
+        # A reload that fails after a validated config means the admin domain
+        # won't serve — fail loud rather than report a deploy that half-worked.
+        if not self._reload_nginx():
+            self.log("Nginx reload failed for the admin domain", "error")
+            return False
 
+        self.log(f"Nginx configured for {domain}", "success")
         return True
 
-    def _setup_admin_ssl(self, domain: str) -> None:
+    def _setup_admin_ssl(self, domain: str) -> bool:
         """Setup SSL certificate for the admin domain.
 
-        Uses Let's Encrypt if a valid ACME email is provided,
-        otherwise falls back to a self-signed certificate.
+        Uses Let's Encrypt if a valid ACME email is provided, otherwise falls
+        back to a self-signed certificate. Returns False (loud) when the cert
+        can't be created or activated in nginx, so the deploy fails rather than
+        reporting an admin domain that has no working HTTPS.
         """
         cert_dir = f"/home/hop3/ssl/{domain}"
         cert_file = f"{cert_dir}/fullchain.pem"
@@ -987,8 +993,7 @@ class Deployer:
             if not upgrade:
                 self.log(f"SSL certificate already installed for {domain}", "success")
                 # Re-assert nginx points at the cert (in case it wasn't).
-                self._update_nginx_for_ssl(domain, cert_dir)
-                return
+                return self._update_nginx_for_ssl(domain, cert_dir)
             self.log(
                 f"Replacing the self-signed certificate for {domain} with a "
                 "Let's Encrypt certificate",
@@ -998,9 +1003,8 @@ class Deployer:
         # Determine if we should use Let's Encrypt or self-signed
         skip_reason = self._letsencrypt_skip_reason()
         if skip_reason is None:
-            success = self._request_letsencrypt_cert(domain, cert_dir)
-            if success:
-                return
+            if self._request_letsencrypt_cert(domain, cert_dir):
+                return True
             self.log(
                 "Let's Encrypt issuance failed; falling back to a self-signed "
                 f"certificate. Check that {domain}'s DNS points to this server "
@@ -1019,7 +1023,7 @@ class Deployer:
             )
 
         # Generate self-signed certificate
-        self._generate_self_signed_cert(domain, cert_dir)
+        return self._generate_self_signed_cert(domain, cert_dir)
 
     def _is_self_signed_cert(self, cert_file: str) -> bool:
         """True if the installed leaf cert is self-signed (issuer == subject).
@@ -1084,8 +1088,7 @@ class Deployer:
         )
         if result.success:
             self.log(f"SSL certificate exists, installing for {domain}")
-            self._install_ssl_cert(domain, cert_dir)
-            return True
+            return self._install_ssl_cert(domain, cert_dir)
 
         # No certificate exists, request a new one
         self.log(f"Requesting Let's Encrypt certificate for {domain}")
@@ -1111,12 +1114,11 @@ class Deployer:
             self.log_output(result)
             return False
 
-        # Install the certificate
-        self._install_ssl_cert(domain, cert_dir)
-        return True
+        # Install the certificate (and activate it in nginx)
+        return self._install_ssl_cert(domain, cert_dir)
 
-    def _generate_self_signed_cert(self, domain: str, cert_dir: str) -> None:
-        """Generate a self-signed SSL certificate."""
+    def _generate_self_signed_cert(self, domain: str, cert_dir: str) -> bool:
+        """Generate a self-signed SSL certificate. Returns False on failure."""
         safe_cert_dir = shlex.quote(cert_dir)
 
         self.log(f"Generating self-signed certificate for {domain}")
@@ -1137,7 +1139,7 @@ class Deployer:
         if not result.success:
             self.log("Failed to generate self-signed certificate", "error")
             self.log_output(result)
-            return
+            return False
 
         # Set proper permissions
         self.backend.run(f"chmod 600 {safe_cert_dir}/key.pem", check=False)
@@ -1145,12 +1147,18 @@ class Deployer:
         self.backend.run(f"chown -R hop3:hop3 {safe_cert_dir}", check=False)
 
         # Update nginx config to use SSL
-        self._update_nginx_for_ssl(domain, cert_dir)
+        if not self._update_nginx_for_ssl(domain, cert_dir):
+            return False
 
         self.log(f"Self-signed certificate installed for {domain}", "success")
+        return True
 
-    def _install_ssl_cert(self, domain: str, cert_dir: str) -> None:
-        """Install SSL certificate from acme.sh to the target directory."""
+    def _install_ssl_cert(self, domain: str, cert_dir: str) -> bool:
+        """Install an acme.sh certificate and activate it in nginx.
+
+        Returns False (loud) when the cert never landed on disk or nginx could
+        not be reconfigured/reloaded for it.
+        """
         safe_domain = shlex.quote(domain)
         acme_sh = "/home/hop3/.acme.sh/acme.sh"
 
@@ -1180,18 +1188,21 @@ class Deployer:
             f"test -s {shlex.quote(full_file)}", check=False
         ).success
         if not installed:
-            self.log("Failed to install SSL certificate", "warning")
+            self.log("Failed to install SSL certificate", "error")
             self.log_output(result)
-            return
+            return False
 
         # Update nginx config to use SSL and reload nginx (as root — works
         # regardless of the rootd sudoers retirement).
-        self._update_nginx_for_ssl(domain, cert_dir)
+        if not self._update_nginx_for_ssl(domain, cert_dir):
+            return False
 
         self.log(f"SSL certificate installed for {domain}", "success")
+        return True
 
-    def _update_nginx_for_ssl(self, domain: str, cert_dir: str) -> None:
-        """Update nginx config to use SSL."""
+    def _update_nginx_for_ssl(self, domain: str, cert_dir: str) -> bool:
+        """Point nginx at the SSL cert and reload. Returns False (loud) on any
+        failure — a written-but-not-live HTTPS vhost must not pass for success."""
         ssl_cert = f"{cert_dir}/fullchain.pem"
         ssl_key = f"{cert_dir}/key.pem"
         config_path, use_default_server = self._platform_nginx_target()
@@ -1203,8 +1214,9 @@ class Deployer:
         write_cmd = f"cat > {safe_config_path} << 'NGINX_EOF'\n{nginx_config}NGINX_EOF"
         result = self.backend.run(write_cmd, check=False)
         if not result.success:
-            self.log("Failed to update nginx config for SSL", "warning")
-            return
+            self.log("Failed to update nginx config for SSL", "error")
+            self.log_output(result)
+            return False
 
         # Validate before reload — a broken config (e.g. a duplicate
         # default_server) must surface here, not silently keep the old config
@@ -1213,9 +1225,26 @@ class Deployer:
         if not test_result.success:
             self.log("nginx config test failed after SSL update", "error")
             self.log_output(test_result)
-            return
+            return False
 
-        self.backend.run("systemctl reload nginx", check=False)
+        if not self._reload_nginx():
+            self.log("Failed to reload nginx after SSL update", "error")
+            return False
+        return True
+
+    def _reload_nginx(self) -> bool:
+        """Reload nginx, trying systemctl then ``nginx -s reload``.
+
+        Mirrors hop3-rootd's reload chain (``ops/nginx.py``): ``systemctl`` on
+        systemd hosts, ``nginx -s reload`` where there is no systemd — the
+        Docker deploy target runs nginx under supervisor, where a plain
+        ``systemctl reload`` silently no-ops. The caller validates the config
+        with ``nginx -t`` first, so a bad config never reaches here.
+        """
+        for cmd in ("systemctl reload nginx", "nginx -s reload"):
+            if self.backend.run(cmd, check=False).success:
+                return True
+        return False
 
     def _create_admin_user(self) -> None:
         """Create the admin user if it doesn't already exist."""

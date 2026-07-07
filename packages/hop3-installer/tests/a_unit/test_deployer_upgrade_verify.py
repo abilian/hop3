@@ -17,6 +17,19 @@ from hop3_installer.deployer.config import DeployConfig
 from hop3_installer.deployer.deploy import Deployer
 
 
+@pytest.fixture(autouse=True)
+def _no_sleep(monkeypatch):
+    """Make the health-poll budget elapse instantly.
+
+    deploy.py does ``import time; time.sleep(delay)``; patch the real ``time``
+    module so the default 15x2s poll runs fast. The dotted path targets ``time``
+    directly on purpose — ``hop3_installer.deployer.deploy`` re-exports a
+    ``deploy`` function that shadows the submodule, so a
+    ``hop3_installer.deployer.deploy.time`` path fails to resolve.
+    """
+    monkeypatch.setattr("time.sleep", lambda *_a: None)
+
+
 class _Backend:
     """Records commands; the curl health probe reflects ``healthy``."""
 
@@ -30,6 +43,12 @@ class _Backend:
         return SimpleNamespace(
             success=ok, stdout="", stderr="", returncode=0 if ok else 1
         )
+
+    def service_restart_command(self, service):
+        return f"systemctl restart {service}"
+
+    def restart_service(self, service):
+        return self.run(self.service_restart_command(service))
 
 
 class _UpdateBackend(_Backend):
@@ -66,10 +85,9 @@ def test_restart_and_verify_succeeds_when_server_answers():
     assert _probes(backend) == 1  # actually probed, stopped on the answer
 
 
-def test_restart_and_verify_fails_loud_when_server_stays_down(monkeypatch, capsys):
+def test_restart_and_verify_fails_loud_when_server_stays_down(capsys):
     # The critical no-fake-success case: the restart "worked" (systemd) but the
     # server never answers -> False, and the recovery path is surfaced.
-    monkeypatch.setattr("hop3_installer.deployer.deploy.time.sleep", lambda *_a: None)
     backend = _Backend(healthy=False)
 
     result = _deployer(backend)._restart_and_verify(
@@ -83,8 +101,7 @@ def test_restart_and_verify_fails_loud_when_server_stays_down(monkeypatch, capsy
     assert "journalctl" in out
 
 
-def test_wait_until_healthy_gives_up_after_retries(monkeypatch):
-    monkeypatch.setattr("hop3_installer.deployer.deploy.time.sleep", lambda *_a: None)
+def test_wait_until_healthy_gives_up_after_retries():
     backend = _Backend(healthy=False)
     assert _deployer(backend)._wait_until_server_healthy(retries=3, delay=0) is False
     assert _probes(backend) == 3  # polled the full budget
@@ -105,10 +122,9 @@ _PATHS = [
 
 
 @pytest.mark.parametrize(("path", "config"), _PATHS)
-def test_update_path_fails_loud_when_server_down(path, config, monkeypatch):
+def test_update_path_fails_loud_when_server_down(path, config):
     # The headline guarantee: an update path must NOT report success when the
     # new server never answers — each routes through _restart_and_verify.
-    monkeypatch.setattr("hop3_installer.deployer.deploy.time.sleep", lambda *_a: None)
     backend = _UpdateBackend(healthy=False)
     assert getattr(_deployer(backend, **config), path)() is False
     assert _probes(backend) >= 1  # it actually probed
@@ -123,10 +139,9 @@ def test_update_path_succeeds_when_healthy(path, config):
 # ---- the admin-domain restart (the LAST restart before "complete") ----------
 
 
-def test_admin_domain_restart_fails_loud_when_server_down(monkeypatch):
+def test_admin_domain_restart_fails_loud_when_server_down():
     # Regression: _persist_admin_domain used to restart fire-and-forget and
     # return True, letting a dead server be reported as "Deployment complete!".
-    monkeypatch.setattr("hop3_installer.deployer.deploy.time.sleep", lambda *_a: None)
     deployer = _deployer(_Backend(healthy=False))
     assert deployer._persist_admin_domain("admin.example.com") is False
 

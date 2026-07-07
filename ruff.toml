@@ -134,6 +134,13 @@ known-first-party = ["hop3"]
     # Real imports are needed by the bundler
     "TC001"
 ]
+"packages/hop3-installer/tests/c_e2e/utils/**/*.py" = [
+    # A self-contained test-utils package, imported as a package (conftest does
+    # `from .utils import ...`) and deliberately NOT on sys.path. Under
+    # --import-mode=importlib an absolute `from utils.common` can't resolve, so
+    # its internal modules must use parent-relative imports.
+    "TID252", # relative-imports
+]
 "packages/hop3-rootd/src/**/*.py" = [
     # Daemon raises rich exceptions with inline interpolated messages
     "TRY003", # raise-vanilla-args
