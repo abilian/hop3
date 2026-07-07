@@ -69,6 +69,82 @@ def _probe(**overrides) -> ProxyProbe:
     return ProxyProbe(**defaults)
 
 
+def test_headline_omits_fake_none_proxy_target_when_nothing_deployed():
+    # A deploy that never came up: no proxy target, unknown deployer. The
+    # headline must not render `127.0.0.1:None` (a fake URL) or a
+    # `deployer kind: unknown` noise line.
+    probe = _probe(
+        proxy_pass_port=None,
+        deployer_kind="unknown",
+        effective_uid="unknown",
+        listen_ports=(),
+        listen_table_available=False,
+        vhost_found=False,
+        curl_status=0,
+        verdict="app not deployed",
+    )
+    headline = build_headline(
+        classifier="app-crash",
+        app="startup",
+        run_id="rid-x",
+        probe=probe,
+        sections={},
+        http_front=None,
+    )
+    assert "127.0.0.1:None" not in headline
+    assert "no vhost / app not deployed" in headline
+    assert "deployer kind: unknown" not in headline
+
+
+def test_classify_hint_startup_failure_wins():
+    # A target that never came up is a startup failure, not an app crash.
+    assert (
+        classify({}, None, kind="unknown", http_front=None, hint="startup-failure")
+        == "startup-failure"
+    )
+
+
+def test_startup_failure_headline_surfaces_deploy_error_and_points_at_deploy():
+    # Verdict = the deploy error's key line; `why` points at the deploy section;
+    # the meaningless app/proxy probe is not rendered.
+    sections = {
+        "deploy": "apt-get update ...\nE: Unable to fetch pkg X: Connection timed out\n"
+    }
+    headline = build_headline(
+        classifier="startup-failure",
+        app="deploy",
+        run_id="rid-d",
+        probe=_probe(proxy_pass_port=None, deployer_kind="unknown"),
+        sections=sections,
+        http_front=None,
+    )
+    assert "startup-failure — deploy" in headline
+    assert "Connection timed out" in headline
+    assert "127.0.0.1:None" not in headline
+    assert headline.strip().endswith("why: hop3-test why rid-d --section deploy")
+
+
+def test_collect_bundle_classifies_startup_failure_via_dead_target():
+    # Through the real collection path: a target whose every probe fails is a
+    # startup failure carrying the deploy log — not an app-crash.
+    class _DeadTarget:
+        def exec_run(self, cmd):
+            return 1, "", "connection refused"
+
+    bundle = collect_diagnostic_bundle(
+        _DeadTarget(),
+        app="deploy",
+        classifier_hint="startup-failure",
+        deploy_logs="E: hop3-deploy failed: server did not become ready",
+        target_kind="ssh",
+        persist=False,
+    )
+    assert bundle.classifier == "startup-failure"
+    assert bundle.why == f"hop3-test why {bundle.run_id} --section deploy"
+    assert "server did not become ready" in bundle.headline
+    assert "127.0.0.1:None" not in bundle.headline
+
+
 # --------------------------------------------------------------------------- #
 # parse_proxy_pass_port
 # --------------------------------------------------------------------------- #
