@@ -36,6 +36,15 @@ if TYPE_CHECKING:
     from .config import DeployConfig
 
 
+# Post-restart health check. Migrations run BEFORE the restart (see
+# _run_migrations), so a healthy server only has to boot here — not migrate —
+# and 15 x 2s = 30s is ample. A slow-but-healthy start that overruns the budget
+# fails loud and never auto-reverts, so erring short is the safe direction.
+_HEALTH_RETRIES = 15
+_HEALTH_DELAY_S = 2.0
+_HEALTH_PROBE_TIMEOUT_S = 3
+
+
 class Deployer:
     """Handles Hop3 deployment to various targets."""
 
@@ -632,6 +641,8 @@ class Deployer:
     def _upgrade_recovery(revert: str) -> str:
         """Recovery guidance for a failed upgrade: how to revert, plus the
         forward-only-migration caveat (reverting code may not be enough)."""
+        # Intentional: kept as a named one-caller helper — names the concept for
+        # _finish_upgrade rather than inlining the two-line string.
         return (
             f"{revert}. A forward-migrated schema may also require restoring a "
             "pre-upgrade database backup."
@@ -645,14 +656,17 @@ class Deployer:
         self.log(success_msg, "success")
         return True
 
-    def _wait_until_server_healthy(self, retries: int = 15, delay: float = 2.0) -> bool:
+    def _wait_until_server_healthy(
+        self, retries: int = _HEALTH_RETRIES, delay: float = _HEALTH_DELAY_S
+    ) -> bool:
         """Poll until hop3-server answers HTTP on its bind address, or give up.
 
         Any HTTP response (even a 404/redirect) means the process is up and
         serving; connection-refused / timeout means it never came back. Never a
         false *positive* — curl only exits 0 when the server actually answered.
         """
-        probe = f"curl -s -o /dev/null -m 3 http://{HOP3_SERVER_BIND}/"
+        url = f"http://{HOP3_SERVER_BIND}/"
+        probe = f"curl -s -o /dev/null -m {_HEALTH_PROBE_TIMEOUT_S} {url}"
         for _ in range(retries):
             if self.backend.run(probe, check=False).success:
                 return True
@@ -669,6 +683,8 @@ class Deployer:
         # Capture the current commit BEFORE `reset --hard`, so a broken upgrade
         # can point the operator at the exact release to revert to.
         head = self.backend.run("cd /home/hop3/hop3 && git rev-parse HEAD", check=False)
+        # Intentional double .strip(): degrade the hint to "" when HEAD is empty
+        # or whitespace, not only when the command itself fails.
         old_ref = head.stdout.strip() if head.success and head.stdout.strip() else ""
 
         # Install the new code before running migrations and restarting.
