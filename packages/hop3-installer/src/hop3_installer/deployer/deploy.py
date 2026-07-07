@@ -8,6 +8,7 @@ import json
 import pathlib
 import shlex
 import subprocess
+import time
 import traceback
 from datetime import datetime
 from pathlib import Path
@@ -23,6 +24,7 @@ from hop3_installer.constants import (
     BUILD_INFO_PATH,
     DEFAULT_ADMIN_EMAIL,
     HOP3_SERVER_BIN,
+    HOP3_SERVER_BIND,
 )
 from hop3_installer.nginx_templates import (
     generate_full_ssl_config,
@@ -268,7 +270,8 @@ class Deployer:
         # magic links and `hop3 addon expose` URLs instead of http://host:8000.
         step += 1
         self.log_step(step, "Recording admin domain in server config")
-        self._persist_admin_domain(admin_domain)
+        if not self._persist_admin_domain(admin_domain):
+            return False, step
 
         return True, step
 
@@ -300,8 +303,12 @@ class Deployer:
             self.log_output(result)
             return False
         # Restart so the running server (addon-expose URLs, etc.) sees the new
-        # value; the auth:magic-link CLI reads the file fresh and doesn't need it.
-        self.backend.run("systemctl restart hop3-server", check=False)
+        # value, and verify it comes back up: this is the LAST restart before the
+        # deploy reports success, so an unverified one would let a dead server be
+        # reported as "Deployment complete".
+        recovery = f"remove or fix ADMIN_DOMAIN in {cfg} and restart hop3-server"
+        if not self._restart_and_verify("setting the admin domain", recovery):
+            return False
         self.log(f"Server ADMIN_DOMAIN set to {domain}", "success")
         return True
 
@@ -601,12 +608,68 @@ class Deployer:
         self.log("Migrations applied", "success")
         return True
 
+    def _restart_and_verify(self, what: str, recovery: str) -> bool:
+        """Restart hop3-server and confirm it answers HTTP.
+
+        Returns True when the server comes back up. On failure logs loudly (with
+        the recovery path) and returns False — a restart that starts the systemd
+        unit but leaves the server crashing must never be reported as success,
+        wherever in the deploy it happens. The caller logs its own success
+        message only once this returns True.
+        """
+        self.log("Restarting server")
+        self.backend.run("systemctl restart hop3-server", check=False)
+
+        if self._wait_until_server_healthy():
+            return True
+
+        self.log(f"Server did NOT come back up after {what}.", "error")
+        self.log(f"  Recover: {recovery}", "error")
+        self.log("  Diagnose: journalctl -u hop3-server -n 100 --no-pager", "error")
+        return False
+
+    @staticmethod
+    def _upgrade_recovery(revert: str) -> str:
+        """Recovery guidance for a failed upgrade: how to revert, plus the
+        forward-only-migration caveat (reverting code may not be enough)."""
+        return (
+            f"{revert}. A forward-migrated schema may also require restoring a "
+            "pre-upgrade database backup."
+        )
+
+    def _finish_upgrade(self, revert: str, success_msg: str) -> bool:
+        """Shared tail of every upgrade path: restart, verify the server answers,
+        report. Returns False (fail loud) if the server does not come back up."""
+        if not self._restart_and_verify("the upgrade", self._upgrade_recovery(revert)):
+            return False
+        self.log(success_msg, "success")
+        return True
+
+    def _wait_until_server_healthy(self, retries: int = 15, delay: float = 2.0) -> bool:
+        """Poll until hop3-server answers HTTP on its bind address, or give up.
+
+        Any HTTP response (even a 404/redirect) means the process is up and
+        serving; connection-refused / timeout means it never came back. Never a
+        false *positive* — curl only exits 0 when the server actually answered.
+        """
+        probe = f"curl -s -o /dev/null -m 3 http://{HOP3_SERVER_BIND}/"
+        for _ in range(retries):
+            if self.backend.run(probe, check=False).success:
+                return True
+            time.sleep(delay)
+        return False
+
     def _update_from_git(self) -> bool:
         """Update existing installation from git."""
         self.log("Pulling latest code from git")
 
         # Quote branch name to prevent command injection
         safe_branch = shlex.quote(self.config.branch)
+
+        # Capture the current commit BEFORE `reset --hard`, so a broken upgrade
+        # can point the operator at the exact release to revert to.
+        head = self.backend.run("cd /home/hop3/hop3 && git rev-parse HEAD", check=False)
+        old_ref = head.stdout.strip() if head.success and head.stdout.strip() else ""
 
         # Install the new code before running migrations and restarting.
         # Migrations run between install and restart so a schema mismatch
@@ -630,13 +693,26 @@ class Deployer:
         if not self._run_migrations():
             return False
 
-        self.backend.run("systemctl restart hop3-server", check=False)
-        self.log("Update complete", "success")
-        return True
+        ref = old_ref or "<previous commit>"
+        revert = (
+            f"cd /home/hop3/hop3 && git reset --hard {ref} && "
+            "/home/hop3/venv/bin/pip install -e packages/hop3-server && "
+            "systemctl restart hop3-server"
+        )
+        return self._finish_upgrade(revert, "Update complete")
 
     def _update_from_pypi(self) -> bool:
         """Update existing installation from PyPI."""
         pip = "/home/hop3/venv/bin/pip"
+
+        # Capture the installed version BEFORE upgrading, for the revert hint.
+        show = self.backend.run(f"{pip} show hop3-server", check=False)
+        old_version = ""
+        if show.success:
+            for line in show.stdout.splitlines():
+                if line.lower().startswith("version:"):
+                    old_version = line.split(":", 1)[1].strip()
+                    break
 
         # Build package spec
         if self.config.pypi_version:
@@ -666,12 +742,13 @@ class Deployer:
         if not self._run_migrations():
             return False
 
-        # Restart server
-        self.log("Restarting server")
-        self.backend.run("systemctl restart hop3-server", check=False)
-
-        self.log("Update from PyPI complete", "success")
-        return True
+        version = old_version or "<previous-version>"
+        revert = (
+            f"{pip} install hop3-server=={version} && systemctl restart hop3-server "
+            "(the upgrade bumped dependencies eagerly; if the old server still "
+            "fails, reinstall into a fresh venv)"
+        )
+        return self._finish_upgrade(revert, "Update from PyPI complete")
 
     def _upload_local_code_for_install(self) -> str | None:
         """Upload local code to a temp location for fresh install.
@@ -795,12 +872,8 @@ class Deployer:
         if not self._run_migrations():
             return False
 
-        # Restart server
-        self.log("Restarting server")
-        self.backend.run("systemctl restart hop3-server", check=False)
-
-        self.log("Local code deployed", "success")
-        return True
+        revert = "re-deploy the previous local checkout: hop3-deploy-server --local"
+        return self._finish_upgrade(revert, "Local code deployed")
 
     def _platform_nginx_target(self) -> tuple[str, bool]:
         """Where the platform vhost lives, and whether it may own default_server.
