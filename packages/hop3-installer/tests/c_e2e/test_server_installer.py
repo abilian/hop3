@@ -89,6 +89,15 @@ class TestServerInstaller:
             "Failed to upload server package"
         )
 
+        # hop3-rootd (required for deploys) and hop3-cli must sit next to the
+        # server source, or the installer aborts at the rootd step — mirroring
+        # what hop3-deploy-server uploads.
+        for pkg in ("hop3-rootd", "hop3-cli"):
+            src = hop3_packages_dir / pkg
+            if not src.exists():
+                pytest.skip(f"{pkg} package not found: {src}")
+            assert backend.upload_dir(src, f"/tmp/{pkg}"), f"Failed to upload {pkg}"
+
         # Run installer with local path
         result = backend.run(
             f"python3 {installer_path} "
