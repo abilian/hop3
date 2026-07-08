@@ -654,7 +654,7 @@ The architecture is designed so future privileged operations slot in without pro
 3. **`systemd.reload(unit)` / `systemd.restart(unit)`** — replaces the caddy / traefik sudoers fallback; clean lifecycle for systemd-managed app units if/when those become a deployer option.
 4. **`namespace.create_for_app(...)`** — only relevant if Hop3 ever introduces per-app network namespaces (a much larger change; out of scope for now, but the daemon would be the right place).
 
-Each addition is a separate ADR revision with its own threat model and expanded error-code taxonomy. None belong to the baseline scope. (The first such additions — `cgroup.*` and `mount.*` for ADR 046 — are specified in §18.)
+Each addition is a separate ADR revision with its own threat model and expanded error-code taxonomy. None belong to the baseline scope. (The first such additions — `cgroup.*` and `mount.*` for ADR 046 — are specified in §18; the `proxy.*` addon-exposure family for ADR 040 is specified in §19.)
 
 ### 17. Connection to ADR 017 (agent-based architecture)
 
@@ -689,6 +689,39 @@ Native `[limits]` enforcement and native `[[volumes]]` (ADR 046) need privileged
 **Guard discipline and fallback.** A realization is gated on its op: a guard that refuses a resource the platform cannot realize stays until the matching op is live, so no app deploys *looking* capped or persisted when it isn't. If this unit-hardening is not adopted, native `[limits]` / `tmpfs` / `bind` are infeasible and only the Docker paths are available — ADR 046's guaranteed-deployable baseline.
 
 The error-code taxonomy is unchanged (`validation_failed` / `kernel_error` / `state_conflict` cover both families), and the client surface stays `LocalRootdClient.call(op, args)`.
+
+### 19. Amendment — `proxy.*` op family (ADR 040 addon exposure)
+
+ADR 040 exposes an app's *own* fixed ports by opening the host firewall (`firewall.*`, §4): the app already binds `0.0.0.0` and the rule simply lets traffic through. A database **addon** is different — it binds `127.0.0.1` only (Hop3 convention, never `0.0.0.0`), so `hop3 addon expose` cannot be satisfied by a firewall rule alone. A rule on a public port would reach a closed socket. Making a loopback-only service reachable on a public host port needs a real forwarder, and creating one is a privileged act. Hence a third op family.
+
+**Ops** (registered, dispatched, and audited like the others; `proxy.list` is read-only, `audit=False`):
+
+```
+proxy.add({addon_type, addon_name, public_port, target_port, source?}) -> {unit, public_port, target_port, ...}
+proxy.remove({addon_type, addon_name}) -> {removed, unit}
+proxy.list({addon_type?}) -> {proxies: [...]}
+```
+
+**Mechanism.** rootd realises each exposure as a per-addon `systemd-socket-proxyd` unit pair:
+
+```
+hop3-expose-<type>-<name>.socket    ListenStream=0.0.0.0:<public_port>
+hop3-expose-<type>-<name>.service   ExecStart=…/systemd-socket-proxyd 127.0.0.1:<target_port>
+```
+
+rootd **never `exec`s the proxy binary itself.** It writes the two unit files (atomic write→fsync→rename, mode 0644, the same discipline as `state.json`) and drives the *units* through the already-allow-listed `systemctl` (`daemon-reload`, `enable --now`, `disable --now`, `stop`) — exactly as `nginx.reload` drives `systemctl`, adding no new allow-listed binary beyond the `systemd-socket-proxyd` path baked into the rendered `ExecStart`.
+
+**Containment (the §1 framing).**
+
+- *Loopback-only destination.* The forwarder target host is hardcoded to `127.0.0.1`. This primitive can forward a public port to a *loopback* port and nothing else — never to an arbitrary internal host. It cannot become a general-purpose network relay.
+- *No caller-supplied unit name.* The unit base name is composed **inside rootd** from a validated `addon_type` + `addon_name` (the §4 validators, reused). A raw systemd unit name is never accepted off the wire, so a caller can only ever act on a `hop3-expose-<type>-<name>` unit it owns — it cannot stop/disable an operator's units.
+- *No secrets on disk.* A unit file carries only ports; no addon credential ever touches it.
+
+**One state discipline (as §18).** Exposures are `StoredProxy` rows in `state.json` under the same atomic-write + startup-reconcile model as firewall rules. `reconcile_proxies` sweeps orphans by the §6 rule: a `hop3-expose-*` unit on disk with no matching state row is "ours" by naming and is removed (it is a leftover from a crashed expose). `proxy.list` is the teardown-verification surface — after `hop3 addon unexpose`, the server calls it and expects the unit gone. The error-code taxonomy is unchanged: `ProxyError` / `ProxyUnavailableError` → `kernel_error`, validation failures → `validation_failed`.
+
+**Deploy coupling.** `hop3 addon expose` opens the firewall (`firewall.add_rule`) and then creates the forwarder (`proxy.add`) in one rootd session; a failure of either rolls the exposure back (the firewall grant is removed, the `PortClaim` row released) — the all-or-nothing shape of §8, applied to addon exposure. Teardown drops the claim row first (so the host port is reclaimable even if rootd is down), then best-effort closes the firewall and removes the forwarder, with `reconcile_proxies` as the completeness backstop.
+
+**Unit-hardening note.** Writing `/etc/systemd/system` and running `systemctl` is a materially larger surface than `CAP_NET_ADMIN`-only — the same forward constraint §18 records for `cgroup.*` / `mount.*`. The current unit runs with minimal sandboxing precisely because rootd is the privileged executor of several external tools (`nft`, `nginx`, `systemctl`) whose needs the heavy §10 profile could not jointly satisfy; a future hardening redesign must preserve `proxy.*`'s unit-file write and `systemctl` needs alongside the §18 ones. The client surface stays `LocalRootdClient.call(op, args)`.
 
 ## Consequences
 

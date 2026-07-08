@@ -8,7 +8,7 @@ from __future__ import annotations
 import stat
 
 import pytest
-from hop3_rootd import PROTOCOL_VERSION, postfix as pf
+from hop3_rootd import PROTOCOL_VERSION, dkim, postfix as pf
 from hop3_rootd.ops import get_handler
 from hop3_rootd.ops._base import OpContext, OpHandler
 from hop3_rootd.postfix import PostfixError, PostfixUnavailableError
@@ -203,3 +203,52 @@ def test_op_catch_mode(postfix_dir):
 def test_op_unknown_mode_is_loud(postfix_dir):
     with pytest.raises(ValidationError):
         _handler()(_req(mode="bogus"), _ctx(FakeExec()))
+
+
+# --- direct backend (deliver to MX, DKIM-signed) -------------------------
+
+
+def test_configure_direct_writes_main_cf(postfix_dir):
+    ex = FakeExec()
+    result = pf.configure_direct(milter="inet:localhost:8891", exec=ex)
+    main = (postfix_dir / "main.cf").read_text()
+    assert "relayhost =\n" in main  # empty — deliver to the recipient's MX
+    assert "smtp_milters = inet:localhost:8891" in main
+    assert "smtp_sasl_auth_enable" not in main  # we are the MTA, no upstream auth
+    assert result["relayhost"] == ""
+    assert _ran(ex, "systemctl")
+
+
+@pytest.fixture
+def direct_dirs(postfix_dir, tmp_path, monkeypatch):
+    monkeypatch.setattr(dkim, "KEY_DIR", tmp_path / "dkim")
+    monkeypatch.setattr(dkim, "OPENDKIM_DIR", tmp_path / "opendkim")
+    monkeypatch.setattr(dkim, "OPENDKIM_CONF", tmp_path / "opendkim.conf")
+    # A prior DKIM key so ensure_keypair reuses it (no opendkim-genkey run).
+    kd = tmp_path / "dkim"
+    kd.mkdir()
+    (kd / "hop3.private").write_text("PRIV")
+    (kd / "hop3.txt").write_text('foo IN TXT ( "v=DKIM1; k=rsa; " "p=abc" )')
+    return postfix_dir
+
+
+def test_op_direct_mode_returns_records(direct_dirs):
+    result = _handler()(
+        _req(mode="direct", from_domain="example.com", server_ip="203.0.113.7"),
+        _ctx(FakeExec()),
+    )
+    assert result["mode"] == "direct"
+    assert result["dkim_selector"] == "hop3"
+    assert result["records"]["spf"]["value"] == "v=spf1 ip4:203.0.113.7 ~all"
+    assert result["records"]["dkim"]["value"].startswith("v=DKIM1")
+    main = (direct_dirs / "main.cf").read_text()
+    assert "relayhost =\n" in main
+    assert "inet:localhost:8891" in main
+
+
+def test_op_direct_rejects_bad_ip(direct_dirs):
+    with pytest.raises(ValidationError):
+        _handler()(
+            _req(mode="direct", from_domain="example.com", server_ip="not-an-ip"),
+            _ctx(FakeExec()),
+        )
