@@ -190,6 +190,34 @@ class RemoteTarget(DeploymentTarget):
 
         return self._info
 
+    def redeploy(self, config: DeploymentConfig) -> None:
+        """Re-deploy to the connected host (in-place update). See base class.
+
+        The SSH host is inherently persistent, so a non-clean redeploy hits the
+        deployer's update path. deploy() health-verifies, so ``success`` already
+        means the server came back up.
+        """
+        rc = self.remote_config
+        success, _duration = run_hop3_deploy(
+            docker=False,
+            host=rc.host,
+            user=rc.user,
+            source=config.source,
+            clean=config.clean,
+            branch=config.branch,
+            version=config.version,
+            legacy_flags=config.legacy_flags,
+            verbose=config.verbose,
+            features=config.features,
+            ssh_key=rc.ssh_key,
+            command_prefix=config.command_prefix,
+            cwd=config.cwd,
+            diagnostics=self.diagnostics,
+        )
+        if not success:
+            msg = f"redeploy failed (source={config.source}, version={config.version})"
+            raise RuntimeError(msg)
+
     def _deploy_and_connect(self) -> TargetInfo:
         """Deploy Hop3 via hop3-deploy, then connect.
 
@@ -222,6 +250,8 @@ class RemoteTarget(DeploymentTarget):
                 source=deployment.source,
                 clean=deployment.clean,
                 branch=deployment.branch,
+                version=deployment.version,
+                legacy_flags=deployment.legacy_flags,
                 verbose=deployment.verbose,
                 features=deployment.features,
                 ssh_key=config.ssh_key,

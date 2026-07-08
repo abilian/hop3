@@ -369,7 +369,22 @@ class DockerDeployBackend(DeployBackend):
             print("  ✗ Docker is not available")
             return False
 
-        # Check for port conflicts first (before building image)
+        # Reuse a running container unless --clean was asked for: a second
+        # deploy then hits the in-place UPDATE path (upgrade) instead of a
+        # fresh install. --clean (or no running container) forces a rebuild.
+        if self._container_running() and not self.config.clean_before:
+            print(f"  → Reusing running container {self.container_name} (no --clean)")
+            return True
+
+        return self._create_fresh_container()
+
+    def _create_fresh_container(self) -> bool:
+        """Drop any existing container and start a clean one."""
+        # Drop any existing one FIRST so the port check and start don't
+        # collide with a stale container of our own.
+        self._remove_container()
+
+        # Check for port conflicts (now that our own container is gone)
         conflicts = self._check_ports_available()
         if conflicts:
             self._report_port_conflicts(conflicts)
@@ -382,9 +397,6 @@ class DockerDeployBackend(DeployBackend):
         if not image_built:
             self.image = "ubuntu:24.04"
             print(f"  → Falling back to {self.image}")
-
-        # Always remove existing container first
-        self._remove_container()
 
         # Start and wait for container
         if not self._start_container():

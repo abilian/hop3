@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from .catalog import list_tests
 from .test import system_test
+from .upgrade_chain import upgrade_chain
 from .why import why_cmd
 
 if TYPE_CHECKING:
@@ -19,6 +20,7 @@ __all__ = [
     "list_tests",
     "register_commands",
     "system_test",
+    "upgrade_chain",
     "why_cmd",
 ]
 
@@ -33,3 +35,4 @@ def register_commands(cli: click.Group) -> None:
     cli.add_command(system_test, name="system")  # deprecated alias; same command
     cli.add_command(list_tests)
     cli.add_command(why_cmd)
+    cli.add_command(upgrade_chain)
