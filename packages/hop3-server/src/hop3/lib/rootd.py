@@ -31,6 +31,11 @@ DEFAULT_SOCKET_PATH: Final[Path] = Path("/run/hop3-rootd/socket")
 # Bumped in lockstep with the daemon — see ADR 041 §11.
 PROTOCOL_VERSION: Final[int] = 1
 
+# Wire error code the daemon returns on protocol-version skew (mirrors
+# hop3_rootd.protocol.ErrorCode.PROTOCOL_VERSION_MISMATCH). Kept as a local
+# literal rather than imported, so the client carries no hop3-rootd dependency.
+_PROTOCOL_VERSION_MISMATCH_CODE: Final[str] = "protocol_version_mismatch"
+
 DEFAULT_TIMEOUT_SECONDS: Final[float] = 30.0
 
 
@@ -141,15 +146,34 @@ class LocalRootdClient:
     def _handshake(self) -> None:
         """Send daemon.handshake and validate the response.
 
-        Raises RootdProtocolError on version mismatch.
+        Version skew is surfaced as RootdProtocolError with the actionable
+        remediation ADR 041 §3 promises, via two paths:
+
+        - The real daemon validates the protocol version of *every* envelope
+          at decode time (each message carries ``v``), so a skew comes back as
+          a ``protocol_version_mismatch`` error envelope — which ``_send_recv``
+          raises as ``RootdOpError`` — before any handshake body exists. That is
+          the path a real mismatch takes; translate it here.
+        - Defense in depth: a daemon that answered ``ok=True`` but with a
+          mismatched ``protocol_version`` in the body is caught by the explicit
+          check below.
         """
-        result = self._send_recv(
-            "daemon.handshake",
-            {
-                "client_version": _client_version(),
-                "client_protocol_version": PROTOCOL_VERSION,
-            },
-        )
+        try:
+            result = self._send_recv(
+                "daemon.handshake",
+                {
+                    "client_version": _client_version(),
+                    "client_protocol_version": PROTOCOL_VERSION,
+                },
+            )
+        except RootdOpError as e:
+            if e.code == _PROTOCOL_VERSION_MISMATCH_CODE:
+                raise RootdProtocolError(
+                    f"protocol_version mismatch ({e.message}); "
+                    "re-run hop3-install server to upgrade hop3-rootd"
+                ) from e
+            raise
+
         # daemon.handshake returns: {daemon_version, protocol_version, accepted}
         daemon_pv = result.get("protocol_version")
         if daemon_pv != PROTOCOL_VERSION:

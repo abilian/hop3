@@ -184,14 +184,30 @@ class EmailAddon:
     # ------------------------------------------------------------------
 
     def get_connection_details(self) -> dict[str, str]:
-        """Render the transport as env vars under every common spelling."""
-        transport = self._load_transport()
-        if transport is None:
+        """Render the app's SMTP env vars under every common spelling.
+
+        An **inheriting** addon points the app at the loopback relay
+        (``127.0.0.1:25``, ADR 054): the app speaks SMTP to the local Postfix,
+        which relays to the active backend using credentials held only in
+        Postfix — the provider password never enters the app's environment.
+        Resolving the server transport still fails loud if the backend is gone.
+
+        An addon with its **own** ``--smtp-*`` provider (an override) injects
+        that provider's endpoint directly.
+        """
+        data = load_addon_secrets(_TYPE, self.addon_name)
+        if data is None:
             msg = (
                 f"No SMTP transport configured for email addon {self.addon_name!r}. "
                 f"Run: hop3 addon email create {self.addon_name} --smtp-host <h> …"
             )
             raise RuntimeError(msg)
+        if data.get("inherit"):
+            transport = self._load_transport()  # fail-loud if the backend is gone
+            assert transport is not None
+            return _loopback_vars(transport.mail_from)
+        transport = self._load_transport()
+        assert transport is not None
         return _connection_vars(transport)
 
     # ------------------------------------------------------------------
@@ -264,6 +280,47 @@ class EmailAddon:
             smtp_password=data["smtp_password"],
             mail_from=data["mail_from"],
         )
+
+
+_LOOPBACK_HOST = "127.0.0.1"
+_LOOPBACK_PORT = "25"
+
+
+def _loopback_vars(mail_from: str) -> dict[str, str]:
+    """Env vars pointing an inheriting app at the local loopback relay.
+
+    The app sends to ``127.0.0.1:25`` with no auth; the Hop3-managed Postfix
+    relays to the active backend (ADR 054). No provider credential is emitted —
+    it lives only in Postfix. Every common spelling points at the loopback.
+    """
+    host, port = _LOOPBACK_HOST, _LOOPBACK_PORT
+    url = f"smtp://{host}:{port}"
+    return {
+        # Neutral / Node / nodemailer
+        "SMTP_HOST": host,
+        "SMTP_PORT": port,
+        "SMTP_USER": "",
+        "SMTP_PASSWORD": "",
+        "SMTP_FROM": mail_from,
+        "SMTP_TLS": "false",
+        "SMTP_URL": url,
+        # Django (django.core.mail)
+        "EMAIL_HOST": host,
+        "EMAIL_PORT": port,
+        "EMAIL_HOST_USER": "",
+        "EMAIL_HOST_PASSWORD": "",
+        "EMAIL_USE_TLS": "false",
+        "EMAIL_USE_SSL": "false",
+        "DEFAULT_FROM_EMAIL": mail_from,
+        # Flask-Mail
+        "MAIL_SERVER": host,
+        "MAIL_PORT": port,
+        "MAIL_USERNAME": "",
+        "MAIL_PASSWORD": "",
+        "MAIL_USE_TLS": "false",
+        "MAIL_USE_SSL": "false",
+        "MAIL_DEFAULT_SENDER": mail_from,
+    }
 
 
 def _connection_vars(t: EmailTransport) -> dict[str, str]:
