@@ -231,6 +231,65 @@ class ServerEmailSetCmd(Command):
         return lines
 
 
+_BACKEND_KINDS = ("relay", "catch", "direct")
+
+_BACKEND_USAGE = (
+    "Usage: hop3 server email backend <relay|catch|direct> [options]\n"
+    "  relay: (--provider <name> | --smtp-host <h>) --smtp-user <u> "
+    "--smtp-password <pw> --from-domain <domain>"
+)
+
+
+@register
+@dataclass(frozen=True)
+class ServerEmailBackendCmd(Command):
+    """Select the server-level email backend — EXPERIMENTAL.
+
+    Usage: hop3 server email backend <relay|catch|direct> [backend options]
+
+    Picks the backend every app inherits (ADR 054). `relay` submits to a
+    provider or corporate smarthost — the shipped backend, also spelled
+    `server email set`; pass its options after `relay`. `catch` (a dev sink)
+    and `direct` (a self-hosted MTA) are not available yet and fail loud rather
+    than pretend. Admin-only.
+
+    Examples:
+        hop3 server email backend relay --provider brevo --smtp-user <u> \\
+            --smtp-password @./smtp.secret --from-domain example.com
+    """
+
+    user_repo: UserRepository
+    name: ClassVar[tuple[str, ...]] = ("server", "email", "backend")
+    pass_username: ClassVar[bool] = True
+
+    def call(self, authenticated_username: str = "", *args: str) -> list[dict]:
+        if admin_error := require_admin(authenticated_username, self.user_repo):
+            return admin_error
+
+        if not args:
+            return [text(_BACKEND_USAGE), error("missing: <relay|catch|direct>")]
+
+        kind, *rest = args
+        if kind == "relay":
+            # `relay` is the shipped backend; delegate to `server email set`,
+            # which owns endpoint/credential resolution and storage.
+            return ServerEmailSetCmd(user_repo=self.user_repo).call(
+                authenticated_username, *rest
+            )
+        if kind in {"catch", "direct"}:
+            return [
+                error(
+                    f"email backend {kind!r} is not available yet — use 'relay' "
+                    "(a provider or corporate smarthost). Tracked in "
+                    "release-plan-0.7 M3.1."
+                )
+            ]
+        return [
+            text(_BACKEND_USAGE),
+            error(f"unknown backend {kind!r}. Valid: {', '.join(_BACKEND_KINDS)}."),
+        ]
+
+
 @register
 @dataclass(frozen=True)
 class ServerEmailStatusCmd(Command):
@@ -302,5 +361,6 @@ def _list_providers_items() -> list[dict]:
 # Contributed to the RPC dispatch table via EmailPlugin.cli_commands().
 SERVER_COMMANDS: list[type[Command]] = [
     ServerEmailSetCmd,
+    ServerEmailBackendCmd,
     ServerEmailStatusCmd,
 ]

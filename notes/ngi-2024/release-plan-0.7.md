@@ -117,14 +117,22 @@ Pinning (0.6.1) removed the moving-channel problem; hermeticity is the rest.
 - [ ] Accessibility scan (with the M3.7 polish)
 
 ### Email addon refinements (M3.1)
-0.6.1 shipped the minimal experimental slice; the transport/identity model implies:
+Email is a **backing service with a swappable backend**, symmetric with the database addon (ADR 054): the operator picks a backend once at the server level, every app inherits it, and the app-facing contract (`SMTP_*`/`EMAIL_*`/`MAIL_*`/`SMTP_URL`, plus an opt-in `sendmail` on-ramp) is stable across backends. 0.6.1 shipped the interface; the work left is the backends and the productization.
 
-- [ ] Server-level shared transport (`hop3 server email …`) that per-app addons reference
-- [ ] Named-provider profiles (Resend / Postmark / Brevo / Mailgun / SES / Scaleway TEM; EU-sovereign first-class)
-- [ ] Local relay — a host Postfix null-client on `localhost:25` + sendmail, so WordPress / PHP `mail()` / cron work with zero injection
-- [ ] Dev catcher (a Mailpit backend mode)
-- [ ] Platform notifications — reuse the transport for cert / deploy / outage alerts
-- [ ] Per-app sub-credentials for reputation isolation
+**Server backend + provider profiles + notifications — shipped (0.7, unreleased); the per-app interface shipped in 0.6.1:**
+
+- [x] Server-level shared transport, inherited by reference — `hop3 server email set …`; apps do `hop3 addon email create <name> --from <addr>` (no creds) and inherit
+- [x] Named-provider profiles (Resend / Postmark / Brevo / Mailgun / Mailgun-EU / Scaleway TEM; EU-sovereign first-class) with DKIM auto-verify — `--provider <name>` fills the endpoint
+- [x] Cert-renewal-failure notifications through the active backend (`hop3 server email notifications on --to …`)
+
+**Backends + on-ramp — the remaining work** (`server email backend <kind>` is the canonical verb; `relay` ships today as its alias `server email set`, `catch`/`direct` are to-build)**:**
+
+- [ ] **`sendmail` on-ramp** (queuing local Postfix null-client → the relay backend, per-app envelope sender) so WordPress / PHP `mail()` / cron send with zero code change — `hop3 addon attach <name> --app <app> --type email --sendmail`
+- [ ] **Direct backend** (Hop3-run MTA delivering to MX, Hop3-generated DKIM, honest deliverability + egress pre-flight) for the fully-sovereign no-third-party path — `hop3 server email backend direct --from-domain example.com`
+- [ ] **Catcher backend** (Mailpit-class dev sink, captured never sent) as the safe non-production default — `hop3 server email backend catch`
+- [ ] **Deploy-failure notifications** (needs a single deploy choke point) + outage/health alerts through the active backend
+- [ ] **Per-app sub-credentials** (mint via provider API on attach, revoke on detach) for reputation isolation — depends on the provider-profile framework growing an API surface
+- [ ] **SES + real-logic providers** (region-templated endpoint, IAM→SMTP-password derivation) as the pluggy-provider exception to the data-only registry
 
 ### Migration series (T5)
 - [ ] Publish the 21 drafted "migrating from X" posts
