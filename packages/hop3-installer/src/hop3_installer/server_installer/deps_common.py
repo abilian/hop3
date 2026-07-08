@@ -351,6 +351,28 @@ def _fail_rust_install(
         )
 
 
+def _verify_or_repair_cargo(
+    cargo_path: Path, rustup_path: Path
+) -> subprocess.CompletedProcess:
+    """Return `cargo --version`; on failure, force-reinstall stable once first.
+
+    A flaky component download (or a stale ~/.rustup) can leave the cargo PROXY
+    present while the stable toolchain has no cargo ("cargo ... is not applicable
+    to the 'stable-...' toolchain"). One forced toolchain reinstall self-heals
+    that; the caller still fails loud when the returned result is non-zero.
+    """
+    verify = run_as_hop3(f"{cargo_path} --version")
+    if verify.returncode == 0:
+        return verify
+    print_detail("cargo not usable; reinstalling the stable toolchain...")
+    with Spinner("Repairing the Rust stable toolchain..."):
+        run_as_hop3(
+            f"{rustup_path} toolchain install stable --profile minimal --force",
+            timeout=600,
+        )
+    return run_as_hop3(f"{cargo_path} --version")
+
+
 def install_catalogue_baseline(os_family: str) -> None:
     """Install the catalogue-derived package baseline.
 
@@ -491,7 +513,7 @@ def install_rust_toolchain(*, required: bool = False) -> None:
 
     # Verify cargo runs (path-exists alone was insufficient on at least
     # one host where rustup dropped a stub that couldn't exec).
-    verify = run_as_hop3(f"{cargo_path} --version")
+    verify = _verify_or_repair_cargo(cargo_path, rustup_path)
     if verify.returncode != 0:
         _fail_rust_install(
             "Rust installed but `cargo --version` exits non-zero",
