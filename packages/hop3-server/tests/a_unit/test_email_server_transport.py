@@ -20,7 +20,11 @@ from hop3.plugins.addons import secrets as secrets_module
 from hop3.plugins.email import deliverability, providers, server_transport as st_module
 from hop3.plugins.email.cli import AddonEmailCreateCmd, AddonEmailStatusCmd
 from hop3.plugins.email.email import EmailAddon, EmailTransport
-from hop3.plugins.email.server_cli import ServerEmailSetCmd, ServerEmailStatusCmd
+from hop3.plugins.email.server_cli import (
+    ServerEmailBackendCmd,
+    ServerEmailSetCmd,
+    ServerEmailStatusCmd,
+)
 from hop3.plugins.email.server_transport import (
     load_server_dkim_selector,
     load_server_transport,
@@ -576,3 +580,56 @@ def test_set_dkim_selector_without_provider(email_root, no_dns):
         "--dkim-selector", "s1",
     )  # fmt: skip
     assert load_server_dkim_selector() == "s1"
+
+
+# ---- server email backend <kind> (admin-gated) ------------------------------
+
+
+def test_backend_relay_stores_transport(email_root, no_dns):
+    # `backend relay` is the canonical spelling of `server email set`.
+    result = ServerEmailBackendCmd(user_repo=_admin_repo()).call(
+        "admin", "relay",
+        "--smtp-host", "smtp.example.com", "--smtp-user", "u",
+        "--smtp-password", "pw", "--from-domain", "example.com",
+    )  # fmt: skip
+    assert "experimental" in _joined(result)
+    loaded = load_server_transport()
+    assert loaded is not None
+    assert loaded.smtp_host == "smtp.example.com"
+
+
+def test_backend_relay_requires_admin(email_root, no_dns):
+    result = ServerEmailBackendCmd(user_repo=_nonadmin_repo()).call(
+        "bob", "relay",
+        "--smtp-host", "smtp.example.com", "--smtp-user", "u",
+        "--smtp-password", "pw", "--from-domain", "example.com",
+    )  # fmt: skip
+    assert "error" in _types(result)
+    assert "Admin privileges required" in _joined(result)
+    assert load_server_transport() is None
+
+
+def test_backend_catch_not_available_yet(email_root):
+    # Fail loud rather than pretend an unbuilt backend was configured.
+    result = ServerEmailBackendCmd(user_repo=_admin_repo()).call("admin", "catch")
+    assert "error" in _types(result)
+    assert "not available yet" in _joined(result)
+    assert load_server_transport() is None
+
+
+def test_backend_direct_not_available_yet(email_root):
+    result = ServerEmailBackendCmd(user_repo=_admin_repo()).call("admin", "direct")
+    assert "error" in _types(result)
+    assert "not available yet" in _joined(result)
+
+
+def test_backend_unknown_kind_is_loud(email_root):
+    result = ServerEmailBackendCmd(user_repo=_admin_repo()).call("admin", "smtp")
+    assert "error" in _types(result)
+    assert "unknown backend" in _joined(result)
+
+
+def test_backend_missing_kind_shows_usage(email_root):
+    result = ServerEmailBackendCmd(user_repo=_admin_repo()).call("admin")
+    assert "error" in _types(result)
+    assert "backend <relay|catch|direct>" in _joined(result)
