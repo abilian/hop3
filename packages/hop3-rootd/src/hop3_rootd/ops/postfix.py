@@ -18,11 +18,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from hop3_rootd import postfix as pf
+from hop3_rootd import dkim, postfix as pf
 from hop3_rootd.ops._base import OpContext, register
 from hop3_rootd.protocol import Request
 from hop3_rootd.validation import (
     ValidationError,
+    validate_dkim_selector,
+    validate_from_domain,
+    validate_ipv4,
     validate_port,
     validate_relay_host,
     validate_sasl_value,
@@ -31,6 +34,7 @@ from hop3_rootd.validation import (
 
 _CATCH_DEFAULT_HOST = "127.0.0.1"
 _CATCH_DEFAULT_PORT = 1025  # Mailpit's default SMTP port
+_DIRECT_DEFAULT_SELECTOR = "hop3"
 
 
 @register("postfix.configure")
@@ -38,14 +42,43 @@ def configure(req: Request, ctx: OpContext) -> dict[str, Any]:
     """Configure the loopback Postfix relay for the active backend.
 
     ``mode=relay`` (default) authenticates over TLS to a provider submission
-    endpoint; ``mode=catch`` relays plaintext to a local dev sink (Mailpit).
+    endpoint; ``mode=catch`` relays plaintext to a local dev sink (Mailpit);
+    ``mode=direct`` delivers to recipients' MX itself, DKIM-signed.
     """
     mode = req.args.get("mode", "relay")
     if mode == "catch":
         return _configure_catch(req, ctx)
     if mode == "relay":
         return _configure_relay(req, ctx)
-    raise ValidationError("mode", f"must be 'relay' or 'catch' (got {mode!r})")
+    if mode == "direct":
+        return _configure_direct(req, ctx)
+    raise ValidationError(
+        "mode", f"must be 'relay', 'catch', or 'direct' (got {mode!r})"
+    )
+
+
+def _configure_direct(req: Request, ctx: OpContext) -> dict[str, Any]:
+    """Deliver to MX ourselves, signing with DKIM. Returns the DNS records to
+    publish (SPF/DKIM/DMARC/PTR) — never a fake 'ready'."""
+    domain = validate_from_domain(req.args.get("from_domain"))
+    selector = validate_dkim_selector(
+        req.args.get("dkim_selector", _DIRECT_DEFAULT_SELECTOR)
+    )
+    server_ip = validate_ipv4(req.args.get("server_ip"))
+
+    key = dkim.ensure_keypair(domain, selector, exec=ctx.exec)
+    dkim.write_opendkim_config(domain, selector)
+    dkim.reload_opendkim(ctx.exec)
+
+    result = pf.configure_direct(milter=dkim.milter_address(), exec=ctx.exec)
+    records = dkim.publishable_records(domain, selector, key["value"], server_ip)
+    return {
+        "mode": "direct",
+        "from_domain": domain,
+        "dkim_selector": selector,
+        "records": records,
+        **result,
+    }
 
 
 def _configure_relay(req: Request, ctx: OpContext) -> dict[str, Any]:

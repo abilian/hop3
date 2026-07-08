@@ -45,27 +45,48 @@ def configure_relay_backend(transport: EmailTransport) -> str | None:
     which run without a live daemon). Raises :class:`OnRampError` if hop3-rootd
     is unavailable or the op fails.
     """
-    return _configure(_relay_args(transport), "relay")
+    return _reloaded(_configure(_relay_args(transport), "relay"))
 
 
 def configure_catch_backend() -> str | None:
     """Point the loopback Postfix relay at a local dev sink (Mailpit).
 
-    Returns the reload method, or ``None`` when skipped in tests. Raises
-    :class:`OnRampError` on failure.
+    Returns the reload method, or ``None`` when skipped in tests.
     """
-    return _configure({"mode": "catch"}, "catch sink")
+    return _reloaded(_configure({"mode": "catch"}, "catch sink"))
 
 
-def _configure(args: dict[str, object], what: str) -> str | None:
+def configure_direct_backend(
+    from_domain: str, server_ip: str, dkim_selector: str
+) -> dict[str, object] | None:
+    """Configure a self-hosted MTA delivering to MX, DKIM-signed.
+
+    Returns the op result (including the ``records`` to publish), or ``None``
+    when skipped in tests. Raises :class:`OnRampError` on failure.
+    """
+    return _configure(
+        {
+            "mode": "direct",
+            "from_domain": from_domain,
+            "server_ip": server_ip,
+            "dkim_selector": dkim_selector,
+        },
+        "direct MTA",
+    )
+
+
+def _reloaded(result: dict[str, object] | None) -> str | None:
+    return None if result is None else str(result.get("reloaded", "rootd"))
+
+
+def _configure(args: dict[str, object], what: str) -> dict[str, object] | None:
     # Skip in unit/integration tests (no live daemon), but NOT in E2E.
     if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get("HOP3_E2E_TEST"):
         return None
 
     try:
         with LocalRootdClient() as client:
-            result = client.call("postfix.configure", args)
-        return str(result.get("reloaded", "rootd"))
+            return client.call("postfix.configure", args)
     except RootdError as e:
         msg = (
             f"could not configure the loopback email {what} via hop3-rootd: {e}. "

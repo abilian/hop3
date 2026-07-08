@@ -239,3 +239,39 @@ def configure(
 
     method = _reload(exec)
     return {"relayhost": nexthop, "reloaded": method}
+
+
+def _direct_main_cf(milter: str) -> str:
+    """Render a ``main.cf`` that delivers to recipients' MX itself (no relayhost),
+    signing outbound mail through the opendkim ``milter``."""
+    return (
+        "# Managed by Hop3 (ADR 054) — direct MTA: deliver to MX, DKIM-signed.\n"
+        "inet_interfaces = loopback-only\n"
+        "inet_protocols = all\n"
+        "mynetworks = 127.0.0.0/8, [::1]/128\n"
+        "smtpd_relay_restrictions = permit_mynetworks, reject\n"
+        "mydestination =\n"
+        "relay_domains =\n"
+        "local_transport = error:5.1.1 local delivery disabled on this null client\n"
+        "relayhost =\n"  # empty: deliver to the recipient's MX
+        "smtp_tls_security_level = may\n"  # opportunistic TLS to recipient MX
+        f"smtp_milters = {milter}\n"
+        f"non_smtpd_milters = {milter}\n"
+        "milter_default_action = accept\n"
+        "milter_protocol = 6\n"
+        "soft_bounce = no\n"
+        "maximal_queue_lifetime = 5d\n"
+        "bounce_queue_lifetime = 5d\n"
+        "notify_classes = resource, software\n"
+    )
+
+
+def configure_direct(*, milter: str, exec: Exec = DEFAULT_EXEC) -> dict[str, Any]:
+    """Write the direct-delivery ``main.cf`` (deliver to MX + DKIM milter), reload.
+
+    No relayhost and no upstream SASL — Postfix is the MTA. Returns
+    ``{relayhost, reloaded}`` (``relayhost`` empty for direct).
+    """
+    _write_file(POSTFIX_DIR / _MAIN_CF, _direct_main_cf(milter), mode=0o644)
+    method = _reload(exec)
+    return {"relayhost": "", "reloaded": method}

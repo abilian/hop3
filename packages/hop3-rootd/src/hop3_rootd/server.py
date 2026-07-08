@@ -29,6 +29,7 @@ from typing import Final
 
 from hop3_rootd.audit import AuditEntry, AuditLog, logger, sanitise_args
 from hop3_rootd.cgroup import CgroupError
+from hop3_rootd.dkim import DkimError
 from hop3_rootd.exec import CommandTimeoutError
 from hop3_rootd.mount import MountError
 from hop3_rootd.nft.rule import NftBinaryNotFoundError, NftCommandError, NftError
@@ -152,6 +153,7 @@ def dispatch(req: Request, ctx: OpContext) -> Response:
         CgroupError,
         MountError,
         PostfixError,
+        DkimError,
         CommandTimeoutError,
     ) as e:
         return error_response(req.id, ErrorCode.KERNEL_ERROR, str(e))

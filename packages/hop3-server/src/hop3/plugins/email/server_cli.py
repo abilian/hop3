@@ -12,8 +12,10 @@ banner. The per-app `addon email <verb>` commands live in ``cli.py``.
 
 from __future__ import annotations
 
+import os
+import socket
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import Any, ClassVar, cast
 
 from hop3.commands._base import Command
 from hop3.commands._errors import command_context
@@ -27,16 +29,62 @@ from hop3.orm.repositories import UserRepository  # noqa: TC001
 
 from .cli import _EXPERIMENTAL_MSG, _deliverability_items
 from .email import EmailTransport
-from .onramp import OnRampError, configure_catch_backend, configure_relay_backend
+from .onramp import (
+    OnRampError,
+    configure_catch_backend,
+    configure_direct_backend,
+    configure_relay_backend,
+)
 from .providers import ProviderProfile, get_provider, list_providers, provider_names
 from .server_transport import (
     load_server_dkim_selector,
     load_server_transport,
     save_server_catch,
+    save_server_direct,
     save_server_transport,
 )
 
 _TYPE = "email"
+_DIRECT_DEFAULT_SELECTOR = "hop3"
+# Public MX endpoints probed to tell whether outbound port 25 is open.
+_EGRESS_PROBES = ("aspmx.l.google.com", "alt1.aspmx.l.google.com")
+
+
+def _detect_server_ip() -> str:
+    """The box's outbound source IP (for the SPF record). "" if undetectable.
+
+    A UDP ``connect`` sends no packet — it just picks the source address the
+    kernel would use for outbound traffic, which is the public IP on a VPS.
+    """
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(("8.8.8.8", 80))
+            return str(s.getsockname()[0])
+        finally:
+            s.close()
+    except OSError:
+        return ""
+
+
+def _egress_status() -> tuple[str, str]:
+    """Whether outbound port 25 is open — three-state, never a fake 'ready'.
+
+    Direct delivery is impossible if the host blocks outbound 25 (most clouds
+    do). Skipped under tests (no network); otherwise a best-effort probe.
+    """
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return "unverified", "outbound port 25 not probed under tests"
+    for host in _EGRESS_PROBES:
+        try:
+            with socket.create_connection((host, 25), timeout=5):
+                return "present", f"outbound port 25 reaches {host}"
+        except OSError:
+            continue
+    return "missing", (
+        "outbound port 25 appears blocked — direct delivery cannot work; ask "
+        "your host to unblock it, or use a relay backend"
+    )
 
 
 @register
@@ -289,13 +337,7 @@ class ServerEmailBackendCmd(Command):
         if kind == "catch":
             return self._configure_catch(tuple(rest))
         if kind == "direct":
-            return [
-                error(
-                    "email backend 'direct' is not available yet — use 'relay' "
-                    "(a provider or corporate smarthost) or 'catch' (a dev sink). "
-                    "Tracked in release-plan-0.7 M3.1."
-                )
-            ]
+            return self._configure_direct(tuple(rest))
         return [
             text(_BACKEND_USAGE),
             error(f"unknown backend {kind!r}. Valid: {', '.join(_BACKEND_KINDS)}."),
@@ -335,6 +377,89 @@ class ServerEmailBackendCmd(Command):
             ),
             summary("set server email backend to catch."),
         ]
+
+    def _configure_direct(self, args: tuple[str, ...]) -> list[dict]:
+        """Select the direct backend: a Hop3-run MTA delivering to MX itself."""
+        parsed = parse_cli_args(
+            args,
+            {
+                "from_domain": {"type": str, "default": ""},
+                "dkim_selector": {"type": str, "default": ""},
+                "server_ip": {"type": str, "default": ""},
+            },
+        )
+        from_domain = parsed.get("from_domain", "")
+        if not from_domain or "@" in from_domain or "." not in from_domain:
+            return [
+                error(
+                    "--from-domain <bare domain> (e.g. example.com) is required "
+                    "for the direct backend"
+                )
+            ]
+        selector = parsed.get("dkim_selector", "") or _DIRECT_DEFAULT_SELECTOR
+        server_ip = parsed.get("server_ip", "") or _detect_server_ip()
+        if not server_ip:
+            return [
+                error(
+                    "could not determine the server's public IP for the SPF "
+                    "record — pass --server-ip <ip>"
+                )
+            ]
+
+        # Configure the MTA + DKIM first, so a failure leaves no saved-but-
+        # unconfigured backend (fail-loud).
+        try:
+            result = configure_direct_backend(from_domain, server_ip, selector)
+        except OnRampError as exc:
+            return [error(str(exc))]
+
+        with command_context("setting server email backend", service_type=_TYPE):
+            save_server_direct(from_domain, selector)
+
+        return self._direct_ok(from_domain, selector, server_ip, result)
+
+    def _direct_ok(
+        self,
+        from_domain: str,
+        selector: str,
+        server_ip: str,
+        result: dict[str, object] | None,
+    ) -> list[dict]:
+        lines: list[dict] = [
+            warning(_EXPERIMENTAL_MSG),
+            text(
+                "Server email backend set to 'direct' — Hop3 delivers to "
+                f"recipients' MX (sending IP {server_ip}, domain {from_domain})."
+            ),
+        ]
+        raw = (result or {}).get("records")
+        if isinstance(raw, dict):
+            records = cast("dict[str, Any]", raw)
+            lines.append(text("\nPublish these DNS records on your sending domain:"))
+            for key in ("spf", "dkim", "dmarc"):
+                rec = records.get(key)
+                if isinstance(rec, dict):
+                    lines.append(
+                        text(f"  {rec['type']}  {rec['name']}\n    {rec['value']}")
+                    )
+            if records.get("ptr"):
+                lines.append(text(f"  PTR — {records['ptr']}"))
+
+        lines.extend(_deliverability_items(from_domain, selector))
+
+        status, detail = _egress_status()
+        lines.append(
+            warning(detail) if status == "missing" else text(f"Egress: {detail}")
+        )
+
+        lines.append(
+            text(
+                "\nApps inherit it — create one without --smtp-*:\n"
+                f"  hop3 addon email create <name> --from noreply@{from_domain}"
+            )
+        )
+        lines.append(summary("set server email backend to direct."))
+        return lines
 
 
 @register
