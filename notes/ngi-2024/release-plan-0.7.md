@@ -117,7 +117,7 @@ Pinning (0.6.1) removed the moving-channel problem; hermeticity is the rest.
 - [ ] Accessibility scan (with the M3.7 polish)
 
 ### Email addon refinements (M3.1)
-Email is a **backing service with a swappable backend**, symmetric with the database addon (ADR 054): the operator picks a backend once at the server level, every app inherits it, and the app-facing contract (`SMTP_*`/`EMAIL_*`/`MAIL_*`/`SMTP_URL`, plus an opt-in `sendmail` on-ramp) is stable across backends. 0.6.1 shipped the interface; the work left is the backends and the productization.
+Email is a **backing service with a swappable backend**, symmetric with the database addon (ADR 054): the operator picks a backend once at the server level, an app opts in by attaching an email addon (and then inherits that backend), and the app-facing contract (`SMTP_*`/`EMAIL_*`/`MAIL_*`/`SMTP_URL`, all pointing at a loopback SMTP endpoint) is stable across backends. 0.6.1 shipped the interface; the work left is the backends and the productization.
 
 **Server backend + provider profiles + notifications — shipped (0.7, unreleased); the per-app interface shipped in 0.6.1:**
 
@@ -127,7 +127,7 @@ Email is a **backing service with a swappable backend**, symmetric with the data
 
 **Backends + on-ramp — the remaining work** (`server email backend <kind>` is the canonical verb; `relay` ships today as its alias `server email set`, `catch`/`direct` are to-build)**:**
 
-- [ ] **`sendmail` on-ramp** (queuing local Postfix null-client → the relay backend, per-app envelope sender) so WordPress / PHP `mail()` / cron send with zero code change — `hop3 addon attach <name> --app <app> --type email --sendmail`
+- [ ] **Loopback SMTP endpoint** (`127.0.0.1:25` — a queuing Postfix relay to the active backend) so any app that attaches an email addon (incl. WordPress) sends over SMTP with no per-app creds and never shells `sendmail`; a declaring app gets `SMTP_HOST=127.0.0.1` and the backend is swappable behind it
 - [ ] **Direct backend** (Hop3-run MTA delivering to MX, Hop3-generated DKIM, honest deliverability + egress pre-flight) for the fully-sovereign no-third-party path — `hop3 server email backend direct --from-domain example.com`
 - [ ] **Catcher backend** (Mailpit-class dev sink, captured never sent) as the safe non-production default — `hop3 server email backend catch`
 - [ ] **Deploy-failure notifications** (needs a single deploy choke point) + outage/health alerts through the active backend
