@@ -381,6 +381,32 @@ class DockerTarget(DeploymentTarget):
         self._print_ready_message()
         return self._info
 
+    def redeploy(self, config: DeploymentConfig) -> None:
+        """Re-deploy to the running container (in-place update). See base class.
+
+        With the container reused (DockerDeployBackend honours --clean), a
+        non-clean redeploy hits the deployer's update path. deploy() health-
+        verifies, so ``success`` already means the server came back up.
+        """
+        success, _duration = run_hop3_deploy(
+            docker=True,
+            container_name=self.docker_config.container_name,
+            image=self.docker_config.image,
+            source=config.source,
+            clean=config.clean,
+            branch=config.branch,
+            version=config.version,
+            legacy_flags=config.legacy_flags,
+            verbose=config.verbose,
+            features=config.features,
+            command_prefix=config.command_prefix,
+            cwd=config.cwd,
+            diagnostics=self.diagnostics,
+        )
+        if not success:
+            msg = f"redeploy failed (source={config.source}, version={config.version})"
+            raise RuntimeError(msg)
+
     def _deploy_and_start(self) -> TargetInfo:
         """Deploy Hop3 via hop3-deploy and start container.
 
@@ -405,8 +431,15 @@ class DockerTarget(DeploymentTarget):
                 source=self.deployment.source,
                 clean=self.deployment.clean,
                 branch=self.deployment.branch,
+                version=self.deployment.version,
+                legacy_flags=self.deployment.legacy_flags,
                 verbose=self.deployment.verbose,
                 features=self.deployment.features,
+                # A checkout's own deployer runs LOCALLY (deploys into the
+                # container), so command_prefix/cwd apply here too — needed to
+                # run an old version's deployer via `uv run` in its worktree.
+                command_prefix=self.deployment.command_prefix,
+                cwd=self.deployment.cwd,
                 diagnostics=self.diagnostics,
             )
 
