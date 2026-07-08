@@ -27,11 +27,12 @@ from hop3.orm.repositories import UserRepository  # noqa: TC001
 
 from .cli import _EXPERIMENTAL_MSG, _deliverability_items
 from .email import EmailTransport
-from .onramp import OnRampError, configure_relay_backend
+from .onramp import OnRampError, configure_catch_backend, configure_relay_backend
 from .providers import ProviderProfile, get_provider, list_providers, provider_names
 from .server_transport import (
     load_server_dkim_selector,
     load_server_transport,
+    save_server_catch,
     save_server_transport,
 )
 
@@ -280,22 +281,59 @@ class ServerEmailBackendCmd(Command):
 
         kind, *rest = args
         if kind == "relay":
-            # `relay` is the shipped backend; delegate to `server email set`,
-            # which owns endpoint/credential resolution and storage.
+            # `relay` delegates to `server email set`, which owns endpoint /
+            # credential resolution, the loopback-relay config, and storage.
             return ServerEmailSetCmd(user_repo=self.user_repo).call(
                 authenticated_username, *rest
             )
-        if kind in {"catch", "direct"}:
+        if kind == "catch":
+            return self._configure_catch(tuple(rest))
+        if kind == "direct":
             return [
                 error(
-                    f"email backend {kind!r} is not available yet — use 'relay' "
-                    "(a provider or corporate smarthost). Tracked in "
-                    "release-plan-0.7 M3.1."
+                    "email backend 'direct' is not available yet — use 'relay' "
+                    "(a provider or corporate smarthost) or 'catch' (a dev sink). "
+                    "Tracked in release-plan-0.7 M3.1."
                 )
             ]
         return [
             text(_BACKEND_USAGE),
             error(f"unknown backend {kind!r}. Valid: {', '.join(_BACKEND_KINDS)}."),
+        ]
+
+    def _configure_catch(self, args: tuple[str, ...]) -> list[dict]:
+        """Select the dev-catch backend: capture mail locally, never send it."""
+        parsed = parse_cli_args(args, {"from_domain": {"type": str, "default": ""}})
+        from_domain = parsed.get("from_domain", "") or "dev.local"
+        if "@" in from_domain or "." not in from_domain:
+            return [
+                error(
+                    "--from-domain must be a bare domain (e.g. example.com), "
+                    f"got {from_domain!r}"
+                )
+            ]
+
+        # Configure the loopback relay to point at the local sink FIRST, so a
+        # failure leaves no saved-but-unconfigured backend (fail-loud).
+        try:
+            configure_catch_backend()
+        except OnRampError as exc:
+            return [error(str(exc))]
+
+        with command_context("setting server email backend", service_type=_TYPE):
+            save_server_catch(from_domain)
+
+        return [
+            warning(_EXPERIMENTAL_MSG),
+            text(
+                "Server email backend set to 'catch' — a dev sink; mail is "
+                f"captured, not sent (domain {from_domain})."
+            ),
+            text(
+                "\nApps inherit it — create one without --smtp-*:\n"
+                f"  hop3 addon email create <name> --from noreply@{from_domain}"
+            ),
+            summary("set server email backend to catch."),
         ]
 
 

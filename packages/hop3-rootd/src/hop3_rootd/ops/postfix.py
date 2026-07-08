@@ -22,26 +22,62 @@ from hop3_rootd import postfix as pf
 from hop3_rootd.ops._base import OpContext, register
 from hop3_rootd.protocol import Request
 from hop3_rootd.validation import (
+    ValidationError,
+    validate_port,
     validate_relay_host,
     validate_sasl_value,
     validate_submission_port,
 )
 
+_CATCH_DEFAULT_HOST = "127.0.0.1"
+_CATCH_DEFAULT_PORT = 1025  # Mailpit's default SMTP port
+
 
 @register("postfix.configure")
 def configure(req: Request, ctx: OpContext) -> dict[str, Any]:
-    """Configure the loopback Postfix relay to point at the active backend."""
+    """Configure the loopback Postfix relay for the active backend.
+
+    ``mode=relay`` (default) authenticates over TLS to a provider submission
+    endpoint; ``mode=catch`` relays plaintext to a local dev sink (Mailpit).
+    """
+    mode = req.args.get("mode", "relay")
+    if mode == "catch":
+        return _configure_catch(req, ctx)
+    if mode == "relay":
+        return _configure_relay(req, ctx)
+    raise ValidationError("mode", f"must be 'relay' or 'catch' (got {mode!r})")
+
+
+def _configure_relay(req: Request, ctx: OpContext) -> dict[str, Any]:
     relay_host = validate_relay_host(req.args.get("relay_host"))
     relay_port = validate_submission_port(req.args.get("relay_port"))
     sasl_user = validate_sasl_value(req.args.get("sasl_user"), "sasl_user")
     sasl_password = validate_sasl_value(req.args.get("sasl_password"), "sasl_password")
 
-    result = pf.configure_relay(
+    result = pf.configure(
         relay_host,
         relay_port,
-        sasl_user,
-        sasl_password,
+        sasl_user=sasl_user,
+        sasl_password=sasl_password,
         exec=ctx.exec,
     )
     # result carries {relayhost, reloaded} — never the password.
-    return {"relay_host": relay_host, "relay_port": relay_port, **result}
+    return {
+        "mode": "relay",
+        "relay_host": relay_host,
+        "relay_port": relay_port,
+        **result,
+    }
+
+
+def _configure_catch(req: Request, ctx: OpContext) -> dict[str, Any]:
+    catch_host = validate_relay_host(req.args.get("catch_host", _CATCH_DEFAULT_HOST))
+    catch_port = validate_port(req.args.get("catch_port", _CATCH_DEFAULT_PORT))
+
+    result = pf.configure(catch_host, catch_port, use_tls=False, exec=ctx.exec)
+    return {
+        "mode": "catch",
+        "catch_host": catch_host,
+        "catch_port": catch_port,
+        **result,
+    }
