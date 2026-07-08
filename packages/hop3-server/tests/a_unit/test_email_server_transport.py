@@ -239,14 +239,18 @@ def test_create_inherits_server_transport(email_root, no_dns):
     assert info["mail_from"] == "team@example.com"
 
 
-def test_create_inherit_resolves_server_creds_in_env(email_root, no_dns):
+def test_create_inherit_injects_loopback_relay(email_root, no_dns):
+    # An inheriting app sends via the loopback relay (ADR 054); the server
+    # creds live in Postfix, never in app env. Only the app's From is injected.
     save_server_transport(_server_transport())
     AddonEmailCreateCmd().call("mail", "--from", "team@example.com")
     env = EmailAddon(addon_name="mail").get_connection_details()
-    assert env["SMTP_HOST"] == "smtp.example.com"
-    assert env["SMTP_USER"] == "relay-user"
-    assert env["SMTP_PASSWORD"] == "s3cr3t"
+    assert env["SMTP_HOST"] == "127.0.0.1"
+    assert env["SMTP_PORT"] == "25"
+    assert env["SMTP_USER"] == ""  # no provider cred in app env
+    assert env["SMTP_PASSWORD"] == ""
     assert env["SMTP_FROM"] == "team@example.com"
+    assert "s3cr3t" not in str(env)  # the server password never leaks to the app
 
 
 def test_create_inherit_fails_loud_without_server_transport(email_root, no_dns):

@@ -27,6 +27,7 @@ from hop3.orm.repositories import UserRepository  # noqa: TC001
 
 from .cli import _EXPERIMENTAL_MSG, _deliverability_items
 from .email import EmailTransport
+from .onramp import OnRampError, configure_relay_backend
 from .providers import ProviderProfile, get_provider, list_providers, provider_names
 from .server_transport import (
     load_server_dkim_selector,
@@ -104,6 +105,14 @@ class ServerEmailSetCmd(Command):
         selector = parsed.get("dkim_selector", "") or (
             profile.dkim_selector if profile else ""
         )
+
+        # Configure the loopback relay FIRST — a failure must leave no
+        # saved-but-unconfigured backend (fail-loud, never a fake success).
+        try:
+            configure_relay_backend(transport)
+        except OnRampError as exc:
+            return [error(str(exc))]
+
         with command_context("setting server email transport", service_type=_TYPE):
             save_server_transport(transport, dkim_selector=selector or None)
 
