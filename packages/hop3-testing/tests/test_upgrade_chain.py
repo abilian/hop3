@@ -9,6 +9,7 @@ here we pin the pure logic: a hop config runs the right (checkout's own) deploye
 
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -62,7 +63,11 @@ def test_docker_invocation_reaches_deploy_loop(monkeypatch):
 
         def stop(self): ...
 
-    monkeypatch.setattr("hop3_testing.cli.commands.upgrade_chain.DockerTarget", _Boom)
+    # Patch the module object, not a dotted string: `commands/__init__.py` does
+    # `from .upgrade_chain import upgrade_chain`, so the string path
+    # `…commands.upgrade_chain` resolves to the command, shadowing the submodule.
+    module = importlib.import_module("hop3_testing.cli.commands.upgrade_chain")
+    monkeypatch.setattr(module, "DockerTarget", _Boom)
     # `local,local` avoids any git worktree checkout in this unit test.
     result = _invoke("--docker", "--chain", "local,local")
     assert result.exit_code == 1
