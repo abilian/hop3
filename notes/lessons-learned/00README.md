@@ -1,29 +1,31 @@
 # Lessons Learned
 
-**Updated**: 2026-06-17 — adopted thematic-file grouping for new lessons; added `cli-ergonomics.md` (ADR 036) and `privilege-and-isolation.md` (ADR 046).
+**Updated**: 2026-06-17 - adopted thematic-file grouping for new lessons; added `cli-ergonomics.md` (ADR 036) and `privilege-and-isolation.md` (ADR 046).
 
 This directory collects lessons learned during Hop3 development, to help avoid repeating mistakes.
 
-**Convention:** group each new lesson into the thematically closest file below; create a new file if none fits. Keep this `00README.md` an index — don't accumulate full lessons inline. (The numbered "Quick Reference" list below is legacy; new lessons live in their own files.)
+**Convention:** group each new lesson into the thematically closest file below; create a new file if none fits. Keep this `00README.md` an index - don't accumulate full lessons inline. (Everything below the "Topic deep dives" list - the numbered "Quick Reference" table *and* the full inline lessons - is legacy, predating the thematic-file convention. The topic files are canonical; several inline lessons are already superseded there - see the note above the table.)
 
 ## Topic deep dives
 
-- [`app-deploy-runtime-model.md`](./app-deploy-runtime-model.md) — how an app behaves config → build → run: RPC session isolation, deploy-vs-redeploy state transitions, build-vs-runtime env, 502s, eventual consistency, HOST_NAME/proxy semantics.
-- [`async-thread-boundaries.md`](./async-thread-boundaries.md) — cross-thread `asyncio` pitfalls (the "every deploy takes 30s" bug) and choosing the right primitive per producer/consumer boundary.
-- [`cli-ergonomics.md`](./cli-ergonomics.md) — evolving the CLI command surface safely (rename via alias, deprecate by hiding) and clear help/error messages. (ADR 036)
-- [`database-addon-portability.md`](./database-addon-portability.md) — PostgreSQL and MySQL connectivity across native and Docker deployment.
-- [`deployment-diagnostics.md`](./deployment-diagnostics.md) — Making deployment failures actionable.
-- [`e2e-test-infrastructure.md`](./e2e-test-infrastructure.md) — Building and running the E2E suite.
-- [`multi-distribution-support.md`](./multi-distribution-support.md) — Debian / Red Hat / Fedora parity patterns.
-- [`native-apps-caveats.md`](./native-apps-caveats.md) — Caveats specific to `builder = "local"` native deployments.
-- [`nix-packaging.md`](./nix-packaging.md) — Gotchas from the Nix integration effort.
-- [`privilege-and-isolation.md`](./privilege-and-isolation.md) — privileged ops behind the rootd daemon (default-deny allow-list) and path-list confinement via `realpath`. (ADR 046)
-- [`uwsgi-daemon-management.md`](./uwsgi-daemon-management.md) — Emperor / vassal lifecycle, attach-daemon env propagation.
-- [`web-auth-and-csrf.md`](./web-auth-and-csrf.md) — cookie-based CSRF/session auth pitfalls (Litestar): why rotating a password wedged login permanently (`CSRF token verification failed`), self-healing on failure, never showing raw JSON to a browser.
+- [`app-deploy-runtime-model.md`](./app-deploy-runtime-model.md) - how an app behaves config → build → run: RPC session isolation, deploy-vs-redeploy state transitions, build-vs-runtime env, 502s, eventual consistency, HOST_NAME/proxy semantics.
+- [`async-thread-boundaries.md`](./async-thread-boundaries.md) - cross-thread `asyncio` pitfalls (the "every deploy takes 30s" bug) and choosing the right primitive per producer/consumer boundary.
+- [`cli-ergonomics.md`](./cli-ergonomics.md) - evolving the CLI command surface safely (rename via alias, deprecate by hiding) and clear help/error messages. (ADR 036)
+- [`database-addon-portability.md`](./database-addon-portability.md) - PostgreSQL, MySQL and Redis connectivity (localhost vs 127.0.0.1, host-matching, Docker-bridge rewrites) and per-framework env-var mapping, across native and Docker deployment.
+- [`deployment-diagnostics.md`](./deployment-diagnostics.md) - Making deployment failures actionable.
+- [`e2e-test-infrastructure.md`](./e2e-test-infrastructure.md) - Building and running the E2E suite.
+- [`multi-distribution-support.md`](./multi-distribution-support.md) - Debian / Red Hat / Fedora parity patterns.
+- [`native-apps-caveats.md`](./native-apps-caveats.md) - Caveats specific to `builder = "local"` native deployments.
+- [`nix-packaging.md`](./nix-packaging.md) - Gotchas from the Nix integration effort.
+- [`privilege-and-isolation.md`](./privilege-and-isolation.md) - privileged ops behind the rootd daemon (default-deny allow-list) and path-list confinement via `realpath`. (ADR 046)
+- [`uwsgi-daemon-management.md`](./uwsgi-daemon-management.md) - Emperor / vassal lifecycle, attach-daemon env propagation.
+- [`web-auth-and-csrf.md`](./web-auth-and-csrf.md) - cookie-based CSRF/session auth pitfalls (Litestar): why rotating a password wedged login permanently (`CSRF token verification failed`), self-healing on failure, never showing raw JSON to a browser.
 
 ---
 
 ## Quick Reference (numbered lesson index)
+
+*A numeric-ordered lookup into the theme-grouped inline lessons below (which are otherwise ordered by topic, not number). Some entries are now superseded by a topic file and duplicated here only for history: 2, 6, 7 → `multi-distribution-support.md`; 18 → `async-thread-boundaries.md`. The rest have no topic-file home yet - migrate them when a fitting file exists.*
 
 | # | Lesson |
 |---|--------|
@@ -311,15 +313,15 @@ Tutorials were failing with "rails not found" or "jekyll not found" because we e
 
 ### 18. Bridge thread→coroutine with `call_soon_threadsafe`
 
-**Lesson**: `asyncio` primitives (`Queue`, `Event`, `Future`, …) are owned by the event loop and are **not thread-safe**. A background thread must never mutate one directly — it must marshal the call onto the loop with `loop.call_soon_threadsafe(...)` (or `asyncio.run_coroutine_threadsafe(...)`). Full write-up: [`async-thread-boundaries.md`](./async-thread-boundaries.md).
+**Lesson**: `asyncio` primitives (`Queue`, `Event`, `Future`, …) are owned by the event loop and are **not thread-safe**. A background thread must never mutate one directly - it must marshal the call onto the loop with `loop.call_soon_threadsafe(...)` (or `asyncio.run_coroutine_threadsafe(...)`). Full write-up: [`async-thread-boundaries.md`](./async-thread-boundaries.md).
 
-**Case Study — "every deploy takes ~30s" (June 2026)**:
+**Case Study - "every deploy takes ~30s" (June 2026)**:
 
-The deploy runs in a `threading.Thread`, but pushed SSE logs to clients through an `asyncio.Queue` consumed by the async handler. A cross-thread `queue.put_nowait()` doesn't wake the loop's awaiting `get()`, so the consumer only advanced on its 30s keepalive — making *every* deployment report ~30s regardless of real work (~2s).
+The deploy runs in a `threading.Thread`, but pushed SSE logs to clients through an `asyncio.Queue` consumed by the async handler. A cross-thread `queue.put_nowait()` doesn't wake the loop's awaiting `get()`, so the consumer only advanced on its 30s keepalive - making *every* deployment report ~30s regardless of real work (~2s).
 
 **Best practices**:
 - Pick the primitive by boundary: thread↔thread → `queue.Queue`/`threading.Event`; loop↔loop → `asyncio.*`; **thread→coroutine → `call_soon_threadsafe`/`run_coroutine_threadsafe`**.
-- Litestar/Granian handlers run on the loop; any `threading.Thread` you spawn does not — that seam is where this bug lives.
+- Litestar/Granian handlers run on the loop; any `threading.Thread` you spawn does not - that seam is where this bug lives.
 - A numeric coincidence (30.0s ≈ a known timeout, here SQLite `busy_timeout`) is a *lead*, not a verdict. Instrument each phase and trust the web server's access-log durations over app-level logs (which buffer and mislead).
 
 | Producer → Consumer | Use | Why |

@@ -149,6 +149,17 @@ After a parity window (see migration):
 
 **Kept:** `demos/demo.py`, `demos/lib`, and `runners/demo.py`. A demo is simultaneously an educational walkthrough, a live demonstration, and a test, so a broken demo is a first-class regression. The meta runner exercises each demo in place (`DemoTestRunner` → `demos/demo.py`) and surfaces a non-zero exit as a failed test; `runners/demo.py` is the integration layer, not dead code. The HTML generator, the catalog/scanner, the `targets/` ABC, the Hetzner orchestrator, and `runners/tutorial.py` (now reached via tutorial discovery) are also kept. Reducing demo/runner duplication is welcome; removing the demo engine or its educational/demonstration behaviour is not.
 
+### 10. Cross-version upgrade validation
+
+The e2e surface validates not only that a version *deploys*, but that a running server *upgrades* across releases without losing its schema or its ability to serve. `hop3-test upgrade-chain` installs a baseline release on a fresh box, then walks a chain of versions (a git ref per hop, e.g. `0.6.2 → … → local`), performing an in-place update at each hop and asserting the server comes back healthy and the schema is readable.
+
+Two properties make it a faithful upgrade test rather than a self-test:
+
+- **Each version is installed by its own installer.** A hop is a git ref; the chain checks it out into a worktree and runs *that* checkout's `hop3-deploy-server` (`uv run … --local`). Installing an old version with the *current* installer tests a pairing that never shipped — old binaries under a newer, stricter installer that rejects states an older, looser installer produced. The stable `--local`/`--git`/`--pypi` source flags (which every release accepts, and the current deployer keeps as aliases) let one harness drive any version's deployer.
+- **The box is fresh.** The chain starts from a clean slate — a fresh Docker container or a rebuilt cloud VPS (`--provider hetzner`) — because an old release expects the toolchain/OS state of its era, and an existing server carries state that can mask a migration bug.
+
+It reuses the one deploy primitive (§6): a hop is `target.start()` (baseline) or `target.redeploy()` (in-place upgrade) over the `DeploymentTarget` ABC, with the per-hop assertions running through `target.exec_run`. It belongs to the **nightly** tier — real deploys, minutes per hop — and the chain is data, so widening coverage is adding a version to the list. A release whose installed binaries can't even start (e.g. a broken older wheel) is not a viable baseline and is simply excluded from the chain; that exclusion is itself a finding.
+
 ## Migration plan
 
 Strictly incremental; each phase ships value alone and is reversible. Ordered by leverage-per-hour.

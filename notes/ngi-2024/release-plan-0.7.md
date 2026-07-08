@@ -17,7 +17,7 @@ Every annex milestone accounted for, so a reviewer can reconcile the whole proje
 | | M2.2 Beta implementation | ✅ | **0.7** — beta done (contract + gate + hardening code); 1.0 → M2.3 |
 | | M2.3 Final "1.0" | ○ | 0.7.x / 0.8 |
 | **T3** Security & resilience | M3.1 Backing services (email) | ◐ | 0.6.1 (experimental); refinements → 0.7.x |
-| | M3.2 Upgrades + migrations | ◐ | **0.7** — server-verify + app upgrade/rollback shipped; e2e upgrade test remains |
+| | M3.2 Upgrades + migrations | ✅ | **0.7** — server-verify + app upgrade/rollback shipped; `upgrade-chain` e2e green on Docker + Hetzner (`--to` source-fetch + Web UI → 0.7.x) |
 | | M3.3 Backups + migration tests | ✅ | 0.6 |
 | | M3.4 Testing framework + canary | ✅ | shipped |
 | | M3.5 Firewalls + WAF | ◐ | **0.7** — proxy slice remains |
@@ -31,7 +31,7 @@ Every annex milestone accounted for, so a reviewer can reconcile the whole proje
 | | M5.4 Conference | ✅ | OW2Con / OSXP |
 | | M5.6 Videos/screencasts | ◐ | **0.7** — 68 recorded; publish |
 
-10 done, 9 partial, 1 not-started of the 20 named milestones (the annex skips M5.5).
+11 done, 8 partial, 1 not-started of the 20 named milestones (the annex skips M5.5).
 
 ## What's left for the 0.7 tag
 
@@ -64,8 +64,10 @@ Hop3-server's own Alembic migrations work. Scope confirmed (`local-notes/specs/u
 - [x] Server upgrade defined, documented, and made fail-loud: after installing new code and migrating, the deployer verifies hop3-server actually answers before reporting "complete" — on failure it prints the exact command to revert to the previous release (plus the pre-upgrade-DB-restore caveat) instead of leaving a silently dead server. Admin guide gained an "Upgrading Hop3" section.
 - [x] App-level upgrade orchestration: `hop3 app upgrade --app <app>` snapshots → redeploys + runs the app's `before-run` migrations → health-verifies → auto-rolls-back to the pre-upgrade snapshot on any failure.
 - [x] Rollback-on-failure + operator-driven rollback: `hop3 app rollback --app <app> [--to <backup-id>]` (default: most recent, app-scoped; a foreign backup id is refused).
-- [x] Restart + nginx reload are process-manager-aware (systemd on real servers, `supervisorctl` / `nginx -s reload` on the Docker/supervisor target) — the Docker restart was a silent `systemctl` no-op, so it kept serving old code while reporting success.
-- [ ] e2e (Test Lab, **remote target only**): upgrade hop3-server N → N+1 across a schema migration. Cannot run on `--docker` — that backend recreates the container each deploy, so the in-place update path is never reached; needs a persistent host. §1 logic is unit-tested; the e2e is a throwaway-remote Test Lab job.
+- [x] Deploy service ops are process-manager-aware and fail loud: restart + nginx reload pick the right mechanism per target (systemd on real servers, `supervisorctl` / `nginx -s reload` under supervisor) — the Docker restart was a silent `systemctl` no-op that kept serving old code while reporting success; the admin-domain/SSL nginx setup now fails the deploy on a reload failure instead of warning-and-continuing; and the installer degrades gracefully (rather than crashing) on a host with neither systemd nor supervisor.
+- [x] Installer e2e made runnable and hermetic: the `hop3-installer` `c_e2e` suite (dark since the `--import-mode=importlib` switch) is fixed and folded into `make test-e2e`, and a stray `HOP3_DEV_HOST` in the shell can no longer make a test deploy to a real host.
+- [x] Docker deploys can upgrade in place: the docker deploy backend now honours `--clean` (reuses a running container instead of recreating it every deploy), so a second `hop3-deploy-server --docker` hits the update path rather than a fresh install — the prerequisite for testing upgrades without an external host.
+- [x] Cross-version upgrade e2e — `hop3-test upgrade-chain`, **green on both a Docker container and a fresh Hetzner VPS**: install a baseline release on a fresh box, then upgrade in-place through a version chain, asserting each hop deploys, the server answers, and the schema is readable. Each version is installed by **its own** installer (git worktree per tag → `uv run hop3-deploy-server`), so it tests the real upgrade path, not the current-installer-with-old-binaries pairing. Documented (ADR 043 §10, testing docs). The default chain starts at `0.6.2` — `hop3-rootd 0.6.0` is a broken baseline (can't start).
 - [ ] App-upgrade `--to <git-ref|version>` source-fetch (→ 0.7.x); today `upgrade` is the safe redeploy of current source that a plain deploy lacks. Web UI rollback also → 0.7.x (CLI first).
 
 ### Screencasts — publish (M5.6)

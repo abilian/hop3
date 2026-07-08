@@ -1,6 +1,6 @@
 # Lessons Learned: Nix Packaging for Hop3
 
-Non-obvious facts and hard-won knowledge from building 38 Nix app packages for Hop3.
+Non-obvious facts and hard-won knowledge from building 40+ Nix app packages for Hop3.
 
 ## String Escaping in Nix `''` Strings
 
@@ -32,18 +32,18 @@ pattern = r"(?<!'')(\$\{[A-Z][A-Z0-9_]*(?::-[^}]*)?\})"
 ### Common Mistakes
 
 ```nix
-# WRONG — Nix tries to interpolate PORT (undefined variable error)
+# WRONG - Nix tries to interpolate PORT (undefined variable error)
 cat > config << EOF
 port = ${PORT}
 EOF
 
-# WRONG — backslash escape doesn't work in '' strings
+# WRONG - backslash escape doesn't work in '' strings
 port = \${PORT}
 
-# RIGHT — double-single-quote escape
+# RIGHT - double-single-quote escape
 port = ''${PORT}
 
-# RIGHT — including default values
+# RIGHT - including default values
 port = ''${PORT:-8080}
 host = ''${BIND_ADDRESS:-0.0.0.0}
 ```
@@ -205,7 +205,7 @@ The Nix build must produce `$out/hop3/runtime.json`:
 }
 ```
 
-The `web` worker command must listen on `$BIND_ADDRESS:$PORT`. For static sites, use `"static": "/nix/store/.../public"`.
+The `web` worker command must listen on `$BIND_ADDRESS:$PORT`. For static sites, give `workers` a single `static` entry instead: `"workers": { "static": "/nix/store/.../public" }` (the builder treats a lone `static` worker as a static-site artifact).
 
 ## Platform Differences
 
@@ -213,7 +213,7 @@ The `web` worker command must listen on `$BIND_ADDRESS:$PORT`. For static sites,
 
 - `pkgs.matrix-synapse` is Linux-only in nixpkgs (fails eval on macOS)
 - Node.js may segfault during `configure` on macOS ARM64 with certain nixpkgs versions
-- `patchelf` warnings ("cannot find section '.dynamic'") are normal for statically-linked Go binaries on Linux — harmless
+- `patchelf` warnings ("cannot find section '.dynamic'") are normal for statically-linked Go binaries on Linux - harmless
 
 ### The `dontFixup` Escape Hatch
 
@@ -224,7 +224,7 @@ npm/pnpm create symlinks between `node_modules/.pnpm/` entries. After `npm insta
 dontFixup = true;
 ```
 
-This is safe — the broken symlinks are dev dependencies that aren't used at runtime.
+This is safe - the broken symlinks are dev dependencies that aren't used at runtime.
 
 ## Package Manager Specifics
 
@@ -268,15 +268,7 @@ The app listens on its default port (e.g., Gitea on 3000, Grafana on 3000) inste
 
 **Symptom:** Build succeeds, "Deployment successful", then "App failed to start within 60.0s timeout". The app IS running but on the wrong port.
 
-**Fix:** Generate config at runtime in the wrapper script, using `$PORT`:
-
-```bash
-#!/bin/sh
-cat > config.json << EOF
-{ "port": ${PORT:-8080} }
-EOF
-exec /nix/store/.../bin/myapp --config config.json
-```
+**Fix:** Generate config at runtime in the wrapper script, passing `$PORT` — see "The PORT Problem" above for the pattern.
 
 ### Working Directory vs Nix Store
 
@@ -286,7 +278,7 @@ Nix store paths are **read-only**. Apps that try to write config files, create d
 - **Data directories:** Create relative dirs (`mkdir -p data`), they land in `src/`
 - **Gitea's `custom/conf/`:** Must be relative to working dir, not in the Nix store
 
-**Symptom:** Gitea shows `WorkPath: /nix/store/.../bin` and `ConfigFile: /nix/store/.../bin/custom/conf/app.ini` — the config is in the read-only store.
+**Symptom:** Gitea shows `WorkPath: /nix/store/.../bin` and `ConfigFile: /nix/store/.../bin/custom/conf/app.ini` - the config is in the read-only store.
 
 **Fix:** The wrapper must `cd` to a writable directory before creating configs:
 
@@ -302,7 +294,7 @@ exec /nix/store/.../bin/gitea web
 
 ### Missing Entry Points
 
-Pre-built release tarballs may have different directory layouts than source archives. HedgeDoc's release tarball doesn't have `app.js` at the root — it has a different entry point.
+Pre-built release tarballs may have different directory layouts than source archives. HedgeDoc's release tarball doesn't have `app.js` at the root - it has a different entry point.
 
 **Symptom:** `Cannot find module '/nix/store/.../app/app.js'`
 
@@ -366,17 +358,17 @@ This is a **hybrid**: Tier-1 binary (reproducible compile by nixpkgs), Tier-3 as
 
 ### Multi-Package Template Limitations
 
-The `nixpkgs-wrapper` template (ADR 008) wires exactly one nixpkgs package: the one declared in `[nix].nixpkgs-package`. Applications whose nixpkgs derivation ships assets in a sibling package or a `passthru` attribute cannot use the template as-is. Known cases:
+The `nixpkgs-wrapper` template (ADR 008) wires exactly one nixpkgs package: the one declared in `[nix].nixpkgs-package`. Applications whose nixpkgs derivation ships assets in a sibling package or a `passthru` attribute need to reference a second Nix store path. Known cases:
 
-| App | Second artefact | Why the template falls short |
-|-----|-----------------|------------------------------|
-| Vaultwarden | `vaultwarden.passthru.webvault` | `WEB_VAULT_FOLDER` needs a Nix store path the template doesn't expose |
-| GoToSocial | `$out/share/gotosocial/web` sibling to the binary | `GTS_WEB_ASSET_BASE_DIR` needs Nix-interpolated paths; `env-exports` go through `nix_escape` which treats `$` as a shell ref |
-| WriteFreely | Upstream tarball for `templates/pages/static` (see above) | Template has no hook for fetching a companion archive |
+| App | Second artefact | What it needs |
+|-----|-----------------|---------------|
+| Vaultwarden | `vaultwarden.passthru.webvault` | `WEB_VAULT_FOLDER` set to that package's store path |
+| GoToSocial | `$out/share/gotosocial/web` sibling to the binary | `GTS_WEB_ASSET_BASE_DIR` set to a Nix-interpolated path |
+| WriteFreely | Upstream tarball for `templates/pages/static` (see above) | A hook to fetch a companion archive |
 
-For now the hand-crafted `real-apps-nix/<app>/hop3.nix` variant covers these; the template variant is deferred. A ~30-line extension — a `nix-env-exports` section that bypasses `nix_escape` and permits `${binding.passthru.attr}` references — would unblock the first two; WriteFreely would still need a companion-archive hook.
+The extension for the first two has landed: `[nix].let-extra` binds extra packages into the generated `let` block (e.g. `webvault = pkgs.vaultwarden.webvault`), and `[nix].env-exports-raw` exports env vars whose values are Nix-interpolated at build time (bypassing `nix_escape`, so `${webvault}` resolves to the store path instead of being treated as a shell ref). `apps/real-apps-nix-gen/keycloak` is the reference user: `let-extra` binds `jdk = "pkgs.zulu21"`, then `env-exports-raw` exports `JAVA_HOME = "${jdk}"`. Vaultwarden and GoToSocial are now expressible via the template but not yet migrated — the hand-crafted `real-apps-nix/<app>/hop3.nix` variant is still current. WriteFreely stays deferred: the template has no hook for fetching a companion archive.
 
-Future Outline, PeerTube, Funkwhale, and Chatwoot will hit the same pattern (S3 attachments, web assets, multiple worker binaries). Plan the extension before those apps arrive.
+Future Outline, PeerTube, Funkwhale, and Chatwoot will hit the same pattern (S3 attachments, web assets, multiple worker binaries), and may need the companion-archive hook that WriteFreely still lacks.
 
 ### Deprecated Commands
 
@@ -406,9 +398,9 @@ The `--fix-hashes` flag detects `got: sha256-...` in nix-build errors, replaces 
 ### E2E Testing
 
 ```bash
-# Test nix apps on a real server (positional apps, --from local like `run`)
-hop3-test matrix --from local apps/test-apps-nix
-hop3-test matrix --from local apps/real-apps-nix
+# Test nix apps on a real server (suite paths are positional; --from local is the default)
+hop3-test run apps/test-apps-nix
+hop3-test run apps/real-apps-nix
 ```
 
 The test runner auto-enables the `nix` feature when any suite path contains "nix", so `nix-build` is available on the server.
