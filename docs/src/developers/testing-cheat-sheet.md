@@ -14,6 +14,7 @@ Quick reference for developers running tests.
 | **App tests (Docker)** | `make test-apps` |
 | **Lint & type check** | `make lint` |
 | **System tests (Docker)** | `hop3-test run --docker` |
+| **Upgrade chain (Docker)** | `hop3-test upgrade-chain --docker` |
 | **Cloud test (single distro)** | `hop3-test run --provider hetzner --image ubuntu-24.04` |
 | **Cloud test (multi-distro)** | `hop3-test run --provider hetzner --images ubuntu-24.04,debian-13` |
 
@@ -82,6 +83,26 @@ The default `--mode` is `smoke` (the smallest sanity run). Available profiles: `
 | `--from pypi` | Install from PyPI |
 | `--from none` | Skip deployment, use existing |
 | `--reuse` | Alias for `--from none` |
+
+### Upgrade Chain (Cross-Version Upgrades)
+
+Install a baseline release on a **fresh** box, then upgrade in-place through a chain of versions — each installed by **its own** installer (checked out into a git worktree, run via `uv run`). Every hop after the first is an in-place update, asserted to come back healthy with a readable schema.
+
+```bash
+# Fresh Docker container: 0.6.2 -> current tree
+hop3-test upgrade-chain --docker
+
+# Custom chain (release tags + `local`)
+hop3-test upgrade-chain --docker --chain 0.6.2,local
+
+# Cheapest smoke: whole mechanism, no old-version/worktree variable
+hop3-test upgrade-chain --docker --chain local,local
+
+# Fresh Hetzner VPS (needs HETZNER_API_TOKEN + HETZNER_SERVER_ID)
+hop3-test upgrade-chain --provider hetzner --image ubuntu-24.04
+```
+
+`--host <server>` is accepted but warns (existing server, not a clean slate). `0.6.0` is excluded from the default chain — its `hop3-rootd` can't start.
 
 ### App Testing (Testing Apps, Not Hop3)
 
