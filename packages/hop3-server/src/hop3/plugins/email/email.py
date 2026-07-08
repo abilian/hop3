@@ -57,6 +57,23 @@ def _looks_like_email(value: str) -> bool:
     return bool(local) and "." in domain
 
 
+def validate_mail_from(mail_from: str) -> None:
+    """Raise ``ValueError`` if a From is empty, malformed, or holds control chars.
+
+    Shared by ``EmailTransport`` and the credential-less catch backend so both
+    enforce the same From-boundary check (no header injection, no forged sender).
+    """
+    if not mail_from:
+        msg = "mail_from must not be empty"
+        raise ValueError(msg)
+    if _has_control_chars(mail_from):
+        msg = "mail_from must not contain control characters"
+        raise ValueError(msg)
+    if not _looks_like_email(mail_from):
+        msg = f"mail_from must be an email address, got {mail_from!r}"
+        raise ValueError(msg)
+
+
 @dataclass(frozen=True, slots=True)
 class EmailTransport:
     """The operator's upstream SMTP submission credentials + default From.
@@ -203,9 +220,14 @@ class EmailAddon:
             )
             raise RuntimeError(msg)
         if data.get("inherit"):
-            transport = self._load_transport()  # fail-loud if the backend is gone
-            assert transport is not None
-            return _loopback_vars(transport.mail_from)
+            # Inheriting apps send via the loopback relay regardless of backend
+            # kind (relay/catch/direct); validate against the backend (fail-loud
+            # if it's gone) without needing a provider transport.
+            from .server_transport import assert_inherited_backend  # noqa: PLC0415
+
+            mail_from = data["mail_from"]
+            assert_inherited_backend(mail_from)
+            return _loopback_vars(mail_from)
         transport = self._load_transport()
         assert transport is not None
         return _connection_vars(transport)
@@ -234,29 +256,55 @@ class EmailAddon:
         data = load_addon_secrets(_TYPE, self.addon_name)
         if data is None:
             return {"addon_name": self.addon_name, "type": _TYPE, "configured": False}
-        inherited = bool(data.get("inherit"))
-        try:
-            transport = self._load_transport()
-        except RuntimeError as exc:
-            # Inherits a server transport that is no longer set — surface it,
-            # never report a working relay that isn't there (fail-loud).
-            return {
-                "addon_name": self.addon_name,
-                "type": _TYPE,
-                "configured": True,
-                "inherited": inherited,
-                "error": str(exc),
-            }
-        assert transport is not None  # data present ⇒ a transport or a raise
+        if data.get("inherit"):
+            return self._inherited_info(data["mail_from"])
+
+        transport = self._load_transport()
+        assert transport is not None  # data present ⇒ a transport
         return {
             "addon_name": self.addon_name,
             "type": _TYPE,
             "configured": True,
-            "inherited": inherited,
+            "inherited": False,
             "smtp_host": transport.smtp_host,
             "smtp_port": str(transport.smtp_port),
             "mail_from": transport.mail_from,
         }
+
+    def _inherited_info(self, mail_from: str) -> dict[str, Any]:
+        """Status for an inheriting addon — kind-aware, never a fake relay.
+
+        A relay backend shows the resolved server host; a catch (or other
+        loopback) backend shows ``127.0.0.1:25``, since the app sends there. A
+        backend that is no longer set surfaces the fail-loud error.
+        """
+        from .server_transport import (  # noqa: PLC0415
+            RELAY_BACKEND,
+            assert_inherited_backend,
+            load_server_backend_kind,
+            resolve_inherited,
+        )
+
+        base = {
+            "addon_name": self.addon_name,
+            "type": _TYPE,
+            "configured": True,
+            "inherited": True,
+            "mail_from": mail_from,
+        }
+        try:
+            assert_inherited_backend(mail_from)
+        except RuntimeError as exc:
+            return {**base, "error": str(exc)}
+        if load_server_backend_kind() == RELAY_BACKEND:
+            transport = resolve_inherited(mail_from)
+            return {
+                **base,
+                "smtp_host": transport.smtp_host,
+                "smtp_port": str(transport.smtp_port),
+            }
+        # catch / direct: the app sends via the loopback relay.
+        return {**base, "smtp_host": _LOOPBACK_HOST, "smtp_port": _LOOPBACK_PORT}
 
     # ------------------------------------------------------------------
     # Internal

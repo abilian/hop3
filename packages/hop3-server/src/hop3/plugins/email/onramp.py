@@ -39,23 +39,36 @@ def _relay_args(transport: EmailTransport) -> dict[str, object]:
 
 
 def configure_relay_backend(transport: EmailTransport) -> str | None:
-    """Point the loopback Postfix relay at ``transport``.
+    """Point the loopback Postfix relay at ``transport`` (a provider/smarthost).
 
-    Returns the reload method, or ``None`` when skipped (unit/integration
-    tests, which run without a live daemon). Raises :class:`OnRampError` if
-    hop3-rootd is unavailable or the op fails.
+    Returns the reload method, or ``None`` when skipped (unit/integration tests,
+    which run without a live daemon). Raises :class:`OnRampError` if hop3-rootd
+    is unavailable or the op fails.
     """
+    return _configure(_relay_args(transport), "relay")
+
+
+def configure_catch_backend() -> str | None:
+    """Point the loopback Postfix relay at a local dev sink (Mailpit).
+
+    Returns the reload method, or ``None`` when skipped in tests. Raises
+    :class:`OnRampError` on failure.
+    """
+    return _configure({"mode": "catch"}, "catch sink")
+
+
+def _configure(args: dict[str, object], what: str) -> str | None:
     # Skip in unit/integration tests (no live daemon), but NOT in E2E.
     if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get("HOP3_E2E_TEST"):
         return None
 
     try:
         with LocalRootdClient() as client:
-            result = client.call("postfix.configure", _relay_args(transport))
+            result = client.call("postfix.configure", args)
         return str(result.get("reloaded", "rootd"))
     except RootdError as e:
         msg = (
-            f"could not configure the loopback email relay via hop3-rootd: {e}. "
+            f"could not configure the loopback email {what} via hop3-rootd: {e}. "
             "Is Postfix installed ('hop3-install server --with email') and is "
             "hop3-rootd running?"
         )

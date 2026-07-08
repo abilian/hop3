@@ -30,17 +30,21 @@ def _ran(ex: FakeExec, binary: str) -> bool:
     return any(call and call[0].endswith(binary) for call in ex.calls)
 
 
-# --- helper: configure_relay ---------------------------------------------
+# --- helper: configure ---------------------------------------------------
 
 
 def test_configure_writes_nullclient(postfix_dir):
     ex = FakeExec()
-    result = pf.configure_relay("smtp.example.com", 587, "user", "pw", exec=ex)
+    result = pf.configure(
+        "smtp.example.com", 587, sasl_user="user", sasl_password="pw", exec=ex
+    )
 
     main = (postfix_dir / "main.cf").read_text()
     assert "inet_interfaces = loopback-only" in main
     assert "relayhost = [smtp.example.com]:587" in main
     assert "smtpd_relay_restrictions = permit_mynetworks, reject" in main
+    assert "smtp_sasl_auth_enable = yes" in main
+    assert "smtp_tls_security_level = encrypt" in main
     assert "smtp_tls_wrappermode" not in main  # 587 is STARTTLS, not implicit TLS
 
     sasl = postfix_dir / "sasl_passwd"
@@ -54,22 +58,42 @@ def test_configure_writes_nullclient(postfix_dir):
 
 
 def test_configure_465_uses_wrapper_tls(postfix_dir):
-    pf.configure_relay("smtp.example.com", 465, "u", "pw", exec=FakeExec())
+    pf.configure(
+        "smtp.example.com", 465, sasl_user="u", sasl_password="pw", exec=FakeExec()
+    )
     assert "smtp_tls_wrappermode = yes" in (postfix_dir / "main.cf").read_text()
+
+
+def test_configure_catch_no_sasl_no_tls(postfix_dir):
+    # A dev sink: relay plaintext to Mailpit, no SASL, no map, no postmap.
+    ex = FakeExec()
+    result = pf.configure("127.0.0.1", 1025, use_tls=False, exec=ex)
+    main = (postfix_dir / "main.cf").read_text()
+    assert "relayhost = [127.0.0.1]:1025" in main
+    assert "smtp_sasl_auth_enable = no" in main
+    assert "smtp_tls_security_level = none" in main
+    assert not (postfix_dir / "sasl_passwd").exists()  # no credential map for a sink
+    assert not _ran(ex, "postmap")
+    assert _ran(ex, "systemctl")
+    assert result["relayhost"] == "[127.0.0.1]:1025"
 
 
 def test_configure_missing_postmap_fails_before_writing(postfix_dir):
     ex = FakeExec()
     ex.set_path("postmap", None)
     with pytest.raises(PostfixUnavailableError, match="postmap"):
-        pf.configure_relay("smtp.example.com", 587, "u", "pw", exec=ex)
+        pf.configure(
+            "smtp.example.com", 587, sasl_user="u", sasl_password="pw", exec=ex
+        )
     assert not (postfix_dir / "main.cf").exists()  # aborted before any write
 
 
 def test_configure_postmap_failure_is_loud(postfix_dir):
     ex = FakeExec().on(lambda a: bool(a) and a[0].endswith("postmap"), fail("bad map"))
     with pytest.raises(PostfixError, match="postmap"):
-        pf.configure_relay("smtp.example.com", 587, "u", "pw", exec=ex)
+        pf.configure(
+            "smtp.example.com", 587, sasl_user="u", sasl_password="pw", exec=ex
+        )
 
 
 def test_configure_no_reload_method_fails_loud(postfix_dir):
@@ -77,7 +101,9 @@ def test_configure_no_reload_method_fails_loud(postfix_dir):
     ex.set_path("systemctl", None)
     ex.set_path("postfix", None)
     with pytest.raises(PostfixUnavailableError, match="reload"):
-        pf.configure_relay("smtp.example.com", 587, "u", "pw", exec=ex)
+        pf.configure(
+            "smtp.example.com", 587, sasl_user="u", sasl_password="pw", exec=ex
+        )
 
 
 # --- op: postfix.configure -----------------------------------------------
@@ -142,3 +168,14 @@ def test_op_result_omits_password(postfix_dir):
     )
     assert "s3cret" not in str(result)
     assert result["relay_host"] == "smtp.example.com"
+
+
+def test_op_catch_mode(postfix_dir):
+    result = _handler()(_req(mode="catch"), _ctx(FakeExec()))
+    assert result["mode"] == "catch"
+    assert result["relayhost"] == "[127.0.0.1]:1025"
+
+
+def test_op_unknown_mode_is_loud(postfix_dir):
+    with pytest.raises(ValidationError):
+        _handler()(_req(mode="bogus"), _ctx(FakeExec()))

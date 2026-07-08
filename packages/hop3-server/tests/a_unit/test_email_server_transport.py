@@ -613,15 +613,40 @@ def test_backend_relay_requires_admin(email_root, no_dns):
     assert load_server_transport() is None
 
 
-def test_backend_catch_not_available_yet(email_root):
-    # Fail loud rather than pretend an unbuilt backend was configured.
-    result = ServerEmailBackendCmd(user_repo=_admin_repo()).call("admin", "catch")
+def test_backend_catch_selects_dev_sink(email_root):
+    result = ServerEmailBackendCmd(user_repo=_admin_repo()).call(
+        "admin", "catch", "--from-domain", "example.com"
+    )
+    assert "error" not in _types(result)
+    assert "captured, not sent" in _joined(result)
+    assert st_module.load_server_backend_kind() == "catch"
+    assert load_server_transport() is None  # a sink has no provider transport
+
+
+def test_backend_catch_requires_admin(email_root):
+    result = ServerEmailBackendCmd(user_repo=_nonadmin_repo()).call("bob", "catch")
     assert "error" in _types(result)
-    assert "not available yet" in _joined(result)
-    assert load_server_transport() is None
+    assert "Admin privileges required" in _joined(result)
+    assert st_module.load_server_backend_kind() is None
 
 
-def test_backend_direct_not_available_yet(email_root):
+def test_backend_catch_inherited_addon_injects_loopback(email_root, no_dns):
+    # Under catch, an inheriting app still gets the loopback endpoint (:25);
+    # Postfix relays to the sink. No provider transport is needed.
+    ServerEmailBackendCmd(user_repo=_admin_repo()).call(
+        "admin", "catch", "--from-domain", "example.com"
+    )
+    result = AddonEmailCreateCmd().call("mail", "--from", "team@example.com")
+    assert "error" not in _types(result)
+    env = EmailAddon(addon_name="mail").get_connection_details()
+    assert env["SMTP_HOST"] == "127.0.0.1"
+    assert env["SMTP_PORT"] == "25"
+    info = EmailAddon(addon_name="mail").info()
+    assert info["inherited"] is True
+    assert info["smtp_host"] == "127.0.0.1"
+
+
+def test_backend_direct_still_fails_loud(email_root):
     result = ServerEmailBackendCmd(user_repo=_admin_repo()).call("admin", "direct")
     assert "error" in _types(result)
     assert "not available yet" in _joined(result)
