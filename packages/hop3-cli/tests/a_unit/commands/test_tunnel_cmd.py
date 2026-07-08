@@ -106,7 +106,7 @@ def test_fetch_endpoint_error_response_exits_resolution():
     assert exc.value.code == ExitCode.RESOLUTION_ERROR
 
 
-def test_fetch_endpoint_no_data_item_exits_resolution():
+def test_fetch_endpoint_no_data_item_exits_resolution(capsys):
     response = Ok([{"t": "text", "text": "nope"}], 1)
     with (
         patch("hop3_cli.rpc.Client", return_value=StubClient(response)),
@@ -114,6 +114,19 @@ def test_fetch_endpoint_no_data_item_exits_resolution():
     ):
         _fetch_endpoint(MagicMock(), "mydb")
     assert exc.value.code == ExitCode.RESOLUTION_ERROR
+
+
+def test_fetch_endpoint_surfaces_server_error(capsys):
+    # A server `error` item (e.g. wrong server / unknown addon) must reach the
+    # user verbatim — not be swallowed into a generic "no endpoint" message.
+    response = Ok([{"t": "error", "text": "No addon named 'mydb'."}], 1)
+    with (
+        patch("hop3_cli.rpc.Client", return_value=StubClient(response)),
+        pytest.raises(SystemExit) as exc,
+    ):
+        _fetch_endpoint(MagicMock(), "mydb")
+    assert exc.value.code == ExitCode.RESOLUTION_ERROR
+    assert "No addon named 'mydb'." in capsys.readouterr().err
 
 
 # ---- handle_tunnel (end to end, transport mocked) ----

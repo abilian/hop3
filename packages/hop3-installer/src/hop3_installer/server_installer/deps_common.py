@@ -26,6 +26,7 @@ from hop3_installer.common import (
 from hop3_installer.constants import HOME_DIR
 
 from .config import ServerInstallerConfig
+from .email import pre_stage_email
 from .s3 import configure_s3
 from .user import run_as_hop3
 
@@ -185,6 +186,11 @@ def install_optional_packages(
         # S3 (MinIO) is downloaded as a standalone binary, not from apt.
         # Delegate to the distro-agnostic configure_s3 function.
         configure_s3()
+
+    if config.with_email:
+        # Pre-stage Postfix inert; the loopback relay is configured later by
+        # the rootd postfix.configure op on email-backend selection (ADR 054).
+        pre_stage_email()
 
 
 def _start_docker_daemon() -> None:

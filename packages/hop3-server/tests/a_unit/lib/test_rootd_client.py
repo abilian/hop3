@@ -201,6 +201,35 @@ def test_connect_fails_when_protocol_version_mismatches(short_tmp_dir):
         daemon.stop()
 
 
+def test_connect_translates_version_mismatch_error_envelope(short_tmp_dir):
+    """Real-daemon skew path: the daemon rejects the envelope `v` at decode
+    time and answers with a protocol_version_mismatch *error* envelope (not a
+    mismatched handshake body). The client must surface the ADR 041 §3
+    remediation, not a raw RootdOpError.
+    """
+    socket_path = short_tmp_dir / "rootd.sock"
+
+    def respond(request):
+        return {
+            "v": 1,
+            "id": request["id"],
+            "ok": False,
+            "error": {
+                "code": "protocol_version_mismatch",
+                "message": "client v=1, daemon v=2",
+            },
+        }
+
+    daemon = FakeDaemon(socket_path, respond=respond)
+    daemon.start()
+    try:
+        client = LocalRootdClient(socket_path=socket_path)
+        with pytest.raises(RootdProtocolError, match="re-run hop3-install server"):
+            client.connect()
+    finally:
+        daemon.stop()
+
+
 def test_connect_fails_when_daemon_refuses_handshake(short_tmp_dir):
     socket_path = short_tmp_dir / "rootd.sock"
 
