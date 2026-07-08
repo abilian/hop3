@@ -50,14 +50,38 @@ class PostfixUnavailableError(PostfixError):
 # --- config rendering -----------------------------------------------------
 
 
-def _main_cf(nexthop: str, *, wrapper_tls: bool) -> str:
+def _sasl_block(*, use_sasl: bool) -> str:
+    if not use_sasl:
+        return "smtp_sasl_auth_enable = no\n"
+    return (
+        "smtp_sasl_auth_enable = yes\n"
+        f"smtp_sasl_password_maps = hash:{POSTFIX_DIR / _SASL_PASSWD}\n"
+        "smtp_sasl_security_options = noanonymous\n"
+    )
+
+
+def _tls_block(*, use_tls: bool, wrapper_tls: bool) -> str:
+    if not use_tls:
+        # A dev sink (catch backend) speaks plaintext on loopback — no TLS.
+        return "smtp_tls_security_level = none\n"
+    wrapper = "smtp_tls_wrappermode = yes\n" if wrapper_tls else ""
+    return (
+        "smtp_tls_security_level = encrypt\n"
+        "smtp_tls_mandatory_protocols = >=TLSv1.2\n"
+        "smtp_tls_CAfile = /etc/ssl/certs/ca-certificates.crt\n"
+        f"{wrapper}"
+    )
+
+
+def _main_cf(nexthop: str, *, use_sasl: bool, use_tls: bool, wrapper_tls: bool) -> str:
     """Render a null-client ``main.cf`` relaying to ``nexthop`` (``[host]:port``).
 
     Loopback-only, submission-only, we are nobody's MX and deliver locally for
     no domain. A transient upstream failure defers and retries (the queue is
-    the whole point — fail-loud, never a silent drop).
+    the whole point — fail-loud, never a silent drop). ``use_sasl``/``use_tls``
+    are off for a dev-sink (catch) backend, which relays plaintext to a local
+    Mailpit with no auth.
     """
-    wrapper = "smtp_tls_wrappermode = yes\n" if wrapper_tls else ""
     return (
         "# Managed by Hop3 (ADR 054) — loopback null-client relay. Do not edit.\n"
         "inet_interfaces = loopback-only\n"
@@ -68,14 +92,9 @@ def _main_cf(nexthop: str, *, wrapper_tls: bool) -> str:
         "relay_domains =\n"
         "local_transport = error:5.1.1 local delivery disabled on this null client\n"
         f"relayhost = {nexthop}\n"
-        "smtp_sasl_auth_enable = yes\n"
-        f"smtp_sasl_password_maps = hash:{POSTFIX_DIR / _SASL_PASSWD}\n"
-        "smtp_sasl_security_options = noanonymous\n"
-        "smtp_tls_security_level = encrypt\n"
-        "smtp_tls_mandatory_protocols = >=TLSv1.2\n"
-        "smtp_tls_CAfile = /etc/ssl/certs/ca-certificates.crt\n"
-        f"{wrapper}"
-        "soft_bounce = no\n"
+        + _sasl_block(use_sasl=use_sasl)
+        + _tls_block(use_tls=use_tls, wrapper_tls=wrapper_tls)
+        + "soft_bounce = no\n"
         "maximal_queue_lifetime = 5d\n"
         "bounce_queue_lifetime = 5d\n"
         "notify_classes = resource, software\n"
@@ -144,28 +163,32 @@ def _reload(exec: Exec) -> str:
 # --- public operation (called by ops/postfix.py) --------------------------
 
 
-def configure_relay(
+def configure(
     relay_host: str,
     relay_port: int,
-    sasl_user: str,
-    sasl_password: str,
     *,
+    sasl_user: str = "",
+    sasl_password: str = "",
+    use_tls: bool = True,
     exec: Exec = DEFAULT_EXEC,
 ) -> dict[str, Any]:
-    """Write the null-client ``main.cf`` + SASL map, ``postmap`` it, reload.
+    """Write the null-client ``main.cf`` (+ SASL map when authenticated), reload.
 
     Idempotent: overwrites the Hop3-managed ``main.cf`` and ``sasl_passwd`` each
     call, writing exactly what it is given (no credential rotation of its own),
-    so selecting a backend is re-pointable. Returns ``{relayhost, reloaded}`` —
-    never the password.
+    so selecting a backend is re-pointable. With no ``sasl_user`` (a dev-sink /
+    catch backend) it writes no SASL map and relays plaintext. Returns
+    ``{relayhost, reloaded}`` — never the password.
     """
+    use_sasl = bool(sasl_user)
     nexthop = f"[{relay_host}]:{relay_port}"
     main_path = POSTFIX_DIR / _MAIN_CF
     sasl_path = POSTFIX_DIR / _SASL_PASSWD
 
-    # Resolve postmap up front so we fail loud before writing anything.
-    postmap = exec.resolve("postmap")
-    if postmap is None:
+    # Resolve postmap up front so an authenticated backend fails loud before
+    # writing anything (a catch backend needs no map, so it needs no postmap).
+    postmap = exec.resolve("postmap") if use_sasl else None
+    if use_sasl and postmap is None:
         raise PostfixUnavailableError(
             "postmap not available/allow-listed; is Postfix installed "
             "('hop3-install server --with email')?"
@@ -173,12 +196,18 @@ def configure_relay(
 
     _write_file(
         main_path,
-        _main_cf(nexthop, wrapper_tls=relay_port == _WRAPPER_TLS_PORT),
+        _main_cf(
+            nexthop,
+            use_sasl=use_sasl,
+            use_tls=use_tls,
+            wrapper_tls=relay_port == _WRAPPER_TLS_PORT,
+        ),
         mode=0o644,
     )
-    _write_file(sasl_path, f"{nexthop} {sasl_user}:{sasl_password}\n", mode=0o600)
+    if use_sasl:
+        assert postmap is not None
+        _write_file(sasl_path, f"{nexthop} {sasl_user}:{sasl_password}\n", mode=0o600)
+        _postmap(postmap, sasl_path, exec=exec)
 
-    _postmap(postmap, sasl_path, exec=exec)
     method = _reload(exec)
-
     return {"relayhost": nexthop, "reloaded": method}

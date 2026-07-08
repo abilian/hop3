@@ -24,7 +24,13 @@ from hop3.lib.decorators import register
 from . import deliverability
 from .deliverability import MISSING, UNKNOWN
 from .email import EmailAddon, EmailTransport
-from .server_transport import load_server_dkim_selector, resolve_inherited
+from .server_transport import (
+    RELAY_BACKEND,
+    assert_inherited_backend,
+    load_server_backend_kind,
+    load_server_dkim_selector,
+    resolve_inherited,
+)
 
 _TYPE = "email"
 
@@ -209,11 +215,11 @@ class AddonEmailCreateCmd(Command):
         )
 
     def _create_inherited(self, addon_name: str, mail_from: str) -> list[dict]:
-        """Store an addon that inherits the server-level transport."""
-        # resolve_inherited loads the server transport, validates the From shape
-        # and the domain boundary, and fails loud if no server transport is set.
+        """Store an addon that inherits the server-level backend."""
+        # Validate against the active backend (any kind); fails loud if none is
+        # set or the From is off the verified domain.
         try:
-            transport = resolve_inherited(mail_from)
+            assert_inherited_backend(mail_from)
         except (RuntimeError, ValueError) as exc:
             return [error(str(exc))]
 
@@ -222,15 +228,32 @@ class AddonEmailCreateCmd(Command):
         ):
             EmailAddon(addon_name=addon_name).configure_inherited(mail_from)
 
-        # An inheriting app sends on the server's verified domain, so its DKIM
-        # status is the server transport's — surface it if a selector is known.
-        return self._created_ok(
-            addon_name,
-            mail_from,
-            f"inheriting the server transport ({transport.smtp_host}:"
-            f"{transport.smtp_port}), from {mail_from}",
-            dkim_selector=load_server_dkim_selector(),
-        )
+        if load_server_backend_kind() == RELAY_BACKEND:
+            # An inheriting app sends on the server's verified domain, so its
+            # DKIM status is the server transport's — surface it if known.
+            transport = resolve_inherited(mail_from)
+            return self._created_ok(
+                addon_name,
+                mail_from,
+                f"inheriting the server relay ({transport.smtp_host}:"
+                f"{transport.smtp_port}), from {mail_from}",
+                dkim_selector=load_server_dkim_selector(),
+            )
+
+        # catch (dev sink): mail is captured, not sent — no deliverability check.
+        kind = load_server_backend_kind()
+        return [
+            warning(_EXPERIMENTAL_MSG),
+            text(
+                f"Email addon '{addon_name}' configured (inheriting the {kind} "
+                "backend — a dev sink; mail is captured, not sent)."
+            ),
+            text(
+                f"\nAttach it to an app:\n  hop3 addon attach {addon_name} "
+                "--app <app> --type email"
+            ),
+            summary(f"configured email addon '{addon_name}'."),
+        ]
 
     def _created_ok(
         self,
