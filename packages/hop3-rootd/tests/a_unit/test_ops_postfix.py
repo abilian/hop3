@@ -106,6 +106,30 @@ def test_configure_no_reload_method_fails_loud(postfix_dir):
         )
 
 
+def test_reload_starts_postfix_when_stopped(postfix_dir):
+    # No systemd (supervisor container): `postfix status` stopped -> `postfix start`.
+    ex = FakeExec()
+    ex.set_path("systemctl", None)
+    ex.on(
+        lambda a: bool(a) and a[0].endswith("postfix") and "status" in a,
+        fail("not running"),
+    )
+    result = pf.configure("127.0.0.1", 1025, use_tls=False, exec=ex)
+    assert any(a[0].endswith("postfix") and "start" in a for a in ex.calls)
+    assert result["reloaded"] == "postfix start"
+
+
+def test_reload_falls_back_to_postfix_when_systemctl_fails(postfix_dir):
+    # systemctl present but systemd not booted -> fall back; postfix running -> reload.
+    ex = FakeExec()
+    ex.on(
+        lambda a: bool(a) and a[0].endswith("systemctl"),
+        fail("System has not been booted with systemd"),
+    )
+    result = pf.configure("127.0.0.1", 1025, use_tls=False, exec=ex)
+    assert result["reloaded"] == "postfix reload"
+
+
 # --- op: postfix.configure -----------------------------------------------
 
 
