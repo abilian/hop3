@@ -27,6 +27,15 @@ class DeploymentConfig:
     branch: str = "devel"
     """Git branch to deploy (only used when source="git")."""
 
+    version: str | None = None
+    """Pinned PyPI version, emitted as --version (only used when source="pypi").
+    Drives an upgrade chain: install 0.6.0, then upgrade to 0.6.2, etc."""
+
+    legacy_flags: bool = False
+    """Emit old-style source flags (--local/--git/--pypi) instead of --from.
+    Set when running an OLD version's own deployer (upgrade chain) — pre-ADR-052
+    releases don't have --from, and the current deployer keeps the aliases."""
+
     clean: bool = False
     """Whether to clean existing installation before deploying."""
 
