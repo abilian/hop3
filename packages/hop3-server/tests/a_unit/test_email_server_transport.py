@@ -646,10 +646,33 @@ def test_backend_catch_inherited_addon_injects_loopback(email_root, no_dns):
     assert info["smtp_host"] == "127.0.0.1"
 
 
-def test_backend_direct_still_fails_loud(email_root):
+def test_backend_direct_selects_self_hosted_mta(email_root, no_dns):
+    result = ServerEmailBackendCmd(user_repo=_admin_repo()).call(
+        "admin", "direct", "--from-domain", "example.com", "--server-ip", "203.0.113.7"
+    )
+    assert "error" not in _types(result)
+    assert "direct" in _joined(result)
+    assert st_module.load_server_backend_kind() == "direct"
+    assert st_module.load_server_dkim_selector() == "hop3"  # default selector stored
+
+
+def test_backend_direct_requires_from_domain(email_root):
     result = ServerEmailBackendCmd(user_repo=_admin_repo()).call("admin", "direct")
     assert "error" in _types(result)
-    assert "not available yet" in _joined(result)
+    assert "from-domain" in _joined(result)
+    assert st_module.load_server_backend_kind() is None
+
+
+def test_backend_direct_inherited_addon_injects_loopback(email_root, no_dns):
+    # A direct-backed inheriting app also sends via the loopback (:25); Postfix
+    # then delivers to MX. No provider transport needed.
+    ServerEmailBackendCmd(user_repo=_admin_repo()).call(
+        "admin", "direct", "--from-domain", "example.com", "--server-ip", "203.0.113.7"
+    )
+    AddonEmailCreateCmd().call("mail", "--from", "team@example.com")
+    env = EmailAddon(addon_name="mail").get_connection_details()
+    assert env["SMTP_HOST"] == "127.0.0.1"
+    assert env["SMTP_PORT"] == "25"
 
 
 def test_backend_unknown_kind_is_loud(email_root):

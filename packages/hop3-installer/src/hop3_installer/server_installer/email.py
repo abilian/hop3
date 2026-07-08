@@ -53,9 +53,13 @@ def _pre_stage_debian() -> None:
         seed_path = f.name
     try:
         run_cmd(["debconf-set-selections", seed_path], env=_APT_ENV, check=False)
-        with Spinner("Installing Postfix (email relay)..."):
+        with Spinner("Installing Postfix + opendkim (email relay)..."):
+            # opendkim/opendkim-tools back the direct backend's DKIM signing;
+            # they stay inert until `server email backend direct` configures them.
             result = run_cmd(
-                ["apt-get", "install", "-y", "postfix"], env=_APT_ENV, check=False
+                ["apt-get", "install", "-y", "postfix", "opendkim", "opendkim-tools"],
+                env=_APT_ENV,
+                check=False,
             )
     finally:
         Path(seed_path).unlink(missing_ok=True)
@@ -63,8 +67,8 @@ def _pre_stage_debian() -> None:
 
 
 def _pre_stage_fedora() -> None:
-    with Spinner("Installing Postfix (email relay)..."):
-        result = run_cmd(["dnf", "install", "-y", "postfix"], check=False)
+    with Spinner("Installing Postfix + opendkim (email relay)..."):
+        result = run_cmd(["dnf", "install", "-y", "postfix", "opendkim"], check=False)
     _report(result)
 
 

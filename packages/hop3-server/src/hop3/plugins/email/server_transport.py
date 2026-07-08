@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 # this key existed is a relay (back-compat).
 RELAY_BACKEND = "relay"
 CATCH_BACKEND = "catch"
+DIRECT_BACKEND = "direct"
 
 _NO_BACKEND_MSG = (
     "No server email transport is configured. Set one with "
@@ -99,6 +100,19 @@ def save_server_catch(from_domain: str) -> None:
     Only a from-domain is kept, for the inherit From-boundary check.
     """
     _write_record({"backend": CATCH_BACKEND, "mail_from": f"noreply@{from_domain}"})
+
+
+def save_server_direct(from_domain: str, dkim_selector: str) -> None:
+    """Store the direct backend (Hop3-run MTA, no third party).
+
+    No provider credentials — Postfix delivers to recipients' MX. The DKIM
+    selector is kept so ``server email status`` can re-verify the record.
+    """
+    _write_record({
+        "backend": DIRECT_BACKEND,
+        "mail_from": f"noreply@{from_domain}",
+        "dkim_selector": dkim_selector,
+    })
 
 
 def load_server_backend_kind() -> str | None:

@@ -525,6 +525,45 @@ def validate_sasl_value(value: Any, field: str) -> str:
     return value
 
 
+def validate_from_domain(value: Any) -> str:
+    """Validate a bare sending domain (no ``@``) — half of DKIM/opendkim names."""
+    if not isinstance(value, str):
+        raise ValidationError(
+            "from_domain", f"must be a string (got {type(value).__name__})"
+        )
+    if "@" in value or not RELAY_HOST_RE.match(value):
+        raise ValidationError("from_domain", f"must be a bare domain (got {value!r})")
+    return value
+
+
+def validate_dkim_selector(value: Any) -> str:
+    """Validate a DKIM selector token — becomes a filename and a DNS label."""
+    if not isinstance(value, str):
+        raise ValidationError(
+            "dkim_selector", f"must be a string (got {type(value).__name__})"
+        )
+    if not RELAY_HOST_RE.match(value):
+        raise ValidationError(
+            "dkim_selector", f"must be a hostname-safe token (got {value!r})"
+        )
+    return value
+
+
+def validate_ipv4(value: Any) -> str:
+    """Validate an IPv4 address (the box's public IP, for the SPF record)."""
+    if not isinstance(value, str):
+        raise ValidationError(
+            "server_ip", f"must be a string (got {type(value).__name__})"
+        )
+    try:
+        addr = ipaddress.ip_address(value)
+    except ValueError:
+        raise ValidationError("server_ip", f"not an IP address: {value!r}") from None
+    if not isinstance(addr, ipaddress.IPv4Address):
+        raise ValidationError("server_ip", f"must be IPv4 (got {value!r})")
+    return str(addr)
+
+
 # --- Top-level: full PortSpec validation -----------------------------------
 
 

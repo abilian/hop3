@@ -69,7 +69,7 @@ The cost is that the platform now optionally runs an MTA — introducing a mail 
 - **DKIM key custody and rotation for the direct backend.** Where the generated private key lives, how it is rotated, and how rotation coordinates with the published DNS is open.
 - **Encryption at rest.** The server-backend, notifications, and per-app addon stores are protected by file permissions (`0600`, root-owned) but sit in plaintext on disk. Whether to encrypt them, and how to custody the key, is a platform-wide question shared with the other addon secret stores, not specific to email.
 - **Atomic writes for the JSON singletons.** The `server/*.json` stores are written non-atomically (write, then set permissions); readers already fail loud on a corrupt store, but a temp-and-rename write across all the JSON stores is unresolved.
-- **Notification event coverage and cadence.** Which events beyond certificate-renewal failure to cover, and at what cadence — including de-duplication so a recurring condition does not alert every cycle — is open. Deploy failure in particular exposes a gap: it has no single internal choke point to hook, so the event catalogue must first define one.
+- **Notification event coverage and cadence.** Certificate-renewal failure and deploy failure are covered (the deploy path funnels through one orchestration function, which is the choke point the deploy event hooks). Which further events to cover — outage and health signals in particular — and at what cadence, including de-duplication so a recurring condition does not alert every cycle, follows the monitoring work.
 
 ## References
 
