@@ -18,7 +18,7 @@ from unittest.mock import MagicMock, patch
 
 from hop3_rootd import __main__ as main_mod
 from hop3_rootd.nft.rule import NftBinaryNotFoundError, NftError
-from hop3_rootd.state import init_empty
+from hop3_rootd.state import State, init_empty
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -81,3 +81,54 @@ def test_main_refuses_when_reconcile_fails_for_other_reasons(tmp_path: Path) -> 
     assert rc == main_mod.EXIT_RECONCILE_ERROR
     # Never reached the serving stage.
     mock_server.assert_not_called()
+
+
+# --- _try_reconcile (the non-fatal reconcile degrade-policy helper) -------
+
+
+def test_try_reconcile_returns_report_on_success() -> None:
+    """On success the report is handed back so the caller can persist + log it."""
+    sentinel = object()
+    report = main_mod._try_reconcile(
+        State(),
+        lambda _state: sentinel,
+        noun="x",
+        tracked=0,
+        unavailable_exc=RuntimeError,
+        error_exc=ValueError,
+    )
+    assert report is sentinel
+
+
+def test_try_reconcile_degrades_on_unavailable() -> None:
+    """An unavailable backend → None (caller skips persist); logged, not raised."""
+
+    def raise_unavail(_state: State) -> object:
+        raise RuntimeError  # stands in for CgroupUnavailableError etc.
+
+    report = main_mod._try_reconcile(
+        State(),
+        raise_unavail,
+        noun="x",
+        tracked=2,
+        unavailable_exc=RuntimeError,
+        error_exc=ValueError,
+    )
+    assert report is None
+
+
+def test_try_reconcile_degrades_on_error() -> None:
+    """A non-unavailable error → None (degrade), not a crash."""
+
+    def raise_err(_state: State) -> object:
+        raise ValueError  # stands in for a per-item reconcile error
+
+    report = main_mod._try_reconcile(
+        State(),
+        raise_err,
+        noun="x",
+        tracked=0,
+        unavailable_exc=RuntimeError,
+        error_exc=ValueError,
+    )
+    assert report is None
