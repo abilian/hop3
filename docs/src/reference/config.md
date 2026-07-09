@@ -464,8 +464,9 @@ hop3 network list
 
 **Notes:**
 
-- The `waf` extra (`hop3-server[waf]`, Python 3.12+) must be installed on the server; a WAF-enabled app whose policy can't compile, or whose engine is missing, **fails the deploy loudly** rather than running unprotected.
+- The `waf` engine (`hop3-server[waf]`: LeWAF 0.7.6 + uvicorn, Python 3.12+) is **installed by default** on every server; a WAF-enabled app whose policy can't compile, or whose engine is somehow absent, **fails the deploy loudly** rather than running unprotected.
 - **Fail-closed:** if the WAF proxy is down, the app returns 5xx — it never silently serves unprotected traffic.
+- **Bans reconcile automatically:** the server scores each audit stream in-process (~every 60s), banning repeat offenders and expiring elapsed bans; `hop3 waf reconcile-bans` forces a pass immediately.
 - The WAF covers the nginx-proxied HTTP path only. Services on direct host ports (`[[ports]]`) get L3/L4 firewalling, not request inspection.
 - Roll out with `mode = "detect"` first (logs, doesn't block), watch `hop3 waf logs`, then switch to `mode = "block"`.
 
