@@ -54,8 +54,8 @@ The dashboard exists (9 controllers, 17 templates); make it clean and verify the
 ### Security — internal rounds, engage the firm (M3.8)
 Internal fixes shipped in 0.5–0.6; the external review is 0.7.x.
 
-- [ ] One or two more internal audit rounds; fix findings
-- [ ] Engage the external security-audit firm
+- [x] One or two more internal audit rounds; fix findings
+- [x] Engage the external security-audit firm (waiting for their answer)
 - [ ] Document the security model in the admin guide
 
 ### Upgrade mechanism (M3.2)
