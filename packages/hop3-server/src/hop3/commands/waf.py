@@ -6,9 +6,11 @@
 
 Bans are operator-visible runtime state: ``hop3 waf bans list`` shows who's
 currently cut off and why, ``hop3 waf bans clear`` lifts a ban, and
-``hop3 waf reconcile-bans`` is the periodic scorer entry point (a systemd timer
-calls it) that turns the WAF audit stream into bans. The declarative policy
-(``[waf]`` in hop3.toml) is not managed here — only the runtime ban state.
+``hop3 waf reconcile-bans`` is a manual entry point to the scorer that turns the
+WAF audit stream into bans. The server runs that same scorer in-process on a
+timer (``waf_bans_service``); the CLI command is the on-demand fallback. The
+declarative policy (``[waf]`` in hop3.toml) is not managed here — only the
+runtime ban state.
 """
 
 from __future__ import annotations
@@ -192,10 +194,11 @@ class WafBansClearCmd(Command):
             self.db_session.delete(ban)
         self.db_session.flush()
 
-        # Regenerate the denylist from what remains active and reload the proxy.
+        # Regenerate the denylist from what remains active and reload the proxy
+        # (only if the denylist content actually changed).
         active = sorted(b.source for b in repo.list_active(app.id, utcnow()))
-        get_waf_engine().write_bans(app_name, active)
-        reload_proxy(app_name)
+        if get_waf_engine().write_bans(app_name, active):
+            reload_proxy(app_name)
         self.db_session.commit()
 
         return [
@@ -207,10 +210,12 @@ class WafBansClearCmd(Command):
 @register
 @dataclass(frozen=True)
 class WafReconcileBansCmd(Command):
-    """Run the ban scorer across all WAF-enabled apps (the periodic timer job).
+    """Run the ban scorer across all WAF-enabled apps (on demand).
 
     Reads each app's audit stream, bans repeat offenders for the configured TTL,
-    expires elapsed bans, and reloads the proxies. Safe to run repeatedly.
+    expires elapsed bans, and reloads changed proxies. Safe to run repeatedly.
+    The server runs this same cycle in-process on a timer (``waf_bans_service``);
+    this command is the manual/debug entry point.
     """
 
     db_session: Session

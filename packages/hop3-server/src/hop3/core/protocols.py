@@ -643,9 +643,11 @@ class WafEngine(Protocol):
         """Path of the JSONL audit stream the proxy writes (the scorer's input)."""
         ...
 
-    def write_bans(self, app_name: str, banned: list[str]) -> Path:
-        """Rewrite the app's ban denylist from the active set; return its path.
+    def write_bans(self, app_name: str, banned: list[str]) -> bool:
+        """Rewrite the app's ban denylist from the active set, if it changed.
 
-        The ban scorer applies it by reloading the proxy (ADR 050 §4).
+        Returns True when the file was (re)written — the scorer reloads the proxy
+        only then, so an unchanged denylist never churns the running proxy
+        (ADR 050 §4).
         """
         ...

@@ -44,6 +44,7 @@ from .domain_health_service import (
 )
 from .health import verify_addon_health
 from .state_sync import start_state_sync_service, stop_state_sync_service
+from .waf_bans_service import start_waf_bans_service, stop_waf_bans_service
 
 if TYPE_CHECKING:
     from litestar.template import TemplateEngineProtocol
@@ -103,6 +104,9 @@ def on_startup() -> None:
     start_cert_renewal_service(session_factory)
     # Domain registration (WHOIS) + DNS health, surfaced on the dashboard.
     start_domain_health_service(session_factory)
+    # In-process L7 WAF ban reconciliation (ADR 050 §4); `hop3 waf
+    # reconcile-bans` is the manual fallback.
+    start_waf_bans_service(session_factory)
 
 
 def on_shutdown() -> None:
@@ -110,6 +114,7 @@ def on_shutdown() -> None:
     stop_state_sync_service()
     stop_cert_renewal_service()
     stop_domain_health_service()
+    stop_waf_bans_service()
 
 
 def _register_template_callables(engine: TemplateEngineProtocol) -> None:

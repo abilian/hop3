@@ -109,13 +109,19 @@ class LeWafEngine:
         )
         return rules_path
 
-    def write_bans(self, app_name: str, banned: list[str]) -> Path:
-        """Rewrite the app's ban denylist file; return its path (scorer applies
-        it by then reloading the proxy)."""
+    def write_bans(self, app_name: str, banned: list[str]) -> bool:
+        """Rewrite the app's ban denylist file only when its content changed.
+
+        Returns True when the file was (re)written; the scorer reloads the proxy
+        only then, so an unchanged denylist never churns the running proxy.
+        """
         bans_path = self._bans_path(app_name)
+        new_content = compile_bans(banned)
+        if bans_path.exists() and bans_path.read_text() == new_content:
+            return False
         bans_path.parent.mkdir(parents=True, exist_ok=True)
-        bans_path.write_text(compile_bans(banned))
-        return bans_path
+        bans_path.write_text(new_content)
+        return True
 
     def remove_app(self, app_name: str) -> None:
         """Remove the app's rules / config / bans / audit files (destroy)."""

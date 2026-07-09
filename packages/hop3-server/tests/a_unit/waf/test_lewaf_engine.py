@@ -96,3 +96,12 @@ def test_proxy_main_has_no_eager_optional_imports(monkeypatch):
     monkeypatch.setitem(sys.modules, "uvicorn", None)
     sys.modules.pop("hop3.plugins.waf.lewaf._proxy_main", None)
     importlib.import_module("hop3.plugins.waf.lewaf._proxy_main")  # must not raise
+
+
+def test_write_bans_only_rewrites_on_change(tmp_path: Path):
+    """The scorer runs on a frequent timer, so an unchanged denylist must be a
+    no-op (return False) — otherwise every cycle would churn the proxy."""
+    engine = LeWafEngine(rules_dir=tmp_path)
+    assert engine.write_bans("app", ["198.51.100.9"]) is True  # created
+    assert engine.write_bans("app", ["198.51.100.9"]) is False  # unchanged
+    assert engine.write_bans("app", ["198.51.100.9", "203.0.113.1"]) is True  # changed
