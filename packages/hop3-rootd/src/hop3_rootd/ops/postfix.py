@@ -26,11 +26,38 @@ from hop3_rootd.validation import (
     validate_dkim_selector,
     validate_from_domain,
     validate_ipv4,
+    validate_map_key,
     validate_port,
     validate_relay_host,
     validate_sasl_value,
     validate_submission_port,
 )
+
+
+def _validate_map_name(value: object) -> str:
+    if value not in pf.MAP_NAMES:
+        raise ValidationError(
+            "map", f"must be one of {sorted(pf.MAP_NAMES)} (got {value!r})"
+        )
+    return str(value)
+
+
+@register("postfix.map_add")
+def map_add(req: Request, ctx: OpContext) -> dict[str, Any]:
+    """Set a per-app, sender-keyed line in a Postfix map (ADR 054)."""
+    logical = _validate_map_name(req.args.get("map"))
+    key = validate_map_key(req.args.get("key"))
+    value = validate_sasl_value(req.args.get("value"), "value")
+    return pf.map_add(logical, key, value, exec=ctx.exec)
+
+
+@register("postfix.map_remove")
+def map_remove(req: Request, ctx: OpContext) -> dict[str, Any]:
+    """Remove a per-app line from a Postfix map (idempotent)."""
+    logical = _validate_map_name(req.args.get("map"))
+    key = validate_map_key(req.args.get("key"))
+    return pf.map_remove(logical, key, exec=ctx.exec)
+
 
 _CATCH_DEFAULT_HOST = "127.0.0.1"
 _CATCH_DEFAULT_PORT = 1025  # Mailpit's default SMTP port

@@ -188,7 +188,7 @@ hop3-install server --with email
 
 - **`relay`** — submit to a provider or corporate smarthost (Scaleway TEM, SES, SendGrid, Mailgun, Brevo, …); the provider owns deliverability. The recommended production backend — also spelled `server email set`.
 - **`catch`** — a local dev sink: mail is captured, never sent. The safe non-production default.
-- **`direct`** — a Hop3-run MTA that delivers to recipients itself and signs with DKIM, no third party (the sovereign path). Hop3 generates the DKIM keypair and prints the SPF/DKIM/DMARC records to publish.
+- **`direct`** *(preview)* — a Hop3-run MTA that delivers to recipients itself and signs with DKIM, no third party (the sovereign path). Hop3 generates the DKIM keypair and prints the SPF/DKIM/DMARC records to publish. Preview in 0.7: it needs a systemd host with outbound port 25 unblocked (it fails loud otherwise), and fresh-IP reputation is your responsibility — full support lands in 0.8.
 
 Name a known provider with `--provider` and Hop3 fills the SMTP host/port (`--list-providers`: Resend, Postmark, Brevo, Mailgun / Mailgun-EU, Scaleway TEM; EU-hosted ones flagged):
 
@@ -248,7 +248,7 @@ So **Django**, **Flask-Mail**, and **Node/nodemailer** read their native names d
     address: ENV["SMTP_HOST"], port: ENV["SMTP_PORT"].to_i,
   }
   ```
-- **WordPress** — stock `wp_mail()` uses PHP `mail()`. Install an SMTP plugin (WP Mail SMTP, FluentSMTP) or set `wp-config.php` constants to `127.0.0.1` / `25`, no auth, no encryption — the local relay forwards to the backend.
+- **WordPress** — stock `wp_mail()` uses PHP `mail()`. Hop3's WordPress packaging drops a must-use plugin (a `phpmailer_init` hook) that routes `wp_mail()` through the attached email addon's `SMTP_HOST`/`SMTP_PORT` automatically, and self-disables when no email addon is attached. For a custom app, write the equivalent from `before-run` — never `sendmail`.
 
 > Email is configured imperatively, so don't declare it in `[[addons]]`: a declarative block has no credentials to provision, and the deploy fails loud telling you to run `addon email create`.
 

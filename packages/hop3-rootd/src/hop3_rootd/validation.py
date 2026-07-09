@@ -525,6 +525,24 @@ def validate_sasl_value(value: Any, field: str) -> str:
     return value
 
 
+def validate_map_key(value: Any) -> str:
+    """Validate a Postfix map lookup key (a sender address).
+
+    Non-empty, no whitespace (the map line is ``key value``, split on
+    whitespace), no control characters (a newline would inject a second line).
+    """
+    if not isinstance(value, str):
+        raise ValidationError("key", f"must be a string (got {type(value).__name__})")
+    if not value:
+        raise ValidationError("key", "must not be empty")
+    for ch in value:
+        if ch.isspace() or ord(ch) < 0x20 or ord(ch) == 0x7F:
+            raise ValidationError(
+                "key", f"must not contain whitespace/control: {value!r}"
+            )
+    return value
+
+
 def validate_from_domain(value: Any) -> str:
     """Validate a bare sending domain (no ``@``) — half of DKIM/opendkim names."""
     if not isinstance(value, str):
