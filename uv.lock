@@ -1612,6 +1612,7 @@ dependencies = [
 [package.optional-dependencies]
 waf = [
     { name = "lewaf" },
+    { name = "uvicorn" },
 ]
 
 [package.dev-dependencies]
@@ -1654,6 +1655,7 @@ requires-dist = [
     { name = "sqlalchemy", specifier = "~=2.0" },
     { name = "termcolor", specifier = ">=2.5.0" },
     { name = "toml", specifier = ">=0.10.2" },
+    { name = "uvicorn", marker = "python_full_version >= '3.12' and extra == 'waf'" },
     { name = "uwsgi", specifier = ">=2.0.31" },
 ]
 provides-extras = ["waf"]

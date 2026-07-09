@@ -116,7 +116,6 @@ hop3-testing = { workspace = true }
 hop3-tui = { workspace = true }
 hop3-rootd = { workspace = true }
 hop3-testlab = { workspace = true }
-# lewaf = { path = "../../lewaf", editable = true }
 
 [build-system]
 requires = ["uv-build>=0.8.4,<0.9.0"]
