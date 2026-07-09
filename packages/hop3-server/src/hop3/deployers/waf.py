@@ -207,8 +207,11 @@ def reconcile_bans(
     db_session.flush()
 
     active = sorted(b.source for b in repo.list_active(app.id, now))
-    engine.write_bans(app.name, active)
-    reload_proxy(app.name)
+    # Reload the proxy only when the denylist actually changed — this runs on a
+    # frequent timer (waf_bans_service), so a no-op reload every cycle would
+    # needlessly churn every WAF proxy.
+    if engine.write_bans(app.name, active):
+        reload_proxy(app.name)
     return len(active)
 
 
