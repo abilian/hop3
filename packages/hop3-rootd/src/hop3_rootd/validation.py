@@ -1,7 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: EM101
 
 """Field validators for hop3-rootd request args.
 
@@ -109,18 +108,23 @@ class CgroupLimits:
 # --- Individual validators -------------------------------------------------
 
 
-def validate_port(value: Any) -> int:
-    """Validate an integer port number.
+def _require_int(value: Any, field: str, *, kind: str = "an integer") -> int:
+    """Validate ``value`` is a real int (not a bool) and return it.
 
-    Rejects bools (subclass of int in Python), non-ints, out-of-range.
+    bool is a subclass of int in Python, so ``isinstance(True, int)`` is True —
+    a JSON ``true`` would otherwise sneak through as ``1``. Centralised so the
+    bool-rejection can't drift across the integer validators.
     """
-    # bool is a subclass of int — reject explicitly
     if isinstance(value, bool):
-        raise ValidationError("port", "must be an integer (got bool)")
+        raise ValidationError(field, "must be an integer (got bool)")
     if not isinstance(value, int):
-        raise ValidationError(
-            "port", f"must be an integer (got {type(value).__name__})"
-        )
+        raise ValidationError(field, f"must be {kind} (got {type(value).__name__})")
+    return value
+
+
+def validate_port(value: Any) -> int:
+    """Validate an integer port number. Rejects bools, non-ints, out-of-range."""
+    value = _require_int(value, "port")
     if value < PORT_MIN or value > PORT_MAX:
         raise ValidationError("port", f"out of range [{PORT_MIN}, {PORT_MAX}]: {value}")
     return value
@@ -262,13 +266,7 @@ def validate_memory_max(value: Any) -> int:
     a compromised server can't request a nonsensical limit). The server maps
     ``[limits].memory`` ("512M") → bytes before calling.
     """
-    if isinstance(value, bool):
-        raise ValidationError("memory_max", "must be an integer (got bool)")
-    if not isinstance(value, int):
-        raise ValidationError(
-            "memory_max",
-            f"must be an integer number of bytes (got {type(value).__name__})",
-        )
+    value = _require_int(value, "memory_max", kind="an integer number of bytes")
     if value < 1:
         raise ValidationError("memory_max", f"must be >= 1 byte (got {value})")
     if value > MEMORY_MAX_BYTES_CAP:
@@ -298,12 +296,7 @@ def validate_cpu_max(value: Any) -> str:
 
 def validate_pids_max(value: Any) -> int:
     """Validate a cgroup ``pids.max`` value (max processes/threads)."""
-    if isinstance(value, bool):
-        raise ValidationError("pids_max", "must be an integer (got bool)")
-    if not isinstance(value, int):
-        raise ValidationError(
-            "pids_max", f"must be an integer (got {type(value).__name__})"
-        )
+    value = _require_int(value, "pids_max")
     if value < 1:
         raise ValidationError("pids_max", f"must be >= 1 (got {value})")
     return value
@@ -387,12 +380,7 @@ def validate_volume_target(value: Any) -> str:
 
 def validate_size_bytes(value: Any) -> int:
     """Validate a tmpfs size in bytes (positive, sanity-capped)."""
-    if isinstance(value, bool):
-        raise ValidationError("size_bytes", "must be an integer (got bool)")
-    if not isinstance(value, int):
-        raise ValidationError(
-            "size_bytes", f"must be an integer (got {type(value).__name__})"
-        )
+    value = _require_int(value, "size_bytes")
     if value < 1:
         raise ValidationError("size_bytes", f"must be >= 1 (got {value})")
     if value > MEMORY_MAX_BYTES_CAP:

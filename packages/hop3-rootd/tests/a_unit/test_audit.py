@@ -278,6 +278,28 @@ def test_audit_log_file_mode(tmp_path):
     assert mode == 0o640
 
 
+def test_audit_log_counts_fsync_failures(tmp_path, monkeypatch):
+    """An fsync that fails (exotic FS) is counted and warned, not swallowed.
+
+    The audit record itself still lands — flush() got it to the kernel buffer
+    before fsync ran — so only durability-of-the-last-record is at risk, and
+    that risk is now observable via ``fsync_failures`` instead of log noise.
+    """
+    path = tmp_path / "audit.log"
+    log = AuditLog(path)
+
+    def boom(_fd: int) -> None:
+        raise OSError  # message is irrelevant; the test checks the counter
+
+    monkeypatch.setattr("hop3_rootd.audit.os.fsync", boom)
+    log.write(_entry("r1"))  # must not raise
+    log.close()
+
+    assert log.fsync_failures == 1
+    # The entry was still written.
+    assert path.read_text().strip()
+
+
 # --- Helpers --------------------------------------------------------------
 
 

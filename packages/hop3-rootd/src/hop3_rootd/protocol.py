@@ -63,13 +63,24 @@ class Request:
 
 @dataclass(frozen=True)
 class Response:
-    """Response envelope. Either `result` or `error` is set, never both."""
+    """Response envelope. ``ok`` discriminates: a success carries ``result``,
+    a failure carries ``error`` — never both, never neither for its branch.
+    """
 
     v: int
     id: str
     ok: bool
     result: dict[str, Any] | None = None
     error: dict[str, Any] | None = None
+
+    def __post_init__(self) -> None:
+        # Make the docstring's invariant unrepresentable-violation: a stray
+        # caller mixing ok/error would silently pick the wrong branch in
+        # to_dict() and emit a malformed envelope on the wire.
+        if self.ok and self.error is not None:
+            raise ValueError("ok=True response cannot carry an error")
+        if not self.ok and self.result is not None:
+            raise ValueError("ok=False response cannot carry a result")
 
     def to_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {"v": self.v, "id": self.id, "ok": self.ok}

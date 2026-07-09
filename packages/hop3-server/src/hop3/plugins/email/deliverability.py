@@ -11,8 +11,10 @@ surface what's missing and never report "ready" over unpublished DNS.
 
 A missing resolver yields ``UNKNOWN`` — distinct from ``MISSING`` — so the addon
 never reports a fake "missing" (or a fake "ready"). SPF and DMARC are
-provider-independent and auto-checked; DKIM is provider-specific (its selector
-comes from the provider's dashboard) and surfaced as guidance, not auto-verified.
+provider-independent and auto-checked. DKIM is auto-checked too **once its
+selector is known** (from a provider profile or an explicit ``--dkim-selector``);
+without a selector it stays guidance-only, since the record lives at a
+provider/account-specific ``<selector>._domainkey`` name that cannot be guessed.
 """
 
 from __future__ import annotations
@@ -87,6 +89,32 @@ def check_dmarc(domain: str) -> DnsCheck:
             f"add a TXT record at _dmarc.{domain}: "
             f"`v=DMARC1; p=none; rua=mailto:postmaster@{domain}`"
         ),
+    )
+
+
+def check_dkim(domain: str, selector: str) -> DnsCheck:
+    """Look for a DKIM record at ``<selector>._domainkey.<domain>``.
+
+    DKIM records don't reliably start with ``v=DKIM1`` (it's optional), but a
+    valid one always carries the public key (``p=``). Any TXT with ``p=`` (or an
+    explicit ``v=DKIM1``) at the ``_domainkey`` name is treated as present. The
+    key itself is never echoed back — only that it was found.
+    """
+    name = f"{selector}._domainkey.{domain}"
+    records = lookup_txt(name)
+    if records is None:
+        return DnsCheck(
+            "DKIM", UNKNOWN, "DNS check unavailable (install `dig` / dnsutils)"
+        )
+    for record in records:
+        low = record.lower()
+        if "v=dkim1" in low or "p=" in low:
+            return DnsCheck("DKIM", PRESENT, f"{name} record found")
+    return DnsCheck(
+        "DKIM",
+        MISSING,
+        f"publish your provider's DKIM record at {name} "
+        "(selector from the provider dashboard)",
     )
 
 

@@ -25,9 +25,10 @@ import os
 import signal
 import socket
 import sys
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Final
+from typing import Final, TypeVar
 
 from hop3_rootd import cgroup as cg, proxy as px
 from hop3_rootd.audit import (
@@ -37,7 +38,7 @@ from hop3_rootd.audit import (
     logger,
 )
 from hop3_rootd.cgroup import CgroupError, CgroupUnavailableError
-from hop3_rootd.mount import MountError
+from hop3_rootd.mount import MountError, MountUnavailableError
 from hop3_rootd.nft.rule import NftBinaryNotFoundError, NftError
 from hop3_rootd.proxy import ProxyError, ProxyUnavailableError
 from hop3_rootd.reconcile import (
@@ -60,6 +61,10 @@ EXIT_OK: Final[int] = 0
 EXIT_STATE_ERROR: Final[int] = 2
 EXIT_RECONCILE_ERROR: Final[int] = 3
 EXIT_BIND_ERROR: Final[int] = 4
+
+#: Reconcile report type — inferred per caller so ``report.reasserted`` etc.
+#: type-check instead of falling back to ``Any``.
+T = TypeVar("T")
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -156,33 +161,65 @@ def _startup_reconcile(state: State, state_path: Path) -> bool:
     return True
 
 
+def _try_reconcile(
+    state: State,
+    run: Callable[[State], T],
+    *,
+    noun: str,
+    tracked: int,
+    unavailable_exc: type[Exception],
+    error_exc: type[Exception],
+) -> T | None:
+    """Run a non-fatal reconcile; on backend-missing or error, log + degrade.
+
+    Returns the report on success, or ``None`` when the backend was
+    unavailable or errored (the caller then skips persist + log). An
+    *unavailable* backend is logged at warning when nothing is tracked (a
+    feature simply absent on this host) and at error when tracked state will
+    go unserviced — mirroring the firewall path.
+
+    The fatal firewall reconcile (``_startup_reconcile``) does not use this:
+    it must distinguish unavailable (serve on) from a real kernel fault
+    (refuse start), which needs a 3-way result rather than report-or-None.
+    """
+    try:
+        return run(state)
+    except unavailable_exc as e:
+        log = logger.error if tracked else logger.warning
+        log(
+            "%s unavailable (%s); %d tracked item(s) will NOT be reconciled "
+            "until it is present. Other operations unaffected.",
+            noun,
+            e,
+            tracked,
+        )
+        return None
+    except error_exc as e:
+        logger.error("%s reconciliation error: %s", noun, e)
+        return None
+
+
 def _startup_reconcile_cgroups(state: State, state_path: Path) -> None:
     """Re-assert cgroup leaves at startup. Non-fatal by design (ADR 046 P2.2).
 
     A host without cgroup v2 degrades — declared limits stay unenforceable and
     fail loud at the next deploy — but the daemon keeps serving its proxy /
-    process / firewall duties, mirroring the nft-missing path. Skipped entirely
-    when there is nothing to reconcile, so a limits-free host never creates the
-    slice or logs cgroup noise.
+    process / firewall duties. Skipped entirely when there is nothing to
+    reconcile, so a limits-free host never creates the slice or logs cgroup
+    noise.
     """
     if not state.cgroups and not cg.slice_path().exists():
         return
-
-    try:
-        report = reconcile_cgroups(state)
-    except CgroupUnavailableError as e:
-        log = logger.error if state.cgroups else logger.warning
-        log(
-            "cgroup v2 unavailable (%s); %d app limit(s) will NOT be enforced "
-            "until the host provides cgroup v2. Other operations unaffected.",
-            e,
-            len(state.cgroups),
-        )
+    report = _try_reconcile(
+        state,
+        reconcile_cgroups,
+        noun="cgroup v2",
+        tracked=len(state.cgroups),
+        unavailable_exc=CgroupUnavailableError,
+        error_exc=CgroupError,
+    )
+    if report is None:
         return
-    except CgroupError as e:
-        logger.error("cgroup reconciliation error: %s", e)
-        return
-
     save(state, state_path)
     logger.info(
         "cgroup reconcile: reasserted=%d orphans_removed=%d failed=%d",
@@ -196,19 +233,20 @@ def _startup_reconcile_mounts(state: State, state_path: Path) -> None:
     """Reconcile tracked volume mounts at startup. Non-fatal (ADR 046 P2.1).
 
     Makes state honest (drops stale entries, unmounts orphans). Skipped when
-    there is nothing tracked, so a volume-free host does no mountinfo work. A
-    host where the app root can't be derived degrades loudly, like the cgroup
-    and nft paths.
+    there is nothing tracked, so a volume-free host does no mountinfo work.
     """
     if not state.mounts:
         return
-
-    try:
-        report = reconcile_mounts(state)
-    except MountError as e:
-        logger.error("mount reconciliation error: %s", e)
+    report = _try_reconcile(
+        state,
+        reconcile_mounts,
+        noun="mount backend",
+        tracked=len(state.mounts),
+        unavailable_exc=MountUnavailableError,
+        error_exc=MountError,
+    )
+    if report is None:
         return
-
     save(state, state_path)
     logger.info(
         "mount reconcile: verified=%d state_dropped=%d orphans_removed=%d",
@@ -221,30 +259,22 @@ def _startup_reconcile_mounts(state: State, state_path: Path) -> None:
 def _startup_reconcile_proxies(state: State, state_path: Path) -> None:
     """Reconcile addon-exposure forwarders at startup. Non-fatal by design.
 
-    Re-asserts stored forwarders and removes orphan ``hop3-expose-*`` units. A
-    host without systemd / systemd-socket-proxyd degrades — exposures stay down
-    and that is surfaced loudly — but the daemon keeps serving its other duties,
-    mirroring the nft/cgroup/mount paths. Skipped when there is nothing tracked
-    and no orphan units on disk, so an exposure-free host does no unit work.
+    Re-asserts stored forwarders and removes orphan ``hop3-expose-*`` units.
+    Skipped when there is nothing tracked and no orphan units on disk, so an
+    exposure-free host does no unit work.
     """
     if not state.proxies and not px.list_units():
         return
-
-    try:
-        report = reconcile_proxies(state)
-    except ProxyUnavailableError as e:
-        log = logger.error if state.proxies else logger.warning
-        log(
-            "systemd-socket-proxyd unavailable (%s); %d addon exposure(s) will "
-            "NOT be served until systemd is present. Other operations unaffected.",
-            e,
-            len(state.proxies),
-        )
+    report = _try_reconcile(
+        state,
+        reconcile_proxies,
+        noun="systemd-socket-proxyd",
+        tracked=len(state.proxies),
+        unavailable_exc=ProxyUnavailableError,
+        error_exc=ProxyError,
+    )
+    if report is None:
         return
-    except ProxyError as e:
-        logger.error("proxy reconciliation error: %s", e)
-        return
-
     save(state, state_path)
     logger.info(
         "proxy reconcile: reasserted=%d orphans_removed=%d failed=%d",
