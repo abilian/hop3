@@ -37,6 +37,13 @@ ALLOWED_BINARIES: Final[frozenset[str]] = frozenset({
     "/bin/systemctl",  # some distros
     "/usr/sbin/nginx",
     "/sbin/nginx",  # some distros
+    # Email loopback relay (ADR 054) — configure + rebuild the sasl map.
+    "/usr/sbin/postfix",
+    "/usr/sbin/postmap",
+    # Direct email backend (ADR 054) — DKIM signing daemon + keygen.
+    "/usr/sbin/opendkim",
+    "/usr/bin/opendkim-genkey",
+    "/usr/sbin/opendkim-genkey",  # some distros
     # Volume mounts (ADR 046 §2 / P2.1) — tmpfs and bind volumes.
     "/usr/bin/mount",
     "/bin/mount",  # some distros

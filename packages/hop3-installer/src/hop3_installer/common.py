@@ -297,6 +297,18 @@ def run_cmd(
             stdout="",
             stderr="Command timed out",
         )
+    except FileNotFoundError:
+        # Missing executable is a normal command failure (exit 127, "command
+        # not found"), not an uncaught crash — e.g. the installer's service
+        # checks run `supervisorctl` on a host that has neither systemd nor
+        # supervisor. Falls through so check=False callers read the returncode
+        # and check=True callers still raise below.
+        result = subprocess.CompletedProcess(
+            args=cmd,
+            returncode=127,
+            stdout="",
+            stderr=f"command not found: {cmd[0]}",
+        )
 
     if check and result.returncode != 0:
         raise CommandError(

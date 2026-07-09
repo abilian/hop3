@@ -53,6 +53,15 @@ PID_LIST_MAX_LEN: Final[int] = 4096  # an app shouldn't attach more PIDs at once
 # cgroup v2 cpu.max is "<quota_us> <period_us>" (two positive integers).
 _CPU_MAX_RE: Final[re.Pattern[str]] = re.compile(r"^[1-9]\d* [1-9]\d*$")
 
+# Email relay host (ADR 054). A hostname token — no whitespace, brackets,
+# colon, or slash — so it can't break the composed `[host]:port` relayhost key
+# or inject a second sasl_passwd line.
+RELAY_HOST_RE: Final[re.Pattern[str]] = re.compile(
+    r"^[A-Za-z0-9]([A-Za-z0-9.-]{0,253}[A-Za-z0-9])?$"
+)
+# Only submission ports are valid relay targets; port 25 is never one.
+SUBMISSION_PORTS: Final[frozenset[int]] = frozenset({587, 465})
+
 
 # --- Exceptions ------------------------------------------------------------
 
@@ -464,6 +473,113 @@ def validate_description(value: Any) -> str | None:
                 f"contains control character {ord(ch):#04x}",
             )
     return value
+
+
+# --- Email relay (ADR 054) -------------------------------------------------
+
+
+def validate_submission_port(value: Any) -> int:
+    """Validate an SMTP submission port — 587 (STARTTLS) or 465 (implicit TLS).
+
+    Port 25 is never a submission target, so the null-client can never be
+    pointed at an MX-facing port.
+    """
+    value = _require_int(value, "relay_port")
+    if value not in SUBMISSION_PORTS:
+        raise ValidationError(
+            "relay_port",
+            f"must be a submission port {sorted(SUBMISSION_PORTS)} (got {value})",
+        )
+    return value
+
+
+def validate_relay_host(value: Any) -> str:
+    """Validate the email relay hostname.
+
+    A hostname token only — the regex forbids whitespace, brackets, colon and
+    slash, so it can't break the composed ``[host]:port`` relayhost key.
+    """
+    if not isinstance(value, str):
+        raise ValidationError(
+            "relay_host", f"must be a string (got {type(value).__name__})"
+        )
+    if not RELAY_HOST_RE.match(value):
+        raise ValidationError("relay_host", f"must be a hostname (got {value!r})")
+    return value
+
+
+def validate_sasl_value(value: Any, field: str) -> str:
+    """Validate a SASL credential field (user or password) for ``sasl_passwd``.
+
+    Non-empty, no control characters: a newline would inject an extra map line
+    (the entry is ``[host]:port user:password``), so the control-char rejection
+    is the security-critical check here. The value is never logged or returned.
+    """
+    if not isinstance(value, str):
+        raise ValidationError(field, f"must be a string (got {type(value).__name__})")
+    if not value:
+        raise ValidationError(field, "must not be empty")
+    for ch in value:
+        if ord(ch) < 0x20 or ord(ch) == 0x7F:
+            raise ValidationError(field, f"contains control character {ord(ch):#04x}")
+    return value
+
+
+def validate_map_key(value: Any) -> str:
+    """Validate a Postfix map lookup key (a sender address).
+
+    Non-empty, no whitespace (the map line is ``key value``, split on
+    whitespace), no control characters (a newline would inject a second line).
+    """
+    if not isinstance(value, str):
+        raise ValidationError("key", f"must be a string (got {type(value).__name__})")
+    if not value:
+        raise ValidationError("key", "must not be empty")
+    for ch in value:
+        if ch.isspace() or ord(ch) < 0x20 or ord(ch) == 0x7F:
+            raise ValidationError(
+                "key", f"must not contain whitespace/control: {value!r}"
+            )
+    return value
+
+
+def validate_from_domain(value: Any) -> str:
+    """Validate a bare sending domain (no ``@``) — half of DKIM/opendkim names."""
+    if not isinstance(value, str):
+        raise ValidationError(
+            "from_domain", f"must be a string (got {type(value).__name__})"
+        )
+    if "@" in value or not RELAY_HOST_RE.match(value):
+        raise ValidationError("from_domain", f"must be a bare domain (got {value!r})")
+    return value
+
+
+def validate_dkim_selector(value: Any) -> str:
+    """Validate a DKIM selector token — becomes a filename and a DNS label."""
+    if not isinstance(value, str):
+        raise ValidationError(
+            "dkim_selector", f"must be a string (got {type(value).__name__})"
+        )
+    if not RELAY_HOST_RE.match(value):
+        raise ValidationError(
+            "dkim_selector", f"must be a hostname-safe token (got {value!r})"
+        )
+    return value
+
+
+def validate_ipv4(value: Any) -> str:
+    """Validate an IPv4 address (the box's public IP, for the SPF record)."""
+    if not isinstance(value, str):
+        raise ValidationError(
+            "server_ip", f"must be a string (got {type(value).__name__})"
+        )
+    try:
+        addr = ipaddress.ip_address(value)
+    except ValueError:
+        raise ValidationError("server_ip", f"not an IP address: {value!r}") from None
+    if not isinstance(addr, ipaddress.IPv4Address):
+        raise ValidationError("server_ip", f"must be IPv4 (got {value!r})")
+    return str(addr)
 
 
 # --- Top-level: full PortSpec validation -----------------------------------

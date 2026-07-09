@@ -45,7 +45,45 @@ if TYPE_CHECKING:
 __all__ = ["do_deploy"]
 
 
-def do_deploy(  # noqa: PLR0915
+def do_deploy(
+    app: App,
+    *,
+    deltas: dict[str, int] | None = None,
+    db_session: Session | None = None,
+) -> None:
+    """Deploy an app; on failure, best-effort alert the operator, then re-raise.
+
+    This is the single choke point for the deploy-failure notification event
+    (ADR 054): a failed deploy emails the operator through the configured email
+    backend, opt-in. The alert is best-effort and never masks the deploy
+    failure — the original exception always propagates.
+    """
+    try:
+        _do_deploy(app, deltas=deltas, db_session=db_session)
+    except Exception as exc:
+        _notify_deploy_failure(app, exc)
+        raise
+
+
+def _notify_deploy_failure(app: App, exc: BaseException) -> None:
+    """Best-effort operator alert on a failed deploy — never raises."""
+    try:
+        from hop3.plugins.email.notifications import notify  # noqa: PLC0415
+
+        reason = str(exc).strip() or type(exc).__name__
+        notify(
+            "deploy-failure",
+            f"Hop3: deploy failed for {app.name}",
+            f"Deploying app '{app.name}' failed:\n\n{reason[:2000]}\n\n"
+            f"Investigate: hop3 app logs --app {app.name}",
+        )
+    except Exception:
+        # A notification problem must never mask the deploy failure being
+        # reported; log it and let the original exception propagate.
+        server_log.exception("deploy-failure notification errored", app_name=app.name)
+
+
+def _do_deploy(  # noqa: PLR0915
     app: App,
     *,
     deltas: dict[str, int] | None = None,

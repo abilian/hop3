@@ -27,14 +27,27 @@ from typing import TYPE_CHECKING
 
 from hop3.config import HOP3_ROOT
 
-from .email import EmailTransport
+from .email import EmailTransport, validate_mail_from
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+# Backend kinds stored in the record's ``backend`` key. A record written before
+# this key existed is a relay (back-compat).
+RELAY_BACKEND = "relay"
+CATCH_BACKEND = "catch"
+DIRECT_BACKEND = "direct"
+
+_NO_BACKEND_MSG = (
+    "No server email transport is configured. Set one with "
+    "`hop3 server email backend <relay|catch|direct> …` (relay: --smtp-host / "
+    "--smtp-user / --smtp-password / --from-domain), or pass "
+    "--smtp-host/--smtp-user/--smtp-password for a per-app transport."
+)
+
 
 def _store_path() -> Path:
-    """Path to the singleton server-transport record.
+    """Path to the singleton server-backend record.
 
     Computed at call time (not bound at import) so a test can point
     ``HOP3_ROOT`` at a throwaway dir — the same seam the addon-secrets store
@@ -43,19 +56,32 @@ def _store_path() -> Path:
     return HOP3_ROOT / "server" / "email-transport.json"
 
 
+def _load_record() -> dict | None:
+    path = _store_path()
+    if not path.exists():
+        return None
+    return json.loads(path.read_text())
+
+
+def _write_record(record: dict) -> None:
+    path = _store_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.chmod(0o700)
+    path.write_text(json.dumps(record, indent=2))
+    path.chmod(0o600)
+
+
 def save_server_transport(
     transport: EmailTransport, dkim_selector: str | None = None
 ) -> None:
-    """Store (or rotate) the server-level transport. Idempotent.
+    """Store (or rotate) the server-level relay transport. Idempotent.
 
     ``dkim_selector`` (when known, from a provider profile or an explicit
     ``--dkim-selector``) is recorded so ``server email status`` can re-verify
     DKIM later.
     """
-    path = _store_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.parent.chmod(0o700)
     record: dict[str, object] = {
+        "backend": RELAY_BACKEND,
         "smtp_host": transport.smtp_host,
         "smtp_port": transport.smtp_port,
         "smtp_user": transport.smtp_user,
@@ -64,24 +90,51 @@ def save_server_transport(
     }
     if dkim_selector:
         record["dkim_selector"] = dkim_selector
-    path.write_text(json.dumps(record, indent=2))
-    path.chmod(0o600)
+    _write_record(record)
+
+
+def save_server_catch(from_domain: str) -> None:
+    """Store the dev-catch backend (mail captured, never sent).
+
+    No provider credentials — the loopback Postfix relays to a local Mailpit.
+    Only a from-domain is kept, for the inherit From-boundary check.
+    """
+    _write_record({"backend": CATCH_BACKEND, "mail_from": f"noreply@{from_domain}"})
+
+
+def save_server_direct(from_domain: str, dkim_selector: str) -> None:
+    """Store the direct backend (Hop3-run MTA, no third party).
+
+    No provider credentials — Postfix delivers to recipients' MX. The DKIM
+    selector is kept so ``server email status`` can re-verify the record.
+    """
+    _write_record({
+        "backend": DIRECT_BACKEND,
+        "mail_from": f"noreply@{from_domain}",
+        "dkim_selector": dkim_selector,
+    })
+
+
+def load_server_backend_kind() -> str | None:
+    """The active backend kind (``relay`` | ``catch`` | …), or None when unset.
+
+    A record without a ``backend`` key predates the field and is a relay.
+    """
+    data = _load_record()
+    return None if data is None else data.get("backend", RELAY_BACKEND)
 
 
 def load_server_dkim_selector() -> str | None:
     """The DKIM selector recorded with the server transport, if any."""
-    path = _store_path()
-    if not path.exists():
-        return None
-    return json.loads(path.read_text()).get("dkim_selector")
+    data = _load_record()
+    return None if data is None else data.get("dkim_selector")
 
 
 def load_server_transport() -> EmailTransport | None:
-    """Load the server-level transport, or None when it is unset."""
-    path = _store_path()
-    if not path.exists():
+    """Load the server relay transport, or None when unset / not a relay backend."""
+    data = _load_record()
+    if data is None or data.get("backend", RELAY_BACKEND) != RELAY_BACKEND:
         return None
-    data = json.loads(path.read_text())
     return EmailTransport(
         smtp_host=data["smtp_host"],
         smtp_port=int(data["smtp_port"]),
@@ -89,6 +142,32 @@ def load_server_transport() -> EmailTransport | None:
         smtp_password=data["smtp_password"],
         mail_from=data["mail_from"],
     )
+
+
+def assert_inherited_backend(mail_from: str) -> None:
+    """Validate that an app may inherit the active backend.
+
+    Backend-agnostic: an inheriting app always sends via the loopback relay, so
+    it needs no provider transport — only that a backend is set and ``mail_from``
+    is well-formed and on the backend's verified sending domain. Fails loud
+    otherwise (the message names the missing backend, like the relay path).
+    """
+    data = _load_record()
+    if data is None:
+        raise RuntimeError(_NO_BACKEND_MSG)
+    try:
+        validate_mail_from(mail_from)
+    except ValueError as exc:
+        raise RuntimeError(str(exc)) from exc
+    server_domain = str(data["mail_from"]).split("@")[-1].lower()
+    app_domain = mail_from.rsplit("@", maxsplit=1)[-1].lower()
+    if app_domain != server_domain:
+        msg = (
+            f"From address {mail_from!r} is not on the server's verified sending "
+            f"domain {server_domain!r}. Use an address on {server_domain}, or pass "
+            "--smtp-host/--smtp-user/--smtp-password for a per-app transport."
+        )
+        raise RuntimeError(msg)
 
 
 def resolve_inherited(mail_from: str) -> EmailTransport:

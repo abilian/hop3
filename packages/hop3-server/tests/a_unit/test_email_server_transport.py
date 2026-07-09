@@ -20,7 +20,11 @@ from hop3.plugins.addons import secrets as secrets_module
 from hop3.plugins.email import deliverability, providers, server_transport as st_module
 from hop3.plugins.email.cli import AddonEmailCreateCmd, AddonEmailStatusCmd
 from hop3.plugins.email.email import EmailAddon, EmailTransport
-from hop3.plugins.email.server_cli import ServerEmailSetCmd, ServerEmailStatusCmd
+from hop3.plugins.email.server_cli import (
+    ServerEmailBackendCmd,
+    ServerEmailSetCmd,
+    ServerEmailStatusCmd,
+)
 from hop3.plugins.email.server_transport import (
     load_server_dkim_selector,
     load_server_transport,
@@ -235,14 +239,18 @@ def test_create_inherits_server_transport(email_root, no_dns):
     assert info["mail_from"] == "team@example.com"
 
 
-def test_create_inherit_resolves_server_creds_in_env(email_root, no_dns):
+def test_create_inherit_injects_loopback_relay(email_root, no_dns):
+    # An inheriting app sends via the loopback relay (ADR 054); the server
+    # creds live in Postfix, never in app env. Only the app's From is injected.
     save_server_transport(_server_transport())
     AddonEmailCreateCmd().call("mail", "--from", "team@example.com")
     env = EmailAddon(addon_name="mail").get_connection_details()
-    assert env["SMTP_HOST"] == "smtp.example.com"
-    assert env["SMTP_USER"] == "relay-user"
-    assert env["SMTP_PASSWORD"] == "s3cr3t"
+    assert env["SMTP_HOST"] == "127.0.0.1"
+    assert env["SMTP_PORT"] == "25"
+    assert env["SMTP_USER"] == ""  # no provider cred in app env
+    assert env["SMTP_PASSWORD"] == ""
     assert env["SMTP_FROM"] == "team@example.com"
+    assert "s3cr3t" not in str(env)  # the server password never leaks to the app
 
 
 def test_create_inherit_fails_loud_without_server_transport(email_root, no_dns):
@@ -576,3 +584,104 @@ def test_set_dkim_selector_without_provider(email_root, no_dns):
         "--dkim-selector", "s1",
     )  # fmt: skip
     assert load_server_dkim_selector() == "s1"
+
+
+# ---- server email backend <kind> (admin-gated) ------------------------------
+
+
+def test_backend_relay_stores_transport(email_root, no_dns):
+    # `backend relay` is the canonical spelling of `server email set`.
+    result = ServerEmailBackendCmd(user_repo=_admin_repo()).call(
+        "admin", "relay",
+        "--smtp-host", "smtp.example.com", "--smtp-user", "u",
+        "--smtp-password", "pw", "--from-domain", "example.com",
+    )  # fmt: skip
+    assert "experimental" in _joined(result)
+    loaded = load_server_transport()
+    assert loaded is not None
+    assert loaded.smtp_host == "smtp.example.com"
+
+
+def test_backend_relay_requires_admin(email_root, no_dns):
+    result = ServerEmailBackendCmd(user_repo=_nonadmin_repo()).call(
+        "bob", "relay",
+        "--smtp-host", "smtp.example.com", "--smtp-user", "u",
+        "--smtp-password", "pw", "--from-domain", "example.com",
+    )  # fmt: skip
+    assert "error" in _types(result)
+    assert "Admin privileges required" in _joined(result)
+    assert load_server_transport() is None
+
+
+def test_backend_catch_selects_dev_sink(email_root):
+    result = ServerEmailBackendCmd(user_repo=_admin_repo()).call(
+        "admin", "catch", "--from-domain", "example.com"
+    )
+    assert "error" not in _types(result)
+    assert "captured, not sent" in _joined(result)
+    assert st_module.load_server_backend_kind() == "catch"
+    assert load_server_transport() is None  # a sink has no provider transport
+
+
+def test_backend_catch_requires_admin(email_root):
+    result = ServerEmailBackendCmd(user_repo=_nonadmin_repo()).call("bob", "catch")
+    assert "error" in _types(result)
+    assert "Admin privileges required" in _joined(result)
+    assert st_module.load_server_backend_kind() is None
+
+
+def test_backend_catch_inherited_addon_injects_loopback(email_root, no_dns):
+    # Under catch, an inheriting app still gets the loopback endpoint (:25);
+    # Postfix relays to the sink. No provider transport is needed.
+    ServerEmailBackendCmd(user_repo=_admin_repo()).call(
+        "admin", "catch", "--from-domain", "example.com"
+    )
+    result = AddonEmailCreateCmd().call("mail", "--from", "team@example.com")
+    assert "error" not in _types(result)
+    env = EmailAddon(addon_name="mail").get_connection_details()
+    assert env["SMTP_HOST"] == "127.0.0.1"
+    assert env["SMTP_PORT"] == "25"
+    info = EmailAddon(addon_name="mail").info()
+    assert info["inherited"] is True
+    assert info["smtp_host"] == "127.0.0.1"
+
+
+def test_backend_direct_selects_self_hosted_mta(email_root, no_dns):
+    result = ServerEmailBackendCmd(user_repo=_admin_repo()).call(
+        "admin", "direct", "--from-domain", "example.com", "--server-ip", "203.0.113.7"
+    )
+    assert "error" not in _types(result)
+    assert "direct" in _joined(result)
+    assert st_module.load_server_backend_kind() == "direct"
+    assert st_module.load_server_dkim_selector() == "hop3"  # default selector stored
+
+
+def test_backend_direct_requires_from_domain(email_root):
+    result = ServerEmailBackendCmd(user_repo=_admin_repo()).call("admin", "direct")
+    assert "error" in _types(result)
+    assert "from-domain" in _joined(result)
+    assert st_module.load_server_backend_kind() is None
+
+
+def test_backend_direct_inherited_addon_injects_loopback(email_root, no_dns):
+    # A direct-backed inheriting app also sends via the loopback (:25); Postfix
+    # then delivers to MX. No provider transport needed.
+    ServerEmailBackendCmd(user_repo=_admin_repo()).call(
+        "admin", "direct", "--from-domain", "example.com", "--server-ip", "203.0.113.7"
+    )
+    AddonEmailCreateCmd().call("mail", "--from", "team@example.com")
+    env = EmailAddon(addon_name="mail").get_connection_details()
+    assert env["SMTP_HOST"] == "127.0.0.1"
+    assert env["SMTP_PORT"] == "25"
+
+
+def test_backend_unknown_kind_is_loud(email_root):
+    result = ServerEmailBackendCmd(user_repo=_admin_repo()).call("admin", "smtp")
+    assert "error" in _types(result)
+    assert "unknown backend" in _joined(result)
+
+
+def test_backend_missing_kind_shows_usage(email_root):
+    result = ServerEmailBackendCmd(user_repo=_admin_repo()).call("admin")
+    assert "error" in _types(result)
+    assert "backend <relay|catch|direct>" in _joined(result)

@@ -14,7 +14,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Self
+from typing import TYPE_CHECKING, Any, Self
 
 import httpx
 
@@ -26,6 +26,9 @@ from .constants import (
     hermetic_cli_cwd,
     hermetic_cli_env,
 )
+
+if TYPE_CHECKING:
+    from .config import DeploymentConfig
 
 
 @dataclass
@@ -132,6 +135,18 @@ class DeploymentTarget(ABC):
             Tuple of (exit_code, stdout, stderr)
         """
         msg = "exec_run not implemented for this target"
+        raise NotImplementedError(msg)
+
+    def redeploy(self, config: DeploymentConfig) -> None:
+        """Re-deploy Hop3 to this already-started target (in-place update).
+
+        Runs another ``hop3-deploy-server`` against the SAME box without
+        recreating it, so it exercises the deployer's update path (install the
+        new version -> ``db:upgrade`` -> restart -> verify) — the mechanism an
+        upgrade chain tests. Pass ``clean=False`` in ``config`` to stay on the
+        update path. Raises on failure. Overridden by DockerTarget/RemoteTarget.
+        """
+        msg = "redeploy not supported for this target"
         raise NotImplementedError(msg)
 
     def upload_file(self, local_path: Path | str, remote_path: str) -> None:

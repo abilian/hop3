@@ -47,10 +47,35 @@ hop3-test ci
 | `hop3-test run --reuse` | Test against an existing deployment (skip deploy) |
 | `hop3-test list` | List available tests (`--show NAME` for one test's details) |
 | `hop3-test run --provider hetzner --images ...` | E2E across cloud OS images (Hetzner) |
+| `hop3-test upgrade-chain` | Install a baseline release on a fresh box, then upgrade in-place through a version chain |
 | `hop3-test why <run-id>` | Replay a saved diagnostic bundle for a failed run |
 
 Test profile (fast/CI/full) is selected with `--mode` on `run`, not a separate
 subcommand: `hop3-test run --docker --mode ci`.
+
+### Upgrade chain
+
+`hop3-test upgrade-chain` validates that a running server survives a *chain* of in-place upgrades. Each hop is a git ref, installed by **that version's own** `hop3-deploy-server` (checked out into a worktree and run via `uv run`), on a **fresh** box; every hop after the first is an in-place update, and each is asserted to come back healthy with a readable schema.
+
+```bash
+# Fresh Docker container: 0.6.2 → current tree
+hop3-test upgrade-chain --docker
+
+# Fresh Hetzner VPS (needs HETZNER_API_TOKEN + HETZNER_SERVER_ID)
+hop3-test upgrade-chain --provider hetzner --image ubuntu-24.04
+
+# Custom chain (release tags + `local` for the current tree)
+hop3-test upgrade-chain --docker --chain 0.6.2,local
+```
+
+Cheapest smoke — exercises the whole mechanism (fresh install → in-place
+upgrade → assertions) with no old-version/worktree variable:
+
+```bash
+hop3-test upgrade-chain --docker --chain local,local
+```
+
+`--host <server>` is accepted but warns: it targets an existing server, not the clean slate an upgrade chain assumes. `0.6.0` is not a viable baseline (its `hop3-rootd` can't start) and is excluded from the default chain.
 
 ### Common Options
 
