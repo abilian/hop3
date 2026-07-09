@@ -6,7 +6,7 @@ Pitfalls when providing database services (PostgreSQL, MySQL, Redis) to applicat
 
 Never use `localhost` as the default database host. On IPv6-enabled servers, runtimes resolve `localhost` to `::1` first. If the database only listens on `127.0.0.1`, the connection fails with `ECONNREFUSED ::1:3306`.
 
-Node.js is the most common offender — its DNS resolver prefers IPv6. Python and Go typically try both.
+Node.js is the most common offender: its DNS resolver prefers IPv6. Python and Go typically try both.
 
 **Fix:** Always inject `127.0.0.1` as the host value. For Docker deployments, the Docker deployer transforms `127.0.0.1` → `host.docker.internal` automatically.
 
@@ -14,7 +14,7 @@ Node.js is the most common offender — its DNS resolver prefers IPv6. Python an
 
 MariaDB's user matching has a non-obvious priority: `''@'localhost'` (anonymous user, specific host) beats `'myuser'@'%'` (named user, any host) for connections from localhost.
 
-If the anonymous user exists (common in default installations), creating app users with `@'%'` means they can never connect from localhost — the anonymous user matches first and authentication fails.
+If the anonymous user exists (common in default installations), creating app users with `@'%'` means they can never connect from localhost: the anonymous user matches first and authentication fails.
 
 **Fix:** Create users with `@'localhost'` for local-only services:
 
@@ -25,30 +25,30 @@ GRANT ALL ON mydb.* TO 'myuser'@'localhost';
 
 ## MySQL Per-Host Grants for Docker-Bridge Apps
 
-A single `@'localhost'` grant is not enough when Docker-based applications on the same host talk to MySQL. Docker containers connect from the bridge network (typically `172.16.0.0/12` — usually `172.17.x.x` or `172.18.x.x`), not from `localhost`. The connection attempt surfaces as:
+A single `@'localhost'` grant is not enough when Docker-based apps on the same host talk to MySQL. Containers connect from a private network address, not `localhost`, and that address depends on which pool Docker drew the network from — its default-address-pools span *both* `172.16.0.0/12` and `192.168.0.0/16`, and custom networks may use `10.x`. The connection surfaces as:
 
 ```
-Host '172.18.0.2' is not allowed to connect to this MariaDB server
+[1130] Host '192.168.0.2' is not allowed to connect to this MariaDB server
 ```
 
-The MySQL protocol doesn't fall back between grant hosts — the server picks the most-specific matching user row at authentication and rejects if the password doesn't match *that* row. So one user row per connection source is required.
+The MySQL protocol doesn't fall back between grant hosts: the server picks the most-specific matching user row at authentication and rejects if the password doesn't match *that* row. So one user row is needed per source range, and since host patterns can't express CIDR, you enumerate the RFC1918 wildcards.
 
-**Fix:** Create three user rows per app, with identical privileges:
+**Fix:** Create one user row per host in `ADDON_USER_HOSTS` — currently `("localhost", "127.0.0.1", "10.%", "172.%", "192.168.%")` — all with identical privileges:
 
 ```sql
 CREATE USER 'myuser'@'localhost'   IDENTIFIED BY 'pass';
 CREATE USER 'myuser'@'127.0.0.1'   IDENTIFIED BY 'pass';
+CREATE USER 'myuser'@'10.%'        IDENTIFIED BY 'pass';
 CREATE USER 'myuser'@'172.%'       IDENTIFIED BY 'pass';
-GRANT ALL ON mydb.* TO 'myuser'@'localhost';
-GRANT ALL ON mydb.* TO 'myuser'@'127.0.0.1';
-GRANT ALL ON mydb.* TO 'myuser'@'172.%';
+CREATE USER 'myuser'@'192.168.%'   IDENTIFIED BY 'pass';
+-- ... and one GRANT ALL ON mydb.* per host
 ```
 
-Drop all three on teardown. Centralise the create-or-alter logic in one helper so the three rows don't drift. This parallels the PostgreSQL `pg_hba.conf` entry that permits `172.16.0.0/12` alongside `localhost` and `127.0.0.1/32`.
+Granting only `172.%` (the earlier value) failed every compose app whose network came from the `192.168.x` pool. Drop every row on teardown, and centralise the create-or-alter logic in one helper so the rows don't drift. This parallels the PostgreSQL `pg_hba.conf` entries that permit all of RFC1918 (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) alongside `localhost` and `127.0.0.1/32`.
 
 ## `localhost` Rewrite: Match by Value, Not by Variable Name
 
-When a containerised application needs to reach a host-side database, the deployer must rewrite `localhost`/`127.0.0.1` in the app's environment to `host.docker.internal`. A first-draft implementation whitelists specific env-var names (`DATABASE_URL`, `PGHOST`, `REDIS_URL`, …); this breaks for apps that introduce custom names (`GF_DATABASE_HOST`, `SMTP_HOST`, app-specific aliases) — the container sees the unrewritten `127.0.0.1` and fails.
+When a containerised application needs to reach a host-side database, the deployer must rewrite `localhost`/`127.0.0.1` in the app's environment to `host.docker.internal`. A first-draft implementation whitelists specific env-var names (`DATABASE_URL`, `PGHOST`, `REDIS_URL`, …); this breaks for apps that introduce custom names (`GF_DATABASE_HOST`, `SMTP_HOST`, app-specific aliases) - the container sees the unrewritten `127.0.0.1` and fails.
 
 **Fix:** match by *value* at host-boundary positions via regex, not by var name. The pattern must handle:
 
@@ -58,7 +58,7 @@ When a containerised application needs to reach a host-side database, the deploy
 - Multi-host values like `127.0.0.1:26379,remote:26379` (only the first host rewrites)
 - Leave substrings alone: `my-localhost-fallback` must not become `my-host.docker.internal-fallback`
 
-A regex anchored at URL schemes, `@host:port`, bare `host:port`, and full-value hosts covers this. Whitelists are a design smell — whenever you see one, ask what the general rule is. Unit-test both positive and negative cases.
+A regex anchored at URL schemes, `@host:port`, bare `host:port`, and full-value hosts covers this. Whitelists are a design smell — find the general rule. Unit-test both positive and negative cases.
 
 ## Unix Socket Authentication
 
@@ -100,7 +100,7 @@ DATABASE_URL = "postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDAT
 
 ## Env Var Update Semantics
 
-By default, hop3.toml `[env]` values are treated as **defaults** — they only set vars that don't already exist. This preserves user-set values (via `config:set`) and addon values.
+By default, hop3.toml `[env]` values are treated as **defaults**. They only set vars that don't already exist. This preserves user-set values (via `config:set`) and addon values.
 
 This is confusing when users change a value in hop3.toml and redeploy expecting it to take effect. The deploy log says "Set 0 env var(s)" with no explanation.
 

@@ -17,6 +17,7 @@ from hop3_rootd.ops import (  # noqa: F401
     firewall,
     mount,
     nginx,
+    postfix,
     proxy,
 )
 from hop3_rootd.ops._base import (

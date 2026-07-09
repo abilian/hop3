@@ -760,6 +760,26 @@ def read_server_secret_key(
         raise ConfigurationError(msg) from e
 
 
+_LEGACY_SOURCE_FLAG = {"local": "--local", "git": "--git", "pypi": "--pypi"}
+
+
+def _source_flags(
+    source: str, branch: str, version: str | None, *, legacy: bool
+) -> list[str]:
+    """The install-source flags: --from/--local + --branch (git) / --version (pypi).
+
+    ``legacy`` emits the old --local/--git/--pypi spellings accepted by every
+    version's deployer (needed to drive a pre-ADR-052 release's own deployer);
+    otherwise the canonical --from.
+    """
+    flags = [_LEGACY_SOURCE_FLAG[source]] if legacy else ["--from", source]
+    if source == "git":
+        flags += ["--branch", branch]
+    if source == "pypi" and version:
+        flags += ["--version", version]
+    return flags
+
+
 def _build_deploy_command(
     *,
     docker: bool,
@@ -770,6 +790,8 @@ def _build_deploy_command(
     source: str = "local",
     clean: bool,
     branch: str,
+    version: str | None = None,
+    legacy_flags: bool = False,
     verbose: bool,
     features: list[str] | None = None,
     ssh_key: str | None = None,
@@ -805,9 +827,7 @@ def _build_deploy_command(
             # server-resident runtime user doesn't have -> Permission denied.
             cmd.extend(["--identity", ssh_key])
 
-    cmd.extend(["--from", source])
-    if source == "git":
-        cmd.extend(["--branch", branch])
+    cmd.extend(_source_flags(source, branch, version, legacy=legacy_flags))
     if clean:
         cmd.append("--clean")
     if verbose:
@@ -835,6 +855,8 @@ def run_hop3_deploy(
     source: str = "local",
     clean: bool = False,
     branch: str = "main",
+    version: str | None = None,
+    legacy_flags: bool = False,
     verbose: bool = False,
     features: list[str] | None = None,
     ssh_key: str | None = None,
@@ -859,6 +881,9 @@ def run_hop3_deploy(
         source: Install source ("local" | "git" | "pypi"), emitted as --from
         clean: Clean before deploy (--clean flag)
         branch: Git branch to deploy (only used when source == "git")
+        version: Pinned PyPI version, emitted as --version (only when source == "pypi")
+        legacy_flags: Emit old-style source flags (--local/--git/--pypi) accepted by
+            every version's deployer — for driving an OLD version's own deployer
         verbose: Enable verbose output
         features: Features to install (docker, mysql, redis, nix, etc.)
         domain: Admin domain, emitted as --admin-domain (cloud path)
@@ -883,6 +908,8 @@ def run_hop3_deploy(
         source=source,
         clean=clean,
         branch=branch,
+        version=version,
+        legacy_flags=legacy_flags,
         verbose=verbose,
         features=features,
         ssh_key=ssh_key,

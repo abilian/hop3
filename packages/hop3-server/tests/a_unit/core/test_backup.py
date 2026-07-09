@@ -10,6 +10,8 @@ import json
 import pathlib
 from unittest.mock import MagicMock
 
+import pytest
+
 from hop3.core.backup import BackupManager, BackupManifest, format_size
 
 
@@ -356,3 +358,44 @@ def test_format_size():
     assert format_size(1024 * 1024) == "1.0 MB"
     assert format_size(1024 * 1024 * 1024) == "1.0 GB"
     assert format_size(1536) == "1.5 KB"
+
+
+def _addon_manifest() -> BackupManifest:
+    return BackupManifest(
+        backup_id="b",
+        app_name="a",
+        created_at="",
+        format_version="1.0",
+        hop3_version="",
+        size_bytes=0,
+        checksums={},
+        app_metadata={},
+        addons=[
+            {"type": "postgres", "name": "db", "backup_file": "addons/postgres_db.sql"}
+        ],
+        env_vars_count=0,
+        expires_after=0,
+    )
+
+
+def test_restore_addons_fails_loud_on_missing_backup_file(tmp_path):
+    # A silently-skipped addon would let restore (and a rollback built on it)
+    # report success while an addon DB was never restored — a rollback that lies.
+    manager = create_backup_manager_with_mocks()
+    with pytest.raises(RuntimeError, match="Addon backup file missing"):
+        manager._restore_addons(None, tmp_path, _addon_manifest())
+
+
+def test_restore_addons_fails_loud_when_addon_restore_raises(tmp_path, monkeypatch):
+    (tmp_path / "addons").mkdir()
+    (tmp_path / "addons" / "postgres_db.sql").write_text("dump")
+
+    class _BadAddon:
+        def restore(self, path):
+            msg = "addon restore failed"
+            raise RuntimeError(msg)
+
+    monkeypatch.setattr("hop3.core.backup.get_addon", lambda _t, _n: _BadAddon())
+    manager = create_backup_manager_with_mocks()
+    with pytest.raises(RuntimeError, match="addon restore failed"):
+        manager._restore_addons(None, tmp_path, _addon_manifest())

@@ -38,7 +38,7 @@ def test_registered_subcommands_present():
     register_commands(group)
     # `run` is canonical; `system` stays a deprecated alias. The image sweep
     # folded into `run --images` (ADR 052 D9) — no separate matrix/cloud command.
-    for name in ("run", "system", "list", "why"):
+    for name in ("run", "system", "list", "why", "upgrade-chain"):
         assert name in group.commands, f"hop3-test lost the '{name}' subcommand"
     for gone in ("matrix", "cloud"):
         assert gone not in group.commands, f"'{gone}' should be folded into run"

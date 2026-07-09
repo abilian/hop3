@@ -206,3 +206,22 @@ class DeployBackend(ABC):
         """
         # No-op: systemd handles services on real servers
         return
+
+    def service_restart_command(self, service: str) -> str:
+        """The shell command that restarts a managed service on this target.
+
+        systemd on real servers; the Docker backend overrides this for
+        supervisor (its PID 1 — there is no systemd in the container). Exposed
+        as a string so recovery hints can show the command that actually works
+        on the target rather than a systemd-only one.
+        """
+        return f"systemctl restart {service}"
+
+    def restart_service(self, service: str) -> CommandResult:
+        """Restart a managed service, best-effort.
+
+        Fire-and-forget by design: the caller verifies the service actually came
+        back up afterwards, so a restart that "succeeded" but left a crashing
+        process is caught there, not masked here.
+        """
+        return self.run(self.service_restart_command(service), check=False)

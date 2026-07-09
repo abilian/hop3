@@ -76,6 +76,30 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
+# Deploy-target vars the `hop3-deploy-server` CLI reads to pick a target
+# (see deployer/config.py). NOT HOP3_TEST_HOST — that is the harness's own
+# explicit-opt-in var, set from --ssh-host.
+_AMBIENT_DEPLOY_TARGET_VARS = (
+    "HOP3_HOST",
+    "HOP3_DEV_HOST",
+    "HOP3_TEST_SERVER",
+    "HOP3_DOCKER",
+)
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Strip ambient deploy-target env vars so no c_e2e test can silently deploy.
+
+    A bare ``hop3-deploy-server`` subprocess inherits the environment; with
+    ``HOP3_DEV_HOST`` (etc.) set in the shell it would deploy to a REAL host —
+    the accident that ``unset HOP3_DEV_HOST`` was papering over (easy to forget).
+    Running against a host must be explicit: pass ``--host`` in the test, or the
+    ``--ssh-host`` option (which uses HOP3_TEST_HOST, left untouched here).
+    """
+    for var in _AMBIENT_DEPLOY_TARGET_VARS:
+        os.environ.pop(var, None)
+
+
 def _get_ssh_host(config: pytest.Config) -> str | None:
     """Get SSH host from CLI option or environment variable."""
     # CLI option takes precedence

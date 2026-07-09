@@ -174,47 +174,52 @@ Path-style URLs are required for MinIO; virtual-host style will arrive with the 
 
 ### email (experimental)
 
-> **Experimental (added 0.6.1).** The command surface is marked subject to change and may evolve after real use. Every `addon email` / `server email` command prints a one-line experimental banner.
+> **Experimental (added 0.6.1; backend model reworked in 0.7).** The command surface is subject to change. Every `addon email` / `server email` command prints a one-line experimental banner.
 
-Hop3 never runs a mail server — deliverability, IP reputation, and abuse make it a losing game, and most clouds block outbound port 25. The email addon stores your existing provider's **SMTP submission credentials** and injects them into attached apps. It is **outbound transactional email only**: no inbound, IMAP, or MX.
+Email is a **backing service with a swappable backend**, like the database addons. You pick a backend once at the server level; an app opts in by attaching an email addon and sends over a platform-owned **loopback SMTP endpoint** (`127.0.0.1:25`) — a queuing Postfix relay that forwards to whatever the backend is. Apps never shell `sendmail` (a local-binary side-channel isn't config-driven), and the provider credential never enters an app's environment. It is **outbound transactional email only**: no inbound, IMAP, or MX.
 
-Because no two frameworks read the same variable names, the addon injects one transport under every common spelling, so a stock Django, Flask, or Node app sends mail with no code change.
-
-**Configure it** — with any SMTP provider (Resend, Amazon SES, Postmark, Brevo, Mailgun, a corporate relay, …). Unlike the other addons, email is configured with a type-specific command that carries the credentials, not the generic `addon create`:
+Install the local relay with the email feature (it's in `--with all`):
 
 ```bash
-hop3 addon email create mail \
-    --smtp-host smtp.resend.com \
-    --smtp-user resend \
-    --smtp-password @./smtp.secret \
-    --from noreply@example.com
-# --smtp-port defaults to 587 (STARTTLS); pass 465 for implicit TLS. Only 587/465.
+hop3-install server --with email
 ```
 
-Keep the password out of your shell history (ADR 036): `--smtp-password @<path>` reads it from a file, `--smtp-password -` reads it from stdin.
+**Pick a backend** (admin-only):
 
-**Set the transport once (server level).** Rather than repeat the SMTP credentials per app, an operator can set them once and have every app inherit them (admin-only). Name a known provider with `--provider` and Hop3 fills the SMTP host/port for you (`--list-providers` to see them — Resend, Postmark, Brevo, Mailgun / Mailgun-EU, Scaleway TEM; EU-hosted ones flagged):
+- **`relay`** — submit to a provider or corporate smarthost (Scaleway TEM, SES, SendGrid, Mailgun, Brevo, …); the provider owns deliverability. The recommended production backend — also spelled `server email set`.
+- **`catch`** — a local dev sink: mail is captured, never sent. The safe non-production default.
+- **`direct`** *(preview)* — a Hop3-run MTA that delivers to recipients itself and signs with DKIM, no third party (the sovereign path). Hop3 generates the DKIM keypair and prints the SPF/DKIM/DMARC records to publish. Preview in 0.7: it needs a systemd host with outbound port 25 unblocked (it fails loud otherwise), and fresh-IP reputation is your responsibility — full support lands in 0.8.
+
+Name a known provider with `--provider` and Hop3 fills the SMTP host/port (`--list-providers`: Resend, Postmark, Brevo, Mailgun / Mailgun-EU, Scaleway TEM; EU-hosted ones flagged):
 
 ```bash
-hop3 server email set --provider brevo \
-    --smtp-user <user> \
-    --smtp-password @./smtp.secret \
+hop3 server email backend relay --provider brevo \
+    --smtp-user <user> --smtp-password @./smtp.secret \
     --from-domain example.com
 # or spell out the endpoint yourself:
-hop3 server email set --smtp-host smtp.example.com --smtp-user u \
+hop3 server email backend relay --smtp-host smtp.example.com --smtp-user u \
     --smtp-password @./pw --from-domain example.com --dkim-selector s1
-hop3 server email status                # host / port / sending domain — never the password
+# a dev sink — nothing is sent:
+hop3 server email backend catch --from-domain example.com
+# a self-hosted MTA — prints the DKIM/SPF/DMARC records to publish:
+hop3 server email backend direct --from-domain example.com
+
+hop3 server email status        # active backend + a live SPF/DKIM/DMARC pre-flight
 ```
 
-Then create per-app addons **without** `--smtp-*` — they inherit the server transport, sending from any address on the verified domain:
+Keep the password out of your shell history (ADR 036): `--smtp-password @<path>` reads it from a file, `--smtp-password -` reads it from stdin. Selecting a backend is idempotent and re-pointable — swapping it never re-touches an app.
+
+**Attach it to an app.** An app declares it needs email by creating an addon **without** `--smtp-*` (so it inherits the backend) and attaching it (the type isn't inferred from the name, so pass `--type email`):
 
 ```bash
-hop3 addon email create mail --from noreply@example.com   # inherits; no creds repeated
+hop3 addon email create mail --from noreply@example.com   # inherits the backend
+hop3 addon attach mail --app my-app --type email          # injects SMTP_HOST=127.0.0.1
+hop3 addon email status mail                              # never the password
 ```
 
-An app can still bring its own provider by passing `--smtp-*`, which overrides the server transport for that app (a partial `--smtp-*` is refused — all three creds or none). Rotating the server transport propagates to every inheriting app. Inheriting is refused if `--from` is not on the server's verified sending domain.
+The app is injected `SMTP_HOST=127.0.0.1` / `SMTP_PORT=25` (no auth) and relays through the loopback Postfix; the provider credential stays in Postfix. Inheriting is refused if `--from` is not on the backend's verified sending domain. An app can bring its own provider by passing `--smtp-*` (all three creds or none), which sends to that provider directly instead of the shared relay.
 
-**Get alerted when things break.** Reuse the server transport to email yourself on server events (cert-renewal failures today; more with the monitoring roadmap) — opt-in, admin-only. The recipient defaults to your ACME email:
+**Get alerted when things break.** Reuse the backend to email yourself on server events (cert-renewal failures and failed deploys today; more with the monitoring roadmap) — opt-in, admin-only. The recipient defaults to your ACME email:
 
 ```bash
 hop3 server email notifications on --to ops@example.com
@@ -222,55 +227,46 @@ hop3 server email notifications test        # send a test message now
 hop3 server email notifications status      # enabled? and actually deliverable?
 ```
 
-`status` tells you loudly if notifications are on but can't send (no transport / no recipient), so a misconfigured alert channel never stays silently broken.
+`status` tells you loudly if notifications are on but can't send (no backend / no recipient), so a misconfigured alert channel never stays silently broken.
 
-**Attach and check** (the type isn't inferred from the name, so pass `--type email`):
-
-```bash
-hop3 addon attach mail --app my-app --type email
-hop3 addon email status mail            # shows host / port / from — never the password
-```
-
-**Injected env vars** — one transport, every common spelling:
+**Injected env vars** — one endpoint, every common spelling. An inheriting app points at the loopback (`SMTP_HOST=127.0.0.1`, `SMTP_PORT=25`, no auth); an own-provider app points at its provider directly:
 
 | Variables | Consumer |
 |-----------|----------|
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_TLS` | neutral / Node |
-| `SMTP_URL` (`smtp://…:587` or `smtps://…:465`) | Node / nodemailer, URL parsers |
+| `SMTP_URL` (`smtp://…`) | Node / nodemailer, URL parsers |
 | `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `EMAIL_USE_SSL`, `DEFAULT_FROM_EMAIL` | Django (`django.core.mail`) |
 | `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_USE_TLS`, `MAIL_USE_SSL`, `MAIL_DEFAULT_SENDER` | Flask-Mail |
 
 So **Django**, **Flask-Mail**, and **Node/nodemailer** read their native names directly — no remapping.
 
-**Frameworks that read no SMTP env** need one line of app-side glue (env injection can't reach them):
+**Frameworks that read no SMTP env** are pointed at the same `127.0.0.1:25` endpoint through their own config — never `sendmail`:
 
-- **Rails (ActionMailer)** — in `config/environments/production.rb`:
+- **Rails (ActionMailer)** — in `config/environments/production.rb`, read the injected vars:
   ```ruby
   config.action_mailer.smtp_settings = {
     address: ENV["SMTP_HOST"], port: ENV["SMTP_PORT"].to_i,
-    user_name: ENV["SMTP_USER"], password: ENV["SMTP_PASSWORD"],
-    authentication: :plain, enable_starttls_auto: true,
   }
   ```
-- **WordPress** — stock `wp_mail()` uses PHP `mail()` and ignores env. Install an SMTP plugin (WP Mail SMTP, FluentSMTP) and point it at `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD`, or map those into constants in `wp-config.php`.
+- **WordPress** — stock `wp_mail()` uses PHP `mail()`. Hop3's WordPress packaging drops a must-use plugin (a `phpmailer_init` hook) that routes `wp_mail()` through the attached email addon's `SMTP_HOST`/`SMTP_PORT` automatically, and self-disables when no email addon is attached. For a custom app, write the equivalent from `before-run` — never `sendmail`.
 
 > Email is configured imperatively, so don't declare it in `[[addons]]`: a declarative block has no credentials to provision, and the deploy fails loud telling you to run `addon email create`.
 
 #### Deliverability is your job, at the provider
 
-Hop3 only hands the message to your provider; whether it reaches the inbox is gated by DNS **on your sending domain**, not by Hop3:
+For a **relay** backend Hop3 hands the message to your provider; for **direct** it delivers itself. Either way, whether it reaches the inbox is gated by DNS **on your sending domain**, not by Hop3:
 
-- Publish **SPF**, **DKIM**, and **DMARC** for the From-domain at your provider (its dashboard generates the exact records). Since 2024, Gmail/Yahoo/Microsoft reject or spam-folder unauthenticated mail.
+- Publish **SPF**, **DKIM**, and **DMARC** for the From-domain (for a relay, your provider's dashboard generates the exact records; for **direct**, Hop3 generates the DKIM keypair and prints the records to publish). Since 2024, Gmail/Yahoo/Microsoft reject or spam-folder unauthenticated mail.
 - The unit you authenticate is the **domain**, not the address. Once `example.com` is verified, any From on it — `noreply@`, `support@`, `billing@` — sends for free.
 - Sending **as** `support@example.com` does not mean Hop3 hosts that mailbox; replies follow your domain's existing MX (Google Workspace, etc.).
 
-These commands check **SPF and DMARC** for the domain via DNS and report what's missing — never claiming "ready" over unpublished records. **DKIM is auto-verified too once its selector is known**: pass `--dkim-selector <sel>` (copy it from your provider's dashboard), or use `--provider resend` (Resend's selector is fixed, so it's supplied automatically). Without a selector the DKIM row stays guidance — Hop3 never guesses a selector and reports a fake "missing".
+`server email status` checks **SPF and DMARC** for the domain via DNS and reports what's missing — never claiming "ready" over unpublished records. **DKIM is auto-verified too once its selector is known**: pass `--dkim-selector <sel>` (copy it from your provider's dashboard), or use `--provider resend` (Resend's selector is fixed, so it's supplied automatically). Without a selector the DKIM row stays guidance — Hop3 never guesses a selector and reports a fake "missing".
 
 #### Wiring it into apps (recipes)
 
-Attaching the addon injects the superset above. A few apps read those names directly; most read their own names and need a short `[env]` remap (Hop3's `${VAR}` interpolation, resolved *after* addon injection). Two recurring gotchas:
+Attaching the addon injects the superset above. A few apps read those names directly; most read their own names and need a short `[env]` remap (Hop3's `${VAR}` interpolation, resolved *after* addon injection). The injected values follow the backend the app inherits — for the shared backends that's the **loopback** (`127.0.0.1:25`, no auth, no TLS; the local relay does auth/TLS upstream); for an own-`--smtp-*` app it's your provider (587/STARTTLS + creds). Two recurring gotchas:
 
-- **TLS flag:** the injected `SMTP_TLS` means **STARTTLS on 587**. Apps with an implicit-TLS/465 boolean or an enum (`EMAIL_SMTP_SECURE`, `SMTP_SECURE_ENABLED`, `SMTP_SECURITY`) should be set **literally** for a 587 relay — don't pipe `SMTP_TLS`.
+- **TLS / auth flags:** toward the loopback, keep encryption and auth **off** (`SMTP_TLS` is injected `false`, `SMTP_USER`/`SMTP_PASSWORD` empty) — an app that hardcodes STARTTLS/465 or requires a username toward `127.0.0.1` will fail. For an own-provider app, `SMTP_TLS` means STARTTLS on 587; an implicit-TLS/465 or enum flag (`SMTP_SECURITY`, …) must be set literally, not piped from `SMTP_TLS`.
 - **Combined host:port:** Grafana and Gitea want one `host:port` string — splice it with `[env.computed]` (e.g. `GF_SMTP_HOST = "${SMTP_HOST}:${SMTP_PORT}"`).
 
 **Works on attach (no remap):** BookWyrm, Bugsink (Django `EMAIL_*`).
@@ -282,9 +278,9 @@ Attaching the addon injects the superset above. A few apps read those names dire
 MAIL_MAILER = "smtp"
 MAIL_HOST = "${SMTP_HOST}"
 MAIL_PORT = "${SMTP_PORT}"
-MAIL_USERNAME = "${SMTP_USER}"
-MAIL_PASSWORD = "${SMTP_PASSWORD}"
-MAIL_ENCRYPTION = "tls"
+MAIL_USERNAME = "${SMTP_USER}"       # empty toward the loopback backend
+MAIL_PASSWORD = "${SMTP_PASSWORD}"   # empty toward the loopback backend
+MAIL_ENCRYPTION = ""                 # empty for the loopback; "tls" for an own-provider (587)
 MAIL_FROM_ADDRESS = "${SMTP_FROM}"   # BookStack uses MAIL_FROM instead
 ```
 

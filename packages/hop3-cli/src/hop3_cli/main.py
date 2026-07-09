@@ -134,6 +134,18 @@ def run_command_from_args(cli_args: list[str]) -> None:
     if not flags.no_alias:
         cli_args = _apply_aliases(cli_args, config, printer, flags)
 
+    # `tunnel` is dispatched locally (it forwards a port from THIS machine) but
+    # it still connects to the configured server for the addon endpoint. The
+    # main server wiring below runs *after* local dispatch, so without this an
+    # explicit `--context` — or an ambient project context — would be ignored
+    # and tunnel would silently hit the default server. Wire its target the same
+    # way every other connecting command does (resolve-or-abort on an explicit
+    # `--context`), before it dispatches.
+    if cli_args[:1] == ["tunnel"] and not flags.why:
+        _wire_active_server(
+            cli_args, flags, config, resolve_context(cli_context=flags.context)
+        )
+
     # Handle local commands (init, config) that don't need server
     if is_local_command(cli_args):
         if flags.verbosity >= 2:

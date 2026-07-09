@@ -65,6 +65,10 @@ class ServerInstallerConfig:
     def with_rust(self) -> bool:
         return "rust" in self.features
 
+    @property
+    def with_email(self) -> bool:
+        return "email" in self.features
+
     @classmethod
     def from_env(cls) -> ServerInstallerConfig:
         """Create config from environment variables."""

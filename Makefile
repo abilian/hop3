@@ -156,8 +156,9 @@ test:
 
 ## Docker e2e — backups, git-push, real deploys (needs Docker). Part of the check gate.
 test-e2e:
-	@echo "--> Docker e2e tests (c_e2e)"
+	@echo "--> Docker e2e tests (c_e2e) — server + installer"
 	unset HOP3_DEV_HOST; uv run pytest packages/hop3-server/tests/c_e2e
+	uv run pytest packages/hop3-installer/tests/c_e2e --docker
 	@echo ""
 
 ## Coverage — the in-process layers (what coverage.py can actually see)
