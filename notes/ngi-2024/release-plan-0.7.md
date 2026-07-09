@@ -16,7 +16,7 @@ Every annex milestone accounted for, so a reviewer can reconcile the whole proje
 | **T2** Nix runtime | M2.1 Spec & PoC | ✅ | 0.5 |
 | | M2.2 Beta implementation | ✅ | **0.7** — beta done (contract + gate + hardening code); 1.0 → M2.3 |
 | | M2.3 Final "1.0" | ○ | 0.7.x / 0.8 |
-| **T3** Security & resilience | M3.1 Backing services (email) | ◐ | 0.6.1 (experimental); refinements → 0.7.x |
+| **T3** Security & resilience | M3.1 Backing services (email) | ✅ | **0.7** — email = swappable-backend addon; **relay + catch** supported (catch e2e green), loopback endpoint, cert+deploy notifications, WordPress SMTP; **direct** ships as preview; per-app override / sub-creds / SES / encryption → **0.8+** (`22-email-roadmap-0.8-plus.md`) |
 | | M3.2 Upgrades + migrations | ✅ | **0.7** — server-verify + app upgrade/rollback shipped; `upgrade-chain` e2e green on Docker + Hetzner (`--to` source-fetch + Web UI → 0.7.x) |
 | | M3.3 Backups + migration tests | ✅ | 0.6 |
 | | M3.4 Testing framework + canary | ✅ | shipped |
@@ -119,20 +119,21 @@ Pinning (0.6.1) removed the moving-channel problem; hermeticity is the rest.
 ### Email addon refinements (M3.1)
 Email is a **backing service with a swappable backend**, symmetric with the database addon (ADR 054): the operator picks a backend once at the server level, an app opts in by attaching an email addon (and then inherits that backend), and the app-facing contract (`SMTP_*`/`EMAIL_*`/`MAIL_*`/`SMTP_URL`, all pointing at a loopback SMTP endpoint) is stable across backends. 0.6.1 shipped the interface; the work left is the backends and the productization.
 
-**Server backend + provider profiles + notifications — shipped (0.7, unreleased); the per-app interface shipped in 0.6.1:**
+**The 0.7 cut** (details + backlog: `local-notes/plans/20-email-0.7-features.md`; 0.8+ roadmap: `22-email-roadmap-0.8-plus.md`):
 
-- [x] Server-level shared transport, inherited by reference — `hop3 server email set …`; apps do `hop3 addon email create <name> --from <addr>` (no creds) and inherit
-- [x] Named-provider profiles (Resend / Postmark / Brevo / Mailgun / Mailgun-EU / Scaleway TEM; EU-sovereign first-class) with DKIM auto-verify — `--provider <name>` fills the endpoint
-- [x] Cert-renewal-failure notifications through the active backend (`hop3 server email notifications on --to …`)
+*Ships in 0.7 — supported (experimental):*
+- [x] `server email backend <kind>` verb (`server email set` = the `relay` alias) + the loopback `127.0.0.1:25` endpoint, opt-in per app, `--with email` (Postfix), pm-aware reload
+- [x] **relay** backend — provider/corporate smarthost; provider profiles (Resend/Postmark/Brevo/Mailgun/Mailgun-EU/Scaleway TEM, EU-first) + DKIM auto-verify; deliverability pre-flight (never-fake)
+- [x] **catch** backend — dev sink, **e2e-validated**
+- [x] **Notifications** — cert-renewal + deploy-failure through the active backend
+- [x] **WordPress (native)** SMTP via a self-guarding mu-plugin; docs
 
-**Backends + on-ramp — the remaining work** (`server email backend <kind>` is the canonical verb; `relay` ships today as its alias `server email set`, `catch`/`direct` are to-build)**:**
+*Ships in 0.7 as preview (code lands, not advertised as supported):*
+- [~] **direct** backend — built and fails loud where it can't run (needs systemd + unblocked port 25); no e2e / supervisor gap / fresh-IP reputation caveats → full support in **0.8**
 
-- [ ] **Loopback SMTP endpoint** (`127.0.0.1:25` — a queuing Postfix relay to the active backend) so any app that attaches an email addon (incl. WordPress) sends over SMTP with no per-app creds and never shells `sendmail`; a declaring app gets `SMTP_HOST=127.0.0.1` and the backend is swappable behind it
-- [ ] **Direct backend** (Hop3-run MTA delivering to MX, Hop3-generated DKIM, honest deliverability + egress pre-flight) for the fully-sovereign no-third-party path — `hop3 server email backend direct --from-domain example.com`
-- [ ] **Catcher backend** (Mailpit-class dev sink, captured never sent) as the safe non-production default — `hop3 server email backend catch`
-- [ ] **Deploy-failure notifications** (needs a single deploy choke point) + outage/health alerts through the active backend
-- [ ] **Per-app sub-credentials** (mint via provider API on attach, revoke on detach) for reputation isolation — depends on the provider-profile framework growing an API surface
-- [ ] **SES + real-logic providers** (region-templated endpoint, IAM→SMTP-password derivation) as the pluggy-provider exception to the data-only registry
+*Deferred to 0.8+ (no 0.7 functionality lost):*
+- [ ] Per-app override via the loopback (own-`--smtp-*` still works direct-to-provider); rootd sender-map ops (7a) land dormant/unwired
+- [ ] Sub-credentials (blocked on a provider API), SES/real-logic providers, outage/health notifications, encryption-at-rest + atomic writes; relay/direct e2e; other WordPress variants
 
 ### Migration series (T5)
 - [ ] Publish the 21 drafted "migrating from X" posts
