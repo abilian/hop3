@@ -3,7 +3,7 @@
 - **Status**: Final
 - **Type**: Feature
 - **Created**: 2024-10-01
-- **Related-ADRs**: 020, 021, 030, 032, 033, 034, 035
+- **Related-ADRs**: [020](./020-pluggable-architecture.md), [021](./021-proxy-plugin-system.md), [030](./030-two-level-build-architecture.md), [032](./032-deployment-strategies-artifact-lifecycle.md), [033](./033-docker-integration.md), [034](./034-streaming-deployment-logs.md), [035](./035-build-artifacts.md)
 
 ## Context
 
@@ -545,7 +545,7 @@ The `Builder` protocol has three production implementations and the `Deployer` p
 - `StaticDeployer` - static file serving via reverse proxy
 - `DockerDeployer` - Docker Compose container deployment
 
-The `BuildArtifact` → `DeploymentInfo` data flow is the stable contract between the two stages, independent of which strategies fill them. ADR 035 formalises this data flow as the runtime contract.
+The `BuildArtifact` → `DeploymentInfo` data flow is the stable contract between the two stages, independent of which strategies fill them. [ADR 035](./035-build-artifacts.md) formalises this data flow as the runtime contract.
 
 ## Prior Art
 

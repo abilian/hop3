@@ -3,7 +3,7 @@
 - **Status**: Final
 - **Type**: Feature
 - **Created**: 2024-10-01
-- **Related-ADRs**: 021, 022, 028, 030
+- **Related-ADRs**: [021](./021-proxy-plugin-system.md), [022](./022-build-deploy-plugin-system.md), [028](./028-pluggy-dishka-integration.md), [030](./030-two-level-build-architecture.md)
 
 ## Introduction
 
@@ -51,11 +51,11 @@ The new architecture is composed of several key concepts:
     *   **`Deployer`**: Defines a `deploy()` method that takes a `BuildArtifact` and returns `DeploymentInfo` (e.g., the host/port or socket path of the running application). Core deployers are `UWSGIDeployer` (the default for dynamic apps), `StaticDeployer` (for static sites), and `DockerDeployer`, with auto-detection through `accept()`.
     *   **`ProxyStrategy`**: Defines a `configure()` method that takes `DeploymentInfo` to set up the reverse proxy. Core proxies are `NginxProxyPlugin` (the default), `CaddyProxyPlugin`, and `TraefikProxyPlugin`.
 
-    The Build stage is itself decomposed along two axes (see [030-build-plugin-architecture.md](030-build-plugin-architecture.md)): the Builder (Level 1, *how* to build — local, Docker, or Nix) and the LanguageToolchain (Level 2, *what* to build — Python, Node, Go, …).
+    The Build stage is itself decomposed along two axes (see [030-build-plugin-architecture.md](030-build-plugin-architecture.md)): the Builder (Level 1, *how* to build (local, Docker, or Nix) and the LanguageToolchain (Level 2, *what* to build) Python, Node, Go, …).
 
 3.  **Plugin Management (`pluggy`):**
     *   A central `PluginManager` is initialized at application startup.
-    *   It discovers all installed strategy plugins — from both the core Hop3 package and any third-party packages — via `pkgutil.walk_packages` and standard setuptools entry points (e.g., `"hop3.build_strategies"`). Core plugins export a module-level `plugin` instance so that auto-discovery can find them without explicit registration.
+    *   It discovers all installed strategy plugins (from both the core Hop3 package and any third-party packages) via `pkgutil.walk_packages` and standard setuptools entry points (e.g., `"hop3.build_strategies"`). Core plugins export a module-level `plugin` instance so that auto-discovery can find them without explicit registration.
     *   The orchestrator uses the manager to get a list of available strategies for each stage.
     *   Strategies are defined as Python `Protocol` types (PEP 544, structural subtyping) rather than abstract base classes, for better IDE support and looser coupling between core and plugins.
 

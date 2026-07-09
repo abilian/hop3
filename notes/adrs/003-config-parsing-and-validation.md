@@ -3,7 +3,7 @@
 - **Status**: Accepted
 - **Type**: Feature
 - **Created**: 2024-07-17
-- **Related-ADRs**: 001, 002
+- **Related-ADRs**: [001](./001-config-files.md), [002](./002-config-format.md)
 
 ## Context
 
@@ -26,11 +26,11 @@ However, we also choose to support JSON and YAML as alternatives because the con
 
 ### Detailed Design
 
-Configuration access is property-based, built on Python dataclasses and `@property` methods: a `Hop3Config` class parses `hop3.toml` with `tomllib`, and an `AppConfig` class merges `Procfile` and `hop3.toml`, exposing fields through property accessors. ADR 001 and ADR 002 document which fields are active.
+Configuration access is property-based, built on Python dataclasses and `@property` methods: a `Hop3Config` class parses `hop3.toml` with `tomllib`, and an `AppConfig` class merges `Procfile` and `hop3.toml`, exposing fields through property accessors. [ADR 001](./001-config-files.md) and [ADR 002](./002-config-format.md) document which fields are active.
 
 Validation at load time is limited to TOML parse errors; semantic errors (missing required field, wrong type) surface when the accessor runs. This trade-off is deliberate: formal schema validation is deferred in exchange for zero additional dependencies and fast iteration on the config surface.
 
-A full schema-validation layer is a deferred design question, not a blocking one. The **Validation Requirements** section below specifies what such a layer must deliver, and the **Implementation Options** table records the candidate approaches; the choice among them is left open, and any approach meeting the requirements is acceptable.
+A full schema-validation layer is a deferred design question. The **Validation Requirements** section below specifies what such a layer must deliver, and the **Implementation Options** table records the candidate approaches; the choice among them is left open, and any approach meeting the requirements is acceptable.
 
 ### Validation Requirements
 

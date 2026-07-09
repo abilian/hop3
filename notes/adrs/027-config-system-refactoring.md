@@ -3,11 +3,11 @@
 - **Status**: Final
 - **Type**: Feature
 - **Created**: 2025-11-20
-- **Related-ADRs**: 001, 002, 003
+- **Related-ADRs**: [001](./001-config-files.md), [002](./002-config-format.md), [003](./003-config-parsing-and-validation.md)
 
 ## Introduction
 
-Hop3's configuration system is built around a configuration object rather than module-level constants, giving a more testable, flexible architecture that removes the need for monkeypatching in tests. The four-module configuration split (`HopConfig`, `Config`, `AppConfig`, `Hop3Config`) is the architecture on which ADR 003's dataclass-based parser builds.
+Hop3's configuration system is built around a configuration object rather than module-level constants, giving a more testable, flexible architecture that removes the need for monkeypatching in tests. The four-module configuration split (`HopConfig`, `Config`, `AppConfig`, `Hop3Config`) is the architecture on which [ADR 003](./003-config-parsing-and-validation.md)'s dataclass-based parser builds.
 
 ## Summary
 
@@ -63,7 +63,7 @@ class App:
 
 5. **Unclear Dependencies**: Hard to see what config values a component depends on
 
-6. **Testing Anti-Pattern**: The test migration in ADR 026 highlighted this: > "I don't like monkeypatching the environment. Can we think of something more elegant?"
+6. **Testing Anti-Pattern**: The test migration in [ADR 026](./026-dashboard-ui-test-classification.md) highlighted this: > "I don't like monkeypatching the environment. Can we think of something more elegant?"
 
 ### Goals
 
@@ -572,9 +572,9 @@ def test_app_create(tmp_path):
 
 ### From Monkeypatching the Module-Level Constants
 
-The dashboard UI tests (ADR 026) exposed the pain of monkeypatching this configuration:
+The dashboard UI tests ([ADR 026](./026-dashboard-ui-test-classification.md)) exposed the pain of monkeypatching this configuration:
 - Several distinct locations must be patched in lockstep.
-- Patching is insufficient on its own — `App.create()` must also be mocked.
+- Patching is insufficient on its own: `App.create()` must also be mocked.
 - Results depend on import order, so tests break when it changes.
 - "I don't like monkeypatching the environment."
 
@@ -732,7 +732,7 @@ def test_something(app_config):
 
 2. **Property vs Method**: Config values are properties for simple values; methods are used only when computation is expensive.
 
-3. **Caching**: No caching — properties are cheap and callers want fresh values.
+3. **Caching**: No caching: properties are cheap and callers want fresh values.
 
 4. **Thread Safety**: Config access is not made thread-safe; config is read-only after initialization in practice.
 
@@ -768,8 +768,8 @@ def test_something(app_config):
 
 ## Related
 
-- **ADR 026**: Dashboard UI Test Classification — highlighted the monkeypatching pain
-- **ADR 001-003**: Original config system ADRs
+- **[ADR 026](./026-dashboard-ui-test-classification.md)**: Dashboard UI Test Classification: highlighted the monkeypatching pain
+- **[ADR 001](./001-config-files.md)-003**: Original config system ADRs
 - **Testing Strategy** (`docs/src/dev/testing-strategy.md`)
 
 ## References

@@ -3,18 +3,18 @@
 - **Status**: Draft
 - **Type**: Feature
 - **Created**: 2024-07-17
-- **Related-ADRs**: 029
+- **Related-ADRs**: [029](./029-reconciliation-health-checks.md)
 - **Related**: Hop3 paper (Section 7.4: Agent Model)
 
 ## Introduction
 
-This ADR describes the long-term vision for Hop3's evolution from a single-server PaaS to a distributed, agent-based platform. It establishes the architectural principles and evolution path while recognizing that foundational work (ADR 029) must be completed first.
+This ADR describes the long-term vision for Hop3's evolution from a single-server PaaS to a distributed, agent-based platform. It establishes the architectural principles and evolution path while recognizing that foundational work ([ADR 029](./029-reconciliation-health-checks.md)) must be completed first.
 
 ## Summary
 
 Hop3 will evolve through four phases:
 
-1. **Phase 1** (ADR 029): Single-server reconciliation, health checks, and restart policies
+1. **Phase 1** ([ADR 029](./029-reconciliation-health-checks.md)): Single-server reconciliation, health checks, and restart policies
 2. **Phase 2**: Extract agent responsibilities into a separate module
 3. **Phase 3**: Multi-server support with central coordinator
 4. **Phase 4**: Full distributed scheduling and orchestration
@@ -40,7 +40,7 @@ While multi-server distribution isn't needed for Hop3's primary use case (single
 
 ### Goals
 
-1. **Incremental Evolution**: Build distributed capabilities incrementally, not as a big-bang rewrite
+1. **Incremental Evolution**: Build distributed capabilities incrementally.
 2. **Single-Server First**: Ensure single-server deployments gain full reliability benefits
 3. **Production Patterns**: Adopt proven patterns from production orchestrators
 4. **Minimal Complexity**: Add multi-server support only when justified by concrete requirements
@@ -64,9 +64,9 @@ The architecture will be implemented in phases, with each phase delivering stand
 
 ## Detailed Design
 
-### Phase 1: Single-Server Foundations (ADR 029)
+### Phase 1: Single-Server Foundations ([ADR 029](./029-reconciliation-health-checks.md))
 
-Phase 1 implements the core patterns on a single server (the detailed design lives in ADR 029):
+Phase 1 implements the core patterns on a single server (the detailed design lives in [ADR 029](./029-reconciliation-health-checks.md)):
 
 ```
 ┌─────────────────────────────────────────────────────────┐
