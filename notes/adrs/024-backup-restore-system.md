@@ -3,9 +3,9 @@
 - **Status**: Final
 - **Type**: Feature
 - **Created**: 2025-11-08
-- **Related-ADRs**: 016, 020
+- **Related-ADRs**: [016](./016-backups.md), [020](./020-pluggable-architecture.md)
 
-## Relationship to ADR 016
+## Relationship to [ADR 016](./016-backups.md)
 
 This ADR specifies the foundational implementation of Hop3's backup system. [ADR 016](016-backups.md) defines the long-term backup strategy, including features that build on this foundation (automated scheduling, remote storage, encryption, incremental backups). This ADR focuses on the file-based core that enables those enhancements.
 
@@ -44,7 +44,7 @@ Each backup is stored as a **directory** containing:
     └── postgres_<name>.sql
 ```
 
-Path is `HopConfig.BACKUP_ROOT` (defaults to `HOP3_ROOT/backups`). `source.tar.gz` archives both the deployed working copy (`src/`) and the bare git repo (`git/`) so backups remain meaningful for both deploy paths Hop3 supports — git-push (populates the bare repo) and the JSON-RPC tarball API (writes directly to `src/`).
+Path is `HopConfig.BACKUP_ROOT` (defaults to `HOP3_ROOT/backups`). `source.tar.gz` archives both the deployed working copy (`src/`) and the bare git repo (`git/`) so backups remain meaningful for both deploy paths Hop3 supports: git-push (populates the bare repo) and the JSON-RPC tarball API (writes directly to `src/`).
 
 ### Key Design Choices
 
@@ -146,7 +146,7 @@ This provides:
 
 ### Restore Behaviour
 
-`hop3 backup restore <id>` repopulates source / data / env / addons **and** invokes the build+spawn pipeline at the end. After the command returns, the app is running again — equivalent to its pre-backup state. This matters for cross-instance restore on a fresh host, where there is no prior build state to reuse.
+`hop3 backup restore <id>` repopulates source / data / env / addons **and** invokes the build+spawn pipeline at the end. After the command returns, the app is running again: equivalent to its pre-backup state. This matters for cross-instance restore on a fresh host, where there is no prior build state to reuse.
 
 Pass `--target-app <new-name>` to restore as a clone alongside the original, instead of in-place.
 
@@ -156,10 +156,10 @@ Backups are portable across Hop3 instances. The operator workflow:
 
 1. **On A**: `hop3 backup create <app>` produces a directory under `BACKUP_ROOT/apps/<app>/<id>/`.
 2. **Transport**: copy that directory to instance B (e.g. `scp -r`).
-3. **On B**: `hop3 backup register <path>` reads the manifest, ensures an app row exists for the original app name, and inserts a `Backup` row pointing at the directory — making it findable by `restore`.
+3. **On B**: `hop3 backup register <path>` reads the manifest, ensures an app row exists for the original app name, and inserts a `Backup` row pointing at the directory: making it findable by `restore`.
 4. **On B**: `hop3 backup restore <id>` (or `... --target-app NAME` to restore under a different name).
 
-`backup register` is idempotent and verifies the manifest checksums before registering — a corrupted backup is rejected with a clear error rather than letting `restore` fail later with a less actionable message. Without registration, the destination's `restore_backup` DB lookup misses the transferred files entirely.
+`backup register` is idempotent and verifies the manifest checksums before registering: a corrupted backup is rejected with a clear error rather than letting `restore` fail later with a less actionable message. Without registration, the destination's `restore_backup` DB lookup misses the transferred files entirely.
 
 ## Consequences
 

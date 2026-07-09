@@ -3,7 +3,7 @@
 - **Status**: Final
 - **Type**: Architecture
 - **Created**: 2026-02-23
-- **Related-ADRs**: 006, 008, 022, 030, 032, 053
+- **Related-ADRs**: [006](./006-nix-integration.md), [008](./008-nix-builders-2.md), [022](./022-build-deploy-plugin-system.md), [030](./030-two-level-build-architecture.md), [032](./032-deployment-strategies-artifact-lifecycle.md), [053](./053-nix-closure-lifetime.md)
 
 ## Context
 
@@ -110,11 +110,11 @@ The authoritative dataclass lives in `core/artifacts.py`.
 
 `spawn.py` (`AppLauncher`) reads `BUILD_ARTIFACT.json` and applies the contract generically:
 
-- **Environment.** `env_vars` are applied, but never over a key the user set explicitly. Because they are per-app, per-deploy absolute paths the toolchain baked in (e.g. `MIX_HOME`), a persisted `[env]` block may **not** clobber them — a stale hand-copied value pointing at another app's directory would break the runtime. Precedence: **toolchain wins**. `path_prepend` is then prepended to `PATH`.
-- **Workers.** Started as uWSGI vassals, with lifecycle hooks (`prebuild` / `postbuild` / `prerun`) filtered out — those are build steps, never daemons.
+- **Environment.** `env_vars` are applied, but never over a key the user set explicitly. Because they are per-app, per-deploy absolute paths the toolchain baked in (e.g. `MIX_HOME`), a persisted `[env]` block may **not** clobber them: a stale hand-copied value pointing at another app's directory would break the runtime. Precedence: **toolchain wins**. `path_prepend` is then prepended to `PATH`.
+- **Workers.** Started as uWSGI vassals, with lifecycle hooks (`prebuild` / `postbuild` / `prerun`) filtered out: those are build steps, never daemons.
 - **Absent artifact.** The run phase falls back to legacy per-language detection (the pre-contract behaviour), so the migration is incremental.
 
-For Nix apps, the wrapper execs hardcoded `/nix/store` paths; keeping those alive across garbage collection is the subject of **ADR 053**.
+For Nix apps, the wrapper execs hardcoded `/nix/store` paths; keeping those alive across garbage collection is the subject of **[ADR 053](./053-nix-closure-lifetime.md)**.
 
 ### Key Changes
 
@@ -154,7 +154,7 @@ This is actually **undesirable behavior** we want to prevent:
 
 ### Nix Integration
 
-Nix naturally produces this model. The contract is the basis of NixBuilder's output, written to `$out/hop3/runtime.json`, and is consumed without language-specific knowledge by the deploy stage. ADR 006 and ADR 008 (template generation) both rely on it.
+Nix naturally produces this model. The contract is the basis of NixBuilder's output, written to `$out/hop3/runtime.json`, and is consumed without language-specific knowledge by the deploy stage. [ADR 006](./006-nix-integration.md) and [ADR 008](./008-nix-builders-2.md) (template generation) both rely on it.
 
 ```python
 # NixBuilder.build()
@@ -241,8 +241,8 @@ Accept that only ~5 languages need runtime setup and keep them hardcoded.
 
 ## References
 
-- ADR 030: Two-Level Build Architecture (Builder vs LanguageToolchain)
-- ADR 032: Deployment Strategies and Artifact Lifecycle
-- ADR 053: Nix Closure Lifetime (keeping a Nix app's exec'd store paths alive across GC)
+- [ADR 030](./030-two-level-build-architecture.md): Two-Level Build Architecture (Builder vs LanguageToolchain)
+- [ADR 032](./032-deployment-strategies-artifact-lifecycle.md): Deployment Strategies and Artifact Lifecycle
+- [ADR 053](./053-nix-closure-lifetime.md): Nix Closure Lifetime (keeping a Nix app's exec'd store paths alive across GC)
 - [The Twelve-Factor App: Build, Release, Run](https://12factor.net/build-release-run)
 - [Nix: Reproducible Builds](https://nixos.org/guides/how-nix-works.html)

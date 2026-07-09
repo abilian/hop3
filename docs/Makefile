@@ -37,7 +37,7 @@ serve: preprocess
 
 deploy:
 	@make build
-	hop3 --context prod deploy hop3-docs
+	hop3 --context prod deploy
 
 clean:
 	rm -rf site/ src/tutorials/ src/blog/posts/ src/developers/adrs/

@@ -3,7 +3,7 @@
 - **Status**: Final
 - **Type**: Feature
 - **Created**: 2025-12-15
-- **Related-ADRs**: 018, 022, 025
+- **Related-ADRs**: [018](./018-cli-architecture.md), [022](./022-build-deploy-plugin-system.md), [025](./025-cli-user-experience.md)
 
 ## Context
 
@@ -366,7 +366,7 @@ Error: Docker build failed: ERROR: failed to solve: python:3.99: image not found
 
 ## References
 
-- ADR 018: CLI Architecture
-- ADR 022: Build-Deploy Plugin System
+- [ADR 018](./018-cli-architecture.md): CLI Architecture
+- [ADR 022](./022-build-deploy-plugin-system.md): Build-Deploy Plugin System
 - Server-Sent Events specification: https://html.spec.whatwg.org/multipage/server-sent-events.html
 - httpx SSE client: https://www.python-httpx.org/
