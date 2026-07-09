@@ -3,7 +3,7 @@
 - **Status**: Accepted
 - **Type**: Feature
 - **Created**: 2024-07-17
-- **Related-ADRs**: 006, 008, 010
+- **Related-ADRs**: [006](./006-nix-integration.md), [008](./008-nix-builders-2.md), [010](./010-security-and-resilience.md)
 
 ## Context and Goals
 
@@ -30,15 +30,15 @@ Hop3 adopts a proactive stance towards software supply chain security by integra
 
 1. **Software Bill of Materials (SBOMs)**:
 
-   - **Generation**: CycloneDX SBOMs are generated for software releases using supply-chain tooling declared in the project (ADR 004): `cyclonedx-bom`, `spdx-tools`, `pip-audit`, `deptry`, `import-linter`.
+   - **Generation**: CycloneDX SBOMs are generated for software releases using supply-chain tooling declared in the project ([ADR 004](./004-development-tooling.md)): `cyclonedx-bom`, `spdx-tools`, `pip-audit`, `deptry`, `import-linter`.
    - **Transparency and Compliance**: SBOMs provide a detailed inventory of software components, including their versions, licenses, and known vulnerabilities, to enhance transparency and compliance with regulations like the Cyber Resilience Act (CRA).
 
 ### Implementation Strategy
 
 1. **Integration of Nix**:
 
-   - **Hermetic Builds**: Tier-1 applications (per the ADR 008 reproducibility taxonomy) — Go and Rust apps from nixpkgs — build in a pure Nix sandbox against hash-pinned inputs, providing a consistent and secure build environment. Tier-2 applications (Python-venv, PHP-composer, Node-prebuilt, Ruby-bundler) use `__noChroot`, which weakens hermeticity; this trade-off is documented in ADR 008.
-   - **Content-addressed closures**: Every Nix-built app has a content-addressed closure whose full dependency graph is inspectable via `nix-store -qR`, and update deltas are minimal — only changed store paths transfer.
+   - **Hermetic Builds**: Tier-1 applications (per the [ADR 008](./008-nix-builders-2.md) reproducibility taxonomy) (Go and Rust apps from nixpkgs) build in a pure Nix sandbox against hash-pinned inputs, providing a consistent and secure build environment. Tier-2 applications (Python-venv, PHP-composer, Node-prebuilt, Ruby-bundler) use `__noChroot`, which weakens hermeticity; this trade-off is documented in [ADR 008](./008-nix-builders-2.md).
+   - **Content-addressed closures**: Every Nix-built app has a content-addressed closure whose full dependency graph is inspectable via `nix-store -qR`, and update deltas are minimal: only changed store paths transfer.
 
 1. **CI/CD Pipeline Enhancements**:
 

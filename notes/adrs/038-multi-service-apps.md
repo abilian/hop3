@@ -3,7 +3,7 @@
 - **Status**: Accepted
 - **Type**: Feature
 - **Created**: 2026-04-11
-- **Related-ADRs**: 008 (Nix templates), 020 (pluggable architecture), 022 (build/deploy plugins), 032 (deployment strategies), 036 (CLI ergonomics)
+- **Related-ADRs**: [008](./008-nix-builders-2.md) (Nix templates), [020](./020-pluggable-architecture.md) (pluggable architecture), [022](./022-build-deploy-plugin-system.md) (build/deploy plugins), [032](./032-deployment-strategies-artifact-lifecycle.md) (deployment strategies), [036](./036-cli-ergonomics.md) (CLI ergonomics)
 
 ## Context
 
@@ -40,7 +40,7 @@ Each entry becomes a uWSGI daemon process in the same vassal config, sharing the
 2. **Per-process env overrides.** All workers see the same environment. You can't say "Sidekiq should have SIDEKIQ_CONCURRENCY=10 while Rails should not".
 3. **Per-process scaling.** `hop3 ps scale` scales all workers of a given name; there's no "2 web + 4 sidekiq + 1 streaming" story.
 4. **Truly independent components.** For AppFlowy-Cloud-class apps (Pattern 3), you can't declare that the app depends on PgBouncer as a separate process in its own isolation boundary.
-5. **Per-component health checks.** One `[healthcheck]` per app, not per component.
+5. **Per-component health checks.** One `[healthcheck]` per app.
 6. **Process ordering dependencies.** "Start the database migrations before the web worker" is handled ad-hoc via `before-run`. There's no "start Sidekiq only after Rails is healthy" semantics.
 
 ### What other PaaS do
@@ -61,7 +61,7 @@ We keep `[run.workers]` for Pattern 1 (shared-env background tasks) and introduc
 
 - Zero or more `[run.workers]` entries (flat, shared env)
 - Zero or more `[[component]]` tables (per-component env, limits, health checks)
-- At most one `[run]` section (the "primary" web component — stays for backward compatibility)
+- At most one `[run]` section (the "primary" web component: stays for backward compatibility)
 
 ### When to use which
 
@@ -89,7 +89,7 @@ type = "postgres"
 [[addons]]
 type = "redis"
 
-# Primary web component — backward compatible with [run].start
+# Primary web component: backward compatible with [run].start
 [[component]]
 name = "web"
 command = "bundle exec puma -C config/puma.rb"
@@ -128,7 +128,7 @@ runtime = "node"  # optional: force a specific toolchain
 [component.env]
 NODE_ENV = "production"
 
-# Port definitions — explicit for multi-component apps
+# Port definitions: explicit for multi-component apps
 [port.web]
 container = 3000
 public = true
@@ -165,7 +165,7 @@ Per-component addons are out of scope for this design; the supported model is to
 
 ### Lifecycle and dependencies
 
-Components start in topological order based on `depends-on`. `depends-on` is a **start-ordering hint**, not a hard blocker — if dependent components fail to start, dependents still try.
+Components start in topological order based on `depends-on`. `depends-on` is a **start-ordering hint**: if dependent components fail to start, dependents still try.
 
 `hop3 ps scale --app <app> web=2 sidekiq=4` scales individual components. Existing `[run.workers]` keeps current flat semantics.
 
@@ -199,12 +199,12 @@ Existing addon, env, and port handling remain unchanged in the legacy path.
 
 ### What stays out of scope
 
-- **Inter-component networking beyond shared-loopback.** Components share the app's working directory and 127.0.0.1. They don't get their own DNS entries inside the app's namespace. "Component A reaches component B on port 4000" — that's it.
-- **Rolling restarts across components.** Covered by ADR 032, not re-opened here.
+- **Inter-component networking beyond shared-loopback.** Components share the app's working directory and 127.0.0.1. They don't get their own DNS entries inside the app's namespace. "Component A reaches component B on port 4000": that's it.
+- **Rolling restarts across components.** Covered by [ADR 032](./032-deployment-strategies-artifact-lifecycle.md), not re-opened here.
 - **Per-component backups.** Backups are per-addon.
 - **Sidecar containers.** Hop3 doesn't run containers for apps. Everything runs as uWSGI-managed processes under the hop3 user.
 - **Full-fledged service mesh.** Hop3 is a single-server PaaS; the day we need a mesh is the day we've outgrown Hop3's model.
-- **Multi-app composition** (several independently-deployed apps forming a logical whole). That's a separate ADR — this one is strictly intra-app.
+- **Multi-app composition** (several independently-deployed apps forming a logical whole). That's a separate ADR: this one is strictly intra-app.
 
 ## Consequences
 
@@ -219,7 +219,7 @@ Existing addon, env, and port handling remain unchanged in the legacy path.
 ### Negative
 
 - **Two ways to declare processes** (`[run.workers]` vs `[[component]]`). We'll need crisp docs distinguishing them. Mitigation: the rule of thumb above, plus examples in the user guide. Both get translated to the same internal representation.
-- **Schema complexity.** `hop3.toml` grows. Mitigation: keep the simple case (`[run].start`) unchanged — users only touch `[[component]]` when they need it.
+- **Schema complexity.** `hop3.toml` grows. Mitigation: keep the simple case (`[run].start`) unchanged: users only touch `[[component]]` when they need it.
 - **Validation burden.** Per-component resource limits, health checks, and port mappings need validation. Mitigation: reuse the existing `Hop3TomlSchema` approach (Pydantic).
 - **Runtime complexity.** spawn.py grows to handle per-component env layering and resource limits. Mitigation: the component layer is just a richer Worker description; the core spawn loop stays the same.
 
@@ -282,12 +282,12 @@ This is the shape the plugin should emit and the shape the user (eventually) wri
 
 1. **Port addressing syntax.** Should `port = "web"` refer to a named `[port.*]` entry, or should components declare their own port tables? Decision: named references into the top-level `[port.*]` dict, for consistency with the existing schema.
 2. **What's the default `name` if `[[component]]` omits it?** A positional default (the component table index, e.g. `c0`) is error-prone, so `name` is required explicitly.
-3. **Can a component declare its own builder/toolchain?** The `runtime = "node"` field above suggests yes. Decision: deferred — initially, all components share the app's build artifact.
+3. **Can a component declare its own builder/toolchain?** The `runtime = "node"` field above suggests yes. Decision: deferred: initially, all components share the app's build artifact.
 4. **Cron-style scheduling.** Should `[component.schedule]` exist for cron-like components? Decision: keep the existing `cron` worker type for now.
 
 ## References
 
 - `notes/experience-reports/00-aggregate.md` §Multi-Component Applications
 - AppFlowy Cloud packaging attempt (internal report; surfaces the multi-component gap this ADR addresses)
-- ADR 022: Build and Deployment Plugin System
-- ADR 032: Deployment Strategies and Artifact Lifecycle
+- [ADR 022](./022-build-deploy-plugin-system.md): Build and Deployment Plugin System
+- [ADR 032](./032-deployment-strategies-artifact-lifecycle.md): Deployment Strategies and Artifact Lifecycle

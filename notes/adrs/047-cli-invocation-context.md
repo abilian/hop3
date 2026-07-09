@@ -1,13 +1,13 @@
-# ADR 047: CLI Invocation Context — transmit the resolved app and environment with every call
+# ADR 047: CLI Invocation Context: transmit the resolved app and environment with every call
 
 - **Status**: Draft
-- **Type**: Feature (breaking — one coordinated CLI+server release)
+- **Type**: Feature (breaking: one coordinated CLI+server release)
 - **Created**: 2026-06-04
 - **Updated**: 2026-06-24
-- **Related-ADRs**: 036 (§D7 implicit app resolution), 042 (resolution chains, project contexts), a future command-manifest ADR (plugin command manifest)
+- **Related-ADRs**: [036](./036-cli-ergonomics.md) (§D7 implicit app resolution), [042](./042-cli-context-model.md) (resolution chains, project contexts), a future command-manifest ADR (plugin command manifest)
 
 > **Updated 2026-06-24:** `_context.server` is the selected context's literal
-> *address* (`ssh://root@host`), not a symbolic name — ADR 042 r2 has no symbolic
+> *address* (`ssh://root@host`): [ADR 042](./042-cli-context-model.md) r2 has no symbolic
 > server names. Field example corrected below.
 
 This decision supersedes the client-side app-scoped injection mechanism (`hop3_cli/core/app_scope.py`), a stopgap retired by the design below.
@@ -16,21 +16,21 @@ This decision supersedes the client-side app-scoped injection mechanism (`hop3_c
 
 ### The stopgap and why it drifts
 
-The CLI must decide *before* the RPC round-trip whether a command operates on a single app, so it can resolve an implicit app (ADR 036 §D7, ADR 042 §Resolution) and inject it. It makes that decision from a hardcoded `set[tuple[str, ...]]` in `core/app_scope.py`, and on a match injects the resolved app as the first positional argument. The module is a stopgap pending a future command-manifest ADR.
+The CLI must decide *before* the RPC round-trip whether a command operates on a single app, so it can resolve an implicit app ([ADR 036](./036-cli-ergonomics.md) §D7, [ADR 042](./042-cli-context-model.md) §Resolution) and inject it. It makes that decision from a hardcoded `set[tuple[str, ...]]` in `core/app_scope.py`, and on a match injects the resolved app as the first positional argument. The module is a stopgap pending a future command-manifest ADR.
 
 The drift it causes is a recurring class of bug: the hardcoded set falls out of sync with the server's command registry, so a renamed or added command silently stops resolving its implicit app. A representative case is `hop3 app status` demanding an explicit `<app_name>` while its siblings (`app ping`, `app logs`, …) resolve one, because the set still lists the renamed `app show` and is missing `app status`.
 
-The set is a hand-maintained copy of a property that actually lives server-side (each `Command` either needs an app or doesn't). So it drifts silently whenever a command is renamed or added, and the failure is quiet: the command still runs, it just stops resolving the implicit app and falls back to "Usage: … `<app_name>`". The same disease appears in two sibling hardcoded sets — `commands/destructive.py::DESTRUCTIVE_COMMANDS` and `main.py::_MISMATCH_GUARDED_PREFIXES` — and the whole approach structurally cannot cover plugin commands (a future command-manifest ADR), which the CLI has never heard of.
+The set is a hand-maintained copy of a property that actually lives server-side (each `Command` either needs an app or doesn't). So it drifts silently whenever a command is renamed or added, and the failure is quiet: the command still runs, it just stops resolving the implicit app and falls back to "Usage: … `<app_name>`". The same disease appears in two sibling hardcoded sets (`commands/destructive.py::DESTRUCTIVE_COMMANDS` and `main.py::_MISMATCH_GUARDED_PREFIXES`) and the whole approach structurally cannot cover plugin commands (a future command-manifest ADR), which the CLI has never heard of.
 
 The constraint that makes "just ask the server per command" a non-starter is real: app resolution happens before any round-trip, must work offline (`--why`, error messages), must not add latency to every call, and must work before authentication (`auth login` cannot query a gated endpoint to learn it is not app-scoped).
 
 ### The reframing
 
-The drift comes from the CLI needing to know, *per command*, whether to inject the app. Invert it: the CLI always resolves the **ambient app** (and the rest of the resolved environment) and ships it as a side-channel **invocation context** on every call. Each server command consumes `context.app` only if it wants one. The CLI no longer needs to know which commands are app-scoped — that knowledge stays entirely server-side, where it belongs — and the wire channel already exists.
+The drift comes from the CLI needing to know, *per command*, whether to inject the app. Invert it: the CLI always resolves the **ambient app** (and the rest of the resolved environment) and ships it as a side-channel **invocation context** on every call. Each server command consumes `context.app` only if it wants one. The CLI no longer needs to know which commands are app-scoped (that knowledge stays entirely server-side, where it belongs) and the wire channel already exists.
 
 ### The wire channel already exists
 
-The `cli` RPC already carries a side dict (`extra_args`) alongside the positional args: `get_extra_args` (CLI) populates `repository`, `env_vars`, `streaming`, `verbosity`; the server's `call(command_name, args, extra_args)` already treats some keys as **context, not command kwargs** — it pops `verbosity` ("extracted as context") and injects `_token`. The invocation context is the same pattern, generalized into one reserved sub-structure.
+The `cli` RPC already carries a side dict (`extra_args`) alongside the positional args: `get_extra_args` (CLI) populates `repository`, `env_vars`, `streaming`, `verbosity`; the server's `call(command_name, args, extra_args)` already treats some keys as **context, not command kwargs**: it pops `verbosity` ("extracted as context") and injects `_token`. The invocation context is the same pattern, generalized into one reserved sub-structure.
 
 ## Decision
 
@@ -45,7 +45,7 @@ A JSON object under a reserved key in `extra_args` (proposed: `_context`, mirror
   "_context": {
     "app":        "ac-sciences",          // resolved ambient app, or null
     "app_source": "hop3.toml [metadata].id at /…/ac-sciences",  // for --why and the project-mismatch check
-    "server":     "ssh://root@prod.example.com",  // the selected context's server ADDRESS (ADR 042 r2) — never a symbolic name; or null
+    "server":     "ssh://root@prod.example.com",  // the selected context's server ADDRESS (ADR 042 r2): never a symbolic name; or null
     "context":    "prod",                 // resolved project context name, or null
     "cwd":        "/Users/…/ac-sciences", // operator's working directory
     "cwd_app_id": "ac-sciences",          // [metadata].id at/above cwd (for the project-mismatch check), or null
@@ -54,29 +54,29 @@ A JSON object under a reserved key in `extra_args` (proposed: `_context`, mirror
 }
 ```
 
-The object is **open for extension** ("may be useful for other things"): future fields (locale, output width, dry-run intent, trace id) ride here without a protocol change. Unknown fields are ignored by older code that doesn't read them — but see *Versioning* on the reserved-key requirement.
+The object is **open for extension** ("may be useful for other things"): future fields (locale, output width, dry-run intent, trace id) ride here without a protocol change. Unknown fields are ignored by older code that doesn't read them: but see *Versioning* on the reserved-key requirement.
 
-Values are still produced by ADR 042's resolution chains; nothing about *how* the app/server/context resolve changes. ADR 042 stays authoritative for the resolution model (servers, project contexts, the resolution order); this ADR is authoritative only for *how* the resolved values travel to the server and are consumed there. What changes is that resolution is **always performed and always transmitted**, rather than gated on a hardcoded app-scoped check and injected positionally.
+Values are still produced by [ADR 042](./042-cli-context-model.md)'s resolution chains; nothing about *how* the app/server/context resolve changes. [ADR 042](./042-cli-context-model.md) stays authoritative for the resolution model (servers, project contexts, the resolution order); this ADR is authoritative only for *how* the resolved values travel to the server and are consumed there. What changes is that resolution is **always performed and always transmitted**, rather than gated on a hardcoded app-scoped check and injected positionally.
 
 ### Server-side consumption
 
-The RPC dispatch pops `_context` (exactly as it pops `verbosity`/`_token` today — it never reaches `command.call(**kwargs)`). Then, for the command being dispatched:
+The RPC dispatch pops `_context` (exactly as it pops `verbosity`/`_token` today: it never reaches `command.call(**kwargs)`). Then, for the command being dispatched:
 
 - If the command's `call`/`run` signature declares an `app` (or `app_name`) parameter **and** no app was supplied positionally, fill it from `_context.app`.
 - An explicit positional/flag app always wins over the ambient context.
-- A command with no app parameter ignores `_context.app` entirely — so a command that is not app-scoped can never accidentally pick up the ambient app.
+- A command with no app parameter ignores `_context.app` entirely: so a command that is not app-scoped can never accidentally pick up the ambient app.
 
 The server already introspects command signatures for an `app` parameter (`server/cli/cli.py` does this for the argparse CLI: *"add the app argument if the command has an App parameter"*). That same introspection becomes the single source of truth for app-scoped-ness, consumed by the RPC path.
 
 ### What this retires
 
-`core/app_scope.py`'s injection role disappears: the CLI stops maintaining a set to decide *whether* to inject, because it always resolves and transmits. A command that needs an app and didn't get one (no positional, empty `_context.app`) errors server-side with the same structured "no app resolved — here's how to fix" message (ADR 036 §D10), which can be sourced from `_context.app_source`'s trace.
+`core/app_scope.py`'s injection role disappears: the CLI stops maintaining a set to decide *whether* to inject, because it always resolves and transmits. A command that needs an app and didn't get one (no positional, empty `_context.app`) errors server-side with the same structured "no app resolved: here's how to fix" message ([ADR 036](./036-cli-ergonomics.md) §D10), which can be sourced from `_context.app_source`'s trace.
 
-Whether the **destructive-confirmation** set (`DESTRUCTIVE_COMMANDS`) and the **project-mismatch guard** (`_MISMATCH_GUARDED_PREFIXES`) also fold into this model is an open question (below) — they are related (both are per-command metadata the CLI hardcodes) but distinct concerns (they gate *client-side prompting*, which still needs to happen before the round-trip).
+Whether the **destructive-confirmation** set (`DESTRUCTIVE_COMMANDS`) and the **project-mismatch guard** (`_MISMATCH_GUARDED_PREFIXES`) also fold into this model is an open question (below): they are related (both are per-command metadata the CLI hardcodes) but distinct concerns (they gate *client-side prompting*, which still needs to happen before the round-trip).
 
 ### Bonus: the project-mismatch guard gets cleaner
 
-The ADR 042 project-mismatch guard compares the resolved app against the CWD project's `[metadata].id`. With `_context` carrying `app`, `app_source`, `cwd`, and `cwd_app_id` together, the check has everything it needs in one structure — and could move server-side (refuse the destructive RPC) so the guarantee holds regardless of which client issued it.
+The [ADR 042](./042-cli-context-model.md) project-mismatch guard compares the resolved app against the CWD project's `[metadata].id`. With `_context` carrying `app`, `app_source`, `cwd`, and `cwd_app_id` together, the check has everything it needs in one structure: and could move server-side (refuse the destructive RPC) so the guarantee holds regardless of which client issued it.
 
 ## Rejected alternatives
 
@@ -104,6 +104,6 @@ Acceptable short-term, guarded by patching as drift is found. Rejected as the en
 
 ## Versioning and migration
 
-The CLI and server roll out together in one coordinated release (consistent with ADR 042's brutally-relentless stance): the CLI starts sending `_context` and the server starts popping and consuming it in lockstep.
+The CLI and server roll out together in one coordinated release (consistent with [ADR 042](./042-cli-context-model.md)'s brutally-relentless stance): the CLI starts sending `_context` and the server starts popping and consuming it in lockstep.
 
-The reserved key **must** be popped by the server dispatch before `command.call(**kwargs)`; an unknown `extra_args` key would otherwise reach the command as a kwarg and raise `TypeError`, so an old server cannot silently tolerate a new CLI's `_context`. Mixed old-server / new-client is therefore explicitly unsupported. New-server / old-client keeps working: the server fills `app` from a positional (as before) when `_context` is absent, so the dispatch must treat a missing context as "no ambient app", not an error.
+The reserved key **must** be popped by the server dispatch before `command.call(**kwargs)`; an unknown `extra_args` key would otherwise reach the command as a kwarg and raise `TypeError`, so an old server cannot silently tolerate a new CLI's `_context`. Mixed old-server / new-client is therefore explicitly unsupported. New-server / old-client keeps working: the server fills `app` from a positional (as before) when `_context` is absent, so the dispatch must treat a missing context as "no ambient app".

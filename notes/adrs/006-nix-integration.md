@@ -3,7 +3,7 @@
 - **Status**: Accepted
 - **Type**: Feature
 - **Created**: 2024-07-17
-- **Related-ADRs**: 007, 008, 009, 020, 022, 030, 031, 032, 035
+- **Related-ADRs**: [007](./007-nix-builder.md), [008](./008-nix-builders-2.md), [009](./009-nix-runtime.md), [020](./020-pluggable-architecture.md), [022](./022-build-deploy-plugin-system.md), [030](./030-two-level-build-architecture.md), [031](./031-project-terminology.md), [032](./032-deployment-strategies-artifact-lifecycle.md), [035](./035-build-artifacts.md)
 
 ## Context
 
@@ -20,13 +20,13 @@ Nix integration is structured as four layers of increasing scope:
 | Layer | Scope | Notes |
 |-------|-------|-------|
 | **Layer 1** | Projects with explicit `hop3.nix` file | Applications build and deploy via hand-crafted `hop3.nix`. |
-| **Layer 2** | Nixpkgs packages as Blueprints (ADR 007) | The `nixpkgs-wrapper` template in ADR 008 covers this use case (wrapping an existing nixpkgs package with Hop3 runtime metadata) more cleanly than the originally-proposed Blueprint abstraction, which it supersedes. |
-| **Layer 3** | Template-based generation at build time (ADR 008) | Templates (`nixpkgs-wrapper`, `prebuilt-binary`, `prebuilt-archive`, `node-prebuilt`, `php-app`, `python-venv`, `java-war`, `ruby-bundler`) generate `hop3.nix` for common app shapes. A three-tier reproducibility taxonomy (§ADR 008) is surfaced in per-template metadata. |
-| **Layer 4** | Full NixOS runtime integration (ADR 009) | Nix-managed systemd services, Nix-managed backing-service integration, NixOS module generation. |
+| **Layer 2** | Nixpkgs packages as Blueprints ([ADR 007](./007-nix-builder.md)) | The `nixpkgs-wrapper` template in [ADR 008](./008-nix-builders-2.md) covers this use case (wrapping an existing nixpkgs package with Hop3 runtime metadata) more cleanly than the originally-proposed Blueprint abstraction, which it supersedes. |
+| **Layer 3** | Template-based generation at build time ([ADR 008](./008-nix-builders-2.md)) | Templates (`nixpkgs-wrapper`, `prebuilt-binary`, `prebuilt-archive`, `node-prebuilt`, `php-app`, `python-venv`, `java-war`, `ruby-bundler`) generate `hop3.nix` for common app shapes. A three-tier reproducibility taxonomy (§[ADR 008](./008-nix-builders-2.md)) is surfaced in per-template metadata. |
+| **Layer 4** | Full NixOS runtime integration ([ADR 009](./009-nix-runtime.md)) | Nix-managed systemd services, Nix-managed backing-service integration, NixOS module generation. |
 
 ### Architectural Context
 
-Hop3 adopts a **two-level build architecture** (ADR 030):
+Hop3 adopts a **two-level build architecture** ([ADR 030](./030-two-level-build-architecture.md)):
 
 - **Level 1 - Builders**: Orchestrate HOW to build (LocalBuilder, DockerBuilder, NixBuilder)
 - **Level 2 - LanguageToolchains**: Execute WHAT to build (PythonToolchain, NodeToolchain, etc.)
@@ -44,7 +44,7 @@ LocalBuilder                    NixBuilder
 └─────────────────┘          └─────────────────┘
 ```
 
-Additionally, Hop3 uses **BuildArtifact with RuntimeConfig** (ADR 035) as the contract between build and run phases. This model aligns perfectly with Nix:
+Additionally, Hop3 uses **BuildArtifact with RuntimeConfig** ([ADR 035](./035-build-artifacts.md)) as the contract between build and run phases. This model aligns perfectly with Nix:
 
 - Nix computes all runtime paths (PATH, PYTHONPATH, etc.) at build time
 - These are stored in the BuildArtifact's `RuntimeConfig`
@@ -158,11 +158,11 @@ A `hop3.nix` file in the application root defines how to build and run the app. 
 
 ### Higher Layers
 
-4. **Nixpkgs Integration** (Layer 2, ADR 007):
+4. **Nixpkgs Integration** (Layer 2, [ADR 007](./007-nix-builder.md)):
    - Deploy pre-packaged applications from nixpkgs (Nextcloud, etc.)
    - Map nixpkgs packages to Hop3 Blueprints
 
-5. **Auto-Generation** (Layer 3, ADR 008):
+5. **Auto-Generation** (Layer 3, [ADR 008](./008-nix-builders-2.md)):
    - Generate Nix expressions from requirements.txt, package.json, etc.
    - Leverage dream2nix, poetry2nix, or nixpacks
 

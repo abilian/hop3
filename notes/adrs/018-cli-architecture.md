@@ -3,7 +3,7 @@
 - **Status**: Final
 - **Type**: Feature
 - **Created**: 2024-07-17
-- **Related-ADRs**: 014, 019, 025, 034
+- **Related-ADRs**: [014](./014-authentication-bootstrap.md), [019](./019-cli-commands.md), [025](./025-cli-user-experience.md), [034](./034-streaming-deployment-logs.md)
 
 ## Introduction
 
@@ -40,7 +40,7 @@ The current requirement is to develop an efficient and secure communication prot
 
 We will implement a JSON-RPC protocol over HTTPS for the communication between the CLI and the server. The server will handle all business logic and formatting, sending formatted instructions to the CLI, which will then present the results to the user. The server will use ad-hoc certificates to secure the communication. Additionally, we will implement support for streaming responses to handle real-time data needs such as log tailing and file downloads.
 
-Streaming is delivered via a companion Server-Sent Events channel (at `/api/apps/{app}/logs/stream` and at the deployment endpoint, ADR 034) rather than embedded in the JSON-RPC channel itself. The streaming channel is *complementary* to JSON-RPC rather than embedded in it — this sidesteps the complexity of bidirectional JSON-RPC over HTTP and lets each protocol do what it does best. In-band JSON-RPC streaming (`yield` messages inside an RPC response) is rejected in favor of the SSE-companion approach, which covers the motivating use cases (deploy logs, app logs) cleanly; it can be re-opened if a future use case (e.g., large interactive operations) cannot be expressed via SSE. Likewise, large file uploads use a direct HTTP upload endpoint rather than chunked RPC.
+Streaming is delivered via a companion Server-Sent Events channel (at `/api/apps/{app}/logs/stream` and at the deployment endpoint, [ADR 034](./034-streaming-deployment-logs.md)) rather than embedded in the JSON-RPC channel itself. The streaming channel is *complementary* to JSON-RPC rather than embedded in it: this sidesteps the complexity of bidirectional JSON-RPC over HTTP and lets each protocol do what it does best. In-band JSON-RPC streaming (`yield` messages inside an RPC response) is rejected in favor of the SSE-companion approach, which covers the motivating use cases (deploy logs, app logs) cleanly; it can be re-opened if a future use case (e.g., large interactive operations) cannot be expressed via SSE. Likewise, large file uploads use a direct HTTP upload endpoint rather than chunked RPC.
 
 ## Consequences
 
