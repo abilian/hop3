@@ -69,6 +69,8 @@ hop3-catalog = "hop3.server.catalog.publish:main"
 [project.optional-dependencies]
 waf = [
     "lewaf>=0.7.6 ; python_full_version >= '3.12'",
+    # Runs the lewaf proxy ASGI app in the vassal subprocess (_proxy_main.py).
+    "uvicorn ; python_full_version >= '3.12'",
 ]
 
 # ----------------------------------------
