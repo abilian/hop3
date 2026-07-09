@@ -696,7 +696,9 @@ class Deployer:
             "cd /home/hop3/hop3 && git fetch origin",
             f"cd /home/hop3/hop3 && git checkout {safe_branch}",
             f"cd /home/hop3/hop3 && git reset --hard origin/{safe_branch}",
-            "cd /home/hop3/hop3 && /home/hop3/venv/bin/pip install -e packages/hop3-server",
+            # [waf] extra: install the LeWAF engine by default (ADR 050). No-op on
+            # <3.12 (marker-gated); without it, WAF-enabled apps abort the deploy.
+            "cd /home/hop3/hop3 && /home/hop3/venv/bin/pip install -e 'packages/hop3-server[waf]'",
         ]
 
         for cmd in update_commands:
@@ -715,7 +717,7 @@ class Deployer:
         restart = self.backend.service_restart_command("hop3-server")
         revert = (
             f"cd /home/hop3/hop3 && git reset --hard {ref} && "
-            f"/home/hop3/venv/bin/pip install -e packages/hop3-server && {restart}"
+            f"/home/hop3/venv/bin/pip install -e 'packages/hop3-server[waf]' && {restart}"
         )
         return self._finish_upgrade(revert, "Update complete")
 
@@ -880,7 +882,8 @@ class Deployer:
         self.log("Installing from uploaded code")
         result = self.backend.run(
             "/home/hop3/venv/bin/pip install "
-            f"--upgrade --upgrade-strategy=eager {remote_path}",
+            # [waf] extra: LeWAF engine (ADR 050), marker-gated to py3.12+.
+            f"--upgrade --upgrade-strategy=eager '{remote_path}[waf]'",
             check=False,
         )
         if not result.success:
