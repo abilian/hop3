@@ -58,3 +58,40 @@ require_once ABSPATH . 'wp-settings.php';
 EOF
 
 echo "WordPress wp-config.php created"
+
+# --- Email: route wp_mail() through the Hop3 email backend, when attached. ---
+# WordPress's wp_mail() uses PHP mail() and ignores the environment; an attached
+# email addon injects SMTP_HOST (127.0.0.1 for the shared loopback relay, ADR
+# 054). This must-use plugin points PHPMailer at it and self-disables when no
+# addon is attached (no SMTP_HOST) — so a plain WordPress is never misconfigured
+# and no app ever shells sendmail.
+mkdir -p wp-content/mu-plugins
+cat > wp-content/mu-plugins/hop3-smtp.php << 'PHPEOF'
+<?php
+/* Hop3: send wp_mail() via the platform email backend (SMTP). Auto-generated. */
+add_action('phpmailer_init', function ($phpmailer) {
+    $host = getenv('SMTP_HOST');
+    if (!$host) {
+        return;  // no email addon attached — leave WordPress's default mailer
+    }
+    $phpmailer->isSMTP();
+    $phpmailer->Host = $host;
+    $phpmailer->Port = (int) (getenv('SMTP_PORT') ?: 25);
+    $user = getenv('SMTP_USER');
+    if ($user) {
+        $phpmailer->SMTPAuth = true;
+        $phpmailer->Username = $user;
+        $phpmailer->Password = getenv('SMTP_PASSWORD');
+    } else {
+        $phpmailer->SMTPAuth = false;   // loopback relay: no auth
+    }
+    $phpmailer->SMTPAutoTLS = false;    // no TLS toward the local relay
+    $phpmailer->SMTPSecure = '';
+    $from = getenv('SMTP_FROM');
+    if ($from) {
+        $phpmailer->setFrom($from, get_bloginfo('name'));
+    }
+}, 99);
+PHPEOF
+
+echo "WordPress SMTP mu-plugin installed (inert unless an email addon is attached)"

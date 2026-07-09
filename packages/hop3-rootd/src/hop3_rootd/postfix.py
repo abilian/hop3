@@ -38,6 +38,18 @@ _WRAPPER_TLS_PORT: Final[int] = 465  # implicit TLS; 587 uses STARTTLS
 _RELOAD_TIMEOUT_SECONDS: Final[float] = 15.0
 _POSTMAP_TIMEOUT_SECONDS: Final[float] = 15.0
 
+# Per-app sender maps (ADR 054): logical name → (filename, mode). The op accepts
+# only these logical names and composes the path here — a raw path is never
+# taken off the wire. ``sasl_passwd`` (0600) is the shared credential map; the
+# others carry per-app, sender-keyed lines.
+_MAP_FILES: Final[dict[str, tuple[str, int]]] = {
+    "sender_relayhost": ("hop3_sender_relayhost", 0o644),
+    "sender_transport": ("hop3_sender_transport", 0o644),
+    "sender_canonical": ("hop3_sender_canonical", 0o644),
+    "sasl_passwd": (_SASL_PASSWD, 0o600),
+}
+MAP_NAMES: Final[frozenset[str]] = frozenset(_MAP_FILES)
+
 
 class PostfixError(Exception):
     """A Postfix configuration operation failed (dispatcher → kernel_error)."""
@@ -264,6 +276,64 @@ def _direct_main_cf(milter: str) -> str:
         "bounce_queue_lifetime = 5d\n"
         "notify_classes = resource, software\n"
     )
+
+
+def _read_map_lines(path: Path) -> list[str]:
+    if not path.exists():
+        return []
+    return [ln for ln in path.read_text().splitlines() if ln.strip()]
+
+
+def _map_key(line: str) -> str:
+    return line.split(maxsplit=1)[0] if line.split() else ""
+
+
+def _postmap_and_reload(path: Path, *, exec: Exec) -> str:
+    postmap = exec.resolve("postmap")
+    if postmap is None:
+        raise PostfixUnavailableError(
+            "postmap not available/allow-listed; is Postfix installed?"
+        )
+    _postmap(postmap, path, exec=exec)
+    return _reload(exec)
+
+
+def map_add(
+    logical: str, key: str, value: str, *, exec: Exec = DEFAULT_EXEC
+) -> dict[str, Any]:
+    """Set the ``key`` line in a per-app map (replace-or-add), postmap, reload.
+
+    Rewrites the whole file from the desired lines (never a blind append), so a
+    re-run is idempotent. Returns ``{map, key, reloaded}``.
+    """
+    filename, mode = _MAP_FILES[logical]
+    path = POSTFIX_DIR / filename
+    lines = [ln for ln in _read_map_lines(path) if _map_key(ln) != key]
+    lines.append(f"{key} {value}")
+    _write_file(path, "\n".join(lines) + "\n", mode=mode)
+    return {
+        "map": logical,
+        "key": key,
+        "reloaded": _postmap_and_reload(path, exec=exec),
+    }
+
+
+def map_remove(logical: str, key: str, *, exec: Exec = DEFAULT_EXEC) -> dict[str, Any]:
+    """Remove the ``key`` line from a per-app map, postmap, reload. Idempotent —
+    removing an absent key reports ``removed=False`` and touches nothing else."""
+    filename, mode = _MAP_FILES[logical]
+    path = POSTFIX_DIR / filename
+    lines = _read_map_lines(path)
+    kept = [ln for ln in lines if _map_key(ln) != key]
+    if len(kept) == len(lines) and path.exists():
+        return {"map": logical, "key": key, "removed": False, "reloaded": "none"}
+    _write_file(path, ("\n".join(kept) + "\n") if kept else "", mode=mode)
+    return {
+        "map": logical,
+        "key": key,
+        "removed": True,
+        "reloaded": _postmap_and_reload(path, exec=exec),
+    }
 
 
 def configure_direct(*, milter: str, exec: Exec = DEFAULT_EXEC) -> dict[str, Any]:

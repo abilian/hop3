@@ -252,3 +252,70 @@ def test_op_direct_rejects_bad_ip(direct_dirs):
             _req(mode="direct", from_domain="example.com", server_ip="not-an-ip"),
             _ctx(FakeExec()),
         )
+
+
+# --- per-app sender maps (postfix.map_add / map_remove) ------------------
+
+
+def _req_op(op: str, **args) -> Request:
+    return Request(v=PROTOCOL_VERSION, id="req-1", op=op, args=args)
+
+
+def test_map_add_writes_line_and_reloads(postfix_dir):
+    ex = FakeExec()
+    result = pf.map_add(
+        "sender_relayhost", "noreply@app.example.com", "[smtp.p]:587", exec=ex
+    )
+    content = (postfix_dir / "hop3_sender_relayhost").read_text()
+    assert content == "noreply@app.example.com [smtp.p]:587\n"
+    assert _ran(ex, "postmap")
+    assert _ran(ex, "systemctl")
+    assert result["key"] == "noreply@app.example.com"
+
+
+def test_map_add_replaces_key_keeps_others(postfix_dir):
+    pf.map_add("sender_relayhost", "a@x.com", "one", exec=FakeExec())
+    pf.map_add("sender_relayhost", "b@x.com", "two", exec=FakeExec())
+    pf.map_add("sender_relayhost", "a@x.com", "one-v2", exec=FakeExec())  # replace a
+    lines = (postfix_dir / "hop3_sender_relayhost").read_text().splitlines()
+    assert "a@x.com one-v2" in lines
+    assert "b@x.com two" in lines
+    assert "a@x.com one" not in lines  # old value gone, not duplicated
+    assert len(lines) == 2
+
+
+def test_map_remove(postfix_dir):
+    pf.map_add("sender_relayhost", "a@x.com", "one", exec=FakeExec())
+    result = pf.map_remove("sender_relayhost", "a@x.com", exec=FakeExec())
+    assert result["removed"] is True
+    assert (postfix_dir / "hop3_sender_relayhost").read_text() == ""
+
+
+def test_map_remove_absent_is_noop(postfix_dir):
+    pf.map_add("sender_relayhost", "a@x.com", "one", exec=FakeExec())
+    result = pf.map_remove("sender_relayhost", "zzz@x.com", exec=FakeExec())
+    assert result["removed"] is False
+    assert result["reloaded"] == "none"  # nothing changed, no reload
+    assert "a@x.com one" in (postfix_dir / "hop3_sender_relayhost").read_text()
+
+
+def test_op_map_add_rejects_unknown_map(postfix_dir):
+    handler = get_handler("postfix.map_add")
+    assert handler is not None
+    with pytest.raises(ValidationError):
+        handler(
+            _req_op("postfix.map_add", map="bogus", key="a@x.com", value="v"),
+            _ctx(FakeExec()),
+        )
+
+
+def test_op_map_add_rejects_control_char_key(postfix_dir):
+    handler = get_handler("postfix.map_add")
+    assert handler is not None
+    with pytest.raises(ValidationError):
+        handler(
+            _req_op(
+                "postfix.map_add", map="sender_relayhost", key="a@x\n.com", value="v"
+            ),
+            _ctx(FakeExec()),
+        )
