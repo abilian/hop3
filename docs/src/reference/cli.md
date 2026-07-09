@@ -1893,7 +1893,7 @@ Lift all bans for an app, or one source IP. Rewrites the app's denylist and relo
 
 ### `hop3 waf reconcile-bans`
 
-Run the ban scorer across all WAF-enabled apps (the entry point a periodic timer calls): reads each audit stream, bans repeat offenders, expires elapsed bans, reloads the proxies. Safe to run repeatedly.
+Force a ban-scoring pass across all WAF-enabled apps now: reads each audit stream, bans repeat offenders, expires elapsed bans, and reloads changed proxies. The server already runs this in-process every ~60s (`waf_bans_service`); this command is the manual/debug entry point. Safe to run repeatedly.
 
 ### `hop3 network add|list|rm`
 
