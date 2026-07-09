@@ -145,6 +145,18 @@ class EmailAddon:
             },
         )
 
+    def configure_inherited(self, mail_from: str) -> None:
+        """Store this addon as inheriting the server-level transport.
+
+        Only the app's own From address is kept; the SMTP credentials are
+        resolved from the server transport at attach time (see
+        :func:`server_transport.resolve_inherited`), so rotating the server
+        transport propagates here without re-creating the addon.
+        """
+        save_addon_secrets(
+            _TYPE, self.addon_name, {"inherit": True, "mail_from": mail_from}
+        )
+
     def create(self) -> None:
         """Generic-create guard — always refuses.
 
@@ -203,13 +215,28 @@ class EmailAddon:
 
     def info(self) -> dict[str, Any]:
         """Status for `hop3 addon email status` — never includes the password."""
-        transport = self._load_transport()
-        if transport is None:
+        data = load_addon_secrets(_TYPE, self.addon_name)
+        if data is None:
             return {"addon_name": self.addon_name, "type": _TYPE, "configured": False}
+        inherited = bool(data.get("inherit"))
+        try:
+            transport = self._load_transport()
+        except RuntimeError as exc:
+            # Inherits a server transport that is no longer set — surface it,
+            # never report a working relay that isn't there (fail-loud).
+            return {
+                "addon_name": self.addon_name,
+                "type": _TYPE,
+                "configured": True,
+                "inherited": inherited,
+                "error": str(exc),
+            }
+        assert transport is not None  # data present ⇒ a transport or a raise
         return {
             "addon_name": self.addon_name,
             "type": _TYPE,
             "configured": True,
+            "inherited": inherited,
             "smtp_host": transport.smtp_host,
             "smtp_port": str(transport.smtp_port),
             "mail_from": transport.mail_from,
@@ -223,6 +250,13 @@ class EmailAddon:
         data = load_addon_secrets(_TYPE, self.addon_name)
         if data is None:
             return None
+        if data.get("inherit"):
+            # Resolve against the server-level transport at read time, so
+            # rotating the server transport propagates to every inheriting app.
+            # Raises (fail-loud) if the server transport is no longer set.
+            from .server_transport import resolve_inherited  # noqa: PLC0415
+
+            return resolve_inherited(data["mail_from"])
         return EmailTransport(
             smtp_host=data["smtp_host"],
             smtp_port=int(data["smtp_port"]),

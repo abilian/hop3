@@ -144,6 +144,20 @@ def test_is_mounted_false_when_no_mountinfo(tmp_path, monkeypatch):
     assert mount.is_mounted(mount.Path("/whatever")) is False
 
 
+def test_is_mounted_raises_when_mountinfo_unreadable(tmp_path, monkeypatch):
+    """A mountinfo that exists but can't be read is a fault, not 'not mounted'.
+
+    Previously this returned False, which made reconcile_mounts drop a live
+    mount's state row as 'stale' on a transient read error — a silent
+    heisenbug. read_text on a directory raises IsADirectoryError (an OSError).
+    """
+    mountinfo = tmp_path / "mountinfo"
+    mountinfo.mkdir()  # exists, but read_text will raise
+    monkeypatch.setattr(mount, "_MOUNTINFO", mountinfo)
+    with pytest.raises(MountError, match="could not read"):
+        mount.is_mounted(mount.Path("/whatever"))
+
+
 # --- list_mounts_under_app_root + unmount_path ----------------------------
 
 

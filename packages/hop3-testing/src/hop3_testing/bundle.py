@@ -38,12 +38,15 @@ Classifier = Literal[
     "addon-unreachable",
     "app-crash",
     "timeout",
+    "startup-failure",
     "indeterminate",
     "ok",
 ]
 """Failure buckets (ADR 043 §7.1). ``indeterminate`` = the probe was blind
 (could not read the listen table without root) so we refuse a confident
-proxy-502. ``ok`` is never persisted."""
+proxy-502. ``startup-failure`` = the target itself (hop3-server) never came up —
+a deploy/startup failure, not an app crash, so the app/proxy probe is not the
+lens; the deploy log is. ``ok`` is never persisted."""
 
 DeployerKind = Literal["uwsgi", "docker", "static", "unknown"]
 
@@ -69,6 +72,7 @@ _SECTION_HINT: dict[str, str] = {
     "addon-unreachable": "app",
     "app-crash": "app",
     "timeout": "journal",
+    "startup-failure": "deploy",
     "indeterminate": "proxy",
     "ok": "app",
 }
@@ -352,11 +356,12 @@ def build_headline(
 ) -> str:
     """Render the <=12-line, headline-first failure summary."""
     icon = _ICON.get(classifier, "✗")
-    verdict = (
-        probe.verdict
-        if probe is not None and classifier in {"proxy-502", "indeterminate"}
-        else _root_cause(sections, http_front)
-    )
+    if classifier == "startup-failure":
+        verdict = _deploy_error_line(sections) or "the target never came up"
+    elif probe is not None and classifier in {"proxy-502", "indeterminate"}:
+        verdict = probe.verdict
+    else:
+        verdict = _root_cause(sections, http_front)
     lines = [
         f"{icon} {classifier} — {app}",
         f"run-id: {run_id}",
@@ -368,6 +373,16 @@ def build_headline(
     section = _SECTION_HINT.get(classifier, "app")
     lines.append(f"why: hop3-test why {run_id} --section {section}")
     return "\n".join(lines)
+
+
+def _deploy_error_line(sections: dict[str, str]) -> str:
+    """The most telling line of the deploy log — the verdict for a startup
+    failure. The last non-empty line is usually the failure point."""
+    deploy = sections.get("deploy", "").strip()
+    if not deploy or deploy == "(no deploy log captured)":
+        return ""
+    last = next((ln for ln in reversed(deploy.splitlines()) if ln.strip()), "")
+    return last.strip()[:160]
 
 
 def _root_cause(sections: dict[str, str], http_front: HttpResponse | None) -> str:
@@ -389,16 +404,22 @@ def _signal_lines(
 ) -> list[str]:
     lines: list[str] = []
     if probe is not None and classifier in {"proxy-502", "indeterminate", "app-crash"}:
-        lines.append(f"nginx proxy_pass: 127.0.0.1:{probe.proxy_pass_port}")
-        listen = list(probe.listen_ports) or "(none on 127.0.0.1)"
-        avail = "" if probe.listen_table_available else " [table unreadable]"
-        lines.append(f"app LISTEN ports:  {listen}{avail}")
-        lines.append(f"curl 127.0.0.1:{probe.proxy_pass_port}: {probe.curl_status}")
+        if probe.proxy_pass_port is not None:
+            lines.append(f"nginx proxy_pass: 127.0.0.1:{probe.proxy_pass_port}")
+            listen = list(probe.listen_ports) or "(none on 127.0.0.1)"
+            avail = "" if probe.listen_table_available else " [table unreadable]"
+            lines.append(f"app LISTEN ports:  {listen}{avail}")
+            lines.append(f"curl 127.0.0.1:{probe.proxy_pass_port}: {probe.curl_status}")
+        else:
+            # No proxy target: the app was never deployed / no vhost was written.
+            # Rendering `127.0.0.1:None` as a probe result would be fake data.
+            lines.append("nginx proxy_pass: (no vhost / app not deployed)")
         if probe.deployer_kind == "docker":
             lines.append(f"container state:   {probe.container_state or '(unknown)'}")
-        lines.append(
-            f"deployer kind:     {probe.deployer_kind}  [uid={probe.effective_uid}]"
-        )
+        if probe.deployer_kind and probe.deployer_kind != "unknown":
+            lines.append(
+                f"deployer kind:     {probe.deployer_kind}  [uid={probe.effective_uid}]"
+            )
     if http_front is not None:
         lines.append(f"front-door:        HTTP {http_front.status}")
     return lines[:6]

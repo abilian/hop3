@@ -1,7 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM101, EM102, TC001
 
 """nftables rule construction and emission.
 
@@ -146,13 +145,13 @@ def _nft_comment_token(rule_id: str) -> str:
 def _format_port_or_range(spec: PortSpec) -> str:
     """Render the dport argument as a single nft token.
 
-    ``validate_port_spec`` guarantees one of port / port_range is set, so the
-    ``port_range is None`` case is unreachable in practice — the assert pins
-    that invariant for the type checker and crashes loud if it ever breaks.
+    ``validate_port_spec`` guarantees one of port / port_range is set; the
+    explicit check keeps that invariant -O-safe instead of relying on assert.
     """
     if spec.port is not None:
         return str(spec.port)
-    assert spec.port_range is not None, "PortSpec must set port or port_range"
+    if spec.port_range is None:
+        raise ValueError("PortSpec must set port or port_range")
     start, end = spec.port_range
     return f"{start}-{end}"
 

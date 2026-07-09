@@ -24,6 +24,7 @@ from hop3.lib.decorators import register
 from . import deliverability
 from .deliverability import MISSING, UNKNOWN
 from .email import EmailAddon, EmailTransport
+from .server_transport import load_server_dkim_selector, resolve_inherited
 
 _TYPE = "email"
 
@@ -32,19 +33,25 @@ _EXPERIMENTAL_MSG = "experimental: this command's surface may change (release-pl
 _STATUS_ICON = {"present": "✓", MISSING: "✗", UNKNOWN: "?"}
 
 
-def _deliverability_items(domain: str) -> list[dict]:
-    """Run the SPF/DMARC DNS pre-flight for `domain` and render it.
+def _deliverability_items(domain: str, dkim_selector: str | None = None) -> list[dict]:
+    """Run the SPF/DMARC (and DKIM, when a selector is known) DNS pre-flight.
 
     Never claims "ready": a missing record is a loud, actionable pending state,
-    and an unreachable resolver is reported as unverified (not as "OK").
+    and an unreachable resolver is reported as unverified (not as "OK"). When
+    ``dkim_selector`` is known (from a provider profile or ``--dkim-selector``),
+    DKIM is a real checked row; otherwise it stays a guidance row, since the
+    ``<selector>._domainkey`` name can't be guessed.
     """
     checks = [deliverability.check_spf(domain), deliverability.check_dmarc(domain)]
+    if dkim_selector:
+        checks.append(deliverability.check_dkim(domain, dkim_selector))
     rows = [[_STATUS_ICON.get(c.status, "?"), c.label, c.detail] for c in checks]
-    rows.append([
-        "—",
-        "DKIM",
-        "add your provider's DKIM records (selector from its dashboard)",
-    ])
+    if not dkim_selector:
+        rows.append([
+            "—",
+            "DKIM",
+            "add your provider's DKIM records (selector from its dashboard)",
+        ])
     items: list[dict] = [
         table(headers=["", "Record", "Status / what to publish"], rows=rows)
     ]
@@ -60,9 +67,11 @@ def _deliverability_items(domain: str) -> list[dict]:
         items.append(
             warning(
                 f"deliverability unverified for {domain}: no DNS resolver available to "
-                "check SPF/DMARC — verify them manually at your provider."
+                "check the records — verify them manually at your provider."
             )
         )
+    elif dkim_selector:
+        items.append(text(f"SPF, DKIM, and DMARC all found for {domain}."))
     else:
         items.append(
             text(
@@ -78,10 +87,14 @@ def _deliverability_items(domain: str) -> list[dict]:
 class AddonEmailCreateCmd(Command):
     """Configure an email (SMTP relay) addon — EXPERIMENTAL.
 
-    Usage: hop3 addon email create <name> --smtp-host <h> --smtp-user <u>
-               --smtp-password <pw> --from <addr> [--smtp-port 587]
+    Usage: hop3 addon email create <name> --from <addr> [--smtp-host <h>
+               --smtp-user <u> --smtp-password <pw> --smtp-port 587]
 
-    Stores the operator's upstream SMTP submission credentials (any provider).
+    With --smtp-*, this addon uses its own per-app provider. Without them, it
+    inherits the server-level transport (`hop3 server email set`) — set once,
+    used by every app — provided --from is on the server's verified sending
+    domain. A partial --smtp-* (some but not all three creds) is refused.
+
     Attach it with `hop3 addon attach <name> --app <app> --type email`, which
     injects SMTP_*/EMAIL_*/MAIL_* so stock Django/Flask/Node apps can send mail.
 
@@ -89,6 +102,9 @@ class AddonEmailCreateCmd(Command):
     @<path>` reads it from a file and `--smtp-password -` reads it from stdin.
 
     Examples:
+        # Inherit the server transport (after `hop3 server email set`):
+        hop3 addon email create mail --from noreply@example.com
+        # Per-app provider:
         hop3 addon email create mail --smtp-host smtp.resend.com \\
             --smtp-user resend --smtp-password @./smtp.secret --from noreply@example.com
     """
@@ -108,8 +124,8 @@ class AddonEmailCreateCmd(Command):
 
     def call(self, *args):
         parsed = parse_cli_args(args, self._arg_spec)
-        # Default to "" (not None) so a missing flag is falsy for the check below
-        # and the values type as `Any`, not `Any | None`, for the typed calls.
+        # Default to "" (not None) so a missing flag is falsy for the checks
+        # below and the values type as `Any`, not `Any | None`.
         addon_name = parsed.get("addon_name", "")
         host = parsed.get("smtp_host", "")
         port_raw = parsed.get("smtp_port", "587")
@@ -117,36 +133,58 @@ class AddonEmailCreateCmd(Command):
         password = parsed.get("smtp_password", "")
         mail_from = parsed.get("from", "")
 
-        missing = [
-            flag
-            for flag, val in (
-                ("<name>", addon_name),
+        # Any per-app SMTP flag selects the override path (this addon's own
+        # provider); none selects the inherit path (the server-level transport).
+        # A *partial* override is refused — all three creds, or none. An explicit
+        # --smtp-port counts as override intent too, so it is never silently
+        # dropped on the inherit path (which uses the server transport's port).
+        explicit_port = "--smtp-port" in args or any(
+            str(a).startswith("--smtp-port=") for a in args
+        )
+        override = bool(host or user or password or explicit_port)
+        required = [("<name>", addon_name), ("--from", mail_from)]
+        if override:
+            required += [
                 ("--smtp-host", host),
                 ("--smtp-user", user),
                 ("--smtp-password", password),
-                ("--from", mail_from),
-            )
-            if not val
-        ]
+            ]
+        missing = [flag for flag, val in required if not val]
         if missing:
             return [
                 text(
-                    "Usage: hop3 addon email create <name> --smtp-host <h> "
-                    "--smtp-user <u> --smtp-password <pw> --from <addr> "
-                    "[--smtp-port 587]"
+                    "Usage: hop3 addon email create <name> --from <addr> "
+                    "[--smtp-host <h> --smtp-user <u> --smtp-password <pw> "
+                    "--smtp-port 587]"
                 ),
                 error(f"missing: {', '.join(missing)}"),
             ]
 
         try:
-            port = int(port_raw)
-        except (TypeError, ValueError):
-            return [error(f"--smtp-port must be a whole number, got {port_raw!r}")]
-
-        try:
             validate_service_name(addon_name)
         except InvalidIdentifierError as exc:
             return [error(str(exc))]
+
+        if override:
+            return self._create_own(
+                addon_name, host, port_raw, user, password, mail_from
+            )
+        return self._create_inherited(addon_name, mail_from)
+
+    def _create_own(
+        self,
+        addon_name: str,
+        host: str,
+        port_raw: str,
+        user: str,
+        password: str,
+        mail_from: str,
+    ) -> list[dict]:
+        """Store a per-app transport — this addon's own provider credentials."""
+        try:
+            port = int(port_raw)
+        except (TypeError, ValueError):
+            return [error(f"--smtp-port must be a whole number, got {port_raw!r}")]
 
         # EmailTransport enforces the submission-port/TLS invariant, the From
         # shape, and control-char rejection at the domain boundary.
@@ -166,18 +204,50 @@ class AddonEmailCreateCmd(Command):
         ):
             EmailAddon(addon_name=addon_name).configure(transport)
 
-        domain = mail_from.split("@")[-1]
+        return self._created_ok(
+            addon_name, mail_from, f"relay via {host}:{port}, from {mail_from}"
+        )
+
+    def _create_inherited(self, addon_name: str, mail_from: str) -> list[dict]:
+        """Store an addon that inherits the server-level transport."""
+        # resolve_inherited loads the server transport, validates the From shape
+        # and the domain boundary, and fails loud if no server transport is set.
+        try:
+            transport = resolve_inherited(mail_from)
+        except (RuntimeError, ValueError) as exc:
+            return [error(str(exc))]
+
+        with command_context(
+            "configuring email addon", addon_name=addon_name, service_type=_TYPE
+        ):
+            EmailAddon(addon_name=addon_name).configure_inherited(mail_from)
+
+        # An inheriting app sends on the server's verified domain, so its DKIM
+        # status is the server transport's — surface it if a selector is known.
+        return self._created_ok(
+            addon_name,
+            mail_from,
+            f"inheriting the server transport ({transport.smtp_host}:"
+            f"{transport.smtp_port}), from {mail_from}",
+            dkim_selector=load_server_dkim_selector(),
+        )
+
+    def _created_ok(
+        self,
+        addon_name: str,
+        mail_from: str,
+        detail: str,
+        dkim_selector: str | None = None,
+    ) -> list[dict]:
+        domain = mail_from.rsplit("@", maxsplit=1)[-1]
         return [
             warning(_EXPERIMENTAL_MSG),
-            text(
-                f"Email addon '{addon_name}' configured "
-                f"(relay via {host}:{port}, from {mail_from})."
-            ),
+            text(f"Email addon '{addon_name}' configured ({detail})."),
             text(
                 f"\nAttach it to an app:\n  hop3 addon attach {addon_name} "
                 "--app <app> --type email"
             ),
-            *_deliverability_items(domain),
+            *_deliverability_items(domain, dkim_selector),
             summary(f"configured email addon '{addon_name}'."),
         ]
 
@@ -215,16 +285,33 @@ class AddonEmailStatusCmd(Command):
                 ),
             ]
 
-        domain = info["mail_from"].split("@")[-1]
+        # An addon that inherits the server transport can resolve to an error
+        # (the server transport was removed or its domain changed): surface it
+        # loudly rather than crash on the absent transport fields.
+        if info.get("error"):
+            return [
+                warning(_EXPERIMENTAL_MSG),
+                warning(
+                    f"Email addon '{addon_name}' inherits the server transport, "
+                    "which is currently unavailable:"
+                ),
+                error(info["error"]),
+            ]
+
+        domain = info["mail_from"].rsplit("@", 1)[-1]
         rows = [
             ["host", info["smtp_host"]],
             ["port", info["smtp_port"]],
             ["from", info["mail_from"]],
         ]
+        # An inherited addon sends on the server domain, so its DKIM status is
+        # the server transport's — check it the same way create and `server
+        # email status` do, rather than showing a stale guidance row.
+        selector = load_server_dkim_selector() if info.get("inherited") else None
         return [
             warning(_EXPERIMENTAL_MSG),
             table(headers=["Field", "Value"], rows=rows),
-            *_deliverability_items(domain),
+            *_deliverability_items(domain, selector),
         ]
 
 

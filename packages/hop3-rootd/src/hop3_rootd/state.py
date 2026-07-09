@@ -1,8 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM102
-
 """Persistent state for hop3-rootd.
 
 Currently a single JSON file at /var/lib/hop3-rootd/state.json holding
@@ -19,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final, Literal
@@ -52,6 +51,21 @@ class StateVersionError(StateError):
 
 
 # --- Typed entries --------------------------------------------------------
+#
+# Each Stored* owns its own (de)serialisation: the field list appears once,
+# next to the type it describes, so a new field is added in one place rather
+# than in three (dataclass + State.to_dict + _parse_*). load()/save() below
+# are generic loops over these methods.
+
+
+def _coerce_status(value: Any, path: str) -> RuleStatus:
+    """Validate that a stored status value is one of RuleStatus's literals."""
+    if value not in {"applied", "pending", "removing"}:
+        raise StateCorruptError(
+            f"{path} has invalid status {value!r}; "
+            "expected 'applied', 'pending', or 'removing'"
+        )
+    return value
 
 
 @dataclass(frozen=True)
@@ -70,6 +84,28 @@ class StoredRule:
     applied_at: str
     status: RuleStatus = "applied"
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "rule_id": self.rule_id,
+            "spec": self.spec,
+            "applied_at": self.applied_at,
+            "status": self.status,
+        }
+
+    @classmethod
+    def from_dict(cls, raw: Any, path: str) -> StoredRule:
+        if not isinstance(raw, dict):
+            raise StateCorruptError(f"{path} must be an object")
+        try:
+            return cls(
+                rule_id=str(raw["rule_id"]),
+                spec=dict(raw["spec"]),
+                applied_at=str(raw["applied_at"]),
+                status=_coerce_status(raw.get("status", "applied"), path),
+            )
+        except (KeyError, TypeError) as e:
+            raise StateCorruptError(f"{path} is malformed: {e}") from e
+
 
 @dataclass(frozen=True)
 class StoredCgroup:
@@ -86,6 +122,30 @@ class StoredCgroup:
     pids_max: int | None
     applied_at: str
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "app_name": self.app_name,
+            "memory_max": self.memory_max,
+            "cpu_max": self.cpu_max,
+            "pids_max": self.pids_max,
+            "applied_at": self.applied_at,
+        }
+
+    @classmethod
+    def from_dict(cls, raw: Any, path: str) -> StoredCgroup:
+        if not isinstance(raw, dict):
+            raise StateCorruptError(f"{path} must be an object")
+        try:
+            return cls(
+                app_name=str(raw["app_name"]),
+                memory_max=raw.get("memory_max"),
+                cpu_max=raw.get("cpu_max"),
+                pids_max=raw.get("pids_max"),
+                applied_at=str(raw["applied_at"]),
+            )
+        except (KeyError, TypeError) as e:
+            raise StateCorruptError(f"{path} is malformed: {e}") from e
+
 
 @dataclass(frozen=True)
 class StoredMount:
@@ -100,6 +160,30 @@ class StoredMount:
     type: str
     source: str | None
     applied_at: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "app_name": self.app_name,
+            "target": self.target,
+            "type": self.type,
+            "source": self.source,
+            "applied_at": self.applied_at,
+        }
+
+    @classmethod
+    def from_dict(cls, raw: Any, path: str) -> StoredMount:
+        if not isinstance(raw, dict):
+            raise StateCorruptError(f"{path} must be an object")
+        try:
+            return cls(
+                app_name=str(raw["app_name"]),
+                target=str(raw["target"]),
+                type=str(raw["type"]),
+                source=raw.get("source"),
+                applied_at=str(raw["applied_at"]),
+            )
+        except (KeyError, TypeError) as e:
+            raise StateCorruptError(f"{path} is malformed: {e}") from e
 
 
 @dataclass(frozen=True)
@@ -120,6 +204,34 @@ class StoredProxy:
     source: str
     applied_at: str
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "addon_type": self.addon_type,
+            "addon_name": self.addon_name,
+            "unit": self.unit,
+            "public_port": self.public_port,
+            "target_port": self.target_port,
+            "source": self.source,
+            "applied_at": self.applied_at,
+        }
+
+    @classmethod
+    def from_dict(cls, raw: Any, path: str) -> StoredProxy:
+        if not isinstance(raw, dict):
+            raise StateCorruptError(f"{path} must be an object")
+        try:
+            return cls(
+                addon_type=str(raw["addon_type"]),
+                addon_name=str(raw["addon_name"]),
+                unit=str(raw["unit"]),
+                public_port=int(raw["public_port"]),
+                target_port=int(raw["target_port"]),
+                source=str(raw.get("source", "any")),
+                applied_at=str(raw["applied_at"]),
+            )
+        except (KeyError, TypeError, ValueError) as e:
+            raise StateCorruptError(f"{path} is malformed: {e}") from e
+
 
 @dataclass
 class State:
@@ -138,47 +250,10 @@ class State:
     def to_dict(self) -> dict[str, Any]:
         return {
             "version": self.version,
-            "rules": [
-                {
-                    "rule_id": r.rule_id,
-                    "spec": r.spec,
-                    "applied_at": r.applied_at,
-                    "status": r.status,
-                }
-                for r in self.rules
-            ],
-            "cgroups": [
-                {
-                    "app_name": c.app_name,
-                    "memory_max": c.memory_max,
-                    "cpu_max": c.cpu_max,
-                    "pids_max": c.pids_max,
-                    "applied_at": c.applied_at,
-                }
-                for c in self.cgroups
-            ],
-            "mounts": [
-                {
-                    "app_name": m.app_name,
-                    "target": m.target,
-                    "type": m.type,
-                    "source": m.source,
-                    "applied_at": m.applied_at,
-                }
-                for m in self.mounts
-            ],
-            "proxies": [
-                {
-                    "addon_type": p.addon_type,
-                    "addon_name": p.addon_name,
-                    "unit": p.unit,
-                    "public_port": p.public_port,
-                    "target_port": p.target_port,
-                    "source": p.source,
-                    "applied_at": p.applied_at,
-                }
-                for p in self.proxies
-            ],
+            "rules": [r.to_dict() for r in self.rules],
+            "cgroups": [c.to_dict() for c in self.cgroups],
+            "mounts": [m.to_dict() for m in self.mounts],
+            "proxies": [p.to_dict() for p in self.proxies],
         }
 
     def find_rule(self, rule_id: str) -> StoredRule | None:
@@ -212,117 +287,15 @@ def _parse_version(obj: dict[str, Any], path: Path) -> int:
     return version
 
 
-def _parse_rules(obj: dict[str, Any]) -> list[StoredRule]:
-    """Extract and validate the 'rules' list. Raises on any malformed entry."""
-    rules_raw: list[Any] = obj.get("rules", [])
-    if not isinstance(rules_raw, list):
-        raise StateCorruptError(
-            f"'rules' must be a list, got {type(rules_raw).__name__}"
-        )
+def _parse_entries(raw: Any, name: str, parse: Callable[[Any, str], Any]) -> list[Any]:
+    """Validate ``raw`` is a list, then build each entry via ``parse(item, path)``.
 
-    rules: list[StoredRule] = []
-    for i, r in enumerate(rules_raw):
-        if not isinstance(r, dict):
-            raise StateCorruptError(f"rules[{i}] must be an object")
-        try:
-            rules.append(
-                StoredRule(
-                    rule_id=str(r["rule_id"]),
-                    spec=dict(r["spec"]),
-                    applied_at=str(r["applied_at"]),
-                    status=_coerce_status(r.get("status", "applied"), i),
-                )
-            )
-        except (KeyError, TypeError) as e:
-            raise StateCorruptError(f"rules[{i}] is malformed: {e}") from e
-    return rules
-
-
-def _parse_cgroups(obj: dict[str, Any]) -> list[StoredCgroup]:
-    """Extract the optional 'cgroups' list. Absent (old v1 files) → []."""
-    raw: list[Any] = obj.get("cgroups", [])
+    ``path`` passed to ``parse`` is ``"<name>[<i>]"`` so corruption errors name
+    the exact entry (e.g. ``"rules[2] is malformed"``).
+    """
     if not isinstance(raw, list):
-        raise StateCorruptError(f"'cgroups' must be a list, got {type(raw).__name__}")
-
-    cgroups: list[StoredCgroup] = []
-    for i, c in enumerate(raw):
-        if not isinstance(c, dict):
-            raise StateCorruptError(f"cgroups[{i}] must be an object")
-        try:
-            cgroups.append(
-                StoredCgroup(
-                    app_name=str(c["app_name"]),
-                    memory_max=c.get("memory_max"),
-                    cpu_max=c.get("cpu_max"),
-                    pids_max=c.get("pids_max"),
-                    applied_at=str(c["applied_at"]),
-                )
-            )
-        except (KeyError, TypeError) as e:
-            raise StateCorruptError(f"cgroups[{i}] is malformed: {e}") from e
-    return cgroups
-
-
-def _parse_mounts(obj: dict[str, Any]) -> list[StoredMount]:
-    """Extract the optional 'mounts' list. Absent (old v1 files) → []."""
-    raw: list[Any] = obj.get("mounts", [])
-    if not isinstance(raw, list):
-        raise StateCorruptError(f"'mounts' must be a list, got {type(raw).__name__}")
-
-    mounts: list[StoredMount] = []
-    for i, m in enumerate(raw):
-        if not isinstance(m, dict):
-            raise StateCorruptError(f"mounts[{i}] must be an object")
-        try:
-            mounts.append(
-                StoredMount(
-                    app_name=str(m["app_name"]),
-                    target=str(m["target"]),
-                    type=str(m["type"]),
-                    source=m.get("source"),
-                    applied_at=str(m["applied_at"]),
-                )
-            )
-        except (KeyError, TypeError) as e:
-            raise StateCorruptError(f"mounts[{i}] is malformed: {e}") from e
-    return mounts
-
-
-def _parse_proxies(obj: dict[str, Any]) -> list[StoredProxy]:
-    """Extract the optional 'proxies' list. Absent (older v1 files) → []."""
-    raw: list[Any] = obj.get("proxies", [])
-    if not isinstance(raw, list):
-        raise StateCorruptError(f"'proxies' must be a list, got {type(raw).__name__}")
-
-    proxies: list[StoredProxy] = []
-    for i, p in enumerate(raw):
-        if not isinstance(p, dict):
-            raise StateCorruptError(f"proxies[{i}] must be an object")
-        try:
-            proxies.append(
-                StoredProxy(
-                    addon_type=str(p["addon_type"]),
-                    addon_name=str(p["addon_name"]),
-                    unit=str(p["unit"]),
-                    public_port=int(p["public_port"]),
-                    target_port=int(p["target_port"]),
-                    source=str(p.get("source", "any")),
-                    applied_at=str(p["applied_at"]),
-                )
-            )
-        except (KeyError, TypeError, ValueError) as e:
-            raise StateCorruptError(f"proxies[{i}] is malformed: {e}") from e
-    return proxies
-
-
-def _coerce_status(value: Any, index: int) -> RuleStatus:
-    """Validate that a stored status value is one of RuleStatus's literals."""
-    if value not in {"applied", "pending", "removing"}:
-        raise StateCorruptError(
-            f"rules[{index}] has invalid status {value!r}; "
-            "expected 'applied', 'pending', or 'removing'"
-        )
-    return value
+        raise StateCorruptError(f"{name!r} must be a list, got {type(raw).__name__}")
+    return [parse(item, f"{name}[{i}]") for i, item in enumerate(raw)]
 
 
 def load(path: Path = DEFAULT_STATE_PATH) -> State:
@@ -350,10 +323,10 @@ def load(path: Path = DEFAULT_STATE_PATH) -> State:
         raise StateCorruptError(f"top-level must be object, got {type(obj).__name__}")
 
     version = _parse_version(obj, path)
-    rules = _parse_rules(obj)
-    cgroups = _parse_cgroups(obj)
-    mounts = _parse_mounts(obj)
-    proxies = _parse_proxies(obj)
+    rules = _parse_entries(obj.get("rules", []), "rules", StoredRule.from_dict)
+    cgroups = _parse_entries(obj.get("cgroups", []), "cgroups", StoredCgroup.from_dict)
+    mounts = _parse_entries(obj.get("mounts", []), "mounts", StoredMount.from_dict)
+    proxies = _parse_entries(obj.get("proxies", []), "proxies", StoredProxy.from_dict)
     return State(
         version=version, rules=rules, cgroups=cgroups, mounts=mounts, proxies=proxies
     )

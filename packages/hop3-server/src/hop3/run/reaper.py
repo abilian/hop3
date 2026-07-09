@@ -14,6 +14,15 @@ Shared by the uWSGI deployer and the ORM teardown (``app.stop()`` / ``destroy``)
 so an explicit ``hop3 app stop`` / ``destroy`` is as thorough as a redeploy —
 without this, those commands only removed the Emperor config and reported
 STOPPED while the daemon (and its port) lived on.
+
+We reap only *runtime* processes — the uWSGI Emperor's children (the Emperor is
+a separate systemd/supervisord service, a distinct process tree). We must never
+reap a *build*: a local ``bundle install`` / ``lein uberjar`` runs with cwd
+``apps/<name>/src`` and so matches by cwd, but it is a subprocess of
+``hop3-server``. Reaping it SIGTERMs the deploy's own build mid-flight (a slow
+native compile / Maven fetch outlives the grace and dies with signal 15). The
+deploy tree — ancestors, self, and build descendants — is excluded; see
+:func:`_protected_pids` and :func:`_is_deploy_descendant`.
 """
 
 from __future__ import annotations
@@ -85,15 +94,45 @@ def _protected_pids() -> set[int]:
     return protected
 
 
+def _is_deploy_descendant(pid: int) -> bool:
+    """Whether ``pid`` descends from the current process.
+
+    A build/deploy subprocess this hop3-server spawned — ``bundle install``,
+    ``lein uberjar``, the ``make``/``cc`` children of a native-gem compile — runs
+    with cwd ``apps/<name>/src``, so it *matches* :func:`proc_belongs_to_app` by
+    cwd. But it is **build machinery, not an app runtime process**: runtime
+    processes are the uWSGI Emperor's children (the ``uwsgi-hop3`` systemd unit /
+    the supervisord ``uwsgi`` program — a separate tree), never descendants of
+    ``hop3-server``. So a matched process that descends from us is the in-flight
+    build; reaping it would SIGTERM the deploy's own build (a slow native compile
+    or Maven fetch outlives the 10s grace and dies with signal 15). This is the
+    descendant counterpart to :func:`_protected_pids`' ancestor guard; together
+    they exclude the whole deploy tree (ancestors + self + build children) while
+    still reaping every Emperor-supervised runtime process.
+    """
+    me = os.getpid()
+    cur = pid
+    for _ in range(128):  # bounded walk; also guards a pathological parent cycle
+        parent = _parent_pid(cur)
+        if parent is None or parent <= 1:
+            return False
+        if parent == me:
+            return True
+        cur = parent
+    return False
+
+
 def app_pids(app_name: str) -> list[int]:
     """PIDs of every live process belonging to ``app_name``.
 
     Scans ``/proc`` and matches each process's cmdline and working directory
     (see :func:`proc_belongs_to_app`). Catches Nix-store ``exec``'d daemons that
-    ``pgrep -f apps/<name>`` misses. The reaper's own process tree is excluded
-    (see :func:`_protected_pids`) so a redeploy never kills the in-flight
-    ``git-receive-pack`` it is running under. Returns ``[]`` where there is no
-    procfs (a non-Linux dev machine), where there is nothing to reap anyway.
+    ``pgrep -f apps/<name>`` misses. The reaper's own process tree is excluded —
+    its ancestors (so a redeploy never kills the in-flight ``git-receive-pack``
+    it runs under, :func:`_protected_pids`) *and* its build/deploy descendants
+    (so a reap never SIGTERMs the app's own in-flight build, which shares the
+    ``apps/<name>/src`` cwd, :func:`_is_deploy_descendant`). Returns ``[]`` where
+    there is no procfs (a non-Linux dev machine), where there is nothing to reap.
     """
     proc = Path("/proc")
     if not proc.is_dir():
@@ -114,8 +153,11 @@ def app_pids(app_name: str) -> list[int]:
         # cwd unreadable (perms/gone) — the cmdline match still applies
         with suppress(OSError):
             cwd = os.readlink(entry / "cwd")
-        if proc_belongs_to_app(cmdline.decode("utf-8", "replace"), cwd, app_name):
-            pids.append(pid)
+        if not proc_belongs_to_app(cmdline.decode("utf-8", "replace"), cwd, app_name):
+            continue
+        if _is_deploy_descendant(pid):
+            continue  # our own build subprocess (shares the src cwd), not runtime
+        pids.append(pid)
     return pids
 
 

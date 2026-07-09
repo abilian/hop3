@@ -42,7 +42,6 @@ def ctx():
 
     context = OpContext(
         state=state,
-        state_path=None,
         save_state=save_state,
         now_iso=lambda: "2026-04-24T15:30:00+00:00",
         new_rule_id=lambda: "rule-test-1",

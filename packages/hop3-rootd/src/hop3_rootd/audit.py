@@ -160,6 +160,10 @@ class AuditLog:
     def __init__(self, path: Path = DEFAULT_AUDIT_LOG_PATH):
         self.path = path
         self._fd: TextIO | None = None
+        # fsync() can fail on exotic filesystems (procfs, some tmpfs). Counting
+        # those failures keeps them observable (a queryable attribute) rather
+        # than log-only noise; ADR 041 §13 makes audit durability a contract.
+        self.fsync_failures: int = 0
 
     def _ensure_open(self) -> TextIO:
         if self._fd is not None and not self._fd.closed:
@@ -196,9 +200,13 @@ class AuditLog:
             os.fsync(fd.fileno())
         except OSError as exc:
             # fsync can fail on some filesystems (procfs, certain tmpfs
-            # layouts) — best-effort only. The flush above already gets
-            # us through to the kernel buffer.
-            logger.warning("audit log fsync failed: %s", exc)
+            # layouts). The flush above already got us through to the kernel
+            # buffer; we count the failure (observable) and warn rather than
+            # dropping the record or crashing the op it was auditing.
+            self.fsync_failures += 1
+            logger.warning(
+                "audit log fsync failed (%d total): %s", self.fsync_failures, exc
+            )
 
     def reopen(self) -> None:
         """Close + reopen the file. Hooked to SIGUSR1 (logrotate-friendly)."""

@@ -1,7 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM102
 
 """cgroup v2 filesystem operations for native ``[limits]`` (ADR 046 §3 / P2.2).
 

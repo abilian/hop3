@@ -63,6 +63,29 @@ def test_write_preserves_operator_keys_across_redeploy(home):
     assert 'POSTGRES_SUPERUSER_PASSWORD = "pgpw"' in content
 
 
+def test_managed_secrets_survive_a_redeploy_that_omits_the_flags(home):
+    """A plain redeploy (no --with mysql/postgres, no --admin-domain) arrives
+    with those values as None; they must be REUSED from the existing file, not
+    dropped — the MySQL/Postgres service + role still exist on the box.
+
+    Regression for demo28's "MySQL password not configured": a redeploy without
+    --with mysql wiped MYSQL_SUPERUSER_PASSWORD while MySQL kept running.
+    """
+    cfg = home / "hop3-server.toml"
+    # First install: --with all.
+    verify.write_server_config("pgpw", "mypw", "admin.example.com", secret_key="sk")
+    # Plain redeploy: every managed value arrives as None.
+    verify.write_server_config(None, None, None, secret_key=None)
+    content = cfg.read_text()
+    assert 'MYSQL_SUPERUSER_PASSWORD = "mypw"' in content
+    assert 'POSTGRES_SUPERUSER_PASSWORD = "pgpw"' in content
+    assert 'HOP3_SECRET_KEY = "sk"' in content
+    assert 'ADMIN_DOMAIN = "admin.example.com"' in content
+    # The MySQL block's companions come back with the reused password.
+    assert 'MYSQL_HOST = "127.0.0.1"' in content
+    assert 'MYSQL_SUPERUSER = "hop3"' in content
+
+
 def test_managed_keys_are_not_echoed_into_preserved_block(home):
     """Managed keys must not leak into the preserved section and duplicate on
     every redeploy (which would grow the file unboundedly)."""

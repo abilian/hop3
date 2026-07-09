@@ -264,7 +264,7 @@ def run_tests(
         target.start()
     except RuntimeError as e:
         console.error(f"Failed: {e}")
-        _emit_startup_diagnostics(target, console)
+        _emit_startup_diagnostics(target, console, e)
         sys.exit(1)
 
     # Tutorials run ON the server (controlled toolchains; `hop3 deploy` targets
@@ -345,26 +345,29 @@ def _maybe_prepare_tutorial_host(
 
 
 def _emit_startup_diagnostics(
-    target: DeploymentTarget, console: PrintingConsole
+    target: DeploymentTarget, console: PrintingConsole, error: Exception
 ) -> None:
-    """Best-effort diagnostics when the target never came up.
+    """Best-effort diagnostics when the target itself never came up.
 
-    Captures whatever a half-started target shows (supervisor/nginx/journal) and
-    prints the headline + the saved artifact path. ``why`` can't resolve it (no
-    result row exists yet), so the directory is printed directly.
+    This is a *deploy/startup* failure, not an app crash: the deploy error is the
+    verdict and the ``deploy`` section is where ``why`` points — the app/proxy
+    probe is not the lens here. There is no result row yet, so
+    ``hop3-test why <run-id>`` resolves this bundle off-disk (its directory under
+    ~/.hop3/test-runs/); the bundle path is printed here too.
     """
     try:
         bundle = collect_diagnostic_bundle(
             target,
-            app="startup",
+            app="deploy",
             target_kind="ssh" if "Remote" in type(target).__name__ else "docker",
-            classifier_hint="app-crash",
+            classifier_hint="startup-failure",
+            deploy_logs=str(error),
         )
     except Exception:  # diagnostics must never mask the original failure
         return
-    console.error(bundle.headline)
+    console.error(bundle.headline)  # ends with the (off-disk-resolvable) `why:` line
     if bundle.artifact_dir:
-        console.error(f"diagnostics saved to {bundle.artifact_dir}")
+        console.error(f"diagnostics bundle: {bundle.artifact_dir}")
 
 
 def run_single_test(

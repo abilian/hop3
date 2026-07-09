@@ -14,7 +14,7 @@ Every annex milestone accounted for, so a reviewer can reconcile the whole proje
 | **T1** Nix builders | M1.1 Native Nix builder | ✅ | 0.5; pin 0.6.1; hermetic → 0.7.x |
 | | M1.2 Template builders (Py/Node/Ruby/Go/Rust/Java) | ✅ | 0.5 |
 | **T2** Nix runtime | M2.1 Spec & PoC | ✅ | 0.5 |
-| | M2.2 Beta implementation | ◐ | **0.7** — code+docs done; nix-box verify left |
+| | M2.2 Beta implementation | ✅ | **0.7** — beta done (contract + gate + hardening code); 1.0 → M2.3 |
 | | M2.3 Final "1.0" | ○ | 0.7.x / 0.8 |
 | **T3** Security & resilience | M3.1 Backing services (email) | ◐ | 0.6.1 (experimental); refinements → 0.7.x |
 | | M3.2 Upgrades + migrations | ◐ | **0.7** — scope to confirm |
@@ -31,7 +31,7 @@ Every annex milestone accounted for, so a reviewer can reconcile the whole proje
 | | M5.4 Conference | ✅ | OW2Con / OSXP |
 | | M5.6 Videos/screencasts | ◐ | **0.7** — 68 recorded; publish |
 
-9 done, 10 partial, 1 not-started of the 20 named milestones (the annex skips M5.5).
+10 done, 9 partial, 1 not-started of the 20 named milestones (the annex skips M5.5).
 
 ## What's left for the 0.7 tag
 
@@ -57,11 +57,6 @@ Internal fixes shipped in 0.5–0.6; the external review is 0.7.x.
 - [ ] One or two more internal audit rounds; fix findings
 - [ ] Engage the external security-audit firm
 - [ ] Document the security model in the admin guide
-
-### Nix runtime beta (M2.2) — code+docs done; nix-box verify left
-The beta bar is met: a few reasonably-complex apps run as Nix packages (keycloak-gen, directus, matrix-synapse, …), the contract is documented (ADR 035), gated (`make test-nix` + a runtime-level test), and hardened (a deploy-time closure pre-flight; GC-root retention + auto-GC-off per ADR 053). Full plan: `local-notes/plans/19-nix-runtime.md`.
-
-- [ ] nix-box: confirm the closure pre-flight fires (`nix-store` on the server PATH) and catches a real GC'd closure. (The 20-app pass + per-app dispositions — HedgeDoc / CryptPad / xwiki / etc. — are M2.3.)
 
 ### Upgrade mechanism (M3.2) — confirm scope
 Hop3-server's own Alembic migrations work. Beyond that:
@@ -108,6 +103,7 @@ Pinning (0.6.1) removed the moving-channel problem; hermeticity is the rest.
 20+ apps configured and tested across four variants; 20 experience reports (Draft).
 
 - [ ] Manual test / cleanup pass over the 20+ apps
+- [ ] Fix the apps still red on the nix suite (all app-level, not runtime): **easy-appointments** + **wordpress** (config file — `config.php` / `wp-config.php` — not created at runtime; identical across native + nix, so an app-setup / before-run-config-write issue); **nextcloud** (`/status.php` never ready); **forgejo** (180 s health-check timeout — and while there, confirm whether the M2.2 closure pre-flight fired: `sudo -u hop3 which nix-store` on the box; if absent, harden the pre-flight to resolve `nix-store` absolutely); **etherpad** (fill the placeholder nixos-25.05 rev + `nix-prefetch-url` hash).
 - [ ] Production deploys with real traffic; finalise the experience reports
 - [ ] Application gallery page on hop3.cloud
 
