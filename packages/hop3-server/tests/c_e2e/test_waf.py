@@ -151,6 +151,7 @@ class TestWaf:
             env=cli_env(hop3_container),
             capture_output=True,
             text=True,
+            errors="replace",  # CLI output may not be valid UTF-8
             check=False,
             timeout=60,
         )

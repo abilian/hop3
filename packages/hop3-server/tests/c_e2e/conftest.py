@@ -22,6 +22,7 @@ import pytest
 from hop3_testing.bundle import collect_diagnostic_bundle
 from hop3_testing.results import ResultStore
 from hop3_testing.targets.adapter import ContainerTarget
+from hop3_testing.targets.constants import E2E_TEST_SECRET_KEY, create_test_token
 
 FLASK_APP_CODE = """
 from flask import Flask
@@ -573,11 +574,6 @@ def cli_env(hop3_container: dict[str, Any]) -> dict[str, str]:
     API. The SSH tunnel is rejected by the hop3-managed authorized_keys, so
     deploys/commands authenticate with a real token (mirrors DeploymentSession).
     """
-    from hop3_testing.targets.constants import (  # noqa: PLC0415
-        E2E_TEST_SECRET_KEY,
-        create_test_token,
-    )
-
     env = os.environ.copy()
     env["HOP3_API_URL"] = hop3_container["api_url"]
     env["HOP3_API_TOKEN"] = create_test_token(secret_key=E2E_TEST_SECRET_KEY)
@@ -602,6 +598,7 @@ def deploy_app_dir(
         env=cli_env(hop3_container),
         capture_output=True,
         text=True,
+        errors="replace",  # deploy output (pip/build) may not be valid UTF-8
         check=False,
         timeout=timeout,
     )
