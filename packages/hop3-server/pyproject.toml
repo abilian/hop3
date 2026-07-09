@@ -94,9 +94,6 @@ DEP002 = [
     "python-multipart",
     "sniffio",
     "uwsgi",
-    # Optional WAF engine (hop3-server[waf] extra, ADR 050); imported lazily by
-    # the proxy-lifecycle slice that isn't wired yet. Drop this once it imports lewaf.
-    "lewaf",
 ]
 
 #DEP003 = [
