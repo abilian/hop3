@@ -3,8 +3,10 @@
 
 """hop3-rootd — privileged-operations agent for Hop3.
 
-Runs as root. Exposes a narrow set of typed-intent operations
-(firewall.*, nginx.*, daemon.*) to hop3-server over a Unix socket.
+Runs as root. Exposes a narrow set of typed-intent operations to
+hop3-server over a Unix socket: firewall.* and nginx.* and daemon.*
+(baseline, ADR 041 §2), cgroup.* and mount.* (ADR 041 §18 / ADR 046),
+and proxy.* (ADR 041 §19 — addon-exposure forwarders, ADR 040).
 
 See notes/adrs/041-privileged-operations-agent.md for the design.
 """

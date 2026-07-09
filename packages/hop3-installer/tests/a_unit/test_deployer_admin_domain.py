@@ -26,6 +26,12 @@ class _RecordingBackend:
         self.commands.append(cmd)
         return SimpleNamespace(success=self._ok, stdout="", stderr="", returncode=0)
 
+    def service_restart_command(self, service):
+        return f"systemctl restart {service}"
+
+    def restart_service(self, service):
+        return self.run(self.service_restart_command(service))
+
 
 def _persist_commands(
     domain: str = "hop3.abilian.com", *, ok: bool = True

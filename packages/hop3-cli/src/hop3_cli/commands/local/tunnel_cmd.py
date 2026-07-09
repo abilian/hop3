@@ -122,11 +122,19 @@ def _fetch_endpoint(config: Config, name: str) -> dict:
             payload = item["data"]
             if payload.get("port") and payload.get("url"):
                 return payload
-    print(
-        f"Tunnel can't resolve addon '{name}': no endpoint in response.",
-        file=sys.stderr,
-    )
+    # No endpoint payload: surface the server's own message (e.g. "No addon
+    # named X") rather than a generic line that hides the real cause.
+    detail = _first_message(response.result or []) or "no endpoint in response"
+    print(f"Tunnel can't resolve addon '{name}': {detail}", file=sys.stderr)
     sys.exit(ExitCode.RESOLUTION_ERROR)
+
+
+def _first_message(items: list) -> str | None:
+    """First human-readable message from an RPC item list (error/warning/text)."""
+    for item in items:
+        if item.get("t") in {"error", "warning", "text"} and item.get("text"):
+            return str(item["text"])
+    return None
 
 
 def _ssh_params(config: Config) -> dict:

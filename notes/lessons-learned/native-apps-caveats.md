@@ -1,6 +1,6 @@
 # Native Apps Deployment Caveats
 
-This document captures lessons learned while debugging native (non-Docker) application deployments on Hop3. These caveats apply to apps deployed using `builder = "local"` in their `hop3.toml`.
+Lessons from debugging native (non-Docker) app deployments on Hop3. These caveats apply to apps that set `builder = "local"` in their `hop3.toml`.
 
 ## Table of Contents
 
@@ -25,21 +25,13 @@ toolchain = "php"  # or "node", "python", etc.
 ```
 
 **Why this matters:**
-- The test script (`apps/ngi-apps/test-script.py`) uses the `builder` setting to determine deployment type
+- The test script (`apps/test-script.py`) uses the `builder` setting to determine deployment type
 - Without `builder = "local"`, apps default to Docker deployment detection
 - This causes incorrect status checks and debug info collection (looking for Docker containers that don't exist)
 
 ### Toolchain Specification
 
-While optional, explicitly specifying the toolchain helps with build detection:
-
-```toml
-[build]
-builder = "local"
-toolchain = "php"      # For PHP apps
-toolchain = "node"     # For Node.js apps
-toolchain = "python"   # For Python apps
-```
+The `toolchain` key (`"php"`, `"node"`, `"python"`, ...) is optional but explicitly setting it helps build detection pick the right language tooling.
 
 ---
 
@@ -151,9 +143,9 @@ IllegalStateChangeError: Method 'close()' can't be called here
 
 #### Solutions (Implemented in hop3-server)
 
-1. **WAL Mode**: Enables concurrent reads during writes
-2. **Busy Timeout**: Wait instead of failing immediately (30 seconds)
-3. **Single Connection Pool**: Prevents concurrent write attempts
+1. **WAL Mode**: Readers proceed concurrently with a writer
+2. **Busy Timeout**: Wait up to 30 seconds when the database is locked instead of failing immediately (`busy_timeout=30000`)
+3. **Connection Pool**: `pool_size=5, max_overflow=10`. WAL makes a real pool safe, so reads (e.g. auth-token verification) get their own connection and never queue behind a long-running deploy's write transaction. An earlier `pool_size=1` serialized *all* access — reads included — and surfaced as bogus 401s on `/rpc` and 302s on `/api/stream` during heavy deploys.
 
 These are configured automatically in `hop3/orm/session.py`.
 
@@ -183,7 +175,7 @@ DB_DATABASE=${MYSQL_DATABASE:-myapp}
 
 ### Deployment Type Detection
 
-The test script (`apps/ngi-apps/test-script.py`) determines deployment type from `hop3.toml`:
+The test script (`apps/test-script.py`) determines deployment type from `hop3.toml`:
 
 ```python
 builder = build_config.get("builder", "")
@@ -199,7 +191,7 @@ This affects:
 
 The test script performs HTTP health checks with retry logic:
 
-- Accepts: 200, 301, 302, 401, 403 as "healthy"
+- Accepts: 200, 301, 302, 307, 308, 400, 401, 403 as "healthy"
 - Treats: 500, 502, 503 as "still starting" (retries)
 - Default timeout: 30 seconds for startup, 15 seconds for final check
 

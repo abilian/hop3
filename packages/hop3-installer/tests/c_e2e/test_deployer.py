@@ -154,7 +154,12 @@ class TestDeployerHelp:
         assert "hop3" in result.stdout.lower() or "deploy" in result.stdout.lower()
 
     def test_deploy_requires_target(self) -> None:
-        """Test hop3-deploy without --docker or --host fails gracefully."""
+        """Test hop3-deploy without --docker or --host fails gracefully.
+
+        The conftest's pytest_configure strips ambient deploy-target env vars
+        (HOP3_DEV_HOST etc.), so a bare `hop3-deploy-server` here can't inherit a
+        target and deploy to a real host — it must report "no target".
+        """
         result = subprocess.run(
             ["hop3-deploy-server"],
             capture_output=True,

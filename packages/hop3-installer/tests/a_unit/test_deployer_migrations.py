@@ -73,6 +73,18 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
     def _run_calls(self, backend) -> list[str]:
         return [call.args[0] for call in backend.run.call_args_list]
 
+    def _ordered_calls(self, backend) -> list[tuple[str, str]]:
+        """(method, first-arg) for every backend call, in order.
+
+        The restart moved from a ``run("systemctl restart hop3-server")``
+        shell-out to the backend's ``restart_service(...)`` method (pm-aware:
+        systemctl on systemd, supervisorctl under Docker), so the
+        migration-before-restart ordering is checked across both.
+        """
+        return [
+            (name, str(args[0])) for name, args, _kwargs in backend.mock_calls if args
+        ]
+
     def test_update_local_code_runs_migrations_then_restarts(self, config, backend):
         config.use_local_code = True
         d = _make_deployer(config, backend)
@@ -80,13 +92,15 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
         setattr(d.backend, "upload_dir", MagicMock(return_value=True))  # noqa: B010
 
         assert d._update_local_code() is True
-        calls = self._run_calls(backend)
-        migrate_idx = next(i for i, c in enumerate(calls) if "db:upgrade" in c)
+        ordered = self._ordered_calls(backend)
+        migrate_idx = next(
+            i for i, (m, a) in enumerate(ordered) if m == "run" and "db:upgrade" in a
+        )
         restart_idx = next(
-            i for i, c in enumerate(calls) if "systemctl restart hop3-server" in c
+            i for i, (m, _a) in enumerate(ordered) if m == "restart_service"
         )
         assert migrate_idx < restart_idx, (
-            f"migration must precede restart; got {calls!r}"
+            f"migration must precede restart; got {ordered!r}"
         )
 
     def test_features_install_does_not_reinstall_hop3_server(self, config, backend):
@@ -163,27 +177,29 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
         setattr(d.backend, "upload_dir", MagicMock(return_value=True))  # noqa: B010
 
         assert d._update_local_code() is False
-        calls = self._run_calls(backend)
-        assert not any("systemctl restart hop3-server" in c for c in calls), (
-            "server must NOT restart if migrations failed"
-        )
+        # The restart is a restart_service(...) call now, not a run(...) shell-out.
+        backend.restart_service.assert_not_called()
 
     def test_update_from_pypi_runs_migrations_then_restarts(self, config, backend):
         d = _make_deployer(config, backend)
         assert d._update_from_pypi() is True
-        calls = self._run_calls(backend)
-        migrate_idx = next(i for i, c in enumerate(calls) if "db:upgrade" in c)
+        ordered = self._ordered_calls(backend)
+        migrate_idx = next(
+            i for i, (m, a) in enumerate(ordered) if m == "run" and "db:upgrade" in a
+        )
         restart_idx = next(
-            i for i, c in enumerate(calls) if "systemctl restart hop3-server" in c
+            i for i, (m, _a) in enumerate(ordered) if m == "restart_service"
         )
         assert migrate_idx < restart_idx
 
     def test_update_from_git_runs_migrations_then_restarts(self, config, backend):
         d = _make_deployer(config, backend)
         assert d._update_from_git() is True
-        calls = self._run_calls(backend)
-        migrate_idx = next(i for i, c in enumerate(calls) if "db:upgrade" in c)
+        ordered = self._ordered_calls(backend)
+        migrate_idx = next(
+            i for i, (m, a) in enumerate(ordered) if m == "run" and "db:upgrade" in a
+        )
         restart_idx = next(
-            i for i, c in enumerate(calls) if "systemctl restart hop3-server" in c
+            i for i, (m, _a) in enumerate(ordered) if m == "restart_service"
         )
         assert migrate_idx < restart_idx

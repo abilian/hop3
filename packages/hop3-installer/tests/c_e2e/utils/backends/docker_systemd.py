@@ -27,8 +27,7 @@ from pathlib import Path
 
 from hop3_installer.common import CommandResult
 
-from utils.common import log_debug, log_info, log_success
-
+from ..common import log_debug, log_info, log_success
 from .base import Backend, BackendError
 
 # The systemd-enabled image name
@@ -57,7 +56,9 @@ class DockerSystemdBackend(Backend):
         Args:
             installer_dir: Path to installer directory (for mounting)
         """
-        self.installer_dir = installer_dir or Path(__file__).parent.parent.parent.parent
+        # parents[4] = the hop3-installer package root (…/backends/…/tests/../),
+        # which holds docker/Dockerfile.systemd and is mounted into the container.
+        self.installer_dir = installer_dir or Path(__file__).parents[4]
         self.container_name = CONTAINER_NAME
         self.image = SYSTEMD_IMAGE
 
@@ -117,11 +118,7 @@ class DockerSystemdBackend(Backend):
             BackendError: If the Dockerfile is missing or the build
                 command fails or times out.
         """
-        dockerfile = (
-            Path(__file__).parent.parent.parent.parent / "docker" / "Dockerfile.systemd"
-        )
-        if not dockerfile.exists():
-            dockerfile = self.installer_dir / "docker" / "Dockerfile.systemd"
+        dockerfile = self.installer_dir / "docker" / "Dockerfile.systemd"
         if not dockerfile.exists():
             msg = f"Dockerfile.systemd not found at {dockerfile}"
             raise BackendError(msg)

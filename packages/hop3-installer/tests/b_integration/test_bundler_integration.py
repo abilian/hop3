@@ -7,10 +7,12 @@ These tests actually generate bundled installers and verify they work.
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 from typing import TYPE_CHECKING
 
+import pytest
 from hop3_installer.bundler import bundle_installer, validate_bundle
 
 if TYPE_CHECKING:
@@ -165,6 +167,30 @@ class TestBundleExecution:
         )
 
         assert result.returncode == 0, f"Syntax error: {result.stderr}"
+
+    def test_bundles_have_no_undefined_names(self, tmp_path: Path):
+        """No bundle references a symbol whose defining module wasn't inlined.
+
+        A module used by another (e.g. ``deps_common`` calling
+        ``pre_stage_email``) but left out of the bundler's ``*_MODULES`` list
+        becomes an *undefined name* — a runtime ``NameError`` that ``py_compile``
+        and ``ast.parse`` both pass. Ruff's F821 is the guard that catches it.
+        """
+        if shutil.which("ruff") is None:
+            pytest.skip("ruff not available for the undefined-name check")
+        for kind in ("cli", "server"):
+            script = tmp_path / f"install-{kind}.py"
+            script.write_text(bundle_installer(kind))
+            result = subprocess.run(
+                ["ruff", "check", "--select", "F821", "--no-cache", str(script)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            assert result.returncode == 0, (
+                f"{kind} bundle has undefined names — is a module missing from "
+                f"the bundler's *_MODULES list?\n{result.stdout}"
+            )
 
 
 # =============================================================================

@@ -74,6 +74,46 @@ systemctl status uwsgi-hop3
 
 ---
 
+## Upgrading Hop3
+
+Upgrading the **server** (Hop3 itself) is done with the installer / deployer. Re-run the same tool you installed with:
+
+```bash
+# Production (single-file installer): re-run to pull the latest release
+curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
+
+# Development / self-hosted from source
+hop3-deploy-server --host server.example.com            # git
+hop3-deploy-server --host server.example.com --local    # local checkout
+```
+
+Each upgrade runs the same sequence: **install the new code → `hop3-server db:upgrade` (migrations) → restart → verify the server answers.**
+
+**What the upgrade guarantees.** Migrations run *between* install and restart, and both ends are gated so a broken upgrade never leaves you silently down:
+
+- **A failed migration aborts before the restart** — the *old* server keeps running on the old schema. Fix the migration and re-run.
+- **After the restart, the upgrade verifies the server actually answers.** If the new code fails to start, the upgrade **fails loudly** (it does not report "complete") and prints the exact command to revert to the previous release. The schema has already migrated forward, so a revert may also need a pre-upgrade database restore.
+
+**Recovering from a bad upgrade.** Follow the revert command the failed upgrade printed (it names the previous git commit or PyPI version). Then diagnose:
+
+```bash
+journalctl -u hop3-server -n 100 --no-pager     # why the new server didn't start
+sudo -u hop3 /home/hop3/venv/bin/hop3-server db:current   # current schema revision
+```
+
+Because platform migrations are forward-only, if the previous code cannot run on the already-migrated schema, restore a database backup taken before the upgrade (see [Backup & Restore](#backup-restore)).
+
+### Upgrading an application
+
+Individual apps have their own safe-upgrade command that snapshots, redeploys, and rolls back automatically on failure — see [Backup & Restore](#backup-restore):
+
+```bash
+hop3 app upgrade --app myapp      # snapshot -> redeploy + migrate -> verify -> auto-rollback on failure
+hop3 app rollback --app myapp     # restore the most recent backup (--to <backup-id> for a specific one)
+```
+
+---
+
 ## Directory Structure
 
 ```
