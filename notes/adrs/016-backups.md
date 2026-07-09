@@ -3,7 +3,7 @@
 - **Status**: Accepted
 - **Type**: Feature
 - **Created**: 2024-07-17
-- **Related-ADRs**: 010, 024, 036
+- **Related-ADRs**: [010](./010-security-and-resilience.md), [024](./024-backup-restore-system.md), [036](./036-cli-ergonomics.md)
 
 ## Context and Goals
 
@@ -19,10 +19,10 @@ The strategy is delivered in phases, so that a usable foundation exists before t
 
 | Feature | Phase | ADR |
 |---------|-------|-----|
-| Manual full backups | Phase 1 | ADR 024 |
-| Local storage | Phase 1 | ADR 024 |
-| Checksum verification | Phase 1 | ADR 024 |
-| Service-specific backups | Phase 1 | ADR 024 |
+| Manual full backups | Phase 1 | [ADR 024](./024-backup-restore-system.md) |
+| Local storage | Phase 1 | [ADR 024](./024-backup-restore-system.md) |
+| Checksum verification | Phase 1 | [ADR 024](./024-backup-restore-system.md) |
+| Service-specific backups | Phase 1 | [ADR 024](./024-backup-restore-system.md) |
 | Automated scheduled backups | Phase 2 | - |
 | Retention policies | Phase 2 | - |
 | Remote storage (S3, B2) | Phase 3 | - |
@@ -34,7 +34,7 @@ The strategy is delivered in phases, so that a usable foundation exists before t
 
 ### Backup Types and Frequency
 
-**Phase 1** (specified in ADR 024):
+**Phase 1** (specified in [ADR 024](./024-backup-restore-system.md)):
 - Manual full backups on demand
 - All application components in one backup
 
@@ -54,7 +54,7 @@ The strategy is delivered in phases, so that a usable foundation exists before t
 
 ### Backup Storage and Security
 
-**Phase 1** (specified in ADR 024):
+**Phase 1** (specified in [ADR 024](./024-backup-restore-system.md)):
 - Local file-based storage only
 - File permissions (600) for access control
 - SHA256 checksums for integrity
@@ -71,7 +71,7 @@ The strategy is delivered in phases, so that a usable foundation exists before t
 
 ### Restoration Procedures
 
-**Phase 1** (specified in ADR 024):
+**Phase 1** (specified in [ADR 024](./024-backup-restore-system.md)):
 - Manual restore via CLI (`hop3 backup restore`)
 - Checksum verification before restore
 - Service-specific restore (PostgreSQL via `pg_restore`, etc.)

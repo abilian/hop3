@@ -4,7 +4,7 @@
 - **Type**: Feature
 - **Created**: 2025-11-28
 - **Implemented-In**: v0.5.0
-- **Related-ADRs**: 006, 008, 020, 022, 035
+- **Related-ADRs**: [006](./006-nix-integration.md), [008](./008-nix-builders-2.md), [020](./020-pluggable-architecture.md), [022](./022-build-deploy-plugin-system.md), [035](./035-build-artifacts.md)
 
 ## Context
 
@@ -365,5 +365,5 @@ Building with multiple toolchains sequentially may be slow. Consider:
 
 - **Plugin System**: `packages/hop3-server/src/hop3/core/plugins.py`
 - **Related ADRs**:
-  - ADR 020: Pluggable Architecture
-  - ADR 022: Build/Deploy Plugin System
+  - [ADR 020](./020-pluggable-architecture.md): Pluggable Architecture
+  - [ADR 022](./022-build-deploy-plugin-system.md): Build/Deploy Plugin System

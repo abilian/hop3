@@ -3,7 +3,7 @@
 - **Status**: Draft
 - **Type**: Feature
 - **Created**: 2024-11-01
-- **Related-ADRs**: 021, 036
+- **Related-ADRs**: [021](./021-proxy-plugin-system.md), [036](./036-cli-ergonomics.md)
 
 ## Introduction
 

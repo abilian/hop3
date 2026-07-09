@@ -6,7 +6,7 @@
 
 ## Rationale for Deferral
 
-The web terminal is an operator convenience for cases where SSH is inconvenient or unavailable. The existing operational story — SSH into the target, `hop3 logs --app <app>`, and `hop3-test` per-test diagnostic logs — covers the in-production need without a browser-side PTY. This feature is therefore parked until the web UI has progressed past basic CRUD and there is concrete demand from operators who cannot use SSH. The design below is the specification to implement against when the feature is revisited.
+The web terminal is an operator convenience for cases where SSH is inconvenient or unavailable. The existing operational story (SSH into the target, `hop3 logs --app <app>`, and `hop3-test` per-test diagnostic logs) covers the in-production need without a browser-side PTY. This feature is therefore parked until the web UI has progressed past basic CRUD and there is concrete demand from operators who cannot use SSH. The design below is the specification to implement against when the feature is revisited.
 
 ## Context
 

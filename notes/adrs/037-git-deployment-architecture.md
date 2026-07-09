@@ -3,11 +3,11 @@
 - **Status**: Final
 - **Type**: Architecture
 - **Created**: 2026-03-05
-- **Related-ADRs**: 036
+- **Related-ADRs**: [036](./036-cli-ergonomics.md)
 
 ## Context
 
-Hop3 supports Heroku-style `git push` deployments, where developers push code to a git remote on the Hop3 server, triggering automatic deployment. This is a classic PaaS pattern, and it stands alongside the explicit `hop3 deploy` path: the two are alternatives, not replacements.
+Hop3 supports Heroku-style `git push` deployments, where developers push code to a git remote on the Hop3 server, triggering automatic deployment. This is a classic PaaS pattern, and it stands alongside the explicit `hop3 deploy` path: the two are alternatives.
 
 Git-based deployment is valuable for:
 
@@ -22,7 +22,7 @@ A naive implementation runs into an architectural flaw worth recording, because 
 cat | HOP3_ROOT="/home/hop3" hop3-server git-hook <app_name>
 ```
 
-where the RPC command reads push data from stdin, extracts the commit to the source directory, and triggers `do_deploy()`. This fails: the server CLI (`hop3-server`) scans `hop3.server.cli` for commands, not `hop3.commands` (the RPC commands), so `hop3-server git-hook` is an unknown command. The deeper issue is conceptual placement — RPC commands exist for client-server communication, whereas a git hook is an internal server operation. Git hook handling therefore belongs in the server CLI, not among the RPC commands.
+where the RPC command reads push data from stdin, extracts the commit to the source directory, and triggers `do_deploy()`. This fails: the server CLI (`hop3-server`) scans `hop3.server.cli` for commands, not `hop3.commands` (the RPC commands), so `hop3-server git-hook` is an unknown command. The deeper issue is conceptual placement: RPC commands exist for client-server communication, whereas a git hook is an internal server operation. Git hook handling therefore belongs in the server CLI, not among the RPC commands.
 
 ## Decision
 
@@ -144,5 +144,5 @@ Pushes arrive over SSH and are constrained by a forced command in `authorized_ke
 
 ## References
 
-- [ADR 036: CLI Ergonomics](./036-cli-ergonomics.md) — hidden commands and the `hop3 deploy` command form
-- `hop3/core/git.py` — git repository management and hook creation
+- [ADR 036: CLI Ergonomics](./036-cli-ergonomics.md): hidden commands and the `hop3 deploy` command form
+- `hop3/core/git.py`: git repository management and hook creation

@@ -3,7 +3,7 @@
 - **Status**: Final
 - **Type**: Feature
 - **Created**: 2024-10-01
-- **Related-ADRs**: 020, 022, 023
+- **Related-ADRs**: [020](./020-pluggable-architecture.md), [022](./022-build-deploy-plugin-system.md), [023](./023-runtime-stack-replacement.md)
 
 ## Context
 
@@ -17,9 +17,9 @@ We implement proxy configuration as a plugin system with **server-wide configura
 2. **Proxy Protocol:** A Python `Protocol` defines the interface with `setup(app, env, workers)` method
 3. **Plugin Discovery:** Proxies are discovered via `get_proxies()` hookspec
 4. **Three Implementations:**
-   - **Nginx** (default) — ACME certificates, static file serving, caching, IPv4/IPv6
-   - **Caddy** — automatic HTTPS, simpler configuration, modern features
-   - **Traefik** — cloud-native, dynamic configuration, service discovery
+   - **Nginx** (default): ACME certificates, static file serving, caching, IPv4/IPv6
+   - **Caddy**: automatic HTTPS, simpler configuration, modern features
+   - **Traefik**: cloud-native, dynamic configuration, service discovery
 
 ## Proxy Plugin Interface
 

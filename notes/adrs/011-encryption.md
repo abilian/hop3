@@ -3,13 +3,13 @@
 - **Status**: Accepted
 - **Type**: Feature
 - **Created**: 2024-07-17
-- **Related-ADRs**: 010, 012, 013
+- **Related-ADRs**: [010](./010-security-and-resilience.md), [012](./012-mfa.md), [013](./013-supply-chain.md)
 
 ## Context and Goals
 
 Data protection is a critical aspect of securing the Hop3 platform. Hop3 must ensure that the data it handles is protected through robust encryption methods, both at rest and in transit. This protects sensitive information, helps comply with regulatory requirements, and builds user trust.
 
-The control plane handles several classes of sensitive data — addon credentials, session secrets, magic-link tokens, user passwords, and RPC traffic — each with different protection requirements. The design must state, concretely, how each class is protected and where the protection boundary lies between Hop3 and the operator's host.
+The control plane handles several classes of sensitive data (addon credentials, session secrets, magic-link tokens, user passwords, and RPC traffic) each with different protection requirements. The design must state, concretely, how each class is protected and where the protection boundary lies between Hop3 and the operator's host.
 
 ## Decision
 
@@ -20,8 +20,8 @@ Hop3 protects data at rest and in transit using industry-standard encryption alg
 ### Encryption at Rest
 
 - **Credentials and secrets**: Addon credentials, session secrets, and magic-link tokens are encrypted with **Fernet AEAD** (AES-128-CBC + HMAC-SHA256). The key is derived from the server's `HOP3_SECRET_KEY` environment variable via **PBKDF2-HMAC-SHA256**. The encryption routines live in `hop3/server/security/`.
-- **Passwords**: User passwords are hashed with **bcrypt** at cost factor 12 (see ADR 014).
-- **Database file**: The control-plane SQLite/PostgreSQL file sits on the operator's host filesystem. Hop3 does not encrypt the file itself; it relies on host-level protections (filesystem ACLs, optional full-disk encryption). Values the operator should not be able to read in plaintext — addon credentials, session secrets — are encrypted inside the row. This draws the boundary deliberately: row-level encryption protects secrets even from an operator with read access to the database, while file-level confidentiality is the operator's responsibility.
+- **Passwords**: User passwords are hashed with **bcrypt** at cost factor 12 (see [ADR 014](./014-authentication-bootstrap.md)).
+- **Database file**: The control-plane SQLite/PostgreSQL file sits on the operator's host filesystem. Hop3 does not encrypt the file itself; it relies on host-level protections (filesystem ACLs, optional full-disk encryption). Values the operator should not be able to read in plaintext (addon credentials, session secrets) are encrypted inside the row. This draws the boundary deliberately: row-level encryption protects secrets even from an operator with read access to the database, while file-level confidentiality is the operator's responsibility.
 
 ### Encryption in Transit
 
@@ -58,4 +58,4 @@ The following are deliberately outside the scope Hop3 provides, and are left to 
 - **Automated key rotation**: There is no automated rotation policy or secondary-key envelope scheme; rotation is manual.
 - **Hardware-backed key storage (HSM, TPM, cloud KMS)**: Not provided by Hop3. Operators requiring it integrate at the OS level.
 - **Database-file encryption**: Not provided by Hop3. The operator supplies host-level full-disk encryption.
-- **Per-tenant encryption keys**: Not applicable — Hop3 is single-tenant per deployment.
+- **Per-tenant encryption keys**: Not applicable: Hop3 is single-tenant per deployment.

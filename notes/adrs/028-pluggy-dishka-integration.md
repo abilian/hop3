@@ -4,7 +4,7 @@
 - **Type**: Feature
 - **Created**: 2025-11-20
 - **Authors**: Stefane Fermigier
-- **Related-ADRs**: 020
+- **Related-ADRs**: [020](./020-pluggable-architecture.md)
 
 ## Context
 
@@ -354,7 +354,7 @@ def register_services():
 
 ## Related Decisions
 
-- **ADR 027**: Config System Refactoring — Dishka manages configuration.
+- **[ADR 027](./027-config-system-refactoring.md)**: Config System Refactoring: Dishka manages configuration.
 - Dishka replaces wireup as the dependency-injection framework.
 - The global container singleton is removed in favour of explicitly created containers.
 

@@ -3,7 +3,7 @@
 - **Status**: Final
 - **Type**: Feature
 - **Created**: 2025-12-04
-- **Related-ADRs**: 022, 030, 032, 035
+- **Related-ADRs**: [022](./022-build-deploy-plugin-system.md), [030](./030-two-level-build-architecture.md), [032](./032-deployment-strategies-artifact-lifecycle.md), [035](./035-build-artifacts.md)
 
 ## Context
 
@@ -20,7 +20,7 @@ The Docker plugin (`hop3/plugins/docker/`) provides an alternative build and dep
 
 ### Architecture
 
-Docker integration follows the two-level build architecture (ADR 030):
+Docker integration follows the two-level build architecture ([ADR 030](./030-two-level-build-architecture.md)):
 
 ```
 Level 1 (Builder)          Level 2 (Toolchain)
@@ -56,7 +56,7 @@ Source Code                DockerBuilder              DockerComposeDeployer
                          location="hop3/app:latest"  port=8080
 ```
 
-> **Note**: Docker images manage their own runtime environment internally (PATH, env vars, etc. are baked into the image layers). Unlike native builds (ADR 035), DockerBuilder does not need to produce a `RuntimeConfig` - the container runtime handles this.
+> **Note**: Docker images manage their own runtime environment internally (PATH, env vars, etc. are baked into the image layers). Unlike native builds ([ADR 035](./035-build-artifacts.md)), DockerBuilder does not need to produce a `RuntimeConfig` - the container runtime handles this.
 
 ### Builder Selection
 
@@ -361,6 +361,6 @@ volumes:
 
 ## References
 
-- ADR 030: Two-Level Build Architecture
-- ADR 032: Deployment Strategies & Artifact Lifecycle
+- [ADR 030](./030-two-level-build-architecture.md): Two-Level Build Architecture
+- [ADR 032](./032-deployment-strategies-artifact-lifecycle.md): Deployment Strategies & Artifact Lifecycle
 - Docker Compose specification: https://docs.docker.com/compose/compose-file/
