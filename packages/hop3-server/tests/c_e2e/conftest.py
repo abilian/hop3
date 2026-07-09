@@ -568,78 +568,43 @@ def init_git_repo(app_dir: Path) -> None:
     )
 
 
-def create_tarball(app_dir: Path, app_name: str) -> Path:
-    """Create gzip-compressed tarball from app directory.
-
-    Args:
-        app_dir: Directory containing app files
-        app_name: Name for the tarball
-
-    Returns:
-        Path to created tarball
+def cli_env(hop3_container: dict[str, Any]) -> dict[str, str]:
+    """Env for ``hop3`` CLI calls against the container's JWT-authenticated HTTP
+    API. The SSH tunnel is rejected by the hop3-managed authorized_keys, so
+    deploys/commands authenticate with a real token (mirrors DeploymentSession).
     """
-    tarball_path = Path(f"/tmp/{app_name}.tar.gz")
-
-    # Use tar directly to avoid git archive complexities
-    # Create tarball with files at root level (no directory wrapper)
-    # This ensures the extracted files are directly in the app's src directory
-    subprocess.run(
-        [
-            "tar",
-            "-czf",
-            str(tarball_path),
-            "--exclude=.git",
-            "-C",
-            str(app_dir),  # Change to app_dir itself, not parent
-            ".",  # Archive everything in current directory
-        ],
-        check=True,
-        capture_output=True,
+    from hop3_testing.targets.constants import (  # noqa: PLC0415
+        E2E_TEST_SECRET_KEY,
+        create_test_token,
     )
-    return tarball_path
 
-
-def deploy_via_rpc(
-    hop3_container: dict[str, Any], app_name: str, tarball_path: Path
-) -> dict:
-    """Deploy application via hop3 CLI command (no Python code dependency).
-
-    Args:
-        hop3_container: Container fixture with connection info
-        app_name: Name of the app to deploy
-        tarball_path: Path to tarball to deploy
-
-    Returns:
-        Deployment response dict (success status)
-    """
-    ssh_key = hop3_container["ssh_key"]
-    ssh_port = hop3_container["ssh_port"]
-
-    # Set environment for hop3 CLI
     env = os.environ.copy()
-    env["HOP3_API_URL"] = f"ssh://hop3@localhost:{ssh_port}"
-    env["HOP3_SSH_KEY"] = ssh_key
-    env["HOP3_SECRET_KEY"] = "e2e-test-secret-key-do-not-use-in-production"
+    env["HOP3_API_URL"] = hop3_container["api_url"]
+    env["HOP3_API_TOKEN"] = create_test_token(secret_key=E2E_TEST_SECRET_KEY)
+    env["HOP3_SECRET_KEY"] = E2E_TEST_SECRET_KEY
+    env["HOP3_NO_INPUT"] = "1"  # skip the ADR-042 confirm prompt (non-tty run)
+    return env
 
-    # Deploy using hop3 CLI with tarball as stdin
-    with Path(tarball_path).open("rb") as f:
-        result = subprocess.run(
-            ["hop3", "deploy", app_name],
-            stdin=f,
-            capture_output=True,
-            check=False,
-            env=env,
-            timeout=60,
-        )
 
-    # Check if deployment succeeded
-    if result.returncode != 0:
-        print(
-            f"Deployment failed (exit code {result.returncode}): {result.stderr.decode()}"
-        )
-        return {"status": "error", "message": result.stderr.decode()}
+def deploy_app_dir(
+    hop3_container: dict[str, Any],
+    app_dir: Path,
+    app_name: str,
+    timeout: int = 600,
+) -> subprocess.CompletedProcess:
+    """Deploy a local app directory: ``hop3 deploy --app <name> <dir>``.
 
-    return {"status": "success", "message": result.stdout.decode()}
+    The dir must be a git repo (hop3 deploy expects one) — call ``init_git_repo``
+    first. Returns the CompletedProcess so callers can assert on returncode/output.
+    """
+    return subprocess.run(
+        ["hop3", "deploy", "--app", app_name, str(app_dir)],
+        env=cli_env(hop3_container),
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=timeout,
+    )
 
 
 def deploy_flask_app(
@@ -649,39 +614,29 @@ def deploy_flask_app(
     app_code: str | None = None,
     env_vars: dict[str, str] | None = None,
     procfile_content: str | None = None,
-) -> None:
-    """Deploy a Flask app via RPC (complete helper).
+    extra_files: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess:
+    """Build a minimal Flask app in ``test_app_dir`` and deploy it.
 
-    Args:
-        hop3_container: Container fixture with connection info
-        test_app_dir: Directory for app files
-        app_name: Name of the app to deploy
-        app_code: Optional custom Flask app code
-        env_vars: Optional environment variables to write to ENV file
-        procfile_content: Optional custom Procfile content
+    ``extra_files`` writes additional files (e.g. a ``hop3.toml`` carrying a
+    ``[waf]`` section) into the app before deploy. Returns the deploy
+    CompletedProcess — assert ``returncode == 0``.
     """
-    # Create Flask app
-    if app_code is None:
-        app_code = FLASK_APP_CODE
-
-    (test_app_dir / "app.py").write_text(app_code)
+    (test_app_dir / "app.py").write_text(app_code or FLASK_APP_CODE)
     (test_app_dir / "requirements.txt").write_text("flask>=3.0\n")
-
-    # Create Procfile (uwsgi config sets chdir automatically, so no 'cd' needed)
-    if procfile_content is None:
-        procfile_content = "web: flask --app app run --host 0.0.0.0 --port $PORT\n"
-    (test_app_dir / "Procfile").write_text(procfile_content)
-
-    # Write environment variables if provided
+    # uwsgi sets chdir automatically, so no 'cd' needed.
+    (test_app_dir / "Procfile").write_text(
+        procfile_content or "web: flask --app app run --host 0.0.0.0 --port $PORT\n"
+    )
     if env_vars:
-        env_content = "\n".join(f"{k}={v}" for k, v in env_vars.items()) + "\n"
-        (test_app_dir / "ENV").write_text(env_content)
+        (test_app_dir / "ENV").write_text(
+            "\n".join(f"{k}={v}" for k, v in env_vars.items()) + "\n"
+        )
+    for name, content in (extra_files or {}).items():
+        (test_app_dir / name).write_text(content)
 
-    # Initialize git, create tarball, and deploy
     init_git_repo(test_app_dir)
-    tarball_path = create_tarball(test_app_dir, app_name)
-    response = deploy_via_rpc(hop3_container, app_name, tarball_path)
-    print(f"Deploy response: {response}")
+    return deploy_app_dir(hop3_container, test_app_dir, app_name)
 
 
 def wait_for_app_status(
