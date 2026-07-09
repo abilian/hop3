@@ -3,12 +3,12 @@
 - **Status**: Superseded
 - **Type**: Guideline
 - **Created**: 2025-11-20
-- **Superseded-By**: ADR 043
-- **Related-ADRs**: 020, 024, 043
+- **Superseded-By**: [ADR 043](./043-unified-testing-architecture.md)
+- **Related-ADRs**: [020](./020-pluggable-architecture.md), [024](./024-backup-restore-system.md), [043](./043-unified-testing-architecture.md)
 
 ## Superseding Context
 
-This guideline relied on a four-layer test pyramid (`a_unit`/`b_integration`/`c_system`/`d_e2e`) and classified tests by whether their dependencies were real or mocked. [ADR 043](043-unified-testing-architecture.md) replaces that pyramid with three layers (`a_unit`/`b_integration`/`c_e2e`) and dissolves `c_system`. ADR 043 classifies tests by whether they need Docker, root, or host-mutation rather than by real-vs-mocked dependencies. Under that rule the dashboard file-system tests are hermetic — they run a real `App.create()` in `tmp_path` with no root and no Docker — and therefore belong in `b_integration`, reversing the placement decision recorded here.
+This guideline relied on a four-layer test pyramid (`a_unit`/`b_integration`/`c_system`/`d_e2e`) and classified tests by whether their dependencies were real or mocked. [ADR 043](043-unified-testing-architecture.md) replaces that pyramid with three layers (`a_unit`/`b_integration`/`c_e2e`) and dissolves `c_system`. [ADR 043](./043-unified-testing-architecture.md) classifies tests by whether they need Docker, root, or host-mutation rather than by real-vs-mocked dependencies. Under that rule the dashboard file-system tests are hermetic (they run a real `App.create()` in `tmp_path` with no root and no Docker) and therefore belong in `b_integration`, reversing the placement decision recorded here.
 
 ## Introduction
 
@@ -169,7 +169,7 @@ def test_client(tmp_path: Path, monkeypatch):
 **File**: `packages/hop3-server/tests/b_integration/test_dashboard_app_create.py`
 
 **Test Characteristics:**
-- **Speed**: Fastest — no disk I/O
+- **Speed**: Fastest: no disk I/O
 - **Isolation**: High - no file system side effects
 - **Maintainability**: Requires maintaining mock implementation parallel to real code
 - **Coverage**: Web layer + database layer only
@@ -492,8 +492,8 @@ config = Config()
 
 ## Related
 
-- **ADR 020**: Pluggable Architecture - Discusses separation of concerns
-- **ADR 024**: Backup/Restore System - Another feature that needs testing classification
+- **[ADR 020](./020-pluggable-architecture.md)**: Pluggable Architecture - Discusses separation of concerns
+- **[ADR 024](./024-backup-restore-system.md)**: Backup/Restore System - Another feature that needs testing classification
 - **Testing Strategy** (`docs/src/dev/testing-strategy.md`) - Current guidelines
 
 ## References

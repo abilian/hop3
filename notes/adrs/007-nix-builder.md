@@ -3,14 +3,14 @@
 - **Status**: Superseded
 - **Type**: Feature
 - **Created**: 2024-07-17
-- **Superseded-By**: ADR 008
-- **Related-ADRs**: 006, 008, 009, 020, 022, 030, 031, 035
+- **Superseded-By**: [ADR 008](./008-nix-builders-2.md)
+- **Related-ADRs**: [006](./006-nix-integration.md), [008](./008-nix-builders-2.md), [009](./009-nix-runtime.md), [020](./020-pluggable-architecture.md), [022](./022-build-deploy-plugin-system.md), [030](./030-two-level-build-architecture.md), [031](./031-project-terminology.md), [035](./035-build-artifacts.md)
 
 ## Supersession Note
 
-Wrapping an existing nixpkgs package does not require a dedicated "nixpkgs-mode builder" sitting alongside the hand-crafted-`hop3.nix` path. It is cleaner as one template among others in the template-based generation system, not a separate builder. The operator selects the `nixpkgs-wrapper` template in `[nix].template`; the generator produces a thin `hop3.nix` that wraps `pkgs.<app>` with the Hop3 runtime wrapper and the ADR 035 `runtime.json` contract.
+Wrapping an existing nixpkgs package does not require a dedicated "nixpkgs-mode builder" sitting alongside the hand-crafted-`hop3.nix` path. It is cleaner as one template among others in the template-based generation system. The operator selects the `nixpkgs-wrapper` template in `[nix].template`; the generator produces a thin `hop3.nix` that wraps `pkgs.<app>` with the Hop3 runtime wrapper and the [ADR 035](./035-build-artifacts.md) `runtime.json` contract.
 
-The original goals below — reuse nixpkgs packages, automate updates, provide an app-store-like UX — remain valid, and are achieved through ADR 008 plus the ADR 035 `RuntimeConfig` contract. The body of this ADR is retained for historical reference.
+The original goals below (reuse nixpkgs packages, automate updates, provide an app-store-like UX) remain valid, and are achieved through [ADR 008](./008-nix-builders-2.md) plus the [ADR 035](./035-build-artifacts.md) `RuntimeConfig` contract. The body of this ADR is retained for historical reference.
 
 ## Context & Goals
 
@@ -22,19 +22,19 @@ The goal is to integrate applications into the Hop3 platform, streamline updates
 
 ### Architectural Context
 
-In Hop3's two-level build architecture (ADR 030):
+In Hop3's two-level build architecture ([ADR 030](./030-two-level-build-architecture.md)):
 
 - **NixBuilder** is a **Level 1 Builder** - it orchestrates the build process
 - Unlike LocalBuilder, NixBuilder does **not** use Level 2 LanguageToolchains
 - Instead, it leverages Nix expressions (from nixpkgs or generated) to handle all languages uniformly
 
-This ADR focuses on **reusing existing nixpkgs packages** - applications already packaged in the Nix ecosystem (Nextcloud, Jitsi, etc.). ADR 008 covers generating Nix expressions for applications without existing Nix support.
+This ADR focuses on **reusing existing nixpkgs packages** - applications already packaged in the Nix ecosystem (Nextcloud, Jitsi, etc.). [ADR 008](./008-nix-builders-2.md) covers generating Nix expressions for applications without existing Nix support.
 
-**BuildArtifact Integration (ADR 035)**: NixBuilder produces a `BuildArtifact` with fully-resolved Nix store paths in the `RuntimeConfig`. This is a natural fit since Nix computes all paths at build time.
+**BuildArtifact Integration ([ADR 035](./035-build-artifacts.md))**: NixBuilder produces a `BuildArtifact` with fully-resolved Nix store paths in the `RuntimeConfig`. This is a natural fit since Nix computes all paths at build time.
 
 ## Decision
 
-Hop3 will develop NixBuilder (a Level 1 Builder per ADR 030) that supports applications available in the nixpkgs repository or those that can be converted into Nix configurations using existing tools such as dream2nix, Poetry2nix, or Nixpacks. This builder will automate the integration of Nix-built applications within the Hop3 platform, providing a seamless experience for both developers and non-technical users.
+Hop3 will develop NixBuilder (a Level 1 Builder per [ADR 030](./030-two-level-build-architecture.md)) that supports applications available in the nixpkgs repository or those that can be converted into Nix configurations using existing tools such as dream2nix, Poetry2nix, or Nixpacks. This builder will automate the integration of Nix-built applications within the Hop3 platform, providing a seamless experience for both developers and non-technical users.
 
 ## Key Components
 
