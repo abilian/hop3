@@ -3,15 +3,15 @@
 - **Status**: Deferred
 - **Type**: Feature
 - **Created**: 2024-07-17
-- **Related-ADRs**: 006, 008, 023, 035
+- **Related-ADRs**: [006](./006-nix-integration.md), [008](./008-nix-builders-2.md), [023](./023-runtime-stack-replacement.md), [035](./035-build-artifacts.md)
 
 ## Scope
 
-Running Nix-built applications under Hop3's own runtime (uWSGI emperor + nginx) is not part of this ADR's scope: it is covered by ADR 035's `RuntimeConfig` contract. A Nix derivation produces `$out/hop3/runtime.json`; the deployer reads it and launches the workers with no further inference, across both hand-crafted and template-generated derivations.
+Running Nix-built applications under Hop3's own runtime (uWSGI emperor + nginx) is not part of this ADR's scope: it is covered by [ADR 035](./035-build-artifacts.md)'s `RuntimeConfig` contract. A Nix derivation produces `$out/hop3/runtime.json`; the deployer reads it and launches the workers with no further inference, across both hand-crafted and template-generated derivations.
 
-This ADR concerns the further step of letting Nix manage the runtime *itself* — the host OS and backing services — rather than only the applications it builds:
+The further step of letting Nix manage the runtime *itself* (the host OS and backing services) rather than only the applications it builds:
 
-- **Full NixOS module generation.** Emit `configuration.nix` fragments so an operator can deploy Hop3 as a NixOS module rather than as a Python-installed daemon.
+- **Full NixOS module generation is the subject of this ADR.** Emit `configuration.nix` fragments so an operator can deploy Hop3 as a NixOS module rather than as a Python-installed daemon.
 - **Nix-managed backing services.** Provision PostgreSQL / MySQL / Redis / MinIO via nixpkgs services rather than via the OS-package-plus-config approach. This opens a path to per-app NixOS containers.
 - **NixOS-native systemd integration.** Use NixOS's systemd module system to express worker lifetimes rather than writing uWSGI vassal `.ini` files.
 
@@ -19,13 +19,13 @@ This is deferred. It delivers additional reproducibility guarantees (the OS itse
 
 Two design questions remain open and are to be resolved against the results of that evaluation: the provisioning semantics for Nix-managed backing services, and the isolation boundary for NixOS containers.
 
-### Interaction with ADR 023 (Runtime Stack Replacement)
+### Interaction with [ADR 023](./023-runtime-stack-replacement.md) (Runtime Stack Replacement)
 
 Nix support must work with both runtime stacks:
 - **Current stack**: uWSGI + nginx + supervisor
-- **Proposed stack** (ADR 023): Granian + Caddy + ProcessManager
+- **Proposed stack** ([ADR 023](./023-runtime-stack-replacement.md)): Granian + Caddy + ProcessManager
 
-The `BuildArtifact.runtime` field provides this abstraction — the run phase reads the artifact and starts the app without knowing how it was built.
+The `BuildArtifact.runtime` field provides this abstraction: the run phase reads the artifact and starts the app without knowing how it was built.
 
 ## Context and Goals
 
@@ -35,9 +35,9 @@ The goal of this ADR is to evaluate and leverage Nix's capabilities to ensure is
 
 ### Architectural Context
 
-**Connection to BuildArtifact/RuntimeConfig (ADR 035)**:
+**Connection to BuildArtifact/RuntimeConfig ([ADR 035](./035-build-artifacts.md))**:
 
-Hop3's build/run separation model (ADR 035) aligns perfectly with Nix's philosophy:
+Hop3's build/run separation model ([ADR 035](./035-build-artifacts.md)) aligns perfectly with Nix's philosophy:
 
 1. **Build phase** produces a `BuildArtifact` with `RuntimeConfig` containing:
    - `env_vars`: Environment variables (PATH, PYTHONPATH, etc.)
@@ -66,7 +66,7 @@ BuildArtifact {
 }
 ```
 
-**Connection to Deployment Strategies (ADR 032)**:
+**Connection to Deployment Strategies ([ADR 032](./032-deployment-strategies-artifact-lifecycle.md))**:
 
 Nix's immutable store paths enable clean versioning and rollback:
 - Each build produces a unique `/nix/store/<hash>-app` path

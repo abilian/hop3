@@ -3,7 +3,7 @@
 - **Status**: Accepted
 - **Type**: Feature
 - **Created**: 2025-12-03
-- **Related-ADRs**: 022, 030, 031, 035, 036
+- **Related-ADRs**: [022](./022-build-deploy-plugin-system.md), [030](./030-two-level-build-architecture.md), [031](./031-project-terminology.md), [035](./035-build-artifacts.md), [036](./036-cli-ergonomics.md)
 
 ## Context
 
@@ -79,7 +79,7 @@ Build artifacts become versioned, immutable entities stored separately from the 
 
 #### Artifact Manifest
 
-Each artifact includes metadata for lifecycle management. The manifest extends `BuildArtifact` (see ADR 035) with deployment-specific fields:
+Each artifact includes metadata for lifecycle management. The manifest extends `BuildArtifact` (see [ADR 035](./035-build-artifacts.md)) with deployment-specific fields:
 
 ```json
 {
@@ -113,13 +113,13 @@ Each artifact includes metadata for lifecycle management. The manifest extends `
 }
 ```
 
-> **Note**: The core `BuildArtifact` fields (`kind`, `builder`, `runtime`, etc.) are produced during the build phase (ADR 035). The deployment-specific fields (`version`, `health_check`, `rollback_safe`, `migration_status`) are added during deployment to support lifecycle management.
+> **Note**: The core `BuildArtifact` fields (`kind`, `builder`, `runtime`, etc.) are produced during the build phase ([ADR 035](./035-build-artifacts.md)). The deployment-specific fields (`version`, `health_check`, `rollback_safe`, `migration_status`) are added during deployment to support lifecycle management.
 
 #### Versioning Across the Builder Family
 
 Builders differ in how much of this lifecycle they get for free. Nix-built apps obtain versioned, immutable artifacts directly from Nix's content-addressed store, and rolling such an app back is a symlink switch between store paths. Mutable-artifact builders (the LocalBuilder + uWSGI deployer, building virtualenvs and node_modules in place) gain versioning only by adopting the explicit `artifacts/<version>/` layout and `current`/`previous` symlinks described above. The lifecycle is uniform across builders; the cost of providing it is not.
 
-The CLI surface for this lifecycle is the `revert` command and the `upgrade`/`downgrade` commands (deferred from ADR 019): they list, select, and switch the active artifact version using the same `current`/`previous` mechanism.
+The CLI surface for this lifecycle is the `revert` command and the `upgrade`/`downgrade` commands (deferred from [ADR 019](./019-cli-commands.md)): they list, select, and switch the active artifact version using the same `current`/`previous` mechanism.
 
 ### 2. Deployment Strategies
 
@@ -221,7 +221,7 @@ If bad → rollback immediately
                          │ build success
                          ▼
                     ┌─────────┐
-                    │  READY  │ (stored, not deployed)
+                    │  READY  │ (stored)
                     └────┬────┘
                          │ deploy
                          ▼

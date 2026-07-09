@@ -4,7 +4,7 @@
 - **Type**: Feature
 - **Created**: 2025-11-28
 - **Updated**: 2026-06-23
-- **Related-ADRs**: 012, 018, 036
+- **Related-ADRs**: [012](./012-mfa.md), [018](./018-cli-architecture.md), [036](./036-cli-ergonomics.md)
 
 ## Context and Goals
 
@@ -305,16 +305,16 @@ The bootstrap mechanism is additive and layers on top of the existing public aut
 
 The bootstrap introduces, without breaking anything above:
 
-1. **The `hop3-server` CLI** — a server-side entry point.
-2. **The `hop3 init --ssh` command** — a client-side bootstrap convenience.
+1. **The `hop3-server` CLI**: a server-side entry point.
+2. **The `hop3 init --ssh` command**: a client-side bootstrap convenience.
 
 Existing users and tokens remain valid, and no existing command changes behaviour.
 
 ### Update (2026-06): login/logout are client-side; `auth get-token` is the primitive
 
-The interactive login flow — `hop3 login`, and its canonical spelling `hop3 auth login` — is handled entirely **client-side**: it bootstraps over SSH, accepts token URLs and magic links (`--web`), prompts for a password, and saves the resulting token to the active context. `hop3 logout` / `hop3 auth logout` mirror it (revoke the token server-side, then clear it locally). `login`/`logout` are registered as short-form aliases of `auth login`/`auth logout`.
+The interactive login flow (`hop3 login`, and its canonical spelling `hop3 auth login`) is handled entirely **client-side**: it bootstraps over SSH, accepts token URLs and magic links (`--web`), prompts for a password, and saves the resulting token to the active context. `hop3 logout` / `hop3 auth logout` mirror it (revoke the token server-side, then clear it locally). `login`/`logout` are registered as short-form aliases of `auth login`/`auth logout`.
 
-The public server RPC that verifies a username + password and returns a token — originally named `auth login` in this ADR — is now **`auth get-token`**. It simply prints the token, for scripts and automation; the interactive login flow calls it under the hood. See ADR 036 (CLI ergonomics and command surface) for the alias and command-surface rationale.
+The public server RPC that verifies a username + password and returns a token (originally named `auth login` in this ADR) is now **`auth get-token`**. It simply prints the token, for scripts and automation; the interactive login flow calls it under the hood. See [ADR 036](./036-cli-ergonomics.md) (CLI ergonomics and command surface) for the alias and command-surface rationale.
 
 ---
 
@@ -350,8 +350,8 @@ The public server RPC that verifies a username + password and returns a token �
 
 ## Related ADRs
 
-- ADR 010: Security and Resilience Enhancements
-- ADR 012: Multi-Factor Authentication (MFA)
+- [ADR 010](./010-security-and-resilience.md): Security and Resilience Enhancements
+- [ADR 012](./012-mfa.md): Multi-Factor Authentication (MFA)
 
 ## Implementation References
 

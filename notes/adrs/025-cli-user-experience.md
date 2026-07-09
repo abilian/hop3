@@ -3,7 +3,7 @@
 - **Status**: Final
 - **Type**: Feature
 - **Created**: 2025-11-08
-- **Related-ADRs**: 018, 019, 024, 034, 036
+- **Related-ADRs**: [018](./018-cli-architecture.md), [019](./019-cli-commands.md), [024](./024-backup-restore-system.md), [034](./034-streaming-deployment-logs.md), [036](./036-cli-ergonomics.md)
 
 Command syntax uses the space form (`hop3 backup destroy`, `hop3 addon destroy`) rather than the colon form (`hop3 backup:delete`, `hop3 services:destroy`), per [036-cli-ergonomics.md](036-cli-ergonomics.md). Help-text conventions and error-recovery hints are specified in that ADR; streaming output uses the protocol defined in [034-streaming-deployment-logs.md](034-streaming-deployment-logs.md).
 

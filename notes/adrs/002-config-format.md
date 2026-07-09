@@ -3,21 +3,21 @@
 - **Status**: Accepted
 - **Type**: Feature
 - **Created**: 2024-07-17
-- **Related-ADRs**: 001, 003, 046
+- **Related-ADRs**: [001](./001-config-files.md), [003](./003-config-parsing-and-validation.md), [046](./046-declarative-app-resources.md)
 
 ## Specification subset and reserved fields
 
 The format defines a stable core that the runtime consumes, plus forward-looking fields retained in the design but not yet acted upon. An application that sets a reserved field is unaffected, except that nothing acts on it.
 
 ### Core sections and fields
-- **`[metadata]`** — `id` (required); additional descriptive fields (`version`, `title`, `description`, `homepage`, `license`, `categories`) are informational metadata surfaced in listings, and do not change runtime behaviour.
-- **`[build]`** — `builder` (explicit override), `toolchain` (explicit override), `packages` (apt-install list), `before-build`, `build`.
-- **`[run]`** — `start`, `before-run`, `start-timeout`, `packages`.
-- **`[run.workers]`** — per-role worker commands (same-process-tree).
-- **`[env]`** — static values. Generated secrets and dynamic references (`from`/`key`, `random`) are specified declaratively in ADR 046, not by this ADR.
-- **`[[addons]]`** — `type` (postgres, mysql, redis, s3) drives provisioning; per-addon parameters.
-- **`[healthcheck]`** — `path`, `timeout`; consumed by the deployer's health-check stage and by `hop3-testing`.
-- **`[nix]`** — `template`, `nixpkgs-package`, `exec-target`, `exec-args`, `extra-paths`, `pre-exec`, `local-vars`, `env-exports`, `runtime-env`, `conditional-env`, `config-files`. Drives the template generator (ADR 008).
+- **`[metadata]`**: `id` (required); additional descriptive fields (`version`, `title`, `description`, `homepage`, `license`, `categories`) are informational metadata surfaced in listings, and do not change runtime behaviour.
+- **`[build]`**: `builder` (explicit override), `toolchain` (explicit override), `packages` (apt-install list), `before-build`, `build`.
+- **`[run]`**: `start`, `before-run`, `start-timeout`, `packages`.
+- **`[run.workers]`**: per-role worker commands (same-process-tree).
+- **`[env]`**: static values. Generated secrets and dynamic references (`from`/`key`, `random`) are specified declaratively in [ADR 046](./046-declarative-app-resources.md), not by this ADR.
+- **`[[addons]]`**: `type` (postgres, mysql, redis, s3) drives provisioning; per-addon parameters.
+- **`[healthcheck]`**: `path`, `timeout`; consumed by the deployer's health-check stage and by `hop3-testing`.
+- **`[nix]`**: `template`, `nixpkgs-package`, `exec-target`, `exec-args`, `extra-paths`, `pre-exec`, `local-vars`, `env-exports`, `runtime-env`, `conditional-env`, `config-files`. Drives the template generator ([ADR 008](./008-nix-builders-2.md)).
 
 ### Reserved fields
 These fields appear in the spec and in some documentation examples but are not consumed by the runtime. They are retained in the design:
@@ -26,7 +26,7 @@ These fields appear in the spec and in some documentation examples but are not c
 - `[backup]` section.
 - Environment-specific overrides: `[env.development]`, `[env.production]`.
 
-Schema validation beyond TOML parse errors, YAML/JSON alternative formats, and CLI validation tooling are the province of ADR 003.
+Schema validation beyond TOML parse errors, YAML/JSON alternative formats, and CLI validation tooling are the province of [ADR 003](./003-config-parsing-and-validation.md).
 
 ## Summary
 
@@ -60,7 +60,7 @@ The `hop3.toml` file will be used as the primary configuration format for the Ho
 
 ## Related
 
-- ADR 003: Config Parsing and Validation
+- [ADR 003](./003-config-parsing-and-validation.md): Config Parsing and Validation
 
 ## References
 

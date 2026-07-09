@@ -3,7 +3,7 @@
 - **Status**: Accepted
 - **Type**: Feature
 - **Created**: 2025-11-25
-- **Related-ADRs**: 017, 036
+- **Related-ADRs**: [017](./017-agent-based-architecture.md), [036](./036-cli-ergonomics.md)
 
 ## Introduction
 
@@ -48,7 +48,7 @@ This creates several problems:
 
 ### Non-Goals
 
-- Multi-server/distributed architecture (covered in ADR 017)
+- Multi-server/distributed architecture (covered in [ADR 017](./017-agent-based-architecture.md))
 - Container orchestration (out of scope)
 - External monitoring integration (future work)
 - Auto-scaling based on metrics (future work)
@@ -1143,9 +1143,9 @@ Run watchdog as separate systemd service instead of in-process.
 
 ## Related
 
-- **ADR 017**: Agent-Based Architecture (future distributed version)
-- **ADR 020**: Pluggable Architecture (strategy patterns used here)
-- **ADR 027**: Config System Refactoring (Dishka DI integration)
+- **[ADR 017](./017-agent-based-architecture.md)**: Agent-Based Architecture (future distributed version)
+- **[ADR 020](./020-pluggable-architecture.md)**: Pluggable Architecture (strategy patterns used here)
+- **[ADR 027](./027-config-system-refactoring.md)**: Config System Refactoring (Dishka DI integration)
 
 ## References
 

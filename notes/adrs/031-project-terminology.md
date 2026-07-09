@@ -3,7 +3,7 @@
 - **Status**: Active
 - **Type**: Guideline
 - **Created**: 2025-11-28
-- **Related-ADRs**: 020, 022, 030, 036
+- **Related-ADRs**: [020](./020-pluggable-architecture.md), [022](./022-build-deploy-plugin-system.md), [030](./030-two-level-build-architecture.md), [036](./036-cli-ergonomics.md)
 
 ## Context
 
@@ -55,13 +55,13 @@ An App can originate from:
 1. **Custom code** - Developer pushes their own code (Heroku-style)
 2. **Blueprint** - Operator installs from catalog (App Store-style)
 
-The origin is metadata, not a fundamental type distinction. All apps share the same management commands regardless of origin.
+The origin is metadata. All apps share the same management commands regardless of origin.
 
 #### Catalog vs. Marketplace
 
-**Catalog** is the canonical term for the free, self-host collection of installable Blueprints (browse → install → configure on your own server). It carries no commercial connotation — there are no prices, sellers, or payments.
+**Catalog** is the canonical term for the free, self-host collection of installable Blueprints (browse → install → configure on your own server). It carries no commercial connotation: there are no prices, sellers, or payments.
 
-**Marketplace** is reserved for the future *commercial* product: a hosted, branded "SaaS marketplace" with premium/paid apps. Do not call the free feature a "marketplace" — keeping the two distinct stops a product feature being conflated with a business model.
+**Marketplace** is reserved for the future *commercial* product: a hosted, branded "SaaS marketplace" with premium/paid apps. Do not call the free feature a "marketplace": keeping the two distinct stops a product feature being conflated with a business model.
 
 Spelling: use the US **catalog**, not the British "catalogue", to match the codebase's prevailing US-English convention (`color`, `license`, `behavior`).
 
@@ -134,7 +134,7 @@ The deployment process follows a three-stage pipeline: **Build → Deploy → Pr
 | **Deployer** | Runs build artifacts and manages application lifecycle | `Deployer` | `get_deployers()` | - |
 | **Proxy** | Configures reverse proxy for HTTP routing | `Proxy` | `get_proxies()` | - |
 
-#### Two-Level Build Architecture (from ADR 030)
+#### Two-Level Build Architecture (from [ADR 030](./030-two-level-build-architecture.md))
 
 **Level 1: Builder (Orchestration)**
 - Defines HOW to build: locally, in Docker, with Nix
@@ -202,7 +202,7 @@ This is a critical distinction to avoid confusion:
 | Term | Definition | Context |
 |------|------------|---------|
 | **Backing Service** | 12-factor term for attached resources | We use "Addon" |
-| **Blueprint** | Packaged application definition in the catalog | *Candidate term* — App Store use case |
+| **Blueprint** | Packaged application definition in the catalog | *Candidate term*: App Store use case |
 | **Blueprint App** | An App created from a Blueprint | Has `blueprint_name` reference |
 | **Build** | Process of preparing source code for deployment | |
 | **BuildArtifact** | Descriptor of built output | kind, location, metadata |
@@ -249,7 +249,7 @@ This is a critical distinction to avoid confusion:
 
 | Term | Definition | Context |
 |------|------------|---------|
-| **Marketplace** | Reserved for the future commercial/hosted ("SaaS marketplace") product | NOT the free catalog — see [Catalog vs. Marketplace](#catalog-vs-marketplace) |
+| **Marketplace** | Reserved for the future commercial/hosted ("SaaS marketplace") product | NOT the free catalog: see [Catalog vs. Marketplace](#catalog-vs-marketplace) |
 
 ### N-O
 
@@ -383,7 +383,7 @@ The Blueprint vocabulary names a use case whose terminology is not yet final. Th
 | `PlatformSetupStrategy` | `OS` | Clearer, specific |
 | `ProxyStrategy` | `Proxy` | Simpler |
 | `service_name` (in Addon) | `addon_name` | Consistent with Addon terminology |
-| `Marketplace*` / `server/marketplace/` / `/dashboard/marketplace` | `Catalog*` / `server/catalog/` / `/dashboard/catalog` | "Catalog" is the canonical name for the free feature; this is a UI-only rename, with no DB or RPC change. The `Catalog`-named classes in `hop3-testing`/`hop3-testlab` are a separate package and concept (test-app catalog) — no collision. |
+| `Marketplace*` / `server/marketplace/` / `/dashboard/marketplace` | `Catalog*` / `server/catalog/` / `/dashboard/catalog` | "Catalog" is the canonical name for the free feature; this is a UI-only rename, with no DB or RPC change. The `Catalog`-named classes in `hop3-testing`/`hop3-testlab` are a separate package and concept (test-app catalog): no collision. |
 
 ### Deprecated Terms (Do Not Use)
 
@@ -410,13 +410,13 @@ The Blueprint vocabulary names a use case whose terminology is not yet final. Th
 3. **Extensibility**: Easy to add new builders or toolchains independently
 4. **Type Safety**: Clear protocol boundaries enable proper type checking
 
-See ADR 030 for detailed rationale.
+See [ADR 030](./030-two-level-build-architecture.md) for detailed rationale.
 
 ### Why "Deployer" Not "Runtime"?
 
 "Runtime" implies execution environment, but deployers also:
 - Manage static file serving (no runtime)
-- Configure systemd services (process manager, not runtime)
+- Configure systemd services (process manager)
 - Handle lifecycle management (start, stop, scale)
 
 "Deployer" accurately describes deployment + lifecycle management for all implementations.
