@@ -1,0 +1,12 @@
+{"version":3,"term":{"cols":139,"rows":59,"type":"xterm-color","theme":{"fg":"#c0caf5","bg":"#1a1b26","palette":"#2e3436:#cc0000:#4e9a06:#c4a000:#3465a4:#75507b:#06989a:#d3d7cf:#555753:#ef2929:#8ae234:#fce94f:#729fcf:#ad7fa8:#34e2e2:#eeeeec"}},"timestamp":1782084543,"idle_time_limit":2.0,"command":"validoc run /Users/fermigier/projects/hop3/hop3/docs/tutorials/static/jekyll.md","env":{"SHELL":"/bin/sh"}}
+[0.062, "o", "\u001b[1m\r\n============================================================\u001b[0m\r\n\u001b[1mTutorial: jekyll.md\u001b[0m\r\n\u001b[1m============================================================\r\n\u001b[0m\r\n"]
+[0.001, "o", "\u001b[94m\r\n## Verify installation\r\n\u001b[0m\r\n"]
+[0.028, "o", "  [\u001b[92mPASS\u001b[0m] exec: ruby -v \u001b[2m0.03s\u001b[0m\r\n"]
+[0.000, "o", "  [\u001b[92mPASS\u001b[0m] output verification \u001b[2m\u001b[0m\r\n"]
+[0.013, "o", "  [\u001b[92mPASS\u001b[0m] exec: jekyll -v 2>&1 || echo \"Jekyll version check\" \u001b[2m0.01s\u001b[0m\r\n"]
+[0.000, "o", "  [\u001b[92mPASS\u001b[0m] output verification \u001b[2m\u001b[0m\r\n\u001b[94m\r\n## Step 1: Install Jekyll and Create Site\r\n\u001b[0m\r\n"]
+[2.876, "o", "  [\u001b[92mPASS\u001b[0m] exec: gem install jekyll bundler --no-document 2>&1 | ta... \u001b[2m2.88s\u001b[0m\r\n"]
+[0.000, "o", "  [\u001b[92mPASS\u001b[0m] output verification \u001b[2m\u001b[0m\r\n"]
+[0.037, "o", "  [\u001b[91mFAIL\u001b[0m] exec: export PATH=\"$(ruby -e 'puts Gem.user_dir')/bin:$P... \u001b[2m0.04s\u001b[0m\r\n\u001b[91m       Error: Expected exit code 0, got 127\u001b[0m\r\n\u001b[2m       Output:\u001b[0m\r\n\u001b[91m       Stderr:\u001b[0m\r\n\u001b[91m         /bin/sh: jekyll: command not found\u001b[0m\r\n\u001b[2m\r\nRunning teardown...\u001b[0m\r\n"]
+[1.681, "o", "\u001b[1m\r\n============================================================\u001b[0m\r\nResults: \u001b[92m6 passed\u001b[0m, \u001b[91m1 failed\u001b[0m in 2.95s\r\n\u001b[1m============================================================\r\n\u001b[0m\r\n"]
+[0.011, "x", "1"]
