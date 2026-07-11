@@ -1,0 +1,4 @@
+{"version":3,"term":{"cols":139,"rows":59,"type":"xterm-color"},"timestamp":1782082108,"idle_time_limit":2.0,"command":"validoc run /Users/fermigier/projects/hop3/hop3/docs/tutorials/nix/nix-flask.md","env":{"SHELL":"/bin/sh"}}
+[0.084, "o", "\u001b[1m\r\n============================================================\u001b[0m\r\n\u001b[1mTutorial: nix-flask.md\u001b[0m\r\n\u001b[1m============================================================\r\n\u001b[0m\r\n"]
+[0.001, "o", "\u001b[1m\r\n============================================================\u001b[0m\r\nResults: \u001b[92m0 passed\u001b[0m in 0.00s\r\n\u001b[1m============================================================\r\n\u001b[0m\r\n"]
+[0.008, "x", "0"]

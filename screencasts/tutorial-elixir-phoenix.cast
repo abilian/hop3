@@ -1,0 +1,7 @@
+{"version":3,"term":{"cols":139,"rows":59,"type":"xterm-color","theme":{"fg":"#c0caf5","bg":"#1a1b26","palette":"#2e3436:#cc0000:#4e9a06:#c4a000:#3465a4:#75507b:#06989a:#d3d7cf:#555753:#ef2929:#8ae234:#fce94f:#729fcf:#ad7fa8:#34e2e2:#eeeeec"}},"timestamp":1782080697,"idle_time_limit":2.0,"command":"validoc run /Users/fermigier/projects/hop3/hop3/docs/tutorials/elixir/phoenix.md","env":{"SHELL":"/bin/sh"}}
+[0.066, "o", "\u001b[1m\r\n============================================================\u001b[0m\r\n\u001b[1mTutorial: phoenix.md\u001b[0m\r\n\u001b[1m============================================================\r\n\u001b[0m\r\n"]
+[0.001, "o", "\u001b[94m\r\n## Verify installation\r\n\u001b[0m\r\n"]
+[0.017, "o", "  [\u001b[91mFAIL\u001b[0m] exec: elixir --version \u001b[2m0.02s\u001b[0m\r\n\u001b[91m       Error: Expected exit code 0, got 127\u001b[0m\r\n\u001b[2m       Output:\u001b[0m\r\n\u001b[91m       Stderr:\u001b[0m\r\n\u001b[91m         /bin/sh: elixir: command not found\u001b[0m\r\n"]
+[0.000, "o", "\u001b[2m\r\nRunning teardown...\u001b[0m\r\n"]
+[1.667, "o", "\u001b[1m\r\n============================================================\u001b[0m\r\nResults: \u001b[92m0 passed\u001b[0m, \u001b[91m1 failed\u001b[0m in 0.02s\r\n\u001b[1m============================================================\r\n\u001b[0m\r\n"]
+[0.012, "x", "1"]

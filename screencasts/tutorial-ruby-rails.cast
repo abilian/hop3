@@ -1,0 +1,11 @@
+{"version":3,"term":{"cols":139,"rows":59,"type":"xterm-color"},"timestamp":1782083685,"idle_time_limit":2.0,"command":"validoc run /Users/fermigier/projects/hop3/hop3/docs/tutorials/ruby/rails.md","env":{"SHELL":"/bin/sh"}}
+[0.065, "o", "\u001b[1m\r\n============================================================\u001b[0m\r\n\u001b[1mTutorial: rails.md\u001b[0m\r\n\u001b[1m============================================================\r\n\u001b[0m\r\n"]
+[0.000, "o", "\u001b[94m\r\n## Verify installation\r\n\u001b[0m\r\n"]
+[0.073, "o", "  [\u001b[92mPASS\u001b[0m] exec: ruby -v \u001b[2m0.07s\u001b[0m\r\n"]
+[0.000, "o", "  [\u001b[92mPASS\u001b[0m] output verification \u001b[2m\u001b[0m\r\n"]
+[0.099, "o", "  [\u001b[92mPASS\u001b[0m] exec: rails -v 2>&1 || echo \"Rails not installed - will ... \u001b[2m0.10s\u001b[0m\r\n"]
+[0.000, "o", "  [\u001b[92mPASS\u001b[0m] output verification \u001b[2m\u001b[0m\r\n\u001b[94m\r\n## Step 1: Install Rails and Create Application\r\n\u001b[0m\r\n"]
+[3.919, "o", "  [\u001b[92mPASS\u001b[0m] exec: gem install rails --no-document 2>&1 | tail -5 || ... \u001b[2m3.92s\u001b[0m\r\n"]
+[0.000, "o", "  [\u001b[91mFAIL\u001b[0m] output verification \u001b[2m\u001b[0m\r\n\u001b[91m       Error: Output mismatch (regex):\r\nExpected:\r\nrails|Successfully installed|already activated\r\nGot:\r\n1 gem installed\r\n\r\nA new release of RubyGems is available: 4.0.10 → 4.0.14!\r\nRun `gem update --system 4.0.14` to update your installation.\r\n\r\n\u001b[0m\r\n\u001b[2m       Output:\u001b[0m\r\n\u001b[2m         1 gem installed\u001b[0m\r\n\u001b[2m         \u001b[0m\r\n\u001b[2m         A new release of RubyGems is available: 4.0.10 → 4.0.14!\u001b[0m\r\n\u001b[2m         Run `gem update --system 4.0.14` to update your installation.\u001b[0m\r\n\u001b[2m\r\nRunning teardown...\u001b[0m\r\n"]
+[1.734, "o", "\u001b[1m\r\n============================================================\u001b[0m\r\nResults: \u001b[92m5 passed\u001b[0m, \u001b[91m1 failed\u001b[0m in 4.09s\r\n\u001b[1m============================================================\r\n\u001b[0m\r\n"]
+[0.011, "x", "1"]

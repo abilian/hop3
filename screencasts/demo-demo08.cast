@@ -1,0 +1,3 @@
+{"version":3,"term":{"cols":82,"rows":22,"type":"xterm-color","version":"iTerm2 3.6.11","theme":{"fg":"#c7c7c7","bg":"#000000","palette":"#000000:#b93019:#52c037:#c7c53e:#0c24c0:#ba3ec1:#53c3c6:#c7c7c7:#686868:#f0776d:#8df77a:#fffc7f:#6a71f7:#f17ff9:#8efafe:#ffffff"}},"timestamp":1782111239,"idle_time_limit":2.0,"command":"/Users/fermigier/projects/hop3/hop3/.venv/bin/python3 /Users/fermigier/projects/hop3/hop3/demos/demo.py --backend ssh --host hop3-dev.abilian.com --admin-domain hop3-dev.abilian.com --skip-install --pause 2.0 demo08","env":{"SHELL":"/bin/sh"}}
+[0.008, "o", "^C"]
+[0.000, "x", "130"]

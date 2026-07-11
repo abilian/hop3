@@ -1,0 +1,10 @@
+{"version":3,"term":{"cols":82,"rows":22,"type":"xterm-color","version":"iTerm2 3.6.11","theme":{"fg":"#c7c7c7","bg":"#000000","palette":"#000000:#b93019:#52c037:#c7c53e:#0c24c0:#ba3ec1:#53c3c6:#c7c7c7:#686868:#f0776d:#8df77a:#fffc7f:#6a71f7:#f17ff9:#8efafe:#ffffff"}},"timestamp":1782111237,"idle_time_limit":2.0,"command":"/Users/fermigier/projects/hop3/hop3/.venv/bin/python3 /Users/fermigier/projects/hop3/hop3/demos/demo.py --backend ssh --host hop3-dev.abilian.com --admin-domain hop3-dev.abilian.com --skip-install --pause 2.0 demo02","env":{"SHELL":"/bin/sh"}}
+[0.004, "o", "\r\n"]
+[0.046, "o", "  \u001b[2mLogs: /Users/fermigier/projects/hop3/hop3/demos/logs/2026-06-22-08-53\u001b[0m\r\n"]
+[0.005, "o", "\u001b[36m\u001b[1m\r\n    HOP3 DEMOS\r\n    ==========\r\n\r\n    Hop3 Demo Launcher\r\n    \u001b[0m\u001b[0m\r\n\u001b[1mConfiguration:\u001b[0m\r\n  Server:          hop3-dev.abilian.com\r\n  SSH Target:      root@hop3-dev.abilian.com\r\n  Admin User:      admin\r\n  Demos to run:    demo02\r\n"]
+[0.000, "o", "  Local code:      False\r\n  Skip install:    True\r\n  Preflight:       False\r\n  Clean before:    False\r\n  Keep apps:       False\r\n\r\n"]
+[0.000, "o", "  \u001b[2mSkipping prerequisites (use --preflight to run checks)\u001b[0m\r\n"]
+[0.456, "o", "^C"]
+[0.000, "o", "\r\n"]
+[0.000, "o", "\u001b[31m[ERROR]\u001b[0m Demo interrupted by user\r\n"]
+[0.018, "x", "130"]
