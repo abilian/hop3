@@ -208,7 +208,7 @@ def _run_image_sweep(
 # Connection
 @click.option(
     "--host",
-    envvar=["HOP3_HOST", "HOP3_TEST_HOST"],
+    envvar="HOP3_HOST",
     help="Remote server hostname/IP — selects the remote target (or $HOP3_HOST)",
 )
 @click.option("--port", type=int, default=22, help="SSH port")
@@ -388,9 +388,11 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
         )
         target_type = "remote"
 
-    # ADR 052 D2: --host (resolved from $HOP3_HOST / $HOP3_TEST_HOST by click)
-    # implies the remote target — no separate --ssh mode flag needed. --docker
-    # still selects Docker; --ssh stays as a deprecated alias (warned above).
+    # ADR 052 D2: --host (from the flag or $HOP3_HOST) implies the remote target
+    # — no separate --ssh mode flag needed. --docker still selects Docker; --ssh
+    # stays as a deprecated alias (warned above). The retired HOP3_TEST_HOST /
+    # HOP3_DEV_HOST are NOT consulted (ADR 043): a target comes from --host or
+    # $HOP3_HOST only, never from those legacy env vars.
     if target_type is None and host:
         target_type = "remote"
 

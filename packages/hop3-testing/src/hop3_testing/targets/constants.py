@@ -120,6 +120,11 @@ _CLI_STEERING_ENV_VARS = (
     "HOP3_CONTEXT",
     "HOP3_DEV_HOST",
     "HOP3_DEV_MODE",
+    # Retired remote-target selectors (ADR 043): stripped so a leaked value can
+    # never redirect a harness hop3/hop3-test call. A target comes from an
+    # explicit --host / $HOP3_HOST only.
+    "HOP3_TEST_HOST",
+    "HOP3_TEST_SERVER",
 )
 
 
