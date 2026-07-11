@@ -179,16 +179,39 @@ def test_confirm_destructive_action_addon_destroy_cancelled():
         assert result is False
 
 
-def test_confirm_destructive_action_json_mode():
-    """Test that JSON mode auto-confirms all destructive actions."""
+def test_confirm_destructive_action_json_mode_does_not_auto_confirm():
+    """JSON mode must NOT auto-confirm destructive actions (audit M6).
+
+    ``--json`` selects machine-readable output, not "skip the destroy guard".
+    Without ``--yes`` / ``--confirm`` and with non-interactive stdin (no input
+    patched → EOFError in the prompt), confirmation fails closed.
+    """
     printer = RichPrinter(json_output=True)
 
-    # All destructive commands should auto-confirm in JSON mode
-    assert confirm_destructive_action(["app", "destroy", "my-app"], printer) is True
+    # Non-interactive stdin (CI): input() raises EOFError → prompt fails closed.
+    with patch("builtins.input", side_effect=EOFError):
+        assert (
+            confirm_destructive_action(["app", "destroy", "my-app"], printer) is False
+        )
+        assert (
+            confirm_destructive_action(["backup", "destroy", "backup-123"], printer)
+            is False
+        )
+        assert (
+            confirm_destructive_action(["addon", "destroy", "postgres"], printer)
+            is False
+        )
+
+
+def test_confirm_destructive_action_json_mode_honors_confirm_flag():
+    """In JSON mode, ``--confirm=<name>`` is the scriptable escape hatch."""
+    printer = RichPrinter(json_output=True)
+    flags = CliFlags(json_output=True, confirm_value="my-app")
+
     assert (
-        confirm_destructive_action(["backup", "destroy", "backup-123"], printer) is True
+        confirm_destructive_action(["app", "destroy", "my-app"], printer, flags=flags)
+        is True
     )
-    assert confirm_destructive_action(["addon", "destroy", "postgres"], printer) is True
 
 
 def test_confirm_destructive_action_destroy_alias():

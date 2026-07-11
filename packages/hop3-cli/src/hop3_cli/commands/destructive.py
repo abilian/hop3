@@ -108,7 +108,7 @@ def _resolve_target_name(command: tuple[str, ...], args: list[str]) -> str | Non
     return _first_positional(args)
 
 
-def confirm_destructive_action(  # noqa: PLR0911 — sequential decision tree, each return is a distinct escape hatch (json mode, no-match, missing-args, --confirm, --no-input, …) with its own side effects; flattening into a result var would obscure the safety story.
+def confirm_destructive_action(  # noqa: PLR0911 — sequential decision tree, each return is a distinct escape hatch (no-match, missing-args, --confirm, --no-input, …) with its own side effects; flattening into a result var would obscure the safety story.
     cli_args: list[str],
     printer: RichPrinter,
     config: Config | None = None,
@@ -135,11 +135,13 @@ def confirm_destructive_action(  # noqa: PLR0911 — sequential decision tree, e
     proceed with the same instruction: never silently assume yes.
 
     Returns True if the user confirmed (or skipped), False if cancelled.
-    """
-    if printer.json_output:
-        # In JSON mode, auto-confirm (user should use -y flag)
-        return True
 
+    ``--json`` is NOT a confirmation bypass (audit M6): it selects machine-
+    readable output, not "skip the destroy guard". A destructive command in
+    JSON mode still requires ``--yes`` / ``--confirm=<name>`` (or an
+    interactive answer); without one it falls through to the prompt, which
+    fails closed on non-interactive stdin.
+    """
     # Match the destructive-command prefix (may be 1, 2, or 3 tokens).
     command = _match_destructive_prefix(cli_args)
     if command is None:
