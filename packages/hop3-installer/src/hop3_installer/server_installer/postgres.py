@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import re
 import secrets
+import time
 from pathlib import Path
 
 from hop3_installer.common import (
@@ -389,48 +390,70 @@ def _create_postgres_role_and_db() -> bool:
         return False
 
 
+# Verifying the superuser password can race a cluster that is still starting
+# (supervisord/Docker), so re-assert + re-check a few times before giving up.
+_SUPERUSER_VERIFY_ATTEMPTS = 5
+_SUPERUSER_VERIFY_DELAY = 1.0
+
+
+def _verify_superuser_tcp(password: str) -> bool:
+    """Whether ``password`` authenticates the ``postgres`` role over TCP.
+
+    This is the EXACT path hop3-server uses to provision addons (127.0.0.1:5432,
+    password auth). A local peer ``ALTER`` can succeed — or hit a different
+    cluster — while the TCP password is wrong; verifying here is what turns a
+    silent credential desync into an install-time failure instead of every
+    postgres app failing later with an opaque auth error.
+    """
+    argv = ["psql", "-h", "127.0.0.1", "-p", "5432", "-U", "postgres",
+            "-d", "template1", "-tAc", "SELECT 1"]  # fmt: skip
+    result = run_cmd(argv, check=False, env={"PGPASSWORD": password})
+    return result.returncode == 0
+
+
 def _set_postgres_password(existing: str | None = None) -> str | None:
-    """Set (or reuse) the postgres superuser password.
+    """(Re-)assert the postgres superuser password AND verify it over TCP.
 
     On redeploy ``existing`` is the password from a prior install: reuse it
-    rather than rotating the superuser secret (rotation desyncs the role from
-    every stored credential and silently breaks addon provisioning). It is still
-    re-asserted via ``ALTER USER`` so role and stored secret stay in sync
-    (idempotent, self-healing). Only a fresh install generates a new password.
+    rather than rotating the superuser secret. Either way the password is
+    re-asserted via ``ALTER USER`` — which reconciles a cluster that survived a
+    ``rm -rf /home/hop3`` teardown — and then verified over the TCP path the
+    server actually uses. Only a password that authenticates is returned; a
+    value that can't be verified yields ``None`` so the install fails loud
+    rather than shipping a hop3-server.toml the role won't honour.
 
     Returns:
-        The reused-or-generated password, or None if a fresh install failed.
+        The verified password, or None if it could not be set and verified.
     """
     pg_password = existing or ("hop3_" + secrets.token_hex(16))
     if not _validate_postgres_password(pg_password):
-        if existing:
-            # An operator-customised password we can't safely interpolate into
-            # SQL — leave the role untouched and keep the stored value.
+        # An operator-customised password we can't safely interpolate into SQL:
+        # we can't re-assert it, but it may already be correct on the role.
+        if existing and _verify_superuser_tcp(existing):
             print_info("Reusing existing PostgreSQL superuser password")
             return existing
-        print_warning("Generated postgres password failed shape check")
+        print_warning("PostgreSQL superuser password failed shape check")
         return None
 
     sql_cmd = f"ALTER USER postgres PASSWORD '{pg_password}';"
-    result = run_cmd(
-        ["su", "-", "postgres", "-c", f'psql -c "{sql_cmd}"'],
-        check=False,
-    )
+    for attempt in range(_SUPERUSER_VERIFY_ATTEMPTS):
+        run_cmd(["su", "-", "postgres", "-c", f'psql -c "{sql_cmd}"'], check=False)
+        if _verify_superuser_tcp(pg_password):
+            print_success(
+                "PostgreSQL superuser password reused"
+                if existing
+                else "PostgreSQL superuser password configured"
+            )
+            return pg_password
+        if attempt < _SUPERUSER_VERIFY_ATTEMPTS - 1:
+            time.sleep(_SUPERUSER_VERIFY_DELAY)
 
-    if result.returncode != 0:
-        print_warning("Could not set PostgreSQL superuser password")
-        if result.stderr:
-            print_detail(result.stderr[:200])
-        # On redeploy, keep the existing secret even if the re-assert failed —
-        # never drop a working credential.
-        return existing
-
-    print_success(
-        "PostgreSQL superuser password reused"
-        if existing
-        else "PostgreSQL superuser password configured"
+    print_warning(
+        "PostgreSQL superuser password could not be verified over TCP "
+        "(127.0.0.1:5432 as 'postgres'). The role and hop3-server.toml would "
+        "disagree, so addon provisioning would fail — refusing to ship it."
     )
-    return pg_password
+    return None
 
 
 def _verify_postgres_connection() -> bool:

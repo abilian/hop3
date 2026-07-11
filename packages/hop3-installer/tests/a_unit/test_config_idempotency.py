@@ -14,7 +14,8 @@ import stat
 import types
 
 import pytest
-from hop3_installer.server_installer import postgres, services, verify
+from hop3_installer.server_installer import installer, postgres, services, verify
+from hop3_installer.server_installer.config import ServerInstallerConfig
 
 
 @pytest.fixture
@@ -124,6 +125,37 @@ def test_set_postgres_password_generates_fresh_install(monkeypatch):
     assert pw is not None
     assert pw.startswith("hop3_")
     assert pw != "hop3_deadbeefcafe"
+
+
+class TestMissingDbCredentialGate:
+    """A requested DB left without a TCP-verified superuser credential must
+    abort the install, not silently ship a hop3-server.toml the server can't use.
+    """
+
+    def test_postgres_without_password_aborts(self):
+        cfg = ServerInstallerConfig()  # postgres is the always-on baseline
+        err = installer._missing_db_credential_error(cfg, None, "mypw")
+        assert err is not None
+        assert "PostgreSQL" in err[0]
+
+    def test_mysql_requested_without_password_aborts(self):
+        cfg = ServerInstallerConfig(features={"mysql"})
+        err = installer._missing_db_credential_error(cfg, "pgpw", None)
+        assert err is not None
+        assert "MySQL" in err[0]
+
+    def test_mysql_not_requested_is_not_an_error(self):
+        # No --with mysql: a None mysql password is expected, not a failure.
+        cfg = ServerInstallerConfig()
+        assert installer._missing_db_credential_error(cfg, "pgpw", None) is None
+
+    def test_skip_postgres_ignores_missing_pg_password(self):
+        cfg = ServerInstallerConfig(skip_postgres=True)
+        assert installer._missing_db_credential_error(cfg, None, None) is None
+
+    def test_both_verified_is_not_an_error(self):
+        cfg = ServerInstallerConfig(features={"mysql"})
+        assert installer._missing_db_credential_error(cfg, "pgpw", "mypw") is None
 
 
 def test_secret_key_file_roundtrip_and_mode(tmp_path, monkeypatch):
