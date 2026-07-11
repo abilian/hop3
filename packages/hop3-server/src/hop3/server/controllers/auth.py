@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
@@ -32,13 +33,41 @@ if TYPE_CHECKING:
 _AUTH_RATE_LIMITER = RateLimiter(max_requests=5, window_seconds=60.0)
 
 
+# TCP peers we trust to have set X-Forwarded-For. hop3-server sits behind the
+# platform reverse proxy (nginx) on the same host; a client connecting directly
+# to the app port is never trusted to set XFF. Additional proxy IPs (e.g. an
+# external load balancer) can be allow-listed via HOP3_TRUSTED_PROXIES.
+_DEFAULT_TRUSTED_PROXIES: frozenset[str] = frozenset({"127.0.0.1", "::1"})
+
+
+def _trusted_proxies() -> frozenset[str]:
+    extra = os.environ.get("HOP3_TRUSTED_PROXIES", "")
+    if not extra:
+        return _DEFAULT_TRUSTED_PROXIES
+    return _DEFAULT_TRUSTED_PROXIES | {
+        ip.strip() for ip in extra.split(",") if ip.strip()
+    }
+
+
 def _client_ip(request: Request) -> str:
-    """Extract the client IP from request, honoring X-Forwarded-For."""
-    forwarded = request.headers.get("x-forwarded-for", "")
-    if forwarded:
-        # Take the first (original client) IP
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    """Client IP for rate limiting (audit H1, CWE-290).
+
+    X-Forwarded-For is honored ONLY when the TCP peer is a trusted proxy
+    (loopback by default; extend with HOP3_TRUSTED_PROXIES). Otherwise the
+    header is fully client-controlled, so an unauthenticated attacker could
+    send a fresh IP per request and cycle past the per-IP rate limiter.
+
+    When the peer IS trusted, we take the *rightmost* XFF entry — the address
+    our proxy appended ($proxy_add_x_forwarded_for) — not the leftmost, which a
+    client can pre-seed with a spoofed value before the proxy appends the real
+    peer.
+    """
+    peer = request.client.host if request.client else "unknown"
+    if peer in _trusted_proxies():
+        forwarded = request.headers.get("x-forwarded-for", "")
+        if forwarded:
+            return forwarded.split(",")[-1].strip()
+    return peer
 
 
 class AuthController(Controller):
