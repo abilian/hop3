@@ -44,12 +44,9 @@ hop3-test run --docker --reuse
 # Or equivalently:
 hop3-test run --docker --from none
 
-# Remote server via SSH
+# Remote server via SSH (explicit --host, or $HOP3_HOST)
 hop3-test run --host server.example.com
-
-# SSH using HOP3_TEST_HOST env var
-export HOP3_TEST_HOST=server.example.com
-hop3-test run
+export HOP3_HOST=server.example.com && hop3-test run
 
 # Test profile: dev (fast P0 only) or ci (fast + medium P0)
 hop3-test run --docker --mode ci
@@ -357,11 +354,16 @@ Legacy standalone `test.toml` files are still used by procfile-only test apps (`
 
 | Variable | Purpose |
 |----------|---------|
-| `HOP3_DEV_HOST` | SSH target for deployment |
-| `HOP3_TEST_HOST` | Remote target host when `--host` is omitted |
+| `HOP3_HOST` | Remote target host when `--host` is omitted (ADR 052) |
 | `HOP3_TEST_SSH_KEY` | SSH key for remote tests |
 | `HOP3_UNSAFE=true` | Disable auth in Docker tests |
 | `HETZNER_API_TOKEN` | Hetzner Cloud API token (for `hop3-test run --provider hetzner`) |
+
+> **Retired: `HOP3_TEST_HOST` and `HOP3_DEV_HOST` no longer select a test target
+> (ADR 043).** `hop3-test` resolves its target from an explicit `--host` (or
+> `$HOP3_HOST`) only; pytest e2e is Docker-only unless you pass `--ssh-host`.
+> The root `conftest.py` strips those legacy vars so a stray value can't
+> redirect a run at a real box.
 
 ## Troubleshooting
 
@@ -401,11 +403,11 @@ hop3-test why <run-id>
 ### Remote Tests Fail
 
 ```bash
-# Verify SSH connection
-ssh hop3@$HOP3_TEST_HOST "hop3 --version"
+# Verify SSH connection (use the same host you pass to --host)
+ssh hop3@$HOP3_HOST "hop3 --version"
 
 # Check server status
-ssh root@$HOP3_TEST_HOST "systemctl status hop3-server"
+ssh root@$HOP3_HOST "systemctl status hop3-server"
 ```
 
 ## Target Types

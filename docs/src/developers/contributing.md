@@ -115,12 +115,11 @@ If you don't have Docker installed:
 # Install test dependencies
 uv sync --dev
 
-# Ensure HOP3_DEV_HOST is not set (for Docker-based testing)
-unset HOP3_DEV_HOST
-
 # Run the check tier (no Docker)
 make test
 ```
+
+pytest e2e runs against Docker by default; the root `conftest.py` strips `HOP3_DEV_HOST` / `HOP3_TEST_HOST` (ADR 043), so an ambient value can't redirect a run at a real box. Pass `--ssh-host` to target a remote server explicitly.
 
 ### Writing Tests
 

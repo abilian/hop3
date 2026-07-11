@@ -9,10 +9,10 @@ Installer testing is a pytest E2E suite living in `packages/hop3-installer/tests
 | Backend | Option | Use Case |
 |---------|--------|----------|
 | Docker | `--docker` (default) | Quick iteration, CI/CD pipelines |
-| SSH | `--ssh` / `--ssh-host HOST` | Production-like testing on real servers |
+| SSH | `--ssh-host HOST` | Production-like testing on real servers |
 | Vagrant | `--vagrant` | Full system testing with systemd in a VM |
 
-If no backend option is given, the suite defaults to Docker (plus SSH when `HOP3_TEST_HOST` is configured). When any backend option is given, only the requested backends run.
+If no backend option is given, the suite defaults to Docker only. A remote host is used **only** when `--ssh-host HOST` is passed explicitly — it is never taken from an env var (`HOP3_TEST_HOST` / `HOP3_DEV_HOST` are taboo for pytest; the root `conftest.py` strips them, per [ADR 043](/developers/adrs/043-unified-testing-architecture/)). When any backend option is given, only the requested backends run.
 
 ## Quick Start
 
@@ -51,9 +51,8 @@ These options are added by the E2E suite's `conftest.py` and apply to the whole 
 
 | Option | Description |
 |--------|-------------|
-| `--docker` | Enable the Docker backend |
-| `--ssh` | Enable the SSH backend (requires `HOP3_TEST_HOST` or `--ssh-host`) |
-| `--ssh-host HOST` | SSH target in `user@hostname` form (implies `--ssh`) |
+| `--docker` | Enable the Docker backend (the default with no flags) |
+| `--ssh-host HOST` | Enable the SSH backend against `HOST` in `user@hostname` form (the only way to run against a real box) |
 | `--vagrant` | Enable the Vagrant backend (slow; starts VMs) |
 
 ## Docker Backend
@@ -91,15 +90,11 @@ The SSH backend runs the installer on a remote machine. This is the most product
 ### Usage
 
 ```bash
-# Provide the host on the command line
+# Provide the host on the command line (the only way to select a remote target)
 uv run pytest packages/hop3-installer/tests/c_e2e --ssh-host root@server.example.com
-
-# Or set the environment variable and pass --ssh
-export HOP3_TEST_HOST=root@server.example.com
-uv run pytest packages/hop3-installer/tests/c_e2e --ssh
 ```
 
-`HOP3_TEST_HOST` carries the hostname; `HOP3_SSH_USER` sets the user when the host has no `user@` prefix (it defaults to `root`).
+The host comes **only** from `--ssh-host` — it is never read from an env var. `HOP3_SSH_USER` sets the user when the `--ssh-host` value has no `user@` prefix (it defaults to `root`).
 
 ## Vagrant Backend
 
@@ -170,8 +165,9 @@ uv run pytest packages/hop3-installer/tests/c_e2e --docker -m "not slow"
 
 | Variable | Description |
 |----------|-------------|
-| `HOP3_TEST_HOST` | SSH target for the SSH backend (`user@hostname` or bare hostname) |
-| `HOP3_SSH_USER` | SSH user when `HOP3_TEST_HOST` has no `user@` prefix (default: `root`) |
+| `HOP3_SSH_USER` | SSH user when the `--ssh-host` value has no `user@` prefix (default: `root`) |
+
+> `HOP3_TEST_HOST` / `HOP3_DEV_HOST` are retired as SSH-target selectors (ADR 043): the SSH backend is enabled **only** by passing `--ssh-host HOST`. The root `conftest.py` strips those vars so a stray value can't redirect a run at a real box.
 
 ## CI/CD Integration
 
@@ -199,9 +195,7 @@ test-installers-e2e:
     - name: Install dependencies
       run: uv sync
     - name: Test installers on a server
-      env:
-        HOP3_TEST_HOST: ${{ secrets.TEST_SERVER_HOST }}
-      run: uv run pytest packages/hop3-installer/tests/c_e2e --ssh
+      run: uv run pytest packages/hop3-installer/tests/c_e2e --ssh-host ${{ secrets.TEST_SERVER_HOST }}
 ```
 
 ## Troubleshooting
@@ -218,7 +212,7 @@ docker ps
 
 1. Verify SSH access: `ssh user@server echo ok`
 2. Set up key-based auth: `ssh-copy-id user@server`
-3. Check firewall rules and that `HOP3_TEST_HOST` is set or `--ssh-host` is passed
+3. Check firewall rules and that `--ssh-host` is passed with the right host
 
 ### Server tests need root
 
@@ -236,7 +230,7 @@ The E2E suite is organized around a single `Backend` interface with one implemen
 
 ```
 packages/hop3-installer/tests/c_e2e/
-├── conftest.py                 # CLI options (--docker/--ssh/--ssh-host/--vagrant), fixtures
+├── conftest.py                 # CLI options (--docker/--ssh-host/--vagrant), fixtures
 ├── test_cli_installer.py       # CLI installer tests
 ├── test_server_installer.py    # Server installer tests (incl. slow systemd/service tests)
 ├── test_deployer.py            # hop3-deploy-server tests

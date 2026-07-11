@@ -325,7 +325,7 @@ Key options:
 | Option | Description |
 |--------|-------------|
 | `--docker` / `--host` | Target type (Docker, or `--host` for a remote server) |
-| `--host HOST` | Remote target server (or set `HOP3_TEST_HOST`) |
+| `--host HOST` | Remote target server (or set `$HOP3_HOST`, per ADR 052) |
 | `--from {local,git,pypi,none}` | Where to deploy Hop3 from (default `local`) |
 | `--reuse` | Reuse the existing deployment (skip the Hop3 deploy) |
 | `--clean` | Clean install (remove any existing installation first) |

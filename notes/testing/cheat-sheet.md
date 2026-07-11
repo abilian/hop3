@@ -38,12 +38,12 @@ hop3-test system --docker --reuse
 # Or equivalently:
 hop3-test system --docker --deploy-from none
 
-# Remote server via SSH
-hop3-test system --ssh --host server.example.com
+# Remote server via SSH (explicit --host, or $HOP3_HOST)
+hop3-test system --host server.example.com
 
-# SSH using HOP3_TEST_HOST env var
-export HOP3_TEST_HOST=server.example.com
-hop3-test system --ssh
+# Remote server via $HOP3_HOST env var (ADR 052)
+export HOP3_HOST=server.example.com
+hop3-test system
 
 # Test mode: dev (fast) or ci (more thorough)
 hop3-test system --docker --mode ci
@@ -310,10 +310,11 @@ Procfile-only apps without `hop3.toml` (plus demos, tutorials, negative-test cas
 
 | Variable | Purpose |
 |----------|---------|
-| `HOP3_DEV_HOST` | SSH target for deployment |
-| `HOP3_TEST_HOST` | SSH target for `--ssh` without `--host` |
+| `HOP3_HOST` | Remote target host when `--host` is omitted (ADR 052) |
 | `HOP3_TEST_SSH_KEY` | SSH key for remote tests |
 | `HOP3_UNSAFE=true` | Disable auth in Docker tests |
+
+> `HOP3_TEST_HOST` / `HOP3_DEV_HOST` are retired as test-target selectors (ADR 043): pass `--ssh-host` (pytest) or `--host` (hop3-test) explicitly. The root `conftest.py` strips them so a stray value can't redirect a pytest run at a real box.
 
 ## Troubleshooting
 
@@ -357,10 +358,10 @@ ls test-logs/
 
 ```bash
 # Verify SSH connection
-ssh hop3@$HOP3_TEST_HOST "hop3 --version"
+ssh hop3@$HOP3_HOST "hop3 --version"
 
 # Check server status
-ssh root@$HOP3_TEST_HOST "systemctl status hop3-server"
+ssh root@$HOP3_HOST "systemctl status hop3-server"
 ```
 
 ## Target Types
@@ -369,11 +370,11 @@ ssh root@$HOP3_TEST_HOST "systemctl status hop3-server"
 |--------|----------|-------|
 | `--docker` | System tests with fresh deploy | Slow (~5 min startup) |
 | `ready` | App tests with pre-built image | Fast (~30s startup) |
-| `--ssh` | Tests against real servers | Variable |
+| `--host X` | Tests against real servers | Variable |
 
 ### When to Use Each
 
 - **`hop3-test system --docker`**: Testing Hop3 changes (deploys Hop3 first)
 - **`hop3-test system --docker --reuse`**: Fast iteration on existing container
-- **`hop3-test system --ssh --host X`**: Testing against remote servers
+- **`hop3-test system --host X`**: Testing against remote servers
 - **`hop3-test apps`**: Testing app configurations (uses pre-built image)

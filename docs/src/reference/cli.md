@@ -2355,7 +2355,7 @@ JSON output (`--json`) includes `error.exit_code` in the envelope so programmati
 ### Development
 
 - **`HOP3_DEBUG`** - Enable debug logging
-- **`HOP3_DEV_HOST`** - Development server target for testing
+- **`HOP3_HOST`** - Target server for the deploy/test tooling when `--host` is omitted (ADR 052); `HOP3_DEV_HOST` is a deprecated alias and is not read as a pytest test-target selector (ADR 043)
 
 ---
 

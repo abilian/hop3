@@ -125,7 +125,7 @@ uv run pytest packages/hop3-server/tests/d_e2e         # pytest-driven E2E
 
 # Deployment tests (requires server)
 hop3-test system --docker --clean --with nix apps/test-apps-*
-hop3-test system --ssh --host $HOP3_DEV_HOST --clean --with all apps/real-apps-*
+hop3-test system --host $HOP3_HOST --clean --with all apps/real-apps-*
 ```
 
 ## Recent Improvements (2026-05)

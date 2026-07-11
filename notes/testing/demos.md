@@ -48,13 +48,14 @@ python -m demos.demo --host hop3.dev all
 # Run demos on Docker backend
 make test-demos
 
-# Run demos on SSH backend (requires HOP3_DEV_HOST)
-python demos/demo.py run --host $HOP3_DEV_HOST --local
+# Run demos on SSH backend (pass the server explicitly with --host)
+python demos/demo.py run --host <your-server> --local
 ```
 
 ## Environment Variables
 
 | Variable | Purpose |
 |----------|---------|
-| `HOP3_DEV_HOST` | Target server for SSH demos |
 | `HOP3_LOCAL` | Use local code instead of git |
+
+> The SSH demo target is passed explicitly via `--host` — it is not read from an env var. `HOP3_DEV_HOST` / `HOP3_TEST_HOST` are retired as target selectors (ADR 043); the demo runner even strips `HOP3_DEV_HOST` from the CLI subprocess env so a stray value can't redirect it.
