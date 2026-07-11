@@ -170,8 +170,9 @@ pytest packages/hop3-server/tests/b_integration/ -v
 
 **Running**:
 ```bash
-# Ensure HOP3_DEV_HOST is not set
-unset HOP3_DEV_HOST
+# pytest e2e runs against Docker only (pass --ssh-host to target a real box).
+# The root conftest strips HOP3_DEV_HOST / HOP3_TEST_HOST so an ambient value
+# can't redirect the run at a live server (ADR 043).
 pytest packages/hop3-server/tests/c_e2e/ -v
 # or, via the make target:
 make test-e2e
@@ -365,7 +366,7 @@ hop3-test run --host server.example.com --clean --with all
 hop3-test run --host server.example.com --reuse <app-path>
 ```
 
-The host can also come from the `HOP3_TEST_HOST` environment variable.
+The host can also come from `$HOP3_HOST` (ADR 052); the legacy `HOP3_TEST_HOST` / `HOP3_DEV_HOST` vars are retired as target selectors.
 
 ### Test Execution Flow
 
@@ -630,10 +631,9 @@ pytest --lf
 ```bash
 # Install dependencies
 uv sync
-
-# Ensure HOP3_DEV_HOST is not set (for Docker tests)
-unset HOP3_DEV_HOST
 ```
+
+pytest e2e runs against Docker by default; the root `conftest.py` strips `HOP3_DEV_HOST` / `HOP3_TEST_HOST`, so an ambient value can't redirect a run at a real box (ADR 043). Pass `--ssh-host` to target a remote server explicitly.
 
 ---
 

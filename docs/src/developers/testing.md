@@ -42,8 +42,7 @@ pytest packages/hop3-server/tests/a_unit/ packages/hop3-server/tests/b_integrati
 # The Docker e2e layer (c_e2e): real deploys, backups, git-push
 make test-e2e
 
-# Or using pytest directly
-unset HOP3_DEV_HOST
+# Or using pytest directly (Docker-only; pass --ssh-host to target a real box)
 pytest packages/hop3-server/tests/c_e2e/
 ```
 
@@ -88,8 +87,8 @@ hop3-test run --docker                       # Deploy + test defaults on Docker
 hop3-test run --docker --clean --with all    # Clean install with all addons
 hop3-test run --docker apps/real-apps-native # Scan a directory
 hop3-test run --docker apps/real-apps-native/edrix  # One app or path
-hop3-test run --host $HOP3_DEV_HOST    # Remote via SSH
-hop3-test run --reuse --host $HOP3_DEV_HOST   # Skip deploy, test existing
+hop3-test run --host server.example.com    # Remote via SSH (or set $HOP3_HOST)
+hop3-test run --reuse --host server.example.com   # Skip deploy, test existing
 hop3-test run --docker --from git --branch devel  # Deploy from git
 hop3-test run --docker --mode nightly        # Wider matrix (smoke | ci | nightly | full | ...)
 
@@ -148,7 +147,8 @@ pytest packages/hop3-server/tests/b_integration/ -v
 **Marker**: `e2e` (+ `needs_docker`)
 
 ```bash
-unset HOP3_DEV_HOST
+# Docker-only by default; the root conftest strips HOP3_DEV_HOST / HOP3_TEST_HOST
+# (ADR 043), and --ssh-host is the only way to target a real box.
 pytest packages/hop3-server/tests/c_e2e/ -v
 ```
 

@@ -17,55 +17,56 @@ The E2E tests verify that installers work correctly on real targets. They suppor
 
 | Backend | Description | Default |
 |---------|-------------|---------|
-| `docker` | Local Docker containers | Yes (if Docker available) |
-| `ssh` | Remote SSH hosts | Yes (if `HOP3_TEST_HOST` set) |
+| `docker` | Local Docker containers | **Yes** (the default target) |
+| `ssh` | Remote SSH hosts | No — explicit `--ssh-host HOST` only |
 | `vagrant` | Local Vagrant VMs | No (requires `--vagrant`) |
+
+> **A remote host is never taken from an env var.** `HOP3_TEST_HOST` and
+> `HOP3_DEV_HOST` are **taboo** for pytest (ADR 043): the root conftest strips
+> them, so an ambient value set for `hop3-deploy-server` / `hop3-test` can't
+> silently redirect a test run at a real box (which once collided with a live
+> `hop3-test` run). Remote testing is opt-in **only** via `--ssh-host`.
 
 ### CLI Options
 
 ```
-Hop3 E2E test options:
-  --docker              Enable Docker backend
-  --ssh                 Enable SSH backend (requires HOP3_TEST_HOST or --ssh-host)
-  --ssh-host HOST       SSH host to test against (implies --ssh)
+Hop3 test options:
+  --ssh-host HOST       Run against a remote SSH host (explicit opt-in)
+  --docker              Run against Docker (the default with no flags)
   --vagrant             Enable Vagrant backend (slow, starts VMs)
 ```
 
 **Behavior:**
-- If no options specified: defaults to Docker + SSH (if configured)
-- If any option specified: only those backends are enabled
+- No flags → Docker only.
+- Any explicit flag → exactly the requested targets. `--ssh-host HOST` adds the
+  remote target; combine with `--docker` to run both.
 
 ### Running E2E Tests
 
 ```bash
-# Default: Docker + SSH (if HOP3_TEST_HOST is set)
+# Default: Docker only
 pytest tests/c_e2e/ -v
 
-# Docker only
+# Docker only (explicit)
 pytest tests/c_e2e/ --docker
 
-# SSH only (using environment variable)
-HOP3_TEST_HOST=server.example.com pytest tests/c_e2e/ --ssh
-
-# SSH only (using CLI option)
+# Remote SSH host (the ONLY way to run against a real box)
 pytest tests/c_e2e/ --ssh-host server.example.com
+
+# Docker + remote
+pytest tests/c_e2e/ --docker --ssh-host server.example.com
 
 # Vagrant only
 pytest tests/c_e2e/ --vagrant
-
-# Docker + Vagrant
-pytest tests/c_e2e/ --docker --vagrant
-
-# All three backends
-HOP3_TEST_HOST=server.example.com pytest tests/c_e2e/ --docker --ssh --vagrant
 ```
 
 ### Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `HOP3_TEST_HOST` | SSH target hostname (e.g., `server.example.com`) |
-| `HOP3_SSH_USER` | SSH user (default: `root`) |
+| `HOP3_SSH_USER` | SSH user for `--ssh-host` when it has no `user@` (default: `root`) |
+
+`HOP3_TEST_HOST` / `HOP3_DEV_HOST` are **not** read — pass `--ssh-host` instead.
 
 ### Backend Requirements
 
@@ -76,7 +77,7 @@ HOP3_TEST_HOST=server.example.com pytest tests/c_e2e/ --docker --ssh --vagrant
 
 #### SSH
 
-- SSH host must be specified via `HOP3_TEST_HOST` or `--ssh-host`
+- SSH host must be specified via `--ssh-host HOST` (env vars are ignored)
 - SSH key authentication must be configured for the target user
 - The user must have sudo access on the target
 

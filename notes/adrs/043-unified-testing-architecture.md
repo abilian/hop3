@@ -102,10 +102,12 @@ Everything that stands up a server routes through the `DeploymentTarget` ABC + t
 | Target | When | Gate |
 |--------|------|------|
 | `--docker` | default; dev + CI | the only one wired into routine CI |
-| `--ssh --host $HOP3_DEV_HOST` | systemd-specific paths (rootd, nginx reload, www-data perms) Docker can't fully exercise | nightly / manual |
-| `--hetzner` | multi-distro, real-server release validation | release gate only, behind `HETZNER_API_TOKEN` |
+| `--ssh-host <host>` | systemd-specific paths (rootd, nginx reload, www-data perms) Docker can't fully exercise | nightly / manual |
+| `--provider hetzner` | multi-distro, real-server release validation | release gate only, behind `HETZNER_API_TOKEN` |
 
 A developer can run one real e2e fast: `hop3-test system --docker <app>` against the cached image, with `--reuse` to iterate on verification alone. **Bug to fix in passing:** `c_e2e` rebuilds the Docker image every session while `c_system` checks-then-reuses it; the reuse behaviour becomes the shared default.
+
+**Target selection is explicit, and Docker is the only default (a target env var is taboo for pytest).** A pytest run touches a remote box **only** when `--ssh-host <host>` is passed on the command line; with no flag it runs against Docker. The remote-host env vars `HOP3_TEST_HOST` and `HOP3_DEV_HOST` (and the alias `HOP3_TEST_SERVER`) are **never** read to select or point a pytest target — the root `conftest.py` strips them for the whole session. This closes a real defect: those vars, which a developer legitimately sets for `hop3-deploy-server` / `hop3-test`, used to make `pytest` deploy to that box, so an ordinary local test run collided with a live `hop3-test` run against the same server and corrupted its results. Selection by ambient state is the class of bug the [ADR 042](./042-cli-context-model.md) resolver was built to prevent; the test harness gets the same rule. (`HOP3_SSH_USER` is not a target selector — it only supplies the user for a `--ssh-host` value that omits `user@` — and is left readable.)
 
 ### 7. Shared diagnostics: the silent-502 fix
 

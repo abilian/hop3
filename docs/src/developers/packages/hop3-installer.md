@@ -248,7 +248,7 @@ Broader app/deploy testing lives in the separate `hop3-testing` package (`hop3-t
 
 | Variable | Description |
 |----------|-------------|
-| `HOP3_DEV_HOST` | Target server hostname (alias: `HOP3_TEST_SERVER`) |
+| `HOP3_HOST` | Target server hostname (deprecated aliases: `HOP3_DEV_HOST`, `HOP3_TEST_SERVER`) |
 | `HOP3_SSH_USER` | SSH user (default: root) |
 | `HOP3_GIT` | Install from git instead of PyPI (PyPI is the default) |
 | `HOP3_BRANCH` | Git branch to deploy (implies `HOP3_GIT`, default: devel) |
