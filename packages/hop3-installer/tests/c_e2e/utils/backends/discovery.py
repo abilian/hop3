@@ -27,11 +27,24 @@ __all__ = [
     "docker_available",
     "docker_systemd_image_exists",
     "get_backend",
+    "set_ssh_host",
     "ssh_host_available",
     "ssh_host_connectable",
     "ssh_raw_host",
     "vagrant_installed",
 ]
+
+# The explicit remote SSH host for this test session, set from the ``--ssh-host``
+# CLI option by the c_e2e conftest. This is the ONLY source of a remote target:
+# HOP3_TEST_HOST / HOP3_DEV_HOST are deliberately NOT read, so an ambient env var
+# can never redirect a pytest run at a real box (it collided with live hop3-test
+# runs). See ADR 043. Held in a dict so we mutate without a `global` statement.
+_ssh_target: dict[str, str | None] = {"host": None}
+
+
+def set_ssh_host(host: str | None) -> None:
+    """Set the explicit remote SSH host (from --ssh-host). None disables SSH."""
+    _ssh_target["host"] = host or None
 
 
 def docker_available() -> bool:
@@ -68,15 +81,16 @@ def docker_systemd_image_exists() -> bool:
 
 
 def ssh_host_available() -> str | None:
-    """Get SSH host from environment if available.
+    """The configured remote SSH target as ``user@host``, or None.
 
-    Uses HOP3_TEST_HOST for the hostname and HOP3_SSH_USER for the user
-    (defaults to root). If HOP3_TEST_HOST already contains @, it's used as-is.
+    The host comes from the explicit ``--ssh-host`` option (set_ssh_host); the
+    user from HOP3_SSH_USER (default root). HOP3_TEST_HOST is NOT consulted —
+    an env var must never point a pytest target (ADR 043).
 
     Returns:
         SSH host string (user@host) or None if not configured.
     """
-    host = os.environ.get("HOP3_TEST_HOST")
+    host = _ssh_target["host"]
     if not host:
         return None
 
@@ -90,15 +104,15 @@ def ssh_host_available() -> str | None:
 
 
 def ssh_raw_host() -> str | None:
-    """Get raw SSH hostname from environment (without user prefix).
+    """The configured remote hostname (no ``user@`` prefix), or None.
 
-    Returns just the hostname part of HOP3_TEST_HOST, stripping any user@ prefix.
-    Use this for commands like hop3-deploy that handle users internally.
+    From the explicit ``--ssh-host`` option only (not HOP3_TEST_HOST). Use this
+    for commands like hop3-deploy that handle the SSH user internally.
 
     Returns:
         Raw hostname or None if not configured.
     """
-    host = os.environ.get("HOP3_TEST_HOST")
+    host = _ssh_target["host"]
     if not host:
         return None
 
@@ -239,7 +253,7 @@ def get_backend(
     if backend_type == "ssh":
         host = ssh_host_available()
         if not host:
-            msg = "HOP3_TEST_HOST environment variable not set"
+            msg = "no SSH host configured; pass --ssh-host HOST (env vars are ignored)"
             raise ValueError(msg)
         return SSHBackend(host=host)
 

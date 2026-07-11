@@ -3,18 +3,18 @@
 """Pytest fixtures for E2E installer tests.
 
 Provides multi-backend support for testing installers on:
-- Docker containers (default)
-- SSH hosts (when HOP3_TEST_HOST is set or --ssh-host is provided)
-- Vagrant VMs (when --vagrant is used)
+- Docker containers (the default target)
+- SSH hosts — EXPLICIT opt-in only, via ``--ssh-host HOST`` (root conftest)
+- Vagrant VMs (when ``--vagrant`` is used)
 
 CLI options:
-    --docker        Enable Docker backend
-    --ssh           Enable SSH backend (requires HOP3_TEST_HOST or --ssh-host)
-    --ssh-host HOST Specify SSH host (implies --ssh)
+    --docker        Run against Docker (this is the default with no flags)
+    --ssh-host HOST Run against a remote SSH host (explicit; from root conftest)
     --vagrant       Enable Vagrant backend
 
-If no backend options are specified, defaults to Docker + SSH (if configured).
-If any backend option is specified, only those backends are enabled.
+Target selection (ADR 043): with NO flags, only Docker runs. Any explicit flag
+selects exactly the requested targets. A remote host is NEVER taken from an env
+var (HOP3_TEST_HOST / HOP3_DEV_HOST are taboo) — only from ``--ssh-host``.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ import pytest
 from .utils import bundle_installers, get_backend
 from .utils.backends import (
     docker_available,
-    ssh_host_available,
+    set_ssh_host,
     ssh_host_connectable,
     vagrant_installed,
 )
@@ -46,27 +46,13 @@ if TYPE_CHECKING:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    """Add custom CLI options for backend selection."""
-    group = parser.getgroup("hop3", "Hop3 E2E test options")
-
+    """Add installer-specific target flags (``--ssh-host`` is registered at root)."""
+    group = parser.getgroup("hop3", "Hop3 test options")
     group.addoption(
         "--docker",
         action="store_true",
         default=False,
-        help="Enable Docker backend",
-    )
-    group.addoption(
-        "--ssh",
-        action="store_true",
-        default=False,
-        help="Enable SSH backend (requires HOP3_TEST_HOST or --ssh-host)",
-    )
-    group.addoption(
-        "--ssh-host",
-        action="store",
-        default=None,
-        metavar="HOST",
-        help="SSH host to test against (implies --ssh)",
+        help="Run against Docker (the default target when no flag is given)",
     )
     group.addoption(
         "--vagrant",
@@ -76,143 +62,92 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
-# Deploy-target vars the `hop3-deploy-server` CLI reads to pick a target
-# (see deployer/config.py). NOT HOP3_TEST_HOST — that is the harness's own
-# explicit-opt-in var, set from --ssh-host.
-_AMBIENT_DEPLOY_TARGET_VARS = (
-    "HOP3_HOST",
-    "HOP3_DEV_HOST",
-    "HOP3_TEST_SERVER",
-    "HOP3_DOCKER",
-)
+# Env vars the `hop3-deploy-server` subprocess reads to pick a target
+# (deployer/config.py). Cleared so a bare `hop3-deploy-server` spawned by a test
+# can't inherit a real host. The remote-host selectors (HOP3_DEV_HOST /
+# HOP3_TEST_HOST / HOP3_TEST_SERVER) are already stripped by the root conftest.
+_AMBIENT_DEPLOY_TARGET_VARS = ("HOP3_HOST", "HOP3_DOCKER")
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Strip ambient deploy-target env vars so no c_e2e test can silently deploy.
+    """Neutralise ambient targeting, then wire the explicit ``--ssh-host``.
 
-    A bare ``hop3-deploy-server`` subprocess inherits the environment; with
-    ``HOP3_DEV_HOST`` (etc.) set in the shell it would deploy to a REAL host —
-    the accident that ``unset HOP3_DEV_HOST`` was papering over (easy to forget).
-    Running against a host must be explicit: pass ``--host`` in the test, or the
-    ``--ssh-host`` option (which uses HOP3_TEST_HOST, left untouched here).
+    The remote host comes ONLY from ``--ssh-host`` (an explicit flag); it is
+    never read from the environment. With no ``--ssh-host``, SSH is disabled and
+    tests run against Docker.
     """
     for var in _AMBIENT_DEPLOY_TARGET_VARS:
         os.environ.pop(var, None)
+    set_ssh_host(config.getoption("--ssh-host"))
 
 
-def _get_ssh_host(config: pytest.Config) -> str | None:
-    """Get SSH host from CLI option or environment variable."""
-    # CLI option takes precedence
-    cli_host = config.getoption("--ssh-host")
-    if cli_host:
-        return cli_host
-    # Fall back to environment variable
-    return ssh_host_available()
-
-
-def _explicit_backends_requested(config: pytest.Config) -> bool:
-    """Check if any explicit backend option was specified."""
+def _explicit_target_requested(config: pytest.Config) -> bool:
+    """Whether the user explicitly named any target (Docker / SSH / Vagrant)."""
     return (
         config.getoption("--docker")
-        or config.getoption("--ssh")
         or config.getoption("--ssh-host") is not None
         or config.getoption("--vagrant")
     )
 
 
-def get_enabled_backends(config: pytest.Config) -> list[str]:
-    """Get list of enabled backends based on CLI options.
+def _select_targets(
+    config: pytest.Config,
+    *,
+    docker_label: str,
+    include_vagrant: bool,
+    check_ssh_connectable: bool,
+) -> list[str]:
+    """Resolve enabled targets. Docker is the default; SSH is explicit-only.
 
-    If no backend options specified: defaults to docker + ssh (if configured).
-    If any backend option specified: only those backends are enabled.
+    - Docker runs unless the user explicitly asked for a *different* target.
+    - SSH runs only when ``--ssh-host`` was given (never from an env var).
+    - Vagrant runs only with ``--vagrant``.
     """
-    explicit = _explicit_backends_requested(config)
+    explicit = _explicit_target_requested(config)
+    targets: list[str] = []
 
-    backends = []
+    if (config.getoption("--docker") or not explicit) and docker_available():
+        targets.append(docker_label)
 
-    # Docker
-    if explicit:
-        if config.getoption("--docker") and docker_available():
-            backends.append("docker")
-    # Default: enable if available
-    elif docker_available():
-        backends.append("docker")
+    if config.getoption("--ssh-host") is not None and (
+        not check_ssh_connectable or ssh_host_connectable()
+    ):
+        targets.append("ssh")
 
-    # SSH
-    ssh_host = _get_ssh_host(config)
-    if explicit:
-        if (config.getoption("--ssh") or config.getoption("--ssh-host")) and ssh_host:
-            # Store host in environment for backends to use
-            os.environ["HOP3_TEST_HOST"] = ssh_host
-            backends.append("ssh")
-    # Default: enable if host is configured
-    elif ssh_host:
-        backends.append("ssh")
+    if include_vagrant and config.getoption("--vagrant") and vagrant_installed():
+        targets.append("vagrant")
 
-    # Vagrant (never default, always explicit)
-    if config.getoption("--vagrant") and vagrant_installed():
-        backends.append("vagrant")
+    return targets
 
-    return backends
+
+def get_enabled_backends(config: pytest.Config) -> list[str]:
+    """Enabled backends (Docker default; SSH via --ssh-host; Vagrant via flag)."""
+    return _select_targets(
+        config,
+        docker_label="docker",
+        include_vagrant=True,
+        check_ssh_connectable=False,
+    )
 
 
 def get_enabled_systemd_backends(config: pytest.Config) -> list[str]:
-    """Get list of enabled backends that support systemd."""
-    explicit = _explicit_backends_requested(config)
-
-    backends = []
-
-    # Docker with systemd
-    if explicit:
-        if config.getoption("--docker") and docker_available():
-            backends.append("docker-systemd")
-    # Default: enable if available
-    elif docker_available():
-        backends.append("docker-systemd")
-
-    # SSH (has systemd)
-    ssh_host = _get_ssh_host(config)
-    if explicit:
-        if (config.getoption("--ssh") or config.getoption("--ssh-host")) and ssh_host:
-            os.environ["HOP3_TEST_HOST"] = ssh_host
-            backends.append("ssh")
-    # Default: enable if host is configured
-    elif ssh_host:
-        backends.append("ssh")
-
-    # Vagrant (has systemd, never default)
-    if config.getoption("--vagrant") and vagrant_installed():
-        backends.append("vagrant")
-
-    return backends
+    """Enabled systemd-capable backends (Docker-systemd default; SSH via flag)."""
+    return _select_targets(
+        config,
+        docker_label="docker-systemd",
+        include_vagrant=True,
+        check_ssh_connectable=False,
+    )
 
 
 def get_enabled_deploy_targets(config: pytest.Config) -> list[str]:
-    """Get list of enabled deployment targets based on CLI options."""
-    explicit = _explicit_backends_requested(config)
-
-    targets = []
-
-    # Docker
-    if explicit:
-        if config.getoption("--docker") and docker_available():
-            targets.append("docker")
-    elif docker_available():
-        targets.append("docker")
-
-    # SSH (check connectivity)
-    ssh_host = _get_ssh_host(config)
-    if explicit:
-        if (config.getoption("--ssh") or config.getoption("--ssh-host")) and ssh_host:
-            os.environ["HOP3_TEST_HOST"] = ssh_host
-            if ssh_host_connectable():
-                targets.append("ssh")
-    elif ssh_host_connectable():
-        targets.append("ssh")
-
-    # Vagrant not supported for hop3-deploy
-
-    return targets
+    """Enabled hop3-deploy targets (Docker default; SSH via flag, connectivity-checked)."""
+    return _select_targets(
+        config,
+        docker_label="docker",
+        include_vagrant=False,
+        check_ssh_connectable=True,
+    )
 
 
 # =============================================================================
@@ -220,24 +155,47 @@ def get_enabled_deploy_targets(config: pytest.Config) -> list[str]:
 # =============================================================================
 
 
+def _no_target_reason(config: pytest.Config, kind: str) -> str:
+    """Actionable skip reason when no target is enabled.
+
+    The common case — no ``--ssh-host`` and a down Docker daemon — must say so
+    (a bare "no targets available" hid that Docker/OrbStack simply wasn't
+    running), not read as "nothing to run".
+    """
+    if config.getoption("--ssh-host") is None and not docker_available():
+        return (
+            f"No {kind}: Docker is the default target but the Docker daemon "
+            "isn't reachable — start Docker (e.g. `orb start` for OrbStack, or "
+            "Docker Desktop). Or pass --ssh-host <host> to test a remote server."
+        )
+    if config.getoption("--ssh-host") is not None:
+        return (
+            f"No {kind}: --ssh-host was given but the host isn't reachable "
+            "(SSH connect failed); check the host/credentials."
+        )
+    return f"No {kind}: pass --docker, --ssh-host <host>, or --vagrant."
+
+
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     """Dynamically parametrize fixtures based on CLI options."""
     if "backend" in metafunc.fixturenames:
         backends = get_enabled_backends(metafunc.config)
         if not backends:
-            pytest.skip("No backends available")
+            pytest.skip(_no_target_reason(metafunc.config, "backends available"))
         metafunc.parametrize("backend", backends, indirect=True, scope="module")
 
     if "systemd_backend" in metafunc.fixturenames:
         backends = get_enabled_systemd_backends(metafunc.config)
         if not backends:
-            pytest.skip("No systemd backends available")
+            pytest.skip(
+                _no_target_reason(metafunc.config, "systemd backends available")
+            )
         metafunc.parametrize("systemd_backend", backends, indirect=True, scope="module")
 
     if "deploy_target" in metafunc.fixturenames:
         targets = get_enabled_deploy_targets(metafunc.config)
         if not targets:
-            pytest.skip("No deploy targets available")
+            pytest.skip(_no_target_reason(metafunc.config, "deploy targets available"))
         metafunc.parametrize("deploy_target", targets, scope="module")
 
 
