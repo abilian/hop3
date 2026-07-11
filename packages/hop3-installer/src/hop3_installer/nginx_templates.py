@@ -306,7 +306,14 @@ After=network.target
 Type=notify
 User=hop3
 Group=hop3
-ExecStart=/home/hop3/venv/bin/uwsgi --emperor /home/hop3/uwsgi-enabled --stats /tmp/hop3-uwsgi-stats.sock
+# No --stats socket: it had no consumer (nothing reads it), yet a stale socket
+# in the sticky /tmp — left by a crash, or owned by a prior hop3 uid — makes
+# uWSGI's unlink() fail with EPERM, then bind() "address already in use", so the
+# Emperor is buried on EVERY start. systemd gives up after the retry burst and
+# NO app ever gets a vassal (this bricked whole remote boxes; Docker was spared
+# because its supervisor command omits --stats). If stats monitoring is wanted,
+# re-add it on a hop3-owned RuntimeDirectory (/run/hop3-*), never sticky /tmp.
+ExecStart=/home/hop3/venv/bin/uwsgi --emperor /home/hop3/uwsgi-enabled
 Restart=always
 KillSignal=SIGQUIT
 NotifyAccess=all
