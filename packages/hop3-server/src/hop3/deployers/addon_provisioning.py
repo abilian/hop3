@@ -34,6 +34,59 @@ if TYPE_CHECKING:
     DbSession = Session | scoped_session[Session]
 
 
+def _is_db_auth_failure(error: str) -> bool:
+    """Whether a provisioning error is the DB rejecting our credential.
+
+    A password/auth rejection means the service IS installed and reachable — the
+    opposite of the "not installed" hint we'd otherwise show. (Postgres:
+    "password authentication failed"; a missing password: "no password
+    supplied"; MySQL: "access denied".)
+    """
+    e = error.lower()
+    return (
+        "authentication failed" in e
+        or "no password supplied" in e
+        or "access denied" in e
+    )
+
+
+def _addon_failure_guidance(addon_type: str, error: str) -> tuple[str, list[str]]:
+    """Pick an actionable (hint, troubleshooting) for a provisioning failure.
+
+    Distinguishes a credential mismatch (service up, wrong password) from a
+    genuinely-missing service, so the operator isn't sent to re-run
+    ``--with <type>`` for a problem that has nothing to do with installation.
+    """
+    if _is_db_auth_failure(error):
+        toml = "/home/hop3/hop3-server.toml"
+        if addon_type == "postgres":
+            secret, cli = "POSTGRES_SUPERUSER_PASSWORD", "postgres"
+        else:
+            secret, cli = "MYSQL_SUPERUSER_PASSWORD", addon_type
+        hint = (
+            f"{addon_type} is reachable but rejected the superuser credential: "
+            f"{secret} in {toml} does not match the live server's password. "
+            "These drift when the DB cluster survives a redeploy that rewrote "
+            "the config. Re-run the installer — it now re-asserts and verifies "
+            "the superuser password against the running server."
+        )
+        return hint, [
+            f"grep {secret} {toml}",
+            f"hop3-install server --with {cli}",
+            "hop3 addon list",
+        ]
+
+    hint = (
+        f"Check that {addon_type} is installed and running on the server. "
+        f"You may need to re-run the installer with '--with {addon_type}'"
+    )
+    return hint, [
+        f"hop3-install server --with {addon_type}",
+        f"systemctl status {addon_type} (or supervisorctl status)",
+        "hop3 addon list",
+    ]
+
+
 def provision_addons(
     app: App,
     addon_configs: list[dict],
@@ -289,21 +342,14 @@ def _provision_single_addon(
             addon_type=addon_type,
             error=str(e),
         )
+        hint, troubleshooting = _addon_failure_guidance(addon_type, str(e))
         abort_with_diagnosis(
             Diagnosis(
                 component="Addon provisioning",
                 action=f"provision {addon_type} addon '{addon_name}'",
                 reason=str(e),
-                hint=(
-                    f"Check that {addon_type} is installed and running on "
-                    f"the server. You may need to re-run the installer "
-                    f"with '--with {addon_type}'"
-                ),
-                troubleshooting=[
-                    f"hop3-install server --with {addon_type}",
-                    (f"systemctl status {addon_type} (or supervisorctl status)"),
-                    "hop3 addon list",
-                ],
+                hint=hint,
+                troubleshooting=troubleshooting,
             )
         )
 

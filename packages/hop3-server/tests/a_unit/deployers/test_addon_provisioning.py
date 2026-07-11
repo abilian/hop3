@@ -10,8 +10,70 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from hop3.deployers.addon_provisioning import provision_addons
+from hop3.deployers.addon_provisioning import (
+    _addon_failure_guidance,
+    _is_db_auth_failure,
+    provision_addons,
+)
 from hop3.deployers.env_provisioning import set_default_env_vars, set_env_vars
+
+
+class TestAddonFailureClassification:
+    """A DB credential rejection must not be reported as 'not installed'."""
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            'FATAL:  password authentication failed for user "postgres"',
+            "connection ... failed: FATAL: password authentication failed",
+            "fe_sendauth: no password supplied",
+            "Access denied for user 'hop3'@'localhost'",
+        ],
+    )
+    def test_auth_failures_detected(self, error) -> None:
+        assert _is_db_auth_failure(error) is True
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            "could not connect to server: Connection refused",
+            "psql: command not found",
+            "database system is starting up",
+        ],
+    )
+    def test_non_auth_failures_not_detected(self, error) -> None:
+        assert _is_db_auth_failure(error) is False
+
+    def test_postgres_auth_failure_points_at_the_credential_not_the_install(
+        self,
+    ) -> None:
+        hint, steps = _addon_failure_guidance(
+            "postgres", 'FATAL: password authentication failed for user "postgres"'
+        )
+        # The desync hint names the real cause and does NOT tell the operator
+        # postgres is missing.
+        assert "POSTGRES_SUPERUSER_PASSWORD" in hint
+        assert "installed" not in hint.lower()
+        assert any("POSTGRES_SUPERUSER_PASSWORD" in s for s in steps)
+
+    def test_mysql_auth_failure_points_at_the_credential_not_the_install(
+        self,
+    ) -> None:
+        hint, steps = _addon_failure_guidance(
+            "mysql", "Access denied for user 'root'@'localhost'"
+        )
+        # MySQL's analog of the postgres desync: the credential is wrong, the
+        # service is up — don't send the operator to re-install (DEFERRED #207).
+        assert "MYSQL_SUPERUSER_PASSWORD" in hint
+        assert "installed" not in hint.lower()
+        assert "hop3-install server --with mysql" in steps
+
+    def test_connection_refused_keeps_the_not_installed_hint(self) -> None:
+        hint, steps = _addon_failure_guidance(
+            "postgres", "could not connect to server: Connection refused"
+        )
+        assert "installed and running" in hint
+        assert "hop3-install server --with postgres" in steps
 
 
 @pytest.fixture
