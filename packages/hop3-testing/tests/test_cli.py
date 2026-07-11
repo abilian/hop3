@@ -77,8 +77,10 @@ class TestSystemCommand:
 
     def test_run_requires_target(self, monkeypatch):
         """Test the `run` command requires --docker or a --host target."""
-        # ADR 052 D2: --host/HOP3_TEST_HOST implies remote, so clear the env or
-        # a leaked host would silently select the remote target.
+        # --host resolves from $HOP3_HOST (ADR 052 D2); clear it so a leaked
+        # value can't select the remote target. HOP3_TEST_HOST is retired (ADR
+        # 043) and no longer consulted, but clear it too for good measure.
+        monkeypatch.delenv("HOP3_HOST", raising=False)
         monkeypatch.delenv("HOP3_TEST_HOST", raising=False)
         runner = CliRunner()
         result = runner.invoke(cli, ["run"])
@@ -93,6 +95,7 @@ class TestSystemReuse:
 
     def test_reuse_requires_target(self, monkeypatch):
         """Test `run --reuse` still requires --docker or a --host target."""
+        monkeypatch.delenv("HOP3_HOST", raising=False)
         monkeypatch.delenv("HOP3_TEST_HOST", raising=False)
         runner = CliRunner()
         result = runner.invoke(cli, ["run", "--reuse"])

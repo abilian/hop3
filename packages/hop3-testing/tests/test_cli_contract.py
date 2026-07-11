@@ -131,7 +131,9 @@ def test_host_alone_selects_remote(monkeypatch):
 
 
 def test_no_target_and_no_host_errors(monkeypatch):
-    monkeypatch.delenv("HOP3_TEST_HOST", raising=False)
+    # --host resolves from $HOP3_HOST (ADR 052); clear it so a leaked value can't
+    # select a target. (HOP3_TEST_HOST is retired and no longer consulted.)
+    monkeypatch.delenv("HOP3_HOST", raising=False)
     result = CliRunner().invoke(cli, ["run"])
     assert result.exit_code != 0
     assert "specify --docker" in result.stderr

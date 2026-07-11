@@ -21,6 +21,12 @@ if TYPE_CHECKING:
 def build_test_env(target_info: TargetInfo) -> dict[str, str]:
     """Build environment variables for test subprocess execution.
 
+    The ``HOP3_TEST_*`` vars are OUTPUTS the harness hands to a test/tutorial/
+    demo subprocess (check.py, validoc) so it knows where the deployed server
+    is. They are NOT target selectors: the harness resolves its own target from
+    an explicit ``--host`` / ``--docker`` only (ADR 043 retired HOP3_TEST_HOST /
+    HOP3_DEV_HOST as ambient selectors), then reports the result here.
+
     Args:
         target_info: Target information with SSH connection details.
 
