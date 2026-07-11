@@ -11,6 +11,8 @@ attributes.
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -22,8 +24,11 @@ from tests.a_unit._fakes import FakeExec, fail
 
 @pytest.fixture
 def app_root(tmp_path, monkeypatch):
-    monkeypatch.setattr(mount, "APP_ROOT", tmp_path)
-    return tmp_path
+    # realpath so expected mountpoints match mountpoint_for's realpath output
+    # (audit M1): on macOS tmp_path lives under /var -> /private/var.
+    root = Path(os.path.realpath(tmp_path))
+    monkeypatch.setattr(mount, "APP_ROOT", root)
+    return root
 
 
 @pytest.fixture
@@ -44,9 +49,21 @@ def test_mountpoint_for_builds_under_app_src(app_root):
 
 
 def test_mountpoint_for_rejects_escape(app_root):
-    # Defense in depth: even if validation were bypassed, normpath catches it.
+    # Defense in depth: even if validation were bypassed, the containment
+    # check catches a lexical '..' escape.
     with pytest.raises(MountError, match="escapes"):
         mount.mountpoint_for("blog", "../../etc/cron.d")
+
+
+def test_mountpoint_for_rejects_symlink_escape(app_root):
+    # audit M1 (CWE-59): a symlink planted inside src/ pointing outside the app
+    # tree must be rejected. normpath would follow it silently; realpath catches
+    # it. The attacker has the hop3 UID and can write to src/.
+    src = app_root / "blog" / "src"
+    src.mkdir(parents=True)
+    (src / "escape").symlink_to("/etc")
+    with pytest.raises(MountError, match="escapes"):
+        mount.mountpoint_for("blog", "escape/cron.d")
 
 
 # --- mount_tmpfs ----------------------------------------------------------
