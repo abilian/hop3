@@ -733,6 +733,14 @@ def get_files_to_add(source_dir: Path, spec: pathspec.PathSpec) -> list[Path]:
         if spec.match_file(relative_str):
             continue
 
+        # Never archive symlinks (audit M5). is_file() dereferences a symlink,
+        # so a link pointing outside the source tree (e.g. ~/.ssh/id_rsa) would
+        # otherwise pass this filter and tarfile would read and upload the
+        # target's contents. Skip the link itself; is_file() below still adds
+        # the real files a symlinked target would have exposed only via the link.
+        if file_path.is_symlink():
+            continue
+
         # We only add files to the tar, not directories
         if not file_path.is_file():
             continue
