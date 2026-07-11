@@ -749,8 +749,13 @@ class SystemLogsCmd(Command):
             all_lines = [ln for ln in all_lines if f"[{level}]" in ln]
 
         if grep:
-            pattern = re.compile(grep, re.IGNORECASE)
-            all_lines = [ln for ln in all_lines if pattern.search(ln)]
+            # Case-insensitive substring match (audit M3): compiling the
+            # attacker-supplied string as a regex allowed catastrophic
+            # backtracking (ReDoS) that exhausts the shared server CPU. Plain
+            # substring matches the documented behavior ("lines containing …")
+            # and the adjacent --level filter — no regex engine, no ReDoS.
+            needle = grep.lower()
+            all_lines = [ln for ln in all_lines if needle in ln.lower()]
 
         result_lines = all_lines[-lines:]
 
