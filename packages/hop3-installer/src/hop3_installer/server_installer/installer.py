@@ -274,6 +274,42 @@ def _run_service_setup_steps(
     return secret_key, pg_password, mysql_password
 
 
+def _missing_db_credential_error(
+    config: ServerInstallerConfig,
+    pg_password: str | None,
+    mysql_password: str | None,
+) -> tuple[str, str] | None:
+    """(error, detail) if a requested DB lacks a TCP-verified superuser credential.
+
+    A requested database that setup couldn't leave with a verified superuser
+    password must abort the install rather than write a hop3-server.toml the
+    server can't use. Postgres ships a POSTGRES_SUPERUSER_PASSWORD the role
+    won't honour; MySQL omits MYSQL_SUPERUSER_PASSWORD so the server falls back
+    to 'root' and hits "Access denied for user 'root'@'localhost'"
+    (DEFERRED-APPS.md #207). Returns None when both requested DBs are fine.
+    """
+    if not config.skip_postgres and pg_password is None:
+        return (
+            "PostgreSQL superuser password could not be configured and verified.",
+            (
+                "The postgres service must be running and accept a TCP connection "
+                "as 'postgres' on 127.0.0.1:5432. Fix that and re-run the installer."
+            ),
+        )
+    if config.with_mysql and mysql_password is None:
+        return (
+            (
+                "MySQL was requested but the hop3 MySQL user could not be "
+                "configured and verified."
+            ),
+            (
+                "MySQL must be running and accept a TCP connection as 'hop3' on "
+                "127.0.0.1:3306. Fix that and re-run the installer."
+            ),
+        )
+    return None
+
+
 def main() -> int:
     """Main entry point.
 
@@ -319,6 +355,17 @@ def main() -> int:
 
     # Run service setup steps (steps 6-11)
     secret_key, pg_password, mysql_password = _run_service_setup_steps(distro, config)
+
+    # Fail loud: a requested database was not left with a superuser credential
+    # we could verify over TCP. Shipping hop3-server.toml in that state would
+    # give the server a password the DB won't honour (postgres) or omit the
+    # password entirely (mysql → fallback to 'root'), and every app of that type
+    # would then fail provisioning with an opaque auth error.
+    db_error = _missing_db_credential_error(config, pg_password, mysql_password)
+    if db_error:
+        print_error(db_error[0])
+        print_detail(db_error[1])
+        return 1
 
     # Write server config (including secret key for CLI commands)
     try:
