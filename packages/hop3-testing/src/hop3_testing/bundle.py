@@ -274,10 +274,42 @@ _CRASH_RE = re.compile(
     r"ModuleNotFoundError|ImportError|uWSGI.*died|worker.*killed",
     re.IGNORECASE,
 )
+# The deployer's health-check-timeout signature. These lines are emitted only
+# AFTER a successful build (the deploy reached the start/health-check phase),
+# so their presence reliably means "built and deployed, but never became
+# healthy" — distinct from a build failure. See hop3-server deployer.py
+# (_handle_startup_timeout / the "did not respond to health checks" Diagnosis).
+_STARTUP_FAIL_RE = re.compile(
+    r"failed to start within|did not respond to health checks|"
+    r"Deployer can't start app",
+    re.IGNORECASE,
+)
 
 
 def _build_failed(build: str, deploy: str) -> bool:
     return bool(_BUILD_ERR_RE.search(build) or _BUILD_ERR_RE.search(deploy))
+
+
+def _startup_failed(deploy: str) -> bool:
+    return bool(_STARTUP_FAIL_RE.search(deploy))
+
+
+def _classify_logs(sections: dict[str, str]) -> Classifier | None:
+    """Failure buckets derivable from the log sections alone, in precedence order.
+
+    Startup failure is checked before build failure: an app that built fine but
+    failed its start/health-check leaves "failed to start" / "did not respond to
+    health checks" in the deploy log, which _build_failed's broad
+    "error:"/"Deploy failed" regex would otherwise match — mislabeling it
+    "build-failure" and pointing the user at the (green) build section.
+    """
+    if _startup_failed(sections.get("deploy", "")):
+        return "startup-failure"
+    if _build_failed(sections.get("build", ""), sections.get("deploy", "")):
+        return "build-failure"
+    if _addon_unreachable(sections.get("app", "")):
+        return "addon-unreachable"
+    return None
 
 
 def _addon_unreachable(app: str) -> bool:
@@ -316,10 +348,8 @@ def classify(  # noqa: PLR0911 - one return per precedence rule is the clearest 
     """Map collected signals to a failure bucket. Pinned precedence (ADR 043)."""
     if hint:
         return hint
-    if _build_failed(sections.get("build", ""), sections.get("deploy", "")):
-        return "build-failure"
-    if _addon_unreachable(sections.get("app", "")):
-        return "addon-unreachable"
+    if log_verdict := _classify_logs(sections):
+        return log_verdict
     if probe is not None and probe.is_static:
         # static app: a front 502 with no backend is a serve/config issue.
         if http_front is not None and http_front.status >= 500:

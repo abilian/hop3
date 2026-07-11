@@ -288,6 +288,27 @@ def test_classify_build_failure() -> None:
     )
 
 
+def test_classify_startup_failure_not_build_failure() -> None:
+    # Regression: an app that BUILT OK but failed the start health-check must
+    # be classified startup-failure, not build-failure. The deploy log carries
+    # the deployer's abort ("failed to start" / "did not respond to health
+    # checks" / "Deployer can't start app"), which the broad build-error regex
+    # would otherwise match and point the user at the (green) build section.
+    sections = {
+        "build": "=== Nix Build Log ===\nStatus: SUCCESS\nBuild successful.",
+        "app": "",
+        "deploy": (
+            "-> Build successful. Artifact: /nix/store/...\n"
+            "> App 'sinatra-hello' failed to start within 60.0s.\n"
+            "> Deployer can't start app: 'sinatra-hello' did not respond to "
+            "health checks within 60.0s.\nERROR: deploying app failed\n"
+        ),
+    }
+    assert (
+        classify(sections, _probe(), kind="uwsgi", http_front=None) == "startup-failure"
+    )
+
+
 def test_classify_addon_unreachable() -> None:
     sections = {"app": "psycopg2.OperationalError: could not connect to server"}
     assert (
