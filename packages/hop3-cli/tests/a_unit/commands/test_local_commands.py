@@ -32,6 +32,7 @@ from hop3_cli.commands.local.login_cmd import (
     _verify_https_connection,
     _verify_token,
 )
+from hop3_cli.commands.local.ssh_ops import validate_ssh_target
 from hop3_cli.config import Config
 from hop3_cli.core import credential_store as cs
 from hop3_cli.exit_codes import ExitCode
@@ -765,3 +766,18 @@ class TestBootstrapError:
         """Test BootstrapError can hold a message."""
         error = BootstrapError("Connection failed")
         assert str(error) == "Connection failed"
+
+
+class TestValidateSshTarget:
+    """Tests for SSH target validation (audit M1 — option injection)."""
+
+    def test_accepts_plain_targets(self):
+        for target in ("root@test.com", "host.example.com", "user@1.2.3.4", "u@h:22"):
+            validate_ssh_target(target)  # must not raise
+
+    def test_rejects_option_injection(self):
+        # ssh://-oProxyCommand=evil@host parses to this target; a leading '-'
+        # would be read by ssh as an option (ProxyCommand RCE).
+        for target in ("-oProxyCommand=evil@host", "-lroot", "", "user@-h", "a b@host"):
+            with pytest.raises(BootstrapError):
+                validate_ssh_target(target)

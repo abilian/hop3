@@ -142,11 +142,6 @@ testpaths = [
     "packages/hop3-server/tests/b_integration",
     "packages/hop3-cli/tests",
 ]
-filterwarnings = [
-    # sshtunnel 0.4.0 has 'return' in a 'finally' block (Python 3.14 SyntaxWarning)
-    # Fixed by scripts/fix-sshtunnel.py — keep filter as backstop for fresh venvs.
-    "ignore::SyntaxWarning:sshtunnel",
-]
 markers = [
     "fast: Fast, hermetic tests — no Docker/root/network (the inner loop).",
     "integration: In-process integration tests (real in-memory DB, no Docker).",

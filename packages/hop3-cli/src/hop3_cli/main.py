@@ -10,33 +10,18 @@ thin wrapper around SSH to communicate with the server.
 
 from __future__ import annotations
 
-# IMPORTANT: Suppress warnings BEFORE any imports that might trigger paramiko
-# paramiko uses deprecated TripleDES cipher which triggers CryptographyDeprecationWarning
-# These filters must be applied before paramiko is imported (via sshtunnel -> rpc)
-import warnings
-
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="paramiko")
-warnings.filterwarnings("ignore", message=".*TripleDES.*")
-warnings.filterwarnings("ignore", message=".*CryptographyDeprecationWarning.*")
-try:
-    from cryptography.utils import CryptographyDeprecationWarning
-
-    warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
-except ImportError:
-    pass
-
-import sys  # noqa: E402
-from pathlib import Path  # noqa: E402
-from typing import TYPE_CHECKING, Any  # noqa: E402
+import sys
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .commands.flags import CliFlags
 
-import requests.exceptions  # noqa: E402
-from jsonrpcclient import Error, Ok  # noqa: E402
-from loguru import logger  # noqa: E402
+import requests.exceptions
+from jsonrpcclient import Error, Ok
+from loguru import logger
 
-from .commands import (  # noqa: E402
+from .commands import (
     confirm_destructive_action,
     get_extra_args,
     handle_help_flags,
@@ -45,29 +30,29 @@ from .commands import (  # noqa: E402
     is_local_command,
     parse_flags,
 )
-from .config import Config, get_config  # noqa: E402
-from .core.alias_registry import (  # noqa: E402
+from .config import Config, get_config
+from .core.alias_registry import (
     build_registry,
     cached_subcommand_index,
     load_user_aliases_from_config,
     resolve_aliases,
 )
-from .core.app_scope import is_app_scoped  # noqa: E402
-from .core.deploy_preview import (  # noqa: E402
+from .core.app_scope import is_app_scoped
+from .core.deploy_preview import (
     build_plan,
     domain_target_warnings,
     render_plan,
 )
-from .core.project_guard import check_project_mismatch  # noqa: E402
-from .core.resolution import (  # noqa: E402
+from .core.project_guard import check_project_mismatch
+from .core.resolution import (
     format_trace,
     resolve_app,
     resolve_context,
 )
-from .core.workspace_guard import check_workspace_dependency  # noqa: E402
-from .exit_codes import ExitCode  # noqa: E402
-from .rpc import Client, handle_response  # noqa: E402
-from .ui import (  # noqa: E402
+from .core.workspace_guard import check_workspace_dependency
+from .exit_codes import ExitCode
+from .rpc import Client, handle_response
+from .ui import (
     RichPrinter,
     err,
     show_unauthenticated_message,

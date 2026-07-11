@@ -16,9 +16,8 @@ dependencies = [
     # Presentation
     "tabulate<1.0.0,>=0.9.0",
     "rich>=13.0.0",  # Rich formatting, tables, progress bars, colors
-    # SSH tunneling - pin paramiko to 2.x for DSS key compatibility with sshtunnel
-    "sshtunnel>=0.4.0",
-    "paramiko>=2.11.0,<3.0.0",
+    # SSH tunneling shells out to the system `ssh -L` (hop3_cli.core.ssh_tunnel);
+    # no paramiko/sshtunnel dependency.
     "loguru>=0.7.3",
     "pathspec>=0.12.1",
     "platformdirs>=4.3.8",
@@ -38,11 +37,8 @@ build-backend = "uv_build"
 
 # ----------------------------------------
 
+# Present (even if empty) so this package stays its own pytest rootdir/config.
 [tool.pytest.ini_options]
-filterwarnings = [
-    # paramiko uses TripleDES which cryptography has deprecated
-    "ignore:TripleDES has been moved:cryptography.utils.CryptographyDeprecationWarning",
-]
 
 # Keep!
 [tool.pyrefly]

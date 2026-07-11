@@ -11,6 +11,7 @@ The transport itself is covered by ``test_tunnel.py``.
 
 from __future__ import annotations
 
+import signal
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -28,6 +29,19 @@ from stubs import StubClient
 
 _PG_URL = "postgresql://u:secret@127.0.0.1:5432/mydb"
 _ENDPOINT = {"type": "postgres", "host": "127.0.0.1", "port": 5432, "url": _PG_URL}
+
+
+@pytest.fixture(autouse=True)
+def _restore_signal_handlers():
+    """handle_tunnel installs SIGTERM/SIGHUP handlers; keep them out of the
+    global test state (a leftover handler could hijack a CI SIGTERM)."""
+    sigs = [signal.SIGTERM]
+    if hasattr(signal, "SIGHUP"):
+        sigs.append(signal.SIGHUP)
+    saved = [(s, signal.getsignal(s)) for s in sigs]
+    yield
+    for s, handler in saved:
+        signal.signal(s, handler)
 
 
 # ---- _parse_args ----
