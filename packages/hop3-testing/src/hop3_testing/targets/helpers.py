@@ -638,10 +638,11 @@ class DockerServiceManager:
             "mkdir -p /tmp && chmod 1777 /tmp",
             check=False,
         )
+        # No --stats socket: a stale one in sticky /tmp buries the Emperor on
+        # start (see nginx_templates.py UWSGI_UNIT) — and nothing consumes it.
         self.backend.run(
             "su - hop3 -c '"
             "nohup /home/hop3/venv/bin/uwsgi --emperor /home/hop3/uwsgi-enabled "
-            "--stats /tmp/hop3-uwsgi-stats.sock "
             "> /var/log/uwsgi/emperor.log 2>&1 &'",
             check=False,
         )
