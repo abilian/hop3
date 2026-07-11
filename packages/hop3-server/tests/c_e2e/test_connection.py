@@ -2,32 +2,39 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for SSH connection and CLI availability for remote server diagnostics."""
+"""Remote-server diagnostic tests for SSH connectivity and CLI availability.
+
+These tests poke a REAL remote server, so they are opt-in: they run only when
+``--ssh-host HOST`` is passed (the ``remote_server`` fixture skips otherwise).
+They deliberately do NOT read HOP3_DEV_HOST / HOP3_TEST_HOST — an ambient env
+var must never redirect a pytest run at a real box (ADR 043).
+"""
 
 from __future__ import annotations
 
-import os
 import subprocess
 
 import pytest
 
-E2E_SERVER = os.environ.get("HOP3_DEV_HOST", "")
 
-# These tests are for remote server diagnostics only
-remote_server_only = pytest.mark.skipif(
-    not E2E_SERVER,
-    reason="Test is for remote server diagnostics. Set HOP3_DEV_HOST to run.",
-)
+@pytest.fixture
+def remote_server(remote_ssh_host: str | None) -> str:
+    """The explicit remote target as ``user@host``; skip when not opted in.
+
+    ``remote_ssh_host`` is the root-conftest fixture backed by ``--ssh-host``.
+    """
+    if not remote_ssh_host:
+        pytest.skip(
+            "remote diagnostics: pass --ssh-host HOST to run "
+            "(HOP3_DEV_HOST / HOP3_TEST_HOST are ignored on purpose)"
+        )
+    return remote_ssh_host if "@" in remote_ssh_host else f"root@{remote_ssh_host}"
 
 
-@remote_server_only
-def test_ssh_connection():
+def test_ssh_connection(remote_server: str) -> None:
     """Test basic SSH connectivity."""
-    # Extract user@host from server
-    user_host = E2E_SERVER if "@" in E2E_SERVER else f"root@{E2E_SERVER}"
-
     result = subprocess.run(
-        ["ssh", "-o", "ConnectTimeout=10", user_host, "echo", "Connection successful"],
+        ["ssh", "-o", "ConnectTimeout=10", remote_server, "echo", "ok"],
         check=False,
         capture_output=True,
         text=True,
@@ -37,8 +44,8 @@ def test_ssh_connection():
     assert result.returncode == 0, f"SSH connection failed: {result.stderr}"
 
 
-def test_hop3_cli_available():
-    """Test if hop3-cli is installed."""
+def test_hop3_cli_available() -> None:
+    """Test if hop3-cli is installed (local check; always runs)."""
     result = subprocess.run(
         ["which", "hop3"],
         check=False,
@@ -53,10 +60,11 @@ def test_hop3_cli_available():
     assert result.stdout.strip(), "hop3 command returned empty output"
 
 
-@remote_server_only
-def test_hop3_cli_connection():
+def test_hop3_cli_connection(
+    remote_server: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test hop3-cli connection to server."""
-    os.environ["HOP3_API_URL"] = f"ssh://{E2E_SERVER}"
+    monkeypatch.setenv("HOP3_API_URL", f"ssh://{remote_server}")
 
     result = subprocess.run(
         ["hop3", "help"],
@@ -69,10 +77,11 @@ def test_hop3_cli_connection():
     assert result.returncode == 0, f"hop3-cli connection failed: {result.stderr}"
 
 
-@remote_server_only
-def test_auth_commands_available():
+def test_auth_commands_available(
+    remote_server: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test if authentication commands are available on the server."""
-    os.environ["HOP3_API_URL"] = f"ssh://{E2E_SERVER}"
+    monkeypatch.setenv("HOP3_API_URL", f"ssh://{remote_server}")
 
     result = subprocess.run(
         ["hop3", "help"],
@@ -90,10 +99,11 @@ def test_auth_commands_available():
         pytest.skip("Authentication commands not available on server")
 
 
-@remote_server_only
-def test_auth_register_command():
+def test_auth_register_command(
+    remote_server: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test if auth:register command works."""
-    os.environ["HOP3_API_URL"] = f"ssh://{E2E_SERVER}"
+    monkeypatch.setenv("HOP3_API_URL", f"ssh://{remote_server}")
 
     result = subprocess.run(
         [
@@ -122,8 +132,9 @@ def test_auth_register_command():
     )
 
 
-@remote_server_only
-def test_auth_get_token_command():
+def test_auth_get_token_command(
+    remote_server: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test that `auth get-token` verifies credentials and prints a JWT.
 
     `auth get-token` is the non-interactive primitive behind `hop3 login`: it
@@ -131,7 +142,7 @@ def test_auth_get_token_command():
     interactive `auth login` / `hop3 login` flow is client-side and prompts, so
     it can't be exercised non-interactively here.
     """
-    os.environ["HOP3_API_URL"] = f"ssh://{E2E_SERVER}"
+    monkeypatch.setenv("HOP3_API_URL", f"ssh://{remote_server}")
 
     result = subprocess.run(
         ["hop3", "auth", "get-token", "test-diagnostic-user", "test-pass-12345"],

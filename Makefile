@@ -154,9 +154,11 @@ test:
 	@echo ""
 
 ## Docker e2e — backups, git-push, real deploys (needs Docker). Part of the check gate.
+## Always Docker-only: the root conftest makes HOP3_DEV_HOST/HOP3_TEST_HOST taboo
+## for pytest, so no `unset` dance is needed. Remote is opt-in via `--ssh-host`.
 test-e2e:
 	@echo "--> Docker e2e tests (c_e2e) — server + installer"
-	unset HOP3_DEV_HOST; uv run pytest packages/hop3-server/tests/c_e2e
+	uv run pytest packages/hop3-server/tests/c_e2e
 	uv run pytest packages/hop3-installer/tests/c_e2e --docker
 	@echo ""
 
