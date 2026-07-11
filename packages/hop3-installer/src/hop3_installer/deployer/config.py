@@ -294,8 +294,8 @@ class DeployConfig:
 
         if not self.use_docker and not self.host:
             errors.append(
-                "No target specified. Set HOP3_DEV_HOST environment variable "
-                "or use --host flag, or use --docker for local container."
+                "No target specified. Use --host <server> (or set $HOP3_HOST), "
+                "or --docker for a local container."
             )
 
         if self.use_local_code and not self.server_package_path.exists():
