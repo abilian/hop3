@@ -76,11 +76,16 @@ def mountpoint_for(app_name: str, target: str) -> Path:
     guard) in case validation was bypassed.
     """
     src = app_root() / app_name / "src"
-    norm = os.path.normpath(src / target)
-    src_str = str(src)
-    if norm != src_str and not norm.startswith(src_str + os.sep):
+    # realpath, not normpath (audit M1, CWE-59): normpath only collapses '..'
+    # lexically and does NOT resolve symlinks, so a symlink planted inside src/
+    # pointing outside the app tree would pass this containment check and the
+    # kernel mount would land on the symlink's external target. Resolve both
+    # sides to physical paths, then reuse the module's containment primitive.
+    src_real = Path(os.path.realpath(src))
+    real = Path(os.path.realpath(src / target))
+    if not _is_under(real, [src_real]):
         raise MountError(f"mount target {target!r} escapes the app source tree ({src})")
-    return Path(norm)
+    return real
 
 
 # --- Bind allow-list ------------------------------------------------------
@@ -313,7 +318,10 @@ def list_mounts_under_app_root() -> list[str]:
     """
     if not _MOUNTINFO.exists():
         return []
-    prefix = str(app_root()) + os.sep
+    # realpath to match mountpoint_for's realpath'd mountpoints (audit M1): if
+    # the app-root prefix is structurally symlinked, mounts land at resolved
+    # paths, so an unresolved prefix would miss them in the orphan scan.
+    prefix = os.path.realpath(app_root()) + os.sep
     try:
         text = _MOUNTINFO.read_text(encoding="utf-8")
     except OSError as e:
