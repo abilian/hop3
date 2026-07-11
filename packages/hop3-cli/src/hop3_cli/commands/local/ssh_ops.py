@@ -30,6 +30,7 @@ import subprocess
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
+from hop3_cli.core.ssh_target import is_safe_ssh_target
 from hop3_cli.tokens import extract_jwt
 
 if TYPE_CHECKING:
@@ -46,6 +47,45 @@ DEFAULT_WEB_PORT = 8000
 
 class BootstrapError(Exception):
     """Error during bootstrap process."""
+
+
+def validate_ssh_target(ssh_target: str) -> None:
+    """Reject an ssh target that could inject SSH options (audit M1).
+
+    ``ssh_target`` is passed as a positional to ``ssh``. A value beginning with
+    ``-`` — e.g. built from ``ssh://-oProxyCommand=evil@host`` — is parsed by
+    ssh as an *option*, enabling ``ProxyCommand`` arbitrary command execution.
+    Since we only ever construct ``user@host`` targets, a leading ``-``, an
+    empty host, or shell metacharacters are always malformed input.
+
+    Raises:
+        BootstrapError: if ``ssh_target`` is not a plain ``[user@]host[:port]``.
+    """
+    if not is_safe_ssh_target(ssh_target):
+        msg = (
+            f"Refusing unsafe SSH target {ssh_target!r}: expected a plain "
+            f"user@host (no leading '-' or special characters)."
+        )
+        raise BootstrapError(msg)
+
+
+def _run_ssh(
+    ssh_target: str, remote_cmd: str, *, input: str | None = None
+) -> subprocess.CompletedProcess[str]:
+    """Run ``ssh <target> <remote_cmd>``, validating the target first.
+
+    Single choke point for every ssh invocation in this module so target
+    validation (against SSH option injection, audit M1) happens exactly once
+    instead of being duplicated at each call site.
+    """
+    validate_ssh_target(ssh_target)
+    return subprocess.run(
+        ["ssh", ssh_target, remote_cmd],
+        check=False,
+        input=input,
+        capture_output=True,
+        text=True,
+    )
 
 
 def create_admin_via_ssh(
@@ -71,13 +111,7 @@ def create_admin_via_ssh(
     remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
 
     # Run via SSH
-    result = subprocess.run(
-        ["ssh", ssh_target, remote_cmd],
-        check=False,
-        input=password,
-        capture_output=True,
-        text=True,
-    )
+    result = _run_ssh(ssh_target, remote_cmd, input=password)
 
     if result.returncode != 0:
         error_msg = result.stderr.strip() or result.stdout.strip() or "Unknown error"
@@ -110,12 +144,7 @@ def get_token_via_ssh(ssh_target: str, username: str) -> str:
     hop3_cmd = f"{HOP_SERVER_PATH} admin:token {shlex.quote(username)}"
     remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
 
-    result = subprocess.run(
-        ["ssh", ssh_target, remote_cmd],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    result = _run_ssh(ssh_target, remote_cmd)
 
     if result.returncode != 0:
         error_msg = result.stderr.strip() or result.stdout.strip() or "Unknown error"
@@ -151,12 +180,7 @@ def get_ssh_token(ssh_target: str) -> str:
     hop3_cmd = f"{HOP_SERVER_PATH} admin:ssh-token"
     remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
 
-    result = subprocess.run(
-        ["ssh", ssh_target, remote_cmd],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    result = _run_ssh(ssh_target, remote_cmd)
 
     if result.returncode != 0:
         error_msg = result.stderr.strip() or result.stdout.strip() or "Unknown error"
@@ -201,12 +225,7 @@ def fetch_and_save_certificate(
         f"openssl x509 2>/dev/null"
     )
 
-    result = subprocess.run(
-        ["ssh", ssh_target, remote_cmd],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    result = _run_ssh(ssh_target, remote_cmd)
 
     if result.returncode != 0 or not result.stdout.strip():
         return None
@@ -268,12 +287,7 @@ def get_magic_link_via_ssh(ssh_target: str, username: str = "admin") -> str:
     hop3_cmd = f"{HOP_SERVER_PATH} auth:magic-link {shlex.quote(username)}"
     remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
 
-    result = subprocess.run(
-        ["ssh", ssh_target, remote_cmd],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    result = _run_ssh(ssh_target, remote_cmd)
 
     if result.returncode != 0:
         error_msg = result.stderr.strip() or result.stdout.strip() or "Unknown error"

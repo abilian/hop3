@@ -10,17 +10,19 @@ Holds the tunnel open until interrupted with Ctrl-C.
 
 This is a client-side command: port forwarding necessarily happens on the
 developer's machine. It asks the server for the addon's endpoint via the
-type-agnostic `addon endpoint <name>` RPC, then drives `sshtunnel` (already a
-hop3-cli dependency, same auth path as the RPC tunnel).
+type-agnostic `addon endpoint <name>` RPC, then opens an `SshTunnel` (a
+subprocess `ssh -L` forward, the same transport as the RPC tunnel).
 """
 
 from __future__ import annotations
 
+import signal
 import sys
 import time
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse, urlunparse
 
+from hop3_cli.core.ssh_tunnel import SshTunnel
 from hop3_cli.exit_codes import ExitCode
 
 if TYPE_CHECKING:
@@ -49,6 +51,7 @@ def handle_tunnel(args: list[str], config: Config, printer: RichPrinter) -> None
 
     ssh = _ssh_params(config)
     forwarder = _start_forwarder(ssh, remote_port, bind_port)
+    _install_signal_cleanup(forwarder)
 
     bound = forwarder.local_bind_port
     local_url = _rewrite_url(info["url"], bound)
@@ -68,6 +71,27 @@ def handle_tunnel(args: list[str], config: Config, printer: RichPrinter) -> None
         print("\nClosing tunnel.")
     finally:
         forwarder.stop()
+
+
+def _install_signal_cleanup(forwarder: SshTunnel) -> None:
+    """Tear the tunnel down on SIGTERM/SIGHUP too, not just Ctrl-C.
+
+    ``SshTunnel`` runs ssh in its own session (so Ctrl-C reaches only the CLI),
+    which means a terminal close (SIGHUP) or ``kill`` (SIGTERM) would otherwise
+    kill the CLI before its ``finally: stop()`` runs, orphaning ssh with the
+    forward still open. These handlers stop the child first, then exit.
+    """
+
+    def _cleanup(signum: int, _frame: object) -> None:
+        forwarder.stop()
+        print("\nTunnel closed.", file=sys.stderr)
+        sys.exit(128 + signum)
+
+    catchable = [signal.SIGTERM]
+    if hasattr(signal, "SIGHUP"):  # not on Windows
+        catchable.append(signal.SIGHUP)
+    for sig in catchable:
+        signal.signal(sig, _cleanup)
 
 
 def _parse_args(args: list[str]) -> tuple[str | None, int | None]:
@@ -157,20 +181,16 @@ def _ssh_params(config: Config) -> dict:
     }
 
 
-def _start_forwarder(ssh: dict, remote_port: int, bind_port: int):
+def _start_forwarder(ssh: dict, remote_port: int, bind_port: int) -> SshTunnel:
     """Open the SSH port-forward; fail loud (don't silently re-pick a port)."""
-    from sshtunnel import SSHTunnelForwarder  # noqa: PLC0415  (heavy import, defer)
-
-    kwargs = {
-        "ssh_username": ssh["user"],
-        "ssh_port": ssh["port"],
-        "remote_bind_address": ("127.0.0.1", remote_port),
-        "local_bind_address": ("127.0.0.1", bind_port),
-    }
-    if ssh["key"]:
-        kwargs["ssh_pkey"] = ssh["key"]
-
-    forwarder = SSHTunnelForwarder(ssh["host"], **kwargs)
+    forwarder = SshTunnel(
+        ssh["host"],
+        remote_port,
+        user=ssh["user"],
+        ssh_port=ssh["port"],
+        key=ssh["key"],
+        local_port=bind_port,
+    )
     try:
         forwarder.start()
     except Exception as e:

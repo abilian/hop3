@@ -76,7 +76,7 @@ The connection mode is selected by the scheme of the API URL: an `ssh://` (or `s
 export HOP3_API_URL="ssh://user@hop3.example.com"
 ```
 
-The tunnel is created by the `Client` (in `rpc/client.py`) using `sshtunnel` (which wraps `paramiko`). On construction, the client parses the API URL and, when the scheme is `ssh`/`ssh+http`, opens an `SSHTunnelForwarder` that binds the remote server port (default 8000) to a local port. RPC then targets `http://localhost:<local_port>/rpc`. The client is a context manager, so the tunnel is closed reliably on exit:
+The tunnel is created by the `Client` (in `rpc/client.py`) using an `SshTunnel` (`core/ssh_tunnel.py`), a subprocess `ssh -L` forward that shells out to the system `ssh`. On construction, the client parses the API URL and, when the scheme is `ssh`/`ssh+http`, opens the tunnel binding the remote server port (default 8000) to a local port. RPC then targets `http://localhost:<local_port>/rpc`. The client is a context manager, so the tunnel is closed reliably on exit:
 
 ```python
 with Client(config=config) as client:

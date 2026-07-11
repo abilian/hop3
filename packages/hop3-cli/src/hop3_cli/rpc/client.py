@@ -11,17 +11,10 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 import requests
-import urllib3
-import urllib3.exceptions
 from jsonrpcclient import Error, Ok, parse, request
 from loguru import logger
 
-# sshtunnel uses paramiko which has deprecated TripleDES warnings
-# TODO: Consider replacing sshtunnel with subprocess-based ssh port forwarding
-# to eliminate paramiko dependency entirely. This would use native ssh -L
-# which is simpler and avoids Python crypto library deprecation issues.
-from sshtunnel import SSHTunnelForwarder
-
+from hop3_cli.core.ssh_tunnel import SshTunnel
 from hop3_cli.exceptions import AuthenticationError, CliError
 
 if TYPE_CHECKING:
@@ -29,8 +22,17 @@ if TYPE_CHECKING:
 
     from hop3_cli.config import Config
 
-# Suppress InsecureRequestWarning when SSL verification is disabled
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+# SECURITY (audit M8): bound the RPC request so a malicious or unresponsive
+# server can't hang the CLI forever with the bearer token in transit. Mirrors
+# the SSE path's timeouts (streaming.py). (connect, read) seconds.
+_RPC_CONNECT_TIMEOUT_SECONDS = 30.0
+_RPC_READ_TIMEOUT_SECONDS = 300.0
+
+# audit M2: we do NOT call urllib3.disable_warnings() here. When TLS
+# verification is disabled (verify_ssl=false on an https URL), urllib3's
+# InsecureRequestWarning is the operator's only signal that traffic —
+# including the bearer token — is interceptable. Suppressing it globally hid a
+# silent-MITM foot-gun. Left unsuppressed so the warning surfaces.
 
 
 def resolve_ssl_verification(api_url: str, config: Config) -> bool | str:
@@ -82,7 +84,7 @@ class Client:
     """
 
     config: Config
-    tunnel: SSHTunnelForwarder | None = None
+    tunnel: SshTunnel | None = None
 
     api_url_override: str | None = None
 
@@ -161,27 +163,22 @@ class Client:
         parsed_url = urlparse(self.api_url)
 
         ssh_host = parsed_url.hostname
+        if not ssh_host:
+            msg = f"SSH server URL has no hostname: {self.api_url!r}"
+            raise CliError(msg)
         ssh_user = parsed_url.username or self.config.get("ssh_user", "root")
         ssh_port = parsed_url.port or self.config.get("ssh_port", 22)
-
-        # The remote port is the one the server is listening on *on the remote machine*.
+        # The remote port is the one hop3-server listens on *on the remote box*.
         remote_server_port = self.config.get("server_port", 8000)
-
-        # Build tunnel kwargs
-        tunnel_kwargs = {
-            "ssh_username": ssh_user,
-            "ssh_port": ssh_port,
-            "remote_bind_address": ("localhost", remote_server_port),
-        }
-
-        # Add SSH key if provided (optional - can use ssh-agent or default keys)
+        # Optional key; when absent, ssh uses ~/.ssh/config / agent / default keys.
         ssh_key = self.config.get("ssh_key", None)
-        if ssh_key:
-            tunnel_kwargs["ssh_pkey"] = ssh_key
 
-        self.tunnel = SSHTunnelForwarder(
+        self.tunnel = SshTunnel(
             ssh_host,
-            **tunnel_kwargs,
+            remote_server_port,
+            user=ssh_user,
+            ssh_port=ssh_port,
+            key=ssh_key,
         )
         logger.debug(
             f"Starting SSH tunnel to {ssh_host}:{ssh_port} (remote port: {remote_server_port})"
@@ -240,6 +237,7 @@ class Client:
             json=json_request,
             headers=headers,
             verify=verify_ssl,
+            timeout=(_RPC_CONNECT_TIMEOUT_SECONDS, _RPC_READ_TIMEOUT_SECONDS),
         )
 
         return self._parse_response(response, json_request)
