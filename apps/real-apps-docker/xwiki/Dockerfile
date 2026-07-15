@@ -36,7 +36,15 @@ RUN curl -fsSL "https://maven.xwiki.org/releases/org/xwiki/platform/xwiki-platfo
 # Copy PostgreSQL JDBC driver
 RUN cp /usr/share/java/postgresql.jar /opt/xwiki/webapps/xwiki/WEB-INF/lib/
 
-# Create hibernate config template for PostgreSQL
+# Create hibernate config template for PostgreSQL.
+#
+# Deliberately NO `hibernate.hbm2ddl.auto`: XWiki creates and migrates its own
+# schema (xwiki.store.hibernate.updateschema, on by default) and records the DB
+# version as it does so. If Hibernate pre-builds the current-shape schema via
+# hbm2ddl, XWiki then finds a non-empty DB with no recorded version, assumes an
+# ancient baseline, and replays historical data migrations — one of which
+# (R4359XWIKI1459) alters a column (xwd_archive) the current schema never
+# created, so first boot dies with "column xwd_archive does not exist".
 RUN echo '<?xml version="1.0" encoding="UTF-8"?>\n\
 <!DOCTYPE hibernate-configuration PUBLIC\n\
   "-//Hibernate/Hibernate Configuration DTD//EN"\n\
@@ -49,7 +57,6 @@ RUN echo '<?xml version="1.0" encoding="UTF-8"?>\n\
     <property name="hibernate.connection.driver_class">org.postgresql.Driver</property>\n\
     <property name="hibernate.dialect">org.hibernate.dialect.PostgreSQLDialect</property>\n\
     <property name="hibernate.connection.pool_size">2</property>\n\
-    <property name="hibernate.hbm2ddl.auto">update</property>\n\
     <property name="hibernate.show_sql">false</property>\n\
     <mapping resource="xwiki.hbm.xml"/>\n\
     <mapping resource="feeds.hbm.xml"/>\n\

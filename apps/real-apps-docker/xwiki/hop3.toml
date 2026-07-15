@@ -17,6 +17,12 @@ type = "postgres"
 [env]
 JAVA_OPTS = "-Xmx1024m"
 
+[run]
+# First boot is heavy: XWiki creates its full schema on an empty PostgreSQL and
+# then imports the default wiki flavor before it can answer. That is several
+# minutes of Java + DDL + XAR import — the 60s default is far too short.
+start-timeout = 600
+
 [healthcheck]
 path = "/xwiki/bin/view/Main/"
 

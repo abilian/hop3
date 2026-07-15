@@ -122,11 +122,25 @@ export DISCOURSE_REDIS_HOST="${REDIS_HOST:-localhost}"\n\
 export DISCOURSE_REDIS_PORT="${REDIS_PORT:-6379}"\n\
 export SECRET_KEY_BASE="${SECRET_KEY_BASE:-$(head -c 64 /dev/urandom | base64)}"\n\
 \n\
+# Bind unicorn to all interfaces on $PORT and run one supervised Sidekiq.\n\
+export UNICORN_LISTENER="0.0.0.0:${PORT:-8080}"\n\
+export UNICORN_SIDEKIQS=1\n\
+\n\
 # Run migrations (assets are precompiled at build time)\n\
 bundle exec rake db:migrate\n\
 \n\
-# Start Discourse\n\
-exec su discourse -c "cd /home/discourse/app && bundle exec rails server -b 0.0.0.0 -p ${PORT:-8080}"\n\
+# db:migrate ran as root; hand tmp and log back to the runtime user and make\n\
+# sure the dirs unicorn writes its pid and socket into exist.\n\
+mkdir -p tmp/pids tmp/sockets\n\
+chown -R discourse:discourse tmp log\n\
+\n\
+# Start Discourse under unicorn (its production web server), not rails server.\n\
+# config/initializers/100-verify_config.rb only runs under rails server (it\n\
+# guards on defined?(Rails::Server)); it evaluates Discourse.current_hostname\n\
+# too early and crashes boot with an uninitialized-constant SiteSetting error.\n\
+# unicorn never defines Rails::Server, so the check is skipped, matching how\n\
+# Discourse runs in production.\n\
+exec su discourse -c "cd /home/discourse/app && bundle exec unicorn -c config/unicorn.conf.rb -E production"\n\
 ' > /usr/local/bin/start-discourse.sh \
     && chmod +x /usr/local/bin/start-discourse.sh
 

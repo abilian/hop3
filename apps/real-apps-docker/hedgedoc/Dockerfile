@@ -6,12 +6,21 @@ FROM debian:trixie-slim
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NODE_ENV=production
 
-# Install Node.js with Corepack (for Yarn Berry)
+# Install Node.js with Corepack (for Yarn Berry).
+#
+# build-essential + python3 + setuptools are the node-gyp toolchain: HedgeDoc
+# depends on sqlite3 (a native module) unconditionally, and there is no prebuilt
+# binary for this platform/Node, so `yarn install` compiles it from source. With
+# no C++ compiler / python present the build dies at the Link step with
+# "sqlite3 couldn't be built successfully".
 RUN apt-get update -q && apt-get install -q -y --no-install-recommends \
     nodejs \
     npm \
     curl \
     ca-certificates \
+    build-essential \
+    python3 \
+    python3-setuptools \
     && corepack enable \
     && rm -rf /var/lib/apt/lists/*
 
