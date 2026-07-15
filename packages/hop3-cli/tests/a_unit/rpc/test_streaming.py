@@ -86,7 +86,7 @@ def test_stream_redirect_raises_auth_error_not_followed() -> None:
     # Error names the redirect + location, so the operator knows it's auth.
     assert "authentication failed" in str(exc.value).lower()
     assert "/auth/login" in str(exc.value)
-    # And crucially we did NOT follow the redirect.
+    # And we did NOT follow the redirect.
     assert captured["kwargs"]["allow_redirects"] is False
 
 

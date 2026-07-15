@@ -62,7 +62,10 @@ let
       SECRET_KEY = $(head -c 32 /dev/urandom | base64)
       EOF
 
-      exec ${forgejo}/bin/forgejo web
+      # nixpkgs installs forgejo's server binary as `gitea` (its generic.nix
+      # renames forgejo.org -> gitea in preInstall; meta.mainProgram = "gitea").
+      # There is no $out/bin/forgejo — exec'ing it exits 127 in a respawn loop.
+      exec ${forgejo}/bin/gitea web
       WRAPPER
       chmod +x $out/bin/forgejo-wrapper
 

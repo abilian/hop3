@@ -6,8 +6,8 @@
 
 A single chokepoint so the location honors the ``HOP3_CONFIG_DIR`` override
 consistently. ``config.toml``, ``servers.toml``, ``state.toml`` and the
-one-shot ADR-042 migration all derive from here, so relocating config (and,
-crucially, isolating it in tests) is a single lever rather than four.
+one-shot ADR-042 migration all derive from here, so relocating config (and
+isolating it in tests) is a single lever rather than four.
 """
 
 from __future__ import annotations

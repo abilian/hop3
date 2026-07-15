@@ -117,33 +117,39 @@ class PhpAppTemplate:
 
         install_lines.append("")
 
-        # When needs_writable_dir is set, inject symlink-from-store commands
-        # into pre_exec so the app can generate config files at runtime.
-        # The Nix store is read-only, so apps that need .env, config.php,
-        # or writable storage/ must operate from a cwd-based copy.
-        extra_pre_exec: list[str] = []
+        # When needs_writable_dir is set, materialize the store tree into the
+        # writable cwd. The Nix store is read-only, so apps that need .env,
+        # config.php, or writable storage/ must operate from a cwd-based copy.
+        #
+        # This MUST land in the runtime prelude, not pre_exec: the wrapper emits
+        # prelude -> config-files -> pre-exec, so a copy sitting in pre_exec runs
+        # AFTER the generated config files and copies the upstream tree straight
+        # over them. Today that is harmless only by luck — these apps ship
+        # `config-sample.php` / `.env.example`, never the real filename — but any
+        # app shipping a default `config.php` would have Hop3's rendered config
+        # silently replaced by the upstream default, and serve unconfigured.
+        # Ordering now: copy tree -> render config -> pre-exec (install commands,
+        # which legitimately depend on the config) -> exec.
         if spec.needs_writable_dir:
-            # Copy ALL files from the Nix store to the writable cwd.
-            # We use cp -a (not symlinks) because PHP's __DIR__ resolves
-            # symlinks, and when it resolves to the read-only Nix store,
-            # Laravel/PHP can't find .env, write to storage/, etc.
-            # The disk cost is acceptable (~50-200 MB per app).
-            extra_pre_exec.append(
-                "# Copy app from read-only Nix store to writable cwd\n"
-                "cp -a APPDIR/. .\n"
-                "chmod -R u+w ."
-            )
+            # cp -a (not symlinks) because PHP's __DIR__ resolves symlinks, and
+            # when it resolves back into the read-only Nix store, Laravel/PHP
+            # can't find .env, write to storage/, etc. Disk cost ~50-200 MB/app.
+            prelude_parts = [
+                (
+                    "# Copy app from read-only Nix store to writable cwd\n"
+                    "cp -a APPDIR/. .\n"
+                    "chmod -R u+w ."
+                )
+            ]
             if spec.post_install_dirs:
                 dirs = " ".join(spec.post_install_dirs)
-                extra_pre_exec.append(f"mkdir -p {dirs}")
+                prelude_parts.append(f"mkdir -p {dirs}")
+            if spec.runtime_prelude:
+                prelude_parts.append(spec.runtime_prelude)
 
-        # Build a modified spec with extra pre_exec commands if needed
-        if extra_pre_exec:
-            merged_pre_exec = list(extra_pre_exec) + list(spec.pre_exec_commands)
-            # Create a new spec-like object with merged pre_exec (can't modify frozen)
             from dataclasses import replace  # noqa: PLC0415
 
-            spec = replace(spec, pre_exec_commands=merged_pre_exec)
+            spec = replace(spec, runtime_prelude="\n\n".join(prelude_parts))
 
         # Wrapper script. Uses APPDIR and PHPBIN placeholders which are
         # sed-replaced during the install phase — APPDIR → $out/app,

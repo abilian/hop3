@@ -6,7 +6,7 @@
 
 These lock down two things that the deploy path relies on:
 
-1. Each toolchain's ``accept()`` fires for its own marker file(s) and, crucially,
+1. Each toolchain's ``accept()`` fires for its own marker file(s) and
    does NOT fire for another language's project (no false-positive detection,
    which would route an app to the wrong builder).
 2. The pure build helpers on the base class (Procfile worker parsing, custom

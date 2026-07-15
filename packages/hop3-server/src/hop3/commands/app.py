@@ -890,7 +890,7 @@ class DestroyCmd(Command):
             # Reload nginx to remove the app's routing configuration
             self._reload_nginx()
 
-        # Be honest in the summary: if filesystem/Docker cleanup failed, the app
+        # Report accurately in the summary: if filesystem/Docker cleanup failed, the app
         # is gone from the DB (port freed) but leftovers may remain — say so,
         # rather than reporting a clean success ("teardown must be verifiable").
         if cleanup_failed:

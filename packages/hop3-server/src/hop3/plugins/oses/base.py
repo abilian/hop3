@@ -15,7 +15,7 @@ from pathlib import Path
 # ``@`` for Homebrew like ``python@3.11``, and ``-`` *only* in non-leading
 # position) while rejecting every shell metacharacter.
 #
-# The first-character restriction is the load-bearing part: leaving ``-``
+# The first-character restriction is the essential part: leaving ``-``
 # in leading position would let a regression sneak in an argument-injection
 # string like ``"--reinstall"`` (apt and friends happily accept it).
 _PACKAGE_NAME_RE = re.compile(r"^[A-Za-z0-9_+.@][A-Za-z0-9._+@-]*$")

@@ -486,7 +486,15 @@ class DeploymentTestRunner:
         # is torn down next (_safe_cleanup), so the deploy transcript's own
         # `hop3 app logs --app <app> --build` pointer is already dead here — the
         # bundle is where every section (build, deploy, journal, nginx, …) lives.
-        self.console.info(f"Full logs recorded → {bundle.why}")
+        # Use warning (not info): info is verbose-only, so on a normal run the
+        # one pointer to the surviving logs was invisible.
+        if bundle.artifact_dir:
+            self.console.warning(
+                f"Full local diagnostics (survive teardown): {bundle.artifact_dir}"
+                f"  |  replay: {bundle.why}"
+            )
+        else:
+            self.console.warning(f"Full logs recorded → {bundle.why}")
         return bundle
 
     def _safe_cleanup(self, test: TestDefinition, session: DeploymentSession) -> None:

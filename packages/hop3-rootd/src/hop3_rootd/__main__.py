@@ -232,7 +232,7 @@ def _startup_reconcile_cgroups(state: State, state_path: Path) -> None:
 def _startup_reconcile_mounts(state: State, state_path: Path) -> None:
     """Reconcile tracked volume mounts at startup. Non-fatal (ADR 046 P2.1).
 
-    Makes state honest (drops stale entries, unmounts orphans). Skipped when
+    Makes state match reality (drops stale entries, unmounts orphans). Skipped when
     there is nothing tracked, so a volume-free host does no mountinfo work.
     """
     if not state.mounts:

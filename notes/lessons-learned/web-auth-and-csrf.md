@@ -44,7 +44,7 @@ def _handle_csrf(_request, _exc) -> Redirect:
 # registered as exception_handlers={PermissionDeniedException: _handle_csrf}
 ```
 
-Clearing the cookie is the load-bearing part - without it the redirect just loops. Two general rules fall out:
+Clearing the cookie is the essential step - without it the redirect just loops. Two general rules fall out:
 
 - **A framework default 403/JSON in front of a human is a UX bug.** A browser hitting CSRF/auth failure must get HTML (a redirect to login with a notice), never a raw `{"status_code":403,...}` blob. Register exception handlers for the auth/permission exceptions.
 - **Verify the handler actually catches the *middleware-raised* exception.** CSRF is raised in middleware, not the route handler; whether app-level `exception_handlers` catch it depends on middleware order. Don't assume - assert it in a test (POST with a bad token → expect the redirect, not 403).

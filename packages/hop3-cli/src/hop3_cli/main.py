@@ -589,7 +589,7 @@ def _deploy_source_path(cli_args: list[str]) -> Path:
     """Mirror commands.arguments._parse_deploy_args's directory-positional logic.
 
     ``hop3 deploy [<app>] [<dir>]`` — if the trailing positional looks like a
-    directory argument, use it; otherwise CWD. This makes the preview honest
+    directory argument, use it; otherwise CWD. This makes the preview accurate
     about what's being packaged (``hop3 deploy --dry-run /tmp/checkout`` reads
     /tmp/checkout/hop3.toml, not the operator's terminal CWD).
     """

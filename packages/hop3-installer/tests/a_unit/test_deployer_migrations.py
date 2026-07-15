@@ -65,7 +65,7 @@ class TestRunMigrations:
 class TestUpdatePathsRunMigrationsBeforeRestart:
     """Each update path must run migrations before the systemctl restart.
 
-    This is the load-bearing invariant: a failed migration must leave the
+    This is the essential invariant: a failed migration must leave the
     OLD server running on the OLD schema, not the NEW server crashing
     against an OLD schema.
     """

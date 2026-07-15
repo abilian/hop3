@@ -12,7 +12,7 @@ v1 is a *nightly test lab* bound to one Hetzner box, driven by an in-process sch
 
 ## A · Architecture: four loosely-coupled pieces
 
-The Test Lab system is **not one program** — it's four pieces that *currently share this monorepo out of convenience, not necessity*. Each can be versioned, sourced, and (later) split into its own repo/release independently. Getting the boundaries right is the load-bearing decision of v2; most of §1–§10 are consequences of it.
+The Test Lab system is **not one program** — it's four pieces that *currently share this monorepo out of convenience, not necessity*. Each can be versioned, sourced, and (later) split into its own repo/release independently. Getting the boundaries right is the critical decision of v2; most of §1–§10 are consequences of it.
 
 | Piece | What it is | Lifecycle | Versioned / sourced by | In-repo today |
 |-------|------------|-----------|------------------------|---------------|
@@ -218,5 +218,5 @@ Direction from the user, refining §5 (selection) and §7 (config). Supersedes t
 4. **Parallel store:** commit to **Postgres** for v2 (clean multi-writer) or do the G7 incremental-writer work and stay on SQLite? Postgres looks like the lower-risk path for a CI server.
 5. **Queue fairness:** strict FIFO, or priority (nightly full-suite vs a quick ad-hoc `coverage` run)? `RunRequest.priority` is the seam.
 6. **arq trigger point:** what concrete signal (worker count, retry needs, observability) flips the §3 recommendation from DB-loop to arq?
-7. **Redaction (carried, now load-bearing):** denylist/allowlist for secrets in bundles before private-repo output is viewable on a shared server.
+7. **Redaction (carried, now essential):** denylist/allowlist for secrets in bundles before private-repo output is viewable on a shared server.
 ```

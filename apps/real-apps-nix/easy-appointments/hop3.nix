@@ -58,10 +58,42 @@ let
 
       cat > $out/bin/easy-appointments << 'WRAPPER'
 #!/bin/sh
+set -e
 
 # Copy app from read-only Nix store to writable cwd
 cp -a $out/app/. .
 chmod -R u+w .
+mkdir -p storage/cache storage/logs storage/sessions storage/uploads
+
+# Easy!Appointments ships only config-sample.php, and index.php refuses to boot
+# without a root config.php — it serves "The root config.php file is missing…"
+# instead, which is exactly what this app was returning (HTTP 200, wrong body).
+# Unquoted EOF: the shell expands the MYSQL_* vars here at startup. getenv() is
+# NOT an option — these are PHP *class constants*, and a constant expression may
+# not contain a function call.
+cat > config.php << EOF
+<?php
+class Config {
+    const BASE_URL     = 'http://''${HOST_NAME:-localhost}';
+    const LANGUAGE     = 'english';
+    const DEBUG_MODE   = false;
+
+    const DB_HOST      = '$MYSQL_HOST';
+    const DB_NAME      = '$MYSQL_DATABASE';
+    const DB_USERNAME  = '$MYSQL_USER';
+    const DB_PASSWORD  = '$MYSQL_PASSWORD';
+
+    const GOOGLE_SYNC_FEATURE  = false;
+    const GOOGLE_CLIENT_ID     = ''';
+    const GOOGLE_CLIENT_SECRET = ''';
+}
+EOF
+
+# Seed the schema once; otherwise / redirects to the install wizard and never
+# serves the app's own content.
+if [ ! -f storage/.hop3-installed ]; then
+  ${php}/bin/php index.php console install && touch storage/.hop3-installed
+fi
 
 exec ${php}/bin/php -S 0.0.0.0:''${PORT:-8080} -t .
 WRAPPER

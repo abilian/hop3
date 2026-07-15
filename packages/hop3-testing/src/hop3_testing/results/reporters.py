@@ -134,6 +134,27 @@ class ConsoleReporter:
                             print(f"  {line}", file=self.output)
                         print("  ---", file=self.output)
 
+        # A failed test always leaves a durable local bundle. Point at it HERE,
+        # at the failure — the error tail carries the server's own
+        # `hop3 app logs --app <app> --build` hint, which is already dead: the
+        # runner destroys the app right after (and a hetzner box is re-imaged on
+        # the next run). Surface the failure where the user looks.
+        if not result.passed and result.bundle is not None:
+            bundle = result.bundle
+            if bundle.artifact_dir:
+                print(
+                    self._colorize(
+                        f"  Full local diagnostics: {bundle.artifact_dir}/", "yellow"
+                    ),
+                    file=self.output,
+                )
+            print(f"  Replay: {bundle.why}", file=self.output)
+            print(
+                "  (app destroyed after failure — on-box `hop3 app logs` is gone; "
+                "read the bundle above)",
+                file=self.output,
+            )
+
     def summary(self, results: list[TestResult]) -> None:
         """Print summary of all results.
 
@@ -192,6 +213,8 @@ class ConsoleReporter:
             if r.bundle is not None:
                 for line in r.bundle.headline.splitlines():
                     print(f"      {line}", file=self.output)
+                if r.bundle.artifact_dir:
+                    print(f"      bundle: {r.bundle.artifact_dir}/", file=self.output)
                 continue
 
             # Legacy path — runners not yet wired to the bundle.

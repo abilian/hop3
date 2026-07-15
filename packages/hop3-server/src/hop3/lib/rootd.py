@@ -263,7 +263,7 @@ class LocalRootdClient:
 def _client_version() -> str:
     """Return the hop3-server version (best-effort).
 
-    Not load-bearing — the daemon doesn't gate on this. We just send it
+    Not essential — the daemon doesn't gate on this. We just send it
     for diagnostics in the audit log.
     """
     try:

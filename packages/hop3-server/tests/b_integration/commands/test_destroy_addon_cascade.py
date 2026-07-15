@@ -172,7 +172,7 @@ def test_full_destroy_frees_port_claim_even_if_filesystem_cleanup_fails(test_db)
     # App removed AND the port freed, despite app.destroy() having raised.
     assert test_db.query(App).filter_by(name="streamer").count() == 0
     assert PortClaimRepository(session=test_db).find_active(1935, "tcp") is None
-    # The response is honest: it reports incomplete cleanup, not a clean success.
+    # The response is accurate: it reports incomplete cleanup, not a clean success.
     blob = str(result)
     assert "incomplete" in blob or "cleanup warnings" in blob
 

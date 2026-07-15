@@ -12,6 +12,34 @@ php-version = "php82"
 php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'zip', 'curl', 'mbstring', 'xml', 'intl', 'exif']
 post-install-dirs = ['wp-content/uploads', 'wp-content/plugins', 'wp-content/themes']
 extra-paths = ['${php}/bin']
+# WordPress writes wp-config.php (below) and wp-content/uploads; the Nix store is
+# read-only, so serve from a writable cwd copy.
+needs-writable-dir = true
+
+# Without this, WordPress finds no wp-config.php and 302s /wp-admin/install.php to
+# setup-config.php ("Setup Configuration File") — it deploys and serves, but is
+# unconfigured. Values are read with getenv() at request time rather than
+# shell-expanded into the file, so the DB password is never baked onto disk.
+# NB: TOML *literal* quotes ('''), not """: the shell heredoc is unquoted, so
+# PHP's $table_prefix must be written \$table_prefix to survive it — and \$ is an
+# invalid escape in a TOML basic string.
+[[nix.config-files]]
+path = "wp-config.php"
+format = "raw"
+raw-content = '''<?php
+define( 'DB_NAME', getenv('MYSQL_DATABASE') );
+define( 'DB_USER', getenv('MYSQL_USER') );
+define( 'DB_PASSWORD', getenv('MYSQL_PASSWORD') );
+define( 'DB_HOST', getenv('MYSQL_HOST') . ':' . getenv('MYSQL_PORT') );
+define( 'DB_CHARSET', 'utf8mb4' );
+define( 'DB_COLLATE', '' );
+define( 'WP_DEBUG', getenv('WP_DEBUG') === 'true' );
+\$table_prefix = 'wp_';
+if ( ! defined( 'ABSPATH' ) ) {
+    define( 'ABSPATH', __DIR__ . '/' );
+}
+require_once ABSPATH . 'wp-settings.php';
+'''
 
 [nix.runtime-env]
 WP_DEBUG = "false"

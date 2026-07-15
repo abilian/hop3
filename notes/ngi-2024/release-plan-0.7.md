@@ -1,7 +1,7 @@
 # Hop3 0.7.0 Release Plan — Final NGI Version
 
 **Depends on:** 0.6.0 (2026-06-20).
-**Status (2026-07-06):** the tree is on **0.6.2**; **0.7.0 is not yet tagged**. Two items originally slated for the cut — the **email addon** (M3.1) and **nixpkgs pinning** (M1/M2) — shipped early in **0.6.1/0.6.2**. The intervening weeks went to platform-robustness / DX work not in the original scope but load-bearing for advertising a curated app set: ADR 052 CLI consistency, a failed-deploy observability overhaul, content-aware healthchecks (`[healthcheck].contains`), testlab hardening, the 2026-06 auth-audit remediation, and a nix-reliability pass (forgejo GC-root retention + a per-app nixpkgs pin).
+**Status (2026-07-06):** the tree is on **0.6.2**; **0.7.0 is not yet tagged**. Two items originally slated for the cut — the **email addon** (M3.1) and **nixpkgs pinning** (M1/M2) — shipped early in **0.6.1/0.6.2**. The intervening weeks went to platform-robustness / DX work not in the original scope but required for advertising a curated app set: ADR 052 CLI consistency, a failed-deploy observability overhaul, content-aware healthchecks (`[healthcheck].contains`), testlab hardening, the 2026-06 auth-audit remediation, and a nix-reliability pass (forgejo GC-root retention + a per-app nixpkgs pin).
 
 0.7 is the final NGI deliverable release. This plan tracks **what is left** — first to tag 0.7.0, then to complete NGI in near-term 0.7.x point releases. It does not pretend the ~40 person-days remaining fit in one week; it separates the tag gate from the 0.7.x tail.
 

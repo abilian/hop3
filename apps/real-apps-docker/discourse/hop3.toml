@@ -19,6 +19,13 @@ type = "redis"
 [env]
 DISCOURSE_HOSTNAME = "localhost"
 
+[run]
+# First boot does a lot before it can answer: `rake db:migrate` against an empty
+# database (Discourse ships hundreds of migrations), Rails boot, and then the CSS
+# compile that the build deliberately defers (DONT_PRECOMPILE_CSS=1 — see the
+# Dockerfile). The 60s default is nowhere near enough; this is slow, not broken.
+start-timeout = 600
+
 [healthcheck]
 path = "/"
 contains = "Discourse"

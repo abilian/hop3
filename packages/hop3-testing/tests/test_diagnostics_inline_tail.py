@@ -179,3 +179,56 @@ def test_runtime_diagnostics_no_log_dir_yields_clean_message():
     # (the original buggy form). The replacement uses ``find`` piped
     # to ``while read``, which short-circuits cleanly on no matches.
     assert "for f in /home/hop3/apps/" not in blob
+
+
+@dataclass
+class _FakeBundle:
+    artifact_dir: Any
+    why: str
+    headline: str = "build-failure"
+
+
+@dataclass
+class _FakeFailedResult:
+    total_duration: float = 1.0
+    error: str = "Deploy failed: boom"
+    deploy_logs: str = ""
+    bundle: Any = None
+
+    @property
+    def passed(self) -> bool:
+        return False
+
+
+def test_report_test_points_at_local_bundle_on_failure():
+    """A failed test with a durable bundle must print the local bundle dir, the
+    `hop3-test why` replay command, and a note that on-box logs are gone — at the
+    failure line, not only in the far-off end-of-run summary.
+    """
+    from pathlib import Path  # noqa: PLC0415
+
+    run_id = "2026-07-11T00-00-00Z-x-abc"
+    bundle = _FakeBundle(
+        artifact_dir=Path(f"/home/u/.hop3/test-runs/{run_id}"),
+        why=f"hop3-test why {run_id} --section build",
+    )
+    out = StringIO()
+    ConsoleReporter(output=out, color=False).report_test(
+        cast("Any", _FakeFailedResult(bundle=bundle))
+    )
+    text = out.getvalue()
+    assert "Full local diagnostics:" in text
+    assert run_id in text
+    assert f"hop3-test why {run_id}" in text
+    assert "on-box `hop3 app logs` is gone" in text
+
+
+def test_report_test_without_bundle_prints_no_pointer():
+    """Legacy path (runner not wired to a bundle): no bundle-pointer lines."""
+    out = StringIO()
+    ConsoleReporter(output=out, color=False).report_test(
+        cast("Any", _FakeFailedResult(bundle=None))
+    )
+    text = out.getvalue()
+    assert "Full local diagnostics" not in text
+    assert "Replay:" not in text

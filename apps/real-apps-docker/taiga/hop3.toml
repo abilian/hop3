@@ -17,6 +17,12 @@ type = "postgres"
 TAIGA_SECRET_KEY = "change-me-to-random-string"
 ENABLE_TELEMETRY = "False"
 
+[run]
+# Taiga's container entrypoint runs ALL Django migrations + collectstatic
+# (~1000 files) + loaddata before gunicorn binds, so first boot needs well over
+# the 60s default before /api/v1/ answers. Migrate-on-boot, not a crash.
+start-timeout = 300
+
 [healthcheck]
 path = "/api/v1/"
 

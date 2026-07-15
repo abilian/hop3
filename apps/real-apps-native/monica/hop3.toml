@@ -34,18 +34,24 @@ APP_ENV = "production"
 path = "/"
 
 [test]
-# Monica deploys and runs; its production force-HTTPS middleware redirects GET /
-# to https, so it can't be *content*-verified over Hop3's plain HTTP yet (that
-# needs HTTPS test support — see local-notes/stacks-and-apps/DEFERRED-APPS.md).
-# So we assert the redirect itself — the same pattern kanboard / invoice-ninja /
-# easy-appointments use — which proves the app is up and behaving as it does in
-# production, and keeps the deploy path (PHP/composer/npm/mysql/before-run) under
-# test. `status-in` accepts the redirect family rather than pinning one code.
+# `/` is Monica's first-run entry point: LoginController@showLoginOrRegister 302s
+# to /register while no account exists (the harness provisions a fresh MySQL DB
+# per deploy, so that is always the case). Assert the redirect...
 #
-# This replaces `expects-failure = true`, which mis-declared a clean deploy as a
-# rejection case: once the deploy started succeeding it flipped to a false FAIL
-# ("unexpected deploy success"). expects-failure is for apps that must be
-# REJECTED (apps/bad/**), not for apps that deploy but can't be HTTP-verified.
+# NB: the 302 is NOT a force-HTTPS redirect. Monica 4.0.0 registers no
+# force-HTTPS middleware and calls no URL::forceScheme, so nothing here is
+# blocked on HTTPS test support — an earlier version of this comment said
+# otherwise and was wrong.
 [[test.validations]]
 path = "/"
 status-in = [301, 302, 307, 308]
+
+# ...and assert the real page it lands on. This heading renders only when Monica
+# queries the DB and finds no account, so a pass proves the PHP build, the mysql
+# addon and the migrations all worked end to end — not just that something
+# answered. Asserted on /register directly, so it never depends on curl following
+# the redirect.
+[[test.validations]]
+path = "/register"
+status = 200
+contains = "Welcome to your newly installed Monica instance"

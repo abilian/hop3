@@ -5,7 +5,7 @@
 """Realizing [[volumes]] persistence (ADR 046 §2).
 
 A persist volume must live outside `src/`, be linked into it, seed an empty
-volume from shipped content once, and — crucially — survive the redeploy that
+volume from shipped content once, and survive the redeploy that
 wipes and re-extracts `src/`.
 """
 

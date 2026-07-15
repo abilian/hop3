@@ -20,12 +20,11 @@ nixpkgs-package = "etherpad-lite"
 # etherpad-lite entered nixpkgs in nixos-25.05; the generator's default pin is
 # nixos-24.11 (too old → nix-build "attribute 'etherpad-lite' missing"). Override
 # the nixpkgs pin for THIS app only (see plugins/build/nix/gen/templates/base.py).
-# BOTH values below are placeholders — fill them on a nix box: pick a nixos-25.05
-# commit, then
+# Pinned to a release-25.05 commit; hash from
 #   nix-prefetch-url --unpack https://github.com/NixOS/nixpkgs/archive/<REV>.tar.gz
-# Until filled, the build fails fast trying to fetch the placeholder URL (expected).
-nixpkgs-rev = "REPLACE_WITH_A_NIXOS_25_05_COMMIT_SHA"
-nixpkgs-sha256 = "REPLACE_WITH_NIX_PREFETCH_URL_OUTPUT"
+# (pkgs.etherpad-lite is 2.3.0 at this pin.)
+nixpkgs-rev = "ac62194c3917d5f474c1a844b6fd6da2db95077d"
+nixpkgs-sha256 = "0v6bd1xk8a2aal83karlvc853x44dg1n4nk08jg3dajqyy0s98np"
 exec-target = "etherpad-lite"
 # Etherpad's findEtherpadRoot() always returns the nix store path
 # (walks __dirname up past ep_etherpad-lite). makeAbsolute treats the

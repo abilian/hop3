@@ -37,25 +37,58 @@ def test_missing_template_raises():
         app_spec_from_config({}, {}, "test")
 
 
+# A real nixos-25.05 pin (the one etherpad uses). Shapes matter: the adapter now
+# validates them, so these fixtures must be well-formed.
+_REAL_REV = "ac62194c3917d5f474c1a844b6fd6da2db95077d"
+_REAL_SHA = "0v6bd1xk8a2aal83karlvc853x44dg1n4nk08jg3dajqyy0s98np"
+
+
 def test_nixpkgs_pin_override_threaded_into_spec():
     # An app needing a package the default pin predates (etherpad-lite lives in
     # nixos-25.05, not the default 24.11) overrides the nixpkgs pin per-app.
     nix_config = {
         "template": "nixpkgs-wrapper",
         "nixpkgs-package": "etherpad-lite",
-        "nixpkgs-rev": "deadbeef",
-        "nixpkgs-sha256": "sha-xyz",
+        "nixpkgs-rev": _REAL_REV,
+        "nixpkgs-sha256": _REAL_SHA,
     }
     spec = app_spec_from_config(nix_config, {"id": "etherpad"}, "etherpad")
-    assert spec.nixpkgs_rev == "deadbeef"
-    assert spec.nixpkgs_sha256 == "sha-xyz"
+    assert spec.nixpkgs_rev == _REAL_REV
+    assert spec.nixpkgs_sha256 == _REAL_SHA
 
 
 def test_nixpkgs_pin_override_requires_both_keys():
     # A rev needs its fetchTarball hash — one without the other is an error.
     with pytest.raises(ValueError, match="must be set together"):
         app_spec_from_config(
-            {"template": "nixpkgs-wrapper", "nixpkgs-rev": "deadbeef"}, {}, "x"
+            {"template": "nixpkgs-wrapper", "nixpkgs-rev": _REAL_REV}, {}, "x"
+        )
+
+
+@pytest.mark.parametrize(
+    ("rev", "sha", "match"),
+    [
+        # The real bug: etherpad shipped these literal placeholders, and the
+        # generator interpolated them into hop3.nix verbatim. The deploy then died
+        # with an opaque "hash '…' has wrong length" — 0.68s of nothing useful.
+        ("REPLACE_WITH_A_NIXOS_25_05_COMMIT_SHA", _REAL_SHA, "40-character git"),
+        (_REAL_REV, "REPLACE_WITH_NIX_PREFETCH_URL_OUTPUT", "nix sha256 hash"),
+        ("deadbeef", _REAL_SHA, "40-character git"),  # too short
+        (_REAL_REV, "sha-xyz", "nix sha256 hash"),
+    ],
+)
+def test_malformed_nixpkgs_pin_is_rejected_at_parse_time(rev, sha, match):
+    """A pin we already know is broken must abort here, not ship a broken build."""
+    with pytest.raises(ValueError, match=match):
+        app_spec_from_config(
+            {
+                "template": "nixpkgs-wrapper",
+                "nixpkgs-package": "etherpad-lite",
+                "nixpkgs-rev": rev,
+                "nixpkgs-sha256": sha,
+            },
+            {},
+            "etherpad",
         )
 
 
