@@ -187,6 +187,13 @@ Extensible via plugins:
 - Firewall-friendly (ports 80/443)
 - Database connections over localhost
 
+### Web Application Firewall (WAF)
+
+- Per-app Layer-7 WAF (LeWAF, OWASP Core Rule Set) — `nginx → WAF proxy → app`
+- Blocks SQLi / XSS / RCE / path-traversal before requests reach the app
+- Positive-model access lists and network-gated paths, configured via `[waf]` in `hop3.toml`
+- Auto-bans repeat offenders (reconciled in-process); fails closed if the proxy is down
+
 ---
 
 ## Operational Features
@@ -230,7 +237,6 @@ The following features are planned for future releases:
 | Web terminal | Planned |
 | LDAP/SSO integration | Planned |
 | Advanced monitoring | Planned |
-| WAF integration | In Development |
 
 ---
 

@@ -1,7 +1,7 @@
 # Hop3 0.7.0 Release Plan — Final NGI Version
 
 **Depends on:** 0.6.0 (2026-06-20).
-**Status (2026-07-06):** the tree is on **0.6.2**; **0.7.0 is not yet tagged**. Two items originally slated for the cut — the **email addon** (M3.1) and **nixpkgs pinning** (M1/M2) — shipped early in **0.6.1/0.6.2**. The intervening weeks went to platform-robustness / DX work not in the original scope but required for advertising a curated app set: ADR 052 CLI consistency, a failed-deploy observability overhaul, content-aware healthchecks (`[healthcheck].contains`), testlab hardening, the 2026-06 auth-audit remediation, and a nix-reliability pass (forgejo GC-root retention + a per-app nixpkgs pin).
+**Status (2026-07-09):** the tree is on **0.6.2**; **0.7.0 is not yet tagged**. Two items originally slated for the cut — the **email addon** (M3.1) and **nixpkgs pinning** (M1/M2) — shipped early in **0.6.1/0.6.2**. The intervening weeks went to platform-robustness / DX work not in the original scope but required for advertising a curated app set: ADR 052 CLI consistency, a failed-deploy observability overhaul, content-aware healthchecks (`[healthcheck].contains`), testlab hardening, the 2026-06 auth-audit remediation, and a nix-reliability pass (forgejo GC-root retention + a per-app nixpkgs pin). The **WAF (M3.5)** — the largest remaining 0.7 item — has since landed end-to-end: LeWAF **0.7.6** on PyPI, per-app `nginx → LeWAF → uWSGI` proxying, autonomous in-process L7 bans, and two Docker e2e proofs.
 
 0.7 is the final NGI deliverable release. This plan tracks **what is left** — first to tag 0.7.0, then to complete NGI in near-term 0.7.x point releases. It does not pretend the ~40 person-days remaining fit in one week; it separates the tag gate from the 0.7.x tail.
 
@@ -20,7 +20,7 @@ Every annex milestone accounted for, so a reviewer can reconcile the whole proje
 | | M3.2 Upgrades + migrations | ✅ | **0.7** — server-verify + app upgrade/rollback shipped; `upgrade-chain` e2e green on Docker + Hetzner (`--to` source-fetch + Web UI → 0.7.x) |
 | | M3.3 Backups + migration tests | ✅ | 0.6 |
 | | M3.4 Testing framework + canary | ✅ | shipped |
-| | M3.5 Firewalls + WAF | ◐ | **0.7** — proxy slice remains |
+| | M3.5 Firewalls + WAF | ✅ | **0.7** — L3/L4 firewall + L7 WAF (LeWAF/OWASP-CRS) shipped end-to-end |
 | | M3.6 CLI | ✅ | 0.5–0.6 |
 | | M3.7 Web UI | ◐ | **0.7** — basic/clean/usable |
 | | M3.8 Security audit + a11y | ◐ | **0.7** internal; external → 0.7.x |
@@ -31,18 +31,18 @@ Every annex milestone accounted for, so a reviewer can reconcile the whole proje
 | | M5.4 Conference | ✅ | OW2Con / OSXP |
 | | M5.6 Videos/screencasts | ◐ | **0.7** — 68 recorded; publish |
 
-11 done, 8 partial, 1 not-started of the 20 named milestones (the annex skips M5.5).
+12 done, 7 partial, 1 not-started of the 20 named milestones (the annex skips M5.5).
 
 ## What's left for the 0.7 tag
 
-### WAF / L7 firewall (M3.5) — the largest item
-Network firewall + fixed-port registry shipped (ADR 045). The WAF (ADR 050, LeWAF — pure-Python OWASP-CRS): the schema, declarative→SecLang compiler, engine plugin, and named networks are **merged**; the proxy-running slice remains.
+### WAF / L7 firewall (M3.5) — ✅ complete
+Network firewall + fixed-port registry shipped (ADR 045). The WAF (ADR 050, LeWAF — pure-Python OWASP-CRS) is complete end-to-end: LeWAF **0.7.6 released on PyPI**, the `hop3-server[waf]` engine installs by default, and a WAF-enabled app is fronted by `nginx → LeWAF proxy → uWSGI` on deploy.
 
-- [ ] LeWAF proxy lifecycle — start/stop/reload `lewaf-proxy` (`hop3-server[waf]` extra, lazy import)
-- [ ] nginx integration — route app traffic through the WAF proxy; activate on deploy, remove on destroy
-- [ ] L7 bans (detect → score → 403) per ADR 050 §4
-- [ ] OWASP Top 10 tests (SQLi / XSS / path-traversal minimum) + a false-positive / per-app-exemption pass
-- [ ] Document `[waf]` in the admin guide
+- [x] LeWAF proxy lifecycle — per-app `lewaf-proxy` supervised as a uWSGI Emperor vassal (started on deploy, reaped on destroy); `hop3-server[waf]` extra, lazy import
+- [x] nginx integration — app traffic routes through the WAF proxy (`app.waf_port`); activated on deploy, removed on destroy, the app stays loopback
+- [x] L7 bans (detect → score → 403) per ADR 050 §4 — audit-stream scorer + `Ban` ORM + `hop3 waf bans` CLI, reconciled automatically in-process (`waf_bans_service`, ~60s)
+- [x] OWASP Top 10 tests (SQLi / XSS / path-traversal / RCE) + a `skip-body-inspection` false-positive pass; a Docker e2e proves CRS blocking **and** the full ban loop over the real proxy chain
+- [x] Documented `[waf]` + the WAF CLI in the config/CLI reference; ADR 050 marked shipped
 
 ### Web UI — basic, clean, usable (M3.7)
 The dashboard exists (9 controllers, 17 templates); make it clean and verify the core flows. Git-URL deploy, log streaming, a11y, and mobile are nice-to-haves that can ride to 0.7.x.
@@ -54,8 +54,8 @@ The dashboard exists (9 controllers, 17 templates); make it clean and verify the
 ### Security — internal rounds, engage the firm (M3.8)
 Internal fixes shipped in 0.5–0.6; the external review is 0.7.x.
 
-- [ ] One or two more internal audit rounds; fix findings
-- [ ] Engage the external security-audit firm
+- [x] One or two more internal audit rounds; fix findings
+- [x] Engage the external security-audit firm (waiting for their answer)
 - [ ] Document the security model in the admin guide
 
 ### Upgrade mechanism (M3.2)
@@ -149,7 +149,7 @@ Agent model (ADR 017), SSO / identity management, a monitoring / metrics dashboa
 
 | Risk | Mitigation |
 |------|------------|
-| WAF (the big 0.7 item) overruns the cut week | Conservative default ruleset; per-app tuning → 0.7.x; the WAF itself can slip to early 0.7.x |
+| WAF (the big 0.7 item) overruns the cut week — **resolved**: shipped end-to-end (LeWAF 0.7.6, in-process bans, Docker e2e) | Conservative default ruleset; per-app tuning available; the kernel-level (L3/L4) ban upgrade is deferred to a later ADR |
 | Benchmarks show Hop3 slower than a baseline | Report accurately — the contribution is architecture + reproducibility, not raw speed |
 | External review surfaces issues late | Internal rounds first; address findings in 0.7.x |
 | Production deploys uncover blocker bugs | Triage: fix critical, defer the rest with notes |

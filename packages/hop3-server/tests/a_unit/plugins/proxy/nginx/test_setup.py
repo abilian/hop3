@@ -23,6 +23,37 @@ def test_get_static_paths_0() -> None:
     assert nginx.get_static_paths() == []
 
 
+def _backend_env() -> Env:
+    return Env({
+        "HOST_NAME": "testapp.com",
+        "BIND_ADDRESS": "127.0.0.1",
+        "PORT": "8000",
+    })
+
+
+def test_setup_backend_proxies_to_app_when_no_waf() -> None:
+    nginx = NginxVirtualHost(App(name="testapp"), _backend_env(), {"web": "run"})
+    nginx.setup_backend()
+    assert (
+        nginx.env["HOP3_INTERNAL_NGINX_UWSGI_SETTINGS"]
+        == "proxy_pass http://127.0.0.1:8000;"
+    )
+    assert nginx.env["NGINX_SOCKET"] == "127.0.0.1:8000"
+
+
+def test_setup_backend_proxies_through_waf_when_enabled() -> None:
+    """With a WAF proxy port, nginx targets the proxy, not the app (ADR 050 §7)."""
+    app = App(name="testapp")
+    app.waf_port = 9123
+    nginx = NginxVirtualHost(app, _backend_env(), {"web": "run"})
+    nginx.setup_backend()
+    assert (
+        nginx.env["HOP3_INTERNAL_NGINX_UWSGI_SETTINGS"]
+        == "proxy_pass http://127.0.0.1:9123;"
+    )
+    assert nginx.env["NGINX_SOCKET"] == "127.0.0.1:9123"
+
+
 @pytest.mark.parametrize(
     "bad_host",
     [

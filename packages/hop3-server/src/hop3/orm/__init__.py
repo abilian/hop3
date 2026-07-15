@@ -8,6 +8,7 @@ from __future__ import annotations
 from .addon_credential import AddonCredential
 from .app import App, AppStateEnum
 from .backup import Backup, BackupStateEnum
+from .ban import Ban
 from .env import EnvVar
 from .network import Network
 from .port_claim import PortClaim
@@ -15,6 +16,7 @@ from .repositories import (
     AddonCredentialRepository,
     AppRepository,
     BackupRepository,
+    BanRepository,
     EnvVarRepository,
     NetworkRepository,
     PortClaimRepository,
@@ -35,6 +37,8 @@ __all__ = [
     "Backup",
     "BackupRepository",
     "BackupStateEnum",
+    "Ban",
+    "BanRepository",
     "EnvVar",
     "EnvVarRepository",
     "Network",

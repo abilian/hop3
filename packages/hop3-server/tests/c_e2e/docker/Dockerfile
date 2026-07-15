@@ -145,7 +145,9 @@ RUN mkdir -p /opt/hop3-server/src/hop3 && \
     chown -R hop3:hop3 /opt/hop3-server
 
 # Install dependencies (this is the expensive step - now cached!)
-RUN su - hop3 -c "~/venv/bin/pip install --no-cache-dir -e /opt/hop3-server"
+# Include the [waf] extra so the LeWAF engine (ADR 050) is present; a WAF-enabled
+# app would otherwise abort the deploy. Marker-gated to py3.12+ (ubuntu:24.04 = 3.12).
+RUN su - hop3 -c "~/venv/bin/pip install --no-cache-dir -e '/opt/hop3-server[waf]'"
 
 # =============================================================================
 # LAYER 4: Application code (changes frequently)

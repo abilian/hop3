@@ -43,7 +43,8 @@ check-dev-env:
 ## Update dependencies
 update-deps:
 	@echo "--> Updating dependencies"
-	uv sync --all-groups -U
+	# uv sync --all-groups -U
+	uv sync --all-packages --all-extras --all-groups -U
 	uv run pre-commit autoupdate
 	uv pip list --outdated
 	uv pip list --format=freeze > compliance/requirements-full.txt

@@ -1871,6 +1871,42 @@ hop3 addon s3 import <name> --confirm=<name> < dump   # Load a dump
 
 ---
 
+## Web Application Firewall (WAF)
+
+These manage the Layer-7 WAF's runtime state. The per-app *policy* (enable, allow/gate/tuning/bans) lives in `hop3.toml` under `[waf]` — see the [config reference](config.md). An app's WAF turns on at deploy when `[waf].enabled = true`.
+
+### `hop3 waf status`
+
+Per-app proxy port, whether the proxy is supervised, and the active ban count, for every WAF-enabled app.
+
+### `hop3 waf logs [<app>]`
+
+Recent blocked-request audit entries (time, source, action, rule, path) across all WAF-enabled apps, or just one.
+
+### `hop3 waf bans list [<app>]`
+
+Active bans (app, source, reason, expiry). Bans are recorded by the scorer when a source crosses the `[waf.bans]` threshold within the window.
+
+### `hop3 waf bans clear <app> [<ip>]`
+
+Lift all bans for an app, or one source IP. Rewrites the app's denylist and reloads the proxy. *Destructive* — prompts unless `--yes`.
+
+### `hop3 waf reconcile-bans`
+
+Force a ban-scoring pass across all WAF-enabled apps now: reads each audit stream, bans repeat offenders, expires elapsed bans, and reloads changed proxies. The server already runs this in-process every ~60s (`waf_bans_service`); this command is the manual/debug entry point. Safe to run repeatedly.
+
+### `hop3 network add|list|rm`
+
+Operator-defined named networks (CIDR sets) referenced by a `[[waf.gate]] require = "<name>"`:
+
+```bash
+hop3 network add office 203.0.113.0/24 10.0.0.0/8
+hop3 network list
+hop3 network rm office
+```
+
+---
+
 ## Admin Commands
 
 Admin commands require admin role. First user registered automatically gets admin role.

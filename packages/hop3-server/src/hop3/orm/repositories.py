@@ -34,6 +34,7 @@ from sqlalchemy import select
 from .addon_credential import AddonCredential
 from .app import App, AppStateEnum
 from .backup import Backup
+from .ban import Ban
 from .env import EnvVar
 from .network import Network
 from .port_claim import PortClaim
@@ -41,7 +42,7 @@ from .revoked_token import RevokedToken
 from .security import Role, User
 
 if TYPE_CHECKING:
-    pass
+    from datetime import datetime
 
 
 class BaseRepository(SQLAlchemySyncRepository[ModelT]):
@@ -463,3 +464,29 @@ class NetworkRepository(BaseRepository[Network]):
     def get_by_name(self, name: str) -> Network | None:
         """Return the network named ``name``, or None if undefined."""
         return self.get_one_or_none(name=name)
+
+
+class BanRepository(BaseRepository[Ban]):
+    """Repository for per-app L7 WAF bans (ADR 050 §4)."""
+
+    model_type = Ban
+
+    def get_for_source(self, app_id: int, source: str) -> Ban | None:
+        """Return the ban row for ``source`` on this app, or None."""
+        return self.get_one_or_none(app_id=app_id, source=source)
+
+    def list_for_app(self, app_id: int) -> list[Ban]:
+        """All ban rows for an app (active and elapsed)."""
+        return list(self.get_many(app_id=app_id))
+
+    def list_active(self, app_id: int, now: datetime) -> list[Ban]:
+        """Bans for an app that have not yet expired."""
+        stmt = select(Ban).where(Ban.app_id == app_id, Ban.expires_at > now)
+        return list(self.session.scalars(stmt).all())
+
+    def list_all_active(self, now: datetime) -> list[Ban]:
+        """Active bans across all apps, ordered by app then source (for listing)."""
+        stmt = (
+            select(Ban).where(Ban.expires_at > now).order_by(Ban.app_name, Ban.source)
+        )
+        return list(self.session.scalars(stmt).all())
