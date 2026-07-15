@@ -130,7 +130,7 @@ def test_reap_returns_empty_when_nothing_running(monkeypatch):
 
 def test_reap_force_kills_then_reports_survivors(monkeypatch):
     # A straggler that never dies: reap must SIGTERM then SIGKILL it, and report
-    # it as a survivor so the caller can fail honestly instead of a false STOPPED.
+    # it as a survivor so the caller can report the real failure instead of a false STOPPED.
     sent: list[tuple[int, int]] = []
     monkeypatch.setattr("hop3.run.reaper.app_pids", lambda _name: [4242])
     monkeypatch.setattr("os.kill", lambda pid, sig: sent.append((pid, sig)))

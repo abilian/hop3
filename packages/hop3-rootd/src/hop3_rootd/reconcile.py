@@ -248,7 +248,7 @@ def reconcile_mounts(
 
     Mounts are *not* re-asserted here: after a reboot the cgroupfs/mountns is
     empty and the app's src/ may not exist yet — the next deploy re-mounts. So
-    reconcile only makes state honest: a tracked mount that isn't actually
+    reconcile only makes state match reality: a tracked mount that isn't actually
     mounted is dropped (stale), and a mount under the app root with no state
     row is an orphan from a crashed run and is unmounted (teardown
     completeness — no leftover mount).

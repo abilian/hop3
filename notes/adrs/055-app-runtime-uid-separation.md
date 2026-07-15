@@ -84,7 +84,7 @@ Whichever mechanism is chosen, the vassal ends up as `hop3-app-<name>:hop3-app-<
 
 ### 5. The rootd boundary, restored
 
-Two changes make the separation load-bearing at the daemon:
+Two changes enforce the separation at the daemon:
 
 - App-runtime users are **not** in the `hop3` group, so the `0660 root:hop3` socket mode denies them at the OS layer before `SO_PEERCRED` is even consulted.
 - rootd's allowed-UID set stays `{hop3, root}` (already the case; `server.py:_resolve_allowed_uids`). No app UID is ever added.

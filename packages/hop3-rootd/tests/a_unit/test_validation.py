@@ -463,5 +463,5 @@ def test_app_name_re_matches_hop3_server_upstream():
 
     assert rootd_validation.APP_NAME_RE.pattern == upstream.APP_NAME_RE.pattern, (
         "rootd APP_NAME_RE has drifted from hop3-server's; the two are "
-        "load-bearing for cross-boundary identifier validation."
+        "essential for cross-boundary identifier validation."
     )

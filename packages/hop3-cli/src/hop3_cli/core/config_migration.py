@@ -204,7 +204,7 @@ def _apply_consolidation(
 ) -> None:
     """Backups → write config.toml → strip current_server → delete servers.toml.
 
-    The order is load-bearing: ``servers.toml`` (the "not done yet" marker) is
+    The order matters: ``servers.toml`` (the "not done yet" marker) is
     deleted LAST, and all backups are taken (copy-if-absent) before any write.
     """
     config_path = config_dir / CONFIG_FILENAME

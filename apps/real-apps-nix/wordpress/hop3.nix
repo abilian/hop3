@@ -49,21 +49,43 @@ let
       cp -r . $out/app/
       mkdir -p $out/app/wp-content/uploads $out/app/wp-content/plugins $out/app/wp-content/themes
 
-      # Create setup script that generates wp-config.php at runtime
-      cat > $out/bin/wordpress-setup << 'SETUP'
-#!/bin/sh
-APP_DIR="$out/app"
-if [ -n "$MYSQL_URL" ] && [ ! -f "$APP_DIR/wp-config.php" ]; then
-  cp "$APP_DIR/wp-config-sample.php" "$APP_DIR/wp-config.php" 2>/dev/null || true
-fi
-SETUP
-      sed -i "s|\$out|$out|g" $out/bin/wordpress-setup
-      chmod +x $out/bin/wordpress-setup
-
+      # The old setup script was inert and is gone. It guarded on $MYSQL_URL — a
+      # variable Hop3 never injects (the mysql addon provides DATABASE_URL and
+      # MYSQL_HOST/PORT/DATABASE/USER/PASSWORD) — so its body never ran; it wrote
+      # into $out/app (the read-only store) so it could not have run anyway; it
+      # copied wp-config-sample.php verbatim, placeholders and all; and it hid all
+      # of that behind `2>/dev/null || true`. Net effect: no wp-config.php, so
+      # WordPress 302'd /wp-admin/install.php to "Setup Configuration File".
       cat > $out/bin/wordpress << 'WRAPPER'
 #!/bin/sh
-$out/bin/wordpress-setup
-exec ${php}/bin/php -S 0.0.0.0:''${PORT:-8080} -t $out/app
+set -e
+
+# The Nix store is read-only, and WordPress needs a writable docroot
+# (wp-config.php, wp-content/uploads). Serve from a cwd copy.
+cp -a $out/app/. .
+chmod -R u+w .
+mkdir -p wp-content/uploads wp-content/plugins wp-content/themes
+
+# Render wp-config.php from the mysql addon env. The 'PHPEOF' marker is QUOTED,
+# so the shell expands nothing here: PHP reads each value itself via getenv() at
+# request time, and the DB password is never written to disk.
+cat > wp-config.php << 'PHPEOF'
+<?php
+define( 'DB_NAME', getenv('MYSQL_DATABASE') );
+define( 'DB_USER', getenv('MYSQL_USER') );
+define( 'DB_PASSWORD', getenv('MYSQL_PASSWORD') );
+define( 'DB_HOST', getenv('MYSQL_HOST') . ':' . getenv('MYSQL_PORT') );
+define( 'DB_CHARSET', 'utf8mb4' );
+define( 'DB_COLLATE', ''' );
+define( 'WP_DEBUG', getenv('WP_DEBUG') === 'true' );
+$table_prefix = 'wp_';
+if ( ! defined( 'ABSPATH' ) ) {
+    define( 'ABSPATH', __DIR__ . '/' );
+}
+require_once ABSPATH . 'wp-settings.php';
+PHPEOF
+
+exec ${php}/bin/php -S 0.0.0.0:''${PORT:-8080} -t .
 WRAPPER
       sed -i "s|\$out|$out|g" $out/bin/wordpress
       chmod +x $out/bin/wordpress

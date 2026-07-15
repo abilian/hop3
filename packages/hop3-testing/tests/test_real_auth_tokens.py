@@ -6,7 +6,7 @@
 
 The harness no longer sets ``HOP3_UNSAFE`` to disable authentication; it mints a
 JWT signed with the key the target server actually validates with. These tests
-cover the two load-bearing pieces: signing with a chosen key, and reading the
+cover the two essential pieces: signing with a chosen key, and reading the
 server's key (fail-loud, no silent fallback to a key the server would reject).
 """
 

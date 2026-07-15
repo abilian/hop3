@@ -40,7 +40,7 @@ def _app_dir_exists(target: DeploymentTarget, app_name: str) -> bool:
 
     When a deploy fails client-side (e.g. the upload is rejected before the
     server creates the app), this directory is absent. Probing it once lets the
-    collector emit a single honest "app was never created" line instead of a
+    collector emit a single accurate "app was never created" line instead of a
     cascade of redundant per-subdir errors ("ls: ... No such file", then "no log
     directory at .../log/", then "no per-app build log" — all saying the same
     thing). On a probe error, assume it exists: better a noisy bundle than a

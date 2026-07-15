@@ -13,7 +13,11 @@ import pytest
 
 from hop3.core.protocols import BuildContext
 from hop3.lib import Abort
-from hop3.plugins.docker.builder import DockerBuilder, _extract_build_error
+from hop3.plugins.docker.builder import (
+    DockerBuilder,
+    _extract_build_error,
+    _is_transient_registry_error,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -282,6 +286,94 @@ def test_extract_build_error_marker_fallback():
 
 def test_extract_build_error_empty():
     assert _extract_build_error("") == "(no build output)"
+
+
+def test_extract_build_error_ignores_benign_lines_from_earlier_steps():
+    """Regression: a benign line in an EARLIER step must not out-rank the real
+    error in the step that actually failed.
+
+    Ruby's ./configure prints `configuring -test-/fatal` (a directory name) in an
+    early step. The bare "fatal" marker matched that substring, so a discourse
+    build that really died ~100 lines later on a missing `brotli` binary was
+    reported as "configuring -test-/fatal" — actively misleading. BuildKit names
+    the failing step (`#12 ERROR:`), so extraction is scoped to that step.
+    """
+    out = (
+        "#7 83.9 configuring -test-/fatal\n"
+        "#7 84.0 configuring -test-/file\n"
+        "#12 124.4 Compressing Javascript and Generating Source Maps\n"
+        "#12 124.5 rake aborted!\n"
+        "#12 124.5 Errno::ENOENT: No such file or directory - brotli (Errno::ENOENT)\n"
+        "#12 124.5 /home/discourse/app/lib/tasks/assets.rake:211:in `brotli'\n"
+        '#12 ERROR: process "/bin/sh -c rake assets:precompile" did not complete'
+        " successfully: exit code: 1\n"
+    )
+    # The Ruby `Errno::ENOENT:` shape has no Error/Exception suffix, so it must be
+    # matched too — and it must beat both the earlier "fatal" and "rake aborted!".
+    assert _extract_build_error(out) == (
+        "Errno::ENOENT: No such file or directory - brotli (Errno::ENOENT)"
+    )
+
+
+def test_extract_build_error_uses_buildkit_message_when_step_has_no_output():
+    """A base-image / metadata failure produces no step output of its own — the
+    `#N ERROR:` line carries the only message there is.
+
+    Regression: five apps died on a Docker Hub 500 and every one of them reported
+    its cause as "[internal] load metadata for docker.io/library/debian:trixie-slim"
+    — the step's NAME, not the error.
+    """
+    out = (
+        "#1 [internal] load build definition from Dockerfile\n"
+        "#1 DONE 0.0s\n"
+        "#2 [internal] load metadata for docker.io/library/debian:trixie-slim\n"
+        "#2 ERROR: unexpected status from HEAD request to "
+        "https://registry-1.docker.io/v2/library/debian/manifests/trixie-slim: "
+        "500 Internal Server Error\n"
+    )
+    error = _extract_build_error(out)
+    assert "500 Internal Server Error" in error
+    assert "load metadata" not in error
+
+
+def test_transient_registry_error_is_retryable():
+    """A 5xx from the registry is an upstream outage — retry, don't fail the app."""
+    out = (
+        "#2 [internal] load metadata for docker.io/library/debian:trixie-slim\n"
+        "#2 ERROR: unexpected status from HEAD request to "
+        "https://registry-1.docker.io/v2/library/debian/manifests/trixie-slim: "
+        "500 Internal Server Error\n"
+        "ERROR: failed to solve: failed to resolve source metadata for "
+        "docker.io/library/debian:trixie-slim\n"
+    )
+    assert _is_transient_registry_error(out) is True
+
+
+def test_app_emitted_5xx_is_not_mistaken_for_a_registry_outage():
+    """A 5xx printed by the app's OWN build must not be silently retried: the
+    symptom alone is not enough, a registry context must be present too."""
+    out = (
+        "#7 12.3 curl: warning: server replied 503 Service Unavailable\n"
+        "#7 12.4 test failed: expected 200, got 500 Internal Server Error\n"
+        '#7 ERROR: process "/bin/sh -c ./run-tests.sh" did not complete '
+        "successfully: exit code: 1\n"
+    )
+    assert _is_transient_registry_error(out) is False
+
+
+def test_extract_build_error_reports_doctor_check_not_trailing_boilerplate():
+    """A CLI doctor-style "[failed]" line is the root cause — not the trailing
+    "refer to the docs" boilerplate that used to win as the last line."""
+    out = (
+        "#10 1.9 [08:41:26] Checking system Node.js version - found v20.20.2 [failed]\n"
+        "#10 1.9 The version of Node.js you are using is not supported.\n"
+        "#10 2.0 You can always refer to https://ghost.org/docs/ for troubleshooting.\n"
+        '#10 ERROR: process "/bin/sh -c ghost install" did not complete'
+        " successfully: exit code: 1\n"
+    )
+    error = _extract_build_error(out)
+    assert "[failed]" in error
+    assert "refer to" not in error
 
 
 def test_build_failure_message_is_concise_with_pointer(tmp_path, monkeypatch):

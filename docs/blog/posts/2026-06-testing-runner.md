@@ -87,7 +87,7 @@ The guiding principle for prerequisites is the same one that governs the whole p
 
 ## Beyond pass/fail
 
-Because every app routes through one path, every failure produces one shared diagnostic bundle — and crucially, a **proxy probe** that captures the silent-502 class (a healthy app behind a 502 because nginx points at the wrong port). A classifier turns the bundle into a one-line verdict — `proxy-502 / build-failure / addon-unreachable / app-crash / timeout` — and `hop3-test why <run-id>` replays any section. Nothing is dumped inline by default; the full bundle is written to `~/.hop3/test-runs/` and uploaded by CI. This is the difference between "edrix failed" and "edrix is up on :41051 but nginx is proxying :41050 — here's the one-line diff."
+Because every app routes through one path, every failure produces one shared diagnostic bundle — including a **proxy probe** that captures the silent-502 class (a healthy app behind a 502 because nginx points at the wrong port). A classifier turns the bundle into a one-line verdict — `proxy-502 / build-failure / addon-unreachable / app-crash / timeout` — and `hop3-test why <run-id>` replays any section. Nothing is dumped inline by default; the full bundle is written to `~/.hop3/test-runs/` and uploaded by CI. This is the difference between "edrix failed" and "edrix is up on :41051 but nginx is proxying :41050 — here's the one-line diff."
 
 ## The runner is also a library
 

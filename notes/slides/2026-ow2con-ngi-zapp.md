@@ -251,7 +251,7 @@ If asked "why so much testing for a one-server PaaS?" — because the whole sove
 ---
 # Where we are
 
-**v0.3** (Jun 2025) → **v0.4** (Mar 2026) matured the plugin architecture. The **v0.4 → v0.5** cycle (tagged this week) was load-bearing *trust* work — reproducibility, a real privilege boundary, security, testing — not feature polish.
+**v0.3** (Jun 2025) → **v0.4** (Mar 2026) matured the plugin architecture. The **v0.4 → v0.5** cycle (tagged this week) was foundational *trust* work — reproducibility, a real privilege boundary, security, testing — not feature polish.
 
 ::: columns
 ::: column

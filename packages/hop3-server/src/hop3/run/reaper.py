@@ -174,7 +174,7 @@ def reap_app_processes(
     SIGKILL; by this point the vassal is gone, so nothing respawns them.
 
     Returns the PIDs that survived even SIGKILL (``[]`` on success), so callers
-    can report an honest failure instead of a false STOPPED.
+    can report the actual failure instead of a false STOPPED.
     """
     deadline = time.time() + timeout
     while time.time() < deadline:

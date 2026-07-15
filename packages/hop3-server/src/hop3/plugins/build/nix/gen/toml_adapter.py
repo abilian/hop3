@@ -14,6 +14,7 @@ translation.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from hop3.plugins.build.nix.gen.spec import (
@@ -23,6 +24,35 @@ from hop3.plugins.build.nix.gen.spec import (
     FileMapping,
     Source,
 )
+
+_NIXPKGS_REV_RE = re.compile(r"\A[0-9a-f]{40}\Z")
+# Nix's own base32 alphabet (no e/o/u/t), 52 chars — or an SRI `sha256-<base64>`.
+_NIXPKGS_SHA256_RE = re.compile(
+    r"\A(?:[0-9abcdfghijklmnpqrsvwxyz]{52}|sha256-[A-Za-z0-9+/]{43}=)\Z"
+)
+
+
+def _validate_nixpkgs_pin(rev: str, sha256: str) -> None:
+    """Reject a malformed per-app nixpkgs pin at parse time.
+
+    A placeholder or typo'd pin used to be interpolated verbatim into the
+    generated hop3.nix and shipped: the operator only found out at deploy, via an
+    opaque Nix eval error ("hash '…' has wrong length for hash algorithm
+    'sha256'"). Refuse to emit a build we already know is broken.
+    """
+    if not _NIXPKGS_REV_RE.match(rev):
+        msg = (
+            f"[nix].nixpkgs-rev must be a 40-character git commit SHA, got {rev!r}. "
+            "Pick a nixpkgs commit (e.g. from the nixos-25.05 branch)."
+        )
+        raise ValueError(msg)
+    if not _NIXPKGS_SHA256_RE.match(sha256):
+        msg = (
+            f"[nix].nixpkgs-sha256 must be a nix sha256 hash, got {sha256!r}. "
+            "Get it with: nix-prefetch-url --unpack "
+            f"https://github.com/NixOS/nixpkgs/archive/{rev}.tar.gz"
+        )
+        raise ValueError(msg)
 
 
 def app_spec_from_config(
@@ -64,6 +94,8 @@ def app_spec_from_config(
             f"supported by the 'nixpkgs-wrapper' template, not {template!r}"
         )
         raise ValueError(msg)
+    if nixpkgs_rev is not None and nixpkgs_sha256 is not None:
+        _validate_nixpkgs_pin(nixpkgs_rev, nixpkgs_sha256)
 
     # Build Source from [nix] fields
     source = Source(

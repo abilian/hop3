@@ -34,7 +34,7 @@ def _debian_spec():
 
 def test_noninteractive_env_suppresses_needrestart():
     assert APT_NONINTERACTIVE_ENV["DEBIAN_FRONTEND"] == "noninteractive"
-    # The load-bearing one: DEBIAN_FRONTEND alone does NOT stop needrestart.
+    # The essential one: DEBIAN_FRONTEND alone does NOT stop needrestart.
     assert APT_NONINTERACTIVE_ENV["NEEDRESTART_MODE"] == "a"
 
 

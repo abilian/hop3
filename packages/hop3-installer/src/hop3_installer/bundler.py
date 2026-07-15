@@ -330,7 +330,7 @@ def _collect_import_statements(source: str) -> set[str]:
     """Full, normalized stdlib-candidate import statements found in ``source``.
 
     Uses ``ast`` so multi-line and conditional (e.g. ``if TYPE_CHECKING:``)
-    imports are captured correctly, and — crucially — so the imported *symbols*
+    imports are captured correctly, and so the imported *symbols*
     are preserved verbatim. This is what makes ``from typing import TypedDict``
     survive bundling: the old line-based path reduced it to the module name
     ``typing`` and re-emitted a bare ``import typing``, dropping ``TypedDict``

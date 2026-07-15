@@ -4,7 +4,7 @@
 """Shared SUT-side failure diagnostics for the test runners.
 
 When a test fails or times out, the *target* holds the answer — the app log, the
-nginx/uWSGI config, the journal, the docker state, and crucially the app list
+nginx/uWSGI config, the journal, the docker state, and the app list
 (`hop3 apps`). The deployment runner already collects this; the tutorial and demo
 runners historically did not, so a tutorial `hop3 deploy` that timed out was a
 black box ("Command timed out after 120s" and nothing else). This module gives

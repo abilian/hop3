@@ -33,8 +33,16 @@ if TYPE_CHECKING:
 BUILD_TIMEOUT_SECONDS = 30 * 60
 
 # An exception class name, e.g. Redis::CannotConnectError, LoadError, NameError.
-_BUILD_EXCEPTION_RE = re.compile(r"\b[A-Z][\w:]*(?:Error|Exception|Refused)\b.*")
+_BUILD_EXCEPTION_RE = re.compile(
+    # `Foo::BarError: …` / `SomeException: …`
+    r"\b[A-Z][\w:]*(?:Error|Exception|Refused)\b.*"
+    # …plus the Ruby `Errno::ENOENT: …` shape, which has no Error/Exception suffix.
+    r"|\b[A-Z]\w*(?:::[A-Z]\w*)+:\s.*"
+)
 # Fallback markers when no exception class is present (BuildKit / shell errors).
+# `fatal:` keeps its colon on purpose: a bare "fatal" also matches ordinary
+# output that merely CONTAINS the word — Ruby's `configuring ext/-test-/fatal`
+# (a directory name) was once reported as the root cause of an unrelated failure.
 _BUILD_ERROR_MARKERS = (
     "rake aborted",
     "error:",
@@ -42,28 +50,133 @@ _BUILD_ERROR_MARKERS = (
     "no such file",
     "failed to ",
     "not found",
-    "fatal",
+    "fatal:",
+    "fatal error",
+    # How common toolchains announce a failure without an exception class:
+    # ghost-cli/doctor-style checks ("… [failed]"), npm, apt ("E: …"), and the
+    # usual permission/support refusals. Safe now that we only look at the
+    # failing step's own output.
+    "[failed]",
+    "npm err!",
+    "permission denied",
+    "is not supported",
+    "unable to locate",
 )
+
+# BuildKit tags every line with its step: `#12 124.5 <output>`, and announces the
+# step that failed as `#12 ERROR: <message>`.
+_BUILDKIT_STEP_ERROR_RE = re.compile(r"^#(\d+)\s+ERROR:?\s*(.*)")
+_BUILDKIT_PREFIX_RE = re.compile(r"^#\d+\s+(?:\d+\.\d+\s+)?")
+# When a RUN step's command exits non-zero, BuildKit's own ERROR line only echoes
+# the command back — the real cause is in that step's output. But when a step
+# fails without producing output (pulling a base image, resolving metadata), the
+# ERROR line carries the ONLY message there is, e.g.
+#   #2 ERROR: unexpected status from HEAD request to …/manifests/trixie-slim:
+#            500 Internal Server Error
+# So the ERROR line is a fallback, used when the step's own output says nothing.
+_USELESS_STEP_ERROR = re.compile(r"did not complete successfully|process \"")
+
+# A build can fail because the REGISTRY is having a bad day, not because anything
+# is wrong with the app — e.g. Docker Hub answering the manifest HEAD request with
+# a 500. Retrying fixes that; failing the deploy for it does not. Rate limiting
+# (429 / "toomanyrequests") is deliberately NOT in here: Docker Hub's quota resets
+# over hours, so retrying would just burn the remaining budget and still fail.
+_TRANSIENT_REGISTRY_RE = re.compile(
+    r"5\d\d\s+(?:internal server error|bad gateway|service unavailable|gateway time)"
+    r"|tls handshake timeout"
+    r"|i/o timeout"
+    r"|connection reset by peer"
+    r"|unexpected eof"
+    r"|temporary failure in name resolution",
+    re.IGNORECASE,
+)
+_REGISTRY_CONTEXT_RE = re.compile(
+    r"failed to resolve source metadata|load metadata|failed to (?:copy|fetch|pull)"
+    r"|registry-1\.docker\.io|docker\.io/",
+    re.IGNORECASE,
+)
+
+_BUILD_ATTEMPTS = 3
+_BUILD_RETRY_DELAYS = (5, 15, 0)  # before attempt 2, before attempt 3, unused
+
+
+class _TransientRegistryError(Exception):
+    """An upstream registry blip that is worth retrying."""
+
+    def __init__(self, detail: str) -> None:
+        super().__init__(detail)
+        self.detail = detail
+
+
+def _is_transient_registry_error(output: str) -> bool:
+    """Whether a build failure is an upstream registry blip rather than the app's.
+
+    Both halves must hold: a transient-looking network/5xx symptom AND a registry
+    context. A 500 emitted by the *app's own* build (a curl inside a RUN step, a
+    test suite printing "503 Service Unavailable") must not be mistaken for a
+    registry outage and silently retried.
+    """
+    return bool(
+        _TRANSIENT_REGISTRY_RE.search(output) and _REGISTRY_CONTEXT_RE.search(output)
+    )
+
+
+def _failing_step(lines: list[str]) -> tuple[list[str], str]:
+    """(output of the BuildKit step that failed, that step's ERROR message).
+
+    Scoping extraction to the failing step is what stops an early, benign line
+    from being reported as the root cause: a step-#7 line could out-rank the real
+    step-#12 error simply by appearing first in the log.
+    """
+    step: str | None = None
+    message = ""
+    for ln in lines:
+        m = _BUILDKIT_STEP_ERROR_RE.match(ln)
+        if m:
+            step, message = m.group(1), m.group(2).strip()
+    if step is None:
+        return [], ""
+    prefix = f"#{step} "
+    output = [
+        _BUILDKIT_PREFIX_RE.sub("", ln)
+        for ln in lines
+        if ln.startswith(prefix) and not _BUILDKIT_STEP_ERROR_RE.match(ln)
+    ]
+    if _USELESS_STEP_ERROR.search(message):
+        message = ""
+    return output, message
 
 
 def _extract_build_error(output: str) -> str:
     """Best-effort one-line root cause from a build log.
 
-    The real error is a needle in a haystack of backtrace + BuildKit noise.
-    Prefer the first exception line (`Foo::BarError: …`), else the first strong
-    error marker, else the last non-empty line. Trimmed to keep the summary one
-    line; the full log lives in build.log.
+    The real error is a needle in a haystack of backtrace + BuildKit noise. Search
+    only the failing step's own output (falling back to the whole log when the
+    output isn't BuildKit-tagged), preferring an exception line, then a strong
+    error marker, then BuildKit's own message for the step, then the last line.
+    The full log lives in build.log.
     """
     lines = [ln.strip() for ln in output.splitlines() if ln.strip()]
-    for ln in lines:
+    if not lines:
+        return "(no build output)"
+
+    step_output, step_message = _failing_step(lines)
+    scoped = step_output or lines
+    for ln in scoped:
         m = _BUILD_EXCEPTION_RE.search(ln)
         if m:
             return m.group(0)[:300]
-    for ln in lines:
+    for ln in scoped:
         low = ln.lower()
         if any(mk in low for mk in _BUILD_ERROR_MARKERS):
             return ln[:300]
-    return lines[-1][:300] if lines else "(no build output)"
+    # The step produced no diagnosable output of its own (a base-image pull or a
+    # metadata resolve that failed). BuildKit's ERROR line is then the only real
+    # message — without this, we'd report the step's NAME ("[internal] load
+    # metadata for docker.io/library/debian:trixie-slim") as if it were the cause.
+    if step_message:
+        return step_message[:300]
+    return scoped[-1][:300]
 
 
 @dataclass(frozen=True)
@@ -139,11 +252,36 @@ class DockerBuilder:
     def _run_docker_build(self, image_tag: str) -> None:
         """Execute docker build command.
 
+        A build that fails because the *registry* is having a bad day (a 5xx on
+        the manifest request, a TLS/i-o timeout) is retried: that is an upstream
+        outage, not a fault in the app, and failing the deploy for it is a
+        robustness bug. Nothing is retried silently — each attempt is logged.
+
         Args:
             image_tag: The tag to apply to the built image
 
         Raises:
             Abort: If Docker is not found or build fails
+        """
+        for attempt in range(1, _BUILD_ATTEMPTS + 1):
+            try:
+                self._attempt_docker_build(image_tag, attempt)
+                return
+            except _TransientRegistryError as e:
+                delay = _BUILD_RETRY_DELAYS[attempt - 1]
+                log(
+                    f"Docker registry error (attempt {attempt}/{_BUILD_ATTEMPTS}): "
+                    f"{e.detail} — retrying in {delay}s",
+                    level=0,
+                    fg="yellow",
+                )
+                time.sleep(delay)
+
+    def _attempt_docker_build(self, image_tag: str, attempt: int) -> None:
+        """One `docker build` attempt.
+
+        Raises ``_TransientRegistryError`` when the failure is an upstream
+        registry blip AND retries remain; otherwise aborts as usual.
         """
         cmd = ["docker", "build", "-t", image_tag, "."]
         start_time = time.time()
@@ -215,6 +353,9 @@ class DockerBuilder:
             )
 
         except subprocess.CalledProcessError as e:
+            combined = f"{e.stdout or ''}\n{e.stderr or ''}"
+            if attempt < _BUILD_ATTEMPTS and _is_transient_registry_error(combined):
+                raise _TransientRegistryError(_extract_build_error(combined)) from e
             self._handle_build_failure(e, image_tag, start_time)
 
     def _handle_build_success(

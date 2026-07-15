@@ -9,7 +9,7 @@ Regressions this pins (all seen on a real Nix app's failure bundle):
 - build-log section guessing "may use docker builder" for a Nix build.
 - a missing nginx vhost surfaced as a raw `cat: … No such file` error.
 - a deploy that failed before app creation leaking a cascade of redundant
-  per-subdir "No such file" errors instead of one honest finding.
+  per-subdir "No such file" errors instead of one accurate finding.
 """
 
 from __future__ import annotations
@@ -105,7 +105,7 @@ def test_collect_runtime_logs_native_has_no_docker_noise() -> None:
 
 
 def test_collect_runtime_logs_collapses_missing_app_dir() -> None:
-    # Deploy failed before app creation → app dir absent. One honest finding,
+    # Deploy failed before app creation → app dir absent. One accurate finding,
     # not a cascade of redundant per-subdir errors.
     blob = collect_runtime_logs(_FakeTarget(""), "myapp")
     assert "=== Runtime Logs (collected from target) ===" in blob

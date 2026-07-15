@@ -270,4 +270,4 @@ The engine's `collect_diagnostic_bundle(target, app, …)` (`hop3-testing/bundle
 | 7 | Auth & exposure | **Lab's own credentials**, session-cookie + CSRF, not public by default; bearer deferred (§14). |
 | 8 | Relationship to SourceHut | Unchanged: SourceHut = per-distro PR/commit CI; the Lab = nightly full-suite. |
 
-**Still genuinely open (and now load-bearing for the advertised-set gate):** bundle **secret redaction** (no denylist/allowlist yet — the single most important security gap); the AA-schema / `Artifact` / Alembic migration (M0); incremental persistence + budget shedding; the charting approach for trends; the retention window.
+**Still genuinely open (and now required for the advertised-set gate):** bundle **secret redaction** (no denylist/allowlist yet — the single most important security gap); the AA-schema / `Artifact` / Alembic migration (M0); incremental persistence + budget shedding; the charting approach for trends; the retention window.

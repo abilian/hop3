@@ -272,7 +272,7 @@ class RunCmd(Command):
             # Surface BOTH streams: many commands write their error (and
             # tracebacks) to stdout, so stderr alone often leaves only the bare
             # exit code. Mirror the success path's stdout / stderr layout, echo
-            # the exact command, and — crucially — say so explicitly when the
+            # the exact command, and say so explicitly when the
             # process produced nothing, so the user never gets a silent bare
             # exit code (and so a live deploy of this code is recognisable).
             cmd_str = shlex.join(cmd_to_run)

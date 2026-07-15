@@ -72,9 +72,14 @@ $AUTOCONFIG = array(
   "dbuser" => getenv("MYSQL_USER") ?: "nextcloud",
   "dbpass" => getenv("MYSQL_PASSWORD") ?: "",
   "dbhost" => getenv("MYSQL_HOST") ?: "127.0.0.1",
-  "directory" => "./data",
-  "adminlogin" => "admin",
-  "adminpass" => "admin123",
+  // MUST be absolute. A relative datadirectory makes OC_Util::checkServer()
+  // ("Your data directory must be an absolute path") 503 EVERY request, forever
+  // — and install has already written installed=>true by then, so the instance
+  // is wedged and a redeploy won't heal it. autoconfig.php lives in <cwd>/config,
+  // so dirname(__DIR__) is the app's src dir; __DIR__ is absolute regardless of cwd.
+  "directory" => dirname(__DIR__) . "/data",
+  "adminlogin" => getenv("NEXTCLOUD_ADMIN_USER") ?: "admin",
+  "adminpass" => getenv("NEXTCLOUD_ADMIN_PASSWORD") ?: "admin123",
 );
 CFGEOF
 fi

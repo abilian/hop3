@@ -12,6 +12,42 @@ php-version = "php82"
 php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'intl']
 needs-composer = true
 extra-paths = ['${php}/bin']
+# The app writes config.php (below) and storage/; the Nix store is read-only.
+needs-writable-dir = true
+post-install-dirs = ['storage/cache', 'storage/logs', 'storage/sessions', 'storage/uploads']
+# Seed the schema once. Without it `/` redirects to the install wizard and never
+# serves the "Easy!Appointments" body the test asserts.
+pre-exec = [
+  "if [ ! -f storage/.hop3-installed ]; then PHPBIN/php index.php console install && touch storage/.hop3-installed; fi",
+]
+
+# Easy!Appointments ships only config-sample.php; index.php refuses to boot
+# without a root config.php ("The root config.php file is missing…" — which is
+# exactly the body it was serving). Shape lifted from the known-good docker
+# variant's start.sh.
+#
+# NB: values are shell-expanded into the file (the heredoc is unquoted), NOT read
+# with getenv(). These are PHP *class constants*, and a constant expression may
+# not contain a function call — `const DB_HOST = getenv(...)` is a fatal error.
+[[nix.config-files]]
+path = "config.php"
+format = "raw"
+raw-content = """<?php
+class Config {
+    const BASE_URL     = 'http://${HOST_NAME:-localhost}';
+    const LANGUAGE     = 'english';
+    const DEBUG_MODE   = false;
+
+    const DB_HOST      = '${MYSQL_HOST}';
+    const DB_NAME      = '${MYSQL_DATABASE}';
+    const DB_USERNAME  = '${MYSQL_USER}';
+    const DB_PASSWORD  = '${MYSQL_PASSWORD}';
+
+    const GOOGLE_SYNC_FEATURE  = false;
+    const GOOGLE_CLIENT_ID     = '';
+    const GOOGLE_CLIENT_SECRET = '';
+}
+"""
 
 [nix.runtime-env]
 APP_URL = "http://localhost:8080"

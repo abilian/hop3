@@ -108,7 +108,7 @@ def diff_results(
     """Compare two runs, considering ONLY tests run in both (xfail/xpass excluded).
 
     A test that failed before but wasn't re-run is NOT "fixed" — it's ``not_run``.
-    Comparing only the intersection keeps regressions/fixed/still-failing honest
+    Comparing only the intersection keeps regressions/fixed/still-failing accurate
     when the runs cover different sets (e.g. a 6-test manual run vs a 199-test
     nightly).
 

@@ -11,7 +11,9 @@ builder = "nix"
 [nix]
 template = "nixpkgs-wrapper"
 nixpkgs-package = "forgejo"
-exec-target = "forgejo"
+# nixpkgs ships forgejo's server binary as `gitea` (meta.mainProgram = "gitea");
+# $out/bin/forgejo does not exist.
+exec-target = "gitea"
 exec-args = ['web']
 extra-paths = ['${forgejo}/bin']
 pre-exec = ['mkdir -p custom/conf data']
