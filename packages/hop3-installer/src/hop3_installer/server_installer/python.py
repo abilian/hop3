@@ -85,21 +85,25 @@ def install_package(config: ServerInstallerConfig) -> None:
     # Determine what to install
     # Note: All user-controlled package specs are quoted to prevent command injection
     pre_flag = ""
+    # Install the WAF engine by default via the hop3-server[waf] extra (ADR 050):
+    # LeWAF + uvicorn, marker-gated to py3.12+. Without it, deploying a WAF-enabled
+    # app aborts loudly ("'waf' extra not installed"), so WAF must ship out of the box.
     if config.local_path:
-        package_spec = config.local_path
+        package_spec = f"{config.local_path}[waf]"
         source_desc = f"local path ({config.local_path})"
     elif config.use_git:
         with Spinner("Installing build tools..."):
             run_as_hop3(f"{pip} install uv")
         package_spec = (
+            f"{SERVER_PACKAGE_NAME}[waf] @ "
             f"git+{GIT_REPO}@{config.branch}#subdirectory={SERVER_PACKAGE_SUBDIR}"
         )
         source_desc = f"git ({config.branch} branch)"
     elif config.version:
-        package_spec = f"{SERVER_PACKAGE_NAME}=={config.version}"
+        package_spec = f"{SERVER_PACKAGE_NAME}[waf]=={config.version}"
         source_desc = f"PyPI (version {config.version})"
     else:
-        package_spec = SERVER_PACKAGE_NAME
+        package_spec = f"{SERVER_PACKAGE_NAME}[waf]"
         if config.pre_release:
             pre_flag = "--pre "
             source_desc = "PyPI (latest including pre-releases)"

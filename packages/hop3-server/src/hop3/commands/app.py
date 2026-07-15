@@ -24,6 +24,7 @@ from hop3.core.identifiers import validate_app_name
 from hop3.core.plugins import get_addon
 from hop3.deployers import do_deploy, stop_previous_instance
 from hop3.deployers.fixed_ports import release_fixed_ports
+from hop3.deployers.waf import teardown_waf
 from hop3.lib import log
 from hop3.lib.archives import extract_archive_to_dir
 from hop3.lib.args import parse_cli_args, pop_app_flag, reject_extra_args
@@ -864,6 +865,10 @@ class DestroyCmd(Command):
             # BEFORE the fallible filesystem/Docker cleanup, so a stranded claim
             # can never block a future deploy of that port.
             release_fixed_ports(app, self.db_session)
+
+            # Stop the LeWAF proxy vassal (Emperor reaps it + its daemon) and
+            # remove its rules, so no proxy process/port/config is left behind.
+            teardown_waf(app)
 
             # Clean up filesystem (repo, src, logs, configs etc.). Downgrade a
             # failure to a warning: a busy directory or a Docker hiccup must not

@@ -40,3 +40,6 @@ demos/.cli-home/
 
 # Docs
 /docs/src/developers/adrs/
+
+# Deployment
+/hop3.toml

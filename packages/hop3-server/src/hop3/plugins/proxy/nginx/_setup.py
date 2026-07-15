@@ -115,6 +115,23 @@ class NginxVirtualHost(BaseProxy):
             )
             return
 
+        # When the app has a WAF (ADR 050 §7), nginx must proxy to the LeWAF
+        # proxy (loopback) instead of the app's web socket; the proxy forwards
+        # clean traffic on to the app. The app's port stays loopback, so the
+        # only inbound path is nginx -> WAF proxy -> app (Security invariant 3).
+        if self.app.waf_port:
+            backend = f"127.0.0.1:{self.app.waf_port}"
+            self.env["HOP3_INTERNAL_NGINX_UWSGI_SETTINGS"] = (
+                f"proxy_pass http://{backend};"
+            )
+            self.env["NGINX_SOCKET"] = backend
+            log(
+                f"nginx will proxy app '{self.app_name}' through its LeWAF proxy "
+                f"on http://{backend}",
+                level=2,
+            )
+            return
+
         # Always use HTTP proxy_pass for all workers (including WSGI)
         # This allows direct HTTP access for development, debugging, and health checks
         # uWSGI listens on HTTP sockets, and nginx proxies to them

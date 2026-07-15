@@ -27,6 +27,7 @@ from hop3.deployers.fixed_ports import claim_fixed_ports, open_fixed_ports
 from hop3.deployers.limits import LimitsError, resolve_limits
 from hop3.deployers.native_limits import enforce_native_limits, format_limits_detail
 from hop3.deployers.volumes import realize_volumes
+from hop3.deployers.waf import configure_waf_preflight, start_waf_proxy
 from hop3.lib import Abort, Diagnosis, abort_with_diagnosis, log, log_diagnosis, shell
 from hop3.lib.logging import server_log
 from hop3.orm.app import AppStateEnum
@@ -246,6 +247,11 @@ def _do_deploy(  # noqa: PLR0915
     # Now that the app is confirmed running, allow external ingress to the
     # ports it claimed. Skipped silently when no [[ports]] are declared.
     open_fixed_ports(app, db_session)
+
+    # --- 6.55. Start the LeWAF proxy (ADR 050) ---
+    # The app is running and its port is known; bring up the per-app WAF proxy
+    # that nginx already points at. Rules were compiled+validated in preflight.
+    start_waf_proxy(app, app_config)
 
     # --- 6.6. Apply native [limits] cgroup caps (ADR 046 §3) ---
     # Post-start: the app's PIDs exist only now. Docker caps were applied by the
@@ -908,6 +914,10 @@ def _prepare_source_for_build(
        (ADR 046 §2). No-op when none are declared.
     """
     claim_fixed_ports(app, app_config, db_session)
+    # Compile + validate the [waf] policy and allocate the proxy port now, so the
+    # nginx config generated during deploy points at the WAF proxy (ADR 050 §7).
+    # Aborts the deploy loudly on an invalid policy (compile-before-commit, §5).
+    configure_waf_preflight(app, app_config, db_session)
     stop_previous_instance(app)
     realize_volumes(app, app_config.hop3_config.volumes)
 
