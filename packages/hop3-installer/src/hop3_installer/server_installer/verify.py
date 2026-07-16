@@ -236,6 +236,7 @@ def _verify_services() -> None:
     if has_systemd():
         for service, name in [
             ("hop3-server", "hop3-server service"),
+            ("hop3-rootd", "hop3-rootd service"),
             ("nginx", "nginx service"),
             ("uwsgi-hop3", "uwsgi-hop3 service"),
         ]:
@@ -357,6 +358,7 @@ def print_final_message(config: ServerInstallerConfig) -> None:
     print()
     print(f"  {Colors.BOLD}Services:{Colors.RESET}")
     print("    sudo systemctl status hop3-server")
+    print("    sudo systemctl status hop3-rootd")
     print("    sudo systemctl status uwsgi-hop3")
     print("    sudo systemctl status nginx")
     print()

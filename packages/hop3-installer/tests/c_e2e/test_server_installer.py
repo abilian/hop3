@@ -218,3 +218,16 @@ class TestServerInstallerWithServices:
         # Check service is enabled
         result = systemd_backend.run("systemctl is-enabled hop3-server")
         assert "enabled" in result.stdout, "hop3-server service not enabled"
+
+    def test_hop3_rootd_service(self, systemd_backend: Backend) -> None:
+        """Verify hop3-rootd (privileged-ops daemon, ADR 041) is up.
+
+        rootd is mandatory, not optional: the installer removes the sudoers
+        fallback once it is running, so a missing or dead rootd breaks every
+        subsequent deploy. It must be both enabled and active after a fresh
+        install -- and it must be reported in the install summary.
+        """
+        result = systemd_backend.run("systemctl is-enabled hop3-rootd")
+        assert "enabled" in result.stdout, "hop3-rootd service not enabled"
+        result = systemd_backend.run("systemctl is-active hop3-rootd")
+        assert "active" in result.stdout, "hop3-rootd service not running"
