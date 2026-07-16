@@ -19,6 +19,7 @@ The project is hosted on [SourceHut](https://git.sr.ht/~sfermigier/hop3) and [Gi
 <!-- toc -->
 
 - [Status](#status)
+- [Getting Started](#getting-started)
 - [Overview](#overview)
 - [Goals](#goals)
 - [Features (Including Planned Features)](#features-including-planned-features)
@@ -27,7 +28,6 @@ The project is hosted on [SourceHut](https://git.sr.ht/~sfermigier/hop3) and [Gi
   * [Architecture and Design](#architecture-and-design)
 - [Technology Stack](#technology-stack)
 - [Supported OS](#supported-os)
-- [Getting Started](#getting-started)
 - [Development and Contribution](#development-and-contribution)
   * [Development Environment](#development-environment)
   * [Development and Delivery Pipeline](#development-and-delivery-pipeline)
@@ -48,15 +48,36 @@ The project is hosted on [SourceHut](https://git.sr.ht/~sfermigier/hop3) and [Gi
 ## Status
 
 > [!WARNING]
-> This code is still evolving quickly, and not meant for production yet.
+> This code is still evolving quickly, and is not yet recommended for unattended production use.
 
-Version 0.3.0 (branch `stable`) is the first version that can be used to deploy a few simple web applications. It is not yet feature-complete. It is already used to host some live applications.
+Hop3 is at **version 0.6.x** and under active development toward its **0.7** release. It can already deploy and manage real web applications — a curated set of self-hostable apps is being validated on it — but its APIs and internals are still changing.
 
-Version 0.4.0 (branch `devel`) is the current development version. It is currently undergoing a very large refactoring (spliting the code base into multiple sub-projects, using a plugin architecture, etc.). It is not yet usable.
+## Getting Started
 
-=> If you want to use Hop3 (or fix bugs on the production branch), please use the `stable` branch.
+Install the Hop3 **server** on the machine that will host your apps (Debian/Ubuntu/RHEL, run as root):
 
-=> If you want to contribute to Hop3, please use the `devel` branch.
+```bash
+curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
+```
+
+Install the **CLI** on your own machine:
+
+```bash
+curl -LsSf https://hop3.cloud/install-cli.py | python3 -
+```
+
+Both installers are also published on PyPI as [`hop3-installer`](https://pypi.org/project/hop3-installer/) — run the toolkit straight from there (nothing to download) with `uvx` or `pipx run`:
+
+```bash
+uvx --from hop3-installer hop3-install cli          # CLI (no root)
+pipx run --spec hop3-installer hop3-install cli     # same, with pipx
+```
+
+Run `hop3-install server` as root to install the server the same way.
+
+The server installer accepts `--domain example.com --acme-email you@example.com` for a Let's Encrypt certificate, `--with all` to enable optional backing services (Redis, S3/MinIO) and runtimes (Docker, Nix), and more. Full reference: the [installation guide](https://hop3.cloud/get-started/installer/).
+
+Once installed, per-app configuration lives in each app's `hop3.toml`, and the full guides are at [https://hop3.cloud](https://hop3.cloud).
 
 ## Overview
 
@@ -119,21 +140,6 @@ We *aim* to support a wide range of operating systems, including:
 
 We run CI tests on the SourceHut platform, which supports a wide range of open source distributions and operating systems. This is a work in progress, and we welcome contributions to fix issues with the current tests or to expand the list of supported OS. See: [.builds](.builds) for the CI scripts, and https://builds.sr.ht/~sfermigier/ for current build status.
 
-## Getting Started
-
-To begin using Hop3, follow these introductory steps:
-
-1. **Prerequisites**: Familiarize yourself with basic cloud computing concepts and the specific technologies Hop3 employs for virtualization and security.
-
-1. **Installation**:
-
-   - Clone the latest version of Hop3 from the official repository: `git clone https://github.com/abilian/hop3.git`
-   - Follow the installation instructions in the `docs/installation.md` to set up Hop3 on your system.
-
-1. **Configuration**: Configuration options can be found in the `config` directory. Adjust these settings to suit your environment and deployment needs.
-
-1. **Documentation**: For detailed information on setup, architecture, and usage, refer to the `docs` folder. This resource includes comprehensive guides and best practices.
-
 ## Development and Contribution
 
 Contributions to Hop3 are highly encouraged, whether it involves fixing bugs, adding features, or enhancing documentation. The development and delivery pipeline is designed to be hermetic, reproducible, and highly responsive, integrating modern cross-platform functional package management with continuous integration/continuous delivery (CI/CD). This ensures that the development process is transparent, secure, and efficient.
@@ -142,7 +148,6 @@ Contributions to Hop3 are highly encouraged, whether it involves fixing bugs, ad
 
 To develop Hop3, you will need to set up a Python development environment (tested under various variants of Linux, and MacOS). The project uses Python 3.10+ and some common Python tools for environment and dependency management. We assume you are already familiar with these prerequisites.
 
-- **Poetry**: You must have Poetry installed. We are in the process of phasing out Poerty in favor of uv, but for now, you need to have Poetry installed.
 - **uv**: You need uv installed. Run `brew install uv` or run the installer.
 - **nox**: You need nox installed. Run `uv tool install nox`.
 - **Just**: You need Just installed. Run `brew install just` or `cargo install just`.
