@@ -1,10 +1,8 @@
 PKG:=hop3_testing
 
-.PHONY: all develop test lint clean doc format
-.PHONY: clean clean-build clean-pyc clean-test coverage dist docs install lint lint/flake8
+.PHONY: all develop install-deps activate-pre-commit configure-git update-deps
 
-
-all: lint
+all: lint test
 
 #
 # Setup
@@ -15,8 +13,7 @@ develop: install-deps activate-pre-commit configure-git
 
 install-deps:
 	@echo "--> Installing dependencies"
-	pip install -U pip setuptools wheel
-	poetry install
+	uv sync
 
 activate-pre-commit:
 	@echo "--> Activating pre-commit hook"
@@ -26,44 +23,39 @@ configure-git:
 	@echo "--> Configuring git"
 	git config branch.autosetuprebase always
 
+## Update dependencies
+update-deps:
+	uv sync -U
 
 #
 # testing & checking
 #
+.PHONY: test test-cov lint format
 
-## Run python tests
+## Run tests
 test:
-	@echo "--> Running Python tests"
-	pytest -x -p no:randomly
-	@echo ""
+	uv run pytest
 
-test-randomly:
-	@echo "--> Running Python tests in random order"
-	pytest
-
+## Run tests with coverage
 test-cov:
-	@echo "--> Running Python tests with coverage"
 	uv run pytest --cov=$(PKG) --cov-report term-missing
-	@echo ""
 
-## Lint / check typing
+## Lint and type-check
 lint:
-	adt check src tests
+	uv run ruff check src tests
+	uv run ruff format --check src tests
+	uv run pyrefly check src
 
-
-#
-# Formatting
-#
-
-## Format / beautify code
+## Format code
 format:
-	docformatter -i -r src
-	adt format
-
+	uv run ruff format src tests
+	uv run ruff check --fix src tests
 
 #
 # Everything else
 #
+.PHONY: help clean tidy publish release
+
 help:
 	adt help-make
 
@@ -82,15 +74,11 @@ tidy: clean
 	rm -rf node_modules
 	rm -rf instance
 
-## Update dependencies
-update-deps:
-	uv sync -U
-
 ## Publish to PyPI
 publish: clean
 	git push
 	git push --tags
-	poetry build
+	uv build
 	twine upload dist/*
 
 ## Tag release and publish
@@ -98,5 +86,5 @@ release: clean
 	adt bump-version
 	git push
 	git push --tags
-	poetry build
+	uv build
 	twine upload dist/*

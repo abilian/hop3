@@ -18,11 +18,6 @@ if not r:
     print("UV not found. Install it with `brew install uv` or ...")
     sys.exit(1)
 
-r = shutil.which("poetry")
-if not r:
-    print("Poetry not found. Install it with `uv tool install poetry`.")
-    sys.exit(1)
-
 r = shutil.which("nox")
 if not r:
     print("Nox not found. Install it with `uv tool install nox`.")
@@ -31,13 +26,6 @@ if not r:
 r = shutil.which("make")
 if not r:
     print("Make not found.")
-    sys.exit(1)
-
-r = shutil.which("just")
-if not r:
-    print(
-        "Just not found. Install it with `brew install just` or `cargo install just`."
-    )
     sys.exit(1)
 
 print("All good.")

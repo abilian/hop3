@@ -150,7 +150,6 @@ To develop Hop3, you will need to set up a Python development environment (teste
 
 - **uv**: You need uv installed. Run `brew install uv` or run the installer.
 - **nox**: You need nox installed. Run `uv tool install nox`.
-- **Just**: You need Just installed. Run `brew install just` or `cargo install just`.
 
 You can check your environment by running `python3 scripts/check-dev-env.py` or `make check-dev-env`, assuming you have `make` installed.
 
