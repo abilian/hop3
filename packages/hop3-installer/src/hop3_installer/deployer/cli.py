@@ -41,14 +41,9 @@ def create_parser() -> argparse.ArgumentParser:
         epilog="""
 Environment Variables:
   HOP3_HOST          Target server hostname (alternative to --host)
-  HOP3_DEV_HOST      Deprecated alias for HOP3_HOST
-  HOP3_TEST_SERVER   Deprecated alias for HOP3_HOST
   HOP3_SSH_USER      SSH user (default: root)
   HOP3_FROM          Install source: pypi | git | local
-  HOP3_GIT           Deprecated: install from git (use HOP3_FROM=git)
   HOP3_BRANCH        Git branch (implies --from git, default: main)
-  HOP3_LOCAL         Deprecated: use local code (use HOP3_FROM=local)
-  HOP3_PYPI          Deprecated: install from PyPI, the default (use HOP3_FROM=pypi)
   HOP3_VERSION       Specific PyPI version to install (was HOP3_PYPI_VERSION)
   HOP3_PRE           Allow pre-release versions (1 or true) (was HOP3_PYPI_PRE)
   HOP3_CLEAN         Clean before deploy (1 or true)
