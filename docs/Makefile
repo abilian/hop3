@@ -31,6 +31,7 @@ preprocess: convert-tutorials convert-adrs generate-blog-index
 
 build: preprocess
 	$(ZENSICAL) build
+	uv run hop3-install bundle --all --output-dir site/
 
 serve: preprocess
 	$(ZENSICAL) serve --open
