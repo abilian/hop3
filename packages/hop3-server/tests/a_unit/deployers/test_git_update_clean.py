@@ -1,6 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
 #
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 
 """Regression: the git deployer must `git clean` the tree between deploys.
 

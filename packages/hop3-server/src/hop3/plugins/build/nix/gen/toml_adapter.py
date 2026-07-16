@@ -1,6 +1,6 @@
 # Copyright (c) 2025-2026, Abilian SAS
 #
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 
 """Adapter: construct an AppSpec from parsed hop3.toml sections.
 
