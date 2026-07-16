@@ -39,6 +39,10 @@ from hop3_rootd.ops import (
     get_registration,
 )
 from hop3_rootd.ops._base import DaemonStats
+from hop3_rootd.ops.nginx import (
+    NginxBinaryNotFoundError,
+    NginxReloadNotAppliedError,
+)
 from hop3_rootd.postfix import PostfixError
 from hop3_rootd.protocol import (
     ErrorCode,
@@ -154,8 +158,13 @@ def dispatch(req: Request, ctx: OpContext) -> Response:
         MountError,
         PostfixError,
         DkimError,
+        NginxBinaryNotFoundError,
+        NginxReloadNotAppliedError,
         CommandTimeoutError,
     ) as e:
+        # nginx op failures carry an actionable, non-sensitive reason (e.g. a
+        # bind/listen conflict on reload) — surface str(e) rather than scrub it
+        # to an opaque internal_error.
         return error_response(req.id, ErrorCode.KERNEL_ERROR, str(e))
     except Exception as e:
         # Unexpected. Log full traceback to journald; return opaque message.

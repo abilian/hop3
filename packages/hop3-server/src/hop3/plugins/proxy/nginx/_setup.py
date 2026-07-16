@@ -24,6 +24,7 @@ from hop3.lib import (
 )
 from hop3.lib.rootd import (
     LocalRootdClient,
+    RootdError,
     RootdOpError,
     RootdUnavailableError,
 )
@@ -424,6 +425,26 @@ class NginxVirtualHost(BaseProxy):
                         "journalctl -u hop3-rootd -n 50   # systemd hosts",
                         "supervisorctl tail hop3-rootd stderr   # containers",
                         "systemctl status nginx",
+                    ],
+                )
+            )
+        except RootdError as e:
+            # Any other rootd-client failure (e.g. a protocol-version skew after
+            # an out-of-lockstep upgrade) — still abort with a structured
+            # diagnosis rather than letting a raw traceback escape the deploy.
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Nginx",
+                    action="reload proxy",
+                    reason=f"hop3-rootd client error: {e}",
+                    hint=(
+                        "nginx was not reloaded. This usually means hop3-server "
+                        "and hop3-rootd are out of sync — redeploy the server so "
+                        "both are on the same version."
+                    ),
+                    troubleshooting=[
+                        "systemctl status hop3-rootd",
+                        "journalctl -u hop3-rootd -n 50",
                     ],
                 )
             )

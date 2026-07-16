@@ -17,6 +17,10 @@ from hop3_rootd import PROTOCOL_VERSION, server as srv
 from hop3_rootd.audit import AuditLog
 from hop3_rootd.ops import OpRegistration
 from hop3_rootd.ops._base import OpContext
+from hop3_rootd.ops.nginx import (
+    NginxBinaryNotFoundError,
+    NginxReloadNotAppliedError,
+)
 from hop3_rootd.protocol import ErrorCode, Request, decode_request, encode_request
 from hop3_rootd.server import dispatch, handle_one
 from hop3_rootd.state import State, StoredRule
@@ -114,6 +118,46 @@ def test_dispatch_kernel_error_returns_kernel_error_code():
     err = resp.error
     assert err is not None
     assert err["code"] == ErrorCode.KERNEL_ERROR.value
+
+
+def test_dispatch_nginx_reload_not_applied_is_kernel_error_with_reason():
+    """A rejected nginx reload → kernel_error with the actionable reason kept in
+    the message (NOT scrubbed to the opaque internal_error). This is the whole
+    point of adding the nginx errors to the KERNEL_ERROR tuple — pin it."""
+    state = State()
+    req = Request(v=PROTOCOL_VERSION, id="r1", op="nginx.reload", args={})
+    reason = "[emerg] bind() to 127.0.0.1:8443 failed (98: Address already in use)"
+
+    def rejecting_handler(_req, _ctx):
+        msg = f"did not apply the new config: {reason}"
+        raise NginxReloadNotAppliedError(msg)
+
+    fake_reg = OpRegistration(handler=rejecting_handler, audit=True)
+    with patch.object(srv, "get_registration", return_value=fake_reg):
+        resp = dispatch(req, _ctx_for(state))
+
+    assert not resp.ok
+    err = resp.error
+    assert err is not None
+    assert err["code"] == ErrorCode.KERNEL_ERROR.value
+    assert "bind() to 127.0.0.1:8443" in err["message"]  # reason survives
+
+
+def test_dispatch_nginx_binary_not_found_is_kernel_error():
+    state = State()
+    req = Request(v=PROTOCOL_VERSION, id="r1", op="nginx.reload", args={})
+
+    def no_method_handler(_req, _ctx):
+        msg = "no nginx-reload method available"
+        raise NginxBinaryNotFoundError(msg)
+
+    fake_reg = OpRegistration(handler=no_method_handler, audit=True)
+    with patch.object(srv, "get_registration", return_value=fake_reg):
+        resp = dispatch(req, _ctx_for(state))
+
+    assert not resp.ok
+    assert resp.error is not None
+    assert resp.error["code"] == ErrorCode.KERNEL_ERROR.value
 
 
 def test_dispatch_unexpected_exception_returns_internal_error():

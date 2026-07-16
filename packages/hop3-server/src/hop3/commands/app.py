@@ -10,7 +10,6 @@ import contextlib
 import json
 import os
 import subprocess
-import threading
 import time
 import urllib.error
 import urllib.request
@@ -31,6 +30,7 @@ from hop3.lib.args import parse_cli_args, pop_app_flag, reject_extra_args
 from hop3.lib.console import capture_logs
 from hop3.lib.logging import server_log
 from hop3.lib.registry import register
+from hop3.lib.rootd import LocalRootdClient, RootdError
 from hop3.lib.settings import parse_settings
 from hop3.orm import (
     AddonCredentialRepository,
@@ -39,11 +39,10 @@ from hop3.orm import (
     AppStateEnum,
     BackupRepository,
     EnvVar,
-    get_session_factory,
 )
-from hop3.server.streaming import create_stream, stream_context
 
 from ._base import Command
+from ._deploy import deploy_app_streaming
 from ._errors import command_context
 from ._helpers import get_app, redact_sensitive_value
 from ._response import (
@@ -51,7 +50,6 @@ from ._response import (
     code,
     error,
     logs_to_response,
-    stream,
     success,
     summary,
     table,
@@ -305,47 +303,11 @@ class DeployCmd(Command):
     def _deploy_streaming(self, app: App, app_name: str) -> list[dict]:
         """Deploy with real-time log streaming via SSE.
 
-        Returns stream_id immediately, runs deployment in background thread.
+        Delegates to the shared ``deploy_app_streaming`` helper (also used by
+        ``hop3 catalog install`` and the dashboard install form), which runs the
+        deploy in a daemon thread with its own session and returns the stream id.
         """
-        # Create stream for real-time logs
-        log_stream = create_stream(app_name)
-
-        # Capture app_id for the background thread (don't pass the session across threads)
-        app_id = app.id
-
-        def run_deployment():
-            """Run deployment in background thread with its own session."""
-            # Create a new session for this thread - sessions are not thread-safe
-            session_factory = get_session_factory()
-            with session_factory() as thread_session:
-                try:
-                    # Re-fetch the app in this thread's session
-                    app_repo = AppRepository(session=thread_session)
-                    thread_app = app_repo.get_one_or_none(id=app_id)
-                    if not thread_app:
-                        msg = f"App with id {app_id} not found"
-                        raise ValueError(msg)
-
-                    with (
-                        stream_context(log_stream),
-                        command_context("deploying app", app_name=app_name),
-                    ):
-                        do_deploy(thread_app, db_session=thread_session)
-                        thread_app.last_deployed_at = datetime.now(UTC)
-                        thread_session.commit()
-                    log_stream.finish(success=True)
-                except Exception as e:
-                    # Ensure rollback on error
-                    with contextlib.suppress(Exception):
-                        thread_session.rollback()
-                    log_stream.finish(success=False, error_message=str(e))
-
-        # Start deployment in background thread
-        thread = threading.Thread(target=run_deployment, daemon=True)
-        thread.start()
-
-        # Return stream_id immediately so CLI can connect to SSE endpoint
-        return [stream(log_stream.stream_id)]
+        return [deploy_app_streaming(app_name, app.id)]
 
     def _deploy_sync(self, app: App, app_name: str) -> list[dict]:
         """Deploy synchronously, collecting logs for response."""
@@ -893,7 +855,7 @@ class DestroyCmd(Command):
             self.db_session.commit()
 
             # Reload nginx to remove the app's routing configuration
-            self._reload_nginx()
+            self._reload_nginx(app_name)
 
         # Report accurately in the summary: if filesystem/Docker cleanup failed, the app
         # is gone from the DB (port freed) but leftovers may remain — say so,
@@ -953,41 +915,43 @@ class DestroyCmd(Command):
                     error=str(e),
                 )
 
-    # TODO: this should use a signal/event bus system instead
-    def _reload_nginx(self) -> None:
-        """Reload nginx to apply configuration changes after app destruction."""
-        # Skip reload in test environments
-        if os.environ.get("PYTEST_CURRENT_TEST"):
+    def _reload_nginx(self, app_name: str) -> None:
+        """Reload nginx (via hop3-rootd) to drop the destroyed app's route.
+
+        Routes through the SAME hardened path as deploy: rootd reloads and
+        VERIFIES nginx actually adopted the new config (a bare ``nginx -s
+        reload`` returns rc=0 even when nginx rejects it and keeps the old
+        config). A failed/rejected reload is surfaced loudly — never a silent
+        swallow or the old "nginx will pick up changes eventually" (it won't,
+        without a successful reload), which once let a poisoned nginx config
+        deadlock every subsequent deploy unnoticed.
+        """
+        # Skip reload in unit/integration tests (no live daemon), but not E2E.
+        if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get(
+            "HOP3_E2E_TEST"
+        ):
             return
 
-        # Try supervisorctl restart (for Docker/E2E environments)
         try:
-            subprocess.run(
-                ["sudo", "-n", "supervisorctl", "restart", "nginx"],
-                check=True,
-                capture_output=True,
-                timeout=5,
-            )
+            with LocalRootdClient() as client:
+                client.call("nginx.reload", {})
             log("nginx reloaded after app destruction", level=2)
-            return
-        except Exception:
-            pass
-
-        # Try systemctl reload (for systemd)
-        try:
-            subprocess.run(
-                ["sudo", "-n", "systemctl", "reload", "nginx"],
-                check=True,
-                capture_output=True,
-                timeout=5,
+        except RootdError as e:
+            # Fail loud where the operator looks: the app row is already gone,
+            # so we don't abort the destroy — but the stale route may linger
+            # until a successful reload, and that must not be hidden.
+            log(
+                f"⚠ nginx was NOT reloaded after destroying '{app_name}': {e}. "
+                "The old route may still be served; run `nginx -t`, check "
+                "hop3-rootd, then reload nginx.",
+                level=0,
+                fg="red",
             )
-            log("nginx reloaded after app destruction", level=2)
-            return
-        except Exception:
-            pass
-
-        # Silently continue if reload fails - nginx will pick up changes eventually
-        log("nginx reload skipped (no reload method available)", level=3)
+            server_log.warning(
+                "nginx reload failed during app destroy",
+                app_name=app_name,
+                error=str(e),
+            )
 
 
 @register

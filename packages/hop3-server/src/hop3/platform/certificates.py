@@ -25,7 +25,7 @@ from hop3.config import (
     NGINX_ROOT,
 )
 from hop3.lib import log
-from hop3.lib.rootd import LocalRootdClient, RootdOpError, RootdUnavailableError
+from hop3.lib.rootd import LocalRootdClient, RootdError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -593,7 +593,9 @@ def reload_nginx() -> None:
     try:
         with LocalRootdClient() as client:
             client.call("nginx.reload", {})
-    except (RootdUnavailableError, RootdOpError) as e:
+    except RootdError as e:
+        # Base class: covers unavailable / op-error / protocol-skew alike, so a
+        # version mismatch surfaces as a CertificateError, never a raw traceback.
         msg = f"Cannot reload nginx (via hop3-rootd): {e}"
         raise CertificateError(msg) from e
     log("nginx reloaded (hop3-rootd)", level=2)
