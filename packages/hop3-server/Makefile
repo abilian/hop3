@@ -1,7 +1,6 @@
 PKG:=hop3
 
-.PHONY: all develop test lint clean doc format
-.PHONY: clean clean-build clean-pyc clean-test coverage dist docs install lint lint/flake8
+.PHONY: all develop install-deps activate-pre-commit configure-git update-deps
 
 # For tests
 # Either uncomment and set the following variables or set them in the environment
@@ -20,7 +19,6 @@ install-deps:
 	@echo "--> Installing dependencies"
 	uv venv
 	uv sync
-	poetry install
 
 activate-pre-commit:
 	@echo "--> Activating pre-commit hook"
@@ -37,72 +35,45 @@ update-deps:
 #
 # testing & checking
 #
-.PHONY: test test-randomly test-with-coverage test-with-typeguard test-cov clean-test lint audit
+.PHONY: test test-e2e test-cov clean-test lint audit format
 
-## Run python tests
+## Run tests
 test:
-	@echo "--> Running Python tests"
-	pytest -x -p no:randomly src tests
-	@echo ""
+	uv run pytest
 
+## Run e2e tests
 test-e2e:
 	@echo "--> Running e2e tests"
 	make clean-and-deploy
 	hop3-test
 	@echo ""
 
-test-randomly:
-	@echo "--> Running Python tests in random order"
-	pytest tests src
-	@echo ""
-
-test-with-coverage:
-	@echo "--> Running Python tests"
-	py.test --cov $(PKG) tests src
-	@echo ""
-
-test-with-typeguard:
-	@echo "--> Running Python tests with typeguard"
-	pytest --typeguard-packages=${PKG} tests src
-	@echo ""
-
+## Run tests with coverage
 test-cov:
-	@echo "--> Running Python tests with coverage"
-	uv run pytest --cov=$(PKG) --cov-report term-missing tests src
-	@echo ""
+	uv run pytest --cov=$(PKG) --cov-report term-missing
 
 ## Cleanup tests artifacts
-clean-test: ## remove test and coverage artifacts
+clean-test:
 	rm -fr .tox/
 	rm -f .coverage
 	rm -fr htmlcov/
 	rm -fr .pytest_cache
 
-## Lint / check typing
+## Lint and type-check
 lint:
-	# adt check src tests
-	ruff check src tests
-	# mypy --show-error-codes src
-	# pyright src
-	reuse lint -q
+	uv run ruff check src tests
+	uv run ruff format --check src tests
+	uv run pyrefly check src
 
 ## Run a security audit
 audit:
-	uvx run pip-audit
+	uvx pip-audit
 	safety check
 
-
-#
-# Formatting
-#
-.PHONY: format
-
-## Format / beautify code
+## Format code
 format:
-	# docformatter -i -r src
-	# adt format
-	ruff format src tests
-
+	uv run ruff format src tests
+	uv run ruff check --fix src tests
 
 ## Add copyright mention
 add-copyright:
@@ -111,13 +82,13 @@ add-copyright:
 #
 # Everything else
 #
-.PHONY: help install doc doc-html doc-pdf clean tidy update-deps publish
+.PHONY: add-copyright help install doc doc-html doc-pdf clean tidy publish
 
 help:
 	adt help-make
 
 install:
-	poetry install
+	uv sync
 
 doc: doc-html doc-pdf
 
@@ -148,5 +119,5 @@ tidy: clean
 publish: clean
 	git push
 	git push --tags
-	poetry build
+	uv build
 	twine upload dist/*

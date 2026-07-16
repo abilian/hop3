@@ -1,49 +1,25 @@
 PKG:=hop3_rootd
 
+.PHONY: all test test-cov lint format
+
 ## Default: run lint and test
 all: lint test
 
-#
-# testing & checking
-#
-
-## Run python tests
+## Run tests
 test:
-	@echo "--> Running Python tests"
-	pytest -x -p no:randomly
-	@echo ""
+	uv run pytest
 
-test-randomly:
-	@echo "--> Running Python tests in random order"
-	pytest
-	@echo ""
-
-test-with-coverage:
-	@echo "--> Running Python tests"
-	py.test --cov $(PKG)
-	@echo ""
-
-test-with-typeguard:
-	@echo "--> Running Python tests with typeguard"
-	pytest --typeguard-packages=${PKG}
-	@echo ""
-
+## Run tests with coverage
 test-cov:
-	@echo "--> Running Python tests with coverage"
-	uv run pytest --cov=$(PKG)
-	@echo ""
+	uv run pytest --cov=$(PKG) --cov-report term-missing
 
-
-## Lint / check typing
+## Lint and type-check
 lint:
-	ruff check src tests
-	ty check src tests
+	uv run ruff check src tests
+	uv run ruff format --check src tests
+	uv run pyrefly check src
 
-## Format
+## Format code
 format:
-	ruff format src tests
-	ruff check --fix src tests
-	ruff format src tests
-
-
-.PHONY: all test test-randomly test-with-coverage test-with-typeguard test-cov lint
+	uv run ruff format src tests
+	uv run ruff check --fix src tests
