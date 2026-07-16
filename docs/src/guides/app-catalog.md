@@ -12,24 +12,25 @@ Open the dashboard and go to **Catalog** (`/dashboard/catalog`). You can:
 - Search and filter the full list at **Catalog → All apps** (search matches an app's title, description, tags, and author).
 - Open any app to see its full **README**, version, license, author, website, resource needs (a `light` / `medium` / `heavy` tier plus a memory hint), and an **Install** form.
 
-Browsing and installing are done in the **web dashboard**. The command line has a single catalog verb, `hop3 catalog refresh`, for keeping the catalog up to date — see below.
+You can install from either the **web dashboard** or the **command line** (`hop3 catalog install` / `hop3 catalog list`), and keep the catalog fresh with `hop3 catalog refresh` — see below.
 
 ## Installing and deploying an app
 
-From an app's detail page, fill in the **Install** form:
-
-- **App name** — the name your instance will have (2–50 characters, must start with a lowercase letter and contain only lowercase letters, digits and `-`; e.g. `my-notes`). A small set of names such as `admin`, `api`, and `dashboard` is reserved.
-- **Environment variables** (optional) — any values the app needs.
-
-Installing **creates the app on your server, pre-seeded from the catalog**: it copies the catalog app's source into your new app and applies the environment variables you provided. You then **deploy** it — building and starting it — like any other Hop3 app:
+Install from the command line — this seeds, configures, builds, **and** starts the app in one step, streaming the deploy log live (just like `hop3 deploy`):
 
 ```bash
-hop3 deploy --app my-notes
+hop3 catalog install nextcloud --app my-notes
 ```
 
-> **Note:** installing from the catalog seeds and configures the app; it does not build or start it on its own. The deploy step above is what brings it up. (One-click "install *and* deploy" is planned but not yet enabled.)
+- `--app <name>` (required) — the name your instance will have (2–50 characters, must start with a lowercase letter and contain only lowercase letters, digits and `-`; e.g. `my-notes`). A small set of names such as `admin`, `api`, and `dashboard` is reserved.
+- `--domain <host>` (optional) — the public hostname to serve it on. If you omit it, the app is published at **`<name>.<admin-domain>`** (your server's admin domain), so it is reachable straight away with no extra steps.
+- `--env KEY=VALUE` (optional, repeatable) — any values the app needs. Passing `--env HOST_NAME=…` overrides the domain default.
 
-After deployment, manage it exactly like a hand-configured app — `hop3 app status --app my-notes`, `hop3 app logs --app my-notes`, set a domain with `hop3 domain`, attach addons, and so on.
+The dashboard **Install** form does the same thing: fill in the app name, an optional domain, then submit.
+
+Because the app gets a hostname at install time, its reverse-proxy vhost is wired on the first deploy — you do **not** need a separate `hop3 domain add` + redeploy. Manage it afterwards exactly like a hand-configured app — `hop3 app status --app my-notes`, `hop3 app logs --app my-notes`, attach addons, and so on. To change the hostname later, use `hop3 domain`.
+
+> **DNS prerequisite.** For the default `<name>.<admin-domain>` to resolve, point a **wildcard DNS record** (`*.<admin-domain>` → your server's IP) at the box, or add a specific record per app. Hop3 assigns the hostname and configures the vhost; making the name resolve on the public internet is the operator's DNS responsibility. Certificates follow your `ACME_ENGINE` setting (self-signed by default — a browser warning until you switch to `certbot`).
 
 ## Keeping the catalog up to date
 

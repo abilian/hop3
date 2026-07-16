@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+from hop3.config import config
 from hop3.core.identifiers import (
     InvalidIdentifierError,
     validate_app_name,
@@ -19,6 +20,10 @@ from hop3.orm.repositories import AppRepository
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+
+# Sentinel "owner" reported when a host collides with the server's own
+# admin/dashboard vhost (which is not an App row, so the scan can't see it).
+_ADMIN_VHOST_OWNER = "the Hop3 admin dashboard"
 
 # Patterns that indicate sensitive environment variable values
 SENSITIVE_PATTERNS: list[str] = [
@@ -192,11 +197,20 @@ def check_hostname_conflict(
 
     Returns:
         Tuple of (conflicting_app_name, conflicting_host) on overlap,
-        else None.
+        else None. The server's own admin domain is reserved and reported as
+        a conflict owned by ``_ADMIN_VHOST_OWNER``.
     """
     new_set = set(new_hosts)
     if not new_set:
         return None
+
+    # The server's admin/dashboard vhost (config.ADMIN_DOMAIN) is not an App
+    # row, so the scan below can't see it. Reserve it explicitly: an app that
+    # claimed it would deploy a competing nginx server_name and hijack admin
+    # traffic — a coexistence violation.
+    admin_domain = config.ADMIN_DOMAIN
+    if admin_domain and admin_domain in new_set:
+        return (_ADMIN_VHOST_OWNER, admin_domain)
 
     app_repo = AppRepository(session=db_session)
     for app in app_repo.get_many():

@@ -22,6 +22,7 @@ from hop3.deployers.env_provisioning import (
     set_computed_env_vars,
     set_default_env_vars,
     set_generated_env_vars,
+    set_public_url_env,
 )
 from hop3.deployers.fixed_ports import claim_fixed_ports, open_fixed_ports
 from hop3.deployers.limits import LimitsError, resolve_limits
@@ -997,6 +998,11 @@ def _process_config_dependencies(
         _apply_domains_to_host_name(
             app, domains_config, hop3_config.domains_policy, db_session
         )
+
+    # Expose the app's canonical public URL (HOP3_PUBLIC_URL = https://<host>)
+    # now that HOST_NAME is settled, so recipes can reference ${HOP3_PUBLIC_URL}
+    # in the env refs / computed steps below within this same deploy.
+    set_public_url_env(app, db_session)
 
     # Resolve dynamic [env] references ({ from, key } / app facts). Runs after
     # the domains -> HOST_NAME step so a { key = "domain" } ref can see it, and

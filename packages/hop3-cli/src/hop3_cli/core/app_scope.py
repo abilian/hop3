@@ -100,6 +100,15 @@ _DOMAINS_SCOPED: set[tuple[str, ...]] = {
     ("domains", *rest) for (_, *rest) in _DOMAIN_SCOPED
 }
 
+# `catalog install <blueprint-id> --app <name>` names the NEW app via --app; it
+# must be app-scoped so the client forwards --app (parse_flags strips it into
+# flags.app, and only app-scoped commands get it re-injected). The <blueprint-id>
+# is a catalog identifier positional, not an app. (Bare `catalog list`/`refresh`
+# are not app-scoped.)
+_CATALOG_SCOPED: set[tuple[str, ...]] = {
+    ("catalog", "install"),
+}
+
 APP_SCOPED_COMMANDS: set[tuple[str, ...]] = (
     _TOP_LEVEL_APP_SCOPED
     | _APP_NAMESPACE_SCOPED
@@ -109,7 +118,16 @@ APP_SCOPED_COMMANDS: set[tuple[str, ...]] = (
     | _BACKUP_SCOPED
     | _DOMAIN_SCOPED
     | _DOMAINS_SCOPED
+    | _CATALOG_SCOPED
 )
+
+# Create-style commands whose --app names a *new* app, not an existing target.
+# They stay in APP_SCOPED_COMMANDS so an EXPLICIT --app is still forwarded to the
+# server (parse_flags strips it into flags.app), but the client must NOT resolve
+# and inject an AMBIENT app as that name when --app is omitted — the server
+# requires it explicitly. (Mirrors why `app launch` is not app-scoped at all: its
+# target is a new name, never an ambient/existing app.)
+NEW_APP_SCOPED_COMMANDS: set[tuple[str, ...]] = _CATALOG_SCOPED
 
 
 _MAX_DEPTH = max((len(t) for t in APP_SCOPED_COMMANDS), default=1)

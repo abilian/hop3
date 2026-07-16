@@ -184,3 +184,47 @@ list = ["via-domains.example.com"]
     )
     with pytest.raises(Hop3TomlValidationError):
         AppConfig.from_dir(tmp_path)
+
+
+@pytest.mark.integration
+def test_domains_produce_public_url(tmp_path: Path, db_session: Session) -> None:
+    """[domains].list -> HOST_NAME -> HOP3_PUBLIC_URL in the same deploy."""
+    _write_hop3_toml(
+        tmp_path,
+        """
+[domains]
+list = ["shop.example.com", "www.shop.example.com"]
+""",
+    )
+    app = _make_app(db_session, "testapp")
+    app_config = AppConfig.from_dir(tmp_path)
+
+    _process_config_dependencies(app, app_config, db_session)
+
+    env = {ev.name: ev.value for ev in app.env_vars}
+    assert env.get("HOP3_PUBLIC_URL") == "https://shop.example.com"
+
+
+@pytest.mark.integration
+def test_public_url_available_to_computed_vars(
+    tmp_path: Path, db_session: Session
+) -> None:
+    """Ordering is load-bearing: set_public_url_env runs before [env.computed],
+    so a recipe's ${HOP3_PUBLIC_URL} resolves in the same deploy."""
+    _write_hop3_toml(
+        tmp_path,
+        """
+[domains]
+list = ["shop.example.com"]
+
+[env.computed]
+APP_URL = "${HOP3_PUBLIC_URL}"
+""",
+    )
+    app = _make_app(db_session, "testapp")
+    app_config = AppConfig.from_dir(tmp_path)
+
+    _process_config_dependencies(app, app_config, db_session)
+
+    env = {ev.name: ev.value for ev in app.env_vars}
+    assert env.get("APP_URL") == "https://shop.example.com"

@@ -17,6 +17,7 @@ import string
 import uuid
 from typing import TYPE_CHECKING, Any
 
+from hop3.commands._helpers import parse_hostname_string, unset_env_var
 from hop3.core.credentials import get_credential_encryptor
 from hop3.lib import log
 from hop3.lib.logging import server_log
@@ -137,6 +138,28 @@ def set_env_vars(
             count += 1
 
     return count, skipped
+
+
+def set_public_url_env(app: App, db_session: Session) -> None:
+    """Expose the app's canonical public URL as ``HOP3_PUBLIC_URL``.
+
+    Derived from the first host of ``HOST_NAME`` each deploy, so recipes can
+    reference a single stable variable — e.g.
+    ``[env.computed] APP_URL = "${HOP3_PUBLIC_URL}"`` — instead of hand-building
+    the URL. Recompute-or-clear (a computed value, never stale): when the app has
+    no real hostname (empty / the ``_`` catch-all), a previously-set value is
+    removed rather than left pointing at a domain the app no longer serves.
+
+    Called during ``_process_config_dependencies`` right after the
+    ``[domains]`` -> ``HOST_NAME`` step, so ``${HOP3_PUBLIC_URL}`` is available to
+    both env refs and computed vars in the same deploy.
+    """
+    host_name = next((ev.value for ev in app.env_vars if ev.name == "HOST_NAME"), "")
+    hosts = parse_hostname_string(host_name)
+    if hosts and hosts[0] != "_":
+        set_env_vars(app, {"HOP3_PUBLIC_URL": f"https://{hosts[0]}"}, db_session)
+    else:
+        unset_env_var(app, "HOP3_PUBLIC_URL")
 
 
 def set_computed_env_vars(

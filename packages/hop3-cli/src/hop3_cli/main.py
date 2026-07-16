@@ -37,7 +37,7 @@ from .core.alias_registry import (
     load_user_aliases_from_config,
     resolve_aliases,
 )
-from .core.app_scope import is_app_scoped
+from .core.app_scope import NEW_APP_SCOPED_COMMANDS, is_app_scoped
 from .core.deploy_preview import (
     build_plan,
     domain_target_warnings,
@@ -462,6 +462,14 @@ def _inject_resolved_app(
             sys.exit(ExitCode.RESOLUTION_ERROR)
         return cli_args
     if resolution is None:
+        return cli_args
+
+    # Create-style commands (e.g. `catalog install`) name a NEW app via --app, so
+    # an AMBIENT app must never be substituted as that name. When --app is omitted
+    # (flags.app is falsy), forward argv unchanged so the server's own "requires
+    # --app" guard fires loudly — rather than silently installing under whatever
+    # app the current directory / $HOP3_APP / context resolves to.
+    if not flags.app and tuple(cli_args[:n_consumed]) in NEW_APP_SCOPED_COMMANDS:
         return cli_args
 
     # The app is ALWAYS a flag, never a positional (ADR 036 D5). `parse_flags`
