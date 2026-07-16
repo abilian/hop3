@@ -13,9 +13,6 @@ This controller handles all catalog routes including:
 
 from __future__ import annotations
 
-import re
-import shutil
-from pathlib import Path
 from typing import Annotated
 
 from litestar import Controller, get, post
@@ -23,51 +20,12 @@ from litestar.enums import RequestEncodingType
 from litestar.params import Body, FromPath
 from litestar.response import File, Redirect, Template
 
-from hop3.orm import App, AppRepository, EnvVar
+from hop3.commands._deploy import deploy_app_streaming
 from hop3.server.catalog import CatalogService
+from hop3.server.catalog.install import CatalogInstallError, stage_catalog_app
 from hop3.server.catalog.loader import find_icon
 from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
-
-# ============================================================================
-# Helper Functions
-# ============================================================================
-
-
-def _validate_app_name(app_name: str) -> list[str]:
-    """Validate app name and return list of errors."""
-    errors = []
-
-    if not app_name:
-        errors.append("App name is required")
-        return errors
-
-    if len(app_name) < 2:
-        errors.append("App name must be at least 2 characters")
-
-    if len(app_name) > 50:
-        errors.append("App name must be at most 50 characters")
-
-    if not re.match(r"^[a-z][a-z0-9-]*$", app_name):
-        errors.append(
-            "App name must start with a letter and contain only lowercase letters, "
-            "numbers, and hyphens"
-        )
-
-    # Check for reserved names
-    reserved = {"admin", "api", "app", "apps", "dashboard", "hop3", "static", "www"}
-    if app_name in reserved:
-        errors.append(f"'{app_name}' is a reserved name")
-
-    return errors
-
-
-def _check_app_exists(app_name: str) -> bool:
-    """Check if an app with this name already exists."""
-    with get_session() as db_session:
-        app_repo = AppRepository(session=db_session)
-        return app_repo.app_exists(app_name)
-
 
 # ============================================================================
 # Catalog Controller
@@ -192,6 +150,7 @@ class CatalogController(Controller):
             "similar_apps": similar_apps,
             "errors": [],
             "app_name": "",
+            "domain": "",
         }
 
         return Template(template_name="dashboard/catalog/detail.html", context=ctx)
@@ -229,45 +188,37 @@ class CatalogController(Controller):
             dict[str, str], Body(media_type=RequestEncodingType.URL_ENCODED)
         ],
     ) -> Template | Redirect:
-        """Install a catalog app.
+        """Install a catalog app: stage its recipe, then start a live deploy.
 
-        Creates a new app from the catalog template.
+        Staging (create app, copy the verified recipe, set env) is shared with
+        the ``hop3 catalog install`` CLI via ``stage_catalog_app``. The build and
+        run then happen in the background through the same streaming path as
+        ``hop3 deploy`` — we do NOT claim success here: the app page reflects the
+        real run state (DEPLOYING → RUNNING/FAILED), and a failed deploy alerts
+        the operator (ADR 054).
         """
         service = CatalogService.get_instance()
         catalog_app = service.get_app(app_id)
-
         if not catalog_app:
             return Redirect(path="/dashboard/catalog")
 
-        # Get and validate app name
         app_name = data.get("app_name", "").strip().lower()
-        errors = _validate_app_name(app_name)
-
-        # Check if app already exists
-        if not errors and _check_app_exists(app_name):
-            errors.append(f"An app named '{app_name}' already exists")
-
-        if errors:
+        env_vars = data.get("env_vars", "")
+        domain = data.get("domain", "").strip()
+        try:
+            with get_session() as db_session:
+                app = stage_catalog_app(
+                    app_id, app_name, env_vars, db_session, domain=domain
+                )
+                app_pk = app.id
+        except CatalogInstallError as exc:
             return self._render_install_errors(
-                service, catalog_app, app_id, app_name, errors
+                service, catalog_app, app_id, app_name, exc.errors, domain=domain
             )
 
-        # Create the app
-        with get_session() as db_session:
-            app = App(name=app_name)
-            app.create(setup_git=True)  # Creates directories and sets up git
-
-            _copy_catalog_source(catalog_app, app)
-            _parse_and_add_env_vars(app, data.get("env_vars", ""))
-
-            db_session.add(app)
-            db_session.commit()
-
-            # TODO: Trigger deployment (Phase 4)
-            # app.deploy()
-
+        deploy_app_streaming(app_name, app_pk)
         return Redirect(
-            path=f"/dashboard/apps/{app_name}?installed=true", status_code=303
+            path=f"/dashboard/apps/{app_name}?deploying=true", status_code=303
         )
 
     def _render_install_errors(
@@ -277,6 +228,7 @@ class CatalogController(Controller):
         app_id: str,
         app_name: str,
         errors: list[str],
+        domain: str = "",
     ) -> Template:
         """Re-render detail page with validation errors."""
         similar_apps = []
@@ -297,41 +249,6 @@ class CatalogController(Controller):
             "similar_apps": similar_apps,
             "errors": errors,
             "app_name": app_name,
+            "domain": domain,
         }
         return Template(template_name="dashboard/catalog/detail.html", context=ctx)
-
-
-def _copy_catalog_source(catalog_app, app: App) -> None:
-    """Copy source files from catalog app to new app."""
-    if not catalog_app.source_path:
-        return
-
-    src_path = Path(catalog_app.source_path)
-    if not src_path.exists():
-        return
-
-    dest_path = Path(app.src_path)
-    dest_path.mkdir(parents=True, exist_ok=True)
-
-    excluded_dirs = {"__pycache__", ".git"}
-    for item in src_path.iterdir():
-        if item.is_file():
-            shutil.copy2(item, dest_path / item.name)
-        elif item.is_dir() and item.name not in excluded_dirs:
-            shutil.copytree(item, dest_path / item.name, dirs_exist_ok=True)
-
-
-def _parse_and_add_env_vars(app: App, env_vars_str: str) -> None:
-    """Parse environment variables string and add to app."""
-    env_vars_str = env_vars_str.strip()
-    if not env_vars_str:
-        return
-
-    for line in env_vars_str.split("\n"):
-        line = line.strip()
-        if "=" in line and not line.startswith("#"):
-            key, _, value = line.partition("=")
-            key = key.strip()
-            value = value.strip()
-            if key:
-                app.env_vars.append(EnvVar(name=key, value=value))

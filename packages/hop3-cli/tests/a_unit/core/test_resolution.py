@@ -256,6 +256,35 @@ def test_non_app_scoped_without_explicit_app_passes_through() -> None:
     assert out == ["cert", "renew"]
 
 
+# ---- create-style commands: --app names a NEW app; never substitute ambient ----
+
+
+def test_catalog_install_without_app_does_not_inject_ambient() -> None:
+    """`catalog install <id>` names a NEW app via --app. Omitting --app must NOT
+    substitute the ambient app (cwd hop3.toml / $HOP3_APP / context) as that name
+    — argv is forwarded verbatim so the server's own 'requires --app' error fires.
+    """
+    ambient = AppResolution(app="hop3-testlab", source="[metadata].id")
+    out = _inject_resolved_app(
+        ["catalog", "install", "ghost"], CliFlags(app=None), ambient, MagicMock()
+    )
+    assert out == ["catalog", "install", "ghost"]  # unchanged, no --app injected
+
+
+def test_catalog_install_with_explicit_app_is_forwarded() -> None:
+    """An EXPLICIT --app is still forwarded (re-injected after the command name),
+    since parse_flags stripped it into flags.app.
+    """
+    resolution = AppResolution(app="mycloud", source="--app flag")
+    out = _inject_resolved_app(
+        ["catalog", "install", "ghost"],
+        CliFlags(app="mycloud"),
+        resolution,
+        MagicMock(),
+    )
+    assert out == ["catalog", "install", "--app", "mycloud", "ghost"]
+
+
 # ---- ADR 036 D14: --why is diagnostic-only (does NOT run the command) ----
 
 

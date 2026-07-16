@@ -46,6 +46,7 @@ CATEGORIES: dict[str, tuple[str, ...]] = {
         "app",
         "addon",
         "backup",
+        "catalog",
         "config",
         "context",
         "user",
