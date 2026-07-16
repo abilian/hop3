@@ -1,6 +1,6 @@
 # Copyright (c) 2025-2026, Abilian SAS
 #
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 
 # ruff: noqa: TRY003, EM101, EM102, TC001, C901, PLR0912, PLR0915
 
