@@ -7,7 +7,7 @@ version = "2.1.2"
 title = "Bugsink"
 description = "Self-hosted error tracking, Sentry SDK-compatible"
 homepage = "https://www.bugsink.com/"
-license = "MIT"
+license = "PolyForm Shield License 1.0.0"
 categories = ["observability", "error-tracking", "dev-tools"]
 
 [build]
@@ -21,12 +21,28 @@ before-run = "bash scripts/setup.sh"
 start = "gunicorn bugsink.wsgi:application --bind 0.0.0.0:$PORT --pythonpath . --access-logfile - --error-logfile -"
 start-timeout = 120
 
+# Bugsink is a two-process app: the gunicorn web server above, plus a background
+# task worker ("snappea") that processes queued events. Without it, ingested
+# events queue in the snappea DB but are never processed.
+[run.workers]
+snappea = "bugsink-runsnappea"
+
 [[addons]]
 type = "postgres"
 
 [env]
 # Generated once on first deploy and stable across redeploys (ADR 046).
 SECRET_KEY = { generate = "urlsafe" }
+
+# Initial admin account (ADR 056). Hop3 generates the password, stores it
+# (retrieve via `hop3 app credentials`), and surfaces it once after deploy. The
+# account itself is created in scripts/setup.sh from the injected HOP3_ADMIN_*
+# after migrate. Bugsink's Django user model keys logins by USERNAME (email is
+# a stored field), so `createsuperuser --noinput` requires a username.
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }
 
 [healthcheck]
 # Bugsink redirects `/` to the login page when unauthenticated; point

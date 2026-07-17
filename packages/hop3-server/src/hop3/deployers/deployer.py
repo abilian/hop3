@@ -17,6 +17,12 @@ from hop3.deployers.addon_provisioning import (
     provision_addons,
     reinject_attached_addons,
 )
+from hop3.deployers.admin_bootstrap import (
+    AdminBootstrapError,
+    bootstrap_admin_account,
+    provision_admin_credential,
+    surface_admin_credential,
+)
 from hop3.deployers.env_provisioning import (
     resolve_env_refs,
     set_computed_env_vars,
@@ -272,10 +278,23 @@ def _do_deploy(  # noqa: PLR0915
         app.stop()
         raise
 
+    # --- 6.7. Bootstrap the initial admin account (ADR 056) ---
+    # The app is deployed and its DB addon is provisioned, so the recipe's
+    # idempotent [admin].create management command can create the account. Runs
+    # once (guarded by the credential's bootstrapped flag) and fails loud.
+    _bootstrap_admin_account(app, app_config, build_artifact, deployer.name, db_session)
+
     # Flush decision log summary
     flush_decision_logger()
 
     log(f"Deployment for '{app.name}' finished successfully.", level=0, fg="green")
+
+    # Surface the initial admin credential once ever (ADR 056) — after the
+    # success line so it is the last thing the operator sees. The helper's
+    # `surfaced` flag makes this fire on the first SUCCESSFUL deploy and never
+    # re-print the password afterwards.
+    if db_session is not None:
+        surface_admin_credential(app, db_session)
     server_log.info(
         "Deployment finished successfully",
         app_name=app.name,
@@ -1004,6 +1023,12 @@ def _process_config_dependencies(
     # in the env refs / computed steps below within this same deploy.
     set_public_url_env(app, db_session)
 
+    # Bootstrap the app's admin account (ADR 056): generate the password once,
+    # resolve the email, persist the encrypted credential, and inject the
+    # canonical HOP3_ADMIN_* vars — before refs/computed so a recipe can map
+    # them into app-specific names. The account itself is created post-deploy.
+    provision_admin_credential(app, hop3_config.admin, db_session)
+
     # Resolve dynamic [env] references ({ from, key } / app facts). Runs after
     # the domains -> HOST_NAME step so a { key = "domain" } ref can see it, and
     # before [env.computed] so a computed value can interpolate a ref (ADR 046).
@@ -1027,7 +1052,14 @@ def _process_config_dependencies(
         set_computed_env_vars(app, computed_config, db_session)
 
     # Commit changes before continuing with build
-    if addon_configs or env_config or generated_config or refs_config or domains_config:
+    if any((
+        addon_configs,
+        env_config,
+        generated_config,
+        refs_config,
+        domains_config,
+        hop3_config.admin,
+    )):
         db_session.commit()
         server_log.info(
             "Config dependencies processed",
@@ -1103,6 +1135,51 @@ def _apply_domains_to_host_name(
     set_default_env_vars(
         app, {"HOST_NAME": " ".join(validated)}, db_session, env_policy=policy
     )
+
+
+def _bootstrap_admin_account(
+    app: App,
+    app_config: AppConfig,
+    build_artifact: BuildArtifact,
+    deployer_name: str,
+    db_session: Session | None,
+) -> None:
+    """Run the recipe's [admin].create once, post-deploy (ADR 056, native path).
+
+    The create command runs in the app's source dir with the app's runtime env
+    (HOP3_ADMIN_* + DATABASE_URL) and the build's PATH prepended, so a
+    management command (e.g. Django ``createsuperuser``) reaches the provisioned
+    DB. Docker-Compose apps do not run recipe commands here; if such an app
+    declares ``[admin].create`` we abort loudly rather than silently skip it —
+    the app must self-bootstrap from the injected env in its entrypoint.
+    """
+    admin = app_config.hop3_config.admin if app_config.has_hop3_toml else {}
+    if not admin or not admin.get("create") or db_session is None:
+        return
+
+    if "docker" in deployer_name:
+        msg = (
+            f"[admin].create is not supported for the Docker app '{app.name}': "
+            "recipe commands do not run on the compose path. Bootstrap the admin "
+            "in the container entrypoint from the injected "
+            "HOP3_ADMIN_USER/EMAIL/PASSWORD env, and drop [admin].create."
+        )
+        raise AdminBootstrapError(msg)
+
+    path_prepend = build_artifact.runtime.path_prepend
+
+    def run_create(command: str) -> None:
+        env = {**os.environ, **app.get_runtime_env()}
+        if path_prepend:
+            extra = ":".join(p for p in path_prepend if p)
+            if extra:
+                env["PATH"] = f"{extra}:{env.get('PATH', '')}"
+        result = shell(command, cwd=app.src_path, env=env)
+        if result.returncode:
+            msg = f"exit status {result.returncode}: {command}"
+            raise AdminBootstrapError(msg)
+
+    bootstrap_admin_account(app, admin, db_session, run_create)
 
 
 def _run_hook(

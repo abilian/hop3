@@ -22,6 +22,10 @@ from hop3.core.backup import BackupManager
 from hop3.core.identifiers import validate_app_name
 from hop3.core.plugins import get_addon
 from hop3.deployers import do_deploy, stop_previous_instance
+from hop3.deployers.admin_bootstrap import (
+    format_admin_credential,
+    read_admin_credential,
+)
 from hop3.deployers.fixed_ports import release_fixed_ports
 from hop3.deployers.waf import teardown_waf
 from hop3.lib import log
@@ -952,6 +956,43 @@ class DestroyCmd(Command):
                 app_name=app_name,
                 error=str(e),
             )
+
+
+@register
+@dataclass(frozen=True)
+class CredentialsCmd(Command):
+    """Show an app's initial admin credential (ADR 056).
+
+    Reveals the admin login Hop3 generated when it installed the app — the same
+    block shown once at install, retrievable here so it is never lost. Full
+    reveal (operator-only, audited).
+
+    Usage: hop3 app credentials [--app <app>]
+    """
+
+    db_session: Session
+    name: ClassVar[tuple[str, ...]] = ("app", "credentials")
+
+    def call(self, *args):
+        app_name, _ = _resolve_app(args)
+        if not app_name:
+            msg = "Usage: hop3 app credentials [--app <app>]"
+            raise ValueError(msg)
+        app = get_app(self.db_session, app_name)
+        cred = read_admin_credential(app, self.db_session)
+        if cred is None:
+            return [
+                text(
+                    f"App '{app_name}' has no Hop3-managed admin credential. "
+                    "It either manages its own accounts or was set up before "
+                    "ADR 056."
+                )
+            ]
+        # Lightweight audit: a credential reveal is a secret read (rootd's audit
+        # covers only privileged ops, so record it here where it happens).
+        server_log.info("admin credential revealed", app_name=app_name)
+        host_name = app.get_runtime_env().get("HOST_NAME", "")
+        return [text(format_admin_credential(app_name, host_name, cred))]
 
 
 @register

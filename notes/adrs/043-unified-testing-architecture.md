@@ -14,7 +14,7 @@
 The project accumulated several parallel testing approaches, each added for a good local reason, with no unifying model. A contributor must hold a large set of entry points across many layers in their head: and know *which still work*, because a sizeable fraction are dead. An audit of the full surface (pytest layers, the `hop3-test` runner, the standalone `demos/` harness, the tutorial scripts, `validoc`, `nox`, the Makefile/CI) found:
 
 1. **No fast daily path, and the defaults are slow.** `c_system` sits in the default `testpaths`, so bare `uv run pytest` *and* `make test` pull the Docker layer and can trigger a multi-minute image build. The fast unit suite is reachable only by hand-typing its directory. The loudest day-to-day complaint.
-2. **The primary GitHub CI workflow is dead.** `ci.yml` (the broadest trigger: every push and PR) runs `nox` sessions that do not exist; it fails at session selection on every run. The CI of record is **SourceHut** (`.builds/`), not GitHub Actions.
+2. **The primary GitHub CI workflow is dead.** `ci.yml` (the broadest trigger: every push and PR) runs `nox` sessions that do not exist; it fails at session selection on every run. The CI of record is **SourceHut** (`.builds/`); GitHub Actions is unused.
 3. **`hop3-test` advertises commands it doesn't register.** Only `system`, `list`, `cloud` exist; `dev / apps / ci / nightly / hetzner / multi-distro / show` error out: yet the README, `CLAUDE.md`, and the Makefile call them, so several Makefile targets are broken.
 4. **Deploy-and-verify is implemented four times over the same path.** `hop3-test system`, the pytest Docker fixtures, `demos/demo.py` + `demos/lib`, and `scripts/run-all-tutorials.py` each stand up a server and verify an app independently: over the one real `hop3-deploy` primitive that `hop3-testing`'s `DeploymentTarget` ABC already wraps.
 5. **Diagnostics are forked, with inverted coverage.** The richest collector (journalctl, nginx error/access, docker daemon) is wired *only* to the Hetzner path; the everyday Docker run gets the leanest bundle; the pytest Docker layers collect **nothing** on failure. No surface has a proxy-reachability probe: so the most common production failure, a healthy app behind a front-end 502 because nginx points at the wrong port/host (the "silent-502" class), is captured by *none*. This is the failure that motivated the review.
@@ -45,7 +45,7 @@ We keep **three** runners, each with a crisp, non-overlapping domain; we do **no
 | **hop3-test** | **applications** (real apps + demos): deploy + verify | exercises the platform indirectly; owns the app catalog + the `DeploymentTarget` ABC |
 | **validoc** | **narratives**: tutorials-as-tests, long CLI-driven scenarios | literate, doc-shaped; verifies docs match reality |
 
-The "unification" is not one command. It is: (a) a memorable map of *which runner for what*, (b) one set of speed tiers across all three, and (c) **one shared diagnostic bundle** every runner calls whenever a deployed server is involved.
+The "unification" is: (a) a memorable map of *which runner for what*, (b) one set of speed tiers across all three, and (c) **one shared diagnostic bundle** every runner calls whenever a deployed server is involved.
 
 ### 2. The pytest pyramid: three layers + a placement rule
 
@@ -57,7 +57,7 @@ The "unification" is not one command. It is: (a) a memorable map of *which runne
 | `b_integration` | multi-component, real DB/subprocess, **but hermetic** | no | ✅ yes |
 | `c_e2e` | deploys / real-server tests | **yes** | ❌ no (out-of-process) |
 
-**The placement rule (the crux).** The axis is not "is this test complex?": it is **"does this test need Docker, root, a real server, or host mutation?"** Pure logic → `a_unit`. Heavyweight but hermetic (runs in `tmp_path`, temp/in-memory DB, monkeypatched `HOME`, no privileged ops, no `/etc`, cleans up after itself) → `b_integration`. Needs Docker / root / a real server / system mutation → `c_e2e`. This deliberately pushes work *down*: prefer `b_integration` whenever a test can run hermetically.
+**The placement rule (the crux).** The axis is **"does this test need Docker, root, a real server, or host mutation?"** The test's complexity is not what decides it. Pure logic → `a_unit`. Heavyweight but hermetic (runs in `tmp_path`, temp/in-memory DB, monkeypatched `HOME`, no privileged ops, no `/etc`, cleans up after itself) → `b_integration`. Needs Docker / root / a real server / system mutation → `c_e2e`. This deliberately pushes work *down*: prefer `b_integration` whenever a test can run hermetically.
 
 **Duplication across layers is allowed and expected.** A hermetic backup-logic test in `b_integration` and a real-deploy backup test in `c_e2e` test different things and should coexist; the only question is which layer a test's *dependencies* place it in.
 
@@ -78,7 +78,7 @@ Tiers are named by feedback latency and selected by pytest markers stamped from 
 | **apps** | `hop3-test`: a P0 subset, or one named app | yes | touching deployer/proxy/builders | on-demand |
 | **nightly** | full `hop3-test` app/demo matrix + `validoc` tutorials + multi-distro, **HTML report** | yes | cron / release | SourceHut nightly |
 
-The slow Docker platform tests (backups, git-push, proxy) live in **`check`**, not nightly-only (they are core guarantees and should gate a push. `check` requires Docker, so non-Docker distros run `fast` instead, matching the `.builds/` split. Bare `pytest` (and `make test`) run the in-process layers only (`a_unit` + `b_integration`)) the `testpaths` default excludes the Docker `c_e2e` layer, so a reflexive `pytest` never spins up Docker; CI invokes `c_e2e` explicitly.
+The slow Docker platform tests (backups, git-push, proxy) live in **`check`** and are not nightly-only (they are core guarantees and should gate a push. `check` requires Docker, so non-Docker distros run `fast` instead, matching the `.builds/` split. Bare `pytest` (and `make test`) run the in-process layers only (`a_unit` + `b_integration`)) the `testpaths` default excludes the Docker `c_e2e` layer, so a reflexive `pytest` never spins up Docker; CI invokes `c_e2e` explicitly.
 
 ### 5. Unified entry points
 
@@ -107,7 +107,7 @@ Everything that stands up a server routes through the `DeploymentTarget` ABC + t
 
 A developer can run one real e2e fast: `hop3-test system --docker <app>` against the cached image, with `--reuse` to iterate on verification alone. **Bug to fix in passing:** `c_e2e` rebuilds the Docker image every session while `c_system` checks-then-reuses it; the reuse behaviour becomes the shared default.
 
-**Target selection is explicit, and Docker is the only default (a target env var is taboo for pytest).** A pytest run touches a remote box **only** when `--ssh-host <host>` is passed on the command line; with no flag it runs against Docker. The remote-host env vars `HOP3_TEST_HOST` and `HOP3_DEV_HOST` (and the alias `HOP3_TEST_SERVER`) are **never** read to select or point a pytest target — the root `conftest.py` strips them for the whole session. This closes a real defect: those vars, which a developer legitimately sets for `hop3-deploy-server` / `hop3-test`, used to make `pytest` deploy to that box, so an ordinary local test run collided with a live `hop3-test` run against the same server and corrupted its results. Selection by ambient state is the class of bug the [ADR 042](./042-cli-context-model.md) resolver was built to prevent; the test harness gets the same rule. (`HOP3_SSH_USER` is not a target selector — it only supplies the user for a `--ssh-host` value that omits `user@` — and is left readable.)
+**Target selection is explicit, and Docker is the only default (a target env var is taboo for pytest).** A pytest run touches a remote box **only** when `--ssh-host <host>` is passed on the command line; with no flag it runs against Docker. The remote-host env vars `HOP3_TEST_HOST` and `HOP3_DEV_HOST` (and the alias `HOP3_TEST_SERVER`) are **never** read to select or point a pytest target: the root `conftest.py` strips them for the whole session. This closes a real defect: those vars, which a developer legitimately sets for `hop3-deploy-server` / `hop3-test`, used to make `pytest` deploy to that box, so an ordinary local test run collided with a live `hop3-test` run against the same server and corrupted its results. Selection by ambient state is the class of bug the [ADR 042](./042-cli-context-model.md) resolver was built to prevent; the test harness gets the same rule. (`HOP3_SSH_USER` is not a target selector, it only supplies the user for a `--ssh-host` value that omits `user@`, and is left readable.)
 
 ### 7. Shared diagnostics: the silent-502 fix
 
@@ -155,7 +155,7 @@ After a parity window (see migration):
 
 The e2e surface validates not only that a version *deploys*, but that a running server *upgrades* across releases without losing its schema or its ability to serve. `hop3-test upgrade-chain` installs a baseline release on a fresh box, then walks a chain of versions (a git ref per hop, e.g. `0.6.2 → … → local`), performing an in-place update at each hop and asserting the server comes back healthy and the schema is readable.
 
-Two properties make it a faithful upgrade test rather than a self-test:
+Two properties make it a faithful upgrade test and keep it from becoming a self-test:
 
 - **Each version is installed by its own installer.** A hop is a git ref; the chain checks it out into a worktree and runs *that* checkout's `hop3-deploy-server` (`uv run … --local`). Installing an old version with the *current* installer tests a pairing that never shipped: old binaries under a newer, stricter installer that rejects states an older, looser installer produced. The stable `--local`/`--git`/`--pypi` source flags (which every release accepts, and the current deployer keeps as aliases) let one harness drive any version's deployer.
 - **The box is fresh.** The chain starts from a clean slate (a fresh Docker container or a rebuilt cloud VPS (`--provider hetzner`)) because an old release expects the toolchain/OS state of its era, and an existing server carries state that can mask a migration bug.

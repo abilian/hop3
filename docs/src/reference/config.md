@@ -282,6 +282,34 @@ _policy = "keep-existing"   # optional; "override" to overwrite on every deploy
 - An empty list (`list = []`) is a no-op: HOST_NAME is **not** unset. Use `hop3 domains clear --app <app>` to remove the binding explicitly.
 - For CRUD from the CLI, see `hop3 domains` in the CLI reference.
 
+### `[admin]` - Initial Admin Account
+
+Declares the initial admin account Hop3 bootstraps on first deploy (ADR 056), so an installed app is ready to log into instead of dropping you at a login wall with no credentials. Hop3 generates the password (strong, CSPRNG, generated-once), resolves the email, stores the credential encrypted, and surfaces it once after deploy — retrieve it later with `hop3 app credentials --app <app>`.
+
+```toml
+[admin]
+username = "admin"                         # omit when the app keys admins by email
+email    = "operator"                      # "operator" -> the server's OPERATOR_EMAIL, or a literal address
+password = { generate = "password", length = 24 }   # always generated (never a literal)
+create   = "…"                             # optional: idempotent command run once to create the account
+```
+
+**How it works:**
+
+- The generated password and the resolved identity are injected into the app's runtime as `HOP3_ADMIN_USER`, `HOP3_ADMIN_EMAIL`, and `HOP3_ADMIN_PASSWORD`. The recipe maps these to whatever its app expects (Django `DJANGO_SUPERUSER_*`, Keycloak `KC_BOOTSTRAP_ADMIN_*`, or an entrypoint that reads `CREATE_SUPERUSER=email:password`).
+- `email = "operator"` uses the server's `OPERATOR_EMAIL` (which defaults to `ACME_EMAIL`). A recipe that needs an admin email fails loud at deploy if no operator email is set.
+- The account is created either by the app's own `[run] before-run` (consuming the injected vars — the usual path, correct timing after migrations) or by an optional `[admin].create` command the platform runs once after deploy. `create` is **not** supported for Docker-Compose apps (they self-bootstrap in the container entrypoint); declaring it on one is a loud error.
+- The stored password is the **initial** one — if the user changes it inside the app it is stale. Retrieve it any time with `hop3 app credentials --app <app>`; to change it, change it inside the app.
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `username` | string | one of username/email | Login username. Omit for email-keyed apps. |
+| `email` | string | one of username/email | `"operator"` (→ `OPERATOR_EMAIL`) or a literal address. |
+| `password` | table | yes | A [generated secret](#generated-secrets) spec (always generated). |
+| `create` | string | no | Idempotent create-if-absent command; receives `HOP3_ADMIN_*` in its env. |
+
 ### `[contexts.<name>]` - Deploy Environments
 
 A **context** is a named target, and `--context <name>` is the one CLI selector for every command. A context exists at two scopes, and `[contexts.<name>]` appears in **two files**:

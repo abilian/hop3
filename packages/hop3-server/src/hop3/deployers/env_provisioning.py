@@ -18,6 +18,7 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 from hop3.commands._helpers import parse_hostname_string, unset_env_var
+from hop3.config import config
 from hop3.core.credentials import get_credential_encryptor
 from hop3.lib import log
 from hop3.lib.logging import server_log
@@ -32,7 +33,7 @@ if TYPE_CHECKING:
     from hop3.orm.app import App
 
 # App facts addressable by a `{ key = ... }` reference (no `from`).
-_APP_FACT_KEYS = frozenset({"domain", "hostname", "name"})
+_APP_FACT_KEYS = frozenset({"domain", "hostname", "name", "operator_email"})
 
 # Default entropy when a generate spec omits `length`: bytes for
 # hex/base64/urlsafe, characters for password (uuid ignores length).
@@ -374,7 +375,8 @@ def _resolve_addon_ref(
 
 
 def _resolve_app_fact(app: App, name: str, key: str | None) -> str:
-    """Resolve an app-level fact: ``domain`` / ``hostname`` / ``name``."""
+    """Resolve an app-level fact: ``domain`` / ``hostname`` / ``name`` /
+    ``operator_email``."""
     if key in {"domain", "hostname"}:
         host_name = app.get_runtime_env().get("HOST_NAME", "")
         first = host_name.split()[0] if host_name else ""
@@ -387,6 +389,16 @@ def _resolve_app_fact(app: App, name: str, key: str | None) -> str:
         return first
     if key == "name":
         return app.name
+    if key == "operator_email":
+        email = config.OPERATOR_EMAIL
+        if not email:
+            msg = (
+                f"[env].{name}: no operator email is set on this server. "
+                "Set OPERATOR_EMAIL (or ACME_EMAIL) in hop3-server.toml, or the "
+                "installer's --operator-email."
+            )
+            raise ValueError(msg)
+        return email
 
     known = ", ".join(sorted(_APP_FACT_KEYS))
     msg = f"[env].{name}: unknown app fact {key!r}. Known facts: {known}."

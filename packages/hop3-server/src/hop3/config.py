@@ -151,6 +151,19 @@ class HopConfig:
         """
         return self._config_loader.get_str("EXPOSE_DEFAULT_SOURCE", "")
 
+    @property
+    def OPERATOR_EMAIL(self) -> str:
+        """The operator's real email — who to reach about this server (ADR 056).
+
+        A server-identity value alongside ``ADMIN_DOMAIN``, distinct from the
+        dashboard login ``User.email``. Used as the admin email when a catalog
+        app's admin identity is an email address. Defaults to ``ACME_EMAIL``,
+        which the installer already validates as a real address and preserves
+        across redeploy, so an existing install needs no extra config. Set
+        ``OPERATOR_EMAIL`` (or the installer's ``--operator-email``) to override.
+        """
+        return self._config_loader.get_str("OPERATOR_EMAIL", "") or self.ACME_EMAIL
+
     # ACME Configuration
 
     @property
