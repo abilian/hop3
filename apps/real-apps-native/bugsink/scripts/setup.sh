@@ -27,3 +27,28 @@ if [ ! -f bugsink_conf.py ]; then
 fi
 
 bugsink-manage migrate --noinput
+
+# Bugsink keeps its background-task queue ("snappea") in a SEPARATE database
+# (a SQLite queue), which `migrate` (default connection) does not touch — so
+# without this the first task path 500s with "no such table: snappea_task".
+# Idempotent; the snappea worker (see [run.workers]) then processes the queue.
+bugsink-manage migrate --database=snappea --noinput
+
+# Create the initial admin account from the credential Hop3 generated (ADR 056).
+# Idempotent AND fail-loud: create only when no superuser exists yet, and let a
+# real createsuperuser failure abort the deploy (set -e) rather than swallow it
+# — a running app with no admin account is not a successful deploy. The
+# HOP3_ADMIN_* vars are injected by the [admin] section; skip cleanly if unset
+# (a deploy that predates ADR 056).
+if [ -n "${HOP3_ADMIN_USER:-}" ] && [ -n "${HOP3_ADMIN_PASSWORD:-}" ]; then
+    has_superuser=$(bugsink-manage shell -c \
+        'from django.contrib.auth import get_user_model as g; print(1 if g().objects.filter(is_superuser=True).exists() else 0)' \
+        2>/dev/null | tail -1)
+    if [ "${has_superuser}" = "0" ]; then
+        # Bugsink keys logins by username; email is a stored field.
+        DJANGO_SUPERUSER_USERNAME="${HOP3_ADMIN_USER}" \
+        DJANGO_SUPERUSER_EMAIL="${HOP3_ADMIN_EMAIL:-}" \
+        DJANGO_SUPERUSER_PASSWORD="${HOP3_ADMIN_PASSWORD}" \
+            bugsink-manage createsuperuser --noinput
+    fi
+fi

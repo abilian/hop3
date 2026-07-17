@@ -33,6 +33,7 @@ from sqlalchemy import select
 
 from .addon_credential import AddonCredential
 from .app import App, AppStateEnum
+from .app_admin_credential import AppAdminCredential
 from .backup import Backup
 from .ban import Ban
 from .env import EnvVar
@@ -211,6 +212,16 @@ class AppRepository(BaseRepository[App]):
 # =============================================================================
 # AddonCredential Repository
 # =============================================================================
+
+
+class AppAdminCredentialRepository(BaseRepository[AppAdminCredential]):
+    """Repository for an app's initial admin credential (ADR 056)."""
+
+    model_type = AppAdminCredential
+
+    def get_by_app_id(self, app_id: int) -> AppAdminCredential | None:
+        """Return the app's admin credential, or None (one per app)."""
+        return self.get_one_or_none(app_id=app_id)
 
 
 class AddonCredentialRepository(BaseRepository[AddonCredential]):

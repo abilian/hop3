@@ -543,6 +543,17 @@ class Hop3Config:
         return section.get("_policy", "keep-existing")
 
     @property
+    def admin(self) -> dict[str, Any]:
+        """Get the [admin] section — the app's initial admin account (ADR 056).
+
+        Returns the raw section (``username`` / ``email`` / ``password`` generate
+        spec / ``create``), or an empty dict when no [admin] is declared. The
+        schema (AdminSection) validates its shape at parse time.
+        """
+        section = self._data.get("admin", {})
+        return section if isinstance(section, dict) else {}
+
+    @property
     def ports(self) -> list[dict[str, Any]]:
         """Get the [[ports]] entries (fixed host ports the app binds directly).
 

@@ -46,7 +46,7 @@ Tenets that bind the whole design:
 
 - **Generated-once, never-rotate.** Generated secrets are created on first deploy when unset, persisted as normal app env, and never regenerated on redeploy. Redeploys stay idempotent; secrets never silently rotate and invalidate sessions/data.
 - **Fail loud, never drop.** An unresolvable reference, an unknown `generate` type, an unsupported volume driver, or an unenforceable limit **aborts the deploy** with an actionable message. This removes the silent-drop of dict-valued env entries.
-- **Hybrid env approach.** Automatic fixed-name addon injection remains the ergonomic default (it covers the common case with zero config). Declarative secret generation and dynamic references *add* power for the cases injection cannot reach, rather than replacing injection with Nua's inline-dict model.
+- **Hybrid env approach.** Automatic fixed-name addon injection remains the ergonomic default (it covers the common case with zero config). Declarative secret generation and dynamic references *add* power for the cases injection cannot reach; they do not replace injection with Nua's inline-dict model.
 - **Functional core / imperative shell.** Env resolution is a pure transform `(config, addon facts, existing app env) → desired env`; the deployer applies the result. Volume linking and limit enforcement are the imperative shell, isolated at the deploy edge.
 - **Additive and backwards compatible.** Every new form is opt-in; existing static `[env]` is unchanged. The one behavior change is a *fix*: dict-valued env entries are interpreted or rejected, never silently dropped.
 
@@ -65,7 +65,7 @@ It also closes the defect where the `from`/`key`/`random` `[env]` forms were doc
 
 ### 1. Env model: generated secrets + dynamic references
 
-`[env]` values are a small discriminated union rather than "string, and dicts are dropped":
+`[env]` values are a small discriminated union, replacing the old "string, and dicts are dropped" behavior:
 
 ```
 EnvValue = str | int | float | bool | EnvGenerate | EnvRef
@@ -164,11 +164,11 @@ Enforcement is via the OS cgroup/process boundary.
 
 **Docker apps** map to `--memory`, `--cpus`, `--pids-limit`, with swap-off set for parity so OOM timing matches the native path.
 
-**Keeping respawns capped.** Caps are applied post-start, because an app's PIDs exist only once it is RUNNING: rootd ensures the leaf, writes the caps, then attaches the live PIDs. With the leaf as the entry gate, worker respawns the Emperor forks from an already-attached master inherit the cap by cgroup v2 inheritance. The rarer whole-vassal respawn (a fresh master) and a rootd restart (whose reconcile re-creates the leaf + caps but not PID membership) are covered by a periodic re-attach over **all RUNNING** native-capped apps (not just transitional ones) so there is no silent uncapped window; the re-attach surfaces, rather than swallows, any failure. The leaf persists across a redeploy's stop → rebuild → start.
+**Keeping respawns capped.** Caps are applied post-start, because an app's PIDs exist only once it is RUNNING: rootd ensures the leaf, writes the caps, then attaches the live PIDs. With the leaf as the entry gate, worker respawns the Emperor forks from an already-attached master inherit the cap by cgroup v2 inheritance. The rarer whole-vassal respawn (a fresh master) and a rootd restart (whose reconcile re-creates the leaf + caps but not PID membership) are covered by a periodic re-attach over **all RUNNING** native-capped apps (not just transitional ones) so there is no silent uncapped window; the re-attach surfaces any failure and never swallows it. The leaf persists across a redeploy's stop → rebuild → start.
 
 **Server-wide default + ceiling.** Two operator settings on `HopConfig`, both off by default (single-tenant boxes and the test suite are unaffected): a per-dimension **default** applied where an app declares nothing, and a per-dimension **ceiling** (the multi-tenant safety net). Resolution is a pure `resolve_limits(declared, defaults, ceilings)` transform feeding both the cgroup ops and the Docker mapping, so defaults/ceilings apply uniformly across builders. A declared value above the ceiling **aborts**: never silently clamps down, because silently giving an app less than it asked for is the same class of lie as not enforcing.
 
-**Fail-loud rule and modes.** A declared limit is a safety guarantee. In strict mode (default), any unenforceable declared/defaulted limit **aborts the deploy**, and an already-started app is stopped rather than left running uncapped: the guarantee is "capped or not running", never an app that only looks limited. An operator may opt into a best-effort mode: the app runs, but the unenforced state is recorded on the App row (`limits_enforced` / `limits_detail`) and shown by `hop3 app status` / `debug`, so the failure is surfaced where the user looks. A declared value over the ceiling aborts in **both** modes (a config error). OOM kills are surfaced via `memory.events::oom_kill` in status.
+**Fail-loud rule and modes.** A declared limit is a safety guarantee. In strict mode (default), any unenforceable declared/defaulted limit **aborts the deploy**, and an already-started app is stopped and never left running uncapped: the guarantee is "capped or not running", never an app that only looks limited. An operator may opt into a best-effort mode: the app runs, but the unenforced state is recorded on the App row (`limits_enforced` / `limits_detail`) and shown by `hop3 app status` / `debug`, so the failure is surfaced where the user looks. A declared value over the ceiling aborts in **both** modes (a config error). OOM kills are surfaced via `memory.events::oom_kill` in status.
 
 **Teardown.** `destroy` removes the cgroup leaf for every runtime (so a native→Docker redeploy leaves no orphan leaf), and `cgroup.kill` is a stronger reap surface than `/proc` scanning for the Nix-store `exec` heisenbug.
 
@@ -202,7 +202,7 @@ Plus per-`[[volumes]]` `[volumes.backup]`. This is the config-surface layer over
 
 **Retention** runs in the same cycle: it prunes only `scheduled, COMPLETED` backups by `days` and/or `keep-last` (the more conservative when both are set), removing directory and row together, and **always excludes the single most recent good backup**: logging when it keeps one against policy, never silently leaving zero.
 
-**`paths`/`exclude`** compose into the existing tar filter (the volume-link drop keeps precedence); `paths` is archived separately so restore doesn't lose it to the redeploy's `git clean`. A declared-but-missing `paths` entry **aborts** the backup (no silent omission). Per-addon `method` validates against a `supported_backup_methods` capability on the addon protocol (fix-the-class, not per-type knowledge in the manager). On teardown, `destroy` removes the app's backup directory tree (the FK cascade drops rows; the directories would otherwise be a disk leftover).
+**`paths`/`exclude`** compose into the existing tar filter (the volume-link drop keeps precedence); `paths` is archived separately so restore doesn't lose it to the redeploy's `git clean`. A declared-but-missing `paths` entry **aborts** the backup (no silent omission). Per-addon `method` validates against a `supported_backup_methods` capability on the addon protocol (fix-the-class, so the manager carries no per-type knowledge). On teardown, `destroy` removes the app's backup directory tree (the FK cascade drops rows; the directories would otherwise be a disk leftover).
 
 #### 4b. Proxied secondary endpoints: extend [ADR 040](./040-network-firewall-and-port-exposure.md)
 
@@ -218,13 +218,13 @@ proxy     = true            # nginx proxies this endpoint
 subdomain = "admin"         # served at admin.<host>; inherits TLS
 ```
 
-`PortConfig` gains `proxy`/`subdomain`/`path` while keeping its `container`/`public`/`https` fields (additive, no break): a named endpoint with `proxy = true` requires exactly one of `subdomain` (served at `<sub>.<host>`) or `path` (served at `<host><path>`, rendered ahead of `location /`). nginx renders the endpoint into the **same** `<app>.conf` (one atomic teardown unit) as an extra `server{}` (subdomain) or `location{}` (path). The container port is reached on loopback (native: the app binds `127.0.0.1:<container>`; Docker: publish `127.0.0.1:<hostport>:<container>`) and a post-start probe **asserts the port answers on loopback and is refused on a non-loopback address**, so a publicly-bound secondary listener (bypassing nginx/TLS) aborts the deploy rather than silently exposing an admin UI. Raw, non-HTTP ports stay in `[[ports]]`; no app binds 80/443 directly: the proxy multiplexes.
+`PortConfig` gains `proxy`/`subdomain`/`path` while keeping its `container`/`public`/`https` fields (additive, no break): a named endpoint with `proxy = true` requires exactly one of `subdomain` (served at `<sub>.<host>`) or `path` (served at `<host><path>`, rendered ahead of `location /`). nginx renders the endpoint into the **same** `<app>.conf` (one atomic teardown unit) as an extra `server{}` (subdomain) or `location{}` (path). The container port is reached on loopback (native: the app binds `127.0.0.1:<container>`; Docker: publish `127.0.0.1:<hostport>:<container>`) and a post-start probe **asserts the port answers on loopback and is refused on a non-loopback address**, so a publicly-bound secondary listener (bypassing nginx/TLS) aborts the deploy and never silently exposes an admin UI. Raw, non-HTTP ports stay in `[[ports]]`; no app binds 80/443 directly: the proxy multiplexes.
 
-**TLS.** A `subdomain` adds a hostname the served cert must cover, so issuance is **multi-SAN** (the self-signed engine accepts a name list; certbot adds `-d` per name), and cert verification runs over **every** secondary FQDN so a missing SAN fails loud rather than serving a mismatch. Teardown is complete by construction (same conf file, same cert pair); Docker verifies the published loopback port is released so it can't block the next deploy's port allocation. A `subdomain` endpoint depends on multi-SAN issuance; a `path` endpoint shares the primary cert and has no such dependency.
+**TLS.** A `subdomain` adds a hostname the served cert must cover, so issuance is **multi-SAN** (the self-signed engine accepts a name list; certbot adds `-d` per name), and cert verification runs over **every** secondary FQDN so a missing SAN fails loud and never serves a mismatch. Teardown is complete by construction (same conf file, same cert pair); Docker verifies the published loopback port is released so it can't block the next deploy's port allocation. A `subdomain` endpoint depends on multi-SAN issuance; a `path` endpoint shares the primary cert and has no such dependency.
 
 ### 5. Deploy ignore patterns: `[build].ignore`, not `.hop3ignore`
 
-Deploy-time ignore patterns (what *not* to bundle and upload) are configuration about the app, so by the same tenet (*declare intent in `hop3.toml`, not a sidecar*) they belong in `hop3.toml`, not a Hop3-invented dotfile. (Before this decision the surface was split: the CLI bundler read a `.hop3ignore` sidecar, while the schema declared an unwired `[build].ignore` / `[build].ignore-file`, the latter a field whose value is "go read this other file".)
+Deploy-time ignore patterns (what *not* to bundle and upload) are configuration about the app, so by the same tenet (*declare intent in `hop3.toml`, keeping it out of a sidecar*) they belong in `hop3.toml` itself, and Hop3 invents no dotfile for them. (Before this decision the surface was split: the CLI bundler read a `.hop3ignore` sidecar, while the schema declared an unwired `[build].ignore` / `[build].ignore-file`, the latter a field whose value is "go read this other file".)
 
 - **`[build].ignore`** (an inline glob list) is the single canonical, method-agnostic way to declare what is *not* part of the app, and is the mechanism for the `hop3 deploy` upload path (where the CLI tars the working tree):
 
@@ -245,18 +245,18 @@ Deploy-time ignore patterns (what *not* to bundle and upload) are configuration 
 
 ### 6. Privileged realization via hop3-rootd (extends [ADR 041](./041-privileged-operations-agent.md))
 
-Native `tmpfs`/`bind` mounts (§2) and native `[limits]` (§3) require privileged kernel operations outside rootd's `firewall.*` / `nginx.*` / `daemon.*` families. Rather than two drifting extensions, both are introduced as **one** amendment behind a single client/state/validation contract:
+Native `tmpfs`/`bind` mounts (§2) and native `[limits]` (§3) require privileged kernel operations outside rootd's `firewall.*` / `nginx.*` / `daemon.*` families. Both are introduced as **one** amendment behind a single client/state/validation contract, which keeps them from becoming two drifting extensions:
 
 - **`mount.*`**: `mount.tmpfs`, `mount.bind`, `mount.unmount`, `mount.list`.
 - **`cgroup.*`**: `cgroup.ensure_slice`, `cgroup.set_limits`, `cgroup.attach_pids`, `cgroup.remove` (kills the subtree, then rmdir), `cgroup.read`.
 
-What makes it one amendment rather than two:
+What collapses the two families into one amendment:
 
 - **One path-allow-list.** rootd re-derives `APP_ROOT` and runs `validate_app_name` for both families; every `mountpoint`/leaf must canonicalize under `<APP_ROOT>/<app>/src/` resp. `hop3.slice/hop3-app-<app>.scope`. Callers never pass arbitrary paths.
 - **One state file + reconcile loop.** Mounts and cgroup leaves join the firewall family's atomic-write/reconcile discipline, so a rootd restart re-asserts or cleans exactly what it owns.
-- **One threat model.** The op families run within rootd's existing root privilege. The larger trust budget the union implies (`CAP_SYS_ADMIN` (mounts), a non-private mount namespace (so an Emperor-spawned process can see a rootd-made mount), and `ProtectControlGroups=false` or a delegated `hop3.slice`) is a forward constraint for the unit-hardening pass, threat-modelled as a whole rather than loosened ad hoc.
+- **One threat model.** The op families run within rootd's existing root privilege. The larger trust budget the union implies (`CAP_SYS_ADMIN` (mounts), a non-private mount namespace (so an Emperor-spawned process can see a rootd-made mount), and `ProtectControlGroups=false` or a delegated `hop3.slice`) is a forward constraint for the unit-hardening pass, threat-modelled as a whole so it is not loosened ad hoc.
 
-A realization that requires a privileged op is gated on that op: the platform refuses a resource it cannot realize rather than deploy something that only looks capped or persisted. If the amendment were rejected, native tmpfs/bind and native limits would be infeasible and only the Docker paths would be available: the guaranteed-deployable baseline.
+A realization that requires a privileged op is gated on that op: the platform refuses a resource it cannot realize and never deploys something that only looks capped or persisted. If the amendment were rejected, native tmpfs/bind and native limits would be infeasible and only the Docker paths would be available: the guaranteed-deployable baseline.
 
 ## Examples
 
@@ -358,7 +358,7 @@ type = "postgres"
 
 - Secret rotation UX (`hop3 env rotate KEY`?).
 - Per-context ([ADR 042](./042-cli-context-model.md)) overrides for volumes / limits / generated secrets: likely desirable.
-- cgroup enforcement on non-systemd hosts: native limits write `hop3.slice` directly via rootd (no systemd delegation), which is the open feasibility risk where rootd runs under a supervisor rather than systemd; `tmpfs`/`bind` inherit it.
+- cgroup enforcement on non-systemd hosts: native limits write `hop3.slice` directly via rootd (no systemd delegation), which is the open feasibility risk where rootd runs under a non-systemd supervisor; `tmpfs`/`bind` inherit it.
 - The recommended server-wide default limit for a multi-tenant box, and whether to enable it by default once mature.
 - The per-endpoint healthcheck shape for proxied secondary endpoints, and a `$PORT`-style dynamic secondary port.
 

@@ -27,6 +27,7 @@ from hop3.run.spawn import spawn_app
 
 if TYPE_CHECKING:
     from .addon_credential import AddonCredential
+    from .app_admin_credential import AppAdminCredential
     from .env import EnvVar
     from .port_claim import PortClaim
 
@@ -133,6 +134,13 @@ class App(BigIntAuditBase):
 
     addon_credentials: Mapped[list[AddonCredential]] = relationship(
         back_populates="app", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+    admin_credential: Mapped[AppAdminCredential | None] = relationship(
+        back_populates="app",
+        cascade="all, delete-orphan",
+        uselist=False,
+        lazy="selectin",
     )
 
     port_claims: Mapped[list[PortClaim]] = relationship(

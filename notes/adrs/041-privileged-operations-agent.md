@@ -13,7 +13,7 @@ Without this ADR, the hop3 user holds a small sudoers fragment (`/etc/sudoers.d/
 
 **The goal of this ADR**: the hop3 user is a *strict non-sudoer*. The four nginx entries are retired (their work moves into hop3-rootd's `nginx.reload` and `nginx.validate_config` ops). The installer no longer creates `/etc/sudoers.d/hop3`. Hop3-server holds no elevated privileges of any kind: every kernel-boundary operation goes through hop3-rootd. The impact of a hop3-server compromise is bounded to "what the hop3 user can do" with no escalation path.
 
-The discipline holds for everything except nginx reload because Hop3 has either pushed root-needing work to install time (the installer runs as root once) or sidestepped it. The package-installation story is the clearest example: `[build].packages` declarations are honoured *not* by running `apt install` at deploy time but by deriving an installer baseline from the catalogue at server-setup time and pre-installing the union. This works because package installation is monotonically additive and because the catalogue is known at install time. The same workaround does not generalise.
+The discipline holds for everything except nginx reload because Hop3 has either pushed root-needing work to install time (the installer runs as root once) or sidestepped it. The package-installation story is the clearest example: `[build].packages` declarations are honoured by deriving an installer baseline from the catalogue at server-setup time and pre-installing the union; deploy time never runs `apt install`. This works because package installation is monotonically additive and because the catalogue is known at install time. The same workaround does not generalise.
 
 [ADR 040](./040-network-firewall-and-port-exposure.md) introduces declarative per-app port exposure. The runtime mutation of host firewall state (nftables / ufw / iptables: all of which need `CAP_NET_ADMIN`, effectively root) cannot be pushed to install time:
 
@@ -25,7 +25,7 @@ So the firewall feature forces a runtime privilege-separation step. Given such a
 
 [ADR 040](./040-network-firewall-and-port-exposure.md)'s draft sketches a "sudoers fragment for a tightly-scoped command" approach for firewall ops too. While workable for one feature, it has known weaknesses: every invocation is a setuid escalation, the validation surface is "whatever the wrapper script parses", the sudoers file becomes a TOFU asset, and the model does not generalise to other privileged operations Hop3 will eventually need (certificate issuance, optional runtime package installation, systemd unit management).
 
-A separate observation, made while drafting [ADR 040](./040-network-firewall-and-port-exposure.md): the cloud-provider firewall case (Hetzner Cloud Firewall, Scaleway Security Group, AWS Security Group) is **architecturally simpler than the local-firewall case**, because the cloud provider exposes a control-plane API that hop3-server can call directly with operator-supplied credentials. No privilege-escalation gymnastics; the kernel boundary is replaced by a network boundary, and the auth boundary is a token rather than a UID.
+A separate observation, made while drafting [ADR 040](./040-network-firewall-and-port-exposure.md): the cloud-provider firewall case (Hetzner Cloud Firewall, Scaleway Security Group, AWS Security Group) is **architecturally simpler than the local-firewall case**, because the cloud provider exposes a control-plane API that hop3-server can call directly with operator-supplied credentials. No privilege-escalation gymnastics; the kernel boundary is replaced by a network boundary, and the auth boundary shifts from a UID to a token.
 
 This ADR proposes that we make the local case look like the cloud case: introduce a small root-running daemon that exposes a control-plane API to hop3-server over a Unix socket. The daemon is the kernel-boundary executor for privileged operations Hop3 performs at runtime. From hop3-server's perspective, "the local box" and "the cloud" become two equally-shaped backends behind a single `Firewall` plugin protocol.
 
@@ -137,7 +137,7 @@ New codes are added per op as ops are added. Adding a new code is part of the pr
 
 **Handshake**. The first request on every connection is `daemon.handshake({client_version, client_protocol_version})`. Response carries `{daemon_version, protocol_version, accepted: true}`. Mismatch returns `protocol_version_mismatch` with a concrete remediation message ("upgrade hop3-rootd to >= 0.7.0"); hop3-server fails the deploy with a "version mismatch: re-run hop3-install server" diagnostic. No further messages on that connection.
 
-The choice of plain JSON-over-UDS rather than gRPC, D-Bus, or HTTP is deliberate: minimal dependencies (stdlib only), trivial to test, easy to read on the wire (`nc -U /run/hop3-rootd/socket` from a root shell), easy to audit. The protocol is conservative on purpose; anything we add later is a separate decision.
+The choice of plain JSON-over-UDS, in preference to gRPC, D-Bus, or HTTP, is deliberate: minimal dependencies (stdlib only), trivial to test, easy to read on the wire (`nc -U /run/hop3-rootd/socket` from a root shell), easy to audit. The protocol is conservative on purpose; anything we add later is a separate decision.
 
 ### 4. Schema for the firewall op
 
@@ -681,7 +681,7 @@ Native `[limits]` enforcement and native `[[volumes]]` ([ADR 046](./046-declarat
 **One contract, hence one amendment:**
 
 - *One path-allow-list.* rootd derives `APP_ROOT` from the hop3 user's home and validates `app_name` (the existing validator); every mountpoint/leaf must canonicalize under `<APP_ROOT>/<app>/src` resp. `hop3.slice/hop3-app-<app>.scope`. Callers pass `app_name` and a *relative* target, never an absolute path (§1).
-- *One state discipline.* Cgroup leaves and mounts join `state.json` under the same atomic-write + startup-reconcile model as firewall rules (parsed optionally, so older state still loads); a host that cannot enforce degrades loudly rather than crashing the daemon, mirroring the nft-missing path.
+- *One state discipline.* Cgroup leaves and mounts join `state.json` under the same atomic-write + startup-reconcile model as firewall rules (parsed optionally, so older state still loads); a host that cannot enforce degrades loudly and does not crash the daemon, mirroring the nft-missing path.
 - *One bind allow-list.* rootd holds its own copy (`/var/lib/hop3-rootd/bind-allowlist`, default-deny) as the third validation layer (§4), kept in sync by the installer with the server-side `HOP3_BIND_VOLUME_ALLOWLIST`. This allow-list is the real control on `mount.bind` and is conservative by default; an installer-time check confirms the host provides cgroup v2.
 
 **Unit-hardening threat model.** These ops are incompatible with two of §10's sandbox directives. Writing the cgroup hierarchy requires `ProtectControlGroups` unset (or `hop3.slice` delegated via `Delegate=`), with `ReadWritePaths` scoped to exactly that subtree. Mounting into the app's namespace requires `CAP_SYS_ADMIN` and the host mount namespace (no `PrivateMounts`; `MountFlags=shared`) (essential, because a mount made in rootd's *private* namespace is invisible to the Emperor-spawned app process: a "mounted successfully" report over an empty dir, i.e. silent success, which this architecture forbids. Reconciling §10's hardening with these requirements is a single forward constraint, threat-modelled as one change: the hardened unit keeps `CAP_SYS_ADMIN` and a shared mount namespace and leaves the cgroup subtree writable. This is a materially larger kernel surface than `CAP_NET_ADMIN`-only, accepted only with that scoping and the §1 framing) a hop3-server compromise is already total compromise of the hop3 user, and rootd's job is to not *widen* it.
@@ -732,8 +732,8 @@ rootd **never `exec`s the proxy binary itself.** It writes the two unit files (a
 - **The trust budget is explicit and reviewable**: hop3-rootd is a small Python package with a fixed operation set and no external dependencies.
 - **Pre-figures [ADR 017](./017-agent-based-architecture.md) Phase 3** (multi-node): each node ships its own rootd; the same protocol shape extends.
 - **Retires `/etc/sudoers.d/hop3`**: nginx-reload no longer needs a sudoers fragment.
-- **Defends [ADR 040](./040-network-firewall-and-port-exposure.md)'s design choices**: per-port grants are now backed by a clean execution model rather than a sudoers fragment.
-- **Explicit threat model**: the ADR names "hop3-server compromise = total compromise" rather than pretending to defend against it.
+- **Defends [ADR 040](./040-network-firewall-and-port-exposure.md)'s design choices**: per-port grants are now backed by a clean execution model, replacing the sudoers fragment.
+- **Explicit threat model**: the ADR names "hop3-server compromise = total compromise" openly and does not pretend to defend against it.
 
 ### Negative
 
@@ -761,7 +761,7 @@ A `hop3-firewall` setuid-root binary that takes a tight argument schema. **Rejec
 
 ### C. Capabilities on hop3-server (CAP_NET_ADMIN ambient)
 
-Give hop3-server `AmbientCapabilities=CAP_NET_ADMIN` via its systemd unit. No helper at all. **Rejected** because: hop3-server then has root-equivalent network powers; if compromised, the attacker can do anything to the firewall: not just the v1-supported subset. The whole point of running as the `hop3` user is to contain the impact; this gives back almost all of it for one feature.
+Give hop3-server `AmbientCapabilities=CAP_NET_ADMIN` via its systemd unit. No helper at all. **Rejected** because: hop3-server then has root-equivalent network powers; if compromised, the attacker can do anything to the firewall, well beyond the v1-supported subset. The whole point of running as the `hop3` user is to contain the impact; this gives back almost all of it for one feature.
 
 ### D. PolicyKit-mediated helper
 
@@ -783,7 +783,7 @@ If real demand for finer-grained policy emerges, the schema can be reintroduced 
 
 ### H. Synchronous async-prompt queue
 
-Rather than "edit policy, retry", expose a `hop3 firewall pending` / `hop3 firewall approve <id>` workflow: rootd holds requests pending operator decision. **Rejected.** Adds queueing, statefulness on the daemon side, a UI in hop3-server, and a synchronisation problem (what if a request is approved after the deploy CLI has timed out?). The CLI's deploy-time prompt is the simpler answer; (G) and (H) both fall away.
+As an alternative to "edit policy, retry", expose a `hop3 firewall pending` / `hop3 firewall approve <id>` workflow: rootd holds requests pending operator decision. **Rejected.** Adds queueing, statefulness on the daemon side, a UI in hop3-server, and a synchronisation problem (what if a request is approved after the deploy CLI has timed out?). The CLI's deploy-time prompt is the simpler answer; (G) and (H) both fall away.
 
 ## Open questions
 

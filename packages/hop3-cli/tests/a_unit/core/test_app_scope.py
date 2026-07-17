@@ -41,6 +41,7 @@ def test_app_namespace_verbs_are_app_scoped() -> None:
         "restart",
         "debug",
         "sbom",
+        "credentials",  # ADR 056 — `hop3 app credentials --app X` must forward --app
     ):
         scoped, n = is_app_scoped(["app", verb])
         assert scoped, f"app {verb} should be app-scoped"

@@ -46,6 +46,7 @@ _APP_NAMESPACE_SCOPED: set[tuple[str, ...]] = {
     ("app", "restart"),
     ("app", "debug"),
     ("app", "sbom"),
+    ("app", "credentials"),  # ADR 056: show an app's initial admin credential.
     ("app", "run"),  # canonical form of top-level `run` (alias). See run special-case.
     # ("app", "launch") and ("app", "list") are NOT app-scoped: launch creates
     # an app from a repo arg; list takes no app.

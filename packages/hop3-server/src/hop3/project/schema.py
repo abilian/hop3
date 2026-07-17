@@ -1143,6 +1143,75 @@ class ContextSection(BaseModel):
         return self
 
 
+class AdminSection(BaseModel):
+    """[admin] section — an app's initial admin account (ADR 056).
+
+    The platform generates the password once (CSPRNG, stable across redeploy),
+    resolves the email, injects a canonical ``HOP3_ADMIN_USER`` /
+    ``HOP3_ADMIN_EMAIL`` / ``HOP3_ADMIN_PASSWORD`` triple into the app's runtime
+    env, records the credential (encrypted, retrievable via ``hop3 app
+    credentials``), and runs ``create`` once post-deploy to create the account.
+    The recipe maps the canonical vars to whatever its app expects.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    username: str | None = Field(
+        default=None,
+        description="Login username; omit when the app keys admins by email.",
+    )
+    email: str | None = Field(
+        default=None,
+        description=(
+            "Admin email: 'operator' -> the server's OPERATOR_EMAIL, or a "
+            "literal address. Omit when the app needs no admin email."
+        ),
+    )
+    password: EnvGenerate = Field(
+        description=(
+            "How to generate the admin password. Always generated (never a "
+            "literal), so no credential is committed to the recipe."
+        ),
+    )
+    create: str | None = Field(
+        default=None,
+        description=(
+            "Idempotent (create-if-absent) command run once post-deploy to "
+            "create the account. Receives HOP3_ADMIN_USER/EMAIL/PASSWORD in its "
+            "environment. Omit when the app bootstraps itself from those vars."
+        ),
+    )
+
+    @field_validator("email")
+    @classmethod
+    def _check_email(cls, v: str | None) -> str | None:
+        if v is None or v == "operator":
+            return v
+        # A literal address must look like one (not a bare "@").
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", v):
+            msg = (
+                f"[admin].email {v!r} must be 'operator' (use the server's "
+                "OPERATOR_EMAIL) or a literal email address."
+            )
+            raise ValueError(msg)
+        return v
+
+    @field_validator("username")
+    @classmethod
+    def _check_username(cls, v: str | None) -> str | None:
+        if v is not None and not v.strip():
+            msg = "[admin].username must not be blank."
+            raise ValueError(msg)
+        return v
+
+    @model_validator(mode="after")
+    def _needs_an_identity(self) -> AdminSection:
+        if not self.username and not self.email:
+            msg = "[admin] needs at least one of `username` or `email`."
+            raise ValueError(msg)
+        return self
+
+
 class Hop3TomlSchema(BaseModel):
     """Complete hop3.toml schema with validation.
 
@@ -1196,6 +1265,14 @@ class Hop3TomlSchema(BaseModel):
         description=(
             "App hostnames. Translates to HOST_NAME at deploy time. Mutually "
             "exclusive with setting HOST_NAME under [env]."
+        ),
+    )
+    admin: AdminSection | None = Field(
+        default=None,
+        description=(
+            "Initial admin account to bootstrap on first deploy (ADR 056). The "
+            "platform generates the password, creates the account, and surfaces "
+            "the credential to the operator."
         ),
     )
     addons: list[AddonConfig] | None = None
