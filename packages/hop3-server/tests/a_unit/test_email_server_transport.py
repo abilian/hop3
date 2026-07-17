@@ -630,6 +630,12 @@ def test_backend_catch_requires_admin(email_root):
     assert st_module.load_server_backend_kind() is None
 
 
+def test_server_sending_domain_reads_the_backend_domain(email_root):
+    assert st_module.server_sending_domain() is None  # no backend yet
+    st_module.save_server_catch("dev.local")
+    assert st_module.server_sending_domain() == "dev.local"
+
+
 def test_backend_catch_inherited_addon_injects_loopback(email_root, no_dns):
     # Under catch, an inheriting app still gets the loopback endpoint (:25);
     # Postfix relays to the sink. No provider transport is needed.

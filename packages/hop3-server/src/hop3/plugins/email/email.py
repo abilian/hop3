@@ -175,18 +175,29 @@ class EmailAddon:
         )
 
     def create(self) -> None:
-        """Generic-create guard — always refuses.
+        """Provision from the server backend, or fail loud when none is set.
 
-        The generic ``addon create <type> <name>`` path cannot supply or validate
-        the SMTP credentials an email addon needs, so it is never a valid way to
-        create one — configured or not. Fail loud and point at the typed command,
-        rather than let the generic path silently no-op over an already-stored
-        transport (Hop3's no-fake-success rule). The real entry point is
-        ``addon email create``, which calls :meth:`configure`.
+        This is the path a recipe's ``[[addons]] type = "email"`` takes. When the
+        operator has configured a server-level backend (relay/catch/direct), the
+        addon inherits it: the app's From is placed on the backend's verified
+        sending domain and it sends via the loopback relay, so a recipe declares
+        email with zero provider knowledge (ADR 054/056). With no backend set,
+        the generic path has no credentials to supply — fail loud and point at
+        either configuring a server backend or the per-app typed command, rather
+        than silently no-op over an already-stored transport (no-fake-success).
         """
+        from .server_transport import server_sending_domain  # noqa: PLC0415
+
+        domain = server_sending_domain()
+        if domain is not None:
+            self.configure_inherited(f"noreply@{domain}")
+            return
+
         msg = (
-            f"Email addon {self.addon_name!r} needs SMTP credentials the generic "
-            "`addon create` cannot supply. Create it with:\n"
+            f"Email addon {self.addon_name!r} needs an email backend. Either "
+            "configure a server-level one so apps can inherit it:\n"
+            "  hop3 server email backend <relay|catch|direct> …\n"
+            "or create this addon with its own provider credentials:\n"
             f"  hop3 addon email create {self.addon_name} "
             "--smtp-host <h> --smtp-user <u> --smtp-password <pw> --from <addr>"
         )

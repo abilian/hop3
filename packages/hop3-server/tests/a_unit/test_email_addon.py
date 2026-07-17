@@ -10,6 +10,7 @@ import pytest
 
 from hop3.plugins.addons import secrets as secrets_module
 from hop3.plugins.email import deliverability
+from hop3.plugins.email import server_transport as server_transport_module
 from hop3.plugins.email.cli import AddonEmailCreateCmd, AddonEmailStatusCmd
 from hop3.plugins.email.deliverability import (
     MISSING,
@@ -19,12 +20,15 @@ from hop3.plugins.email.deliverability import (
     check_spf,
 )
 from hop3.plugins.email.email import EmailAddon, EmailTransport
+from hop3.plugins.email.server_transport import save_server_catch
 
 
 @pytest.fixture
 def email_root(tmp_path, monkeypatch):
-    """Point the addon-secrets store at a throwaway dir for the test."""
+    """Point both the addon-secrets store and the server-transport record at a
+    throwaway dir, so a real server backend can't leak into a test."""
     monkeypatch.setattr(secrets_module, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(server_transport_module, "HOP3_ROOT", tmp_path)
     return tmp_path
 
 
@@ -48,19 +52,23 @@ def _configured(name: str = "mail", port: int = 587) -> EmailAddon:
     return addon
 
 
-def test_create_fails_loud_without_transport(email_root):
-    """The generic `addon create email` path must refuse, not make a broken addon."""
-    with pytest.raises(RuntimeError, match="needs SMTP credentials"):
+def test_create_fails_loud_without_backend(email_root):
+    """With no server backend set, the generic create path has no credentials to
+    supply — it must fail loud, not make a broken addon."""
+    with pytest.raises(RuntimeError, match="needs an email backend"):
         EmailAddon(addon_name="mail").create()
 
 
-def test_create_refuses_even_when_configured(email_root):
-    """The generic create() path must fail loud even after the addon is already
-    configured — it can never validly create an email addon, so it must redirect
-    rather than silently no-op over an existing transport."""
-    _configured()  # writes the 'mail' addon
-    with pytest.raises(RuntimeError, match="addon email create"):
-        EmailAddon(addon_name="mail").create()
+def test_create_inherits_when_backend_configured(email_root):
+    """A recipe's `[[addons]] type = "email"` (generic create) inherits the
+    server backend when one is set: the addon is stored as inheriting, with its
+    From on the backend's verified domain (ADR 054/056)."""
+    save_server_catch("dev.local")
+
+    EmailAddon(addon_name="bugsink-email").create()
+
+    stored = secrets_module.load_addon_secrets("email", "bugsink-email")
+    assert stored == {"inherit": True, "mail_from": "noreply@dev.local"}
 
 
 def test_connection_details_emit_every_spelling(email_root):

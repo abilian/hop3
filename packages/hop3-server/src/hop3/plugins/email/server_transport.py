@@ -130,6 +130,21 @@ def load_server_dkim_selector() -> str | None:
     return None if data is None else data.get("dkim_selector")
 
 
+def server_sending_domain() -> str | None:
+    """The server backend's verified sending domain, or None when no backend.
+
+    Derived from the recorded ``mail_from`` (every backend stores one). Used to
+    build an inheriting app's From address on that domain (ADR 054/056), so a
+    recipe can declare ``[[addons]] type = "email"`` without knowing the
+    operator's domain.
+    """
+    data = _load_record()
+    if data is None:
+        return None
+    mail_from = str(data.get("mail_from", ""))
+    return mail_from.rsplit("@", maxsplit=1)[-1] or None if "@" in mail_from else None
+
+
 def load_server_transport() -> EmailTransport | None:
     """Load the server relay transport, or None when unset / not a relay backend."""
     data = _load_record()
