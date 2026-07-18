@@ -71,7 +71,8 @@ fi
 '''
 
 [env]
-MM_SERVICESETTINGS_SITEURL = "http://localhost:8080"
+# SiteURL is set in scripts/setup-config.sh from the injected HOP3_PUBLIC_URL
+# (Mattermost needs the real public https URL for links, CORS, and integrations).
 
 # Data-at-rest encryption key (SqlSettings.AtRestEncryptKey). Mattermost encrypts
 # certain fields at rest with this key, so it MUST stay stable across redeploys:

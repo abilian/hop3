@@ -29,7 +29,7 @@ mkdir -p custom/conf
 cat > custom/conf/app.ini << EOF
 [server]
 HTTP_PORT = ${PORT}
-ROOT_URL = http://localhost:${PORT}/
+ROOT_URL = ${HOP3_PUBLIC_URL:-http://localhost:${PORT}}/
 
 [database]
 DB_TYPE = ${DB_TYPE}

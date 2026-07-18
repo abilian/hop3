@@ -8,7 +8,7 @@ set -e
 : "${APP_KEY:?ADR-046 stable APP_KEY must be injected as an [env] generated secret}"
 cat > .env << EOF
 APP_KEY=${APP_KEY}
-APP_URL=${APP_URL:-http://localhost:${PORT:-8080}}
+APP_URL=${HOP3_PUBLIC_URL:-http://localhost:${PORT:-8080}}
 APP_ENV=production
 APP_DEBUG=false
 DB_CONNECTION=mysql

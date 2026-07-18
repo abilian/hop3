@@ -23,6 +23,10 @@ export KC_DB_PASSWORD="${PGPASSWORD}"
 : "${KC_BOOTSTRAP_ADMIN_USERNAME:?ERROR: KC_BOOTSTRAP_ADMIN_USERNAME is required (set by Hop3 [admin] bootstrap)}"
 : "${KC_BOOTSTRAP_ADMIN_PASSWORD:?ERROR: KC_BOOTSTRAP_ADMIN_PASSWORD is required (set by Hop3 [admin] bootstrap)}"
 
+# --proxy-headers=xforwarded: Hop3's nginx terminates TLS and forwards the real
+# scheme/host via X-Forwarded-Proto/Host. Without this, Keycloak sees plain http
+# and emits http:// OIDC issuer + redirect URLs, breaking SSO behind the proxy.
 exec "$PWD/keycloak/bin/kc.sh" start-dev \
     --http-host=0.0.0.0 \
-    --http-port="${PORT}"
+    --http-port="${PORT}" \
+    --proxy-headers=xforwarded
