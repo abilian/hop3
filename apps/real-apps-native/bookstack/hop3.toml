@@ -25,6 +25,16 @@ start = "php artisan serve --host=0.0.0.0 --port=${PORT:-8080}"
 [[addons]]
 type = "mysql"
 
+# ADR-056 admin bootstrap. BookStack keys admins by email; the generated
+# credentials are surfaced once in the deploy log and retrievable via
+# `hop3 app credentials --app bookstack`. HOP3_ADMIN_USER/EMAIL/PASSWORD are
+# injected into the app runtime env and consumed by scripts/setup-config.sh,
+# which resets BookStack's migration-seeded default admin (admin@admin.com).
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }
+
 [env]
 APP_ENV = "production"
 APP_DEBUG = "false"

@@ -30,6 +30,20 @@ start-timeout = 420
 [[addons]]
 type = "postgres"
 
+# ADR-056: generate the temporary bootstrap admin password once (stable across
+# redeploys), inject HOP3_ADMIN_USER/HOP3_ADMIN_PASSWORD into the app runtime.
+# Keycloak's bootstrap admin is keyed by username only — no email field.
+[admin]
+username = "admin"
+password = { generate = "password", length = 20 }
+
+# Map the injected admin creds onto the env vars Keycloak 26 reads at first
+# start to create the temporary admin (KC_BOOTSTRAP_ADMIN_*). Interpolated
+# after the admin creds are injected, so no literal secret lives in [env].
+[env.computed]
+KC_BOOTSTRAP_ADMIN_USERNAME = "${HOP3_ADMIN_USER}"
+KC_BOOTSTRAP_ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD}"
+
 [healthcheck]
 path = "/realms/master"
 

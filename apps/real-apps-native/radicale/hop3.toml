@@ -23,8 +23,14 @@ start = "python -m radicale --config config"
 
 # Radicale uses file-based storage by default
 
-[env]
-RADICALE_AUTH_TYPE = "none"
+# Initial admin account (ADR 056). Hop3 generates the password, stores it
+# (retrieve via `hop3 app credentials`), and surfaces it once after deploy. The
+# htpasswd entry itself is written in scripts/setup-config.sh from the injected
+# HOP3_ADMIN_USER/HOP3_ADMIN_PASSWORD. Radicale authenticates by username and
+# has no email field, so no email is set here.
+[admin]
+username = "admin"
+password = { generate = "password", length = 20 }
 
 [healthcheck]
 path = "/.web/"

@@ -85,6 +85,7 @@ DEBIAN_BASE_PACKAGES = [
     "php-zip",
     "php-pgsql",
     "php-mysql",
+    "php-sqlite3",  # SQLite-backed PHP apps (e.g. paheko)
     "php-intl",
     "php-gd",
     "php-ldap",

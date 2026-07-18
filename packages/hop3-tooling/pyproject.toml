@@ -1,0 +1,24 @@
+[project]
+name = "hop3-tooling"
+version = "0.6.2"
+description = "Maintainer and operator tooling for Hop3 (ADR 057)"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [
+    { name = "Stefane Fermigier", email = "sf@abilian.com" }
+]
+requires-python = ">=3.10, <4"
+dependencies = [
+    "click>=8.0.0",
+    "httpx>=0.27.2",
+]
+
+[project.scripts]
+hop3-tools = "hop3_tooling.cli:main"
+
+[build-system]
+requires = ["uv-build>=0.8.4,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.pyrefly]
+project-includes = ["**/*.py*"]

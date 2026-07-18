@@ -25,10 +25,22 @@ start = "php -S 0.0.0.0:${PORT:-8080}"
 type = "postgres"
 
 [env]
-ADMIN_USER = "admin"
 ADMIN_NAME = "Administrator"
-ADMIN_EMAIL = "admin@example.com"
-ADMIN_PASSWORD = "change-me-admin-password"
+
+# Generated admin credentials (ADR-056). The platform generates the password
+# once (stable across redeploys), stores it encrypted, and injects
+# HOP3_ADMIN_USER / HOP3_ADMIN_EMAIL / HOP3_ADMIN_PASSWORD into the runtime env.
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }
+
+# Map LimeSurvey's installer env vars to the injected admin credentials.
+# Interpolated after HOP3_ADMIN_* is injected, so these reach setup-config.sh.
+[env.computed]
+ADMIN_USER = "${HOP3_ADMIN_USER}"
+ADMIN_EMAIL = "${HOP3_ADMIN_EMAIL}"
+ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD}"
 
 [healthcheck]
 path = "/"
