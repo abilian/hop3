@@ -38,6 +38,12 @@ password = { generate = "password", length = 20 }
 [env]
 APP_ENV = "production"
 APP_DEBUG = "false"
+# ADR-046: stable, generated-once Laravel APP_KEY. BookStack encrypts data with
+# it (MFA/2FA secrets, sessions), so it must NOT rotate on redeploy. The platform
+# generates it once and re-injects the same value every deploy; setup-config.sh
+# consumes ${APP_KEY} instead of minting a fresh key. Laravel needs base64: +
+# 32 decoded bytes (AES-256-CBC) -> base64 generator, length = 32.
+APP_KEY = { generate = "base64", length = 32, prefix = "base64:" }
 
 [healthcheck]
 path = "/"

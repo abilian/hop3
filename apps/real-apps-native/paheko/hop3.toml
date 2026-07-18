@@ -28,6 +28,16 @@ start-timeout = 60
 PAHEKO_COUNTRY = "FR"
 PAHEKO_ORG_NAME = "Paheko"
 
+# Instance secret key (ADR 046). config.local.php lives in the source tree, which
+# a redeploy wipes and regenerates, so a secret minted inline in setup-config.sh
+# (head -c 32 /dev/urandom | base64) rotated on EVERY redeploy — invalidating all
+# sessions and making anything Paheko encrypted with the old key undecryptable.
+# Declaring it here makes the platform generate it ONCE and re-inject the SAME
+# value on every redeploy; setup-config.sh consumes ${PAHEKO_SECRET_KEY} instead
+# of generating its own. base64 of 32 bytes matches the format the inline command
+# produced (Paheko\SECRET_KEY just needs a long random string).
+PAHEKO_SECRET_KEY = { generate = "base64", length = 32 }
+
 # Generated admin credentials (ADR-056). The platform generates the password
 # once (stable across redeploys), stores it encrypted, and injects
 # HOP3_ADMIN_USER / HOP3_ADMIN_EMAIL / HOP3_ADMIN_PASSWORD into the runtime env.
@@ -37,6 +47,17 @@ PAHEKO_ORG_NAME = "Paheko"
 username = "admin"
 email = "operator"
 password = { generate = "password", length = 20 }
+
+# Paheko keeps ALL of its state — the SQLite database and any uploaded documents
+# — under `data/` in the source tree (DATA_ROOT = __DIR__ . '/data' in
+# config.local.php; DB_FILE = data/paheko.sqlite). A redeploy wipes and re-extracts
+# src/, so without a volume the database is destroyed on every redeploy. Persist
+# `data/` outside src/ (storage at <app>/volumes/data/) so it survives the
+# source-replacing redeploy (ADR 046 §2). This is also what makes the
+# setup-config.sh "already installed" probe a true no-op on redeploy.
+[[volumes]]
+name = "data"
+target = "data"
 
 [healthcheck]
 # Post-install landing page. `/admin/install.php` is now an error page

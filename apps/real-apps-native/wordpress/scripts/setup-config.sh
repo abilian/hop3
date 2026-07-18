@@ -10,15 +10,20 @@ DB_USER="${MYSQL_USER:-wordpress}"
 DB_PASS="${MYSQL_PASSWORD:-}"
 WP_DEBUG="${WP_DEBUG:-false}"
 
-# Generate salts if not provided
-AUTH_KEY="${AUTH_KEY:-$(head -c 64 /dev/urandom | base64)}"
-SECURE_AUTH_KEY="${SECURE_AUTH_KEY:-$(head -c 64 /dev/urandom | base64)}"
-LOGGED_IN_KEY="${LOGGED_IN_KEY:-$(head -c 64 /dev/urandom | base64)}"
-NONCE_KEY="${NONCE_KEY:-$(head -c 64 /dev/urandom | base64)}"
-AUTH_SALT="${AUTH_SALT:-$(head -c 64 /dev/urandom | base64)}"
-SECURE_AUTH_SALT="${SECURE_AUTH_SALT:-$(head -c 64 /dev/urandom | base64)}"
-LOGGED_IN_SALT="${LOGGED_IN_SALT:-$(head -c 64 /dev/urandom | base64)}"
-NONCE_SALT="${NONCE_SALT:-$(head -c 64 /dev/urandom | base64)}"
+# Authentication keys and salts. Declared as stable generated secrets in
+# hop3.toml ([env] { generate = "base64" }), so the platform injects the SAME
+# value on every redeploy. READ them here — never mint fresh ones (which would
+# rotate on each redeploy and log every user out, and make anything encrypted
+# with the old keys undecryptable). Fail LOUD if any is missing: a real deploy
+# always injects them, so a missing one means a broken env, not a fresh install.
+AUTH_KEY="${AUTH_KEY:?AUTH_KEY not set (expected stable [env] {generate=base64} salt from hop3.toml)}"
+SECURE_AUTH_KEY="${SECURE_AUTH_KEY:?SECURE_AUTH_KEY not set (expected stable [env] {generate=base64} salt from hop3.toml)}"
+LOGGED_IN_KEY="${LOGGED_IN_KEY:?LOGGED_IN_KEY not set (expected stable [env] {generate=base64} salt from hop3.toml)}"
+NONCE_KEY="${NONCE_KEY:?NONCE_KEY not set (expected stable [env] {generate=base64} salt from hop3.toml)}"
+AUTH_SALT="${AUTH_SALT:?AUTH_SALT not set (expected stable [env] {generate=base64} salt from hop3.toml)}"
+SECURE_AUTH_SALT="${SECURE_AUTH_SALT:?SECURE_AUTH_SALT not set (expected stable [env] {generate=base64} salt from hop3.toml)}"
+LOGGED_IN_SALT="${LOGGED_IN_SALT:?LOGGED_IN_SALT not set (expected stable [env] {generate=base64} salt from hop3.toml)}"
+NONCE_SALT="${NONCE_SALT:?NONCE_SALT not set (expected stable [env] {generate=base64} salt from hop3.toml)}"
 
 cat > wp-config.php << EOF
 <?php

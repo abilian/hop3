@@ -1,5 +1,12 @@
 #!/bin/bash
 set -e
+
+# AtRestEncryptKey must stay stable across redeploys — Mattermost encrypts data
+# at rest with it, so rotating it makes previously encrypted data undecryptable.
+# Hop3 generates it once and re-injects it unchanged via [env] (ADR 046); read
+# that value here rather than minting a fresh key on every deploy.
+: "${MM_ATRESTKEY:?ERROR: MM_ATRESTKEY is required (declare it as [env] { generate = \"base64\" } in hop3.toml)}"
+
 cat > config/config.json << EOF
 {
   "ServiceSettings": {
@@ -21,7 +28,7 @@ cat > config/config.json << EOF
     "MaxIdleConns": 20,
     "MaxOpenConns": 300,
     "Trace": false,
-    "AtRestEncryptKey": "$(head -c 32 /dev/urandom | base64)",
+    "AtRestEncryptKey": "${MM_ATRESTKEY}",
     "QueryTimeout": 30
   },
   "LogSettings": {

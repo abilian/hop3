@@ -9,13 +9,20 @@ mkdir -p data
 # Paheko\DB_FILE), so it silently falls back to its defaults and the settings
 # below are ignored. See config.dist.php ("Nécessaire pour situer les constantes
 # dans le bon namespace").
+#
+# SECRET_KEY comes from the platform-generated, stable ${PAHEKO_SECRET_KEY}
+# ([env] generate, ADR 046) — NOT minted here. config.local.php is regenerated on
+# every redeploy (src/ is wiped), so a secret generated inline would rotate each
+# time and invalidate sessions / render encrypted data undecryptable. Fail loud
+# if it's somehow missing (a stable generated var is always injected on a real
+# deploy).
 if [ ! -f config.local.php ]; then
     cat > config.local.php <<EOF
 <?php
 namespace Paheko;
 const DATA_ROOT = __DIR__ . '/data';
 const DB_FILE = DATA_ROOT . '/paheko.sqlite';
-const SECRET_KEY = '$(head -c 32 /dev/urandom | base64)';
+const SECRET_KEY = '${PAHEKO_SECRET_KEY:?PAHEKO_SECRET_KEY not set (expected from [env] PAHEKO_SECRET_KEY generate)}';
 EOF
 fi
 

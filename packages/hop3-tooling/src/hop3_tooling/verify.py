@@ -204,6 +204,72 @@ def probe_easyappointments(base, cred, login_id, password) -> bool:
     return r.status_code == 200 and r.text.lstrip().startswith(("[", "{"))
 
 
+def probe_bugsink(base, cred, login_id, password) -> bool:
+    # Django form login (username-keyed) with a CSRF token.
+    with _client() as c:
+        gp = c.get(f"{base}/accounts/login/")
+        m = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', gp.text)
+        r = c.post(
+            f"{base}/accounts/login/",
+            data={
+                "username": login_id,
+                "password": password,
+                "csrfmiddlewaretoken": m.group(1) if m else "",
+            },
+            headers={"Referer": f"{base}/accounts/login/"},
+        )
+        if r.status_code in {301, 302, 303}:
+            return "/accounts/login" not in r.headers.get("location", "")
+        return False
+
+
+def probe_vikunja(base, cred, login_id, password) -> bool:
+    r = httpx.post(
+        f"{base}/api/v1/login",
+        json={"username": login_id, "password": password},
+        timeout=20,
+        verify=CFG.verify_tls,
+    )
+    return r.status_code == 200 and '"token"' in r.text
+
+
+def probe_isso(base, cred, login_id, password) -> bool:
+    # Password-only admin dashboard: POST the password to /login/; success is a
+    # 302 that sets an admin-session cookie (login_id is unused — no username).
+    r = httpx.post(
+        f"{base}/login/",
+        data={"password": password},
+        timeout=20,
+        verify=CFG.verify_tls,
+    )
+    if r.status_code in {301, 302, 303}:
+        return "admin-session" in " ".join(r.headers.get_list("set-cookie"))
+    return False
+
+
+def probe_paheko(base, cred, login_id, password) -> bool:
+    # Email-keyed form login; the CSRF hidden field is named ct_<sha1> (dynamic).
+    login_url = f"{base}/admin/login.php"
+    with _client() as c:
+        g = c.get(login_url)
+        m = re.search(r'name=["\'](ct_[0-9a-f]+)["\'][^>]*value=["\']([^"\']*)["\']', g.text)
+        if not m:
+            return False
+        r = c.post(
+            login_url,
+            data={
+                "id": login_id,
+                "password": password,
+                "login": "1",
+                m.group(1): m.group(2),
+            },
+        )
+        if r.status_code in {301, 302, 303}:
+            loc = r.headers.get("location", "")
+            return "/admin/" in loc and "login" not in loc.lower()
+        return False
+
+
 def probe_invoiceninja(base, cred, login_id, password) -> bool:
     r = httpx.post(
         f"{base}/api/v1/login",
@@ -325,6 +391,7 @@ class AppCheck:
 
 
 CHECKS: dict[str, AppCheck] = {
+    "bugsink": AppCheck("bugsink", probe_bugsink, None),  # ADR-056 reference app
     "miniflux": AppCheck("miniflux", probe_miniflux, ("admin", "changeme")),
     "nextcloud": AppCheck("nextcloud", probe_nextcloud, ("admin", "changeme")),
     "keycloak": AppCheck("keycloak", probe_keycloak, ("admin", "changeme")),
@@ -368,6 +435,9 @@ CHECKS: dict[str, AppCheck] = {
     "invoice-ninja": AppCheck(
         "invoice-ninja", probe_invoiceninja, None, generated_login_key="email"
     ),
+    "paheko": AppCheck("paheko", probe_paheko, None, generated_login_key="email"),
+    "vikunja": AppCheck("vikunja", probe_vikunja, None),  # login by username → JWT
+    "isso": AppCheck("isso", probe_isso, None),  # password-only admin dashboard
 }
 
 

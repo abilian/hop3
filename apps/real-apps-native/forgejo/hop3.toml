@@ -23,6 +23,35 @@ start-timeout = 180
 [[addons]]
 type = "postgres"
 
+[env]
+# Stable security secrets (ADR 046): generated once on first deploy and
+# re-injected UNCHANGED on every redeploy. scripts/setup-config.sh writes them
+# into custom/conf/app.ini, which lives under the source tree the redeploy
+# replaces — so without a stable value here each key would rotate on every
+# redeploy. Rotation is data loss, not just a re-login:
+#   - SECRET_KEY encrypts 2FA secrets, mirror/migration passwords and tokens ->
+#     a new key makes all of them undecryptable. Forgejo sha256-derives its AES
+#     key from this string, so any long random value works (base64, 32 bytes).
+#   - JWT_SECRET signs OAuth2 tokens -> a new one invalidates every grant/token.
+#     Forgejo requires base64url (no padding) decoding to exactly 32 bytes,
+#     which is exactly what `urlsafe` (token_urlsafe, 32 bytes) produces.
+#   - INTERNAL_TOKEN authenticates Forgejo's internal API (git hooks <-> web) and
+#     is compared as an opaque string, so a long random hex value is fine.
+# Without them in app.ini, Forgejo mints its own and writes them BACK into the
+# source-tree app.ini, which the next redeploy wipes — the same rotation.
+SECRET_KEY = { generate = "base64" }
+INTERNAL_TOKEN = { generate = "hex" }
+JWT_SECRET = { generate = "urlsafe" }
+
+[[volumes]]
+# Forgejo keeps its git repositories (data/forgejo-repositories per
+# [repository].ROOT) plus LFS/avatars/attachments/packages on disk under the
+# work dir (src/data). The redeploy wipes and re-extracts src/, so without
+# persisting this directory EVERY repository is lost on redeploy. Postgres holds
+# only metadata; this volume covers the on-disk repo/object storage (ADR 046 §2).
+name = "data"
+target = "data"
+
 [admin]
 # Not "admin": Forgejo reserves that username (CreateUser rejects it). Use a
 # non-reserved name for the generated site admin.
