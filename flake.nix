@@ -188,7 +188,7 @@
             # hop3-cli package
             hop3-cli = python-final.buildPythonPackage {
               pname = "hop3-cli";
-              version = "0.6.1";
+              version = "0.6.2";
               format = "pyproject";
 
               src = ./packages/hop3-cli;
@@ -198,13 +198,15 @@
                 python-prev.hatch-vcs
               ];
 
-              # Patch pyproject.toml to use hatchling instead of uv_build
-              # Also relax paramiko version constraint (nixpkgs has 4.x)
+              # Patch pyproject.toml to use hatchling instead of uv_build.
+              # Note: hop3-cli no longer depends on paramiko/sshtunnel — SSH
+              # tunneling shells out to the system `ssh -L` (see
+              # src/hop3_cli/core/ssh_tunnel.py), so there is no version
+              # constraint to relax here.
               postPatch = ''
                 substituteInPlace pyproject.toml \
                   --replace-fail 'requires = ["uv-build>=0.8.4,<0.9.0"]' 'requires = ["hatchling"]' \
-                  --replace-fail 'build-backend = "uv_build"' 'build-backend = "hatchling.build"' \
-                  --replace-fail '"paramiko>=2.11.0,<3.0.0"' '"paramiko>=2.11.0"'
+                  --replace-fail 'build-backend = "uv_build"' 'build-backend = "hatchling.build"'
                 echo '[tool.hatch.build.targets.wheel]' >> pyproject.toml
                 echo 'packages = ["src/hop3_cli"]' >> pyproject.toml
               '';
@@ -216,8 +218,6 @@
                 python-prev.requests
                 python-prev.tabulate
                 python-prev.rich
-                python-prev.sshtunnel
-                python-prev.paramiko
                 python-prev.loguru
                 python-prev.pathspec
                 python-prev.platformdirs
@@ -234,7 +234,7 @@
             # hop3-server package
             hop3-server = python-final.buildPythonPackage {
               pname = "hop3-server";
-              version = "0.6.1";
+              version = "0.6.2";
               format = "pyproject";
 
               src = ./packages/hop3-server;
