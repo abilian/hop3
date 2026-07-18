@@ -5,7 +5,11 @@ set -e
 : "${PGHOST:?ERROR: PGHOST is required}"
 
 export DATABASE_URL="${DATABASE_URL:-postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}}"
-export BASE_URL="${BASE_URL:-http://localhost:${PORT:-8080}}"
+# Public base URL: Bugsink builds each project's Sentry ingest DSN from BASE_URL,
+# so it MUST be the public https host (not localhost) or SDKs can't report to it.
+# Consume the injected HOP3_PUBLIC_URL (https://<host>); localhost only when the
+# app has no domain (e.g. a bare Docker test target).
+export BASE_URL="${HOP3_PUBLIC_URL:-http://localhost:${PORT:-8080}}"
 
 # bugsink_conf.py is the user settings module; bugsink-manage and
 # bugsink.wsgi both set DJANGO_SETTINGS_MODULE=bugsink_conf and add

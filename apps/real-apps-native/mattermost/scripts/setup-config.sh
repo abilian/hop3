@@ -10,7 +10,7 @@ set -e
 cat > config/config.json << EOF
 {
   "ServiceSettings": {
-    "SiteURL": "${MM_SERVICESETTINGS_SITEURL:-http://localhost:${PORT:-8080}}",
+    "SiteURL": "${HOP3_PUBLIC_URL:-http://localhost:${PORT:-8080}}",
     "ListenAddress": ":${PORT:-8080}",
     "ConnectionSecurity": "",
     "TLSCertFile": "",
