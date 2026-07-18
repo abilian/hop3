@@ -38,7 +38,11 @@ LEVEL = Info
 
 [security]
 INSTALL_LOCK = true
-SECRET_KEY = $(head -c 32 /dev/urandom | base64)
+SECRET_KEY = ${SECRET_KEY:?SECRET_KEY not injected (declare it as a stable [env] generate secret)}
+INTERNAL_TOKEN = ${INTERNAL_TOKEN:?INTERNAL_TOKEN not injected (declare it as a stable [env] generate secret)}
+
+[oauth2]
+JWT_SECRET = ${JWT_SECRET:?JWT_SECRET not injected (declare it as a stable [env] generate secret)}
 EOF
 
-echo "Gitea configuration created"
+echo "Forgejo configuration created"

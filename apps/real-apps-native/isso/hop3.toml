@@ -21,10 +21,28 @@ build = "pip install ."
 before-run = "bash scripts/setup-config.sh"
 start = "isso -c isso.cfg"
 
-# Isso uses SQLite by default
+# Isso stores all comments in a single SQLite database (dbpath = data/comments.db
+# in isso.cfg). That path lives under the source tree, which a redeploy wipes and
+# re-extracts — so without persistence every redeploy destroys ALL comments.
+# ADR 046 §2: back the `data/` directory with a persistent volume so the SQLite
+# db survives the source-replacing redeploy. The volume is symlinked into src/
+# before before-build/before-run run, so `mkdir -p data` in the scripts is a
+# harmless no-op and isso writes comments.db straight into persistent storage.
+[[volumes]]
+name = "data"
+target = "data"
 
-[env]
-ISSO_HOST = "http://localhost:8080"
+# ADR-056: generate the admin password once (stable across redeploys, retrievable
+# via `hop3 app credentials`) and inject HOP3_ADMIN_PASSWORD into the runtime.
+# Isso's moderation/admin dashboard is PASSWORD-ONLY: there is no admin username
+# and no admin email. Hop3's [admin] schema still needs an identity, so we set a
+# nominal username that isso ignores. There is no [admin].create command — isso
+# has no user store to seed; scripts/setup-config.sh maps HOP3_ADMIN_PASSWORD
+# into isso.cfg [admin].password (re-templated every deploy) and enables the
+# moderation queue, so out of the box no anonymous comment self-publishes.
+[admin]
+username = "admin"
+password = { generate = "password", length = 20 }
 
 [healthcheck]
 path = "/"
@@ -40,3 +58,12 @@ covers = ["python", "isso"]
 path = "/"
 status = 400
 contains = "missing uri query"
+
+# Admin dashboard is enabled AND password-protected: GET /admin/ renders the
+# login form ("Administration secured by password") when not authenticated.
+# With the admin interface disabled it would instead serve disabled.html, so
+# this asserts the [admin] config actually took effect.
+[[test.validations]]
+path = "/admin/"
+status = 200
+contains = "Administration secured by password"

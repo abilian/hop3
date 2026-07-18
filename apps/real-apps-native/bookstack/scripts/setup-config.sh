@@ -1,7 +1,13 @@
 #!/bin/bash
 set -e
+# ADR-046: APP_KEY is a stable, generated-once [env] secret that the platform
+# re-injects into the runtime env on every deploy. BookStack (Laravel) uses it
+# to encrypt data (MFA/2FA secrets, sessions), so minting a fresh key here would
+# rotate it on every redeploy -> sessions invalidated and encrypted data lost.
+# Consume the injected value; fail loud if it is somehow missing.
+: "${APP_KEY:?ADR-046 stable APP_KEY must be injected as an [env] generated secret}"
 cat > .env << EOF
-APP_KEY=$(php artisan key:generate --show 2>/dev/null || echo "base64:$(head -c 32 /dev/urandom | base64)")
+APP_KEY=${APP_KEY}
 APP_URL=${APP_URL:-http://localhost:${PORT:-8080}}
 APP_ENV=production
 APP_DEBUG=false

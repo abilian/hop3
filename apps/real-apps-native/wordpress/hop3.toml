@@ -34,6 +34,22 @@ type = "mysql"
 WP_DEBUG = "false"
 WP_TITLE = "WordPress"
 
+# Authentication keys and salts (ADR 046). WordPress hashes session cookies and
+# nonces with these 8 secrets. If any changes, every logged-in session is
+# invalidated (all users logged out). The platform generates each ONCE on first
+# deploy and re-injects the SAME value on every redeploy (keep-existing policy),
+# so scripts/setup-config.sh READS them instead of minting fresh ones — which
+# would rotate on each redeploy. 64 random bytes, base64-encoded (matches the
+# entropy WordPress's own salt generator uses).
+AUTH_KEY = { generate = "base64", length = 64 }
+SECURE_AUTH_KEY = { generate = "base64", length = 64 }
+LOGGED_IN_KEY = { generate = "base64", length = 64 }
+NONCE_KEY = { generate = "base64", length = 64 }
+AUTH_SALT = { generate = "base64", length = 64 }
+SECURE_AUTH_SALT = { generate = "base64", length = 64 }
+LOGGED_IN_SALT = { generate = "base64", length = 64 }
+NONCE_SALT = { generate = "base64", length = 64 }
+
 # Generated admin credentials (ADR-056). The platform generates the password
 # once (stable across redeploys), stores it encrypted, and injects
 # HOP3_ADMIN_USER / HOP3_ADMIN_EMAIL / HOP3_ADMIN_PASSWORD into the runtime env.

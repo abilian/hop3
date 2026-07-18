@@ -7,8 +7,15 @@ cd "$(dirname "$0")/.."
 # taken from the injected HOP3_PUBLIC_URL (https://<host>) so the SPA points its
 # API base at the reverse-proxy hostname; falls back to localhost when the app
 # has no domain yet (e.g. a bare Docker test target).
+#
+# APP_KEY comes from the STABLE generated [env].APP_KEY (ADR 046): minted once,
+# re-injected unchanged on every redeploy. We must NOT run `artisan key:generate`
+# here — that would rotate the at-rest encryption key each deploy, logging every
+# user out and making previously-encrypted data undecryptable. Fail loud if it
+# is somehow absent (a declared [env] generate var is always injected on a real
+# deploy).
 cat > .env << EOF
-APP_KEY=$(php artisan key:generate --show 2>/dev/null || echo "base64:$(head -c 32 /dev/urandom | base64)")
+APP_KEY=${APP_KEY:?APP_KEY not set — declare a stable [env].APP_KEY base64 generate in hop3.toml (ADR 046)}
 APP_URL=${HOP3_PUBLIC_URL:-http://localhost:${PORT:-8080}}
 APP_ENV=production
 APP_DEBUG=false

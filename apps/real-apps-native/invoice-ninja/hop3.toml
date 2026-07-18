@@ -30,6 +30,16 @@ type = "mysql"
 APP_ENV = "production"
 APP_DEBUG = "false"
 
+# Laravel APP_KEY — the app's at-rest encryption key. Declared as a stable
+# generated secret (ADR 046): the platform mints it ONCE on first deploy
+# (base64 of 32 random bytes — the AES-256-CBC key size — with Laravel's
+# "base64:" prefix) and re-injects the SAME value on every redeploy.
+# setup-config.sh writes ${APP_KEY} into .env instead of running
+# `artisan key:generate`, so a redeploy can no longer rotate the key (which
+# would invalidate every session and make previously-encrypted data
+# undecryptable).
+APP_KEY = { generate = "base64", length = 32, prefix = "base64:" }
+
 # Generated admin credentials (ADR-056). The platform generates the password
 # once (stable across redeploys), stores it encrypted, and injects
 # HOP3_ADMIN_EMAIL / HOP3_ADMIN_PASSWORD into the runtime env. Invoice Ninja

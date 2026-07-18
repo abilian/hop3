@@ -73,6 +73,14 @@ fi
 [env]
 MM_SERVICESETTINGS_SITEURL = "http://localhost:8080"
 
+# Data-at-rest encryption key (SqlSettings.AtRestEncryptKey). Mattermost encrypts
+# certain fields at rest with this key, so it MUST stay stable across redeploys:
+# a fresh key each deploy would make previously encrypted data undecryptable.
+# Generated ONCE on first deploy (base64 of 32 random bytes — the same format as
+# Mattermost's own key, >=32 chars) and re-injected unchanged on every redeploy
+# (ADR 046). scripts/setup-config.sh reads ${MM_ATRESTKEY} instead of minting one.
+MM_ATRESTKEY = { generate = "base64" }
+
 [healthcheck]
 path = "/api/v4/system/ping"
 

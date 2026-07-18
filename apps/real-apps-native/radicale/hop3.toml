@@ -21,7 +21,16 @@ build = "pip install -r requirements.txt"
 before-run = "bash scripts/setup-config.sh"
 start = "python -m radicale --config config"
 
-# Radicale uses file-based storage by default
+# All calendars/contacts live under collections/ (the config's
+# storage.filesystem_folder). A redeploy replaces src/, so without a persistent
+# volume every calendar and address book would be wiped on the next deploy
+# (ADR 046 §2). Persist collections/ outside src/ (<app>/volumes/collections/);
+# it is symlinked back into the source tree at the same relative path, so the
+# `filesystem_folder = collections` in scripts/setup-config.sh keeps pointing at
+# the persisted data.
+[[volumes]]
+name = "collections"
+target = "collections"
 
 # Initial admin account (ADR 056). Hop3 generates the password, stores it
 # (retrieve via `hop3 app credentials`), and surfaces it once after deploy. The
