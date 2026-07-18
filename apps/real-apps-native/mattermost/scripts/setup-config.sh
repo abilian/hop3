@@ -8,7 +8,12 @@ cat > config/config.json << EOF
     "ConnectionSecurity": "",
     "TLSCertFile": "",
     "TLSKeyFile": "",
-    "EnableLocalMode": false
+    "EnableLocalMode": true,
+    "LocalModeSocketLocation": "$(pwd)/mattermost_local.socket"
+  },
+  "TeamSettings": {
+    "EnableOpenServer": false,
+    "EnableUserCreation": false
   },
   "SqlSettings": {
     "DriverName": "postgres",
@@ -30,7 +35,8 @@ cat > config/config.json << EOF
   },
   "EmailSettings": {
     "SendEmailNotifications": false,
-    "RequireEmailVerification": false
+    "RequireEmailVerification": false,
+    "EnableSignUpWithEmail": false
   },
   "PluginSettings": {
     "Enable": true,

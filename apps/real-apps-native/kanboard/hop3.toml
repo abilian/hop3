@@ -27,10 +27,22 @@ build = "chmod -R 755 . && chmod -R 777 data plugins"
 # that mid-DDL (picodb takes no lock), so version_106 re-runs and fails with
 # "table task_has_files already exists". `cli db:migrate` runs once, serialized,
 # and suppresses the lazy web-bootstrap migration.
-before-run = ["bash scripts/setup-config.sh", "php cli db:migrate"]
+before-run = [
+    "bash scripts/setup-config.sh",
+    "php cli db:migrate",
+    "bash scripts/reset-admin.sh",
+]
 
 # Run with PHP built-in server
 start = "php -S 0.0.0.0:${PORT:-8080} -t ."
+
+# Initial admin account (ADR 056). Kanboard's schema seeds an 'admin'/'admin'
+# user on first migrate; scripts/reset-admin.sh (in before-run, after
+# db:migrate) overwrites that seeded password with the generated
+# HOP3_ADMIN_PASSWORD, so the default admin/admin credential never survives.
+[admin]
+username = "admin"
+password = { generate = "password", length = 20 }
 
 [[addons]]
 type = "mysql"

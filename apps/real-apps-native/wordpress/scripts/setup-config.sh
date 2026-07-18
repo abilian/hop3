@@ -48,6 +48,34 @@ define('NONCE_SALT', '${NONCE_SALT}');
 // Debug mode
 define('WP_DEBUG', ${WP_DEBUG});
 
+// Disable WordPress's built-in pseudo-cron. On every page load WordPress spawns
+// a non-blocking loopback request to wp-cron.php; against the single-threaded
+// \`php -S\` runtime that self-request cannot be served while the page is being
+// rendered, so the spawn's connect hangs and EVERY request times out (even the
+// front page). Disabling it makes the site responsive. The real fix is php-fpm
+// (DEFERRED-APPS.md #16); once that lands, trigger wp-cron from a system cron
+// hitting wp-cron.php instead.
+define('DISABLE_WP_CRON', true);
+
+// Reverse-proxy awareness. Hop3's nginx terminates TLS and forwards the real
+// scheme via X-Forwarded-Proto; honour it so WordPress builds https URLs behind
+// TLS (otherwise it redirects admin/login to http and they break).
+if (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) && \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+    \$_SERVER['HTTPS'] = 'on';
+}
+
+// Derive the site URL from the incoming request (host + scheme) instead of a
+// stored option. The headless CLI installer can't know the public hostname, and
+// the reverse proxy only routes this app's own vhost here — so the request Host
+// IS the hostname Hop3 assigned (HOST_NAME). This makes every generated admin/
+// login link resolve through the proxy rather than the installer's guessed
+// 'localhost', and adapts automatically if the domain changes.
+if (!empty(\$_SERVER['HTTP_HOST'])) {
+    \$hop3_scheme = (!empty(\$_SERVER['HTTPS']) && \$_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    define('WP_HOME', \$hop3_scheme . '://' . \$_SERVER['HTTP_HOST']);
+    define('WP_SITEURL', \$hop3_scheme . '://' . \$_SERVER['HTTP_HOST']);
+}
+
 // Absolute path to the WordPress directory
 if (!defined('ABSPATH')) {
     define('ABSPATH', __DIR__ . '/');
@@ -95,3 +123,47 @@ add_action('phpmailer_init', function ($phpmailer) {
 PHPEOF
 
 echo "WordPress SMTP mu-plugin installed (inert unless an email addon is attached)"
+
+# --- Headless install: create the schema + first admin without the browser
+# wizard (ADR 056). The platform generates the admin password once and injects
+# HOP3_ADMIN_USER/EMAIL/PASSWORD; hop3.toml maps them to WP_ADMIN_* via
+# [env.computed], and wp-install.php calls WordPress's core wp_install().
+#
+# Idempotency + connectivity gate: probe for the wp_users table. Fail LOUD if
+# the database is unreachable (never mistake "can't connect" for "fresh install"
+# and silently re-install). WordPress uses the mysqli extension, so does this.
+installed=$(php -r '
+$h = getenv("MYSQL_HOST") ?: "localhost";
+$p = (int) (getenv("MYSQL_PORT") ?: 3306);
+$d = getenv("MYSQL_DATABASE") ?: "wordpress";
+$u = getenv("MYSQL_USER") ?: "wordpress";
+$w = getenv("MYSQL_PASSWORD") ?: "";
+mysqli_report(MYSQLI_REPORT_OFF);
+$c = @mysqli_connect($h, $u, $w, $d, $p);
+if (!$c) { fwrite(STDERR, "DB probe failed: " . mysqli_connect_error() . "\n"); echo "error"; exit; }
+$q = "SELECT 1 FROM information_schema.tables WHERE table_schema = \x27"
+   . $c->real_escape_string($d) . "\x27 AND table_name = \x27wp_users\x27 LIMIT 1";
+$r = $c->query($q);
+echo ($r && $r->num_rows > 0) ? "yes" : "no";
+')
+
+if [ "$installed" = "error" ]; then
+    echo "WordPress setup can't probe database: connection failed, aborting" >&2
+    exit 1
+fi
+
+if [ "$installed" = "no" ]; then
+    echo "Installing WordPress (headless)..."
+    # Fail loud on any missing credential (no ':-default' fallback); a non-zero
+    # installer exit aborts the deploy via 'set -e' (no '|| true').
+    WP_ADMIN_USER="${WP_ADMIN_USER:?WP_ADMIN_USER not set (expected from HOP3_ADMIN_USER via [admin] + [env.computed])}" \
+    WP_ADMIN_EMAIL="${WP_ADMIN_EMAIL:?WP_ADMIN_EMAIL not set (expected from HOP3_ADMIN_EMAIL via [admin] + [env.computed])}" \
+    WP_ADMIN_PASSWORD="${WP_ADMIN_PASSWORD:?WP_ADMIN_PASSWORD not set (expected from HOP3_ADMIN_PASSWORD via [admin] + [env.computed])}" \
+    WP_TITLE="${WP_TITLE:-WordPress}" \
+        php scripts/wp-install.php
+    echo "WordPress admin account created"
+else
+    echo "WordPress already installed, skipping install"
+fi
+
+echo "WordPress configuration ready"

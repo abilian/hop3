@@ -29,6 +29,9 @@ PASSWD = ${DB_PASS}
 [repository]
 ROOT = data/forgejo-repositories
 
+[service]
+DISABLE_REGISTRATION = true
+
 [log]
 MODE = console
 LEVEL = Info

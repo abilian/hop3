@@ -33,6 +33,43 @@ type = "postgres"
 # This allows the app name to be dynamic (e.g., gitea-123456)
 # The working directory is set to src/ by the deployment system
 
+[admin]
+# Gitea creates no admin and (by default) allows open registration, so the
+# first visitor becomes site admin. Provision the intended admin instead:
+# generate the password once, then create the account via the CLI post-deploy.
+# The username is NOT "admin": Gitea reserves that name (CreateUser rejects it),
+# and worse, `admin user create` prints the rejection but STILL EXITS 0 — a
+# fake success that would leave the app with no admin. Use a non-reserved name
+# and verify the account really exists afterwards.
+username = "hop3admin"
+email = "operator"
+password = { generate = "password", length = 20 }
+# Runs once, post-deploy, in src/ (DB migrated by then) with HOP3_ADMIN_* in
+# env. Idempotent (skip if the user already exists) and fail-loud: missing creds
+# abort via ${VAR:?}, and — because Gitea's create can exit 0 on error — a final
+# presence check fails the deploy if the account wasn't actually created.
+# --must-change-password=false lets the operator log in with the generated
+# password directly. -c points every subcommand at the DB config in
+# custom/conf/app.ini. The presence check matches the Username column exactly
+# (awk $2 + grep -Fxq), so it can't false-match an address in the Email column.
+create = '''
+set -e
+ADMIN_USER="${HOP3_ADMIN_USER:?admin user not injected}"
+ADMIN_EMAIL="${HOP3_ADMIN_EMAIL:?admin email not injected}"
+ADMIN_PASSWORD="${HOP3_ADMIN_PASSWORD:?admin password not injected}"
+export GITEA_WORK_DIR="$(pwd)"
+conf="custom/conf/app.ini"
+present() { ./gitea admin user list -c "$conf" | awk 'NR>1{print $2}' | grep -Fxq "$ADMIN_USER"; }
+if present; then
+  echo "Gitea admin already exists: $ADMIN_USER"
+else
+  ./gitea admin user create --admin --username "$ADMIN_USER" \
+    --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" \
+    --must-change-password=false -c "$conf"
+fi
+present || { echo "ERROR: Gitea admin '$ADMIN_USER' was not created" >&2; exit 1; }
+'''
+
 [healthcheck]
 path = "/"
 

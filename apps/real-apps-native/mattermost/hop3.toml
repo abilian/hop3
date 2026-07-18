@@ -25,6 +25,51 @@ start = "./bin/mattermost"
 [[addons]]
 type = "postgres"
 
+# Initial admin account (ADR 056). Hop3 generates the password once (stable
+# across redeploys), stores it encrypted (retrieve via `hop3 app credentials`),
+# surfaces it once after deploy, and injects HOP3_ADMIN_USER/EMAIL/PASSWORD into
+# the app runtime. Mattermost has no env-var admin bootstrap, so the account is
+# created post-deploy via the bundled mmctl in local mode (see [admin].create).
+# email = "operator" -> the server's OPERATOR_EMAIL (mmctl requires an email).
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }
+# Runs once post-deploy in src/ (cwd), with HOP3_ADMIN_* in env, failing the
+# deploy loud on a non-zero exit. Local mode talks to the running server over a
+# unix socket (no network auth); MMCTL_LOCAL_SOCKET_PATH must match
+# ServiceSettings.LocalModeSocketLocation written by scripts/setup-config.sh.
+# The socket lives under the per-app src/ dir so multiple Mattermost instances
+# never collide on the shared /var/tmp default. Idempotent (create-if-absent)
+# and fail-loud: it waits for the server's local-mode socket, then creates the
+# system admin only if it does not already exist. mmctl's plain CreateUser
+# bypasses the disabled web signup, so the admin is still created.
+create = '''
+set -e
+: "${HOP3_ADMIN_USER:?admin bootstrap: HOP3_ADMIN_USER not injected}"
+: "${HOP3_ADMIN_EMAIL:?admin bootstrap: HOP3_ADMIN_EMAIL not injected (set [admin].email)}"
+: "${HOP3_ADMIN_PASSWORD:?admin bootstrap: HOP3_ADMIN_PASSWORD not injected}"
+sock="$(pwd)/mattermost_local.socket"
+export MMCTL_LOCAL_SOCKET_PATH="$sock"
+i=0
+while [ ! -S "$sock" ]; do
+  i=$((i + 1))
+  if [ "$i" -gt 60 ]; then
+    echo "Mattermost local-mode socket $sock never appeared (120s); cannot create admin" >&2
+    exit 1
+  fi
+  sleep 2
+done
+if ./bin/mmctl --local user list --all | grep -Fq ": $HOP3_ADMIN_USER ("; then
+  echo "Admin user '$HOP3_ADMIN_USER' already exists; skipping creation."
+else
+  ./bin/mmctl --local user create --system-admin --email-verified \
+    --email "$HOP3_ADMIN_EMAIL" \
+    --username "$HOP3_ADMIN_USER" \
+    --password "$HOP3_ADMIN_PASSWORD"
+fi
+'''
+
 [env]
 MM_SERVICESETTINGS_SITEURL = "http://localhost:8080"
 

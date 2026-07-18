@@ -28,6 +28,11 @@ PASSWD = ${DB_PASS}
 [repository]
 ROOT = data/gitea-repositories
 
+[service]
+; Disable open registration so a stranger can't seize the first-admin slot;
+; Hop3 provisions the intended admin via [admin].create.
+DISABLE_REGISTRATION = true
+
 [log]
 MODE = console
 LEVEL = Info

@@ -25,9 +25,16 @@ start = "php -S 0.0.0.0:${PORT:-8080}"
 [[addons]]
 type = "mysql"
 
-[env]
-NEXTCLOUD_ADMIN_USER = "admin"
-NEXTCLOUD_ADMIN_PASSWORD = "changeme"
+[admin]
+username = "admin"
+password = { generate = "password", length = 20 }
+
+# Map the injected admin creds (HOP3_ADMIN_*) onto the env vars the installer
+# (scripts/setup-config.sh -> occ maintenance:install) reads. Interpolated
+# after the admin creds are injected, so no literal secret lives in [env].
+[env.computed]
+NEXTCLOUD_ADMIN_USER = "${HOP3_ADMIN_USER}"
+NEXTCLOUD_ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD}"
 
 [healthcheck]
 path = "/status.php"

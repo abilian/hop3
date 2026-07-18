@@ -15,7 +15,10 @@ builder = "local"
 toolchain = "php"
 
 before-build = "bash scripts/download.sh"
-build = "composer install --no-dev --optimize-autoloader || true"
+# Composer must succeed: index.php hard-requires vendor/autoload.php (the tarball
+# ships no vendor/), so a swallowed failure would break both the app and the
+# headless `console install`. Fail loud — no '|| true'.
+build = "composer install --no-dev --optimize-autoloader"
 
 [run]
 before-run = "bash scripts/setup-config.sh"
@@ -25,7 +28,26 @@ start = "php -S 0.0.0.0:${PORT:-8080}"
 type = "mysql"
 
 [env]
+# Fallback public URL for targets without an assigned domain (e.g. Docker e2e).
+# When Hop3 assigns a real host, HOP3_PUBLIC_URL overrides this in
+# setup-config.sh so Easy!Appointments' BASE_URL points at the reverse-proxy host.
 APP_URL = "http://localhost:8080"
+
+# Generated admin credentials (ADR-056). Hop3 generates the password once (stable
+# across redeploys), stores it encrypted, and injects HOP3_ADMIN_USER /
+# HOP3_ADMIN_EMAIL / HOP3_ADMIN_PASSWORD into the runtime env. Easy!Appointments
+# keys admin login by username (ea_user_settings.username).
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }
+
+# Map the injected admin creds onto the names the setup script reads. Interpolated
+# after HOP3_ADMIN_* is injected, so they reach the before-run install step.
+[env.computed]
+EA_ADMIN_USERNAME = "${HOP3_ADMIN_USER}"
+EA_ADMIN_EMAIL = "${HOP3_ADMIN_EMAIL}"
+EA_ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD}"
 
 [healthcheck]
 path = "/"
@@ -37,7 +59,20 @@ author = "hop3-team"
 targets = ["docker", "remote"]
 covers = ["php", "mysql"]
 
+# Validate a real post-install state, not the browser install wizard. Pre-install
+# every route 307-redirects to /index.php/installation (the wizard); after the
+# headless install "/" serves the booking page (immediate 200) and the admin
+# login form renders. The harness asserts `status` on the immediate response, so
+# a 200 here proves the app is installed rather than redirecting to the wizard.
 [[test.validations]]
 path = "/"
-status = 307
+status = 200
 contains = "Easy!Appointments"
+
+# The admin login form only renders once the schema exists (pre-install this
+# route errors on the missing settings table). `login-form` is unique to the
+# login page — absent from both the wizard and the booking page.
+[[test.validations]]
+path = "/index.php/login"
+status = 200
+contains = "login-form"

@@ -24,8 +24,9 @@ define('DB_USERNAME', '${DB_USER}');
 define('DB_PASSWORD', '${DB_PASS}');
 define('DB_NAME', '${DB_NAME}');
 
-// Enable plugins
-define('PLUGIN_INSTALLER', true);
+// Disable the web plugin installer: it lets a logged-in admin install arbitrary
+// plugin code from the internet (remote-code-execution vector). Keep it off.
+define('PLUGIN_INSTALLER', false);
 
 // Enable debug if set
 define('DEBUG', ${DEBUG:-false});

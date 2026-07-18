@@ -28,12 +28,27 @@ start = "./miniflux"
 [[addons]]
 type = "postgres"
 
+# ADR-056: generate the admin password once (stable across redeploys), store it
+# encrypted (retrieve via `hop3 app credentials`), and inject HOP3_ADMIN_USER/
+# HOP3_ADMIN_PASSWORD into the app runtime. Miniflux admins are keyed by
+# username only — no email field.
+[admin]
+username = "admin"
+password = { generate = "password", length = 20 }
+
 [env]
-# Miniflux configuration
+# Miniflux configuration. CREATE_ADMIN creates the admin from ADMIN_USERNAME/
+# ADMIN_PASSWORD at startup, idempotently (miniflux skips creation when the
+# user already exists), so it is safe across redeploys.
 RUN_MIGRATIONS = "1"
 CREATE_ADMIN = "1"
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "changeme"
+
+# Map the injected admin creds onto the env vars Miniflux reads at first start.
+# Interpolated after the admin creds are injected, so no literal secret lives
+# in [env].
+[env.computed]
+ADMIN_USERNAME = "${HOP3_ADMIN_USER}"
+ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD}"
 
 [healthcheck]
 path = "/healthcheck"

@@ -18,8 +18,10 @@ export KC_DB=postgres
 export KC_DB_URL="jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}"
 export KC_DB_USERNAME="${PGUSER}"
 export KC_DB_PASSWORD="${PGPASSWORD}"
-export KC_BOOTSTRAP_ADMIN_USERNAME="${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}"
-export KC_BOOTSTRAP_ADMIN_PASSWORD="${KC_BOOTSTRAP_ADMIN_PASSWORD:-changeme}"
+# Bootstrap admin creds are injected by Hop3 (ADR-056) via [env.computed].
+# Fail loud if absent — never fall back to a published default password.
+: "${KC_BOOTSTRAP_ADMIN_USERNAME:?ERROR: KC_BOOTSTRAP_ADMIN_USERNAME is required (set by Hop3 [admin] bootstrap)}"
+: "${KC_BOOTSTRAP_ADMIN_PASSWORD:?ERROR: KC_BOOTSTRAP_ADMIN_PASSWORD is required (set by Hop3 [admin] bootstrap)}"
 
 exec "$PWD/keycloak/bin/kc.sh" start-dev \
     --http-host=0.0.0.0 \
