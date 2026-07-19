@@ -15,6 +15,7 @@ dependencies = [
 
 [project.scripts]
 hop3-tools = "hop3_tooling.cli:main"
+hop3-bench = "hop3_tooling.bench.cli:main"
 
 [build-system]
 requires = ["uv-build>=0.8.4,<0.9.0"]

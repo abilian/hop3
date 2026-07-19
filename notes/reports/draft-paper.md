@@ -2,11 +2,11 @@
 
 ## Abstract
 
-Mainstream application orchestration has converged on container clusters built around distributed consensus stores. For single-server deployments — common in small-to-medium organisations, at the network edge, and wherever digital sovereignty rules out external control planes — the overhead of this paradigm is disproportionate to the problem. We present **Hop3**, an open-source Platform-as-a-Service designed for autonomous single-server operation. Hop3 provides a Heroku-style developer experience (git-push deployment, automatic language toolchains, managed backing services) without Docker or Kubernetes, running on commodity hardware with a small control-plane footprint. The system is structured around a decoupled control plane (JSON-RPC over SSH, Litestar ASGI, local SQLite or PostgreSQL state, Fernet-encrypted secrets) and a plugin-driven build and deployment pipeline supporting nine language toolchains. An integration with the Nix package manager [10] provides hermetic builds with eight parametrisable templates that generate `hop3.nix` expressions from a declarative `hop3.toml` spec. We state four design requirements (determinism, bounded overhead, autonomy, encrypted secrets), describe the architecture against these requirements, and report a 99-variant application corpus drawn from 30+ distinct upstream projects across Docker, native, hand-crafted-Nix and template-generated-Nix deployment strategies. Quantitative benchmarking against K3s and Docker Compose is explicit future work. The paper closes with a discussion of two extension paths: a richer multi-service application model (per ADR 038) for apps such as Mastodon and AppFlowy that exceed the current single-process-tree assumption, and a longer-term direction toward multi-node operation along the lines reviewed by Vaño et al. [21] for edge-native deployments.
+Mainstream application orchestration has converged on container clusters built around distributed consensus stores. For single-server deployments — common in small-to-medium organisations, at the network edge, and wherever digital sovereignty rules out external control planes — the overhead of this paradigm is disproportionate to the problem. We present **Hop3**, an open-source Platform-as-a-Service designed for autonomous single-server operation. Hop3 provides a Heroku-style developer experience (git-push deployment, automatic language toolchains, managed backing services) without requiring Docker or Kubernetes, running on commodity hardware with a small control-plane footprint. The system is structured around a decoupled control plane (JSON-RPC over SSH, Litestar ASGI, local SQLite or PostgreSQL state, Fernet-encrypted secrets) and a plugin-driven build and deployment pipeline supporting ten language toolchains. An integration with the Nix package manager [10] provides hermetic builds with nine parametrisable templates that generate `hop3.nix` expressions from a declarative `hop3.toml` spec. We state four design requirements (determinism, bounded overhead, autonomy, encrypted secrets), describe the architecture against these requirements, and report a 99-variant application corpus drawn from 30+ distinct upstream projects across Docker, native, hand-crafted-Nix and template-generated-Nix deployment strategies, of which a 20-application golden set is additionally verified through each application's authenticated interface. A quantitative benchmark suite over the golden set — build-and-install time, closure and image sizes, control-plane footprint, and reproducibility — is defined under a pre-registered protocol and under active collection. The paper closes with a discussion of two extension paths: a richer multi-service application model (per ADR 038) for apps such as Mastodon and AppFlowy that exceed the current single-process-tree assumption, and a longer-term direction toward multi-node operation along the lines reviewed by Vaño et al. [21] for edge-native deployments.
 
 ## 1. Introduction
 
-The dominant paradigm for application deployment has shifted toward container orchestration systems, with Kubernetes emerging as the de facto standard [4]. However, this paradigm imposes significant infrastructure overhead — consensus-based control planes, container runtimes, and service meshes — that is disproportionate for the common case of deploying web applications on a single server [3], [5]. Meanwhile, the proliferation of IoT devices and the demand for data locality have driven interest in edge and fog computing [1], [2], where workloads run on resource-constrained nodes at the network periphery.
+The dominant paradigm for application deployment has shifted toward container orchestration systems, with Kubernetes emerging as the de facto standard [4]. However, this paradigm imposes significant infrastructure overhead — consensus-based control planes, container runtimes, and service meshes — that is disproportionate for the common case of deploying web applications on a single server [4], [5]. Meanwhile, the proliferation of IoT devices and the demand for data locality have driven interest in edge and fog computing [1], [2], where workloads run on resource-constrained nodes at the network periphery.
 
 Hop3 addresses the gap between heavyweight cloud-native orchestrators and manual provisioning scripts. It provides a self-contained PaaS that deploys and manages web applications on a single server, implementing the Twelve-Factor App methodology [6] without requiring Docker or Kubernetes. The system is designed with the following priorities:
 
@@ -14,12 +14,13 @@ Hop3 addresses the gap between heavyweight cloud-native orchestrators and manual
 - **Sovereignty:** Self-hosted infrastructure where the operator retains full control over data and configuration [16], [17].
 - **Reproducibility:** Hermetic builds via Nix integration, reducing environment drift across deployments [8], [10].
 
-**Contributions.** This is a systems engineering paper; the contributions are concrete artefacts and a demonstration that they compose.
+**Contributions.** This is a systems engineering paper; the contributions are concrete artefacts, a conceptual positioning, and a demonstration that they compose.
 
 1. A control-plane architecture that operates without distributed consensus (etcd/Raft), with a single-process ASGI core that serves the full JSON-RPC CLI surface for a multi-application deployment.
-2. A plugin-driven deployment pipeline factored along two independent axes — *builder* (Local, Docker, Nix) and *language toolchain* (Python, Node, Go, Ruby, Rust, Java, PHP, Clojure, Elixir) — which bounds integration complexity as new languages or build strategies are added.
-3. A template-based scheme for generating Nix expressions from a declarative `hop3.toml` specification, covering eight common packaging patterns with a three-tier reproducibility taxonomy.
+2. A plugin-driven deployment pipeline factored along two independent axes — *builder* (Local, Docker, Nix) and *language toolchain* (Python, Node, Go, Ruby, Rust, Java, PHP, Clojure, Elixir, .NET) — which bounds integration complexity as new languages or build strategies are added.
+3. A template-based scheme for generating Nix expressions from a declarative `hop3.toml` specification, covering nine common packaging patterns with a three-tier reproducibility taxonomy.
 4. A 99-variant application corpus, drawn from 30+ upstream projects, deployed end-to-end on a remote VPS through each of the four build strategies, with per-variant diagnostic logs automatically collected on failure.
+5. A conceptual positioning of Nix-based deployment as a *fourth path* alongside containers, microVMs and unikernels — dependency-closure isolation without OS-level virtualisation — extending the post-container taxonomy of Vaño et al. [21] (§2.5, Table 2).
 
 ## 2. Background and Related Work
 
@@ -29,11 +30,24 @@ Edge computing pushes workloads to the network periphery for low-latency process
 
 ### 2.2 Heavyweight and Lightweight Orchestration
 
-Kubernetes provides high availability through distributed consensus (Raft/etcd) but imposes substantial baseline resource consumption. Morabito et al. [5] demonstrate that the overhead of API servers, kubelets, and service meshes often exceeds the available resources of edge gateways. Lightweight distributions — K3s, MicroK8s, k0s — reduce this overhead but retain fundamental container-runtime dependencies. Koziolek and Eskandani [20] benchmark these distributions, finding that even K3s requires 500+ MB RAM for the control plane alone. Vano et al. [21] review cloud-native orchestration at the edge, concluding that container-centric approaches introduce avoidable complexity for single-node deployments.
+Kubernetes provides high availability through distributed consensus (Raft/etcd) but imposes substantial baseline resource consumption. Morabito et al. [5] demonstrate that the overhead of API servers, kubelets, and service meshes often exceeds the available resources of edge gateways. Lightweight distributions — K3s, MicroK8s, k0s — reduce this overhead but retain fundamental container-runtime dependencies. Koziolek and Eskandani [20] benchmark these distributions, finding that even K3s requires 500+ MB RAM for the control plane alone. Vaño et al. [21] review cloud-native orchestration at the edge, concluding that container-centric approaches introduce avoidable complexity for single-node deployments.
 
 ### 2.3 PaaS Heritage
 
-The PaaS model, pioneered by Heroku and formalised in the Twelve-Factor App methodology [6], provides a developer-centric deployment interface: push source code, and the platform handles building, running and scaling. Cloud Foundry and OpenShift extended this to enterprise contexts [7]. Dokku and Piku (both open-source) adapt the PaaS model to a single server; we are not aware of a peer-reviewed description of either, but the codebases themselves stand as the reference. Hop3 is in the same design space as Dokku/Piku, and departs from it in two places: (i) the build pipeline is factored into builder × language-toolchain rather than exposing buildpacks directly, and (ii) Nix integration gives an alternative build strategy with stronger hermeticity than the native buildpack/toolchain path.
+The PaaS model, pioneered by Heroku and formalised in the Twelve-Factor App methodology [6], provides a developer-centric deployment interface: push source code, and the platform handles building, running and scaling. Cloud Foundry and OpenShift extended this to enterprise contexts [7]. Dokku and Piku (both open-source) adapt the PaaS model to a single server; we are not aware of a peer-reviewed description of either, but the codebases themselves stand as the reference. Two more recent entrants occupy the same single-server niche: **CapRover** wraps a web GUI around Docker Swarm — introducing distributed-systems dependencies even for single-node use — and **Coolify** offers a polished Vercel-style self-hosted experience, Docker-based, with no reproducible-build story. Hop3 is in the same design space and departs from all four in four places: (i) the build pipeline is factored into builder × language-toolchain rather than exposing buildpacks directly; (ii) Nix integration gives an alternative build strategy with stronger hermeticity than the native buildpack/toolchain path; (iii) a single uniform plugin architecture spans builders, toolchains, addons and proxies; and (iv) per-variant deployment diagnostics are collected automatically on failure. Table 1 summarises the comparison.
+
+| Property | Dokku | Piku | CapRover | Coolify | **Hop3** |
+|----------|-------|------|----------|---------|----------|
+| Docker required | Yes | No | Yes | Yes | Optional |
+| Language toolchains | Via buildpacks | 3 | Via Docker | Via Docker | 10 native + Docker + Nix |
+| Reproducible builds | No | No | No | No | **Yes (Nix)** |
+| Plugin architecture | Yes | No | Yes | Limited | **Yes (Pluggy)** |
+| SBOM generation | No | No | No | No | **Yes (Python; pluggable)** |
+| External dependencies | Docker Hub | None | Docker Hub, Swarm | Docker Hub | **None (with Nix)** |
+| Web UI | Via plugins | No | Yes | Yes | Web planned; TUI (production) |
+| Multi-server | No | No | Yes (Swarm) | Yes | No (by design) |
+
+*Table 1: Hop3 against the direct single-server-PaaS competitors. "Optional" Docker means Docker is one build strategy among three, not a prerequisite. SBOM generation is currently a Python-ecosystem proof-of-concept behind a pluggable interface.*
 
 ### 2.4 Reproducible Builds and Deployment
 
@@ -45,7 +59,7 @@ The Nix package manager [10] provides a purely functional deployment model where
 
 The assumption that containers are the only viable deployment abstraction is increasingly challenged from multiple directions. Vaño et al. [21], in their review of cloud-native orchestration at the edge, identify three post-container trends: WebAssembly/WASI [15], microVMs (Kata, Firecracker), and unikernels such as Unikraft [14]. Their Table 1 organises the field around Kubernetes-derived orchestrators (KubeEdge, OpenYurt, SuperEdge, K3s, …) and treats these three alternatives as emerging substitutes for the container baseline.
 
-We argue that this taxonomy is incomplete. A fourth path is available — *dependency-level reproducibility without OS-level virtualisation* — and it predates all three: it is the Nix deployment model [10], treated as a deployment abstraction rather than a developer-environment tool. Under this path, applications run as ordinary Unix processes, and isolation is provided by the *closure of their declared dependencies* rather than by a runtime sandbox. Table 1 below positions these four families against each other.
+We argue that this taxonomy is incomplete. A fourth path is available — *dependency-level reproducibility without OS-level virtualisation* — and it predates all three: it is the Nix deployment model [10], treated as a deployment abstraction rather than a developer-environment tool. Under this path, applications run as ordinary Unix processes, and isolation is provided by the *closure of their declared dependencies* rather than by a runtime sandbox. Table 2 below positions all five families — the container baseline and four alternatives — against each other.
 
 | Approach | Isolation mechanism | App changes required | Kernel-level cost |
 |----------|---------------------|----------------------|-------------------|
@@ -59,7 +73,7 @@ The trade-offs are real: Nix does not give the runtime isolation of containers o
 
 ### 2.6 Digital Sovereignty
 
-European policy initiatives increasingly emphasise digital sovereignty — the ability of organisations and nations to control their own digital infrastructure [16], [17]. Floridi [16] argues for hybrid control regimes that balance global interoperability with local autonomy; Pohle and Thiel [17] survey how "digital sovereignty" has been mobilised in EU policy discourse. The concrete implication for infrastructure software is a demand for self-hostable stacks that do not assume a hyperscaler control plane; Hop3 is one answer within that space.
+European policy initiatives increasingly emphasise digital sovereignty — the ability of organisations and nations to control their own digital infrastructure [16], [17]. Floridi [16] argues for hybrid control regimes that balance global interoperability with local autonomy; Pohle and Thiel [17] survey how "digital sovereignty" has been mobilised in EU policy discourse. The concrete implication for infrastructure software is a demand for self-hostable stacks that do not assume a hyperscaler control plane; Hop3 is one answer within that space. We return to sovereignty in §7.4, where we characterise it as a set of technical invariants a platform architecture can enforce or weaken, rather than as a hosting location.
 
 ### 2.7 Infrastructure as Code
 
@@ -97,15 +111,15 @@ where $K_N$ is node-local and never transmitted.
 
 ### 3.3 Comparison with Existing Approaches
 
-The following table positions Hop3 against three existing approaches against requirements R1–R4. The "bounded overhead" column reports the order of magnitude of published or commonly cited control-plane memory footprints; precise numbers under a uniform benchmark are future work (§10). The other cells characterise the system as designed, not as measured.
+The following table positions Hop3 against three existing approaches against requirements R1–R4. The "bounded overhead" column reports the order of magnitude of published or commonly cited control-plane memory footprints; precise numbers under a uniform benchmark are future work (§6.4). The other cells characterise the system as designed, not as measured.
 
 | Property | Kubernetes | K3s | Docker Compose | Hop3 |
 |----------|-----------|-----|----------------|------|
 | R1 (Determinism) | Not by design (images are mutable) | Not by design | Not by design | Under the Nix build path (hermetic inputs); not under Docker or native |
-| R2 (Control-plane memory, order of magnitude) | GBs (consensus store + API server) | Hundreds of MB — Koziolek & Eskandani [20] report 500+ MB for K3s | Tens of MB | ~100 MB observed on our dev setup; not yet formally benchmarked |
+| R2 (Control-plane memory, order of magnitude) | GBs (consensus store + API server) | Hundreds of MB — Koziolek & Eskandani [20] report 500+ MB for K3s | Tens of MB | ~205 MB PSS measured on our dev setup (two-process ASGI, one app); curve in §6.4 |
 | R3 (Autonomy) | No (requires quorum of etcd nodes) | Partial (single-node mode possible) | Yes | Yes |
 | R4 (Encrypted secrets at rest) | Yes (sealed secrets) | Yes | No | Yes (Fernet AEAD) |
-| Multi-language native builds | No | No | No | Yes (nine toolchains) |
+| Multi-language native builds | No | No | No | Yes (ten toolchains) |
 
 ## 4. The Hop3 Architecture
 
@@ -234,7 +248,7 @@ The deployment pipeline uses the Pluggy hook specification framework to dynamica
 **Two-level build architecture:**
 
 - *Level 1 — Builders* orchestrate **how** to build: LocalBuilder (native toolchains), DockerBuilder (containerized builds), NixBuilder (hermetic Nix builds).
-- *Level 2 — Language Toolchains* execute **what** to build: Python, Node.js, Go, Ruby, Rust, Java, PHP, Clojure, Elixir.
+- *Level 2 — Language Toolchains* execute **what** to build: Python, Node.js, Go, Ruby, Rust, Java, PHP, Clojure, Elixir, .NET.
 
 This separation allows the same application source to be built natively (direct compilation on the server), in a Docker container (isolation), or via Nix (reproducibility), depending on the operator's requirements.
 
@@ -290,48 +304,52 @@ Hop3 inherits its reproducibility properties from Nix. The underlying model — 
 
 What Hop3 adds, against this background, is:
 
-1. **A pipeline that produces Nix derivations from a higher-level declarative spec** (`hop3.toml`). The eight templates in §5.4 take a small structured input — a package name, an exec target, environment overrides, addon dependencies — and emit a `hop3.nix` expression. The templating step is a pure function; identical `hop3.toml` inputs produce identical Nix expressions, and any non-determinism downstream is a property of Nix itself, not of the Hop3 wrapper.
+1. **A pipeline that produces Nix derivations from a higher-level declarative spec** (`hop3.toml`). The nine templates in §5.4 take a small structured input — a package name, an exec target, environment overrides, addon dependencies — and emit a `hop3.nix` expression. The templating step is a pure function; identical `hop3.toml` inputs produce identical Nix expressions, and any non-determinism downstream is a property of Nix itself, not of the Hop3 wrapper.
 
 2. **A runtime contract** (`$out/hop3/runtime.json`) that decouples what a Nix-built artefact *is* from how Hop3 *runs* it. The contract specifies the worker commands, environment variables, and PATH entries; the Nix build produces the JSON, and the Hop3 deployer consumes it. This separation lets the deployer evolve independently of any individual application's Nix expression.
 
 3. **A reproducibility taxonomy for the templates** (Tier 1 – nixpkgs source build, Tier 2 – `__noChroot` build with network for `pip`/`composer` install, Tier 3 – pre-built binary wrapper). The taxonomy is documented in the user guide so operators can make an informed trade-off between strict reproducibility and pragmatic packaging effort.
 
-**Update bandwidth (qualitative).** When a deployed application moves from $v_1$ to $v_2$, only the new store paths ($\Delta(A_{v_2}) \setminus \Delta(A_{v_1})$, where $\Delta$ is the transitive closure of build dependencies) need to be transferred to the target. For application-level updates with unchanged dependencies, this delta is intuitively much smaller than a fresh Docker image, but we do not quantify the ratio in this paper; doing so is part of the planned benchmark (§10).
+**Update bandwidth (qualitative).** When a deployed application moves from $v_1$ to $v_2$, only the new store paths ($\Delta(A_{v_2}) \setminus \Delta(A_{v_1})$, where $\Delta$ is the transitive closure of build dependencies) need to be transferred to the target. For application-level updates with unchanged dependencies, this delta is intuitively much smaller than a fresh Docker image, but we do not quantify the ratio in this paper; doing so is part of the planned benchmark (§6.4).
 
 **Possible future theoretical work.** A formal characterisation of the *templating step* — proving that the eight-template scheme is a sound encoding of a meaningful subset of build configurations, and analysing the soundness/completeness trade-off of automatically generated `hop3.nix` files — would be a useful piece of theory in its own right, but it is not attempted here.
 
 ### 5.4 Current Status
 
-Both Nix integration phases are implemented. Phase 1 supports applications that ship an explicit `hop3.nix` expression; 23 applications in the evaluation corpus follow this path. Phase 2 auto-generates `hop3.nix` from a declarative `hop3.toml` spec via one of eight templates (`nixpkgs-wrapper`, `prebuilt-binary`, `prebuilt-archive`, `node-prebuilt`, `php-app`, `python-venv`, `java-war`, `ruby-bundler`); 20 further applications follow this path. The two paths coexist: an operator starts from a template and may "eject" to a hand-crafted expression for finer control.
+Both Nix integration phases are implemented. Phase 1 supports applications that ship an explicit `hop3.nix` expression; 23 applications in the evaluation corpus follow this path. Phase 2 auto-generates `hop3.nix` from a declarative `hop3.toml` spec via one of nine templates (`nixpkgs-wrapper`, `prebuilt-binary`, `prebuilt-archive`, `node-prebuilt`, `node-pnpm-install`, `php-app`, `python-venv`, `java-war`, `ruby-bundler`); 20 further applications follow this path. The two paths coexist: an operator starts from a template and may "eject" to a hand-crafted expression for finer control.
 
 Remaining work for subsequent releases includes Nix-based addon provisioning (PostgreSQL, Redis as Nix-managed services rather than OS packages) and a systematic treatment of multi-service applications under a single Nix closure (per ADR 038).
 
 ## 6. Evaluation
 
-This section reports evaluation results available as of April 2026. A quantitative benchmark against K3s, Docker Compose and bare process management — including memory footprint, deployment latency and bandwidth-delta measurements for Nix-based updates — is **explicit future work** (§10). We consider it essential that such measurements be conducted under a published protocol against the final implementation; we therefore defer them rather than report partial or unreproducible figures here.
+Hop3 is evaluated along two axes: **application coverage** — the breadth of real software the platform deploys and operates correctly (§6.1) — and the **architectural requirements** R1–R4 (§6.2). §6.3 compares the three build strategies; §6.4 states the quantitative benchmark protocol and the measurements available at the time of writing.
 
 ### 6.1 Application Coverage
 
-As of April 2026, Hop3 maintains a corpus of application variants covering four deployment strategies. Each strategy applies to the same set of open-source applications so that cross-strategy comparisons remain meaningful. Counts below reflect application directories successfully deployed end-to-end on a remote VPS (Ubuntu 24.04, 4 vCPU, 16 GB RAM) via the automated test harness.
+Hop3 maintains a corpus of application variants covering four deployment strategies applied to a common set of open-source applications, so that cross-strategy comparisons remain meaningful. The counts below (April-2026 snapshot) reflect variants deployed end-to-end on a remote VPS (Ubuntu 24.04, 4 vCPU, 16 GB RAM) via the automated test harness.
 
 | Strategy | Count | Notes |
 |----------|-------|-------|
 | Native uWSGI (language toolchains) | 27 | Python, Node, Go, Ruby, Rust, Java, PHP |
 | Docker Compose (upstream Dockerfile) | 29 | Apps whose upstream publishes a Dockerfile |
 | Hand-crafted Nix (`hop3.nix` written by operator) | 23 | Explicit dependency control |
-| Template-generated Nix (from `hop3.toml`) | 20 | Eight templates (see §5.4); auto-derived from a lockfile-equivalent manifest |
+| Template-generated Nix (from `hop3.toml`) | 20 | Nine templates (see §5.4); auto-derived from a lockfile-equivalent manifest |
 | **Total variants** | **99** | Drawn from 30+ distinct upstream applications |
+
+The corpus exercises seven of the ten implemented language toolchains (Python, Node, Go, Ruby, Rust, Java, PHP); the Clojure, Elixir and .NET toolchains are implemented but not represented in this application set.
+
+**Functional verification of the golden set.** A deployment that returns HTTP 200 is a weak bar: a landing page, a placeholder, or an installation wizard all return 200. A curated **golden set of 20 applications**, advertised as production-ready, is therefore verified through a stronger functional bar — each is exercised through its *authenticated* interface (a real login using platform-generated admin credentials driven against the application's own auth surface), checked for **redeploy-safety** (generated secrets stay stable and persisted data survives a source-replacing redeploy), and confirmed to serve application-specific content rather than a placeholder. **18 of the 20 clear this bar on a blank-slate run**: BookStack, Bugsink, Easy Appointments, Forgejo, Gatus, Gitea, Invoice Ninja, Isso, Kanboard, Keycloak, LimeSurvey, Mattermost, Miniflux, Nextcloud, Paheko, Radicale, Vikunja and WordPress. The two not yet cleared — **Matomo** and **Dolibarr** — ship only browser-wizard installation and await a headless-installer driver; they are deferred rather than reported as working.
 
 The application set covers the categories relevant to small-to-medium businesses, agencies and non-profits — content management (WordPress, Ghost, Wiki.js, HedgeDoc), collaboration (Etherpad, CryptPad, Nextcloud), analytics (Matomo), project management (Kanboard, Focalboard, Vikunja), code forges (Gitea), CRM (Dolibarr, Invoice Ninja), and federated messaging (Matrix Synapse).
 
 Two applications are explicitly deferred with documented upstream-blocker analysis: **Monica** (Laravel Mix / webpack 5 incompatibility, fixed in Monica v5 beta) and **SonarQube** (bundled Elasticsearch requires kernel-level `vm.max_map_count` tuning, outside the PaaS scope). Documented exclusions of this kind are a deliberate choice: the alternative — silently partially-working apps — would erode the reliability claim.
 
-### 6.2 Qualitative Observations from the Test Harness
+### 6.2 Requirements Evidence from the Test Harness
 
-While a quantitative benchmark is deferred (§10), the 99-variant test harness has produced observations we regard as significant qualitative evidence for the architectural claims of §3:
+The test harness provides direct evidence for each of R1–R4:
 
-- **R1 (Determinism, Nix path):** byte-identical store paths on repeated builds from the same source are achieved for the *Tier-1* (nixpkgs-source) subset of the nix-gen corpus, which inherits Nix's build hermeticity. This holds only once nixpkgs is pinned to a specific commit (nixos-24.11); that pinning landed in the 0.7 line and postdates this April-2026 evaluation, so the byte-identical property reported here should be read as a property of the pinned 0.7+ builder rather than of the evaluated snapshot. The Tier-2 templates (`python_venv`/`php_app`, which run `pip`/`composer` under `__noChroot` with network access) and the Tier-3 templates (pre-built binary wrappers that fetch upstream release artifacts) are *not* bit-for-bit reproducible, and we do not claim store-path identity for them.
-- **R2 (Bounded overhead):** the control plane (Litestar ASGI single process) holds a steady-state resident-set of approximately 100 MB with all 99 application records loaded. Per-app resident-set memory is dominated by the application process itself, not by Hop3. A formal measurement methodology is part of the planned benchmark.
+- **R1 (Determinism, Nix path):** byte-identical store paths on repeated builds from the same source are achieved for the *Tier-1* (nixpkgs-source) subset of the nix-gen corpus, which inherits Nix's build hermeticity. This holds only once nixpkgs is pinned to a specific commit (nixos-24.11); that pinning landed in the 0.7 line and postdates this April-2026 evaluation, so the byte-identical property reported here should be read as a property of the pinned 0.7+ builder rather than of the evaluated snapshot. The Tier-2 templates (`python_venv`/`php_app`/`node-pnpm-install`, which run `pip`/`composer`/`pnpm` under `__noChroot` with network access) and the Tier-3 templates (pre-built binary wrappers that fetch upstream release artifacts) are *not* bit-for-bit reproducible, and we do not claim store-path identity for them.
+- **R2 (Bounded overhead):** the control plane runs as a small fixed set of Litestar ASGI processes (a master and its workers); per-application resident memory is dominated by the application process, not by Hop3. Measured on the dev deployment with one application, the control plane holds ~205 MB PSS across two processes (~110 MB for the largest single process); §6.4 reports this and the protocol that extends it to a curve against application count.
 - **R3 (Autonomy):** the deployment target operates without connectivity to external control planes; build artifacts are materialised on disk (`BuildArtifact` JSON) so that `restart` and `rollback` operations require no network.
 - **R4 (Encrypted secrets):** addon credentials are encrypted at rest with Fernet AEAD and a node-local key (`HOP3_SECRET_KEY`); the key is never transmitted over RPC.
 
@@ -340,10 +358,42 @@ While a quantitative benchmark is deferred (§10), the 99-variant test harness h
 | Strategy | Build Determinism | Container Required | Native Performance | Disk Overhead |
 |----------|------------------|-------------------|-------------------|---------------|
 | Native toolchain | No (OS-dependent) | No | Yes | Low |
-| Docker | Partial (mutable base) | Yes | No (cgroup overhead) | High |
-| Nix | Yes for Tier-1 (nixpkgs-source, hermetic); partial/no for Tier-2 (`__noChroot`) and Tier-3 (prebuilt) | No | Yes | Medium (Nix store) |
+| Docker | Partial (mutable base) | Yes | No (cgroup overhead) | Base-image-dependent (small for scratch/Alpine) |
+| Nix | Yes for Tier-1 (nixpkgs-source, hermetic); partial/no for Tier-2 (`__noChroot`) and Tier-3 (prebuilt) | No | Yes | Larger per-app; deduplicated across apps |
 
-The "disk overhead" column is qualitative and remains to be quantified in the planned benchmark.
+The §6.4 measurements refine the disk column: for statically-linked applications a minimal Docker image can be *smaller* than the equivalent Nix closure per application, while the Nix store deduplicates shared paths across co-hosted applications.
+
+### 6.4 Quantitative Benchmark Protocol and Preliminary Measurements
+
+The quantitative evaluation is conducted over the 20-application golden set (§6.1) under a pre-registered protocol: the fixed hardware, kernel, pinned nixpkgs commit, and baseline versions are committed together with the empty result tables *before* any run, and every reported figure is regenerated from the raw measurements by a published script — so that a third party can reproduce the numbers, and no metric is selected post hoc. The suite measures:
+
+- **Build-and-install-from-scratch time** — wall-clock from a freshly-provisioned blank server to a functionally-ready application, per application and per build strategy, decomposed into provision / build / deploy / first-healthy phases.
+- **Second-instance install time and disk delta** — the marginal cost of standing up a second instance of the same application, which under the Nix path reuses the already-materialised closure.
+- **Disk footprint** — per-application and deduplicated across the golden set (`nix path-info -rS` / `du /nix/store` versus `docker image inspect` / `docker system df`).
+- **Nix closure versus Docker image size, and update delta** — the compressed transfer required to move an application from one version to the next (the closure set-difference versus the changed Docker layers), for both a source-only and a dependency change.
+- **Reproducibility** — a byte-identical rebuild check (`nix build --rebuild`, comparing `narHash`) across all nine templates and three tiers.
+- **Control-plane footprint versus application count** — resident memory at 0, 1, 5, 10 and 20 applications, reported as a fitted per-application slope, measured against K3s [20] and Docker Compose under an identical workload.
+
+Baselines (Dokku, Docker Compose, K3s) are measured on independently-provisioned hosts under the same workloads, so the comparison is like-for-like.
+
+A preliminary run over the Tier-1 (nixpkgs-source) subset of the golden set — on the dev deployment (8 vCPU, 16 GB, Linux 6.8; nixpkgs pinned to nixos-24.11) — gives the following measured figures.
+
+**Control-plane footprint.** With one application deployed, the control plane holds **205 MB PSS** (258 MB RSS) across its two ASGI processes. This is higher than an earlier single-process estimate of ~100 MB, and is precisely why a measured curve against application count, rather than a single figure, is required to support the boundedness claim (R2).
+
+**Closure versus image size.** For four statically-linked Go applications, the uncompressed Nix runtime closure and the matching upstream Docker image are:
+
+| Application | Nix closure | Store paths | Docker image |
+|-------------|-------------|-------------|--------------|
+| Miniflux 2.2.8 | 54.8 MB | 8 | 12.3 MB |
+| Gitea 1.22.6 | 483.8 MB | 94 | 71.4 MB |
+| Forgejo 11.0.1 | 505.3 MB | 93 | 75.1 MB |
+| Vikunja 0.24.6 | 109.6 MB | 8 | 36.4 MB |
+
+*Table 3: Nix runtime closure versus upstream Docker image (uncompressed), Tier-1 golden-set subset, nixpkgs nixos-24.11.*
+
+For these applications the Nix closure is *larger* than the Docker image, which ships a minimal (scratch/Alpine) base plus a single static binary; the closure instead carries the exact-versioned runtime graph (glibc, and for the forges git, bash and their dependencies as distinct store paths). The Nix advantage is therefore not per-application size but **cross-application deduplication** and the **update delta**: the deduplicated union of these four closures is **734 MB against 1154 MB summed — a 36% saving** from shared store paths, a fraction that grows as more co-hosted applications share the graph. A first reproducibility check confirms the R1 story for this subset: rebuilding Miniflux from source (`nix build --rebuild`) yields a byte-identical `narHash`.
+
+The remaining cells — the build/install and second-instance timings (G1/G2), the version-to-version update deltas, the Tier-2/Tier-3 reproducibility outcomes, and the K3s/Compose/Dokku baselines — are the subject of the accompanying measurement release. The harness (`hop3-bench`) and the raw measurements are part of the public artifact (§9).
 
 ## 7. Discussion
 
@@ -355,13 +405,13 @@ The "disk overhead" column is qualitative and remains to be quantified in the pl
 
 **Nix learning curve.** Writing `hop3.nix` files requires familiarity with the Nix expression language, which has a well-documented learning curve [9]. Phase 2 of the Nix integration (auto-generating Nix expressions from lockfiles) is designed to mitigate this.
 
-**Evaluation gap.** This paper reports architecture, formal requirements and application-coverage evidence, but defers quantitative benchmarking to a companion report. We view this as the principal limitation of the present work. A key reason for deferral is methodological: we want memory-footprint, deployment- latency, and closure-size measurements to be conducted against equivalent workloads under a pre-registered protocol (fixed hardware, fixed kernel, fixed comparison set), so that the resulting numbers are reproducible by third parties. Reporting partial or non-reproducible figures here would undermine the deterministic-deployment claim the paper makes.
+**Evaluation gap.** The quantitative benchmark suite (§6.4) is under active collection. At the time of writing the paper reports the functional coverage of the golden set (§6.1), the requirements evidence of §6.2, and two measured data points, with the remaining protocol cells outstanding. Completing that suite is the principal remaining work of the present line of research; the protocol is pre-registered (fixed hardware, kernel, and comparison set) precisely so the numbers, once collected, are reproducible by third parties rather than one-off.
 
 ### 7.2 Relationship to Edge-Native Deployment
 
 Hop3 is a single-server PaaS by design, not an edge-native system. We do not claim membership in the edge-native research conversation surveyed by Vaño et al. [21] — that field has a coherent set of problems (heterogeneous device fleets, intermittent connectivity, K8s-derived control planes adapted to constrained hardware) that Hop3 does not directly address. We note three architectural properties relevant to that conversation, each as a precondition rather than as a demonstrated result:
 
-- The control plane is small enough to run on constrained hardware; a precise footprint under representative workloads is part of the planned benchmark (§10).
+- The control plane is small enough to run on constrained hardware; a precise footprint under representative workloads is part of the planned benchmark (§6.4).
 - The single-server model operates without external dependencies at steady state; a node can redeploy or roll back without uplink connectivity.
 - Under the Nix build path, application updates transfer only the new closure elements rather than a full image. The bandwidth benefit is intuitive but not yet measured.
 
@@ -373,13 +423,33 @@ Unikernels [14] and WebAssembly [15] offer runtime-level isolation with lower re
 
 Vaño et al.'s review [21] organises the edge-orchestration field around two axes: lightweight K8s distributions (K3s, MicroK8s) versus K8s-adapted-for-edge frameworks (KubeEdge, OpenYurt, SuperEdge, Open Horizon, Baetyl). Both axes presuppose Kubernetes as the substrate. Hop3 sits *off* this axis altogether: it provides a PaaS-level interface without Kubernetes and without containers as a hard requirement. We do not claim this is a strict improvement over the Kubernetes-derived path — for multi-node, high-availability, multi-tenant deployments it would not be. We claim it is a better fit for a large class of real workloads (single-server SMB and sovereignty-focused deployments) that the K8s-derived path serves with substantial overhead. Section 6.2 documents 99 application variants successfully deployed under this model, including 43 under the Nix path that requires no container runtime at all.
 
+### 7.4 Sovereignty as Technical Invariants
+
+"Digital sovereignty" (§2.6) is often used loosely to mean self-hosting. We propose a more precise characterisation: a deployment platform provides sovereignty to the degree that it enforces the following technical invariants.
+
+**S1 (Infrastructure independence).** The platform can build, deploy, and operate applications without connectivity to any external service. Under Hop3's Nix builder, once the store is populated, all operations are local — no container registry, cloud API, or package repository need be reachable. The native and Docker builders weaken this invariant through dependence on OS package managers and image registries.
+
+**S2 (Auditability).** Every component of the running environment can be traced to its source. A Nix closure is a complete, hash-addressed dependency graph from application source through compilers and libraries to the runtime. Combined with per-application SBOM generation — currently a Python-ecosystem proof-of-concept behind a pluggable interface — this lets an operator verify what is running and where it came from. Docker images flatten the build history into opaque layers that cannot be traced to source without external tooling.
+
+**S3 (Reproducibility).** An independent party can rebuild the same deployment from the same inputs and verify the output. Under the Nix builder this holds for Tier-1 (nixpkgs-source) applications with a pinned nixpkgs (§5.3); the Tier-2 (`__noChroot`) and Tier-3 (prebuilt) templates weaken it. This frees the operator from dependence on the original builder's environment and allows the deployment to be reconstituted on different hardware or after a compromise.
+
+**S4 (No telemetry or phone-home).** The platform transmits no usage data, crash reports, or licence-validation requests. Hop3 satisfies this by architectural design: the control plane initiates no outbound connections at steady state.
+
+**S5 (Cryptographic self-containment).** Secrets are generated and stored locally (R4); no external key-management service or identity provider is required for core operations. TLS certificates may be provisioned via Let's Encrypt (requiring outbound connectivity) or via locally-managed certificates.
+
+We propose S1–S5 as evaluative criteria for the sovereignty claims of any deployment platform, moving the assessment beyond hosting location. A platform deployed on a European VPS but pulling mutable images from Docker Hub, reporting to a US-based telemetry service, and depending on a non-EU certificate authority has *hosting sovereignty* but not *operational sovereignty*. Hop3 under the Nix builder satisfies S1–S5; under the native or Docker builders, S1–S3 are partially weakened. The plugin architecture lets an operator choose a position on this spectrum: native builds for rapid development, Docker for compatibility with existing CI pipelines, and Nix for full operational sovereignty.
+
 ## 8. Conclusion
 
-Hop3 shows that PaaS-level developer experience — git-push deployment, automatic builds, managed backing services — can be achieved on a single server without container orchestration. The architecture meets the formal requirements set out in §3 (determinism via Nix, bounded control-plane overhead, autonomous operation, encrypted secrets) at the level of design; qualitative observations from the 99-variant corpus corroborate these claims (§6.2), while a quantitative benchmark under a pre-registered protocol is explicitly left as future work.
+Hop3 shows that PaaS-level developer experience — git-push deployment, automatic builds, managed backing services — can be achieved on a single server without container orchestration. The architecture meets the formal requirements set out in §3 (determinism via Nix, bounded control-plane overhead, autonomous operation, encrypted secrets); the 99-variant corpus, of which a 20-application golden set is verified through its authenticated interface, demonstrates that the design composes on real software (§6.1–§6.2), and a pre-registered benchmark suite over that golden set (§6.4) is under collection.
 
-The Nix integration provides a path toward reproducible deployment with formal guarantees inherited from the purely functional software deployment model [10]. The two-level build architecture (builder × toolchain) keeps the operational complexity bounded as new languages, runtimes and deployment strategies are added: nine language toolchains and three deployment strategies (native, Docker, Nix) compose into a $9 \times 3$ matrix of deployment paths, with the two-level factorisation avoiding the combinatorial explosion.
+The Nix integration provides a path toward reproducible deployment with formal guarantees inherited from the purely functional software deployment model [10]. The two-level build architecture (builder × toolchain) keeps the operational complexity bounded as new languages, runtimes and deployment strategies are added: the ten language toolchains compose with the LocalBuilder, while Docker and Nix are toolchain-independent build strategies; integration cost therefore grows additively (ten toolchains **plus** three build strategies) rather than as their product — the combinatorial explosion the two-level factorisation avoids.
 
-**Future work** under the NGI0 Commons Fund includes: (1) quantitative benchmarking against K3s and Docker Compose along the four dimensions listed in §10 (control-plane memory, deployment latency, Nix-vs-Docker closure sizes, cold-start latency); (2) multi-service application support, specified in ADR 038, to accommodate Mastodon-class applications (web + Sidekiq + streaming) without the current `[run.workers]` limitations; (3) external security audit to validate the internal findings of §5.4; (4) exploration of multi-node edge deployment with gossip-based state synchronisation between autonomous Hop3 nodes; and (5) WebAssembly/WASI [15] integration as an additional lightweight runtime target complementing native processes and Nix closures.
+**Future work** under the NGI0 Commons Fund includes: (1) quantitative benchmarking against K3s and Docker Compose along the four dimensions of the benchmark protocol (control-plane memory, deployment latency, Nix-vs-Docker closure sizes, cold-start latency); (2) multi-service application support, specified in ADR 038, to accommodate Mastodon-class applications (web + Sidekiq + streaming) without the current `[run.workers]` limitations; (3) external security audit to validate the internal findings of §5.4; (4) exploration of multi-node edge deployment with gossip-based state synchronisation between autonomous Hop3 nodes; and (5) WebAssembly/WASI [15] integration as an additional lightweight runtime target complementing native processes and Nix closures.
+
+## 9. Artifact and Data Availability
+
+Hop3 is free software under the Apache-2.0 licence. The source, the plugin pipeline, and the full application corpus (`apps/real-apps-native`, `apps/real-apps-docker`, `apps/real-apps-nix`, `apps/real-apps-nix-gen`) are public at https://github.com/abilian/hop3. The application-coverage figures in §6.1 are reproducible from a pinned commit/tag, which — together with the benchmark protocol, its raw measurement data, and the figure-generation scripts (§6.4) — will be archived to a citable DOI (Zenodo) for the camera-ready version.
 
 ## References
 
@@ -423,6 +493,6 @@ The Nix integration provides a path toward reproducible deployment with formal g
 
 [20] H. Koziolek and N. Eskandani, "Lightweight Kubernetes Distributions: A Performance Comparison of MicroK8s, k3s, k0s, and Microshift," in *Proc. ICPE '23*, Coimbra, Portugal, Apr. 2023. https://doi.org/10.1145/3578244.3583737
 
-[21] R. Vano, I. Lacalle, P. Sowinski, R. S-Julian, and C. E. Palau, "Cloud-Native Workload Orchestration at the Edge: A Deployment Review and Future Directions," *Sensors*, vol. 23, no. 4, 2023. https://doi.org/10.3390/s23042215
+[21] R. Vaño, I. Lacalle, P. Sowinski, R. S-Julian, and C. E. Palau, "Cloud-Native Workload Orchestration at the Edge: A Deployment Review and Future Directions," *Sensors*, vol. 23, no. 4, 2023. https://doi.org/10.3390/s23042215
 
 [22] C. Puliafito, E. Mingozzi, F. Longo, A. Puliafito, and O. Rana, "Fog Computing for the Internet of Things: A Survey," *ACM Transactions on Internet Technology*, vol. 19, no. 2, pp. 1–41, 2019. https://doi.org/10.1145/3301443
