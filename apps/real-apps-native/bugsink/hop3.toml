@@ -30,6 +30,14 @@ snappea = "bugsink-runsnappea"
 [[addons]]
 type = "postgres"
 
+# Outbound email (ADR 054). Inherits the server's email backend (catch/relay/
+# direct) — no per-app SMTP credentials. Bugsink reads EMAIL_HOST/EMAIL_PORT from
+# the environment (its generated bugsink_conf.py), so this clears the "Email is
+# not set up" banner and enables invites / alerts. Optional: on a box with no
+# backend the addon degrades gracefully (the app just runs without outbound mail).
+[[addons]]
+type = "email"
+
 [env]
 # Generated once on first deploy and stable across redeploys (ADR 046).
 SECRET_KEY = { generate = "urlsafe" }

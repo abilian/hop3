@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
+from hop3.lib import log
 from hop3.plugins.addons.secrets import (
     delete_addon_secrets,
     load_addon_secrets,
@@ -175,16 +176,19 @@ class EmailAddon:
         )
 
     def create(self) -> None:
-        """Provision from the server backend, or fail loud when none is set.
+        """Provision from the server backend if one is set; otherwise stay inert.
 
-        This is the path a recipe's ``[[addons]] type = "email"`` takes. When the
-        operator has configured a server-level backend (relay/catch/direct), the
-        addon inherits it: the app's From is placed on the backend's verified
-        sending domain and it sends via the loopback relay, so a recipe declares
-        email with zero provider knowledge (ADR 054/056). With no backend set,
-        the generic path has no credentials to supply — fail loud and point at
-        either configuring a server backend or the per-app typed command, rather
-        than silently no-op over an already-stored transport (no-fake-success).
+        This is the path a recipe's ``[[addons]] type = "email"`` takes. Email is
+        an OPTIONAL enhancement — the app runs fine without it — so a missing
+        server backend must not fail the deploy. When a backend (relay/catch/
+        direct) is configured, the addon inherits it: the app's From is placed on
+        the backend's verified sending domain and it sends via the loopback relay
+        (ADR 054/056). When none is configured, the addon is stored as
+        inheriting-when-available and a loud, actionable notice is surfaced — the
+        app runs without outbound email until the operator sets a backend, after
+        which a redeploy wires it (the backend is resolved fresh in
+        :meth:`get_connection_details`). This is a surfaced degradation of an
+        optional feature, not a silent skip.
         """
         from .server_transport import server_sending_domain  # noqa: PLC0415
 
@@ -193,15 +197,15 @@ class EmailAddon:
             self.configure_inherited(f"noreply@{domain}")
             return
 
-        msg = (
-            f"Email addon {self.addon_name!r} needs an email backend. Either "
-            "configure a server-level one so apps can inherit it:\n"
-            "  hop3 server email backend <relay|catch|direct> …\n"
-            "or create this addon with its own provider credentials:\n"
-            f"  hop3 addon email create {self.addon_name} "
-            "--smtp-host <h> --smtp-user <u> --smtp-password <pw> --from <addr>"
+        save_addon_secrets(_TYPE, self.addon_name, {"inherit": True, "pending": True})
+        log(
+            f"  email addon {self.addon_name!r}: no server email backend is "
+            "configured — this app will run WITHOUT outbound email. Enable it "
+            "with `hop3 server email backend <catch|relay|direct> …`, then "
+            "redeploy to wire it.",
+            level=0,
+            fg="yellow",
         )
-        raise RuntimeError(msg)
 
     def destroy(self) -> None:
         """Remove the stored transport. Idempotent."""
@@ -232,11 +236,26 @@ class EmailAddon:
             raise RuntimeError(msg)
         if data.get("inherit"):
             # Inheriting apps send via the loopback relay regardless of backend
-            # kind (relay/catch/direct); validate against the backend (fail-loud
-            # if it's gone) without needing a provider transport.
-            from .server_transport import assert_inherited_backend  # noqa: PLC0415
+            # kind (relay/catch/direct). Resolve the backend FRESH each deploy, so
+            # configuring one later + redeploying wires email with no re-create.
+            from .server_transport import (  # noqa: PLC0415
+                assert_inherited_backend,
+                server_sending_domain,
+            )
 
-            mail_from = data["mail_from"]
+            domain = server_sending_domain()
+            if domain is None:
+                # No backend (yet): email stays off. Surfaced, not hidden — the
+                # app gets no SMTP env and shows its own "email not set up" state
+                # honestly. Configure a backend + redeploy to enable.
+                log(
+                    f"  email addon {self.addon_name!r}: no server email backend; "
+                    "injecting no SMTP env (set one + redeploy to enable email).",
+                    level=1,
+                    fg="yellow",
+                )
+                return {}
+            mail_from = data.get("mail_from") or f"noreply@{domain}"
             assert_inherited_backend(mail_from)
             return _loopback_vars(mail_from)
         transport = self._load_transport()
