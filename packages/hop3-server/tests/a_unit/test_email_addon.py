@@ -52,11 +52,27 @@ def _configured(name: str = "mail", port: int = 587) -> EmailAddon:
     return addon
 
 
-def test_create_fails_loud_without_backend(email_root):
-    """With no server backend set, the generic create path has no credentials to
-    supply — it must fail loud, not make a broken addon."""
-    with pytest.raises(RuntimeError, match="needs an email backend"):
-        EmailAddon(addon_name="mail").create()
+def test_create_graceful_without_backend(email_root):
+    """Email is optional: with no server backend, create() must NOT fail the
+    deploy. It stores an inheriting-when-available marker and injects no SMTP
+    env (surfaced, not a silent skip)."""
+    addon = EmailAddon(addon_name="mail")
+    addon.create()  # no raise
+    stored = secrets_module.load_addon_secrets("email", "mail")
+    assert stored == {"inherit": True, "pending": True}
+    # No backend -> no SMTP env injected (graceful), not a fail-loud.
+    assert addon.get_connection_details() == {}
+
+
+def test_pending_addon_wires_email_once_a_backend_is_set(email_root, no_dns):
+    """A pending addon (declared before any backend) picks the backend up on the
+    next deploy — get_connection_details resolves it fresh, no re-create."""
+    addon = EmailAddon(addon_name="mail")
+    addon.create()  # pending (no backend yet)
+    save_server_catch("dev.local")  # operator configures a backend
+    env = addon.get_connection_details()  # resolves fresh
+    assert env["SMTP_HOST"] == "127.0.0.1"
+    assert env["DEFAULT_FROM_EMAIL"] == "noreply@dev.local"
 
 
 def test_create_inherits_when_backend_configured(email_root):

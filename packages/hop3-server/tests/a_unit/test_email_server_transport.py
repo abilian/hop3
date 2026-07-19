@@ -311,12 +311,14 @@ def test_inherited_info_surfaces_missing_server_transport(email_root):
     assert "No server email transport" in info["error"]
 
 
-def test_inherited_connection_details_fail_loud_when_server_gone(email_root):
+def test_inherited_connection_details_graceful_when_server_gone(email_root):
+    # Email is optional: an inheriting addon whose server backend was removed
+    # injects NO SMTP env (graceful, surfaced via log) rather than failing the
+    # deploy. `info()` still surfaces the "no backend" state for status display.
     save_server_transport(_server_transport())
     AddonEmailCreateCmd().call("mail", "--from", "team@example.com")
     st_module._store_path().unlink()
-    with pytest.raises(RuntimeError, match="No server email transport"):
-        EmailAddon(addon_name="mail").get_connection_details()
+    assert EmailAddon(addon_name="mail").get_connection_details() == {}
 
 
 def test_status_inherited_surfaces_error_when_server_gone(email_root, no_dns):
