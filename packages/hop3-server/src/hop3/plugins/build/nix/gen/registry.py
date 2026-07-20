@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from hop3.plugins.build.nix.gen.spec import AppSpec  # noqa: TC001
 from hop3.plugins.build.nix.gen.templates.base import Template  # noqa: TC001
+from hop3.plugins.build.nix.gen.templates.go_source import GoSourceTemplate
 from hop3.plugins.build.nix.gen.templates.java_war import JavaWarTemplate
 from hop3.plugins.build.nix.gen.templates.nixpkgs_wrapper import NixpkgsWrapperTemplate
 from hop3.plugins.build.nix.gen.templates.node_pnpm_install import (
@@ -29,6 +30,7 @@ _TEMPLATES: dict[str, Template] = {
     "node-prebuilt": NodePrebuiltTemplate(),
     "node-pnpm-install": NodePnpmInstallTemplate(),
     "java-war": JavaWarTemplate(),
+    "go-source": GoSourceTemplate(),
     "python-venv": PythonVenvTemplate(),
     "nixpkgs-wrapper": NixpkgsWrapperTemplate(),
     "ruby-bundler": RubyBundlerTemplate(),

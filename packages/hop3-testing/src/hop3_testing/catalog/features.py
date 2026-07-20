@@ -42,6 +42,11 @@ KNOWN_INSTALLER_FEATURES = frozenset({
     "s3",
     "nix",
     "rust",
+    # `--with email` installs Postfix inert (ADR 054); the app's email addon
+    # then inherits whatever backend the operator configures, and degrades to
+    # no outbound mail when none is set. Kept in sync with the installer's
+    # `ServerConfig.with_*` properties — see test_every_declared_addon_is_provisionable.
+    "email",
 })
 
 

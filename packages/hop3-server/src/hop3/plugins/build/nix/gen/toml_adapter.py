@@ -157,6 +157,9 @@ def app_spec_from_config(
         node_manifest=nix_config.get("node-manifest"),
         node_lockfile=nix_config.get("node-lockfile"),
         node_deps_hash=nix_config.get("node-deps-hash"),
+        go_vendor_hash=nix_config.get("go-vendor-hash"),
+        go_sub_packages=nix_config.get("go-sub-packages", []),
+        go_ldflags=nix_config.get("go-ldflags", []),
         pip_deps_hash=nix_config.get("pip-deps-hash"),
         # Wrapper script fields
         exec_target=nix_config.get("exec-target"),
