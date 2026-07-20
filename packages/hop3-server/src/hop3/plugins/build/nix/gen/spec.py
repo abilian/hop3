@@ -266,6 +266,13 @@ class AppSpec:
     node_lockfile: str | None = None
     # sha256 of the fetched pnpm store (fixed-output derivation).
     node_deps_hash: str | None = None
+    # For go-source: sha256 of the vendored Go module set. `go.sum` already
+    # hashes every module; this pins the resolved set as a whole.
+    go_vendor_hash: str | None = None
+    # For go-source: which command packages to build (default: all).
+    go_sub_packages: list[str] = field(default_factory=list)
+    # For go-source: linker flags, e.g. version stamping.
+    go_ldflags: list[str] = field(default_factory=list)
     # For python-venv: sha256 of the vendored-wheels fixed-output derivation
     # (the analogue of buildGoModule's `vendorHash`). Obtain it by building
     # once with a placeholder and reading the `got:` line Nix prints.

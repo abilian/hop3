@@ -17,12 +17,13 @@ from hop3.plugins.build.nix.gen.spec import AppSpec, Source
 
 def test_list_templates_returns_all():
     names = list_templates()
-    assert len(names) == 9
+    assert len(names) == 10
     assert "prebuilt-binary" in names
     assert "prebuilt-archive" in names
     assert "php-app" in names
     assert "node-prebuilt" in names
     assert "node-pnpm-install" in names
+    assert "go-source" in names
     assert "java-war" in names
     assert "python-venv" in names
     assert "nixpkgs-wrapper" in names

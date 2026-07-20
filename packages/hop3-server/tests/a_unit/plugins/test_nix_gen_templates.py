@@ -783,3 +783,60 @@ def test_nixpkgs_wrapper_writable_home_respects_explicit_exec_prefix():
     )
     output = generate(spec)
     assert "s|PKGBIN|$HOME_DIR/custom/bin|g" in output
+
+
+# --- go-source ---
+
+
+def _go_spec(**overrides) -> AppSpec:
+    defaults: dict[str, Any] = {
+        "pname": "miniflux",
+        "version": "2.2.8",
+        "description": "Feed reader",
+        "template": "go-source",
+        "exec_target": "miniflux",
+        "go_vendor_hash": "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "source": Source(url="https://x/src.tar.gz", sha256="x", archive="tar-gz"),
+    }
+    defaults.update(overrides)
+    return AppSpec(**defaults)
+
+
+def test_go_source_requires_vendor_hash():
+    """A null vendorHash would let the build resolve modules from the network."""
+    with pytest.raises(ValueError, match="go-vendor-hash"):
+        generate(_go_spec(go_vendor_hash=None))
+
+
+def test_go_source_requires_exec_target():
+    with pytest.raises(ValueError, match="exec_target"):
+        generate(_go_spec(exec_target=None))
+
+
+def test_go_source_builds_from_source():
+    """The point of the template: compile, don't download a binary."""
+    output = generate(_go_spec())
+    assert "buildGoModule" in output
+    assert 'vendorHash = "sha256-AAAA' in output
+    # never a prebuilt artefact
+    assert "autoPatchelf" not in output
+    assert "executable = true" not in output
+
+
+def test_go_source_is_hermetic():
+    output = generate(_go_spec())
+    assert "__noChroot" not in output
+    # upstream test suites often need network/a database
+    assert "doCheck = false" in output
+
+
+def test_go_source_optional_attrs_omitted_when_unset():
+    output = generate(_go_spec())
+    assert "subPackages" not in output
+    assert "ldflags" not in output
+
+
+def test_go_source_emits_optional_attrs():
+    output = generate(_go_spec(go_sub_packages=["./cmd/app"], go_ldflags=["-s", "-w"]))
+    assert 'subPackages = [ "./cmd/app" ];' in output
+    assert 'ldflags = [ "-s" "-w" ];' in output
