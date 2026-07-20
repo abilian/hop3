@@ -154,21 +154,46 @@ def test_php_app_single_file():
     assert "cp $src $out/app/index.php" in output
 
 
+def _composer_spec(**overrides) -> AppSpec:
+    defaults = {
+        "pname": "bookstack",
+        "version": "1.0",
+        "description": "t",
+        "template": "php-app",
+        "php_extensions": ["mysqli"],
+        "needs_composer": True,
+        "composer_deps_hash": "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "source": Source(url="x", sha256="x", archive="tar-gz"),
+        "extra_paths": ["${php}/bin"],
+    }
+    return AppSpec(**{**defaults, **overrides})
+
+
 def test_php_app_composer():
-    spec = AppSpec(
-        pname="bookstack",
-        version="1.0",
-        description="t",
-        template="php-app",
-        php_extensions=["mysqli"],
-        needs_composer=True,
-        source=Source(url="x", sha256="x", archive="tar-gz"),
-        extra_paths=["${php}/bin"],
-    )
-    output = generate(spec)
-    assert "__noChroot = true" in output
+    output = generate(_composer_spec())
     assert "composer install" in output
     assert "nativeBuildInputs = [ php composer" in output
+
+
+def test_php_app_composer_requires_deps_hash():
+    """Without the hash the vendored tree is unpinned — refuse to generate."""
+    with pytest.raises(ValueError, match="composer-deps-hash"):
+        generate(_composer_spec(composer_deps_hash=None))
+
+
+def test_php_app_composer_is_hermetic():
+    """Deps are vendored by a fixed-output derivation; the app build is offline."""
+    output = generate(_composer_spec())
+    assert "__noChroot = true" not in output
+    assert 'outputHashMode = "recursive"' in output
+    assert "--no-scripts" in output
+    assert "dump-autoload" in output
+
+
+def test_php_app_composer_failure_is_not_swallowed():
+    """`|| true` would ship an app with a partial vendor tree as a success."""
+    output = generate(_composer_spec())
+    assert "|| true" not in output
 
 
 def test_php_app_artisan_serve():
@@ -430,8 +455,8 @@ def test_nixpkgs_wrapper_exec_prefix_replaces_pkgbin():
 class TestNodePnpmInstallTemplate:
     """node-pnpm-install is for Node apps whose runtime code assumes
     pnpm's virtual-store layout — npm's flat install breaks named ESM
-    imports of CJS modules. Template seeds a package.json + runs
-    pnpm install --prod inside the Nix build (__noChroot for network)."""
+    imports of CJS modules. Dependencies are fetched by a fixed-output
+    derivation from a committed lockfile; the app build is offline."""
 
     def _base_spec(self, **kwargs):
         defaults: dict[str, Any] = {
@@ -441,10 +466,33 @@ class TestNodePnpmInstallTemplate:
             "template": "node-pnpm-install",
             "nixpkgs_package": "directus",  # reinterpreted as npm package name
             "exec_target": "directus",
+            "node_manifest": "package.json",
+            "node_lockfile": "pnpm-lock.yaml",
+            "node_deps_hash": "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
             "source": Source(url="x", sha256="x"),
         }
         defaults.update(kwargs)
         return AppSpec(**defaults)
+
+    def test_requires_a_committed_lockfile(self):
+        """A build-time-synthesized manifest cannot be locked."""
+        with pytest.raises(ValueError, match="committed manifest and lockfile"):
+            generate(self._base_spec(node_lockfile=None))
+
+    def test_requires_deps_hash(self):
+        with pytest.raises(ValueError, match="node-deps-hash"):
+            generate(self._base_spec(node_deps_hash=None))
+
+    def test_is_hermetic(self):
+        """Deps come from the fetched store; the app build never hits the network."""
+        output = generate(self._base_spec())
+        assert "__noChroot = true" not in output
+        assert 'outputHashMode = "recursive"' in output
+        assert "pnpm fetch --store-dir" in output
+        assert "--offline" in output
+        assert "--frozen-lockfile" in output
+        # postinstall hooks routinely fetch prebuilt binaries
+        assert "--ignore-scripts" in output
 
     def test_requires_npm_package(self):
         spec = self._base_spec(nixpkgs_package=None)
@@ -461,12 +509,10 @@ class TestNodePnpmInstallTemplate:
         with pytest.raises(ValueError, match="version"):
             generate(spec)
 
-    def test_uses_pnpm_and_nochroot(self):
-        """pnpm install needs network (nixpkgs-wrapper's closed sandbox
-        wouldn't allow it), and pnpm_9 must be on nativeBuildInputs."""
+    def test_uses_pnpm_inside_the_sandbox(self):
+        """pnpm_9 must be on nativeBuildInputs, and the install stays offline."""
         spec = self._base_spec()
         output = generate(spec)
-        assert "__noChroot = true" in output
         assert "pkgs.pnpm_9" in output
         assert "pnpm install" in output
         assert "--prod" in output
@@ -485,14 +531,17 @@ class TestNodePnpmInstallTemplate:
         output = generate(spec)
         assert "pkgs.nodejs_20" in output
 
-    def test_extras_via_pip_packages_slot(self):
-        """pip_packages is reused as the 'additional npm packages' slot
-        (semantically: extras alongside the primary). DB drivers are
-        the typical case."""
-        spec = self._base_spec(pip_packages=["pg@^8.11.0"])
-        output = generate(spec)
-        assert '"pg": "^8.11.0"' in output
-        assert '"directus": "11.17.2"' in output
+    def test_dependencies_come_from_the_committed_manifest(self):
+        """Extras are no longer injected via a synthesized package.json.
+
+        The old `pip_packages`-as-npm-extras slot produced a manifest that
+        existed only inside the build, so it could never be locked. Additional
+        dependencies now belong in the committed manifest alongside the rest.
+        """
+        output = generate(self._base_spec(pip_packages=["pg@^8.11.0"]))
+        assert '"pg": "^8.11.0"' not in output
+        assert "cp ${manifest} package.json" in output
+        assert "cp ${lockfile} pnpm-lock.yaml" in output
 
     def test_wrapper_pinned_node_on_path(self):
         """pnpm bin shims and npm-distributed binaries shebang

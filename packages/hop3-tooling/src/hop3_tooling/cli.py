@@ -5,9 +5,20 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import click
+import tomllib
+
+from hop3.plugins.build.nix.gen.registry import generate
+from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
+from hop3_tooling.nix_hash import (
+    PLACEHOLDER_HASH,
+    hash_key_for,
+    parse_nix_hash_mismatch,
+    set_nix_hash,
+)
 
 from . import catalog as catalog_lib
 from .verify import CHECKS, DEFAULT_HOST, run_verification
@@ -156,3 +167,81 @@ def verify(
 
 if __name__ == "__main__":
     main()
+
+
+@main.group()
+def nix() -> None:
+    """Nix-recipe maintenance."""
+
+
+@nix.command("vendor-hash")
+@click.argument("app_dir", type=click.Path(exists=True, path_type=Path))
+@click.option("--write/--dry-run", default=True, help="Write the hash into hop3.toml.")
+def vendor_hash(app_dir: Path, write: bool) -> None:
+    """Compute a recipe's vendored-dependency hash and record it.
+
+    The hermetic templates pin their dependency set with a fixed-output
+    derivation, whose hash can only be learned by building once. This performs
+    that cycle: generate with a placeholder, build, read the hash Nix reports,
+    write it back.
+    """
+    toml_path = app_dir / "hop3.toml"
+    if not toml_path.is_file():
+        msg = f"{app_dir}: no hop3.toml"
+        raise click.ClickException(msg)
+
+    config = tomllib.loads(toml_path.read_text())
+    template = (config.get("nix") or {}).get("template", "")
+    try:
+        key = hash_key_for(template)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    # Generate with the placeholder so Nix gets far enough to report the truth.
+    seeded = set_nix_hash(toml_path.read_text(), key, PLACEHOLDER_HASH)
+    seeded_config = tomllib.loads(seeded)
+    spec = app_spec_from_config(
+        seeded_config.get("nix") or {},
+        seeded_config.get("metadata") or {},
+        app_dir.name,
+    )
+    # A recipe missing its lockfile cannot be generated at all; report that
+    # as the actionable problem it is rather than a traceback.
+    try:
+        expression = generate(spec)
+    except ValueError as exc:
+        msg = f"{app_dir.name}: {exc}"
+        raise click.ClickException(msg) from exc
+
+    nix_file = app_dir / "hop3.nix"
+    original = nix_file.read_text() if nix_file.exists() else None
+    nix_file.write_text(expression)
+    try:
+        result = subprocess.run(
+            ["nix", "build", "--no-link", "-f", str(nix_file), "package"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    finally:
+        if original is None:
+            nix_file.unlink(missing_ok=True)
+        else:
+            nix_file.write_text(original)
+
+    if result.returncode == 0:
+        click.echo(f"{app_dir.name}: builds with the placeholder — nothing to pin?")
+        return
+
+    found = parse_nix_hash_mismatch(result.stderr)
+    if found is None:
+        # Fail loud: a build that failed for another reason must not look like
+        # a missing hash.
+        click.echo(result.stderr.strip()[-2000:], err=True)
+        msg = f"{app_dir.name}: build failed without a hash mismatch (see above)"
+        raise click.ClickException(msg)
+
+    click.echo(f"{app_dir.name}  {key} = {found}")
+    if write:
+        toml_path.write_text(set_nix_hash(toml_path.read_text(), key, found))
+        click.echo(f"  written to {toml_path}")

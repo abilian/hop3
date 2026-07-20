@@ -126,6 +126,7 @@ def app_spec_from_config(
         php_version=nix_config.get("php-version", "php82"),
         php_extensions=nix_config.get("php-extensions", []),
         needs_composer=nix_config.get("needs-composer", False),
+        composer_deps_hash=nix_config.get("composer-deps-hash"),
         composer_extra_flags=nix_config.get("composer-extra-flags", []),
         strip_components=nix_config.get("strip-components", 1),
         serve_mode=nix_config.get("serve-mode", "builtin"),
@@ -153,6 +154,9 @@ def app_spec_from_config(
         jvm_default_opts=nix_config.get("jvm-default-opts"),
         pip_packages=nix_config.get("pip-packages", []),
         pip_requirements=nix_config.get("pip-requirements"),
+        node_manifest=nix_config.get("node-manifest"),
+        node_lockfile=nix_config.get("node-lockfile"),
+        node_deps_hash=nix_config.get("node-deps-hash"),
         pip_deps_hash=nix_config.get("pip-deps-hash"),
         # Wrapper script fields
         exec_target=nix_config.get("exec-target"),

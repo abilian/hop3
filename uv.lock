@@ -1786,12 +1786,14 @@ version = "0.6.2"
 source = { editable = "packages/hop3-tooling" }
 dependencies = [
     { name = "click" },
+    { name = "hop3-server" },
     { name = "httpx" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.0.0" },
+    { name = "hop3-server", editable = "packages/hop3-server" },
     { name = "httpx", specifier = ">=0.27.2" },
 ]
 

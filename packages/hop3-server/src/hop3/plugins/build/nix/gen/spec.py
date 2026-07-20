@@ -151,6 +151,9 @@ class AppSpec:
     php_extensions: list[str] = field(default_factory=list)
     # Whether the app needs `composer install` in the build phase
     needs_composer: bool = False
+    # For php-app: sha256 of the vendored composer dependency set (the FOD
+    # that fetches from composer.lock). Analogous to pip_deps_hash.
+    composer_deps_hash: str | None = None
     # Extra flags to pass to composer install (e.g., "--ignore-platform-reqs")
     composer_extra_flags: list[str] = field(default_factory=list)
     # Number of leading path components to strip when extracting tarball
@@ -256,6 +259,13 @@ class AppSpec:
     # Generate with `uv export --format requirements-txt` or
     # `pip-compile --generate-hashes`; every entry needs a `--hash=sha256:...`.
     pip_requirements: str | None = None
+    # For node-pnpm-install: committed manifest + lockfile, relative to the
+    # app directory. A synthesized manifest cannot be locked, so the
+    # dependency set must be recorded in the recipe.
+    node_manifest: str | None = None
+    node_lockfile: str | None = None
+    # sha256 of the fetched pnpm store (fixed-output derivation).
+    node_deps_hash: str | None = None
     # For python-venv: sha256 of the vendored-wheels fixed-output derivation
     # (the analogue of buildGoModule's `vendorHash`). Obtain it by building
     # once with a placeholder and reading the `got:` line Nix prints.
