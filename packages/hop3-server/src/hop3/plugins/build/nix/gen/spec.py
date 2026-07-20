@@ -247,8 +247,19 @@ class AppSpec:
     war_file: str | None = None
     # For java-war: extra JVM args (go in JAVA_OPTS)
     jvm_default_opts: str | None = None
-    # For python-venv: packages to pip install
+    # For python-venv: packages to pip install.
+    # DEPRECATED as a sole source of truth — bare names are unpinned and
+    # unhashed, so the build is neither reproducible nor offline-capable.
+    # Ship a hash-pinned lockfile (`pip_requirements`) instead.
     pip_packages: list[str] = field(default_factory=list)
+    # For python-venv: hash-pinned lockfile, relative to the app directory.
+    # Generate with `uv export --format requirements-txt` or
+    # `pip-compile --generate-hashes`; every entry needs a `--hash=sha256:...`.
+    pip_requirements: str | None = None
+    # For python-venv: sha256 of the vendored-wheels fixed-output derivation
+    # (the analogue of buildGoModule's `vendorHash`). Obtain it by building
+    # once with a placeholder and reading the `got:` line Nix prints.
+    pip_deps_hash: str | None = None
 
     # --- wrapper script fields (used by all templates) ---
     exec_target: str | None = None  # What to exec (relative to $out/bin)

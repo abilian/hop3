@@ -148,6 +148,8 @@ def isso_spec() -> AppSpec:
         description="Commenting system",
         template="python-venv",
         pip_packages=["isso", "gunicorn"],
+        pip_requirements="requirements.txt",
+        pip_deps_hash="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         source=Source(url="file:///dev/null", sha256=""),
         exec_target="isso",
         exec_args=["-c", "config.cfg"],

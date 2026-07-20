@@ -29,7 +29,9 @@ class TestDockerBuilderAccept:
     def test_accept_with_dockerfile(self, tmp_path: Path):
         """Should accept when Dockerfile exists."""
         # Create Dockerfile
-        (tmp_path / "Dockerfile").write_text("FROM python:3.11\n")
+        (tmp_path / "Dockerfile").write_text(
+            "FROM python:3.11@sha256:0000000000000000000000000000000000000000000000000000000000000000\n"
+        )
 
         context = BuildContext(
             app_name="test-app",
@@ -108,7 +110,9 @@ class TestDockerBuilderMetadataExtraction:
     def test_extract_single_exposed_port(self, tmp_path: Path):
         """Should extract single EXPOSE port from Dockerfile."""
         dockerfile = tmp_path / "Dockerfile"
-        dockerfile.write_text("FROM python:3.11\nEXPOSE 8080\nCMD python app.py\n")
+        dockerfile.write_text(
+            "FROM python:3.11@sha256:0000000000000000000000000000000000000000000000000000000000000000\nEXPOSE 8080\nCMD python app.py\n"
+        )
 
         context = BuildContext(
             app_name="test-app",
@@ -158,7 +162,9 @@ class TestDockerBuilderMetadataExtraction:
     def test_no_exposed_ports(self, tmp_path: Path):
         """Should handle Dockerfile without EXPOSE."""
         dockerfile = tmp_path / "Dockerfile"
-        dockerfile.write_text("FROM python:3.11\nCMD python app.py\n")
+        dockerfile.write_text(
+            "FROM python:3.11@sha256:0000000000000000000000000000000000000000000000000000000000000000\nCMD python app.py\n"
+        )
 
         context = BuildContext(
             app_name="test-app",
@@ -178,7 +184,9 @@ class TestDockerBuilderBuild:
     def test_build_success(self, tmp_path: Path):
         """Should return BuildArtifact on successful build."""
         dockerfile = tmp_path / "Dockerfile"
-        dockerfile.write_text("FROM python:3.11\nEXPOSE 8080\n")
+        dockerfile.write_text(
+            "FROM python:3.11@sha256:0000000000000000000000000000000000000000000000000000000000000000\nEXPOSE 8080\n"
+        )
 
         context = BuildContext(
             app_name="test-app",
@@ -203,7 +211,9 @@ class TestDockerBuilderBuild:
     def test_build_docker_not_found(self, tmp_path: Path):
         """Should raise Abort when Docker is not installed."""
         dockerfile = tmp_path / "Dockerfile"
-        dockerfile.write_text("FROM python:3.11\n")
+        dockerfile.write_text(
+            "FROM python:3.11@sha256:0000000000000000000000000000000000000000000000000000000000000000\n"
+        )
 
         context = BuildContext(
             app_name="test-app",
@@ -221,7 +231,9 @@ class TestDockerBuilderBuild:
     def test_build_failure(self, tmp_path: Path):
         """Should raise Abort when docker build fails."""
         dockerfile = tmp_path / "Dockerfile"
-        dockerfile.write_text("FROM nonexistent:image\n")
+        dockerfile.write_text(
+            "FROM nonexistent:image@sha256:0000000000000000000000000000000000000000000000000000000000000000\n"
+        )
 
         context = BuildContext(
             app_name="test-app",
@@ -240,7 +252,9 @@ class TestDockerBuilderBuild:
 
     def test_build_timeout(self, tmp_path: Path):
         """Should raise Abort when build times out (fixed 30-minute budget)."""
-        (tmp_path / "Dockerfile").write_text("FROM python:3.11\n")
+        (tmp_path / "Dockerfile").write_text(
+            "FROM python:3.11@sha256:0000000000000000000000000000000000000000000000000000000000000000\n"
+        )
 
         context = BuildContext(
             app_name="test-app",

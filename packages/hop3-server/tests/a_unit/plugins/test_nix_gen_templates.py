@@ -270,46 +270,58 @@ def test_java_war_sed_replaces_javabin_and_warpath():
 # --- python-venv ---
 
 
-def test_python_venv_requires_pip_packages():
-    spec = AppSpec(
-        pname="test",
-        version="1.0",
-        description="t",
-        template="python-venv",
-        source=Source(url="x", sha256="x"),
-        exec_target="test",
-    )
-    with pytest.raises(ValueError, match="pip_packages"):
-        generate(spec)
+def _python_spec(**overrides) -> AppSpec:
+    defaults = {
+        "pname": "test",
+        "version": "1.0",
+        "description": "t",
+        "template": "python-venv",
+        "source": Source(url="x", sha256="x"),
+        "exec_target": "myapp",
+        "pip_requirements": "requirements.txt",
+        "pip_deps_hash": "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    }
+    return AppSpec(**{**defaults, **overrides})
+
+
+def test_python_venv_requires_a_lockfile():
+    """Bare package names are unpinned: refuse rather than build irreproducibly."""
+    with pytest.raises(ValueError, match="hash-pinned lockfile"):
+        generate(_python_spec(pip_requirements=None))
+
+
+def test_python_venv_requires_deps_hash():
+    """Without the vendored-deps hash the dependency set is not pinned."""
+    with pytest.raises(ValueError, match="pip-deps-hash"):
+        generate(_python_spec(pip_deps_hash=None))
 
 
 def test_python_venv_requires_exec_target():
-    spec = AppSpec(
-        pname="test",
-        version="1.0",
-        description="t",
-        template="python-venv",
-        source=Source(url="x", sha256="x"),
-        pip_packages=["myapp"],
-    )
     with pytest.raises(ValueError, match="exec_target"):
-        generate(spec)
+        generate(_python_spec(exec_target=None))
 
 
 def test_python_venv_creates_venv():
-    spec = AppSpec(
-        pname="test",
-        version="1.0",
-        description="t",
-        template="python-venv",
-        pip_packages=["myapp", "gunicorn"],
-        exec_target="myapp",
-        source=Source(url="x", sha256="x"),
-    )
-    output = generate(spec)
+    output = generate(_python_spec())
     assert "python -m venv $out/venv" in output
-    assert "pip install myapp gunicorn" in output
     assert 'sed -i "s|VENVBIN|$out/venv/bin|g"' in output
+
+
+def test_python_venv_is_hermetic():
+    """The build must be sandboxed and offline — the whole point of the template.
+
+    Network access is confined to the fixed-output derivation that vendors the
+    wheels; the application build then installs with --no-index.
+    """
+    output = generate(_python_spec())
+    # the app build must NOT escape the sandbox
+    assert "__noChroot = true" not in output
+    # dependencies pinned by a content hash (the vendorHash analogue)
+    assert 'outputHashMode = "recursive"' in output
+    assert "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" in output
+    # and installed offline, verified against the lockfile hashes
+    assert "--no-index" in output
+    assert "--require-hashes" in output
 
 
 # --- nixpkgs-wrapper ---

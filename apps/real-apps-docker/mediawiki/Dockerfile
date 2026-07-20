@@ -1,7 +1,7 @@
 # MediaWiki Dockerfile for Hop3
 # Built from Debian base per the demo guideline — no FROM mediawiki.
 
-FROM debian:trixie-slim
+FROM debian:trixie-slim@sha256:020c0d20b9880058cbe785a9db107156c3c75c2ac944a6aa7ab59f2add76a7bd
 
 ENV DEBIAN_FRONTEND=noninteractive
 

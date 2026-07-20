@@ -17,6 +17,47 @@ from hop3.lib import chdir, log
 
 from ._base import LanguageToolchain
 
+# Lines that are options or includes rather than requirements themselves.
+_NON_REQUIREMENT_PREFIXES = ("#", "-r ", "-c ", "-e ", "-f ", "--")
+
+
+def _requirement_lines(text: str) -> list[str]:
+    """The requirement entries of a requirements file, one per line.
+
+    Continuations are joined first, so ``pkg==1.0 \\`` followed by ``--hash=...``
+    is treated as the single requirement it is.
+    """
+    joined = text.replace("\\\n", " ")
+    return [
+        line
+        for raw in joined.splitlines()
+        if (line := raw.strip()) and not line.startswith(_NON_REQUIREMENT_PREFIXES)
+    ]
+
+
+def unpinned_requirements(text: str) -> list[str]:
+    """Requirements that do not pin an exact version.
+
+    A dependency without ``==`` (or an accompanying hash) resolves to whatever
+    satisfies it on the day of the build, so two deploys of the same commit can
+    install different code.
+    """
+    return [
+        req
+        for req in _requirement_lines(text)
+        if "==" not in req and "--hash=" not in req
+    ]
+
+
+def requirements_are_hashed(text: str) -> bool:
+    """True when every requirement carries a hash, enabling ``--require-hashes``.
+
+    Version pinning fixes *which release* is installed; a hash additionally
+    fixes *which bytes*, so a tampered or re-uploaded artefact is rejected.
+    """
+    reqs = _requirement_lines(text)
+    return bool(reqs) and all("--hash=" in req for req in reqs)
+
 
 def _find_best_python() -> str:
     """Find the best available Python interpreter (3.12, 3.11, 3.10, or fallback).
@@ -229,8 +270,22 @@ class PythonToolchain(LanguageToolchain):
                 )
                 raise RuntimeError(msg)
             case True, False:
+                text = requirements_file.read_text()
+                unpinned = unpinned_requirements(text)
+                if unpinned:
+                    shown = ", ".join(unpinned[:5])
+                    msg = (
+                        f"'{self.app_name}' has unpinned requirements ({shown}), so "
+                        f"the build resolves to whatever satisfies them today and "
+                        f"cannot be reproduced. Pin every dependency — "
+                        f"`uv export --format requirements-txt` or "
+                        f"`pip-compile --generate-hashes` — and commit the result."
+                    )
+                    raise RuntimeError(msg)
+                # Hashes let pip verify each artefact, not merely its version.
+                flags = " --require-hashes" if requirements_are_hashed(text) else ""
                 log("Installing from requirements.txt", level=2, fg="green")
-                self.shell(f"{python} -m pip install -r {requirements_file}")
+                self.shell(f"{python} -m pip install{flags} -r {requirements_file}")
             case False, True:
                 log("Installing from pyproject.toml", level=2, fg="green")
                 self.shell(f"{python} -m pip install .")

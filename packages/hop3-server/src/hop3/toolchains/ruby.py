@@ -43,7 +43,10 @@ class RubyToolchain(LanguageToolchain):
 
             emit(InstallingVirtualEnv(self.app_name))
             log("Installing Ruby gems with bundler...", level=2, fg="cyan")
-            self.shell("bundle install", env=env)
+            # --frozen refuses to install when Gemfile.lock is missing or out of
+            # sync with the Gemfile, instead of silently re-resolving and
+            # producing a different gem set than the one that was tested.
+            self.shell("bundle install --frozen", env=env)
             log("Ruby gems installed successfully", level=2, fg="green")
 
         # Compute environment variables for runtime

@@ -5,7 +5,7 @@
 # only Docker images; we build from source to avoid pulling an
 # opaque image.
 
-FROM golang:1-trixie AS builder
+FROM golang:1-trixie@sha256:4ee9ffa999b4583ce281939cdff828763083610292f252279a0cee77473bd9a7 AS builder
 
 ARG GATUS_VERSION=5.35.0
 WORKDIR /build
@@ -20,7 +20,7 @@ RUN apt-get update -q && apt-get install -q -y --no-install-recommends \
 RUN go build -ldflags="-s -w" -o /build/gatus .
 
 
-FROM debian:trixie-slim
+FROM debian:trixie-slim@sha256:020c0d20b9880058cbe785a9db107156c3c75c2ac944a6aa7ab59f2add76a7bd
 
 ENV DEBIAN_FRONTEND=noninteractive
 

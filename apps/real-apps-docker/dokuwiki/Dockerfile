@@ -1,7 +1,7 @@
 # DokuWiki Dockerfile for Hop3
 # A simple, versatile wiki that doesn't require a database
 
-FROM php:8.3-apache
+FROM php:8.3-apache@sha256:a05f87f7f1e3927b9f3a44d64c01dfe15992328fa179bdfa72ad06e66769ff57
 
 WORKDIR /var/www/html
 

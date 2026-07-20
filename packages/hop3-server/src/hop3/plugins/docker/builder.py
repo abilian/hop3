@@ -100,6 +100,30 @@ _BUILD_ATTEMPTS = 3
 _BUILD_RETRY_DELAYS = (5, 15, 0)  # before attempt 2, before attempt 3, unused
 
 
+def unpinned_base_images(dockerfile: str) -> list[str]:
+    """Base images referenced by tag rather than by digest.
+
+    ``scratch`` needs no digest (it is empty by definition), and a ``FROM``
+    naming an earlier build stage refers to something built in this same file,
+    so neither is reported.
+    """
+    stages: set[str] = set()
+    unpinned: list[str] = []
+    for raw in dockerfile.splitlines():
+        line = raw.strip()
+        if not line.upper().startswith("FROM "):
+            continue
+        parts = line.split()
+        image = parts[1]
+        # `FROM x AS builder` declares a stage that later FROMs may reference
+        if len(parts) >= 4 and parts[2].upper() == "AS":
+            stages.add(parts[3])
+        if image == "scratch" or image in stages or "@sha256:" in image:
+            continue
+        unpinned.append(image)
+    return unpinned
+
+
 class _TransientRegistryError(Exception):
     """An upstream registry blip that is worth retrying."""
 
@@ -220,8 +244,11 @@ class DockerBuilder:
             BuildArtifact with kind="docker-image" and the image tag as location
 
         Raises:
-            Abort: If Docker is not installed or build fails
+            Abort: If Docker is not installed, a base image is unpinned, or the
+                build fails
         """
+        self._check_base_images_pinned()
+
         image_tag = self._generate_image_tag()
 
         log(f"Building Docker image: {image_tag}", level=2, fg="blue")
@@ -238,6 +265,30 @@ class DockerBuilder:
             location=image_tag,
             metadata=metadata,
         )
+
+    def _check_base_images_pinned(self) -> None:
+        """Refuse to build when a base image is not pinned by digest.
+
+        ``FROM debian:trixie-slim`` resolves to whatever that tag points at on
+        the day of the build, so the image is not reproducible and the supply
+        chain is unverifiable. ``FROM debian:trixie-slim@sha256:...`` names
+        exact bytes.
+        """
+        dockerfile = self.source_path / "Dockerfile"
+        if not dockerfile.is_file():
+            return
+        unpinned = unpinned_base_images(dockerfile.read_text())
+        if not unpinned:
+            return
+        listed = ", ".join(unpinned)
+        msg = (
+            f"{self.app_name}: Dockerfile base image(s) not pinned by digest "
+            f"({listed}). A tag is mutable, so the build cannot be reproduced "
+            f"or audited. Pin with `FROM image:tag@sha256:...` — resolve the "
+            f"digest via `docker buildx imagetools inspect <image> "
+            f"--format '{{{{.Manifest.Digest}}}}'`."
+        )
+        raise Abort(msg)
 
     def _generate_image_tag(self) -> str:
         """Generate a Docker image tag for this app.

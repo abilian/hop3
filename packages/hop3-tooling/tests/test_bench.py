@@ -6,17 +6,23 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 from hop3_tooling.bench.probes import (
     BenchError,
     ControlPlaneMemory,
     control_plane_memory,
+    parse_cgroup_bytes,
     parse_closure,
     parse_docker_size,
     parse_pss_kb,
+    parse_single_path,
 )
+from hop3_tooling.bench.report import render_all
 
-# Captured from the 2026-07-19 dev-box run (see local-notes/benchmarks/).
+# Captured from the 2026-07-19 dev-box run (see notes/benchmarks/).
 SMAPS_ROLLUP = """\
 55f0a0000000-7ffd00000000 ---p 00000000 00:00 0    [rollup]
 Rss:              126008 kB
@@ -75,6 +81,49 @@ def test_control_plane_memory_raises_on_empty_process_set():
     # A swallowed empty process set would report zero memory — must fail loud.
     with pytest.raises(BenchError, match="not running"):
         control_plane_memory(lambda cmd: "")
+
+
+def test_parse_single_path_returns_size_and_hash():
+    size, nar_hash = parse_single_path(
+        '[{"path":"/nix/store/x","narSize":19397240,"narHash":"sha256-abc"}]'
+    )
+    assert size == 19397240
+    assert nar_hash == "sha256-abc"
+
+
+def test_parse_single_path_rejects_zero():
+    with pytest.raises(BenchError, match="zero-byte"):
+        parse_single_path('[{"path":"/nix/store/x","narSize":0}]')
+
+
+def test_parse_cgroup_bytes():
+    assert parse_cgroup_bytes(" 181256192\n") == 181256192
+
+
+def test_parse_cgroup_bytes_rejects_non_numeric():
+    with pytest.raises(BenchError, match="not a number"):
+        parse_cgroup_bytes("max")
+
+
+# ---- the paper's figures must be regenerable from the raw run ---------------
+
+RUN = Path(__file__).parents[3] / "notes" / "benchmarks" / "2026-07-19-preliminary.json"
+
+
+@pytest.mark.skipif(not RUN.exists(), reason="raw measurement run not present")
+def test_paper_figures_regenerate_from_the_raw_run():
+    """Guards the claim that no figure in the paper is hand-transcribed."""
+    rendered = render_all(json.loads(RUN.read_text()))
+    # closure table (Table 3)
+    assert "| Miniflux 2.2.8 | 54.8 MB | 8 | 12.3 MB | 19.4 MB |" in rendered
+    assert "Keycloak 26.1.4" in rendered
+    # dedup, both homogeneity regimes
+    assert "36.3%" in rendered
+    assert "21.0%" in rendered
+    # build-and-install
+    assert "528 s" in rendered
+    # the like-for-like control-plane ratio quoted in the paper
+    assert "7.8× lighter than K3s" in rendered
 
 
 def test_control_plane_memory_sums_over_pids():

@@ -94,10 +94,12 @@ def test_java_war_has_jdk(jenkins_spec: AppSpec):
     assert "jenkins.war" in output
 
 
-def test_python_venv_has_pip(isso_spec: AppSpec):
+def test_python_venv_installs_offline(isso_spec: AppSpec):
+    """Deps come from the vendored FOD, and the app build stays sandboxed."""
     output = generate(isso_spec)
-    assert "pip install isso gunicorn" in output
-    assert "__noChroot = true" in output
+    assert "pip download --require-hashes" in output
+    assert "--no-index --find-links" in output
+    assert "__noChroot = true" not in output
 
 
 def test_nixpkgs_wrapper_uses_package(radicale_spec: AppSpec):
