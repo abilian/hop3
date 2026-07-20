@@ -69,6 +69,34 @@ def parse_docker_size(inspect_output: str) -> int:
     return int(text)
 
 
+def parse_single_path(path_info_json: str) -> tuple[int, str]:
+    """Parse ``nix path-info --json <path>`` for one path: (narSize, narHash).
+
+    The path's *own* narSize is what a source-only version bump re-sends: its
+    pinned dependencies are unchanged and stay in the target's store.
+    """
+    data = json.loads(path_info_json)
+    records = list(data.values()) if isinstance(data, dict) else list(data)
+    if not records:
+        msg = "empty path-info output — cannot read the path's own size"
+        raise BenchError(msg)
+    record = records[0]
+    size = int(record.get("narSize") or 0)
+    if size <= 0:
+        msg = "path-info reported a zero-byte path"
+        raise BenchError(msg)
+    return size, str(record.get("narHash") or "")
+
+
+def parse_cgroup_bytes(memory_current: str) -> int:
+    """Parse a cgroup-v2 ``memory.current`` reading (bytes)."""
+    text = memory_current.strip()
+    if not text.isdigit():
+        msg = f"cgroup memory.current is not a number: {text!r}"
+        raise BenchError(msg)
+    return int(text)
+
+
 # --- results ----------------------------------------------------------------
 
 
@@ -95,6 +123,32 @@ class ClosureInfo:
     @property
     def closure_mb(self) -> float:
         return round(self.closure_bytes / 1_000_000, 1)
+
+
+@dataclass(frozen=True, slots=True)
+class UpdateDelta:
+    """Bytes re-sent when only the application's source changes."""
+
+    store_path: str
+    own_bytes: int
+    closure_bytes: int
+
+    @property
+    def own_mb(self) -> float:
+        return round(self.own_bytes / 1_000_000, 1)
+
+    @property
+    def fraction_of_closure(self) -> float:
+        return round(self.own_bytes / self.closure_bytes, 3)
+
+
+@dataclass(frozen=True, slots=True)
+class RebuildCheck:
+    """Result of a double-build determinism check."""
+
+    store_path: str
+    nar_hash: str
+    reproducible: bool
 
 
 # --- fail-loud probes (I/O via the runner) ----------------------------------
@@ -140,6 +194,49 @@ def docker_image_size(run: Runner, image: str) -> int:
     """Uncompressed size (bytes) of a pulled Docker image."""
     out = run(f"docker image inspect --format '{{{{.Size}}}}' {shlex.quote(image)}")
     return parse_docker_size(out)
+
+
+def nix_update_delta(run: Runner, store_path: str) -> UpdateDelta:
+    """Bytes a source-only version bump re-sends (the path's own narSize).
+
+    Pinned dependencies are unchanged by a source bump, so they stay in the
+    target's store and are not re-transferred; only this path moves.
+    """
+    quoted = shlex.quote(store_path)
+    own, _ = parse_single_path(run(f"nix path-info --json {quoted}"))
+    closure = parse_closure(run(f"nix path-info -r --json {quoted}"))
+    return UpdateDelta(
+        store_path=store_path, own_bytes=own, closure_bytes=closure.closure_bytes
+    )
+
+
+def nix_rebuild_reproducible(run: Runner, store_path: str) -> RebuildCheck:
+    """Rebuild from source and check the output is byte-identical.
+
+    ``nix build --rebuild`` rebuilds the derivation locally and compares the
+    result against the existing output; it fails on a hash mismatch. A mismatch
+    is reported as ``reproducible=False`` rather than raising — a
+    non-deterministic build is a *result*, not a probe failure.
+    """
+    quoted = shlex.quote(store_path)
+    _, nar_hash = parse_single_path(run(f"nix path-info --json {quoted}"))
+    try:
+        run(f"nix build --rebuild --no-link {quoted}")
+    except BenchError:
+        return RebuildCheck(
+            store_path=store_path, nar_hash=nar_hash, reproducible=False
+        )
+    return RebuildCheck(store_path=store_path, nar_hash=nar_hash, reproducible=True)
+
+
+def cgroup_memory(run: Runner, service: str) -> int:
+    """``memory.current`` (bytes) of a systemd service's cgroup.
+
+    One metric applied to every stack, so Hop3, dockerd and k3s are comparable.
+    Note it charges page cache, so it can fall either side of the resident set.
+    """
+    path = f"/sys/fs/cgroup/system.slice/{service}.service/memory.current"
+    return parse_cgroup_bytes(run(f"cat {shlex.quote(path)}"))
 
 
 def _parse_vmrss_kb(status_line: str) -> int:

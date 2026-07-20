@@ -66,7 +66,9 @@ def drift(catalog_apps: Path | None, source_root: Path | None) -> None:
 
     click.echo("")
     if bad:
-        click.echo(f"DRIFT: {bad} of {len(ids)} catalog app(s) differ from tested source.")
+        click.echo(
+            f"DRIFT: {bad} of {len(ids)} catalog app(s) differ from tested source."
+        )
         click.echo("Re-promote from the tested source (do not hand-edit the catalog).")
         raise SystemExit(1)
     click.echo(f"All {len(ids)} catalog app(s) match their tested source.")
@@ -112,8 +114,12 @@ def promote(
 @click.option(
     "--apps", default="", help="comma-separated subset (default: all verifiable)"
 )
-@click.option("--host", default=DEFAULT_HOST, help="box hostname (SSH DB check + label)")
-@click.option("--deploy", "do_deploy", is_flag=True, help="catalog-install each app first")
+@click.option(
+    "--host", default=DEFAULT_HOST, help="box hostname (SSH DB check + label)"
+)
+@click.option(
+    "--deploy", "do_deploy", is_flag=True, help="catalog-install each app first"
+)
 @click.option("--cleanup", is_flag=True, help="with --deploy, destroy each app after")
 @click.option("--insecure", is_flag=True, help="skip TLS verification (dev box)")
 @click.option("--name-map", default="", help="id=deployed_name,... overrides")

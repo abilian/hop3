@@ -13,7 +13,9 @@ if TYPE_CHECKING:
 from hop3_tooling.catalog import compare_app, promote_app, recipe_files
 
 
-def _make_app(base: Path, *, toml: str = "id = 'app'\n", setup: str = "echo hi\n") -> Path:
+def _make_app(
+    base: Path, *, toml: str = "id = 'app'\n", setup: str = "echo hi\n"
+) -> Path:
     (base / "scripts").mkdir(parents=True)
     (base / "hop3.toml").write_text(toml)
     (base / "scripts" / "setup.sh").write_text(setup)

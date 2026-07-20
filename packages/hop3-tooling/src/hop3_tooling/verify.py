@@ -252,7 +252,9 @@ def probe_paheko(base, cred, login_id, password) -> bool:
     login_url = f"{base}/admin/login.php"
     with _client() as c:
         g = c.get(login_url)
-        m = re.search(r'name=["\'](ct_[0-9a-f]+)["\'][^>]*value=["\']([^"\']*)["\']', g.text)
+        m = re.search(
+            r'name=["\'](ct_[0-9a-f]+)["\'][^>]*value=["\']([^"\']*)["\']', g.text
+        )
         if not m:
             return False
         r = c.post(
@@ -326,14 +328,14 @@ LIMESURVEY_OLD_DEFAULT = "change-me-admin-password"
 # generated + old-default passwords against the stored bcrypt hash.
 _LIMESURVEY_PHP = (
     '$c=file_get_contents("application/config/config.php");'
-    '$re=function($k)use($c){'
+    "$re=function($k)use($c){"
     'preg_match("/\\x27".$k."\\x27\\s*=>\\s*\\x27([^\\x27]*)\\x27/",$c,$m);'
     'return $m[1]??"";};'
     '$pdo=new PDO($re("connectionString"),$re("username"),$re("password"));'
     '$rows=$pdo->query("SELECT users_name,password FROM lime_users")'
     "->fetchAll(PDO::FETCH_ASSOC);"
     'if(!$rows){echo "NOROWS\\n";}'
-    'foreach($rows as $r){'
+    "foreach($rows as $r){"
     'echo "USER=".$r["users_name"]'
     '." GEN=".(password_verify(getenv("GEN"),$r["password"])?"yes":"no")'
     '." OLD=".(password_verify(getenv("OLD"),$r["password"])?"yes":"no")."\\n";}'
@@ -491,7 +493,11 @@ def verify_app(
         cred = read_generated_credential(app_name)
     except RuntimeError as e:
         return [("credentials_retrieved", False, str(e).splitlines()[0])]
-    results.append(("credentials_retrieved", True, f"user={cred.username or cred.email}"))
+    results.append((
+        "credentials_retrieved",
+        True,
+        f"user={cred.username or cred.email}",
+    ))
 
     base = cred.url
     login_id = resolve_login_id(check, cred)
@@ -505,7 +511,11 @@ def verify_app(
             old_id, old_pw = check.old_default
             try:
                 accepted = check.probe(base, cred, old_id, old_pw)
-                results.append(("old_default_rejected", not accepted, f"{old_id}/{old_pw}"))
+                results.append((
+                    "old_default_rejected",
+                    not accepted,
+                    f"{old_id}/{old_pw}",
+                ))
             except httpx.HTTPError as e:
                 results.append(("old_default_rejected", False, f"probe error: {e}"))
 
@@ -517,9 +527,11 @@ def verify_app(
 
     if check.registration_closed is not None:
         try:
-            results.append(
-                ("registration_closed", check.registration_closed(base, cred), "")
-            )
+            results.append((
+                "registration_closed",
+                check.registration_closed(base, cred),
+                "",
+            ))
         except httpx.HTTPError as e:
             results.append(("registration_closed", False, f"probe error: {e}"))
 

@@ -60,11 +60,18 @@ def test_install_modules_skips_when_node_modules_exists(tmp_path, monkeypatch):
     tc.install_modules(Env({}))  # must skip, must not shell out
 
 
-def test_install_modules_installs_when_no_node_modules(tmp_path, monkeypatch):
-    """With no prebuild-populated node_modules, the toolchain installs."""
+def test_install_modules_installs_from_the_lockfile(tmp_path, monkeypatch):
+    """With no prebuild-populated node_modules, the toolchain installs.
+
+    It must use `npm ci`, which installs exactly the tree recorded in the
+    lockfile. `npm install` would re-resolve every semver range against the
+    registry, so the same commit could ship different dependencies on a later
+    deploy.
+    """
     src = tmp_path / "src"
     src.mkdir(parents=True)
     (src / "package.json").write_text("{}")
+    (src / "package-lock.json").write_text("{}")
 
     tc = NodeToolchain("myapp", tmp_path)
     monkeypatch.setattr(node_mod, "emit", lambda *_a, **_k: None)
@@ -74,4 +81,20 @@ def test_install_modules_installs_when_no_node_modules(tmp_path, monkeypatch):
 
     tc.install_modules(Env({}))
 
-    assert any("npm install" in c for c in calls)
+    assert any("npm ci" in c for c in calls)
+    assert not any("--package-lock=false" in c for c in calls)
+
+
+def test_install_modules_aborts_without_a_lockfile(tmp_path, monkeypatch):
+    """No lockfile means unpinned dependencies — refuse rather than guess."""
+    src = tmp_path / "src"
+    src.mkdir(parents=True)
+    (src / "package.json").write_text("{}")
+
+    tc = NodeToolchain("myapp", tmp_path)
+    monkeypatch.setattr(node_mod, "emit", lambda *_a, **_k: None)
+    monkeypatch.setattr(node_mod, "check_binaries", lambda _bins: True)
+    monkeypatch.setattr(tc, "shell", lambda *_a, **_k: None)
+
+    with pytest.raises(Abort, match=r"package-lock\.json"):
+        tc.install_modules(Env({}))

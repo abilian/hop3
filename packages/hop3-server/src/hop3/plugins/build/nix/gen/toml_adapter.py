@@ -152,6 +152,8 @@ def app_spec_from_config(
         war_file=nix_config.get("war-file"),
         jvm_default_opts=nix_config.get("jvm-default-opts"),
         pip_packages=nix_config.get("pip-packages", []),
+        pip_requirements=nix_config.get("pip-requirements"),
+        pip_deps_hash=nix_config.get("pip-deps-hash"),
         # Wrapper script fields
         exec_target=nix_config.get("exec-target"),
         exec_args=nix_config.get("exec-args", []),

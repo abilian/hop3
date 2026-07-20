@@ -9,7 +9,7 @@
 # and we avoid pulling third-party images per the project's Docker
 # guidelines — so we compile.
 
-FROM rust:1-trixie AS builder
+FROM rust:1-trixie@sha256:9a2cd304a852f05d3352f75bc2775242371c0169a72dbb40d5d881379d571989 AS builder
 
 ARG VAULTWARDEN_VERSION=1.35.4
 
@@ -31,7 +31,7 @@ RUN curl -fsSL "https://github.com/dani-garcia/vaultwarden/archive/refs/tags/${V
 RUN cargo build --features "sqlite,mysql,postgresql" --release
 
 
-FROM debian:trixie-slim
+FROM debian:trixie-slim@sha256:020c0d20b9880058cbe785a9db107156c3c75c2ac944a6aa7ab59f2add76a7bd
 
 ENV DEBIAN_FRONTEND=noninteractive
 

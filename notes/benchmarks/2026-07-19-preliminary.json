@@ -1,0 +1,68 @@
+{
+  "run": "2026-07-19-preliminary",
+  "target": "hop3-dev.abilian.com",
+  "kind": "read-only + direct-nix-build; NOT the full pre-registered run",
+  "box": {"os": "Linux 6.8.0-90-generic", "arch": "x86_64", "vcpu": 8, "ram_mb": 15613},
+  "nixpkgs_rev": "50ab793786d9de88ee30ec4e4c24fb4236fc2674",
+  "units": "sizes in MB (1 MB = 1e6 bytes), uncompressed",
+
+  "control_plane_memory": {
+    "note": "management set = hop3-server master + 1 worker; measured with 1 app deployed",
+    "pids": [392333, 392343],
+    "pss_mb": 204.6,
+    "rss_mb": 258.1,
+    "largest_single_process_pss_mb": 109.9,
+    "apps_deployed": 1
+  },
+
+  "closure_vs_image": {
+    "note": "Nix = narSize sum of runtime closure (uncompressed); Docker = docker image inspect .Size of the matching upstream tag (uncompressed); update_delta_mb = the app's own store-path (bytes re-sent on a source-only bump, pinned deps unchanged). Ordered by closure size.",
+    "rows": [
+      {"app": "miniflux",   "version": "2.2.8",   "nix_closure_mb":   54.8, "nix_paths":   8, "docker_image": "miniflux/miniflux:2.2.8",             "docker_mb":  12.3, "update_delta_mb":  19.4},
+      {"app": "vikunja",    "version": "0.24.6",  "nix_closure_mb":  109.6, "nix_paths":   8, "docker_image": "vikunja/vikunja:0.24.6",              "docker_mb":  36.4, "update_delta_mb":  74.2},
+      {"app": "mattermost", "version": "9.11.16", "nix_closure_mb":  245.8, "nix_paths":   9, "docker_image": "mattermost/mattermost-team-edition:9.11.16", "docker_mb": 424.9, "update_delta_mb": 79.8},
+      {"app": "gitea",      "version": "1.22.6",  "nix_closure_mb":  483.8, "nix_paths":  94, "docker_image": "gitea/gitea:1.22.6",                  "docker_mb":  71.4, "update_delta_mb":  97.8},
+      {"app": "forgejo",    "version": "11.0.1",  "nix_closure_mb":  505.3, "nix_paths":  93, "docker_image": "codeberg.org/forgejo/forgejo:11.0.1", "docker_mb":  75.1, "update_delta_mb": 112.8},
+      {"app": "keycloak",   "version": "26.1.4",  "nix_closure_mb": 1149.8, "nix_paths": 157, "docker_image": "quay.io/keycloak/keycloak:26.1.4",    "docker_mb": 239.2, "update_delta_mb": 164.1}
+    ]
+  },
+
+  "dedup": {
+    "note": "deduplicated union closure vs sum of individual closures — depends on runtime homogeneity",
+    "homogeneous_4_go": {"apps": ["miniflux", "gitea", "forgejo", "vikunja"], "union_mb": 734.4, "union_paths": 98, "sum_individual_mb": 1153.6, "saving_pct": 36.3},
+    "mixed_6": {"apps": ["miniflux", "gitea", "forgejo", "vikunja", "keycloak", "mattermost"], "union_mb": 2013.9, "union_paths": 215, "sum_individual_mb": 2549.1, "saving_pct": 21.0}
+  },
+
+  "reproducibility": [
+    {"app": "miniflux", "tier": 1, "method": "nix build --rebuild", "narHash": "sha256-FrMT0uHtiXaE2SsFW3dH4wdvvZKGOpFHExY7TqbtdVY=", "reproducible": true}
+  ],
+
+  "deploy_timing": {
+    "note": "2026-07-20 run on a FRESH throwaway Hetzner cpx41 (8 vCPU/16GB x86_64, then deleted). cold_install = blank server -> OS deps + all toolchains + Hop3 + first app running & HTTP-verified. per_app = a full hop3-test cycle on the already-installed box (cached toolchain re-provision check + build + deploy + HTTP verify + teardown), so it is an upper bound on app-deploy cost, not a bare deploy.",
+    "cold_install_blank_to_app_s": 528,
+    "cold_install_app": "radicale (native/python)",
+    "per_app_s": [
+      {"app": "gitea",    "builder": "native",  "lang": "go",     "seconds": 131},
+      {"app": "forgejo",  "builder": "nix-gen", "lang": "go",     "seconds": 139},
+      {"app": "gitea",    "builder": "docker",  "lang": "go",     "seconds": 146},
+      {"app": "miniflux", "builder": "native",  "lang": "go",     "seconds": 160},
+      {"app": "radicale", "builder": "native",  "lang": "python", "seconds": 173},
+      {"app": "isso",     "builder": "docker",  "lang": "python", "seconds": 177}
+    ],
+    "control_plane_baseline_0_apps_pss_mb": 196,
+    "note_g4": "apps are torn down after each hop3-test cycle, so a memory-vs-app-count CURVE (G4) still needs a persistent-deploy pass; this run gives the 0-app baseline only."
+  },
+
+  "control_plane_baselines": {
+    "note": "2026-07-20; three cpx41 boxes (8 vCPU/16GB x86_64) — K3s + Compose fresh & deleted, Hop3 measured on the dev box. Metric = systemd-service cgroup memory.current (bytes; charges page cache, so soft absolutes but consistent across stacks); free-m system RAM given alongside. K3s installed lean (traefik/servicelb/metrics-server disabled).",
+    "hardware": "hetzner cpx41",
+    "stacks": [
+      {"stack": "docker-compose", "component": "dockerd", "idle_cgroup_mb": 27, "with_1_container_mb": 65},
+      {"stack": "hop3", "component": "hop3-server + hop3-rootd (framing A)", "cgroup_mb": 185, "pss_mb": 205, "note": "measured with 1 app"},
+      {"stack": "k3s", "version": "v1.36.2+k3s1", "component": "k3s.service (apiserver+kine+scheduler+controller+kubelet+containerd)", "idle_cgroup_mb": 1183, "with_1_pod_cgroup_mb": 1441, "idle_system_ram_used_free_mb": 916}
+    ],
+    "hop3_vs_k3s": "like-for-like (same metric, same workload): 7.8x lighter with 1 workload (185 vs 1441 MB cgroup); 6.4x vs idle K3s (185 vs 1183). NO ratio is computed against K3s's 916 MB free-m whole-system figure — that is a different scope and no matching Hop3 whole-system measurement was taken.",
+    "caveat_metric_direction": "cgroup memory.current does NOT uniformly overstate the resident set: Hop3's 185 MB cgroup (server+rootd) is BELOW its 204.6 MB PSS / 258.1 MB RSS (those cover only the two ASGI processes). Scopes differ; do not mix.",
+    "caveat_hop3_host": "Hop3 was measured on the long-lived dev host, K3s/Compose on fresh cpx41 boxes — not three identical boxes. A fresh-box Hop3 re-measure would remove this asymmetry (bias currently runs against Hop3)."
+  }
+}

@@ -1,0 +1,46 @@
+# Hop3 benchmark pre-registration — protocol.yaml
+#
+# Commit this (with the empty result skeletons) BEFORE a full run; the harness
+# aborts if the live box does not match the pins. See notes/reports/
+# paper-completion-plan.md §3 and local-notes/plans/05-paper-benchmarks.md.
+#
+# NOTE: the 2026-07-19 file (2026-07-19-preliminary.json) is a PRELIMINARY,
+# read-only + direct-nix-build run on the shared dev box — NOT the full
+# pre-registered run on dedicated hardware. It pins what it measured; the
+# baselines and the dedicated-box sweeps below are still TBD.
+
+nixpkgs_rev: "50ab793786d9de88ee30ec4e4c24fb4236fc2674"   # nixos-24.11 (nix-gen generator pin)
+
+corpus:
+  name: golden-20
+  apps: [bookstack, bugsink, dolibarr, easy-appointments, forgejo, gatus, gitea,
+         invoice-ninja, isso, kanboard, keycloak, limesurvey, matomo, mattermost,
+         miniflux, nextcloud, paheko, radicale, vikunja, wordpress]
+  tier1_nixpkgs: [miniflux, gitea, forgejo, vikunja, mattermost, keycloak]  # buildable direct
+
+hardware:
+  memory_box: {class: hetzner-cx41-equiv, vcpu: 4, ram_gb: 16, os: ubuntu-24.04}
+  latency_box: {class: dedicated-vcpu, note: "CCX / bare metal for sub-second timings"}
+  preliminary_run_box: {host: hop3-dev, vcpu: 8, ram_gb: 16, kernel: "6.8.0-90-generic", arch: x86_64}
+
+baselines:                     # TBD — each on its own freshly-rebuilt box (never co-resident)
+  dokku: {version: TBD}
+  docker_compose: {version: TBD}
+  k3s: {version: TBD, config: k3s-config.yaml, addons_disabled: [traefik, servicelb, metrics-server]}
+
+metrics:
+  closure_size: "uncompressed narSize sum (nix path-info -r --json)"
+  docker_image: "uncompressed docker image inspect .Size"
+  control_plane_memory: "PSS (smaps_rollup), set = hop3-server master + workers; RSS as cross-check"
+  reproducibility: "nix build --rebuild, compare narHash"
+
+benchmarks:                    # see paper-completion-plan.md §3 for full definitions
+  G1_build_install: {status: partial}      # 2026-07-20 fresh cpx41: cold-install 528s + 6-app deploy band (131-177s)
+  G2_second_instance: {status: pending}
+  G3_disk: {status: partial}          # dedup union: 36% (4 Go) / 21% (6 mixed)
+  G5_closure_vs_image: {status: partial}   # 6 apps measured (Go + Java) + update delta
+  G6_reproducibility: {status: partial}    # miniflux byte-identical
+  G4_control_plane_memory: {status: partial}   # 0-app baseline ~196MB + 1-app ~205MB; curve still pending (teardown-after-each)
+  G7_coldstart_teardown: {status: pending}
+  G8_redeploy: {status: pending}
+  G10_baselines: {status: partial}        # 2026-07-20 cpx41: K3s ~1.2GB(cgroup)/~900MB(RSS) + Compose ~27MB measured; Dokku pending

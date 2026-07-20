@@ -3,7 +3,7 @@
 # https://ghost.org/
 # Built from source on debian:bookworm-slim
 
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818
 
 # Install Node.js 22 LTS and dependencies.
 # Ghost 5.111 requires Node "^22.13.0 || ^24.0.0"; Node 20 fails ghost-cli's

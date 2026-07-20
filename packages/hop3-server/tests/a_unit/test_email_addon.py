@@ -9,8 +9,10 @@ from __future__ import annotations
 import pytest
 
 from hop3.plugins.addons import secrets as secrets_module
-from hop3.plugins.email import deliverability
-from hop3.plugins.email import server_transport as server_transport_module
+from hop3.plugins.email import (
+    deliverability,
+    server_transport as server_transport_module,
+)
 from hop3.plugins.email.cli import AddonEmailCreateCmd, AddonEmailStatusCmd
 from hop3.plugins.email.deliverability import (
     MISSING,
