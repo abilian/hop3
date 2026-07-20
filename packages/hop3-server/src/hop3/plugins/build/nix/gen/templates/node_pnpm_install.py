@@ -15,16 +15,21 @@ imports of CommonJS modules — symptom:
     '.../.pnpm/@sinclair_typebox@0.34.41/.../index.js' is a CommonJS
     module...
 
-This template seeds a minimal package.json inside the Nix build and
-runs `pnpm install --prod --frozen-lockfile` against the npm
-registry. The resulting virtual-store layout is preserved verbatim in
-the Nix store (never `cp -r`'d — the `.pnpm/` symlinks are
-location-independent as long as node_modules/ itself doesn't move).
+The app ships a committed `package.json` + `pnpm-lock.yaml`. A
+fixed-output derivation runs `pnpm fetch` (which reads only the
+lockfile) to populate a store, and the application build then installs
+from that store `--offline`, inside the sandbox. The resulting
+virtual-store layout is preserved verbatim in the Nix store (never
+`cp -r`'d — the `.pnpm/` symlinks are location-independent as long as
+node_modules/ itself doesn't move).
 
 Requirements for apps using this template:
 
-- `__noChroot = true` is applied automatically (pnpm fetches from the
-  npm registry; the Nix sandbox would otherwise block that).
+- A committed manifest and lockfile: a manifest synthesized during the
+  build cannot be locked, so pnpm would re-resolve every semver range
+  on each build.
+- `--ignore-scripts`: npm postinstall hooks commonly download prebuilt
+  binaries, which would reintroduce unpinned content into a sealed build.
 - `--package-import-method=copy` avoids the EPERM-on-chmod issue that
   pnpm's default hardlinks trigger when the source files under
   `~/.local/share/pnpm` have the readonly-bit set.
@@ -47,6 +52,22 @@ from hop3.plugins.build.nix.gen.templates.base import (
     format_wrapper_body,
 )
 
+_NO_LOCKFILE = (
+    "{pname}: node-pnpm-install requires a committed manifest and lockfile — "
+    'set `node-manifest` and `node-lockfile` in [nix] (e.g. "package.json" '
+    'and "pnpm-lock.yaml"). A manifest synthesized at build time cannot be '
+    "locked, so pnpm re-resolves every range on each build and the dependency "
+    "tree is not reproducible. Generate the pair once with `pnpm install` and "
+    "commit both."
+)
+
+_NO_DEPS_HASH = (
+    "{pname}: node-pnpm-install requires `node-deps-hash` in [nix] — the "
+    "sha256 of the fetched pnpm store. Build once with a placeholder "
+    '(`node-deps-hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="`) '
+    "and read the `got:` hash Nix reports."
+)
+
 
 class NodePnpmInstallTemplate:
     name = "node-pnpm-install"
@@ -67,21 +88,14 @@ class NodePnpmInstallTemplate:
             )
         if not spec.version:
             raise ValueError("node-pnpm-install requires version (pinned npm version)")
+        if not (spec.node_manifest and spec.node_lockfile):
+            raise ValueError(_NO_LOCKFILE.format(pname=spec.pname))
+        if not spec.node_deps_hash:
+            raise ValueError(_NO_DEPS_HASH.format(pname=spec.pname))
 
         npm_pkg = spec.nixpkgs_package  # reinterpreted as npm package name
         runtime_pkg = spec.runtime_package or "nodejs_22"
         pnpm_pkg = "pnpm_9"  # pinned for now; make configurable later if needed
-
-        # Additional npm packages to install alongside the main one
-        # (e.g., DB drivers). Passed via `pip_packages` field — the
-        # spec's language-agnostic "extras" slot. Semantically
-        # "npm install <pkg1> <pkg2>" alongside the primary.
-        extras = list(spec.pip_packages)
-        all_packages = [f"{npm_pkg}@{spec.version}", *extras]
-        deps_json = ",\n          ".join(
-            f'"{pkg.split("@")[0]}": "{"@".join(pkg.split("@")[1:]) or "*"}"'
-            for pkg in all_packages
-        )
 
         exec_args = " " + " ".join(spec.exec_args) if spec.exec_args else ""
         # Exec line uses the runtime-exported `$APPDIR` (not the `$out` from
@@ -121,8 +135,9 @@ class NodePnpmInstallTemplate:
         return f"""# hop3.nix - Nix expression for {spec.pname}
 #
 # GENERATED from template 'node-pnpm-install' by hop3-nix-gen.
-# Wraps an npm-published package ({npm_pkg}) installed via pnpm
-# inside a Nix build with `__noChroot = true` (network access).
+# Wraps an npm-published package ({npm_pkg}) installed via pnpm from a
+# committed lockfile: deps are fetched by a fixed-output derivation and
+# the app build itself runs offline inside the sandbox.
 # The resulting virtual-store layout is preserved verbatim in the
 # Nix store — no `cp -r` (which would break pnpm's relative
 # symlinks).
@@ -136,10 +151,42 @@ let
   pnpm = pkgs.{pnpm_pkg};
   version = "{spec.version}";
 
+  manifest = ./{spec.node_manifest};
+  lockfile = ./{spec.node_lockfile};
+
+  # Phase 1: fetch the dependency set into a pnpm store. `pnpm fetch` reads
+  # only the lockfile, so exactly the recorded versions are downloaded; the
+  # derivation's hash then pins that store. This is the only step with
+  # network access.
+  pnpmStore = pkgs.stdenv.mkDerivation {{
+    pname = "{spec.pname}-pnpm-store";
+    inherit version;
+
+    dontUnpack = true;
+    dontBuild = true;
+
+    nativeBuildInputs = [ nodejs pnpm ];
+
+    installPhase = ''
+      export HOME=$TMPDIR
+      export SSL_CERT_FILE=${{pkgs.cacert}}/etc/ssl/certs/ca-bundle.crt
+      export NODE_EXTRA_CA_CERTS=${{pkgs.cacert}}/etc/ssl/certs/ca-bundle.crt
+      mkdir -p $TMPDIR/proj && cd $TMPDIR/proj
+      cp ${{manifest}} package.json
+      cp ${{lockfile}} pnpm-lock.yaml
+      mkdir -p $out
+      ${{pnpm}}/bin/pnpm fetch --store-dir $out
+    '';
+
+    outputHashMode = "recursive";
+    outputHashAlgo = "sha256";
+    outputHash = "{spec.node_deps_hash}";
+  }};
+
   app = pkgs.stdenv.mkDerivation {{
+    # No __noChroot: dependencies come from pnpmStore, so this build is offline.
     pname = "{spec.pname}";
     inherit version;
-    __noChroot = true;
     meta.description = "{spec.description}";
 
     dontUnpack = true;
@@ -152,30 +199,25 @@ let
       cd $out/app
 
       export HOME=$TMPDIR
-      # Both SSL_CERT_FILE and NODE_EXTRA_CA_CERTS are needed: npm
-      # reads its own CA bundle via the latter regardless of the
-      # former.
-      export SSL_CERT_FILE=${{pkgs.cacert}}/etc/ssl/certs/ca-bundle.crt
-      export NODE_EXTRA_CA_CERTS=${{pkgs.cacert}}/etc/ssl/certs/ca-bundle.crt
 
-      # Seed a package.json so pnpm has a project to install into.
-      cat > package.json << 'JSON'
-      {{
-        "name": "hop3-{spec.pname}",
-        "version": "{spec.version}",
-        "private": true,
-        "dependencies": {{
-          {deps_json}
-        }}
-      }}
-JSON
+      # The committed manifest/lockfile pair defines the tree; both are
+      # required by `--frozen-lockfile`, which fails if they disagree.
+      cp ${{manifest}} package.json
+      cp ${{lockfile}} pnpm-lock.yaml
 
-      # --package-import-method=copy forces copies instead of
-      # hardlinks from ~/.local/share/pnpm. Hardlinks inherit
-      # pnpm's content-addressed "readonly" mode, which then trips
-      # EPERM when pnpm tries to chmod +x the bin shims inside
-      # $out/app/node_modules.
+      # --offline: every package must come from pnpmStore, so a dependency
+      #   missing from the lockfile fails the build instead of being fetched.
+      # --ignore-scripts: postinstall hooks routinely download prebuilt
+      #   binaries (node-gyp, esbuild, sharp), which would reintroduce
+      #   unpinned, unverified content into a build that is otherwise sealed.
+      # --package-import-method=copy forces copies instead of hardlinks from
+      #   the store: hardlinks inherit pnpm's content-addressed readonly bit,
+      #   which trips EPERM when pnpm chmods the bin shims under $out.
       ${{pnpm}}/bin/pnpm install \\
+        --offline \\
+        --frozen-lockfile \\
+        --ignore-scripts \\
+        --store-dir ${{pnpmStore}} \\
         --config.confirmModulesPurge=false \\
         --config.package-import-method=copy \\
         --prod \\

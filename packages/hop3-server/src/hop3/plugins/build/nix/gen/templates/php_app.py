@@ -30,6 +30,14 @@ from hop3.plugins.build.nix.gen.templates.base import (
     format_wrapper_body,
 )
 
+_NO_COMPOSER_HASH = (
+    "{pname}: php-app with needs_composer requires `composer-deps-hash` in "
+    "[nix] — the sha256 of the vendored composer tree. Build once with a "
+    'placeholder (`composer-deps-hash = "sha256-'
+    'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="`) and read the `got:` '
+    "hash Nix reports."
+)
+
 
 class PhpAppTemplate:
     name = "php-app"
@@ -63,19 +71,56 @@ class PhpAppTemplate:
                 f"    nativeBuildInputs = [ {' '.join(native_inputs)} ];\n"
             )
 
-        # Build phase (composer install) — uses __noChroot for network access
+        # Composer dependencies are vendored by a fixed-output derivation (see
+        # `composer_vendor` below), so the application build itself needs no
+        # network and stays inside the sandbox.
         no_chroot = ""
         build_phase = ""
+        composer_vendor = ""
         if spec.needs_composer:
-            no_chroot = "    # Allow network access during build (composer install)\n    __noChroot = true;\n"
+            if not spec.composer_deps_hash:
+                raise ValueError(_NO_COMPOSER_HASH.format(pname=spec.pname))
             extra_flags = (
                 " " + " ".join(spec.composer_extra_flags)
                 if spec.composer_extra_flags
                 else ""
             )
-            build_phase = f"""    buildPhase = ''
+            composer_vendor = f"""
+  # Phase 1: vendor the composer dependency set. composer.lock records a
+  # `dist.shasum` per package, so what enters the build is fixed; this
+  # derivation's own hash then pins the resolved tree as a whole.
+  # --no-scripts: post-install hooks may fetch or generate, which would make
+  # the vendored output vary between runs.
+  composerVendor = pkgs.stdenv.mkDerivation {{
+    pname = "{spec.pname}-composer-deps";
+    inherit version;
+    src = {binding};
+
+    nativeBuildInputs = [ php composer ];
+    dontBuild = true;
+
+    installPhase = ''
       export COMPOSER_HOME=$(mktemp -d)
-      composer install --no-dev --optimize-autoloader --no-interaction{extra_flags} || true
+      composer install --no-dev --no-scripts --no-autoloader \\
+        --no-interaction{extra_flags}
+      mkdir -p $out
+      cp -r vendor/. $out/
+    '';
+
+    outputHashMode = "recursive";
+    outputHashAlgo = "sha256";
+    outputHash = "{spec.composer_deps_hash}";
+  }};
+"""
+            # Phase 2: offline. The autoloader is regenerated here rather than
+            # in the vendoring step because it embeds paths from this build.
+            # No `|| true`: a failed dependency install must fail the build
+            # rather than ship an app with a partial vendor tree.
+            build_phase = """    buildPhase = ''
+      export COMPOSER_HOME=$(mktemp -d)
+      cp -r ${composerVendor} vendor
+      chmod -R u+w vendor
+      composer dump-autoload --no-dev --optimize --no-interaction
     '';
 """
 
@@ -200,6 +245,7 @@ let
 
 {php_binding}{composer_binding}
 {source_nix}
+{composer_vendor}
 
   app = pkgs.stdenv.mkDerivation {{
 {no_chroot}    pname = "{spec.pname}";
