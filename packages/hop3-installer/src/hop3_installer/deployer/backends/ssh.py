@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import shlex
 import subprocess
 from typing import TYPE_CHECKING
 
@@ -145,8 +146,12 @@ class SSHDeployBackend(DeployBackend):
 
     def upload_dir(self, local_path: Path, remote_path: str) -> bool:
         """Upload a directory via rsync."""
-        # Build SSH options string for rsync -e
-        ssh_opts_str = " ".join(self._ssh_opts)
+        # Build a shell-safe SSH options string for rsync -e.
+        # rsync passes -e to popen("/bin/sh", "-c", ...) internally,
+        # so every token must be shell-escaped.  shlex.join() does
+        # that — it joins argv into a single string that the shell can
+        # round-trip safely.
+        ssh_opts_str = shlex.join(self._ssh_opts)
         rsync_cmd = [
             "rsync",
             "-avz",

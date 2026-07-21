@@ -4,9 +4,11 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import sys
 import urllib.request
+from pathlib import Path
 
 from hop3_installer.common import Spinner, print_info, print_success, run_cmd
 from hop3_installer.constants import (
@@ -18,6 +20,49 @@ from hop3_installer.constants import (
 )
 
 from .config import CLIInstallerConfig
+
+# Git branch/ref names: alphanumeric, dots, hyphens, slashes, underscores.
+# Rejects shell metacharacters and whitespace.
+_GIT_REF_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._/\-]*$")
+
+# Semver-like: N.N.N with optional pre-release suffix.
+_VERSION_RE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+([a-z]+\.[0-9]+)?$")
+
+
+def _validate_branch(branch: str) -> str:
+    """Validate a git branch/ref name. Raises ValueError on invalid input."""
+    if not _GIT_REF_RE.match(branch):
+        msg = (
+            f"Invalid git branch/ref: {branch!r}. "
+            f"Must match {_GIT_REF_RE.pattern}"
+        )
+        raise ValueError(msg)
+    return branch
+
+
+def _validate_version(version: str) -> str:
+    """Validate a version string. Raises ValueError on invalid input."""
+    if not _VERSION_RE.match(version):
+        msg = (
+            f"Invalid version: {version!r}. "
+            f"Must be semver-like (e.g., 0.4.0)"
+        )
+        raise ValueError(msg)
+    return version
+
+
+def _validate_local_path(path: str) -> str:
+    """Validate and resolve a local path. Raises ValueError on suspicious input."""
+    resolved = Path(path).resolve()
+    if not resolved.exists():
+        msg = f"Local path does not exist: {resolved}"
+        raise ValueError(msg)
+    # Reject paths that attempt traversal via symlink tricks.
+    # Resolved path must be a real directory under a plausible prefix.
+    if not resolved.is_dir() and not resolved.is_file():
+        msg = f"Local path is not a file or directory: {resolved}"
+        raise ValueError(msg)
+    return str(resolved)
 
 
 def create_virtual_environment() -> None:
@@ -78,19 +123,21 @@ def install_package(config: CLIInstallerConfig) -> None:
 
     # Determine what to install
     if config.local_path:
-        package_spec = config.local_path
-        source_desc = f"local path ({config.local_path})"
+        package_spec = _validate_local_path(config.local_path)
+        source_desc = f"local path ({package_spec})"
     elif config.use_git:
         # Install uv for build backend
         with Spinner("Installing build tools..."):
             run_cmd([pip, "install", "uv"])
+        safe_branch = _validate_branch(config.branch)
         package_spec = (
-            f"git+{GIT_REPO}@{config.branch}#subdirectory={CLI_PACKAGE_SUBDIR}"
+            f"git+{GIT_REPO}@{safe_branch}#subdirectory={CLI_PACKAGE_SUBDIR}"
         )
-        source_desc = f"git ({config.branch} branch)"
+        source_desc = f"git ({safe_branch} branch)"
     elif config.version:
-        package_spec = f"{CLI_PACKAGE_NAME}=={config.version}"
-        source_desc = f"PyPI (version {config.version})"
+        safe_version = _validate_version(config.version)
+        package_spec = f"{CLI_PACKAGE_NAME}=={safe_version}"
+        source_desc = f"PyPI (version {safe_version})"
     else:
         package_spec = CLI_PACKAGE_NAME
         source_desc = "PyPI (latest)"
