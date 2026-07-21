@@ -35,10 +35,7 @@ _USERNAME_RE = re.compile(r"^[a-z_][a-z0-9_-]*$")
 def _validate_ssh_user(username: str) -> str:
     """Validate SSH username. Raises ValueError on invalid input."""
     if not _USERNAME_RE.match(username):
-        msg = (
-            f"Invalid SSH username: {username!r}. "
-            f"Must match {_USERNAME_RE.pattern}"
-        )
+        msg = f"Invalid SSH username: {username!r}. Must match {_USERNAME_RE.pattern}"
         raise ValueError(msg)
     return username
 
@@ -53,15 +50,10 @@ def _validate_host(host: str) -> str:
         pass
     # Hostname: RFC 952/1123 relaxed. Reject shell metacharacters, whitespace,
     # and control characters.
-    hostname_re = re.compile(
-        r"^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$"
-    )
+    hostname_re = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$")
     labels = host.split(".")
     if not all(hostname_re.match(label) for label in labels):
-        msg = (
-            f"Invalid hostname: {host!r}. "
-            f"Must be a valid hostname or IP address."
-        )
+        msg = f"Invalid hostname: {host!r}. Must be a valid hostname or IP address."
         raise ValueError(msg)
     return host
 

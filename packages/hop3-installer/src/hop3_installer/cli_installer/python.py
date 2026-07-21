@@ -32,10 +32,7 @@ _VERSION_RE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+([a-z]+\.[0-9]+)?$")
 def _validate_branch(branch: str) -> str:
     """Validate a git branch/ref name. Raises ValueError on invalid input."""
     if not _GIT_REF_RE.match(branch):
-        msg = (
-            f"Invalid git branch/ref: {branch!r}. "
-            f"Must match {_GIT_REF_RE.pattern}"
-        )
+        msg = f"Invalid git branch/ref: {branch!r}. Must match {_GIT_REF_RE.pattern}"
         raise ValueError(msg)
     return branch
 
@@ -43,10 +40,7 @@ def _validate_branch(branch: str) -> str:
 def _validate_version(version: str) -> str:
     """Validate a version string. Raises ValueError on invalid input."""
     if not _VERSION_RE.match(version):
-        msg = (
-            f"Invalid version: {version!r}. "
-            f"Must be semver-like (e.g., 0.4.0)"
-        )
+        msg = f"Invalid version: {version!r}. Must be semver-like (e.g., 0.4.0)"
         raise ValueError(msg)
     return version
 
@@ -130,9 +124,7 @@ def install_package(config: CLIInstallerConfig) -> None:
         with Spinner("Installing build tools..."):
             run_cmd([pip, "install", "uv"])
         safe_branch = _validate_branch(config.branch)
-        package_spec = (
-            f"git+{GIT_REPO}@{safe_branch}#subdirectory={CLI_PACKAGE_SUBDIR}"
-        )
+        package_spec = f"git+{GIT_REPO}@{safe_branch}#subdirectory={CLI_PACKAGE_SUBDIR}"
         source_desc = f"git ({safe_branch} branch)"
     elif config.version:
         safe_version = _validate_version(config.version)
