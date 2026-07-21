@@ -10,6 +10,8 @@ description = "Self-hosted error tracking, Sentry SDK-compatible"
 builder = "nix"
 
 [nix]
+pip-deps-hash = "sha256-TkO55z60uSwG1dif67DVRcjDv3QuTKP7bAzF9SvRcMk="
+pip-requirements = "requirements.txt"
 template = "python-venv"
 runtime-package = "python3"
 exec-target = "gunicorn"

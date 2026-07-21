@@ -4,6 +4,8 @@ version = "0.13.1"
 description = "A lightweight commenting system, Disqus alternative"
 
 [nix]
+pip-deps-hash = "sha256-pB776ewrTH7Q2a3pJ8IFigRmqpc1FlPZt0MRJt75Trc="
+pip-requirements = "requirements.txt"
 template = "python-venv"
 exec-target = "isso"
 runtime-package = "python3"

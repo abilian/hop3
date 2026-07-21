@@ -11,7 +11,11 @@ archive = "tar-gz"
 php-version = "php82"
 web-root = "htdocs"
 php-extensions = ['pgsql', 'pdo_pgsql', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'intl', 'calendar', 'imap', 'ldap']
-needs-composer = true
+# Upstream ships `composer.json.disabled` and vendors its dependencies in-tree
+# under htdocs/includes/, so there is no composer step. This was previously
+# `true`, and the template's `composer install ... || true` swallowed the
+# resulting "could not find a composer.json" on every build.
+needs-composer = false
 post-install-dirs = ['documents']
 extra-paths = ['${php}/bin']
 

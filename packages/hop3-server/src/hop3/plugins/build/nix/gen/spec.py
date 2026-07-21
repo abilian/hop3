@@ -154,6 +154,10 @@ class AppSpec:
     # For php-app: sha256 of the vendored composer dependency set (the FOD
     # that fetches from composer.lock). Analogous to pip_deps_hash.
     composer_deps_hash: str | None = None
+    # For php-app: composer runs a strict `composer validate` by default.
+    # Third-party releases frequently fail it for benign reasons (the app
+    # still installs); set false to skip, explicitly, per app.
+    composer_strict_validation: bool = True
     # Extra flags to pass to composer install (e.g., "--ignore-platform-reqs")
     composer_extra_flags: list[str] = field(default_factory=list)
     # Number of leading path components to strip when extracting tarball
@@ -266,6 +270,10 @@ class AppSpec:
     node_lockfile: str | None = None
     # sha256 of the fetched pnpm store (fixed-output derivation).
     node_deps_hash: str | None = None
+    # For node-pnpm-install: which nixpkgs pnpm to build with. The committed
+    # lockfile's format must be one this major can read (see
+    # PNPM_LOCKFILE_VERSIONS in templates/node_pnpm_install.py).
+    node_pnpm_package: str = "pnpm_9"
     # For go-source: sha256 of the vendored Go module set. `go.sum` already
     # hashes every module; this pins the resolved set as a whole.
     go_vendor_hash: str | None = None

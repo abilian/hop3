@@ -16,6 +16,10 @@ import pytest
 
 from hop3.plugins.build.nix.gen.registry import generate
 from hop3.plugins.build.nix.gen.spec import AppSpec, FileMapping, Source
+from hop3.plugins.build.nix.gen.templates.node_pnpm_install import (
+    lockfile_version_for,
+    parse_lockfile_version,
+)
 
 # --- prebuilt-binary ---
 
@@ -171,29 +175,51 @@ def _composer_spec(**overrides) -> AppSpec:
 
 def test_php_app_composer():
     output = generate(_composer_spec())
-    assert "composer install" in output
-    assert "nativeBuildInputs = [ php composer" in output
+    assert "buildComposerProject" in output
+    assert "${composerProject}/share/php/bookstack/. $out/app/" in output
 
 
 def test_php_app_composer_requires_deps_hash():
-    """Without the hash the vendored tree is unpinned — refuse to generate."""
+    """Without the vendorHash the dependency set is unpinned — refuse."""
     with pytest.raises(ValueError, match="composer-deps-hash"):
         generate(_composer_spec(composer_deps_hash=None))
 
 
 def test_php_app_composer_is_hermetic():
-    """Deps are vendored by a fixed-output derivation; the app build is offline."""
+    """buildComposerProject compiles from source, offline, in the sandbox.
+
+    The earlier hand-rolled FOD vendoring composer's output tree was invalid —
+    a fixed-output derivation may not reference store paths, but composer bin
+    proxies reference bash. buildComposerProject is the nixpkgs builder that
+    handles this correctly (the composer analogue of buildGoModule).
+    """
     output = generate(_composer_spec())
     assert "__noChroot = true" not in output
-    assert 'outputHashMode = "recursive"' in output
-    assert "--no-scripts" in output
-    assert "dump-autoload" in output
+    assert 'vendorHash = "sha256-' in output
+    assert "composerNoDev = true" in output
+    # the invalid hand-rolled FOD approach must be gone
+    assert "composerVendor" not in output
+    assert "outputHashMode" not in output
 
 
 def test_php_app_composer_failure_is_not_swallowed():
     """`|| true` would ship an app with a partial vendor tree as a success."""
     output = generate(_composer_spec())
     assert "|| true" not in output
+
+
+def test_php_app_composer_strict_validation_defaults_on():
+    """buildComposerProject validates composer.json by default; don't weaken it
+    unless a recipe opts out explicitly."""
+    output = generate(_composer_spec())
+    assert "composerStrictValidation" not in output
+
+
+def test_php_app_composer_strict_validation_opt_out():
+    """A third-party release that fails composer's pedantic validate can skip it
+    explicitly (recorded per app), but only when asked."""
+    output = generate(_composer_spec(composer_strict_validation=False))
+    assert "composerStrictValidation = false" in output
 
 
 def test_php_app_artisan_serve():
@@ -330,6 +356,24 @@ def test_python_venv_creates_venv():
     output = generate(_python_spec())
     assert "python -m venv $out/venv" in output
     assert 'sed -i "s|VENVBIN|$out/venv/bin|g"' in output
+
+
+def test_python_venv_strips_c_extensions_for_reproducibility():
+    """A C extension embeds pip's random build dir as the DWARF comp_dir, so two
+    builds differ byte-for-byte. The template must strip debug info AND rewrite
+    the wheel RECORD to match — removing either half reintroduces the drift
+    (strip without RECORD-fix leaves the pre-strip hash in RECORD).
+
+    The strip must be SURGICAL — guarded by the `/build/pip-` marker so it only
+    touches sdist-built extensions. Re-stripping prebuilt-wheel native libs
+    (Rust cdylibs, mypyc modules) broke bugsink at runtime; those are already
+    reproducible and must be left untouched.
+    """
+    output = generate(_python_spec())
+    assert "strip --strip-debug" in output
+    assert "grep -qa '/build/pip-'" in output  # surgical guard, not a blanket strip
+    assert "RECORD" in output
+    assert "sha256=" in output  # the RECORD hash is recomputed post-strip
 
 
 def test_python_venv_is_hermetic():
@@ -518,6 +562,35 @@ class TestNodePnpmInstallTemplate:
         assert "--prod" in output
         # `--package-import-method=copy` is the EPERM workaround.
         assert "package-import-method=copy" in output
+
+    def test_pnpm_store_is_normalized_for_reproducibility(self):
+        """`pnpm fetch` stamps a `checkedAt` timestamp into each store index and
+        leaves key order unstable, so the FOD hash drifts. The FOD must strip
+        `checkedAt` and sort keys (as nixpkgs' own pnpm.fetchDeps does) or the
+        vendorHash fails on any rebuild.
+        """
+        output = generate(self._base_spec())
+        assert "checkedAt" in output
+        assert "--sort-keys" in output
+
+    def test_pnpm_store_skips_stdenv_fixup(self):
+        """stdenv's fixupPhase runs patchShebangs over the vendored store,
+        rewriting npm scripts' `#!/usr/bin/env bash` to an absolute
+        `/nix/store/…-bash` path — a store reference a fixed-output derivation
+        may not contain. The store FOD must set dontFixup to keep the vendored
+        bytes untouched.
+        """
+        output = generate(self._base_spec())
+        assert "dontFixup = true" in output
+
+    def test_pnpm_app_strips_prunedat_timestamp(self):
+        """pnpm stamps a `prunedAt` wall-clock timestamp into
+        node_modules/.modules.yaml, so two installs of the identical store
+        differ by that line. The app build must strip it to stay reproducible.
+        """
+        output = generate(self._base_spec())
+        assert "prunedAt" in output
+        assert ".modules.yaml" in output
 
     def test_default_node_version_is_22(self):
         """Directus-class apps all want Node 22. Default makes the
@@ -840,3 +913,70 @@ def test_go_source_emits_optional_attrs():
     output = generate(_go_spec(go_sub_packages=["./cmd/app"], go_ldflags=["-s", "-w"]))
     assert 'subPackages = [ "./cmd/app" ];' in output
     assert 'ldflags = [ "-s" "-w" ];' in output
+
+
+# --- pnpm lockfile/pin compatibility ---
+
+
+def test_pnpm_lockfile_versions_are_measured_not_guessed():
+    """pnpm 9, 10 and 11 all emit 9.0; only pnpm 8 differs (6.0)."""
+    assert lockfile_version_for("pnpm_8") == "6.0"
+    assert lockfile_version_for("pnpm_9") == "9.0"
+    assert lockfile_version_for("pnpm_11") == "9.0"
+    assert lockfile_version_for("pnpm_99") is None
+
+
+def test_parse_lockfile_version_handles_quoting():
+    assert parse_lockfile_version("lockfileVersion: '9.0'\n\nsettings:\n") == "9.0"
+    assert parse_lockfile_version("lockfileVersion: 6.0\n") == "6.0"
+    assert parse_lockfile_version("settings:\n  x: 1\n") is None
+
+
+def test_pnpm_pin_is_configurable():
+    """The pin was hardcoded; a recipe may need a different major."""
+    spec = AppSpec(
+        pname="x",
+        version="1.0",
+        description="t",
+        template="node-pnpm-install",
+        nixpkgs_package="x",
+        exec_target="x",
+        node_manifest="package.json",
+        node_lockfile="pnpm-lock.yaml",
+        node_deps_hash="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        node_pnpm_package="pnpm_10",
+        source=Source(url="x", sha256="x"),
+    )
+    assert "pkgs.pnpm_10" in generate(spec)
+
+
+def test_committed_lockfiles_match_their_pinned_pnpm():
+    """Guard: a lockfile the pinned pnpm cannot read fails inside the Nix build
+    with a parse error naming neither the pin nor the lockfile."""
+    import re  # noqa: PLC0415
+    from pathlib import Path  # noqa: PLC0415
+
+    root = Path(__file__).parents[5] / "apps"
+    assert root.is_dir(), f"app corpus not found at {root}"
+    mismatches = {}
+    checked = 0
+    for toml_path in root.glob("*/*/hop3.toml"):
+        text = toml_path.read_text()
+        if 'template = "node-pnpm-install"' not in text:
+            continue
+        lock = toml_path.parent / "pnpm-lock.yaml"
+        if not lock.is_file():
+            continue
+        checked += 1
+        pin_match = re.search(
+            r'^\s*node-pnpm-package\s*=\s*"([^"]+)"', text, re.MULTILINE
+        )
+        pin = pin_match.group(1) if pin_match else "pnpm_9"
+        want = lockfile_version_for(pin)
+        got = parse_lockfile_version(lock.read_text())
+        if want != got:
+            mismatches[toml_path.parent.name] = (
+                f"pin {pin} wants {want}, lockfile is {got}"
+            )
+    assert checked, "no node-pnpm-install recipe with a lockfile found"
+    assert mismatches == {}, f"lockfile/pnpm-pin mismatch: {mismatches}"

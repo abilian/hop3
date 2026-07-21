@@ -21,6 +21,9 @@ description = "Open-source headless CMS"
 builder = "nix"
 
 [nix]
+node-deps-hash = "sha256-mAd6D1GHbNRHsQDbeOTdrou3CTdpacKYdCLfB0j6/Jk="
+node-lockfile = "pnpm-lock.yaml"
+node-manifest = "package.json"
 template = "node-pnpm-install"
 # Reuses nixpkgs-package as the npm package name (semantically
 # distinct but no reason to add another field).

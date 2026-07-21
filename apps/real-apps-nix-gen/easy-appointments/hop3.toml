@@ -4,6 +4,7 @@ version = "1.5.0"
 description = "Open source appointment scheduling"
 
 [nix]
+composer-deps-hash = "sha256-7RTetAR1t9p4yRrteMHKP3MTPDLEvs+F6OsPuIzpnko="
 template = "php-app"
 url = "https://github.com/alextselegidis/easyappointments/archive/refs/tags/${version}.tar.gz"
 sha256 = "Skz6uMjvtiXaw34st/FxtTljycI4yAyYiqa6qr0Av3I="
@@ -11,6 +12,9 @@ archive = "tar-gz"
 php-version = "php82"
 php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'intl']
 needs-composer = true
+# Upstream composer.json fails composer's strict `validate` (benign for a
+# packaged release); skip it explicitly so buildComposerProject proceeds.
+composer-strict-validation = false
 extra-paths = ['${php}/bin']
 # The app writes config.php (below) and storage/; the Nix store is read-only.
 needs-writable-dir = true

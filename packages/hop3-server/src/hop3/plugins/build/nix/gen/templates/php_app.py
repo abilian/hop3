@@ -32,10 +32,10 @@ from hop3.plugins.build.nix.gen.templates.base import (
 
 _NO_COMPOSER_HASH = (
     "{pname}: php-app with needs_composer requires `composer-deps-hash` in "
-    "[nix] — the sha256 of the vendored composer tree. Build once with a "
+    "[nix] — the buildComposerProject vendorHash. Build once with a "
     'placeholder (`composer-deps-hash = "sha256-'
     'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="`) and read the `got:` '
-    "hash Nix reports."
+    "hash Nix reports, or run `hop3-tools nix vendor-hash <app-dir>`."
 )
 
 
@@ -48,19 +48,12 @@ class PhpAppTemplate:
 
         # PHP let-binding with extensions
         php_binding = _format_php_binding(spec)
-        composer_binding = ""
-        if spec.needs_composer:
-            composer_binding = (
-                f"\n  composer = pkgs.{spec.php_version}Packages.composer;\n"
-            )
+        composer_binding = ""  # buildComposerProject brings its own composer
 
-        # Native build inputs: always php and (if needed) composer + extras
+        # Native build inputs. Composer apps are built by buildComposerProject
+        # (below); the wrapping derivation only copies its output, so it needs
+        # neither php nor composer here.
         native_inputs: list[str] = []
-        if spec.needs_composer:
-            native_inputs.extend(["php", "composer"])
-        elif spec.source.needs_unzip:
-            # At minimum, we need unzip if the archive is a zip
-            pass
         if spec.source.needs_unzip:
             native_inputs.append("pkgs.unzip")
         native_inputs.extend(spec.extra_native_build_inputs)
@@ -71,61 +64,46 @@ class PhpAppTemplate:
                 f"    nativeBuildInputs = [ {' '.join(native_inputs)} ];\n"
             )
 
-        # Composer dependencies are vendored by a fixed-output derivation (see
-        # `composer_vendor` below), so the application build itself needs no
-        # network and stays inside the sandbox.
+        # Composer apps are compiled from source by buildComposerProject — the
+        # nixpkgs composer builder, the composer analogue of buildGoModule.
+        # composer.lock fixes the dependency set (a `dist.shasum` per package)
+        # and vendorHash pins the resolved tree, so the build is hermetic. Its
+        # output may legitimately reference store paths (bin proxies -> bash),
+        # which a fixed-output derivation vendoring the tree by hand may not —
+        # that constraint is why the earlier FOD approach could not build.
         no_chroot = ""
         build_phase = ""
-        composer_vendor = ""
+        composer_project = ""
         if spec.needs_composer:
             if not spec.composer_deps_hash:
                 raise ValueError(_NO_COMPOSER_HASH.format(pname=spec.pname))
-            extra_flags = (
-                " " + " ".join(spec.composer_extra_flags)
-                if spec.composer_extra_flags
-                else ""
+            source_root_attr = (
+                f'\n    sourceRoot = "{spec.source_root}";' if spec.source_root else ""
             )
-            composer_vendor = f"""
-  # Phase 1: vendor the composer dependency set. composer.lock records a
-  # `dist.shasum` per package, so what enters the build is fixed; this
-  # derivation's own hash then pins the resolved tree as a whole.
-  # --no-scripts: post-install hooks may fetch or generate, which would make
-  # the vendored output vary between runs.
-  composerVendor = pkgs.stdenv.mkDerivation {{
-    pname = "{spec.pname}-composer-deps";
+            # composer validate is pedantic; skip it explicitly when a
+            # third-party release fails it for benign reasons.
+            strict_attr = (
+                ""
+                if spec.composer_strict_validation
+                else "\n    composerStrictValidation = false;"
+            )
+            composer_project = f"""
+  # Built from source, offline, inside the sandbox; result at
+  # $out/share/php/{spec.pname}/.
+  composerProject = pkgs.{spec.php_version}.buildComposerProject {{
+    pname = "{spec.pname}";
     inherit version;
-    src = {binding};
-
-    nativeBuildInputs = [ php composer ];
-    dontBuild = true;
-
-    installPhase = ''
-      export COMPOSER_HOME=$(mktemp -d)
-      composer install --no-dev --no-scripts --no-autoloader \\
-        --no-interaction{extra_flags}
-      mkdir -p $out
-      cp -r vendor/. $out/
-    '';
-
-    outputHashMode = "recursive";
-    outputHashAlgo = "sha256";
-    outputHash = "{spec.composer_deps_hash}";
+    src = {binding};{source_root_attr}
+    vendorHash = "{spec.composer_deps_hash}";
+    composerNoDev = true;{strict_attr}
   }};
-"""
-            # Phase 2: offline. The autoloader is regenerated here rather than
-            # in the vendoring step because it embeds paths from this build.
-            # No `|| true`: a failed dependency install must fail the build
-            # rather than ship an app with a partial vendor tree.
-            build_phase = """    buildPhase = ''
-      export COMPOSER_HOME=$(mktemp -d)
-      cp -r ${composerVendor} vendor
-      chmod -R u+w vendor
-      composer dump-autoload --no-dev --optimize --no-interaction
-    '';
 """
 
         # Unpack phase
-        if spec.single_file:
+        if spec.single_file or spec.needs_composer:
+            # single-file: $src is the file itself. composer: buildComposerProject
+            # already unpacked + built the source, so the wrapping derivation
+            # only copies its output.
             unpack_phase = "    dontUnpack = true;\n    dontBuild = true;\n"
         elif spec.source.archive is None:
             raise ValueError(
@@ -137,9 +115,8 @@ class PhpAppTemplate:
             unpack_phase = f"""    unpackPhase = ''
       {unpack_cmd}
     '';
+    dontBuild = true;
 """
-            if not spec.needs_composer:
-                unpack_phase += "    dontBuild = true;\n"
 
         # Install phase body
         install_lines: list[str] = [
@@ -150,6 +127,12 @@ class PhpAppTemplate:
         if spec.single_file:
             # For single-file PHP apps like adminer: the file is $src itself
             install_lines.append("      cp $src $out/app/index.php")
+        elif spec.needs_composer:
+            # The composer-built tree (source + vendor/ + optimized autoloader).
+            install_lines.append(
+                f"      cp -r ${{composerProject}}/share/php/{spec.pname}/. $out/app/"
+            )
+            install_lines.append("      chmod -R u+w $out/app")
         elif not spec.skip_source_copy:
             # If source_root is set, copy from that subdir (e.g., limesurvey's
             # zip contains a wrapper directory).
@@ -245,7 +228,7 @@ let
 
 {php_binding}{composer_binding}
 {source_nix}
-{composer_vendor}
+{composer_project}
 
   app = pkgs.stdenv.mkDerivation {{
 {no_chroot}    pname = "{spec.pname}";
