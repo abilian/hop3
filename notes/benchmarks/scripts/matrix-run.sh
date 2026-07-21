@@ -16,8 +16,13 @@ shift 2
 variants=("$@"); [ ${#variants[@]} -gt 0 ] || variants=(native docker nix nix-gen)
 mkdir -p "$logdir"
 
-GOLDEN="bookstack bugsink dolibarr easy-appointments forgejo gatus gitea invoice-ninja isso
-kanboard keycloak limesurvey matomo mattermost miniflux nextcloud paheko radicale vikunja wordpress"
+# golden-20-balanced (rebalanced 2026-07-21): PHP 5 / Go 5 / Python 4 / Node 3 /
+# JVM 3. Ruby (0 native/nix today) is packaged in parallel and folds in later.
+GOLDEN="wordpress nextcloud bookstack invoice-ninja matomo
+gitea miniflux vikunja gatus owncast
+bugsink isso radicale searxng
+directus wiki-js etherpad
+stirling-pdf keycloak jenkins"
 
 # Pull a one-line cause out of a deploy log; never return empty.
 reason_from() {
