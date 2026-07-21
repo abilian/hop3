@@ -217,6 +217,19 @@ check-reproducible:
 	uv run hop3-tools nix check-reproducible $${HOP3_NIX_SSH:+--ssh $$HOP3_NIX_SSH} apps/real-apps-nix-gen
 	@echo ""
 
+## Advertised gate (nix-gen tier): reproducible build AND clean deploy.
+## An app can rebuild bit-identically yet fail to start — directus rebuilt
+## deterministically while isolated-vm was uncompiled (blocker #17). Build
+## determinism alone never proves the app runs, so an app is advertise-ready
+## only when BOTH halves pass. check-reproducible runs first (fail-fast); the
+## deploy check (test-nix) runs only if it passes.
+.PHONY: gate-nix
+gate-nix:
+	@echo "--> Advertised gate (nix-gen): reproducible build AND clean deploy"
+	$(MAKE) check-reproducible
+	$(MAKE) test-nix
+	@echo "==> gate-nix PASSED: nix-gen tier is reproducible AND deploys."
+
 #
 # Installer Testing
 #
