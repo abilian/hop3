@@ -19,6 +19,7 @@ from hop3_installer.common import (
     run_cmd,
 )
 from hop3_installer.constants import (
+    DEFAULT_ADMIN_EMAIL,
     HOME_DIR,
     HOP3_GROUP,
     HOP3_USER,
@@ -35,6 +36,7 @@ from .config import ServerInstallerConfig
 _MANAGED_CONFIG_KEYS = (
     "HOP3_SECRET_KEY",
     "ADMIN_DOMAIN",
+    "OPERATOR_EMAIL",
     "POSTGRES_HOST",
     "POSTGRES_SUPERUSER_PASSWORD",
     "MYSQL_HOST",
@@ -91,6 +93,7 @@ def write_server_config(
     mysql_password: str | None,
     domain: str | None,
     secret_key: str | None = None,
+    operator_email: str | None = None,
 ) -> None:
     """Write hop3-server.toml configuration file.
 
@@ -108,6 +111,15 @@ def write_server_config(
     # Reuse managed values not supplied this run (never rotate, never drop).
     secret_key = secret_key or read_existing_server_config_value("HOP3_SECRET_KEY")
     domain = domain or read_existing_server_config_value("ADMIN_DOMAIN")
+    # OPERATOR_EMAIL is what `[admin].email = "operator"` recipes resolve to
+    # (ADR 056). Without it every admin-bootstrap app fails to deploy, so a
+    # fresh install must always have one; a placeholder is fine (the operator
+    # overrides it), unlike ACME where Let's Encrypt rejects example.com.
+    operator_email = (
+        operator_email
+        or read_existing_server_config_value("OPERATOR_EMAIL")
+        or DEFAULT_ADMIN_EMAIL
+    )
     pg_password = pg_password or read_existing_server_config_value(
         "POSTGRES_SUPERUSER_PASSWORD"
     )
@@ -140,6 +152,12 @@ def write_server_config(
             f'ADMIN_DOMAIN = "{domain}"',
             "",
         ])
+
+    lines.extend([
+        '# Operator contact; resolves `[admin].email = "operator"` (ADR 056).',
+        f'OPERATOR_EMAIL = "{operator_email}"',
+        "",
+    ])
 
     if pg_password:
         lines.extend([

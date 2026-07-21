@@ -167,3 +167,36 @@ def test_secret_key_file_roundtrip_and_mode(tmp_path, monkeypatch):
     assert services._read_secret_key_file() == "abc123"
     mode = stat.S_IMODE((tmp_path / "secret-key").stat().st_mode)
     assert mode == 0o640
+
+
+# --- OPERATOR_EMAIL (ADR 056) ---
+
+
+def test_fresh_install_always_writes_an_operator_email(home):
+    """Without one, every `[admin].email = "operator"` app fails to deploy, so
+    a fresh install must default it (a placeholder is acceptable)."""
+    verify.write_server_config("pgpw", None, None, secret_key="sk")
+    content = (home / "hop3-server.toml").read_text()
+    assert 'OPERATOR_EMAIL = "admin@example.com"' in content
+
+
+def test_supplied_operator_email_is_written(home):
+    verify.write_server_config(
+        "pgpw", None, None, secret_key="sk", operator_email="ops@abilian.com"
+    )
+    assert (
+        'OPERATOR_EMAIL = "ops@abilian.com"' in (home / "hop3-server.toml").read_text()
+    )
+
+
+def test_operator_email_is_reused_on_redeploy(home):
+    """A redeploy that does not re-pass it must keep the configured value, not
+    revert to the placeholder."""
+    verify.write_server_config(
+        "pgpw", None, None, secret_key="sk", operator_email="ops@abilian.com"
+    )
+    verify.write_server_config("pgpw", None, None, secret_key="sk")  # no email
+    content = (home / "hop3-server.toml").read_text()
+    assert 'OPERATOR_EMAIL = "ops@abilian.com"' in content
+    # and it is not duplicated (managed key, written once)
+    assert content.count("OPERATOR_EMAIL = ") == 1

@@ -36,6 +36,10 @@ class ServerInstallerConfig:
     skip_package_install: bool = False
     domain: str | None = None
     acme_email: str | None = None  # Email for Let's Encrypt registration
+    # Operator contact written as OPERATOR_EMAIL; resolves recipes'
+    # `[admin].email = "operator"` (ADR 056). Falls back to acme_email, then
+    # to a placeholder, so a fresh install always has one.
+    operator_email: str | None = None
     verbose: bool = False
 
     # Optional features
@@ -92,6 +96,7 @@ class ServerInstallerConfig:
             skip_package_install=env_bool("HOP3_SKIP_PACKAGE_INSTALL"),
             domain=env_str("HOP3_DOMAIN"),
             acme_email=env_str("HOP3_ACME_EMAIL"),
+            operator_email=env_str("HOP3_OPERATOR_EMAIL"),
             verbose=env_bool("HOP3_VERBOSE"),
             features=features,
         )
