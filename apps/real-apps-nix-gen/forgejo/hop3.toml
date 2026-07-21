@@ -1,21 +1,34 @@
-# hop3.toml - Hop3 configuration for Nix-based Forgejo
-# Self-hosted Git service — built from source via nixpkgs (Gitea fork)
+# hop3.toml - Hop3 configuration for Forgejo (nix-gen)
+# Self-hosted Git service (Gitea fork) — compiled FROM SOURCE with go-source:
+# Go backend via buildGoModule + JS frontend via buildNpmPackage, both offline
+# and hash-pinned. Webpack assets served from disk via STATIC_ROOT_PATH.
 
 [metadata]
 id = "forgejo"
+# Version nixpkgs-24.11 packages (Go-1.23-buildable); its vendorHash +
+# npmDepsHash are reused here.
+version = "11.0.1"
 description = "Self-hosted Git service (community fork of Gitea)"
 
 [build]
 builder = "nix"
 
 [nix]
-template = "nixpkgs-wrapper"
-nixpkgs-package = "forgejo"
-# nixpkgs ships forgejo's server binary as `gitea` (meta.mainProgram = "gitea");
-# $out/bin/forgejo does not exist.
-exec-target = "gitea"
+template = "go-source"
+url = "https://codeberg.org/forgejo/forgejo/archive/v${version}.tar.gz"
+sha256 = "rprFyfldGCdUdbyIz4nReJgiJzgaiB9FOwzX6Fv0C2M="
+archive = "tar-gz"
+# Module is `forgejo.org`, so buildGoModule names the binary `forgejo`.
+exec-target = "forgejo"
 exec-args = ['web']
-extra-paths = ['${forgejo}/bin']
+go-vendor-hash = "sha256-8fa6l89+6NhVsi6VuTvQs35E3HuiBFxM8NUQ/jzlzV0="
+# forgejo 11's go.mod needs Go >= 1.24; the pin's default is 1.23, so build
+# with go_1_24 (still shipped by nixpkgs-24.11).
+go-version = "go_1_24"
+go-sub-packages = ["."]
+go-ldflags = ["-X main.Version=${version}"]
+go-frontend-build = "BROWSERSLIST_IGNORE_OLD_DATA=true npx webpack"
+go-npm-deps-hash = "sha256-laHHXq59/7+rJSYTD1Aq/AvFcio6vsnWkeV8enq3yTg="
 pre-exec = ['mkdir -p custom/conf data']
 
 [nix.local-vars]
@@ -36,6 +49,8 @@ format = "ini"
 HTTP_PORT = "${PORT}"
 ROOT_URL = "http://localhost:${PORT}/"
 DISABLE_SSH = "true"
+# Serve the webpack-built assets from the frontend derivation.
+STATIC_ROOT_PATH = "$HOP3_GO_FRONTEND"
 [nix.config-files.sections.database]
 DB_TYPE = "postgres"
 HOST = "${DB_HOST}:${DB_PORT}"

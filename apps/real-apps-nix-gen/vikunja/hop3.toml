@@ -1,18 +1,35 @@
-# hop3.toml - Hop3 configuration for Nix-based Vikunja
-# Open source task and project management — built from source via nixpkgs
+# hop3.toml - Hop3 configuration for Vikunja (nix-gen)
+# Task/project management — compiled FROM SOURCE with go-source: Go backend via
+# buildGoModule + Vue frontend via pnpm (pnpm.fetchDeps), both offline and
+# hash-pinned. Unlike gitea, vikunja `//go:embed`s its frontend, so the built
+# `dist/` is copied into `frontend/dist` before the Go compile.
 
 [metadata]
 id = "vikunja"
+# Version nixpkgs-24.11 packages (go.mod wants Go 1.22, default pin is fine);
+# its vendorHash + frontend pnpmDeps hash are reused here.
+version = "0.24.6"
 description = "Open source task and project management"
 
 [build]
 builder = "nix"
 
 [nix]
-template = "nixpkgs-wrapper"
-nixpkgs-package = "vikunja"
-exec-target = "vikunja"
-extra-paths = ['${vikunja}/bin']
+template = "go-source"
+url = "https://github.com/go-vikunja/vikunja/archive/refs/tags/v${version}.tar.gz"
+sha256 = "1sKQpXfd248jXiiw9TZ3P6/48+zONGDrTG4Wka5WyxM="
+archive = "tar-gz"
+# Go module is `code.vikunja.io/api`, so buildGoModule names the binary `api`.
+exec-target = "api"
+go-vendor-hash = "sha256-OsKejno8QGg7HzRsrftngiWGiWHFc1jDLi5mQ9/NjI4="
+go-ldflags = ["-X code.vikunja.io/api/pkg/version.Version=${version}"]
+# Frontend: pnpm (Vue/Vite), embedded via go:embed into frontend/dist.
+go-frontend-pnpm = true
+go-pnpm-deps-hash = "sha256-D2dOyYsdsNV1ZSQdjpy6rfoix7yBACEHj/2XyHb7HWE="
+go-frontend-build = "pnpm run build"
+go-frontend-output = "dist"
+go-frontend-source-root = "vikunja-${version}/frontend"
+go-frontend-embed-path = "frontend/dist"
 pre-exec = ['mkdir -p files']
 
 [nix.local-vars]

@@ -1,19 +1,35 @@
-# hop3.toml - Hop3 configuration for Nix-based Gitea
-# Self-hosted Git service — built from source via nixpkgs
+# hop3.toml - Hop3 configuration for Gitea (nix-gen)
+# Self-hosted Git service — compiled FROM SOURCE with go-source: the Go backend
+# via buildGoModule and the JS frontend via buildNpmPackage (both offline,
+# hash-pinned). The webpack assets are served from disk via STATIC_ROOT_PATH
+# (pointed at the frontend derivation), so the two builds stay independent.
 
 [metadata]
 id = "gitea"
+# Pinned to the version nixpkgs-24.11 packages (Go-1.23-buildable); its
+# vendorHash + npmDepsHash are reused here.
+version = "1.22.6"
 description = "Self-hosted Git service"
 
 [build]
 builder = "nix"
 
 [nix]
-template = "nixpkgs-wrapper"
-nixpkgs-package = "gitea"
+template = "go-source"
+url = "https://github.com/go-gitea/gitea/archive/refs/tags/v${version}.tar.gz"
+sha256 = "7wjtrT75yRnm7JqgkPxOgpqW3VNTpCU7momebrZ0hRs="
+archive = "tar-gz"
 exec-target = "gitea"
 exec-args = ['web']
-extra-paths = ['${gitea}/bin']
+go-vendor-hash = "sha256-BR5PDhag557F4nLRoNJuwz+dlSjYgxzoKx/DIsXBPto="
+# gitea's go.mod trips the vendored-modules.txt consistency check; vendor via
+# the module proxy instead (matches nixpkgs; the vendorHash above is the
+# proxy-vendor hash).
+go-proxy-vendor = true
+go-sub-packages = ["."]
+go-ldflags = ["-X main.Version=${version}"]
+go-frontend-build = "BROWSERSLIST_IGNORE_OLD_DATA=true npx webpack"
+go-npm-deps-hash = "sha256-7kYGFJffP7Mu4+tWlcLTb7eBibgpwEis2zQYMWCI7dw="
 pre-exec = ['mkdir -p custom/conf data']
 
 [nix.local-vars]
@@ -33,6 +49,10 @@ format = "ini"
 [nix.config-files.sections.server]
 HTTP_PORT = "${PORT}"
 ROOT_URL = "http://localhost:${PORT}/"
+# Serve the webpack-built assets from the frontend derivation (exported by the
+# go-source wrapper as $HOP3_GO_FRONTEND). Gitea's embedded `public/` lacks the
+# built assets, so this override points it at the buildNpmPackage output.
+STATIC_ROOT_PATH = "$HOP3_GO_FRONTEND"
 [nix.config-files.sections.database]
 DB_TYPE = "postgres"
 HOST = "${DB_HOST}:${DB_PORT}"

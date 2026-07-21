@@ -1,18 +1,33 @@
-# hop3.toml - Hop3 configuration for Nix-based Miniflux
-# Minimalist RSS reader — built from source via nixpkgs
+# hop3.toml - Hop3 configuration for Miniflux (nix-gen)
+# Minimalist RSS reader — compiled FROM SOURCE with buildGoModule (go-source),
+# not wrapped from nixpkgs: go.sum + vendorHash pin the module set and the
+# compile runs offline in the sandbox, so the build is hermetic and Tier-1
+# reproducible.
 
 [metadata]
 id = "miniflux"
+# Pinned to the version nixpkgs-24.11 packages: building from source ties the
+# app to the pinned nixpkgs' Go toolchain (1.23), and 2.2.8's go.mod is
+# Go-1.23-compatible. A newer miniflux (2.3+ wants Go ≥ 1.26) needs a per-app
+# nixpkgs bump (`nixpkgs-rev`/`nixpkgs-sha256`), not available in 24.11.
+version = "2.2.8"
 description = "Minimalist and opinionated RSS reader"
 
 [build]
 builder = "nix"
 
 [nix]
-template = "nixpkgs-wrapper"
-nixpkgs-package = "miniflux"
-exec-target = "miniflux"
-extra-paths = ['${miniflux}/bin']
+template = "go-source"
+url = "https://github.com/miniflux/v2/archive/refs/tags/${version}.tar.gz"
+sha256 = "HDYAEsPdAgJgHbJnVcURlptsUn+W1oKYYadAlWM6NcI="
+archive = "tar-gz"
+# buildGoModule names the binary after the module path element before the
+# `/vN` suffix: miniflux's module is `miniflux.app/v2`, so the binary is
+# `miniflux.app` (not `miniflux`).
+exec-target = "miniflux.app"
+go-vendor-hash = "sha256-9I0/dyjanuV8oZystox9RY/gGx1SZuFRTghArv5aJ64="
+# Stamp the real version into the binary (else it self-reports "dev").
+go-ldflags = ["-X miniflux.app/v2/internal/version.Version=${version}"]
 
 [nix.env-exports]
 LISTEN_ADDR = "0.0.0.0:${PORT:-8080}"
