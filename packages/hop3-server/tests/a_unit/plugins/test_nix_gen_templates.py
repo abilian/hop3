@@ -632,6 +632,35 @@ class TestNodePnpmInstallTemplate:
         assert "prunedAt" in output
         assert ".modules.yaml" in output
 
+    def test_no_native_packages_stays_sealed(self):
+        """The default install runs --ignore-scripts and adds no compiler
+        toolchain — nothing is built from source unless a recipe opts in."""
+        output = generate(self._base_spec())
+        assert "pnpm rebuild" not in output
+        assert "pkgs.gcc" not in output
+        assert "npm_config_nodedir" not in output
+
+    def test_native_packages_compiled_offline_from_source(self):
+        """A declared node-gyp addon is rebuilt from source, offline, with the
+        C/C++ toolchain and the pinned Node's headers — the sealed
+        --ignore-scripts install alone leaves it uncompiled (directus'
+        isolated-vm MODULE_NOT_FOUND).
+        """
+        output = generate(self._base_spec(node_native_packages=["isolated-vm"]))
+        # toolchain on the app derivation
+        assert "pkgs.python3 pkgs.gnumake pkgs.gcc" in output
+        # node headers + offline rebuild of exactly the declared package
+        assert "npm_config_nodedir=${nodejs}" in output
+        assert "pnpm rebuild --store-dir ${pnpmStore} isolated-vm" in output
+        # still fetched from the pinned store, never the network
+        assert "--offline" in output
+
+    def test_multiple_native_packages_rebuilt_together(self):
+        output = generate(
+            self._base_spec(node_native_packages=["isolated-vm", "sharp"])
+        )
+        assert "pnpm rebuild --store-dir ${pnpmStore} isolated-vm sharp" in output
+
     def test_default_node_version_is_22(self):
         """Directus-class apps all want Node 22. Default makes the
         common case boilerplate-free; `runtime_package` overrides."""

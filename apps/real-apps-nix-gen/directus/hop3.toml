@@ -33,6 +33,12 @@ nixpkgs-package = "directus"
 exec-target = "directus"
 exec-args = ["start"]
 runtime-package = "nodejs_22"
+# isolated-vm ships source-only (no prebuilt .node), so the sealed
+# --ignore-scripts install leaves it uncompiled and directus fails at
+# runtime with MODULE_NOT_FOUND. Build it from source, offline, with the
+# node-gyp toolchain (reproducible: the compile lands at a deterministic
+# sandbox path).
+node-native-packages = ["isolated-vm"]
 # Additional npm packages alongside `directus`. Reuses the generic
 # `pip-packages` slot (language-agnostic extras list).
 pip-packages = ["pg@^8.11.0"]
