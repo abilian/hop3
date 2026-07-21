@@ -68,7 +68,9 @@ def _result_items(result: dict) -> list[dict]:
             for row in result["rows"]
         ]
         return [table(headers=result["columns"], rows=rows)]
-    return [text(result["message"])]
+    if "message" in result:
+        return [text(result["message"])]
+    raise ValueError(f"unexpected run_sql result shape: {result!r}")
 
 
 @register
