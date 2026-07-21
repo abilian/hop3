@@ -30,6 +30,9 @@ Requirements for apps using this template:
   on each build.
 - `--ignore-scripts`: npm postinstall hooks commonly download prebuilt
   binaries, which would reintroduce unpinned content into a sealed build.
+  A source-only node-gyp addon (e.g. isolated-vm) is therefore left
+  uncompiled; declare it in `node-native-packages` to have it built from
+  source, offline, with the C/C++ toolchain (see `_native_addon_build`).
 - `--package-import-method=copy` avoids the EPERM-on-chmod issue that
   pnpm's default hardlinks trigger when the source files under
   `~/.local/share/pnpm` have the readonly-bit set.
@@ -94,6 +97,37 @@ _NO_DEPS_HASH = (
 )
 
 
+def _native_addon_build(spec: AppSpec) -> tuple[str, str]:
+    """Toolchain inputs + rebuild step for node-gyp native addons.
+
+    Returns ``("", "")`` when the recipe declares none. Otherwise returns the
+    extra ``nativeBuildInputs`` fragment (C/C++ toolchain) and the shell block
+    that compiles exactly the declared packages from source, offline, against
+    the pinned Node headers. The compiled ``.node`` lands at a deterministic
+    sandbox path, so it is bit-for-bit reproducible with no post-processing.
+    """
+    packages = spec.node_native_packages
+    if not packages:
+        return "", ""
+
+    # node-gyp needs python + make + a C/C++ compiler; the gcc wrapper supplies
+    # both `cc` and `g++`. The pinned Node's headers reach node-gyp via
+    # `npm_config_nodedir`.
+    build_inputs = " pkgs.python3 pkgs.gnumake pkgs.gcc"
+    targets = " ".join(packages)
+    rebuild = f"""
+      # Native addons: the sealed install above ran with --ignore-scripts, so a
+      # source-only node-gyp package (e.g. isolated-vm) was left uncompiled.
+      # Build exactly the declared ones here — offline, from source, against the
+      # pinned Node's headers. Packages that ship a prebuilt `.node` need no
+      # entry; only those that must be compiled do.
+      export npm_config_nodedir=${{nodejs}}
+      export CI=true
+      ${{pnpm}}/bin/pnpm rebuild --store-dir ${{pnpmStore}} {targets}
+"""
+    return build_inputs, rebuild
+
+
 class NodePnpmInstallTemplate:
     name = "node-pnpm-install"
 
@@ -156,6 +190,8 @@ class NodePnpmInstallTemplate:
         runtime_env_json = format_runtime_env_json(spec.runtime_env)
         nix_env_attrs = format_nix_env_attrs(spec.runtime_env)
         paths_json = format_paths_json(spec.extra_paths)
+
+        native_build_inputs, native_rebuild = _native_addon_build(spec)
 
         return f"""# hop3.nix - Nix expression for {spec.pname}
 #
@@ -236,7 +272,7 @@ let
     dontUnpack = true;
     dontBuild = true;
 
-    nativeBuildInputs = [ nodejs pnpm ];
+    nativeBuildInputs = [ nodejs pnpm{native_build_inputs} ];
 
     installPhase = ''
       mkdir -p $out/app $out/bin $out/hop3
@@ -266,7 +302,7 @@ let
         --config.package-import-method=copy \\
         --prod \\
         --reporter=silent
-
+{native_rebuild}
       # Reproducibility: pnpm stamps a `prunedAt` wall-clock timestamp into
       # node_modules/.modules.yaml, so two installs of the identical store
       # differ by that one line. It is prune-scheduling metadata pnpm never

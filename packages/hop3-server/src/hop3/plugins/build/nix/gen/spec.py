@@ -274,6 +274,13 @@ class AppSpec:
     # lockfile's format must be one this major can read (see
     # PNPM_LOCKFILE_VERSIONS in templates/node_pnpm_install.py).
     node_pnpm_package: str = "pnpm_9"
+    # For node-pnpm-install: npm packages with node-gyp native addons to compile
+    # from source, offline, in the sandbox (e.g. ["isolated-vm"]). The default
+    # `--ignore-scripts` install skips their build; each name here is then
+    # `pnpm rebuild`-ed with the C/C++ toolchain and the pinned Node headers. A
+    # prebuilt `.node` shipped inside an npm package needs no entry — only
+    # packages that must be compiled do.
+    node_native_packages: list[str] = field(default_factory=list)
     # For go-source: sha256 of the vendored Go module set. `go.sum` already
     # hashes every module; this pins the resolved set as a whole.
     go_vendor_hash: str | None = None
