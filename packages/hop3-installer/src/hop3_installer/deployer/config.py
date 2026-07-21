@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import ipaddress
+import re
 import secrets
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -24,6 +26,44 @@ from hop3_installer.constants import (
 )
 from hop3_installer.deprecation import env_bool_with_alias, env_with_alias
 from hop3_installer.nginx_templates import is_fqdn
+
+# POSIX username: lowercase start, then letters/digits/underscores/hyphens.
+# Rejects shell metacharacters, spaces, and leading hyphens.
+_USERNAME_RE = re.compile(r"^[a-z_][a-z0-9_-]*$")
+
+
+def _validate_ssh_user(username: str) -> str:
+    """Validate SSH username. Raises ValueError on invalid input."""
+    if not _USERNAME_RE.match(username):
+        msg = (
+            f"Invalid SSH username: {username!r}. "
+            f"Must match {_USERNAME_RE.pattern}"
+        )
+        raise ValueError(msg)
+    return username
+
+
+def _validate_host(host: str) -> str:
+    """Validate a hostname or IP address. Raises ValueError on invalid input."""
+    # Always try IP first — ip_address() is stricter than hostname regex.
+    try:
+        ipaddress.ip_address(host)
+        return host
+    except ValueError:
+        pass
+    # Hostname: RFC 952/1123 relaxed. Reject shell metacharacters, whitespace,
+    # and control characters.
+    hostname_re = re.compile(
+        r"^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$"
+    )
+    labels = host.split(".")
+    if not all(hostname_re.match(label) for label in labels):
+        msg = (
+            f"Invalid hostname: {host!r}. "
+            f"Must be a valid hostname or IP address."
+        )
+        raise ValueError(msg)
+    return host
 
 
 @dataclass
@@ -86,6 +126,13 @@ class DeployConfig:
         # Default features
         if not self.with_features:
             self.with_features = ["docker"]
+
+        # Validate SSH parameters — reject shell metacharacters early.
+        # Only validate when a host is set (skip for Docker-only configs).
+        if self.host:
+            _validate_host(self.host)
+        if self.ssh_user:
+            _validate_ssh_user(self.ssh_user)
 
     @property
     def ssh_target(self) -> str:
