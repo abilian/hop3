@@ -126,6 +126,41 @@ let
         --no-index --find-links ${{pythonDeps}} \\
         --require-hashes --requirement ${{requirementsFile}}
 
+      # Reproducibility: a C extension built from an sdist embeds pip's random
+      # build directory (/build/pip-install-XXXX/...) as the DWARF comp_dir in
+      # its .debug_* sections, so two builds of the same source differ byte-for-
+      # byte. Strip debug info from ONLY those .so — the ones that actually carry
+      # the build path — then rewrite the wheel RECORD hashes to match (else
+      # RECORD keeps the pre-strip hash and reintroduces the non-determinism).
+      # Prebuilt-wheel extensions are already reproducible and must be left
+      # byte-for-byte untouched: re-stripping foreign native libs (Rust cdylibs,
+      # mypyc modules) is needless risk, so we skip any .so without the marker.
+      find $out/venv -name '*.so' -type f | while read -r so; do
+        if grep -qa '/build/pip-' "$so"; then
+          ${{pkgs.binutils}}/bin/strip --strip-debug "$so"
+        fi
+      done
+      $out/venv/bin/python - "$out/venv" << 'RECORDFIX'
+import base64, hashlib, sys
+from pathlib import Path
+venv = Path(sys.argv[1])
+for record in venv.rglob("RECORD"):
+    site = record.parent.parent
+    out, changed = [], False
+    for line in record.read_text().splitlines():
+        cols = line.rsplit(",", 2)
+        target = site / cols[0] if len(cols) == 3 else None
+        if target and target.suffix == ".so" and target.is_file():
+            data = target.read_bytes()
+            digest = base64.urlsafe_b64encode(hashlib.sha256(data).digest())
+            new = f"{{cols[0]}},sha256={{digest.rstrip(b'=').decode()}},{{len(data)}}"
+            changed = changed or new != line
+            line = new
+        out.append(line)
+    if changed:
+        record.write_text("\\n".join(out) + "\\n")
+RECORDFIX
+
       cat > $out/bin/{spec.pname} << 'WRAPPER'
 {wrapper_body}
 WRAPPER

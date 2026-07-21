@@ -4,6 +4,7 @@ version = "24.02"
 description = "Simple, self-hosted documentation platform"
 
 [nix]
+composer-deps-hash = "sha256-ir7mLBoB5djufwvFcWof16xai9bnHt9IZm2/mq+pKIU="
 template = "php-app"
 needs-writable-dir = true
 pre-exec = ["PHPBIN/php artisan migrate --force 2>/dev/null || true"]

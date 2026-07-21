@@ -4,6 +4,7 @@ version = "5.8.37"
 description = "Free open-source invoicing platform"
 
 [nix]
+composer-deps-hash = "sha256-IoNfYWq/Ocu2P50U65uWWQR2I4/BuZ/CoOrfDCAM8B8="
 template = "php-app"
 needs-writable-dir = true
 pre-exec = ["PHPBIN/php artisan migrate --force 2>/dev/null || true"]
@@ -14,6 +15,9 @@ archive = "tar-gz"
 php-version = "php82"
 php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'bcmath', 'intl', 'soap', 'fileinfo', 'tokenizer']
 needs-composer = true
+# Upstream composer.json fails composer's strict `validate` (benign for a
+# packaged release); skip it explicitly so buildComposerProject proceeds.
+composer-strict-validation = false
 composer-extra-flags = ['--ignore-platform-reqs']
 post-install-dirs = ['storage/app', 'storage/framework/cache', 'storage/framework/sessions', 'storage/framework/views', 'storage/logs', 'bootstrap/cache', 'public/storage']
 extra-native-build-inputs = ['pkgs.nodejs']

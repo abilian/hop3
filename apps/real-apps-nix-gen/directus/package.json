@@ -1,0 +1,9 @@
+{
+  "name": "hop3-directus",
+  "version": "11.17.2",
+  "private": true,
+  "dependencies": {
+    "directus": "11.17.2",
+    "pg": "^8.11.0"
+  }
+}

@@ -52,6 +52,31 @@ from hop3.plugins.build.nix.gen.templates.base import (
     format_wrapper_body,
 )
 
+# lockfileVersion each pnpm major reads and writes. Measured, not assumed:
+# pnpm 8 emits 6.0; pnpm 9, 10 and 11 all emit 9.0, so a lockfile is portable
+# across those three. A recipe pinning pnpm_8 with a 9.0 lockfile (or the
+# reverse) fails inside the build with a parse error that names neither cause.
+PNPM_LOCKFILE_VERSIONS = {
+    "pnpm_8": "6.0",
+    "pnpm_9": "9.0",
+    "pnpm_10": "9.0",
+    "pnpm_11": "9.0",
+}
+
+
+def lockfile_version_for(pnpm_package: str) -> str | None:
+    """The lockfileVersion the given nixpkgs pnpm attribute expects."""
+    return PNPM_LOCKFILE_VERSIONS.get(pnpm_package)
+
+
+def parse_lockfile_version(lockfile_text: str) -> str | None:
+    """Read `lockfileVersion:` from a pnpm-lock.yaml."""
+    for line in lockfile_text.splitlines():
+        if line.startswith("lockfileVersion:"):
+            return line.split(":", 1)[1].strip().strip("'\"")
+    return None
+
+
 _NO_LOCKFILE = (
     "{pname}: node-pnpm-install requires a committed manifest and lockfile — "
     'set `node-manifest` and `node-lockfile` in [nix] (e.g. "package.json" '
@@ -95,7 +120,7 @@ class NodePnpmInstallTemplate:
 
         npm_pkg = spec.nixpkgs_package  # reinterpreted as npm package name
         runtime_pkg = spec.runtime_package or "nodejs_22"
-        pnpm_pkg = "pnpm_9"  # pinned for now; make configurable later if needed
+        pnpm_pkg = spec.node_pnpm_package
 
         exec_args = " " + " ".join(spec.exec_args) if spec.exec_args else ""
         # Exec line uses the runtime-exported `$APPDIR` (not the `$out` from
@@ -164,6 +189,13 @@ let
 
     dontUnpack = true;
     dontBuild = true;
+    # Vendored content must be byte-preserved: stdenv's default fixupPhase runs
+    # patchShebangs over $out, which rewrites the `#!/usr/bin/env bash` shebang
+    # of npm packages' shipped scripts (stored in pnpm's CAFS as `*-exec` files)
+    # to an absolute `/nix/store/…-bash` path — a store reference a fixed-output
+    # derivation may not contain (and a source of hash drift). Skip fixup, as
+    # nixpkgs' own pnpm.fetchDeps does.
+    dontFixup = true;
 
     nativeBuildInputs = [ nodejs pnpm ];
 
@@ -176,6 +208,18 @@ let
       cp ${{lockfile}} pnpm-lock.yaml
       mkdir -p $out
       ${{pnpm}}/bin/pnpm fetch --store-dir $out
+
+      # Reproducibility: `pnpm fetch` stamps a `checkedAt` verification
+      # timestamp into every store index file and leaves their key order
+      # unstable, so the fixed-output hash drifts run-to-run (and the app build
+      # then fails its own vendorHash check on a rebuild). Normalize exactly as
+      # nixpkgs' own pnpm.fetchDeps does — drop the temp dirs, strip `checkedAt`
+      # at any depth, sort keys — so the vendored store is byte-stable.
+      rm -rf $out/v3/tmp $out/v10/tmp
+      find $out -name '*.json' -type f | while read -r f; do
+        ${{pkgs.jq}}/bin/jq --sort-keys 'del(.. | .checkedAt?)' "$f" > "$f.norm"
+        mv "$f.norm" "$f"
+      done
     '';
 
     outputHashMode = "recursive";
@@ -222,6 +266,14 @@ let
         --config.package-import-method=copy \\
         --prod \\
         --reporter=silent
+
+      # Reproducibility: pnpm stamps a `prunedAt` wall-clock timestamp into
+      # node_modules/.modules.yaml, so two installs of the identical store
+      # differ by that one line. It is prune-scheduling metadata pnpm never
+      # needs at runtime; drop it so the installed tree is byte-stable.
+      if [ -f node_modules/.modules.yaml ]; then
+        sed -i '/^prunedAt:/d' node_modules/.modules.yaml
+      fi
 
       cat > $out/bin/{spec.pname} << 'WRAPPER'
 {wrapper_body}
