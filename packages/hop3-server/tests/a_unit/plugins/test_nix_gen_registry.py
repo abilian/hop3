@@ -17,7 +17,8 @@ from hop3.plugins.build.nix.gen.spec import AppSpec, Source
 
 def test_list_templates_returns_all():
     names = list_templates()
-    assert len(names) == 10
+    assert len(names) == 11
+    assert "java-gradle" in names
     assert "prebuilt-binary" in names
     assert "prebuilt-archive" in names
     assert "php-app" in names

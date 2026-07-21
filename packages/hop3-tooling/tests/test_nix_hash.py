@@ -75,6 +75,7 @@ def test_rejects_a_recipe_with_no_nix_table():
         ("python-venv", "pip-deps-hash"),
         ("php-app", "composer-deps-hash"),
         ("node-pnpm-install", "node-deps-hash"),
+        ("go-source", "go-vendor-hash"),
     ],
 )
 def test_hash_key_per_template(template, key):

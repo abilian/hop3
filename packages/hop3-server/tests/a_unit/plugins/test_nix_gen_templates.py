@@ -285,6 +285,46 @@ def test_php_app_source_root():
     assert "cp -r limesurvey/. $out/app/" in output
 
 
+# --- java-gradle ---
+
+
+def _gradle_spec(**overrides) -> AppSpec:
+    defaults: dict[str, Any] = {
+        "pname": "stirling-pdf",
+        "version": "0.33.1",
+        "description": "PDF toolkit",
+        "template": "java-gradle",
+        "source": Source(url="https://x/src.tar.gz", sha256="x", archive="tar-gz"),
+        "gradle_jar_glob": "build/libs/Stirling-PDF-*.jar",
+        "gradle_jar_name": "Stirling-PDF.jar",
+    }
+    defaults.update(overrides)
+    return AppSpec(**defaults)
+
+
+def test_java_gradle_requires_jar():
+    with pytest.raises(ValueError, match="gradle-jar-glob"):
+        generate(_gradle_spec(gradle_jar_glob=None))
+
+
+def test_java_gradle_builds_from_source_offline():
+    """Compiled by Gradle with the dep set pinned by a committed deps.json —
+    not a downloaded jar/dist, not a nixpkgs wrap."""
+    out = generate(
+        _gradle_spec(
+            gradle_patches=["fix.patch"],
+            gradle_flags=["-x", "spotlessApply"],
+        )
+    )
+    assert "gradle.fetchDeps" in out
+    assert "data = ./deps.json" in out
+    assert "patches = [ ./fix.patch ];" in out
+    assert 'gradleFlags = [ "-x" "spotlessApply" ];' in out
+    assert "install -Dm644 build/libs/Stirling-PDF-*.jar $out/Stirling-PDF.jar" in out
+    assert "java $JAVA_OPTS -jar" in out
+    assert "doCheck = false" in out
+
+
 # --- java-war ---
 
 
@@ -913,6 +953,81 @@ def test_go_source_emits_optional_attrs():
     output = generate(_go_spec(go_sub_packages=["./cmd/app"], go_ldflags=["-s", "-w"]))
     assert 'subPackages = [ "./cmd/app" ];' in output
     assert 'ldflags = [ "-s" "-w" ];' in output
+
+
+def test_go_source_proxy_vendor():
+    """gitea/forgejo need proxyVendor to dodge the vendor/modules.txt check."""
+    assert "proxyVendor = true;" not in generate(_go_spec())
+    assert "proxyVendor = true;" in generate(_go_spec(go_proxy_vendor=True))
+
+
+def test_go_source_go_version_override():
+    """An app whose go.mod needs a newer Go than the pin's default overrides it."""
+    assert "buildGoModule.override" not in generate(_go_spec())
+    out = generate(_go_spec(go_version="go_1_24"))
+    assert "pkgs.buildGoModule.override { go = pkgs.go_1_24; }" in out
+
+
+def test_go_source_frontend():
+    """A go-source app with a JS frontend builds it via buildNpmPackage and wires
+    the assets to the wrapper as $HOP3_GO_FRONTEND."""
+    out = generate(
+        _go_spec(
+            go_frontend_build="BROWSERSLIST_IGNORE_OLD_DATA=true npx webpack",
+            go_npm_deps_hash="sha256-AAAA",
+        )
+    )
+    assert "buildNpmPackage" in out
+    assert 'npmDepsHash = "sha256-AAAA"' in out
+    assert "BROWSERSLIST_IGNORE_OLD_DATA=true npx webpack" in out
+    assert 'export HOP3_GO_FRONTEND="FRONTENDDIR"' in out
+    assert 'sed -i "s|FRONTENDDIR|${frontend}|g"' in out
+
+
+def test_go_source_frontend_requires_npm_hash():
+    """Without the npmDepsHash the frontend's npm set is unpinned — refuse."""
+    with pytest.raises(ValueError, match="go-npm-deps-hash"):
+        generate(_go_spec(go_frontend_build="npx webpack"))
+
+
+def test_go_source_pnpm_frontend():
+    """A pnpm frontend (vikunja) builds via pnpm.fetchDeps + configHook, not
+    buildNpmPackage."""
+    out = generate(
+        _go_spec(
+            go_frontend_build="pnpm run build",
+            go_frontend_pnpm=True,
+            go_pnpm_deps_hash="sha256-BBBB",
+        )
+    )
+    assert "pnpm_9.fetchDeps" in out
+    assert "configHook" in out
+    assert 'hash = "sha256-BBBB"' in out
+    assert "buildNpmPackage" not in out
+
+
+def test_go_source_pnpm_requires_pnpm_hash():
+    with pytest.raises(ValueError, match="go-pnpm-deps-hash"):
+        generate(_go_spec(go_frontend_build="pnpm run build", go_frontend_pnpm=True))
+
+
+def test_go_source_embedded_frontend():
+    """An app that `go:embed`s the frontend copies the built assets into the
+    source before the Go compile (preBuild), with no disk-served wiring."""
+    out = generate(
+        _go_spec(
+            go_frontend_build="pnpm run build",
+            go_frontend_pnpm=True,
+            go_pnpm_deps_hash="sha256-BBBB",
+            go_frontend_output="dist",
+            go_frontend_embed_path="frontend/dist",
+        )
+    )
+    assert "preBuild" in out
+    assert "cp -r ${frontend} frontend/dist" in out
+    # embed mode: no runtime disk wiring
+    assert "HOP3_GO_FRONTEND" not in out
+    assert "FRONTENDDIR" not in out
 
 
 # --- pnpm lockfile/pin compatibility ---

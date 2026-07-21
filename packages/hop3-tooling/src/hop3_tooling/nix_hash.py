@@ -27,6 +27,7 @@ HASH_KEY_BY_TEMPLATE = {
     "python-venv": "pip-deps-hash",
     "php-app": "composer-deps-hash",
     "node-pnpm-install": "node-deps-hash",
+    "go-source": "go-vendor-hash",
 }
 
 _GOT_HASH = re.compile(r"\bgot:\s*(sha256-[A-Za-z0-9+/=]+)")
