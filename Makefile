@@ -209,6 +209,12 @@ test-app:
 test-nix:
 	@echo "--> Testing Nix apps on Docker (hop3-test run --with nix)"
 	uv run hop3-test run --docker --with nix apps/test-apps-nix apps/real-apps-nix-gen
+
+## Reproducibility gate: rebuild every nix-gen app and fail if any output drifts
+.PHONY: check-reproducible
+check-reproducible:
+	@echo "--> Checking nix-gen reproducibility (nix build --rebuild)"
+	uv run hop3-tools nix check-reproducible $${HOP3_NIX_SSH:+--ssh $$HOP3_NIX_SSH} apps/real-apps-nix-gen
 	@echo ""
 
 #

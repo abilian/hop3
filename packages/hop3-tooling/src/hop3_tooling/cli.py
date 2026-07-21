@@ -6,10 +6,15 @@
 from __future__ import annotations
 
 import subprocess
+from contextlib import contextmanager
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
 import tomllib
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 from hop3.plugins.build.nix.gen.registry import generate
 from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
@@ -19,6 +24,7 @@ from hop3_tooling.nix_hash import (
     parse_nix_hash_mismatch,
     set_nix_hash,
 )
+from hop3_tooling.nix_repro import ReproResult, interpret_rebuild, summarize
 
 from . import catalog as catalog_lib
 from .verify import CHECKS, DEFAULT_HOST, run_verification
@@ -165,19 +171,89 @@ def verify(
     raise SystemExit(0 if ok else 1)
 
 
-if __name__ == "__main__":
-    main()
-
-
 @main.group()
 def nix() -> None:
     """Nix-recipe maintenance."""
 
 
+def _ssh_base(host: str) -> list[str]:
+    return [
+        "ssh",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "StrictHostKeyChecking=no",
+        f"root@{host}",
+    ]
+
+
+def _scp_dir(app_dir: Path, host: str, remote_dir: str) -> None:
+    subprocess.run(
+        [
+            "scp",
+            "-q",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-r",
+            f"{app_dir}/.",
+            f"root@{host}:{remote_dir}/",
+        ],
+        check=True,
+    )
+
+
+def _build_locally(nix_file: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["nix", "build", "--no-link", "-f", str(nix_file), "package"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def _build_over_ssh(app_dir: Path, host: str) -> subprocess.CompletedProcess[str]:
+    """Build the recipe on a remote Linux host and return the result.
+
+    The dependency set Nix downloads is platform-specific (a Linux wheel set is
+    not a macOS one), so the hash must be computed on the platform that will
+    actually run the app. The whole app directory is copied because the
+    expression references its lockfiles by relative path.
+    """
+    remote_dir = f"/tmp/hop3-vendor-hash/{app_dir.name}"
+    ssh_base = _ssh_base(host)
+    subprocess.run(
+        [*ssh_base, f"rm -rf {remote_dir} && mkdir -p {remote_dir}"], check=True
+    )
+    _scp_dir(app_dir, host, remote_dir)
+    try:
+        return subprocess.run(
+            [
+                *ssh_base,
+                (
+                    f"cd {remote_dir} && "
+                    f"export NIX_CONFIG='experimental-features = nix-command flakes'; "
+                    f"nix build --no-link -f hop3.nix package"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    finally:
+        subprocess.run([*ssh_base, f"rm -rf {remote_dir}"], check=False)
+
+
 @nix.command("vendor-hash")
 @click.argument("app_dir", type=click.Path(exists=True, path_type=Path))
 @click.option("--write/--dry-run", default=True, help="Write the hash into hop3.toml.")
-def vendor_hash(app_dir: Path, write: bool) -> None:
+@click.option(
+    "--ssh",
+    default=None,
+    help="Build on a Linux host over SSH. Required from macOS: Nix resolves a\nplatform-specific dependency set, so a darwin build yields the wrong hash.",
+)
+def vendor_hash(app_dir: Path, write: bool, ssh: str | None) -> None:
     """Compute a recipe's vendored-dependency hash and record it.
 
     The hermetic templates pin their dependency set with a fixed-output
@@ -213,21 +289,12 @@ def vendor_hash(app_dir: Path, write: bool) -> None:
         msg = f"{app_dir.name}: {exc}"
         raise click.ClickException(msg) from exc
 
-    nix_file = app_dir / "hop3.nix"
-    original = nix_file.read_text() if nix_file.exists() else None
-    nix_file.write_text(expression)
-    try:
-        result = subprocess.run(
-            ["nix", "build", "--no-link", "-f", str(nix_file), "package"],
-            capture_output=True,
-            text=True,
-            check=False,
+    with _materialized_nix(app_dir, expression):
+        result = (
+            _build_over_ssh(app_dir, ssh)
+            if ssh
+            else _build_locally(app_dir / "hop3.nix")
         )
-    finally:
-        if original is None:
-            nix_file.unlink(missing_ok=True)
-        else:
-            nix_file.write_text(original)
 
     if result.returncode == 0:
         click.echo(f"{app_dir.name}: builds with the placeholder — nothing to pin?")
@@ -245,3 +312,146 @@ def vendor_hash(app_dir: Path, write: bool) -> None:
     if write:
         toml_path.write_text(set_nix_hash(toml_path.read_text(), key, found))
         click.echo(f"  written to {toml_path}")
+
+
+@nix.command("check-reproducible")
+@click.argument(
+    "roots",
+    nargs=-1,
+    type=click.Path(exists=True, path_type=Path),
+)
+@click.option("--ssh", default=None, help="Build on a Linux host over SSH.")
+def check_reproducible(roots: tuple[Path, ...], ssh: str | None) -> None:
+    """Rebuild each nix-gen app and fail if any output is not deterministic.
+
+    For every recipe under ROOTS, generate its ``hop3.nix``, build it, then
+    ``nix build --rebuild`` (which rebuilds and compares against the first
+    output). A changed output means the build is not reproducible — which is
+    the whole claim the hermetic templates make. Exits non-zero on the first
+    failure or an empty selection.
+    """
+    roots = roots or (Path("apps/real-apps-nix-gen"),)
+
+    def _recipes(root: Path) -> list[Path]:
+        # A root may be a directory of app dirs, or a single app dir itself.
+        own = [root / "hop3.toml"] if (root / "hop3.toml").is_file() else []
+        return own + list(root.glob("*/hop3.toml"))
+
+    app_dirs = sorted({
+        toml_file.parent
+        for root in roots
+        for toml_file in _recipes(root)
+        if "template" in (tomllib.loads(toml_file.read_text()).get("nix") or {})
+    })
+    if not app_dirs:
+        # A gate that found nothing to check must not look like a green run.
+        msg = f"no nix-gen recipe found under {[str(r) for r in roots]}"
+        raise click.ClickException(msg)
+
+    results = []
+    for app_dir in app_dirs:
+        result = _rebuild_check(app_dir, ssh)
+        mark = "ok " if result.reproducible else "FAIL"
+        click.echo(f"  {mark} {result.app}: {result.detail}")
+        results.append(result)
+
+    ok, summary = summarize(results)
+    click.echo(f"\n{summary}")
+    raise SystemExit(0 if ok else 1)
+
+
+def _generated_expression(app_dir: Path) -> str:
+    """The hop3.nix an app's recipe generates (raises click errors on failure)."""
+    config = tomllib.loads((app_dir / "hop3.toml").read_text())
+    spec = app_spec_from_config(
+        config.get("nix") or {},
+        config.get("metadata") or {},
+        app_dir.name,
+    )
+    try:
+        return generate(spec)
+    except ValueError as exc:
+        msg = f"{app_dir.name}: {exc}"
+        raise click.ClickException(msg) from exc
+
+
+@contextmanager
+def _materialized_nix(app_dir: Path, expression: str) -> Iterator[None]:
+    """Write a generated hop3.nix for the duration of a build, then restore.
+
+    hop3.nix is generated, never committed, so we must not leave one behind — a
+    stray file would shadow the recipe on the next generation.
+    """
+    nix_file = app_dir / "hop3.nix"
+    original = nix_file.read_text() if nix_file.exists() else None
+    nix_file.write_text(expression)
+    try:
+        yield
+    finally:
+        if original is None:
+            nix_file.unlink(missing_ok=True)
+        else:
+            nix_file.write_text(original)
+
+
+def _rebuild_check(app_dir: Path, ssh: str | None) -> ReproResult:
+    # A recipe that cannot even generate is not reproducible; report it as such
+    # rather than crashing the whole gate.
+    try:
+        expression = _generated_expression(app_dir)
+    except click.ClickException as exc:
+        return ReproResult(app_dir.name, reproducible=False, detail=str(exc.message))
+
+    with _materialized_nix(app_dir, expression):
+        if ssh:
+            return interpret_rebuild(
+                app_dir.name, *_run(_rebuild_over_ssh(app_dir, ssh))
+            )
+        build = _build_locally(app_dir / "hop3.nix")
+        if build.returncode != 0:
+            return interpret_rebuild(app_dir.name, build.returncode, build.stderr)
+        rebuild = _rebuild_locally(app_dir / "hop3.nix")
+        return interpret_rebuild(app_dir.name, rebuild.returncode, rebuild.stderr)
+
+
+def _run(proc: subprocess.CompletedProcess[str]) -> tuple[int, str]:
+    return proc.returncode, proc.stderr
+
+
+def _rebuild_locally(nix_file: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["nix", "build", "--rebuild", "--no-link", "-f", str(nix_file), "package"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def _rebuild_over_ssh(app_dir: Path, host: str) -> subprocess.CompletedProcess[str]:
+    remote_dir = f"/tmp/hop3-repro/{app_dir.name}"
+    ssh_base = _ssh_base(host)
+    subprocess.run(
+        [*ssh_base, f"rm -rf {remote_dir} && mkdir -p {remote_dir}"], check=True
+    )
+    _scp_dir(app_dir, host, remote_dir)
+    try:
+        return subprocess.run(
+            [
+                *ssh_base,
+                (
+                    f"cd {remote_dir} && "
+                    f"export NIX_CONFIG='experimental-features = nix-command flakes'; "
+                    f"nix build --no-link -f hop3.nix package && "
+                    f"nix build --rebuild --no-link -f hop3.nix package"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    finally:
+        subprocess.run([*ssh_base, f"rm -rf {remote_dir}"], check=False)
+
+
+if __name__ == "__main__":
+    main()
