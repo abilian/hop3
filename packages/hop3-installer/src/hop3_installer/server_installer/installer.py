@@ -369,7 +369,13 @@ def main() -> int:
 
     # Write server config (including secret key for CLI commands)
     try:
-        write_server_config(pg_password, mysql_password, config.domain, secret_key)
+        write_server_config(
+            pg_password,
+            mysql_password,
+            config.domain,
+            secret_key,
+            operator_email=config.operator_email or config.acme_email,
+        )
     except Exception as e:
         print_warning(f"Config write issue: {e}")
 

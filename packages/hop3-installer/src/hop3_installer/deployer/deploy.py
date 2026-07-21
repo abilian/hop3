@@ -486,6 +486,11 @@ class Deployer:
         if self.config.acme_email:
             install_cmd += f" --acme-email {shlex.quote(self.config.acme_email)}"
 
+        # OPERATOR_EMAIL resolves recipes' `[admin].email = "operator"` (ADR 056);
+        # forward the admin email so admin-bootstrap apps can deploy.
+        if self.config.admin_email:
+            install_cmd += f" --operator-email {shlex.quote(self.config.admin_email)}"
+
         install_cmd += " --verbose"
 
         self.log(f"Running: {install_cmd}")
@@ -536,6 +541,8 @@ class Deployer:
         cmd += " --skip-nginx --skip-acme --skip-package-install"
         if self.config.acme_email:
             cmd += f" --acme-email {shlex.quote(self.config.acme_email)}"
+        if self.config.admin_email:
+            cmd += f" --operator-email {shlex.quote(self.config.admin_email)}"
         cmd += " --verbose"
         return cmd
 
