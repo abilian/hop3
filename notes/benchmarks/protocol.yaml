@@ -12,11 +12,18 @@
 nixpkgs_rev: "50ab793786d9de88ee30ec4e4c24fb4236fc2674"   # nixos-24.11 (nix-gen generator pin)
 
 corpus:
-  name: golden-20
-  apps: [bookstack, bugsink, dolibarr, easy-appointments, forgejo, gatus, gitea,
-         invoice-ninja, isso, kanboard, keycloak, limesurvey, matomo, mattermost,
-         miniflux, nextcloud, paheko, radicale, vikunja, wordpress]
-  tier1_nixpkgs: [miniflux, gitea, forgejo, vikunja, mattermost, keycloak]  # buildable direct
+  name: golden-20-balanced           # rebalanced 2026-07-21 (SF: "10 PHP + 6 Go is not balanced")
+  # Language-balanced across the packaged corpus; per-language supply caps in
+  # local-notes/plans/26-golden-apps-and-catalog.md. Ruby has 0 native/nix apps
+  # today (docker-only) and is being packaged in parallel (ruby-bundler); its
+  # cells fold in when green (SF hybrid decision 2026-07-21).
+  apps: [wordpress, nextcloud, bookstack, invoice-ninja, matomo,   # PHP (5)
+         gitea, miniflux, vikunja, gatus, owncast,                 # Go (5)
+         bugsink, isso, radicale, searxng,                         # Python (4)
+         directus, wiki-js, etherpad,                              # Node (3)
+         stirling-pdf, keycloak, jenkins]                          # JVM (3)
+  languages: {php: 5, go: 5, python: 4, node: 3, jvm: 3, ruby: 0}  # ruby: packaging in parallel
+  tier1_nixpkgs: [miniflux, gitea, vikunja, gatus, owncast]        # go-source; buildable direct
 
 hardware:
   memory_box: {class: hetzner-cx41-equiv, vcpu: 4, ram_gb: 16, os: ubuntu-24.04}
