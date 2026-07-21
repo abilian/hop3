@@ -1,17 +1,24 @@
-# hop3.toml - Hop3 configuration for Nix-based Gatus
+# hop3.toml - Hop3 configuration for Gatus (nix-gen)
+# Status pages / health-check monitoring — compiled FROM SOURCE with
+# buildGoModule (go-source), not wrapped from nixpkgs.
 
 [metadata]
 id = "gatus"
+# Pinned to the version nixpkgs-24.11 packages (Go-1.23-buildable). A newer
+# gatus needs a per-app nixpkgs bump.
+version = "5.13.0"
 description = "Status pages and health-check monitoring"
 
 [build]
 builder = "nix"
 
 [nix]
-template = "nixpkgs-wrapper"
-nixpkgs-package = "gatus"
+template = "go-source"
+url = "https://github.com/TwiN/gatus/archive/refs/tags/v${version}.tar.gz"
+sha256 = "4+AJp9EbiD8bPQxCl0NguMldxY3u2kHIJe2BUoJ0jHM="
+archive = "tar-gz"
 exec-target = "gatus"
-extra-paths = ['${gatus}/bin']
+go-vendor-hash = "sha256-pM47Jy7WIS8+3mFEmPZdnyxcDjoxgdP46xuTmf4p2JM="
 pre-exec = ['mkdir -p config data']
 
 [[nix.config-files]]

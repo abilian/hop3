@@ -1,13 +1,25 @@
+# hop3.toml - Hop3 configuration for Radicale (nix-gen)
+# Simple CalDAV/CardDAV server — installed FROM SOURCE with python-venv: a
+# hash-pinned requirements.txt is vendored by a fixed-output derivation and the
+# venv is built offline in the sandbox (not wrapped from nixpkgs).
+
 [metadata]
 id = "radicale"
+version = "3.7.7"
 description = "A simple CalDAV and CardDAV server"
 
+[build]
+builder = "nix"
+
 [nix]
-template = "nixpkgs-wrapper"
+template = "python-venv"
+pip-requirements = "requirements.txt"
+pip-deps-hash = "sha256-gZagzX91IQTJGmozvm1W787gazDr+ocDooW4RbQPmTo="
+pip-packages = ['radicale[bcrypt]']
+runtime-package = "python3"
 exec-target = "radicale"
-nixpkgs-package = "radicale"
-exec-args = ['--config', 'config', '"$@"']
-extra-paths = ['${radicale}/bin']
+exec-args = ['--config', 'config']
+extra-paths = ['$out/venv/bin']
 pre-exec = ['mkdir -p collections']
 
 [nix.local-vars]
@@ -30,15 +42,6 @@ type = ${RADICALE_AUTH_TYPE:-none}
 [storage]
 filesystem_folder = collections
 """
-
-# Hop3 Configuration for Radicale (Nix build)
-# Simple CalDAV and CardDAV server
-
-[build]
-builder = "nix"
-
-[env]
-RADICALE_AUTH_TYPE = "none"
 
 [test]
 priority = "P2"

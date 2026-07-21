@@ -1,18 +1,29 @@
-# hop3.toml - Hop3 configuration for Nix-based Stirling-PDF
-# Local web PDF toolkit (merge/split/OCR/sign) — built from source via nixpkgs
+# hop3.toml - Hop3 configuration for Stirling-PDF (nix-gen)
+# Local web PDF toolkit — compiled FROM SOURCE with java-gradle: Gradle builds
+# the jar offline (deps pinned by deps.json), run with `java -jar`. Not wrapped
+# from nixpkgs, not a prebuilt dist.
 
 [metadata]
 id = "stirling-pdf"
+# Version nixpkgs-24.11 packages; its deps.json lockfile + build-timestamp
+# patch are reused here (committed alongside this recipe).
+version = "0.33.1"
 description = "Local web PDF toolkit"
 
 [build]
 builder = "nix"
 
 [nix]
-template = "nixpkgs-wrapper"
-nixpkgs-package = "stirling-pdf"
-exec-target = "Stirling-PDF"
-extra-paths = ['${stirling_pdf}/bin']
+template = "java-gradle"
+url = "https://github.com/Stirling-Tools/Stirling-PDF/archive/refs/tags/v${version}.tar.gz"
+sha256 = "krXPvvP0b4G2CEJM7BwRDrzOFKBVjTPHr28Fc14MpKg="
+archive = "tar-gz"
+runtime-package = "jre"
+gradle-patches = ["remove-props-file-timestamp.patch"]
+# spotless tries to fetch files not in deps.json (and slows the build).
+gradle-flags = ["-x", "spotlessApply"]
+gradle-jar-glob = "build/libs/Stirling-PDF-*.jar"
+gradle-jar-name = "Stirling-PDF.jar"
 pre-exec = ['mkdir -p configs customFiles logs pipeline']
 
 [nix.env-exports]
