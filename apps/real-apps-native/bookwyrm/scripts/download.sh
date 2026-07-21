@@ -1,10 +1,12 @@
 #!/bin/bash
-# Downloads BookWyrm and emits a flat `requirements.txt` from its
-# PEP-735 `[dependency-groups].main`. Upstream ships only a pyproject
-# with dependency-groups and no uv.lock, which pip cannot consume
-# directly. Per ADR 039, packaging-time freezing is the right place
-# for this conversion. Uses pure-Python tomllib (stdlib in 3.11+) so
-# no extra tooling is required on the packaging host.
+# Downloads the BookWyrm source. Dependencies are NOT derived here: a
+# committed, fully pinned `requirements.txt` drives the install. It was
+# frozen at packaging time with `uv pip compile` from this release's
+# PEP-735 `[dependency-groups].main` (+ gunicorn), resolving the full
+# transitive closure to `==` pins — so the deploy installs exactly the
+# recorded versions instead of re-flattening unpinned ranges (and missing
+# every transitive dep) on each deploy. ADR 039: freeze at packaging time,
+# in the repo, not at deploy time.
 set -e
 VERSION="${BOOKWYRM_VERSION:-0.8.5}"
 URL="https://github.com/bookwyrm-social/bookwyrm/archive/refs/tags/v${VERSION}.tar.gz"
@@ -12,27 +14,12 @@ URL="https://github.com/bookwyrm-social/bookwyrm/archive/refs/tags/v${VERSION}.t
 echo "Downloading BookWyrm v${VERSION}..."
 curl -fsSL "$URL" | tar xz --strip-components=1
 
-python3 - <<'PY'
-try:
-    import tomllib
-except ImportError:
-    import tomli as tomllib  # Python < 3.11
-with open("pyproject.toml", "rb") as f:
-    data = tomllib.load(f)
-deps = data.get("dependency-groups", {}).get("main", [])
-with open("requirements.txt", "w") as out:
-    for dep in deps:
-        if isinstance(dep, str):
-            out.write(dep + "\n")
-    out.write("gunicorn\n")
-print(f"Wrote {len([d for d in deps if isinstance(d, str)]) + 1} deps to requirements.txt")
-PY
-
-# The Python toolchain (ADR 039 Phase 1) errors if both requirements.txt
-# and pyproject.toml are present. pyproject.toml here carries only
-# PEP-735 dependency-groups that we've already flattened into
-# requirements.txt; move it aside so the deployer sees a single-format
-# tree. Preserving as `.packaging-time` leaves the source inspectable.
+# The Python toolchain errors if both requirements.txt and pyproject.toml
+# are present (a silent override is a design smell). The committed
+# requirements.txt is the source of truth; move upstream's pyproject aside
+# so the deployer sees a single-format tree. Upstream ships no root
+# requirements.txt, so the extraction above does not clobber the committed
+# one. Preserving pyproject as `.packaging-time` leaves the source inspectable.
 mv pyproject.toml pyproject.toml.packaging-time
 
-echo "BookWyrm source + requirements.txt ready"
+echo "BookWyrm source ready (requirements.txt is committed + pinned)"

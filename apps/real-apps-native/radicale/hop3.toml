@@ -3,7 +3,7 @@
 
 [metadata]
 id = "radicale"
-version = "3.2"
+version = "3.7.7"
 title = "Radicale"
 description = "A simple CalDAV and CardDAV server"
 homepage = "https://radicale.org/"
