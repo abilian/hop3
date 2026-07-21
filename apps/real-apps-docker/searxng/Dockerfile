@@ -35,8 +35,17 @@ RUN mkdir -p /usr/local/searxng /etc/searxng \
 
 WORKDIR /usr/local/searxng
 
-# Clone SearXNG
-RUN git clone --depth 1 https://github.com/searxng/searxng.git /usr/local/searxng/searxng-src \
+# Clone SearXNG, pinned to an exact commit. SearXNG is a rolling release with no
+# tags, so a bare `git clone --depth 1` floats upstream HEAD and the build is not
+# reproducible. Fetch the pinned SHA directly (shallow); bump SEARXNG_COMMIT to
+# upgrade. Pins the source tree AND its requirements.txt.
+ARG SEARXNG_COMMIT=6da6eee265daeb4a62ab638d6921522bf405de69
+RUN mkdir -p /usr/local/searxng/searxng-src \
+    && cd /usr/local/searxng/searxng-src \
+    && git init -q \
+    && git remote add origin https://github.com/searxng/searxng.git \
+    && git fetch -q --depth 1 origin "${SEARXNG_COMMIT}" \
+    && git checkout -q FETCH_HEAD \
     && chown -R searxng:searxng /usr/local/searxng
 
 # Create venv and install
