@@ -3,7 +3,7 @@
 
 [metadata]
 id = "matrix-synapse"
-version = "1.x"
+version = "1.156.0"
 title = "Matrix Synapse"
 description = "Matrix homeserver implementation"
 homepage = "https://matrix.org/"

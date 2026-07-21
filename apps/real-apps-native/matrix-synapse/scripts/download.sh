@@ -3,9 +3,9 @@ set -e
 echo "Preparing Matrix Synapse..."
 mkdir -p data media_store
 
-# Create requirements.txt for Python toolchain detection
-cat > requirements.txt << 'EOF'
-matrix-synapse[postgres]
-EOF
+# requirements.txt is committed, fully pinned (`uv pip compile` from
+# `matrix-synapse[postgres]`). Do NOT regenerate it from the bare
+# `matrix-synapse[postgres]` here: that resolves to whatever satisfies the
+# range today and cannot be reproduced.
 
-echo "Matrix Synapse directories and requirements created"
+echo "Matrix Synapse directories ready (requirements.txt is committed + pinned)"
