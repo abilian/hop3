@@ -45,10 +45,111 @@ _NO_VENDOR_HASH = (
     "`hop3-tools nix vendor-hash <app-dir>`."
 )
 
+_NO_NPM_HASH = (
+    "{pname}: go-source with `go-frontend-build` also needs `go-npm-deps-hash` "
+    "in [nix] — the npmDepsHash pinning the frontend's npm set. Build once with "
+    'a placeholder (`go-npm-deps-hash = "sha256-AAAA…="`) and read the `got:` '
+    "hash Nix reports."
+)
+
+_NO_PNPM_HASH = (
+    "{pname}: go-source with `go-frontend-pnpm` needs `go-pnpm-deps-hash` in "
+    "[nix] — the pnpm.fetchDeps hash pinning the frontend's pnpm set. Build once "
+    'with a placeholder (`go-pnpm-deps-hash = "sha256-AAAA…="`) and read the '
+    "`got:` hash Nix reports."
+)
+
 
 def _nix_string_list(values: list[str]) -> str:
     """Render a Python list as a Nix list of strings."""
     return " ".join(f'"{value}"' for value in values)
+
+
+def _frontend_block(
+    spec: AppSpec, binding: str, wrapper_body: str
+) -> tuple[str, str, str, str]:
+    """The optional JS-frontend derivation and its integration.
+
+    Returns ``(frontend_nix, frontend_sed, frontend_prebuild, wrapper_body)``:
+    the ``frontend`` let-binding, the wrapper sed (disk mode), the buildGoModule
+    preBuild (embed mode), and the (possibly-updated) wrapper body. Two axes:
+    npm (buildNpmPackage) vs pnpm (pnpm.fetchDeps + configHook), and disk-served
+    (``$HOP3_GO_FRONTEND`` + a static-root config) vs embedded (``go:embed``,
+    copied into the source before the compile).
+    """
+    if not spec.go_frontend_build:
+        return "", "", "", wrapper_body
+
+    fe_root = (
+        f'\n    sourceRoot = "{spec.go_frontend_source_root}";'
+        if spec.go_frontend_source_root
+        else ""
+    )
+    embed = spec.go_frontend_embed_path
+    # Embed mode makes $out the built-assets *contents* (so a single
+    # `cp -r ${frontend} <path>` lands them where `go:embed` expects); disk
+    # mode nests them under `$out/<output>/` for the static-root.
+    fe_install = (
+        f"cp -r {spec.go_frontend_output} $out"
+        if embed
+        else f"mkdir -p $out\n      cp -R {spec.go_frontend_output} $out/"
+    )
+
+    if spec.go_frontend_pnpm:
+        if not spec.go_pnpm_deps_hash:
+            raise ValueError(_NO_PNPM_HASH.format(pname=spec.pname))
+        sr_inherit = " sourceRoot" if spec.go_frontend_source_root else ""
+        frontend_nix = f"""
+  # The JS frontend, built offline with pnpm; pnpm.fetchDeps pins the dep set.
+  frontend = pkgs.stdenv.mkDerivation (finalAttrs: {{
+    pname = "{spec.pname}-frontend";
+    inherit version;
+    src = {binding};{fe_root}
+    pnpmDeps = pkgs.{spec.go_pnpm_package}.fetchDeps {{
+      inherit (finalAttrs) pname version src{sr_inherit};
+      hash = "{spec.go_pnpm_deps_hash}";
+    }};
+    nativeBuildInputs =
+      [ pkgs.{spec.go_frontend_node_package} pkgs.{spec.go_pnpm_package}.configHook ];
+    buildPhase = ''{spec.go_frontend_build}'';
+    installPhase = ''
+      {fe_install}
+    '';
+  }});
+"""
+    else:
+        if not spec.go_npm_deps_hash:
+            raise ValueError(_NO_NPM_HASH.format(pname=spec.pname))
+        frontend_nix = f"""
+  # The JS frontend, built offline in its own derivation; npmDepsHash pins the
+  # npm set (the vendorHash analogue for npm). The build command sets
+  # BROWSERSLIST_IGNORE_OLD_DATA so browserslist doesn't embed a timestamped
+  # cache — the classic webpack non-determinism.
+  frontend = pkgs.buildNpmPackage {{
+    pname = "{spec.pname}-frontend";
+    inherit version;
+    src = {binding};{fe_root}
+    npmDepsHash = "{spec.go_npm_deps_hash}";
+    dontNpmBuild = true;
+    buildPhase = ''{spec.go_frontend_build}'';
+    installPhase = ''
+      {fe_install}
+    '';
+  }};
+"""
+
+    if embed:
+        # Embedded (`go:embed`): copy the built assets into the source tree
+        # before the Go compile; no runtime wiring needed.
+        prebuild = f"\n    preBuild = ''\n      cp -r ${{frontend}} {embed}\n    '';"
+        return frontend_nix, "", prebuild, wrapper_body
+
+    # Disk-served: expose the assets to the wrapper; the recipe points the app's
+    # static-root config at $HOP3_GO_FRONTEND.
+    shebang, _, rest = wrapper_body.partition("\n")
+    wrapper_body = shebang + '\nexport HOP3_GO_FRONTEND="FRONTENDDIR"\n' + rest
+    sed = f'\n      sed -i "s|FRONTENDDIR|${{frontend}}|g" $out/bin/{spec.pname}'
+    return frontend_nix, sed, "", wrapper_body
 
 
 class GoSourceTemplate:
@@ -66,6 +167,8 @@ class GoSourceTemplate:
         optional_attrs = []
         if spec.source_root:
             optional_attrs.append(f'    sourceRoot = "{spec.source_root}";')
+        if spec.go_proxy_vendor:
+            optional_attrs.append("    proxyVendor = true;")
         if spec.go_sub_packages:
             packages = _nix_string_list(spec.go_sub_packages)
             optional_attrs.append(f"    subPackages = [ {packages} ];")
@@ -74,9 +177,21 @@ class GoSourceTemplate:
             optional_attrs.append(f"    ldflags = [ {flags} ];")
         optional_block = ("\n".join(optional_attrs) + "\n") if optional_attrs else ""
 
+        # buildGoModule uses nixpkgs' default Go; override it for an app whose
+        # go.mod needs a newer toolchain than the pinned default.
+        go_builder = (
+            f"(pkgs.buildGoModule.override {{ go = pkgs.{spec.go_version}; }})"
+            if spec.go_version
+            else "pkgs.buildGoModule"
+        )
+
         exec_args = " " + " ".join(spec.exec_args) if spec.exec_args else ""
         exec_line = f"PKGBIN/{spec.exec_target}{exec_args}"
         wrapper_body = format_wrapper_body(spec, exec_line)
+
+        frontend_nix, frontend_sed, frontend_prebuild, wrapper_body = _frontend_block(
+            spec, binding, wrapper_body
+        )
 
         runtime_env_json = format_runtime_env_json(spec.runtime_env)
         nix_env_attrs = format_nix_env_attrs(spec.runtime_env)
@@ -96,13 +211,13 @@ let
   version = "{spec.version}";
 
 {source_nix}
-
+{frontend_nix}
   # Compiled here, not downloaded: a prebuilt binary cannot be audited, and a
   # nixpkgs wrapper would mean nixpkgs, not Hop3, packaged the application.
-  goApp = pkgs.buildGoModule {{
+  goApp = {go_builder} {{
     pname = "{spec.pname}";
     inherit version;
-    src = {binding};
+    src = {binding};{frontend_prebuild}
 
     # Pins the module set. `null` would let the build resolve modules from the
     # network, which is exactly what must not happen.
@@ -127,7 +242,7 @@ let
       cat > $out/bin/{spec.pname} << 'WRAPPER'
 {wrapper_body}
 WRAPPER
-      sed -i "s|PKGBIN|${{goApp}}/bin|g" $out/bin/{spec.pname}
+      sed -i "s|PKGBIN|${{goApp}}/bin|g" $out/bin/{spec.pname}{frontend_sed}
       chmod +x $out/bin/{spec.pname}
 
       cat > $out/hop3/runtime.json << EOF

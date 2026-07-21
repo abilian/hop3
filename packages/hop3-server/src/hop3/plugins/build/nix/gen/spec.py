@@ -281,6 +281,48 @@ class AppSpec:
     go_sub_packages: list[str] = field(default_factory=list)
     # For go-source: linker flags, e.g. version stamping.
     go_ldflags: list[str] = field(default_factory=list)
+    # For go-source: vendor via the Go module proxy (`go mod download`) instead
+    # of `go mod vendor`. Needed by projects whose go.mod trips the vendored
+    # `vendor/modules.txt` explicit-marking consistency check (e.g. gitea).
+    go_proxy_vendor: bool = False
+    # For go-source: override the Go toolchain buildGoModule compiles with (a
+    # nixpkgs attr like "go_1_24"). Building from source ties the app to the
+    # pinned nixpkgs' Go; an app whose go.mod wants a newer Go than the default
+    # sets this to the newest the pin still ships (GOTOOLCHAIN=local forbids a
+    # network download). Default: nixpkgs' default `go`.
+    go_version: str | None = None
+    # For go-source with a JS frontend (gitea/forgejo/vikunja): the frontend is
+    # built in a separate buildNpmPackage derivation and its output exposed to
+    # the wrapper as $HOP3_GO_FRONTEND. `go_frontend_build` is the (offline)
+    # build command; `go_npm_deps_hash` pins the npm dependency set (the
+    # buildGoModule.vendorHash analogue for npm); `go_frontend_output` is the
+    # built-assets dir copied to the derivation output (default "public").
+    go_frontend_build: str | None = None
+    go_npm_deps_hash: str | None = None
+    go_frontend_output: str = "public"
+    go_frontend_source_root: str | None = None
+    # Frontend built with pnpm (vikunja) instead of npm (gitea): uses
+    # pnpm.fetchDeps + the pnpm configHook rather than buildNpmPackage.
+    # `go_pnpm_deps_hash` is the pnpm.fetchDeps hash.
+    go_frontend_pnpm: bool = False
+    go_pnpm_deps_hash: str | None = None
+    go_pnpm_package: str = "pnpm_9"
+    go_frontend_node_package: str = "nodejs"
+    # Embed the built frontend into the source at this path before the Go build
+    # (apps that `//go:embed` the assets, e.g. vikunja's `frontend/dist`),
+    # instead of the default disk-served wiring ($HOP3_GO_FRONTEND).
+    go_frontend_embed_path: str | None = None
+    # For java-gradle: build a Java app from source with Gradle. The dependency
+    # set is pinned by a committed `deps.json` lockfile (nixpkgs' Gradle
+    # `mitmCache`/`fetchDeps` format, the buildGoModule.vendorHash analogue),
+    # `gradle_patches` are applied to the source (e.g. a build-timestamp strip
+    # for reproducibility), `gradle_flags` tune the build, and the produced jar
+    # (`gradle_jar_glob` → installed as `gradle_jar_name`) is run with `java -jar`.
+    gradle_deps_json: str = "deps.json"
+    gradle_patches: list[str] = field(default_factory=list)
+    gradle_flags: list[str] = field(default_factory=list)
+    gradle_jar_glob: str | None = None
+    gradle_jar_name: str | None = None
     # For python-venv: sha256 of the vendored-wheels fixed-output derivation
     # (the analogue of buildGoModule's `vendorHash`). Obtain it by building
     # once with a placeholder and reading the `got:` line Nix prints.
