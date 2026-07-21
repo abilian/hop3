@@ -357,6 +357,15 @@ def check_reproducible(roots: tuple[Path, ...], ssh: str | None) -> None:
 
     ok, summary = summarize(results)
     click.echo(f"\n{summary}")
+    if ok:
+        # Reproducible != deployable: a bit-identical rebuild says nothing about
+        # whether the app starts (directus rebuilt fine while isolated-vm was
+        # uncompiled — blocker #17). Point at the required second half so a green
+        # run here is never mistaken for "advertise-ready".
+        click.echo(
+            "Note: this proves build determinism only, NOT that the apps run. "
+            "Run the deploy check too (`make gate-nix`) before advertising."
+        )
     raise SystemExit(0 if ok else 1)
 
 
