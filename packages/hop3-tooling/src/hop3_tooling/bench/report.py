@@ -53,12 +53,15 @@ def render_dedup(data: dict[str, Any]) -> str:
 
 def render_deploy_timing(data: dict[str, Any]) -> str:
     """The build-and-install band, with the cold-install figure."""
-    t = data.get("deploy_timing") or {}
+    t: dict[str, Any] = data.get("deploy_timing") or {}
     per_app = sorted(t.get("per_app_s") or [], key=itemgetter("seconds"))
     if not per_app:
         msg = "no deploy timings in the run"
         raise ValueError(msg)
     cold = t.get("cold_install_blank_to_app_s")
+    if cold is None:
+        msg = "deploy_timing has no cold_install_blank_to_app_s figure"
+        raise ValueError(msg)
     lo, hi = per_app[0]["seconds"], per_app[-1]["seconds"]
     detail = ", ".join(f"{r['app']} ({r['builder']}) {r['seconds']} s" for r in per_app)
     return (

@@ -17,6 +17,7 @@ import json
 import shlex
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from typing import Any, cast
 
 Runner = Callable[[str], str]
 
@@ -42,14 +43,22 @@ def parse_pss_kb(smaps_rollup: str) -> int:
     return total
 
 
+def _path_info_records(path_info_json: str) -> list[dict[str, Any]]:
+    """The records from ``nix path-info --json``, whichever shape Nix emitted:
+    the object form (newer Nix, keyed by store path) or the list form (Nix 2.x).
+    """
+    data: Any = json.loads(path_info_json)
+    records = list(data.values()) if isinstance(data, dict) else list(data)
+    return cast("list[dict[str, Any]]", records)
+
+
 def parse_closure(path_info_json: str) -> ClosureInfo:
     """Parse ``nix path-info -r --json <path>`` into a closure summary.
 
     Handles both the object form (newer Nix, keyed by store path) and the list
     form (Nix 2.x). The closure size is the sum of every path's ``narSize``.
     """
-    data = json.loads(path_info_json)
-    records = list(data.values()) if isinstance(data, dict) else list(data)
+    records = _path_info_records(path_info_json)
     if not records:
         msg = "empty path-info output — nothing to measure"
         raise BenchError(msg)
@@ -75,8 +84,7 @@ def parse_single_path(path_info_json: str) -> tuple[int, str]:
     The path's *own* narSize is what a source-only version bump re-sends: its
     pinned dependencies are unchanged and stay in the target's store.
     """
-    data = json.loads(path_info_json)
-    records = list(data.values()) if isinstance(data, dict) else list(data)
+    records = _path_info_records(path_info_json)
     if not records:
         msg = "empty path-info output — cannot read the path's own size"
         raise BenchError(msg)
