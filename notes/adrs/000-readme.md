@@ -55,7 +55,7 @@ An ADR can describe one of three types:
 | **Draft** | Initial proposal, not yet reviewed or discussed |
 | **Accepted** | Approved after discussion, ready for implementation |
 | **Rejected** | Explicitly decided against after discussion |
-| **Deferred** | Parked for later consideration (not rejected, just not now) |
+| **Deferred** | Parked for later consideration. The proposal has merit but the timing is not right. |
 | **Final** | Feature is fully implemented (note which version) |
 | **Active** | Process or guideline is in effect |
 | **Inactive** | Process or guideline has been abandoned or replaced |
@@ -104,7 +104,7 @@ ADRs should provide:
 
 1. **Decision-focused content** - Why we made these choices
 2. **Complete interfaces** - Anyone can implement against the design
-3. **Concrete examples** - Not abstract, but simplified
+3. **Concrete examples** - Simplified, practical illustrations
 4. **Configuration guidance** - How to use and configure
 5. **Trade-offs documentation** - Alternatives considered and why rejected
 

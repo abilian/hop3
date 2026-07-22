@@ -106,7 +106,7 @@ The default git branch is **`main`** for every tool; a dev workflow passes `--br
 
 The full model (stacking `-v/-vv/-vvv` levels, `-q/--quiet`, `--debug`, `HOP3_VERBOSITY`, `--yes/-y`, `--no-input`, and `--json/-j`) lives on the **interactive main `hop3` CLI**, which already has it. It is *not* pushed onto the operator/dev tools: `hop3-deploy-server`, `hop3-install`, and `hop3-test` are **one-shot, non-interactive commands** that don't prompt, don't emit machine-parsed data, and have no use for a verbosity level beyond on/off. Forcing the rich model onto them is churn without benefit.
 
-Those tools therefore carry only the minimum: a boolean `-v/--verbose` and (where it already exists) `-q/--quiet`, plus `--clean`/`--force` (D6). What is enforced across all of them: **no tool redefines a global short flag locally** (e.g. `hop3-test cloud` must not shadow the group's `-v`), and short flags keep their global meaning (D1). A tool that grows a data-emitting mode (a `--list-images`, a status query) may add `--json` at that point: but it is not a blanket requirement.
+Those tools therefore carry only the minimum: a boolean `-v/--verbose` and (where it already exists) `-q/--quiet`, plus `--clean`/`--force` (D6). The rule across all of them: **no tool redefines a global short flag locally** (e.g. `hop3-test cloud` must not shadow the group's `-v`), and short flags keep their global meaning (D1). A tool that grows a data-emitting mode (a `--list-images`, a status query) may add `--json` at that point: but it is not a blanket requirement.
 
 ### D6. `--force` means one thing
 

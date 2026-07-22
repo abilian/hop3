@@ -78,5 +78,5 @@ Hop3 adopts a proactive stance towards software supply chain security by integra
 ## Future Work
 
 - **Signature attestation** (Sigstore / in-toto / cosign) for release artefacts and for the SBOM itself, likely required for Cyber Resilience Act compliance.
-- **Reproducible-builds verification on a schedule.** The rebuild check exists and covers all three tiers ([ADR 058](./058-build-reproducibility-model.md)). What remains is something that runs it without being asked ([ADR 044](./044-nightly-test-lab.md)).
+- **Reproducible-builds verification on a schedule.** The rebuild check exists and covers all three tiers ([ADR 058](./058-build-reproducibility-model.md)). The remaining piece is a scheduler that runs it without being asked ([ADR 044](./044-nightly-test-lab.md)).
 - **Upstream source mirroring** to insulate against PyPI / registry deletions.

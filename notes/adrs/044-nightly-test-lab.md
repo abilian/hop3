@@ -8,7 +8,7 @@
 
 [ADR 043](./043-unified-testing-architecture.md) establishes a **nightly tier**: the full suite (real apps, demos, tutorials, platform e2e) run against real servers, producing an HTML report and finishing overnight. The machinery for *running* that suite already exists in `hop3-testing`: the per-run runner (`hop3-test run`: provision, deploy, test, persist), `HetznerManager` for provisioning, the `DeploymentTarget` ABC, the catalog scanner, the SQLAlchemy result models, `generate_html_report`, and the `hop3-test run --images` sweep that drives them across OS images.
 
-What is **missing** is the consumer that makes a nightly run actionable every morning: the result store is effectively write-only (no query API, single-file SQLite), the report is static and trend-blind, and there is no scheduler, no way to browse a failed test's full logs, no trend/flakiness view, and no way to trigger or re-run from a UI. [ADR 043](./043-unified-testing-architecture.md) also found that the most common deployment failure (a healthy app behind a 502, the "silent-502" class) is captured by no surface.
+The piece still missing is the consumer that makes a nightly run actionable every morning. Today, the result store is effectively write-only (no query API, single-file SQLite), the report is static and trend-blind, and there is no scheduler, no way to browse a failed test's full logs, no trend/flakiness view, and no way to trigger or re-run from a UI. [ADR 043](./043-unified-testing-architecture.md) also found that the most common deployment failure (a healthy app behind a 502, the "silent-502" class) is captured by no surface.
 
 This is squarely on the project ethos: *packaging apps is system-validation work; each app is a deliberate probe of the platform's edges.* The nightly suite is the instrument; this app makes its output legible and turns each failure into a visible platform backlog item.
 
@@ -103,7 +103,7 @@ Serial real deploys of the full catalog will not fit 6 h on one server, and the 
 
 - **Sharded fan-out**: partition the catalog into N shards, one per target, run in parallel, merge results.
 - **Duration-aware bin-packing**: balance shards from historical per-test durations so all targets finish near the same time.
-- **Budget enforcement + autoscale** (the scheduler projects total wall-clock from history; if `projected > 6 h`, it provisions more targets or, as a logged last resort, sheds lowest-priority (P2) tests) **never silently**; what was dropped is recorded and shown.
+- **Budget enforcement + autoscale** (the scheduler projects total wall-clock from history; if `projected > 6 h`, it provisions more targets or, as a logged last resort, sheds lowest-priority (P2) tests) **never silently**; the scheduler records and shows what was dropped.
 - **Streaming results**: each test persists as it completes, so the dashboard is useful *during* the night and a late crash doesn't lose everything.
 - **Caching**: reused base images per target ([ADR 043](./043-unified-testing-architecture.md)'s image-reuse fix) so provisioning isn't re-paid per shard.
 - **Cost control**: ephemeral targets, torn down at run end; pool size is the cost/speed dial.
