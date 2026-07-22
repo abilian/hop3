@@ -24,6 +24,7 @@ from __future__ import annotations
 from hop3.plugins.build.nix.gen.spec import AppSpec
 from hop3.plugins.build.nix.gen.templates.base import (
     PINNED_NIXPKGS_HEADER,
+    ReproTier,
     format_nix_env_attrs,
     format_paths_json,
     format_runtime_env_json,
@@ -43,6 +44,7 @@ def _nix_list(values: list[str]) -> str:
 
 class JavaGradleTemplate:
     name = "java-gradle"
+    tier = ReproTier.SOURCE
 
     def generate(self, spec: AppSpec) -> str:
         if not (spec.gradle_jar_glob and spec.gradle_jar_name):

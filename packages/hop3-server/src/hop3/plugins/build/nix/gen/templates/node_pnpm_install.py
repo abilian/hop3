@@ -49,6 +49,7 @@ from __future__ import annotations
 from hop3.plugins.build.nix.gen.spec import AppSpec
 from hop3.plugins.build.nix.gen.templates.base import (
     PINNED_NIXPKGS_HEADER,
+    ReproTier,
     format_nix_env_attrs,
     format_paths_json,
     format_runtime_env_json,
@@ -130,6 +131,7 @@ def _native_addon_build(spec: AppSpec) -> tuple[str, str]:
 
 class NodePnpmInstallTemplate:
     name = "node-pnpm-install"
+    tier = ReproTier.SOURCE
 
     def generate(self, spec: AppSpec) -> str:
         if spec.nixpkgs_package is None:

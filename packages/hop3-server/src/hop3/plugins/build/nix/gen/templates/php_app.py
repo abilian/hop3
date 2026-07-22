@@ -24,6 +24,7 @@ from __future__ import annotations
 from hop3.plugins.build.nix.gen.spec import AppSpec
 from hop3.plugins.build.nix.gen.templates.base import (
     PINNED_NIXPKGS_HEADER,
+    ReproTier,
     format_nix_env_attrs,
     format_paths_json,
     format_runtime_env_json,
@@ -41,6 +42,7 @@ _NO_COMPOSER_HASH = (
 
 class PhpAppTemplate:
     name = "php-app"
+    tier = ReproTier.SOURCE
 
     def generate(self, spec: AppSpec) -> str:
         binding = f"{spec.pname}-src"
