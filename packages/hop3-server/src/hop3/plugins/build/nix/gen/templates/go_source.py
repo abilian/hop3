@@ -94,6 +94,17 @@ def _frontend_block(
         if embed
         else f"mkdir -p $out\n      cp -R {spec.go_frontend_output} $out/"
     )
+    # Some Go apps resolve more than the built frontend under their static root.
+    # gitea/forgejo look up BOTH `public/` and `options/` (locales, gitignores,
+    # licences, label templates) there; shipping only the built frontend leaves
+    # the locales missing, and gitea dies at boot registering a cron task
+    # ("translation is missing for task ..."), crash-looping rather than
+    # timing out. These directories come from the source tree, not the build.
+    if spec.go_static_dirs:
+        copies = "\n      ".join(
+            f"cp -R {d} $out/" for d in spec.go_static_dirs
+        )
+        fe_install += f"\n      {copies}"
 
     if spec.go_frontend_pnpm:
         if not spec.go_pnpm_deps_hash:

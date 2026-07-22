@@ -281,6 +281,12 @@ class AppSpec:
     # prebuilt `.node` shipped inside an npm package needs no entry — only
     # packages that must be compiled do.
     node_native_packages: list[str] = field(default_factory=list)
+    # For go-source: extra directories copied from the SOURCE tree into the
+    # static root alongside the built frontend. gitea/forgejo resolve both
+    # `public/` and `options/` (locales, gitignores, licences) under
+    # StaticRootPath; without the latter gitea crash-loops at boot on a missing
+    # translation. These are source assets, not build outputs.
+    go_static_dirs: list[str] = field(default_factory=list)
     # For go-source: sha256 of the vendored Go module set. `go.sum` already
     # hashes every module; this pins the resolved set as a whole.
     go_vendor_hash: str | None = None
