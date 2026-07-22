@@ -5,6 +5,7 @@ import http.client
 import os
 import re
 import time
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from hop3.commands._helpers import check_hostname_conflict
@@ -368,11 +369,11 @@ def _update_app_model(
 
     healthcheck_path = app_config.hop3_config.healthcheck_path
     healthcheck_contains = app_config.hop3_config.healthcheck_contains
-    if _wait_for_app_start(app, timeout, healthcheck_path, healthcheck_contains):
+    outcome = _wait_for_app_start(app, timeout, healthcheck_path, healthcheck_contains)
+    if outcome.started:
         log(f"App '{app.name}' is now running.", level=1, fg="green")
     else:
-        # App didn't start within timeout - gather diagnostics and fail
-        _handle_startup_timeout(app, timeout)
+        _handle_startup_failure(app, outcome, timeout)
 
 
 def _bounded_log_excerpt(lines: list[str], head: int = 25, tail: int = 20) -> list[str]:
@@ -521,12 +522,29 @@ def _app_serves_http(
         conn.close()
 
 
+@dataclass(frozen=True, slots=True)
+class StartOutcome:
+    """Why the startup wait ended.
+
+    The wait gives up for two unrelated reasons, and a bare ``False`` cannot
+    tell them apart: the deadline elapsed, or the app crashed so repeatedly that
+    waiting was pointless. Reporting the second as the first produces a message
+    claiming a timeout that never happened ("did not respond within 180.0s" for
+    a deploy that failed in 11), and offers the one remedy guaranteed not to
+    work: raising the timeout.
+    """
+
+    started: bool
+    crash_looped: bool = False
+    elapsed: float = 0.0
+
+
 def _wait_for_app_start(
     app: App,
     timeout: float,
     healthcheck_path: str = "",
     healthcheck_contains: str = "",
-) -> bool:
+) -> StartOutcome:
     """Wait for app to start with fail-fast on repeated crashes.
 
     Monitors the app status and logs, failing immediately if:
@@ -552,7 +570,8 @@ def _wait_for_app_start(
             "" → any status line counts as serving (no content assertion)
 
     Returns:
-        True if app started successfully, False if timed out or crashed
+        A StartOutcome saying whether the app started and, if not, whether it
+        crash-looped or ran out of time.
     """
     poll_interval = 0.5
     progress_interval = 10.0  # Log progress every 10 seconds
@@ -564,12 +583,13 @@ def _wait_for_app_start(
     crash_indicators = 0
     max_crash_indicators = 3  # Fail fast after this many crash signals
 
+    started_at = time.time()
     while time.time() < deadline:
         actual_state = app.check_actual_status()
         if actual_state == AppStateEnum.RUNNING and _app_serves_http(
             app, healthcheck_path, healthcheck_contains=healthcheck_contains
         ):
-            return True
+            return StartOutcome(started=True, elapsed=time.time() - started_at)
 
         elapsed = time.time() - (deadline - timeout)
 
@@ -585,7 +605,11 @@ def _wait_for_app_start(
                     level=0,
                     fg="red",
                 )
-                return False
+                return StartOutcome(
+                    started=False,
+                    crash_looped=True,
+                    elapsed=time.time() - started_at,
+                )
 
             last_log_check = time.time()
 
@@ -602,25 +626,55 @@ def _wait_for_app_start(
 
         time.sleep(poll_interval)
 
-    return False
+    return StartOutcome(started=False, elapsed=time.time() - started_at)
 
 
-def _handle_startup_timeout(app: App, timeout: float) -> None:
-    """Handle app startup timeout with diagnostics.
+def _log_runtime_hints(app: App) -> None:
+    """Where to look next, depending on what runs the app."""
+    log("Troubleshooting hints:", level=0, fg="yellow")
+    if app.runtime == "uwsgi":
+        log("  - Check uWSGI emperor logs: journalctl -u uwsgi-emperor -n 50", level=0)
+        log(
+            f"  - Check app uWSGI config: cat /home/hop3/uwsgi-enabled/{app.name}.ini",
+            level=0,
+        )
+    elif app.runtime == "docker-compose":
+        log(
+            f"  - Check Docker logs: docker compose -f "
+            f"{app.src_path}/.hop3-compose.yml logs",
+            level=0,
+        )
+        log("  - Check container status: docker ps -a", level=0)
+    log(f"  - View full logs: hop3 app logs --app {app.name}", level=0)
+
+
+def _handle_startup_failure(app: App, outcome: StartOutcome, timeout: float) -> None:
+    """Report a failed startup, naming what actually happened.
 
     Gathers diagnostic information, analyzes logs for common failure patterns,
     and raises an Abort with helpful details.
 
     Args:
         app: The App model instance
-        timeout: The timeout that was exceeded
+        outcome: Why the wait ended (crash loop vs. elapsed deadline)
+        timeout: The configured start timeout
     """
-    # Mark app as failed
     app.run_state = AppStateEnum.FAILED
-    app.error_message = f"App failed to start within {timeout}s timeout"
+    if outcome.crash_looped:
+        app.error_message = (
+            f"App crashed repeatedly on startup, after {outcome.elapsed:.0f}s"
+        )
+    else:
+        app.error_message = f"App failed to start within {timeout}s timeout"
 
     # Gather diagnostic information
-    log(f"App '{app.name}' failed to start within {timeout}s.", level=0, fg="red")
+    headline = (
+        f"App '{app.name}' crashed repeatedly and was abandoned after "
+        f"{outcome.elapsed:.0f}s."
+        if outcome.crash_looped
+        else f"App '{app.name}' failed to start within {timeout}s."
+    )
+    log(headline, level=0, fg="red")
     log("Gathering diagnostic information...", level=1, fg="yellow")
 
     # Get actual status
@@ -658,40 +712,44 @@ def _handle_startup_timeout(app: App, timeout: float) -> None:
     log("", level=0)
     _diagnose_failure(app, recent_logs)
 
-    # Provide general hints based on runtime
-    log("Troubleshooting hints:", level=0, fg="yellow")
-    if app.runtime == "uwsgi":
-        log("  - Check uWSGI emperor logs: journalctl -u uwsgi-emperor -n 50", level=0)
+    _log_runtime_hints(app)
+
+    # A longer deadline cannot help an app that exits on every respawn, and
+    # suggesting it sends the operator to change the one setting that is not
+    # the problem.
+    raise_timeout = not outcome.crash_looped
+    if raise_timeout:
         log(
-            f"  - Check app uWSGI config: cat /home/hop3/uwsgi-enabled/{app.name}.ini",
+            "  - Increase timeout in hop3.toml: "
+            f"[run] start-timeout = {int(timeout * 2)}",
             level=0,
         )
-    elif app.runtime == "docker-compose":
-        log(
-            f"  - Check Docker logs: docker compose -f {app.src_path}/.hop3-compose.yml logs",
-            level=0,
+
+    if outcome.crash_looped:
+        reason = (
+            f"'{app.name}' crashed repeatedly on startup and was abandoned after "
+            f"{outcome.elapsed:.0f}s; the {timeout:.0f}s timeout was never reached"
         )
-        log("  - Check container status: docker ps -a", level=0)
-    log(f"  - View full logs: hop3 app logs --app {app.name}", level=0)
-    log(
-        f"  - Increase timeout in hop3.toml: [run] start-timeout = {int(timeout * 2)}",
-        level=0,
-    )
+    else:
+        reason = f"'{app.name}' did not respond to health checks within {timeout}s"
+
+    troubleshooting = [
+        f"hop3 app logs --app {app.name}",
+        f"hop3 app logs --app {app.name} --build",
+    ]
+    if raise_timeout:
+        troubleshooting.append(
+            "Increase start-timeout in hop3.toml: "
+            f"[run] start-timeout = {int(timeout * 2)}"
+        )
 
     abort_with_diagnosis(
         Diagnosis(
             component="Deployer",
             action="start app",
-            reason=(f"'{app.name}' did not respond to health checks within {timeout}s"),
+            reason=reason,
             hint="See the diagnostics and recent log output above",
-            troubleshooting=[
-                f"hop3 app logs --app {app.name}",
-                f"hop3 app logs --app {app.name} --build",
-                (
-                    "Increase start-timeout in hop3.toml: "
-                    f"[run] start-timeout = {int(timeout * 2)}"
-                ),
-            ],
+            troubleshooting=troubleshooting,
         )
     )
 
