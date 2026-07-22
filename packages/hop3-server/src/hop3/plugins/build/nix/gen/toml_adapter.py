@@ -50,7 +50,9 @@ _NIXPKGS_SHA256_RE = re.compile(
 )
 
 # TOML keys consumed by this module directly rather than mapped to a field:
-# the template selector, the Source parts, and the nested array-of-tables.
+# the template selector, the Source parts, and the two array-of-tables that any
+# template may carry. Template-specific nested keys are NOT here — they are
+# claimed by their payload like any other key, so they are rejected elsewhere.
 _CORE_KEYS = {
     "template",
     "url",
@@ -59,33 +61,35 @@ _CORE_KEYS = {
     "archive",
     "version",
     "config-files",
-    "file-mappings",
     "conditional-env",
 }
 
-# Shared AppSpec fields: TOML key -> (field name, default).
-_SHARED_FIELDS: dict[str, tuple[str, Any]] = {
-    "source-root": ("source_root", None),
-    "strip-components": ("strip_components", 1),
-    "runtime-package": ("runtime_package", None),
-    "nixpkgs-rev": ("nixpkgs_rev", None),
-    "nixpkgs-sha256": ("nixpkgs_sha256", None),
-    "exec-target": ("exec_target", None),
-    "exec-args": ("exec_args", []),
-    "local-vars": ("local_vars", {}),
-    "env-exports": ("env_exports", {}),
-    "pre-exec": ("pre_exec_commands", []),
-    "writable-home-at-runtime": ("writable_home_at_runtime", False),
-    "writable-home-env-var": ("writable_home_env_var", None),
-    "runtime-env": ("runtime_env", {}),
-    "extra-paths": ("extra_paths", []),
-    "nix-runtime-libs": ("nix_runtime_libs", []),
+# Shared AppSpec fields: TOML key -> field name. No defaults here: an absent key
+# is simply not passed, so the dataclass supplies its own. Restating the
+# defaults would be a second source of truth, and a mutable one (a `[]` here is
+# a single list object every spec would share).
+_SHARED_FIELDS: dict[str, str] = {
+    "source-root": "source_root",
+    "strip-components": "strip_components",
+    "runtime-package": "runtime_package",
+    "nixpkgs-rev": "nixpkgs_rev",
+    "nixpkgs-sha256": "nixpkgs_sha256",
+    "exec-target": "exec_target",
+    "exec-args": "exec_args",
+    "local-vars": "local_vars",
+    "env-exports": "env_exports",
+    "pre-exec": "pre_exec_commands",
+    "writable-home-at-runtime": "writable_home_at_runtime",
+    "writable-home-env-var": "writable_home_env_var",
+    "runtime-env": "runtime_env",
+    "extra-paths": "extra_paths",
+    "nix-runtime-libs": "nix_runtime_libs",
 }
 
 # Per-template payload fields: template -> (payload class, {TOML key -> field}).
 _PAYLOAD_FIELDS: dict[str, tuple[type[TemplatePayload], dict[str, str]]] = {
     "prebuilt-binary": (PrebuiltBinaryPayload, {"binary-name": "binary_name"}),
-    "prebuilt-archive": (PrebuiltArchivePayload, {}),  # file-mappings is nested
+    "prebuilt-archive": (PrebuiltArchivePayload, {"file-mappings": "file_mappings"}),
     "node-prebuilt": (
         NodePrebuiltPayload,
         {"unpack-without-top-level": "unpack_without_top_level"},
@@ -210,6 +214,34 @@ def _validate_nixpkgs_pin(rev: str, sha256: str) -> None:
         raise ValueError(msg)
 
 
+def _check_nixpkgs_pin(nix_config: dict[str, Any], template: str) -> None:
+    """Validate the optional per-app nixpkgs pin, or accept its absence.
+
+    The two keys are meaningful only as a pair, and only where a template
+    honours them. Expressing that here — with an early return for "no pin" —
+    states the both-or-neither rule once, and leaves both values narrowed to
+    ``str`` for the format check below.
+    """
+    rev = nix_config.get("nixpkgs-rev")
+    sha256 = nix_config.get("nixpkgs-sha256")
+    if rev is None and sha256 is None:
+        return
+    if rev is None or sha256 is None:
+        msg = (
+            "[nix].nixpkgs-rev and [nix].nixpkgs-sha256 must be set together "
+            "(a rev needs its fetchTarball sha256, and vice versa)"
+        )
+        raise ValueError(msg)
+    if template not in _PIN_AWARE_TEMPLATES:
+        msg = (
+            "[nix].nixpkgs-rev / nixpkgs-sha256 (per-app nixpkgs pin) is only "
+            f"honoured by the {' / '.join(sorted(_PIN_AWARE_TEMPLATES))} "
+            f"template(s), not {template!r}"
+        )
+        raise ValueError(msg)
+    _validate_nixpkgs_pin(rev, sha256)
+
+
 def _reject_unclaimed_keys(nix_config: dict[str, Any], template: str) -> None:
     """Fail on any ``[nix]`` key the selected template will never read.
 
@@ -269,26 +301,7 @@ def app_spec_from_config(
         raise ValueError(msg)
 
     _reject_unclaimed_keys(nix_config, template)
-
-    # Per-app nixpkgs pin override — both keys together, and only where a
-    # template honours it. Fail loud rather than ship a pin nothing applies.
-    nixpkgs_rev = nix_config.get("nixpkgs-rev")
-    nixpkgs_sha256 = nix_config.get("nixpkgs-sha256")
-    if (nixpkgs_rev is None) != (nixpkgs_sha256 is None):
-        msg = (
-            "[nix].nixpkgs-rev and [nix].nixpkgs-sha256 must be set together "
-            "(a rev needs its fetchTarball sha256, and vice versa)"
-        )
-        raise ValueError(msg)
-    if nixpkgs_rev is not None:
-        if template not in _PIN_AWARE_TEMPLATES:
-            msg = (
-                "[nix].nixpkgs-rev / nixpkgs-sha256 (per-app nixpkgs pin) is "
-                f"only honoured by the {' / '.join(sorted(_PIN_AWARE_TEMPLATES))} "
-                f"template(s), not {template!r}"
-            )
-            raise ValueError(msg)
-        _validate_nixpkgs_pin(nixpkgs_rev, nixpkgs_sha256)
+    _check_nixpkgs_pin(nix_config, template)
 
     source = Source(
         url=nix_config.get("url", ""),
@@ -298,21 +311,18 @@ def app_spec_from_config(
     )
 
     payload_cls, payload_keys = _PAYLOAD_FIELDS[template]
-    payload_kwargs = {
-        field: nix_config[key]
+    payload = payload_cls(**{
+        field: _NESTED_PARSERS[key](nix_config[key])
+        if key in _NESTED_PARSERS
+        else nix_config[key]
         for key, field in payload_keys.items()
         if key in nix_config
-    }
-    if template == "prebuilt-archive":
-        # The only payload field arriving as an array of tables.
-        payload_kwargs["file_mappings"] = _parse_file_mappings(
-            nix_config.get("file-mappings", [])
-        )
-    payload = payload_cls(**payload_kwargs)
+    })
 
     shared = {
-        field: nix_config.get(key, default)
-        for key, (field, default) in _SHARED_FIELDS.items()
+        field: nix_config[key]
+        for key, field in _SHARED_FIELDS.items()
+        if key in nix_config
     }
 
     return AppSpec(
@@ -372,3 +382,8 @@ def _parse_conditional_env(raw: list[dict[str, Any]]) -> list[ConditionalEnvVar]
             )
         )
     return result
+
+
+# Payload keys arriving as an array of tables, parsed rather than passed
+# through. Keyed by TOML name, so ownership works exactly as for scalar keys.
+_NESTED_PARSERS = {"file-mappings": _parse_file_mappings}

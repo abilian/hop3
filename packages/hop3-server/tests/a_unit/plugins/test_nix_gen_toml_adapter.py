@@ -336,3 +336,28 @@ def test_the_payload_type_decides_which_template_renders():
     assert isinstance(spec.payload, GoSourcePayload)
     with pytest.raises(TypeError, match="php-app template got a go-source payload"):
         spec.payload_as(PhpAppPayload)
+
+
+def test_a_nested_key_is_owned_like_any_other():
+    """`file-mappings` belongs to prebuilt-archive. It was briefly exempt from
+    the ownership check because the adapter parses it itself, which let it be
+    accepted-then-dropped on every other template."""
+    with pytest.raises(ValueError, match="belongs to the prebuilt-archive"):
+        app_spec_from_config(
+            _minimal(
+                "php-app",
+                **{"file-mappings": [{"source": "a", "destination": "b"}]},
+            ),
+            {},
+            "t",
+        )
+
+
+def test_specs_do_not_share_mutable_defaults():
+    """An absent key must fall through to the dataclass default, not to a
+    single list the adapter hands out to every spec it builds."""
+    a = app_spec_from_config(_minimal("ruby-bundler"), {}, "a")
+    b = app_spec_from_config(_minimal("ruby-bundler"), {}, "b")
+    assert a.exec_args == b.exec_args == []
+    a.exec_args.append("--mutated")
+    assert app_spec_from_config(_minimal("ruby-bundler"), {}, "c").exec_args == []
