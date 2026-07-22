@@ -121,6 +121,8 @@ GEM
     pg (1.5.9)
     prism (1.9.0)
     public_suffix (7.0.5)
+    puma (8.0.2)
+      nio4r (~> 2.0)
     racc (1.8.1)
     rack (2.2.23)
     rack-test (2.2.0)
@@ -217,6 +219,7 @@ DEPENDENCIES
   net-smtp (~> 0.3.3)
   nokogiri (= 1.18.3)
   pg (~> 1.5.3)
+  puma
   rails (= 6.1.7.10)
   rbpdf (~> 1.21.3)
   redcarpet (~> 3.6.0)

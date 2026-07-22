@@ -57,43 +57,11 @@ end
 
 # Include database gems for the adapters found in the database
 # configuration file
-database_file = File.join(File.dirname(__FILE__), "config/database.yml")
-if File.exist?(database_file)
-  database_config = File.read(database_file)
-
-  # Requiring libraries in a Gemfile may cause Bundler warnings or
-  # unexpected behavior, especially if multiple gem versions are available.
-  # So, process database.yml through ERB only if it contains ERB syntax
-  # in the adapter setting. See https://www.redmine.org/issues/41749.
-  if database_config.match?(/^ *adapter: *<%=/)
-    require 'erb'
-    database_config = ERB.new(database_config).result
-  end
-
-  adapters = database_config.scan(/^ *adapter: *(.*)/).flatten.uniq
-  if adapters.any?
-    adapters.each do |adapter|
-      case adapter.strip
-      when /mysql2/
-        gem "mysql2", "~> 0.5.0", :platforms => [:mri, :mingw, :x64_mingw]
-        gem "with_advisory_lock"
-      when /postgresql/
-        gem 'pg', '~> 1.5.3', :platforms => [:mri, :mingw, :x64_mingw]
-      when /sqlite3/
-        gem 'sqlite3', '~> 1.6.0', :platforms => [:mri, :mingw, :x64_mingw]
-      when /sqlserver/
-        gem "tiny_tds", "~> 2.1.2", :platforms => [:mri, :mingw, :x64_mingw]
-        gem "activerecord-sqlserver-adapter", "~> 6.1.0", :platforms => [:mri, :mingw, :x64_mingw]
-      else
-        warn("Unknown database adapter `#{adapter}` found in config/database.yml, use Gemfile.local to load your own database gems")
-      end
-    end
-  else
-    warn("No adapter found in config/database.yml, please configure it first")
-  end
-else
-  warn("Please configure your config/database.yml first")
-end
+# Hop3: `pg` is declared unconditionally. Upstream picks the adapter by
+# reading config/database.yml beside this file, but bundlerEnv evaluates
+# the Gemfile from an isolated store path where that file does not exist,
+# so the detection silently yields no DB gem at runtime.
+gem "pg", "~> 1.5.3", :platforms => [:mri, :mingw, :x64_mingw]
 
 
 
@@ -106,3 +74,4 @@ end
 Dir.glob File.expand_path("../plugins/*/{Gemfile,PluginGemfile}", __FILE__) do |file|
   eval_gemfile file
 end
+gem "puma"

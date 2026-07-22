@@ -11,9 +11,11 @@ let
     sha256 = "0hbgzbg38ky1gcs8czbhdw11naarlz81mvmvyzx44kw0l367s60g";
   };
 
-  # bundlerEnv reads ./Gemfile ./Gemfile.lock ./gemset.nix. redmine's Gemfile is
-  # dynamic (reads config/database.yml to pick the db gem) — the committed
-  # ./config/database.yml (postgres) makes it select pg, matching the lock.
+  # bundlerEnv reads ./Gemfile ./Gemfile.lock ./gemset.nix. The committed
+  # Gemfile declares `pg` unconditionally: upstream picks the adapter by reading
+  # config/database.yml beside the Gemfile, but bundlerEnv evaluates it from an
+  # isolated store path holding only Gemfile+Gemfile.lock, so that detection
+  # yields no DB gem at runtime and frozen mode then rejects the lockfile.
   gems = pkgs.bundlerEnv {
     name = "redmine-gems";
     inherit ruby;

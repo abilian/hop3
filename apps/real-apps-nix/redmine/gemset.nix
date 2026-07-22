@@ -513,6 +513,17 @@
     };
     version = "7.0.5";
   };
+  puma = {
+    dependencies = ["nio4r"];
+    groups = ["default"];
+    platforms = [];
+    source = {
+      remotes = ["https://rubygems.org"];
+      sha256 = "1yw6nvkvddriacmva8hm0za0961d6j96dm7zm6748rmyzcfqgvf8";
+      type = "gem";
+    };
+    version = "8.0.2";
+  };
   racc = {
     groups = ["common_mark" "default"];
     platforms = [];
