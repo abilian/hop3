@@ -269,6 +269,21 @@ let
     dontBuild = true;
 
     installPhase = ''
+      # buildGoModule names each binary after its package directory, which for a
+      # root main package is the last element of the module path — not the
+      # application name. forgejo's `module forgejo.org` yields `bin/forgejo.org`
+      # while gitea's `code.gitea.io/gitea` yields `bin/gitea`, so the two look
+      # alike and behave differently. Catch the mismatch here: otherwise the
+      # wrapper execs a path that does not exist, uWSGI crash-loops, and the
+      # deploy reports a health-check timeout that names nothing useful.
+      if [ ! -x ${{goApp}}/bin/{spec.exec_target} ]; then
+        echo "exec-target '{spec.exec_target}' is not a binary in ${{goApp}}/bin." >&2
+        echo "buildGoModule produced:" >&2
+        ls -1 ${{goApp}}/bin >&2
+        echo "Set [nix].exec-target to one of those names." >&2
+        exit 1
+      fi
+
       mkdir -p $out/bin $out/hop3
 
       cat > $out/bin/{spec.pname} << 'WRAPPER'

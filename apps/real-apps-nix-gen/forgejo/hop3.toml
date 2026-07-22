@@ -19,7 +19,10 @@ url = "https://codeberg.org/forgejo/forgejo/archive/v${version}.tar.gz"
 sha256 = "rprFyfldGCdUdbyIz4nReJgiJzgaiB9FOwzX6Fv0C2M="
 archive = "tar-gz"
 # Module is `forgejo.org`, so buildGoModule names the binary `forgejo`.
-exec-target = "forgejo"
+# forgejo's go.mod declares `module forgejo.org`, and buildGoModule names the
+# binary after the module path's last element, so the produced file is
+# bin/forgejo.org. (gitea's module is code.gitea.io/gitea, hence bin/gitea.)
+exec-target = "forgejo.org"
 exec-args = ['web']
 go-vendor-hash = "sha256-8fa6l89+6NhVsi6VuTvQs35E3HuiBFxM8NUQ/jzlzV0="
 # forgejo 11's go.mod needs Go >= 1.24; the pin's default is 1.23, so build
