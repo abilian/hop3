@@ -37,7 +37,7 @@ Hop3 adopts a proactive stance towards software supply chain security by integra
 
 1. **Integration of Nix**:
 
-   - **Hermetic Builds**: Tier-1 applications (per the [ADR 008](./008-nix-builders-2.md) reproducibility taxonomy) (Go and Rust apps from nixpkgs) build in a pure Nix sandbox against hash-pinned inputs, providing a consistent and secure build environment. Tier-2 applications (Python-venv, PHP-composer, Node-prebuilt, Ruby-bundler) use `__noChroot`, which weakens hermeticity; this trade-off is documented in [ADR 008](./008-nix-builders-2.md).
+   - **Hermetic Builds**: every Nix-built application builds in a sealed sandbox with no network access, against hash-pinned inputs. Each ecosystem's dependency set is vendored by a fixed-output derivation from a committed lockfile before the build begins, so the package manager runs offline. What the [ADR 008](./008-nix-builders-2.md) tiers distinguish is provenance, not hermeticity: Tier-1 apps are packaged by nixpkgs, Tier-2 built from source by Hop3, and Tier-3 wrap an upstream binary that is hash-pinned but not auditable.
    - **Content-addressed closures**: Every Nix-built app has a content-addressed closure whose full dependency graph is inspectable via `nix-store -qR`, and update deltas are minimal: only changed store paths transfer.
 
 1. **CI/CD Pipeline Enhancements**:

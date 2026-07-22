@@ -116,33 +116,52 @@ Note: Nix `${...}` interpolations in `hop3.nix` are evaluated by Nix at build ti
 
 ## Templates (generated mode)
 
-Nine built-in templates cover common deployment patterns. Templates are selected by setting `template = "<name>"` in the `[nix]` section of `hop3.toml`.
+Eleven built-in templates cover common deployment patterns. Templates are selected by setting `template = "<name>"` in the `[nix]` section of `hop3.toml`.
 
 | Template | Use case | Reproducibility tier |
 |----------|----------|----------------------|
 | `nixpkgs-wrapper` | Apps already in nixpkgs | 1 (best) |
-| `python-venv` | Python apps installed via pip into a virtualenv | 2 |
-| `php-app` | PHP apps with Composer + extensions | 2 |
-| `java-war` | Java WAR files served with a JDK | 1 (JDK from nixpkgs) |
+| `python-venv` | Python apps built from a hash-pinned `requirements.txt` | 2 |
+| `php-app` | PHP apps built from `composer.lock` + extensions | 2 |
+| `go-source` | Go apps built from source with `buildGoModule` | 2 |
+| `node-pnpm-install` | Node.js apps built from a committed `pnpm-lock.yaml` | 2 |
 | `ruby-bundler` | Ruby apps using `bundlerEnv` from `gemset.nix` | 2 |
-| `node-pnpm-install` | Node.js apps installed from npm via `pnpm install` | 2 |
+| `java-gradle` | Java apps built with Gradle from a committed `deps.json` | 2 |
+| `java-war` | Java WAR files served with a JDK | 3 (WAR from upstream) |
+| `node-prebuilt` | Node.js apps shipped as a pre-built tarball | 3 (compromise) |
 | `prebuilt-binary` | Single binary from upstream releases | 3 (compromise) |
 | `prebuilt-archive` | Multi-file archive from upstream releases | 3 (compromise) |
-| `node-prebuilt` | Node.js apps shipped as a pre-built tarball | 3 (compromise) |
 
 For the full field reference per template, see the [hop3.toml `[nix]` section](config.md#nix-template-based-nix-builds).
 
 ### Reproducibility tiers
 
-Not all Nix builds are equally reproducible:
+Every template builds in the Nix sandbox with no network access, against a hash-pinned dependency set, so all three tiers rebuild bit-for-bit. What the tier tells you is where the running bytes came from:
 
-| Tier | Method | Reproducible | Auditable | Multi-arch |
+| Tier | Method | Rebuilds identically | Auditable to source | Multi-arch |
 |------|--------|--------------|-----------|------------|
 | 1 | nixpkgs package (`pkgs.foo`) | Yes | Yes | Yes |
-| 2 | Source build with `__noChroot` (pip, composer) | Mostly (depends on upstream registries) | Yes | Yes |
-| 3 | Pre-built binary (`fetchurl`) | Hash-pinned but not rebuildable from source | No | x86_64-linux only |
+| 2 | Source build against a committed lockfile (pip, composer, pnpm, go, bundler, gradle) | Yes | Yes | One arch per lockfile |
+| 3 | Pre-built upstream artefact (`fetchurl`) | Yes | No — the binary is taken on trust | Usually x86_64-linux only |
 
-The goal is Tier 1 wherever possible. Tier 3 templates exist as a pragmatic shortcut for apps not yet in nixpkgs.
+Tier 1 is the goal: you inherit nixpkgs' build, its architectures and its security updates for free. Tier 2 is where most real apps land, because nixpkgs either doesn't package them or packages a version you can't deploy; you get the same auditability, but the lockfile is yours to refresh. Tier 3 is a floor for apps whose upstream ships no buildable source for the packaged version.
+
+To see the tier of every app in a checkout:
+
+```bash
+hop3-tools nix tiers apps/real-apps-nix-gen
+```
+
+A tier describes the *build*, never the running app. A bit-identical rebuild says nothing about whether the app starts — see [reproducibility checks](#checking-reproducibility) below.
+
+### Checking reproducibility
+
+```bash
+make check-reproducible    # rebuild every nix-gen app, fail if any output drifts
+make gate-nix              # the above, AND a clean deploy of the same corpus
+```
+
+`check-reproducible` builds each recipe and then rebuilds it with `nix build --rebuild`, which compares the second output against the first. Use `--ssh <host>` to build on a Linux box from a macOS checkout. An app is only advertise-ready when `gate-nix` passes: reproducible *and* running.
 
 ## The `nix eject` command
 

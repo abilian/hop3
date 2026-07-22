@@ -31,17 +31,21 @@ For most simple applications, Hop3's native buildpacks (auto-detected from `requ
 
 ### Reproducibility tiers
 
-Not all Nix builds are equally reproducible. Hop3 distinguishes three tiers:
+Every template builds in a sealed sandbox against a hash-pinned dependency set, so all three tiers rebuild bit-for-bit. The tier tells you where the bytes came from:
 
-| Tier | Method | Reproducible | Auditable | Multi-arch |
+| Tier | Method | Rebuilds identically | Auditable to source | Multi-arch |
 |------|--------|--------------|-----------|------------|
 | 1 | nixpkgs package (`pkgs.foo`) | Yes | Yes | Yes |
-| 2 | Source build with `__noChroot` (pip, composer) | Mostly | Yes | Yes |
-| 3 | Pre-built binary (`fetchurl`) | Hash-pinned, not rebuildable | No | x86_64 only |
+| 2 | Source build against a committed lockfile | Yes | Yes | One arch per lockfile |
+| 3 | Pre-built upstream artefact (`fetchurl`) | Yes | No | Usually x86_64 only |
 
-**Tier 1 is the goal.** When the upstream is in nixpkgs, prefer the `nixpkgs-wrapper` template — you get the maintained nixpkgs build for free, including multi-arch support.
+**Tier 1 is the goal.** When the upstream is in nixpkgs at a usable version, prefer the `nixpkgs-wrapper` template — you get the maintained nixpkgs build for free, including multi-arch support.
 
-**Tier 3 is a known compromise.** Pre-built binary templates (`prebuilt-binary`, `prebuilt-archive`, `node-prebuilt`) are convenient for apps not yet in nixpkgs, but they sacrifice the properties Nix promises. Treat them as a temporary stepping stone toward a nixpkgs or source build.
+**Tier 2 is where most real apps land**, because nixpkgs either doesn't package them or packages a version you can't deploy. You commit the ecosystem's lockfile (`requirements.txt`, `composer.lock`, `pnpm-lock.yaml`, `go.sum`, `gemset.nix`, `deps.json`); Hop3 vendors it into a fixed-output derivation and builds offline against that. Same auditability as Tier 1, but the lockfile is yours to refresh.
+
+**Tier 3 is a known compromise.** Pre-built artefact templates (`prebuilt-binary`, `prebuilt-archive`, `node-prebuilt`, `java-war`) are convenient for apps whose upstream ships no buildable source for the packaged version, but they sacrifice auditability: you are trusting the upstream release process. Treat them as a stepping stone toward a nixpkgs or source build.
+
+Run `hop3-tools nix tiers <app-dir>` to see the tier of any app, and `make gate-nix` to check that the corpus both rebuilds identically and still deploys.
 
 ## Prerequisites
 
