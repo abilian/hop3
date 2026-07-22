@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 from hop3_testing.apps.catalog import AppSource
-from hop3_testing.apps.deployment import DeploymentSession
+from hop3_testing.apps.deployment import BODY_FETCH_LIMIT, DeploymentSession
 from hop3_testing.bundle import collect_diagnostic_bundle
 from hop3_testing.exceptions import (
     DeploymentError,
@@ -210,10 +210,20 @@ class DeploymentTestRunner:
                 # Show the whole checked body (not a 200-char stub): a `contains`
                 # miss is undiagnosable without seeing where the marker should be.
                 shown = body if len(body) <= 8000 else body[:8000] + "…[truncated]"
+                # If the fetch hit its limit, "does not contain" is not a sound
+                # conclusion — the marker may sit beyond the bytes we looked at.
+                # Say so rather than report a possible false negative as fact.
+                caveat = (
+                    f" WARNING: the body hit the {BODY_FETCH_LIMIT}-char fetch "
+                    "limit, so the marker may exist beyond the bytes checked; "
+                    "this may be a false negative."
+                    if len(body) >= BODY_FETCH_LIMIT
+                    else ""
+                )
                 http_result["passed"] = False
                 http_result["message"] = (
                     f"HTTP {actual} OK but body does not contain '{contains}' "
-                    f"(checked {len(body)} chars of the response):\n{shown}"
+                    f"(checked {len(body)} chars of the response).{caveat}\n{shown}"
                 )
 
         validation_results.append(
