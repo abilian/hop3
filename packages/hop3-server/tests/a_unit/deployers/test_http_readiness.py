@@ -159,7 +159,7 @@ def test_wait_fails_when_bound_but_not_serving(dead_socket_port: int) -> None:
         check_actual_status=lambda: AppStateEnum.RUNNING,
         get_logs=lambda lines=50: [],
     )
-    assert _wait_for_app_start(app, timeout=1.0) is False
+    assert _wait_for_app_start(app, timeout=1.0).started is False
 
 
 def test_wait_succeeds_when_app_answers(http_server: tuple[int, list[int]]) -> None:
@@ -170,7 +170,7 @@ def test_wait_succeeds_when_app_answers(http_server: tuple[int, list[int]]) -> N
         check_actual_status=lambda: AppStateEnum.RUNNING,
         get_logs=lambda lines=50: [],
     )
-    assert _wait_for_app_start(app, timeout=3.0) is True
+    assert _wait_for_app_start(app, timeout=3.0).started is True
 
 
 # --- _update_app_model: port-less (static) deploys skip the worker check ----
@@ -191,7 +191,9 @@ def test_static_deploy_clears_stale_port_and_skips_health_check(monkeypatch) -> 
     monkeypatch.setattr(
         dep,
         "_wait_for_app_start",
-        lambda *a, **k: waited.__setitem__("called", True) or True,
+        lambda *a, **k: (
+            waited.__setitem__("called", True) or dep.StartOutcome(started=True)
+        ),
     )
 
     app = SimpleNamespace(
@@ -220,7 +222,9 @@ def test_process_deploy_still_runs_health_check(monkeypatch) -> None:
     monkeypatch.setattr(
         dep,
         "_wait_for_app_start",
-        lambda *a, **k: waited.__setitem__("called", True) or True,
+        lambda *a, **k: (
+            waited.__setitem__("called", True) or dep.StartOutcome(started=True)
+        ),
     )
 
     app = SimpleNamespace(
