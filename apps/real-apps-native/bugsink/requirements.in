@@ -1,0 +1,9 @@
+# Top-level dependencies for bugsink (native). Pinned set is generated from this:
+#   uv pip compile --python-platform x86_64-unknown-linux-gnu --python-version 3.12 \
+#     requirements.in -o requirements.txt
+# Every dependency must end up pinned: the platform's Python toolchain refuses
+# to build an app whose requirements are ranges (ADR 039) — an unpinned build
+# resolves to whatever satisfies it today and cannot be reproduced.
+bugsink==2.1.2
+gunicorn
+psycopg2-binary
