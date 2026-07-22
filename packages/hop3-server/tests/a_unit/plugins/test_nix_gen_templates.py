@@ -1100,8 +1100,8 @@ def test_pnpm_pin_is_configurable():
 def test_committed_lockfiles_match_their_pinned_pnpm():
     """Guard: a lockfile the pinned pnpm cannot read fails inside the Nix build
     with a parse error naming neither the pin nor the lockfile."""
-    import re  # noqa: PLC0415
-    from pathlib import Path  # noqa: PLC0415
+    import re  # ruff:ignore[import-outside-top-level]
+    from pathlib import Path  # ruff:ignore[import-outside-top-level]
 
     root = Path(__file__).parents[5] / "apps"
     assert root.is_dir(), f"app corpus not found at {root}"
@@ -1175,3 +1175,93 @@ class TestGoStaticDirs:
         )
         spec = app_spec_from_config(config["nix"], config["metadata"], "gitea")
         assert "options" in spec.go_static_dirs
+
+
+class TestRubyBundler:
+    """ruby-bundler packages a real Ruby app from a pinned gem set. Rails
+    specifics (writable home, generated config, migrations) are expressed by the
+    recipe through the shared wrapper fields, not hardcoded in the template."""
+
+    def _spec(self, **kwargs):
+        defaults = {
+            "pname": "redmine",
+            "version": "5.1.10",
+            "description": "project management",
+            "template": "ruby-bundler",
+            "exec_target": "rails",
+            "source": Source(url="", sha256=""),
+        }
+        defaults.update(kwargs)
+        return AppSpec(**defaults)
+
+    def test_local_app_builds_from_the_recipe_dir(self):
+        output = generate(self._spec())
+        assert "src = ./.;" in output
+
+    def test_packaged_app_fetches_a_pinned_tarball(self):
+        """A released app is hash-pinned, not the recipe directory."""
+        output = generate(
+            self._spec(source=Source(url="https://x/redmine.tar.gz", sha256="abc",
+                                     archive="tar-gz"))
+        )
+        assert "redmine_src = pkgs.fetchurl" in output
+        assert "src = redmine_src;" in output
+        assert "cp -r . $out/app/" in output  # whole tree, not selected files
+
+    def test_exec_args_are_real_arguments(self):
+        """They used to be repurposed as a file list, which no other template
+        does and which left the exec line argument-less."""
+        output = generate(self._spec(exec_args=["server", "-b", "0.0.0.0"]))
+        assert "exec GEMSBIN/rails server -b 0.0.0.0" in output
+
+    def test_gems_are_on_path_for_pre_exec(self):
+        """`rake db:migrate` in pre-exec must resolve without a store path."""
+        output = generate(self._spec(pre_exec_commands=["rake db:migrate"]))
+        assert 'export PATH="GEMSBIN:$PATH"' in output
+        assert "rake db:migrate" in output
+
+    def test_writable_home_copies_and_enters_the_tree(self):
+        """Rails writes inside its own tree and resolves paths from the cwd."""
+        output = generate(self._spec(writable_home_at_runtime=True))
+        assert 'HOME_DIR="$PWD/.redmine-home"' in output
+        assert 'cp -rL --no-preserve=ownership APPDIR/. "$HOME_DIR"' in output
+        assert 'cd "$HOME_DIR"' in output
+
+    def test_no_writable_home_by_default(self):
+        output = generate(self._spec())
+        assert "HOME_DIR=" not in output
+
+    def test_gemset_drives_the_dependency_set(self):
+        output = generate(self._spec())
+        assert "pkgs.bundlerEnv" in output
+        assert "gemdir = ./.;" in output
+
+    def test_packaged_app_installs_the_gemfile_the_gems_came_from(self):
+        """The app runs from its own tree, so bundler resolves the tarball's
+        Gemfile. If that disagrees with the lockfile the gem set was built
+        from, bundler refuses to boot ("ensure_equivalent_gemfile_and_lockfile:
+        Some dependencies were deleted") — so install the matching pair.
+        """
+        output = generate(
+            self._spec(
+                source=Source(url="https://x/r.tar.gz", sha256="a", archive="tar-gz")
+            )
+        )
+        assert "cp ${./Gemfile} $out/app/Gemfile" in output
+        assert "cp ${./Gemfile.lock} $out/app/Gemfile.lock" in output
+
+    def test_local_app_keeps_its_own_gemfile(self):
+        """There the recipe dir is the app, so the pair is already the same."""
+        assert "cp ${./Gemfile}" not in generate(self._spec())
+
+    def test_the_real_redmine_recipe_generates(self):
+        config = tomllib.loads(
+            Path("apps/real-apps-nix-gen/redmine/hop3.toml").read_text()
+        )
+        spec = app_spec_from_config(config["nix"], config["metadata"], "redmine")
+        output = generate(spec)
+        assert "pkgs.ruby_3_2" in output          # redmine 5.1 needs < 3.3
+        assert 'cd "$HOME_DIR"' in output          # writable home
+        assert "config/database.yml" in output     # generated from PG*
+        assert "rake db:migrate" in output
+        assert "exec GEMSBIN/rails server" in output
