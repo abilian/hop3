@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import subprocess
+from collections import Counter
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -16,7 +17,9 @@ import tomllib
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-from hop3.plugins.build.nix.gen.registry import generate
+    from hop3.plugins.build.nix.gen.templates.base import ReproTier, Template
+
+from hop3.plugins.build.nix.gen.registry import generate, get_template
 from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
 from hop3_tooling.nix_hash import (
     PLACEHOLDER_HASH,
@@ -314,6 +317,68 @@ def vendor_hash(app_dir: Path, write: bool, ssh: str | None) -> None:
         click.echo(f"  written to {toml_path}")
 
 
+def _nix_gen_recipes(roots: tuple[Path, ...]) -> list[Path]:
+    """The nix-gen app directories under ROOTS (default: the nix-gen corpus).
+
+    A root may be a directory of app dirs or a single app dir. An empty result
+    is an error, not an empty success: a gate that found nothing to check must
+    never look like a green run.
+    """
+    roots = roots or (Path("apps/real-apps-nix-gen"),)
+
+    def _recipes(root: Path) -> list[Path]:
+        own = [root / "hop3.toml"] if (root / "hop3.toml").is_file() else []
+        return own + list(root.glob("*/hop3.toml"))
+
+    app_dirs = sorted({
+        toml_file.parent
+        for root in roots
+        for toml_file in _recipes(root)
+        if "template" in (tomllib.loads(toml_file.read_text()).get("nix") or {})
+    })
+    if not app_dirs:
+        msg = f"no nix-gen recipe found under {[str(r) for r in roots]}"
+        raise click.ClickException(msg)
+    return app_dirs
+
+
+@nix.command("tiers")
+@click.argument(
+    "roots",
+    nargs=-1,
+    type=click.Path(exists=True, path_type=Path),
+)
+def tiers(roots: tuple[Path, ...]) -> None:
+    """Print each nix-gen app's reproducibility tier (ADR 008).
+
+    The tier is read from the app's template, so the label cannot drift away
+    from what the build actually does. Needs no Nix and no server: this is the
+    answer to "was this app compiled from source, or is it a wrapped upstream
+    binary?", which is the question an auditor asks.
+    """
+    rows = [
+        (app_dir.name, template_for_recipe(app_dir))
+        for app_dir in _nix_gen_recipes(roots)
+    ]
+    width = max(len(name) for name, _ in rows)
+    counts: Counter[ReproTier] = Counter()
+    for name, template in sorted(rows, key=lambda r: (r[1].tier, r[0])):
+        counts[template.tier] += 1
+        click.echo(f"  {name:<{width}}  {_tier_label(template)}  {template.name}")
+    tally = ", ".join(f"{counts[tier]} {tier.name.lower()}" for tier in sorted(counts))
+    click.echo(f"\n{tally} — {len(rows)} apps")
+
+
+def _tier_label(template: Template) -> str:
+    return f"tier-{template.tier} {template.tier.name.lower():<8}"
+
+
+def template_for_recipe(app_dir: Path) -> Template:
+    """The template an app's recipe selects."""
+    config = tomllib.loads((app_dir / "hop3.toml").read_text())
+    return get_template((config.get("nix") or {})["template"])
+
+
 @nix.command("check-reproducible")
 @click.argument(
     "roots",
@@ -330,29 +395,17 @@ def check_reproducible(roots: tuple[Path, ...], ssh: str | None) -> None:
     the whole claim the hermetic templates make. Exits non-zero on the first
     failure or an empty selection.
     """
-    roots = roots or (Path("apps/real-apps-nix-gen"),)
-
-    def _recipes(root: Path) -> list[Path]:
-        # A root may be a directory of app dirs, or a single app dir itself.
-        own = [root / "hop3.toml"] if (root / "hop3.toml").is_file() else []
-        return own + list(root.glob("*/hop3.toml"))
-
-    app_dirs = sorted({
-        toml_file.parent
-        for root in roots
-        for toml_file in _recipes(root)
-        if "template" in (tomllib.loads(toml_file.read_text()).get("nix") or {})
-    })
-    if not app_dirs:
-        # A gate that found nothing to check must not look like a green run.
-        msg = f"no nix-gen recipe found under {[str(r) for r in roots]}"
-        raise click.ClickException(msg)
+    app_dirs = _nix_gen_recipes(roots)
 
     results = []
     for app_dir in app_dirs:
         result = _rebuild_check(app_dir, ssh)
         mark = "ok " if result.reproducible else "FAIL"
-        click.echo(f"  {mark} {result.app}: {result.detail}")
+        # Show the tier: a bit-identical rebuild of a wrapped upstream binary
+        # is a weaker claim than one of a source build, and an undifferentiated
+        # "all reproducible" would read as if every app were audited to source.
+        tier = _tier_label(template_for_recipe(app_dir))
+        click.echo(f"  {mark} {result.app} [{tier.strip()}]: {result.detail}")
         results.append(result)
 
     ok, summary = summarize(results)
