@@ -1353,3 +1353,42 @@ class TestRubyBundler:
         assert "config/database.yml" in output  # generated from PG*
         assert "rake db:migrate" in output
         assert "exec GEMSBIN/rails server" in output
+
+
+class TestGoSourceExecTargetCheck:
+    """buildGoModule names a binary after its package directory, which for a
+    root main package is the last element of the *module path*. forgejo's
+    `module forgejo.org` yields `bin/forgejo.org`; gitea's `code.gitea.io/gitea`
+    yields `bin/gitea`. The two recipes look alike and behave differently, and
+    the mismatch surfaced as a health-check timeout naming nothing useful.
+    """
+
+    def _spec(self, **kwargs):
+        defaults = {
+            "pname": "forgejo",
+            "version": "11.0.1",
+            "description": "git forge",
+            "exec_target": "forgejo.org",
+            "vendor_hash": "sha256-AAA=",
+            "source": Source(url="https://x/src.tar.gz", sha256="x", archive="tar-gz"),
+        }
+        defaults.update(kwargs)
+        return spec_for(GoSourcePayload, **defaults)
+
+    def test_the_build_refuses_an_exec_target_it_did_not_produce(self):
+        output = generate(self._spec())
+        assert "is not a binary in" in output
+        assert "ls -1 ${goApp}/bin" in output
+
+    def test_the_check_interpolates_the_store_path(self):
+        """`''${goApp}` is the Nix escape for a *literal* `${goApp}`, which the
+        shell then reads as an unset variable and checks /bin instead."""
+        output = generate(self._spec())
+        assert "''${goApp}/bin" not in output
+
+    def test_the_real_forgejo_recipe_execs_the_binary_go_builds(self):
+        config = tomllib.loads(
+            Path("apps/real-apps-nix-gen/forgejo/hop3.toml").read_text()
+        )
+        spec = app_spec_from_config(config["nix"], config["metadata"], "forgejo")
+        assert spec.exec_target == "forgejo.org"
