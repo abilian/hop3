@@ -31,6 +31,12 @@ go-version = "go_1_24"
 go-sub-packages = ["."]
 go-ldflags = ["-X main.Version=${version}"]
 go-frontend-build = "BROWSERSLIST_IGNORE_OLD_DATA=true npx webpack"
+# Same as gitea, whose codebase this forked from: forgejo resolves BOTH
+# `public/` (built above) and `options/` (locales, gitignores, licences, label
+# templates) under STATIC_ROOT_PATH. Without options/ it boots far enough to
+# serve nothing and then dies registering a cron task — "translation is missing
+# for task update_mirrors". options/ is a source asset, not a build output.
+go-static-dirs = ["options"]
 go-npm-deps-hash = "sha256-laHHXq59/7+rJSYTD1Aq/AvFcio6vsnWkeV8enq3yTg="
 pre-exec = ['mkdir -p custom/conf data']
 

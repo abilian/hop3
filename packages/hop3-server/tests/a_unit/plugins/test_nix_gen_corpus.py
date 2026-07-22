@@ -88,3 +88,37 @@ def test_generated_expression_parses_as_nix(expression, tmp_path):
         check=False,
     )
     assert result.returncode == 0, f"{app_dir.name}:\n{result.stderr}"
+
+
+# --- a static root served from the frontend derivation needs its source assets ---
+
+STATIC_ROOT_MARKER = "$HOP3_GO_FRONTEND"
+
+
+def _recipes_serving_a_go_static_root() -> list[Path]:
+    return [d for d in RECIPES if STATIC_ROOT_MARKER in (d / "hop3.toml").read_text()]
+
+
+def test_a_go_static_root_also_ships_its_source_assets():
+    """gitea and forgejo are the same codebase and drifted apart.
+
+    Both point STATIC_ROOT_PATH at the built frontend, and both also resolve
+    `options/` (locales, licences, label templates) there. That directory is a
+    *source* asset, so the frontend derivation does not contain it unless the
+    recipe says so. Omitting it lets the app boot, serve nothing, and die
+    registering a cron task — "translation is missing for task update_mirrors".
+    gitea hit it; forgejo hit the identical failure weeks later.
+    """
+    serving = _recipes_serving_a_go_static_root()
+    assert serving, "no recipe serves a Go static root — has the wiring changed?"
+    missing = [
+        d.name
+        for d in serving
+        if not (
+            tomllib.loads((d / "hop3.toml").read_text())["nix"].get("go-static-dirs")
+        )
+    ]
+    assert not missing, (
+        f"{missing} serve a static root from the frontend derivation but ship no "
+        "go-static-dirs; source assets under that root will be absent at runtime"
+    )
