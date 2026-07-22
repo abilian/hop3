@@ -270,6 +270,20 @@ This project is partly funded through the [NGI0 Commons Fund](https://nlnet.nl/c
 
 More information here: <https://nlnet.nl/project/Hop3-Nixified/>
 
+
+### GenAI usage
+
+Generative AI is been used for specific tasks in this project:
+
+- Code reviews, including security reviews.
+- Generating some commit messages.
+- Reviewing documentation for consistency and correct English.
+- Large-scale refactorings, when standard tools
+
+Tools we use include the ([letscode coding agent](https://github.com/abilian/letscode)), which we developped as a side-project to this project, and its plugins; a dedicated, soon to be published, security audit tool; and Claude and Pi, two popular coding agents, one of them Open Source. LLM we use include Devstral (from Mistral), Deepseek (Deepseek), GLM (Z.ai) and Opus (Anthropic).
+
+All these tasks are driven, supervised, and, eventually, verified by a human.
+
 ## What's the story behind the name?
 
 "Hop3" (or more precisely "Hop^3" or "Hop cubed") is a pun on "Hop, hop, hop!" which is a French expression used to encourage quick action or to hurry someone up. It's akin to saying "Let's go!" or "Hurry up!" in English. It can also convey a sense of enthusiasm or encouragement to get moving or to proceed with something. It generally carries a light, motivating tone.
