@@ -41,13 +41,13 @@ from dataclasses import replace
 
 from hop3.plugins.build.nix.gen.spec import AppSpec, RubyBundlerPayload
 from hop3.plugins.build.nix.gen.templates.base import (
-    PINNED_NIXPKGS_HEADER,
     ReproTier,
     build_writable_home_prelude,
     format_nix_env_attrs,
     format_paths_json,
     format_runtime_env_json,
     format_wrapper_body,
+    pinned_nixpkgs_header,
 )
 
 
@@ -118,7 +118,7 @@ class RubyBundlerTemplate:
 #
 # Run 'hop3 nix eject {spec.pname}' to materialize for customization.
 
-{PINNED_NIXPKGS_HEADER}
+{pinned_nixpkgs_header(spec.nixpkgs_rev, spec.nixpkgs_sha256)}
 
 let
   ruby = pkgs.{ruby_pkg};

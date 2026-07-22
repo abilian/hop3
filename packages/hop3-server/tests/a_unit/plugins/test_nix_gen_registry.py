@@ -5,9 +5,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from hop3.plugins.build.nix.gen.registry import get_template, list_templates
+from hop3.plugins.build.nix.gen.templates import base as templates_base
 from hop3.plugins.build.nix.gen.templates.base import ReproTier
 from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
 
@@ -79,3 +82,21 @@ def test_an_unknown_template_is_rejected_at_parse_time():
     catches it."""
     with pytest.raises(ValueError, match="Unknown template"):
         app_spec_from_config({"template": "nonexistent"}, {}, "test")
+
+
+def test_no_template_hardcodes_the_default_nixpkgs_pin():
+    """The nixpkgs header is a property of the spec, not a module constant.
+
+    Nine templates used to interpolate ``PINNED_NIXPKGS_HEADER`` directly, so a
+    per-app pin reached only two of them and a corpus-wide bump — the thing a
+    pin exists to make possible — could not be expressed at all. Structural
+    rather than behavioural, because each template needs a different valid spec
+    to generate; what must not come back is the constant.
+    """
+    templates_dir = Path(templates_base.__file__).parent
+    offenders = [
+        path.name
+        for path in sorted(templates_dir.glob("*.py"))
+        if path.name != "base.py" and "PINNED_NIXPKGS_HEADER" in path.read_text()
+    ]
+    assert not offenders, f"these bake in the default pin: {offenders}"
