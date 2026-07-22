@@ -90,6 +90,15 @@ class PackageSpec:
 # =============================================================================
 
 
+def _print_failure_output(stream: str, text: str | None, lines: int = 25) -> None:
+    """Echo the tail of a failed command's output, naming which stream it is."""
+    if not text or not text.strip():
+        return
+    print_detail(f"--- {stream} ---")
+    for line in text.strip().split("\n")[-lines:]:
+        print_detail(line)
+
+
 def install_base_packages(spec: PackageSpec) -> None:
     """Install base packages using the given spec."""
     # Update package lists if needed
@@ -113,13 +122,15 @@ def install_base_packages(spec: PackageSpec) -> None:
 
     if result.returncode != 0:
         print_error("Base package installation failed")
-        if result.stderr:
-            for line in result.stderr.strip().split("\n")[-10:]:
-                print_detail(line)
+        # apt reports *why* on stdout and only the summary on stderr, so
+        # printing stderr alone leaves "dpkg returned an error code (1)" and no
+        # cause. Show both, stdout last: it holds the failing package.
+        _print_failure_output("stderr", result.stderr)
+        _print_failure_output("stdout", result.stdout)
         raise CommandError(
             [spec.pkg_manager, "install"] + spec.base_packages,
             result.returncode,
-            result.stderr or "",
+            "\n".join(filter(None, [result.stdout, result.stderr])),
         )
 
     print_success(f"Installed {len(spec.base_packages)} base packages")
