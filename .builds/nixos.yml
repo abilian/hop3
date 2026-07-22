@@ -40,6 +40,20 @@ tasks:
         uv run make test-fast
       '
 
+  # Reproducibility gate, static half (ADR 008): every committed nix-gen recipe
+  # must generate an expression that parses as Nix. Runs here because this is
+  # the only image with nix-instantiate — elsewhere the parse assertions skip.
+  # The build half (rebuild bit-for-bit + deploy, `make gate-nix`) needs a warm
+  # /nix/store and runs on the nightly box, not on a fresh CI runner.
+  - nix-gen: |
+      cd hop3
+      nix develop .#fhs --command bash -c '
+        set -ex
+        command -v nix-instantiate
+        uv run pytest -q --no-header \
+          packages/hop3-server/tests/a_unit/plugins/test_nix_gen_corpus.py
+      '
+
   # Lint check (use ruff from nixpkgs, not pip)
   - check: |
       cd hop3
