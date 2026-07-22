@@ -34,6 +34,14 @@ from .debug import DeploymentDebugger
 from .preparation import AppPreparation
 from .verification import AppVerifier
 
+# How much of a response body to fetch. A `contains` assertion is matched against
+# this body, so the limit has to fit a realistic page rather than a preview: at
+# the previous 16 KB, WordPress 6.4's block theme inlined enough CSS into <head>
+# to push the asserted post title out of the window, and the harness reported
+# "body does not contain 'Hello world'" for a site that was serving it — a false
+# negative that read like an application failure.
+BODY_FETCH_LIMIT = 262_144
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
@@ -538,7 +546,7 @@ class DeploymentSession:
                         # STATUS check above is NOT followed, so a validation can
                         # still assert the immediate redirect (`status = 302`).
                         _, body, _ = self.target.exec_run(
-                            f"curl -s -L --max-redirs 5 --max-time 5 '{url}' | head -c 16384"
+                            f"curl -s -L --max-redirs 5 --max-time 5 '{url}' | head -c {BODY_FETCH_LIMIT}"
                         )
                         result["details"]["body_preview"] = body.strip() if body else ""
                         result["passed"] = True
@@ -555,7 +563,7 @@ class DeploymentSession:
                     # Get body preview for non-matching status (follow redirects
                     # so the diagnostic shows the real page, not an empty 3xx).
                     _, body, _ = self.target.exec_run(
-                        f"curl -s -L --max-redirs 5 --max-time 5 '{url}' | head -c 16384"
+                        f"curl -s -L --max-redirs 5 --max-time 5 '{url}' | head -c {BODY_FETCH_LIMIT}"
                     )
                     body_text = body.strip() if body else ""
                     result["details"]["body_preview"] = body_text
@@ -618,7 +626,7 @@ class DeploymentSession:
                     if _status_match(status_code, expected_status):
                         # Fetch body for contains checks
                         _, body, _ = self.target.exec_run(
-                            f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c 16384"
+                            f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c {BODY_FETCH_LIMIT}"
                         )
                         result["details"]["body_preview"] = body.strip() if body else ""
                         result["passed"] = True
@@ -634,7 +642,7 @@ class DeploymentSession:
 
                     # Non-matching status — get body for diagnostics
                     _, body, _ = self.target.exec_run(
-                        f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c 16384"
+                        f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c {BODY_FETCH_LIMIT}"
                     )
                     body_text = body.strip() if body else ""
                     result["details"]["body_preview"] = body_text
