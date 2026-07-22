@@ -64,6 +64,14 @@ The two non-Nix builders sit below the tiers rather than inside them, and are na
 
 **Architecture, not date of manufacture.** x86_64 is the platform for which reproducibility is claimed. Vendored dependency sets are resolved per platform — a Linux wheel set is not a macOS one, and an aarch64 wheel set is not an x86_64 one — so the committed lockfiles fix one architecture. Supporting a second means vendoring a second set, not relaxing a hash.
 
+### Fetched Software and Your Own
+
+A template either fetches the application or builds what is already there, and almost all of them fetch: a release tarball, an npm package, a nixpkgs attribute, an upstream binary. That is the right default for the corpus, which is third-party software, but it leaves the case a PaaS exists for — an operator pushing their own code — with no route through the generator at all. Such an app can reach Nix only by hand-writing `hop3.nix`, which is the barrier this ADR set out to remove.
+
+The fix is a **local-source mode**: with no `[nix].url`, the recipe directory *is* the application (`src = ./.`), and the template's dependency-pinning machinery applies unchanged. `ruby-bundler` has always worked this way, and `go-source` now does too. Extending it to `php-app`, `python-venv` and `node-pnpm-install` is the remaining work; each needs the same shape, plus a way to express "install this tree" rather than "install this published package".
+
+A dependency-free module is the one case where an absent hash is correct rather than an oversight, so it is spelled explicitly: `go-vendor-hash = "none"` emits `vendorHash = null`. Omitting the key is still refused.
+
 ### Per-App Labels
 
 The tier is declared on the *template*, since the template is what determines how the artefact is obtained; an app inherits it by choosing a template. Nothing maintains a per-app list by hand, because a hand-maintained table is exactly the artefact that drifts out of truth while continuing to look authoritative.
@@ -126,7 +134,7 @@ Each template captures one recurring packaging pattern observed in `apps/real-ap
 | `nixpkgs-wrapper` | 1 | grafana, mattermost, listmonk, keycloak, searxng, etherpad | Wraps an existing nixpkgs package (no source fetch, no build); writable-home prelude for apps that write beside themselves |
 | `php-app` | 2 | adminer, bookstack, dolibarr, easy-appointments, invoice-ninja, kanboard, limesurvey, matomo, nextcloud, paheko, wordpress | Composer FOD from `composer.lock` + offline `dump-autoload`; single file (adminer), Laravel artisan serve, custom web root (dolibarr), zip with wrapper dir (limesurvey), tar.bz2 (nextcloud), `--ignore-platform-reqs` (invoice-ninja), extra nativeBuildInputs (nodejs for invoice-ninja) |
 | `python-venv` | 2 | isso, bugsink, radicale | Wheel-set FOD from a hash-pinned lockfile, offline `--no-index` install, runtime INI config |
-| `go-source` | 2 | miniflux, gitea, forgejo, gatus, owncast, vikunja | `buildGoModule` with a `vendorHash`; frontend derivation and `go-static-dirs` for apps resolving assets under a static root |
+| `go-source` | 2 | miniflux, gitea, forgejo, gatus, owncast, vikunja | `buildGoModule` with a `vendorHash`; frontend derivation and `go-static-dirs` for apps resolving assets under a static root; builds the recipe directory itself when no `url` is given |
 | `node-pnpm-install` | 2 | directus | `pnpm fetch` FOD, offline `--frozen-lockfile --ignore-scripts` install, opt-in offline `node-gyp` rebuild for named native addons |
 | `ruby-bundler` | 2 | redmine | `bundlerEnv` from a committed `Gemfile.lock` + bundix `gemset.nix`, `force_ruby_platform` so gems build from source |
 | `java-gradle` | 2 | stirling-pdf | Gradle build against a committed `deps.json` (`gradle.fetchDeps` / `mitmCache`) |

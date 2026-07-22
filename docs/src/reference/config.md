@@ -772,7 +772,7 @@ Eleven templates are available. Prefer the higher tiers when possible — see [N
 | `nixpkgs-wrapper` | Apps already packaged in nixpkgs (best — multi-arch, source-built) | 1 |
 | `python-venv` | Python apps installed via pip into a virtualenv | 2 |
 | `php-app` | PHP apps served with `php -S` or `artisan serve` | 2 |
-| `go-source` | Go apps compiled from source with `buildGoModule` | 2 |
+| `go-source` | Go apps compiled from source with `buildGoModule` (fetched, or the recipe directory itself) | 2 |
 | `ruby-bundler` | Ruby apps using `bundlerEnv` from `gemset.nix` | 2 |
 | `node-pnpm-install` | Node.js apps built from a committed `pnpm-lock.yaml` | 2 |
 | `java-gradle` | Java apps compiled with Gradle from a committed `deps.json` | 2 |
@@ -782,6 +782,19 @@ Eleven templates are available. Prefer the higher tiers when possible — see [N
 | `prebuilt-archive` | Pre-compiled archive with multiple files | 3 |
 
 **Tier 1 = packaged by nixpkgs** (use when available: multi-arch and maintained upstream). **Tier 2 = built from source by Hop3** against a committed lockfile — equally sealed and reproducible, but the lockfile is yours to refresh. **Tier 3 = upstream artefact fetched by digest** — reproducible but not auditable, so use it when upstream ships no buildable source, or for software distributed only as a binary.
+
+### Fetching an App, or Building Your Own
+
+Most templates *fetch* the application — `url` names a release tarball, `nixpkgs-package` an attribute, `npm-package` a registry package. Omit the source and the recipe directory itself is the application, which is the git-push case: your own code, built by Nix.
+
+Supported today by `go-source` and `ruby-bundler`. For `go-source`, a module that requires nothing declares `go-vendor-hash = "none"` (there is no dependency set to pin); a module with dependencies still needs a real hash.
+
+```toml
+[nix]
+template = "go-source"
+exec-target = "myapp"        # the binary buildGoModule produces
+go-vendor-hash = "none"      # no `require` block in go.mod
+```
 
 ### Keys Belong to One Template
 
