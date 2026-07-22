@@ -1,0 +1,36 @@
+# The same source as apps/test-apps-nix/golang-minimal, packaged by the
+# generator instead of a hand-written hop3.nix — so the two are a like-for-like
+# comparison of the two Nix paths, and (with apps/test-apps-procfile/130-golang-minimal)
+# of the native path too, on identical code.
+
+[metadata]
+id = "golang-minimal-gen"
+version = "0.1.0"
+description = "Minimal Go hello world, packaged from local source by nix-gen"
+
+[build]
+builder = "nix"
+
+[nix]
+template = "go-source"
+# No `url`: the application is this directory. That is the git-push case — a
+# user's own code — as opposed to third-party software fetched from a release.
+exec-target = "golang-minimal"
+# go.mod requires nothing, so there is no module set to vendor and `null` is the
+# correct vendorHash rather than a missing one.
+go-vendor-hash = "none"
+
+[healthcheck]
+path = "/"
+
+[test]
+priority = "P1"
+tier = "fast"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["golang", "nix", "nix-gen", "local-source"]
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "Hello World"

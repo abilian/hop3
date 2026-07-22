@@ -175,10 +175,6 @@ _PAYLOAD_FIELDS: dict[str, tuple[type[TemplatePayload], dict[str, str]]] = {
     ),
 }
 
-# Templates that honour a per-app nixpkgs pin. The others would silently ignore
-# it, so the adapter refuses it there instead.
-_PIN_AWARE_TEMPLATES = {"nixpkgs-wrapper", "go-source"}
-
 # Keys retired by a design change. Naming them lets the error say what to do,
 # instead of the generic "unknown key" that leaves the author guessing.
 _RETIRED_KEYS = {
@@ -214,13 +210,14 @@ def _validate_nixpkgs_pin(rev: str, sha256: str) -> None:
         raise ValueError(msg)
 
 
-def _check_nixpkgs_pin(nix_config: dict[str, Any], template: str) -> None:
+def _check_nixpkgs_pin(nix_config: dict[str, Any]) -> None:
     """Validate the optional per-app nixpkgs pin, or accept its absence.
 
-    The two keys are meaningful only as a pair, and only where a template
-    honours them. Expressing that here — with an early return for "no pin" —
-    states the both-or-neither rule once, and leaves both values narrowed to
-    ``str`` for the format check below.
+    The two keys are meaningful only as a pair. Expressing that here — with an
+    early return for "no pin" — states the both-or-neither rule once, and
+    leaves both values narrowed to ``str`` for the format check below.
+
+    Every template honours the pin, so there is no template to refuse it for.
     """
     rev = nix_config.get("nixpkgs-rev")
     sha256 = nix_config.get("nixpkgs-sha256")
@@ -230,13 +227,6 @@ def _check_nixpkgs_pin(nix_config: dict[str, Any], template: str) -> None:
         msg = (
             "[nix].nixpkgs-rev and [nix].nixpkgs-sha256 must be set together "
             "(a rev needs its fetchTarball sha256, and vice versa)"
-        )
-        raise ValueError(msg)
-    if template not in _PIN_AWARE_TEMPLATES:
-        msg = (
-            "[nix].nixpkgs-rev / nixpkgs-sha256 (per-app nixpkgs pin) is only "
-            f"honoured by the {' / '.join(sorted(_PIN_AWARE_TEMPLATES))} "
-            f"template(s), not {template!r}"
         )
         raise ValueError(msg)
     _validate_nixpkgs_pin(rev, sha256)
@@ -301,7 +291,7 @@ def app_spec_from_config(
         raise ValueError(msg)
 
     _reject_unclaimed_keys(nix_config, template)
-    _check_nixpkgs_pin(nix_config, template)
+    _check_nixpkgs_pin(nix_config)
 
     source = Source(
         url=nix_config.get("url", ""),

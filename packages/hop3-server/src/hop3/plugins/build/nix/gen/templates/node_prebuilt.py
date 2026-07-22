@@ -24,12 +24,12 @@ from __future__ import annotations
 
 from hop3.plugins.build.nix.gen.spec import AppSpec, NodePrebuiltPayload
 from hop3.plugins.build.nix.gen.templates.base import (
-    PINNED_NIXPKGS_HEADER,
     ReproTier,
     format_nix_env_attrs,
     format_paths_json,
     format_runtime_env_json,
     format_wrapper_body,
+    pinned_nixpkgs_header,
 )
 
 
@@ -80,7 +80,7 @@ class NodePrebuiltTemplate:
 # GENERATED from template 'node-prebuilt' by hop3-nix-gen.
 # Run 'hop3 nix eject {spec.pname}' to materialize for customization.
 
-{PINNED_NIXPKGS_HEADER}
+{pinned_nixpkgs_header(spec.nixpkgs_rev, spec.nixpkgs_sha256)}
 
 let
   version = "{spec.version}";

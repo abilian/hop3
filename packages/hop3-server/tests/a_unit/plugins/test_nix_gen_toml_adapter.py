@@ -99,9 +99,10 @@ def test_malformed_nixpkgs_pin_is_rejected_at_parse_time(rev, sha, match):
         )
 
 
-def test_nixpkgs_pin_override_rejected_on_non_wrapper_template():
-    # Fail loud rather than silently ignore a pin the template can't honour.
-    with pytest.raises(ValueError, match=r"only.*nixpkgs-wrapper"):
+def test_a_malformed_pin_is_rejected_whatever_the_template():
+    """A placeholder rev used to reach the generated expression and only fail
+    at deploy, with an opaque Nix error."""
+    with pytest.raises(ValueError, match="40-character git commit SHA"):
         app_spec_from_config(
             {
                 "template": "python-venv",
@@ -308,19 +309,37 @@ def test_a_retired_key_says_what_to_do_instead():
         )
 
 
-def test_a_nixpkgs_pin_is_refused_where_no_template_honours_it():
-    with pytest.raises(ValueError, match="only honoured by"):
-        app_spec_from_config(
-            _minimal(
-                "php-app",
-                **{
-                    "nixpkgs-rev": "a" * 40,
-                    "nixpkgs-sha256": "sha256-" + "A" * 43 + "=",
-                },
-            ),
-            {},
-            "t",
-        )
+@pytest.mark.parametrize("template", sorted(list_templates()))
+def test_a_pin_reaches_the_spec_for_every_template(template):
+    """The adapter must thread the pin whatever the template — it used to be
+    refused outright on nine of the eleven."""
+    rev = "a" * 40
+    spec = app_spec_from_config(
+        _minimal(
+            template,
+            **{"nixpkgs-rev": rev, "nixpkgs-sha256": "sha256-" + "A" * 43 + "="},
+        ),
+        {"id": "t"},
+        "t",
+    )
+    assert spec.nixpkgs_rev == rev
+
+
+def test_the_pin_reaches_the_generated_expression():
+    rev = "b" * 40
+    spec = app_spec_from_config(
+        _minimal(
+            "prebuilt-binary",
+            **{
+                "binary-name": "x",
+                "nixpkgs-rev": rev,
+                "nixpkgs-sha256": "sha256-" + "A" * 43 + "=",
+            },
+        ),
+        {"id": "t"},
+        "t",
+    )
+    assert rev in generate(spec)
 
 
 def test_every_template_can_be_built_from_a_minimal_config():
