@@ -172,3 +172,8 @@ hop3-test run --provider hetzner focalboard --from local   # mode=cli, tagged cl
 ## Future work
 
 - Notifications (email/Matrix/…) on new regressions.
+- **Schedule the reproducibility check.** `hop3-tools nix check-reproducible` rebuilds every nix-gen recipe and compares the output against the first build ([ADR 008](./008-nix-builders-2.md)). It is the half of the advertised gate that no schedule currently drives, so the claim it defends is only ever as fresh as the last time someone ran it by hand. The Lab is its natural owner: it already provisions, holds credentials, and stores per-app results, and a rebuild verdict is the same shape as a test result.
+
+  Two constraints distinguish it from the app suites. It must **not** run inside the blank-slate nightly: that run rebuilds the OS, so every check would start from a cold `/nix/store` and cost hours. And it does not need the blank slate — `nix build --rebuild` compares against its *own* first build, so a warm store only makes it faster, and a store carried across days makes the comparison stronger rather than weaker. It therefore wants a separate schedule against a persistent box, not a suite inside the nightly.
+
+  Reporting it needs one addition to the data model: a rebuild failure is classified (`stale hash` / `eval error` / `not deterministic` / `build failed`), and collapsing those into pass/fail loses the distinction that decides who acts. A stale hash is mechanical; genuine non-determinism is the defect the gate exists to catch.
