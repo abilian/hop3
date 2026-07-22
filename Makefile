@@ -205,11 +205,14 @@ test-app:
 	@if [ -z "$(APP)" ]; then echo "Usage: make test-app APP=<app-path-or-name>"; exit 1; fi
 	uv run hop3-test run --docker $(APP)
 
-## Deploy Hop3 + run the Nix suite on Docker (the M2.2 nix-runtime gate)
+## Deploy Hop3 + run the Nix suite (the M2.2 nix-runtime gate).
+## Docker by default; pass HOST=<box> to run it against a real server.
+## Deliberately NOT taken from an env var: an ambient value silently
+## redirecting a deploy at someone's server is the ADR 043 taboo.
+NIX_SUITE = apps/test-apps-nix apps/test-apps-nix-gen apps/real-apps-nix-gen
 test-nix:
-	@echo "--> Testing Nix apps on Docker (hop3-test run --with nix)"
-	uv run hop3-test run --docker --with nix \
-	  apps/test-apps-nix apps/test-apps-nix-gen apps/real-apps-nix-gen
+	@echo "--> Testing Nix apps (hop3-test run --with nix)$(if $(HOST), on $(HOST), on Docker)"
+	uv run hop3-test run $(if $(HOST),--host $(HOST),--docker) --with nix $(NIX_SUITE)
 
 ## Reproducibility gate: rebuild every nix-gen app and fail if any output drifts
 .PHONY: check-reproducible
@@ -226,10 +229,13 @@ check-reproducible:
 ## only when BOTH halves pass. check-reproducible runs first (fail-fast); the
 ## deploy check (test-nix) runs only if it passes.
 .PHONY: gate-nix
+## Both halves take the same target: HOP3_NIX_SSH picks the build host,
+## HOST the deploy host. Passing neither runs the build locally and the deploy
+## on Docker, which is a weaker gate than it looks.
 gate-nix:
 	@echo "--> Advertised gate (nix-gen): reproducible build AND clean deploy"
 	$(MAKE) check-reproducible
-	$(MAKE) test-nix
+	$(MAKE) test-nix HOST=$(HOST)
 	@echo "==> gate-nix PASSED: nix-gen tier is reproducible AND deploys."
 
 #
