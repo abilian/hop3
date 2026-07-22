@@ -1168,6 +1168,54 @@ def test_committed_lockfiles_match_their_pinned_pnpm():
     assert mismatches == {}, f"lockfile/pnpm-pin mismatch: {mismatches}"
 
 
+class TestGoSourceLocalApp:
+    """A recipe with no `url` packages the directory it lives in.
+
+    Ten of the eleven templates assume the application is fetched from
+    somewhere — a release tarball, the npm registry, nixpkgs. That leaves a
+    user's *own* code, the git-push case a PaaS exists for, with no nix-gen
+    route at all. go-source is the first to close it.
+    """
+
+    def _spec(self, **kwargs):
+        defaults = {
+            "pname": "golang-minimal-gen",
+            "version": "0.1.0",
+            "description": "local go app",
+            "exec_target": "golang-minimal",
+            "vendor_hash": "none",
+            "source": Source(url="", sha256=""),
+        }
+        defaults.update(kwargs)
+        return spec_for(GoSourcePayload, **defaults)
+
+    def test_no_url_builds_the_recipe_directory(self):
+        output = generate(self._spec())
+        assert "src = ./.;" in output
+        assert "fetchurl" not in output
+
+    def test_a_url_still_fetches(self):
+        output = generate(
+            self._spec(source=Source(url="https://x/src.tar.gz", sha256="x"))
+        )
+        assert "pkgs.fetchurl" in output
+        assert "src = ./.;" not in output
+
+    def test_no_dependencies_emits_a_null_vendor_hash(self):
+        """`vendorHash = null` is correct for a module that requires nothing —
+        there is no set to pin. Spelled explicitly so it stays a decision."""
+        assert "vendorHash = null;" in generate(self._spec())
+
+    def test_a_hash_is_still_quoted(self):
+        out = generate(self._spec(vendor_hash="sha256-AAAA="))
+        assert 'vendorHash = "sha256-AAAA=";' in out
+
+    def test_omitting_the_hash_entirely_is_still_refused(self):
+        """ "none" is a claim about the module; absence is an oversight."""
+        with pytest.raises(ValueError, match="go-vendor-hash"):
+            generate(self._spec(vendor_hash=None))
+
+
 class TestGoStaticDirs:
     """Some Go apps resolve more than the built frontend under their static
     root. gitea/forgejo look up both `public/` and `options/` (locales,

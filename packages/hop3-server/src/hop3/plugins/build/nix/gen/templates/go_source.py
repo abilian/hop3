@@ -39,6 +39,11 @@ from hop3.plugins.build.nix.gen.templates.base import (
     pinned_nixpkgs_header,
 )
 
+# A module with no `require` block has nothing to vendor, and `vendorHash = null`
+# is then the correct value rather than a missing one. Spelling it explicitly
+# keeps the guard meaningful: an app with dependencies still cannot omit a hash.
+NO_DEPENDENCIES = "none"
+
 _NO_VENDOR_HASH = (
     "{pname}: go-source requires `go-vendor-hash` in [nix] — the sha256 of the "
     "vendored Go module set. Build once with a placeholder "
@@ -174,8 +179,21 @@ class GoSourceTemplate:
         if not p.vendor_hash:
             raise ValueError(_NO_VENDOR_HASH.format(pname=spec.pname))
 
+        # No `url` means the application *is* the recipe directory — a user's own
+        # code pushed to Hop3, rather than third-party software fetched from
+        # elsewhere. Without this the nix path is reachable only for software
+        # someone else publishes, which is not the case a PaaS exists for.
         binding = f"{spec.pname.replace('-', '_')}_src"
-        source_nix = spec.source.as_nix(binding)
+        if spec.source.url:
+            source_nix = spec.source.as_nix(binding)
+            src_attr = binding
+        else:
+            source_nix = ""
+            src_attr = "./."
+
+        vendor_attr = (
+            "null" if p.vendor_hash == NO_DEPENDENCIES else f'"{p.vendor_hash}"'
+        )
 
         optional_attrs = []
         if spec.source_root:
@@ -203,7 +221,7 @@ class GoSourceTemplate:
         wrapper_body = format_wrapper_body(spec, exec_line)
 
         frontend_nix, frontend_sed, frontend_prebuild, wrapper_body = _frontend_block(
-            spec, p, binding, wrapper_body
+            spec, p, src_attr, wrapper_body
         )
 
         runtime_env_json = format_runtime_env_json(spec.runtime_env)
@@ -230,11 +248,12 @@ let
   goApp = {go_builder} {{
     pname = "{spec.pname}";
     inherit version;
-    src = {binding};{frontend_prebuild}
+    src = {src_attr};{frontend_prebuild}
 
-    # Pins the module set. `null` would let the build resolve modules from the
-    # network, which is exactly what must not happen.
-    vendorHash = "{p.vendor_hash}";
+    # Pins the module set. An unset hash would let the build resolve modules
+    # from the network, which is exactly what must not happen; `null` is correct
+    # only for a module that requires nothing (go-vendor-hash = "none").
+    vendorHash = {vendor_attr};
 {optional_block}
     # Upstream test suites frequently need network or a database; running them
     # here would make the build non-hermetic and flaky.

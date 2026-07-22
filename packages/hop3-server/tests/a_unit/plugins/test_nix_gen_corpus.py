@@ -25,7 +25,10 @@ import tomllib
 from hop3.plugins.build.nix.gen.registry import generate, get_template
 from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
 
-CORPUS_ROOTS = (Path("apps/real-apps-nix-gen"), Path("apps/test-apps-nix"))
+# apps/test-apps-nix holds hand-written hop3.nix files, which this test has
+# nothing to say about; apps/test-apps-nix-gen holds the small templated
+# fixtures that mirror them.
+CORPUS_ROOTS = (Path("apps/real-apps-nix-gen"), Path("apps/test-apps-nix-gen"))
 
 
 def _recipes() -> list[Path]:
