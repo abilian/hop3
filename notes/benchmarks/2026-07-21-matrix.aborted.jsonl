@@ -1,0 +1,27 @@
+{"app":"wordpress","variant":"native","seconds":169,"rc":1,"status":"failed","reason":"  Error: HTTP 200 OK but body does not contain 'Hello world' (checked 16384 chars of the response):","log":"notes/benchmarks/logs/2026-07-21-matrix/native-wordpress.log"}
+{"app":"nextcloud","variant":"native","seconds":163,"rc":0,"status":"ok"}
+{"app":"bookstack","variant":"native","seconds":156,"rc":0,"status":"ok"}
+{"app":"invoice-ninja","variant":"native","seconds":205,"rc":0,"status":"ok"}
+{"app":"matomo","variant":"native","seconds":136,"rc":0,"status":"ok"}
+{"app":"gitea","variant":"native","seconds":128,"rc":0,"status":"ok"}
+{"app":"miniflux","variant":"native","seconds":141,"rc":0,"status":"ok"}
+{"app":"vikunja","variant":"native","seconds":132,"rc":0,"status":"ok"}
+{"app":"gatus","variant":"native","seconds":163,"rc":0,"status":"ok"}
+{"app":"owncast","variant":"native","seconds":133,"rc":0,"status":"ok"}
+{"app":"bugsink","variant":"native","seconds":152,"rc":1,"status":"failed","reason":"Deploy failed: Exit code: 1 ","log":"notes/benchmarks/logs/2026-07-21-matrix/native-bugsink.log"}
+{"app":"isso","variant":"native","seconds":218,"rc":0,"status":"ok"}
+{"app":"radicale","variant":"native","seconds":180,"rc":0,"status":"ok"}
+{"app":"searxng","variant":"native","seconds":187,"rc":0,"status":"ok"}
+{"app":"directus","variant":"native","status":"no-recipe"}
+{"app":"wiki-js","variant":"native","seconds":130,"rc":0,"status":"ok"}
+{"app":"etherpad","variant":"native","seconds":152,"rc":0,"status":"ok"}
+{"app":"stirling-pdf","variant":"native","seconds":143,"rc":0,"status":"ok"}
+{"app":"keycloak","variant":"native","seconds":154,"rc":0,"status":"ok"}
+{"app":"jenkins","variant":"native","seconds":126,"rc":0,"status":"ok"}
+{"app":"wordpress","variant":"docker","seconds":186,"rc":0,"status":"ok"}
+{"app":"nextcloud","variant":"docker","seconds":274,"rc":0,"status":"ok"}
+{"app":"bookstack","variant":"docker","seconds":203,"rc":0,"status":"ok"}
+{"app":"invoice-ninja","variant":"docker","seconds":274,"rc":0,"status":"ok"}
+{"app":"matomo","variant":"docker","seconds":186,"rc":0,"status":"ok"}
+{"app":"gitea","variant":"docker","seconds":141,"rc":0,"status":"ok"}
+{"app":"miniflux","variant":"docker","seconds":134,"rc":0,"status":"ok"}

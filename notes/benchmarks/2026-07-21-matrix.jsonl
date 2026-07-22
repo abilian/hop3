@@ -1,0 +1,80 @@
+{"app": "wordpress", "variant": "native", "status": "failed", "seconds": 101, "rc": 1, "reason": "Re-running 1 previously-failed test(s) first", "log": "notes/benchmarks/logs/2026-07-21-matrix/native-wordpress.log"}
+{"app": "nextcloud", "variant": "native", "status": "ok", "seconds": 128, "rc": 0}
+{"app": "bookstack", "variant": "native", "status": "ok", "seconds": 116, "rc": 0}
+{"app": "invoice-ninja", "variant": "native", "status": "ok", "seconds": 179, "rc": 0}
+{"app": "matomo", "variant": "native", "status": "ok", "seconds": 90, "rc": 0}
+{"app": "gitea", "variant": "native", "status": "ok", "seconds": 86, "rc": 0}
+{"app": "miniflux", "variant": "native", "status": "ok", "seconds": 100, "rc": 0}
+{"app": "vikunja", "variant": "native", "status": "ok", "seconds": 86, "rc": 0}
+{"app": "gatus", "variant": "native", "status": "ok", "seconds": 161, "rc": 0}
+{"app": "owncast", "variant": "native", "status": "ok", "seconds": 85, "rc": 0}
+{"app": "bugsink", "variant": "native", "status": "failed", "seconds": 79, "rc": 1, "reason": "Deploy failed: Exit code: 1", "log": "notes/benchmarks/logs/2026-07-21-matrix/native-bugsink.log"}
+{"app": "isso", "variant": "native", "status": "ok", "seconds": 100, "rc": 0}
+{"app": "radicale", "variant": "native", "status": "ok", "seconds": 95, "rc": 0}
+{"app": "searxng", "variant": "native", "status": "ok", "seconds": 98, "rc": 0}
+{"app": "directus", "variant": "native", "status": "no-recipe"}
+{"app": "wiki-js", "variant": "native", "status": "ok", "seconds": 88, "rc": 0}
+{"app": "etherpad", "variant": "native", "status": "ok", "seconds": 110, "rc": 0}
+{"app": "stirling-pdf", "variant": "native", "status": "ok", "seconds": 95, "rc": 0}
+{"app": "keycloak", "variant": "native", "status": "ok", "seconds": 114, "rc": 0}
+{"app": "jenkins", "variant": "native", "status": "ok", "seconds": 89, "rc": 0}
+{"app": "wordpress", "variant": "docker", "status": "ok", "seconds": 170, "rc": 0}
+{"app": "nextcloud", "variant": "docker", "status": "ok", "seconds": 299, "rc": 0}
+{"app": "bookstack", "variant": "docker", "status": "ok", "seconds": 174, "rc": 0}
+{"app": "invoice-ninja", "variant": "docker", "status": "ok", "seconds": 260, "rc": 0}
+{"app": "matomo", "variant": "docker", "status": "ok", "seconds": 167, "rc": 0}
+{"app": "gitea", "variant": "docker", "status": "ok", "seconds": 109, "rc": 0}
+{"app": "miniflux", "variant": "docker", "status": "ok", "seconds": 91, "rc": 0}
+{"app": "vikunja", "variant": "docker", "status": "ok", "seconds": 521, "rc": 0}
+{"app": "gatus", "variant": "docker", "status": "ok", "seconds": 143, "rc": 0}
+{"app": "owncast", "variant": "docker", "status": "ok", "seconds": 156, "rc": 0}
+{"app": "bugsink", "variant": "docker", "status": "ok", "seconds": 151, "rc": 0}
+{"app": "isso", "variant": "docker", "status": "ok", "seconds": 159, "rc": 0}
+{"app": "radicale", "variant": "docker", "status": "ok", "seconds": 112, "rc": 0}
+{"app": "searxng", "variant": "docker", "status": "ok", "seconds": 175, "rc": 0}
+{"app": "directus", "variant": "docker", "status": "ok", "seconds": 398, "rc": 0}
+{"app": "wiki-js", "variant": "docker", "status": "ok", "seconds": 172, "rc": 0}
+{"app": "etherpad", "variant": "docker", "status": "ok", "seconds": 224, "rc": 0}
+{"app": "stirling-pdf", "variant": "docker", "status": "ok", "seconds": 123, "rc": 0}
+{"app": "keycloak", "variant": "docker", "status": "ok", "seconds": 140, "rc": 0}
+{"app": "jenkins", "variant": "docker", "status": "ok", "seconds": 145, "rc": 0}
+{"app": "wordpress", "variant": "nix", "status": "ok", "seconds": 113, "rc": 0}
+{"app": "nextcloud", "variant": "nix", "status": "ok", "seconds": 170, "rc": 0}
+{"app": "bookstack", "variant": "nix", "status": "ok", "seconds": 128, "rc": 0}
+{"app": "invoice-ninja", "variant": "nix", "status": "ok", "seconds": 202, "rc": 0}
+{"app": "matomo", "variant": "nix", "status": "ok", "seconds": 107, "rc": 0}
+{"app": "gitea", "variant": "nix", "status": "ok", "seconds": 110, "rc": 0}
+{"app": "miniflux", "variant": "nix", "status": "ok", "seconds": 87, "rc": 0}
+{"app": "vikunja", "variant": "nix", "status": "ok", "seconds": 87, "rc": 0}
+{"app": "gatus", "variant": "nix", "status": "ok", "seconds": 89, "rc": 0}
+{"app": "owncast", "variant": "nix", "status": "ok", "seconds": 111, "rc": 0}
+{"app": "bugsink", "variant": "nix", "status": "failed", "seconds": 360, "rc": 1, "reason": "Deploy failed: Exit code: 1", "log": "notes/benchmarks/logs/2026-07-21-matrix/nix-bugsink.log"}
+{"app": "isso", "variant": "nix", "status": "ok", "seconds": 109, "rc": 0}
+{"app": "radicale", "variant": "nix", "status": "ok", "seconds": 96, "rc": 0}
+{"app": "searxng", "variant": "nix", "status": "no-recipe"}
+{"app": "directus", "variant": "nix", "status": "no-recipe"}
+{"app": "wiki-js", "variant": "nix", "status": "ok", "seconds": 94, "rc": 0}
+{"app": "etherpad", "variant": "nix", "status": "no-recipe"}
+{"app": "stirling-pdf", "variant": "nix", "status": "ok", "seconds": 126, "rc": 0}
+{"app": "keycloak", "variant": "nix", "status": "ok", "seconds": 130, "rc": 0}
+{"app": "jenkins", "variant": "nix", "status": "ok", "seconds": 125, "rc": 0}
+{"app": "wordpress", "variant": "nix-gen", "status": "ok", "seconds": 94, "rc": 0}
+{"app": "nextcloud", "variant": "nix-gen", "status": "ok", "seconds": 127, "rc": 0}
+{"app": "bookstack", "variant": "nix-gen", "status": "ok", "seconds": 175, "rc": 0}
+{"app": "invoice-ninja", "variant": "nix-gen", "status": "ok", "seconds": 372, "rc": 0}
+{"app": "matomo", "variant": "nix-gen", "status": "ok", "seconds": 99, "rc": 0}
+{"app": "gitea", "variant": "nix-gen", "status": "failed", "seconds": 379, "rc": 1, "reason": "Deploy failed: Exit code: 1", "log": "notes/benchmarks/logs/2026-07-21-matrix/nix-gen-gitea.log"}
+{"app": "miniflux", "variant": "nix-gen", "status": "ok", "seconds": 116, "rc": 0}
+{"app": "vikunja", "variant": "nix-gen", "status": "ok", "seconds": 429, "rc": 0}
+{"app": "gatus", "variant": "nix-gen", "status": "ok", "seconds": 136, "rc": 0}
+{"app": "owncast", "variant": "nix-gen", "status": "ok", "seconds": 180, "rc": 0}
+{"app": "bugsink", "variant": "nix-gen", "status": "ok", "seconds": 115, "rc": 0}
+{"app": "isso", "variant": "nix-gen", "status": "ok", "seconds": 113, "rc": 0}
+{"app": "radicale", "variant": "nix-gen", "status": "ok", "seconds": 101, "rc": 0}
+{"app": "searxng", "variant": "nix-gen", "status": "ok", "seconds": 92, "rc": 0}
+{"app": "directus", "variant": "nix-gen", "status": "ok", "seconds": 199, "rc": 0}
+{"app": "wiki-js", "variant": "nix-gen", "status": "ok", "seconds": 121, "rc": 0}
+{"app": "etherpad", "variant": "nix-gen", "status": "ok", "seconds": 109, "rc": 0}
+{"app": "stirling-pdf", "variant": "nix-gen", "status": "ok", "seconds": 173, "rc": 0}
+{"app": "keycloak", "variant": "nix-gen", "status": "ok", "seconds": 115, "rc": 0}
+{"app": "jenkins", "variant": "nix-gen", "status": "ok", "seconds": 93, "rc": 0}
