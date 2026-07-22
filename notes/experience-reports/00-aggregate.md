@@ -166,14 +166,20 @@ components.
 
 ### Nix Reproducibility Tiers
 
-| Tier | Method | Reproducible? | Auditable? | Multi-arch? |
+| Tier | Method | Rebuilds identically? | Auditable to source? | Multi-arch? |
 |------|--------|---------------|------------|-------------|
 | 1 | nixpkgs package | Yes | Yes | Yes |
-| 2 | Source build (`__noChroot`) | Mostly (depends on upstream registries) | Yes | Yes |
-| 3 | Pre-built binary (fetchurl) | Hash-pinned but not rebuildable | No | **No** |
+| 2 | Source build against a committed lockfile | Yes | Yes | One arch per lockfile |
+| 3 | Pre-built upstream artefact (fetchurl) | Yes | No | **No** |
 
-7 of 20 apps are currently Tier 3. The goal is to move them to
-Tier 1 or 2 over time. See ADR 008 for the full assessment.
+Every tier builds in a sealed sandbox: the dependency set is vendored into a
+fixed-output derivation from a committed lockfile, so the package manager runs
+offline. What the tier ranks is provenance, not hermeticity.
+
+Only 2 of the 31 nix-gen apps remain Tier 3 (jenkins, wiki-js — nixpkgs itself
+packages both from the upstream artefact); 6 are Tier 1 and 23 Tier 2. Run
+`hop3-tools nix tiers apps/real-apps-nix-gen` for the current split, and see
+ADR 008 for the full assessment.
 
 ## Remaining Issues
 

@@ -16,48 +16,82 @@ The NixBuilder plugin ([ADR 006](./006-nix-integration.md)) builds applications 
 
 The current situation creates a two-tier experience:
 
-- **With `hop3.nix`**: Content-addressed dependency graph, bandwidth-efficient updates, and a path toward reproducible builds (see "Reproducibility Levels" below for the precise caveats). But requires Nix expertise.
+- **With `hop3.nix`**: Content-addressed dependency graph, bandwidth-efficient updates, and a path toward reproducible builds (see "Reproducibility Tiers" below for the precise claim). But requires Nix expertise.
 - **Without `hop3.nix`**: Fast native builds via the LocalBuilder, but no reproducibility guarantees and no content-addressed closure. This is what most developers will use.
 
 We want to close this gap: give developers the structural benefits of Nix (content-addressed closures, atomic upgrades, minimal update deltas) without requiring them to learn the Nix expression language.
 
-### Reproducibility Levels
+### Reproducibility Tiers
 
-The term "reproducible builds" is often used loosely. In Hop3's context, the actual guarantee depends on the build type:
+"Reproducible build" is used loosely enough to be worthless as a claim, so Hop3 states a precise one, per template.
 
-| Build type | Hermetic sandbox | Reproducible | Auditable | Example |
-|---|---|---|---|---|
-| **Pure Nix** (pinned nixpkgs, all deps from Nix store) | Yes | Yes (modulo build tool quirks like timestamps) | Yes (full closure graph to source) | Go apps via `buildGoModule` with vendored deps |
-| **Nix with `__noChroot`** (pip, composer install at build time) | **No** (network access during build | **No**) depends on PyPI/Packagist state at build time | Partial: closure exists but sources aren't pinned | BookStack (composer), Isso (pip) |
-| **Nix with `fetchurl` pre-built binary** (sha256-pinned) | Yes (fixed hash) | Yes (same bytes every time, as long as URL is live) | **No**: can't rebuild from source; trusting upstream binary | Gitea, Miniflux, Grafana |
-| **Native builder (no Nix)** | No | No | No | Most apps today |
+Every template builds inside the Nix sandbox against hash-pinned inputs: nixpkgs is pinned to a commit, the source archive is pinned by sha256, and the dependency set is pinned by a lockfile whose resolved contents are themselves fixed by a hash. Each ecosystem's package manager therefore runs **offline**, in a two-phase pattern generalised from `buildGoModule`'s `vendorHash`: a fixed-output derivation vendors the dependency set (the only step permitted to touch the network, and content-addressed so its result is fixed), then the application builds in the sealed sandbox against that directory.
 
-**Key nuances:**
+| Ecosystem | Lockfile | Vendoring derivation |
+|---|---|---|
+| Python | `requirements.txt` (hash-pinned) | wheels/sdists fetched into a FOD; install with `--no-index` |
+| PHP | `composer.lock` | `composer install` in a FOD; offline `dump-autoload` |
+| Node | `pnpm-lock.yaml` | `pnpm fetch` (reads only the lockfile); install `--frozen-lockfile --ignore-scripts` |
+| Go | `go.sum` | `buildGoModule` `vendorHash` |
+| Ruby | `Gemfile.lock` + `gemset.nix` (bundix) | `bundlerEnv` |
+| Java | `deps.json` (Gradle `mitmCache`) | `gradle.fetchDeps` |
 
-1. **`__noChroot = true` breaks hermeticity.** Our `python-venv` and `php-app` (with composer) templates use this to allow network access during build. Two builds on different days can fetch different dependency versions from PyPI/Packagist. This is no better than `pip install` on the host: the Nix packaging is structural (content-addressed output, atomic rollback) but not hermetic.
+Sandbox purity is therefore uniform, and the tiers rank the axis that still varies: **the provenance of the running bytes** — whether they can be traced back to reviewable source, and who did the tracing.
 
-2. **Pre-built binaries are reproducible but not auditable.** Fetching a Gitea binary with a pinned sha256 guarantees you always get the same bytes. But you can't verify what those bytes contain: you're trusting the upstream release process. This is the same trust model as pulling a Docker image from Docker Hub, just with a content hash instead of a mutable tag.
+| Tier | What it is | Sealed build | Bit-identical rebuild | Auditable to source | Packaged by | Multi-arch |
+|---|---|---|---|---|---|---|
+| **1 — nixpkgs** | Wraps a package nixpkgs already builds from source | Yes | Yes | Yes | nixpkgs | Yes |
+| **2 — source** | Hop3 builds the app from source against a hash-pinned dependency set | Yes | Yes | Yes | Hop3 | One arch per lockfile |
+| **3 — prebuilt** | Fetches an upstream release binary or archive by sha256 | Yes (fixed-output) | Yes | **No** | upstream | Usually x86_64 only |
 
-3. **Source availability is not guaranteed.** Even pure Nix builds depend on upstream sources being available. If PyPI deletes a package or a GitHub release disappears, the build fails. Nix doesn't mirror sources by default (though the Nix binary cache and NixOS Hydra CI provide some resilience).
+Tier 1 outranks Tier 2 despite both being auditable, because the difference is who carries the maintenance. A `nixpkgs-wrapper` app inherits nixpkgs' build, its multi-arch coverage and its security updates at no cost to us; a Tier-2 app is packaging Hop3 owns, with lockfiles we must refresh. Tier 1 is unavailable whenever nixpkgs lacks the app, or has it only at a version we cannot deploy — which is the common case for the corpus, and why Tier 2 carries most of it.
 
-4. **True hermeticity requires pure Nix builds with vendored or Nix-packaged dependencies.** This is achievable (e.g., `buildGoModule` with vendored deps, or all Python packages from nixpkgs rather than pip). But it's significantly more work to set up and maintain, which is why our current templates take the pragmatic `__noChroot` shortcut.
+The two non-Nix builders sit below the tiers rather than inside them, and are named here so the comparison is not silently flattering:
 
-**What Nix DOES guarantee in all cases:**
+- **Native builder** — *pinned, not sealed.* Dependency versions are pinned (a Python app is refused outright if its requirements float, per [ADR 039](./039-python-deploy-strategies.md)), but the build runs on the host with network access and against whatever system libraries are installed. Repeatable in practice, guaranteed by nothing.
+- **Docker builder** — *pinned base plus pinned app version, not sealed.* Base images are digest-pinned and app versions are explicit, but `RUN` steps have unrestricted network access and image builds embed timestamps. Bit-identical rebuilds are not claimed, and Hop3 does not attempt to make Docker hermetic ([ADR 033](./033-docker-integration.md)).
 
-- **Content-addressed outputs.** Every built package has a unique store path derived from all its inputs. If the inputs change, the output path changes. If inputs are identical, the path is identical: enabling cache reuse across machines.
-- **Atomic upgrades and rollbacks.** Deployments are a symlink switch. Rolling back is instant and side-effect-free.
-- **Minimal update deltas.** When updating an app, only changed store paths need to be transferred (Proposition 1 from the paper). This holds even for `__noChroot` builds: the delta is still smaller than a Docker image layer replacement.
-- **Explicit dependency graph.** The full closure is inspectable via `nix-store -qR`. No hidden dependencies, unlike Docker's opaque layers or pip's global site-packages.
+**What the tier does not tell you.** A tier is a property of the *build*, never of the *running application*. An app can rebuild bit-for-bit and still fail to boot — a native addon that was never compiled, a locale directory absent from the static root, a process manager missing from the production gem group are all invisible to a hash comparison. Advertising an app therefore requires both halves: the rebuild check *and* a clean deploy (see "Checking the Claim").
 
-**Implication for the template approach:** The generated `hop3.nix` expressions provide the structural benefits of Nix (content-addressing, atomic upgrades, closure inspection) but do NOT automatically provide full hermeticity for ecosystems that use `__noChroot`. Moving from `__noChroot` pip/composer to fully-pinned Nix-native dependency resolution is a future evolution. The templates faithfully generate what a developer would write by hand.
+**What Nix guarantees at every tier:**
+
+- **Content-addressed outputs.** A package's store path derives from all its inputs. Identical inputs yield an identical path, which is what makes the cache shareable across machines.
+- **Atomic upgrades and rollbacks.** A deployment is a symlink switch; rollback is instant and side-effect-free.
+- **Minimal update deltas.** Updating an app transfers only the changed store paths, rather than replacing image layers.
+- **Explicit dependency graph.** The full closure is inspectable with `nix-store -qR` — no hidden dependencies, unlike Docker's opaque layers or pip's global `site-packages`.
+
+**What no tier guarantees.** Upstream source availability. If PyPI yanks a package or a GitHub release disappears, the build fails at every tier; a hash pins *which* bytes are required, not that anyone still serves them. The binary cache and Hydra provide partial resilience, and mirroring the vendored FODs is the real answer.
+
+**Architecture, not date of manufacture.** x86_64 is the platform for which reproducibility is claimed. Vendored dependency sets are resolved per platform — a Linux wheel set is not a macOS one, and an aarch64 wheel set is not an x86_64 one — so the committed lockfiles fix one architecture. Supporting a second means vendoring a second set, not relaxing a hash.
+
+### Per-App Labels
+
+The tier is declared on the *template*, since the template is what determines how the artefact is obtained; an app inherits it by choosing a template. Nothing maintains a per-app list by hand, because a hand-maintained table is exactly the artefact that drifts out of truth while continuing to look authoritative.
+
+```
+hop3-tools nix tiers apps/real-apps-nix-gen
+```
+
+reads each recipe's `[nix].template` and prints its tier. It needs neither Nix nor a server, so an auditor can run it against a checkout. A template that changes how it obtains its artefact must move tier, and the registry tests fail if it does not.
+
+### Checking the Claim
+
+A reproducibility claim that nothing exercises decays into a marketing sentence. Two checks keep it honest, and the advertised gate is their conjunction:
+
+- `hop3-tools nix check-reproducible` builds each recipe, then rebuilds it with `nix build --rebuild`, which compares the second output against the first. Output drift is reported as a *result* — the app is not reproducible — and distinguished from a build that failed for some other reason, which must never be read as a pass. An empty selection is a failure, not a green run.
+- The deploy check (`make test-nix`) deploys the same corpus and exercises it over HTTP.
+
+`make gate-nix` runs both, in that order. An app is advertise-ready only when it rebuilds identically **and** runs.
 
 ### Why Not Ecosystem Tools
 
-An obvious alternative is to use ecosystem-specific Nix tools: `poetry2nix`, `dream2nix`, `node2nix`, `buildGoModule`, `crane`, etc. This is the wrong approach for three concrete reasons:
+An obvious alternative is to build the generator on ecosystem-specific *third-party* Nix tools: `poetry2nix`, `dream2nix`, `node2nix`, `crane`, and so on. This is the wrong approach for three concrete reasons.
 
-1. **The hand-written `hop3.nix` files don't use them.** The existing files in `apps/real-apps-nix/` contain no references to `poetry2nix`, `dream2nix`, `node2nix`, or `buildGoModule`. The Ruby apps use `bundlerEnv` (a built-in nixpkgs function), and everything else uses plain `stdenv.mkDerivation` with `fetchurl` and a custom `installPhase`.
+The distinction that matters is between third-party generators and nixpkgs' own builders. The templates use the latter freely — `buildGoModule`, `bundlerEnv`, `gradle.fetchDeps`, `php.withExtensions` — because they ship with the pinned nixpkgs, share its release cadence, and are the mechanism by which each ecosystem's dependency set gets a `vendorHash`. What the templates avoid is depending on a *separate project* to translate a lockfile into Nix.
 
-2. **The ecosystem tools don't cover the stack.** `poetry2nix` handles Python-with-poetry only. `dream2nix` is in flux. `node2nix` is effectively deprecated. There's no equivalent for PHP (the largest ecosystem in the fleet) nor for Java or pre-built binaries. Building on tools that don't cover half the fleet is a losing proposition.
+1. **The hand-written `hop3.nix` files don't use them.** The files in `apps/real-apps-nix/` contain no references to `poetry2nix`, `dream2nix`, or `node2nix`; they use nixpkgs builtins and plain `stdenv.mkDerivation` with `fetchurl` and a custom `installPhase`. The generator's job is to reproduce what a developer writes by hand, so it inherits that choice.
+
+2. **The ecosystem tools don't cover the stack.** `poetry2nix` handles Python-with-poetry only. `dream2nix` is in flux. `node2nix` is effectively deprecated. There's no equivalent for PHP (the largest ecosystem in the fleet) nor for Java or pre-built binaries. Building on tools that don't cover half the fleet is a losing proposition. The two-phase FOD pattern, by contrast, is uniform across all six ecosystems: each supplies a lockfile and a way to install from a directory.
 
 3. **The manual conversion pattern is highly regular.** The hand-written files are roughly 60% boilerplate and 40% per-app logic. The per-app logic is expressible declaratively (paths, env vars, config file contents, exec commands). A template system is a better fit than composing external tools.
 
@@ -87,16 +121,29 @@ When a generated template cannot express an app's needs, the developer runs `hop
 
 Each template captures one recurring packaging pattern observed in `apps/real-apps-nix/`. The set spans the production stacks:
 
-| Template | Apps covered | Key patterns |
-|----------|-------------|-------------|
-| `prebuilt-binary` | miniflux, gitea | Single pre-compiled binary, exec args, INI config generation, runtime secret generation |
-| `prebuilt-archive` | focalboard, grafana, mattermost, vikunja | tar.gz/zip archives, file mappings, store-to-cwd symlink loops (mattermost), JSON/YAML/INI configs |
-| `php-app` | adminer, bookstack, dolibarr, easy-appointments, invoice-ninja, kanboard, limesurvey, matomo, nextcloud, wordpress | Single file (adminer), composer build, Laravel artisan serve, custom web root (dolibarr), zip with wrapper dir (limesurvey), tar.bz2 (nextcloud), `--ignore-platform-reqs` (invoice-ninja), extra nativeBuildInputs (nodejs for invoice-ninja) |
-| `node-prebuilt` | wiki-js | Tarball without top-level dir, read-only store symlink loop, YAML config |
-| `java-war` | jenkins | Single WAR file, JDK runtime, `$JAVA_OPTS` |
-| `python-venv` | isso | `__noChroot`, pip install inside nix build, runtime INI config |
-| `nixpkgs-wrapper` | radicale | Wraps existing nixpkgs package (no source fetch, no build) |
-| `ruby-bundler` | sinatra-hello, rack-hello | `bundlerEnv` from a Gemfile, rack-based serving |
+| Template | Tier | Apps covered | Key patterns |
+|----------|------|-------------|-------------|
+| `nixpkgs-wrapper` | 1 | grafana, mattermost, listmonk, keycloak, searxng, etherpad | Wraps an existing nixpkgs package (no source fetch, no build); writable-home prelude for apps that write beside themselves |
+| `php-app` | 2 | adminer, bookstack, dolibarr, easy-appointments, invoice-ninja, kanboard, limesurvey, matomo, nextcloud, paheko, wordpress | Composer FOD from `composer.lock` + offline `dump-autoload`; single file (adminer), Laravel artisan serve, custom web root (dolibarr), zip with wrapper dir (limesurvey), tar.bz2 (nextcloud), `--ignore-platform-reqs` (invoice-ninja), extra nativeBuildInputs (nodejs for invoice-ninja) |
+| `python-venv` | 2 | isso, bugsink, radicale | Wheel-set FOD from a hash-pinned lockfile, offline `--no-index` install, runtime INI config |
+| `go-source` | 2 | miniflux, gitea, forgejo, gatus, owncast, vikunja | `buildGoModule` with a `vendorHash`; frontend derivation and `go-static-dirs` for apps resolving assets under a static root |
+| `node-pnpm-install` | 2 | directus | `pnpm fetch` FOD, offline `--frozen-lockfile --ignore-scripts` install, opt-in offline `node-gyp` rebuild for named native addons |
+| `ruby-bundler` | 2 | redmine | `bundlerEnv` from a committed `Gemfile.lock` + bundix `gemset.nix`, `force_ruby_platform` so gems build from source |
+| `java-gradle` | 2 | stirling-pdf | Gradle build against a committed `deps.json` (`gradle.fetchDeps` / `mitmCache`) |
+| `node-prebuilt` | 3 | wiki-js | Tarball without top-level dir, read-only store symlink loop, YAML config |
+| `java-war` | 3 | jenkins | Single WAR file, JDK runtime, `$JAVA_OPTS` |
+| `prebuilt-binary` | 3 | *(none)* | Single pre-compiled binary, exec args, INI config generation, runtime secret generation |
+| `prebuilt-archive` | 3 | *(none)* | tar.gz/zip archives, file mappings, store-to-cwd symlink loops, JSON/YAML/INI configs |
+
+Tier 3 is a floor for an app that could be built from source, not a defect in the templates that serve it. The corpus has largely walked off it — `prebuilt-binary` and `prebuilt-archive` currently have no consumers, since gitea and miniflux moved to `go-source`, grafana and mattermost to `nixpkgs-wrapper`, and isso from a network-enabled pip install to a vendored wheel set — and each move was a template change in `hop3.toml` rather than a rewrite, which is what the declarative spec is for.
+
+The two now-unused templates stay, for reasons that outlive their current consumer count:
+
+- **Quick-and-dirty packaging.** Getting an app running should not require producing a lockfile first. Pointing `prebuilt-archive` at a release tarball is the shortest path from "I want this app" to a deployment, and it is a reasonable place to stop for an internal tool nobody audits.
+- **Proprietary software.** An app distributed only as a binary cannot be source-built by anyone, at any tier. Tier 3 is not a compromise there; it is the entire available ceiling, and a PaaS that refused to express it would simply be unable to deploy that class of software.
+- **The upstream ships no buildable source for the packaged version**, which is why jenkins and wiki-js remain Tier 3 — nixpkgs packages both from the upstream artefact too.
+
+The tier exists to make that trade-off legible, not to shame it. What it must never do is stay implicit: a Tier-3 app is deployed on trust in its publisher, and the operator is entitled to know that before deciding.
 
 ## Design Overview
 
@@ -167,7 +214,7 @@ Concrete observations that shape the design:
 ## Prior Art
 
 - **nixpacks** (Railway): Validates the template-based approach at production scale. Uses nixpkgs primitives, not dream2nix/poetry2nix, confirming our direction. https://nixpacks.com/
-- **dream2nix / poetry2nix / node2nix**: Ecosystem-specific Nix tools we explicitly don't use. They aim for pure-Nix dependency resolution but each covers only one ecosystem and has known stability issues. Our template approach uses `__noChroot` as a pragmatic shortcut: see "Reproducibility Levels" for the trade-off.
+- **dream2nix / poetry2nix / node2nix**: Third-party Nix generators we explicitly don't build on. They aim for pure-Nix dependency resolution but each covers one ecosystem and has known stability issues. The templates reach the same result through nixpkgs' own builders and a uniform two-phase FOD: see "Reproducibility Tiers".
 - **Create React App eject**: The precedent for the "auto-generate then customize" pattern.
 - **Heroku buildpacks**: Same UX goal (auto-detect and build without user config), different technology.
 

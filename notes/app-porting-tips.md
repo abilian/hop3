@@ -288,9 +288,13 @@ Two working mechanisms:
 1. **VENVBIN sentinel** (python-venv template): write `VENVBIN/<binary>` in the wrapper; the installPhase runs `sed -i "s|VENVBIN|$out/venv/bin|g"` at build time.
 2. **Nix interpolation in the hop3.nix body**: `${packageName}/bin/<binary>` resolves at Nix eval. Works directly inside the derivation's installPhase, fragile elsewhere.
 
-### 7.4 `__noChroot = true`
+### 7.4 The package manager needs the network
 
-When pip/npm/composer need network at build time, add `__noChroot = true` to the derivation. Requires `sandbox = relaxed` in `/etc/nix/nix.conf` on the server (Hop3 installer configures this).
+It doesn't get it. Don't reach for `__noChroot = true`: a build that resolves dependencies from a live registry gives a different answer next week, which is the thing Nix was chosen to prevent. Vendor instead, in two phases: a fixed-output derivation runs the package manager's *fetch-only* step against a committed lockfile (`pip download`, `composer install`, `pnpm fetch`, `buildGoModule`'s `vendorHash`, bundix's `gemset.nix`, `gradle.fetchDeps`), and the application build then installs from that directory with the network off (`--no-index`, `--offline`, `--frozen-lockfile`).
+
+The FOD's own hash is what pins the dependency set. Compute it with `hop3-tools nix vendor-hash <app-dir> --write`, which builds with a placeholder, reads the mismatch Nix reports, and writes the real hash into `hop3.toml`. Run it on Linux (or pass `--ssh <host>`): a wheel set resolved on macOS is not the one the server will use.
+
+If a package's install script must compile a native extension, name it explicitly (`node-native-packages` for pnpm) rather than re-enabling scripts wholesale — the compiler and headers come from the sandbox, so the build stays offline.
 
 ### 7.5 nixpkgs sometimes ships only the binary
 
