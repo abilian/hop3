@@ -8,6 +8,7 @@ from __future__ import annotations
 import subprocess
 from collections import Counter
 from contextlib import contextmanager
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -17,6 +18,7 @@ import tomllib
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from hop3.plugins.build.nix.gen.spec import AppSpec
     from hop3.plugins.build.nix.gen.templates.base import ReproTier, Template
 
 from hop3.plugins.build.nix.gen.registry import generate, get_template
@@ -27,7 +29,12 @@ from hop3_tooling.nix_hash import (
     parse_nix_hash_mismatch,
     set_nix_hash,
 )
-from hop3_tooling.nix_repro import ReproResult, interpret_rebuild, summarize
+from hop3_tooling.nix_repro import (
+    Outcome,
+    ReproResult,
+    interpret_rebuild,
+    summarize,
+)
 
 from . import catalog as catalog_lib
 from .verify import CHECKS, DEFAULT_HOST, run_verification
@@ -249,21 +256,59 @@ def _build_over_ssh(app_dir: Path, host: str) -> subprocess.CompletedProcess[str
 
 
 @nix.command("vendor-hash")
-@click.argument("app_dir", type=click.Path(exists=True, path_type=Path))
+@click.argument("roots", nargs=-1, type=click.Path(exists=True, path_type=Path))
 @click.option("--write/--dry-run", default=True, help="Write the hash into hop3.toml.")
 @click.option(
     "--ssh",
     default=None,
     help="Build on a Linux host over SSH. Required from macOS: Nix resolves a\nplatform-specific dependency set, so a darwin build yields the wrong hash.",
 )
-def vendor_hash(app_dir: Path, write: bool, ssh: str | None) -> None:
-    """Compute a recipe's vendored-dependency hash and record it.
+@click.option("--nixpkgs-rev", default=None, help="Evaluate against this nixpkgs pin.")
+@click.option("--nixpkgs-sha256", default=None, help="Its fetchTarball sha256.")
+def vendor_hash(
+    roots: tuple[Path, ...],
+    write: bool,
+    ssh: str | None,
+    nixpkgs_rev: str | None,
+    nixpkgs_sha256: str | None,
+) -> None:
+    """Compute each recipe's vendored-dependency hash and record it.
 
     The hermetic templates pin their dependency set with a fixed-output
     derivation, whose hash can only be learned by building once. This performs
     that cycle: generate with a placeholder, build, read the hash Nix reports,
     write it back.
+
+    ROOTS may name single app directories or directories of them, so one recipe
+    and the whole corpus are the same command — moving the nixpkgs pin
+    invalidates an unknown number of hashes at once.
     """
+    pin = _pin_override(nixpkgs_rev, nixpkgs_sha256)
+    failures = 0
+    for app_dir in _nix_gen_recipes(roots):
+        try:
+            _vendor_hash_one(app_dir, write=write, ssh=ssh, pin=pin)
+        except click.ClickException as exc:
+            failures += 1
+            click.echo(f"  FAIL {app_dir.name}: {exc.message}", err=True)
+    if failures:
+        msg = f"{failures} recipe(s) could not be hashed (see above)"
+        raise click.ClickException(msg)
+
+
+def _pin_override(rev: str | None, sha256: str | None) -> tuple[str, str] | None:
+    """The candidate nixpkgs pin to evaluate against, if one was given."""
+    if rev is None and sha256 is None:
+        return None
+    if rev is None or sha256 is None:
+        msg = "--nixpkgs-rev and --nixpkgs-sha256 must be given together"
+        raise click.ClickException(msg)
+    return rev, sha256
+
+
+def _vendor_hash_one(
+    app_dir: Path, *, write: bool, ssh: str | None, pin: tuple[str, str] | None
+) -> None:
     toml_path = app_dir / "hop3.toml"
     if not toml_path.is_file():
         msg = f"{app_dir}: no hop3.toml"
@@ -279,10 +324,13 @@ def vendor_hash(app_dir: Path, write: bool, ssh: str | None) -> None:
     # Generate with the placeholder so Nix gets far enough to report the truth.
     seeded = set_nix_hash(toml_path.read_text(), key, PLACEHOLDER_HASH)
     seeded_config = tomllib.loads(seeded)
-    spec = app_spec_from_config(
-        seeded_config.get("nix") or {},
-        seeded_config.get("metadata") or {},
-        app_dir.name,
+    spec = _with_pin(
+        app_spec_from_config(
+            seeded_config.get("nix") or {},
+            seeded_config.get("metadata") or {},
+            app_dir.name,
+        ),
+        pin,
     )
     # A recipe missing its lockfile cannot be generated at all; report that
     # as the actionable problem it is rather than a traceback.
@@ -387,7 +435,18 @@ def template_for_recipe(app_dir: Path) -> Template:
     type=click.Path(exists=True, path_type=Path),
 )
 @click.option("--ssh", default=None, help="Build on a Linux host over SSH.")
-def check_reproducible(roots: tuple[Path, ...], ssh: str | None) -> None:
+@click.option(
+    "--nixpkgs-rev",
+    default=None,
+    help="Evaluate every recipe against this nixpkgs pin instead of its own.",
+)
+@click.option("--nixpkgs-sha256", default=None, help="Its fetchTarball sha256.")
+def check_reproducible(
+    roots: tuple[Path, ...],
+    ssh: str | None,
+    nixpkgs_rev: str | None,
+    nixpkgs_sha256: str | None,
+) -> None:
     """Rebuild each nix-gen app and fail if any output is not deterministic.
 
     For every recipe under ROOTS, generate its ``hop3.nix``, build it, then
@@ -396,11 +455,14 @@ def check_reproducible(roots: tuple[Path, ...], ssh: str | None) -> None:
     the whole claim the hermetic templates make. Exits non-zero on the first
     failure or an empty selection.
     """
+    pin = _pin_override(nixpkgs_rev, nixpkgs_sha256)
+    if pin:
+        click.echo(f"Evaluating every recipe against nixpkgs {pin[0][:12]}\n")
     app_dirs = _nix_gen_recipes(roots)
 
     results = []
     for app_dir in app_dirs:
-        result = _rebuild_check(app_dir, ssh)
+        result = _rebuild_check(app_dir, ssh, pin)
         mark = "ok " if result.reproducible else "FAIL"
         # Show the tier: a bit-identical rebuild of a wrapped upstream binary
         # is a weaker claim than one of a source build, and an undifferentiated
@@ -423,13 +485,28 @@ def check_reproducible(roots: tuple[Path, ...], ssh: str | None) -> None:
     raise SystemExit(0 if ok else 1)
 
 
-def _generated_expression(app_dir: Path) -> str:
+def _with_pin(spec: AppSpec, pin: tuple[str, str] | None) -> AppSpec:
+    """The spec, evaluated against a candidate nixpkgs pin.
+
+    Overrides whatever the recipe declares, so a bump can be tried across the
+    whole corpus without editing 31 files (or the generator's default) and
+    remembering to revert.
+    """
+    if pin is None:
+        return spec
+    return replace(spec, nixpkgs_rev=pin[0], nixpkgs_sha256=pin[1])
+
+
+def _generated_expression(app_dir: Path, pin: tuple[str, str] | None = None) -> str:
     """The hop3.nix an app's recipe generates (raises click errors on failure)."""
     config = tomllib.loads((app_dir / "hop3.toml").read_text())
-    spec = app_spec_from_config(
-        config.get("nix") or {},
-        config.get("metadata") or {},
-        app_dir.name,
+    spec = _with_pin(
+        app_spec_from_config(
+            config.get("nix") or {},
+            config.get("metadata") or {},
+            app_dir.name,
+        ),
+        pin,
     )
     try:
         return generate(spec)
@@ -457,13 +534,15 @@ def _materialized_nix(app_dir: Path, expression: str) -> Iterator[None]:
             nix_file.write_text(original)
 
 
-def _rebuild_check(app_dir: Path, ssh: str | None) -> ReproResult:
+def _rebuild_check(
+    app_dir: Path, ssh: str | None, pin: tuple[str, str] | None = None
+) -> ReproResult:
     # A recipe that cannot even generate is not reproducible; report it as such
     # rather than crashing the whole gate.
     try:
-        expression = _generated_expression(app_dir)
+        expression = _generated_expression(app_dir, pin)
     except click.ClickException as exc:
-        return ReproResult(app_dir.name, reproducible=False, detail=str(exc.message))
+        return ReproResult(app_dir.name, Outcome.EVAL_ERROR, str(exc.message))
 
     with _materialized_nix(app_dir, expression):
         if ssh:
