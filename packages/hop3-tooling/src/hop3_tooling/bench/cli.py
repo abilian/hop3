@@ -88,22 +88,18 @@ def closures(apps: tuple[str, ...], ssh: str | None, nixpkgs_rev: str) -> None:
     """Build each app from the pinned nixpkgs and report closure size + path count."""
     run = _runner(ssh)
     out_paths: list[str] = []
-    rows = []
+    closure_sizes: list[float] = []
     for app in apps:
         store_path = _build_app(run, app, nixpkgs_rev)
         out_paths.append(store_path)
         info = nix_closure(run, store_path)
-        rows.append({
-            "app": app,
-            "closure_mb": info.closure_mb,
-            "paths": info.path_count,
-        })
+        closure_sizes.append(info.closure_mb)
         click.echo(
             f"{app:16} closure={info.closure_mb:>8.1f} MB  paths={info.path_count}"
         )
     if len(out_paths) > 1:
         union = union_closure(run, out_paths)
-        summed = sum(r["closure_mb"] for r in rows)
+        summed = sum(closure_sizes)
         saving = round(100 * (1 - union.closure_mb / summed), 1) if summed else 0.0
         click.echo(
             f"{'union (dedup)':16} closure={union.closure_mb:>8.1f} MB  "
