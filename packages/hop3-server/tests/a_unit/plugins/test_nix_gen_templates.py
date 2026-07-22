@@ -10,9 +10,11 @@ sed commands, and Nix syntax structure.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import pytest
+import tomllib
 
 from hop3.plugins.build.nix.gen.registry import generate
 from hop3.plugins.build.nix.gen.spec import AppSpec, FileMapping, Source
@@ -20,6 +22,7 @@ from hop3.plugins.build.nix.gen.templates.node_pnpm_install import (
     lockfile_version_for,
     parse_lockfile_version,
 )
+from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
 
 # --- prebuilt-binary ---
 
@@ -1124,3 +1127,51 @@ def test_committed_lockfiles_match_their_pinned_pnpm():
             )
     assert checked, "no node-pnpm-install recipe with a lockfile found"
     assert mismatches == {}, f"lockfile/pnpm-pin mismatch: {mismatches}"
+
+
+class TestGoStaticDirs:
+    """Some Go apps resolve more than the built frontend under their static
+    root. gitea/forgejo look up both `public/` and `options/` (locales,
+    gitignores, licences) there; shipping only the built frontend left the
+    locales missing and gitea died at boot registering a cron task
+    ("translation is missing for task update_mirrors"), crash-looping under
+    uwsgi rather than timing out — a failure a bigger start-timeout can't fix.
+    """
+
+    def _spec(self, **kwargs):
+        defaults = {
+            "pname": "gitea",
+            "version": "1.22.6",
+            "description": "git service",
+            "template": "go-source",
+            "exec_target": "gitea",
+            "go_vendor_hash": "sha256-AAA=",
+            "go_frontend_build": "npx webpack",
+            "go_npm_deps_hash": "sha256-BBB=",
+            "source": Source(url="x", sha256="x", archive="tar-gz"),
+        }
+        defaults.update(kwargs)
+        return AppSpec(**defaults)
+
+    def test_source_dirs_ship_into_the_static_root(self):
+        output = generate(self._spec(go_static_dirs=["options"]))
+        assert "cp -R public $out/" in output  # the built frontend
+        assert "cp -R options $out/" in output  # the source assets
+
+    def test_several_dirs(self):
+        output = generate(self._spec(go_static_dirs=["options", "templates"]))
+        assert "cp -R options $out/" in output
+        assert "cp -R templates $out/" in output
+
+    def test_absent_by_default(self):
+        """Apps that need nothing extra emit nothing extra."""
+        output = generate(self._spec())
+        assert "cp -R options $out/" not in output
+
+    def test_the_real_gitea_recipe_ships_options(self):
+        """Regression on the recipe itself, not just the template."""
+        config = tomllib.loads(
+            Path("apps/real-apps-nix-gen/gitea/hop3.toml").read_text()
+        )
+        spec = app_spec_from_config(config["nix"], config["metadata"], "gitea")
+        assert "options" in spec.go_static_dirs

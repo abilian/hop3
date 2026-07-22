@@ -29,6 +29,12 @@ go-proxy-vendor = true
 go-sub-packages = ["."]
 go-ldflags = ["-X main.Version=${version}"]
 go-frontend-build = "BROWSERSLIST_IGNORE_OLD_DATA=true npx webpack"
+# gitea resolves BOTH `public/` (built above) and `options/` (locales,
+# gitignores, licences, label templates) under STATIC_ROOT_PATH. Shipping only
+# the built frontend left options/locale absent, and gitea died at boot —
+# "translation is missing for task update_mirrors" — crash-looping under uwsgi
+# rather than timing out. options/ is a source asset, so it is copied in.
+go-static-dirs = ["options"]
 go-npm-deps-hash = "sha256-7kYGFJffP7Mu4+tWlcLTb7eBibgpwEis2zQYMWCI7dw="
 pre-exec = ['mkdir -p custom/conf data']
 
