@@ -3,7 +3,7 @@
 - **Status**: Accepted
 - **Type**: Feature
 - **Created**: 2024-07-17
-- **Related-ADRs**: [006](./006-nix-integration.md), [008](./008-nix-builders-2.md), [010](./010-security-and-resilience.md)
+- **Related-ADRs**: [006](./006-nix-integration.md), [008](./008-nix-builders-2.md), [010](./010-security-and-resilience.md), [058](./058-build-reproducibility-model.md) (reproducibility model)
 
 ## Context and Goals
 
@@ -37,7 +37,7 @@ Hop3 adopts a proactive stance towards software supply chain security by integra
 
 1. **Integration of Nix**:
 
-   - **Hermetic Builds**: every Nix-built application builds in a sealed sandbox with no network access, against hash-pinned inputs. Each ecosystem's dependency set is vendored by a fixed-output derivation from a committed lockfile before the build begins, so the package manager runs offline. What the [ADR 008](./008-nix-builders-2.md) tiers distinguish is provenance, not hermeticity: Tier-1 apps are packaged by nixpkgs, Tier-2 built from source by Hop3, and Tier-3 wrap an upstream binary that is hash-pinned but not auditable.
+   - **Hermetic Builds**: every Nix-built application builds in a sealed sandbox with no network access, against hash-pinned inputs. Each ecosystem's dependency set is vendored by a fixed-output derivation from a committed lockfile before the build begins, so the package manager runs offline. The [ADR 058](./058-build-reproducibility-model.md) tiers distinguish provenance: Tier-1 apps are packaged by nixpkgs, Tier-2 built from source by Hop3, and Tier-3 wrap an upstream binary that is hash-pinned and not auditable.
    - **Content-addressed closures**: Every Nix-built app has a content-addressed closure whose full dependency graph is inspectable via `nix-store -qR`, and update deltas are minimal: only changed store paths transfer.
 
 1. **CI/CD Pipeline Enhancements**:
@@ -78,5 +78,5 @@ Hop3 adopts a proactive stance towards software supply chain security by integra
 ## Future Work
 
 - **Signature attestation** (Sigstore / in-toto / cosign) for release artefacts and for the SBOM itself, likely required for Cyber Resilience Act compliance.
-- **Reproducible-builds verification as a CI gate**: two independent rebuilds of each Tier-1 app, bit-compared.
+- **Reproducible-builds verification on a schedule.** The rebuild check exists and covers all three tiers ([ADR 058](./058-build-reproducibility-model.md)). What remains is something that runs it without being asked ([ADR 044](./044-nightly-test-lab.md)).
 - **Upstream source mirroring** to insulate against PyPI / registry deletions.

@@ -112,7 +112,7 @@ Tutorials that currently teach `pip freeze > requirements.txt` as the production
 ## Non-goals
 
 - **Replacing the Python toolchain runtime.** uWSGI-vs-Granian lives in [ADR 023](./023-runtime-stack-replacement.md); this ADR is only about how dependencies get into the venv.
-- **Hermetic Python builds via Nix.** How the `python-venv` template vendors its wheel set into a fixed-output derivation and installs offline belongs to [ADR 008](./008-nix-builders-2.md); this ADR governs the native path. The two share the requirement that dependencies be pinned, and enforce it independently.
+- **Hermetic Python builds via Nix.** How the `python-venv` template vendors its wheel set into a fixed-output derivation and installs offline belongs to [ADR 008](./008-nix-builders-2.md) and the model it must satisfy to [ADR 058](./058-build-reproducibility-model.md); this ADR governs the native path. The two share the requirement that dependencies be pinned, and enforce it independently.
 - **Per-app Python version selection beyond `_find_best_python()`.** An app that needs Python 3.11 specifically (not "whatever's newest on the host") needs a different mechanism; out of scope.
 
 ## Consequences
