@@ -217,9 +217,11 @@ class NixBuilder:
         Raises:
             RuntimeError: If the [nix] section is missing or invalid.
         """
-        from hop3.lib import log  # noqa: PLC0415
-        from hop3.plugins.build.nix.gen import generate  # noqa: PLC0415
-        from hop3.plugins.build.nix.gen.toml_adapter import (  # noqa: PLC0415
+        from hop3.lib import log  # ruff:ignore[import-outside-top-level]
+        from hop3.plugins.build.nix.gen import (
+            generate,
+        )
+        from hop3.plugins.build.nix.gen.toml_adapter import (  # ruff:ignore[import-outside-top-level]
             app_spec_from_config,
         )
 
@@ -269,7 +271,7 @@ class NixBuilder:
         a lock on the store path. A new nix-build for the same derivation
         will silently wait for the lock forever. Kill stale processes first.
         """
-        from hop3.lib import log  # noqa: PLC0415
+        from hop3.lib import log  # ruff:ignore[import-outside-top-level]
 
         try:
             result = subprocess.run(
@@ -289,7 +291,7 @@ class NixBuilder:
                     if pid.strip():
                         subprocess.run(["kill", "-9", pid.strip()], check=False)
                 # Brief wait for locks to release
-                import time  # noqa: PLC0415
+                import time  # ruff:ignore[import-outside-top-level]
 
                 time.sleep(2)
         except Exception:

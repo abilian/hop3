@@ -23,7 +23,7 @@ class DotNetToolchain(LanguageToolchain):
     """
 
     name = "DotNet"
-    requirements = ["dotnet"]  # noqa: RUF012
+    requirements = ["dotnet"]  # ruff:ignore[mutable-class-default]
 
     def accept(self) -> bool:
         """Check if the application has .NET project files (.csproj, .fsproj, .sln)."""

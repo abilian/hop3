@@ -181,7 +181,7 @@ def set_computed_env_vars(
     if not computed_config:
         return
 
-    from hop3.lib.templating import expand_vars  # noqa: PLC0415
+    from hop3.lib.templating import expand_vars  # ruff:ignore[import-outside-top-level]
 
     # Build current env snapshot for interpolation
     current_env = {ev.name: ev.value for ev in app.env_vars}

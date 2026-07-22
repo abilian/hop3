@@ -90,7 +90,9 @@ def add_nightly_job(scheduler: BaseScheduler) -> BaseScheduler:
 def _run_dispatch() -> None:
     """Worker-thread body: dispatch one queued build (claim → run → record). Runs
     off the scheduler thread so a multi-hour build doesn't block the 10s poll."""
-    from hop3_testlab.dispatcher import dispatch_once  # noqa: PLC0415
+    from hop3_testlab.dispatcher import (
+        dispatch_once,
+    )
 
     dispatch_once()
 
@@ -104,7 +106,7 @@ def _dispatch_job() -> None:
     The worker is a daemon: if the process is killed mid-build the run is
     abandoned, and the dispatcher's stale-RUNNING sweep + lease TTL recover it on
     the next start (the same path used when a dispatcher dies mid-run)."""
-    global _dispatch_thread  # noqa: PLW0603 — lock-guarded module singleton
+    global _dispatch_thread  # ruff:ignore[global-statement] — lock-guarded module singleton
     with _dispatch_lock:
         if _dispatch_thread is not None and _dispatch_thread.is_alive():
             return  # a build is already running — serial v1, nothing to do
@@ -119,7 +121,9 @@ def add_dispatch_job(scheduler: BaseScheduler) -> BaseScheduler:
     run on a worker thread and returns at once (``_dispatch_job``), so a long build
     never blocks it; ``max_instances=1`` stays as a belt-and-suspenders guard
     against overlapping polls — serial v1."""
-    from apscheduler.triggers.interval import IntervalTrigger  # noqa: PLC0415
+    from apscheduler.triggers.interval import (
+        IntervalTrigger,
+    )
 
     scheduler.add_job(
         _dispatch_job,
@@ -145,7 +149,7 @@ def build_background_scheduler(*, nightly: bool = True) -> BaseScheduler:
     The dispatch poll is **always** added so UI-triggered builds actually run; the
     nightly enqueue is added only when ``nightly`` (i.e. ``[schedule].enabled``).
     """
-    from apscheduler.schedulers.background import (  # noqa: PLC0415
+    from apscheduler.schedulers.background import (  # ruff:ignore[import-outside-top-level]
         BackgroundScheduler,
     )
 
@@ -159,7 +163,9 @@ def build_background_scheduler(*, nightly: bool = True) -> BaseScheduler:
 def run_blocking() -> None:
     """Run the scheduler in the foreground (the `schedule` command): nightly cron +
     the build dispatcher, so enqueued builds actually run."""
-    from apscheduler.schedulers.blocking import BlockingScheduler  # noqa: PLC0415
+    from apscheduler.schedulers.blocking import (
+        BlockingScheduler,
+    )
 
     _quiet_apscheduler()
     add_dispatch_job(add_nightly_job(BlockingScheduler())).start()

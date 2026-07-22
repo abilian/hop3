@@ -43,7 +43,7 @@ def test_from_dict_reads_legacy_api_keys() -> None:
 
 # ---- current-context pointer read (cli over legacy top-level) --------------
 def test_get_current_context_name_prefers_cli_over_legacy() -> None:
-    from hop3_cli.config import Config  # noqa: PLC0415
+    from hop3_cli.config import Config  # ruff:ignore[import-outside-top-level]
 
     cfg = Config(
         data={
@@ -56,7 +56,7 @@ def test_get_current_context_name_prefers_cli_over_legacy() -> None:
 
 
 def test_get_current_context_name_falls_back_to_legacy_pointer() -> None:
-    from hop3_cli.config import Config  # noqa: PLC0415
+    from hop3_cli.config import Config  # ruff:ignore[import-outside-top-level]
 
     cfg = Config(data={"contexts": {"a": {"url": "x"}}, "current_context": "a"})
     assert cfg.get_current_context_name() == "a"
@@ -64,7 +64,7 @@ def test_get_current_context_name_falls_back_to_legacy_pointer() -> None:
 
 # ---- the read fallback flows through get_api_url / get_api_token -----------
 def test_legacy_context_resolves_connection_when_no_active_or_default() -> None:
-    from hop3_cli.config import Config  # noqa: PLC0415
+    from hop3_cli.config import Config  # ruff:ignore[import-outside-top-level]
 
     cfg = Config(
         data={

@@ -337,7 +337,7 @@ def _app_crashed(app: str, probe: ProxyProbe | None) -> bool:
     return False
 
 
-def classify(  # noqa: PLR0911 - one return per precedence rule is the clearest form
+def classify(  # ruff:ignore[too-many-return-statements] - one return per precedence rule is the clearest form
     sections: dict[str, str],
     probe: ProxyProbe | None,
     *,
@@ -690,7 +690,7 @@ def _probe_proxy(
     )
 
 
-def _probe_verdict(  # noqa: PLR0911 - one return per verdict case is clearest
+def _probe_verdict(  # ruff:ignore[too-many-return-statements] - one return per verdict case is clearest
     *,
     kind: DeployerKind,
     is_static: bool,

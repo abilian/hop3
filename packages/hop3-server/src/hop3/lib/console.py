@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: PLW0603
+# ruff:file-ignore[global-statement]
 # `_console` and `_verbosity` are intrinsically process-global UX state
 # (which terminal to print to, what verbosity flag the user passed).
 # Threading a container through every log() call buys nothing.
@@ -109,7 +109,7 @@ class Console(ABC):
     def echo(self, msg, fg: str = ""):
         """Print message to stdout."""
 
-    def reset(self) -> None:  # noqa: B027
+    def reset(self) -> None:  # ruff:ignore[empty-method-without-abstract-decorator]
         pass
 
     def output(self) -> str:
@@ -314,7 +314,9 @@ def log(msg: str, level: int = 0, fg: str = "green") -> None:
 
     # Send to SSE stream if one is active (for real-time streaming)
     # Import here to avoid circular dependency
-    from hop3.server.streaming import get_current_stream  # noqa: PLC0415
+    from hop3.server.streaming import (
+        get_current_stream,
+    )
 
     stream = get_current_stream()
     if stream is not None:
@@ -371,7 +373,7 @@ def panic(msg: str) -> None:
     sys.exit(1)
 
 
-class Abort(Exception):  # noqa: N818
+class Abort(Exception):  # ruff:ignore[error-suffix-on-exception-name]
     """Custom exception class to handle abort scenarios with detailed
     information.
 

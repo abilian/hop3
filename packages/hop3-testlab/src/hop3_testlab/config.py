@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: N802 -- config properties are UPPER_SNAKE, mirroring hop3.config.HopConfig
+# ruff:file-ignore[invalid-function-name] -- config properties are UPPER_SNAKE, mirroring hop3.config.HopConfig
 
 """Test Lab configuration.
 

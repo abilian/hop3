@@ -91,7 +91,7 @@ def _resolve_logs_dir(logs_dir: str | None, mode_label: str) -> Path | None:
     if logs_dir:
         return Path(logs_dir)
 
-    from datetime import datetime, timezone  # noqa: PLC0415
+    from datetime import datetime, timezone  # ruff:ignore[import-outside-top-level]
 
     stamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
     return Path("test-logs") / f"{mode_label}-{stamp}" / "app-logs"
@@ -331,7 +331,7 @@ def _maybe_prepare_tutorial_host(
     if not any(t.tutorial is not None for t in tests):
         return
 
-    from hop3_testing.system_tests.tutorial_host import (  # noqa: PLC0415
+    from hop3_testing.system_tests.tutorial_host import (  # ruff:ignore[import-outside-top-level]
         TutorialHostError,
         ensure_tutorial_host,
     )

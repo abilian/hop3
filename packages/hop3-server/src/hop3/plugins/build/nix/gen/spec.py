@@ -2,21 +2,32 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM102
+# ruff:file-ignore[raise-vanilla-args, f-string-in-exception]
 
 """Data types describing a template specification for an app.
 
-A spec captures all the app-specific information needed to generate a
-``hop3.nix`` expression. Templates consume specs and emit Nix strings.
+A spec captures the app-specific information needed to generate a ``hop3.nix``
+expression. Templates consume specs and emit Nix strings; ``toml_adapter``
+builds them from the ``[nix]`` section of ``hop3.toml``.
 
-The spec format is currently Python dataclasses. In the real
-implementation, these will be parsed from a ``[nix]`` section in
-``hop3.toml``.
+A spec has two halves. :class:`AppSpec` holds what *every* template needs —
+identity, source, the wrapper script, runtime metadata — and a **payload**
+holding what exactly one template needs. The payload is the discriminator:
+its type determines which template renders the spec, so there is no separate
+template-name field to disagree with it.
+
+The split is not cosmetic. A single flat spec made every template's fields
+visible to every other template, which meant nothing could distinguish a field
+an app had not set from one the chosen template would never read; a mistyped or
+misplaced key was silently dropped, and one field was quietly reinterpreted to
+mean two different things depending on who read it. With payloads, a key that
+belongs to another template has nowhere to go, and the adapter rejects it.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import ClassVar, TypeVar
 
 
 @dataclass(frozen=True)
@@ -111,240 +122,288 @@ class ConfigFile:
 
     Formats:
         - ``ini``: ``sections`` is a dict of section name -> dict of key -> value
-        - ``raw``: ``raw_content`` is used directly
-        - ``yaml``, ``json``, ``env``: planned
+        - ``raw``: ``raw_content`` is used directly — this is how JSON, YAML and
+          anything else without a dedicated formatter is expressed
     """
 
     path: str  # e.g., "custom/conf/app.ini"
-    format: str  # "ini", "raw", "yaml", "json", "env"
+    format: str  # "ini" or "raw"
     sections: dict[str, dict[str, str]] | None = None
     raw_content: str | None = None
     # Only generate the file if it doesn't already exist
     create_if_missing: bool = False
 
 
+# ---------------------------------------------------------------------------
+# Per-template payloads
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class TemplatePayload:
+    """Base for the per-template half of a spec.
+
+    ``template_name`` is the discriminator: it names the template that renders
+    a spec carrying this payload, and is what the registry dispatches on.
+    """
+
+    template_name: ClassVar[str]
+
+
+@dataclass(frozen=True)
+class PrebuiltBinaryPayload(TemplatePayload):
+    template_name: ClassVar[str] = "prebuilt-binary"
+
+    # Name the fetched binary is installed as under $out/bin (default: pname).
+    binary_name: str | None = None
+
+
+@dataclass(frozen=True)
+class PrebuiltArchivePayload(TemplatePayload):
+    template_name: ClassVar[str] = "prebuilt-archive"
+
+    # What to copy out of the unpacked archive into $out.
+    file_mappings: list[FileMapping] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class NodePrebuiltPayload(TemplatePayload):
+    template_name: ClassVar[str] = "node-prebuilt"
+
+    # Some npm tarballs have no top-level directory to strip.
+    unpack_without_top_level: bool = False
+
+
+@dataclass(frozen=True)
+class JavaWarPayload(TemplatePayload):
+    template_name: ClassVar[str] = "java-war"
+
+    war_file: str | None = None  # Path to the WAR under $out/app
+    jvm_default_opts: str | None = None  # Extra JVM args, via $JAVA_OPTS
+
+
+@dataclass(frozen=True)
+class RubyBundlerPayload(TemplatePayload):
+    """ruby-bundler needs nothing beyond the shared core.
+
+    The gem set comes from the committed ``Gemfile`` / ``Gemfile.lock`` /
+    ``gemset.nix`` triple next to the recipe, which the template references by
+    relative path rather than through a spec field.
+    """
+
+    template_name: ClassVar[str] = "ruby-bundler"
+
+
+@dataclass(frozen=True)
+class PythonVenvPayload(TemplatePayload):
+    template_name: ClassVar[str] = "python-venv"
+
+    # Hash-pinned lockfile relative to the app directory. Generate with
+    # `uv export --format requirements-txt` or `pip-compile --generate-hashes`;
+    # every entry needs a `--hash=sha256:...`.
+    requirements: str | None = None
+    # sha256 of the vendored-wheels fixed-output derivation (the analogue of
+    # buildGoModule's `vendorHash`). Build once with a placeholder and read the
+    # `got:` line Nix prints.
+    deps_hash: str | None = None
+
+
+@dataclass(frozen=True)
+class NodePnpmInstallPayload(TemplatePayload):
+    template_name: ClassVar[str] = "node-pnpm-install"
+
+    # The npm package to install (e.g. "directus@11.17.2").
+    npm_package: str | None = None
+    # Committed manifest + lockfile, relative to the app directory. A
+    # synthesized manifest cannot be locked, so the dependency set has to be
+    # recorded in the recipe.
+    manifest: str | None = None
+    lockfile: str | None = None
+    # sha256 of the fetched pnpm store (fixed-output derivation).
+    deps_hash: str | None = None
+    # Which nixpkgs pnpm to build with. The committed lockfile's format must be
+    # one this major can read (see PNPM_LOCKFILE_VERSIONS in the template).
+    pnpm_package: str = "pnpm_9"
+    # npm packages with node-gyp native addons to compile from source, offline,
+    # in the sandbox (e.g. ["isolated-vm"]). The default `--ignore-scripts`
+    # install skips their build; each name here is then `pnpm rebuild`-ed with
+    # the C/C++ toolchain and the pinned Node headers. A prebuilt `.node`
+    # shipped inside an npm package needs no entry.
+    native_packages: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class JavaGradlePayload(TemplatePayload):
+    template_name: ClassVar[str] = "java-gradle"
+
+    # Committed dependency lockfile in nixpkgs' Gradle `mitmCache`/`fetchDeps`
+    # format — the buildGoModule.vendorHash analogue for Gradle.
+    deps_json: str = "deps.json"
+    # Applied to the source before the build (e.g. a build-timestamp strip).
+    patches: list[str] = field(default_factory=list)
+    flags: list[str] = field(default_factory=list)
+    # The produced jar (glob) and the name it is installed as.
+    jar_glob: str | None = None
+    jar_name: str | None = None
+
+
+@dataclass(frozen=True)
+class NixpkgsWrapperPayload(TemplatePayload):
+    template_name: ClassVar[str] = "nixpkgs-wrapper"
+
+    # The nixpkgs attribute to wrap, e.g. "radicale" for pkgs.radicale.
+    package: str | None = None
+    # Free-form shell appended to the installPhase, after the wrapper is emitted
+    # but before runtime.json. Bakes artefacts into $out at package time — e.g.
+    # copying a nixpkgs package into a writable $out/<pname>-home and running
+    # its build command there. Emitted **raw** (no nix_escape), so `${pkgs.X}`
+    # and let-bindings interpolate at build time.
+    install_extra: str | None = None
+    # Overrides the PKGBIN substitution in the wrapper's exec line: the exec
+    # line becomes `<exec_prefix>/<exec_target>`. Used with `install_extra` when
+    # the runnable sits under a directory that `install_extra` populated.
+    exec_prefix: str | None = None
+    # Arguments passed to `pkgs.<name>.override { ... }`. Values are emitted
+    # **raw** into the let-block, so they can reference `pkgs`, `writeText` etc.
+    # For nixpkgs packages accepting build-time config — e.g. Keycloak's
+    # `confFile` bakes the postgres profile inside nixpkgs' own buildPhase.
+    overrides: dict[str, str] = field(default_factory=dict)
+    # Extra let-bindings in the generated expression (e.g. `jdk = "pkgs.zulu21"`
+    # → `jdk = pkgs.zulu21;`). Raw Nix expressions, not nix_escape'd. Used with
+    # `env_exports_raw` / `extra_paths` to reference packages other than
+    # `package` — e.g. a wrapped `kc.sh` needing JAVA_HOME on a nixpkgs JDK.
+    let_extra: dict[str, str] = field(default_factory=dict)
+    # Env vars exported in the wrapper with values Nix interpolates at build
+    # time (unlike `env_exports`, which goes through nix_escape). Use when the
+    # value must reference a let-binding (e.g. `JAVA_HOME = "${jdk}"`).
+    env_exports_raw: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class PhpAppPayload(TemplatePayload):
+    template_name: ClassVar[str] = "php-app"
+
+    # PHP package attribute in nixpkgs, e.g. "php82", "php83".
+    php_version: str = "php82"
+    # Extensions to enable (from the `all` set in withExtensions).
+    php_extensions: list[str] = field(default_factory=list)
+    # Whether the app needs `composer install` in the build phase.
+    needs_composer: bool = False
+    # sha256 of the vendored composer dependency set (the FOD that fetches from
+    # composer.lock).
+    composer_deps_hash: str | None = None
+    # Composer runs a strict `composer validate` by default. Third-party
+    # releases frequently fail it for benign reasons (the app still installs);
+    # set false to skip it, explicitly, per app.
+    composer_strict_validation: bool = True
+    # Extra flags for composer install (e.g. "--ignore-platform-reqs").
+    composer_extra_flags: list[str] = field(default_factory=list)
+    # Serving mode: "builtin" (php -S), "artisan" (php artisan serve), "custom".
+    serve_mode: str = "builtin"
+    # Web document root relative to $out/app, for `php -S -t <root>`.
+    # E.g. "htdocs" for Dolibarr, "" for most apps.
+    web_root: str = ""
+    # Directories to create under $out/app after copying source (e.g. "storage").
+    post_install_dirs: list[str] = field(default_factory=list)
+    # Treat source as a single file (like adminer.php), not a tarball.
+    single_file: bool = False
+    # Skip `cp -r . $out/app/` (e.g. the single-file case).
+    skip_source_copy: bool = False
+    # Wrapper symlinks store paths into a writable cwd before serving.
+    # Required for apps needing runtime-generated config files (Laravel .env,
+    # Nextcloud config.php) since the store is read-only. Distinct from the
+    # core `writable_home_at_runtime`, which copies a whole tree once.
+    needs_writable_dir: bool = False
+    # Extra nativeBuildInputs beyond php and composer. Taken as-is into the Nix
+    # attrset, so use full attribute paths like "pkgs.nodejs".
+    extra_native_build_inputs: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class GoSourcePayload(TemplatePayload):
+    template_name: ClassVar[str] = "go-source"
+
+    # sha256 of the vendored Go module set. `go.sum` already hashes every
+    # module; this pins the resolved set as a whole.
+    vendor_hash: str | None = None
+    # Which command packages to build (default: all).
+    sub_packages: list[str] = field(default_factory=list)
+    ldflags: list[str] = field(default_factory=list)
+    # Vendor via the Go module proxy (`go mod download`) instead of
+    # `go mod vendor`. Needed by projects whose go.mod trips the vendored
+    # `vendor/modules.txt` explicit-marking consistency check (e.g. gitea).
+    proxy_vendor: bool = False
+    # Override the Go toolchain buildGoModule compiles with (a nixpkgs attr like
+    # "go_1_24"). Building from source ties the app to the pinned nixpkgs' Go;
+    # an app whose go.mod wants a newer Go sets this to the newest the pin still
+    # ships (GOTOOLCHAIN=local forbids a network download).
+    go_version: str | None = None
+    # Extra directories copied from the SOURCE tree into the static root
+    # alongside the built frontend. gitea/forgejo resolve both `public/` and
+    # `options/` (locales, gitignores, licences) under StaticRootPath; without
+    # the latter gitea crash-loops at boot on a missing translation. These are
+    # source assets, not build outputs.
+    static_dirs: list[str] = field(default_factory=list)
+    # A JS frontend (gitea/forgejo/vikunja) is built in a separate derivation
+    # and exposed to the wrapper as $HOP3_GO_FRONTEND. `frontend_build` is the
+    # (offline) build command; `npm_deps_hash` pins the npm dependency set (the
+    # buildGoModule.vendorHash analogue for npm); `frontend_output` is the
+    # built-assets directory copied to the derivation output.
+    frontend_build: str | None = None
+    npm_deps_hash: str | None = None
+    frontend_output: str = "public"
+    frontend_source_root: str | None = None
+    # Frontend built with pnpm (vikunja) instead of npm (gitea): uses
+    # pnpm.fetchDeps + the pnpm configHook rather than buildNpmPackage.
+    frontend_pnpm: bool = False
+    pnpm_deps_hash: str | None = None
+    pnpm_package: str = "pnpm_9"
+    frontend_node_package: str = "nodejs"
+    # Embed the built frontend into the source at this path before the Go build
+    # (apps that `//go:embed` the assets, e.g. vikunja's `frontend/dist`),
+    # instead of the default disk-served wiring ($HOP3_GO_FRONTEND).
+    frontend_embed_path: str | None = None
+
+
+P = TypeVar("P", bound=TemplatePayload)
+
+
 @dataclass(frozen=True)
 class AppSpec:
     """Complete template specification for a single app.
 
-    Fields map onto the common pattern observed across 22 hand-written
-    hop3.nix files in apps/real-apps-nix/.
+    The fields here are the ones *every* template may read. Anything specific to
+    one template lives in :attr:`payload`.
     """
 
     pname: str
     version: str
     description: str
-    template: str  # Template name, e.g., "prebuilt-binary"
     source: Source
+    payload: TemplatePayload
 
-    # --- prebuilt-binary fields ---
-    binary_name: str | None = None
-
-    # --- prebuilt-archive fields ---
-    source_root: str | None = None  # The directory inside the archive
-    file_mappings: list[FileMapping] = field(default_factory=list)
-
-    # --- php-app fields ---
-    # PHP package attribute name in nixpkgs, e.g., "php82", "php83"
-    php_version: str = "php82"
-    # PHP extensions to enable (from the `all` set in withExtensions)
-    php_extensions: list[str] = field(default_factory=list)
-    # Whether the app needs `composer install` in the build phase
-    needs_composer: bool = False
-    # For php-app: sha256 of the vendored composer dependency set (the FOD
-    # that fetches from composer.lock). Analogous to pip_deps_hash.
-    composer_deps_hash: str | None = None
-    # For php-app: composer runs a strict `composer validate` by default.
-    # Third-party releases frequently fail it for benign reasons (the app
-    # still installs); set false to skip, explicitly, per app.
-    composer_strict_validation: bool = True
-    # Extra flags to pass to composer install (e.g., "--ignore-platform-reqs")
-    composer_extra_flags: list[str] = field(default_factory=list)
-    # Number of leading path components to strip when extracting tarball
+    # --- source extraction (any template fetching an archive) ---
+    # The directory inside the archive that holds the app.
+    source_root: str | None = None
+    # Leading path components to strip when extracting.
     strip_components: int = 1
-    # Serving mode: "builtin" (php -S), "artisan" (php artisan serve), "custom"
-    serve_mode: str = "builtin"
-    # Web document root, relative to $out/app. Used by php -S -t <root>.
-    # Example: "htdocs" for Dolibarr, "" for most apps.
-    web_root: str = ""
-    # Directories to create under $out/app after copying source (e.g., "storage")
-    post_install_dirs: list[str] = field(default_factory=list)
-    # Treat source as a single file (like adminer.php), not a tarball
-    single_file: bool = False
-    # If True, app doesn't need `cp -r . $out/app/` (e.g., single file case)
-    skip_source_copy: bool = False
-    # If True, wrapper creates symlinks from Nix store to writable cwd before
-    # serving. Required for apps that need runtime-generated config files
-    # (Laravel .env, Nextcloud config.php, etc.) since the Nix store is read-only.
-    needs_writable_dir: bool = False
-    # Extra nativeBuildInputs (beyond php and composer). Strings are taken
-    # as-is and placed into the Nix attrset, so use full attr paths like
-    # "pkgs.nodejs" or "pkgs.unzip".
-    extra_native_build_inputs: list[str] = field(default_factory=list)
 
-    # --- nixpkgs-wrapper fields ---
-    # Name of the nixpkgs attribute to wrap, e.g., "radicale" for pkgs.radicale
-    nixpkgs_package: str | None = None
-    # Free-form shell appended to the installPhase, after the wrapper is
-    # emitted but before runtime.json. Use this to bake artefacts into
-    # $out at package time — e.g., copying a nixpkgs package into a
-    # writable $out/<pname>-home and running its build command there so
-    # runtime can exec it with --optimized from a read-only store path.
-    # Content is emitted **raw** (no nix_escape), so `${pkgs.X}` and
-    # Nix let-bindings interpolate at build time.
-    install_extra: str | None = None
-    # Overrides the PKGBIN substitution in the wrapper's exec line. If
-    # set, the exec line becomes `<exec-prefix>/<exec-target>` instead
-    # of `${<binding>}/bin/<exec-target>`. Useful together with
-    # install-extra when the runnable sits under a dir populated by
-    # install-extra (e.g., "$out/keycloak-home/bin" for Keycloak).
-    exec_prefix: str | None = None
-    # Override arguments passed to `pkgs.<name>.override { ... }`. Each
-    # value is emitted **raw** into the Nix let-block (no nix_escape),
-    # so it can reference `pkgs`, `writeText`, etc. Use for nixpkgs
-    # packages that accept build-time config (e.g., Keycloak's
-    # `confFile = pkgs.writeText "kc.conf" "db=postgres\n"` bakes the
-    # postgres-DB profile inside nixpkgs' own buildPhase, sidestepping
-    # the runtime `kc.sh build` writable-FS problem).
-    nixpkgs_overrides: dict[str, str] = field(default_factory=dict)
-    # When True, the wrapper lazy-copies the nixpkgs package tree into
-    # $PWD/.<pname>-home at first launch (cp -rL + chmod u+w), then
-    # execs the runnable out of the writable copy. Solves the
-    # "nixpkgs ships read-only, app writes inside the install dir"
-    # class of apps — Keycloak (Quarkus augmentation), Jenkins
-    # (plugin install), Mattermost-nixpkgs, etc. Copy happens once per
-    # app instance (marked with $HOME_DIR/.hop3-ready); subsequent
-    # restarts reuse the existing copy.
-    writable_home_at_runtime: bool = False
-    # Optional env var exported by the wrapper, pointing at the
-    # writable home (e.g., "KC_HOME_DIR" for Keycloak). Only consulted
-    # when `writable_home_at_runtime` is True.
-    writable_home_env_var: str | None = None
-    # Per-app nixpkgs pin override. Absent → the generator's default pin (see
-    # templates/base.py NIXPKGS_REV). Set BOTH together when an app needs a
-    # package the default pin predates (e.g. etherpad-lite, added in nixos-25.05
-    # while the default is nixos-24.11). Only honoured by the nixpkgs-wrapper
-    # template; toml_adapter rejects it on other templates (no silent-ignore).
+    # --- runtime ---
+    # Nix package attribute for the runtime, e.g. "nodejs_22", "jdk17".
+    runtime_package: str | None = None
+
+    # --- per-app nixpkgs pin ---
+    # Absent → the generator's default pin (see templates/base.py NIXPKGS_REV).
+    # Set BOTH together when an app needs a package the default pin predates
+    # (e.g. etherpad-lite, in nixos-25.05 while the default is nixos-24.11).
+    # Only some templates honour it; toml_adapter rejects it on the others
+    # rather than silently ignoring it.
     nixpkgs_rev: str | None = None
     nixpkgs_sha256: str | None = None
-    # Internal: raw shell emitted at the top of the wrapper (after
-    # shebang, before local vars). Populated by templates; NOT mapped
-    # from hop3.toml directly. Emitted without nix_escape so
-    # `${binding}` references interpolate at Nix build time.
-    runtime_prelude: str | None = None
-    # Extra let-bindings added to the generated Nix expression's let-
-    # block (e.g., `jdk = "pkgs.zulu21"` → `jdk = pkgs.zulu21;`).
-    # Values are raw Nix expressions (not nix_escape'd). Used together
-    # with `env_exports_raw` / `extra_paths` to reference packages
-    # other than the primary `nixpkgs_package` — e.g., Keycloak's
-    # `.kc.sh-wrapped` needs JAVA_HOME pointing at a nixpkgs JDK.
-    let_extra: dict[str, str] = field(default_factory=dict)
-    # Env vars exported in the wrapper with raw values that Nix
-    # interpolates at build time (unlike `env_exports`, which goes
-    # through nix_escape). Use when the value must reference a
-    # let-binding (e.g., `JAVA_HOME = "${jdk}"`).
-    env_exports_raw: dict[str, str] = field(default_factory=dict)
 
-    # --- node-prebuilt / java-war / python-venv fields ---
-    # Nix package attribute for the runtime, e.g., "nodejs_22", "jdk17", "python3"
-    runtime_package: str | None = None
-    # For node-prebuilt: unpack the tarball without a top-level dir?
-    unpack_without_top_level: bool = False
-    # For java-war: relative path to the WAR file under $out/app
-    war_file: str | None = None
-    # For java-war: extra JVM args (go in JAVA_OPTS)
-    jvm_default_opts: str | None = None
-    # For python-venv: packages to pip install.
-    # DEPRECATED as a sole source of truth — bare names are unpinned and
-    # unhashed, so the build is neither reproducible nor offline-capable.
-    # Ship a hash-pinned lockfile (`pip_requirements`) instead.
-    pip_packages: list[str] = field(default_factory=list)
-    # For python-venv: hash-pinned lockfile, relative to the app directory.
-    # Generate with `uv export --format requirements-txt` or
-    # `pip-compile --generate-hashes`; every entry needs a `--hash=sha256:...`.
-    pip_requirements: str | None = None
-    # For node-pnpm-install: committed manifest + lockfile, relative to the
-    # app directory. A synthesized manifest cannot be locked, so the
-    # dependency set must be recorded in the recipe.
-    node_manifest: str | None = None
-    node_lockfile: str | None = None
-    # sha256 of the fetched pnpm store (fixed-output derivation).
-    node_deps_hash: str | None = None
-    # For node-pnpm-install: which nixpkgs pnpm to build with. The committed
-    # lockfile's format must be one this major can read (see
-    # PNPM_LOCKFILE_VERSIONS in templates/node_pnpm_install.py).
-    node_pnpm_package: str = "pnpm_9"
-    # For node-pnpm-install: npm packages with node-gyp native addons to compile
-    # from source, offline, in the sandbox (e.g. ["isolated-vm"]). The default
-    # `--ignore-scripts` install skips their build; each name here is then
-    # `pnpm rebuild`-ed with the C/C++ toolchain and the pinned Node headers. A
-    # prebuilt `.node` shipped inside an npm package needs no entry — only
-    # packages that must be compiled do.
-    node_native_packages: list[str] = field(default_factory=list)
-    # For go-source: extra directories copied from the SOURCE tree into the
-    # static root alongside the built frontend. gitea/forgejo resolve both
-    # `public/` and `options/` (locales, gitignores, licences) under
-    # StaticRootPath; without the latter gitea crash-loops at boot on a missing
-    # translation. These are source assets, not build outputs.
-    go_static_dirs: list[str] = field(default_factory=list)
-    # For go-source: sha256 of the vendored Go module set. `go.sum` already
-    # hashes every module; this pins the resolved set as a whole.
-    go_vendor_hash: str | None = None
-    # For go-source: which command packages to build (default: all).
-    go_sub_packages: list[str] = field(default_factory=list)
-    # For go-source: linker flags, e.g. version stamping.
-    go_ldflags: list[str] = field(default_factory=list)
-    # For go-source: vendor via the Go module proxy (`go mod download`) instead
-    # of `go mod vendor`. Needed by projects whose go.mod trips the vendored
-    # `vendor/modules.txt` explicit-marking consistency check (e.g. gitea).
-    go_proxy_vendor: bool = False
-    # For go-source: override the Go toolchain buildGoModule compiles with (a
-    # nixpkgs attr like "go_1_24"). Building from source ties the app to the
-    # pinned nixpkgs' Go; an app whose go.mod wants a newer Go than the default
-    # sets this to the newest the pin still ships (GOTOOLCHAIN=local forbids a
-    # network download). Default: nixpkgs' default `go`.
-    go_version: str | None = None
-    # For go-source with a JS frontend (gitea/forgejo/vikunja): the frontend is
-    # built in a separate buildNpmPackage derivation and its output exposed to
-    # the wrapper as $HOP3_GO_FRONTEND. `go_frontend_build` is the (offline)
-    # build command; `go_npm_deps_hash` pins the npm dependency set (the
-    # buildGoModule.vendorHash analogue for npm); `go_frontend_output` is the
-    # built-assets dir copied to the derivation output (default "public").
-    go_frontend_build: str | None = None
-    go_npm_deps_hash: str | None = None
-    go_frontend_output: str = "public"
-    go_frontend_source_root: str | None = None
-    # Frontend built with pnpm (vikunja) instead of npm (gitea): uses
-    # pnpm.fetchDeps + the pnpm configHook rather than buildNpmPackage.
-    # `go_pnpm_deps_hash` is the pnpm.fetchDeps hash.
-    go_frontend_pnpm: bool = False
-    go_pnpm_deps_hash: str | None = None
-    go_pnpm_package: str = "pnpm_9"
-    go_frontend_node_package: str = "nodejs"
-    # Embed the built frontend into the source at this path before the Go build
-    # (apps that `//go:embed` the assets, e.g. vikunja's `frontend/dist`),
-    # instead of the default disk-served wiring ($HOP3_GO_FRONTEND).
-    go_frontend_embed_path: str | None = None
-    # For java-gradle: build a Java app from source with Gradle. The dependency
-    # set is pinned by a committed `deps.json` lockfile (nixpkgs' Gradle
-    # `mitmCache`/`fetchDeps` format, the buildGoModule.vendorHash analogue),
-    # `gradle_patches` are applied to the source (e.g. a build-timestamp strip
-    # for reproducibility), `gradle_flags` tune the build, and the produced jar
-    # (`gradle_jar_glob` → installed as `gradle_jar_name`) is run with `java -jar`.
-    gradle_deps_json: str = "deps.json"
-    gradle_patches: list[str] = field(default_factory=list)
-    gradle_flags: list[str] = field(default_factory=list)
-    gradle_jar_glob: str | None = None
-    gradle_jar_name: str | None = None
-    # For python-venv: sha256 of the vendored-wheels fixed-output derivation
-    # (the analogue of buildGoModule's `vendorHash`). Obtain it by building
-    # once with a placeholder and reading the `got:` line Nix prints.
-    pip_deps_hash: str | None = None
-
-    # --- wrapper script fields (used by all templates) ---
+    # --- wrapper script (used by all templates) ---
     exec_target: str | None = None  # What to exec (relative to $out/bin)
     exec_args: list[str] = field(default_factory=list)
-
     # Local shell variables at top of wrapper (not exported)
     local_vars: dict[str, str] = field(default_factory=dict)
     # Static env var exports
@@ -355,14 +414,27 @@ class AppSpec:
     pre_exec_commands: list[str] = field(default_factory=list)
     # Config files to generate at startup
     config_files: list[ConfigFile] = field(default_factory=list)
+    # When True, the wrapper lazy-copies the package tree into a writable home
+    # at first launch (cp -rL + chmod u+w), then execs out of the copy. Solves
+    # the "ships read-only, app writes inside its own install dir" class —
+    # Keycloak (Quarkus augmentation), Rails apps writing tmp/ and log/. The
+    # copy happens once per app instance (marked with $HOME_DIR/.hop3-ready).
+    writable_home_at_runtime: bool = False
+    # Optional env var exported by the wrapper, pointing at the writable home
+    # (e.g. "KC_HOME_DIR"). Only consulted when writable_home_at_runtime.
+    writable_home_env_var: str | None = None
+    # Internal: raw shell emitted at the top of the wrapper (after shebang,
+    # before local vars). Populated by templates; NOT mapped from hop3.toml.
+    # Emitted without nix_escape so `${binding}` references interpolate at
+    # Nix build time.
+    runtime_prelude: str | None = None
 
-    # --- runtime metadata fields ---
-    # Runtime env (goes into hop3.runtime.json and top-level `env` attr)
+    # --- runtime metadata ---
+    # Runtime env (goes into hop3/runtime.json and the top-level `env` attr)
     runtime_env: dict[str, str] = field(default_factory=dict)
     # Additional path entries (beyond $out/bin). Can reference Nix let-bindings
     # like "${php}/bin" — they will be interpolated by Nix at build time.
     extra_paths: list[str] = field(default_factory=list)
-
     # nixpkgs attribute paths (e.g. "postgresql.lib", "krb5.lib",
     # "stdenv.cc.cc.lib") whose ``/lib`` directories are emitted into the
     # wrapper's ``LD_LIBRARY_PATH`` export with **raw Nix interpolation**
@@ -370,3 +442,25 @@ class AppSpec:
     # their transitive shared libs under a Nix-built Python venv" class
     # (libpq.so.5, libkrb5, libstdc++.so.6, etc.).
     nix_runtime_libs: list[str] = field(default_factory=list)
+
+    @property
+    def template(self) -> str:
+        """The template that renders this spec, named by its payload."""
+        return type(self.payload).template_name
+
+    def payload_as(self, kind: type[P]) -> P:
+        """The payload, checked against the type the calling template expects.
+
+        A template is only ever handed a spec the registry routed to it, so a
+        mismatch means the spec was built by hand with the wrong payload — a
+        programming error, not a bad recipe, hence TypeError rather than the
+        ValueError the adapter raises for malformed config. Fail loudly either
+        way: rendering with a foreign payload would silently emit an expression
+        built entirely from defaults.
+        """
+        if not isinstance(self.payload, kind):
+            raise TypeError(
+                f"{self.pname}: {kind.template_name} template got a "
+                f"{type(self.payload).template_name} payload"
+            )
+        return self.payload

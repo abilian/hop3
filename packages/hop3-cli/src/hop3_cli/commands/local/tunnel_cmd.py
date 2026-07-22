@@ -125,9 +125,9 @@ def _fetch_endpoint(config: Config, name: str) -> dict:
     """Ask the server for the addon's {type, host, port, url} endpoint."""
     # Deferred imports: pulling rpc at module load creates a circular import
     # (commands.help -> local -> tunnel_cmd -> rpc -> responses -> commands.help).
-    from jsonrpcclient import Ok  # noqa: PLC0415
+    from jsonrpcclient import Ok  # ruff:ignore[import-outside-top-level]
 
-    from hop3_cli.rpc import Client  # noqa: PLC0415
+    from hop3_cli.rpc import Client  # ruff:ignore[import-outside-top-level]
 
     try:
         with Client(config=config) as client:

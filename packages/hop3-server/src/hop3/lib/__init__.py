@@ -6,15 +6,15 @@
 
 from __future__ import annotations
 
-from .backports import *  # noqa: F403
-from .console import *  # noqa: F403
-from .diagnostics import (  # noqa: F401
+from .backports import *  # ruff:ignore[undefined-local-with-import-star]
+from .console import *  # ruff:ignore[undefined-local-with-import-star]
+from .diagnostics import (  # ruff:ignore[unused-import]
     Diagnosis,
     abort_with_diagnosis,
     format_diagnosis,
     log_diagnosis,
 )
-from .logging import server_log  # noqa: F401
-from .path import *  # noqa: F403
-from .templating import *  # noqa: F403
-from .util import *  # noqa: F403
+from .logging import server_log  # ruff:ignore[unused-import]
+from .path import *  # ruff:ignore[undefined-local-with-import-star]
+from .templating import *  # ruff:ignore[undefined-local-with-import-star]
+from .util import *  # ruff:ignore[undefined-local-with-import-star]

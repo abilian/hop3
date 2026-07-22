@@ -141,7 +141,9 @@ class TestGetModeConfig:
         """The `hop3-test run --mode` choices must stay in sync with the
         profiles (+ aliases) — a hardcoded list silently rejected the renamed
         smoke/curated/full and killed every triggered run."""
-        from hop3_testing.cli.commands.test import _mode_choices  # noqa: PLC0415
+        from hop3_testing.cli.commands.test import (
+            _mode_choices,
+        )
 
         choices = set(_mode_choices())
         assert set(MODES).issubset(choices)  # every built-in profile

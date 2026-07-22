@@ -13,7 +13,9 @@ from typing import ClassVar
 from hop3.lib.registry import register
 
 # Runtime import for Dishka DI (not just type hint)
-from hop3.orm.repositories import UserRepository  # noqa: TC001
+from hop3.orm.repositories import (
+    UserRepository,  # ruff:ignore[typing-only-first-party-import]
+)
 from hop3.server.security.tokens import create_magic_token, create_token
 
 from ._base import Command
@@ -181,7 +183,9 @@ class AuthLogoutCmd(Command):
         Returns:
             Logout success message
         """
-        from hop3.server.security.tokens import revoke_jwt  # noqa: PLC0415
+        from hop3.server.security.tokens import (
+            revoke_jwt,
+        )
 
         # Revoke the token (shared with the web logout path so both invalidate,
         # not merely drop, the credential).

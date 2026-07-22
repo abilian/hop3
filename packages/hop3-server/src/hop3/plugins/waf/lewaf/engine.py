@@ -41,7 +41,7 @@ class LeWafEngine:
     def rules_dir(self) -> Path:
         if self._rules_dir is not None:
             return self._rules_dir
-        from hop3.config import config  # noqa: PLC0415
+        from hop3.config import config  # ruff:ignore[import-outside-top-level]
 
         return config.WAF_RULES
 
@@ -53,7 +53,7 @@ class LeWafEngine:
         # hermetic. Production (no args) uses the configured WAF_LOG.
         if self._rules_dir is not None:
             return self._rules_dir
-        from hop3.config import config  # noqa: PLC0415
+        from hop3.config import config  # ruff:ignore[import-outside-top-level]
 
         return config.WAF_LOG
 
@@ -137,7 +137,10 @@ class LeWafEngine:
         Lazily imports ``lewaf`` (the ``waf`` extra); a missing extra is itself a
         loud failure the caller turns into an actionable deploy abort.
         """
-        from lewaf.integration import WAF, WAFConfig  # noqa: PLC0415 - optional extra
+        from lewaf.integration import (  # ruff:ignore[import-outside-top-level] - optional extra
+            WAF,
+            WAFConfig,
+        )
 
         try:
             WAF(WAFConfig(rule_files=[str(self._rules_path(app_name))]))

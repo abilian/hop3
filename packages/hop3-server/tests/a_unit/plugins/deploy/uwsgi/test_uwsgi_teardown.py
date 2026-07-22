@@ -68,13 +68,18 @@ def test_does_not_match_unrelated_process():
 # redeploy path would otherwise spawn on a still-held fixed port.
 # ---------------------------------------------------------------------------
 
-from types import SimpleNamespace  # noqa: E402
-from unittest.mock import MagicMock, patch  # noqa: E402
+from types import SimpleNamespace  # ruff:ignore[module-import-not-at-top-of-file]
+from unittest.mock import (  # ruff:ignore[module-import-not-at-top-of-file]
+    MagicMock,
+    patch,
+)
 
-import pytest  # noqa: E402
+import pytest  # ruff:ignore[module-import-not-at-top-of-file]
 
-from hop3.orm import AppStateEnum  # noqa: E402
-from hop3.plugins.deploy.uwsgi.deployer import UWSGIDeployer  # noqa: E402
+from hop3.orm import AppStateEnum  # ruff:ignore[module-import-not-at-top-of-file]
+from hop3.plugins.deploy.uwsgi.deployer import (
+    UWSGIDeployer,
+)
 
 
 def _deployer_with_app(transitions: list):

@@ -155,7 +155,7 @@ class Certificate:
         value = value.strip()
         for fmt in ("%b %d %H:%M:%S %Y %Z", "%b %d %H:%M:%S %Y"):
             try:
-                parsed = datetime.datetime.strptime(value, fmt)  # noqa: DTZ007
+                parsed = datetime.datetime.strptime(value, fmt)  # ruff:ignore[call-datetime-strptime-without-zone]
             except ValueError:
                 continue
             return parsed.replace(tzinfo=datetime.timezone.utc)

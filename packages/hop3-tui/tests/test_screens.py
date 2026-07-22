@@ -157,7 +157,7 @@ class TestChatScreen:
         screen = ChatScreen()
         # Manually set up chat content
         screen._chat_content = ""
-        setattr(screen, "_process_command", lambda cmd: None)  # noqa: B010  # Stub
+        setattr(screen, "_process_command", lambda cmd: None)  # ruff:ignore[set-attr-with-constant]  # Stub
         # We can't easily test this without full app context
 
 

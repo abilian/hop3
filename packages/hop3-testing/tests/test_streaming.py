@@ -110,7 +110,7 @@ def test_terminate_tree_is_safe_when_already_exited() -> None:
 
 def test_signals_reach_negative_pgid() -> None:
     """The process itself is a session leader (pgid == pid)."""
-    import subprocess  # noqa: PLC0415
+    import subprocess  # ruff:ignore[import-outside-top-level]
 
     # Start a process the same way run_streaming does, verify its pgid,
     # and clean up. This is a direct contract check on start_new_session.

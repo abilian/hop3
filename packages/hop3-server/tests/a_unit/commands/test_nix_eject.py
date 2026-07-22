@@ -109,7 +109,7 @@ class TestNixEjectCmd:
             'url = "https://example.com/myapp-linux-amd64"\n'
             'sha256 = "0000000000000000000000000000000000000000000000000000"\n'
             'binary-name = "myapp"\n'
-            'exec = "./myapp"\n',
+            'exec-target = "myapp"\n',
         )
 
         cmd = NixEjectCmd(db_session=db_session)

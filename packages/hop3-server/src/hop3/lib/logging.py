@@ -169,7 +169,7 @@ class ServerLogger:
         """Log error with exception traceback (call from within except block)."""
         self._ensure_configured()
         # this method is designed to be called from within except blocks
-        self.logger.error(self._format_message(msg, **kwargs), exc_info=True)  # noqa: LOG014
+        self.logger.error(self._format_message(msg, **kwargs), exc_info=True)  # ruff:ignore[exc-info-outside-except-handler]
 
     def _ensure_configured(self) -> None:
         """Ensure logger is configured before use."""

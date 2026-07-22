@@ -156,7 +156,7 @@ class TestCleanReinstall:
     """`--clean` is the canonical reinstall flag; `--force` stays an alias (D6)."""
 
     def test_clean_sets_force(self, clean_env):
-        from hop3_installer.cli_installer.cli import (  # noqa: PLC0415
+        from hop3_installer.cli_installer.cli import (  # ruff:ignore[import-outside-top-level]
             config_from_args,
             create_parser,
         )
@@ -165,7 +165,7 @@ class TestCleanReinstall:
         assert cfg.force is True
 
     def test_force_alias_still_accepted(self, clean_env):
-        from hop3_installer.cli_installer.cli import (  # noqa: PLC0415
+        from hop3_installer.cli_installer.cli import (  # ruff:ignore[import-outside-top-level]
             config_from_args,
             create_parser,
         )

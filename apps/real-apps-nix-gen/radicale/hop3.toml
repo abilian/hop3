@@ -15,7 +15,6 @@ builder = "nix"
 template = "python-venv"
 pip-requirements = "requirements.txt"
 pip-deps-hash = "sha256-gZagzX91IQTJGmozvm1W787gazDr+ocDooW4RbQPmTo="
-pip-packages = ['radicale[bcrypt]']
 runtime-package = "python3"
 exec-target = "radicale"
 exec-args = ['--config', 'config']

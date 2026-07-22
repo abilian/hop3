@@ -90,11 +90,11 @@ def test_current_context_handles_empty_string(tmp_path: Path) -> None:
 
 
 def test_local_overlay_dataclass_is_frozen() -> None:
-    from dataclasses import FrozenInstanceError  # noqa: PLC0415
+    from dataclasses import FrozenInstanceError  # ruff:ignore[import-outside-top-level]
 
     o = LocalOverlay(path=None, data={})
     with pytest.raises(FrozenInstanceError):
-        setattr(o, "path", "mutated")  # noqa: B010  # frozen: assignment must raise
+        setattr(o, "path", "mutated")  # ruff:ignore[set-attr-with-constant]  # frozen: assignment must raise
 
 
 # ---- write_overlay ------------------------------------------------------

@@ -203,7 +203,7 @@ def test_unreadable_dotfile_is_ignored(
 def test_appresolution_dataclass_is_frozen() -> None:
     r = AppResolution(app="foo", source="test")
     with pytest.raises(FrozenInstanceError):
-        setattr(r, "app", "bar")  # noqa: B010  # frozen: assignment must raise
+        setattr(r, "app", "bar")  # ruff:ignore[set-attr-with-constant]  # frozen: assignment must raise
 
 
 # ---- the resolved app is injected as `--app NAME`, never a positional ----
@@ -406,7 +406,7 @@ def test_resolve_context_unresolved_when_nothing(
 def test_context_resolution_dataclass_is_frozen() -> None:
     r = ContextResolution(context="foo", source="test")
     with pytest.raises(FrozenInstanceError):
-        setattr(r, "context", "bar")  # noqa: B010  # frozen: assignment must raise
+        setattr(r, "context", "bar")  # ruff:ignore[set-attr-with-constant]  # frozen: assignment must raise
 
 
 def test_resolve_app_trace_breadcrumb_for_git_remote_source(

@@ -253,7 +253,7 @@ class Client:
         Raises:
             AuthenticationError: If authentication fails.
         """
-        from hop3_cli.commands.local.ssh_ops import (  # noqa: PLC0415
+        from hop3_cli.commands.local.ssh_ops import (  # ruff:ignore[import-outside-top-level]
             BootstrapError,
             get_ssh_token,
         )

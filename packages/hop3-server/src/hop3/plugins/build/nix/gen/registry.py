@@ -6,8 +6,12 @@
 
 from __future__ import annotations
 
-from hop3.plugins.build.nix.gen.spec import AppSpec  # noqa: TC001
-from hop3.plugins.build.nix.gen.templates.base import Template  # noqa: TC001
+from hop3.plugins.build.nix.gen.spec import (
+    AppSpec,  # ruff:ignore[typing-only-first-party-import]
+)
+from hop3.plugins.build.nix.gen.templates.base import (
+    Template,  # ruff:ignore[typing-only-first-party-import]
+)
 from hop3.plugins.build.nix.gen.templates.go_source import GoSourceTemplate
 from hop3.plugins.build.nix.gen.templates.java_gradle import JavaGradleTemplate
 from hop3.plugins.build.nix.gen.templates.java_war import JavaWarTemplate

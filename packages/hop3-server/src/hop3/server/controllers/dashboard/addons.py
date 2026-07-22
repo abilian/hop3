@@ -24,7 +24,7 @@ class AddonsController(Controller):
     """Controller for addon management routes."""
 
     path = "/dashboard/addons"
-    guards = [auth_guard]  # noqa: RUF012
+    guards = [auth_guard]  # ruff:ignore[mutable-class-default]
 
     @get("/", sync_to_thread=False)
     def dashboard_addons(self) -> Template | Redirect:

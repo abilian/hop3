@@ -404,7 +404,9 @@ def do_teardown(config: DeployConfig) -> int:
         print("Teardown only applies to Docker targets")
         return 1
 
-    from .backends.docker import DockerDeployBackend  # noqa: PLC0415
+    from .backends.docker import (
+        DockerDeployBackend,
+    )
 
     backend = DockerDeployBackend(config)
     print(f"Removing container: {config.docker_container}")
@@ -455,7 +457,9 @@ def deprecated_main() -> int:
     deploys an *app*); this tool deploys the *server/platform*. It is renamed
     ``hop3-deploy-server``; the old name warns and delegates for one release.
     """
-    from hop3_installer.deprecation import warn_deprecated  # noqa: PLC0415
+    from hop3_installer.deprecation import (
+        warn_deprecated,
+    )
 
     warn_deprecated("hop3-deploy", "hop3-deploy-server", kind="command")
     return main()

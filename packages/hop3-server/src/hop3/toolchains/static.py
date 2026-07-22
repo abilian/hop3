@@ -29,7 +29,7 @@ class StaticToolchain(LanguageToolchain):
     """
 
     name = "Static"
-    requirements = []  # No special requirements for static files  # noqa: RUF012
+    requirements = []  # No special requirements for static files  # ruff:ignore[mutable-class-default]
 
     def accept(self) -> bool:
         """Check if this is a static file application.

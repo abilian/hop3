@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM101, TC001
+# ruff:file-ignore[raise-vanilla-args, raw-string-in-exception]
+
 
 """node-prebuilt template.
 
@@ -21,7 +22,7 @@ Example apps: Wiki.js.
 
 from __future__ import annotations
 
-from hop3.plugins.build.nix.gen.spec import AppSpec
+from hop3.plugins.build.nix.gen.spec import AppSpec, NodePrebuiltPayload
 from hop3.plugins.build.nix.gen.templates.base import (
     PINNED_NIXPKGS_HEADER,
     ReproTier,
@@ -37,6 +38,7 @@ class NodePrebuiltTemplate:
     tier = ReproTier.PREBUILT
 
     def generate(self, spec: AppSpec) -> str:
+        p = spec.payload_as(NodePrebuiltPayload)
         if spec.exec_target is None:
             raise ValueError(
                 "node-prebuilt requires exec_target (e.g., 'server/index.js')"
@@ -50,7 +52,7 @@ class NodePrebuiltTemplate:
         source_nix = spec.source.as_nix(binding)
 
         # Unpack phase: some Node tarballs have no top-level directory
-        if spec.unpack_without_top_level:
+        if p.unpack_without_top_level:
             unpack_phase = """    unpackPhase = ''
       mkdir -p source
       tar xzf $src -C source

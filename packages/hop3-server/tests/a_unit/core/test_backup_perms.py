@@ -13,7 +13,7 @@ hop3 user cannot read another app's dumps.
 from __future__ import annotations
 
 import stat
-from pathlib import Path  # noqa: TC003
+from pathlib import Path  # ruff:ignore[typing-only-standard-library-import]
 
 import pytest
 

@@ -135,6 +135,6 @@ def abort_with_diagnosis(diag: Diagnosis) -> NoReturn:
     """
     # Local import to avoid circular dependency: lib/diagnostics.py
     # is imported by various modules that lib/__init__.py also pulls in.
-    from .console import Abort  # noqa: PLC0415
+    from .console import Abort  # ruff:ignore[import-outside-top-level]
 
     raise Abort(format_diagnosis(diag))

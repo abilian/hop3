@@ -71,7 +71,7 @@ def hop3_root(tmp_path, monkeypatch):
     """Redirect HOP3_ROOT to a temp dir so tests don't touch real filesystem."""
     monkeypatch.setenv("HOP3_ROOT", str(tmp_path))
     # Reset the singleton so it picks up the new env var
-    from hop3.config import HopConfig  # noqa: PLC0415
+    from hop3.config import HopConfig  # ruff:ignore[import-outside-top-level]
 
     HopConfig.reset_instance()
     yield tmp_path
@@ -180,7 +180,7 @@ def test_backup_writes_manifest(hop3_root, backend):
     assert backup_path.suffix == ".json"
 
     # The backup should omit the secret key
-    import json  # noqa: PLC0415
+    import json  # ruff:ignore[import-outside-top-level]
 
     data = json.loads(backup_path.read_text())
     assert data["addon_name"] == "myapp"

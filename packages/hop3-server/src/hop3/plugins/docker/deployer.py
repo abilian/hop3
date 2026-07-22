@@ -301,7 +301,7 @@ services:
 
             # Transition to STARTING
             if current_state in {AppStateEnum.STOPPED, AppStateEnum.FAILED, None}:
-                self.context.app._transition_state(AppStateEnum.STARTING)  # noqa: SLF001
+                self.context.app._transition_state(AppStateEnum.STARTING)  # ruff:ignore[private-member-access]
 
         log(f"Deploying '{self.app_name}' with Docker Compose...", level=2, fg="blue")
 
@@ -347,7 +347,7 @@ services:
             # Note: The background state sync service may have already transitioned
             # the app to RUNNING if it detected processes started. Handle gracefully.
             if self.context.app.run_state != AppStateEnum.RUNNING:
-                self.context.app._transition_state(AppStateEnum.RUNNING)  # noqa: SLF001
+                self.context.app._transition_state(AppStateEnum.RUNNING)  # ruff:ignore[private-member-access]
 
             # Save the image tag for restart operations
             if self.artifact.location:
@@ -468,14 +468,14 @@ services:
 
         # Transition to STOPPING state
         if self.context.app and self.context.app.run_state == AppStateEnum.RUNNING:
-            self.context.app._transition_state(AppStateEnum.STOPPING)  # noqa: SLF001
+            self.context.app._transition_state(AppStateEnum.STOPPING)  # ruff:ignore[private-member-access]
 
         cmd = [*self._get_compose_cmd_base(), "stop"]
         self._run_compose_command(cmd, check=False)
 
         # Transition to STOPPED state
         if self.context.app and self.context.app.run_state == AppStateEnum.STOPPING:
-            self.context.app._transition_state(AppStateEnum.STOPPED)  # noqa: SLF001
+            self.context.app._transition_state(AppStateEnum.STOPPED)  # ruff:ignore[private-member-access]
 
         log(f"App '{self.app_name}' stopped.", level=2, fg="green")
 

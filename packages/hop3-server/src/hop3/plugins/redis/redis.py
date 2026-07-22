@@ -69,7 +69,7 @@ def _redis_cli_env() -> dict[str, str]:
     password without ``-a <password>`` (which would land in
     /proc/<pid>/cmdline).
     """
-    import os  # noqa: PLC0415
+    import os  # ruff:ignore[import-outside-top-level]
 
     env = os.environ.copy()
     password = _load_redis_password()
@@ -159,7 +159,7 @@ class RedisAddon:
         # loaded one from secrets (re-create after a partial install), keep it.
         if self._db_number == 0:
             # frozen=True dataclass; object.__setattr__ is the standard pattern.
-            object.__setattr__(self, "_db_number", _allocate_db_number())  # noqa: PLC2801
+            object.__setattr__(self, "_db_number", _allocate_db_number())  # ruff:ignore[unnecessary-dunder-call]
 
         # Verify Redis is accessible
         result = _run_redis_cli(["ping"])
@@ -293,7 +293,7 @@ class RedisAddon:
         # still pass it through quote() defensively in case the operator
         # rotates to a custom value.
         if password:
-            from urllib.parse import quote  # noqa: PLC0415
+            from urllib.parse import quote  # ruff:ignore[import-outside-top-level]
 
             url = f"redis://:{quote(password, safe='')}@{host}:{port}/{self.db_number}"
         else:

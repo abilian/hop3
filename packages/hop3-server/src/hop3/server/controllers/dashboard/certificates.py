@@ -21,7 +21,7 @@ class CertificatesController(Controller):
     """Read-only TLS + domain health for every app's domain."""
 
     path = "/dashboard/certificates"
-    guards = [auth_guard]  # noqa: RUF012
+    guards = [auth_guard]  # ruff:ignore[mutable-class-default]
 
     @get("/", sync_to_thread=False)
     def dashboard_certificates(self) -> Template:

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM101, TC001
+# ruff:file-ignore[raise-vanilla-args, raw-string-in-exception]
+
 
 """prebuilt-binary template.
 
@@ -16,7 +17,7 @@ Example apps: Miniflux, Gitea.
 
 from __future__ import annotations
 
-from hop3.plugins.build.nix.gen.spec import AppSpec
+from hop3.plugins.build.nix.gen.spec import AppSpec, PrebuiltBinaryPayload
 from hop3.plugins.build.nix.gen.templates.base import (
     PINNED_NIXPKGS_HEADER,
     ReproTier,
@@ -32,13 +33,14 @@ class PrebuiltBinaryTemplate:
     tier = ReproTier.PREBUILT
 
     def generate(self, spec: AppSpec) -> str:
-        if spec.binary_name is None:
+        p = spec.payload_as(PrebuiltBinaryPayload)
+        if p.binary_name is None:
             raise ValueError("prebuilt-binary requires binary_name")
 
         binding = f"{spec.pname}-bin"
         source_nix = spec.source.as_nix(binding)
 
-        exec_target = spec.exec_target or spec.binary_name
+        exec_target = spec.exec_target or p.binary_name
         exec_args = " " + " ".join(spec.exec_args) if spec.exec_args else ""
         exec_line = f"BINDIR/{exec_target}{exec_args}"
         wrapper_body = format_wrapper_body(spec, exec_line)
@@ -72,8 +74,8 @@ let
       mkdir -p $out/bin $out/hop3
 
       # Install the binary
-      cp ${{{binding}}} $out/bin/{spec.binary_name}
-      chmod +x $out/bin/{spec.binary_name}
+      cp ${{{binding}}} $out/bin/{p.binary_name}
+      chmod +x $out/bin/{p.binary_name}
 
       # Create wrapper script
       cat > $out/bin/{spec.pname}-wrapper << 'WRAPPER'

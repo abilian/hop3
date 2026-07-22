@@ -12,13 +12,15 @@ queue), never from here.
 
 from __future__ import annotations
 
-from dishka import FromDishka  # noqa: TC002 -- runtime: @inject resolves the annotation
+from dishka import (
+    FromDishka,  # ruff:ignore[typing-only-third-party-import] -- runtime: @inject resolves the annotation
+)
 from dishka.integrations.litestar import inject
 from litestar import Controller, get
 from litestar.response import Template
 
 from hop3_testlab.repositories import (
-    RunsRepository,  # noqa: TC001 -- runtime: @inject resolves it
+    RunsRepository,  # ruff:ignore[typing-only-first-party-import] -- runtime: @inject resolves it
 )
 from hop3_testlab.web.guards import auth_guard
 
@@ -50,7 +52,7 @@ class DashboardController(Controller):
     """The morning dashboard: recent runs (read-only)."""
 
     path = "/"
-    guards = [auth_guard]  # noqa: RUF012
+    guards = [auth_guard]  # ruff:ignore[mutable-class-default]
 
     @get("/")
     @inject

@@ -103,7 +103,9 @@ class UwsgiWorker:
         and other uWSGI parameters. It also checks for virtual
         environment existence and handles optional idle settings.
         """
-        from hop3.orm import App  # noqa: PLC0415 - Avoid circular import
+        from hop3.orm import (
+            App,
+        )
 
         env = self.env.copy()
 
@@ -196,7 +198,9 @@ class UwsgiWorker:
         variables and inserting user-defined UWSGI settings if
         specified.
         """
-        from hop3.orm import App  # noqa: PLC0415 - Avoid circular import
+        from hop3.orm import (
+            App,
+        )
 
         app = App(name=self.app_name)
 
@@ -285,7 +289,9 @@ class WsgiWorker(UwsgiWorker):
     )
 
     def update_settings(self) -> None:
-        from hop3.orm import App  # noqa: PLC0415 - Avoid circular import
+        from hop3.orm import (
+            App,
+        )
 
         app = App(name=self.app_name)
 
@@ -375,7 +381,9 @@ class WebWorker(UwsgiWorker):
         only takes a shell string, and Procfile commands legitimately
         rely on shell features (``$PORT`` expansion, ``&&`` chains).
         """
-        from hop3.orm import App  # noqa: PLC0415 - Avoid circular import
+        from hop3.orm import (
+            App,
+        )
 
         app = App(name=self.app_name)
 
@@ -441,7 +449,9 @@ class GenericWorker(UwsgiWorker):
         # full code-execution rights inside their own app's runtime —
         # the shell construction below does not cross a privilege
         # boundary.
-        from hop3.orm import App  # noqa: PLC0415 - Avoid circular import
+        from hop3.orm import (
+            App,
+        )
 
         app = App(name=self.app_name)
 

@@ -87,7 +87,7 @@ def test_passing_demo_is_reported_as_passed(tmp_path, monkeypatch):
 
 
 def test_demo_timeout_is_reported_as_failed(tmp_path, monkeypatch):
-    import subprocess  # noqa: PLC0415
+    import subprocess  # ruff:ignore[import-outside-top-level]
 
     test = _demo_tree(tmp_path)
 
@@ -111,7 +111,7 @@ def test_demo_timeout_captures_partial_output(tmp_path, monkeypatch):
     runner must persist that as the log (this is the dashboard's only window
     into why a 600s demo hung).
     """
-    import subprocess  # noqa: PLC0415
+    import subprocess  # ruff:ignore[import-outside-top-level]
 
     test = _demo_tree(tmp_path)
 

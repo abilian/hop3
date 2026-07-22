@@ -7,13 +7,9 @@ from __future__ import annotations
 
 import pytest
 
-from hop3.plugins.build.nix.gen.registry import (
-    generate,
-    get_template,
-    list_templates,
-)
-from hop3.plugins.build.nix.gen.spec import AppSpec, Source
+from hop3.plugins.build.nix.gen.registry import get_template, list_templates
 from hop3.plugins.build.nix.gen.templates.base import ReproTier
+from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
 
 
 def test_list_templates_returns_all():
@@ -77,13 +73,9 @@ def test_get_template_error_shows_available():
         get_template("typo")
 
 
-def test_generate_with_invalid_template():
-    spec = AppSpec(
-        pname="test",
-        version="1.0",
-        description="test",
-        template="nonexistent",
-        source=Source(url="x", sha256="x"),
-    )
+def test_an_unknown_template_is_rejected_at_parse_time():
+    """The payload type *is* the template, so a spec cannot name one that does
+    not exist. An unknown name can only arrive from hop3.toml, where the adapter
+    catches it."""
     with pytest.raises(ValueError, match="Unknown template"):
-        generate(spec)
+        app_spec_from_config({"template": "nonexistent"}, {}, "test")

@@ -171,7 +171,9 @@ class TestAnchor:
         """The regression: a failed cell records its log path relative to root."""
         root = Path("/repo")
         log_file = anchor(root, Path("notes/benchmarks/logs/run")) / "native-wp.log"
-        assert str(log_file.relative_to(root)) == "notes/benchmarks/logs/run/native-wp.log"
+        assert (
+            str(log_file.relative_to(root)) == "notes/benchmarks/logs/run/native-wp.log"
+        )
 
 
 class TestReasonFromRealLogs:
@@ -194,7 +196,9 @@ class TestReasonFromRealLogs:
             "Re-running 1 previously-failed test(s) first\n"
             "  Error: HTTP 200 OK but body does not contain 'Hello world'\n"
         )
-        assert reason_from(log).startswith("Error: HTTP 200 OK but body does not contain")
+        assert reason_from(log).startswith(
+            "Error: HTTP 200 OK but body does not contain"
+        )
 
     def test_reports_the_classified_kind_when_that_is_all_there_is(self):
         log = "Failed tests:\n      x startup-failure - gitea-1784680115\n"
@@ -219,12 +223,22 @@ class TestRenderMatrix:
             {"app": "d", "variant": "nix", "status": "no-recipe"},
         ]
         out = render_matrix(cells)
-        assert "| nix | 2 | 1 | 1 | 150 s | 150 s | 100-200 s |".replace("-", "\u2013") in out
+        assert (
+            "| nix | 2 | 1 | 1 | 150 s | 150 s | 100-200 s |".replace("-", "\u2013")
+            in out
+        )
         assert "999" not in out.split("Failed cells:")[0]
 
     def test_lists_failed_cells_with_their_reason(self):
-        cells = [{"app": "gitea", "variant": "nix-gen", "status": "failed",
-                  "seconds": 379, "reason": "startup-failure"}]
+        cells = [
+            {
+                "app": "gitea",
+                "variant": "nix-gen",
+                "status": "failed",
+                "seconds": 379,
+                "reason": "startup-failure",
+            }
+        ]
         out = render_matrix(cells)
         assert "`nix-gen/gitea`" in out
         assert "startup-failure" in out
@@ -235,7 +249,9 @@ class TestAppendGuard:
     would blend two runs — different box state — into one file that reads like a
     single measurement. The guard fires before any box operation."""
 
-    def test_refuses_to_write_into_an_existing_results_file(self, tmp_path, monkeypatch):
+    def test_refuses_to_write_into_an_existing_results_file(
+        self, tmp_path, monkeypatch
+    ):
         monkeypatch.setenv(SERVER_ID_ENVVAR, "424242")
         existing = tmp_path / "run.jsonl"
         existing.write_text('{"app":"x","variant":"nix","status":"ok","seconds":1}\n')

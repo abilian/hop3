@@ -21,7 +21,7 @@ from pathlib import Path
 import pytest
 
 import hop3.plugins.redis as redis_pkg
-import hop3.plugins.redis.plugin  # noqa: F401 — binds redis_pkg.plugin attribute
+import hop3.plugins.redis.plugin  # ruff:ignore[unused-import] — binds redis_pkg.plugin attribute
 from hop3.core import plugins
 from hop3.core.plugins import (
     _build_deployment_hints,

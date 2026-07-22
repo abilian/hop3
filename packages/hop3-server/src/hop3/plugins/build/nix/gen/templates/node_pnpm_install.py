@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM101, TC001
+# ruff:file-ignore[raise-vanilla-args, raw-string-in-exception]
+
 
 """node-pnpm-install template.
 
@@ -46,7 +47,7 @@ Outline / Rocket.Chat releases / Strapi.
 
 from __future__ import annotations
 
-from hop3.plugins.build.nix.gen.spec import AppSpec
+from hop3.plugins.build.nix.gen.spec import AppSpec, NodePnpmInstallPayload
 from hop3.plugins.build.nix.gen.templates.base import (
     PINNED_NIXPKGS_HEADER,
     ReproTier,
@@ -98,7 +99,7 @@ _NO_DEPS_HASH = (
 )
 
 
-def _native_addon_build(spec: AppSpec) -> tuple[str, str]:
+def _native_addon_build(payload: NodePnpmInstallPayload) -> tuple[str, str]:
     """Toolchain inputs + rebuild step for node-gyp native addons.
 
     Returns ``("", "")`` when the recipe declares none. Otherwise returns the
@@ -107,7 +108,7 @@ def _native_addon_build(spec: AppSpec) -> tuple[str, str]:
     the pinned Node headers. The compiled ``.node`` lands at a deterministic
     sandbox path, so it is bit-for-bit reproducible with no post-processing.
     """
-    packages = spec.node_native_packages
+    packages = payload.native_packages
     if not packages:
         return "", ""
 
@@ -134,13 +135,11 @@ class NodePnpmInstallTemplate:
     tier = ReproTier.SOURCE
 
     def generate(self, spec: AppSpec) -> str:
-        if spec.nixpkgs_package is None:
-            # We're reusing `nixpkgs_package` to mean "npm package
-            # name" since the spec already carries it; semantically
-            # distinct but no reason to add yet another field.
+        p = spec.payload_as(NodePnpmInstallPayload)
+        if p.npm_package is None:
             raise ValueError(
-                "node-pnpm-install requires nixpkgs_package (interpreted "
-                "as npm package name, e.g., 'directus')"
+                "node-pnpm-install requires npm-package (the package to "
+                "install from the registry, e.g. 'directus')"
             )
         if spec.exec_target is None:
             raise ValueError(
@@ -149,14 +148,14 @@ class NodePnpmInstallTemplate:
             )
         if not spec.version:
             raise ValueError("node-pnpm-install requires version (pinned npm version)")
-        if not (spec.node_manifest and spec.node_lockfile):
+        if not (p.manifest and p.lockfile):
             raise ValueError(_NO_LOCKFILE.format(pname=spec.pname))
-        if not spec.node_deps_hash:
+        if not p.deps_hash:
             raise ValueError(_NO_DEPS_HASH.format(pname=spec.pname))
 
-        npm_pkg = spec.nixpkgs_package  # reinterpreted as npm package name
+        npm_pkg = p.npm_package
         runtime_pkg = spec.runtime_package or "nodejs_22"
-        pnpm_pkg = spec.node_pnpm_package
+        pnpm_pkg = p.pnpm_package
 
         exec_args = " " + " ".join(spec.exec_args) if spec.exec_args else ""
         # Exec line uses the runtime-exported `$APPDIR` (not the `$out` from
@@ -193,7 +192,7 @@ class NodePnpmInstallTemplate:
         nix_env_attrs = format_nix_env_attrs(spec.runtime_env)
         paths_json = format_paths_json(spec.extra_paths)
 
-        native_build_inputs, native_rebuild = _native_addon_build(spec)
+        native_build_inputs, native_rebuild = _native_addon_build(p)
 
         return f"""# hop3.nix - Nix expression for {spec.pname}
 #
@@ -214,8 +213,8 @@ let
   pnpm = pkgs.{pnpm_pkg};
   version = "{spec.version}";
 
-  manifest = ./{spec.node_manifest};
-  lockfile = ./{spec.node_lockfile};
+  manifest = ./{p.manifest};
+  lockfile = ./{p.lockfile};
 
   # Phase 1: fetch the dependency set into a pnpm store. `pnpm fetch` reads
   # only the lockfile, so exactly the recorded versions are downloaded; the
@@ -262,7 +261,7 @@ let
 
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash = "{spec.node_deps_hash}";
+    outputHash = "{p.deps_hash}";
   }};
 
   app = pkgs.stdenv.mkDerivation {{

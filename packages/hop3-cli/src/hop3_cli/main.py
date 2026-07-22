@@ -84,7 +84,7 @@ def run_command_from_args(cli_args: list[str]) -> None:
     # don't receive flags directly) can refuse to read from a tty. See
     # hop3_cli.ui.prompts.is_no_input.
     if flags.no_input:
-        import os  # noqa: PLC0415
+        import os  # ruff:ignore[import-outside-top-level]
 
         os.environ["HOP3_NO_INPUT"] = "1"
     printer = RichPrinter(
@@ -256,7 +256,9 @@ def _context_server(name: str | None, config: Config) -> str | None:
     """
     if not name:
         return None
-    from hop3_cli.core.hop3_toml import first_hop3_toml  # noqa: PLC0415
+    from hop3_cli.core.hop3_toml import (
+        first_hop3_toml,
+    )
 
     path, data = first_hop3_toml(Path.cwd(), Path.home())
     if path is not None and isinstance(data, dict):
@@ -309,7 +311,9 @@ def _require_context_server(name: str, config: Config) -> str:
     if server := _context_server(name, config):
         return server
 
-    from hop3_cli.core.hop3_toml import first_hop3_toml  # noqa: PLC0415
+    from hop3_cli.core.hop3_toml import (
+        first_hop3_toml,
+    )
 
     path, data = first_hop3_toml(Path.cwd(), Path.home())
     known: list[str] = []
@@ -333,7 +337,7 @@ def _env_override_url(config: Config) -> str | None:
     any resolved context — ``HOP3_DEV_MODE``'s localhost, then ``HOP3_API_URL``.
     None when no env override is in play.
     """
-    import os  # noqa: PLC0415
+    import os  # ruff:ignore[import-outside-top-level]
 
     if os.environ.get("HOP3_DEV_MODE", "").lower() in {"true", "1", "yes"}:
         return config.get("api_url", "http://localhost:8000")
@@ -353,7 +357,7 @@ def _abort_if_env_url_shadows_context(
     if not env_url:
         return
 
-    from hop3_cli.core import credential_store  # noqa: PLC0415
+    from hop3_cli.core import credential_store  # ruff:ignore[import-outside-top-level]
 
     if credential_store.canonicalize(env_url) == credential_store.canonicalize(
         context_server
@@ -397,7 +401,7 @@ def _resolve_ambient_server(config: Config) -> str | None:
         return server
     if default := config.get_default_server():
         return default
-    from hop3_cli.core import credential_store  # noqa: PLC0415
+    from hop3_cli.core import credential_store  # ruff:ignore[import-outside-top-level]
 
     known = credential_store.known_servers()
     return known[0] if len(known) == 1 else None
@@ -654,7 +658,9 @@ def _handle_deploy_preview(
         # archive manifest so the user can see exactly what would be uploaded
         # (and what to add to [build].ignore) without guessing.
         print(render_plan(plan))
-        from .commands.arguments import describe_archive  # noqa: PLC0415
+        from .commands.arguments import (
+            describe_archive,
+        )
 
         print("\n" + describe_archive(source_path))
         emit_domain_warnings()
@@ -743,10 +749,14 @@ def _context_deploy_override(cli_args: list[str], context_resolution) -> bytes |
     if not own.is_file():
         return None
 
-    import toml  # noqa: PLC0415
+    import toml  # ruff:ignore[import-outside-top-level]
 
-    from hop3_cli.core.deploy_preview import flatten_for_context  # noqa: PLC0415
-    from hop3_cli.core.hop3_toml import read_hop3_toml  # noqa: PLC0415
+    from hop3_cli.core.deploy_preview import (
+        flatten_for_context,
+    )
+    from hop3_cli.core.hop3_toml import (
+        read_hop3_toml,
+    )
 
     raw = read_hop3_toml(own)
     ctx = getattr(context_resolution, "context", None)
@@ -781,7 +791,9 @@ def _check_prerequisites(
     cli_args: list[str], config: Config, printer: RichPrinter, flags
 ) -> None:
     """Check all prerequisites before executing a command."""
-    from hop3_cli.exceptions import AuthenticationError  # noqa: PLC0415
+    from hop3_cli.exceptions import (
+        AuthenticationError,
+    )
 
     # Skip all checks for commands that don't require authentication
     if not requires_authentication(cli_args):
@@ -828,13 +840,15 @@ def _try_auto_authenticate(config: Config, printer: RichPrinter) -> None:
     Raises:
         AuthenticationError: If auto-auth is not available or fails.
     """
-    from urllib.parse import urlparse  # noqa: PLC0415
+    from urllib.parse import urlparse  # ruff:ignore[import-outside-top-level]
 
-    from hop3_cli.commands.local.ssh_ops import (  # noqa: PLC0415
+    from hop3_cli.commands.local.ssh_ops import (  # ruff:ignore[import-outside-top-level]
         BootstrapError,
         get_ssh_token,
     )
-    from hop3_cli.exceptions import AuthenticationError  # noqa: PLC0415
+    from hop3_cli.exceptions import (
+        AuthenticationError,
+    )
 
     api_url = config.get_api_url()
     if not api_url:
@@ -994,15 +1008,15 @@ def _run_config_migration() -> None:
     No-op once migrated. Aborts loudly (exit 1, nothing changed) on malformed
     input; prints a one-line summary per migration to stderr otherwise.
     """
-    from hop3_cli.core.config_migration import (  # noqa: PLC0415
+    from hop3_cli.core.config_migration import (  # ruff:ignore[import-outside-top-level]
         MigrationError,
         migrate_legacy_config_042,
     )
-    from hop3_cli.core.config_migration_v2 import (  # noqa: PLC0415  # noqa: PLC0415
+    from hop3_cli.core.config_migration_v2 import (  # ruff:ignore[import-outside-top-level]
         MigrationError as MigrationErrorV2,
         migrate_config_to_token_store,
     )
-    from hop3_cli.core.paths import config_dir  # noqa: PLC0415
+    from hop3_cli.core.paths import config_dir  # ruff:ignore[import-outside-top-level]
 
     cfg_dir = config_dir()
     try:
@@ -1029,7 +1043,9 @@ def verify_authentication(config: Config) -> None:
     Raises:
         AuthenticationError: If authentication is invalid or verification fails.
     """
-    from hop3_cli.exceptions import AuthenticationError  # noqa: PLC0415
+    from hop3_cli.exceptions import (
+        AuthenticationError,
+    )
 
     try:
         with Client(config=config) as client:

@@ -167,7 +167,9 @@ class App(BigIntAuditBase):
             path.mkdir(exist_ok=True)
 
         if setup_git:
-            from hop3.core.git import GitManager  # noqa: PLC0415
+            from hop3.core.git import (
+                GitManager,
+            )
 
             GitManager(app=self).setup_hook()
 
@@ -366,7 +368,7 @@ class App(BigIntAuditBase):
         """
         # EnvVar is imported under TYPE_CHECKING to avoid a circular import with
         # .env; import it locally here where it is actually instantiated.
-        from .env import EnvVar  # noqa: PLC0415
+        from .env import EnvVar  # ruff:ignore[import-outside-top-level]
 
         self.env_vars.clear()
         for key, value in env.items():
@@ -382,7 +384,7 @@ class App(BigIntAuditBase):
         which handles the actual deployment steps necessary for the application.
         """
         # Lazy import to avoid circular dependency
-        from hop3.deployers import do_deploy  # noqa: PLC0415
+        from hop3.deployers import do_deploy  # ruff:ignore[import-outside-top-level]
 
         do_deploy(self)
 
@@ -410,7 +412,9 @@ class App(BigIntAuditBase):
         # row — while it runs would strand both the process and the port. Docker
         # runtimes are torn down by _destroy_docker_compose below.
         if self.runtime != "docker-compose":
-            from hop3.run.reaper import reap_app_processes  # noqa: PLC0415
+            from hop3.run.reaper import (
+                reap_app_processes,
+            )
 
             survivors = reap_app_processes(app_name)
             if survivors:
@@ -425,7 +429,7 @@ class App(BigIntAuditBase):
         # have a stale leaf this is the only place that reclaims. Processes are
         # already reaped (native, above) or torn down (Docker, below), so the leaf
         # is empty. Idempotent + best-effort (absent leaf is a no-op).
-        from hop3.deployers.native_limits import (  # noqa: PLC0415
+        from hop3.deployers.native_limits import (  # ruff:ignore[import-outside-top-level]
             remove_native_limits,
         )
 
@@ -634,7 +638,9 @@ class App(BigIntAuditBase):
         so STOPPED is truthful — otherwise a freed PortClaim lets the next deploy
         of that port fail at runtime with 'address already in use'.
         """
-        from hop3.run.reaper import reap_app_processes  # noqa: PLC0415
+        from hop3.run.reaper import (
+            reap_app_processes,
+        )
 
         cfg = HopConfig.get_instance()
 

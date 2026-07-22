@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: PLW0603
+# ruff:file-ignore[global-statement]
 # `_service` is the singleton background worker; start/stop are called from
 # Litestar lifespan hooks (see asgi.py), mirroring state_sync.py.
 
@@ -128,7 +128,9 @@ def _notify_renewal_failures(failed: list[tuple[str, str]]) -> None:
     notifications on`); never raises, so it can't disrupt the renewal cycle.
     Imported lazily to keep the email plugin off the service's import path.
     """
-    from hop3.plugins.email.notifications import notify  # noqa: PLC0415
+    from hop3.plugins.email.notifications import (
+        notify,
+    )
 
     body = "\n".join(f"- {label}: {err}" for label, err in failed)
     notify(

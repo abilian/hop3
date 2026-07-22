@@ -126,10 +126,10 @@ class StaticDeployer:
             # Use state machine transition for initial deployment
             # STOPPED -> STARTING -> RUNNING
             if current_state == AppStateEnum.STOPPED:
-                self.app._transition_state(AppStateEnum.STARTING)  # noqa: SLF001
+                self.app._transition_state(AppStateEnum.STARTING)  # ruff:ignore[private-member-access]
             # Note: Handle case where state sync already transitioned to RUNNING
             if self.app.run_state != AppStateEnum.RUNNING:
-                self.app._transition_state(AppStateEnum.RUNNING)  # noqa: SLF001
+                self.app._transition_state(AppStateEnum.RUNNING)  # ruff:ignore[private-member-access]
 
         # Get workers from artifact runtime (for nix builds) or app config
         if self.artifact.runtime and self.artifact.runtime.workers:
@@ -209,8 +209,8 @@ class StaticDeployer:
         log(f"Stopping static app '{self.app.name}'...", level=2, fg="yellow")
         # Use state machine transition: RUNNING -> STOPPING -> STOPPED
         if self.app.run_state == AppStateEnum.RUNNING:
-            self.app._transition_state(AppStateEnum.STOPPING)  # noqa: SLF001
-        self.app._transition_state(AppStateEnum.STOPPED)  # noqa: SLF001
+            self.app._transition_state(AppStateEnum.STOPPING)  # ruff:ignore[private-member-access]
+        self.app._transition_state(AppStateEnum.STOPPED)  # ruff:ignore[private-member-access]
         log(f"Static app '{self.app.name}' stopped.", level=2, fg="green")
 
     def restart(self) -> None:

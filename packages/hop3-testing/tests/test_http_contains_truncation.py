@@ -36,7 +36,7 @@ class _FakeSession:
 
 def _validate(body: str, contains: str) -> str | None:
     runner = DeploymentTestRunner(target=cast("Any", object()), cleanup=True)
-    return runner._run_http_validation(  # noqa: SLF001
+    return runner._run_http_validation(
         cast("Any", _FakeSession(body)), "/", 200, contains, []
     )
 

@@ -75,7 +75,9 @@ def do_deploy(
 def _notify_deploy_failure(app: App, exc: BaseException) -> None:
     """Best-effort operator alert on a failed deploy — never raises."""
     try:
-        from hop3.plugins.email.notifications import notify  # noqa: PLC0415
+        from hop3.plugins.email.notifications import (
+            notify,
+        )
 
         reason = str(exc).strip() or type(exc).__name__
         notify(
@@ -90,7 +92,7 @@ def _notify_deploy_failure(app: App, exc: BaseException) -> None:
         server_log.exception("deploy-failure notification errored", app_name=app.name)
 
 
-def _do_deploy(  # noqa: PLR0915
+def _do_deploy(  # ruff:ignore[too-many-statements]
     app: App,
     *,
     deltas: dict[str, int] | None = None,
@@ -119,7 +121,7 @@ def _do_deploy(  # noqa: PLR0915
     deltas = deltas or {}
 
     # Reset decision logger for this deployment
-    from hop3.lib.decision_log import (  # noqa: PLC0415
+    from hop3.lib.decision_log import (  # ruff:ignore[import-outside-top-level]
         flush_decision_logger,
         reset_decision_logger,
     )
@@ -709,7 +711,9 @@ def _diagnose_failure(app: App, log_lines: list[str]) -> None:
     # a failure for those would be a false positive.
     artifact_kind: str | None = None
     try:
-        from hop3.core.artifacts import BuildArtifact  # noqa: PLC0415
+        from hop3.core.artifacts import (
+            BuildArtifact,
+        )
 
         artifact = BuildArtifact.load(app.app_path / "BUILD_ARTIFACT.json")
         if artifact is not None:

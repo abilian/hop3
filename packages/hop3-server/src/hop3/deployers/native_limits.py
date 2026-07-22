@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM101, EM102
+# ruff:file-ignore[raise-vanilla-args, raw-string-in-exception, f-string-in-exception]
 # _NotEnforcedError is internal control flow: raised + caught within this module,
 # its message folded into the abort diagnosis. Inline messages read better here.
 

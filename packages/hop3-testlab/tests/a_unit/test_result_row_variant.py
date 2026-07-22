@@ -10,7 +10,9 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from hop3_testlab.web.controllers.runs import _result_row  # noqa: PLC2701
+from hop3_testlab.web.controllers.runs import (
+    _result_row,  # ruff:ignore[import-private-name]
+)
 
 
 def _rec(**kw) -> SimpleNamespace:

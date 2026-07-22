@@ -370,7 +370,10 @@ def _oom_kill_count(app: App) -> int | None:
     """
     if app.limits_enforced != "native":
         return None
-    from hop3.lib.rootd import LocalRootdClient, RootdError  # noqa: PLC0415
+    from hop3.lib.rootd import (  # ruff:ignore[import-outside-top-level]
+        LocalRootdClient,
+        RootdError,
+    )
 
     try:
         with LocalRootdClient() as client:
@@ -466,7 +469,7 @@ class PingCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "ping")
 
-    def call(self, *args):  # noqa: PLR0911 — each return is a distinct HTTP/network outcome (stopped, no-port, success, HTTPError, connection-refused, generic URLError, timeout) with its own formatted response; flattening would just rebuild the same shape with mutable bookkeeping.
+    def call(self, *args):  # ruff:ignore[too-many-return-statements] — each return is a distinct HTTP/network outcome (stopped, no-port, success, HTTPError, connection-refused, generic URLError, timeout) with its own formatted response; flattening would just rebuild the same shape with mutable bookkeeping.
         app_name, rest = _resolve_app(args, allow_extra=True)
         if not app_name:
             msg = "Usage: hop3 app ping [--app <app>] [path]"

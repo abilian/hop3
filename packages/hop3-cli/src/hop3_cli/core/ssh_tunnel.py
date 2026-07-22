@@ -162,7 +162,7 @@ class SshTunnel:
 
         # The sink outlives start() (it collects ssh's stderr for the tunnel's
         # whole life, read back on failure), so it can't be a `with` block.
-        self._stderr = tempfile.TemporaryFile()  # noqa: SIM115
+        self._stderr = tempfile.TemporaryFile()  # ruff:ignore[open-file-with-context-handler]
         try:
             self._proc = subprocess.Popen(
                 self._build_argv(target, local_port),

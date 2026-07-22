@@ -25,7 +25,7 @@ from hop3.lib.logging import server_log
 from hop3.orm import AddonCredential
 
 # Runtime imports for Dishka DI (not just type hints)
-from hop3.orm.repositories import (  # noqa: TC001
+from hop3.orm.repositories import (  # ruff:ignore[typing-only-first-party-import]
     AddonCredentialRepository,
     AppRepository,
     EnvVarRepository,

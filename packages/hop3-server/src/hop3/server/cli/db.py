@@ -50,9 +50,11 @@ def _orphan_db_revision(cfg) -> str | None:
     adoption): here the DB *is* stamped, just at a revision this code doesn't
     ship. Returns None when unstamped or when the revision is one we know.
     """
-    from alembic.runtime.migration import MigrationContext  # noqa: PLC0415
-    from alembic.script import ScriptDirectory  # noqa: PLC0415
-    from sqlalchemy import create_engine  # noqa: PLC0415
+    from alembic.runtime.migration import (
+        MigrationContext,
+    )
+    from alembic.script import ScriptDirectory  # ruff:ignore[import-outside-top-level]
+    from sqlalchemy import create_engine  # ruff:ignore[import-outside-top-level]
 
     engine = create_engine(_database_url())
     try:
@@ -105,9 +107,9 @@ def _database_url() -> str:
     adoption check below inspects the very database the migrations will run
     against.
     """
-    import os  # noqa: PLC0415
+    import os  # ruff:ignore[import-outside-top-level]
 
-    from hop3 import config as c  # noqa: PLC0415
+    from hop3 import config as c  # ruff:ignore[import-outside-top-level]
 
     return os.environ.get("HOP3_DATABASE_URI") or f"sqlite:///{c.HOP3_ROOT}/hop3.db"
 
@@ -132,10 +134,15 @@ def _adopt_unstamped_db(cfg) -> None:
     - unstamped + empty       -> create_all + stamp head (the initial
       migration is an empty placeholder, so it cannot build the schema)
     """
-    from alembic import command  # noqa: PLC0415
-    from alembic.runtime.migration import MigrationContext  # noqa: PLC0415
-    from alembic.script import ScriptDirectory  # noqa: PLC0415
-    from sqlalchemy import create_engine, inspect  # noqa: PLC0415
+    from alembic import command  # ruff:ignore[import-outside-top-level]
+    from alembic.runtime.migration import (
+        MigrationContext,
+    )
+    from alembic.script import ScriptDirectory  # ruff:ignore[import-outside-top-level]
+    from sqlalchemy import (  # ruff:ignore[import-outside-top-level]
+        create_engine,
+        inspect,
+    )
 
     engine = create_engine(_database_url())
     try:
@@ -157,7 +164,7 @@ def _adopt_unstamped_db(cfg) -> None:
         else:
             # Empty DB: the initial migration is an empty placeholder, so it
             # can't create the schema. Build it from the models and stamp head.
-            from hop3.orm.app import App  # noqa: PLC0415
+            from hop3.orm.app import App  # ruff:ignore[import-outside-top-level]
 
             print(
                 "Empty database: creating schema from models and stamping head.",
@@ -177,9 +184,9 @@ def _alembic_config():
     ``hop3`` package lives, the ``alembic.ini`` and ``alembic/`` directory
     ship alongside it.
     """
-    from alembic.config import Config  # noqa: PLC0415
+    from alembic.config import Config  # ruff:ignore[import-outside-top-level]
 
-    import hop3  # noqa: PLC0415
+    import hop3  # ruff:ignore[import-outside-top-level]
 
     pkg_root = Path(hop3.__file__).parent
     ini_path = pkg_root / "alembic.ini"
@@ -235,7 +242,7 @@ class DbUpgradeCmd(Command):
         )
 
     def run(self, revision: str = "head") -> None:
-        from alembic import command  # noqa: PLC0415
+        from alembic import command  # ruff:ignore[import-outside-top-level]
 
         cfg = _alembic_config()
         try:
@@ -281,7 +288,7 @@ class DbCurrentCmd(Command):
     name = "db:current"
 
     def run(self) -> None:
-        from alembic import command  # noqa: PLC0415
+        from alembic import command  # ruff:ignore[import-outside-top-level]
 
         cfg = _alembic_config()
         try:
@@ -319,7 +326,7 @@ class DbStampCmd(Command):
         )
 
     def run(self, revision: str) -> None:
-        from alembic import command  # noqa: PLC0415
+        from alembic import command  # ruff:ignore[import-outside-top-level]
 
         cfg = _alembic_config()
         try:

@@ -1,7 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: PLW0603
+# ruff:file-ignore[global-statement]
 # `_encryptor` is a deliberate lazy-init singleton; migration to a Dishka
 # provider is non-trivial because Hop3's commands resolve dataclass fields
 # via a hand-rolled REPOSITORY_TYPES table in controllers/rpc.py rather than

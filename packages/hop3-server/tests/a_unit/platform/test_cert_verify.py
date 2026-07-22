@@ -28,7 +28,7 @@ from hop3.platform.certificates import (
 class _FakeRootdClient:
     """Stub LocalRootdClient context manager recording the ops it's asked to run."""
 
-    calls: list[str] = []  # noqa: RUF012
+    calls: list[str] = []  # ruff:ignore[mutable-class-default]
 
     def __init__(self, *, fail: Exception | None = None):
         self.fail = fail

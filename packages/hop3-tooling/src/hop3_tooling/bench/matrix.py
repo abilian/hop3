@@ -83,7 +83,9 @@ _NOISE_RE = re.compile(
     r"Re-running|previously-failed|No failures recorded|Failed tests:|\b0 failed\b",
     re.IGNORECASE,
 )
-_FALLBACK_RE = re.compile(r"^.*(?:error|failed|timeout).*$", re.IGNORECASE | re.MULTILINE)
+_FALLBACK_RE = re.compile(
+    r"^.*(?:error|failed|timeout).*$", re.IGNORECASE | re.MULTILINE
+)
 _REASON_MAX = 200
 
 
@@ -265,9 +267,18 @@ def install_hop3(root: Path, ip: str) -> None:
     """Install Hop3 from local code onto the blank box, with OPERATOR_EMAIL set."""
     proc = _run(
         [
-            "uv", "run", "hop3-deploy-server",
-            "--host", ip, "--user", "root",
-            "--from", "local", "--clean", "--with", "all",
+            "uv",
+            "run",
+            "hop3-deploy-server",
+            "--host",
+            ip,
+            "--user",
+            "root",
+            "--from",
+            "local",
+            "--clean",
+            "--with",
+            "all",
         ],
         cwd=root,
     )

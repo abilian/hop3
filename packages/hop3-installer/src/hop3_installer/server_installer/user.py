@@ -7,7 +7,7 @@ from __future__ import annotations
 import grp
 import os
 import pwd
-import subprocess  # noqa: TC003
+import subprocess  # ruff:ignore[typing-only-standard-library-import]
 from pathlib import Path
 
 from hop3_installer.common import print_info, print_success, print_warning, run_cmd

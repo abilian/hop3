@@ -10,7 +10,6 @@ template = "python-venv"
 exec-target = "isso"
 runtime-package = "python3"
 exec-args = ['-c', 'isso-runtime.cfg']
-pip-packages = ['isso', 'gunicorn']
 extra-paths = ['$out/venv/bin']
 pre-exec = ['mkdir -p data']
 

@@ -25,9 +25,7 @@ node-deps-hash = "sha256-mAd6D1GHbNRHsQDbeOTdrou3CTdpacKYdCLfB0j6/Jk="
 node-lockfile = "pnpm-lock.yaml"
 node-manifest = "package.json"
 template = "node-pnpm-install"
-# Reuses nixpkgs-package as the npm package name (semantically
-# distinct but no reason to add another field).
-nixpkgs-package = "directus"
+npm-package = "directus"
 # Binary under node_modules/.bin/ — launched from the wrapper with
 # Node 22 on PATH.
 exec-target = "directus"
@@ -39,10 +37,6 @@ runtime-package = "nodejs_22"
 # node-gyp toolchain (reproducible: the compile lands at a deterministic
 # sandbox path).
 node-native-packages = ["isolated-vm"]
-# Additional npm packages alongside `directus`. Reuses the generic
-# `pip-packages` slot (language-agnostic extras list).
-pip-packages = ["pg@^8.11.0"]
-
 # Symlink the built tree into the wrapper's writable cwd so directus
 # finds node_modules/ at the expected relative path. Must happen
 # before the bootstrap step below (which writes migration state into

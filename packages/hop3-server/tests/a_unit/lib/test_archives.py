@@ -14,7 +14,7 @@ from __future__ import annotations
 import gzip
 import io
 import tarfile
-from pathlib import Path  # noqa: TC003
+from pathlib import Path  # ruff:ignore[typing-only-standard-library-import]
 from typing import TYPE_CHECKING
 
 import pytest

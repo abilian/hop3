@@ -11,17 +11,19 @@ reason — surfaced here, not buried in a log (v2 spec §3).
 
 from __future__ import annotations
 
-from dishka import FromDishka  # noqa: TC002 -- runtime: @inject resolves the annotation
+from dishka import (
+    FromDishka,  # ruff:ignore[typing-only-third-party-import] -- runtime: @inject resolves the annotation
+)
 from dishka.integrations.litestar import inject
 from litestar import Controller, get, post
 from litestar.params import (
-    FromPath,  # noqa: TC002 -- runtime: Litestar resolves the path annotation
+    FromPath,  # ruff:ignore[typing-only-third-party-import] -- runtime: Litestar resolves the path annotation
 )
 from litestar.response import Redirect, Template
 from litestar.status_codes import HTTP_303_SEE_OTHER
 
 from hop3_testlab.config import TestlabConfig
-from hop3_testlab.repositories import (  # noqa: TC001 -- runtime: @inject resolves them
+from hop3_testlab.repositories import (  # ruff:ignore[typing-only-first-party-import] -- runtime: @inject resolves them
     BuildQueueRepository,
     ProfilesRepository,
 )
@@ -51,7 +53,7 @@ class QueueController(Controller):
     """The build queue + cancel."""
 
     path = "/queue"
-    guards = [auth_guard]  # noqa: RUF012
+    guards = [auth_guard]  # ruff:ignore[mutable-class-default]
 
     @get("/")
     @inject

@@ -24,8 +24,10 @@ import logging
 
 
 def main() -> None:
-    import uvicorn  # noqa: PLC0415 — lazy: optional `waf` extra, subprocess-only
-    from lewaf.proxy.server import create_proxy_app  # noqa: PLC0415
+    import uvicorn  # ruff:ignore[import-outside-top-level] — lazy: optional `waf` extra, subprocess-only
+    from lewaf.proxy.server import (
+        create_proxy_app,
+    )
 
     parser = argparse.ArgumentParser(description="Hop3 LeWAF proxy launcher")
     parser.add_argument("--upstream", required=True)

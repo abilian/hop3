@@ -546,7 +546,7 @@ class TestRuntimeEnv:
     def test_get_runtime_env_reflects_attached_env_vars(self) -> None:
         # Drive get_runtime_env in isolation by populating the in-memory
         # env_vars relationship directly (no DB session needed).
-        from hop3.orm import EnvVar  # noqa: PLC0415
+        from hop3.orm import EnvVar  # ruff:ignore[import-outside-top-level]
 
         app = App(name="demo")
         app.env_vars.append(EnvVar(name="FOO", value="bar"))

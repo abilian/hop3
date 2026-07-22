@@ -7,7 +7,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime  # noqa: TC003 - Pydantic needs this at runtime
+from datetime import (
+    datetime,  # ruff:ignore[typing-only-standard-library-import] - Pydantic needs this at runtime
+)
 from enum import Enum
 
 from pydantic import BaseModel

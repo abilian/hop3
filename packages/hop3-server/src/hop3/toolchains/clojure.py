@@ -31,7 +31,7 @@ class ClojureToolchain(LanguageToolchain):
 
     name = "Clojure"
     # TODO
-    requirements = []  # noqa: RUF012
+    requirements = []  # ruff:ignore[mutable-class-default]
 
     def accept(self) -> bool:
         """Check if the object is a Leiningen app or a CLI Clojure app."""

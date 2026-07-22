@@ -189,7 +189,9 @@ class LocalBuilder:
         ]
 
         # Import decision logger
-        from hop3.lib.decision_log import get_decision_logger  # noqa: PLC0415
+        from hop3.lib.decision_log import (
+            get_decision_logger,
+        )
 
         decision_logger = get_decision_logger()
 

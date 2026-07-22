@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: PLW0603
+# ruff:file-ignore[global-statement]
 # `_service` is the singleton background worker; start/stop are called from
 # Litestar lifespan hooks (see asgi.py), mirroring cert_renewal_service.py.
 
@@ -98,7 +98,9 @@ class WafBansService:
         Public so it's testable without threading. Each app is committed
         independently so one broken app can't roll back or starve the others.
         """
-        from hop3.project.config import AppConfig  # noqa: PLC0415 - avoid import cycle
+        from hop3.project.config import (
+            AppConfig,
+        )
 
         active_total = 0
         with self.session_factory() as session:

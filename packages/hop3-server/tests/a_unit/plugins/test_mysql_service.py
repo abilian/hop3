@@ -47,7 +47,9 @@ def test_mysql_addon_requires_service_name():
 )
 def test_mysql_addon_rejects_unsafe_addon_name(bad_name):
     """addon_name flows into raw SQL identifier interpolation; reject anything unsafe."""
-    from hop3.core.identifiers import InvalidIdentifierError  # noqa: PLC0415
+    from hop3.core.identifiers import (
+        InvalidIdentifierError,
+    )
 
     with pytest.raises(InvalidIdentifierError):
         MySQLAddon(addon_name=bad_name)

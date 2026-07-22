@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM101, EM102, TC001, C901, PLR0912, PLR0915
+# ruff:file-ignore[raise-vanilla-args, raw-string-in-exception, f-string-in-exception, complex-structure, too-many-branches, too-many-statements]
+
 
 """php-app template.
 
@@ -21,7 +22,9 @@ Example apps: WordPress, Nextcloud, BookStack, Adminer, Kanboard.
 
 from __future__ import annotations
 
-from hop3.plugins.build.nix.gen.spec import AppSpec
+from dataclasses import replace
+
+from hop3.plugins.build.nix.gen.spec import AppSpec, PhpAppPayload
 from hop3.plugins.build.nix.gen.templates.base import (
     PINNED_NIXPKGS_HEADER,
     ReproTier,
@@ -45,11 +48,12 @@ class PhpAppTemplate:
     tier = ReproTier.SOURCE
 
     def generate(self, spec: AppSpec) -> str:
+        p = spec.payload_as(PhpAppPayload)
         binding = f"{spec.pname}-src"
         source_nix = spec.source.as_nix(binding)
 
         # PHP let-binding with extensions
-        php_binding = _format_php_binding(spec)
+        php_binding = _format_php_binding(p)
         composer_binding = ""  # buildComposerProject brings its own composer
 
         # Native build inputs. Composer apps are built by buildComposerProject
@@ -58,7 +62,7 @@ class PhpAppTemplate:
         native_inputs: list[str] = []
         if spec.source.needs_unzip:
             native_inputs.append("pkgs.unzip")
-        native_inputs.extend(spec.extra_native_build_inputs)
+        native_inputs.extend(p.extra_native_build_inputs)
 
         native_build_inputs = ""
         if native_inputs:
@@ -76,8 +80,8 @@ class PhpAppTemplate:
         no_chroot = ""
         build_phase = ""
         composer_project = ""
-        if spec.needs_composer:
-            if not spec.composer_deps_hash:
+        if p.needs_composer:
+            if not p.composer_deps_hash:
                 raise ValueError(_NO_COMPOSER_HASH.format(pname=spec.pname))
             source_root_attr = (
                 f'\n    sourceRoot = "{spec.source_root}";' if spec.source_root else ""
@@ -86,23 +90,23 @@ class PhpAppTemplate:
             # third-party release fails it for benign reasons.
             strict_attr = (
                 ""
-                if spec.composer_strict_validation
+                if p.composer_strict_validation
                 else "\n    composerStrictValidation = false;"
             )
             composer_project = f"""
   # Built from source, offline, inside the sandbox; result at
   # $out/share/php/{spec.pname}/.
-  composerProject = pkgs.{spec.php_version}.buildComposerProject {{
+  composerProject = pkgs.{p.php_version}.buildComposerProject {{
     pname = "{spec.pname}";
     inherit version;
     src = {binding};{source_root_attr}
-    vendorHash = "{spec.composer_deps_hash}";
+    vendorHash = "{p.composer_deps_hash}";
     composerNoDev = true;{strict_attr}
   }};
 """
 
         # Unpack phase
-        if spec.single_file or spec.needs_composer:
+        if p.single_file or p.needs_composer:
             # single-file: $src is the file itself. composer: buildComposerProject
             # already unpacked + built the source, so the wrapping derivation
             # only copies its output.
@@ -126,23 +130,23 @@ class PhpAppTemplate:
             "",
         ]
 
-        if spec.single_file:
+        if p.single_file:
             # For single-file PHP apps like adminer: the file is $src itself
             install_lines.append("      cp $src $out/app/index.php")
-        elif spec.needs_composer:
+        elif p.needs_composer:
             # The composer-built tree (source + vendor/ + optimized autoloader).
             install_lines.append(
                 f"      cp -r ${{composerProject}}/share/php/{spec.pname}/. $out/app/"
             )
             install_lines.append("      chmod -R u+w $out/app")
-        elif not spec.skip_source_copy:
+        elif not p.skip_source_copy:
             # If source_root is set, copy from that subdir (e.g., limesurvey's
             # zip contains a wrapper directory).
             copy_src = f"{spec.source_root}/." if spec.source_root else "."
             install_lines.append(f"      cp -r {copy_src} $out/app/")
 
-        if spec.post_install_dirs:
-            dirs = " ".join(f"$out/app/{d}" for d in spec.post_install_dirs)
+        if p.post_install_dirs:
+            dirs = " ".join(f"$out/app/{d}" for d in p.post_install_dirs)
             install_lines.append(f"      mkdir -p {dirs}")
 
         install_lines.append("")
@@ -160,7 +164,7 @@ class PhpAppTemplate:
         # silently replaced by the upstream default, and serve unconfigured.
         # Ordering now: copy tree -> render config -> pre-exec (install commands,
         # which legitimately depend on the config) -> exec.
-        if spec.needs_writable_dir:
+        if p.needs_writable_dir:
             # cp -a (not symlinks) because PHP's __DIR__ resolves symlinks, and
             # when it resolves back into the read-only Nix store, Laravel/PHP
             # can't find .env, write to storage/, etc. Disk cost ~50-200 MB/app.
@@ -171,13 +175,11 @@ class PhpAppTemplate:
                     "chmod -R u+w ."
                 )
             ]
-            if spec.post_install_dirs:
-                dirs = " ".join(spec.post_install_dirs)
+            if p.post_install_dirs:
+                dirs = " ".join(p.post_install_dirs)
                 prelude_parts.append(f"mkdir -p {dirs}")
             if spec.runtime_prelude:
                 prelude_parts.append(spec.runtime_prelude)
-
-            from dataclasses import replace  # noqa: PLC0415
 
             spec = replace(spec, runtime_prelude="\n\n".join(prelude_parts))
 
@@ -185,7 +187,7 @@ class PhpAppTemplate:
         # sed-replaced during the install phase — APPDIR → $out/app,
         # PHPBIN → ${{php}}/bin (the latter is Nix-interpolated to the
         # actual php store path before sed runs).
-        exec_line = _php_exec_line(spec)
+        exec_line = _php_exec_line(spec, p)
         wrapper_body = format_wrapper_body(spec, exec_line)
         wrapper_section = f"""      cat > $out/bin/{spec.pname} << 'WRAPPER'
 {wrapper_body}
@@ -255,17 +257,17 @@ in
 """
 
 
-def _format_php_binding(spec: AppSpec) -> str:
+def _format_php_binding(p: PhpAppPayload) -> str:
     """Emit the `php = pkgs.phpXX.withExtensions (...)` let-binding."""
-    exts = "\n".join(f"    all.{ext}" for ext in spec.php_extensions)
+    exts = "\n".join(f"    all.{ext}" for ext in p.php_extensions)
     if exts:
-        return f"""  php = pkgs.{spec.php_version}.withExtensions ({{ enabled, all }}: enabled ++ [
+        return f"""  php = pkgs.{p.php_version}.withExtensions ({{ enabled, all }}: enabled ++ [
 {exts}
   ]);"""
-    return f"  php = pkgs.{spec.php_version};"
+    return f"  php = pkgs.{p.php_version};"
 
 
-def _php_exec_line(spec: AppSpec) -> str:
+def _php_exec_line(spec: AppSpec, p: PhpAppPayload) -> str:
     """Generate the exec line for the wrapper based on serve_mode.
 
     Placeholders (sed-replaced in install phase):
@@ -278,20 +280,20 @@ def _php_exec_line(spec: AppSpec) -> str:
     """
     # When needs_writable_dir, serve from cwd (.) instead of APPDIR (Nix store).
     # The wrapper's pre_exec commands symlink app files to cwd first.
-    if spec.needs_writable_dir:
-        doc_root = f"./{spec.web_root}" if spec.web_root else "."
-    elif spec.web_root:
-        doc_root = f"APPDIR/{spec.web_root}"
+    if p.needs_writable_dir:
+        doc_root = f"./{p.web_root}" if p.web_root else "."
+    elif p.web_root:
+        doc_root = f"APPDIR/{p.web_root}"
     else:
         doc_root = "APPDIR"
 
-    if spec.serve_mode == "builtin":
+    if p.serve_mode == "builtin":
         return f"PHPBIN/php -S 0.0.0.0:${{PORT:-8080}} -t {doc_root}"
-    if spec.serve_mode == "artisan":
-        artisan = "./artisan" if spec.needs_writable_dir else "APPDIR/artisan"
+    if p.serve_mode == "artisan":
+        artisan = "./artisan" if p.needs_writable_dir else "APPDIR/artisan"
         return f"PHPBIN/php {artisan} serve --host=0.0.0.0 --port=${{PORT:-8080}}"
-    if spec.serve_mode == "custom":
+    if p.serve_mode == "custom":
         if spec.exec_target is None:
             raise ValueError("serve_mode='custom' requires exec_target")
         return spec.exec_target
-    raise ValueError(f"Unknown serve_mode: {spec.serve_mode}")
+    raise ValueError(f"Unknown serve_mode: {p.serve_mode}")

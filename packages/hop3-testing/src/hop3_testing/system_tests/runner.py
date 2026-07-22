@@ -290,7 +290,7 @@ class TestRunnerManager:
         finally:
             self._cleanup_target()
 
-    def _run_suite(self, suite_name: str) -> TestSuiteResult:  # noqa: PLR0915, C901, PLR0912
+    def _run_suite(self, suite_name: str) -> TestSuiteResult:  # ruff:ignore[too-many-statements, complex-structure, too-many-branches]
         """Execute a single test suite.
 
         Args:
@@ -519,8 +519,8 @@ class TestRunnerManager:
             # This makes the hop3 CLI use ssh:// URL instead of http:// with JWT
             # SSH tunnel provides implicit authentication via SSH keys
             # This is exactly how a real user would interact with hop3
-            if self._target._info:  # noqa: SLF001
-                self._target._info = replace(self._target._info, api_url="")  # noqa: SLF001
+            if self._target._info:  # ruff:ignore[private-member-access]
+                self._target._info = replace(self._target._info, api_url="")  # ruff:ignore[private-member-access]
 
             self.console.print("  [green]Connected (SSH authentication)[/green]")
 
@@ -551,7 +551,7 @@ class TestRunnerManager:
         if not self.logs_dir:
             return
 
-        try:  # noqa: PLW0717 — best-effort diagnostic collector called from a `finally` elsewhere: by design it catches *anything* the SSH/file ops throw and prints a warning. Narrowing the try would let an exception abort log collection partway and lose the rest of the diagnostics.
+        try:  # ruff:ignore[too-many-statements-in-try-clause] — best-effort diagnostic collector called from a `finally` elsewhere: by design it catches *anything* the SSH/file ops throw and prints a warning. Narrowing the try would let an exception abort log collection partway and lose the rest of the diagnostics.
             # Ensure SSH connection
             if not self._ssh_conn:
                 info = SSHConnectionInfo(host=self.host, user="root")

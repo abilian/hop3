@@ -18,6 +18,7 @@ from hop3.plugins.build.nix.gen.spec import (
     AppSpec,
     ConditionalEnvVar,
     ConfigFile,
+    PrebuiltBinaryPayload,
     Source,
 )
 from hop3.plugins.build.nix.gen.templates.base import (
@@ -30,6 +31,8 @@ from hop3.plugins.build.nix.gen.templates.base import (
     format_runtime_env_json,
     format_wrapper_body,
 )
+
+from .conftest import spec_for
 
 # --- format_local_vars ---
 
@@ -65,12 +68,11 @@ def _make_spec(**kwargs) -> AppSpec:
         "pname": "test",
         "version": "1.0",
         "description": "test",
-        "template": "prebuilt-binary",
         "binary_name": "test",
         "source": Source(url="x", sha256="x", executable=True),
     }
     defaults.update(kwargs)
-    return AppSpec(**defaults)
+    return spec_for(PrebuiltBinaryPayload, **defaults)
 
 
 def test_env_exports_empty():

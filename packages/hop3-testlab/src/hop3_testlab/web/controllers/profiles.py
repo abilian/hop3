@@ -13,7 +13,9 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from dishka import FromDishka  # noqa: TC002 -- runtime: @inject resolves the annotation
+from dishka import (
+    FromDishka,  # ruff:ignore[typing-only-third-party-import] -- runtime: @inject resolves the annotation
+)
 from dishka.integrations.litestar import inject
 from hop3_testing.selector.modes import list_modes
 from litestar import Controller, get, post
@@ -23,7 +25,7 @@ from litestar.params import Body, FromPath
 from litestar.response import Redirect, Template
 from litestar.status_codes import HTTP_303_SEE_OTHER
 
-from hop3_testlab.repositories import (  # noqa: TC001 -- runtime: @inject resolves them
+from hop3_testlab.repositories import (  # ruff:ignore[typing-only-first-party-import] -- runtime: @inject resolves them
     BuildQueueRepository,
     ProfilesRepository,
 )
@@ -140,7 +142,7 @@ class ProfilesController(Controller):
     """Build profiles: list / view / create / edit / duplicate / start / delete."""
 
     path = "/profiles"
-    guards = [auth_guard]  # noqa: RUF012
+    guards = [auth_guard]  # ruff:ignore[mutable-class-default]
 
     @get("/")
     @inject

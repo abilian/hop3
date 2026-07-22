@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM102, TC001
+# ruff:file-ignore[raise-vanilla-args, f-string-in-exception, typing-only-first-party-import]
 
 """Template protocol and shared helpers used by all templates."""
 

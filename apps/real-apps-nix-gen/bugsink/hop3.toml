@@ -27,11 +27,6 @@ exec-args = [
 # absent from the Nix-built Python venv; the pure-Python build loads
 # libpq.so.5 / libkrb5 / libstdc++.so.6 dynamically at runtime via the
 # LD_LIBRARY_PATH emitted below from nix-runtime-libs.
-pip-packages = [
-    'bugsink==2.1.2',
-    'gunicorn>=21.0',
-    'psycopg>=3.1',
-]
 extra-paths = ['$out/venv/bin']
 
 # DEFERRED-APPS blocker #2 resolution: the python-venv template now

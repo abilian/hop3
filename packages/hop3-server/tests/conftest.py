@@ -25,7 +25,7 @@ from hop3_testing.targets.helpers import find_project_root
 from hop3.orm import reset_session_factory_cache
 
 # Import fixtures from di_fixtures.py to make them available to all tests
-from .di_fixtures import di_container  # noqa: F401
+from .di_fixtures import di_container  # ruff:ignore[unused-import]
 
 # Provide a stable session secret so create_app() doesn't warn about a generated
 # key during tests. The warning (asgi.py) is a production-only concern; tests
@@ -45,7 +45,7 @@ def _fast_bcrypt(monkeypatch):
     auth/user/admin integration suite. ``checkpw`` reads the cost from the hash,
     so verification is unaffected.
     """
-    import bcrypt  # noqa: PLC0415 - localized to this perf fixture
+    import bcrypt  # ruff:ignore[import-outside-top-level] - localized to this perf fixture
 
     original_gensalt = bcrypt.gensalt
     monkeypatch.setattr(

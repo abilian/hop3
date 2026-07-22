@@ -16,13 +16,15 @@ import time
 from datetime import timezone
 from typing import TYPE_CHECKING
 
-from dishka import FromDishka  # noqa: TC002 -- runtime: @inject resolves the annotation
+from dishka import (
+    FromDishka,  # ruff:ignore[typing-only-third-party-import] -- runtime: @inject resolves the annotation
+)
 from dishka.integrations.litestar import inject
 from litestar import Controller, get, post
 from litestar.response import Template
 
 from hop3_testlab.repositories import (
-    RunsRepository,  # noqa: TC001 -- runtime: @inject resolves it
+    RunsRepository,  # ruff:ignore[typing-only-first-party-import] -- runtime: @inject resolves it
 )
 from hop3_testlab.trends import predict_progress
 from hop3_testlab.web.guards import auth_guard
@@ -125,7 +127,7 @@ class RunningController(Controller):
     """The live current-run panel (HTMX-polled) and its stop control."""
 
     path = "/running"
-    guards = [auth_guard]  # noqa: RUF012
+    guards = [auth_guard]  # ruff:ignore[mutable-class-default]
 
     @get("/")
     @inject

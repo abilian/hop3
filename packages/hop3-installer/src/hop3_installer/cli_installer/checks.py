@@ -22,7 +22,7 @@ from .config import CLIInstallerConfig
 def check_venv() -> bool:
     """Check if venv module is available."""
     try:
-        import venv  # noqa: F401, PLC0415
+        import venv  # ruff:ignore[unused-import, import-outside-top-level]
 
         return True
     except ImportError:

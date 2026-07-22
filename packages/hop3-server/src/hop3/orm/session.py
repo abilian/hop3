@@ -133,7 +133,9 @@ def get_session_factory(database_uri: str = "") -> sessionmaker:
     # current = head schema). An EXISTING database is left untouched: an
     # unstamped/pre-Alembic one is adopted later, safely, by `db:upgrade`.
     with engine.begin() as conn:
-        from sqlalchemy import inspect as sa_inspect  # noqa: PLC0415
+        from sqlalchemy import (
+            inspect as sa_inspect,
+        )
 
         if not sa_inspect(conn).has_table("app"):
             BigIntAuditBase.metadata.create_all(conn)
@@ -159,7 +161,7 @@ def _bootstrap_alembic_config(database_uri: str) -> AlembicConfig | None:
     can't be found, so a fresh DB still gets its schema via create_all even
     when Alembic isn't packaged alongside (e.g. odd test layouts).
     """
-    import hop3  # noqa: PLC0415
+    import hop3  # ruff:ignore[import-outside-top-level]
 
     ini_path = Path(hop3.__file__).parent / "alembic.ini"
     if not ini_path.exists():

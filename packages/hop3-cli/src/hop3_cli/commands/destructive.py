@@ -108,7 +108,7 @@ def _resolve_target_name(command: tuple[str, ...], args: list[str]) -> str | Non
     return _first_positional(args)
 
 
-def confirm_destructive_action(  # noqa: PLR0911 — sequential decision tree, each return is a distinct escape hatch (no-match, missing-args, --confirm, --no-input, …) with its own side effects; flattening into a result var would obscure the safety story.
+def confirm_destructive_action(  # ruff:ignore[too-many-return-statements] — sequential decision tree, each return is a distinct escape hatch (no-match, missing-args, --confirm, --no-input, …) with its own side effects; flattening into a result var would obscure the safety story.
     cli_args: list[str],
     printer: RichPrinter,
     config: Config | None = None,

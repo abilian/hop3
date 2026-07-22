@@ -81,6 +81,6 @@ def handle_aliases(args: list[str], config: Config, printer: RichPrinter) -> Non
 
 
 def _show_help() -> None:
-    from .help_text import ALIASES_HELP  # noqa: PLC0415
+    from .help_text import ALIASES_HELP  # ruff:ignore[import-outside-top-level]
 
     print(ALIASES_HELP)

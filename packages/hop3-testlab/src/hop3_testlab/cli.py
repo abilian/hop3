@@ -95,8 +95,12 @@ def main() -> None:
     elif args.command == "logs":
         _logs(follow=args.follow, lines=args.lines)
     elif args.command == "schedule":
-        from hop3_testlab.cloud_config import load_schedule  # noqa: PLC0415
-        from hop3_testlab.scheduler import run_blocking  # noqa: PLC0415
+        from hop3_testlab.cloud_config import (
+            load_schedule,
+        )
+        from hop3_testlab.scheduler import (
+            run_blocking,
+        )
 
         s = load_schedule()
         profile = s.profile or "(no profile configured — idle)"
@@ -109,15 +113,20 @@ def main() -> None:
 def _run(args: argparse.Namespace) -> None:
     """Dispatch the ``run`` subcommand: a composition run (``--source-ref``) or a
     local run (the selector, if any, resolved against the local checkout)."""
-    from hop3_testlab.worker import RunSpec, run_once  # noqa: PLC0415
+    from hop3_testlab.worker import (  # ruff:ignore[import-outside-top-level]
+        RunSpec,
+        run_once,
+    )
 
     source = None
     apps = None
     selector = None
     if args.source_ref:
-        from hop3_testing.targets.helpers import find_project_root  # noqa: PLC0415
+        from hop3_testing.targets.helpers import (
+            find_project_root,
+        )
 
-        from hop3_testlab.sources import Source  # noqa: PLC0415
+        from hop3_testlab.sources import Source  # ruff:ignore[import-outside-top-level]
 
         url = args.source_url or str(find_project_root())
         source = Source(args.source_name, url)
@@ -125,9 +134,13 @@ def _run(args: argparse.Namespace) -> None:
     elif args.selector:
         # No source -> a local run: resolve the selector against the local checkout
         # now (fail loud if it matches nothing rather than silently run the suite).
-        from hop3_testing.targets.helpers import find_project_root  # noqa: PLC0415
+        from hop3_testing.targets.helpers import (
+            find_project_root,
+        )
 
-        from hop3_testlab.catalog import resolve_selector  # noqa: PLC0415
+        from hop3_testlab.catalog import (
+            resolve_selector,
+        )
 
         apps = resolve_selector(find_project_root(), args.selector)
         if not apps:
@@ -163,7 +176,7 @@ def _logs(*, follow: bool, lines: int) -> None:
     never reaches the console it was launched from; this surfaces it (``-f`` to
     watch a run live).
     """
-    import subprocess  # noqa: PLC0415
+    import subprocess  # ruff:ignore[import-outside-top-level]
 
     latest = _latest_log(LOG_DIR)
     if latest is None:
@@ -175,10 +188,16 @@ def _logs(*, follow: bool, lines: int) -> None:
 
 
 def _prune(keep: int | None) -> None:
-    from hop3_testing.results import ResultStore  # noqa: PLC0415
+    from hop3_testing.results import (
+        ResultStore,
+    )
 
-    from hop3_testlab.cloud_config import load_retention  # noqa: PLC0415
-    from hop3_testlab.config import TestlabConfig  # noqa: PLC0415
+    from hop3_testlab.cloud_config import (
+        load_retention,
+    )
+    from hop3_testlab.config import (
+        TestlabConfig,
+    )
 
     keep_runs = keep if keep is not None else load_retention()
     store = ResultStore(db_path=TestlabConfig.get_instance().STORE_TARGET)
@@ -187,7 +206,9 @@ def _prune(keep: int | None) -> None:
 
 
 def _show_config() -> None:
-    from hop3_testlab.cloud_config import load_cloud_config  # noqa: PLC0415
+    from hop3_testlab.cloud_config import (
+        load_cloud_config,
+    )
 
     cfg = load_cloud_config()
     token = cfg.hetzner_token
@@ -202,8 +223,8 @@ def _show_config() -> None:
 
 
 def _serve(host: str, port: int, *, reload: bool = False) -> None:
-    import granian  # noqa: PLC0415
-    from granian.constants import Interfaces  # noqa: PLC0415
+    import granian  # ruff:ignore[import-outside-top-level]
+    from granian.constants import Interfaces  # ruff:ignore[import-outside-top-level]
 
     granian.Granian(
         target="hop3_testlab.web.asgi:create_app",

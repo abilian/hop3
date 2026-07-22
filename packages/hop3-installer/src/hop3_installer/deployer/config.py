@@ -193,7 +193,10 @@ class DeployConfig:
         Returns:
             True if any source module is newer than the bundle.
         """
-        from hop3_installer.bundler import SERVER_MODULES, SRC_DIR  # noqa: PLC0415
+        from hop3_installer.bundler import (  # ruff:ignore[import-outside-top-level]
+            SERVER_MODULES,
+            SRC_DIR,
+        )
 
         bundle_mtime = bundle_path.stat().st_mtime
 
@@ -207,7 +210,9 @@ class DeployConfig:
 
     def _generate_bundled_installer(self, output_path: Path) -> None:
         """Generate the bundled installer using the bundler."""
-        from hop3_installer.bundler import bundle_installer  # noqa: PLC0415
+        from hop3_installer.bundler import (
+            bundle_installer,
+        )
 
         # Ensure dist directory exists
         output_path.parent.mkdir(parents=True, exist_ok=True)

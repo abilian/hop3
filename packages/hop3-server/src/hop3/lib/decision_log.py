@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: PLW0603
+# ruff:file-ignore[global-statement]
 # `_current_logger` is per-deployment state. A scoped Dishka provider
 # could express it, but the existing deploy() flow doesn't carry a
 # container — passing the logger through DeploymentContext is simpler

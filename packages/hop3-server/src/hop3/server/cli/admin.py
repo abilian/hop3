@@ -270,7 +270,7 @@ class AdminSshToken(Command):
     name = "admin:ssh-token"
 
     def run(self) -> None:
-        import secrets  # noqa: PLC0415
+        import secrets  # ruff:ignore[import-outside-top-level]
 
         with get_session() as db_session:
             user_repo = UserRepository(session=db_session)
@@ -338,7 +338,7 @@ class AdminSshToken(Command):
         user_repo.add(user, auto_commit=True)
 
         # Log to stderr so it doesn't interfere with token output
-        import sys  # noqa: PLC0415
+        import sys  # ruff:ignore[import-outside-top-level]
 
         print("Created default admin user 'admin'", file=sys.stderr)
 
@@ -456,7 +456,7 @@ class AuthMagicLink(Command):
             # dashboard there), emit the full URL — only the server knows its
             # own scheme/host. Without a domain, print the bare token and let
             # the CLI point at the app's HTTP port directly.
-            from hop3.config import config  # noqa: PLC0415
+            from hop3.config import config  # ruff:ignore[import-outside-top-level]
 
             if config.ADMIN_DOMAIN:
                 print(f"https://{config.ADMIN_DOMAIN}/auth/magic/{token}")

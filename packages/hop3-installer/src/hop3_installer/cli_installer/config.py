@@ -5,7 +5,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path  # noqa: TC003 - needed at runtime for bundled installer
+from pathlib import (
+    Path,  # ruff:ignore[typing-only-standard-library-import] - needed at runtime for bundled installer
+)
 
 from hop3_installer.common import env_bool, env_path, env_str
 from hop3_installer.constants import (

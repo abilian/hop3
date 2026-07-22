@@ -50,8 +50,8 @@ def _app(session: Session, name: str) -> App:
 class _FakeRootd:
     """Context-manager rootd client recording add/remove calls."""
 
-    added: list[int] = []  # noqa: RUF012
-    removed: list[str] = []  # noqa: RUF012
+    added: list[int] = []  # ruff:ignore[mutable-class-default]
+    removed: list[str] = []  # ruff:ignore[mutable-class-default]
 
     def __enter__(self):
         return self
@@ -299,8 +299,8 @@ def _cfg_src(number: int, protocol: str, source: str):
 class _RecordingRootd:
     """rootd fake that captures the full add_rule args (not just the port)."""
 
-    add_args: list[dict] = []  # noqa: RUF012
-    removed: list[str] = []  # noqa: RUF012
+    add_args: list[dict] = []  # ruff:ignore[mutable-class-default]
+    removed: list[str] = []  # ruff:ignore[mutable-class-default]
 
     def __enter__(self):
         return self

@@ -8,16 +8,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from dishka import FromDishka  # noqa: TC002 -- runtime: @inject resolves the annotation
+from dishka import (
+    FromDishka,  # ruff:ignore[typing-only-third-party-import] -- runtime: @inject resolves the annotation
+)
 from dishka.integrations.litestar import inject
 from litestar import Controller, get
 from litestar.exceptions import NotFoundException
-from litestar.params import FromPath  # noqa: TC002 -- runtime: Litestar resolves it
+from litestar.params import (
+    FromPath,  # ruff:ignore[typing-only-third-party-import] -- runtime: Litestar resolves it
+)
 from litestar.response import Template
 
 from hop3_testlab.bundles import read_bundle_sections
 from hop3_testlab.repositories import (
-    RunsRepository,  # noqa: TC001 -- runtime: @inject resolves it
+    RunsRepository,  # ruff:ignore[typing-only-first-party-import] -- runtime: @inject resolves it
 )
 from hop3_testlab.web.guards import auth_guard
 
@@ -26,7 +30,7 @@ class BundleController(Controller):
     """The diagnostic bundle for one failed test (build/app/nginx/journal/...)."""
 
     path = "/bundle"
-    guards = [auth_guard]  # noqa: RUF012
+    guards = [auth_guard]  # ruff:ignore[mutable-class-default]
 
     @get("/{bundle_run_id:str}")
     @inject

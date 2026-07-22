@@ -101,7 +101,9 @@ class Config:
         if os.environ.get("HOP3_API_TOKEN"):
             return True
 
-        from hop3_cli.core import credential_store  # noqa: PLC0415
+        from hop3_cli.core import (
+            credential_store,
+        )
 
         server = self._resolve_token_server()
         if server and credential_store.get_token(server):
@@ -165,7 +167,9 @@ class Config:
         if env_token:
             return env_token
 
-        from hop3_cli.core import credential_store  # noqa: PLC0415
+        from hop3_cli.core import (
+            credential_store,
+        )
 
         server = self._resolve_token_server()
         if server:
@@ -290,7 +294,7 @@ class Config:
         # final os.replace is atomic — same filesystem guaranteed).
         # NamedTemporaryFile + delete=False keeps the file readable on
         # the rename target path even if we crash before chmod runs.
-        import tempfile  # noqa: PLC0415
+        import tempfile  # ruff:ignore[import-outside-top-level]
 
         fd, tmp_path = tempfile.mkstemp(
             prefix=".config.toml.",
@@ -489,7 +493,9 @@ class Config:
         other project-less commands). config.toml never holds a token. Pass an
         empty string to remove the token (logout).
         """
-        from hop3_cli.core import credential_store  # noqa: PLC0415
+        from hop3_cli.core import (
+            credential_store,
+        )
 
         server = self._resolve_token_server()
         if not server:

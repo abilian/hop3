@@ -109,7 +109,7 @@ class CliFlags:
         return self.verbosity >= 3
 
 
-def _parse_verbosity_flag(arg: str, current: int) -> int | None:  # noqa: PLR0911 — mix of exact matches (--debug/--verbose/--quiet) and pattern matches (-v*/-d*/-q* with length-dependent verbosity); a unified table would have to encode the per-prefix length-to-level math and would read worse than the straight-line cascade.
+def _parse_verbosity_flag(arg: str, current: int) -> int | None:  # ruff:ignore[too-many-return-statements] — mix of exact matches (--debug/--verbose/--quiet) and pattern matches (-v*/-d*/-q* with length-dependent verbosity); a unified table would have to encode the per-prefix length-to-level math and would read worse than the straight-line cascade.
     """Parse a verbosity-related flag; return the new verbosity or None if not one."""
     if arg == "--debug":
         return 3

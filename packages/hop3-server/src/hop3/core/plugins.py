@@ -1,6 +1,6 @@
 # Copyright (c) 2025, Abilian SAS
 
-# ruff: noqa: PLW0603
+# ruff:file-ignore[global-statement]
 # `_plugin_manager` is bootstrap state for the Dishka container itself
 # (di/container.py calls get_plugin_manager() to *discover* providers, so
 # the PluginManager has to exist before the container can be built).
@@ -267,7 +267,9 @@ def get_deployer(context: DeploymentContext, artifact: BuildArtifact) -> Deploye
     ]
 
     # Import decision logger
-    from hop3.lib.decision_log import get_decision_logger  # noqa: PLC0415
+    from hop3.lib.decision_log import (
+        get_decision_logger,
+    )
 
     decision_logger = get_decision_logger()
 
@@ -545,7 +547,7 @@ def get_proxy_strategy(app, env, workers: dict[str, str]) -> Proxy:
         RuntimeError: If the configured proxy type is not found
     """
     # Import here to avoid circular dependency
-    from hop3.config import HOP3_PROXY_TYPE  # noqa: PLC0415
+    from hop3.config import HOP3_PROXY_TYPE  # ruff:ignore[import-outside-top-level]
 
     pm = get_plugin_manager()
 

@@ -130,10 +130,12 @@ class GitHookCmd(Command):
         parser.add_argument("app_name", type=str, help="Name of the app to deploy")
 
     def run(self, app_name: str) -> None:
-        import subprocess  # noqa: PLC0415
+        import subprocess  # ruff:ignore[import-outside-top-level]
 
-        from hop3.deployers import do_deploy  # noqa: PLC0415
-        from hop3.lib.archives import extract_archive_to_dir  # noqa: PLC0415
+        from hop3.deployers import do_deploy  # ruff:ignore[import-outside-top-level]
+        from hop3.lib.archives import (
+            extract_archive_to_dir,
+        )
 
         session_factory = get_session_factory()
         with session_factory() as session:

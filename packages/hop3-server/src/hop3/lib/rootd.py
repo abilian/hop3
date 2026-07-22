@@ -1,7 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM101, EM102, SIM105, TC003
+# ruff:file-ignore[raise-vanilla-args, raw-string-in-exception, f-string-in-exception, suppressible-exception, typing-only-standard-library-import]
 
 """Client for the hop3-rootd Unix socket.
 
