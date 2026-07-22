@@ -103,6 +103,18 @@ Every generated expression pins nixpkgs to a commit, and an application may over
 
 That last property turns a pin bump into a *measurement*. A bump can invalidate an unbounded number of vendored dependency hashes at once, and it can remove attributes an application depends on. Both outcomes are expected, both are distinguishable by the classification above, and the resulting per-application disposition is the artefact: it says what the pin costs before anyone commits to paying it.
 
+Measuring it first matters because the pin is a shared resource and a bump is close to all-or-nothing. The corpus builds against one revision, so the revision cannot move until every recipe builds against the candidate, and a single blocked application withholds the security updates of all the others. The per-application override is the pressure valve, and it relieves pressure by fragmenting: an application parked on its own revision is an application whose nixpkgs must be maintained separately from the rest. Used deliberately for a package the default predates, that is a reasonable exception. Used to route around a bump, it converts one revision to maintain into several.
+
+This is the trade the Nix path makes, and it is worth stating plainly rather than discovering during an upgrade. Integration work that a distribution performs once on behalf of all its users moves to whoever owns the pin. Tier 1 hands that work back to nixpkgs, which is the substantive reason it outranks Tier 2 despite both being auditable.
+
+### What the seal covers
+
+The sandbox fixes a build's *inputs*: the source archive, the dependency set, the toolchain, each by hash. It does not fix how the tools consuming those inputs behave. One recipe in the corpus makes the distinction concrete. Its vendored dependency set hashed identically under two nixpkgs revisions, and its package manager was the same version in both, yet the installed tree differed, because the surrounding standard environment had changed. The newer environment also carried a check that declined to ship the result, so the difference surfaced at build time instead of at runtime.
+
+Two things follow. Identical inputs are necessary for a reproducible build without being sufficient, which is why determinism is established by rebuilding and comparing rather than by reasoning over input hashes. And a pin bump can change a build's output while changing none of its pinned inputs, so its cost is measured per application rather than inferred.
+
+This also explains why the classification's catch-all category earns its place. A newer standard environment can introduce a check no recipe previously had to satisfy, and such a failure resembles neither a stale hash nor a missing attribute. Routing it to "read the log" is the correct disposition, since the remedy is specific to whatever the new check found.
+
 ## Alternatives considered
 
 **A single flat claim ("Hop3 builds are reproducible").** Shorter, and unfalsifiable. It would also have to be withdrawn the first time someone examined a Tier-3 wrapper and found an upstream binary nobody can audit. A claim that cannot survive its own audit is worth less than a narrower one that can.
@@ -120,5 +132,5 @@ That last property turns a pin bump into a *measurement*. A bump can invalidate 
 - **The claim is checkable by a third party**, from a checkout and a Nix installation, without access to our infrastructure. Precision is the point of stating it at all.
 - **The tiers rank provenance, and only provenance.** All three rebuild identically, so determinism separates none of them; reporting it as though it did would overstate what the top tier buys.
 - **A tier is not a promise the application runs.** The gate's second half exists because bit-identical rebuilds have repeatedly coexisted with broken boots.
-- **Reproducibility is relative to a pin, an architecture, and upstream still serving the bytes.** Each is stated explicitly, because each has failed in practice.
+- **Reproducibility is relative to a pin, an architecture, and upstream still serving the bytes.** Each is stated explicitly, because each has failed in practice. The pin carries a recurring cost as well as a caveat: moving it is a fleet-wide operation gated on the slowest recipe, and it recurs on the upstream release cadence.
 - **The model constrains the templates.** A new template must vendor its ecosystem's dependency set into a fixed-output derivation and build offline; otherwise it does not qualify for Tier 2 and must say so.
