@@ -23,7 +23,7 @@ The two application shapes call for two outputs: a **rendered file on disk** (fi
 
 Config injection happens in the **`before-run` lifecycle hook** ([ADR 002](./002-config-format.md), §`[run]`). It already runs in the app's environment (addon credentials, generated secrets, and computed variables all present) before workers start, on every builder, and several packaged apps already wire their database this way. A `before-run` script renders any config file or runs any setup command the app needs: the shell's own `${VAR}` / `${VAR:-default}` expansion (or `envsubst`) does the substitution, and the script author controls per-format quoting directly. No new platform mechanism is required to wire the config-file and DB apps: the imperative path is the baseline, and it works today.
 
-What the platform owns here is not a rendering engine but a small set of **conventions** that keep these scripts from repeating the failures the bespoke ones make today (documented in the packaging guide):
+The platform's job here is to define a small set of **conventions** that keep these scripts from repeating the failures the bespoke ones make today (documented in the packaging guide):
 
 - **Never hardcode a feature off.** A generated config that pins `MAIL_MAILER=log` or `MAILER_ENABLED=false` shadows the injected value and silently disables mail; default *through* the injected value (`MAIL_MAILER=${MAIL_MAILER:-log}`) so an attached addon or an `[env]` remap wins.
 - **Keep secrets out of argv.** A setup command that interpolates a secret into a shell word (`occ … --value=$SMTP_PASSWORD`) leaks it to the process list; pass the env-var *name* (`--password-from-env`) or feed it on stdin.
@@ -34,7 +34,7 @@ These conventions are the immediate, low-cost answer for the config-file/DB apps
 
 ### Optional, deferred: a declarative layer
 
-A declarative form would lift the same wiring out of per-app shell into platform-visible, schema-validated declarations that apply those conventions *by construction*: fail-loud, secret redaction, idempotency, and safe file permissions that no app then reinvents. It is a **nice-to-have, not a prerequisite**, and it earns its keep only if the per-app scripts become a maintenance burden or the conventions are repeatedly violated. It is recorded here, settled, so the design is ready if that time comes. If built, it is two all-builder `hop3.toml` sections the platform resolves from the injected environment (mirroring `[limits]` / `[[volumes]]`, [ADR 046](./046-declarative-app-resources.md)):
+A declarative form would lift the same wiring out of per-app shell into platform-visible, schema-validated declarations that apply those conventions *by construction*: fail-loud, secret redaction, idempotency, and safe file permissions that no app then reinvents. It is a **nice-to-have** only: worthwhile if the per-app scripts become a maintenance burden or the conventions are repeatedly violated. It is recorded here, settled, so the design is ready if that time comes. If built, it is two all-builder `hop3.toml` sections the platform resolves from the injected environment (mirroring `[limits]` / `[[volumes]]`, [ADR 046](./046-declarative-app-resources.md)):
 
 #### `[[config-files]]`: render a config file
 

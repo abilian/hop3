@@ -40,6 +40,7 @@ The project is hosted on [SourceHut](https://git.sr.ht/~sfermigier/hop3) and [Gi
   * [Authors](#authors)
   * [Licensing / REUSE Compliance](#licensing--reuse-compliance)
   * [Funding](#funding)
+  * [GenAI usage](#genai-usage)
 - [What's the story behind the name?](#whats-the-story-behind-the-name)
 - [Links / References](#links--references)
 
