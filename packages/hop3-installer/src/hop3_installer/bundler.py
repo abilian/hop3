@@ -300,7 +300,7 @@ def _top_level_names(code: str) -> list[str]:
     Parses with ``ast``; on syntax error returns an empty list (the
     bundler will fail later with a clearer error).
     """
-    import ast  # noqa: PLC0415
+    import ast  # ruff:ignore[import-outside-top-level]
 
     try:
         tree = ast.parse(code)
@@ -341,7 +341,7 @@ def _collect_import_statements(source: str) -> set[str]:
     Relative imports and ``__future__`` are skipped: relative code is inlined,
     and ``from __future__ import annotations`` already lives in the header.
     """
-    import ast  # noqa: PLC0415
+    import ast  # ruff:ignore[import-outside-top-level]
 
     try:
         tree = ast.parse(source)

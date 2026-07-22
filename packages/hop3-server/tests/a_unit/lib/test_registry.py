@@ -54,7 +54,7 @@ class TestMetadata:
         metadata = Metadata()
 
         with pytest.raises(AttributeError):
-            setattr(metadata, "name", "changed")  # noqa: B010
+            setattr(metadata, "name", "changed")  # ruff:ignore[set-attr-with-constant]
 
 
 class Animal:

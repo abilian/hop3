@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: PLW0603
+# ruff:file-ignore[global-statement]
 # `_service` is the singleton background worker; start/stop are called from
 # Litestar lifespan hooks (see asgi.py), mirroring state_sync.py / cert_renewal.
 

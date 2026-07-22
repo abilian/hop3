@@ -89,7 +89,7 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
         config.use_local_code = True
         d = _make_deployer(config, backend)
         # Stub the upload to succeed without touching the network
-        setattr(d.backend, "upload_dir", MagicMock(return_value=True))  # noqa: B010
+        setattr(d.backend, "upload_dir", MagicMock(return_value=True))  # ruff:ignore[set-attr-with-constant]
 
         assert d._update_local_code() is True
         ordered = self._ordered_calls(backend)
@@ -118,12 +118,12 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
         d = _make_deployer(config, backend)
 
         # Stub out the upload + version-check shell-outs in _install_features
-        setattr(d.backend, "upload_file", MagicMock(return_value=True))  # noqa: B010
-        setattr(d.backend, "run_streaming", MagicMock(return_value=0))  # noqa: B010
-        setattr(d, "_ensure_python310_plus", MagicMock(return_value="python3"))  # noqa: B010
+        setattr(d.backend, "upload_file", MagicMock(return_value=True))  # ruff:ignore[set-attr-with-constant]
+        setattr(d.backend, "run_streaming", MagicMock(return_value=0))  # ruff:ignore[set-attr-with-constant]
+        setattr(d, "_ensure_python310_plus", MagicMock(return_value="python3"))  # ruff:ignore[set-attr-with-constant]
         # The installer_path property triggers bundle regeneration if stale;
         # short-circuit it to avoid running the real bundler in unit tests.
-        from pathlib import Path as _Path  # noqa: PLC0415
+        from pathlib import Path as _Path  # ruff:ignore[import-outside-top-level]
 
         type(config).installer_path = property(
             lambda self: _Path("/dev/null").parent / "fake-installer.py"
@@ -148,7 +148,7 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
         """
         config.use_local_code = True
         d = _make_deployer(config, backend)
-        setattr(d.backend, "upload_dir", MagicMock(return_value=True))  # noqa: B010
+        setattr(d.backend, "upload_dir", MagicMock(return_value=True))  # ruff:ignore[set-attr-with-constant]
 
         assert d._update_local_code() is True
         calls = self._run_calls(backend)
@@ -174,7 +174,7 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
 
         backend.run.side_effect = fake_run
         d = _make_deployer(config, backend)
-        setattr(d.backend, "upload_dir", MagicMock(return_value=True))  # noqa: B010
+        setattr(d.backend, "upload_dir", MagicMock(return_value=True))  # ruff:ignore[set-attr-with-constant]
 
         assert d._update_local_code() is False
         # The restart is a restart_service(...) call now, not a run(...) shell-out.

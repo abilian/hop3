@@ -41,7 +41,9 @@ def _get_plugin_providers() -> list:
         List of provider instances from plugins
     """
     # Import here to avoid circular dependency
-    from hop3.core.plugins import get_plugin_manager  # noqa: PLC0415
+    from hop3.core.plugins import (
+        get_plugin_manager,
+    )
 
     pm = get_plugin_manager()
 

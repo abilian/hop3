@@ -23,7 +23,7 @@ class JavaToolchain(LanguageToolchain):
     """
 
     name = "Java"
-    requirements = ["java"]  # noqa: RUF012
+    requirements = ["java"]  # ruff:ignore[mutable-class-default]
 
     def accept(self) -> bool:
         """Check if the application has Java build configuration (Maven or Gradle)."""

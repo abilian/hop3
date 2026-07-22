@@ -765,21 +765,34 @@ When `builder = "nix"` is set in `[build]`, Hop3 can generate a Nix expression a
 
 ### Template Types
 
-Nine templates are available. Prefer the higher tiers when possible — see [Nix reference](nix.md#reproducibility-tiers) for the reproducibility implications.
+Eleven templates are available. Prefer the higher tiers when possible — see [Nix reference](nix.md#reproducibility-tiers) for the reproducibility implications.
 
 | Template | Use case | Tier |
 |----------|----------|------|
 | `nixpkgs-wrapper` | Apps already packaged in nixpkgs (best — multi-arch, source-built) | 1 |
 | `python-venv` | Python apps installed via pip into a virtualenv | 2 |
 | `php-app` | PHP apps served with `php -S` or `artisan serve` | 2 |
-| `java-war` | Java WAR files served with a JDK from nixpkgs | 1 |
+| `go-source` | Go apps compiled from source with `buildGoModule` | 2 |
 | `ruby-bundler` | Ruby apps using `bundlerEnv` from `gemset.nix` | 2 |
-| `node-pnpm-install` | Node.js apps installed from npm via `pnpm install` | 2 |
+| `node-pnpm-install` | Node.js apps built from a committed `pnpm-lock.yaml` | 2 |
+| `java-gradle` | Java apps compiled with Gradle from a committed `deps.json` | 2 |
+| `java-war` | Java WAR files served with a JDK from nixpkgs | 3 |
+| `node-prebuilt` | Node.js apps with pre-built assets | 3 |
 | `prebuilt-binary` | Pre-compiled single binary from upstream releases | 3 |
 | `prebuilt-archive` | Pre-compiled archive with multiple files | 3 |
-| `node-prebuilt` | Node.js apps with pre-built assets | 3 |
 
-**Tier 1 = source-built and reproducible** (use when available). **Tier 2 = source-built but not fully hermetic** (depends on PyPI, Packagist, etc. at build time). **Tier 3 = pre-built binary download** (x86_64-linux only, not reproducible from source — use only when nothing in nixpkgs fits).
+**Tier 1 = packaged by nixpkgs** (use when available: multi-arch and maintained upstream). **Tier 2 = built from source by Hop3** against a committed lockfile — equally sealed and reproducible, but the lockfile is yours to refresh. **Tier 3 = upstream artefact fetched by digest** — reproducible but not auditable, so use it when upstream ships no buildable source, or for software distributed only as a binary.
+
+### Keys Belong to One Template
+
+Each key below is claimed either by the shared core or by exactly one template. A key that no template claims (usually a typo), or that belongs to a template other than the one selected, is a **build error** rather than something quietly ignored:
+
+```
+[nix].gradle-jar-glob belongs to the java-gradle template(s), not to 'php-app'.
+It would have no effect here.
+```
+
+Run `hop3 nix eject <app>` or deploy to see the generated expression; the error names the valid keys for the template in use.
 
 ### Common Fields
 

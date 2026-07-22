@@ -1477,11 +1477,13 @@ class Deployer:
 def create_backend(config: DeployConfig) -> DeployBackend:
     """Create appropriate backend based on config."""
     if config.use_docker:
-        from .backends.docker import DockerDeployBackend  # noqa: PLC0415
+        from .backends.docker import (
+            DockerDeployBackend,
+        )
 
         return DockerDeployBackend(config)
 
-    from .backends.ssh import SSHDeployBackend  # noqa: PLC0415
+    from .backends.ssh import SSHDeployBackend  # ruff:ignore[import-outside-top-level]
 
     return SSHDeployBackend(config)
 

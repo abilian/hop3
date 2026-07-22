@@ -13,7 +13,7 @@ def show_unconfigured_message(cli_args: list[str]) -> None:
     Args:
         cli_args: The command-line arguments (for context)
     """
-    from hop3_cli.core import credential_store  # noqa: PLC0415
+    from hop3_cli.core import credential_store  # ruff:ignore[import-outside-top-level]
 
     # ADR 042: if the operator is logged into servers but none is selected for
     # this command (e.g. two known, no default context), guide them to name one

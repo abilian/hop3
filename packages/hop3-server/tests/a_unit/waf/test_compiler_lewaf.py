@@ -25,8 +25,10 @@ def _policy(waf: dict):
 
 def _blocked(rules_text: str, path: str, ip: str | None = None) -> bool:
     """Run a request through a real LeWAF transaction; True if it was blocked."""
-    from lewaf.integration import WAF  # noqa: PLC0415
-    from lewaf.seclang.parser import SecLangParser  # noqa: PLC0415
+    from lewaf.integration import WAF  # ruff:ignore[import-outside-top-level]
+    from lewaf.seclang.parser import (
+        SecLangParser,
+    )
 
     waf = WAF()
     SecLangParser(waf).from_string(rules_text)
@@ -75,8 +77,10 @@ def test_gate_blocks_outside_network_allows_inside():
 
 def test_full_policy_parses():
     # allow + gate + tuning(disable-rule-ids) must produce valid SecLang.
-    from lewaf.integration import WAF  # noqa: PLC0415
-    from lewaf.seclang.parser import SecLangParser  # noqa: PLC0415
+    from lewaf.integration import WAF  # ruff:ignore[import-outside-top-level]
+    from lewaf.seclang.parser import (
+        SecLangParser,
+    )
 
     rules = compile_policy(
         "app",

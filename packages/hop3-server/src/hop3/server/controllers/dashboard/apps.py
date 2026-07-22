@@ -151,7 +151,7 @@ class AppsController(Controller):
     """Controller for app management routes."""
 
     path = "/dashboard/apps"
-    guards = [auth_guard]  # noqa: RUF012
+    guards = [auth_guard]  # ruff:ignore[mutable-class-default]
 
     @get("/new", sync_to_thread=False)
     def app_create_form(self) -> Template:

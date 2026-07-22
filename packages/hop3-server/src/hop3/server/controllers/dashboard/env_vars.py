@@ -12,7 +12,7 @@ from litestar import Controller, get
 
 # Runtime import (not TYPE_CHECKING): Litestar resolves the FromPath path-param
 # annotation at route registration via get_type_hints, so it must exist at runtime.
-from litestar.params import FromPath  # noqa: TC002
+from litestar.params import FromPath  # ruff:ignore[typing-only-third-party-import]
 from litestar.response import Redirect, Template
 
 from hop3.server.guards import auth_guard
@@ -25,7 +25,7 @@ class EnvVarsController(Controller):
     """Controller for app environment variable routes."""
 
     path = "/dashboard/apps/{app_name:str}/env"
-    guards = [auth_guard]  # noqa: RUF012
+    guards = [auth_guard]  # ruff:ignore[mutable-class-default]
 
     @get("/", sync_to_thread=False)
     def app_env_vars(self, app_name: FromPath[str]) -> Template | Redirect:

@@ -161,8 +161,12 @@ def _handle_streaming_response(
         printer: Printer for output
         tunnel_port: Local SSH tunnel port if using SSH tunnel
     """
-    from hop3_cli.exceptions import DeploymentError  # noqa: PLC0415
-    from hop3_cli.rpc.streaming import stream_deployment_logs  # noqa: PLC0415
+    from hop3_cli.exceptions import (
+        DeploymentError,
+    )
+    from hop3_cli.rpc.streaming import (
+        stream_deployment_logs,
+    )
 
     stream_id: str | None = result[0].get("stream_id")
     if not stream_id:
@@ -205,7 +209,9 @@ def _handle_streaming_response(
         # does (honor a pinned ssl_cert; parse a string verify_ssl) so the
         # stream doesn't fail the deploy report on a deploy that succeeded over
         # /rpc (audit 2026-06 B1).
-        from hop3_cli.rpc.client import resolve_ssl_verification  # noqa: PLC0415
+        from hop3_cli.rpc.client import (
+            resolve_ssl_verification,
+        )
 
         base_url = api_url
         verify_ssl = resolve_ssl_verification(api_url, config)
@@ -368,7 +374,9 @@ def _app_not_found_suggestion(error_message: str) -> str | None:
         return None
     typed = match.group(1)
 
-    from hop3_cli.commands.local.completion_cmd import read_apps_cache  # noqa: PLC0415
+    from hop3_cli.commands.local.completion_cmd import (
+        read_apps_cache,
+    )
 
     candidates = read_apps_cache()
     if not candidates:

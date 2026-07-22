@@ -444,7 +444,10 @@ def hop3_container_pair(
     authorized_keys. This is the same path ``test_backup.py`` uses via
     its (single-instance) ``deployment_target`` fixture.
     """
-    from hop3_testing.targets import DockerConfig, DockerTarget  # noqa: PLC0415
+    from hop3_testing.targets import (  # ruff:ignore[import-outside-top-level]
+        DockerConfig,
+        DockerTarget,
+    )
 
     print("\n" + "=" * 60)
     print("Starting hop3 E2E test container PAIR (A + B)...")

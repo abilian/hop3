@@ -40,7 +40,7 @@ class CatalogController(Controller):
     """
 
     path = "/dashboard/catalog"
-    guards = [auth_guard]  # noqa: RUF012 - base class defines as instance var
+    guards = [auth_guard]  # ruff:ignore[mutable-class-default] - base class defines as instance var
 
     # -------------------------------------------------------------------------
     # Catalog Home

@@ -73,7 +73,7 @@ class Command:
         stays in sync with `HelpCmd._detailed_help`.
         """
         # Lazy import to avoid an import cycle with `help.py`.
-        from ._help_render import (  # noqa: PLC0415
+        from ._help_render import (  # ruff:ignore[import-outside-top-level]
             parse_docstring_sections,
             render_detailed_help,
             render_subcommands,

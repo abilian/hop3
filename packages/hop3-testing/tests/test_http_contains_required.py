@@ -51,7 +51,7 @@ def _test_def(validations: list[Validation]) -> TestDefinition:
 
 
 def _app(*, check: bool = False, procfile: bool = False) -> Any:
-    from types import SimpleNamespace  # noqa: PLC0415
+    from types import SimpleNamespace  # ruff:ignore[import-outside-top-level]
 
     return SimpleNamespace(has_check_script=check, has_procfile=procfile)
 

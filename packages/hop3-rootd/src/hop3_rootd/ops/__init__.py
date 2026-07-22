@@ -11,7 +11,7 @@ registry in `_base.py` for op names it sees on the wire.
 from __future__ import annotations
 
 # Side-effect imports: each module's @register decorators run on import.
-from hop3_rootd.ops import (  # noqa: F401
+from hop3_rootd.ops import (  # ruff:ignore[unused-import]
     cgroup,
     daemon,
     firewall,

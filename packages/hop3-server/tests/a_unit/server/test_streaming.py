@@ -74,7 +74,7 @@ async def test_cross_thread_notify_is_scheduled_on_the_loop() -> None:
         scheduled.append(callback)
         return real_call_soon_threadsafe(callback, *args)
 
-    setattr(loop, "call_soon_threadsafe", spy)  # noqa: B010
+    setattr(loop, "call_soon_threadsafe", spy)  # ruff:ignore[set-attr-with-constant]
     try:
         stream = create_stream("threadtest")
         queue: asyncio.Queue = asyncio.Queue(maxsize=10)
@@ -94,4 +94,4 @@ async def test_cross_thread_notify_is_scheduled_on_the_loop() -> None:
         assert kind == "log"
         assert entry.msg == "building..."
     finally:
-        setattr(loop, "call_soon_threadsafe", real_call_soon_threadsafe)  # noqa: B010
+        setattr(loop, "call_soon_threadsafe", real_call_soon_threadsafe)  # ruff:ignore[set-attr-with-constant]

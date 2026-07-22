@@ -59,7 +59,7 @@ def _handle_short_option(
     return None
 
 
-def _handle_long_option(  # noqa: PLR0911 — one return per option form (flag, --k=v known/unknown, --k v known/missing-value, unknown); a flat cascade reads clearer than nesting.
+def _handle_long_option(  # ruff:ignore[too-many-return-statements] — one return per option form (flag, --k=v known/unknown, --k v known/missing-value, unknown); a flat cascade reads clearer than nesting.
     arg: str,
     args_list: list,
     i: int,

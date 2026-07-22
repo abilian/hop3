@@ -49,7 +49,7 @@ class BackupsController(Controller):
     """Controller for backup management routes."""
 
     path = "/dashboard/backups"
-    guards = [auth_guard]  # noqa: RUF012
+    guards = [auth_guard]  # ruff:ignore[mutable-class-default]
 
     @get("/", sync_to_thread=False)
     def dashboard_backups(self) -> Template | Redirect:

@@ -550,7 +550,7 @@ class DeploymentTestRunner:
             )
         return None
 
-    def run(self, test: TestDefinition) -> TestResult:  # noqa: PLR0911 — one return per distinct deploy/validation outcome (infra fail, expects-failure, deploy error, http error, check error, success); coalescing would obscure them
+    def run(self, test: TestDefinition) -> TestResult:  # ruff:ignore[too-many-return-statements] — one return per distinct deploy/validation outcome (infra fail, expects-failure, deploy error, http error, check error, success); coalescing would obscure them
         """Run a deployment test.
 
         Args:

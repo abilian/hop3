@@ -156,7 +156,7 @@ class TestRunnerInvertsExpectsFailure:
     def _make_runner(self, tmp_path) -> DeploymentTestRunner:
         # `_collect_runtime_logs` is imported at module level in
         # deployment.py; patch the binding there.
-        setattr(  # noqa: B010
+        setattr(  # ruff:ignore[set-attr-with-constant]
             deployment_module,
             "_collect_runtime_logs",
             lambda _target, _name: "",

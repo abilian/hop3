@@ -35,7 +35,7 @@ class GenericToolchain(LanguageToolchain):
     """
 
     name = "Generic"
-    requirements = []  # noqa: RUF012
+    requirements = []  # ruff:ignore[mutable-class-default]
 
     def accept(self) -> bool:
         """Accept only when explicitly specified via toolchain = 'generic' or 'none'.

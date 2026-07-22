@@ -24,7 +24,7 @@ class GoToolchain(LanguageToolchain):
     """
 
     name = "Go"
-    requirements = ["go"]  # noqa: RUF012
+    requirements = ["go"]  # ruff:ignore[mutable-class-default]
 
     def accept(self) -> bool:
         """Check if the application has go dependencies or go source files."""

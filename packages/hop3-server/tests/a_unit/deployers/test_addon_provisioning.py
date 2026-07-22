@@ -193,7 +193,7 @@ class TestProvisionAddons:
         service and then fail confusingly downstream (e.g. a migration with no
         database).
         """
-        from hop3.lib import Abort  # noqa: PLC0415
+        from hop3.lib import Abort  # ruff:ignore[import-outside-top-level]
 
         with pytest.raises(Abort):
             provision_addons(mock_app, [{"plan": "standard"}], mock_db_session)

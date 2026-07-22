@@ -8,6 +8,13 @@ from __future__ import annotations
 import pytest
 
 from hop3.plugins.build.nix.gen import generate
+from hop3.plugins.build.nix.gen.registry import list_templates
+from hop3.plugins.build.nix.gen.spec import (
+    GoSourcePayload,
+    PhpAppPayload,
+    PrebuiltArchivePayload,
+    PrebuiltBinaryPayload,
+)
 from hop3.plugins.build.nix.gen.templates.base import pinned_nixpkgs_header
 from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
 
@@ -27,7 +34,7 @@ def test_minimal_spec():
     assert spec.pname == "myapp"
     assert spec.version == "1.0"
     assert spec.template == "prebuilt-binary"
-    assert spec.binary_name == "myapp"
+    assert spec.payload_as(PrebuiltBinaryPayload).binary_name == "myapp"
     assert spec.source.url == "https://example.com/bin"
     assert spec.source.executable is True
 
@@ -139,13 +146,14 @@ def test_php_fields():
 
     spec = app_spec_from_config(nix_config, {"id": "wp"}, "wp")
 
-    assert spec.php_version == "php83"
-    assert spec.php_extensions == ["mysqli", "gd"]
-    assert spec.needs_composer is True
-    assert spec.composer_extra_flags == ["--ignore-platform-reqs"]
-    assert spec.serve_mode == "artisan"
-    assert spec.web_root == "htdocs"
-    assert spec.post_install_dirs == ["storage", "cache"]
+    php = spec.payload_as(PhpAppPayload)
+    assert php.php_version == "php83"
+    assert php.php_extensions == ["mysqli", "gd"]
+    assert php.needs_composer is True
+    assert php.composer_extra_flags == ["--ignore-platform-reqs"]
+    assert php.serve_mode == "artisan"
+    assert php.web_root == "htdocs"
+    assert php.post_install_dirs == ["storage", "cache"]
     assert spec.extra_paths == ["${php}/bin"]
 
 
@@ -191,11 +199,12 @@ def test_file_mappings_parsing():
 
     spec = app_spec_from_config(nix_config, {"id": "t"}, "t")
 
-    assert len(spec.file_mappings) == 2
-    assert spec.file_mappings[0].source == "bin/mybin"
-    assert spec.file_mappings[0].executable is True
-    assert spec.file_mappings[1].source == "lib/*"
-    assert spec.file_mappings[1].recursive is True
+    mappings = spec.payload_as(PrebuiltArchivePayload).file_mappings
+    assert len(mappings) == 2
+    assert mappings[0].source == "bin/mybin"
+    assert mappings[0].executable is True
+    assert mappings[1].source == "lib/*"
+    assert mappings[1].recursive is True
 
 
 def test_conditional_env_parsing():
@@ -264,3 +273,66 @@ def test_end_to_end_generate_from_toml():
     assert 'version = "2.1.1"' in nix_text
     assert "''${PORT:-8080}" in nix_text
     assert "$out/hop3/runtime.json" in nix_text
+
+
+# --- key ownership: a key the chosen template will never read is an error ---
+
+
+def _minimal(template: str, **extra) -> dict:
+    return {"template": template, "url": "https://x/a.tar.gz", "sha256": "x", **extra}
+
+
+def test_unknown_key_is_rejected():
+    """A typo used to be dropped in silence, and the app built with a default
+    the author never chose."""
+    with pytest.raises(ValueError, match="go-vendor-hsah is not a known key"):
+        app_spec_from_config(
+            _minimal("go-source", **{"go-vendor-hsah": "sha256-x"}), {}, "t"
+        )
+
+
+def test_a_key_owned_by_another_template_is_rejected():
+    """gradle-jar-glob is real, but means nothing to php-app."""
+    with pytest.raises(ValueError, match="belongs to the java-gradle template"):
+        app_spec_from_config(
+            _minimal("php-app", **{"gradle-jar-glob": "build/libs/*.jar"}), {}, "t"
+        )
+
+
+def test_a_retired_key_says_what_to_do_instead():
+    """`pip-packages` outlived the design that read it; four recipes still
+    carried one, and nothing consumed any of them."""
+    with pytest.raises(ValueError, match="pip-requirements"):
+        app_spec_from_config(
+            _minimal("python-venv", **{"pip-packages": ["isso"]}), {}, "t"
+        )
+
+
+def test_a_nixpkgs_pin_is_refused_where_no_template_honours_it():
+    with pytest.raises(ValueError, match="only honoured by"):
+        app_spec_from_config(
+            _minimal(
+                "php-app",
+                **{
+                    "nixpkgs-rev": "a" * 40,
+                    "nixpkgs-sha256": "sha256-" + "A" * 43 + "=",
+                },
+            ),
+            {},
+            "t",
+        )
+
+
+def test_every_template_can_be_built_from_a_minimal_config():
+    """The key tables must cover every registered template — a template absent
+    from them would be unbuildable from hop3.toml."""
+    for name in list_templates():
+        spec = app_spec_from_config(_minimal(name), {"id": name}, name)
+        assert spec.template == name
+
+
+def test_the_payload_type_decides_which_template_renders():
+    spec = app_spec_from_config(_minimal("go-source"), {"id": "t"}, "t")
+    assert isinstance(spec.payload, GoSourcePayload)
+    with pytest.raises(TypeError, match="php-app template got a go-source payload"):
+        spec.payload_as(PhpAppPayload)

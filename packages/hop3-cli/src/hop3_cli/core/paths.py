@@ -30,6 +30,6 @@ def config_dir() -> Path:
     override = os.environ.get("HOP3_CONFIG_DIR")
     if override and override.strip():
         return Path(override)
-    from platformdirs import user_config_dir  # noqa: PLC0415
+    from platformdirs import user_config_dir  # ruff:ignore[import-outside-top-level]
 
     return Path(user_config_dir(APP_NAME, APP_AUTHOR))

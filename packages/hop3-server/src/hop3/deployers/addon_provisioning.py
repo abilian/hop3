@@ -128,7 +128,10 @@ def provision_addons(
             # Never silently skip a declared addon: the app would deploy without
             # its backing service and then fail confusingly downstream (e.g. a
             # migration with no database). Refuse loudly, where the user looks.
-            from hop3.lib import Diagnosis, abort_with_diagnosis  # noqa: PLC0415
+            from hop3.lib import (  # ruff:ignore[import-outside-top-level]
+                Diagnosis,
+                abort_with_diagnosis,
+            )
 
             abort_with_diagnosis(
                 Diagnosis(
@@ -333,7 +336,10 @@ def _provision_single_addon(
             "Ensured addon exists", addon_name=addon_name, addon_type=addon_type
         )
     except Exception as e:
-        from hop3.lib import Diagnosis, abort_with_diagnosis  # noqa: PLC0415
+        from hop3.lib import (  # ruff:ignore[import-outside-top-level]
+            Diagnosis,
+            abort_with_diagnosis,
+        )
 
         log(f"  Failed to create addon {addon_name}: {e}", level=0, fg="red")
         server_log.error(

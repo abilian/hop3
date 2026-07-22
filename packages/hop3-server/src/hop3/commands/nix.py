@@ -47,11 +47,15 @@ class NixEjectCmd(Command):
             return self._eject(app)
 
     def _eject(self, app: App) -> list:
-        from hop3.plugins.build.nix.gen import generate  # noqa: PLC0415
-        from hop3.plugins.build.nix.gen.toml_adapter import (  # noqa: PLC0415
+        from hop3.plugins.build.nix.gen import (
+            generate,
+        )
+        from hop3.plugins.build.nix.gen.toml_adapter import (  # ruff:ignore[import-outside-top-level]
             app_spec_from_config,
         )
-        from hop3.project.config import AppConfig  # noqa: PLC0415
+        from hop3.project.config import (
+            AppConfig,
+        )
 
         # Load app config
         try:
@@ -88,7 +92,7 @@ class NixEjectCmd(Command):
         nix_text = generate(spec)
 
         # Add ejection header
-        from datetime import datetime, timezone  # noqa: PLC0415
+        from datetime import datetime, timezone  # ruff:ignore[import-outside-top-level]
 
         now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         header = (

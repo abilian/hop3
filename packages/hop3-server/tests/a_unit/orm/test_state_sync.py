@@ -338,7 +338,7 @@ class TestStateSyncServiceIntegration:
             sync_count["value"] += 1
 
         service = _service(MockSession, interval=0.05)
-        setattr(service, "_sync_cycle", mock_sync_cycle)  # noqa: B010
+        setattr(service, "_sync_cycle", mock_sync_cycle)  # ruff:ignore[set-attr-with-constant]
 
         service.start()
         time.sleep(0.2)  # Allow a few cycles

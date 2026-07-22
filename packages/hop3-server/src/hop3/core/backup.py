@@ -31,7 +31,7 @@ from hop3.lib import log
 from hop3.orm import App, AppStateEnum, Backup, BackupStateEnum, EnvVar
 
 # Runtime imports for Dishka DI (not just type hints)
-from hop3.orm.repositories import (  # noqa: TC001
+from hop3.orm.repositories import (  # ruff:ignore[typing-only-first-party-import]
     AddonCredentialRepository,
     AppRepository,
     BackupRepository,
@@ -720,7 +720,9 @@ class BackupManager:
         backup must fail loud rather than silently omit volume data while
         reporting success (the caller marks the backup FAILED and surfaces it).
         """
-        from hop3.project.config import AppConfig  # noqa: PLC0415
+        from hop3.project.config import (
+            AppConfig,
+        )
 
         # from_dir expects the app dir (its src_dir is <app_dir>/src), matching
         # how the deployer reads the config.
@@ -757,7 +759,9 @@ class BackupManager:
         Read from the deployed hop3.toml, like ``_app_volumes``. Empty lists
         when the app has no ``[backup]`` section.
         """
-        from hop3.project.config import AppConfig  # noqa: PLC0415
+        from hop3.project.config import (
+            AppConfig,
+        )
 
         return AppConfig.from_dir(app.app_path).hop3_config.backup
 
@@ -941,7 +945,7 @@ class BackupManager:
             app: Application to restore to
             backup_dir: Backup directory
         """
-        import subprocess  # noqa: PLC0415
+        import subprocess  # ruff:ignore[import-outside-top-level]
 
         tar_path = backup_dir / "source.tar.gz"
         if not tar_path.exists():

@@ -270,7 +270,7 @@ class ConsoleReporter:
 
     def _extract_native_log_tail(self, blob: str, *, max_lines: int) -> str:
         """Tail of the most-interesting uWSGI/native log file, if any."""
-        import re  # noqa: PLC0415
+        import re  # ruff:ignore[import-outside-top-level]
 
         any_marker = re.compile(r"^---\s+.+?\s+---\s*$", re.MULTILINE)
         file_marker = re.compile(r"/home/hop3/apps/[^\s]+\.log")
@@ -314,7 +314,7 @@ class ConsoleReporter:
         Used as a fallback when the native log section had no real
         files (typical for docker-based apps where uWSGI isn't involved).
         """
-        import re  # noqa: PLC0415
+        import re  # ruff:ignore[import-outside-top-level]
 
         # The "Docker container logs ..." section header is the last in
         # collect_runtime_logs — anything after it is in scope.

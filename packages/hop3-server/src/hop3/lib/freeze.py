@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-# ruff: noqa: PLC2801
+# ruff:file-ignore[unnecessary-dunder-call]
 
 
 def setattr_frozen(self, key, value) -> None:

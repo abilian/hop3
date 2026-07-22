@@ -7,12 +7,14 @@
 from __future__ import annotations
 
 import markdown
-from dishka import FromDishka  # noqa: TC002 -- runtime: @inject resolves the annotation
+from dishka import (
+    FromDishka,  # ruff:ignore[typing-only-third-party-import] -- runtime: @inject resolves the annotation
+)
 from dishka.integrations.litestar import inject
 from litestar import Controller, get
 from litestar.exceptions import NotFoundException
 from litestar.params import (
-    FromPath,  # noqa: TC002 -- runtime: Litestar resolves the path-param annotation
+    FromPath,  # ruff:ignore[typing-only-third-party-import] -- runtime: Litestar resolves the path-param annotation
 )
 from litestar.response import Template
 
@@ -20,7 +22,7 @@ from hop3_testlab.catalog import title_map
 from hop3_testlab.discriminators import short_app, variant_of
 from hop3_testlab.reports import build_run_report_md
 from hop3_testlab.repositories import (
-    RunsRepository,  # noqa: TC001 -- runtime: @inject resolves it
+    RunsRepository,  # ruff:ignore[typing-only-first-party-import] -- runtime: @inject resolves it
 )
 from hop3_testlab.trends import diff_results, suite_rollup
 from hop3_testlab.web.guards import auth_guard
@@ -82,7 +84,7 @@ class RunsController(Controller):
     """One run: its test results (failed-first) and the regressions diff."""
 
     path = "/runs"
-    guards = [auth_guard]  # noqa: RUF012
+    guards = [auth_guard]  # ruff:ignore[mutable-class-default]
 
     @get("/{run_uid:str}")
     @inject

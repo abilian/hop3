@@ -23,7 +23,7 @@ class NodeToolchain(LanguageToolchain):
     """Language toolchain for Node projects."""
 
     name = "Node"
-    requirements = ["node", "npm"]  # noqa: RUF012
+    requirements = ["node", "npm"]  # ruff:ignore[mutable-class-default]
 
     # FIXME: should be more complex
     # check_requirements(["nodejs", "npm"])

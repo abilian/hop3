@@ -163,7 +163,9 @@ def test_runtime_diagnostics_no_log_dir_yields_clean_message():
     This test snapshots the friendly fallback message so a regression
     in the shell-script generation is caught.
     """
-    from hop3_testing.runtime_diagnostics import collect_runtime_logs  # noqa: PLC0415
+    from hop3_testing.runtime_diagnostics import (
+        collect_runtime_logs,
+    )
 
     class _FakeTarget:
         def exec_run(self, cmd):
@@ -205,7 +207,7 @@ def test_report_test_points_at_local_bundle_on_failure():
     `hop3-test why` replay command, and a note that on-box logs are gone — at the
     failure line, not only in the far-off end-of-run summary.
     """
-    from pathlib import Path  # noqa: PLC0415
+    from pathlib import Path  # ruff:ignore[import-outside-top-level]
 
     run_id = "2026-07-11T00-00-00Z-x-abc"
     bundle = _FakeBundle(

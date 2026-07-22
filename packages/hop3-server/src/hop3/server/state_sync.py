@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: PLW0603
+# ruff:file-ignore[global-statement]
 # `_service` is the singleton background worker. start/stop are called
 # from Litestar lifespan hooks (see asgi.py), and the global is the
 # handle they coordinate over. A Dishka provider would have to express
@@ -128,7 +128,7 @@ class StateSyncService:
         DB — ``reattach_native_limits`` never raises, so a rootd hiccup can't
         break the babysitter loop. Public for direct testing without threading.
         """
-        from hop3.deployers.native_limits import (  # noqa: PLC0415
+        from hop3.deployers.native_limits import (  # ruff:ignore[import-outside-top-level]
             reattach_native_limits,
         )
 
@@ -199,7 +199,7 @@ class StateSyncService:
         """
         if app.run_state == AppStateEnum.STARTING:
             # Failed to start in time
-            app._transition_state(  # noqa: SLF001
+            app._transition_state(  # ruff:ignore[private-member-access]
                 AppStateEnum.FAILED,
                 f"Failed to start within {self.timeout:.0f}s",
             )
@@ -214,11 +214,13 @@ class StateSyncService:
             # exec'd Nix binary holding a fixed port) can't be mislabelled STOPPED
             # while it still holds its port (the next deploy would then fail to
             # bind). Mirrors the reap-and-verify contract in App._stop_uwsgi.
-            from hop3.run.reaper import reap_app_processes  # noqa: PLC0415
+            from hop3.run.reaper import (
+                reap_app_processes,
+            )
 
             survivors = reap_app_processes(app.name)
             if survivors:
-                app._transition_state(  # noqa: SLF001
+                app._transition_state(  # ruff:ignore[private-member-access]
                     AppStateEnum.FAILED,
                     f"Stop timed out; {len(survivors)} process(es) still running",
                 )
@@ -229,7 +231,7 @@ class StateSyncService:
                     fg="red",
                 )
             else:
-                app._transition_state(AppStateEnum.STOPPED)  # noqa: SLF001
+                app._transition_state(AppStateEnum.STOPPED)  # ruff:ignore[private-member-access]
                 log(
                     f"App '{app.name}' stop timed out, reaped, forced to STOPPED",
                     level=1,

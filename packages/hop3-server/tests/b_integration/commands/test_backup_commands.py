@@ -459,7 +459,7 @@ class TestBackupRestoreCommand:
         deploy into. Stub the deploy step out so the tests stay focused on
         what they actually assert.
         """
-        from hop3.orm import App  # noqa: PLC0415
+        from hop3.orm import App  # ruff:ignore[import-outside-top-level]
 
         monkeypatch.setattr(App, "deploy", lambda self: None)
 

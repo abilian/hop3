@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM101, TC001
+# ruff:file-ignore[raise-vanilla-args, raw-string-in-exception]
+
 
 """prebuilt-archive template.
 
@@ -15,7 +16,7 @@ Example apps: Focalboard, Grafana, Mattermost, Vikunja.
 
 from __future__ import annotations
 
-from hop3.plugins.build.nix.gen.spec import AppSpec, FileMapping
+from hop3.plugins.build.nix.gen.spec import AppSpec, FileMapping, PrebuiltArchivePayload
 from hop3.plugins.build.nix.gen.templates.base import (
     PINNED_NIXPKGS_HEADER,
     ReproTier,
@@ -31,9 +32,10 @@ class PrebuiltArchiveTemplate:
     tier = ReproTier.PREBUILT
 
     def generate(self, spec: AppSpec) -> str:
+        p = spec.payload_as(PrebuiltArchivePayload)
         if spec.exec_target is None:
             raise ValueError("prebuilt-archive requires exec_target")
-        if not spec.file_mappings:
+        if not p.file_mappings:
             raise ValueError("prebuilt-archive requires file_mappings")
 
         binding = f"{spec.pname}-release"
@@ -61,7 +63,7 @@ class PrebuiltArchiveTemplate:
 
         # File copy commands
         copy_lines = []
-        for fm in spec.file_mappings:
+        for fm in p.file_mappings:
             copy_lines.append(_format_file_mapping(fm))
         copy_block = "\n".join(copy_lines)
 

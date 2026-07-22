@@ -1,7 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: SIM105, TC003
+# ruff:file-ignore[suppressible-exception, typing-only-standard-library-import]
 
 """Unit tests for the hop3-rootd client.
 

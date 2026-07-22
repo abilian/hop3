@@ -187,9 +187,7 @@ def report(results: Path) -> None:
 
 
 @main.command("report-matrix")
-@click.argument(
-    "results", type=click.Path(exists=True, path_type=Path), required=True
-)
+@click.argument("results", type=click.Path(exists=True, path_type=Path), required=True)
 def report_matrix(results: Path) -> None:
     """Render the matrix table (paper 6.3) from a `matrix` run's JSONL."""
     cells = [

@@ -166,8 +166,12 @@ class AuthController(Controller):
         Returns:
             Redirect to login page
         """
-        from hop3.server.security.tokens import revoke_jwt  # noqa: PLC0415
-        from hop3.server.security.web_auth import AUTH_COOKIE  # noqa: PLC0415
+        from hop3.server.security.tokens import (
+            revoke_jwt,
+        )
+        from hop3.server.security.web_auth import (
+            AUTH_COOKIE,
+        )
 
         token = request.cookies.get(AUTH_COOKIE)
         if token:

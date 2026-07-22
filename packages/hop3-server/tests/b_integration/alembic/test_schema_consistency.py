@@ -40,7 +40,7 @@ from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, inspect
 
 import hop3
-import hop3.orm  # noqa: F401  -- populate BigIntAuditBase.metadata with all models
+import hop3.orm  # ruff:ignore[unused-import]  -- populate BigIntAuditBase.metadata with all models
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

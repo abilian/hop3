@@ -137,9 +137,14 @@ def test_setup_with_workers(env: Env) -> None:
 # rootd path actually runs, then prove that an unreachable / failing daemon
 # aborts the deploy loudly instead of silently leaving nginx stale.
 
-from hop3.lib.console import Abort  # noqa: E402
-from hop3.lib.rootd import RootdOpError, RootdUnavailableError  # noqa: E402
-from hop3.plugins.proxy.nginx import _setup as nginx_setup  # noqa: E402
+from hop3.lib.console import Abort  # ruff:ignore[module-import-not-at-top-of-file]
+from hop3.lib.rootd import (  # ruff:ignore[module-import-not-at-top-of-file]
+    RootdOpError,
+    RootdUnavailableError,
+)
+from hop3.plugins.proxy.nginx import (
+    _setup as nginx_setup,
+)
 
 
 class _UnavailableClient:

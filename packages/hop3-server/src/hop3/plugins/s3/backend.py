@@ -163,7 +163,7 @@ class MinIOBackend:
         # MinIO's mc uses the lowercase alias name in MC_HOST_<alias>
         # env vars. This is the vendor's chosen convention; don't
         # uppercase it.
-        if not mc_env and not os.environ.get("MC_HOST_hop3"):  # noqa: SIM112
+        if not mc_env and not os.environ.get("MC_HOST_hop3"):  # ruff:ignore[uncapitalized-environment-variables]
             msg = (
                 f"MinIO backend credentials not found. Expected "
                 f"{HOP3_S3_ENV_FILE} to contain MC_HOST_hop3=... "

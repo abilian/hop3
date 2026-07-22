@@ -104,7 +104,7 @@ class Hop3Config:
         Raises:
             Hop3TomlValidationError: If validation fails
         """
-        from hop3.project.schema import (  # noqa: PLC0415
+        from hop3.project.schema import (  # ruff:ignore[import-outside-top-level]
             Hop3TomlValidationError,
             validate_hop3_toml,
         )

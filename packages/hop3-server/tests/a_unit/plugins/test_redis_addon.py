@@ -22,8 +22,12 @@ def tmp_hop3_root(tmp_path, monkeypatch) -> Path:
     HOP3_ROOT is imported into several modules at import time, so we monkeypatch
     each consumer that reads it.
     """
-    from hop3.plugins.addons import secrets as secrets_mod  # noqa: PLC0415
-    from hop3.plugins.redis import redis as redis_mod  # noqa: PLC0415
+    from hop3.plugins.addons import (
+        secrets as secrets_mod,
+    )
+    from hop3.plugins.redis import (
+        redis as redis_mod,
+    )
 
     monkeypatch.setattr(redis_mod, "HOP3_ROOT", tmp_path)
     monkeypatch.setattr(secrets_mod, "HOP3_ROOT", tmp_path)
@@ -39,22 +43,30 @@ def _write_secrets(root: Path, addon_name: str, db_number: int) -> None:
 
 
 def test_redis_addon_requires_addon_name():
-    from hop3.plugins.redis.redis import RedisAddon  # noqa: PLC0415
+    from hop3.plugins.redis.redis import (
+        RedisAddon,
+    )
 
     with pytest.raises(ValueError, match="addon_name is required"):
         RedisAddon(addon_name="")
 
 
 def test_redis_addon_rejects_unsafe_addon_name(tmp_hop3_root):
-    from hop3.core.identifiers import InvalidIdentifierError  # noqa: PLC0415
-    from hop3.plugins.redis.redis import RedisAddon  # noqa: PLC0415
+    from hop3.core.identifiers import (
+        InvalidIdentifierError,
+    )
+    from hop3.plugins.redis.redis import (
+        RedisAddon,
+    )
 
     with pytest.raises(InvalidIdentifierError):
         RedisAddon(addon_name="bad name with spaces")
 
 
 def test_redis_addon_loads_persisted_db_number(tmp_hop3_root):
-    from hop3.plugins.redis.redis import RedisAddon  # noqa: PLC0415
+    from hop3.plugins.redis.redis import (
+        RedisAddon,
+    )
 
     _write_secrets(tmp_hop3_root, "my-cache", 7)
 
@@ -64,7 +76,9 @@ def test_redis_addon_loads_persisted_db_number(tmp_hop3_root):
 
 def test_redis_addon_db_number_unset_until_create(tmp_hop3_root):
     """A fresh addon has no db assigned until create() runs."""
-    from hop3.plugins.redis.redis import RedisAddon  # noqa: PLC0415
+    from hop3.plugins.redis.redis import (
+        RedisAddon,
+    )
 
     addon = RedisAddon(addon_name="new-cache")
     # 0 is the sentinel for "not assigned" — db 0 is reserved.
@@ -72,13 +86,17 @@ def test_redis_addon_db_number_unset_until_create(tmp_hop3_root):
 
 
 def test_allocate_db_number_starts_at_one(tmp_hop3_root):
-    from hop3.plugins.redis.redis import _allocate_db_number  # noqa: PLC0415
+    from hop3.plugins.redis.redis import (
+        _allocate_db_number,
+    )
 
     assert _allocate_db_number() == 1
 
 
 def test_allocate_db_number_skips_used(tmp_hop3_root):
-    from hop3.plugins.redis.redis import _allocate_db_number  # noqa: PLC0415
+    from hop3.plugins.redis.redis import (
+        _allocate_db_number,
+    )
 
     _write_secrets(tmp_hop3_root, "addon-a", 1)
     _write_secrets(tmp_hop3_root, "addon-b", 2)
@@ -89,7 +107,9 @@ def test_allocate_db_number_skips_used(tmp_hop3_root):
 
 
 def test_allocate_db_number_raises_when_full(tmp_hop3_root):
-    from hop3.plugins.redis.redis import _allocate_db_number  # noqa: PLC0415
+    from hop3.plugins.redis.redis import (
+        _allocate_db_number,
+    )
 
     for n in range(1, 16):
         _write_secrets(tmp_hop3_root, f"addon-{n}", n)
@@ -100,7 +120,9 @@ def test_allocate_db_number_raises_when_full(tmp_hop3_root):
 
 def test_allocate_db_number_ignores_corrupt_secrets(tmp_hop3_root):
     """A corrupt secrets file shouldn't block allocation."""
-    from hop3.plugins.redis.redis import _allocate_db_number  # noqa: PLC0415
+    from hop3.plugins.redis.redis import (
+        _allocate_db_number,
+    )
 
     secrets_dir = tmp_hop3_root / "addons" / "redis"
     secrets_dir.mkdir(parents=True, exist_ok=True)
@@ -112,7 +134,9 @@ def test_allocate_db_number_ignores_corrupt_secrets(tmp_hop3_root):
 
 def test_redis_addon_assignment_is_deterministic_after_persist(tmp_hop3_root):
     """Two different addons get distinct numbers; same addon keeps its number."""
-    from hop3.plugins.redis.redis import RedisAddon  # noqa: PLC0415
+    from hop3.plugins.redis.redis import (
+        RedisAddon,
+    )
 
     _write_secrets(tmp_hop3_root, "first", 1)
     _write_secrets(tmp_hop3_root, "second", 2)
@@ -133,7 +157,9 @@ def test_redis_addon_assignment_is_deterministic_after_persist(tmp_hop3_root):
 @pytest.fixture
 def redis_pass_file(tmp_path, monkeypatch):
     """Redirect the REDIS_PASS_FILE module constant at a tmp path."""
-    from hop3.plugins.redis import redis as redis_mod  # noqa: PLC0415
+    from hop3.plugins.redis import (
+        redis as redis_mod,
+    )
 
     pass_file = tmp_path / "redis-pass"
     monkeypatch.setattr(redis_mod, "REDIS_PASS_FILE", pass_file)
@@ -141,27 +167,35 @@ def redis_pass_file(tmp_path, monkeypatch):
 
 
 def test_load_redis_password_returns_none_when_file_missing(redis_pass_file):
-    from hop3.plugins.redis.redis import _load_redis_password  # noqa: PLC0415
+    from hop3.plugins.redis.redis import (
+        _load_redis_password,
+    )
 
     assert _load_redis_password() is None
 
 
 def test_load_redis_password_returns_stripped_value(redis_pass_file):
-    from hop3.plugins.redis.redis import _load_redis_password  # noqa: PLC0415
+    from hop3.plugins.redis.redis import (
+        _load_redis_password,
+    )
 
     redis_pass_file.write_text("  s3cret-token  \n")
     assert _load_redis_password() == "s3cret-token"
 
 
 def test_load_redis_password_empty_file_returns_none(redis_pass_file):
-    from hop3.plugins.redis.redis import _load_redis_password  # noqa: PLC0415
+    from hop3.plugins.redis.redis import (
+        _load_redis_password,
+    )
 
     redis_pass_file.write_text("\n")
     assert _load_redis_password() is None
 
 
 def test_redis_cli_env_injects_rediscli_auth_when_password_set(redis_pass_file):
-    from hop3.plugins.redis.redis import _redis_cli_env  # noqa: PLC0415
+    from hop3.plugins.redis.redis import (
+        _redis_cli_env,
+    )
 
     redis_pass_file.write_text("p4ssw0rd\n")
     env = _redis_cli_env()
@@ -171,7 +205,9 @@ def test_redis_cli_env_injects_rediscli_auth_when_password_set(redis_pass_file):
 def test_redis_cli_env_omits_rediscli_auth_when_no_password(
     redis_pass_file, monkeypatch
 ):
-    from hop3.plugins.redis.redis import _redis_cli_env  # noqa: PLC0415
+    from hop3.plugins.redis.redis import (
+        _redis_cli_env,
+    )
 
     monkeypatch.delenv("REDISCLI_AUTH", raising=False)
     env = _redis_cli_env()
@@ -181,7 +217,9 @@ def test_redis_cli_env_omits_rediscli_auth_when_no_password(
 def test_get_connection_details_includes_password_in_url(
     tmp_hop3_root, redis_pass_file
 ):
-    from hop3.plugins.redis.redis import RedisAddon  # noqa: PLC0415
+    from hop3.plugins.redis.redis import (
+        RedisAddon,
+    )
 
     _write_secrets(tmp_hop3_root, "with-auth", 5)
     redis_pass_file.write_text("hunter2\n")
@@ -195,7 +233,9 @@ def test_get_connection_details_url_unchanged_when_no_password(
     tmp_hop3_root, redis_pass_file
 ):
     """Legacy installs without /etc/hop3/redis-pass keep the unauthenticated URL."""
-    from hop3.plugins.redis.redis import RedisAddon  # noqa: PLC0415
+    from hop3.plugins.redis.redis import (
+        RedisAddon,
+    )
 
     _write_secrets(tmp_hop3_root, "no-auth", 5)
 
@@ -208,7 +248,9 @@ def test_get_connection_details_url_quotes_special_chars(
     tmp_hop3_root, redis_pass_file
 ):
     """A password containing : / @ must be URL-quoted in REDIS_URL."""
-    from hop3.plugins.redis.redis import RedisAddon  # noqa: PLC0415
+    from hop3.plugins.redis.redis import (
+        RedisAddon,
+    )
 
     _write_secrets(tmp_hop3_root, "tricky", 5)
     redis_pass_file.write_text("p@ss:w/rd\n")

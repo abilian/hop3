@@ -155,7 +155,7 @@ def test_docker_supervisor_config_launches_rootd() -> None:
     supervisor is the process manager). Omitting it meant the rootd socket never
     appeared and EVERY app deploy's proxy reload failed with 'hop3-rootd is not
     reachable' -- the c_e2e regression this guards against."""
-    from hop3_installer.deployer.backends.docker import (  # noqa: PLC0415
+    from hop3_installer.deployer.backends.docker import (  # ruff:ignore[import-outside-top-level]
         SUPERVISOR_CONFIG,
     )
 

@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TC001
 
 """java-gradle template.
 
@@ -21,7 +20,7 @@ Example apps: Stirling-PDF.
 
 from __future__ import annotations
 
-from hop3.plugins.build.nix.gen.spec import AppSpec
+from hop3.plugins.build.nix.gen.spec import AppSpec, JavaGradlePayload
 from hop3.plugins.build.nix.gen.templates.base import (
     PINNED_NIXPKGS_HEADER,
     ReproTier,
@@ -47,20 +46,17 @@ class JavaGradleTemplate:
     tier = ReproTier.SOURCE
 
     def generate(self, spec: AppSpec) -> str:
-        if not (spec.gradle_jar_glob and spec.gradle_jar_name):
+        p = spec.payload_as(JavaGradlePayload)
+        if not (p.jar_glob and p.jar_name):
             raise ValueError(_NO_JAR.format(pname=spec.pname))
         runtime_package = spec.runtime_package or "jre"
 
         binding = f"{spec.pname.replace('-', '_')}_src"
         source_nix = spec.source.as_nix(binding)
 
-        patches = " ".join(f"./{p}" for p in spec.gradle_patches)
+        patches = " ".join(f"./{patch}" for patch in p.patches)
         patches_attr = f"\n    patches = [ {patches} ];" if patches else ""
-        flags_attr = (
-            f"\n    gradleFlags = [ {_nix_list(spec.gradle_flags)} ];"
-            if spec.gradle_flags
-            else ""
-        )
+        flags_attr = f"\n    gradleFlags = [ {_nix_list(p.flags)} ];" if p.flags else ""
 
         exec_args = " " + " ".join(spec.exec_args) if spec.exec_args else ""
         exec_line = f"JAVABIN/java $JAVA_OPTS -jar JARPATH{exec_args}"
@@ -87,7 +83,7 @@ let
 {source_nix}
 
   # Compiled here, not downloaded: a prebuilt jar/dist cannot be audited. The
-  # Gradle dependency set is pinned by ./{spec.gradle_deps_json} (fetched once
+  # Gradle dependency set is pinned by ./{p.deps_json} (fetched once
   # into the mitm cache), so the compile runs offline in the sandbox.
   jar = pkgs.stdenv.mkDerivation (finalAttrs: {{
     pname = "{spec.pname}";
@@ -96,7 +92,7 @@ let
 
     mitmCache = pkgs.gradle.fetchDeps {{
       inherit (finalAttrs) pname;
-      data = ./{spec.gradle_deps_json};
+      data = ./{p.deps_json};
     }};
     __darwinAllowLocalNetworking = true;{flags_attr}
     # Upstream test suites often need network or extra services; skip them here
@@ -106,7 +102,7 @@ let
     nativeBuildInputs = [ pkgs.gradle pkgs.gradle.jdk ];
 
     installPhase = ''
-      install -Dm644 {spec.gradle_jar_glob} $out/{spec.gradle_jar_name}
+      install -Dm644 {p.jar_glob} $out/{p.jar_name}
     '';
   }});
 
@@ -125,7 +121,7 @@ let
 {wrapper_body}
 WRAPPER
       sed -i "s|JAVABIN|${{jre}}/bin|g" $out/bin/{spec.pname}
-      sed -i "s|JARPATH|${{jar}}/{spec.gradle_jar_name}|g" $out/bin/{spec.pname}
+      sed -i "s|JARPATH|${{jar}}/{p.jar_name}|g" $out/bin/{spec.pname}
       chmod +x $out/bin/{spec.pname}
 
       cat > $out/hop3/runtime.json << EOF

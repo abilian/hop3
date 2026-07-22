@@ -15,7 +15,7 @@ from hop3.lib.args import parse_cli_args, pop_app_flag, reject_extra_args
 from hop3.lib.decorators import register
 
 # Runtime imports for Dishka DI (not just type hints)
-from hop3.orm.repositories import (  # noqa: TC001
+from hop3.orm.repositories import (  # ruff:ignore[typing-only-first-party-import]
     AddonCredentialRepository,
     AppRepository,
     BackupRepository,

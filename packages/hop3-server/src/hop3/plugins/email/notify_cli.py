@@ -20,7 +20,9 @@ from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
 
 # Runtime import for Dishka DI (not just a type hint).
-from hop3.orm.repositories import UserRepository  # noqa: TC001
+from hop3.orm.repositories import (
+    UserRepository,  # ruff:ignore[typing-only-first-party-import]
+)
 
 from .cli import _EXPERIMENTAL_MSG
 from .notifications import (

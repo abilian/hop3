@@ -222,7 +222,9 @@ class WafReconcileBansCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("waf", "reconcile-bans")
 
     def call(self, *args):
-        from hop3.project.config import AppConfig  # noqa: PLC0415 - avoid import cycle
+        from hop3.project.config import (
+            AppConfig,
+        )
 
         apps = AppRepository(session=self.db_session).list_all_ordered()
         active_total = 0

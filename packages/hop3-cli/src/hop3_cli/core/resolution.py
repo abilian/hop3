@@ -309,7 +309,9 @@ def _try_local_overlay(
     branch count below the lint ceiling.
     """
     # Imported lazily so the resolver stays cheap when the file isn't there.
-    from hop3_cli.core.local_overlay import read_overlay  # noqa: PLC0415
+    from hop3_cli.core.local_overlay import (
+        read_overlay,
+    )
 
     overlay = read_overlay(cwd=cwd, home=home)
     if overlay.current_context:

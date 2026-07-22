@@ -119,7 +119,9 @@ def append_local_commands_full_help(result: list[dict]) -> list[dict]:
     full help here keeps the aggregated document a complete reference of every
     command the user can run.
     """
-    from .local.help_text import LOCAL_COMMAND_HELP  # noqa: PLC0415
+    from .local.help_text import (
+        LOCAL_COMMAND_HELP,
+    )
 
     separator = "=" * 72
     lines = [

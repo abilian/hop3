@@ -1,5 +1,5 @@
 # Copyright (c) 2024-2025, Abilian SAS
-# ruff: noqa: N802
+# ruff:file-ignore[invalid-function-name]
 from __future__ import annotations
 
 import os
@@ -510,7 +510,7 @@ ROOT_DIRS: list[Path] = config.ROOT_DIRS
 TESTING: bool = config.TESTING
 
 # Explicit exports for type checking and import discovery
-__all__ = [  # noqa: RUF022
+__all__ = [  # ruff:ignore[unsorted-dunder-all]
     # Class and instance
     "HopConfig",
     "config",

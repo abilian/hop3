@@ -98,7 +98,7 @@ def handle_logout(args: list[str], config: Config, printer: RichPrinter) -> None
     # Revoke server-side first, while the token is still in the store so the
     # request can authenticate. We surface a revoke failure loudly but still
     # clear the local token — logging out of THIS machine must always succeed.
-    from hop3_cli.rpc import Client  # noqa: PLC0415
+    from hop3_cli.rpc import Client  # ruff:ignore[import-outside-top-level]
 
     revoke_failed: str | None = None
     try:
@@ -141,7 +141,7 @@ def handle_login_password(
     print(f"\nAuthenticating as {username}...")
 
     # Import here to avoid circular import
-    from hop3_cli.rpc import Client  # noqa: PLC0415
+    from hop3_cli.rpc import Client  # ruff:ignore[import-outside-top-level]
 
     with Client(config=config) as client:
         try:
@@ -184,8 +184,11 @@ def _parse_username_arg(args: list[str]) -> str | None:
 
 def _prompt_credentials(username: str | None) -> tuple[str, str]:
     """Prompt for username and password, return both."""
-    from hop3_cli.exit_codes import ExitCode  # noqa: PLC0415
-    from hop3_cli.ui.prompts import NoInputError, require_input_allowed  # noqa: PLC0415
+    from hop3_cli.exit_codes import ExitCode  # ruff:ignore[import-outside-top-level]
+    from hop3_cli.ui.prompts import (  # ruff:ignore[import-outside-top-level]
+        NoInputError,
+        require_input_allowed,
+    )
 
     if not username:
         try:
@@ -396,7 +399,7 @@ def record_server_login(config: Config, server_url: str, token: str) -> None:
     """
     if not server_url:
         return
-    from hop3_cli.core import credential_store  # noqa: PLC0415
+    from hop3_cli.core import credential_store  # ruff:ignore[import-outside-top-level]
 
     credential_store.set_token(server_url, token)
 
@@ -506,8 +509,10 @@ def _verify_token(server_url: str, token: str) -> str | None:
         Username if successful, None if verification failed
     """
     # Import here to avoid circular import
-    from hop3_cli.config import Config as TempConfig  # noqa: PLC0415
-    from hop3_cli.rpc import Client  # noqa: PLC0415
+    from hop3_cli.config import (
+        Config as TempConfig,
+    )
+    from hop3_cli.rpc import Client  # ruff:ignore[import-outside-top-level]
 
     # Create a temporary config for verification. Must use the nested
     # [contexts.*] shape — Config.get_api_url() no longer reads a flat
@@ -730,9 +735,9 @@ def _verify_https_connection(
         config_data: Config data dict to update
         debug_level: Debug verbosity level
     """
-    import requests  # noqa: PLC0415
+    import requests  # ruff:ignore[import-outside-top-level]
 
-    from hop3_cli.exit_codes import ExitCode  # noqa: PLC0415
+    from hop3_cli.exit_codes import ExitCode  # ruff:ignore[import-outside-top-level]
 
     if debug_level >= 1:
         print(f"[debug] Verifying HTTPS connection to {api_url}")
@@ -786,7 +791,7 @@ def _verify_https_connection(
 
 def _extract_host(url: str) -> str:
     """Extract user@host from URL for display."""
-    from urllib.parse import urlparse  # noqa: PLC0415
+    from urllib.parse import urlparse  # ruff:ignore[import-outside-top-level]
 
     parsed = urlparse(url)
     host = parsed.hostname or url

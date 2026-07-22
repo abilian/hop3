@@ -148,7 +148,7 @@ class MySQLAdmin:
         # default to the current OS user ONLY on macOS (Homebrew MariaDB pattern).
         # On Linux servers, MySQL root typically has socket peer auth, so keep "root".
         if unix_socket and superuser == "root" and not password:
-            import sys  # noqa: PLC0415
+            import sys  # ruff:ignore[import-outside-top-level]
 
             if sys.platform == "darwin":
                 env_user = prefix_config.get_str("SUPERUSER", None) or config.get_str(

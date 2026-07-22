@@ -18,7 +18,7 @@ from hop3.core.credentials import SCHEME_V2_PREFIX, get_credential_encryptor
 from hop3.lib.registry import register
 
 # Repositories are runtime imports for Dishka DI (not just type hints)
-from hop3.orm.repositories import (  # noqa: TC001
+from hop3.orm.repositories import (  # ruff:ignore[typing-only-first-party-import]
     AddonCredentialRepository,
     UserRepository,
 )

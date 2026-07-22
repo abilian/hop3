@@ -15,7 +15,9 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from dishka import FromDishka  # noqa: TC002 -- runtime: @inject resolves the annotation
+from dishka import (
+    FromDishka,  # ruff:ignore[typing-only-third-party-import] -- runtime: @inject resolves the annotation
+)
 from dishka.integrations.litestar import inject
 from litestar import Controller, get, post
 from litestar.enums import RequestEncodingType
@@ -25,7 +27,7 @@ from litestar.response import Redirect, Template
 from litestar.status_codes import HTTP_303_SEE_OTHER
 
 from hop3_testlab.credentials import looks_like_private_key, redact
-from hop3_testlab.repositories import (  # noqa: TC001 -- runtime: @inject resolves them
+from hop3_testlab.repositories import (  # ruff:ignore[typing-only-first-party-import] -- runtime: @inject resolves them
     CredentialsRepository,
     ServersRepository,
 )
@@ -38,7 +40,7 @@ class ServersController(Controller):
     """The server pool and the cloud credentials used to reach run targets."""
 
     path = "/servers"
-    guards = [auth_guard]  # noqa: RUF012
+    guards = [auth_guard]  # ruff:ignore[mutable-class-default]
 
     @get("/")
     @inject

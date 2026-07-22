@@ -66,7 +66,9 @@ class RedisClientFactory:
             # factory-based clients (notably the `system status` health check)
             # connect unauthenticated and an auth-enabled Redis rejects the very
             # first command ("HELLO must be called ... authenticated").
-            from .redis import _load_redis_password  # noqa: PLC0415
+            from .redis import (
+                _load_redis_password,
+            )
 
             password = _load_redis_password() or ""
 

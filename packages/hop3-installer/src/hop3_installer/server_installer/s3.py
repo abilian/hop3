@@ -255,7 +255,7 @@ def _start_minio_service() -> None:
     Picks the init system automatically: systemd if it's PID 1
     (bare-metal, VMs), supervisord otherwise (Docker test containers).
     """
-    import time  # noqa: PLC0415
+    import time  # ruff:ignore[import-outside-top-level]
 
     started = False
     if _has_systemd():

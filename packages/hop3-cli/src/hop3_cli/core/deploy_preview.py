@@ -414,7 +414,7 @@ def _default_git_runner(argv: list[str], cwd: Path) -> str | None:
     non-git directory, or on a command failure — those all just mean
     "no git state to show here".
     """
-    import subprocess  # noqa: PLC0415
+    import subprocess  # ruff:ignore[import-outside-top-level]
 
     try:
         result = subprocess.run(

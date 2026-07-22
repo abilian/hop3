@@ -1,7 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: PLW0603
+# ruff:file-ignore[global-statement]
 # `VERBOSE` and `DRY_RUN` are CLI argv-driven test flags; module-globals
 # are the ergonomic shape for a per-process test driver.
 

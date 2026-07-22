@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM101, TC001
+# ruff:file-ignore[raise-vanilla-args, raw-string-in-exception]
+
 
 """java-war template.
 
@@ -14,7 +15,7 @@ Example apps: Jenkins.
 
 from __future__ import annotations
 
-from hop3.plugins.build.nix.gen.spec import AppSpec
+from hop3.plugins.build.nix.gen.spec import AppSpec, JavaWarPayload
 from hop3.plugins.build.nix.gen.templates.base import (
     PINNED_NIXPKGS_HEADER,
     ReproTier,
@@ -30,7 +31,8 @@ class JavaWarTemplate:
     tier = ReproTier.PREBUILT
 
     def generate(self, spec: AppSpec) -> str:
-        if spec.war_file is None:
+        p = spec.payload_as(JavaWarPayload)
+        if p.war_file is None:
             raise ValueError("java-war requires war_file (e.g., 'jenkins.war')")
         runtime_package = spec.runtime_package or "jdk17"
 
@@ -77,13 +79,13 @@ let
     installPhase = ''
       mkdir -p $out/app $out/bin $out/hop3
 
-      cp ${{{binding}}} $out/app/{spec.war_file}
+      cp ${{{binding}}} $out/app/{p.war_file}
 
       cat > $out/bin/{spec.pname} << 'WRAPPER'
 {wrapper_body}
 WRAPPER
       sed -i "s|JAVABIN|${{jdk}}/bin|g" $out/bin/{spec.pname}
-      sed -i "s|WARPATH|$out/app/{spec.war_file}|g" $out/bin/{spec.pname}
+      sed -i "s|WARPATH|$out/app/{p.war_file}|g" $out/bin/{spec.pname}
       chmod +x $out/bin/{spec.pname}
 
       cat > $out/hop3/runtime.json << EOF

@@ -78,9 +78,15 @@ def _db_hetzner() -> tuple[dict, str | None] | None:
     back to the file/env chain (the path manual ``hop3-test`` still uses). Imports
     are local: the worker imports this module early and the DB stack is heavy.
     """
-    from hop3_testlab.credentials import materialize_key  # noqa: PLC0415
-    from hop3_testlab.db import get_session_factory  # noqa: PLC0415
-    from hop3_testlab.repositories import CredentialsRepository  # noqa: PLC0415
+    from hop3_testlab.credentials import (
+        materialize_key,
+    )
+    from hop3_testlab.db import (
+        get_session_factory,
+    )
+    from hop3_testlab.repositories import (
+        CredentialsRepository,
+    )
 
     factory = get_session_factory(TestlabConfig.get_instance().STORE_TARGET)
     with factory() as session:

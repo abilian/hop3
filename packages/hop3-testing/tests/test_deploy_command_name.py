@@ -51,7 +51,7 @@ def test_cloud_deploy_manager_delegates_to_shared_builder():
     # delegates to run_hop3_deploy, so it inherits the shared _build_deploy_command
     # (tested above to emit the renamed binary). A fix to the binary name now
     # reaches BOTH paths — the class of bug that bit Phase 3 can't recur.
-    from hop3_testing.system_tests.deployment import (  # noqa: PLC0415
+    from hop3_testing.system_tests.deployment import (  # ruff:ignore[import-outside-top-level]
         DeploymentManager,
     )
 

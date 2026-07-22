@@ -88,7 +88,7 @@ class UWSGIDeployer:
 
         # Transition to STARTING (handles both STOPPED and FAILED states)
         if current_state in {AppStateEnum.STOPPED, AppStateEnum.FAILED}:
-            self.app._transition_state(AppStateEnum.STARTING)  # noqa: SLF001
+            self.app._transition_state(AppStateEnum.STARTING)  # ruff:ignore[private-member-access]
 
         spawn_app(self.app, deltas)
 
@@ -96,7 +96,7 @@ class UWSGIDeployer:
         # Note: The background state sync service may have already transitioned
         # the app to RUNNING if it detected processes started. Handle gracefully.
         if self.app.run_state != AppStateEnum.RUNNING:
-            self.app._transition_state(AppStateEnum.RUNNING)  # noqa: SLF001
+            self.app._transition_state(AppStateEnum.RUNNING)  # ruff:ignore[private-member-access]
 
         # Return HTTP socket info (apps now listen on HTTP ports)
         bind_address = "127.0.0.1"
@@ -120,14 +120,14 @@ class UWSGIDeployer:
 
         # Use state machine transition: RUNNING -> STOPPING
         if self.app.run_state == AppStateEnum.RUNNING:
-            self.app._transition_state(AppStateEnum.STOPPING)  # noqa: SLF001
+            self.app._transition_state(AppStateEnum.STOPPING)  # ruff:ignore[private-member-access]
 
         config_files = list(UWSGI_ENABLED.glob(f"{self.app.name}*.ini"))
         if not config_files:
             log(f"App '{self.app.name}' is already stopped or not deployed.", level=3)
             # If already stopped in filesystem, ensure DB state matches
             if self.app.run_state != AppStateEnum.STOPPED:
-                self.app._transition_state(AppStateEnum.STOPPED)  # noqa: SLF001
+                self.app._transition_state(AppStateEnum.STOPPED)  # ruff:ignore[private-member-access]
             return
 
         for config_file in config_files:
@@ -149,7 +149,7 @@ class UWSGIDeployer:
             raise RuntimeError(msg)
 
         # Complete transition: STOPPING -> STOPPED
-        self.app._transition_state(AppStateEnum.STOPPED)  # noqa: SLF001
+        self.app._transition_state(AppStateEnum.STOPPED)  # ruff:ignore[private-member-access]
         log(f"App '{self.app.name}' stopped.", level=2, fg="green")
 
     def _app_pids(self) -> list[int]:

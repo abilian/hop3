@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM101, TC001
+# ruff:file-ignore[raise-vanilla-args, raw-string-in-exception]
+
 
 """ruby-bundler template.
 
@@ -38,7 +39,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from hop3.plugins.build.nix.gen.spec import AppSpec
+from hop3.plugins.build.nix.gen.spec import AppSpec, RubyBundlerPayload
 from hop3.plugins.build.nix.gen.templates.base import (
     PINNED_NIXPKGS_HEADER,
     ReproTier,
@@ -55,6 +56,7 @@ class RubyBundlerTemplate:
     tier = ReproTier.SOURCE
 
     def generate(self, spec: AppSpec) -> str:
+        spec.payload_as(RubyBundlerPayload)
         if spec.exec_target is None:
             raise ValueError("ruby-bundler requires exec_target")
 

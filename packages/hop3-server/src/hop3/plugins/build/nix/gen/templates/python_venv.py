@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM101, TC001
+# ruff:file-ignore[raise-vanilla-args, raw-string-in-exception]
+
 
 """python-venv template.
 
@@ -26,7 +27,7 @@ Example apps: Isso, Bugsink.
 
 from __future__ import annotations
 
-from hop3.plugins.build.nix.gen.spec import AppSpec
+from hop3.plugins.build.nix.gen.spec import AppSpec, PythonVenvPayload
 from hop3.plugins.build.nix.gen.templates.base import (
     PINNED_NIXPKGS_HEADER,
     ReproTier,
@@ -57,9 +58,10 @@ class PythonVenvTemplate:
     tier = ReproTier.SOURCE
 
     def generate(self, spec: AppSpec) -> str:
-        if not spec.pip_requirements:
+        p = spec.payload_as(PythonVenvPayload)
+        if not p.requirements:
             raise ValueError(_NO_LOCKFILE)
-        if not spec.pip_deps_hash:
+        if not p.deps_hash:
             raise ValueError(_NO_DEPS_HASH)
         if spec.exec_target is None:
             raise ValueError("python-venv requires exec_target (e.g., 'isso')")
@@ -83,7 +85,7 @@ class PythonVenvTemplate:
 let
   version = "{spec.version}";
   python = pkgs.{runtime_package};
-  requirementsFile = ./{spec.pip_requirements};
+  requirementsFile = ./{p.requirements};
 
   # Phase 1: vendor the dependency set. This fixed-output derivation is the
   # ONLY step with network access; its content hash pins exactly which wheels
@@ -104,7 +106,7 @@ let
 
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash = "{spec.pip_deps_hash}";
+    outputHash = "{p.deps_hash}";
   }};
 
   app = pkgs.stdenv.mkDerivation {{

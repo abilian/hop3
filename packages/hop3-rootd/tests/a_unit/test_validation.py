@@ -457,9 +457,9 @@ def test_app_name_re_matches_hop3_server_upstream():
     this test enforces it. If you intentionally diverge them, update
     both regex literals + this test in the same change.
     """
-    import hop3_rootd.validation as rootd_validation  # noqa: PLC0415
+    import hop3_rootd.validation as rootd_validation  # ruff:ignore[import-outside-top-level]
 
-    import hop3.core.identifiers as upstream  # noqa: PLC0415
+    import hop3.core.identifiers as upstream  # ruff:ignore[import-outside-top-level]
 
     assert rootd_validation.APP_NAME_RE.pattern == upstream.APP_NAME_RE.pattern, (
         "rootd APP_NAME_RE has drifted from hop3-server's; the two are "

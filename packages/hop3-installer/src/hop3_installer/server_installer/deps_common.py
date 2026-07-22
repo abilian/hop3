@@ -5,9 +5,9 @@
 from __future__ import annotations
 
 import re
-import subprocess  # noqa: TC003
+import subprocess  # ruff:ignore[typing-only-standard-library-import]
 import time
-from collections.abc import Callable  # noqa: TC003
+from collections.abc import Callable  # ruff:ignore[typing-only-standard-library-import]
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -392,7 +392,7 @@ def install_catalogue_baseline(os_family: str) -> None:
     ...); this step adds whatever else the catalogue declares on top.
     Skipped with a warning when the OS family is unsupported.
     """
-    from .baselines import BASELINE_PACKAGES  # noqa: PLC0415
+    from .baselines import BASELINE_PACKAGES  # ruff:ignore[import-outside-top-level]
 
     packages = BASELINE_PACKAGES.get(os_family)
     if not packages:

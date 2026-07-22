@@ -1,7 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: SIM105
+# ruff:file-ignore[suppressible-exception]
 
 """hop3-rootd installation and migration.
 

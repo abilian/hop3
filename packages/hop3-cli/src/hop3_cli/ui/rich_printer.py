@@ -179,7 +179,7 @@ class RichPrinter:
         cmd = self._render_suggested_command(obj.get("command", ""))
         # "{cmd}" is a literal placeholder in the server-supplied message, not an
         # f-string — the command is substituted in here, CLI-side.
-        message = obj.get("message", "").replace("{cmd}", f"'{cmd}'")  # noqa: RUF027
+        message = obj.get("message", "").replace("{cmd}", f"'{cmd}'")  # ruff:ignore[missing-f-string-syntax]
         self.console.print(message, markup=False, highlight=False)
 
     def _render_suggested_command(self, command: str) -> str:

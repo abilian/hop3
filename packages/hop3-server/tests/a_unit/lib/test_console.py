@@ -302,7 +302,7 @@ class TestVerbosity:
     def test_verbosity_context_restores_on_exception(self, restore_verbosity):
         set_verbosity(1)
 
-        with pytest.raises(BoomError):  # noqa: SIM117
+        with pytest.raises(BoomError):  # ruff:ignore[multiple-with-statements]
             with VerbosityContext(3):
                 assert get_verbosity() == 3
                 raise BoomError
@@ -335,7 +335,7 @@ class TestCaptureLogs:
     def test_restores_console_on_exception(self, restore_console):
         original = get_current_console()
 
-        with pytest.raises(BoomError):  # noqa: SIM117
+        with pytest.raises(BoomError):  # ruff:ignore[multiple-with-statements]
             with CaptureLogs():
                 raise BoomError
 

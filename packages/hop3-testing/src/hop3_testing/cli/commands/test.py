@@ -148,7 +148,7 @@ def _run_image_sweep(
     test → persist to the shared store), run serially and aggregated. Exits 1 if
     any image fails.
     """
-    from hop3_testing.system_tests.multi_distro import (  # noqa: PLC0415
+    from hop3_testing.system_tests.multi_distro import (  # ruff:ignore[import-outside-top-level]
         HETZNER_IMAGES,
         run_multi_distro_tests,
     )
@@ -280,7 +280,7 @@ def _run_image_sweep(
     help="Extra features on top of the apps' auto-provisioned addons — repeatable or comma-separated (e.g. --with nix,redis, or --with all)",
 )
 @click.pass_context
-def system_test(  # noqa: C901, PLR0912, PLR0915
+def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-statements]
     ctx: click.Context,
     app_names: tuple[str, ...],
     target_type: str | None,
@@ -350,7 +350,7 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
     # is a full `run --provider hetzner --image X` (provision → deploy → test →
     # persist), aggregated. Cardinality is a flag, not a separate command.
     if list_images:
-        from hop3_testing.system_tests.multi_distro import (  # noqa: PLC0415
+        from hop3_testing.system_tests.multi_distro import (  # ruff:ignore[import-outside-top-level]
             show_images,
         )
 
@@ -379,7 +379,7 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
     # to the normal remote deploy+test (which writes the shared result store, so
     # cloud runs show up in the dashboard and `why`).
     if provider:
-        from hop3_testing.system_tests.provision import (  # noqa: PLC0415
+        from hop3_testing.system_tests.provision import (  # ruff:ignore[import-outside-top-level]
             provision_server,
         )
 

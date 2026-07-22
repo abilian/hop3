@@ -241,7 +241,7 @@ class RemoteTarget(DeploymentTarget):
         print(f"Deploying Hop3 to remote server: {config.user}@{config.host}")
         print("=" * 70)
 
-        try:  # noqa: PLW0717 — same pattern as DockerTarget.start(): diagnostic-save-on-any-failure wraps the whole startup. The except clause runs `_save_diagnostics_on_error()` no matter which step blew up; narrowing the try would force the same call at every failure site.
+        try:  # ruff:ignore[too-many-statements-in-try-clause] — same pattern as DockerTarget.start(): diagnostic-save-on-any-failure wraps the whole startup. The except clause runs `_save_diagnostics_on_error()` no matter which step blew up; narrowing the try would force the same call at every failure site.
             # Run hop3-deploy via subprocess (no hop3-installer imports!)
             success, _duration = run_hop3_deploy(
                 docker=False,

@@ -10,7 +10,7 @@ from contextlib import AbstractContextManager
 from pathlib import Path
 
 
-class chdir(AbstractContextManager):  # noqa: N801
+class chdir(AbstractContextManager):  # ruff:ignore[invalid-class-name]
     """Non thread-safe context manager to change the current working directory.
 
     This context manager is used to temporarily change the current working

@@ -29,7 +29,7 @@ class RubyToolchain(LanguageToolchain):
     """
 
     name = "Ruby"
-    requirements = ["ruby", "gem", "bundle"]  # noqa: RUF012
+    requirements = ["ruby", "gem", "bundle"]  # ruff:ignore[mutable-class-default]
 
     def accept(self) -> bool:
         return self.check_exists("Gemfile")

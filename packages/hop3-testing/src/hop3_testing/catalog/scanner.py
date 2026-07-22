@@ -199,7 +199,7 @@ class Catalog:
             return False
         return _BUSINESS_DROP_MARKER in text
 
-    def _scan_directory(self, path: Path, rel_path: str) -> None:  # noqa: C901, PLR0912
+    def _scan_directory(self, path: Path, rel_path: str) -> None:  # ruff:ignore[complex-structure, too-many-branches]
         """Scan a single directory for tests.
 
         Scans for:

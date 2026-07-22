@@ -13,7 +13,7 @@ import pytest
 from hop3.waf.bans import is_exempt, parse_duration, sources_to_ban
 
 # Naive UTC by design — ban scoring normalizes everything to naive UTC.
-NOW = datetime(2026, 6, 25, 12, 0, 0)  # noqa: DTZ001
+NOW = datetime(2026, 6, 25, 12, 0, 0)  # ruff:ignore[call-datetime-without-tzinfo]
 
 
 def _blocked(ip: str, when: datetime, action: str = "blocked") -> dict:

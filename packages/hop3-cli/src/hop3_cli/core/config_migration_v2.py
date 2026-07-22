@@ -66,7 +66,7 @@ def migrate_config_to_token_store(config_dir: Path) -> list[str]:
     if not _needs_migration(data, contexts):
         return []  # no-op: already address-only, no token, no stale pointer
 
-    from hop3_cli.core import credential_store  # noqa: PLC0415
+    from hop3_cli.core import credential_store  # ruff:ignore[import-outside-top-level]
 
     # 1. Backup (copy-if-absent) BEFORE any mutation.
     backup = config_dir / (CONFIG_FILENAME + BACKUP_SUFFIX)

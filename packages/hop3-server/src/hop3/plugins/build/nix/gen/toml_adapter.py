@@ -4,12 +4,18 @@
 
 """Adapter: construct an AppSpec from parsed hop3.toml sections.
 
-Maps the ``[nix]`` section of hop3.toml (a dict parsed from TOML) into
-the AppSpec dataclass consumed by the template generator.
+Maps the ``[nix]`` section of hop3.toml (a dict parsed from TOML) into the
+AppSpec dataclass consumed by the template generator. TOML keys are kebab-case
+(hop3.toml convention), spec fields are snake_case (Python convention); this
+module handles the translation, and the key tables below are the single place
+that records it.
 
-The TOML field names use kebab-case (hop3.toml convention); the AppSpec
-fields use snake_case (Python convention). This module handles the
-translation.
+Every key is claimed by exactly one table: the shared core, or one template's
+payload. A key that is not claimed at all, or that is claimed by a template
+other than the one selected, is an error. Silently ignoring it is what the
+tables exist to prevent — a mistyped ``go-vendor-hsah`` or a ``pip-packages``
+left behind by an earlier design used to vanish without a word, and the app
+built with a default the author never intended.
 """
 
 from __future__ import annotations
@@ -22,7 +28,19 @@ from hop3.plugins.build.nix.gen.spec import (
     ConditionalEnvVar,
     ConfigFile,
     FileMapping,
+    GoSourcePayload,
+    JavaGradlePayload,
+    JavaWarPayload,
+    NixpkgsWrapperPayload,
+    NodePnpmInstallPayload,
+    NodePrebuiltPayload,
+    PhpAppPayload,
+    PrebuiltArchivePayload,
+    PrebuiltBinaryPayload,
+    PythonVenvPayload,
+    RubyBundlerPayload,
     Source,
+    TemplatePayload,
 )
 
 _NIXPKGS_REV_RE = re.compile(r"\A[0-9a-f]{40}\Z")
@@ -30,6 +48,143 @@ _NIXPKGS_REV_RE = re.compile(r"\A[0-9a-f]{40}\Z")
 _NIXPKGS_SHA256_RE = re.compile(
     r"\A(?:[0-9abcdfghijklmnpqrsvwxyz]{52}|sha256-[A-Za-z0-9+/]{43}=)\Z"
 )
+
+# TOML keys consumed by this module directly rather than mapped to a field:
+# the template selector, the Source parts, and the nested array-of-tables.
+_CORE_KEYS = {
+    "template",
+    "url",
+    "sha256",
+    "executable",
+    "archive",
+    "version",
+    "config-files",
+    "file-mappings",
+    "conditional-env",
+}
+
+# Shared AppSpec fields: TOML key -> (field name, default).
+_SHARED_FIELDS: dict[str, tuple[str, Any]] = {
+    "source-root": ("source_root", None),
+    "strip-components": ("strip_components", 1),
+    "runtime-package": ("runtime_package", None),
+    "nixpkgs-rev": ("nixpkgs_rev", None),
+    "nixpkgs-sha256": ("nixpkgs_sha256", None),
+    "exec-target": ("exec_target", None),
+    "exec-args": ("exec_args", []),
+    "local-vars": ("local_vars", {}),
+    "env-exports": ("env_exports", {}),
+    "pre-exec": ("pre_exec_commands", []),
+    "writable-home-at-runtime": ("writable_home_at_runtime", False),
+    "writable-home-env-var": ("writable_home_env_var", None),
+    "runtime-env": ("runtime_env", {}),
+    "extra-paths": ("extra_paths", []),
+    "nix-runtime-libs": ("nix_runtime_libs", []),
+}
+
+# Per-template payload fields: template -> (payload class, {TOML key -> field}).
+_PAYLOAD_FIELDS: dict[str, tuple[type[TemplatePayload], dict[str, str]]] = {
+    "prebuilt-binary": (PrebuiltBinaryPayload, {"binary-name": "binary_name"}),
+    "prebuilt-archive": (PrebuiltArchivePayload, {}),  # file-mappings is nested
+    "node-prebuilt": (
+        NodePrebuiltPayload,
+        {"unpack-without-top-level": "unpack_without_top_level"},
+    ),
+    "java-war": (
+        JavaWarPayload,
+        {"war-file": "war_file", "jvm-default-opts": "jvm_default_opts"},
+    ),
+    "ruby-bundler": (RubyBundlerPayload, {}),
+    "python-venv": (
+        PythonVenvPayload,
+        {"pip-requirements": "requirements", "pip-deps-hash": "deps_hash"},
+    ),
+    "node-pnpm-install": (
+        NodePnpmInstallPayload,
+        {
+            "npm-package": "npm_package",
+            "node-manifest": "manifest",
+            "node-lockfile": "lockfile",
+            "node-deps-hash": "deps_hash",
+            "node-pnpm-package": "pnpm_package",
+            "node-native-packages": "native_packages",
+        },
+    ),
+    "java-gradle": (
+        JavaGradlePayload,
+        {
+            "gradle-deps-json": "deps_json",
+            "gradle-patches": "patches",
+            "gradle-flags": "flags",
+            "gradle-jar-glob": "jar_glob",
+            "gradle-jar-name": "jar_name",
+        },
+    ),
+    "nixpkgs-wrapper": (
+        NixpkgsWrapperPayload,
+        {
+            "nixpkgs-package": "package",
+            "install-extra": "install_extra",
+            "exec-prefix": "exec_prefix",
+            "nixpkgs-overrides": "overrides",
+            "let-extra": "let_extra",
+            "env-exports-raw": "env_exports_raw",
+        },
+    ),
+    "php-app": (
+        PhpAppPayload,
+        {
+            "php-version": "php_version",
+            "php-extensions": "php_extensions",
+            "needs-composer": "needs_composer",
+            "composer-deps-hash": "composer_deps_hash",
+            "composer-strict-validation": "composer_strict_validation",
+            "composer-extra-flags": "composer_extra_flags",
+            "serve-mode": "serve_mode",
+            "web-root": "web_root",
+            "post-install-dirs": "post_install_dirs",
+            "single-file": "single_file",
+            "skip-source-copy": "skip_source_copy",
+            "needs-writable-dir": "needs_writable_dir",
+            "extra-native-build-inputs": "extra_native_build_inputs",
+        },
+    ),
+    "go-source": (
+        GoSourcePayload,
+        {
+            "go-vendor-hash": "vendor_hash",
+            "go-sub-packages": "sub_packages",
+            "go-ldflags": "ldflags",
+            "go-proxy-vendor": "proxy_vendor",
+            "go-version": "go_version",
+            "go-static-dirs": "static_dirs",
+            "go-frontend-build": "frontend_build",
+            "go-npm-deps-hash": "npm_deps_hash",
+            "go-frontend-output": "frontend_output",
+            "go-frontend-source-root": "frontend_source_root",
+            "go-frontend-pnpm": "frontend_pnpm",
+            "go-pnpm-deps-hash": "pnpm_deps_hash",
+            "go-pnpm-package": "pnpm_package",
+            "go-frontend-node-package": "frontend_node_package",
+            "go-frontend-embed-path": "frontend_embed_path",
+        },
+    ),
+}
+
+# Templates that honour a per-app nixpkgs pin. The others would silently ignore
+# it, so the adapter refuses it there instead.
+_PIN_AWARE_TEMPLATES = {"nixpkgs-wrapper", "go-source"}
+
+# Keys retired by a design change. Naming them lets the error say what to do,
+# instead of the generic "unknown key" that leaves the author guessing.
+_RETIRED_KEYS = {
+    "pip-packages": (
+        "bare package names are unpinned and unhashed, so the build can be "
+        "neither reproduced nor run offline. Ship a hash-pinned lockfile and "
+        "set `pip-requirements` instead (python-venv), or list the package in "
+        "the committed manifest (node-pnpm-install)."
+    ),
+}
 
 
 def _validate_nixpkgs_pin(rev: str, sha256: str) -> None:
@@ -55,6 +210,36 @@ def _validate_nixpkgs_pin(rev: str, sha256: str) -> None:
         raise ValueError(msg)
 
 
+def _reject_unclaimed_keys(nix_config: dict[str, Any], template: str) -> None:
+    """Fail on any ``[nix]`` key the selected template will never read.
+
+    Three cases, each with its own message: a key retired by a design change, a
+    key that belongs to a different template, and a key nothing claims (almost
+    always a typo). All three used to be dropped in silence.
+    """
+    _, payload_keys = _PAYLOAD_FIELDS[template]
+    known = _CORE_KEYS | set(_SHARED_FIELDS) | set(payload_keys)
+
+    for key in sorted(nix_config):
+        if key in known:
+            continue
+        if key in _RETIRED_KEYS:
+            msg = f"[nix].{key} is no longer supported: {_RETIRED_KEYS[key]}"
+            raise ValueError(msg)
+        owners = sorted(t for t, (_, keys) in _PAYLOAD_FIELDS.items() if key in keys)
+        if owners:
+            msg = (
+                f"[nix].{key} belongs to the {' / '.join(owners)} template(s), "
+                f"not to {template!r}. It would have no effect here."
+            )
+            raise ValueError(msg)
+        msg = (
+            f"[nix].{key} is not a known key for the {template!r} template. "
+            f"Valid keys: {', '.join(sorted(known))}."
+        )
+        raise ValueError(msg)
+
+
 def app_spec_from_config(
     nix_config: dict[str, Any],
     metadata: dict[str, Any],
@@ -71,15 +256,22 @@ def app_spec_from_config(
         An AppSpec ready to be passed to ``generate()``.
 
     Raises:
-        ValueError: If required fields are missing.
+        ValueError: If a required field is missing, or a key is unknown,
+            retired, or owned by another template.
     """
     template = nix_config.get("template")
     if not template:
         msg = "[nix].template is required"
         raise ValueError(msg)
+    if template not in _PAYLOAD_FIELDS:
+        available = ", ".join(sorted(_PAYLOAD_FIELDS))
+        msg = f"Unknown template: {template!r}. Available: {available}"
+        raise ValueError(msg)
 
-    # Per-app nixpkgs pin override — both keys together, wrapper-only. Fail loud
-    # rather than silently ignore a pin the template can't honour.
+    _reject_unclaimed_keys(nix_config, template)
+
+    # Per-app nixpkgs pin override — both keys together, and only where a
+    # template honours it. Fail loud rather than ship a pin nothing applies.
     nixpkgs_rev = nix_config.get("nixpkgs-rev")
     nixpkgs_sha256 = nix_config.get("nixpkgs-sha256")
     if (nixpkgs_rev is None) != (nixpkgs_sha256 is None):
@@ -88,16 +280,16 @@ def app_spec_from_config(
             "(a rev needs its fetchTarball sha256, and vice versa)"
         )
         raise ValueError(msg)
-    if nixpkgs_rev is not None and template != "nixpkgs-wrapper":
-        msg = (
-            "[nix].nixpkgs-rev / nixpkgs-sha256 (per-app nixpkgs pin) is only "
-            f"supported by the 'nixpkgs-wrapper' template, not {template!r}"
-        )
-        raise ValueError(msg)
-    if nixpkgs_rev is not None and nixpkgs_sha256 is not None:
+    if nixpkgs_rev is not None:
+        if template not in _PIN_AWARE_TEMPLATES:
+            msg = (
+                "[nix].nixpkgs-rev / nixpkgs-sha256 (per-app nixpkgs pin) is "
+                f"only honoured by the {' / '.join(sorted(_PIN_AWARE_TEMPLATES))} "
+                f"template(s), not {template!r}"
+            )
+            raise ValueError(msg)
         _validate_nixpkgs_pin(nixpkgs_rev, nixpkgs_sha256)
 
-    # Build Source from [nix] fields
     source = Source(
         url=nix_config.get("url", ""),
         sha256=nix_config.get("sha256", ""),
@@ -105,94 +297,35 @@ def app_spec_from_config(
         archive=nix_config.get("archive"),
     )
 
-    # Parse nested structures
-    config_files = _parse_config_files(nix_config.get("config-files", []))
-    file_mappings = _parse_file_mappings(nix_config.get("file-mappings", []))
-    conditional_env = _parse_conditional_env(nix_config.get("conditional-env", []))
+    payload_cls, payload_keys = _PAYLOAD_FIELDS[template]
+    payload_kwargs = {
+        field: nix_config[key]
+        for key, field in payload_keys.items()
+        if key in nix_config
+    }
+    if template == "prebuilt-archive":
+        # The only payload field arriving as an array of tables.
+        payload_kwargs["file_mappings"] = _parse_file_mappings(
+            nix_config.get("file-mappings", [])
+        )
+    payload = payload_cls(**payload_kwargs)
+
+    shared = {
+        field: nix_config.get(key, default)
+        for key, (field, default) in _SHARED_FIELDS.items()
+    }
 
     return AppSpec(
-        # Identity — from [metadata] with fallbacks
         pname=metadata.get("id", app_name),
         version=str(metadata.get("version", nix_config.get("version", ""))),
         description=metadata.get("description", ""),
-        template=template,
         source=source,
-        # prebuilt-binary fields
-        binary_name=nix_config.get("binary-name"),
-        # prebuilt-archive fields
-        source_root=nix_config.get("source-root"),
-        file_mappings=file_mappings,
-        # php-app fields
-        php_version=nix_config.get("php-version", "php82"),
-        php_extensions=nix_config.get("php-extensions", []),
-        needs_composer=nix_config.get("needs-composer", False),
-        composer_deps_hash=nix_config.get("composer-deps-hash"),
-        composer_strict_validation=nix_config.get("composer-strict-validation", True),
-        composer_extra_flags=nix_config.get("composer-extra-flags", []),
-        strip_components=nix_config.get("strip-components", 1),
-        serve_mode=nix_config.get("serve-mode", "builtin"),
-        web_root=nix_config.get("web-root", ""),
-        post_install_dirs=nix_config.get("post-install-dirs", []),
-        single_file=nix_config.get("single-file", False),
-        skip_source_copy=nix_config.get("skip-source-copy", False),
-        needs_writable_dir=nix_config.get("needs-writable-dir", False),
-        extra_native_build_inputs=nix_config.get("extra-native-build-inputs", []),
-        # nixpkgs-wrapper fields
-        nixpkgs_package=nix_config.get("nixpkgs-package"),
-        nixpkgs_rev=nixpkgs_rev,
-        nixpkgs_sha256=nixpkgs_sha256,
-        install_extra=nix_config.get("install-extra"),
-        exec_prefix=nix_config.get("exec-prefix"),
-        nixpkgs_overrides=nix_config.get("nixpkgs-overrides", {}),
-        writable_home_at_runtime=nix_config.get("writable-home-at-runtime", False),
-        writable_home_env_var=nix_config.get("writable-home-env-var"),
-        let_extra=nix_config.get("let-extra", {}),
-        env_exports_raw=nix_config.get("env-exports-raw", {}),
-        # node-prebuilt / java-war / python-venv fields
-        runtime_package=nix_config.get("runtime-package"),
-        unpack_without_top_level=nix_config.get("unpack-without-top-level", False),
-        war_file=nix_config.get("war-file"),
-        jvm_default_opts=nix_config.get("jvm-default-opts"),
-        pip_packages=nix_config.get("pip-packages", []),
-        pip_requirements=nix_config.get("pip-requirements"),
-        node_manifest=nix_config.get("node-manifest"),
-        node_lockfile=nix_config.get("node-lockfile"),
-        node_deps_hash=nix_config.get("node-deps-hash"),
-        node_pnpm_package=nix_config.get("node-pnpm-package", "pnpm_9"),
-        node_native_packages=nix_config.get("node-native-packages", []),
-        go_static_dirs=nix_config.get("go-static-dirs", []),
-        go_vendor_hash=nix_config.get("go-vendor-hash"),
-        go_sub_packages=nix_config.get("go-sub-packages", []),
-        go_ldflags=nix_config.get("go-ldflags", []),
-        go_proxy_vendor=nix_config.get("go-proxy-vendor", False),
-        go_version=nix_config.get("go-version"),
-        go_frontend_build=nix_config.get("go-frontend-build"),
-        go_npm_deps_hash=nix_config.get("go-npm-deps-hash"),
-        go_frontend_output=nix_config.get("go-frontend-output", "public"),
-        go_frontend_source_root=nix_config.get("go-frontend-source-root"),
-        go_frontend_pnpm=nix_config.get("go-frontend-pnpm", False),
-        go_pnpm_deps_hash=nix_config.get("go-pnpm-deps-hash"),
-        go_pnpm_package=nix_config.get("go-pnpm-package", "pnpm_9"),
-        go_frontend_node_package=nix_config.get("go-frontend-node-package", "nodejs"),
-        go_frontend_embed_path=nix_config.get("go-frontend-embed-path"),
-        gradle_deps_json=nix_config.get("gradle-deps-json", "deps.json"),
-        gradle_patches=nix_config.get("gradle-patches", []),
-        gradle_flags=nix_config.get("gradle-flags", []),
-        gradle_jar_glob=nix_config.get("gradle-jar-glob"),
-        gradle_jar_name=nix_config.get("gradle-jar-name"),
-        pip_deps_hash=nix_config.get("pip-deps-hash"),
-        # Wrapper script fields
-        exec_target=nix_config.get("exec-target"),
-        exec_args=nix_config.get("exec-args", []),
-        local_vars=nix_config.get("local-vars", {}),
-        env_exports=nix_config.get("env-exports", {}),
-        conditional_env_exports=conditional_env,
-        pre_exec_commands=nix_config.get("pre-exec", []),
-        config_files=config_files,
-        # Runtime metadata
-        runtime_env=nix_config.get("runtime-env", {}),
-        extra_paths=nix_config.get("extra-paths", []),
-        nix_runtime_libs=nix_config.get("nix-runtime-libs", []),
+        payload=payload,
+        conditional_env_exports=_parse_conditional_env(
+            nix_config.get("conditional-env", [])
+        ),
+        config_files=_parse_config_files(nix_config.get("config-files", [])),
+        **shared,
     )
 
 

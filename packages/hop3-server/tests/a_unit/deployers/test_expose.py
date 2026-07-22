@@ -158,7 +158,7 @@ def test_expose_rolls_back_firewall_when_proxy_fails():
         if op == "firewall.add_rule":
             return {"rule_id": "r1"}
         if op == "proxy.add":
-            raise RootdError("proxy boom")  # noqa: EM101, TRY003
+            raise RootdError("proxy boom")  # ruff:ignore[raw-string-in-exception, raise-vanilla-args]
         return {}
 
     repo = MagicMock()

@@ -161,7 +161,7 @@ class AppConfig:
                 return timeout
 
         # Fall back to server default (deferred import to avoid circular dependency)
-        from hop3.config import config  # noqa: PLC0415
+        from hop3.config import config  # ruff:ignore[import-outside-top-level]
 
         return config.APP_START_TIMEOUT
 

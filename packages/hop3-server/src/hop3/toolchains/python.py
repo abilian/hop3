@@ -111,7 +111,7 @@ class PythonToolchain(LanguageToolchain):
     """
 
     name = "Python"
-    requirements = ["python3", "pip"]  # noqa: RUF012
+    requirements = ["python3", "pip"]  # ruff:ignore[mutable-class-default]
 
     def accept(self) -> bool:
         return self.check_exists(["requirements.txt", "pyproject.toml"])

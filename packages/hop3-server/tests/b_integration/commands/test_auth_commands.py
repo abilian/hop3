@@ -339,7 +339,9 @@ def test_auth_magic_link_pass_username_blocks_spoofed_admin(
     ``authenticated_username``. We assert the declarative fix and reproduce the
     RPC's arg-injection for the attack payload from a non-admin identity.
     """
-    from hop3.server.controllers.rpc import command_needs_username  # noqa: PLC0415
+    from hop3.server.controllers.rpc import (
+        command_needs_username,
+    )
 
     # The fix: the command opts into verified-identity injection.
     assert command_needs_username(AuthMagicLinkCmd) is True

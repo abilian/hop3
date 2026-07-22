@@ -27,7 +27,7 @@ SECRET_KEY_FILE = Path("/etc/hop3/secret-key")
 
 def _get_config():
     """Lazy import to avoid circular dependency."""
-    from hop3 import config as c  # noqa: PLC0415
+    from hop3 import config as c  # ruff:ignore[import-outside-top-level]
 
     return c
 
@@ -130,7 +130,7 @@ def create_token(
     return token
 
 
-def validate_token(token: str) -> dict[str, Any] | None:  # noqa: PLR0911 — security-critical: every early `return None` is a distinct validation rule failing (revocation, scopes shape, empty scopes, no valid scope, ExpiredSignature/InvalidToken, generic catch-all). Coalescing them into a single return path risks accidentally weakening one of the rules; multiple early-exits are the right pattern here.
+def validate_token(token: str) -> dict[str, Any] | None:  # ruff:ignore[too-many-return-statements] — security-critical: every early `return None` is a distinct validation rule failing (revocation, scopes shape, empty scopes, no valid scope, ExpiredSignature/InvalidToken, generic catch-all). Coalescing them into a single return path risks accidentally weakening one of the rules; multiple early-exits are the right pattern here.
     """Validate a JWT token and return the payload.
 
     This function:
@@ -214,8 +214,12 @@ def is_token_revoked(jti: str, scopes: list[str] | None = None) -> bool:
     asymmetry is the right default. Surfaced from 0.5dev3 / 0.5.0.dev3
     triage; see notes/security.md §3.3.
     """
-    from hop3.orm.repositories import RevokedTokenRepository  # noqa: PLC0415
-    from hop3.server.lib.database import get_session  # noqa: PLC0415
+    from hop3.orm.repositories import (
+        RevokedTokenRepository,
+    )
+    from hop3.server.lib.database import (
+        get_session,
+    )
 
     try:
         with get_session() as db_session:
@@ -237,9 +241,13 @@ def revoke_token(jti: str, expires_at: datetime, reason: str | None = None) -> N
         expires_at: When the token expires (for cleanup)
         reason: Optional reason for revocation (e.g., "user_logout")
     """
-    from hop3.orm import RevokedToken  # noqa: PLC0415
-    from hop3.orm.repositories import RevokedTokenRepository  # noqa: PLC0415
-    from hop3.server.lib.database import get_session  # noqa: PLC0415
+    from hop3.orm import RevokedToken  # ruff:ignore[import-outside-top-level]
+    from hop3.orm.repositories import (
+        RevokedTokenRepository,
+    )
+    from hop3.server.lib.database import (
+        get_session,
+    )
 
     with get_session() as db_session:
         repo = RevokedTokenRepository(session=db_session)

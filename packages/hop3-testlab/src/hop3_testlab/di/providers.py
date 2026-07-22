@@ -12,11 +12,13 @@ shared result store in the schema milestone (spec §8).
 from __future__ import annotations
 
 from collections.abc import (
-    Iterator,  # noqa: TC003 -- runtime: Dishka reads the return type
+    Iterator,  # ruff:ignore[typing-only-standard-library-import] -- runtime: Dishka reads the return type
 )
 
 from dishka import Provider, Scope, provide
-from sqlalchemy.orm import Session  # noqa: TC002 -- runtime: Dishka resolves it
+from sqlalchemy.orm import (
+    Session,  # ruff:ignore[typing-only-third-party-import] -- runtime: Dishka resolves it
+)
 
 from hop3_testlab.config import TestlabConfig
 from hop3_testlab.db import get_session_factory

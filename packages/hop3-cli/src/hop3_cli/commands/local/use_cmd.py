@@ -56,7 +56,7 @@ def handle_use(args: list[str], config: Config, printer: RichPrinter) -> None:
 
 
 def _show_help() -> None:
-    from .help_text import USE_HELP  # noqa: PLC0415
+    from .help_text import USE_HELP  # ruff:ignore[import-outside-top-level]
 
     print(USE_HELP)
 

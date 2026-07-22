@@ -135,7 +135,9 @@ def test_install_extensions_rejects_non_allowlisted(postgres_service, bad_ext):
 
 def test_install_extensions_allowlist_covers_common_trusted():
     """The allow-list must contain the extensions hop3 docs/examples reference."""
-    from hop3.plugins.postgresql.postgres import ALLOWED_EXTENSIONS  # noqa: PLC0415
+    from hop3.plugins.postgresql.postgres import (
+        ALLOWED_EXTENSIONS,
+    )
 
     # Spot-check a handful of widely-used trusted extensions.
     for ext in ("pg_trgm", "hstore", "citext", "pgcrypto", "uuid-ossp"):
@@ -155,7 +157,7 @@ def test_install_extensions_allowlist_covers_common_trusted():
 )
 def test_install_extensions_default_set_covers_popular_apps(ext):
     """Popular self-hosted apps' extensions must be in the default set."""
-    from hop3.plugins.postgresql.postgres import (  # noqa: PLC0415
+    from hop3.plugins.postgresql.postgres import (  # ruff:ignore[import-outside-top-level]
         DEFAULT_ALLOWED_EXTENSIONS,
     )
 
@@ -166,7 +168,9 @@ def test_install_extensions_default_set_covers_popular_apps(ext):
 
 def test_blocked_extensions_includes_privilege_escalation_set():
     """Truly dangerous extensions must be in BLOCKED_EXTENSIONS."""
-    from hop3.plugins.postgresql.postgres import BLOCKED_EXTENSIONS  # noqa: PLC0415
+    from hop3.plugins.postgresql.postgres import (
+        BLOCKED_EXTENSIONS,
+    )
 
     for ext in (
         "adminpack",
@@ -181,7 +185,7 @@ def test_blocked_extensions_includes_privilege_escalation_set():
 
 def test_operator_extra_env_extends_allowlist(postgres_service, monkeypatch):
     """HOP3_EXTRA_PG_EXTENSIONS adds names to the effective allow-list."""
-    from hop3.plugins.postgresql.postgres import (  # noqa: PLC0415
+    from hop3.plugins.postgresql.postgres import (  # ruff:ignore[import-outside-top-level]
         _resolve_allowed_extensions,
     )
 
@@ -195,7 +199,7 @@ def test_operator_extra_env_extends_allowlist(postgres_service, monkeypatch):
 
 def test_operator_extra_env_cannot_enable_blocked(postgres_service, monkeypatch):
     """HOP3_EXTRA_PG_EXTENSIONS cannot lift entries off BLOCKED_EXTENSIONS."""
-    from hop3.plugins.postgresql.postgres import (  # noqa: PLC0415
+    from hop3.plugins.postgresql.postgres import (  # ruff:ignore[import-outside-top-level]
         _resolve_allowed_extensions,
     )
 
@@ -209,7 +213,7 @@ def test_operator_extra_env_cannot_enable_blocked(postgres_service, monkeypatch)
 
 def test_operator_extra_env_empty_is_noop(monkeypatch):
     """Empty / unset env var leaves the allow-list at defaults."""
-    from hop3.plugins.postgresql.postgres import (  # noqa: PLC0415
+    from hop3.plugins.postgresql.postgres import (  # ruff:ignore[import-outside-top-level]
         BLOCKED_EXTENSIONS,
         DEFAULT_ALLOWED_EXTENSIONS,
         _resolve_allowed_extensions,

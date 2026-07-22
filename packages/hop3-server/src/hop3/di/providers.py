@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TC002, TC003
+# ruff:file-ignore[typing-only-third-party-import, typing-only-standard-library-import]
 
 """Dishka providers for Hop3 services."""
 

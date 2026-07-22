@@ -145,7 +145,7 @@ _snapshot: dict[str, DomainHealth] = {}
 
 
 def set_domain_health(results: dict[str, DomainHealth]) -> None:
-    global _snapshot  # noqa: PLW0603
+    global _snapshot  # ruff:ignore[global-statement]
     _snapshot = dict(results)
 
 

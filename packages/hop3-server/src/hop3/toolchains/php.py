@@ -34,7 +34,7 @@ class PHPToolchain(LanguageToolchain):
     """
 
     name = "PHP"
-    requirements = []  # Composer only required if composer.json exists  # noqa: RUF012
+    requirements = []  # Composer only required if composer.json exists  # ruff:ignore[mutable-class-default]
 
     def accept(self) -> bool:
         """Check if this is a PHP project.

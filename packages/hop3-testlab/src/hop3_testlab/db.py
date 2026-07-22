@@ -52,7 +52,7 @@ def _widen_build_detail(engine) -> None:
     """
     if engine.dialect.name != "postgresql":
         return
-    from sqlalchemy import text  # noqa: PLC0415
+    from sqlalchemy import text  # ruff:ignore[import-outside-top-level]
 
     with engine.begin() as conn:
         conn.execute(

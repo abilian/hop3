@@ -201,8 +201,12 @@ def _installed_features() -> list[str]:
         features.append("mysql")
 
     # The per-service secrets are the installer's marker for `--with redis|s3`.
-    from hop3.plugins.redis.redis import REDIS_PASS_FILE  # noqa: PLC0415
-    from hop3.plugins.s3.backend import HOP3_S3_ENV_FILE  # noqa: PLC0415
+    from hop3.plugins.redis.redis import (
+        REDIS_PASS_FILE,
+    )
+    from hop3.plugins.s3.backend import (
+        HOP3_S3_ENV_FILE,
+    )
 
     if pathlib.Path(REDIS_PASS_FILE).exists():
         features.append("redis")

@@ -95,6 +95,6 @@ def enforce_unsafe_mode_policy() -> None:
     # guards actually read, to the sanitized live value. Without this the
     # production override above forces the env var but never reaches the
     # enforcement points — a silent full-auth bypass.
-    import hop3.config as config_module  # noqa: PLC0415
+    import hop3.config as config_module  # ruff:ignore[import-outside-top-level]
 
     config_module.HOP3_UNSAFE = config_module.config.HOP3_UNSAFE

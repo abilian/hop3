@@ -190,7 +190,9 @@ class EmailAddon:
         :meth:`get_connection_details`). This is a surfaced degradation of an
         optional feature, not a silent skip.
         """
-        from .server_transport import server_sending_domain  # noqa: PLC0415
+        from .server_transport import (
+            server_sending_domain,
+        )
 
         domain = server_sending_domain()
         if domain is not None:
@@ -238,7 +240,7 @@ class EmailAddon:
             # Inheriting apps send via the loopback relay regardless of backend
             # kind (relay/catch/direct). Resolve the backend FRESH each deploy, so
             # configuring one later + redeploying wires email with no re-create.
-            from .server_transport import (  # noqa: PLC0415
+            from .server_transport import (  # ruff:ignore[import-outside-top-level]
                 assert_inherited_backend,
                 server_sending_domain,
             )
@@ -308,7 +310,7 @@ class EmailAddon:
         loopback) backend shows ``127.0.0.1:25``, since the app sends there. A
         backend that is no longer set surfaces the fail-loud error.
         """
-        from .server_transport import (  # noqa: PLC0415
+        from .server_transport import (  # ruff:ignore[import-outside-top-level]
             RELAY_BACKEND,
             assert_inherited_backend,
             load_server_backend_kind,
@@ -348,7 +350,9 @@ class EmailAddon:
             # Resolve against the server-level transport at read time, so
             # rotating the server transport propagates to every inheriting app.
             # Raises (fail-loud) if the server transport is no longer set.
-            from .server_transport import resolve_inherited  # noqa: PLC0415
+            from .server_transport import (
+                resolve_inherited,
+            )
 
             return resolve_inherited(data["mail_from"])
         return EmailTransport(

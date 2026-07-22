@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM101, TC001
+# ruff:file-ignore[raise-vanilla-args, raw-string-in-exception]
+
 
 """nixpkgs-wrapper template.
 
@@ -21,7 +22,7 @@ from __future__ import annotations
 
 import dataclasses
 
-from hop3.plugins.build.nix.gen.spec import AppSpec
+from hop3.plugins.build.nix.gen.spec import AppSpec, NixpkgsWrapperPayload
 from hop3.plugins.build.nix.gen.templates.base import (
     ReproTier,
     build_writable_home_prelude,
@@ -38,12 +39,13 @@ class NixpkgsWrapperTemplate:
     tier = ReproTier.NIXPKGS
 
     def generate(self, spec: AppSpec) -> str:
-        if spec.nixpkgs_package is None:
+        p = spec.payload_as(NixpkgsWrapperPayload)
+        if p.package is None:
             raise ValueError("nixpkgs-wrapper requires nixpkgs_package")
         if spec.exec_target is None:
             raise ValueError("nixpkgs-wrapper requires exec_target (binary name)")
 
-        pkg_attr = spec.nixpkgs_package
+        pkg_attr = p.package
         binding = spec.pname.replace("-", "_")
 
         # `pkgs.<pkg>` or `pkgs.<pkg>.override { ... }` depending on
@@ -51,9 +53,9 @@ class NixpkgsWrapperTemplate:
         # nixpkgs derivation (Keycloak's confFile, Jenkins's extraPlugins,
         # etc.). Override values are emitted raw so they can reference
         # `pkgs`, `writeText`, etc. at Nix evaluation time.
-        if spec.nixpkgs_overrides:
+        if p.overrides:
             override_attrs = "\n".join(
-                f"    {key} = {value};" for key, value in spec.nixpkgs_overrides.items()
+                f"    {key} = {value};" for key, value in p.overrides.items()
             )
             package_expr = f"pkgs.{pkg_attr}.override {{\n{override_attrs}\n  }}"
         else:
@@ -84,9 +86,9 @@ class NixpkgsWrapperTemplate:
         # env-exports-raw: values are Nix-interpolated at build time
         # (unlike env-exports which are nix_escape'd). Useful for
         # referencing extra let-bindings — e.g., JAVA_HOME="${jdk}".
-        if spec.env_exports_raw:
+        if p.env_exports_raw:
             prelude_parts.append(
-                "\n".join(f'export {k}="{v}"' for k, v in spec.env_exports_raw.items())
+                "\n".join(f'export {k}="{v}"' for k, v in p.env_exports_raw.items())
             )
 
         if prelude_parts:
@@ -99,11 +101,11 @@ class NixpkgsWrapperTemplate:
         # callers that bake artefacts under $out (e.g., Keycloak's
         # $out/keycloak-home) override this with exec-prefix so the
         # wrapper execs the baked tree instead.
-        pkgbin_replacement = spec.exec_prefix or default_pkgbin
+        pkgbin_replacement = p.exec_prefix or default_pkgbin
         install_extra_block = (
             f"\n      # --- install-extra (hop3.toml [nix].install-extra) ---\n"
-            f"{spec.install_extra}\n"
-            if spec.install_extra
+            f"{p.install_extra}\n"
+            if p.install_extra
             else ""
         )
 
@@ -115,7 +117,7 @@ class NixpkgsWrapperTemplate:
         # so Nix evaluates the RHS at build time. Indented to match
         # the existing `{binding} = {package_expr};` line below.
         let_extra_lines = "\n".join(
-            f"  {key} = {value};" for key, value in spec.let_extra.items()
+            f"  {key} = {value};" for key, value in p.let_extra.items()
         )
         let_extra_block = f"\n{let_extra_lines}" if let_extra_lines else ""
 

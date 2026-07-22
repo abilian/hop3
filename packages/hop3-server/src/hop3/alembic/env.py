@@ -19,7 +19,7 @@ config = context.config
 # db:* CLI commands would operate on a different database than the server:
 #   1. HOP3_DATABASE_URI env var (used by tests and alternative configs)
 #   2. the default SQLite file under HOP3_ROOT
-import os  # noqa: E402
+import os  # ruff:ignore[module-import-not-at-top-of-file]
 
 database_url = config.get_main_option("sqlalchemy.url")
 if not database_url or database_url == "driver://user:pass@localhost/dbname":

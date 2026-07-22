@@ -17,12 +17,28 @@ import pytest
 import tomllib
 
 from hop3.plugins.build.nix.gen.registry import generate
-from hop3.plugins.build.nix.gen.spec import AppSpec, FileMapping, Source
+from hop3.plugins.build.nix.gen.spec import (
+    AppSpec,
+    FileMapping,
+    GoSourcePayload,
+    JavaGradlePayload,
+    JavaWarPayload,
+    NixpkgsWrapperPayload,
+    NodePnpmInstallPayload,
+    PhpAppPayload,
+    PrebuiltArchivePayload,
+    PrebuiltBinaryPayload,
+    PythonVenvPayload,
+    RubyBundlerPayload,
+    Source,
+)
 from hop3.plugins.build.nix.gen.templates.node_pnpm_install import (
     lockfile_version_for,
     parse_lockfile_version,
 )
 from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
+
+from .conftest import spec_for
 
 # --- prebuilt-binary ---
 
@@ -32,8 +48,8 @@ def test_prebuilt_binary_requires_binary_name():
         pname="test",
         version="1.0",
         description="t",
-        template="prebuilt-binary",
         source=Source(url="x", sha256="x", executable=True),
+        payload=PrebuiltBinaryPayload(),
     )
     with pytest.raises(ValueError, match="binary_name"):
         generate(spec)
@@ -44,9 +60,10 @@ def test_prebuilt_binary_sed_replaces_bindir():
         pname="test",
         version="1.0",
         description="t",
-        template="prebuilt-binary",
-        binary_name="test",
         source=Source(url="x", sha256="x", executable=True),
+        payload=PrebuiltBinaryPayload(
+            binary_name="test",
+        ),
     )
     output = generate(spec)
     assert 'sed -i "s|BINDIR|$out/bin|g"' in output
@@ -57,9 +74,10 @@ def test_prebuilt_binary_wrapper_heredoc_terminated():
         pname="test",
         version="1.0",
         description="t",
-        template="prebuilt-binary",
-        binary_name="test",
         source=Source(url="x", sha256="x", executable=True),
+        payload=PrebuiltBinaryPayload(
+            binary_name="test",
+        ),
     )
     output = generate(spec)
     assert "WRAPPER" in output
@@ -73,10 +91,11 @@ def test_prebuilt_binary_exec_args():
         pname="test",
         version="1.0",
         description="t",
-        template="prebuilt-binary",
-        binary_name="mybin",
         exec_args=["serve", "--flag"],
         source=Source(url="x", sha256="x", executable=True),
+        payload=PrebuiltBinaryPayload(
+            binary_name="mybin",
+        ),
     )
     output = generate(spec)
     assert "exec BINDIR/mybin serve --flag" in output
@@ -90,9 +109,10 @@ def test_prebuilt_archive_requires_exec_target():
         pname="test",
         version="1.0",
         description="t",
-        template="prebuilt-archive",
         source=Source(url="x", sha256="x", archive="tar-gz"),
-        file_mappings=[FileMapping(source="bin/x", destination="bin/")],
+        payload=PrebuiltArchivePayload(
+            file_mappings=[FileMapping(source="bin/x", destination="bin/")],
+        ),
     )
     with pytest.raises(ValueError, match="exec_target"):
         generate(spec)
@@ -103,9 +123,9 @@ def test_prebuilt_archive_requires_file_mappings():
         pname="test",
         version="1.0",
         description="t",
-        template="prebuilt-archive",
         exec_target="mybin",
         source=Source(url="x", sha256="x", archive="tar-gz"),
+        payload=PrebuiltArchivePayload(),
     )
     with pytest.raises(ValueError, match="file_mappings"):
         generate(spec)
@@ -116,11 +136,12 @@ def test_prebuilt_archive_zip_has_unzip():
         pname="test",
         version="1.0",
         description="t",
-        template="prebuilt-archive",
         exec_target="mybin",
         source=Source(url="x", sha256="x", archive="zip"),
         source_root=".",
-        file_mappings=[FileMapping(source="bin/x", destination="bin/")],
+        payload=PrebuiltArchivePayload(
+            file_mappings=[FileMapping(source="bin/x", destination="bin/")],
+        ),
     )
     output = generate(spec)
     assert "pkgs.unzip" in output
@@ -132,11 +153,12 @@ def test_prebuilt_archive_sed_replaces_sharedir():
         pname="myapp",
         version="1.0",
         description="t",
-        template="prebuilt-archive",
         exec_target="mybin",
         source=Source(url="x", sha256="x", archive="tar-gz"),
         source_root="myapp",
-        file_mappings=[FileMapping(source="bin/x", destination="bin/")],
+        payload=PrebuiltArchivePayload(
+            file_mappings=[FileMapping(source="bin/x", destination="bin/")],
+        ),
     )
     output = generate(spec)
     assert 'sed -i "s|SHAREDIR|$out/share/myapp|g"' in output
@@ -150,11 +172,12 @@ def test_php_app_single_file():
         pname="adminer",
         version="4.8.1",
         description="t",
-        template="php-app",
-        php_extensions=["mysqli"],
-        single_file=True,
         source=Source(url="x", sha256="x"),
         extra_paths=["${php}/bin"],
+        payload=PhpAppPayload(
+            php_extensions=["mysqli"],
+            single_file=True,
+        ),
     )
     output = generate(spec)
     assert "dontUnpack = true" in output
@@ -166,14 +189,13 @@ def _composer_spec(**overrides) -> AppSpec:
         "pname": "bookstack",
         "version": "1.0",
         "description": "t",
-        "template": "php-app",
         "php_extensions": ["mysqli"],
         "needs_composer": True,
         "composer_deps_hash": "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         "source": Source(url="x", sha256="x", archive="tar-gz"),
         "extra_paths": ["${php}/bin"],
     }
-    return AppSpec(**{**defaults, **overrides})
+    return spec_for(PhpAppPayload, **{**defaults, **overrides})
 
 
 def test_php_app_composer():
@@ -230,11 +252,12 @@ def test_php_app_artisan_serve():
         pname="laravel-app",
         version="1.0",
         description="t",
-        template="php-app",
-        php_extensions=[],
-        serve_mode="artisan",
         source=Source(url="x", sha256="x", archive="tar-gz"),
         extra_paths=["${php}/bin"],
+        payload=PhpAppPayload(
+            php_extensions=[],
+            serve_mode="artisan",
+        ),
     )
     output = generate(spec)
     assert "artisan serve" in output
@@ -246,11 +269,12 @@ def test_php_app_web_root():
         pname="dolibarr",
         version="1.0",
         description="t",
-        template="php-app",
-        php_extensions=[],
-        web_root="htdocs",
         source=Source(url="x", sha256="x", archive="tar-gz"),
         extra_paths=["${php}/bin"],
+        payload=PhpAppPayload(
+            php_extensions=[],
+            web_root="htdocs",
+        ),
     )
     output = generate(spec)
     assert "APPDIR/htdocs" in output
@@ -261,10 +285,11 @@ def test_php_app_sed_replaces_phpbin():
         pname="test",
         version="1.0",
         description="t",
-        template="php-app",
-        php_extensions=[],
         source=Source(url="x", sha256="x", archive="tar-gz"),
         extra_paths=["${php}/bin"],
+        payload=PhpAppPayload(
+            php_extensions=[],
+        ),
     )
     output = generate(spec)
     assert "sed -i" in output
@@ -278,11 +303,12 @@ def test_php_app_source_root():
         pname="limesurvey",
         version="1.0",
         description="t",
-        template="php-app",
-        php_extensions=[],
         source=Source(url="x", sha256="x", archive="zip"),
         source_root="limesurvey",
         extra_paths=["${php}/bin"],
+        payload=PhpAppPayload(
+            php_extensions=[],
+        ),
     )
     output = generate(spec)
     assert "cp -r limesurvey/. $out/app/" in output
@@ -296,18 +322,17 @@ def _gradle_spec(**overrides) -> AppSpec:
         "pname": "stirling-pdf",
         "version": "0.33.1",
         "description": "PDF toolkit",
-        "template": "java-gradle",
         "source": Source(url="https://x/src.tar.gz", sha256="x", archive="tar-gz"),
-        "gradle_jar_glob": "build/libs/Stirling-PDF-*.jar",
-        "gradle_jar_name": "Stirling-PDF.jar",
+        "jar_glob": "build/libs/Stirling-PDF-*.jar",
+        "jar_name": "Stirling-PDF.jar",
     }
     defaults.update(overrides)
-    return AppSpec(**defaults)
+    return spec_for(JavaGradlePayload, **defaults)
 
 
 def test_java_gradle_requires_jar():
     with pytest.raises(ValueError, match="gradle-jar-glob"):
-        generate(_gradle_spec(gradle_jar_glob=None))
+        generate(_gradle_spec(jar_glob=None))
 
 
 def test_java_gradle_builds_from_source_offline():
@@ -315,8 +340,8 @@ def test_java_gradle_builds_from_source_offline():
     not a downloaded jar/dist, not a nixpkgs wrap."""
     out = generate(
         _gradle_spec(
-            gradle_patches=["fix.patch"],
-            gradle_flags=["-x", "spotlessApply"],
+            patches=["fix.patch"],
+            flags=["-x", "spotlessApply"],
         )
     )
     assert "gradle.fetchDeps" in out
@@ -336,8 +361,8 @@ def test_java_war_requires_war_file():
         pname="test",
         version="1.0",
         description="t",
-        template="java-war",
         source=Source(url="x", sha256="x"),
+        payload=JavaWarPayload(),
     )
     with pytest.raises(ValueError, match="war_file"):
         generate(spec)
@@ -348,11 +373,12 @@ def test_java_war_sed_replaces_javabin_and_warpath():
         pname="jenkins",
         version="1.0",
         description="t",
-        template="java-war",
-        war_file="jenkins.war",
         runtime_package="jdk17",
         source=Source(url="x", sha256="x"),
         extra_paths=["${jdk}/bin"],
+        payload=JavaWarPayload(
+            war_file="jenkins.war",
+        ),
     )
     output = generate(spec)
     assert "JAVABIN" in output
@@ -369,25 +395,24 @@ def _python_spec(**overrides) -> AppSpec:
         "pname": "test",
         "version": "1.0",
         "description": "t",
-        "template": "python-venv",
         "source": Source(url="x", sha256="x"),
         "exec_target": "myapp",
-        "pip_requirements": "requirements.txt",
-        "pip_deps_hash": "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "requirements": "requirements.txt",
+        "deps_hash": "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
     }
-    return AppSpec(**{**defaults, **overrides})
+    return spec_for(PythonVenvPayload, **{**defaults, **overrides})
 
 
 def test_python_venv_requires_a_lockfile():
     """Bare package names are unpinned: refuse rather than build irreproducibly."""
     with pytest.raises(ValueError, match="hash-pinned lockfile"):
-        generate(_python_spec(pip_requirements=None))
+        generate(_python_spec(requirements=None))
 
 
 def test_python_venv_requires_deps_hash():
     """Without the vendored-deps hash the dependency set is not pinned."""
     with pytest.raises(ValueError, match="pip-deps-hash"):
-        generate(_python_spec(pip_deps_hash=None))
+        generate(_python_spec(deps_hash=None))
 
 
 def test_python_venv_requires_exec_target():
@@ -444,9 +469,9 @@ def test_nixpkgs_wrapper_requires_package():
         pname="test",
         version="1.0",
         description="t",
-        template="nixpkgs-wrapper",
         source=Source(url="x", sha256="x"),
         exec_target="test",
+        payload=NixpkgsWrapperPayload(),
     )
     with pytest.raises(ValueError, match="nixpkgs_package"):
         generate(spec)
@@ -457,9 +482,10 @@ def test_nixpkgs_wrapper_requires_exec_target():
         pname="test",
         version="",
         description="t",
-        template="nixpkgs-wrapper",
-        nixpkgs_package="mypkg",
         source=Source(url="x", sha256="x"),
+        payload=NixpkgsWrapperPayload(
+            package="mypkg",
+        ),
     )
     with pytest.raises(ValueError, match="exec_target"):
         generate(spec)
@@ -470,10 +496,11 @@ def test_nixpkgs_wrapper_inherits_version():
         pname="radicale",
         version="",  # inherited from pkg
         description="t",
-        template="nixpkgs-wrapper",
-        nixpkgs_package="radicale",
         exec_target="radicale",
         source=Source(url="x", sha256="x"),
+        payload=NixpkgsWrapperPayload(
+            package="radicale",
+        ),
     )
     output = generate(spec)
     # Should use the package's version, not a hardcoded string
@@ -485,10 +512,11 @@ def test_nixpkgs_wrapper_no_source_fetch():
         pname="radicale",
         version="",
         description="t",
-        template="nixpkgs-wrapper",
-        nixpkgs_package="radicale",
         exec_target="radicale",
         source=Source(url="x", sha256="x"),
+        payload=NixpkgsWrapperPayload(
+            package="radicale",
+        ),
     )
     output = generate(spec)
     assert "dontUnpack = true" in output
@@ -502,11 +530,12 @@ def test_nixpkgs_wrapper_install_extra_emitted_raw():
         pname="keycloak",
         version="",
         description="t",
-        template="nixpkgs-wrapper",
-        nixpkgs_package="keycloak",
         exec_target="kc.sh",
         source=Source(url="x", sha256="x"),
-        install_extra="cp -R ${keycloak}/. $out/keycloak-home/",
+        payload=NixpkgsWrapperPayload(
+            package="keycloak",
+            install_extra="cp -R ${keycloak}/. $out/keycloak-home/",
+        ),
     )
     output = generate(spec)
     assert "# --- install-extra" in output
@@ -527,11 +556,12 @@ def test_nixpkgs_wrapper_exec_prefix_replaces_pkgbin():
         pname="keycloak",
         version="",
         description="t",
-        template="nixpkgs-wrapper",
-        nixpkgs_package="keycloak",
         exec_target="kc.sh",
         source=Source(url="x", sha256="x"),
-        exec_prefix="$out/keycloak-home/bin",
+        payload=NixpkgsWrapperPayload(
+            package="keycloak",
+            exec_prefix="$out/keycloak-home/bin",
+        ),
     )
     output = generate(spec)
     assert "s|PKGBIN|$out/keycloak-home/bin|g" in output
@@ -550,25 +580,24 @@ class TestNodePnpmInstallTemplate:
             "pname": "directus",
             "version": "11.17.2",
             "description": "Headless CMS",
-            "template": "node-pnpm-install",
-            "nixpkgs_package": "directus",  # reinterpreted as npm package name
+            "npm_package": "directus",  # reinterpreted as npm package name
             "exec_target": "directus",
-            "node_manifest": "package.json",
-            "node_lockfile": "pnpm-lock.yaml",
-            "node_deps_hash": "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            "manifest": "package.json",
+            "lockfile": "pnpm-lock.yaml",
+            "deps_hash": "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
             "source": Source(url="x", sha256="x"),
         }
         defaults.update(kwargs)
-        return AppSpec(**defaults)
+        return spec_for(NodePnpmInstallPayload, **defaults)
 
     def test_requires_a_committed_lockfile(self):
         """A build-time-synthesized manifest cannot be locked."""
         with pytest.raises(ValueError, match="committed manifest and lockfile"):
-            generate(self._base_spec(node_lockfile=None))
+            generate(self._base_spec(lockfile=None))
 
     def test_requires_deps_hash(self):
         with pytest.raises(ValueError, match="node-deps-hash"):
-            generate(self._base_spec(node_deps_hash=None))
+            generate(self._base_spec(deps_hash=None))
 
     def test_is_hermetic(self):
         """Deps come from the fetched store; the app build never hits the network."""
@@ -582,8 +611,8 @@ class TestNodePnpmInstallTemplate:
         assert "--ignore-scripts" in output
 
     def test_requires_npm_package(self):
-        spec = self._base_spec(nixpkgs_package=None)
-        with pytest.raises(ValueError, match="nixpkgs_package"):
+        spec = self._base_spec(npm_package=None)
+        with pytest.raises(ValueError, match="npm-package"):
             generate(spec)
 
     def test_requires_exec_target(self):
@@ -649,7 +678,7 @@ class TestNodePnpmInstallTemplate:
         --ignore-scripts install alone leaves it uncompiled (directus'
         isolated-vm MODULE_NOT_FOUND).
         """
-        output = generate(self._base_spec(node_native_packages=["isolated-vm"]))
+        output = generate(self._base_spec(native_packages=["isolated-vm"]))
         # toolchain on the app derivation
         assert "pkgs.python3 pkgs.gnumake pkgs.gcc" in output
         # node headers + offline rebuild of exactly the declared package
@@ -659,9 +688,7 @@ class TestNodePnpmInstallTemplate:
         assert "--offline" in output
 
     def test_multiple_native_packages_rebuilt_together(self):
-        output = generate(
-            self._base_spec(node_native_packages=["isolated-vm", "sharp"])
-        )
+        output = generate(self._base_spec(native_packages=["isolated-vm", "sharp"]))
         assert "pnpm rebuild --store-dir ${pnpmStore} isolated-vm sharp" in output
 
     def test_default_node_version_is_22(self):
@@ -679,11 +706,13 @@ class TestNodePnpmInstallTemplate:
     def test_dependencies_come_from_the_committed_manifest(self):
         """Extras are no longer injected via a synthesized package.json.
 
-        The old `pip_packages`-as-npm-extras slot produced a manifest that
+        The old `pip-packages`-as-npm-extras slot produced a manifest that
         existed only inside the build, so it could never be locked. Additional
-        dependencies now belong in the committed manifest alongside the rest.
+        dependencies now belong in the committed manifest alongside the rest;
+        the key itself is gone, and the adapter rejects it (see the adapter
+        tests) rather than dropping it silently.
         """
-        output = generate(self._base_spec(pip_packages=["pg@^8.11.0"]))
+        output = generate(self._base_spec())
         assert '"pg": "^8.11.0"' not in output
         assert "cp ${manifest} package.json" in output
         assert "cp ${lockfile} pnpm-lock.yaml" in output
@@ -733,10 +762,11 @@ def test_nixpkgs_wrapper_default_pkgbin_when_no_exec_prefix():
         pname="radicale",
         version="",
         description="t",
-        template="nixpkgs-wrapper",
-        nixpkgs_package="radicale",
         exec_target="radicale",
         source=Source(url="x", sha256="x"),
+        payload=NixpkgsWrapperPayload(
+            package="radicale",
+        ),
     )
     output = generate(spec)
     assert "s|PKGBIN|${radicale}/bin|g" in output
@@ -748,10 +778,11 @@ def test_nixpkgs_wrapper_without_overrides_uses_plain_package():
         pname="radicale",
         version="",
         description="t",
-        template="nixpkgs-wrapper",
-        nixpkgs_package="radicale",
         exec_target="radicale",
         source=Source(url="x", sha256="x"),
+        payload=NixpkgsWrapperPayload(
+            package="radicale",
+        ),
     )
     output = generate(spec)
     assert "radicale = pkgs.radicale;" in output
@@ -764,13 +795,14 @@ def test_nixpkgs_wrapper_emits_override_when_overrides_present():
         pname="keycloak",
         version="",
         description="t",
-        template="nixpkgs-wrapper",
-        nixpkgs_package="keycloak",
         exec_target="kc.sh",
         source=Source(url="x", sha256="x"),
-        nixpkgs_overrides={
-            "confFile": 'pkgs.writeText "keycloak.conf" "db=postgres\\n"',
-        },
+        payload=NixpkgsWrapperPayload(
+            package="keycloak",
+            overrides={
+                "confFile": 'pkgs.writeText "keycloak.conf" "db=postgres\\n"',
+            },
+        ),
     )
     output = generate(spec)
     assert "keycloak = pkgs.keycloak.override {" in output
@@ -784,14 +816,15 @@ def test_nixpkgs_wrapper_overrides_multiple_keys():
         pname="jenkins",
         version="",
         description="t",
-        template="nixpkgs-wrapper",
-        nixpkgs_package="jenkins",
         exec_target="jenkins.sh",
         source=Source(url="x", sha256="x"),
-        nixpkgs_overrides={
-            "extraJavaOpts": '"-Dfoo=bar"',
-            "plugins": "[]",
-        },
+        payload=NixpkgsWrapperPayload(
+            package="jenkins",
+            overrides={
+                "extraJavaOpts": '"-Dfoo=bar"',
+                "plugins": "[]",
+            },
+        ),
     )
     output = generate(spec)
     assert "jenkins = pkgs.jenkins.override {" in output
@@ -806,11 +839,12 @@ def test_nixpkgs_wrapper_writable_home_emits_lazy_cp_prelude():
         pname="keycloak",
         version="",
         description="t",
-        template="nixpkgs-wrapper",
-        nixpkgs_package="keycloak",
         exec_target="kc.sh",
         source=Source(url="x", sha256="x"),
         writable_home_at_runtime=True,
+        payload=NixpkgsWrapperPayload(
+            package="keycloak",
+        ),
     )
     output = generate(spec)
     assert 'HOME_DIR="$PWD/.keycloak-home"' in output
@@ -830,12 +864,13 @@ def test_nixpkgs_wrapper_writable_home_env_var_exported():
         pname="keycloak",
         version="",
         description="t",
-        template="nixpkgs-wrapper",
-        nixpkgs_package="keycloak",
         exec_target="kc.sh",
         source=Source(url="x", sha256="x"),
         writable_home_at_runtime=True,
         writable_home_env_var="KC_HOME_DIR",
+        payload=NixpkgsWrapperPayload(
+            package="keycloak",
+        ),
     )
     output = generate(spec)
     assert 'export KC_HOME_DIR="$HOME_DIR"' in output
@@ -852,11 +887,12 @@ def test_nixpkgs_wrapper_writable_home_pkgbin_resolved_at_runtime():
         pname="keycloak",
         version="",
         description="t",
-        template="nixpkgs-wrapper",
-        nixpkgs_package="keycloak",
         exec_target="kc.sh",
         source=Source(url="x", sha256="x"),
         writable_home_at_runtime=True,
+        payload=NixpkgsWrapperPayload(
+            package="keycloak",
+        ),
     )
     output = generate(spec)
     assert r'sed -i "s|PKGBIN|\$HOME_DIR/bin|g"' in output
@@ -874,11 +910,12 @@ def test_nixpkgs_wrapper_let_extra_emits_bindings():
         pname="keycloak",
         version="",
         description="t",
-        template="nixpkgs-wrapper",
-        nixpkgs_package="keycloak",
         exec_target="kc.sh",
         source=Source(url="x", sha256="x"),
-        let_extra={"jdk": "pkgs.zulu21"},
+        payload=NixpkgsWrapperPayload(
+            package="keycloak",
+            let_extra={"jdk": "pkgs.zulu21"},
+        ),
     )
     output = generate(spec)
     assert "keycloak = pkgs.keycloak;" in output
@@ -896,12 +933,13 @@ def test_nixpkgs_wrapper_env_exports_raw_interpolates_nix_refs():
         pname="keycloak",
         version="",
         description="t",
-        template="nixpkgs-wrapper",
-        nixpkgs_package="keycloak",
         exec_target=".kc.sh-wrapped",
         source=Source(url="x", sha256="x"),
-        let_extra={"jdk": "pkgs.zulu21"},
-        env_exports_raw={"JAVA_HOME": "${jdk}"},
+        payload=NixpkgsWrapperPayload(
+            package="keycloak",
+            let_extra={"jdk": "pkgs.zulu21"},
+            env_exports_raw={"JAVA_HOME": "${jdk}"},
+        ),
     )
     output = generate(spec)
     # Must survive into the wrapper body without `''$` escaping.
@@ -919,12 +957,13 @@ def test_nixpkgs_wrapper_writable_home_respects_explicit_exec_prefix():
         pname="keycloak",
         version="",
         description="t",
-        template="nixpkgs-wrapper",
-        nixpkgs_package="keycloak",
         exec_target="kc.sh",
         source=Source(url="x", sha256="x"),
         writable_home_at_runtime=True,
-        exec_prefix="$HOME_DIR/custom/bin",
+        payload=NixpkgsWrapperPayload(
+            package="keycloak",
+            exec_prefix="$HOME_DIR/custom/bin",
+        ),
     )
     output = generate(spec)
     assert "s|PKGBIN|$HOME_DIR/custom/bin|g" in output
@@ -938,19 +977,18 @@ def _go_spec(**overrides) -> AppSpec:
         "pname": "miniflux",
         "version": "2.2.8",
         "description": "Feed reader",
-        "template": "go-source",
         "exec_target": "miniflux",
-        "go_vendor_hash": "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "vendor_hash": "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         "source": Source(url="https://x/src.tar.gz", sha256="x", archive="tar-gz"),
     }
     defaults.update(overrides)
-    return AppSpec(**defaults)
+    return spec_for(GoSourcePayload, **defaults)
 
 
 def test_go_source_requires_vendor_hash():
     """A null vendorHash would let the build resolve modules from the network."""
     with pytest.raises(ValueError, match="go-vendor-hash"):
-        generate(_go_spec(go_vendor_hash=None))
+        generate(_go_spec(vendor_hash=None))
 
 
 def test_go_source_requires_exec_target():
@@ -982,7 +1020,7 @@ def test_go_source_optional_attrs_omitted_when_unset():
 
 
 def test_go_source_emits_optional_attrs():
-    output = generate(_go_spec(go_sub_packages=["./cmd/app"], go_ldflags=["-s", "-w"]))
+    output = generate(_go_spec(sub_packages=["./cmd/app"], ldflags=["-s", "-w"]))
     assert 'subPackages = [ "./cmd/app" ];' in output
     assert 'ldflags = [ "-s" "-w" ];' in output
 
@@ -990,7 +1028,7 @@ def test_go_source_emits_optional_attrs():
 def test_go_source_proxy_vendor():
     """gitea/forgejo need proxyVendor to dodge the vendor/modules.txt check."""
     assert "proxyVendor = true;" not in generate(_go_spec())
-    assert "proxyVendor = true;" in generate(_go_spec(go_proxy_vendor=True))
+    assert "proxyVendor = true;" in generate(_go_spec(proxy_vendor=True))
 
 
 def test_go_source_go_version_override():
@@ -1005,8 +1043,8 @@ def test_go_source_frontend():
     the assets to the wrapper as $HOP3_GO_FRONTEND."""
     out = generate(
         _go_spec(
-            go_frontend_build="BROWSERSLIST_IGNORE_OLD_DATA=true npx webpack",
-            go_npm_deps_hash="sha256-AAAA",
+            frontend_build="BROWSERSLIST_IGNORE_OLD_DATA=true npx webpack",
+            npm_deps_hash="sha256-AAAA",
         )
     )
     assert "buildNpmPackage" in out
@@ -1019,7 +1057,7 @@ def test_go_source_frontend():
 def test_go_source_frontend_requires_npm_hash():
     """Without the npmDepsHash the frontend's npm set is unpinned — refuse."""
     with pytest.raises(ValueError, match="go-npm-deps-hash"):
-        generate(_go_spec(go_frontend_build="npx webpack"))
+        generate(_go_spec(frontend_build="npx webpack"))
 
 
 def test_go_source_pnpm_frontend():
@@ -1027,9 +1065,9 @@ def test_go_source_pnpm_frontend():
     buildNpmPackage."""
     out = generate(
         _go_spec(
-            go_frontend_build="pnpm run build",
-            go_frontend_pnpm=True,
-            go_pnpm_deps_hash="sha256-BBBB",
+            frontend_build="pnpm run build",
+            frontend_pnpm=True,
+            pnpm_deps_hash="sha256-BBBB",
         )
     )
     assert "pnpm_9.fetchDeps" in out
@@ -1040,7 +1078,7 @@ def test_go_source_pnpm_frontend():
 
 def test_go_source_pnpm_requires_pnpm_hash():
     with pytest.raises(ValueError, match="go-pnpm-deps-hash"):
-        generate(_go_spec(go_frontend_build="pnpm run build", go_frontend_pnpm=True))
+        generate(_go_spec(frontend_build="pnpm run build", frontend_pnpm=True))
 
 
 def test_go_source_embedded_frontend():
@@ -1048,11 +1086,11 @@ def test_go_source_embedded_frontend():
     source before the Go compile (preBuild), with no disk-served wiring."""
     out = generate(
         _go_spec(
-            go_frontend_build="pnpm run build",
-            go_frontend_pnpm=True,
-            go_pnpm_deps_hash="sha256-BBBB",
-            go_frontend_output="dist",
-            go_frontend_embed_path="frontend/dist",
+            frontend_build="pnpm run build",
+            frontend_pnpm=True,
+            pnpm_deps_hash="sha256-BBBB",
+            frontend_output="dist",
+            frontend_embed_path="frontend/dist",
         )
     )
     assert "preBuild" in out
@@ -1085,14 +1123,15 @@ def test_pnpm_pin_is_configurable():
         pname="x",
         version="1.0",
         description="t",
-        template="node-pnpm-install",
-        nixpkgs_package="x",
         exec_target="x",
-        node_manifest="package.json",
-        node_lockfile="pnpm-lock.yaml",
-        node_deps_hash="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-        node_pnpm_package="pnpm_10",
         source=Source(url="x", sha256="x"),
+        payload=NodePnpmInstallPayload(
+            npm_package="x",
+            manifest="package.json",
+            lockfile="pnpm-lock.yaml",
+            deps_hash="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            pnpm_package="pnpm_10",
+        ),
     )
     assert "pkgs.pnpm_10" in generate(spec)
 
@@ -1100,8 +1139,8 @@ def test_pnpm_pin_is_configurable():
 def test_committed_lockfiles_match_their_pinned_pnpm():
     """Guard: a lockfile the pinned pnpm cannot read fails inside the Nix build
     with a parse error naming neither the pin nor the lockfile."""
-    import re  # ruff:ignore[import-outside-top-level]
-    from pathlib import Path  # ruff:ignore[import-outside-top-level]
+    import re
+    from pathlib import Path
 
     root = Path(__file__).parents[5] / "apps"
     assert root.is_dir(), f"app corpus not found at {root}"
@@ -1143,23 +1182,22 @@ class TestGoStaticDirs:
             "pname": "gitea",
             "version": "1.22.6",
             "description": "git service",
-            "template": "go-source",
             "exec_target": "gitea",
-            "go_vendor_hash": "sha256-AAA=",
-            "go_frontend_build": "npx webpack",
-            "go_npm_deps_hash": "sha256-BBB=",
+            "vendor_hash": "sha256-AAA=",
+            "frontend_build": "npx webpack",
+            "npm_deps_hash": "sha256-BBB=",
             "source": Source(url="x", sha256="x", archive="tar-gz"),
         }
         defaults.update(kwargs)
-        return AppSpec(**defaults)
+        return spec_for(GoSourcePayload, **defaults)
 
     def test_source_dirs_ship_into_the_static_root(self):
-        output = generate(self._spec(go_static_dirs=["options"]))
+        output = generate(self._spec(static_dirs=["options"]))
         assert "cp -R public $out/" in output  # the built frontend
         assert "cp -R options $out/" in output  # the source assets
 
     def test_several_dirs(self):
-        output = generate(self._spec(go_static_dirs=["options", "templates"]))
+        output = generate(self._spec(static_dirs=["options", "templates"]))
         assert "cp -R options $out/" in output
         assert "cp -R templates $out/" in output
 
@@ -1174,7 +1212,7 @@ class TestGoStaticDirs:
             Path("apps/real-apps-nix-gen/gitea/hop3.toml").read_text()
         )
         spec = app_spec_from_config(config["nix"], config["metadata"], "gitea")
-        assert "options" in spec.go_static_dirs
+        assert "options" in spec.payload_as(GoSourcePayload).static_dirs
 
 
 class TestRubyBundler:
@@ -1187,12 +1225,11 @@ class TestRubyBundler:
             "pname": "redmine",
             "version": "5.1.10",
             "description": "project management",
-            "template": "ruby-bundler",
             "exec_target": "rails",
             "source": Source(url="", sha256=""),
         }
         defaults.update(kwargs)
-        return AppSpec(**defaults)
+        return spec_for(RubyBundlerPayload, **defaults)
 
     def test_local_app_builds_from_the_recipe_dir(self):
         output = generate(self._spec())
@@ -1201,8 +1238,11 @@ class TestRubyBundler:
     def test_packaged_app_fetches_a_pinned_tarball(self):
         """A released app is hash-pinned, not the recipe directory."""
         output = generate(
-            self._spec(source=Source(url="https://x/redmine.tar.gz", sha256="abc",
-                                     archive="tar-gz"))
+            self._spec(
+                source=Source(
+                    url="https://x/redmine.tar.gz", sha256="abc", archive="tar-gz"
+                )
+            )
         )
         assert "redmine_src = pkgs.fetchurl" in output
         assert "src = redmine_src;" in output
@@ -1260,8 +1300,8 @@ class TestRubyBundler:
         )
         spec = app_spec_from_config(config["nix"], config["metadata"], "redmine")
         output = generate(spec)
-        assert "pkgs.ruby_3_2" in output          # redmine 5.1 needs < 3.3
-        assert 'cd "$HOME_DIR"' in output          # writable home
-        assert "config/database.yml" in output     # generated from PG*
+        assert "pkgs.ruby_3_2" in output  # redmine 5.1 needs < 3.3
+        assert 'cd "$HOME_DIR"' in output  # writable home
+        assert "config/database.yml" in output  # generated from PG*
         assert "rake db:migrate" in output
         assert "exec GEMSBIN/rails server" in output

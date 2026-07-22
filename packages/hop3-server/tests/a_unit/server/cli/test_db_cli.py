@@ -165,7 +165,7 @@ class TestDbUpgradeCmd:
 
     def test_add_arguments_declares_revision(self):
         """The --revision flag must be declared with a default of head."""
-        import argparse  # noqa: PLC0415
+        import argparse  # ruff:ignore[import-outside-top-level]
 
         parser = argparse.ArgumentParser()
         DbUpgradeCmd().add_arguments(parser)
@@ -213,7 +213,7 @@ class TestDbStampCmd:
 
     def test_add_arguments_requires_revision(self):
         """db:stamp without a revision argument should fail at parse time."""
-        import argparse  # noqa: PLC0415
+        import argparse  # ruff:ignore[import-outside-top-level]
 
         parser = argparse.ArgumentParser()
         DbStampCmd().add_arguments(parser)

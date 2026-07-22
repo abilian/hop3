@@ -381,7 +381,7 @@ def handle_completion(args: list[str], config: Config, printer: RichPrinter) -> 
 
 def print_completion_help():
     """Print help for the completion command."""
-    from .help_text import COMPLETION_HELP  # noqa: PLC0415
+    from .help_text import COMPLETION_HELP  # ruff:ignore[import-outside-top-level]
 
     print(COMPLETION_HELP)
 
@@ -459,9 +459,9 @@ def refresh_commands_cache(config: Config, printer: RichPrinter) -> None:
         printer: Output printer
     """
     # Import here to avoid circular import
-    from jsonrpcclient import Ok  # noqa: PLC0415
+    from jsonrpcclient import Ok  # ruff:ignore[import-outside-top-level]
 
-    from hop3_cli.rpc import Client  # noqa: PLC0415
+    from hop3_cli.rpc import Client  # ruff:ignore[import-outside-top-level]
 
     if not config.is_configured():
         print(
@@ -532,7 +532,7 @@ def _refresh_apps_cache(client) -> None:
     cache is only used by completion + did-you-mean, so stale is better
     than crashing the refresh.
     """
-    from jsonrpcclient import Ok  # noqa: PLC0415
+    from jsonrpcclient import Ok  # ruff:ignore[import-outside-top-level]
 
     try:
         resp = client.rpc("cli", ["app", "list"])

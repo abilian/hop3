@@ -57,8 +57,12 @@ def _hetzner_manager(cfg: CloudConfig):
     Carries both ``ssh_key_name`` and ``ssh_key_path`` so the rebuild can resolve
     the registered key explicitly, or auto-derive it from the local key.
     """
-    from hop3_testing.system_tests.config import HetznerConfig  # noqa: PLC0415
-    from hop3_testing.system_tests.hetzner import HetznerManager  # noqa: PLC0415
+    from hop3_testing.system_tests.config import (
+        HetznerConfig,
+    )
+    from hop3_testing.system_tests.hetzner import (
+        HetznerManager,
+    )
 
     return HetznerManager(
         HetznerConfig(
@@ -468,7 +472,7 @@ def _runner_version() -> str:
         return "unknown"
 
 
-def _default_executor(  # noqa: PLR0913 — same composition inputs as run_once; → RunSpec in slice 2
+def _default_executor(  # ruff:ignore[too-many-arguments] — same composition inputs as run_once; → RunSpec in slice 2
     target_id: str,
     mode: str,
     apps: list[str] | None,
@@ -641,7 +645,7 @@ def _compose_inputs(
     return apps, cwd, provenance
 
 
-def run_once(  # noqa: PLR0913
+def run_once(  # ruff:ignore[too-many-arguments]
     target_id: str = "docker",
     *,
     trigger: str = "cli",

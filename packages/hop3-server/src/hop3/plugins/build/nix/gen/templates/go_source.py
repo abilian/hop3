@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: TRY003, EM101, TC001
+# ruff:file-ignore[raise-vanilla-args, raw-string-in-exception]
+
 
 """go-source template.
 
@@ -28,7 +29,7 @@ Example apps: Gitea, Forgejo, Miniflux, Vikunja, Gatus.
 
 from __future__ import annotations
 
-from hop3.plugins.build.nix.gen.spec import AppSpec
+from hop3.plugins.build.nix.gen.spec import AppSpec, GoSourcePayload
 from hop3.plugins.build.nix.gen.templates.base import (
     ReproTier,
     format_nix_env_attrs,
@@ -67,7 +68,7 @@ def _nix_string_list(values: list[str]) -> str:
 
 
 def _frontend_block(
-    spec: AppSpec, binding: str, wrapper_body: str
+    spec: AppSpec, p: GoSourcePayload, binding: str, wrapper_body: str
 ) -> tuple[str, str, str, str]:
     """The optional JS-frontend derivation and its integration.
 
@@ -78,22 +79,22 @@ def _frontend_block(
     (``$HOP3_GO_FRONTEND`` + a static-root config) vs embedded (``go:embed``,
     copied into the source before the compile).
     """
-    if not spec.go_frontend_build:
+    if not p.frontend_build:
         return "", "", "", wrapper_body
 
     fe_root = (
-        f'\n    sourceRoot = "{spec.go_frontend_source_root}";'
-        if spec.go_frontend_source_root
+        f'\n    sourceRoot = "{p.frontend_source_root}";'
+        if p.frontend_source_root
         else ""
     )
-    embed = spec.go_frontend_embed_path
+    embed = p.frontend_embed_path
     # Embed mode makes $out the built-assets *contents* (so a single
     # `cp -r ${frontend} <path>` lands them where `go:embed` expects); disk
     # mode nests them under `$out/<output>/` for the static-root.
     fe_install = (
-        f"cp -r {spec.go_frontend_output} $out"
+        f"cp -r {p.frontend_output} $out"
         if embed
-        else f"mkdir -p $out\n      cp -R {spec.go_frontend_output} $out/"
+        else f"mkdir -p $out\n      cp -R {p.frontend_output} $out/"
     )
     # Some Go apps resolve more than the built frontend under their static root.
     # gitea/forgejo look up BOTH `public/` and `options/` (locales, gitignores,
@@ -101,36 +102,34 @@ def _frontend_block(
     # the locales missing, and gitea dies at boot registering a cron task
     # ("translation is missing for task ..."), crash-looping rather than
     # timing out. These directories come from the source tree, not the build.
-    if spec.go_static_dirs:
-        copies = "\n      ".join(
-            f"cp -R {d} $out/" for d in spec.go_static_dirs
-        )
+    if p.static_dirs:
+        copies = "\n      ".join(f"cp -R {d} $out/" for d in p.static_dirs)
         fe_install += f"\n      {copies}"
 
-    if spec.go_frontend_pnpm:
-        if not spec.go_pnpm_deps_hash:
+    if p.frontend_pnpm:
+        if not p.pnpm_deps_hash:
             raise ValueError(_NO_PNPM_HASH.format(pname=spec.pname))
-        sr_inherit = " sourceRoot" if spec.go_frontend_source_root else ""
+        sr_inherit = " sourceRoot" if p.frontend_source_root else ""
         frontend_nix = f"""
   # The JS frontend, built offline with pnpm; pnpm.fetchDeps pins the dep set.
   frontend = pkgs.stdenv.mkDerivation (finalAttrs: {{
     pname = "{spec.pname}-frontend";
     inherit version;
     src = {binding};{fe_root}
-    pnpmDeps = pkgs.{spec.go_pnpm_package}.fetchDeps {{
+    pnpmDeps = pkgs.{p.pnpm_package}.fetchDeps {{
       inherit (finalAttrs) pname version src{sr_inherit};
-      hash = "{spec.go_pnpm_deps_hash}";
+      hash = "{p.pnpm_deps_hash}";
     }};
     nativeBuildInputs =
-      [ pkgs.{spec.go_frontend_node_package} pkgs.{spec.go_pnpm_package}.configHook ];
-    buildPhase = ''{spec.go_frontend_build}'';
+      [ pkgs.{p.frontend_node_package} pkgs.{p.pnpm_package}.configHook ];
+    buildPhase = ''{p.frontend_build}'';
     installPhase = ''
       {fe_install}
     '';
   }});
 """
     else:
-        if not spec.go_npm_deps_hash:
+        if not p.npm_deps_hash:
             raise ValueError(_NO_NPM_HASH.format(pname=spec.pname))
         frontend_nix = f"""
   # The JS frontend, built offline in its own derivation; npmDepsHash pins the
@@ -141,9 +140,9 @@ def _frontend_block(
     pname = "{spec.pname}-frontend";
     inherit version;
     src = {binding};{fe_root}
-    npmDepsHash = "{spec.go_npm_deps_hash}";
+    npmDepsHash = "{p.npm_deps_hash}";
     dontNpmBuild = true;
-    buildPhase = ''{spec.go_frontend_build}'';
+    buildPhase = ''{p.frontend_build}'';
     installPhase = ''
       {fe_install}
     '';
@@ -169,9 +168,10 @@ class GoSourceTemplate:
     tier = ReproTier.SOURCE
 
     def generate(self, spec: AppSpec) -> str:
+        p = spec.payload_as(GoSourcePayload)
         if spec.exec_target is None:
             raise ValueError("go-source requires exec_target (the binary name)")
-        if not spec.go_vendor_hash:
+        if not p.vendor_hash:
             raise ValueError(_NO_VENDOR_HASH.format(pname=spec.pname))
 
         binding = f"{spec.pname.replace('-', '_')}_src"
@@ -180,21 +180,21 @@ class GoSourceTemplate:
         optional_attrs = []
         if spec.source_root:
             optional_attrs.append(f'    sourceRoot = "{spec.source_root}";')
-        if spec.go_proxy_vendor:
+        if p.proxy_vendor:
             optional_attrs.append("    proxyVendor = true;")
-        if spec.go_sub_packages:
-            packages = _nix_string_list(spec.go_sub_packages)
+        if p.sub_packages:
+            packages = _nix_string_list(p.sub_packages)
             optional_attrs.append(f"    subPackages = [ {packages} ];")
-        if spec.go_ldflags:
-            flags = _nix_string_list(spec.go_ldflags)
+        if p.ldflags:
+            flags = _nix_string_list(p.ldflags)
             optional_attrs.append(f"    ldflags = [ {flags} ];")
         optional_block = ("\n".join(optional_attrs) + "\n") if optional_attrs else ""
 
         # buildGoModule uses nixpkgs' default Go; override it for an app whose
         # go.mod needs a newer toolchain than the pinned default.
         go_builder = (
-            f"(pkgs.buildGoModule.override {{ go = pkgs.{spec.go_version}; }})"
-            if spec.go_version
+            f"(pkgs.buildGoModule.override {{ go = pkgs.{p.go_version}; }})"
+            if p.go_version
             else "pkgs.buildGoModule"
         )
 
@@ -203,7 +203,7 @@ class GoSourceTemplate:
         wrapper_body = format_wrapper_body(spec, exec_line)
 
         frontend_nix, frontend_sed, frontend_prebuild, wrapper_body = _frontend_block(
-            spec, binding, wrapper_body
+            spec, p, binding, wrapper_body
         )
 
         runtime_env_json = format_runtime_env_json(spec.runtime_env)
@@ -234,7 +234,7 @@ let
 
     # Pins the module set. `null` would let the build resolve modules from the
     # network, which is exactly what must not happen.
-    vendorHash = "{spec.go_vendor_hash}";
+    vendorHash = "{p.vendor_hash}";
 {optional_block}
     # Upstream test suites frequently need network or a database; running them
     # here would make the build non-hermetic and flaky.

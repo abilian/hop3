@@ -52,7 +52,7 @@ class RustToolchain(LanguageToolchain):
     """Language toolchain for Rust projects."""
 
     name = "Rust"
-    requirements = ["cargo"]  # noqa: RUF012
+    requirements = ["cargo"]  # ruff:ignore[mutable-class-default]
 
     def accept(self) -> bool:
         """Determine if the application directory is a Rust project.

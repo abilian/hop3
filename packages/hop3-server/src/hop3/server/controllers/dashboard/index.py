@@ -20,7 +20,7 @@ class DashboardIndexController(Controller):
     """Main dashboard index controller."""
 
     path = "/dashboard"
-    guards = [auth_guard]  # noqa: RUF012
+    guards = [auth_guard]  # ruff:ignore[mutable-class-default]
 
     @get("/", status_code=200, sync_to_thread=False)
     def dashboard_index(self) -> Template:

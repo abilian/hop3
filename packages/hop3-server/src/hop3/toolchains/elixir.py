@@ -23,7 +23,7 @@ class ElixirToolchain(LanguageToolchain):
     """
 
     name = "Elixir"
-    requirements = ["elixir", "mix"]  # noqa: RUF012
+    requirements = ["elixir", "mix"]  # ruff:ignore[mutable-class-default]
 
     def accept(self) -> bool:
         """Check if the application has Elixir/Mix configuration."""
