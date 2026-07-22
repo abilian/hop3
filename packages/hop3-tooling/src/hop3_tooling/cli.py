@@ -364,13 +364,14 @@ def tiers(roots: tuple[Path, ...]) -> None:
     counts: Counter[ReproTier] = Counter()
     for name, template in sorted(rows, key=lambda r: (r[1].tier, r[0])):
         counts[template.tier] += 1
-        click.echo(f"  {name:<{width}}  {_tier_label(template)}  {template.name}")
+        label = _tier_label(template)
+        click.echo(f"  {name:<{width}}  {label:<16}  {template.name}")
     tally = ", ".join(f"{counts[tier]} {tier.name.lower()}" for tier in sorted(counts))
     click.echo(f"\n{tally} — {len(rows)} apps")
 
 
 def _tier_label(template: Template) -> str:
-    return f"tier-{template.tier} {template.tier.name.lower():<8}"
+    return f"tier-{template.tier} {template.tier.name.lower()}"
 
 
 def template_for_recipe(app_dir: Path) -> Template:
@@ -405,7 +406,7 @@ def check_reproducible(roots: tuple[Path, ...], ssh: str | None) -> None:
         # is a weaker claim than one of a source build, and an undifferentiated
         # "all reproducible" would read as if every app were audited to source.
         tier = _tier_label(template_for_recipe(app_dir))
-        click.echo(f"  {mark} {result.app} [{tier.strip()}]: {result.detail}")
+        click.echo(f"  {mark} {result.app} [{tier}]: {result.detail}")
         results.append(result)
 
     ok, summary = summarize(results)
