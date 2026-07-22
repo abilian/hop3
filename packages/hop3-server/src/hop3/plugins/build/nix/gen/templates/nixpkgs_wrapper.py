@@ -23,38 +23,13 @@ import dataclasses
 
 from hop3.plugins.build.nix.gen.spec import AppSpec
 from hop3.plugins.build.nix.gen.templates.base import (
+    build_writable_home_prelude,
     format_nix_env_attrs,
     format_paths_json,
     format_runtime_env_json,
     format_wrapper_body,
     pinned_nixpkgs_header,
 )
-
-
-def _build_writable_home_prelude(pname: str, binding: str, env_var: str | None) -> str:
-    """Emit the lazy-cp prelude for writable-home-at-runtime.
-
-    Runs once per app instance: copies `${binding}/.` (the nixpkgs
-    store path) into `$PWD/.<pname>-home`, forces writable mode, and
-    drops a `.hop3-ready` marker so subsequent restarts skip the copy.
-    Optionally exports the computed path under a user-named env var
-    (e.g., KC_HOME_DIR for Keycloak).
-    """
-    lines = [
-        f'HOME_DIR="$PWD/.{pname}-home"',
-        'if [ ! -f "$HOME_DIR/.hop3-ready" ]; then',
-        '  rm -rf "$HOME_DIR"',
-        # -rL dereferences symlinks (we need real files to chmod).
-        # --no-preserve=ownership drops the nixbld owner; mode is then
-        # widened by chmod u+w (capital W just in case).
-        f'  cp -rL --no-preserve=ownership ${{{binding}}}/. "$HOME_DIR"',
-        '  chmod -R u+w "$HOME_DIR"',
-        '  touch "$HOME_DIR/.hop3-ready"',
-        "fi",
-    ]
-    if env_var:
-        lines.append(f'export {env_var}="$HOME_DIR"')
-    return "\n".join(lines)
 
 
 class NixpkgsWrapperTemplate:
@@ -92,8 +67,8 @@ class NixpkgsWrapperTemplate:
         prelude_parts: list[str] = []
         if spec.writable_home_at_runtime:
             prelude_parts.append(
-                _build_writable_home_prelude(
-                    spec.pname, binding, spec.writable_home_env_var
+                build_writable_home_prelude(
+                    spec.pname, f"${{{binding}}}", spec.writable_home_env_var
                 )
             )
             # The `\\$` produces a literal `\$` in the Nix `''` string,
