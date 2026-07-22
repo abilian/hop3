@@ -13,11 +13,15 @@ from hop3_rootd.validation import (
     validate_addon_name,
     validate_addon_type,
     validate_app_name,
+    validate_cpu_max,
     validate_description,
+    validate_dkim_selector,
+    validate_from_domain,
     validate_port,
     validate_port_range,
     validate_port_spec,
     validate_protocol,
+    validate_relay_host,
     validate_source,
 )
 
@@ -465,3 +469,39 @@ def test_app_name_re_matches_hop3_server_upstream():
         "rootd APP_NAME_RE has drifted from hop3-server's; the two are "
         "essential for cross-boundary identifier validation."
     )
+
+
+# --- Trailing newline (regex anchoring) -----------------------------------
+#
+# Python's `$` matches at the end of the subject *or just before a newline at
+# the end of it*, so `re.compile(r"^[a-z]+$").match("abc\n")` is a match. Every
+# gate here is therefore written with `fullmatch`, which must consume the whole
+# subject; with `match` these all pass validation and the newline travels on.
+#
+# It travels somewhere that matters. A validated app/addon name composes the
+# systemd unit name `hop3-expose-<type>-<name>`, which is both a filename under
+# /etc/systemd/system and a value inside the unit file (`Requires=...`); a
+# relay host composes Postfix's `relayhost = [<host>]:<port>` in main.cf. A
+# newline splits the directive across two lines and corrupts the generated
+# config. Only a single trailing newline can pass, so the caller does not
+# control the injected line — this is corruption, not arbitrary injection — but
+# rootd runs as root and re-validates precisely so a lower-privileged caller
+# cannot reach into privileged config at all.
+
+
+@pytest.mark.parametrize(
+    ("validator", "value"),
+    [
+        (validate_app_name, "myapp"),
+        (validate_addon_name, "mydb"),
+        (validate_addon_type, "redis"),
+        (validate_cpu_max, "150000 100000"),
+        (validate_relay_host, "smtp.example.com"),
+        (validate_from_domain, "example.com"),
+        (validate_dkim_selector, "mail"),
+    ],
+)
+def test_regex_validators_reject_a_trailing_newline(validator, value):
+    assert validator(value) == value, "the base value must be valid, or this is vacuous"
+    with pytest.raises(ValidationError):
+        validator(value + "\n")

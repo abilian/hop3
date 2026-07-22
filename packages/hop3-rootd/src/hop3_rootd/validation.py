@@ -224,7 +224,7 @@ def validate_app_name(value: Any) -> str:
         raise ValidationError(
             "app_name", f"must be a string (got {type(value).__name__})"
         )
-    if not APP_NAME_RE.match(value):
+    if not APP_NAME_RE.fullmatch(value):
         raise ValidationError(
             "app_name",
             f"must match {APP_NAME_RE.pattern!r} (got {value!r})",
@@ -242,7 +242,7 @@ def validate_addon_type(value: Any) -> str:
         raise ValidationError(
             "addon_type", f"must be a string (got {type(value).__name__})"
         )
-    if not ADDON_TYPE_RE.match(value):
+    if not ADDON_TYPE_RE.fullmatch(value):
         raise ValidationError(
             "addon_type", f"must match {ADDON_TYPE_RE.pattern!r} (got {value!r})"
         )
@@ -261,7 +261,7 @@ def validate_addon_name(value: Any) -> str:
         raise ValidationError(
             "addon_name", f"must be a string (got {type(value).__name__})"
         )
-    if not APP_NAME_RE.match(value):
+    if not APP_NAME_RE.fullmatch(value):
         raise ValidationError(
             "addon_name", f"must match {APP_NAME_RE.pattern!r} (got {value!r})"
         )
@@ -295,7 +295,7 @@ def validate_cpu_max(value: Any) -> str:
         raise ValidationError(
             "cpu_max", f"must be a string (got {type(value).__name__})"
         )
-    if not _CPU_MAX_RE.match(value):
+    if not _CPU_MAX_RE.fullmatch(value):
         raise ValidationError(
             "cpu_max",
             f"must be '<quota_us> <period_us>' (two positive integers), got {value!r}",
@@ -503,7 +503,7 @@ def validate_relay_host(value: Any) -> str:
         raise ValidationError(
             "relay_host", f"must be a string (got {type(value).__name__})"
         )
-    if not RELAY_HOST_RE.match(value):
+    if not RELAY_HOST_RE.fullmatch(value):
         raise ValidationError("relay_host", f"must be a hostname (got {value!r})")
     return value
 
@@ -549,7 +549,7 @@ def validate_from_domain(value: Any) -> str:
         raise ValidationError(
             "from_domain", f"must be a string (got {type(value).__name__})"
         )
-    if "@" in value or not RELAY_HOST_RE.match(value):
+    if "@" in value or not RELAY_HOST_RE.fullmatch(value):
         raise ValidationError("from_domain", f"must be a bare domain (got {value!r})")
     return value
 
@@ -560,7 +560,7 @@ def validate_dkim_selector(value: Any) -> str:
         raise ValidationError(
             "dkim_selector", f"must be a string (got {type(value).__name__})"
         )
-    if not RELAY_HOST_RE.match(value):
+    if not RELAY_HOST_RE.fullmatch(value):
         raise ValidationError(
             "dkim_selector", f"must be a hostname-safe token (got {value!r})"
         )
