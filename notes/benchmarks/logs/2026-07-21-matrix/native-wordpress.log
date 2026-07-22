@@ -1,0 +1,290 @@
+
+======================================================================
+Deploy Hop3 + run tests
+======================================================================
+
+Target: remote
+Host: 135.181.203.156
+Deploy from: local
+
+Tests to run (1):
+  - apps/real-apps-native/wordpress
+
+Auto-enabling addon feature(s) the apps require: mysql
+Re-running 1 previously-failed test(s) first
+Per-app logs: test-logs/system-20260721_215655/app-logs/
+Deploying Hop3 via hop3-deploy...
+
+======================================================================
+Deploying Hop3 to remote server: root@135.181.203.156
+======================================================================
+
+Running: hop3-deploy-server --host 135.181.203.156 --user root --from local --with mysql
+
+Hop3 Server Installer
+=====================
+      ℹ Detected distribution: debian
+      ℹ Optional features: mysql
+[1/11] Installing system dependencies...
+      ℹ Detected: ubuntu 24.04 (noble)
+        Docker packages: docker.io, docker-compose-v2, docker-buildx
+      ... Updating package lists...
+      ... Installing base packages (this may take a while)...
+      ✓ Installed 55 base packages
+      ... Installing Node.js 22 LTS (NodeSource)...
+      ✓ Node.js installed: v22.23.1
+      ℹ Installing Go from main repository
+      ... Installing Go toolchain...
+      ✓ Go toolchain installed
+      ✓ MySQL already installed
+      ℹ .NET SDK already installed
+      ℹ pnpm already installed
+      ℹ nodeenv already installed
+      ... Installing catalogue baseline (8 package(s))...
+      ✓ Catalogue baseline installed (8 packages)
+[2/11] Creating hop3 user and group...
+      ℹ Group hop3 already exists
+      ℹ User hop3 already exists
+      ℹ Added www-data to hop3 group
+      ℹ Added hop3 to docker group
+        Set hop3 group ownership on /etc/hop3/s3-env
+      ℹ Installing optional toolchains...
+      ℹ Rust toolchain already installed: cargo 1.97.1 (c980f4866 2026-06-30)
+        Created symlink: /usr/local/bin/cargo -> /home/hop3/.cargo/bin/cargo
+        Created symlink: /usr/local/bin/rustc -> /home/hop3/.cargo/bin/rustc
+        Created symlink: /usr/local/bin/rustup -> /home/hop3/.cargo/bin/rustup
+      ℹ pnpm already installed
+      ℹ nodeenv already installed
+      ℹ Leiningen already installed: /root/.lein/self-installs/leiningen-2.12.0-standalone.jar.pending: OK
+Leiningen 2.12.0 on Java 21.0.11 OpenJDK 64-Bit Server VM
+      ℹ Elixir >= 1.15 already installed
+[3/11] Creating virtual environment...
+      ℹ Virtual environment already exists at /home/hop3/venv
+[4/11] Installing hop3-server...
+      ℹ Skipping package install (--skip-package-install)
+[5/11] Running initial setup...
+      ... Running initial setup...
+      ✓ Hop3 initial setup complete
+[6/11] Configuring SSH keys...
+      ✓ SSH keys configured
+[7/11] Setting up systemd services...
+      ✓ Systemd services configured and (re)started
+[8/11] Setting up SSL certificates...
+      ℹ SSL certificates already exist
+[9/11] Configuring nginx...
+      ℹ Skipping nginx setup (--skip-nginx)
+      ℹ Installing hop3-rootd (privileged operations daemon)...
+      ✓ systemd units installed at /etc/systemd/system/hop3-rootd.service and /etc/systemd/system/hop3-rootd.socket
+      ✓ logrotate config installed at /etc/logrotate.d/hop3-rootd
+      ✓ inet hop3 nftables table ready
+      ✓ cgroup v2 unified hierarchy present (native [limits] enforceable)
+      ✓ hop3-rootd is running
+[10/11] Configuring PostgreSQL...
+      ℹ Configuring PostgreSQL...
+      ✓ PostgreSQL service started
+      ✓ PostgreSQL role and database created
+      ✓ PostgreSQL superuser password reused
+        PostgreSQL already configured to listen on all interfaces
+        pg_hba.conf already allows Docker networks
+      ✓ PostgreSQL connection verified
+[11/11] Configuring MySQL...
+      ℹ Configuring MySQL...
+      ✓ MySQL service started
+        MySQL admin access via: mysql -udebian-sys-maint
+      ✓ MySQL user 'hop3' reused with privileges
+        Updated MySQL bind-address to 0.0.0.0 (for Docker access)
+        MySQL user 'hop3' configured for Docker network (172.17.%)
+        MySQL configured to accept connections from Docker containers
+      ✓ MySQL connection verified successfully
+      ✓ Server configuration written to /home/hop3/hop3-server.toml
+      ℹ Skipping ACME setup (--skip-acme)
+      ✓ hop3-server service is running
+      ✓ hop3-rootd service is running
+      ✓ nginx service is running
+      ✓ uwsgi-hop3 service is running
+      ✓ SSL certificate is configured
+      ✓ PostgreSQL service is running
+      ✓ MySQL configuration verified
+Installation complete!
+  User:      hop3
+  Home:      /home/hop3
+  Venv:      /home/hop3/venv
+  Services:
+    sudo systemctl status hop3-server
+    sudo systemctl status hop3-rootd
+    sudo systemctl status uwsgi-hop3
+    sudo systemctl status nginx
+  Logs:
+    sudo journalctl -u hop3-server -f
+  Next steps:
+    1. Add your SSH key:  ssh-copy-id hop3@your-server
+    2. Deploy an app:     hop3 deploy --app your-app
+Hop3 Deployment
+============================================================
+Target: root@135.181.203.156
+Source: local code
+Clean install: no
+Features: mysql
+============================================================
+  → Deploying local code @ bf224002e2c1 (dirty) on 'feat/dep-pinning'
+[1] Setting up deployment target
+  ✓ Target ready
+[2] Updating existing installation
+  → Uploading /Users/fermigier/projects/hop3/hop3/packages/hop3-server
+  → Uploading /Users/fermigier/projects/hop3/hop3/packages/hop3-rootd to /tmp/hop3-rootd
+  → Uploading /Users/fermigier/projects/hop3/hop3/packages/hop3-cli to /tmp/hop3-cli
+  → Removing stale metadata
+  → Installing from uploaded code
+  → Running database migrations
+  ✓ Migrations applied
+  → Restarting server
+  ✓ Local code deployed
+[3] Installing requested features
+  → Installing features: mysql
+  → Running: python3 -u /tmp/install-server.py --with mysql --skip-nginx --skip-acme --skip-package-install --operator-email admin@example.com --verbose
+  ✓ Features installed
+[4] Configuring local CLI
+  ✓ CLI configured with authentication token
+  ✓ CLI configured to connect to http://135.181.203.156:8000
+  ✓ Recorded build info (commit bf224002e2c1e61ecc9e4e0f93e69837245240a3)
+============================================================
+Deployment complete!
+Server URL: http://135.181.203.156:8000
+============================================================
+Reading the server's signing key (for real-auth test tokens)...
+  ✓ Server signing key read
+Waiting for hop3-server to be ready...
+✓ hop3-server is responding (status: 302)
+
+Target ready:
+  SSH: ssh root@135.181.203.156
+  HTTP: http://135.181.203.156
+  API: http://135.181.203.156:8000
+======================================================================
+
+Run: 2026-07-21T21-58-11Z-135.181.203.156-e4a24f
+[apps/real-apps-native/wordpress] 
+Deploying wordpress-1784671091...
+✓ HTTP test passed (direct port 37187, status: 200)
+⚠ Full local diagnostics (survive teardown): /Users/fermigier/.hop3/test-runs/2026-07-21T21-58-30Z-wordpress-1784671091-7e8ff7  |  replay: hop3-test why 2026-07-21T21-58-30Z-wordpress-1784671091-7e8ff7 --section app
+✓ App wordpress-1784671091 destroy command completed
+FAIL (14.70s)
+  Error: HTTP 200 OK but body does not contain 'Hello world' (checked 16384 chars of the response):
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name='robots' content='max-image-preview:large' />
+<title>WordPress</title>
+<link rel='dns-prefetch' href='//127.0.0.1' />
+<link rel="alternate" type="application/rss+xml" title="WordPress &raquo; Feed" href="http://127.0.0.1:37187/?feed=rss2" />
+<link rel="alternate" type="application/rss+xml" title="WordPress &raquo; Comments Feed" href="http://127.0.0.1:37187/?feed=comments-rss2" />
+<script>
+window._wpemojiSettings = {"baseUrl":"https:\/\/s.w.org\/images\/core\/emoji\/14.0.0\/72x72\/","ext":".png","svgUrl":"https:\/\/s.w.org\/images\/core\/emoji\/14.0.0\/svg\/","svgExt":".svg","source":{"concatemoji":"http:\/\/127.0.0.1:37187\/wp-includes\/js\/wp-emoji-release.min.js?ver=6.4.2"}};
+/*! This file is auto-generated */
+!function(i,n){var o,s,e;function c(e){try{var t={supportTests:e,timestamp:(new Date).valueOf()};sessionStorage.setItem(o,JSON.stringify(t))}catch(e){}}function p(e,t,n){e.clearRect(0,0,e.canvas.width,e.canvas.height),e.fillText(t,0,0);var t=new Uint32Array(e.getImageData(0,0,e.canvas.width,e.canvas.height).data),r=(e.clearRect(0,0,e.canvas.width,e.canvas.height),e.fillText(n,0,0),new Uint32Array(e.getImageData(0,0,e.canvas.width,e.canvas.height).data));return t.every(function(e,t){return e===r[t]})}function u(e,t,n){switch(t){case"flag":return n(e,"\ud83c\udff3\ufe0f\u200d\u26a7\ufe0f","\ud83c\udff3\ufe0f\u200b\u26a7\ufe0f")?!1:!n(e,"\ud83c\uddfa\ud83c\uddf3","\ud83c\uddfa\u200b\ud83c\uddf3")&&!n(e,"\ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f","\ud83c\udff4\u200b\udb40\udc67\u200b\udb40\udc62\u200b\udb40\udc65\u200b\udb40\udc6e\u200b\udb40\udc67\u200b\udb40\udc7f");case"emoji":return!n(e,"\ud83e\udef1\ud83c\udffb\u200d\ud83e\udef2\ud83c\udfff","\ud83e\udef1\ud83c\udffb\u200b\ud83e\udef2\ud83c\udfff")}return!1}function f(e,t,n){var r="undefined"!=typeof WorkerGlobalScope&&self instanceof WorkerGlobalScope?new OffscreenCanvas(300,150):i.createElement("canvas"),a=r.getContext("2d",{willReadFrequently:!0}),o=(a.textBaseline="top",a.font="600 32px Arial",{});return e.forEach(function(e){o[e]=t(a,e,n)}),o}function t(e){var t=i.createElement("script");t.src=e,t.defer=!0,i.head.appendChild(t)}"undefined"!=typeof Promise&&(o="wpEmojiSettingsSupports",s=["flag","emoji"],n.supports={everything:!0,everythingExceptFlag:!0},e=new Promise(function(e){i.addEventListener("DOMContentLoaded",e,{once:!0})}),new Promise(function(t){var n=function(){try{var e=JSON.parse(sessionStorage.getItem(o));if("object"==typeof e&&"number"==typeof e.timestamp&&(new Date).valueOf()<e.timestamp+604800&&"object"==typeof e.supportTests)return e.supportTests}catch(e){}return null}();if(!n){if("undefined"!=typeof Worker&&"undefined"!=typeof OffscreenCanvas&&"undefined"!=typeof URL&&URL.createObjectURL&&"undefined"!=typeof Blob)try{var e="postMessage("+f.toString()+"("+[JSON.stringify(s),u.toString(),p.toString()].join(",")+"));",r=new Blob([e],{type:"text/javascript"}),a=new Worker(URL.createObjectURL(r),{name:"wpTestEmojiSupports"});return void(a.onmessage=function(e){c(n=e.data),a.terminate(),t(n)})}catch(e){}c(n=f(s,u,p))}t(n)}).then(function(e){for(var t in e)n.supports[t]=e[t],n.supports.everything=n.supports.everything&&n.supports[t],"flag"!==t&&(n.supports.everythingExceptFlag=n.supports.everythingExceptFlag&&n.supports[t]);n.supports.everythingExceptFlag=n.supports.everythingExceptFlag&&!n.supports.flag,n.DOMReady=!1,n.readyCallback=function(){n.DOMReady=!0}}).then(function(){return e}).then(function(){var e;n.supports.everything||(n.readyCallback(),(e=n.source||{}).concatemoji?t(e.concatemoji):e.wpemoji&&e.twemoji&&(t(e.twemoji),t(e.wpemoji)))}))}((window,document),window._wpemojiSettings);
+</script>
+<style id='wp-block-site-logo-inline-css'>
+.wp-block-site-logo{box-sizing:border-box;line-height:0}.wp-block-site-logo a{display:inline-block;line-height:0}.wp-block-site-logo.is-default-size img{height:auto;width:120px}.wp-block-site-logo img{height:auto;max-width:100%}.wp-block-site-logo a,.wp-block-site-logo img{border-radius:inherit}.wp-block-site-logo.aligncenter{margin-left:auto;margin-right:auto;text-align:center}.wp-block-site-logo.is-style-rounded{border-radius:9999px}
+</style>
+<style id='wp-block-site-title-inline-css'>
+.wp-block-site-title a{color:inherit}
+.wp-block-site-title{font-family: var(--wp--preset--font-family--body);font-size: clamp(0.875rem, 0.875rem + ((1vw - 0.2rem) * 0.542), 1.2rem);font-style: normal;font-weight: 600;}
+.wp-block-site-title a:where(:not(.wp-element-button)){text-decoration: none;}
+.wp-block-site-title a:where(:not(.wp-element-button)):hover{text-decoration: none;}
+</style>
+<style id='wp-block-group-inline-css'>
+.wp-block-group{box-sizing:border-box}
+</style>
+<style id='wp-block-page-list-inline-css'>
+.wp-block-navigation .wp-block-page-list{align-items:var(--navigation-layout-align,initial);background-color:inherit;display:flex;flex-direction:var(--navigation-layout-direction,initial);flex-wrap:var(--navigation-layout-wrap,wrap);justify-content:var(--navigation-layout-justify,initial)}.wp-block-navigation .wp-block-navigation-item{background-color:inherit}
+</style>
+<link rel='stylesheet' id='wp-block-navigation-css' href='http://127.0.0.1:37187/wp-includes/blocks/navigation/style.min.css?ver=6.4.2' media='all' />
+<style id='wp-block-navigation-inline-css'>
+.wp-block-navigation{font-weight: 500;}
+.wp-block-navigation a:where(:not(.wp-element-button)){color: inherit;text-decoration: none;}
+.wp-block-navigation a:where(:not(.wp-element-button)):hover{text-decoration: underline;}
+</style>
+<style id='wp-block-heading-inline-css'>
+h1.has-background,h2.has-background,h3.has-background,h4.has-background,h5.has-background,h6.has-background{padding:1.25em 2.375em}h1.has-text-align-left[style*=writing-mode]:where([style*=vertical-lr]),h1.has-text-align-right[style*=writing-mode]:where([style*=vertical-rl]),h2.has-text-align-left[style*=writing-mode]:where([style*=vertical-lr]),h2.has-text-align-right[style*=writing-mode]:where([style*=vertical-rl]),h3.has-text-align-left[style*=writing-mode]:where([style*=vertical-lr]),h3.has-text-align-right[style*=writing-mode]:where([style*=vertical-rl]),h4.has-text-align-left[style*=writing-mode]:where([style*=vertical-lr]),h4.has-text-align-right[style*=writing-mode]:where([style*=vertical-rl]),h5.has-text-align-left[style*=writing-mode]:where([style*=vertical-lr]),h5.has-text-align-right[style*=writing-mode]:where([style*=vertical-rl]),h6.has-text-align-left[style*=writing-mode]:where([style*=vertical-lr]),h6.has-text-align-right[style*=writing-mode]:where([style*=vertical-rl]){rotate:180deg}
+
+				.is-style-asterisk:before {
+					content: '';
+					width: 1.5rem;
+					height: 3rem;
+					background: var(--wp--preset--color--contrast-2, currentColor);
+					clip-path: path('M11.93.684v8.039l5.633-5.633 1.216 1.23-5.66 5.66h8.04v1.737H13.2l5.701 5.701-1.23 1.23-5.742-5.742V21h-1.737v-8.094l-5.77 5.77-1.23-1.217 5.743-5.742H.842V9.98h8.162l-5.701-5.7 1.23-1.231 5.66 5.66V.684h1.737Z');
+					display: block;
+				}
+
+				/* Hide the asterisk if the heading has no content, to avoid using empty headings to display the asterisk only, which is an A11Y issue */
+				.is-style-asterisk:empty:before {
+					content: none;
+				}
+
+				.is-style-asterisk:-moz-only-whitespace:before {
+					content: none;
+				}
+
+				.is-style-asterisk.has-text-align-center:before {
+					margin: 0 auto;
+				}
+
+				.is-style-asterisk.has-text-align-right:before {
+					margin-left: auto;
+				}
+
+				.rtl .is-style-asterisk.has-text-align-left:before {
+					margin-right: auto;
+				}
+</style>
+<style id='wp-block-spacer-inline-css'>
+.wp-block-spacer{clear:both}
+</style>
+<style id='wp-block-paragraph-inline-css'>
+.is-small-text{font-size:.875em}.is-regular-text{font-size:1em}.is-large-text{font-size:2.25em}.is-larger-text{font-size:3em}.has-drop-cap:not(:focus):…[truncated]
+  Full local diagnostics: /Users/fermigier/.hop3/test-runs/2026-07-21T21-58-30Z-wordpress-1784671091-7e8ff7/
+  Replay: hop3-test why 2026-07-21T21-58-30Z-wordpress-1784671091-7e8ff7 --section app
+  (app destroyed after failure — on-box `hop3 app logs` is gone; read the bundle above)
+
+============================================================
+1 of 1 tests failed
+Total time: 14.70s
+============================================================
+
+Failed tests:
+  ✗ apps/real-apps-native/wordpress
+      ✓ ok — wordpress-1784671091
+      run-id: 2026-07-21T21-58-30Z-wordpress-1784671091-7e8ff7
+      verdict: see sections below
+      
+      
+      why: hop3-test why 2026-07-21T21-58-30Z-wordpress-1784671091-7e8ff7 --section app
+      bundle: /Users/fermigier/.hop3/test-runs/2026-07-21T21-58-30Z-wordpress-1784671091-7e8ff7/
+
+Full per-test logs: test-logs/system-20260721_215655/app-logs/
+
+Recap:
+  ✗ deployment: 0/1 passed
+
+Per-app results:
+  - apps/real-apps-native/wordpress: FAIL
+  Covers: mysql, native, php
+  Avg time per test: 14.7s
+
+Diagnostic logs saved to: test-logs/20260721_215655/system-135-181-203-156-remote-deploy
+
+======================================================================
+DIAGNOSTIC INFORMATION
+======================================================================
+Test: system-135.181.203.156
+Config: remote-deploy
+Run ID: 20260721_215655
+
+No failures recorded.
+======================================================================
+Stopping target...
+
+Disconnecting from remote server...
+Remote target cleanup complete (server keeps running).
