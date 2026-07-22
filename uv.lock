@@ -1788,6 +1788,7 @@ dependencies = [
     { name = "click" },
     { name = "hop3-server" },
     { name = "httpx" },
+    { name = "pyyaml" },
 ]
 
 [package.metadata]
@@ -1795,6 +1796,7 @@ requires-dist = [
     { name = "click", specifier = ">=8.0.0" },
     { name = "hop3-server", editable = "packages/hop3-server" },
     { name = "httpx", specifier = ">=0.27.2" },
+    { name = "pyyaml", specifier = ">=6.0" },
 ]
 
 [[package]]

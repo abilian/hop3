@@ -13,6 +13,7 @@ without a live box.
 from __future__ import annotations
 
 from operator import itemgetter
+from statistics import median
 from typing import Any
 
 
@@ -118,3 +119,43 @@ def render_all(data: dict[str, Any]) -> str:
         render_baselines(data),
     ]
     return "\n".join(parts)
+
+
+def render_matrix(cells: list[dict[str, Any]]) -> str:
+    """Render the golden-app matrix: per-variant deploy time and coverage.
+
+    Takes the JSONL cells produced by ``hop3-bench matrix``. Successful cells
+    carry the timing; failed and no-recipe cells are counted but never averaged
+    into it, so a variant's median is the cost of a deploy that *worked*.
+    """
+    variants = ["native", "docker", "nix", "nix-gen"]
+    lines = [
+        "| Variant | Deployed | Failed | No recipe | Median | Mean | Range |",
+        "|---------|---------:|-------:|----------:|-------:|-----:|-------|",
+    ]
+    for variant in variants:
+        rows = [c for c in cells if c.get("variant") == variant]
+        if not rows:
+            continue
+        ok = [c["seconds"] for c in rows if c.get("status") == "ok"]
+        failed = sum(1 for c in rows if c.get("status") == "failed")
+        absent = sum(1 for c in rows if c.get("status") == "no-recipe")
+        if not ok:
+            lines.append(f"| {variant} | 0 | {failed} | {absent} | — | — | — |")
+            continue
+        lines.append(
+            f"| {variant} | {len(ok)} | {failed} | {absent} | "
+            f"{int(median(ok))} s | {int(sum(ok) / len(ok))} s | "
+            f"{min(ok)}–{max(ok)} s |"
+        )
+
+    failures = [c for c in cells if c.get("status") == "failed"]
+    if failures:
+        lines.append("")
+        lines.append("Failed cells:")
+        lines.extend(
+            f"- `{c['variant']}/{c['app']}` ({c.get('seconds', '?')} s) — "
+            f"{c.get('reason', 'no diagnostic')}"
+            for c in failures
+        )
+    return "\n".join(lines)

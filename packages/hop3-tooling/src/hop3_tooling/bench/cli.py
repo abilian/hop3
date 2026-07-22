@@ -13,10 +13,19 @@ Examples::
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import click
 
+from hop3_tooling.bench.matrix import (
+    SERVER_ID_ENVVAR,
+    VARIANTS,
+    MatrixError,
+    parse_variants,
+    reason_from,
+    run_matrix,
+)
 from hop3_tooling.bench.probes import (
     BenchError,
     cgroup_memory,
@@ -27,7 +36,7 @@ from hop3_tooling.bench.probes import (
     nix_update_delta,
     union_closure,
 )
-from hop3_tooling.bench.report import render_all
+from hop3_tooling.bench.report import render_all, render_matrix
 from hop3_tooling.bench.runner import local_runner, ssh_runner
 
 # nixos-24.11 — the Hop3 nix-gen generator pin (plugins/build/nix/gen/templates/base.py)
@@ -175,6 +184,98 @@ def report(results: Path) -> None:
     is hand-transcribed and each traces to the run that produced it.
     """
     click.echo(render_all(json.loads(results.read_text())))
+
+
+@main.command("report-matrix")
+@click.argument(
+    "results", type=click.Path(exists=True, path_type=Path), required=True
+)
+def report_matrix(results: Path) -> None:
+    """Render the matrix table (paper 6.3) from a `matrix` run's JSONL."""
+    cells = [
+        json.loads(line) for line in results.read_text().splitlines() if line.strip()
+    ]
+    # Reasons are re-derived from the saved logs rather than trusted from the
+    # file: a run records whatever extractor existed then, and the raw
+    # measurements must not be rewritten to improve their annotations.
+    for cell in cells:
+        log = cell.get("log")
+        if log and Path(log).is_file():
+            cell["reason"] = reason_from(Path(log).read_text(errors="replace"))
+    click.echo(render_matrix(cells))
+
+
+@main.command()
+@click.option(
+    "--server-id",
+    envvar=SERVER_ID_ENVVAR,
+    show_envvar=True,
+    required=True,
+    help="The dedicated bench box to REBUILD. A box is never created.",
+)
+@click.option(
+    "--out",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="JSONL results file [default: notes/benchmarks/<today>-matrix.jsonl].",
+)
+@click.option(
+    "--logs",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Directory for failed-cell deploy logs [default: alongside --out].",
+)
+@click.option(
+    "--variants",
+    default=",".join(VARIANTS),
+    show_default=True,
+    help="Comma-separated variants to measure.",
+)
+@click.option(
+    "--skip-rebuild",
+    is_flag=True,
+    help="Measure against the box as-is (no wipe, no install) — resume a run.",
+)
+@click.option(
+    "--append",
+    is_flag=True,
+    help="Allow writing into an existing results file (blends runs — rarely right).",
+)
+def matrix(
+    server_id: str,
+    out: Path | None,
+    logs: Path | None,
+    variants: str,
+    skip_rebuild: bool,
+    append: bool,
+) -> None:
+    """Run the golden-app matrix: every pre-registered app, in every variant.
+
+    Blank-slates the ONE dedicated box (OS rebuild — never creates a server),
+    installs Hop3 from local code, then deploys and times each (app, variant)
+    cell. The corpus is read from the committed protocol.yaml, so a run cannot
+    drift from the pre-registration. Each cell is flushed to the results file as
+    it completes, so an interrupted run keeps its measurements.
+    """
+    today = datetime.now(tz=UTC).date().isoformat()
+    out = out or Path(f"notes/benchmarks/{today}-matrix.jsonl")
+    logs = logs or Path(f"notes/benchmarks/logs/{today}-matrix")
+
+    try:
+        cells = run_matrix(
+            server_id=server_id,
+            variants=parse_variants(variants),
+            out_path=out,
+            logs_dir=logs,
+            skip_rebuild=skip_rebuild,
+            append=append,
+            echo=click.echo,
+        )
+    except MatrixError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    ok = sum(1 for c in cells if c.status == "ok")
+    click.echo(f"\n{ok}/{len(cells)} cells ok -> {out}")
 
 
 if __name__ == "__main__":
