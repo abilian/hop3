@@ -114,7 +114,7 @@ class TestRun(Base):
 
     run_metadata: Mapped[dict | None] = mapped_column(JSON, default=dict, nullable=True)
     """Extensible session-metadata bag (target OS name/version, server type,
-    datacenter, image, …). Progressive-disclosure detail; the named columns
+    location, image, …). Progressive-disclosure detail; the named columns
     (hop3_version, git_sha) stay queryable. NB: can't be named ``metadata`` —
     that attribute is reserved by SQLAlchemy's declarative base."""
 

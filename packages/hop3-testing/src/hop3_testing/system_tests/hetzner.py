@@ -66,7 +66,11 @@ class ServerInfo:
     status: ServerStatus
     ipv4: str
     ipv6: str | None
-    datacenter: str
+    # Hetzner deprecated datacenters on 2026-06-02 (removal after 2026-10-01)
+    # and hcloud 2.23 dropped `Server.datacenter` accordingly. Location is the
+    # replacement: coarser (hel1 rather than hel1-dc2), and the field that
+    # exists.
+    location: str
     server_type: str
     image: str | None
 
@@ -89,7 +93,7 @@ class ServerInfo:
             else ServerStatus.UNKNOWN,
             ipv4=ipv4,
             ipv6=ipv6,
-            datacenter=(server.datacenter.name or "") if server.datacenter else "",
+            location=(server.location.name or "") if server.location else "",
             server_type=(server.server_type.name or "") if server.server_type else "",
             image=server.image.name if server.image else None,
         )
@@ -160,10 +164,19 @@ class HetznerManager:
     def get_server_ip(self) -> str:
         """Get the server's IPv4 address.
 
+        Reads the address off the server directly rather than through
+        ``ServerInfo``: the rebuild path needs only the IP, and mapping every
+        other field first makes an unrelated upstream model change (hcloud
+        removing ``Server.datacenter``) abort the provisioning run.
+
         Returns:
             IPv4 address string.
         """
-        return self.get_server_info().ipv4
+        server = self.get_server()
+        if not (server.public_net and server.public_net.ipv4):
+            msg = f"Server {self.server_id} has no public IPv4 address"
+            raise HetznerError(msg)
+        return server.public_net.ipv4.ip or ""
 
     def list_images(self) -> list[dict]:
         """List available OS images.

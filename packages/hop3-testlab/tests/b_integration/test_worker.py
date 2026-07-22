@@ -75,7 +75,7 @@ def test_resolve_run_target_hetzner_harvests_server_info(monkeypatch):
         hetzner_token="t", hetzner_server_id=1, hetzner_image="x", ssh_key_path="/k"
     )
     info = SimpleNamespace(
-        ipv4="1.2.3.4", image="ubuntu-24.04", server_type="cx43", datacenter="hel1-dc2"
+        ipv4="1.2.3.4", image="ubuntu-24.04", server_type="cx43", location="hel1"
     )
     monkeypatch.setattr(worker, "load_cloud_config", lambda: cfg)
     monkeypatch.setattr(worker, "_hetzner_server_info", lambda _cfg: info)
@@ -86,7 +86,7 @@ def test_resolve_run_target_hetzner_harvests_server_info(monkeypatch):
     assert meta["os_name"] == "ubuntu"
     assert meta["os_version"] == "24.04"
     assert meta["server_type"] == "cx43"
-    assert meta["datacenter"] == "hel1-dc2"
+    assert meta["location"] == "hel1"
 
 
 def test_terminate_engine_skips_recycled_pid(monkeypatch):
