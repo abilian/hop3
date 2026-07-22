@@ -9,14 +9,13 @@ import threading
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
-from litestar.testing import TestClient
-
 from hop3_testlab import scheduler
 from hop3_testlab.cloud_config import load_schedule
 from hop3_testlab.config import TestlabConfig
 from hop3_testlab.db import get_session_factory
 from hop3_testlab.repositories import BuildQueueRepository, ProfilesRepository
 from hop3_testlab.web.asgi import create_app
+from litestar.testing import TestClient
 
 if TYPE_CHECKING:
     from pathlib import Path

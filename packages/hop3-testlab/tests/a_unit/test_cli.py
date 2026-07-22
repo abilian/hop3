@@ -7,7 +7,6 @@ from __future__ import annotations
 import os
 
 import pytest
-
 from hop3_testlab import cli, worker
 
 

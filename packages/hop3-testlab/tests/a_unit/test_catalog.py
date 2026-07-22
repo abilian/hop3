@@ -10,7 +10,6 @@ apps/ tree, so they're real-catalog assertions, not stubs.
 from __future__ import annotations
 
 from hop3_testing.targets.helpers import find_project_root
-
 from hop3_testlab.catalog import (
     resolve_selector,
     title_map,

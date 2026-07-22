@@ -8,8 +8,6 @@ against the real SQLite store.
 
 from __future__ import annotations
 
-from litestar.testing import TestClient
-
 from hop3_testlab.config import TestlabConfig
 from hop3_testlab.db import get_session_factory
 from hop3_testlab.repositories import (
@@ -18,6 +16,7 @@ from hop3_testlab.repositories import (
     ServersRepository,
 )
 from hop3_testlab.web.asgi import create_app
+from litestar.testing import TestClient
 
 
 def _session():

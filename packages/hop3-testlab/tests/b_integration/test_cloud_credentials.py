@@ -10,13 +10,12 @@ bypassed via TESTLAB_UNSAFE in the conftest.
 
 from __future__ import annotations
 
-from litestar.testing import TestClient
-
 from hop3_testlab.cloud_config import load_cloud_config
 from hop3_testlab.config import TestlabConfig
 from hop3_testlab.db import get_session_factory
 from hop3_testlab.repositories import CredentialsRepository
 from hop3_testlab.web.asgi import create_app
+from litestar.testing import TestClient
 
 _FAKE_KEY = (
     "-----BEGIN OPENSSH PRIVATE KEY-----\n"

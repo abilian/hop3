@@ -14,7 +14,6 @@ from __future__ import annotations
 import os
 
 import pytest
-
 from hop3_testlab.db import get_session_factory
 from hop3_testlab.repositories import (
     BuildQueueRepository,

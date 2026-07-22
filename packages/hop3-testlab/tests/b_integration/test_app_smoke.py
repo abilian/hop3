@@ -4,9 +4,8 @@
 
 from __future__ import annotations
 
-from litestar.testing import TestClient
-
 from hop3_testlab.web.asgi import create_app
+from litestar.testing import TestClient
 
 
 def test_health_returns_ok():

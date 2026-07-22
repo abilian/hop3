@@ -221,7 +221,6 @@ def test_engine_exit_with_results_is_completed_not_crash(monkeypatch, tmp_path):
     tests (the actionable signal) and carries none of the 'Engine exited'
     crash noise."""
     from hop3_testing.results.models import TestResultRecord, TestRun
-
     from hop3_testlab.worker import EngineExitError
 
     with _session() as s:

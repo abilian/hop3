@@ -9,7 +9,6 @@ chosen dialect for both backends without connecting.
 from __future__ import annotations
 
 from hop3_testing.results.store import make_store_engine, store_url
-
 from hop3_testlab.config import TestlabConfig
 
 

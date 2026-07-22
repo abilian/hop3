@@ -12,7 +12,6 @@ from __future__ import annotations
 import subprocess
 
 import pytest
-
 from hop3_testlab import sources
 
 

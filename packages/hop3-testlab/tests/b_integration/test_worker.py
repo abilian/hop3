@@ -10,7 +10,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-
 from hop3_testlab import leasing, worker
 from hop3_testlab.config import TestlabConfig
 from hop3_testlab.db import get_session_factory

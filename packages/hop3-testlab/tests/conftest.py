@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import pytest
-
 from hop3_testlab.db import get_session_factory
 
 
