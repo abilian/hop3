@@ -219,6 +219,44 @@ def format_wrapper_body(
     return "\n\n".join(sections)
 
 
+def build_writable_home_prelude(
+    pname: str,
+    source: str,
+    env_var: str | None = None,
+    cd_into: bool = False,
+) -> str:
+    """Emit the lazy-cp prelude for an app that writes inside its own tree.
+
+    The Nix store is read-only, but plenty of applications expect to write into
+    their install directory (Keycloak's Quarkus rebuild, Rails' generated
+    config and secret token, xwiki's Jetty logs). Copy the tree into
+    ``$PWD/.<pname>-home`` once per app instance, widen the mode, and drop a
+    marker so restarts skip the copy.
+
+    ``source`` is emitted verbatim, so it may be a Nix interpolation
+    (``${pkg}``) or a sed placeholder the template substitutes later
+    (``APPDIR``). ``cd_into`` makes the wrapper run from the writable copy,
+    which apps that resolve paths relative to the working directory need.
+    """
+    lines = [
+        f'HOME_DIR="$PWD/.{pname}-home"',
+        'if [ ! -f "$HOME_DIR/.hop3-ready" ]; then',
+        '  rm -rf "$HOME_DIR"',
+        # -rL dereferences symlinks (we need real files to chmod).
+        # --no-preserve=ownership drops the nixbld owner; mode is then
+        # widened by chmod u+w (capital W just in case).
+        f'  cp -rL --no-preserve=ownership {source}/. "$HOME_DIR"',
+        '  chmod -R u+w "$HOME_DIR"',
+        '  touch "$HOME_DIR/.hop3-ready"',
+        "fi",
+    ]
+    if env_var:
+        lines.append(f'export {env_var}="$HOME_DIR"')
+    if cd_into:
+        lines.append('cd "$HOME_DIR"')
+    return "\n".join(lines)
+
+
 def format_runtime_env_json(runtime_env: dict[str, str]) -> str:
     """Emit the ``env`` portion of runtime.json as JSON lines."""
     if not runtime_env:
