@@ -8,7 +8,6 @@ Real-catalog assertions (scans the repo's apps/ tree), like test_catalog.
 from __future__ import annotations
 
 from hop3_testing.targets.helpers import find_project_root
-
 from hop3_testlab.catalog import build_catalog
 from hop3_testlab.discriminators import type_of
 from hop3_testlab.selection import resolve_selection

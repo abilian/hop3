@@ -11,11 +11,10 @@ from typing import TYPE_CHECKING
 
 from hop3_testing.results import ResultStore
 from hop3_testing.results.models import TestResultRecord, TestRun
+from hop3_testlab.web.asgi import create_app
 from litestar.testing import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-
-from hop3_testlab.web.asgi import create_app
 
 if TYPE_CHECKING:
     from pathlib import Path

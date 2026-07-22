@@ -8,9 +8,8 @@ we opt back in to confirm the middleware is actually wired and enforcing.
 
 from __future__ import annotations
 
-from litestar.testing import TestClient
-
 from hop3_testlab.web.asgi import create_app
+from litestar.testing import TestClient
 
 
 def test_csrf_failure_redirects_to_login_and_clears_wedged_cookie(monkeypatch):

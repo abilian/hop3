@@ -59,6 +59,7 @@ lint.extend-ignore = [
     "RUF067", # `__init__` module should only contain docstrings and re-exports
     "RUF070", # unnecessary-assign-before-yield
     "RUF001", # ambiguous-unicode-character-string
+    "RUF201", #
     #
     # Fix this (later)
     #
@@ -68,6 +69,13 @@ lint.extend-ignore = [
     "TRY301", #  raise-within-try
     "PLR0914", # too-many-locals
     "A002", #    builtin-argument-shadowing
+    # TODO (soon)
+    "RUF100", # unused noqa
+    "PLC0415", # import-outside-top-level
+    "E402", #    module-import-not-at-top-of-file
+    "EM102", #   f-string-in-exception
+    "TRY003", #  raise-vanilla-args
+    "RUF027", #  missing-f-string-syntax
 ]
 
 [lint.pylint]

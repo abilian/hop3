@@ -19,7 +19,6 @@ from pathlib import Path
 
 import pytest
 from hop3_testing.targets.helpers import find_project_root
-
 from hop3_testlab.config import TestlabConfig
 from hop3_testlab.db import get_session_factory
 from hop3_testlab.repositories import RunsRepository
