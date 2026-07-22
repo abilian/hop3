@@ -216,7 +216,7 @@ def cmd_status(args: argparse.Namespace) -> None:
         console.print(f"  Name:       {info.name}")
         console.print(f"  Status:     {info.status.value}")
         console.print(f"  IPv4:       {info.ipv4}")
-        console.print(f"  Datacenter: {info.datacenter}")
+        console.print(f"  Location:   {info.location}")
         console.print(f"  Type:       {info.server_type}")
         console.print(f"  Image:      {info.image or 'N/A'}")
 

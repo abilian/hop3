@@ -220,7 +220,7 @@ def _resolve_run_target(target_id: str) -> tuple[str, str | None, dict]:
     """Map a target id to (ssh_host, ssh_key_path, session_metadata).
 
     ``hetzner`` resolves to the configured server's IP and harvests its
-    OS/type/datacenter as session metadata; any other non-docker id is the SSH
+    OS/type/location as session metadata; any other non-docker id is the SSH
     host verbatim.
     """
     cfg = load_cloud_config()
@@ -229,7 +229,7 @@ def _resolve_run_target(target_id: str) -> tuple[str, str | None, dict]:
         meta = {
             "target": "hetzner",
             "server_type": info.server_type,
-            "datacenter": info.datacenter,
+            "location": info.location,
             "image": info.image,
             "ipv4": info.ipv4,
         }
