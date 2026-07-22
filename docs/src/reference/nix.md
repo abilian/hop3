@@ -256,6 +256,8 @@ hop3-test run --docker --clean --with nix apps/real-apps-nix-gen
   — Phase 1 architecture decision
 - [ADR 008: Template-Based Nix Generation](/developers/adrs/008-nix-builders-2/)
   — Phase 3 template system
+- [ADR 058: Build Reproducibility Model](/developers/adrs/058-build-reproducibility-model/)
+  — what the tiers mean, how the claim is checked, and what it is scoped to
 - [Nix Deployment Guide](../guides/nix-deployment.md) — Tutorial-style
   introduction
 - [hop3.toml `[nix]` section](config.md#nix-template-based-nix-builds)
