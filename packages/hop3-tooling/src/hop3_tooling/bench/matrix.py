@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import socket
 import subprocess
 import time
 from dataclasses import asdict, dataclass
@@ -221,6 +222,19 @@ def box_ip(server_id: str) -> str:
     return ip
 
 
+def _hostnames_for(ip: str) -> set[str]:
+    """DNS names the box also answers to, so their host keys can be cleared too.
+
+    Best-effort: a missing reverse record is normal and simply means there is
+    no extra name to clear.
+    """
+    try:
+        name, aliases, _ = socket.gethostbyaddr(ip)
+    except OSError:
+        return set()
+    return {name, *aliases}
+
+
 def rebuild_box(server_id: str) -> str:
     """Wipe the dedicated box and return its IP once SSH answers.
 
@@ -232,7 +246,12 @@ def rebuild_box(server_id: str) -> str:
         raise MatrixError(msg)
 
     ip = box_ip(server_id)
-    _run(["ssh-keygen", "-R", ip])  # a rebuilt box presents a new host key
+    # A rebuilt box presents a new host key. Clear it under every name it is
+    # reachable by, not just the address: a stale entry for the DNS name blocks
+    # the next tool that connects that way with a bare "host key verification
+    # failed", well after the rebuild that caused it.
+    for name in {ip, *_hostnames_for(ip)}:
+        _run(["ssh-keygen", "-R", name])
     for _ in range(_SSH_WAIT_TRIES):
         if _run(["ssh", *SSH_OPTS, f"root@{ip}", "true"]).returncode == 0:
             return ip
