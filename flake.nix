@@ -30,6 +30,9 @@
           # Development tools
           pkgs.git
           pkgs.gnumake
+          # nix-instantiate, so the nix-gen corpus test parses generated
+          # expressions instead of skipping itself inside the FHS sandbox.
+          pkgs.nix
 
           # Database clients
           pkgs.postgresql
