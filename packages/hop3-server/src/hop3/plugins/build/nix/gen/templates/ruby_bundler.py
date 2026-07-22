@@ -41,6 +41,7 @@ from dataclasses import replace
 from hop3.plugins.build.nix.gen.spec import AppSpec
 from hop3.plugins.build.nix.gen.templates.base import (
     PINNED_NIXPKGS_HEADER,
+    ReproTier,
     build_writable_home_prelude,
     format_nix_env_attrs,
     format_paths_json,
@@ -51,6 +52,7 @@ from hop3.plugins.build.nix.gen.templates.base import (
 
 class RubyBundlerTemplate:
     name = "ruby-bundler"
+    tier = ReproTier.SOURCE
 
     def generate(self, spec: AppSpec) -> str:
         if spec.exec_target is None:

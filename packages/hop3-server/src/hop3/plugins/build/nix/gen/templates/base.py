@@ -9,10 +9,45 @@
 from __future__ import annotations
 
 import os
+from enum import IntEnum
 from typing import Protocol
 
 from hop3.plugins.build.nix.gen.escaping import nix_escape
 from hop3.plugins.build.nix.gen.spec import AppSpec, ConfigFile
+
+# ---------------------------------------------------------------------------
+# Reproducibility tiers
+# ---------------------------------------------------------------------------
+
+
+class ReproTier(IntEnum):
+    """Where an application's artefact comes from, and who vouches for it.
+
+    Every template builds inside the Nix sandbox against hash-pinned inputs, so
+    all three tiers rebuild bit-for-bit. What differs is the *provenance* of the
+    running bytes — whether they can be traced back to reviewable source, and
+    who did the tracing. That is the question an auditor asks, so it is the axis
+    the tiers rank. Lower is better.
+
+    The tier is a property of the template, not of the app, which is what keeps
+    the label from drifting: see ``hop3-tools nix tiers`` for the per-app view.
+    """
+
+    NIXPKGS = 1
+    """Wraps a package nixpkgs already builds from source. Auditable, multi-arch
+    and maintained by nixpkgs — the least work and the strongest position, when
+    the app is packaged there at a usable version."""
+
+    SOURCE = 2
+    """Hop3 compiles the app from source against a hash-pinned dependency set
+    (``vendorHash``-style: pip lockfile, composer.lock, pnpm-lock, go.sum,
+    gemset.nix, Gradle deps.json). Auditable end to end, at the cost of owning
+    the packaging and of lockfiles resolved for one architecture."""
+
+    PREBUILT = 3
+    """Fetches an upstream release artefact by sha256. Byte-identical on every
+    rebuild, but not auditable: the binary is taken on trust."""
+
 
 # ---------------------------------------------------------------------------
 # Pinned nixpkgs
@@ -56,6 +91,7 @@ class Template(Protocol):
     """A template generates a hop3.nix expression from an AppSpec."""
 
     name: str
+    tier: ReproTier
 
     def generate(self, spec: AppSpec) -> str:
         """Produce a complete hop3.nix expression as a string."""

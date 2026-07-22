@@ -30,6 +30,7 @@ from __future__ import annotations
 
 from hop3.plugins.build.nix.gen.spec import AppSpec
 from hop3.plugins.build.nix.gen.templates.base import (
+    ReproTier,
     format_nix_env_attrs,
     format_paths_json,
     format_runtime_env_json,
@@ -165,6 +166,7 @@ def _frontend_block(
 
 class GoSourceTemplate:
     name = "go-source"
+    tier = ReproTier.SOURCE
 
     def generate(self, spec: AppSpec) -> str:
         if spec.exec_target is None:

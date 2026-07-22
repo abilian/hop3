@@ -23,6 +23,7 @@ import dataclasses
 
 from hop3.plugins.build.nix.gen.spec import AppSpec
 from hop3.plugins.build.nix.gen.templates.base import (
+    ReproTier,
     build_writable_home_prelude,
     format_nix_env_attrs,
     format_paths_json,
@@ -34,6 +35,7 @@ from hop3.plugins.build.nix.gen.templates.base import (
 
 class NixpkgsWrapperTemplate:
     name = "nixpkgs-wrapper"
+    tier = ReproTier.NIXPKGS
 
     def generate(self, spec: AppSpec) -> str:
         if spec.nixpkgs_package is None:

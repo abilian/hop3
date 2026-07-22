@@ -24,6 +24,7 @@ from __future__ import annotations
 from hop3.plugins.build.nix.gen.spec import AppSpec
 from hop3.plugins.build.nix.gen.templates.base import (
     PINNED_NIXPKGS_HEADER,
+    ReproTier,
     format_nix_env_attrs,
     format_paths_json,
     format_runtime_env_json,
@@ -33,6 +34,7 @@ from hop3.plugins.build.nix.gen.templates.base import (
 
 class NodePrebuiltTemplate:
     name = "node-prebuilt"
+    tier = ReproTier.PREBUILT
 
     def generate(self, spec: AppSpec) -> str:
         if spec.exec_target is None:
