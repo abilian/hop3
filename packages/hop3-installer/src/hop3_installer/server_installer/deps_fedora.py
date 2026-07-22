@@ -326,7 +326,7 @@ def install_fedora_deps(config: ServerInstallerConfig) -> None:
     """
     # Detect distro version
     distro_info = detect_distro_info()
-    print_info(f"Detected: {distro_info}")
+    print_info(f"Detected distribution: {distro_info}")
 
     # Set up EPEL for RHEL clones (needed for certbot, etc.)
     if _is_rhel_clone(distro_info):

@@ -221,6 +221,22 @@ class DockerDeployBackend(DeployBackend):
         )
         return bool(result.stdout.strip())
 
+    def _running_image(self) -> str | None:
+        """The image the running container was created from, if it can be read."""
+        result = subprocess.run(
+            [
+                "docker",
+                "inspect",
+                self.container_name,
+                "--format",
+                "{{.Config.Image}}",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return result.stdout.strip() or None
+
     def _remove_container(self) -> None:
         """Remove the container if it exists."""
         subprocess.run(
@@ -373,6 +389,16 @@ class DockerDeployBackend(DeployBackend):
         # deploy then hits the in-place UPDATE path (upgrade) instead of a
         # fresh install. --clean (or no running container) forces a rebuild.
         if self._container_running() and not self.config.clean_before:
+            running = self._running_image()
+            if running and running != self.image:
+                # Reusing a container built from a different base silently
+                # installs onto the wrong distribution, and the mismatch only
+                # surfaces much later as a confusing package failure.
+                print(
+                    f"  → Container {self.container_name} runs {running}, "
+                    f"but {self.image} was requested — recreating"
+                )
+                return self._create_fresh_container()
             print(f"  → Reusing running container {self.container_name} (no --clean)")
             return True
 

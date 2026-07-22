@@ -360,7 +360,7 @@ def install_debian_deps(config: ServerInstallerConfig) -> None:
     """
     # Detect distro version
     distro_info = detect_distro_info()
-    print_info(f"Detected: {distro_info}")
+    print_info(f"Detected distribution: {distro_info}")
 
     # Setup additional package sources if needed (e.g., backports for Debian 12)
     _setup_package_sources(distro_info)

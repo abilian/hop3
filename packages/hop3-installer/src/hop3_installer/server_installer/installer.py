@@ -344,7 +344,7 @@ def main() -> int:
 
     # Detect distro
     distro = detect_distro()
-    print_info(f"Detected distribution: {distro}")
+    print_info(f"Detected distribution family: {distro}")
 
     if config.features:
         print_info(f"Optional features: {', '.join(sorted(config.features))}")
