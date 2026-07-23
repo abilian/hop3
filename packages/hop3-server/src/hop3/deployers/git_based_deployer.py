@@ -129,8 +129,8 @@ class Deployer:
         Execute the prebuild command for the worker.
 
         Raises:
-        - Abort: Raises an Abort exception if the prebuild command returns a
-          non-zero exit status, indicating an error during execution.
+            Abort: Raises an Abort exception if the prebuild command returns a
+                non-zero exit status, indicating an error during execution.
         """
 
         command = self.get_worker("prebuild")
@@ -238,7 +238,7 @@ class Deployer:
         Execute the postbuild command for a given worker.
 
         Raises:
-        - Abort: Raises an Abort exception if the shell command returns a non-zero error value.
+            Abort: Raises an Abort exception if the shell command returns a non-zero error value.
         """
         command = self.get_worker("postbuild")
         if not command:
@@ -275,8 +275,8 @@ class Deployer:
             If empty, the reset step is skipped.
 
         Raises:
-            RuntimeError: If any of the git commands fail, this will raise an exception
-                          through the shell function which is expected to handle such errors.
+            subprocess.CalledProcessError: If any of the git commands fail. ``shell``
+                runs with ``check=True``, so a non-zero git exit propagates here.
         """
         env: dict[str, str] = {}  # Environment variables dictionary, currently empty
         with chdir(self.src_path):

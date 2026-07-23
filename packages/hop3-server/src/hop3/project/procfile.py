@@ -23,7 +23,7 @@ def parse_procfile(filename: str | Path) -> dict:
     - dict: A dictionary representing the workers defined in the Procfile.
 
     Raises:
-    - ValueError: If the provided file is syntaxically or semantically incorrect.
+        ValueError: If the provided file is syntaxically or semantically incorrect.
     """
     # TODO: introduce a domain-specific exception?
     procfile = Procfile.from_file(filename)
@@ -69,7 +69,7 @@ class Procfile:
         - text: A string representing the content of a Procfile with each line specifying a worker type.
 
         Raises:
-        - ValueError: If both 'web' and types from 'wsgi' group of workers are found.
+            ValueError: If both 'web' and types from 'wsgi' group of workers are found.
         """
         for line_number, line in enumerate(text.split("\n")):
             # Parse each line of the Procfile with its line number
@@ -121,7 +121,7 @@ class Procfile:
         - command: str - A cron command string to be validated.
 
         Raises:
-        - ValueError: If the cron pattern contains values exceeding the allowed limits.
+            ValueError: If the cron pattern contains values exceeding the allowed limits.
         """
         limits = [59, 24, 31, 12, 7]  # Maximum allowable values for each cron field
         res = re.match(c.CRON_REGEXP, command)

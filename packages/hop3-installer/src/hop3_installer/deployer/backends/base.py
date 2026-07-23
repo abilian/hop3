@@ -211,10 +211,8 @@ class DeployBackend(ABC):
         For Docker targets, this starts supervisor to manage services.
 
         The default implementation is a no-op since systemd handles services
-        on real servers. Docker backend overrides this to use supervisor.
-
-        Raises:
-            ServiceStartError: If services fail to start.
+        on real servers. Docker backend overrides this to use supervisor
+        (and raises ``ServiceStartError`` if a service fails to start).
         """
         # No-op: systemd handles services on real servers
         return
