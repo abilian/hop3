@@ -45,7 +45,7 @@ from hop3.orm import (
     EnvVar,
 )
 
-from ._base import Command
+from ._base import Command, NamespaceCommand
 from ._deploy import deploy_app_streaming
 from ._errors import command_context
 from ._helpers import get_app, redact_sensitive_value
@@ -135,7 +135,7 @@ def _run_lifecycle_action(
 
 @register
 @dataclass(frozen=True)
-class AppCmd(Command):
+class AppCmd(NamespaceCommand):
     """
     Manage applications.
 

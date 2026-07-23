@@ -18,7 +18,7 @@ from hop3.lib.args import parse_cli_args
 from hop3.lib.registry import register
 from hop3.project.procfile import Procfile
 
-from ._base import Command
+from ._base import Command, NamespaceCommand
 from ._helpers import (
     check_hostname_conflict,
     get_app,
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 
 
 @register
-class EnvCmd(Command):
+class EnvCmd(NamespaceCommand):
     """
     Manage application environment variables.
 

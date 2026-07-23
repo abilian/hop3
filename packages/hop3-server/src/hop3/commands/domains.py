@@ -22,7 +22,7 @@ from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
 from hop3.lib.args import parse_cli_args
 from hop3.lib.registry import register
 
-from ._base import Command
+from ._base import Command, NamespaceCommand
 from ._helpers import (
     check_hostname_conflict,
     get_app,
@@ -92,7 +92,7 @@ def _persist(app: App, hosts: list[str], db_session: Session) -> None:
 
 
 @register
-class DomainsCmd(Command):
+class DomainsCmd(NamespaceCommand):
     """
     Manage hostnames bound to an application.
 

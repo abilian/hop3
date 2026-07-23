@@ -21,7 +21,7 @@ from hop3.orm.repositories import (  # ruff:ignore[typing-only-first-party-impor
 from hop3.orm.security import Role
 from hop3.server.security.tokens import create_token
 
-from ._base import Command
+from ._base import Command, NamespaceCommand
 from ._response import error, summary, text
 
 
@@ -50,7 +50,7 @@ def require_admin(username: str, user_repo: UserRepository) -> list[dict] | None
 
 @register
 @dataclass(frozen=True)
-class UserCmd(Command):
+class UserCmd(NamespaceCommand):
     """
     Manage user accounts.
 

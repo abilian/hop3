@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hop3.lib.registry import register
 
-from ._base import Command
+from ._base import NamespaceCommand
 from ._errors import command_context
 from ._helpers import get_app
 from ._response import error, text
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 @register
 @dataclass(frozen=True)
-class NixEjectCmd(Command):
+class NixEjectCmd(NamespaceCommand):
     """
     Generate and save a hop3.nix file from the [nix] template config.
 

@@ -21,7 +21,7 @@ from hop3.platform.cert_health import cert_health
 from hop3.platform.cert_renewal import renew_due_certs
 from hop3.platform.certificates import reload_nginx
 
-from ._base import Command
+from ._base import Command, NamespaceCommand
 from ._response import error, table, text
 
 if TYPE_CHECKING:
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
 
 @register
-class CertCmd(Command):
+class CertCmd(NamespaceCommand):
     """Inspect and renew TLS certificates."""
 
     name: ClassVar[tuple[str, ...]] = ("cert",)
