@@ -26,7 +26,7 @@ import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import mysql.connector
 from mysql.connector import errorcode
@@ -40,6 +40,16 @@ from hop3.plugins.addons import (
 )
 
 from .admin import MySQLAdmin
+
+if TYPE_CHECKING:
+    from mysql.connector.abstracts import (
+        MySQLConnectionAbstract,
+        MySQLCursorAbstract,
+    )
+    from mysql.connector.pooling import PooledMySQLConnection
+
+    # mysql.connector.connect() returns either a pooled or a direct connection.
+    MySQLConnection = PooledMySQLConnection | MySQLConnectionAbstract
 
 # Addon type identifier for secrets storage
 ADDON_TYPE = "mysql"
@@ -75,7 +85,7 @@ class MySQLAddon:
     # Instance attributes
     addon_name: str = ""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """
         Validate that addon_name is provided and is a safe identifier.
 
@@ -119,7 +129,9 @@ class MySQLAddon:
         """Get MySQL admin connection configuration."""
         return MySQLAdmin.from_config()
 
-    def _create_or_update_user(self, cursor, host: str, password: str) -> None:
+    def _create_or_update_user(
+        self, cursor: MySQLCursorAbstract, host: str, password: str
+    ) -> None:
         """
         Create ``<db_user>@<host>`` with the given password.
 
@@ -297,7 +309,7 @@ class MySQLAddon:
         }
 
     @staticmethod
-    def _exec(connection, statement: str) -> dict:
+    def _exec(connection: MySQLConnection, statement: str) -> dict:
         """Run a statement on a connection; shape rows or a status message."""
         try:
             cursor = connection.cursor()

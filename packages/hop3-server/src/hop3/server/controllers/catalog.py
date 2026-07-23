@@ -14,7 +14,7 @@ This controller handles all catalog routes including:
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from litestar import Controller, get, post
 from litestar.enums import RequestEncodingType
@@ -27,6 +27,9 @@ from hop3.server.catalog.install import CatalogInstallError, stage_catalog_app
 from hop3.server.catalog.loader import find_icon
 from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
+
+if TYPE_CHECKING:
+    from hop3.server.catalog.models import CatalogApp
 
 # ============================================================================
 # Catalog Controller
@@ -231,7 +234,7 @@ class CatalogController(Controller):
     def _render_install_errors(
         self,
         service: CatalogService,
-        catalog_app,
+        catalog_app: CatalogApp,
         app_id: str,
         app_name: str,
         errors: list[str],

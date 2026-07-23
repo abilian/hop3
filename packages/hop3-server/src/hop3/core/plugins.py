@@ -28,6 +28,9 @@ from .protocols import (
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from hop3.core.env import Env
+    from hop3.orm import App
+
     from .protocols import (
         OS,
         Addon,
@@ -393,7 +396,7 @@ def _hints_for_unknown_artifact(artifact_kind: str) -> list[str]:
     ]
 
 
-def get_deployer_by_name(app, runtime_name: str) -> Deployer:
+def get_deployer_by_name(app: App, runtime_name: str) -> Deployer:
     """
     Get a deployer by name for lifecycle operations.
 
@@ -557,7 +560,7 @@ def list_supported_os() -> list[str]:
     return [getattr(cls, "display_name", "Unknown") for cls in strategy_classes]
 
 
-def get_proxy_strategy(app, env, workers: dict[str, str]) -> Proxy:
+def get_proxy_strategy(app: App, env: Env, workers: dict[str, str]) -> Proxy:
     """
     Finds and instantiates the appropriate proxy strategy based on server configuration.
 

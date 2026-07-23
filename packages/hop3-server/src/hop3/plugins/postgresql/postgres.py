@@ -316,7 +316,7 @@ class PostgresAddon:
     # Instance attributes
     addon_name: str = ""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate that addon_name is provided."""
         if not self.addon_name:
             msg = "addon_name is required for PostgresAddon"
@@ -641,7 +641,7 @@ class PostgresAddon:
         }
 
     @staticmethod
-    def _result_from_cursor(cursor) -> dict:
+    def _result_from_cursor(cursor: psycopg2.extensions.cursor) -> dict:
         """Shape a cursor into a result set or a status message."""
         if cursor.description is not None:
             columns = [col.name for col in cursor.description]

@@ -20,7 +20,7 @@ lint.extend-ignore = [
     "PD", # We're not using Pandas
 
     # Later (or never)
-    "ANN", # flake8-annotations
+    # "ANN", # flake8-annotations
     "ARG", # flake8-unused-arguments
     "BLE", # flake8-blind-except
     "CPY", # Copyright

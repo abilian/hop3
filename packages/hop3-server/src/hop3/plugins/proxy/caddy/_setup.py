@@ -71,7 +71,7 @@ class CaddyVirtualHost(BaseProxy):
             },
         )
 
-    def setup_backend(self):
+    def setup_backend(self) -> None:
         """Configure the backend connection (always HTTP for all workers)."""
         # Always use HTTP proxy for all workers (including WSGI)
         # This allows direct HTTP access for development, debugging, and health checks
@@ -120,7 +120,7 @@ class CaddyVirtualHost(BaseProxy):
                 level=2,
             )
 
-    def extra_setup(self):
+    def extra_setup(self) -> None:
         """Additional configuration setup."""
         # Conditionally block .git folders from being served
         self.env["HOP3_INTERNAL_CADDY_BLOCK_GIT"] = (

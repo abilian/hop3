@@ -90,7 +90,7 @@ class AddonMysqlCredentialsCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "credentials")
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         if not args:
             return [text("Usage: hop3 addon mysql credentials <name>")]
         addon_name = args[0]
@@ -116,7 +116,7 @@ class AddonMysqlDumpCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "dump")
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         if not args:
             return [text("Usage: hop3 addon mysql dump <name>")]
         addon_name = args[0]
@@ -147,7 +147,7 @@ class AddonMysqlRestoreCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "restore")
     destructive: ClassVar[bool] = True
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         if len(args) < 2:
             return [text("Usage: hop3 addon mysql restore <name> <path>")]
         addon_name, backup_path = args[0], args[1]
@@ -183,7 +183,7 @@ class AddonMysqlQueryCmd(Command):
         "command": {"type": str},
     }
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
         statement = parsed.get("command")
@@ -213,7 +213,7 @@ class AddonMysqlCloneCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "clone")
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         return _clone(args)
 
 
@@ -234,7 +234,7 @@ class AddonMysqlExportCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "export")
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         if not args:
             return [text("Usage: hop3 addon mysql export <name> > dump.sql")]
         addon_name = args[0]
@@ -267,7 +267,9 @@ class AddonMysqlImportCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "import")
     destructive: ClassVar[bool] = True
 
-    def call(self, *args, import_data: str | None = None, **kwargs):
+    def call(
+        self, *args: str, import_data: str | None = None, **kwargs: object
+    ) -> list[dict]:
         if not args:
             return [text("Usage: hop3 addon mysql import <name> < dump.sql")]
         addon_name = args[0]
@@ -337,7 +339,7 @@ class AddonMysqlPsCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "activity")
     aliases: ClassVar[list[tuple[str, ...]]] = [("addon", _TYPE, "ps")]
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         return _diagnostic(args, _PS_SQL, "listing activity", "activity")
 
 
@@ -355,7 +357,7 @@ class AddonMysqlSettingsCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "settings")
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         return _diagnostic(args, _SETTINGS_SQL, "reading settings", "settings")
 
 

@@ -7,12 +7,18 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from typing import TYPE_CHECKING
 
 from hop3.orm import get_session_factory
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from sqlalchemy.orm import Session
+
 
 @contextmanager
-def get_session():
+def get_session() -> Iterator[Session]:
     """
     Get a database session as a context manager.
 

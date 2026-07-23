@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from argparse import ArgumentParser
 
 
-def print_help():
+def print_help() -> None:
     """
     Display the help information for the Hop3 command-line interface (CLI).
 
@@ -62,7 +62,7 @@ def print_help():
 class Help:
     command_name: str
 
-    def __call__(self):
+    def __call__(self) -> None:
         output = [
             bold("USAGE"),
             f"  $ hop3-server {self.command_name}:<subcommand> [options]",
@@ -100,7 +100,7 @@ class Help:
         print("\n".join(output))
 
 
-def get_command_name(cmd):
+def get_command_name(cmd: type[Command]) -> str:
     name = getattr(cmd, "name", None)
     if not name:
         # If no name attribute, use the command's class name without 'Cmd' and in lowercase
@@ -122,7 +122,7 @@ class HelpCommand(Command):
             help="Command to show help for (optional)",
         )
 
-    def run(self, command: str | None = None):
+    def run(self, command: str | None = None) -> None:
         """
         Show help information.
 
@@ -136,7 +136,7 @@ class HelpCommand(Command):
             # Show general help
             print_help()
 
-    def _show_command_help(self, command_name: str):
+    def _show_command_help(self, command_name: str) -> None:
         """
         Show detailed help for a specific command.
 

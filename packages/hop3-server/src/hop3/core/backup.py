@@ -266,7 +266,7 @@ class BackupManager:
         backup_repo: BackupRepository,
         app_repo: AppRepository,
         addon_credential_repo: AddonCredentialRepository,
-    ):
+    ) -> None:
         """
         Initialize the backup manager.
 

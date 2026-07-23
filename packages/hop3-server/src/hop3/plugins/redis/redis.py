@@ -81,15 +81,14 @@ def _redis_cli_env() -> dict[str, str]:
     return env
 
 
-def _run_redis_cli(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+def _run_redis_cli(args: list[str]) -> subprocess.CompletedProcess[str]:
     """Run ``redis-cli`` with REDISCLI_AUTH injected when configured."""
     return subprocess.run(
         ["redis-cli", *args],
-        capture_output=kwargs.pop("capture_output", True),
-        text=kwargs.pop("text", True),
-        check=kwargs.pop("check", False),
+        capture_output=True,
+        text=True,
+        check=False,
         env=_redis_cli_env(),
-        **kwargs,
     )
 
 
@@ -116,7 +115,7 @@ class RedisAddon:
     # secrets store in __post_init__, or allocated by ``create()``.
     _db_number: int = 0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate addon_name and load any persisted db_number assignment."""
         if not self.addon_name:
             msg = "addon_name is required for RedisAddon"

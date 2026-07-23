@@ -133,7 +133,7 @@ def _register_template_callables(engine: TemplateEngineProtocol) -> None:
     )
 
 
-def create_app():
+def create_app() -> Litestar:
     """Create Litestar application with Dishka DI integration."""
     # Suppress tracebacks for expected HTTP exceptions (401, 404)
     litestar_logger = logging.getLogger("litestar")

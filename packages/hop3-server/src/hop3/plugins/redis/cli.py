@@ -71,7 +71,7 @@ class AddonRedisCredentialsCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "credentials")
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         if not args:
             return [text("Usage: hop3 addon redis credentials <name>")]
         addon_name = args[0]
@@ -97,7 +97,7 @@ class AddonRedisDumpCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "dump")
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         if not args:
             return [text("Usage: hop3 addon redis dump <name>")]
         addon_name = args[0]
@@ -129,7 +129,7 @@ class AddonRedisFlushCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "flush")
     destructive: ClassVar[bool] = True
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         if not args:
             return [text("Usage: hop3 addon redis flush <name>")]
         addon_name = args[0]
@@ -164,7 +164,7 @@ class AddonRedisQueryCmd(Command):
         "command": {"type": str},
     }
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
         command = parsed.get("command")
@@ -193,7 +193,7 @@ class AddonRedisInfoCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "info")
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         if not args:
             return [text("Usage: hop3 addon redis info <name>")]
         addon_name = args[0]
@@ -219,7 +219,7 @@ class AddonRedisRestoreCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "restore")
     destructive: ClassVar[bool] = True
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         if len(args) < 2:
             return [text("Usage: hop3 addon redis restore <name> <path>")]
         addon_name, backup_path = args[0], args[1]
@@ -250,7 +250,7 @@ class AddonRedisCloneCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "clone")
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         return _clone(args)
 
 
@@ -271,7 +271,7 @@ class AddonRedisExportCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "export")
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         if not args:
             return [text("Usage: hop3 addon redis export <name> > dump.rdb")]
         addon_name = args[0]
@@ -304,7 +304,9 @@ class AddonRedisImportCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "import")
     destructive: ClassVar[bool] = True
 
-    def call(self, *args, import_data: str | None = None, **kwargs):
+    def call(
+        self, *args: str, import_data: str | None = None, **kwargs: object
+    ) -> list[dict]:
         if not args:
             return [text("Usage: hop3 addon redis import <name> < dump.rdb")]
         addon_name = args[0]

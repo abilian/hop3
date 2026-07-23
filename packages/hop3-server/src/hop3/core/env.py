@@ -4,7 +4,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import (
+    ItemsView,
+    Iterator,
+    KeysView,
+    Mapping,
+    MutableMapping,
+    ValuesView,
+)
 from dataclasses import field
 from pathlib import Path
 from typing import Any
@@ -13,7 +20,7 @@ from hop3.lib.freeze import freeze
 from hop3.lib.settings import parse_settings
 
 
-class Env(Mapping[str, str]):
+class Env(MutableMapping[str, str]):
     """
     Provides a dictionary-like environment variable handler with additional
     utility methods.
@@ -35,7 +42,9 @@ class Env(Mapping[str, str]):
 
         freeze(self)
 
-    def __setitem__(self, key: str, value: Any) -> None:
+    def __setitem__(self, key: str, value: str) -> None:
+        # Env values are strings (MutableMapping[str, str]); str() is a defensive
+        # net for a mistyped write, not a licence to store arbitrary objects.
         self._data[key] = str(value)
 
     def __getitem__(self, key: str) -> str:
@@ -44,7 +53,7 @@ class Env(Mapping[str, str]):
     def __delitem__(self, key: str) -> None:
         del self._data[key]
 
-    def __contains__(self, item) -> bool:
+    def __contains__(self, item: object) -> bool:
         return item in self._data
 
     def __len__(self) -> int:
@@ -53,24 +62,17 @@ class Env(Mapping[str, str]):
     def __iter__(self) -> Iterator:
         return iter(self._data)
 
-    def keys(self):
+    def keys(self) -> KeysView[str]:
         return self._data.keys()
 
-    def values(self):
+    def values(self) -> ValuesView[str]:
         return self._data.values()
 
-    def items(self):
+    def items(self) -> ItemsView[str, str]:
         return self._data.items()
 
     def copy(self) -> Env:
         return Env(self._data.copy())
-
-    def update(self, other: Mapping[str, Any]) -> None:
-        for k, v in other.items():
-            self._data[k] = str(v)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        return self._data.get(key, default)
 
     #
     # Additional API

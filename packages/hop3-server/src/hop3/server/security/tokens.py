@@ -14,9 +14,12 @@ import os
 import secrets
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import jwt
+
+if TYPE_CHECKING:
+    from types import ModuleType
 
 # ADR 048: the JWT signing key's canonical home is a secrets-tier file,
 # root:hop3 0640, read identically by the running service AND the su-hop3 CLI.
@@ -26,7 +29,7 @@ import jwt
 SECRET_KEY_FILE = Path("/etc/hop3/secret-key")
 
 
-def _get_config():
+def _get_config() -> ModuleType:
     """Lazy import to avoid circular dependency."""
     from hop3 import config as c  # ruff:ignore[import-outside-top-level]
 
