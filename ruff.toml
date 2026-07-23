@@ -72,7 +72,7 @@ lint.extend-ignore = [
     # TODO (soon)
     "RUF100", # unused noqa
     "PLC0415", # import-outside-top-level
-    "E402", #    module-import-not-at-top-of-file
+    # "E402", #    module-import-not-at-top-of-file
     "EM102", #   f-string-in-exception
     "TRY003", #  raise-vanilla-args
     "RUF027", #  missing-f-string-syntax
