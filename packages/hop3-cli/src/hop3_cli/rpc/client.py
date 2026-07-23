@@ -109,10 +109,10 @@ class Client:
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
-    ) -> bool:
+    ) -> None:
         """Exit context manager - stop tunnel."""
+        # Returning None (never True) means an exception is never suppressed.
         self.stop()
-        return False  # Don't suppress exceptions
 
     def stop(self) -> None:
         """Stop the SSH tunnel if running."""
