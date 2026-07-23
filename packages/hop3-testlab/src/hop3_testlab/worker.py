@@ -472,7 +472,7 @@ def _runner_version() -> str:
         return "unknown"
 
 
-def _default_executor(  # ruff:ignore[too-many-arguments] — same composition inputs as run_once; → RunSpec in slice 2
+def _default_executor(
     target_id: str,
     mode: str,
     apps: list[str] | None,
@@ -645,7 +645,7 @@ def _compose_inputs(
     return apps, cwd, provenance
 
 
-def run_once(  # ruff:ignore[too-many-arguments]
+def run_once(
     target_id: str = "docker",
     *,
     trigger: str = "cli",
