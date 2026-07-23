@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Hop3 deployment tool.
+"""
+Hop3 deployment tool.
 
 This module provides tools for deploying Hop3 to development/test servers.
 Supports both SSH (remote servers) and Docker (local containers) backends.

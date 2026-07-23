@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""In-memory rate limiter for auth endpoints.
+"""
+In-memory rate limiter for auth endpoints.
 
 Simple sliding-window counter keyed by client IP. Suitable for a
 single-server deployment. For multi-server, replace with a Redis-backed
@@ -30,7 +31,8 @@ class RateLimitError(Exception):
 
 @dataclass
 class RateLimiter:
-    """Sliding-window rate limiter.
+    """
+    Sliding-window rate limiter.
 
     Tracks request timestamps per key (typically client IP). When the
     number of requests in the window exceeds the limit, raises
@@ -52,7 +54,8 @@ class RateLimiter:
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
     def check(self, key: str) -> None:
-        """Record a request and raise if the rate limit is exceeded.
+        """
+        Record a request and raise if the rate limit is exceeded.
 
         Args:
             key: Identifier (typically client IP)
@@ -76,7 +79,8 @@ class RateLimiter:
             bucket.append(now)
 
     def reset(self, key: str | None = None) -> None:
-        """Reset rate limit state.
+        """
+        Reset rate limit state.
 
         Args:
             key: If provided, reset only this key. Otherwise, reset all.

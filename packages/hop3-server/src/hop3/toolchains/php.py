@@ -21,7 +21,8 @@ if TYPE_CHECKING:
 
 
 class PHPToolchain(LanguageToolchain):
-    """Language toolchain for PHP projects.
+    """
+    Language toolchain for PHP projects.
 
     This provides methods to check for PHP project configurations,
     prepare the environment, and install necessary project dependencies
@@ -37,7 +38,8 @@ class PHPToolchain(LanguageToolchain):
     requirements = []  # Composer only required if composer.json exists  # ruff:ignore[mutable-class-default]
 
     def accept(self) -> bool:
-        """Check if this is a PHP project.
+        """
+        Check if this is a PHP project.
 
         Accepts if any of these conditions are met:
         - composer.json exists (Composer-based project)
@@ -61,8 +63,10 @@ class PHPToolchain(LanguageToolchain):
         return self.check_exists("composer.json")
 
     def build(self) -> BuildArtifact:
-        """Build the PHP project by installing dependencies and potentially
-        running custom scripts."""
+        """
+        Build the PHP project by installing dependencies and potentially
+        running custom scripts.
+        """
         log(f"Building PHP application '{self.app_name}'", level=1, fg="blue")
 
         with chdir(self.src_path):
@@ -74,7 +78,8 @@ class PHPToolchain(LanguageToolchain):
         return self._make_build_artifact(kind="php")
 
     def prepare_build_env(self, env: Env) -> None:
-        """Prepare the environment for building the project, if necessary.
+        """
+        Prepare the environment for building the project, if necessary.
 
         This could involve setting up PHP-specific environment variables
         or toolchains.
@@ -83,7 +88,8 @@ class PHPToolchain(LanguageToolchain):
         log("Preparing PHP build environment...", level=2, fg="cyan")
 
     def install_dependencies(self, env: Env) -> None:
-        """Install the PHP project's dependencies.
+        """
+        Install the PHP project's dependencies.
 
         If a custom build command is specified in hop3.toml [build] section,
         that command is run instead of the default composer install. This allows
@@ -146,7 +152,8 @@ class PHPToolchain(LanguageToolchain):
             raise RuntimeError(msg) from e
 
     def _get_env_dict(self, env: Env) -> dict[str, str]:
-        """Get environment dict with required variables like HOME.
+        """
+        Get environment dict with required variables like HOME.
 
         Composer and npm require HOME to be set for their cache directories.
         In systemd services or restricted environments, HOME may not be set,

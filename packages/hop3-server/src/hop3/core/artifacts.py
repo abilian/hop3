@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Build artifact model - the contract between build and run phases.
+"""
+Build artifact model - the contract between build and run phases.
 
 This module defines the BuildArtifact and RuntimeConfig dataclasses that
 represent the output of the build phase and contain everything needed
@@ -50,7 +51,8 @@ if TYPE_CHECKING:
 
 @dataclass
 class RuntimeConfig:
-    """Runtime configuration computed during build.
+    """
+    Runtime configuration computed during build.
 
     This is everything the run phase needs to know to execute the app.
     The run phase should NOT need to detect or infer anything.
@@ -85,7 +87,8 @@ class RuntimeConfig:
 
 @dataclass
 class BuildArtifact:
-    """Self-describing build output - like an OCI image manifest.
+    """
+    Self-describing build output - like an OCI image manifest.
 
     Produced by the build phase, consumed by the run phase.
     Contains everything needed to run the app.
@@ -144,7 +147,8 @@ class BuildArtifact:
 
     @classmethod
     def load(cls, path: Path) -> BuildArtifact | None:
-        """Load artifact from JSON file.
+        """
+        Load artifact from JSON file.
 
         Returns None if file doesn't exist or is invalid.
         """

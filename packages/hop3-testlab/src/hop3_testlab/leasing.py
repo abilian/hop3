@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Run lease: stop two runs from claiming the same target (ADR 044 §D).
+"""
+Run lease: stop two runs from claiming the same target (ADR 044 §D).
 
 A lock-row in the shared store, keyed by target id, with an epoch-seconds TTL so
 a crashed holder's lease becomes reclaimable. This is the SQLite/v1 path; the
@@ -27,7 +28,8 @@ DEFAULT_TTL_SECONDS = 6 * 3600  # the nightly budget; a run releases on finish
 
 
 def proc_starttime(pid: int) -> int | None:
-    """The process start-time (jiffies since boot, ``/proc/<pid>/stat`` field 22).
+    """
+    The process start-time (jiffies since boot, ``/proc/<pid>/stat`` field 22).
 
     A reuse-proof identity for the engine PID: the kernel never reissues the same
     (pid, starttime) pair. Returns None when unreadable (process gone, or no
@@ -50,9 +52,11 @@ def proc_starttime(pid: int) -> int | None:
 
 
 def _holder_alive(lease: RunLease) -> bool:
-    """True if the lease's holder process is still running — so its run is live
+    """
+    True if the lease's holder process is still running — so its run is live
     even past the TTL and must not be stolen. Best-effort: unverifiable without
-    procfs (no pid, or a macOS dev box) -> treated as dead (TTL governs)."""
+    procfs (no pid, or a macOS dev box) -> treated as dead (TTL governs).
+    """
     if lease.pid is None or lease.pid_starttime is None:
         return False
     return proc_starttime(lease.pid) == lease.pid_starttime
@@ -65,7 +69,8 @@ def try_acquire(
     *,
     ttl_seconds: int = DEFAULT_TTL_SECONDS,
 ) -> bool:
-    """Acquire the lease for ``target_id``. Return False if a live one is held.
+    """
+    Acquire the lease for ``target_id``. Return False if a live one is held.
 
     Reclaim is gated on liveness, not just the TTL: a lease whose holder process
     is still alive is never stolen (a >TTL but healthy run keeps its target —
@@ -128,7 +133,8 @@ def try_acquire(
 
 
 def others_live(session: Session, target_id: str) -> bool:
-    """True if a live lease for *another* target is held (something else is running).
+    """
+    True if a live lease for *another* target is held (something else is running).
 
     Lets the orphan-sweep stay safe under concurrent runs (nightly vs dispatcher
     on different targets): only sweep when nothing else is live, so a healthy run
@@ -159,7 +165,8 @@ def is_held(session: Session, target_id: str) -> bool:
 def set_pid(
     session: Session, target_id: str, pid: int, starttime: int | None = None
 ) -> None:
-    """Record the engine PID (and its start-time) on the target's lease.
+    """
+    Record the engine PID (and its start-time) on the target's lease.
 
     ``starttime`` is the reuse-proof identity used by the stop control; None when
     it couldn't be read (e.g. no procfs).
@@ -174,7 +181,8 @@ def set_pid(
 
 
 def current_lease(session: Session) -> RunLease | None:
-    """Return the live lease (newest, unexpired) across all targets, or None.
+    """
+    Return the live lease (newest, unexpired) across all targets, or None.
 
     The dashboard's "is something running" signal; there is normally at most one.
     """
@@ -189,7 +197,8 @@ def current_lease(session: Session) -> RunLease | None:
 
 
 def force_release(session: Session, target_id: str) -> None:
-    """Delete the lease for ``target_id`` regardless of holder (stop path).
+    """
+    Delete the lease for ``target_id`` regardless of holder (stop path).
 
     Unlike :func:`release`, the caller (the web app) is not the lease holder.
     """

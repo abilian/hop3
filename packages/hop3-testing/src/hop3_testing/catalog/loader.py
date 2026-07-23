@@ -36,7 +36,8 @@ class TestDefinitionError(Exception):
 
 
 def load_test_definition(path: Path) -> TestDefinition:
-    """Parse a test.toml file into a TestDefinition.
+    """
+    Parse a test.toml file into a TestDefinition.
 
     Args:
         path: Path to the test.toml file
@@ -190,7 +191,8 @@ def _parse_tutorial(data: dict[str, Any]) -> TutorialConfig:
 
 
 def _parse_validation(data: dict[str, Any]) -> Validation:
-    """Parse a single validation.
+    """
+    Parse a single validation.
 
     Accepts two shapes:
 
@@ -287,7 +289,8 @@ def generate_test_definition_from_app(
     app_path: Path,
     name: str | None = None,
 ) -> TestDefinition:
-    """Generate a TestDefinition from an app directory without test.toml.
+    """
+    Generate a TestDefinition from an app directory without test.toml.
 
     This provides backwards compatibility with existing test apps that don't
     have a test.toml file. The definition is inferred from the app structure.
@@ -379,7 +382,8 @@ def _is_deployable_app(path: Path) -> bool:
 
 
 def load_hop3_toml(app_path: Path) -> dict[str, Any] | None:
-    """Load and parse hop3.toml from an app directory.
+    """
+    Load and parse hop3.toml from an app directory.
 
     Args:
         app_path: Path to the application directory
@@ -414,7 +418,8 @@ def _extract_env_vars_from_hop3_toml(data: dict[str, Any]) -> dict[str, str]:
 
 
 def _extract_healthcheck_from_hop3_toml(data: dict[str, Any]) -> dict[str, Any]:
-    """Extract healthcheck config (path + optional body assertion) from hop3.toml.
+    """
+    Extract healthcheck config (path + optional body assertion) from hop3.toml.
 
     ``[healthcheck].contains`` is a first-class field (see the server's
     HealthcheckSection): the runtime readiness probe requires the endpoint to
@@ -431,7 +436,8 @@ def _extract_healthcheck_from_hop3_toml(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def _get_deployment_type_from_hop3_toml(data: dict[str, Any]) -> str:
-    """Determine deployment type from hop3.toml build section.
+    """
+    Determine deployment type from hop3.toml build section.
 
     builder = "local" means native/uWSGI deployment
     Otherwise (no builder or builder = "docker") means Docker deployment
@@ -442,7 +448,8 @@ def _get_deployment_type_from_hop3_toml(data: dict[str, Any]) -> str:
 
 
 def _builder_from_hop3_toml(data: dict[str, Any]) -> str | None:
-    """Derive the coverage-tag builder from hop3.toml [build] + [nix].
+    """
+    Derive the coverage-tag builder from hop3.toml [build] + [nix].
 
     Maps ``[build].builder`` to the tag values used by coverage selection:
     - ``local`` → ``native`` (uWSGI)
@@ -469,7 +476,8 @@ def _toolchain_from_hop3_toml(data: dict[str, Any]) -> str | None:
 
 
 def _spec_from_source(app_path: Path) -> str | None:
-    """Configuration format from the source file present.
+    """
+    Configuration format from the source file present.
 
     - ``hop3.toml`` → ``hop3toml``
     - ``Procfile`` (no hop3.toml) → ``procfile``
@@ -484,7 +492,8 @@ def _spec_from_source(app_path: Path) -> str | None:
 
 
 def _derive_unique_name(app_path: Path) -> str:
-    """Derive a unique name from the app path.
+    """
+    Derive a unique name from the app path.
 
     For generic directory names like 'app', include parent directory.
     Examples:
@@ -513,8 +522,10 @@ _TARGET_MAP = {"docker": TargetType.DOCKER, "remote": TargetType.REMOTE}
 
 
 def _copy_coverage_overrides(section: dict[str, Any], out: dict[str, Any]) -> None:
-    """Copy explicit coverage-tag overrides (builder/toolchain/spec) from a
-    `[test]` section into ``out``, when present."""
+    """
+    Copy explicit coverage-tag overrides (builder/toolchain/spec) from a
+    `[test]` section into ``out``, when present.
+    """
     for key in ("builder", "toolchain", "spec"):
         if key in section:
             out[key] = section[key]
@@ -569,7 +580,8 @@ def generate_test_definition_from_hop3_toml(
     hop3_data: dict[str, Any],
     test_toml_data: dict[str, Any] | None = None,
 ) -> TestDefinition:
-    """Generate a TestDefinition from hop3.toml, optionally merging test.toml metadata.
+    """
+    Generate a TestDefinition from hop3.toml, optionally merging test.toml metadata.
 
     Preferred source is the `[test]` section in hop3.toml (canonical
     since 2026-04-21). A standalone test.toml is kept as a fallback for
@@ -648,7 +660,8 @@ def generate_test_definition_from_hop3_toml(
 
 
 def load_test_definition_smart(app_path: Path) -> TestDefinition:
-    """Load test definition from an app directory, trying multiple sources.
+    """
+    Load test definition from an app directory, trying multiple sources.
 
     Priority:
     1. hop3.toml + test.toml (hop3.toml for deployment, test.toml for test metadata)
@@ -700,7 +713,8 @@ def _read_markdown_title(md_path: Path) -> str | None:
 
 
 def generate_tutorial_test_definition(md_path: Path) -> TestDefinition:
-    """Generate a TestDefinition for a literate tutorial markdown file.
+    """
+    Generate a TestDefinition for a literate tutorial markdown file.
 
     Tutorials live as ``docs/tutorials/<language>/<framework>.md`` (the source
     tree, where the validoc ``bash exec``/``output``/``file`` markers still

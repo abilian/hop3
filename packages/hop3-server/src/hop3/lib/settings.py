@@ -28,7 +28,8 @@ def parse_settings(
     filename: str | Path,
     env: dict[str, str] | None = None,
 ) -> dict[str, str]:
-    """Parse a settings file and return a dictionary with environment
+    """
+    Parse a settings file and return a dictionary with environment
     variables.
 
     Input:

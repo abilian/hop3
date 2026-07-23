@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""The result-store engine is dialect-aware: a SQLite path vs a Postgres DSN.
+"""
+The result-store engine is dialect-aware: a SQLite path vs a Postgres DSN.
 
 No server needed — SQLAlchemy builds the engine lazily, so we can assert the
 chosen dialect for both backends without connecting.

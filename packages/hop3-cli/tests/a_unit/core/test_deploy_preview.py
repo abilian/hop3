@@ -206,7 +206,8 @@ def test_build_plan_legacy_provider_section(tmp_path: Path) -> None:
 
 
 def test_build_plan_ignores_ancestor_hop3_toml_for_metadata(tmp_path: Path) -> None:
-    """The deploy archive only packages source_path; an ancestor's
+    """
+    The deploy archive only packages source_path; an ancestor's
     hop3.toml is never sent to the server. The preview MUST NOT pretend
     otherwise — domains/addons come from source_path's hop3.toml only.
 
@@ -238,7 +239,8 @@ def test_build_plan_ignores_ancestor_hop3_toml_for_metadata(tmp_path: Path) -> N
 
 
 def test_build_plan_no_ancestor_warning_when_source_has_own(tmp_path: Path) -> None:
-    """When source_path itself has hop3.toml, no ancestor warning fires
+    """
+    When source_path itself has hop3.toml, no ancestor warning fires
     (we'd be warning about a non-issue).
     """
     tmp_path.joinpath("hop3.toml").write_text('[metadata]\nid = "x"\n')
@@ -257,7 +259,8 @@ def test_build_plan_no_ancestor_warning_when_source_has_own(tmp_path: Path) -> N
 
 
 def test_render_plan_surfaces_ancestor_warning(tmp_path: Path) -> None:
-    """The diagnostic must appear in the preview output so an operator
+    """
+    The diagnostic must appear in the preview output so an operator
     notices the deploy-from-subdir footgun.
     """
     out = render_plan(
@@ -272,7 +275,8 @@ def test_render_plan_surfaces_ancestor_warning(tmp_path: Path) -> None:
 
 
 def test_build_plan_ancestor_walk_stops_at_home(tmp_path: Path) -> None:
-    """The ancestor-diagnostic walk stops at home — a hop3.toml above
+    """
+    The ancestor-diagnostic walk stops at home — a hop3.toml above
     home doesn't trigger the warning.
     """
     tmp_path.joinpath("hop3.toml").write_text('[metadata]\nid = "above-home"\n')
@@ -354,8 +358,10 @@ def test_render_plan_full() -> None:
 
 
 def test_render_plan_default_context_shown_when_unresolved() -> None:
-    """No explicit context resolves, but a default one selects the server:
-    show it (marked) instead of "(none)" so the operator sees the real target."""
+    """
+    No explicit context resolves, but a default one selects the server:
+    show it (marked) instead of "(none)" so the operator sees the real target.
+    """
     out = render_plan(
         _plan(context=None, default_context="prod", server="https://api.example.com")
     )
@@ -364,8 +370,10 @@ def test_render_plan_default_context_shown_when_unresolved() -> None:
 
 
 def test_render_plan_explicit_context_wins_over_default() -> None:
-    """An explicitly resolved context is shown plain (no "(default)" marker),
-    even if a default_context field is also populated."""
+    """
+    An explicitly resolved context is shown plain (no "(default)" marker),
+    even if a default_context field is also populated.
+    """
     out = render_plan(_plan(context="staging", default_context="prod"))
     assert "Context:  staging" in out
     assert "(default)" not in out
@@ -401,9 +409,11 @@ def test_render_plan_env_summary(env_keys, expected_segment) -> None:
 
 
 def test_build_plan_includes_host_name_env_as_domain(tmp_path: Path) -> None:
-    """An app that declares its domain only via [env].HOST_NAME (the legacy
+    """
+    An app that declares its domain only via [env].HOST_NAME (the legacy
     shape) must still surface it — otherwise the preview shows '(none)' and the
-    DNS host-check is silently skipped."""
+    DNS host-check is silently skipped.
+    """
     tmp_path.joinpath("hop3.toml").write_text(
         '[metadata]\nid = "edrix"\n\n[env]\nHOST_NAME = "edrix.eu"\n'
     )
@@ -415,8 +425,10 @@ def test_build_plan_includes_host_name_env_as_domain(tmp_path: Path) -> None:
 
 
 def test_build_plan_host_name_multi_and_dedup(tmp_path: Path) -> None:
-    """HOST_NAME may list several hosts; the catch-all '_' and duplicates of a
-    [domains].list entry are dropped."""
+    """
+    HOST_NAME may list several hosts; the catch-all '_' and duplicates of a
+    [domains].list entry are dropped.
+    """
     tmp_path.joinpath("hop3.toml").write_text(
         '[metadata]\nid = "a"\n\n'
         "[domains]\n"
@@ -438,8 +450,10 @@ def _resolver(mapping: dict[str, set[str]]):
 
 
 def test_domain_target_warning_on_mismatch() -> None:
-    """The edrix bug: domain points at a different server than the deploy
-    target — every request 502s while the app looks healthy."""
+    """
+    The edrix bug: domain points at a different server than the deploy
+    target — every request 502s while the app looks healthy.
+    """
     warnings = domain_target_warnings(
         ("edrix.eu",),
         "ssh://root@hop3.dev",
@@ -466,8 +480,10 @@ def test_domain_target_no_warning_when_ips_overlap() -> None:
 
 
 def test_domain_target_skips_unresolvable_domain() -> None:
-    """A domain that doesn't resolve (not registered yet, internal) is skipped,
-    not warned — we never guess."""
+    """
+    A domain that doesn't resolve (not registered yet, internal) is skipped,
+    not warned — we never guess.
+    """
     warnings = domain_target_warnings(
         ("not-registered.example",),
         "https://srv:8000",

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Benchmark probes: pure parsers + fail-loud measurement functions.
+"""
+Benchmark probes: pure parsers + fail-loud measurement functions.
 
 Each probe takes a ``run(cmd) -> str`` callable (a local shell or an SSH shell)
 and returns a frozen result. Probes **raise** on a missing tool, an empty
@@ -44,7 +45,8 @@ def parse_pss_kb(smaps_rollup: str) -> int:
 
 
 def _path_info_records(path_info_json: str) -> list[dict[str, Any]]:
-    """The records from ``nix path-info --json``, whichever shape Nix emitted:
+    """
+    The records from ``nix path-info --json``, whichever shape Nix emitted:
     the object form (newer Nix, keyed by store path) or the list form (Nix 2.x).
     """
     data: Any = json.loads(path_info_json)
@@ -53,7 +55,8 @@ def _path_info_records(path_info_json: str) -> list[dict[str, Any]]:
 
 
 def parse_closure(path_info_json: str) -> ClosureInfo:
-    """Parse ``nix path-info -r --json <path>`` into a closure summary.
+    """
+    Parse ``nix path-info -r --json <path>`` into a closure summary.
 
     Handles both the object form (newer Nix, keyed by store path) and the list
     form (Nix 2.x). The closure size is the sum of every path's ``narSize``.
@@ -79,7 +82,8 @@ def parse_docker_size(inspect_output: str) -> int:
 
 
 def parse_single_path(path_info_json: str) -> tuple[int, str]:
-    """Parse ``nix path-info --json <path>`` for one path: (narSize, narHash).
+    """
+    Parse ``nix path-info --json <path>`` for one path: (narSize, narHash).
 
     The path's *own* narSize is what a source-only version bump re-sends: its
     pinned dependencies are unchanged and stay in the target's store.
@@ -165,7 +169,8 @@ class RebuildCheck:
 def control_plane_memory(
     run: Runner, pattern: str = "hop3-server serve"
 ) -> ControlPlaneMemory:
-    """Measure the resident memory of the Hop3 control plane (PSS + RSS).
+    """
+    Measure the resident memory of the Hop3 control plane (PSS + RSS).
 
     The management set is every process whose argv matches ``pattern``
     (the ASGI master and its workers). Raises if nothing matches — an empty
@@ -205,7 +210,8 @@ def docker_image_size(run: Runner, image: str) -> int:
 
 
 def nix_update_delta(run: Runner, store_path: str) -> UpdateDelta:
-    """Bytes a source-only version bump re-sends (the path's own narSize).
+    """
+    Bytes a source-only version bump re-sends (the path's own narSize).
 
     Pinned dependencies are unchanged by a source bump, so they stay in the
     target's store and are not re-transferred; only this path moves.
@@ -219,7 +225,8 @@ def nix_update_delta(run: Runner, store_path: str) -> UpdateDelta:
 
 
 def nix_rebuild_reproducible(run: Runner, store_path: str) -> RebuildCheck:
-    """Rebuild from source and check the output is byte-identical.
+    """
+    Rebuild from source and check the output is byte-identical.
 
     ``nix build --rebuild`` rebuilds the derivation locally and compares the
     result against the existing output; it fails on a hash mismatch. A mismatch
@@ -238,7 +245,8 @@ def nix_rebuild_reproducible(run: Runner, store_path: str) -> RebuildCheck:
 
 
 def cgroup_memory(run: Runner, service: str) -> int:
-    """``memory.current`` (bytes) of a systemd service's cgroup.
+    """
+    ``memory.current`` (bytes) of a systemd service's cgroup.
 
     One metric applied to every stack, so Hop3, dockerd and k3s are comparable.
     Note it charges page cache, so it can fall either side of the resident set.

@@ -148,7 +148,8 @@ def test_report_all_passing():
 
 
 def test_rendered_html_does_not_leak_raw_markup():
-    """Untrusted test output must not inject HTML when rendered (XSS guard).
+    """
+    Untrusted test output must not inject HTML when rendered (XSS guard).
 
     A code fence longer than any backtick run in the content prevents breakout,
     and markdown escapes content inside code blocks.

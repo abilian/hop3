@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Deploy-time WAF wiring helpers (ADR 050).
+"""
+Deploy-time WAF wiring helpers (ADR 050).
 
 The full preflight -> proxy -> teardown path runs in the Docker e2e layer; here
 we pin the engine-independent data transforms: turning the raw ``[waf]`` table

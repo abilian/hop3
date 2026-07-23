@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for platform notifications (M3.1 feature 5).
+"""
+Unit tests for platform notifications (M3.1 feature 5).
 
 Covers the SMTP sender (STARTTLS vs implicit TLS), the opt-in config, the
 best-effort `notify` delivery (fail-loud-but-never-raise), the

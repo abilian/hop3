@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for auth_guard's stateless credential acceptance.
+"""
+Tests for auth_guard's stateless credential acceptance.
 
 The guard accepts the single signed JWT credential over either transport: the
 ``hop3_auth`` cookie (dashboard) or an ``Authorization: Bearer`` header (CLI /
@@ -37,7 +38,8 @@ def _run_guard(conn: object) -> None:
 
 
 class _FakeConnection:
-    """Minimal ASGIConnection stand-in: just .headers and .cookies.
+    """
+    Minimal ASGIConnection stand-in: just .headers and .cookies.
 
     Header lookup is case-insensitive in Litestar; the auth code reads
     "authorization" lowercase, so a plain dict is enough here.

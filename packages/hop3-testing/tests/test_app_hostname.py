@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Host derivation for nginx-served apps (audit L5).
+"""
+Host derivation for nginx-served apps (audit L5).
 
 The harness probes nginx with the app's server_name. It must inject a synthetic
 `{app_name}.test.local` for apps that declare no host (Procfile apps AND

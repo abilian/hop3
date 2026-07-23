@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""The Lab-owned tables: profiles, the server pool, and the build queue.
+"""
+The Lab-owned tables: profiles, the server pool, and the build queue.
 
 These exercise the real SQLite store (the testlab Base is created alongside the
 result schema by `get_session_factory`), so they're integration, not unit.

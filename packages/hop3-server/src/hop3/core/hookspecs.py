@@ -25,7 +25,8 @@ if TYPE_CHECKING:
 
 @hookspec
 def cli_commands() -> list:  # type: ignore[empty-body]
-    """Get RPC CLI command classes contributed by this plugin.
+    """
+    Get RPC CLI command classes contributed by this plugin.
 
     Lets a plugin add `Command` subclasses to the server's dispatch table
     (e.g. the addon plugins contribute `addon <type> <verb>` commands such as
@@ -39,7 +40,8 @@ def cli_commands() -> list:  # type: ignore[empty-body]
 
 @hookspec
 def get_builders() -> list[Builder]:  # type: ignore[empty-body]
-    """Get builders provided by this plugin.
+    """
+    Get builders provided by this plugin.
 
     Returns:
         List of Builder classes (Level 1: orchestration strategies)
@@ -48,7 +50,8 @@ def get_builders() -> list[Builder]:  # type: ignore[empty-body]
 
 @hookspec
 def get_language_toolchains() -> list[LanguageToolchain]:  # type: ignore[empty-body]
-    """Get language-specific toolchains provided by this plugin.
+    """
+    Get language-specific toolchains provided by this plugin.
 
     Language toolchains are used by LocalBuilder to build applications
     in specific programming languages (Python, Node, Java, etc.).
@@ -60,7 +63,8 @@ def get_language_toolchains() -> list[LanguageToolchain]:  # type: ignore[empty-
 
 @hookspec
 def get_deployers() -> list[Deployer]:  # type: ignore[empty-body]
-    """Get deployment strategies provided by this plugin.
+    """
+    Get deployment strategies provided by this plugin.
 
     Returns:
         List of Deployer classes
@@ -69,7 +73,8 @@ def get_deployers() -> list[Deployer]:  # type: ignore[empty-body]
 
 @hookspec
 def get_addons() -> list[Addon]:  # type: ignore[empty-body]
-    """Get addons provided by this plugin.
+    """
+    Get addons provided by this plugin.
 
     Returns:
         List of Addon classes
@@ -78,7 +83,8 @@ def get_addons() -> list[Addon]:  # type: ignore[empty-body]
 
 @hookspec
 def get_os_implementations() -> list[OS]:  # type: ignore[empty-body]
-    """Get OS setup strategies provided by this plugin.
+    """
+    Get OS setup strategies provided by this plugin.
 
     Returns:
         List of OS classes that can detect and configure
@@ -88,7 +94,8 @@ def get_os_implementations() -> list[OS]:  # type: ignore[empty-body]
 
 @hookspec
 def get_proxies() -> list[Proxy]:  # type: ignore[empty-body]
-    """Get proxy strategies provided by this plugin.
+    """
+    Get proxy strategies provided by this plugin.
 
     Returns:
         List of Proxy classes that can configure reverse proxies
@@ -98,7 +105,8 @@ def get_proxies() -> list[Proxy]:  # type: ignore[empty-body]
 
 @hookspec
 def get_waf_engines() -> list[WafEngine]:  # type: ignore[empty-body]
-    """Get Layer-7 WAF engines provided by this plugin (ADR 050).
+    """
+    Get Layer-7 WAF engines provided by this plugin (ADR 050).
 
     Returns:
         List of WafEngine classes that compile a per-app `[waf]` policy into
@@ -108,7 +116,8 @@ def get_waf_engines() -> list[WafEngine]:  # type: ignore[empty-body]
 
 @hookspec
 def get_di_providers() -> list[Provider]:  # type: ignore[empty-body]
-    """Get DI providers from this plugin.
+    """
+    Get DI providers from this plugin.
 
     Plugins can implement this hook to contribute Dishka providers
     to the application's dependency injection container.
@@ -137,7 +146,8 @@ def get_di_providers() -> list[Provider]:  # type: ignore[empty-body]
 
 @hookspec
 def get_health_checks() -> list[HealthCheck]:  # type: ignore[empty-body]
-    """Get health checks provided by this plugin.
+    """
+    Get health checks provided by this plugin.
 
     Health checks verify that services (databases, caches, etc.) are
     properly configured and accessible. They are run:

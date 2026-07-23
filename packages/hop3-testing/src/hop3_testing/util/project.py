@@ -11,7 +11,8 @@ from pathlib import Path
 
 
 def find_project_root() -> Path:
-    """Find the Hop3 project root directory.
+    """
+    Find the Hop3 project root directory.
 
     Searches for the monorepo root by:
     1. Checking HOP3_PROJECT_ROOT environment variable
@@ -52,7 +53,8 @@ def find_project_root() -> Path:
 
 
 def find_project_root_optional() -> Path | None:
-    """Find the Hop3 project root directory, returning None if not found.
+    """
+    Find the Hop3 project root directory, returning None if not found.
 
     Same as find_project_root() but returns None instead of falling back
     to current directory.

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""S3-compatible object storage addon for Hop3.
+"""
+S3-compatible object storage addon for Hop3.
 
 Each ``addons create s3 <name>`` provisions:
 
@@ -35,7 +36,8 @@ if TYPE_CHECKING:
 
 
 def _hop3_root() -> Path:
-    """Resolve HOP3_ROOT lazily via the config singleton.
+    """
+    Resolve HOP3_ROOT lazily via the config singleton.
 
     This indirection is required so tests that override the singleton
     see the new value (module-level imports would freeze the path at
@@ -46,7 +48,8 @@ def _hop3_root() -> Path:
 
 @dataclass(frozen=True)
 class S3Addon:
-    """S3 object storage addon implementing the Addon protocol.
+    """
+    S3 object storage addon implementing the Addon protocol.
 
     One instance per ``addons create s3 <name>`` call. The addon
     delegates all S3 server interaction to the configured backend
@@ -74,7 +77,8 @@ class S3Addon:
 
     @property
     def bucket_name(self) -> str:
-        """Bucket name derived from the addon name.
+        """
+        Bucket name derived from the addon name.
 
         Uses a ``hop3-`` prefix so ``list_buckets`` can filter
         Hop3-managed buckets from any others on the server.
@@ -86,7 +90,8 @@ class S3Addon:
     # ------------------------------------------------------------------
 
     def create(self) -> None:
-        """Provision the bucket and create a scoped access key.
+        """
+        Provision the bucket and create a scoped access key.
 
         Stores the generated credentials in the addon credentials file
         at ``HOP3_ROOT/addons/s3/<addon_name>.json`` (encrypted at rest
@@ -97,7 +102,8 @@ class S3Addon:
         self._save_credentials(credentials)
 
     def destroy(self) -> None:
-        """Destroy the bucket, access key, and stored credentials.
+        """
+        Destroy the bucket, access key, and stored credentials.
 
         Idempotent: no error if the resources don't exist. Continues
         cleanup even if individual steps fail — the goal is to leave
@@ -116,7 +122,8 @@ class S3Addon:
     # ------------------------------------------------------------------
 
     def get_connection_details(self) -> dict[str, str]:
-        """Return env vars for an attached app.
+        """
+        Return env vars for an attached app.
 
         The app reads these from its runtime environment. All major
         S3 SDKs understand these variable names directly (AWS SDK,
@@ -149,7 +156,8 @@ class S3Addon:
     # ------------------------------------------------------------------
 
     def backup(self) -> Path:
-        """Create a backup of the S3 bucket contents.
+        """
+        Create a backup of the S3 bucket contents.
 
         For now this writes a manifest (credentials + bucket metadata)
         and logs the bucket name. Full object-level backup via
@@ -182,7 +190,8 @@ class S3Addon:
         return backup_file
 
     def restore(self, backup_path: Path) -> None:
-        """Restore S3 addon metadata from a backup manifest.
+        """
+        Restore S3 addon metadata from a backup manifest.
 
         This only restores the credentials and bucket metadata, not
         the objects themselves. Full object restore is 0.6 work.
@@ -229,7 +238,8 @@ class S3Addon:
         return _hop3_root() / "addons" / "s3" / f"{self.addon_name}.json"
 
     def _save_credentials(self, credentials: S3Credentials) -> None:
-        """Persist credentials to disk.
+        """
+        Persist credentials to disk.
 
         Uses 0600 permissions. Proper encryption-at-rest will come
         when we unify with the existing ``AddonCredential`` ORM model

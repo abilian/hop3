@@ -453,7 +453,8 @@ def test_port_spec_normalises_cidr_in_source():
 
 
 def test_app_name_re_matches_hop3_server_upstream():
-    """The rootd-local APP_NAME_RE must equal hop3-server's APP_NAME_RE.
+    """
+    The rootd-local APP_NAME_RE must equal hop3-server's APP_NAME_RE.
 
     The two regexes are deliberately duplicated — hop3-rootd has no
     runtime deps on hop3-server (ADR 041 §"No external dependencies").

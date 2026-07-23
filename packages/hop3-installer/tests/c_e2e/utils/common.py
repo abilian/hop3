@@ -5,7 +5,8 @@
 # `VERBOSE` and `DRY_RUN` are CLI argv-driven test flags; module-globals
 # are the ergonomic shape for a per-process test driver.
 
-"""Common utilities for E2E tests.
+"""
+Common utilities for E2E tests.
 
 Provides logging functions and shared constants for test backends.
 """

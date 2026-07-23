@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Subprocess entry point that runs ``lewaf-proxy`` via the YAML-config path.
+"""
+Subprocess entry point that runs ``lewaf-proxy`` via the YAML-config path.
 
 Why this exists instead of the stock ``lewaf-proxy`` CLI: that CLI's
 ``--rules-file`` reads the file line-by-line into a flat rule list parsed by

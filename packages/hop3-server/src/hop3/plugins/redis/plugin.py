@@ -38,14 +38,16 @@ class RedisHealthCheck:
     name = "redis"
 
     def is_configured(self) -> bool:
-        """Check if Redis package is available.
+        """
+        Check if Redis package is available.
 
         Redis doesn't require explicit configuration - it just needs to be running.
         """
         return _REDIS_AVAILABLE
 
     def check(self) -> HealthCheckResult:
-        """Test Redis connectivity.
+        """
+        Test Redis connectivity.
 
         Redis is an optional addon: when it's unreachable or the client
         package isn't installed, we return ``passed=False, severity="warn"``
@@ -110,7 +112,8 @@ class RedisPlugin:
 
 
 class RedisPluginProvider(Provider):
-    """DI provider for Redis addon infrastructure.
+    """
+    DI provider for Redis addon infrastructure.
 
     Provides RedisClientFactory for centralized Redis configuration
     and connection management.
@@ -122,7 +125,8 @@ class RedisPluginProvider(Provider):
 
     @provide
     def get_redis_factory(self) -> RedisClientFactory:
-        """Provide Redis client factory.
+        """
+        Provide Redis client factory.
 
         Returns:
             RedisClientFactory instance configured from REDIS_* environment variables
@@ -132,7 +136,8 @@ class RedisPluginProvider(Provider):
 
 @hookimpl
 def get_di_providers() -> list:
-    """Register Redis DI providers.
+    """
+    Register Redis DI providers.
 
     This hook is called by the DI container during initialization
     to collect providers from all plugins.

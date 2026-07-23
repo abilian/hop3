@@ -1,7 +1,8 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""OS setup strategy for BSD systems (FreeBSD, OpenBSD, etc.).
+"""
+OS setup strategy for BSD systems (FreeBSD, OpenBSD, etc.).
 
 This plugin supports:
 - FreeBSD (all versions)
@@ -76,7 +77,8 @@ OPENBSD_PACKAGES = [
 
 
 class BSDStrategy(BaseOSStrategy):
-    """OS setup strategy for BSD systems.
+    """
+    OS setup strategy for BSD systems.
 
     This strategy handles FreeBSD and OpenBSD with their respective
     package managers (pkg for FreeBSD, pkg_add for OpenBSD).
@@ -107,7 +109,8 @@ class BSDStrategy(BaseOSStrategy):
         return system in {"FreeBSD", "OpenBSD", "NetBSD"}
 
     def ensure_packages(self, packages: list[str], *, update: bool = True) -> None:
-        """Install packages using appropriate BSD package manager.
+        """
+        Install packages using appropriate BSD package manager.
 
         Args:
             packages: List of package names to install
@@ -185,7 +188,8 @@ class BSDStrategy(BaseOSStrategy):
 
 
 class BSDPlugin:
-    """Plugin that provides BSD OS setup strategy.
+    """
+    Plugin that provides BSD OS setup strategy.
 
     This plugin handles:
     - FreeBSD (all versions)

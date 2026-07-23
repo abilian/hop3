@@ -1,5 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
-"""add waf_port column to app (ADR 050 — per-app LeWAF proxy port)
+"""
+add waf_port column to app (ADR 050 — per-app LeWAF proxy port)
 
 Revision ID: f2a3b4c5d6e7
 Revises: e1f2a3b4c5d6
@@ -31,7 +32,8 @@ def _has_column(table: str, column: str) -> bool:
 
 
 def upgrade() -> None:
-    """Add app.waf_port.
+    """
+    Add app.waf_port.
 
     Idempotent: a brand-new database gets the column via ``create_all`` (then
     stamped at head), so this guard skips the add when such a DB is adopted.

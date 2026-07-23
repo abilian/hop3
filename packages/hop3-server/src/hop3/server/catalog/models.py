@@ -25,7 +25,8 @@ FALLBACK_COLORS = [
 
 @dataclass
 class CatalogApp:
-    """Represents an application in the catalog.
+    """
+    Represents an application in the catalog.
 
     Named CatalogApp to avoid collision with hop3.orm.App.
     """
@@ -73,7 +74,8 @@ class CatalogApp:
 
     @property
     def memory_mb(self) -> int | None:
-        """Parse a human memory string (``512MB``, ``1GB``, ``256M``, ``2g``) to MB.
+        """
+        Parse a human memory string (``512MB``, ``1GB``, ``256M``, ``2g``) to MB.
 
         Accepts an optional trailing ``B`` and ``K``/``M``/``G`` units (a bare
         number is MB). Returns ``None`` if empty or unparseable so a single odd

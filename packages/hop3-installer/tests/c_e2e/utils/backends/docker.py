@@ -24,7 +24,8 @@ CONTAINER_PREFIX = "hop3-test"
 
 
 class DockerBackend(Backend):
-    """Backend for testing in Docker containers.
+    """
+    Backend for testing in Docker containers.
 
     This backend runs tests inside Docker containers, providing
     fast iteration and isolated testing without needing a remote server.
@@ -36,7 +37,8 @@ class DockerBackend(Backend):
     supports_systemd = False  # No systemd in standard Docker containers
 
     def __init__(self, distro: str = "ubuntu", installer_dir: Path | None = None):
-        """Initialize Docker backend.
+        """
+        Initialize Docker backend.
 
         Args:
             distro: Distribution to test on (ubuntu, debian, fedora)

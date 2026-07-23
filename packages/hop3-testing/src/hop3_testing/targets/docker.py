@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Docker-based deployment target.
+"""
+Docker-based deployment target.
 
 This module provides a consolidated Docker target that handles all Docker-based
 testing scenarios:
@@ -46,7 +47,8 @@ if TYPE_CHECKING:
 
 
 class DockerTarget(DeploymentTarget):
-    """Docker-based target for all Docker testing scenarios.
+    """
+    Docker-based target for all Docker testing scenarios.
 
     This consolidated target handles:
     - Pre-built images (fast app testing)
@@ -78,7 +80,8 @@ class DockerTarget(DeploymentTarget):
         config: DockerConfig | None = None,
         deployment: DeploymentConfig | None = None,
     ):
-        """Initialize Docker target.
+        """
+        Initialize Docker target.
 
         Args:
             config: Docker-specific configuration
@@ -117,7 +120,8 @@ class DockerTarget(DeploymentTarget):
         self._we_created_container = False
 
     def start(self) -> TargetInfo:
-        """Start the Docker target.
+        """
+        Start the Docker target.
 
         The behavior depends on configuration:
         - reuse_container=True: Connect to existing container
@@ -147,7 +151,8 @@ class DockerTarget(DeploymentTarget):
         return self._start_prebuilt()
 
     def _connect_existing(self) -> TargetInfo:
-        """Connect to an existing Docker container.
+        """
+        Connect to an existing Docker container.
 
         Returns:
             TargetInfo with connection details
@@ -226,7 +231,8 @@ class DockerTarget(DeploymentTarget):
         return self._info
 
     def _start_prebuilt(self) -> TargetInfo:
-        """Start a pre-built Docker image (no deployment).
+        """
+        Start a pre-built Docker image (no deployment).
 
         Returns:
             TargetInfo with connection details
@@ -292,7 +298,8 @@ class DockerTarget(DeploymentTarget):
         return self._info
 
     def _build_and_start(self) -> TargetInfo:
-        """Build Docker image from Dockerfile and start container.
+        """
+        Build Docker image from Dockerfile and start container.
 
         Returns:
             TargetInfo with connection details
@@ -382,7 +389,8 @@ class DockerTarget(DeploymentTarget):
         return self._info
 
     def redeploy(self, config: DeploymentConfig) -> None:
-        """Re-deploy to the running container (in-place update). See base class.
+        """
+        Re-deploy to the running container (in-place update). See base class.
 
         With the container reused (DockerDeployBackend honours --clean), a
         non-clean redeploy hits the deployer's update path. deploy() health-
@@ -408,7 +416,8 @@ class DockerTarget(DeploymentTarget):
             raise RuntimeError(msg)
 
     def _deploy_and_start(self) -> TargetInfo:
-        """Deploy Hop3 via hop3-deploy and start container.
+        """
+        Deploy Hop3 via hop3-deploy and start container.
 
         Returns:
             TargetInfo with connection details
@@ -563,7 +572,8 @@ class DockerTarget(DeploymentTarget):
         )
 
     def _read_server_secret_key(self) -> str | None:
-        """The key the deployed server validates JWTs with, so the harness mints
+        """
+        The key the deployed server validates JWTs with, so the harness mints
         tokens it accepts (real auth, no HOP3_UNSAFE bypass).
 
         Mirrors the server's ``get_secret_key`` precedence: the installer
@@ -596,7 +606,8 @@ class DockerTarget(DeploymentTarget):
         return None
 
     def _is_supervisor_running(self) -> bool:
-        """Check if supervisor is running and managing hop3-server.
+        """
+        Check if supervisor is running and managing hop3-server.
 
         Returns:
             True if supervisord is running and hop3-server is managed by it.
@@ -734,7 +745,8 @@ class DockerTarget(DeploymentTarget):
         print("Container stopped.")
 
     def exec_run(self, cmd: str | list[str]) -> tuple[int, str, str]:
-        """Execute a command on the target.
+        """
+        Execute a command on the target.
 
         Args:
             cmd: Command to execute
@@ -763,7 +775,8 @@ class DockerTarget(DeploymentTarget):
         raise RuntimeError(msg)
 
     def save_diagnostics(self, generate_html: bool = False) -> Path:
-        """Save diagnostic information to files.
+        """
+        Save diagnostic information to files.
 
         Args:
             generate_html: If True, also generate HTML report

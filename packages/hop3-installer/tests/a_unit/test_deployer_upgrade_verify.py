@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""A server upgrade must VERIFY the server came back up.
+"""
+A server upgrade must VERIFY the server came back up.
 
 The migration runs forward before the restart, so a restart that starts the
 systemd unit but leaves the server crashing must NOT be reported as success —
@@ -19,7 +20,8 @@ from hop3_installer.deployer.deploy import Deployer
 
 @pytest.fixture(autouse=True)
 def _no_sleep(monkeypatch):
-    """Make the health-poll budget elapse instantly.
+    """
+    Make the health-poll budget elapse instantly.
 
     deploy.py does ``import time; time.sleep(delay)``; patch the real ``time``
     module so the default 15x2s poll runs fast. The dotted path targets ``time``

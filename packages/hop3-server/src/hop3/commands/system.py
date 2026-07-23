@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""`hop3 system` commands.
+"""
+`hop3 system` commands.
 
 Four subcommands by design:
 
@@ -104,8 +105,10 @@ def _resolved_ips() -> list[str]:
 
 
 def _probed_ip() -> str | None:
-    """Fallback when getaddrinfo gives nothing: ask the kernel which IP it
-    would use to reach a public address. No traffic is actually sent."""
+    """
+    Fallback when getaddrinfo gives nothing: ask the kernel which IP it
+    would use to reach a public address. No traffic is actually sent.
+    """
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             s.connect(("8.8.8.8", 80))
@@ -144,7 +147,8 @@ def _get_uptime() -> str | None:
 
 
 def _process_uptime() -> str | None:
-    """Uptime of THIS hop3-server process (e.g. '2d 3h'). Linux-only.
+    """
+    Uptime of THIS hop3-server process (e.g. '2d 3h'). Linux-only.
 
     Derived from ``/proc/self/stat`` (process start, in clock ticks since boot)
     and ``/proc/uptime`` (seconds since boot) — no psutil dependency. This is
@@ -165,7 +169,8 @@ def _process_uptime() -> str | None:
 
 
 def _acme_engine_summary() -> str:
-    """The TLS issuance engine actually in effect on the running server.
+    """
+    The TLS issuance engine actually in effect on the running server.
 
     Reads the live config singleton (not the file), so it reflects what the
     process will use — the answer to "why is my cert self-signed?".
@@ -178,14 +183,17 @@ def _acme_engine_summary() -> str:
 
 
 def _database_backend() -> str:
-    """Control-plane DB backend (scheme only — never the URI, which may carry
-    a password). Mirrors the resolution in ``orm.session.get_session_factory``."""
+    """
+    Control-plane DB backend (scheme only — never the URI, which may carry
+    a password). Mirrors the resolution in ``orm.session.get_session_factory``.
+    """
     uri = os.environ.get("HOP3_DATABASE_URI", "") or f"sqlite:///{HOP3_ROOT}/hop3.db"
     return uri.split(":", 1)[0] or "unknown"
 
 
 def _installed_features() -> list[str]:
-    """Optional backing services / build features provisioned on this server.
+    """
+    Optional backing services / build features provisioned on this server.
 
     Detected from the installer's own footprint, not a registry of *available*
     plugins: addon admin creds in ``hop3-server.toml`` (postgres/mysql), the
@@ -218,7 +226,8 @@ def _docker_installed() -> bool:
 
 
 def _read_build_info() -> dict | None:
-    """Read the deploy-provenance manifest written by hop3-deploy/-install.
+    """
+    Read the deploy-provenance manifest written by hop3-deploy/-install.
 
     Returns the parsed dict, or None when the file is absent or unreadable
     (e.g. an install that predates build-info, or a hand-rolled deploy).
@@ -232,7 +241,8 @@ def _read_build_info() -> dict | None:
 
 
 def _commit_from_direct_url() -> tuple[str | None, str | None]:
-    """Fallback provenance: read the commit pip recorded for a git install.
+    """
+    Fallback provenance: read the commit pip recorded for a git install.
 
     PEP 610 writes ``direct_url.json`` into the dist-info for ``pip install
     git+...`` deploys. Returns ``(commit, requested_revision)`` — both None
@@ -254,7 +264,8 @@ def _commit_from_direct_url() -> tuple[str | None, str | None]:
 
 
 def _provenance_lines() -> list[str]:
-    """Build the Commit / Branch / Deploy method / Deployed display lines.
+    """
+    Build the Commit / Branch / Deploy method / Deployed display lines.
 
     Prefers the deploy manifest; falls back to pip's recorded git commit;
     shows ``unknown`` when neither is available (so the field is never silently
@@ -293,7 +304,8 @@ def _provenance_lines() -> list[str]:
 
 @register
 class SystemCmd(Command):
-    """Manage the hop3 system.
+    """
+    Manage the hop3 system.
 
     Examples:
         hop3 system status             # Full health report
@@ -312,7 +324,8 @@ class SystemCmd(Command):
 
 @register
 class StatusCmd(Command):
-    """Show the server's health — services, addons, disk, certs (vs 'system info', static facts).
+    """
+    Show the server's health — services, addons, disk, certs (vs 'system info', static facts).
 
     Default output: one-line identity header + per-section health table.
     Bottom line summarises warnings and failures.
@@ -607,7 +620,8 @@ class StatusCmd(Command):
 
 @register
 class InfoCmd(Command):
-    """Show static facts about this server — version, host, uptime, features (vs 'system status', live health).
+    """
+    Show static facts about this server — version, host, uptime, features (vs 'system status', live health).
 
     Reports version/provenance, host and *server-process* uptime, the
     control-plane database backend, the TLS issuance engine in effect, and the
@@ -702,7 +716,8 @@ class InfoCmd(Command):
 
 @register
 class SystemLogsCmd(Command):
-    """Show Hop3 server logs.
+    """
+    Show Hop3 server logs.
 
     Options:
         -n, --lines N      Number of lines to show (default: 100)
@@ -802,7 +817,8 @@ class SystemLogsCmd(Command):
 
 @register
 class CleanupCmd(Command):
-    """Clean up unused Docker resources (networks, images, containers, volumes).
+    """
+    Clean up unused Docker resources (networks, images, containers, volumes).
 
     Options:
         --dry-run       Show what would be cleaned without doing it

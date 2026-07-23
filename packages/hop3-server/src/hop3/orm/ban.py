@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""L7 WAF bans — per-app, time-limited source denials (ADR 050 §4 / §8).
+"""
+L7 WAF bans — per-app, time-limited source denials (ADR 050 §4 / §8).
 
 A repeated attacker (allow-misses, gate-fails, CRS hits) is cut off once instead
 of re-inspecting every request. The ban scorer consumes the WAF audit stream and

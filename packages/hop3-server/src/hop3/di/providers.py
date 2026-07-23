@@ -35,7 +35,8 @@ class ConfigProvider(Provider):
 
     @provide
     def get_config(self) -> HopConfig:
-        """Get or create the singleton config instance.
+        """
+        Get or create the singleton config instance.
 
         Returns:
             HopConfig: The application configuration
@@ -44,7 +45,8 @@ class ConfigProvider(Provider):
 
 
 class DatabaseProvider(Provider):
-    """Provides database sessions for REQUEST scope.
+    """
+    Provides database sessions for REQUEST scope.
 
     Each request/operation gets a fresh database session that is automatically
     closed when the request context exits.
@@ -54,7 +56,8 @@ class DatabaseProvider(Provider):
 
     @provide
     def get_session(self, config: HopConfig) -> Iterator[Session]:
-        """Provide database session for REQUEST scope.
+        """
+        Provide database session for REQUEST scope.
 
         This uses a context manager pattern to ensure the session is properly
         closed after use, even if an exception occurs.
@@ -97,7 +100,8 @@ class HopCoreProvider(Provider):
         app_repo: AppRepository,
         addon_credential_repo: AddonCredentialRepository,
     ) -> BackupManager:
-        """Provide BackupManager instance.
+        """
+        Provide BackupManager instance.
 
         BackupManager requires repositories, so it uses REQUEST scope
         to get fresh repository instances for each request/operation.
@@ -118,7 +122,8 @@ class HopCoreProvider(Provider):
 
 
 class RepositoryProvider(Provider):
-    """Provides repository instances for REQUEST scope.
+    """
+    Provides repository instances for REQUEST scope.
 
     Each repository wraps database operations for a specific model type,
     providing a cleaner API than raw SQLAlchemy queries.

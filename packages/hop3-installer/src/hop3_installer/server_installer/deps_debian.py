@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Debian/Ubuntu dependency installation.
+"""
+Debian/Ubuntu dependency installation.
 
 Handles version-specific package differences:
 - Debian 12 (bookworm): Uses backports for newer Go (1.23)
@@ -124,7 +125,8 @@ DEBIAN_BASE_PACKAGES = [
 
 
 def _get_debian_docker_packages(distro_info: DistroInfo) -> list[str]:
-    """Get Docker packages appropriate for the distro version.
+    """
+    Get Docker packages appropriate for the distro version.
 
     Package availability varies significantly across distributions:
 
@@ -171,7 +173,8 @@ def _get_debian_docker_packages(distro_info: DistroInfo) -> list[str]:
 
 
 def _create_debian_package_spec(distro_info: DistroInfo) -> PackageSpec:
-    """Create a PackageSpec appropriate for the detected distro version.
+    """
+    Create a PackageSpec appropriate for the detected distro version.
 
     Args:
         distro_info: Detected distribution information.
@@ -213,7 +216,8 @@ def _create_debian_package_spec(distro_info: DistroInfo) -> PackageSpec:
 
 
 def _setup_package_sources(distro_info: DistroInfo) -> None:
-    """Configure additional package sources based on distro version.
+    """
+    Configure additional package sources based on distro version.
 
     For older distributions that lack recent package versions, this adds
     appropriate additional repositories (backports, not mixing releases).
@@ -251,7 +255,8 @@ def _setup_package_sources(distro_info: DistroInfo) -> None:
 
 
 def _install_go_toolchain(distro_info: DistroInfo) -> None:
-    """Install Go toolchain from appropriate source.
+    """
+    Install Go toolchain from appropriate source.
 
     On Debian 12 (bookworm), installs from backports to get Go 1.23.
     On other distros, installs from main repos.
@@ -285,7 +290,8 @@ def _install_go_toolchain(distro_info: DistroInfo) -> None:
 
 
 def _install_node_toolchain() -> None:
-    """Install Node.js 22 LTS from the NodeSource apt repository.
+    """
+    Install Node.js 22 LTS from the NodeSource apt repository.
 
     Debian/Ubuntu ship Node 18, which is EOL and rejected by modern JS
     frameworks (Astro needs >=22.12, Etherpad/pnpm >=22.13). Installing a
@@ -350,7 +356,8 @@ def _install_node_toolchain() -> None:
 
 
 def install_debian_deps(config: ServerInstallerConfig) -> None:
-    """Install all Debian/Ubuntu dependencies.
+    """
+    Install all Debian/Ubuntu dependencies.
 
     Detects the specific distro version and configures package sources
     accordingly before installing packages.

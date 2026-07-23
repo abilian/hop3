@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Nginx configuration templates for hop3-installer.
+"""
+Nginx configuration templates for hop3-installer.
 
 This module centralizes all nginx configuration templates used by both
 the server installer and the deployer to ensure consistency and eliminate
@@ -46,7 +47,8 @@ def _validate_server_name(server_name: str) -> str:
 
 
 def is_fqdn(value: str) -> bool:
-    """True if ``value`` is a usable RFC-1035 domain (not an IP, not ``_``).
+    """
+    True if ``value`` is a usable RFC-1035 domain (not an IP, not ``_``).
 
     Used to decide whether a deploy host can double as the admin domain — an
     IPv4 address fails (the TLD must be ≥2 letters) and so does ``localhost``
@@ -56,7 +58,8 @@ def is_fqdn(value: str) -> bool:
 
 
 def _default_server_suffix(default_server: bool) -> str:
-    """`` default_server`` for the platform vhost's listen lines, else ``""``.
+    """
+    `` default_server`` for the platform vhost's listen lines, else ``""``.
 
     Only the Hop3 platform vhost may carry this flag; per-app vhosts (templated
     elsewhere, in hop3-server) must not, and nginx allows exactly one
@@ -118,7 +121,8 @@ ACME_LOCATION = f"""    location /.well-known/acme-challenge/ {{
 
 
 def generate_http_only_config(server_name: str, *, default_server: bool = False) -> str:
-    """Generate nginx config for HTTP-only (no SSL).
+    """
+    Generate nginx config for HTTP-only (no SSL).
 
     Used during initial deployment before SSL is configured.
 
@@ -154,7 +158,8 @@ server {{
 def generate_https_redirect_config(
     server_name: str, *, default_server: bool = False
 ) -> str:
-    """Generate nginx config for HTTP that redirects to HTTPS.
+    """
+    Generate nginx config for HTTP that redirects to HTTPS.
 
     Args:
         server_name: The domain name for this server.
@@ -189,7 +194,8 @@ def generate_https_server_config(
     *,
     default_server: bool = False,
 ) -> str:
-    """Generate HTTPS server block.
+    """
+    Generate HTTPS server block.
 
     Args:
         server_name: The domain name for this server.
@@ -231,7 +237,8 @@ def generate_full_ssl_config(
     *,
     default_server: bool = False,
 ) -> str:
-    """Generate complete nginx config with HTTP redirect and HTTPS.
+    """
+    Generate complete nginx config with HTTP redirect and HTTPS.
 
     This is the standard production configuration that:
     - Redirects all HTTP traffic to HTTPS (except ACME challenges)

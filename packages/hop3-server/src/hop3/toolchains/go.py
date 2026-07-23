@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 
 
 class GoToolchain(LanguageToolchain):
-    """Language toolchain for Go projects.
+    """
+    Language toolchain for Go projects.
 
     This is responsible for building Go projects by checking for Go
     dependencies or source files and then executing the necessary build
@@ -37,7 +38,8 @@ class GoToolchain(LanguageToolchain):
         return has_go_mod or has_godeps or has_go_files
 
     def build(self) -> BuildArtifact:
-        """Build the Go application.
+        """
+        Build the Go application.
 
         If a custom build command is specified in hop3.toml [build] section,
         that command is run instead of the default go build. This allows

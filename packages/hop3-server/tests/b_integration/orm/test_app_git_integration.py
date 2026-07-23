@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Integration tests for App.create() with git setup.
+"""
+Integration tests for App.create() with git setup.
 
 This module tests that App.create(setup_git=True) correctly initializes
 git repositories for git push deployment.
@@ -27,7 +28,8 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def configured_app_root(tmp_path: Path):
-    """Configure HopConfig with a temporary root directory.
+    """
+    Configure HopConfig with a temporary root directory.
 
     Yields:
         Path to temporary HOP3_ROOT
@@ -49,7 +51,8 @@ class TestAppCreateWithGitSetup:
     def test_create_without_git_setup(
         self, db_session: Session, configured_app_root: Path
     ):
-        """Test that create() without setup_git doesn't initialize git.
+        """
+        Test that create() without setup_git doesn't initialize git.
 
         ARRANGE:
             - Create App instance
@@ -81,7 +84,8 @@ class TestAppCreateWithGitSetup:
     def test_create_with_git_setup_true(
         self, db_session: Session, configured_app_root: Path
     ):
-        """Test that create(setup_git=True) initializes git repository.
+        """
+        Test that create(setup_git=True) initializes git repository.
 
         ARRANGE:
             - Create App instance
@@ -128,7 +132,8 @@ class TestAppCreateWithGitSetup:
     def test_create_default_is_no_git_setup(
         self, db_session: Session, configured_app_root: Path
     ):
-        """Test that create() defaults to NOT setting up git.
+        """
+        Test that create() defaults to NOT setting up git.
 
         ARRANGE:
             - Create App instance
@@ -154,7 +159,8 @@ class TestAppCreateWithGitSetup:
     def test_create_with_git_setup_is_idempotent(
         self, db_session: Session, configured_app_root: Path
     ):
-        """Test that calling create(setup_git=True) multiple times is safe.
+        """
+        Test that calling create(setup_git=True) multiple times is safe.
 
         ARRANGE:
             - Create App instance
@@ -184,7 +190,8 @@ class TestAppCreateWithGitSetup:
     def test_create_preserves_existing_repo(
         self, db_session: Session, configured_app_root: Path
     ):
-        """Test that create(setup_git=True) preserves existing repository.
+        """
+        Test that create(setup_git=True) preserves existing repository.
 
         ARRANGE:
             - Create App and initialize git with first commit

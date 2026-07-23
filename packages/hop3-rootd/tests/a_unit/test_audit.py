@@ -74,7 +74,8 @@ def test_sanitise_does_not_mutate_input():
 
 
 def test_sanitise_redacts_inside_lists_of_dicts():
-    """A list of dicts containing secret keys must redact each member.
+    """
+    A list of dicts containing secret keys must redact each member.
 
     Today's rootd ops are flat dicts, but the sanitiser is the safety
     net for future ops — a list of credential records must redact the
@@ -110,7 +111,8 @@ def test_sanitise_passes_scalars_through():
 
 
 def test_sanitise_redacts_secret_substrings_anywhere():
-    """The pattern matches secret words anywhere in the field name.
+    """
+    The pattern matches secret words anywhere in the field name.
 
     Previously the regex used a ``$`` end-anchor and missed
     ``aws_access_key_id`` and similar (where the secret-marker word is
@@ -279,7 +281,8 @@ def test_audit_log_file_mode(tmp_path):
 
 
 def test_audit_log_counts_fsync_failures(tmp_path, monkeypatch):
-    """An fsync that fails (exotic FS) is counted and warned, not swallowed.
+    """
+    An fsync that fails (exotic FS) is counted and warned, not swallowed.
 
     The audit record itself still lands — flush() got it to the kernel buffer
     before fsync ran — so only durability-of-the-last-record is at risk, and

@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""The app_admin_credential migration's own create_table path (ADR 056).
+"""
+The app_admin_credential migration's own create_table path (ADR 056).
 
 Regression for a bug that reached a real box: the migration hardcoded a BIGINT
 primary key, which on SQLite is NOT a rowid alias, so inserts with a NULL id

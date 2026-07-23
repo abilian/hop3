@@ -29,7 +29,8 @@ from ._response import success, summary, table, text
 @register
 @dataclass(frozen=True)
 class BackupCreateCmd(Command):
-    """Create a backup of an application.
+    """
+    Create a backup of an application.
 
     Usage: hop3 backup create [--app <app>] [--no-addons]
 
@@ -121,7 +122,8 @@ class BackupCreateCmd(Command):
 @register
 @dataclass(frozen=True)
 class BackupListCmd(Command):
-    """List all backups, optionally filtered by application.
+    """
+    List all backups, optionally filtered by application.
 
     Usage: hop3 backup list [--app <app>] [--limit N]
 
@@ -199,7 +201,8 @@ class BackupListCmd(Command):
 @register
 @dataclass(frozen=True)
 class BackupInfoCmd(Command):
-    """Show detailed information about a backup.
+    """
+    Show detailed information about a backup.
 
     Usage: hop3 backup show <backup-id>
 
@@ -292,7 +295,8 @@ class BackupInfoCmd(Command):
 @register
 @dataclass(frozen=True)
 class BackupRestoreCmd(Command):
-    """Restore an application from a backup.
+    """
+    Restore an application from a backup.
 
     Usage: hop3 backup restore <backup-id> [--target-app NAME]
 
@@ -371,7 +375,8 @@ class BackupRestoreCmd(Command):
 @register
 @dataclass(frozen=True)
 class BackupRegisterCmd(Command):
-    """Register a backup directory copied in from another Hop3 instance.
+    """
+    Register a backup directory copied in from another Hop3 instance.
 
     Used during cross-instance migration: after copying a backup tree
     (`<BACKUP_ROOT>/apps/<app>/<id>/`) from server A to server B, run
@@ -434,7 +439,8 @@ class BackupRegisterCmd(Command):
 @register
 @dataclass(frozen=True)
 class BackupDestroyCmd(Command):
-    """Destroy a backup.
+    """
+    Destroy a backup.
 
     WARNING: This action cannot be undone!
 
@@ -497,7 +503,8 @@ class BackupDestroyCmd(Command):
 @register
 @dataclass(frozen=True)
 class BackupCmd(Command):
-    """Manage application backups.
+    """
+    Manage application backups.
 
     Examples:
         hop3 backup create --app myapp   # Create a new backup

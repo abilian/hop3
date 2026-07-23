@@ -26,7 +26,8 @@ _IS_POSIX = sys.platform != "win32"
 
 
 def _terminate_process_tree(process: subprocess.Popen) -> None:
-    """Send SIGKILL to the entire process group started by ``process``.
+    """
+    Send SIGKILL to the entire process group started by ``process``.
 
     ``run_streaming`` starts the child in its own session (see
     ``start_new_session`` in :func:`run_streaming`), so the child's pid is
@@ -107,7 +108,8 @@ def run_streaming(
     cwd: Path | str | None = None,
     env: dict[str, str] | None = None,
 ) -> StreamingResult:
-    """Run a command with streaming output.
+    """
+    Run a command with streaming output.
 
     Uses a separate thread to read output lines, avoiding blocking issues
     with large outputs. Lines are passed to the callback as they arrive.

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Dishka providers (mirrors ``hop3.di.providers``).
+"""
+Dishka providers (mirrors ``hop3.di.providers``).
 
 Scopes follow the playbook: ``Scope.APP`` for the config singleton; the
 ``Scope.REQUEST`` database session + repository providers are added with the
@@ -42,7 +43,8 @@ class ConfigProvider(Provider):
 
 
 class DatabaseProvider(Provider):
-    """REQUEST-scoped: a session over the shared store.
+    """
+    REQUEST-scoped: a session over the shared store.
 
     Generator provider (playbook): commit on success, roll back on exception,
     close in ``finally``. The dashboard reads (commit is a no-op); the profiles /

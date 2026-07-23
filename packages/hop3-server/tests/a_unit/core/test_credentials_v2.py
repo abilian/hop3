@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Wave 3 security audit: tests for the v2 credential-encryption scheme.
+"""
+Wave 3 security audit: tests for the v2 credential-encryption scheme.
 
 The legacy tests in ``test_credentials.py`` still pass --- they only
 exercise the roundtrip contract, which is unchanged. The tests here
@@ -88,8 +89,10 @@ def test_is_legacy_distinguishes_schemes() -> None:
 
 
 def test_decrypt_v1_record_still_works() -> None:
-    """A legacy record (no prefix, 100k + static salt) must decrypt
-    cleanly under the new encryptor, so the upgrade is zero-downtime."""
+    """
+    A legacy record (no prefix, 100k + static salt) must decrypt
+    cleanly under the new encryptor, so the upgrade is zero-downtime.
+    """
     data = {"username": "legacy", "password": "old-secret"}
     v1_token = _make_v1_record(c.HOP3_SECRET_KEY, data)
     encryptor = CredentialEncryption()
@@ -117,8 +120,10 @@ def test_tampered_v2_record_fails() -> None:
 
 
 def test_v2_salt_fallback_is_deterministic_for_same_secret() -> None:
-    """Without HOP3_CREDENTIAL_SALT the salt is derived from the secret
-    deterministically, so the same install always gets the same salt."""
+    """
+    Without HOP3_CREDENTIAL_SALT the salt is derived from the secret
+    deterministically, so the same install always gets the same salt.
+    """
     secret = b"fake-install-secret-0000"
     assert _v2_salt(secret) == _v2_salt(secret)
     # Domain separator in the derivation means the salt is not the same
@@ -169,9 +174,11 @@ def test_reset_credential_encryptor_drops_singleton() -> None:
 
 
 def test_env_salt_change_visible_after_reset(monkeypatch) -> None:
-    """If the operator rotates HOP3_CREDENTIAL_SALT they must call
+    """
+    If the operator rotates HOP3_CREDENTIAL_SALT they must call
     reset_credential_encryptor() (or restart) for new writes to use it.
-    This test just confirms the reset works; not an automatic watcher."""
+    This test just confirms the reset works; not an automatic watcher.
+    """
     encryptor_a = get_credential_encryptor()
     monkeypatch.setenv("HOP3_CREDENTIAL_SALT", "0" * 32)
     reset_credential_encryptor()

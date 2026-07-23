@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Integration tests: per-addon env namespacing, attach/detach, and promote.
+"""
+Integration tests: per-addon env namespacing, attach/detach, and promote.
 
 Real in-memory DB + real encryptor; the addon's ``get_connection_details`` is
 mocked (no live postgres). Mirrors the fixture style of

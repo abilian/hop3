@@ -20,7 +20,8 @@ class DeploymentError(TestingError):
 
 
 class DeployTimeoutError(DeploymentError):
-    """Raised when the deploy subprocess exceeds its timeout.
+    """
+    Raised when the deploy subprocess exceeds its timeout.
 
     A timeout is an INFRASTRUCTURE failure (a hung build, a wedged target),
     never a builder/deployer rejection — so it must never satisfy an
@@ -34,7 +35,8 @@ class CleanupError(TestingError):
 
 
 class TargetOutOfDiskError(TestingError):
-    """Raised when the target is out of disk even after reclaiming.
+    """
+    Raised when the target is out of disk even after reclaiming.
 
     Surfaced as a clear per-deploy error so a full disk reads as one
     explicit signal instead of cascading misleading per-app failures.

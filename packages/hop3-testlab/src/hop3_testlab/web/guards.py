@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Auth guard (mirrors hop3-server's session-cookie guard).
+"""
+Auth guard (mirrors hop3-server's session-cookie guard).
 
 v1: a single admin, session-cookie auth. ``TESTLAB_UNSAFE=true`` bypasses it for
 tests/dev (same shape as hop3-server's HOP3_UNSAFE). Bearer-token support can be

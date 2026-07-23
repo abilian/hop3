@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Comprehensive RPC endpoint security tests.
+"""
+Comprehensive RPC endpoint security tests.
 
 This module tests various attack vectors against the RPC endpoint:
 - Authentication bypass attempts

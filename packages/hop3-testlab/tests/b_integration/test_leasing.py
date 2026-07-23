@@ -33,8 +33,10 @@ def test_expired_lease_is_reclaimable():
 
 
 def test_expired_lease_not_stolen_while_holder_alive(monkeypatch):
-    """A run that overran its TTL but whose engine is still alive keeps its target
-    — otherwise a second run could start on the same box (review #1)."""
+    """
+    A run that overran its TTL but whose engine is still alive keeps its target
+    — otherwise a second run could start on the same box (review #1).
+    """
     with _session() as s:
         leasing.try_acquire(s, "docker", "A", ttl_seconds=0)  # already expired
         leasing.set_pid(s, "docker", 4242, starttime=99)  # holder identity

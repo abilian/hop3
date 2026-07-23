@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""run_captured must surface output even when a grandchild holds the pipe.
+"""
+run_captured must surface output even when a grandchild holds the pipe.
 
 Demo and tutorial runs spawn `hop3`/`ssh` grandchildren that inherit the
 captured pipes. Plain ``subprocess.run`` kills only the direct child on
@@ -41,7 +42,8 @@ def test_timeout_captures_partial_output():
 
 
 def test_timeout_kills_group_when_grandchild_holds_pipe():
-    """A backgrounded grandchild inherits the pipe and outlives the child.
+    """
+    A backgrounded grandchild inherits the pipe and outlives the child.
 
     Plain subprocess.run would wedge in communicate() for the grandchild's full
     lifetime; run_captured must SIGKILL the whole group and return promptly with
@@ -58,7 +60,8 @@ def test_timeout_kills_group_when_grandchild_holds_pipe():
 
 
 def test_stdin_is_closed_so_a_prompt_cannot_hang():
-    """A command that reads stdin must get immediate EOF, not block.
+    """
+    A command that reads stdin must get immediate EOF, not block.
 
     This is the tutorial-hang guard: validoc runs `hop3 deploy`, whose
     ADR-042 confirm prompt reads stdin. With stdin inherited from a tty it
@@ -73,7 +76,8 @@ def test_stdin_is_closed_so_a_prompt_cannot_hang():
 
 
 def test_build_test_env_requests_non_interactive():
-    """The harness opts every CLI command into non-interactive mode so a
+    """
+    The harness opts every CLI command into non-interactive mode so a
     deploy/confirm prompt can't wedge a tutorial run (HOP3_NO_INPUT bridge).
     """
     env = build_test_env(TargetInfo(ssh_host="h", ssh_port=22))
@@ -81,9 +85,11 @@ def test_build_test_env_requests_non_interactive():
 
 
 def test_build_test_env_defaults_test_domain_to_sslip(monkeypatch):
-    """Tutorials set HOST_NAME=<app>.$HOP3_TEST_DOMAIN and curl it, so the domain
+    """
+    Tutorials set HOST_NAME=<app>.$HOP3_TEST_DOMAIN and curl it, so the domain
     must resolve to the target. Default to <host>.sslip.io (wildcard public DNS)
-    so it works with zero DNS setup; an explicit env value wins."""
+    so it works with zero DNS setup; an explicit env value wins.
+    """
     monkeypatch.delenv("HOP3_TEST_DOMAIN", raising=False)
     env = build_test_env(TargetInfo(ssh_host="135.181.203.156", ssh_port=22))
     assert env["HOP3_TEST_DOMAIN"] == "135.181.203.156.sslip.io"

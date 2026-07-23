@@ -5,7 +5,8 @@
 # ruff:file-ignore[raise-vanilla-args, raw-string-in-exception]
 
 
-"""nixpkgs-wrapper template.
+"""
+nixpkgs-wrapper template.
 
 For applications already available as nixpkgs packages (e.g., Radicale).
 No source fetching or building is needed — we just wrap the existing

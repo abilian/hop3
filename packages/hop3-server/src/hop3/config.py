@@ -11,7 +11,8 @@ from hop3.lib.config import Config as ConfigLoader
 
 
 class HopConfig:
-    """Hop3 configuration with lazy evaluation and testability.
+    """
+    Hop3 configuration with lazy evaluation and testability.
 
     This class provides:
     - Lazy property evaluation (derived values auto-update)
@@ -37,7 +38,8 @@ class HopConfig:
         config_loader: ConfigLoader | None = None,
         hop3_root: Path | str | None = None,
     ):
-        """Initialize configuration.
+        """
+        Initialize configuration.
 
         Args:
             config_loader: Optional ConfigLoader instance (for file-based config)
@@ -134,7 +136,8 @@ class HopConfig:
 
     @property
     def ADMIN_DOMAIN(self) -> str:
-        """Server's canonical public domain (the admin Web UI / HTTPS client).
+        """
+        Server's canonical public domain (the admin Web UI / HTTPS client).
 
         Written to ``hop3-server.toml`` by the installer from ``--admin-domain``
         / ``HOP3_DOMAIN``. Reused as the external host in ``hop3 addon expose``
@@ -144,7 +147,8 @@ class HopConfig:
 
     @property
     def EXPOSE_DEFAULT_SOURCE(self) -> str:
-        """Default firewall source scope for ``hop3 addon expose`` (CIDR / 'any').
+        """
+        Default firewall source scope for ``hop3 addon expose`` (CIDR / 'any').
 
         Empty (the default) means ``--source`` is required — there is no silent
         public exposure. Set a CIDR here to make it the per-server default.
@@ -153,7 +157,8 @@ class HopConfig:
 
     @property
     def OPERATOR_EMAIL(self) -> str:
-        """The operator's real email — who to reach about this server (ADR 056).
+        """
+        The operator's real email — who to reach about this server (ADR 056).
 
         A server-identity value alongside ``ADMIN_DOMAIN``, distinct from the
         dashboard login ``User.email``. Used as the admin email when a catalog
@@ -168,7 +173,8 @@ class HopConfig:
 
     @property
     def ACME_ENGINE(self) -> str:
-        """ACME client engine: certbot, self-signed.
+        """
+        ACME client engine: certbot, self-signed.
 
         Defaults to 'self-signed' for safety. To use Let's Encrypt certificates,
         you must explicitly set both:
@@ -197,7 +203,8 @@ class HopConfig:
 
     @property
     def ACME_SERVER(self) -> str:
-        """ACME directory URL for certbot's --server (empty = certbot default).
+        """
+        ACME directory URL for certbot's --server (empty = certbot default).
 
         Set to a test ACME server (pebble) or Let's Encrypt staging to exercise
         real issuance without consuming the production rate limit.
@@ -206,7 +213,8 @@ class HopConfig:
 
     @property
     def CATALOG_SOURCE_URL(self) -> str:
-        """HTTPS URL of the signed catalog tarball (ADR 049).
+        """
+        HTTPS URL of the signed catalog tarball (ADR 049).
 
         The node fetches this, verifies its signature against the compiled-in
         catalog public key, and loads the verified contents. Override for staging
@@ -225,7 +233,8 @@ class HopConfig:
 
     @property
     def LIMITS_STRICT(self) -> bool:
-        """Strict (default) aborts a deploy whose [limits] can't be enforced.
+        """
+        Strict (default) aborts a deploy whose [limits] can't be enforced.
 
         When False (operator opt-in best-effort), the app runs but the
         unenforced state is recorded and surfaced — never a clean success.
@@ -324,7 +333,8 @@ class HopConfig:
 
     @property
     def CATALOG_ROOT(self) -> Path:
-        """Verified catalog directory (ADR 049).
+        """
+        Verified catalog directory (ADR 049).
 
         A symlink to the active versioned ``catalog-<serial>/`` dir, flipped
         atomically by the catalog sync. Managed by sync, not pre-created as a
@@ -334,7 +344,8 @@ class HopConfig:
 
     @property
     def CATALOG_STATE_ROOT(self) -> Path:
-        """Write-protected catalog state (ADR 049 F4).
+        """
+        Write-protected catalog state (ADR 049 F4).
 
         Holds the anti-rollback serial high-water-mark, kept *outside*
         ``CATALOG_ROOT`` so a catalog swap/teardown cannot reset it.
@@ -429,7 +440,8 @@ class HopConfig:
     # Utility Methods
 
     def get_parameters(self) -> dict[str, Any]:
-        """Get all configuration parameters as a dict.
+        """
+        Get all configuration parameters as a dict.
 
         Useful for debugging and introspection.
         """
@@ -569,7 +581,8 @@ def get_parameters():
 # This ensures that when tests update the config singleton, the module-level
 # constants also reflect the new values
 def __getattr__(name: str):
-    """Dynamic attribute lookup for backward compatibility.
+    """
+    Dynamic attribute lookup for backward compatibility.
 
     This allows code to use `from hop3.config import APP_ROOT` and have it
     automatically use the current config singleton value, even if the singleton

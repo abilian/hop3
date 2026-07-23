@@ -1,5 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
-"""add app_admin_credential table (ADR 056 — bootstrapped app admin creds)
+"""
+add app_admin_credential table (ADR 056 — bootstrapped app admin creds)
 
 Revision ID: b6c1d2e3f4a5
 Revises: a7b8c9d0e1f2
@@ -31,7 +32,8 @@ def _has_table(name: str) -> bool:
 
 
 def upgrade() -> None:
-    """Create the app_admin_credential table (ADR 056).
+    """
+    Create the app_admin_credential table (ADR 056).
 
     Idempotent: a fresh database gets all tables via ``create_all`` (then
     stamped at head), so this guard skips the create when such a DB is adopted.

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""The on-failure runtime-log collector is tailored, not speculative.
+"""
+The on-failure runtime-log collector is tailored, not speculative.
 
 Regressions this pins (all seen on a real Nix app's failure bundle):
 - docker sections shown for a native/Nix app (no containers) → noise.
@@ -32,7 +33,8 @@ class _FakeTarget:
 
 
 class _PresentAppTarget:
-    """Target where the app dir exists but has no docker container.
+    """
+    Target where the app dir exists but has no docker container.
 
     The fixed-output ``_FakeTarget`` can't model this: the app-dir probe and the
     docker probe need different answers. This one says the app dir exists and

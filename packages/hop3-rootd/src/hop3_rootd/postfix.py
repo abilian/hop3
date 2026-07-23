@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""Loopback SMTP relay for the email backend (ADR 054).
+"""
+Loopback SMTP relay for the email backend (ADR 054).
 
 hop3-server's email addon injects ``SMTP_HOST=127.0.0.1`` into apps that
 declare an email addon; this module renders the Postfix config that makes
@@ -86,7 +87,8 @@ def _tls_block(*, use_tls: bool, wrapper_tls: bool) -> str:
 
 
 def _main_cf(nexthop: str, *, use_sasl: bool, use_tls: bool, wrapper_tls: bool) -> str:
-    """Render a null-client ``main.cf`` relaying to ``nexthop`` (``[host]:port``).
+    """
+    Render a null-client ``main.cf`` relaying to ``nexthop`` (``[host]:port``).
 
     Loopback-only, submission-only, we are nobody's MX and deliver locally for
     no domain. A transient upstream failure defers and retries (the queue is
@@ -114,7 +116,8 @@ def _main_cf(nexthop: str, *, use_sasl: bool, use_tls: bool, wrapper_tls: bool) 
 
 
 def _write_file(path: Path, content: str, *, mode: int) -> None:
-    """Atomic write (tmp→fsync→rename), created at ``mode`` from the start.
+    """
+    Atomic write (tmp→fsync→rename), created at ``mode`` from the start.
 
     The tmp file is opened with ``mode`` so a secret (``sasl_passwd``, 0600) is
     never briefly world-readable between create and chmod.
@@ -152,7 +155,8 @@ def _run(exec: Exec, argv: list[str]) -> CommandResult | None:
 
 
 def _reload(exec: Exec) -> str:
-    """Apply the new config, starting Postfix if it is not already running.
+    """
+    Apply the new config, starting Postfix if it is not already running.
 
     Prefers systemd (``reload-or-restart`` starts a stopped unit); on a host
     without a working systemd — a supervisor-managed container, where
@@ -212,7 +216,8 @@ def configure(
     use_tls: bool = True,
     exec: Exec = DEFAULT_EXEC,
 ) -> dict[str, Any]:
-    """Write the null-client ``main.cf`` (+ SASL map when authenticated), reload.
+    """
+    Write the null-client ``main.cf`` (+ SASL map when authenticated), reload.
 
     Idempotent: overwrites the Hop3-managed ``main.cf`` and ``sasl_passwd`` each
     call, writing exactly what it is given (no credential rotation of its own),
@@ -254,8 +259,10 @@ def configure(
 
 
 def _direct_main_cf(milter: str) -> str:
-    """Render a ``main.cf`` that delivers to recipients' MX itself (no relayhost),
-    signing outbound mail through the opendkim ``milter``."""
+    """
+    Render a ``main.cf`` that delivers to recipients' MX itself (no relayhost),
+    signing outbound mail through the opendkim ``milter``.
+    """
     return (
         "# Managed by Hop3 (ADR 054) — direct MTA: deliver to MX, DKIM-signed.\n"
         "inet_interfaces = loopback-only\n"
@@ -301,7 +308,8 @@ def _postmap_and_reload(path: Path, *, exec: Exec) -> str:
 def map_add(
     logical: str, key: str, value: str, *, exec: Exec = DEFAULT_EXEC
 ) -> dict[str, Any]:
-    """Set the ``key`` line in a per-app map (replace-or-add), postmap, reload.
+    """
+    Set the ``key`` line in a per-app map (replace-or-add), postmap, reload.
 
     Rewrites the whole file from the desired lines (never a blind append), so a
     re-run is idempotent. Returns ``{map, key, reloaded}``.
@@ -319,8 +327,10 @@ def map_add(
 
 
 def map_remove(logical: str, key: str, *, exec: Exec = DEFAULT_EXEC) -> dict[str, Any]:
-    """Remove the ``key`` line from a per-app map, postmap, reload. Idempotent —
-    removing an absent key reports ``removed=False`` and touches nothing else."""
+    """
+    Remove the ``key`` line from a per-app map, postmap, reload. Idempotent —
+    removing an absent key reports ``removed=False`` and touches nothing else.
+    """
     filename, mode = _MAP_FILES[logical]
     path = POSTFIX_DIR / filename
     lines = _read_map_lines(path)
@@ -337,7 +347,8 @@ def map_remove(logical: str, key: str, *, exec: Exec = DEFAULT_EXEC) -> dict[str
 
 
 def configure_direct(*, milter: str, exec: Exec = DEFAULT_EXEC) -> dict[str, Any]:
-    """Write the direct-delivery ``main.cf`` (deliver to MX + DKIM milter), reload.
+    """
+    Write the direct-delivery ``main.cf`` (deliver to MX + DKIM milter), reload.
 
     No relayhost and no upstream SASL — Postfix is the MTA. Returns
     ``{relayhost, reloaded}`` (``relayhost`` empty for direct).

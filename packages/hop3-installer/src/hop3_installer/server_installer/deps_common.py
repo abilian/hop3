@@ -58,7 +58,8 @@ APT_LOCK_FLAGS = ["-o", "DPkg::Lock::Timeout=600"]
 
 @dataclass
 class PackageSpec:
-    """Declarative specification for packages to install.
+    """
+    Declarative specification for packages to install.
 
     This enables a more data-driven approach to package installation,
     making it easier to maintain and extend package lists.
@@ -205,7 +206,8 @@ def install_optional_packages(
 
 
 def _start_docker_daemon() -> None:
-    """Start Docker daemon and wait for it to be ready.
+    """
+    Start Docker daemon and wait for it to be ready.
 
     This ensures the docker0 bridge interface exists before configuring
     databases to listen on it.
@@ -259,7 +261,8 @@ def install_feature_packages(name: str, packages: list[str], spec: PackageSpec) 
 
 
 def install_node_global_packages() -> None:
-    """Install global npm packages needed for various apps.
+    """
+    Install global npm packages needed for various apps.
 
     pnpm is a fast, disk space efficient package manager that is required
     by some apps (Etherpad, HedgeDoc, etc.) that use pnpm workspaces.
@@ -296,7 +299,8 @@ _NODEENV_BIN = Path("/usr/local/bin/nodeenv")
 
 
 def _install_nodeenv() -> None:
-    """Install ekalinin's nodeenv (PyPI) so [build].node-version pins work.
+    """
+    Install ekalinin's nodeenv (PyPI) so [build].node-version pins work.
 
     Critically NOT `npm install -g nodeenv`: the npm package of that name is an
     unrelated test utility ("control Node.js environment variables") that ships
@@ -371,7 +375,8 @@ def _fail_rust_install(
 def _verify_or_repair_cargo(
     cargo_path: Path, rustup_path: Path
 ) -> subprocess.CompletedProcess:
-    """Return `cargo --version`; on failure, force-reinstall stable once first.
+    """
+    Return `cargo --version`; on failure, force-reinstall stable once first.
 
     A flaky component download (or a stale ~/.rustup) can leave the cargo PROXY
     present while the stable toolchain has no cargo ("cargo ... is not applicable
@@ -391,7 +396,8 @@ def _verify_or_repair_cargo(
 
 
 def install_catalogue_baseline(os_family: str) -> None:
-    """Install the catalogue-derived package baseline.
+    """
+    Install the catalogue-derived package baseline.
 
     Reads the list from `baselines.py` (generated from
     apps/*/hop3.toml via `python -m ...baseline`), translates to the
@@ -468,7 +474,8 @@ def _is_nodesource_provided(package: str) -> bool:
 
 
 def install_rust_toolchain(*, required: bool = False) -> None:
-    """Install Rust toolchain via rustup.
+    """
+    Install Rust toolchain via rustup.
 
     Rust is installed using rustup for the hop3 user so Rust-native
     apps (vaultwarden, etc.) can build. Symlinks are created in
@@ -547,7 +554,8 @@ def install_rust_toolchain(*, required: bool = False) -> None:
 def _create_rust_symlinks(
     cargo_path: Path, rustc_path: Path, rustup_path: Path
 ) -> None:
-    """Create symlinks in /usr/local/bin for Rust tools.
+    """
+    Create symlinks in /usr/local/bin for Rust tools.
 
     This makes cargo, rustc, and rustup accessible system-wide,
     which is needed when subprocess runs commands without the hop3 user's PATH.
@@ -571,7 +579,8 @@ def _create_rust_symlinks(
 
 
 def install_leiningen() -> None:
-    """Install Leiningen (Clojure build tool).
+    """
+    Install Leiningen (Clojure build tool).
 
     Leiningen is installed system-wide in /usr/local/bin.
     The actual JAR is downloaded on first run by the hop3 user.
@@ -628,7 +637,8 @@ _ELIXIR_BINS = ("elixir", "elixirc", "mix", "iex")
 
 
 def install_elixir() -> None:
-    """Install a modern Elixir (>= 1.15) for Phoenix and other Elixir apps.
+    """
+    Install a modern Elixir (>= 1.15) for Phoenix and other Elixir apps.
 
     Debian/Ubuntu ship Elixir 1.14, which recent Phoenix rejects. We keep the
     distro's Erlang/OTP (new enough on current releases) and drop in a
@@ -749,7 +759,8 @@ def _elixir_version_line(version_output: str) -> str:
 
 
 def _detect_debian_version() -> tuple[str, str]:
-    """Detect Debian/Ubuntu version for Microsoft repo URL.
+    """
+    Detect Debian/Ubuntu version for Microsoft repo URL.
 
     Returns:
         Tuple of (distro, version) e.g., ("ubuntu", "24.04") or ("debian", "12")

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Per-server token store (ADR 042, 2nd revision).
+"""
+Per-server token store (ADR 042, 2nd revision).
 
 Bearer tokens live in ``~/.config/hop3-cli/credentials.toml``, keyed by the
 *canonical* server address. This is invisible plumbing: ``hop3 login`` / ``hop3
@@ -46,7 +47,8 @@ class CredentialStoreError(RuntimeError):
 
 
 def canonicalize(address: str) -> str:
-    """Normalise a server address to a stable token-store key.
+    """
+    Normalise a server address to a stable token-store key.
 
     ``scheme://[user@]host[:port]`` → lowercased scheme/host, default port made
     explicit, the **user preserved** (never dropped — different users are

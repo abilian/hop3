@@ -24,7 +24,8 @@ if TYPE_CHECKING:
 
 
 def _get_instance_count(app: App) -> int | str:
-    """Get the number of running instances for an app.
+    """
+    Get the number of running instances for an app.
 
     For uWSGI apps: Returns worker count from SCALING file
     For Docker apps: Returns running container count
@@ -84,7 +85,8 @@ def _get_docker_container_count(app: App) -> int | str:
 @register
 @dataclass(frozen=True)
 class AppsCmd(Command):
-    """List all applications.
+    """
+    List all applications.
 
     Examples:
         hop3 apps                      # List all deployed apps (alias for 'app list')

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Detection (`accept()`) and pure build-decision logic for language toolchains.
+"""
+Detection (`accept()`) and pure build-decision logic for language toolchains.
 
 These lock down two things that the deploy path relies on:
 
@@ -73,7 +74,8 @@ _MARKERS: dict[type[LanguageToolchain], str] = {
 
 
 class TestLanguageDisambiguation:
-    """A marker file for one language must not trip another's accept().
+    """
+    A marker file for one language must not trip another's accept().
 
     This is the core safety property: misrouting an app to the wrong toolchain
     is a deploy failure. We assert the full cross-product, so adding a new
@@ -225,7 +227,8 @@ class TestRubyAndElixirDetection:
 
 
 class TestGenericToolchainDetection:
-    """Generic NEVER auto-detects; it accepts only on explicit opt-in.
+    """
+    Generic NEVER auto-detects; it accepts only on explicit opt-in.
 
     Auto-accepting would shadow every real language toolchain, so this guards
     the "must be explicitly requested" contract from generic.py.

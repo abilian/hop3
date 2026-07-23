@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""hop3-bench — the paper's benchmark harness (see notes/reports/paper-completion-plan.md §3).
+"""
+hop3-bench — the paper's benchmark harness (see notes/reports/paper-completion-plan.md §3).
 
 Read-only, fail-loud measurement probes for a Hop3 target. The probes are the
 measurement layer the paper's §6.4 protocol is built on; they are deliberately

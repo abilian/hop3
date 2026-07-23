@@ -26,7 +26,8 @@ from .user import require_admin
 @register
 @dataclass(frozen=True)
 class AuthCmd(Command):
-    """Authentication commands.
+    """
+    Authentication commands.
 
     Examples:
         hop3 auth login                # Log in (alias: hop3 login)
@@ -42,7 +43,8 @@ class AuthCmd(Command):
 @register
 @dataclass(frozen=True)
 class AuthGetTokenCmd(Command):
-    """Verify credentials and print an API token (for scripts / automation).
+    """
+    Verify credentials and print an API token (for scripts / automation).
 
     This is the non-interactive primitive behind the interactive `hop3 login`
     flow: it takes a username and password and returns a token. It does NOT
@@ -59,7 +61,8 @@ class AuthGetTokenCmd(Command):
     requires_auth: ClassVar[bool] = False  # Public command
 
     def call(self, username: str = "", password: str = "", *args):
-        """Verify credentials and return an API token.
+        """
+        Verify credentials and return an API token.
 
         Args:
             username: The username to authenticate
@@ -105,7 +108,8 @@ class AuthGetTokenCmd(Command):
 @register
 @dataclass(frozen=True)
 class AuthWhoamiCmd(Command):
-    """Display current authenticated user information.
+    """
+    Display current authenticated user information.
 
     Examples:
         hop3 auth whoami               # Show the currently-authenticated user
@@ -117,7 +121,8 @@ class AuthWhoamiCmd(Command):
     pass_username: ClassVar[bool] = True  # Needs authenticated username
 
     def call(self, username: str = "", *args):
-        """Display information about the authenticated user.
+        """
+        Display information about the authenticated user.
 
         This command receives the username from the authentication middleware
         via the RPC context.
@@ -158,7 +163,8 @@ class AuthWhoamiCmd(Command):
 @register
 @dataclass(frozen=True)
 class AuthLogoutCmd(Command):
-    """Logout (invalidate current token).
+    """
+    Logout (invalidate current token).
 
     This command revokes the current token, making it immediately invalid
     even before its expiration time. The token is added to a revocation list
@@ -174,7 +180,8 @@ class AuthLogoutCmd(Command):
     pass_token_info: ClassVar[bool] = True  # Request passes the full token
 
     def call(self, username: str, _token: str | None = None):
-        """Logout the current user by revoking their token.
+        """
+        Logout the current user by revoking their token.
 
         Args:
             username: The authenticated username (injected by RPC handler)
@@ -215,7 +222,8 @@ class AuthLogoutCmd(Command):
 @register
 @dataclass(frozen=True)
 class AuthMagicLinkCmd(Command):
-    """Generate a magic link for passwordless web login.
+    """
+    Generate a magic link for passwordless web login.
 
     This command generates a short-lived token that can be used to log into
     the web dashboard without entering a password. The token expires after
@@ -245,7 +253,8 @@ class AuthMagicLinkCmd(Command):
     hidden: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
-        """Generate a magic link token for web login. Admin-only.
+        """
+        Generate a magic link token for web login. Admin-only.
 
         Args:
             authenticated_username: The authenticated user (admin-gated).

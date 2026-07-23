@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""A `contains` miss on a truncated body must not be reported as settled fact.
+"""
+A `contains` miss on a truncated body must not be reported as settled fact.
 
 The body is fetched with ``curl … | head -c BODY_FETCH_LIMIT`` and the assertion
 is matched against *that*. At the previous 16 KB limit, WordPress 6.4's block

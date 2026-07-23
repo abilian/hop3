@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""The engine invokes the renamed `hop3-deploy-server` binary (ADR 052 D10).
+"""
+The engine invokes the renamed `hop3-deploy-server` binary (ADR 052 D10).
 
 hop3-testing shells out to deploy Hop3 onto a target. After the rename it must
 call `hop3-deploy-server`, not the deprecated `hop3-deploy` alias (which would

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Test catalog system for hop3-testing.
+"""
+Test catalog system for hop3-testing.
 
 This module provides:
 - TestDefinition: Complete test definition parsed from test.toml

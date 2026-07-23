@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""The `hop3-deploy` → `hop3-deploy-server` rename (ADR 052 D10).
+"""
+The `hop3-deploy` → `hop3-deploy-server` rename (ADR 052 D10).
 
 `hop3-deploy` stays as a deprecated warn-and-delegate shim so no existing
 invocation breaks during the one-release migration window.

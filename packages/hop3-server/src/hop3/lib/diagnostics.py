@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Structured diagnostic messages for deployment failures.
+"""
+Structured diagnostic messages for deployment failures.
 
 When something fails deep in the deployment pipeline, users get a
 ``[Component] can't [action]: [reason]. [Hint]`` message that names
@@ -47,7 +48,8 @@ __all__ = [
 
 @dataclass(frozen=True)
 class Diagnosis:
-    """A structured diagnostic message.
+    """
+    A structured diagnostic message.
 
     Attributes:
         component: The failing subsystem (e.g., "Docker builder",
@@ -86,7 +88,8 @@ class Diagnosis:
 
 
 def format_diagnosis(diag: Diagnosis) -> str:
-    """Format a diagnosis as a single string suitable for Abort().
+    """
+    Format a diagnosis as a single string suitable for Abort().
 
     Follows the project's error message convention:
     ``[Component] can't [action]: [reason]. [Hint]``
@@ -110,7 +113,8 @@ def format_diagnosis(diag: Diagnosis) -> str:
 
 
 def log_diagnosis(diag: Diagnosis, level: int = 0, fg: str = "red") -> None:
-    """Write a diagnosis to the log in the format used by deployer.py.
+    """
+    Write a diagnosis to the log in the format used by deployer.py.
 
     Useful when you want to print a structured diagnosis BEFORE
     raising a less-detailed Abort (so the user sees the diagnosis
@@ -127,7 +131,8 @@ def log_diagnosis(diag: Diagnosis, level: int = 0, fg: str = "red") -> None:
 
 
 def abort_with_diagnosis(diag: Diagnosis) -> NoReturn:
-    """Raise :class:`hop3.lib.Abort` with a formatted diagnosis.
+    """
+    Raise :class:`hop3.lib.Abort` with a formatted diagnosis.
 
     The exception message is the formatted diagnosis, so the caller
     gets a usable error whether they log it, print it, or send it

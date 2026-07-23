@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Regression tests for adopting pre-Alembic databases on db:upgrade.
+"""
+Regression tests for adopting pre-Alembic databases on db:upgrade.
 
 Incident (test-ci, 2026-06-04): `hop3-deploy` ran `db:upgrade` against a
 server whose `hop3.db` was created by `metadata.create_all()` and never
@@ -82,7 +83,8 @@ def _create_all_unstamped(uri: str) -> None:
 
 
 def _stamp_raw(uri: str, revision: str) -> None:
-    """Write ``alembic_version`` directly — even to a revision no script ships.
+    """
+    Write ``alembic_version`` directly — even to a revision no script ships.
 
     ``command.stamp`` validates the revision against the script directory, so it
     can't reproduce an *orphan* stamp; a feature branch's migration leaves the
@@ -132,8 +134,10 @@ def test_upgrade_is_idempotent_on_adopted_db(temp_db: str) -> None:
 
 
 def test_upgrade_bootstraps_empty_db(temp_db: str) -> None:
-    """A truly empty DB (no tables) gets built + stamped, despite the empty
-    initial migration."""
+    """
+    A truly empty DB (no tables) gets built + stamped, despite the empty
+    initial migration.
+    """
     assert _current_revision(temp_db) is None
 
     DbUpgradeCmd().run()
@@ -150,7 +154,8 @@ def test_upgrade_bootstraps_empty_db(temp_db: str) -> None:
 
 
 def test_upgrade_fills_missing_column_on_behind_head_db(temp_db: str) -> None:
-    """A create_all DB from an older version (has error_message but not
+    """
+    A create_all DB from an older version (has error_message but not
     runtime) must get the missing column when adopted — proving the
     idempotent deltas skip-present-but-add-missing.
     """
@@ -178,8 +183,10 @@ def test_upgrade_fills_missing_column_on_behind_head_db(temp_db: str) -> None:
 
 
 def test_orphan_revision_is_detected(temp_db: str) -> None:
-    """A DB stamped at a revision this tree lacks is reported as orphan; a known
-    revision (or an unstamped DB) is not."""
+    """
+    A DB stamped at a revision this tree lacks is reported as orphan; a known
+    revision (or an unstamped DB) is not.
+    """
     _create_all_unstamped(temp_db)
     _stamp_raw(temp_db, ORPHAN_REVISION)
     cfg = _alembic_config()
@@ -193,8 +200,10 @@ def test_orphan_revision_is_detected(temp_db: str) -> None:
 def test_upgrade_on_orphan_revision_fails_loud_and_leaves_db_untouched(
     temp_db: str, capsys
 ) -> None:
-    """The incident: deploying a codebase that lacks the DB's revision must
-    abort with an actionable hint — and must NOT silently re-stamp the DB."""
+    """
+    The incident: deploying a codebase that lacks the DB's revision must
+    abort with an actionable hint — and must NOT silently re-stamp the DB.
+    """
     _create_all_unstamped(temp_db)
     _stamp_raw(temp_db, ORPHAN_REVISION)
 
@@ -213,7 +222,8 @@ def test_upgrade_on_orphan_revision_fails_loud_and_leaves_db_untouched(
 
 
 def test_get_session_factory_stamps_fresh_file_db(temp_db: str) -> None:
-    """A brand-new file database must come out with its schema AND stamped at
+    """
+    A brand-new file database must come out with its schema AND stamped at
     head, so it's consistent for Alembic from birth (no later adoption needed).
     """
     get_session_factory(temp_db)
@@ -229,7 +239,8 @@ def test_get_session_factory_stamps_fresh_file_db(temp_db: str) -> None:
 def test_get_session_factory_leaves_existing_unstamped_db_alone(
     temp_db: str,
 ) -> None:
-    """An EXISTING unstamped DB must not be auto-migrated/stamped on boot —
+    """
+    An EXISTING unstamped DB must not be auto-migrated/stamped on boot —
     that is db:upgrade's gated job. session.py only bootstraps fresh DBs.
     """
     _create_all_unstamped(temp_db)

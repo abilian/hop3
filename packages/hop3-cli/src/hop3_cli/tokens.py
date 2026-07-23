@@ -17,7 +17,8 @@ JWT_PATTERN = re.compile(
 
 
 def extract_jwt(text: str) -> str | None:
-    """Extract JWT token from text.
+    """
+    Extract JWT token from text.
 
     Args:
         text: Text that may contain a JWT token

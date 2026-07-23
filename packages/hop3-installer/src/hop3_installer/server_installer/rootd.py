@@ -3,7 +3,8 @@
 
 # ruff:file-ignore[suppressible-exception]
 
-"""hop3-rootd installation and migration.
+"""
+hop3-rootd installation and migration.
 
 Installs the privileged-operations daemon: systemd `.service` and
 `.socket` units, logrotate config, runtime/state/log directories, an
@@ -53,7 +54,8 @@ CGROUP_CONTROLLERS = Path("/sys/fs/cgroup/cgroup.controllers")
 
 
 def _resolve_daemon_command() -> str:
-    """Find the hop3-rootd executable. Returns an absolute path, or raises.
+    """
+    Find the hop3-rootd executable. Returns an absolute path, or raises.
 
     We deliberately do NOT fall back to a guessed path. Writing a systemd
     unit whose ``ExecStart`` points at a non-existent binary produces a
@@ -192,7 +194,8 @@ LOGROTATE_CONTENT = """\
 
 
 def setup_rootd() -> None:
-    """Install hop3-rootd: units, logrotate, dirs, initial state, nft table.
+    """
+    Install hop3-rootd: units, logrotate, dirs, initial state, nft table.
 
     Idempotent: safe to re-run on an existing install. Per ADR 041 §12,
     if `/etc/sudoers.d/hop3` is present at the start of this function we
@@ -305,7 +308,8 @@ def setup_rootd() -> None:
 
 
 def _verify_rootd_running() -> None:
-    """Confirm the daemon actually came up — not just that restart returned 0.
+    """
+    Confirm the daemon actually came up — not just that restart returned 0.
 
     A 'successful' install with a dead daemon is the silent failure that
     leaves deploys unable to reload nginx. We check the listening socket
@@ -326,7 +330,8 @@ def _verify_rootd_running() -> None:
 
 
 def _ensure_bind_allowlist() -> None:
-    """Create the default-deny bind allow-list file if missing (idempotent).
+    """
+    Create the default-deny bind allow-list file if missing (idempotent).
 
     rootd reads this to authorize `[[volumes]]` bind sources (ADR 046 §2);
     absent or empty = deny all. We ship a commented template so operators can
@@ -340,7 +345,8 @@ def _ensure_bind_allowlist() -> None:
 
 
 def _check_cgroup_v2() -> None:
-    """Warn loudly at install time if the host lacks a cgroup v2 hierarchy.
+    """
+    Warn loudly at install time if the host lacks a cgroup v2 hierarchy.
 
     Native `[limits]` (memory/cpu/processes caps, ADR 046 §3) need the cgroup
     v2 unified hierarchy. Surfacing the gap here means a `[limits]` app fails at
@@ -409,7 +415,8 @@ def _ensure_inet_hop3_table() -> None:
 
 
 def _retire_sudoers_fragment() -> None:
-    """Remove `/etc/sudoers.d/hop3` if present. Logged loudly.
+    """
+    Remove `/etc/sudoers.d/hop3` if present. Logged loudly.
 
     Per ADR 041 §12 this is the point of no return — at this point
     hop3-rootd has been verified up. If the fragment isn't there
@@ -432,7 +439,8 @@ def _retire_sudoers_fragment() -> None:
 
 
 def uninstall_rootd() -> None:
-    """Uninstall hop3-rootd. Removes units, logrotate, state, and the
+    """
+    Uninstall hop3-rootd. Removes units, logrotate, state, and the
     `inet hop3` table.
 
     Called by `hop3-install uninstall`. Not currently reachable from a

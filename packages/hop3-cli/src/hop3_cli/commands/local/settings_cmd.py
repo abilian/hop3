@@ -18,7 +18,8 @@ if TYPE_CHECKING:
 
 
 def handle_settings(args: list[str], config: Config, printer: RichPrinter) -> None:
-    """Handle the settings command for managing local CLI settings.
+    """
+    Handle the settings command for managing local CLI settings.
 
     Usage:
         hop3 settings show

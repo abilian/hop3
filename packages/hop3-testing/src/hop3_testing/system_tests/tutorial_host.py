@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Prepare a server to run tutorial tests *on it* (a controlled environment).
+"""
+Prepare a server to run tutorial tests *on it* (a controlled environment).
 
 Tutorials are validated by ``validoc``, which executes their bash blocks
 (scaffold, build, ``hop3 deploy``, …). Running those on the dev machine has two
@@ -46,7 +47,8 @@ class TutorialHostError(RuntimeError):
 
 
 def ensure_tutorial_host(target: DeploymentTarget) -> str:
-    """Install validoc on the server and mint an admin token; return the token.
+    """
+    Install validoc on the server and mint an admin token; return the token.
 
     Idempotent enough for the blank-slate full-suite run (the admin is created
     once on a fresh box). On a dirty box where the admin already exists,
@@ -59,7 +61,8 @@ def ensure_tutorial_host(target: DeploymentTarget) -> str:
 
 
 def _configure_git_identity(target: DeploymentTarget) -> None:
-    """Give the server a git identity so tutorials' ``git commit`` works.
+    """
+    Give the server a git identity so tutorials' ``git commit`` works.
 
     Tutorials do ``git init && git add && git commit`` to make the repo Hop3
     deploys. A fresh server has no global git user, so the commit fails with
@@ -90,7 +93,8 @@ def _install_validoc(target: DeploymentTarget) -> None:
 
 
 def _patch_validoc_output_truncation(target: DeploymentTarget) -> None:
-    """STOPGAP: make validoc show the *tail* of a failed command's output.
+    """
+    STOPGAP: make validoc show the *tail* of a failed command's output.
 
     validoc's reporter prints only the first 10 lines of a failed step's output
     (``...split("\\n")[:10]``), but build/compile errors are at the *end*, so the

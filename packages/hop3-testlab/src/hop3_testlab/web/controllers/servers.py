@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Server pool + cloud credentials (v2 spec §6).
+"""
+Server pool + cloud credentials (v2 spec §6).
 
 A *server* is just ``{name, target_id, kind, enabled}`` — *where* a build can run;
 ``target_id`` is what ``run_once`` takes (``docker`` | an SSH host | ``hetzner``).
@@ -114,7 +115,8 @@ class ServersController(Controller):
     async def create_credential(
         self, data: _FORM, credentials: FromDishka[CredentialsRepository]
     ) -> Redirect:
-        """Store a provider credential (API token + optional SSH key) in the DB.
+        """
+        Store a provider credential (API token + optional SSH key) in the DB.
 
         Secrets are kept on the row and never rendered back; bad input (missing
         name/kind/token, non-integer server_id, malformed key) is refused (400),

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Token generation and validation for authentication.
+"""
+Token generation and validation for authentication.
 
 This module provides JWT-based token authentication for the Hop3 API.
 """
@@ -33,7 +34,8 @@ def _get_config():
 
 
 def _read_secret_key_file() -> str | None:
-    """Return the signing key from the canonical secrets file, or None.
+    """
+    Return the signing key from the canonical secrets file, or None.
 
     Any IO error — absent file (legacy install, dev/CI host), no permission —
     yields None so the environment / hop3-server.toml fallbacks still apply.
@@ -57,7 +59,8 @@ MAGIC_LINK_EXPIRY_MINUTES = 5
 
 
 def get_secret_key() -> str:
-    """Get the secret key for token signing.
+    """
+    Get the secret key for token signing.
 
     Resolution order (ADR 048): the canonical ``/etc/hop3/secret-key`` file
     first, then the ``HOP3_SECRET_KEY`` environment variable (tests, overrides,
@@ -97,7 +100,8 @@ def create_token(
     scopes: list[str] | None = None,
     expires_hours: int | None = None,
 ) -> str:
-    """Create a JWT token for a user.
+    """
+    Create a JWT token for a user.
 
     Args:
         username: The username to create the token for
@@ -131,7 +135,8 @@ def create_token(
 
 
 def validate_token(token: str) -> dict[str, Any] | None:  # ruff:ignore[too-many-return-statements] — security-critical: every early `return None` is a distinct validation rule failing (revocation, scopes shape, empty scopes, no valid scope, ExpiredSignature/InvalidToken, generic catch-all). Coalescing them into a single return path risks accidentally weakening one of the rules; multiple early-exits are the right pattern here.
-    """Validate a JWT token and return the payload.
+    """
+    Validate a JWT token and return the payload.
 
     This function:
     1. Decodes and validates the JWT structure
@@ -204,7 +209,8 @@ def validate_token(token: str) -> dict[str, Any] | None:  # ruff:ignore[too-many
 
 
 def is_token_revoked(jti: str, scopes: list[str] | None = None) -> bool:
-    """Check if a token has been revoked.
+    """
+    Check if a token has been revoked.
 
     SECURITY: on a DB error this fails *open* for normal user tokens
     (so a DB outage does not lock every authenticated user out of
@@ -234,7 +240,8 @@ def is_token_revoked(jti: str, scopes: list[str] | None = None) -> bool:
 
 
 def revoke_token(jti: str, expires_at: datetime, reason: str | None = None) -> None:
-    """Revoke a token by adding it to the revocation list.
+    """
+    Revoke a token by adding it to the revocation list.
 
     Args:
         jti: JWT ID to revoke
@@ -266,7 +273,8 @@ def revoke_token(jti: str, expires_at: datetime, reason: str | None = None) -> N
 
 
 def revoke_jwt(token: str, reason: str | None = None) -> bool:
-    """Decode a (possibly expired) JWT and revoke it by ``jti``.
+    """
+    Decode a (possibly expired) JWT and revoke it by ``jti``.
 
     The single decode-and-revoke used by BOTH logout paths (CLI and web) so they
     stay symmetric — a logout invalidates the token, it doesn't merely drop the
@@ -302,7 +310,8 @@ def revoke_jwt(token: str, reason: str | None = None) -> bool:
 
 
 def generate_api_key() -> str:
-    """Generate a random API key for long-lived tokens.
+    """
+    Generate a random API key for long-lived tokens.
 
     Returns:
         A URL-safe random API key
@@ -311,7 +320,8 @@ def generate_api_key() -> str:
 
 
 def create_magic_token(username: str) -> str:
-    """Create a short-lived magic link token for web login.
+    """
+    Create a short-lived magic link token for web login.
 
     Magic tokens:
     - Expire in 5 minutes
@@ -340,7 +350,8 @@ def create_magic_token(username: str) -> str:
 
 
 def validate_magic_token(token: str) -> dict[str, Any] | None:
-    """Validate a magic link token and mark it as used.
+    """
+    Validate a magic link token and mark it as used.
 
     This function validates the token and immediately revokes it to ensure
     single-use behavior.

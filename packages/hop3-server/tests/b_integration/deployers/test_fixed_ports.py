@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Fixed-port registry: claim, conflict refusal, idempotent redeploy, firewall.
+"""
+Fixed-port registry: claim, conflict refusal, idempotent redeploy, firewall.
 
 Uses a real in-memory DB (so the PortClaim table + unique constraint are
 exercised) and a fake rootd client (so firewall open/close is verified without a
@@ -171,7 +172,8 @@ def test_open_degrades_when_rootd_unavailable(db_session: Session, monkeypatch):
 def test_open_aborts_loudly_when_rootd_rejects_the_rule(
     db_session: Session, monkeypatch
 ):
-    """rootd reachable but the firewall command FAILED (e.g. a malformed nft
+    """
+    rootd reachable but the firewall command FAILED (e.g. a malformed nft
     rule): the deploy must abort loudly, not warn-and-report-success. Unlike an
     unavailable rootd, this fails identically on every retry/reconcile, so a
     declared port would silently never open.

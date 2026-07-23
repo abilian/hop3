@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""A green deployment test must assert app-specific body content (audit C8).
+"""
+A green deployment test must assert app-specific body content (audit C8).
 
 An HTTP validation that asserts only a status code (no `contains`) passes on a
 bare 200 — a placeholder page, a 200-rendered error, or another app's

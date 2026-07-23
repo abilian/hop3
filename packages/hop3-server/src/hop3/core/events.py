@@ -55,7 +55,8 @@ class InstallingDependencies(Event):
 
 
 def emit(event: Event) -> None:
-    """Emits the given event.
+    """
+    Emits the given event.
 
     Currently, this only logs the event to the console.
     """

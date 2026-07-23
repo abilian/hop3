@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Named email-provider profiles (EXPERIMENTAL).
+"""
+Named email-provider profiles (EXPERIMENTAL).
 
 Declarative data so an operator can say ``server email set --provider brevo``
 instead of typing the raw ``--smtp-host``/``--smtp-port``. A profile carries the

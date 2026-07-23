@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""The run worker: take the lease, run the suite, release.
+"""
+The run worker: take the lease, run the suite, release.
 
 v1 reuses the existing engine by spawning ``hop3-test run`` as a subprocess
 (the per-run-subprocess model in the spec §10); its results land in the shared
@@ -52,7 +53,8 @@ logger = logging.getLogger(__name__)
 
 
 def _hetzner_manager(cfg: CloudConfig):
-    """Build a HetznerManager from the cloud config (lazy: hcloud is heavy).
+    """
+    Build a HetznerManager from the cloud config (lazy: hcloud is heavy).
 
     Carries both ``ssh_key_name`` and ``ssh_key_path`` so the rebuild can resolve
     the registered key explicitly, or auto-derive it from the local key.
@@ -81,7 +83,8 @@ def _hetzner_server_info(cfg: CloudConfig):
 
 
 def _resolve_hetzner_ssh_key(cfg: CloudConfig) -> None:
-    """Validate that the rebuild can resolve an SSH key to re-inject.
+    """
+    Validate that the rebuild can resolve an SSH key to re-inject.
 
     Raises (loud, explained) if it can't — used by ``run_blockers`` as a
     pre-flight so the web trigger refuses up-front instead of spawning a run
@@ -91,7 +94,8 @@ def _resolve_hetzner_ssh_key(cfg: CloudConfig) -> None:
 
 
 def _rebuild_blank_slate(cfg: CloudConfig, host: str) -> None:
-    """Rebuild the Hetzner server to a fresh OS before a full-suite run.
+    """
+    Rebuild the Hetzner server to a fresh OS before a full-suite run.
 
     This is what makes runs reproducible: each run starts from an identical,
     known state instead of inheriting leaked apps/addons/disk from prior runs.
@@ -130,7 +134,8 @@ def _rebuild_blank_slate(cfg: CloudConfig, host: str) -> None:
 
 
 def _purge_known_host(host: str) -> None:
-    """Remove ``host`` from SSH ``known_hosts`` (its key changed after a rebuild).
+    """
+    Remove ``host`` from SSH ``known_hosts`` (its key changed after a rebuild).
 
     ``ssh-keygen -R`` is a no-op when the entry is absent, so it's safe to call;
     the deploy's ssh then accepts the box's fresh key via ``accept-new``.
@@ -143,7 +148,8 @@ _SSH_CONFIG_END = "# <<< hop3-testlab managed <<<"
 
 
 def _configure_ssh_identity(host: str, ssh_key: str) -> None:
-    """Make the user's ``ssh`` use the credential key for ``host`` without ``-i``.
+    """
+    Make the user's ``ssh`` use the credential key for ``host`` without ``-i``.
 
     ``hop3-deploy`` (and the engine's ssh-binary calls) pass no identity, so they
     fall back to the default key. On a server the runtime user has none and the
@@ -187,7 +193,8 @@ def _strip_managed_block(text: str) -> str:
 def _wait_ssh_command_ready(
     host: str, ssh_key: str | None, *, attempts: int = 10, delay: float = 6.0
 ) -> bool:
-    """Poll the box with the ``ssh`` binary — what the deployer uses — until it
+    """
+    Poll the box with the ``ssh`` binary — what the deployer uses — until it
     answers, or give up.
 
     paramiko's ``wait_for_ssh_ready`` can pass while a freshly-rebuilt box still
@@ -217,7 +224,8 @@ def _wait_ssh_command_ready(
 
 
 def _resolve_run_target(target_id: str) -> tuple[str, str | None, dict]:
-    """Map a target id to (ssh_host, ssh_key_path, session_metadata).
+    """
+    Map a target id to (ssh_host, ssh_key_path, session_metadata).
 
     ``hetzner`` resolves to the configured server's IP and harvests its
     OS/type/location as session metadata; any other non-docker id is the SSH
@@ -241,17 +249,21 @@ def _resolve_run_target(target_id: str) -> tuple[str, str | None, dict]:
 
 
 def _suite_args(mode: str, apps: list[str] | None) -> list[str]:
-    """Engine args: the explicit app paths (positional) when a selection resolved
+    """
+    Engine args: the explicit app paths (positional) when a selection resolved
     to a concrete list, else the whole mode-selected suite. ``--mode`` is always
     passed: with positional apps the engine ignores it for *selecting* (the apps
     win) and uses it only as the run's recorded scope label, so the dashboard
-    shows the real selection instead of the engine's ``--mode`` default."""
+    shows the real selection instead of the engine's ``--mode`` default.
+    """
     return [*(apps or []), "--mode", mode]
 
 
 def _scope_label(spec: RunSpec, fallback: str) -> str:
-    """The run's scope = the mode the profile's selection named, else the
-    explicit/legacy ``mode``."""
+    """
+    The run's scope = the mode the profile's selection named, else the
+    explicit/legacy ``mode``.
+    """
     if spec.selection:
         named = spec.selection.get("mode")
         if isinstance(named, str) and named:
@@ -260,9 +272,11 @@ def _scope_label(spec: RunSpec, fallback: str) -> str:
 
 
 def _canonical_scope(name: str) -> str:
-    """Resolve a scope name through the mode aliases to its canonical mode name
+    """
+    Resolve a scope name through the mode aliases to its canonical mode name
     (so a renamed mode like nightly→broad records under the new name). An unknown
-    name falls back to ``broad`` so the engine's ``--mode`` Choice accepts it."""
+    name falls back to ``broad`` so the engine's ``--mode`` Choice accepts it.
+    """
     try:
         return get_mode_config(name).name
     except ValueError:
@@ -270,7 +284,8 @@ def _canonical_scope(name: str) -> str:
 
 
 def run_blockers(target_id: str, apps: list[str] | None) -> str | None:
-    """A human reason this run can't start cleanly, or None if it can.
+    """
+    A human reason this run can't start cleanly, or None if it can.
 
     Lets the web trigger refuse up-front with a visible message instead of
     spawning a detached run that aborts where the user never sees it. A
@@ -288,7 +303,8 @@ def run_blockers(target_id: str, apps: list[str] | None) -> str | None:
 
 
 def terminate_engine(pid: int, starttime: int | None = None) -> None:
-    """Stop a running engine: SIGTERM its process group, SIGKILL after a grace.
+    """
+    Stop a running engine: SIGTERM its process group, SIGKILL after a grace.
 
     The engine is its own session leader (start_new_session), so ``pid == pgid``
     and signalling the group reaches the docker/ssh children it spawned. Before
@@ -324,8 +340,10 @@ def terminate_engine(pid: int, starttime: int | None = None) -> None:
 
 
 def _record_engine_pid(target_id: str, pid: int) -> None:
-    """Record the engine PID (+ start-time) on the lease so the dashboard can
-    stop it without risking a recycled PID."""
+    """
+    Record the engine PID (+ start-time) on the lease so the dashboard can
+    stop it without risking a recycled PID.
+    """
     config = TestlabConfig.get_instance()
     factory = get_session_factory(config.STORE_TARGET)
     session = factory()
@@ -336,7 +354,8 @@ def _record_engine_pid(target_id: str, pid: int) -> None:
 
 
 class EngineExitError(RuntimeError):
-    """The test engine subprocess exited non-zero.
+    """
+    The test engine subprocess exited non-zero.
 
     Subclasses ``RuntimeError`` so every existing caller (and test) that catches
     a ``RuntimeError`` keeps working. Carries the ``returncode`` and ``log_path``
@@ -359,7 +378,8 @@ class EngineExitError(RuntimeError):
 def _run_engine(
     target_id: str, cmd: list[str], env: dict | None, cwd: Path | None = None
 ) -> None:
-    """Spawn the engine in its OWN session (killable as a process group) and wait.
+    """
+    Spawn the engine in its OWN session (killable as a process group) and wait.
 
     ``start_new_session=True`` makes the engine a session/group leader, so the
     dashboard's stop control can ``os.killpg`` the whole run (engine + the docker/
@@ -405,8 +425,10 @@ def _run_engine(
 
 
 def _engine_log_path(env: dict | None) -> Path:
-    """A per-run log file under the app's data dir (``DATA_DIR/logs``), named by
-    trigger+stamp. The dashboard reads it back by globbing ``build-<id>-*.log``."""
+    """
+    A per-run log file under the app's data dir (``DATA_DIR/logs``), named by
+    trigger+stamp. The dashboard reads it back by globbing ``build-<id>-*.log``.
+    """
     trigger = (env or os.environ).get("HOP3_TEST_TRIGGER") or "run"
     log_dir = TestlabConfig.get_instance().DATA_DIR / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -430,7 +452,8 @@ _FAILURE_BLOCK_MAX_LINES = 50
 
 
 def _failure_summary(path: Path, tail_lines: int = 25) -> str:
-    """The engine's "which tests failed and why" block, for the build detail.
+    """
+    The engine's "which tests failed and why" block, for the build detail.
 
     A non-zero engine exit ends with the summary an operator needs — a
     "N of M tests failed" banner and a "Failed tests:" block naming each failure
@@ -482,7 +505,8 @@ def _default_executor(
     provenance: dict[str, str] | None = None,
     blank_slate: bool = False,
 ) -> None:
-    """Run the suite via the existing engine (results -> shared store).
+    """
+    Run the suite via the existing engine (results -> shared store).
 
     ``--with all`` installs every addon feature (mysql/postgresql/redis/nix/…) so
     addon-dependent apps can provision; without it they fail at deploy time
@@ -577,7 +601,8 @@ def _default_executor(
 
 @dataclass(frozen=True, slots=True)
 class RunSpec:
-    """What to build (v2 spec §A): a run's composition inputs.
+    """
+    What to build (v2 spec §A): a run's composition inputs.
 
     Apps are resolved against the fetched ``source@source_ref`` workspace, in
     precedence: a profile's ``selection`` rules (via the engine `Selector`), an
@@ -598,8 +623,10 @@ class RunSpec:
 
 
 def _require_nonempty(apps: list[str] | None, what: str) -> None:
-    """Fail loud: an empty resolution must not fall through to the full mode
-    suite (``_suite_args`` treats ``[]`` as "no apps" → the whole mode)."""
+    """
+    Fail loud: an empty resolution must not fall through to the full mode
+    suite (``_suite_args`` treats ``[]`` as "no apps" → the whole mode).
+    """
     if not apps:
         msg = f"No apps matched {what}."
         raise ValueError(msg)
@@ -608,7 +635,8 @@ def _require_nonempty(apps: list[str] | None, what: str) -> None:
 def _compose_inputs(
     spec: RunSpec,
 ) -> tuple[list[str] | None, Path | None, dict[str, str]]:
-    """Resolve a run's composition: fetch ``source@source_ref`` into a workspace,
+    """
+    Resolve a run's composition: fetch ``source@source_ref`` into a workspace,
     resolve the apps against it, and build the provenance dict.
 
     Returns ``(apps, cwd, provenance)`` — ``cwd`` the workspace the engine runs
@@ -654,7 +682,8 @@ def run_once(
     spec: RunSpec | None = None,
     executor: Callable[..., None] | None = None,
 ) -> bool:
-    """Run the suite once under the target lease.
+    """
+    Run the suite once under the target lease.
 
     ``spec`` (a :class:`RunSpec`) carries the composition inputs — source/ref to
     fetch, the platform ref to install, and how to pick apps (selection rules,

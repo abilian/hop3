@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Dependency injection infrastructure using Dishka.
+"""
+Dependency injection infrastructure using Dishka.
 
 Usage:
     # For web endpoints (Litestar)

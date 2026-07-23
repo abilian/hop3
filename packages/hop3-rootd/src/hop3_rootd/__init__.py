@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""hop3-rootd — privileged-operations agent for Hop3.
+"""
+hop3-rootd — privileged-operations agent for Hop3.
 
 Runs as root. Exposes a narrow set of typed-intent operations to
 hop3-server over a Unix socket: firewall.* and nginx.* and daemon.*

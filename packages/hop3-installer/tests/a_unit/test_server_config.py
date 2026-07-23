@@ -105,8 +105,10 @@ class TestServerFromSource:
 
 
 class TestCleanReinstall:
-    """`--clean` is the canonical reinstall flag; `--force` is a deprecated alias
-    (ADR 052 D6 — `--force` is reserved for the client's guard-bypass)."""
+    """
+    `--clean` is the canonical reinstall flag; `--force` is a deprecated alias
+    (ADR 052 D6 — `--force` is reserved for the client's guard-bypass).
+    """
 
     def test_clean_sets_force(self, clean_env):
         assert config_from_args(create_parser().parse_args(["--clean"])).force is True

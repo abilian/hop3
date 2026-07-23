@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Stateless web authentication — the dashboard identity rides a signed JWT.
+"""
+Stateless web authentication — the dashboard identity rides a signed JWT.
 
 Authentication does not depend on any server-side session. The browser holds
 the same kind of signed token the CLI uses (minted by ``create_token``, checked
@@ -45,7 +46,8 @@ def issue_web_token(username: str) -> str:
 
 
 def extract_token(connection: ASGIConnection) -> str | None:
-    """The bearer JWT for this request, from the header or the auth cookie.
+    """
+    The bearer JWT for this request, from the header or the auth cookie.
 
     The ``Authorization`` header wins — an API client that sends one neither
     wants nor expects cookie behaviour.
@@ -61,7 +63,8 @@ def extract_token(connection: ASGIConnection) -> str | None:
 
 
 def current_identity(connection: ASGIConnection) -> dict[str, Any] | None:
-    """The authenticated identity for this request, or None.
+    """
+    The authenticated identity for this request, or None.
 
     Stateless: validates the JWT from the cookie or the ``Authorization``
     header. No server-side session is consulted. Returns the token payload

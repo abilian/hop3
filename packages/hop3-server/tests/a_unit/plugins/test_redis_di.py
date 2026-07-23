@@ -25,7 +25,8 @@ def test_redis_factory_from_config():
 
 
 def test_redis_factory_loads_password_from_file_when_env_unset(monkeypatch):
-    """The requirepass password lives in /etc/hop3/redis-pass, not REDIS_PASSWORD.
+    """
+    The requirepass password lives in /etc/hop3/redis-pass, not REDIS_PASSWORD.
 
     Regression: the `system status` Redis health check connected with no
     password and an auth-enabled Redis rejected it ("HELLO must be called ...

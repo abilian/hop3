@@ -1,5 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
-"""add port_claim table for the fixed-port registry
+"""
+add port_claim table for the fixed-port registry
 
 Revision ID: a3f1c9e2b4d6
 Revises: 961bfd2ecce5
@@ -31,7 +32,8 @@ def _has_table(name: str) -> bool:
 
 
 def upgrade() -> None:
-    """Create the port_claim table.
+    """
+    Create the port_claim table.
 
     Idempotent: a brand-new database gets all tables via ``create_all`` (then
     stamped at head), so this guard skips the create when such a DB is adopted.

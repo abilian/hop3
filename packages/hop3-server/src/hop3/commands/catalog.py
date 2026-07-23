@@ -25,7 +25,8 @@ if TYPE_CHECKING:
 
 @register
 class CatalogCmd(Command):
-    """Browse and install apps from the Hop3 app catalog.
+    """
+    Browse and install apps from the Hop3 app catalog.
 
     Examples:
         hop3 catalog list                        # list available apps
@@ -38,7 +39,8 @@ class CatalogCmd(Command):
 
 @register
 class CatalogRefreshCmd(Command):
-    """Fetch and install the latest signed app catalog.
+    """
+    Fetch and install the latest signed app catalog.
 
     Downloads the catalog tarball from the configured source, verifies its
     minisign signature against the key pinned in this build, checks it is not a
@@ -60,7 +62,8 @@ class CatalogRefreshCmd(Command):
 
 @register
 class CatalogListCmd(Command):
-    """List the applications available in the published catalog.
+    """
+    List the applications available in the published catalog.
 
     Reads the catalog currently published on this server (see
     ``hop3 catalog refresh``). Each row is a blueprint you can install with
@@ -102,7 +105,8 @@ _USAGE = (
 def _parse_install_rest(
     rest: list[str],
 ) -> tuple[str | None, list[str], list[str], str | None]:
-    """From the tokens after ``--app`` is removed, pull the blueprint id (a lone
+    """
+    From the tokens after ``--app`` is removed, pull the blueprint id (a lone
     positional), any ``--env`` / ``-e`` ``KEY=VALUE`` pairs, and an optional
     ``--domain`` / ``-d`` ``<host>``.
 
@@ -145,7 +149,8 @@ def _parse_install_rest(
 @register
 @dataclass(frozen=True)
 class CatalogInstallCmd(Command):
-    """Install an app from the published catalog and deploy it.
+    """
+    Install an app from the published catalog and deploy it.
 
     Stages the blueprint's tested recipe as a new hop3 app, then builds and runs
     it (streaming the deploy logs live, like ``hop3 deploy``). The instance is

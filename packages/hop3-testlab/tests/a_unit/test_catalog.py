@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""The web-side cached catalog: per-mode counts + human titles for the UI.
+"""
+The web-side cached catalog: per-mode counts + human titles for the UI.
 
 These back the dropdown "(N)" counts and the "Demo 1: uWSGI Deployment" titles
 shown in run views (instead of the path leaf "demo01"). They scan the repo's

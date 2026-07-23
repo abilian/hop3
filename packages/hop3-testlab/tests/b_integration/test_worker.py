@@ -92,8 +92,10 @@ def test_resolve_run_target_hetzner_harvests_server_info(monkeypatch):
 
 
 def test_terminate_engine_skips_recycled_pid(monkeypatch):
-    """If the recorded start-time no longer matches, the PID was recycled — the
-    group must NOT be signalled (the whole point of the identity check)."""
+    """
+    If the recorded start-time no longer matches, the PID was recycled — the
+    group must NOT be signalled (the whole point of the identity check).
+    """
     calls: list[tuple] = []
     monkeypatch.setattr(worker.os, "killpg", lambda *a: calls.append(a))
     monkeypatch.setattr(leasing, "proc_starttime", lambda _pid: 222)  # differs now
@@ -111,8 +113,10 @@ def test_terminate_engine_signals_when_identity_matches(monkeypatch):
 
 
 def test_terminate_engine_without_starttime_probes_then_skips_when_gone(monkeypatch):
-    """No recorded identity -> fall back to a liveness probe; a gone group is
-    detected by the probe and nothing further is signalled."""
+    """
+    No recorded identity -> fall back to a liveness probe; a gone group is
+    detected by the probe and nothing further is signalled.
+    """
     calls: list[tuple] = []
 
     def _killpg(pid, sig):
@@ -191,8 +195,10 @@ def test_run_once_releases_lease_even_if_executor_raises():
 
 
 def test_run_once_composes_source_ref_and_platform_ref(monkeypatch, tmp_path):
-    """source@source_ref is fetched, the selector is resolved against that
-    workspace, and the platform ref + workspace cwd reach the executor (§A)."""
+    """
+    source@source_ref is fetched, the selector is resolved against that
+    workspace, and the platform ref + workspace cwd reach the executor (§A).
+    """
     workspace = tmp_path / "ws"
 
     class _FakeSource:
@@ -230,8 +236,10 @@ def test_run_once_composes_source_ref_and_platform_ref(monkeypatch, tmp_path):
 
 
 def test_run_once_resolves_profile_selection(monkeypatch, tmp_path):
-    """A profile run resolves its `selection` rules (via the engine Selector)
-    against the fetched workspace catalog, not a hand-picked app list."""
+    """
+    A profile run resolves its `selection` rules (via the engine Selector)
+    against the fetched workspace catalog, not a hand-picked app list.
+    """
 
     class _Src:
         name = "main-repo"
@@ -258,8 +266,10 @@ def test_run_once_resolves_profile_selection(monkeypatch, tmp_path):
 
 
 def test_default_executor_deploys_platform_ref_from_git(monkeypatch, tmp_path):
-    """platform_ref must be installed FROM GIT (`--from git --branch X`),
-    not recorded while local code is deployed (review #6); cwd reaches the spawn."""
+    """
+    platform_ref must be installed FROM GIT (`--from git --branch X`),
+    not recorded while local code is deployed (review #6); cwd reaches the spawn.
+    """
     calls: list[tuple] = []
     monkeypatch.setattr(
         worker,
@@ -309,9 +319,11 @@ def test_run_engine_raises_on_nonzero_exit(monkeypatch, tmp_path):
 
 
 def test_failure_summary_surfaces_failed_tests_not_the_ok_tail(tmp_path):
-    """The engine prints its "Failed tests" block, then keeps going with a
+    """
+    The engine prints its "Failed tests" block, then keeps going with a
     passing-demos recap + teardown. A plain tail shows only the trailing OK
-    lines and hides the real cause — the detail must surface the failures."""
+    lines and hides the real cause — the detail must surface the failures.
+    """
     log = tmp_path / "engine.log"
     log.write_text(
         "\n".join([
@@ -350,8 +362,10 @@ def test_failure_summary_surfaces_failed_tests_not_the_ok_tail(tmp_path):
 
 
 def test_failure_summary_falls_back_to_tail_without_a_failed_block(tmp_path):
-    """A setup/deploy abort prints no "N of M tests failed" banner, so the
-    detail falls back to the tail rather than going blank."""
+    """
+    A setup/deploy abort prints no "N of M tests failed" banner, so the
+    detail falls back to the tail rather than going blank.
+    """
     log = tmp_path / "engine.log"
     log.write_text(
         "fetching source...\nblank-slate refused: dirty server\nABORTED\n",
@@ -397,8 +411,10 @@ def test_run_once_fails_loud_on_source_without_ref():
 
 
 def test_run_once_legacy_run_defaults_cwd_to_repo_root():
-    """A no-source run must run the engine from the repo root (where apps/ lives),
-    not the Lab's own cwd — else the engine's default scan finds no apps."""
+    """
+    A no-source run must run the engine from the repo root (where apps/ lives),
+    not the Lab's own cwd — else the engine's default scan finds no apps.
+    """
     seen: dict = {}
 
     def _exec(_tid, _m, _apps, *, cwd=None, **_kw):
@@ -409,8 +425,10 @@ def test_run_once_legacy_run_defaults_cwd_to_repo_root():
 
 
 def test_run_once_records_provenance(monkeypatch, tmp_path):
-    """The run's composition identity (source / apps_ref / platform_ref / runner)
-    is built and handed to the executor as `provenance` (-> HOP3_TEST_META)."""
+    """
+    The run's composition identity (source / apps_ref / platform_ref / runner)
+    is built and handed to the executor as `provenance` (-> HOP3_TEST_META).
+    """
 
     class _Src:
         name = "main-repo"

@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Pinned catalog signing key (ADR 049 F3).
+"""
+Pinned catalog signing key (ADR 049 F3).
 
 The public key the node verifies catalog signatures against is **compiled into the
 release here** — not read from a file or env var at runtime — so its trust anchor

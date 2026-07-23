@@ -35,7 +35,8 @@ def check_git() -> bool:
 
 
 def check_existing_installation(*, force: bool) -> bool:
-    """Check for existing installation.
+    """
+    Check for existing installation.
 
     Returns:
         True if should proceed with installation, False if already installed
@@ -52,7 +53,8 @@ def check_existing_installation(*, force: bool) -> bool:
 
 
 def check_system_requirements(config: CLIInstallerConfig) -> bool:
-    """Check system requirements for CLI installation.
+    """
+    Check system requirements for CLI installation.
 
     Returns:
         True if requirements met, False otherwise.

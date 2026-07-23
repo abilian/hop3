@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the subprocess `ssh -L` tunnel (core/ssh_tunnel.py).
+"""
+Unit tests for the subprocess `ssh -L` tunnel (core/ssh_tunnel.py).
 
 These replace the old sshtunnel/paramiko-DSSKey compatibility guard: instead of
 pinning a fragile library, we assert the command hop3-cli shells out and that
@@ -54,7 +55,8 @@ class _FakeProc:
 
 
 def _patch_popen(monkeypatch, proc: _FakeProc, *, stderr: bytes = b"") -> list:
-    """Replace Popen with a recorder returning ``proc``; return the call log.
+    """
+    Replace Popen with a recorder returning ``proc``; return the call log.
 
     Mirrors real ssh by writing ``stderr`` into the temp-file sink that
     ``start()`` hands to Popen, so ``_read_stderr`` reads it back.
@@ -74,7 +76,8 @@ def _patch_popen(monkeypatch, proc: _FakeProc, *, stderr: bytes = b"") -> list:
 
 
 def _stub_probe(monkeypatch, *sequence: bool) -> None:
-    """Stub ``_port_open`` to yield each value in turn, then repeat the last.
+    """
+    Stub ``_port_open`` to yield each value in turn, then repeat the last.
 
     start() probes the port twice: once as a pre-flight (want free → False) and
     again during readiness (want ssh's listener → True), so tests pass a

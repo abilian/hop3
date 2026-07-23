@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Command runners: a local shell or an SSH shell on a target.
+"""
+Command runners: a local shell or an SSH shell on a target.
 
 A runner is a ``Callable[[str], str]`` that executes a shell command and returns
 its stdout, raising ``BenchError`` on a non-zero exit — so a failed measurement

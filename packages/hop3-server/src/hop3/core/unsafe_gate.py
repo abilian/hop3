@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Safety interlock for the ``HOP3_UNSAFE`` test-mode auth bypass.
+"""
+Safety interlock for the ``HOP3_UNSAFE`` test-mode auth bypass.
 
 ``HOP3_UNSAFE=true`` disables all authentication: the RPC controller
 short-circuits auth checks (``server/controllers/rpc.py:409-411``), the
@@ -57,7 +58,8 @@ def _is_truthy(raw: str | None) -> bool:
 
 
 def enforce_unsafe_mode_policy() -> None:
-    """Apply the ``HOP3_UNSAFE`` safety interlocks.
+    """
+    Apply the ``HOP3_UNSAFE`` safety interlocks.
 
     Call exactly once at server startup (``asgi.on_startup``) and before
     any code path that consults ``config.HOP3_UNSAFE``.

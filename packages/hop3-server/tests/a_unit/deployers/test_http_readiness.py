@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Deploy readiness must mean *answering HTTP*, not just a bound socket.
+"""
+Deploy readiness must mean *answering HTTP*, not just a bound socket.
 
 gunicorn (and friends) bind the listen socket in the master before forking
 workers, so a plain TCP ``connect()`` succeeds the instant the master is up —
@@ -37,8 +38,10 @@ def _free_port() -> int:
 
 @pytest.fixture
 def dead_socket_port() -> Iterator[int]:
-    """A socket that accepts connections but NEVER replies (gunicorn-master-with
-    -dead-worker shape): connect() succeeds, the HTTP read times out."""
+    """
+    A socket that accepts connections but NEVER replies (gunicorn-master-with
+    -dead-worker shape): connect() succeeds, the HTTP read times out.
+    """
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     srv.bind(("127.0.0.1", 0))
@@ -177,7 +180,8 @@ def test_wait_succeeds_when_app_answers(http_server: tuple[int, list[int]]) -> N
 
 
 def test_static_deploy_clears_stale_port_and_skips_health_check(monkeypatch) -> None:
-    """A port-less (static) deploy must not be failed by a stale port.
+    """
+    A port-less (static) deploy must not be failed by a stale port.
 
     Regression: `_update_app_model` only *set* app.port (never cleared it), so a
     static redeploy (deployment_info.port is None) kept the previous deploy's

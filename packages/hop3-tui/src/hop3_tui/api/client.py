@@ -143,7 +143,8 @@ class Hop3Client:
     # System methods
 
     async def get_system_status(self) -> SystemStatus:
-        """Get system status information.
+        """
+        Get system status information.
 
         STUB: the RPC call is made (so the server is exercised), but the
         response is not yet parsed. The server returns the rich-text
@@ -164,7 +165,8 @@ class Hop3Client:
     # Backup methods
 
     async def list_backups(self) -> list[Backup]:
-        """Get list of all backups.
+        """
+        Get list of all backups.
 
         STUB: the RPC is invoked but the response is not yet parsed into
         ``Backup`` models. The TUI backup list will be empty until this

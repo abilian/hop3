@@ -4,7 +4,8 @@
 
 # ruff:file-ignore[invalid-function-name] -- config properties are UPPER_SNAKE, mirroring hop3.config.HopConfig
 
-"""Test Lab configuration.
+"""
+Test Lab configuration.
 
 A lazy, property-based singleton mirroring ``hop3.config.HopConfig``: settings
 are read from the environment with typed defaults, and ``set_instance`` lets
@@ -42,8 +43,10 @@ class TestlabConfig:
 
     @property
     def DATABASE_URI(self) -> str:
-        """Postgres DSN for the result store (``postgresql+psycopg://…``); empty
-        means use the SQLite ``DB_PATH``. Set it for a server-resident deploy."""
+        """
+        Postgres DSN for the result store (``postgresql+psycopg://…``); empty
+        means use the SQLite ``DB_PATH``. Set it for a server-resident deploy.
+        """
         return os.environ.get("TESTLAB_DATABASE_URI", "")
 
     @property
@@ -54,14 +57,17 @@ class TestlabConfig:
 
     @property
     def STORE_TARGET(self) -> str:
-        """The result-store target — one value for read *and* write so the Lab and
+        """
+        The result-store target — one value for read *and* write so the Lab and
         the engine never split across backends: the Postgres DSN when
-        ``DATABASE_URI`` is set, else the SQLite ``DB_PATH``."""
+        ``DATABASE_URI`` is set, else the SQLite ``DB_PATH``.
+        """
         return self.DATABASE_URI or str(self.DB_PATH)
 
     @property
     def DATA_DIR(self) -> Path:
-        """Base directory for this app instance's own data — keys, source clones,
+        """
+        Base directory for this app instance's own data — keys, source clones,
         worktrees, artifacts.
 
         Per-app-instance, not a shared dotfile: a server-resident deploy points
@@ -80,7 +86,8 @@ class TestlabConfig:
 
     @property
     def KEYS_DIR(self) -> Path:
-        """Directory where a credential's SSH private key is materialized (0600).
+        """
+        Directory where a credential's SSH private key is materialized (0600).
 
         Credentials live in the DB, but the engine subprocess (paramiko) needs the
         key as a *file path* — ``credentials.materialize_key`` writes it here and
@@ -115,7 +122,8 @@ class TestlabConfig:
 
     @property
     def SECRET_KEY(self) -> str:
-        """HMAC secret for CSRF tokens.
+        """
+        HMAC secret for CSRF tokens.
 
         Stable per install so tokens survive a restart; set ``TESTLAB_SECRET_KEY``
         for a dedicated value. Falls back to one derived from the admin password

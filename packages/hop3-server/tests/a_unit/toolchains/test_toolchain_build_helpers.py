@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Pure build-decision helpers shared by every toolchain (LanguageToolchain base).
+"""
+Pure build-decision helpers shared by every toolchain (LanguageToolchain base).
 
 These cover the functional core of the build path that does NOT touch a real
 toolchain binary:

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Second migration: config.toml [contexts.*] -> token store (ADR 042 r2, F1).
+"""
+Second migration: config.toml [contexts.*] -> token store (ADR 042 r2, F1).
 
 The conftest points ``$HOP3_CONFIG_DIR`` at a per-test tmp dir; both config.toml
 and the credential store live there, so the migration and the store agree.

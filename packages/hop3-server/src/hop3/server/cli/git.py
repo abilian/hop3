@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""SSH git command handlers for git push deployment.
+"""
+SSH git command handlers for git push deployment.
 
 These commands are invoked via SSH when a user runs:
     git push hop3@server:myapp main
@@ -31,7 +32,8 @@ if TYPE_CHECKING:
 
 @register
 class GitReceivePackCmd(Command):
-    """Handle git-receive-pack from SSH for git push.
+    """
+    Handle git-receive-pack from SSH for git push.
 
     This command is called when a user runs `git push hop3@server:myapp`.
     It handles the git protocol, auto-creates apps on first push, and
@@ -71,7 +73,8 @@ class GitReceivePackCmd(Command):
 
 @register
 class GitUploadPackCmd(Command):
-    """Handle git-upload-pack from SSH for git clone/fetch.
+    """
+    Handle git-upload-pack from SSH for git clone/fetch.
 
     This command is called when a user runs `git clone hop3@server:myapp`
     or `git fetch` on an existing repository.
@@ -116,7 +119,8 @@ class GitUploadPackCmd(Command):
 
 @register
 class GitHookCmd(Command):
-    """Handle git post-receive hook to trigger deployment.
+    """
+    Handle git post-receive hook to trigger deployment.
 
     This command is called by the post-receive hook when code is pushed.
     It reads push data from stdin and triggers deployment.

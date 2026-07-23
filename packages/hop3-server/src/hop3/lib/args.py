@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Declarative command-line argument parser for RPC commands.
+"""
+Declarative command-line argument parser for RPC commands.
 
 This module provides a simple, declarative way to parse command-line arguments
 passed through the RPC interface. It supports positional arguments, short/long
@@ -46,7 +47,8 @@ def _handle_short_option(
     spec: dict[str, dict],
     result: dict[str, Any],
 ) -> int | None:
-    """Handle short option like -n 50.
+    """
+    Handle short option like -n 50.
 
     Returns:
         New index if handled, None otherwise.
@@ -67,7 +69,8 @@ def _handle_long_option(  # ruff:ignore[too-many-return-statements] — one retu
     spec: dict[str, dict],
     result: dict[str, Any],
 ) -> int | None:
-    """Handle long option like --verbose, --key=value, or --key value.
+    """
+    Handle long option like --verbose, --key=value, or --key value.
 
     Returns:
         New index if handled, None otherwise.
@@ -119,7 +122,8 @@ def _handle_positional_arg(
     remaining_key: str | None,
     result: dict[str, Any],
 ) -> bool:
-    """Handle non-option argument (positional or remaining).
+    """
+    Handle non-option argument (positional or remaining).
 
     Returns:
         True if handled, False otherwise.
@@ -144,7 +148,8 @@ def parse_cli_args(
     args: tuple | list,
     spec: dict[str, dict],
 ) -> dict[str, Any]:
-    """Parse CLI arguments declaratively.
+    """
+    Parse CLI arguments declaratively.
 
     Args:
         args: Tuple or list of command-line arguments
@@ -229,7 +234,8 @@ def parse_cli_args(
 
 
 def pop_app_flag(args: tuple[str, ...] | list[str]) -> tuple[str | None, list[str]]:
-    """Extract the app target from a ``--app`` / ``-a`` flag.
+    """
+    Extract the app target from a ``--app`` / ``-a`` flag.
 
     The app is ALWAYS a flag, never a positional (ADR 036 D5): a command's
     positional arguments are unambiguously its own (e.g. ``env set KEY=VALUE``,
@@ -267,7 +273,8 @@ def pop_app_flag(args: tuple[str, ...] | list[str]) -> tuple[str | None, list[st
 
 
 def reject_extra_args(remaining: tuple[str, ...] | list[str]) -> None:
-    """Fail loud on leftover tokens after a command consumed its known args.
+    """
+    Fail loud on leftover tokens after a command consumed its known args.
 
     The counterpart to ``pop_app_flag`` for commands that take NO further
     positionals: a stray flag or typo (``--no-addon`` instead of

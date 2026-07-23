@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the mount fs/exec helper.
+"""
+Unit tests for the mount fs/exec helper.
 
 The exec seam is faked (``FakeExec``); mount/umount never run for real. The
 fs-shaped helpers (``mountpoint_for``, ``is_mounted``, ``list_mounts_*``,
@@ -162,7 +163,8 @@ def test_is_mounted_false_when_no_mountinfo(tmp_path, monkeypatch):
 
 
 def test_is_mounted_raises_when_mountinfo_unreadable(tmp_path, monkeypatch):
-    """A mountinfo that exists but can't be read is a fault, not 'not mounted'.
+    """
+    A mountinfo that exists but can't be read is a fault, not 'not mounted'.
 
     Previously this returned False, which made reconcile_mounts drop a live
     mount's state row as 'stale' on a transient read error — a silent

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Nix string escaping helpers.
+"""
+Nix string escaping helpers.
 
 Inside Nix multi-line strings (``'' ... ''``), ``${VAR}`` is interpolated
 by Nix. To prevent this and pass the literal text through to the shell,
@@ -14,7 +15,8 @@ from __future__ import annotations
 
 
 def nix_escape(s: str) -> str:
-    r"""Escape a string for embedding in a Nix ``'' ... ''`` multi-line string.
+    r"""
+    Escape a string for embedding in a Nix ``'' ... ''`` multi-line string.
 
     Inside such a string Nix gives exactly two sequences meaning: ``''`` (which
     starts an escape, or ends the string) and ``${`` (interpolation). Everything

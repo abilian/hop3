@@ -1,7 +1,8 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Generic OS setup strategy for all Debian-based distributions.
+"""
+Generic OS setup strategy for all Debian-based distributions.
 
 This plugin supports:
 - Debian (all versions: 11, 12, 13, etc.)
@@ -79,7 +80,8 @@ Dir::Cache { srcpkgcache ""; pkgcache ""; }
 
 
 class DebianFamilyStrategy(DebianBase):
-    """Generic OS setup strategy for all Debian-based distributions.
+    """
+    Generic OS setup strategy for all Debian-based distributions.
 
     This strategy handles Debian, Ubuntu, and any other Debian-based
     distribution that uses APT for package management.
@@ -105,7 +107,8 @@ class DebianFamilyStrategy(DebianBase):
         return f"{distro_id.capitalize()} {version}".strip()
 
     def detect(self) -> bool:
-        """Check if this is a Debian-based distribution.
+        """
+        Check if this is a Debian-based distribution.
 
         Returns True for:
         - Debian (all versions)
@@ -124,7 +127,8 @@ class DebianFamilyStrategy(DebianBase):
         return "debian" in id_like or "ubuntu" in id_like
 
     def setup_server(self) -> None:
-        """Install dependencies and configure system for hop3.
+        """
+        Install dependencies and configure system for hop3.
 
         This setup is generic and works for all Debian-based distributions.
         """
@@ -161,7 +165,8 @@ class DebianFamilyStrategy(DebianBase):
 
 
 class DebianFamilyPlugin:
-    """Plugin that provides Debian family OS setup strategy.
+    """
+    Plugin that provides Debian family OS setup strategy.
 
     This single plugin handles all Debian-based distributions including:
     - Debian (all versions)

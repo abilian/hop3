@@ -58,7 +58,8 @@ class CertificateError(RuntimeError):
 
 
 def is_public_fqdn(domain_name: str) -> bool:
-    """True if ``domain_name`` is a real, public FQDN a CA could issue for.
+    """
+    True if ``domain_name`` is a real, public FQDN a CA could issue for.
 
     False for the catch-all name ("_"), bare hostnames / app names with no dot,
     IP addresses, wildcards, and reserved TLDs (.local/.test/...). Such names can
@@ -72,7 +73,8 @@ def is_public_fqdn(domain_name: str) -> bool:
 
 
 def write_private_key(path: Path, content: str) -> None:
-    """Atomically write a TLS private key with owner-only (0600) permissions.
+    """
+    Atomically write a TLS private key with owner-only (0600) permissions.
 
     Centralized so no call site ships a world-readable key, and atomic (write a
     sibling temp file, chmod, then rename) so a concurrent reader -- an nginx
@@ -86,7 +88,8 @@ def write_private_key(path: Path, content: str) -> None:
 
 
 class CertificatesManager:
-    """Stateless service class for managing SSL certificates.
+    """
+    Stateless service class for managing SSL certificates.
 
     This service is now managed by Dishka dependency injection framework.
     It is registered in APP scope, meaning a single instance is created
@@ -106,7 +109,8 @@ class CertificatesManager:
     def renew(
         self, domain_name: str, *, threshold_days: int = 30, force: bool = False
     ) -> bool:
-        """Re-issue the cert for ``domain_name`` if it is due (or ``force``).
+        """
+        Re-issue the cert for ``domain_name`` if it is due (or ``force``).
 
         Returns True if the cert was re-issued, False if it was still valid and
         left untouched. Reinstalling the renewed cert into the proxy and
@@ -199,7 +203,8 @@ class Certificate:
         return subject is not None and subject == issuer
 
     def covers_domain(self, domain_name: str) -> bool:
-        """True if the cert's CN or a SAN DNS entry covers ``domain_name``.
+        """
+        True if the cert's CN or a SAN DNS entry covers ``domain_name``.
 
         Handles a single leftmost-label wildcard (``*.example.com`` matches
         ``a.example.com`` but not ``a.b.example.com`` or the bare apex).
@@ -228,7 +233,8 @@ class Certificate:
         return any(_dns_name_matches(n, target) for n in _cert_dns_names(result.stdout))
 
     def needs_renewal(self, *, threshold_days: int = 30) -> bool:
-        """Whether this cert should be re-issued.
+        """
+        Whether this cert should be re-issued.
 
         True when there is no cert yet; it expires within ``threshold_days`` (or
         is already expired); or it is a self-signed cert while the engine is
@@ -249,7 +255,8 @@ class Certificate:
         )
 
     def generate(self, *, force: bool = False) -> None:
-        """Issue (or re-issue) this cert via the engine selected for its domain.
+        """
+        Issue (or re-issue) this cert via the engine selected for its domain.
 
         Engine choice (self-signed vs certbot vs ...) and the public-FQDN gate
         live in ``select_engine``, which fails LOUDLY rather than silently
@@ -258,7 +265,8 @@ class Certificate:
         select_engine(self.domain_name).issue(self, force=force)
 
     def generate_self_signed(self) -> None:
-        """Generate a self-signed SSL certificate for the specified domain.
+        """
+        Generate a self-signed SSL certificate for the specified domain.
 
         Uses the OpenSSL command-line tool to generate a self-signed
         certificate with a 4096-bit RSA key, valid for 365 days. A
@@ -277,7 +285,8 @@ class Certificate:
         self.key_file.chmod(0o600)  # openssl's default umask can leave it readable
 
     def generate_with_certbot(self, *, force: bool = False) -> None:
-        """Obtain a Let's Encrypt cert via certbot's webroot challenge.
+        """
+        Obtain a Let's Encrypt cert via certbot's webroot challenge.
 
         Preconditions — the engine is available (certbot present, ACME_EMAIL set)
         and the domain is a public FQDN — are enforced by ``select_engine`` before
@@ -384,7 +393,8 @@ _ACME_RATE_LIMIT_MARKERS = (
 
 
 def _certbot_failure_hint(output: str) -> str:
-    """Cause-specific certbot guidance keyed off certbot's own output.
+    """
+    Cause-specific certbot guidance keyed off certbot's own output.
 
     A single generic cause list ("check your DNS / port 80") sent operators to
     debug their (correct) domain when the real failure was the server's OUTBOUND
@@ -422,7 +432,8 @@ def _certbot_failure_hint(output: str) -> str:
 
 
 class CertEngine:
-    """A certificate-issuance backend.
+    """
+    A certificate-issuance backend.
 
     Two engines exist today (``self-signed`` and ``certbot``). Adding more —
     a paid CA, wildcard/DNS-01, ... — is a matter of subclassing and registering
@@ -467,7 +478,8 @@ CERT_ENGINES: dict[str, CertEngine] = {
 
 
 def select_engine(domain_name: str) -> CertEngine:
-    """Pick the issuance engine for ``domain_name`` — loud on misconfiguration.
+    """
+    Pick the issuance engine for ``domain_name`` — loud on misconfiguration.
 
     A name that isn't a real public FQDN can only ever be self-signed, so it uses
     the self-signed engine regardless of ``ACME_ENGINE`` (this keeps tests and
@@ -502,7 +514,8 @@ def select_engine(domain_name: str) -> CertEngine:
 
 
 def verify_cert(domain_name: str) -> None:
-    """Assert the stored cert for ``domain_name`` is fit to serve, else raise.
+    """
+    Assert the stored cert for ``domain_name`` is fit to serve, else raise.
 
     A deploy/renewal post-condition: checks the cert exists, is not already
     expired, covers the domain, and — for a public FQDN under certbot — is a real
@@ -543,7 +556,8 @@ def verify_cert(domain_name: str) -> None:
 
 
 def _cert_dns_names(openssl_text: str) -> set[str]:
-    """Extract CN + SAN DNS names from `openssl x509 -subject -ext ...` output.
+    """
+    Extract CN + SAN DNS names from `openssl x509 -subject -ext ...` output.
 
     Tolerates the several subject formats OpenSSL emits across versions:
     slash-separated (``/.../CN=x``) and comma-separated, with or without spaces
@@ -577,7 +591,8 @@ def _dns_name_matches(cert_name: str, domain: str) -> bool:
 
 
 def reload_nginx() -> None:
-    """Reload nginx via hop3-rootd to apply configuration changes.
+    """
+    Reload nginx via hop3-rootd to apply configuration changes.
 
     Reloads through the SAME privileged path as a normal deploy — hop3-rootd's
     ``nginx.reload`` op (which runs ``systemctl reload nginx`` / ``nginx -s
@@ -602,7 +617,8 @@ def reload_nginx() -> None:
 
 
 def shell(cmd: str | list[str]) -> None:
-    """Execute a command safely without shell=True.
+    """
+    Execute a command safely without shell=True.
 
     Args:
         cmd: Command to execute (string or list).

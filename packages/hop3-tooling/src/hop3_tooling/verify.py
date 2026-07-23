@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Login-aware, functional verification of catalog apps' admin bootstrap.
+"""
+Login-aware, functional verification of catalog apps' admin bootstrap.
 
 For each app this asserts, through its real auth surface (API / basic-auth /
 login form) — not a bare 200 (see the `test-validation-must-be-functional`
@@ -343,7 +344,8 @@ _LIMESURVEY_PHP = (
 
 
 def limesurvey_db_check(host, app_name, cred) -> list[tuple[str, bool, str]]:
-    """Verify LimeSurvey's admin at the DB level over SSH (functional check).
+    """
+    Verify LimeSurvey's admin at the DB level over SSH (functional check).
 
     LimeSurvey's Yii admin login resists scripted HTTP login, so we probe the
     stored bcrypt hash directly: the generated password must verify, and the old
@@ -449,7 +451,8 @@ CHECKS: dict[str, AppCheck] = {
 
 
 def deploy(app_id: str) -> str | None:
-    """Install one app from the catalog (public URL) via `hop3 catalog install`.
+    """
+    Install one app from the catalog (public URL) via `hop3 catalog install`.
 
     Installed under its own id (`--app <app_id>`), which yields the public
     `<app_id>.<admin-domain>` vhost the login probes need. PRECONDITION: the

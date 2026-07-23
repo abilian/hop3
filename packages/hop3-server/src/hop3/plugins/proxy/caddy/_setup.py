@@ -146,7 +146,8 @@ class CaddyVirtualHost(BaseProxy):
         return CADDY_ROOT / f"{self.app_name}.caddy"
 
     def get_proxy_conf(self) -> str:
-        """Returns the caddy configuration buffer based on
+        """
+        Returns the caddy configuration buffer based on
         specified workers and environment variables.
 
         Sets up caddy proxy configurations by expanding certain template
@@ -186,8 +187,10 @@ class CaddyVirtualHost(BaseProxy):
         return buffer
 
     def setup_static(self) -> None:
-        """Configures static path mappings for a Caddy server in the
-        environment configuration."""
+        """
+        Configures static path mappings for a Caddy server in the
+        environment configuration.
+        """
         self.env["HOP3_INTERNAL_CADDY_STATIC_MAPPINGS"] = (
             ""  # Initialize the static mappings string
         )
@@ -239,7 +242,8 @@ class CaddyVirtualHost(BaseProxy):
             )
 
     def reload_proxy(self) -> None:
-        """Reload caddy to apply configuration changes.
+        """
+        Reload caddy to apply configuration changes.
 
         A failed reload is fatal (like nginx): the new routes/cert can't be
         published, so the deploy must not report success. Skipped only in tests.
@@ -267,7 +271,8 @@ class CaddyVirtualHost(BaseProxy):
             raise RuntimeError(msg) from e
 
     def setup_cache(self) -> None:
-        """Configure Caddy caching for the application.
+        """
+        Configure Caddy caching for the application.
 
         Note: Caddy doesn't have built-in caching like Nginx.
         For production use, you may need to use a Caddy plugin or
@@ -317,7 +322,8 @@ class CaddyVirtualHost(BaseProxy):
                 self.env["HOP3_INTERNAL_CADDY_CACHE_MAPPINGS"] = ""
 
     def _get_cache_param(self, key: str, name: str, default: int) -> int:
-        """Get a cache parameter integer value from the environment.
+        """
+        Get a cache parameter integer value from the environment.
 
         Input:
         - key (str): The key to look up in the environment, prefixed with "CADDY_".

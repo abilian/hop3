@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Blank-slate rebuild: full-suite runs reinstall the Hetzner OS first.
+"""
+Blank-slate rebuild: full-suite runs reinstall the Hetzner OS first.
 
 Reproducibility: every run starts from an identical, known state instead of
 inheriting leaked apps/addons/disk. The rebuild re-injects an SSH key (explicit

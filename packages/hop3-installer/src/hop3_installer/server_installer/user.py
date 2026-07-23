@@ -40,7 +40,8 @@ def run_as_hop3(
     check: bool = False,
     timeout: float | None = None,
 ) -> subprocess.CompletedProcess:
-    """Run a command as the hop3 user.
+    """
+    Run a command as the hop3 user.
 
     Args:
         cmd: Shell command to run as hop3 user.

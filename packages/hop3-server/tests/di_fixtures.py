@@ -27,7 +27,8 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def di_container() -> Iterator[Container]:
-    """Create a DI container for testing.
+    """
+    Create a DI container for testing.
 
     This fixture provides a fresh Dishka container for each test,
     ensuring test isolation.

@@ -1,7 +1,8 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared fixtures for nix gen tests.
+"""
+Shared fixtures for nix gen tests.
 
 Uses inline specs instead of importing from the app specs directory,
 so tests are self-contained and don't depend on external app configs.
@@ -198,7 +199,8 @@ ALL_FIXTURE_NAMES = [
 
 
 def spec_for(payload_cls, **kwargs) -> AppSpec:
-    """Build an AppSpec from flat kwargs, routing payload fields automatically.
+    """
+    Build an AppSpec from flat kwargs, routing payload fields automatically.
 
     Test helpers take overrides as flat keyword arguments; this splits them by
     what the payload dataclass actually declares, so a caller never has to

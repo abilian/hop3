@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Build profiles — *what* to build (source@ref + platform ref + selection rules).
+"""
+Build profiles — *what* to build (source@ref + platform ref + selection rules).
 
 Replaces the old mode-overrides picker: a profile is a saved composition spec you
 **Start** (enqueue), never a hand-picked app list. Apps are chosen by *rules*
@@ -52,8 +53,10 @@ def _selection_from_form(data: dict) -> dict:
 
 
 def _selection_to_form(selection: dict) -> dict:
-    """Reverse of `_selection_from_form`: flatten a selection dict back to the
-    form's string fields, so the edit form can be pre-filled."""
+    """
+    Reverse of `_selection_from_form`: flatten a selection dict back to the
+    form's string fields, so the edit form can be pre-filled.
+    """
     out = {"mode": selection.get("mode", "")}
     for key in _LIST_RULES:
         value = selection.get(key) or []
@@ -62,8 +65,10 @@ def _selection_to_form(selection: dict) -> dict:
 
 
 def _validate_source(source_url: str, source_ref: str) -> None:
-    """Fail loud on bad source input rather than storing a profile that breaks
-    at run. Shared by create and update."""
+    """
+    Fail loud on bad source input rather than storing a profile that breaks
+    at run. Shared by create and update.
+    """
     if not is_allowed_source_url(source_url):
         msg = f"Unsafe or unsupported source URL: {source_url!r}"
         raise ValidationException(msg)
@@ -97,8 +102,10 @@ def _profile_detail(profile) -> dict:
 
 
 def _unique_copy_name(profiles: ProfilesRepository, base: str) -> str:
-    """A free name for a duplicate (the column is unique): '<base> (copy)', then
-    '<base> (copy 2)', ..."""
+    """
+    A free name for a duplicate (the column is unique): '<base> (copy)', then
+    '<base> (copy 2)', ...
+    """
     candidate = f"{base} (copy)"
     n = 2
     while profiles.by_name(candidate) is not None:
@@ -108,15 +115,18 @@ def _unique_copy_name(profiles: ProfilesRepository, base: str) -> str:
 
 
 def _slug_from_url(url: str) -> str:
-    """A short, filesystem-friendly label for a source, derived from the repo
+    """
+    A short, filesystem-friendly label for a source, derived from the repo
     URL's last path segment. It only names the source's git cache dir (never used
-    for lookup), so it needn't be unique or user-supplied."""
+    for lookup), so it needn't be unique or user-supplied.
+    """
     leaf = url.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git").strip()
     return leaf or "repo"
 
 
 def _fields_from_form(data: dict) -> dict | None:
-    """Validate and extract the writable profile fields from a create/edit form.
+    """
+    Validate and extract the writable profile fields from a create/edit form.
 
     Returns None when the form is blank (no name / no source URL) so the caller
     can bounce back to the form; raises ValidationException on bad input.
@@ -258,8 +268,10 @@ class ProfilesController(Controller):
         profiles: FromDishka[ProfilesRepository],
         queue: FromDishka[BuildQueueRepository],
     ) -> Redirect:
-        """Start a build: **enqueue** (no target — the dispatcher picks a free
-        pool server). Returns to the queue."""
+        """
+        Start a build: **enqueue** (no target — the dispatcher picks a free
+        pool server). Returns to the queue.
+        """
         if profiles.get(profile_id) is None:
             return Redirect(path="/profiles", status_code=HTTP_303_SEE_OTHER)
         queue.enqueue(profile_id, actor="web")

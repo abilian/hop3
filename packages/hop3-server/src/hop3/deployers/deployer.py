@@ -59,7 +59,8 @@ def do_deploy(
     deltas: dict[str, int] | None = None,
     db_session: Session | None = None,
 ) -> None:
-    """Deploy an app; on failure, best-effort alert the operator, then re-raise.
+    """
+    Deploy an app; on failure, best-effort alert the operator, then re-raise.
 
     This is the single choke point for the deploy-failure notification event
     (ADR 054): a failed deploy emails the operator through the configured email
@@ -311,7 +312,8 @@ def _do_deploy(  # ruff:ignore[too-many-statements]
 def _update_app_model(
     app: App, runtime: str, deployment_info, app_config: AppConfig
 ) -> None:
-    """Update the App model with deployment information.
+    """
+    Update the App model with deployment information.
 
     Args:
         app: The App model instance to update
@@ -377,7 +379,8 @@ def _update_app_model(
 
 
 def _bounded_log_excerpt(lines: list[str], head: int = 25, tail: int = 20) -> list[str]:
-    """Excerpt a crash log so the root error survives truncation.
+    """
+    Excerpt a crash log so the root error survives truncation.
 
     A crashing runtime puts the actual error — the exception class and message —
     at the TOP of its traceback (Ruby/Java/Python), while uWSGI throttle/respawn
@@ -410,7 +413,8 @@ _APP_ERROR_RE = re.compile(r"\b[A-Za-z_][\w.]*(?:Error|Exception|NotSpecified)\b
 
 
 def _extract_app_error(log_lines: list[str]) -> str | None:
-    """Best-effort one-line summary of why an app crashed, from its log.
+    """
+    Best-effort one-line summary of why an app crashed, from its log.
 
     The root cause (e.g. "Unable to load application:
     ActiveRecord::AdapterNotSpecified: The `cache` database is not configured")
@@ -432,7 +436,8 @@ def _extract_app_error(log_lines: list[str]) -> str | None:
 
 
 def _is_crash_indicator(line: str) -> bool:
-    """Check if a log line indicates a crash or error.
+    """
+    Check if a log line indicates a crash or error.
 
     Only matches uWSGI-specific crash indicators, not general application logs.
     Apps often log ERROR messages during normal startup (e.g., "ERROR:app: ..."),
@@ -451,7 +456,8 @@ def _is_crash_indicator(line: str) -> bool:
 
 
 def _process_new_logs(app: App, last_log_lines: int) -> tuple[int, int]:
-    """Process new log lines, display them, and count crash indicators.
+    """
+    Process new log lines, display them, and count crash indicators.
 
     Returns:
         Tuple of (new_last_log_lines, crash_indicator_count)
@@ -480,7 +486,8 @@ def _app_serves_http(
     timeout: float = 3.0,
     healthcheck_contains: str = "",
 ) -> bool:
-    """Whether the app actually answers an HTTP request on its web port.
+    """
+    Whether the app actually answers an HTTP request on its web port.
 
     A *bound TCP socket* is not proof the app serves: gunicorn (and many
     servers) bind the listen socket in the master process before forking
@@ -524,7 +531,8 @@ def _app_serves_http(
 
 @dataclass(frozen=True, slots=True)
 class StartOutcome:
-    """Why the startup wait ended.
+    """
+    Why the startup wait ended.
 
     The wait gives up for two unrelated reasons, and a bare ``False`` cannot
     tell them apart: the deadline elapsed, or the app crashed so repeatedly that
@@ -545,7 +553,8 @@ def _wait_for_app_start(
     healthcheck_path: str = "",
     healthcheck_contains: str = "",
 ) -> StartOutcome:
-    """Wait for app to start with fail-fast on repeated crashes.
+    """
+    Wait for app to start with fail-fast on repeated crashes.
 
     Monitors the app status and logs, failing immediately if:
     - uWSGI is throttling respawns (app keeps crashing)
@@ -649,7 +658,8 @@ def _log_runtime_hints(app: App) -> None:
 
 
 def _handle_startup_failure(app: App, outcome: StartOutcome, timeout: float) -> None:
-    """Report a failed startup, naming what actually happened.
+    """
+    Report a failed startup, naming what actually happened.
 
     Gathers diagnostic information, analyzes logs for common failure patterns,
     and raises an Abort with helpful details.
@@ -755,7 +765,8 @@ def _handle_startup_failure(app: App, outcome: StartOutcome, timeout: float) -> 
 
 
 def _diagnose_failure(app: App, log_lines: list[str]) -> None:
-    """Analyze log lines for common failure patterns and log specific diagnoses.
+    """
+    Analyze log lines for common failure patterns and log specific diagnoses.
 
     This helps users understand *why* the app failed to start, rather than
     just seeing a generic timeout message.
@@ -867,7 +878,8 @@ def _diagnose_failure(app: App, log_lines: list[str]) -> None:
 
 
 def stop_previous_instance(app: App) -> None:
-    """Stop a still-running previous instance before its source is replaced.
+    """
+    Stop a still-running previous instance before its source is replaced.
 
     A redeploy replaces and rebuilds the SAME ``src`` tree the running app uses
     (the upload extractor clears ``src`` first; the build then writes
@@ -902,7 +914,8 @@ def stop_previous_instance(app: App) -> None:
 def _enforce_builder_resource_support(
     app: App, app_config: AppConfig, builder_name: str, context: DeploymentContext
 ) -> None:
-    """Fail loud when declared resources can't be honored by the chosen builder.
+    """
+    Fail loud when declared resources can't be honored by the chosen builder.
 
     Volumes work on native/Nix but not Docker (ADR 046 §2); limits are resolved
     against the server-wide defaults/ceilings and applied per builder (§3).
@@ -918,7 +931,8 @@ def _apply_limits(
     builder_name: str,
     context: DeploymentContext,
 ) -> None:
-    """Resolve [limits] against the server policy and apply per builder (ADR 046 §3).
+    """
+    Resolve [limits] against the server policy and apply per builder (ADR 046 §3).
 
     Resolution (declared caps over the operator's server-wide defaults, with a
     value over its ceiling aborting loudly) runs here for *both* builders so a bad
@@ -958,7 +972,8 @@ def _apply_limits(
 
 
 def _reject_volumes_on_docker(builder_name: str, volumes: list[dict[str, Any]]) -> None:
-    """Abort the deploy if [[volumes]] are declared under the Docker builder.
+    """
+    Abort the deploy if [[volumes]] are declared under the Docker builder.
 
     Volumes are realized as host-side symlinks into src/ (ADR 046 §2), which a
     Docker container cannot see — and the generated compose has no bind-mount
@@ -977,7 +992,8 @@ def _reject_volumes_on_docker(builder_name: str, volumes: list[dict[str, Any]]) 
 def _prepare_source_for_build(
     app: App, app_config: AppConfig, db_session: Session | None
 ) -> None:
-    """Ready the freshly-extracted source tree before the prebuild/build runs.
+    """
+    Ready the freshly-extracted source tree before the prebuild/build runs.
 
     Three ordered steps, all before any build output is produced:
 
@@ -1007,7 +1023,8 @@ def _prepare_source_for_build(
 def _process_config_dependencies(
     app: App, app_config: AppConfig, db_session: Session | None
 ) -> None:
-    """Process addons and env vars from hop3.toml.
+    """
+    Process addons and env vars from hop3.toml.
 
     This provisions any required backing services and injects
     environment variables before the build phase.
@@ -1138,7 +1155,8 @@ def _apply_domains_to_host_name(
     policy: str,
     db_session: Session,
 ) -> None:
-    """Translate [domains].list into the HOST_NAME env var.
+    """
+    Translate [domains].list into the HOST_NAME env var.
 
     Validates each hostname, rejects "_" combined with other hosts, and
     aborts the deploy on a cross-app conflict. Mirrors set_default_env_vars
@@ -1206,7 +1224,8 @@ def _bootstrap_admin_account(
     deployer_name: str,
     db_session: Session | None,
 ) -> None:
-    """Run the recipe's [admin].create once, post-deploy (ADR 056, native path).
+    """
+    Run the recipe's [admin].create once, post-deploy (ADR 056, native path).
 
     The create command runs in the app's source dir with the app's runtime env
     (HOP3_ADMIN_* + DATABASE_URL) and the build's PATH prepended, so a
@@ -1250,7 +1269,8 @@ def _run_hook(
     cwd: Path,
     path_prepend: list[str] | None = None,
 ) -> None:
-    """Run a deployment hook (prebuild/postbuild).
+    """
+    Run a deployment hook (prebuild/postbuild).
 
     Args:
         hook_name: Name of the hook for logging (e.g., "prebuild", "postbuild")
@@ -1297,7 +1317,8 @@ def _run_hook(
 
 
 def _auto_discover_wsgi(artifact: BuildArtifact, src_path: Path) -> None:
-    """Auto-discover WSGI module for Python apps that have no web workers.
+    """
+    Auto-discover WSGI module for Python apps that have no web workers.
 
     Probes for common WSGI entry points and adds a 'wsgi' worker to the
     artifact's runtime config if found.

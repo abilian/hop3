@@ -5,7 +5,8 @@
 # ruff:file-ignore[raise-vanilla-args, raw-string-in-exception]
 
 
-"""java-war template.
+"""
+java-war template.
 
 For Java applications distributed as a single WAR file, executed with a
 JDK via ``java -jar file.war``. No unpack needed.

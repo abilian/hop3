@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Host-wide registry of fixed ports claimed by apps *and* exposed addons.
+"""
+Host-wide registry of fixed ports claimed by apps *and* exposed addons.
 
 Non-HTTP services (SMTP, XMPP, RTMP, Matrix federation, …) bind a host port
 directly — there is no reverse proxy or virtual hosting for them, so exactly

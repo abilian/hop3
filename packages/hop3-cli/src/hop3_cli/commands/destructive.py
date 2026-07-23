@@ -52,7 +52,8 @@ def _match_destructive_prefix(cli_args: list[str]) -> tuple[str, ...] | None:
 
 
 def is_destructive_command(cli_args: list[str]) -> bool:
-    """Check if the command is destructive (requires confirmation).
+    """
+    Check if the command is destructive (requires confirmation).
 
     Args:
         cli_args: Command-line arguments (may be multiple tokens for the command name)
@@ -66,7 +67,8 @@ def is_destructive_command(cli_args: list[str]) -> bool:
 
 
 def _extract_app_flag(args: list[str]) -> str | None:
-    """Return the value of `--app NAME` / `-a NAME` / `--app=NAME`, if present.
+    """
+    Return the value of `--app NAME` / `-a NAME` / `--app=NAME`, if present.
 
     App-scoped commands receive the app as a flag (ADR 036 D5), never as a
     positional, so the confirmation target must come from here — reading
@@ -97,7 +99,8 @@ def _first_positional(args: list[str]) -> str | None:
 
 
 def _resolve_target_name(command: tuple[str, ...], args: list[str]) -> str | None:
-    """The resource name the user must type (or pass to `--confirm`).
+    """
+    The resource name the user must type (or pass to `--confirm`).
 
     App-scoped destroy takes the app from `--app NAME` (never positional);
     every other destructive command names its resource positionally (addon
@@ -115,7 +118,8 @@ def confirm_destructive_action(  # ruff:ignore[too-many-return-statements] — s
     *,
     flags: CliFlags | None = None,
 ) -> bool:
-    """Prompt user to confirm a destructive action (ADR 036 D14, G6, G5).
+    """
+    Prompt user to confirm a destructive action (ADR 036 D14, G6, G5).
 
     Confirmation has three escapes for non-interactive use, plus an
     interactive path:
@@ -203,7 +207,8 @@ def confirm_destructive_action(  # ruff:ignore[too-many-return-statements] — s
 
 
 def _maybe_show_context_warning(config: Config | None) -> None:
-    """Emit a context-mismatch warning before destructive ops (ADR 036 D14).
+    """
+    Emit a context-mismatch warning before destructive ops (ADR 036 D14).
 
     "Mismatch" here is shallow: we just print the active context so the
     user can spot at a glance if they're about to destroy in production.

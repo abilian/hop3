@@ -3,7 +3,8 @@
 
 # ruff:file-ignore[raise-vanilla-args, raw-string-in-exception, f-string-in-exception, suppressible-exception, typing-only-standard-library-import]
 
-"""Client for the hop3-rootd Unix socket.
+"""
+Client for the hop3-rootd Unix socket.
 
 `LocalRootdClient` connects to /run/hop3-rootd/socket, performs the
 mandatory `daemon.handshake`, and exposes `call(op, args)` for op
@@ -47,7 +48,8 @@ class RootdError(Exception):
 
 
 class RootdUnavailableError(RootdError):
-    """Couldn't reach the daemon (socket missing, permission denied,
+    """
+    Couldn't reach the daemon (socket missing, permission denied,
     connection refused). Treated as a deploy-blocker.
     """
 
@@ -57,7 +59,8 @@ class RootdProtocolError(RootdError):
 
 
 class RootdOpError(RootdError):
-    """Op completed but returned an error envelope.
+    """
+    Op completed but returned an error envelope.
 
     The `code` field is one of the `ErrorCode` values defined in the
     daemon (validation_failed, kernel_error, state_conflict, etc.).
@@ -74,7 +77,8 @@ class RootdOpError(RootdError):
 
 
 class LocalRootdClient:
-    """One-connection, one-thread client for hop3-rootd.
+    """
+    One-connection, one-thread client for hop3-rootd.
 
     Use as a context manager:
 
@@ -144,7 +148,8 @@ class LocalRootdClient:
     # --- Handshake -------------------------------------------------------
 
     def _handshake(self) -> None:
-        """Send daemon.handshake and validate the response.
+        """
+        Send daemon.handshake and validate the response.
 
         Version skew is surfaced as RootdProtocolError with the actionable
         remediation ADR 041 §3 promises, via two paths:
@@ -187,7 +192,8 @@ class LocalRootdClient:
     # --- Op call (public API) --------------------------------------------
 
     def call(self, op: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Invoke `op` with `args`. Returns the result dict on success.
+        """
+        Invoke `op` with `args`. Returns the result dict on success.
 
         Raises RootdOpError on a daemon-side error.
         Raises RootdUnavailableError / RootdProtocolError on transport
@@ -261,7 +267,8 @@ class LocalRootdClient:
 
 
 def _client_version() -> str:
-    """Return the hop3-server version (best-effort).
+    """
+    Return the hop3-server version (best-effort).
 
     Not essential — the daemon doesn't gate on this. We just send it
     for diagnostics in the audit log.

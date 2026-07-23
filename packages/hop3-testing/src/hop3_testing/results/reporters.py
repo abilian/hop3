@@ -26,7 +26,8 @@ def _phase_breakdown(result: TestResult) -> list[tuple[str, float]]:
 
 
 def narrate_timings(results: list[TestResult], *, output: TextIO | None = None) -> None:
-    """Print a per-test phase-timing breakdown (the ``--narrate`` reporter).
+    """
+    Print a per-test phase-timing breakdown (the ``--narrate`` reporter).
 
     Preserves the demo harness's timing narration: where the wall-clock went,
     per test and per phase (deploy / http / script / ...), slowest first.
@@ -100,7 +101,8 @@ class ConsoleReporter:
         return f"{colors.get(color, '')}{text}{colors['reset']}"
 
     def report_test(self, result: TestResult) -> None:
-        """Report a single test result.
+        """
+        Report a single test result.
 
         Args:
             result: The test result to report
@@ -156,7 +158,8 @@ class ConsoleReporter:
             )
 
     def summary(self, results: list[TestResult]) -> None:
-        """Print summary of all results.
+        """
+        Print summary of all results.
 
         Args:
             results: List of all test results
@@ -194,7 +197,8 @@ class ConsoleReporter:
             self._print_recap(results, total_duration)
 
     def _print_failed_tests(self, results: list[TestResult]) -> None:
-        """Print the list of failed tests with a one-line root cause,
+        """
+        Print the list of failed tests with a one-line root cause,
         the tail of the app's own stderr log (the usually-interesting
         part), and a pointer to each test's full log file.
         """
@@ -241,7 +245,8 @@ class ConsoleReporter:
             )
 
     def _extract_app_log_tail(self, result: TestResult, *, max_lines: int = 30) -> str:
-        """Extract the most-relevant tail of app logs from runtime diagnostics.
+        """
+        Extract the most-relevant tail of app logs from runtime diagnostics.
 
         ``collect_runtime_logs`` produces a labelled blob with per-section
         ``--- Title ---`` headers. Two relevant sections:
@@ -309,7 +314,8 @@ class ConsoleReporter:
         return self._format_tail(f"[{picked_path}]", picked_content, max_lines)
 
     def _extract_docker_logs_tail(self, blob: str, *, max_lines: int) -> str:
-        """Tail of the first container's docker logs, if any.
+        """
+        Tail of the first container's docker logs, if any.
 
         Used as a fallback when the native log section had no real
         files (typical for docker-based apps where uWSGI isn't involved).
@@ -380,7 +386,8 @@ class ConsoleReporter:
         return f"{self.logs_dir}/{result.test.name}.log"
 
     def _extract_root_cause(self, error: str) -> str:
-        """Extract the single most useful line from a test error.
+        """
+        Extract the single most useful line from a test error.
 
         Strategies (in order):
         - Known Hop3 Abort patterns ("Deployer can't ...", etc.)
@@ -422,7 +429,8 @@ class ConsoleReporter:
         return lines[-1][:200]
 
     def _print_per_app_results(self, results: list[TestResult]) -> None:
-        """Print one line per test: `- <name> (<path>): OK|FAIL`.
+        """
+        Print one line per test: `- <name> (<path>): OK|FAIL`.
 
         Sorted by pass/fail (failures first for triage visibility),
         then by name within each group. Path is shown relative to the
@@ -458,7 +466,8 @@ class ConsoleReporter:
 
     @staticmethod
     def _app_display_path(result: TestResult) -> str:
-        """Best-effort relative path for display.
+        """
+        Best-effort relative path for display.
 
         Prefer the app_path (directory containing hop3.toml/test.toml),
         fall back to source_path's parent, fall back to '?'. Relative
@@ -475,7 +484,8 @@ class ConsoleReporter:
             return str(path)
 
     def _print_recap(self, results: list[TestResult], total_duration: float) -> None:
-        """Print a recap of what was tested.
+        """
+        Print a recap of what was tested.
 
         Args:
             results: List of all test results

@@ -85,10 +85,12 @@ def test_run_detail_shows_results_and_regressions(tmp_path):
 
 
 def test_run_detail_in_progress_is_accessible_and_live(tmp_path):
-    """A still-running run's finished builds are viewable, with a running state
+    """
+    A still-running run's finished builds are viewable, with a running state
     and a manual Refresh button. There is NO meta-refresh: a periodic full
     reload would wipe scroll position, table sort/filter state, and any
-    in-progress text selection while the operator reads the live run."""
+    in-progress text selection while the operator reads the live run.
+    """
     db = tmp_path / "test-results.db"
     _seed_run_with_failure(
         db, "2026-06-08T00-00-00Z-nightly-live1", "edrix", finished=False
@@ -147,8 +149,10 @@ def _platform_ref_in_session_details(html: str) -> str | None:
 
 
 def test_run_detail_shows_provenance_tuple(tmp_path):
-    """The composition identity (source / apps_ref / platform_ref) renders in
-    Session details — the dashboard says which composition this run was (§A)."""
+    """
+    The composition identity (source / apps_ref / platform_ref) renders in
+    Session details — the dashboard says which composition this run was (§A).
+    """
     db = tmp_path / "test-results.db"
     _seed_run_with_failure(
         db,
@@ -171,8 +175,10 @@ def test_run_detail_shows_provenance_tuple(tmp_path):
 
 
 def test_run_detail_distinguishes_compositions_by_platform_ref(tmp_path):
-    """Same apps@devel, two platform refs -> two distinct compositions, each
-    page showing its own platform_ref (the heart of slice 1's value)."""
+    """
+    Same apps@devel, two platform refs -> two distinct compositions, each
+    page showing its own platform_ref (the heart of slice 1's value).
+    """
     db = tmp_path / "test-results.db"
     _seed_run_with_failure(
         db,

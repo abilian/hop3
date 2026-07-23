@@ -50,7 +50,8 @@ class TestCredentialEncryption:
         assert "username" not in encrypted
 
     def test_encrypted_data_is_base64(self):
-        """Test that the Fernet token portion is valid URL-safe base64.
+        """
+        Test that the Fernet token portion is valid URL-safe base64.
 
         Wave 3 added a ``v2:`` scheme prefix in front of the token so the
         decrypt path can route to the right key; the token itself is
@@ -124,7 +125,8 @@ class TestCredentialEncryption:
         assert decrypted == data
 
     def test_different_encryptions_produce_different_output(self):
-        """Test that encrypting the same data twice produces different output.
+        """
+        Test that encrypting the same data twice produces different output.
 
         Fernet includes a timestamp in the encrypted data, so the same plaintext
         encrypted twice will have different ciphertext.

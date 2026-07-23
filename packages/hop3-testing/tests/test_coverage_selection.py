@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""The `tag-coverage` and `combo-coverage` modes.
+"""
+The `tag-coverage` and `combo-coverage` modes.
 
 ``tag-coverage``: minimal subset covering every individual tag value at least once.
 ``combo-coverage``: minimal subset covering every observed 5-tuple at least once.

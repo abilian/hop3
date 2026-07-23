@@ -34,7 +34,8 @@ REDIS_PASS_FILE = Path("/etc/hop3/redis-pass")
 
 
 def _ensure_redis_password() -> str:
-    """Generate (or load) the Redis auth password and persist it.
+    """
+    Generate (or load) the Redis auth password and persist it.
 
     The file is written 0640 root:hop3 so the hop3-server process can
     read it while keeping it inaccessible to other local users. If the
@@ -55,7 +56,8 @@ def _ensure_redis_password() -> str:
 
 
 def fix_redis_pass_ownership() -> None:
-    """Re-apply root:hop3 ownership on the redis password file.
+    """
+    Re-apply root:hop3 ownership on the redis password file.
 
     Safe to call repeatedly; called both at password generation time and
     after the hop3 user is created (which may happen *after* Redis is
@@ -74,7 +76,8 @@ def fix_redis_pass_ownership() -> None:
 
 
 def _configure_redis_bind() -> None:
-    """Configure Redis to bind to localhost and Docker bridge.
+    """
+    Configure Redis to bind to localhost and Docker bridge.
 
     This allows Docker containers to connect to Redis via host.docker.internal
     while keeping Redis inaccessible from external networks.
@@ -121,7 +124,8 @@ def _update_redis_bind(content: str, docker_ip: str) -> tuple[str, bool]:
 
 
 def _update_redis_requirepass(content: str, password: str) -> tuple[str, bool]:
-    """Ensure Redis is configured with the persisted requirepass.
+    """
+    Ensure Redis is configured with the persisted requirepass.
 
     Replaces the previous ``_update_redis_protected_mode`` helper, which
     disabled protected-mode for Docker bridge access *without* setting
@@ -147,7 +151,8 @@ def _update_redis_requirepass(content: str, password: str) -> tuple[str, bool]:
 
 
 def configure_redis() -> None:
-    """Configure Redis for Hop3 use.
+    """
+    Configure Redis for Hop3 use.
 
     Ensures Redis is:
     - Running as a primary (not a replica)

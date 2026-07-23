@@ -1,7 +1,8 @@
 # Copyright (c) 2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Docker Compose deployment strategy for Hop3.
+"""
+Docker Compose deployment strategy for Hop3.
 
 This deployer runs applications using Docker Compose, which allows for
 complex multi-container deployments with networking, volumes, and scaling.
@@ -60,7 +61,8 @@ GENERATED_COMPOSE_FILE = ".hop3-compose.yml"
 
 @dataclass(frozen=True)
 class DockerComposeDeployer:
-    """Deployment strategy using Docker Compose.
+    """
+    Deployment strategy using Docker Compose.
 
     This deployer:
     1. Accepts docker-image artifacts from DockerBuilder
@@ -96,7 +98,8 @@ class DockerComposeDeployer:
         return self.context.app_name
 
     def accept(self) -> bool:
-        """Check if this deployer can handle the artifact.
+        """
+        Check if this deployer can handle the artifact.
 
         Returns:
             True if artifact is a docker-image (compose file is optional)
@@ -106,7 +109,8 @@ class DockerComposeDeployer:
         return self.artifact.kind == "docker-image"
 
     def _get_compose_file(self) -> Path:
-        """Get the compose file to use.
+        """
+        Get the compose file to use.
 
         Returns user-supplied compose file if it exists,
         otherwise generates one.
@@ -125,7 +129,8 @@ class DockerComposeDeployer:
         return self._generate_compose_file()
 
     def _rewrite_host_for_docker(self, value: str) -> str:
-        """Rewrite localhost/127.0.0.1 to host.docker.internal in a
+        """
+        Rewrite localhost/127.0.0.1 to host.docker.internal in a
         value, but only at host-boundary positions (``@host:port``,
         ``://host:port``, bare ``host:port``, or the full value being
         just ``host``).
@@ -164,7 +169,8 @@ class DockerComposeDeployer:
         return out
 
     def _compose_limits_section(self) -> str:
-        """Render [limits] as docker-compose resource caps (ADR 046 §3).
+        """
+        Render [limits] as docker-compose resource caps (ADR 046 §3).
 
         Returns the compose service lines (with a leading newline) or "" when no
         limits are declared. Docker enforces these natively.
@@ -187,7 +193,8 @@ class DockerComposeDeployer:
         return ("\n" + "\n".join(lines)) if lines else ""
 
     def _generate_compose_file(self) -> Path:
-        """Generate a docker-compose.yml for the application.
+        """
+        Generate a docker-compose.yml for the application.
 
         Returns:
             Path to the generated compose file
@@ -271,7 +278,8 @@ services:
         return compose_path
 
     def deploy(self, deltas: dict[str, int] | None = None) -> DeploymentInfo:
-        """Deploy the application using Docker Compose.
+        """
+        Deploy the application using Docker Compose.
 
         Args:
             deltas: Optional scaling deltas for services
@@ -371,7 +379,8 @@ services:
         )
 
     def _prune_dangling_images(self) -> None:
-        """Reclaim the image a redeploy just superseded.
+        """
+        Reclaim the image a redeploy just superseded.
 
         Each (re)deploy moves the ``hop3/<app>:latest`` tag to the freshly
         built image, leaving the previous one *dangling* (untagged) and — now
@@ -390,7 +399,8 @@ services:
             )
 
     def _allocate_port(self) -> int:
-        """Allocate a unique port for this app.
+        """
+        Allocate a unique port for this app.
 
         If the app already has a port assigned (from previous deployment),
         try to reuse it if it's still free. Otherwise, allocate a new free port.
@@ -416,7 +426,8 @@ services:
         return port
 
     def _get_container_port(self) -> int:
-        """Get the container port for this application.
+        """
+        Get the container port for this application.
 
         Priority:
         1. hop3.toml [docker] port
@@ -442,7 +453,8 @@ services:
         return 8080
 
     def _get_compose_cmd_base(self) -> list[str]:
-        """Get base docker compose command with file and project args.
+        """
+        Get base docker compose command with file and project args.
 
         Returns:
             Base command list with -f and -p arguments
@@ -544,7 +556,8 @@ services:
             pass  # Network might not exist or docker not available
 
     def scale(self, deltas: dict[str, int] | None = None) -> None:
-        """Scale services up or down.
+        """
+        Scale services up or down.
 
         Args:
             deltas: Dictionary mapping service names to desired replica counts
@@ -570,7 +583,8 @@ services:
         log(f"App '{self.app_name}' scaled.", level=2, fg="green")
 
     def check_status(self) -> bool:
-        """Check if the application is running.
+        """
+        Check if the application is running.
 
         Returns:
             True if at least one container is running
@@ -601,7 +615,8 @@ services:
             return False
 
     def _get_status_check_env(self) -> dict[str, str]:
-        """Get minimal environment for status check commands.
+        """
+        Get minimal environment for status check commands.
 
         Returns environment variables needed for docker compose to parse
         the compose file, particularly for variable substitution like
@@ -627,7 +642,8 @@ services:
         return env
 
     def get_status(self) -> dict:
-        """Get detailed status of the deployment.
+        """
+        Get detailed status of the deployment.
 
         Returns:
             Dictionary with running status and service details
@@ -682,7 +698,8 @@ services:
         return status
 
     def _get_compose_env(self, port: int | None = None) -> dict[str, str]:
-        """Get environment variables for Docker Compose.
+        """
+        Get environment variables for Docker Compose.
 
         These variables are available for substitution in docker-compose.yml
         using ${VAR} syntax. For user-supplied compose files, this enables
@@ -730,7 +747,8 @@ services:
         *,
         check: bool = True,
     ) -> subprocess.CompletedProcess:
-        """Run a Docker Compose command.
+        """
+        Run a Docker Compose command.
 
         Args:
             cmd: Command and arguments
@@ -869,7 +887,8 @@ services:
     def _discover_port(
         self, expected_port: int | None = None, compose_file: Path | None = None
     ) -> int:
-        """Discover the HOST port the application is listening on.
+        """
+        Discover the HOST port the application is listening on.
 
         For Docker containers, the host port may differ from the container port
         due to port mapping (e.g., -p 5000:8080 maps host 5000 to container 8080).
@@ -936,7 +955,8 @@ services:
         return expected_port or internal_port
 
     def _setup_proxy(self, port: int) -> None:
-        """Setup proxy configuration if HOST_NAME is configured.
+        """
+        Setup proxy configuration if HOST_NAME is configured.
 
         Args:
             port: The port the container is accessible on
@@ -988,7 +1008,8 @@ services:
             raise
 
     def _make_proxy_env(self, port: int) -> Env:
-        """Create environment for proxy configuration.
+        """
+        Create environment for proxy configuration.
 
         Follows the same pattern as StaticDeployer and AppLauncher.
 
@@ -1032,7 +1053,8 @@ services:
         return env
 
     def _get_workers(self) -> dict[str, str]:
-        """Get workers configuration for proxy.
+        """
+        Get workers configuration for proxy.
 
         Docker apps have a single 'web' worker representing the container.
         The proxy will route traffic to BIND_ADDRESS:PORT.

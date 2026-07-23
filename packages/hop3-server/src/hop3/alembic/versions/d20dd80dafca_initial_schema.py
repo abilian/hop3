@@ -1,5 +1,6 @@
 # Copyright (c) 2025, Abilian SAS
-"""Initial schema
+"""
+Initial schema
 
 Revision ID: d20dd80dafca
 Revises:

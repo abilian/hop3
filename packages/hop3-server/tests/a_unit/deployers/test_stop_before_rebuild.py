@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""A redeploy must stop the previous instance before rebuilding in place.
+"""
+A redeploy must stop the previous instance before rebuilding in place.
 
 The build runs in the same `src` tree the running app uses, and build outputs
 land there (node_modules, dist, target/*.jar, esbuild binaries). If the old

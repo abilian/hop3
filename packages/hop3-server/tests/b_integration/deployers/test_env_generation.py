@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Generated secrets are materialized once and never rotate (ADR 046).
+"""
+Generated secrets are materialized once and never rotate (ADR 046).
 
 `set_generated_env_vars` creates a secret only when the var is unset, persists
 it as a normal env var, and leaves it untouched on every later deploy — so a

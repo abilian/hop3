@@ -3,7 +3,8 @@ from __future__ import annotations
 
 
 class Command:
-    """Base class for CLI commands.
+    """
+    Base class for CLI commands.
 
     Commands must have a `name` attribute and a `run()` method.
     Each command can define its own `run()` signature with typed parameters

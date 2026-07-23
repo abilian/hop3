@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""The spawner must never hand a lifecycle hook to uWSGI as a daemon.
+"""
+The spawner must never hand a lifecycle hook to uWSGI as a daemon.
 
 A Procfile `prebuild:` is a build step, not a persistent process. The
 `AppLauncher.workers` fallback (config.workers, used when the build artifact has

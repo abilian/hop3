@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""State-based tests for the Caddy proxy config generator.
+"""
+State-based tests for the Caddy proxy config generator.
 
 These exercise the functional core (env -> Caddyfile string) of
 ``CaddyVirtualHost``, asserting on the produced configuration text. They
@@ -49,10 +50,12 @@ def make_host(env_overrides: dict, workers: dict[str, str] | None = None):
     ],
 )
 def test_post_init_rejects_host_name_injection(bad_host: str) -> None:
-    """HOST_NAME values that could escape the `$HOST_NAME {` block are refused
+    """
+    HOST_NAME values that could escape the `$HOST_NAME {` block are refused
     at setup time, closing the Caddy directive-injection vector. (Whitespace,
     incl. newlines, is treated as a host-list separator and each token is
-    validated individually -- see the space-join test.)"""
+    validated individually -- see the space-join test.)
+    """
     env = Env({"HOST_NAME": bad_host, "PORT": "8000", "APP": "testapp"})
     with pytest.raises(InvalidIdentifierError):
         CaddyVirtualHost(App(name="testapp"), env, {})
@@ -186,10 +189,12 @@ def test_cache_mappings_empty_without_prefixes() -> None:
 
 
 def test_cache_prefixes_currently_produce_no_mapping() -> None:
-    """Locks down a known latent bug: setup_cache feeds an *int*
+    """
+    Locks down a known latent bug: setup_cache feeds an *int*
     max-age into expand_vars, which raises TypeError; the broad except
     swallows it and leaves the cache mappings empty. This test will start
-    failing (correctly) once the int->str fix lands -- flag, don't hide."""
+    failing (correctly) once the int->str fix lands -- flag, don't hide.
+    """
     host = make_host(
         {"CADDY_CACHE_PREFIXES": "/static,/assets", "CADDY_CACHE_CONTROL": "7200"},
         workers={"web": "x"},

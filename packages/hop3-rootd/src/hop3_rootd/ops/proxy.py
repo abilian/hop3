@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""proxy ops: addon-exposure TCP forwarders (`hop3 addon expose`).
+"""
+proxy ops: addon-exposure TCP forwarders (`hop3 addon expose`).
 
 Each op validates args, writes/enables (or removes) the per-addon
 ``systemd-socket-proxyd`` unit pair via the ``proxy`` helper, updates
@@ -79,7 +80,8 @@ def add_proxy(req: Request, ctx: OpContext) -> dict[str, Any]:
 
 @register("proxy.remove")
 def remove_proxy(req: Request, ctx: OpContext) -> dict[str, Any]:
-    """Stop+disable+delete an addon's forwarder and drop it from state.
+    """
+    Stop+disable+delete an addon's forwarder and drop it from state.
 
     Idempotent: an addon that isn't exposed reports ``removed=False``. Always
     drops the (type, name) state row so a destroyed addon leaves no tracked
@@ -106,7 +108,8 @@ def remove_proxy(req: Request, ctx: OpContext) -> dict[str, Any]:
 
 @register("proxy.list", audit=False)
 def list_proxies(req: Request, ctx: OpContext) -> dict[str, Any]:
-    """List the addon forwarders rootd tracks (teardown-verification surface).
+    """
+    List the addon forwarders rootd tracks (teardown-verification surface).
 
     Optional ``addon_type`` filter. After unexposing an addon the server calls
     proxy.list and expects it gone.

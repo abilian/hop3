@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""The deploy must install the addons the selected apps DECLARE.
+"""
+The deploy must install the addons the selected apps DECLARE.
 
 Bug: `hop3-test run .../150-flask-s3` deployed the server without
 s3, so the app's s3 addon couldn't be provisioned ("Was the server installed
@@ -80,7 +81,8 @@ def test_features_for_suites_derives_s3_from_the_real_app():
 
 
 def test_email_addon_maps_to_the_installer_feature():
-    """`--with email` exists in the installer; the map must know it.
+    """
+    `--with email` exists in the installer; the map must know it.
 
     Regression: bugsink declares `[[addons]] type = "email"`, and because this
     set omitted "email" every run selecting it aborted with "addon(s) with no
@@ -91,7 +93,8 @@ def test_email_addon_maps_to_the_installer_feature():
 
 
 def test_every_declared_addon_is_provisionable():
-    """No app may declare an addon the harness cannot install.
+    """
+    No app may declare an addon the harness cannot install.
 
     This is the drift guard: an addon added to a recipe without a matching
     installer feature fails here, at test time, instead of aborting a cloud run

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Collision-safe run-ids and artifact directories for diagnostic bundles.
+"""
+Collision-safe run-ids and artifact directories for diagnostic bundles.
 
 A bundle's ``run_id`` is ``<ISO>-<app>-<shortid>`` (ADR 043 §7.3). The ISO
 timestamp is colon-free so it is filesystem-safe; the short hex suffix dedupes
@@ -31,7 +32,8 @@ def _slug(name: str) -> str:
 
 
 def make_run_id(app: str, *, now: datetime | None = None) -> str:
-    """Build ``<ISO>-<app>-<shortid>``.
+    """
+    Build ``<ISO>-<app>-<shortid>``.
 
     Under pytest-xdist the worker id is folded in so parallel writers never
     contend on the same base id.
@@ -43,7 +45,8 @@ def make_run_id(app: str, *, now: datetime | None = None) -> str:
 
 
 def make_bundle_dir(run_id: str, base_dir: Path | None = None) -> tuple[str, Path]:
-    """Create a unique bundle directory.
+    """
+    Create a unique bundle directory.
 
     Returns ``(final_run_id, dir)``. ``final_run_id`` may be *extended* on a
     collision and MUST be the value persisted to the store, so the on-disk

@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 
 
 class JavaToolchain(LanguageToolchain):
-    """Language toolchain for Java projects.
+    """
+    Language toolchain for Java projects.
 
     This is responsible for building Java projects by checking for Maven
     (pom.xml) or Gradle (build.gradle) configuration files.

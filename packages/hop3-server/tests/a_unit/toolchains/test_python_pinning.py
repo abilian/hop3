@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Dependency-pinning checks for the Python toolchain.
+"""
+Dependency-pinning checks for the Python toolchain.
 
 An unpinned requirement resolves to whatever satisfies it on the day of the
 build, so the same commit can deploy different code twice. The toolchain

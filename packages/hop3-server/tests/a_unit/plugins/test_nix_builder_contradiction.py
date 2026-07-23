@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for NixBuilder's contradiction check.
+"""
+Tests for NixBuilder's contradiction check.
 
 When both an explicit hop3.nix file AND a [nix].template section in
 hop3.toml are present, the builder must abort with an actionable
@@ -100,7 +101,8 @@ def test_build_aborts_when_both_present(tmp_path: Path):
 
 
 def test_nix_build_registers_gc_root_via_out_link(tmp_path: Path, monkeypatch):
-    """The build must root its closure with --out-link to <app>/.nix-result,
+    """
+    The build must root its closure with --out-link to <app>/.nix-result,
     not --no-out-link. Otherwise a later nix garbage-collect (or auto-GC under
     disk pressure) deletes a *running* app's binary — e.g. forgejo's wrapper
     execs the hardcoded ${forgejo}/bin/forgejo and the daemon dies with
@@ -130,7 +132,8 @@ def test_nix_build_registers_gc_root_via_out_link(tmp_path: Path, monkeypatch):
 
 
 def test_nix_build_reregisters_previous_gc_root(tmp_path: Path, monkeypatch):
-    """A rebuild must keep the immediately-prior closure rooted THROUGHOUT the
+    """
+    A rebuild must keep the immediately-prior closure rooted THROUGHOUT the
     build: a still-running old worker execs a hardcoded store path (forgejo's
     wrapper execs ${forgejo}/bin/forgejo), and a GC mid-rebuild would delete it.
 

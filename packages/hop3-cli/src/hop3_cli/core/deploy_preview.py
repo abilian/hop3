@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Build and render the deploy preview (ADR 042 §Deploy preview).
+"""
+Build and render the deploy preview (ADR 042 §Deploy preview).
 
 ``hop3 deploy`` becomes "destructive-ish": before sending the deploy
 RPC, the CLI prints a plan of what's about to happen and prompts the
@@ -55,7 +56,8 @@ class GitState:
 
 @dataclass(frozen=True)
 class DeployPlan:
-    """Materialised view of what ``hop3 deploy`` is about to do.
+    """
+    Materialised view of what ``hop3 deploy`` is about to do.
 
     All fields are best-effort: missing hop3.toml, no git repo, etc.
     don't fail — the plan still renders with empty / "(none)" markers
@@ -95,7 +97,8 @@ def build_plan(
     home: Path | None = None,
     git_runner: Callable[[list[str], Path], str | None] | None = None,
 ) -> DeployPlan:
-    """Build the deploy plan from the resolved inputs.
+    """
+    Build the deploy plan from the resolved inputs.
 
     Reads ``source_path / hop3.toml`` ONLY — not an ancestor's. The
     deploy archive (``pack_repository`` in commands/arguments.py) only
@@ -168,7 +171,8 @@ def build_plan(
 
 
 def render_plan(plan: DeployPlan) -> str:
-    """Format the plan as a multi-line string ready to print to stdout.
+    """
+    Format the plan as a multi-line string ready to print to stdout.
 
     Layout matches the ADR's §Deploy preview example. Empty fields
     surface as ``(none)`` rather than being omitted, so the operator
@@ -212,7 +216,8 @@ def domain_target_warnings(
     *,
     resolver: Callable[[str], set[str]] | None = None,
 ) -> list[str]:
-    """Warn when an app domain doesn't resolve to the deploy-target server.
+    """
+    Warn when an app domain doesn't resolve to the deploy-target server.
 
     The #1 invisible-502: the app is deployed and healthy on server A, but the
     domain's DNS still points at server B (a CDN, an old box, a typo'd
@@ -259,7 +264,8 @@ def domain_target_warnings(
 
 
 def resolve_host_ips(host: str, *, timeout: float = 2.0) -> set[str]:
-    """Best-effort resolve ``host`` to its set of IPv4/IPv6 addresses.
+    """
+    Best-effort resolve ``host`` to its set of IPv4/IPv6 addresses.
 
     Returns an empty set on any failure (unknown host, timeout, etc.) — the
     caller treats "couldn't resolve" as "don't warn", never as an error.
@@ -306,7 +312,8 @@ def _context_block(data: dict[str, Any], context: str) -> dict[str, Any] | None:
 def flatten_for_context(
     data: dict[str, Any], context_name: str | None
 ) -> dict[str, Any]:
-    """Produce the EFFECTIVE hop3.toml for a deploy (ADR 042 r2, §E1).
+    """
+    Produce the EFFECTIVE hop3.toml for a deploy (ADR 042 r2, §E1).
 
     Merges the selected context into the top level and strips every
     ``[contexts.*]`` block (the latter is never uploaded — decision §E1):
@@ -335,7 +342,8 @@ def flatten_for_context(
 
 
 def _all_domains(data: dict[str, Any]) -> list[str]:
-    """Every hostname this app will be served at (deduped, order-preserving).
+    """
+    Every hostname this app will be served at (deduped, order-preserving).
 
     Union of ``[domains].list`` AND the legacy ``HOST_NAME`` env var (the proxy
     serves whatever HOST_NAME names). ``data`` is already context-flattened by
@@ -364,7 +372,8 @@ def _resolved_domains(data: dict[str, Any]) -> list[str]:
 
 
 def _host_name_domains(data: dict[str, Any]) -> list[str]:
-    """Domains derived from the merged ``HOST_NAME`` env var.
+    """
+    Domains derived from the merged ``HOST_NAME`` env var.
 
     HOST_NAME may name multiple hosts (whitespace/comma-separated); the
     catch-all ``_`` and blanks are excluded. ``data`` is already
@@ -393,7 +402,8 @@ def _addon_names(data: dict[str, Any]) -> list[str]:
 
 
 def _resolved_env_keys(data: dict[str, Any]) -> list[str]:
-    """Names (not values) of env vars in the (context-flattened) ``[env]``.
+    """
+    Names (not values) of env vars in the (context-flattened) ``[env]``.
 
     ``_policy`` / nested sub-tables are filtered out. ``data`` is already
     context-flattened, so this is just the merged top-level ``[env]``.
@@ -408,7 +418,8 @@ def _resolved_env_keys(data: dict[str, Any]) -> list[str]:
 
 
 def _default_git_runner(argv: list[str], cwd: Path) -> str | None:
-    """Run a git command and return stdout. Returns None on any failure.
+    """
+    Run a git command and return stdout. Returns None on any failure.
 
     Kept tiny and side-effect-free: we don't raise on missing git, on a
     non-git directory, or on a command failure — those all just mean

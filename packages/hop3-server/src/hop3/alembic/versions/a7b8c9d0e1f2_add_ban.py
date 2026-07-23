@@ -1,5 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
-"""add ban table (ADR 050 §4 — per-app L7 WAF bans)
+"""
+add ban table (ADR 050 §4 — per-app L7 WAF bans)
 
 Revision ID: a7b8c9d0e1f2
 Revises: f2a3b4c5d6e7
@@ -31,7 +32,8 @@ def _has_table(name: str) -> bool:
 
 
 def upgrade() -> None:
-    """Create the ban table (ADR 050 §4 — per-app, time-limited source denials).
+    """
+    Create the ban table (ADR 050 §4 — per-app, time-limited source denials).
 
     Idempotent: a brand-new database gets all tables via ``create_all`` (then
     stamped at head), so this guard skips the create when such a DB is adopted.

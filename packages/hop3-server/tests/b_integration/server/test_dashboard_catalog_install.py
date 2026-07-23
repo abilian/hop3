@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Integration tests for the wired dashboard catalog-install form.
+"""
+Integration tests for the wired dashboard catalog-install form.
 
 The install POST now stages the recipe (shared with the CLI) AND kicks off the
 background deploy — so we stub ``deploy_app_streaming`` (no real build) and

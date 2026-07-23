@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Configure the loopback Postfix relay for the active email backend (ADR 054).
+"""
+Configure the loopback Postfix relay for the active email backend (ADR 054).
 
 Called when the operator selects the relay backend (`hop3 server email backend
 relay` / `set`). Drives the hop3-rootd `postfix.configure` op via
@@ -28,8 +29,10 @@ class OnRampError(Exception):
 
 
 def _relay_args(transport: EmailTransport) -> dict[str, object]:
-    """The `postfix.configure` args for a relay backend (no From — Postfix
-    relays whatever envelope the app presents)."""
+    """
+    The `postfix.configure` args for a relay backend (no From — Postfix
+    relays whatever envelope the app presents).
+    """
     return {
         "relay_host": transport.smtp_host,
         "relay_port": transport.smtp_port,
@@ -39,7 +42,8 @@ def _relay_args(transport: EmailTransport) -> dict[str, object]:
 
 
 def configure_relay_backend(transport: EmailTransport) -> str | None:
-    """Point the loopback Postfix relay at ``transport`` (a provider/smarthost).
+    """
+    Point the loopback Postfix relay at ``transport`` (a provider/smarthost).
 
     Returns the reload method, or ``None`` when skipped (unit/integration tests,
     which run without a live daemon). Raises :class:`OnRampError` if hop3-rootd
@@ -49,7 +53,8 @@ def configure_relay_backend(transport: EmailTransport) -> str | None:
 
 
 def configure_catch_backend() -> str | None:
-    """Point the loopback Postfix relay at a local dev sink (Mailpit).
+    """
+    Point the loopback Postfix relay at a local dev sink (Mailpit).
 
     Returns the reload method, or ``None`` when skipped in tests.
     """
@@ -59,7 +64,8 @@ def configure_catch_backend() -> str | None:
 def configure_direct_backend(
     from_domain: str, server_ip: str, dkim_selector: str
 ) -> dict[str, object] | None:
-    """Configure a self-hosted MTA delivering to MX, DKIM-signed.
+    """
+    Configure a self-hosted MTA delivering to MX, DKIM-signed.
 
     Returns the op result (including the ``records`` to publish), or ``None``
     when skipped in tests. Raises :class:`OnRampError` on failure.

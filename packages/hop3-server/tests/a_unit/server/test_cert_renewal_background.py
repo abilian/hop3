@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Unit tests for the CertRenewalService background worker.
+"""
+Unit tests for the CertRenewalService background worker.
 
 Covers the thread lifecycle and the cycle's reload contract (reload nginx only
 when something was actually renewed). The renewal decision itself is tested in

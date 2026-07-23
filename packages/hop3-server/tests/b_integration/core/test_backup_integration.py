@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""State-based integration tests for backup functionality.
+"""
+State-based integration tests for backup functionality.
 
 These tests verify the BackupManager with real database state changes
 and mock only external I/O boundaries (file system operations for
@@ -35,7 +36,8 @@ from hop3.orm.session import BigIntAuditBase
 
 @pytest.fixture
 def backup_db_engine():
-    """Create fresh in-memory test database for backup tests.
+    """
+    Create fresh in-memory test database for backup tests.
 
     Uses isolated in-memory SQLite to support parallel execution.
 
@@ -57,7 +59,8 @@ def backup_db_engine():
 
 @pytest.fixture
 def backup_db_session(backup_db_engine):
-    """Create database session for backup tests.
+    """
+    Create database session for backup tests.
 
     Provides fresh session for querying test state.
 
@@ -105,7 +108,8 @@ def backup_manager(backup_repo, app_repo, addon_credential_repo):
 
 @pytest.fixture
 def backup_test_config(tmp_path):
-    """Configure Hop3 with test directories.
+    """
+    Configure Hop3 with test directories.
 
     Sets up test backup and app root directories.
 
@@ -131,7 +135,8 @@ def backup_test_config(tmp_path):
 
 @pytest.fixture
 def sample_app(backup_db_session, backup_test_config):
-    """Create test application with files and environment variables.
+    """
+    Create test application with files and environment variables.
 
     ARRANGE: Sets up complete app state with repo, data, and env vars.
 
@@ -182,7 +187,8 @@ class TestBackupManifestIntegration:
     """Integration tests for BackupManifest dataclass with real state."""
 
     def test_create_manifest_persists_all_fields(self, backup_db_session):
-        """Test creating a manifest captures all required fields.
+        """
+        Test creating a manifest captures all required fields.
 
         ARRANGE: Create manifest with complete data
         ACT: Verify all fields are present
@@ -218,7 +224,8 @@ class TestBackupManifestIntegration:
         assert manifest.addons[0]["type"] == "postgres"
 
     def test_manifest_serialization_roundtrip(self, tmp_path):
-        """Test JSON serialization roundtrip persists manifest state.
+        """
+        Test JSON serialization roundtrip persists manifest state.
 
         ARRANGE: Create manifest and write to file
         ACT: Read back from file
@@ -265,7 +272,8 @@ class TestBackupManagerBasicOperations:
     def test_manager_initialization_stores_session(
         self, backup_repo, app_repo, addon_credential_repo
     ):
-        """Test BackupManager initializes with repositories.
+        """
+        Test BackupManager initializes with repositories.
 
         ARRANGE: Create manager with repositories
         ACT: Access repositories
@@ -285,7 +293,8 @@ class TestBackupManagerBasicOperations:
         assert manager.addon_credential_repo == addon_credential_repo
 
     def test_generate_backup_id_creates_valid_format(self, backup_manager):
-        """Test backup ID generation follows correct format.
+        """
+        Test backup ID generation follows correct format.
 
         ARRANGE: Create manager and generate ID
         ACT: Parse generated ID
@@ -302,7 +311,8 @@ class TestBackupManagerBasicOperations:
         assert len(parts[2]) == 6, "Random suffix should be 6 hex chars"
 
     def test_generate_backup_ids_are_unique(self, backup_manager):
-        """Test that multiple backup IDs are unique.
+        """
+        Test that multiple backup IDs are unique.
 
         ARRANGE: Generate multiple IDs
         ACT: Add to set to check uniqueness
@@ -315,7 +325,8 @@ class TestBackupManagerBasicOperations:
         assert len(ids) == 10, "Not all backup IDs were unique"
 
     def test_calculate_checksum_produces_sha256_format(self, backup_manager, tmp_path):
-        """Test checksum calculation produces valid SHA256 format.
+        """
+        Test checksum calculation produces valid SHA256 format.
 
         ARRANGE: Create test file with content
         ACT: Calculate checksum
@@ -332,7 +343,8 @@ class TestBackupManagerBasicOperations:
         assert len(checksum) == 71  # "sha256:" (7) + 64 hex chars
 
     def test_calculate_checksum_is_deterministic(self, backup_manager, tmp_path):
-        """Test that same file content produces same checksum.
+        """
+        Test that same file content produces same checksum.
 
         ARRANGE: Create test file
         ACT: Calculate checksum twice
@@ -351,7 +363,8 @@ class TestBackupManagerBasicOperations:
     def test_calculate_checksum_differs_for_different_content(
         self, backup_manager, tmp_path
     ):
-        """Test different file content produces different checksums.
+        """
+        Test different file content produces different checksums.
 
         ARRANGE: Create two files with different content
         ACT: Calculate checksums for each
@@ -370,7 +383,8 @@ class TestBackupManagerBasicOperations:
         assert checksum1 != checksum2
 
     def test_verify_checksums_succeeds_for_valid_files(self, backup_manager, tmp_path):
-        """Test checksum verification passes for valid backup files.
+        """
+        Test checksum verification passes for valid backup files.
 
         ARRANGE: Create files and calculate their checksums
         ACT: Verify checksums
@@ -392,7 +406,8 @@ class TestBackupManagerBasicOperations:
         assert backup_manager._verify_checksums(tmp_path, checksums) is True
 
     def test_verify_checksums_fails_on_corrupted_file(self, backup_manager, tmp_path):
-        """Test checksum verification fails when file is modified.
+        """
+        Test checksum verification fails when file is modified.
 
         ARRANGE: Create file, calculate checksum, then modify it
         ACT: Verify checksums
@@ -411,7 +426,8 @@ class TestBackupManagerBasicOperations:
         assert backup_manager._verify_checksums(tmp_path, checksums) is False
 
     def test_verify_checksums_fails_on_missing_file(self, backup_manager, tmp_path):
-        """Test checksum verification fails if expected file is missing.
+        """
+        Test checksum verification fails if expected file is missing.
 
         ARRANGE: Create checksums for non-existent file
         ACT: Verify checksums
@@ -431,7 +447,8 @@ class TestBackupManagerPathOperations:
     def test_get_backup_dir_returns_correct_path_structure(
         self, backup_manager, backup_test_config
     ):
-        """Test backup directory path generation follows app structure.
+        """
+        Test backup directory path generation follows app structure.
 
         ARRANGE: Set up test config
         ACT: Get backup directory path
@@ -445,7 +462,8 @@ class TestBackupManagerPathOperations:
         assert "backups" in str(backup_dir)
 
     def test_get_hop3_version_returns_string(self, backup_manager):
-        """Test version retrieval returns valid string.
+        """
+        Test version retrieval returns valid string.
 
         ARRANGE: Create manager
         ACT: Get Hop3 version
@@ -466,7 +484,8 @@ class TestBackupManagerServiceDetection:
     def test_detect_attached_postgres_from_addon_credential(
         self, backup_db_session, backup_manager, sample_app
     ):
-        """Test PostgreSQL detection from AddonCredential record.
+        """
+        Test PostgreSQL detection from AddonCredential record.
 
         ARRANGE: Create app with attached PostgreSQL addon
         ACT: Get attached addons
@@ -490,7 +509,8 @@ class TestBackupManagerServiceDetection:
         assert services[0] == ("postgres", "mydb")
 
     def test_detect_no_services_when_no_database_url(self, backup_manager, sample_app):
-        """Test that services list is empty when no services attached.
+        """
+        Test that services list is empty when no services attached.
 
         ARRANGE: Create app with standard env vars (no database)
         ACT: Get attached addons
@@ -510,7 +530,8 @@ class TestBackupManagerDatabaseStateChanges:
     def test_create_backup_creates_database_record(
         self, backup_db_session, backup_manager, sample_app, backup_test_config
     ):
-        """Test backup creation persists backup record to database.
+        """
+        Test backup creation persists backup record to database.
 
         ARRANGE: Set up app and manager
         ACT: Create backup
@@ -537,7 +558,8 @@ class TestBackupManagerDatabaseStateChanges:
     def test_backup_record_state_transitions(
         self, backup_db_session, backup_manager, sample_app, backup_test_config
     ):
-        """Test backup record transitions through correct states.
+        """
+        Test backup record transitions through correct states.
 
         ARRANGE: Create app and backup manager
         ACT: Create backup and observe state changes
@@ -558,7 +580,8 @@ class TestBackupManagerDatabaseStateChanges:
     def test_backup_record_failure_state(
         self, backup_db_session, backup_manager, sample_app, backup_test_config
     ):
-        """Test backup record transitions to FAILED on error.
+        """
+        Test backup record transitions to FAILED on error.
 
         ARRANGE: Create app, mock tar failure
         ACT: Attempt backup that fails
@@ -579,7 +602,8 @@ class TestBackupManagerDatabaseStateChanges:
 
 @pytest.mark.integration
 class TestVolumeBackupRestore:
-    """Backups must include [[volumes]] data and restore it (ADR 046 §2).
+    """
+    Backups must include [[volumes]] data and restore it (ADR 046 §2).
 
     Regression for the audit's two critical backup findings: (1) volume data was
     silently excluded from backups, and (2) the in-src volume symlink made

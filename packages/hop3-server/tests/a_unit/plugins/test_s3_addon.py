@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for the S3Addon class.
+"""
+Tests for the S3Addon class.
 
 Uses a stub backend to avoid needing a real MinIO/Garage server.
 The backend protocol is the right unit of isolation.

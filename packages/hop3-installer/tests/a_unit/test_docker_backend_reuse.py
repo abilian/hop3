@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""The Docker deploy backend must reuse a running container unless --clean.
+"""
+The Docker deploy backend must reuse a running container unless --clean.
 
 Recreating the container on every `hop3-deploy-server --docker` wipes
 /home/hop3 (the DB + installed venv), so a second deploy could only ever be a

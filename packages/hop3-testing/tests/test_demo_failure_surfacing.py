@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""The meta runner must surface demo failures as test failures (ADR 043 v0.3).
+"""
+The meta runner must surface demo failures as test failures (ADR 043 v0.3).
 
 A demo is an educational walkthrough, a live demonstration, AND a test. A broken
 demo directly degrades the new-developer experience, so when the underlying
@@ -104,7 +105,8 @@ def test_demo_timeout_is_reported_as_failed(tmp_path, monkeypatch):
 
 
 def test_demo_timeout_captures_partial_output(tmp_path, monkeypatch):
-    """A hung demo must still surface its partial output, not 'No logs recorded'.
+    """
+    A hung demo must still surface its partial output, not 'No logs recorded'.
 
     ``subprocess.run(capture_output=True, timeout=…)`` populates the
     TimeoutExpired's stdout/stderr with what was captured before the kill; the

@@ -265,7 +265,8 @@ Examples:
 
 
 def _apply_target_overrides(config: DeployConfig, args: argparse.Namespace) -> None:
-    """Apply target-related CLI overrides to config.
+    """
+    Apply target-related CLI overrides to config.
 
     Value options apply on ``is not None`` (the flag was PROVIDED), not on
     ``!= default``: an explicit ``--ssh-user root`` must win over an env-supplied
@@ -286,7 +287,8 @@ def _apply_target_overrides(config: DeployConfig, args: argparse.Namespace) -> N
 
 
 def _apply_from_source(config: DeployConfig, from_source: str | None) -> None:
-    """Map the canonical ``--from {pypi,git,local}`` selector onto config flags.
+    """
+    Map the canonical ``--from {pypi,git,local}`` selector onto config flags.
 
     ``--git``/``--local``/``--pypi`` still work (applied by the caller); ``--from``
     is the preferred spelling (ADR 052 D3).
@@ -451,7 +453,8 @@ def _handle_validation_errors(errors: list[str]) -> int:
 
 
 def deprecated_main() -> int:
-    """Back-compat entry for the old ``hop3-deploy`` name (ADR 052 D10).
+    """
+    Back-compat entry for the old ``hop3-deploy`` name (ADR 052 D10).
 
     ``hop3-deploy`` read as a synonym for the client's ``hop3 deploy`` (which
     deploys an *app*); this tool deploys the *server/platform*. It is renamed

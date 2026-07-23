@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Fixed host-port handling: claim registry, pre-flight refusal, firewall.
+"""
+Fixed host-port handling: claim registry, pre-flight refusal, firewall.
 
 HTTP/HTTPS is multiplexed by the reverse proxy (nginx vhosts by ``Host:``), so
 many apps share :80/:443 with no conflict. Non-HTTP services (SMTP, XMPP, RTMP,
@@ -73,7 +74,8 @@ def _close_firewall_rule(rule_id: str | None) -> None:
 def claim_fixed_ports(
     app: App, app_config: AppConfig, db_session: Session | None
 ) -> None:
-    """Pre-flight: reconcile + claim the app's declared ``[[ports]]``.
+    """
+    Pre-flight: reconcile + claim the app's declared ``[[ports]]``.
 
     Runs BEFORE build. First releases any claim this app held for a port it no
     longer declares (so a removed/changed port doesn't leak or block others).
@@ -164,7 +166,8 @@ def claim_fixed_ports(
 
 
 def open_fixed_ports(app: App, db_session: Session | None) -> None:
-    """On a successful deploy, open the firewall for the app's claimed ports.
+    """
+    On a successful deploy, open the firewall for the app's claimed ports.
 
     Best-effort: conflict prevention is DB-based and does not need rootd, so an
     unreachable rootd is a warning, not a failure. Docker apps are skipped (their
@@ -244,7 +247,8 @@ def open_fixed_ports(app: App, db_session: Session | None) -> None:
 
 
 def release_fixed_ports(app: App, db_session: Session | None) -> None:
-    """On teardown, fully release the app's fixed ports: firewall *and* registry.
+    """
+    On teardown, fully release the app's fixed ports: firewall *and* registry.
 
     Two steps, in priority order:
 

@@ -42,7 +42,8 @@ class GitHookCmd(Command):
     hidden: ClassVar[bool] = True  # Internal command, called by git hook
 
     def call(self, *args):
-        """Process git post-receive hook data and trigger deployment.
+        """
+        Process git post-receive hook data and trigger deployment.
 
         This command is called by the git post-receive hook when code is pushed.
         It reads push data from stdin, extracts the new commit to the app's
@@ -115,7 +116,8 @@ class GitHookCmd(Command):
         ]
 
     def _extract_commit_to_source(self, app: App, commit_sha: str) -> None:
-        """Extract a specific commit from the git repository to the source directory.
+        """
+        Extract a specific commit from the git repository to the source directory.
 
         This uses `git archive` to safely extract a commit without checking out
         the repository. The archive is created in a temporary location and then
@@ -182,7 +184,8 @@ class GitHookCmd(Command):
 @register
 @dataclass(frozen=True)
 class GitSetupCmd(Command):
-    """Set up git push deployment for an app.
+    """
+    Set up git push deployment for an app.
 
     This command initializes a bare git repository for the app and configures
     the post-receive hook for automatic deployment. After running this, you can

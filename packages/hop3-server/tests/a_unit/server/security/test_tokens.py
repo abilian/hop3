@@ -28,10 +28,12 @@ from hop3.server.security.tokens import (
 
 @pytest.fixture(autouse=True)
 def setup_secret_key(monkeypatch, tmp_path):
-    """Provide a test signing key via the env, and neutralize the canonical
+    """
+    Provide a test signing key via the env, and neutralize the canonical
     file. ADR 048 reads /etc/hop3/secret-key first; pointing it at an absent
     path keeps these env-based tests deterministic regardless of host (e.g. a
-    dev machine that is also a provisioned server)."""
+    dev machine that is also a provisioned server).
+    """
     monkeypatch.setattr(
         "hop3.server.security.tokens.SECRET_KEY_FILE", tmp_path / "no-secret-key"
     )
@@ -168,7 +170,8 @@ def test_token_contains_jti():
 
 
 def test_create_token_without_secret_key(monkeypatch):
-    """Token creation fails when no secret is configured (env AND config).
+    """
+    Token creation fails when no secret is configured (env AND config).
 
     ``get_secret_key`` reads ``HOP3_SECRET_KEY`` from the env, then falls back to
     the config file — so both must be cleared to exercise the failure. monkeypatch

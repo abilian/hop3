@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for DI container wiring (create_container).
+"""
+Tests for DI container wiring (create_container).
 
 These lock down that create_container() builds a container whose providers
 actually wire together: APP-scope services resolve at container level, and
@@ -86,7 +87,8 @@ def test_create_container_resolves_backup_manager_with_dependencies(container):
 
 
 def test_repositories_share_one_session_within_a_request(container):
-    """Repos resolved in the same request scope share a single DB session.
+    """
+    Repos resolved in the same request scope share a single DB session.
 
     This is the wiring guarantee that makes a request a unit of work: two
     repositories must see the same session so their writes commit together.
@@ -129,7 +131,8 @@ def test_separate_containers_are_independent(container):
 
 
 def test_plugin_providers_are_flattened_to_a_single_list():
-    """_get_plugin_providers() flattens the hook's list-of-lists into providers.
+    """
+    _get_plugin_providers() flattens the hook's list-of-lists into providers.
 
     The hook returns one list per plugin; the container expects a flat list of
     provider instances, so a nested list would silently break registration.

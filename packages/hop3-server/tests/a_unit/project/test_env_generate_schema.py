@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Schema + parsing for [env] { generate = ... } secret declarations (ADR 046).
+"""
+Schema + parsing for [env] { generate = ... } secret declarations (ADR 046).
 
 A generated secret declared in hop3.toml must parse into
 ``Hop3Config.env_generated`` (and stay out of the plain ``env`` getter, which

@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Integration test for `hop3 catalog install` — the on-disk happy path.
+"""
+Integration test for `hop3 catalog install` — the on-disk happy path.
 
 Creates a real App under a tmp HOP3 root and asserts the recipe is staged, then
 that the deploy is triggered with (app_name, app.id). ``deploy_app_streaming`` is

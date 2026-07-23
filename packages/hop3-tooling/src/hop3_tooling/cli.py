@@ -65,7 +65,8 @@ def catalog() -> None:
     help="tested-source variant root (default: apps/real-apps-native)",
 )
 def drift(catalog_apps: Path | None, source_root: Path | None) -> None:
-    """Fail if any catalog recipe differs from its tested source (CI gate).
+    """
+    Fail if any catalog recipe differs from its tested source (CI gate).
 
     Compares each app's hop3.toml + scripts/ byte-for-byte, ignoring the
     catalog-only overlay (catalog.toml, readme*, icons, screenshots/).
@@ -112,7 +113,8 @@ def promote(
     catalog_apps: Path | None,
     source_root: Path | None,
 ) -> None:
-    """Copy tested recipe(s) into the catalog verbatim (overlay untouched).
+    """
+    Copy tested recipe(s) into the catalog verbatim (overlay untouched).
 
     Replaces each app's hop3.toml + scripts/ from apps/real-apps-native/<app>/.
     Pass app ids, or --all. Run `hop3-tools catalog drift` afterwards to confirm.
@@ -158,7 +160,8 @@ def verify(
     insecure: bool,
     name_map: str,
 ) -> None:
-    """Install catalog apps and functionally verify their admin bootstrap.
+    """
+    Install catalog apps and functionally verify their admin bootstrap.
 
     Asserts (per app) that the old default credential is rejected, the generated
     one works, and registration/anonymous access is closed. Not a bare 200.
@@ -224,7 +227,8 @@ def _build_locally(nix_file: Path) -> subprocess.CompletedProcess[str]:
 
 
 def _build_over_ssh(app_dir: Path, host: str) -> subprocess.CompletedProcess[str]:
-    """Build the recipe on a remote Linux host and return the result.
+    """
+    Build the recipe on a remote Linux host and return the result.
 
     The dependency set Nix downloads is platform-specific (a Linux wheel set is
     not a macOS one), so the hash must be computed on the platform that will
@@ -272,7 +276,8 @@ def vendor_hash(
     nixpkgs_rev: str | None,
     nixpkgs_sha256: str | None,
 ) -> None:
-    """Compute each recipe's vendored-dependency hash and record it.
+    """
+    Compute each recipe's vendored-dependency hash and record it.
 
     The hermetic templates pin their dependency set with a fixed-output
     derivation, whose hash can only be learned by building once. This performs
@@ -366,7 +371,8 @@ def _vendor_hash_one(
 
 
 def _nix_gen_recipes(roots: tuple[Path, ...]) -> list[Path]:
-    """The nix-gen app directories under ROOTS (default: the nix-gen corpus).
+    """
+    The nix-gen app directories under ROOTS (default: the nix-gen corpus).
 
     A root may be a directory of app dirs or a single app dir. An empty result
     is an error, not an empty success: a gate that found nothing to check must
@@ -397,7 +403,8 @@ def _nix_gen_recipes(roots: tuple[Path, ...]) -> list[Path]:
     type=click.Path(exists=True, path_type=Path),
 )
 def tiers(roots: tuple[Path, ...]) -> None:
-    """Print each nix-gen app's reproducibility tier (ADR 008).
+    """
+    Print each nix-gen app's reproducibility tier (ADR 008).
 
     The tier is read from the app's template, so the label cannot drift away
     from what the build actually does. Needs no Nix and no server: this is the
@@ -447,7 +454,8 @@ def check_reproducible(
     nixpkgs_rev: str | None,
     nixpkgs_sha256: str | None,
 ) -> None:
-    """Rebuild each nix-gen app and fail if any output is not deterministic.
+    """
+    Rebuild each nix-gen app and fail if any output is not deterministic.
 
     For every recipe under ROOTS, generate its ``hop3.nix``, build it, then
     ``nix build --rebuild`` (which rebuilds and compares against the first
@@ -486,7 +494,8 @@ def check_reproducible(
 
 
 def _with_pin(spec: AppSpec, pin: tuple[str, str] | None) -> AppSpec:
-    """The spec, evaluated against a candidate nixpkgs pin.
+    """
+    The spec, evaluated against a candidate nixpkgs pin.
 
     Overrides whatever the recipe declares, so a bump can be tried across the
     whole corpus without editing 31 files (or the generator's default) and
@@ -517,7 +526,8 @@ def _generated_expression(app_dir: Path, pin: tuple[str, str] | None = None) -> 
 
 @contextmanager
 def _materialized_nix(app_dir: Path, expression: str) -> Iterator[None]:
-    """Write a generated hop3.nix for the duration of a build, then restore.
+    """
+    Write a generated hop3.nix for the duration of a build, then restore.
 
     hop3.nix is generated, never committed, so we must not leave one behind — a
     stray file would shadow the recipe on the next generation.

@@ -354,7 +354,8 @@ class TestDetectDistro:
         assert "fedora" in content.lower()
 
     def test_returns_unknown_for_missing_file(self):
-        """detect_distro returns 'unknown' when neither /etc/os-release nor
+        """
+        detect_distro returns 'unknown' when neither /etc/os-release nor
         lsb_release yields a distro.
 
         Both sources must be neutralized: detect_distro falls back to the
@@ -606,7 +607,8 @@ class TestEnvList:
 
 
 class TestCommandErrorRedaction:
-    """CommandError.__str__ must not echo passwords / tokens from argv.
+    """
+    CommandError.__str__ must not echo passwords / tokens from argv.
 
     The right place to keep secrets out of argv is the call site (we did
     that for mysqldump and the deployer), but the redactor here is

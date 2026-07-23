@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Integration tests for admin command classes using state-based testing.
+"""
+Integration tests for admin command classes using state-based testing.
 
 This module tests admin commands using real database interactions:
 - Uses real database instead of mocks (via db_session fixture)
@@ -58,7 +59,8 @@ class TestAdminUserAddCmdIntegration:
     def test_add_user_requires_authentication(
         self, db_session: Session, user_repo: UserRepository, role_repo: RoleRepository
     ):
-        """Test that admin:user:add requires authentication.
+        """
+        Test that admin:user:add requires authentication.
 
         ARRANGE:
             - Create command with empty authenticated_username
@@ -90,7 +92,8 @@ class TestAdminUserAddCmdIntegration:
         user_repo: UserRepository,
         role_repo: RoleRepository,
     ):
-        """Test that admin:user:add requires admin privileges.
+        """
+        Test that admin:user:add requires admin privileges.
 
         ARRANGE:
             - Create a regular (non-admin) user via fixture
@@ -125,7 +128,8 @@ class TestAdminUserAddCmdIntegration:
         user_repo: UserRepository,
         role_repo: RoleRepository,
     ):
-        """Test that admin:user:add requires username, email, and password.
+        """
+        Test that admin:user:add requires username, email, and password.
 
         ARRANGE:
             - Create an user
@@ -161,7 +165,8 @@ class TestAdminUserAddCmdIntegration:
         user_repo: UserRepository,
         role_repo: RoleRepository,
     ):
-        """Test successful user creation.
+        """
+        Test successful user creation.
 
         ARRANGE:
             - Create an user
@@ -212,7 +217,8 @@ class TestAdminUserAddCmdIntegration:
         user_repo: UserRepository,
         role_repo: RoleRepository,
     ):
-        """Test user creation with admin flag.
+        """
+        Test user creation with admin flag.
 
         ARRANGE:
             - Create an user
@@ -266,7 +272,8 @@ class TestAdminUserAddCmdIntegration:
         user_repo: UserRepository,
         role_repo: RoleRepository,
     ):
-        """Test error when username already exists.
+        """
+        Test error when username already exists.
 
         ARRANGE:
             - Create an user
@@ -308,7 +315,8 @@ class TestAdminUserAddCmdIntegration:
         user_repo: UserRepository,
         role_repo: RoleRepository,
     ):
-        """Test error when email already exists.
+        """
+        Test error when email already exists.
 
         ARRANGE:
             - Create an user
@@ -354,7 +362,8 @@ class TestAdminUserRemoveCmdIntegration:
         sample_user: User,
         user_repo: UserRepository,
     ):
-        """Test that admin cannot remove their own account.
+        """
+        Test that admin cannot remove their own account.
 
         ARRANGE:
             - Create an user
@@ -389,7 +398,8 @@ class TestAdminUserRemoveCmdIntegration:
         sample_user: User,
         user_repo: UserRepository,
     ):
-        """Test successful user removal.
+        """
+        Test successful user removal.
 
         ARRANGE:
             - Create an user
@@ -434,7 +444,8 @@ class TestAdminUserRemoveCmdIntegration:
         sample_user: User,
         user_repo: UserRepository,
     ):
-        """Test error when user doesn't exist.
+        """
+        Test error when user doesn't exist.
 
         ARRANGE:
             - Create an user
@@ -468,7 +479,8 @@ class TestAdminUserListCmdIntegration:
         sample_user: User,
         user_repo: UserRepository,
     ):
-        """Test listing users.
+        """
+        Test listing users.
 
         ARRANGE:
             - Create an user
@@ -505,7 +517,8 @@ class TestAdminUserListCmdIntegration:
     def test_list_users_empty_database(
         self, db_session: Session, admin_role: Role, user_repo: UserRepository
     ):
-        """Test listing when no users exist.
+        """
+        Test listing when no users exist.
 
         ARRANGE:
             - Empty database (no users)
@@ -555,7 +568,8 @@ class TestAdminUserEnableCmdIntegration:
         sample_user: User,
         user_repo: UserRepository,
     ):
-        """Test enabling a disabled user.
+        """
+        Test enabling a disabled user.
 
         ARRANGE:
             - Create an user
@@ -599,7 +613,8 @@ class TestAdminUserEnableCmdIntegration:
         sample_user: User,
         user_repo: UserRepository,
     ):
-        """Test enabling an already enabled user.
+        """
+        Test enabling an already enabled user.
 
         ARRANGE:
             - Create an user
@@ -643,7 +658,8 @@ class TestAdminUserDisableCmdIntegration:
         sample_user: User,
         user_repo: UserRepository,
     ):
-        """Test that admin cannot disable their own account.
+        """
+        Test that admin cannot disable their own account.
 
         ARRANGE:
             - Create an user
@@ -677,7 +693,8 @@ class TestAdminUserDisableCmdIntegration:
         sample_user: User,
         user_repo: UserRepository,
     ):
-        """Test successful user disabling.
+        """
+        Test successful user disabling.
 
         ARRANGE:
             - Create an user
@@ -716,7 +733,8 @@ class TestAdminUserDisableCmdIntegration:
         sample_user: User,
         user_repo: UserRepository,
     ):
-        """Test disabling an already disabled user.
+        """
+        Test disabling an already disabled user.
 
         ARRANGE:
             - Create an user
@@ -763,7 +781,8 @@ class TestAdminUserGrantAdminCmdIntegration:
         user_repo: UserRepository,
         role_repo: RoleRepository,
     ):
-        """Test granting admin privileges to a user.
+        """
+        Test granting admin privileges to a user.
 
         ARRANGE:
             - Create an user
@@ -807,7 +826,8 @@ class TestAdminUserGrantAdminCmdIntegration:
         user_repo: UserRepository,
         role_repo: RoleRepository,
     ):
-        """Test granting admin to user who already has admin.
+        """
+        Test granting admin to user who already has admin.
 
         ARRANGE:
             - Create an user
@@ -852,7 +872,8 @@ class TestAdminUserRevokeAdminCmdIntegration:
         user_repo: UserRepository,
         role_repo: RoleRepository,
     ):
-        """Test that admin cannot revoke their own admin privileges.
+        """
+        Test that admin cannot revoke their own admin privileges.
 
         ARRANGE:
             - Create an user
@@ -887,7 +908,8 @@ class TestAdminUserRevokeAdminCmdIntegration:
         user_repo: UserRepository,
         role_repo: RoleRepository,
     ):
-        """Test successful admin revocation.
+        """
+        Test successful admin revocation.
 
         ARRANGE:
             - Create two admin users
@@ -931,7 +953,8 @@ class TestAdminUserRevokeAdminCmdIntegration:
         user_repo: UserRepository,
         role_repo: RoleRepository,
     ):
-        """Test revoking admin from user who doesn't have it.
+        """
+        Test revoking admin from user who doesn't have it.
 
         ARRANGE:
             - Create an user
@@ -973,7 +996,8 @@ class TestAdminUserSetPasswordCmdIntegration:
         sample_user: User,
         user_repo: UserRepository,
     ):
-        """Test resetting a user's password.
+        """
+        Test resetting a user's password.
 
         ARRANGE:
             - Create an user
@@ -1020,7 +1044,8 @@ class TestAdminUserSetPasswordCmdIntegration:
         sample_user: User,
         user_repo: UserRepository,
     ):
-        """Test error when user doesn't exist.
+        """
+        Test error when user doesn't exist.
 
         ARRANGE:
             - Create an user
@@ -1055,7 +1080,8 @@ class TestAdminUserInfoCmdIntegration:
         user_role: Role,
         user_repo: UserRepository,
     ):
-        """Test displaying user information.
+        """
+        Test displaying user information.
 
         ARRANGE:
             - Create an user
@@ -1098,7 +1124,8 @@ class TestAdminUserInfoCmdIntegration:
         sample_user: User,
         user_repo: UserRepository,
     ):
-        """Test error when user doesn't exist.
+        """
+        Test error when user doesn't exist.
 
         ARRANGE:
             - Create an user
@@ -1133,7 +1160,8 @@ class TestAdminUserGenerateTokenCmdIntegration:
         user_repo: UserRepository,
         monkeypatch,
     ):
-        """Test generating a token for a user.
+        """
+        Test generating a token for a user.
 
         ARRANGE:
             - Set secret key environment variable
@@ -1173,7 +1201,8 @@ class TestAdminUserGenerateTokenCmdIntegration:
         user_repo: UserRepository,
         monkeypatch,
     ):
-        """Test that token generation fails for disabled users.
+        """
+        Test that token generation fails for disabled users.
 
         ARRANGE:
             - Set secret key environment variable
@@ -1213,7 +1242,8 @@ class TestAdminUserGenerateTokenCmdIntegration:
         user_repo: UserRepository,
         monkeypatch,
     ):
-        """Test error when user doesn't exist.
+        """
+        Test error when user doesn't exist.
 
         ARRANGE:
             - Set secret key environment variable

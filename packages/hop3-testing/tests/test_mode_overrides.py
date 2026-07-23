@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""User mode-overrides: built-ins overlaid by a TOML file, editable from the UI.
+"""
+User mode-overrides: built-ins overlaid by a TOML file, editable from the UI.
 
 The overrides file ($HOP3_TEST_MODES) lets the Test Lab edit profiles without
 touching code; load_modes() merges it over the built-in MODES so every

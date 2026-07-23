@@ -1,7 +1,8 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for pressure-gated, cache-preserving disk reclaim on targets.
+"""
+Tests for pressure-gated, cache-preserving disk reclaim on targets.
 
 The disk filler in nightly runs is accumulated build cache + per-app
 artifacts. ensure_disk_headroom must reclaim *ephemeral* artifacts only

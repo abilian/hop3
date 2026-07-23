@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Read diagnostic-bundle sections from disk for the drill-down view.
+"""
+Read diagnostic-bundle sections from disk for the drill-down view.
 
 A bundle (ADR 043) is a directory of ``<section>.txt`` files written by
 ``hop3_testing.bundle.write_bundle``. Until the artifact store lands (M0b), the
@@ -23,7 +24,8 @@ _PLACEHOLDER = "(not collected)"
 
 
 def read_bundle_sections(bundle_dir: Path) -> list[tuple[str, str]]:
-    """Return ``(section, content)`` for sections that were actually collected.
+    """
+    Return ``(section, content)`` for sections that were actually collected.
 
     Sections are returned in canonical order; missing files and the
     ``(not collected)`` placeholder are skipped so the view shows only signal.

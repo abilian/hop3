@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Nix package manager installation.
+"""
+Nix package manager installation.
 
 Installs Nix using the official installer. Supports two modes:
 - Multi-user (daemon) mode: When systemd is available, provides better isolation
@@ -42,7 +43,8 @@ NIX_SINGLE_USER_PROFILE = HOME_DIR / ".nix-profile/etc/profile.d/nix.sh"
 
 
 def install_nix() -> None:
-    """Install Nix package manager.
+    """
+    Install Nix package manager.
 
     Uses multi-user (daemon) mode when systemd is available,
     falls back to single-user mode for containers/non-systemd environments.
@@ -107,7 +109,8 @@ _has_systemd = has_systemd
 
 
 def _download_nix_installer() -> Path | None:
-    """Download the official Nix installer script.
+    """
+    Download the official Nix installer script.
 
     Uses urllib (stdlib only) to download the installer.
 
@@ -147,7 +150,8 @@ def _download_nix_installer() -> Path | None:
 
 
 def _prepare_nix_directory() -> bool:
-    """Create /nix directory with correct ownership for single-user mode.
+    """
+    Create /nix directory with correct ownership for single-user mode.
 
     The Nix installer needs /nix to exist and be owned by the installing user.
     We create this as root before running the installer as hop3.
@@ -175,7 +179,8 @@ def _prepare_nix_directory() -> bool:
 
 
 def _run_nix_installer(installer_path: Path, *, daemon_mode: bool) -> bool:
-    """Run the Nix installer.
+    """
+    Run the Nix installer.
 
     Args:
         installer_path: Path to the downloaded installer script.
@@ -226,7 +231,8 @@ def _run_nix_installer(installer_path: Path, *, daemon_mode: bool) -> bool:
 
 
 def _write_nix_conf_setting(path: Path, *, as_hop3: bool) -> None:
-    """Write Hop3's required settings (``sandbox = relaxed``, ``min-free = 0``)
+    """
+    Write Hop3's required settings (``sandbox = relaxed``, ``min-free = 0``)
     to a nix.conf, creating it if needed.
 
     Args:
@@ -276,7 +282,8 @@ def _write_nix_conf_setting(path: Path, *, as_hop3: bool) -> None:
 
 
 def _configure_hop3_nix_access(*, daemon_mode: bool) -> None:
-    """Configure hop3 user to use Nix.
+    """
+    Configure hop3 user to use Nix.
 
     Adds the appropriate profile script to hop3's .bashrc.
 
@@ -337,7 +344,8 @@ def _configure_hop3_nix_access(*, daemon_mode: bool) -> None:
 
 
 def _verify_nix_installation() -> bool:
-    """Verify Nix installation works for hop3 user.
+    """
+    Verify Nix installation works for hop3 user.
 
     Returns:
         True if verification passed.

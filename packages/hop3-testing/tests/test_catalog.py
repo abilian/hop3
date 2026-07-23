@@ -182,7 +182,8 @@ class SelectorTests:
 
 
 def test_demo_internal_app_not_discovered_when_scanning_demo_dir():
-    """A demo's private deploy target (demos/demoNN/app/) must not be discovered
+    """
+    A demo's private deploy target (demos/demoNN/app/) must not be discovered
     as a standalone test — however the scan entered.
 
     Regression: `hop3-test run demos/demo60` scans the demo dir directly, so the

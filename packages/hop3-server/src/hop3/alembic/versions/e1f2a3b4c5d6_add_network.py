@@ -1,5 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
-"""add network table (named CIDR sets for WAF gates)
+"""
+add network table (named CIDR sets for WAF gates)
 
 Revision ID: e1f2a3b4c5d6
 Revises: d8b3f1a6c2e4
@@ -31,7 +32,8 @@ def _has_table(name: str) -> bool:
 
 
 def upgrade() -> None:
-    """Create the network table (ADR 050 §2 — named CIDR sets for WAF gates).
+    """
+    Create the network table (ADR 050 §2 — named CIDR sets for WAF gates).
 
     Idempotent: a brand-new database gets all tables via ``create_all`` (then
     stamped at head), so this guard skips the create when such a DB is adopted.

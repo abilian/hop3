@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""`hop3-test upgrade-chain` — install version A on a FRESH box, then upgrade
+"""
+`hop3-test upgrade-chain` — install version A on a FRESH box, then upgrade
 in-place through a chain of releases, using each version's OWN installer.
 
 Each hop is a git ref (a release tag, or `local` for the current tree). The hop
@@ -46,7 +47,8 @@ _HOP3_PYTHON = "/home/hop3/venv/bin/python"
 
 
 def _hop_config(*, cwd: Path, clean: bool, verbose: bool) -> DeploymentConfig:
-    """A deploy config that runs the checkout-at-``cwd``'s own deployer.
+    """
+    A deploy config that runs the checkout-at-``cwd``'s own deployer.
 
     ``command_prefix=["uv", "run"]`` + ``cwd`` run that ref's hop3-deploy-server;
     ``legacy_flags`` emits ``--local`` (which every version accepts).
@@ -62,8 +64,10 @@ def _hop_config(*, cwd: Path, clean: bool, verbose: bool) -> DeploymentConfig:
 
 
 def _checkout(ref: str, repo_root: Path, tmp: Path, worktrees: list[Path]) -> Path:
-    """Return a source tree for ``ref``: the repo itself for ``local``, else a
-    git worktree checked out at that tag (recorded for cleanup)."""
+    """
+    Return a source tree for ``ref``: the repo itself for ``local``, else a
+    git worktree checked out at that tag (recorded for cleanup).
+    """
     if ref == "local":
         return repo_root
     dest = tmp / ref.replace("/", "_")
@@ -207,7 +211,8 @@ def _make_target(is_docker, host, port, user, ssh_key, deployment):
 
 
 def _assert_hop(target, ref: str) -> dict[str, str]:
-    """Assert the box is healthy at this hop; return {version, revision}.
+    """
+    Assert the box is healthy at this hop; return {version, revision}.
 
     The deploy already health-verified the server (start/redeploy raise
     otherwise); this adds: the installed version is readable, and the schema is

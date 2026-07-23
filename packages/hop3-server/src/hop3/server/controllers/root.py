@@ -14,7 +14,8 @@ from hop3.server.security.web_auth import current_identity
 
 
 class RootController(Controller):
-    """Root path controller.
+    """
+    Root path controller.
 
     Handles the root path "/" and redirects to either dashboard or login.
     """
@@ -23,7 +24,8 @@ class RootController(Controller):
 
     @get("/", sync_to_thread=False)
     def root_redirect(self, request: Request) -> Redirect:
-        """Redirect root to the dashboard when authenticated, else to login.
+        """
+        Redirect root to the dashboard when authenticated, else to login.
 
         Auth is the stateless signed cookie (``current_identity``); there is no
         server-side session. ``HOP3_UNSAFE`` (testing) skips the check.

@@ -22,7 +22,8 @@ from hop3.lib.decision_log import (
 
 @pytest.fixture
 def captured_logs(monkeypatch):
-    """Replace the module-level ``log`` with an in-memory recorder.
+    """
+    Replace the module-level ``log`` with an in-memory recorder.
 
     Each entry is a ``(msg, level, fg)`` tuple. This avoids real console
     output and lets tests assert on what would have been emitted.
@@ -38,7 +39,8 @@ def captured_logs(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def restore_global_logger():
-    """Restore the module-level singleton after each test.
+    """
+    Restore the module-level singleton after each test.
 
     The global ``_current_logger`` is shared state; tests that touch it
     must not leak into the rest of the suite.

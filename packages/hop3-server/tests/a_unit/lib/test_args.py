@@ -158,22 +158,28 @@ class TestParseCliArgs:
         assert result == {}
 
     def test_empty_spec_rejects_extra_args(self):
-        """An empty spec has no slot for tokens, so they must be rejected loudly
-        rather than silently dropped (fail-loud rule)."""
+        """
+        An empty spec has no slot for tokens, so they must be rejected loudly
+        rather than silently dropped (fail-loud rule).
+        """
         with pytest.raises(ValueError, match="Unrecognized argument"):
             parse_cli_args(("arg1", "arg2"), {})
 
     def test_unknown_options_rejected(self):
-        """Unknown options must fail loud, not be silently ignored — a dropped
+        """
+        Unknown options must fail loud, not be silently ignored — a dropped
         `--key value` (or an extra positional) reads as success while doing
-        nothing."""
+        nothing.
+        """
         spec = {"app_name": {"positional": True}}
         with pytest.raises(ValueError, match="Unrecognized argument"):
             parse_cli_args(("myapp", "--unknown", "value"), spec)
 
     def test_extra_positional_without_slot_rejected(self):
-        """The reported bug: `app env set KEY=VALUE` misroutes to a spec with no
-        `set`/`remaining` slot; the trailing tokens must error, not vanish."""
+        """
+        The reported bug: `app env set KEY=VALUE` misroutes to a spec with no
+        `set`/`remaining` slot; the trailing tokens must error, not vanish.
+        """
         spec = {"app": {"type": str}, "show_secrets": {"flag": True}}
         with pytest.raises(ValueError, match=r"set.*APP_SECRET_KEY"):
             parse_cli_args(("--app", "myapp", "set", "APP_SECRET_KEY=zzz"), spec)

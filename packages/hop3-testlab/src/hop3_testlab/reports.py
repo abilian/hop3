@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Narrative run report: an actionable, copy-pasteable markdown summary of a run.
+"""
+Narrative run report: an actionable, copy-pasteable markdown summary of a run.
 
 The run-detail table is for scanning; this is for *acting*. It leads with what
 broke and why — failures grouped by classification (build / addon / crash /
@@ -69,7 +70,8 @@ def _fmt_duration(seconds: float | None) -> str:
 
 
 def _fenced(content: str) -> list[str]:
-    """Wrap untrusted content in a code fence longer than any backtick run inside.
+    """
+    Wrap untrusted content in a code fence longer than any backtick run inside.
 
     Python-Markdown passes raw HTML through, but content *inside* a fenced block
     is HTML-escaped. Choosing a fence longer than the longest backtick run in the
@@ -119,15 +121,18 @@ def _failure_block(row: dict) -> list[str]:
 
 
 def _inline_code(text: object) -> str:
-    """Inline-code a value safely: strip backticks so it can't break out of the
-    span (the report is rendered with ``| safe``)."""
+    """
+    Inline-code a value safely: strip backticks so it can't break out of the
+    span (the report is rendered with ``| safe``).
+    """
     return f"`{str(text).replace('`', '')}`"
 
 
 def build_run_report_md(
     run: dict, results: list[dict], diff: RunDiff | None = None
 ) -> str:
-    """Build the actionable markdown report for a run.
+    """
+    Build the actionable markdown report for a run.
 
     Args:
         run: the ``run_row`` dict built by the runs controller.

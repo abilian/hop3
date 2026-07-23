@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""App resolution source #5 + the footgun-correct guard (ADR 042 r2, step D1).
+"""
+App resolution source #5 + the footgun-correct guard (ADR 042 r2, step D1).
 
 The selected context's ``[contexts.<sel>].app`` is app source #5. It is trusted
 (``CONTEXT_APP``, CWD-rooted) only when the *context selection* was CWD-rooted

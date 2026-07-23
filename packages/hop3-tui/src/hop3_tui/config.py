@@ -49,7 +49,8 @@ class TUIConfig:
 
     @classmethod
     def load(cls) -> TUIConfig:
-        """Load configuration from environment and config file.
+        """
+        Load configuration from environment and config file.
 
         Priority (highest to lowest):
         1. Environment variables (HOP3_*)
@@ -225,7 +226,8 @@ class TUIConfig:
         return config
 
     def save(self, path: Path | None = None) -> None:
-        """Save configuration to a TOML file.
+        """
+        Save configuration to a TOML file.
 
         SECURITY: the config holds the JWT auth token. Two precautions
         identical to ``hop3-cli``'s ``Config.save`` (see

@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Postgres store smoke — gated on a real Postgres (TESTLAB_PG_DSN).
+"""
+Postgres store smoke — gated on a real Postgres (TESTLAB_PG_DSN).
 
 Skipped when unset (local/CI without PG); where a PG is available it proves the
 schema (result tables + the Lab's own tables) creates and round-trips on Postgres

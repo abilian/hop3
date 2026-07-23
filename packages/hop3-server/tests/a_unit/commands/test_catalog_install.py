@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Unit tests for `hop3 catalog install` — validation/error paths.
+"""
+Unit tests for `hop3 catalog install` — validation/error paths.
 
 Every case here refuses BEFORE App.create() runs (unavailable catalog, unknown
 blueprint, bad/duplicate name, missing --app / blueprint-id), so no filesystem

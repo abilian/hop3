@@ -1,7 +1,8 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Diagnostic collection for failed tests.
+"""
+Diagnostic collection for failed tests.
 
 Collects logs and diagnostic information from the server after test failures
 to enable offline debugging without manual SSH access.
@@ -37,7 +38,8 @@ class DiagnosticResult:
 
 
 class DiagnosticCollector:
-    """Collects diagnostic information from the server after test failures.
+    """
+    Collects diagnostic information from the server after test failures.
 
     Gathers:
     - hop3-server logs (journalctl)
@@ -69,7 +71,8 @@ class DiagnosticCollector:
         output_base: Path,
         console: Console | None = None,
     ):
-        """Initialize the diagnostic collector.
+        """
+        Initialize the diagnostic collector.
 
         Args:
             conn: SSH connection to the server.
@@ -85,7 +88,8 @@ class DiagnosticCollector:
         failed_tests: list[str] | None = None,
         existing_output_dir: Path | None = None,
     ) -> DiagnosticResult:
-        """Collect all diagnostics from the server.
+        """
+        Collect all diagnostics from the server.
 
         Args:
             failed_tests: Optional list of failed test names for targeted collection.
@@ -322,7 +326,8 @@ def collect_diagnostics(
     failed_tests: list[str] | None = None,
     console: Console | None = None,
 ) -> DiagnosticResult:
-    """Convenience function to collect diagnostics from a server.
+    """
+    Convenience function to collect diagnostics from a server.
 
     Args:
         server_ip: Server IP address.

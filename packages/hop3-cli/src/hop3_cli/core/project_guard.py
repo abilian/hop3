@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Project-mismatch sanity guard for destructive commands (ADR 042 §D14).
+"""
+Project-mismatch sanity guard for destructive commands (ADR 042 §D14).
 
 When the CLI is invoked in a directory whose ``hop3.toml [metadata].id``
 does not match the resolved app, AND the resolved app came from a
@@ -39,7 +40,8 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class ProjectMismatch:
-    """Result of the project-mismatch check.
+    """
+    Result of the project-mismatch check.
 
     Attributes:
         is_mismatch: True iff the guard should fire.
@@ -67,7 +69,8 @@ def check_project_mismatch(
     cwd: Path | None = None,
     home: Path | None = None,
 ) -> ProjectMismatch:
-    """Compare the resolved app against the CWD project's [metadata].id.
+    """
+    Compare the resolved app against the CWD project's [metadata].id.
 
     Args:
         resolved_app: The non-empty app name produced by the resolver.
@@ -152,7 +155,8 @@ def _read_cwd_metadata_id(cwd: Path, home: Path) -> str | None:
 def _format_mismatch_message(
     *, verb: str, cwd_app: str, resolved_app: str, resolved_source: str
 ) -> str:
-    """Build the multi-line refusal message exactly as ADR 042 §D14 specifies.
+    """
+    Build the multi-line refusal message exactly as ADR 042 §D14 specifies.
 
     The ``resolved_source`` is captured as a diagnostic appendix on a
     separate trailing line — useful for the operator to know *why* the

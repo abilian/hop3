@@ -14,7 +14,8 @@ if TYPE_CHECKING:
 
 
 class BackendError(RuntimeError):
-    """Raised by a backend command when a mutating operation fails.
+    """
+    Raised by a backend command when a mutating operation fails.
 
     Queries (``_container_exists``, ``_docker_available``, etc.) return
     ``bool`` without side effects. Commands (``setup``, ``upload``,
@@ -26,7 +27,8 @@ class BackendError(RuntimeError):
 
 
 class Backend(ABC):
-    """Abstract base class for test execution backends.
+    """
+    Abstract base class for test execution backends.
 
     A backend provides an environment for running installer tests.
     Implementations include SSH (remote servers), Docker (containers),
@@ -41,7 +43,8 @@ class Backend(ABC):
 
     @abstractmethod
     def setup(self) -> bool:
-        """Set up the test environment.
+        """
+        Set up the test environment.
 
         This should start containers/VMs, verify SSH connections, etc.
 
@@ -51,14 +54,16 @@ class Backend(ABC):
 
     @abstractmethod
     def teardown(self) -> None:
-        """Clean up the test environment.
+        """
+        Clean up the test environment.
 
         This should stop containers/VMs, clean up resources, etc.
         """
 
     @abstractmethod
     def run(self, command: str, *, sudo: bool = False) -> CommandResult:
-        """Run a command in the test environment.
+        """
+        Run a command in the test environment.
 
         Args:
             command: The command to execute
@@ -70,7 +75,8 @@ class Backend(ABC):
 
     @abstractmethod
     def upload(self, local_path: Path, remote_path: str) -> bool:
-        """Upload a file to the test environment.
+        """
+        Upload a file to the test environment.
 
         Args:
             local_path: Local file path
@@ -82,7 +88,8 @@ class Backend(ABC):
 
     @abstractmethod
     def upload_dir(self, local_path: Path, remote_path: str) -> bool:
-        """Upload a directory to the test environment.
+        """
+        Upload a directory to the test environment.
 
         Args:
             local_path: Local directory path
@@ -101,7 +108,8 @@ class Backend(ABC):
         """Clean up server installation from the test environment."""
 
     def get_installer_path(self, installer_type: str) -> str:
-        """Get the path to the installer script in the test environment.
+        """
+        Get the path to the installer script in the test environment.
 
         Args:
             installer_type: "cli" or "server"

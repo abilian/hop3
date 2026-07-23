@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Root pytest conftest.
+"""
+Root pytest conftest.
 
 Two responsibilities, both cross-package:
 
@@ -63,7 +64,8 @@ def pytest_configure(config: pytest.Config) -> None:
 
 @pytest.fixture
 def remote_ssh_host(request: pytest.FixtureRequest) -> str | None:
-    """The explicit ``--ssh-host`` value, or None. The ONLY remote-target source.
+    """
+    The explicit ``--ssh-host`` value, or None. The ONLY remote-target source.
 
     Tests that need a remote host must depend on this fixture (and skip when it
     is None). They must not read HOP3_TEST_HOST / HOP3_DEV_HOST.
@@ -72,7 +74,8 @@ def remote_ssh_host(request: pytest.FixtureRequest) -> str | None:
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
-    """Tag each collected test with its tier marker, derived from its path.
+    """
+    Tag each collected test with its tier marker, derived from its path.
 
     - ``c_e2e`` / ``c_system`` -> ``e2e`` + ``needs_docker`` (real deploy, Docker)
     - ``b_integration``        -> ``integration``           (in-process, real DB)

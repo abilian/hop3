@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Catalog sync: fetch, verify, and atomically publish the catalog (ADR 049).
+"""
+Catalog sync: fetch, verify, and atomically publish the catalog (ADR 049).
 
 Pipeline (each step fails loud — no silent fallback, CLAUDE.md):
 
@@ -68,7 +69,8 @@ class _HTTPSOnlyRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 @contextlib.contextmanager
 def _exclusive_lock(state_root: Path):
-    """Hold an exclusive, non-blocking lock for the publish critical section.
+    """
+    Hold an exclusive, non-blocking lock for the publish critical section.
 
     Serializes concurrent ``hop3 catalog refresh`` runs so two of them cannot both
     pass the anti-rollback gate or race the symlink swap / GC.
@@ -88,7 +90,8 @@ def _exclusive_lock(state_root: Path):
 
 
 def fetch_to(url: str, dest: Path, *, max_bytes: int = MAX_DOWNLOAD_BYTES) -> None:
-    """Download ``url`` to ``dest`` over verified HTTPS, capped at ``max_bytes``.
+    """
+    Download ``url`` to ``dest`` over verified HTTPS, capped at ``max_bytes``.
 
     TLS certificate verification is mandatory and not configurable here.
     """
@@ -132,7 +135,8 @@ def extract_verified_tarball(
     max_uncompressed: int = MAX_UNCOMPRESSED_BYTES,
     max_members: int = MAX_MEMBERS,
 ) -> None:
-    """Extract a ``.tar.gz`` into ``dest_dir``, rejecting anything unsafe.
+    """
+    Extract a ``.tar.gz`` into ``dest_dir``, rejecting anything unsafe.
 
     Streams member-by-member so caps abort early. Rejects symlinks, hardlinks,
     devices, absolute paths, and ``..`` traversal; bounds member count and total
@@ -185,7 +189,8 @@ def install_catalog_tarball(
     max_uncompressed: int = MAX_UNCOMPRESSED_BYTES,
     max_members: int = MAX_MEMBERS,
 ) -> int:
-    """Verify, anti-rollback-check, and atomically publish a catalog tarball.
+    """
+    Verify, anti-rollback-check, and atomically publish a catalog tarball.
 
     Returns the published ``serial``. Raises ``CatalogSyncError`` /
     ``CatalogVerificationError`` on any failure, leaving the previously published
@@ -234,7 +239,8 @@ def install_catalog_tarball(
 
 
 def read_high_water_mark(state_root: Path) -> int:
-    """Return the highest installed serial, or 0 if none recorded.
+    """
+    Return the highest installed serial, or 0 if none recorded.
 
     A missing file means "not yet bootstrapped" and reads as 0 — the first
     verified catalog (serial ≥ 1) is then accepted. Resetting this by deleting the
@@ -314,7 +320,8 @@ def _index_serial(index: dict) -> int:
 
 
 def _publish(staging: Path, catalog_root: Path, serial: int) -> None:
-    """Atomically publish ``staging`` as ``catalog-<serial>`` and flip the symlink.
+    """
+    Atomically publish ``staging`` as ``catalog-<serial>`` and flip the symlink.
 
     Idempotent and crash-safe: if ``catalog-<serial>`` is already the live target
     (e.g. a crash between the symlink flip and the serial write, or a same-serial
@@ -358,7 +365,8 @@ def _publish(staging: Path, catalog_root: Path, serial: int) -> None:
 
 
 def _gc_old_versions(parent: Path, *, catalog_root: Path, keep_serial: int) -> None:
-    """Remove superseded ``<base_name>-<serial>`` dirs, keeping the current one.
+    """
+    Remove superseded ``<base_name>-<serial>`` dirs, keeping the current one.
 
     Only versioned dirs (numeric suffix) are touched — siblings such as
     ``catalog-state`` are left alone — and the directory the live symlink currently

@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 
 
 class StaticToolchain(LanguageToolchain):
-    """Language toolchain for static file applications.
+    """
+    Language toolchain for static file applications.
 
     This builder handles applications that serve static files (HTML, CSS, JS,
     images, etc.) without requiring any build process. The served directory is
@@ -32,7 +33,8 @@ class StaticToolchain(LanguageToolchain):
     requirements = []  # No special requirements for static files  # ruff:ignore[mutable-class-default]
 
     def accept(self) -> bool:
-        """Check if this is a static file application.
+        """
+        Check if this is a static file application.
 
         Returns:
             True if a static directory is declared (Procfile ``static:`` entry
@@ -41,7 +43,8 @@ class StaticToolchain(LanguageToolchain):
         return self._parse_static_entry() is not None
 
     def build(self) -> BuildArtifact:
-        """Build the static application (no actual build needed).
+        """
+        Build the static application (no actual build needed).
 
         For static apps, we just need to identify the static files directory.
 
@@ -74,7 +77,8 @@ class StaticToolchain(LanguageToolchain):
         )
 
     def _get_static_dir(self) -> str:
-        """Parse Procfile to get the static directory path.
+        """
+        Parse Procfile to get the static directory path.
 
         Returns:
             Path to the static directory relative to src_path
@@ -84,7 +88,8 @@ class StaticToolchain(LanguageToolchain):
         return static_dir or "public"
 
     def _parse_static_entry(self) -> str | None:
-        """Find the declared static directory. A Procfile is never required.
+        """
+        Find the declared static directory. A Procfile is never required.
 
         Declarations are tried in order of precedence (hop3.toml — Hop3's own
         config — beats the generic, cross-tool Procfile, matching

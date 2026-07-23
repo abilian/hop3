@@ -303,7 +303,8 @@ def test_extract_build_error_empty():
 
 
 def test_extract_build_error_ignores_benign_lines_from_earlier_steps():
-    """Regression: a benign line in an EARLIER step must not out-rank the real
+    """
+    Regression: a benign line in an EARLIER step must not out-rank the real
     error in the step that actually failed.
 
     Ruby's ./configure prints `configuring -test-/fatal` (a directory name) in an
@@ -330,7 +331,8 @@ def test_extract_build_error_ignores_benign_lines_from_earlier_steps():
 
 
 def test_extract_build_error_uses_buildkit_message_when_step_has_no_output():
-    """A base-image / metadata failure produces no step output of its own — the
+    """
+    A base-image / metadata failure produces no step output of its own — the
     `#N ERROR:` line carries the only message there is.
 
     Regression: five apps died on a Docker Hub 500 and every one of them reported
@@ -364,8 +366,10 @@ def test_transient_registry_error_is_retryable():
 
 
 def test_app_emitted_5xx_is_not_mistaken_for_a_registry_outage():
-    """A 5xx printed by the app's OWN build must not be silently retried: the
-    symptom alone is not enough, a registry context must be present too."""
+    """
+    A 5xx printed by the app's OWN build must not be silently retried: the
+    symptom alone is not enough, a registry context must be present too.
+    """
     out = (
         "#7 12.3 curl: warning: server replied 503 Service Unavailable\n"
         "#7 12.4 test failed: expected 200, got 500 Internal Server Error\n"
@@ -376,8 +380,10 @@ def test_app_emitted_5xx_is_not_mistaken_for_a_registry_outage():
 
 
 def test_extract_build_error_reports_doctor_check_not_trailing_boilerplate():
-    """A CLI doctor-style "[failed]" line is the root cause — not the trailing
-    "refer to the docs" boilerplate that used to win as the last line."""
+    """
+    A CLI doctor-style "[failed]" line is the root cause — not the trailing
+    "refer to the docs" boilerplate that used to win as the last line.
+    """
     out = (
         "#10 1.9 [08:41:26] Checking system Node.js version - found v20.20.2 [failed]\n"
         "#10 1.9 The version of Node.js you are using is not supported.\n"
@@ -391,8 +397,10 @@ def test_extract_build_error_reports_doctor_check_not_trailing_boilerplate():
 
 
 def test_build_failure_message_is_concise_with_pointer(tmp_path, monkeypatch):
-    """The raised Abort carries the root-cause line + a `--build` pointer, NOT the
-    full backtrace (which now lives once in build.log)."""
+    """
+    The raised Abort carries the root-cause line + a `--build` pointer, NOT the
+    full backtrace (which now lives once in build.log).
+    """
     monkeypatch.setattr("hop3.plugins.docker.builder.APP_ROOT", tmp_path)
     builder = MagicMock()
     builder.app_name = "myapp"

@@ -25,7 +25,8 @@ def generate_reports(
     report: str,
     results: list[TestResult],
 ) -> None:
-    """Generate diagnostic reports based on report option.
+    """
+    Generate diagnostic reports based on report option.
 
     Args:
         target: The deployment target (may have diagnostics)
@@ -225,7 +226,8 @@ def _build_diagnostic_section(target: DeploymentTarget) -> str:
 def generate_html_report(
     target: DeploymentTarget, results: list[TestResult], log_path: Path
 ) -> Path:
-    """Generate a comprehensive HTML report with test results and diagnostics.
+    """
+    Generate a comprehensive HTML report with test results and diagnostics.
 
     Args:
         target: The deployment target (has diagnostics)

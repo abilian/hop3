@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""The run-result rows derive the packaging variant from the test's PATH.
+"""
+The run-result rows derive the packaging variant from the test's PATH.
 
 The bare test_name (e.g. ``bugsink``) doesn't encode docker/native/nix, so two
 variants of the same app were both shown as "other" and were indistinguishable.

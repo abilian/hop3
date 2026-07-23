@@ -125,7 +125,8 @@ def test_hop3_toml_metadata_id_resolves(
 def test_metadata_id_outranks_global_context(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Regression: standing inside a project must beat the sticky global default.
+    """
+    Regression: standing inside a project must beat the sticky global default.
 
     This is the wrong-app-deployed bug we hit in prod: `hop3 use foo`
     set a global default that followed the user into every directory,
@@ -210,9 +211,11 @@ def test_appresolution_dataclass_is_frozen() -> None:
 
 
 def test_resolved_app_injected_as_flag_not_positional() -> None:
-    """ADR 036 D5: the app is injected as `--app NAME`, so a command's own
+    """
+    ADR 036 D5: the app is injected as `--app NAME`, so a command's own
     positionals (e.g. `env set KEY=VALUE`) can never be mistaken for an app —
-    this is the proper fix for the `env set --context prod KEY=VALUE` bug."""
+    this is the proper fix for the `env set --context prod KEY=VALUE` bug.
+    """
     resolution = AppResolution(app="ac-sciences", source="context default")
     out = _inject_resolved_app(
         ["env", "set", "SENTRY_DSN=https://k@o44322.ingest.us.sentry.io/451"],
@@ -238,7 +241,8 @@ def test_resolved_app_injected_for_simple_command() -> None:
 
 
 def test_explicit_app_on_non_app_scoped_command_aborts() -> None:
-    """L1: `cert renew --app X` must not silently drop --app (and renew ALL).
+    """
+    L1: `cert renew --app X` must not silently drop --app (and renew ALL).
 
     `cert renew` is not app-scoped, so the typed --app can't be forwarded —
     refuse loudly rather than ignore it.
@@ -260,7 +264,8 @@ def test_non_app_scoped_without_explicit_app_passes_through() -> None:
 
 
 def test_catalog_install_without_app_does_not_inject_ambient() -> None:
-    """`catalog install <id>` names a NEW app via --app. Omitting --app must NOT
+    """
+    `catalog install <id>` names a NEW app via --app. Omitting --app must NOT
     substitute the ambient app (cwd hop3.toml / $HOP3_APP / context) as that name
     — argv is forwarded verbatim so the server's own 'requires --app' error fires.
     """
@@ -272,7 +277,8 @@ def test_catalog_install_without_app_does_not_inject_ambient() -> None:
 
 
 def test_catalog_install_with_explicit_app_is_forwarded() -> None:
-    """An EXPLICIT --app is still forwarded (re-injected after the command name),
+    """
+    An EXPLICIT --app is still forwarded (re-injected after the command name),
     since parse_flags stripped it into flags.app.
     """
     resolution = AppResolution(app="mycloud", source="--app flag")
@@ -302,7 +308,8 @@ def _stub_config_for_main() -> MagicMock:
 def test_why_flag_prints_trace_and_exits_without_running(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """`hop3 deploy --why` must NOT trigger the deploy — diagnostic-only.
+    """
+    `hop3 deploy --why` must NOT trigger the deploy — diagnostic-only.
 
     Regression for the footgun where `--why` printed the trace and then
     continued to execute the RPC command (e.g. an actual deploy).
@@ -433,7 +440,8 @@ def test_resolve_context_uses_hop3_local_overlay(
 def test_resolve_context_stale_legacy_dotfile_ignored(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """ADR 042 §Migration / Step 7: the legacy ``.hop3-context`` is fully
+    """
+    ADR 042 §Migration / Step 7: the legacy ``.hop3-context`` is fully
     retired — a stale file with only that one-liner returns no context
     even when nothing else is configured. Users must re-run
     ``hop3 context use <name>`` to write a fresh ``.hop3-local.toml``.

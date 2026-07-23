@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Remote-server diagnostic tests for SSH connectivity and CLI availability.
+"""
+Remote-server diagnostic tests for SSH connectivity and CLI availability.
 
 These tests poke a REAL remote server, so they are opt-in: they run only when
 ``--ssh-host HOST`` is passed (the ``remote_server`` fixture skips otherwise).
@@ -19,7 +20,8 @@ import pytest
 
 @pytest.fixture
 def remote_server(remote_ssh_host: str | None) -> str:
-    """The explicit remote target as ``user@host``; skip when not opted in.
+    """
+    The explicit remote target as ``user@host``; skip when not opted in.
 
     ``remote_ssh_host`` is the root-conftest fixture backed by ``--ssh-host``.
     """
@@ -135,7 +137,8 @@ def test_auth_register_command(
 def test_auth_get_token_command(
     remote_server: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Test that `auth get-token` verifies credentials and prints a JWT.
+    """
+    Test that `auth get-token` verifies credentials and prints a JWT.
 
     `auth get-token` is the non-interactive primitive behind `hop3 login`: it
     takes a username + password and prints the bare token (for scripts). The

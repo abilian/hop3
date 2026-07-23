@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""MySQL administration service for dependency injection.
+"""
+MySQL administration service for dependency injection.
 
 This module provides a MySQLAdmin service that manages MySQL
 connection configuration and can be injected via Dishka DI.
@@ -20,7 +21,8 @@ from hop3.lib.config import Config
 
 
 def _find_mysql_socket() -> str | None:
-    """Auto-detect MySQL/MariaDB unix socket path.
+    """
+    Auto-detect MySQL/MariaDB unix socket path.
 
     Checks common socket locations across macOS and Linux.
     Returns the first existing socket path, or None.
@@ -38,7 +40,8 @@ def _find_mysql_socket() -> str | None:
 
 
 def _get_hop3_config() -> Config:
-    """Get the global hop3 configuration.
+    """
+    Get the global hop3 configuration.
 
     Reads from HOP3_ROOT/hop3-server.toml if it exists,
     otherwise falls back to environment variables.
@@ -52,7 +55,8 @@ def _get_hop3_config() -> Config:
 
 @dataclass(frozen=True)
 class MySQLAdmin:
-    """MySQL administration service.
+    """
+    MySQL administration service.
 
     This service provides centralized configuration for MySQL
     connections and operations. It's designed to be injected via
@@ -93,7 +97,8 @@ class MySQLAdmin:
 
     @classmethod
     def from_config(cls, config: Config | None = None) -> MySQLAdmin:
-        """Create MySQLAdmin from configuration.
+        """
+        Create MySQLAdmin from configuration.
 
         Supports two configuration styles:
         1. URI format: MYSQL_ADMIN_URL=mysql://user:pass@host:port/db
@@ -167,7 +172,8 @@ class MySQLAdmin:
 
     @classmethod
     def from_url(cls, url: str) -> MySQLAdmin:
-        """Create MySQLAdmin from a MySQL URL.
+        """
+        Create MySQLAdmin from a MySQL URL.
 
         Args:
             url: MySQL connection URL (mysql://user:pass@host:port/db)
@@ -200,7 +206,8 @@ class MySQLAdmin:
         )
 
     def get_connection_params(self, database: str = "") -> dict[str, Any]:
-        """Get connection parameters for mysql-connector-python.
+        """
+        Get connection parameters for mysql-connector-python.
 
         If a unix_socket is configured, uses socket connection instead of TCP.
         This is needed for macOS/Linux where MariaDB uses unix_socket auth.
@@ -230,7 +237,8 @@ class MySQLAdmin:
         return params
 
     def get_dsn(self, database: str = "", *, include_password: bool = False) -> str:
-        """Get Data Source Name (DSN) connection string.
+        """
+        Get Data Source Name (DSN) connection string.
 
         Args:
             database: Database name

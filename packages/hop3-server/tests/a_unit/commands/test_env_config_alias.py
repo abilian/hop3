@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""`env` is the canonical env-var group; `config` is a back-compat alias.
+"""
+`env` is the canonical env-var group; `config` is a back-compat alias.
 
 Regression for ADR 036's amendment: every `env <sub>` must also resolve via
 `config <sub>` (server-side alias), and both must reach the same command.

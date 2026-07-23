@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Redis service implementation.
+"""
+Redis service implementation.
 
 This module implements the Addon protocol for Redis,
 allowing applications to attach to a Redis instance.
@@ -49,7 +50,8 @@ REDIS_PASS_FILE = Path("/etc/hop3/redis-pass")
 
 
 def _load_redis_password() -> str | None:
-    """Return the operator-managed Redis password, or None if not set.
+    """
+    Return the operator-managed Redis password, or None if not set.
 
     The installer writes ``/etc/hop3/redis-pass`` with mode 0640
     root:hop3; reading it requires being in the hop3 group, which the
@@ -63,7 +65,8 @@ def _load_redis_password() -> str | None:
 
 
 def _redis_cli_env() -> dict[str, str]:
-    """Environment for invoking ``redis-cli`` so the password isn't on argv.
+    """
+    Environment for invoking ``redis-cli`` so the password isn't on argv.
 
     ``REDISCLI_AUTH`` is the documented mechanism for passing the
     password without ``-a <password>`` (which would land in
@@ -92,7 +95,8 @@ def _run_redis_cli(args: list[str], **kwargs: Any) -> subprocess.CompletedProces
 
 @dataclass(frozen=True)
 class RedisAddon:
-    """Redis service implementation using Addon protocol.
+    """
+    Redis service implementation using Addon protocol.
 
     This service provides Redis access to applications. Each addon instance
     uses a dedicated Redis database number for isolation.
@@ -135,7 +139,8 @@ class RedisAddon:
         return self._db_number
 
     def _db_cmd(self, *args: str) -> subprocess.CompletedProcess[str]:
-        """Run a redis-cli command scoped to this addon's database.
+        """
+        Run a redis-cli command scoped to this addon's database.
 
         Wraps ``-n <db_number>`` so the call sites read like Redis
         commands rather than argv soup.
@@ -148,7 +153,8 @@ class RedisAddon:
         return self.addon_name.replace("-", "_")
 
     def create(self) -> None:
-        """Initialize the Redis database for this addon.
+        """
+        Initialize the Redis database for this addon.
 
         Allocates a free db number (1-15) and persists the assignment so it
         survives restarts. Verifies Redis is reachable and tags the db with
@@ -202,7 +208,8 @@ class RedisAddon:
         )
 
     def _ensure_writable(self) -> None:
-        """Ensure Redis is writable (not a read-only replica).
+        """
+        Ensure Redis is writable (not a read-only replica).
 
         If Redis is configured as a replica, attempt to make it a primary.
         """
@@ -219,7 +226,8 @@ class RedisAddon:
             _run_redis_cli(["CONFIG", "SET", "replica-read-only", "no"])
 
     def destroy(self) -> None:
-        """Decommission this Redis addon.
+        """
+        Decommission this Redis addon.
 
         Flushes all keys in the assigned database and releases the
         db_number assignment so it can be reused by a future addon.
@@ -239,7 +247,8 @@ class RedisAddon:
         delete_addon_secrets(ADDON_TYPE, self.addon_name)
 
     def flush(self) -> None:
-        """Remove all keys from this addon's Redis database (FLUSHDB).
+        """
+        Remove all keys from this addon's Redis database (FLUSHDB).
 
         Unlike destroy(), the db_number assignment is kept — the addon stays
         usable, just emptied.
@@ -253,7 +262,8 @@ class RedisAddon:
             raise RuntimeError(msg)
 
     def run_command(self, command: str) -> str:
-        """Run an ad-hoc redis-cli command scoped to this addon's database.
+        """
+        Run an ad-hoc redis-cli command scoped to this addon's database.
 
         The command is split with shlex and run via redis-cli (so it targets
         this addon's db number, not db 0). Returns the command's stdout.
@@ -267,7 +277,8 @@ class RedisAddon:
         return result.stdout.strip()
 
     def get_connection_details(self) -> dict[str, str]:
-        """Get environment variables for connecting to this Redis instance.
+        """
+        Get environment variables for connecting to this Redis instance.
 
         Returns:
             Dictionary with REDIS_URL and other connection parameters
@@ -310,7 +321,8 @@ class RedisAddon:
         return details
 
     def backup(self) -> Path:
-        """Create a backup of the Redis database.
+        """
+        Create a backup of the Redis database.
 
         Uses redis-cli to dump all keys in this database.
 
@@ -383,7 +395,8 @@ class RedisAddon:
         return backup_file
 
     def restore(self, backup_path: Path) -> None:
-        """Restore Redis database from a backup file.
+        """
+        Restore Redis database from a backup file.
 
         Args:
             backup_path: Path to the JSON backup file
@@ -417,7 +430,8 @@ class RedisAddon:
                     self._db_cmd("HSET", key, field, str(val))
 
     def info(self) -> dict[str, Any]:
-        """Get information about the Redis service.
+        """
+        Get information about the Redis service.
 
         Returns:
             Dictionary with service details
@@ -462,7 +476,8 @@ class RedisAddon:
 
 
 def _used_db_numbers() -> set[int]:
-    """Scan addon-secrets for redis and return the set of assigned db numbers.
+    """
+    Scan addon-secrets for redis and return the set of assigned db numbers.
 
     Files that don't parse or don't carry a ``db_number`` are skipped. This
     is best-effort: a corrupt secrets file should not block allocation —
@@ -486,7 +501,8 @@ def _used_db_numbers() -> set[int]:
 
 
 def _allocate_db_number() -> int:
-    """Return the lowest free Redis db number in [MIN_ADDON_DB, MAX_ADDON_DB].
+    """
+    Return the lowest free Redis db number in [MIN_ADDON_DB, MAX_ADDON_DB].
 
     Raises RuntimeError if all 15 slots are taken.
     """

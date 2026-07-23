@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Tests for tutorial discovery (ADR 043 Phase 3).
+"""
+Tests for tutorial discovery (ADR 043 Phase 3).
 
 Literate tutorials (``docs/src/tutorials/<lang>/<framework>.md``) are absorbed
 into the unified catalog as ``type=tutorial`` entries that dispatch to the

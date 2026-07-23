@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""LeWAF engine — compiles a per-app ``[waf]`` policy to a SecLang rules file
+"""
+LeWAF engine — compiles a per-app ``[waf]`` policy to a SecLang rules file
 and builds the ``lewaf-proxy`` command that fronts the app.
 
 Deliberately imports only the (pure) compiler + CRS locator, **never** ``lewaf``
@@ -73,7 +74,8 @@ class LeWafEngine:
     def configure_app(
         self, app_name: str, policy: WafSection, networks: Mapping[str, list[str]]
     ) -> Path:
-        """Compile the full rules file (CRS baseline + access overlay) to
+        """
+        Compile the full rules file (CRS baseline + access overlay) to
         ``<rules_dir>/<app_name>.conf`` and write the ``<app_name>.yaml`` proxy
         config (``rule_files`` + JSONL ``audit_logging``).
 
@@ -110,7 +112,8 @@ class LeWafEngine:
         return rules_path
 
     def write_bans(self, app_name: str, banned: list[str]) -> bool:
-        """Rewrite the app's ban denylist file only when its content changed.
+        """
+        Rewrite the app's ban denylist file only when its content changed.
 
         Returns True when the file was (re)written; the scorer reloads the proxy
         only then, so an unchanged denylist never churns the running proxy.
@@ -131,7 +134,8 @@ class LeWafEngine:
         self.audit_path(app_name).unlink(missing_ok=True)
 
     def validate(self, app_name: str) -> None:
-        """Dry-run: load the compiled rules into the engine, raising on any parse
+        """
+        Dry-run: load the compiled rules into the engine, raising on any parse
         error — the compile-before-commit gate (ADR 050 §5).
 
         Lazily imports ``lewaf`` (the ``waf`` extra); a missing extra is itself a
@@ -157,7 +161,8 @@ class LeWafEngine:
         listen_host: str = "127.0.0.1",
         trusted_proxy_count: int = 1,
     ) -> list[str]:
-        """The ``lewaf-proxy`` argv that fronts ``upstream_url`` for ``app_name``.
+        """
+        The ``lewaf-proxy`` argv that fronts ``upstream_url`` for ``app_name``.
 
         Run via the hop3 launcher (``_proxy_main``) with the same interpreter as
         the server venv (where the ``waf`` extra installs ``lewaf``), so it needs

@@ -1,7 +1,8 @@
 # Copyright (c) 2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Docker build strategy for Hop3.
+"""
+Docker build strategy for Hop3.
 
 This builder creates Docker images from applications that have a Dockerfile.
 It integrates with the Hop3 build pipeline and produces artifacts that can
@@ -101,7 +102,8 @@ _BUILD_RETRY_DELAYS = (5, 15, 0)  # before attempt 2, before attempt 3, unused
 
 
 def unpinned_base_images(dockerfile: str) -> list[str]:
-    """Base images referenced by tag rather than by digest.
+    """
+    Base images referenced by tag rather than by digest.
 
     ``scratch`` needs no digest (it is empty by definition), and a ``FROM``
     naming an earlier build stage refers to something built in this same file,
@@ -133,7 +135,8 @@ class _TransientRegistryError(Exception):
 
 
 def _is_transient_registry_error(output: str) -> bool:
-    """Whether a build failure is an upstream registry blip rather than the app's.
+    """
+    Whether a build failure is an upstream registry blip rather than the app's.
 
     Both halves must hold: a transient-looking network/5xx symptom AND a registry
     context. A 500 emitted by the *app's own* build (a curl inside a RUN step, a
@@ -146,7 +149,8 @@ def _is_transient_registry_error(output: str) -> bool:
 
 
 def _failing_step(lines: list[str]) -> tuple[list[str], str]:
-    """(output of the BuildKit step that failed, that step's ERROR message).
+    """
+    (output of the BuildKit step that failed, that step's ERROR message).
 
     Scoping extraction to the failing step is what stops an early, benign line
     from being reported as the root cause: a step-#7 line could out-rank the real
@@ -172,7 +176,8 @@ def _failing_step(lines: list[str]) -> tuple[list[str], str]:
 
 
 def _extract_build_error(output: str) -> str:
-    """Best-effort one-line root cause from a build log.
+    """
+    Best-effort one-line root cause from a build log.
 
     The real error is a needle in a haystack of backtrace + BuildKit noise. Search
     only the failing step's own output (falling back to the whole log when the
@@ -205,7 +210,8 @@ def _extract_build_error(output: str) -> str:
 
 @dataclass(frozen=True)
 class DockerBuilder:
-    """Build strategy that uses `docker build` to create container images.
+    """
+    Build strategy that uses `docker build` to create container images.
 
     This builder:
     1. Detects projects with a Dockerfile
@@ -229,7 +235,8 @@ class DockerBuilder:
         return self.context.app_name
 
     def accept(self) -> bool:
-        """Check if this builder should handle the project.
+        """
+        Check if this builder should handle the project.
 
         Returns:
             True if a Dockerfile exists in the source directory
@@ -238,7 +245,8 @@ class DockerBuilder:
         return dockerfile_path.is_file()
 
     def build(self) -> BuildArtifact:
-        """Build a Docker image from the Dockerfile.
+        """
+        Build a Docker image from the Dockerfile.
 
         Returns:
             BuildArtifact with kind="docker-image" and the image tag as location
@@ -267,7 +275,8 @@ class DockerBuilder:
         )
 
     def _check_base_images_pinned(self) -> None:
-        """Refuse to build when a base image is not pinned by digest.
+        """
+        Refuse to build when a base image is not pinned by digest.
 
         ``FROM debian:trixie-slim`` resolves to whatever that tag points at on
         the day of the build, so the image is not reproducible and the supply
@@ -291,7 +300,8 @@ class DockerBuilder:
         raise Abort(msg)
 
     def _generate_image_tag(self) -> str:
-        """Generate a Docker image tag for this app.
+        """
+        Generate a Docker image tag for this app.
 
         Returns:
             Image tag in format: hop3/<app-name>:latest
@@ -301,7 +311,8 @@ class DockerBuilder:
         return f"hop3/{safe_name}:latest"
 
     def _run_docker_build(self, image_tag: str) -> None:
-        """Execute docker build command.
+        """
+        Execute docker build command.
 
         A build that fails because the *registry* is having a bad day (a 5xx on
         the manifest request, a TLS/i-o timeout) is retried: that is an upstream
@@ -329,7 +340,8 @@ class DockerBuilder:
                 time.sleep(delay)
 
     def _attempt_docker_build(self, image_tag: str, attempt: int) -> None:
-        """One `docker build` attempt.
+        """
+        One `docker build` attempt.
 
         Raises ``_TransientRegistryError`` when the failure is an upstream
         registry blip AND retries remain; otherwise aborts as usual.
@@ -435,7 +447,8 @@ class DockerBuilder:
     def _handle_build_failure(
         self, e: subprocess.CalledProcessError, image_tag: str, start_time: float
     ) -> None:
-        """Handle a failed Docker build — report it ONCE.
+        """
+        Handle a failed Docker build — report it ONCE.
 
         The full output is the one durable copy in build.log (retrievable via
         `hop3 app logs <app> --build`); the raised error carries only a concise
@@ -482,7 +495,8 @@ class DockerBuilder:
     def _save_build_log(
         self, stdout: str, stderr: str, duration: float, *, success: bool = True
     ) -> None:
-        """Save build log to app's log directory.
+        """
+        Save build log to app's log directory.
 
         Args:
             stdout: Build stdout output
@@ -529,7 +543,8 @@ Duration: {duration:.1f}s
             )
 
     def _extract_metadata(self) -> dict:
-        """Extract metadata from Dockerfile.
+        """
+        Extract metadata from Dockerfile.
 
         Returns:
             Dictionary with metadata like exposed ports
@@ -546,7 +561,8 @@ Duration: {duration:.1f}s
         return metadata
 
     def _parse_exposed_ports(self) -> list[int]:
-        """Parse EXPOSE directives from Dockerfile.
+        """
+        Parse EXPOSE directives from Dockerfile.
 
         Returns:
             List of exposed port numbers, empty if none found or on error
@@ -566,7 +582,8 @@ Duration: {duration:.1f}s
         return ports
 
     def _parse_expose_line(self, line: str) -> list[int]:
-        """Parse a single EXPOSE line from Dockerfile.
+        """
+        Parse a single EXPOSE line from Dockerfile.
 
         Args:
             line: A line from the Dockerfile

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unified diagnostic bundle (ADR 043 §7) — the silent-502 collector.
+"""
+Unified diagnostic bundle (ADR 043 §7) — the silent-502 collector.
 
 ONE target-agnostic collector, called on a *failure* before teardown. It runs a
 fixed set of read-only commands over ``DeploymentTarget.exec_run`` (identical on
@@ -133,7 +134,8 @@ class Bundle:
 
     @property
     def why(self) -> str:
-        """The `hop3-test why` command that replays this bundle's most useful
+        """
+        The `hop3-test why` command that replays this bundle's most useful
         section.
 
         This is the test-context replacement for the server's own
@@ -177,7 +179,8 @@ _NETSTAT_OWNER_RE = re.compile(r"LISTEN\s+\d+/(\S+)")
 
 
 def parse_proxy_pass_port(conf: str) -> int | None:
-    """Extract the port nginx proxies to, from a rendered vhost.
+    """
+    Extract the port nginx proxies to, from a rendered vhost.
 
     Prefers ``proxy_pass http://127.0.0.1:PORT`` and falls back to the app's own
     ``upstream { server 127.0.0.1:PORT; }`` block (uwsgi_pass path).
@@ -189,7 +192,8 @@ def parse_proxy_pass_port(conf: str) -> int | None:
 
 
 def _decode_proc_net_tcp(text: str) -> list[int]:
-    """Decode LISTEN ports on 127.0.0.1 / 0.0.0.0 from /proc/net/tcp.
+    """
+    Decode LISTEN ports on 127.0.0.1 / 0.0.0.0 from /proc/net/tcp.
 
     Rows look like ``sl local_address rem_address st ...`` where local_address
     is ``HEXIP:HEXPORT`` (IP little-endian, port big-endian) and ``st == 0A``
@@ -214,7 +218,8 @@ def _decode_proc_net_tcp(text: str) -> list[int]:
 
 
 def parse_listen_ports(text: str) -> tuple[tuple[int, ...], bool, dict[int, str]]:
-    """Parse loopback-reachable LISTEN ports from ss / netstat / /proc/net/tcp.
+    """
+    Parse loopback-reachable LISTEN ports from ss / netstat / /proc/net/tcp.
 
     "Loopback-reachable" = bound to 127.0.0.1 OR a wildcard (0.0.0.0 / * / [::] /
     ::), since a connect to 127.0.0.1:PORT reaches all of those. Matching only a
@@ -295,7 +300,8 @@ def _startup_failed(deploy: str) -> bool:
 
 
 def _classify_logs(sections: dict[str, str]) -> Classifier | None:
-    """Failure buckets derivable from the log sections alone, in precedence order.
+    """
+    Failure buckets derivable from the log sections alone, in precedence order.
 
     Startup failure is checked before build failure: an app that built fine but
     failed its start/health-check leaves "failed to start" / "did not respond to
@@ -406,8 +412,10 @@ def build_headline(
 
 
 def _deploy_error_line(sections: dict[str, str]) -> str:
-    """The most telling line of the deploy log — the verdict for a startup
-    failure. The last non-empty line is usually the failure point."""
+    """
+    The most telling line of the deploy log — the verdict for a startup
+    failure. The last non-empty line is usually the failure point.
+    """
     deploy = sections.get("deploy", "").strip()
     if not deploy or deploy == "(no deploy log captured)":
         return ""
@@ -734,7 +742,8 @@ def _probe_verdict(  # ruff:ignore[too-many-return-statements] - one return per 
 # Writer (imperative shell)
 # --------------------------------------------------------------------------- #
 def write_bundle(bundle: Bundle, base_dir: Path | None = None) -> Bundle:
-    """Persist the bundle to a collision-safe directory.
+    """
+    Persist the bundle to a collision-safe directory.
 
     Returns a NEW Bundle with the (possibly collision-extended) final run_id and
     its ``artifact_dir`` set. The directory basename always equals the returned
@@ -766,7 +775,8 @@ def collect_diagnostic_bundle(
     persist: bool = True,
     force_persist: bool = False,
 ) -> Bundle:
-    """Collect a target-agnostic diagnostic bundle BEFORE teardown.
+    """
+    Collect a target-agnostic diagnostic bundle BEFORE teardown.
 
     Only call this on a real failure. By default an ``ok`` classification is not
     written to disk — but some failures classify ``ok`` at the runtime layer

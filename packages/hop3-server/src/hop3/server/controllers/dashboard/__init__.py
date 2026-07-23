@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Dashboard controllers package.
+"""
+Dashboard controllers package.
 
 This package contains controllers for the dashboard web interface:
 - DashboardIndexController: Main dashboard with app list

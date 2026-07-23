@@ -22,7 +22,8 @@ _NON_REQUIREMENT_PREFIXES = ("#", "-r ", "-c ", "-e ", "-f ", "--")
 
 
 def _requirement_lines(text: str) -> list[str]:
-    """The requirement entries of a requirements file, one per line.
+    """
+    The requirement entries of a requirements file, one per line.
 
     Continuations are joined first, so ``pkg==1.0 \\`` followed by ``--hash=...``
     is treated as the single requirement it is.
@@ -36,7 +37,8 @@ def _requirement_lines(text: str) -> list[str]:
 
 
 def unpinned_requirements(text: str) -> list[str]:
-    """Requirements that do not pin an exact version.
+    """
+    Requirements that do not pin an exact version.
 
     A dependency without ``==`` (or an accompanying hash) resolves to whatever
     satisfies it on the day of the build, so two deploys of the same commit can
@@ -50,7 +52,8 @@ def unpinned_requirements(text: str) -> list[str]:
 
 
 def requirements_are_hashed(text: str) -> bool:
-    """True when every requirement carries a hash, enabling ``--require-hashes``.
+    """
+    True when every requirement carries a hash, enabling ``--require-hashes``.
 
     Version pinning fixes *which release* is installed; a hash additionally
     fixes *which bytes*, so a tampered or re-uploaded artefact is rejected.
@@ -60,7 +63,8 @@ def requirements_are_hashed(text: str) -> bool:
 
 
 def _find_best_python() -> str:
-    """Find the best available Python interpreter (3.12, 3.11, 3.10, or fallback).
+    """
+    Find the best available Python interpreter (3.12, 3.11, 3.10, or fallback).
 
     On RHEL 9 clones, /usr/bin/python3 is Python 3.9 which is too old.
     We prefer Python 3.12 > 3.11 > 3.10 > python3.
@@ -102,7 +106,8 @@ if TYPE_CHECKING:
 
 
 class PythonToolchain(LanguageToolchain):
-    """Language toolchain for Python projects.
+    """
+    Language toolchain for Python projects.
 
     This provides the necessary methods to build Python projects by
     creating a virtual environment and installing dependencies. It
@@ -117,7 +122,8 @@ class PythonToolchain(LanguageToolchain):
         return self.check_exists(["requirements.txt", "pyproject.toml"])
 
     def build(self) -> BuildArtifact:
-        """Build the Python application by creating a virtualenv and installing dependencies.
+        """
+        Build the Python application by creating a virtualenv and installing dependencies.
 
         Returns:
             BuildArtifact containing the virtualenv location and runtime configuration
@@ -218,8 +224,10 @@ class PythonToolchain(LanguageToolchain):
             return False
 
     def install_virtualenv(self) -> None:
-        """Install virtual environment and necessary dependencies for the
-        application."""
+        """
+        Install virtual environment and necessary dependencies for the
+        application.
+        """
         emit(InstallingVirtualEnv(self.app_name))
 
         python = self.virtual_env / "bin" / "python"
@@ -300,7 +308,8 @@ class PythonToolchain(LanguageToolchain):
         return shutil.which("uv") is not None
 
     def _ensure_uv_installed(self) -> bool:
-        """Ensure uv is installed, installing it if necessary.
+        """
+        Ensure uv is installed, installing it if necessary.
 
         Returns:
             True if uv is available (was already installed or installation succeeded)

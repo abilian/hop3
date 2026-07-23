@@ -1,5 +1,6 @@
 # Copyright (c) 2024-2025, Abilian SAS
-"""Server-side git operations.
+"""
+Server-side git operations.
 
 This module provides a GitManager class to handle git operations on the
 server side.
@@ -23,7 +24,8 @@ if TYPE_CHECKING:
 
 
 def extract_app_name_from_repo_path(repo_path: str) -> str:
-    """Extract app name from git repository path.
+    """
+    Extract app name from git repository path.
 
     This function handles various path formats that git may use when
     running git-receive-pack or git-upload-pack via SSH.
@@ -76,7 +78,8 @@ class GitManager:
         return self.app.name
 
     def receive_pack(self) -> None:
-        """Handle git pushes for an app.
+        """
+        Handle git pushes for an app.
 
         This sets the current working directory to the app's repository
         path and runs the 'git-receive-pack' command with the repository
@@ -96,7 +99,8 @@ class GitManager:
         subprocess.run(cmd, cwd=cwd, check=True)
 
     def upload_pack(self) -> None:
-        """Handle git upload pack for an app.
+        """
+        Handle git upload pack for an app.
 
         This executes the 'git-upload-pack' command in the application's
         repository path.
@@ -129,7 +133,8 @@ class GitManager:
             make_executable(hook_path)
 
     def clone(self) -> None:
-        """Clone the git repository to the source directory.
+        """
+        Clone the git repository to the source directory.
 
         This checks if the source path for the application exists. If it
         does not exist, it creates the application directory and clones

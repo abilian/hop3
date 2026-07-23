@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""CSRF protection on the state-changing POSTs (active when not UNSAFE).
+"""
+CSRF protection on the state-changing POSTs (active when not UNSAFE).
 
 The rest of the suite runs with TESTLAB_UNSAFE=true (auth + CSRF bypassed); here
 we opt back in to confirm the middleware is actually wired and enforcing.
@@ -13,8 +14,10 @@ from litestar.testing import TestClient
 
 
 def test_csrf_failure_redirects_to_login_and_clears_wedged_cookie(monkeypatch):
-    """A CSRF failure must not dump JSON at the user. The handler bounces to a fresh
-    login and expires the (possibly wedged) csrftoken cookie, so the retry works."""
+    """
+    A CSRF failure must not dump JSON at the user. The handler bounces to a fresh
+    login and expires the (possibly wedged) csrftoken cookie, so the retry works.
+    """
     monkeypatch.setenv("TESTLAB_UNSAFE", "")  # enable CSRF (and the auth guard)
     monkeypatch.setenv("TESTLAB_PASSWORD", "secret")
 
@@ -53,8 +56,10 @@ def test_csrf_valid_token_passes_when_not_unsafe(monkeypatch):
 
 
 def test_no_csrf_under_unsafe(monkeypatch):
-    """Under the test/dev UNSAFE bypass, POSTs work without a token (so the rest
-    of the suite — and local dev — isn't forced to round-trip one)."""
+    """
+    Under the test/dev UNSAFE bypass, POSTs work without a token (so the rest
+    of the suite — and local dev — isn't forced to round-trip one).
+    """
     monkeypatch.setenv("TESTLAB_UNSAFE", "true")
     with TestClient(app=create_app()) as client:
         r = client.post("/running/stop")

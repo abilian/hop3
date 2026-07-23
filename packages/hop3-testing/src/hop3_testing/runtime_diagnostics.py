@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Runtime diagnostic collection for failed tests.
+"""
+Runtime diagnostic collection for failed tests.
 
 Runs a set of shell commands on the target after a test fails (but BEFORE
 cleanup destroys the app/container) so the per-app log file contains everything
@@ -36,7 +37,8 @@ HOP3_UWSGI_AVAILABLE = "/home/hop3/uwsgi-available"
 
 
 def _app_dir_exists(target: DeploymentTarget, app_name: str) -> bool:
-    """Whether ``/home/hop3/apps/<app>`` exists on the target.
+    """
+    Whether ``/home/hop3/apps/<app>`` exists on the target.
 
     When a deploy fails client-side (e.g. the upload is rejected before the
     server creates the app), this directory is absent. Probing it once lets the
@@ -55,7 +57,8 @@ def _app_dir_exists(target: DeploymentTarget, app_name: str) -> bool:
 
 
 def _has_docker_container(target: DeploymentTarget, app_name: str) -> bool:
-    """Whether a docker container for this app exists on the target.
+    """
+    Whether a docker container for this app exists on the target.
 
     Decides whether the docker sections are relevant at all: a native/Nix app
     has no containers, so probing for them only adds confusing "(no docker
@@ -76,7 +79,8 @@ def _has_docker_container(target: DeploymentTarget, app_name: str) -> bool:
 def _diagnostic_sections(
     app_name: str, *, has_docker_container: bool
 ) -> list[tuple[str, str]]:
-    """The (title, shell-command) pairs to collect for ``app_name``.
+    """
+    The (title, shell-command) pairs to collect for ``app_name``.
 
     A pure function of the app name and whether it is containerised, so the
     section set is unit-testable without a target. Titles are stable — the
@@ -192,7 +196,8 @@ def collect_runtime_logs(
     target: DeploymentTarget | None,
     app_name: str | None,
 ) -> str:
-    """Collect post-failure diagnostic output from the target.
+    """
+    Collect post-failure diagnostic output from the target.
 
     Args:
         target: The deployment target (remote or docker).

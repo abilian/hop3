@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""The CSPRNG secret generator for [env] { generate = ... } (ADR 046).
+"""
+The CSPRNG secret generator for [env] { generate = ... } (ADR 046).
 
 `generate_secret_value` is the pure, functional core: a generate spec in, a
 value out, backed by the stdlib `secrets` module (never `random`).

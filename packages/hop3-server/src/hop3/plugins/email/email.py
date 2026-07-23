@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Email (SMTP relay) addon — EXPERIMENTAL.
+"""
+Email (SMTP relay) addon — EXPERIMENTAL.
 
 ``EmailAddon`` implements the ``Addon`` protocol but provisions no server-side
 resource: it stores the operator's upstream SMTP submission credentials and
@@ -40,7 +41,8 @@ SUBMISSION_PORTS = (STARTTLS_PORT, IMPLICIT_TLS_PORT)
 
 
 def _has_control_chars(value: str) -> bool:
-    """True if the string holds an ASCII control char (CR/LF/tab/…/DEL).
+    """
+    True if the string holds an ASCII control char (CR/LF/tab/…/DEL).
 
     A control char in a host/user/password/From can break the env-file
     serialization or inject SMTP/email headers in a downstream app, so it is
@@ -50,8 +52,10 @@ def _has_control_chars(value: str) -> bool:
 
 
 def _looks_like_email(value: str) -> bool:
-    """Cheap sanity check on a From address — a full RFC 5322 validator is
-    overkill; this only rejects an obviously-wrong address before storing it."""
+    """
+    Cheap sanity check on a From address — a full RFC 5322 validator is
+    overkill; this only rejects an obviously-wrong address before storing it.
+    """
     if value.count("@") != 1:
         return False
     local, _, domain = value.partition("@")
@@ -59,7 +63,8 @@ def _looks_like_email(value: str) -> bool:
 
 
 def validate_mail_from(mail_from: str) -> None:
-    """Raise ``ValueError`` if a From is empty, malformed, or holds control chars.
+    """
+    Raise ``ValueError`` if a From is empty, malformed, or holds control chars.
 
     Shared by ``EmailTransport`` and the credential-less catch backend so both
     enforce the same From-boundary check (no header injection, no forged sender).
@@ -77,7 +82,8 @@ def validate_mail_from(mail_from: str) -> None:
 
 @dataclass(frozen=True, slots=True)
 class EmailTransport:
-    """The operator's upstream SMTP submission credentials + default From.
+    """
+    The operator's upstream SMTP submission credentials + default From.
 
     Validation lives here, at the domain boundary — not only in the CLI — so no
     path (a direct call, a hand-edited secrets file, a future declarative
@@ -125,7 +131,8 @@ class EmailTransport:
 
 @dataclass(frozen=True)
 class EmailAddon:
-    """SMTP-relay addon implementing the Addon protocol (experimental).
+    """
+    SMTP-relay addon implementing the Addon protocol (experimental).
 
     One instance per ``addon email create <name> …``. There is nothing to
     provision on a server — the addon stores the operator's upstream transport
@@ -145,7 +152,8 @@ class EmailAddon:
     # ------------------------------------------------------------------
 
     def configure(self, transport: EmailTransport) -> None:
-        """Store (or replace) the upstream transport for this addon.
+        """
+        Store (or replace) the upstream transport for this addon.
 
         Idempotent: re-running with new credentials rotates them in place. This
         is what ``addon email create`` calls — the generic ``addon create email``
@@ -164,7 +172,8 @@ class EmailAddon:
         )
 
     def configure_inherited(self, mail_from: str) -> None:
-        """Store this addon as inheriting the server-level transport.
+        """
+        Store this addon as inheriting the server-level transport.
 
         Only the app's own From address is kept; the SMTP credentials are
         resolved from the server transport at attach time (see
@@ -176,7 +185,8 @@ class EmailAddon:
         )
 
     def create(self) -> None:
-        """Provision from the server backend if one is set; otherwise stay inert.
+        """
+        Provision from the server backend if one is set; otherwise stay inert.
 
         This is the path a recipe's ``[[addons]] type = "email"`` takes. Email is
         an OPTIONAL enhancement — the app runs fine without it — so a missing
@@ -218,7 +228,8 @@ class EmailAddon:
     # ------------------------------------------------------------------
 
     def get_connection_details(self) -> dict[str, str]:
-        """Render the app's SMTP env vars under every common spelling.
+        """
+        Render the app's SMTP env vars under every common spelling.
 
         An **inheriting** addon points the app at the loopback relay
         (``127.0.0.1:25``, ADR 054): the app speaks SMTP to the local Postfix,
@@ -304,7 +315,8 @@ class EmailAddon:
         }
 
     def _inherited_info(self, mail_from: str) -> dict[str, Any]:
-        """Status for an inheriting addon — kind-aware, never a fake relay.
+        """
+        Status for an inheriting addon — kind-aware, never a fake relay.
 
         A relay backend shows the resolved server host; a catch (or other
         loopback) backend shows ``127.0.0.1:25``, since the app sends there. A
@@ -369,7 +381,8 @@ _LOOPBACK_PORT = "25"
 
 
 def _loopback_vars(mail_from: str) -> dict[str, str]:
-    """Env vars pointing an inheriting app at the local loopback relay.
+    """
+    Env vars pointing an inheriting app at the local loopback relay.
 
     The app sends to ``127.0.0.1:25`` with no auth; the Hop3-managed Postfix
     relays to the active backend (ADR 054). No provider credential is emitted —

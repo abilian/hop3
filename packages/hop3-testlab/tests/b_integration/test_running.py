@@ -140,9 +140,11 @@ def test_stop_kills_engine_marks_aborted_and_frees_lease(tmp_path, monkeypatch):
 
 
 def test_swept_orphan_no_longer_masquerades_as_the_live_run(tmp_path):
-    """A run left unfinished by a prior crash/Stop must not show as the live run
+    """
+    A run left unfinished by a prior crash/Stop must not show as the live run
     under the next lease — active_run() picks the newest unfinished row, so the
-    sweep is what keeps it from latching onto a stale orphan."""
+    sweep is what keeps it from latching onto a stale orphan.
+    """
     db = tmp_path / "test-results.db"
     engine = _engine(db)
     with Session(engine) as s:

@@ -1,5 +1,6 @@
 # Copyright (c) 2025, Abilian SAS
-"""add runtime field to app model
+"""
+add runtime field to app model
 
 Revision ID: 961bfd2ecce5
 Revises: 0d21c362f66d
@@ -31,7 +32,8 @@ def _app_has_column(name: str) -> bool:
 
 
 def upgrade() -> None:
-    """Upgrade schema to add runtime field.
+    """
+    Upgrade schema to add runtime field.
 
     Idempotent (see the error_message migration): skip when a create_all DB
     being adopted already has the column.

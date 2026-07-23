@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Native [limits] cgroup enforcement (ADR 046 §3 / P2.2).
+"""
+Native [limits] cgroup enforcement (ADR 046 §3 / P2.2).
 
 The rootd client and /proc scan are stubbed — this is the server-side policy
 (resolve → apply → strict/best-effort branching → record), not the kernel path

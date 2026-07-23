@@ -27,8 +27,10 @@ from hop3.plugins.email.server_transport import save_server_catch
 
 @pytest.fixture
 def email_root(tmp_path, monkeypatch):
-    """Point both the addon-secrets store and the server-transport record at a
-    throwaway dir, so a real server backend can't leak into a test."""
+    """
+    Point both the addon-secrets store and the server-transport record at a
+    throwaway dir, so a real server backend can't leak into a test.
+    """
     monkeypatch.setattr(secrets_module, "HOP3_ROOT", tmp_path)
     monkeypatch.setattr(server_transport_module, "HOP3_ROOT", tmp_path)
     return tmp_path
@@ -55,9 +57,11 @@ def _configured(name: str = "mail", port: int = 587) -> EmailAddon:
 
 
 def test_create_graceful_without_backend(email_root):
-    """Email is optional: with no server backend, create() must NOT fail the
+    """
+    Email is optional: with no server backend, create() must NOT fail the
     deploy. It stores an inheriting-when-available marker and injects no SMTP
-    env (surfaced, not a silent skip)."""
+    env (surfaced, not a silent skip).
+    """
     addon = EmailAddon(addon_name="mail")
     addon.create()  # no raise
     stored = secrets_module.load_addon_secrets("email", "mail")
@@ -67,8 +71,10 @@ def test_create_graceful_without_backend(email_root):
 
 
 def test_pending_addon_wires_email_once_a_backend_is_set(email_root, no_dns):
-    """A pending addon (declared before any backend) picks the backend up on the
-    next deploy — get_connection_details resolves it fresh, no re-create."""
+    """
+    A pending addon (declared before any backend) picks the backend up on the
+    next deploy — get_connection_details resolves it fresh, no re-create.
+    """
     addon = EmailAddon(addon_name="mail")
     addon.create()  # pending (no backend yet)
     save_server_catch("dev.local")  # operator configures a backend
@@ -78,9 +84,11 @@ def test_pending_addon_wires_email_once_a_backend_is_set(email_root, no_dns):
 
 
 def test_create_inherits_when_backend_configured(email_root):
-    """A recipe's `[[addons]] type = "email"` (generic create) inherits the
+    """
+    A recipe's `[[addons]] type = "email"` (generic create) inherits the
     server backend when one is set: the addon is stored as inheriting, with its
-    From on the backend's verified domain (ADR 054/056)."""
+    From on the backend's verified domain (ADR 054/056).
+    """
     save_server_catch("dev.local")
 
     EmailAddon(addon_name="bugsink-email").create()

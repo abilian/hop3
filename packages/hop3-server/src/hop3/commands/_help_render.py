@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared helpers for rendering command help output (ADR 036 D11).
+"""
+Shared helpers for rendering command help output (ADR 036 D11).
 
 Extracted from `help.py` so that `_base.Command.get_help()` can produce the
 same D11-formatted output for namespace-bare invocations (e.g., `hop3 app`)
@@ -21,7 +22,8 @@ _SECTION_HEADERS = {
 
 
 def parse_docstring_sections(doc: str | None) -> dict:
-    """Parse a docstring into summary / usage / examples / body sections.
+    """
+    Parse a docstring into summary / usage / examples / body sections.
 
     Returns a dict with keys: 'summary' (str), 'usage' (list[str]),
     'examples' (list[str]), 'body' (list[str]).
@@ -53,7 +55,8 @@ def parse_docstring_sections(doc: str | None) -> dict:
 
 
 def classify_doc_line(stripped: str) -> tuple[str | None, str]:
-    """Classify a single stripped docstring line.
+    """
+    Classify a single stripped docstring line.
 
     Returns (section_name_or_None, tail). If the line is a recognized section
     header, section_name is set to the target section and tail contains any

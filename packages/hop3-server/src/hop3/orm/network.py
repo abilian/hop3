@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Operator-defined named networks — CIDR sets referenced by WAF gates.
+"""
+Operator-defined named networks — CIDR sets referenced by WAF gates.
 
 A WAF access gate (ADR 050 §2, ``[[waf.gate]] require = "office"``) names a
 network rather than hard-coding CIDRs in the app's ``hop3.toml``: the operator

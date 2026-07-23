@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared secrets management for addon plugins.
+"""
+Shared secrets management for addon plugins.
 
 This module provides utilities for storing and retrieving addon secrets
 (passwords, connection strings, etc.) in a secure manner.
@@ -23,7 +24,8 @@ if TYPE_CHECKING:
 
 
 def _get_secrets_dir(addon_type: str) -> Path:
-    """Get the directory for storing addon secrets.
+    """
+    Get the directory for storing addon secrets.
 
     Args:
         addon_type: The type of addon (e.g., "mysql", "postgres", "redis")
@@ -37,7 +39,8 @@ def _get_secrets_dir(addon_type: str) -> Path:
 
 
 def _get_secrets_file(addon_type: str, addon_name: str) -> Path:
-    """Get the secrets file path for an addon.
+    """
+    Get the secrets file path for an addon.
 
     Args:
         addon_type: The type of addon (e.g., "mysql", "postgres")
@@ -50,7 +53,8 @@ def _get_secrets_file(addon_type: str, addon_name: str) -> Path:
 
 
 def load_addon_secrets(addon_type: str, addon_name: str) -> dict[str, Any] | None:
-    """Load stored secrets for an addon.
+    """
+    Load stored secrets for an addon.
 
     Args:
         addon_type: The type of addon (e.g., "mysql", "postgres")
@@ -69,7 +73,8 @@ def load_addon_secrets(addon_type: str, addon_name: str) -> dict[str, Any] | Non
 def save_addon_secrets(
     addon_type: str, addon_name: str, secrets_data: dict[str, Any]
 ) -> None:
-    """Save secrets for an addon.
+    """
+    Save secrets for an addon.
 
     The secrets file is created with restrictive permissions (0o600)
     to protect sensitive data.
@@ -86,7 +91,8 @@ def save_addon_secrets(
 
 
 def delete_addon_secrets(addon_type: str, addon_name: str) -> None:
-    """Delete stored secrets for an addon.
+    """
+    Delete stored secrets for an addon.
 
     Args:
         addon_type: The type of addon (e.g., "mysql", "postgres")
@@ -98,7 +104,8 @@ def delete_addon_secrets(addon_type: str, addon_name: str) -> None:
 
 
 def list_addon_instances() -> list[tuple[str, str]]:
-    """List all provisioned addon instances.
+    """
+    List all provisioned addon instances.
 
     The secrets store (HOP3_ROOT/addons/<type>/<name>.json) is the de-facto
     registry of provisioned instances, so enumerating it works for every

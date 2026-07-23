@@ -26,7 +26,8 @@ from hop3.project.config import AppConfig
 
 @dataclass(frozen=True)
 class StaticDeployer:
-    """Deployment strategy for static file applications.
+    """
+    Deployment strategy for static file applications.
 
     Static apps don't require any runtime process - they're served directly by nginx.
     """
@@ -48,7 +49,8 @@ class StaticDeployer:
         return self.artifact.kind == "static"
 
     def _make_env(self) -> Env:
-        """Create environment for nginx configuration.
+        """
+        Create environment for nginx configuration.
 
         Similar to AppLauncher.make_env() but simplified for static apps —
         no hop3.toml parse needed; we use only the ORM-persisted runtime env
@@ -106,7 +108,8 @@ class StaticDeployer:
         return env
 
     def deploy(self, deltas: dict[str, int] | None = None) -> DeploymentInfo:
-        """Deploy the static app.
+        """
+        Deploy the static app.
 
         For static apps, deployment just means marking them as RUNNING.
         Nginx will serve the files directly from the artifact location.
@@ -166,7 +169,8 @@ class StaticDeployer:
         )
 
     def _grant_nginx_read(self, static_path: str | Path) -> None:
-        """Make the served static tree readable by the nginx worker (www-data).
+        """
+        Make the served static tree readable by the nginx worker (www-data).
 
         ``git checkout`` during deploy creates files mode 0600 (owner-only).
         That's fine for proxied apps — their process runs as the hop3 user and
@@ -235,7 +239,8 @@ class StaticDeployer:
         )
 
     def check_status(self) -> bool:
-        """Check if the static app is running.
+        """
+        Check if the static app is running.
 
         Static apps don't have processes to check - they're served directly by nginx.
         Once deployed, they're immediately available (nginx serves files from disk).

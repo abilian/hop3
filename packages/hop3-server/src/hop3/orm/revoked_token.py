@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Revoked JWT token tracking.
+"""
+Revoked JWT token tracking.
 
 This module provides a revocation list (denylist) for JWT tokens.
 When a user logs out or a token needs to be invalidated, its JTI
@@ -19,7 +20,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 
 class RevokedToken(BigIntAuditBase):
-    """Model for tracking revoked JWT tokens.
+    """
+    Model for tracking revoked JWT tokens.
 
     Attributes:
         jti: JWT ID (unique token identifier from the 'jti' claim)

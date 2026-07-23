@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Catalog spec-validation gate (ADR 049 F7).
+"""
+Catalog spec-validation gate (ADR 049 F7).
 
 A *verified* catalog spec is authentic but still potentially hostile to its
 neighbours. This gate refuses a spec that would claim an **unmanaged shared
@@ -39,7 +40,8 @@ class CatalogSpecError(Exception):
 
 
 def validate_catalog_spec(data: Mapping, app_id: str) -> None:
-    """Reject a catalog spec that would hijack shared reverse-proxy routing.
+    """
+    Reject a catalog spec that would hijack shared reverse-proxy routing.
 
     Args:
         data: the parsed ``hop3.toml`` of a catalog app.

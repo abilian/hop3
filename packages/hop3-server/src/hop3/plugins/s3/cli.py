@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""`addon s3 <verb>` commands — S3-specific addon management.
+"""
+`addon s3 <verb>` commands — S3-specific addon management.
 
 Type-agnostic addon verbs (list/create/attach/detach/destroy/show/status) live
 in `hop3.commands.services`. These S3-specific level-3 commands are contributed
@@ -50,7 +51,8 @@ def _clone(args: tuple) -> list[dict]:
 @register
 @dataclass(frozen=True)
 class AddonS3CredentialsCmd(Command):
-    """Show connection credentials for an S3 addon.
+    """
+    Show connection credentials for an S3 addon.
 
     Usage: hop3 addon s3 credentials <name>
 
@@ -75,7 +77,8 @@ class AddonS3CredentialsCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonS3DumpCmd(Command):
-    """Dump an S3 addon's manifest (credentials + bucket metadata) to a file.
+    """
+    Dump an S3 addon's manifest (credentials + bucket metadata) to a file.
 
     Usage: hop3 addon s3 dump <name>
 
@@ -102,7 +105,8 @@ class AddonS3DumpCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonS3RestoreCmd(Command):
-    """Restore an S3 addon from a dump file.
+    """
+    Restore an S3 addon from a dump file.
 
     Usage: hop3 addon s3 restore <name> <path>
 
@@ -132,7 +136,8 @@ class AddonS3RestoreCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonS3CloneCmd(Command):
-    """Clone an S3 addon into a new one (copies its data).
+    """
+    Clone an S3 addon into a new one (copies its data).
 
     Usage: hop3 addon s3 clone <source> <new-name>
 
@@ -152,7 +157,8 @@ class AddonS3CloneCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonS3ExportCmd(Command):
-    """Stream an S3 addon dump to stdout.
+    """
+    Stream an S3 addon dump to stdout.
 
     Usage: hop3 addon s3 export <name> > dump
     Writes the addon's dump (manifest + bucket data) to the client's stdout —
@@ -182,7 +188,8 @@ class AddonS3ExportCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonS3ImportCmd(Command):
-    """Import a dump into an S3 addon from stdin.
+    """
+    Import a dump into an S3 addon from stdin.
 
     Usage: hop3 addon s3 import <name> --confirm=<name> < dump
 

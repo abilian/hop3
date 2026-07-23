@@ -25,7 +25,8 @@ if TYPE_CHECKING:
 @register
 @dataclass(frozen=True)
 class NixEjectCmd(Command):
-    """Generate and save a hop3.nix file from the [nix] template config.
+    """
+    Generate and save a hop3.nix file from the [nix] template config.
 
     This materializes the auto-generated Nix expression as a real file
     in the app's source directory. After ejection, the NixBuilder uses

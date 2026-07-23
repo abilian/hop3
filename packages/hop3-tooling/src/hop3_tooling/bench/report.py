@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Regenerate the paper's tables and figures from a raw measurement run.
+"""
+Regenerate the paper's tables and figures from a raw measurement run.
 
 Every number quoted in the paper's evaluation section must come out of here, so
 that no figure is hand-transcribed and each one traces to the run that produced
@@ -122,7 +123,8 @@ def render_all(data: dict[str, Any]) -> str:
 
 
 def render_matrix(cells: list[dict[str, Any]]) -> str:
-    """Render the golden-app matrix: per-variant deploy time and coverage.
+    """
+    Render the golden-app matrix: per-variant deploy time and coverage.
 
     Takes the JSONL cells produced by ``hop3-bench matrix``. Successful cells
     carry the timing; failed and no-recipe cells are counted but never averaged

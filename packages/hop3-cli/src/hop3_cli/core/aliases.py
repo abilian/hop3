@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Alias mechanism (ADR 036 D9).
+"""
+Alias mechanism (ADR 036 D9).
 
 An alias is a client-side *first-token rewrite*: before dispatching a command,
 we look up the first token in a table and, if matched, replace it with a

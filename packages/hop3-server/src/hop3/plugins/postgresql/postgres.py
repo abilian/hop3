@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""PostgreSQL service implementation.
+"""
+PostgreSQL service implementation.
 
 This module implements the Addon protocol for PostgreSQL,
 allowing applications to create, attach, and manage PostgreSQL databases.
@@ -110,7 +111,8 @@ ALLOWED_EXTENSIONS: frozenset[str] = DEFAULT_ALLOWED_EXTENSIONS
 
 
 def _resolve_allowed_extensions() -> frozenset[str]:
-    """Effective allow-list = defaults + operator extras - blocked.
+    """
+    Effective allow-list = defaults + operator extras - blocked.
 
     Read at call time (not import) so operators and tests can change the
     environment without reloading the module.
@@ -121,7 +123,8 @@ def _resolve_allowed_extensions() -> frozenset[str]:
 
 
 def _find_pg_hba() -> Path | None:
-    """Find pg_hba.conf across different Linux distributions.
+    """
+    Find pg_hba.conf across different Linux distributions.
 
     Returns:
         Path to pg_hba.conf, or None if not found.
@@ -143,7 +146,8 @@ def _find_pg_hba() -> Path | None:
 
 
 def _ensure_pg_hba_docker_access() -> None:
-    """Ensure pg_hba.conf allows connections from Docker networks.
+    """
+    Ensure pg_hba.conf allows connections from Docker networks.
 
     This is called when provisioning a PostgreSQL addon to ensure Docker
     containers can connect. The configuration is idempotent.
@@ -192,7 +196,8 @@ def _ensure_pg_hba_docker_access() -> None:
 
 
 def _find_pg_conf() -> Path | None:
-    """Find postgresql.conf across different Linux distributions.
+    """
+    Find postgresql.conf across different Linux distributions.
 
     Returns:
         Path to postgresql.conf, or None if not found.
@@ -214,7 +219,8 @@ def _find_pg_conf() -> Path | None:
 
 
 def _ensure_pg_listen_addresses() -> None:
-    """Ensure PostgreSQL listens on all interfaces for Docker access.
+    """
+    Ensure PostgreSQL listens on all interfaces for Docker access.
 
     Raises:
         FileNotFoundError: If postgresql.conf cannot be found.
@@ -253,7 +259,8 @@ def _ensure_pg_listen_addresses() -> None:
 
 
 def _grant_schema_create(admin: PostgresAdmin, *, db_name: str, db_user: str) -> None:
-    """Grant privileges needed to install trusted extensions.
+    """
+    Grant privileges needed to install trusted extensions.
 
     On PostgreSQL 13+ a user can install a *trusted* extension (pg_trgm,
     bloom, hstore, citext, fuzzystrmatch, unaccent, and others) if they
@@ -293,7 +300,8 @@ def _grant_schema_create(admin: PostgresAdmin, *, db_name: str, db_user: str) ->
 
 @dataclass(frozen=True)
 class PostgresAddon:
-    """PostgreSQL service implementation using Addon protocol.
+    """
+    PostgreSQL service implementation using Addon protocol.
 
     This service manages PostgreSQL database instances. Each service instance
     creates a dedicated database and user for isolation.
@@ -327,7 +335,8 @@ class PostgresAddon:
 
     @property
     def db_password(self) -> str:
-        """Get the password for the database user.
+        """
+        Get the password for the database user.
 
         Returns the stored password if available, or generates a new one.
         """
@@ -349,7 +358,8 @@ class PostgresAddon:
         return None
 
     def create(self) -> None:
-        """Create a new PostgreSQL database if it does not already exist.
+        """
+        Create a new PostgreSQL database if it does not already exist.
 
         This method:
         1. Ensures PostgreSQL is configured for Docker access
@@ -469,7 +479,8 @@ class PostgresAddon:
                 connection.close()
 
     def install_extensions(self, extensions: list[str]) -> None:
-        """Install PostgreSQL extensions in the per-app database as superuser.
+        """
+        Install PostgreSQL extensions in the per-app database as superuser.
 
         Some extensions (bloom, postgis, pgvector) are not *trusted* and
         require superuser to CREATE EXTENSION even if the caller has
@@ -533,7 +544,8 @@ class PostgresAddon:
             conn.close()
 
     def exists(self) -> bool:
-        """Check if this PostgreSQL database exists.
+        """
+        Check if this PostgreSQL database exists.
 
         Returns:
             True if the database exists, False otherwise.
@@ -556,7 +568,8 @@ class PostgresAddon:
                 connection.close()
 
     def destroy(self) -> None:
-        """Destroy the PostgreSQL database and user.
+        """
+        Destroy the PostgreSQL database and user.
 
         This permanently deletes all data. Use with caution.
         """
@@ -589,7 +602,8 @@ class PostgresAddon:
                 connection.close()
 
     def get_connection_details(self) -> dict[str, str]:
-        """Get environment variables for connecting to this PostgreSQL database.
+        """
+        Get environment variables for connecting to this PostgreSQL database.
 
         Returns:
             Dictionary with DATABASE_URL and other connection parameters
@@ -636,7 +650,8 @@ class PostgresAddon:
         return {"message": f"OK ({cursor.rowcount} row(s) affected)"}
 
     def run_sql(self, statement: str) -> dict:
-        """Run an ad-hoc SQL statement as the addon's own (app) user.
+        """
+        Run an ad-hoc SQL statement as the addon's own (app) user.
 
         Connects with the app-level credentials (not the superuser), so the
         statement is confined to this addon's database. The password travels
@@ -656,7 +671,8 @@ class PostgresAddon:
             conn.close()
 
     def run_admin_sql(self, statement: str) -> dict:
-        """Run SQL on this addon's database as the superuser.
+        """
+        Run SQL on this addon's database as the superuser.
 
         For diagnostics (pg_stat_activity, pg_locks, pg_settings, …) that the
         per-app user can't see in full. Internal use only — callers pass canned
@@ -673,7 +689,8 @@ class PostgresAddon:
             conn.close()
 
     def backup(self) -> Path:
-        """Create a backup of the PostgreSQL database using pg_dump.
+        """
+        Create a backup of the PostgreSQL database using pg_dump.
 
         Returns:
             Path to the backup file
@@ -714,7 +731,8 @@ class PostgresAddon:
         return backup_file
 
     def restore(self, backup_path: Path) -> None:
-        """Restore PostgreSQL database from a backup file.
+        """
+        Restore PostgreSQL database from a backup file.
 
         Args:
             backup_path: Path to the SQL backup file
@@ -751,7 +769,8 @@ class PostgresAddon:
         subprocess.run(cmd, check=True, env=env)
 
     def info(self) -> dict[str, Any]:
-        """Get information about the PostgreSQL service.
+        """
+        Get information about the PostgreSQL service.
 
         Returns:
             Dictionary with service details

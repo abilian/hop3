@@ -27,7 +27,8 @@ if TYPE_CHECKING:
 #
 @dataclass
 class BuildContext:
-    """Context for build operations (before deployment).
+    """
+    Context for build operations (before deployment).
 
     Contains information needed during the build phase, before deployment.
     Separate from DeploymentContext to avoid coupling build and deploy concerns.
@@ -43,7 +44,8 @@ class BuildContext:
 
 @dataclass
 class DeploymentContext:
-    """Context for deployment operations (after build).
+    """
+    Context for deployment operations (after build).
 
     Contains information needed during the deployment phase, after build.
     """
@@ -72,7 +74,8 @@ class DeploymentInfo:
 # --- Protocols (Interfaces for the Strategies) ---
 #
 class Builder(Protocol):
-    """Top-level build orchestrator - defines HOW to build.
+    """
+    Top-level build orchestrator - defines HOW to build.
 
     Builders orchestrate the build process and may delegate to language
     toolchains for language-specific operations.
@@ -102,7 +105,8 @@ class Builder(Protocol):
 
 
 class LanguageToolchain(Protocol):
-    """Language-specific build toolchain - defines WHAT tools to use.
+    """
+    Language-specific build toolchain - defines WHAT tools to use.
 
     Toolchains handle language-specific build operations like installing
     dependencies, compiling code, and bundling assets.
@@ -125,7 +129,8 @@ class LanguageToolchain(Protocol):
         ...
 
     def accept(self) -> bool:
-        """Check if this toolchain applies to the project.
+        """
+        Check if this toolchain applies to the project.
 
         Examples:
         - PythonToolchain: checks for requirements.txt or pyproject.toml
@@ -163,7 +168,8 @@ class Deployer(Protocol):
     def stop(self) -> None: ...
 
     def check_status(self) -> bool:
-        """Check if the deployed application is actually running.
+        """
+        Check if the deployed application is actually running.
 
         Returns:
             True if processes/containers are confirmed running, False otherwise.
@@ -182,7 +188,8 @@ class Deployer(Protocol):
 
 
 class Addon(Protocol):
-    """Interface for managing addons (backing services like databases, caches, etc.).
+    """
+    Interface for managing addons (backing services like databases, caches, etc.).
 
     An addon represents a resource that applications can attach to,
     like PostgreSQL, Redis, or Elasticsearch. Addons are created independently
@@ -202,7 +209,8 @@ class Addon(Protocol):
     addon_name: str
 
     def __init__(self, *, addon_name: str) -> None:
-        """Initialize the addon with an instance name.
+        """
+        Initialize the addon with an instance name.
 
         Args:
             addon_name: The specific instance name for this addon.
@@ -210,21 +218,24 @@ class Addon(Protocol):
         ...
 
     def create(self) -> None:
-        """Create the addon instance.
+        """
+        Create the addon instance.
 
         This should provision the necessary resources for the addon,
         such as creating a database, user, or cache instance.
         """
 
     def destroy(self) -> None:
-        """Destroy the addon instance.
+        """
+        Destroy the addon instance.
 
         This should completely remove all resources associated with the addon,
         including data. This operation should be idempotent.
         """
 
     def get_connection_details(self) -> dict[str, str]:
-        """Get environment variables for connecting to this addon.
+        """
+        Get environment variables for connecting to this addon.
 
         Returns:
             A dictionary of environment variable names and values that
@@ -233,21 +244,24 @@ class Addon(Protocol):
         """
 
     def backup(self) -> Path:
-        """Create a backup of the addon data.
+        """
+        Create a backup of the addon data.
 
         Returns:
             Path to the backup file or directory.
         """
 
     def restore(self, backup_path: Path) -> None:
-        """Restore addon data from a backup.
+        """
+        Restore addon data from a backup.
 
         Args:
             backup_path: Path to the backup file or directory to restore from.
         """
 
     def info(self) -> dict[str, Any]:
-        """Get information about the addon instance.
+        """
+        Get information about the addon instance.
 
         Returns:
             Dictionary with addon details like status, version, size, etc.
@@ -255,7 +269,8 @@ class Addon(Protocol):
 
 
 class Proxy(Protocol):
-    """A protocol for defining a proxy interface.
+    """
+    A protocol for defining a proxy interface.
 
     This defines the required attributes and methods
     that any proxy (like Nginx, Apache Httpd, etc.) should implement.
@@ -275,7 +290,8 @@ class Proxy(Protocol):
     workers: dict[str, str]
 
     def __init__(self, app: App, env: Env, workers: dict[str, str]) -> None:
-        """Initialize the proxy with application, environment, and worker configuration.
+        """
+        Initialize the proxy with application, environment, and worker configuration.
 
         Args:
             app: The application to be proxied.
@@ -289,7 +305,8 @@ class Proxy(Protocol):
 
 @dataclass(frozen=True)
 class BaseProxy(ABC):
-    """Abstract base class for proxy implementations.
+    """
+    Abstract base class for proxy implementations.
 
     This class provides common functionality for all proxy strategies
     (Nginx, Caddy, Traefik, etc.) to eliminate code duplication.
@@ -319,14 +336,16 @@ class BaseProxy(ABC):
 
     @abstractmethod
     def get_proxy_name(self) -> str:
-        """Return the proxy name (e.g., 'nginx', 'caddy', 'traefik').
+        """
+        Return the proxy name (e.g., 'nginx', 'caddy', 'traefik').
 
         This is used to construct proxy-specific environment variable names.
         """
         ...
 
     def update_env(self, key: str, value: str = "", template: str = "") -> None:
-        """Update an environment variable, optionally from a template.
+        """
+        Update an environment variable, optionally from a template.
 
         Args:
             key: Environment variable name
@@ -338,7 +357,8 @@ class BaseProxy(ABC):
         self.env[key] = value
 
     def setup(self) -> None:
-        """Configure the proxy environment for the application.
+        """
+        Configure the proxy environment for the application.
 
         This orchestrates the setup process by calling various setup methods
         in the correct order. This method is the same for all proxies.
@@ -393,7 +413,8 @@ class BaseProxy(ABC):
         ...
 
     def get_static_paths(self) -> list[tuple[str, Path]]:
-        """Get a mapping of static URL prefixes to file system paths.
+        """
+        Get a mapping of static URL prefixes to file system paths.
 
         This method is identical across all proxy implementations,
         only the environment variable name differs.
@@ -437,7 +458,8 @@ Severity = Literal["ok", "warn", "fail"]
 
 @dataclass
 class HealthCheckResult:
-    """Result of a health check.
+    """
+    Result of a health check.
 
     Attributes:
         name: Display name for this check (e.g., "MySQL", "PostgreSQL")
@@ -467,7 +489,8 @@ class HealthCheckResult:
 
 
 class HealthCheck(Protocol):
-    """Interface for health checks contributed by plugins.
+    """
+    Interface for health checks contributed by plugins.
 
     Health checks verify that a service or resource is properly configured
     and accessible. They are run during server startup and via the
@@ -503,7 +526,8 @@ class HealthCheck(Protocol):
     name: str
 
     def is_configured(self) -> bool:
-        """Check if this service is configured and should be checked.
+        """
+        Check if this service is configured and should be checked.
 
         Returns:
             True if the service is configured (e.g., password set in config),
@@ -512,7 +536,8 @@ class HealthCheck(Protocol):
         ...
 
     def check(self) -> HealthCheckResult:
-        """Perform the health check.
+        """
+        Perform the health check.
 
         Returns:
             HealthCheckResult with pass/fail status and message.
@@ -521,7 +546,8 @@ class HealthCheck(Protocol):
 
 
 class OS(Protocol):
-    """Interface for OS-specific server setup and configuration.
+    """
+    Interface for OS-specific server setup and configuration.
 
     An OS setup strategy handles the installation of dependencies and
     system configuration for a specific Linux distribution and version.
@@ -536,7 +562,8 @@ class OS(Protocol):
     name: str
 
     def __init__(self) -> None:
-        """Initialize the OS strategy.
+        """
+        Initialize the OS strategy.
 
         OS strategies are typically instantiated without arguments
         and use system introspection (e.g., /etc/os-release) to configure themselves.
@@ -554,7 +581,8 @@ class OS(Protocol):
         ...
 
     def detect(self) -> bool:
-        """Check if this strategy matches the current operating system.
+        """
+        Check if this strategy matches the current operating system.
 
         This should read /etc/os-release or similar system files to
         determine if the current OS matches this strategy.
@@ -564,7 +592,8 @@ class OS(Protocol):
         """
 
     def setup_server(self) -> None:
-        """Install dependencies and configure the system for hop3.
+        """
+        Install dependencies and configure the system for hop3.
 
         This should:
         1. Configure package manager settings (e.g., APT config)
@@ -576,7 +605,8 @@ class OS(Protocol):
         """
 
     def ensure_packages(self, packages: list[str], *, update: bool = True) -> None:
-        """Install system packages using the OS package manager.
+        """
+        Install system packages using the OS package manager.
 
         Args:
             packages: List of package names to install
@@ -584,7 +614,8 @@ class OS(Protocol):
         """
 
     def ensure_user(self, user: str, home: str, shell: str, group: str) -> None:
-        """Create a system user account if it doesn't exist.
+        """
+        Create a system user account if it doesn't exist.
 
         Args:
             user: Username to create
@@ -595,7 +626,8 @@ class OS(Protocol):
 
 
 class WafEngine(Protocol):
-    """A Layer-7 WAF engine (ADR 050).
+    """
+    A Layer-7 WAF engine (ADR 050).
 
     Compiles a per-app ``[waf]`` policy into the engine's native rules and
     manages the WAF service. LeWAF is the first implementation; Coraza can
@@ -612,7 +644,8 @@ class WafEngine(Protocol):
     def configure_app(
         self, app_name: str, policy: WafSection, networks: Mapping[str, list[str]]
     ) -> Path:
-        """Write the app's compiled rules; return the rules-file path.
+        """
+        Write the app's compiled rules; return the rules-file path.
 
         ``networks`` maps each named network (resolved from the operator
         registry) to its CIDRs, for gate conditions.
@@ -624,7 +657,8 @@ class WafEngine(Protocol):
         ...
 
     def validate(self, app_name: str) -> None:
-        """Load the compiled rules into the engine; raise on a parse error.
+        """
+        Load the compiled rules into the engine; raise on a parse error.
 
         The compile-before-commit gate (ADR 050 §5) — the deploy aborts rather
         than front an app with rules the engine can't load.
@@ -634,9 +668,11 @@ class WafEngine(Protocol):
     def proxy_command(
         self, app_name: str, upstream_url: str, listen_port: int
     ) -> list[str]:
-        """The argv that runs the WAF proxy: fronts ``upstream_url`` for the app
+        """
+        The argv that runs the WAF proxy: fronts ``upstream_url`` for the app
         on ``listen_port`` (loopback), reading the real client IP from the single
-        trusted nginx hop (Security invariant 1)."""
+        trusted nginx hop (Security invariant 1).
+        """
         ...
 
     def audit_path(self, app_name: str) -> Path:
@@ -644,7 +680,8 @@ class WafEngine(Protocol):
         ...
 
     def write_bans(self, app_name: str, banned: list[str]) -> bool:
-        """Rewrite the app's ban denylist from the active set, if it changed.
+        """
+        Rewrite the app's ban denylist from the active set, if it changed.
 
         Returns True when the file was (re)written — the scorer reloads the proxy
         only then, so an unchanged denylist never churns the running proxy

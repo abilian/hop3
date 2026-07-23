@@ -11,13 +11,15 @@ from .base import BaseOSStrategy
 
 
 class RedHatBase(BaseOSStrategy):
-    """Base class for Red Hat-based distributions.
+    """
+    Base class for Red Hat-based distributions.
 
     Provides DNF/YUM package management for RHEL, Rocky, Alma, Fedora, CentOS, etc.
     """
 
     def ensure_packages(self, packages: list[str], *, update: bool = True) -> None:
-        """Install packages using DNF (or YUM as fallback).
+        """
+        Install packages using DNF (or YUM as fallback).
 
         Args:
             packages: List of package names to install

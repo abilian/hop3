@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the certificate domain validator and path derivation.
+"""
+Unit tests for the certificate domain validator and path derivation.
 
 These lock down the pure logic in ``hop3.platform.certificates``:
 the FQDN regex (what certbot will accept) and how a ``Certificate``
@@ -77,7 +78,8 @@ def test_validator_rejects_malformed_domain(domain: str):
 
 
 def test_validator_is_case_sensitive_lowercase_only():
-    """The validator only matches lowercase; callers must lowercase first.
+    """
+    The validator only matches lowercase; callers must lowercase first.
 
     ``is_public_fqdn`` relies on this by matching ``domain_name.lower()``
     rather than the raw value.
@@ -88,7 +90,8 @@ def test_validator_is_case_sensitive_lowercase_only():
 
 
 def test_validator_accepts_reserved_tld_shape():
-    """Reserved TLDs are syntactically valid FQDNs.
+    """
+    Reserved TLDs are syntactically valid FQDNs.
 
     The regex only checks shape; rejecting .local/.test/.localhost is a
     separate concern handled by the reserved-TLD set in certbot generation.

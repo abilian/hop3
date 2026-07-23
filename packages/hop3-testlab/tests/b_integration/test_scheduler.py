@@ -67,8 +67,10 @@ def test_schedule_env_enable(tmp_path: Path, monkeypatch):
 
 
 def test_nightly_job_enqueues_configured_profile(monkeypatch):
-    """The nightly enqueues its profile (the dispatcher then runs it) — no direct
-    run, so it shares the single queue path with the UI's Start build."""
+    """
+    The nightly enqueues its profile (the dispatcher then runs it) — no direct
+    run, so it shares the single queue path with the UI's Start build.
+    """
     with _session() as s:
         profile = ProfilesRepository(s).create(
             name="nightly-suite",
@@ -134,9 +136,11 @@ def test_add_nightly_job_registers_cron(monkeypatch):
 
 
 def test_dispatch_job_is_non_blocking_and_serial(monkeypatch):
-    """The poll spawns the run on a worker thread and returns at once; while that
+    """
+    The poll spawns the run on a worker thread and returns at once; while that
     thread is alive a second poll is a no-op (serial v1). This is what keeps
-    apscheduler's max_instances=1 from skipping every tick (the warning flood)."""
+    apscheduler's max_instances=1 from skipping every tick (the warning flood).
+    """
     started = threading.Event()
     release = threading.Event()
     calls: list[int] = []
@@ -171,8 +175,10 @@ def test_dispatch_job_is_non_blocking_and_serial(monkeypatch):
 
 
 def test_scheduler_quiets_apscheduler_info_noise():
-    """Building a scheduler lifts apscheduler to WARNING — otherwise the 10s
-    dispatch poll floods INFO ('Running job … executed successfully') every tick."""
+    """
+    Building a scheduler lifts apscheduler to WARNING — otherwise the 10s
+    dispatch poll floods INFO ('Running job … executed successfully') every tick.
+    """
     log = logging.getLogger("apscheduler")
     prev = log.level
     try:
@@ -200,10 +206,12 @@ def test_serve_skips_scheduler_when_disabled(monkeypatch):
 
 
 def test_serve_runs_dispatcher_when_serving_for_real_even_with_nightly_off(monkeypatch):
-    """The bug: a UI-triggered build sat 'pending' forever because the dispatch poll
+    """
+    The bug: a UI-triggered build sat 'pending' forever because the dispatch poll
     only ran when the nightly was enabled. In a real serve (not DEBUG/UNSAFE) the
     scheduler must run the dispatch poll even with the nightly disabled — and add no
-    nightly job."""
+    nightly job.
+    """
     _clear(monkeypatch)  # nightly disabled
     monkeypatch.setenv("TESTLAB_DEBUG", "false")
     monkeypatch.setenv("TESTLAB_UNSAFE", "false")

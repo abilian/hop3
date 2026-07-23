@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for the shared SSH-target injection guard (core/ssh_target.py).
+"""
+Tests for the shared SSH-target injection guard (core/ssh_target.py).
 
 This is the single source of truth used by both the RPC tunnel and the
 remote-exec helpers, so its accept/reject set must stay exact (it must match

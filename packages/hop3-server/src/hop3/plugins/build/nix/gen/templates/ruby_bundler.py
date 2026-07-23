@@ -5,7 +5,8 @@
 # ruff:file-ignore[raise-vanilla-args, raw-string-in-exception]
 
 
-"""ruby-bundler template.
+"""
+ruby-bundler template.
 
 For Ruby applications using Bundler. ``pkgs.bundlerEnv`` builds the gem set
 from a committed ``Gemfile`` / ``Gemfile.lock`` / ``gemset.nix`` triple (the

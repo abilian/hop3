@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""The ADR-042 one-shot migration is wired into the CLI entry point.
+"""
+The ADR-042 one-shot migration is wired into the CLI entry point.
 
 The autouse ``_isolate_cli_environment`` fixture (conftest.py) points
 ``$HOP3_CONFIG_DIR`` at ``tmp_path / "hop3-config"``, so these tests drive

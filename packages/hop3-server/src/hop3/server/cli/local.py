@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Local command execution for hop3-server.
+"""
+Local command execution for hop3-server.
 
 This command allows executing RPC commands directly on the server without going through
 the network layer. Useful for server administration and debugging.
@@ -34,7 +35,8 @@ scan_package("hop3.commands")
 
 
 def format_table(headers: list[str], rows: list[list]) -> str:
-    """Format a table for console output.
+    """
+    Format a table for console output.
 
     Args:
         headers: List of column headers
@@ -68,7 +70,8 @@ def format_table(headers: list[str], rows: list[list]) -> str:
 
 
 def _format_dict_item(item: dict) -> str:
-    """Format a single dictionary item based on its type.
+    """
+    Format a single dictionary item based on its type.
 
     Args:
         item: Dictionary with 't' (type) field
@@ -92,7 +95,8 @@ def _format_dict_item(item: dict) -> str:
 
 
 def _format_list_result(result: list) -> str:
-    """Format list of message dicts.
+    """
+    Format list of message dicts.
 
     Args:
         result: List of items (dicts or other)
@@ -111,7 +115,8 @@ def _format_list_result(result: list) -> str:
 
 
 def format_output(result):
-    """Format command result for console output.
+    """
+    Format command result for console output.
 
     RPC commands return results in various formats (lists of dicts, plain text, etc).
     This function formats them appropriately for terminal display.
@@ -135,7 +140,8 @@ def format_output(result):
 
 
 def execute_rpc_command(command_name: str, args: list[str]) -> int:
-    """Execute an RPC command locally.
+    """
+    Execute an RPC command locally.
 
     This reuses the logic from the RPC handler but executes directly on the server
     without going through the network layer.
@@ -197,7 +203,8 @@ def execute_rpc_command(command_name: str, args: list[str]) -> int:
 
 @register
 class Local(Command):
-    """Execute RPC commands locally on the server.
+    """
+    Execute RPC commands locally on the server.
 
     This command allows you to run hop3 commands directly on the server without
     going through the network/RPC layer. Useful for server administration and debugging.
@@ -227,7 +234,8 @@ class Local(Command):
         )
 
     def run(self, command: str, args: list[str] | None = None):
-        """Execute an RPC command locally.
+        """
+        Execute an RPC command locally.
 
         Args:
             command: The RPC command name

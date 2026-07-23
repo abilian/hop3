@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Cloud credentials managed in-app.
+"""
+Cloud credentials managed in-app.
 
 Credentials live in the DB (token + optional SSH key), are redacted in the UI, and
 are picked up by the worker's `load_cloud_config` over env — while the env/config.toml

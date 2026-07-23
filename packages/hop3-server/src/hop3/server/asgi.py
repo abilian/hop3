@@ -54,7 +54,8 @@ DEBUG = HOP3_DEBUG
 
 
 class SuppressHTTPExceptionTraceback(logging.Filter):
-    """Suppress ERROR-level exception tracebacks for expected HTTP exceptions.
+    """
+    Suppress ERROR-level exception tracebacks for expected HTTP exceptions.
 
     This filters out tracebacks for 401/404 errors which are normal events,
     while preserving the INFO-level access logs.
@@ -118,7 +119,8 @@ def on_shutdown() -> None:
 
 
 def _register_template_callables(engine: TemplateEngineProtocol) -> None:
-    """Expose ``get_current_user()`` to templates.
+    """
+    Expose ``get_current_user()`` to templates.
 
     Auth is a stateless signed cookie (no server-side session), so templates
     resolve the current user by validating that cookie via ``current_identity``

@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""The feature/redeploy installer path must forward --acme-email.
+"""
+The feature/redeploy installer path must forward --acme-email.
 
 Regression: `hop3-deploy --local --acme-email X` silently dropped the flag on
 the feature-install path, so the server installer ran without it and wrote
@@ -138,8 +139,10 @@ def _install_cert_commands(*, acme_ok: bool, cert_present: bool) -> list[str]:
 
 
 def test_install_cert_uses_noop_reload_not_sudo():
-    """acme.sh runs as hop3; its reloadcmd must not `sudo systemctl reload nginx`
-    (rootd retires that sudo right) — use a no-op; the deploy reloads as root."""
+    """
+    acme.sh runs as hop3; its reloadcmd must not `sudo systemctl reload nginx`
+    (rootd retires that sudo right) — use a no-op; the deploy reloads as root.
+    """
     install = next(
         c
         for c in _install_cert_commands(acme_ok=True, cert_present=True)
@@ -150,8 +153,10 @@ def test_install_cert_uses_noop_reload_not_sudo():
 
 
 def test_install_cert_proceeds_despite_failed_reloadcmd():
-    """acme.sh exits non-zero (reload failed) but the cert is on disk → the
-    deploy still reconfigures + reloads nginx itself (an `nginx -t` is run)."""
+    """
+    acme.sh exits non-zero (reload failed) but the cert is on disk → the
+    deploy still reconfigures + reloads nginx itself (an `nginx -t` is run).
+    """
     cmds = _install_cert_commands(acme_ok=False, cert_present=True)
     assert any("nginx -t" in c for c in cmds)
 

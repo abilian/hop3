@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""TCP-forwarder units for addon exposure (`hop3 addon expose`).
+"""
+TCP-forwarder units for addon exposure (`hop3 addon expose`).
 
 A database addon listens only on ``127.0.0.1``; exposing it on a public host
 port needs a real forwarder. rootd realises this as a per-addon
@@ -125,7 +126,8 @@ def _write_unit(path: Path, content: str) -> None:
 
 
 def _systemctl(*args: str, exec: Exec = DEFAULT_EXEC, check: bool = True) -> None:
-    """Run ``systemctl <args>``; raise ProxyError on failure when ``check``.
+    """
+    Run ``systemctl <args>``; raise ProxyError on failure when ``check``.
 
     ``check=False`` is used for best-effort teardown steps (stopping a unit
     that may already be gone), where a non-zero exit is not an error.
@@ -154,7 +156,8 @@ def add_proxy(
     *,
     exec: Exec = DEFAULT_EXEC,
 ) -> dict[str, Any]:
-    """Write + enable the socket-proxy unit pair for an exposed addon.
+    """
+    Write + enable the socket-proxy unit pair for an exposed addon.
 
     Idempotent: overwrites any existing unit of the same name and re-enables.
     Returns ``{unit, public_port, target_port}``.
@@ -176,7 +179,8 @@ def add_proxy(
 
 
 def remove_proxy(base: str, *, exec: Exec = DEFAULT_EXEC) -> dict[str, Any]:
-    """Stop, disable and delete a proxy unit pair. Idempotent.
+    """
+    Stop, disable and delete a proxy unit pair. Idempotent.
 
     ``base`` is the bare ``hop3-expose-<type>-<name>`` name (composed by the op
     from validated inputs, or read off disk by reconcile). Returns
@@ -203,7 +207,8 @@ def remove_proxy(base: str, *, exec: Exec = DEFAULT_EXEC) -> dict[str, Any]:
 
 
 def list_units() -> list[str]:
-    """Base names of every ``hop3-expose-*.socket`` unit on disk (for reconcile).
+    """
+    Base names of every ``hop3-expose-*.socket`` unit on disk (for reconcile).
 
     Returns [] when the unit dir doesn't exist. Only rootd writes these, so a
     unit with no state row is a rootd orphan from a crashed expose.

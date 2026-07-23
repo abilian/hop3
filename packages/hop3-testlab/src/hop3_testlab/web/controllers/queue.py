@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""The build queue — pending / running / done, and cancel a pending build.
+"""
+The build queue — pending / running / done, and cancel a pending build.
 
 Start-build enqueues a request (no target); the dispatcher assigns a free pool
 server and runs it. A request that can't run is recorded ``failed`` with its
@@ -33,7 +34,8 @@ _LOG_MAX_BYTES = 200_000
 
 
 def _build_log_text(request_id: int) -> str | None:
-    """The engine run log for build N (the full ``hop3-test`` output), read from the
+    """
+    The engine run log for build N (the full ``hop3-test`` output), read from the
     app data dir (``DATA_DIR/logs/build-<id>-*.log``, newest match).
 
     Tail-capped so a huge log doesn't blow up the page; the file on disk keeps it
@@ -85,8 +87,10 @@ class QueueController(Controller):
     async def log(
         self, request_id: FromPath[int], queue: FromDishka[BuildQueueRepository]
     ) -> Template:
-        """The build's engine log, fetched from disk and shown in the UI — so a
-        failure is readable here instead of a 'diagnostics saved to <path>' pointer."""
+        """
+        The build's engine log, fetched from disk and shown in the UI — so a
+        failure is readable here instead of a 'diagnostics saved to <path>' pointer.
+        """
         build = queue.get(request_id)
         return Template(
             template_name="queue/log.html",

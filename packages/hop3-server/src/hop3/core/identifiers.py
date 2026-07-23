@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Validators for user-facing identifiers that flow into shell commands, file
+"""
+Validators for user-facing identifiers that flow into shell commands, file
 paths, or proxy configs.
 
 Every user-controlled string that ends up in an `sh -c` payload, a
@@ -52,7 +53,8 @@ HOSTNAME_RE = re.compile(
 
 
 class InvalidIdentifierError(ValueError):
-    """Raised when a user-supplied identifier fails validation.
+    """
+    Raised when a user-supplied identifier fails validation.
 
     A ``ValueError`` subclass so existing RPC error-handling paths that
     already catch ``ValueError`` turn these into the usual 400-class
@@ -61,7 +63,8 @@ class InvalidIdentifierError(ValueError):
 
 
 def _validate_identifier(name: str, kind: str) -> str:
-    """Validate ``name`` against ``APP_NAME_RE`` for the given ``kind``.
+    """
+    Validate ``name`` against ``APP_NAME_RE`` for the given ``kind``.
 
     ``kind`` is the lowercase noun (``"app"`` or ``"service"``) used to build
     the human-readable error messages. The capitalized form is used for the
@@ -107,7 +110,8 @@ def validate_env_var_key(key: str) -> str:
 
 
 def validate_hostname(host: str) -> str:
-    """Return ``host`` if it is a valid RFC 1123 hostname, else raise.
+    """
+    Return ``host`` if it is a valid RFC 1123 hostname, else raise.
 
     The catch-all token ``"_"`` is accepted because nginx uses it for the
     default server block, and the codebase treats it as a sentinel.
@@ -128,7 +132,8 @@ def validate_hostname(host: str) -> str:
 
 
 def validate_hostname_list(value: str) -> list[str]:
-    """Parse and validate a comma- or whitespace-separated list of hostnames.
+    """
+    Parse and validate a comma- or whitespace-separated list of hostnames.
 
     Used where hop3.toml or env vars encode several aliases in one string
     (typically ``HOST_NAME = "example.com,www.example.com"``). Each entry

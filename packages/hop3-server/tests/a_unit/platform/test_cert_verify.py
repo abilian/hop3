@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Post-issue certificate verification (the deploy/renewal post-condition).
+"""
+Post-issue certificate verification (the deploy/renewal post-condition).
 
 verify_cert turns a bad cert into a loud failure instead of quietly serving an
 untrusted/expired one — the edrix.eu failure mode. covers_domain backs the

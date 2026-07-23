@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Compile a validated ``[waf]`` policy (ADR 050) into engine-native SecLang.
+"""
+Compile a validated ``[waf]`` policy (ADR 050) into engine-native SecLang.
 
 The output is the per-app *access overlay* fed to the engine via a rules file
 (`lewaf-proxy --rules-file`); the OWASP CRS baseline is loaded separately. SecLang
@@ -66,7 +67,8 @@ class WafCompileError(Exception):
 
 
 def _anchored_alternation(patterns: list[str]) -> str:
-    """Full-match regex over the patterns: ``^(?:p1|p2|...)$``.
+    """
+    Full-match regex over the patterns: ``^(?:p1|p2|...)$``.
 
     Patterns are validated by the schema to be compilable regexes containing no
     double quote, so they embed directly in the SecLang operator argument.
@@ -77,7 +79,8 @@ def _anchored_alternation(patterns: list[str]) -> str:
 def compile_policy(
     app_name: str, policy: WafSection, networks: Mapping[str, list[str]]
 ) -> str:
-    """Compile a ``[waf]`` policy into the per-app *access overlay* (no CRS).
+    """
+    Compile a ``[waf]`` policy into the per-app *access overlay* (no CRS).
 
     The overlay is the allow/gate/tuning rules only; the OWASP CRS baseline is
     loaded separately. Use :func:`compile_rules_file` for the full document the
@@ -111,7 +114,8 @@ def compile_rules_file(
     networks: Mapping[str, list[str]],
     crs_dir: Path | None,
 ) -> str:
-    """Compile the full ``--rules-file`` the proxy loads: CRS baseline + overlay.
+    """
+    Compile the full ``--rules-file`` the proxy loads: CRS baseline + overlay.
 
     ``lewaf-proxy`` takes a single rules file, so the OWASP CRS baseline and the
     per-app access overlay are concatenated into one document. Order matters: the
@@ -141,7 +145,8 @@ def compile_rules_file(
 
 
 def compile_bans(banned: list[str]) -> str:
-    """Compile the active L7 ban denylist into SecLang (ADR 050 §4).
+    """
+    Compile the active L7 ban denylist into SecLang (ADR 050 §4).
 
     A single ``@ipMatch`` deny rule over all banned sources, written to a
     separate file the ban scorer rewrites and loaded *before* the CRS/overlay so
@@ -229,7 +234,8 @@ def _overlay_lines(policy: WafSection, networks: Mapping[str, list[str]]) -> lis
 
 
 def _crs_request_files(crs_dir: Path) -> list[Path]:
-    """Every ``REQUEST-*.conf``, ordered 901-first / 949-last, rest between.
+    """
+    Every ``REQUEST-*.conf``, ordered 901-first / 949-last, rest between.
 
     901 seeds anomaly defaults; 949 sums the score and applies the threshold —
     so it must run after every scoring rule (LeWAF ``_crs_stack`` ordering).

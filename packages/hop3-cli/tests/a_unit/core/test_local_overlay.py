@@ -41,8 +41,10 @@ def test_read_overlay_finds_in_cwd(tmp_path: Path) -> None:
 
 
 def test_read_overlay_canonical_local_key(tmp_path: Path) -> None:
-    """ADR 042 r2: the canonical key is [local].context; it wins over a stale
-    legacy [current] if both are present."""
+    """
+    ADR 042 r2: the canonical key is [local].context; it wins over a stale
+    legacy [current] if both are present.
+    """
     (tmp_path / LOCAL_OVERLAY_FILENAME).write_text(
         '[current]\ncontext = "stale"\n[local]\ncontext = "prod"\n'
     )
@@ -62,7 +64,8 @@ def test_read_overlay_walks_up_to_home(tmp_path: Path) -> None:
 def test_read_overlay_unparseable_returns_empty_data_keeps_path(
     tmp_path: Path,
 ) -> None:
-    """A broken TOML file yields empty data but the path is preserved.
+    """
+    A broken TOML file yields empty data but the path is preserved.
 
     Lets callers distinguish 'no overlay' from 'broken overlay' if they
     need to (e.g., to warn the operator about the parse failure).
@@ -214,7 +217,8 @@ def test_write_overlay_recognises_slashed_gitignore_entry(
 
 
 def test_write_overlay_no_gitignore_outside_git_skipped(tmp_path: Path) -> None:
-    """When .gitignore doesn't exist AND we're not in a git repo, do nothing.
+    """
+    When .gitignore doesn't exist AND we're not in a git repo, do nothing.
 
     The .gitignore is the operator's choice; we don't auto-create it
     unless they've already committed to git (which is what the presence
@@ -232,7 +236,8 @@ def test_write_overlay_no_gitignore_outside_git_skipped(tmp_path: Path) -> None:
 def test_write_overlay_creates_gitignore_inside_git_repo(
     tmp_path: Path,
 ) -> None:
-    """Inside a git repo with no .gitignore, we create one with our line.
+    """
+    Inside a git repo with no .gitignore, we create one with our line.
 
     This is the case the feature exists to handle: a fresh git init that
     hasn't set up ignores yet but where committing .hop3-local.toml

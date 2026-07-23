@@ -18,7 +18,8 @@ if TYPE_CHECKING:
 
 
 class SSHBackend(Backend):
-    """Backend for testing on remote servers via SSH.
+    """
+    Backend for testing on remote servers via SSH.
 
     This backend connects to a remote server via SSH and executes
     commands remotely. It's the most realistic test environment.
@@ -28,7 +29,8 @@ class SSHBackend(Backend):
     supports_systemd = True
 
     def __init__(self, host: str):
-        """Initialize SSH backend.
+        """
+        Initialize SSH backend.
 
         Args:
             host: SSH target in user@hostname format

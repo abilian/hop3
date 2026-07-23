@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Resolving the SSH key Hetzner re-injects on rebuild (explicit or auto-derived).
+"""
+Resolving the SSH key Hetzner re-injects on rebuild (explicit or auto-derived).
 
 A rebuild with no key locks us out, so an unresolvable key is a hard, explained
 error — never a silent skip. The key is taken from hetzner.ssh_key_name, or
@@ -104,8 +105,10 @@ def test_no_name_no_keypath_raises_loudly():
 
 
 def test_from_dict_carries_ssh_key_path():
-    """[hetzner].ssh_key_path must survive loading. It used to be dropped, so the
-    auto-derive path was dead code and the rebuild aborted even when it was set."""
+    """
+    [hetzner].ssh_key_path must survive loading. It used to be dropped, so the
+    auto-derive path was dead code and the rebuild aborted even when it was set.
+    """
     h = HetznerConfig.from_dict(
         {"api_token": "t", "server_id": "1", "ssh_key_path": "~/.ssh/id"}, env={}
     )
@@ -121,8 +124,10 @@ def test_from_dict_reads_ssh_key_name_from_env():
 
 
 def test_from_env_supplies_rebuild_key(monkeypatch):
-    """An env-only run (no --config) must be able to name the rebuild key —
-    otherwise reset always aborts. Regression for the user-reported failure."""
+    """
+    An env-only run (no --config) must be able to name the rebuild key —
+    otherwise reset always aborts. Regression for the user-reported failure.
+    """
     monkeypatch.setenv("HETZNER_API_TOKEN", "t")
     monkeypatch.setenv("HETZNER_SERVER_ID", "1")
     monkeypatch.setenv("HETZNER_SSH_KEY_PATH", "/home/me/.ssh/id")

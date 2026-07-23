@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""The dispatcher: queued builds go to a free pool server (the user never picks).
+"""
+The dispatcher: queued builds go to a free pool server (the user never picks).
 
 Stubs `run_once`/`run_blockers` (the dispatcher's seams) so these exercise the
 queue + pool + status logic against the real SQLite store, not a real run.
@@ -168,8 +169,10 @@ def test_dispatch_requeues_when_run_loses_the_lease(monkeypatch):
 
 
 def test_dispatch_sweeps_a_stale_running_build():
-    """A build left running with no live lease (dispatcher died) is failed, not
-    stuck running forever."""
+    """
+    A build left running with no live lease (dispatcher died) is failed, not
+    stuck running forever.
+    """
     with _session() as s:
         p = _profile(s)
         queue = BuildQueueRepository(s)
@@ -216,10 +219,12 @@ def test_dispatch_links_run_uid_to_build(monkeypatch):
 
 
 def test_engine_exit_with_results_is_completed_not_crash(monkeypatch, tmp_path):
-    """Engine exit 1 *after* recording results is a completed run with failing
+    """
+    Engine exit 1 *after* recording results is a completed run with failing
     tests — not a crash. The build is FAILED, but the detail names the failing
     tests (the actionable signal) and carries none of the 'Engine exited'
-    crash noise."""
+    crash noise.
+    """
     with _session() as s:
         p = _profile(s)
         ServersRepository(s).create(
@@ -263,11 +268,13 @@ def test_engine_exit_with_results_is_completed_not_crash(monkeypatch, tmp_path):
 
 
 def test_record_caps_overlong_crash_detail(monkeypatch, tmp_path):
-    """A crash detail (the engine-log tail) longer than the detail column once
+    """
+    A crash detail (the engine-log tail) longer than the detail column once
     overflowed ``varchar(500)`` and crashed the recorder thread *inside* _record
     (StringDataRightTruncation), leaving the build wedged for the orphan sweep to
     mislabel as "dispatcher restarted". _record must cap it so the outcome is
-    always recorded. (SQLite doesn't enforce the width, so assert the cap directly.)"""
+    always recorded. (SQLite doesn't enforce the width, so assert the cap directly.)
+    """
     with _session() as s:
         p = _profile(s)
         ServersRepository(s).create(
@@ -295,8 +302,10 @@ def test_record_caps_overlong_crash_detail(monkeypatch, tmp_path):
 
 
 def test_engine_exit_without_results_is_a_real_crash(monkeypatch, tmp_path):
-    """Engine exit 1 with no recorded run/results is a genuine setup/deploy
-    crash: keep the loud engine message (with the log path) as the reason."""
+    """
+    Engine exit 1 with no recorded run/results is a genuine setup/deploy
+    crash: keep the loud engine message (with the log path) as the reason.
+    """
     with _session() as s:
         p = _profile(s)
         ServersRepository(s).create(

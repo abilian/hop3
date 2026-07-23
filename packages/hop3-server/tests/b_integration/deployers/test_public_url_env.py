@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""`set_public_url_env` derives HOP3_PUBLIC_URL from the app's HOST_NAME.
+"""
+`set_public_url_env` derives HOP3_PUBLIC_URL from the app's HOST_NAME.
 
 This is what lets a recipe reference a single stable ``${HOP3_PUBLIC_URL}``
 instead of hand-building the URL. It is a no-op for an app with no real

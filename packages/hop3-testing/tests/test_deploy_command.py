@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""hop3-deploy-server command assembly (ADR 052 D2/D3).
+"""
+hop3-deploy-server command assembly (ADR 052 D2/D3).
 
 The credential key is threaded as --identity; the install source is emitted as
 --from; and for git the branch is ALWAYS passed explicitly (regression: with the

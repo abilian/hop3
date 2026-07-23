@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for `hop3 context` — deploy environments in hop3.toml (ADR 042 r2).
+"""
+Tests for `hop3 context` — deploy environments in hop3.toml (ADR 042 r2).
 
 The conftest autouse fixture chdir's into an isolated tmp dir, so `Path.cwd()`
 is empty until a test writes a hop3.toml there.
@@ -212,9 +213,11 @@ def test_use_rejects_global(capsys):
 
 
 def test_use_global_context_name_redirects(capsys):
-    """A name that exists only as a GLOBAL context must not dead-end on the
+    """
+    A name that exists only as a GLOBAL context must not dead-end on the
     project file — it names the global context and points at the right
-    mechanism (regression for the misleading 'not found in <cwd>/hop3.toml')."""
+    mechanism (regression for the misleading 'not found in <cwd>/hop3.toml').
+    """
     _write_toml('[metadata]\nid="myapp"\n[contexts.dev]\nserver="ssh://root@dev"\n')
     config = _cfg()
     config.set_context_server("prod", "ssh://root@prod")  # global, not in project

@@ -83,7 +83,8 @@ def test_no_input_defaults_false_without_flag_or_env():
 
 
 def test_no_input_reads_from_env(monkeypatch):
-    """HOP3_NO_INPUT=1 opts a whole environment into non-interactive mode.
+    """
+    HOP3_NO_INPUT=1 opts a whole environment into non-interactive mode.
 
     This is the escape hatch the tutorial/demo harness uses: set it once so
     every `hop3 deploy` skips the ADR-042 confirm prompt instead of blocking

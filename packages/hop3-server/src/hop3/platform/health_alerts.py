@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Aggregate cert + domain health into dashboard alert banners.
+"""
+Aggregate cert + domain health into dashboard alert banners.
 
 A first, simple step toward a fuller alerting framework: turn the cert and
 domain-health snapshots into a flat, severity-ordered list of human-readable

@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Per-app TLS certificate health (type, days to expiry, status).
+"""
+Per-app TLS certificate health (type, days to expiry, status).
 
 Shared by ``hop3 cert status`` and the dashboard health page so both report
 identical data. Pure read-only inspection of the stored certs — no issuance.

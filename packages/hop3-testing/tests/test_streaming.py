@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for the streaming subprocess runner.
+"""
+Tests for the streaming subprocess runner.
 
 The focus here is the timeout path: when a long-running command exceeds
 its deadline, the runner must kill not just the direct child but the
@@ -36,9 +37,11 @@ def test_timed_out_flag_set_on_deadline() -> None:
 
 
 def test_run_streaming_uses_devnull_stdin(monkeypatch) -> None:
-    """No inherited stdin: a prompting deploy step (ssh host-key/apt/sudo) must
+    """
+    No inherited stdin: a prompting deploy step (ssh host-key/apt/sudo) must
     get EOF and fail fast, not hang the whole timeout. Both deploy wrappers now
-    share this via the one runner (ADR 052 Phase 7b.1)."""
+    share this via the one runner (ADR 052 Phase 7b.1).
+    """
     captured: dict = {}
     real_popen = subprocess.Popen
 
@@ -53,7 +56,8 @@ def test_run_streaming_uses_devnull_stdin(monkeypatch) -> None:
 
 
 def test_timeout_kills_grandchild_process(tmp_path) -> None:
-    """The killer signal must reach grand-children, not just the direct child.
+    """
+    The killer signal must reach grand-children, not just the direct child.
 
     We launch ``sh -c 'sleep 30 & echo $! > marker; wait'``. The shell is
     the direct child; the ``sleep`` is the grand-child whose pid we

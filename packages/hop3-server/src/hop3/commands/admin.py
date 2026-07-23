@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Administrative commands that act across the whole Hop3 install.
+"""
+Administrative commands that act across the whole Hop3 install.
 
 These commands are admin-only (gated via ``require_admin``) and are
 typically run once during maintenance windows rather than in everyday
@@ -31,7 +32,8 @@ from .user import require_admin
 @register
 @dataclass(frozen=True)
 class AdminReencryptCredentialsCmd(Command):
-    """Rewrite stored addon credentials under the current (v2) scheme.
+    """
+    Rewrite stored addon credentials under the current (v2) scheme.
 
     Usage:
         hop3 admin reencrypt-credentials [--dry-run]

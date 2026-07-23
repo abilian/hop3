@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 
 
 class TestLogWriter:
-    """Writes per-app log files to a logs directory.
+    """
+    Writes per-app log files to a logs directory.
 
     Each test gets its own log file containing:
     - Test metadata (name, tier, priority)
@@ -30,7 +31,8 @@ class TestLogWriter:
         self,
         logs_dir: Path | None = None,
     ):
-        """Initialize log writer.
+        """
+        Initialize log writer.
 
         Args:
             logs_dir: Directory for log files. If None, logging is disabled.
@@ -49,7 +51,8 @@ class TestLogWriter:
         result: TestResult,
         debug_output: str | None = None,
     ) -> Path | None:
-        """Write log file for a single test.
+        """
+        Write log file for a single test.
 
         Args:
             result: Test result to log

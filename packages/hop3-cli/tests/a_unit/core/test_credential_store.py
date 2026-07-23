@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for the per-server token store (ADR 042 r2, step C1).
+"""
+Tests for the per-server token store (ADR 042 r2, step C1).
 
 The conftest autouse fixture points ``$HOP3_CONFIG_DIR`` at a per-test tmp dir,
 so the store reads/writes there in isolation.

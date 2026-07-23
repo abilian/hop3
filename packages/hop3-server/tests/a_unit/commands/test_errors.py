@@ -1,7 +1,8 @@
 # Copyright (c) 2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Unit tests for command error formatting (hop3.commands._errors).
+"""
+Unit tests for command error formatting (hop3.commands._errors).
 
 Focus: an Abort logs its full message at construction, so the wrapped error
 must not repeat that detail when it was already streamed live to the client.

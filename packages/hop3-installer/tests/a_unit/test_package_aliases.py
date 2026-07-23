@@ -41,8 +41,10 @@ class TestIsKnown:
 
 
 class TestTableCoverage:
-    """All entries must cover every supported OS family — incomplete
-    rows would silently drop a package on some hosts."""
+    """
+    All entries must cover every supported OS family — incomplete
+    rows would silently drop a package on some hosts.
+    """
 
     def test_every_entry_covers_every_family(self):
         families = set(supported_os_families())
@@ -57,9 +59,11 @@ class TestTableCoverage:
         assert len(supported_os_families()) > 0
 
     def test_packages_declared_by_current_catalogue_are_in_table(self):
-        """directus + owncast are the only apps declaring
+        """
+        directus + owncast are the only apps declaring
         [build].packages today. Those declarations must be in the
-        table or the installer can't translate them on Fedora."""
+        table or the installer can't translate them on Fedora.
+        """
         expected = {
             "libbrotli-dev",
             "build-essential",

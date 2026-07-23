@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Derive the installer package baseline from the app catalogue.
+"""
+Derive the installer package baseline from the app catalogue.
 
 The native-build-profile contract:
 
@@ -73,7 +74,8 @@ class BaselineResult:
 
 
 def derive_baseline(app_dirs: list[Path]) -> BaselineResult:
-    """Walk hop3.toml files, union declarations, return the baseline.
+    """
+    Walk hop3.toml files, union declarations, return the baseline.
 
     Args:
         app_dirs: Directories to scan recursively for hop3.toml.
@@ -133,7 +135,8 @@ def _read_declarations(toml_path: Path) -> list[BaselineSource]:
 
 
 def format_baselines_module(result: BaselineResult) -> str:
-    """Format a BaselineResult as a Python module with a dict constant.
+    """
+    Format a BaselineResult as a Python module with a dict constant.
 
     Output is `baselines.py` — a module committed to the repo,
     imported by the installer at provisioning time, and picked up
@@ -166,7 +169,8 @@ def format_baselines_module(result: BaselineResult) -> str:
 
 
 def main() -> int:
-    """CLI: regenerate baselines.py from the catalogue.
+    """
+    CLI: regenerate baselines.py from the catalogue.
 
     Called as `python -m hop3_installer.server_installer.baseline`.
     Writes to `packages/hop3-installer/src/hop3_installer/server_installer/baselines.py`.

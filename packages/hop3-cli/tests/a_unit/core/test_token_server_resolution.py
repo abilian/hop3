@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Token store key unification + empty-env-token handling (audit 2026-06 C3/C4).
+"""
+Token store key unification + empty-env-token handling (audit 2026-06 C3/C4).
 
 The writer (``update_context_token``) and the readers (``get_api_token``,
 ``is_authenticated``) must key the per-server credential store by the SAME
@@ -28,7 +29,8 @@ def _clean_env(monkeypatch):
 
 
 def test_token_write_and_read_key_agree_with_only_api_url(monkeypatch):
-    """C3: a token minted for an ``HOP3_API_URL``-only connection is readable.
+    """
+    C3: a token minted for an ``HOP3_API_URL``-only connection is readable.
 
     Previously the writer keyed by ``get_api_url()`` but the readers keyed only
     by active/default server, so the auto-auth token was stored under a key the

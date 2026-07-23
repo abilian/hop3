@@ -39,7 +39,8 @@ if TYPE_CHECKING:
 @register
 @dataclass(frozen=True)
 class VersionCmd(Command):
-    """Show version information.
+    """
+    Show version information.
 
     Examples:
         hop3 version                   # Show CLI and server versions
@@ -63,7 +64,8 @@ class VersionCmd(Command):
 @register
 @dataclass(frozen=True)
 class PluginCmd(Command):
-    """Manage plugins.
+    """
+    Manage plugins.
 
     Examples:
         hop3 plugin list               # List installed plugins
@@ -75,7 +77,8 @@ class PluginCmd(Command):
 @register
 @dataclass(frozen=True)
 class PluginsCmd(Command):
-    """List installed plugins and their commands.
+    """
+    List installed plugins and their commands.
 
     Examples:
         hop3 plugin list               # List installed plugins (alias: 'hop3 plugins')
@@ -114,7 +117,8 @@ class PluginsCmd(Command):
 @register
 @dataclass(frozen=True)
 class PSCmd(Command):
-    """Show process count for an application.
+    """
+    Show process count for an application.
 
     Examples:
         hop3 ps --app myapp            # Show processes for myapp
@@ -150,7 +154,8 @@ class PSCmd(Command):
 @register
 @dataclass(frozen=True)
 class PsScaleCmd(Command):
-    """Set the process count (e.g., hop3 ps scale --app <app> web=2 worker=1).
+    """
+    Set the process count (e.g., hop3 ps scale --app <app> web=2 worker=1).
 
     Examples:
         hop3 ps scale --app myapp web=2   # Run 2 web workers
@@ -205,7 +210,8 @@ class PsScaleCmd(Command):
 @register
 @dataclass(frozen=True)
 class RunCmd(Command):
-    """Run a one-off command in the context of an application.
+    """
+    Run a one-off command in the context of an application.
 
     Usage: hop3 app run [--app <app>] <command> [args...] [--input <data>]
 
@@ -300,7 +306,8 @@ class RunCmd(Command):
             return [error(e.message)]
 
     def _build_app_env(self, app) -> dict[str, str]:
-        """Build complete environment for running commands in app context.
+        """
+        Build complete environment for running commands in app context.
 
         This mirrors the environment setup in spawn.py make_env() to ensure
         commands have access to the virtualenv, proper PATH, etc.
@@ -332,7 +339,8 @@ class RunCmd(Command):
 @register
 @dataclass(frozen=True)
 class SbomCmd(Command):
-    """Generate a Software Bill of Materials (SBOM) for an application.
+    """
+    Generate a Software Bill of Materials (SBOM) for an application.
 
     Examples:
         hop3 app sbom --app myapp      # Generate an SBOM for myapp

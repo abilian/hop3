@@ -6,7 +6,8 @@
 # `_service` is the singleton background worker; start/stop are called from
 # Litestar lifespan hooks (see asgi.py), mirroring state_sync.py.
 
-"""Background service that renews TLS certificates before they expire.
+"""
+Background service that renews TLS certificates before they expire.
 
 This runs in the server process — the primary, in-process maintenance path.
 (`hop3 cert renew` is a debug-only fallback.) Each cycle renews every app's cert
@@ -40,7 +41,8 @@ RENEWAL_THRESHOLD_DAYS = 30
 
 
 class CertRenewalService:
-    """Background service that renews app TLS certificates before expiry.
+    """
+    Background service that renews app TLS certificates before expiry.
 
     Attributes:
         session_factory: Callable that returns a new database session.
@@ -122,7 +124,8 @@ class CertRenewalService:
 
 
 def _notify_renewal_failures(failed: list[tuple[str, str]]) -> None:
-    """Best-effort operator alert for cert-renewal failures.
+    """
+    Best-effort operator alert for cert-renewal failures.
 
     A no-op unless the operator enabled notifications (`server email
     notifications on`); never raises, so it can't disrupt the renewal cycle.

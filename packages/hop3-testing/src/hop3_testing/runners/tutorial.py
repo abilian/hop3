@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tutorial test runner.
+"""
+Tutorial test runner.
 
 Runs tutorials via validoc or other tutorial runners.
 """
@@ -36,7 +37,8 @@ _VALIDOC_BLOCK_RE = re.compile(r"^```(?:bash\s+exec|output|file)\b", re.MULTILIN
 
 
 def _tutorial_app_name(test: TestDefinition) -> str | None:
-    """The app a tutorial deploys, by convention ``hop3-tuto-<framework>``.
+    """
+    The app a tutorial deploys, by convention ``hop3-tuto-<framework>``.
 
     Best-effort: a couple of tutorials deviate from the convention, so the
     per-app diagnostics may be empty for those — the always-collected ``hop3
@@ -47,7 +49,8 @@ def _tutorial_app_name(test: TestDefinition) -> str | None:
 
 
 def _count_validoc_blocks(path: Path) -> int:
-    """Count executable validoc fences (``bash exec`` / ``output`` / ``file``).
+    """
+    Count executable validoc fences (``bash exec`` / ``output`` / ``file``).
 
     A tutorial with zero such blocks isn't being tested at all: validoc exits 0
     with "0 passed", which would otherwise be reported as a (vacuous) pass. The
@@ -63,7 +66,8 @@ def _count_validoc_blocks(path: Path) -> int:
 
 @dataclass(frozen=True)
 class TutorialTestRunner:
-    """Runs tutorial tests via validoc.
+    """
+    Runs tutorial tests via validoc.
 
     Tutorials are markdown files with executable code blocks that
     are validated using the validoc tool.
@@ -87,7 +91,8 @@ class TutorialTestRunner:
             self.console.set_verbosity(Verbosity.VERBOSE)
 
     def run(self, test: TestDefinition) -> TestResult:
-        """Run a tutorial test.
+        """
+        Run a tutorial test.
 
         Args:
             test: The test definition
@@ -212,7 +217,8 @@ class TutorialTestRunner:
         )
 
     def _run_validoc(self, tutorial_path: Path, cwd: Path) -> dict:
-        """Run a tutorial via validoc, on the server or locally.
+        """
+        Run a tutorial via validoc, on the server or locally.
 
         On a remote server (prepared by ``ensure_tutorial_host``) validoc runs
         *on the server* so the scaffold/build steps use the server's toolchains
@@ -314,7 +320,8 @@ class TutorialTestRunner:
             }
 
     def _run_validoc_on_server(self, tutorial_path: Path, token: str) -> dict:
-        """Run validoc on the target server (see ``_run_validoc`` for why).
+        """
+        Run validoc on the target server (see ``_run_validoc`` for why).
 
         Uploads the tutorial markdown to a scratch dir on the server, runs
         ``validoc run`` there with the env that points ``hop3`` at the local
@@ -379,7 +386,8 @@ class TutorialTestRunner:
         return {"success": True, "logs": logs}
 
     def _run_generic(self, tutorial_path: Path, cwd: Path, runner: str) -> dict:
-        """Run tutorial using a generic runner.
+        """
+        Run tutorial using a generic runner.
 
         Args:
             tutorial_path: Path to the tutorial

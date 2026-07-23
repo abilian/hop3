@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 
 
 def handle_auth(args: list[str], config: Config, printer: RichPrinter) -> bool:
-    """Handle the `auth` command.
+    """
+    Handle the `auth` command.
 
     `auth login` / `auth logout` are the rich local flows (same handlers as the
     `hop3 login` / `hop3 logout` aliases). Other `auth <verb>` (whoami,

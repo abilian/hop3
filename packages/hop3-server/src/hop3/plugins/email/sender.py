@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Send mail through an :class:`EmailTransport` (EXPERIMENTAL).
+"""
+Send mail through an :class:`EmailTransport` (EXPERIMENTAL).
 
 The one place Hop3 itself *sends* email — the addon otherwise only stores and
 injects credentials for apps. Used by platform notifications (cert-renewal
@@ -25,7 +26,8 @@ _TIMEOUT_S = 30
 def send_via_transport(
     transport: EmailTransport, recipient: str, subject: str, body: str
 ) -> None:
-    """Send a plain-text message. Raises on any SMTP/connection error.
+    """
+    Send a plain-text message. Raises on any SMTP/connection error.
 
     The caller decides how to handle failure — :func:`notifications.notify`
     logs-and-swallows (best-effort), the ``notifications test`` command surfaces

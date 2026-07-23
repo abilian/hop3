@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""CLI commands for the Layer-7 WAF (ADR 050 §9) — ban runtime state.
+"""
+CLI commands for the Layer-7 WAF (ADR 050 §9) — ban runtime state.
 
 Bans are operator-visible runtime state: ``hop3 waf bans list`` shows who's
 currently cut off and why, ``hop3 waf bans clear`` lifts a ban, and
@@ -38,7 +39,8 @@ _LOG_TAIL = 50
 @register
 @dataclass(frozen=True)
 class WafStatusCmd(Command):
-    """Show WAF status: per-app proxy port, supervision, and active ban count.
+    """
+    Show WAF status: per-app proxy port, supervision, and active ban count.
 
     Examples:
         hop3 waf status
@@ -71,7 +73,8 @@ class WafStatusCmd(Command):
 @register
 @dataclass(frozen=True)
 class WafLogsCmd(Command):
-    """Show recent WAF audit entries (blocked requests) — surfaced where the
+    """
+    Show recent WAF audit entries (blocked requests) — surfaced where the
     operator looks, never only in a file.
 
     Examples:
@@ -127,7 +130,8 @@ class WafLogsCmd(Command):
 @register
 @dataclass(frozen=True)
 class WafBansListCmd(Command):
-    """List active WAF bans (optionally for one app).
+    """
+    List active WAF bans (optionally for one app).
 
     Examples:
         hop3 waf bans list
@@ -161,7 +165,8 @@ class WafBansListCmd(Command):
 @register
 @dataclass(frozen=True)
 class WafBansClearCmd(Command):
-    """Lift WAF bans for an app — all of them, or one source IP.
+    """
+    Lift WAF bans for an app — all of them, or one source IP.
 
     Rewrites the app's denylist and reloads the proxy so the change takes effect.
 
@@ -210,7 +215,8 @@ class WafBansClearCmd(Command):
 @register
 @dataclass(frozen=True)
 class WafReconcileBansCmd(Command):
-    """Run the ban scorer across all WAF-enabled apps (on demand).
+    """
+    Run the ban scorer across all WAF-enabled apps (on demand).
 
     Reads each app's audit stream, bans repeat offenders for the configured TTL,
     expires elapsed bans, and reloads changed proxies. Safe to run repeatedly.

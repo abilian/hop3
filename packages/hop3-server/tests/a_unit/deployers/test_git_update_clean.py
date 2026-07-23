@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Regression: the git deployer must `git clean` the tree between deploys.
+"""
+Regression: the git deployer must `git clean` the tree between deploys.
 
 `git reset --hard` only touches tracked files, so untracked/ignored build
 output (node_modules, .astro, .nuxt, dist, .next, target, vendor) from the

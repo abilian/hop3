@@ -6,7 +6,8 @@
 # `_service` is the singleton background worker; start/stop are called from
 # Litestar lifespan hooks (see asgi.py), mirroring state_sync.py / cert_renewal.
 
-"""Background service that probes app domains' registration + DNS health.
+"""
+Background service that probes app domains' registration + DNS health.
 
 An in-process maintenance task (like CertRenewalService / StateSyncService).
 Each cycle checks every app domain's WHOIS registration expiry and DNS, and

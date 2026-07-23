@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Target backends for Hop3 deployment testing.
+"""
+Target backends for Hop3 deployment testing.
 
 Target types:
 - DockerTarget: All Docker-based scenarios (pre-built image, Dockerfile, or deploy)

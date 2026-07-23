@@ -54,7 +54,8 @@ def test_matching_ids_no_mismatch(tmp_path: Path) -> None:
 
 
 def test_mismatch_with_cwd_rooted_source_no_fire(tmp_path: Path) -> None:
-    """Source kind says CWD-rooted → operator explicitly remapped this
+    """
+    Source kind says CWD-rooted → operator explicitly remapped this
     project to a different app name; guard must NOT fire.
     """
     _write_hop3_toml(tmp_path, "myapp")
@@ -112,7 +113,8 @@ def test_mismatch_with_env_var_source_fires(tmp_path: Path) -> None:
 
 
 def test_is_cwd_rooted_classification() -> None:
-    """The guard's whole contract: CWD-rooted sources never fire it; flag/env
+    """
+    The guard's whole contract: CWD-rooted sources never fire it; flag/env
     (and unresolved) sources can. Regression for ADR 042 dropping the two
     non-CWD app sources — the surviving set must classify correctly.
     """
@@ -123,7 +125,8 @@ def test_is_cwd_rooted_classification() -> None:
 
 
 def test_mismatch_with_flag_source_fires(tmp_path: Path) -> None:
-    """``--app other`` from inside project A → guard fires.
+    """
+    ``--app other`` from inside project A → guard fires.
 
     FLAG is *not* CWD-rooted: an explicit ``--app`` pointing elsewhere
     is precisely the operator-mistake the guard exists to catch.
@@ -144,7 +147,8 @@ def test_mismatch_with_flag_source_fires(tmp_path: Path) -> None:
 
 
 def test_message_format_contains_required_pieces(tmp_path: Path) -> None:
-    """The refusal message must include both names, the source, and both
+    """
+    The refusal message must include both names, the source, and both
     remediation paths exactly as the ADR spells them out.
     """
     _write_hop3_toml(tmp_path, "project-here")

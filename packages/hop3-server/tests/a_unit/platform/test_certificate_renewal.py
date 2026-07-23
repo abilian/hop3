@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Certificate expiry + renewal decision logic.
+"""
+Certificate expiry + renewal decision logic.
 
 Hop3 used to issue a cert once (generate-if-absent) and never renew it, so certs
 silently expired. These tests lock the renewal contract: read the real expiry,

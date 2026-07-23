@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""`hop3 app status` resource-[limits] surfacing (ADR 046 §3 / P2.2 B5).
+"""
+`hop3 app status` resource-[limits] surfacing (ADR 046 §3 / P2.2 B5).
 
 The cap + enforcement mode come from the App row; the live OOM-kill count is a
 best-effort hop3-rootd read (stubbed here — the kernel path is in hop3-rootd).

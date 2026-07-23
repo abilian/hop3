@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Cloud credentials (Hetzner + SSH) for the worker.
+"""
+Cloud credentials (Hetzner + SSH) for the worker.
 
 Precedence (ADR 044; matches the existing hop3-testing config mechanism):
 
@@ -72,7 +73,8 @@ def _discover() -> Path | None:
 
 
 def _db_hetzner() -> tuple[dict, str | None] | None:
-    """The active Hetzner credential from the DB as ``(hetzner_dict, ssh_key_path)``.
+    """
+    The active Hetzner credential from the DB as ``(hetzner_dict, ssh_key_path)``.
 
     Returns ``None`` when there's no credential row, so ``load_cloud_config`` falls
     back to the file/env chain (the path manual ``hop3-test`` still uses). Imports
@@ -104,7 +106,8 @@ def _db_hetzner() -> tuple[dict, str | None] | None:
 
 
 def load_cloud_config(path: Path | None = None) -> CloudConfig:
-    """Resolve cloud config: the active DB credential wins, else config.toml → env.
+    """
+    Resolve cloud config: the active DB credential wins, else config.toml → env.
 
     A server-resident Lab is configured via the dashboard (DB credentials). With no
     credential row — e.g. manual ``hop3-test`` on a laptop — it falls back to the
@@ -142,7 +145,8 @@ DEFAULT_KEEP_RUNS = 30
 
 
 def load_retention(path: Path | None = None) -> int:
-    """Build-log retention: how many recent runs to keep (config.toml [retention]).
+    """
+    Build-log retention: how many recent runs to keep (config.toml [retention]).
 
     ``[retention].keep_runs`` in the config file, else $TESTLAB_LOG_RETENTION_RUNS,
     else :data:`DEFAULT_KEEP_RUNS`.
@@ -184,7 +188,8 @@ def _as_bool(*values) -> bool:
 
 
 def load_schedule(path: Path | None = None) -> ScheduleConfig:
-    """Nightly scheduler config: [schedule] in config.toml, then env, then defaults.
+    """
+    Nightly scheduler config: [schedule] in config.toml, then env, then defaults.
 
     Disabled by default so dev `serve` never fires a real run; production enables
     it via ``[schedule].enabled = true``.

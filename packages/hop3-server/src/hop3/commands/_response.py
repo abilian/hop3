@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Response builder helpers for commands.
+"""
+Response builder helpers for commands.
 
 These helpers provide a clean, consistent way to build command responses.
 
@@ -54,7 +55,8 @@ def code(content: str, lang: str = "") -> dict[str, Any]:
 
 
 def data(payload: dict[str, Any]) -> dict[str, Any]:
-    """Create a structured data response item.
+    """
+    Create a structured data response item.
 
     Used for returning JSON-serializable data that the CLI can process
     programmatically (e.g., for shell completion, JSON output mode).
@@ -63,7 +65,8 @@ def data(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def blob(data_b64: str, filename: str = "") -> dict[str, Any]:
-    """Create a binary-blob response item.
+    """
+    Create a binary-blob response item.
 
     Carries base64-encoded bytes the CLI writes verbatim to stdout (or a
     file). Used by ``addon <type> export`` to stream a dump to the client
@@ -84,7 +87,8 @@ def stream(stream_id: str) -> dict[str, Any]:
 
 
 def hint(command: str, message: str) -> dict[str, Any]:
-    """A follow-up-command suggestion the CLI renders in the user's own dialect.
+    """
+    A follow-up-command suggestion the CLI renders in the user's own dialect.
 
     ``command`` is the bare verb path (e.g. ``"deploy"`` or ``"app restart"``)
     with NO target flags. The CLI prepends ``hop3 `` and appends the
@@ -108,7 +112,8 @@ def hint(command: str, message: str) -> dict[str, Any]:
 
 
 def summary(message: str) -> dict[str, Any]:
-    """Create a state-change summary item (ADR 036 D19c).
+    """
+    Create a state-change summary item (ADR 036 D19c).
 
     Used by mutating commands to report what changed in one or two short
     lines. The CLI client renders summary items with a `[context / app]`
@@ -126,7 +131,8 @@ def summary(message: str) -> dict[str, Any]:
 
 
 def logs_to_response(logs: list[dict]) -> list[dict[str, Any]]:
-    """Convert captured log entries to response format.
+    """
+    Convert captured log entries to response format.
 
     Args:
         logs: List of log entries from captured.get_logs()
@@ -145,7 +151,8 @@ def logs_to_response(logs: list[dict]) -> list[dict[str, Any]]:
 
 
 def build_log_response(captured, final_messages: list[str]) -> list[dict[str, Any]]:
-    """Build response from captured logs and final status messages.
+    """
+    Build response from captured logs and final status messages.
 
     Args:
         captured: CapturedLogs context manager result

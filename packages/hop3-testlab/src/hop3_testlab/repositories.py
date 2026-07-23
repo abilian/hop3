@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Read repositories over the shared result-store models.
+"""
+Read repositories over the shared result-store models.
 
 These read the ``hop3_testing.results`` models (the shared schema). Trend/diff/
 flakiness queries are added as the dashboard grows; for now: recent runs.
@@ -40,7 +41,8 @@ class RunsRepository:
         self.session = session
 
     def list_recent(self, limit: int = 20) -> list[TestRun]:
-        """Return the most recent runs (with a run_uid), newest first.
+        """
+        Return the most recent runs (with a run_uid), newest first.
 
         Legacy rows without a run_uid are skipped — they can't be linked to a
         detail page.
@@ -59,8 +61,10 @@ class RunsRepository:
         return self.session.scalars(stmt).one_or_none()
 
     def latest_by_trigger(self, trigger: str) -> TestRun | None:
-        """The most-recent run carrying this provenance ``trigger`` (e.g. a
-        dispatcher's ``build-<id>`` tag), used to link a build to its run."""
+        """
+        The most-recent run carrying this provenance ``trigger`` (e.g. a
+        dispatcher's ``build-<id>`` tag), used to link a build to its run.
+        """
         stmt = (
             select(TestRun)
             .where(TestRun.trigger == trigger)
@@ -79,7 +83,8 @@ class RunsRepository:
         return list(self.session.scalars(stmt).all())
 
     def progress_by_type(self, run: TestRun) -> dict[str, dict[str, int]]:
-        """Per-type ``{done, passed, failed}`` for a run's results so far.
+        """
+        Per-type ``{done, passed, failed}`` for a run's results so far.
 
         Types are app / demo / tutorial (see ``discriminators.type_of``), keyed
         identically to the engine's planned counts so the live panel can show
@@ -130,7 +135,8 @@ class RunsRepository:
         return leasing.current_lease(self.session)
 
     def active_run(self) -> TestRun | None:
-        """The in-flight run: newest with no ``finished_at`` yet, or None.
+        """
+        The in-flight run: newest with no ``finished_at`` yet, or None.
 
         There is at most one at a time: the lease serialises runs and
         ``sweep_orphans`` (called at lease-acquire) clears any row a prior
@@ -159,7 +165,8 @@ class RunsRepository:
         return list(self.session.scalars(stmt).all())
 
     def abort_active(self, by: str) -> TestRun | None:
-        """Mark the in-flight run as aborted (stamps ``finished_at`` + metadata).
+        """
+        Mark the in-flight run as aborted (stamps ``finished_at`` + metadata).
 
         The engine was killed mid-run so it never called ``finish_run``; this is
         the authoritative finish so the run stops showing as live and is labelled
@@ -177,7 +184,8 @@ class RunsRepository:
         return run
 
     def sweep_orphans(self) -> int:
-        """Stamp every lingering in-flight run as aborted; return the count.
+        """
+        Stamp every lingering in-flight run as aborted; return the count.
 
         A run killed mid-flight (e.g. via the Stop control) or crashed never
         calls ``finish_run``, so it keeps ``finished_at`` NULL forever and would
@@ -222,7 +230,8 @@ class RunsRepository:
         ]
 
     def pass_fail_history(self, limit_runs: int = 10) -> dict[str, list[bool]]:
-        """Per-test pass/fail outcomes over the last N runs, oldest-first.
+        """
+        Per-test pass/fail outcomes over the last N runs, oldest-first.
 
         Feeds the flakiness ranking. N is small, so the per-run fetch is fine.
         """

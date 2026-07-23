@@ -11,7 +11,8 @@ import sys
 
 
 class NoInputError(Exception):
-    """Raised when an interactive prompt is reached but --no-input was set.
+    """
+    Raised when an interactive prompt is reached but --no-input was set.
 
     Per ADR 036 G5, ``--no-input`` refuses to prompt and fails fast with an
     actionable hint instead of silently hanging or assuming a default.
@@ -26,7 +27,8 @@ def is_no_input() -> bool:
 
 
 def require_input_allowed(prompt_label: str) -> None:
-    """Raise NoInputError if interactive input has been disabled.
+    """
+    Raise NoInputError if interactive input has been disabled.
 
     Local prompt sites call this at the top of their flow so the script
     stops with an explanatory error before printing a prompt that nothing
@@ -42,7 +44,8 @@ def require_input_allowed(prompt_label: str) -> None:
 
 
 def confirm(message: str, *, default: bool = False) -> bool:
-    """Ask user for yes/no confirmation.
+    """
+    Ask user for yes/no confirmation.
 
     Args:
         message: The confirmation message
@@ -71,7 +74,8 @@ def confirm(message: str, *, default: bool = False) -> bool:
 
 
 def type_to_confirm(message: str, required_text: str) -> bool:
-    """Require user to type specific text to confirm.
+    """
+    Require user to type specific text to confirm.
 
     Used for critical destructive operations like app destroy.
 
@@ -102,7 +106,8 @@ def type_to_confirm(message: str, required_text: str) -> bool:
 
 
 def show_destructive_warning(command: str, target: str, details: str = "") -> None:
-    """Display a warning message before destructive action.
+    """
+    Display a warning message before destructive action.
 
     Args:
         command: The command being executed (e.g., "destroy", "delete")

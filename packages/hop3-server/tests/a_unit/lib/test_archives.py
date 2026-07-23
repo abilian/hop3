@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Security tests for hop3.lib.archives.extract_archive_to_dir.
+"""
+Security tests for hop3.lib.archives.extract_archive_to_dir.
 
 Wave 4 of the security remediation: cover the decompression bomb,
 inode-table DoS, symlink/hardlink rejection, path traversal, and the
@@ -95,8 +96,10 @@ def test_extract_nested_dirs(tmp_path: Path) -> None:
 def test_bomb_with_lying_header_caught_by_real_byte_counter(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """The header claims 1 byte but the payload is larger than the cap.
-    The real-byte streaming counter must abort mid-extract."""
+    """
+    The header claims 1 byte but the payload is larger than the cap.
+    The real-byte streaming counter must abort mid-extract.
+    """
     monkeypatch.setenv("HOP3_MAX_EXTRACTED_SIZE", "256")
 
     # Build the archive by hand: claim size=1 in the header but the

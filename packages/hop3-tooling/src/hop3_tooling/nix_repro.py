@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Reproducibility gate: rebuild each nix-gen app and check the output is stable.
+"""
+Reproducibility gate: rebuild each nix-gen app and check the output is stable.
 
 The hermetic templates promise that the same source builds bit-for-bit the same
 output. That promise is worth nothing unless something checks it, so this drives
@@ -87,7 +88,8 @@ def classify(output: str) -> Outcome:
 
 
 def interpret_rebuild(app: str, returncode: int, output: str) -> ReproResult:
-    """Turn a ``nix build --rebuild`` outcome into a verdict.
+    """
+    Turn a ``nix build --rebuild`` outcome into a verdict.
 
     A zero exit means the rebuild matched the first build. Any non-zero exit is
     classified: none of them may be read as "reproducible".
@@ -102,7 +104,8 @@ def interpret_rebuild(app: str, returncode: int, output: str) -> ReproResult:
 
 
 def summarize(results: list[ReproResult]) -> tuple[bool, str]:
-    """Overall pass/fail and a summary grouped by outcome.
+    """
+    Overall pass/fail and a summary grouped by outcome.
 
     Empty input is a failure — a gate that checked nothing must not report
     success.

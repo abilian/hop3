@@ -59,7 +59,8 @@ class SSHDeployBackend(DeployBackend):
         return True
 
     def _report_setup_failure(self, what: str, result: CommandResult) -> None:
-        """Print the real reason a setup check failed — fail loud, not a bare False.
+        """
+        Print the real reason a setup check failed — fail loud, not a bare False.
 
         ``StrictHostKeyChecking=accept-new`` rejects a *changed* host key (common
         for ephemeral/rebuilt targets), so that message surfaces here for the

@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""End-to-end: a composition run really deploys an app from source@ref on docker
+"""
+End-to-end: a composition run really deploys an app from source@ref on docker
 and records it with the provenance stamp (v2 spec §A).
 
 Establishes the c_e2e lane (real provision -> deploy -> collect). The directory
@@ -57,8 +58,10 @@ def _current_branch(repo: Path) -> str:
 
 
 def test_compose_run_deploys_from_source_ref_and_stamps_provenance(monkeypatch):
-    """`run coverage <static-app> --source-ref <b> --platform-ref <b>` on docker:
-    the app deploys from source@<b> and the run is stamped with the composition."""
+    """
+    `run coverage <static-app> --source-ref <b> --platform-ref <b>` on docker:
+    the app deploys from source@<b> and the run is stamped with the composition.
+    """
     # The conftest isolates the Lab to a tmp DB, but the spawned engine writes to
     # its real default store; point the Lab's read path at that same file.
     shared = Path.home() / ".hop3" / "test-results.db"

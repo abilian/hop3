@@ -13,7 +13,8 @@ from hop3.orm import get_session_factory
 
 @contextmanager
 def get_session():
-    """Get a database session as a context manager.
+    """
+    Get a database session as a context manager.
 
     Yields:
         Session: SQLAlchemy session

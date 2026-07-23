@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Pure-core tests for the diagnostic bundle (no exec_run, no disk).
+"""
+Pure-core tests for the diagnostic bundle (no exec_run, no disk).
 
 Covers the silent-502 classifier precedence and the listen-table / proxy_pass
 parsers — the logic that decides signal vs noise.
@@ -404,7 +405,8 @@ class _FakeTarget:
 
 
 def test_collect_bundle_silent_502_end_to_end(tmp_path) -> None:
-    """Full orchestration (collect -> probe -> classify -> headline -> write):
+    """
+    Full orchestration (collect -> probe -> classify -> headline -> write):
     nginx proxies to a port nothing listens on -> proxy-502, bundle persisted.
     """
     ss_table = (
@@ -463,10 +465,12 @@ def test_collect_bundle_ok_is_not_persisted(tmp_path) -> None:
 
 
 def test_collect_bundle_ok_is_persisted_when_forced(tmp_path) -> None:
-    """force_persist writes even an ok-classified bundle: a check.py / HTTP-
+    """
+    force_persist writes even an ok-classified bundle: a check.py / HTTP-
     `contains` failure serves fine (classifier ok) yet must leave a bundle that
     `hop3-test why` can replay. Regression for check.py failures showing
-    'No bundle found'."""
+    'No bundle found'.
+    """
     ss_table = (
         "State Recv-Q Send-Q Local Address:Port\n"
         "LISTEN 0 128 127.0.0.1:55489 0.0.0.0:*\n"
@@ -505,10 +509,12 @@ def test_headline_indeterminate_icon() -> None:
 
 
 def test_bundle_captures_resources_section(tmp_path) -> None:
-    """The bundle records host disk/mem in a `resources` section, so disk
+    """
+    The bundle records host disk/mem in a `resources` section, so disk
     pressure — behind spring-boot's truncated jar and forgejo's GC'd closure —
     is self-evident instead of a black box. (`df -h` is first in the fake's
-    response map so it wins for the resources command.)"""
+    response map so it wins for the resources command.)
+    """
     target = _FakeTarget({
         "df -h": "Filesystem Size Used Avail Use% Mounted on\n/dev/sda1 40G 40G 0 100% /",
         "id -un": "root",

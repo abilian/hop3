@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Cached catalog access for the Test Lab web process.
+"""
+Cached catalog access for the Test Lab web process.
 
 The web process needs the test catalog for two read-only things the result DB
 doesn't carry:
@@ -35,7 +36,8 @@ logger = logging.getLogger(__name__)
 
 
 def build_catalog(root: Path) -> Catalog:
-    """Scan ``root``'s app tree into a fresh catalog (uncached).
+    """
+    Scan ``root``'s app tree into a fresh catalog (uncached).
 
     Used for both the local repo (cached via :func:`get_catalog`) and a fetched
     source workspace (``source@ref``), which the worker scans to resolve a run's
@@ -54,7 +56,8 @@ def get_catalog() -> Catalog:
 
 
 def resolve_selector(root: Path, pattern: str) -> list[str]:
-    """Catalog test names under ``root`` matching the literal glob ``pattern``.
+    """
+    Catalog test names under ``root`` matching the literal glob ``pattern``.
 
     Matched against catalog **names** (repo-relative app paths) so only real test
     apps are selected, never a stray file. The caller passes ``pattern`` as a
@@ -67,7 +70,8 @@ def resolve_selector(root: Path, pattern: str) -> list[str]:
 
 
 def _safe_catalog() -> Catalog | None:
-    """The cached catalog, or None if scanning isn't possible (degrade, don't crash).
+    """
+    The cached catalog, or None if scanning isn't possible (degrade, don't crash).
 
     A headless/packaged deploy may not have the apps/ tree; the dropdown and run
     views must still render (counts omitted, titles fall back to the path leaf).

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Helper classes for deployment targets.
+"""
+Helper classes for deployment targets.
 
 These are composed into targets rather than inherited, following
 the principle of composition over inheritance.
@@ -59,7 +60,8 @@ class CommandResult:
 
 @dataclass
 class DockerCommandRunner:
-    """Adapter that makes a Docker container conform to CommandRunner protocol.
+    """
+    Adapter that makes a Docker container conform to CommandRunner protocol.
 
     This allows using Docker containers with helpers that expect CommandRunner,
     without depending on hop3-installer's DockerDeployBackend.
@@ -69,7 +71,8 @@ class DockerCommandRunner:
     """Docker container object."""
 
     def run(self, command: str, *, check: bool = False) -> CommandResult:
-        """Run a command in the container.
+        """
+        Run a command in the container.
 
         Args:
             command: Shell command to execute
@@ -100,7 +103,8 @@ class DockerCommandRunner:
 
 @dataclass
 class SSHCommandRunner:
-    """Adapter that makes a paramiko SSH client conform to CommandRunner protocol.
+    """
+    Adapter that makes a paramiko SSH client conform to CommandRunner protocol.
 
     This allows using SSH connections with helpers that expect CommandRunner,
     without depending on hop3-installer's SSHDeployBackend.
@@ -110,7 +114,8 @@ class SSHCommandRunner:
     """paramiko.SSHClient instance."""
 
     def run(self, command: str, *, check: bool = False) -> CommandResult:
-        """Run a command via SSH.
+        """
+        Run a command via SSH.
 
         Args:
             command: Shell command to execute
@@ -156,7 +161,8 @@ class ContainerRunner(Protocol):
 
 @dataclass(frozen=True)
 class HealthChecker:
-    """Handles health check logic for deployment targets.
+    """
+    Handles health check logic for deployment targets.
 
     This class encapsulates the logic for checking if a server is ready,
     including the curl command, status code validation, and retry logic.
@@ -180,7 +186,8 @@ class HealthChecker:
     """How often to print progress (seconds)."""
 
     def check_status_code(self, output: str) -> bool:
-        """Check if output contains a healthy status code.
+        """
+        Check if output contains a healthy status code.
 
         Args:
             output: Output from health check command (e.g., "200" or "404")
@@ -191,7 +198,8 @@ class HealthChecker:
         return any(code in output for code in HEALTHY_STATUS_CODES)
 
     def check_status_code_bytes(self, output: bytes) -> bool:
-        """Check if bytes output contains a healthy status code.
+        """
+        Check if bytes output contains a healthy status code.
 
         Args:
             output: Bytes output from container exec
@@ -208,7 +216,8 @@ class HealthChecker:
         timeout: int | None = None,
         on_timeout: Any | None = None,
     ) -> bool:
-        """Wait for server to be ready using a command runner.
+        """
+        Wait for server to be ready using a command runner.
 
         Args:
             runner: Object with run() method (e.g., DeployBackend)
@@ -252,7 +261,8 @@ class HealthChecker:
         container: ContainerRunner,
         timeout: int | None = None,
     ) -> bool:
-        """Wait for server to be ready in a Docker container.
+        """
+        Wait for server to be ready in a Docker container.
 
         Args:
             container: Docker container object
@@ -312,7 +322,8 @@ class HealthChecker:
 
 @dataclass(frozen=True)
 class DiagnosticsHelper:
-    """Helper for common diagnostics operations.
+    """
+    Helper for common diagnostics operations.
 
     Wraps DiagnosticCollector with common save/dump operations
     used across multiple target types.
@@ -322,7 +333,8 @@ class DiagnosticsHelper:
     """The diagnostics collector to wrap."""
 
     def save_on_error(self) -> Path:
-        """Save diagnostics and print to console on error.
+        """
+        Save diagnostics and print to console on error.
 
         Returns:
             Path to saved log directory
@@ -336,7 +348,8 @@ class DiagnosticsHelper:
         return log_path
 
     def save(self, generate_html: bool = False) -> Path:
-        """Save all diagnostic information to files.
+        """
+        Save all diagnostic information to files.
 
         Args:
             generate_html: If True, also generate HTML report
@@ -353,7 +366,8 @@ class DiagnosticsHelper:
         return log_path
 
     def collect_server_diagnostics(self, runner: CommandRunner) -> None:
-        """Collect diagnostic information from server.
+        """
+        Collect diagnostic information from server.
 
         Args:
             runner: Object with run() method to execute commands
@@ -410,7 +424,8 @@ class DiagnosticsHelper:
 
 @dataclass
 class DockerContainerHelper:
-    """Helper for common Docker container operations.
+    """
+    Helper for common Docker container operations.
 
     Consolidates port extraction, SSH key extraction, and container
     lifecycle management that was previously duplicated across
@@ -424,7 +439,8 @@ class DockerContainerHelper:
     """Path to extracted SSH key (internal)."""
 
     def get_mapped_port(self, container_port: int) -> int | None:
-        """Extract host port mapping for a container port.
+        """
+        Extract host port mapping for a container port.
 
         Args:
             container_port: Port inside the container (e.g., 22, 80, 8000)
@@ -440,7 +456,8 @@ class DockerContainerHelper:
         return int(ports[port_key][0]["HostPort"])
 
     def extract_ssh_key(self) -> Path:
-        """Extract SSH key from container to temp file.
+        """
+        Extract SSH key from container to temp file.
 
         SECURITY: create the file with restrictive perms *before* writing
         the key. The earlier shape used ``write_text(...)`` (default
@@ -485,7 +502,8 @@ class DockerContainerHelper:
             self._ssh_key_path.unlink()
 
     def exec_run(self, cmd: str, demux: bool = False) -> Any:
-        """Execute a command in the container.
+        """
+        Execute a command in the container.
 
         Args:
             cmd: Command to execute
@@ -519,7 +537,8 @@ class DockerContainerHelper:
 
 
 def find_project_root() -> Path:
-    """Find the project root directory.
+    """
+    Find the project root directory.
 
     Returns:
         Path to project root (directory containing pyproject.toml and packages/)
@@ -539,7 +558,8 @@ def find_project_root() -> Path:
 
 @dataclass
 class DockerServiceManager:
-    """Manages service startup in Docker containers without systemd.
+    """
+    Manages service startup in Docker containers without systemd.
 
     Docker containers don't have systemd, so we need to start services manually.
     This class encapsulates all the shell commands needed to start the Hop3 stack.
@@ -552,7 +572,8 @@ class DockerServiceManager:
     """Optional diagnostics collector for logging."""
 
     def start_all(self) -> None:
-        """Start all services needed for Hop3.
+        """
+        Start all services needed for Hop3.
 
         Raises:
             ServiceStartError: If any service fails to start.
@@ -667,7 +688,8 @@ class DockerServiceManager:
         time.sleep(3)
 
     def _verify_hop3_server(self) -> None:
-        """Verify hop3-server is running.
+        """
+        Verify hop3-server is running.
 
         Raises:
             ServiceStartError: If hop3-server is not running.
@@ -696,7 +718,8 @@ def read_server_secret_key(
     backend: CommandRunner,
     diagnostics: DiagnosticCollector | None = None,
 ) -> str:
-    """Read the deployed server's JWT signing key.
+    """
+    Read the deployed server's JWT signing key.
 
     The harness authenticates for real — it mints a token signed with the
     server's own key (``create_test_token(secret_key=...)``) instead of
@@ -767,7 +790,8 @@ _LEGACY_SOURCE_FLAG = {"local": "--local", "git": "--git", "pypi": "--pypi"}
 def _source_flags(
     source: str, branch: str, version: str | None, *, legacy: bool
 ) -> list[str]:
-    """The install-source flags: --from/--local + --branch (git) / --version (pypi).
+    """
+    The install-source flags: --from/--local + --branch (git) / --version (pypi).
 
     ``legacy`` emits the old --local/--git/--pypi spellings accepted by every
     version's deployer (needed to drive a pre-ADR-052 release's own deployer);
@@ -799,7 +823,8 @@ def _build_deploy_command(
     domain: str | None = None,
     acme_email: str | None = None,
 ) -> list[str]:
-    """Build the hop3-deploy-server command (canonical ADR 052 flags).
+    """
+    Build the hop3-deploy-server command (canonical ADR 052 flags).
 
     ``source`` is the install source ("local" | "git" | "pypi"), emitted as
     ``--from``. For git the branch is passed ALWAYS and explicitly, so the
@@ -868,7 +893,8 @@ def run_hop3_deploy(
     on_output: Callable[[str], None] | None = None,
     diagnostics: DiagnosticCollector | None = None,
 ) -> tuple[bool, float]:
-    """Run hop3-deploy-server via subprocess.
+    """
+    Run hop3-deploy-server via subprocess.
 
     This invokes hop3-deploy-server as a CLI tool rather than importing its
     internals, keeping hop3-testing decoupled from hop3-installer.
@@ -969,7 +995,8 @@ def _log_deploy_failure(
     duration: float,
     result,
 ) -> None:
-    """Log deployment failure.
+    """
+    Log deployment failure.
 
     Output was streamed to the console as it arrived; no need to
     re-print it here. The captured transcript still goes to the

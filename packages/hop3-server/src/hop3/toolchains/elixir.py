@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 
 
 class ElixirToolchain(LanguageToolchain):
-    """Language toolchain for Elixir projects.
+    """
+    Language toolchain for Elixir projects.
 
     This is responsible for building Elixir projects by checking for Mix
     (mix.exs) configuration files.
@@ -31,7 +32,8 @@ class ElixirToolchain(LanguageToolchain):
         return (self.src_path / "mix.exs").exists()
 
     def _get_mix_env(self) -> dict[str, str]:
-        """Get environment variables for Mix/Hex/Rebar.
+        """
+        Get environment variables for Mix/Hex/Rebar.
 
         Sets MIX_HOME and HEX_HOME to app-local directories so that
         Hex and rebar are installed per-app rather than globally.
@@ -49,7 +51,8 @@ class ElixirToolchain(LanguageToolchain):
         }
 
     def _install_hex_and_rebar(self, env: dict[str, str]) -> None:
-        """Install Hex and rebar non-interactively.
+        """
+        Install Hex and rebar non-interactively.
 
         This ensures that Hex (the package manager) and rebar (the Erlang
         build tool) are available locally without interactive prompts.
@@ -65,7 +68,8 @@ class ElixirToolchain(LanguageToolchain):
         self.shell("mix local.rebar --force", env=env)
 
     def build(self) -> BuildArtifact:
-        """Build the Elixir application using Mix.
+        """
+        Build the Elixir application using Mix.
 
         This installs Hex and rebar, fetches dependencies, and compiles
         the application. MIX_HOME and HEX_HOME are set to app-local

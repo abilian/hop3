@@ -165,7 +165,8 @@ Optional Features (--with):
 
 
 def config_from_args(args: argparse.Namespace) -> ServerInstallerConfig:
-    """Create ServerInstallerConfig from parsed arguments.
+    """
+    Create ServerInstallerConfig from parsed arguments.
 
     ``--from {pypi,git,local}`` is the canonical source selector (ADR 052 D3);
     ``--git``/``--path`` still work. ``--from local`` requires ``--path``.

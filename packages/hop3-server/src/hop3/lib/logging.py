@@ -1,7 +1,8 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Server-side logging for Hop3.
+"""
+Server-side logging for Hop3.
 
 This module provides structured logging for debugging server operations.
 Logs are written to both the console (via the existing log() function)
@@ -40,7 +41,8 @@ except ImportError:
 
 
 def _get_log_level() -> str:
-    """Get log level from config or environment.
+    """
+    Get log level from config or environment.
 
     Priority: environment variable > config file > default (INFO)
     """
@@ -80,7 +82,8 @@ LOG_BACKUP_COUNT = int(os.environ.get("HOP3_LOG_BACKUP_COUNT", "5"))
 
 
 class ServerLogger:
-    """Structured logger for Hop3 server operations.
+    """
+    Structured logger for Hop3 server operations.
 
     Provides methods for logging at different levels with structured data.
     Automatically includes timestamps and formats messages consistently.
@@ -91,7 +94,8 @@ class ServerLogger:
         self._configured = False
 
     def configure(self, log_file: Path | None = None, level: str | None = None) -> None:
-        """Configure the logger with file and console handlers.
+        """
+        Configure the logger with file and console handlers.
 
         Args:
             log_file: Path to log file (default: HOP3_ROOT/log/server.log)

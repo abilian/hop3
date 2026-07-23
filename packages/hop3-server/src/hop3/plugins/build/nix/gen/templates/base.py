@@ -21,7 +21,8 @@ from hop3.plugins.build.nix.gen.spec import AppSpec, ConfigFile
 
 
 class ReproTier(IntEnum):
-    """Where an application's artefact comes from, and who vouches for it.
+    """
+    Where an application's artefact comes from, and who vouches for it.
 
     Every template builds inside the Nix sandbox against hash-pinned inputs, so
     all three tiers rebuild bit-for-bit. What differs is the *provenance* of the
@@ -63,7 +64,8 @@ NIXPKGS_SHA256 = "1s2gr5rcyqvpr58vxdcb095mdhblij9bfzaximrva2243aal3dgx"
 
 
 def pinned_nixpkgs_header(rev: str | None = None, sha256: str | None = None) -> str:
-    """The ``{ pkgs ? import (fetchTarball …) {} }:`` header every generated
+    """
+    The ``{ pkgs ? import (fetchTarball …) {} }:`` header every generated
     expression opens with.
 
     Defaults to the global pin (``NIXPKGS_REV``/``NIXPKGS_SHA256``). Pass a
@@ -129,7 +131,8 @@ def format_env_exports(spec: AppSpec) -> str:
 
 
 def format_config_file(cf: ConfigFile) -> str:
-    """Emit shell code that writes the config file via heredoc.
+    """
+    Emit shell code that writes the config file via heredoc.
 
     Uses an **unquoted** ``EOF`` marker so shell variables and command
     substitutions are expanded at startup. The ``raw`` format takes the
@@ -173,7 +176,8 @@ def _format_ini(sections: dict[str, dict[str, str]]) -> str:
 
 
 def format_nix_runtime_libs(paths: list[str]) -> str:
-    """Emit an ``LD_LIBRARY_PATH`` export with Nix-interpolated paths.
+    """
+    Emit an ``LD_LIBRARY_PATH`` export with Nix-interpolated paths.
 
     Each entry in ``paths`` is a nixpkgs attribute path (e.g.
     ``"postgresql.lib"``, ``"stdenv.cc.cc.lib"``). The emitted string
@@ -202,7 +206,8 @@ def format_wrapper_body(
     spec: AppSpec,
     exec_line: str,
 ) -> str:
-    """Build the complete wrapper script body from the spec.
+    """
+    Build the complete wrapper script body from the spec.
 
     Structure:
         #!/bin/sh
@@ -261,7 +266,8 @@ def build_writable_home_prelude(
     env_var: str | None = None,
     cd_into: bool = False,
 ) -> str:
-    """Emit the lazy-cp prelude for an app that writes inside its own tree.
+    """
+    Emit the lazy-cp prelude for an app that writes inside its own tree.
 
     The Nix store is read-only, but plenty of applications expect to write into
     their install directory (Keycloak's Quarkus rebuild, Rails' generated

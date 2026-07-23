@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Log compression for per-build log storage (ADR 044 §E).
+"""
+Log compression for per-build log storage (ADR 044 §E).
 
 Full per-phase logs are kept for *every* build, so they're compressed. We use
 stdlib ``lzma`` (high ratio, available on every supported Python) and tag each

@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Deploy-time wiring for the Layer-7 WAF (ADR 050).
+"""
+Deploy-time wiring for the Layer-7 WAF (ADR 050).
 
 Three lifecycle hooks, mirroring ``fixed_ports``:
 
@@ -74,8 +75,10 @@ def _vassal_name(app_name: str) -> str:
 def configure_waf_preflight(
     app: App, app_config: AppConfig, db_session: Session | None
 ) -> None:
-    """Compile + validate the WAF policy and allocate the proxy port (or tear
-    down WAF state when disabled). Aborts the deploy loudly on a bad policy."""
+    """
+    Compile + validate the WAF policy and allocate the proxy port (or tear
+    down WAF state when disabled). Aborts the deploy loudly on a bad policy.
+    """
     section = _waf_section(app_config)
     if section is None or not section.enabled:
         if app.waf_port:
@@ -158,7 +161,8 @@ def reconcile_bans(
     db_session: Session | None,
     now: datetime | None = None,
 ) -> int:
-    """Score the WAF audit stream, update the ban DB + denylist, reload the proxy.
+    """
+    Score the WAF audit stream, update the ban DB + denylist, reload the proxy.
 
     Idempotent and safe to run on a timer: new offenders (over threshold within
     the window, not in an exempt network) are banned for the configured TTL,
@@ -245,7 +249,8 @@ def _exempt_cidrs(db_session: Session | None) -> list[str]:
 
 
 def _write_proxy_vassal(app_name: str, cmd: list[str]) -> None:
-    """Write the uWSGI Emperor vassal that supervises the LeWAF proxy.
+    """
+    Write the uWSGI Emperor vassal that supervises the LeWAF proxy.
 
     A bare vassal (no app/socket) whose only job is an ``attach-daemon`` running
     the proxy — the same supervision pattern app workers use, so create/reload
@@ -282,7 +287,8 @@ def _write_proxy_vassal(app_name: str, cmd: list[str]) -> None:
 
 
 def _daemon_command(cmd: list[str], log_file) -> str:
-    """The uWSGI ``attach-daemon`` shell string that runs the proxy ``cmd``.
+    """
+    The uWSGI ``attach-daemon`` shell string that runs the proxy ``cmd``.
 
     ``exec`` so the proxy replaces the shell (clean signals / reaping by the
     vassal); args are ``shlex``-quoted; output appends to the app log so failures

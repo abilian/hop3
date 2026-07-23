@@ -38,8 +38,10 @@ def test_every_template_declares_a_tier():
 
 
 def test_tiers_match_how_each_template_gets_its_artefact():
-    """Pin the classification: a template that stops building from source (or
-    starts) must move tier here too, or the published label silently lies."""
+    """
+    Pin the classification: a template that stops building from source (or
+    starts) must move tier here too, or the published label silently lies.
+    """
     by_tier: dict[ReproTier, set[str]] = {t: set() for t in ReproTier}
     for name in list_templates():
         by_tier[get_template(name).tier].add(name)
@@ -77,15 +79,18 @@ def test_get_template_error_shows_available():
 
 
 def test_an_unknown_template_is_rejected_at_parse_time():
-    """The payload type *is* the template, so a spec cannot name one that does
+    """
+    The payload type *is* the template, so a spec cannot name one that does
     not exist. An unknown name can only arrive from hop3.toml, where the adapter
-    catches it."""
+    catches it.
+    """
     with pytest.raises(ValueError, match="Unknown template"):
         app_spec_from_config({"template": "nonexistent"}, {}, "test")
 
 
 def test_no_template_hardcodes_the_default_nixpkgs_pin():
-    """The nixpkgs header is a property of the spec, not a module constant.
+    """
+    The nixpkgs header is a property of the spec, not a module constant.
 
     Nine templates used to interpolate ``PINNED_NIXPKGS_HEADER`` directly, so a
     per-app pin reached only two of them and a corpus-wide bump — the thing a

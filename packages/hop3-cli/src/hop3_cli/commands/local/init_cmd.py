@@ -20,7 +20,8 @@ if TYPE_CHECKING:
 
 
 def handle_init(args: list[str], config: Config, printer: RichPrinter) -> None:
-    """Handle the init command for bootstrapping server connection.
+    """
+    Handle the init command for bootstrapping server connection.
 
     Usage:
         hop3 init --ssh user@server
@@ -73,7 +74,8 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> None:
 def _parse_init_args(
     args: list[str],
 ) -> tuple[str, str | None, str | None, str | None, bool, bool, str | None] | None:
-    """Parse arguments for init command.
+    """
+    Parse arguments for init command.
 
     Returns:
         Tuple of (ssh_target, username, email, server_url, password_stdin, auto_yes, context_name)
@@ -139,7 +141,8 @@ def _parse_init_args(
 def _gather_init_credentials(
     username: str | None, email: str | None, *, password_stdin: bool
 ) -> tuple[str, str, str]:
-    """Gather username, email, and password for init command.
+    """
+    Gather username, email, and password for init command.
 
     Returns:
         Tuple of (username, email, password)

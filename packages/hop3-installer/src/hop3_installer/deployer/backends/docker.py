@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Docker deployment backend for local containers.
+"""
+Docker deployment backend for local containers.
 
 Trust model
 -----------
@@ -98,7 +99,8 @@ stderr_logfile=/var/log/supervisor/hop3-server_err.log
 
 
 class DockerDeployBackend(DeployBackend):
-    """Backend for deploying to local Docker containers.
+    """
+    Backend for deploying to local Docker containers.
 
     This backend builds a Docker image using a Dockerfile, leveraging
     Docker's layer caching for fast rebuilds. The image is built fresh
@@ -153,7 +155,8 @@ class DockerDeployBackend(DeployBackend):
         return None
 
     def _build_image(self) -> bool:
-        """Build the Docker image using docker build.
+        """
+        Build the Docker image using docker build.
 
         Docker automatically uses layer caching, so unchanged layers
         are reused and rebuilds are fast.
@@ -246,7 +249,8 @@ class DockerDeployBackend(DeployBackend):
         )
 
     def _check_ports_available(self) -> list[tuple[int, str, str]]:
-        """Check if required ports are available.
+        """
+        Check if required ports are available.
 
         Returns:
             List of (port, container_name, description) for ports in use
@@ -298,7 +302,8 @@ class DockerDeployBackend(DeployBackend):
         print()
 
     def _start_container(self) -> bool:
-        """Start a new Docker container.
+        """
+        Start a new Docker container.
 
         Returns:
             True if container started successfully, False otherwise.
@@ -336,7 +341,8 @@ class DockerDeployBackend(DeployBackend):
         return True
 
     def _wait_for_container_ready(self, timeout_seconds: int = 15) -> bool:
-        """Wait for container to be running.
+        """
+        Wait for container to be running.
 
         Args:
             timeout_seconds: Maximum time to wait.
@@ -353,7 +359,8 @@ class DockerDeployBackend(DeployBackend):
         return False
 
     def _install_fallback_packages(self) -> bool:
-        """Install base packages when using fallback ubuntu image.
+        """
+        Install base packages when using fallback ubuntu image.
 
         Returns:
             True if packages installed successfully, False otherwise.
@@ -372,7 +379,8 @@ class DockerDeployBackend(DeployBackend):
         return True
 
     def setup(self) -> bool:
-        """Start Docker container for deployment.
+        """
+        Start Docker container for deployment.
 
         This method:
         1. Builds the Docker image using docker build (with layer caching)
@@ -565,7 +573,8 @@ class DockerDeployBackend(DeployBackend):
         return None
 
     def service_restart_command(self, service: str) -> str:
-        """Supervisor manages services in the container — there is no systemd.
+        """
+        Supervisor manages services in the container — there is no systemd.
 
         The upgrade path restarts hop3-server here; using ``systemctl`` would
         silently no-op (systemctl can't run without a systemd PID 1), leaving
@@ -574,7 +583,8 @@ class DockerDeployBackend(DeployBackend):
         return f"supervisorctl restart {service}"
 
     def start_services(self) -> None:
-        """Start supervisor to manage services after Hop3 installation.
+        """
+        Start supervisor to manage services after Hop3 installation.
 
         This replaces systemd in Docker environments. Supervisor manages:
         - sshd: SSH server

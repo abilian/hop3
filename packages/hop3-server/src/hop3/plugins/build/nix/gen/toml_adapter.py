@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Adapter: construct an AppSpec from parsed hop3.toml sections.
+"""
+Adapter: construct an AppSpec from parsed hop3.toml sections.
 
 Maps the ``[nix]`` section of hop3.toml (a dict parsed from TOML) into the
 AppSpec dataclass consumed by the template generator. TOML keys are kebab-case
@@ -188,7 +189,8 @@ _RETIRED_KEYS = {
 
 
 def _validate_nixpkgs_pin(rev: str, sha256: str) -> None:
-    """Reject a malformed per-app nixpkgs pin at parse time.
+    """
+    Reject a malformed per-app nixpkgs pin at parse time.
 
     A placeholder or typo'd pin used to be interpolated verbatim into the
     generated hop3.nix and shipped: the operator only found out at deploy, via an
@@ -211,7 +213,8 @@ def _validate_nixpkgs_pin(rev: str, sha256: str) -> None:
 
 
 def _check_nixpkgs_pin(nix_config: dict[str, Any]) -> None:
-    """Validate the optional per-app nixpkgs pin, or accept its absence.
+    """
+    Validate the optional per-app nixpkgs pin, or accept its absence.
 
     The two keys are meaningful only as a pair. Expressing that here — with an
     early return for "no pin" — states the both-or-neither rule once, and
@@ -233,7 +236,8 @@ def _check_nixpkgs_pin(nix_config: dict[str, Any]) -> None:
 
 
 def _reject_unclaimed_keys(nix_config: dict[str, Any], template: str) -> None:
-    """Fail on any ``[nix]`` key the selected template will never read.
+    """
+    Fail on any ``[nix]`` key the selected template will never read.
 
     Three cases, each with its own message: a key retired by a design change, a
     key that belongs to a different template, and a key nothing claims (almost
@@ -267,7 +271,8 @@ def app_spec_from_config(
     metadata: dict[str, Any],
     app_name: str,
 ) -> AppSpec:
-    """Construct an AppSpec from parsed hop3.toml sections.
+    """
+    Construct an AppSpec from parsed hop3.toml sections.
 
     Args:
         nix_config: The ``[nix]`` section from hop3.toml (dict).

@@ -31,7 +31,8 @@ if TYPE_CHECKING:
 
 
 def handle_login(args: list[str], config: Config, printer: RichPrinter) -> None:
-    """Handle the login command.
+    """
+    Handle the login command.
 
     Supports multiple authentication methods:
     - URL with token: http://server:port?token=eyJ... (easiest for local dev)
@@ -78,7 +79,8 @@ def handle_login(args: list[str], config: Config, printer: RichPrinter) -> None:
 
 
 def handle_logout(args: list[str], config: Config, printer: RichPrinter) -> None:
-    """Log out: revoke the token on the server and clear it locally.
+    """
+    Log out: revoke the token on the server and clear it locally.
 
     Usage:
         hop3 logout        # or: hop3 auth logout
@@ -127,7 +129,8 @@ def handle_logout(args: list[str], config: Config, printer: RichPrinter) -> None
 def handle_login_password(
     args: list[str], config: Config, printer: RichPrinter
 ) -> None:
-    """Handle password-based login via the server API.
+    """
+    Handle password-based login via the server API.
 
     Usage:
         hop3 login
@@ -251,7 +254,8 @@ def _handle_login_response(
 
 
 def _extract_token_from_login_response(result: list[dict]) -> str | None:
-    """Extract the JWT token from the `auth get-token` response.
+    """
+    Extract the JWT token from the `auth get-token` response.
 
     Args:
         result: The RPC response from `auth get-token`
@@ -269,7 +273,8 @@ def _extract_token_from_login_response(result: list[dict]) -> str | None:
 
 
 def handle_login_web(args: list[str], config: Config, printer: RichPrinter) -> None:
-    """Handle --web flag to generate a magic link for browser login.
+    """
+    Handle --web flag to generate a magic link for browser login.
 
     This generates a short-lived, single-use URL that can be used to log into
     the web dashboard without entering a password. Requires SSH access.
@@ -309,7 +314,8 @@ def handle_login_web(args: list[str], config: Config, printer: RichPrinter) -> N
 
 
 def _parse_login_web_args(args: list[str], config: Config) -> tuple[str, str]:
-    """Parse arguments for login --web command.
+    """
+    Parse arguments for login --web command.
 
     Returns:
         Tuple of (ssh_target, username)
@@ -363,7 +369,8 @@ def _parse_login_web_args(args: list[str], config: Config) -> tuple[str, str]:
 
 
 def _get_ssh_target_from_config(config: Config) -> str | None:
-    """Extract SSH target from the current context's API URL.
+    """
+    Extract SSH target from the current context's API URL.
 
     Handles both SSH URLs (ssh://root@host) and HTTP URLs (https://host).
     """
@@ -387,7 +394,8 @@ def _get_ssh_target_from_config(config: Config) -> str | None:
 
 
 def record_server_login(config: Config, server_url: str, token: str) -> None:
-    """ADR 042: stash the token + set this server as the default target.
+    """
+    ADR 042: stash the token + set this server as the default target.
 
     This is the *only* place a login persists credentials: the token goes to the
     per-server credential store (keyed by canonical address); config.toml stays
@@ -429,7 +437,8 @@ def record_server_login(config: Config, server_url: str, token: str) -> None:
 
 
 def handle_login_token(args: list[str], config: Config, printer: RichPrinter) -> None:
-    """Handle token-based login for local development or automation.
+    """
+    Handle token-based login for local development or automation.
 
     Usage:
         hop3 login --token <token> --url http://localhost:8000
@@ -503,7 +512,8 @@ def _resolve_server_url(server_url: str | None, config) -> str:
 
 
 def _verify_token(server_url: str, token: str) -> str | None:
-    """Verify token by calling auth whoami on the server.
+    """
+    Verify token by calling auth whoami on the server.
 
     Returns:
         Username if successful, None if verification failed
@@ -589,7 +599,8 @@ def _determine_save_url(
     config: Config,
     debug_level: int,
 ) -> str:
-    """Determine the API URL to record for this login.
+    """
+    Determine the API URL to record for this login.
 
     Returns the connection address: the explicit ``--url`` (verified for HTTPS,
     aborting on an untrusted cert) or an SSH-tunnel URL built from the target.
@@ -613,7 +624,8 @@ def _determine_save_url(
 
 
 def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> None:
-    """Handle the login --ssh command for getting token via SSH.
+    """
+    Handle the login --ssh command for getting token via SSH.
 
     SSH access is the authentication - no username/password needed by default.
     If --username is provided, uses the legacy flow for that specific user.
@@ -660,7 +672,8 @@ def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> N
 
 
 def _build_ssh_url(ssh_target: str) -> str:
-    """Build SSH URL from SSH target.
+    """
+    Build SSH URL from SSH target.
 
     Args:
         ssh_target: SSH target (user@host or host)
@@ -674,7 +687,8 @@ def _build_ssh_url(ssh_target: str) -> str:
 
 
 def _parse_login_ssh_args(args: list[str]) -> tuple[str, str | None, str | None, int]:
-    """Parse arguments for login --ssh command.
+    """
+    Parse arguments for login --ssh command.
 
     Returns:
         Tuple of (ssh_target, username, api_url, debug_level)
@@ -723,7 +737,8 @@ def _verify_https_connection(
     config_data: dict,
     debug_level: int = 0,
 ) -> None:
-    """Verify HTTPS connection works with the system CA bundle.
+    """
+    Verify HTTPS connection works with the system CA bundle.
 
     Aborts the login (exit AUTH_ERROR) when the certificate is untrusted, so
     we never persist an https config that would fail on every later call.

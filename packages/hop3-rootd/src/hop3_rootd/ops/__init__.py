@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Operation handlers exposed by hop3-rootd.
+"""
+Operation handlers exposed by hop3-rootd.
 
 Importing this package triggers registration of all v1 ops via the
 side-effects in each submodule. The dispatcher then consults the

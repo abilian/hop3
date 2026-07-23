@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""Wire protocol for hop3-rootd.
+"""
+Wire protocol for hop3-rootd.
 
 Line-delimited JSON over a Unix domain socket. One JSON object per
 line, terminated with `\\n`. Both sides write `json.dumps(obj) + "\\n"`
@@ -35,7 +36,8 @@ from hop3_rootd import PROTOCOL_VERSION
 
 
 class ErrorCode(str, Enum):
-    """Fixed enum of error codes the daemon can return.
+    """
+    Fixed enum of error codes the daemon can return.
 
     New codes are added per op. Adding a new code is part of the protocol
     contract; clients gracefully treat unknown codes as opaque errors.
@@ -63,7 +65,8 @@ class Request:
 
 @dataclass(frozen=True)
 class Response:
-    """Response envelope. ``ok`` discriminates: a success carries ``result``,
+    """
+    Response envelope. ``ok`` discriminates: a success carries ``result``,
     a failure carries ``error`` — never both, never neither for its branch.
     """
 
@@ -92,7 +95,8 @@ class Response:
 
 
 class ProtocolError(Exception):
-    """Raised when a request cannot be parsed into a Request.
+    """
+    Raised when a request cannot be parsed into a Request.
 
     The error code identifies which kind of malformedness:
     `MALFORMED_REQUEST` for missing/wrong-type fields,
@@ -110,7 +114,8 @@ class ProtocolError(Exception):
 
 
 def encode_response(resp: Response) -> bytes:
-    """Encode a response envelope as bytes for socket write.
+    """
+    Encode a response envelope as bytes for socket write.
 
     Trailing `\\n` is included; one full message per call.
     """
@@ -120,7 +125,8 @@ def encode_response(resp: Response) -> bytes:
 def encode_request(
     *, op: str, args: dict[str, Any], request_id: str, v: int = PROTOCOL_VERSION
 ) -> bytes:
-    """Encode a request envelope as bytes. Used by the client side.
+    """
+    Encode a request envelope as bytes. Used by the client side.
 
     Bare-keyword args to make caller intent explicit.
     """
@@ -179,7 +185,8 @@ def _validate_version(obj: dict[str, Any], request_id: str | None) -> int:
 
 
 def decode_request(line: bytes | str) -> Request:
-    """Parse one line of bytes/text into a Request.
+    """
+    Parse one line of bytes/text into a Request.
 
     Raises ProtocolError on:
       - non-JSON or non-object payload (MALFORMED_REQUEST)
@@ -238,7 +245,8 @@ def error_response(
     message: str,
     v: int = PROTOCOL_VERSION,
 ) -> Response:
-    """Build an error response.
+    """
+    Build an error response.
 
     `request_id` is None when the request couldn't be parsed enough to
     extract an id; clients are tolerant of this case.

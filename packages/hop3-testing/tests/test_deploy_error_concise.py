@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""The console-facing deploy error is a concise root cause, not a KB-sized dump.
+"""
+The console-facing deploy error is a concise root cause, not a KB-sized dump.
 
 A failed compose deploy streams the whole container log (hundreds of DB-migration
 lines) before the actual error. The console must surface the actionable tail; the

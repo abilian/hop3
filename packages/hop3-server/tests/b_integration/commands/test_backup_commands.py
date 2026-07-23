@@ -34,7 +34,8 @@ from hop3.orm.repositories import (
 
 @pytest.fixture
 def test_db():
-    """Create a test database.
+    """
+    Create a test database.
 
     Uses in-memory SQLite database to support parallel test execution.
     Each test worker gets its own isolated in-memory database.
@@ -449,7 +450,8 @@ class TestBackupRestoreCommand:
 
     @pytest.fixture(autouse=True)
     def _stub_deploy(self, monkeypatch):
-        """Stop ``BackupManager.restore_backup`` from running the full deploy pipeline.
+        """
+        Stop ``BackupManager.restore_backup`` from running the full deploy pipeline.
 
         ``restore_backup`` calls ``app.deploy()`` at the end so a freshly-
         restored app on a clean host is actually running again (added in

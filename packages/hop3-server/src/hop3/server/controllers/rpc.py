@@ -59,7 +59,8 @@ scan_package("hop3.commands")
 
 
 def _build_command_table() -> dict[tuple[str, ...], type[Command]]:
-    """Build the RPC dispatch table from core + plugin-contributed commands.
+    """
+    Build the RPC dispatch table from core + plugin-contributed commands.
 
     Core commands live in `hop3.commands` (scanned above and found via the
     registry). Plugins contribute additional commands through the
@@ -96,7 +97,8 @@ _MAX_COMMAND_DEPTH = 4
 
 
 def find_command(cli_args: list[str]) -> tuple[type[Command] | None, int]:
-    """Find the command matching the longest tuple prefix of cli_args.
+    """
+    Find the command matching the longest tuple prefix of cli_args.
 
     Tries longest prefix first: for cli_args = ["addon", "postgres", "diagnose", "mydb"],
     checks ("addon", "postgres", "diagnose", "mydb") → ("addon", "postgres", "diagnose")
@@ -118,7 +120,8 @@ def format_command_name(name: tuple[str, ...]) -> str:
 
 
 def requires_authentication(command_class: type[Command]) -> bool:
-    """Check if a command requires authentication.
+    """
+    Check if a command requires authentication.
 
     Uses the declarative `requires_auth` class attribute.
 
@@ -132,7 +135,8 @@ def requires_authentication(command_class: type[Command]) -> bool:
 
 
 def command_needs_username(command_class: type[Command]) -> bool:
-    """Check if a command needs the authenticated username.
+    """
+    Check if a command needs the authenticated username.
 
     Uses the declarative `pass_username` class attribute.
 
@@ -146,7 +150,8 @@ def command_needs_username(command_class: type[Command]) -> bool:
 
 
 def command_needs_token_info(command_class: type[Command]) -> bool:
-    """Check if a command needs the full token information.
+    """
+    Check if a command needs the full token information.
 
     Uses the declarative `pass_token_info` class attribute.
 
@@ -160,7 +165,8 @@ def command_needs_token_info(command_class: type[Command]) -> bool:
 
 
 def call(command_name: tuple[str, ...], args: list[str], extra_args: JsonDict):
-    """Execute a CLI command with given arguments.
+    """
+    Execute a CLI command with given arguments.
 
     Args:
         command_name: Tuple of tokens naming the command (e.g., ("config", "set"))
@@ -270,7 +276,8 @@ def call(command_name: tuple[str, ...], args: list[str], extra_args: JsonDict):
 
 
 class RPCController(Controller):
-    """JSON-RPC endpoint controller for CLI commands.
+    """
+    JSON-RPC endpoint controller for CLI commands.
 
     Handles JSON-RPC requests from the Hop3 CLI, executing commands
     on the server with authentication and authorization checks.
@@ -280,7 +287,8 @@ class RPCController(Controller):
 
     @post("/", status_code=200)
     async def handle_rpc(self, request: Request, data: dict) -> Response:
-        """Handle JSON-RPC request.
+        """
+        Handle JSON-RPC request.
 
         Args:
             request: HTTP request
@@ -343,7 +351,8 @@ class RPCController(Controller):
     def _build_error_response(
         self, code: int, message: str, request_id: int, status_code: int = 200
     ) -> Response:
-        """Build a JSON-RPC error response.
+        """
+        Build a JSON-RPC error response.
 
         Args:
             code: JSON-RPC error code
@@ -368,7 +377,8 @@ class RPCController(Controller):
     def _build_success_response(
         self, result: Json | list[dict], request_id: int
     ) -> Response:
-        """Build a JSON-RPC success response.
+        """
+        Build a JSON-RPC success response.
 
         Args:
             result: Command execution result (can be dict, list, or primitive)
@@ -386,7 +396,8 @@ class RPCController(Controller):
     def _check_authentication(
         self, request: Request, command_class: type[Command] | None
     ) -> Response | None:
-        """Check if the request is authenticated when required.
+        """
+        Check if the request is authenticated when required.
 
         For security, authentication is checked BEFORE revealing if the command
         exists. This prevents information disclosure about available commands.
@@ -430,7 +441,8 @@ class RPCController(Controller):
         args: list[str],
         extra_args: JsonDict,
     ) -> tuple[tuple, JsonDict]:
-        """Prepare command arguments by injecting username and token info.
+        """
+        Prepare command arguments by injecting username and token info.
 
         Args:
             request: HTTP request
@@ -467,7 +479,8 @@ class RPCController(Controller):
         extra_args: JsonDict,
         request_id: int,
     ) -> Response:
-        """Execute the command and return appropriate response.
+        """
+        Execute the command and return appropriate response.
 
         Args:
             command_name: Tuple of tokens naming the command

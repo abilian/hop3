@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared test stubs — plain objects instead of MagicMock.
+"""
+Shared test stubs — plain objects instead of MagicMock.
 
 These replace the common ``MagicMock()`` / ``Mock()`` patterns across
 the CLI test suite so tests verify *state* rather than implementation
@@ -20,7 +21,8 @@ from hop3_cli.config import Config
 
 @dataclass
 class StubClient:
-    """Context-manager RPC client returning a canned response.
+    """
+    Context-manager RPC client returning a canned response.
 
     Usage::
 
@@ -42,7 +44,8 @@ class StubClient:
 
 
 class StubConfig(Config):
-    """Minimal config stub with the most-called methods pre-wired.
+    """
+    Minimal config stub with the most-called methods pre-wired.
 
     Extends ``Config`` so the type checker accepts it wherever ``Config``
     is expected. Methods are plain Python so a test can override them::
@@ -87,7 +90,8 @@ def make_http_response(
     json_body: dict[str, Any] | None = None,
     ok: bool | None = None,
 ) -> SimpleNamespace:
-    """Build a stub ``requests.Response`` with .status_code, .json(), .ok.
+    """
+    Build a stub ``requests.Response`` with .status_code, .json(), .ok.
 
     ``ok`` defaults to ``200 <= status_code < 400`` (matching ``requests``).
     """

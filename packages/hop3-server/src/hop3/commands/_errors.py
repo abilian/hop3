@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Generic error handling for CLI commands.
+"""
+Generic error handling for CLI commands.
 
 This module provides a reusable mechanism for handling exceptions in commands,
 converting them to user-friendly error messages while logging detailed info
@@ -39,7 +40,8 @@ if TYPE_CHECKING:
 
 @dataclass
 class CommandError(Exception):
-    """Structured error from a command.
+    """
+    Structured error from a command.
 
     Attributes:
         message: User-friendly error message
@@ -66,7 +68,8 @@ class ErrorContext:
     def on_error(
         self, exc_type: type[Exception], handler: Callable[[Exception], str]
     ) -> None:
-        """Register a custom handler for a specific exception type.
+        """
+        Register a custom handler for a specific exception type.
 
         Args:
             exc_type: Exception class to handle
@@ -75,7 +78,8 @@ class ErrorContext:
         self._handlers[exc_type] = handler
 
     def format_error(self, exc: Exception) -> str:  # ruff:ignore[too-many-return-statements] — ruff counts each match-arm as a return; the body IS a match statement (the structured form this lint nominally prefers), so the warning is a false positive here.
-        """Format an exception into a user-friendly message.
+        """
+        Format an exception into a user-friendly message.
 
         Args:
             exc: The exception to format
@@ -122,7 +126,8 @@ class ErrorContext:
 
 
 def _format_subprocess_error(exc: subprocess.CalledProcessError) -> str:
-    """Format a subprocess error with command output.
+    """
+    Format a subprocess error with command output.
 
     Args:
         exc: CalledProcessError exception
@@ -149,7 +154,8 @@ def _format_subprocess_error(exc: subprocess.CalledProcessError) -> str:
 
 
 def _log_error(operation: str, exc: Exception, context_vars: dict[str, Any]) -> None:
-    """Log error details to stderr for server-side debugging.
+    """
+    Log error details to stderr for server-side debugging.
 
     Args:
         operation: Description of what was happening
@@ -165,7 +171,8 @@ def _log_error(operation: str, exc: Exception, context_vars: dict[str, Any]) -> 
 def command_context(
     operation: str, **context_vars: Any
 ) -> Generator[ErrorContext, None, None]:
-    """Context manager for command error handling.
+    """
+    Context manager for command error handling.
 
     Catches exceptions, logs them for debugging, and re-raises as ValueError
     with a user-friendly message for the RPC handler.
@@ -205,7 +212,8 @@ def command_context(
 
 # Convenience function for simple cases without custom handlers
 def handle_command_error(operation: str, **context_vars: Any):
-    """Decorator version of command_context for simple cases.
+    """
+    Decorator version of command_context for simple cases.
 
     Usage:
         @handle_command_error("deploying app")

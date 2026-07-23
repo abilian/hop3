@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Engine CLI contract consumed by hop3-testlab (ADR 052 safety net, Phase 0).
+"""
+Engine CLI contract consumed by hop3-testlab (ADR 052 safety net, Phase 0).
 
 The Test Lab (`hop3_testlab/worker.py`) shells out to `hop3-test run` with a
 fixed set of flags. Renaming/removing any of them (planned by ADR 052) silently

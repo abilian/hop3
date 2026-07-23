@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""The ADR 035 runtime contract, exercised end to end for a Nix artifact.
+"""
+The ADR 035 runtime contract, exercised end to end for a Nix artifact.
 
 This is the M2.2 (Nix runtime beta) gate at the unit level: a nix build writes a
 `runtime.json` (a `RuntimeConfig`), the deployer persists it as `BUILD_ARTIFACT.json`,

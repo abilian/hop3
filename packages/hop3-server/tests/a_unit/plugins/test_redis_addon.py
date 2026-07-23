@@ -27,7 +27,8 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def tmp_hop3_root(tmp_path, monkeypatch) -> Path:
-    """Redirect HOP3_ROOT to a temporary directory for the duration of one test.
+    """
+    Redirect HOP3_ROOT to a temporary directory for the duration of one test.
 
     HOP3_ROOT is imported into several modules at import time, so we monkeypatch
     each consumer that reads it.

@@ -68,8 +68,10 @@ def test_setup_backend_proxies_through_waf_when_enabled() -> None:
     ],
 )
 def test_post_init_rejects_host_name_injection(bad_host: str) -> None:
-    """HOST_NAME values that would escape `server_name $HOST_NAME;` are refused
-    at proxy setup time, closing the nginx directive-injection critical."""
+    """
+    HOST_NAME values that would escape `server_name $HOST_NAME;` are refused
+    at proxy setup time, closing the nginx directive-injection critical.
+    """
     env = Env({"HOST_NAME": bad_host})
     with pytest.raises(InvalidIdentifierError):
         NginxVirtualHost(App(name="testapp"), env, {})
@@ -209,8 +211,10 @@ def test_is_static_only(workers: dict[str, str], expected: bool) -> None:
 
 
 def test_static_only_app_with_build_hook_skips_backend() -> None:
-    """A static site with a prebuild hook is served directly — never proxied to
-    an unallocated port (regression: `upstream 127.0.0.1:0`)."""
+    """
+    A static site with a prebuild hook is served directly — never proxied to
+    an unallocated port (regression: `upstream 127.0.0.1:0`).
+    """
     env = Env({"HOST_NAME": "testapp.com"})
     nginx = NginxVirtualHost(
         App(name="testapp"), env, {"prebuild": "x", "static": "public"}

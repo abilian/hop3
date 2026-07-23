@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""The PHP toolchain must not re-run composer over a prebuild's vendor/ tree.
+"""
+The PHP toolchain must not re-run composer over a prebuild's vendor/ tree.
 
 Symfony on a host whose php-redis predates symfony/cache's `ext-redis >= 6.1`
 requirement installs in before-build with `--ignore-platform-req=ext-redis`.

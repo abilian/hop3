@@ -26,7 +26,8 @@ __all__ = [
 
 
 def register_commands(cli: click.Group) -> None:
-    """Register all commands with the CLI group.
+    """
+    Register all commands with the CLI group.
 
     The image sweep (formerly `matrix`/`cloud`) folded into `run --images`
     (ADR 052 D9), so there is no separate cloud command.

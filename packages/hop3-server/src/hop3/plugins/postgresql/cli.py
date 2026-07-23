@@ -1,7 +1,8 @@
 # Copyright (c) 2024-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""`addon postgres <verb>` commands — PostgreSQL-specific addon management.
+"""
+`addon postgres <verb>` commands — PostgreSQL-specific addon management.
 
 Type-agnostic addon verbs (list/create/attach/detach/destroy/show/status) live
 in `hop3.commands.services`. These are the Postgres-specific level-3 commands;
@@ -37,7 +38,8 @@ def _addon(name: str) -> PostgresAddon:
 
 
 def _clone(args: tuple) -> list[dict]:
-    """Create a new addon and copy the source addon's data into it.
+    """
+    Create a new addon and copy the source addon's data into it.
 
     Reuses the existing create / backup / restore methods, so it only works
     for engines whose restore is implemented (postgres, mysql).
@@ -62,7 +64,8 @@ def _clone(args: tuple) -> list[dict]:
 
 
 def _result_items(result: dict) -> list[dict]:
-    """Render a run_sql() result (rows or status) as response items.
+    """
+    Render a run_sql() result (rows or status) as response items.
 
     Cells are stringified so the payload is JSON-serializable over RPC
     (query results can contain dates, decimals, None, etc.).
@@ -82,7 +85,8 @@ def _result_items(result: dict) -> list[dict]:
 @register
 @dataclass(frozen=True)
 class AddonPostgresCredentialsCmd(Command):
-    """Show connection credentials for a Postgres addon.
+    """
+    Show connection credentials for a Postgres addon.
 
     Usage: hop3 addon postgres credentials <name>
 
@@ -107,7 +111,8 @@ class AddonPostgresCredentialsCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonPostgresDumpCmd(Command):
-    """Dump a Postgres addon to a backup file (pg_dump).
+    """
+    Dump a Postgres addon to a backup file (pg_dump).
 
     Usage: hop3 addon postgres dump <name>
 
@@ -134,7 +139,8 @@ class AddonPostgresDumpCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonPostgresRestoreCmd(Command):
-    """Restore a Postgres addon from a backup file (psql).
+    """
+    Restore a Postgres addon from a backup file (psql).
 
     Usage: hop3 addon postgres restore <name> <path>
 
@@ -164,7 +170,8 @@ class AddonPostgresRestoreCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonPostgresExtensionsCmd(Command):
-    """Install PostgreSQL extensions into an addon's database.
+    """
+    Install PostgreSQL extensions into an addon's database.
 
     Usage: hop3 addon postgres extensions <name> <extension> [<extension> ...]
 
@@ -209,7 +216,8 @@ class AddonPostgresExtensionsCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonPostgresQueryCmd(Command):
-    """Run an ad-hoc SQL statement against a Postgres addon.
+    """
+    Run an ad-hoc SQL statement against a Postgres addon.
 
     Usage: hop3 addon postgres query <name> --command "<SQL>"
 
@@ -243,7 +251,8 @@ class AddonPostgresQueryCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonPostgresCloneCmd(Command):
-    """Clone a Postgres addon into a new one (copies all data).
+    """
+    Clone a Postgres addon into a new one (copies all data).
 
     Usage: hop3 addon postgres clone <source> <new-name>
 
@@ -263,7 +272,8 @@ class AddonPostgresCloneCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonPostgresExportCmd(Command):
-    """Stream a Postgres addon dump to stdout.
+    """
+    Stream a Postgres addon dump to stdout.
 
     Usage: hop3 addon postgres export <name> > dump.sql
 
@@ -294,7 +304,8 @@ class AddonPostgresExportCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonPostgresImportCmd(Command):
-    """Import a dump into a Postgres addon from stdin.
+    """
+    Import a dump into a Postgres addon from stdin.
 
     Usage: hop3 addon postgres import <name> --confirm=<name> < dump.sql
 
@@ -389,7 +400,8 @@ def _diagnostic(args: tuple, statement: str, label: str, verb: str) -> list[dict
 @register
 @dataclass(frozen=True)
 class AddonPostgresPsCmd(Command):
-    """Show active queries on a Postgres addon.
+    """
+    Show active queries on a Postgres addon.
 
     Usage: hop3 addon postgres activity <name>
 
@@ -407,7 +419,8 @@ class AddonPostgresPsCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonPostgresLocksCmd(Command):
-    """Show current locks on a Postgres addon.
+    """
+    Show current locks on a Postgres addon.
 
     Usage: hop3 addon postgres locks <name>
 
@@ -424,7 +437,8 @@ class AddonPostgresLocksCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonPostgresSettingsCmd(Command):
-    """Show key configuration settings of a Postgres addon.
+    """
+    Show key configuration settings of a Postgres addon.
 
     Usage: hop3 addon postgres settings <name>
 

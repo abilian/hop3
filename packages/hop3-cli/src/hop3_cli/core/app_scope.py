@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Knowledge about which commands are app-scoped (ADR 036 D5/D7).
+"""
+Knowledge about which commands are app-scoped (ADR 036 D5/D7).
 
 For M2, we hardcode the set of app-scoped commands so the client can (a) know
 when to resolve an implicit app and (b) inject the resolved app into the
@@ -135,7 +136,8 @@ _MAX_DEPTH = max((len(t) for t in APP_SCOPED_COMMANDS), default=1)
 
 
 def is_app_scoped(cli_args: list[str]) -> tuple[bool, int]:
-    """Check if the command in cli_args is app-scoped.
+    """
+    Check if the command in cli_args is app-scoped.
 
     Returns (True, n_consumed) where n_consumed is the number of tokens that
     form the command name. Returns (False, 0) if the command is not app-scoped

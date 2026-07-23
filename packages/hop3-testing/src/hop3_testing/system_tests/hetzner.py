@@ -26,7 +26,8 @@ if TYPE_CHECKING:
 
 
 def _public_key_md5_fingerprint(key_path: str | Path) -> str | None:
-    """MD5 fingerprint (colon-hex) of the public half of ``key_path``.
+    """
+    MD5 fingerprint (colon-hex) of the public half of ``key_path``.
 
     Matches the ``.fingerprint`` Hetzner reports for a registered SSH key, so a
     local private key can be mapped to its registered counterpart by reading the
@@ -120,7 +121,8 @@ class HetznerManager:
         verbose: bool = False,
         console: Console | None = None,
     ):
-        """Initialize Hetzner manager.
+        """
+        Initialize Hetzner manager.
 
         Args:
             config: Hetzner configuration.
@@ -139,7 +141,8 @@ class HetznerManager:
         return self.config.server_id
 
     def get_server(self) -> Server:
-        """Get the configured server.
+        """
+        Get the configured server.
 
         Returns:
             Server object.
@@ -154,7 +157,8 @@ class HetznerManager:
         return server
 
     def get_server_info(self) -> ServerInfo:
-        """Get information about the configured server.
+        """
+        Get information about the configured server.
 
         Returns:
             ServerInfo object.
@@ -162,7 +166,8 @@ class HetznerManager:
         return ServerInfo.from_server(self.get_server())
 
     def get_server_ip(self) -> str:
-        """Get the server's IPv4 address.
+        """
+        Get the server's IPv4 address.
 
         Reads the address off the server directly rather than through
         ``ServerInfo``: the rebuild path needs only the IP, and mapping every
@@ -179,7 +184,8 @@ class HetznerManager:
         return server.public_net.ipv4.ip or ""
 
     def list_images(self) -> list[dict]:
-        """List available OS images.
+        """
+        List available OS images.
 
         Returns:
             List of image dictionaries with 'name' and 'description' keys.
@@ -196,7 +202,8 @@ class HetznerManager:
         ]
 
     def resolve_ssh_key(self):
-        """The registered Hetzner SSH key to re-inject on rebuild, or raise loud.
+        """
+        The registered Hetzner SSH key to re-inject on rebuild, or raise loud.
 
         Order: explicit ``ssh_key_name`` (must exist in the project); otherwise
         auto-derive from ``ssh_key_path`` by matching ``<path>.pub``'s
@@ -256,7 +263,8 @@ class HetznerManager:
         image: str | None = None,
         timeout: int = 600,
     ) -> ServerInfo:
-        """Rebuild the server with a fresh OS image.
+        """
+        Rebuild the server with a fresh OS image.
 
         This is the cleanest way to reset a server - it reinstalls the OS
         completely, removing all data and resetting SSH host keys.
@@ -321,7 +329,8 @@ class HetznerManager:
         self,
         timeout: int = 120,
     ) -> ServerInfo:
-        """Perform a soft reset (reboot) of the server.
+        """
+        Perform a soft reset (reboot) of the server.
 
         This is faster than rebuild but doesn't reinstall the OS.
 
@@ -341,7 +350,8 @@ class HetznerManager:
         return self.get_server_info()
 
     def power_on(self, timeout: int = 60) -> ServerInfo:
-        """Power on the server.
+        """
+        Power on the server.
 
         Args:
             timeout: Maximum time to wait in seconds.
@@ -362,7 +372,8 @@ class HetznerManager:
         return self.get_server_info()
 
     def power_off(self, timeout: int = 60) -> ServerInfo:
-        """Power off the server (hard shutdown).
+        """
+        Power off the server (hard shutdown).
 
         Args:
             timeout: Maximum time to wait in seconds.
@@ -383,7 +394,8 @@ class HetznerManager:
         return self.get_server_info()
 
     def shutdown(self, timeout: int = 120) -> ServerInfo:
-        """Graceful shutdown of the server.
+        """
+        Graceful shutdown of the server.
 
         Args:
             timeout: Maximum time to wait in seconds.
@@ -408,7 +420,8 @@ class HetznerManager:
         timeout: int = 300,
         interval: int = 10,
     ) -> bool:
-        """Wait for SSH to become available on the server.
+        """
+        Wait for SSH to become available on the server.
 
         Also updates the known_hosts file with the server's host key.
 
@@ -434,7 +447,8 @@ class HetznerManager:
         return True
 
     def _find_image(self, name: str) -> Image | None:
-        """Find an image by name.
+        """
+        Find an image by name.
 
         Args:
             name: Image name (e.g., "debian-13").
@@ -461,7 +475,8 @@ class HetznerManager:
         interval: int = 5,
         action_name: str = "action",
     ) -> None:
-        """Wait for an action to complete.
+        """
+        Wait for an action to complete.
 
         Args:
             action_id: Action ID to wait for.
@@ -514,7 +529,8 @@ class HetznerManager:
 
 
 def create_hetzner_manager(config: HetznerConfig) -> HetznerManager:
-    """Create a HetznerManager instance.
+    """
+    Create a HetznerManager instance.
 
     Factory function for dependency injection.
 

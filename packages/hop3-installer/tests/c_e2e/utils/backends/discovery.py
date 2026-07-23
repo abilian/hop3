@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Backend discovery utilities for E2E tests.
+"""
+Backend discovery utilities for E2E tests.
 
 Provides functions for detecting available backends based on environment.
 """
@@ -61,7 +62,8 @@ def docker_available() -> bool:
 
 
 def docker_systemd_image_exists() -> bool:
-    """Check if the hop3-test-systemd image exists.
+    """
+    Check if the hop3-test-systemd image exists.
 
     This image is required for systemd tests on Docker.
     """
@@ -81,7 +83,8 @@ def docker_systemd_image_exists() -> bool:
 
 
 def ssh_host_available() -> str | None:
-    """The configured remote SSH target as ``user@host``, or None.
+    """
+    The configured remote SSH target as ``user@host``, or None.
 
     The host comes from the explicit ``--ssh-host`` option (set_ssh_host); the
     user from HOP3_SSH_USER (default root). HOP3_TEST_HOST is NOT consulted —
@@ -104,7 +107,8 @@ def ssh_host_available() -> str | None:
 
 
 def ssh_raw_host() -> str | None:
-    """The configured remote hostname (no ``user@`` prefix), or None.
+    """
+    The configured remote hostname (no ``user@`` prefix), or None.
 
     From the explicit ``--ssh-host`` option only (not HOP3_TEST_HOST). Use this
     for commands like hop3-deploy that handle the SSH user internally.
@@ -123,7 +127,8 @@ def ssh_raw_host() -> str | None:
 
 
 def ssh_host_connectable() -> str | None:
-    """Get SSH host from environment if available AND connectable.
+    """
+    Get SSH host from environment if available AND connectable.
 
     Returns:
         SSH host string (user@host) or None if not configured or not connectable.
@@ -158,7 +163,8 @@ def ssh_host_connectable() -> str | None:
 
 
 def vagrant_installed() -> bool:
-    """Check if Vagrant is installed.
+    """
+    Check if Vagrant is installed.
 
     Note: This only checks if the vagrant binary is available.
     Vagrant tests are slow (start/stop VMs) so they require explicit opt-in
@@ -176,7 +182,8 @@ def vagrant_installed() -> bool:
 
 
 def available_backends() -> list[str]:
-    """Get list of available backend names (excluding Vagrant).
+    """
+    Get list of available backend names (excluding Vagrant).
 
     Vagrant is excluded because it requires explicit opt-in via --vagrant flag.
 
@@ -197,7 +204,8 @@ def available_backends() -> list[str]:
 
 
 def available_systemd_backends() -> list[str]:
-    """Get list of available backends that support systemd (excluding Vagrant).
+    """
+    Get list of available backends that support systemd (excluding Vagrant).
 
     Vagrant is excluded because it requires explicit opt-in via --vagrant flag.
 
@@ -225,7 +233,8 @@ def get_backend(
     distro: str = "ubuntu",
     installer_dir: Path | None = None,
 ) -> Backend:
-    """Create a backend instance by type.
+    """
+    Create a backend instance by type.
 
     Args:
         backend_type: One of "docker", "docker-systemd", "ssh", "vagrant"

@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Renew TLS certificates that are due and reinstall them into the proxy.
+"""
+Renew TLS certificates that are due and reinstall them into the proxy.
 
 Shared by the ``hop3 cert renew`` RPC command and the unattended renewal timer so
 both apply identical logic. A per-app failure is recorded and does not stop the
@@ -34,7 +35,8 @@ class RenewOutcome:
 
 
 def app_cert_domain(app: App) -> str | None:
-    """The cert domain for an app: the first host of HOST_NAME.
+    """
+    The cert domain for an app: the first host of HOST_NAME.
 
     None when the app has no HOST_NAME or uses the catch-all "_" (no managed
     public certificate to renew).
@@ -62,7 +64,8 @@ def renew_due_certs(
     force: bool = False,
     manager: CertificatesManager | None = None,
 ) -> RenewOutcome:
-    """Renew each app's cert that is due (or all, with ``force``) and reinstall it.
+    """
+    Renew each app's cert that is due (or all, with ``force``) and reinstall it.
 
     Does not reload the proxy — the caller reloads once if anything was renewed.
     """

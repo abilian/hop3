@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Regression: cleanup must destroy the app even after a FAILED deploy.
+"""
+Regression: cleanup must destroy the app even after a FAILED deploy.
 
 A partial deploy can create the app and provision some addons (e.g. postgres
 before redis failed). If cleanup skipped those, every failed deploy would leak

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""SSE streaming endpoint for deployment logs.
+"""
+SSE streaming endpoint for deployment logs.
 
 This controller provides a Server-Sent Events endpoint for streaming
 deployment logs to CLI clients in real-time.
@@ -31,7 +32,8 @@ if TYPE_CHECKING:
 
 
 class StreamController(Controller):
-    """Controller for SSE log streaming.
+    """
+    Controller for SSE log streaming.
 
     Provides endpoints for:
     - Streaming deployment logs via SSE
@@ -47,7 +49,8 @@ class StreamController(Controller):
 
     @get("/{stream_id:str}")
     async def stream_logs(self, stream_id: FromPath[str]) -> Stream:
-        """Stream deployment logs via Server-Sent Events.
+        """
+        Stream deployment logs via Server-Sent Events.
 
         Args:
             stream_id: Unique identifier for the deployment stream
@@ -75,7 +78,8 @@ class StreamController(Controller):
 
     @get("/{stream_id:str}/status")
     async def stream_status(self, stream_id: FromPath[str]) -> dict:
-        """Get current status of a deployment stream.
+        """
+        Get current status of a deployment stream.
 
         Args:
             stream_id: Unique identifier for the deployment stream

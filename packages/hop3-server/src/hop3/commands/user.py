@@ -26,7 +26,8 @@ from ._response import error, summary, text
 
 
 def require_admin(username: str, user_repo: UserRepository) -> list[dict] | None:
-    """Check if the authenticated user is an admin.
+    """
+    Check if the authenticated user is an admin.
 
     Args:
         username: The authenticated username
@@ -50,7 +51,8 @@ def require_admin(username: str, user_repo: UserRepository) -> list[dict] | None
 @register
 @dataclass(frozen=True)
 class UserCmd(Command):
-    """Manage user accounts.
+    """
+    Manage user accounts.
 
     Examples:
         hop3 user list                 # List all user accounts
@@ -64,7 +66,8 @@ class UserCmd(Command):
 @register
 @dataclass(frozen=True)
 class UserAddCmd(Command):
-    """Register a new user account.
+    """
+    Register a new user account.
 
     Usage: hop3 user add <username> <email> [password] [--admin]
                                             (--password-file <path> | --stdin)
@@ -100,7 +103,8 @@ class UserAddCmd(Command):
         password: str = "",
         *args,
     ):
-        """Create a new user account.
+        """
+        Create a new user account.
 
         Args:
             authenticated_username: The authenticated user
@@ -166,7 +170,8 @@ class UserAddCmd(Command):
 @register
 @dataclass(frozen=True)
 class UserRemoveCmd(Command):
-    """Remove a user account.
+    """
+    Remove a user account.
 
     Usage: hop3 user remove <username>
 
@@ -182,7 +187,8 @@ class UserRemoveCmd(Command):
     pass_username: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
-        """Remove a user account.
+        """
+        Remove a user account.
 
         Args:
             authenticated_username: The authenticated user
@@ -219,7 +225,8 @@ class UserRemoveCmd(Command):
 @register
 @dataclass(frozen=True)
 class UserListCmd(Command):
-    """List all user accounts.
+    """
+    List all user accounts.
 
     Usage: hop3 user list
 
@@ -233,7 +240,8 @@ class UserListCmd(Command):
     pass_username: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", *args):
-        """List all user accounts.
+        """
+        List all user accounts.
 
         Args:
             authenticated_username: The authenticated user
@@ -278,7 +286,8 @@ class UserListCmd(Command):
 @register
 @dataclass(frozen=True)
 class UserEnableCmd(Command):
-    """Enable a disabled user account.
+    """
+    Enable a disabled user account.
 
     Usage: hop3 user enable <username>
 
@@ -292,7 +301,8 @@ class UserEnableCmd(Command):
     pass_username: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
-        """Enable a user account.
+        """
+        Enable a user account.
 
         Args:
             authenticated_username: The authenticated user
@@ -329,7 +339,8 @@ class UserEnableCmd(Command):
 @register
 @dataclass(frozen=True)
 class UserDisableCmd(Command):
-    """Disable a user account.
+    """
+    Disable a user account.
 
     Usage: hop3 user disable <username>
 
@@ -343,7 +354,8 @@ class UserDisableCmd(Command):
     pass_username: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
-        """Disable a user account.
+        """
+        Disable a user account.
 
         Args:
             authenticated_username: The authenticated user
@@ -384,7 +396,8 @@ class UserDisableCmd(Command):
 @register
 @dataclass(frozen=True)
 class UserGrantAdminCmd(Command):
-    """Grant admin privileges to a user.
+    """
+    Grant admin privileges to a user.
 
     Usage: hop3 user grant-admin <username>
 
@@ -399,7 +412,8 @@ class UserGrantAdminCmd(Command):
     pass_username: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
-        """Grant admin privileges to a user.
+        """
+        Grant admin privileges to a user.
 
         Args:
             authenticated_username: The authenticated user
@@ -442,7 +456,8 @@ class UserGrantAdminCmd(Command):
 @register
 @dataclass(frozen=True)
 class UserRevokeAdminCmd(Command):
-    """Revoke admin privileges from a user.
+    """
+    Revoke admin privileges from a user.
 
     Usage: hop3 user revoke-admin <username>
 
@@ -457,7 +472,8 @@ class UserRevokeAdminCmd(Command):
     pass_username: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
-        """Revoke admin privileges from a user.
+        """
+        Revoke admin privileges from a user.
 
         Args:
             authenticated_username: The authenticated user
@@ -500,7 +516,8 @@ class UserRevokeAdminCmd(Command):
 @register
 @dataclass(frozen=True)
 class UserSetPasswordCmd(Command):
-    """Reset a user's password.
+    """
+    Reset a user's password.
 
     Usage: hop3 user set-password <username> [new_password]
                                   (--password-file <path> | --stdin)
@@ -530,7 +547,8 @@ class UserSetPasswordCmd(Command):
         new_password: str = "",
         *args,
     ):
-        """Reset a user's password.
+        """
+        Reset a user's password.
 
         Args:
             authenticated_username: The authenticated user
@@ -565,7 +583,8 @@ class UserSetPasswordCmd(Command):
 @register
 @dataclass(frozen=True)
 class UserShowCmd(Command):
-    """Show detailed information about a user.
+    """
+    Show detailed information about a user.
 
     Usage: hop3 user show <username>
 
@@ -579,7 +598,8 @@ class UserShowCmd(Command):
     pass_username: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
-        """Display detailed information about a user.
+        """
+        Display detailed information about a user.
 
         Args:
             authenticated_username: The authenticated user
@@ -622,7 +642,8 @@ class UserShowCmd(Command):
 @register
 @dataclass(frozen=True)
 class UserGenerateTokenCmd(Command):
-    """Generate a new API token for a user (bootstrap helper).
+    """
+    Generate a new API token for a user (bootstrap helper).
 
     Usage: hop3 user generate-token <username>
 
@@ -638,7 +659,8 @@ class UserGenerateTokenCmd(Command):
     pass_username: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
-        """Generate a new API token for a user.
+        """
+        Generate a new API token for a user.
 
         Args:
             authenticated_username: The authenticated user

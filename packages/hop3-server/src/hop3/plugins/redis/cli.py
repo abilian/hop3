@@ -1,7 +1,8 @@
 # Copyright (c) 2024-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""`addon redis <verb>` commands — Redis-specific addon management.
+"""
+`addon redis <verb>` commands — Redis-specific addon management.
 
 Type-agnostic addon verbs (list/create/attach/detach/destroy/show/status) live
 in `hop3.commands.services`. These Redis-specific level-3 commands are
@@ -59,7 +60,8 @@ def _clone(args: tuple) -> list[dict]:
 @register
 @dataclass(frozen=True)
 class AddonRedisCredentialsCmd(Command):
-    """Show connection credentials for a Redis addon.
+    """
+    Show connection credentials for a Redis addon.
 
     Usage: hop3 addon redis credentials <name>
 
@@ -84,7 +86,8 @@ class AddonRedisCredentialsCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonRedisDumpCmd(Command):
-    """Dump a Redis addon's keys to a backup file.
+    """
+    Dump a Redis addon's keys to a backup file.
 
     Usage: hop3 addon redis dump <name>
 
@@ -111,7 +114,8 @@ class AddonRedisDumpCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonRedisFlushCmd(Command):
-    """Remove all keys from a Redis addon's database (FLUSHDB).
+    """
+    Remove all keys from a Redis addon's database (FLUSHDB).
 
     Usage: hop3 addon redis flush <name>
 
@@ -142,7 +146,8 @@ class AddonRedisFlushCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonRedisQueryCmd(Command):
-    """Run an ad-hoc redis-cli command against a Redis addon.
+    """
+    Run an ad-hoc redis-cli command against a Redis addon.
 
     Usage: hop3 addon redis query <name> --command "<redis command>"
 
@@ -177,7 +182,8 @@ class AddonRedisQueryCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonRedisInfoCmd(Command):
-    """Show Redis server INFO for a Redis addon (diagnostics).
+    """
+    Show Redis server INFO for a Redis addon (diagnostics).
 
     Usage: hop3 addon redis info <name>
 
@@ -199,7 +205,8 @@ class AddonRedisInfoCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonRedisRestoreCmd(Command):
-    """Restore a Redis addon from a dump file.
+    """
+    Restore a Redis addon from a dump file.
 
     Usage: hop3 addon redis restore <name> <path>
 
@@ -229,7 +236,8 @@ class AddonRedisRestoreCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonRedisCloneCmd(Command):
-    """Clone a Redis addon into a new one (copies all data).
+    """
+    Clone a Redis addon into a new one (copies all data).
 
     Usage: hop3 addon redis clone <source> <new-name>
 
@@ -249,7 +257,8 @@ class AddonRedisCloneCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonRedisExportCmd(Command):
-    """Stream a Redis addon dump to stdout.
+    """
+    Stream a Redis addon dump to stdout.
 
     Usage: hop3 addon redis export <name> > dump.rdb
 
@@ -280,7 +289,8 @@ class AddonRedisExportCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonRedisImportCmd(Command):
-    """Import a dump into a Redis addon from stdin.
+    """
+    Import a dump into a Redis addon from stdin.
 
     Usage: hop3 addon redis import <name> --confirm=<name> < dump.rdb
 

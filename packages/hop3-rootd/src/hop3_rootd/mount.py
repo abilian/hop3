@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""Volume mount operations for native ``[[volumes]]`` (ADR 046 §2 / P2.1).
+"""
+Volume mount operations for native ``[[volumes]]`` (ADR 046 §2 / P2.1).
 
 rootd is the only component permitted to call ``mount(8)`` / ``umount(8)``
 (ADR 041). This module builds and runs those commands via the exec allow-list;
@@ -69,7 +70,8 @@ def app_root() -> Path:
 
 
 def mountpoint_for(app_name: str, target: str) -> Path:
-    """Build + validate the mountpoint for ``target`` under the app's src dir.
+    """
+    Build + validate the mountpoint for ``target`` under the app's src dir.
 
     ``app_name``/``target`` are assumed already field-validated; this is the
     defense-in-depth path-escape check (mirrors the persist-volume symlink
@@ -145,7 +147,8 @@ def _umount_bin(exec: Exec = DEFAULT_EXEC) -> str:
 
 
 def is_mounted(mountpoint: Path) -> bool:
-    """True if ``mountpoint`` is an active mount per /proc/self/mountinfo.
+    """
+    True if ``mountpoint`` is an active mount per /proc/self/mountinfo.
 
     Returns False when mountinfo is absent (non-Linux dev hosts) — the real
     teardown verification runs on Linux where it exists. A mountinfo that
@@ -178,7 +181,8 @@ def mount_tmpfs(
     *,
     exec: Exec = DEFAULT_EXEC,
 ) -> dict[str, Any]:
-    """Mount a sized tmpfs at the app's ``target``. Idempotent-ish.
+    """
+    Mount a sized tmpfs at the app's ``target``. Idempotent-ish.
 
     Creates the mountpoint, then ``mount -t tmpfs -o size=…[,mode=…]``. A tmpfs
     is scratch, so any shipped content at ``target`` is intentionally shadowed.
@@ -210,7 +214,8 @@ def mount_bind(
     read_only: bool = False,
     exec: Exec = DEFAULT_EXEC,
 ) -> dict[str, Any]:
-    """Bind-mount an operator-allowed host ``source`` at the app's ``target``.
+    """
+    Bind-mount an operator-allowed host ``source`` at the app's ``target``.
 
     Default-deny: the realpath-resolved source must be under an allow-list
     prefix (rootd's own copy — defense in depth) and must already exist (we
@@ -268,7 +273,8 @@ def mount_bind(
 
 
 def _umount(mp: Path, *, exec: Exec = DEFAULT_EXEC) -> str:
-    """umount ``mp``, lazy-detaching a busy mount. Returns the method used.
+    """
+    umount ``mp``, lazy-detaching a busy mount. Returns the method used.
 
     Raises MountError if both the plain and lazy umount fail — teardown must
     not silently leave a mount behind.
@@ -292,7 +298,8 @@ def _umount(mp: Path, *, exec: Exec = DEFAULT_EXEC) -> str:
 
 
 def unmount(app_name: str, target: str, *, exec: Exec = DEFAULT_EXEC) -> dict[str, Any]:
-    """Unmount the app's ``target``. Idempotent; lazy-detaches a busy mount.
+    """
+    Unmount the app's ``target``. Idempotent; lazy-detaches a busy mount.
 
     Returns ``{unmounted, mountpoint, method|kernel_state}``.
     """
@@ -309,7 +316,8 @@ def unmount_path(mountpoint: Path, *, exec: Exec = DEFAULT_EXEC) -> str:
 
 
 def list_mounts_under_app_root() -> list[str]:
-    """Active mountpoints under the app root, per /proc/self/mountinfo.
+    """
+    Active mountpoints under the app root, per /proc/self/mountinfo.
 
     Only rootd mounts under ``<app_root>/*/src`` (apps run unprivileged and
     can't mount), so any such mount with no state row is a rootd orphan. []

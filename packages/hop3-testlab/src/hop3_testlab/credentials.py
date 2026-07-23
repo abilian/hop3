@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Cloud-provider credential helpers: validation, redaction, key materialization.
+"""
+Cloud-provider credential helpers: validation, redaction, key materialization.
 
 Credentials themselves live in the DB (``models.Credential`` via
 ``CredentialsRepository``). This module holds the pure helpers around them: secret
@@ -23,7 +24,8 @@ if TYPE_CHECKING:
 
 
 def looks_like_private_key(text: str) -> bool:
-    """True if ``text`` carries a PEM/OpenSSH private-key header.
+    """
+    True if ``text`` carries a PEM/OpenSSH private-key header.
 
     Covers OpenSSH, RSA, EC and PKCS#8 (``BEGIN [OPENSSH|RSA|EC] PRIVATE KEY``);
     rejects empty input, public keys, and stray text. Not a cryptographic load — a
@@ -48,7 +50,8 @@ def _sanitize(name: str) -> str:
 
 
 def materialize_key(name: str, private_key: str | None) -> Path | None:
-    """Write a credential's private key to a 0600 file and return its path.
+    """
+    Write a credential's private key to a 0600 file and return its path.
 
     The engine subprocess takes an SSH key *path* (``HOP3_TEST_SSH_KEY``), so the
     DB-stored key is written to ``KEYS_DIR/<name>.key`` (idempotent — rewritten only

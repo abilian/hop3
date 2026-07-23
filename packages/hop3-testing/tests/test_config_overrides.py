@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for CLI-override handling in system_tests.config.
+"""
+Tests for CLI-override handling in system_tests.config.
 
 Regression focus: the `--with` feature override must UNION onto the
 baseline (docker/mysql/postgresql) rather than replace it, and must
@@ -45,7 +46,8 @@ def test_with_dedups_already_present_feature() -> None:
 
 
 def test_features_survive_use_local_repo_override() -> None:
-    """The use_local_repo rebuild must not clobber a requested feature.
+    """
+    The use_local_repo rebuild must not clobber a requested feature.
 
     Both overrides arrive together in the real `hop3-test run --provider hetzner
     --from local --with redis` path; the redis must persist.
@@ -68,7 +70,8 @@ def test_no_features_override_leaves_baseline() -> None:
 
 
 def test_branch_override_no_longer_resets_features() -> None:
-    """Regression: a config-file feature set must survive a branch override.
+    """
+    Regression: a config-file feature set must survive a branch override.
 
     Previously the branch rebuild dropped `features`, silently resetting
     a custom set back to the default.

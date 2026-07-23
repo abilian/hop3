@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""PostgreSQL administration service for dependency injection.
+"""
+PostgreSQL administration service for dependency injection.
 
 This module provides a PostgresAdmin service that manages PostgreSQL
 connection configuration and can be injected via Dishka DI.
@@ -20,7 +21,8 @@ from hop3.lib.config import Config
 
 
 def _get_hop3_config() -> Config:
-    """Get the global hop3 configuration.
+    """
+    Get the global hop3 configuration.
 
     Reads from HOP3_ROOT/hop3-server.toml if it exists,
     otherwise falls back to environment variables.
@@ -34,7 +36,8 @@ def _get_hop3_config() -> Config:
 
 @dataclass(frozen=True)
 class PostgresAdmin:
-    """PostgreSQL administration service.
+    """
+    PostgreSQL administration service.
 
     This service provides centralized configuration for PostgreSQL
     connections and operations. It's designed to be injected via
@@ -72,7 +75,8 @@ class PostgresAdmin:
 
     @classmethod
     def from_config(cls, config: Config | None = None) -> PostgresAdmin:
-        """Create PostgresAdmin from configuration.
+        """
+        Create PostgresAdmin from configuration.
 
         Supports two configuration styles:
         1. URI format: POSTGRES_ADMIN_URL=postgresql://user:pass@host:port/db
@@ -123,7 +127,8 @@ class PostgresAdmin:
 
     @classmethod
     def from_url(cls, url: str) -> PostgresAdmin:
-        """Create PostgresAdmin from a PostgreSQL URL.
+        """
+        Create PostgresAdmin from a PostgreSQL URL.
 
         Args:
             url: PostgreSQL connection URL (postgresql://user:pass@host:port/db)
@@ -156,7 +161,8 @@ class PostgresAdmin:
         )
 
     def get_connection_params(self, dbname: str = "template1") -> dict[str, Any]:
-        """Get connection parameters for psycopg2.
+        """
+        Get connection parameters for psycopg2.
 
         Args:
             dbname: Database name to connect to (defaults to template1)
@@ -179,7 +185,8 @@ class PostgresAdmin:
     def get_dsn(
         self, dbname: str = "template1", *, include_password: bool = False
     ) -> str:
-        """Get Data Source Name (DSN) connection string.
+        """
+        Get Data Source Name (DSN) connection string.
 
         Args:
             dbname: Database name

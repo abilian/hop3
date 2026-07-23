@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""E2E tests for CLI installer (install-cli.py).
+"""
+E2E tests for CLI installer (install-cli.py).
 
 These tests verify that the bundled CLI installer correctly installs
 hop3-cli in various scenarios across different backends (Docker, SSH, Vagrant).
@@ -27,7 +28,8 @@ class TestCLIInstaller:
         backend: Backend,
         bundled_installers: dict[str, Path],
     ) -> None:
-        """Test CLI installation from git repository.
+        """
+        Test CLI installation from git repository.
 
         This is the primary installation method - installing from the
         git repository's devel branch.
@@ -60,7 +62,8 @@ class TestCLIInstaller:
         bundled_installers: dict[str, Path],
         hop3_packages_dir: Path,
     ) -> None:
-        """Test CLI installation from local package path.
+        """
+        Test CLI installation from local package path.
 
         This tests the --local-path option used during development.
         """
@@ -98,7 +101,8 @@ class TestCLIInstaller:
         self._validate_cli_installation(backend)
 
     def _validate_cli_installation(self, backend: Backend) -> None:
-        """Validate CLI was installed correctly.
+        """
+        Validate CLI was installed correctly.
 
         Checks:
         1. Virtual environment was created

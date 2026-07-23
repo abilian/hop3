@@ -66,7 +66,8 @@ class AppLauncher:
     deltas: dict[str, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        """Initialize additional attributes for the application configuration.
+        """
+        Initialize additional attributes for the application configuration.
 
         This sets up crucial paths and configuration for the application
         object by extracting necessary details from the `app` object, such as
@@ -80,7 +81,8 @@ class AppLauncher:
         self.env = self.make_env()
 
     def _load_artifact(self) -> BuildArtifact | None:
-        """Load build artifact from disk if available.
+        """
+        Load build artifact from disk if available.
 
         Returns:
             BuildArtifact if found and valid, None otherwise
@@ -102,7 +104,8 @@ class AppLauncher:
         return artifact
 
     def _apply_artifact_runtime(self, env: Env) -> bool:
-        """Apply runtime configuration from build artifact.
+        """
+        Apply runtime configuration from build artifact.
 
         Args:
             env: Environment to update
@@ -129,7 +132,8 @@ class AppLauncher:
         return True
 
     def _toolchain_owned_keys(self) -> set[str]:
-        """Env keys owned by the build artifact's toolchain.
+        """
+        Env keys owned by the build artifact's toolchain.
 
         These hold absolute, per-app, per-deploy paths (MIX_HOME, HEX_HOME, …)
         the toolchain bakes into the artifact runtime. A persisted [env] must
@@ -146,7 +150,8 @@ class AppLauncher:
 
     @property
     def workers(self) -> dict:
-        """Get worker definitions, preferring artifact over AppConfig.
+        """
+        Get worker definitions, preferring artifact over AppConfig.
 
         If a build artifact exists with runtime.workers, use those. Otherwise
         fall back to AppConfig.workers (legacy behavior).
@@ -182,7 +187,8 @@ class AppLauncher:
             session.commit()
 
     def _setup_proxy(self, host_name: str) -> None:
-        """Setup proxy configuration.
+        """
+        Setup proxy configuration.
 
         Apps without a configured hostname don't get proxy configuration.
         They remain accessible only via direct port access until a hostname is set.
@@ -222,7 +228,8 @@ class AppLauncher:
             raise
 
     def _calculate_worker_changes(self, worker_count: dict) -> tuple[dict, dict]:
-        """Calculate which workers to create and destroy based on deltas.
+        """
+        Calculate which workers to create and destroy based on deltas.
 
         Returns:
             Tuple of (to_create, to_destroy) dictionaries
@@ -248,7 +255,8 @@ class AppLauncher:
         return to_create, to_destroy
 
     def _get_worker_counts(self, scaling) -> dict:
-        """Get worker counts from configuration and scaling file.
+        """
+        Get worker counts from configuration and scaling file.
 
         This includes ALL workers from the Procfile (web, worker, etc.),
         not just web workers.
@@ -291,7 +299,8 @@ class AppLauncher:
                 self._cleanup_stale_sockets()
 
     def _wait_for_old_processes_to_terminate(self, timeout: float = 10.0) -> None:
-        """Wait for old app processes to terminate after config removal.
+        """
+        Wait for old app processes to terminate after config removal.
 
         The uwsgi emperor monitors config files and sends SIGTERM to vassals
         when their configs are removed. We need to wait for the old processes
@@ -338,7 +347,8 @@ class AppLauncher:
             time.sleep(remaining)
 
     def _run_before_run_commands(self, env: Env) -> None:
-        """Execute before-run commands from the artifact.
+        """
+        Execute before-run commands from the artifact.
 
         These commands run once before workers start, with the full runtime
         environment. Common uses: database migrations, cache warmup, etc.
@@ -416,7 +426,8 @@ class AppLauncher:
         log("All before-run commands completed", level=1, fg="green")
 
     def _cleanup_stale_sockets(self) -> None:
-        """Clean up stale socket files left behind by previous processes.
+        """
+        Clean up stale socket files left behind by previous processes.
 
         Gunicorn creates a control socket (gunicorn.ctl) in the working directory.
         When the process is killed, this socket file may persist and cause the
@@ -446,7 +457,8 @@ class AppLauncher:
                 pass
 
     def _verify_nix_closure_intact(self) -> None:
-        """Fail loud, at deploy time, if a Nix app's runtime closure is broken.
+        """
+        Fail loud, at deploy time, if a Nix app's runtime closure is broken.
 
         A nix wrapper execs hardcoded `/nix/store` paths (forgejo's wrapper execs
         `${forgejo}/bin/forgejo`). If a garbage-collect reclaimed any path in that
@@ -524,9 +536,11 @@ class AppLauncher:
             )
 
     def spawn_app(self) -> None:
-        """Create the app's workers by setting up web worker configurations and
+        """
+        Create the app's workers by setting up web worker configurations and
         handling environment-specific setups, including nginx and uwsgi
-        configurations."""
+        configurations.
+        """
         # Determine worker source for logging
         if self.artifact and self.artifact.runtime.workers:
             worker_source = "artifact"
@@ -622,7 +636,8 @@ class AppLauncher:
                 env["PATH"] = f"{gem_bin}:{env['PATH']}"
 
     def _setup_python_paths(self, env: Env) -> None:
-        """Add src/ to PYTHONPATH for Python apps with src layout.
+        """
+        Add src/ to PYTHONPATH for Python apps with src layout.
 
         This is a common pattern where packages live in src/package_name/
         (e.g., src-layout projects that ship their package under ``src/``)
@@ -637,7 +652,8 @@ class AppLauncher:
             log("Added src/ to PYTHONPATH for src-layout app", level=3)
 
     def make_env(self) -> Env:
-        """Set up and configure the environment for the application.
+        """
+        Set up and configure the environment for the application.
 
         This prepares the environment by bootstrapping settings such as
         application name, user, path, and virtual environment. It also loads any
@@ -732,7 +748,8 @@ class AppLauncher:
         return env
 
     def create_new_workers(self, to_create, env) -> None:
-        """Creates new workers for the given application.
+        """
+        Creates new workers for the given application.
 
         This iterates over the types of workers specified in the `to_create` dictionary
         and spawns new workers for each type if they are not already enabled.
@@ -756,7 +773,8 @@ class AppLauncher:
                 spawn_uwsgi_worker(self.app_name, kind, self.workers[kind], env, w)
 
     def remove_unnecessary_workers(self, to_destroy) -> None:
-        """Removes unnecessary worker configuration files based on the provided
+        """
+        Removes unnecessary worker configuration files based on the provided
         dictionary.
 
         Input:

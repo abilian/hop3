@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shell completion scripts for hop3 CLI.
+"""
+Shell completion scripts for hop3 CLI.
 
 Generates completion scripts for bash, zsh, and fish shells.
 Supports dynamic command list refresh from the server.
@@ -387,7 +388,8 @@ def print_completion_help():
 
 
 def get_commands() -> list[str]:
-    """Get the list of commands, using cache if available.
+    """
+    Get the list of commands, using cache if available.
 
     Priority:
     1. Cache file (if exists)
@@ -408,7 +410,8 @@ def get_commands() -> list[str]:
 
 
 def read_commands_cache() -> list[str] | None:
-    """Read commands from cache file.
+    """
+    Read commands from cache file.
 
     Returns:
         List of command names if cache exists and is valid, None otherwise
@@ -428,7 +431,8 @@ def read_commands_cache() -> list[str] | None:
 
 
 def write_commands_cache(commands: list[str]) -> None:
-    """Write commands to cache files.
+    """
+    Write commands to cache files.
 
     Writes both JSON (with metadata) and plain text (for shell scripts).
 
@@ -452,7 +456,8 @@ def write_commands_cache(commands: list[str]) -> None:
 
 
 def refresh_commands_cache(config: Config, printer: RichPrinter) -> None:
-    """Fetch commands (and app names) from server and update the cache.
+    """
+    Fetch commands (and app names) from server and update the cache.
 
     Args:
         config: CLI configuration
@@ -526,7 +531,8 @@ def refresh_commands_cache(config: Config, printer: RichPrinter) -> None:
 
 
 def _refresh_apps_cache(client) -> None:
-    """Fetch the app list and write names to APPS_CACHE_TXT.
+    """
+    Fetch the app list and write names to APPS_CACHE_TXT.
 
     Non-fatal: if the fetch fails the commands cache still wrote. The app
     cache is only used by completion + did-you-mean, so stale is better

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for catalog taxonomy: slugify and category/tag grouping.
+"""
+Unit tests for catalog taxonomy: slugify and category/tag grouping.
 
 Locks down the pure transforms that turn app tags into URL slugs and into
 grouped/counted Category and Tag aggregates.

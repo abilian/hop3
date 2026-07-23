@@ -40,7 +40,8 @@ def run_validation(
     app_name: str,
     app_url: str,
 ) -> ValidationResult:
-    """Run a single validation check.
+    """
+    Run a single validation check.
 
     Args:
         validation: The validation to run
@@ -278,7 +279,8 @@ def _validate_script(ctx: ValidationContext) -> ValidationResult:
 
 
 def _validate_demo_script(ctx: ValidationContext) -> ValidationResult:
-    """Validate demo script execution result.
+    """
+    Validate demo script execution result.
 
     This is used for demo tests where the demo-script.py was already run.
     The validation just checks the exit code.
@@ -296,7 +298,8 @@ def _validate_demo_script(ctx: ValidationContext) -> ValidationResult:
 
 
 def _validate_validoc(ctx: ValidationContext) -> ValidationResult:
-    """Validate tutorial execution via validoc.
+    """
+    Validate tutorial execution via validoc.
 
     This validation type checks that validoc executed all blocks
     successfully.

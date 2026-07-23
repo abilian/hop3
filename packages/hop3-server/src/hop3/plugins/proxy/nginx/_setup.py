@@ -81,7 +81,8 @@ class NginxVirtualHost(BaseProxy):
         )
 
     def _is_static_only(self) -> bool:
-        """Whether nginx should serve this app's files directly (no backend).
+        """
+        Whether nginx should serve this app's files directly (no backend).
 
         A static-only app has a ``static`` worker and no HTTP backend process to
         proxy to, so no port is allocated and no ``upstream`` block is valid.
@@ -187,7 +188,8 @@ class NginxVirtualHost(BaseProxy):
         return NGINX_ROOT / f"{self.app_name}.conf"
 
     def get_proxy_conf(self) -> str:
-        """Returns the nginx configuration buffer based on
+        """
+        Returns the nginx configuration buffer based on
         specified workers and environment variables.
 
         Sets up nginx proxy configurations by expanding certain template
@@ -259,8 +261,10 @@ class NginxVirtualHost(BaseProxy):
         return buffer
 
     def setup_static(self) -> None:
-        """Configures static path mappings for an NGINX server in the
-        environment configuration."""
+        """
+        Configures static path mappings for an NGINX server in the
+        environment configuration.
+        """
         self.env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] = (
             ""  # Initialize the static mappings string in the environment
         )
@@ -297,7 +301,8 @@ class NginxVirtualHost(BaseProxy):
         #     sys.exit(1)
 
     def _validate_nginx_config(self, client: LocalRootdClient) -> bool:
-        """Validate nginx configuration before reload via hop3-rootd.
+        """
+        Validate nginx configuration before reload via hop3-rootd.
 
         Returns:
             True if config is valid.
@@ -346,7 +351,8 @@ class NginxVirtualHost(BaseProxy):
         return False
 
     def reload_proxy(self) -> None:
-        """Reload nginx to apply configuration changes.
+        """
+        Reload nginx to apply configuration changes.
 
         Reloads via hop3-rootd, the privileged-operations daemon (ADR 041).
         The daemon is a hard dependency of the deploy path: if it is not
@@ -450,7 +456,8 @@ class NginxVirtualHost(BaseProxy):
             )
 
     def setup_cache(self) -> None:
-        """Configure Nginx caching for the application.
+        """
+        Configure Nginx caching for the application.
 
         This sets up caching preferences and paths for Nginx by
         retrieving caching parameters, managing cache paths, and setting
@@ -540,7 +547,8 @@ class NginxVirtualHost(BaseProxy):
                 self.env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = ""
 
     def _get_cache_param(self, key: str, name: str, default: int, suffix: str) -> str:
-        """Generate a cache parameter string by retrieving an integer value
+        """
+        Generate a cache parameter string by retrieving an integer value
         from the environment.
 
         This attempts to fetch an integer value from the environment using a key prefixed

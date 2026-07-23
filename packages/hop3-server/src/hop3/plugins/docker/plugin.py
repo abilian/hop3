@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Docker plugin for Hop3.
+"""
+Docker plugin for Hop3.
 
 This plugin provides Docker-based build and deployment strategies.
 """
@@ -15,7 +16,8 @@ from hop3.plugins.docker.deployer import DockerComposeDeployer
 
 
 class DockerPlugin:
-    """Docker build and deployment plugin for Hop3.
+    """
+    Docker build and deployment plugin for Hop3.
 
     This plugin provides Docker-based build strategies and Docker Compose
     deployment strategies for applications.
@@ -25,7 +27,8 @@ class DockerPlugin:
 
     @hookimpl
     def get_builders(self) -> list:
-        """Return Docker build strategies.
+        """
+        Return Docker build strategies.
 
         Returns:
             List containing DockerBuilder class
@@ -34,7 +37,8 @@ class DockerPlugin:
 
     @hookimpl
     def get_deployers(self) -> list:
-        """Return Docker Compose deployment strategies.
+        """
+        Return Docker Compose deployment strategies.
 
         Returns:
             List containing DockerComposeDeployer class

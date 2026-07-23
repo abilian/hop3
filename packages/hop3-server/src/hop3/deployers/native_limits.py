@@ -6,7 +6,8 @@
 # _NotEnforcedError is internal control flow: raised + caught within this module,
 # its message folded into the abort diagnosis. Inline messages read better here.
 
-"""Native ``[limits]`` enforcement via cgroup v2 (ADR 046 §3 / P2.2).
+"""
+Native ``[limits]`` enforcement via cgroup v2 (ADR 046 §3 / P2.2).
 
 Docker apps get their caps from the compose generator at build time. Native /
 Nix apps run on the host, so their caps are placed by ``hop3-rootd`` into a
@@ -55,7 +56,8 @@ def format_limits_detail(limits: dict[str, Any]) -> str:
 
 
 def enforce_native_limits(app: App, app_config: AppConfig) -> None:
-    """Place a native/Nix app's processes under its resolved cgroup cap.
+    """
+    Place a native/Nix app's processes under its resolved cgroup cap.
 
     Runs AFTER the app is confirmed RUNNING (PIDs exist only then). Re-resolves
     the declared ``[limits]`` against the server defaults/ceilings — the pre-build
@@ -120,7 +122,8 @@ def enforce_native_limits(app: App, app_config: AppConfig) -> None:
 
 
 def reattach_native_limits(app_name: str) -> None:
-    """Idempotent re-attach of an app's live PIDs to its cgroup leaf.
+    """
+    Idempotent re-attach of an app's live PIDs to its cgroup leaf.
 
     Run periodically over RUNNING native-capped apps by the state-sync service.
     Covers two cases the deploy-time attach can't: the Emperor respawning a whole
@@ -158,7 +161,8 @@ def reattach_native_limits(app_name: str) -> None:
 
 
 def remove_native_limits(app_name: str) -> None:
-    """Kill + drop the app's cgroup leaf on teardown (best-effort, never raises).
+    """
+    Kill + drop the app's cgroup leaf on teardown (best-effort, never raises).
 
     Idempotent on the rootd side (a missing leaf reports absent). Destroy reaps
     the processes first, so the leaf is empty by the time this runs; this just

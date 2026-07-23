@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Implicit resolution for app and context (ADR 036 §D7, ADR 042).
+"""
+Implicit resolution for app and context (ADR 036 §D7, ADR 042).
 
 Two things resolve through layered chains, each via a dedicated function (the
 context IS the server — one noun — so there is no third "server" chain):
@@ -51,7 +52,8 @@ from hop3_cli.core.hop3_toml import first_hop3_toml
 
 
 class AppSource(enum.Enum):
-    """Which resolution-chain source produced an ``AppResolution.app``.
+    """
+    Which resolution-chain source produced an ``AppResolution.app``.
 
     Carried as a typed sibling of the free-form ``source`` string so
     downstream consumers (notably the §D14 project-mismatch guard) can
@@ -93,7 +95,8 @@ _CWD_ROOTED_APP_SOURCES: frozenset[AppSource] = frozenset({
 
 
 def is_cwd_rooted(kind: AppSource) -> bool:
-    """True iff the source means "the project at CWD chose this app".
+    """
+    True iff the source means "the project at CWD chose this app".
 
     The contract used by ``project_guard.check_project_mismatch`` to
     decide whether a name mismatch is a genuine footgun (env var or
@@ -105,7 +108,8 @@ def is_cwd_rooted(kind: AppSource) -> bool:
 
 
 class ContextSource(enum.Enum):
-    """How the current context was selected (ADR 042 r2).
+    """
+    How the current context was selected (ADR 042 r2).
 
     Decides whether a context-derived app (``AppSource.CONTEXT_APP``) is trusted
     by the project-mismatch guard. A context chosen by a *CWD-rooted* signal —
@@ -133,8 +137,10 @@ _CWD_ROOTED_CONTEXT_SOURCES: frozenset[ContextSource] = frozenset({
 
 
 def context_selection_is_cwd_rooted(kind: ContextSource) -> bool:
-    """True iff the context was chosen by a CWD-rooted signal (so its app is
-    trustworthy and the guard should accept it)."""
+    """
+    True iff the context was chosen by a CWD-rooted signal (so its app is
+    trustworthy and the guard should accept it).
+    """
     return kind in _CWD_ROOTED_CONTEXT_SOURCES
 
 
@@ -181,7 +187,8 @@ def resolve_app(
     env: dict[str, str] | None = None,
     home: Path | None = None,
 ) -> AppResolution:
-    """Resolve the effective app name per ADR 042 §App resolution.
+    """
+    Resolve the effective app name per ADR 042 §App resolution.
 
     Sources 1-4 are CWD-rooted (flag / $HOP3_APP / .hop3-app / [cli].app).
     Source 5 (ADR 042 r2) is the *selected context's* ``[contexts.<sel>].app`` —
@@ -268,7 +275,8 @@ def _try_flag_or_env(
     env_name: str,
     trace: list[str],
 ) -> ContextResolution | None:
-    """Sources #1 and #2 dispatcher for resolve_context.
+    """
+    Sources #1 and #2 dispatcher for resolve_context.
 
     Returns a ContextResolution when the flag or env var supplies a value,
     None otherwise. Appends a trace entry whether each source hit or missed.
@@ -301,7 +309,8 @@ def _try_flag_or_env(
 def _try_local_overlay(
     cwd: Path, home: Path, trace: list[str]
 ) -> ContextResolution | None:
-    """Source #3 dispatcher: read ``.hop3-local.toml [local].context``.
+    """
+    Source #3 dispatcher: read ``.hop3-local.toml [local].context``.
 
     Returns a ContextResolution on hit, None on miss (caller continues to
     the git-remote/declared-context sources). Either way, appends a trace
@@ -336,7 +345,8 @@ def _try_local_overlay(
 def _classify_overlay(
     overlay_path: Path | None, cwd: Path, home: Path
 ) -> ContextSource:
-    """Classify a ``.hop3-local.toml`` selection as in-tree or ancestor.
+    """
+    Classify a ``.hop3-local.toml`` selection as in-tree or ancestor.
 
     In-tree (trusted) iff the overlay sits at or below the *project root* — the
     directory of the nearest hop3.toml at/above CWD. An overlay above that root
@@ -358,7 +368,8 @@ def _classify_overlay(
 def _search_dotfile(
     start: Path, stop_at: Path, filename: str
 ) -> tuple[Path | None, str | None]:
-    """Search upward from `start` for a dotfile, stopping at `stop_at` (inclusive).
+    """
+    Search upward from `start` for a dotfile, stopping at `stop_at` (inclusive).
 
     Returns (path_of_file, contents) or (None, None).
     """
@@ -384,7 +395,8 @@ def _resolve_from_hop3_toml(
     trace: list[str],
     context: ContextResolution | None = None,
 ) -> AppResolution | None:
-    """Consult the nearest hop3.toml for app sources 4, 5 & 6.
+    """
+    Consult the nearest hop3.toml for app sources 4, 5 & 6.
 
     Priority within hop3.toml:
     - `[cli].app` — explicit per-project CLI override (wins when set)
@@ -463,7 +475,8 @@ def _extract_context_app(data: dict[str, Any], name: str) -> str | None:
 def _extract_app_keys(
     data: dict[str, Any],
 ) -> tuple[str | None, str | None]:
-    """Extract ([cli].app, [metadata].id) from parsed hop3.toml data.
+    """
+    Extract ([cli].app, [metadata].id) from parsed hop3.toml data.
 
     Either element may be None.
     """
@@ -503,7 +516,8 @@ def resolve_context(
     env: dict[str, str] | None = None,
     home: Path | None = None,
 ) -> ContextResolution:
-    """Resolve the current project context per ADR 042 §Resolution chains.
+    """
+    Resolve the current project context per ADR 042 §Resolution chains.
 
     Args:
         cli_context: Context name passed via ``--context`` (highest priority).
@@ -556,7 +570,8 @@ def resolve_context(
 
 
 def _declared_context_names(start: Path, stop_at: Path) -> list[str]:
-    """Return the context names declared in the nearest hop3.toml, in order.
+    """
+    Return the context names declared in the nearest hop3.toml, in order.
 
     Walks upward like ``_resolve_from_hop3_toml``. Returns ``[]`` when no
     hop3.toml is found or no [contexts.*] block is declared.

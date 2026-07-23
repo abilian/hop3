@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared SSL-verify resolution for RPC + streaming (audit 2026-06 B1).
+"""
+Shared SSL-verify resolution for RPC + streaming (audit 2026-06 B1).
 
 The streaming deploy path used to hand-roll ``config.get("verify_ssl", True)``,
 ignoring a pinned ``ssl_cert`` (stream fails while /rpc succeeds -> failure

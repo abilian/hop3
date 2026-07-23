@@ -22,7 +22,8 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class Selector:
-    """Selects tests based on mode and additional filters.
+    """
+    Selects tests based on mode and additional filters.
 
     The selector works in two phases:
     1. Apply mode config to get base set of tests
@@ -40,7 +41,8 @@ class Selector:
         name_pattern: str | None = None,
         specific_tests: list[str] | None = None,
     ) -> list[TestDefinition]:
-        """Select tests based on mode and filters.
+        """
+        Select tests based on mode and filters.
 
         Args:
             mode_config: Mode configuration
@@ -83,7 +85,8 @@ class Selector:
         return tests
 
     def _get_specific_tests(self, names: list[str]) -> list[TestDefinition]:
-        """Get specific tests by name.
+        """
+        Get specific tests by name.
 
         Args:
             names: List of test names
@@ -104,7 +107,8 @@ class Selector:
         target_type: str,
         **kwargs,
     ) -> list[TestDefinition]:
-        """Select tests that can run on a specific target type.
+        """
+        Select tests that can run on a specific target type.
 
         Args:
             mode_config: Mode configuration
@@ -129,7 +133,8 @@ _TIER_ORDER = {"fast": 0, "medium": 1, "slow": 2, "very-slow": 3}
 
 
 def _tag_cells(test: TestDefinition) -> set[str]:
-    """Individual tag values this test exercises — one cell per axis value.
+    """
+    Individual tag values this test exercises — one cell per axis value.
 
     Tag axes: builder, toolchain, addon, category, spec.  Each axis value
     appears as an independent cell, so a test contributes multiple cells
@@ -149,7 +154,8 @@ def _tag_cells(test: TestDefinition) -> set[str]:
 
 
 def _combo_cells(test: TestDefinition) -> set[str]:
-    """A single cell representing the full 5-tuple this test exercises.
+    """
+    A single cell representing the full 5-tuple this test exercises.
 
     The cell is a single string encoding the observed combination:
     ``combo:<builder>/<toolchain>/<addons>/<category>/<spec>``.
@@ -177,7 +183,8 @@ def reduce_to_representatives(
     *,
     cell_fn: Callable[[TestDefinition], set[str]] = _tag_cells,
 ) -> list[TestDefinition]:
-    """Minimal subset that covers every cell (greedy set-cover).
+    """
+    Minimal subset that covers every cell (greedy set-cover).
 
     ``cell_fn`` maps each test to the set of cells it covers.  We greedily pick
     the highest-priority/fastest test that adds the most new cells until every
@@ -215,7 +222,8 @@ def reduce_to_representatives(
 
 
 def select_tag_coverage(tests: list[TestDefinition]) -> list[TestDefinition]:
-    """Minimal subset covering every individual tag value at least once.
+    """
+    Minimal subset covering every individual tag value at least once.
 
     Each tag axis value (e.g. ``builder:nix``, ``toolchain:go``,
     ``addon:mysql``) must appear in at least one selected test.
@@ -224,7 +232,8 @@ def select_tag_coverage(tests: list[TestDefinition]) -> list[TestDefinition]:
 
 
 def select_combo_coverage(tests: list[TestDefinition]) -> list[TestDefinition]:
-    """Minimal subset covering every observed 5-tuple combination at least once.
+    """
+    Minimal subset covering every observed 5-tuple combination at least once.
 
     Each unique (builder, toolchain, addon-set, category, spec) combination
     must be represented by at least one test.

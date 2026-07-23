@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Fedora/RHEL dependency installation.
+"""
+Fedora/RHEL dependency installation.
 
 Handles different RHEL-family distributions:
 - Fedora: Uses moby-engine from native repos
@@ -143,7 +144,8 @@ RHEL_CLONE_PACKAGES = [
 
 
 def _is_rhel_clone(distro_info: DistroInfo) -> bool:
-    """Check if this is a RHEL clone (Rocky, AlmaLinux, CentOS Stream).
+    """
+    Check if this is a RHEL clone (Rocky, AlmaLinux, CentOS Stream).
 
     These distros don't have Docker in their native repos and need
     Docker's official CentOS repo.
@@ -153,7 +155,8 @@ def _is_rhel_clone(distro_info: DistroInfo) -> bool:
 
 
 def _setup_epel_for_rhel(distro_info: DistroInfo) -> bool:
-    """Set up EPEL and CRB repositories for RHEL-family distros.
+    """
+    Set up EPEL and CRB repositories for RHEL-family distros.
 
     EPEL (Extra Packages for Enterprise Linux) provides packages like
     certbot that aren't in the base RHEL repos.
@@ -194,7 +197,8 @@ def _setup_epel_for_rhel(distro_info: DistroInfo) -> bool:
 
 
 def _setup_docker_repo_for_rhel() -> bool:
-    """Set up Docker's official repo for RHEL-family distros.
+    """
+    Set up Docker's official repo for RHEL-family distros.
 
     Docker doesn't have a Rocky/AlmaLinux-specific repo, but the CentOS repo
     works for all RHEL clones.
@@ -239,7 +243,8 @@ def _setup_docker_repo_for_rhel() -> bool:
 
 
 def _get_fedora_docker_packages(distro_info: DistroInfo) -> list[str]:
-    """Get Docker packages appropriate for the distro.
+    """
+    Get Docker packages appropriate for the distro.
 
     Fedora has moby-engine in native repos.
     RHEL clones need Docker CE from Docker's official repo.
@@ -262,7 +267,8 @@ def _get_fedora_docker_packages(distro_info: DistroInfo) -> list[str]:
 
 
 def _get_fedora_base_packages(distro_info: DistroInfo) -> list[str]:
-    """Get base packages appropriate for the distro.
+    """
+    Get base packages appropriate for the distro.
 
     Fedora has more packages in its native repos.
     RHEL clones (Rocky, AlmaLinux) have a more limited base repo and need EPEL
@@ -281,7 +287,8 @@ def _get_fedora_base_packages(distro_info: DistroInfo) -> list[str]:
 
 
 def _create_fedora_package_spec(distro_info: DistroInfo) -> PackageSpec:
-    """Create a PackageSpec appropriate for the detected distro.
+    """
+    Create a PackageSpec appropriate for the detected distro.
 
     Args:
         distro_info: Detected distribution information.
@@ -319,7 +326,8 @@ def _create_fedora_package_spec(distro_info: DistroInfo) -> PackageSpec:
 
 
 def install_fedora_deps(config: ServerInstallerConfig) -> None:
-    """Install all Fedora/RHEL dependencies.
+    """
+    Install all Fedora/RHEL dependencies.
 
     Detects the specific distro and configures package sources accordingly.
     For RHEL clones (Rocky, AlmaLinux), sets up EPEL and Docker's official repo.

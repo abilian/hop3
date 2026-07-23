@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""apps/bad opt-out + DEFERRED.md business-drop skip (audit C6).
+"""
+apps/bad opt-out + DEFERRED.md business-drop skip (audit C6).
 
 An explicit `expects-failure = false` must win over the apps/bad path default,
 and a DEFERRED.md business-drop (an app dropped for business reasons that still

@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Tutorials run ON a remote server, not locally (so deploys hit the run target).
+"""
+Tutorials run ON a remote server, not locally (so deploys hit the run target).
 
 The dispatch keys off the target's class name being "RemoteTarget" plus a
 ``tutorial_token`` placed by ``ensure_tutorial_host``. A remote target without a

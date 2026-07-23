@@ -48,9 +48,11 @@ def _target_kind(target: DeploymentTarget) -> str:
 
 
 def _collect_runtime_logs(target: DeploymentTarget, app_name: str | None) -> str:
-    """Best-effort app-side runtime logs (gunicorn/app stderr, migrate
+    """
+    Best-effort app-side runtime logs (gunicorn/app stderr, migrate
     output, docker logs) captured before cleanup. Never raises — diagnostics
-    must not crash the run. Module-level so tests can patch the binding."""
+    must not crash the run. Module-level so tests can patch the binding.
+    """
     try:
         return collect_runtime_logs(target, app_name)
     except Exception:
@@ -59,7 +61,8 @@ def _collect_runtime_logs(target: DeploymentTarget, app_name: str | None) -> str
 
 @dataclass(frozen=True)
 class DeploymentTestRunner:
-    """Runs deployment tests using the existing DeploymentSession.
+    """
+    Runs deployment tests using the existing DeploymentSession.
 
     A deployment test consists of:
     1. Deploy the application to the target via DeploymentSession
@@ -112,7 +115,8 @@ class DeploymentTestRunner:
         app_source: AppSource,
         validation_results: list[ValidationResult],
     ) -> str | None:
-        """Run HTTP validations from test.toml, or default for Procfile apps.
+        """
+        Run HTTP validations from test.toml, or default for Procfile apps.
 
         A passing HTTP check MUST assert app-specific body content, not just a
         status code — otherwise an app goes green on a bare 200: a placeholder /
@@ -271,7 +275,8 @@ class DeploymentTestRunner:
         return None
 
     def _run_check_script_remote(self, session: DeploymentSession) -> dict[str, Any]:
-        """Execute check.py ON the remote server (where localhost == nginx).
+        """
+        Execute check.py ON the remote server (where localhost == nginx).
 
         The local runner can't run check.py against a remote box: check.py hits
         ``http://localhost:{port}`` with a Host header, and on the test client
@@ -326,7 +331,8 @@ class DeploymentTestRunner:
         start_time: float,
         validation_results: list[ValidationResult],
     ) -> tuple[str, str | None, bool]:
-        """Run deployment and verification.
+        """
+        Run deployment and verification.
 
         Returns ``(deploy_logs, error or None, infra_failed)``. ``infra_failed``
         is True for the two UNAMBIGUOUS infrastructure failures — target out of
@@ -413,7 +419,8 @@ class DeploymentTestRunner:
         deploy_failed: bool,
         validation_results: list[ValidationResult],
     ) -> TestResult:
-        """Invert deploy success/failure for negative test cases.
+        """
+        Invert deploy success/failure for negative test cases.
 
         A deploy failure → PASS (with a synthetic validation result so
         the report shows the inversion explicitly). A deploy success →
@@ -508,7 +515,8 @@ class DeploymentTestRunner:
         return bundle
 
     def _safe_cleanup(self, test: TestDefinition, session: DeploymentSession) -> None:
-        """Run cleanup but swallow any error.
+        """
+        Run cleanup but swallow any error.
 
         A failed cleanup is interesting for debugging but must NOT
         flip a computed test result. The main run() path already
@@ -551,7 +559,8 @@ class DeploymentTestRunner:
         return None
 
     def run(self, test: TestDefinition) -> TestResult:  # ruff:ignore[too-many-return-statements] — one return per distinct deploy/validation outcome (infra fail, expects-failure, deploy error, http error, check error, success); coalescing would obscure them
-        """Run a deployment test.
+        """
+        Run a deployment test.
 
         Args:
             test: The test definition to run
@@ -582,7 +591,8 @@ class DeploymentTestRunner:
             *,
             deploy_logs: str = "",
         ) -> TestResult:
-            """Build a failure TestResult, then tear the app down.
+            """
+            Build a failure TestResult, then tear the app down.
 
             Captures runtime logs and the diagnostic bundle from the target
             while the app is still present, THEN runs cleanup — so a failed test
@@ -673,7 +683,8 @@ class DeploymentTestRunner:
         )
 
     def _create_app_source(self, test: TestDefinition) -> AppSource:
-        """Convert a TestDefinition to an AppSource for DeploymentSession.
+        """
+        Convert a TestDefinition to an AppSource for DeploymentSession.
 
         Args:
             test: Test definition

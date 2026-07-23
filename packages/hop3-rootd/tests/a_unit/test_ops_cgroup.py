@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for cgroup ops (mocked cgroup fs helper).
+"""
+Unit tests for cgroup ops (mocked cgroup fs helper).
 
 The ops layer is tested against a patched ``hop3_rootd.cgroup`` so these
 tests verify the contract (validation, state updates, return shape, error

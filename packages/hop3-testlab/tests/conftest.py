@@ -10,7 +10,8 @@ from hop3_testlab.db import get_session_factory
 
 @pytest.fixture(autouse=True)
 def isolated_db(tmp_path, monkeypatch):
-    """Point every test at a throwaway result DB (never the real ~/.hop3 one).
+    """
+    Point every test at a throwaway result DB (never the real ~/.hop3 one).
 
     The dashboard reads the shared store, so without this a test would create /
     read the developer's ~/.hop3/test-results.db. Each test gets its own tmp DB

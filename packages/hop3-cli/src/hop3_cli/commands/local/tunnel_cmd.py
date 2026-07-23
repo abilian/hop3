@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""`hop3 tunnel <name>` — open a local SSH tunnel to a remote addon.
+"""
+`hop3 tunnel <name>` — open a local SSH tunnel to a remote addon.
 
 Forwards a local port to the addon's port on the server (over the same SSH
 connection used for RPC) and prints a ready-to-paste local connection URL.
@@ -74,7 +75,8 @@ def handle_tunnel(args: list[str], config: Config, printer: RichPrinter) -> None
 
 
 def _install_signal_cleanup(forwarder: SshTunnel) -> None:
-    """Tear the tunnel down on SIGTERM/SIGHUP too, not just Ctrl-C.
+    """
+    Tear the tunnel down on SIGTERM/SIGHUP too, not just Ctrl-C.
 
     ``SshTunnel`` runs ssh in its own session (so Ctrl-C reaches only the CLI),
     which means a terminal close (SIGHUP) or ``kill`` (SIGTERM) would otherwise

@@ -9,7 +9,8 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _isolate_test_modes(tmp_path, monkeypatch):
-    """Never read the developer's real ~/.hop3/test-modes.toml during tests.
+    """
+    Never read the developer's real ~/.hop3/test-modes.toml during tests.
 
     The mode-overrides file ($HOP3_TEST_MODES) lets the Test Lab edit profiles,
     but tests must see the built-in MODES, not whatever a developer happened to

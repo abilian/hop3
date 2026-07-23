@@ -1,7 +1,8 @@
 # Copyright (c) 2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Test virtual environment repair functionality.
+"""
+Test virtual environment repair functionality.
 
 These tests verify that the Python toolchain correctly handles broken
 virtual environments (e.g., with broken symlinks after Python upgrade).
@@ -21,7 +22,8 @@ if TYPE_CHECKING:
 
 
 def _stub_pip_install(toolchain, monkeypatch) -> None:
-    """Stub only the network ``pip install`` step.
+    """
+    Stub only the network ``pip install`` step.
 
     These tests exercise venv *repair* (broken-symlink detection + recreation),
     not dependency installation, so the real ``python -m venv`` runs (stdlib,

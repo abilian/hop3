@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the cgroup v2 fs helper (tmp dir as CGROUP_ROOT).
+"""
+Unit tests for the cgroup v2 fs helper (tmp dir as CGROUP_ROOT).
 
 A tmp directory stands in for ``/sys/fs/cgroup``: tests pre-create the
 control files the kernel would auto-populate (``cgroup.controllers``,

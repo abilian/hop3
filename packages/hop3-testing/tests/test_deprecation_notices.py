@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Deprecated `hop3-test` spellings still work but print a migration notice.
+"""
+Deprecated `hop3-test` spellings still work but print a migration notice.
 
 ADR 052 renamed the `system` subcommand to `run` (D9), `--deploy-from` to
 `--from` (D3), and `--ssh-key` to `--identity` (D2). Each old spelling stays
@@ -20,7 +21,8 @@ from hop3_testing.cli import cli
 
 @pytest.fixture(autouse=True)
 def _no_ambient_target(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Keep these tests offline.
+    """
+    Keep these tests offline.
 
     With no target flag they must exit at the "specify --docker or --host"
     check, before any deploy. --host resolves from $HOP3_HOST (ADR 052 D2), so a

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Integration tests for git:setup command.
+"""
+Integration tests for git:setup command.
 
 This module tests the GitSetupCmd RPC command that sets up
 git push deployment for an application.
@@ -30,7 +31,8 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def test_app_for_git(db_session: Session, tmp_path: Path) -> Iterator[App]:
-    """Create a test application for git setup tests.
+    """
+    Create a test application for git setup tests.
 
     Args:
         db_session: Database session
@@ -71,7 +73,8 @@ class TestGitSetupCmdIntegration:
     """Integration tests for GitSetupCmd."""
 
     def test_git_setup_requires_app_name(self, db_session: Session):
-        """Test that git:setup command requires an app name.
+        """
+        Test that git:setup command requires an app name.
 
         ARRANGE:
             - Create command instance without app name argument
@@ -88,7 +91,8 @@ class TestGitSetupCmdIntegration:
             cmd.call()
 
     def test_git_setup_app_not_found(self, db_session: Session):
-        """Test error when app is not found in database.
+        """
+        Test error when app is not found in database.
 
         ARRANGE:
             - Database with no apps
@@ -105,7 +109,8 @@ class TestGitSetupCmdIntegration:
             cmd.call("--app", "nonexistent-app")
 
     def test_git_setup_success(self, db_session: Session, test_app_for_git: App):
-        """Test successful git setup for an app.
+        """
+        Test successful git setup for an app.
 
         ARRANGE:
             - Create app in database with directories
@@ -142,7 +147,8 @@ class TestGitSetupCmdIntegration:
     def test_git_setup_uses_app_hostname(
         self, db_session: Session, test_app_for_git: App
     ):
-        """Test that git:setup uses app's hostname in git URL.
+        """
+        Test that git:setup uses app's hostname in git URL.
 
         ARRANGE:
             - Create app with specific hostname
@@ -168,7 +174,8 @@ class TestGitSetupCmdIntegration:
     def test_git_setup_falls_back_to_socket_hostname(
         self, db_session: Session, tmp_path: Path
     ):
-        """Test that git:setup falls back to socket.gethostname() if no app hostname.
+        """
+        Test that git:setup falls back to socket.gethostname() if no app hostname.
 
         ARRANGE:
             - Create app without hostname
@@ -216,7 +223,8 @@ class TestGitSetupCmdIntegration:
     def test_git_setup_creates_bare_repository(
         self, db_session: Session, test_app_for_git: App
     ):
-        """Test that git:setup creates a bare git repository.
+        """
+        Test that git:setup creates a bare git repository.
 
         ARRANGE:
             - Create app with directories but no git repo
@@ -247,7 +255,8 @@ class TestGitSetupCmdIntegration:
         assert hook_path.stat().st_mode & stat.S_IXUSR
 
     def test_git_setup_idempotent(self, db_session: Session, test_app_for_git: App):
-        """Test that running git:setup multiple times is safe.
+        """
+        Test that running git:setup multiple times is safe.
 
         ARRANGE:
             - Create app with directories

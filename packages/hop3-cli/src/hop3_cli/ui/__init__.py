@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""User interface components for the Hop3 CLI.
+"""
+User interface components for the Hop3 CLI.
 
 This package handles all user-facing output and input:
 - console: Basic console output utilities

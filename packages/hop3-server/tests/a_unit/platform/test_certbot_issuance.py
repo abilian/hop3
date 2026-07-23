@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""generate_with_certbot's command construction + cert install.
+"""
+generate_with_certbot's command construction + cert install.
 
 Exercises the certbot code path (the part that regresses) without a live ACME
 server: a stubbed ``shell`` captures the certbot invocation and writes the live

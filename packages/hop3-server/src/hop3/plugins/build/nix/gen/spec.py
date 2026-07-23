@@ -4,7 +4,8 @@
 
 # ruff:file-ignore[raise-vanilla-args, f-string-in-exception]
 
-"""Data types describing a template specification for an app.
+"""
+Data types describing a template specification for an app.
 
 A spec captures the app-specific information needed to generate a ``hop3.nix``
 expression. Templates consume specs and emit Nix strings; ``toml_adapter``
@@ -32,7 +33,8 @@ from typing import ClassVar, TypeVar
 
 @dataclass(frozen=True)
 class Source:
-    """A source archive or binary to fetch via ``pkgs.fetchurl``.
+    """
+    A source archive or binary to fetch via ``pkgs.fetchurl``.
 
     The ``archive`` field describes what kind of archive (if any) needs
     to be unpacked. Templates use it to generate the correct unpackPhase.
@@ -85,7 +87,8 @@ class Source:
 
 @dataclass(frozen=True)
 class FileMapping:
-    """Copy instruction from the unpacked source to the output.
+    """
+    Copy instruction from the unpacked source to the output.
 
     Used by prebuilt-archive template. ``source`` is relative to the
     archive root (after unpack); ``destination`` is relative to ``$out``.
@@ -103,7 +106,8 @@ class FileMapping:
 
 @dataclass(frozen=True)
 class ConditionalEnvVar:
-    """An env export that's only set if the given var is empty at runtime.
+    """
+    An env export that's only set if the given var is empty at runtime.
 
     Example: set ``DATABASE_URL`` from PG* vars only if not already set.
     """
@@ -115,7 +119,8 @@ class ConditionalEnvVar:
 
 @dataclass(frozen=True)
 class ConfigFile:
-    """A config file to generate in the wrapper script at startup.
+    """
+    A config file to generate in the wrapper script at startup.
 
     Uses an unquoted shell heredoc, so ``${VAR}`` and ``$(cmd)`` are
     expanded at runtime.
@@ -141,7 +146,8 @@ class ConfigFile:
 
 @dataclass(frozen=True)
 class TemplatePayload:
-    """Base for the per-template half of a spec.
+    """
+    Base for the per-template half of a spec.
 
     ``template_name`` is the discriminator: it names the template that renders
     a spec carrying this payload, and is what the registry dispatches on.
@@ -184,7 +190,8 @@ class JavaWarPayload(TemplatePayload):
 
 @dataclass(frozen=True)
 class RubyBundlerPayload(TemplatePayload):
-    """ruby-bundler needs nothing beyond the shared core.
+    """
+    ruby-bundler needs nothing beyond the shared core.
 
     The gem set comes from the committed ``Gemfile`` / ``Gemfile.lock`` /
     ``gemset.nix`` triple next to the recipe, which the template references by
@@ -370,7 +377,8 @@ P = TypeVar("P", bound=TemplatePayload)
 
 @dataclass(frozen=True)
 class AppSpec:
-    """Complete template specification for a single app.
+    """
+    Complete template specification for a single app.
 
     The fields here are the ones *every* template may read. Anything specific to
     one template lives in :attr:`payload`.
@@ -449,7 +457,8 @@ class AppSpec:
         return type(self.payload).template_name
 
     def payload_as(self, kind: type[P]) -> P:
-        """The payload, checked against the type the calling template expects.
+        """
+        The payload, checked against the type the calling template expects.
 
         A template is only ever handed a spec the registry routed to it, so a
         mismatch means the spec was built by hand with the wrong payload — a

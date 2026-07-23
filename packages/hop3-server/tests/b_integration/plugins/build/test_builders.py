@@ -21,7 +21,8 @@ TEST_APPS_DIR = Path("apps/test-apps")
 
 
 def _detect_toolchain(app_path: Path) -> type | None:
-    """Detect which toolchain to use based on files in the app directory.
+    """
+    Detect which toolchain to use based on files in the app directory.
 
     Returns None if no supported toolchain is detected.
     """
@@ -47,7 +48,8 @@ def _detect_toolchain(app_path: Path) -> type | None:
 
 
 def _discover_test_apps() -> list[tuple[str, type]]:
-    """Discover test apps and their toolchains dynamically.
+    """
+    Discover test apps and their toolchains dynamically.
 
     Returns list of (app_name, toolchain_class) tuples.
     """

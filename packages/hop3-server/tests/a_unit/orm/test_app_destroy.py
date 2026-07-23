@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""`App.destroy()` is a complete, verifiable, loud teardown.
+"""
+`App.destroy()` is a complete, verifiable, loud teardown.
 
 Regression for the audit finding that destroy()'s "we preserve data" branch was
 dead code (the parent app_path was already deleted), so data/ and volumes/ were

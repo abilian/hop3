@@ -1,6 +1,7 @@
 # Copyright (c) 2024-2025, Abilian SAS
 
-"""Help output rendering (ADR 036 D4, D11, D19).
+"""
+Help output rendering (ADR 036 D4, D11, D19).
 
 `hop3 help` (bare) renders top-level commands grouped by task category; the
 client then injects local commands (see `hop3_cli/commands/help.py`) and
@@ -75,7 +76,8 @@ def _category_for(name: str) -> str:
 
 @register
 class HelpCmd(Command):
-    """Display useful help messages.
+    """
+    Display useful help messages.
 
     Usage:
         hop help                  Show top-level commands grouped by category
@@ -198,7 +200,8 @@ class HelpCmd(Command):
         return [text("\n".join(output))]
 
     def _show_all_commands_verbose(self):
-        """Aggregate the full detailed help for every command, recursively.
+        """
+        Aggregate the full detailed help for every command, recursively.
 
         `hop help --all -v` renders, for each non-hidden command (top-level and
         namespaced), the same D11 page produced by `hop help <command>`, joined
@@ -227,7 +230,8 @@ class HelpCmd(Command):
         return [text("\n".join(output).rstrip() + "\n")]
 
     def _detailed_help(self, command_name: tuple[str, ...]):
-        """Show detailed help for a specific command, in D11 section order.
+        """
+        Show detailed help for a specific command, in D11 section order.
 
         Format: USAGE -> EXAMPLES -> (DESCRIPTION) -> SUBCOMMANDS -> Part of.
         Sections are parsed from the command's docstring; the first non-empty
@@ -266,7 +270,8 @@ class HelpCmd(Command):
         cmd: type[Command],
         display_name: tuple[str, ...],
     ) -> list[str]:
-        """Render one command's D11 help page as a list of lines.
+        """
+        Render one command's D11 help page as a list of lines.
 
         Shared by `_detailed_help` (single command) and
         `_show_all_commands_verbose` (every command) so the two stay in sync.
@@ -290,7 +295,8 @@ class HelpCmd(Command):
 
 @register
 class HelpCommandsCmd(Command):
-    """Return list of available command names for shell completion.
+    """
+    Return list of available command names for shell completion.
 
     Returns a JSON-serializable list of all non-hidden command names.
     Used by the CLI to generate and cache shell completion scripts.

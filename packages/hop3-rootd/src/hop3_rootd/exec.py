@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""Safe subprocess wrapper for hop3-rootd.
+"""
+Safe subprocess wrapper for hop3-rootd.
 
 The discipline:
 
@@ -59,7 +60,8 @@ DEFAULT_TIMEOUT_SECONDS: Final[float] = 30.0
 
 
 def resolve_allowed_binary(name: str) -> str | None:
-    """Return the absolute path of `name` from PATH iff it's on the allow-list.
+    """
+    Return the absolute path of `name` from PATH iff it's on the allow-list.
 
     Used by callers that want to detect "is this binary available *and*
     permitted" before constructing an argv. Returns None when either
@@ -107,7 +109,8 @@ class CommandTimeoutError(ExecError):
 
 @dataclass(frozen=True)
 class CommandResult:
-    """Captured output of a successful or failed command run.
+    """
+    Captured output of a successful or failed command run.
 
     A command is "run" if it executed at all (regardless of return code).
     Use `result.success` for the boolean "exit code was 0?".
@@ -134,7 +137,8 @@ def run(
     extra_env: dict[str, str] | None = None,
     check: bool = False,
 ) -> CommandResult:
-    """Run an external command safely.
+    """
+    Run an external command safely.
 
     Args:
         argv: The command and its arguments. Must be a non-empty list of
@@ -211,7 +215,8 @@ def _decode(b: bytes | str | None) -> str:
 
 
 class Exec(Protocol):
-    """Capability for running allow-listed binaries and resolving them.
+    """
+    Capability for running allow-listed binaries and resolving them.
 
     The single seam through which all privileged subprocess invocation
     flows. Injected via ``OpContext`` (and threaded into reconcile) so ops

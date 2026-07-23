@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Every committed nix-gen recipe must still generate a valid expression.
+"""
+Every committed nix-gen recipe must still generate a valid expression.
 
 The per-template tests pin behaviour against synthetic specs; this pins it
 against the corpus we actually ship. It is the half of the reproducibility gate
@@ -100,7 +101,8 @@ def _recipes_serving_a_go_static_root() -> list[Path]:
 
 
 def test_a_go_static_root_also_ships_its_source_assets():
-    """gitea and forgejo are the same codebase and drifted apart.
+    """
+    gitea and forgejo are the same codebase and drifted apart.
 
     Both point STATIC_ROOT_PATH at the built frontend, and both also resolve
     `options/` (locales, licences, label templates) there. That directory is a

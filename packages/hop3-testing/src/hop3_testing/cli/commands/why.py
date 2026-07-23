@@ -20,7 +20,8 @@ _FILE = {"proxy": "proxy_probe.txt", **{s: f"{s}.txt" for s in _SECTIONS[1:]}}
 
 
 def _resolve_bundle(run_id: str) -> tuple[Path, str | None, str | None] | None:
-    """Locate a bundle by run-id: the store record first, else the on-disk dir.
+    """
+    Locate a bundle by run-id: the store record first, else the on-disk dir.
 
     A diagnostic bundle is written to ``~/.hop3/test-runs/<run-id>/`` even when
     no result row exists yet — a deploy/startup failure is captured before any
@@ -63,7 +64,8 @@ def _resolve_bundle(run_id: str) -> tuple[Path, str | None, str | None] | None:
 )
 @click.option("--list", "list_sections", is_flag=True, help="List available sections.")
 def why_cmd(run_id: str, section: str | None, *, list_sections: bool) -> None:
-    """Show the diagnostic bundle for a failed run.
+    """
+    Show the diagnostic bundle for a failed run.
 
     RUN_ID is the ``<ISO>-<app>-<shortid>`` printed in a failure headline. The
     bundle resolves from the result store, or — when the failure had no result

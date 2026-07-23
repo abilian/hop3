@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Docker backend with systemd support for full service testing.
+"""
+Docker backend with systemd support for full service testing.
 
 CQS conventions in this module:
 
@@ -36,7 +37,8 @@ CONTAINER_NAME = "hop3-test-systemd"
 
 
 class DockerSystemdBackend(Backend):
-    """Backend for testing in Docker containers with systemd support.
+    """
+    Backend for testing in Docker containers with systemd support.
 
     This backend runs tests inside Docker containers with full systemd
     support, enabling testing of services like nginx, postgresql, and
@@ -51,7 +53,8 @@ class DockerSystemdBackend(Backend):
     supports_systemd = True
 
     def __init__(self, installer_dir: Path | None = None):
-        """Initialize Docker systemd backend.
+        """
+        Initialize Docker systemd backend.
 
         Args:
             installer_dir: Path to installer directory (for mounting)
@@ -110,7 +113,8 @@ class DockerSystemdBackend(Backend):
     # -- Commands ---------------------------------------------------------
 
     def _build_image(self) -> None:
-        """Build the systemd-enabled Docker image.
+        """
+        Build the systemd-enabled Docker image.
 
         Command, returns ``None`` on success.
 
@@ -154,7 +158,8 @@ class DockerSystemdBackend(Backend):
         log_success("Image built successfully")
 
     def _remove_container(self) -> None:
-        """Remove the existing container, retrying up to 10 times.
+        """
+        Remove the existing container, retrying up to 10 times.
 
         No-op if the container doesn't exist.
 
@@ -183,7 +188,8 @@ class DockerSystemdBackend(Backend):
         raise BackendError(msg)
 
     def setup(self) -> bool:
-        """Start a privileged container with systemd and wait for it
+        """
+        Start a privileged container with systemd and wait for it
         to be ready.
 
         Returns:
@@ -260,7 +266,8 @@ class DockerSystemdBackend(Backend):
         raise BackendError(msg)
 
     def teardown(self) -> None:
-        """Stop and remove the container. Idempotent: does nothing
+        """
+        Stop and remove the container. Idempotent: does nothing
         if the container doesn't exist.
         """
         log_info(f"Stopping container: {self.container_name}")
@@ -271,7 +278,8 @@ class DockerSystemdBackend(Backend):
         )
 
     def run(self, command: str, *, sudo: bool = False) -> CommandResult:
-        """Run a command inside the container and return its result.
+        """
+        Run a command inside the container and return its result.
 
         This is a command-query hybrid: it mutates state (running a
         subprocess) but tests need the output. Non-zero exit codes
@@ -305,7 +313,8 @@ class DockerSystemdBackend(Backend):
         )
 
     def upload(self, local_path: Path, remote_path: str) -> bool:
-        """Copy a file from the host into the container.
+        """
+        Copy a file from the host into the container.
 
         Returns:
             ``True`` on success (ABC compatibility).
@@ -338,7 +347,8 @@ class DockerSystemdBackend(Backend):
         return True
 
     def upload_dir(self, local_path: Path, remote_path: str) -> bool:
-        """Copy a directory tree into the container and fix perms so
+        """
+        Copy a directory tree into the container and fix perms so
         all users can read it.
 
         Returns:
@@ -373,8 +383,10 @@ class DockerSystemdBackend(Backend):
         log_success("Server cleanup complete")
 
     def get_installer_path(self, installer_type: str) -> str:
-        """Return the path to the installer inside the container
-        (mounted via the ``/installer`` volume)."""
+        """
+        Return the path to the installer inside the container
+        (mounted via the ``/installer`` volume).
+        """
         if installer_type == "cli":
             return "/installer/install-cli.py"
         return "/installer/install-server.py"

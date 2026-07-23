@@ -105,7 +105,8 @@ class TestExtractToken:
     """Tests for extract_token function."""
 
     def test_extract_jwt_token(self):
-        """Test extracting a JWT token from output.
+        """
+        Test extracting a JWT token from output.
 
         Token shape mirrors a real HS256 token: ~36-char header (the
         canonical ``{"alg":"HS256","typ":"JWT"}``), a payload with
@@ -142,7 +143,8 @@ class TestExtractToken:
 
 
 class TestVerifyToken:
-    """Regression tests for token-login verification (_verify_token).
+    """
+    Regression tests for token-login verification (_verify_token).
 
     The verify step builds a throwaway Config from the URL+token. It MUST
     use the nested [contexts.*] shape — Config.get_api_url() no longer reads
@@ -180,7 +182,8 @@ class TestVerifyToken:
 
 
 class TestVerifyHttpsConnection:
-    """Regression tests for HTTPS verification during login.
+    """
+    Regression tests for HTTPS verification during login.
 
     A self-signed/untrusted cert must ABORT the login. Previously it printed
     "Refusing to log in" but returned normally, so the caller still persisted
@@ -379,7 +382,8 @@ class TestHandleInit:
     def test_init_password_stdin_does_not_prompt_for_server(
         self, temp_config, mock_printer
     ):
-        """Regression: `hop3 init --ssh <target> --password-stdin` must NOT
+        """
+        Regression: `hop3 init --ssh <target> --password-stdin` must NOT
         prompt for the server URL — it infers one from the SSH target —
         otherwise the prompt consumes the piped password line, leaving the
         password empty ("Password cannot be empty"). (ADR 042 removed the
@@ -421,7 +425,8 @@ class TestHandleInit:
     def test_init_password_stdin_does_not_prompt_when_no_server(
         self, temp_config, mock_printer
     ):
-        """With --password-stdin and no server, infer silently — never prompt.
+        """
+        With --password-stdin and no server, infer silently — never prompt.
 
         A non-tty stdin carries the password; an interactive Server URL prompt
         would eat it. The server URL is inferred from the SSH target instead.
@@ -511,7 +516,8 @@ class TestHandleLogin:
         assert "contexts" not in temp_config.data
 
     def test_login_web_invokes_colon_command(self, temp_config, mock_printer, capsys):
-        """Regression: `hop3 login --web` must call `hop3-server auth:magic-link`.
+        """
+        Regression: `hop3 login --web` must call `hop3-server auth:magic-link`.
 
         The space form (`auth magic-link`) makes hop3-server parse `auth` as the
         command and fail with "Unknown command 'auth'", breaking web login.
@@ -538,7 +544,8 @@ class TestHandleLogin:
     def test_login_web_bare_token_builds_app_port_url(
         self, temp_config, mock_printer, capsys
     ):
-        """Bare token -> magic link must point at the app's HTTP port (:8000).
+        """
+        Bare token -> magic link must point at the app's HTTP port (:8000).
 
         Regression: it used to build `https://{host}` (nginx/TLS on 443), which
         doesn't proxy `/auth/*` without an admin domain, so the link 404'd.

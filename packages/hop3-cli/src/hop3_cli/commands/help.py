@@ -21,7 +21,8 @@ FEEDBACK_URL = "https://github.com/abilian/hop3/issues"
 
 
 def handle_help_flags(args: list[str]) -> list[str]:
-    """Convert --help/-h flags to help command invocations.
+    """
+    Convert --help/-h flags to help command invocations.
 
     Examples:
         ["--help"] -> ["help"]
@@ -67,7 +68,8 @@ def handle_help_flags(args: list[str]) -> list[str]:
 
 
 def is_help_command(cli_args: list[str]) -> bool:
-    """Check if this is a help command (with or without --all flag).
+    """
+    Check if this is a help command (with or without --all flag).
 
     Args:
         cli_args: Command-line arguments
@@ -85,7 +87,8 @@ def is_help_command(cli_args: list[str]) -> bool:
 
 
 def append_feedback_footer(result: list[dict]) -> list[dict]:
-    """Append a feedback link to the end of the help output (ADR 036 D11, G7).
+    """
+    Append a feedback link to the end of the help output (ADR 036 D11, G7).
 
     The feedback URL is an ADR-mandated last line of the top-level help output
     so users always have a visible channel for reporting issues.
@@ -95,7 +98,8 @@ def append_feedback_footer(result: list[dict]) -> list[dict]:
 
 
 def emit_status_line(config: Config) -> None:
-    """Emit the dynamic 'Active context' line to stderr (D19).
+    """
+    Emit the dynamic 'Active context' line to stderr (D19).
 
     Per ADR 036 D11: bare `hop3 help` shows the active context so users can
     predict what their commands will target. ADR 042 dropped the per-context
@@ -112,7 +116,8 @@ def emit_status_line(config: Config) -> None:
 
 
 def append_local_commands_full_help(result: list[dict]) -> list[dict]:
-    """Append the full help for client-side (local) commands.
+    """
+    Append the full help for client-side (local) commands.
 
     Used for `hop3 help --all -v`: the server renders the full help for every
     *server* command, but local commands (init, login, settings, ...) are
@@ -141,7 +146,8 @@ def append_local_commands_full_help(result: list[dict]) -> list[dict]:
 
 
 def inject_local_commands_into_help(result: list[dict]) -> list[dict]:
-    """Inject local CLI commands into the help output from the server.
+    """
+    Inject local CLI commands into the help output from the server.
 
     Local commands (init, login, settings) are handled by the CLI and don't
     exist on the server, so we add them to help output for discoverability.
@@ -197,7 +203,8 @@ def _process_help_text_with_local_commands(
     text: str,
     local_commands: dict[str, str],
 ) -> str:
-    """Inject local commands (and, in `--all`, core aliases) into the list.
+    """
+    Inject local commands (and, in `--all`, core aliases) into the list.
 
     Local commands are tagged ``[local]`` and appear in every COMMANDS view.
     Built-in core aliases (``apps`` -> ``app list``, ``whoami`` -> ``auth
@@ -277,7 +284,8 @@ def _process_help_text_with_local_commands(
 
 
 def _detect_command_name_width(lines: list[str], default: int = 24) -> int:
-    """Infer the server's name-column width from its `--all` command lines.
+    """
+    Infer the server's name-column width from its `--all` command lines.
 
     Server `--all` lines look like ``  <name padded to W> [marker]  <help>``.
     The marker is the first ``[`` on the line (command names never contain
@@ -354,7 +362,8 @@ def _format_help_command(
     wide: bool = False,
     name_width: int = 24,
 ) -> str:
-    """Format a command entry for help output.
+    """
+    Format a command entry for help output.
 
     Args:
         name: Command name

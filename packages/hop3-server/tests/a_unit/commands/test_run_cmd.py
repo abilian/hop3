@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""`hop3 run` must surface the failed command's output, not just the exit code.
+"""
+`hop3 run` must surface the failed command's output, not just the exit code.
 
 Many scripts write their progress and tracebacks to stdout; if RunCmd only
 relayed stderr, a failing command showed a bare "exit code 1" with no detail.

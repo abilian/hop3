@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Environment variable provisioning during deployment.
+"""
+Environment variable provisioning during deployment.
 
 This module handles injection of environment variables from hop3.toml [env] section.
 Values from hop3.toml are treated as defaults - they only create new variables
@@ -53,7 +54,8 @@ def set_default_env_vars(
     *,
     env_policy: str = "keep-existing",
 ) -> None:
-    """Set environment variables from hop3.toml [env] section.
+    """
+    Set environment variables from hop3.toml [env] section.
 
     By default, these are treated as defaults: they create new variables but
     never overwrite existing ones. When env_policy is "override", existing
@@ -105,7 +107,8 @@ def set_env_vars(
     *,
     defaults_only: bool = False,
 ) -> tuple[int, list[str]]:
-    """Set environment variables on an app.
+    """
+    Set environment variables on an app.
 
     Args:
         app: The application model
@@ -142,7 +145,8 @@ def set_env_vars(
 
 
 def set_public_url_env(app: App, db_session: Session) -> None:
-    """Expose the app's canonical public URL as ``HOP3_PUBLIC_URL``.
+    """
+    Expose the app's canonical public URL as ``HOP3_PUBLIC_URL``.
 
     Derived from the first host of ``HOST_NAME`` each deploy, so recipes can
     reference a single stable variable — e.g.
@@ -168,7 +172,8 @@ def set_computed_env_vars(
     computed_config: dict[str, str],
     db_session: Session,
 ) -> None:
-    """Resolve and set computed environment variables from [env.computed].
+    """
+    Resolve and set computed environment variables from [env.computed].
 
     Computed vars use ${VAR} interpolation against the app's current env vars
     (including addon-injected ones). They always overwrite existing values.
@@ -211,7 +216,8 @@ def set_computed_env_vars(
 
 
 def generate_secret_value(spec: Mapping[str, Any]) -> str:
-    """Generate one secret value from an [env] ``{ generate = ... }`` spec.
+    """
+    Generate one secret value from an [env] ``{ generate = ... }`` spec.
 
     Pure and CSPRNG-backed (the stdlib ``secrets`` module — never ``random``).
     The schema validates the spec up front, but this also guards the
@@ -256,7 +262,8 @@ def set_generated_env_vars(
     generated_config: dict[str, Any],
     db_session: Session,
 ) -> None:
-    """Materialize [env] generated secrets, once, for vars that are unset.
+    """
+    Materialize [env] generated secrets, once, for vars that are unset.
 
     Generated-once semantics (ADR 046): a secret is created with a CSPRNG only
     when the var has no value yet, persisted as a normal env var, and never
@@ -303,7 +310,8 @@ def resolve_env_refs(
     refs_config: dict[str, Any],
     db_session: Session,
 ) -> None:
-    """Resolve dynamic [env] references against addon and app facts (ADR 046).
+    """
+    Resolve dynamic [env] references against addon and app facts (ADR 046).
 
     Each ``{ from, key }`` / ``{ key }`` / ``{ external_ip }`` entry is a derived
     value, so (like ``[env.computed]``) it overwrites. Resolution fails loud on
@@ -375,8 +383,10 @@ def _resolve_addon_ref(
 
 
 def _resolve_app_fact(app: App, name: str, key: str | None) -> str:
-    """Resolve an app-level fact: ``domain`` / ``hostname`` / ``name`` /
-    ``operator_email``."""
+    """
+    Resolve an app-level fact: ``domain`` / ``hostname`` / ``name`` /
+    ``operator_email``.
+    """
     if key in {"domain", "hostname"}:
         host_name = app.get_runtime_env().get("HOST_NAME", "")
         first = host_name.split()[0] if host_name else ""

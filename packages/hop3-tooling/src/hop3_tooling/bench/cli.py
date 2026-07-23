@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""``hop3-bench`` — run the paper's read-only benchmark probes against a target.
+"""
+``hop3-bench`` — run the paper's read-only benchmark probes against a target.
 
 Examples::
 
@@ -154,7 +155,8 @@ def reproducibility(apps: tuple[str, ...], ssh: str | None, nixpkgs_rev: str) ->
 @click.argument("services", nargs=-1, required=True)
 @click.option("--ssh", default=None, help="Measure a remote host over SSH.")
 def cgroup_mem(services: tuple[str, ...], ssh: str | None) -> None:
-    """cgroup memory.current of systemd services — the cross-stack metric.
+    """
+    cgroup memory.current of systemd services — the cross-stack metric.
 
     Use the same metric for every stack, e.g. hop3-server/hop3-rootd on a Hop3
     box, ``docker`` on a Compose box, ``k3s`` on a K3s box.
@@ -174,7 +176,8 @@ def cgroup_mem(services: tuple[str, ...], ssh: str | None) -> None:
     help="Raw measurement run to render.",
 )
 def report(results: Path) -> None:
-    """Regenerate the paper's tables from a raw run.
+    """
+    Regenerate the paper's tables from a raw run.
 
     Every figure quoted in the paper's evaluation comes from here, so no number
     is hand-transcribed and each traces to the run that produced it.
@@ -243,7 +246,8 @@ def matrix(
     skip_rebuild: bool,
     append: bool,
 ) -> None:
-    """Run the golden-app matrix: every pre-registered app, in every variant.
+    """
+    Run the golden-app matrix: every pre-registered app, in every variant.
 
     Blank-slates the ONE dedicated box (OS rebuild — never creates a server),
     installs Hop3 from local code, then deploys and times each (app, variant)

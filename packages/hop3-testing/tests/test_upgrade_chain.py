@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Unit tests for the `hop3-test upgrade-chain` command's config + guards.
+"""
+Unit tests for the `hop3-test upgrade-chain` command's config + guards.
 
 The deploy/assert loop needs a fresh box + real deploys (covered by the e2e run);
 here we pin the pure logic: a hop config runs the right (checkout's own) deployer,

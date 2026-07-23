@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Schema + parsing for the [[ports]] section (fixed host ports).
+"""
+Schema + parsing for the [[ports]] section (fixed host ports).
 
 Declared fixed ports (SMTP/XMPP/RTMP/federation, …) are the input to the
 host-wide claim registry; this guards that the schema parses valid entries and

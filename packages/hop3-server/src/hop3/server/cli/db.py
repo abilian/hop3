@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Server-side CLI commands for database schema management.
+"""
+Server-side CLI commands for database schema management.
 
 These commands wrap Alembic so callers (operators, the deployer) do not
 need to know the alembic.ini path or the venv layout. The deployer calls
@@ -28,7 +29,8 @@ _UNSTAMPED_HINTS = (
 
 
 def _looks_like_unstamped_db(exc: BaseException) -> bool:
-    """Heuristic: an upgrade error whose message smells like a pre-alembic DB.
+    """
+    Heuristic: an upgrade error whose message smells like a pre-alembic DB.
 
     The signature of this case is alembic running the first migration's
     DDL against a DB that already has the resulting objects, because the
@@ -40,7 +42,8 @@ def _looks_like_unstamped_db(exc: BaseException) -> bool:
 
 
 def _orphan_db_revision(cfg) -> str | None:
-    """The DB's current revision, when this deployment has no script for it.
+    """
+    The DB's current revision, when this deployment has no script for it.
 
     Returned non-None means the database was migrated by a *different* codebase
     — most often a feature branch carrying its own migration, or a newer build
@@ -74,7 +77,8 @@ def _orphan_db_revision(cfg) -> str | None:
 
 
 def _print_orphan_revision_hint(revision: str) -> None:
-    """Explain an orphan-revision DB and the recovery options.
+    """
+    Explain an orphan-revision DB and the recovery options.
 
     We deliberately do NOT auto-recover: stamping/upgrading blindly could mask a
     real schema divergence or corrupt data, and Hop3's rule is to fail loud, not
@@ -101,7 +105,8 @@ def _print_orphan_revision_hint(revision: str) -> None:
 
 
 def _database_url() -> str:
-    """Resolve the DB URL the same way ``alembic/env.py`` does.
+    """
+    Resolve the DB URL the same way ``alembic/env.py`` does.
 
     Must agree with env.py (and ``orm.session.get_session_factory``) so the
     adoption check below inspects the very database the migrations will run
@@ -115,7 +120,8 @@ def _database_url() -> str:
 
 
 def _adopt_unstamped_db(cfg) -> None:
-    """Make an unstamped database safe to ``upgrade`` from base.
+    """
+    Make an unstamped database safe to ``upgrade`` from base.
 
     Hop3 historically created its schema via ``metadata.create_all()`` and
     never stamped Alembic (orm/session.py falls back to create_all). Such a
@@ -177,7 +183,8 @@ def _adopt_unstamped_db(cfg) -> None:
 
 
 def _alembic_config():
-    """Build a programmatic Alembic Config pointing at the bundled alembic.ini.
+    """
+    Build a programmatic Alembic Config pointing at the bundled alembic.ini.
 
     Resolving the path from ``hop3.__file__`` works whether the package is
     installed normally, editable, or run from a wheel — wherever the
@@ -201,7 +208,8 @@ def _alembic_config():
 
 @register
 class DbCmd(Command):
-    """Manage the database schema (migrations).
+    """
+    Manage the database schema (migrations).
 
     Subcommands:
         db:upgrade   Run pending migrations to bring the schema up to date
@@ -216,7 +224,8 @@ class DbCmd(Command):
 
 @register
 class DbUpgradeCmd(Command):
-    """Run pending migrations.
+    """
+    Run pending migrations.
 
     Usage:
         hop3-server db:upgrade [--revision REV]
@@ -275,7 +284,8 @@ class DbUpgradeCmd(Command):
 
 @register
 class DbCurrentCmd(Command):
-    """Show the current alembic revision.
+    """
+    Show the current alembic revision.
 
     Usage:
         hop3-server db:current
@@ -300,7 +310,8 @@ class DbCurrentCmd(Command):
 
 @register
 class DbStampCmd(Command):
-    """Mark the DB at a specific revision without running migrations.
+    """
+    Mark the DB at a specific revision without running migrations.
 
     Usage:
         hop3-server db:stamp <revision>

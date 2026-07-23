@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Per-OS-family translation of canonical (Debian) package names.
+"""
+Per-OS-family translation of canonical (Debian) package names.
 
 Apps declare `[build].packages` / `[run].packages` in hop3.toml using
 **Debian package names** as the canonical form (this is the largest
@@ -64,7 +65,8 @@ PACKAGE_ALIASES: dict[str, dict[str, str | None]] = {
 
 
 def translate(package: str, os_family: str) -> str | None:
-    """Translate a canonical package name for the given OS family.
+    """
+    Translate a canonical package name for the given OS family.
 
     Returns the per-OS name (same as canonical when no renaming is
     needed), or None when the package is not available on that family.

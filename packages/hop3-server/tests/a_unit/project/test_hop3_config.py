@@ -131,7 +131,8 @@ start = "gunicorn app:app"
 
 
 def test_healthcheck_section_path_wins_and_contains_is_read():
-    """[healthcheck].path is preferred over [run].healthcheck; contains is read.
+    """
+    [healthcheck].path is preferred over [run].healthcheck; contains is read.
 
     Also asserts the schema accepts [healthcheck].contains (from_str validates).
     """
@@ -449,8 +450,10 @@ id = "test"
 
 
 def test_test_validation_status_in_snake():
-    """`[test.validations]` accepts `status_in = [...]` — the form xwiki
-    uses to handle its first-boot 202 → 200 transition."""
+    """
+    `[test.validations]` accepts `status_in = [...]` — the form xwiki
+    uses to handle its first-boot 202 → 200 transition.
+    """
     c = Hop3TomlSchema.model_validate(
         tomllib.loads(
             """
@@ -513,7 +516,8 @@ not_a_real_field = 42
 
 
 def test_contexts_section_accepted():
-    """ADR 042 (2nd revision): project-scoped ``[contexts.*]`` is back as a
+    """
+    ADR 042 (2nd revision): project-scoped ``[contexts.*]`` is back as a
     non-secret deploy-environment block. The schema accepts it (the deployer
     ignores it). See test_hop3_config_contexts.py for the full coverage.
     """

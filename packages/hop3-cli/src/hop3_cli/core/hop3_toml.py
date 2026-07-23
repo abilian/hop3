@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared hop3.toml reader: walk upward to find one, parse it safely.
+"""
+Shared hop3.toml reader: walk upward to find one, parse it safely.
 
 Five callers used to maintain their own copy of "walk from CWD upward,
 stopping at $HOME, parse the first hop3.toml found, swallow TOML errors":
@@ -40,7 +41,8 @@ HOP3_TOML = "hop3.toml"
 
 
 def first_hop3_toml(start: Path, home: Path) -> tuple[Path | None, dict[str, Any]]:
-    """Find the nearest hop3.toml at or above ``start``, capped at ``home``.
+    """
+    Find the nearest hop3.toml at or above ``start``, capped at ``home``.
 
     Returns ``(path, parsed_data)`` for the first file found, or
     ``(None, {})`` when no hop3.toml exists in the walked range.
@@ -54,7 +56,8 @@ def first_hop3_toml(start: Path, home: Path) -> tuple[Path | None, dict[str, Any
 
 
 def iter_hop3_toml(start: Path, home: Path) -> Iterator[tuple[Path, dict[str, Any]]]:
-    """Walk upward from ``start`` to ``home``, yielding each hop3.toml found.
+    """
+    Walk upward from ``start`` to ``home``, yielding each hop3.toml found.
 
     Most callers want the first match (``first_hop3_toml``); the
     iterator form exists for hypothetical "merge layered configs"
@@ -72,7 +75,8 @@ def iter_hop3_toml(start: Path, home: Path) -> Iterator[tuple[Path, dict[str, An
 
 
 def read_hop3_toml(path: Path) -> dict[str, Any]:
-    """Parse a single hop3.toml; return ``{}`` on OSError or TOMLDecodeError.
+    """
+    Parse a single hop3.toml; return ``{}`` on OSError or TOMLDecodeError.
 
     Public because callers that open a specific hop3.toml path (already
     located by the walkers above) need the same error-swallowing contract.

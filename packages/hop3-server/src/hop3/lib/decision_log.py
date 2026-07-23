@@ -8,7 +8,8 @@
 # container — passing the logger through DeploymentContext is simpler
 # than introducing one for this single dependency.
 
-"""Decision logging for deployment transparency.
+"""
+Decision logging for deployment transparency.
 
 This module provides structured logging for implicit decisions made during
 deployment. When Hop3 auto-detects builders, toolchains, or configuration
@@ -77,7 +78,8 @@ class Decision:
 
 @dataclass
 class DecisionLogger:
-    """Collects and logs deployment decisions.
+    """
+    Collects and logs deployment decisions.
 
     Usage:
         logger = DecisionLogger()
@@ -174,7 +176,8 @@ _current_logger: DecisionLogger | None = None
 
 
 def get_decision_logger() -> DecisionLogger:
-    """Get the current deployment's decision logger.
+    """
+    Get the current deployment's decision logger.
 
     Creates a new one if none exists.
     """

@@ -64,7 +64,8 @@ class Command:
         return self.get_help()
 
     def get_help(self):
-        """Default help for namespace-bare invocations (ADR 036 M4.3).
+        """
+        Default help for namespace-bare invocations (ADR 036 M4.3).
 
         Produces the same D11-structured output as `hop help <ns>`:
         `hop <ns> — <summary>`, USAGE (inferred), EXAMPLES (from docstring),

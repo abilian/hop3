@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""ORM teardown must CONFIRM the app's processes/containers are actually gone.
+"""
+ORM teardown must CONFIRM the app's processes/containers are actually gone.
 
 Regression for the owncast 1935 reliability gap: `hop3 app stop`/`destroy` route
 through ORM `app.stop()`, which used to only remove the uWSGI config (or

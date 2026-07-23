@@ -112,7 +112,8 @@ class PostgresqlPlugin:
 
 
 class PostgresPluginProvider(Provider):
-    """DI provider for PostgreSQL addon infrastructure.
+    """
+    DI provider for PostgreSQL addon infrastructure.
 
     Provides PostgresAdmin for centralized PostgreSQL configuration
     and connection management.
@@ -124,7 +125,8 @@ class PostgresPluginProvider(Provider):
 
     @provide
     def get_postgres_admin(self) -> PostgresAdmin:
-        """Provide PostgreSQL administration interface.
+        """
+        Provide PostgreSQL administration interface.
 
         Returns:
             PostgresAdmin instance configured from POSTGRES_* environment variables
@@ -134,7 +136,8 @@ class PostgresPluginProvider(Provider):
 
 @hookimpl
 def get_di_providers() -> list:
-    """Register PostgreSQL DI providers.
+    """
+    Register PostgreSQL DI providers.
 
     This hook is called by the DI container during initialization
     to collect providers from all plugins.

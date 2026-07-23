@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Pytest fixtures for E2E installer tests.
+"""
+Pytest fixtures for E2E installer tests.
 
 Provides multi-backend support for testing installers on:
 - Docker containers (the default target)
@@ -70,7 +71,8 @@ _AMBIENT_DEPLOY_TARGET_VARS = ("HOP3_HOST", "HOP3_DOCKER")
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Neutralise ambient targeting, then wire the explicit ``--ssh-host``.
+    """
+    Neutralise ambient targeting, then wire the explicit ``--ssh-host``.
 
     The remote host comes ONLY from ``--ssh-host`` (an explicit flag); it is
     never read from the environment. With no ``--ssh-host``, SSH is disabled and
@@ -97,7 +99,8 @@ def _select_targets(
     include_vagrant: bool,
     check_ssh_connectable: bool,
 ) -> list[str]:
-    """Resolve enabled targets. Docker is the default; SSH is explicit-only.
+    """
+    Resolve enabled targets. Docker is the default; SSH is explicit-only.
 
     - Docker runs unless the user explicitly asked for a *different* target.
     - SSH runs only when ``--ssh-host`` was given (never from an env var).
@@ -156,7 +159,8 @@ def get_enabled_deploy_targets(config: pytest.Config) -> list[str]:
 
 
 def _no_target_reason(config: pytest.Config, kind: str) -> str:
-    """Actionable skip reason when no target is enabled.
+    """
+    Actionable skip reason when no target is enabled.
 
     The common case — no ``--ssh-host`` and a down Docker daemon — must say so
     (a bare "no targets available" hid that Docker/OrbStack simply wasn't
@@ -206,7 +210,8 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
 
 @pytest.fixture(scope="module")
 def backend(request: pytest.FixtureRequest) -> Generator[Backend]:
-    """Provide a test backend (Docker, SSH, or Vagrant).
+    """
+    Provide a test backend (Docker, SSH, or Vagrant).
 
     This fixture is dynamically parametrized based on CLI options.
     Tests using this fixture will run once per enabled backend.
@@ -224,7 +229,8 @@ def backend(request: pytest.FixtureRequest) -> Generator[Backend]:
 
 @pytest.fixture(scope="module")
 def systemd_backend(request: pytest.FixtureRequest) -> Generator[Backend]:
-    """Provide a test backend with systemd support.
+    """
+    Provide a test backend with systemd support.
 
     This fixture is dynamically parametrized based on CLI options.
     Backends with systemd support:

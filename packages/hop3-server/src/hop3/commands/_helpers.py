@@ -44,7 +44,8 @@ _URL_PASSWORD_RE = re.compile(r"(://[^:/?#\s@]*:)([^@/?#\s]+)(@)")
 
 
 def redact_sensitive_value(name: str, value: str) -> str:
-    """Redact sensitive values for display.
+    """
+    Redact sensitive values for display.
 
     Two layers, because either the name or the value can carry a secret:
     - if the variable *name* looks sensitive (password/secret/token/...), the
@@ -68,7 +69,8 @@ def redact_sensitive_value(name: str, value: str) -> str:
 
 
 def get_app(db_session: Session, app_name: str) -> App:
-    """Retrieve an app by name or raise a consistent error.
+    """
+    Retrieve an app by name or raise a consistent error.
 
     Args:
         db_session: Database session
@@ -96,7 +98,8 @@ def get_app(db_session: Session, app_name: str) -> App:
 def parse_key_value_settings(
     settings: list[str],
 ) -> tuple[dict[str, str], list[str]]:
-    """Parse KEY=VALUE settings from command line arguments.
+    """
+    Parse KEY=VALUE settings from command line arguments.
 
     Args:
         settings: List of "KEY=VALUE" strings
@@ -134,7 +137,8 @@ def parse_key_value_settings(
 
 
 def set_env_var(app: App, key: str, value: str) -> str:
-    """Set or update an environment variable on an app.
+    """
+    Set or update an environment variable on an app.
 
     Args:
         app: The application object
@@ -156,7 +160,8 @@ def set_env_var(app: App, key: str, value: str) -> str:
 
 
 def unset_env_var(app: App, key: str) -> bool:
-    """Remove an environment variable from an app.
+    """
+    Remove an environment variable from an app.
 
     Args:
         app: The application object
@@ -173,7 +178,8 @@ def unset_env_var(app: App, key: str) -> bool:
 
 
 def parse_hostname_string(value: str | None) -> list[str]:
-    """Split a HOST_NAME string into individual hostnames.
+    """
+    Split a HOST_NAME string into individual hostnames.
 
     Accepts comma- or whitespace-separated forms. Does NOT validate
     syntax — use ``validate_hostname_list`` for that. Use this when
@@ -188,7 +194,8 @@ def check_hostname_conflict(
     current_app_name: str,
     new_hosts: list[str],
 ) -> tuple[str, str] | None:
-    """Return (app, host) if any of new_hosts is already used by another app.
+    """
+    Return (app, host) if any of new_hosts is already used by another app.
 
     Args:
         db_session: Database session.

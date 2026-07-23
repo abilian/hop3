@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Inline-diagnostic tail extraction tests.
+"""
+Inline-diagnostic tail extraction tests.
 
 Covers two regression-bait scenarios:
 
@@ -156,7 +157,8 @@ def test_extract_app_log_tail_picks_first_container_when_multiple():
 
 
 def test_runtime_diagnostics_no_log_dir_yields_clean_message():
-    """The shell command for ``App log files`` must short-circuit when
+    """
+    The shell command for ``App log files`` must short-circuit when
     the log directory doesn't exist (or is empty) — historically it
     leaked a ``tail: cannot open .../*.log`` shell error into the
     extracted diagnostic, which became the user-visible 'app stderr'.
@@ -201,7 +203,8 @@ class _FakeFailedResult:
 
 
 def test_report_test_points_at_local_bundle_on_failure():
-    """A failed test with a durable bundle must print the local bundle dir, the
+    """
+    A failed test with a durable bundle must print the local bundle dir, the
     `hop3-test why` replay command, and a note that on-box logs are gone — at the
     failure line, not only in the far-off end-of-run summary.
     """

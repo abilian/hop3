@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Integration tests for the [domains] -> HOST_NAME deployment path.
+"""
+Integration tests for the [domains] -> HOST_NAME deployment path.
 
 Drives ``_process_config_dependencies`` end-to-end with a real hop3.toml on
 disk, a real AppConfig, a real App in an in-memory database, and verifies
@@ -91,9 +92,11 @@ list = []
 def test_domains_keep_existing_policy_preserves_manual_value(
     tmp_path: Path, db_session: Session
 ) -> None:
-    """Default policy keep-existing must not clobber a manually set HOST_NAME
+    """
+    Default policy keep-existing must not clobber a manually set HOST_NAME
     (e.g., one set via ``hop3 config set`` or ``hop3 domains add`` between
-    deploys)."""
+    deploys).
+    """
     _write_hop3_toml(
         tmp_path,
         """
@@ -169,9 +172,11 @@ list = ["abilian.com"]
 
 @pytest.mark.integration
 def test_env_hostname_and_domains_rejected_by_schema(tmp_path: Path) -> None:
-    """The schema must reject hop3.toml that sets both env.HOST_NAME and
+    """
+    The schema must reject hop3.toml that sets both env.HOST_NAME and
     [domains] — the failure happens at parse time, before the deployer
-    runs."""
+    runs.
+    """
     _write_hop3_toml(
         tmp_path,
         """
@@ -209,8 +214,10 @@ list = ["shop.example.com", "www.shop.example.com"]
 def test_public_url_available_to_computed_vars(
     tmp_path: Path, db_session: Session
 ) -> None:
-    """Ordering is load-bearing: set_public_url_env runs before [env.computed],
-    so a recipe's ${HOP3_PUBLIC_URL} resolves in the same deploy."""
+    """
+    Ordering is load-bearing: set_public_url_env runs before [env.computed],
+    so a recipe's ${HOP3_PUBLIC_URL} resolves in the same deploy.
+    """
     _write_hop3_toml(
         tmp_path,
         """

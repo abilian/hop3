@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Node.js must come from NodeSource (Node 22 LTS), not the distro's apt.
+"""
+Node.js must come from NodeSource (Node 22 LTS), not the distro's apt.
 
 Debian/Ubuntu ship Node 18 (EOL), which modern JS frameworks reject (Astro
 >=22.12, Etherpad/pnpm >=22.13). The installer installs Node from NodeSource

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Consolidated remote deployment target.
+"""
+Consolidated remote deployment target.
 
 This module provides a single RemoteTarget class that handles all SSH-based
 testing scenarios:
@@ -43,7 +44,8 @@ if TYPE_CHECKING:
 
 
 class RemoteTarget(DeploymentTarget):
-    """SSH-based target for all remote testing scenarios.
+    """
+    SSH-based target for all remote testing scenarios.
 
     This class consolidates RemoteTarget (connect-only) and RemoteDeployTarget
     (deploy then connect) into a single class with optional deployment.
@@ -91,7 +93,8 @@ class RemoteTarget(DeploymentTarget):
         config: RemoteConfig,
         deployment: DeploymentConfig | None = None,
     ):
-        """Initialize remote target.
+        """
+        Initialize remote target.
 
         Args:
             config: Remote server configuration (host, port, user, etc.)
@@ -127,7 +130,8 @@ class RemoteTarget(DeploymentTarget):
         self._secret_key: str | None = None
 
     def start(self) -> TargetInfo:
-        """Start the remote target.
+        """
+        Start the remote target.
 
         If deployment config is provided, deploys Hop3 first.
         Otherwise, just connects to the existing server.
@@ -143,7 +147,8 @@ class RemoteTarget(DeploymentTarget):
         return self._connect_only()
 
     def _connect_only(self) -> TargetInfo:
-        """Connect to an existing Hop3 server via SSH.
+        """
+        Connect to an existing Hop3 server via SSH.
 
         Returns:
             TargetInfo with connection details
@@ -191,7 +196,8 @@ class RemoteTarget(DeploymentTarget):
         return self._info
 
     def redeploy(self, config: DeploymentConfig) -> None:
-        """Re-deploy to the connected host (in-place update). See base class.
+        """
+        Re-deploy to the connected host (in-place update). See base class.
 
         The SSH host is inherently persistent, so a non-clean redeploy hits the
         deployer's update path. deploy() health-verifies, so ``success`` already
@@ -219,7 +225,8 @@ class RemoteTarget(DeploymentTarget):
             raise RuntimeError(msg)
 
     def _deploy_and_connect(self) -> TargetInfo:
-        """Deploy Hop3 via hop3-deploy, then connect.
+        """
+        Deploy Hop3 via hop3-deploy, then connect.
 
         Returns:
             TargetInfo with connection details
@@ -356,7 +363,8 @@ class RemoteTarget(DeploymentTarget):
         self._started = False
 
     def exec_run(self, cmd: str | list[str]) -> tuple[int, str, str]:
-        """Execute a command on the remote server.
+        """
+        Execute a command on the remote server.
 
         Args:
             cmd: Command to execute
@@ -393,7 +401,8 @@ class RemoteTarget(DeploymentTarget):
         raise RuntimeError(msg)
 
     def upload_file(self, local_path: Path | str, remote_path: str) -> None:
-        """Upload a single file to the server via SFTP.
+        """
+        Upload a single file to the server via SFTP.
 
         Used by the on-server tutorial runner to place a tutorial markdown file
         on the box before invoking validoc there. Creates the remote parent
@@ -417,7 +426,8 @@ class RemoteTarget(DeploymentTarget):
             sftp.close()
 
     def save_diagnostics(self, generate_html: bool = False) -> Path:
-        """Save all diagnostic information to files.
+        """
+        Save all diagnostic information to files.
 
         Args:
             generate_html: If True, also generate HTML report.

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Demo test runner.
+"""
+Demo test runner.
 
 Runs demo scripts (demo-script.py) or declarative demos defined in test.toml.
 """
@@ -33,7 +34,8 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class DemoTestRunner:
-    """Runs demo tests.
+    """
+    Runs demo tests.
 
     A demo test can be either:
     - Script-based: Runs a demo-script.py file
@@ -61,7 +63,8 @@ class DemoTestRunner:
             self.console.set_verbosity(Verbosity.VERBOSE)
 
     def run(self, test: TestDefinition) -> TestResult:
-        """Run a demo test.
+        """
+        Run a demo test.
 
         Args:
             test: The test definition
@@ -81,7 +84,8 @@ class DemoTestRunner:
         return self._run_script(test)
 
     def _run_script(self, test: TestDefinition) -> TestResult:
-        """Run a script-based demo.
+        """
+        Run a script-based demo.
 
         Demos are run using the demos' own infrastructure (demos/demo.py CLI),
         which provides the proper context, backends, and utilities that demo
@@ -169,7 +173,8 @@ class DemoTestRunner:
         )
 
     def _resolve_demo_cli(self, test: TestDefinition) -> tuple[Path, Path] | TestResult:
-        """Resolve (demos_root, demo_cli) or return a short-circuit TestResult.
+        """
+        Resolve (demos_root, demo_cli) or return a short-circuit TestResult.
 
         Pure path-existence checks; no I/O beyond ``Path.exists()``. Lives
         outside ``_run_script``'s try-block so the protected region matches
@@ -221,7 +226,8 @@ class DemoTestRunner:
         return cmd
 
     def _find_demos_root(self, demo_dir: Path) -> Path | None:
-        """Find the demos root directory containing demo.py.
+        """
+        Find the demos root directory containing demo.py.
 
         Walks up from the demo directory to find the demos/ root.
 
@@ -242,7 +248,8 @@ class DemoTestRunner:
         return None
 
     def _run_declarative(self, test: TestDefinition) -> TestResult:
-        """Run a declarative demo.
+        """
+        Run a declarative demo.
 
         Args:
             test: The test definition
@@ -380,7 +387,8 @@ class DemoTestRunner:
         demo_dir: Path,
         deployed_apps: list[str],
     ) -> ValidationResult | None:
-        """Run a single demo step.
+        """
+        Run a single demo step.
 
         Args:
             step: The step to run

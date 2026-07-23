@@ -1,7 +1,8 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Regression tests: `hop3 app destroy` must tear down attached addons.
+"""
+Regression tests: `hop3 app destroy` must tear down attached addons.
 
 Without this, addon resources leak forever — most visibly the Redis
 logical-db slots (only 1-15 exist), which exhaust after 15 redis apps and

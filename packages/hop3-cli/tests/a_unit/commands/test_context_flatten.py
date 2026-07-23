@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Context flatten-on-deploy (ADR 042 r2, step E1).
+"""
+Context flatten-on-deploy (ADR 042 r2, step E1).
 
 When a context is selected, the deploy uploads a hop3.toml with the context's
 env/domains merged into the top level and all ``[contexts.*]`` stripped — the

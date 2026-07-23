@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for `addon expose` / `addon unexpose` commands + destroy teardown.
+"""
+Unit tests for `addon expose` / `addon unexpose` commands + destroy teardown.
 
 The expose helper is mocked; these cover the command-level argument/resolution
 logic (source/host resolution, ambiguity, the source=any warning, teardown).

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""The Elixir toolchain must not wipe a release that before-build produced.
+"""
+The Elixir toolchain must not wipe a release that before-build produced.
 
 Phoenix deploys run `MIX_ENV=prod mix release` in `before-build`, which writes
 `_build/prod/rel/<app>/bin/<app>`. The toolchain (which runs afterwards) used to

@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""A failed startup must say what actually happened.
+"""
+A failed startup must say what actually happened.
 
 The wait gives up for two unrelated reasons: the deadline elapsed, or the app
 crashed on every respawn and waiting became pointless. Both used to return a
@@ -45,8 +46,10 @@ def test_a_crash_loop_is_not_reported_as_a_timeout():
 
 
 def test_a_crash_loop_says_the_timeout_was_never_reached():
-    """Naming the elapsed time and the unreached deadline together stops the
-    reader from assuming a slow app."""
+    """
+    Naming the elapsed time and the unreached deadline together stops the
+    reader from assuming a slow app.
+    """
     message = _abort_message(StartOutcome(started=False, crash_looped=True, elapsed=11))
     assert "11s" in message
     assert "never reached" in message

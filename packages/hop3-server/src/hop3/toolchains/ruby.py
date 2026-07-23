@@ -20,7 +20,8 @@ if TYPE_CHECKING:
 
 
 class RubyToolchain(LanguageToolchain):
-    """Language toolchain for Ruby projects.
+    """
+    Language toolchain for Ruby projects.
 
     This is responsible for setting up and building Ruby projects. It
     checks for the existence of a Gemfile to confirm it is a Ruby
@@ -115,7 +116,8 @@ class RubyToolchain(LanguageToolchain):
         return env
 
     def make_virtual_env(self, env: Env) -> None:
-        """Create a virtual environment for the specified environment.
+        """
+        Create a virtual environment for the specified environment.
 
         Args:
         ----

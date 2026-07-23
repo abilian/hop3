@@ -1,7 +1,8 @@
 # Copyright (c) 2024-2025 Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Nix build plugin for Hop3.
+"""
+Nix build plugin for Hop3.
 
 This plugin provides NixBuilder, which builds applications using
 user-provided hop3.nix files. Phase 1 of Nix integration.

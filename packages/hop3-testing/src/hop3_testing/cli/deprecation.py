@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Deprecation notices for the hop3-test CLI (ADR 052 Migration).
+"""
+Deprecation notices for the hop3-test CLI (ADR 052 Migration).
 
 Old command/flag spellings stay accepted for one release and print a one-line
 stderr notice pointing at the canonical name. hop3-testing deliberately does not

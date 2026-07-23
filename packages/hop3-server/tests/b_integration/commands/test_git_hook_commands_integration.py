@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Integration tests for git hook command using state-based testing.
+"""
+Integration tests for git hook command using state-based testing.
 
 This module tests git hook commands using real database interactions:
 - Uses real database instead of mocks (via db_session fixture)
@@ -34,7 +35,8 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def test_git_app(db_session: Session, tmp_path: Path, monkeypatch) -> Iterator[App]:
-    """Create a test application with git repository structure.
+    """
+    Create a test application with git repository structure.
 
     Args:
         db_session: Database session
@@ -77,7 +79,8 @@ class TestGitHookCmdIntegration:
     """Integration tests for GitHookCmd using state-based testing."""
 
     def test_git_hook_requires_app_name(self, db_session: Session):
-        """Test that git-hook command requires an app name.
+        """
+        Test that git-hook command requires an app name.
 
         ARRANGE:
             - Create command instance without app name argument
@@ -94,7 +97,8 @@ class TestGitHookCmdIntegration:
             cmd.call()
 
     def test_git_hook_app_not_found(self, db_session: Session):
-        """Test error when app is not found in database.
+        """
+        Test error when app is not found in database.
 
         ARRANGE:
             - Database with no apps
@@ -115,7 +119,8 @@ class TestGitHookCmdIntegration:
         assert "not found" in result[0]["text"]
 
     def test_git_hook_no_stdin_data(self, db_session: Session, test_git_app: App):
-        """Test error when no push data is received from stdin.
+        """
+        Test error when no push data is received from stdin.
 
         ARRANGE:
             - Create app in database
@@ -141,7 +146,8 @@ class TestGitHookCmdIntegration:
     def test_git_hook_invalid_push_data_format(
         self, db_session: Session, test_git_app: App
     ):
-        """Test error with invalid push data format.
+        """
+        Test error with invalid push data format.
 
         ARRANGE:
             - Create app in database
@@ -167,7 +173,8 @@ class TestGitHookCmdIntegration:
     def test_git_hook_successful_deployment(
         self, db_session: Session, test_git_app: App
     ):
-        """Test successful deployment from git push.
+        """
+        Test successful deployment from git push.
 
         ARRANGE:
             - Create app in database
@@ -211,7 +218,8 @@ class TestGitHookCmdIntegration:
     def test_git_hook_extract_commit_to_source(
         self, db_session: Session, test_git_app: App
     ):
-        """Test commit extraction from git repository.
+        """
+        Test commit extraction from git repository.
 
         ARRANGE:
             - Create app with temporary git repository paths
@@ -251,7 +259,8 @@ class TestGitHookCmdIntegration:
     def test_git_hook_handles_multiple_refs_first_only(
         self, db_session: Session, test_git_app: App
     ):
-        """Test handling of multiple refs in push data (processes first ref only).
+        """
+        Test handling of multiple refs in push data (processes first ref only).
 
         ARRANGE:
             - Create app in database
@@ -293,7 +302,8 @@ bb563327e2c4f5af8g7g09552gb67057eecde7b25 79g8bcg5f7g033918900g63cd054fce42c80g9
     def test_git_hook_deployment_failure_handling(
         self, db_session: Session, test_git_app: App
     ):
-        """Test error handling when deployment fails.
+        """
+        Test error handling when deployment fails.
 
         ARRANGE:
             - Create app in database
@@ -329,7 +339,8 @@ bb563327e2c4f5af8g7g09552gb67057eecde7b25 79g8bcg5f7g033918900g63cd054fce42c80g9
     def test_git_hook_branch_name_extraction(
         self, db_session: Session, test_git_app: App
     ):
-        """Test branch name extraction from git ref.
+        """
+        Test branch name extraction from git ref.
 
         ARRANGE:
             - Create app in database
@@ -362,7 +373,8 @@ bb563327e2c4f5af8g7g09552gb67057eecde7b25 79g8bcg5f7g033918900g63cd054fce42c80g9
     def test_git_hook_subprocess_error_handling(
         self, db_session: Session, test_git_app: App
     ):
-        """Test error handling when subprocess calls fail.
+        """
+        Test error handling when subprocess calls fail.
 
         ARRANGE:
             - Create app in database
@@ -391,7 +403,8 @@ bb563327e2c4f5af8g7g09552gb67057eecde7b25 79g8bcg5f7g033918900g63cd054fce42c80g9
     def test_git_hook_source_directory_cleanup(
         self, db_session: Session, test_git_app: App, tmp_path: Path
     ):
-        """Test that existing source directory is cleaned before extraction.
+        """
+        Test that existing source directory is cleaned before extraction.
 
         ARRANGE:
             - Create app with existing files in source directory
@@ -433,7 +446,8 @@ bb563327e2c4f5af8g7g09552gb67057eecde7b25 79g8bcg5f7g033918900g63cd054fce42c80g9
     def test_git_hook_whitespace_handling_in_push_data(
         self, db_session: Session, test_git_app: App
     ):
-        """Test proper handling of whitespace in push data.
+        """
+        Test proper handling of whitespace in push data.
 
         ARRANGE:
             - Create app in database
@@ -465,7 +479,8 @@ bb563327e2c4f5af8g7g09552gb67057eecde7b25 79g8bcg5f7g033918900g63cd054fce42c80g9
     def test_git_hook_short_commit_sha_display(
         self, db_session: Session, test_git_app: App
     ):
-        """Test that commit SHA is displayed in short form (first 8 chars).
+        """
+        Test that commit SHA is displayed in short form (first 8 chars).
 
         ARRANGE:
             - Create app in database

@@ -28,7 +28,8 @@ def _read_secret_key_file() -> str | None:
 
 
 def _write_secret_key_file(secret_key: str) -> None:
-    """Persist the signing key to /etc/hop3/secret-key, 0640 root:hop3.
+    """
+    Persist the signing key to /etc/hop3/secret-key, 0640 root:hop3.
 
     This is the single source the running service and the su-hop3 CLI both read
     (ADR 048). Mirrors the redis-pass writer: chown is best-effort (the hop3
@@ -47,7 +48,8 @@ def _write_secret_key_file(secret_key: str) -> None:
 
 
 def setup_environment_file(config: ServerInstallerConfig | None = None) -> str:
-    """Create /etc/default/hop3 with required environment variables.
+    """
+    Create /etc/default/hop3 with required environment variables.
 
     Args:
         config: Server installer config with ACME settings
@@ -121,7 +123,8 @@ HOP3_SECRET_KEY={secret_key}
 
 
 def setup_systemd(config: ServerInstallerConfig | None = None) -> str:
-    """Install and enable systemd services.
+    """
+    Install and enable systemd services.
 
     Args:
         config: Server installer config with ACME settings

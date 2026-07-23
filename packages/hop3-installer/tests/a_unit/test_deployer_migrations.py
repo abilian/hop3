@@ -63,7 +63,8 @@ class TestRunMigrations:
 
 
 class TestUpdatePathsRunMigrationsBeforeRestart:
-    """Each update path must run migrations before the systemctl restart.
+    """
+    Each update path must run migrations before the systemctl restart.
 
     This is the essential invariant: a failed migration must leave the
     OLD server running on the OLD schema, not the NEW server crashing
@@ -74,7 +75,8 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
         return [call.args[0] for call in backend.run.call_args_list]
 
     def _ordered_calls(self, backend) -> list[tuple[str, str]]:
-        """(method, first-arg) for every backend call, in order.
+        """
+        (method, first-arg) for every backend call, in order.
 
         The restart moved from a ``run("systemctl restart hop3-server")``
         shell-out to the backend's ``restart_service(...)`` method (pm-aware:
@@ -104,7 +106,8 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
         )
 
     def test_features_install_does_not_reinstall_hop3_server(self, config, backend):
-        """Regression: features step must not reinstall hop3-server from PyPI.
+        """
+        Regression: features step must not reinstall hop3-server from PyPI.
 
         Without --skip-package-install, every deploy that triggers
         _install_features (which is every deploy with --with set, and the
@@ -140,7 +143,8 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
         )
 
     def test_update_local_code_uninstalls_before_install(self, config, backend):
-        """The local-code path must uninstall before installing.
+        """
+        The local-code path must uninstall before installing.
 
         Without this, repeated --local deploys can leave a stale .dist-info
         on disk while writing new code into hop3/, so
