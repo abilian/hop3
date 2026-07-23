@@ -16,7 +16,7 @@ import urllib.request
 from base64 import b64decode
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from hop3.core.backup import BackupManager
 from hop3.core.identifiers import validate_app_name
@@ -162,7 +162,7 @@ class LaunchCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("app", "create")
     aliases: ClassVar[list[tuple[str, ...]]] = [("app", "launch")]
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, rest = pop_app_flag(args)
         if app_name is None or len(rest) != 1:
             msg = "Usage: hop launch <repo_url> --app <app_name>"
@@ -218,7 +218,7 @@ class DeployCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("deploy",)
 
-    def call(self, *args, **kwargs):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         # allow_extra: `hop3 deploy --app X <dir>` forwards the source-dir
         # positional to the server, which ignores it (the source arrives as the
         # uploaded tarball in kwargs). Deploy legitimately carries that trailing
@@ -259,7 +259,7 @@ class DeployCmd(Command):
         # deploy. See deployers.deployer.stop_previous_instance.
         stop_previous_instance(app)
 
-        archives_bytes = b64decode(kwargs["repository"])
+        archives_bytes = b64decode(cast("str", kwargs["repository"]))
         extract_archive_to_dir(archives_bytes, app.src_path)
 
         # Load ENV file from deployed source (provides defaults for HOST_NAME, etc.)
@@ -274,7 +274,7 @@ class DeployCmd(Command):
         merged_env.update(existing_env)
 
         # Handle --env flags from CLI (highest priority)
-        env_vars_from_cli = kwargs.get("env_vars", {})
+        env_vars_from_cli = cast("dict[str, str]", kwargs.get("env_vars", {}))
         if env_vars_from_cli:
             merged_env.update(env_vars_from_cli)
             server_log.info(
@@ -407,7 +407,7 @@ class StatusCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("app", "status")
     aliases: ClassVar[list[tuple[str, ...]]] = [("status",)]
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
         if not app_name:
             msg = "Usage: hop3 app status [--app <app>]"
@@ -480,7 +480,7 @@ class PingCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "ping")
 
-    def call(self, *args):  # ruff:ignore[too-many-return-statements] — each return is a distinct HTTP/network outcome (stopped, no-port, success, HTTPError, connection-refused, generic URLError, timeout) with its own formatted response; flattening would just rebuild the same shape with mutable bookkeeping.
+    def call(self, *args: str, **kwargs: object) -> list[dict]:  # ruff:ignore[too-many-return-statements] — each return is a distinct HTTP/network outcome (stopped, no-port, success, HTTPError, connection-refused, generic URLError, timeout) with its own formatted response; flattening would just rebuild the same shape with mutable bookkeeping.
         app_name, rest = _resolve_app(args, allow_extra=True)
         if not app_name:
             msg = "Usage: hop3 app ping [--app <app>] [path]"
@@ -554,7 +554,7 @@ class PingCmd(Command):
             return [error(f"Error pinging app: {e}")]
 
 
-def _build_log_response(app, app_name: str) -> list[dict]:
+def _build_log_response(app: App, app_name: str) -> list[dict]:
     """Build-log output, shared by `app logs --build` and `app build-logs`."""
     build_log_path = app.app_path / "log" / "build.log"
     if not build_log_path.exists():
@@ -604,7 +604,7 @@ class LogsCmd(Command):
         "build": {"flag": True, "default": False},
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         app_name = parsed.get("app")
 
@@ -665,7 +665,7 @@ class BuildLogsCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("app", "build-logs")
     hidden: ClassVar[bool] = True
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
         if not app_name:
             msg = "Usage: hop3 app build-logs [--app <app>]"
@@ -689,7 +689,7 @@ class StartCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "start")
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
         if not app_name:
             msg = "Usage: hop3 app start [--app <app>]"
@@ -731,7 +731,7 @@ class StopCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "stop")
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
         if not app_name:
             msg = "Usage: hop3 app stop [--app <app>]"
@@ -774,7 +774,7 @@ class RestartCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("app", "restart")
     aliases: ClassVar[list[tuple[str, ...]]] = [("restart",)]
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
         if not app_name:
             msg = "Usage: hop3 app restart [--app <app>]"
@@ -813,7 +813,7 @@ class DestroyCmd(Command):
     aliases: ClassVar[list[tuple[str, ...]]] = [("destroy",)]
     destructive: ClassVar[bool] = True
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
         if not app_name:
             return [text("Usage: hop3 app destroy [--app <app>] [--force]")]
@@ -898,7 +898,7 @@ class DestroyCmd(Command):
             response.append(summary(f"destroyed {app_name}."))
         return response
 
-    def _destroy_addons(self, app) -> None:
+    def _destroy_addons(self, app: App) -> None:
         """
         Destroy addons attached to this app, freeing their resources.
 
@@ -996,7 +996,7 @@ class CredentialsCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "credentials")
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
         if not app_name:
             msg = "Usage: hop3 app credentials [--app <app>]"
@@ -1044,7 +1044,7 @@ class DebugCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "debug")
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
         if not app_name:
             return [
@@ -1082,7 +1082,7 @@ class DebugCmd(Command):
 
         return sections
 
-    def _get_status_section(self, app) -> list[dict[str, Any]]:
+    def _get_status_section(self, app: App) -> list[dict[str, Any]]:
         """Get app status information."""
         actual_state = app.check_actual_status()
         db_state = app.run_state
@@ -1134,7 +1134,7 @@ class DebugCmd(Command):
 
         return result
 
-    def _get_container_section(self, app) -> list[dict[str, Any]]:
+    def _get_container_section(self, app: App) -> list[dict[str, Any]]:
         """Get Docker container information."""
         result: list[dict[str, Any]] = [text("\n=== CONTAINER INFO ===")]
 
@@ -1173,7 +1173,7 @@ class DebugCmd(Command):
 
         return result
 
-    def _get_logs_section(self, app) -> list[dict[str, Any]]:
+    def _get_logs_section(self, app: App) -> list[dict[str, Any]]:
         """Get recent logs."""
         result: list[dict[str, Any]] = [text("\n=== RECENT LOGS (last 20 lines) ===")]
 
@@ -1188,7 +1188,7 @@ class DebugCmd(Command):
 
         return result
 
-    def _get_env_section(self, app) -> list[dict[str, Any]]:
+    def _get_env_section(self, app: App) -> list[dict[str, Any]]:
         """Get environment variables (redacted)."""
         result: list[dict[str, Any]] = [text("\n=== ENVIRONMENT VARIABLES ===")]
 
@@ -1208,7 +1208,7 @@ class DebugCmd(Command):
 
         return result
 
-    def _get_compose_section(self, app) -> list[dict[str, Any]]:
+    def _get_compose_section(self, app: App) -> list[dict[str, Any]]:
         """Get generated compose file content."""
         result: list[dict[str, Any]] = [text("\n=== GENERATED COMPOSE FILE ===")]
 
@@ -1276,7 +1276,7 @@ class AppUpgradeCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "upgrade")
 
-    def call(self, *args) -> list[dict]:
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
         if not app_name:
             msg = "Usage: hop3 app upgrade [--app <app>]"
@@ -1363,7 +1363,7 @@ class AppRollbackCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("app", "rollback")
     destructive: ClassVar[bool] = True
 
-    def call(self, *args) -> list[dict]:
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, rest = _resolve_app(args, allow_extra=True)
         if not app_name:
             msg = "Usage: hop3 app rollback [--app <app>] [--to <backup-id>]"

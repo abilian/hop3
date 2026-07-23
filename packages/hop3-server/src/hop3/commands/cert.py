@@ -50,7 +50,7 @@ class CertStatusCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("cert", "status")
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         apps = AppRepository(session=self.db_session).list_all_ordered()
         rows = [
             [
@@ -93,7 +93,7 @@ class CertRenewCmd(Command):
         "days": {"type": int, "default": 30},
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         only_app = parsed.get("app")
         force = bool(parsed.get("force"))

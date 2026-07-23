@@ -29,7 +29,7 @@ class Environ(MutableMapping[str, str]):
     A wrapper around os.environ that prevents setting or deleting values that have already been read.
     """
 
-    def __init__(self, environ: MutableMapping[str, str] = os.environ):
+    def __init__(self, environ: MutableMapping[str, str] = os.environ) -> None:
         self._environ = environ
         self._has_been_read: set[str] = set()
 
@@ -99,11 +99,24 @@ class Config:
     ) -> Any:
         return self.get(key, cast, default)
 
+    @overload
+    def get(self, key: str) -> str: ...
+    @overload
+    def get(self, key: str, *, default: None) -> str | None: ...
+    @overload
+    def get(self, key: str, *, default: str) -> str: ...
+    @overload
+    def get(
+        self, key: str, cast: type[T] | Callable[[Any], T], default: object = ...
+    ) -> T: ...
+    @overload
+    def get(self, key: str, cast: None, default: object = ...) -> object: ...
+
     def get(
         self,
         key: str,
-        cast: Callable[[Any], Any] | None = None,
-        default: Any = Undefined,
+        cast: type[Any] | Callable[[Any], Any] | None = None,
+        default: object = Undefined,
     ) -> Any:
         key = self.env_prefix + key
         if key in self.environ:
@@ -117,27 +130,27 @@ class Config:
         msg = f"Config '{key}' is missing, and has no default."
         raise KeyError(msg)
 
-    def get_str(self, key: str, default: Any = Undefined) -> str:
+    def get_str(self, key: str, default: object = Undefined) -> str:
         return self.get(key, str, default)
 
-    def get_int(self, key: str, default: Any = Undefined) -> int:
+    def get_int(self, key: str, default: object = Undefined) -> int:
         return self.get(key, int, default)
 
-    def get_float(self, key: str, default: Any = Undefined) -> float:
+    def get_float(self, key: str, default: object = Undefined) -> float:
         return self.get(key, float, default)
 
-    def get_bool(self, key: str, default: Any = Undefined) -> bool:
+    def get_bool(self, key: str, default: object = Undefined) -> bool:
         return self.get(key, bool, default)
 
-    def get_path(self, key: str, default: Any = Undefined) -> Path:
+    def get_path(self, key: str, default: object = Undefined) -> Path:
         return self.get(key, Path, default)
 
     def _perform_cast(
         self,
         key: str,
-        value: Any,
+        value: object,
         cast: Callable[[Any], Any] | None = None,
-    ) -> Any:
+    ) -> object:
         if cast is None or value is None:
             return value
         if cast is bool and isinstance(value, str):

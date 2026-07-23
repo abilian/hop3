@@ -39,7 +39,7 @@ from .console import log
 from .shell import shell
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
 # Retry settings for robust deletion
 RMTREE_MAX_RETRIES = 3
@@ -208,7 +208,7 @@ def try_commands(
     raise CommandError([], f"all methods failed: {error_details}")
 
 
-def check_binaries(binaries) -> bool:
+def check_binaries(binaries: list[str]) -> bool:
     """
     Check if all the binaries exist and are executable.
 
@@ -227,7 +227,7 @@ def check_binaries(binaries) -> bool:
     return all(requirements)
 
 
-def sanitize_app_name(app) -> str:
+def sanitize_app_name(app: str) -> str:
     """
     Sanitize the app name by removing invalid characters and trimming
     leading slashes.
@@ -270,7 +270,7 @@ def is_port_free(port: int, address: str = "127.0.0.1") -> bool:
         return False
 
 
-def get_free_port(address="") -> int:
+def get_free_port(address: str = "") -> int:
     """
     Find a free TCP port on the host system, selected at random.
 
@@ -316,7 +316,7 @@ def command_output(cmd: str | list[str]) -> str:
         return ""
 
 
-def multi_tail(filenames, catch_up=20) -> Iterator:
+def multi_tail(filenames: list[str | Path], catch_up: int = 20) -> Iterator[str]:
     """
     Tail multiple log files.
 
@@ -360,7 +360,9 @@ def robust_rmtree(path: Path | str) -> None:
         path.unlink()
         return
 
-    def handle_remove_readonly(func, filepath, exc):
+    def handle_remove_readonly(
+        func: Callable[..., object], filepath: str, exc: BaseException
+    ) -> None:
         """Error handler that fixes read-only permissions and retries."""
         # If it's a permission error, try to fix permissions and retry
         if isinstance(exc, PermissionError):

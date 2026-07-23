@@ -134,7 +134,7 @@ def to_cgroup_args(resolved: ResolvedLimits) -> dict[str, Any]:
     return args
 
 
-def _exceeds(dim: str, value: Any, ceiling: Any) -> bool:
+def _exceeds(dim: str, value: float | str, ceiling: float | str) -> bool:
     """True if ``value`` exceeds ``ceiling`` for the given dimension."""
     if dim == "memory":
         return parse_memory_to_bytes(str(value)) > parse_memory_to_bytes(str(ceiling))

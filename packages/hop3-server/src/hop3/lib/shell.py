@@ -10,8 +10,12 @@ from __future__ import annotations
 import shlex
 import subprocess
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .console import log
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 __all__ = ["shell"]
 
@@ -20,19 +24,27 @@ _SHELL_OPERATORS = {"&&", "||", ";", "|", ">", ">>", "<", "$("}
 
 
 def shell(
-    command: str | list[str], cwd: Path | str = "", **kwargs
-) -> subprocess.CompletedProcess:
+    command: str | list[str],
+    cwd: Path | str = "",
+    *,
+    check: bool = True,
+    env: Mapping[str, str] | None = None,
+    timeout: float | None = None,
+) -> subprocess.CompletedProcess[str]:
     """
     Run a command with detailed error reporting.
 
     All output is routed through log() so it gets captured during deployments.
     Commands are executed safely without shell=True to prevent injection attacks.
+    Output is always captured (as text) so it can be logged and included in
+    error messages.
 
     Args:
         command: Command to execute (string or list of strings).
                  Strings are safely parsed with shlex.split().
         cwd: Working directory for the command
-        **kwargs: Additional arguments passed to subprocess.run
+        check: Raise CalledProcessError on a non-zero exit (default: True)
+        env: Environment for the command; inherits the parent environment when None
 
     Returns:
         CompletedProcess object
@@ -41,23 +53,24 @@ def shell(
         subprocess.CalledProcessError: If command fails, with stdout/stderr included
     """
     command_display, command_list = _parse_command(command)
-    cwd = _resolve_cwd(cwd)
+    resolved_cwd = _resolve_cwd(cwd)
 
-    log(f"Calling: '{command_display}' in directory: '{cwd}'", level=2, fg="blue")
-
-    if cwd:
-        kwargs["cwd"] = str(cwd)
-
-    # Capture output for better error messages, but still show it
-    if "capture_output" not in kwargs and "stdout" not in kwargs:
-        kwargs["capture_output"] = True
-        kwargs["text"] = True
-
-    # Allow caller to override check behavior (default: True)
-    check = kwargs.pop("check", True)
+    log(
+        f"Calling: '{command_display}' in directory: '{resolved_cwd}'",
+        level=2,
+        fg="blue",
+    )
 
     try:
-        result = subprocess.run(command_list, **kwargs, check=check)
+        result = subprocess.run(
+            command_list,
+            cwd=str(resolved_cwd),
+            env=dict(env) if env is not None else None,
+            capture_output=True,
+            text=True,
+            check=check,
+            timeout=timeout,
+        )
         if result.stdout:
             _log_output(result.stdout, level=2)
         return result

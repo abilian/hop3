@@ -43,7 +43,7 @@ class PortsCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("port", "list")
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         if args:
             got = " ".join(args)
             msg = f"'hop3 port list' takes no arguments (got: {got})."

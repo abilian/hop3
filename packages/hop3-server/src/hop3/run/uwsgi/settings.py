@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from pathlib import Path
     from typing import Self
 
@@ -20,7 +21,7 @@ __all__ = ["UwsgiSettings"]
 class UwsgiSettings:
     values: list[tuple[str, str]] = field(default_factory=list)
 
-    def add(self, key, value) -> None:
+    def add(self, key: str, value: object) -> None:
         """
         Add a key-value pair to the collection.
 
@@ -30,7 +31,7 @@ class UwsgiSettings:
         """
         self.values.append((key, str(value)))
 
-    def append(self, item) -> None:
+    def append(self, item: tuple[str, object]) -> None:
         """
         Append an item to the collection by adding its elements.
 
@@ -39,7 +40,7 @@ class UwsgiSettings:
         """
         self.add(item[0], item[1])
 
-    def extend(self, items) -> None:
+    def extend(self, items: Iterable[tuple[str, object]]) -> None:
         """
         Append multiple items to the end of the list.
 
@@ -49,7 +50,7 @@ class UwsgiSettings:
         for item in items:
             self.append(item)
 
-    def __iadd__(self, items) -> Self:
+    def __iadd__(self, items: Iterable[tuple[str, object]]) -> Self:
         """
         In-place addition operator (+=) for the object.
 

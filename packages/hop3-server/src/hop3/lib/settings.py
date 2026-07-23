@@ -15,7 +15,9 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
 
-def write_settings(settings_file: str | Path, bag: Mapping, separator="=") -> None:
+def write_settings(
+    settings_file: str | Path, bag: Mapping, separator: str = "="
+) -> None:
     """Write out config files."""
     path = Path(settings_file)
     path.parent.mkdir(parents=True, exist_ok=True)

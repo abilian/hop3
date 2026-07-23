@@ -26,6 +26,8 @@ from hop3.lib import Abort, get_free_port, log, robust_rmtree
 from hop3.run.spawn import spawn_app
 
 if TYPE_CHECKING:
+    from sqlalchemy.engine.interfaces import Dialect
+
     from .addon_credential import AddonCredential
     from .app_admin_credential import AppAdminCredential
     from .env import EnvVar
@@ -56,19 +58,27 @@ class IntEnum(TypeDecorator):
     impl = SQLInteger
     cache_ok = True
 
-    def __init__(self, enum_class):
+    def __init__(self, enum_class: type[Enum]) -> None:
         self.enum_class = enum_class
         super().__init__()
 
-    def process_bind_param(self, value, dialect):
+    def process_bind_param(self, value: object, dialect: Dialect) -> int | None:
         """Convert enum to integer for storage."""
         if value is None:
             return None
         if isinstance(value, self.enum_class):
             return value.value
-        return value
+        # A value already in storage form (e.g. a raw int bound via a literal
+        # query); an Integer column only ever binds an int here.
+        if isinstance(value, int):
+            return value
+        msg = (
+            f"{type(self).__name__} can't bind {value!r}: "
+            f"expected {self.enum_class.__name__} or int"
+        )
+        raise TypeError(msg)
 
-    def process_result_value(self, value, dialect):
+    def process_result_value(self, value: object, dialect: Dialect) -> Enum | None:
         """Convert integer to enum when reading."""
         if value is None:
             return None

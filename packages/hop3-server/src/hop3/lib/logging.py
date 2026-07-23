@@ -31,7 +31,6 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Any
 
 # Import config module - may fail during early bootstrap
 try:
@@ -89,7 +88,7 @@ class ServerLogger:
     Automatically includes timestamps and formats messages consistently.
     """
 
-    def __init__(self, name: str = "hop3.server"):
+    def __init__(self, name: str = "hop3.server") -> None:
         self.logger = logging.getLogger(name)
         self._configured = False
 
@@ -142,34 +141,34 @@ class ServerLogger:
             "Hop3 server logging initialized", extra={"log_file": str(log_file)}
         )
 
-    def _format_message(self, msg: str, **kwargs: Any) -> str:
+    def _format_message(self, msg: str, **kwargs: object) -> str:
         """Format message with key=value pairs."""
         if not kwargs:
             return msg
         pairs = " ".join(f"{k}={v!r}" for k, v in kwargs.items())
         return f"{msg} | {pairs}"
 
-    def debug(self, msg: str, **kwargs: Any) -> None:
+    def debug(self, msg: str, **kwargs: object) -> None:
         """Log debug message (verbose, for troubleshooting)."""
         self._ensure_configured()
         self.logger.debug(self._format_message(msg, **kwargs))
 
-    def info(self, msg: str, **kwargs: Any) -> None:
+    def info(self, msg: str, **kwargs: object) -> None:
         """Log info message (normal operations)."""
         self._ensure_configured()
         self.logger.info(self._format_message(msg, **kwargs))
 
-    def warning(self, msg: str, **kwargs: Any) -> None:
+    def warning(self, msg: str, **kwargs: object) -> None:
         """Log warning message (something unexpected but not fatal)."""
         self._ensure_configured()
         self.logger.warning(self._format_message(msg, **kwargs))
 
-    def error(self, msg: str, **kwargs: Any) -> None:
+    def error(self, msg: str, **kwargs: object) -> None:
         """Log error message (operation failed)."""
         self._ensure_configured()
         self.logger.error(self._format_message(msg, **kwargs))
 
-    def exception(self, msg: str, **kwargs: Any) -> None:
+    def exception(self, msg: str, **kwargs: object) -> None:
         """Log error with exception traceback (call from within except block)."""
         self._ensure_configured()
         # this method is designed to be called from within except blocks

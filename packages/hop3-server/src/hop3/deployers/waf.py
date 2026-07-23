@@ -286,7 +286,7 @@ def _write_proxy_vassal(app_name: str, cmd: list[str]) -> None:
     shutil.copyfile(available, enabled)
 
 
-def _daemon_command(cmd: list[str], log_file) -> str:
+def _daemon_command(cmd: list[str], log_file: Path) -> str:
     """
     The uWSGI ``attach-daemon`` shell string that runs the proxy ``cmd``.
 

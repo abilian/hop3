@@ -67,7 +67,7 @@ class RootdOpError(RootdError):
     Callers can branch on `code` for different recovery paths.
     """
 
-    def __init__(self, code: str, message: str):
+    def __init__(self, code: str, message: str) -> None:
         super().__init__(f"rootd op error [{code}]: {message}")
         self.code = code
         self.message = message
@@ -93,7 +93,7 @@ class LocalRootdClient:
         self,
         socket_path: Path = DEFAULT_SOCKET_PATH,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
-    ):
+    ) -> None:
         self.socket_path = socket_path
         self.timeout = timeout
         self._sock: socket.socket | None = None

@@ -66,7 +66,7 @@ class AppConfig:
         return workers
 
     @property
-    def web_workers(self):
+    def web_workers(self) -> dict:
         """
         Get web worker processes.
 
@@ -187,7 +187,7 @@ class AppConfig:
         return []
 
     @property
-    def src_dir(self):
+    def src_dir(self) -> Path:
         return self.app_dir / "src"
 
     @classmethod
@@ -257,7 +257,7 @@ class AppConfig:
             self.hop3_config = Hop3Config()
             self.has_hop3_toml = False
 
-    def get_worker(self, name: str):
+    def get_worker(self, name: str) -> str:
         """
         Retrieve a worker's details by name from the procfile.
 

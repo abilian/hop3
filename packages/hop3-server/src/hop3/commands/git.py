@@ -41,7 +41,7 @@ class GitHookCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("git-hook",)
     hidden: ClassVar[bool] = True  # Internal command, called by git hook
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         """
         Process git post-receive hook data and trigger deployment.
 
@@ -208,7 +208,7 @@ class GitSetupCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("git", "setup")
     hidden: ClassVar[bool] = True
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _rest = pop_app_flag(args)
 
         if app_name is None:

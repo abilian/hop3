@@ -344,7 +344,7 @@ class StatusCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("system", "status")
 
-    def call(self, *args, **kwargs):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         quiet = "--quiet" in args or "-q" in args
         json_mode = "--json" in args
 
@@ -639,7 +639,7 @@ class InfoCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("system", "info")
 
-    def call(self, *args, **kwargs):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         verbose = "--verbose" in args or "-v" in args
 
         version = importlib.metadata.version("hop3_server")
@@ -741,7 +741,7 @@ class SystemLogsCmd(Command):
         "grep": {"type": str, "default": ""},
     }
 
-    def call(self, *args, **kwargs):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         lines = parsed["lines"]
         since = parsed["since"] or None
@@ -778,7 +778,7 @@ class SystemLogsCmd(Command):
 
         return [text("".join(result_lines))]
 
-    def _parse_since(self, since: str):
+    def _parse_since(self, since: str) -> datetime | None:
         match = re.match(r"^(\d+)([smhd])$", since.lower())
         if not match:
             return None
@@ -794,7 +794,7 @@ class SystemLogsCmd(Command):
             return datetime.now(tz=timezone.utc) - delta
         return None
 
-    def _filter_by_time(self, lines: list[str], cutoff) -> list[str]:
+    def _filter_by_time(self, lines: list[str], cutoff: datetime) -> list[str]:
         result: list[str] = []
         for line in lines:
             if len(line) >= 19:
@@ -838,7 +838,7 @@ class CleanupCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("system", "cleanup")
 
-    def call(self, *args, **kwargs):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         dry_run = "--dry-run" in args
         include_all = "--all" in args
         include_volumes = "--volumes" in args

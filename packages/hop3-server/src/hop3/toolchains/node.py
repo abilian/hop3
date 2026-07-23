@@ -177,7 +177,7 @@ class NodeToolchain(LanguageToolchain):
         node_binary = self.virtual_env / "bin" / "node"
         if node_binary.exists():
             completed_process = self.shell(f"{node_binary} -v", env=env)
-            installed = completed_process.stdout.decode("utf8").rstrip("\n")
+            installed = completed_process.stdout.rstrip("\n")
         else:
             installed = ""
 

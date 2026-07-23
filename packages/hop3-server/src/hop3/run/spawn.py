@@ -40,7 +40,7 @@ from .uwsgi import spawn_uwsgi_worker
 _NIX_STORE_PATH_RE = re.compile(r"/nix/store/[a-z0-9]{32}-[^\s/]+")
 
 
-def _extract_nix_store_paths(commands) -> list[str]:
+def _extract_nix_store_paths(commands: Iterable[str]) -> list[str]:
     """The distinct `/nix/store/<hash>-<name>` roots referenced by worker commands."""
     paths: set[str] = set()
     for cmd in commands:
@@ -49,6 +49,9 @@ def _extract_nix_store_paths(commands) -> list[str]:
 
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from pathlib import Path
+
     from hop3.orm import App
 
 
@@ -169,7 +172,7 @@ class AppLauncher:
         return {k: v for k, v in workers.items() if k not in self._LIFECYCLE_HOOKS}
 
     @property
-    def web_workers(self):
+    def web_workers(self) -> dict:
         """Get web workers, preferring artifact over AppConfig."""
         web_worker_names = {"wsgi", "jwsgi", "rwsgi", "web"}
         return {k: v for k, v in self.workers.items() if k in web_worker_names}
@@ -254,7 +257,7 @@ class AppLauncher:
 
         return to_create, to_destroy
 
-    def _get_worker_counts(self, scaling) -> dict:
+    def _get_worker_counts(self, scaling: Path) -> dict:
         """
         Get worker counts from configuration and scaling file.
 
@@ -747,7 +750,7 @@ class AppLauncher:
 
         return env
 
-    def create_new_workers(self, to_create, env) -> None:
+    def create_new_workers(self, to_create: dict, env: Env) -> None:
         """
         Creates new workers for the given application.
 
@@ -772,7 +775,7 @@ class AppLauncher:
                 log(f"spawning '{self.app_name:s}:{kind:s}.{w:d}'", level=3)
                 spawn_uwsgi_worker(self.app_name, kind, self.workers[kind], env, w)
 
-    def remove_unnecessary_workers(self, to_destroy) -> None:
+    def remove_unnecessary_workers(self, to_destroy: dict) -> None:
         """
         Removes unnecessary worker configuration files based on the provided
         dictionary.

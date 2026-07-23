@@ -47,6 +47,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
     from hop3.core.artifacts import BuildArtifact
+    from hop3.core.protocols import DeploymentInfo
     from hop3.orm.app import App
     from hop3.project.hop3_config import Hop3Config
 
@@ -310,7 +311,7 @@ def _do_deploy(  # ruff:ignore[too-many-statements]
 
 
 def _update_app_model(
-    app: App, runtime: str, deployment_info, app_config: AppConfig
+    app: App, runtime: str, deployment_info: DeploymentInfo, app_config: AppConfig
 ) -> None:
     """
     Update the App model with deployment information.

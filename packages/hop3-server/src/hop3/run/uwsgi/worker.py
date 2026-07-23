@@ -31,7 +31,7 @@ def spawn_uwsgi_worker(
     kind: str,
     command: str,
     env: Env,
-    ordinal=1,
+    ordinal: int = 1,
 ) -> None:
     """
     Set up and deploy a single worker of a given kind.
@@ -238,7 +238,7 @@ class UwsgiWorker:
         self.settings.write(uwsgi_available_path)
         shutil.copyfile(uwsgi_available_path, uwsgi_enabled_path)
 
-    def log(self, message) -> None:
+    def log(self, message: str) -> None:
         """
         Logs a formatted message with a specified log level and color.
 

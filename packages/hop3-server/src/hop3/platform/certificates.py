@@ -135,10 +135,10 @@ class Certificate:
     def crt_file(self) -> Path:
         return KEY_STORE / f"{self.domain_name}.crt"
 
-    def get_key(self):
+    def get_key(self) -> str:
         return self.key_file.read_text()
 
-    def get_crt(self):
+    def get_crt(self) -> str:
         return self.crt_file.read_text()
 
     def not_after(self) -> datetime.datetime | None:

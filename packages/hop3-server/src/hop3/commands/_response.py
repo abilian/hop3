@@ -18,7 +18,10 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from hop3.lib.console import CapturingConsole
 
 
 def text(message: str) -> dict[str, Any]:
@@ -150,7 +153,9 @@ def logs_to_response(logs: list[dict]) -> list[dict[str, Any]]:
     ]
 
 
-def build_log_response(captured, final_messages: list[str]) -> list[dict[str, Any]]:
+def build_log_response(
+    captured: CapturingConsole, final_messages: list[str]
+) -> list[dict[str, Any]]:
     """
     Build response from captured logs and final status messages.
 
