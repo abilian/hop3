@@ -42,7 +42,7 @@ Tier 1 outranks Tier 2 despite both being auditable, because the difference is w
 
 ### Where the native and Docker builders sit
 
-Both sit below the tiers, and are named here so the comparison does not flatter Nix by silence.
+Both sit below the tiers.
 
 - **Native builder.** Dependency versions are pinned; a Python app is refused outright if its requirements float, per [ADR 039](./039-python-deploy-strategies.md). The build itself runs on the host, with network access and against whatever system libraries happen to be installed, so it has no seal. Repeatable in practice, guaranteed by nothing.
 - **Docker builder.** Base images are digest-pinned and app versions are explicit, while `RUN` steps have unrestricted network access and image builds embed timestamps. Bit-identical rebuilds are not claimed, and Hop3 makes no attempt to seal Docker ([ADR 033](./033-docker-integration.md)).
@@ -105,7 +105,7 @@ That last property turns a pin bump into a *measurement*. A bump can invalidate 
 
 Measuring it first matters because the pin is a shared resource and a bump is close to all-or-nothing. The corpus builds against one revision, so the revision cannot move until every recipe builds against the candidate, and a single blocked application withholds the security updates of all the others. The per-application override is the pressure valve, and it relieves pressure by fragmenting: an application parked on its own revision is an application whose nixpkgs must be maintained separately from the rest. Used deliberately for a package the default predates, that is a reasonable exception. Used to route around a bump, it converts one revision to maintain into several.
 
-This is the trade the Nix path makes, and it is worth stating plainly rather than discovering during an upgrade. Integration work that a distribution performs once on behalf of all its users moves to whoever owns the pin. Tier 1 hands that work back to nixpkgs, which is the substantive reason it outranks Tier 2 despite both being auditable.
+This is the trade the Nix path makes. Integration work that a distribution performs once on behalf of all its users moves to whoever owns the pin. Tier 1 hands that work back to nixpkgs, which is the substantive reason it outranks Tier 2 despite both being auditable.
 
 ### What the seal covers
 

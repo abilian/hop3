@@ -102,8 +102,6 @@ Sizes are **uncompressed**, in MB (1 MB = 10⁶ bytes). `memory.current` charges
 
 ## Known limitations of the current run
 
-Stated so nobody reads more into the numbers than they carry:
-
 - Every figure is **n=1** — no repeats, no confidence intervals.
 - Reproducibility is checked on **one** application (Tier-1); Tier-2/Tier-3 are unmeasured.
 - R2's "memory independent of app count" rests on **two points**, not a curve — apps are torn down after each `hop3-test` cycle, so the curve needs a persistent-deploy pass.
