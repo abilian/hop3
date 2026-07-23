@@ -157,8 +157,8 @@ def list_mounts(req: Request, ctx: OpContext) -> dict[str, Any]:
     """
     app_filter = req.args.get("app_name")
     if app_filter is not None:
-        validate_app_name(app_filter)
-        mounts = ctx.state.mounts_for_app(app_filter)
+        app_name = validate_app_name(app_filter)
+        mounts = ctx.state.mounts_for_app(app_name)
     else:
         mounts = list(ctx.state.mounts)
 

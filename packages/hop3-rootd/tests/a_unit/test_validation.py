@@ -8,6 +8,7 @@ from __future__ import annotations
 import pytest
 from hop3_rootd.validation import (
     PORT_RANGE_MAX_SIZE,
+    CgroupLimits,
     PortSpec,
     ValidationError,
     validate_addon_name,
@@ -506,3 +507,31 @@ def test_regex_validators_reject_a_trailing_newline(validator, value):
     assert validator(value) == value, "the base value must be valid, or this is vacuous"
     with pytest.raises(ValidationError):
         validator(value + "\n")
+
+
+# --- Dataclass construction invariants (parse-don't-validate) --------------
+#
+# The structural invariants are enforced by __post_init__, so an illegal
+# PortSpec / CgroupLimits can't be constructed by *any* path, not only the
+# wire parser.
+
+
+def test_port_spec_rejects_both_port_and_range():
+    with pytest.raises(ValidationError, match="exactly one of"):
+        PortSpec(
+            protocol="tcp",
+            app_name="app",
+            source="any",
+            port=80,
+            port_range=(1000, 2000),
+        )
+
+
+def test_port_spec_rejects_neither_port_nor_range():
+    with pytest.raises(ValidationError, match="exactly one of"):
+        PortSpec(protocol="tcp", app_name="app", source="any")
+
+
+def test_cgroup_limits_rejects_all_dimensions_none():
+    with pytest.raises(ValidationError, match="at least one"):
+        CgroupLimits(app_name="app")

@@ -130,9 +130,10 @@ def list_rules(req: Request, ctx: OpContext) -> dict[str, Any]:
     """
     app_filter = req.args.get("app_name")
     if app_filter is not None:
-        # Validate the filter format (defense in depth).
-        validate_app_name(app_filter)
-        rules = ctx.state.rules_for_app(app_filter)
+        # Parse the filter to a validated app name and use *that* (not the raw
+        # wire value) — defense in depth, and keeps the type honest.
+        app_name = validate_app_name(app_filter)
+        rules = ctx.state.rules_for_app(app_name)
     else:
         rules = list(ctx.state.rules)
 
