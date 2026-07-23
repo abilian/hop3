@@ -8,7 +8,10 @@ import pytest
 from hop3.core.env import Env
 from hop3.core.identifiers import InvalidIdentifierError
 from hop3.orm import App
-from hop3.plugins.proxy.nginx import NginxVirtualHost
+from hop3.plugins.proxy.nginx import (
+    NginxVirtualHost,
+    _setup as nginx_setup,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -141,9 +144,6 @@ from hop3.lib.console import Abort  # ruff:ignore[module-import-not-at-top-of-fi
 from hop3.lib.rootd import (  # ruff:ignore[module-import-not-at-top-of-file]
     RootdOpError,
     RootdUnavailableError,
-)
-from hop3.plugins.proxy.nginx import (
-    _setup as nginx_setup,
 )
 
 

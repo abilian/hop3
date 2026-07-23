@@ -13,7 +13,10 @@ no longer mentions the app) so it can confirm they're gone.
 
 from __future__ import annotations
 
-from hop3.plugins.deploy.uwsgi.deployer import _proc_belongs_to_app
+from hop3.plugins.deploy.uwsgi.deployer import (
+    UWSGIDeployer,
+    _proc_belongs_to_app,
+)
 
 
 def test_matches_sh_wrapper_by_cmdline():
@@ -77,9 +80,6 @@ from unittest.mock import (  # ruff:ignore[module-import-not-at-top-of-file]
 import pytest  # ruff:ignore[module-import-not-at-top-of-file]
 
 from hop3.orm import AppStateEnum  # ruff:ignore[module-import-not-at-top-of-file]
-from hop3.plugins.deploy.uwsgi.deployer import (
-    UWSGIDeployer,
-)
 
 
 def _deployer_with_app(transitions: list):

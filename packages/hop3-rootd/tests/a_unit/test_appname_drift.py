@@ -37,6 +37,12 @@ method, change its wrapper here in the same commit.
 from __future__ import annotations
 
 import pytest
+from hop3_rootd.validation import ValidationError, validate_app_name as rootd_validate
+
+from hop3.core.identifiers import (
+    InvalidIdentifierError,
+    validate_app_name as server_validate,
+)
 
 pytest.importorskip("mcpython", reason="drift proof needs mcpython (dev tool)")
 
@@ -86,13 +92,6 @@ test_appname_drift_properties = harness_tests(
 # honesty box). These observe the validators themselves: the raise IS the
 # rejection, so a method drift in validation.py or identifiers.py breaks
 # this with no edit here.
-
-from hop3_rootd.validation import ValidationError, validate_app_name as rootd_validate
-
-from hop3.core.identifiers import (
-    InvalidIdentifierError,
-    validate_app_name as server_validate,
-)
 
 
 def server_validates(s: str) -> bool:
