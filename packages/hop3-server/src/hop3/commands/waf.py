@@ -49,7 +49,7 @@ class WafStatusCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("waf", "status")
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         if args:
             return [text("Usage: hop3 waf status")]
         apps = AppRepository(session=self.db_session).list_all_ordered()
@@ -85,7 +85,7 @@ class WafLogsCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("waf", "logs")
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         if len(args) > 1:
             return [text("Usage: hop3 waf logs [<app>]")]
         app_filter = args[0] if args else None
@@ -141,7 +141,7 @@ class WafBansListCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("waf", "bans", "list")
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         if len(args) > 1:
             return [text("Usage: hop3 waf bans list [<app>]")]
         app_filter = args[0] if args else None
@@ -179,7 +179,7 @@ class WafBansClearCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("waf", "bans", "clear")
     destructive: ClassVar[bool] = True
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         if not (1 <= len(args) <= 2):
             return [text("Usage: hop3 waf bans clear <app> [<ip>]")]
         app_name = args[0]
@@ -227,7 +227,7 @@ class WafReconcileBansCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("waf", "reconcile-bans")
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         from hop3.project.config import (  # ruff:ignore[import-outside-top-level]
             AppConfig,
         )

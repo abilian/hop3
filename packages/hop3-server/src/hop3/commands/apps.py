@@ -98,7 +98,7 @@ class AppsCmd(Command):
     # resolved client-side in `hop3_cli.core.aliases.CORE_ALIASES`).
     name: ClassVar[tuple[str, ...]] = ("app", "list")
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         # Fail loud on stray args instead of silently listing everything.
         # Catches e.g. `hop3 apps status` (alias expands to `app list status`),
         # which used to drop the trailing token and look like `hop3 apps`.

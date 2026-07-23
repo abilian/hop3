@@ -7,7 +7,7 @@ from __future__ import annotations
 # ruff:file-ignore[unnecessary-dunder-call]
 
 
-def setattr_frozen(self, key, value) -> None:
+def setattr_frozen(self: object, key: str, value: object) -> None:
     """
     Set an attribute on an instance, raising an error if the instance is
     frozen.
@@ -22,7 +22,7 @@ def setattr_frozen(self, key, value) -> None:
     object.__setattr__(self, key, value)
 
 
-def freeze(obj) -> None:
+def freeze(obj: object) -> None:
     """
     Freezes an object to prevent further modifications by overriding its
     __setattr__ method.

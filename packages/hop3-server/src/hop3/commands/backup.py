@@ -44,7 +44,7 @@ class BackupCreateCmd(Command):
     addon_credential_repo: AddonCredentialRepository
     name: ClassVar[tuple[str, ...]] = ("backup", "create")
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         """Create a backup of an application."""
         app_name, rest = pop_app_flag(args)
 
@@ -143,7 +143,7 @@ class BackupListCmd(Command):
         "limit": {"type": int, "default": 20},  # --limit N
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         """List available backups."""
         app_name, rest = pop_app_flag(args)
         parsed = parse_cli_args(rest, self._arg_spec)
@@ -216,7 +216,7 @@ class BackupInfoCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("backup", "show")
     aliases: ClassVar[list[tuple[str, ...]]] = [("backup", "info")]
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         """Get backup information."""
         if len(args) < 1:
             return [
@@ -315,7 +315,7 @@ class BackupRestoreCmd(Command):
         "target_app": {"type": str},  # --target-app NAME
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         """Restore an application from backup."""
         parsed = parse_cli_args(args, self._arg_spec)
         backup_id = parsed.get("backup_id")
@@ -400,7 +400,7 @@ class BackupRegisterCmd(Command):
         "backup_dir": {"positional": True},
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         """Register an existing backup directory in the database."""
         parsed = parse_cli_args(args, self._arg_spec)
         backup_dir_str = parsed.get("backup_dir")
@@ -456,7 +456,7 @@ class BackupDestroyCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("backup", "destroy")
     destructive: ClassVar[bool] = True
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         """Destroy a backup."""
         if len(args) < 1:
             return [

@@ -11,6 +11,10 @@
 from __future__ import annotations
 
 import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from types import TracebackType
 
 __all__ = [
     "Abort",
@@ -46,36 +50,36 @@ from termcolor import colored
 
 
 # Color helpers
-def red(text):
+def red(text: object) -> str:
     return colored(text, "red")
 
 
-def green(text):
+def green(text: object) -> str:
     return colored(text, "green")
 
 
-def yellow(text):
+def yellow(text: object) -> str:
     return colored(text, "yellow")
 
 
-def blue(text):
+def blue(text: object) -> str:
     return colored(text, "blue")
 
 
-def magenta(text):
+def magenta(text: object) -> str:
     return colored(text, "magenta")
 
 
-def cyan(text):
+def cyan(text: object) -> str:
     return colored(text, "cyan")
 
 
 # Variants
-def bold(text):
+def bold(text: object) -> str:
     return colored(text, attrs=["bold"])
 
 
-def dim(text):
+def dim(text: object) -> str:
     return colored(text, attrs=["dark"])
 
 
@@ -96,7 +100,7 @@ class Console(ABC):
     """
 
     @abstractmethod
-    def echo(self, msg, fg: str = ""):
+    def echo(self, msg: str, fg: str = "") -> None:
         """Print message to stdout."""
 
     def reset(self) -> None:  # ruff:ignore[empty-method-without-abstract-decorator]
@@ -109,7 +113,7 @@ class Console(ABC):
 class PrintingConsole(Console):
     """A console capable of printing messages in different colors."""
 
-    def echo(self, msg, fg: str = "") -> None:
+    def echo(self, msg: str, fg: str = "") -> None:
         """Print message to stdout."""
         match fg:
             case "" | "white":
@@ -137,7 +141,7 @@ class TestingConsole(Console):
 
     buffer: list[str] = field(factory=list)
 
-    def echo(self, msg, fg: str = "") -> None:
+    def echo(self, msg: str, fg: str = "") -> None:
         """Print a message to the buffer."""
         self.buffer.append(msg)
 
@@ -168,7 +172,7 @@ class CapturingConsole(Console):
         self.verbosity = verbosity
         self._printer = PrintingConsole()
 
-    def echo(self, msg, fg: str = "", level: int = 0) -> None:
+    def echo(self, msg: str, fg: str = "", level: int = 0) -> None:
         """Capture message to buffer and optionally print."""
         # Always capture
         self.buffer.append({"msg": msg, "fg": fg, "level": level})
@@ -275,7 +279,12 @@ class VerbosityContext:
         self.old_level = set_verbosity(self.level)
         return self.level
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         if self.old_level is not None:
             set_verbosity(self.old_level)
 
@@ -356,7 +365,12 @@ class CaptureLogs:
         self.old_console = set_console(self.console)
         return self.console
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         if self.old_console is not None:
             set_console(self.old_console)
 

@@ -29,7 +29,7 @@ class MultiTail:
     # Open file handles
     handles: dict[Path, TextIO] = field(default_factory=dict)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         for filename in self.filenames:
             path = Path(filename)
             self.paths.append(path)
@@ -111,7 +111,7 @@ class MultiTail:
         return f"{path.stem.ljust(self.longest_stem())} | {line}"
 
     @staticmethod
-    def _peek(handle):
+    def _peek(handle: TextIO) -> str | None:
         where = handle.tell()
         line = handle.readline()
         if not line:
@@ -119,7 +119,7 @@ class MultiTail:
             return None
         return line
 
-    def _check_log_rotation(self):
+    def _check_log_rotation(self) -> None:
         """
         Checks and handles log file rotation by reopening files if their
         inode has changed.

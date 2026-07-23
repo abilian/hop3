@@ -60,7 +60,9 @@ class AuthGetTokenCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("auth", "get-token")
     requires_auth: ClassVar[bool] = False  # Public command
 
-    def call(self, username: str = "", password: str = "", *args):
+    def call(
+        self, username: str = "", password: str = "", *args: str, **kwargs: object
+    ) -> list[dict]:
         """
         Verify credentials and return an API token.
 
@@ -120,7 +122,7 @@ class AuthWhoamiCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("auth", "whoami")
     pass_username: ClassVar[bool] = True  # Needs authenticated username
 
-    def call(self, username: str = "", *args):
+    def call(self, username: str = "", *args: str, **kwargs: object) -> list[dict]:
         """
         Display information about the authenticated user.
 
@@ -179,7 +181,13 @@ class AuthLogoutCmd(Command):
     pass_username: ClassVar[bool] = True  # Request passes the username from the token
     pass_token_info: ClassVar[bool] = True  # Request passes the full token
 
-    def call(self, username: str, _token: str | None = None):
+    def call(
+        self,
+        username: str = "",
+        _token: str | None = None,
+        *args: str,
+        **kwargs: object,
+    ) -> list[dict]:
         """
         Logout the current user by revoking their token.
 
@@ -252,7 +260,13 @@ class AuthMagicLinkCmd(Command):
     # Internal primitive behind `hop3 login --web`; off the user-visible surface.
     hidden: ClassVar[bool] = True
 
-    def call(self, authenticated_username: str = "", username: str = "", *args):
+    def call(
+        self,
+        authenticated_username: str = "",
+        username: str = "",
+        *args: str,
+        **kwargs: object,
+    ) -> list[dict]:
         """
         Generate a magic link token for web login. Admin-only.
 

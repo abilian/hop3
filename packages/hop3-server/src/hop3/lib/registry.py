@@ -1,11 +1,16 @@
 # Copyright (c) 2024-2025, Abilian SAS
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from attr import field, frozen
 
+if TYPE_CHECKING:
+    from collections.abc import ItemsView, Iterator
+
 __all__ = ["lookup", "register", "registry"]
+
+T = TypeVar("T")
 
 
 @frozen
@@ -20,11 +25,20 @@ class Metadata:
 class Registry:
     registered: dict[Any, Metadata] = field(factory=dict)
 
-    def register(self, obj, name="", module="", tag="", extras=None):
+    def register(
+        self,
+        obj: T,
+        name: str = "",
+        module: str = "",
+        tag: str = "",
+        extras: dict | None = None,
+    ) -> T:
+        # obj is a class or function (register is used as a decorator); both
+        # carry __name__/__module__, but the generic T can't prove it statically.
         if not name:
-            name = obj.__name__
+            name = getattr(obj, "__name__", "")
         if not module:
-            module = obj.__module__
+            module = getattr(obj, "__module__", "")
         if extras is None:
             extras = {}
 
@@ -66,19 +80,19 @@ class Registry:
 
         return result
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[object]:
         return iter(self.registered)
 
-    def items(self):
+    def items(self) -> ItemsView[Any, Metadata]:
         return self.registered.items()
 
-    def __contains__(self, obj):
+    def __contains__(self, obj: object) -> bool:
         return obj in self.registered
 
-    def get_metadata(self, obj: Any) -> Metadata:
+    def get_metadata(self, obj: object) -> Metadata:
         return self.registered[obj]
 
-    def clear(self):
+    def clear(self) -> None:
         self.registered.clear()
 
 

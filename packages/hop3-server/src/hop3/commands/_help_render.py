@@ -13,6 +13,11 @@ rendering in one place avoids format drift between the two entry points.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 # Section-header tokens recognized in command docstrings. Case-insensitive.
 _SECTION_HEADERS = {
     "usage:": "usage",
@@ -111,7 +116,7 @@ def render_detailed_help(display: str, sections: dict) -> list[str]:
 def render_subcommands(
     all_commands: list,
     namespace: tuple[str, ...],
-    short_help_fn,
+    short_help_fn: Callable[[str | None], str],
 ) -> list[str]:
     """Render the SUBCOMMANDS section for a namespace."""
     subs = [

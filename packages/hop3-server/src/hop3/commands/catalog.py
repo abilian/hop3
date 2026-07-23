@@ -52,7 +52,7 @@ class CatalogRefreshCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("catalog", "refresh")
 
-    def call(self, *args, **kwargs) -> list:
+    def call(self, *args: str, **kwargs: object) -> list:
         try:
             serial = refresh_catalog()
         except (CatalogSyncError, CatalogVerificationError) as e:
@@ -74,7 +74,7 @@ class CatalogListCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("catalog", "list")
 
-    def call(self, *args, **kwargs) -> list:
+    def call(self, *args: str, **kwargs: object) -> list:
         service = CatalogService.get_instance()
         if not service.is_available():
             # Fail loud: an empty table would read as "catalog has no apps".
@@ -169,7 +169,7 @@ class CatalogInstallCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("catalog", "install")
 
-    def call(self, *args, **kwargs) -> list:
+    def call(self, *args: str, **kwargs: object) -> list:
         app_name, rest = pop_app_flag(args)
         app_id, env_lines, extras, domain = _parse_install_rest(rest)
 

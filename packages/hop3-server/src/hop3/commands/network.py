@@ -60,7 +60,7 @@ class NetworkListCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("network", "list")
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         if args:
             msg = f"'hop3 network list' takes no arguments (got: {' '.join(args)})."
             raise ValueError(msg)
@@ -88,7 +88,7 @@ class NetworkAddCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("network", "add")
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         if len(args) < 2:
             return [text("Usage: hop3 network add <name> <cidr> [<cidr> ...]")]
         net_name, *cidr_args = args
@@ -145,7 +145,7 @@ class NetworkRmCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("network", "rm")
     destructive: ClassVar[bool] = True
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         if len(args) != 1:
             return [text("Usage: hop3 network rm <name>")]
         net_name = args[0]

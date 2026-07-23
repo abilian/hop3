@@ -37,7 +37,7 @@ class HopConfig:
         self,
         config_loader: ConfigLoader | None = None,
         hop3_root: Path | str | None = None,
-    ):
+    ) -> None:
         """
         Initialize configuration.
 
@@ -572,7 +572,7 @@ __all__ = [  # ruff:ignore[unsorted-dunder-all]
 # Backward compatibility: module-level constants
 # These delegate to the config object for lazy evaluation
 # New code should use: from hop3.config import config
-def get_parameters():
+def get_parameters() -> dict[str, object]:
     """Get all configuration parameters (backward compatibility)."""
     return {k: v for k, v in globals().items() if re.match(r"[A-Z0-9_]+$", k)}
 
@@ -580,7 +580,7 @@ def get_parameters():
 # Module-level __getattr__ to make "constants" dynamically read from config singleton
 # This ensures that when tests update the config singleton, the module-level
 # constants also reflect the new values
-def __getattr__(name: str):
+def __getattr__(name: str) -> object:
     """
     Dynamic attribute lookup for backward compatibility.
 

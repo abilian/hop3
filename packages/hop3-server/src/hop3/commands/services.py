@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 from urllib.parse import urlparse
 
 from hop3.config import config
@@ -36,6 +36,12 @@ from hop3.plugins.addons.secrets import list_addon_instances
 from ._base import Command
 from ._errors import command_context
 from ._response import data, error, summary, table, text, warning
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from hop3.core.protocols import Addon
+    from hop3.orm import App
 
 
 @register
@@ -84,7 +90,7 @@ class AddonListCmd(Command):
         "type": {"type": str},  # --type <type>
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         """List addon instances, optionally scoped to an app or type."""
         parsed = parse_cli_args(args, self._arg_spec)
         app_name = parsed.get("app")
@@ -95,7 +101,7 @@ class AddonListCmd(Command):
             return self._list_for_app(app_name, type_filter)
         return self._list_all(type_filter)
 
-    def _list_all(self, type_filter: str | None):
+    def _list_all(self, type_filter: str | None) -> list[dict]:
         """List every instance on the server, with its attached apps."""
         instances = list_addon_instances()
         if type_filter:
@@ -123,7 +129,7 @@ class AddonListCmd(Command):
 
         return [table(headers=["Name", "Type", "Attached apps"], rows=rows)]
 
-    def _list_for_app(self, app_name: str, type_filter: str | None):
+    def _list_for_app(self, app_name: str, type_filter: str | None) -> list[dict]:
         """List the addons attached to a single app."""
         app = self.app_repo.get_one_or_none(name=app_name)
         if not app:
@@ -196,7 +202,7 @@ class AddonEndpointCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("addon", "endpoint")
     requires_auth: ClassVar[bool] = True
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         if not args:
             return [text("Usage: hop3 addon endpoint <name>")]
         addon_name = args[0]
@@ -265,7 +271,7 @@ class AddonExistsCmd(Command):
         "service_type": {"type": str},
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
         if not addon_name:
@@ -308,7 +314,7 @@ class AddonExposeCmd(Command):
         "service_type": {"type": str},
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
         if not addon_name:
@@ -407,7 +413,7 @@ class AddonUnexposeCmd(Command):
         "service_type": {"type": str},
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
         if not addon_name:
@@ -462,7 +468,7 @@ class AddonPromoteCmd(Command):
         "service_type": {"type": str},
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
         app_name = parsed.get("app")
@@ -543,7 +549,7 @@ class AddonTypesCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("addon", "types")
     requires_auth: ClassVar[bool] = True
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         """List available addon types."""
         server_log.info("addon types called")
 
@@ -591,7 +597,7 @@ class AddonCreateCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("addon", "create")
     requires_auth: ClassVar[bool] = True
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         """Create a new service instance."""
         server_log.info("addons create called", args=args)
 
@@ -704,7 +710,7 @@ class AddonAttachCmd(Command):
         service_type: str,
         addon_name: str,
         connection_details: dict,
-    ):
+    ) -> None:
         """Store or update encrypted service credentials."""
         encryptor = get_credential_encryptor()
 
@@ -724,7 +730,7 @@ class AddonAttachCmd(Command):
             )
             self.addon_credential_repo.add(credential)
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         """Attach an addon to an application."""
         server_log.info("addons attach called", args=args)
 
@@ -892,7 +898,7 @@ class AddonDetachCmd(Command):
         except Exception:
             return {}
 
-    def _remove_named_env_vars(self, app, names) -> list[str]:
+    def _remove_named_env_vars(self, app: App, names: Iterable[str]) -> list[str]:
         """Remove the app's env vars whose name is in ``names`` (delete-orphan)."""
         wanted = set(names)
         removed = []
@@ -902,7 +908,7 @@ class AddonDetachCmd(Command):
                 removed.append(env_var.name)
         return removed
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         """Detach an addon from an application."""
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
@@ -1013,7 +1019,7 @@ class AddonDestroyCmd(Command):
         "service_type": {"type": str},  # --service-type <type> (preferred alias)
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         """Destroy an addon."""
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
@@ -1098,7 +1104,7 @@ class AddonShowCmd(Command):
         "service_type": {"type": str},  # --service-type <type> (preferred alias)
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         """Get service information."""
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
@@ -1154,7 +1160,7 @@ class AddonStatusCmd(Command):
         "service_type": {"type": str, "default": "postgres"},
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         """Get detailed addon status with health check."""
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
@@ -1191,7 +1197,7 @@ class AddonStatusCmd(Command):
             )
         ]
 
-    def _check_addon_health(self, addon) -> tuple[str, str | None]:
+    def _check_addon_health(self, addon: Addon) -> tuple[str, str | None]:
         """Perform health check on addon."""
         health_status = "Unknown"
         health_error = None
@@ -1214,7 +1220,7 @@ class AddonStatusCmd(Command):
 
     def _build_status_rows(
         self,
-        addon,
+        addon: Addon,
         addon_name: str,
         service_type: str,
         health_status: str,

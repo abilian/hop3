@@ -48,7 +48,7 @@ class chdir(AbstractContextManager):  # ruff:ignore[invalid-class-name]
         # Change to the new directory
         os.chdir(self.path)
 
-    def __exit__(self, *_excinfo) -> None:
+    def __exit__(self, *_excinfo: object) -> None:
         try:
             # Revert back to the original directory
             os.chdir(self._old_cwd.pop())

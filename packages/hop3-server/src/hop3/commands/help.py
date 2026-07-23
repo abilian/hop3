@@ -94,7 +94,7 @@ class HelpCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("help",)
     requires_auth: ClassVar[bool] = False  # Public command
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         arg_list = list(args)
         show_all = "--all" in arg_list
         if show_all:
@@ -114,7 +114,7 @@ class HelpCmd(Command):
             return self._show_all_commands()
         return self._show_top_level_commands()
 
-    def _show_top_level_commands(self):
+    def _show_top_level_commands(self) -> list[dict]:
         """Show top-level commands grouped by category (ADR 036 D11)."""
         output = [
             "USAGE",
@@ -153,7 +153,7 @@ class HelpCmd(Command):
         output.append("Use 'hop help <command>' to see subcommands and detailed help.")
         return [text("\n".join(output))]
 
-    def _show_all_commands(self):
+    def _show_all_commands(self) -> list[dict]:
         """Show all commands flat, alphabetical, with `[top]` / `[ns]` markers."""
         output = [
             "USAGE",
@@ -199,7 +199,7 @@ class HelpCmd(Command):
         )
         return [text("\n".join(output))]
 
-    def _show_all_commands_verbose(self):
+    def _show_all_commands_verbose(self) -> list[dict]:
         """
         Aggregate the full detailed help for every command, recursively.
 
@@ -229,7 +229,7 @@ class HelpCmd(Command):
 
         return [text("\n".join(output).rstrip() + "\n")]
 
-    def _detailed_help(self, command_name: tuple[str, ...]):
+    def _detailed_help(self, command_name: tuple[str, ...]) -> list[dict]:
         """
         Show detailed help for a specific command, in D11 section order.
 
@@ -312,7 +312,7 @@ class HelpCommandsCmd(Command):
     requires_auth: ClassVar[bool] = False  # Public command
     hidden: ClassVar[bool] = True  # RPC endpoint, not user-facing
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         """Return list of command names (as space-joined strings) as structured data."""
         commands = lookup(Command)
         command_names = sorted(

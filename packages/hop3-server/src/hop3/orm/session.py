@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from advanced_alchemy.base import BigIntAuditBase
 from alembic import command
@@ -11,6 +12,10 @@ from sqlalchemy import create_engine, event, inspect as sa_inspect
 from sqlalchemy.orm import sessionmaker
 
 from hop3 import config as c
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Engine
+    from sqlalchemy.engine.interfaces import DBAPIConnection
 
 # Global session factory cache
 _session_factory_cache: dict[str, sessionmaker] = {}
@@ -21,7 +26,7 @@ def reset_session_factory_cache() -> None:
     _session_factory_cache.clear()
 
 
-def _configure_sqlite_engine(engine):
+def _configure_sqlite_engine(engine: Engine) -> None:
     """
     Configure SQLite-specific settings for better concurrency.
 
@@ -32,7 +37,9 @@ def _configure_sqlite_engine(engine):
     """
 
     @event.listens_for(engine, "connect")
-    def set_sqlite_pragma(dbapi_connection, connection_record):
+    def set_sqlite_pragma(
+        dbapi_connection: DBAPIConnection, connection_record: object
+    ) -> None:
         cursor = dbapi_connection.cursor()
         # Enable WAL mode for better concurrent access
         cursor.execute("PRAGMA journal_mode=WAL")

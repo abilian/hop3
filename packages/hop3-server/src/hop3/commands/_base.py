@@ -60,10 +60,10 @@ class Command:
     # Hidden commands are not shown in help output (for internal/technical commands)
     hidden: ClassVar[bool] = False
 
-    def call(self, *args, **kwargs):
+    def call(self, *args, **kwargs) -> list[dict]:
         return self.get_help()
 
-    def get_help(self):
+    def get_help(self) -> list[dict]:
         """
         Default help for namespace-bare invocations (ADR 036 M4.3).
 

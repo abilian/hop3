@@ -101,8 +101,10 @@ class UserAddCmd(Command):
         username: str = "",
         email: str = "",
         password: str = "",
-        *args,
-    ):
+        /,
+        *args: str,
+        **kwargs: object,
+    ) -> list[dict]:
         """
         Create a new user account.
 
@@ -186,7 +188,14 @@ class UserRemoveCmd(Command):
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
-    def call(self, authenticated_username: str = "", username: str = "", *args):
+    def call(
+        self,
+        authenticated_username: str = "",
+        username: str = "",
+        /,
+        *args: str,
+        **kwargs: object,
+    ) -> list[dict]:
         """
         Remove a user account.
 
@@ -239,7 +248,9 @@ class UserListCmd(Command):
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
-    def call(self, authenticated_username: str = "", *args):
+    def call(
+        self, authenticated_username: str = "", /, *args: str, **kwargs: object
+    ) -> list[dict]:
         """
         List all user accounts.
 
@@ -300,7 +311,14 @@ class UserEnableCmd(Command):
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
-    def call(self, authenticated_username: str = "", username: str = "", *args):
+    def call(
+        self,
+        authenticated_username: str = "",
+        username: str = "",
+        /,
+        *args: str,
+        **kwargs: object,
+    ) -> list[dict]:
         """
         Enable a user account.
 
@@ -353,7 +371,14 @@ class UserDisableCmd(Command):
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
-    def call(self, authenticated_username: str = "", username: str = "", *args):
+    def call(
+        self,
+        authenticated_username: str = "",
+        username: str = "",
+        /,
+        *args: str,
+        **kwargs: object,
+    ) -> list[dict]:
         """
         Disable a user account.
 
@@ -411,7 +436,14 @@ class UserGrantAdminCmd(Command):
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
-    def call(self, authenticated_username: str = "", username: str = "", *args):
+    def call(
+        self,
+        authenticated_username: str = "",
+        username: str = "",
+        /,
+        *args: str,
+        **kwargs: object,
+    ) -> list[dict]:
         """
         Grant admin privileges to a user.
 
@@ -471,7 +503,14 @@ class UserRevokeAdminCmd(Command):
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
-    def call(self, authenticated_username: str = "", username: str = "", *args):
+    def call(
+        self,
+        authenticated_username: str = "",
+        username: str = "",
+        /,
+        *args: str,
+        **kwargs: object,
+    ) -> list[dict]:
         """
         Revoke admin privileges from a user.
 
@@ -545,8 +584,10 @@ class UserSetPasswordCmd(Command):
         authenticated_username: str = "",
         username: str = "",
         new_password: str = "",
-        *args,
-    ):
+        /,
+        *args: str,
+        **kwargs: object,
+    ) -> list[dict]:
         """
         Reset a user's password.
 
@@ -597,7 +638,14 @@ class UserShowCmd(Command):
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
-    def call(self, authenticated_username: str = "", username: str = "", *args):
+    def call(
+        self,
+        authenticated_username: str = "",
+        username: str = "",
+        /,
+        *args: str,
+        **kwargs: object,
+    ) -> list[dict]:
         """
         Display detailed information about a user.
 
@@ -658,7 +706,14 @@ class UserGenerateTokenCmd(Command):
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
-    def call(self, authenticated_username: str = "", username: str = "", *args):
+    def call(
+        self,
+        authenticated_username: str = "",
+        username: str = "",
+        /,
+        *args: str,
+        **kwargs: object,
+    ) -> list[dict]:
         """
         Generate a new API token for a user.
 

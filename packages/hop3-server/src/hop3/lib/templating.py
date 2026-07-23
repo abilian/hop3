@@ -17,7 +17,9 @@ if TYPE_CHECKING:
 PATTERN = r"\$(\w+|\{([^}]*)\})"
 
 
-def expand_vars(template, env: Mapping[str, Any], default=None):
+def expand_vars(
+    template: str, env: Mapping[str, Any], default: str | None = None
+) -> str:
     """
     Simple shell-style string interpolation.
 
@@ -33,7 +35,7 @@ def expand_vars(template, env: Mapping[str, Any], default=None):
     any text config we render and is a reliable injection signature.
     """
 
-    def replace_var(match):
+    def replace_var(match: re.Match[str]) -> str:
         value = env.get(
             match.group(2) or match.group(1),
             match.group(0) if default is None else default,

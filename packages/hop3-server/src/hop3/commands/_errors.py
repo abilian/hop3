@@ -169,7 +169,7 @@ def _log_error(operation: str, exc: Exception, context_vars: dict[str, Any]) -> 
 
 @contextmanager
 def command_context(
-    operation: str, **context_vars: Any
+    operation: str, **context_vars: object
 ) -> Generator[ErrorContext, None, None]:
     """
     Context manager for command error handling.
@@ -211,7 +211,9 @@ def command_context(
 
 
 # Convenience function for simple cases without custom handlers
-def handle_command_error(operation: str, **context_vars: Any):
+def handle_command_error(
+    operation: str, **context_vars: object
+) -> Callable[[Callable[..., object]], Callable[..., object]]:
     """
     Decorator version of command_context for simple cases.
 
@@ -221,8 +223,8 @@ def handle_command_error(operation: str, **context_vars: Any):
             ...
     """
 
-    def decorator(func: Callable) -> Callable:
-        def wrapper(*args, **kwargs):
+    def decorator(func: Callable[..., object]) -> Callable[..., object]:
+        def wrapper(*args: object, **kwargs: object) -> object:
             with command_context(operation, **context_vars):
                 return func(*args, **kwargs)
 

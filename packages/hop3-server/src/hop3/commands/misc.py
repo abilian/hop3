@@ -32,6 +32,8 @@ from ._response import error, table, text
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+    from hop3.orm import App
+
 
 # --- Version Command ---
 
@@ -49,7 +51,7 @@ class VersionCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("version",)
     requires_auth: ClassVar[bool] = False  # Public command
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         try:
             server_version = get_version("hop3-server")
         except Exception:
@@ -89,7 +91,7 @@ class PluginsCmd(Command):
     # alias, resolved client-side in `hop3_cli.core.aliases.CORE_ALIASES`).
     name: ClassVar[tuple[str, ...]] = ("plugin", "list")
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         # This implementation introspects the command registry
         all_commands = lookup(Command)
         command_groups: dict[str, list[str]] = {}
@@ -128,7 +130,7 @@ class PSCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("ps",)
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, rest = pop_app_flag(args)
         reject_extra_args(rest)  # `ps` takes no positionals (audit C9)
 
@@ -165,7 +167,7 @@ class PsScaleCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("ps", "scale")
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, rest = pop_app_flag(args)
 
         if app_name is None or not rest:
@@ -230,7 +232,7 @@ class RunCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("app", "run")
     aliases: ClassVar[list[tuple[str, ...]]] = [("run",)]
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         # Resolve the app from --app. `run` is special: everything that remains
         # after the flag is the command line to execute.
         app_name, rest = pop_app_flag(args)
@@ -305,7 +307,7 @@ class RunCmd(Command):
         except CommandError as e:
             return [error(e.message)]
 
-    def _build_app_env(self, app) -> dict[str, str]:
+    def _build_app_env(self, app: App) -> dict[str, str]:
         """
         Build complete environment for running commands in app context.
 
@@ -349,7 +351,7 @@ class SbomCmd(Command):
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "sbom")
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, rest = pop_app_flag(args)
         reject_extra_args(rest)  # `app sbom` takes no positionals (audit C9)
 

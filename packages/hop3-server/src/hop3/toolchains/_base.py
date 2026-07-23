@@ -20,6 +20,7 @@ from hop3.lib import shell
 from hop3.project.procfile import parse_procfile
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
     from hop3.core.protocols import BuildContext
@@ -177,18 +178,23 @@ class LanguageToolchain(ABC):
         return self.app_path / "ENV"
 
     def shell(
-        self, command: str, cwd: str | Path = "", **kwargs
-    ) -> subprocess.CompletedProcess:
+        self,
+        command: str,
+        cwd: str | Path = "",
+        *,
+        env: Mapping[str, str] | None = None,
+        check: bool = True,
+    ) -> subprocess.CompletedProcess[str]:
         """
-        Run a shell command with optional working directory and additional
-        keyword arguments.
+        Run a shell command in the app's source directory.
 
         Args:
         ----
             command (str): The shell command to be executed.
             cwd (str or Path, optional): The working directory where the command will be executed.
-                Defaults to the application path if not provided.
-            **kwargs: Additional keyword arguments to be passed to the shell function.
+                Defaults to the source path if not provided.
+            env: Environment for the command; merged over os.environ when given.
+            check: Raise CalledProcessError on a non-zero exit (default: True).
 
         The env is automatically merged with os.environ to ensure all system
         variables are available. This is important because subprocess.run with
@@ -198,28 +204,19 @@ class LanguageToolchain(ABC):
             # Build in the source directory
             cwd = str(self.src_path)
 
-        # Always merge env with os.environ to get system variables
-        # subprocess.run replaces the entire environment when env is passed,
-        # so we need to include system vars like HOME, USER, LANG, etc.
-        if "env" in kwargs:
-            caller_env = kwargs["env"]
-            # Convert Env to dict if needed
-            if isinstance(caller_env, Env):
-                caller_env = dict(caller_env)
-            else:
-                caller_env = dict(caller_env)
-
-            # Start with os.environ and overlay caller's env
+        merged_env: dict[str, str] | None = None
+        if env is not None:
+            # subprocess.run replaces the entire environment when env is passed,
+            # so start from os.environ and overlay the caller's values, keeping
+            # system vars like HOME, USER, LANG available.
             merged_env = dict(os.environ)
-            merged_env.update(caller_env)
+            merged_env.update(env)
 
             # Ensure HOME is set (required by npm, composer, pnpm, etc.)
-            if "HOME" not in merged_env or not merged_env["HOME"]:
+            if not merged_env.get("HOME"):
                 merged_env["HOME"] = self._get_home_dir()
 
-            kwargs["env"] = merged_env
-
-        return shell(command, cwd=str(cwd), **kwargs)
+        return shell(command, cwd=str(cwd), env=merged_env, check=check)
 
     def _get_home_dir(self) -> str:
         """

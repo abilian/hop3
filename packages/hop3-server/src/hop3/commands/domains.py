@@ -127,7 +127,7 @@ class ListCmd(Command):
         "_args": {"remaining": True},
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         app_name = parsed.get("app")
         if not app_name:
@@ -162,7 +162,7 @@ class AddCmd(Command):
         "_args": {"remaining": True},
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         app_name = parsed.get("app")
         new_inputs = list(parsed["_args"])
@@ -227,7 +227,7 @@ class RemoveCmd(Command):
         "_args": {"remaining": True},
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         app_name = parsed.get("app")
         targets = list(parsed["_args"])
@@ -274,7 +274,7 @@ class SetCmd(Command):
         "_args": {"remaining": True},
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         app_name = parsed.get("app")
         new_inputs = list(parsed["_args"])
@@ -330,7 +330,7 @@ class ClearCmd(Command):
         "_args": {"remaining": True},
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         app_name = parsed.get("app")
         if not app_name:

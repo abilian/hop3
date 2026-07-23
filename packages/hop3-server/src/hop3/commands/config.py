@@ -85,7 +85,7 @@ class ShowCmd(Command):
         "_args": {"remaining": True},  # Catches positional args
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         app_name = parsed.get("app")
         show_compose = parsed["show_compose"]
@@ -195,7 +195,7 @@ class GetCmd(Command):
         "_args": {"remaining": True},  # Catches positional args
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         remaining = parsed["_args"]
 
@@ -247,7 +247,7 @@ class LiveCmd(Command):
         "_args": {"remaining": True},  # Catches positional args
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         app_name = parsed.get("app")
         show_secrets = parsed["show_secrets"]
@@ -325,7 +325,7 @@ class LiveCmd(Command):
             pass
         return None
 
-    def _get_uwsgi_env(self, app) -> dict | None:
+    def _get_uwsgi_env(self, app: App) -> dict | None:
         """Get environment from running uWSGI process."""
         cfg = HopConfig.get_instance()
         pid_file = Path(cfg.UWSGI_ENABLED) / f"{app.name}.pid"
@@ -380,7 +380,7 @@ class SetCmd(Command):
         "_args": {"remaining": True},  # Catches positional args
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         remaining = parsed["_args"]
 
@@ -478,7 +478,7 @@ class UnsetCmd(Command):
         "_args": {"remaining": True},  # Catches positional args
     }
 
-    def call(self, *args):
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         remaining = parsed["_args"]
 
@@ -559,7 +559,9 @@ class MigrateCmd(Command):
         app_dir: str = "",
         dry_run: bool = False,
         backup: bool = True,
-    ):
+        *args: str,
+        **kwargs: object,
+    ) -> list[dict]:
         """
         Migrate configuration from other PaaS formats to hop3.toml.
 
