@@ -33,6 +33,7 @@ from enum import Enum
 from typing import Any
 
 from hop3_rootd import PROTOCOL_VERSION
+from hop3_rootd.validation import JsonValue
 
 
 class ErrorCode(str, Enum):
@@ -60,7 +61,7 @@ class Request:
     v: int
     id: str
     op: str
-    args: dict[str, Any]
+    args: dict[str, JsonValue]
 
 
 @dataclass(frozen=True)

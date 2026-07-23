@@ -19,7 +19,15 @@ from __future__ import annotations
 import ipaddress
 import re
 from dataclasses import dataclass
-from typing import Any, Final, Literal
+from typing import Final, Literal, TypeAlias
+
+# A JSON value as produced by ``json.loads`` — the type of every field that
+# arrives on the wire. The recursive references are strings so the alias still
+# evaluates at import time on Python 3.10 (the RHS of a ``TypeAlias =``
+# assignment is executed, unlike a stringified annotation).
+JsonValue: TypeAlias = (
+    bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"] | None
+)
 
 # --- Constants -------------------------------------------------------------
 
@@ -101,6 +109,16 @@ class PortSpec:
     port_range: tuple[int, int] | None = None
     description: str | None = None
 
+    def __post_init__(self) -> None:
+        # Make the structural invariant unrepresentable: a PortSpec with both
+        # (or neither) can't be constructed, no matter who builds it. The wire
+        # parser catches this earlier with a nicer message; this is the backstop
+        # for any other construction path (tests, future callers).
+        if (self.port is None) == (self.port_range is None):
+            raise ValidationError(
+                "port", "exactly one of 'port' or 'port_range' must be set"
+            )
+
 
 @dataclass(frozen=True)
 class CgroupLimits:
@@ -117,11 +135,20 @@ class CgroupLimits:
     cpu_max: str | None = None
     pids_max: int | None = None
 
+    def __post_init__(self) -> None:
+        # An uncapped leaf that *looks* enforced is worse than a rejection:
+        # at least one dimension must be set. Unrepresentable by construction.
+        if self.memory_max is None and self.cpu_max is None and self.pids_max is None:
+            raise ValidationError(
+                "memory_max",
+                "at least one of memory_max / cpu_max / pids_max must be set",
+            )
+
 
 # --- Individual validators -------------------------------------------------
 
 
-def _require_int(value: object, field: str, *, kind: str = "an integer") -> int:
+def _require_int(value: JsonValue, field: str, *, kind: str = "an integer") -> int:
     """
     Validate ``value`` is a real int (not a bool) and return it.
 
@@ -136,14 +163,14 @@ def _require_int(value: object, field: str, *, kind: str = "an integer") -> int:
     return value
 
 
-def _require_str(value: object, field: str) -> str:
+def _require_str(value: JsonValue, field: str) -> str:
     """Validate ``value`` is a string and return it (narrows object → str)."""
     if not isinstance(value, str):
         raise ValidationError(field, f"must be a string (got {type(value).__name__})")
     return value
 
 
-def validate_port(value: object) -> int:
+def validate_port(value: JsonValue) -> int:
     """Validate an integer port number. Rejects bools, non-ints, out-of-range."""
     value = _require_int(value, "port")
     if value < PORT_MIN or value > PORT_MAX:
@@ -151,7 +178,7 @@ def validate_port(value: object) -> int:
     return value
 
 
-def validate_port_range(value: object) -> tuple[int, int]:
+def validate_port_range(value: JsonValue) -> tuple[int, int]:
     """
     Validate a [start, end] port range.
 
@@ -190,7 +217,7 @@ def validate_port_range(value: object) -> tuple[int, int]:
     return start, end
 
 
-def validate_protocol(value: object) -> Literal["tcp", "udp"]:
+def validate_protocol(value: JsonValue) -> Literal["tcp", "udp"]:
     """Validate a protocol literal — must be lowercase 'tcp' or 'udp'."""
     value = _require_str(value, "protocol")
     if value not in ALLOWED_PROTOCOLS:
@@ -201,7 +228,7 @@ def validate_protocol(value: object) -> Literal["tcp", "udp"]:
     return "tcp" if value == "tcp" else "udp"
 
 
-def validate_source(value: object) -> str:
+def validate_source(value: JsonValue) -> str:
     """
     Validate a source CIDR or the literal 'any'.
 
@@ -226,7 +253,7 @@ def validate_source(value: object) -> str:
     return str(net)
 
 
-def validate_app_name(value: object) -> str:
+def validate_app_name(value: JsonValue) -> str:
     """Validate an app name. Lowercase ascii; starts alpha; length 1-63."""
     value = _require_str(value, "app_name")
     if not APP_NAME_RE.fullmatch(value):
@@ -237,7 +264,7 @@ def validate_app_name(value: object) -> str:
     return value
 
 
-def validate_addon_type(value: object) -> str:
+def validate_addon_type(value: JsonValue) -> str:
     """
     Validate an addon type token ("postgres", "mysql", "redis", …).
 
@@ -252,7 +279,7 @@ def validate_addon_type(value: object) -> str:
     return value
 
 
-def validate_addon_name(value: object) -> str:
+def validate_addon_name(value: JsonValue) -> str:
     """
     Validate an addon instance name.
 
@@ -269,7 +296,7 @@ def validate_addon_name(value: object) -> str:
     return value
 
 
-def validate_memory_max(value: object) -> int:
+def validate_memory_max(value: JsonValue) -> int:
     """
     Validate a cgroup ``memory.max`` value in bytes.
 
@@ -287,7 +314,7 @@ def validate_memory_max(value: object) -> int:
     return value
 
 
-def validate_cpu_max(value: object) -> str:
+def validate_cpu_max(value: JsonValue) -> str:
     """
     Validate a cgroup v2 ``cpu.max`` value: ``"<quota_us> <period_us>"``.
 
@@ -303,7 +330,7 @@ def validate_cpu_max(value: object) -> str:
     return value
 
 
-def validate_pids_max(value: object) -> int:
+def validate_pids_max(value: JsonValue) -> int:
     """Validate a cgroup ``pids.max`` value (max processes/threads)."""
     value = _require_int(value, "pids_max")
     if value < 1:
@@ -311,7 +338,7 @@ def validate_pids_max(value: object) -> int:
     return value
 
 
-def validate_pid_list(value: object) -> list[int]:
+def validate_pid_list(value: JsonValue) -> list[int]:
     """Validate a non-empty, bounded list of positive PIDs to attach."""
     if not isinstance(value, list):
         raise ValidationError(
@@ -333,7 +360,7 @@ def validate_pid_list(value: object) -> list[int]:
     return out
 
 
-def validate_cgroup_limits(args: dict[str, Any]) -> CgroupLimits:
+def validate_cgroup_limits(args: dict[str, JsonValue]) -> CgroupLimits:
     """
     Validate ``cgroup.set_limits`` args. At least one dimension required.
 
@@ -366,7 +393,7 @@ def validate_cgroup_limits(args: dict[str, Any]) -> CgroupLimits:
     )
 
 
-def validate_volume_target(value: object) -> str:
+def validate_volume_target(value: JsonValue) -> str:
     """
     Validate a volume target: a non-empty relative path with no traversal.
 
@@ -386,7 +413,7 @@ def validate_volume_target(value: object) -> str:
     return value
 
 
-def validate_size_bytes(value: object) -> int:
+def validate_size_bytes(value: JsonValue) -> int:
     """Validate a tmpfs size in bytes (positive, sanity-capped)."""
     value = _require_int(value, "size_bytes")
     if value < 1:
@@ -398,7 +425,7 @@ def validate_size_bytes(value: object) -> int:
     return value
 
 
-def validate_mount_mode(value: object) -> str | None:
+def validate_mount_mode(value: JsonValue) -> str | None:
     """Validate an optional octal mode string (e.g. '0700'). None when omitted."""
     if value is None:
         return None
@@ -415,7 +442,7 @@ def validate_mount_mode(value: object) -> str | None:
     return value
 
 
-def validate_bind_source(value: object) -> str:
+def validate_bind_source(value: JsonValue) -> str:
     """
     Validate a bind-mount source: an absolute host path with no traversal.
 
@@ -433,7 +460,7 @@ def validate_bind_source(value: object) -> str:
     return value
 
 
-def validate_read_only(value: object) -> bool:
+def validate_read_only(value: JsonValue) -> bool:
     """Validate the optional read_only flag (default False)."""
     if value is None:
         return False
@@ -444,7 +471,7 @@ def validate_read_only(value: object) -> bool:
     return value
 
 
-def validate_description(value: object) -> str | None:
+def validate_description(value: JsonValue) -> str | None:
     """
     Validate the optional description field.
 
@@ -476,7 +503,7 @@ def validate_description(value: object) -> str | None:
 # --- Email relay (ADR 054) -------------------------------------------------
 
 
-def validate_submission_port(value: object) -> int:
+def validate_submission_port(value: JsonValue) -> int:
     """
     Validate an SMTP submission port — 587 (STARTTLS) or 465 (implicit TLS).
 
@@ -492,7 +519,7 @@ def validate_submission_port(value: object) -> int:
     return value
 
 
-def validate_relay_host(value: object) -> str:
+def validate_relay_host(value: JsonValue) -> str:
     """
     Validate the email relay hostname.
 
@@ -505,7 +532,7 @@ def validate_relay_host(value: object) -> str:
     return value
 
 
-def validate_sasl_value(value: object, field: str) -> str:
+def validate_sasl_value(value: JsonValue, field: str) -> str:
     """
     Validate a SASL credential field (user or password) for ``sasl_passwd``.
 
@@ -522,7 +549,7 @@ def validate_sasl_value(value: object, field: str) -> str:
     return value
 
 
-def validate_map_key(value: object) -> str:
+def validate_map_key(value: JsonValue) -> str:
     """
     Validate a Postfix map lookup key (a sender address).
 
@@ -540,7 +567,7 @@ def validate_map_key(value: object) -> str:
     return value
 
 
-def validate_from_domain(value: object) -> str:
+def validate_from_domain(value: JsonValue) -> str:
     """Validate a bare sending domain (no ``@``) — half of DKIM/opendkim names."""
     value = _require_str(value, "from_domain")
     if "@" in value or not RELAY_HOST_RE.fullmatch(value):
@@ -548,7 +575,7 @@ def validate_from_domain(value: object) -> str:
     return value
 
 
-def validate_dkim_selector(value: object) -> str:
+def validate_dkim_selector(value: JsonValue) -> str:
     """Validate a DKIM selector token — becomes a filename and a DNS label."""
     value = _require_str(value, "dkim_selector")
     if not RELAY_HOST_RE.fullmatch(value):
@@ -558,7 +585,7 @@ def validate_dkim_selector(value: object) -> str:
     return value
 
 
-def validate_ipv4(value: object) -> str:
+def validate_ipv4(value: JsonValue) -> str:
     """Validate an IPv4 address (the box's public IP, for the SPF record)."""
     value = _require_str(value, "server_ip")
     try:
@@ -573,7 +600,7 @@ def validate_ipv4(value: object) -> str:
 # --- Top-level: full PortSpec validation -----------------------------------
 
 
-def validate_port_spec(args: dict[str, Any]) -> PortSpec:
+def validate_port_spec(args: dict[str, JsonValue]) -> PortSpec:
     """
     Validate the full args dict for `firewall.add_rule`.
 
