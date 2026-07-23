@@ -17,3 +17,7 @@ class AuthenticationError(CliError):
 
 class DeploymentError(CliError):
     """Raised when a deployment fails."""
+
+
+class ConfigError(CliError):
+    """Raised when the CLI configuration cannot be loaded (e.g. malformed TOML)."""

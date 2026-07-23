@@ -21,7 +21,7 @@ import os
 import secrets
 import shutil
 import tarfile
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -195,6 +195,10 @@ class BackupManifest:
     # Extra app-relative directories archived from [backup].paths (into
     # extra.tar.gz, arcnames relative to app_path). Defaulted for old backups.
     extra_paths: list[str] = field(default_factory=list)
+    # Live backup state (BackupStateEnum name), stamped from the DB record when
+    # listing. A manifest only exists once a backup completes, so the persisted
+    # default reflects that; the listing overrides it with the current DB state.
+    state: str = "COMPLETED"
 
     @classmethod
     def from_json(cls, data: dict) -> BackupManifest:
@@ -575,7 +579,9 @@ class BackupManager:
             if manifest_file.exists():
                 try:
                     manifest = BackupManifest.from_file(manifest_file)
-                    manifests.append(manifest)
+                    # Stamp the live DB state so the listing shows the real
+                    # status instead of assuming every backup is COMPLETED.
+                    manifests.append(replace(manifest, state=backup.state.name))
                 except Exception as e:
                     log(f"Error loading manifest for {backup.remote_path}: {e}")
 

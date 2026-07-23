@@ -53,7 +53,7 @@ from .core.resolution import (
     resolve_context,
 )
 from .core.workspace_guard import check_workspace_dependency
-from .exceptions import AuthenticationError
+from .exceptions import AuthenticationError, CliError
 from .exit_codes import ExitCode
 from .rpc import Client, handle_response
 from .ui import (
@@ -64,8 +64,6 @@ from .ui import (
 )
 
 logger.remove()
-# TODO: enable logging to stderr when properly configured
-# logger.add(sys.stderr)
 
 
 def main():
@@ -79,6 +77,11 @@ def main():
         # at the user; the exit code lets scripts detect it.
         print(file=sys.stderr)  # newline so the next shell prompt isn't glued
         sys.exit(ExitCode.INTERRUPTED)
+    except CliError as e:
+        # Fallback for CliErrors not handled closer to their source (e.g. a
+        # malformed config): print a clean message, not a Python traceback.
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(ExitCode.RESOLUTION_ERROR)
 
 
 def run_command_from_args(cli_args: list[str]) -> None:

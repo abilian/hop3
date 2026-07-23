@@ -144,7 +144,8 @@ def format_baselines_module(result: BaselineResult) -> str:
     the curl|python install path). Regeneration after catalogue
     changes is tracked by CI via `--check`.
     """
-    # Hack around REUSE's stubborness
+    # Build the SPDX header from parts so the REUSE tool doesn't read this
+    # generator module as being licensed by the identifier string it emits.
     spdx_license_identifier = "SPDX-License-Identifier"
     license = "Apache-2.0"
     header = (

@@ -353,8 +353,13 @@ class DeploymentTarget(ABC):
 
             # Set environment variables if provided
             if env_vars:
-                # TODO: Implement env var upload via hop3 CLI
-                pass
+                # Not implemented yet. Fail loud rather than deploying silently
+                # without the requested env (a silent skip that hides the gap and
+                # can make a test pass/fail for the wrong reason).
+                msg = "deploy_app cannot upload env_vars yet; got: " + ", ".join(
+                    sorted(env_vars)
+                )
+                raise NotImplementedError(msg)
 
             # Deploy via hop3 CLI
             # Read tarball and pipe to hop3 deploy

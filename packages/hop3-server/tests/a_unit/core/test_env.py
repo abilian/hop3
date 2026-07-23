@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from hop3.core.env import Env
+from hop3.lib.settings import parse_settings
 
 
 def test_initialization() -> None:
@@ -92,3 +95,11 @@ def test_parse_settings(tmp_path) -> None:
     env_file.write_text("key=value\n")
     env.parse_settings(env_file)
     assert env["key"] == "value"
+
+
+def test_parse_settings_malformed_line_fails_loud(tmp_path) -> None:
+    """A malformed line must abort, not silently drop the whole file (fail loud)."""
+    env_file = tmp_path / "bad.env"
+    env_file.write_text("key=value\nthis-line-has-no-equals-sign\n")
+    with pytest.raises(ValueError, match="Malformed setting"):
+        parse_settings(env_file)

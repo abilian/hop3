@@ -287,18 +287,39 @@ class NginxVirtualHost(BaseProxy):
         self.env["HOP3_INTERNAL_NGINX_PORTMAP"] = ""
 
     def check_config(self) -> None:
-        """Prevent broken config from breaking other deployments."""
-        # FIXME: currently broken (should be run as root)
-        return
+        """Validate the generated nginx config via hop3-rootd (``nginx -t``).
 
-        # try:
-        #     subprocess.check_output(["/usr/sbin/nginx", "-t"])
-        # except subprocess.CalledProcessError:
-        #     echo(f"Error: broken nginx config - removing", fg="red")
-        #     content = self.nginx_conf_path.read_text()
-        #     echo(f"here is the broken config\n{content}")
-        #     # self.nginx_conf_path.unlink()
-        #     sys.exit(1)
+        ``nginx -t`` needs root, so it runs through hop3-rootd (ADR 041,
+        ``nginx.validate_config``) — the same privileged path
+        :meth:`reload_proxy` uses. A failed check aborts the deploy loudly and
+        leaves the running config untouched. Skipped in unit/integration tests
+        (no live daemon), matching reload_proxy; rootd-availability is enforced
+        by reload_proxy, so an unreachable daemon here defers to it rather than
+        duplicating that diagnosis.
+        """
+        if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get(
+            "HOP3_E2E_TEST"
+        ):
+            return
+
+        try:
+            with LocalRootdClient() as client:
+                if not self._validate_nginx_config(client):
+                    abort_with_diagnosis(
+                        Diagnosis(
+                            component="Nginx",
+                            action="validate configuration",
+                            reason="the generated nginx config failed `nginx -t`",
+                            hint=(
+                                "Fix the generated config and redeploy; the "
+                                "running nginx config is left untouched."
+                            ),
+                        )
+                    )
+        except RootdUnavailableError:
+            # reload_proxy() owns the rootd-required contract and fails loud on
+            # an unreachable daemon; defer to it instead of duplicating that.
+            return
 
     def _validate_nginx_config(self, client: LocalRootdClient) -> bool:
         """

@@ -76,8 +76,10 @@ class LanguageToolchain(ABC):
         """
         match context_or_app_name:
             case str():
-                # Legacy style: string app_name + app_path
-                # TODO: Remove in Phase 3 when LocalBuilder is implemented
+                # Legacy style: string app_name + app_path. Still exercised by
+                # the toolchain unit tests (test_builders / test_builder_init /
+                # test_virtualenv_repair); removing it means migrating those to
+                # the BuildContext form first.
                 self.context = None  # type: ignore[assignment]
                 self.app_name = context_or_app_name
                 self.app_path = app_path  # type: ignore[assignment]

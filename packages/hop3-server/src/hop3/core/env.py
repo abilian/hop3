@@ -101,7 +101,7 @@ class Env(Mapping[str, str]):
             case Path():
                 return value
             case _:
-                # XXX: keep? Or raise an error?
+                # Any other type: coerce via its string form.
                 return Path(str(value))
 
     def parse_settings(self, env_file: Path) -> None:

@@ -25,7 +25,6 @@ def parse_procfile(filename: str | Path) -> dict:
     Raises:
         ValueError: If the provided file is syntaxically or semantically incorrect.
     """
-    # TODO: introduce a domain-specific exception?
     procfile = Procfile.from_file(filename)
     return procfile.workers
 

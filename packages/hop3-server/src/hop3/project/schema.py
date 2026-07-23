@@ -129,6 +129,22 @@ class BuildSection(BaseModel):
         return v
 
 
+class DeploySection(BaseModel):
+    """[deploy] section - Deploy-time (runtime) configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    deployer: str | None = Field(
+        default=None,
+        description=(
+            "Force a specific deployer instead of auto-selecting by artifact "
+            "kind: 'uwsgi', 'static', 'docker-compose', or 'auto' (default). "
+            "Unknown names are rejected at deploy time against the installed "
+            "deployers."
+        ),
+    )
+
+
 class RunSection(BaseModel):
     """[run] section - Runtime configuration."""
 
@@ -1261,6 +1277,7 @@ class Hop3TomlSchema(BaseModel):
 
     metadata: MetadataSection | None = None
     build: BuildSection | None = None
+    deploy: DeploySection | None = None
     run: RunSection | None = None
     env: dict[str, Any] | None = Field(
         default=None,

@@ -274,7 +274,32 @@ def get_deployer(context: DeploymentContext, artifact: BuildArtifact) -> Deploye
 
     decision_logger = get_decision_logger()
 
-    # TODO: Add logic to check context.app_config for an explicit deployer name.
+    # An app can force a specific deployer via [deploy].deployer, mirroring
+    # [build].builder; otherwise fall through to auto-selection by artifact kind.
+    hop3_config = context.app_config.get("hop3_config", {})
+    deploy_config = (
+        hop3_config.get("deploy", {}) if isinstance(hop3_config, dict) else {}
+    )
+    deployer_name = (
+        deploy_config.get("deployer", "auto")
+        if isinstance(deploy_config, dict)
+        else "auto"
+    )
+    if deployer_name and deployer_name != "auto":
+        for deployer_class in deployer_classes:
+            if getattr(deployer_class, "name", None) == deployer_name:
+                decision_logger.log_deployer_decision(
+                    deployer_class.name,
+                    "explicitly set in hop3.toml [deploy].deployer",
+                    artifact_kind=artifact.kind,
+                )
+                return deployer_class(context, artifact)
+        available = [cls.name for cls in deployer_classes]
+        msg = (
+            f"Configured deployer '{deployer_name}' not found. "
+            f"Available deployers: {', '.join(available)}"
+        )
+        raise RuntimeError(msg)
 
     for deployer_class in deployer_classes:
         deployer: Deployer = deployer_class(context, artifact)
