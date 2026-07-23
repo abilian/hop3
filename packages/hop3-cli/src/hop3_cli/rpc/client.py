@@ -7,7 +7,7 @@ from __future__ import annotations
 import warnings
 from dataclasses import dataclass
 from functools import cached_property
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 import requests
@@ -18,6 +18,9 @@ from hop3_cli.core.ssh_tunnel import SshTunnel
 from hop3_cli.exceptions import AuthenticationError, CliError
 
 if TYPE_CHECKING:
+    from types import TracebackType
+    from typing import Self
+
     from jsonrpcclient.responses import Response
 
     from hop3_cli.config import Config
@@ -61,7 +64,7 @@ def resolve_ssl_verification(api_url: str, config: Config) -> bool | str:
     return not _verify_ssl_disabled(config.get("verify_ssl", None))
 
 
-def _verify_ssl_disabled(verify_ssl_config: str | bool | None) -> bool:
+def _verify_ssl_disabled(verify_ssl_config: object) -> bool:
     """Whether ``verify_ssl`` is explicitly disabled (handles str + bool)."""
     if verify_ssl_config is None:
         return False
@@ -90,23 +93,28 @@ class Client:
 
     api_url_override: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Initialize the SSH tunnel only if the scheme is ssh."""
         parsed_url = urlparse(self.api_url)
         if parsed_url.scheme in {"ssh", "ssh+http"}:
             if not self.tunnel:
                 self.start_ssh_tunnel()
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         """Enter context manager - tunnel already started in __post_init__."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool:
         """Exit context manager - stop tunnel."""
         self.stop()
         return False  # Don't suppress exceptions
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the SSH tunnel if running."""
         if self.tunnel:
             try:
@@ -160,7 +168,7 @@ class Client:
         msg = f"Unsupported scheme in API URL: {parsed_url.scheme}"
         raise CliError(msg)
 
-    def start_ssh_tunnel(self):
+    def start_ssh_tunnel(self) -> None:
         """Starts the SSH tunnel based on the parsed api_url."""
         parsed_url = urlparse(self.api_url)
 
@@ -173,7 +181,8 @@ class Client:
         # The remote port is the one hop3-server listens on *on the remote box*.
         remote_server_port = self.config.get("server_port", 8000)
         # Optional key; when absent, ssh uses ~/.ssh/config / agent / default keys.
-        ssh_key = self.config.get("ssh_key", None)
+        ssh_key_value = self.config.get("ssh_key", None)
+        ssh_key = ssh_key_value if isinstance(ssh_key_value, str) else None
 
         self.tunnel = SshTunnel(
             ssh_host,
@@ -191,7 +200,7 @@ class Client:
             msg = f"Failed to start SSH tunnel: {e}"
             raise CliError(msg) from e
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Fallback cleanup (but don't rely on this)."""
         if self.tunnel and getattr(self.tunnel, "is_alive", lambda: False)():
             warnings.warn(
@@ -202,7 +211,7 @@ class Client:
             )
             self.stop()
 
-    def rpc(self, method: str, cli_args: list[str], **extra_args: Any) -> Response:
+    def rpc(self, method: str, cli_args: list[str], **extra_args: object) -> Response:
         """
         Call a remote method with automatic SSH-based authentication.
 
@@ -224,7 +233,9 @@ class Client:
 
         return response
 
-    def _do_rpc(self, method: str, cli_args: list[str], **extra_args: Any) -> Response:
+    def _do_rpc(
+        self, method: str, cli_args: list[str], **extra_args: object
+    ) -> Response:
         """Execute the actual RPC call."""
         args = {
             "cli_args": cli_args,

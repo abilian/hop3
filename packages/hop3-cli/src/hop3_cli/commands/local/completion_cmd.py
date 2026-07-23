@@ -13,12 +13,13 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from hop3_cli.config import Config
+    from hop3_cli.rpc import Client
     from hop3_cli.ui.rich_printer import RichPrinter
 
 # Cache file location
@@ -380,7 +381,7 @@ def handle_completion(args: list[str], config: Config, printer: RichPrinter) -> 
         sys.exit(1)
 
 
-def print_completion_help():
+def print_completion_help() -> None:
     """Print help for the completion command."""
     from .help_text import COMPLETION_HELP  # ruff:ignore[import-outside-top-level]
 
@@ -530,7 +531,7 @@ def refresh_commands_cache(config: Config, printer: RichPrinter) -> None:
         sys.exit(1)
 
 
-def _refresh_apps_cache(client) -> None:
+def _refresh_apps_cache(client: Client) -> None:
     """
     Fetch the app list and write names to APPS_CACHE_TXT.
 
@@ -623,7 +624,7 @@ def show_cache_status() -> None:
         print(f"Cache location: {COMMANDS_CACHE_TXT}")
 
 
-def _format_age(age) -> str:
+def _format_age(age: timedelta) -> str:
     """Format a timedelta as a human-readable age string."""
     total_seconds = int(age.total_seconds())
 

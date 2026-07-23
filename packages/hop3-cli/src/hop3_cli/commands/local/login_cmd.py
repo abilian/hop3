@@ -26,6 +26,8 @@ from .ssh_ops import (
 )
 
 if TYPE_CHECKING:
+    from jsonrpcclient.responses import Response
+
     from hop3_cli.config import Config
     from hop3_cli.ui.rich_printer import RichPrinter
 
@@ -224,7 +226,7 @@ def _prompt_credentials(username: str | None) -> tuple[str, str]:
 
 
 def _handle_login_response(
-    response, username: str, config: Config, printer: RichPrinter
+    response: Response, username: str, config: Config, printer: RichPrinter
 ) -> None:
     """Handle the RPC response from the password path's `auth get-token` call."""
     match response:
@@ -491,7 +493,7 @@ def _parse_token_args(args: list[str]) -> tuple[str, str | None]:
     return token, server_url
 
 
-def _resolve_server_url(server_url: str | None, config) -> str:
+def _resolve_server_url(server_url: str | None, config: Config) -> str:
     """Resolve server URL from argument, config, or prompt."""
     if server_url:
         return server_url
