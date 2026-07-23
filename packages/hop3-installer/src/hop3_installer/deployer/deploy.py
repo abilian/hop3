@@ -1477,7 +1477,7 @@ class Deployer:
 def create_backend(config: DeployConfig) -> DeployBackend:
     """Create appropriate backend based on config."""
     if config.use_docker:
-        from .backends.docker import (
+        from .backends.docker import (  # ruff:ignore[import-outside-top-level]
             DockerDeployBackend,
         )
 

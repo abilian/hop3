@@ -9,6 +9,7 @@ from typing import Any, ClassVar, overload
 
 import toml
 
+from hop3_cli.core import credential_store
 from hop3_cli.core.paths import config_dir
 
 # The prefix for all environment variables.
@@ -101,10 +102,6 @@ class Config:
         if os.environ.get("HOP3_API_TOKEN"):
             return True
 
-        from hop3_cli.core import (
-            credential_store,
-        )
-
         server = self._resolve_token_server()
         if server and credential_store.get_token(server):
             return True
@@ -166,10 +163,6 @@ class Config:
         env_token = os.environ.get("HOP3_API_TOKEN")
         if env_token:
             return env_token
-
-        from hop3_cli.core import (
-            credential_store,
-        )
 
         server = self._resolve_token_server()
         if server:
@@ -493,10 +486,6 @@ class Config:
         other project-less commands). config.toml never holds a token. Pass an
         empty string to remove the token (logout).
         """
-        from hop3_cli.core import (
-            credential_store,
-        )
-
         server = self._resolve_token_server()
         if not server:
             return

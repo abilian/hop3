@@ -57,10 +57,10 @@ def _hetzner_manager(cfg: CloudConfig):
     Carries both ``ssh_key_name`` and ``ssh_key_path`` so the rebuild can resolve
     the registered key explicitly, or auto-derive it from the local key.
     """
-    from hop3_testing.system_tests.config import (
+    from hop3_testing.system_tests.config import (  # ruff:ignore[import-outside-top-level]
         HetznerConfig,
     )
-    from hop3_testing.system_tests.hetzner import (
+    from hop3_testing.system_tests.hetzner import (  # ruff:ignore[import-outside-top-level]
         HetznerManager,
     )
 

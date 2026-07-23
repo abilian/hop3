@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from hop3_cli.core.aliases import CORE_ALIASES
 
 from .local import LOCAL_COMMANDS_INFO
+from .local.help_text import LOCAL_COMMAND_HELP
 
 if TYPE_CHECKING:
     from hop3_cli.config import Config
@@ -119,10 +120,6 @@ def append_local_commands_full_help(result: list[dict]) -> list[dict]:
     full help here keeps the aggregated document a complete reference of every
     command the user can run.
     """
-    from .local.help_text import (
-        LOCAL_COMMAND_HELP,
-    )
-
     separator = "=" * 72
     lines = [
         separator,

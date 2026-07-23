@@ -13,6 +13,7 @@ from hop3.config import APP_ROOT
 from hop3.core.plugins import get_plugin_manager
 from hop3.core.protocols import BuildArtifact, BuildContext, LanguageToolchain
 from hop3.lib import log
+from hop3.lib.decision_log import get_decision_logger
 from hop3.lib.diagnostics import Diagnosis, log_diagnosis
 from hop3.lib.logging import server_log
 
@@ -187,11 +188,6 @@ class LocalBuilder:
         toolchain_classes: list[type[LanguageToolchain]] = [
             cls for sublist in toolchain_classes_list for cls in sublist
         ]
-
-        # Import decision logger
-        from hop3.lib.decision_log import (
-            get_decision_logger,
-        )
 
         decision_logger = get_decision_logger()
 

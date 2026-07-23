@@ -98,7 +98,7 @@ class WafBansService:
         Public so it's testable without threading. Each app is committed
         independently so one broken app can't roll back or starve the others.
         """
-        from hop3.project.config import (
+        from hop3.project.config import (  # ruff:ignore[import-outside-top-level]
             AppConfig,
         )
 

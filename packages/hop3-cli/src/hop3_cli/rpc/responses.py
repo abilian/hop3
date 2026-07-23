@@ -20,18 +20,21 @@ from hop3_cli.commands.help import (
     inject_local_commands_into_help,
     is_help_command,
 )
+from hop3_cli.commands.local.completion_cmd import read_apps_cache
 from hop3_cli.core.suggest import (
     closest_matches,
     colon_to_space_suggestion,
     format_did_you_mean,
     load_cached_commands,
 )
+from hop3_cli.exceptions import DeploymentError
 from hop3_cli.exit_codes import (
     HTTP_PAYLOAD_TOO_LARGE,
     ExitCode,
     map_message_to_exit,
     map_rpc_code_to_exit,
 )
+from hop3_cli.rpc.client import resolve_ssl_verification
 from hop3_cli.ui.console import err
 
 if TYPE_CHECKING:
@@ -161,10 +164,9 @@ def _handle_streaming_response(
         printer: Printer for output
         tunnel_port: Local SSH tunnel port if using SSH tunnel
     """
-    from hop3_cli.exceptions import (
-        DeploymentError,
-    )
-    from hop3_cli.rpc.streaming import (
+    # Imported lazily so tests can patch ``stream_deployment_logs`` at its source
+    # module (the call binds late, not at import time).
+    from hop3_cli.rpc.streaming import (  # ruff:ignore[import-outside-top-level]
         stream_deployment_logs,
     )
 
@@ -209,10 +211,6 @@ def _handle_streaming_response(
         # does (honor a pinned ssl_cert; parse a string verify_ssl) so the
         # stream doesn't fail the deploy report on a deploy that succeeded over
         # /rpc (audit 2026-06 B1).
-        from hop3_cli.rpc.client import (
-            resolve_ssl_verification,
-        )
-
         base_url = api_url
         verify_ssl = resolve_ssl_verification(api_url, config)
 
@@ -373,10 +371,6 @@ def _app_not_found_suggestion(error_message: str) -> str | None:
     if not match:
         return None
     typed = match.group(1)
-
-    from hop3_cli.commands.local.completion_cmd import (
-        read_apps_cache,
-    )
 
     candidates = read_apps_cache()
     if not candidates:

@@ -183,7 +183,7 @@ class AuthLogoutCmd(Command):
         Returns:
             Logout success message
         """
-        from hop3.server.security.tokens import (
+        from hop3.server.security.tokens import (  # ruff:ignore[import-outside-top-level]
             revoke_jwt,
         )
 

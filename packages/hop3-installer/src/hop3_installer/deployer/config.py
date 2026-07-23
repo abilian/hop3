@@ -210,7 +210,7 @@ class DeployConfig:
 
     def _generate_bundled_installer(self, output_path: Path) -> None:
         """Generate the bundled installer using the bundler."""
-        from hop3_installer.bundler import (
+        from hop3_installer.bundler import (  # ruff:ignore[import-outside-top-level]
             bundle_installer,
         )
 

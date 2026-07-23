@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 
 from hop3.core.git import GitManager, extract_app_name_from_repo_path
 from hop3.lib import echo
+from hop3.lib.archives import extract_archive_to_dir
 from hop3.lib.registry import register
 from hop3.orm import App, AppRepository, get_session_factory
 
@@ -133,9 +134,6 @@ class GitHookCmd(Command):
         import subprocess  # ruff:ignore[import-outside-top-level]
 
         from hop3.deployers import do_deploy  # ruff:ignore[import-outside-top-level]
-        from hop3.lib.archives import (
-            extract_archive_to_dir,
-        )
 
         session_factory = get_session_factory()
         with session_factory() as session:

@@ -30,6 +30,7 @@ from .commands import (
     is_local_command,
     parse_flags,
 )
+from .commands.arguments import describe_archive
 from .config import Config, get_config
 from .core.alias_registry import (
     build_registry,
@@ -43,6 +44,7 @@ from .core.deploy_preview import (
     domain_target_warnings,
     render_plan,
 )
+from .core.hop3_toml import first_hop3_toml
 from .core.project_guard import check_project_mismatch
 from .core.resolution import (
     format_trace,
@@ -50,6 +52,7 @@ from .core.resolution import (
     resolve_context,
 )
 from .core.workspace_guard import check_workspace_dependency
+from .exceptions import AuthenticationError
 from .exit_codes import ExitCode
 from .rpc import Client, handle_response
 from .ui import (
@@ -256,10 +259,6 @@ def _context_server(name: str | None, config: Config) -> str | None:
     """
     if not name:
         return None
-    from hop3_cli.core.hop3_toml import (
-        first_hop3_toml,
-    )
-
     path, data = first_hop3_toml(Path.cwd(), Path.home())
     if path is not None and isinstance(data, dict):
         block = (data.get("contexts") or {}).get(name)
@@ -310,10 +309,6 @@ def _require_context_server(name: str, config: Config) -> str:
     """
     if server := _context_server(name, config):
         return server
-
-    from hop3_cli.core.hop3_toml import (
-        first_hop3_toml,
-    )
 
     path, data = first_hop3_toml(Path.cwd(), Path.home())
     known: list[str] = []
@@ -658,10 +653,6 @@ def _handle_deploy_preview(
         # archive manifest so the user can see exactly what would be uploaded
         # (and what to add to [build].ignore) without guessing.
         print(render_plan(plan))
-        from .commands.arguments import (
-            describe_archive,
-        )
-
         print("\n" + describe_archive(source_path))
         emit_domain_warnings()
         sys.exit(ExitCode.SUCCESS)
@@ -751,10 +742,10 @@ def _context_deploy_override(cli_args: list[str], context_resolution) -> bytes |
 
     import toml  # ruff:ignore[import-outside-top-level]
 
-    from hop3_cli.core.deploy_preview import (
+    from hop3_cli.core.deploy_preview import (  # ruff:ignore[import-outside-top-level]
         flatten_for_context,
     )
-    from hop3_cli.core.hop3_toml import (
+    from hop3_cli.core.hop3_toml import (  # ruff:ignore[import-outside-top-level]
         read_hop3_toml,
     )
 
@@ -791,10 +782,6 @@ def _check_prerequisites(
     cli_args: list[str], config: Config, printer: RichPrinter, flags
 ) -> None:
     """Check all prerequisites before executing a command."""
-    from hop3_cli.exceptions import (
-        AuthenticationError,
-    )
-
     # Skip all checks for commands that don't require authentication
     if not requires_authentication(cli_args):
         return
@@ -845,9 +832,6 @@ def _try_auto_authenticate(config: Config, printer: RichPrinter) -> None:
     from hop3_cli.commands.local.ssh_ops import (  # ruff:ignore[import-outside-top-level]
         BootstrapError,
         get_ssh_token,
-    )
-    from hop3_cli.exceptions import (
-        AuthenticationError,
     )
 
     api_url = config.get_api_url()
@@ -1043,10 +1027,6 @@ def verify_authentication(config: Config) -> None:
     Raises:
         AuthenticationError: If authentication is invalid or verification fails.
     """
-    from hop3_cli.exceptions import (
-        AuthenticationError,
-    )
-
     try:
         with Client(config=config) as client:
             response = client.rpc("cli", ["auth", "whoami"])

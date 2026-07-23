@@ -50,7 +50,7 @@ def _orphan_db_revision(cfg) -> str | None:
     adoption): here the DB *is* stamped, just at a revision this code doesn't
     ship. Returns None when unstamped or when the revision is one we know.
     """
-    from alembic.runtime.migration import (
+    from alembic.runtime.migration import (  # ruff:ignore[import-outside-top-level]
         MigrationContext,
     )
     from alembic.script import ScriptDirectory  # ruff:ignore[import-outside-top-level]
@@ -135,7 +135,7 @@ def _adopt_unstamped_db(cfg) -> None:
       migration is an empty placeholder, so it cannot build the schema)
     """
     from alembic import command  # ruff:ignore[import-outside-top-level]
-    from alembic.runtime.migration import (
+    from alembic.runtime.migration import (  # ruff:ignore[import-outside-top-level]
         MigrationContext,
     )
     from alembic.script import ScriptDirectory  # ruff:ignore[import-outside-top-level]

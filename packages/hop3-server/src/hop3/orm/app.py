@@ -167,7 +167,7 @@ class App(BigIntAuditBase):
             path.mkdir(exist_ok=True)
 
         if setup_git:
-            from hop3.core.git import (
+            from hop3.core.git import (  # ruff:ignore[import-outside-top-level]
                 GitManager,
             )
 
@@ -412,7 +412,7 @@ class App(BigIntAuditBase):
         # row — while it runs would strand both the process and the port. Docker
         # runtimes are torn down by _destroy_docker_compose below.
         if self.runtime != "docker-compose":
-            from hop3.run.reaper import (
+            from hop3.run.reaper import (  # ruff:ignore[import-outside-top-level]
                 reap_app_processes,
             )
 
@@ -638,7 +638,7 @@ class App(BigIntAuditBase):
         so STOPPED is truthful — otherwise a freed PortClaim lets the next deploy
         of that port fail at runtime with 'address already in use'.
         """
-        from hop3.run.reaper import (
+        from hop3.run.reaper import (  # ruff:ignore[import-outside-top-level]
             reap_app_processes,
         )
 

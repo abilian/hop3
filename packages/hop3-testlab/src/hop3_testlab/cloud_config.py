@@ -78,13 +78,13 @@ def _db_hetzner() -> tuple[dict, str | None] | None:
     back to the file/env chain (the path manual ``hop3-test`` still uses). Imports
     are local: the worker imports this module early and the DB stack is heavy.
     """
-    from hop3_testlab.credentials import (
+    from hop3_testlab.credentials import (  # ruff:ignore[import-outside-top-level]
         materialize_key,
     )
-    from hop3_testlab.db import (
+    from hop3_testlab.db import (  # ruff:ignore[import-outside-top-level]
         get_session_factory,
     )
-    from hop3_testlab.repositories import (
+    from hop3_testlab.repositories import (  # ruff:ignore[import-outside-top-level]
         CredentialsRepository,
     )
 
