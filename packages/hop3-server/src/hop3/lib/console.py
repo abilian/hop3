@@ -314,7 +314,7 @@ def log(msg: str, level: int = 0, fg: str = "green") -> None:
 
     # Send to SSE stream if one is active (for real-time streaming)
     # Import here to avoid circular dependency
-    from hop3.server.streaming import (
+    from hop3.server.streaming import (  # ruff:ignore[import-outside-top-level]
         get_current_stream,
     )
 

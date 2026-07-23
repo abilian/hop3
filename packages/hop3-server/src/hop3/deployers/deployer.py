@@ -76,7 +76,7 @@ def do_deploy(
 def _notify_deploy_failure(app: App, exc: BaseException) -> None:
     """Best-effort operator alert on a failed deploy — never raises."""
     try:
-        from hop3.plugins.email.notifications import (
+        from hop3.plugins.email.notifications import (  # ruff:ignore[import-outside-top-level]
             notify,
         )
 
@@ -769,7 +769,7 @@ def _diagnose_failure(app: App, log_lines: list[str]) -> None:
     # a failure for those would be a false positive.
     artifact_kind: str | None = None
     try:
-        from hop3.core.artifacts import (
+        from hop3.core.artifacts import (  # ruff:ignore[import-outside-top-level]
             BuildArtifact,
         )
 

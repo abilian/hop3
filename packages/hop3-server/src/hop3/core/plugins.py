@@ -266,11 +266,6 @@ def get_deployer(context: DeploymentContext, artifact: BuildArtifact) -> Deploye
         cls for sublist in pm.hook.get_deployers() for cls in sublist
     ]
 
-    # Import decision logger
-    from hop3.lib.decision_log import (
-        get_decision_logger,
-    )
-
     decision_logger = get_decision_logger()
 
     # TODO: Add logic to check context.app_config for an explicit deployer name.

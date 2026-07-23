@@ -214,10 +214,10 @@ def is_token_revoked(jti: str, scopes: list[str] | None = None) -> bool:
     asymmetry is the right default. Surfaced from 0.5dev3 / 0.5.0.dev3
     triage; see notes/security.md §3.3.
     """
-    from hop3.orm.repositories import (
+    from hop3.orm.repositories import (  # ruff:ignore[import-outside-top-level]
         RevokedTokenRepository,
     )
-    from hop3.server.lib.database import (
+    from hop3.server.lib.database import (  # ruff:ignore[import-outside-top-level]
         get_session,
     )
 
@@ -242,10 +242,10 @@ def revoke_token(jti: str, expires_at: datetime, reason: str | None = None) -> N
         reason: Optional reason for revocation (e.g., "user_logout")
     """
     from hop3.orm import RevokedToken  # ruff:ignore[import-outside-top-level]
-    from hop3.orm.repositories import (
+    from hop3.orm.repositories import (  # ruff:ignore[import-outside-top-level]
         RevokedTokenRepository,
     )
-    from hop3.server.lib.database import (
+    from hop3.server.lib.database import (  # ruff:ignore[import-outside-top-level]
         get_session,
     )
 

@@ -309,7 +309,7 @@ def _try_local_overlay(
     branch count below the lint ceiling.
     """
     # Imported lazily so the resolver stays cheap when the file isn't there.
-    from hop3_cli.core.local_overlay import (
+    from hop3_cli.core.local_overlay import (  # ruff:ignore[import-outside-top-level]
         read_overlay,
     )
 

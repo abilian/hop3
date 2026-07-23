@@ -251,10 +251,10 @@ def _write_proxy_vassal(app_name: str, cmd: list[str]) -> None:
     the proxy — the same supervision pattern app workers use, so create/reload
     (file copy bumps mtime) and reap (file removal) come for free from Emperor.
     """
-    from hop3.orm import (
+    from hop3.orm import (  # ruff:ignore[import-outside-top-level]
         App,
     )
-    from hop3.run.uwsgi.settings import (
+    from hop3.run.uwsgi.settings import (  # ruff:ignore[import-outside-top-level]
         UwsgiSettings,
     )
 

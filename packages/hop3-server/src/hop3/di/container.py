@@ -41,7 +41,7 @@ def _get_plugin_providers() -> list:
         List of provider instances from plugins
     """
     # Import here to avoid circular dependency
-    from hop3.core.plugins import (
+    from hop3.core.plugins import (  # ruff:ignore[import-outside-top-level]
         get_plugin_manager,
     )
 

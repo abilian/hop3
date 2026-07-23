@@ -87,7 +87,7 @@ def features_for_suites(project_root: Path, suites: Iterable[str]) -> set[str]:
     Fail loud on a scan/validation error — a caller must NOT swallow this and
     silently deploy defaults.
     """
-    from hop3_testing.catalog.scanner import (
+    from hop3_testing.catalog.scanner import (  # ruff:ignore[import-outside-top-level]
         Catalog,
     )
 

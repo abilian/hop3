@@ -18,6 +18,7 @@ import threading
 from typing import TYPE_CHECKING
 
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from hop3_testlab.cloud_config import load_schedule
 from hop3_testlab.config import TestlabConfig
@@ -90,7 +91,7 @@ def add_nightly_job(scheduler: BaseScheduler) -> BaseScheduler:
 def _run_dispatch() -> None:
     """Worker-thread body: dispatch one queued build (claim → run → record). Runs
     off the scheduler thread so a multi-hour build doesn't block the 10s poll."""
-    from hop3_testlab.dispatcher import (
+    from hop3_testlab.dispatcher import (  # ruff:ignore[import-outside-top-level]
         dispatch_once,
     )
 
@@ -121,10 +122,6 @@ def add_dispatch_job(scheduler: BaseScheduler) -> BaseScheduler:
     run on a worker thread and returns at once (``_dispatch_job``), so a long build
     never blocks it; ``max_instances=1`` stays as a belt-and-suspenders guard
     against overlapping polls — serial v1."""
-    from apscheduler.triggers.interval import (
-        IntervalTrigger,
-    )
-
     scheduler.add_job(
         _dispatch_job,
         IntervalTrigger(seconds=DISPATCH_INTERVAL_SECONDS),
@@ -163,7 +160,7 @@ def build_background_scheduler(*, nightly: bool = True) -> BaseScheduler:
 def run_blocking() -> None:
     """Run the scheduler in the foreground (the `schedule` command): nightly cron +
     the build dispatcher, so enqueued builds actually run."""
-    from apscheduler.schedulers.blocking import (
+    from apscheduler.schedulers.blocking import (  # ruff:ignore[import-outside-top-level]
         BlockingScheduler,
     )
 

@@ -7,7 +7,7 @@ from pathlib import Path
 from advanced_alchemy.base import BigIntAuditBase
 from alembic import command
 from alembic.config import Config as AlembicConfig
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect as sa_inspect
 from sqlalchemy.orm import sessionmaker
 
 from hop3 import config as c
@@ -133,10 +133,6 @@ def get_session_factory(database_uri: str = "") -> sessionmaker:
     # current = head schema). An EXISTING database is left untouched: an
     # unstamped/pre-Alembic one is adopted later, safely, by `db:upgrade`.
     with engine.begin() as conn:
-        from sqlalchemy import (
-            inspect as sa_inspect,
-        )
-
         if not sa_inspect(conn).has_table("app"):
             BigIntAuditBase.metadata.create_all(conn)
             # Stamp head for real (persistent) databases. In-memory test DBs

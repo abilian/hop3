@@ -190,7 +190,7 @@ class EmailAddon:
         :meth:`get_connection_details`). This is a surfaced degradation of an
         optional feature, not a silent skip.
         """
-        from .server_transport import (
+        from .server_transport import (  # ruff:ignore[import-outside-top-level]
             server_sending_domain,
         )
 
@@ -350,7 +350,7 @@ class EmailAddon:
             # Resolve against the server-level transport at read time, so
             # rotating the server transport propagates to every inheriting app.
             # Raises (fail-loud) if the server transport is no longer set.
-            from .server_transport import (
+            from .server_transport import (  # ruff:ignore[import-outside-top-level]
                 resolve_inherited,
             )
 

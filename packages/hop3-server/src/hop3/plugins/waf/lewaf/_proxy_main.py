@@ -25,7 +25,7 @@ import logging
 
 def main() -> None:
     import uvicorn  # ruff:ignore[import-outside-top-level] — lazy: optional `waf` extra, subprocess-only
-    from lewaf.proxy.server import (
+    from lewaf.proxy.server import (  # ruff:ignore[import-outside-top-level]
         create_proxy_app,
     )
 

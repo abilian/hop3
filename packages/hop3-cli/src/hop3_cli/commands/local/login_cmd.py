@@ -509,7 +509,7 @@ def _verify_token(server_url: str, token: str) -> str | None:
         Username if successful, None if verification failed
     """
     # Import here to avoid circular import
-    from hop3_cli.config import (
+    from hop3_cli.config import (  # ruff:ignore[import-outside-top-level]
         Config as TempConfig,
     )
     from hop3_cli.rpc import Client  # ruff:ignore[import-outside-top-level]

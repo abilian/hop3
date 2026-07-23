@@ -166,10 +166,10 @@ class AuthController(Controller):
         Returns:
             Redirect to login page
         """
-        from hop3.server.security.tokens import (
+        from hop3.server.security.tokens import (  # ruff:ignore[import-outside-top-level]
             revoke_jwt,
         )
-        from hop3.server.security.web_auth import (
+        from hop3.server.security.web_auth import (  # ruff:ignore[import-outside-top-level]
             AUTH_COOKIE,
         )
 

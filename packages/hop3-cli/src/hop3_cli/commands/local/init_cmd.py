@@ -11,6 +11,7 @@ import sys
 from typing import TYPE_CHECKING
 
 from .help_text import print_init_help
+from .login_cmd import record_server_login
 from .ssh_ops import BootstrapError, create_admin_via_ssh, infer_server_url
 
 if TYPE_CHECKING:
@@ -65,10 +66,6 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> None:
     # ADR 042 r2: persist the token in the per-server credential store and set
     # this server as the default target. config.toml stays secret-free; deploy
     # environments ("contexts") are declared per-project via `hop3 context add`.
-    from hop3_cli.commands.local.login_cmd import (
-        record_server_login,
-    )
-
     record_server_login(config, server_url, token)
     _print_init_success(username, server_url, context_name)
 

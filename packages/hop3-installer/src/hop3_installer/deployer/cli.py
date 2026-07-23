@@ -8,7 +8,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hop3_installer.deprecation import warn_deprecated_flags
+from hop3_installer.deprecation import warn_deprecated, warn_deprecated_flags
 
 from .config import (
     DEFAULT_ADMIN_EMAIL,
@@ -404,7 +404,7 @@ def do_teardown(config: DeployConfig) -> int:
         print("Teardown only applies to Docker targets")
         return 1
 
-    from .backends.docker import (
+    from .backends.docker import (  # ruff:ignore[import-outside-top-level]
         DockerDeployBackend,
     )
 
@@ -457,10 +457,6 @@ def deprecated_main() -> int:
     deploys an *app*); this tool deploys the *server/platform*. It is renamed
     ``hop3-deploy-server``; the old name warns and delegates for one release.
     """
-    from hop3_installer.deprecation import (
-        warn_deprecated,
-    )
-
     warn_deprecated("hop3-deploy", "hop3-deploy-server", kind="command")
     return main()
 

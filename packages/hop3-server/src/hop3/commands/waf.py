@@ -222,7 +222,7 @@ class WafReconcileBansCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("waf", "reconcile-bans")
 
     def call(self, *args):
-        from hop3.project.config import (
+        from hop3.project.config import (  # ruff:ignore[import-outside-top-level]
             AppConfig,
         )
 

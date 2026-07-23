@@ -32,19 +32,19 @@ def main() -> int:
 
     match subcommand:
         case "cli":
-            from .cli_installer.installer import (
+            from .cli_installer.installer import (  # ruff:ignore[import-outside-top-level]
                 main as cli_main,
             )
 
             return cli_main()
         case "server":
-            from .server_installer.installer import (
+            from .server_installer.installer import (  # ruff:ignore[import-outside-top-level]
                 main as server_main,
             )
 
             return server_main()
         case "bundle":
-            from .bundler import (
+            from .bundler import (  # ruff:ignore[import-outside-top-level]
                 main as bundler_main,
             )
 

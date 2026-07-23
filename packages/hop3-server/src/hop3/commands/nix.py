@@ -47,13 +47,13 @@ class NixEjectCmd(Command):
             return self._eject(app)
 
     def _eject(self, app: App) -> list:
-        from hop3.plugins.build.nix.gen import (
+        from hop3.plugins.build.nix.gen import (  # ruff:ignore[import-outside-top-level]
             generate,
         )
         from hop3.plugins.build.nix.gen.toml_adapter import (  # ruff:ignore[import-outside-top-level]
             app_spec_from_config,
         )
-        from hop3.project.config import (
+        from hop3.project.config import (  # ruff:ignore[import-outside-top-level]
             AppConfig,
         )
 

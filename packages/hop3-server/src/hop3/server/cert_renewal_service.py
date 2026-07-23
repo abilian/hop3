@@ -128,7 +128,7 @@ def _notify_renewal_failures(failed: list[tuple[str, str]]) -> None:
     notifications on`); never raises, so it can't disrupt the renewal cycle.
     Imported lazily to keep the email plugin off the service's import path.
     """
-    from hop3.plugins.email.notifications import (
+    from hop3.plugins.email.notifications import (  # ruff:ignore[import-outside-top-level]
         notify,
     )
 

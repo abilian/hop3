@@ -214,7 +214,7 @@ class StateSyncService:
             # exec'd Nix binary holding a fixed port) can't be mislabelled STOPPED
             # while it still holds its port (the next deploy would then fail to
             # bind). Mirrors the reap-and-verify contract in App._stop_uwsgi.
-            from hop3.run.reaper import (
+            from hop3.run.reaper import (  # ruff:ignore[import-outside-top-level]
                 reap_app_processes,
             )
 

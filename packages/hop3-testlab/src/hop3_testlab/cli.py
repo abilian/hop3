@@ -95,10 +95,10 @@ def main() -> None:
     elif args.command == "logs":
         _logs(follow=args.follow, lines=args.lines)
     elif args.command == "schedule":
-        from hop3_testlab.cloud_config import (
+        from hop3_testlab.cloud_config import (  # ruff:ignore[import-outside-top-level]
             load_schedule,
         )
-        from hop3_testlab.scheduler import (
+        from hop3_testlab.scheduler import (  # ruff:ignore[import-outside-top-level]
             run_blocking,
         )
 
@@ -122,7 +122,7 @@ def _run(args: argparse.Namespace) -> None:
     apps = None
     selector = None
     if args.source_ref:
-        from hop3_testing.targets.helpers import (
+        from hop3_testing.targets.helpers import (  # ruff:ignore[import-outside-top-level]
             find_project_root,
         )
 
@@ -134,11 +134,11 @@ def _run(args: argparse.Namespace) -> None:
     elif args.selector:
         # No source -> a local run: resolve the selector against the local checkout
         # now (fail loud if it matches nothing rather than silently run the suite).
-        from hop3_testing.targets.helpers import (
+        from hop3_testing.targets.helpers import (  # ruff:ignore[import-outside-top-level]
             find_project_root,
         )
 
-        from hop3_testlab.catalog import (
+        from hop3_testlab.catalog import (  # ruff:ignore[import-outside-top-level]
             resolve_selector,
         )
 
@@ -188,14 +188,14 @@ def _logs(*, follow: bool, lines: int) -> None:
 
 
 def _prune(keep: int | None) -> None:
-    from hop3_testing.results import (
+    from hop3_testing.results import (  # ruff:ignore[import-outside-top-level]
         ResultStore,
     )
 
-    from hop3_testlab.cloud_config import (
+    from hop3_testlab.cloud_config import (  # ruff:ignore[import-outside-top-level]
         load_retention,
     )
-    from hop3_testlab.config import (
+    from hop3_testlab.config import (  # ruff:ignore[import-outside-top-level]
         TestlabConfig,
     )
 
@@ -206,7 +206,7 @@ def _prune(keep: int | None) -> None:
 
 
 def _show_config() -> None:
-    from hop3_testlab.cloud_config import (
+    from hop3_testlab.cloud_config import (  # ruff:ignore[import-outside-top-level]
         load_cloud_config,
     )
 

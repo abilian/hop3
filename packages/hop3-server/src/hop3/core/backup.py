@@ -720,7 +720,7 @@ class BackupManager:
         backup must fail loud rather than silently omit volume data while
         reporting success (the caller marks the backup FAILED and surfaces it).
         """
-        from hop3.project.config import (
+        from hop3.project.config import (  # ruff:ignore[import-outside-top-level]
             AppConfig,
         )
 
@@ -759,7 +759,7 @@ class BackupManager:
         Read from the deployed hop3.toml, like ``_app_volumes``. Empty lists
         when the app has no ``[backup]`` section.
         """
-        from hop3.project.config import (
+        from hop3.project.config import (  # ruff:ignore[import-outside-top-level]
             AppConfig,
         )
 
