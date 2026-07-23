@@ -29,6 +29,7 @@ import sys
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
+from types import FrameType
 from typing import Final, TypeVar
 
 from hop3_rootd import cgroup as cg, proxy as px
@@ -335,15 +336,15 @@ def main(argv: list[str] | None = None) -> int:
             logger.error("could not bind to %s: %s", args.socket_path, e)
             return EXIT_BIND_ERROR
 
-    def _on_term(_signum, _frame):
+    def _on_term(_signum: int, _frame: FrameType | None) -> None:
         logger.info("received TERM/INT — shutting down")
         server.stop()
 
-    def _on_usr1(_signum, _frame):
+    def _on_usr1(_signum: int, _frame: FrameType | None) -> None:
         logger.info("received USR1 — reopening audit log")
         audit.reopen()
 
-    def _on_usr2(_signum, _frame):
+    def _on_usr2(_signum: int, _frame: FrameType | None) -> None:
         logger.info("received USR2 — resetting error counter")
         server.stats.reset_errors()
 

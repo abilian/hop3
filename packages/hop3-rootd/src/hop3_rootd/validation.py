@@ -76,7 +76,7 @@ class ValidationError(Exception):
     `validation_failed` error response.
     """
 
-    def __init__(self, field: str, message: str):
+    def __init__(self, field: str, message: str) -> None:
         super().__init__(f"{field}: {message}")
         self.field = field
         self.message = message
@@ -121,7 +121,7 @@ class CgroupLimits:
 # --- Individual validators -------------------------------------------------
 
 
-def _require_int(value: Any, field: str, *, kind: str = "an integer") -> int:
+def _require_int(value: object, field: str, *, kind: str = "an integer") -> int:
     """
     Validate ``value`` is a real int (not a bool) and return it.
 
@@ -136,7 +136,14 @@ def _require_int(value: Any, field: str, *, kind: str = "an integer") -> int:
     return value
 
 
-def validate_port(value: Any) -> int:
+def _require_str(value: object, field: str) -> str:
+    """Validate ``value`` is a string and return it (narrows object → str)."""
+    if not isinstance(value, str):
+        raise ValidationError(field, f"must be a string (got {type(value).__name__})")
+    return value
+
+
+def validate_port(value: object) -> int:
     """Validate an integer port number. Rejects bools, non-ints, out-of-range."""
     value = _require_int(value, "port")
     if value < PORT_MIN or value > PORT_MAX:
@@ -144,7 +151,7 @@ def validate_port(value: Any) -> int:
     return value
 
 
-def validate_port_range(value: Any) -> tuple[int, int]:
+def validate_port_range(value: object) -> tuple[int, int]:
     """
     Validate a [start, end] port range.
 
@@ -183,12 +190,9 @@ def validate_port_range(value: Any) -> tuple[int, int]:
     return start, end
 
 
-def validate_protocol(value: Any) -> Literal["tcp", "udp"]:
+def validate_protocol(value: object) -> Literal["tcp", "udp"]:
     """Validate a protocol literal — must be lowercase 'tcp' or 'udp'."""
-    if not isinstance(value, str):
-        raise ValidationError(
-            "protocol", f"must be a string (got {type(value).__name__})"
-        )
+    value = _require_str(value, "protocol")
     if value not in ALLOWED_PROTOCOLS:
         raise ValidationError(
             "protocol",
@@ -197,17 +201,14 @@ def validate_protocol(value: Any) -> Literal["tcp", "udp"]:
     return "tcp" if value == "tcp" else "udp"
 
 
-def validate_source(value: Any) -> str:
+def validate_source(value: object) -> str:
     """
     Validate a source CIDR or the literal 'any'.
 
     Rejects IPv6 in v1 with a specific message ("not supported in v1").
     Returns the normalised form: "any", or `str(ipaddress.IPv4Network(...))`.
     """
-    if not isinstance(value, str):
-        raise ValidationError(
-            "source", f"must be a string (got {type(value).__name__})"
-        )
+    value = _require_str(value, "source")
     if value == "any":
         return "any"
     try:
@@ -225,12 +226,9 @@ def validate_source(value: Any) -> str:
     return str(net)
 
 
-def validate_app_name(value: Any) -> str:
+def validate_app_name(value: object) -> str:
     """Validate an app name. Lowercase ascii; starts alpha; length 1-63."""
-    if not isinstance(value, str):
-        raise ValidationError(
-            "app_name", f"must be a string (got {type(value).__name__})"
-        )
+    value = _require_str(value, "app_name")
     if not APP_NAME_RE.fullmatch(value):
         raise ValidationError(
             "app_name",
@@ -239,17 +237,14 @@ def validate_app_name(value: Any) -> str:
     return value
 
 
-def validate_addon_type(value: Any) -> str:
+def validate_addon_type(value: object) -> str:
     """
     Validate an addon type token ("postgres", "mysql", "redis", …).
 
     Lowercase, starts with a letter, alphanumeric, bounded. Half of the
     proxy unit name; the regex guarantees no path/metacharacter can slip in.
     """
-    if not isinstance(value, str):
-        raise ValidationError(
-            "addon_type", f"must be a string (got {type(value).__name__})"
-        )
+    value = _require_str(value, "addon_type")
     if not ADDON_TYPE_RE.fullmatch(value):
         raise ValidationError(
             "addon_type", f"must match {ADDON_TYPE_RE.pattern!r} (got {value!r})"
@@ -257,7 +252,7 @@ def validate_addon_type(value: Any) -> str:
     return value
 
 
-def validate_addon_name(value: Any) -> str:
+def validate_addon_name(value: object) -> str:
     """
     Validate an addon instance name.
 
@@ -266,10 +261,7 @@ def validate_addon_name(value: Any) -> str:
     ``APP_NAME_RE`` so the composed ``hop3-expose-<type>-<name>`` unit filename
     is always a safe identifier.
     """
-    if not isinstance(value, str):
-        raise ValidationError(
-            "addon_name", f"must be a string (got {type(value).__name__})"
-        )
+    value = _require_str(value, "addon_name")
     if not APP_NAME_RE.fullmatch(value):
         raise ValidationError(
             "addon_name", f"must match {APP_NAME_RE.pattern!r} (got {value!r})"
@@ -277,7 +269,7 @@ def validate_addon_name(value: Any) -> str:
     return value
 
 
-def validate_memory_max(value: Any) -> int:
+def validate_memory_max(value: object) -> int:
     """
     Validate a cgroup ``memory.max`` value in bytes.
 
@@ -295,17 +287,14 @@ def validate_memory_max(value: Any) -> int:
     return value
 
 
-def validate_cpu_max(value: Any) -> str:
+def validate_cpu_max(value: object) -> str:
     """
     Validate a cgroup v2 ``cpu.max`` value: ``"<quota_us> <period_us>"``.
 
     The server maps ``[limits].cpu`` (cores) → ``"150000 100000"`` before
     calling, so rootd only accepts the concrete two-integer form.
     """
-    if not isinstance(value, str):
-        raise ValidationError(
-            "cpu_max", f"must be a string (got {type(value).__name__})"
-        )
+    value = _require_str(value, "cpu_max")
     if not _CPU_MAX_RE.fullmatch(value):
         raise ValidationError(
             "cpu_max",
@@ -314,7 +303,7 @@ def validate_cpu_max(value: Any) -> str:
     return value
 
 
-def validate_pids_max(value: Any) -> int:
+def validate_pids_max(value: object) -> int:
     """Validate a cgroup ``pids.max`` value (max processes/threads)."""
     value = _require_int(value, "pids_max")
     if value < 1:
@@ -322,7 +311,7 @@ def validate_pids_max(value: Any) -> int:
     return value
 
 
-def validate_pid_list(value: Any) -> list[int]:
+def validate_pid_list(value: object) -> list[int]:
     """Validate a non-empty, bounded list of positive PIDs to attach."""
     if not isinstance(value, list):
         raise ValidationError(
@@ -377,7 +366,7 @@ def validate_cgroup_limits(args: dict[str, Any]) -> CgroupLimits:
     )
 
 
-def validate_volume_target(value: Any) -> str:
+def validate_volume_target(value: object) -> str:
     """
     Validate a volume target: a non-empty relative path with no traversal.
 
@@ -385,10 +374,7 @@ def validate_volume_target(value: Any) -> str:
     kernel boundary). The daemon builds the mountpoint from this under the app's
     src dir, so an absolute path or ``..`` must be rejected.
     """
-    if not isinstance(value, str):
-        raise ValidationError(
-            "target", f"must be a string (got {type(value).__name__})"
-        )
+    value = _require_str(value, "target")
     if not value or value.startswith("/"):
         raise ValidationError(
             "target", f"must be a non-empty relative path (got {value!r})"
@@ -400,7 +386,7 @@ def validate_volume_target(value: Any) -> str:
     return value
 
 
-def validate_size_bytes(value: Any) -> int:
+def validate_size_bytes(value: object) -> int:
     """Validate a tmpfs size in bytes (positive, sanity-capped)."""
     value = _require_int(value, "size_bytes")
     if value < 1:
@@ -412,7 +398,7 @@ def validate_size_bytes(value: Any) -> int:
     return value
 
 
-def validate_mount_mode(value: Any) -> str | None:
+def validate_mount_mode(value: object) -> str | None:
     """Validate an optional octal mode string (e.g. '0700'). None when omitted."""
     if value is None:
         return None
@@ -429,7 +415,7 @@ def validate_mount_mode(value: Any) -> str | None:
     return value
 
 
-def validate_bind_source(value: Any) -> str:
+def validate_bind_source(value: object) -> str:
     """
     Validate a bind-mount source: an absolute host path with no traversal.
 
@@ -437,10 +423,7 @@ def validate_bind_source(value: Any) -> str:
     allow-list) and *exists* is enforced in the mount helper, which reads the
     allow-list and the filesystem.
     """
-    if not isinstance(value, str):
-        raise ValidationError(
-            "source", f"must be a string (got {type(value).__name__})"
-        )
+    value = _require_str(value, "source")
     if not value or not value.startswith("/"):
         raise ValidationError(
             "source", f"bind source must be an absolute host path (got {value!r})"
@@ -450,7 +433,7 @@ def validate_bind_source(value: Any) -> str:
     return value
 
 
-def validate_read_only(value: Any) -> bool:
+def validate_read_only(value: object) -> bool:
     """Validate the optional read_only flag (default False)."""
     if value is None:
         return False
@@ -461,7 +444,7 @@ def validate_read_only(value: Any) -> bool:
     return value
 
 
-def validate_description(value: Any) -> str | None:
+def validate_description(value: object) -> str | None:
     """
     Validate the optional description field.
 
@@ -493,7 +476,7 @@ def validate_description(value: Any) -> str | None:
 # --- Email relay (ADR 054) -------------------------------------------------
 
 
-def validate_submission_port(value: Any) -> int:
+def validate_submission_port(value: object) -> int:
     """
     Validate an SMTP submission port — 587 (STARTTLS) or 465 (implicit TLS).
 
@@ -509,23 +492,20 @@ def validate_submission_port(value: Any) -> int:
     return value
 
 
-def validate_relay_host(value: Any) -> str:
+def validate_relay_host(value: object) -> str:
     """
     Validate the email relay hostname.
 
     A hostname token only — the regex forbids whitespace, brackets, colon and
     slash, so it can't break the composed ``[host]:port`` relayhost key.
     """
-    if not isinstance(value, str):
-        raise ValidationError(
-            "relay_host", f"must be a string (got {type(value).__name__})"
-        )
+    value = _require_str(value, "relay_host")
     if not RELAY_HOST_RE.fullmatch(value):
         raise ValidationError("relay_host", f"must be a hostname (got {value!r})")
     return value
 
 
-def validate_sasl_value(value: Any, field: str) -> str:
+def validate_sasl_value(value: object, field: str) -> str:
     """
     Validate a SASL credential field (user or password) for ``sasl_passwd``.
 
@@ -533,8 +513,7 @@ def validate_sasl_value(value: Any, field: str) -> str:
     (the entry is ``[host]:port user:password``), so the control-char rejection
     is the security-critical check here. The value is never logged or returned.
     """
-    if not isinstance(value, str):
-        raise ValidationError(field, f"must be a string (got {type(value).__name__})")
+    value = _require_str(value, field)
     if not value:
         raise ValidationError(field, "must not be empty")
     for ch in value:
@@ -543,15 +522,14 @@ def validate_sasl_value(value: Any, field: str) -> str:
     return value
 
 
-def validate_map_key(value: Any) -> str:
+def validate_map_key(value: object) -> str:
     """
     Validate a Postfix map lookup key (a sender address).
 
     Non-empty, no whitespace (the map line is ``key value``, split on
     whitespace), no control characters (a newline would inject a second line).
     """
-    if not isinstance(value, str):
-        raise ValidationError("key", f"must be a string (got {type(value).__name__})")
+    value = _require_str(value, "key")
     if not value:
         raise ValidationError("key", "must not be empty")
     for ch in value:
@@ -562,23 +540,17 @@ def validate_map_key(value: Any) -> str:
     return value
 
 
-def validate_from_domain(value: Any) -> str:
+def validate_from_domain(value: object) -> str:
     """Validate a bare sending domain (no ``@``) — half of DKIM/opendkim names."""
-    if not isinstance(value, str):
-        raise ValidationError(
-            "from_domain", f"must be a string (got {type(value).__name__})"
-        )
+    value = _require_str(value, "from_domain")
     if "@" in value or not RELAY_HOST_RE.fullmatch(value):
         raise ValidationError("from_domain", f"must be a bare domain (got {value!r})")
     return value
 
 
-def validate_dkim_selector(value: Any) -> str:
+def validate_dkim_selector(value: object) -> str:
     """Validate a DKIM selector token — becomes a filename and a DNS label."""
-    if not isinstance(value, str):
-        raise ValidationError(
-            "dkim_selector", f"must be a string (got {type(value).__name__})"
-        )
+    value = _require_str(value, "dkim_selector")
     if not RELAY_HOST_RE.fullmatch(value):
         raise ValidationError(
             "dkim_selector", f"must be a hostname-safe token (got {value!r})"
@@ -586,12 +558,9 @@ def validate_dkim_selector(value: Any) -> str:
     return value
 
 
-def validate_ipv4(value: Any) -> str:
+def validate_ipv4(value: object) -> str:
     """Validate an IPv4 address (the box's public IP, for the SPF record)."""
-    if not isinstance(value, str):
-        raise ValidationError(
-            "server_ip", f"must be a string (got {type(value).__name__})"
-        )
+    value = _require_str(value, "server_ip")
     try:
         addr = ipaddress.ip_address(value)
     except ValueError:

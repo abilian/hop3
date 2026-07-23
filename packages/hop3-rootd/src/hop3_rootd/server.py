@@ -310,7 +310,7 @@ class Server:
         s.run()
     """
 
-    def __init__(self, state: State, state_path: Path, audit: AuditLog):
+    def __init__(self, state: State, state_path: Path, audit: AuditLog) -> None:
         self.state = state
         self.state_path = state_path
         self.audit = audit
@@ -529,7 +529,7 @@ class _Connection:
 
     __slots__ = ("buffer", "sock", "uid")
 
-    def __init__(self, sock: socket.socket, uid: int):
+    def __init__(self, sock: socket.socket, uid: int) -> None:
         self.sock = sock
         self.uid = uid
         self.buffer = b""

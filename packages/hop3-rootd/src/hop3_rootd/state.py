@@ -21,7 +21,7 @@ import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Final, Literal
+from typing import Any, Final, Literal, cast
 
 RuleStatus = Literal["applied", "pending", "removing"]
 
@@ -59,14 +59,14 @@ class StateVersionError(StateError):
 # are generic loops over these methods.
 
 
-def _coerce_status(value: Any, path: str) -> RuleStatus:
+def _coerce_status(value: object, path: str) -> RuleStatus:
     """Validate that a stored status value is one of RuleStatus's literals."""
     if value not in {"applied", "pending", "removing"}:
         raise StateCorruptError(
             f"{path} has invalid status {value!r}; "
             "expected 'applied', 'pending', or 'removing'"
         )
-    return value
+    return cast("RuleStatus", value)
 
 
 @dataclass(frozen=True)
@@ -95,7 +95,7 @@ class StoredRule:
         }
 
     @classmethod
-    def from_dict(cls, raw: Any, path: str) -> StoredRule:
+    def from_dict(cls, raw: object, path: str) -> StoredRule:
         if not isinstance(raw, dict):
             raise StateCorruptError(f"{path} must be an object")
         try:
@@ -135,7 +135,7 @@ class StoredCgroup:
         }
 
     @classmethod
-    def from_dict(cls, raw: Any, path: str) -> StoredCgroup:
+    def from_dict(cls, raw: object, path: str) -> StoredCgroup:
         if not isinstance(raw, dict):
             raise StateCorruptError(f"{path} must be an object")
         try:
@@ -175,7 +175,7 @@ class StoredMount:
         }
 
     @classmethod
-    def from_dict(cls, raw: Any, path: str) -> StoredMount:
+    def from_dict(cls, raw: object, path: str) -> StoredMount:
         if not isinstance(raw, dict):
             raise StateCorruptError(f"{path} must be an object")
         try:
@@ -221,7 +221,7 @@ class StoredProxy:
         }
 
     @classmethod
-    def from_dict(cls, raw: Any, path: str) -> StoredProxy:
+    def from_dict(cls, raw: object, path: str) -> StoredProxy:
         if not isinstance(raw, dict):
             raise StateCorruptError(f"{path} must be an object")
         try:
@@ -293,7 +293,9 @@ def _parse_version(obj: dict[str, Any], path: Path) -> int:
     return version
 
 
-def _parse_entries(raw: Any, name: str, parse: Callable[[Any, str], Any]) -> list[Any]:
+def _parse_entries(
+    raw: object, name: str, parse: Callable[[Any, str], Any]
+) -> list[Any]:
     """
     Validate ``raw`` is a list, then build each entry via ``parse(item, path)``.
 
