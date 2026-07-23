@@ -34,7 +34,7 @@ These conventions are the immediate, low-cost answer for the config-file/DB apps
 
 ### Optional, deferred: a declarative layer
 
-A declarative form would lift the same wiring out of per-app shell into platform-visible, schema-validated declarations that apply those conventions *by construction*: fail-loud, secret redaction, idempotency, and safe file permissions that no app then reinvents. It is a **nice-to-have** only: worthwhile if the per-app scripts become a maintenance burden or the conventions are repeatedly violated. It is recorded here, settled, so the design is ready if that time comes. If built, it is two all-builder `hop3.toml` sections the platform resolves from the injected environment (mirroring `[limits]` / `[[volumes]]`, [ADR 046](./046-declarative-app-resources.md)):
+A declarative form would lift the same wiring out of per-app shell into platform-visible, schema-validated declarations that apply those conventions *by construction*: fail-loud, secret redaction, idempotency, and safe file permissions that no app then reinvents. It is a **nice-to-have** only: worthwhile if the per-app scripts become a maintenance burden or the conventions are repeatedly violated. If built, it is two all-builder `hop3.toml` sections the platform resolves from the injected environment (mirroring `[limits]` / `[[volumes]]`, [ADR 046](./046-declarative-app-resources.md)):
 
 #### `[[config-files]]`: render a config file
 
