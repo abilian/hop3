@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import (
-    Path,  # ruff:ignore[typing-only-standard-library-import] - needed at runtime for bundled installer
+    Path,
 )
 
 from hop3_installer.common import env_bool, env_path, env_str

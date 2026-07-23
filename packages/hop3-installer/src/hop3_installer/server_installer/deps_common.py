@@ -5,9 +5,9 @@
 from __future__ import annotations
 
 import re
-import subprocess  # ruff:ignore[typing-only-standard-library-import]
+import subprocess
 import time
-from collections.abc import Callable  # ruff:ignore[typing-only-standard-library-import]
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 

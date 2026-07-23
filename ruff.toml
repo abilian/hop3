@@ -20,7 +20,7 @@ lint.extend-ignore = [
     "PD", # We're not using Pandas
 
     # Later (or never)
-    "ANN", # flake8-annotations
+    # "ANN", # flake8-annotations
     "ARG", # flake8-unused-arguments
     "BLE", # flake8-blind-except
     "CPY", # Copyright
@@ -131,12 +131,20 @@ known-first-party = ["hop3"]
     "TRY003", #  raise-vanilla-args
 ]
 "packages/hop3-installer/src/hop3_installer/cli_installer/*.py" = [
-    # Real imports are needed by the bundler
-    "TC001"
+    # Bundled into a single file: the bundler can't process TYPE_CHECKING blocks
+    # (it hoists the import and leaves a dangling `if`), so every import — even a
+    # typing-only one — must stay at runtime.
+    "TC001",
+    "TC002",
+    "TC003",
 ]
 "packages/hop3-installer/src/hop3_installer/server_installer/*.py" = [
-    # Real imports are needed by the bundler
-    "TC001"
+    # Bundled into a single file: the bundler can't process TYPE_CHECKING blocks
+    # (it hoists the import and leaves a dangling `if`), so every import — even a
+    # typing-only one — must stay at runtime.
+    "TC001",
+    "TC002",
+    "TC003",
 ]
 "packages/hop3-installer/tests/c_e2e/utils/**/*.py" = [
     # A self-contained test-utils package, imported as a package (conftest does

@@ -109,7 +109,7 @@ class DeployConfig:
         default_factory=lambda: find_project_root(Path(__file__).parent)
     )
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate and set defaults after initialization."""
         # Generate admin password if not provided
         if not self.admin_password:

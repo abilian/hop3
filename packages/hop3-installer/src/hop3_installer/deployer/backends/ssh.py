@@ -23,7 +23,7 @@ class SSHDeployBackend(DeployBackend):
 
     name = "ssh"
 
-    def __init__(self, config: DeployConfig):
+    def __init__(self, config: DeployConfig) -> None:
         super().__init__(config)
         self._ssh_opts = [
             "-o",

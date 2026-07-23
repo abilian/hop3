@@ -12,6 +12,7 @@ that would bind public port 25.
 
 from __future__ import annotations
 
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -73,7 +74,7 @@ def _pre_stage_fedora() -> None:
     _report(result)
 
 
-def _report(result) -> None:
+def _report(result: subprocess.CompletedProcess) -> None:
     """
     Report the install outcome. A failure warns here and fails loud at use
     time (the rootd op aborts if postmap/postfix is absent).

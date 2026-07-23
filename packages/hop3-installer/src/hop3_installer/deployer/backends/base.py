@@ -20,7 +20,7 @@ class DeployBackend(ABC):
 
     name: str = "base"
 
-    def __init__(self, config: DeployConfig):
+    def __init__(self, config: DeployConfig) -> None:
         """
         Initialize the backend.
 
