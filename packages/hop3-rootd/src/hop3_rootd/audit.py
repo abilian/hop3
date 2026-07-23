@@ -25,7 +25,7 @@ import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, Literal, Self, TextIO
+from typing import Any, Final, Literal, Self, TextIO, overload
 
 Outcome = Literal["applied", "error"]
 
@@ -94,16 +94,24 @@ def configure_operational_logging(level: str = "INFO") -> None:
 # --- Argument sanitisation ------------------------------------------------
 
 
-def sanitise_args(args: Any) -> Any:
+@overload
+def sanitise_args(args: dict[str, Any]) -> dict[str, Any]: ...
+@overload
+def sanitise_args(args: object) -> object: ...
+def sanitise_args(args: object) -> object:
     """
     Walk an arbitrary structure and redact values whose keys look secret.
 
     Recurses into dicts, lists, and tuples (today's rootd ops are flat
     dicts, but the redaction must hold for any nesting future ops
-    introduce). Returns structurally-equal value; never mutates input.
+    introduce). Returns a structurally-equal value; never mutates input.
+
+    Overloaded so the common ``dict`` caller gets a ``dict`` back without a
+    cast, while the recursive/arbitrary case stays honestly typed as
+    ``object`` (the impl legitimately accepts a top-level list or scalar too).
     """
     if isinstance(args, dict):
-        out: dict[Any, Any] = {}
+        out: dict[object, object] = {}
         for k, v in args.items():
             if isinstance(k, str) and _SECRET_FIELD_RE.search(k):
                 out[k] = _REDACTED
@@ -161,7 +169,7 @@ class AuditLog:
     each call to `write()` flushes through to the kernel buffer.
     """
 
-    def __init__(self, path: Path = DEFAULT_AUDIT_LOG_PATH):
+    def __init__(self, path: Path = DEFAULT_AUDIT_LOG_PATH) -> None:
         self.path = path
         self._fd: TextIO | None = None
         # fsync() can fail on exotic filesystems (procfs, some tmpfs). Counting

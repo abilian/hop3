@@ -90,7 +90,7 @@ class ExecError(Exception):
 class InvalidBinaryError(ExecError):
     """Raised when a command's first element is not on the allow-list."""
 
-    def __init__(self, binary: str):
+    def __init__(self, binary: str) -> None:
         super().__init__(f"binary not in allow-list: {binary!r}")
         self.binary = binary
 
@@ -98,7 +98,7 @@ class InvalidBinaryError(ExecError):
 class CommandTimeoutError(ExecError):
     """Raised when a command exceeds its timeout."""
 
-    def __init__(self, argv: list[str], timeout: float):
+    def __init__(self, argv: list[str], timeout: float) -> None:
         super().__init__(f"command timed out after {timeout}s: {argv}")
         self.argv = argv
         self.timeout = timeout

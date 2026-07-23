@@ -48,7 +48,7 @@ class NftBinaryNotFoundError(NftError):
 class NftCommandError(NftError):
     """An nft invocation failed (returncode != 0)."""
 
-    def __init__(self, argv: list[str], returncode: int, stderr: str):
+    def __init__(self, argv: list[str], returncode: int, stderr: str) -> None:
         super().__init__(
             f"nft command failed (rc={returncode}): {' '.join(argv)}\n  stderr: {stderr}"
         )

@@ -31,6 +31,7 @@ from hop3_rootd.ops._base import OpContext, StateConflictError, register
 from hop3_rootd.protocol import Request
 from hop3_rootd.state import StoredRule
 from hop3_rootd.validation import (
+    PortSpec,
     ValidationError,
     validate_app_name,
     validate_port_spec,
@@ -151,7 +152,7 @@ def list_rules(req: Request, ctx: OpContext) -> dict[str, Any]:
 # --- Helpers --------------------------------------------------------------
 
 
-def _spec_to_dict(spec: Any) -> dict[str, Any]:
+def _spec_to_dict(spec: PortSpec) -> dict[str, Any]:
     """Serialise a PortSpec to a plain dict for state.json / response."""
     out: dict[str, Any] = {
         "protocol": spec.protocol,

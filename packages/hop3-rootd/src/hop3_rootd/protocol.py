@@ -103,7 +103,9 @@ class ProtocolError(Exception):
     `PROTOCOL_VERSION_MISMATCH` for version skew.
     """
 
-    def __init__(self, code: ErrorCode, message: str, request_id: str | None = None):
+    def __init__(
+        self, code: ErrorCode, message: str, request_id: str | None = None
+    ) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
