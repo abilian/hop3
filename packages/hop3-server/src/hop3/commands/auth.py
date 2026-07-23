@@ -18,14 +18,14 @@ from hop3.orm.repositories import (
 )
 from hop3.server.security.tokens import create_magic_token, create_token
 
-from ._base import Command
+from ._base import Command, NamespaceCommand
 from ._response import error, success, text, warning
 from .user import require_admin
 
 
 @register
 @dataclass(frozen=True)
-class AuthCmd(Command):
+class AuthCmd(NamespaceCommand):
     """
     Authentication commands.
 

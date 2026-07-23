@@ -25,6 +25,7 @@ from hop3.core.identifiers import (
     validate_app_name,
     validate_env_var_key,
     validate_hostname,
+    validate_hostname_list,
     validate_service_name,
 )
 
@@ -47,3 +48,11 @@ def validate_service_name(name): ...
 
 @ensures(lambda key, result: result == key)
 def validate_env_var_key(key): ...
+
+
+# The parsed list is never empty: every accepted input yields at least one
+# validated hostname (the empty case raises). Proven through the whole body
+# — replace/split, the filtered comprehension, the per-element substitution
+# of validate_hostname's own proven contract, and the emptiness guard.
+@ensures(lambda value, result: len(result) >= 1)
+def validate_hostname_list(value): ...

@@ -46,7 +46,7 @@ from hop3.plugins.redis.redis import REDIS_PASS_FILE
 from hop3.plugins.s3.backend import HOP3_S3_ENV_FILE
 from hop3.server.health import get_all_health_checks, run_health_check
 
-from ._base import Command
+from ._base import Command, NamespaceCommand
 from ._response import data, error, success, text, warning
 
 if TYPE_CHECKING:
@@ -303,7 +303,7 @@ def _provenance_lines() -> list[str]:
 
 
 @register
-class SystemCmd(Command):
+class SystemCmd(NamespaceCommand):
     """
     Manage the hop3 system.
 

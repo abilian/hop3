@@ -30,11 +30,14 @@ Example:
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from hop3.lib.registry import lookup
 
 from ._response import text
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class Command:
@@ -60,8 +63,17 @@ class Command:
     # Hidden commands are not shown in help output (for internal/technical commands)
     hidden: ClassVar[bool] = False
 
-    def call(self, *args, **kwargs) -> list[dict]:
-        return self.get_help()
+    # Each concrete command supplies `call` with its own typed, readable
+    # signature (the named params it needs, plus `*args`/`**kwargs` to absorb any
+    # extra marshaled tokens); namespace parents inherit it from
+    # `NamespaceCommand`. The dispatcher (server/controllers/rpc.py) invokes it
+    # with the RPC layer's marshaled positional/keyword args, so the base pins
+    # only the shape it relies on: a callable returning the response-item list.
+    # Declaring `call` as a Callable attribute rather than a fixed method
+    # signature is deliberate — commands genuinely do not form an LSP hierarchy
+    # over `call` (each takes different args), and this lets every command's real
+    # signature stand without a spurious `[override]` conflict or a suppression.
+    call: Callable[..., list[dict]]
 
     def get_help(self) -> list[dict]:
         """
@@ -99,3 +111,13 @@ class Command:
             output.append(f"Part of: hop {namespace[0]} namespace.")
 
         return [text("\n".join(output))]
+
+
+class NamespaceCommand(Command):
+    """
+    A namespace parent (e.g. `hop3 app`, `hop3 addon`): it groups subcommands but
+    has no action of its own, so invoking it bare prints the namespace help.
+    """
+
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
+        return self.get_help()

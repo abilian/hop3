@@ -33,7 +33,7 @@ from hop3.orm.repositories import (  # ruff:ignore[typing-only-first-party-impor
 )
 from hop3.plugins.addons.secrets import list_addon_instances
 
-from ._base import Command
+from ._base import Command, NamespaceCommand
 from ._errors import command_context
 from ._response import data, error, summary, table, text, warning
 
@@ -46,7 +46,7 @@ if TYPE_CHECKING:
 
 @register
 @dataclass(frozen=True)
-class AddonsCmd(Command):
+class AddonsCmd(NamespaceCommand):
     """
     Manage backing services (databases, caches, etc.).
 

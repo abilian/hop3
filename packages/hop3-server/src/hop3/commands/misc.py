@@ -24,7 +24,7 @@ from hop3.lib.registry import lookup, register
 from hop3.lib.util import CommandError, CommandFailedError, run_command
 from hop3.project.procfile import parse_procfile
 
-from ._base import Command
+from ._base import Command, NamespaceCommand
 from ._errors import command_context
 from ._helpers import get_app
 from ._response import error, table, text
@@ -65,7 +65,7 @@ class VersionCmd(Command):
 
 @register
 @dataclass(frozen=True)
-class PluginCmd(Command):
+class PluginCmd(NamespaceCommand):
     """
     Manage plugins.
 

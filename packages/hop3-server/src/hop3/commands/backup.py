@@ -21,7 +21,7 @@ from hop3.orm.repositories import (  # ruff:ignore[typing-only-first-party-impor
     BackupRepository,
 )
 
-from ._base import Command
+from ._base import Command, NamespaceCommand
 from ._errors import command_context
 from ._response import success, summary, table, text
 
@@ -502,7 +502,7 @@ class BackupDestroyCmd(Command):
 
 @register
 @dataclass(frozen=True)
-class BackupCmd(Command):
+class BackupCmd(NamespaceCommand):
     """
     Manage application backups.
 

@@ -15,7 +15,7 @@ from hop3.server.catalog.service import CatalogService
 from hop3.server.catalog.sync import CatalogSyncError
 from hop3.server.catalog.verify import CatalogVerificationError
 
-from ._base import Command
+from ._base import Command, NamespaceCommand
 from ._deploy import deploy_app_streaming
 from ._response import error, table, text
 
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 
 @register
-class CatalogCmd(Command):
+class CatalogCmd(NamespaceCommand):
     """
     Browse and install apps from the Hop3 app catalog.
 

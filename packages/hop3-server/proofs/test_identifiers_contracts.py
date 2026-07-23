@@ -29,6 +29,7 @@ _CONTRACTED = {
     "validate_service_name",
     "validate_env_var_key",
     "validate_hostname",
+    "validate_hostname_list",
 }
 
 
