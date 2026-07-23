@@ -40,11 +40,11 @@ import pytest
 
 pytest.importorskip("mcpython", reason="drift proof needs mcpython (dev tool)")
 
+from hop3_rootd.validation import APP_NAME_RE as ROOTD_APP_RE
 from mcpython.harness import any_str, assume, proof
 from mcpython.proptest import harness_tests
 
 from hop3.core.identifiers import APP_NAME_RE as SERVER_APP_RE
-from hop3_rootd.validation import APP_NAME_RE as ROOTD_APP_RE
 
 
 def server_accepts(s: str) -> bool:
@@ -87,10 +87,12 @@ test_appname_drift_properties = harness_tests(
 # rejection, so a method drift in validation.py or identifiers.py breaks
 # this with no edit here.
 
-from hop3.core.identifiers import InvalidIdentifierError
-from hop3.core.identifiers import validate_app_name as server_validate
-from hop3_rootd.validation import ValidationError
-from hop3_rootd.validation import validate_app_name as rootd_validate
+from hop3_rootd.validation import ValidationError, validate_app_name as rootd_validate
+
+from hop3.core.identifiers import (
+    InvalidIdentifierError,
+    validate_app_name as server_validate,
+)
 
 
 def server_validates(s: str) -> bool:
