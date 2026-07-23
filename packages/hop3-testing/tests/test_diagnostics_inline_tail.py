@@ -24,6 +24,7 @@ from textwrap import dedent
 from typing import Any, cast
 
 from hop3_testing.results.reporters import ConsoleReporter
+from hop3_testing.runtime_diagnostics import collect_runtime_logs
 
 
 @dataclass
@@ -163,9 +164,6 @@ def test_runtime_diagnostics_no_log_dir_yields_clean_message():
     This test snapshots the friendly fallback message so a regression
     in the shell-script generation is caught.
     """
-    from hop3_testing.runtime_diagnostics import (
-        collect_runtime_logs,
-    )
 
     class _FakeTarget:
         def exec_run(self, cmd):

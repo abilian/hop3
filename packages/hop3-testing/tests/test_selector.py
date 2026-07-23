@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import pytest
+from hop3_testing.cli.commands.test import _mode_choices
 from hop3_testing.selector.modes import (
     MODES,
     ModeConfig,
@@ -141,10 +142,6 @@ class TestGetModeConfig:
         """The `hop3-test run --mode` choices must stay in sync with the
         profiles (+ aliases) — a hardcoded list silently rejected the renamed
         smoke/curated/full and killed every triggered run."""
-        from hop3_testing.cli.commands.test import (
-            _mode_choices,
-        )
-
         choices = set(_mode_choices())
         assert set(MODES).issubset(choices)  # every built-in profile
         assert {"dev", "release", "nightly"}.issubset(choices)  # back-compat aliases

@@ -10,6 +10,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from hop3_testing.results.models import TestRun
+from hop3_testing.targets.helpers import find_project_root
 from hop3_testlab import leasing, worker
 from hop3_testlab.config import TestlabConfig
 from hop3_testlab.db import get_session_factory
@@ -360,8 +362,6 @@ def test_failure_summary_falls_back_to_tail_without_a_failed_block(tmp_path):
 
 def test_sweep_skips_a_run_live_on_another_target():
     """A healthy run on target B is not aborted by a run starting on target A (#2)."""
-    from hop3_testing.results.models import TestRun
-
     factory = get_session_factory(TestlabConfig.get_instance().STORE_TARGET)
     with factory() as s:  # B is running: live lease + an unfinished run
         leasing.try_acquire(s, "B", "build-B")
@@ -399,8 +399,6 @@ def test_run_once_fails_loud_on_source_without_ref():
 def test_run_once_legacy_run_defaults_cwd_to_repo_root():
     """A no-source run must run the engine from the repo root (where apps/ lives),
     not the Lab's own cwd — else the engine's default scan finds no apps."""
-    from hop3_testing.targets.helpers import find_project_root
-
     seen: dict = {}
 
     def _exec(_tid, _m, _apps, *, cwd=None, **_kw):

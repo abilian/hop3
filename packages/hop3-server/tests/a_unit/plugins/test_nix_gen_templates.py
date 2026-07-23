@@ -10,6 +10,7 @@ sed commands, and Nix syntax structure.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -1139,9 +1140,6 @@ def test_pnpm_pin_is_configurable():
 def test_committed_lockfiles_match_their_pinned_pnpm():
     """Guard: a lockfile the pinned pnpm cannot read fails inside the Nix build
     with a parse error naming neither the pin nor the lockfile."""
-    import re
-    from pathlib import Path
-
     root = Path(__file__).parents[5] / "apps"
     assert root.is_dir(), f"app corpus not found at {root}"
     mismatches = {}

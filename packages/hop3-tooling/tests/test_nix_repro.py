@@ -6,14 +6,20 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import click
 import pytest
+import tomllib
+from hop3_tooling.cli import _pin_override, _with_pin
 from hop3_tooling.nix_repro import (
     Outcome,
     classify,
     interpret_rebuild,
     summarize,
 )
+
+from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
 
 
 def test_clean_rebuild_is_reproducible():
@@ -101,8 +107,6 @@ def test_the_summary_groups_by_disposition_and_names_the_remedy():
 
 
 def test_pin_override_requires_both_halves():
-    from hop3_tooling.cli import _pin_override
-
     assert _pin_override(None, None) is None
     assert _pin_override("a" * 40, "sha256-x") == ("a" * 40, "sha256-x")
     with pytest.raises(click.ClickException, match="must be given together"):
@@ -112,13 +116,6 @@ def test_pin_override_requires_both_halves():
 def test_pin_override_replaces_whatever_the_recipe_declares():
     """etherpad pins itself to a 25.05 rev. A corpus-wide bump has to override
     that too, or the run silently measures two different nixpkgs."""
-    from pathlib import Path
-
-    import tomllib
-    from hop3_tooling.cli import _with_pin
-
-    from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
-
     config = tomllib.loads(
         Path("apps/real-apps-nix-gen/etherpad/hop3.toml").read_text()
     )

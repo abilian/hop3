@@ -9,6 +9,7 @@ import threading
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
+from apscheduler.schedulers.background import BackgroundScheduler
 from hop3_testlab import scheduler
 from hop3_testlab.cloud_config import load_schedule
 from hop3_testlab.config import TestlabConfig
@@ -116,8 +117,6 @@ def test_nightly_job_missing_profile_fails_loud(monkeypatch, caplog):
 
 
 def test_add_nightly_job_registers_cron(monkeypatch):
-    from apscheduler.schedulers.background import BackgroundScheduler
-
     monkeypatch.setattr(
         scheduler,
         "load_schedule",

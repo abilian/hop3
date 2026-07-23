@@ -16,6 +16,7 @@ from unittest.mock import patch
 import mysql.connector
 import pytest
 
+from hop3.core.identifiers import InvalidIdentifierError
 from hop3.plugins.mysql.mysql import ADDON_USER_HOSTS, MySQLAddon, MysqlAddon
 
 
@@ -47,10 +48,6 @@ def test_mysql_addon_requires_service_name():
 )
 def test_mysql_addon_rejects_unsafe_addon_name(bad_name):
     """addon_name flows into raw SQL identifier interpolation; reject anything unsafe."""
-    from hop3.core.identifiers import (
-        InvalidIdentifierError,
-    )
-
     with pytest.raises(InvalidIdentifierError):
         MySQLAddon(addon_name=bad_name)
 

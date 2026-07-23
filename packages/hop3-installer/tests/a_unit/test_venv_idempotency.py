@@ -13,6 +13,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
+from hop3_installer.server_installer import python as mod
 
 
 @pytest.fixture
@@ -27,10 +28,6 @@ def fake_venv(tmp_path, monkeypatch):
 
 def test_existing_working_venv_is_preserved(fake_venv):
     """A working venv must not be wiped on default re-run."""
-    from hop3_installer.server_installer import (
-        python as mod,
-    )
-
     rmtree = MagicMock()
     run_as_hop3 = MagicMock()
     with (
@@ -47,10 +44,6 @@ def test_existing_working_venv_is_preserved(fake_venv):
 
 def test_force_true_rebuilds_venv(fake_venv):
     """force=True must wipe and recreate even a working venv."""
-    from hop3_installer.server_installer import (
-        python as mod,
-    )
-
     rmtree = MagicMock()
     run_as_hop3 = MagicMock()
     with (
@@ -70,10 +63,6 @@ def test_broken_venv_is_rebuilt(tmp_path, monkeypatch):
     venv = tmp_path / "venv"
     venv.mkdir()  # exists but no bin/python
     monkeypatch.setattr("hop3_installer.server_installer.python.VENV_DIR", venv)
-    from hop3_installer.server_installer import (
-        python as mod,
-    )
-
     rmtree = MagicMock()
     run_as_hop3 = MagicMock()
     with (
@@ -91,10 +80,6 @@ def test_fresh_install_creates_venv(tmp_path, monkeypatch):
     """When VENV_DIR doesn't exist at all, just create it (no rmtree)."""
     venv = tmp_path / "does-not-exist"
     monkeypatch.setattr("hop3_installer.server_installer.python.VENV_DIR", venv)
-    from hop3_installer.server_installer import (
-        python as mod,
-    )
-
     rmtree = MagicMock()
     run_as_hop3 = MagicMock()
     with (
