@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import re
 import secrets
-import subprocess  # ruff:ignore[typing-only-standard-library-import]
+import subprocess
 from pathlib import Path
 
 from hop3_installer.common import (

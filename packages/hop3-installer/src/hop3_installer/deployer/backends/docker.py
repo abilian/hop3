@@ -120,7 +120,7 @@ class DockerDeployBackend(DeployBackend):
         (8443, 443, "HTTPS"),
     ]
 
-    def __init__(self, config: DeployConfig):
+    def __init__(self, config: DeployConfig) -> None:
         # Belt-and-suspenders interlock: this backend embeds a known JWT
         # signing key in its supervisor config (see E2E_TEST_SECRET_KEY).
         # Refuse to construct the backend if MODE=production so the key

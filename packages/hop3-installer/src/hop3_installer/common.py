@@ -164,7 +164,7 @@ class Spinner:
 
     CHARS = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
-    def __init__(self, message: str):
+    def __init__(self, message: str) -> None:
         self.message = message
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
@@ -178,7 +178,7 @@ class Spinner:
             print(f"      ... {self.message}")
         return self
 
-    def __exit__(self, *args) -> None:
+    def __exit__(self, *args: object) -> None:
         self._stop_event.set()
         if self._thread:
             self._thread.join(timeout=0.5)

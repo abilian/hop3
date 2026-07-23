@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3_installer.common import (
+    CommandResult,
     GitProvenance,
     ServiceStartError,
     collect_git_provenance,
@@ -48,7 +49,7 @@ _HEALTH_PROBE_TIMEOUT_S = 3
 class Deployer:
     """Handles Hop3 deployment to various targets."""
 
-    def __init__(self, config: DeployConfig, backend: DeployBackend):
+    def __init__(self, config: DeployConfig, backend: DeployBackend) -> None:
         self.config = config
         self.backend = backend
         self.verbose = config.verbose
@@ -101,7 +102,7 @@ class Deployer:
             # In quiet mode, show minimal progress
             print(f"  [{step}] {message}...", end=" ", flush=True)
 
-    def log_output(self, result, *, always: bool = False) -> None:
+    def log_output(self, result: CommandResult, *, always: bool = False) -> None:
         """
         Print command output.
 
