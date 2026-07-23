@@ -8,6 +8,7 @@ queue + pool + status logic against the real SQLite store, not a real run.
 
 from __future__ import annotations
 
+from hop3_testing.results.models import TestResultRecord, TestRun
 from hop3_testlab import dispatcher, leasing
 from hop3_testlab.config import TestlabConfig
 from hop3_testlab.db import get_session_factory
@@ -16,6 +17,7 @@ from hop3_testlab.repositories import (
     ProfilesRepository,
     ServersRepository,
 )
+from hop3_testlab.worker import EngineExitError
 
 
 def _session():
@@ -185,8 +187,6 @@ def test_dispatch_sweeps_a_stale_running_build():
 
 def test_dispatch_links_run_uid_to_build(monkeypatch):
     """A finished build is linked to the run it produced (via its build-<id> tag)."""
-    from hop3_testing.results.models import TestRun
-
     with _session() as s:
         p = _profile(s)
         ServersRepository(s).create(
@@ -220,9 +220,6 @@ def test_engine_exit_with_results_is_completed_not_crash(monkeypatch, tmp_path):
     tests — not a crash. The build is FAILED, but the detail names the failing
     tests (the actionable signal) and carries none of the 'Engine exited'
     crash noise."""
-    from hop3_testing.results.models import TestResultRecord, TestRun
-    from hop3_testlab.worker import EngineExitError
-
     with _session() as s:
         p = _profile(s)
         ServersRepository(s).create(
@@ -271,8 +268,6 @@ def test_record_caps_overlong_crash_detail(monkeypatch, tmp_path):
     (StringDataRightTruncation), leaving the build wedged for the orphan sweep to
     mislabel as "dispatcher restarted". _record must cap it so the outcome is
     always recorded. (SQLite doesn't enforce the width, so assert the cap directly.)"""
-    from hop3_testlab.worker import EngineExitError
-
     with _session() as s:
         p = _profile(s)
         ServersRepository(s).create(
@@ -302,8 +297,6 @@ def test_record_caps_overlong_crash_detail(monkeypatch, tmp_path):
 def test_engine_exit_without_results_is_a_real_crash(monkeypatch, tmp_path):
     """Engine exit 1 with no recorded run/results is a genuine setup/deploy
     crash: keep the loud engine message (with the log path) as the reason."""
-    from hop3_testlab.worker import EngineExitError
-
     with _session() as s:
         p = _profile(s)
         ServersRepository(s).create(

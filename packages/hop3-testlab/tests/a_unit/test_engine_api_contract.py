@@ -14,35 +14,32 @@ from __future__ import annotations
 
 import inspect
 
+from hop3_testing.catalog import Catalog, default_scan_paths
+from hop3_testing.results import ResultStore
+from hop3_testing.results.store import make_store_engine
+from hop3_testing.selector.modes import get_mode_config
+from hop3_testing.system_tests.config import HetznerConfig
+from hop3_testing.system_tests.hetzner import HetznerManager
+from hop3_testing.targets.helpers import find_project_root
+
 
 def test_catalog_surface_imports():
-    from hop3_testing.catalog import Catalog, default_scan_paths
-    from hop3_testing.targets.helpers import find_project_root
-
     assert callable(default_scan_paths)
     assert callable(find_project_root)
     assert inspect.isclass(Catalog)
 
 
 def test_result_store_surface_imports():
-    from hop3_testing.results import ResultStore
-    from hop3_testing.results.store import make_store_engine
-
     assert inspect.isclass(ResultStore)
     assert callable(make_store_engine)
 
 
 def test_mode_config_surface_imports():
-    from hop3_testing.selector.modes import get_mode_config
-
     assert callable(get_mode_config)
 
 
 def test_hetzner_surface_matches_worker_usage():
     # Mirrors hop3_testlab.worker._hetzner_manager: HetznerManager(HetznerConfig(...))
-    from hop3_testing.system_tests.config import HetznerConfig
-    from hop3_testing.system_tests.hetzner import HetznerManager
-
     config = HetznerConfig(
         api_token="tok",
         server_id=123,

@@ -21,6 +21,7 @@ from hop3.commands.auth import (
 )
 from hop3.orm.repositories import UserRepository
 from hop3.orm.security import AuditBase, Role, User
+from hop3.server.controllers.rpc import command_needs_username
 
 
 @pytest.fixture(autouse=True)
@@ -339,10 +340,6 @@ def test_auth_magic_link_pass_username_blocks_spoofed_admin(
     ``authenticated_username``. We assert the declarative fix and reproduce the
     RPC's arg-injection for the attack payload from a non-admin identity.
     """
-    from hop3.server.controllers.rpc import (
-        command_needs_username,
-    )
-
     # The fix: the command opts into verified-identity injection.
     assert command_needs_username(AuthMagicLinkCmd) is True
 

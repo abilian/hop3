@@ -11,6 +11,7 @@ aborts loudly rather than silently running against a dirty server.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -120,8 +121,6 @@ def test_purge_known_host_runs_ssh_keygen_remove():
 
 
 def test_wait_ssh_command_ready_retries_then_succeeds(monkeypatch):
-    from types import SimpleNamespace
-
     results = [SimpleNamespace(returncode=255), SimpleNamespace(returncode=0)]
     with patch("hop3_testlab.worker.subprocess.run", side_effect=results) as run:
         ok = worker._wait_ssh_command_ready("203.0.113.7", "/k", attempts=3, delay=0)

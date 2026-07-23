@@ -4,8 +4,12 @@
 
 from __future__ import annotations
 
+from hop3_testing.results import ResultStore
+from hop3_testing.results.models import TestRun
 from hop3_testlab.web.asgi import create_app
 from litestar.testing import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
 
 def test_health_returns_ok():
@@ -28,8 +32,6 @@ def test_dashboard_index_renders_when_empty():
 def test_dashboard_lists_recent_runs(tmp_path):
     # One store, two front-ends: a run written via the CLI's ResultStore shows up
     # on the web dashboard. (conftest points TESTLAB_DB_PATH at this tmp DB.)
-    from hop3_testing.results import ResultStore
-
     store = ResultStore(db_path=tmp_path / "test-results.db")
     run = store.start_run(mode="nightly", target_type="docker", target_name="hetzner-1")
     store.finish_run()
@@ -46,11 +48,6 @@ def test_dashboard_lists_recent_runs(tmp_path):
 def test_dashboard_skips_legacy_runs_without_uid(tmp_path):
     # A pre-ADR-044 row with no run_uid can't link to a detail page, so it's
     # omitted from the dashboard (rather than rendering a broken /runs/None link).
-    from hop3_testing.results import ResultStore
-    from hop3_testing.results.models import TestRun
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import Session
-
     db = tmp_path / "test-results.db"
     ResultStore(db_path=db)
     engine = create_engine(f"sqlite:///{db}")

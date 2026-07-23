@@ -71,7 +71,7 @@ lint.extend-ignore = [
     "A002", #    builtin-argument-shadowing
     # TODO (soon)
     "RUF100", # unused noqa
-    "PLC0415", # import-outside-top-level
+    # "PLC0415", # import-outside-top-level
     # "E402", #    module-import-not-at-top-of-file
     "EM102", #   f-string-in-exception
     "TRY003", #  raise-vanilla-args

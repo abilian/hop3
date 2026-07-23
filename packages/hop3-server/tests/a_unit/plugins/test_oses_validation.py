@@ -14,7 +14,12 @@ from __future__ import annotations
 
 import pytest
 
+from hop3.plugins.oses.arch import PACKAGES as ARCH
 from hop3.plugins.oses.base import BaseOSStrategy
+from hop3.plugins.oses.bsd import FREEBSD_PACKAGES, OPENBSD_PACKAGES
+from hop3.plugins.oses.debian_family import PACKAGES as DEBIAN
+from hop3.plugins.oses.macos import PACKAGES as MACOS
+from hop3.plugins.oses.redhat_family import PACKAGES as REDHAT
 
 
 def test_validates_typical_package_names():
@@ -54,22 +59,5 @@ def test_rejects_unsafe_names(bad):
 
 def test_real_package_lists_pass():
     """Every PACKAGES list shipped in the tree must pass validation today."""
-    from hop3.plugins.oses.arch import (
-        PACKAGES as ARCH,
-    )
-    from hop3.plugins.oses.bsd import (  # ruff:ignore[import-outside-top-level]
-        FREEBSD_PACKAGES,
-        OPENBSD_PACKAGES,
-    )
-    from hop3.plugins.oses.debian_family import (
-        PACKAGES as DEBIAN,
-    )
-    from hop3.plugins.oses.macos import (
-        PACKAGES as MACOS,
-    )
-    from hop3.plugins.oses.redhat_family import (
-        PACKAGES as REDHAT,
-    )
-
     for pkgs in (ARCH, DEBIAN, REDHAT, FREEBSD_PACKAGES, OPENBSD_PACKAGES, MACOS):
         BaseOSStrategy._validate_package_names(list(pkgs))
