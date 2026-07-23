@@ -70,7 +70,8 @@ def _result_items(result: dict) -> list[dict]:
         return [table(headers=result["columns"], rows=rows)]
     if "message" in result:
         return [text(result["message"])]
-    raise ValueError(f"unexpected run_sql result shape: {result!r}")
+    msg = f"unexpected run_sql result shape: {result!r}"
+    raise ValueError(msg)
 
 
 @register
