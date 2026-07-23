@@ -127,8 +127,8 @@ def _fetch_app_response(
         ``HttpResponse(status, body)``.
 
     Raises:
-        RuntimeError if no web-worker ini appears within the timeout, or
-        if the worker exists but never serves a request.
+        RuntimeError: if no web-worker ini appears within the timeout, or if the
+            worker exists but never serves a request.
     """
     container = target._container_helper.container
     glob = f"/home/hop3/uwsgi-enabled/{app_name}_web.*.ini"
