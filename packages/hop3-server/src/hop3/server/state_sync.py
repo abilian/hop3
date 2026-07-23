@@ -52,7 +52,7 @@ class StateSyncService:
         session_factory: Callable[[], Session],
         interval: float = 3.0,
         timeout: float = 60.0,
-    ):
+    ) -> None:
         """
         Initialize the state sync service.
 

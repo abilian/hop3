@@ -75,8 +75,8 @@ class NginxVirtualHost(BaseProxy):
         self.env.update(
             {
                 "NGINX_SSL": nginx_ssl,
-                "NGINX_ROOT": NGINX_ROOT,
-                "ACME_WWW": ACME_WWW,
+                "NGINX_ROOT": str(NGINX_ROOT),
+                "ACME_WWW": str(ACME_WWW),
             },
         )
 
@@ -100,7 +100,7 @@ class NginxVirtualHost(BaseProxy):
         backend_workers = ("web", "wsgi", "jwsgi", "rwsgi")
         return not any(w in self.workers for w in backend_workers)
 
-    def setup_backend(self):
+    def setup_backend(self) -> None:
         # For static-only apps, skip backend configuration entirely
         # (they serve files directly without a backend process)
         if self._is_static_only():
@@ -170,7 +170,7 @@ class NginxVirtualHost(BaseProxy):
         finally:
             container.close()
 
-    def extra_setup(self):
+    def extra_setup(self) -> None:
         # Conditionally block .git folders from being served
         self.env["HOP3_INTERNAL_NGINX_BLOCK_GIT"] = (
             ""

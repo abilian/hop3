@@ -54,7 +54,7 @@ class WafBansService:
         *,
         interval: float = RECONCILE_INTERVAL_SECONDS,
         initial_delay: float = INITIAL_DELAY_SECONDS,
-    ):
+    ) -> None:
         self.session_factory = session_factory
         self.interval = interval
         self.initial_delay = initial_delay

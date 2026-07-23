@@ -10,8 +10,8 @@ from __future__ import annotations
 import inspect
 import re
 import sys
-from argparse import ArgumentParser, RawDescriptionHelpFormatter
-from typing import TYPE_CHECKING
+from argparse import ArgumentParser, RawDescriptionHelpFormatter, _SubParsersAction
+from typing import TYPE_CHECKING, NoReturn
 
 from advanced_alchemy.exceptions import RepositoryError
 
@@ -31,7 +31,7 @@ scan_package("hop3.server.cli")
 class HopServerArgumentParser(ArgumentParser):
     """Custom ArgumentParser with better error messages."""
 
-    def error(self, message: str):
+    def error(self, message: str) -> NoReturn:
         """Override error to provide better messages for invalid commands."""
         # Check if this is an invalid choice error
         if "invalid choice:" in message:
@@ -64,7 +64,7 @@ class HopServerArgumentParser(ArgumentParser):
 
 
 class CLI:
-    def __call__(self, args: list[str]):
+    def __call__(self, args: list[str]) -> None:
         """
         Invoke the main function with the given arguments.
 
@@ -163,7 +163,9 @@ def create_parser() -> ArgumentParser:
     return parser
 
 
-def add_cmd_to_subparsers(subparsers, cmd):
+def add_cmd_to_subparsers(
+    subparsers: _SubParsersAction[HopServerArgumentParser], cmd: Command
+) -> None:
     # Determine the command's name
     name = getattr(cmd, "name", None)
     if not name:

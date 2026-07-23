@@ -114,7 +114,7 @@ def _format_list_result(result: list) -> str:
     return "\n".join(output_parts)
 
 
-def format_output(result):
+def format_output(result: object) -> str:
     """
     Format command result for console output.
 
@@ -233,7 +233,7 @@ class Local(Command):
             help="Arguments to pass to the command",
         )
 
-    def run(self, command: str, args: list[str] | None = None):
+    def run(self, command: str, args: list[str] | None = None) -> None:
         """
         Execute an RPC command locally.
 

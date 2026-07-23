@@ -18,6 +18,8 @@ from . import Command
 if TYPE_CHECKING:
     from argparse import ArgumentParser
 
+    from pluggy import PluginManager
+
 
 class _Named(Protocol):
     """Protocol for objects with a name attribute."""
@@ -52,7 +54,7 @@ class Plugins(Command):
             help="Show detailed information about each plugin",
         )
 
-    def run(self, *, verbose_plugins: bool = False):
+    def run(self, *, verbose_plugins: bool = False) -> None:
         # create_app() has the side effect of importing every command and
         # plugin module, which is what registers them with the plugin
         # manager. Discarding the return value is intentional: we only need
@@ -65,7 +67,7 @@ class Plugins(Command):
         else:
             self._print_summary(pm)
 
-    def _print_summary(self, pm) -> None:
+    def _print_summary(self, pm: PluginManager) -> None:
         """Print a compact, flat summary of capabilities."""
         capabilities = self._gather_capabilities(pm)
 
@@ -115,7 +117,7 @@ class Plugins(Command):
         print(dim(f"{green('✓')} = active/detected on this system"))
         print(dim("Use --verbose for detailed plugin information."))
 
-    def _gather_capabilities(self, pm) -> dict[str, set[str]]:
+    def _gather_capabilities(self, pm: PluginManager) -> dict[str, set[str]]:
         """Gather all capabilities from registered plugins."""
         capabilities: dict[str, set[str]] = {
             "builders": set(),
@@ -135,7 +137,9 @@ class Plugins(Command):
 
         return capabilities
 
-    def _gather_builders(self, pm, capabilities: dict[str, set[str]]) -> None:
+    def _gather_builders(
+        self, pm: PluginManager, capabilities: dict[str, set[str]]
+    ) -> None:
         """Gather builder capabilities from plugins."""
         try:
             for builder_list in pm.hook.get_builders():
@@ -146,7 +150,9 @@ class Plugins(Command):
         except Exception:
             pass
 
-    def _gather_deployers(self, pm, capabilities: dict[str, set[str]]) -> None:
+    def _gather_deployers(
+        self, pm: PluginManager, capabilities: dict[str, set[str]]
+    ) -> None:
         """Gather deployer capabilities from plugins."""
         try:
             for deployer_list in pm.hook.get_deployers():
@@ -157,7 +163,9 @@ class Plugins(Command):
         except Exception:
             pass
 
-    def _gather_toolchains(self, pm, capabilities: dict[str, set[str]]) -> None:
+    def _gather_toolchains(
+        self, pm: PluginManager, capabilities: dict[str, set[str]]
+    ) -> None:
         """Gather toolchain capabilities from plugins."""
         try:
             for toolchain_list in pm.hook.get_language_toolchains():
@@ -169,7 +177,9 @@ class Plugins(Command):
         except Exception:
             pass
 
-    def _gather_proxies(self, pm, capabilities: dict[str, set[str]]) -> None:
+    def _gather_proxies(
+        self, pm: PluginManager, capabilities: dict[str, set[str]]
+    ) -> None:
         """Gather proxy capabilities from plugins."""
         try:
             for proxy_list in pm.hook.get_proxies():
@@ -179,7 +189,9 @@ class Plugins(Command):
         except Exception:
             pass
 
-    def _gather_os_support(self, pm, capabilities: dict[str, set[str]]) -> None:
+    def _gather_os_support(
+        self, pm: PluginManager, capabilities: dict[str, set[str]]
+    ) -> None:
         """Gather OS support capabilities from plugins."""
         try:
             for os_list in pm.hook.get_os_implementations():
@@ -191,7 +203,9 @@ class Plugins(Command):
         except Exception:
             pass
 
-    def _gather_addons(self, pm, capabilities: dict[str, set[str]]) -> None:
+    def _gather_addons(
+        self, pm: PluginManager, capabilities: dict[str, set[str]]
+    ) -> None:
         """Gather addon capabilities from plugins."""
         try:
             for addon_list in pm.hook.get_addons():
@@ -221,7 +235,7 @@ class Plugins(Command):
         }
         return mapping.get(toolchain_name.lower())
 
-    def _extract_proxy_name(self, proxy_class) -> str:
+    def _extract_proxy_name(self, proxy_class: type) -> str:
         """Extract clean proxy name from class."""
         # First try explicit name attribute
         if hasattr(proxy_class, "name"):
@@ -241,7 +255,7 @@ class Plugins(Command):
         except Exception:
             return None
 
-    def _get_detected_os(self, pm) -> str | None:
+    def _get_detected_os(self, pm: PluginManager) -> str | None:
         """Get the detected OS for this system."""
         try:
             for os_list in pm.hook.get_os_implementations():
@@ -253,7 +267,7 @@ class Plugins(Command):
             pass
         return None
 
-    def _print_verbose(self, pm) -> None:
+    def _print_verbose(self, pm: PluginManager) -> None:
         """Print detailed information about each plugin, grouped by category."""
         plugins = list(pm.get_plugins())
         plugins_with_hooks = [p for p in plugins if pm.get_hookcallers(p)]
@@ -281,7 +295,7 @@ class Plugins(Command):
             for plugin in sorted(categorized[category], key=self._get_plugin_name):
                 self._print_plugin_details(pm, plugin)
 
-    def _categorize_plugins(self, pm, plugins: list) -> dict[str, list]:
+    def _categorize_plugins(self, pm: PluginManager, plugins: list) -> dict[str, list]:
         """Categorize plugins based on the hooks they implement."""
         # Hook to category mapping
         hook_categories = {
@@ -312,7 +326,7 @@ class Plugins(Command):
 
         return categorized
 
-    def _is_internal_plugin(self, plugin) -> bool:
+    def _is_internal_plugin(self, plugin: types.ModuleType | _Named) -> bool:
         """Check if this is an internal plugin that shouldn't be shown."""
         name = self._get_plugin_name(plugin)
         return name == "core"
@@ -347,7 +361,9 @@ class Plugins(Command):
 
         return result
 
-    def _print_plugin_details(self, pm, plugin) -> None:
+    def _print_plugin_details(
+        self, pm: PluginManager, plugin: types.ModuleType | _Named
+    ) -> None:
         """Print detailed information about a single plugin."""
         name = self._get_plugin_name(plugin)
 

@@ -16,6 +16,7 @@ from __future__ import annotations
 import getpass
 import sys
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from hop3.lib.registry import register
 from hop3.orm import Role, User
@@ -24,6 +25,9 @@ from hop3.server.lib.database import get_session
 from hop3.server.security.tokens import create_magic_token, create_token
 
 from ._base import Command
+
+if TYPE_CHECKING:
+    from argparse import ArgumentParser
 
 
 @register
@@ -71,7 +75,7 @@ class AdminCreate(Command):
 
     name = "admin:create"
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: ArgumentParser) -> None:
         parser.add_argument("username", type=str, help="Username for the new admin")
         parser.add_argument("email", type=str, help="Email address for the new admin")
         parser.add_argument(
@@ -169,7 +173,7 @@ class AdminToken(Command):
 
     name = "admin:token"
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: ArgumentParser) -> None:
         parser.add_argument("username", type=str, help="Username to generate token for")
 
     def run(self, username: str) -> None:
@@ -372,7 +376,7 @@ class AdminResetPassword(Command):
 
     name = "admin:reset-password"
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: ArgumentParser) -> None:
         parser.add_argument("username", type=str, help="Username to reset password for")
         parser.add_argument(
             "--password-stdin",
@@ -437,7 +441,7 @@ class AuthMagicLink(Command):
 
     name = "auth:magic-link"
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: ArgumentParser) -> None:
         parser.add_argument(
             "username",
             type=str,

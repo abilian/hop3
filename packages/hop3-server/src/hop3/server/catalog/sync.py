@@ -37,8 +37,14 @@ import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .verify import verify_minisign, verify_tree_against_index
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from http.client import HTTPMessage
+    from typing import IO
 
 _SPECIAL_MODE_BITS = stat.S_ISUID | stat.S_ISGID | stat.S_ISVTX
 
@@ -60,7 +66,15 @@ class CatalogSyncError(Exception):
 class _HTTPSOnlyRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Refuse to follow any redirect whose target is not HTTPS."""
 
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: IO[bytes],
+        code: int,
+        msg: str,
+        headers: HTTPMessage,
+        newurl: str,
+    ) -> urllib.request.Request | None:
         if not newurl.lower().startswith("https://"):
             err = f"Catalog fetch refused a non-HTTPS redirect to {newurl!r}"
             raise urllib.error.HTTPError(newurl, code, err, headers, fp)
@@ -68,7 +82,7 @@ class _HTTPSOnlyRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 
 @contextlib.contextmanager
-def _exclusive_lock(state_root: Path):
+def _exclusive_lock(state_root: Path) -> Iterator[None]:
     """
     Hold an exclusive, non-blocking lock for the publish critical section.
 

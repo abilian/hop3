@@ -71,7 +71,7 @@ class TraefikVirtualHost(BaseProxy):
             },
         )
 
-    def setup_backend(self):
+    def setup_backend(self) -> None:
         """Configure the backend connection (always HTTP for all workers)."""
         # Always use HTTP proxy for all workers (including WSGI)
         # This allows direct HTTP access for development, debugging, and health checks
@@ -123,7 +123,7 @@ class TraefikVirtualHost(BaseProxy):
                 level=2,
             )
 
-    def extra_setup(self):
+    def extra_setup(self) -> None:
         """Additional configuration setup."""
         middlewares = []
 

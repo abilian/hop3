@@ -17,6 +17,7 @@ import tempfile
 import traceback
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import TYPE_CHECKING
 
 import toml
 
@@ -29,6 +30,9 @@ from hop3.server.catalog.refresh import refresh_catalog
 from hop3.server.catalog.sync import CatalogSyncError
 from hop3.server.catalog.verify import CatalogVerificationError
 from hop3.server.cli import Command
+
+if TYPE_CHECKING:
+    from argparse import ArgumentParser
 
 
 def _write_secret_config(config_file: Path, config_data: dict) -> None:
@@ -78,7 +82,7 @@ class SetupCmd(Command):
 
     name = "setup"
 
-    def add_arguments(self, parser) -> None:
+    def add_arguments(self, parser: ArgumentParser) -> None:
         """Add command-specific arguments."""
         parser.add_argument(
             "-v",
@@ -272,7 +276,7 @@ class SetupSshCmd(Command):
 
     name = "setup:ssh"
 
-    def add_arguments(self, parser) -> None:
+    def add_arguments(self, parser: ArgumentParser) -> None:
         parser.add_argument("public_key_file", type=str)
 
     def run(self, public_key_file: str) -> None:
@@ -320,7 +324,7 @@ class SetupSshCmd(Command):
                 fg="red",
             )
 
-    def setup_authorized_keys(self, pubkey, fingerprint) -> None:
+    def setup_authorized_keys(self, pubkey: str, fingerprint: str) -> None:
         """
         Sets up an authorized_keys file to redirect SSH commands.
 

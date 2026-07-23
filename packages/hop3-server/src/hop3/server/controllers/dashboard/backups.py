@@ -24,9 +24,10 @@ from .helpers import format_size
 
 if TYPE_CHECKING:
     from litestar.params import FromPath
+    from sqlalchemy.orm import Session
 
 
-def _get_backup_manager(db_session):
+def _get_backup_manager(db_session: Session) -> BackupManager:
     """Create a BackupManager with repositories from the session."""
     return BackupManager(
         backup_repo=BackupRepository(session=db_session),

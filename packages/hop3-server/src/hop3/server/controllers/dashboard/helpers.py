@@ -7,12 +7,16 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hop3.orm import App, AppRepository
 from hop3.project.config import AppConfig
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
-def get_app_or_none(db_session, app_name: str) -> App | None:
+
+def get_app_or_none(db_session: Session, app_name: str) -> App | None:
     """Get app from database by name."""
     app_repo = AppRepository(session=db_session)
     return app_repo.get_by_name(app_name)

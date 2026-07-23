@@ -38,7 +38,7 @@ class BuildContext:
     source_path: Path
     app_config: dict
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert self.source_path.is_dir()
 
 
@@ -55,7 +55,7 @@ class DeploymentContext:
     app_config: dict
     app: App | None = None  # The full App object from the database
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert self.source_path.is_dir()
 
     # app_config: AppConfig

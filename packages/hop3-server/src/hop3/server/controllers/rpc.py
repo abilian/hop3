@@ -164,7 +164,9 @@ def command_needs_token_info(command_class: type[Command]) -> bool:
     return getattr(command_class, "pass_token_info", False)
 
 
-def call(command_name: tuple[str, ...], args: list[str], extra_args: JsonDict):
+def call(
+    command_name: tuple[str, ...], args: list[str], extra_args: JsonDict
+) -> list[dict]:
     """
     Execute a CLI command with given arguments.
 

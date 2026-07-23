@@ -96,7 +96,7 @@ class AddonPostgresCredentialsCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "credentials")
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         if not args:
             return [text("Usage: hop3 addon postgres credentials <name>")]
         addon_name = args[0]
@@ -122,7 +122,7 @@ class AddonPostgresDumpCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "dump")
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         if not args:
             return [text("Usage: hop3 addon postgres dump <name>")]
         addon_name = args[0]
@@ -153,7 +153,7 @@ class AddonPostgresRestoreCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "restore")
     destructive: ClassVar[bool] = True
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         if len(args) < 2:
             return [text("Usage: hop3 addon postgres restore <name> <path>")]
         addon_name, backup_path = args[0], args[1]
@@ -185,7 +185,7 @@ class AddonPostgresExtensionsCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "extensions")
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         if len(args) < 2:
             return [
                 text(
@@ -235,7 +235,7 @@ class AddonPostgresQueryCmd(Command):
         "command": {"type": str},
     }
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
         statement = parsed.get("command")
@@ -265,7 +265,7 @@ class AddonPostgresCloneCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "clone")
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         return _clone(args)
 
 
@@ -286,7 +286,7 @@ class AddonPostgresExportCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "export")
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         if not args:
             return [text("Usage: hop3 addon postgres export <name> > dump.sql")]
         addon_name = args[0]
@@ -320,7 +320,9 @@ class AddonPostgresImportCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "import")
     destructive: ClassVar[bool] = True
 
-    def call(self, *args, import_data: str | None = None, **kwargs):
+    def call(
+        self, *args: str, import_data: str | None = None, **kwargs: object
+    ) -> list[dict]:
         if not args:
             return [text("Usage: hop3 addon postgres import <name> < dump.sql")]
         addon_name = args[0]
@@ -412,7 +414,7 @@ class AddonPostgresPsCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "activity")
     aliases: ClassVar[list[tuple[str, ...]]] = [("addon", _TYPE, "ps")]
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         return _diagnostic(args, _PS_SQL, "listing activity", "activity")
 
 
@@ -430,7 +432,7 @@ class AddonPostgresLocksCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "locks")
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         return _diagnostic(args, _LOCKS_SQL, "listing locks", "locks")
 
 
@@ -448,7 +450,7 @@ class AddonPostgresSettingsCmd(Command):
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "settings")
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         return _diagnostic(args, _SETTINGS_SQL, "reading settings", "settings")
 
 

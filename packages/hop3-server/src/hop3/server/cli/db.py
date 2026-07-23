@@ -15,10 +15,16 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hop3.lib.registry import register
 
 from ._base import Command
+
+if TYPE_CHECKING:
+    from argparse import ArgumentParser
+
+    from alembic.config import Config
 
 _UNSTAMPED_HINTS = (
     "duplicate column name",  # SQLite — column added by create_all()
@@ -41,7 +47,7 @@ def _looks_like_unstamped_db(exc: BaseException) -> bool:
     return any(hint in msg for hint in _UNSTAMPED_HINTS)
 
 
-def _orphan_db_revision(cfg) -> str | None:
+def _orphan_db_revision(cfg: Config) -> str | None:
     """
     The DB's current revision, when this deployment has no script for it.
 
@@ -119,7 +125,7 @@ def _database_url() -> str:
     return os.environ.get("HOP3_DATABASE_URI") or f"sqlite:///{c.HOP3_ROOT}/hop3.db"
 
 
-def _adopt_unstamped_db(cfg) -> None:
+def _adopt_unstamped_db(cfg: Config) -> None:
     """
     Make an unstamped database safe to ``upgrade`` from base.
 
@@ -182,7 +188,7 @@ def _adopt_unstamped_db(cfg) -> None:
         engine.dispose()
 
 
-def _alembic_config():
+def _alembic_config() -> Config:
     """
     Build a programmatic Alembic Config pointing at the bundled alembic.ini.
 
@@ -243,7 +249,7 @@ class DbUpgradeCmd(Command):
 
     name = "db:upgrade"
 
-    def add_arguments(self, parser) -> None:
+    def add_arguments(self, parser: ArgumentParser) -> None:
         parser.add_argument(
             "--revision",
             default="head",
@@ -330,7 +336,7 @@ class DbStampCmd(Command):
 
     name = "db:stamp"
 
-    def add_arguments(self, parser) -> None:
+    def add_arguments(self, parser: ArgumentParser) -> None:
         parser.add_argument(
             "revision",
             help="Revision to stamp (e.g. 'head' or a specific hash)",

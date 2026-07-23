@@ -23,7 +23,7 @@ __all__ = ["RateLimitError", "RateLimiter"]
 class RateLimitError(Exception):
     """Raised when an IP exceeds the configured rate limit."""
 
-    def __init__(self, ip: str, retry_after: float):
+    def __init__(self, ip: str, retry_after: float) -> None:
         super().__init__(f"Rate limit exceeded for {ip}")
         self.ip = ip
         self.retry_after = retry_after

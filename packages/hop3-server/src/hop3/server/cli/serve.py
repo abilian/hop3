@@ -29,7 +29,7 @@ class Serve(Command):
 
     name = "serve"
 
-    def run(self):
+    def run(self) -> None:
         reload = DEBUG
         granian.Granian(
             target="hop3.server.asgi:create_app",

@@ -58,7 +58,7 @@ class CertRenewalService:
         interval: float = RENEWAL_INTERVAL_SECONDS,
         initial_delay: float = INITIAL_DELAY_SECONDS,
         threshold_days: int = RENEWAL_THRESHOLD_DAYS,
-    ):
+    ) -> None:
         self.session_factory = session_factory
         self.interval = interval
         self.initial_delay = initial_delay

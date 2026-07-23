@@ -131,7 +131,7 @@ class AddonEmailCreateCmd(Command):
         "from": {"type": str},
     }
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         # Default to "" (not None) so a missing flag is falsy for the checks
         # below and the values type as `Any`, not `Any | None`.
@@ -293,7 +293,7 @@ class AddonEmailStatusCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "status")
     requires_auth: ClassVar[bool] = True
 
-    def call(self, *args):
+    def call(self, *args: str) -> list[dict]:
         if not args:
             return [text("Usage: hop3 addon email status <name>")]
         addon_name = args[0]
