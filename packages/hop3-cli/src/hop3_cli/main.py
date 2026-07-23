@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .commands.flags import CliFlags
+    from .core.resolution import AppResolution, ContextResolution
 
 import requests.exceptions
 from jsonrpcclient import Error, Ok
@@ -66,7 +67,7 @@ from .ui import (
 logger.remove()
 
 
-def main():
+def main() -> None:
     """Entry point for the CLI."""
     args = sys.argv[1:]
     try:
@@ -195,7 +196,9 @@ def _apply_flag_overrides(config: Config, flags: CliFlags) -> None:
         config.set_app_override(flags.app)
 
 
-def _exit_no_app_resolved(resolution, cli_args: list[str], n_consumed: int) -> None:
+def _exit_no_app_resolved(
+    resolution: AppResolution, cli_args: list[str], n_consumed: int
+) -> None:
     """
     Print a helpful error and exit when an app-scoped command has no app.
 
@@ -221,7 +224,7 @@ def _apply_aliases(
     cli_args: list[str],
     config: Config,
     printer: RichPrinter,
-    flags,
+    flags: CliFlags,
 ) -> list[str]:
     """
     Expand the first-token alias (if any) per ADR 036 D9.
@@ -276,13 +279,18 @@ def _context_server(name: str | None, config: Config) -> str | None:
     return config.get_context_server(name)
 
 
-def _resolve_active_server(context_resolution, config: Config) -> str | None:
+def _resolve_active_server(
+    context_resolution: ContextResolution | None, config: Config
+) -> str | None:
     """Server for the ambiently-selected context (.hop3-local.toml / single-context)."""
     return _context_server(getattr(context_resolution, "context", None), config)
 
 
 def _wire_active_server(
-    cli_args: list[str], flags: CliFlags, config: Config, context_resolution
+    cli_args: list[str],
+    flags: CliFlags,
+    config: Config,
+    context_resolution: ContextResolution | None,
 ) -> None:
     """
     Set this invocation's active server — the one connection target (ADR 042).
@@ -416,7 +424,9 @@ def _resolve_ambient_server(config: Config) -> str | None:
     return known[0] if len(known) == 1 else None
 
 
-def _compute_resolutions(cli_args: list[str], flags: CliFlags, config: Config):
+def _compute_resolutions(
+    cli_args: list[str], flags: CliFlags, config: Config
+) -> tuple[ContextResolution | None, AppResolution | None]:
     """
     Run the context+app resolvers (or no-op when not needed).
 
@@ -448,7 +458,7 @@ def _compute_resolutions(cli_args: list[str], flags: CliFlags, config: Config):
 def _inject_resolved_app(
     cli_args: list[str],
     flags: CliFlags,
-    resolution,
+    resolution: AppResolution | None,
     printer: RichPrinter,
 ) -> list[str]:
     """
@@ -545,7 +555,7 @@ def _matches_guarded_prefix(cli_args: list[str]) -> tuple[str, ...] | None:
 
 
 def _check_project_mismatch(
-    cli_args: list[str], flags: CliFlags, app_resolution
+    cli_args: list[str], flags: CliFlags, app_resolution: AppResolution | None
 ) -> None:
     """
     ADR 042 §D14: refuse a guarded verb when CWD's project disagrees with
@@ -633,8 +643,8 @@ def _handle_deploy_preview(
     cli_args: list[str],
     flags: CliFlags,
     config: Config,
-    app_resolution,
-    context_resolution,
+    app_resolution: AppResolution | None,
+    context_resolution: ContextResolution | None,
 ) -> None:
     """
     ADR 042 §Deploy preview: ``hop3 deploy`` prints a plan and exits when
@@ -734,7 +744,9 @@ def _update_printer_scope(
     printer.set_scope(context=context_name, app=app_name)
 
 
-def _print_debug_info(printer: RichPrinter, cli_args: list[str], config, flags) -> None:
+def _print_debug_info(
+    printer: RichPrinter, cli_args: list[str], config: Config, flags: CliFlags
+) -> None:
     """Print debug information about the current command."""
     printer.print_debug(f"Command: {' '.join(cli_args) if cli_args else '(none)'}")
     printer.print_debug(f"Verbosity: {flags.verbosity}")
@@ -747,7 +759,9 @@ def _print_debug_info(printer: RichPrinter, cli_args: list[str], config, flags) 
     printer.print_debug(f"API URL: {api_url}")
 
 
-def _context_deploy_override(cli_args: list[str], context_resolution) -> bytes | None:
+def _context_deploy_override(
+    cli_args: list[str], context_resolution: ContextResolution | None
+) -> bytes | None:
     """
     Context-flattened hop3.toml bytes for a `hop3 deploy` upload (ADR 042 r2 §E1).
 
@@ -802,7 +816,7 @@ def _get_extra_args_safe(
 
 
 def _check_prerequisites(
-    cli_args: list[str], config: Config, printer: RichPrinter, flags
+    cli_args: list[str], config: Config, printer: RichPrinter, flags: CliFlags
 ) -> None:
     """Check all prerequisites before executing a command."""
     # Skip all checks for commands that don't require authentication

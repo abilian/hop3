@@ -5,7 +5,7 @@ import contextlib
 import dataclasses
 import os
 from pathlib import Path
-from typing import Any, ClassVar, overload
+from typing import ClassVar, overload
 
 import toml
 
@@ -220,14 +220,14 @@ class Config:
                 msg = f"Malformed config file {file}: {exc}"
                 raise ConfigError(msg) from exc
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: str) -> object:
         value = self.get(item)
         if value is _marker:
             raise KeyError(item)
         return value
 
     @overload
-    def get(self, key: str) -> Any: ...
+    def get(self, key: str) -> object: ...
 
     @overload
     def get(self, key: str, default: str) -> str: ...
@@ -239,9 +239,9 @@ class Config:
     def get(self, key: str, default: int) -> int: ...
 
     @overload
-    def get(self, key: str, default: None) -> Any: ...
+    def get(self, key: str, default: None) -> object: ...
 
-    def get(self, key: str, default: Any = _marker) -> Any:
+    def get(self, key: str, default: object = _marker) -> object:
         """
         Retrieves a configuration value with a clear priority order.
 

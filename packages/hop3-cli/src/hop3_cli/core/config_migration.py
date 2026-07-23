@@ -403,5 +403,5 @@ def _chmod_600(path: Path) -> None:
         os.chmod(path, 0o600)
 
 
-def _str_or_none(value: Any) -> str | None:
+def _str_or_none(value: object) -> str | None:
     return value if isinstance(value, str) and value.strip() else None

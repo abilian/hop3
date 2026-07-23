@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import re
 import sys
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from jsonrpcclient import Error, Ok
 
@@ -38,12 +38,14 @@ from hop3_cli.rpc.client import resolve_ssl_verification
 from hop3_cli.ui.console import err
 
 if TYPE_CHECKING:
+    from jsonrpcclient.responses import Response
+
     from hop3_cli.config import Config
     from hop3_cli.ui.rich_printer import RichPrinter
 
 
 def handle_response(
-    response: Any,
+    response: Response,
     cli_args: list[str],
     config: Config,
     printer: RichPrinter,

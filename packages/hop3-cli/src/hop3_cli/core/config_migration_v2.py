@@ -33,7 +33,7 @@ from __future__ import annotations
 import contextlib
 import os
 import shutil
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 import tomllib
 
@@ -112,8 +112,14 @@ def migrate_config_to_token_store(config_dir: Path) -> list[str]:
     return notes
 
 
+class _TokenStore(Protocol):
+    """The credential-store capability this migration needs (inject a fake in tests)."""
+
+    def set_token(self, address: str, token: str) -> None: ...
+
+
 def _drain_and_convert(
-    contexts: dict[str, Any], credential_store
+    contexts: dict[str, Any], credential_store: _TokenStore
 ) -> tuple[dict[str, Any], list[str]]:
     """Drain each context's token to the store; return (address-only contexts, drained)."""
     drained: list[str] = []
@@ -153,7 +159,7 @@ def _needs_migration(data: dict[str, Any], contexts: dict[str, Any]) -> bool:
 # --------------------------------------------------------------------------- #
 
 
-def _pointer(data: dict[str, Any]) -> Any:
+def _pointer(data: dict[str, Any]) -> object:
     """The old current-context pointer (``[cli].current_context`` or top-level)."""
     cli = data.get("cli")
     if isinstance(cli, dict) and cli.get("current_context"):
@@ -180,5 +186,5 @@ def _chmod_600(path: Path) -> None:
         os.chmod(path, 0o600)
 
 
-def _str(value: Any) -> str | None:
+def _str(value: object) -> str | None:
     return value if isinstance(value, str) and value.strip() else None

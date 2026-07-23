@@ -9,6 +9,6 @@ from __future__ import annotations
 import sys
 
 
-def err(*args):
+def err(*args: object) -> None:
     """Print to stderr."""
     print(*args, file=sys.stderr)
