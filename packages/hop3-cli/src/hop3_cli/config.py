@@ -11,6 +11,7 @@ import toml
 
 from hop3_cli.core import credential_store
 from hop3_cli.core.paths import config_dir
+from hop3_cli.exceptions import ConfigError
 
 # The prefix for all environment variables.
 PREFIX = "HOP3_"
@@ -211,11 +212,13 @@ class Config:
             try:
                 data = toml.load(f)
                 return Config(data=data, config_file=file)
-            except toml.TomlDecodeError:
-                # FIXME: abort instead of returning empty config?
-                # Handle malformed config file gracefully.
-                # You might want to log a warning here.
-                return Config(data={}, config_file=file)
+            except toml.TomlDecodeError as exc:
+                # Fail loud: a malformed config must not masquerade as an empty
+                # one (which reads as "logged out" / no server and hides the real
+                # problem). Abort with the file and parse error so the user can
+                # fix it.
+                msg = f"Malformed config file {file}: {exc}"
+                raise ConfigError(msg) from exc
 
     def __getitem__(self, item):
         value = self.get(item)

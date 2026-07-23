@@ -329,6 +329,66 @@ class TestGetDeployer:
         assert "uWSGI deployer is available but did not accept" in message
         assert "Available deployers: uwsgi" in message
 
+    def test_explicit_deployer_selected_by_name(self, install_pm, tmp_path):
+        accept_calls: list[str] = []
+
+        class Uwsgi:
+            name = "uwsgi"
+
+            def __init__(self, context, artifact) -> None:
+                self.context = context
+                self.artifact = artifact
+
+            def accept(self) -> bool:
+                accept_calls.append("uwsgi")
+                return True
+
+        class Compose:
+            name = "docker-compose"
+
+            def __init__(self, context, artifact) -> None:
+                self.context = context
+                self.artifact = artifact
+
+            def accept(self) -> bool:
+                accept_calls.append("docker-compose")
+                return True
+
+        install_pm(get_deployers=[[Uwsgi, Compose]])
+        context = make_context(
+            tmp_path, {"hop3_config": {"deploy": {"deployer": "docker-compose"}}}
+        )
+        artifact = BuildArtifact(kind="virtualenv", location="/tmp/venv")
+
+        deployer = get_deployer(context, artifact)
+
+        assert isinstance(deployer, Compose)
+        # Explicit selection must not auto-detect (accept() never called).
+        assert accept_calls == []
+
+    def test_explicit_deployer_not_found_raises(self, install_pm, tmp_path):
+        class Uwsgi:
+            name = "uwsgi"
+
+            def __init__(self, context, artifact) -> None:
+                pass
+
+            def accept(self) -> bool:
+                return True
+
+        install_pm(get_deployers=[[Uwsgi]])
+        context = make_context(
+            tmp_path, {"hop3_config": {"deploy": {"deployer": "nonexistent"}}}
+        )
+        artifact = BuildArtifact(kind="virtualenv", location="/tmp/venv")
+
+        with pytest.raises(RuntimeError) as exc_info:
+            get_deployer(context, artifact)
+
+        message = str(exc_info.value)
+        assert "Configured deployer 'nonexistent' not found" in message
+        assert "Available deployers: uwsgi" in message
+
 
 # --- get_deployer_by_name -------------------------------------------------
 

@@ -191,7 +191,7 @@ class BackupListCmd(Command):
                 backup.app_name,
                 format_size(backup.size_bytes),
                 created,
-                "COMPLETED",  # TODO: Get actual status from DB
+                backup.state,
                 addons_str,
             ])
 

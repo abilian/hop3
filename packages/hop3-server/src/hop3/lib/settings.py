@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hop3.lib import echo, expand_vars
+from hop3.lib import expand_vars
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -57,12 +57,10 @@ def parse_settings(
             # Parse the line into key and value, expanding any environment variables found
             k, v = (x.strip() for x in line.split("=", 1))
             env[k] = expand_vars(v, env)
-        except Exception:
-            echo(
-                f"Error: malformed setting '{line}', ignoring file.",
-                fg="red",
-            )
-            # TODO: we should probably raise an exception here instead of ignoring the error
-            return {}
+        except Exception as exc:
+            # Fail loud: a malformed line must abort, not silently drop the whole
+            # settings file (which would deploy the app with its env missing).
+            msg = f"Malformed setting '{line}' in {filename}"
+            raise ValueError(msg) from exc
 
     return env

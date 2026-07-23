@@ -25,11 +25,6 @@ class NodeToolchain(LanguageToolchain):
     name = "Node"
     requirements = ["node", "npm"]  # ruff:ignore[mutable-class-default]
 
-    # FIXME: should be more complex
-    # check_requirements(["nodejs", "npm"])
-    # or check_requirements(["node", "npm"])
-    # or check_requirements(["nodeenv"])
-
     def accept(self) -> bool:
         """Check if the package.json file exists in the specified app path."""
         return self.check_exists("package.json")

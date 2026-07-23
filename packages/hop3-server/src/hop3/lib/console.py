@@ -44,17 +44,6 @@ from os import environ
 from attrs import field, frozen
 from termcolor import colored
 
-# TODO ?
-# "light_grey": 37,
-# "dark_grey": 90,
-# "light_red": 91,
-# "light_green": 92,
-# "light_yellow": 93,
-# "light_blue": 94,
-# "light_magenta": 95,
-# "light_cyan": 96,
-# "white": 97,
-
 
 # Color helpers
 def red(text):

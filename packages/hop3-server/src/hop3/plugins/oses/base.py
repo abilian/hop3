@@ -169,7 +169,15 @@ class BaseOSStrategy:
                 msg = f"Invalid src type: {type(src)}"
                 raise ValueError(msg)
 
-        # TODO: Implement mode, owner, group setting
+        if mode is not None or owner is not None or group is not None:
+            # Not implemented yet. Fail loud rather than silently writing the file
+            # with default permissions/ownership (a silent fake-success that would
+            # hand a caller a world-readable file it asked to lock down).
+            msg = (
+                f"{type(self).__name__}.put_file cannot set mode/owner/group yet; "
+                f"caller requested mode={mode!r} owner={owner!r} group={group!r}"
+            )
+            raise NotImplementedError(msg)
 
     def ensure_link(self, name: str, path: str, target: str) -> None:
         """

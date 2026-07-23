@@ -8,6 +8,7 @@ exclude = [
     "docs",
     "demos",
     "spikes",
+    "packages/hop3-tui",
 ]
 
 lint.select = [
@@ -59,7 +60,7 @@ lint.extend-ignore = [
     "RUF067", # `__init__` module should only contain docstrings and re-exports
     "RUF070", # unnecessary-assign-before-yield
     "RUF001", # ambiguous-unicode-character-string
-    "RUF201", #
+    "RUF201", # use rule codes
     #
     # Fix this (later)
     #
@@ -92,6 +93,7 @@ known-first-party = ["hop3"]
     "SLF001", #  private-member-access
     "RUF069", #  float-equality-comparison
     "PT012", #   pytest-raises-with-multiple-statements
+    "S", # flake8-bandit
     #
     "PT011", #   pytest-raises-too-broad
     "N806", #    non-lowercase-variable-in-function

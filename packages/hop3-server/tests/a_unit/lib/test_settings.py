@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from hop3.lib.settings import parse_settings, write_settings
 
 
@@ -197,36 +199,32 @@ class TestParseSettings:
         assert result is env
         assert env == {"OLD": "kept", "NEW": "value"}
 
-    def test_malformed_line_returns_empty_dict(self, tmp_path):
-        """A line with no '=' triggers the error path and discards the file."""
+    def test_malformed_line_raises(self, tmp_path):
+        """A line with no '=' fails loud instead of silently discarding the file."""
         target = tmp_path / "settings.env"
         target.write_text("VALID=ok\nthis-line-has-no-equals\n")
 
-        result = parse_settings(target)
+        with pytest.raises(ValueError, match="Malformed setting"):
+            parse_settings(target)
 
-        assert result == {}
-
-    def test_malformed_line_discards_already_parsed_entries(self, tmp_path):
-        """When a default env is passed, the malformed-line path discards it too."""
+    def test_malformed_line_raises_even_with_provided_env(self, tmp_path):
+        """A malformed line aborts rather than silently dropping the passed env."""
         target = tmp_path / "settings.env"
         target.write_text("malformed\n")
-        env = {"PRE": "existing"}
 
-        result = parse_settings(target, env=env)
+        with pytest.raises(ValueError, match="Malformed setting"):
+            parse_settings(target, env={"PRE": "existing"})
 
-        assert result == {}
-
-    def test_nul_byte_in_expansion_value_is_swallowed_to_empty_dict(self, tmp_path):
+    def test_nul_byte_in_expansion_value_raises(self, tmp_path):
         """
-        A NUL byte makes expand_vars raise; parse_settings catches it via the
-        broad error path and discards the whole file, returning {}.
+        A NUL byte makes expand_vars raise; parse_settings surfaces it loudly
+        rather than swallowing the whole file into {}.
         """
         target = tmp_path / "settings.env"
         target.write_text("TARGET=$BAD\n")
 
-        result = parse_settings(target, env={"BAD": "x\x00y"})
-
-        assert result == {}
+        with pytest.raises(ValueError, match="Malformed setting"):
+            parse_settings(target, env={"BAD": "x\x00y"})
 
     def test_accepts_string_path(self, tmp_path):
         """A str path is accepted as well as a Path object."""
