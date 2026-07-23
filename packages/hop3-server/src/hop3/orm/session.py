@@ -22,7 +22,8 @@ def reset_session_factory_cache() -> None:
 
 
 def _configure_sqlite_engine(engine):
-    """Configure SQLite-specific settings for better concurrency.
+    """
+    Configure SQLite-specific settings for better concurrency.
 
     Enables:
     - WAL mode: Allows concurrent reads during writes
@@ -45,7 +46,8 @@ def _configure_sqlite_engine(engine):
 
 
 def get_session_factory(database_uri: str = "") -> sessionmaker:
-    """Create a SQLAlchemy session factory with automatic migrations.
+    """
+    Create a SQLAlchemy session factory with automatic migrations.
 
     This function:
     1. Creates the database engine
@@ -150,7 +152,8 @@ def get_session_factory(database_uri: str = "") -> sessionmaker:
 
 
 def _bootstrap_alembic_config(database_uri: str) -> AlembicConfig | None:
-    """Build an Alembic Config pointing at the bundled alembic.ini.
+    """
+    Build an Alembic Config pointing at the bundled alembic.ini.
 
     Resolves the path from the ``hop3`` package root (where alembic.ini
     actually ships) rather than relative to this module. Returns None if it

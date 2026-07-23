@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Provision a fresh cloud server for a `hop3-test run` (ADR 052 Phase 7b.7).
+"""
+Provision a fresh cloud server for a `hop3-test run` (ADR 052 Phase 7b.7).
 
 `hop3-test run --provider hetzner` rebuilds a dedicated, operator-supplied box to
 a clean OS and hands its IP to the normal remote deploy+test path. This is the
@@ -32,7 +33,8 @@ def provision_server(
     verbose: bool = False,
     console: Console | None = None,
 ) -> str:
-    """Rebuild a fresh cloud server and return its IPv4 for a `run` deploy.
+    """
+    Rebuild a fresh cloud server and return its IPv4 for a `run` deploy.
 
     Fail loud on a missing token / server-id / unresolvable SSH key rather than
     silently deploying to a stale box (the blank-slate-requires-config rule).

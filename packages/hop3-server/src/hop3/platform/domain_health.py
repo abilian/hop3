@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Domain registration (WHOIS) + DNS health for app domains.
+"""
+Domain registration (WHOIS) + DNS health for app domains.
 
 Read-only and best-effort: every probe degrades to "unknown" on error (WHOIS
 rate limits, network failures, DNS issues) and never raises, so a slow or
@@ -95,7 +96,8 @@ def check_domain(
 
 
 def server_ips() -> frozenset[str]:
-    """Best-effort set of this host's own IPs (to detect mis-pointed DNS).
+    """
+    Best-effort set of this host's own IPs (to detect mis-pointed DNS).
 
     Combines the primary outbound-route IP and the resolved hostname. Under NAT
     these may be private addresses; check_domain ignores private IPs for the

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""One-shot ADR-042 (revised) config migration.
+"""
+One-shot ADR-042 (revised) config migration.
 
 Drains every legacy server/context shape a real machine may carry into a
 single ``config.toml`` whose ``[contexts.*]`` blocks ARE the connections
@@ -70,14 +71,16 @@ _CONNECTION_FIELDS = (
 
 
 class MigrationError(Exception):
-    """Raised to ABORT the migration without changing anything on disk.
+    """
+    Raised to ABORT the migration without changing anything on disk.
 
     The message is operator-facing and names the offending file + next action.
     """
 
 
 def migrate_legacy_config_042(config_dir: Path) -> list[str]:
-    """Migrate the CLI config dir in place to the ADR-042 unified shape.
+    """
+    Migrate the CLI config dir in place to the ADR-042 unified shape.
 
     Args:
         config_dir: The CLI config directory (holds config.toml / servers.toml /
@@ -141,7 +144,8 @@ def migrate_legacy_config_042(config_dir: Path) -> list[str]:
 def _gather_records(
     source_config: dict[str, Any], servers_path: Path
 ) -> tuple[dict[str, dict[str, Any]], bool]:
-    """Build the merged connection records from legacy contexts + servers.toml.
+    """
+    Build the merged connection records from legacy contexts + servers.toml.
 
     Returns ``(records, dropped_default_app)``. On a same-name collision the
     token-bearing record wins (``_merge_prefer_token``).
@@ -169,7 +173,8 @@ def _resolve_pointer(
     config_exists: bool,
     records: dict[str, dict[str, Any]],
 ) -> str | None:
-    """Pick the current-context pointer; abort loud if it names no record.
+    """
+    Pick the current-context pointer; abort loud if it names no record.
 
     ``current_server`` (newer ADR-042 location) wins over the legacy
     ``current_context``.
@@ -202,7 +207,8 @@ def _apply_consolidation(
     records: dict[str, dict[str, Any]],
     pointer: str | None,
 ) -> None:
-    """Backups → write config.toml → strip current_server → delete servers.toml.
+    """
+    Backups → write config.toml → strip current_server → delete servers.toml.
 
     The order matters: ``servers.toml`` (the "not done yet" marker) is
     deleted LAST, and all backups are taken (copy-if-absent) before any write.
@@ -268,7 +274,8 @@ def _notes(
 # Helpers
 # --------------------------------------------------------------------------- #
 def _load_toml_or_abort(path: Path) -> dict[str, Any]:
-    """Parse ``path`` as TOML. Missing file → ``{}``. Malformed → abort loud.
+    """
+    Parse ``path`` as TOML. Missing file → ``{}``. Malformed → abort loud.
 
     A malformed config must NEVER be silently treated as empty — that would
     discard the operator's contexts. We raise (changing nothing) instead.
@@ -287,7 +294,8 @@ def _load_toml_or_abort(path: Path) -> dict[str, Any]:
 
 
 def _servers_of_or_abort(servers_path: Path) -> dict[str, dict[str, Any]]:
-    """Return servers.toml's ``[servers.*]`` table, aborting on a broken file.
+    """
+    Return servers.toml's ``[servers.*]`` table, aborting on a broken file.
 
     We must refuse to DELETE a servers.toml we couldn't parse (it would lose
     the operator's records), so a parse failure aborts the whole migration.
@@ -313,7 +321,8 @@ def _contexts_of(config_data: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 
 def _has_legacy_contexts(config_data: dict[str, Any]) -> bool:
-    """True iff any context block is legacy-shaped (``api_url`` without ``url``).
+    """
+    True iff any context block is legacy-shaped (``api_url`` without ``url``).
 
     Post-migration blocks carry BOTH ``url`` and ``api_url`` (downgrade mirror),
     so they are NOT flagged legacy — keeps the no-op path correct.
@@ -325,7 +334,8 @@ def _has_legacy_contexts(config_data: dict[str, Any]) -> bool:
 
 
 def _to_connection(block: dict[str, Any]) -> tuple[dict[str, Any], bool]:
-    """Normalize a legacy/registry block to a unified connection dict.
+    """
+    Normalize a legacy/registry block to a unified connection dict.
 
     Maps ``api_url→url`` / ``api_token→token``, drops ``default_app``, fills
     nothing it can't (missing optional fields are simply absent). Returns
@@ -363,7 +373,8 @@ def _base_config(
     source_config: dict[str, Any],
     config_exists: bool,
 ) -> dict[str, Any]:
-    """Start the new config from the right base, preserving non-context keys.
+    """
+    Start the new config from the right base, preserving non-context keys.
 
     Normal: start from the live config.toml (keeps theme/verbosity/etc.).
     Shape 3 (config.toml absent): recover preferences from the .pre-042.bak.
@@ -375,7 +386,8 @@ def _base_config(
 
 
 def _backup_if_absent(src: Path, dst: Path) -> None:
-    """Copy ``src`` → ``dst`` only if ``src`` exists and ``dst`` does not.
+    """
+    Copy ``src`` → ``dst`` only if ``src`` exists and ``dst`` does not.
 
     Copy-if-absent so a resumed migration never overwrites the true original
     backup with an already-half-mutated file. ``copy2`` preserves mode/mtime.

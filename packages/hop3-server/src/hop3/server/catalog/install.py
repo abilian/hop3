@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Shared catalog-install staging (ADR 049).
+"""
+Shared catalog-install staging (ADR 049).
 
 ``stage_catalog_app`` is the single source of truth for turning a catalog
 blueprint into a locally-created hop3 App: validate the target name, copy the
@@ -39,7 +40,8 @@ _APP_NAME_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 
 
 class CatalogInstallError(Exception):
-    """Staging refused, with one or more human-readable reasons.
+    """
+    Staging refused, with one or more human-readable reasons.
 
     Raised loudly instead of the old silent-skip / bare-redirect behaviour, so
     both the CLI and the UI can surface exactly why an install cannot proceed.
@@ -57,7 +59,8 @@ def stage_catalog_app(
     db_session: Session,
     domain: str | None = None,
 ) -> App:
-    """Create a hop3 App from a catalog blueprint — staged and persisted.
+    """
+    Create a hop3 App from a catalog blueprint — staged and persisted.
 
     Normalizes and validates ``app_name``, resolves the blueprint ``app_id`` in
     the published catalog, copies its recipe into the new app's source tree,
@@ -136,7 +139,8 @@ def _validate_app_name(app_name: str) -> list[str]:
 
 
 def _check_app_exists(app_name: str, db_session: Session) -> bool:
-    """True if an app with this name already exists (DB check).
+    """
+    True if an app with this name already exists (DB check).
 
     Uses the caller's install session (not a fresh one) so the check and the
     create-or-refuse decision are made against the same view — closing the
@@ -148,7 +152,8 @@ def _check_app_exists(app_name: str, db_session: Session) -> bool:
 def _assign_hostname(
     app: App, app_name: str, domain: str | None, db_session: Session
 ) -> None:
-    """Give the app a public hostname so the first deploy wires an nginx vhost.
+    """
+    Give the app a public hostname so the first deploy wires an nginx vhost.
 
     Precedence (most specific wins): a ``--env HOST_NAME`` the user passed, then
     an explicit ``domain``, then a recipe that pins its own ``[domains].list`` /
@@ -198,7 +203,8 @@ def _assign_hostname(
 def _validate_and_check_hosts(
     hosts: list[str], app_name: str, db_session: Session
 ) -> None:
-    """Validate each host (RFC-1123) and refuse collisions — fail loud.
+    """
+    Validate each host (RFC-1123) and refuse collisions — fail loud.
 
     Raises ``CatalogInstallError`` on an invalid host or one already used by
     another app (or the server's admin domain). The ``_`` catch-all is a valid
@@ -223,7 +229,8 @@ def _validate_and_check_hosts(
 
 
 def _recipe_pins_hostname(app: App) -> bool:
-    """True if the staged recipe declares its own usable hostname.
+    """
+    True if the staged recipe declares its own usable hostname.
 
     Mirrors the deploy-time semantics (``Hop3Config.domains`` reads
     ``[domains].list``): only a **non-empty** ``[domains].list`` or a truthy
@@ -246,7 +253,8 @@ def _recipe_pins_hostname(app: App) -> bool:
 
 
 def _copy_catalog_source(catalog_app: CatalogApp, app: App) -> None:
-    """Copy the catalog recipe (hop3.toml + siblings) into the app's src tree.
+    """
+    Copy the catalog recipe (hop3.toml + siblings) into the app's src tree.
 
     Shallow-copies top-level files and directories from the blueprint's verified
     source dir, skipping ``__pycache__`` / ``.git`` at the top level (matching
@@ -266,7 +274,8 @@ def _copy_catalog_source(catalog_app: CatalogApp, app: App) -> None:
 
 
 def _parse_and_add_env_vars(app: App, env_vars_str: str) -> None:
-    """Append ``K=V`` lines (newline-delimited) to the app's env vars.
+    """
+    Append ``K=V`` lines (newline-delimited) to the app's env vars.
 
     Blank lines, comment lines (leading ``#``), and lines without ``=`` are
     skipped. Append-only (no clear); a freshly created App has no env vars.

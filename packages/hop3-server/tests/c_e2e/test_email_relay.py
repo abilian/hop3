@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""E2E confidence pass for the relay email backend (ADR 054).
+"""
+E2E confidence pass for the relay email backend (ADR 054).
 
 The relay backend submits to a provider/smarthost over TLS + SASL, so a full
 send→capture would need a STARTTLS+SASL sink — out of scope here. Instead this

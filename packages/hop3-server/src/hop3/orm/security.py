@@ -71,7 +71,8 @@ class User(AuditBase):
         return f"<User(username='{self.username}', email='{self.email}')>"
 
     def set_password(self, password: str) -> None:
-        """Hash and set the user's password.
+        """
+        Hash and set the user's password.
 
         Args:
             password: The plain text password to hash
@@ -82,7 +83,8 @@ class User(AuditBase):
         self.password_hash = hashed.decode("utf-8")
 
     def check_password(self, password: str) -> bool:
-        """Verify a password against the hash.
+        """
+        Verify a password against the hash.
 
         Args:
             password: The plain text password to check
@@ -95,7 +97,8 @@ class User(AuditBase):
         return bcrypt_lib.checkpw(password_bytes, hash_bytes)
 
     def has_role(self, role_name: str) -> bool:
-        """Check if the user has a specific role.
+        """
+        Check if the user has a specific role.
 
         Args:
             role_name: The name of the role to check
@@ -107,7 +110,8 @@ class User(AuditBase):
 
     @property
     def is_admin(self) -> bool:
-        """Check if the user is an administrator.
+        """
+        Check if the user is an administrator.
 
         Returns:
             True if the user has the 'admin' role, False otherwise

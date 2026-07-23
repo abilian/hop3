@@ -31,7 +31,8 @@ if TYPE_CHECKING:
 
 
 def _mode_choices() -> list[str]:
-    """Valid ``--mode`` values: the current profiles plus back-compat aliases.
+    """
+    Valid ``--mode`` values: the current profiles plus back-compat aliases.
 
     Dynamic (not a hardcoded list) so renamed/added profiles — including custom
     ones from the Test Lab — are always accepted. The old hardcoded list is what
@@ -46,7 +47,8 @@ def _resolve_tests(
     mode: str,
     target_type: str,
 ) -> list[TestDefinition]:
-    """Resolve app_names into a list of TestDefinitions.
+    """
+    Resolve app_names into a list of TestDefinitions.
 
     Handles three cases:
     - Specific paths/names given -> look them up
@@ -142,7 +144,8 @@ def _run_image_sweep(
     features: tuple[str, ...],
     verbose: bool,
 ) -> None:
-    """Sweep a matrix of cloud OS images (ADR 052 D9, formerly the `matrix` cmd).
+    """
+    Sweep a matrix of cloud OS images (ADR 052 D9, formerly the `matrix` cmd).
 
     Each image is a full `run --provider hetzner --image X` (provision → deploy →
     test → persist to the shared store), run serially and aggregated. Exits 1 if
@@ -307,7 +310,8 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
     logs_dir: str | None,
     features: tuple[str, ...],
 ) -> None:
-    """Deploy Hop3 and run tests.
+    """
+    Deploy Hop3 and run tests.
 
     Pass directories to scan or specific app paths/names.
     With --reuse, skips deployment (tests against existing server).

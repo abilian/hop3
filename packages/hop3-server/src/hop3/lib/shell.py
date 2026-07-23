@@ -22,7 +22,8 @@ _SHELL_OPERATORS = {"&&", "||", ";", "|", ">", ">>", "<", "$("}
 def shell(
     command: str | list[str], cwd: Path | str = "", **kwargs
 ) -> subprocess.CompletedProcess:
-    """Run a command with detailed error reporting.
+    """
+    Run a command with detailed error reporting.
 
     All output is routed through log() so it gets captured during deployments.
     Commands are executed safely without shell=True to prevent injection attacks.
@@ -68,7 +69,8 @@ def shell(
 
 
 def _parse_command(command: str | list[str]) -> tuple[str, list[str]]:
-    """Parse command into display string and argument list.
+    """
+    Parse command into display string and argument list.
 
     Strings with shell operators are wrapped in ``sh -c``.
     """

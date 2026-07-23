@@ -29,7 +29,8 @@ NIX_DAEMON_PROFILE = Path("/nix/var/nix/profiles/default/etc/profile.d/nix-daemo
 
 
 class NixBuilder:
-    """Build applications using Nix.
+    """
+    Build applications using Nix.
 
     Supports two modes:
     - **Explicit**: Application provides a hand-crafted ``hop3.nix`` file.
@@ -44,7 +45,8 @@ class NixBuilder:
     name: str = "nix"
 
     def __init__(self, context: BuildContext) -> None:
-        """Initialize NixBuilder with build context.
+        """
+        Initialize NixBuilder with build context.
 
         Args:
             context: Build context containing app info and source path.
@@ -61,7 +63,8 @@ class NixBuilder:
         return bool(nix_section.get("template"))
 
     def _check_no_contradiction(self) -> None:
-        """Refuse to build if both hop3.nix AND [nix].template are present.
+        """
+        Refuse to build if both hop3.nix AND [nix].template are present.
 
         Silently picking one is dangerous: the user almost certainly
         intends one of them to take effect, and the other being ignored
@@ -85,7 +88,8 @@ class NixBuilder:
             raise Abort(msg)
 
     def accept(self) -> bool:
-        """Check if this builder can handle the application.
+        """
+        Check if this builder can handle the application.
 
         Returns True if either:
         - A hop3.nix file exists in the source directory (explicit mode), or
@@ -123,7 +127,8 @@ class NixBuilder:
         return False
 
     def build(self) -> BuildArtifact:
-        """Build the application with nix-build.
+        """
+        Build the application with nix-build.
 
         In explicit mode, uses the existing hop3.nix file.
         In generated mode, generates hop3.nix from the [nix] template spec
@@ -205,7 +210,8 @@ class NixBuilder:
         )
 
     def _generate_nix_file(self) -> Path:
-        """Generate a hop3.nix from the [nix] section in hop3.toml.
+        """
+        Generate a hop3.nix from the [nix] section in hop3.toml.
 
         Creates a temporary file containing the generated Nix expression
         and returns its path. The file is written alongside the source
@@ -265,7 +271,8 @@ class NixBuilder:
         return result.returncode == 0
 
     def _kill_stale_nix_builds(self, nix_file: Path) -> None:
-        """Kill any stale nix-build processes for the same nix file.
+        """
+        Kill any stale nix-build processes for the same nix file.
 
         When a previous deploy is killed mid-build, nix-build may leave
         a lock on the store path. A new nix-build for the same derivation
@@ -298,7 +305,8 @@ class NixBuilder:
             pass  # Best effort — don't fail the build if cleanup fails
 
     def _nix_build(self, nix_file: Path) -> str:
-        """Run nix-build and return the store path.
+        """
+        Run nix-build and return the store path.
 
         Args:
             nix_file: Path to the hop3.nix file.
@@ -381,7 +389,8 @@ class NixBuilder:
         return result.stdout.strip()
 
     def _save_build_log(self, output: str, *, success: bool) -> None:
-        """Write the nix-build output to APP_ROOT/<app>/log/build.log.
+        """
+        Write the nix-build output to APP_ROOT/<app>/log/build.log.
 
         Same sink every reader uses (`hop3 app logs --build`, the diagnostic
         bundle); best-effort, never fatal.
@@ -409,7 +418,8 @@ class NixBuilder:
         cmd: str,
         cwd: Path | None = None,
     ) -> subprocess.CompletedProcess:
-        """Run a Nix command with the Nix profile sourced.
+        """
+        Run a Nix command with the Nix profile sourced.
 
         Nix commands require the profile to be sourced to set PATH correctly.
         This handles both single-user (~/.nix-profile) and multi-user
@@ -462,7 +472,8 @@ class NixBuilder:
         )
 
     def _get_nix_profile_paths(self) -> list[Path]:
-        """Get potential Nix profile script paths.
+        """
+        Get potential Nix profile script paths.
 
         Evaluates paths at runtime to ensure HOME is correct for the
         current process context (important when running as hop3 user).
@@ -476,7 +487,8 @@ class NixBuilder:
         ]
 
     def _find_nix_profile(self) -> Path | None:
-        """Find the Nix profile script.
+        """
+        Find the Nix profile script.
 
         Returns:
             Path to the profile script, or None if not found.
@@ -487,7 +499,8 @@ class NixBuilder:
         return None
 
     def _get_nix_env(self) -> dict[str, str]:
-        """Get environment variables for Nix commands.
+        """
+        Get environment variables for Nix commands.
 
         The Nix profile script requires HOME and USER to be set.
         Supervisor may not set PATH, so we provide a minimal one.
@@ -516,7 +529,8 @@ class NixBuilder:
         return env
 
     def _get_build_id(self, store_path: str) -> str:
-        """Extract Nix hash from store path.
+        """
+        Extract Nix hash from store path.
 
         Args:
             store_path: Full Nix store path like /nix/store/abc123-myapp

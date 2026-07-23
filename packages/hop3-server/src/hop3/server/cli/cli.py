@@ -1,5 +1,6 @@
 # Copyright (c) 2025, Abilian SAS
-"""Main entry point for the Hop3 *server* CLI.
+"""
+Main entry point for the Hop3 *server* CLI.
 
 (For the Hop3 client CLI, see package hop3-client.)
 """
@@ -64,7 +65,8 @@ class HopServerArgumentParser(ArgumentParser):
 
 class CLI:
     def __call__(self, args: list[str]):
-        """Invoke the main function with the given arguments.
+        """
+        Invoke the main function with the given arguments.
 
         Input:
         - args (list[str]): A list of strings representing command-line arguments
@@ -85,7 +87,8 @@ class CLI:
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Main entry point for the command-line interface.
+    """
+    Main entry point for the command-line interface.
 
     Input:
     - argv: A list of command-line arguments or None. If None, defaults to sys.argv[1:].
@@ -134,7 +137,8 @@ def main(argv: list[str] | None = None) -> None:
 
 
 def create_parser() -> ArgumentParser:
-    """Create and return an argument parser for the Hop3 CLI.
+    """
+    Create and return an argument parser for the Hop3 CLI.
 
     This initializes an ArgumentParser with options for verbosity and dynamically
     adds sub-command parsers based on the COMMAND_REGISTRY.

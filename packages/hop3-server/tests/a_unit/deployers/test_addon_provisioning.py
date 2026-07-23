@@ -187,7 +187,8 @@ class TestProvisionAddons:
     def test_provision_addons_aborts_when_no_type_and_no_name(
         self, mock_app, mock_db_session
     ):
-        """A declared addon with neither 'type' nor 'name' must fail loudly.
+        """
+        A declared addon with neither 'type' nor 'name' must fail loudly.
 
         Silently skipping it would let the app deploy without its backing
         service and then fail confusingly downstream (e.g. a migration with no
@@ -203,7 +204,8 @@ class TestProvisionAddons:
     def test_provision_treats_legacy_name_as_type(
         self, mock_encryptor, mock_get_addon, mock_app, mock_db_session
     ):
-        """The deprecated [[provider]] / legacy [[addons]] form put the type in
+        """
+        The deprecated [[provider]] / legacy [[addons]] form put the type in
         'name' with no separate instance name. Honor it instead of dropping it.
         """
         mock_addon = MagicMock()

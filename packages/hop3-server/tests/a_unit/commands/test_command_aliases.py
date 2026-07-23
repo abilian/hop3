@@ -2,8 +2,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""ADR-036 consistency renames: the new canonical name and the old name (kept as
-a back-compat alias) must both resolve to the same command class."""
+"""
+ADR-036 consistency renames: the new canonical name and the old name (kept as
+a back-compat alias) must both resolve to the same command class.
+"""
 
 from __future__ import annotations
 

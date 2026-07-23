@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for startup reconciliation.
+"""
+Unit tests for startup reconciliation.
 
 The exec seam is faked (``FakeExec``); nft never runs. Tests route the
 ``list`` call to a canned kernel ruleset and assert on the ReconcileReport
@@ -50,7 +51,8 @@ def _stored(rule_id: str, port: int = 80, app: str = "myapp") -> StoredRule:
 
 
 def _fake_with(*kernel_entries: tuple[int, str | None]) -> FakeExec:
-    """A FakeExec whose ``list`` call returns the given kernel ruleset.
+    """
+    A FakeExec whose ``list`` call returns the given kernel ruleset.
 
     All other nft invocations (add table, add chain, re-apply, delete)
     succeed with the default empty ok().

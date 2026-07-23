@@ -1,7 +1,8 @@
 # Copyright (c) 2024-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""`addon mysql <verb>` commands — MySQL-specific addon management.
+"""
+`addon mysql <verb>` commands — MySQL-specific addon management.
 
 Type-agnostic addon verbs (list/create/attach/detach/destroy/show/status) live
 in `hop3.commands.services`. These MySQL-specific level-3 commands are
@@ -57,7 +58,8 @@ def _clone(args: tuple) -> list[dict]:
 
 
 def _result_items(result: dict) -> list[dict]:
-    """Render a run_sql() result (rows or status) as response items.
+    """
+    Render a run_sql() result (rows or status) as response items.
 
     Cells are stringified so the payload is JSON-serializable over RPC
     (query results can contain dates, decimals, None, etc.).
@@ -77,7 +79,8 @@ def _result_items(result: dict) -> list[dict]:
 @register
 @dataclass(frozen=True)
 class AddonMysqlCredentialsCmd(Command):
-    """Show connection credentials for a MySQL addon.
+    """
+    Show connection credentials for a MySQL addon.
 
     Usage: hop3 addon mysql credentials <name>
 
@@ -102,7 +105,8 @@ class AddonMysqlCredentialsCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonMysqlDumpCmd(Command):
-    """Dump a MySQL addon to a backup file (mysqldump).
+    """
+    Dump a MySQL addon to a backup file (mysqldump).
 
     Usage: hop3 addon mysql dump <name>
 
@@ -129,7 +133,8 @@ class AddonMysqlDumpCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonMysqlRestoreCmd(Command):
-    """Restore a MySQL addon from a backup file.
+    """
+    Restore a MySQL addon from a backup file.
 
     Usage: hop3 addon mysql restore <name> <path>
 
@@ -159,7 +164,8 @@ class AddonMysqlRestoreCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonMysqlQueryCmd(Command):
-    """Run an ad-hoc SQL statement against a MySQL addon.
+    """
+    Run an ad-hoc SQL statement against a MySQL addon.
 
     Usage: hop3 addon mysql query <name> --command "<SQL>"
 
@@ -193,7 +199,8 @@ class AddonMysqlQueryCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonMysqlCloneCmd(Command):
-    """Clone a MySQL addon into a new one (copies all data).
+    """
+    Clone a MySQL addon into a new one (copies all data).
 
     Usage: hop3 addon mysql clone <source> <new-name>
 
@@ -213,7 +220,8 @@ class AddonMysqlCloneCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonMysqlExportCmd(Command):
-    """Stream a MySQL addon dump to stdout.
+    """
+    Stream a MySQL addon dump to stdout.
 
     Usage: hop3 addon mysql export <name> > dump.sql
 
@@ -244,7 +252,8 @@ class AddonMysqlExportCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonMysqlImportCmd(Command):
-    """Import a dump into a MySQL addon from stdin.
+    """
+    Import a dump into a MySQL addon from stdin.
 
     Usage: hop3 addon mysql import <name> --confirm=<name> < dump.sql
 
@@ -316,7 +325,8 @@ def _diagnostic(args: tuple, statement: str, label: str, verb: str) -> list[dict
 @register
 @dataclass(frozen=True)
 class AddonMysqlPsCmd(Command):
-    """Show active queries on a MySQL addon.
+    """
+    Show active queries on a MySQL addon.
 
     Usage: hop3 addon mysql activity <name>
 
@@ -334,7 +344,8 @@ class AddonMysqlPsCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonMysqlSettingsCmd(Command):
-    """Show key configuration variables of a MySQL addon.
+    """
+    Show key configuration variables of a MySQL addon.
 
     Usage: hop3 addon mysql settings <name>
 

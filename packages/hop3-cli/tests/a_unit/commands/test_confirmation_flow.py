@@ -92,8 +92,10 @@ def test_confirm_destructive_action_app_destroy_no_arg():
 
 
 def test_confirm_destructive_action_app_destroy_via_app_flag_confirmed():
-    """Regression: the app is injected as `--app NAME`, so the confirmation
-    target is the flag VALUE, not the literal `--app` (ADR 036 D5)."""
+    """
+    Regression: the app is injected as `--app NAME`, so the confirmation
+    target is the flag VALUE, not the literal `--app` (ADR 036 D5).
+    """
     printer = RichPrinter()
     with patch("builtins.input", return_value="demo18"):
         result = confirm_destructive_action(
@@ -103,8 +105,10 @@ def test_confirm_destructive_action_app_destroy_via_app_flag_confirmed():
 
 
 def test_confirm_destructive_action_app_destroy_via_app_flag_rejects_literal():
-    """Regression: typing the flag literal `--app` must NOT confirm (the old
-    bug prompted `Type '--app' to confirm` and accepted it)."""
+    """
+    Regression: typing the flag literal `--app` must NOT confirm (the old
+    bug prompted `Type '--app' to confirm` and accepted it).
+    """
     printer = RichPrinter()
     with patch("builtins.input", return_value="--app"):
         result = confirm_destructive_action(
@@ -180,7 +184,8 @@ def test_confirm_destructive_action_addon_destroy_cancelled():
 
 
 def test_confirm_destructive_action_json_mode_does_not_auto_confirm():
-    """JSON mode must NOT auto-confirm destructive actions (audit M6).
+    """
+    JSON mode must NOT auto-confirm destructive actions (audit M6).
 
     ``--json`` selects machine-readable output, not "skip the destroy guard".
     Without ``--yes`` / ``--confirm`` and with non-interactive stdin (no input

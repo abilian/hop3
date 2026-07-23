@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""Field validators for hop3-rootd request args.
+"""
+Field validators for hop3-rootd request args.
 
 Each `validate_*` function takes a raw value (from a deserialised JSON
 request) and returns a normalised, typed value, or raises ValidationError.
@@ -67,7 +68,8 @@ SUBMISSION_PORTS: Final[frozenset[int]] = frozenset({587, 465})
 
 
 class ValidationError(Exception):
-    """Raised by a validator when a field fails its check.
+    """
+    Raised by a validator when a field fails its check.
 
     `field` is the spec field name (e.g. "port"); `message` describes
     what was wrong. The dispatcher translates this into a protocol-level
@@ -85,7 +87,8 @@ class ValidationError(Exception):
 
 @dataclass(frozen=True)
 class PortSpec:
-    """Validated, normalised firewall request spec.
+    """
+    Validated, normalised firewall request spec.
 
     Either `port` or `port_range` is set, never both.
     `source` is either the literal "any" or a canonical-form IPv4 CIDR.
@@ -101,7 +104,8 @@ class PortSpec:
 
 @dataclass(frozen=True)
 class CgroupLimits:
-    """Validated, kernel-form ``cgroup.set_limits`` args (ADR 046 §3 / P2.2).
+    """
+    Validated, kernel-form ``cgroup.set_limits`` args (ADR 046 §3 / P2.2).
 
     Values are already in cgroup-native form (bytes, ``"quota period"``,
     pid count); the server maps ``[limits]`` → these before the wire call.
@@ -118,7 +122,8 @@ class CgroupLimits:
 
 
 def _require_int(value: Any, field: str, *, kind: str = "an integer") -> int:
-    """Validate ``value`` is a real int (not a bool) and return it.
+    """
+    Validate ``value`` is a real int (not a bool) and return it.
 
     bool is a subclass of int in Python, so ``isinstance(True, int)`` is True —
     a JSON ``true`` would otherwise sneak through as ``1``. Centralised so the
@@ -140,7 +145,8 @@ def validate_port(value: Any) -> int:
 
 
 def validate_port_range(value: Any) -> tuple[int, int]:
-    """Validate a [start, end] port range.
+    """
+    Validate a [start, end] port range.
 
     - Exactly 2 elements, both ints, both in [1, 65535].
     - start <= end.
@@ -192,7 +198,8 @@ def validate_protocol(value: Any) -> Literal["tcp", "udp"]:
 
 
 def validate_source(value: Any) -> str:
-    """Validate a source CIDR or the literal 'any'.
+    """
+    Validate a source CIDR or the literal 'any'.
 
     Rejects IPv6 in v1 with a specific message ("not supported in v1").
     Returns the normalised form: "any", or `str(ipaddress.IPv4Network(...))`.
@@ -233,7 +240,8 @@ def validate_app_name(value: Any) -> str:
 
 
 def validate_addon_type(value: Any) -> str:
-    """Validate an addon type token ("postgres", "mysql", "redis", …).
+    """
+    Validate an addon type token ("postgres", "mysql", "redis", …).
 
     Lowercase, starts with a letter, alphanumeric, bounded. Half of the
     proxy unit name; the regex guarantees no path/metacharacter can slip in.
@@ -250,7 +258,8 @@ def validate_addon_type(value: Any) -> str:
 
 
 def validate_addon_name(value: Any) -> str:
-    """Validate an addon instance name.
+    """
+    Validate an addon instance name.
 
     Same shape as an app name (alphanumeric edges, hyphens/underscores in the
     middle, length 3-63) — the other half of the proxy unit name. Reuses
@@ -269,7 +278,8 @@ def validate_addon_name(value: Any) -> str:
 
 
 def validate_memory_max(value: Any) -> int:
-    """Validate a cgroup ``memory.max`` value in bytes.
+    """
+    Validate a cgroup ``memory.max`` value in bytes.
 
     Rejects bools, non-ints, non-positive, and absurd values (a sanity cap so
     a compromised server can't request a nonsensical limit). The server maps
@@ -286,7 +296,8 @@ def validate_memory_max(value: Any) -> int:
 
 
 def validate_cpu_max(value: Any) -> str:
-    """Validate a cgroup v2 ``cpu.max`` value: ``"<quota_us> <period_us>"``.
+    """
+    Validate a cgroup v2 ``cpu.max`` value: ``"<quota_us> <period_us>"``.
 
     The server maps ``[limits].cpu`` (cores) → ``"150000 100000"`` before
     calling, so rootd only accepts the concrete two-integer form.
@@ -334,7 +345,8 @@ def validate_pid_list(value: Any) -> list[int]:
 
 
 def validate_cgroup_limits(args: dict[str, Any]) -> CgroupLimits:
-    """Validate ``cgroup.set_limits`` args. At least one dimension required.
+    """
+    Validate ``cgroup.set_limits`` args. At least one dimension required.
 
     A ``set_limits`` with no dimension would create an uncapped leaf that
     *looks* enforced — reject it loudly rather than no-op.
@@ -366,7 +378,8 @@ def validate_cgroup_limits(args: dict[str, Any]) -> CgroupLimits:
 
 
 def validate_volume_target(value: Any) -> str:
-    """Validate a volume target: a non-empty relative path with no traversal.
+    """
+    Validate a volume target: a non-empty relative path with no traversal.
 
     Mirrors the upstream ``VolumeSection`` target check (defense in depth at the
     kernel boundary). The daemon builds the mountpoint from this under the app's
@@ -417,7 +430,8 @@ def validate_mount_mode(value: Any) -> str | None:
 
 
 def validate_bind_source(value: Any) -> str:
-    """Validate a bind-mount source: an absolute host path with no traversal.
+    """
+    Validate a bind-mount source: an absolute host path with no traversal.
 
     Only shape is checked here; whether the path is *allowed* (operator
     allow-list) and *exists* is enforced in the mount helper, which reads the
@@ -448,7 +462,8 @@ def validate_read_only(value: Any) -> bool:
 
 
 def validate_description(value: Any) -> str | None:
-    """Validate the optional description field.
+    """
+    Validate the optional description field.
 
     Returns None when value is None (field omitted). Otherwise returns the
     string. Rejects non-strings, over-length, and any control characters.
@@ -479,7 +494,8 @@ def validate_description(value: Any) -> str | None:
 
 
 def validate_submission_port(value: Any) -> int:
-    """Validate an SMTP submission port — 587 (STARTTLS) or 465 (implicit TLS).
+    """
+    Validate an SMTP submission port — 587 (STARTTLS) or 465 (implicit TLS).
 
     Port 25 is never a submission target, so the null-client can never be
     pointed at an MX-facing port.
@@ -494,7 +510,8 @@ def validate_submission_port(value: Any) -> int:
 
 
 def validate_relay_host(value: Any) -> str:
-    """Validate the email relay hostname.
+    """
+    Validate the email relay hostname.
 
     A hostname token only — the regex forbids whitespace, brackets, colon and
     slash, so it can't break the composed ``[host]:port`` relayhost key.
@@ -509,7 +526,8 @@ def validate_relay_host(value: Any) -> str:
 
 
 def validate_sasl_value(value: Any, field: str) -> str:
-    """Validate a SASL credential field (user or password) for ``sasl_passwd``.
+    """
+    Validate a SASL credential field (user or password) for ``sasl_passwd``.
 
     Non-empty, no control characters: a newline would inject an extra map line
     (the entry is ``[host]:port user:password``), so the control-char rejection
@@ -526,7 +544,8 @@ def validate_sasl_value(value: Any, field: str) -> str:
 
 
 def validate_map_key(value: Any) -> str:
-    """Validate a Postfix map lookup key (a sender address).
+    """
+    Validate a Postfix map lookup key (a sender address).
 
     Non-empty, no whitespace (the map line is ``key value``, split on
     whitespace), no control characters (a newline would inject a second line).
@@ -586,7 +605,8 @@ def validate_ipv4(value: Any) -> str:
 
 
 def validate_port_spec(args: dict[str, Any]) -> PortSpec:
-    """Validate the full args dict for `firewall.add_rule`.
+    """
+    Validate the full args dict for `firewall.add_rule`.
 
     - Exactly one of `port` / `port_range` must be set.
     - All other fields validated independently.

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for OS plugin package-name validation.
+"""
+Unit tests for OS plugin package-name validation.
 
 The validator gates ``ensure_packages`` against shell-metacharacter
 injection. ``ensure_packages`` itself shells out to native package

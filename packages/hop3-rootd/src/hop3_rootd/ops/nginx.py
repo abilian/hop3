@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""nginx ops: reload, validate_config.
+"""
+nginx ops: reload, validate_config.
 
 These ops retire the existing /etc/sudoers.d/hop3 fragment that grants
 the hop3 user NOPASSWD access to four nginx-related commands. Now that
@@ -32,7 +33,8 @@ class NginxBinaryNotFoundError(Exception):
 
 
 class NginxReloadNotAppliedError(Exception):
-    """The reload command returned rc=0 but nginx did not adopt the new config.
+    """
+    The reload command returned rc=0 but nginx did not adopt the new config.
 
     ``nginx -s reload`` / ``systemctl reload nginx`` only *signal* the master;
     nginx then tests the new config asynchronously and, on any failure (a
@@ -59,11 +61,13 @@ _sleep = time.sleep
 
 
 def _ticks_since_boot() -> float | None:
-    """Now, in clock ticks since boot — the unit of /proc/PID/stat starttime.
+    """
+    Now, in clock ticks since boot — the unit of /proc/PID/stat starttime.
 
     Captured just before a reload so a worker forked *after* it (a real reload)
     is distinguishable from the pre-existing ones by start time alone — no PID
-    baseline to miss. Returns None if /proc/uptime is unreadable (non-Linux)."""
+    baseline to miss. Returns None if /proc/uptime is unreadable (non-Linux).
+    """
     try:
         uptime_s = float((_PROC_ROOT / "uptime").read_text().split()[0])
     except (OSError, ValueError, IndexError):
@@ -72,7 +76,8 @@ def _ticks_since_boot() -> float | None:
 
 
 def _nginx_worker_starttimes() -> list[float]:
-    """Start time (ticks since boot) of every nginx worker process, via /proc.
+    """
+    Start time (ticks since boot) of every nginx worker process, via /proc.
 
     A worker is any process whose title is ``nginx: worker process`` (nginx sets
     it with setproctitle; /proc/PID/cmdline reflects it, NUL- or space-joined).
@@ -103,7 +108,8 @@ def _nginx_worker_starttimes() -> list[float]:
 
 
 def _reload_applied(since_ticks: float | None) -> bool:
-    """True once an nginx worker forked at/after ``since_ticks`` (a real reload).
+    """
+    True once an nginx worker forked at/after ``since_ticks`` (a real reload).
 
     Uses worker START TIME, not a PID-set diff: a transient /proc enumeration
     miss can't make an old worker look new, so it can't report a rejected reload
@@ -120,7 +126,8 @@ def _reload_applied(since_ticks: float | None) -> bool:
 
 
 def _last_reload_error(since_offset: int) -> str | None:
-    """The last ``[emerg]``/``[alert]`` line nginx logged *during this reload*.
+    """
+    The last ``[emerg]``/``[alert]`` line nginx logged *during this reload*.
 
     Reads only the bytes appended to the error log since ``since_offset`` (the
     log size captured before the reload), so a stale error from an unrelated
@@ -155,7 +162,8 @@ def _error_log_size() -> int:
 # Reload methods, in preferred order. We try them sequentially until one
 # succeeds. Mirrors the existing fallback chain in the proxy plugin.
 def _reload_methods(exec: Exec) -> list[tuple[list[str], str]]:
-    """Construct the ordered list of reload commands to try, given the
+    """
+    Construct the ordered list of reload commands to try, given the
     binaries actually present on this host. Each entry is (argv, label).
     """
     methods: list[tuple[list[str], str]] = []
@@ -173,7 +181,8 @@ def _reload_methods(exec: Exec) -> list[tuple[list[str], str]]:
 
 @register("nginx.reload")
 def reload_nginx(_req: Request, ctx: OpContext) -> dict[str, Any]:
-    """Reload nginx config without dropping connections.
+    """
+    Reload nginx config without dropping connections.
 
     Tries systemctl first, then `nginx -s reload`. Reports which method
     succeeded for diagnostics.
@@ -247,7 +256,8 @@ def reload_nginx(_req: Request, ctx: OpContext) -> dict[str, Any]:
 
 @register("nginx.validate_config", audit=False)
 def validate_config(_req: Request, ctx: OpContext) -> dict[str, Any]:
-    """Run `nginx -t` to validate the current nginx config files.
+    """
+    Run `nginx -t` to validate the current nginx config files.
 
     Pure read — doesn't reload anything. nginx -t exits non-zero on
     config errors, so rc != 0 isn't a kernel_error — it's a structured
@@ -273,7 +283,8 @@ def validate_config(_req: Request, ctx: OpContext) -> dict[str, Any]:
 
 
 def _parse_nginx_t_errors(stderr: str) -> list[str]:
-    """Pull error / warning lines from nginx -t stderr.
+    """
+    Pull error / warning lines from nginx -t stderr.
 
     nginx -t output:
         nginx: [emerg] unexpected "}" in /etc/nginx/...:42

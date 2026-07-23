@@ -1,7 +1,8 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for base.py template helpers.
+"""
+Tests for base.py template helpers.
 
 These are the most logic-dense functions in the generator — they handle
 Nix escaping, shell heredoc construction, config file formatting, and
@@ -261,7 +262,8 @@ def test_wrapper_exec_line_preserves_dollar_commands():
 
 
 def test_wrapper_section_order():
-    """Verify the order: shebang, local vars, exports, config, pre-exec, exec.
+    """
+    Verify the order: shebang, local vars, exports, config, pre-exec, exec.
 
     Config files come before pre-exec because pre-exec commands may depend
     on generated config files (e.g., LimeSurvey's install needs config.php).

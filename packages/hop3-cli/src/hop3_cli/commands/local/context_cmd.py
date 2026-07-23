@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""`hop3 context` — manage contexts (the one target selector, ADR 042).
+"""
+`hop3 context` — manage contexts (the one target selector, ADR 042).
 
 A *context* is a named target. It exists at two scopes, and the verbs operate on
 whichever fits where you stand (``--global`` forces the global scope):
@@ -52,7 +53,8 @@ def _validate_context_name(name: str) -> bool:
 
 
 def _use_global_scope(args: list[str]) -> bool:
-    """Whether context verbs target GLOBAL contexts (config.toml).
+    """
+    Whether context verbs target GLOBAL contexts (config.toml).
 
     Global when ``--global``/``-g`` is passed, or when there is no project
     hop3.toml at or above the CWD. Otherwise verbs edit the project hop3.toml.
@@ -287,7 +289,8 @@ def context_show(args: list[str], config: Config) -> None:
 def _parse_add_args(
     args: list[str],
 ) -> tuple[str, list[str], dict[str, str]]:
-    """Parse `--server / --domain / --env` for `context add`.
+    """
+    Parse `--server / --domain / --env` for `context add`.
 
     ``--app`` arrives via the global flag parser (config override), not here.
     Returns (server, domains, env). Exits on an unknown flag / missing value.

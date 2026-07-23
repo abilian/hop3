@@ -15,7 +15,8 @@ _TOKEN = "eyJ" + "a" * 30 + ".eyJ" + "b" * 30 + "." + "c" * 30
 
 
 class _FakeTarget:
-    """Records exec_run commands; succeeds by default, with optional scripting.
+    """
+    Records exec_run commands; succeeds by default, with optional scripting.
 
     Robust to added prep steps: a command containing ``fail_substr`` returns a
     failure; an ``admin:create`` returns ``token_out``; everything else is a

@@ -75,7 +75,8 @@ def test_save_pretty_prints(tmp_path):
 
 
 def test_save_sets_perms_0600(tmp_path):
-    """The persisted state file is always mode 0o600 regardless of umask.
+    """
+    The persisted state file is always mode 0o600 regardless of umask.
 
     The systemd StateDirectory= already restricts access at the dir
     level, but the file's own perms must be pinned in case the daemon

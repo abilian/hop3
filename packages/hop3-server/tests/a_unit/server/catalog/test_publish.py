@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Producer↔consumer round-trip for the catalog (ADR 049).
+"""
+Producer↔consumer round-trip for the catalog (ADR 049).
 
 Publishes a catalog with a throwaway key via ``publish.py``, then feeds the
 result through the *real* node path (``install_catalog_tarball`` →

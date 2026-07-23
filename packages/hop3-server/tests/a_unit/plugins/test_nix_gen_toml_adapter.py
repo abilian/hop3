@@ -100,8 +100,10 @@ def test_malformed_nixpkgs_pin_is_rejected_at_parse_time(rev, sha, match):
 
 
 def test_a_malformed_pin_is_rejected_whatever_the_template():
-    """A placeholder rev used to reach the generated expression and only fail
-    at deploy, with an opaque Nix error."""
+    """
+    A placeholder rev used to reach the generated expression and only fail
+    at deploy, with an opaque Nix error.
+    """
     with pytest.raises(ValueError, match="40-character git commit SHA"):
         app_spec_from_config(
             {
@@ -284,8 +286,10 @@ def _minimal(template: str, **extra) -> dict:
 
 
 def test_unknown_key_is_rejected():
-    """A typo used to be dropped in silence, and the app built with a default
-    the author never chose."""
+    """
+    A typo used to be dropped in silence, and the app built with a default
+    the author never chose.
+    """
     with pytest.raises(ValueError, match="go-vendor-hsah is not a known key"):
         app_spec_from_config(
             _minimal("go-source", **{"go-vendor-hsah": "sha256-x"}), {}, "t"
@@ -301,8 +305,10 @@ def test_a_key_owned_by_another_template_is_rejected():
 
 
 def test_a_retired_key_says_what_to_do_instead():
-    """`pip-packages` outlived the design that read it; four recipes still
-    carried one, and nothing consumed any of them."""
+    """
+    `pip-packages` outlived the design that read it; four recipes still
+    carried one, and nothing consumed any of them.
+    """
     with pytest.raises(ValueError, match="pip-requirements"):
         app_spec_from_config(
             _minimal("python-venv", **{"pip-packages": ["isso"]}), {}, "t"
@@ -311,8 +317,10 @@ def test_a_retired_key_says_what_to_do_instead():
 
 @pytest.mark.parametrize("template", sorted(list_templates()))
 def test_a_pin_reaches_the_spec_for_every_template(template):
-    """The adapter must thread the pin whatever the template — it used to be
-    refused outright on nine of the eleven."""
+    """
+    The adapter must thread the pin whatever the template — it used to be
+    refused outright on nine of the eleven.
+    """
     rev = "a" * 40
     spec = app_spec_from_config(
         _minimal(
@@ -343,8 +351,10 @@ def test_the_pin_reaches_the_generated_expression():
 
 
 def test_every_template_can_be_built_from_a_minimal_config():
-    """The key tables must cover every registered template — a template absent
-    from them would be unbuildable from hop3.toml."""
+    """
+    The key tables must cover every registered template — a template absent
+    from them would be unbuildable from hop3.toml.
+    """
     for name in list_templates():
         spec = app_spec_from_config(_minimal(name), {"id": name}, name)
         assert spec.template == name
@@ -358,9 +368,11 @@ def test_the_payload_type_decides_which_template_renders():
 
 
 def test_a_nested_key_is_owned_like_any_other():
-    """`file-mappings` belongs to prebuilt-archive. It was briefly exempt from
+    """
+    `file-mappings` belongs to prebuilt-archive. It was briefly exempt from
     the ownership check because the adapter parses it itself, which let it be
-    accepted-then-dropped on every other template."""
+    accepted-then-dropped on every other template.
+    """
     with pytest.raises(ValueError, match="belongs to the prebuilt-archive"):
         app_spec_from_config(
             _minimal(
@@ -373,8 +385,10 @@ def test_a_nested_key_is_owned_like_any_other():
 
 
 def test_specs_do_not_share_mutable_defaults():
-    """An absent key must fall through to the dataclass default, not to a
-    single list the adapter hands out to every spec it builds."""
+    """
+    An absent key must fall through to the dataclass default, not to a
+    single list the adapter hands out to every spec it builds.
+    """
     a = app_spec_from_config(_minimal("ruby-bundler"), {}, "a")
     b = app_spec_from_config(_minimal("ruby-bundler"), {}, "b")
     assert a.exec_args == b.exec_args == []

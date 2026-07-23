@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Compute the vendored-dependency hash a hermetic nix-gen template needs.
+"""
+Compute the vendored-dependency hash a hermetic nix-gen template needs.
 
 The hermetic templates pin their dependency set with a fixed-output derivation,
 which requires a hash that can only be learned by building once. Nix's own
@@ -35,7 +36,8 @@ _SECTION = re.compile(r"^\s*\[(?P<name>[^\]]+)\]\s*$")
 
 
 def parse_nix_hash_mismatch(output: str) -> str | None:
-    """The real hash from a Nix fixed-output mismatch, or None if absent.
+    """
+    The real hash from a Nix fixed-output mismatch, or None if absent.
 
     Nix reports the pair as::
 
@@ -51,7 +53,8 @@ def parse_nix_hash_mismatch(output: str) -> str | None:
 
 
 def set_nix_hash(toml_text: str, key: str, value: str) -> str:
-    """Set ``key = "value"`` inside the ``[nix]`` table of a hop3.toml.
+    """
+    Set ``key = "value"`` inside the ``[nix]`` table of a hop3.toml.
 
     Edits the text line-by-line rather than round-tripping through a TOML
     parser, because these recipes carry explanatory comments that a rewrite

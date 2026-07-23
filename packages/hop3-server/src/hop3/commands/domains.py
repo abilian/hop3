@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""CLI commands for managing an app's hostnames (domains).
+"""
+CLI commands for managing an app's hostnames (domains).
 
 These commands are a first-class view over the ``HOST_NAME`` env var that
 the reverse-proxy plugins (nginx/caddy/traefik) read. The on-disk storage
@@ -53,7 +54,8 @@ def _current_hosts(app: App) -> list[str]:
 
 
 def _validate_new_hosts(hosts: list[str]) -> tuple[list[str], list[str]]:
-    """Validate each hostname; return (valid_hosts, error_messages).
+    """
+    Validate each hostname; return (valid_hosts, error_messages).
 
     Preserves order, deduplicates while keeping first occurrence.
     Rejects "_" combined with any other host.
@@ -91,7 +93,8 @@ def _persist(app: App, hosts: list[str], db_session: Session) -> None:
 
 @register
 class DomainsCmd(Command):
-    """Manage hostnames bound to an application.
+    """
+    Manage hostnames bound to an application.
 
     Examples:
         hop3 domain list --app myapp
@@ -108,7 +111,8 @@ class DomainsCmd(Command):
 @register
 @dataclass(frozen=True)
 class ListCmd(Command):
-    """List the hostnames currently bound to an app.
+    """
+    List the hostnames currently bound to an app.
 
     Examples:
         hop3 domain list --app myapp
@@ -142,7 +146,8 @@ class ListCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddCmd(Command):
-    """Add one or more hostnames to an app (union, atomic).
+    """
+    Add one or more hostnames to an app (union, atomic).
 
     Examples:
         hop3 domain add --app myapp example.com
@@ -205,7 +210,8 @@ class AddCmd(Command):
 @register
 @dataclass(frozen=True)
 class RemoveCmd(Command):
-    """Remove one or more hostnames from an app (atomic).
+    """
+    Remove one or more hostnames from an app (atomic).
 
     Errors if any of the requested hostnames is not currently set.
 
@@ -252,7 +258,8 @@ class RemoveCmd(Command):
 @register
 @dataclass(frozen=True)
 class SetCmd(Command):
-    """Replace the full list of hostnames for an app (atomic).
+    """
+    Replace the full list of hostnames for an app (atomic).
 
     Examples:
         hop3 domain set --app myapp example.com www.example.com
@@ -308,7 +315,8 @@ class SetCmd(Command):
 @register
 @dataclass(frozen=True)
 class ClearCmd(Command):
-    """Clear all hostnames from an app (unsets HOST_NAME).
+    """
+    Clear all hostnames from an app (unsets HOST_NAME).
 
     Examples:
         hop3 domain clear --app myapp

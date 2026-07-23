@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for the new 4-command `hop3 system` surface.
+"""
+Tests for the new 4-command `hop3 system` surface.
 
 The pre-0.5 commands ``check`` / ``uptime`` / ``ps`` were removed and
 ``check`` was renamed to ``status``. Tests focus on:
@@ -267,8 +268,10 @@ def test_info_reports_server_uptime_db_and_tls_engine():
 
 
 def test_info_features_lists_installed_addons(tmp_path, monkeypatch):
-    """`Features` is derived from the installer footprint: addon creds in
-    hop3-server.toml mark postgres/mysql as installed."""
+    """
+    `Features` is derived from the installer footprint: addon creds in
+    hop3-server.toml mark postgres/mysql as installed.
+    """
     (tmp_path / "hop3-server.toml").write_text(
         'POSTGRES_SUPERUSER_PASSWORD = "x"\nMYSQL_SUPERUSER_PASSWORD = "y"\n'
     )

@@ -8,7 +8,8 @@
 # directly from the container. Tests reset the singleton via
 # `reset_credential_encryptor()`.
 
-"""Credential encryption and decryption using Fernet.
+"""
+Credential encryption and decryption using Fernet.
 
 This module provides symmetric encryption of service credentials
 (addon passwords, connection strings, API tokens) stored in the Hop3
@@ -137,7 +138,8 @@ def _v2_salt(secret: bytes) -> bytes:
 
 
 class CredentialEncryption:
-    """Versioned Fernet-based credential encryptor.
+    """
+    Versioned Fernet-based credential encryptor.
 
     Writes v2 records; reads v1 or v2 records transparently. See module
     docstring for the scheme details.
@@ -157,7 +159,8 @@ class CredentialEncryption:
         )
 
     def encrypt(self, data: dict) -> str:
-        """Encrypt a dict and return a v2-tagged string safe for DB storage.
+        """
+        Encrypt a dict and return a v2-tagged string safe for DB storage.
 
         Args:
             data: JSON-serialisable dict of credentials.
@@ -172,7 +175,8 @@ class CredentialEncryption:
         return SCHEME_V2_PREFIX + token.decode("utf-8")
 
     def decrypt(self, encrypted: str) -> dict:
-        """Decrypt a v2 or v1 record and return the original dict.
+        """
+        Decrypt a v2 or v1 record and return the original dict.
 
         Raises:
             cryptography.fernet.InvalidToken: if the token is corrupted,

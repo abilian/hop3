@@ -33,7 +33,8 @@ if TYPE_CHECKING:
 
 
 class AppStateEnum(Enum):
-    """Enumeration for representing the state of an application.
+    """
+    Enumeration for representing the state of an application.
 
     States follow a finite state machine with these transitions:
     - STOPPED -> STARTING -> RUNNING
@@ -96,8 +97,10 @@ class StateTransitionError(Exception):
 
 
 class App(BigIntAuditBase):
-    """Represents an application with relevant properties such as name, run
-    state, and port."""
+    """
+    Represents an application with relevant properties such as name, run
+    state, and port.
+    """
 
     __tablename__ = "app"
 
@@ -153,7 +156,8 @@ class App(BigIntAuditBase):
             raise Abort(msg)
 
     def create(self, setup_git: bool = False) -> None:
-        """Create app directories and optionally set up git repository.
+        """
+        Create app directories and optionally set up git repository.
 
         Args:
             setup_git: If True, also initialize a bare git repository with
@@ -179,7 +183,8 @@ class App(BigIntAuditBase):
         return self.run_state == AppStateEnum.RUNNING
 
     def check_actual_status(self) -> AppStateEnum:
-        """Check the actual running status by delegating to the deployment strategy.
+        """
+        Check the actual running status by delegating to the deployment strategy.
 
         This method is runtime-agnostic - it delegates the actual status checking
         to the appropriate deployment strategy (uWSGI, Docker, systemd, etc.) based
@@ -198,7 +203,8 @@ class App(BigIntAuditBase):
             return AppStateEnum.STOPPED
 
     def sync_state(self) -> bool:
-        """Synchronize database state with actual running status.
+        """
+        Synchronize database state with actual running status.
 
         This checks if the app is actually running and updates transitional states
         (STARTING/STOPPING) to their final states (RUNNING/STOPPED).
@@ -227,7 +233,8 @@ class App(BigIntAuditBase):
         timeout: float = 10.0,
         poll_interval: float = 0.5,
     ) -> bool:
-        """Wait for the app to reach the expected actual state.
+        """
+        Wait for the app to reach the expected actual state.
 
         Polls check_actual_status() until the expected state is reached or timeout.
 
@@ -250,7 +257,8 @@ class App(BigIntAuditBase):
         return False
 
     def _transition_state(self, new_state: AppStateEnum, error_msg: str = "") -> None:
-        """Transition to a new state with validation.
+        """
+        Transition to a new state with validation.
 
         Args:
             new_state: Target state to transition to
@@ -294,7 +302,8 @@ class App(BigIntAuditBase):
     #
     @property
     def app_path(self) -> Path:
-        """Path to the root directory of the app.
+        """
+        Path to the root directory of the app.
 
         Defense-in-depth: reject names that would escape APP_ROOT even if
         validation at the RPC boundary is ever bypassed. The primary check
@@ -331,7 +340,8 @@ class App(BigIntAuditBase):
 
     @property
     def volumes_path(self) -> Path:
-        """Root of the app's persistent volumes (ADR 046 §2).
+        """
+        Root of the app's persistent volumes (ADR 046 §2).
 
         Each declared ``[[volumes]]`` entry stores its data under
         ``volumes_path / <name>`` — outside ``src/`` so it survives the
@@ -350,7 +360,8 @@ class App(BigIntAuditBase):
         return self.app_path / "venv"
 
     def get_runtime_env(self) -> Env:
-        """Retrieves the runtime environment for the current application.
+        """
+        Retrieves the runtime environment for the current application.
 
         This fetches the environment settings for the application
         identified by the instance's name attribute.
@@ -361,7 +372,8 @@ class App(BigIntAuditBase):
         return Env(data)
 
     def update_runtime_env(self, env: Env) -> None:
-        """Updates the runtime environment for the current application.
+        """
+        Updates the runtime environment for the current application.
 
         This updates the environment settings for the application
         identified by the instance's name attribute.
@@ -378,7 +390,8 @@ class App(BigIntAuditBase):
     # Actions
     #
     def deploy(self) -> None:
-        """Deploys the application by invoking the deployment process.
+        """
+        Deploys the application by invoking the deployment process.
 
         This serves as a wrapper that calls the `do_deploy` function,
         which handles the actual deployment steps necessary for the application.
@@ -389,7 +402,8 @@ class App(BigIntAuditBase):
         do_deploy(self)
 
     def destroy(self) -> None:
-        """Completely remove the application and all of its data.
+        """
+        Completely remove the application and all of its data.
 
         This is a full teardown (per the platform rule that destroy must leave
         no leftover process, port, config, or disk): it removes the application
@@ -493,7 +507,8 @@ class App(BigIntAuditBase):
         remove_file(acme_certs)
 
     def start(self) -> None:
-        """Start the application (non-blocking).
+        """
+        Start the application (non-blocking).
 
         For uWSGI apps: Spawns by writing config files for the uWSGI emperor.
         For Docker apps: Runs docker compose up -d.
@@ -578,7 +593,8 @@ class App(BigIntAuditBase):
             raise
 
     def _find_compose_file(self) -> Path:
-        """Find the compose file for this app.
+        """
+        Find the compose file for this app.
 
         Returns the path to either:
         1. User-supplied compose file (docker-compose.yml, compose.yml, etc.)
@@ -605,7 +621,8 @@ class App(BigIntAuditBase):
         return generated_path
 
     def stop(self) -> None:
-        """Stop the application (non-blocking).
+        """
+        Stop the application (non-blocking).
 
         For uWSGI apps: Removes config files, emperor stops the vassal.
         For Docker apps: Runs docker compose stop.
@@ -629,7 +646,8 @@ class App(BigIntAuditBase):
             self._stop_uwsgi()
 
     def _stop_uwsgi(self) -> None:
-        """Stop a uWSGI app: remove the Emperor config, then CONFIRM the
+        """
+        Stop a uWSGI app: remove the Emperor config, then CONFIRM the
         processes are actually gone before reporting STOPPED.
 
         Removing the ``.ini`` makes the Emperor stop the vassal, but a daemon
@@ -663,7 +681,8 @@ class App(BigIntAuditBase):
         self._mark_stopped()
 
     def _mark_stopped(self) -> None:
-        """Record a confirmed-STOPPED state with fresh metadata.
+        """
+        Record a confirmed-STOPPED state with fresh metadata.
 
         Bypasses ``_transition_state`` on purpose: the entry state may be one the
         state machine forbids → STOPPED (e.g. STARTING/FAILED), but reaping has
@@ -845,7 +864,8 @@ class App(BigIntAuditBase):
         self._force_cleanup_docker_image()
 
     def _app_container_ids(self, *, running_only: bool = False) -> list[str]:
-        """IDs of this app's containers, matched by Compose project label.
+        """
+        IDs of this app's containers, matched by Compose project label.
 
         ``running_only`` limits to currently-running containers; otherwise it
         includes stopped ones too. The project label is an exact match (unlike a
@@ -905,7 +925,8 @@ class App(BigIntAuditBase):
             pass  # Best effort cleanup
 
     def _cleanup_orphan_docker_resources(self) -> None:
-        """Clean up any orphan Docker resources for this app.
+        """
+        Clean up any orphan Docker resources for this app.
 
         This is called when destroying apps that aren't marked as docker-compose
         but might have orphan Docker containers/networks from previous deployments
@@ -945,7 +966,8 @@ class App(BigIntAuditBase):
             pass  # Best effort cleanup
 
     def restart(self) -> None:
-        """Restart (or just start) a deployed app (non-blocking).
+        """
+        Restart (or just start) a deployed app (non-blocking).
 
         For uWSGI RUNNING apps: uses touch-based restart (emperor reloads vassal)
         For Docker RUNNING apps: uses docker compose restart
@@ -1041,7 +1063,8 @@ class App(BigIntAuditBase):
             self.start()
 
     def get_logs(self, lines: int = 100, since: str | None = None) -> list[str]:
-        """Get the most recent log lines for the application.
+        """
+        Get the most recent log lines for the application.
 
         Args:
             lines: Number of log lines to retrieve (default: 100)
@@ -1058,7 +1081,8 @@ class App(BigIntAuditBase):
         return self._get_file_logs(lines, since=since)
 
     def _get_docker_logs(self, lines: int = 100, since: str | None = None) -> list[str]:
-        """Get logs from Docker container(s) for this app.
+        """
+        Get logs from Docker container(s) for this app.
 
         Args:
             lines: Number of log lines to retrieve
@@ -1144,7 +1168,8 @@ class App(BigIntAuditBase):
         return all_logs
 
     def _get_file_logs(self, lines: int = 100, since: str | None = None) -> list[str]:
-        """Get logs from log files for this app.
+        """
+        Get logs from log files for this app.
 
         Args:
             lines: Number of log lines to retrieve
@@ -1182,7 +1207,8 @@ class App(BigIntAuditBase):
     def _read_single_log_file(
         self, log_file: Path, since_dt: datetime | None
     ) -> list[str]:
-        """Read a single log file and optionally filter by timestamp.
+        """
+        Read a single log file and optionally filter by timestamp.
 
         Args:
             log_file: Path to the log file
@@ -1215,7 +1241,8 @@ class App(BigIntAuditBase):
         return result
 
     def _extract_timestamp_from_log(self, line: str) -> datetime | None:
-        """Try to extract a timestamp from the beginning of a log line.
+        """
+        Try to extract a timestamp from the beginning of a log line.
 
         Supports common log formats:
         - ISO format: 2025-01-15T10:30:00Z

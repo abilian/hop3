@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for nft table management.
+"""
+Unit tests for nft table management.
 
 The exec seam is faked (``FakeExec``); these tests never invoke nft. They
 assert on the recorded argv set and the parsed result, not on a fragile

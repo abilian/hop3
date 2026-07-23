@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""cgroup v2 filesystem operations for native ``[limits]`` (ADR 046 §3 / P2.2).
+"""
+cgroup v2 filesystem operations for native ``[limits]`` (ADR 046 §3 / P2.2).
 
 rootd is the only component permitted to write the cgroup hierarchy
 (ADR 041). This module does the raw ``/sys/fs/cgroup`` v2 reads/writes;
@@ -44,7 +45,8 @@ class CgroupError(Exception):
 
 
 class CgroupUnavailableError(CgroupError):
-    """No cgroup v2 unified hierarchy, or a required controller is missing.
+    """
+    No cgroup v2 unified hierarchy, or a required controller is missing.
 
     A declared limit cannot be enforced on this host — the caller must abort
     (strict mode) rather than run an app that only looks capped.
@@ -64,7 +66,8 @@ def app_scope_path(app_name: str) -> Path:
 
 
 def list_scopes() -> list[str]:
-    """App names that currently have a leaf under hop3.slice (for reconcile).
+    """
+    App names that currently have a leaf under hop3.slice (for reconcile).
 
     Returns [] when the slice doesn't exist yet. Used to find orphan leaves
     (on disk but not in state) so a restart removes them.
@@ -114,7 +117,8 @@ def _available_controllers(at: Path) -> set[str]:
 
 
 def _enable_subtree_controllers(at: Path) -> None:
-    """Enable the required controllers in ``at``'s subtree_control (idempotent).
+    """
+    Enable the required controllers in ``at``'s subtree_control (idempotent).
 
     A controller can only be enabled here if it is in ``at``'s
     ``cgroup.controllers`` (i.e. its parent delegated it). Enabling is a no-op
@@ -133,7 +137,8 @@ def _enable_subtree_controllers(at: Path) -> None:
 
 
 def ensure_slice() -> dict[str, Any]:
-    """Create ``hop3.slice`` and enable the required controllers down to it.
+    """
+    Create ``hop3.slice`` and enable the required controllers down to it.
 
     Idempotent. Returns ``{slice_path, controllers}``. Raises
     ``CgroupUnavailableError`` when the host has no cgroup v2 unified
@@ -173,7 +178,8 @@ def set_limits(
     cpu_max: str | None = None,
     pids_max: int | None = None,
 ) -> dict[str, Any]:
-    """Create/refresh the app's leaf and write the requested ``*.max`` files.
+    """
+    Create/refresh the app's leaf and write the requested ``*.max`` files.
 
     A memory cap also sets ``memory.swap.max = 0`` so the cap is a real cap
     (no spill-to-swap), matching the Docker mapping. Returns
@@ -203,7 +209,8 @@ def set_limits(
 
 
 def attach_pids(app_name: str, pids: list[int]) -> dict[str, Any]:
-    """Migrate ``pids`` into the app's leaf (one write per pid to cgroup.procs).
+    """
+    Migrate ``pids`` into the app's leaf (one write per pid to cgroup.procs).
 
     A pid that can't be moved (already exited → ESRCH, etc.) is collected in
     ``failed`` rather than aborting the batch; the caller decides what a
@@ -222,7 +229,8 @@ def attach_pids(app_name: str, pids: list[int]) -> dict[str, Any]:
 
 
 def remove(app_name: str) -> dict[str, Any]:
-    """Kill every process in the leaf, then remove it. Idempotent.
+    """
+    Kill every process in the leaf, then remove it. Idempotent.
 
     Writes ``1`` to ``cgroup.kill`` (atomic SIGKILL of the whole subtree —
     a more reliable reap surface than ``/proc`` scanning) and rmdirs the leaf.
@@ -246,7 +254,8 @@ def remove(app_name: str) -> dict[str, Any]:
 
 
 def _remove_leaf(leaf: Path) -> None:
-    """rmdir a (now process-free) cgroup leaf.
+    """
+    rmdir a (now process-free) cgroup leaf.
 
     The kernel allows ``rmdir`` of an empty cgroup directory despite its
     virtual control files; this is a thin wrapper so tests can simulate that
@@ -259,7 +268,8 @@ def _remove_leaf(leaf: Path) -> None:
 
 
 def read(app_name: str) -> dict[str, Any]:
-    """Read the leaf's current caps + usage + OOM-kill count (for status).
+    """
+    Read the leaf's current caps + usage + OOM-kill count (for status).
 
     Missing files read as None (a leaf may not set every dimension). The
     ``oom_kill`` count comes from ``memory.events`` and drives the OOM

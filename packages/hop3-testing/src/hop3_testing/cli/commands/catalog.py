@@ -36,7 +36,8 @@ def list_tests(
     tag: tuple[str, ...],
     output_format: str,
 ) -> None:
-    """List available tests.
+    """
+    List available tests.
 
     Pass directories to scan. If none given, scans apps/ and demos/.
 

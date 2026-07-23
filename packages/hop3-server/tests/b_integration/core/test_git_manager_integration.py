@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Integration tests for GitManager.
+"""
+Integration tests for GitManager.
 
 This module tests GitManager functionality including:
 - Bare repository initialization
@@ -34,7 +35,8 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def configured_git_root(tmp_path: Path):
-    """Configure HopConfig with a temporary root directory.
+    """
+    Configure HopConfig with a temporary root directory.
 
     Yields:
         Path to temporary HOP3_ROOT
@@ -51,7 +53,8 @@ def configured_git_root(tmp_path: Path):
 
 @pytest.fixture
 def test_app(db_session: Session, configured_git_root: Path) -> Iterator[App]:
-    """Create a test application with directories.
+    """
+    Create a test application with directories.
 
     Yields:
         App instance with directories set up
@@ -78,7 +81,8 @@ class TestGitManagerSetupHook:
     """Integration tests for GitManager.setup_hook()."""
 
     def test_setup_hook_initializes_bare_repo(self, db_session: Session, test_app: App):
-        """Test that setup_hook() creates a bare git repository.
+        """
+        Test that setup_hook() creates a bare git repository.
 
         ARRANGE:
             - Create app with empty repo_path directory
@@ -102,7 +106,8 @@ class TestGitManagerSetupHook:
     def test_setup_hook_creates_post_receive_hook(
         self, db_session: Session, test_app: App
     ):
-        """Test that setup_hook() creates post-receive hook.
+        """
+        Test that setup_hook() creates post-receive hook.
 
         ARRANGE:
             - Create app with empty repo_path directory
@@ -132,7 +137,8 @@ class TestGitManagerSetupHook:
         assert test_app.name in hook_content
 
     def test_setup_hook_is_idempotent(self, db_session: Session, test_app: App):
-        """Test that calling setup_hook() multiple times is safe.
+        """
+        Test that calling setup_hook() multiple times is safe.
 
         ARRANGE:
             - Create app
@@ -157,7 +163,8 @@ class TestGitManagerSetupHook:
     def test_setup_hook_preserves_existing_content(
         self, db_session: Session, test_app: App
     ):
-        """Test that setup_hook() preserves existing repository content.
+        """
+        Test that setup_hook() preserves existing repository content.
 
         ARRANGE:
             - Initialize repository
@@ -193,7 +200,8 @@ class TestGitManagerReceivePack:
     def test_receive_pack_lazy_initializes_repo(
         self, db_session: Session, test_app: App
     ):
-        """Test that receive_pack() initializes repo if not exists.
+        """
+        Test that receive_pack() initializes repo if not exists.
 
         ARRANGE:
             - Create app with no git repository
@@ -233,7 +241,8 @@ class TestGitManagerReceivePack:
     def test_receive_pack_skips_init_if_repo_exists(
         self, db_session: Session, test_app: App
     ):
-        """Test that receive_pack() doesn't reinitialize existing repo.
+        """
+        Test that receive_pack() doesn't reinitialize existing repo.
 
         ARRANGE:
             - Create app with initialized git repository
@@ -265,7 +274,8 @@ class TestGitManagerReceivePack:
     def test_receive_pack_calls_git_receive_pack(
         self, db_session: Session, test_app: App
     ):
-        """Test that receive_pack() calls git-receive-pack command.
+        """
+        Test that receive_pack() calls git-receive-pack command.
 
         ARRANGE:
             - Create app with initialized git repository
@@ -301,7 +311,8 @@ class TestGitManagerUploadPack:
     def test_upload_pack_calls_git_upload_pack(
         self, db_session: Session, test_app: App
     ):
-        """Test that upload_pack() calls git-upload-pack command.
+        """
+        Test that upload_pack() calls git-upload-pack command.
 
         ARRANGE:
             - Create app with initialized git repository

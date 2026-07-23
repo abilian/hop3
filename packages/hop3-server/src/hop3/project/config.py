@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Application configuration management.
+"""
+Application configuration management.
 
 This module implements the "Convention over Configuration" principle:
 - Procfile is the convention (default, simple)
@@ -22,7 +23,8 @@ if TYPE_CHECKING:
 
 
 class AppConfig:
-    """Application configuration manager.
+    """
+    Application configuration manager.
 
     Supports multiple configuration sources with precedence:
     1. hop3.toml (if present) - Advanced configuration
@@ -47,7 +49,8 @@ class AppConfig:
 
     @property
     def workers(self) -> dict:
-        """Get worker processes with precedence: hop3.toml > Procfile.
+        """
+        Get worker processes with precedence: hop3.toml > Procfile.
 
         Returns:
             Dictionary mapping worker names to commands
@@ -64,7 +67,8 @@ class AppConfig:
 
     @property
     def web_workers(self):
-        """Get web worker processes.
+        """
+        Get web worker processes.
 
         Returns:
             Dictionary of web workers (wsgi, jwsgi, rwsgi, web)
@@ -74,7 +78,8 @@ class AppConfig:
 
     @property
     def pre_build(self) -> list[str]:
-        """Get prebuild commands with precedence: hop3.toml > Procfile.
+        """
+        Get prebuild commands with precedence: hop3.toml > Procfile.
 
         Returns:
             List of prebuild commands, empty list if not defined
@@ -91,7 +96,8 @@ class AppConfig:
 
     @property
     def post_build(self) -> list[str]:
-        """Get postbuild commands with precedence: hop3.toml > Procfile.
+        """
+        Get postbuild commands with precedence: hop3.toml > Procfile.
 
         Returns:
             List of postbuild commands, empty list if not defined
@@ -108,7 +114,8 @@ class AppConfig:
 
     @property
     def pre_run(self) -> list[str]:
-        """Get prerun commands with precedence: hop3.toml > Procfile.
+        """
+        Get prerun commands with precedence: hop3.toml > Procfile.
 
         Returns:
             List of prerun commands, empty list if not defined
@@ -125,7 +132,8 @@ class AppConfig:
 
     @property
     def explicit_builder(self) -> str | None:
-        """Get explicit builder name from hop3.toml.
+        """
+        Get explicit builder name from hop3.toml.
 
         Returns:
             Builder name ('local', 'docker') or None for auto-detection
@@ -138,7 +146,8 @@ class AppConfig:
 
     @property
     def explicit_toolchain(self) -> str | None:
-        """Get explicit toolchain name from hop3.toml.
+        """
+        Get explicit toolchain name from hop3.toml.
 
         Returns:
             Toolchain name ('python', 'node', etc.) or None for auto-detection
@@ -149,7 +158,8 @@ class AppConfig:
 
     @property
     def start_timeout(self) -> float:
-        """Get start timeout with precedence: hop3.toml > server default.
+        """
+        Get start timeout with precedence: hop3.toml > server default.
 
         Returns:
             Timeout in seconds for the app to start
@@ -167,7 +177,8 @@ class AppConfig:
 
     @property
     def ports(self) -> list[dict]:
-        """Fixed host ports declared in [[ports]] (empty list when none).
+        """
+        Fixed host ports declared in [[ports]] (empty list when none).
 
         Each entry: ``{"number": int, "protocol": str, "name": str | None}``.
         """
@@ -203,7 +214,8 @@ class AppConfig:
             self.has_procfile = False
 
     def get_file(self, filename: str) -> Path | None:
-        """Search for a file, first in the "hop3" subdirectory, then in the
+        """
+        Search for a file, first in the "hop3" subdirectory, then in the
         root.
 
         Input:
@@ -223,7 +235,8 @@ class AppConfig:
         return None
 
     def parse_app_json(self) -> None:
-        """Parse application-specific JSON data.
+        """
+        Parse application-specific JSON data.
 
         This is intended to process and interpret JSON data relevant to
         the application. It doesn't take any parameters nor does it
@@ -245,7 +258,8 @@ class AppConfig:
             self.has_hop3_toml = False
 
     def get_worker(self, name: str):
-        """Retrieve a worker's details by name from the procfile.
+        """
+        Retrieve a worker's details by name from the procfile.
 
         Input:
         - name (str): The name of the worker to retrieve.

@@ -8,7 +8,8 @@ from __future__ import annotations
 
 
 def show_unconfigured_message(cli_args: list[str]) -> None:
-    """Show helpful setup instructions when CLI is not configured.
+    """
+    Show helpful setup instructions when CLI is not configured.
 
     Args:
         cli_args: The command-line arguments (for context)

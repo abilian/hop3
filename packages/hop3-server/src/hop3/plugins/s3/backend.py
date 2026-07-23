@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Backend abstraction for S3-compatible object storage.
+"""
+Backend abstraction for S3-compatible object storage.
 
 Hop3's S3 addon talks to an underlying object-storage server (MinIO,
 Garage, SeaweedFS, ...) through the ``S3Backend`` protocol. Swapping
@@ -42,7 +43,8 @@ class BackendError(Exception):
 
 @dataclass(frozen=True)
 class S3Credentials:
-    """Access key/secret pair scoped to a single bucket.
+    """
+    Access key/secret pair scoped to a single bucket.
 
     The ``endpoint`` is included so clients get everything they need
     to construct a connection in a single place.
@@ -55,7 +57,8 @@ class S3Credentials:
 
 
 class S3Backend(Protocol):
-    """Protocol for S3-compatible backend implementations.
+    """
+    Protocol for S3-compatible backend implementations.
 
     Backends must support per-bucket access keys so apps can't see
     each other's data. Backends that don't (e.g., single-shared-key
@@ -77,7 +80,8 @@ class S3Backend(Protocol):
         """Delete a bucket and all its contents. Idempotent."""
 
     def create_access_key(self, bucket: str) -> S3Credentials:
-        """Create an access key scoped to a single bucket.
+        """
+        Create an access key scoped to a single bucket.
 
         The returned credentials must only allow read/write to ``bucket``
         and nothing else.
@@ -105,7 +109,8 @@ HOP3_S3_ENV_FILE = "/etc/hop3/s3-env"
 
 
 def _load_mc_host_env() -> dict[str, str]:
-    """Return env vars for ``mc`` subprocess calls.
+    """
+    Return env vars for ``mc`` subprocess calls.
 
     Reads ``/etc/hop3/s3-env`` (written by the installer) and parses
     out the ``MC_HOST_hop3`` line. Returns an empty dict if the file
@@ -134,7 +139,8 @@ def _load_mc_host_env() -> dict[str, str]:
 
 @dataclass(frozen=True)
 class MinIOBackend:
-    """MinIO backend driven through the ``mc`` admin CLI.
+    """
+    MinIO backend driven through the ``mc`` admin CLI.
 
     Assumes ``mc`` is installed on the server and an alias named
     ``hop3`` points to the local MinIO instance with admin credentials.
@@ -147,7 +153,8 @@ class MinIOBackend:
     mc_alias: str = "hop3"
 
     def _mc(self, *args: str) -> subprocess.CompletedProcess[str]:
-        """Run ``mc <args>`` and return the result.
+        """
+        Run ``mc <args>`` and return the result.
 
         Injects ``MC_HOST_hop3`` from ``/etc/hop3/s3-env`` into the
         subprocess environment so ``mc`` can authenticate without a
@@ -199,7 +206,8 @@ class MinIOBackend:
                 raise
 
     def create_access_key(self, bucket: str) -> S3Credentials:
-        """Create a user and access key scoped to the bucket.
+        """
+        Create a user and access key scoped to the bucket.
 
         Creates a MinIO user with a policy restricting access to the
         named bucket only, then returns the generated access/secret
@@ -323,7 +331,8 @@ class MinIOBackend:
 
 @dataclass(frozen=True)
 class GarageBackend:
-    """Garage backend — NOT IMPLEMENTED YET.
+    """
+    Garage backend — NOT IMPLEMENTED YET.
 
     Garage is the planned replacement for MinIO: genuinely AGPL, single
     Rust binary, designed for self-hosting at edge. See
@@ -366,7 +375,8 @@ class GarageBackend:
 
 
 def get_default_backend() -> S3Backend:
-    """Return the default S3 backend for this server.
+    """
+    Return the default S3 backend for this server.
 
     Selection is driven by the ``HOP3_S3_BACKEND`` env var:
       - ``"minio"`` (default): shell out to ``mc``

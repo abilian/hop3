@@ -50,7 +50,8 @@ def _trusted_proxies() -> frozenset[str]:
 
 
 def _client_ip(request: Request) -> str:
-    """Client IP for rate limiting (audit H1, CWE-290).
+    """
+    Client IP for rate limiting (audit H1, CWE-290).
 
     X-Forwarded-For is honored ONLY when the TCP peer is a trusted proxy
     (loopback by default; extend with HOP3_TRUSTED_PROXIES). Otherwise the
@@ -71,7 +72,8 @@ def _client_ip(request: Request) -> str:
 
 
 class AuthController(Controller):
-    """Authentication controller for web-based login.
+    """
+    Authentication controller for web-based login.
 
     Handles login, logout, and profile pages for the dashboard.
     """
@@ -80,7 +82,8 @@ class AuthController(Controller):
 
     @get("/login", sync_to_thread=False)
     def login_page(self, request: Request) -> Template | Redirect:
-        """Display the login page.
+        """
+        Display the login page.
 
         Args:
             request: HTTP request
@@ -103,7 +106,8 @@ class AuthController(Controller):
         self,
         request: Request,
     ) -> Redirect:
-        """Handle login form submission.
+        """
+        Handle login form submission.
 
         Args:
             request: HTTP request
@@ -153,7 +157,8 @@ class AuthController(Controller):
 
     @get("/logout", sync_to_thread=False)
     def logout(self, request: Request) -> Redirect:
-        """Handle logout: revoke the cookie's token, then clear the cookie.
+        """
+        Handle logout: revoke the cookie's token, then clear the cookie.
 
         The dashboard cookie IS a full bearer token, so dropping it client-side
         is not enough — a separately-captured copy would stay valid for the
@@ -180,7 +185,8 @@ class AuthController(Controller):
 
     @get("/profile", guards=[auth_guard], sync_to_thread=False)
     def profile(self, request: Request) -> Template | Redirect:
-        """Display user profile page.
+        """
+        Display user profile page.
 
         Args:
             request: HTTP request
@@ -223,7 +229,8 @@ class AuthController(Controller):
 
     @get("/magic/{token:str}", sync_to_thread=False)
     def magic_login(self, request: Request, token: FromPath[str]) -> Redirect:
-        """Handle magic link login.
+        """
+        Handle magic link login.
 
         Magic links are single-use, short-lived tokens that allow passwordless
         login. They are generated via the auth magic-link command (typically

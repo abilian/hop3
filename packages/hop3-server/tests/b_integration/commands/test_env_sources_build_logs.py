@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""ADR-036 P2.2/P7: `env show --sources` and `app logs --build`.
+"""
+ADR-036 P2.2/P7: `env show --sources` and `app logs --build`.
 
 `env show --sources` absorbs the old `app env` (Source column); `app logs
 --build` absorbs the old `app build-logs`. Both old commands are kept hidden
@@ -63,10 +64,12 @@ class TestEnvShowSources:
         assert by_key["FOO"] == "config"
 
     def test_set_and_show_accept_the_app_flag(self, db_session: Session):
-        """ADR 036 D5: the app is the `--app` flag, never a positional. The
+        """
+        ADR 036 D5: the app is the `--app` flag, never a positional. The
         reported bug — `env set --app X KEY=VALUE` rejected because the KEY=VALUE
         was mistaken for the app — must work, and `env show --app X` must read it
-        back (the LogsCmd/EnvCmd/ShowCmd positional-spec gap)."""
+        back (the LogsCmd/EnvCmd/ShowCmd positional-spec gap).
+        """
         app = App(name="flagapp", hostname="f.example.com", port=8002)
         db_session.add(app)
         db_session.commit()

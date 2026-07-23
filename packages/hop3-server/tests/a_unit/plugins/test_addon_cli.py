@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for the revived `addon <type> <verb>` plugin commands.
+"""
+Tests for the revived `addon <type> <verb>` plugin commands.
 
 Covers both behaviour (each command dispatches to the right Addon method and
 returns the right response shape) and discovery (the `cli_commands()` hook

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Addon provisioning during deployment.
+"""
+Addon provisioning during deployment.
 
 This module handles automatic provisioning of addons declared in hop3.toml.
 When an app is deployed, addons specified in [[addons]] sections are:
@@ -35,7 +36,8 @@ if TYPE_CHECKING:
 
 
 def _is_db_auth_failure(error: str) -> bool:
-    """Whether a provisioning error is the DB rejecting our credential.
+    """
+    Whether a provisioning error is the DB rejecting our credential.
 
     A password/auth rejection means the service IS installed and reachable — the
     opposite of the "not installed" hint we'd otherwise show. (Postgres:
@@ -51,7 +53,8 @@ def _is_db_auth_failure(error: str) -> bool:
 
 
 def _addon_failure_guidance(addon_type: str, error: str) -> tuple[str, list[str]]:
-    """Pick an actionable (hint, troubleshooting) for a provisioning failure.
+    """
+    Pick an actionable (hint, troubleshooting) for a provisioning failure.
 
     Distinguishes a credential mismatch (service up, wrong password) from a
     genuinely-missing service, so the operator isn't sent to re-run
@@ -92,7 +95,8 @@ def provision_addons(
     addon_configs: list[dict],
     db_session: Session,
 ) -> None:
-    """Provision addons declared in hop3.toml.
+    """
+    Provision addons declared in hop3.toml.
 
     For each addon in the config:
     1. Generate addon name (app_name-addon_type)
@@ -169,7 +173,8 @@ def addon_var_prefix(addon_name: str) -> str:
 def compute_namespaced_vars(
     details: dict[str, str], *, is_primary: bool, addon_name: str
 ) -> dict[str, str]:
-    """Namespace an addon's connection vars.
+    """
+    Namespace an addon's connection vars.
 
     Primary addon → ``details`` unchanged (unprefixed ``DATABASE_URL`` etc.);
     non-primary → every key prefixed with ``<ADDONNAME>_`` so several same-type
@@ -182,7 +187,8 @@ def compute_namespaced_vars(
 
 
 def _effective_primary_ids(credentials: list[AddonCredential]) -> set[int]:
-    """Pick the effective primary credential id for each addon type.
+    """
+    Pick the effective primary credential id for each addon type.
 
     An explicit ``is_primary`` flag wins; if a type-group has none flagged
     (legacy data attached before this field, or a manually-created credential),
@@ -202,7 +208,8 @@ def _effective_primary_ids(credentials: list[AddonCredential]) -> set[int]:
 
 
 def sync_addon_env_vars(app: App, db_session: DbSession) -> dict[str, list[str]]:
-    """Make the app's addon-injected env exactly match its AddonCredential rows.
+    """
+    Make the app's addon-injected env exactly match its AddonCredential rows.
 
     The single source of truth for addon env: attach, detach, promote and deploy
     all call this, so the runtime env is always a function of the credential rows
@@ -272,7 +279,8 @@ reinject_attached_addons = sync_addon_env_vars
 
 
 def addon_var_names(app: App, db_session: DbSession) -> set[str]:
-    """Env-var names injected by the app's addons (both prefixed + unprefixed).
+    """
+    Env-var names injected by the app's addons (both prefixed + unprefixed).
 
     Used to label a variable's source (addon vs user-set) in
     ``env show --sources``. Mirrors the managed-name set in
@@ -299,7 +307,8 @@ def _provision_single_addon(
     addon_config: dict,
     db_session: Session,
 ) -> None:
-    """Provision a single addon.
+    """
+    Provision a single addon.
 
     Creates the addon if it doesn't exist, then attaches it to the app.
     Honours optional per-addon config (e.g. ``extensions`` for postgres).

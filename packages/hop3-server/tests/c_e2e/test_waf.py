@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""E2E: a WAF-enabled app on the full nginx -> LeWAF -> uWSGI path (ADR 050).
+"""
+E2E: a WAF-enabled app on the full nginx -> LeWAF -> uWSGI path (ADR 050).
 
 Two proofs on a real Docker deploy:
 * a WAF-enabled app blocks an SQLi (403) over the real proxy chain while clean

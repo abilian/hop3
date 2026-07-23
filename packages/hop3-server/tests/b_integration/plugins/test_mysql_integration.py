@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Integration tests for MySQL addon.
+"""
+Integration tests for MySQL addon.
 
 These tests run against a real MySQL instance and verify actual
 database operations (create, destroy, backup, restore, info).
@@ -33,7 +34,8 @@ from hop3.plugins.mysql.mysql import MySQLAddon
 
 
 def mysql_available() -> bool:
-    """Check if MySQL is available for testing.
+    """
+    Check if MySQL is available for testing.
 
     Tries to connect using configured admin credentials.
     """
@@ -94,7 +96,8 @@ def _database_exists(admin: MySQLAdmin, db_name: str) -> bool:
 
 
 def _user_exists(admin: MySQLAdmin, username: str) -> bool:
-    """Check if a user exists using admin connection.
+    """
+    Check if a user exists using admin connection.
 
     With the per-host grants pattern (W16 MySQL addon fix), a single
     logical user has multiple rows in ``mysql.user`` — one per host

@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Email backend pre-stage (`--with email`): install Postfix, inert.
+"""
+Email backend pre-stage (`--with email`): install Postfix, inert.
 
 Only makes the package present — it never writes ``main.cf``, sets a relayhost,
 or starts an MTA. Backend selection configures the loopback relay later via the
@@ -73,8 +74,10 @@ def _pre_stage_fedora() -> None:
 
 
 def _report(result) -> None:
-    """Report the install outcome. A failure warns here and fails loud at use
-    time (the rootd op aborts if postmap/postfix is absent)."""
+    """
+    Report the install outcome. A failure warns here and fails loud at use
+    time (the rootd op aborts if postmap/postfix is absent).
+    """
     if result.returncode == 0:
         print_success(
             "Postfix installed (inert; configured on email-backend selection)"

@@ -98,7 +98,8 @@ debug = dim
 
 
 class Console(ABC):
-    """Abstract base class for console operations.
+    """
+    Abstract base class for console operations.
 
     This defines an interface for console operations such as echoing
     messages with optional foreground colors and handling console
@@ -161,13 +162,15 @@ class TestingConsole(Console):
 
 
 class CapturingConsole(Console):
-    """A console that captures messages and also prints them.
+    """
+    A console that captures messages and also prints them.
 
     Used during deployment to collect logs that can be returned to the client.
     """
 
     def __init__(self, verbosity: int = 1) -> None:
-        """Initialize with verbosity level.
+        """
+        Initialize with verbosity level.
 
         Args:
             verbosity: 0=quiet, 1=normal, 2=verbose, 3=debug
@@ -193,7 +196,8 @@ class CapturingConsole(Console):
         return "\n".join(entry["msg"] for entry in self.buffer)
 
     def get_logs(self, max_level: int | None = None) -> list[dict]:
-        """Get captured logs up to a certain level.
+        """
+        Get captured logs up to a certain level.
 
         Args:
             max_level: Maximum level to include (None = all)
@@ -237,7 +241,8 @@ def set_console(new_console: Console) -> Console:
 
 
 def get_verbosity() -> int:
-    """Get the current verbosity level.
+    """
+    Get the current verbosity level.
 
     Returns:
         Verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug)
@@ -246,7 +251,8 @@ def get_verbosity() -> int:
 
 
 def set_verbosity(level: int) -> int:
-    """Set the verbosity level and return the old one.
+    """
+    Set the verbosity level and return the old one.
 
     Args:
         level: Verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug)
@@ -261,7 +267,8 @@ def set_verbosity(level: int) -> int:
 
 
 class VerbosityContext:
-    """Context manager to temporarily set verbosity level.
+    """
+    Context manager to temporarily set verbosity level.
 
     Usage:
         with verbosity_context(2):  # verbose mode
@@ -297,7 +304,8 @@ def echo(msg: str, fg: str = "") -> None:
 
 
 def log(msg: str, level: int = 0, fg: str = "green") -> None:
-    """Log a message to the console.
+    """
+    Log a message to the console.
 
     Args:
         msg: Message to log
@@ -331,7 +339,8 @@ def log(msg: str, level: int = 0, fg: str = "green") -> None:
 
 
 class CaptureLogs:
-    """Context manager to capture logs during execution.
+    """
+    Context manager to capture logs during execution.
 
     Usage:
         with capture_logs() as captured:  # Uses global verbosity
@@ -367,14 +376,17 @@ capture_logs = CaptureLogs
 
 
 def panic(msg: str) -> None:
-    """Logs an error message in red and exits the program, with a status code
-    of 1, terminating the program."""
+    """
+    Logs an error message in red and exits the program, with a status code
+    of 1, terminating the program.
+    """
     log(msg, fg="red")
     sys.exit(1)
 
 
 class Abort(Exception):  # ruff:ignore[error-suffix-on-exception-name]
-    """Custom exception class to handle abort scenarios with detailed
+    """
+    Custom exception class to handle abort scenarios with detailed
     information.
 
     This exception is used to represent an abort event with a status code,

@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Single-file installer bundler.
+"""
+Single-file installer bundler.
 
 This module bundles the modular installer source into standalone single-file
 scripts that can be distributed independently.
@@ -75,7 +76,8 @@ SERVER_MODULES = [
 
 
 def is_stdlib_module(module_name: str) -> bool:
-    """Check if a module is from the Python standard library.
+    """
+    Check if a module is from the Python standard library.
 
     Uses sys.stdlib_module_names (Python 3.10+) for accurate detection.
     This eliminates the need to maintain a hardcoded list of stdlib modules.
@@ -183,7 +185,8 @@ def _extract_module_name(stripped: str) -> str | None:
 
 
 def extract_imports(source: str) -> tuple[set[str], str]:
-    """Extract import statements from source code.
+    """
+    Extract import statements from source code.
 
     Returns:
         Tuple of (set of import names, source with imports removed)
@@ -263,7 +266,8 @@ def _skip_module_docstring(lines: list[str], start: int) -> int:
 
 
 def extract_code_body(source: str) -> str:
-    """Extract the main code body, removing module docstrings and boilerplate.
+    """
+    Extract the main code body, removing module docstrings and boilerplate.
 
     Only removes:
     - Leading comments and whitespace
@@ -294,7 +298,8 @@ def extract_code_body(source: str) -> str:
 
 
 def _top_level_names(code: str) -> list[str]:
-    """Return top-level function/class/assignment names defined in code.
+    """
+    Return top-level function/class/assignment names defined in code.
 
     Used by the bundler to detect name collisions across modules.
     Parses with ``ast``; on syntax error returns an empty list (the
@@ -327,7 +332,8 @@ def _top_level_names(code: str) -> list[str]:
 
 
 def _collect_import_statements(source: str) -> set[str]:
-    """Full, normalized stdlib-candidate import statements found in ``source``.
+    """
+    Full, normalized stdlib-candidate import statements found in ``source``.
 
     Uses ``ast`` so multi-line and conditional (e.g. ``if TYPE_CHECKING:``)
     imports are captured correctly, and so the imported *symbols*
@@ -365,7 +371,8 @@ def _collect_import_statements(source: str) -> set[str]:
 
 
 def process_module(filepath: Path) -> tuple[set[str], str]:
-    """Process a module file.
+    """
+    Process a module file.
 
     Returns:
         Tuple of (full import statements, code body). The statements are
@@ -390,7 +397,8 @@ def process_module(filepath: Path) -> tuple[set[str], str]:
 
 
 def bundle_installer(installer_type: str) -> str:
-    """Bundle an installer into a single file.
+    """
+    Bundle an installer into a single file.
 
     Args:
         installer_type: 'cli' or 'server'
@@ -496,7 +504,8 @@ if __name__ == "__main__":
 
 
 def validate_bundle(source: str) -> bool:
-    """Validate that the bundled source is valid Python.
+    """
+    Validate that the bundled source is valid Python.
 
     Returns:
         True if valid, False otherwise

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Result storage for hop3-testing.
+"""
+Result storage for hop3-testing.
 
 This module provides:
 - SQLAlchemy models for test results

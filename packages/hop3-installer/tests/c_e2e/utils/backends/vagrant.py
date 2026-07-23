@@ -18,7 +18,8 @@ from .base import Backend
 
 
 class VagrantBackend(Backend):
-    """Backend for testing in Vagrant virtual machines.
+    """
+    Backend for testing in Vagrant virtual machines.
 
     This backend runs tests inside Vagrant VMs, providing full system
     testing with systemd support.
@@ -28,7 +29,8 @@ class VagrantBackend(Backend):
     supports_systemd = True
 
     def __init__(self, vm_name: str = "ubuntu", vagrant_dir: Path | None = None):
-        """Initialize Vagrant backend.
+        """
+        Initialize Vagrant backend.
 
         Args:
             vm_name: Name of the VM to use (must be defined in Vagrantfile)
@@ -164,7 +166,8 @@ class VagrantBackend(Backend):
         return find_project_root(self.vagrant_dir)
 
     def upload(self, local_path: Path, remote_path: str) -> bool:
-        """Upload a file to the VM.
+        """
+        Upload a file to the VM.
 
         For files within the project root, uses the shared /vagrant folder.
         For files outside the project, uses vagrant ssh to copy via stdin.
@@ -206,7 +209,8 @@ class VagrantBackend(Backend):
             return False
 
     def upload_dir(self, local_path: Path, remote_path: str) -> bool:
-        """Upload a directory to the VM.
+        """
+        Upload a directory to the VM.
 
         For directories within the project root, uses the shared /vagrant folder.
         For directories outside the project, uses tar over SSH.

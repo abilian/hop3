@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Integration tests for the shared catalog-install staging service.
+"""
+Integration tests for the shared catalog-install staging service.
 
 ``stage_catalog_app`` creates a real App on disk (under a tmp HOP3 root), copies
 the blueprint recipe into it, and attaches env vars — but never deploys.

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""`server email <verb>` commands — server-level shared email transport.
+"""
+`server email <verb>` commands — server-level shared email transport.
 
 The operator sets the SMTP submission credentials once
 (`hop3 server email set`); per-app email addons created without their own
@@ -53,7 +54,8 @@ _EGRESS_PROBES = ("aspmx.l.google.com", "alt1.aspmx.l.google.com")
 
 
 def _detect_server_ip() -> str:
-    """The box's outbound source IP (for the SPF record). "" if undetectable.
+    """
+    The box's outbound source IP (for the SPF record). "" if undetectable.
 
     A UDP ``connect`` sends no packet — it just picks the source address the
     kernel would use for outbound traffic, which is the public IP on a VPS.
@@ -70,7 +72,8 @@ def _detect_server_ip() -> str:
 
 
 def _egress_status() -> tuple[str, str]:
-    """Whether outbound port 25 is open — three-state, never a fake 'ready'.
+    """
+    Whether outbound port 25 is open — three-state, never a fake 'ready'.
 
     Direct delivery is impossible if the host blocks outbound 25 (most clouds
     do). Skipped under tests (no network); otherwise a best-effort probe.
@@ -92,7 +95,8 @@ def _egress_status() -> tuple[str, str]:
 @register
 @dataclass(frozen=True)
 class ServerEmailSetCmd(Command):
-    """Set the server-level shared email transport — EXPERIMENTAL.
+    """
+    Set the server-level shared email transport — EXPERIMENTAL.
 
     Usage: hop3 server email set (--provider <name> | --smtp-host <h>)
                --smtp-user <u> --smtp-password <pw> --from-domain <domain>
@@ -172,9 +176,11 @@ class ServerEmailSetCmd(Command):
     def _resolve_endpoint(
         self, parsed: dict, args: tuple[str, ...]
     ) -> list[dict] | tuple[str, str, ProviderProfile | None]:
-        """Resolve the SMTP endpoint: ``--provider`` fills host/port from a
+        """
+        Resolve the SMTP endpoint: ``--provider`` fills host/port from a
         profile, else ``--smtp-host``/``--smtp-port`` are used directly. Returns
-        ``(host, port_raw, profile)`` or a loud error-item list."""
+        ``(host, port_raw, profile)`` or a loud error-item list.
+        """
         raw_host = parsed.get("smtp_host", "")
         port_raw = parsed.get("smtp_port", "587")
         provider_name = parsed.get("provider", "")
@@ -204,8 +210,10 @@ class ServerEmailSetCmd(Command):
     def _build_transport(
         self, host: str, port_raw: str, parsed: dict
     ) -> list[dict] | tuple[EmailTransport, int, str]:
-        """Validate the creds/domain and build the transport. Returns
-        ``(transport, port, domain)`` or a loud error-item list."""
+        """
+        Validate the creds/domain and build the transport. Returns
+        ``(transport, port, domain)`` or a loud error-item list.
+        """
         user = parsed.get("smtp_user", "")
         password = parsed.get("smtp_password", "")
         domain = parsed.get("from_domain", "")
@@ -303,7 +311,8 @@ _BACKEND_USAGE = (
 @register
 @dataclass(frozen=True)
 class ServerEmailBackendCmd(Command):
-    """Select the server-level email backend — EXPERIMENTAL.
+    """
+    Select the server-level email backend — EXPERIMENTAL.
 
     Usage: hop3 server email backend <relay|catch|direct> [backend options]
 
@@ -467,7 +476,8 @@ class ServerEmailBackendCmd(Command):
 @register
 @dataclass(frozen=True)
 class ServerEmailStatusCmd(Command):
-    """Show the server-level shared email transport — EXPERIMENTAL.
+    """
+    Show the server-level shared email transport — EXPERIMENTAL.
 
     Usage: hop3 server email status
 

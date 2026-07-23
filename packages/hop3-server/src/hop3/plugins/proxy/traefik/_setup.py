@@ -162,7 +162,8 @@ class TraefikVirtualHost(BaseProxy):
         return TRAEFIK_ROOT / f"{self.app_name}.yml"
 
     def get_proxy_conf(self) -> str:
-        """Returns the traefik configuration buffer based on
+        """
+        Returns the traefik configuration buffer based on
         specified workers and environment variables.
 
         Sets up traefik proxy configurations by expanding certain template
@@ -193,8 +194,10 @@ class TraefikVirtualHost(BaseProxy):
         return buffer
 
     def setup_static(self) -> None:
-        """Configures static path mappings for a Traefik server in the
-        environment configuration."""
+        """
+        Configures static path mappings for a Traefik server in the
+        environment configuration.
+        """
         static_routers = []
         static_services = []
 
@@ -278,7 +281,8 @@ class TraefikVirtualHost(BaseProxy):
             )
 
     def reload_proxy(self) -> None:
-        """Reload traefik to apply configuration changes.
+        """
+        Reload traefik to apply configuration changes.
 
         Unlike nginx/caddy, traefik commonly file-watches its dynamic config and
         reloads itself, so a failed *explicit* reload is often benign — hence it
@@ -308,7 +312,8 @@ class TraefikVirtualHost(BaseProxy):
             )
 
     def setup_cache(self) -> None:
-        """Configure Traefik caching for the application.
+        """
+        Configure Traefik caching for the application.
 
         Note: Traefik doesn't have built-in caching like Nginx.
         This method sets up cache headers via middleware.

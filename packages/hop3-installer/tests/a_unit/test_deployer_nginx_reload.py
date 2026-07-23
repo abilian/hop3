@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""nginx reload must work on both systemd and supervisor (Docker) targets.
+"""
+nginx reload must work on both systemd and supervisor (Docker) targets.
 
 The Docker deploy target runs nginx under supervisor (no systemd), where a plain
 `systemctl reload nginx` silently no-ops — leaving the just-written vhost stale
@@ -58,8 +59,10 @@ def test_reports_failure_when_no_method_works():
 
 
 class _TlsBackend:
-    """Everything succeeds except the two nginx reload commands when
-    ``reload_ok`` is False. Cert-existence probes report ``cert_present``."""
+    """
+    Everything succeeds except the two nginx reload commands when
+    ``reload_ok`` is False. Cert-existence probes report ``cert_present``.
+    """
 
     def __init__(self, *, reload_ok: bool, cert_present: bool = False):
         self.reload_ok = reload_ok

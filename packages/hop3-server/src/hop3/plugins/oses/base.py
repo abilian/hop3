@@ -22,7 +22,8 @@ _PACKAGE_NAME_RE = re.compile(r"^[A-Za-z0-9_+.@][A-Za-z0-9._+@-]*$")
 
 
 class BaseOSStrategy:
-    """Base class providing common functionality for OS setup strategies.
+    """
+    Base class providing common functionality for OS setup strategies.
 
     This provides default implementations for common operations like
     creating users, putting files, and creating symbolic links.
@@ -32,7 +33,8 @@ class BaseOSStrategy:
 
     @property
     def display_name(self) -> str:
-        """Human-readable name for this OS.
+        """
+        Human-readable name for this OS.
 
         Subclasses should override this property to provide a specific display name.
         """
@@ -40,7 +42,8 @@ class BaseOSStrategy:
 
     @property
     def packages(self) -> list[str]:
-        """List of system packages required for hop3.
+        """
+        List of system packages required for hop3.
 
         Subclasses should override this property to provide OS-specific packages.
         """
@@ -52,14 +55,16 @@ class BaseOSStrategy:
     HOP_SCRIPT = f"{VENV}/bin/hop3-server"
 
     def detect(self) -> bool:
-        """Default implementation returns False.
+        """
+        Default implementation returns False.
 
         Subclasses should override this to detect their specific OS.
         """
         return False
 
     def setup_server(self) -> None:
-        """Default setup implementation.
+        """
+        Default setup implementation.
 
         Subclasses can override or call super() and add OS-specific setup.
         """
@@ -73,7 +78,8 @@ class BaseOSStrategy:
 
     @staticmethod
     def _validate_package_names(packages: list[str]) -> None:
-        """Reject any package name that contains shell metacharacters.
+        """
+        Reject any package name that contains shell metacharacters.
 
         Today every concrete OS strategy passes a static module-level
         ``PACKAGES`` list to ``ensure_packages``. That contract is *not*
@@ -93,7 +99,8 @@ class BaseOSStrategy:
                 raise ValueError(msg)
 
     def ensure_user(self, user: str, home: str, shell: str, group: str) -> None:
-        """Create a system user if it doesn't exist.
+        """
+        Create a system user if it doesn't exist.
 
         This provides a default implementation using useradd that works
         on most Linux systems.
@@ -140,7 +147,8 @@ class BaseOSStrategy:
         owner: str | None = None,
         group: str | None = None,
     ) -> None:
-        """Copy content from source to destination file.
+        """
+        Copy content from source to destination file.
 
         Args:
             name: Description of the operation (for logging)
@@ -164,7 +172,8 @@ class BaseOSStrategy:
         # TODO: Implement mode, owner, group setting
 
     def ensure_link(self, name: str, path: str, target: str) -> None:
-        """Create a symbolic link.
+        """
+        Create a symbolic link.
 
         Args:
             name: Description of the operation (for logging)
@@ -179,7 +188,8 @@ class BaseOSStrategy:
         Path(path).symlink_to(target)
 
     def read_os_release(self) -> dict[str, str]:
-        """Parse /etc/os-release and return as dictionary.
+        """
+        Parse /etc/os-release and return as dictionary.
 
         Returns:
             Dictionary with keys like 'ID', 'VERSION_ID', 'NAME', etc.

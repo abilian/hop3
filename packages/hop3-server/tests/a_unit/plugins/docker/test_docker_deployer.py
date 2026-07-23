@@ -108,7 +108,8 @@ class TestDockerComposeDeployerAccept:
     def test_accept_without_compose_file(
         self, tmp_path: Path, docker_artifact: BuildArtifact
     ):
-        """Should accept docker artifact even without compose file.
+        """
+        Should accept docker artifact even without compose file.
 
         Hop3 generates docker-compose.yml automatically if not provided.
         See ADR 033 for details.
@@ -543,7 +544,8 @@ class TestDockerComposeDeployerProxyIntegration:
     def test_setup_proxy_propagates_exception(
         self, tmp_path: Path, docker_artifact: BuildArtifact
     ):
-        """Proxy/cert setup failures must surface, not be swallowed.
+        """
+        Proxy/cert setup failures must surface, not be swallowed.
 
         A swallowed proxy error is how edrix.eu shipped a self-signed cert under
         a green deploy; the failure must propagate so the deploy fails.
@@ -575,7 +577,8 @@ class TestDockerComposeDeployerProxyIntegration:
 
 
 class TestRewriteHostForDocker:
-    """Tests for the localhost → host.docker.internal rewriter.
+    """
+    Tests for the localhost → host.docker.internal rewriter.
 
     The rewrite is applied to ALL env var values (not a fixed
     whitelist) so app-specific names like GF_DATABASE_HOST,

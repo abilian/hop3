@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the server-level shared email transport (M3.1 feature 1).
+"""
+Unit tests for the server-level shared email transport (M3.1 feature 1).
 
 Covers the store (`server_transport`), the inherit resolution (server creds +
 app's own From, domain-boundary), the admin-gated `server email set/status`
@@ -35,8 +36,10 @@ from hop3.plugins.email.server_transport import (
 
 @pytest.fixture
 def email_root(tmp_path, monkeypatch):
-    """Point both the addon-secrets store and the server-transport store at a
-    throwaway dir."""
+    """
+    Point both the addon-secrets store and the server-transport store at a
+    throwaway dir.
+    """
     monkeypatch.setattr(secrets_module, "HOP3_ROOT", tmp_path)
     monkeypatch.setattr(st_module, "HOP3_ROOT", tmp_path)
     return tmp_path

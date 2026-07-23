@@ -15,7 +15,8 @@ if TYPE_CHECKING:
 
 
 def display_credentials(addon: Addon) -> None:
-    """Display connection credentials for an addon, masking passwords.
+    """
+    Display connection credentials for an addon, masking passwords.
 
     Args:
         addon: The addon instance to display credentials for

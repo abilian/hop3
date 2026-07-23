@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Catalog refresh orchestration (ADR 049): fetch → verify+publish → reload.
+"""
+Catalog refresh orchestration (ADR 049): fetch → verify+publish → reload.
 
 Ties together the pieces that individually live in ``sync.py`` (fetch, verify,
 atomic publish) and ``service.py`` (in-memory reload), reading the source URL and
@@ -28,7 +29,8 @@ def refresh_catalog(
     catalog_root: Path | None = None,
     state_root: Path | None = None,
 ) -> int:
-    """Fetch, verify, publish, and load the latest catalog. Returns the serial.
+    """
+    Fetch, verify, publish, and load the latest catalog. Returns the serial.
 
     Raises ``CatalogSyncError`` / ``CatalogVerificationError`` on any failure,
     leaving the currently published catalog untouched. Arguments default to the

@@ -25,7 +25,8 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def db_engine() -> Iterator[Engine]:
-    """Create test database engine (fresh for each test).
+    """
+    Create test database engine (fresh for each test).
 
     Uses in-memory SQLite for fast, isolated tests.
     Each test gets a fresh database.
@@ -56,7 +57,8 @@ def db_engine() -> Iterator[Engine]:
 
 @pytest.fixture
 def db_session(db_engine: Engine) -> Iterator[Session]:
-    """Create test session for querying test results.
+    """
+    Create test session for querying test results.
 
     This session shares the same in-memory database that get_session() uses
     via the session factory cache, so you can query the results of CLI commands.
@@ -77,7 +79,8 @@ def db_session(db_engine: Engine) -> Iterator[Session]:
 
 @pytest.fixture
 def admin_role(db_session: Session) -> Role:
-    """Create admin role for tests.
+    """
+    Create admin role for tests.
 
     Args:
         db_session: Database session
@@ -94,7 +97,8 @@ def admin_role(db_session: Session) -> Role:
 
 @pytest.fixture
 def user_role(db_session: Session) -> Role:
-    """Create user role for tests.
+    """
+    Create user role for tests.
 
     Args:
         db_session: Database session
@@ -111,7 +115,8 @@ def user_role(db_session: Session) -> Role:
 
 @pytest.fixture
 def sample_user(db_session: Session, user_role: Role) -> User:
-    """Create sample user for tests.
+    """
+    Create sample user for tests.
 
     Args:
         db_session: Database session
@@ -131,7 +136,8 @@ def sample_user(db_session: Session, user_role: Role) -> User:
 
 @contextmanager
 def get_session():
-    """Context manager for getting a database session.
+    """
+    Context manager for getting a database session.
 
     This mimics the pattern used in the CLI commands for consistency.
 

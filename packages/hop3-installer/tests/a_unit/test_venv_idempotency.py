@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Tests for create_virtual_environment() idempotency.
+"""
+Tests for create_virtual_environment() idempotency.
 
 Regression: this function used to unconditionally wipe an existing venv,
 which silently destroyed the install ``hop3-deploy --local`` had just

@@ -1,7 +1,8 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""OS setup strategy for Arch Linux and derivatives.
+"""
+OS setup strategy for Arch Linux and derivatives.
 
 This plugin supports:
 - Arch Linux
@@ -70,7 +71,8 @@ PACKAGES = [
 
 
 class ArchStrategy(BaseOSStrategy):
-    """OS setup strategy for Arch Linux and derivatives.
+    """
+    OS setup strategy for Arch Linux and derivatives.
 
     This strategy handles Arch Linux, Manjaro, EndeavourOS, and any other
     Arch-based distribution that uses pacman for package management.
@@ -93,7 +95,8 @@ class ArchStrategy(BaseOSStrategy):
         return distro_id.capitalize()
 
     def detect(self) -> bool:
-        """Check if this is an Arch-based distribution.
+        """
+        Check if this is an Arch-based distribution.
 
         Returns True for:
         - Arch Linux
@@ -113,7 +116,8 @@ class ArchStrategy(BaseOSStrategy):
         return "arch" in id_like
 
     def ensure_packages(self, packages: list[str], *, update: bool = True) -> None:
-        """Install packages using pacman.
+        """
+        Install packages using pacman.
 
         Args:
             packages: List of package names to install
@@ -134,7 +138,8 @@ class ArchStrategy(BaseOSStrategy):
         subprocess.run(cmd, check=True, capture_output=True, text=True)
 
     def setup_server(self) -> None:
-        """Install dependencies and configure system for hop3.
+        """
+        Install dependencies and configure system for hop3.
 
         This setup works for Arch Linux and derivatives.
         """
@@ -155,7 +160,8 @@ class ArchStrategy(BaseOSStrategy):
 
 
 class ArchPlugin:
-    """Plugin that provides Arch Linux OS setup strategy.
+    """
+    Plugin that provides Arch Linux OS setup strategy.
 
     This plugin handles Arch Linux and all derivatives including:
     - Arch Linux

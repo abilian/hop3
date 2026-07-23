@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""App admin-credential bootstrap (ADR 056).
+"""
+App admin-credential bootstrap (ADR 056).
 
 Provision generates the password once and injects the canonical HOP3_ADMIN_*
 vars; the credential is stored encrypted and retrievable; reset rotates it; and

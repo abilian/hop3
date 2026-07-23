@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""`addon email <verb>` commands — EXPERIMENTAL email (SMTP relay) addon.
+"""
+`addon email <verb>` commands — EXPERIMENTAL email (SMTP relay) addon.
 
 `addon email create` configures a relay (the operator's SMTP submission
 credentials); `addon email status` shows it. Both print an experimental banner.
@@ -40,7 +41,8 @@ _STATUS_ICON = {"present": "✓", MISSING: "✗", UNKNOWN: "?"}
 
 
 def _deliverability_items(domain: str, dkim_selector: str | None = None) -> list[dict]:
-    """Run the SPF/DMARC (and DKIM, when a selector is known) DNS pre-flight.
+    """
+    Run the SPF/DMARC (and DKIM, when a selector is known) DNS pre-flight.
 
     Never claims "ready": a missing record is a loud, actionable pending state,
     and an unreachable resolver is reported as unverified (not as "OK"). When
@@ -91,7 +93,8 @@ def _deliverability_items(domain: str, dkim_selector: str | None = None) -> list
 @register
 @dataclass(frozen=True)
 class AddonEmailCreateCmd(Command):
-    """Configure an email (SMTP relay) addon — EXPERIMENTAL.
+    """
+    Configure an email (SMTP relay) addon — EXPERIMENTAL.
 
     Usage: hop3 addon email create <name> --from <addr> [--smtp-host <h>
                --smtp-user <u> --smtp-password <pw> --smtp-port 587]
@@ -278,7 +281,8 @@ class AddonEmailCreateCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonEmailStatusCmd(Command):
-    """Show an email addon's relay configuration — EXPERIMENTAL.
+    """
+    Show an email addon's relay configuration — EXPERIMENTAL.
 
     Usage: hop3 addon email status <name>
 

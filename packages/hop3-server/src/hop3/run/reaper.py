@@ -1,7 +1,8 @@
 # Copyright (c) 2025-2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Robust detection and reaping of an app's runtime processes.
+"""
+Robust detection and reaping of an app's runtime processes.
 
 The hard case is a daemon that ``exec``s into a path outside the app dir — a
 Nix-store binary becomes argv ``/nix/store/.../bin/owncast``, so ``pgrep -f
@@ -40,7 +41,8 @@ GRACEFUL_STOP_SECONDS = 10.0
 
 
 def proc_belongs_to_app(cmdline: str, cwd: str, app_name: str) -> bool:
-    """Whether a process (by its cmdline + cwd) belongs to ``app_name``.
+    """
+    Whether a process (by its cmdline + cwd) belongs to ``app_name``.
 
     Robust to the two cases plain ``pgrep -f apps/<name>`` gets wrong:
 
@@ -73,7 +75,8 @@ def _parent_pid(pid: int) -> int | None:
 
 
 def _protected_pids() -> set[int]:
-    """The current process and all its ancestors — these are never reaped.
+    """
+    The current process and all its ancestors — these are never reaped.
 
     The reaper runs *inside* the operation that asked for it. On a git-push
     redeploy that operation is the tree ``git-receive-pack`` → post-receive hook
@@ -95,7 +98,8 @@ def _protected_pids() -> set[int]:
 
 
 def _is_deploy_descendant(pid: int) -> bool:
-    """Whether ``pid`` descends from the current process.
+    """
+    Whether ``pid`` descends from the current process.
 
     A build/deploy subprocess this hop3-server spawned — ``bundle install``,
     ``lein uberjar``, the ``make``/``cc`` children of a native-gem compile — runs
@@ -123,7 +127,8 @@ def _is_deploy_descendant(pid: int) -> bool:
 
 
 def app_pids(app_name: str) -> list[int]:
-    """PIDs of every live process belonging to ``app_name``.
+    """
+    PIDs of every live process belonging to ``app_name``.
 
     Scans ``/proc`` and matches each process's cmdline and working directory
     (see :func:`proc_belongs_to_app`). Catches Nix-store ``exec``'d daemons that
@@ -164,7 +169,8 @@ def app_pids(app_name: str) -> list[int]:
 def reap_app_processes(
     app_name: str, timeout: float = GRACEFUL_STOP_SECONDS
 ) -> list[int]:
-    """Block until ``app_name``'s processes are gone, force-killing stragglers.
+    """
+    Block until ``app_name``'s processes are gone, force-killing stragglers.
 
     Removing a uWSGI ``.ini`` makes the Emperor stop the vassal, which should
     terminate the app's processes — we *confirm* that here rather than guess. A

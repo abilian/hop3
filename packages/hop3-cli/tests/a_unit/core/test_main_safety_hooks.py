@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for the main.py wiring of ADR 042 §D14 + §Deploy preview.
+"""
+Tests for the main.py wiring of ADR 042 §D14 + §Deploy preview.
 
 Covers the integration of `_check_project_mismatch`, `_check_stray_dry_run`,
 `_handle_deploy_preview`, `_deploy_source_path`, `_matches_guarded_prefix`,
@@ -65,7 +66,8 @@ def _flags(**overrides) -> CliFlags:
 
 
 class _Resolution:
-    """Cheap stand-in for AppResolution: only needs .resolved, .app, .source, .kind.
+    """
+    Cheap stand-in for AppResolution: only needs .resolved, .app, .source, .kind.
 
     Default kind is ENV — the most common "guard should fire" case in
     these tests (env-var pointing at the wrong app from the wrong CWD).
@@ -125,7 +127,8 @@ def test_guard_fires_on_mismatch_with_env_var_source(tmp_path: Path) -> None:
 
 
 def test_guard_not_bypassed_by_yes_alone(tmp_path: Path) -> None:
-    """Real-world incident: ``hop3 deploy -y`` from the wrong directory must
+    """
+    Real-world incident: ``hop3 deploy -y`` from the wrong directory must
     NOT silently deploy. ``-y/--yes`` skips prompts; ``--force`` bypasses
     the §D14 guard. The two are not interchangeable.
     """
@@ -222,7 +225,8 @@ def test_deploy_source_defaults_to_cwd() -> None:
 
 
 def test_deploy_source_picks_up_explicit_directory(tmp_path: Path) -> None:
-    """``hop3 deploy <app> <dir>`` must be packaged from <dir>, and the
+    """
+    ``hop3 deploy <app> <dir>`` must be packaged from <dir>, and the
     preview must report it accurately.
     """
     target = tmp_path / "checkout"
@@ -261,7 +265,8 @@ def test_dry_run_for_deploy_prints_plan_and_exits(tmp_path: Path, capsys) -> Non
 
 
 def test_dry_run_for_non_deploy_does_not_short_circuit(tmp_path: Path) -> None:
-    """``hop3 restart --dry-run`` should NOT print a preview and exit;
+    """
+    ``hop3 restart --dry-run`` should NOT print a preview and exit;
     the stray-flag warning fires separately (tested above).
     """
     _handle_deploy_preview(
@@ -291,7 +296,8 @@ def test_preview_no_op_when_app_unresolved() -> None:
 def test_compute_resolutions_returns_context_and_app(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """ADR 042: `_compute_resolutions` returns a 2-tuple `(context, app)`.
+    """
+    ADR 042: `_compute_resolutions` returns a 2-tuple `(context, app)`.
 
     There is no server resolution and no git-remote inference; the app
     resolves CWD-only. The call must complete without git/server work.
@@ -311,7 +317,8 @@ def test_compute_resolutions_returns_context_and_app(
 
 
 def test_force_flag_sets_both_force_and_skip_confirm() -> None:
-    """--force implies skip_confirm — a --force user has clearly opted into
+    """
+    --force implies skip_confirm — a --force user has clearly opted into
     "yes, take action" — but the converse is NOT true (covered above).
     """
     flags, _ = parse_flags(["deploy", "--force"])

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for Wave 4 backup-dir permission hardening.
+"""
+Tests for Wave 4 backup-dir permission hardening.
 
 Backup files contain plaintext env.json and DB dumps (at-rest encryption
 deferred to 0.6 per ADR 024). Until then, the entire tree rooted at
@@ -52,8 +53,10 @@ def test_ensure_secure_backup_dir_tightens_leaf(patched_backup_root: Path) -> No
 def test_ensure_secure_backup_dir_tightens_whole_chain(
     patched_backup_root: Path,
 ) -> None:
-    """Ancestors created by parents=True also have to become 0o700,
-    otherwise a traversal-via-apps reveals app directory listings."""
+    """
+    Ancestors created by parents=True also have to become 0o700,
+    otherwise a traversal-via-apps reveals app directory listings.
+    """
     leaf = patched_backup_root / "apps" / "myapp" / "20260424_121314_abc123"
     _ensure_secure_backup_dir(leaf)
     # Every level between BACKUP_ROOT and the leaf is now 0o700.
@@ -72,8 +75,10 @@ def test_ensure_secure_backup_dir_idempotent(patched_backup_root: Path) -> None:
 def test_ensure_secure_backup_dir_skips_tightening_outside_backup_root(
     tmp_path: Path, patched_backup_root: Path
 ) -> None:
-    """If called on a path not under BACKUP_ROOT (test shim) we still
-    tighten the leaf but do not traipse up."""
+    """
+    If called on a path not under BACKUP_ROOT (test shim) we still
+    tighten the leaf but do not traipse up.
+    """
     stray = tmp_path / "stray" / "deeper"
     _ensure_secure_backup_dir(stray)
     assert _mode(stray) == 0o700

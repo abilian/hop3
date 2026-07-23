@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Hop3 CLI Installer - Main orchestration.
+"""
+Hop3 CLI Installer - Main orchestration.
 
 A single-file installer for the Hop3 CLI tool.
 Uses only Python standard library for maximum portability.
@@ -63,7 +64,8 @@ def _handle_venv_creation_error(e: CommandError) -> None:
 
 
 def main() -> int:
-    """Main entry point.
+    """
+    Main entry point.
 
     Returns:
         Exit code (0 for success, non-zero for failure)

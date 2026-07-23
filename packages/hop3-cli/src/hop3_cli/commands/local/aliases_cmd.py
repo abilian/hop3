@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""`hop3 aliases` — list all effective aliases with source and expansion.
+"""
+`hop3 aliases` — list all effective aliases with source and expansion.
 
 Per ADR 036 D9, this is the introspection command for the alias subsystem.
 It lists every alias in the effective registry with:

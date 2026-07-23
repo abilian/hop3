@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Server-side CLI commands for admin user management.
+"""
+Server-side CLI commands for admin user management.
 
 These commands run directly on the server and provide bootstrap capabilities
 for creating the first admin user without requiring HTTP authentication.
@@ -27,7 +28,8 @@ from ._base import Command
 
 @register
 class Admin(Command):
-    """Manage admin users and authentication tokens.
+    """
+    Manage admin users and authentication tokens.
 
     Subcommands:
         admin:create         Create a new admin user
@@ -45,7 +47,8 @@ class Admin(Command):
 
 @register
 class AdminCreate(Command):
-    """Create an admin user and display an API token.
+    """
+    Create an admin user and display an API token.
 
     Usage:
         hop3-server admin:create <username> <email> [--password-stdin]
@@ -148,7 +151,8 @@ class AdminCreate(Command):
 
 @register
 class AdminToken(Command):
-    """Generate a new API token for an existing user.
+    """
+    Generate a new API token for an existing user.
 
     Usage:
         hop3-server admin:token <username>
@@ -205,7 +209,8 @@ class AdminToken(Command):
 
 @register
 class AdminList(Command):
-    """List all users with their admin status.
+    """
+    List all users with their admin status.
 
     Usage:
         hop3-server admin:list
@@ -249,7 +254,8 @@ class AdminList(Command):
 
 @register
 class AdminSshToken(Command):
-    """Generate a token for SSH-based authentication.
+    """
+    Generate a token for SSH-based authentication.
 
     Usage:
         hop3-server admin:ssh-token
@@ -347,7 +353,8 @@ class AdminSshToken(Command):
 
 @register
 class AdminResetPassword(Command):
-    """Reset a user's password.
+    """
+    Reset a user's password.
 
     Usage:
         hop3-server admin:reset-password <username> [--password-stdin]
@@ -408,7 +415,8 @@ class AdminResetPassword(Command):
 
 @register
 class AuthMagicLink(Command):
-    """Generate a magic link for passwordless web login.
+    """
+    Generate a magic link for passwordless web login.
 
     Usage:
         hop3-server auth:magic-link [username]

@@ -221,9 +221,11 @@ def test_clear_noop_when_empty(db_session: Session, test_app: App):
 def test_conflict_detection_handles_space_separated_storage(
     db_session: Session, test_app: App
 ):
-    """Regression: the canonical on-disk form is space-separated. The old
+    """
+    Regression: the canonical on-disk form is space-separated. The old
     implementation only split on commas, so conflicts against deployed apps
-    (where proxies normalize to spaces) were silently missed."""
+    (where proxies normalize to spaces) were silently missed.
+    """
     other = App(name="otherapp")
     other.env_vars = [
         EnvVar(name="HOST_NAME", value="one.com two.com three.com", app=other)

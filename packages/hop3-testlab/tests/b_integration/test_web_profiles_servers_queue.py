@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""The Phase-4 UI: server pool CRUD, build profiles, Start build → queue.
+"""
+The Phase-4 UI: server pool CRUD, build profiles, Start build → queue.
 
 Drives the real Litestar app (auth bypassed via TESTLAB_UNSAFE in the conftest)
 against the real SQLite store.
@@ -108,8 +109,10 @@ def test_start_build_enqueues_and_shows_in_queue():
 
 
 def test_queue_shows_build_number_and_folds_the_detail():
-    """The queue lists the build number and keeps the (long) failure reason in a
-    folded <details> so it doesn't blow out the row."""
+    """
+    The queue lists the build number and keeps the (long) failure reason in a
+    folded <details> so it doesn't blow out the row.
+    """
     with _session() as s:
         p = ProfilesRepository(s).create(
             name="p-fail",
@@ -183,8 +186,10 @@ def test_profile_create_rejects_unsafe_source_url():
 
 
 def test_queue_log_view_renders_the_engine_log():
-    """A build's engine log is fetched from disk and shown in the UI — not left as a
-    'diagnostics saved to <path>' pointer the user can't reach."""
+    """
+    A build's engine log is fetched from disk and shown in the UI — not left as a
+    'diagnostics saved to <path>' pointer the user can't reach.
+    """
     with _session() as s:
         p = ProfilesRepository(s).create(
             name="p-log",

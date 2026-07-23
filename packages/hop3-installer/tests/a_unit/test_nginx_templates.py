@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Unit tests for nginx template generation.
+"""
+Unit tests for nginx template generation.
 
 Focus: server_name shape validation. The templates interpolate the
 server_name string directly into nginx config; a malformed value would
@@ -102,9 +103,11 @@ def test_full_ssl_config_accepts_valid():
 
 
 class TestDefaultServer:
-    """The platform vhost may claim nginx's ``default_server`` so the control
+    """
+    The platform vhost may claim nginx's ``default_server`` so the control
     plane owns the bare host / any unmatched Host (off by default — per-app
-    vhosts must never carry it)."""
+    vhosts must never carry it).
+    """
 
     def test_default_server_off_by_default(self):
         assert "listen 80;" in generate_http_only_config("admin.example.com")
@@ -161,7 +164,8 @@ def test_is_fqdn_rejects_non_domains(value):
 
 
 def test_underscore_wildcard_is_accepted():
-    """nginx accepts ``_`` as a default-server catch-all; we honour it.
+    """
+    nginx accepts ``_`` as a default-server catch-all; we honour it.
 
     The installer falls back to ``server_name _;`` when no admin domain
     is configured. Rejecting it would break every install that doesn't

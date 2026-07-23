@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Teardown process-matching: the core of reliable uWSGI app stop.
+"""
+Teardown process-matching: the core of reliable uWSGI app stop.
 
 A leftover daemon holding a fixed port (e.g. owncast's RTMP 1935) makes the
 next deploy of that app fail with an opaque health-check timeout — an

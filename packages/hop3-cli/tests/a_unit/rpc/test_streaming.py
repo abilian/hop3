@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for the SSE deployment-log streaming client.
+"""
+Tests for the SSE deployment-log streaming client.
 
 Regression focus: a stream endpoint that answers with a 3xx redirect
 (auth failure → /auth/login) must surface a clear "stream authentication
@@ -147,7 +148,8 @@ def test_500_reports_http_failure() -> None:
 
 
 def test_complete_event_with_error_is_raised() -> None:
-    """When the stream DOES connect (200), a failed `complete` event must
+    """
+    When the stream DOES connect (200), a failed `complete` event must
     surface the server's actual error message — the path that was masked.
     """
     lines = [
@@ -167,7 +169,8 @@ def test_complete_event_with_error_is_raised() -> None:
 
 
 def test_stream_ends_without_complete_event_still_reported() -> None:
-    """A genuine 200 stream that ends with no `complete` event keeps the
+    """
+    A genuine 200 stream that ends with no `complete` event keeps the
     original 'ended unexpectedly' message (a real, distinct condition).
     """
     resp = _FakeResponse(200, lines=["event: log", 'data: {"msg": "building"}', ""])
@@ -182,7 +185,8 @@ def test_stream_ends_without_complete_event_still_reported() -> None:
 
 
 def test_complete_event_success_prints_deployed_successfully(capsys) -> None:
-    """A successful deploy must print the 'deployed successfully' phrase to
+    """
+    A successful deploy must print the 'deployed successfully' phrase to
     stdout — the phrase the non-streaming path and every tutorial's `output
     contains` block assert on. (Was 'completed successfully', which silently
     failed all 21 tutorial deploy checks.)
@@ -207,8 +211,10 @@ def test_complete_event_success_prints_deployed_successfully(capsys) -> None:
 
 
 def _ctx_config(api_url: str) -> Config:
-    """A Config whose api_url lives in a [contexts.*] block (ADR 042 shape),
-    NOT in the flat top-level key — the shape `hop3 init`/`login` now writes."""
+    """
+    A Config whose api_url lives in a [contexts.*] block (ADR 042 shape),
+    NOT in the flat top-level key — the shape `hop3 init`/`login` now writes.
+    """
     return Config(
         data={
             "current_context": "prod",
@@ -218,7 +224,8 @@ def _ctx_config(api_url: str) -> Config:
 
 
 def test_streaming_uses_context_api_url_not_flat_key() -> None:
-    """Regression: a context-configured CLI (no flat `api_url`) must stream.
+    """
+    Regression: a context-configured CLI (no flat `api_url`) must stream.
 
     Previously _handle_streaming_response read ``config.get("api_url", "")`` —
     empty for context configs — and aborted with "No API URL configured" even
@@ -239,7 +246,8 @@ def test_streaming_uses_context_api_url_not_flat_key() -> None:
 
 
 def test_streaming_tunnel_mode_with_ssh_context_url() -> None:
-    """The demo path: api_url is ssh:// inside a context, connection tunneled.
+    """
+    The demo path: api_url is ssh:// inside a context, connection tunneled.
 
     base_url must become the local tunnel endpoint, and the ssh:// URL must
     not trip the "No API URL configured" guard.

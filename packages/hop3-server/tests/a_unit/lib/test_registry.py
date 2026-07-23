@@ -276,7 +276,8 @@ class TestDunderAndAccessors:
 
 
 class TestModuleLevelSingleton:
-    """Tests for the module-level registry/register/lookup singletons.
+    """
+    Tests for the module-level registry/register/lookup singletons.
 
     These mutate shared state, so each test restores the singleton afterwards.
     """

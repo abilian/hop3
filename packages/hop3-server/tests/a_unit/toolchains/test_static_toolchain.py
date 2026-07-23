@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""StaticToolchain detection: Procfile `static:` OR hop3.toml `[run.workers]`.
+"""
+StaticToolchain detection: Procfile `static:` OR hop3.toml `[run.workers]`.
 
 A static site must be declarable without a Procfile (convention over
 configuration): a ``static`` worker in ``hop3.toml`` is equivalent to a

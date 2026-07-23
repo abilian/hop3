@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""The is_primary migration backfills one primary per (app_id, addon_type).
+"""
+The is_primary migration backfills one primary per (app_id, addon_type).
 
 The winner is the most-recently-attached row (max id), preserving whatever
 ``DATABASE_URL`` resolves to under the pre-migration "last attach overwrites"

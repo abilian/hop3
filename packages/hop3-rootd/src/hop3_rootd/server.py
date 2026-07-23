@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""Socket server: accept loop + dispatcher.
+"""
+Socket server: accept loop + dispatcher.
 
 Single-threaded, multi-connection-accept (option B from the Q4
 grilling). Per-connection request loop reads one JSON line, dispatches
@@ -93,7 +94,8 @@ def _resolve_allowed_uids() -> set[int]:
 
 
 def get_peer_uid(sock: socket.socket) -> int | None:
-    """Return the UID of the peer connected to this AF_UNIX socket.
+    """
+    Return the UID of the peer connected to this AF_UNIX socket.
 
     Uses SO_PEERCRED. Returns None on platforms that don't support it
     (e.g., macOS — but the daemon is Linux-only in practice).
@@ -135,7 +137,8 @@ def _make_op_context(state: State, state_path: Path, stats: DaemonStats) -> OpCo
 
 
 def dispatch(req: Request, ctx: OpContext) -> Response:
-    """Look up the op, run it, translate exceptions into Response errors.
+    """
+    Look up the op, run it, translate exceptions into Response errors.
 
     Public for testability. Doesn't touch the audit log; see handle_one().
     """
@@ -180,7 +183,8 @@ def dispatch(req: Request, ctx: OpContext) -> Response:
 
 
 def handle_one(line: bytes, ctx: OpContext, audit: AuditLog, caller_uid: int) -> bytes:
-    """Decode one request line, dispatch, write audit, return response bytes.
+    """
+    Decode one request line, dispatch, write audit, return response bytes.
 
     `line` is one full request line (with or without trailing \\n).
     Returns the encoded response bytes (terminated with \\n).
@@ -267,7 +271,8 @@ def _audit_error(
 
 
 def _chown_socket_to_hop3_group(path: Path) -> None:
-    """chown ``path`` to root:hop3, best-effort.
+    """
+    chown ``path`` to root:hop3, best-effort.
 
     On systems without the hop3 group (early-install, unit tests, CI
     sandboxes) leaves ownership unchanged and warns. ``SO_PEERCRED``
@@ -292,7 +297,8 @@ def _chown_socket_to_hop3_group(path: Path) -> None:
 
 
 class Server:
-    """Multi-connection-accept, single-threaded request loop.
+    """
+    Multi-connection-accept, single-threaded request loop.
 
     The socket is expected to already exist (created by systemd via the
     .socket unit, passed via fd 3). For non-systemd / tests, you can
@@ -315,7 +321,8 @@ class Server:
         self._stopping = False
 
     def bind(self, path: Path) -> None:
-        """Bind a fresh socket at `path` (testing / non-systemd path).
+        """
+        Bind a fresh socket at `path` (testing / non-systemd path).
 
         For systemd Type=notify with socket activation, prefer
         `inherit_systemd_socket()` — fd 3 carries an already-bound socket
@@ -345,7 +352,8 @@ class Server:
         logger.info("bound to %s", path)
 
     def inherit_systemd_socket(self) -> bool:
-        """Pick up the socket activated by systemd via fd 3.
+        """
+        Pick up the socket activated by systemd via fd 3.
 
         Returns True if a systemd-supplied socket was inherited, False
         otherwise. systemd sets LISTEN_FDS=1, LISTEN_PID=<our pid>.

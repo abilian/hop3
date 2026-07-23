@@ -21,7 +21,8 @@ if TYPE_CHECKING:
 
 
 class ClojureToolchain(LanguageToolchain):
-    """Language toolchain for Clojure projects (with either Leiningen or CLI).
+    """
+    Language toolchain for Clojure projects (with either Leiningen or CLI).
 
     This provides methods to build Clojure projects by determining if
     the project is a Leiningen app or a CLI Clojure app, setting up the
@@ -39,16 +40,19 @@ class ClojureToolchain(LanguageToolchain):
 
     @property
     def is_leiningen_app(self) -> bool:
-        """Check if the app is a Leiningen application.
+        """
+        Check if the app is a Leiningen application.
 
         Returns
+        -------
             bool: True if the app is a Leiningen application, False otherwise.
         """
         return (self.src_path / "project.clj").exists()
 
     @property
     def is_cli_app(self) -> bool:
-        """Check if the application is a Clojure CLI app.
+        """
+        Check if the application is a Clojure CLI app.
 
         Returns
         -------
@@ -57,7 +61,8 @@ class ClojureToolchain(LanguageToolchain):
         return (self.src_path / "deps.edn").exists()
 
     def build(self) -> BuildArtifact:
-        """Build the Clojure application.
+        """
+        Build the Clojure application.
 
         This creates a virtual environment, builds the Clojure
         application, and sets up the necessary directories.

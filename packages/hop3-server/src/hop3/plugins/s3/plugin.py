@@ -24,7 +24,8 @@ if TYPE_CHECKING:
 
 
 class S3HealthCheck:
-    """Health check for S3 backend connectivity.
+    """
+    Health check for S3 backend connectivity.
 
     S3 is optional, so a missing backend reports as "not configured"
     rather than a hard failure.
@@ -33,7 +34,8 @@ class S3HealthCheck:
     name = "s3"
 
     def is_configured(self) -> bool:
-        """S3 is considered configured if the mc CLI is available.
+        """
+        S3 is considered configured if the mc CLI is available.
 
         (MinIO backend only — Garage will check a different binary.)
         """

@@ -16,7 +16,8 @@ def test_parse_config_file():
 
 
 def test_default(monkeypatch):
-    """Test default configuration values.
+    """
+    Test default configuration values.
 
     Note: This test ensures HOP3_ROOT is set to the expected test default
     regardless of environment variables.

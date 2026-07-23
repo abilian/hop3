@@ -50,7 +50,8 @@ def handle_response(
     *,
     tunnel_port: int | None = None,
 ) -> None:
-    """Handle the RPC response.
+    """
+    Handle the RPC response.
 
     Args:
         response: The JSON-RPC response
@@ -82,7 +83,8 @@ def handle_ok_response(
     *,
     tunnel_port: int | None = None,
 ) -> None:
-    """Handle successful RPC response.
+    """
+    Handle successful RPC response.
 
     Args:
         result: The result payload
@@ -117,7 +119,8 @@ def handle_ok_response(
 
 
 def _handle_predicate_response(result: list[dict], printer: RichPrinter) -> None:
-    """Turn an ``addon exists`` data result into a Unix predicate.
+    """
+    Turn an ``addon exists`` data result into a Unix predicate.
 
     Silent, exit 0 (exists) / 1 (absent), so it composes with shell ``&&``/
     ``||``. Under ``--json`` the ``{"exists": ...}`` payload is still emitted.
@@ -156,7 +159,8 @@ def _handle_streaming_response(
     *,
     tunnel_port: int | None = None,
 ) -> None:
-    """Handle streaming response by connecting to SSE endpoint.
+    """
+    Handle streaming response by connecting to SSE endpoint.
 
     Args:
         result: RPC response containing stream_id
@@ -233,7 +237,8 @@ def _handle_streaming_response(
 def handle_error_response(
     code: int, message: str, printer: RichPrinter | None = None
 ) -> None:
-    """Handle RPC error response.
+    """
+    Handle RPC error response.
 
     Args:
         code: The JSON-RPC or HTTP error code
@@ -322,7 +327,8 @@ def _payload_too_large_message() -> str:
 
 
 def _command_not_found_suggestion(error_message: str) -> str | None:
-    """Build a 'Did you mean...?' suggestion for an unknown-command error.
+    """
+    Build a 'Did you mean...?' suggestion for an unknown-command error.
 
     The server's error message looks like ``"Command 'foo bar' not found"``.
     We extract the typed command name and offer two kinds of suggestion
@@ -361,7 +367,8 @@ _APP_NOT_FOUND_RE = re.compile(r"[Aa]pp ['\"]([^'\"]+)['\"] not found")
 
 
 def _app_not_found_suggestion(error_message: str) -> str | None:
-    """Return a 'Did you mean...?' hint for app-not-found errors.
+    """
+    Return a 'Did you mean...?' hint for app-not-found errors.
 
     Looks for the ``App 'foo' not found`` pattern and consults the local
     app-name cache populated by ``hop3 completion --refresh``. Returns
@@ -380,7 +387,8 @@ def _app_not_found_suggestion(error_message: str) -> str | None:
 
 
 def _extract_typed_command(error_message: str) -> str | None:
-    """Pull the typed command path out of a server "not found" message.
+    """
+    Pull the typed command path out of a server "not found" message.
 
     The server formats unknown-command errors as
     ``"Command 'foo bar' not found"`` (see ``rpc.py``). Anything outside that

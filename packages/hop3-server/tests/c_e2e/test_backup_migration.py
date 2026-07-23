@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""E2E tests for cross-instance backup migration.
+"""
+E2E tests for cross-instance backup migration.
 
 Validates the disaster-recovery / server-migration / clone-to-staging
 path described in ADR 024 §"Cross-Instance Migration": a backup taken
@@ -53,7 +54,7 @@ bound port from its uwsgi ini and curls `127.0.0.1:<port>` from
 _direct` uses, just without the per-target session-state coupling.
 
 References
-==========
+----------
 
 - ADR: `notes/adrs/024-backup-restore-system.md`
 - CLI: `hop3 backup create / register / restore / info`
@@ -97,7 +98,8 @@ def _fetch_app_response(
     *,
     timeout_seconds: float = 30.0,
 ) -> HttpResponse:
-    """Fetch an HTTP response from `app_name` running on `target`.
+    """
+    Fetch an HTTP response from `app_name` running on `target`.
 
     Reads the app's bound port from its uwsgi config inside the container
     (independent of whether a `DeploymentSession` exists for this target),
@@ -214,7 +216,8 @@ _ENV_COUNT_RE = re.compile(r"Environment:\s*(\d+)\s*variables")
 
 
 def _extract_checksums(backup_info_output: str) -> list[str]:
-    """Return the sha256 hex digests from a `backup info` output.
+    """
+    Return the sha256 hex digests from a `backup info` output.
 
     Used by the manifest round-trip test to compare integrity across
     instances without coupling on Rich's formatting.
@@ -223,7 +226,8 @@ def _extract_checksums(backup_info_output: str) -> list[str]:
 
 
 def _extract_env_count(backup_info_output: str) -> int | None:
-    """Return the env-var count from a `backup info` output.
+    """
+    Return the env-var count from a `backup info` output.
 
     Looks for ``Environment: N variables`` and returns N. Used to
     compare A vs B without depending on what the count actually is
@@ -234,7 +238,8 @@ def _extract_env_count(backup_info_output: str) -> int | None:
 
 
 def _parse_uwsgi_port(ini_content: str) -> int | None:
-    """Extract the bound port from a Hop3 uwsgi worker ini.
+    """
+    Extract the bound port from a Hop3 uwsgi worker ini.
 
     Hop3 doesn't put workers behind uWSGI's own HTTP socket — instead
     each worker runs as an `attach-daemon` shell command with the bound
@@ -248,7 +253,8 @@ def _parse_uwsgi_port(ini_content: str) -> int | None:
 
 @pytest.mark.e2e
 class TestBackupMigrationE2E:
-    """Cross-instance backup → restore migration.
+    """
+    Cross-instance backup → restore migration.
 
     Uses the `hop3_container_pair` fixture (two independent
     ``DockerTarget`` instances from the pre-built ``hop3-e2e:test``
@@ -257,7 +263,8 @@ class TestBackupMigrationE2E:
     """
 
     def test_pair_fixture_smoke(self, hop3_container_pair):
-        """M1 smoke test: both halves of the pair are healthy and addressable.
+        """
+        M1 smoke test: both halves of the pair are healthy and addressable.
 
         Validates that `hop3_container_pair` brings up two distinct
         ``DockerTarget`` instances, each with its own ports, and that
@@ -279,7 +286,8 @@ class TestBackupMigrationE2E:
         assert b_apps.success, f"hop3 apps failed on B: stderr={b_apps.stderr}"
 
     def test_transfer_backup_dir_helper(self, hop3_container_pair):
-        """M1 smoke test: `transfer_backup_dir` moves a directory tree A→B.
+        """
+        M1 smoke test: `transfer_backup_dir` moves a directory tree A→B.
 
         Doesn't exercise the backup machinery yet — just plants a
         sentinel directory under Hop3's backup root on A and confirms it
@@ -327,7 +335,8 @@ class TestBackupMigrationE2E:
         )
 
     def test_migrate_simple_app(self, hop3_container_pair, tmp_path: Path):
-        """M2 happy path: deploy on A, backup, transfer, restore on B, verify equivalent.
+        """
+        M2 happy path: deploy on A, backup, transfer, restore on B, verify equivalent.
 
         Three equivalence layers, in increasing strictness:
           1. App registered on B (`hop3 apps` includes the name)
@@ -448,7 +457,8 @@ class TestBackupMigrationE2E:
     def test_restore_when_app_name_collides_on_b(
         self, hop3_container_pair, tmp_path: Path
     ):
-        """Name collision on B: restore silently overwrites the existing app.
+        """
+        Name collision on B: restore silently overwrites the existing app.
 
         When B already has an app with the backup's app_name, ``backup
         restore`` (without ``--target-app``) replaces B's version with
@@ -509,7 +519,8 @@ class TestBackupMigrationE2E:
             )
 
     def test_migrate_via_target_app(self, hop3_container_pair, tmp_path: Path):
-        """``--target-app`` produces a separate app on B alongside any pre-existing one.
+        """
+        ``--target-app`` produces a separate app on B alongside any pre-existing one.
 
         Operator workflow: B already runs `same-name` for unrelated
         reasons. We want to bring in A's backup as a *clone* without
@@ -572,7 +583,8 @@ class TestBackupMigrationE2E:
             b.run_command("app", "destroy", "--app", clone_name, "-y")
 
     def test_manifest_round_trip(self, hop3_container_pair, tmp_path: Path):
-        """`backup info <id>` returns equivalent output on A and B post-migration.
+        """
+        `backup info <id>` returns equivalent output on A and B post-migration.
 
         The manifest carries app_name, format_version, hop3_version,
         size_bytes, checksums, env_vars_count, etc. — all of which are
@@ -647,7 +659,8 @@ class TestBackupMigrationE2E:
         )
 
     def test_source_tree_byte_equal(self, hop3_container_pair, tmp_path: Path):
-        """Restored source on B is byte-equal to the user-authored input on A.
+        """
+        Restored source on B is byte-equal to the user-authored input on A.
 
         Catches subtle path-rewriting / encoding bugs in the
         backup→transfer→register→restore pipeline that would otherwise
@@ -700,7 +713,8 @@ class TestBackupMigrationE2E:
     def test_register_refuses_corrupted_backup(
         self, hop3_container_pair, tmp_path: Path
     ):
-        """`backup register` rejects a backup directory missing its manifest.
+        """
+        `backup register` rejects a backup directory missing its manifest.
 
         Migration-by-filesystem only works if the manifest is intact.
         Register catches the corruption explicitly so the operator gets

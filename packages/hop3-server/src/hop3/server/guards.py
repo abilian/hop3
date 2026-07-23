@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Authentication guards for Litestar routes.
+"""
+Authentication guards for Litestar routes.
 
 Guards are used to protect routes that require authentication.
 They check if the user is authenticated before allowing access to the route.
@@ -23,7 +24,8 @@ if TYPE_CHECKING:
 
 
 def auth_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:
-    """Guard that requires user authentication.
+    """
+    Guard that requires user authentication.
 
     Accepts the single signed credential the platform issues, over either
     transport (``hop3.server.security.web_auth.current_identity``):
@@ -62,7 +64,8 @@ def auth_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:
 
 
 def optional_auth_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:
-    """Guard that allows both authenticated and unauthenticated access.
+    """
+    Guard that allows both authenticated and unauthenticated access.
 
     This guard doesn't raise an exception but can be used to populate
     user context when available. Useful for routes that behave differently

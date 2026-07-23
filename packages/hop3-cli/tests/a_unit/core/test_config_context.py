@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Legacy config.toml connection read-fallback (ADR 042 r2).
+"""
+Legacy config.toml connection read-fallback (ADR 042 r2).
 
 config.toml ``[contexts.*]`` is no longer written: deploy environments live in
 the app's ``hop3.toml`` and bearer tokens live in the per-server credential

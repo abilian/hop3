@@ -1,7 +1,8 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Hop3 cloud system-test framework.
+"""
+Hop3 cloud system-test framework.
 
 End-to-end testing infrastructure for Hop3 on real Hetzner Cloud servers.
 Cloud runs go through `hop3-test run --provider hetzner` (single) and

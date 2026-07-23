@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""E2E: the catch email backend captures relayed mail (ADR 054).
+"""
+E2E: the catch email backend captures relayed mail (ADR 054).
 
 Exercises the real platform path inside the container:
 

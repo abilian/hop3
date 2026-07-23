@@ -1,7 +1,8 @@
 # Copyright (c) 2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Shared helpers for turning advanced_alchemy RepositoryErrors into a
+"""
+Shared helpers for turning advanced_alchemy RepositoryErrors into a
 structured `Diagnosis`.
 
 Used by both the JSON-RPC controller (`hop3/server/controllers/rpc.py`)
@@ -32,7 +33,8 @@ _GENERIC_AA_MESSAGES = frozenset({
 
 
 def extract_repository_error_reason(exc: RepositoryError) -> str:
-    """Extract the most specific available cause from a RepositoryError.
+    """
+    Extract the most specific available cause from a RepositoryError.
 
     advanced_alchemy wraps SQLAlchemy exceptions with a generic top-level
     ``detail`` ("There was an error during data processing"). The real
@@ -56,7 +58,8 @@ def extract_repository_error_reason(exc: RepositoryError) -> str:
 
 
 def repository_error_diagnosis(exc: RepositoryError) -> Diagnosis:
-    """Build a structured Diagnosis for a RepositoryError.
+    """
+    Build a structured Diagnosis for a RepositoryError.
 
     Inspects the exception subclass to produce a tailored action / hint /
     troubleshooting list. Falls back to a generic Database diagnosis when

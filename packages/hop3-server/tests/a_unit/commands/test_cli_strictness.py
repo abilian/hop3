@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Regression tests for fail-loud CLI behavior.
+"""
+Regression tests for fail-loud CLI behavior.
 
 Two commands used to silently do the wrong thing:
 - `app list` ignored stray positional args, so `hop3 apps status` looked
@@ -77,7 +78,8 @@ def test_app_restart_rejects_stray_args(db_session: Session):
 
 
 def test_deploy_tolerates_source_dir_positional(db_session: Session):
-    """`hop3 deploy --app X <dir>` forwards the source-dir positional, which the
+    """
+    `hop3 deploy --app X <dir>` forwards the source-dir positional, which the
     server ignores (source arrives as the uploaded tarball). Deploy must NOT
     reject it as a stray arg — the C9 over-reach that broke every e2e deploy.
 

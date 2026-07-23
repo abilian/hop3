@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Robust process detection + reaping (the core of reliable native teardown).
+"""
+Robust process detection + reaping (the core of reliable native teardown).
 
 A leftover daemon holding a fixed port (e.g. owncast's RTMP 1935) makes the next
 deploy of that app fail with an opaque 'address already in use' — an
@@ -72,7 +73,8 @@ def test_protected_pids_includes_self():
 
 
 def test_app_pids_never_reaps_its_own_process_tree(monkeypatch):
-    """Regression: on a git-push redeploy the reaper runs inside the
+    """
+    Regression: on a git-push redeploy the reaper runs inside the
     git-receive-pack subtree (cwd under apps/<name>/), so a blanket cwd match
     would SIGTERM its own ancestor mid-push. The reaper's process tree must be
     excluded even when every process "belongs" to the app.
@@ -114,8 +116,10 @@ def test_deploy_descendant_fails_safe_when_ancestry_unreadable(monkeypatch):
 
 
 def test_app_pids_skips_its_own_build_subprocess(monkeypatch):
-    """A cwd-matched process that descends from us (the in-flight build) must be
-    filtered out, even though proc_belongs_to_app matches every candidate."""
+    """
+    A cwd-matched process that descends from us (the in-flight build) must be
+    filtered out, even though proc_belongs_to_app matches every candidate.
+    """
     monkeypatch.setattr("hop3.run.reaper.proc_belongs_to_app", lambda *a, **k: True)
     monkeypatch.setattr("hop3.run.reaper._is_deploy_descendant", lambda _pid: True)
     # On a procfs host every PID would match+descend → all skipped; on a

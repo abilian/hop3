@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Hop3 Installer package.
+"""
+Hop3 Installer package.
 
 This package provides installers for the Hop3 CLI and Server components.
 The installers use only the Python standard library for maximum portability.

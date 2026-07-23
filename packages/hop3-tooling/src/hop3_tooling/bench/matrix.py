@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""The golden-app benchmark matrix: every app, in every variant, timed.
+"""
+The golden-app benchmark matrix: every app, in every variant, timed.
 
 One command replaces the former provision/setup/run shell trio.
 
@@ -133,7 +134,8 @@ def recipe_dir(root: Path, variant: str, app: str) -> Path:
 
 
 def anchor(root: Path, path: Path) -> Path:
-    """Resolve a possibly-relative output path against the repo root.
+    """
+    Resolve a possibly-relative output path against the repo root.
 
     Output paths are repo-relative by default; leaving them relative would make
     results land wherever the caller happened to stand, and would break the
@@ -143,7 +145,8 @@ def anchor(root: Path, path: Path) -> Path:
 
 
 def reason_from(log_text: str) -> str:
-    """A one-line cause for a failed cell. Never empty.
+    """
+    A one-line cause for a failed cell. Never empty.
 
     A failure whose cause was discarded is a silent skip, and the per-variant
     failure reasons are the point of the exercise — they are the platform backlog.
@@ -190,7 +193,8 @@ def _run(
 
 
 def hcloud_env(environ: Mapping[str, str] | None = None) -> dict[str, str]:
-    """Environment for `hcloud` calls, with the API token bridged across names.
+    """
+    Environment for `hcloud` calls, with the API token bridged across names.
 
     Without this, an environment that sets only HETZNER_API_TOKEN leaves the CLI
     to fall back on its stored context, so a rotated token surfaces as
@@ -225,7 +229,8 @@ def box_ip(server_id: str) -> str:
 
 
 def _hostnames_for(ip: str) -> set[str]:
-    """DNS names the box also answers to, so their host keys can be cleared too.
+    """
+    DNS names the box also answers to, so their host keys can be cleared too.
 
     Best-effort: a missing reverse record is normal and simply means there is
     no extra name to clear.
@@ -238,7 +243,8 @@ def _hostnames_for(ip: str) -> set[str]:
 
 
 def rebuild_box(server_id: str) -> str:
-    """Wipe the dedicated box and return its IP once SSH answers.
+    """
+    Wipe the dedicated box and return its IP once SSH answers.
 
     Rebuild, never create: the server and its IP are preserved, the disk is not.
     """
@@ -340,7 +346,8 @@ def run_matrix(
     append: bool,
     echo,
 ) -> list[Cell]:
-    """Blank-slate the box, install Hop3, then measure every (app, variant) cell.
+    """
+    Blank-slate the box, install Hop3, then measure every (app, variant) cell.
 
     Cells are flushed to ``out_path`` as they complete, so an interrupted run
     keeps everything measured so far.

@@ -28,9 +28,11 @@ def test_clean_rebuild_is_reproducible():
 
 
 def test_a_stale_pinned_hash_is_not_a_determinism_defect():
-    """A fixed-output mismatch means the *pinned* hash no longer matches — the
+    """
+    A fixed-output mismatch means the *pinned* hash no longer matches — the
     ordinary outcome of moving the nixpkgs pin, and mechanical to fix. Reporting
-    it as non-determinism sends you hunting a bug that isn't there."""
+    it as non-determinism sends you hunting a bug that isn't there.
+    """
     out = "error: hash mismatch in fixed-output derivation '/nix/store/...'"
     r = interpret_rebuild("isso", 1, out)
     assert not r.reproducible
@@ -75,8 +77,10 @@ def test_empty_is_a_failure_not_a_vacuous_pass():
 
 
 def test_an_upstream_attribute_that_vanished_is_its_own_category():
-    """Bumping the pin to nixos-25.11 removed ruby_3_2 — no hash re-derivation
-    fixes that; it needs a human to pick a replacement."""
+    """
+    Bumping the pin to nixos-25.11 removed ruby_3_2 — no hash re-derivation
+    fixes that; it needs a human to pick a replacement.
+    """
     for out in (
         "error: attribute 'ruby_3_2' missing",
         "error: ruby_3_2 has been removed",
@@ -114,8 +118,10 @@ def test_pin_override_requires_both_halves():
 
 
 def test_pin_override_replaces_whatever_the_recipe_declares():
-    """etherpad pins itself to a 25.05 rev. A corpus-wide bump has to override
-    that too, or the run silently measures two different nixpkgs."""
+    """
+    etherpad pins itself to a 25.05 rev. A corpus-wide bump has to override
+    that too, or the run silently measures two different nixpkgs.
+    """
     config = tomllib.loads(
         Path("apps/real-apps-nix-gen/etherpad/hop3.toml").read_text()
     )

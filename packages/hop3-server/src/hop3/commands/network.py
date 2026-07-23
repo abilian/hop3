@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""CLI commands for operator-defined named networks (ADR 050 §2).
+"""
+CLI commands for operator-defined named networks (ADR 050 §2).
 
 A named network is a set of CIDRs the operator manages once and references by
 name from a WAF gate (``[[waf.gate]] require = "office"``). Keeping the CIDRs
@@ -48,7 +49,8 @@ def _validate_cidrs(raw: tuple[str, ...]) -> tuple[list[str], list[str]]:
 @register
 @dataclass(frozen=True)
 class NetworkListCmd(Command):
-    """List operator-defined named networks.
+    """
+    List operator-defined named networks.
 
     Examples:
         hop3 networks                  # alias for 'network list'
@@ -73,7 +75,8 @@ class NetworkListCmd(Command):
 @register
 @dataclass(frozen=True)
 class NetworkAddCmd(Command):
-    """Define or replace a named network (a set of CIDRs).
+    """
+    Define or replace a named network (a set of CIDRs).
 
     Re-adding an existing name replaces its CIDRs.
 
@@ -128,7 +131,8 @@ class NetworkAddCmd(Command):
 @register
 @dataclass(frozen=True)
 class NetworkRmCmd(Command):
-    """Remove a named network.
+    """
+    Remove a named network.
 
     A gate that still references it will fail to resolve at deploy time, so
     remove the reference from the app's hop3.toml too.

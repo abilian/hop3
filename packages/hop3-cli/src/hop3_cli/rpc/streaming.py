@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""SSE client for streaming deployment logs.
+"""
+SSE client for streaming deployment logs.
 
 This module provides a client for consuming Server-Sent Events (SSE) from
 the Hop3 server's streaming endpoint. Used for real-time deployment log display.
@@ -47,7 +48,8 @@ def stream_deployment_logs(
     token: str | None = None,
     verify_ssl: bool | str = True,
 ) -> None:
-    """Connect to SSE stream and display logs in real-time.
+    """
+    Connect to SSE stream and display logs in real-time.
 
     Args:
         base_url: Base URL of the Hop3 server (e.g., "http://localhost:8000")
@@ -186,7 +188,8 @@ def stream_deployment_logs(
 
 
 def _process_sse_stream(response: requests.Response, printer: RichPrinter) -> None:
-    """Process SSE stream and display logs.
+    """
+    Process SSE stream and display logs.
 
     Args:
         response: Streaming HTTP response

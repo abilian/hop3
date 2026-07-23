@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""The live "current run" panel: visibility, ETA, and a stop control.
+"""
+The live "current run" panel: visibility, ETA, and a stop control.
 
 Rendered as an HTMX partial polled every few seconds from the dashboard, so an
 in-flight run shows progress (tests done / expected, elapsed, ETA from history)
@@ -102,7 +103,8 @@ def _build_panel_context(runs: RunsRepository) -> dict:
 
 
 def _type_progress(runs: RunsRepository, active) -> list[dict]:
-    """Rows for the per-type progress table: done/planned + pass/fail per type.
+    """
+    Rows for the per-type progress table: done/planned + pass/fail per type.
 
     Planned counts come from the run (recorded by the engine at start); done
     counts from the results so far. The three types are always shown, in a
@@ -141,8 +143,10 @@ class RunningController(Controller):
     @post("/stop")
     @inject
     async def stop(self, runs: FromDishka[RunsRepository]) -> Template:
-        """Stop the in-flight run: kill the engine group, mark it aborted, free
-        the lease. Returns the refreshed (now idle) panel for HTMX to swap in."""
+        """
+        Stop the in-flight run: kill the engine group, mark it aborted, free
+        the lease. Returns the refreshed (now idle) panel for HTMX to swap in.
+        """
         lease = runs.current_lease()
         if lease is not None:
             # Read fields before the commits below expire the ORM object.

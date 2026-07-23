@@ -49,8 +49,10 @@ def test_app_namespace_verbs_are_app_scoped() -> None:
 
 
 def test_removed_app_env_is_not_scoped() -> None:
-    """`app env` was removed (use `env show --sources`); it must not linger as
-    an app-scoped verb."""
+    """
+    `app env` was removed (use `env show --sources`); it must not linger as
+    an app-scoped verb.
+    """
     scoped, _ = is_app_scoped(["app", "env"])
     assert not scoped
 

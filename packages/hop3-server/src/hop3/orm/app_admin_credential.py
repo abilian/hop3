@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 
 
 class AppAdminCredential(BigIntAuditBase):
-    """The initial admin account Hop3 bootstrapped for an app (ADR 056).
+    """
+    The initial admin account Hop3 bootstrapped for an app (ADR 056).
 
     Holds the username, email, and password Hop3 generated when it created the
     app's first admin account, so the operator can retrieve or reset it later

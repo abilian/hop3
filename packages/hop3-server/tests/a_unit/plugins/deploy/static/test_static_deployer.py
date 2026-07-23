@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the static deployer.
+"""
+Unit tests for the static deployer.
 
 Regression focus: a static site served by nginx 403'd because the deploy
 checkout left files mode 0600 (owner-only) and nginx workers run as www-data.

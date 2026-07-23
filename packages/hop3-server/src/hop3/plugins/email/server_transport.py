@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Server-level shared email transport (EXPERIMENTAL).
+"""
+Server-level shared email transport (EXPERIMENTAL).
 
 The operator sets the SMTP submission credentials once, at the server level;
 per-app email addons created without their own ``--smtp-*`` inherit them (see
@@ -47,7 +48,8 @@ _NO_BACKEND_MSG = (
 
 
 def _store_path() -> Path:
-    """Path to the singleton server-backend record.
+    """
+    Path to the singleton server-backend record.
 
     Computed at call time (not bound at import) so a test can point
     ``HOP3_ROOT`` at a throwaway dir — the same seam the addon-secrets store
@@ -74,7 +76,8 @@ def _write_record(record: dict) -> None:
 def save_server_transport(
     transport: EmailTransport, dkim_selector: str | None = None
 ) -> None:
-    """Store (or rotate) the server-level relay transport. Idempotent.
+    """
+    Store (or rotate) the server-level relay transport. Idempotent.
 
     ``dkim_selector`` (when known, from a provider profile or an explicit
     ``--dkim-selector``) is recorded so ``server email status`` can re-verify
@@ -94,7 +97,8 @@ def save_server_transport(
 
 
 def save_server_catch(from_domain: str) -> None:
-    """Store the dev-catch backend (mail captured, never sent).
+    """
+    Store the dev-catch backend (mail captured, never sent).
 
     No provider credentials — the loopback Postfix relays to a local Mailpit.
     Only a from-domain is kept, for the inherit From-boundary check.
@@ -103,7 +107,8 @@ def save_server_catch(from_domain: str) -> None:
 
 
 def save_server_direct(from_domain: str, dkim_selector: str) -> None:
-    """Store the direct backend (Hop3-run MTA, no third party).
+    """
+    Store the direct backend (Hop3-run MTA, no third party).
 
     No provider credentials — Postfix delivers to recipients' MX. The DKIM
     selector is kept so ``server email status`` can re-verify the record.
@@ -116,7 +121,8 @@ def save_server_direct(from_domain: str, dkim_selector: str) -> None:
 
 
 def load_server_backend_kind() -> str | None:
-    """The active backend kind (``relay`` | ``catch`` | …), or None when unset.
+    """
+    The active backend kind (``relay`` | ``catch`` | …), or None when unset.
 
     A record without a ``backend`` key predates the field and is a relay.
     """
@@ -131,7 +137,8 @@ def load_server_dkim_selector() -> str | None:
 
 
 def server_sending_domain() -> str | None:
-    """The server backend's verified sending domain, or None when no backend.
+    """
+    The server backend's verified sending domain, or None when no backend.
 
     Derived from the recorded ``mail_from`` (every backend stores one). Used to
     build an inheriting app's From address on that domain (ADR 054/056), so a
@@ -160,7 +167,8 @@ def load_server_transport() -> EmailTransport | None:
 
 
 def assert_inherited_backend(mail_from: str) -> None:
-    """Validate that an app may inherit the active backend.
+    """
+    Validate that an app may inherit the active backend.
 
     Backend-agnostic: an inheriting app always sends via the loopback relay, so
     it needs no provider transport — only that a backend is set and ``mail_from``
@@ -186,7 +194,8 @@ def assert_inherited_backend(mail_from: str) -> None:
 
 
 def resolve_inherited(mail_from: str) -> EmailTransport:
-    """The effective transport for an app that inherits the server transport.
+    """
+    The effective transport for an app that inherits the server transport.
 
     Loads the server-level transport and swaps in the app's own From address.
     Fails loud when no server transport is set, or when ``mail_from`` is not on

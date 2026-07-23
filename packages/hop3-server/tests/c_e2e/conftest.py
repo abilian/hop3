@@ -68,7 +68,8 @@ def pytest_runtest_makereport(item, call):
 
 @pytest.fixture(autouse=True)
 def bundle_on_failure(request):
-    """Collect a diagnostic bundle (ADR 043 §7) when a c_e2e test fails.
+    """
+    Collect a diagnostic bundle (ADR 043 §7) when a c_e2e test fails.
 
     Opt-in per test: set ``request.node.hop3_container`` (a docker-py container)
     and ``request.node.hop3_app`` (the deployed app name) when a bundle is
@@ -100,7 +101,8 @@ def bundle_on_failure(request):
 
 
 def _persist_pytest_bundle(app: str, bundle: Any) -> None:
-    """Persist a pytest-collected bundle so `hop3-test why <run-id>` can replay it.
+    """
+    Persist a pytest-collected bundle so `hop3-test why <run-id>` can replay it.
 
     Builds the minimal TestResult shape ResultStore.save reads (a run-less row;
     `why` keys on bundle_run_id, not the run).
@@ -127,7 +129,8 @@ def _persist_pytest_bundle(app: str, bundle: Any) -> None:
 def docker_client(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Generator[docker.DockerClient]:
-    """Provide a Docker client for tests.
+    """
+    Provide a Docker client for tests.
 
     Point ``DOCKER_CONFIG`` at a copy of the user's config with the
     credential-helper directives (``credsStore``/``credHelpers``) stripped, so
@@ -167,7 +170,8 @@ _SRC_HASH_LABEL = "cloud.hop3.e2e-src-hash"
 
 
 def _e2e_build_inputs() -> list[Path]:
-    """Every file whose content the e2e image bakes in (COPY / ``pip install -e``).
+    """
+    Every file whose content the e2e image bakes in (COPY / ``pip install -e``).
 
     Covers the e2e Dockerfile + entrypoint and the ``pyproject.toml`` / ``README``
     / full ``src`` tree of hop3-server and hop3-rootd — including non-``.py`` data
@@ -203,7 +207,8 @@ def _compute_e2e_src_hash() -> str:
 
 @pytest.fixture(scope="session")
 def hop3_image(docker_client: docker.DockerClient) -> str:
-    """Build the hop3 E2E test image, reusing it only when it is up to date.
+    """
+    Build the hop3 E2E test image, reusing it only when it is up to date.
 
     The image bakes hop3-server + hop3-rootd source (and the e2e Dockerfile) at
     build time. We stamp the build with a content hash of those inputs
@@ -269,7 +274,8 @@ def hop3_image(docker_client: docker.DockerClient) -> str:
 def _start_hop3_container(
     docker_client: docker.DockerClient, image: str, label: str = "hop3"
 ) -> dict[str, Any]:
-    """Start a single hop3 container and wait for it to be ready.
+    """
+    Start a single hop3 container and wait for it to be ready.
 
     Returns a container_info dict with `container`, `ssh_host`, `ssh_port`,
     `ssh_key` (path), `http_base`, and `api_url`. Raises on failure (after
@@ -410,7 +416,8 @@ def _stop_hop3_container(info: dict[str, Any]) -> None:
 def hop3_container(
     docker_client: docker.DockerClient, hop3_image: str
 ) -> Generator[dict[str, Any]]:
-    """Start a hop3 container for E2E tests.
+    """
+    Start a hop3 container for E2E tests.
 
     Scope: class - new container for each test class.
     """
@@ -430,7 +437,8 @@ def hop3_container(
 def hop3_container_pair(
     hop3_image: str,
 ) -> Generator[tuple[Any, Any]]:
-    """Yield two independent ``DockerTarget`` instances (A, B) for migration tests.
+    """
+    Yield two independent ``DockerTarget`` instances (A, B) for migration tests.
 
     Both targets are built from the pre-built ``hop3-e2e:test`` image (the
     `hop3_image` fixture). Each target gets a separate container_name to
@@ -488,7 +496,8 @@ BACKUP_DIR_IN_CONTAINER = "/home/hop3/backups/apps"
 
 
 def transfer_backup_dir(src: Any, dst: Any, app_name: str) -> None:
-    """Copy the entire backup tree for `app_name` from src target to dst.
+    """
+    Copy the entire backup tree for `app_name` from src target to dst.
 
     Streams ``/home/hop3/backups/apps/<app_name>/`` out of `src`'s
     container as a tar archive (via Docker's get_archive API) and
@@ -544,7 +553,8 @@ def test_app_dir(tmp_path: Path) -> Path:
 def run_hop3_command(
     container_info: dict[str, Any], *args: str
 ) -> subprocess.CompletedProcess:
-    """Run a hop3 CLI command against the container.
+    """
+    Run a hop3 CLI command against the container.
 
     Args:
         container_info: Container information dict from hop3_container fixture
@@ -592,7 +602,8 @@ def hop3_command(hop3_container: dict[str, Any]):
 
 
 def init_git_repo(app_dir: Path) -> None:
-    """Initialize git repository with test app files.
+    """
+    Initialize git repository with test app files.
 
     Args:
         app_dir: Directory containing app files to commit
@@ -627,7 +638,8 @@ def init_git_repo(app_dir: Path) -> None:
 
 
 def cli_env(hop3_container: dict[str, Any]) -> dict[str, str]:
-    """Env for ``hop3`` CLI calls against the container's JWT-authenticated HTTP
+    """
+    Env for ``hop3`` CLI calls against the container's JWT-authenticated HTTP
     API. The SSH tunnel is rejected by the hop3-managed authorized_keys, so
     deploys/commands authenticate with a real token (mirrors DeploymentSession).
     """
@@ -645,7 +657,8 @@ def deploy_app_dir(
     app_name: str,
     timeout: int = 600,
 ) -> subprocess.CompletedProcess:
-    """Deploy a local app directory: ``hop3 deploy --app <name> <dir>``.
+    """
+    Deploy a local app directory: ``hop3 deploy --app <name> <dir>``.
 
     The dir must be a git repo (hop3 deploy expects one) — call ``init_git_repo``
     first. Returns the CompletedProcess so callers can assert on returncode/output.
@@ -678,7 +691,8 @@ def deploy_flask_app(
     procfile_content: str | None = None,
     extra_files: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess:
-    """Build a minimal Flask app in ``test_app_dir`` and deploy it.
+    """
+    Build a minimal Flask app in ``test_app_dir`` and deploy it.
 
     ``extra_files`` writes additional files (e.g. a ``hop3.toml`` carrying a
     ``[waf]`` section) into the app before deploy. Returns the deploy
@@ -707,7 +721,8 @@ def wait_for_app_status(
     expected_states: list[str] | None = None,
     timeout: int = 60,
 ) -> bool:
-    """Poll app:status until app reaches expected state.
+    """
+    Poll app:status until app reaches expected state.
 
     Args:
         hop3_command: The hop3_command fixture
@@ -748,7 +763,8 @@ def wait_for_http_ready(
     timeout: int = 60,
     headers: dict[str, str] | None = None,
 ) -> tuple[bool, str]:
-    """Poll HTTP endpoint until it's ready.
+    """
+    Poll HTTP endpoint until it's ready.
 
     Args:
         url: URL to poll
@@ -807,7 +823,8 @@ def create_flask_app(
     extra_code: str = "",
     requirements: str = "flask==3.0.0\n",
 ) -> Path:
-    """Create a minimal Flask app for testing.
+    """
+    Create a minimal Flask app for testing.
 
     Args:
         tmp_path: Base directory for app creation
@@ -860,7 +877,8 @@ def index():
 
 
 def extract_backup_id(stdout: str) -> str | None:
-    """Extract backup ID from backup:create command output.
+    """
+    Extract backup ID from backup:create command output.
 
     Args:
         stdout: Command output containing "Backup ID: <id>"
@@ -875,7 +893,8 @@ def extract_backup_id(stdout: str) -> str | None:
 
 
 def find_json_table(output: list[dict]) -> dict | None:
-    """Find table data in JSON command output.
+    """
+    Find table data in JSON command output.
 
     Args:
         output: Parsed JSON output (list of message objects)
@@ -890,7 +909,8 @@ def find_json_table(output: list[dict]) -> dict | None:
 
 
 def backup_in_table(backup_id: str, table: dict | None) -> bool:
-    """Check if backup ID appears in table rows.
+    """
+    Check if backup ID appears in table rows.
 
     Args:
         backup_id: Backup ID to search for

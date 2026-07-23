@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 
 @dataclass
 class ValidationResult:
-    """Result of a single validation check.
+    """
+    Result of a single validation check.
 
     Supports two modes:
     - With a Validation object (for test.toml validations)

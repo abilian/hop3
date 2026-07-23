@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""App admin-account bootstrap (ADR 056).
+"""
+App admin-account bootstrap (ADR 056).
 
 Turns a recipe's ``[admin]`` section into a real initial admin account:
 
@@ -49,7 +50,8 @@ class AdminBootstrapError(Exception):
 
 
 def resolve_admin_email(email_spec: str | None) -> str | None:
-    """Resolve an ``[admin].email`` spec to a concrete address (or None).
+    """
+    Resolve an ``[admin].email`` spec to a concrete address (or None).
 
     ``None`` -> no email; ``"operator"`` -> the server's ``OPERATOR_EMAIL``
     (fails loud when unset); any literal -> itself.
@@ -70,7 +72,8 @@ def resolve_admin_email(email_spec: str | None) -> str | None:
 
 
 def provision_admin_credential(app: App, admin: dict, db_session: Session) -> None:
-    """Generate-once the admin credential and inject the canonical env vars.
+    """
+    Generate-once the admin credential and inject the canonical env vars.
 
     Idempotent like ADR 046 generated secrets: the password is generated and the
     record persisted only on first deploy; every deploy re-injects
@@ -120,7 +123,8 @@ def bootstrap_admin_account(
     db_session: Session,
     run_create: Callable[[str], None],
 ) -> None:
-    """Run the recipe's ``[admin].create`` command once, after the app deploys.
+    """
+    Run the recipe's ``[admin].create`` command once, after the app deploys.
 
     ``run_create(command)`` executes the command in the app's runtime (with the
     injected ``HOP3_ADMIN_*`` env) and RAISES on a non-zero exit. Guarded by the
@@ -156,7 +160,8 @@ def bootstrap_admin_account(
 
 
 def read_admin_credential(app: App, db_session: Session) -> dict | None:
-    """Decrypt and return the stored admin credential, or None.
+    """
+    Decrypt and return the stored admin credential, or None.
 
     Returns ``{"username", "email", "password", "created_at", "source"}``. The
     password is the INITIAL one — the caller must label it as such.
@@ -195,7 +200,8 @@ def format_admin_credential(app_name: str, host_name: str, cred: dict) -> str:
 
 
 def surface_admin_credential(app: App, db_session: Session) -> None:
-    """Print the credential block into the deploy log once, ever (ADR 056).
+    """
+    Print the credential block into the deploy log once, ever (ADR 056).
 
     Guarded by the credential's own ``surfaced`` flag rather than "was it created
     this deploy", so it fires on the first SUCCESSFUL deploy even when the

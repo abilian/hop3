@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""The deployer must invoke the installer with CANONICAL flags (ADR 052).
+"""
+The deployer must invoke the installer with CANONICAL flags (ADR 052).
 
 hop3-deploy-server shells out to install-server.py. If it passes the deprecated
 --local-path / --git spellings, the installer prints a deprecation warning into

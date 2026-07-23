@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Regression test for DB connection-pool starvation during deploys.
+"""
+Regression test for DB connection-pool starvation during deploys.
 
 Incident (cloud test, 2026-06-03): heavy app deploys ran in a background
 thread that held the single SQLite connection open for the entire
@@ -36,7 +37,8 @@ from hop3.orm import get_session_factory, reset_session_factory_cache
 
 @pytest.fixture
 def file_db_factory(tmp_path):
-    """A session factory bound to a real (file-based) SQLite DB.
+    """
+    A session factory bound to a real (file-based) SQLite DB.
 
     File-based is essential: WAL mode and the connection pool only apply
     to on-disk databases, not ``:memory:``.
@@ -61,7 +63,8 @@ def test_sqlite_pool_is_not_size_one(file_db_factory) -> None:
 
 
 def test_read_not_starved_by_held_write_transaction(file_db_factory) -> None:
-    """A read on a second connection must not block behind an open write.
+    """
+    A read on a second connection must not block behind an open write.
 
     This is the exact shape of the incident: the deploy thread holds a
     write transaction open for minutes; an auth read must still succeed.

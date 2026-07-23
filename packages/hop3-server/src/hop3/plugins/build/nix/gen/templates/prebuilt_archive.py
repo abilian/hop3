@@ -5,7 +5,8 @@
 # ruff:file-ignore[raise-vanilla-args, raw-string-in-exception]
 
 
-"""prebuilt-archive template.
+"""
+prebuilt-archive template.
 
 For apps distributed as a tar.gz or zip archive containing one or more
 files. The archive is fetched, unpacked, and specific files are copied

@@ -1,7 +1,8 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Generic OS setup strategy for all Red Hat-based distributions.
+"""
+Generic OS setup strategy for all Red Hat-based distributions.
 
 This plugin supports:
 - RHEL (Red Hat Enterprise Linux)
@@ -77,7 +78,8 @@ install_weak_deps=False
 
 
 class RedHatFamilyStrategy(RedHatBase):
-    """Generic OS setup strategy for all Red Hat-based distributions.
+    """
+    Generic OS setup strategy for all Red Hat-based distributions.
 
     This strategy handles RHEL, Rocky, Alma, Fedora, CentOS, and any other
     Red Hat-based distribution that uses DNF/YUM for package management.
@@ -102,7 +104,8 @@ class RedHatFamilyStrategy(RedHatBase):
         return f"{distro_id.upper()} {version}".strip()
 
     def detect(self) -> bool:
-        """Check if this is a Red Hat-based distribution.
+        """
+        Check if this is a Red Hat-based distribution.
 
         Returns True for:
         - RHEL (all versions)
@@ -124,7 +127,8 @@ class RedHatFamilyStrategy(RedHatBase):
         return "rhel" in id_like or "fedora" in id_like
 
     def setup_server(self) -> None:
-        """Install dependencies and configure system for hop3.
+        """
+        Install dependencies and configure system for hop3.
 
         This setup is generic and works for all Red Hat-based distributions.
         """
@@ -153,7 +157,8 @@ class RedHatFamilyStrategy(RedHatBase):
 
 
 class RedHatFamilyPlugin:
-    """Plugin that provides Red Hat family OS setup strategy.
+    """
+    Plugin that provides Red Hat family OS setup strategy.
 
     This single plugin handles all Red Hat-based distributions including:
     - RHEL (all versions)

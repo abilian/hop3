@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Ambient server selection for project-less commands with no --context (ADR 042).
+"""
+Ambient server selection for project-less commands with no --context (ADR 042).
 
 `--context` is the explicit selector. With none given, the ambient chain is:
 default context ([cli].default_context -> its server) -> legacy unnamed

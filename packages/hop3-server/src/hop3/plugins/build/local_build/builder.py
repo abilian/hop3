@@ -19,7 +19,8 @@ from hop3.lib.logging import server_log
 
 
 class LocalBuilder:
-    """Build directly on host using native language toolchains.
+    """
+    Build directly on host using native language toolchains.
 
     This is the ONLY builder that uses LanguageToolchains.
     Other builders (Docker, Nix) encapsulate their build logic differently.
@@ -38,7 +39,8 @@ class LocalBuilder:
         self.rejection_reason = ""  # Set by accept() if rejected
 
     def accept(self) -> bool:
-        """Accept if at least one language toolchain can handle this project.
+        """
+        Accept if at least one language toolchain can handle this project.
 
         When an explicit toolchain is specified in hop3.toml, we accept immediately
         without checking source files (which might not exist until before-build runs).
@@ -172,7 +174,8 @@ class LocalBuilder:
     def _discover_toolchains(
         self, context: BuildContext
     ) -> list[type[LanguageToolchain]]:
-        """Auto-detect which toolchains apply to this project.
+        """
+        Auto-detect which toolchains apply to this project.
 
         If an explicit toolchain is specified in hop3.toml (e.g., toolchain = "generic"),
         only that toolchain is used. Otherwise, auto-detect all applicable toolchains.
@@ -239,7 +242,8 @@ class LocalBuilder:
         return applicable
 
     def _get_explicit_toolchain(self) -> str | None:
-        """Get explicitly specified toolchain from hop3.toml if present.
+        """
+        Get explicitly specified toolchain from hop3.toml if present.
 
         Returns the toolchain name if [build] toolchain is set, otherwise None.
         """
@@ -264,7 +268,8 @@ class LocalBuilder:
     def _save_build_log(
         self, output: list[str], duration: float, *, success: bool = True
     ) -> None:
-        """Save build log to app's log directory.
+        """
+        Save build log to app's log directory.
 
         Args:
             output: Build output messages
@@ -312,7 +317,8 @@ Builder: local
 
 
 def _probe_declared_packages(context: BuildContext) -> list[str]:
-    """Return the packages declared in hop3.toml that are NOT installed.
+    """
+    Return the packages declared in hop3.toml that are NOT installed.
 
     Checks `[build].packages` + `[run].packages` against the local
     package database (dpkg on Debian-family, rpm on Fedora-family).

@@ -50,7 +50,8 @@ def db_session(tmp_path: Path):
 
 @pytest.fixture(autouse=False)
 def test_client(tmp_path: Path, monkeypatch):
-    """Create an authenticated test client backed by a per-test database.
+    """
+    Create an authenticated test client backed by a per-test database.
 
     Hermetic integration fixture (real implementations, no Docker/root — see
     ADR 043, why this moved here from c_system):

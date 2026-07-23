@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Email (SMTP relay) addon for Hop3 — EXPERIMENTAL.
+"""
+Email (SMTP relay) addon for Hop3 — EXPERIMENTAL.
 
 Hop3 never runs a mail server. This addon holds the operator's existing SMTP
 submission credentials (any provider — Resend, SES, Postmark, Brevo, a corporate

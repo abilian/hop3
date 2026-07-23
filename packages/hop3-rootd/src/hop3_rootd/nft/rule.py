@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""nftables rule construction and emission.
+"""
+nftables rule construction and emission.
 
 Each PortSpec maps to a single `nft add rule …` invocation in the
 `inet hop3 input` chain. The rule carries a comment of the form
@@ -60,7 +61,8 @@ class NftCommandError(NftError):
 
 
 def find_nft_binary(exec: Exec = DEFAULT_EXEC) -> str:
-    """Return the absolute path to nft, or raise NftBinaryNotFoundError.
+    """
+    Return the absolute path to nft, or raise NftBinaryNotFoundError.
 
     Wraps the exec seam's ``resolve`` to keep the nft-specific error message.
     """
@@ -81,7 +83,8 @@ def make_comment(rule_id: str) -> str:
 
 
 def parse_comment(comment: str | None) -> str | None:
-    """Inverse of make_comment: extract rule_id from a rule comment, or None.
+    """
+    Inverse of make_comment: extract rule_id from a rule comment, or None.
 
     Returns None for non-rootd comments (or absence). Used during reconcile
     to map kernel rules back to rootd's stored rule_ids.
@@ -97,7 +100,8 @@ def parse_comment(comment: str | None) -> str | None:
 def build_add_argv(
     spec: PortSpec, rule_id: str, *, exec: Exec = DEFAULT_EXEC
 ) -> list[str]:
-    """Construct the `nft add rule …` argv for a PortSpec.
+    """
+    Construct the `nft add rule …` argv for a PortSpec.
 
     The rule layout:
 
@@ -130,7 +134,8 @@ def build_add_argv(
 
 
 def _nft_comment_token(rule_id: str) -> str:
-    """The comment argv token, as an nft *quoted-string* literal.
+    """
+    The comment argv token, as an nft *quoted-string* literal.
 
     nft concatenates its argv into a single buffer and re-lexes it, so a comment
     value containing ':' — our ``hop3:rule:<id>`` marker does — must be a quoted
@@ -143,7 +148,8 @@ def _nft_comment_token(rule_id: str) -> str:
 
 
 def _format_port_or_range(spec: PortSpec) -> str:
-    """Render the dport argument as a single nft token.
+    """
+    Render the dport argument as a single nft token.
 
     ``validate_port_spec`` guarantees one of port / port_range is set; the
     explicit check keeps that invariant -O-safe instead of relying on assert.
@@ -157,7 +163,8 @@ def _format_port_or_range(spec: PortSpec) -> str:
 
 
 def build_delete_argv(handle: int, *, exec: Exec = DEFAULT_EXEC) -> list[str]:
-    """Construct `nft delete rule … handle <N>`.
+    """
+    Construct `nft delete rule … handle <N>`.
 
     Deletion in nftables is by handle, not by content. Handles are
     returned in the JSON output of `nft -j list table …` and are stable
@@ -197,7 +204,8 @@ def run_nft(
 
 @dataclass(frozen=True)
 class KernelRule:
-    """One rule as read from `nft -j list table inet hop3` output.
+    """
+    One rule as read from `nft -j list table inet hop3` output.
 
     Only the fields we need for reconciliation. The full nft JSON has
     much more; we ignore everything else.
@@ -209,7 +217,8 @@ class KernelRule:
 
 
 def parse_list_output(json_obj: dict[str, Any]) -> list[KernelRule]:
-    """Extract the list of rules from `nft -j list table inet hop3` output.
+    """
+    Extract the list of rules from `nft -j list table inet hop3` output.
 
     Input shape (relevant pieces):
 

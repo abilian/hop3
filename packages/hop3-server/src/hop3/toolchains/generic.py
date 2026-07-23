@@ -1,7 +1,8 @@
 # Copyright (c) 2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Generic toolchain for pre-built binaries and apps without build steps.
+"""
+Generic toolchain for pre-built binaries and apps without build steps.
 
 This toolchain is used when:
 1. `toolchain = "generic"` or `toolchain = "none"` is explicitly set in hop3.toml
@@ -24,7 +25,8 @@ if TYPE_CHECKING:
 
 
 class GenericToolchain(LanguageToolchain):
-    """Generic toolchain for apps that don't need language-specific build steps.
+    """
+    Generic toolchain for apps that don't need language-specific build steps.
 
     This toolchain accepts projects when explicitly specified via:
         [build]
@@ -38,7 +40,8 @@ class GenericToolchain(LanguageToolchain):
     requirements = []  # ruff:ignore[mutable-class-default]
 
     def accept(self) -> bool:
-        """Accept only when explicitly specified via toolchain = 'generic' or 'none'.
+        """
+        Accept only when explicitly specified via toolchain = 'generic' or 'none'.
 
         This toolchain does NOT auto-detect. It must be explicitly requested
         in hop3.toml to avoid accepting projects meant for other toolchains.
@@ -47,7 +50,8 @@ class GenericToolchain(LanguageToolchain):
         return explicit_toolchain in {"generic", "none"}
 
     def _get_explicit_toolchain(self) -> str | None:
-        """Get explicitly specified toolchain from hop3.toml.
+        """
+        Get explicitly specified toolchain from hop3.toml.
 
         Returns the toolchain name if [build] toolchain is set, otherwise None.
         """
@@ -60,7 +64,8 @@ class GenericToolchain(LanguageToolchain):
         return build_section.get("toolchain")
 
     def build(self) -> BuildArtifact:
-        """Build the project (run custom build command if specified).
+        """
+        Build the project (run custom build command if specified).
 
         For generic projects, this may run a custom build command from
         hop3.toml or simply pass through without building.

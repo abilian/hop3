@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Addon commands must honour --service-type (the flag demos/users actually use).
+"""
+Addon commands must honour --service-type (the flag demos/users actually use).
 
 Regression: attach/detach/destroy/show only read --type (default "postgres"),
 so `hop3 addon attach myredis --app app --service-type redis` silently treated

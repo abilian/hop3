@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Shared streaming-deploy helper.
+"""
+Shared streaming-deploy helper.
 
 ``deploy_app_streaming`` runs ``do_deploy`` in a daemon thread and streams its
 logs over SSE, returning immediately with the stream response item. It is the
@@ -29,7 +30,8 @@ from ._response import stream
 
 
 def deploy_app_streaming(app_name: str, app_id: int) -> dict:
-    """Deploy ``app_id`` in a background thread with real-time SSE log streaming.
+    """
+    Deploy ``app_id`` in a background thread with real-time SSE log streaming.
 
     Returns the single ``stream`` response item immediately; the caller wraps it
     in a list for the RPC result. The deploy's outcome (success or failure) is

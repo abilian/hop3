@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Proxy/cert setup failures must be LOUD on the uwsgi path.
+"""
+Proxy/cert setup failures must be LOUD on the uwsgi path.
 
 A swallowed proxy-setup error is how edrix.eu shipped a self-signed cert under a
 green deploy. ``AppLauncher._setup_proxy`` must propagate the failure (so the
@@ -24,7 +25,8 @@ class _BoomProxy:
 
 
 def _bare_launcher() -> AppLauncher:
-    """An AppLauncher with just the attrs _setup_proxy reads (skips __post_init__).
+    """
+    An AppLauncher with just the attrs _setup_proxy reads (skips __post_init__).
 
     ``workers`` is a property over artifact/config, so we seed those instead.
     """

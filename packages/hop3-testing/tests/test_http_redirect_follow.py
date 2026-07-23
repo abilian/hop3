@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""A `contains` assertion must follow redirects; the status check must not.
+"""
+A `contains` assertion must follow redirects; the status check must not.
 
 Apps whose entry point 302/307-redirects (kanboard → board, easy-appointments →
 installer) return an EMPTY body on the 3xx itself, so a `contains` check against

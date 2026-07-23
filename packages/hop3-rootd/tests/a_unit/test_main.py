@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the daemon startup sequence (hop3_rootd.__main__).
+"""
+Unit tests for the daemon startup sequence (hop3_rootd.__main__).
 
 Regression focus: a host without the nft firewall backend (e.g. a container,
 or a restricted VPS) must still be able to run hop3-rootd for its proxy /
@@ -64,7 +65,8 @@ def test_main_starts_when_nft_missing_and_no_rules(tmp_path: Path) -> None:
 
 
 def test_main_refuses_when_reconcile_fails_for_other_reasons(tmp_path: Path) -> None:
-    """nft present but the kernel call fails → stays fatal (ADR 041 §6).
+    """
+    nft present but the kernel call fails → stays fatal (ADR 041 §6).
 
     Only an *absent* firewall backend is tolerated; a genuine kernel-
     interaction fault still refuses to start so a broken firewall is loud.

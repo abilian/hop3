@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""A failed deployment test must still tear its app down.
+"""
+A failed deployment test must still tear its app down.
 
 Regression for the owncast 1935 leak: the runner's failure early-returns
 (`_fail_result`) used to skip cleanup — only the success path tore down. A

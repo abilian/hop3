@@ -6,7 +6,8 @@
 # `_service` is the singleton background worker; start/stop are called from
 # Litestar lifespan hooks (see asgi.py), mirroring cert_renewal_service.py.
 
-"""Background service that reconciles Layer-7 WAF bans (ADR 050 §4).
+"""
+Background service that reconciles Layer-7 WAF bans (ADR 050 §4).
 
 This runs in the server process — the primary, in-process path for turning the
 WAF audit stream into bans. (`hop3 waf reconcile-bans` is the on-demand
@@ -38,7 +39,8 @@ INITIAL_DELAY_SECONDS = 60.0
 
 
 class WafBansService:
-    """Background service that reconciles WAF bans from the audit stream.
+    """
+    Background service that reconciles WAF bans from the audit stream.
 
     Attributes:
         session_factory: Callable that returns a new database session.
@@ -93,7 +95,8 @@ class WafBansService:
                 server_log.exception("WAF ban reconcile cycle failed", error=str(e))
 
     def run_once(self) -> int:
-        """Run one reconcile cycle across all apps; return the active-ban total.
+        """
+        Run one reconcile cycle across all apps; return the active-ban total.
 
         Public so it's testable without threading. Each app is committed
         independently so one broken app can't roll back or starve the others.

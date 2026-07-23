@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""SSH operations for local commands.
+"""
+SSH operations for local commands.
 
 Trust model
 -----------
@@ -50,7 +51,8 @@ class BootstrapError(Exception):
 
 
 def validate_ssh_target(ssh_target: str) -> None:
-    """Reject an ssh target that could inject SSH options (audit M1).
+    """
+    Reject an ssh target that could inject SSH options (audit M1).
 
     ``ssh_target`` is passed as a positional to ``ssh``. A value beginning with
     ``-`` — e.g. built from ``ssh://-oProxyCommand=evil@host`` — is parsed by
@@ -72,7 +74,8 @@ def validate_ssh_target(ssh_target: str) -> None:
 def _run_ssh(
     ssh_target: str, remote_cmd: str, *, input: str | None = None
 ) -> subprocess.CompletedProcess[str]:
-    """Run ``ssh <target> <remote_cmd>``, validating the target first.
+    """
+    Run ``ssh <target> <remote_cmd>``, validating the target first.
 
     Single choke point for every ssh invocation in this module so target
     validation (against SSH option injection, audit M1) happens exactly once
@@ -91,7 +94,8 @@ def _run_ssh(
 def create_admin_via_ssh(
     ssh_target: str, username: str, email: str, password: str
 ) -> str:
-    """Create admin user via SSH and return the token.
+    """
+    Create admin user via SSH and return the token.
 
     Args:
         ssh_target: SSH target (user@host)
@@ -128,7 +132,8 @@ def create_admin_via_ssh(
 
 
 def get_token_via_ssh(ssh_target: str, username: str) -> str:
-    """Get a new token for existing user via SSH.
+    """
+    Get a new token for existing user via SSH.
 
     Args:
         ssh_target: SSH target (user@host)
@@ -160,7 +165,8 @@ def get_token_via_ssh(ssh_target: str, username: str) -> str:
 
 
 def get_ssh_token(ssh_target: str) -> str:
-    """Get a token via SSH without needing a username.
+    """
+    Get a token via SSH without needing a username.
 
     This uses the admin:ssh-token command which:
     - If no users exist: auto-creates a default admin
@@ -198,7 +204,8 @@ def get_ssh_token(ssh_target: str) -> str:
 def fetch_and_save_certificate(
     ssh_target: str, server_url: str, config: Config
 ) -> str | None:
-    """Fetch the server's SSL certificate via SSH and save it locally.
+    """
+    Fetch the server's SSL certificate via SSH and save it locally.
 
     Args:
         ssh_target: SSH target (user@host)
@@ -255,7 +262,8 @@ def fetch_and_save_certificate(
 
 
 def extract_token(output: str) -> str | None:
-    """Extract JWT token from command output.
+    """
+    Extract JWT token from command output.
 
     Args:
         output: Command output containing the token
@@ -267,7 +275,8 @@ def extract_token(output: str) -> str | None:
 
 
 def get_magic_link_via_ssh(ssh_target: str, username: str = "admin") -> str:
-    """Get a magic link via SSH for passwordless web login.
+    """
+    Get a magic link via SSH for passwordless web login.
 
     This calls auth:magic-link on the server which generates a short-lived,
     single-use token that can be used to log into the web dashboard.
@@ -310,7 +319,8 @@ def _host_from_ssh_target(ssh_target: str) -> str:
 
 
 def infer_server_url(ssh_target: str) -> str:
-    """Infer HTTPS URL from SSH target.
+    """
+    Infer HTTPS URL from SSH target.
 
     Args:
         ssh_target: SSH target (user@host or host)
@@ -322,7 +332,8 @@ def infer_server_url(ssh_target: str) -> str:
 
 
 def infer_web_url(ssh_target: str) -> str:
-    """Best-effort base URL for the web dashboard of a server reached over SSH.
+    """
+    Best-effort base URL for the web dashboard of a server reached over SSH.
 
     Used to build the magic-link URL when the server returns a bare token (i.e.
     it has no public admin domain): the dashboard is then reachable only on the

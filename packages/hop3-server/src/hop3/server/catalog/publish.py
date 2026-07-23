@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Catalog producer side (ADR 049): build + sign a ``catalog.tar.gz``.
+"""
+Catalog producer side (ADR 049): build + sign a ``catalog.tar.gz``.
 
 The node consumes a signed tarball (``sync.py`` / ``verify.py``); this is the
 matching publisher the Hop3 release process runs **offline**:
@@ -54,7 +55,8 @@ class PublishError(Exception):
 
 
 def generate_keypair() -> tuple[str, str]:
-    """Return (public_key_text, secret_key_text) for a fresh signing key.
+    """
+    Return (public_key_text, secret_key_text) for a fresh signing key.
 
     The public file is minisign-compatible; the secret file is our own format
     (a single base64 line of ``key_id || raw_ed25519_seed``), readable by
@@ -100,7 +102,8 @@ def load_secret_key(text: str) -> tuple[bytes, Ed25519PrivateKey]:
 
 
 def build_index(content_dir: Path, serial: int) -> dict:
-    """Scan ``content_dir`` for app dirs and build the signed-index manifest.
+    """
+    Scan ``content_dir`` for app dirs and build the signed-index manifest.
 
     Each immediate subdir is one app and must carry a ``hop3.toml``; its spec is
     run through the coexistence gate (F7) *before* signing — the publish step is
@@ -146,7 +149,8 @@ def build_index(content_dir: Path, serial: int) -> dict:
 
 
 def write_tarball(content_dir: Path, index: dict, dest: Path) -> bytes:
-    """Write a deterministic ``catalog.tar.gz`` containing exactly the indexed
+    """
+    Write a deterministic ``catalog.tar.gz`` containing exactly the indexed
     files plus ``index.json``, and return its bytes.
 
     Driving the tar off the index (not ``rglob``) guarantees the extracted tree

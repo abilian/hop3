@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Parser for hop3.toml configuration files.
+"""
+Parser for hop3.toml configuration files.
 
 This module implements parsing for the hop3.toml configuration format as defined
 in ADR-001 and ADR-002. It supports the "Convention over Configuration" principle
@@ -25,7 +26,8 @@ from hop3.lib import log
 
 
 def _validation_skip_requested() -> bool:
-    """Return True if the operator wants to skip hop3.toml validation.
+    """
+    Return True if the operator wants to skip hop3.toml validation.
 
     The escape-hatch ``HOP3_SKIP_CONFIG_VALIDATION`` exists for back-compat
     with old configs that fail the current Pydantic schema. It is **only**
@@ -48,7 +50,8 @@ def _validation_skip_requested() -> bool:
 
 @dataclass
 class Hop3Config:
-    """Represents a parsed hop3.toml configuration file.
+    """
+    Represents a parsed hop3.toml configuration file.
 
     This class provides access to all sections of the hop3.toml file,
     with a focus on the [run] and [build] sections that overlap with
@@ -63,7 +66,8 @@ class Hop3Config:
 
     @classmethod
     def from_file(cls, filename: str | Path, *, validate: bool = True) -> Hop3Config:
-        """Load and parse a hop3.toml file.
+        """
+        Load and parse a hop3.toml file.
 
         Args:
             filename: Path to the hop3.toml file
@@ -95,7 +99,8 @@ class Hop3Config:
 
     @classmethod
     def _validate_config(cls, data: dict[str, Any], path: Path) -> None:
-        """Validate configuration data against schema.
+        """
+        Validate configuration data against schema.
 
         Args:
             data: Parsed TOML data
@@ -121,7 +126,8 @@ class Hop3Config:
 
     @classmethod
     def from_str(cls, content: str, *, validate: bool = True) -> Hop3Config:
-        """Parse hop3.toml content from a string.
+        """
+        Parse hop3.toml content from a string.
 
         Args:
             content: TOML content as string
@@ -177,7 +183,8 @@ class Hop3Config:
 
     @property
     def build_commands(self) -> list[str]:
-        """Get build.build commands (list of shell commands for building).
+        """
+        Get build.build commands (list of shell commands for building).
 
         Returns:
             List of build commands, empty list if not specified
@@ -190,7 +197,8 @@ class Hop3Config:
 
     @property
     def before_build_commands(self) -> list[str]:
-        """Get build.before-build commands.
+        """
+        Get build.before-build commands.
 
         Returns:
             List of commands to run before build
@@ -202,7 +210,8 @@ class Hop3Config:
 
     @property
     def test_commands(self) -> list[str]:
-        """Get build.test commands (smoke tests).
+        """
+        Get build.test commands (smoke tests).
 
         Returns:
             List of test commands
@@ -214,7 +223,8 @@ class Hop3Config:
 
     @property
     def after_build_commands(self) -> list[str]:
-        """Get build.after-build commands.
+        """
+        Get build.after-build commands.
 
         Returns:
             List of commands to run after build (post-build)
@@ -226,7 +236,8 @@ class Hop3Config:
 
     @property
     def builder_name(self) -> str | None:
-        """Get build.builder (explicit builder selection).
+        """
+        Get build.builder (explicit builder selection).
 
         Returns:
             Builder name ('local', 'docker', 'auto') or None for auto-detection
@@ -235,7 +246,8 @@ class Hop3Config:
 
     @property
     def static_dir(self) -> str | None:
-        """Get build.static-dir: the directory a static site serves.
+        """
+        Get build.static-dir: the directory a static site serves.
 
         The first-class, Procfile-free way to point a ``toolchain = "static"``
         app at its content (e.g. "site", "html", "dist"). The static toolchain
@@ -246,7 +258,8 @@ class Hop3Config:
 
     @property
     def toolchain_name(self) -> str | None:
-        """Get build.toolchain (explicit toolchain selection).
+        """
+        Get build.toolchain (explicit toolchain selection).
 
         Returns:
             Toolchain name ('python', 'node', etc.) or None for auto-detection
@@ -260,7 +273,8 @@ class Hop3Config:
 
     @property
     def ignore_patterns(self) -> list[str]:
-        """Get build.ignore (patterns to exclude from deployment).
+        """
+        Get build.ignore (patterns to exclude from deployment).
 
         Returns:
             List of glob patterns to ignore, empty list if not specified
@@ -291,7 +305,8 @@ class Hop3Config:
 
     @property
     def static_paths(self) -> dict[str, str]:
-        """Get static file path mappings for reverse proxy.
+        """
+        Get static file path mappings for reverse proxy.
 
         Looks in two places (in order of precedence):
         1. Top-level [static] section
@@ -314,7 +329,8 @@ class Hop3Config:
 
     @property
     def healthcheck_path(self) -> str:
-        """HTTP path for health checks.
+        """
+        HTTP path for health checks.
 
         Prefers the dedicated ``[healthcheck].path``; falls back to the legacy
         ``[run].healthcheck``. Empty string when neither is set (the probe then
@@ -330,7 +346,8 @@ class Hop3Config:
 
     @property
     def healthcheck_contains(self) -> str:
-        """Expected substring in the health-check response body.
+        """
+        Expected substring in the health-check response body.
 
         From ``[healthcheck].contains``. Empty string when unset: readiness then
         only requires the endpoint to answer (any status line), not specific
@@ -346,7 +363,8 @@ class Hop3Config:
 
     @property
     def healthcheck_timeout(self) -> int:
-        """Get run.healthcheck-timeout in seconds.
+        """
+        Get run.healthcheck-timeout in seconds.
 
         Returns:
             Timeout in seconds for health checks
@@ -355,7 +373,8 @@ class Hop3Config:
 
     @property
     def before_run_commands(self) -> list[str]:
-        """Get run.before-run commands.
+        """
+        Get run.before-run commands.
 
         Returns:
             List of commands to run before starting the app
@@ -367,7 +386,8 @@ class Hop3Config:
 
     @property
     def start_command(self) -> str | list[str] | None:
-        """Get run.start command(s).
+        """
+        Get run.start command(s).
 
         This maps to the primary process in a Procfile (usually 'web').
 
@@ -378,7 +398,8 @@ class Hop3Config:
 
     @property
     def start_timeout(self) -> float | None:
-        """Get run.start-timeout in seconds.
+        """
+        Get run.start-timeout in seconds.
 
         This is the maximum time to wait for the app to start.
         If not specified, the server default (APP_START_TIMEOUT) is used.
@@ -391,7 +412,8 @@ class Hop3Config:
 
     @property
     def named_workers(self) -> dict[str, str]:
-        """Get run.workers.* (named worker definitions).
+        """
+        Get run.workers.* (named worker definitions).
 
         Returns:
             Dictionary mapping worker names to commands
@@ -404,7 +426,8 @@ class Hop3Config:
         return {}
 
     def get_workers_from_run_section(self) -> dict[str, str]:
-        """Extract worker definitions from [run] section.
+        """
+        Extract worker definitions from [run] section.
 
         This provides Procfile-compatible worker definitions from hop3.toml.
         Supports:
@@ -448,7 +471,8 @@ class Hop3Config:
 
     @property
     def env(self) -> dict[str, Any]:
-        """Get the [env] section (environment variables).
+        """
+        Get the [env] section (environment variables).
 
         Excludes internal keys (_policy) and nested sections (computed).
         """
@@ -461,7 +485,8 @@ class Hop3Config:
 
     @property
     def env_policy(self) -> str:
-        """Get the env merge policy from [env]._policy.
+        """
+        Get the env merge policy from [env]._policy.
 
         Returns "keep-existing" (default) or "override".
         """
@@ -470,7 +495,8 @@ class Hop3Config:
 
     @property
     def env_computed(self) -> dict[str, str]:
-        """Get the [env.computed] section (computed environment variables).
+        """
+        Get the [env.computed] section (computed environment variables).
 
         These use ${VAR} interpolation, resolved after addon and
         default env vars are injected.
@@ -480,7 +506,8 @@ class Hop3Config:
 
     @property
     def env_generated(self) -> dict[str, dict[str, Any]]:
-        """Get [env] entries declaring a generated secret ({ generate = ... }).
+        """
+        Get [env] entries declaring a generated secret ({ generate = ... }).
 
         Returns the raw generate-spec dicts keyed by var name. These are
         excluded from the plain `env` getter (which drops all dict values) and
@@ -496,7 +523,8 @@ class Hop3Config:
 
     @property
     def env_refs(self) -> dict[str, dict[str, Any]]:
-        """Get [env] entries that are dynamic references (ADR 046 §1b).
+        """
+        Get [env] entries that are dynamic references (ADR 046 §1b).
 
         A reference is a table value with ``from`` / ``key`` / ``external_ip``
         (and not ``generate``); the ``computed`` sub-table and ``_``-sentinels
@@ -518,7 +546,8 @@ class Hop3Config:
 
     @property
     def domains(self) -> list[str]:
-        """Get [domains].list - the app's hostnames.
+        """
+        Get [domains].list - the app's hostnames.
 
         Returns the declared hostnames in order. Empty list when no [domains]
         section is present, or when ``list = []`` (treated as no-op at deploy).
@@ -533,7 +562,8 @@ class Hop3Config:
 
     @property
     def domains_policy(self) -> str:
-        """Get the [domains] merge policy from [domains]._policy.
+        """
+        Get the [domains] merge policy from [domains]._policy.
 
         Returns "keep-existing" (default) or "override". Mirrors env_policy.
         """
@@ -544,7 +574,8 @@ class Hop3Config:
 
     @property
     def admin(self) -> dict[str, Any]:
-        """Get the [admin] section — the app's initial admin account (ADR 056).
+        """
+        Get the [admin] section — the app's initial admin account (ADR 056).
 
         Returns the raw section (``username`` / ``email`` / ``password`` generate
         spec / ``create``), or an empty dict when no [admin] is declared. The
@@ -555,7 +586,8 @@ class Hop3Config:
 
     @property
     def ports(self) -> list[dict[str, Any]]:
-        """Get the [[ports]] entries (fixed host ports the app binds directly).
+        """
+        Get the [[ports]] entries (fixed host ports the app binds directly).
 
         Each entry is a dict with ``number`` (int), ``protocol`` (str, default
         ``"tcp"``), ``source`` (str, default ``"any"``) and optional ``name``.
@@ -577,7 +609,8 @@ class Hop3Config:
 
     @property
     def volumes(self) -> list[dict[str, Any]]:
-        """Get the [[volumes]] entries (declarative persistent volumes, ADR 046 §2).
+        """
+        Get the [[volumes]] entries (declarative persistent volumes, ADR 046 §2).
 
         Each entry is a dict with ``name`` and ``target`` (both required),
         ``type`` (default ``"persist"``), and optional ``size`` / ``mode`` /
@@ -601,7 +634,8 @@ class Hop3Config:
 
     @property
     def backup(self) -> dict[str, list[str]]:
-        """Get the [backup] section: extra ``paths`` and ``exclude`` patterns.
+        """
+        Get the [backup] section: extra ``paths`` and ``exclude`` patterns.
 
         ``paths`` are additional app-relative directories to include in a
         backup (beyond the whole source tree captured by default); ``exclude``
@@ -620,7 +654,8 @@ class Hop3Config:
 
     @property
     def limits(self) -> dict[str, Any]:
-        """Get the [limits] resource caps (ADR 046 §3).
+        """
+        Get the [limits] resource caps (ADR 046 §3).
 
         Returns a dict of only the set fields (``memory`` / ``cpu`` /
         ``processes``); empty when no limits are declared.
@@ -632,7 +667,8 @@ class Hop3Config:
 
     @property
     def waf(self) -> dict[str, Any]:
-        """Get the [waf] section — Layer-7 WAF policy (ADR 050).
+        """
+        Get the [waf] section — Layer-7 WAF policy (ADR 050).
 
         Returns the raw ``[waf]`` table (``enabled`` / ``mode`` / ``allow`` /
         ``gate`` / ``tuning`` / ``bans`` …); empty when no WAF is declared. The
@@ -664,7 +700,8 @@ class Hop3Config:
 
     @property
     def docker_port(self) -> int | None:
-        """Get docker.port (container port for Docker deployments).
+        """
+        Get docker.port (container port for Docker deployments).
 
         Returns:
             Port number if specified, None otherwise
@@ -678,7 +715,8 @@ class Hop3Config:
 
     @property
     def addons(self) -> list[dict[str, Any]]:
-        """Get the [[addons]] sections (backing service dependencies).
+        """
+        Get the [[addons]] sections (backing service dependencies).
 
         Also checks [[provider]] for backwards compatibility.
 
@@ -692,7 +730,8 @@ class Hop3Config:
         return addons
 
     def get_addon_types(self) -> list[str]:
-        """Get list of addon types required by this app.
+        """
+        Get list of addon types required by this app.
 
         Returns:
             List of addon type names (e.g., ['postgres', 'redis'])
@@ -709,7 +748,8 @@ class Hop3Config:
 
     @property
     def providers(self) -> list[dict[str, Any]]:
-        """Get the [[provider]] sections (list of service providers).
+        """
+        Get the [[provider]] sections (list of service providers).
 
         Deprecated: Use `addons` property instead.
         """
@@ -720,7 +760,8 @@ class Hop3Config:
     # =========================================================================
 
     def has_section(self, section_name: str) -> bool:
-        """Check if a section exists in the configuration.
+        """
+        Check if a section exists in the configuration.
 
         Args:
             section_name: Name of the section (e.g., 'run', 'build')
@@ -731,7 +772,8 @@ class Hop3Config:
         return section_name in self._data and bool(self._data[section_name])
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary representation.
+        """
+        Convert to dictionary representation.
 
         Returns:
             Dictionary with all configuration data

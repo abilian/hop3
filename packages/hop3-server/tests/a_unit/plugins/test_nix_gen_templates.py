@@ -1,7 +1,8 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for individual template output correctness.
+"""
+Tests for individual template output correctness.
 
 Goes beyond smoke tests to verify structural properties of the generated
 Nix expressions: correct heredoc termination, placeholder presence,
@@ -212,7 +213,8 @@ def test_php_app_composer_requires_deps_hash():
 
 
 def test_php_app_composer_is_hermetic():
-    """buildComposerProject compiles from source, offline, in the sandbox.
+    """
+    buildComposerProject compiles from source, offline, in the sandbox.
 
     The earlier hand-rolled FOD vendoring composer's output tree was invalid —
     a fixed-output derivation may not reference store paths, but composer bin
@@ -235,15 +237,19 @@ def test_php_app_composer_failure_is_not_swallowed():
 
 
 def test_php_app_composer_strict_validation_defaults_on():
-    """buildComposerProject validates composer.json by default; don't weaken it
-    unless a recipe opts out explicitly."""
+    """
+    buildComposerProject validates composer.json by default; don't weaken it
+    unless a recipe opts out explicitly.
+    """
     output = generate(_composer_spec())
     assert "composerStrictValidation" not in output
 
 
 def test_php_app_composer_strict_validation_opt_out():
-    """A third-party release that fails composer's pedantic validate can skip it
-    explicitly (recorded per app), but only when asked."""
+    """
+    A third-party release that fails composer's pedantic validate can skip it
+    explicitly (recorded per app), but only when asked.
+    """
     output = generate(_composer_spec(composer_strict_validation=False))
     assert "composerStrictValidation = false" in output
 
@@ -337,8 +343,10 @@ def test_java_gradle_requires_jar():
 
 
 def test_java_gradle_builds_from_source_offline():
-    """Compiled by Gradle with the dep set pinned by a committed deps.json —
-    not a downloaded jar/dist, not a nixpkgs wrap."""
+    """
+    Compiled by Gradle with the dep set pinned by a committed deps.json —
+    not a downloaded jar/dist, not a nixpkgs wrap.
+    """
     out = generate(
         _gradle_spec(
             patches=["fix.patch"],
@@ -428,7 +436,8 @@ def test_python_venv_creates_venv():
 
 
 def test_python_venv_strips_c_extensions_for_reproducibility():
-    """A C extension embeds pip's random build dir as the DWARF comp_dir, so two
+    """
+    A C extension embeds pip's random build dir as the DWARF comp_dir, so two
     builds differ byte-for-byte. The template must strip debug info AND rewrite
     the wheel RECORD to match — removing either half reintroduces the drift
     (strip without RECORD-fix leaves the pre-strip hash in RECORD).
@@ -446,7 +455,8 @@ def test_python_venv_strips_c_extensions_for_reproducibility():
 
 
 def test_python_venv_is_hermetic():
-    """The build must be sandboxed and offline — the whole point of the template.
+    """
+    The build must be sandboxed and offline — the whole point of the template.
 
     Network access is confined to the fixed-output derivation that vendors the
     wheels; the application build then installs with --no-index.
@@ -525,8 +535,10 @@ def test_nixpkgs_wrapper_no_source_fetch():
 
 
 def test_nixpkgs_wrapper_install_extra_emitted_raw():
-    """install-extra is appended to installPhase without nix_escape, so
-    that ${pkg} references interpolate at Nix build time."""
+    """
+    install-extra is appended to installPhase without nix_escape, so
+    that ${pkg} references interpolate at Nix build time.
+    """
     spec = AppSpec(
         pname="keycloak",
         version="",
@@ -551,8 +563,10 @@ def test_nixpkgs_wrapper_install_extra_emitted_raw():
 
 
 def test_nixpkgs_wrapper_exec_prefix_replaces_pkgbin():
-    """exec-prefix redirects PKGBIN to an arbitrary path under $out,
-    so install-extra recipes can bake a runnable tree at package time."""
+    """
+    exec-prefix redirects PKGBIN to an arbitrary path under $out,
+    so install-extra recipes can bake a runnable tree at package time.
+    """
     spec = AppSpec(
         pname="keycloak",
         version="",
@@ -571,10 +585,12 @@ def test_nixpkgs_wrapper_exec_prefix_replaces_pkgbin():
 
 
 class TestNodePnpmInstallTemplate:
-    """node-pnpm-install is for Node apps whose runtime code assumes
+    """
+    node-pnpm-install is for Node apps whose runtime code assumes
     pnpm's virtual-store layout — npm's flat install breaks named ESM
     imports of CJS modules. Dependencies are fetched by a fixed-output
-    derivation from a committed lockfile; the app build is offline."""
+    derivation from a committed lockfile; the app build is offline.
+    """
 
     def _base_spec(self, **kwargs):
         defaults: dict[str, Any] = {
@@ -637,7 +653,8 @@ class TestNodePnpmInstallTemplate:
         assert "package-import-method=copy" in output
 
     def test_pnpm_store_is_normalized_for_reproducibility(self):
-        """`pnpm fetch` stamps a `checkedAt` timestamp into each store index and
+        """
+        `pnpm fetch` stamps a `checkedAt` timestamp into each store index and
         leaves key order unstable, so the FOD hash drifts. The FOD must strip
         `checkedAt` and sort keys (as nixpkgs' own pnpm.fetchDeps does) or the
         vendorHash fails on any rebuild.
@@ -647,7 +664,8 @@ class TestNodePnpmInstallTemplate:
         assert "--sort-keys" in output
 
     def test_pnpm_store_skips_stdenv_fixup(self):
-        """stdenv's fixupPhase runs patchShebangs over the vendored store,
+        """
+        stdenv's fixupPhase runs patchShebangs over the vendored store,
         rewriting npm scripts' `#!/usr/bin/env bash` to an absolute
         `/nix/store/…-bash` path — a store reference a fixed-output derivation
         may not contain. The store FOD must set dontFixup to keep the vendored
@@ -657,7 +675,8 @@ class TestNodePnpmInstallTemplate:
         assert "dontFixup = true" in output
 
     def test_pnpm_app_strips_prunedat_timestamp(self):
-        """pnpm stamps a `prunedAt` wall-clock timestamp into
+        """
+        pnpm stamps a `prunedAt` wall-clock timestamp into
         node_modules/.modules.yaml, so two installs of the identical store
         differ by that line. The app build must strip it to stay reproducible.
         """
@@ -666,15 +685,18 @@ class TestNodePnpmInstallTemplate:
         assert ".modules.yaml" in output
 
     def test_no_native_packages_stays_sealed(self):
-        """The default install runs --ignore-scripts and adds no compiler
-        toolchain — nothing is built from source unless a recipe opts in."""
+        """
+        The default install runs --ignore-scripts and adds no compiler
+        toolchain — nothing is built from source unless a recipe opts in.
+        """
         output = generate(self._base_spec())
         assert "pnpm rebuild" not in output
         assert "pkgs.gcc" not in output
         assert "npm_config_nodedir" not in output
 
     def test_native_packages_compiled_offline_from_source(self):
-        """A declared node-gyp addon is rebuilt from source, offline, with the
+        """
+        A declared node-gyp addon is rebuilt from source, offline, with the
         C/C++ toolchain and the pinned Node's headers — the sealed
         --ignore-scripts install alone leaves it uncompiled (directus'
         isolated-vm MODULE_NOT_FOUND).
@@ -693,8 +715,10 @@ class TestNodePnpmInstallTemplate:
         assert "pnpm rebuild --store-dir ${pnpmStore} isolated-vm sharp" in output
 
     def test_default_node_version_is_22(self):
-        """Directus-class apps all want Node 22. Default makes the
-        common case boilerplate-free; `runtime_package` overrides."""
+        """
+        Directus-class apps all want Node 22. Default makes the
+        common case boilerplate-free; `runtime_package` overrides.
+        """
         spec = self._base_spec()
         output = generate(spec)
         assert "pkgs.nodejs_22" in output
@@ -705,7 +729,8 @@ class TestNodePnpmInstallTemplate:
         assert "pkgs.nodejs_20" in output
 
     def test_dependencies_come_from_the_committed_manifest(self):
-        """Extras are no longer injected via a synthesized package.json.
+        """
+        Extras are no longer injected via a synthesized package.json.
 
         The old `pip-packages`-as-npm-extras slot produced a manifest that
         existed only inside the build, so it could never be locked. Additional
@@ -719,12 +744,14 @@ class TestNodePnpmInstallTemplate:
         assert "cp ${lockfile} pnpm-lock.yaml" in output
 
     def test_wrapper_pinned_node_on_path(self):
-        """pnpm bin shims and npm-distributed binaries shebang
+        """
+        pnpm bin shims and npm-distributed binaries shebang
         `#!/usr/bin/env node`. Host's system Node may be too old for
         modern apps (directus 11 on Debian's Node 18 is the canonical
         typebox ESM/CJS failure). Wrapper must prepend the Nix-built
         Node to PATH, via a `NODEBIN` placeholder sed-replaced at
-        install time."""
+        install time.
+        """
         spec = self._base_spec()
         output = generate(spec)
         # The PATH prepend line must live in the wrapper body (post-shebang).
@@ -735,10 +762,12 @@ class TestNodePnpmInstallTemplate:
         assert 'sed -i "s|NODEBIN|${nodejs}/bin|g"' in output
 
     def test_wrapper_exports_appdir(self):
-        """`$out` is only defined inside the Nix build sandbox; it's
+        """
+        `$out` is only defined inside the Nix build sandbox; it's
         empty at wrapper runtime. Pre-exec lines that need a path to
         the installed tree must use `$APPDIR`, which the wrapper
-        exports (sed-replaced to `$out/app` at build time)."""
+        exports (sed-replaced to `$out/app` at build time).
+        """
         spec = self._base_spec()
         output = generate(spec)
         # The wrapper must export APPDIR = <build-time-substituted path>.
@@ -748,10 +777,12 @@ class TestNodePnpmInstallTemplate:
         assert 'sed -i "s|APPDIR_PLACEHOLDER|$out/app|g"' in output
 
     def test_exec_line_uses_runtime_appdir(self):
-        """Exec line targets `$APPDIR/node_modules/.bin/<exec>` — the
+        """
+        Exec line targets `$APPDIR/node_modules/.bin/<exec>` — the
         runtime-expanded variable, not a build-time placeholder. This
         way the same mechanism covers pre-exec commands in the user's
-        hop3.toml (e.g., `$APPDIR/node_modules/.bin/directus bootstrap`)."""
+        hop3.toml (e.g., `$APPDIR/node_modules/.bin/directus bootstrap`).
+        """
         spec = self._base_spec(exec_target="directus", exec_args=["start"])
         output = generate(spec)
         assert "$APPDIR/node_modules/.bin/directus start" in output
@@ -834,8 +865,10 @@ def test_nixpkgs_wrapper_overrides_multiple_keys():
 
 
 def test_nixpkgs_wrapper_writable_home_emits_lazy_cp_prelude():
-    """writable-home-at-runtime emits a `cp -rL … $HOME_DIR` prelude
-    with a .hop3-ready marker so the copy runs once per app instance."""
+    """
+    writable-home-at-runtime emits a `cp -rL … $HOME_DIR` prelude
+    with a .hop3-ready marker so the copy runs once per app instance.
+    """
     spec = AppSpec(
         pname="keycloak",
         version="",
@@ -859,8 +892,10 @@ def test_nixpkgs_wrapper_writable_home_emits_lazy_cp_prelude():
 
 
 def test_nixpkgs_wrapper_writable_home_env_var_exported():
-    """writable-home-env-var exports the resolved path so the app
-    (e.g., kc.sh reading KC_HOME_DIR) picks up the writable copy."""
+    """
+    writable-home-env-var exports the resolved path so the app
+    (e.g., kc.sh reading KC_HOME_DIR) picks up the writable copy.
+    """
     spec = AppSpec(
         pname="keycloak",
         version="",
@@ -878,12 +913,14 @@ def test_nixpkgs_wrapper_writable_home_env_var_exported():
 
 
 def test_nixpkgs_wrapper_writable_home_pkgbin_resolved_at_runtime():
-    """With writable-home, PKGBIN in the exec line must resolve to
+    """
+    With writable-home, PKGBIN in the exec line must resolve to
     `$HOME_DIR/bin` at wrapper-run time (not at Nix-build time).
     That means the sed command has to emit `$HOME_DIR/bin` literally
     into the wrapper — which in turn means the Nix `''` string must
     carry `\\$HOME_DIR/bin` so the shell running sed sees the escape
-    and preserves the `$`."""
+    and preserves the `$`.
+    """
     spec = AppSpec(
         pname="keycloak",
         version="",
@@ -905,8 +942,10 @@ def test_nixpkgs_wrapper_writable_home_pkgbin_resolved_at_runtime():
 
 
 def test_nixpkgs_wrapper_let_extra_emits_bindings():
-    """let-extra adds lines to the Nix let-block, below the primary
-    binding. Values are emitted raw so they evaluate at Nix build time."""
+    """
+    let-extra adds lines to the Nix let-block, below the primary
+    binding. Values are emitted raw so they evaluate at Nix build time.
+    """
     spec = AppSpec(
         pname="keycloak",
         version="",
@@ -928,8 +967,10 @@ def test_nixpkgs_wrapper_let_extra_emits_bindings():
 
 
 def test_nixpkgs_wrapper_env_exports_raw_interpolates_nix_refs():
-    """env-exports-raw values are NOT nix_escape'd, so ${jdk}-style
-    references reach Nix unescaped and interpolate at build time."""
+    """
+    env-exports-raw values are NOT nix_escape'd, so ${jdk}-style
+    references reach Nix unescaped and interpolate at build time.
+    """
     spec = AppSpec(
         pname="keycloak",
         version="",
@@ -951,9 +992,11 @@ def test_nixpkgs_wrapper_env_exports_raw_interpolates_nix_refs():
 
 
 def test_nixpkgs_wrapper_writable_home_respects_explicit_exec_prefix():
-    """If the user sets exec-prefix, it wins over the writable-home
+    """
+    If the user sets exec-prefix, it wins over the writable-home
     default (e.g., for apps whose runnable sits somewhere other than
-    $HOME_DIR/bin inside the writable tree)."""
+    $HOME_DIR/bin inside the writable tree).
+    """
     spec = AppSpec(
         pname="keycloak",
         version="",
@@ -1040,8 +1083,10 @@ def test_go_source_go_version_override():
 
 
 def test_go_source_frontend():
-    """A go-source app with a JS frontend builds it via buildNpmPackage and wires
-    the assets to the wrapper as $HOP3_GO_FRONTEND."""
+    """
+    A go-source app with a JS frontend builds it via buildNpmPackage and wires
+    the assets to the wrapper as $HOP3_GO_FRONTEND.
+    """
     out = generate(
         _go_spec(
             frontend_build="BROWSERSLIST_IGNORE_OLD_DATA=true npx webpack",
@@ -1062,8 +1107,10 @@ def test_go_source_frontend_requires_npm_hash():
 
 
 def test_go_source_pnpm_frontend():
-    """A pnpm frontend (vikunja) builds via pnpm.fetchDeps + configHook, not
-    buildNpmPackage."""
+    """
+    A pnpm frontend (vikunja) builds via pnpm.fetchDeps + configHook, not
+    buildNpmPackage.
+    """
     out = generate(
         _go_spec(
             frontend_build="pnpm run build",
@@ -1083,8 +1130,10 @@ def test_go_source_pnpm_requires_pnpm_hash():
 
 
 def test_go_source_embedded_frontend():
-    """An app that `go:embed`s the frontend copies the built assets into the
-    source before the Go compile (preBuild), with no disk-served wiring."""
+    """
+    An app that `go:embed`s the frontend copies the built assets into the
+    source before the Go compile (preBuild), with no disk-served wiring.
+    """
     out = generate(
         _go_spec(
             frontend_build="pnpm run build",
@@ -1138,8 +1187,10 @@ def test_pnpm_pin_is_configurable():
 
 
 def test_committed_lockfiles_match_their_pinned_pnpm():
-    """Guard: a lockfile the pinned pnpm cannot read fails inside the Nix build
-    with a parse error naming neither the pin nor the lockfile."""
+    """
+    Guard: a lockfile the pinned pnpm cannot read fails inside the Nix build
+    with a parse error naming neither the pin nor the lockfile.
+    """
     root = Path(__file__).parents[5] / "apps"
     assert root.is_dir(), f"app corpus not found at {root}"
     mismatches = {}
@@ -1167,7 +1218,8 @@ def test_committed_lockfiles_match_their_pinned_pnpm():
 
 
 class TestGoSourceLocalApp:
-    """A recipe with no `url` packages the directory it lives in.
+    """
+    A recipe with no `url` packages the directory it lives in.
 
     Ten of the eleven templates assume the application is fetched from
     somewhere — a release tarball, the npm registry, nixpkgs. That leaves a
@@ -1200,8 +1252,10 @@ class TestGoSourceLocalApp:
         assert "src = ./.;" not in output
 
     def test_no_dependencies_emits_a_null_vendor_hash(self):
-        """`vendorHash = null` is correct for a module that requires nothing —
-        there is no set to pin. Spelled explicitly so it stays a decision."""
+        """
+        `vendorHash = null` is correct for a module that requires nothing —
+        there is no set to pin. Spelled explicitly so it stays a decision.
+        """
         assert "vendorHash = null;" in generate(self._spec())
 
     def test_a_hash_is_still_quoted(self):
@@ -1215,7 +1269,8 @@ class TestGoSourceLocalApp:
 
 
 class TestGoStaticDirs:
-    """Some Go apps resolve more than the built frontend under their static
+    """
+    Some Go apps resolve more than the built frontend under their static
     root. gitea/forgejo look up both `public/` and `options/` (locales,
     gitignores, licences) there; shipping only the built frontend left the
     locales missing and gitea died at boot registering a cron task
@@ -1262,9 +1317,11 @@ class TestGoStaticDirs:
 
 
 class TestRubyBundler:
-    """ruby-bundler packages a real Ruby app from a pinned gem set. Rails
+    """
+    ruby-bundler packages a real Ruby app from a pinned gem set. Rails
     specifics (writable home, generated config, migrations) are expressed by the
-    recipe through the shared wrapper fields, not hardcoded in the template."""
+    recipe through the shared wrapper fields, not hardcoded in the template.
+    """
 
     def _spec(self, **kwargs):
         defaults = {
@@ -1295,8 +1352,10 @@ class TestRubyBundler:
         assert "cp -r . $out/app/" in output  # whole tree, not selected files
 
     def test_exec_args_are_real_arguments(self):
-        """They used to be repurposed as a file list, which no other template
-        does and which left the exec line argument-less."""
+        """
+        They used to be repurposed as a file list, which no other template
+        does and which left the exec line argument-less.
+        """
         output = generate(self._spec(exec_args=["server", "-b", "0.0.0.0"]))
         assert "exec GEMSBIN/rails server -b 0.0.0.0" in output
 
@@ -1323,7 +1382,8 @@ class TestRubyBundler:
         assert "gemdir = ./.;" in output
 
     def test_packaged_app_installs_the_gemfile_the_gems_came_from(self):
-        """The app runs from its own tree, so bundler resolves the tarball's
+        """
+        The app runs from its own tree, so bundler resolves the tarball's
         Gemfile. If that disagrees with the lockfile the gem set was built
         from, bundler refuses to boot ("ensure_equivalent_gemfile_and_lockfile:
         Some dependencies were deleted") — so install the matching pair.
@@ -1354,7 +1414,8 @@ class TestRubyBundler:
 
 
 class TestGoSourceExecTargetCheck:
-    """buildGoModule names a binary after its package directory, which for a
+    """
+    buildGoModule names a binary after its package directory, which for a
     root main package is the last element of the *module path*. forgejo's
     `module forgejo.org` yields `bin/forgejo.org`; gitea's `code.gitea.io/gitea`
     yields `bin/gitea`. The two recipes look alike and behave differently, and
@@ -1379,8 +1440,10 @@ class TestGoSourceExecTargetCheck:
         assert "ls -1 ${goApp}/bin" in output
 
     def test_the_check_interpolates_the_store_path(self):
-        """`''${goApp}` is the Nix escape for a *literal* `${goApp}`, which the
-        shell then reads as an unset variable and checks /bin instead."""
+        """
+        `''${goApp}` is the Nix escape for a *literal* `${goApp}`, which the
+        shell then reads as an unset variable and checks /bin instead.
+        """
         output = generate(self._spec())
         assert "''${goApp}/bin" not in output
 

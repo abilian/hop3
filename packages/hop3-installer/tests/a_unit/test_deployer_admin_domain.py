@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""The deployer must persist ADMIN_DOMAIN into the server config.
+"""
+The deployer must persist ADMIN_DOMAIN into the server config.
 
 Regression: `hop3-deploy --admin-domain X` (or `--host` as an FQDN) configured
 nginx for the domain but never wrote ADMIN_DOMAIN to hop3-server.toml, so the

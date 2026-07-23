@@ -1,7 +1,8 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Regression: destroying a docker-compose app must remove its image.
+"""
+Regression: destroying a docker-compose app must remove its image.
 
 Without `--rmi all` (and the force-rmi safety net), every docker-variant
 deploy leaks a 0.5-1.5 GB `hop3/<app>:latest` image — and since the app

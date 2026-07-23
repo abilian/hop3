@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""S3-compatible object storage addon for Hop3.
+"""
+S3-compatible object storage addon for Hop3.
 
 Provides per-app S3 buckets with scoped credentials. The default
 backend is MinIO (chosen for maturity and wide compatibility), but the

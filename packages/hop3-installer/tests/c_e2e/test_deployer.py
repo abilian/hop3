@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""E2E tests for hop3-deploy tool.
+"""
+E2E tests for hop3-deploy tool.
 
 These tests verify that hop3-deploy correctly deploys hop3-server
 to Docker containers and remote servers.
@@ -55,7 +56,8 @@ class TestDeployer:
         )
 
     def test_deploy_with_local_code(self, deploy_target: str) -> None:
-        """Test hop3-deploy with local code deploys successfully.
+        """
+        Test hop3-deploy with local code deploys successfully.
 
         This tests the development workflow where local code is uploaded
         and installed on the target (Docker or SSH).
@@ -154,7 +156,8 @@ class TestDeployerHelp:
         assert "hop3" in result.stdout.lower() or "deploy" in result.stdout.lower()
 
     def test_deploy_requires_target(self) -> None:
-        """Test hop3-deploy without --docker or --host fails gracefully.
+        """
+        Test hop3-deploy without --docker or --host fails gracefully.
 
         The conftest's pytest_configure strips ambient deploy-target env vars
         (HOP3_DEV_HOST etc.), so a bare `hop3-deploy-server` here can't inherit a

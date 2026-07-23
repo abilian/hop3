@@ -39,7 +39,8 @@ def test_core_aliases_have_tuple_expansions() -> None:
 
 
 def test_login_logout_are_aliases_of_auth() -> None:
-    """`login`/`logout` are short forms of the canonical `auth login`/`auth logout`.
+    """
+    `login`/`logout` are short forms of the canonical `auth login`/`auth logout`.
 
     Both spellings resolve to the same rich local handlers (kept local in
     is_local_command), so the alias is safe.
@@ -162,7 +163,8 @@ def test_resolve_fires_with_flag_after_alias() -> None:
 
 
 def test_resolve_blocks_on_subcommand_collision() -> None:
-    """`hop3 addons create foo` should NOT expand `addons` -> `addon list`.
+    """
+    `hop3 addons create foo` should NOT expand `addons` -> `addon list`.
 
     The user most likely meant the singular namespace form.
     """

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for MySQL addon - pure logic only.
+"""
+Unit tests for MySQL addon - pure logic only.
 
 These tests verify property derivation, validation, and error handling
 without mocking subprocess calls. Integration tests that verify actual
@@ -143,7 +144,8 @@ def test_get_connection_details_requires_password(mysql_service):
 
 
 def test_connection_details_format(mysql_service):
-    """Test that connection details dict has correct structure.
+    """
+    Test that connection details dict has correct structure.
 
     Note: This doesn't call get_connection_details() directly because
     that requires stored secrets. We test the structure by examining
@@ -172,7 +174,8 @@ def test_name_attribute():
 
 
 def test_addon_user_hosts_cover_docker_network_pools():
-    """A per-app DB user must be reachable from every Docker network pool.
+    """
+    A per-app DB user must be reachable from every Docker network pool.
 
     Regression: granting only ``172.%`` rejected compose apps whose network
     came from Docker's ``192.168.x`` default-address-pool, with
@@ -225,7 +228,8 @@ def _hosts_in(executed, verb: str) -> set[str]:
 
 
 def test_create_grants_and_destroy_drops_user_for_every_host():
-    """Behavioural guard (not just the constant): ``create`` must CREATE USER +
+    """
+    Behavioural guard (not just the constant): ``create`` must CREATE USER +
     GRANT for *every* host in ADDON_USER_HOSTS, and ``destroy`` must DROP each.
 
     Catches a regression where ``create``/``destroy`` stop iterating the host

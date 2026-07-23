@@ -37,7 +37,8 @@ if TYPE_CHECKING:
 
 @register
 class EnvCmd(Command):
-    """Manage application environment variables.
+    """
+    Manage application environment variables.
 
     `config` is a back-compat alias (e.g. `hop3 config set ...` still works).
 
@@ -54,7 +55,8 @@ class EnvCmd(Command):
 @register
 @dataclass(frozen=True)
 class ShowCmd(Command):
-    """Show all environment variables for an app.
+    """
+    Show all environment variables for an app.
 
     Secrets are redacted by default (password-like vars and credentials
     embedded in connection-string URLs). Pass --show-secrets to reveal them.
@@ -137,7 +139,8 @@ class ShowCmd(Command):
         ]
 
     def _show_compose_file(self, app: App) -> list[dict]:
-        """Show the generated Docker Compose file for the app.
+        """
+        Show the generated Docker Compose file for the app.
 
         Args:
             app: The application
@@ -176,7 +179,8 @@ class ShowCmd(Command):
 @register
 @dataclass(frozen=True)
 class GetCmd(Command):
-    """Get a specific environment variable.
+    """
+    Get a specific environment variable.
 
     Examples:
         hop3 env get --app myapp KEY   # Show one env var's value
@@ -217,7 +221,8 @@ class GetCmd(Command):
 @register
 @dataclass(frozen=True)
 class LiveCmd(Command):
-    """Show actual live environment from running app.
+    """
+    Show actual live environment from running app.
 
     Unlike `env show` which shows database values, this inspects the
     running process/container to show what's actually in effect.
@@ -356,7 +361,8 @@ class LiveCmd(Command):
 @register
 @dataclass(frozen=True)
 class SetCmd(Command):
-    """Set environment variables for an app.
+    """
+    Set environment variables for an app.
 
     Usage: hop3 env set [--app <app>] KEY=VALUE [KEY2=VALUE2 ...]
 
@@ -453,7 +459,8 @@ class SetCmd(Command):
 @register
 @dataclass(frozen=True)
 class UnsetCmd(Command):
-    """Unset environment variables for an app.
+    """
+    Unset environment variables for an app.
 
     Usage: hop3 env unset [--app <app>] KEY [KEY2 ...]
 
@@ -529,7 +536,8 @@ class UnsetCmd(Command):
 
 @register
 class MigrateCmd(Command):
-    """Migrate configuration from other PaaS formats to hop3.toml.
+    """
+    Migrate configuration from other PaaS formats to hop3.toml.
 
     This is a one-off project-scaffolding task (Procfile → hop3.toml format
     conversion), so it lives under `app`, not env-var management.
@@ -552,7 +560,8 @@ class MigrateCmd(Command):
         dry_run: bool = False,
         backup: bool = True,
     ):
-        """Migrate configuration from other PaaS formats to hop3.toml.
+        """
+        Migrate configuration from other PaaS formats to hop3.toml.
 
         Args:
             from_format: Source format to migrate from (e.g., 'procfile')
@@ -636,7 +645,8 @@ class MigrateCmd(Command):
         ]
 
     def _generate_hop3_toml(self, procfile: Procfile) -> str:
-        """Generate hop3.toml content from a Procfile.
+        """
+        Generate hop3.toml content from a Procfile.
 
         Args:
             procfile: Parsed Procfile object

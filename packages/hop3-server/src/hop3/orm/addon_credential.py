@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 
 
 class AddonCredential(BigIntAuditBase):
-    """Encrypted storage for addon credentials.
+    """
+    Encrypted storage for addon credentials.
 
     Stores connection details and authentication credentials for attached
     addons (PostgreSQL, Redis, S3, etc.). Addons are backing services in

@@ -36,7 +36,8 @@ class SSHKeyManager:
     """Manages SSH known_hosts and host key verification."""
 
     def __init__(self, known_hosts_path: Path | None = None):
-        """Initialize SSH key manager.
+        """
+        Initialize SSH key manager.
 
         Args:
             known_hosts_path: Path to known_hosts file. Defaults to ~/.ssh/known_hosts.
@@ -44,7 +45,8 @@ class SSHKeyManager:
         self.known_hosts_path = known_hosts_path or Path.home() / ".ssh" / "known_hosts"
 
     def remove_host_key(self, host: str) -> bool:
-        """Remove a host's key from known_hosts.
+        """
+        Remove a host's key from known_hosts.
 
         Args:
             host: Hostname or IP to remove.
@@ -65,7 +67,8 @@ class SSHKeyManager:
         return result.returncode == 0
 
     def get_host_key(self, host: str, port: int = 22) -> str | None:
-        """Get the SSH host key from a remote server.
+        """
+        Get the SSH host key from a remote server.
 
         Args:
             host: Hostname or IP address.
@@ -86,7 +89,8 @@ class SSHKeyManager:
         return None
 
     def add_host_key(self, host: str, port: int = 22) -> bool:
-        """Scan and add a host's key to known_hosts.
+        """
+        Scan and add a host's key to known_hosts.
 
         Removes any existing key for this host first to avoid duplicates.
 
@@ -118,7 +122,8 @@ class SSHKeyManager:
         port: int = 22,
         additional_hosts: list[str] | None = None,
     ) -> bool:
-        """Remove old key and add new key for a host.
+        """
+        Remove old key and add new key for a host.
 
         Args:
             host: Primary hostname or IP address.
@@ -145,7 +150,8 @@ class SSHKeyManager:
         return success
 
     def find_hostnames_for_ip(self, ip_address: str) -> list[str]:
-        """Find all hostnames in known_hosts that have the same IP.
+        """
+        Find all hostnames in known_hosts that have the same IP.
 
         This helps identify aliases that need to be updated when a server
         is rebuilt.
@@ -190,7 +196,8 @@ class SSHKeyManager:
         return hostnames
 
     def get_host_key_fingerprint(self, host: str, port: int = 22) -> str | None:
-        """Get the fingerprint of a host's SSH key.
+        """
+        Get the fingerprint of a host's SSH key.
 
         Args:
             host: Hostname or IP address.
@@ -222,7 +229,8 @@ class SSHConnection:
     """Manages SSH connections using paramiko."""
 
     def __init__(self, info: SSHConnectionInfo):
-        """Initialize SSH connection.
+        """
+        Initialize SSH connection.
 
         Args:
             info: Connection information.
@@ -231,7 +239,8 @@ class SSHConnection:
         self._client: paramiko.SSHClient | None = None
 
     def connect(self, timeout: int = 30) -> bool:
-        """Establish SSH connection.
+        """
+        Establish SSH connection.
 
         Args:
             timeout: Connection timeout in seconds.
@@ -263,7 +272,8 @@ class SSHConnection:
             self._client = None
 
     def run(self, command: str, timeout: int = 60) -> tuple[int, str, str]:
-        """Execute a command over SSH.
+        """
+        Execute a command over SSH.
 
         Args:
             command: Command to execute.
@@ -296,7 +306,8 @@ def wait_for_ssh(
     timeout: int = 300,
     interval: int = 10,
 ) -> bool:
-    """Wait for SSH to become available on a host.
+    """
+    Wait for SSH to become available on a host.
 
     Args:
         host: Hostname or IP address.
@@ -326,7 +337,8 @@ def wait_for_ssh(
 
 
 def is_port_open(host: str, port: int, timeout: int = 5) -> bool:
-    """Check if a TCP port is open.
+    """
+    Check if a TCP port is open.
 
     Args:
         host: Hostname or IP address.
@@ -352,7 +364,8 @@ def verify_ssh_connectivity(
     port: int = 22,
     timeout: int = 30,
 ) -> bool:
-    """Verify SSH connectivity by running a simple command.
+    """
+    Verify SSH connectivity by running a simple command.
 
     Args:
         host: Hostname or IP address.

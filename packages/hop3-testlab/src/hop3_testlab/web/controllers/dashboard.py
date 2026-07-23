@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Dashboard + health controllers.
+"""
+Dashboard + health controllers.
 
 The dashboard handler demonstrates the decided DI pattern (spec §2/§9):
 ``@inject`` + ``FromDishka[...]`` rather than a manual ``get_session()``. It is
@@ -26,9 +27,11 @@ from hop3_testlab.web.guards import auth_guard
 
 
 def _display_trigger(run) -> str:
-    """The run's initiator kind (web / scheduled / cli) for the dashboard, from
+    """
+    The run's initiator kind (web / scheduled / cli) for the dashboard, from
     the recorded provenance. Legacy queue runs without a recorded kind show
-    'queued' rather than the bare 'build-N' request id."""
+    'queued' rather than the bare 'build-N' request id.
+    """
     kind = (run.run_metadata or {}).get("trigger_kind")
     if kind:
         return kind

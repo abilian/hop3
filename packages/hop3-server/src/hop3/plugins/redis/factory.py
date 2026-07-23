@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Redis client factory for dependency injection.
+"""
+Redis client factory for dependency injection.
 
 This module provides a RedisClientFactory service that manages Redis
 connection configuration and can be injected via Dishka DI.
@@ -18,7 +19,8 @@ from hop3.lib.config import Config
 
 @dataclass(frozen=True)
 class RedisClientFactory:
-    """Redis client factory service.
+    """
+    Redis client factory service.
 
     This service provides centralized configuration for Redis
     connections and operations. It's designed to be injected via
@@ -48,7 +50,8 @@ class RedisClientFactory:
 
     @classmethod
     def from_config(cls, config: Config | None = None) -> RedisClientFactory:
-        """Create RedisClientFactory from configuration.
+        """
+        Create RedisClientFactory from configuration.
 
         Args:
             config: Optional Config instance. If not provided, creates one with REDIS_ prefix.
@@ -80,7 +83,8 @@ class RedisClientFactory:
         )
 
     def get_connection_params(self, db: int = 0) -> dict[str, Any]:
-        """Get connection parameters for redis-py.
+        """
+        Get connection parameters for redis-py.
 
         Args:
             db: Redis database number (defaults to 0)

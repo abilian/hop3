@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""MySQL service implementation.
+"""
+MySQL service implementation.
 
 This module implements the Addon protocol for MySQL,
 allowing applications to create, attach, and manage MySQL databases.
@@ -58,7 +59,8 @@ ADDON_USER_HOSTS = ("localhost", "127.0.0.1", "10.%", "172.%", "192.168.%")
 
 @dataclass(frozen=True)
 class MySQLAddon:
-    """MySQL service implementation using Addon protocol.
+    """
+    MySQL service implementation using Addon protocol.
 
     This service manages MySQL database instances. Each service instance
     creates a dedicated database and user for isolation.
@@ -74,7 +76,8 @@ class MySQLAddon:
     addon_name: str = ""
 
     def __post_init__(self):
-        """Validate that addon_name is provided and is a safe identifier.
+        """
+        Validate that addon_name is provided and is a safe identifier.
 
         Defense in depth: the command boundary (AddonCreateCmd) already calls
         validate_service_name, but db_name flows into raw SQL identifier
@@ -101,7 +104,8 @@ class MySQLAddon:
 
     @property
     def db_password(self) -> str:
-        """Get the password for the database user.
+        """
+        Get the password for the database user.
 
         Returns the stored password if available, or generates a new one.
         """
@@ -116,7 +120,8 @@ class MySQLAddon:
         return MySQLAdmin.from_config()
 
     def _create_or_update_user(self, cursor, host: str, password: str) -> None:
-        """Create ``<db_user>@<host>`` with the given password.
+        """
+        Create ``<db_user>@<host>`` with the given password.
 
         If the row already exists, ALTER its password instead.
         """
@@ -142,7 +147,8 @@ class MySQLAddon:
         return None
 
     def create(self) -> None:
-        """Create a new MySQL database if it does not already exist.
+        """
+        Create a new MySQL database if it does not already exist.
 
         This method:
         1. Connects to MySQL as admin user
@@ -219,7 +225,8 @@ class MySQLAddon:
                 connection.close()
 
     def destroy(self) -> None:
-        """Destroy the MySQL database and user.
+        """
+        Destroy the MySQL database and user.
 
         This permanently deletes all data. Use with caution.
         """
@@ -251,7 +258,8 @@ class MySQLAddon:
                 connection.close()
 
     def get_connection_details(self) -> dict[str, str]:
-        """Get environment variables for connecting to this MySQL database.
+        """
+        Get environment variables for connecting to this MySQL database.
 
         Returns:
             Dictionary with DATABASE_URL and other connection parameters
@@ -307,7 +315,8 @@ class MySQLAddon:
             connection.close()
 
     def run_sql(self, statement: str) -> dict:
-        """Run an ad-hoc SQL statement as the addon's own (app) user.
+        """
+        Run an ad-hoc SQL statement as the addon's own (app) user.
 
         Connects with the app-level credentials (not the superuser), so the
         statement is confined to this addon's database. The password travels
@@ -328,7 +337,8 @@ class MySQLAddon:
         return self._exec(connection, statement)
 
     def run_admin_sql(self, statement: str) -> dict:
-        """Run SQL on this addon's database as the superuser.
+        """
+        Run SQL on this addon's database as the superuser.
 
         For diagnostics (information_schema.processlist, global variables, …)
         that the per-app user can't see in full. Internal use only — callers
@@ -358,7 +368,8 @@ class MySQLAddon:
             connection.close()
 
     def backup(self) -> Path:
-        """Create a backup of the MySQL database using mysqldump.
+        """
+        Create a backup of the MySQL database using mysqldump.
 
         Returns:
             Path to the backup file
@@ -403,7 +414,8 @@ class MySQLAddon:
         return backup_file
 
     def restore(self, backup_path: Path) -> None:
-        """Restore MySQL database from a backup file.
+        """
+        Restore MySQL database from a backup file.
 
         Args:
             backup_path: Path to the SQL backup file
@@ -438,7 +450,8 @@ class MySQLAddon:
             subprocess.run(cmd, check=True, stdin=f, env=env)
 
     def info(self) -> dict[str, Any]:
-        """Get information about the MySQL service.
+        """
+        Get information about the MySQL service.
 
         Returns:
             Dictionary with service details

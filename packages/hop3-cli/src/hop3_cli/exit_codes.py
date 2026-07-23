@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Exit codes for the Hop3 CLI (ADR 036 D16).
+"""
+Exit codes for the Hop3 CLI (ADR 036 D16).
 
 The numbers below come from ADR 036 D16. Scripts can distinguish
 user error (2, 10), resolution (3), auth (4, 5), server (7), and
@@ -59,7 +60,8 @@ HTTP_SERVER_ERROR = 500
 
 
 def map_rpc_code_to_exit(code: int) -> int:
-    """Map a JSON-RPC or HTTP error code to an ADR 036 D16 exit code.
+    """
+    Map a JSON-RPC or HTTP error code to an ADR 036 D16 exit code.
 
     Args:
         code: The error code from JSON-RPC response or HTTP status
@@ -100,7 +102,8 @@ _MESSAGE_PATTERNS: list[tuple[tuple[str, ...], int]] = [
 
 
 def map_message_to_exit(message: str) -> int:
-    """Map an error message to an ADR 036 D16 exit code based on content.
+    """
+    Map an error message to an ADR 036 D16 exit code based on content.
 
     Used as a fallback when the error code doesn't carry enough context
     (e.g., generic server error wrapping a domain-specific failure).

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""ResultStore migration + bundle-pointer round-trip (ADR 043 Phase 1).
+"""
+ResultStore migration + bundle-pointer round-trip (ADR 043 Phase 1).
 
 A pre-existing ~/.hop3/test-results.db created before the bundle columns must
 keep working: ResultStore._ensure_columns adds the missing columns rather than
@@ -156,8 +157,10 @@ def test_save_derives_status_pass_and_fail(tmp_path: Path) -> None:
 
 
 def test_save_records_test_path_for_variant_derivation(tmp_path: Path) -> None:
-    """The result stores the test's source path so the report can derive the
-    packaging variant (docker/native/nix/…) — the bare test_name can't encode it."""
+    """
+    The result stores the test's source path so the report can derive the
+    packaging variant (docker/native/nix/…) — the bare test_name can't encode it.
+    """
     db = tmp_path / "r.db"
     store = ResultStore(db_path=db)
     store.start_run(mode="ci", target_type="docker", target_name="t")
@@ -271,10 +274,12 @@ def test_ok_classified_but_written_bundle_is_why_findable(tmp_path: Path) -> Non
 
 
 def test_run_uid_uniqueness_enforced_on_fresh_store(tmp_path: Path) -> None:
-    """A FRESH DB rejects a duplicate run_uid. Regression for review #10: the
+    """
+    A FRESH DB rejects a duplicate run_uid. Regression for review #10: the
     model's `index=True` once created `ix_test_runs_run_uid`, and the unique
     index reused that name, so `CREATE UNIQUE INDEX IF NOT EXISTS` silently
-    no-op'd and uniqueness was never enforced on new databases."""
+    no-op'd and uniqueness was never enforced on new databases.
+    """
     store = ResultStore(db_path=tmp_path / "fresh.db")
     with store.engine.begin() as conn:
         conn.execute(text("INSERT INTO test_runs (run_uid, mode) VALUES ('dup', 'ci')"))

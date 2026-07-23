@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Second ADR-042 migration: drain tokens out of ``config.toml [contexts.*]``.
+"""
+Second ADR-042 migration: drain tokens out of ``config.toml [contexts.*]``.
 
 The first migration (``config_migration.py``) consolidated every legacy shape
 into ``config.toml [contexts.*]`` (``url``/``token`` + the ``api_*`` mirror). The
@@ -50,7 +51,8 @@ class MigrationError(Exception):
 
 
 def migrate_config_to_token_store(config_dir: Path) -> list[str]:
-    """Drain tokens to the store; keep each context address-only (a global context).
+    """
+    Drain tokens to the store; keep each context address-only (a global context).
 
     Returns human-readable notes (empty on the no-op path). Raises
     ``MigrationError`` (nothing changed on disk) on a malformed ``config.toml``.

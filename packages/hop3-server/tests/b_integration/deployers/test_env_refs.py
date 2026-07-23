@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Dynamic [env] references resolve against addon and app facts (ADR 046 §1b).
+"""
+Dynamic [env] references resolve against addon and app facts (ADR 046 §1b).
 
 `{ from = "<addon>", key = "<KEY>" }` copies an attribute from a declared
 addon's stored credentials; `{ key = "domain"/"name" }` reads an app fact. An

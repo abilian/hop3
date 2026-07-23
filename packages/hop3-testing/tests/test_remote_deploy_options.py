@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""RemoteTarget must forward every cloud-deploy option to run_hop3_deploy.
+"""
+RemoteTarget must forward every cloud-deploy option to run_hop3_deploy.
 
 ADR 052 Phase 7b converges the two deploy wrappers onto RemoteTarget. Before the
 cloud orchestrator is repointed at it (7b.5), RemoteTarget must carry everything

@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Fresh-Ubuntu-24.04 apt must never hang the installer.
+"""
+Fresh-Ubuntu-24.04 apt must never hang the installer.
 
 On a freshly-booted Ubuntu 24.04 cloud box, `apt-get install` of the base
 packages hung the whole deploy for 30 minutes. Two gaps DEBIAN_FRONTEND does

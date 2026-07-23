@@ -36,7 +36,8 @@ _RPC_READ_TIMEOUT_SECONDS = 300.0
 
 
 def resolve_ssl_verification(api_url: str, config: Config) -> bool | str:
-    """The ``verify`` value for ``requests`` given the connection URL + config.
+    """
+    The ``verify`` value for ``requests`` given the connection URL + config.
 
     Shared by the RPC client AND the SSE streaming path so both honor a pinned
     ``ssl_cert`` (chain-verify against it) and parse a string ``verify_ssl``
@@ -71,7 +72,8 @@ def _verify_ssl_disabled(verify_ssl_config: str | bool | None) -> bool:
 
 @dataclass
 class Client:
-    """Hop3 RPC client with reliable SSH tunnel cleanup.
+    """
+    Hop3 RPC client with reliable SSH tunnel cleanup.
 
     This class is designed to be used as a context manager to ensure proper
     cleanup of SSH tunnels:
@@ -201,7 +203,8 @@ class Client:
             self.stop()
 
     def rpc(self, method: str, cli_args: list[str], **extra_args: Any) -> Response:
-        """Call a remote method with automatic SSH-based authentication.
+        """
+        Call a remote method with automatic SSH-based authentication.
 
         If the request returns 401 and we have SSH access configured,
         automatically authenticate via SSH and retry the request.
@@ -248,7 +251,8 @@ class Client:
         return parsed.scheme in {"ssh", "ssh+http"}
 
     def _auto_authenticate(self) -> None:
-        """Get a new token via SSH and save it to config.
+        """
+        Get a new token via SSH and save it to config.
 
         Raises:
             AuthenticationError: If authentication fails.
@@ -275,7 +279,8 @@ class Client:
         self.config.update_context_token(token)
 
     def _get_ssl_verification(self) -> bool | str:
-        """Determine SSL verification mode based on config.
+        """
+        Determine SSL verification mode based on config.
 
         A pinned ``ssl_cert`` is always returned (chain-verified against the
         cert, including hostname/SAN); operators wanting IP-based access must

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Schema-consistency guard: fresh-install schema must equal upgraded schema.
+"""
+Schema-consistency guard: fresh-install schema must equal upgraded schema.
 
 A Hop3 server can reach its schema by two paths that MUST converge:
 
@@ -52,7 +53,8 @@ _IGNORED_TABLES = {"alembic_version"}
 
 
 def _sqlite_affinity(type_repr: str) -> str:
-    """Map a rendered SQLite column type to its storage affinity.
+    """
+    Map a rendered SQLite column type to its storage affinity.
 
     SQLite has only five affinities (INTEGER/TEXT/BLOB/REAL/NUMERIC) and maps
     every declared type onto one. BIGINT/SMALLINT/INT all share INTEGER
@@ -88,7 +90,8 @@ def _primary_key(inspector: Inspector, table: str) -> frozenset[str]:
 def _foreign_keys(
     inspector: Inspector, table: str
 ) -> frozenset[tuple[tuple[str, ...], str, tuple[str, ...]]]:
-    """Set of (local_cols, referred_table, referred_cols) for a table.
+    """
+    Set of (local_cols, referred_table, referred_cols) for a table.
 
     Order-independent so a reordering of FK declarations never trips the guard.
     """
@@ -115,7 +118,8 @@ def _user_tables(inspector: Inspector) -> set[str]:
 
 
 def _alembic_config(connection) -> Config:
-    """Programmatic Alembic config bound to an open connection.
+    """
+    Programmatic Alembic config bound to an open connection.
 
     Mirrors how orm/session.py and server/cli/db.py locate the bundled
     alembic.ini (from the hop3 package root, so it works installed or editable).
@@ -137,7 +141,8 @@ def create_all_engine() -> Iterator[Engine]:
 
 @pytest.fixture
 def migrated_engine() -> Iterator[Engine]:
-    """Upgraded-server schema via the real adoption flow.
+    """
+    Upgraded-server schema via the real adoption flow.
 
     Reproduces what a deployed server actually does: a create_all'd schema is
     adopted (stamp the base revision) and then ``upgrade head`` runs. The delta
@@ -170,7 +175,8 @@ def test_same_table_set(create_all_engine: Engine, migrated_engine: Engine) -> N
 def test_columns_match_per_table(
     create_all_engine: Engine, migrated_engine: Engine
 ) -> None:
-    """Every table has identical columns: names, type affinity, nullability.
+    """
+    Every table has identical columns: names, type affinity, nullability.
 
     Robust to future tables: it iterates whatever tables the schema defines,
     so adding a model (or migration) is covered automatically — and a column
@@ -189,7 +195,8 @@ def test_columns_match_per_table(
 def test_constraints_match_per_table(
     create_all_engine: Engine, migrated_engine: Engine
 ) -> None:
-    """PK, FK and unique constraints must match per table across both paths.
+    """
+    PK, FK and unique constraints must match per table across both paths.
 
     Unnamed/mismatched PKs and FKs were part of the port_claim incident; this
     locks the constraint shape (including the FK's referred table/columns and
@@ -211,7 +218,8 @@ def test_constraints_match_per_table(
 
 
 def test_port_claim_is_actually_built_by_migration(migrated_engine: Engine) -> None:
-    """Guard the guard: the migration really created port_claim (not create_all).
+    """
+    Guard the guard: the migration really created port_claim (not create_all).
 
     The migrated fixture drops port_claim before upgrading so the migration's
     hand-written ``op.create_table`` is the thing under test. If that DDL ever

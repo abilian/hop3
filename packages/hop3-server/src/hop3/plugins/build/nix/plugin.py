@@ -11,7 +11,8 @@ from .builder import NixBuilder
 
 
 class NixBuildPlugin:
-    """Plugin providing Nix build support.
+    """
+    Plugin providing Nix build support.
 
     This plugin registers the NixBuilder, which handles applications
     with a hop3.nix file.

@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Display discriminators derived from a test's canonical name.
+"""
+Display discriminators derived from a test's canonical name.
 
 A test's name is its path relative to the repo root (set by the catalog
 scanner), e.g. ``apps/real-apps-docker/bugsink``. That path already encodes
@@ -42,7 +43,8 @@ def variant_of(test_name: str | None) -> str:
 
 
 def type_of(test_name: str | None) -> str:
-    """Classify a test as one of the three run types: app / demo / tutorial.
+    """
+    Classify a test as one of the three run types: app / demo / tutorial.
 
     Path-based, matching how the engine counts planned tests per type
     (``_count_by_type``), so live "done / planned" lines up per type.
@@ -62,7 +64,8 @@ _GENERIC_LEAVES = frozenset({"app", "src", "web", "server", "application", "site
 
 
 def short_app(test_name: str | None) -> str:
-    """The display name of a path-based test name (``bugsink``).
+    """
+    The display name of a path-based test name (``bugsink``).
 
     Skips a generic container leaf (``app``/``src``/…) in favour of its parent,
     so ``demos/demo15/app`` shows as ``demo15`` — otherwise every demo's app

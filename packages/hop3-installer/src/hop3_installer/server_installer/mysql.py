@@ -31,7 +31,8 @@ MYSQL_CONF_PATHS = [
 
 
 def _get_debian_mysql_credentials() -> tuple[str, str] | None:
-    """Get MySQL credentials from Debian maintenance file.
+    """
+    Get MySQL credentials from Debian maintenance file.
 
     On Debian/Ubuntu, /etc/mysql/debian.cnf contains credentials for
     the debian-sys-maint user which has full privileges.
@@ -61,7 +62,8 @@ def _get_debian_mysql_credentials() -> tuple[str, str] | None:
 
 
 def _start_mysql_service() -> bool:
-    """Start MySQL or MariaDB service.
+    """
+    Start MySQL or MariaDB service.
 
     Returns:
         True if service started successfully, False otherwise.
@@ -78,7 +80,8 @@ def _start_mysql_service() -> bool:
 
 
 def _find_mysql_admin_connection() -> tuple[list[str], dict[str, str]] | None:
-    """Find a working MySQL admin connection method.
+    """
+    Find a working MySQL admin connection method.
 
     Tries various methods to connect to MySQL as an admin user. The
     Debian-maintenance fallback uses a password from ``debian.cnf``.
@@ -122,7 +125,8 @@ def _find_mysql_admin_connection() -> tuple[list[str], dict[str, str]] | None:
 
 
 def _validate_mysql_password(password: str) -> bool:
-    """Validate that password contains only safe characters for SQL.
+    """
+    Validate that password contains only safe characters for SQL.
 
     This is a defensive measure against SQL injection in case the password
     generation method ever changes. Currently passwords are generated via
@@ -146,7 +150,8 @@ def _create_mysql_hop3_user(
     root_env: dict[str, str],
     mysql_password: str,
 ) -> bool:
-    """Create hop3 MySQL user with privileges.
+    """
+    Create hop3 MySQL user with privileges.
 
     Args:
         root_cmd: Working MySQL admin command.
@@ -224,7 +229,8 @@ def _create_mysql_hop3_user(
 
 
 def _verify_mysql_hop3_connection(mysql_password: str) -> bool:
-    """Verify hop3 user can connect to MySQL.
+    """
+    Verify hop3 user can connect to MySQL.
 
     SECURITY: pass the password via MYSQL_PWD instead of -p{password}.
     The latter exposes the secret in /proc/<pid>/cmdline for the
@@ -256,7 +262,8 @@ def _verify_mysql_hop3_connection(mysql_password: str) -> bool:
 
 
 def _configure_mysql_bind_address(docker_ip: str) -> bool:
-    """Configure MySQL to bind to Docker bridge address.
+    """
+    Configure MySQL to bind to Docker bridge address.
 
     Args:
         docker_ip: Docker bridge IP address.
@@ -317,7 +324,8 @@ def _create_mysql_docker_user(
     mysql_password: str,
     docker_ip: str,
 ) -> bool:
-    """Create hop3 MySQL user for Docker network access.
+    """
+    Create hop3 MySQL user for Docker network access.
 
     Args:
         root_cmd: Working MySQL admin command.
@@ -378,7 +386,8 @@ def _configure_mysql_for_docker(
     root_env: dict[str, str],
     mysql_password: str,
 ) -> None:
-    """Configure MySQL for Docker container access.
+    """
+    Configure MySQL for Docker container access.
 
     Args:
         root_cmd: Working MySQL admin command.
@@ -407,7 +416,8 @@ def _configure_mysql_for_docker(
 
 
 def setup_mysql(config: ServerInstallerConfig, distro: str) -> str | None:
-    """Configure MySQL.
+    """
+    Configure MySQL.
 
     Returns:
         The generated MySQL password for hop3 user, or None if skipped/failed.

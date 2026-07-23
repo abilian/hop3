@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for the v2 connection path (ADR 042 r2, step C2).
+"""
+Tests for the v2 connection path (ADR 042 r2, step C2).
 
 When a context resolves to a `[contexts.<name>].server` in the project hop3.toml,
 that address becomes `config._active_server`, and the connection (url + token)

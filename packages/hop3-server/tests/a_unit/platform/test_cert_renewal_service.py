@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""The shared cert-renewal service (used by `hop3 cert renew` and the timer).
+"""
+The shared cert-renewal service (used by `hop3 cert renew` and the timer).
 
 Locks down domain derivation and the batch contract: only due certs are
 reinstalled, a per-app failure is collected (not raised) so the rest still run,

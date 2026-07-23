@@ -215,7 +215,8 @@ def test_help_all_lists_aliases_with_alias_marker():
 
 
 def test_help_all_verbose_aggregates_full_help():
-    """`hop help --all -v` aggregates the full help for every command.
+    """
+    `hop help --all -v` aggregates the full help for every command.
 
     Verbosity is forwarded by the client and applied as a context (see
     rpc.call); here we set it directly. The document must contain detailed
@@ -324,7 +325,8 @@ def test_help_commands_returns_command_list():
 
 
 def test_help_resolves_server_aliases():
-    """`help <alias>` resolves server-side aliases instead of 'Unknown command'.
+    """
+    `help <alias>` resolves server-side aliases instead of 'Unknown command'.
 
     Regression: `run` -> `app run` and `destroy` -> `app destroy` are aliases;
     their bare-form help used to report "Unknown command".

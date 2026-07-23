@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Infra failures don't satisfy a negative test (audit C7).
+"""
+Infra failures don't satisfy a negative test (audit C7).
 
 `_run_deploy_and_verify` must classify a disk-full or a deploy-timeout as
 INFRASTRUCTURE (hard fail, regardless of expects_failure), while a genuine

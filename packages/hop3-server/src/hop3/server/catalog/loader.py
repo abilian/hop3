@@ -30,7 +30,8 @@ _ICON_EXTENSIONS = ("webp", "png", "jpg", "jpeg")
 
 
 def find_icon(app: CatalogApp) -> Path | None:
-    """Return the app's icon file inside its own source dir, or None.
+    """
+    Return the app's icon file inside its own source dir, or None.
 
     Resolves only within ``app.source_path`` (a verified catalog dir) and never
     returns an SVG, so the public icon route cannot serve an XSS payload or be
@@ -119,7 +120,8 @@ def _attach_icon(app: CatalogApp, app_dir: Path) -> None:
 
 
 def load_apps(apps_dir: Path) -> list[CatalogApp]:
-    """Load all apps by scanning ``apps_dir`` (dev/local fallback).
+    """
+    Load all apps by scanning ``apps_dir`` (dev/local fallback).
 
     Production loads via :func:`load_apps_from_index` so only the signed,
     verified file set is executed (ADR 049 F1). This unsigned scan is the
@@ -149,7 +151,8 @@ def load_apps(apps_dir: Path) -> list[CatalogApp]:
 
 
 def load_apps_from_index(apps_dir: Path, index: dict) -> list[CatalogApp]:
-    """Load only the app directories named in the (verified) ``index.json``.
+    """
+    Load only the app directories named in the (verified) ``index.json``.
 
     Drives off the signed index rather than ``iterdir()`` so a stray/leftover
     directory on disk can never be loaded or installed (ADR 049 F1).

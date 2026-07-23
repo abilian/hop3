@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for PostgreSQL addon - pure logic only.
+"""
+Unit tests for PostgreSQL addon - pure logic only.
 
 These tests verify property derivation, validation, and error handling
 without mocking subprocess calls. Integration tests that verify actual
@@ -95,7 +96,8 @@ def test_info_handles_connection_errors(postgres_service):
 
 
 def test_connection_details_format(postgres_service):
-    """Test that connection details dict has correct structure.
+    """
+    Test that connection details dict has correct structure.
 
     Note: This doesn't call get_connection_details() directly because
     that would trigger _sync_password() which needs real PostgreSQL.
@@ -227,7 +229,8 @@ def test_install_extensions_blocked_error_mentions_blocked_set(
 
 
 def test_pg_hba_allows_all_docker_network_pools(tmp_path):
-    """pg_hba.conf must allow every Docker network pool, idempotently.
+    """
+    pg_hba.conf must allow every Docker network pool, idempotently.
 
     Regression: only ``172.16.0.0/12`` was allowed, so compose apps whose
     network came from the ``192.168.x`` pool got "no pg_hba.conf entry for host".

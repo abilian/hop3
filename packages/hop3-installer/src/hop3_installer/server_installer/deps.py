@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""System dependency installation dispatcher.
+"""
+System dependency installation dispatcher.
 
 This module dispatches to distro-specific modules for package installation.
 """
@@ -15,7 +16,8 @@ from .deps_fedora import install_fedora_deps
 
 
 def install_system_deps(distro: str, config: ServerInstallerConfig) -> None:
-    """Install system dependencies for the detected distribution.
+    """
+    Install system dependencies for the detected distribution.
 
     Args:
         distro: Distribution name ("debian", "fedora", or "unknown")

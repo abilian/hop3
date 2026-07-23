@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Fold cloud provisioning + the image sweep into `run` (ADR 052 D9).
+"""
+Fold cloud provisioning + the image sweep into `run` (ADR 052 D9).
 
 `hop3-test run --provider hetzner` rebuilds a fresh box (provision_server) then
 deploys+tests it via the normal remote path; `run --images a,b` sweeps that over
@@ -52,8 +53,10 @@ def test_provision_requires_server_id(monkeypatch):
 
 
 def test_provision_announces_progress_unconditionally(monkeypatch):
-    """`run --provider hetzner` OS-rebuilds for minutes; provisioning must print
-    each phase even without --verbose, so the console never looks hung."""
+    """
+    `run --provider hetzner` OS-rebuilds for minutes; provisioning must print
+    each phase even without --verbose, so the console never looks hung.
+    """
     monkeypatch.setenv("HETZNER_API_TOKEN", "tok")
 
     class _FakeManager:
@@ -171,8 +174,10 @@ def test_sweep_leg_invokes_run_provider_via_module(monkeypatch):
 
 
 def test_run_images_threads_deploy_lexicon(monkeypatch):
-    """`run --images` threads the deploy lexicon (positional apps, --from,
-    repeatable --with) into the sweep (ADR 052 D1/D9)."""
+    """
+    `run --images` threads the deploy lexicon (positional apps, --from,
+    repeatable --with) into the sweep (ADR 052 D1/D9).
+    """
     captured: dict = {}
     monkeypatch.setattr(
         "hop3_testing.system_tests.multi_distro.run_multi_distro_tests",

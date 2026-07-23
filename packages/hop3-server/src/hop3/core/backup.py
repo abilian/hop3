@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Backup and restore functionality for Hop3 applications.
+"""
+Backup and restore functionality for Hop3 applications.
 
 This module provides the BackupManager class for creating and restoring
 complete application backups including source code, data, environment
@@ -48,7 +49,8 @@ _BACKUP_DIR_MODE = 0o700
 
 
 def _ensure_secure_backup_dir(path: Path) -> None:
-    """Create ``path`` (and any missing ancestors up to BACKUP_ROOT) with
+    """
+    Create ``path`` (and any missing ancestors up to BACKUP_ROOT) with
     owner-only permissions.
 
     ``Path.mkdir(mode=..., parents=True)`` only applies the mode to the
@@ -88,7 +90,8 @@ def _ensure_secure_backup_dir(path: Path) -> None:
 
 
 def _chmod_if_looser(path: Path, target_mode: int) -> None:
-    """chmod ``path`` to ``target_mode`` if its current mode is looser.
+    """
+    chmod ``path`` to ``target_mode`` if its current mode is looser.
 
     Avoids unnecessary syscalls on already-tight trees and tolerates
     EPERM gracefully (the hop3 user owns its backup tree, so EPERM
@@ -105,7 +108,8 @@ def _chmod_if_looser(path: Path, target_mode: int) -> None:
 
 
 def format_size(size_bytes: float) -> str:
-    """Format byte size as human-readable string.
+    """
+    Format byte size as human-readable string.
 
     Args:
         size_bytes: Size in bytes (accepts int or float)
@@ -138,7 +142,8 @@ def _strip_arc_root(arcname: str, root: str) -> str:
 
 
 def _matches_exclude(rel: str, patterns: list[str]) -> bool:
-    """True if ``rel`` matches any ``[backup].exclude`` glob.
+    """
+    True if ``rel`` matches any ``[backup].exclude`` glob.
 
     A pattern matches the full relative path (``cache/*``), the basename
     (``*.tmp``), or any single path segment (``node_modules``), so common
@@ -165,7 +170,8 @@ def _is_under(path: Path, root: Path) -> bool:
 
 @dataclass
 class BackupManifest:
-    """Represents a backup's metadata.
+    """
+    Represents a backup's metadata.
 
     This dataclass contains all information about a backup including
     what was backed up, when, sizes, checksums, and how to restore it.
@@ -192,7 +198,8 @@ class BackupManifest:
 
     @classmethod
     def from_json(cls, data: dict) -> BackupManifest:
-        """Load manifest from JSON data.
+        """
+        Load manifest from JSON data.
 
         Args:
             data: Dictionary loaded from JSON
@@ -203,7 +210,8 @@ class BackupManifest:
         return cls(**data)
 
     def to_json(self) -> dict:
-        """Convert manifest to JSON-serializable dict.
+        """
+        Convert manifest to JSON-serializable dict.
 
         Returns:
             Dictionary that can be serialized to JSON
@@ -212,7 +220,8 @@ class BackupManifest:
 
     @classmethod
     def from_file(cls, path: Path) -> BackupManifest:
-        """Load manifest from a JSON file.
+        """
+        Load manifest from a JSON file.
 
         Args:
             path: Path to metadata.json file
@@ -225,7 +234,8 @@ class BackupManifest:
         return cls.from_json(data)
 
     def to_file(self, path: Path) -> None:
-        """Write manifest to a JSON file.
+        """
+        Write manifest to a JSON file.
 
         Args:
             path: Path where to write metadata.json
@@ -235,7 +245,8 @@ class BackupManifest:
 
 
 class BackupManager:
-    """Manages backup and restore operations for applications.
+    """
+    Manages backup and restore operations for applications.
 
     This class handles creating full backups of applications including:
     - Source code (git repository)
@@ -252,7 +263,8 @@ class BackupManager:
         app_repo: AppRepository,
         addon_credential_repo: AddonCredentialRepository,
     ):
-        """Initialize the backup manager.
+        """
+        Initialize the backup manager.
 
         Args:
             backup_repo: Repository for backup operations
@@ -266,7 +278,8 @@ class BackupManager:
     def create_backup(
         self, app: App, *, include_addons: bool = True
     ) -> tuple[str, Path]:
-        """Create a backup of an application.
+        """
+        Create a backup of an application.
 
         Args:
             app: Application to backup
@@ -382,7 +395,8 @@ class BackupManager:
             raise RuntimeError(msg) from e
 
     def register_existing_backup(self, backup_dir: Path) -> str:
-        """Register a previously-created backup directory in the database.
+        """
+        Register a previously-created backup directory in the database.
 
         Used for cross-instance migration: an operator copies a backup
         tree (`<BACKUP_ROOT>/apps/<app>/<id>/`) from server A to server B
@@ -452,7 +466,8 @@ class BackupManager:
     def restore_backup(
         self, backup_id: str, target_app_name: str | None = None
     ) -> None:
-        """Restore an application from backup.
+        """
+        Restore an application from backup.
 
         Args:
             backup_id: ID of backup to restore
@@ -540,7 +555,8 @@ class BackupManager:
     def list_backups(
         self, app_name: str | None = None, limit: int = 20
     ) -> list[BackupManifest]:
-        """List available backups.
+        """
+        List available backups.
 
         Args:
             app_name: Optional filter by application name
@@ -566,7 +582,8 @@ class BackupManager:
         return manifests
 
     def get_backup_info(self, backup_id: str) -> BackupManifest:
-        """Get detailed backup information.
+        """
+        Get detailed backup information.
 
         Args:
             backup_id: Backup identifier
@@ -593,7 +610,8 @@ class BackupManager:
         return BackupManifest.from_file(manifest_file)
 
     def delete_backup(self, backup_id: str) -> None:
-        """Delete a backup.
+        """
+        Delete a backup.
 
         Args:
             backup_id: Backup to delete
@@ -619,7 +637,8 @@ class BackupManager:
         log(f"Backup deleted: {backup_id}")
 
     def verify_backup(self, backup_id: str) -> dict[str, bool]:
-        """Verify backup integrity by checking checksums.
+        """
+        Verify backup integrity by checking checksums.
 
         Args:
             backup_id: Backup to verify
@@ -654,7 +673,8 @@ class BackupManager:
     # Private methods
 
     def _backup_source(self, app: App, backup_dir: Path) -> dict:
-        """Backup the deployed source tree (and the bare git repo if any).
+        """
+        Backup the deployed source tree (and the bare git repo if any).
 
         Hop3 has two deploy paths: git-push (populates ``app.repo_path``;
         the post-receive hook checks out to ``app.src_path``) and the
@@ -712,7 +732,8 @@ class BackupManager:
         return {"size": size}
 
     def _app_volumes(self, app: App) -> list[dict]:
-        """Declared [[volumes]] for an app, read from its deployed hop3.toml.
+        """
+        Declared [[volumes]] for an app, read from its deployed hop3.toml.
 
         Returns [] when the app has no hop3.toml or declares no volumes (the
         loader yields an empty config in that case, it does not raise). A
@@ -729,7 +750,8 @@ class BackupManager:
         return AppConfig.from_dir(app.app_path).hop3_config.volumes
 
     def _backup_volumes(self, app: App, backup_dir: Path) -> list[dict]:
-        """Archive each persistent volume as its own member (ADR 046 §2).
+        """
+        Archive each persistent volume as its own member (ADR 046 §2).
 
         Each volume's real bytes live at ``app.volumes_path / <name>`` (outside
         src/ and data/), so it gets a dedicated ``volume-<name>.tar.gz``. A
@@ -754,7 +776,8 @@ class BackupManager:
         return results
 
     def _app_backup_config(self, app: App) -> dict:
-        """The app's ``[backup]`` section: ``{"paths": [...], "exclude": [...]}``.
+        """
+        The app's ``[backup]`` section: ``{"paths": [...], "exclude": [...]}``.
 
         Read from the deployed hop3.toml, like ``_app_volumes``. Empty lists
         when the app has no ``[backup]`` section.
@@ -766,7 +789,8 @@ class BackupManager:
         return AppConfig.from_dir(app.app_path).hop3_config.backup
 
     def _backup_extra_paths(self, app: App, backup_dir: Path) -> dict | None:
-        """Archive the directories declared in ``[backup].paths`` (additive).
+        """
+        Archive the directories declared in ``[backup].paths`` (additive).
 
         Each entry is resolved relative to the app's source dir and confined to
         the app tree (an entry that escapes it is a config error and fails the
@@ -813,7 +837,8 @@ class BackupManager:
         return {"backup_file": "extra.tar.gz", "paths": archived}
 
     def _backup_data(self, app: App, backup_dir: Path) -> dict:
-        """Backup data directory.
+        """
+        Backup data directory.
 
         Args:
             app: Application to backup
@@ -850,7 +875,8 @@ class BackupManager:
         return {"size": size}
 
     def _backup_env(self, app: App, backup_dir: Path) -> dict:
-        """Backup environment variables.
+        """
+        Backup environment variables.
 
         Args:
             app: Application to backup
@@ -876,7 +902,8 @@ class BackupManager:
         return {"size": size, "count": len(env_data)}
 
     def _backup_addons(self, app: App, backup_dir: Path) -> list[dict]:
-        """Backup attached addons.
+        """
+        Backup attached addons.
 
         Args:
             app: Application to backup
@@ -932,7 +959,8 @@ class BackupManager:
         return addons_info
 
     def _restore_source(self, app: App, backup_dir: Path) -> None:
-        """Restore source tree (and bare git repo) from backup.
+        """
+        Restore source tree (and bare git repo) from backup.
 
         Per the new ``_backup_source`` layout: the archive contains
         ``src/`` (the canonical deployed source) and may also contain
@@ -983,7 +1011,8 @@ class BackupManager:
     def _restore_extra(
         self, app: App, backup_dir: Path, manifest: BackupManifest
     ) -> None:
-        """Restore extra [backup].paths from ``extra.tar.gz`` into the app tree.
+        """
+        Restore extra [backup].paths from ``extra.tar.gz`` into the app tree.
 
         Arcnames are relative to ``app_path``, so extracting there puts each
         directory back where it was. A manifest that records extra paths but is
@@ -1005,7 +1034,8 @@ class BackupManager:
         log(f"Restored {len(extra_paths)} extra path(s)")
 
     def _restore_data(self, app: App, backup_dir: Path) -> None:
-        """Restore data directory from backup.
+        """
+        Restore data directory from backup.
 
         Args:
             app: Application to restore to
@@ -1029,7 +1059,8 @@ class BackupManager:
     def _restore_volumes(
         self, app: App, backup_dir: Path, manifest: BackupManifest
     ) -> None:
-        """Restore persistent volumes from their per-volume archives (ADR 046 §2).
+        """
+        Restore persistent volumes from their per-volume archives (ADR 046 §2).
 
         Extracts each ``volume-<name>.tar.gz`` back into ``app.volumes_path /
         <name>`` so that the subsequent ``app.deploy()`` re-links it with the
@@ -1067,7 +1098,8 @@ class BackupManager:
     def _restore_env(
         self, app: App, backup_dir: Path, manifest: BackupManifest
     ) -> None:
-        """Restore environment variables from backup.
+        """
+        Restore environment variables from backup.
 
         Args:
             app: Application to restore to
@@ -1095,7 +1127,8 @@ class BackupManager:
     def _restore_addons(
         self, app: App, backup_dir: Path, manifest: BackupManifest
     ) -> None:
-        """Restore addons from backup.
+        """
+        Restore addons from backup.
 
         Fails loud: a missing addon backup file, or a failed addon restore,
         aborts the whole restore. A silently-skipped addon would let a restore
@@ -1124,7 +1157,8 @@ class BackupManager:
             log(f"Restored addon {addon_name} ({service_type})")
 
     def _get_attached_addons(self, app: App) -> list[tuple[str, str]]:
-        """Get list of attached addons for an app.
+        """
+        Get list of attached addons for an app.
 
         Queries AddonCredential records to find attached addons.
 
@@ -1139,7 +1173,8 @@ class BackupManager:
         return [(cred.addon_type, cred.addon_name) for cred in credentials]
 
     def _generate_backup_id(self) -> str:
-        """Generate unique backup ID.
+        """
+        Generate unique backup ID.
 
         Returns:
             Backup ID in format: YYYYMMDD_HHMMSS_<random>
@@ -1149,7 +1184,8 @@ class BackupManager:
         return f"{timestamp}_{random_suffix}"
 
     def _calculate_checksum(self, file_path: Path) -> str:
-        """Calculate SHA256 checksum of a file.
+        """
+        Calculate SHA256 checksum of a file.
 
         Args:
             file_path: Path to file
@@ -1164,7 +1200,8 @@ class BackupManager:
         return f"sha256:{sha256.hexdigest()}"
 
     def _verify_checksums(self, backup_dir: Path, checksums: dict[str, str]) -> bool:
-        """Verify all checksums in a backup.
+        """
+        Verify all checksums in a backup.
 
         Args:
             backup_dir: Backup directory
@@ -1187,7 +1224,8 @@ class BackupManager:
         return True
 
     def _get_backup_dir(self, app_name: str, backup_id: str) -> Path:
-        """Get the backup directory path for an app and backup ID.
+        """
+        Get the backup directory path for an app and backup ID.
 
         Args:
             app_name: Application name
@@ -1199,7 +1237,8 @@ class BackupManager:
         return HopConfig.get_instance().BACKUP_ROOT / "apps" / app_name / backup_id
 
     def _get_hop3_version(self) -> str:
-        """Get the current Hop3 version.
+        """
+        Get the current Hop3 version.
 
         Returns:
             Version string

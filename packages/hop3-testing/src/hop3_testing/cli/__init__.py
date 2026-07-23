@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""CLI for hop3-testing.
+"""
+CLI for hop3-testing.
 
 Commands:
 - hop3-test run: Deploy Hop3 and run the catalog (``system`` is a deprecated alias).
@@ -27,7 +28,8 @@ __all__ = ["cli", "main"]
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
 @click.pass_context
 def cli(ctx: click.Context, verbose: bool) -> None:
-    """Hop3 Test Runner - Unified testing for Hop3.
+    """
+    Hop3 Test Runner - Unified testing for Hop3.
 
     Run deployment tests, demos, and tutorials against Hop3 targets.
     """

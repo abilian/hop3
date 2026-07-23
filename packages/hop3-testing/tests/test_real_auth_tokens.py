@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Real-auth test tokens — the harness authenticates instead of bypassing.
+"""
+Real-auth test tokens — the harness authenticates instead of bypassing.
 
 The harness no longer sets ``HOP3_UNSAFE`` to disable authentication; it mints a
 JWT signed with the key the target server actually validates with. These tests
@@ -28,10 +29,12 @@ from hop3_testing.targets.helpers import read_server_secret_key
 
 
 def test_hermetic_cli_env_strips_steering_vars(monkeypatch):
-    """The harness must not be steered by ambient HOP3_* vars — a leaked
+    """
+    The harness must not be steered by ambient HOP3_* vars — a leaked
     HOP3_DEV_MODE/HOP3_CONTEXT/HOP3_API_TOKEN in the launch environment (e.g. the
     testlab worker's app-runtime env) would silently redirect the deploy and 401.
-    Regression for the testlab/hop3-test seam."""
+    Regression for the testlab/hop3-test seam.
+    """
     for var in (
         "HOP3_DEV_MODE",
         "HOP3_CONTEXT",
@@ -54,9 +57,11 @@ def test_hermetic_cli_env_strips_steering_vars(monkeypatch):
 
 
 def test_token_is_signed_with_the_given_key():
-    """A token signed with a server's key validates with that key — and a
+    """
+    A token signed with a server's key validates with that key — and a
     default-key token does NOT (which is exactly why the remote path needs the
-    server's real key, not the E2E default)."""
+    server's real key, not the E2E default).
+    """
     token = create_test_token(secret_key="server-real-key")
     decoded = jwt.decode(token, "server-real-key", algorithms=["HS256"])
     assert decoded["sub"]
@@ -73,8 +78,10 @@ def test_default_key_is_the_e2e_key():
 
 
 def _backend(stdout: str):
-    """A minimal stand-in for a CommandRunner: .run() returns an object with
-    the captured stdout."""
+    """
+    A minimal stand-in for a CommandRunner: .run() returns an object with
+    the captured stdout.
+    """
     return SimpleNamespace(run=lambda cmd, check=False: SimpleNamespace(stdout=stdout))
 
 
@@ -84,17 +91,21 @@ def test_read_server_secret_key_returns_trimmed_key():
 
 
 def test_read_server_secret_key_fails_loud_when_absent():
-    """No key on the box → abort, rather than fall back to a key the server
+    """
+    No key on the box → abort, rather than fall back to a key the server
     would reject (which would surface later as an opaque 'Authentication
-    required')."""
+    required').
+    """
     with pytest.raises(ConfigurationError, match="signing key"):
         read_server_secret_key(_backend(""))
 
 
 def test_hermetic_cli_cwd_is_empty_and_cached():
-    """The harness runs every `hop3` from a dir with no hop3.toml, so a stray
+    """
+    The harness runs every `hop3` from a dir with no hop3.toml, so a stray
     hop3.toml in the test runner's CWD (e.g. the repo root) can't trigger the
-    CLI's project-mismatch guard and refuse a deploy/destroy."""
+    CLI's project-mismatch guard and refuse a deploy/destroy.
+    """
     first = hermetic_cli_cwd()
     assert hermetic_cli_cwd() == first  # cached: one shared dir
 

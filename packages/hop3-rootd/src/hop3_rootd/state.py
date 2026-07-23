@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Persistent state for hop3-rootd.
+"""
+Persistent state for hop3-rootd.
 
 Currently a single JSON file at /var/lib/hop3-rootd/state.json holding
 the list of firewall rules rootd thinks should exist.
@@ -70,7 +71,8 @@ def _coerce_status(value: Any, path: str) -> RuleStatus:
 
 @dataclass(frozen=True)
 class StoredRule:
-    """One rule as persisted in state.json.
+    """
+    One rule as persisted in state.json.
 
     Fields:
         rule_id: rootd-stable UUID4 (caller-visible identifier).
@@ -109,7 +111,8 @@ class StoredRule:
 
 @dataclass(frozen=True)
 class StoredCgroup:
-    """One per-app cgroup leaf as persisted in state.json (ADR 046 §3 / P2.2).
+    """
+    One per-app cgroup leaf as persisted in state.json (ADR 046 §3 / P2.2).
 
     Records the kernel-form caps so reconcile can re-assert the leaf after a
     rootd restart. PIDs are *not* stored — they belong to the Emperor and are
@@ -149,7 +152,8 @@ class StoredCgroup:
 
 @dataclass(frozen=True)
 class StoredMount:
-    """One volume mount as persisted in state.json (ADR 046 §2 / P2.1).
+    """
+    One volume mount as persisted in state.json (ADR 046 §2 / P2.1).
 
     ``type`` is ``"tmpfs"`` or ``"bind"``; ``source`` is the host path for a
     bind, None for tmpfs. Identified by (app_name, target).
@@ -188,7 +192,8 @@ class StoredMount:
 
 @dataclass(frozen=True)
 class StoredProxy:
-    """One addon-exposure TCP forwarder as persisted in state.json.
+    """
+    One addon-exposure TCP forwarder as persisted in state.json.
 
     A ``systemd-socket-proxyd`` unit pair forwarding ``0.0.0.0:public_port`` →
     ``127.0.0.1:target_port`` for an addon. Identified by (addon_type,
@@ -235,7 +240,8 @@ class StoredProxy:
 
 @dataclass
 class State:
-    """In-memory snapshot of rootd's persistent state.
+    """
+    In-memory snapshot of rootd's persistent state.
 
     Mutable on purpose — the daemon updates it as ops apply. Use `to_dict`
     when persisting.
@@ -288,7 +294,8 @@ def _parse_version(obj: dict[str, Any], path: Path) -> int:
 
 
 def _parse_entries(raw: Any, name: str, parse: Callable[[Any, str], Any]) -> list[Any]:
-    """Validate ``raw`` is a list, then build each entry via ``parse(item, path)``.
+    """
+    Validate ``raw`` is a list, then build each entry via ``parse(item, path)``.
 
     ``path`` passed to ``parse`` is ``"<name>[<i>]"`` so corruption errors name
     the exact entry (e.g. ``"rules[2] is malformed"``).
@@ -299,7 +306,8 @@ def _parse_entries(raw: Any, name: str, parse: Callable[[Any, str], Any]) -> lis
 
 
 def load(path: Path = DEFAULT_STATE_PATH) -> State:
-    """Read and parse state.json. Strict — any error is fatal.
+    """
+    Read and parse state.json. Strict — any error is fatal.
 
     Raises:
         StateMissingError: file does not exist.
@@ -333,7 +341,8 @@ def load(path: Path = DEFAULT_STATE_PATH) -> State:
 
 
 def save(state: State, path: Path = DEFAULT_STATE_PATH) -> None:
-    """Atomic write of state.json (tmp + fsync + rename + chmod 0o600).
+    """
+    Atomic write of state.json (tmp + fsync + rename + chmod 0o600).
 
     The chmod pins file perms regardless of umask — the StateDirectory
     already gates external access in production, but standalone /

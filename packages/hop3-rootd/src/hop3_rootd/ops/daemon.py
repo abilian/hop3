@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""Daemon introspection ops: handshake, health.
+"""
+Daemon introspection ops: handshake, health.
 
 These ops have no side-effects and require no privileges. They exist
 to support the wire protocol's version handshake (first message on
@@ -22,7 +23,8 @@ from hop3_rootd.protocol import Request
 
 @register("daemon.handshake", audit=False)
 def handshake(_req: Request, _ctx: OpContext) -> dict[str, Any]:
-    """First message on every connection. Verifies protocol-version compat.
+    """
+    First message on every connection. Verifies protocol-version compat.
 
     `_req.v` is already validated against PROTOCOL_VERSION at decode time;
     if we got here, versions match. The optional `client_version` and

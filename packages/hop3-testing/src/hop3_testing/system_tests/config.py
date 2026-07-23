@@ -206,7 +206,8 @@ def load_config(
     config_file: Path | None = None,
     cli_overrides: dict | None = None,
 ) -> Config:
-    """Load configuration with CLI overrides.
+    """
+    Load configuration with CLI overrides.
 
     Priority (highest to lowest):
     1. CLI arguments

@@ -22,7 +22,8 @@ if TYPE_CHECKING:
 @register
 @dataclass(frozen=True)
 class PortsCmd(Command):
-    """List the fixed host ports apps have claimed.
+    """
+    List the fixed host ports apps have claimed.
 
     Non-HTTP apps declare the ports they bind directly via [[ports]] in
     hop3.toml. Each becomes a host-wide claim: exactly one app can own a

@@ -58,8 +58,10 @@ def test_clojure_toolchain(app_path):
 
 
 class TestNodeVersionDeclaration:
-    """Guard rails for the `[build].node-version` field bridging
-    through to NODE_VERSION (consumed by install_node + nodeenv)."""
+    """
+    Guard rails for the `[build].node-version` field bridging
+    through to NODE_VERSION (consumed by install_node + nodeenv).
+    """
 
     def _ctx(self, app_path, app_config):
         src = app_path / "src"
@@ -91,8 +93,10 @@ class TestNodeVersionDeclaration:
         assert tc._get_declared_node_version() is None
 
     def test_version_coerced_to_string(self, app_path):
-        """Version may be declared as a number in TOML; coerce to str
-        so it can flow through env-var plumbing."""
+        """
+        Version may be declared as a number in TOML; coerce to str
+        so it can flow through env-var plumbing.
+        """
         ctx = self._ctx(
             app_path,
             app_config={"hop3_config": {"build": {"node-version": 22}}},
@@ -102,10 +106,12 @@ class TestNodeVersionDeclaration:
 
 
 class TestRustToolchainBuild:
-    """Guard rails for the two rust.py fixes: raise on cargo failure
+    """
+    Guard rails for the two rust.py fixes: raise on cargo failure
     (was: silently continue with a fake artifact, leaving a useless
     "target/release/<bin>: No such file" at runtime) and honour
-    `[build].build` from hop3.toml (other toolchains already do)."""
+    `[build].build` from hop3.toml (other toolchains already do).
+    """
 
     def _spec_with_cargo_result(
         self, app_path, monkeypatch, returncode, app_config=None
@@ -149,8 +155,10 @@ class TestRustToolchainBuild:
         assert toolchain.build() is not None
 
     def test_custom_build_command_honoured(self, app_path, monkeypatch):
-        """[build].build = 'cargo build --release --features sqlite' should
-        override the default `cargo build --release`."""
+        """
+        [build].build = 'cargo build --release --features sqlite' should
+        override the default `cargo build --release`.
+        """
         toolchain, captured = self._spec_with_cargo_result(
             app_path,
             monkeypatch,

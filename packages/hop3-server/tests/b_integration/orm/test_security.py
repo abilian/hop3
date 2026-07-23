@@ -26,7 +26,8 @@ def db_session():
 
 
 def test_user_password_hashing(db_session: Session):
-    """Test password hashing and verification.
+    """
+    Test password hashing and verification.
 
     NB: slow test due to hashing computation.
     """

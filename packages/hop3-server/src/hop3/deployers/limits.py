@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Resource-limit resolution + mapping (ADR 046 §3 / P2.2) — functional core.
+"""
+Resource-limit resolution + mapping (ADR 046 §3 / P2.2) — functional core.
 
 Pure transforms, no I/O: resolve a declared ``[limits]`` against the operator's
 server-wide defaults and ceilings, and map the result to the cgroup-native form
@@ -33,7 +34,8 @@ _CPU_PERIOD_US: Final[int] = 100_000
 
 
 class LimitsError(Exception):
-    """A declared/defaulted limit is invalid or exceeds the server ceiling.
+    """
+    A declared/defaulted limit is invalid or exceeds the server ceiling.
 
     Raised by the functional core; the deployer turns it into a loud deploy
     abort (a declared cap that can't be honored must never be silently dropped
@@ -84,7 +86,8 @@ def resolve_limits(
     defaults: dict[str, Any],
     ceilings: dict[str, Any],
 ) -> ResolvedLimits:
-    """Resolve effective caps: declared wins, else the server default; abort if
+    """
+    Resolve effective caps: declared wins, else the server default; abort if
     over the ceiling.
 
     Per-dimension and independent: an app may declare only ``memory`` and take

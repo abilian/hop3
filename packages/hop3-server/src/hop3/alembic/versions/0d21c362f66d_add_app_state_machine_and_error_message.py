@@ -1,5 +1,6 @@
 # Copyright (c) 2025, Abilian SAS
-"""add_app_state_machine_and_error_message
+"""
+add_app_state_machine_and_error_message
 
 Revision ID: 0d21c362f66d
 Revises: d20dd80dafca
@@ -31,7 +32,8 @@ def _app_has_column(name: str) -> bool:
 
 
 def upgrade() -> None:
-    """Upgrade schema to add error_message column and update state enum values.
+    """
+    Upgrade schema to add error_message column and update state enum values.
 
     Changes:
     - Add error_message column to app table

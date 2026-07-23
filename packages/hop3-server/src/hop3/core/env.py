@@ -14,7 +14,8 @@ from hop3.lib.settings import parse_settings
 
 
 class Env(Mapping[str, str]):
-    """Provides a dictionary-like environment variable handler with additional
+    """
+    Provides a dictionary-like environment variable handler with additional
     utility methods.
 
     This allows for storing, retrieving, and managing environment

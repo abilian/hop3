@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Template-based hop3.nix generator.
+"""
+Template-based hop3.nix generator.
 
 Generates Nix expressions from declarative AppSpec specifications,
 implementing ADR 008 (Template-Based Nix Expression Generation).

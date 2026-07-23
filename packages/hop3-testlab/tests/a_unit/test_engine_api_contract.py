@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""The hop3-testing (engine) API surface the Test Lab imports (ADR 052 Phase 0).
+"""
+The hop3-testing (engine) API surface the Test Lab imports (ADR 052 Phase 0).
 
 The Lab reaches into engine internals that CLI deprecation aliases don't cover.
 ADR 052 refactors the engine (e.g. collapses the cloud deploy wrapper); these

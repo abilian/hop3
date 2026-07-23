@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Run-to-run comparison (the morning regressions diff).
+"""
+Run-to-run comparison (the morning regressions diff).
 
 Pure functions over result records, so they're unit-testable without a DB.
 """
@@ -47,7 +48,8 @@ def predict_progress(
     history_durations: list[float],
     history_totals: list[int],
 ) -> RunProgress:
-    """Estimate a running suite's progress + ETA from history (pure, DB-free).
+    """
+    Estimate a running suite's progress + ETA from history (pure, DB-free).
 
     ``done`` is the number of tests finished so far (the running run's growing
     ``total_tests``). History is the durations/test-counts of recent *completed*
@@ -93,8 +95,10 @@ def predict_progress(
 
 
 def _is_true_failure(r: TestResultRecord) -> bool:
-    """A real failure — not xfail/xpass (negative tests). Falls back to ``passed``
-    for legacy rows / stubs without a status."""
+    """
+    A real failure — not xfail/xpass (negative tests). Falls back to ``passed``
+    for legacy rows / stubs without a status.
+    """
     status = getattr(r, "status", None)
     if status:
         return status == "fail"
@@ -105,7 +109,8 @@ def diff_results(
     current: Iterable[TestResultRecord],
     previous: Iterable[TestResultRecord],
 ) -> RunDiff:
-    """Compare two runs, considering ONLY tests run in both (xfail/xpass excluded).
+    """
+    Compare two runs, considering ONLY tests run in both (xfail/xpass excluded).
 
     A test that failed before but wasn't re-run is NOT "fixed" — it's ``not_run``.
     Comparing only the intersection keeps regressions/fixed/still-failing accurate
@@ -131,8 +136,10 @@ def diff_results(
 def suite_rollup(
     results: Iterable[TestResultRecord],
 ) -> dict[str, dict[str, int]]:
-    """Group results by category -> counts. Only true failures count as failed;
-    xfail/xpass land in ``passed`` (the run isn't red for them)."""
+    """
+    Group results by category -> counts. Only true failures count as failed;
+    xfail/xpass land in ``passed`` (the run isn't red for them).
+    """
     rollup: dict[str, dict[str, int]] = {}
     for r in results:
         bucket = rollup.setdefault(
@@ -144,7 +151,8 @@ def suite_rollup(
 
 
 def flakiness_ranking(history: dict[str, list[bool]]) -> list[tuple[str, int]]:
-    """Rank tests by how often they flip pass<->fail across runs (most first).
+    """
+    Rank tests by how often they flip pass<->fail across runs (most first).
 
     ``history`` maps a test name to its pass/fail outcomes in run order
     (oldest first). Tests that never flipped are omitted.

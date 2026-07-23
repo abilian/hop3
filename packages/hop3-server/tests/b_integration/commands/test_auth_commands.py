@@ -332,7 +332,8 @@ def test_auth_magic_link_rejects_non_admin(user_repo: UserRepository, test_user:
 def test_auth_magic_link_pass_username_blocks_spoofed_admin(
     user_repo: UserRepository, test_user: User
 ):
-    """A1 regression: the admin gate must read the VERIFIED caller, not arg1.
+    """
+    A1 regression: the admin gate must read the VERIFIED caller, not arg1.
 
     The privesc was that ``AuthMagicLinkCmd`` lacked ``pass_username``, so the
     RPC layer never injected the caller's verified identity and the

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Deliverability pre-flight for the email addon — SPF/DKIM/DMARC DNS checks.
+"""
+Deliverability pre-flight for the email addon — SPF/DKIM/DMARC DNS checks.
 
 Hop3 relays through the operator's provider; whether mail reaches the inbox is
 gated by DNS on the From-domain, not by Hop3. This module does a best-effort
@@ -42,7 +43,8 @@ class DnsCheck:
 
 
 def lookup_txt(name: str) -> list[str] | None:
-    """TXT records for ``name``, or None when no resolver is available.
+    """
+    TXT records for ``name``, or None when no resolver is available.
 
     Uses ``dig`` (no new dependency). A missing ``dig``, a non-zero exit, or a
     timeout returns None — "unknown", distinct from an empty list ("no records")
@@ -93,7 +95,8 @@ def check_dmarc(domain: str) -> DnsCheck:
 
 
 def check_dkim(domain: str, selector: str) -> DnsCheck:
-    """Look for a DKIM record at ``<selector>._domainkey.<domain>``.
+    """
+    Look for a DKIM record at ``<selector>._domainkey.<domain>``.
 
     DKIM records don't reliably start with ``v=DKIM1`` (it's optional), but a
     valid one always carries the public key (``p=``). Any TXT with ``p=`` (or an

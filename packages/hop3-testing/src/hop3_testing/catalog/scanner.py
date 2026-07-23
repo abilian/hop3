@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Test catalog scanner.
+"""
+Test catalog scanner.
 
 Discovers test.toml files and hop3.toml-based test apps to build a unified catalog.
 """
@@ -55,7 +56,8 @@ def _has_executable_blocks(md_path: Path) -> bool:
 
 
 def default_scan_paths(root: Path) -> list[str]:
-    """Default catalog scan set: every ``apps/`` subdir, ``demos/``, tutorials.
+    """
+    Default catalog scan set: every ``apps/`` subdir, ``demos/``, tutorials.
 
     The single source of truth for "what to scan when no paths are given",
     shared by the ``hop3-test`` CLI and the Test Lab (which used to keep its own
@@ -82,7 +84,8 @@ def default_scan_paths(root: Path) -> list[str]:
 
 
 class Catalog:
-    """Discovers and indexes all tests in the project.
+    """
+    Discovers and indexes all tests in the project.
 
     The catalog discovers test apps by scanning explicitly provided paths.
     Any subdirectory containing hop3.toml or test.toml files is included.
@@ -90,7 +93,8 @@ class Catalog:
     """
 
     def __init__(self, root: Path | None = None):
-        """Initialize the catalog.
+        """
+        Initialize the catalog.
 
         Args:
             root: Project root directory. If None, auto-detect.
@@ -120,7 +124,8 @@ class Catalog:
         return Path.cwd()
 
     def scan(self, paths: list[str] | None = None) -> None:
-        """Scan directories for test definitions.
+        """
+        Scan directories for test definitions.
 
         Args:
             paths: Explicit paths to scan (relative to root). Required.
@@ -152,7 +157,8 @@ class Catalog:
         )
 
     def _has_demo_ancestor(self, path: Path, root: Path) -> bool:
-        """True if ``path`` sits inside a demo directory (one with demo-script.py).
+        """
+        True if ``path`` sits inside a demo directory (one with demo-script.py).
 
         A demo's inner ``app/`` (``demos/demoNN/app/``, carrying its own
         ``hop3.toml``) is the demo's private deploy target, driven by
@@ -180,7 +186,8 @@ class Catalog:
         return False
 
     def _is_deferred_business_drop(self, app_dir: Path) -> bool:
-        """True only for a deploys-fine business-drop under apps/bad/** — a
+        """
+        True only for a deploys-fine business-drop under apps/bad/** — a
         DEFERRED.md that explicitly marks itself "not a platform limitation".
 
         Such apps are skipped from the run (they aren't negative tests). A
@@ -200,7 +207,8 @@ class Catalog:
         return _BUSINESS_DROP_MARKER in text
 
     def _scan_directory(self, path: Path, rel_path: str) -> None:  # ruff:ignore[complex-structure, too-many-branches]
-        """Scan a single directory for tests.
+        """
+        Scan a single directory for tests.
 
         Scans for:
         1. test.toml files (explicit test definitions)
@@ -259,7 +267,8 @@ class Catalog:
         self._scan_tutorials(path, rel_path)
 
     def _scan_tutorials(self, path: Path, rel_path: str) -> None:
-        """Discover literate tutorial markdown files (validoc-driven).
+        """
+        Discover literate tutorial markdown files (validoc-driven).
 
         Restricted to tutorials trees so app/demo READMEs aren't mistaken for
         tutorials.
@@ -300,7 +309,8 @@ class Catalog:
             self._errors.append((md_path, str(e)))
 
     def _load_test_smart(self, app_dir: Path) -> None:
-        """Load a test using smart loading (hop3.toml + test.toml).
+        """
+        Load a test using smart loading (hop3.toml + test.toml).
 
         This method tries to load from hop3.toml first, falling back to
         test.toml, and finally generating from app structure.
@@ -316,7 +326,8 @@ class Catalog:
             self._errors.append((app_dir, str(e)))
 
     def _add_test(self, test_def: TestDefinition) -> None:
-        """Add a test to the catalog.
+        """
+        Add a test to the catalog.
 
         The test name is derived from its path relative to the project root,
         ensuring uniqueness even when apps in different directories share
@@ -365,7 +376,8 @@ class Catalog:
         return self._tests.get(name)
 
     def get_test_by_path(self, path: Path) -> TestDefinition | None:
-        """Get a test by its directory path.
+        """
+        Get a test by its directory path.
 
         Args:
             path: Path to the test directory (can be relative or absolute)
@@ -402,7 +414,8 @@ class Catalog:
         tags: list[str] | None = None,
         name_pattern: str | None = None,
     ) -> list[TestDefinition]:
-        """Filter tests by multiple criteria.
+        """
+        Filter tests by multiple criteria.
 
         Args:
             tiers: Filter by tier (fast, medium, slow, very-slow)

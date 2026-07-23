@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Deploy-time Nix closure-integrity pre-flight (M2.2 runtime hardening).
+"""
+Deploy-time Nix closure-integrity pre-flight (M2.2 runtime hardening).
 
 A nix wrapper execs hardcoded `/nix/store` paths; if a garbage-collect reclaimed
 one (the forgejo class), the worker dies "No such file or directory" and only
@@ -37,8 +38,10 @@ def _nix_launcher(worker_cmd: str, *, kind: str = "nix") -> AppLauncher:
 
 
 def _patch_exists(monkeypatch, *, present: set[str], absent: set[str]) -> None:
-    """Force existence for our fake store paths; defer to the real check for
-    everything else (so pytest's own file access is unaffected)."""
+    """
+    Force existence for our fake store paths; defer to the real check for
+    everything else (so pytest's own file access is unaffected).
+    """
     real = os.path.exists
 
     def fake(p):

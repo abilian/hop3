@@ -83,14 +83,16 @@ class TargetInfo:
 
 
 class DeploymentTarget(ABC):
-    """Abstract base class for deployment targets.
+    """
+    Abstract base class for deployment targets.
 
     A deployment target represents a Hop3 server where applications can be
     deployed and tested. This could be a Docker container, a VM, or a remote server.
     """
 
     def __init__(self, config: dict[str, Any] | None = None):
-        """Initialize the deployment target.
+        """
+        Initialize the deployment target.
 
         Args:
             config: Configuration dictionary for the target
@@ -100,7 +102,8 @@ class DeploymentTarget(ABC):
 
     @abstractmethod
     def start(self) -> TargetInfo:
-        """Start the deployment target.
+        """
+        Start the deployment target.
 
         Returns:
             TargetInfo with connection details
@@ -112,7 +115,8 @@ class DeploymentTarget(ABC):
 
     @property
     def info(self) -> TargetInfo:
-        """Get target information.
+        """
+        Get target information.
 
         Returns:
             TargetInfo with connection details
@@ -126,7 +130,8 @@ class DeploymentTarget(ABC):
         return self._info
 
     def exec_run(self, cmd: str | list[str]) -> tuple[int, str, str]:
-        """Execute a command on the target.
+        """
+        Execute a command on the target.
 
         Args:
             cmd: Command to execute (string or list)
@@ -138,7 +143,8 @@ class DeploymentTarget(ABC):
         raise NotImplementedError(msg)
 
     def redeploy(self, config: DeploymentConfig) -> None:
-        """Re-deploy Hop3 to this already-started target (in-place update).
+        """
+        Re-deploy Hop3 to this already-started target (in-place update).
 
         Runs another ``hop3-deploy-server`` against the SAME box without
         recreating it, so it exercises the deployer's update path (install the
@@ -150,7 +156,8 @@ class DeploymentTarget(ABC):
         raise NotImplementedError(msg)
 
     def upload_file(self, local_path: Path | str, remote_path: str) -> None:
-        """Copy a single local file onto the target.
+        """
+        Copy a single local file onto the target.
 
         Used by the on-server tutorial runner to place a tutorial markdown file
         on the box before invoking validoc there. Targets that can't accept an
@@ -164,7 +171,8 @@ class DeploymentTarget(ABC):
         raise NotImplementedError(msg)
 
     def run_command(self, *args: str, timeout: int = 300) -> CommandResult:
-        """Run a hop3 command on the target.
+        """
+        Run a hop3 command on the target.
 
         Args:
             *args: Command and arguments (e.g., "backup", "create", "my-app")
@@ -228,7 +236,8 @@ class DeploymentTarget(ABC):
         hard_floor_pct: int | None = None,
         cache_ceiling: str | None = None,
     ) -> None:
-        """Reclaim disk on the target when free space runs low.
+        """
+        Reclaim disk on the target when free space runs low.
 
         Pressure-gated, two-tier and cache-preserving:
 
@@ -317,7 +326,8 @@ class DeploymentTarget(ABC):
         env_vars: dict[str, str] | None = None,
         timeout: int = 300,
     ) -> DeployResult:
-        """Deploy an application to the target.
+        """
+        Deploy an application to the target.
 
         This is a high-level method that creates a tarball and deploys via hop3.
 
@@ -385,7 +395,8 @@ class DeploymentTarget(ABC):
                 tarball_path.unlink()
 
     def destroy_app(self, app_name: str) -> None:
-        """Destroy a deployed application.
+        """
+        Destroy a deployed application.
 
         Args:
             app_name: Name of the app to destroy
@@ -399,7 +410,8 @@ class DeploymentTarget(ABC):
             raise DeploymentError(msg)
 
     def get_app_url(self, app_name: str) -> str:
-        """Get the URL for an application.
+        """
+        Get the URL for an application.
 
         Args:
             app_name: Name of the application
@@ -418,7 +430,8 @@ class DeploymentTarget(ABC):
         body: str | None = None,
         timeout: int = 30,
     ) -> HttpResponse:
-        """Make an HTTP request to the target.
+        """
+        Make an HTTP request to the target.
 
         Args:
             method: HTTP method (GET, POST, etc.)
@@ -469,7 +482,8 @@ class DeploymentTarget(ABC):
         timeout: int = 60,
         poll_interval: int = 2,
     ) -> bool:
-        """Wait for an application to be running.
+        """
+        Wait for an application to be running.
 
         Args:
             app_name: Name of the application

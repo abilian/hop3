@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Integration tests for server-side CLI admin commands.
+"""
+Integration tests for server-side CLI admin commands.
 
 This module tests admin CLI commands using state-based testing approach:
 - Uses real database instead of mocks
@@ -38,7 +39,8 @@ class TestAdminCreateIntegration:
     """Integration tests for admin:create command using state-based testing."""
 
     def test_create_admin_success(self, db_session: Session, monkeypatch):
-        """Test successful admin user creation with real database.
+        """
+        Test successful admin user creation with real database.
 
         ARRANGE:
             - Set up test environment with secret key
@@ -113,7 +115,8 @@ class TestAdminCreateIntegration:
         assert "API Token" in output or "Token:" in output
 
     def test_create_admin_password_stdin(self, db_session: Session, monkeypatch):
-        """Test admin creation with password from stdin.
+        """
+        Test admin creation with password from stdin.
 
         This tests automation scenario where password is piped in.
         """
@@ -229,7 +232,8 @@ class TestAdminTokenIntegration:
     def test_generate_token_success(
         self, db_session: Session, sample_user: User, monkeypatch
     ):
-        """Test successful token generation.
+        """
+        Test successful token generation.
 
         ARRANGE:
             - Set up test environment with secret key
@@ -293,7 +297,8 @@ class TestAdminListIntegration:
     def test_list_users_success(
         self, db_session: Session, sample_user: User, monkeypatch
     ):
-        """Test listing users.
+        """
+        Test listing users.
 
         ARRANGE:
             - Set up test environment with secret key
@@ -344,7 +349,8 @@ class TestAdminResetPasswordIntegration:
     def test_reset_password_success(
         self, db_session: Session, sample_user: User, monkeypatch
     ):
-        """Test successful password reset.
+        """
+        Test successful password reset.
 
         ARRANGE:
             - Set up test environment with secret key
@@ -397,7 +403,8 @@ class TestAdminResetPasswordIntegration:
     def test_reset_password_stdin(
         self, db_session: Session, sample_user: User, monkeypatch
     ):
-        """Test password reset with stdin.
+        """
+        Test password reset with stdin.
 
         This tests automation scenario where password is piped in.
         """

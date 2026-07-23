@@ -73,8 +73,10 @@ class TestLoaderParsesStatusIn:
         assert v.expect.status == 200
 
     def test_ints_coerced_from_toml_floats(self):
-        """If TOML emits an array of ints as int types (expected),
-        they survive. Testing defensive int() coercion."""
+        """
+        If TOML emits an array of ints as int types (expected),
+        they survive. Testing defensive int() coercion.
+        """
         data = {"type": "http", "status_in": [200, 202]}
         v = _parse_validation(data)
         status_in = v.expect.status_in

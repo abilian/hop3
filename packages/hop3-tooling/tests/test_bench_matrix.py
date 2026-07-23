@@ -27,7 +27,8 @@ from hop3_tooling.bench.report import render_matrix
 
 
 class TestLoadCorpus:
-    """The corpus comes from the committed pre-registration, never a duplicate
+    """
+    The corpus comes from the committed pre-registration, never a duplicate
     list in the runner — otherwise a run can drift from what was pre-registered.
     """
 
@@ -60,8 +61,10 @@ class TestLoadCorpus:
 
 
 class TestReasonFrom:
-    """A failure whose cause was discarded is a silent skip; the per-variant
-    reasons are the point of the exercise."""
+    """
+    A failure whose cause was discarded is a silent skip; the per-variant
+    reasons are the point of the exercise.
+    """
 
     def test_prefers_the_precise_cause(self):
         log = "noise\nERROR: deploying app failed: build died\nmore noise"
@@ -99,8 +102,10 @@ def test_recipe_dir_maps_variant_to_apps_tree():
 
 
 class TestServerId:
-    """The bench targets one dedicated box, named by the environment — never a
-    hardcoded id, and never a box it creates."""
+    """
+    The bench targets one dedicated box, named by the environment — never a
+    hardcoded id, and never a box it creates.
+    """
 
     def test_comes_from_the_environment(self, monkeypatch):
         monkeypatch.setenv(SERVER_ID_ENVVAR, "424242")
@@ -137,9 +142,11 @@ class TestCell:
 
 
 class TestHcloudEnv:
-    """Hop3 sets HETZNER_API_TOKEN; the hcloud CLI reads HCLOUD_TOKEN. Without
+    """
+    Hop3 sets HETZNER_API_TOKEN; the hcloud CLI reads HCLOUD_TOKEN. Without
     bridging them, hcloud falls back to its stored context and a rotated token
-    shows up as a baffling 'unauthorized'."""
+    shows up as a baffling 'unauthorized'.
+    """
 
     def test_bridges_the_hop3_token_to_hclouds_name(self):
         env = hcloud_env({"HETZNER_API_TOKEN": "tok"})
@@ -155,9 +162,11 @@ class TestHcloudEnv:
 
 
 class TestAnchor:
-    """Output paths default to repo-relative. Leaving them relative crashed the
+    """
+    Output paths default to repo-relative. Leaving them relative crashed the
     first failed cell: `log_file.relative_to(root)` raised ValueError because the
-    log path was relative while the root was absolute."""
+    log path was relative while the root was absolute.
+    """
 
     def test_relative_path_is_anchored_to_the_repo(self):
         root = Path("/repo")
@@ -177,9 +186,11 @@ class TestAnchor:
 
 
 class TestReasonFromRealLogs:
-    """Regression: the first matrix run reported the harness's own chatter
+    """
+    Regression: the first matrix run reported the harness's own chatter
     ("Re-running 1 previously-failed test(s) first") as the failure cause,
-    because the fallback matched any line containing "failed"."""
+    because the fallback matched any line containing "failed".
+    """
 
     def test_prefers_the_deploy_cause_over_generic_exit_code(self):
         log = (
@@ -245,9 +256,11 @@ class TestRenderMatrix:
 
 
 class TestAppendGuard:
-    """Results files are date-named, so a same-day re-run collides. Appending
+    """
+    Results files are date-named, so a same-day re-run collides. Appending
     would blend two runs — different box state — into one file that reads like a
-    single measurement. The guard fires before any box operation."""
+    single measurement. The guard fires before any box operation.
+    """
 
     def test_refuses_to_write_into_an_existing_results_file(
         self, tmp_path, monkeypatch

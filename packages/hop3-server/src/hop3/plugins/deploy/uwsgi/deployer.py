@@ -68,7 +68,8 @@ class UWSGIDeployer:
         }
 
     def deploy(self, deltas: dict[str, int] | None = None) -> DeploymentInfo:
-        """Deploy the app using uWSGI.
+        """
+        Deploy the app using uWSGI.
 
         Handles both fresh deployments and redeployments:
         - STOPPED -> STARTING -> RUNNING (fresh deploy)
@@ -110,7 +111,8 @@ class UWSGIDeployer:
         self.deploy({})
 
     def stop(self) -> None:
-        """Stops the app by removing its uWSGI .ini files from the enabled directory.
+        """
+        Stops the app by removing its uWSGI .ini files from the enabled directory.
 
         After removing config files, waits for old processes to terminate.
         This ensures the uWSGI Emperor fully cleans up the old vassal,
@@ -195,7 +197,8 @@ class UWSGIDeployer:
         self.deploy(deltas)
 
     def check_status(self) -> bool:
-        """Check if the deployed uWSGI application is actually running.
+        """
+        Check if the deployed uWSGI application is actually running.
 
         Returns:
             True if processes are confirmed running, False otherwise.

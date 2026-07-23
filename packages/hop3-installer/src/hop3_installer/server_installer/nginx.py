@@ -31,7 +31,8 @@ from .config import ServerInstallerConfig
 
 
 def _disable_conflicting_webservers() -> None:
-    """Disable Apache and other webservers that conflict with Nginx.
+    """
+    Disable Apache and other webservers that conflict with Nginx.
 
     Apache is often installed as a dependency of PHP packages (libapache2-mod-php).
     We need to stop and disable it to prevent port 80/443 conflicts with Nginx.

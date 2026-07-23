@@ -8,7 +8,8 @@
 # handle they coordinate over. A Dishka provider would have to express
 # both lifecycle and the start/stop API; the current shape is simpler.
 
-"""Background service for synchronizing app states with reality.
+"""
+Background service for synchronizing app states with reality.
 
 This service periodically checks apps in transitional states (STARTING, STOPPING)
 and updates them to their final states (RUNNING, STOPPED, FAILED) based on
@@ -31,7 +32,8 @@ if TYPE_CHECKING:
 
 
 class StateSyncService:
-    """Background service that syncs transitional app states with reality.
+    """
+    Background service that syncs transitional app states with reality.
 
     This service runs in a background thread and periodically:
     1. Finds all apps in STARTING or STOPPING state
@@ -51,7 +53,8 @@ class StateSyncService:
         interval: float = 3.0,
         timeout: float = 60.0,
     ):
-        """Initialize the state sync service.
+        """
+        Initialize the state sync service.
 
         Args:
             session_factory: Factory function that creates database sessions
@@ -87,7 +90,8 @@ class StateSyncService:
         log("State sync service started", level=1, fg="green")
 
     def stop(self, timeout: float = 5.0) -> None:
-        """Stop the background sync thread.
+        """
+        Stop the background sync thread.
 
         Args:
             timeout: Max seconds to wait for thread to stop
@@ -121,7 +125,8 @@ class StateSyncService:
                 self.reattach_native_limits(session)
 
     def reattach_native_limits(self, session: Session) -> None:
-        """Re-assert cgroup caps on RUNNING native-capped apps (ADR 046 §3).
+        """
+        Re-assert cgroup caps on RUNNING native-capped apps (ADR 046 §3).
 
         Idempotent insurance against a whole-vassal respawn or a rootd restart
         leaving a running app outside its leaf. Best-effort and read-only on the
@@ -138,7 +143,8 @@ class StateSyncService:
                 reattach_native_limits(app.name)
 
     def sync_transitional_apps(self, session: Session) -> int:
-        """Check all apps in transitional states and update them.
+        """
+        Check all apps in transitional states and update them.
 
         This method is public to allow direct testing without threading.
 
@@ -159,7 +165,8 @@ class StateSyncService:
         return synced_count
 
     def _sync_app(self, app: App) -> bool:
-        """Sync a single app's state with reality.
+        """
+        Sync a single app's state with reality.
 
         Args:
             app: The app to sync
@@ -176,7 +183,8 @@ class StateSyncService:
         return app.sync_state()
 
     def _is_timed_out(self, app: App) -> bool:
-        """Check if app has been in transitional state too long.
+        """
+        Check if app has been in transitional state too long.
 
         Args:
             app: The app to check
@@ -192,7 +200,8 @@ class StateSyncService:
         return elapsed > timedelta(seconds=self.timeout)
 
     def _handle_timeout(self, app: App) -> None:
-        """Handle an app that's been in transitional state too long.
+        """
+        Handle an app that's been in transitional state too long.
 
         Args:
             app: The timed-out app
@@ -251,7 +260,8 @@ def get_state_sync_service() -> StateSyncService | None:
 def start_state_sync_service(
     session_factory: Callable[[], Session],
 ) -> StateSyncService:
-    """Start the global state sync service.
+    """
+    Start the global state sync service.
 
     Args:
         session_factory: Factory function that creates database sessions

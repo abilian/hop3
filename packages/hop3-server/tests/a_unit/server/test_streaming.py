@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for deployment-log streaming identifiers (Wave 2 security fix).
+"""
+Tests for deployment-log streaming identifiers (Wave 2 security fix).
 
 Primary defense for the SSE endpoint lives at the controller: StreamController
 now requires auth_guard, so a token is needed. The stream_id change below is
@@ -22,9 +23,11 @@ from hop3.server.streaming import create_stream, get_stream
 
 
 def test_stream_id_is_full_uuid() -> None:
-    """stream_id must be a full UUIDv4 string (36 chars), not the old
+    """
+    stream_id must be a full UUIDv4 string (36 chars), not the old
     truncated 8-hex-char value. 2**32 combinations is trivial to brute
-    force once the endpoint is reachable."""
+    force once the endpoint is reachable.
+    """
     stream = create_stream("testapp")
 
     # Full UUIDv4 canonical form is 36 chars including hyphens.
@@ -35,8 +38,10 @@ def test_stream_id_is_full_uuid() -> None:
 
 
 def test_stream_ids_are_unique() -> None:
-    """Two streams created back-to-back don't collide. Cheap sanity
-    check that we didn't accidentally freeze the UUID source."""
+    """
+    Two streams created back-to-back don't collide. Cheap sanity
+    check that we didn't accidentally freeze the UUID source.
+    """
     ids = {create_stream(f"app{i}").stream_id for i in range(50)}
     assert len(ids) == 50
 
@@ -56,7 +61,8 @@ def test_get_stream_unknown_id_returns_none() -> None:
 
 @pytest.mark.asyncio
 async def test_cross_thread_notify_is_scheduled_on_the_loop() -> None:
-    """write()/finish() from the deploy's background OS thread must be routed
+    """
+    write()/finish() from the deploy's background OS thread must be routed
     onto the consumer's event loop via ``call_soon_threadsafe``.
 
     Regression: asyncio.Queue is not thread-safe. A bare cross-thread

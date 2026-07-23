@@ -59,7 +59,8 @@ class DeploymentManager:
         verbose: bool = False,
         console: Console | None = None,
     ):
-        """Initialize deployment manager.
+        """
+        Initialize deployment manager.
 
         Args:
             host: Target server hostname or IP.
@@ -77,7 +78,8 @@ class DeploymentManager:
         self._log_buffer: list[str] = []
 
     def clone_repo(self, target_dir: Path | None = None) -> Path:
-        """Clone the Hop3 repository.
+        """
+        Clone the Hop3 repository.
 
         Args:
             target_dir: Directory to clone into. Creates temp dir if None.
@@ -137,7 +139,8 @@ class DeploymentManager:
         return target_dir
 
     def deploy(self) -> DeploymentResult:
-        """Run hop3-deploy-server to install Hop3 on the target server.
+        """
+        Run hop3-deploy-server to install Hop3 on the target server.
 
         Returns:
             DeploymentResult with outcome and logs.
@@ -214,7 +217,8 @@ class DeploymentManager:
         timeout: int = 60,
         retries: int = 6,
     ) -> tuple[bool, str]:
-        """Verify that hop3-server is running and responding.
+        """
+        Verify that hop3-server is running and responding.
 
         Checks:
         1. GET / - should redirect (302/303) to /auth/login or /dashboard
@@ -317,7 +321,8 @@ class DeploymentManager:
         return "\n".join(self._log_buffer)
 
     def _extract_error_message(self, stderr: str, stdout: str) -> str:
-        """Extract meaningful error message from deployment output.
+        """
+        Extract meaningful error message from deployment output.
 
         Args:
             stderr: Standard error output.
@@ -390,7 +395,8 @@ class DeploymentVerifier:
     """Verifies a Hop3 deployment is working correctly."""
 
     def __init__(self, host: str, port: int = 8000):
-        """Initialize verifier.
+        """
+        Initialize verifier.
 
         Args:
             host: Server hostname or IP.
@@ -401,7 +407,8 @@ class DeploymentVerifier:
         self.base_url = f"http://{host}:{port}"
 
     def check_root(self, timeout: int = 30) -> bool:
-        """Check server root endpoint (should redirect).
+        """
+        Check server root endpoint (should redirect).
 
         Args:
             timeout: Request timeout.
@@ -421,7 +428,8 @@ class DeploymentVerifier:
             return False
 
     def check_rpc(self, timeout: int = 30) -> bool:
-        """Check RPC endpoint is responding.
+        """
+        Check RPC endpoint is responding.
 
         Args:
             timeout: Request timeout.
@@ -454,7 +462,8 @@ class DeploymentVerifier:
             return False
 
     def run_all_checks(self) -> dict[str, bool]:
-        """Run all verification checks.
+        """
+        Run all verification checks.
 
         Returns:
             Dictionary of check name to result.
@@ -470,7 +479,8 @@ def create_deployment_manager(
     config: Config,
     repo_path: Path | None = None,
 ) -> DeploymentManager:
-    """Create a DeploymentManager instance.
+    """
+    Create a DeploymentManager instance.
 
     Factory function for dependency injection.
 

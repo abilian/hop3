@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Test Lab-owned tables: build profiles, the server pool, and the build queue.
+"""
+Test Lab-owned tables: build profiles, the server pool, and the build queue.
 
 The Lab is otherwise a read-client of the shared hop3-testing result store; these
 are the few tables it *owns* and writes. They live in the **same** database (one
@@ -60,7 +61,8 @@ class Profile(Base):
 
 
 class Server(Base):
-    """A pool entry — *where* a build can run. The dispatcher picks a free one.
+    """
+    A pool entry — *where* a build can run. The dispatcher picks a free one.
 
     ``target_id`` is what ``worker.run_once`` already takes (``docker`` | an SSH
     host | ``hetzner``); credentials stay in config, never in this row.
@@ -79,7 +81,8 @@ class Server(Base):
 
 
 class Credential(Base):
-    """A cloud-provider credential the worker uses to reach run targets.
+    """
+    A cloud-provider credential the worker uses to reach run targets.
 
     Secrets (``api_token``, ``private_key``) live here in the DB like other
     app-level secrets — redacted wherever displayed. ``load_cloud_config``
@@ -104,8 +107,10 @@ class Credential(Base):
 
 
 class BuildRequest(Base):
-    """A queued build. Start-build enqueues one (no target); the dispatcher
-    assigns a free pool server and records the resulting run."""
+    """
+    A queued build. Start-build enqueues one (no target); the dispatcher
+    assigns a free pool server and records the resulting run.
+    """
 
     __tablename__ = "testlab_build_request"
 

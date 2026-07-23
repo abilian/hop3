@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Command processing for the Hop3 CLI.
+"""
+Command processing for the Hop3 CLI.
 
 This package handles command parsing and local command execution:
 - local: Commands handled locally without server RPC

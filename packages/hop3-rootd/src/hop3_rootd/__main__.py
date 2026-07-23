@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""Entry point for hop3-rootd.
+"""
+Entry point for hop3-rootd.
 
 Run via `python -m hop3_rootd` or the `hop3-rootd` console script.
 
@@ -121,7 +122,8 @@ def _sd_notify(msg: str) -> None:
 
 
 def _startup_reconcile(state: State, state_path: Path) -> bool:
-    """Reconcile kernel state at startup. Return True to continue, False to abort.
+    """
+    Reconcile kernel state at startup. Return True to continue, False to abort.
 
     A *missing* nft backend is tolerated — the firewall subsystem degrades
     (firewall ops fail at call time, see server.dispatch) but the daemon stays
@@ -170,7 +172,8 @@ def _try_reconcile(
     unavailable_exc: type[Exception],
     error_exc: type[Exception],
 ) -> T | None:
-    """Run a non-fatal reconcile; on backend-missing or error, log + degrade.
+    """
+    Run a non-fatal reconcile; on backend-missing or error, log + degrade.
 
     Returns the report on success, or ``None`` when the backend was
     unavailable or errored (the caller then skips persist + log). An
@@ -200,7 +203,8 @@ def _try_reconcile(
 
 
 def _startup_reconcile_cgroups(state: State, state_path: Path) -> None:
-    """Re-assert cgroup leaves at startup. Non-fatal by design (ADR 046 P2.2).
+    """
+    Re-assert cgroup leaves at startup. Non-fatal by design (ADR 046 P2.2).
 
     A host without cgroup v2 degrades — declared limits stay unenforceable and
     fail loud at the next deploy — but the daemon keeps serving its proxy /
@@ -230,7 +234,8 @@ def _startup_reconcile_cgroups(state: State, state_path: Path) -> None:
 
 
 def _startup_reconcile_mounts(state: State, state_path: Path) -> None:
-    """Reconcile tracked volume mounts at startup. Non-fatal (ADR 046 P2.1).
+    """
+    Reconcile tracked volume mounts at startup. Non-fatal (ADR 046 P2.1).
 
     Makes state match reality (drops stale entries, unmounts orphans). Skipped when
     there is nothing tracked, so a volume-free host does no mountinfo work.
@@ -257,7 +262,8 @@ def _startup_reconcile_mounts(state: State, state_path: Path) -> None:
 
 
 def _startup_reconcile_proxies(state: State, state_path: Path) -> None:
-    """Reconcile addon-exposure forwarders at startup. Non-fatal by design.
+    """
+    Reconcile addon-exposure forwarders at startup. Non-fatal by design.
 
     Re-asserts stored forwarders and removes orphan ``hop3-expose-*`` units.
     Skipped when there is nothing tracked and no orphan units on disk, so an

@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 
 
 class DotNetToolchain(LanguageToolchain):
-    """Language toolchain for .NET projects.
+    """
+    Language toolchain for .NET projects.
 
     This is responsible for building .NET projects by checking for C# (.csproj)
     or F# (.fsproj) project files.

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Test that the SSE stream controller enforces authentication.
+"""
+Test that the SSE stream controller enforces authentication.
 
 Litestar's auth-guard invocation does not fire when the ASGI test client
 is used (this is a known-limitation explicitly documented in
@@ -18,10 +19,12 @@ from hop3.server.guards import auth_guard
 
 
 def test_stream_controller_registers_auth_guard() -> None:
-    """Regression test for the Wave 2 audit fix. Dropping this guard
+    """
+    Regression test for the Wave 2 audit fix. Dropping this guard
     makes /api/stream/{id} unauthenticated, letting anyone spy on live
     deploy logs --- and those logs routinely contain tokens, env vars,
-    and database URLs."""
+    and database URLs.
+    """
     assert hasattr(StreamController, "guards"), (
         "StreamController must declare guards; deploy logs leak secrets"
     )

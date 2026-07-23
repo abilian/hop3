@@ -116,7 +116,8 @@ class MySQLPlugin:
 
 
 class MySQLPluginProvider(Provider):
-    """DI provider for MySQL addon infrastructure.
+    """
+    DI provider for MySQL addon infrastructure.
 
     Provides MySQLAdmin for centralized MySQL configuration
     and connection management.
@@ -128,7 +129,8 @@ class MySQLPluginProvider(Provider):
 
     @provide
     def get_mysql_admin(self) -> MySQLAdmin:
-        """Provide MySQL administration interface.
+        """
+        Provide MySQL administration interface.
 
         Returns:
             MySQLAdmin instance configured from MYSQL_* environment variables
@@ -138,7 +140,8 @@ class MySQLPluginProvider(Provider):
 
 @hookimpl
 def get_di_providers() -> list:
-    """Register MySQL DI providers.
+    """
+    Register MySQL DI providers.
 
     This hook is called by the DI container during initialization
     to collect providers from all plugins.

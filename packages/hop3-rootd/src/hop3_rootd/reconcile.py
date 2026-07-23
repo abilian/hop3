@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""Startup reconciliation between state.json and the inet hop3 table.
+"""
+Startup reconciliation between state.json and the inet hop3 table.
 
 Five cases (ADR 041 §6 "Startup reconciliation"):
 
@@ -55,7 +56,8 @@ class ReconcileReport:
 
 
 def reconcile(state: State, *, exec: Exec = DEFAULT_EXEC) -> ReconcileReport:
-    """Reconcile in-memory state with kernel state. Mutates `state` in place.
+    """
+    Reconcile in-memory state with kernel state. Mutates `state` in place.
 
     Caller is responsible for persisting state.json after this returns.
 
@@ -177,7 +179,8 @@ class CgroupReconcileReport:
 
 
 def reconcile_cgroups(state: State) -> CgroupReconcileReport:
-    """Re-assert stored cgroup leaves and remove orphans at startup.
+    """
+    Re-assert stored cgroup leaves and remove orphans at startup.
 
     After a reboot the cgroupfs is empty (and the apps' PIDs are gone, to be
     respawned by the Emperor); re-creating each leaf with its caps means the
@@ -244,7 +247,8 @@ class MountReconcileReport:
 def reconcile_mounts(
     state: State, *, exec: Exec = DEFAULT_EXEC
 ) -> MountReconcileReport:
-    """Reconcile tracked mounts with reality at startup (ADR 046 §2).
+    """
+    Reconcile tracked mounts with reality at startup (ADR 046 §2).
 
     Mounts are *not* re-asserted here: after a reboot the cgroupfs/mountns is
     empty and the app's src/ may not exist yet — the next deploy re-mounts. So
@@ -306,7 +310,8 @@ class ProxyReconcileReport:
 def reconcile_proxies(
     state: State, *, exec: Exec = DEFAULT_EXEC
 ) -> ProxyReconcileReport:
-    """Re-assert stored addon forwarders and remove orphans at startup.
+    """
+    Re-assert stored addon forwarders and remove orphans at startup.
 
     Unit files persist on disk and an ``enable``d socket is started by systemd
     on boot, so this is belt-and-suspenders: re-write+enable each stored

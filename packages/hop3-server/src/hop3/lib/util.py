@@ -107,7 +107,8 @@ def run_command(
     text: bool = False,
     input: str | bytes | None = None,
 ) -> subprocess.CompletedProcess:
-    """Run a command and return the result, raising on failure.
+    """
+    Run a command and return the result, raising on failure.
 
     Args:
         cmd: Command to execute as a list of strings
@@ -163,7 +164,8 @@ def try_commands(
     *,
     timeout: float = 10,
 ) -> str | None:
-    """Try multiple commands in sequence until one succeeds.
+    """
+    Try multiple commands in sequence until one succeeds.
 
     This is useful for fallback scenarios where you want to try several
     methods to accomplish the same task (e.g., reloading a service via
@@ -207,7 +209,8 @@ def try_commands(
 
 
 def check_binaries(binaries) -> bool:
-    """Check if all the binaries exist and are executable.
+    """
+    Check if all the binaries exist and are executable.
 
     Args:
         binaries (list of str): A list of binary names to check for existence and executability.
@@ -225,7 +228,8 @@ def check_binaries(binaries) -> bool:
 
 
 def sanitize_app_name(app) -> str:
-    """Sanitize the app name by removing invalid characters and trimming
+    """
+    Sanitize the app name by removing invalid characters and trimming
     leading slashes.
 
     Input:
@@ -247,7 +251,8 @@ def sanitize_app_name(app) -> str:
 
 
 def is_port_free(port: int, address: str = "127.0.0.1") -> bool:
-    """Check if a TCP port is free (not in use).
+    """
+    Check if a TCP port is free (not in use).
 
     Args:
         port: The port number to check.
@@ -266,7 +271,8 @@ def is_port_free(port: int, address: str = "127.0.0.1") -> bool:
 
 
 def get_free_port(address="") -> int:
-    """Find a free TCP port on the host system, selected at random.
+    """
+    Find a free TCP port on the host system, selected at random.
 
     Input:
     - address (str): The IP address to bind to. Defaults to an empty string,
@@ -283,7 +289,8 @@ def get_free_port(address="") -> int:
 
 
 def command_output(cmd: str | list[str]) -> str:
-    """Execute a command and retrieve its output as a string.
+    """
+    Execute a command and retrieve its output as a string.
 
     Args:
         cmd: Command to execute (string or list of strings).
@@ -310,7 +317,8 @@ def command_output(cmd: str | list[str]) -> str:
 
 
 def multi_tail(filenames, catch_up=20) -> Iterator:
-    """Tail multiple log files.
+    """
+    Tail multiple log files.
 
     Input:
     - filenames: List of file names to be tailed.
@@ -327,7 +335,8 @@ def multi_tail(filenames, catch_up=20) -> Iterator:
 
 
 def robust_rmtree(path: Path | str) -> None:
-    """Remove a directory tree robustly, handling permission and race condition issues.
+    """
+    Remove a directory tree robustly, handling permission and race condition issues.
 
     This handles common issues with npm's node_modules, pip's site-packages,
     and similar complex directory structures:

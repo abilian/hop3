@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Integration tests for hop3_installer.bundler module.
+"""
+Integration tests for hop3_installer.bundler module.
 
 These tests actually generate bundled installers and verify they work.
 """
@@ -57,7 +58,8 @@ class TestBundleGeneration:
         assert "def main(" in source
 
     def test_invalid_type_defaults_to_server(self):
-        """bundle_installer defaults to server for unknown types.
+        """
+        bundle_installer defaults to server for unknown types.
 
         Note: This is the current behavior. Ideally it should raise ValueError.
         """
@@ -169,7 +171,8 @@ class TestBundleExecution:
         assert result.returncode == 0, f"Syntax error: {result.stderr}"
 
     def test_bundles_have_no_undefined_names(self, tmp_path: Path):
-        """No bundle references a symbol whose defining module wasn't inlined.
+        """
+        No bundle references a symbol whose defining module wasn't inlined.
 
         A module used by another (e.g. ``deps_common`` calling
         ``pre_stage_email``) but left out of the bundler's ``*_MODULES`` list

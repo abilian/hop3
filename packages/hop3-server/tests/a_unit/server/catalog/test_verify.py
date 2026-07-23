@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Unit tests for the catalog verification core (ADR 049).
+"""
+Unit tests for the catalog verification core (ADR 049).
 
 The ``minisign`` CLI is not assumed present, so we build format-correct signatures
 with ``cryptography`` (the same primitive the verifier uses). Symmetry between a

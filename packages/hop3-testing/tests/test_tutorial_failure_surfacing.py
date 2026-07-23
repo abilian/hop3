@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""The meta runner must surface tutorial (validoc) failures (ADR 043 phase 3).
+"""
+The meta runner must surface tutorial (validoc) failures (ADR 043 phase 3).
 
 Tutorials verify that the docs match reality; a validoc failure means the
 documented steps no longer work, which must be reported as a failed test, never
@@ -81,7 +82,8 @@ def test_passing_validoc_is_reported_as_passed(tmp_path, monkeypatch):
 
 
 def test_tutorial_without_executable_blocks_is_reported_as_failed(tmp_path):
-    """A tutorial with no validoc markers must fail, never pass vacuously.
+    """
+    A tutorial with no validoc markers must fail, never pass vacuously.
 
     Regression: the catalog used to scan the *rendered* docs tree
     (docs/src/tutorials), where the ``bash exec``/``output``/``file`` markers
@@ -108,9 +110,11 @@ def test_tutorial_without_executable_blocks_is_reported_as_failed(tmp_path):
 
 
 def test_failed_tutorial_collects_target_diagnostics(tmp_path, monkeypatch):
-    """A failed tutorial must attach SUT-side diagnostics — at minimum the
+    """
+    A failed tutorial must attach SUT-side diagnostics — at minimum the
     `hop3 apps` snapshot — so a deploy that timed out isn't a black box of
-    'Command timed out after 120s' with nothing else."""
+    'Command timed out after 120s' with nothing else.
+    """
     test = _tutorial(tmp_path)
     test.metadata.framework = "flask"  # -> derived app name hop3-tuto-flask
 

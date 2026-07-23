@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Platform notifications (EXPERIMENTAL) — email the operator on server events.
+"""
+Platform notifications (EXPERIMENTAL) — email the operator on server events.
 
 Opt-in. When enabled, :func:`notify` delivers a message through the server-level
 email transport (see :mod:`.server_transport`) to the operator. Today it carries
@@ -70,7 +71,8 @@ def notification_recipient() -> str:
 
 
 def notify(event: str, subject: str, body: str) -> bool:
-    """Deliver an operator notification. Returns True iff it was sent.
+    """
+    Deliver an operator notification. Returns True iff it was sent.
 
     Never raises (a failed alert must not break the reporting operation), but a
     failure — including "enabled but no transport/recipient" and a corrupt config

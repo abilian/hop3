@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Shared on-failure SUT diagnostics — make every failure self-diagnosing.
+"""
+Shared on-failure SUT diagnostics — make every failure self-diagnosing.
 
 A tutorial/demo failure used to be a black box ("Command timed out after 120s"
 and nothing else). collect_failure_diagnostics always snapshots `hop3 apps`

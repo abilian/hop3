@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Security-boundary tests for RPC command entry points.
+"""
+Security-boundary tests for RPC command entry points.
 
 These tests lock in the Wave-1 security-audit fixes: rejecting malicious
 app names (path-traversal) and env-var keys (shell metachar injection)
@@ -51,8 +52,10 @@ class TestGetAppRejectsPathTraversal:
 
 
 class TestParseKeyValueSettingsRejectsShellMetacharacters:
-    """parse_key_value_settings() feeds WebWorker.update_settings(), whose
-    `sh -c "export {key}='{value}'"` interpolation is the Wave-1 critical."""
+    """
+    parse_key_value_settings() feeds WebWorker.update_settings(), whose
+    `sh -c "export {key}='{value}'"` interpolation is the Wave-1 critical.
+    """
 
     @pytest.mark.parametrize(
         "payload",

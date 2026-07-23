@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Defense-in-depth tests for App.app_path.
+"""
+Defense-in-depth tests for App.app_path.
 
 Wave-1 security audit: even if RPC-boundary validation is bypassed,
 ``app_path`` must refuse to resolve paths that escape ``APP_ROOT``.

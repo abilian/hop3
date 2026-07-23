@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""ServerInfo must stay in step with the hcloud Server model.
+"""
+ServerInfo must stay in step with the hcloud Server model.
 
 Hetzner deprecated datacenters on 2026-06-02 (removal after 2026-10-01) and
 hcloud dropped ``Server.datacenter`` in 2.23.0 — a *minor* release, so no
@@ -34,7 +35,8 @@ MAPPED_ATTRIBUTES = (
 
 
 class FakeServer:
-    """A server exposing only what the IP lookup may touch.
+    """
+    A server exposing only what the IP lookup may touch.
 
     Deliberately not a real ``Server``: the point is to fail if
     ``get_server_ip`` starts reaching for anything beyond the address.
@@ -79,8 +81,10 @@ def test_from_server_tolerates_a_server_without_a_location():
 
 
 def test_get_server_ip_does_not_depend_on_unrelated_fields():
-    """The rebuild path needs the address alone. Mapping every other field
-    first is what let an unrelated model change abort provisioning."""
+    """
+    The rebuild path needs the address alone. Mapping every other field
+    first is what let an unrelated model change abort provisioning.
+    """
     ipv4 = type("_Ip", (), {"ip": "1.2.3.4"})()
     public_net = type("_Net", (), {"ipv4": ipv4, "ipv6": None})()
     assert _manager(FakeServer(public_net)).get_server_ip() == "1.2.3.4"

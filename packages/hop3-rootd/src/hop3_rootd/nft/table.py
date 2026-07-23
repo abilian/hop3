@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""nftables table management.
+"""
+nftables table management.
 
 Rootd owns the `inet hop3` table exclusively. This module handles:
   - ensuring the table+chain exist (idempotent; called at startup)
@@ -40,7 +41,8 @@ _TABLE_EXISTS_MARKERS: Final[tuple[str, ...]] = (
 
 
 def ensure_table_exists(*, exec: Exec = DEFAULT_EXEC) -> None:
-    """Create the `inet hop3` table + `input` chain if absent. Idempotent.
+    """
+    Create the `inet hop3` table + `input` chain if absent. Idempotent.
 
     Safe to call multiple times. nft's behaviour:
       - `nft add table inet hop3` succeeds whether the table exists or not
@@ -94,7 +96,8 @@ def _is_already_exists(stderr: str) -> bool:
 
 
 def list_rules(*, exec: Exec = DEFAULT_EXEC) -> list[KernelRule]:
-    """Return all rules currently in the `inet hop3 input` chain.
+    """
+    Return all rules currently in the `inet hop3 input` chain.
 
     Calls `nft -j list table inet hop3` and parses the JSON output.
     Returns an empty list if the table exists but has no rules.
@@ -121,7 +124,8 @@ def list_rules(*, exec: Exec = DEFAULT_EXEC) -> list[KernelRule]:
 
 
 def delete_table(*, exec: Exec = DEFAULT_EXEC) -> None:
-    """Remove the `inet hop3` table entirely.
+    """
+    Remove the `inet hop3` table entirely.
 
     Called only on uninstall (ADR 041 §"Uninstall semantics"). The daemon
     itself never calls this on shutdown — `systemctl stop` preserves

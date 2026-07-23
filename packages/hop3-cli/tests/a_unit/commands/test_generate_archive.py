@@ -89,7 +89,8 @@ def test_builtin_defaults_apply_without_any_config():
 
 
 def test_gitignore_is_not_consulted_for_the_upload():
-    """`.gitignore` governs the git-push path, not the `hop3 deploy` upload.
+    """
+    `.gitignore` governs the git-push path, not the `hop3 deploy` upload.
 
     Its patterns must NOT exclude anything here, and the file itself ships like
     any other source file.
@@ -106,7 +107,8 @@ def test_gitignore_is_not_consulted_for_the_upload():
 
 
 def test_dockerignore_does_not_govern_the_deploy_source():
-    """`.dockerignore` scopes the server-side `docker build`, not this upload.
+    """
+    `.dockerignore` scopes the server-side `docker build`, not this upload.
 
     Frameworks like Quarkus ship a `.dockerignore` of `*` + a `target/`
     allowlist; honoring it here would strip pom.xml/src and leave the server

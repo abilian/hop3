@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""postfix ops: configure the loopback email relay (ADR 054).
+"""
+postfix ops: configure the loopback email relay (ADR 054).
 
 ``postfix.configure`` writes the null-client ``main.cf`` + SASL map for the
 active email backend and reloads Postfix. hop3-server calls it when an operator
@@ -66,7 +67,8 @@ _DIRECT_DEFAULT_SELECTOR = "hop3"
 
 @register("postfix.configure")
 def configure(req: Request, ctx: OpContext) -> dict[str, Any]:
-    """Configure the loopback Postfix relay for the active backend.
+    """
+    Configure the loopback Postfix relay for the active backend.
 
     ``mode=relay`` (default) authenticates over TLS to a provider submission
     endpoint; ``mode=catch`` relays plaintext to a local dev sink (Mailpit);
@@ -85,8 +87,10 @@ def configure(req: Request, ctx: OpContext) -> dict[str, Any]:
 
 
 def _configure_direct(req: Request, ctx: OpContext) -> dict[str, Any]:
-    """Deliver to MX ourselves, signing with DKIM. Returns the DNS records to
-    publish (SPF/DKIM/DMARC/PTR) — never a fake 'ready'."""
+    """
+    Deliver to MX ourselves, signing with DKIM. Returns the DNS records to
+    publish (SPF/DKIM/DMARC/PTR) — never a fake 'ready'.
+    """
     domain = validate_from_domain(req.args.get("from_domain"))
     selector = validate_dkim_selector(
         req.args.get("dkim_selector", _DIRECT_DEFAULT_SELECTOR)

@@ -33,7 +33,8 @@ def spawn_uwsgi_worker(
     env: Env,
     ordinal=1,
 ) -> None:
-    """Set up and deploy a single worker of a given kind.
+    """
+    Set up and deploy a single worker of a given kind.
 
     Input:
         app_name (str): The name of the application for which the worker is being spawned.
@@ -81,7 +82,8 @@ class UwsgiWorker:
     log_format: str = ""
 
     def spawn(self) -> None:
-        """Execute a series of setup operations to initialize and configure
+        """
+        Execute a series of setup operations to initialize and configure
         settings for the environment.
 
         This orchestrates the process of creating base settings,
@@ -95,7 +97,8 @@ class UwsgiWorker:
         self.write_settings()
 
     def create_base_settings(self) -> None:
-        """Configures and updates base settings for an application using uWSGI.
+        """
+        Configures and updates base settings for an application using uWSGI.
 
         This sets up the environment and configuration settings required
         for running an application with uWSGI. It adds various settings
@@ -192,7 +195,8 @@ class UwsgiWorker:
         # raise NotImplementedError
 
     def update_env(self) -> None:
-        """Update the environment settings for the application.
+        """
+        Update the environment settings for the application.
 
         This updates the environment settings by removing unnecessary
         variables and inserting user-defined UWSGI settings if
@@ -219,7 +223,8 @@ class UwsgiWorker:
             self.settings.add("env", f"{k:s}={v}")
 
     def write_settings(self) -> None:
-        """Write configuration settings to a file and enable them by copying to
+        """
+        Write configuration settings to a file and enable them by copying to
         another directory.
 
         This generates a filename based on the application name, type,
@@ -234,7 +239,8 @@ class UwsgiWorker:
         shutil.copyfile(uwsgi_available_path, uwsgi_enabled_path)
 
     def log(self, message) -> None:
-        """Logs a formatted message with a specified log level and color.
+        """
+        Logs a formatted message with a specified log level and color.
 
         Input:
             message (str): The message template to be formatted and logged.
@@ -355,7 +361,8 @@ class WebWorker(UwsgiWorker):
     )
 
     def update_settings(self) -> None:
-        """Update the settings by adding the command to the 'attach-daemon'
+        """
+        Update the settings by adding the command to the 'attach-daemon'
         section.
 
         This modifies the current settings to include the specified

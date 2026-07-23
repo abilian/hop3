@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Runtime manifest builder - consolidates Procfile and hop3.toml into RuntimeConfig.
+"""
+Runtime manifest builder - consolidates Procfile and hop3.toml into RuntimeConfig.
 
 This module implements the merge logic that combines multiple configuration
 sources (Procfile, hop3.toml) into a single RuntimeConfig that is stored
@@ -35,14 +36,16 @@ if TYPE_CHECKING:
 
 
 class RuntimeManifestBuilder:
-    """Builds RuntimeConfig by merging Procfile and hop3.toml.
+    """
+    Builds RuntimeConfig by merging Procfile and hop3.toml.
 
     This class implements the single merge point for all runtime configuration.
     It follows the precedence: hop3.toml > Procfile > defaults.
     """
 
     def __init__(self, app_config: AppConfig) -> None:
-        """Initialize the builder with an AppConfig.
+        """
+        Initialize the builder with an AppConfig.
 
         Args:
             app_config: Parsed application configuration (Procfile + hop3.toml)
@@ -56,7 +59,8 @@ class RuntimeManifestBuilder:
         working_dir: str = "",
         workers: dict[str, str] | None = None,
     ) -> RuntimeConfig:
-        """Build RuntimeConfig by merging all configuration sources.
+        """
+        Build RuntimeConfig by merging all configuration sources.
 
         Args:
             env_vars: Environment variables from toolchain (absolute paths)
@@ -126,7 +130,8 @@ class RuntimeManifestBuilder:
         )
 
     def _get_workers(self) -> dict[str, str]:
-        """Get merged worker definitions.
+        """
+        Get merged worker definitions.
 
         Excludes lifecycle hooks (prebuild, postbuild, prerun) which are
         handled separately.
@@ -145,7 +150,8 @@ class RuntimeManifestBuilder:
         }
 
     def _get_before_run(self) -> list[str]:
-        """Get before-run commands.
+        """
+        Get before-run commands.
 
         Combines:
         1. hop3.toml [run] before-run (list)
@@ -169,7 +175,8 @@ class RuntimeManifestBuilder:
         return commands
 
     def _get_static_paths(self) -> dict[str, str]:
-        """Get static file path mappings.
+        """
+        Get static file path mappings.
 
         Returns:
             Dictionary mapping URL paths to filesystem paths

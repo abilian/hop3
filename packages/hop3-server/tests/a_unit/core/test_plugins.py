@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the plugin manager helper logic in ``hop3.core.plugins``.
+"""
+Unit tests for the plugin manager helper logic in ``hop3.core.plugins``.
 
 These tests exercise the *selection* logic of the helper functions
 (``get_builder``, ``get_deployer``, ``get_addon``, ...) and the pure
@@ -45,7 +46,8 @@ from hop3.core.protocols import BuildArtifact, DeploymentContext
 
 
 class StubHook:
-    """A pluggy-like ``pm.hook`` whose hook calls return preset lists-of-lists.
+    """
+    A pluggy-like ``pm.hook`` whose hook calls return preset lists-of-lists.
 
     Each pluggy hook returns one list per registered plugin; the helper
     functions flatten that into a single list. We mirror that shape: a hook
@@ -73,7 +75,8 @@ class StubPluginManager:
 
 @pytest.fixture
 def install_pm(monkeypatch):
-    """Install a stub PluginManager as the module singleton.
+    """
+    Install a stub PluginManager as the module singleton.
 
     Returns a callable that takes hook results and wires them up. The original
     ``_plugin_manager`` is restored by monkeypatch teardown.
@@ -599,7 +602,8 @@ class TestDeploymentHints:
 
 class TestGetPluginManagerBuild:
     def test_survives_preimported_plugin_submodule(self, monkeypatch):
-        """Regression: importing a ``plugin.py`` before the manager is built
+        """
+        Regression: importing a ``plugin.py`` before the manager is built
         binds it as a ``plugin`` *module* attribute on its parent package
         (Python import behaviour). The build must skip module-valued ``plugin``
         attrs, not re-register the submodule and crash with the order-dependent

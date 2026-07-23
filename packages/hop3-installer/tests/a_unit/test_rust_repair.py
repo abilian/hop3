@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""A flaky rustup component download shouldn't hard-fail a deploy.
+"""
+A flaky rustup component download shouldn't hard-fail a deploy.
 
 `--profile minimal` installs cargo, but a flaky download (or a stale ~/.rustup)
 can leave the cargo proxy present while the stable toolchain has no cargo

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Realize declarative `[[volumes]]` persistence (ADR 046 §2).
+"""
+Realize declarative `[[volumes]]` persistence (ADR 046 §2).
 
 A ``persist`` volume is a directory under the app's data root
 (`<app>/volumes/<name>/`) symlinked into the freshly-extracted source tree at

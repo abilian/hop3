@@ -33,7 +33,8 @@ __all__ = ["do_deploy"]
 def do_deploy(
     app: App, *, deltas: dict[str, int] | None = None, newrev: str = ""
 ) -> None:
-    """Deploy an application with optional configuration changes and revision
+    """
+    Deploy an application with optional configuration changes and revision
     update.
 
     Input:
@@ -124,7 +125,8 @@ class Deployer:
         return self.workers.get(name, "")
 
     def run_prebuild(self) -> None:
-        """Execute the prebuild command for the worker.
+        """
+        Execute the prebuild command for the worker.
 
         Raises:
         - Abort: Raises an Abort exception if the prebuild command returns a
@@ -155,7 +157,8 @@ class Deployer:
             )
 
     def run_build(self) -> None:
-        """Execute the build process for an application.
+        """
+        Execute the build process for an application.
 
         This determines the appropriate build worker or builder class to
         execute the build for an application. It first attempts to find
@@ -231,7 +234,8 @@ class Deployer:
             )
 
     def run_postbuild(self) -> None:
-        """Execute the postbuild command for a given worker.
+        """
+        Execute the postbuild command for a given worker.
 
         Raises:
         - Abort: Raises an Abort exception if the shell command returns a non-zero error value.
@@ -262,7 +266,8 @@ class Deployer:
             )
 
     def _git_update(self, newrev: str) -> None:
-        """Perform a git update by fetching the latest changes and resetting
+        """
+        Perform a git update by fetching the latest changes and resetting
         the repository to a specified revision.
 
         Input:

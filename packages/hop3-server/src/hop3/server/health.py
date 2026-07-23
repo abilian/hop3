@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Addon health checks for server startup.
+"""
+Addon health checks for server startup.
 
 This module discovers and runs health checks from plugins to verify that
 configured services (MySQL, PostgreSQL, Redis, etc.) are accessible.
@@ -28,7 +29,8 @@ logger = logging.getLogger(__name__)
 
 
 def get_all_health_checks() -> list[HealthCheck]:
-    """Discover all health checks from plugins.
+    """
+    Discover all health checks from plugins.
 
     Returns:
         List of HealthCheck instances from all registered plugins.
@@ -43,7 +45,8 @@ def get_all_health_checks() -> list[HealthCheck]:
 
 
 def run_health_check(check: HealthCheck) -> HealthCheckResult:
-    """Run a single health check safely.
+    """
+    Run a single health check safely.
 
     Args:
         check: The health check to run.
@@ -63,7 +66,8 @@ def run_health_check(check: HealthCheck) -> HealthCheckResult:
 
 
 def verify_addon_health() -> dict[str, HealthCheckResult]:
-    """Verify all configured addon services are accessible.
+    """
+    Verify all configured addon services are accessible.
 
     Discovers health checks from plugins and runs each one.
     Called during server startup to provide early detection of

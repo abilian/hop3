@@ -1,5 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
-"""add is_primary to addon_credential (per-addon env namespacing)
+"""
+add is_primary to addon_credential (per-addon env namespacing)
 
 When >1 addon of a type is attached to an app, the primary injects the
 unprefixed connection vars (DATABASE_URL, …); others are prefixed. Adds the
@@ -35,7 +36,8 @@ def _has_column(table: str, column: str) -> bool:
 
 
 def _backfill_primaries() -> None:
-    """Mark one primary per (app_id, addon_type) group.
+    """
+    Mark one primary per (app_id, addon_type) group.
 
     Picks the most-recently-attached row (max id) so the value `DATABASE_URL`
     currently resolves to is preserved across the upgrade — under the old
@@ -60,7 +62,8 @@ def _backfill_primaries() -> None:
 
 
 def upgrade() -> None:
-    """Add is_primary (native ADD COLUMN; SQLite-safe) + backfill.
+    """
+    Add is_primary (native ADD COLUMN; SQLite-safe) + backfill.
 
     Idempotent: a fresh-install DB already has the column via ``create_all``
     (and no rows to backfill), so the guard skips when it's present.

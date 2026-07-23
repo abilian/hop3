@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Test execution mode configurations.
+"""
+Test execution mode configurations.
 
 The built-in modes in ``MODES`` are the seed defaults. Users can override them
 (or add their own) from the Test Lab UI; those edits persist to a TOML overrides
@@ -33,7 +34,8 @@ VALID_TARGETS = ("docker", "remote", "local")
 
 @dataclass
 class ModeConfig:
-    """Configuration for a test execution mode.
+    """
+    Configuration for a test execution mode.
 
     Each mode defines what tests should be run based on tier,
     priority, category, and target type filters.
@@ -300,7 +302,8 @@ def delete_mode(name: str) -> None:
 
 
 def get_mode_config(mode: str) -> ModeConfig:
-    """Get configuration for a mode (built-in or user-defined).
+    """
+    Get configuration for a mode (built-in or user-defined).
 
     Args:
         mode: Mode name (smoke, ci, curated, tag-coverage, combo-coverage,

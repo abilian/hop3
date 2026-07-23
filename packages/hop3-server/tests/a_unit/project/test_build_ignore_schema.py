@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""`[build].ignore` is the canonical deploy-ignore mechanism (ADR 046 §5).
+"""
+`[build].ignore` is the canonical deploy-ignore mechanism (ADR 046 §5).
 
 The `.hop3ignore` sidecar and the `[build].ignore-file` pointer are removed:
 patterns live inline in `hop3.toml`. A config still using `ignore-file` must

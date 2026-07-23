@@ -18,7 +18,8 @@ PATTERN = r"\$(\w+|\{([^}]*)\})"
 
 
 def expand_vars(template, env: Mapping[str, Any], default=None):
-    """Simple shell-style string interpolation.
+    """
+    Simple shell-style string interpolation.
 
     Note: This helper composes multi-line config fragments by substituting
     pre-rendered blocks as values (see e.g. ``NGINX_COMMON_FRAGMENT``

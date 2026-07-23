@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Hop3 Server Installer - Main orchestration.
+"""
+Hop3 Server Installer - Main orchestration.
 
 A single-file installer for the Hop3 Server.
 Uses only Python standard library for maximum portability.
@@ -66,7 +67,8 @@ from .verify import print_final_message, verify_installation, write_server_confi
 
 
 def _install_optional_toolchains(config: ServerInstallerConfig) -> None:
-    """Install optional toolchains that need hop3 user to exist.
+    """
+    Install optional toolchains that need hop3 user to exist.
 
     By default these are non-critical — failures are warnings.
     `--with=rust` promotes the Rust install to critical (raises).
@@ -110,7 +112,8 @@ def _install_optional_toolchains(config: ServerInstallerConfig) -> None:
 
 
 def _install_package_step(config: ServerInstallerConfig) -> bool:
-    """Step 4: install the hop3-server Python package.
+    """
+    Step 4: install the hop3-server Python package.
 
     Honors ``--skip-package-install`` so callers that installed the
     package separately (e.g. ``hop3-deploy --local``) can re-run the
@@ -137,7 +140,8 @@ def _install_package_step(config: ServerInstallerConfig) -> bool:
 
 
 def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
-    """Run critical installation steps that must succeed.
+    """
+    Run critical installation steps that must succeed.
 
     Args:
         distro: Detected distribution name.
@@ -207,7 +211,8 @@ def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
 def _run_service_setup_steps(
     distro: str, config: ServerInstallerConfig
 ) -> tuple[str | None, str | None, str | None]:
-    """Run service configuration steps (non-critical).
+    """
+    Run service configuration steps (non-critical).
 
     Args:
         distro: Detected distribution name.
@@ -279,7 +284,8 @@ def _missing_db_credential_error(
     pg_password: str | None,
     mysql_password: str | None,
 ) -> tuple[str, str] | None:
-    """(error, detail) if a requested DB lacks a TCP-verified superuser credential.
+    """
+    (error, detail) if a requested DB lacks a TCP-verified superuser credential.
 
     A requested database that setup couldn't leave with a verified superuser
     password must abort the install rather than write a hop3-server.toml the
@@ -311,7 +317,8 @@ def _missing_db_credential_error(
 
 
 def main() -> int:
-    """Main entry point.
+    """
+    Main entry point.
 
     Returns:
         Exit code (0 for success, non-zero for failure)

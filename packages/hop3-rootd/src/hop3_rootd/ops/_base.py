@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""Op protocol and registry.
+"""
+Op protocol and registry.
 
 An "op" is a typed-intent handler invoked by the server's dispatcher.
 Each op:
@@ -39,7 +40,8 @@ if TYPE_CHECKING:
 
 
 class StateConflictError(Exception):
-    """Raised by an op when the requested state change conflicts with current state.
+    """
+    Raised by an op when the requested state change conflicts with current state.
 
     Examples:
       - remove_rule for a rule_id that doesn't exist
@@ -53,7 +55,8 @@ class StateConflictError(Exception):
 
 @dataclass
 class DaemonStats:
-    """Runtime statistics for the daemon. Owned by the Server and passed
+    """
+    Runtime statistics for the daemon. Owned by the Server and passed
     to ops via `OpContext.stats`. Replaces the previous module-level
     globals in ``ops/daemon.py``.
 
@@ -86,7 +89,8 @@ class DaemonStats:
 
 @dataclass
 class OpContext:
-    """Bundle of dependencies the dispatcher passes to each op handler.
+    """
+    Bundle of dependencies the dispatcher passes to each op handler.
 
     Carrying these as a context object (rather than module globals) makes
     ops directly testable: pass a fake state, a fake clock, etc.
@@ -107,7 +111,8 @@ class OpHandler(Protocol):
     """Each registered op implements this signature."""
 
     def __call__(self, req: Request, ctx: OpContext, /) -> dict[str, Any]:
-        """Execute the op. Return the success-result dict.
+        """
+        Execute the op. Return the success-result dict.
 
         Args are positional-only so implementations may rename them
         (e.g. `_req`, `_ctx`) without breaking type checks.
@@ -133,7 +138,8 @@ _REGISTRY: dict[str, OpRegistration] = {}
 
 
 def register(op_name: str, *, audit: bool = True) -> Callable[[OpHandler], OpHandler]:
-    """Decorator: register an op handler under its dotted name.
+    """
+    Decorator: register an op handler under its dotted name.
 
     `audit=False` skips the audit log for this op — used for read-only
     ops (daemon.health, daemon.handshake, list/query ops) that would

@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Session-cookie auth: the guard, login, and logout.
+"""
+Session-cookie auth: the guard, login, and logout.
 
 The autouse conftest sets TESTLAB_UNSAFE=true (bypass); these tests opt back into
 enforcement with TESTLAB_UNSAFE=false.
@@ -69,10 +70,12 @@ def test_health_is_public(monkeypatch):
 
 
 def test_session_survives_a_restart(monkeypatch):
-    """Client-side sessions live (encrypted) in the cookie, so a logged-in session
+    """
+    Client-side sessions live (encrypted) in the cookie, so a logged-in session
     stays valid across a process restart — a fresh app instance with the same
     secret. The old in-memory store was wiped on every restart/redeploy, which
-    forced a re-login each time."""
+    forced a re-login each time.
+    """
     monkeypatch.setenv("TESTLAB_UNSAFE", "false")
     monkeypatch.setenv("TESTLAB_PASSWORD", "s3cret")
     monkeypatch.setenv("TESTLAB_SECRET_KEY", "stable-secret-across-restarts")

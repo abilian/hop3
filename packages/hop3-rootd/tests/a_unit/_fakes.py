@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared test doubles for hop3-rootd unit tests.
+"""
+Shared test doubles for hop3-rootd unit tests.
 
 ``FakeExec`` is a recording ``hop3_rootd.exec.Exec``: every ``run`` argv is
 stored in ``.calls`` and routed to a canned ``CommandResult`` by the first
@@ -22,7 +23,8 @@ if TYPE_CHECKING:
 
 
 class SaveSpy:
-    """Callable that counts how many times it was invoked.
+    """
+    Callable that counts how many times it was invoked.
 
     Stands in for ``OpContext.save_state`` (a ``Callable[[], None]``) so a test
     can assert the op persisted state, without monkeypatching a private attr
@@ -59,7 +61,8 @@ def fail(stderr: str, *, returncode: int = 1) -> CommandResult:
 
 
 class FakeExec:
-    """Recording test double for ``hop3_rootd.exec.Exec``.
+    """
+    Recording test double for ``hop3_rootd.exec.Exec``.
 
     Each ``run(argv)`` is appended to ``.calls`` and routed to the first
     registered predicate whose ``predicate(argv)`` is truthy; unmatched calls

@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Tests for the expects-failure negative-test-case machinery.
+"""
+Tests for the expects-failure negative-test-case machinery.
 
 Two layers:
   1. Loader parses `expects-failure = true` from test.toml (legacy
@@ -71,7 +72,8 @@ class TestLoaderParsesExpectsFailure:
         assert td.expects_failure is True
 
     def test_hop3_toml_bad_app_is_auto_expects_failure(self):
-        """A bad recipe under apps/bad/** is xfail even via hop3.toml (no flag).
+        """
+        A bad recipe under apps/bad/** is xfail even via hop3.toml (no flag).
 
         Regression: the hop3.toml path only honoured the explicit config flag,
         so docker/native bad recipes (which carry hop3.toml) were counted as
@@ -123,8 +125,10 @@ class _FakeSession:
 
 
 class _FakeTarget:
-    """Stand-in for DeploymentTarget. The runner only touches it via
-    _collect_runtime_logs, which we monkeypatch."""
+    """
+    Stand-in for DeploymentTarget. The runner only touches it via
+    _collect_runtime_logs, which we monkeypatch.
+    """
 
 
 def _negative_test_def() -> TestDefinition:
@@ -148,10 +152,12 @@ def _positive_test_def() -> TestDefinition:
 
 
 class TestRunnerInvertsExpectsFailure:
-    """The runner's `expects_failure` branch is threaded through
+    """
+    The runner's `expects_failure` branch is threaded through
     `_handle_expects_failure`. We exercise it by invoking that method
     directly — it's small, and doing the full `run()` path would
-    require stubbing DeploymentSession in several places."""
+    require stubbing DeploymentSession in several places.
+    """
 
     def _make_runner(self, tmp_path) -> DeploymentTestRunner:
         # `_collect_runtime_logs` is imported at module level in

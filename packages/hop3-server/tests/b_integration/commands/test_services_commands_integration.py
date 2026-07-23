@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Integration tests for service management commands using state-based testing.
+"""
+Integration tests for service management commands using state-based testing.
 
 This module tests service commands using real database interactions:
 - Uses real database instead of mocks (via db_session fixture)
@@ -60,7 +61,8 @@ def env_var_repo(db_session: Session) -> EnvVarRepository:
 
 @pytest.fixture
 def test_app(db_session: Session) -> App:
-    """Create a test application for addon testing.
+    """
+    Create a test application for addon testing.
 
     Args:
         db_session: Database session
@@ -77,7 +79,8 @@ def test_app(db_session: Session) -> App:
 
 @pytest.fixture
 def another_app(db_session: Session) -> App:
-    """Create another test application.
+    """
+    Create another test application.
 
     Args:
         db_session: Database session
@@ -97,7 +100,8 @@ class TestAddonsCreateCmdIntegration:
     """Integration tests for AddonCreateCmd using state-based testing."""
 
     def test_create_requires_arguments(self):
-        """Test that addon create requires both service type and name.
+        """
+        Test that addon create requires both service type and name.
 
         ARRANGE:
             - Create command instance
@@ -119,7 +123,8 @@ class TestAddonsCreateCmdIntegration:
         assert "addon create" in result[0]["text"]
 
     def test_create_with_postgres_success(self):
-        """Test creating a PostgreSQL addon.
+        """
+        Test creating a PostgreSQL addon.
 
         ARRANGE:
             - Mock addon plugin to return mock addon instance
@@ -153,7 +158,8 @@ class TestAddonsCreateCmdIntegration:
         assert result[-1]["t"] == "summary"
 
     def test_create_with_redis_success(self):
-        """Test creating a Redis addon.
+        """
+        Test creating a Redis addon.
 
         ARRANGE:
             - Mock addon plugin to return mock addon instance
@@ -184,7 +190,8 @@ class TestAddonsCreateCmdIntegration:
         assert result[-1]["t"] == "summary"
 
     def test_create_handles_runtime_errors(self):
-        """Test error handling when addon plugin raises RuntimeError.
+        """
+        Test error handling when addon plugin raises RuntimeError.
 
         ARRANGE:
             - Mock addon plugin to raise RuntimeError
@@ -208,7 +215,8 @@ class TestAddonsCreateCmdIntegration:
             assert "Addon type not supported" in str(exc_info.value)
 
     def test_create_handles_unexpected_errors(self):
-        """Test error handling when addon plugin raises unexpected exception.
+        """
+        Test error handling when addon plugin raises unexpected exception.
 
         ARRANGE:
             - Mock addon plugin to raise generic Exception
@@ -243,7 +251,8 @@ class TestAddonsAttachCmdIntegration:
         addon_credential_repo: AddonCredentialRepository,
         env_var_repo: EnvVarRepository,
     ):
-        """Test that addon attach requires --app parameter.
+        """
+        Test that addon attach requires --app parameter.
 
         ARRANGE:
             - Create command instance
@@ -279,7 +288,8 @@ class TestAddonsAttachCmdIntegration:
         addon_credential_repo: AddonCredentialRepository,
         env_var_repo: EnvVarRepository,
     ):
-        """Test error when app doesn't exist.
+        """
+        Test error when app doesn't exist.
 
         ARRANGE:
             - Database with no apps
@@ -316,7 +326,8 @@ class TestAddonsAttachCmdIntegration:
         addon_credential_repo: AddonCredentialRepository,
         env_var_repo: EnvVarRepository,
     ):
-        """Test successful addon attachment creates credentials and env vars.
+        """
+        Test successful addon attachment creates credentials and env vars.
 
         ARRANGE:
             - Create a test app
@@ -385,7 +396,8 @@ class TestAddonsAttachCmdIntegration:
         addon_credential_repo: AddonCredentialRepository,
         env_var_repo: EnvVarRepository,
     ):
-        """Test that attaching addon updates existing environment variables.
+        """
+        Test that attaching addon updates existing environment variables.
 
         ARRANGE:
             - Create a test app with existing env vars
@@ -456,7 +468,8 @@ class TestAddonsAttachCmdIntegration:
         addon_credential_repo: AddonCredentialRepository,
         env_var_repo: EnvVarRepository,
     ):
-        """Test attaching addon with custom service type.
+        """
+        Test attaching addon with custom service type.
 
         ARRANGE:
             - Create a test app
@@ -505,7 +518,8 @@ class TestAddonsAttachCmdIntegration:
         addon_credential_repo: AddonCredentialRepository,
         env_var_repo: EnvVarRepository,
     ):
-        """Test attaching multiple different addons to same app.
+        """
+        Test attaching multiple different addons to same app.
 
         ARRANGE:
             - Create a test app
@@ -568,7 +582,8 @@ class TestAddonsDetachCmdIntegration:
         addon_credential_repo: AddonCredentialRepository,
         env_var_repo: EnvVarRepository,
     ):
-        """Test that addon detach requires --app parameter.
+        """
+        Test that addon detach requires --app parameter.
 
         ARRANGE:
             - Create command instance
@@ -597,7 +612,8 @@ class TestAddonsDetachCmdIntegration:
         addon_credential_repo: AddonCredentialRepository,
         env_var_repo: EnvVarRepository,
     ):
-        """Test error when app doesn't exist.
+        """
+        Test error when app doesn't exist.
 
         ARRANGE:
             - Database with no apps
@@ -628,7 +644,8 @@ class TestAddonsDetachCmdIntegration:
         addon_credential_repo: AddonCredentialRepository,
         env_var_repo: EnvVarRepository,
     ):
-        """Test successful addon detachment removes credentials and env vars.
+        """
+        Test successful addon detachment removes credentials and env vars.
 
         ARRANGE:
             - Create test app with attached addon (credential + env vars)
@@ -700,7 +717,8 @@ class TestAddonsDetachCmdIntegration:
         addon_credential_repo: AddonCredentialRepository,
         env_var_repo: EnvVarRepository,
     ):
-        """Test detaching addon that was never attached.
+        """
+        Test detaching addon that was never attached.
 
         ARRANGE:
             - Create test app with no addons attached
@@ -738,7 +756,8 @@ class TestAddonsDetachCmdIntegration:
         addon_credential_repo: AddonCredentialRepository,
         env_var_repo: EnvVarRepository,
     ):
-        """Test that detaching one addon doesn't affect other addons.
+        """
+        Test that detaching one addon doesn't affect other addons.
 
         ARRANGE:
             - Create test app with two attached addons
@@ -848,7 +867,8 @@ class TestAddonsDestroyCmdIntegration:
         self,
         addon_credential_repo: AddonCredentialRepository,
     ):
-        """Test that addon destroy requires service name.
+        """
+        Test that addon destroy requires service name.
 
         ARRANGE:
             - Create command instance
@@ -876,7 +896,8 @@ class TestAddonsDestroyCmdIntegration:
         another_app: App,
         addon_credential_repo: AddonCredentialRepository,
     ):
-        """Test successful addon destruction removes all associated credentials.
+        """
+        Test successful addon destruction removes all associated credentials.
 
         ARRANGE:
             - Create addon attached to multiple apps
@@ -948,7 +969,8 @@ class TestAddonsDestroyCmdIntegration:
         self,
         addon_credential_repo: AddonCredentialRepository,
     ):
-        """Test destroying addon that has no stored credentials.
+        """
+        Test destroying addon that has no stored credentials.
 
         ARRANGE:
             - Database with no credentials for the addon
@@ -979,7 +1001,8 @@ class TestAddonsDestroyCmdIntegration:
         db_session: Session,
         addon_credential_repo: AddonCredentialRepository,
     ):
-        """Test error handling when addon destruction fails.
+        """
+        Test error handling when addon destruction fails.
 
         ARRANGE:
             - Mock addon plugin to raise RuntimeError
@@ -1030,7 +1053,8 @@ class TestAddonsInfoCmdIntegration:
     """Integration tests for AddonShowCmd using state-based testing."""
 
     def test_info_requires_arguments(self):
-        """Test that addon info requires service name.
+        """
+        Test that addon info requires service name.
 
         ARRANGE:
             - Create command instance
@@ -1051,7 +1075,8 @@ class TestAddonsInfoCmdIntegration:
         assert "addon show" in result[0]["text"]
 
     def test_info_success_displays_addon_information(self):
-        """Test successful retrieval of addon information.
+        """
+        Test successful retrieval of addon information.
 
         ARRANGE:
             - Mock addon plugin to return info dict
@@ -1096,7 +1121,8 @@ class TestAddonsInfoCmdIntegration:
         assert "healthy" in output_text
 
     def test_info_with_default_service_type(self):
-        """Test getting info with default service type (postgres).
+        """
+        Test getting info with default service type (postgres).
 
         ARRANGE:
             - Mock addon plugin for postgres
@@ -1124,7 +1150,8 @@ class TestAddonsInfoCmdIntegration:
         mock_get_addon.assert_called_once_with("postgres", "default-db")
 
     def test_info_with_custom_service_type(self):
-        """Test getting info with custom service type.
+        """
+        Test getting info with custom service type.
 
         ARRANGE:
             - Mock addon plugin for redis
@@ -1162,7 +1189,8 @@ class TestAddonsInfoCmdIntegration:
         assert "1000" in output_text
 
     def test_info_handles_errors(self):
-        """Test error handling when getting addon info fails.
+        """
+        Test error handling when getting addon info fails.
 
         ARRANGE:
             - Mock addon plugin to raise RuntimeError

@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""S3-compatible object storage (MinIO) configuration.
+"""
+S3-compatible object storage (MinIO) configuration.
 
 Downloads MinIO server + the ``mc`` admin CLI, creates a systemd
 service, and configures a ``hop3`` mc alias with generated admin
@@ -59,7 +60,8 @@ MINIO_ENDPOINT = f"http://127.0.0.1:{MINIO_API_PORT}"
 
 
 def _detect_arch() -> str:
-    """Return the MinIO-style arch suffix for the current machine.
+    """
+    Return the MinIO-style arch suffix for the current machine.
 
     MinIO provides linux-amd64, linux-arm64, linux-arm, linux-ppc64le,
     linux-s390x. We only need amd64 and arm64 in practice.
@@ -74,7 +76,8 @@ def _detect_arch() -> str:
 
 
 def _download(url: str, dest: Path) -> None:
-    """Download a file to dest. Uses curl (must be available — it's a
+    """
+    Download a file to dest. Uses curl (must be available — it's a
     base dependency of the installer).
     """
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -118,7 +121,8 @@ def _install_mc_binary() -> None:
 
 
 def _generate_admin_credentials() -> tuple[str, str]:
-    """Generate MinIO admin credentials, or reuse existing ones.
+    """
+    Generate MinIO admin credentials, or reuse existing ones.
 
     Credentials are stored in MINIO_CREDENTIALS_FILE (0600) so the
     systemd unit and the hop3 server can both read them.
@@ -192,7 +196,8 @@ WantedBy=multi-user.target
 
 
 def _write_supervisord_unit(root_user: str, root_password: str) -> None:
-    """Write /etc/supervisor/conf.d/minio.conf as a systemd fallback.
+    """
+    Write /etc/supervisor/conf.d/minio.conf as a systemd fallback.
 
     Containers use supervisord instead of systemd. This writes a
     program block that runs MinIO with the same args and env as the
@@ -250,7 +255,8 @@ def _start_minio_service_supervisord() -> bool:
 
 
 def _start_minio_service() -> None:
-    """Start MinIO via systemd or supervisord, then verify it's alive.
+    """
+    Start MinIO via systemd or supervisord, then verify it's alive.
 
     Picks the init system automatically: systemd if it's PID 1
     (bare-metal, VMs), supervisord otherwise (Docker test containers).
@@ -292,7 +298,8 @@ def _start_minio_service() -> None:
 
 
 def _configure_mc_alias(root_user: str, root_password: str) -> None:
-    """Register the 'hop3' mc alias pointing at the local MinIO.
+    """
+    Register the 'hop3' mc alias pointing at the local MinIO.
 
     This is the alias the hop3-server plugin uses to manage buckets
     and access keys.
@@ -316,7 +323,8 @@ def _configure_mc_alias(root_user: str, root_password: str) -> None:
 
 
 def _write_hop3_env_file(root_user: str, root_password: str) -> None:
-    """Write ``/etc/hop3/s3-env`` with ``MC_HOST_hop3=...``.
+    """
+    Write ``/etc/hop3/s3-env`` with ``MC_HOST_hop3=...``.
 
     MinIO's ``mc`` CLI reads ``MC_HOST_<alias>`` env vars and uses
     them as an ad-hoc alias, bypassing ``~/.mc/config.json``. This
@@ -343,7 +351,8 @@ def _write_hop3_env_file(root_user: str, root_password: str) -> None:
 
 
 def fix_s3_env_ownership() -> None:
-    """Set ``/etc/hop3/s3-env`` group ownership to ``hop3``.
+    """
+    Set ``/etc/hop3/s3-env`` group ownership to ``hop3``.
 
     Called by the main installer flow after step 2 (user/group
     creation) to fix up the file that ``configure_s3`` wrote in
@@ -365,7 +374,8 @@ def fix_s3_env_ownership() -> None:
 
 
 def configure_s3() -> None:
-    """Install and configure MinIO for Hop3 use.
+    """
+    Install and configure MinIO for Hop3 use.
 
     Called from the installer's optional-packages step when
     ``--with s3`` is passed.

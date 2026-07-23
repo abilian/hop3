@@ -5,7 +5,8 @@
 # ruff:file-ignore[raise-vanilla-args, raw-string-in-exception]
 
 
-"""go-source template.
+"""
+go-source template.
 
 Builds a Go application **from source** with ``buildGoModule``, then wraps the
 resulting binary with Hop3's runtime metadata.
@@ -75,7 +76,8 @@ def _nix_string_list(values: list[str]) -> str:
 def _frontend_block(
     spec: AppSpec, p: GoSourcePayload, binding: str, wrapper_body: str
 ) -> tuple[str, str, str, str]:
-    """The optional JS-frontend derivation and its integration.
+    """
+    The optional JS-frontend derivation and its integration.
 
     Returns ``(frontend_nix, frontend_sed, frontend_prebuild, wrapper_body)``:
     the ``frontend`` let-binding, the wrapper sed (disk mode), the buildGoModule

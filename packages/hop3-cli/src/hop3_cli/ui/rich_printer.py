@@ -48,7 +48,8 @@ class RichPrinter:
         object.__setattr__(self, "_suggest", {"context": None, "app": None})
 
     def set_scope(self, *, context: str | None, app: str | None) -> None:
-        """Set the active context/app used to prefix summary lines (ADR 036 D19c).
+        """
+        Set the active context/app used to prefix summary lines (ADR 036 D19c).
 
         Called by the main dispatch once the effective context and app are
         known (post alias expansion and app resolution). Safe to call with
@@ -58,7 +59,8 @@ class RichPrinter:
         self._scope["app"] = app
 
     def set_suggestion_selectors(self, *, context: str | None, app: str | None) -> None:
-        """Record the ``--context``/``--app`` the user actually TYPED.
+        """
+        Record the ``--context``/``--app`` the user actually TYPED.
 
         Follow-up suggestions (``hint`` items) reproduce these verbatim so a
         copy-pasted next command lands on the same target. Typed — not resolved:
@@ -136,7 +138,8 @@ class RichPrinter:
         self.console.print(table)
 
     def print_text(self, obj: dict) -> None:
-        """Print plain text.
+        """
+        Print plain text.
 
         ``markup=False`` is essential: server text is literal and routinely
         contains square brackets that are NOT Rich markup — e.g. the
@@ -162,7 +165,8 @@ class RichPrinter:
         self.console.print(text, markup=False, highlight=False, soft_wrap=True)
 
     def print_hint(self, obj: dict) -> None:
-        """Render a follow-up-command suggestion in the user's own dialect.
+        """
+        Render a follow-up-command suggestion in the user's own dialect.
 
         The server provides the bare verb (``command``, no target flags) and a
         ``message`` carrying a ``{cmd}`` placeholder. We fill the placeholder
@@ -194,7 +198,8 @@ class RichPrinter:
         return " ".join(p for p in parts if p)
 
     def print_blob(self, obj: dict) -> None:
-        """Write a base64 blob's bytes verbatim to stdout.
+        """
+        Write a base64 blob's bytes verbatim to stdout.
 
         Used by `addon <type> export` to stream a dump to the client; the bytes
         go to stdout (redirect to a file) while status/summary go to stderr.
@@ -234,7 +239,8 @@ class RichPrinter:
         self.console.print(f"[bold green]✓[/bold green] {text}")
 
     def print_warning(self, obj: dict) -> None:
-        """Print warning messages in yellow.
+        """
+        Print warning messages in yellow.
 
         Routed to stderr per ADR 036 D19: warnings are status, not data;
         keeping them off stdout means ``hop3 cmd | grep`` doesn't see them.
@@ -276,7 +282,8 @@ class RichPrinter:
         self.console_err.print(f"[cyan]⏳[/cyan] {text}")
 
     def print_log(self, obj: dict) -> None:
-        """Print deployment log entry with appropriate color and verbosity filtering.
+        """
+        Print deployment log entry with appropriate color and verbosity filtering.
 
         Log levels:
             0 = important (always shown unless quiet)
@@ -317,7 +324,8 @@ class RichPrinter:
             self.console.print(escaped_msg)
 
     def print_data(self, obj: dict) -> None:
-        """Print structured data (typically for JSON output mode or programmatic use).
+        """
+        Print structured data (typically for JSON output mode or programmatic use).
 
         In normal mode, data is displayed as formatted JSON.
         In JSON output mode, it's added to the buffer as-is.
@@ -331,7 +339,8 @@ class RichPrinter:
         self.console.print(json.dumps(data, indent=2))
 
     def print_summary(self, obj: dict) -> None:
-        """Print a state-change summary line (ADR 036 D19c).
+        """
+        Print a state-change summary line (ADR 036 D19c).
 
         Summaries are the one-or-two-line confirmation a mutating command
         prints after it succeeds ("set FOO=bar; restarted web worker.").
@@ -363,7 +372,8 @@ class RichPrinter:
         self.console_err.print(rich_escape(line))
 
     def print_debug(self, message: str, min_level: int = 2) -> None:
-        """Print debug message if verbosity is high enough.
+        """
+        Print debug message if verbosity is high enough.
 
         Args:
             message: Debug message to print

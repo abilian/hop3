@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Central resolution of the CLI config directory.
+"""
+Central resolution of the CLI config directory.
 
 A single chokepoint so the location honors the ``HOP3_CONFIG_DIR`` override
 consistently. ``config.toml``, ``servers.toml``, ``state.toml`` and the
@@ -20,7 +21,8 @@ APP_AUTHOR = "Abilian SAS"
 
 
 def config_dir() -> Path:
-    """Return the CLI config directory.
+    """
+    Return the CLI config directory.
 
     Honors ``$HOP3_CONFIG_DIR`` when set (used both to relocate config and to
     isolate the test suite from the developer's real ``~/.config``). Otherwise

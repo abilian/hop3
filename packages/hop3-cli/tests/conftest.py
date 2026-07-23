@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared test fixtures for hop3-cli.
+"""
+Shared test fixtures for hop3-cli.
 
 The autouse fixture defined here is the test-isolation contract for the
 whole package: unit tests must not depend on the developer's CWD or on
@@ -63,7 +64,8 @@ _HOP3_ENV_VARS = (
 
 @pytest.fixture(autouse=True)
 def _isolate_cli_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Default-isolate every test from CWD-based files and HOP3_* env vars.
+    """
+    Default-isolate every test from CWD-based files and HOP3_* env vars.
 
     - ``chdir(tmp_path)`` so ``Path.cwd()`` lookups (``.hop3-app``,
       ``.hop3-local.toml``, ``hop3.toml`` upward walks) start in an

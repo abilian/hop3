@@ -41,7 +41,8 @@ from ._response import data, error, summary, table, text, warning
 @register
 @dataclass(frozen=True)
 class AddonsCmd(Command):
-    """Manage backing services (databases, caches, etc.).
+    """
+    Manage backing services (databases, caches, etc.).
 
     Examples:
         hop3 addon list                   # List backing service instances (alias: 'hop3 addons')
@@ -56,7 +57,8 @@ class AddonsCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonListCmd(Command):
-    """List addon instances.
+    """
+    List addon instances.
 
     Lists the backing-service instances provisioned on this server. Use
     --app to list only the addons attached to a given application, or
@@ -142,7 +144,8 @@ class AddonListCmd(Command):
 
 
 def _resolve_addon_types(addon_name: str) -> list[str]:
-    """Return the type(s) of the provisioned addon instance(s) named `addon_name`.
+    """
+    Return the type(s) of the provisioned addon instance(s) named `addon_name`.
 
     A name *could* collide across types (a postgres and a redis both named
     "cache"); the caller disambiguates rather than guessing.
@@ -151,7 +154,8 @@ def _resolve_addon_types(addon_name: str) -> list[str]:
 
 
 def _resolve_one_type(addon_name: str, explicit: str | None) -> tuple[str | None, list]:
-    """Resolve a single addon type for a type-agnostic command.
+    """
+    Resolve a single addon type for a type-agnostic command.
 
     Returns ``(addon_type, error_items)``. When ``error_items`` is non-empty the
     caller returns them as-is (unknown name, or ambiguous across types and no
@@ -176,7 +180,8 @@ def _resolve_one_type(addon_name: str, explicit: str | None) -> tuple[str | None
 @register
 @dataclass(frozen=True)
 class AddonEndpointCmd(Command):
-    """Show an addon's connection endpoint (type-agnostic).
+    """
+    Show an addon's connection endpoint (type-agnostic).
 
     Usage: hop3 addon endpoint <name>
 
@@ -238,7 +243,8 @@ class AddonEndpointCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonExistsCmd(Command):
-    """Predicate: does an addon exist? (type-agnostic, for scripts/CI).
+    """
+    Predicate: does an addon exist? (type-agnostic, for scripts/CI).
 
     Usage: hop3 addon exists <name> [--type <type>]
 
@@ -273,7 +279,8 @@ class AddonExistsCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonExposeCmd(Command):
-    """Expose an addon on a public host port (type-agnostic).
+    """
+    Expose an addon on a public host port (type-agnostic).
 
     Usage: hop3 addon expose <name> --source <cidr|any> [--host <fqdn>]
 
@@ -379,7 +386,8 @@ class AddonExposeCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonUnexposeCmd(Command):
-    """Remove an addon's public exposure (type-agnostic).
+    """
+    Remove an addon's public exposure (type-agnostic).
 
     Usage: hop3 addon unexpose <name>
 
@@ -427,7 +435,8 @@ class AddonUnexposeCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonPromoteCmd(Command):
-    """Make an addon the primary one of its type for an app (type-agnostic).
+    """
+    Make an addon the primary one of its type for an app (type-agnostic).
 
     Usage: hop3 addon promote <name> [--app <app>] [--type <type>]
 
@@ -519,7 +528,8 @@ class AddonPromoteCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonTypesCmd(Command):
-    """List available addon types.
+    """
+    List available addon types.
 
     Shows all registered addon types that can be provisioned with
     'hop3 addon create <type> <name>'.
@@ -568,7 +578,8 @@ class AddonTypesCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonCreateCmd(Command):
-    """Create a new addon.
+    """
+    Create a new addon.
 
     Usage: hop3 addon create <type> <name>
 
@@ -635,7 +646,8 @@ class AddonCreateCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonAttachCmd(Command):
-    """Attach an addon to an application.
+    """
+    Attach an addon to an application.
 
     This command injects the service's connection details as environment
     variables into the specified application.
@@ -663,7 +675,8 @@ class AddonAttachCmd(Command):
     def _apply_primary(
         self, app_id: int, service_type: str, addon_name: str, *, want_primary: bool
     ) -> bool:
-        """Decide + set which same-type addon is primary; return this one's status.
+        """
+        Decide + set which same-type addon is primary; return this one's status.
 
         First addon of a type → primary. A later one → non-primary, unless
         ``--primary`` is given or there is currently no primary at all. When this
@@ -841,7 +854,8 @@ class AddonAttachCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonDetachCmd(Command):
-    """Detach an addon from an application.
+    """
+    Detach an addon from an application.
 
     This removes the service's environment variables from the application.
 
@@ -976,7 +990,8 @@ class AddonDetachCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonDestroyCmd(Command):
-    """Destroy an addon.
+    """
+    Destroy an addon.
 
     WARNING: This will permanently delete all data in the service!
 
@@ -1062,7 +1077,8 @@ class AddonDestroyCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonShowCmd(Command):
-    """Show information about an addon.
+    """
+    Show information about an addon.
 
     Usage: hop3 addon show <name> [--type <type>]
 
@@ -1118,7 +1134,8 @@ class AddonShowCmd(Command):
 @register
 @dataclass(frozen=True)
 class AddonStatusCmd(Command):
-    """Show detailed status and health of an addon.
+    """
+    Show detailed status and health of an addon.
 
     Performs a health check on the addon and shows all attached applications.
 

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Dishka container creation (mirrors ``hop3.di.container``).
+"""
+Dishka container creation (mirrors ``hop3.di.container``).
 
 ``LitestarProvider()`` is required so providers/handlers can access the
 Litestar ``Request`` (playbook COMMON-GOTCHAS). Wire to the app with

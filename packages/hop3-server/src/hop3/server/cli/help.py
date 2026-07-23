@@ -17,7 +17,8 @@ if TYPE_CHECKING:
 
 
 def print_help():
-    """Display the help information for the Hop3 command-line interface (CLI).
+    """
+    Display the help information for the Hop3 command-line interface (CLI).
 
     This gathers and prints the version, usage instructions, and
     available commands.
@@ -122,7 +123,8 @@ class HelpCommand(Command):
         )
 
     def run(self, command: str | None = None):
-        """Show help information.
+        """
+        Show help information.
 
         Args:
             command: Optional command name to show detailed help for
@@ -135,7 +137,8 @@ class HelpCommand(Command):
             print_help()
 
     def _show_command_help(self, command_name: str):
-        """Show detailed help for a specific command.
+        """
+        Show detailed help for a specific command.
 
         Args:
             command_name: Name of the command to show help for

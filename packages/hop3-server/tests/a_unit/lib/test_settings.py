@@ -217,8 +217,10 @@ class TestParseSettings:
         assert result == {}
 
     def test_nul_byte_in_expansion_value_is_swallowed_to_empty_dict(self, tmp_path):
-        """A NUL byte makes expand_vars raise; parse_settings catches it via the
-        broad error path and discards the whole file, returning {}."""
+        """
+        A NUL byte makes expand_vars raise; parse_settings catches it via the
+        broad error path and discards the whole file, returning {}.
+        """
         target = tmp_path / "settings.env"
         target.write_text("TARGET=$BAD\n")
 

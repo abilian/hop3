@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""java-gradle template.
+"""
+java-gradle template.
 
 Builds a Java application **from source** with Gradle, then runs the produced
 jar with ``java -jar``. This is the JVM counterpart to ``go-source`` /

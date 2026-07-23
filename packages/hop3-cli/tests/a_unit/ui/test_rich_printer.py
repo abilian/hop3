@@ -43,7 +43,8 @@ def test_rich_printer_print_text_normal():
 
 
 def test_rich_printer_print_text_preserves_square_brackets():
-    """Plain text with square brackets must print literally (not as Rich markup).
+    """
+    Plain text with square brackets must print literally (not as Rich markup).
 
     Help output uses literal brackets the user must see: the ``[top]`` /
     ``[addon]`` markers in ``hop help --all`` and ``[options]`` / ``[aliases]``
@@ -72,7 +73,8 @@ def test_rich_printer_print_text_preserves_square_brackets():
 
 
 def test_rich_printer_does_not_wrap_long_single_line_value():
-    """A long single-line value must not be word-wrapped.
+    """
+    A long single-line value must not be word-wrapped.
 
     `hop3 auth get-token` prints a bare JWT for `TOKEN=$(...)`. When stdout is
     piped (not a TTY) Rich defaults to 80 cols and would word-wrap the token,
@@ -96,7 +98,8 @@ def test_rich_printer_does_not_wrap_long_single_line_value():
 
 
 def test_rich_printer_print_blob_writes_raw_bytes_to_stdout():
-    """A blob item (base64) is decoded and written verbatim to stdout.buffer.
+    """
+    A blob item (base64) is decoded and written verbatim to stdout.buffer.
 
     Used by `addon <type> export` so a dump can be redirected to a file.
     """
@@ -509,7 +512,8 @@ def test_rich_printer_table_empty_rows():
 
 
 def test_print_error_with_bracketed_text_does_not_crash():
-    """Server-supplied error text routinely contains brackets that are NOT Rich
+    """
+    Server-supplied error text routinely contains brackets that are NOT Rich
     markup — MSBuild appends ``[/path/app.csproj]`` to every diagnostic. Such a
     closing-bracket sequence used to make Rich raise a MarkupError that masked
     the real failure. The text must print literally instead.
@@ -553,8 +557,10 @@ def _render_hint(item, *, context=None, app):
 
 
 def test_hint_echoes_typed_context():
-    """A follow-up suggestion carries the --context the user typed, so a
-    copy-paste stays on the same server (it never reaches the server itself)."""
+    """
+    A follow-up suggestion carries the --context the user typed, so a
+    copy-paste stays on the same server (it never reaches the server itself).
+    """
     item = {"t": "hint", "command": "deploy", "message": "Run {cmd} to apply."}
     out = _render_hint(item, context="prod", app=None)
     assert "hop3 deploy --context prod" in out
@@ -568,8 +574,10 @@ def test_hint_echoes_typed_app():
 
 
 def test_hint_omits_implicit_selectors():
-    """No --app/--context typed (implicit resolution) → suggestion omits them and
-    resolves the same way on the next run."""
+    """
+    No --app/--context typed (implicit resolution) → suggestion omits them and
+    resolves the same way on the next run.
+    """
     item = {"t": "hint", "command": "deploy", "message": "Run {cmd}."}
     out = _render_hint(item, context=None, app=None)
     assert "hop3 deploy" in out

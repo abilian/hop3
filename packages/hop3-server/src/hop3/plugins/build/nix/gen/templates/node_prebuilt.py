@@ -5,7 +5,8 @@
 # ruff:file-ignore[raise-vanilla-args, raw-string-in-exception]
 
 
-"""node-prebuilt template.
+"""
+node-prebuilt template.
 
 For Node.js applications distributed as a tarball with pre-built
 ``node_modules``. The archive is unpacked into ``$out/app`` and wrapped

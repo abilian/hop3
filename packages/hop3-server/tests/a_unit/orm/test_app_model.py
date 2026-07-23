@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the pure / hermetic surface of the App ORM model.
+"""
+Unit tests for the pure / hermetic surface of the App ORM model.
 
 These tests exercise the parts of ``hop3.orm.app`` that need no DB session,
 no subprocess, and no Docker: the IntEnum TypeDecorator, the state machine
@@ -40,7 +41,8 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def app_root(tmp_path: Path) -> Iterator[Path]:
-    """Point the HopConfig singleton's APP_ROOT at a tmp dir and restore it.
+    """
+    Point the HopConfig singleton's APP_ROOT at a tmp dir and restore it.
 
     ``app_path`` resolves via ``HopConfig.get_instance().APP_ROOT``, so paths
     are made deterministic by overriding HOP3_ROOT (APP_ROOT == HOP3_ROOT/apps).

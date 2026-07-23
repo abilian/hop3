@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for the one-shot ADR-042 config migration (config_migration.py).
+"""
+Tests for the one-shot ADR-042 config migration (config_migration.py).
 
 Every test drives ``migrate_legacy_config_042`` against an isolated tmp config
 dir, so nothing here can touch the developer's real ~/.config.

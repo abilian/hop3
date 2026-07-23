@@ -35,7 +35,8 @@ class NodeToolchain(LanguageToolchain):
         return self.check_exists("package.json")
 
     def _get_declared_node_version(self) -> str | None:
-        """Return `[build].node-version` from hop3.toml if set.
+        """
+        Return `[build].node-version` from hop3.toml if set.
 
         Lets apps pin a Node version per-app (blocker #8) without
         relying on the host's `apt install nodejs`. The existing
@@ -56,7 +57,8 @@ class NodeToolchain(LanguageToolchain):
         return str(value) if value else None
 
     def build(self) -> BuildArtifact:
-        """Build the project environment.
+        """
+        Build the project environment.
 
         This creates the necessary directories and installs the required
         dependencies for the project.
@@ -113,7 +115,8 @@ class NodeToolchain(LanguageToolchain):
         )
 
     def get_env(self) -> Env:
-        """Get the environment variables for the application.
+        """
+        Get the environment variables for the application.
 
         Returns
         -------
@@ -140,7 +143,8 @@ class NodeToolchain(LanguageToolchain):
         return env
 
     def install_node(self, env: Env) -> None:
-        """Provision the pinned Node.js version into the app venv via nodeenv.
+        """
+        Provision the pinned Node.js version into the app venv via nodeenv.
 
         When no version is pinned, the build uses the system Node (a modern
         NodeSource LTS, provisioned by the installer) and there's nothing to
@@ -201,7 +205,8 @@ class NodeToolchain(LanguageToolchain):
         self.shell(cmd, cwd=self.virtual_env, env=env)
 
     def install_modules(self, env: Env) -> None:
-        """Install necessary modules for the application.
+        """
+        Install necessary modules for the application.
 
         If a custom build command is specified in hop3.toml [build] section,
         that command is run instead of the default npm install. This allows

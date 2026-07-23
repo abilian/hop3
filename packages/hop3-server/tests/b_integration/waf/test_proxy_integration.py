@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Standalone LeWAF proxy integration (ADR 050, Phase 1c).
+"""
+Standalone LeWAF proxy integration (ADR 050, Phase 1c).
 
 Runs a real ``lewaf-proxy`` subprocess (via ``LeWafEngine.proxy_command``) in
 front of a throwaway upstream and drives HTTP through it — no nginx, no Docker,
@@ -139,8 +140,10 @@ def test_request_outside_allowlist_is_denied(tmp_path):
 
 
 def test_owasp_attack_classes_are_blocked(tmp_path):
-    """SQLi/XSS/path-traversal/RCE on an allowed path are blocked by the CRS;
-    a legitimate request to the same path passes."""
+    """
+    SQLi/XSS/path-traversal/RCE on an allowed path are blocked by the CRS;
+    a legitimate request to the same path passes.
+    """
     attacks = {
         "sqli": "/api?id=1%27%20OR%201%3D1--",
         "xss": "/api?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E",
@@ -170,9 +173,11 @@ def test_attack_body_is_blocked_without_tuning(tmp_path):
 
 
 def test_skip_body_inspection_lets_the_body_through(tmp_path):
-    """A non-browser client (e.g. Nextcloud sync) posting WAF-hostile bodies on a
+    """
+    A non-browser client (e.g. Nextcloud sync) posting WAF-hostile bodies on a
     scoped path passes once skip_body_inspection is tuned on — Security note: the
-    body is trusted only where the operator opts in."""
+    body is trusted only where the operator opts in.
+    """
     policy = {
         "enabled": True,
         "allow": ["/", "/up(/.*)?"],
@@ -204,8 +209,10 @@ def test_gate_allows_office_client(tmp_path):
 
 
 def test_gate_rejects_forged_xff(tmp_path):
-    """A client-forged office IP to the LEFT of the real (non-office) IP must
-    not satisfy the gate — trusted_proxy_count=1 trusts only the rightmost."""
+    """
+    A client-forged office IP to the LEFT of the real (non-office) IP must
+    not satisfy the gate — trusted_proxy_count=1 trusts only the rightmost.
+    """
     with _proxy(_GATE, _NETS, tmp_path) as base:
         r = httpx.get(
             f"{base}/admin",
@@ -220,8 +227,10 @@ def test_gate_rejects_forged_xff(tmp_path):
 
 
 def test_banned_source_is_denied_even_on_allowed_path(tmp_path):
-    """The ban denylist rejects a banned source before the allow/CRS rules;
-    a non-banned source on the same allowed path passes through."""
+    """
+    The ban denylist rejects a banned source before the allow/CRS rules;
+    a non-banned source on the same allowed path passes through.
+    """
     policy = {"enabled": True, "allow": ["/", "/ok(/.*)?"]}
     with _proxy(policy, {}, tmp_path, banned=["198.51.100.9"]) as base:
         banned = httpx.get(

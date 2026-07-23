@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Hop3 unified installer CLI.
+"""
+Hop3 unified installer CLI.
 
 Provides a single entry point for all installer operations:
 - hop3-install cli      - Install Hop3 CLI locally

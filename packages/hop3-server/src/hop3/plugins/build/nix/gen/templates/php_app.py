@@ -5,7 +5,8 @@
 # ruff:file-ignore[raise-vanilla-args, raw-string-in-exception, f-string-in-exception, complex-structure, too-many-branches, too-many-statements]
 
 
-"""php-app template.
+"""
+php-app template.
 
 For PHP applications served via PHP's built-in web server (``php -S``) or
 Laravel's artisan serve. Uses ``pkgs.php82.withExtensions`` to build a
@@ -268,7 +269,8 @@ def _format_php_binding(p: PhpAppPayload) -> str:
 
 
 def _php_exec_line(spec: AppSpec, p: PhpAppPayload) -> str:
-    """Generate the exec line for the wrapper based on serve_mode.
+    """
+    Generate the exec line for the wrapper based on serve_mode.
 
     Placeholders (sed-replaced in install phase):
         APPDIR → $out/app

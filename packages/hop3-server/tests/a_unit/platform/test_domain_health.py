@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Domain registration (WHOIS) + DNS health probing.
+"""
+Domain registration (WHOIS) + DNS health probing.
 
 check_domain is best-effort and must never raise: WHOIS/DNS failures degrade to
 "unknown" with a note, never an exception.

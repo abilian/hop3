@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Alias registry: loads all alias sources and resolves commands (ADR 036 D9).
+"""
+Alias registry: loads all alias sources and resolves commands (ADR 036 D9).
 
 Responsibilities:
 - Build the effective alias table by merging core + plugin + user aliases,
@@ -46,7 +47,8 @@ class AliasRegistry:
 
 
 def load_user_aliases_from_config(config_file: Path | None) -> list[Alias]:
-    """Load user aliases from `~/.config/hop3-cli/config.toml [aliases]`.
+    """
+    Load user aliases from `~/.config/hop3-cli/config.toml [aliases]`.
 
     Each key maps to an expansion string. The string is split on whitespace
     to produce the expansion tuple, so `pg = "addon postgres"` becomes
@@ -74,7 +76,8 @@ class AliasLoadDiagnostics:
 def load_user_aliases_with_diagnostics(
     config_file: Path | None,
 ) -> tuple[list[Alias], AliasLoadDiagnostics]:
-    """Same as ``load_user_aliases_from_config`` but also returns diagnostics.
+    """
+    Same as ``load_user_aliases_from_config`` but also returns diagnostics.
 
     Used by ``hop3 aliases`` so users see *why* an alias they wrote isn't
     showing up. Day-to-day CLI invocations stay quiet to avoid one warning
@@ -133,7 +136,8 @@ def build_registry(
     *,
     warn_to_stderr: bool = False,
 ) -> AliasRegistry:
-    """Build the effective alias registry (disjoint union, no shadowing).
+    """
+    Build the effective alias registry (disjoint union, no shadowing).
 
     Load order (earlier wins on collision):
       1. Core built-in aliases
@@ -193,7 +197,8 @@ def resolve_aliases(
     *,
     known_subcommands_of_namespace: dict[str, set[str]] | None = None,
 ) -> tuple[list[str], Alias | None]:
-    """Expand an alias at the start of cli_args, per D9's collision rule.
+    """
+    Expand an alias at the start of cli_args, per D9's collision rule.
 
     Args:
         cli_args: The argv (after flag stripping), e.g. ["apps"] or ["env", "myapp"].
@@ -231,7 +236,8 @@ def resolve_aliases(
 
 
 def build_subcommand_index(command_names: list[str]) -> dict[str, set[str]]:
-    """From a list of space-separated command names, build a map of
+    """
+    From a list of space-separated command names, build a map of
     `{namespace -> {subcommand_verbs}}` for the collision-with-subcommand check.
 
     Example input: ["app list", "app create", "app destroy", "apps", "addon list", ...]
@@ -247,7 +253,8 @@ def build_subcommand_index(command_names: list[str]) -> dict[str, set[str]]:
 
 
 def cached_subcommand_index() -> dict[str, set[str]]:
-    """Load the subcommand index from the completion cache if available.
+    """
+    Load the subcommand index from the completion cache if available.
 
     Falls back to a static subset sufficient for the core alias set. This
     keeps alias resolution robust even on first-run (cache cold).

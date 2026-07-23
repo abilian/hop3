@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for `hop3 app upgrade` / `hop3 app rollback` (M3.2).
+"""
+Unit tests for `hop3 app upgrade` / `hop3 app rollback` (M3.2).
 
 These pin the TRANSACTION — snapshot, redeploy, auto-rollback on failure — with
 do_deploy, BackupManager, and get_app stubbed, so the sequencing (not a real

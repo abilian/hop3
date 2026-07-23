@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the `hop3 tunnel <name>` local command.
+"""
+Unit tests for the `hop3 tunnel <name>` local command.
 
 These exercise the command's logic (arg parsing, URL rewriting, endpoint
 fetch, SSH param derivation, hold/cleanup) without opening a real tunnel.
@@ -33,8 +34,10 @@ _ENDPOINT = {"type": "postgres", "host": "127.0.0.1", "port": 5432, "url": _PG_U
 
 @pytest.fixture(autouse=True)
 def _restore_signal_handlers():
-    """handle_tunnel installs SIGTERM/SIGHUP handlers; keep them out of the
-    global test state (a leftover handler could hijack a CI SIGTERM)."""
+    """
+    handle_tunnel installs SIGTERM/SIGHUP handlers; keep them out of the
+    global test state (a leftover handler could hijack a CI SIGTERM).
+    """
     sigs = [signal.SIGTERM]
     if hasattr(signal, "SIGHUP"):
         sigs.append(signal.SIGHUP)

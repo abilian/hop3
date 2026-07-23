@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""JSON-RPC communication layer for the Hop3 CLI.
+"""
+JSON-RPC communication layer for the Hop3 CLI.
 
 This package handles all communication with the Hop3 server:
 - client: RPC client with SSH tunnel support (subprocess ``ssh -L``)

@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Shared SUT-side failure diagnostics for the test runners.
+"""
+Shared SUT-side failure diagnostics for the test runners.
 
 When a test fails or times out, the *target* holds the answer — the app log, the
 nginx/uWSGI config, the journal, the docker state, and the app list
@@ -35,7 +36,8 @@ def target_kind(target: DeploymentTarget) -> str:
 
 
 def hop3_apps_snapshot(target: DeploymentTarget) -> str:
-    """A ``hop3 apps`` listing from the target, or "" if unavailable.
+    """
+    A ``hop3 apps`` listing from the target, or "" if unavailable.
 
     Name-independent, so it's useful even when the failing app's name is unknown
     (demos) or mis-derived: it surfaces leftover/stranded apps and an app stuck
@@ -78,7 +80,8 @@ def collect_failure_diagnostics(
     deploy_logs: str = "",
     expected_port: int | None = None,
 ) -> tuple[str, Bundle | None]:
-    """SUT-side diagnostics for a failed/timed-out test. Never raises.
+    """
+    SUT-side diagnostics for a failed/timed-out test. Never raises.
 
     Returns ``(runtime_logs, bundle)``:
     - ``runtime_logs`` always includes the ``hop3 apps`` snapshot, plus this

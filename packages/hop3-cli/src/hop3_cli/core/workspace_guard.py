@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Fail-loud guard against deploying a uv-workspace member in isolation.
+"""
+Fail-loud guard against deploying a uv-workspace member in isolation.
 
 When an app directory is a member of a uv workspace (a parent
 ``pyproject.toml`` has ``[tool.uv.workspace]`` whose ``members`` glob the
@@ -43,7 +44,8 @@ _EXACT_PIN_RE = re.compile(r"===?")
 
 @dataclass(frozen=True)
 class WorkspaceDepIssue:
-    """Result of the workspace-dependency check.
+    """
+    Result of the workspace-dependency check.
 
     Attributes:
         is_problem: True iff the guard should fire.
@@ -64,7 +66,8 @@ class WorkspaceDepIssue:
 def check_workspace_dependency(
     source_dir: Path, *, home: Path | None = None
 ) -> WorkspaceDepIssue:
-    """Detect an isolated deploy of a uv-workspace member with an internal dep.
+    """
+    Detect an isolated deploy of a uv-workspace member with an internal dep.
 
     Args:
         source_dir: The directory ``hop3 deploy`` would package.
@@ -115,7 +118,8 @@ def check_workspace_dependency(
 def _find_enclosing_workspace(
     source_dir: Path, home: Path
 ) -> tuple[Path, set[Path]] | None:
-    """Find the nearest ancestor that declares ``source_dir`` a workspace member.
+    """
+    Find the nearest ancestor that declares ``source_dir`` a workspace member.
 
     Walks strictly upward from ``source_dir`` (so a directory that is itself a
     workspace root — i.e. you're deploying the whole workspace — does not

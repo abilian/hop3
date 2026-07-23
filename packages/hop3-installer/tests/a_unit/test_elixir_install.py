@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Install a modern Elixir (>= 1.15): Phoenix's phx_new rejects the distro's 1.14.
+"""
+Install a modern Elixir (>= 1.15): Phoenix's phx_new rejects the distro's 1.14.
 
 We keep the distro Erlang/OTP and drop in a precompiled Elixir matching the
 installed OTP major version, symlinked into /usr/local/bin.

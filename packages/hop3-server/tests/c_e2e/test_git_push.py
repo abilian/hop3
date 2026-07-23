@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""End-to-end tests for git push deployment.
+"""
+End-to-end tests for git push deployment.
 
 These tests verify the complete git push deployment workflow:
 1. Create a local git repository with app code
@@ -47,7 +48,8 @@ def health():
 
 @pytest.fixture
 def git_test_app(tmp_path: Path) -> Path:
-    """Create a test Flask app with git repository.
+    """
+    Create a test Flask app with git repository.
 
     Returns:
         Path to the app directory with initialized git repo
@@ -73,7 +75,8 @@ def add_hop3_remote(
     container_info: dict[str, Any],
     app_name: str,
 ) -> None:
-    """Add hop3 git remote to local repository.
+    """
+    Add hop3 git remote to local repository.
 
     Args:
         app_dir: Path to local git repository
@@ -118,7 +121,8 @@ def git_push_to_hop3(
     container_info: dict[str, Any],
     branch: str = "main",
 ) -> subprocess.CompletedProcess:
-    """Push to hop3 remote.
+    """
+    Push to hop3 remote.
 
     Args:
         app_dir: Path to local git repository
@@ -179,7 +183,8 @@ class TestGitPushDeployment:
         hop3_container: dict[str, Any],
         git_test_app: Path,
     ):
-        """Test that git push creates and deploys a new app.
+        """
+        Test that git push creates and deploys a new app.
 
         ARRANGE:
             - Create local git repository with Flask app
@@ -235,7 +240,8 @@ class TestGitPushDeployment:
         hop3_container: dict[str, Any],
         tmp_path: Path,
     ):
-        """Test that git push updates an existing deployed app.
+        """
+        Test that git push updates an existing deployed app.
 
         ARRANGE:
             - Deploy initial version via git push
@@ -342,7 +348,8 @@ def index():
         hop3_container: dict[str, Any],
         git_test_app: Path,
     ):
-        """Test that git push shows deployment progress to user.
+        """
+        Test that git push shows deployment progress to user.
 
         ARRANGE:
             - Create local git repository with Flask app

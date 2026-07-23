@@ -74,7 +74,8 @@ def create_test_token(
     expires_hours: int = 24,
     secret_key: str = E2E_TEST_SECRET_KEY,
 ) -> str:
-    """Create a JWT token for E2E testing.
+    """
+    Create a JWT token for E2E testing.
 
     Creates a valid JWT signed with ``secret_key`` — which MUST be the key the
     target server validates with, or the server rejects the token. For a server
@@ -131,7 +132,8 @@ _CLI_STEERING_ENV_VARS = (
 
 
 def hermetic_cli_env() -> dict[str, str]:
-    """A copy of the process environment with the HOP3_* steering vars removed.
+    """
+    A copy of the process environment with the HOP3_* steering vars removed.
 
     The caller then sets the explicit HOP3_API_URL / HOP3_API_TOKEN it wants
     honored. Use this instead of ``os.environ.copy()`` for any hop3 CLI
@@ -145,7 +147,8 @@ def hermetic_cli_env() -> dict[str, str]:
 
 @cache
 def hermetic_cli_cwd() -> str:
-    """A directory with NO ``hop3.toml`` in its ancestry — the CWD for every
+    """
+    A directory with NO ``hop3.toml`` in its ancestry — the CWD for every
     harness ``hop3`` subprocess.
 
     The harness always targets apps explicitly (``--app NAME``), so the CLI

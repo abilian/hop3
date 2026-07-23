@@ -12,7 +12,8 @@ from typing import Any
 
 
 def _get_env_verbosity() -> int | None:
-    """Get verbosity from HOP3_VERBOSITY environment variable.
+    """
+    Get verbosity from HOP3_VERBOSITY environment variable.
 
     Returns:
         Verbosity level (0-3) or None if not set or invalid
@@ -28,7 +29,8 @@ def _get_env_verbosity() -> int | None:
 
 
 def _get_env_no_input() -> bool:
-    """Whether HOP3_NO_INPUT=1 requests non-interactive (no-prompt) mode.
+    """
+    Whether HOP3_NO_INPUT=1 requests non-interactive (no-prompt) mode.
 
     The counterpart to ``run_command_from_args``'s flag→env bridge: ``main``
     exports ``HOP3_NO_INPUT=1`` when ``--no-input`` is passed so deep prompt
@@ -130,7 +132,8 @@ def _parse_verbosity_flag(arg: str, current: int) -> int | None:  # ruff:ignore[
 
 
 def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
-    """Parse CLI flags from arguments and return flags + remaining args.
+    """
+    Parse CLI flags from arguments and return flags + remaining args.
 
     Supports:
         --json, -j: Machine-readable JSON output
@@ -219,7 +222,8 @@ _PAIR_FLAGS: dict[tuple[str, ...], str] = {
 
 
 def _apply_flag(args: list[str], i: int, state: dict[str, Any]) -> int:
-    """Try to interpret args[i] as a flag; mutate state and return tokens consumed.
+    """
+    Try to interpret args[i] as a flag; mutate state and return tokens consumed.
 
     Returns 0 when the token isn't a recognized flag (caller passes it through).
     Returns 1 for boolean/inline flags, 2 for ``--flag value`` pairs.

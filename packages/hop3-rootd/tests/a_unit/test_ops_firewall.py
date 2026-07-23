@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for firewall ops.
+"""
+Unit tests for firewall ops.
 
 The exec seam is faked via ``OpContext.exec`` (a ``FakeExec``); nft never
 runs. Tests configure routes on ``ctx.exec`` and assert on result + state.

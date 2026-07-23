@@ -103,7 +103,8 @@ class ServerInstallerConfig:
 
 
 def parse_features(features_str: str) -> set[str]:
-    """Parse a comma-separated feature list; reject unknown features loudly.
+    """
+    Parse a comma-separated feature list; reject unknown features loudly.
 
     An unknown ``--with`` value used to be silently dropped (a fail-loud
     violation — the user asked for something they didn't get, with no word).

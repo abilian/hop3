@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""DKIM key generation + DNS records for the direct email backend (ADR 054).
+"""
+DKIM key generation + DNS records for the direct email backend (ADR 054).
 
 The direct backend delivers to recipients' MX itself, so Hop3 — not a provider —
 signs outgoing mail. This module generates the DKIM keypair (via
@@ -57,7 +58,8 @@ def _genkey_argv(genkey: str, domain: str, selector: str, keydir: Path) -> list[
 
 
 def _parse_dkim_txt(text: str) -> str:
-    """Join ``opendkim-genkey``'s multi-line quoted TXT into one record value.
+    """
+    Join ``opendkim-genkey``'s multi-line quoted TXT into one record value.
 
     The ``.txt`` file splits the record across ``"…"`` segments (BIND syntax);
     the publishable value is those segments concatenated, e.g.
@@ -69,7 +71,8 @@ def _parse_dkim_txt(text: str) -> str:
 def ensure_keypair(
     domain: str, selector: str, *, exec: Exec = DEFAULT_EXEC
 ) -> dict[str, str]:
-    """Generate the DKIM keypair for ``domain`` if absent; return its DNS record.
+    """
+    Generate the DKIM keypair for ``domain`` if absent; return its DNS record.
 
     Idempotent: an existing private key is reused (never rotated silently), so
     re-selecting the direct backend keeps the published record valid. Returns
@@ -136,8 +139,10 @@ def _opendkim_conf(keytable: Path, signingtable: Path, trusted: Path) -> str:
 
 
 def write_opendkim_config(domain: str, selector: str) -> None:
-    """Write ``opendkim.conf`` + KeyTable/SigningTable/TrustedHosts to sign mail
-    from ``domain`` with the generated key. Idempotent (rewrites to state)."""
+    """
+    Write ``opendkim.conf`` + KeyTable/SigningTable/TrustedHosts to sign mail
+    from ``domain`` with the generated key. Idempotent (rewrites to state).
+    """
     key_path = KEY_DIR / f"{selector}.private"
     keytable = OPENDKIM_DIR / "KeyTable"
     signingtable = OPENDKIM_DIR / "SigningTable"
@@ -151,7 +156,8 @@ def write_opendkim_config(domain: str, selector: str) -> None:
 
 
 def reload_opendkim(exec: Exec = DEFAULT_EXEC) -> str:
-    """Apply the opendkim config (start it if stopped) via systemd.
+    """
+    Apply the opendkim config (start it if stopped) via systemd.
 
     Non-systemd hosts (a supervisor-managed container) must have the process
     manager run opendkim — the installer's ``--with email`` wires that — so a
@@ -178,7 +184,8 @@ def reload_opendkim(exec: Exec = DEFAULT_EXEC) -> str:
 def publishable_records(
     domain: str, selector: str, dkim_value: str, server_ip: str
 ) -> dict[str, Any]:
-    """The SPF / DKIM / DMARC records (and the PTR reminder) to publish.
+    """
+    The SPF / DKIM / DMARC records (and the PTR reminder) to publish.
 
     SPF authorises the box's own IP with a soft-fail; DMARC starts at ``p=none``
     (monitor) so setup never self-inflicts a delivery break — the operator

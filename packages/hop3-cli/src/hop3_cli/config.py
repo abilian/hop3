@@ -20,7 +20,8 @@ _marker = object()
 
 @dataclasses.dataclass
 class Context:
-    """A legacy config.toml connection record (read-only fallback).
+    """
+    A legacy config.toml connection record (read-only fallback).
 
     ADR 042 r2 retired config.toml ``[contexts.*]`` as the connection source:
     deploy environments now live in the app's committed ``hop3.toml`` and bearer
@@ -69,7 +70,8 @@ class Config:
     }
 
     def is_configured(self) -> bool:
-        """Check if the CLI has been configured with a server URL.
+        """
+        Check if the CLI has been configured with a server URL.
 
         Returns True if api_url is set via:
         1. Environment variable (HOP3_API_URL)
@@ -92,7 +94,8 @@ class Config:
         return bool(context and context.api_url)
 
     def is_authenticated(self) -> bool:
-        """Check if the CLI has authentication credentials.
+        """
+        Check if the CLI has authentication credentials.
 
         Returns True if api_token is set via:
         1. Environment variable (HOP3_API_TOKEN)
@@ -110,7 +113,8 @@ class Config:
         return bool(context and context.api_token)
 
     def set_active_server(self, address: str | None) -> None:
-        """Set the resolved-context server address (ADR 042 r2).
+        """
+        Set the resolved-context server address (ADR 042 r2).
 
         When set, ``get_api_url`` / ``get_api_token`` resolve the connection from
         this address plus the per-server token store, instead of the legacy
@@ -119,7 +123,8 @@ class Config:
         self._active_server = address or None
 
     def get_api_url(self) -> str | None:
-        """Get the API URL if configured, None otherwise.
+        """
+        Get the API URL if configured, None otherwise.
 
         Priority:
         1. HOP3_API_URL environment variable
@@ -147,7 +152,8 @@ class Config:
         return None
 
     def get_api_token(self) -> str | None:
-        """Get the API token if configured, None otherwise.
+        """
+        Get the API token if configured, None otherwise.
 
         Priority:
         1. HOP3_API_TOKEN environment variable (only when non-empty — see below)
@@ -177,7 +183,8 @@ class Config:
         return None
 
     def _resolve_token_server(self) -> str | None:
-        """The credential-store key for the current connection's bearer token.
+        """
+        The credential-store key for the current connection's bearer token.
 
         All three token paths — the readers (``get_api_token``,
         ``is_authenticated``) and the writer (``update_context_token``) — MUST
@@ -261,7 +268,8 @@ class Config:
         raise KeyError(key)
 
     def save(self, updates: dict | None = None) -> None:
-        """Save the config to the TOML file.
+        """
+        Save the config to the TOML file.
 
         config.toml is secret-free under ADR 042 r2 (bearer tokens live in the
         per-server credential store), but we still write defensively:
@@ -333,7 +341,8 @@ class Config:
         return self._app_override
 
     def get_current_context_name(self) -> str | None:
-        """Get the name of the current context.
+        """
+        Get the name of the current context.
 
         Priority (ADR 042 §Resolution chains, post-Step-7):
         1. Context override (--context flag)
@@ -361,7 +370,8 @@ class Config:
     # ---- current-context pointer (ADR 042: [cli].current_context) ----------
 
     def _read_current_context_pointer(self) -> str | None:
-        """The persisted current-context name.
+        """
+        The persisted current-context name.
 
         Canonical location is ``[cli].current_context``; the legacy top-level
         ``current_context`` is read as a one-release fallback (downgrade window).
@@ -373,7 +383,8 @@ class Config:
         return val if isinstance(val, str) else None
 
     def get_default_server(self) -> str | None:
-        """The default-server address for project-less commands (ADR 042 r2).
+        """
+        The default-server address for project-less commands (ADR 042 r2).
 
         Stored at ``[cli].default_server`` in config.toml. The legacy *unnamed*
         default target for project-less commands, used when no ``--context`` and no
@@ -478,7 +489,8 @@ class Config:
         return Context.from_dict(name, contexts[name])
 
     def update_context_token(self, token: str) -> None:
-        """Persist (or clear) the bearer token for the active/default server.
+        """
+        Persist (or clear) the bearer token for the active/default server.
 
         ADR 042 r2: tokens live in the per-server credential store, keyed by the
         resolved server address — the active context's server when one is set

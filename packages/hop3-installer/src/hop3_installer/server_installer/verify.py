@@ -46,7 +46,8 @@ _MANAGED_CONFIG_KEYS = (
 
 
 def read_existing_server_config_value(key: str) -> str | None:
-    """Return a top-level ``KEY = "value"`` from the existing hop3-server.toml.
+    """
+    Return a top-level ``KEY = "value"`` from the existing hop3-server.toml.
 
     Lets a redeploy REUSE a secret the installer wrote on a prior run instead of
     rotating it: a rotated DB superuser password desyncs the role from the
@@ -66,7 +67,8 @@ def read_existing_server_config_value(key: str) -> str | None:
 
 
 def _preserved_operator_lines() -> list[str]:
-    """Existing non-managed ``KEY = value`` lines (e.g. ACME_*) to carry over.
+    """
+    Existing non-managed ``KEY = value`` lines (e.g. ACME_*) to carry over.
 
     Read BEFORE the file is rewritten so operator settings are not lost on
     redeploy. Comments are dropped (values are what matter); blank lines and
@@ -95,7 +97,8 @@ def write_server_config(
     secret_key: str | None = None,
     operator_email: str | None = None,
 ) -> None:
-    """Write hop3-server.toml configuration file.
+    """
+    Write hop3-server.toml configuration file.
 
     Idempotent on redeploy: operator-added keys (ACME_*, custom settings) are
     preserved, and the secrets passed in are the *reused* ones (see
@@ -196,7 +199,8 @@ def write_server_config(
 
 
 def verify_mysql_config() -> bool:
-    """Verify MySQL configuration is correctly set up.
+    """
+    Verify MySQL configuration is correctly set up.
 
     Checks that hop3 user can connect to MySQL and that
     the config file has the proper settings.
@@ -284,7 +288,8 @@ def _verify_services() -> None:
 
 
 def _is_postgres_running() -> bool:
-    """Check if PostgreSQL is running, regardless of init system.
+    """
+    Check if PostgreSQL is running, regardless of init system.
 
     Tries systemd first, then pg_isready (works for any init).
     """
@@ -300,7 +305,8 @@ def _is_postgres_running() -> bool:
 
 
 def _verify_database_services(config_content: str) -> bool:
-    """Verify database services are running and configured.
+    """
+    Verify database services are running and configured.
 
     Returns:
         True if all database services are OK, False otherwise.

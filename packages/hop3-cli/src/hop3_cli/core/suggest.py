@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Did-you-mean suggestions for unknown commands and app names (ADR 036 D10).
+"""
+Did-you-mean suggestions for unknown commands and app names (ADR 036 D10).
 
 Two complementary mechanisms:
 
@@ -39,7 +40,8 @@ def closest_matches(
     max_n: int = _MAX_SUGGESTIONS,
     cutoff: float = _CUTOFF,
 ) -> list[str]:
-    """Return up to `max_n` candidates closest to `target`, by edit distance.
+    """
+    Return up to `max_n` candidates closest to `target`, by edit distance.
 
     Empty target or empty candidates → empty result. Order is by descending
     similarity (best match first). Uses difflib's SequenceMatcher under the
@@ -51,7 +53,8 @@ def closest_matches(
 
 
 def colon_to_space_suggestion(token: str) -> str | None:
-    """If `token` looks like the old colon-syntax (`config:set`), suggest space form.
+    """
+    If `token` looks like the old colon-syntax (`config:set`), suggest space form.
 
     Returns the suggested space-form (e.g., `"config set"`) or None if the
     token doesn't contain a colon. Used by the unknown-command path so that
@@ -74,7 +77,8 @@ def format_did_you_mean(
     *,
     label: str = "Did you mean",
 ) -> str:
-    """Render a "Did you mean ...?" line from a list of suggestions.
+    """
+    Render a "Did you mean ...?" line from a list of suggestions.
 
     With one suggestion: `Did you mean 'foo'?`
     With multiple:       `Did you mean: 'foo', 'bar', 'baz'?`
@@ -89,7 +93,8 @@ def format_did_you_mean(
 
 
 def load_cached_commands(cache_path: Path | None = None) -> list[str]:
-    """Load the cached server command list (one space-separated name per line).
+    """
+    Load the cached server command list (one space-separated name per line).
 
     The cache is written by `hop3 completion --refresh`. Returns an empty list
     if the cache doesn't exist or can't be read — callers should treat that

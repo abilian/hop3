@@ -1,7 +1,8 @@
 # Copyright (c) 2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Integration tests for deployment strategy selection using state-based testing.
+"""
+Integration tests for deployment strategy selection using state-based testing.
 
 This module migrates unit tests to state-based integration tests:
 - Tests deployment strategy selection with real database state
@@ -35,7 +36,8 @@ class TestDeploymentStrategySelection:
     """Integration tests for deployment strategy selection logic."""
 
     def test_uwsgi_deployer_selected_for_virtualenv(self, tmp_path: Path):
-        """Test that UWSGIDeployer is selected for virtualenv artifacts.
+        """
+        Test that UWSGIDeployer is selected for virtualenv artifacts.
 
         ARRANGE:
             - Create source directory
@@ -73,7 +75,8 @@ class TestDeploymentStrategySelection:
         assert deployer.accept() is True
 
     def test_uwsgi_deployer_has_app_access(self, tmp_path: Path):
-        """Test that UWSGIDeployer can access the app from context.
+        """
+        Test that UWSGIDeployer can access the app from context.
 
         ARRANGE:
             - Create real App instance
@@ -112,7 +115,8 @@ class TestDeploymentStrategySelection:
         assert cast("Any", deployer).app.name == "test-app"
 
     def test_deployment_strategy_priority_for_multiple_artifacts(self, tmp_path: Path):
-        """Test that UWSGIDeployer is selected for various artifact types.
+        """
+        Test that UWSGIDeployer is selected for various artifact types.
 
         ARRANGE:
             - Create real App instance
@@ -159,7 +163,8 @@ class TestDeploymentStrategySelection:
         )
 
     def test_deployment_strategy_context_information(self, tmp_path: Path):
-        """Test that deployment strategy receives complete context information.
+        """
+        Test that deployment strategy receives complete context information.
 
         ARRANGE:
             - Create real App instance
@@ -202,7 +207,8 @@ class TestDeploymentStrategySelection:
         assert deployer.context.app_config == app_config
 
     def test_deployment_strategy_artifact_information(self, tmp_path: Path):
-        """Test that deployment strategy receives complete artifact information.
+        """
+        Test that deployment strategy receives complete artifact information.
 
         ARRANGE:
             - Create real App instance

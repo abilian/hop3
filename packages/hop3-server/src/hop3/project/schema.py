@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Pydantic schema for hop3.toml validation.
+"""
+Pydantic schema for hop3.toml validation.
 
 This module defines Pydantic models that validate hop3.toml configuration files.
 The schema enforces:
@@ -261,7 +262,8 @@ class BackupSection(BaseModel):
 
 
 class DomainsSection(BaseModel):
-    """[domains] section - First-class declaration of an app's hostnames.
+    """
+    [domains] section - First-class declaration of an app's hostnames.
 
     Translates at deploy time into the HOST_NAME env var, which the reverse-
     proxy plugins (nginx/caddy/traefik) read. Mirrors the [env] policy model:
@@ -327,7 +329,8 @@ RESERVED_PORTS = frozenset({22, 80, 443})
 
 
 class PortDeclaration(BaseModel):
-    """A single [[ports]] entry — one fixed network port the app binds directly.
+    """
+    A single [[ports]] entry — one fixed network port the app binds directly.
 
     For non-HTTP services (SMTP, XMPP, RTMP, Matrix federation, …) there is no
     reverse proxy or virtual hosting: the app binds the host port itself, so
@@ -400,7 +403,8 @@ class PortDeclaration(BaseModel):
 
 
 class TestValidation(BaseModel):
-    """A single [[test.validations]] entry — one HTTP check the test harness
+    """
+    A single [[test.validations]] entry — one HTTP check the test harness
     performs after the app is up.
     """
 
@@ -428,7 +432,8 @@ class TestValidation(BaseModel):
 
 
 class TestSection(BaseModel):
-    """[test] section — test-harness-specific fields.
+    """
+    [test] section — test-harness-specific fields.
 
     Everything the test harness needs that cannot be derived from the rest
     of hop3.toml. Fields like name / description / category / services /
@@ -518,7 +523,8 @@ GENERATE_KINDS: frozenset[str] = frozenset({
 
 
 class EnvGenerate(BaseModel):
-    """An `[env]` value the platform generates once on first deploy (ADR 046).
+    """
+    An `[env]` value the platform generates once on first deploy (ADR 046).
 
     Replaces the per-app ``hop3 deploy --env KEY=$(...)`` workaround for apps
     that need a secret/key to exist before first boot (Phoenix SECRET_KEY_BASE,
@@ -569,7 +575,8 @@ class EnvGenerate(BaseModel):
 
 
 class EnvRef(BaseModel):
-    """An `[env]` value resolved from a fact at deploy time (ADR 046 §1b).
+    """
+    An `[env]` value resolved from a fact at deploy time (ADR 046 §1b).
 
     For what auto-injection and `[env.computed]` can't express:
     - ``{ from = "<addon>", key = "<KEY>" }`` copies one attribute from a
@@ -619,7 +626,8 @@ _VOLUME_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
 
 
 class VolumeBackupSection(BaseModel):
-    """`[volumes.backup]` — per-volume backup policy (ADR 046 §2/§4a).
+    """
+    `[volumes.backup]` — per-volume backup policy (ADR 046 §2/§4a).
 
     A strict table so a typo (e.g. ``inclide = false``) is rejected at deploy
     time rather than silently leaving the volume in the backup. ``include``
@@ -635,7 +643,8 @@ class VolumeBackupSection(BaseModel):
 
 
 class VolumeSection(BaseModel):
-    """A `[[volumes]]` entry — a path that survives the source-replacing redeploy.
+    """
+    A `[[volumes]]` entry — a path that survives the source-replacing redeploy.
 
     ``persist`` (the default, and the only implemented type) links ``target`` —
     a directory inside the app's source tree — to storage under the app's data
@@ -732,7 +741,8 @@ _MEMORY_RE = re.compile(r"^\d+[KMGkmg]?$")
 
 
 class LimitsSection(BaseModel):
-    """[limits] section — per-app resource caps (ADR 046 §3).
+    """
+    [limits] section — per-app resource caps (ADR 046 §3).
 
     A declared limit is a safety guarantee: if the platform can't enforce it the
     deploy aborts rather than running an app that only *looks* capped. Today
@@ -792,7 +802,8 @@ _WAF_DURATION_RE = re.compile(r"^[1-9]\d*[smhd]$")
 
 
 def _check_path_regex(pattern: str) -> str:
-    """Validate one access-path pattern: a non-empty, compilable regex.
+    """
+    Validate one access-path pattern: a non-empty, compilable regex.
 
     Patterns are full-matched against the canonical request path at runtime
     (ADR 050 §2 / Security invariant 2). Here we only guarantee the pattern is
@@ -818,7 +829,8 @@ def _check_path_regex(pattern: str) -> str:
 
 
 class WafGate(BaseModel):
-    """A ``[[waf.gate]]`` entry — conditional access (ADR 050 §2, use case 2).
+    """
+    A ``[[waf.gate]]`` entry — conditional access (ADR 050 §2, use case 2).
 
     Matching paths are reachable only when ``require`` holds. v1 supports a
     named network (operator-defined, resolved at deploy from the DB); ``auth``
@@ -862,7 +874,8 @@ class WafGate(BaseModel):
 
 
 class WafTuning(BaseModel):
-    """A ``[[waf.tuning]]`` entry — scoped CRS false-positive relief (ADR 050 §3).
+    """
+    A ``[[waf.tuning]]`` entry — scoped CRS false-positive relief (ADR 050 §3).
 
     Verb-named keys (``disable-rule-ids`` / ``skip-body-inspection``) so the
     direction is unambiguous (never the old "exclusions"). Scoped to ``paths``;
@@ -946,7 +959,8 @@ class WafBans(BaseModel):
 
 
 class WafSection(BaseModel):
-    """The ``[waf]`` section — per-app Layer-7 WAF policy (ADR 050).
+    """
+    The ``[waf]`` section — per-app Layer-7 WAF policy (ADR 050).
 
     Two access constructs (ADR 050 §2): ``allow`` (a positive allowlist that, when
     present, denies everything else — use case 1) and ``[[waf.gate]]`` (conditional
@@ -1053,7 +1067,8 @@ def _reject_committed_env_secret(name: str, value: object, where: str) -> None:
 
 
 class ContextSection(BaseModel):
-    """A single ``[contexts.<name>]`` block — one deploy environment (ADR 042 r2).
+    """
+    A single ``[contexts.<name>]`` block — one deploy environment (ADR 042 r2).
 
     A "context" is a (server, app, domains, env) bundle answering "where does
     *this* project go for environment ``<name>``?". Multiple contexts express the
@@ -1144,7 +1159,8 @@ class ContextSection(BaseModel):
 
 
 class AdminSection(BaseModel):
-    """[admin] section — an app's initial admin account (ADR 056).
+    """
+    [admin] section — an app's initial admin account (ADR 056).
 
     The platform generates the password once (CSPRNG, stable across redeploy),
     resolves the email, injects a canonical ``HOP3_ADMIN_USER`` /
@@ -1213,7 +1229,8 @@ class AdminSection(BaseModel):
 
 
 class Hop3TomlSchema(BaseModel):
-    """Complete hop3.toml schema with validation.
+    """
+    Complete hop3.toml schema with validation.
 
     This schema validates the entire hop3.toml file and rejects unknown
     top-level sections. Each section has its own validation rules.
@@ -1460,7 +1477,8 @@ class Hop3TomlValidationError(Exception):
 
 
 def validate_hop3_toml(data: dict[str, Any]) -> Hop3TomlSchema:
-    """Validate hop3.toml data against the schema.
+    """
+    Validate hop3.toml data against the schema.
 
     Args:
         data: Parsed TOML data as dictionary

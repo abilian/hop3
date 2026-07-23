@@ -5,7 +5,8 @@
 # ruff:file-ignore[raise-vanilla-args, raw-string-in-exception]
 
 
-"""prebuilt-binary template.
+"""
+prebuilt-binary template.
 
 For apps distributed as a single pre-compiled binary downloaded from a URL.
 The binary is fetched via ``pkgs.fetchurl { executable = true; }``, copied

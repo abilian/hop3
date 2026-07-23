@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the proxy helper (unit-file writer + systemctl driver).
+"""
+Unit tests for the proxy helper (unit-file writer + systemctl driver).
 
 systemctl is mocked; UNIT_DIR and the proxyd path point at the tmp dir so no
 real systemd is needed.

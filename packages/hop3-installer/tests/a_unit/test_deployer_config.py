@@ -29,8 +29,10 @@ class TestConstants:
     """Tests for module constants."""
 
     def test_default_branch(self):
-        """DEFAULT_BRANCH is now main (ADR 052 D3): safe/prod branch is the
-        default; a dev workflow passes --branch devel explicitly."""
+        """
+        DEFAULT_BRANCH is now main (ADR 052 D3): safe/prod branch is the
+        default; a dev workflow passes --branch devel explicitly.
+        """
         assert DEFAULT_BRANCH == "main"
 
     def test_default_ssh_user(self):
@@ -129,8 +131,10 @@ class TestDeployConfigSshTarget:
 
 
 class TestEffectiveAdminDomain:
-    """The Web UI hostname defaults to the deploy host (your design: `--host`
-    alone serves the Web UI there), unless `--admin-domain` overrides it."""
+    """
+    The Web UI hostname defaults to the deploy host (your design: `--host`
+    alone serves the Web UI there), unless `--admin-domain` overrides it.
+    """
 
     def test_defaults_to_fqdn_host(self):
         config = DeployConfig(host="hop3.example.com")

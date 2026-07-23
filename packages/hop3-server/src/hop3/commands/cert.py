@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""``hop3 cert`` — inspect and renew TLS certificates.
+"""
+``hop3 cert`` — inspect and renew TLS certificates.
 
 ``hop3 cert status`` lists each app's certificate (type, days to expiry).
 ``hop3 cert renew`` re-issues certs due within ``--days`` (default 30) or all
@@ -39,7 +40,8 @@ class CertCmd(Command):
 @register
 @dataclass(frozen=True)
 class CertStatusCmd(Command):
-    """Show each app's TLS certificate: type, days to expiry, status.
+    """
+    Show each app's TLS certificate: type, days to expiry, status.
 
     Example:
         hop3 cert status
@@ -73,7 +75,8 @@ class CertStatusCmd(Command):
 @register
 @dataclass(frozen=True)
 class CertRenewCmd(Command):
-    """Renew certs due within --days (default 30), or all with --force.
+    """
+    Renew certs due within --days (default 30), or all with --force.
 
     Examples:
         hop3 cert renew

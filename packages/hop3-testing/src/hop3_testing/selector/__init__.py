@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Test selection logic for hop3-testing.
+"""
+Test selection logic for hop3-testing.
 
 This module provides:
 - Selector: Selects tests based on mode and filters

@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Test backends for E2E installer testing.
+"""
+Test backends for E2E installer testing.
 
 This package provides backend implementations for running installer tests
 on different targets (Docker, SSH, Vagrant) and utilities for discovering

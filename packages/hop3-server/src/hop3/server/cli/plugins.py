@@ -202,7 +202,8 @@ class Plugins(Command):
             pass
 
     def _toolchain_to_language(self, toolchain_name: str) -> str | None:
-        """Convert toolchain name to user-friendly language name.
+        """
+        Convert toolchain name to user-friendly language name.
 
         Returns None for non-language toolchains (like static).
         """

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for `[contexts.*]` in hop3.toml (ADR 042, 2nd revision).
+"""
+Tests for `[contexts.*]` in hop3.toml (ADR 042, 2nd revision).
 
 A context is a non-secret deploy environment (server address, app, domains,
 env). The schema *accepts* it (so committed files validate and git-push), the

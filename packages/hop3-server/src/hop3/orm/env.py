@@ -1,7 +1,8 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Environment variables for an app.
+"""
+Environment variables for an app.
 
 Note: can be quite lengthy (ARG_MAX=2097152 bytes in recent Linux kernels).
 """
@@ -16,8 +17,10 @@ from . import App
 
 
 class EnvVar(BigIntBase):
-    """Represent an environment variable associated with an instance in the
-    database."""
+    """
+    Represent an environment variable associated with an instance in the
+    database.
+    """
 
     __tablename__ = "env_var"
 

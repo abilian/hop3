@@ -1,7 +1,8 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Catalog controller for Hop3 web interface.
+"""
+Catalog controller for Hop3 web interface.
 
 This controller handles all catalog routes including:
 - Catalog home (featured apps, categories)
@@ -33,7 +34,8 @@ from hop3.server.lib.database import get_session
 
 
 class CatalogController(Controller):
-    """Catalog web interface controller.
+    """
+    Catalog web interface controller.
 
     Handles all catalog routes for browsing and installing applications
     from the catalog.
@@ -48,7 +50,8 @@ class CatalogController(Controller):
 
     @get("/", status_code=200, sync_to_thread=False)
     def catalog_index(self) -> Template:
-        """Display the catalog home page.
+        """
+        Display the catalog home page.
 
         Shows featured apps and category overview.
         """
@@ -71,7 +74,8 @@ class CatalogController(Controller):
     # public by design. See notes/security.md §3.6.1.
     @get("/icons/{app_id:str}", status_code=200, sync_to_thread=False, guards=[])
     def catalog_icon(self, app_id: FromPath[str]) -> File | Redirect:
-        """Serve a catalog app's icon (raster only; never SVG — ADR 049 F6).
+        """
+        Serve a catalog app's icon (raster only; never SVG — ADR 049 F6).
 
         The icon is resolved from the *verified* app's own source directory via
         ``find_icon``, never by joining the URL ``app_id`` onto a path, so a
@@ -103,7 +107,8 @@ class CatalogController(Controller):
 
     @get("/apps", status_code=200, sync_to_thread=False)
     def catalog_list(self) -> Template:
-        """Display all catalog apps.
+        """
+        Display all catalog apps.
 
         Provides a searchable, filterable list of all available apps.
         """
@@ -126,7 +131,8 @@ class CatalogController(Controller):
 
     @get("/apps/{app_id:str}", status_code=200, sync_to_thread=False)
     def catalog_detail(self, app_id: FromPath[str]) -> Template | Redirect:
-        """Display catalog app detail page.
+        """
+        Display catalog app detail page.
 
         Shows full app information and install form.
         """
@@ -188,7 +194,8 @@ class CatalogController(Controller):
             dict[str, str], Body(media_type=RequestEncodingType.URL_ENCODED)
         ],
     ) -> Template | Redirect:
-        """Install a catalog app: stage its recipe, then start a live deploy.
+        """
+        Install a catalog app: stage its recipe, then start a live deploy.
 
         Staging (create app, copy the verified recipe, set env) is shared with
         the ``hop3 catalog install`` CLI via ``stage_catalog_app``. The build and

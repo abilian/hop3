@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""`install_node` provisions a pinned Node version, or fails loudly.
+"""
+`install_node` provisions a pinned Node version, or fails loudly.
 
 The Node toolchain installs `[build].node-version` into the app venv via
 nodeenv. Two behaviours the deploy path depends on:
@@ -42,10 +43,12 @@ def test_pin_without_nodeenv_aborts_loudly(tmp_path, monkeypatch):
 
 
 def test_install_modules_skips_when_node_modules_exists(tmp_path, monkeypatch):
-    """A prebuild that already populated node_modules must not trigger a second
+    """
+    A prebuild that already populated node_modules must not trigger a second
     toolchain npm install: the `--package-lock=false` re-resolve diverges from
     the freshly-built tree and corrupts it (nextjs @tailwindcss/oxide ENOENT,
-    nuxtjs ENOTEMPTY)."""
+    nuxtjs ENOTEMPTY).
+    """
     src = tmp_path / "src"
     (src / "node_modules" / "left-pad").mkdir(parents=True)
     (src / "package.json").write_text("{}")
@@ -61,7 +64,8 @@ def test_install_modules_skips_when_node_modules_exists(tmp_path, monkeypatch):
 
 
 def test_install_modules_installs_from_the_lockfile(tmp_path, monkeypatch):
-    """With no prebuild-populated node_modules, the toolchain installs.
+    """
+    With no prebuild-populated node_modules, the toolchain installs.
 
     It must use `npm ci`, which installs exactly the tree recorded in the
     lockfile. `npm install` would re-resolve every semver range against the

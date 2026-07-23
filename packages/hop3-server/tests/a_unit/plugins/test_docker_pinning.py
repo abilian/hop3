@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Base-image pinning checks for the Docker builder.
+"""
+Base-image pinning checks for the Docker builder.
 
 A `FROM` naming a tag resolves to whatever that tag points at on the day of the
 build, so the resulting image cannot be reproduced or audited. The builder

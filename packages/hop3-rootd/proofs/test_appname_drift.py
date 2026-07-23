@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Server and rootd accept the SAME app names — semantic drift protection.
+"""
+Server and rootd accept the SAME app names — semantic drift protection.
 
 hop3 validates app names twice: hop3-server at the RPC boundary, hop3-rootd
 again at the kernel boundary, because the daemon distrusts its caller. The

@@ -1,5 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
-"""add limits_enforced / limits_detail to the app model
+"""
+add limits_enforced / limits_detail to the app model
 
 Records the resolved [limits] enforcement outcome (ADR 046 §3 / P2.2) so
 `hop3 app status` can show the applied caps or the why-unenforced reason.
@@ -34,7 +35,8 @@ def _has_column(table: str, column: str) -> bool:
 
 
 def upgrade() -> None:
-    """Add the two columns.
+    """
+    Add the two columns.
 
     Idempotent: a brand-new database gets them via ``create_all`` (then stamped
     at head), so the guards skip the add when such a DB is adopted. A

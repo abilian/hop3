@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Unit tests for hop3-rootd installation (systemd unit generation).
+"""
+Unit tests for hop3-rootd installation (systemd unit generation).
 
 Regression focus:
 - The unit once crash-looped ~1620 times with ``status=203/EXEC`` because its
@@ -42,8 +43,10 @@ def test_resolve_daemon_command_returns_existing_binary(
 def test_resolve_daemon_command_raises_when_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """No binary anywhere -> raise, never return a phantom path. Writing a unit
-    with a non-existent ExecStart is what caused the 203/EXEC crash loop."""
+    """
+    No binary anywhere -> raise, never return a phantom path. Writing a unit
+    with a non-existent ExecStart is what caused the 203/EXEC crash loop.
+    """
     # Point VENV_DIR at an empty dir; the hard-coded fallbacks (/usr/local/bin,
     # /opt/..., /home/hop3/.venv) do not exist in the test environment.
     monkeypatch.setattr(rootd, "VENV_DIR", tmp_path / "empty-venv")
@@ -69,10 +72,12 @@ def test_service_template_renders_with_daemon_command() -> None:
 
 
 def test_service_template_is_minimal_pending_v06_hardening() -> None:
-    """Guard the v0.6 decision: the subprocess-breaking hardening directives
+    """
+    Guard the v0.6 decision: the subprocess-breaking hardening directives
     must NOT be present in the active unit until the hardening is redesigned and
     tested against nft + nginx + systemctl. If you re-add one, do it knowingly
-    (and update notes/v0.6-rootd-hardening.md), not by accident."""
+    (and update notes/v0.6-rootd-hardening.md), not by accident.
+    """
     rendered = rootd.SERVICE_TEMPLATE.format(daemon_command="/x/hop3-rootd")
     for breaking in (
         "ProtectHome=",
@@ -85,7 +90,8 @@ def test_service_template_is_minimal_pending_v06_hardening() -> None:
 
 
 def test_unit_keeps_cgroup_and_mount_ops_working() -> None:
-    """ADR 046 P2 (§18): the cgroup.*/mount.* ops rely on the unit NOT setting
+    """
+    ADR 046 P2 (§18): the cgroup.*/mount.* ops rely on the unit NOT setting
     ProtectControlGroups (would block cgroup writes) or PrivateMounts (would hide
     bind/tmpfs mounts from the app's namespace). Guard against a premature re-add.
     """
@@ -151,10 +157,12 @@ def test_check_cgroup_v2_absent_warns_not_fatal(
 
 
 def test_docker_supervisor_config_launches_rootd() -> None:
-    """rootd must be launched in the Docker deploy too (no systemd as PID 1, so
+    """
+    rootd must be launched in the Docker deploy too (no systemd as PID 1, so
     supervisor is the process manager). Omitting it meant the rootd socket never
     appeared and EVERY app deploy's proxy reload failed with 'hop3-rootd is not
-    reachable' -- the c_e2e regression this guards against."""
+    reachable' -- the c_e2e regression this guards against.
+    """
     from hop3_installer.deployer.backends.docker import (  # ruff:ignore[import-outside-top-level]
         SUPERVISOR_CONFIG,
     )

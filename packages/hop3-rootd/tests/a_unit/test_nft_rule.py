@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for nft rule construction and output parsing.
+"""
+Unit tests for nft rule construction and output parsing.
 
 The exec wrapper is mocked here — these tests don't actually invoke nft.
 Real-binary tests live in tests/b_integration/.
@@ -111,7 +112,8 @@ def test_add_argv_simple_tcp_port(patched_nft):
 
 
 def test_add_argv_quotes_comment_so_nft_accepts_the_colons(patched_nft):
-    """Regression: an unquoted ``hop3:rule:<id>`` comment makes nft fail with
+    """
+    Regression: an unquoted ``hop3:rule:<id>`` comment makes nft fail with
     "unexpected colon". The comment token must be a quoted-string literal, and
     must immediately follow the ``comment`` keyword.
     """

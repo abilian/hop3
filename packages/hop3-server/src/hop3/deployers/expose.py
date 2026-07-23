@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Addon exposure: make a 127.0.0.1-only addon reachable on a public host port.
+"""
+Addon exposure: make a 127.0.0.1-only addon reachable on a public host port.
 
 `hop3 addon expose` allocates a stable, persisted host port, opens the firewall
 for it (rootd ``firewall.add_rule``), and stands up a per-addon
@@ -46,7 +47,8 @@ PORT_RANGE_HIGH = 32767
 
 
 def connection_url(details: dict[str, str]) -> str | None:
-    """Pick the one ``*_URL`` entry from a get_connection_details() dict.
+    """
+    Pick the one ``*_URL`` entry from a get_connection_details() dict.
 
     Engine-agnostic: every addon returns exactly one (DATABASE_URL, REDIS_URL, …).
     """
@@ -69,7 +71,8 @@ def _port_is_free(port: int) -> bool:
 
 
 def allocate_public_port(repo: PortClaimRepository, protocol: str = "tcp") -> int:
-    """Pick a random unused host port: free in the claim table AND on the socket.
+    """
+    Pick a random unused host port: free in the claim table AND on the socket.
 
     Aborts loudly if the range is exhausted rather than returning a busy port.
     """
@@ -139,7 +142,8 @@ def expose_addon(
     host: str,
     db_session: DbSession,
 ) -> dict[str, Any]:
-    """Expose an addon on a public host port. Idempotent.
+    """
+    Expose an addon on a public host port. Idempotent.
 
     If the addon is already exposed, returns its existing endpoint (no second
     port allocated). Otherwise allocates a port, writes the claim, opens the
@@ -255,7 +259,8 @@ def expose_addon(
 
 
 def unexpose_addon(addon_type: str, addon_name: str, *, db_session: DbSession) -> bool:
-    """Tear down an addon's exposure. Idempotent; returns False if not exposed.
+    """
+    Tear down an addon's exposure. Idempotent; returns False if not exposed.
 
     Drops the claim row first (so the host port is reclaimable even if rootd is
     down), then best-effort closes the firewall and removes the forwarder. A

@@ -1,5 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
-"""extend port_claim for addon exposure (hop3 addon expose)
+"""
+extend port_claim for addon exposure (hop3 addon expose)
 
 Make ``app_id`` nullable (an exposed addon is not owned by an App) and add the
 addon-exposure columns (addon_type / addon_name / proxy_unit / source).
@@ -34,7 +35,8 @@ def _has_column(table: str, column: str) -> bool:
 
 
 def upgrade() -> None:
-    """Relax app_id + add the addon-exposure columns.
+    """
+    Relax app_id + add the addon-exposure columns.
 
     Idempotent: a brand-new database gets the current schema via ``create_all``
     (then stamped at head), so this guard skips when the columns already exist.

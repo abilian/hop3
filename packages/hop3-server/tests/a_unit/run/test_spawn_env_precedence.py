@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""A persisted [env] must never clobber a toolchain-owned absolute path.
+"""
+A persisted [env] must never clobber a toolchain-owned absolute path.
 
 The demo59 crash-loop: its hop3.toml hardcoded MIX_HOME=…/demo59/.mix, which the
 DB-persisted [env] then applied at runtime *over* the Elixir toolchain's correct

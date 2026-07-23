@@ -19,7 +19,8 @@ if TYPE_CHECKING:
 
 
 def build_test_env(target_info: TargetInfo) -> dict[str, str]:
-    """Build environment variables for test subprocess execution.
+    """
+    Build environment variables for test subprocess execution.
 
     The ``HOP3_TEST_*`` vars are OUTPUTS the harness hands to a test/tutorial/
     demo subprocess (check.py, validoc) so it knows where the deployed server
@@ -61,7 +62,8 @@ def run_captured(
     env: dict[str, str] | None = None,
     timeout: float,
 ) -> subprocess.CompletedProcess[str]:
-    """Like ``subprocess.run(capture_output=True, text=True, timeout=...)`` but
+    """
+    Like ``subprocess.run(capture_output=True, text=True, timeout=...)`` but
     kills the child's whole process *group* on timeout before draining output.
 
     Demo and tutorial runs spawn grandchildren (the ``hop3`` CLI, then ``ssh``)
@@ -101,7 +103,8 @@ def run_captured(
 
 
 def as_text(stream: str | bytes | None) -> str:
-    """Coerce a captured subprocess stream (str / bytes / None) to text.
+    """
+    Coerce a captured subprocess stream (str / bytes / None) to text.
 
     ``subprocess.TimeoutExpired.stdout`` is typed loosely (it can be bytes when
     ``text=False``); this normalises it so timeout handlers can build a log

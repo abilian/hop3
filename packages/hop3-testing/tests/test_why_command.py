@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""`hop3-test why <run-id>` bundle resolution — store record + on-disk fallback.
+"""
+`hop3-test why <run-id>` bundle resolution — store record + on-disk fallback.
 
 Regression: a deploy/startup failure writes a bundle to disk but no result row,
 while its failure headline still prints `hop3-test why <run-id>`. That pointer
@@ -26,8 +27,10 @@ _RUN_ID = "2026-07-06T17-51-48Z-startup-f2a02a"
 
 
 def _write_startup_bundle(runs: Path) -> Bundle:
-    """A startup-failure bundle written to disk with NO result row (the case
-    `_emit_startup_diagnostics` produces)."""
+    """
+    A startup-failure bundle written to disk with NO result row (the case
+    `_emit_startup_diagnostics` produces).
+    """
     bundle = Bundle(
         run_id=_RUN_ID,
         app="startup",

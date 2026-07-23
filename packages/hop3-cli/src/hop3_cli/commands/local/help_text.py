@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Help text for local (client-side) commands.
+"""
+Help text for local (client-side) commands.
 
 This module is the single source of truth for the long-form help of every
 command handled by the CLI itself (never sent to the server). Each command's

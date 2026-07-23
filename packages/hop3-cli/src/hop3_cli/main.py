@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Simple client-side script for Hop3.
+"""
+Simple client-side script for Hop3.
 
 All the logic is implemented on the server side, this script is just a
 thin wrapper around SSH to communicate with the server.
@@ -178,7 +179,8 @@ def run_command_from_args(cli_args: list[str]) -> None:
 
 
 def _apply_flag_overrides(config: Config, flags: CliFlags) -> None:
-    """Stash the resolution flags (--context/--app) onto the config.
+    """
+    Stash the resolution flags (--context/--app) onto the config.
 
     These are global flags consumed by ``parse_flags`` before the subcommand
     runs. App-scoped commands read them via the resolvers; local config-
@@ -191,7 +193,8 @@ def _apply_flag_overrides(config: Config, flags: CliFlags) -> None:
 
 
 def _exit_no_app_resolved(resolution, cli_args: list[str], n_consumed: int) -> None:
-    """Print a helpful error and exit when an app-scoped command has no app.
+    """
+    Print a helpful error and exit when an app-scoped command has no app.
 
     Per ADR 036 D7: list the sources we tried and suggest concrete fixes.
     Exits with code 3 (resolution error per D16). Goes to stderr (D19).
@@ -217,7 +220,8 @@ def _apply_aliases(
     printer: RichPrinter,
     flags,
 ) -> list[str]:
-    """Expand the first-token alias (if any) per ADR 036 D9.
+    """
+    Expand the first-token alias (if any) per ADR 036 D9.
 
     Loads the effective alias registry (core + plugin + user) once per
     invocation, runs the resolver, and returns the rewritten argv. The
@@ -249,7 +253,8 @@ def _apply_aliases(
 
 
 def _context_server(name: str | None, config: Config) -> str | None:
-    """Resolve a context NAME to its server address (ADR 042).
+    """
+    Resolve a context NAME to its server address (ADR 042).
 
     ``--context`` is the one selector for every command. A name resolves
     **project-first, then global**: the nearest project ``hop3.toml
@@ -276,7 +281,8 @@ def _resolve_active_server(context_resolution, config: Config) -> str | None:
 def _wire_active_server(
     cli_args: list[str], flags: CliFlags, config: Config, context_resolution
 ) -> None:
-    """Set this invocation's active server — the one connection target (ADR 042).
+    """
+    Set this invocation's active server — the one connection target (ADR 042).
 
     ``--context <name>`` is the single selector for *every* command, app-bound or
     not (`hop3 deploy --context prod` and `hop3 apps --context prod` alike). It
@@ -300,7 +306,8 @@ def _wire_active_server(
 
 
 def _require_context_server(name: str, config: Config) -> str:
-    """Resolve an explicit ``--context <name>`` to a server, or exit loud (ADR 042).
+    """
+    Resolve an explicit ``--context <name>`` to a server, or exit loud (ADR 042).
 
     ``--context`` is honoured for every command; it must name a context that
     resolves to a server — a project ``[contexts.<name>]`` (hop3.toml) or a global
@@ -328,7 +335,8 @@ def _require_context_server(name: str, config: Config) -> str:
 
 
 def _env_override_url(config: Config) -> str | None:
-    """The connection URL ``get_api_url()`` takes from the environment, ahead of
+    """
+    The connection URL ``get_api_url()`` takes from the environment, ahead of
     any resolved context — ``HOP3_DEV_MODE``'s localhost, then ``HOP3_API_URL``.
     None when no env override is in play.
     """
@@ -342,7 +350,8 @@ def _env_override_url(config: Config) -> str | None:
 def _abort_if_env_url_shadows_context(
     name: str, context_server: str, config: Config
 ) -> None:
-    """An explicit ``--context`` must not be silently overridden by an ambient
+    """
+    An explicit ``--context`` must not be silently overridden by an ambient
     ``HOP3_API_URL`` / ``HOP3_DEV_MODE`` (which ``get_api_url`` consults first).
     Connecting to the env URL while the operator asked for ``name`` would ignore
     their explicit selection and target a different server — abort loud rather
@@ -370,7 +379,8 @@ def _abort_if_env_url_shadows_context(
 
 
 def _effective_default_context(config: Config) -> str | None:
-    """The default context name iff it's what selected the active server.
+    """
+    The default context name iff it's what selected the active server.
 
     Shown in the deploy preview when no context was explicitly resolved, so the
     operator sees which context (not just which server) the deploy targets.
@@ -385,7 +395,8 @@ def _effective_default_context(config: Config) -> str | None:
 
 
 def _resolve_ambient_server(config: Config) -> str | None:
-    """Server for a project-less command with no ``--context`` (ADR 042).
+    """
+    Server for a project-less command with no ``--context`` (ADR 042).
 
     Chain: the **default context** (`[cli].default_context` → its server) → the
     legacy unnamed default-server → the *sole* entry in the credential store →
@@ -403,7 +414,8 @@ def _resolve_ambient_server(config: Config) -> str | None:
 
 
 def _compute_resolutions(cli_args: list[str], flags: CliFlags, config: Config):
-    """Run the context+app resolvers (or no-op when not needed).
+    """
+    Run the context+app resolvers (or no-op when not needed).
 
     Returns ``(context_resolution, app_resolution)``. Both may be None when the
     command is not app-scoped and ``--why`` wasn't requested — the resolvers do
@@ -436,7 +448,8 @@ def _inject_resolved_app(
     resolution,
     printer: RichPrinter,
 ) -> list[str]:
-    """Inject the resolved app as the first positional for app-scoped commands.
+    """
+    Inject the resolved app as the first positional for app-scoped commands.
 
     The server's dispatcher and command handlers continue to expect the
     app as first positional. If no app can be resolved for an app-scoped
@@ -531,7 +544,8 @@ def _matches_guarded_prefix(cli_args: list[str]) -> tuple[str, ...] | None:
 def _check_project_mismatch(
     cli_args: list[str], flags: CliFlags, app_resolution
 ) -> None:
-    """ADR 042 §D14: refuse a guarded verb when CWD's project disagrees with
+    """
+    ADR 042 §D14: refuse a guarded verb when CWD's project disagrees with
     the resolved app and the operator did NOT opt in with ``--force``.
 
     ``-y`` / ``--yes`` alone (skip-confirmation) is NOT enough to bypass —
@@ -562,7 +576,8 @@ def _check_project_mismatch(
 
 
 def _check_workspace_dependency(cli_args: list[str], flags: CliFlags) -> None:
-    """Refuse to deploy a uv-workspace member in isolation when it depends on a
+    """
+    Refuse to deploy a uv-workspace member in isolation when it depends on a
     sibling workspace package (which would silently install from PyPI instead of
     the local source). See ``core.workspace_guard``. ``--force`` overrides.
     """
@@ -576,7 +591,8 @@ def _check_workspace_dependency(cli_args: list[str], flags: CliFlags) -> None:
 
 
 def _check_stray_dry_run(cli_args: list[str], flags: CliFlags) -> None:
-    """Warn (don't silently ignore) when ``--dry-run`` is given for a
+    """
+    Warn (don't silently ignore) when ``--dry-run`` is given for a
     command that doesn't yet support it. Avoids the worst-of-both-worlds
     case where ``hop3 restart --dry-run`` parses the flag, takes no
     notice of it, and actually restarts.
@@ -593,7 +609,8 @@ def _check_stray_dry_run(cli_args: list[str], flags: CliFlags) -> None:
 
 
 def _deploy_source_path(cli_args: list[str]) -> Path:
-    """Mirror commands.arguments._parse_deploy_args's directory-positional logic.
+    """
+    Mirror commands.arguments._parse_deploy_args's directory-positional logic.
 
     ``hop3 deploy [<app>] [<dir>]`` — if the trailing positional looks like a
     directory argument, use it; otherwise CWD. This makes the preview accurate
@@ -616,7 +633,8 @@ def _handle_deploy_preview(
     app_resolution,
     context_resolution,
 ) -> None:
-    """ADR 042 §Deploy preview: ``hop3 deploy`` prints a plan and exits when
+    """
+    ADR 042 §Deploy preview: ``hop3 deploy`` prints a plan and exits when
     ``--dry-run`` is set. The interactive preview-and-confirm flow on plain
     ``hop3 deploy`` is gated on a TTY and bypassed by ``-y`` / ``--yes`` /
     ``--force`` / ``--no-input``.
@@ -690,7 +708,8 @@ def _handle_deploy_preview(
 def _update_printer_scope(
     printer: RichPrinter, config: Config, cli_args: list[str]
 ) -> None:
-    """Populate printer scope so summary lines carry a [context / app] prefix.
+    """
+    Populate printer scope so summary lines carry a [context / app] prefix.
 
     We best-effort-extract the app from the argv after app resolution has
     run (it's injected as `--app NAME` for app-scoped commands, ADR 036 D5).
@@ -726,7 +745,8 @@ def _print_debug_info(printer: RichPrinter, cli_args: list[str], config, flags) 
 
 
 def _context_deploy_override(cli_args: list[str], context_resolution) -> bytes | None:
-    """Context-flattened hop3.toml bytes for a `hop3 deploy` upload (ADR 042 r2 §E1).
+    """
+    Context-flattened hop3.toml bytes for a `hop3 deploy` upload (ADR 042 r2 §E1).
 
     Strips every ``[contexts.*]`` (never uploaded) and merges the selected
     context's env/domains into the top level, so the server deploys the effective
@@ -822,7 +842,8 @@ def _check_prerequisites(
 
 
 def _try_auto_authenticate(config: Config, printer: RichPrinter) -> None:
-    """Try to authenticate automatically via SSH if available.
+    """
+    Try to authenticate automatically via SSH if available.
 
     Raises:
         AuthenticationError: If auto-auth is not available or fails.
@@ -866,7 +887,8 @@ def _try_auto_authenticate(config: Config, printer: RichPrinter) -> None:
 
 
 def requires_authentication(cli_args: list[str]) -> bool:
-    """Check if the command requires authentication.
+    """
+    Check if the command requires authentication.
 
     Note: Most no-auth commands (version, auth) are now handled locally
     and won't reach this check. This remains as a safety net for RPC commands.
@@ -911,7 +933,8 @@ def _execute_rpc_command(
     extra_args: dict,
     printer: RichPrinter,
 ) -> None:
-    """Execute RPC command, handle response, and manage connection lifecycle.
+    """
+    Execute RPC command, handle response, and manage connection lifecycle.
 
     The response handling is done inside the Client context to keep SSH tunnels
     alive for streaming responses.
@@ -987,7 +1010,8 @@ def load_config() -> Config:
 
 
 def _run_config_migration() -> None:
-    """Run the one-shot ADR-042 config migration before anything reads config.
+    """
+    Run the one-shot ADR-042 config migration before anything reads config.
 
     No-op once migrated. Aborts loudly (exit 1, nothing changed) on malformed
     input; prints a one-line summary per migration to stderr otherwise.
@@ -1017,7 +1041,8 @@ def _run_config_migration() -> None:
 
 
 def verify_authentication(config: Config) -> None:
-    """Verify that the current authentication token is valid.
+    """
+    Verify that the current authentication token is valid.
 
     Makes a lightweight auth whoami call to check if the token works.
 

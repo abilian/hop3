@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""Audit logging for hop3-rootd.
+"""
+Audit logging for hop3-rootd.
 
 Two log streams:
 
@@ -72,7 +73,8 @@ logger = logging.getLogger("hop3_rootd")
 
 
 def configure_operational_logging(level: str = "INFO") -> None:
-    """Configure the stderr logger for operational logs.
+    """
+    Configure the stderr logger for operational logs.
 
     Under systemd Type=notify, stderr is captured by journald. Format
     matches Hop3's existing structured-log idiom.
@@ -93,7 +95,8 @@ def configure_operational_logging(level: str = "INFO") -> None:
 
 
 def sanitise_args(args: Any) -> Any:
-    """Walk an arbitrary structure and redact values whose keys look secret.
+    """
+    Walk an arbitrary structure and redact values whose keys look secret.
 
     Recurses into dicts, lists, and tuples (today's rootd ops are flat
     dicts, but the redaction must hold for any nesting future ops
@@ -150,7 +153,8 @@ class AuditEntry:
 
 
 class AuditLog:
-    """Append-only audit-log writer.
+    """
+    Append-only audit-log writer.
 
     The file is opened on construction (or first write) and re-opened on
     SIGUSR1 (logrotate-style) via `reopen()`. Writes are line-buffered:
@@ -186,7 +190,8 @@ class AuditLog:
         return self._fd
 
     def write(self, entry: AuditEntry) -> None:
-        """Append one entry as a JSON line, flushing through to disk.
+        """
+        Append one entry as a JSON line, flushing through to disk.
 
         We fsync after each entry so an audit record survives an OS crash
         in the page-cache window. The perf cost (one fsync per privileged

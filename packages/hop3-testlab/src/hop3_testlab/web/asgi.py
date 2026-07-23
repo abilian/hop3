@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""ASGI application factory (mirrors ``hop3.server.asgi.create_app``).
+"""
+ASGI application factory (mirrors ``hop3.server.asgi.create_app``).
 
 Granian boots this factory (``hop3_testlab.web.asgi:create_app``, ``factory=True``).
 Dishka is attached after construction via ``setup_dishka`` (same as hop3-server).
@@ -51,7 +52,8 @@ def _handle_unauthorized(_request, _exc) -> Redirect:
 
 
 def _handle_csrf(_request, _exc) -> Redirect:
-    """Recover from a CSRF failure instead of dumping JSON at the user.
+    """
+    Recover from a CSRF failure instead of dumping JSON at the user.
 
     A failure is almost always a *wedged* token — a ``csrftoken`` cookie minted
     under a previous ``SECRET_KEY`` (which rotates with ``TESTLAB_PASSWORD``). The
@@ -68,7 +70,8 @@ def _handle_csrf(_request, _exc) -> Redirect:
 
 
 def _on_startup(app: Litestar) -> None:
-    """Start the in-process scheduler.
+    """
+    Start the in-process scheduler.
 
     The **dispatch poll** drains the build queue so a UI-triggered build actually
     runs — it must run whenever the Lab serves for real, not only when the nightly

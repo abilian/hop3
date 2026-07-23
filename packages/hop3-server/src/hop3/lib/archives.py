@@ -14,7 +14,8 @@ from hop3.lib.util import robust_rmtree
 
 
 def _get_size_limit(env_var: str, default: int) -> int:
-    """Get a size limit from environment variable or use default.
+    """
+    Get a size limit from environment variable or use default.
 
     Supports suffixes: K, M, G (case-insensitive).
     Examples: "100M", "1G", "500000000"
@@ -62,7 +63,8 @@ _COPY_CHUNK = 64 * 1024
 
 
 def _validate_archive_size(archive_bytes: bytes) -> None:
-    """Validate that archive size doesn't exceed limits.
+    """
+    Validate that archive size doesn't exceed limits.
 
     Limit is configurable via HOP3_MAX_ARCHIVE_SIZE environment variable.
     """
@@ -79,7 +81,8 @@ def _validate_archive_size(archive_bytes: bytes) -> None:
 
 
 def _prepare_target_directory(target_dir: Path) -> None:
-    """Clear or create the target directory.
+    """
+    Clear or create the target directory.
 
     Uses robust deletion that handles:
     - Read-only files (common in npm packages)
@@ -109,7 +112,8 @@ def _prepare_target_directory(target_dir: Path) -> None:
 
 
 def _validate_member(member: tarfile.TarInfo, target_dir: Path) -> None:
-    """Per-member security gate.
+    """
+    Per-member security gate.
 
     Raises on:
     - Malicious filenames (NUL, CR, LF).
@@ -165,7 +169,8 @@ def _extract_stream(
     max_extracted: int,
     max_members: int,
 ) -> None:
-    """Stream-extract ``tar`` into ``target_dir``.
+    """
+    Stream-extract ``tar`` into ``target_dir``.
 
     Iterates entries one at a time, validates each, writes regular files
     through a byte-counting copy, and aborts as soon as either:
@@ -232,7 +237,8 @@ def _extract_stream(
 
 
 def extract_archive_to_dir(archive_bytes: bytes, target_dir: Path) -> None:
-    """Extract an in-memory ``.tar.gz`` archive into ``target_dir``.
+    """
+    Extract an in-memory ``.tar.gz`` archive into ``target_dir``.
 
     Clears the target directory first so extraction starts clean, then
     streams each entry through a validator + byte-counting copy.

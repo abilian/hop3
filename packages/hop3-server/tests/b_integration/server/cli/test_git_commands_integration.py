@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Integration tests for server CLI git commands.
+"""
+Integration tests for server CLI git commands.
 
 This module tests the GitReceivePackCmd and GitUploadPackCmd commands
 that handle SSH git operations for git push deployment.
@@ -30,7 +31,8 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def configured_hop3_root(tmp_path: Path):
-    """Configure HopConfig with a temporary root directory.
+    """
+    Configure HopConfig with a temporary root directory.
 
     Yields:
         Path to temporary HOP3_ROOT
@@ -49,7 +51,8 @@ def configured_hop3_root(tmp_path: Path):
 def test_app_with_git_repo(
     db_session: Session, configured_hop3_root: Path
 ) -> Iterator[App]:
-    """Create a test application with initialized git repository.
+    """
+    Create a test application with initialized git repository.
 
     Args:
         db_session: Database session
@@ -92,7 +95,8 @@ class TestGitReceivePackCmdIntegration:
     def test_receive_pack_extracts_app_name_from_full_path(
         self, db_session: Session, test_app_with_git_repo: App
     ):
-        """Test app name extraction from full repository path.
+        """
+        Test app name extraction from full repository path.
 
         ARRANGE:
             - Create app with git repository
@@ -127,7 +131,8 @@ class TestGitReceivePackCmdIntegration:
     def test_receive_pack_auto_creates_app_on_first_push(
         self, db_session: Session, configured_hop3_root: Path
     ):
-        """Test that app is auto-created on first git push.
+        """
+        Test that app is auto-created on first git push.
 
         ARRANGE:
             - No app exists in database
@@ -172,7 +177,8 @@ class TestGitReceivePackCmdIntegration:
     def test_receive_pack_handles_quoted_paths(
         self, db_session: Session, test_app_with_git_repo: App
     ):
-        """Test handling of quoted paths from SSH.
+        """
+        Test handling of quoted paths from SSH.
 
         Git often sends paths with quotes when routing through SSH.
 
@@ -211,7 +217,8 @@ class TestGitReceivePackCmdIntegration:
     def test_receive_pack_handles_simple_app_name(
         self, db_session: Session, test_app_with_git_repo: App
     ):
-        """Test handling of simple app name (without path).
+        """
+        Test handling of simple app name (without path).
 
         ARRANGE:
             - Create app with git repository
@@ -254,7 +261,8 @@ class TestGitUploadPackCmdIntegration:
     def test_upload_pack_fails_for_nonexistent_app(
         self, db_session: Session, configured_hop3_root: Path, capsys
     ):
-        """Test error when app doesn't exist.
+        """
+        Test error when app doesn't exist.
 
         ARRANGE:
             - No app exists in database
@@ -286,7 +294,8 @@ class TestGitUploadPackCmdIntegration:
     def test_upload_pack_fails_for_uninitialized_repo(
         self, db_session: Session, configured_hop3_root: Path
     ):
-        """Test error when repository is not initialized.
+        """
+        Test error when repository is not initialized.
 
         ARRANGE:
             - Create app but don't initialize git repository
@@ -332,7 +341,8 @@ class TestGitUploadPackCmdIntegration:
     def test_upload_pack_success_with_initialized_repo(
         self, db_session: Session, test_app_with_git_repo: App
     ):
-        """Test successful upload_pack for initialized repository.
+        """
+        Test successful upload_pack for initialized repository.
 
         ARRANGE:
             - Create app with initialized git repository

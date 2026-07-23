@@ -5,7 +5,8 @@
 # ruff:file-ignore[raise-vanilla-args, raw-string-in-exception]
 
 
-"""node-pnpm-install template.
+"""
+node-pnpm-install template.
 
 For Node.js applications distributed on the npm registry whose
 runtime code assumes pnpm's content-addressed `node_modules/.pnpm/...`
@@ -100,7 +101,8 @@ _NO_DEPS_HASH = (
 
 
 def _native_addon_build(payload: NodePnpmInstallPayload) -> tuple[str, str]:
-    """Toolchain inputs + rebuild step for node-gyp native addons.
+    """
+    Toolchain inputs + rebuild step for node-gyp native addons.
 
     Returns ``("", "")`` when the recipe declares none. Otherwise returns the
     extra ``nativeBuildInputs`` fragment (C/C++ toolchain) and the shell block

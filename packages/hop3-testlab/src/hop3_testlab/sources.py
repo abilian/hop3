@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Git app sources: fetch a repo at a chosen ref into a local workspace.
+"""
+Git app sources: fetch a repo at a chosen ref into a local workspace.
 
 v2 spec §A: a run composes independently-versioned inputs. The apps under test
 come from a named git **source** at a chosen **ref** — not the Test Lab's own
@@ -35,7 +36,8 @@ _SCP_LIKE = re.compile(r"^[A-Za-z0-9_.+-]+@[A-Za-z0-9_.-]+:")
 
 
 def is_allowed_source_url(url: str) -> bool:
-    """True if ``url`` is a safe git source: an allowed scheme, an scp-like
+    """
+    True if ``url`` is a safe git source: an allowed scheme, an scp-like
     ``user@host:path``, or an absolute local path.
 
     Rejects a leading ``-`` (git option injection) and the ``ext::``/``fd::``
@@ -86,7 +88,8 @@ class Source:
         return TestlabConfig.get_instance().SOURCES_DIR / _sanitize(self.name)
 
     def fetch(self, ref: str) -> Path:
-        """Check out ``ref`` into an isolated worktree; return its path.
+        """
+        Check out ``ref`` into an isolated worktree; return its path.
 
         Clones once into the per-source cache, fetches, resolves ``ref`` (branch,
         tag, or sha), and lays down a *clean* detached worktree for it. The

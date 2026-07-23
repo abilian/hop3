@@ -59,7 +59,8 @@ class TestDbGroupCommand:
 
 
 class TestDbUpgradeCmd:
-    """Tests for db:upgrade.
+    """
+    Tests for db:upgrade.
 
     These exercise revision forwarding and error handling. The pre-Alembic
     adoption step is mocked out here (it touches a real database); its
@@ -90,8 +91,10 @@ class TestDbUpgradeCmd:
             assert args[1] == "961bfd2ecce5"
 
     def test_adopt_runs_before_upgrade(self):
-        """A pre-Alembic DB must be stamped (adopted) BEFORE upgrade runs,
-        otherwise upgrade replays from base and hits 'duplicate column'."""
+        """
+        A pre-Alembic DB must be stamped (adopted) BEFORE upgrade runs,
+        otherwise upgrade replays from base and hits 'duplicate column'.
+        """
         calls: list[str] = []
         with (
             patch(
@@ -114,7 +117,8 @@ class TestDbUpgradeCmd:
             assert exc.value.code == 1
 
     def test_unstamped_db_hint_emitted(self, capsys):
-        """When the error smells like a pre-alembic DB, point at db:stamp.
+        """
+        When the error smells like a pre-alembic DB, point at db:stamp.
 
         A truly unstamped DB has no current revision, so _orphan_db_revision
         returns None; mock it so the test exercises the unstamped branch and
@@ -144,8 +148,10 @@ class TestDbUpgradeCmd:
         assert "db:stamp" not in stderr
 
     def test_orphan_revision_hint_emitted(self, capsys):
-        """A DB stamped at a revision this code lacks gets the orphan hint —
-        names the revision, points at recovery, and does NOT auto-recover."""
+        """
+        A DB stamped at a revision this code lacks gets the orphan hint —
+        names the revision, points at recovery, and does NOT auto-recover.
+        """
         err = RuntimeError("Can't locate revision identified by 'c7d4e8f1a2b9'")
         with (
             patch("alembic.command.upgrade", side_effect=err),

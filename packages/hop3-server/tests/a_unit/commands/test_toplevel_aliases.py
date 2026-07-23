@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Top-level daily verbs resolve to their `app` namespace commands.
+"""
+Top-level daily verbs resolve to their `app` namespace commands.
 
 These were listed as app-scoped client-side but only `destroy`/`run` were
 wired server-side, so `hop3 status myapp` / `logs` / `restart` used to fail

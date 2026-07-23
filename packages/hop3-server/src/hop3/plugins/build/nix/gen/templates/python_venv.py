@@ -5,7 +5,8 @@
 # ruff:file-ignore[raise-vanilla-args, raw-string-in-exception]
 
 
-"""python-venv template.
+"""
+python-venv template.
 
 For Python applications that are not in nixpkgs. Builds **hermetically**, in
 two phases:

@@ -41,7 +41,8 @@ from .user import run_as_hop3
 
 
 def _get_python_executable() -> str:
-    """Get the Python executable to use for creating the venv.
+    """
+    Get the Python executable to use for creating the venv.
 
     Uses the same Python that's running this installer, which ensures
     we use Python 3.10+ even on systems where `python3` is older.
@@ -50,7 +51,8 @@ def _get_python_executable() -> str:
 
 
 def create_virtual_environment(*, force: bool = False) -> None:
-    """Create Python virtual environment.
+    """
+    Create Python virtual environment.
 
     Idempotent by default: if a working venv already exists at VENV_DIR
     (i.e. has a usable ``bin/python``), this is a no-op. Pass ``force=True``
@@ -123,7 +125,8 @@ def install_package(config: ServerInstallerConfig) -> None:
 
 
 def write_build_info(config: ServerInstallerConfig) -> None:
-    """Record deploy provenance to ``BUILD_INFO_PATH`` (read by `system info`).
+    """
+    Record deploy provenance to ``BUILD_INFO_PATH`` (read by `system info`).
 
     Best-effort: a failure here must never abort an otherwise-good install.
     For git installs the commit comes from pip's ``direct_url.json`` (PEP 610);
@@ -185,7 +188,8 @@ def _chown_hop3(path: Path) -> None:
 
 
 def install_rootd_package(config: ServerInstallerConfig) -> None:
-    """Install the hop3-rootd daemon into the server venv.
+    """
+    Install the hop3-rootd daemon into the server venv.
 
     hop3-rootd (ADR 041) is a separate package the deploy path depends on for
     privileged operations (nginx reload). hop3-server does not declare it as a
@@ -229,7 +233,8 @@ def install_rootd_package(config: ServerInstallerConfig) -> None:
 
 
 def install_cli_package(config: ServerInstallerConfig) -> None:
-    """Install the hop3-cli (``hop3``) client into the server venv.
+    """
+    Install the hop3-cli (``hop3``) client into the server venv.
 
     The client isn't needed to *run* the server, but tutorial tests execute on
     the server and call ``hop3 deploy`` against localhost, so the ``hop3`` binary

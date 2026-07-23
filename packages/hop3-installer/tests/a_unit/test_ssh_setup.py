@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""SSHDeployBackend.setup() surfaces the real failure reason (fail loud).
+"""
+SSHDeployBackend.setup() surfaces the real failure reason (fail loud).
 
 A bare ``False`` hid why "Setting up deployment target" failed — most often a
 changed host key on a rebuilt target (StrictHostKeyChecking=accept-new refuses it).

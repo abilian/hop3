@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Docker utility functions for server installer.
+"""
+Docker utility functions for server installer.
 
 Shared utilities for configuring database services to work with Docker.
 """
@@ -13,7 +14,8 @@ from hop3_installer.common import run_cmd
 
 
 def get_docker_bridge_ip() -> str | None:
-    """Get the Docker bridge network IP (usually 172.17.0.1).
+    """
+    Get the Docker bridge network IP (usually 172.17.0.1).
 
     This is used by database services (PostgreSQL, MySQL, Redis) to configure
     bind addresses and access rules for Docker container connections.

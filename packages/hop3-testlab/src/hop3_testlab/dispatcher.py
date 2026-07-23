@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""The build dispatcher: assign queued builds to free pool servers.
+"""
+The build dispatcher: assign queued builds to free pool servers.
 
 You never pick a server — this does (v2 spec §3/§6). Each tick it takes the
 oldest pending ``BuildRequest``, finds an enabled pool server whose lease is
@@ -52,8 +53,10 @@ class _Claim:
 
 
 def _kind_from_actor(actor: str | None) -> str:
-    """The run's trigger kind for the dashboard, from the request's actor: the
-    web button, the nightly cron, or an API caller. Unknown/absent → 'manual'."""
+    """
+    The run's trigger kind for the dashboard, from the request's actor: the
+    web button, the nightly cron, or an API caller. Unknown/absent → 'manual'.
+    """
     return {"nightly": "scheduled", "web": "web"}.get(actor or "", actor or "manual")
 
 
@@ -67,7 +70,8 @@ def _free_server(session: Session) -> Server | None:
 
 
 def _claim(factory: sessionmaker) -> _Claim | bool:
-    """Claim the next runnable build: mark it running and return its inputs.
+    """
+    Claim the next runnable build: mark it running and return its inputs.
 
     Returns a :class:`_Claim` to run, ``True`` when it *acted* without running (a
     doomed request marked ``failed``), or ``False`` when there's nothing to do
@@ -158,7 +162,8 @@ _DETAIL_MAX = 6000
 def _classify_engine_exit(
     factory: sessionmaker, claim: _Claim, exc: EngineExitError
 ) -> tuple[str, str | None]:
-    """Distinguish a completed-with-failures run from a genuine engine crash.
+    """
+    Distinguish a completed-with-failures run from a genuine engine crash.
 
     A completed run records a :class:`TestRun` with per-test results *before* the
     engine exits 1, so its presence is the discriminator. When results exist we
@@ -206,7 +211,8 @@ def _failed_detail(failed: list[str], total: int) -> str:
 
 
 def _cap_detail(detail: str | None) -> str | None:
-    """Bound a detail to the column width so recording an outcome can never
+    """
+    Bound a detail to the column width so recording an outcome can never
     overflow ``BuildRequest.detail`` (varchar 500).
 
     A crash detail (the engine-log tail) once exceeded it and threw
@@ -243,7 +249,8 @@ def _record(
 
 
 def _sweep_stale_running(factory: sessionmaker) -> None:
-    """Fail builds left ``running`` by a dispatcher that died mid-run.
+    """
+    Fail builds left ``running`` by a dispatcher that died mid-run.
 
     A genuinely in-flight build still holds its target's lease; one whose lease is
     gone is stale (the dispatcher crashed before recording its outcome), so it'd
@@ -271,7 +278,8 @@ def _sweep_stale_running(factory: sessionmaker) -> None:
 
 
 def dispatch_once(executor: Callable[..., None] | None = None) -> bool:
-    """Dispatch at most one queued build to a free server.
+    """
+    Dispatch at most one queued build to a free server.
 
     Returns True if it acted on a request (ran/failed/requeued it), False if there
     was nothing to do. ``executor`` is a test seam passed to ``run_once``.

@@ -53,7 +53,8 @@ def _detect_hop3_version() -> str | None:
 
 
 def _configure_sqlite_conn(dbapi_conn, _record) -> None:
-    """WAL + busy_timeout so CLI writes and a Test Lab dashboard read coexist.
+    """
+    WAL + busy_timeout so CLI writes and a Test Lab dashboard read coexist.
 
     Without these, a write in progress makes a concurrent reader's DDL/query fail
     immediately ("database is locked") -> a transient 500 in the dashboard.
@@ -66,7 +67,8 @@ def _configure_sqlite_conn(dbapi_conn, _record) -> None:
 
 
 def _derive_status(result) -> str:
-    """Map a result to pass/fail, or xfail/xpass for negative tests.
+    """
+    Map a result to pass/fail, or xfail/xpass for negative tests.
 
     A "bad recipe" (expects_failure) is inverted by the runner: a failed deploy
     yields ``result.passed=True``. So passed True -> the expected failure happened
@@ -88,14 +90,17 @@ def _format_validations(validations) -> str:
 
 
 def store_url(target: object) -> str:
-    """SQLAlchemy URL for ``target``: a DSN (``postgresql+psycopg://…``) passes
-    through; a filesystem path becomes a ``sqlite:///`` URL."""
+    """
+    SQLAlchemy URL for ``target``: a DSN (``postgresql+psycopg://…``) passes
+    through; a filesystem path becomes a ``sqlite:///`` URL.
+    """
     text = str(target)
     return text if "://" in text else f"sqlite:///{text}"
 
 
 def make_store_engine(target: object):
-    """Create the result-store engine, dialect-aware.
+    """
+    Create the result-store engine, dialect-aware.
 
     SQLite gets ``check_same_thread=False`` + the concurrency PRAGMAs (so CLI
     writes and a dashboard read coexist without "database is locked"); Postgres
@@ -115,7 +120,8 @@ class ResultStore:
     DEFAULT_DB_PATH = Path.home() / ".hop3" / "test-results.db"
 
     def __init__(self, db_path: Path | str | None = None):
-        """Initialize the result store.
+        """
+        Initialize the result store.
 
         Args:
             db_path: a SQLite path (default ~/.hop3/test-results.db) or a
@@ -142,7 +148,8 @@ class ResultStore:
         self._current_run: TestRun | None = None
 
     def _ensure_columns(self) -> None:
-        """Add columns missing from a pre-existing DB.
+        """
+        Add columns missing from a pre-existing DB.
 
         ``Base.metadata.create_all`` never ALTERs existing tables, so a DB created
         before the bundle columns were added would raise ``no such column`` on the
@@ -236,7 +243,8 @@ class ResultStore:
         metadata: dict | None = None,
         planned_counts: dict | None = None,
     ) -> TestRun:
-        """Start a new test run.
+        """
+        Start a new test run.
 
         Args:
             mode: Execution mode (dev, ci, nightly, release, package)
@@ -293,7 +301,8 @@ class ResultStore:
             session.close()
 
     def save(self, result: TestResult) -> int | None:
-        """Save a test result, returning the new record id.
+        """
+        Save a test result, returning the new record id.
 
         Records the diagnostic bundle pointer (bundle_run_id / bundle_path /
         classification / headline) exactly when the bundle was written to disk
@@ -474,7 +483,8 @@ class ResultStore:
             session.close()
 
     def previous_failures(self, mode: str, target_type: str) -> set[str]:
-        """Names of tests that failed in the most recent FINISHED run of this
+        """
+        Names of tests that failed in the most recent FINISHED run of this
         family (same ``mode`` + ``target_type``).
 
         Used to run the previous run's failures first, so a re-run surfaces
@@ -558,7 +568,8 @@ class ResultStore:
             session.close()
 
     def prune_build_logs(self, keep_runs: int) -> int:
-        """Delete build logs for all but the most recent ``keep_runs`` runs.
+        """
+        Delete build logs for all but the most recent ``keep_runs`` runs.
 
         Returns the number of BuildLog rows deleted. Deletes per-run to stay
         under SQLite's bound-parameter limit on the ``IN`` clause.

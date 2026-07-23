@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Integration tests for PostgreSQL addon.
+"""
+Integration tests for PostgreSQL addon.
 
 These tests run against a real PostgreSQL instance and verify actual
 database operations (create, destroy, backup, restore, info).
@@ -33,7 +34,8 @@ from hop3.plugins.postgresql.postgres import PostgresAddon
 
 
 def postgres_available() -> bool:
-    """Check if PostgreSQL is available for testing.
+    """
+    Check if PostgreSQL is available for testing.
 
     Tries to connect using configured admin credentials.
     """
@@ -128,7 +130,8 @@ class TestPostgresCreate:
         assert _database_exists(admin, postgres_addon.db_name)
 
     def test_per_app_user_can_install_trusted_extension(self, postgres_addon, admin):
-        """Per-app user should be able to CREATE EXTENSION for trusted extensions.
+        """
+        Per-app user should be able to CREATE EXTENSION for trusted extensions.
 
         On PG 15+, `public` schema CREATE is revoked from PUBLIC by default;
         owning the database is insufficient. The addon grants CREATE+USAGE on

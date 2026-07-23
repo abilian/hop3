@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""mount ops: native ``[[volumes]]`` realization (ADR 046 §2 / P2.1).
+"""
+mount ops: native ``[[volumes]]`` realization (ADR 046 §2 / P2.1).
 
 Each op handler validates args, performs the mount/umount via the ``mount``
 helper (raising MountError on kernel failure), updates state.json, and returns
@@ -75,7 +76,8 @@ def mount_tmpfs(req: Request, ctx: OpContext) -> dict[str, Any]:
 
 @register("mount.bind")
 def mount_bind(req: Request, ctx: OpContext) -> dict[str, Any]:
-    """Bind-mount an operator-allowed host path at the app's target.
+    """
+    Bind-mount an operator-allowed host path at the app's target.
 
     The source must pass rootd's own allow-list check (default-deny); a denied
     or missing source aborts loudly. Records the resolved source in state.
@@ -120,7 +122,8 @@ def mount_bind(req: Request, ctx: OpContext) -> dict[str, Any]:
 
 @register("mount.unmount")
 def unmount(req: Request, ctx: OpContext) -> dict[str, Any]:
-    """Unmount the app's target and drop it from state (teardown).
+    """
+    Unmount the app's target and drop it from state (teardown).
 
     Idempotent: a target that isn't mounted reports ``unmounted=False,
     kernel_state=absent``. Always drops the (app, target) state row so a
@@ -146,7 +149,8 @@ def unmount(req: Request, ctx: OpContext) -> dict[str, Any]:
 
 @register("mount.list", audit=False)
 def list_mounts(req: Request, ctx: OpContext) -> dict[str, Any]:
-    """List the mounts rootd tracks (optionally for one app).
+    """
+    List the mounts rootd tracks (optionally for one app).
 
     This is the teardown-verification surface: after unmounting an app's
     volumes the server calls mount.list({app_name}) and expects it empty.

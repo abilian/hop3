@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""cgroup ops: native ``[limits]`` enforcement via cgroup v2 (ADR 046 §3 / P2.2).
+"""
+cgroup ops: native ``[limits]`` enforcement via cgroup v2 (ADR 046 §3 / P2.2).
 
 Each op handler:
   - validates args (raises ValidationError on bad input)
@@ -34,7 +35,8 @@ from hop3_rootd.validation import (
 
 @register("cgroup.ensure_slice", audit=False)
 def ensure_slice(_req: Request, _ctx: OpContext) -> dict[str, Any]:
-    """Create hop3.slice and enable the required controllers (idempotent).
+    """
+    Create hop3.slice and enable the required controllers (idempotent).
 
     Read-ish/idempotent capability probe — raises CgroupUnavailableError
     (→ kernel_error) when the host can't enforce limits, so the caller aborts
@@ -48,7 +50,8 @@ def ensure_slice(_req: Request, _ctx: OpContext) -> dict[str, Any]:
 
 @register("cgroup.set_limits")
 def set_limits(req: Request, ctx: OpContext) -> dict[str, Any]:
-    """Create/refresh an app's cgroup leaf and write its caps.
+    """
+    Create/refresh an app's cgroup leaf and write its caps.
 
     Writes the kernel first, then records (replacing any prior caps for the
     app) in state so reconcile can re-assert the leaf after a rootd restart.
@@ -88,7 +91,8 @@ def set_limits(req: Request, ctx: OpContext) -> dict[str, Any]:
 
 @register("cgroup.attach_pids")
 def attach_pids(req: Request, _ctx: OpContext) -> dict[str, Any]:
-    """Migrate the given PIDs into the app's leaf.
+    """
+    Migrate the given PIDs into the app's leaf.
 
     Returns ``{attached, failed}``; a non-empty ``failed`` is the caller's
     signal that enforcement is incomplete (strict mode aborts). No state
@@ -105,7 +109,8 @@ def attach_pids(req: Request, _ctx: OpContext) -> dict[str, Any]:
 
 @register("cgroup.remove")
 def remove(req: Request, ctx: OpContext) -> dict[str, Any]:
-    """Kill the app's cgroup subtree and remove the leaf (teardown).
+    """
+    Kill the app's cgroup subtree and remove the leaf (teardown).
 
     Idempotent: a missing leaf reports ``removed=False, kernel_state=absent``.
     Always drops the app from state so a destroyed app leaves no stored cap.
@@ -124,7 +129,8 @@ def remove(req: Request, ctx: OpContext) -> dict[str, Any]:
 
 @register("cgroup.read", audit=False)
 def read(req: Request, _ctx: OpContext) -> dict[str, Any]:
-    """Read the app leaf's current caps, usage, and OOM-kill count.
+    """
+    Read the app leaf's current caps, usage, and OOM-kill count.
 
     Used by ``hop3 app status`` to show enforced caps and surface OOM kills.
     Raises a ValidationError on a bad name and CgroupError if there is no leaf.

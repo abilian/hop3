@@ -33,7 +33,8 @@ _MD_EXTENSIONS = ["fenced_code", "tables", "sane_lists"]
 
 
 def _result_row(r, titles: dict[str, str] | None = None) -> dict:
-    """Flatten a result ORM row to a template/report dict (session must be open).
+    """
+    Flatten a result ORM row to a template/report dict (session must be open).
 
     ``titles`` maps a test's catalog name to its human title; falls back to the
     path leaf when a test isn't in the current catalog (renamed/removed).

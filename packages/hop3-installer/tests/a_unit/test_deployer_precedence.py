@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Flag/env precedence for hop3-deploy (ADR 052 D7).
+"""
+Flag/env precedence for hop3-deploy (ADR 052 D7).
 
 An explicitly-passed flag must win over an env-supplied value **even when the
 flag's value equals the built-in default**. The old code applied a value option

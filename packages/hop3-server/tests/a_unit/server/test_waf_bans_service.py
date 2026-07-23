@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the WafBansService background worker (ADR 050 §4).
+"""
+Unit tests for the WafBansService background worker (ADR 050 §4).
 
 Covers the thread lifecycle and the reconcile cycle's per-app isolation (a
 broken app is rolled back and logged, never aborts the cycle or the others).

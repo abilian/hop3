@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Attached addons are re-injected into the runtime env on every deploy.
+"""
+Attached addons are re-injected into the runtime env on every deploy.
 
 Regression for the demo10 failure: an addon attached manually (``hop3 addon
 attach``, no ``[[addons]]`` in hop3.toml) was never re-derived at deploy, so its

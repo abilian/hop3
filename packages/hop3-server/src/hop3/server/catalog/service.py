@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Catalog service: in-memory access to the verified, on-disk catalog (ADR 049).
+"""
+Catalog service: in-memory access to the verified, on-disk catalog (ADR 049).
 
 The service loads the catalog that ``sync.py`` has already fetched, verified, and
 published to ``config.CATALOG_ROOT``. It does not fetch or re-verify; it reads the

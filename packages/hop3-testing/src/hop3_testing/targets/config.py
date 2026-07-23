@@ -15,7 +15,8 @@ from hop3_testing.targets.constants import DEFAULT_DOCKER_IMAGE
 
 @dataclass
 class DeploymentConfig:
-    """Configuration for optional Hop3 deployment.
+    """
+    Configuration for optional Hop3 deployment.
 
     When provided to a target, Hop3 will be deployed before running tests.
     When None, the target connects to an already-running Hop3 server.
@@ -64,7 +65,8 @@ class DeploymentConfig:
 
 @dataclass
 class DockerConfig:
-    """Configuration for Docker-based targets.
+    """
+    Configuration for Docker-based targets.
 
     Examples:
         # Use pre-built image (fast app testing)
@@ -107,7 +109,8 @@ class DockerConfig:
 
 @dataclass
 class RemoteConfig:
-    """Configuration for SSH-based remote targets.
+    """
+    Configuration for SSH-based remote targets.
 
     Examples:
         # Basic connection

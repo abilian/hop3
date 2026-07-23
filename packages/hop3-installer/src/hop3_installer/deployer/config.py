@@ -136,7 +136,8 @@ class DeployConfig:
 
     @property
     def effective_admin_domain(self) -> str | None:
-        """The hostname the Web UI is served at — the admin domain or the host.
+        """
+        The hostname the Web UI is served at — the admin domain or the host.
 
         ``hop3-deploy --host h.example.com`` is enough to serve the Web UI at
         ``https://h.example.com/``: when ``--admin-domain`` isn't given, the
@@ -169,7 +170,8 @@ class DeployConfig:
 
     @property
     def installer_path(self) -> Path:
-        """Path to the server installer script.
+        """
+        Path to the server installer script.
 
         Returns the bundled installer from dist/, regenerating if source is newer.
         """
@@ -185,7 +187,8 @@ class DeployConfig:
         return dist_installer
 
     def _is_bundle_stale(self, bundle_path: Path) -> bool:
-        """Check if bundle is older than any source module.
+        """
+        Check if bundle is older than any source module.
 
         Args:
             bundle_path: Path to the bundled installer.
@@ -234,7 +237,8 @@ class DeployConfig:
 
     @property
     def rootd_package_path(self) -> Path:
-        """Path to hop3-rootd package.
+        """
+        Path to hop3-rootd package.
 
         The installer expects the daemon source as a sibling of the server
         source (``/tmp/hop3-rootd`` next to ``/tmp/hop3-server``); it's a hard
@@ -245,7 +249,8 @@ class DeployConfig:
 
     @property
     def cli_package_path(self) -> Path:
-        """Path to hop3-cli package.
+        """
+        Path to hop3-cli package.
 
         Uploaded next to the server source (``/tmp/hop3-cli``) so the installer
         can put the ``hop3`` client on the server. Tutorial tests run on the
@@ -261,7 +266,8 @@ class DeployConfig:
 
     @classmethod
     def from_env(cls) -> DeployConfig:
-        """Create config from environment variables.
+        """
+        Create config from environment variables.
 
         Supported environment variables:
             HOP3_HOST - Target server (HOP3_DEV_HOST / HOP3_TEST_SERVER deprecated aliases)
@@ -329,7 +335,8 @@ class DeployConfig:
         )
 
     def validate(self) -> list[str]:
-        """Validate configuration.
+        """
+        Validate configuration.
 
         Returns:
             List of error messages (empty if valid)

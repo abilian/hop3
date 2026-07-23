@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for nginx ops.
+"""
+Unit tests for nginx ops.
 
 The exec seam is faked via ``OpContext.exec`` (a ``FakeExec``); no real
 nginx/systemctl runs. Tests pin resolved paths with ``set_path`` and route
@@ -41,7 +42,8 @@ def _req(op: str) -> Request:
 
 
 def _simulate_reload(monkeypatch, *, applied: bool, reason: str | None = None) -> None:
-    """Stub the post-reload verification at its decision seams.
+    """
+    Stub the post-reload verification at its decision seams.
 
     applied=True: nginx spawned a fresh worker (reload took effect).
     applied=False: no fresh worker (nginx rejected the new config).
@@ -94,8 +96,10 @@ def test_reload_falls_back_to_nginx_s_reload(monkeypatch):
 
 
 def test_reload_fails_loud_when_config_not_applied(monkeypatch):
-    """rc=0 but nginx kept the old config (no worker cycle) → raise, with the
-    nginx error-log reason surfaced so the deploy aborts actionably."""
+    """
+    rc=0 but nginx kept the old config (no worker cycle) → raise, with the
+    nginx error-log reason surfaced so the deploy aborts actionably.
+    """
     handler = get_handler("nginx.reload")
     assert handler is not None
     _simulate_reload(
@@ -216,9 +220,11 @@ def test_validate_raises_when_nginx_missing():
 
 
 class _RaisingExec:
-    """Minimal Exec double: raises a chosen exception for argvs matching a
+    """
+    Minimal Exec double: raises a chosen exception for argvs matching a
     substring, otherwise returns rc=0. FakeExec's run() can't raise, so this
-    covers the InvalidBinaryError / CommandTimeoutError continue-branches."""
+    covers the InvalidBinaryError / CommandTimeoutError continue-branches.
+    """
 
     def __init__(self, raise_on: str, exc: Exception, paths: dict[str, str]) -> None:
         self._raise_on = raise_on
@@ -245,8 +251,10 @@ def _ctx_with(exec_obj) -> OpContext:
 
 
 def test_reload_timeout_falls_through_to_next_method(monkeypatch):
-    """A wedged systemctl (CommandTimeoutError) must not strand the deploy —
-    the `nginx -s reload` fallback still runs."""
+    """
+    A wedged systemctl (CommandTimeoutError) must not strand the deploy —
+    the `nginx -s reload` fallback still runs.
+    """
     monkeypatch.setattr(nginx_ops, "_reload_applied", lambda _s: True)
     exc = CommandTimeoutError(["/usr/bin/systemctl", "reload", "nginx"], 10.0)
     ctx = _ctx_with(

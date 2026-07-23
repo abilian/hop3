@@ -1,7 +1,8 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""OS setup strategy for macOS.
+"""
+OS setup strategy for macOS.
 
 This plugin supports macOS (all versions) using Homebrew for package management.
 """
@@ -48,7 +49,8 @@ PACKAGES = [
 
 
 class MacOSStrategy(BaseOSStrategy):
-    """OS setup strategy for macOS.
+    """
+    OS setup strategy for macOS.
 
     This strategy handles macOS using Homebrew for package management.
     Requires Homebrew to be installed (https://brew.sh).
@@ -71,7 +73,8 @@ class MacOSStrategy(BaseOSStrategy):
         return platform.system() == "Darwin"
 
     def ensure_packages(self, packages: list[str], *, update: bool = True) -> None:
-        """Install packages using Homebrew.
+        """
+        Install packages using Homebrew.
 
         Args:
             packages: List of package/formula names to install
@@ -116,7 +119,8 @@ class MacOSStrategy(BaseOSStrategy):
     def ensure_user(
         self, user: str, home: str, shell: str, group: str | None = None
     ) -> None:
-        """Create a system user on macOS.
+        """
+        Create a system user on macOS.
 
         Note: macOS user management is different from Linux.
         This creates a standard user account.
@@ -184,7 +188,8 @@ class MacOSStrategy(BaseOSStrategy):
         subprocess.run(["sudo", "chown", f"{user}:staff", home], check=True)
 
     def setup_server(self) -> None:
-        """Install dependencies and configure macOS for hop3.
+        """
+        Install dependencies and configure macOS for hop3.
 
         Note: macOS setup differs from Linux:
         - Uses Homebrew instead of apt/yum/pacman

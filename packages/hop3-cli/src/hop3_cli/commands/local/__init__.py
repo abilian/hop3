@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""CLI commands handled locally.
+"""
+CLI commands handled locally.
 
 These commands are processed by the CLI without requiring an RPC call to the server:
 - init: Bootstrap a new server connection via SSH
@@ -77,7 +78,8 @@ LOCAL_COMMANDS = set(LOCAL_COMMANDS_INFO.keys())
 
 
 def is_local_command(args: list[str]) -> bool:
-    """Check if the command should be handled locally.
+    """
+    Check if the command should be handled locally.
 
     With space-separated commands (ADR 036 D1), most LOCAL_COMMANDS own their
     entire subtree (e.g., `settings show`, `context use prod`, `completion bash`
@@ -129,7 +131,8 @@ _VERSION_TOKENS = {"version", "--version", "-V"}
 
 
 def handle_local_command(args: list[str], config: Config, printer: RichPrinter) -> bool:
-    """Handle a local command.
+    """
+    Handle a local command.
 
     Returns:
         True if the command was handled, False if it should be sent to server

@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Module entry point so `python -m hop3_testing.cli` works (PATH-independent).
+"""
+Module entry point so `python -m hop3_testing.cli` works (PATH-independent).
 
 The image sweep (`run --images`) spawns one `python -m hop3_testing.cli run
 --provider hetzner --image X` per image, using the same interpreter rather than

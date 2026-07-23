@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Reader and writer for ``.hop3-local.toml`` (ADR 042 §File layout).
+"""
+Reader and writer for ``.hop3-local.toml`` (ADR 042 §File layout).
 
 The local overlay is a per-checkout, gitignored TOML file that records
 which project context is currently selected. It lives at the project root
@@ -39,7 +40,8 @@ GITIGNORE_FILENAME = ".gitignore"
 
 @dataclass(frozen=True)
 class LocalOverlay:
-    """Materialised view of the nearest ``.hop3-local.toml``.
+    """
+    Materialised view of the nearest ``.hop3-local.toml``.
 
     Attributes:
         path: The discovered file path, or None when no overlay exists.
@@ -54,7 +56,8 @@ class LocalOverlay:
 
     @property
     def current_context(self) -> str | None:
-        """Return the selected context, or None.
+        """
+        Return the selected context, or None.
 
         Canonical key is ``[local].context`` (ADR 042 r2); ``[current].context``
         is read as a one-release fallback so existing checkouts don't lose their
@@ -70,7 +73,8 @@ class LocalOverlay:
 
 
 def find_overlay_file(cwd: Path, home: Path) -> Path | None:
-    """Walk upward from ``cwd`` looking for ``.hop3-local.toml``.
+    """
+    Walk upward from ``cwd`` looking for ``.hop3-local.toml``.
 
     Search stops at ``home`` (inclusive), matching the existing
     ``_search_dotfile`` convention in ``resolution.py``. Returns the
@@ -89,7 +93,8 @@ def find_overlay_file(cwd: Path, home: Path) -> Path | None:
 
 
 def read_overlay(cwd: Path | None = None, home: Path | None = None) -> LocalOverlay:
-    """Return the materialised overlay for the nearest ``.hop3-local.toml``.
+    """
+    Return the materialised overlay for the nearest ``.hop3-local.toml``.
 
     On parse error, returns an overlay with ``data == {}`` and the
     discovered path preserved. (The caller can distinguish "no overlay"
@@ -116,7 +121,8 @@ def write_overlay(
     home: Path | None = None,
     ensure_gitignore: bool = True,
 ) -> Path:
-    """Merge ``updates`` into the nearest overlay and write it back atomically.
+    """
+    Merge ``updates`` into the nearest overlay and write it back atomically.
 
     The write target is determined by:
     1. The path returned by ``find_overlay_file`` (if an overlay already
@@ -158,7 +164,8 @@ def write_overlay(
 
 
 def _deep_merge(base: dict[str, Any], updates: dict[str, Any]) -> dict[str, Any]:
-    """One-level-deep dict merge.
+    """
+    One-level-deep dict merge.
 
     Top-level keys whose values in both dicts are dicts get their inner
     items merged; everything else is replaced wholesale. Returns a new
@@ -176,7 +183,8 @@ def _deep_merge(base: dict[str, Any], updates: dict[str, Any]) -> dict[str, Any]
 
 
 def atomic_write_toml(target: Path, data: dict[str, Any]) -> None:
-    """Write ``data`` as TOML to ``target`` atomically and durably.
+    """
+    Write ``data`` as TOML to ``target`` atomically and durably.
 
     Uses the standard tmpfile-then-rename pattern: write to a sibling
     temp file, fsync its contents, atomically rename into place, then
@@ -197,7 +205,8 @@ def atomic_write_toml(target: Path, data: dict[str, Any]) -> None:
 
 
 def atomic_write_text(target: Path, text: str) -> None:
-    """Write ``text`` to ``target`` atomically and durably.
+    """
+    Write ``text`` to ``target`` atomically and durably.
 
     Same tmpfile-then-rename + fsync discipline as ``atomic_write_toml``, but
     for a pre-rendered string — used by the ``hop3.toml`` context writers, which
@@ -227,7 +236,8 @@ def atomic_write_text(target: Path, text: str) -> None:
 
 
 def _fsync_dir(directory: Path) -> None:
-    """Best-effort fsync of ``directory``.
+    """
+    Best-effort fsync of ``directory``.
 
     Required after ``os.replace`` so the rename is durable. Silently
     swallows OSError because some filesystems reject directory fsync;
@@ -245,7 +255,8 @@ def _fsync_dir(directory: Path) -> None:
 
 
 def _ensure_gitignored(overlay_path: Path) -> None:
-    """Append ``.hop3-local.toml`` to ``.gitignore`` when missing.
+    """
+    Append ``.hop3-local.toml`` to ``.gitignore`` when missing.
 
     Three behaviors based on what we find walking upward:
 
@@ -302,7 +313,8 @@ def _append_to_gitignore(gitignore: Path) -> None:
 def _find_gitignore_or_git_root(
     start: Path,
 ) -> tuple[Path | None, Path | None]:
-    """Walk up from ``start`` looking for ``.gitignore`` and ``.git/``.
+    """
+    Walk up from ``start`` looking for ``.gitignore`` and ``.git/``.
 
     Returns ``(gitignore_path, git_root_path)``. Both are populated when
     both are found at different ancestor levels; either may be None.
@@ -332,7 +344,8 @@ def _find_gitignore_or_git_root(
 
 
 def _gitignore_already_covers(content: str, filename: str) -> bool:
-    """True iff ``content`` already has a line that ignores ``filename``.
+    """
+    True iff ``content`` already has a line that ignores ``filename``.
 
     Recognises the two common idioms:
     - ``.hop3-local.toml`` (matches anywhere by default)

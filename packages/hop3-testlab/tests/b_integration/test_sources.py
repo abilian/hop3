@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Git source fetch: a ref (branch/tag/sha) checks out to its own clean worktree.
+"""
+Git source fetch: a ref (branch/tag/sha) checks out to its own clean worktree.
 
 This is the apps half of the §A composition — a source repo fetched at a chosen
 ref, independent of the platform ref. We assert the right tree lands per ref and

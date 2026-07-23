@@ -15,7 +15,8 @@ __all__ = [
 
 
 def get_packages_dir() -> Path:
-    """Get the path to the hop3 packages directory.
+    """
+    Get the path to the hop3 packages directory.
 
     Returns:
         Path to packages/ directory in the repository
@@ -27,7 +28,8 @@ def get_packages_dir() -> Path:
 
 
 def bundle_installers(output_dir: Path) -> dict[str, Path]:
-    """Generate bundled installer scripts.
+    """
+    Generate bundled installer scripts.
 
     Args:
         output_dir: Directory to write installer files

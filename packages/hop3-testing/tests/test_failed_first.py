@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Failures-first run ordering + planned per-type counts (testlab features).
+"""
+Failures-first run ordering + planned per-type counts (testlab features).
 
 A re-run starts with the previous run's failures (same family = mode +
 target_type) so regressions surface fast, and the run records how many tests of
@@ -105,9 +106,11 @@ def test_order_failed_first_without_history_is_alphabetical(tmp_path: Path):
 
 
 def test_demos_kept_in_name_order_despite_failed_first(tmp_path: Path):
-    """Demos are an ordered ladder: failed-first must not reorder them (else a
+    """
+    Demos are an ordered ladder: failed-first must not reorder them (else a
     later-failing demo would run before demo01 and break demo fail-fast). Demos
-    stay in name order and come after the non-demos."""
+    stay in name order and come after the non-demos.
+    """
     store = ResultStore(db_path=tmp_path / "r.db")
     _finished_run(
         store,

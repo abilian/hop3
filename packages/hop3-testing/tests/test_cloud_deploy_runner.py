@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""The cloud DeploymentManager delegates to the shared run_hop3_deploy (7b).
+"""
+The cloud DeploymentManager delegates to the shared run_hop3_deploy (7b).
 
 ADR 052 Phase 7b collapses the two deploy wrappers: DeploymentManager.deploy()
 no longer builds/runs its own subprocess — it delegates to run_hop3_deploy

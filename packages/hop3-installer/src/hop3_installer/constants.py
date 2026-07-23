@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Shared constants for hop3-installer.
+"""
+Shared constants for hop3-installer.
 
 This module centralizes all constants used across CLI installer,
 server installer, and deployer to ensure consistency and eliminate

@@ -47,7 +47,8 @@ def _filter_by_available_services(
     available_features: list[str],
     console: PrintingConsole,
 ) -> list[TestDefinition]:
-    """Filter out tests whose required services aren't in --with features.
+    """
+    Filter out tests whose required services aren't in --with features.
 
     Maps feature names to service names (e.g., "nix" feature satisfies
     "nix" service requirement). Tests with no service requirements always pass.
@@ -80,7 +81,8 @@ def _filter_by_available_services(
 
 
 def _resolve_logs_dir(logs_dir: str | None, mode_label: str) -> Path | None:
-    """Pick the per-test log directory.
+    """
+    Pick the per-test log directory.
 
     Default: ``test-logs/<mode>-<timestamp>/app-logs`` so failures
     always have an on-disk pointer. Pass ``--logs-dir off`` to
@@ -105,7 +107,8 @@ def _order_run(
     mode: str,
     console,
 ) -> tuple[str, str, list[TestDefinition]]:
-    """Resolve the run family and order failed-first.
+    """
+    Resolve the run family and order failed-first.
 
     Returns ``(mode, target_type, ordered_tests)``: the family identifiers used
     for both the failure lookup and the recorded run, plus the ordered list.
@@ -125,7 +128,8 @@ def _order_failed_first(
     target_type: str,
     console,
 ) -> list[TestDefinition]:
-    """Order the previous run's failures (same family) first, the rest by name.
+    """
+    Order the previous run's failures (same family) first, the rest by name.
 
     "Same family" is (mode, target_type): the most recent finished run with that
     scope. Re-running its failures first surfaces regressions fast without
@@ -149,7 +153,8 @@ def _order_failed_first(
 
 
 def _count_by_type(tests: list[TestDefinition]) -> dict[str, int]:
-    """Planned test count per type (app / demo / tutorial) for the live UI.
+    """
+    Planned test count per type (app / demo / tutorial) for the live UI.
 
     Uses the same app/demo/tutorial split the dashboard applies to results, so
     the "M done / N planned" lines up per type. ``runner_type`` is "deployment"
@@ -175,7 +180,8 @@ def _execute_tests(
     debug: bool,
     fail_fast: bool,
 ) -> list[TestResult]:
-    """Run the ordered tests, recording each result.
+    """
+    Run the ordered tests, recording each result.
 
     Demos are an ordered complexity ladder (demo01 simplest first): once one
     fails the harder ones are pointless, so skip the remaining demos. That's
@@ -230,7 +236,8 @@ def run_tests(
     selection_mode: str | None = None,
     available_features: list[str] | None = None,
 ) -> None:
-    """Run tests against a target.
+    """
+    Run tests against a target.
 
     This is the single test execution function used by all CLI commands.
     The target is started, tests are executed, results are collected and reported.
@@ -318,7 +325,8 @@ def run_tests(
 def _maybe_prepare_tutorial_host(
     target: DeploymentTarget, tests: list[TestDefinition], console: PrintingConsole
 ) -> None:
-    """Prepare a remote server to run tutorials on it, if the run has any.
+    """
+    Prepare a remote server to run tutorials on it, if the run has any.
 
     Installs validoc + mints an admin token on the server (so the on-server
     ``hop3`` deploys to localhost). Only applies to remote targets — docker/local
@@ -347,7 +355,8 @@ def _maybe_prepare_tutorial_host(
 def _emit_startup_diagnostics(
     target: DeploymentTarget, console: PrintingConsole, error: Exception
 ) -> None:
-    """Best-effort diagnostics when the target itself never came up.
+    """
+    Best-effort diagnostics when the target itself never came up.
 
     This is a *deploy/startup* failure, not an app crash: the deploy error is the
     verdict and the ``deploy`` section is where ``why`` points — the app/proxy

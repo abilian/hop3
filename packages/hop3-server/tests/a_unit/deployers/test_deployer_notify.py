@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Deploy-failure operator notification — the single choke point (ADR 054).
+"""
+Deploy-failure operator notification — the single choke point (ADR 054).
 
 `do_deploy` wraps the orchestration so a failed deploy alerts the operator
 through the email backend, best-effort, without ever masking the deploy error.

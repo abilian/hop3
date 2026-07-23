@@ -215,7 +215,8 @@ class TestInjectLocalCommandsIntoHelp:
         assert commands == sorted(commands)
 
     def test_all_commands_local_markers_align_with_server(self):
-        """Injected local commands get a [local] marker aligned to the server's.
+        """
+        Injected local commands get a [local] marker aligned to the server's.
 
         The server widths its name column to the longest command name; the
         client must mirror that width so every marker column lines up.

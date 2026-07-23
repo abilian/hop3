@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Test Lab CLI entry point.
+"""
+Test Lab CLI entry point.
 
 ``hop3-testlab serve`` boots the web service via Granian (same process model as
 hop3-server). ``run`` (the nightly/worker driver) and ``db:*`` commands are
@@ -111,8 +112,10 @@ def main() -> None:
 
 
 def _run(args: argparse.Namespace) -> None:
-    """Dispatch the ``run`` subcommand: a composition run (``--source-ref``) or a
-    local run (the selector, if any, resolved against the local checkout)."""
+    """
+    Dispatch the ``run`` subcommand: a composition run (``--source-ref``) or a
+    local run (the selector, if any, resolved against the local checkout).
+    """
     from hop3_testlab.worker import (  # ruff:ignore[import-outside-top-level]
         RunSpec,
         run_once,
@@ -170,7 +173,8 @@ def _latest_log(log_dir: Path) -> Path | None:
 
 
 def _logs(*, follow: bool, lines: int) -> None:
-    """Show the latest build log (the builder's teed output) on the console.
+    """
+    Show the latest build log (the builder's teed output) on the console.
 
     A UI-triggered build runs detached and tees its output here, so its progress
     never reaches the console it was launched from; this surfaces it (``-f`` to

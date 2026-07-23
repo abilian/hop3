@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Resolve a profile's selection *rules* to a concrete set of test names.
+"""
+Resolve a profile's selection *rules* to a concrete set of test names.
 
 A profile picks apps/demos/tutorials by rules, never a hand-picked list (v2 spec
 §5). The rules reuse the engine's `Selector`/`ModeConfig` — a named-mode preset,
@@ -26,7 +27,8 @@ if TYPE_CHECKING:
 
 
 def to_mode_config(selection: dict) -> ModeConfig:
-    """Build a `ModeConfig` from a profile's selection rules.
+    """
+    Build a `ModeConfig` from a profile's selection rules.
 
     A named ``mode`` preset wins; otherwise the explicit tier/priority/target
     filters (an empty list = no constraint on that dimension). ``targets``
@@ -45,7 +47,8 @@ def to_mode_config(selection: dict) -> ModeConfig:
 
 
 def resolve_selection(catalog: Catalog, selection: dict) -> list[str]:
-    """Concrete, sorted test names a profile's rules select from ``catalog``.
+    """
+    Concrete, sorted test names a profile's rules select from ``catalog``.
 
     ``type``/``variant`` post-filters narrow the engine's result; note that
     combining them with ``representative`` narrows the set-cover (a documented

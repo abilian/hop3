@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the catalog TOML loader.
+"""
+Unit tests for the catalog TOML loader.
 
 Locks down load_app (valid TOML -> populated CatalogApp; malformed or
 missing -> None, never raising) and load_apps over a directory tree.

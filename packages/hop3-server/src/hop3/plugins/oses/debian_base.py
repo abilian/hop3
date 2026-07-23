@@ -11,14 +11,16 @@ from .base import BaseOSStrategy
 
 
 class DebianBase(BaseOSStrategy):
-    """Base class for Debian-based distributions.
+    """
+    Base class for Debian-based distributions.
 
     Provides APT package management functionality that's common
     to all Debian-based systems (Debian, Ubuntu, etc.).
     """
 
     def ensure_packages(self, packages: list[str], *, update: bool = True) -> None:
-        """Install packages using APT.
+        """
+        Install packages using APT.
 
         Args:
             packages: List of package names to install

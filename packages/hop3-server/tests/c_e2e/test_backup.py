@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""E2E tests for single-instance backup and restore.
+"""
+E2E tests for single-instance backup and restore.
 
 Validates the round-trip workflows described in ADR 024 §"Restore
 Behaviour" against a single Hop3 instance: deploy an app, back it up,
@@ -47,7 +48,7 @@ Negative paths (name collision, corrupted manifest, etc.) and the
 register / cross-instance flows are in `test_backup_migration.py`.
 
 References
-==========
+----------
 
 - ADR: `notes/adrs/024-backup-restore-system.md`
 - CLI: `hop3 backup create / list / info / restore / destroy`

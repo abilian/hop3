@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Cert-engine selection: the public-FQDN gate and the loud-failure contract.
+"""
+Cert-engine selection: the public-FQDN gate and the loud-failure contract.
 
 The cert engine is pluggable (self-signed + certbot today). Two invariants this
 locks down, both lessons from the edrix.eu outage:

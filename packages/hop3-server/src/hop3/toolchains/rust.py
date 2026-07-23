@@ -26,7 +26,8 @@ CARGO_PATHS = [
 
 
 def find_cargo() -> str:
-    """Find the cargo binary.
+    """
+    Find the cargo binary.
 
     Checks common locations for rustup-installed cargo, then falls back
     to system PATH.
@@ -55,7 +56,8 @@ class RustToolchain(LanguageToolchain):
     requirements = ["cargo"]  # ruff:ignore[mutable-class-default]
 
     def accept(self) -> bool:
-        """Determine if the application directory is a Rust project.
+        """
+        Determine if the application directory is a Rust project.
 
         This checks if the application directory contains a "Cargo.toml" file,
         which is a configuration file indicating that the project is a Rust project.
@@ -67,7 +69,8 @@ class RustToolchain(LanguageToolchain):
         return self.check_exists("Cargo.toml")
 
     def build(self) -> BuildArtifact:
-        """Build the Rust project using cargo.
+        """
+        Build the Rust project using cargo.
 
         By default, runs `cargo build --release`. If the app declares
         `[build].build` in hop3.toml (e.g., to add `--features` flags),

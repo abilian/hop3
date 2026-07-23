@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""check.py runs ON the remote server, never silently auto-passed (audit C8).
+"""
+check.py runs ON the remote server, never silently auto-passed (audit C8).
 
 On remote targets the runner used to fabricate a passed=True "skipped" result —
 so check.py (the only app-specific body assertion) never ran and an app could go

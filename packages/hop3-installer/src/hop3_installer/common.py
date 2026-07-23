@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Common utilities shared between CLI and server installers.
+"""
+Common utilities shared between CLI and server installers.
 
 This module contains:
 - Terminal output utilities (colors, printing)
@@ -44,7 +45,8 @@ _REDACT_TOKEN_RE = re.compile(
 
 
 def _redact_argv(cmd: list[str]) -> list[str]:
-    """Return a copy of ``cmd`` with secret-bearing tokens replaced.
+    """
+    Return a copy of ``cmd`` with secret-bearing tokens replaced.
 
     Conservative: only matches well-known password/token flag shapes
     so we don't redact innocuous flags that happen to look similar.
@@ -151,7 +153,8 @@ def print_detail(message: str) -> None:
 
 
 class Spinner:
-    """A simple terminal spinner for long-running operations.
+    """
+    A simple terminal spinner for long-running operations.
 
     Usage:
         with Spinner("Installing packages..."):
@@ -215,7 +218,8 @@ class CommandResult:
 
     @classmethod
     def from_subprocess(cls, result: subprocess.CompletedProcess) -> CommandResult:
-        """Create CommandResult from subprocess.CompletedProcess.
+        """
+        Create CommandResult from subprocess.CompletedProcess.
 
         Args:
             result: Completed subprocess result
@@ -255,7 +259,8 @@ def run_cmd(
     env: dict[str, str] | None = None,
     timeout: float | None = None,
 ) -> subprocess.CompletedProcess:
-    """Run a command and return the result.
+    """
+    Run a command and return the result.
 
     Args:
         cmd: Command and arguments to run
@@ -327,7 +332,8 @@ def cmd_exists(cmd: str) -> bool:
 
 
 def has_systemd() -> bool:
-    """Return True if systemd is the init system (PID 1).
+    """
+    Return True if systemd is the init system (PID 1).
 
     Reads ``/proc/1/comm`` — unambiguous on Linux. The systemd
     *package* may install ``systemctl`` and create ``/run/systemd``
@@ -353,7 +359,8 @@ def has_systemd() -> bool:
 
 @dataclass
 class DistroInfo:
-    """Detailed Linux distribution information.
+    """
+    Detailed Linux distribution information.
 
     Attributes:
         family: Distribution family ("debian", "fedora", "arch", "unknown")
@@ -443,7 +450,8 @@ def _determine_family(distro: str, id_like: str) -> str:
 
 
 def detect_distro_info() -> DistroInfo:
-    """Detect detailed Linux distribution information.
+    """
+    Detect detailed Linux distribution information.
 
     Parses /etc/os-release to get distribution ID, version, and codename.
     Falls back to lsb_release command if /etc/os-release is incomplete.
@@ -476,7 +484,8 @@ def detect_distro_info() -> DistroInfo:
 
 
 def detect_distro() -> str:
-    """Detect the Linux distribution family.
+    """
+    Detect the Linux distribution family.
 
     Returns:
         'debian' for Debian-based distros (Ubuntu, Mint, Pop!_OS)
@@ -491,7 +500,8 @@ def detect_distro() -> str:
 
 
 def get_current_shell() -> str | None:
-    """Detect the current shell.
+    """
+    Detect the current shell.
 
     Returns:
         'bash', 'zsh', 'fish', or None if unrecognized
@@ -515,7 +525,8 @@ MIN_PYTHON = (3, 10)
 
 
 def find_project_root(start_path: Path | None = None) -> Path:
-    """Find the project root directory.
+    """
+    Find the project root directory.
 
     Walks up from the starting path looking for pyproject.toml and packages/ directory.
 
@@ -537,7 +548,8 @@ def find_project_root(start_path: Path | None = None) -> Path:
 
 
 def check_python_version() -> None:
-    """Check that Python version meets minimum requirements.
+    """
+    Check that Python version meets minimum requirements.
 
     Exits with error message if Python version is too old.
     """
@@ -566,7 +578,8 @@ def env_str(name: str, default: str) -> str: ...
 
 
 def env_str(name: str, default: str | None = None) -> str | None:
-    """Get a string environment variable.
+    """
+    Get a string environment variable.
 
     Args:
         name: Environment variable name.
@@ -581,7 +594,8 @@ def env_str(name: str, default: str | None = None) -> str | None:
 
 
 def env_bool(name: str) -> bool:
-    """Get a boolean environment variable.
+    """
+    Get a boolean environment variable.
 
     Recognizes "1" and "true" (case-insensitive) as True.
 
@@ -595,7 +609,8 @@ def env_bool(name: str) -> bool:
 
 
 def env_path(name: str, default: Path) -> Path:
-    """Get a Path environment variable.
+    """
+    Get a Path environment variable.
 
     Args:
         name: Environment variable name.
@@ -609,7 +624,8 @@ def env_path(name: str, default: Path) -> Path:
 
 
 def env_list(name: str, separator: str = ",") -> list[str]:
-    """Get a list from a separated environment variable.
+    """
+    Get a list from a separated environment variable.
 
     Args:
         name: Environment variable name.
@@ -628,7 +644,8 @@ def env_list(name: str, separator: str = ",") -> list[str]:
 
 
 def create_symlink(source: Path, target: Path) -> bool:
-    """Create a symlink from target to source, replacing existing.
+    """
+    Create a symlink from target to source, replacing existing.
 
     Args:
         source: Path that the symlink should point to
@@ -665,7 +682,8 @@ class GitProvenance(TypedDict):
 
 
 def collect_git_provenance(repo_dir: Path) -> GitProvenance:
-    """Collect git commit / branch / dirty state for a working tree.
+    """
+    Collect git commit / branch / dirty state for a working tree.
 
     Runs git inside ``repo_dir`` (git searches upward for the repo root, so a
     package subdirectory works). Returns a dict with keys ``git_commit``,
@@ -712,7 +730,8 @@ def make_build_info(
     git_branch: str | None = None,
     git_dirty: bool | None = None,
 ) -> dict:
-    """Build the deploy-provenance manifest written to ``BUILD_INFO_PATH``.
+    """
+    Build the deploy-provenance manifest written to ``BUILD_INFO_PATH``.
 
     A single schema so the installer and the deployer agree on keys and
     ``hop3 system info`` can read either's output. ``deployed_by`` records

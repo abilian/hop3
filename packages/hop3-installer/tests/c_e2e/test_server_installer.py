@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""E2E tests for server installer (install-server.py).
+"""
+E2E tests for server installer (install-server.py).
 
 These tests verify that the bundled server installer correctly installs
 hop3-server and configures all required services across different backends.
@@ -27,7 +28,8 @@ class TestServerInstaller:
         backend: Backend,
         bundled_installers: dict[str, Path],
     ) -> None:
-        """Test server installation from git repository.
+        """
+        Test server installation from git repository.
 
         This is the primary installation method - installing from the
         git repository's devel branch.
@@ -66,7 +68,8 @@ class TestServerInstaller:
         bundled_installers: dict[str, Path],
         hop3_packages_dir: Path,
     ) -> None:
-        """Test server installation from local package path.
+        """
+        Test server installation from local package path.
 
         This tests the --local-path option used during development.
         """
@@ -116,7 +119,8 @@ class TestServerInstaller:
         self._validate_server_installation(backend)
 
     def _validate_server_installation(self, backend: Backend) -> None:
-        """Validate server was installed correctly.
+        """
+        Validate server was installed correctly.
 
         Checks:
         1. hop3 user was created
@@ -153,7 +157,8 @@ class TestServerInstaller:
 @pytest.mark.e2e
 @pytest.mark.slow
 class TestServerInstallerWithServices:
-    """Test server installation with full service validation.
+    """
+    Test server installation with full service validation.
 
     These tests require systemd and take longer to run.
     Uses the systemd_backend fixture which provides docker-systemd, ssh, or vagrant.
@@ -220,7 +225,8 @@ class TestServerInstallerWithServices:
         assert "enabled" in result.stdout, "hop3-server service not enabled"
 
     def test_hop3_rootd_service(self, systemd_backend: Backend) -> None:
-        """Verify hop3-rootd (privileged-ops daemon, ADR 041) is up.
+        """
+        Verify hop3-rootd (privileged-ops daemon, ADR 041) is up.
 
         rootd is mandatory, not optional: the installer removes the sudoers
         fallback once it is running, so a missing or dead rootd breaks every

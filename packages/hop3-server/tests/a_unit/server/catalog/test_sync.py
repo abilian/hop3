@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Unit tests for catalog sync: extract safety, anti-rollback, atomic publish (ADR 049).
+"""
+Unit tests for catalog sync: extract safety, anti-rollback, atomic publish (ADR 049).
 
 A full signed catalog tarball is built offline with ``cryptography`` (no ``minisign``
 CLI needed). The negative tests exercise the security-relevant branches.

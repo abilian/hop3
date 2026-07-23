@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Diagnostic collection and reporting for hop3-testing.
+"""
+Diagnostic collection and reporting for hop3-testing.
 
 This module provides holistic diagnostic information across all layers
 of the Hop3 system (docker, deployer, installer, server, app, etc.)
@@ -26,7 +27,8 @@ from typing import Any
 
 @dataclass
 class DiagnosticEntry:
-    """A single diagnostic entry.
+    """
+    A single diagnostic entry.
 
     Represents one operation at one layer of the system.
     """
@@ -52,7 +54,8 @@ class DiagnosticEntry:
 
 @dataclass
 class TestRunContext:
-    """Context for a test run.
+    """
+    Context for a test run.
 
     Identifies a specific test execution for logging purposes.
     """
@@ -80,7 +83,8 @@ class TestRunContext:
 
 @dataclass
 class DiagnosticCollector:
-    """Collects diagnostic information during test execution.
+    """
+    Collects diagnostic information during test execution.
 
     Features:
     - Collects entries from all layers
@@ -185,7 +189,8 @@ class DiagnosticCollector:
         phase: str | None = None,
         **kwargs,
     ) -> None:
-        """Add debug information (always marked as success).
+        """
+        Add debug information (always marked as success).
 
         Use for capturing diagnostic data like logs, configs, etc.
         that should be preserved in reports for debugging.
@@ -237,7 +242,8 @@ class DiagnosticCollector:
         return lines
 
     def dump_to_console(self, include_all: bool = False) -> str:
-        """Format diagnostics for console output.
+        """
+        Format diagnostics for console output.
 
         Args:
             include_all: If True, show all entries. Otherwise only failures.
@@ -288,7 +294,8 @@ class DiagnosticCollector:
         return self.log_dir / run_id / test_id
 
     def save_logs(self) -> Path:
-        """Save diagnostic logs to files.
+        """
+        Save diagnostic logs to files.
 
         Creates:
             test-logs/DATE_TIME/TEST_ID/
@@ -342,7 +349,8 @@ class DiagnosticCollector:
         return log_dir
 
     def generate_html_report(self, output_path: Path | None = None) -> Path:
-        """Generate an HTML report.
+        """
+        Generate an HTML report.
 
         Args:
             output_path: Where to save the report. If None, saves to log dir.

@@ -3,7 +3,8 @@
 
 # ruff:file-ignore[suppressible-exception, typing-only-standard-library-import]
 
-"""Unit tests for the hop3-rootd client.
+"""
+Unit tests for the hop3-rootd client.
 
 Uses a tmp Unix socket and a tiny in-process fake daemon (one thread
 per connection running the protocol envelope by hand). End-to-end
@@ -61,7 +62,8 @@ _SOCKET_TIMEOUT = 0.25
 
 
 class FakeDaemon:
-    """Tiny in-process daemon that speaks the rootd wire protocol.
+    """
+    Tiny in-process daemon that speaks the rootd wire protocol.
 
     Configured with a `respond` callback (request dict → response dict).
     Runs in a background thread; tests should call .stop() in cleanup.
@@ -202,7 +204,8 @@ def test_connect_fails_when_protocol_version_mismatches(short_tmp_dir):
 
 
 def test_connect_translates_version_mismatch_error_envelope(short_tmp_dir):
-    """Real-daemon skew path: the daemon rejects the envelope `v` at decode
+    """
+    Real-daemon skew path: the daemon rejects the envelope `v` at decode
     time and answers with a protocol_version_mismatch *error* envelope (not a
     mismatched handshake body). The client must surface the ADR 041 §3
     remediation, not a raw RootdOpError.

@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""L7 ban scoring (ADR 050 §4) — pure logic over the WAF audit stream.
+"""
+L7 ban scoring (ADR 050 §4) — pure logic over the WAF audit stream.
 
 Given the structured ``blocked`` events the proxy emits, decide which sources
 have crossed the threshold within the scoring window. Kept side-effect-free (no
@@ -28,7 +29,8 @@ _UNIT_SECONDS = {"s": 1, "m": 60, "h": 3600, "d": 86400}
 
 
 def parse_duration(spec: str) -> timedelta:
-    """Parse a ``[waf.bans]`` duration (``"30s"``/``"10m"``/``"1h"``/``"7d"``).
+    """
+    Parse a ``[waf.bans]`` duration (``"30s"``/``"10m"``/``"1h"``/``"7d"``).
 
     The schema validates the format (``^[1-9]\\d*[smhd]$``), so this assumes it.
     """
@@ -54,7 +56,8 @@ def _parse_ts(value: object) -> datetime | None:
 
 
 def is_exempt(ip: str, exempt_cidrs: Iterable[str]) -> bool:
-    """True if ``ip`` falls in any exempt CIDR (Security invariant 5).
+    """
+    True if ``ip`` falls in any exempt CIDR (Security invariant 5).
 
     Operator-registered networks (office/VPN/monitors) are never banned — they
     double as the exemption list so a bad allowlist can't lock out trusted users.
@@ -80,7 +83,8 @@ def sources_to_ban(
     now: datetime,
     exempt_cidrs: Iterable[str] = (),
 ) -> dict[str, int]:
-    """Sources with ``>= threshold`` ``blocked`` events within ``window``.
+    """
+    Sources with ``>= threshold`` ``blocked`` events within ``window``.
 
     Args:
         entries: parsed audit records (dicts with ``action``/``client_ip``/

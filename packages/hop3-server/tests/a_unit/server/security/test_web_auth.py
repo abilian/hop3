@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Stateless web auth: a signed JWT cookie, no server-side session.
+"""
+Stateless web auth: a signed JWT cookie, no server-side session.
 
 The dashboard identity rides the same signed JWT the CLI uses, in an httponly
 cookie, so it survives restarts/redeploys (the secret persists) and needs no

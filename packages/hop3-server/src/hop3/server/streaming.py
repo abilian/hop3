@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Server-Sent Events streaming for deployment logs.
+"""
+Server-Sent Events streaming for deployment logs.
 
 This module provides infrastructure for streaming deployment logs to CLI clients
 in real-time via Server-Sent Events (SSE).
@@ -67,7 +68,8 @@ class LogEntry:
 
 @dataclass
 class DeploymentStream:
-    """Captures deployment logs and streams to connected clients.
+    """
+    Captures deployment logs and streams to connected clients.
 
     This class implements a pub/sub pattern where:
     - The deployment process writes logs via write()
@@ -92,7 +94,8 @@ class DeploymentStream:
     _loop: asyncio.AbstractEventLoop | None = field(default=None, repr=False)
 
     def write(self, msg: str, level: int = 0, fg: str = "") -> None:
-        """Write a log entry and notify all subscribers.
+        """
+        Write a log entry and notify all subscribers.
 
         Args:
             msg: Log message
@@ -104,7 +107,8 @@ class DeploymentStream:
         self._notify(("log", entry))
 
     def finish(self, success: bool, error_message: str = "") -> None:
-        """Mark stream as complete.
+        """
+        Mark stream as complete.
 
         Args:
             success: Whether deployment succeeded
@@ -116,7 +120,8 @@ class DeploymentStream:
         self._notify(("complete", None))
 
     def _notify(self, item: tuple[str, Any]) -> None:
-        """Push an event to every subscriber, waking the consumer's loop.
+        """
+        Push an event to every subscriber, waking the consumer's loop.
 
         Called from the deployment's background thread, so cross-thread puts
         must be scheduled on the consumer's event loop (see _loop above).
@@ -136,7 +141,8 @@ class DeploymentStream:
             queue.put_nowait(item)
 
     async def subscribe(self) -> AsyncIterator[str]:
-        """Subscribe to this stream and yield SSE-formatted events.
+        """
+        Subscribe to this stream and yield SSE-formatted events.
 
         Yields:
             SSE-formatted strings ready to send to client
@@ -202,7 +208,8 @@ class DeploymentStream:
 
 
 def create_stream(app_name: str) -> DeploymentStream:
-    """Create a new deployment stream.
+    """
+    Create a new deployment stream.
 
     Args:
         app_name: Name of the app being deployed
@@ -225,7 +232,8 @@ def create_stream(app_name: str) -> DeploymentStream:
 
 
 def get_stream(stream_id: str) -> DeploymentStream | None:
-    """Get a stream by ID.
+    """
+    Get a stream by ID.
 
     Args:
         stream_id: Stream identifier
@@ -255,7 +263,8 @@ def get_current_stream() -> DeploymentStream | None:
 
 @contextmanager
 def stream_context(stream: DeploymentStream):
-    """Context manager to set the current stream for logging.
+    """
+    Context manager to set the current stream for logging.
 
     All log() calls within this context will be routed to the stream.
     Uses thread-local storage so concurrent deployments don't interleave logs.

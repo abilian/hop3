@@ -232,9 +232,11 @@ class TestStateSyncService:
     @patch("hop3.run.reaper.reap_app_processes")
     @patch("hop3.server.state_sync.AppRepository")
     def test_timeout_stopping_with_survivor_to_failed(self, mock_repo_class, mock_reap):
-        """A stop that times out with a surviving process must NOT be reported as
+        """
+        A stop that times out with a surviving process must NOT be reported as
         STOPPED — the async timeout path must reap-and-verify like the RPC path,
-        else the owncast-1935 false-STOPPED hole stays open via this door."""
+        else the owncast-1935 false-STOPPED hole stays open via this door.
+        """
         old_time = datetime.now(UTC) - timedelta(minutes=2)
         app = MockApp("test-app", AppStateEnum.STOPPING, state_changed_at=old_time)
         mock_reap.return_value = [4242]  # a daemon that survived even SIGKILL

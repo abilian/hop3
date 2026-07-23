@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""A local SSH port-forward tunnel backed by the system ``ssh`` binary.
+"""
+A local SSH port-forward tunnel backed by the system ``ssh`` binary.
 
 Replaces the ``sshtunnel``/``paramiko`` transport with a subprocess ``ssh -N
 -L`` forward. Shelling out to the platform ``ssh`` means the tunnel honours the
@@ -80,7 +81,8 @@ def _coerce_port(value: int | str, what: str) -> int:
 
 
 def _pick_free_port() -> int:
-    """Reserve a free local port by binding :0, then release it for ssh.
+    """
+    Reserve a free local port by binding :0, then release it for ssh.
 
     There is an unavoidable TOCTOU window between the close here and ssh binding
     the port; ``ExitOnForwardFailure=yes`` turns a lost race into a loud ssh
@@ -101,7 +103,8 @@ def _port_open(port: int) -> bool:
 
 
 class SshTunnel:
-    """A ``ssh -N -L`` local port-forward held open by a child ssh process.
+    """
+    A ``ssh -N -L`` local port-forward held open by a child ssh process.
 
     Forwards ``127.0.0.1:<local_bind_port>`` to ``127.0.0.1:<remote_port>`` on
     the far side of the SSH connection. The local port is chosen automatically
@@ -137,7 +140,8 @@ class SshTunnel:
     # -- lifecycle ---------------------------------------------------------
 
     def start(self) -> None:
-        """Spawn ssh and block until the local port accepts a connection.
+        """
+        Spawn ssh and block until the local port accepts a connection.
 
         Raises ``SshTunnelError`` (carrying ssh's stderr) if ssh exits first, or
         if the forward never becomes reachable within ``ready_timeout``.

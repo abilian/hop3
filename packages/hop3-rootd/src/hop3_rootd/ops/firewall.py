@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""Firewall ops: add_rule, remove_rule, list_rules.
+"""
+Firewall ops: add_rule, remove_rule, list_rules.
 
 Each op handler:
   - validates args (raises ValidationError on bad input)
@@ -40,7 +41,8 @@ from hop3_rootd.validation import (
 
 @register("firewall.add_rule")
 def add_rule(req: Request, ctx: OpContext) -> dict[str, Any]:
-    """Add one rule to the inet hop3 input chain.
+    """
+    Add one rule to the inet hop3 input chain.
 
     Apply via nft first; persist to state.json on success. A crash
     between nft success and state persist leaves the rule in the kernel
@@ -81,7 +83,8 @@ def add_rule(req: Request, ctx: OpContext) -> dict[str, Any]:
 
 @register("firewall.remove_rule")
 def remove_rule(req: Request, ctx: OpContext) -> dict[str, Any]:
-    """Remove a rule by rootd's stable rule_id.
+    """
+    Remove a rule by rootd's stable rule_id.
 
     Returns:
         {"removed": True, "rule_id": "..."}
@@ -118,7 +121,8 @@ def remove_rule(req: Request, ctx: OpContext) -> dict[str, Any]:
 
 @register("firewall.list_rules", audit=False)
 def list_rules(req: Request, ctx: OpContext) -> dict[str, Any]:
-    """List rules currently in state. Optionally filter by app_name.
+    """
+    List rules currently in state. Optionally filter by app_name.
 
     Returns:
         {"rules": [<StoredRule serialised>, ...]}
@@ -166,7 +170,8 @@ def _spec_to_dict(spec: Any) -> dict[str, Any]:
 def _resolve_handle_for_rule_id(
     rule_id: str, *, exec: Exec = DEFAULT_EXEC
 ) -> int | None:
-    """Find the nftables `handle` of the kernel rule whose comment matches.
+    """
+    Find the nftables `handle` of the kernel rule whose comment matches.
 
     Returns None if no such rule is in the kernel right now (e.g., the rule
     was removed out-of-band, or hasn't been applied yet).

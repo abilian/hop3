@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the pure / hermetically-testable helpers in hop3.lib.util.
+"""
+Unit tests for the pure / hermetically-testable helpers in hop3.lib.util.
 
 Command-execution exceptions (CommandError & friends), run_command and
 try_commands are covered in test_command.py; this file covers the remaining

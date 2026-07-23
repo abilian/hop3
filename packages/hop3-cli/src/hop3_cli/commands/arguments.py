@@ -76,7 +76,8 @@ _DEPRECATED_IGNORE_FILE = ".hop3ignore"
 def get_extra_args(
     args: list[str], verbosity: int = 1, hop3_toml_override: bytes | None = None
 ) -> JsonDict:
-    """Generate a dictionary of extra arguments for RPC commands.
+    """
+    Generate a dictionary of extra arguments for RPC commands.
 
     Args:
         args: Command-line arguments
@@ -137,7 +138,8 @@ def get_extra_args(
 
 
 def _read_import_data() -> str | None:
-    """Read a dump piped on stdin and base64-encode it for transport.
+    """
+    Read a dump piped on stdin and base64-encode it for transport.
 
     Returns None when stdin is a terminal (no dump piped) or empty, so the
     server can emit a clear "pipe a dump" error instead of the CLI hanging on
@@ -152,7 +154,8 @@ def _read_import_data() -> str | None:
 
 
 def _resolve_run_input(args: list[str]) -> None:
-    """Resolve --input -/@path on `hop run` so the server gets literal bytes.
+    """
+    Resolve --input -/@path on `hop run` so the server gets literal bytes.
 
     Per ADR 036 §D14, dash means stdin and ``@<path>`` means "read from file".
     Bare strings are passed through unchanged. Only applies to ``hop run``.
@@ -183,7 +186,8 @@ def _resolve_run_input(args: list[str]) -> None:
 
 
 def _resolve_email_password_input(args: list[str]) -> None:
-    """Resolve `--smtp-password -`/`@<path>` on `addon email create` (ADR 036 §D14).
+    """
+    Resolve `--smtp-password -`/`@<path>` on `addon email create` (ADR 036 §D14).
 
     Dash means stdin, ``@<path>`` means "read from file"; a bare value passes
     through unchanged. Rewrites the value in place so the SMTP password is
@@ -218,7 +222,8 @@ def _resolve_email_password_input(args: list[str]) -> None:
 
 
 def _resolve_password_inputs(args: list[str]) -> None:
-    """Replace --password-file/--stdin on user-management commands with positional.
+    """
+    Replace --password-file/--stdin on user-management commands with positional.
 
     Per ADR 036 §D14, password input flows are:
       --password-file <path>   read password from a file
@@ -247,7 +252,8 @@ def _resolve_password_inputs(args: list[str]) -> None:
 
 
 def _password_insert_index(args: list[str]) -> int | None:
-    """Return the positional index where the resolved password should land.
+    """
+    Return the positional index where the resolved password should land.
 
     Returns None if the current ``args`` does not target a command that
     accepts a password.
@@ -267,7 +273,8 @@ def _password_insert_index(args: list[str]) -> int | None:
 
 
 def _extract_password_flag(args: list[str]) -> str | None:
-    """Pop --password-file / --stdin from args and return the resolved password.
+    """
+    Pop --password-file / --stdin from args and return the resolved password.
 
     Returns None if no password flag is present. Raises ValueError if the
     flag is malformed (missing path, file unreadable, empty result).
@@ -316,7 +323,8 @@ def _read_password_source(path: str) -> str:
 
 
 def _parse_deploy_args(args: list[str]) -> tuple[dict[str, str], list[str], bool]:
-    """Parse deploy command arguments, extracting --env and --no-stream flags.
+    """
+    Parse deploy command arguments, extracting --env and --no-stream flags.
 
     Args:
         args: Arguments after 'deploy' command (app_name, --env flags, directory)
@@ -381,7 +389,8 @@ def pack_repository(
     verbosity: int = 1,
     hop3_toml_override: bytes | None = None,
 ) -> str:
-    """Pack a directory into a base64-encoded tar.gz archive.
+    """
+    Pack a directory into a base64-encoded tar.gz archive.
 
     Args:
         directory: Directory to pack (defaults to current directory)
@@ -487,7 +496,8 @@ def _check_archive_size(
     source_dir: Path,
     verbose: bool,
 ) -> None:
-    """Check archive size against soft and hard limits.
+    """
+    Check archive size against soft and hard limits.
 
     Args:
         archive_bytes: The archive content
@@ -540,7 +550,8 @@ def _check_archive_size(
 
 
 def get_ignored_spec(source_dir: Path) -> tuple[pathspec.PathSpec, str]:
-    """Build the ignore spec for the `hop3 deploy` upload.
+    """
+    Build the ignore spec for the `hop3 deploy` upload.
 
     The upload always excludes a built-in set of never-deploy paths
     (`_DEFAULT_IGNORE_PATTERNS`), extended by the canonical per-app source:
@@ -579,7 +590,8 @@ def get_ignored_spec(source_dir: Path) -> tuple[pathspec.PathSpec, str]:
 
 
 def _get_build_ignore_patterns(source_dir: Path) -> list[str] | None:
-    """Return hop3.toml ``[build].ignore`` patterns, or None if not declared.
+    """
+    Return hop3.toml ``[build].ignore`` patterns, or None if not declared.
 
     Reads the app's hop3.toml from the standard locations. ``[build].ignore`` is
     the canonical, declarative ignore list for the deploy upload (ADR 046 §5);
@@ -612,7 +624,8 @@ def _human_size(num_bytes: int) -> str:
 def _aggregate_by_top_dir(
     sized_files: list[tuple[Path, int]], source_dir: Path
 ) -> list[tuple[str, int]]:
-    """Total upload size per top-level entry, largest first.
+    """
+    Total upload size per top-level entry, largest first.
 
     Size (not file count) is what matters for the 413 limit, and a top-level
     entry is what you'd actually add to [build].ignore.
@@ -633,7 +646,8 @@ def _largest_dirs_summary(files: list[Path], source_dir: Path, n: int = 5) -> st
 
 
 def describe_archive(source_dir: Path) -> str:
-    """Human-readable manifest of what `hop3 deploy` would upload.
+    """
+    Human-readable manifest of what `hop3 deploy` would upload.
 
     Walks the source, applies the SAME ignore rules as the real upload, and
     reports the total size, the ignore rules in effect, and the largest
@@ -671,7 +685,8 @@ def describe_archive(source_dir: Path) -> str:
 
 
 def _check_directory_is_app(source_dir: Path, verbose: bool) -> None:
-    """Check if the directory looks like an application and warn if not.
+    """
+    Check if the directory looks like an application and warn if not.
 
     Args:
         source_dir: The directory to check

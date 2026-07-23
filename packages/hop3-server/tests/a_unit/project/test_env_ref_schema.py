@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Schema + parsing for [env] dynamic references (ADR 046 §1b).
+"""
+Schema + parsing for [env] dynamic references (ADR 046 §1b).
 
 A reference (`{ from, key }`, `{ key }`, or `{ external_ip = true }`) must parse
 into ``Hop3Config.env_refs`` and validate its shape; a malformed reference — or

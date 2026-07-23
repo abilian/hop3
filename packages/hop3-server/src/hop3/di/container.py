@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Container creation for Hop3.
+"""
+Container creation for Hop3.
 
 This module provides container creation for Dishka dependency injection.
 The container lifecycle is managed by:
@@ -32,7 +33,8 @@ if TYPE_CHECKING:
 
 
 def _get_plugin_providers() -> list:
-    """Collect DI providers from all registered plugins.
+    """
+    Collect DI providers from all registered plugins.
 
     This queries the plugin system for providers contributed via the
     get_di_providers() hook.
@@ -55,7 +57,8 @@ def _get_plugin_providers() -> list:
 
 
 def _build_providers() -> list:
-    """Assemble the full provider list (core providers + plugin providers).
+    """
+    Assemble the full provider list (core providers + plugin providers).
 
     Returns:
         List of provider instances to register in a container.
@@ -76,7 +79,8 @@ def _build_providers() -> list:
 
 
 def create_container() -> Container:
-    """Create a new synchronous application container.
+    """
+    Create a new synchronous application container.
 
     This creates a fresh container with all providers registered,
     including providers contributed by plugins via the get_di_providers() hook.
@@ -99,7 +103,8 @@ def create_container() -> Container:
 
 
 def create_async_container() -> AsyncContainer:
-    """Create a new asynchronous application container.
+    """
+    Create a new asynchronous application container.
 
     This creates a fresh async container with all providers registered,
     including providers contributed by plugins via the get_di_providers() hook.

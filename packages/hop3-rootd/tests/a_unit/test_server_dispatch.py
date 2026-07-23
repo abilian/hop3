@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the server's dispatcher.
+"""
+Unit tests for the server's dispatcher.
 
 Tests dispatch() and handle_one() in isolation — no actual sockets here.
 End-to-end tests live in tests/b_integration/ where real Unix sockets +
@@ -121,9 +122,11 @@ def test_dispatch_kernel_error_returns_kernel_error_code():
 
 
 def test_dispatch_nginx_reload_not_applied_is_kernel_error_with_reason():
-    """A rejected nginx reload → kernel_error with the actionable reason kept in
+    """
+    A rejected nginx reload → kernel_error with the actionable reason kept in
     the message (NOT scrubbed to the opaque internal_error). This is the whole
-    point of adding the nginx errors to the KERNEL_ERROR tuple — pin it."""
+    point of adding the nginx errors to the KERNEL_ERROR tuple — pin it.
+    """
     state = State()
     req = Request(v=PROTOCOL_VERSION, id="r1", op="nginx.reload", args={})
     reason = "[emerg] bind() to 127.0.0.1:8443 failed (98: Address already in use)"
@@ -266,7 +269,8 @@ def test_handle_one_protocol_error_writes_audit(tmp_path):
 
 
 def test_handle_one_redacts_secret_args_in_error_path(tmp_path):
-    """Sanitisation: token/password/secret fields in args are redacted in audit.
+    """
+    Sanitisation: token/password/secret fields in args are redacted in audit.
 
     Uses an error path on a mutating op so the audit fires regardless of
     audit=True/False on the op (errors always audit).

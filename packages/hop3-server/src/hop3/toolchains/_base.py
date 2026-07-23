@@ -26,7 +26,8 @@ if TYPE_CHECKING:
 
 
 class LanguageToolchain(ABC):
-    """A language-specific build toolchain.
+    """
+    A language-specific build toolchain.
 
     This abstract base class provides a framework for building applications in
     specific programming languages (Python, Node, Java, etc.). It defines
@@ -65,7 +66,8 @@ class LanguageToolchain(ABC):
         context_or_app_name: BuildContext | str,
         app_path: Path | None = None,
     ) -> None:
-        """Initialize the toolchain with a build context or legacy parameters.
+        """
+        Initialize the toolchain with a build context or legacy parameters.
 
         Args:
         ----
@@ -87,7 +89,8 @@ class LanguageToolchain(ABC):
 
     @abstractmethod
     def accept(self) -> bool:
-        """Accepts the input specified by the subclass.
+        """
+        Accepts the input specified by the subclass.
 
         Returns
         -------
@@ -95,7 +98,8 @@ class LanguageToolchain(ABC):
         """
 
     def check_exists(self, file_or_files: str | list[str]) -> bool:
-        """Check if the specified file, or one of the specified files, exist in
+        """
+        Check if the specified file, or one of the specified files, exist in
         the application path.
 
         Args:
@@ -117,7 +121,8 @@ class LanguageToolchain(ABC):
         return any((self.src_path / file).exists() for file in files)
 
     def _get_custom_build_command(self) -> str | None:
-        """Get custom build command from hop3.toml if specified.
+        """
+        Get custom build command from hop3.toml if specified.
 
         Returns:
             Build command string, or None if not specified.
@@ -141,7 +146,8 @@ class LanguageToolchain(ABC):
 
     @abstractmethod
     def build(self) -> BuildArtifact:
-        """Build app from sources (implemented by subclasses).
+        """
+        Build app from sources (implemented by subclasses).
 
         Returns:
             BuildArtifact describing what was built
@@ -171,7 +177,8 @@ class LanguageToolchain(ABC):
     def shell(
         self, command: str, cwd: str | Path = "", **kwargs
     ) -> subprocess.CompletedProcess:
-        """Run a shell command with optional working directory and additional
+        """
+        Run a shell command with optional working directory and additional
         keyword arguments.
 
         Args:
@@ -213,7 +220,8 @@ class LanguageToolchain(ABC):
         return shell(command, cwd=str(cwd), **kwargs)
 
     def _get_home_dir(self) -> str:
-        """Get the home directory, handling systemd/service environments.
+        """
+        Get the home directory, handling systemd/service environments.
 
         In systemd services or restricted environments, HOME may not be set,
         so we use pwd module or fall back to hop3 user's home.
@@ -243,7 +251,8 @@ class LanguageToolchain(ABC):
     # BuildArtifact helpers
     #
     def _get_workers(self) -> dict[str, str]:
-        """Parse Procfile and return worker commands.
+        """
+        Parse Procfile and return worker commands.
 
         Checks for Procfile in:
         1. src_path/hop3/Procfile (alternate config path)
@@ -267,7 +276,8 @@ class LanguageToolchain(ABC):
         return {}
 
     def _get_build_id(self) -> str:
-        """Get build ID from git SHA or generate UUID.
+        """
+        Get build ID from git SHA or generate UUID.
 
         Returns:
             A short identifier for this build (12 chars)
@@ -299,7 +309,8 @@ class LanguageToolchain(ABC):
         path_prepend: list[str] | None = None,
         workers: dict[str, str] | None = None,
     ) -> RuntimeConfig:
-        """Create a RuntimeConfig with common defaults.
+        """
+        Create a RuntimeConfig with common defaults.
 
         Args:
             env_vars: Additional environment variables to set
@@ -325,7 +336,8 @@ class LanguageToolchain(ABC):
         runtime: RuntimeConfig | None = None,
         metadata: dict | None = None,
     ) -> BuildArtifact:
-        """Create a complete BuildArtifact.
+        """
+        Create a complete BuildArtifact.
 
         Args:
             kind: Artifact kind (e.g., "python", "node", "ruby")

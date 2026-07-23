@@ -31,7 +31,8 @@ POSTGRES_CONF_DIRS = [
 
 
 def _find_postgres_conf_dir() -> Path | None:
-    """Find the PostgreSQL configuration directory.
+    """
+    Find the PostgreSQL configuration directory.
 
     Returns:
         Path to config directory, or None if not found.
@@ -57,7 +58,8 @@ def _find_postgres_conf_dir() -> Path | None:
 
 
 def _configure_postgres_listen_addresses(_unused: str = "") -> bool:
-    """Configure PostgreSQL to listen on all interfaces for Docker access.
+    """
+    Configure PostgreSQL to listen on all interfaces for Docker access.
 
     Docker Compose creates its own bridge networks with different gateway IPs,
     so we need PostgreSQL to listen on all interfaces. Access is controlled
@@ -105,7 +107,8 @@ def _configure_postgres_listen_addresses(_unused: str = "") -> bool:
 
 
 def _configure_postgres_hba(_unused: str = "") -> bool:
-    """Configure pg_hba.conf to allow connections from Docker networks.
+    """
+    Configure pg_hba.conf to allow connections from Docker networks.
 
     Returns:
         True if configuration was updated.
@@ -152,7 +155,8 @@ _POSTGRES_PASSWORD_RE = re.compile(r"^[A-Za-z0-9_]+$")
 
 
 def _validate_postgres_password(password: str) -> bool:
-    """Validate that the generated postgres password is shell/SQL-safe.
+    """
+    Validate that the generated postgres password is shell/SQL-safe.
 
     SECURITY: the SQL-via-shell path below interpolates the password
     into ``ALTER USER … PASSWORD '…';`` which is then double-quoted and
@@ -167,7 +171,8 @@ def _validate_postgres_password(password: str) -> bool:
 
 
 def _set_hop3_postgres_password() -> str | None:
-    """Set a password for the hop3 PostgreSQL user (for Docker connections).
+    """
+    Set a password for the hop3 PostgreSQL user (for Docker connections).
 
     Returns:
         The generated password, or None if failed.
@@ -194,7 +199,8 @@ def _set_hop3_postgres_password() -> str | None:
 
 
 def _configure_postgres_for_docker() -> str | None:
-    """Configure PostgreSQL for Docker container access.
+    """
+    Configure PostgreSQL for Docker container access.
 
     Always configures PostgreSQL for Docker networks since Hop3 supports
     Docker deployments. The docker0 bridge may not exist yet if Docker
@@ -233,7 +239,8 @@ def _configure_postgres_for_docker() -> str | None:
 
 
 def _start_postgres_service(distro: str) -> bool:
-    """Start PostgreSQL service.
+    """
+    Start PostgreSQL service.
 
     Uses systemd when available (bare-metal, VMs), falls back to
     ``pg_ctlcluster`` under supervisord (Docker test containers).
@@ -302,7 +309,8 @@ def _start_postgres_systemd() -> bool:
 
 
 def _start_postgres_direct() -> bool:
-    """Start PostgreSQL without systemd (containers, non-systemd hosts).
+    """
+    Start PostgreSQL without systemd (containers, non-systemd hosts).
 
     On Debian/Ubuntu, ``pg_ctlcluster`` starts a specific cluster.
     On Fedora/RHEL, ``pg_ctl`` starts the data directory directly.
@@ -361,7 +369,8 @@ def _start_postgres_direct() -> bool:
 
 
 def _create_postgres_role_and_db() -> bool:
-    """Create hop3 PostgreSQL role and database.
+    """
+    Create hop3 PostgreSQL role and database.
 
     Returns:
         True if created successfully (or already exists).
@@ -397,7 +406,8 @@ _SUPERUSER_VERIFY_DELAY = 1.0
 
 
 def _verify_superuser_tcp(password: str) -> bool:
-    """Whether ``password`` authenticates the ``postgres`` role over TCP.
+    """
+    Whether ``password`` authenticates the ``postgres`` role over TCP.
 
     This is the EXACT path hop3-server uses to provision addons (127.0.0.1:5432,
     password auth). A local peer ``ALTER`` can succeed — or hit a different
@@ -412,7 +422,8 @@ def _verify_superuser_tcp(password: str) -> bool:
 
 
 def _set_postgres_password(existing: str | None = None) -> str | None:
-    """(Re-)assert the postgres superuser password AND verify it over TCP.
+    """
+    (Re-)assert the postgres superuser password AND verify it over TCP.
 
     On redeploy ``existing`` is the password from a prior install: reuse it
     rather than rotating the superuser secret. Either way the password is
@@ -457,7 +468,8 @@ def _set_postgres_password(existing: str | None = None) -> str | None:
 
 
 def _verify_postgres_connection() -> bool:
-    """Verify PostgreSQL connection works for hop3 user.
+    """
+    Verify PostgreSQL connection works for hop3 user.
 
     Returns:
         True if connection verified successfully.
@@ -479,7 +491,8 @@ def _verify_postgres_connection() -> bool:
 
 
 def setup_postgres(config: ServerInstallerConfig, distro: str) -> str | None:
-    """Configure PostgreSQL.
+    """
+    Configure PostgreSQL.
 
     Returns:
         The generated postgres superuser password, or None if skipped/failed.

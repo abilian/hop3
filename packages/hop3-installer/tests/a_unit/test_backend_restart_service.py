@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""The upgrade restart must match the target's process manager.
+"""
+The upgrade restart must match the target's process manager.
 
 Real servers run hop3-server under systemd; the Docker deploy target runs it
 under supervisor (its PID 1 — no systemd). A hardcoded ``systemctl restart``

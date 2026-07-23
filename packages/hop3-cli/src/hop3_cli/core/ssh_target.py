@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Validation for SSH targets handed to the system ``ssh`` binary.
+"""
+Validation for SSH targets handed to the system ``ssh`` binary.
 
 Both the RPC tunnel (``core.ssh_tunnel``) and the remote-exec helpers
 (``commands.local.ssh_ops``) assemble a ``user@host`` and pass it to ``ssh`` as
@@ -25,7 +26,8 @@ _SSH_TARGET_RE = re.compile(r"\A[A-Za-z0-9_.][A-Za-z0-9_.@:+-]*\Z")
 
 
 def is_safe_ssh_target(target: str) -> bool:
-    """Whether ``target`` is a plain ``[user@]host[:port]`` safe to pass to ssh.
+    """
+    Whether ``target`` is a plain ``[user@]host[:port]`` safe to pass to ssh.
 
     Rejects a leading ``-`` (ssh would read it as an option → ProxyCommand
     RCE), an empty or ``-``-leading host, and shell metacharacters.

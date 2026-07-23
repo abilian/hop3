@@ -20,7 +20,8 @@ from hop3_installer.constants import CLI_COMMANDS, CLI_VENV_DIR, SHELL_CONFIGS
 
 
 def create_command_symlinks(bin_dir: Path) -> int:
-    """Create symlinks for CLI commands.
+    """
+    Create symlinks for CLI commands.
 
     Returns:
         Count of created links
@@ -48,7 +49,8 @@ def create_command_symlinks(bin_dir: Path) -> int:
 
 
 def update_shell_config(bin_dir: Path, *, modify_path: bool) -> bool:
-    """Update shell configuration if needed.
+    """
+    Update shell configuration if needed.
 
     Returns:
         True if PATH is already active in current session

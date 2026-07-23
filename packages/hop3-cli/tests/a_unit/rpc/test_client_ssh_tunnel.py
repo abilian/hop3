@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""The RPC Client routes ``ssh://`` connections through an SshTunnel.
+"""
+The RPC Client routes ``ssh://`` connections through an SshTunnel.
 
 Replaces the old sshtunnel/paramiko compat guard at the Client level: an
 ``ssh://`` Client must build the tunnel in ``__post_init__``, derive its params

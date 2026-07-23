@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""[healthcheck] drives the synthesized default validation (path + optional body).
+"""
+[healthcheck] drives the synthesized default validation (path + optional body).
 
 An app that declares no [[test.validations]] gets one synthesized HTTP
 validation from [healthcheck]: it probes [healthcheck].path (default "/") and,

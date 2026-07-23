@@ -3,7 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the pure worker-scaling delta math in AppLauncher.
+"""
+Unit tests for the pure worker-scaling delta math in AppLauncher.
 
 `_calculate_worker_changes` decides which uWSGI worker ordinals to create
 and which to destroy given the current per-kind worker counts and the
@@ -17,7 +18,8 @@ from hop3.run.spawn import AppLauncher
 
 
 def make_launcher(deltas: dict[str, int]) -> AppLauncher:
-    """Build an AppLauncher with given deltas, skipping I/O-heavy __post_init__.
+    """
+    Build an AppLauncher with given deltas, skipping I/O-heavy __post_init__.
 
     `_calculate_worker_changes` only reads `self.deltas`, so a bare instance
     with that attribute set is enough — and avoids __post_init__'s disk/DB work.

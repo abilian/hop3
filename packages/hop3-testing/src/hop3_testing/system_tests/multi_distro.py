@@ -1,7 +1,8 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Multi-distribution test runner.
+"""
+Multi-distribution test runner.
 
 Runs the test suite across multiple Linux distributions, stopping on first failure.
 """
@@ -61,7 +62,8 @@ def run_test_for_image(
     extra_args: list[str] | None = None,
     verbose: bool = False,
 ) -> TestResult:
-    """Run test suite for a specific image.
+    """
+    Run test suite for a specific image.
 
     Args:
         image: Image name (e.g., "ubuntu-24.04").
@@ -175,7 +177,8 @@ def run_multi_distro_tests(
     verbose: bool = False,
     extra_args: list[str] | None = None,
 ) -> list[TestResult]:
-    """Run tests across multiple distributions.
+    """
+    Run tests across multiple distributions.
 
     Args:
         images: List of images to test. Uses HETZNER_IMAGES if None.

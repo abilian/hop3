@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Unit tests for the catalog refresh orchestration (ADR 049).
+"""
+Unit tests for the catalog refresh orchestration (ADR 049).
 
 Network is stubbed: ``fetch_to`` is monkeypatched to drop a prebuilt signed
 tarball, so the test exercises fetch→verify→publish→reload wiring offline.

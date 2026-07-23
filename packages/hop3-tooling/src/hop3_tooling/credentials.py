@@ -19,7 +19,8 @@ class Credential:
 
 
 def read_generated_credential(app_name: str) -> Credential:
-    """Parse `hop3 app credentials --app <app>` into its fields (fail loud).
+    """
+    Parse `hop3 app credentials --app <app>` into its fields (fail loud).
 
     Uses whatever server the local `hop3` CLI is authenticated against.
     """

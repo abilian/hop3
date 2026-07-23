@@ -23,17 +23,21 @@ def test_var_expansion() -> None:
 
 
 def test_expand_vars_rejects_nul_byte_in_value() -> None:
-    """NUL bytes have no legitimate use in any config we render; treat them
+    """
+    NUL bytes have no legitimate use in any config we render; treat them
     as a reliable injection signature even though HOST_NAME-style attacks
-    are primarily caught by RPC-boundary validation."""
+    are primarily caught by RPC-boundary validation.
+    """
     env = {"HOST_NAME": "example.com\x00evil"}
     with pytest.raises(ValueError, match="NUL byte"):
         expand_vars("server_name $HOST_NAME;", env)
 
 
 def test_expand_vars_accepts_multiline_value() -> None:
-    """Multi-line values are legitimate: the codebase composes nginx
-    fragments by substituting pre-rendered blocks as values."""
+    """
+    Multi-line values are legitimate: the codebase composes nginx
+    fragments by substituting pre-rendered blocks as values.
+    """
     env = {"BLOCK": "line1\nline2\nline3"}
     result = expand_vars("prefix\n$BLOCK\nsuffix", env)
     assert result == "prefix\nline1\nline2\nline3\nsuffix"

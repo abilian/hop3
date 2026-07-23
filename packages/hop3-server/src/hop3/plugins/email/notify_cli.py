@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""`server email notifications <on|off|status|test>` — EXPERIMENTAL.
+"""
+`server email notifications <on|off|status|test>` — EXPERIMENTAL.
 
 Opt-in operator alerts (cert-renewal failures for now) delivered through the
 server email transport. Admin-only. See :mod:`.notifications`.
@@ -37,7 +38,8 @@ from .server_transport import load_server_transport
 @register
 @dataclass(frozen=True)
 class ServerEmailNotificationsCmd(Command):
-    """Operator email notifications (cert-renewal alerts) — EXPERIMENTAL.
+    """
+    Operator email notifications (cert-renewal alerts) — EXPERIMENTAL.
 
     Usage: hop3 server email notifications <on|off|status|test> [--to <addr>]
 

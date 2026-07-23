@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""SQLAlchemy models for test result storage.
+"""
+SQLAlchemy models for test result storage.
 
 Columns keep ``nullable=True`` (the schema's long-standing shape — every
 non-PK column is nullable) even where the ``Mapped[...]`` annotation is
@@ -38,7 +39,8 @@ class Base(DeclarativeBase):
 
 
 class TestRun(Base):
-    """A collection of test executions.
+    """
+    A collection of test executions.
 
     Represents a single invocation of hop3-test, which may run
     multiple tests.
@@ -261,7 +263,8 @@ class ValidationRecord(Base):
 
 
 class RunLease(Base):
-    """A lightweight lease so two runs don't claim the same target (ADR 044 §D).
+    """
+    A lightweight lease so two runs don't claim the same target (ADR 044 §D).
 
     One row per target; ``expires_at`` is an epoch timestamp (Float) to avoid
     SQLite's tz-naive datetime comparison pitfalls. A crashed holder's lease is
@@ -293,7 +296,8 @@ class RunLease(Base):
 
 
 class BuildLog(Base):
-    """A compressed per-phase log for one build (ADR 044 §E).
+    """
+    A compressed per-phase log for one build (ADR 044 §E).
 
     Full logs are kept for every build (pass or fail), so the payload is stored
     compressed (see ``compression``); ``algo`` tags the codec for forward-compat.

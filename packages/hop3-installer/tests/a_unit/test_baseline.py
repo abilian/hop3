@@ -1,6 +1,7 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Unit tests for the installer baseline-derivation library.
+"""
+Unit tests for the installer baseline-derivation library.
 
 Uses a synthetic apps/ tree under tmp_path so the tests don't depend
 on what the real catalogue happens to declare today — that coupling
@@ -61,7 +62,8 @@ class TestDeriveBaseline:
         assert result.by_os_family["fedora"] == ("brotli-devel",)
 
     def test_nodesource_packages_excluded_from_baseline(self, tmp_path):
-        """Node, npm, node-gyp and libnode-dev come from the NodeSource
+        """
+        Node, npm, node-gyp and libnode-dev come from the NodeSource
         toolchain; letting their distro packages into the apt/dnf baseline
         conflicts with NodeSource ("held broken packages") and aborts the whole
         baseline. They must never enter the derived baseline, in any family.

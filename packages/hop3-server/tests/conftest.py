@@ -37,7 +37,8 @@ os.environ.setdefault("HOP3_SESSION_SECRET", "test-session-secret-not-for-produc
 
 @pytest.fixture(autouse=True)
 def _fast_bcrypt(monkeypatch):
-    """Use the minimum bcrypt work factor in tests.
+    """
+    Use the minimum bcrypt work factor in tests.
 
     Password hashing is intentionally slow in production (~0.3s/hash at the
     default cost). Tests only exercise the hash/verify *roundtrip*, not the work
@@ -214,7 +215,8 @@ def test_catalog():
 # 4. Reset session factory cache before each test to ensure test isolation
 @pytest.fixture(autouse=True)
 def reset_session_factory():
-    """Reset session factory cache before each test to prevent database state pollution.
+    """
+    Reset session factory cache before each test to prevent database state pollution.
 
     This ensures that each test gets a fresh database connection and prevents
     tests from accidentally sharing database state through the session factory cache.

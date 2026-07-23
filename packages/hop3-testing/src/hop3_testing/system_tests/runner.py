@@ -1,7 +1,8 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Test runner integration with hop3-testing framework.
+"""
+Test runner integration with hop3-testing framework.
 
 This module provides the bridge between the cloud system-test path and the
 hop3-testing framework, enabling execution of:
@@ -128,7 +129,8 @@ class AllSuitesResult:
 
 
 class TestRunnerManager:
-    """Manages test execution using hop3-testing framework.
+    """
+    Manages test execution using hop3-testing framework.
 
     This class bridges the daily system test framework with hop3-testing,
     providing:
@@ -162,7 +164,8 @@ class TestRunnerManager:
         verbose: bool = False,
         logs_dir: Path | None = None,
     ):
-        """Initialize the test runner manager.
+        """
+        Initialize the test runner manager.
 
         Args:
             host: Target server hostname or IP address.
@@ -189,7 +192,8 @@ class TestRunnerManager:
             self._printing_console.set_verbosity(Verbosity.VERBOSE)
 
     def run_all_suites(self) -> AllSuitesResult:
-        """Run all configured test suites.
+        """
+        Run all configured test suites.
 
         Returns:
             AllSuitesResult with results from all suites.
@@ -275,7 +279,8 @@ class TestRunnerManager:
         return result
 
     def run_suite(self, suite_name: str) -> TestSuiteResult:
-        """Run a single test suite.
+        """
+        Run a single test suite.
 
         Args:
             suite_name: Name of the suite to run (test-apps, demos, tutorials).
@@ -291,7 +296,8 @@ class TestRunnerManager:
             self._cleanup_target()
 
     def _run_suite(self, suite_name: str) -> TestSuiteResult:  # ruff:ignore[too-many-statements, complex-structure, too-many-branches]
-        """Execute a single test suite.
+        """
+        Execute a single test suite.
 
         Args:
             suite_name: Name of the suite to run.
@@ -411,7 +417,8 @@ class TestRunnerManager:
         runner_type: str,
         suite_name: str,
     ) -> list[TestDefinition]:
-        """Get tests for a specific suite, with optional filtering.
+        """
+        Get tests for a specific suite, with optional filtering.
 
         Args:
             runner_type: Runner type to filter by (deployment, demo, tutorial).
@@ -443,7 +450,8 @@ class TestRunnerManager:
         return sorted(tests, key=lambda t: t.name)
 
     def _run_single_test(self, test: TestDefinition) -> TestResult:
-        """Run a single test using hop3-testing framework.
+        """
+        Run a single test using hop3-testing framework.
 
         Args:
             test: Test definition to run.
@@ -475,7 +483,8 @@ class TestRunnerManager:
             )
 
     def _load_catalog(self, scan_paths: list[str]) -> None:
-        """Load the test catalog for the given paths.
+        """
+        Load the test catalog for the given paths.
 
         Args:
             scan_paths: Paths relative to project root to scan for test.toml files.
@@ -494,7 +503,8 @@ class TestRunnerManager:
             self.console.print(f"  Loaded {total_tests} tests")
 
     def _create_target(self) -> None:
-        """Create and start the remote target.
+        """
+        Create and start the remote target.
 
         Uses SSH tunnel authentication - exactly like a real user would.
         No server modifications, no shortcuts.
@@ -541,7 +551,8 @@ class TestRunnerManager:
             self._target = None
 
     def _collect_failed_test_diagnostics(self, test_name: str) -> None:
-        """Collect diagnostics for a failed test immediately.
+        """
+        Collect diagnostics for a failed test immediately.
 
         This runs BEFORE the app is cleaned up, so we can capture logs.
 
@@ -650,7 +661,8 @@ def run_tests(
     verbose: bool = False,
     logs_dir: Path | None = None,
 ) -> AllSuitesResult:
-    """Run all tests against a deployed Hop3 server.
+    """
+    Run all tests against a deployed Hop3 server.
 
     Convenience function that creates a TestRunnerManager and runs all suites.
 

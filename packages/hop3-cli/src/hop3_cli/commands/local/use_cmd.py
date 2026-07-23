@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""`hop3 use` — pin / show / clear the app for the current directory.
+"""
+`hop3 use` — pin / show / clear the app for the current directory.
 
 Per ADR 042 the app resolves from the CWD only. `hop3 use <app>` writes a
 `.hop3-app` file in the current directory (app-resolution source #4 in

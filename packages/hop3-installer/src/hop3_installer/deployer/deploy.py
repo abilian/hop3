@@ -102,7 +102,8 @@ class Deployer:
             print(f"  [{step}] {message}...", end=" ", flush=True)
 
     def log_output(self, result, *, always: bool = False) -> None:
-        """Print command output.
+        """
+        Print command output.
 
         Args:
             result: CommandResult from backend.run()
@@ -130,7 +131,8 @@ class Deployer:
     def _handle_install_or_update(
         self, step: int, local_path_on_server: str | None
     ) -> tuple[bool, int]:
-        """Handle installation or update logic.
+        """
+        Handle installation or update logic.
 
         Returns:
             Tuple of (success, updated_step_count).
@@ -197,7 +199,8 @@ class Deployer:
         print("=" * 60)
 
     def _setup_and_prepare(self) -> tuple[bool, int, str | None]:
-        """Setup backend and prepare for deployment.
+        """
+        Setup backend and prepare for deployment.
 
         Returns:
             Tuple of (success, step_count, local_path_on_server).
@@ -231,7 +234,8 @@ class Deployer:
         return True, step, local_path_on_server
 
     def _start_docker_services(self, step: int) -> tuple[bool, int]:
-        """Start services in Docker via supervisor.
+        """
+        Start services in Docker via supervisor.
 
         Returns:
             Tuple of (success, updated_step_count).
@@ -250,7 +254,8 @@ class Deployer:
             return False, step
 
     def _configure_admin_domain(self, step: int) -> tuple[bool, int]:
-        """Configure admin domain with nginx, SSL, and user.
+        """
+        Configure admin domain with nginx, SSL, and user.
 
         Returns:
             Tuple of (success, updated_step_count).
@@ -286,7 +291,8 @@ class Deployer:
         return True, step
 
     def _persist_admin_domain(self, domain: str) -> bool:
-        """Record ``ADMIN_DOMAIN`` in the server config (``hop3-server.toml``).
+        """
+        Record ``ADMIN_DOMAIN`` in the server config (``hop3-server.toml``).
 
         The deployer fronts the domain in nginx, but the server reads its own
         canonical domain from ``ADMIN_DOMAIN`` in ``/home/hop3/hop3-server.toml``.
@@ -324,7 +330,8 @@ class Deployer:
         return True
 
     def deploy(self) -> bool:
-        """Run full deployment.
+        """
+        Run full deployment.
 
         Returns:
             True if deployment succeeded
@@ -374,7 +381,8 @@ class Deployer:
             return False
 
     def _build_source_args(self, local_path: str | None) -> str:
-        """Build installer arguments for the installation source.
+        """
+        Build installer arguments for the installation source.
 
         Args:
             local_path: Path on the server where local code was uploaded (if any)
@@ -401,7 +409,8 @@ class Deployer:
         return args
 
     def _ensure_python310_plus(self) -> str:
-        """Ensure Python 3.10+ is available on the remote system.
+        """
+        Ensure Python 3.10+ is available on the remote system.
 
         RHEL 9 clones (Rocky, AlmaLinux) ship with Python 3.9 by default,
         but Python 3.11/3.12 are available in the appstream repository.
@@ -455,7 +464,8 @@ class Deployer:
         return "python3"
 
     def _install(self, *, local_path: str | None = None) -> bool:
-        """Install Hop3 on the target.
+        """
+        Install Hop3 on the target.
 
         Args:
             local_path: Path on the server where local code was uploaded (if any)
@@ -527,7 +537,8 @@ class Deployer:
         return self._update_from_pypi()
 
     def _feature_install_command(self, python_cmd: str) -> str:
-        """Build the installer command for the feature/redeploy path.
+        """
+        Build the installer command for the feature/redeploy path.
 
         Forwards ``--acme-email`` so the cert *engine* is configured in
         ``/etc/default/hop3`` (the default is self-signed — it is NOT
@@ -547,7 +558,8 @@ class Deployer:
         return cmd
 
     def _install_features(self) -> bool:
-        """Install additional features on an existing Hop3 installation.
+        """
+        Install additional features on an existing Hop3 installation.
 
         Re-runs the installer with --with flags, skipping steps unrelated to
         feature installation (nginx, package install). ``--acme-email`` is
@@ -599,7 +611,8 @@ class Deployer:
         return True
 
     def _run_migrations(self) -> bool:
-        """Run database migrations via ``hop3-server db:upgrade``.
+        """
+        Run database migrations via ``hop3-server db:upgrade``.
 
         Called after the new package is installed but before the server is
         restarted, so a failed migration leaves the old server still
@@ -627,7 +640,8 @@ class Deployer:
         return True
 
     def _restart_and_verify(self, what: str, recovery: str) -> bool:
-        """Restart hop3-server and confirm it answers HTTP.
+        """
+        Restart hop3-server and confirm it answers HTTP.
 
         Returns True when the server comes back up. On failure logs loudly (with
         the recovery path) and returns False — a restart that starts the systemd
@@ -648,8 +662,10 @@ class Deployer:
 
     @staticmethod
     def _upgrade_recovery(revert: str) -> str:
-        """Recovery guidance for a failed upgrade: how to revert, plus the
-        forward-only-migration caveat (reverting code may not be enough)."""
+        """
+        Recovery guidance for a failed upgrade: how to revert, plus the
+        forward-only-migration caveat (reverting code may not be enough).
+        """
         # Intentional: kept as a named one-caller helper — names the concept for
         # _finish_upgrade rather than inlining the two-line string.
         return (
@@ -658,8 +674,10 @@ class Deployer:
         )
 
     def _finish_upgrade(self, revert: str, success_msg: str) -> bool:
-        """Shared tail of every upgrade path: restart, verify the server answers,
-        report. Returns False (fail loud) if the server does not come back up."""
+        """
+        Shared tail of every upgrade path: restart, verify the server answers,
+        report. Returns False (fail loud) if the server does not come back up.
+        """
         if not self._restart_and_verify("the upgrade", self._upgrade_recovery(revert)):
             return False
         self.log(success_msg, "success")
@@ -668,7 +686,8 @@ class Deployer:
     def _wait_until_server_healthy(
         self, retries: int = _HEALTH_RETRIES, delay: float = _HEALTH_DELAY_S
     ) -> bool:
-        """Poll until hop3-server answers HTTP on its bind address, or give up.
+        """
+        Poll until hop3-server answers HTTP on its bind address, or give up.
 
         Any HTTP response (even a 404/redirect) means the process is up and
         serving; connection-refused / timeout means it never came back. Never a
@@ -779,7 +798,8 @@ class Deployer:
         return self._finish_upgrade(revert, "Update from PyPI complete")
 
     def _upload_local_code_for_install(self) -> str | None:
-        """Upload local code to a temp location for fresh install.
+        """
+        Upload local code to a temp location for fresh install.
 
         Returns:
             Path on server where code was uploaded, or None on failure
@@ -808,7 +828,8 @@ class Deployer:
         return remote_path
 
     def _upload_rootd_package(self) -> bool:
-        """Upload the hop3-rootd package to /tmp/hop3-rootd (sibling of server).
+        """
+        Upload the hop3-rootd package to /tmp/hop3-rootd (sibling of server).
 
         Returns True on success (or success-with-warning if the package dir is
         absent — older checkouts), False only on a transfer failure.
@@ -828,7 +849,8 @@ class Deployer:
         return True
 
     def _upload_cli_package(self) -> bool:
-        """Upload the hop3-cli package to /tmp/hop3-cli (sibling of server).
+        """
+        Upload the hop3-cli package to /tmp/hop3-cli (sibling of server).
 
         Returns True on success (or success-with-warning if the package dir is
         absent — older checkouts), False only on a transfer failure.
@@ -905,7 +927,8 @@ class Deployer:
         return self._finish_upgrade(revert, "Local code deployed")
 
     def _platform_nginx_target(self) -> tuple[str, bool]:
-        """Where the platform vhost lives, and whether it may own default_server.
+        """
+        Where the platform vhost lives, and whether it may own default_server.
 
         Debian/Ubuntu (``sites-available`` present): the platform vhost goes to
         ``/etc/nginx/sites-available/hop3`` and we remove the distro ``default``
@@ -926,7 +949,8 @@ class Deployer:
         return "/etc/nginx/conf.d/hop3.conf", False
 
     def _setup_admin_nginx(self, domain: str) -> bool:
-        """Configure nginx for the admin domain.
+        """
+        Configure nginx for the admin domain.
 
         Updates the main hop3 nginx config (in /etc/nginx/) to use the
         specified server_name. This takes precedence over app-specific
@@ -977,7 +1001,8 @@ class Deployer:
         return True
 
     def _setup_admin_ssl(self, domain: str) -> bool:
-        """Setup SSL certificate for the admin domain.
+        """
+        Setup SSL certificate for the admin domain.
 
         Uses Let's Encrypt if a valid ACME email is provided, otherwise falls
         back to a self-signed certificate. Returns False (loud) when the cert
@@ -1036,7 +1061,8 @@ class Deployer:
         return self._generate_self_signed_cert(domain, cert_dir)
 
     def _is_self_signed_cert(self, cert_file: str) -> bool:
-        """True if the installed leaf cert is self-signed (issuer == subject).
+        """
+        True if the installed leaf cert is self-signed (issuer == subject).
 
         Our placeholder cert is self-signed (issued for ``/CN=<domain>/O=Hop3``);
         a Let's Encrypt cert is issued by the LE CA, so its issuer differs from
@@ -1062,7 +1088,8 @@ class Deployer:
         return self._letsencrypt_skip_reason() is None
 
     def _letsencrypt_skip_reason(self) -> str | None:
-        """Why Let's Encrypt won't be used, or None when it will be.
+        """
+        Why Let's Encrypt won't be used, or None when it will be.
 
         Returned (not just a bool) so ``_setup_admin_ssl`` can tell the operator
         *why* it chose self-signed — an unexplained fallback to a degraded path
@@ -1164,7 +1191,8 @@ class Deployer:
         return True
 
     def _install_ssl_cert(self, domain: str, cert_dir: str) -> bool:
-        """Install an acme.sh certificate and activate it in nginx.
+        """
+        Install an acme.sh certificate and activate it in nginx.
 
         Returns False (loud) when the cert never landed on disk or nginx could
         not be reconfigured/reloaded for it.
@@ -1211,8 +1239,10 @@ class Deployer:
         return True
 
     def _update_nginx_for_ssl(self, domain: str, cert_dir: str) -> bool:
-        """Point nginx at the SSL cert and reload. Returns False (loud) on any
-        failure — a written-but-not-live HTTPS vhost must not pass for success."""
+        """
+        Point nginx at the SSL cert and reload. Returns False (loud) on any
+        failure — a written-but-not-live HTTPS vhost must not pass for success.
+        """
         ssl_cert = f"{cert_dir}/fullchain.pem"
         ssl_key = f"{cert_dir}/key.pem"
         config_path, use_default_server = self._platform_nginx_target()
@@ -1243,7 +1273,8 @@ class Deployer:
         return True
 
     def _reload_nginx(self) -> bool:
-        """Reload nginx, trying systemctl then ``nginx -s reload``.
+        """
+        Reload nginx, trying systemctl then ``nginx -s reload``.
 
         Mirrors hop3-rootd's reload chain (``ops/nginx.py``): ``systemctl`` on
         systemd hosts, ``nginx -s reload`` where there is no systemd — the
@@ -1392,7 +1423,8 @@ class Deployer:
             self.log(f"Deploying from PyPI ({self.config.pypi_version or 'latest'})")
 
     def _write_build_info(self) -> None:
-        """Write the deploy-provenance manifest to the server (best-effort).
+        """
+        Write the deploy-provenance manifest to the server (best-effort).
 
         Authoritative per method: for ``--local`` the commit comes from the
         dev machine's checkout (the server has no ``.git``); for ``git`` it's
@@ -1489,7 +1521,8 @@ def create_backend(config: DeployConfig) -> DeployBackend:
 
 
 def deploy(config: DeployConfig) -> bool:
-    """Run deployment with the given config.
+    """
+    Run deployment with the given config.
 
     This is the main entry point for programmatic use.
     """

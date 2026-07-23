@@ -42,7 +42,8 @@ _plugin_manager: pluggy.PluginManager | None = None
 
 
 def get_core_plugins() -> Iterator:
-    """Discover and import all core plugin modules.
+    """
+    Discover and import all core plugin modules.
 
     This scans the hop3.plugins package and imports all modules,
     which causes plugin instances to be created and exported.
@@ -54,7 +55,8 @@ def get_core_plugins() -> Iterator:
 
 
 def scan_package(package_name: str) -> Iterator:
-    """Import all modules in a package recursively for side effects.
+    """
+    Import all modules in a package recursively for side effects.
 
     Args:
         package_name: The name of the package to scan and import modules from.
@@ -67,7 +69,8 @@ def scan_package(package_name: str) -> Iterator:
 
 
 def _iter_module_names(package_name: str) -> Iterator:
-    """Generate an iterator over all module names within a given package.
+    """
+    Generate an iterator over all module names within a given package.
 
     Args:
         package_name: The name of the package from which to list all modules.
@@ -87,7 +90,8 @@ def _iter_module_names(package_name: str) -> Iterator:
 
 
 def get_plugin_manager() -> PluginManager:
-    """Initialize and configure a PluginManager for the 'hop3' project.
+    """
+    Initialize and configure a PluginManager for the 'hop3' project.
 
     This uses pluggy's natural discovery: plugin modules export a `plugin`
     instance which gets auto-registered when the module is imported.
@@ -147,7 +151,8 @@ def get_plugin_manager() -> PluginManager:
 # Convenience Helper Functions
 #
 def get_builder(context: DeploymentContext) -> Builder:
-    """Finds and instantiates the appropriate builder.
+    """
+    Finds and instantiates the appropriate builder.
 
     This function encapsulates the logic of checking app configuration
     and then auto-detecting a suitable builder.
@@ -245,7 +250,8 @@ def get_builder(context: DeploymentContext) -> Builder:
 
 
 def get_deployer(context: DeploymentContext, artifact: BuildArtifact) -> Deployer:
-    """Find and instantiate the appropriate deployer for an artifact.
+    """
+    Find and instantiate the appropriate deployer for an artifact.
 
     This function is used during the build-deploy pipeline to auto-select
     a deployer based on the artifact type.
@@ -363,7 +369,8 @@ def _hints_for_unknown_artifact(artifact_kind: str) -> list[str]:
 
 
 def get_deployer_by_name(app, runtime_name: str) -> Deployer:
-    """Get a deployer by name for lifecycle operations.
+    """
+    Get a deployer by name for lifecycle operations.
 
     This function is used for lifecycle management (start, stop, restart, status)
     where we need to look up a deployer by name rather than auto-detecting.
@@ -414,7 +421,8 @@ def get_deployer_by_name(app, runtime_name: str) -> Deployer:
 
 
 def get_addon(addon_type: str, addon_name: str) -> Addon:
-    """Get an addon instance by type and name.
+    """
+    Get an addon instance by type and name.
 
     Finds and instantiates the appropriate addon implementation.
 
@@ -450,7 +458,8 @@ def get_addon(addon_type: str, addon_name: str) -> Addon:
 
 
 def get_waf_engine(name: str = "lewaf") -> WafEngine:
-    """Return the Layer-7 WAF engine named ``name`` (ADR 050; default LeWAF).
+    """
+    Return the Layer-7 WAF engine named ``name`` (ADR 050; default LeWAF).
 
     Args:
         name: the engine name (``[waf].engine``); defaults to ``lewaf``.

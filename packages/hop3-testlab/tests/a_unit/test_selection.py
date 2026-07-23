@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""A profile's selection rules resolve to a concrete test set (reusing Selector).
+"""
+A profile's selection rules resolve to a concrete test set (reusing Selector).
 
 Real-catalog assertions (scans the repo's apps/ tree), like test_catalog.
 """

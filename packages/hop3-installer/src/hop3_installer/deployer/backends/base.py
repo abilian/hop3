@@ -21,7 +21,8 @@ class DeployBackend(ABC):
     name: str = "base"
 
     def __init__(self, config: DeployConfig):
-        """Initialize the backend.
+        """
+        Initialize the backend.
 
         Args:
             config: Deployment configuration
@@ -35,7 +36,8 @@ class DeployBackend(ABC):
         *,
         check: bool,
     ) -> None:
-        """Raise RuntimeError if command failed and check is True.
+        """
+        Raise RuntimeError if command failed and check is True.
 
         Args:
             result: Command result to check
@@ -58,7 +60,8 @@ class DeployBackend(ABC):
         stdout: str | None,
         stderr: str | None,
     ) -> None:
-        """Write command output to a log file.
+        """
+        Write command output to a log file.
 
         This is a shared helper for run_streaming() implementations.
 
@@ -79,7 +82,8 @@ class DeployBackend(ABC):
 
     @abstractmethod
     def setup(self) -> bool:
-        """Set up the deployment target.
+        """
+        Set up the deployment target.
 
         For SSH, this verifies connectivity.
         For Docker, this starts the container.
@@ -90,7 +94,8 @@ class DeployBackend(ABC):
 
     @abstractmethod
     def teardown(self) -> None:
-        """Clean up after deployment.
+        """
+        Clean up after deployment.
 
         For SSH, this is a no-op.
         For Docker, this optionally stops the container.
@@ -104,7 +109,8 @@ class DeployBackend(ABC):
         check: bool = True,
         stdin: str | None = None,
     ) -> CommandResult:
-        """Run a command on the target.
+        """
+        Run a command on the target.
 
         Args:
             command: Command to execute.
@@ -122,7 +128,8 @@ class DeployBackend(ABC):
     def run_streaming(
         self, command: str, *, quiet: bool = False, log_file: Path | None = None
     ) -> int:
-        """Run a command with output handling based on mode.
+        """
+        Run a command with output handling based on mode.
 
         Args:
             command: Command to execute
@@ -149,7 +156,8 @@ class DeployBackend(ABC):
 
     @abstractmethod
     def upload_file(self, local_path: Path, remote_path: str) -> bool:
-        """Upload a file to the target.
+        """
+        Upload a file to the target.
 
         Args:
             local_path: Local file path
@@ -161,7 +169,8 @@ class DeployBackend(ABC):
 
     @abstractmethod
     def upload_dir(self, local_path: Path, remote_path: str) -> bool:
-        """Upload a directory to the target.
+        """
+        Upload a directory to the target.
 
         Args:
             local_path: Local directory path
@@ -172,7 +181,8 @@ class DeployBackend(ABC):
         """
 
     def is_hop3_installed(self) -> bool:
-        """Check if Hop3 is installed on the target.
+        """
+        Check if Hop3 is installed on the target.
 
         Returns:
             True if Hop3 is installed
@@ -186,14 +196,16 @@ class DeployBackend(ABC):
 
     @abstractmethod
     def get_server_url(self) -> str:
-        """Get the URL to access the Hop3 server.
+        """
+        Get the URL to access the Hop3 server.
 
         Returns:
             URL string (e.g., http://192.168.1.100:8000)
         """
 
     def start_services(self) -> None:
-        """Start services after installation.
+        """
+        Start services after installation.
 
         For SSH targets, systemd handles services automatically.
         For Docker targets, this starts supervisor to manage services.
@@ -208,7 +220,8 @@ class DeployBackend(ABC):
         return
 
     def service_restart_command(self, service: str) -> str:
-        """The shell command that restarts a managed service on this target.
+        """
+        The shell command that restarts a managed service on this target.
 
         systemd on real servers; the Docker backend overrides this for
         supervisor (its PID 1 — there is no systemd in the container). Exposed
@@ -218,7 +231,8 @@ class DeployBackend(ABC):
         return f"systemctl restart {service}"
 
     def restart_service(self, service: str) -> CommandResult:
-        """Restart a managed service, best-effort.
+        """
+        Restart a managed service, best-effort.
 
         Fire-and-forget by design: the caller verifies the service actually came
         back up afterwards, so a restart that "succeeded" but left a crashing

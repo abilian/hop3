@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Adapt a raw docker-py container to the DeploymentTarget contract.
+"""
+Adapt a raw docker-py container to the DeploymentTarget contract.
 
 Some pytest fixtures (e.g. the proxy tests) yield a raw docker-py container
 rather than a ``DeploymentTarget``. ``ContainerTarget`` wraps such a container so
@@ -23,7 +24,8 @@ if TYPE_CHECKING:
 
 
 class ContainerTarget(DeploymentTarget):
-    """Minimal DeploymentTarget over an existing docker-py container.
+    """
+    Minimal DeploymentTarget over an existing docker-py container.
 
     Only ``exec_run`` is meaningful. Commands run via ``bash -c`` as ``root`` so
     the bundle's shell pipelines (``;``, ``||``, ``$(...)``) and root-only reads

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""DB access over the shared hop3-testing result store.
+"""
+DB access over the shared hop3-testing result store.
 
 The Test Lab reads/writes the *same* store the ``hop3-test`` CLI writes — one
 store, two front-ends (ADR 044 §B/§D). The store is **SQLite** by default and
@@ -28,8 +29,10 @@ from hop3_testlab.models import Base as TestlabBase
 
 @cache
 def get_session_factory(target: str) -> sessionmaker:
-    """Cached sessionmaker for the result store ``target`` (a SQLite path or a
-    Postgres DSN — pass ``TestlabConfig.STORE_TARGET``)."""
+    """
+    Cached sessionmaker for the result store ``target`` (a SQLite path or a
+    Postgres DSN — pass ``TestlabConfig.STORE_TARGET``).
+    """
     # Ensure the result schema exists (delegated to ResultStore so it never drifts).
     ResultStore(db_path=target)
     engine = make_store_engine(target)
@@ -40,7 +43,8 @@ def get_session_factory(target: str) -> sessionmaker:
 
 
 def _widen_build_detail(engine) -> None:
-    """Widen ``testlab_build_request.detail`` from varchar(500) to text on existing
+    """
+    Widen ``testlab_build_request.detail`` from varchar(500) to text on existing
     Postgres deploys.
 
     ``create_all`` never alters an existing column, so a deploy created before this

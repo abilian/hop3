@@ -69,7 +69,8 @@ if TYPE_CHECKING:
 def _resolve_app(
     args: tuple[str, ...], *, allow_extra: bool = False
 ) -> tuple[str | None, list[str]]:
-    """Resolve the target app for an app-scoped command (ADR 036 D5).
+    """
+    Resolve the target app for an app-scoped command (ADR 036 D5).
 
     The app is taken from the ``--app`` / ``-a`` flag only. Returns
     ``(app_name, remaining_positionals)``.
@@ -95,7 +96,8 @@ def _run_lifecycle_action(
     final_messages: list[str],
     state_checks: dict[str, list[str]] | None = None,
 ) -> list[dict]:
-    """Run a lifecycle action (start/stop/restart) on an app.
+    """
+    Run a lifecycle action (start/stop/restart) on an app.
 
     Args:
         db_session: Database session
@@ -134,7 +136,8 @@ def _run_lifecycle_action(
 @register
 @dataclass(frozen=True)
 class AppCmd(Command):
-    """Manage applications.
+    """
+    Manage applications.
 
     Examples:
         hop3 app create <repo_url> --app myapp  # Create a new app
@@ -148,7 +151,8 @@ class AppCmd(Command):
 @register
 @dataclass(frozen=True)
 class LaunchCmd(Command):
-    """Create and configure a new application from a source code repository.
+    """
+    Create and configure a new application from a source code repository.
 
     Examples:
         hop3 app create <repo_url> --app myapp   # Create from a repo (then `hop3 deploy`)
@@ -203,7 +207,8 @@ class LaunchCmd(Command):
 @register
 @dataclass(frozen=True)
 class DeployCmd(Command):
-    """Deploy an application from its configured repository.
+    """
+    Deploy an application from its configured repository.
 
     Examples:
         hop3 deploy                   # current app (resolved from context)
@@ -305,7 +310,8 @@ class DeployCmd(Command):
         return self._deploy_sync(app, app_name)
 
     def _deploy_streaming(self, app: App, app_name: str) -> list[dict]:
-        """Deploy with real-time log streaming via SSE.
+        """
+        Deploy with real-time log streaming via SSE.
 
         Delegates to the shared ``deploy_app_streaming`` helper (also used by
         ``hop3 catalog install`` and the dashboard install form), which runs the
@@ -350,8 +356,10 @@ class DeployCmd(Command):
 
 
 def _limits_rows(app: App) -> list[list[str]]:
-    """Status rows for resource [limits] (ADR 046 §3): the cap, how it is enforced
-    (native / docker / unenforced), and any OOM kills. Empty when no cap is set."""
+    """
+    Status rows for resource [limits] (ADR 046 §3): the cap, how it is enforced
+    (native / docker / unenforced), and any OOM kills. Empty when no cap is set.
+    """
     if not app.limits_enforced:
         return []
     rows = [["Limits", f"{app.limits_detail} [{app.limits_enforced}]"]]
@@ -362,7 +370,8 @@ def _limits_rows(app: App) -> list[list[str]]:
 
 
 def _oom_kill_count(app: App) -> int | None:
-    """Live OOM-kill count for a native-capped app (best-effort; None if unreadable).
+    """
+    Live OOM-kill count for a native-capped app (best-effort; None if unreadable).
 
     Reads the live cgroup leaf via hop3-rootd. None on any rootd error (daemon
     down, no leaf) — the cap itself is shown from the DB, so a failed live read
@@ -386,7 +395,8 @@ def _oom_kill_count(app: App) -> int | None:
 @register
 @dataclass(frozen=True)
 class StatusCmd(Command):
-    """Show detailed status of an application.
+    """
+    Show detailed status of an application.
 
     Examples:
         hop3 app status               # current app (resolved from context)
@@ -456,7 +466,8 @@ class StatusCmd(Command):
 @register
 @dataclass(frozen=True)
 class PingCmd(Command):
-    """Check if an application is responding to HTTP requests.
+    """
+    Check if an application is responding to HTTP requests.
 
     Usage: hop3 app ping [--app <app>] [path]
 
@@ -562,7 +573,8 @@ def _build_log_response(app, app_name: str) -> list[dict]:
 @register
 @dataclass(frozen=True)
 class LogsCmd(Command):
-    """Show application logs.
+    """
+    Show application logs.
 
     Usage: hop3 app logs [--app <app>] [options]
 
@@ -640,7 +652,8 @@ class LogsCmd(Command):
 @register
 @dataclass(frozen=True)
 class BuildLogsCmd(Command):
-    """Show build logs for an application.
+    """
+    Show build logs for an application.
 
     Deprecated (ADR 036 P7): use ``app logs --build``. Kept (hidden) for
     back-compat; ``hop3 app build-logs`` still works.
@@ -665,7 +678,8 @@ class BuildLogsCmd(Command):
 @register
 @dataclass(frozen=True)
 class StartCmd(Command):
-    """Start a stopped application.
+    """
+    Start a stopped application.
 
     Examples:
         hop3 app start                # current app (resolved from context)
@@ -706,7 +720,8 @@ class StartCmd(Command):
 @register
 @dataclass(frozen=True)
 class StopCmd(Command):
-    """Stop a running application.
+    """
+    Stop a running application.
 
     Examples:
         hop3 app stop                 # current app (resolved from context)
@@ -747,7 +762,8 @@ class StopCmd(Command):
 @register
 @dataclass(frozen=True)
 class RestartCmd(Command):
-    """Restart an application.
+    """
+    Restart an application.
 
     Examples:
         hop3 app restart              # current app (resolved from context)
@@ -778,7 +794,8 @@ class RestartCmd(Command):
 @register
 @dataclass(frozen=True)
 class DestroyCmd(Command):
-    """Destroy an application, removing all files and configuration.
+    """
+    Destroy an application, removing all files and configuration.
 
     Usage: hop3 app destroy [--app <app>] [--force]
 
@@ -882,7 +899,8 @@ class DestroyCmd(Command):
         return response
 
     def _destroy_addons(self, app) -> None:
-        """Destroy addons attached to this app, freeing their resources.
+        """
+        Destroy addons attached to this app, freeing their resources.
 
         Symmetric with provisioning: dropping each addon's backing store
         (postgres/mysql database and role, redis logical db) reclaims
@@ -923,7 +941,8 @@ class DestroyCmd(Command):
                 )
 
     def _reload_nginx(self, app_name: str) -> None:
-        """Reload nginx (via hop3-rootd) to drop the destroyed app's route.
+        """
+        Reload nginx (via hop3-rootd) to drop the destroyed app's route.
 
         Routes through the SAME hardened path as deploy: rootd reloads and
         VERIFIES nginx actually adopted the new config (a bare ``nginx -s
@@ -964,7 +983,8 @@ class DestroyCmd(Command):
 @register
 @dataclass(frozen=True)
 class CredentialsCmd(Command):
-    """Show an app's initial admin credential (ADR 056).
+    """
+    Show an app's initial admin credential (ADR 056).
 
     Reveals the admin login Hop3 generated when it installed the app — the same
     block shown once at install, retrievable here so it is never lost. Full
@@ -1001,7 +1021,8 @@ class CredentialsCmd(Command):
 @register
 @dataclass(frozen=True)
 class DebugCmd(Command):
-    """Comprehensive debug information for an application.
+    """
+    Comprehensive debug information for an application.
 
     Combines status, logs, environment, and runtime details into a single
     output for debugging issues.
@@ -1234,7 +1255,8 @@ def _backup_manager(db_session: Session) -> BackupManager:
 @register
 @dataclass(frozen=True)
 class AppUpgradeCmd(Command):
-    """Safely redeploy an app, rolling back automatically on failure.
+    """
+    Safely redeploy an app, rolling back automatically on failure.
 
     Snapshots the app (source + data + config + addons), redeploys it —
     rebuilding and running the app's `before-run` migrations — and verifies it
@@ -1322,7 +1344,8 @@ class AppUpgradeCmd(Command):
 @register
 @dataclass(frozen=True)
 class AppRollbackCmd(Command):
-    """Restore an app to a previous backup (source + data + config + addons).
+    """
+    Restore an app to a previous backup (source + data + config + addons).
 
     Rolls the app back to a snapshot and brings it running again. Defaults to
     the most recent backup; pass `--to <backup-id>` for a specific one
@@ -1366,7 +1389,8 @@ class AppRollbackCmd(Command):
 
     @staticmethod
     def _resolve_backup_id(manager: BackupManager, app_name: str, target: str) -> str:
-        """The backup to restore: an explicit --to (verified to belong to this
+        """
+        The backup to restore: an explicit --to (verified to belong to this
         app), else the most recent for this app.
 
         A backup from *another* app is refused: `restore_backup` targets the

@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Catalog verification primitives (ADR 049).
+"""
+Catalog verification primitives (ADR 049).
 
 Pure, side-effect-light functions for the catalog trust chain:
 
@@ -49,7 +50,8 @@ class CatalogVerificationError(Exception):
 
 
 def verify_minisign(message: bytes, signature_file: str, public_key: str) -> None:
-    """Verify a detached minisign signature over ``message``.
+    """
+    Verify a detached minisign signature over ``message``.
 
     Args:
         message: the exact bytes that were signed (e.g. the tarball content).
@@ -100,7 +102,8 @@ def verify_minisign(message: bytes, signature_file: str, public_key: str) -> Non
 
 
 def verify_tree_against_index(catalog_dir: Path, index: Mapping) -> None:
-    """Require ``catalog_dir`` to be exactly the file set named in ``index``.
+    """
+    Require ``catalog_dir`` to be exactly the file set named in ``index``.
 
     The signed ``index.json`` is authoritative for *what exists*, not only for
     each file's hash. Every file listed under ``index["apps"][*]["files"]`` must
@@ -171,7 +174,8 @@ def sha256_file(path: Path) -> str:
 
 
 def _scan_files(base: Path) -> set[str]:
-    """Return all regular files under ``base`` (posix-relative), minus index.json.
+    """
+    Return all regular files under ``base`` (posix-relative), minus index.json.
 
     Rejects symlinks anywhere in the tree — a verified catalog has none, and a
     symlink is an exfiltration/escape vector if later copied into an app.
@@ -193,7 +197,8 @@ def _scan_files(base: Path) -> set[str]:
 
 
 def _index_entry(entry: object) -> tuple[str, str]:
-    """Validate one index file entry, returning (path, sha256).
+    """
+    Validate one index file entry, returning (path, sha256).
 
     The index is signed (trusted), so this guards against a malformed-but-signed
     index and honors the "all failures are CatalogVerificationError" contract.
@@ -251,7 +256,8 @@ def _parse_public_key(text: str) -> tuple[bytes, bytes]:
 
 
 def _parse_signature(text: str) -> tuple[bytes, bytes, bytes, str, bytes]:
-    """Return (algo, key_id, signature, trusted_comment, global_sig).
+    """
+    Return (algo, key_id, signature, trusted_comment, global_sig).
 
     Parses minisign's canonical fixed 4-line layout positionally and rejects
     anything else (extra/missing/injected lines), so we stay in lockstep with

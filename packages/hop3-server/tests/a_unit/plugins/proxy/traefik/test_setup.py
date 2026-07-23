@@ -1,7 +1,8 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""State-based tests for the generated Traefik config.
+"""
+State-based tests for the generated Traefik config.
 
 These drive the real setup methods (no mocks) and assert on the rendered
 YAML buffer returned by `get_proxy_conf()`: router/service/rule for the
@@ -52,8 +53,10 @@ def rendered(env_overrides: dict | None = None, workers: dict[str, str] | None =
     ["example.com\nrule: bad", "example..com", "-leading.com", "example.com/path"],
 )
 def test_post_init_rejects_host_name_injection(bad_host: str) -> None:
-    """HOST_NAME values that would escape the Host(`...`) rule are refused at
-    setup time, closing the Traefik config-injection critical."""
+    """
+    HOST_NAME values that would escape the Host(`...`) rule are refused at
+    setup time, closing the Traefik config-injection critical.
+    """
     with pytest.raises(InvalidIdentifierError):
         make_host({"HOST_NAME": bad_host})
 
@@ -90,8 +93,10 @@ def test_default_config_listens_on_both_entrypoints_with_cert_resolver() -> None
 
 
 def test_default_config_omits_manual_tls_block() -> None:
-    """With TRAEFIK_AUTO_HTTPS on (default), no manual `tls.certificates`
-    block is appended -- TLS is delegated to Traefik's cert resolver."""
+    """
+    With TRAEFIK_AUTO_HTTPS on (default), no manual `tls.certificates`
+    block is appended -- TLS is delegated to Traefik's cert resolver.
+    """
     config = rendered()
     assert "certificates:" not in config
     assert "certFile" not in config
@@ -137,9 +142,11 @@ def test_https_only_emits_redirect_router_and_https_router() -> None:
 
 
 def test_static_worker_does_not_crash_and_computes_router_env() -> None:
-    """The static_index int-coercion crash is fixed: setup runs cleanly and
+    """
+    The static_index int-coercion crash is fixed: setup runs cleanly and
     the static router/service are computed into env (even though the current
-    template does not emit them)."""
+    template does not emit them).
+    """
     host = make_host({}, workers={"static": "public"})
     host.setup_backend()
     host.setup_certificates()
@@ -153,8 +160,10 @@ def test_static_worker_does_not_crash_and_computes_router_env() -> None:
 
 
 def test_static_paths_are_not_emitted_into_rendered_config() -> None:
-    """DEFECT: computed static routers are absent from the final YAML because
-    the main template never references the STATIC_ROUTERS/SERVICES vars."""
+    """
+    DEFECT: computed static routers are absent from the final YAML because
+    the main template never references the STATIC_ROUTERS/SERVICES vars.
+    """
     config = rendered(workers={"static": "public"})
     assert "testapp-static-0" not in config
 
@@ -168,8 +177,10 @@ def test_static_paths_are_not_emitted_into_rendered_config() -> None:
 
 
 def test_cache_control_does_not_crash_and_builds_middleware() -> None:
-    """The cache_time_control int-coercion crash is fixed: setup_cache runs
-    cleanly and renders a cache-headers middleware fragment with the max-age."""
+    """
+    The cache_time_control int-coercion crash is fixed: setup_cache runs
+    cleanly and renders a cache-headers middleware fragment with the max-age.
+    """
     host = make_host({"TRAEFIK_CACHE_CONTROL": "3600"})
     host.setup_cache()
 
@@ -179,8 +190,10 @@ def test_cache_control_does_not_crash_and_builds_middleware() -> None:
 
 
 def test_cache_middleware_is_wiped_by_extra_setup_before_render() -> None:
-    """DEFECT: extra_setup() clears CUSTOM_MIDDLEWARES, so the cache headers
-    set up by setup_cache() never appear in the rendered config."""
+    """
+    DEFECT: extra_setup() clears CUSTOM_MIDDLEWARES, so the cache headers
+    set up by setup_cache() never appear in the rendered config.
+    """
     config = rendered({"TRAEFIK_CACHE_CONTROL": "3600"})
     assert "cache-headers" not in config
 

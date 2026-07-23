@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Data models for test definitions.
+"""
+Data models for test definitions.
 
 These models define the schema for test.toml files used to describe
 deployment tests, demos, and tutorials.
@@ -19,7 +20,8 @@ if TYPE_CHECKING:
 
 
 class Tier(str, Enum):
-    """Test execution time tier.
+    """
+    Test execution time tier.
 
     Used to select which tests to run in different modes:
     - fast: Run in dev mode, CI
@@ -35,7 +37,8 @@ class Tier(str, Enum):
 
 
 class Priority(str, Enum):
-    """Test priority level.
+    """
+    Test priority level.
 
     Used to determine which tests are critical:
     - P0: Must pass for any release (critical paths)
@@ -49,7 +52,8 @@ class Priority(str, Enum):
 
 
 class TargetType(str, Enum):
-    """Where a test can run.
+    """
+    Where a test can run.
 
     - local: Developer machine (no full server)
     - docker: Docker container with Hop3

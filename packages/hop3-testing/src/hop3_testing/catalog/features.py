@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Derive the installer ``--with`` features a selected app set requires.
+"""
+Derive the installer ``--with`` features a selected app set requires.
 
 Apps declare their addons in ``hop3.toml`` under ``[[addons]].type``, surfaced as
 ``TestDefinition.requirements.services``. The server must be installed with those
@@ -61,7 +62,8 @@ def required_features_from_tests(tests: Iterable[TestDefinition]) -> set[str]:
 
 
 def merge_features(base: Iterable[str], extra: Iterable[str]) -> list[str]:
-    """Order-stable union: everything in ``base`` first, then unseen ``extra``.
+    """
+    Order-stable union: everything in ``base`` first, then unseen ``extra``.
 
     ``all`` is the installer's install-everything sentinel — it subsumes every
     specific feature. When it is present the result collapses to just ``["all"]``
@@ -80,7 +82,8 @@ def merge_features(base: Iterable[str], extra: Iterable[str]) -> list[str]:
 
 
 def features_for_suites(project_root: Path, suites: Iterable[str]) -> set[str]:
-    """Required installer features for the apps under the given suite paths.
+    """
+    Required installer features for the apps under the given suite paths.
 
     For the cloud path, which holds only suite path strings (not resolved
     TestDefinitions): scan the catalog and union each app's declared addons.
@@ -102,7 +105,8 @@ def features_for_suites(project_root: Path, suites: Iterable[str]) -> set[str]:
 
 
 def validate_features(features: Iterable[str]) -> None:
-    """Abort loudly if a required feature has no installer support.
+    """
+    Abort loudly if a required feature has no installer support.
 
     Silently dropping an unprovisionable addon (or passing it to the installer as
     garbage) would resurface as the opaque "Was the server installed with

@@ -172,7 +172,8 @@ class TestRunCommand:
         assert "text_error" in exc_info.value.stderr
 
     def test_command_failure_captures_stdout_text(self):
-        """Failure output on stdout (empty stderr) must be captured, not lost.
+        """
+        Failure output on stdout (empty stderr) must be captured, not lost.
 
         Many tools write their real error/traceback to stdout; the exception
         must carry it so callers (e.g. `hop3 run`) can show more than a bare

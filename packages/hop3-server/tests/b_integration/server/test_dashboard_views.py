@@ -38,7 +38,8 @@ def db_session():
 
 @pytest.fixture
 def isolated_database(monkeypatch, worker_id):
-    """Configure an isolated test database for this test worker.
+    """
+    Configure an isolated test database for this test worker.
 
     Uses SQLite with shared cache mode to allow the test client's thread pool
     to access the same in-memory database as the test fixtures.
@@ -78,7 +79,8 @@ def client(isolated_database):
 
 @pytest.fixture
 def authenticated_client(isolated_database, monkeypatch):
-    """Create an authenticated test client with isolated database.
+    """
+    Create an authenticated test client with isolated database.
 
     Uses HOP3_UNSAFE mode to bypass authentication for testing.
     """
@@ -532,7 +534,8 @@ def test_env_page_service_variable_detection(authenticated_client: TestClient):
 def test_app_detail_with_addons_renders(
     authenticated_client: TestClient, isolated_database
 ):
-    """Test that app detail page renders correctly with addons.
+    """
+    Test that app detail page renders correctly with addons.
 
     This is a regression test for template variable mismatches like
     using 'addon' instead of 'service' in {% for service in addons %}.
@@ -633,7 +636,8 @@ def test_dashboard_json_serialization_with_apps(authenticated_client: TestClient
 
 
 def test_dashboard_handles_apps_list(authenticated_client: TestClient):
-    """Test that dashboard handles apps list without errors.
+    """
+    Test that dashboard handles apps list without errors.
 
     Note: This test may run after other tests that create apps,
     so we check for valid rendering regardless of app count.

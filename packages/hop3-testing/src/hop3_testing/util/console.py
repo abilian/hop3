@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Console output abstraction for testing framework.
+"""
+Console output abstraction for testing framework.
 
 This module provides a structured console abstraction that separates
 what to say from how to present it. It supports:
