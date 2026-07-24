@@ -56,7 +56,7 @@ from .python import (
 )
 from .rootd import setup_rootd
 from .s3 import fix_s3_env_ownership
-from .services import setup_systemd
+from .services import restart_hop3_server, setup_systemd
 from .ssl import setup_ssl_selfsigned
 from .user import create_user_and_group
 from .verify import print_final_message, verify_installation, write_server_config
@@ -391,6 +391,12 @@ def main() -> int:
         setup_acme(config)
     except CommandError as e:
         print_warning(f"ACME setup issue: {e.stderr[:100]}")
+
+    # hop3-server was started (step 7) BEFORE hop3-server.toml existed, and the
+    # config loader caches the file at boot. Restart now that the config is
+    # finalized so the running process sees OPERATOR_EMAIL / DB creds / domain —
+    # otherwise a fresh install serves a stale config (see restart_hop3_server).
+    restart_hop3_server()
 
     # Verify
     print()

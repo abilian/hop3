@@ -9,7 +9,13 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from hop3_installer.common import print_detail, print_success, print_warning, run_cmd
+from hop3_installer.common import (
+    has_systemd,
+    print_detail,
+    print_success,
+    print_warning,
+    run_cmd,
+)
 from hop3_installer.nginx_templates import SYSTEMD_UNIT, UWSGI_UNIT
 
 from .config import ServerInstallerConfig
@@ -174,3 +180,32 @@ def setup_systemd(config: ServerInstallerConfig | None = None) -> str:
         print_warning("Systemd services configured but some failed to start")
 
     return secret_key
+
+
+def restart_hop3_server() -> None:
+    """
+    Restart hop3-server so it reflects the finalized on-disk config.
+
+    ``setup_systemd`` starts hop3-server in step 7, but ``write_server_config``
+    writes ``hop3-server.toml`` (OPERATOR_EMAIL, DB creds, ADMIN_DOMAIN) only
+    after the DB steps. ``ConfigLoader`` reads the file once at process start and
+    caches it, so on a fresh box — where the toml did not yet exist when the
+    service first booted — those keys stay invisible to the running process
+    (a Docker redeploy masks this: the file already exists at boot). Without
+    this restart the server silently serves a stale config and every
+    ``[admin].email = "operator"`` app fails to deploy with "no operator email".
+
+    Package-manager-aware: systemctl on systemd hosts, supervisorctl otherwise.
+    A failed restart is surfaced by ``verify_installation`` (it checks the
+    service is active), so warn here rather than abort.
+    """
+    if has_systemd():
+        result = run_cmd(["systemctl", "restart", "hop3-server"], check=False)
+    else:
+        result = run_cmd(["supervisorctl", "restart", "hop3-server"], check=False)
+
+    if result.returncode == 0:
+        print_success("hop3-server restarted to load final config")
+    else:
+        print_warning("Failed to restart hop3-server after writing config")
+        print_detail("The server may be serving a stale config; see logs above.")

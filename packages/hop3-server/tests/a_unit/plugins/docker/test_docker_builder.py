@@ -379,6 +379,28 @@ def test_app_emitted_5xx_is_not_mistaken_for_a_registry_outage():
     assert _is_transient_registry_error(out) is False
 
 
+def test_app_download_eof_not_mistaken_for_registry_outage():
+    """
+    Regression (mediawiki): an app RUN step whose ``curl | tar`` download is
+    truncated prints "Unexpected EOF in archive". The log ALSO carries the
+    ambient "load metadata for docker.io/..." line that every build has — so the
+    whole-log check wrongly saw registry context + a transient EOF and retried
+    the build 3x uselessly. The classification must scope to the FAILING step.
+    """
+    out = (
+        "#2 [internal] load metadata for docker.io/library/debian:trixie-slim\n"
+        "#2 DONE 0.0s\n"
+        "#9 [5/9] RUN curl -fsSL .../mediawiki-1.41.2.tar.gz | tar xz\n"
+        "#9 75.20 curl: (92) HTTP/2 stream 1 was not closed cleanly: CANCEL\n"
+        "#9 75.21 gzip: stdin: unexpected end of file\n"
+        "#9 75.21 tar: Unexpected EOF in archive\n"
+        "#9 75.21 tar: Error is not recoverable: exiting now\n"
+        '#9 ERROR: process "/bin/sh -c curl ... | tar xz" did not complete '
+        "successfully: exit code: 2\n"
+    )
+    assert _is_transient_registry_error(out) is False
+
+
 def test_extract_build_error_reports_doctor_check_not_trailing_boilerplate():
     """
     A CLI doctor-style "[failed]" line is the root cause — not the trailing
