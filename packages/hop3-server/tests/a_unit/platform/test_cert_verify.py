@@ -53,7 +53,7 @@ def _make(store_dir, name: str, *, cn: str, days: int = 90, sans=()):
         "req",
         "-x509",
         "-newkey",
-        "rsa:2048",
+        "rsa:1024",  # test certs only; rsa:2048 keygen dominates this file's runtime
         "-nodes",
         "-days",
         str(days),

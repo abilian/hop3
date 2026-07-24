@@ -56,9 +56,10 @@ def short_tmp_dir() -> Iterator[Path]:
 # In-process localhost AF_UNIX sockets answer in well under a millisecond, so
 # this timeout only bounds how fast the daemon notices shutdown (the accept
 # loop) or a dangling client connection (a refused-handshake test that leaves
-# the socket half-open). 2.0s made every test pay ~2s in teardown; 0.25s keeps
-# a generous margin while reclaiming it.
-_SOCKET_TIMEOUT = 0.25
+# the socket half-open while the client raises and hasn't GC'd yet — the
+# server's readline then waits this long for EOF). 0.01s is well above the
+# actual round-trip but 25× faster than the old 0.25s.
+_SOCKET_TIMEOUT = 0.01
 
 
 class FakeDaemon:
