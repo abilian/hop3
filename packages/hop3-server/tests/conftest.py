@@ -54,6 +54,28 @@ def _fast_bcrypt(monkeypatch):
     )
 
 
+@pytest.fixture(autouse=True)
+def _fast_pbkdf2(monkeypatch):
+    """
+    Cap PBKDF2 iterations in tests.
+
+    Credential encryption derives its Fernet key with 600k PBKDF2 iterations
+    (OWASP 2026 baseline) — ~0.15s per ``CredentialEncryption()``. Tests exercise
+    the encrypt/decrypt roundtrip and scheme dispatch, not the iteration count
+    (that is pinned separately against the ``SCHEME_V2_ITERATIONS`` constant, which
+    this leaves untouched), so cap the actual work. Both encrypt and decrypt derive
+    through this one primitive, so keys stay consistent. Same idea as ``_fast_bcrypt``.
+    """
+    import hashlib  # ruff:ignore[import-outside-top-level] - localized to this perf fixture
+
+    real_pbkdf2 = hashlib.pbkdf2_hmac
+
+    def cheap(hash_name, password, salt, iterations, dklen=None):
+        return real_pbkdf2(hash_name, password, salt, min(iterations, 1000), dklen)
+
+    monkeypatch.setattr(hashlib, "pbkdf2_hmac", cheap)
+
+
 # 1. Add command-line options to pytest
 def pytest_addoption(parser):
     """Adds custom command-line options for test configuration."""

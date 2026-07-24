@@ -52,6 +52,10 @@ RE_DOMAIN_VALIDATOR = re.compile(
 # TLDs no public CA (Let's Encrypt included) can issue certificates for.
 RESERVED_TLDS = (".local", ".test", ".localhost", ".invalid", ".example")
 
+# RSA key size for the self-signed fallback cert. Tests lower this to keep the
+# openssl keygen (which dominates their runtime) cheap; see the platform conftest.
+SELF_SIGNED_KEY_BITS = 4096
+
 
 class CertificateError(RuntimeError):
     """A certificate could not be issued. Raised loudly — never swallowed."""
@@ -269,14 +273,16 @@ class Certificate:
         Generate a self-signed SSL certificate for the specified domain.
 
         Uses the OpenSSL command-line tool to generate a self-signed
-        certificate with a 4096-bit RSA key, valid for 365 days. A
-        subjectAltName is REQUIRED: modern TLS clients ignore the CN entirely,
-        and verify_cert/covers_domain rely on the SAN's stable ``DNS:`` line
-        (the ``subject=`` line's format varies across OpenSSL versions).
+        certificate with an RSA key (``SELF_SIGNED_KEY_BITS``), valid for 365
+        days. A subjectAltName is REQUIRED: modern TLS clients ignore the CN
+        entirely, and verify_cert/covers_domain rely on the SAN's stable
+        ``DNS:`` line (the ``subject=`` line's format varies across OpenSSL
+        versions).
         """
         log("Generating self-signed certificate", level=2)
         cmd = (
-            "openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj"
+            f"openssl req -new -newkey rsa:{SELF_SIGNED_KEY_BITS} -days 365"
+            " -nodes -x509 -subj"
             f' "/C=FR/ST=NA/L=Paris/O=Hop3/OU=Self-Signed/CN={self.domain_name}"'
             f' -addext "subjectAltName=DNS:{self.domain_name}"'
             f" -keyout {self.key_file} -out {self.crt_file}"
