@@ -356,7 +356,11 @@ class TestDockerComposeDeployerPortDiscovery:
         )
         deployer = DockerComposeDeployer(context, docker_artifact)
 
-        port = deployer._discover_port()
+        # No running container to query, so short-circuit the docker CLI call
+        # (launching it costs ~0.5s) — the port must come from metadata anyway.
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=1, stdout="")
+            port = deployer._discover_port()
 
         assert port == 8080
 

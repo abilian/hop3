@@ -42,12 +42,12 @@ def test_independent_buckets_per_key():
 
 
 def test_window_slides_over_time():
-    limiter = RateLimiter(max_requests=2, window_seconds=0.1)
+    limiter = RateLimiter(max_requests=2, window_seconds=0.05)
     limiter.check("x")
     limiter.check("x")
     with pytest.raises(RateLimitError):
         limiter.check("x")
-    time.sleep(0.15)  # Wait for window to slide
+    time.sleep(0.1)  # > window: it has certainly slid
     limiter.check("x")  # Should not raise
 
 
