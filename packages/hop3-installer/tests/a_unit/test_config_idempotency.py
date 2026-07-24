@@ -213,3 +213,81 @@ def test_operator_email_is_reused_on_redeploy(home):
     assert 'OPERATOR_EMAIL = "ops@abilian.com"' in content
     # and it is not duplicated (managed key, written once)
     assert content.count("OPERATOR_EMAIL = ") == 1
+
+
+# --- The config must actually take effect (restart after writing it) ---
+#
+# Writing OPERATOR_EMAIL to hop3-server.toml is not enough: hop3-server is
+# started in step 7, but the toml is written after the DB steps. ConfigLoader
+# caches the file at boot, so on a FRESH box (toml absent at first boot) the
+# running process never sees OPERATOR_EMAIL — every `[admin].email = "operator"`
+# app then fails to deploy with "no operator email", while the file on disk
+# looks correct. The install must restart hop3-server once the config is final.
+
+
+def _record_main_call_order(monkeypatch) -> list[str]:
+    """Stub main()'s heavy steps and record the config→restart→verify order."""
+    calls: list[str] = []
+    monkeypatch.setattr(installer.sys, "argv", ["install-server.py"])
+    monkeypatch.setattr(installer, "check_python_version", lambda: None)
+    monkeypatch.setattr(installer.os, "geteuid", lambda: 0)
+    monkeypatch.setattr(installer, "detect_distro", lambda: "debian")
+    monkeypatch.setattr(installer, "_run_critical_steps", lambda *a, **k: True)
+    monkeypatch.setattr(
+        installer, "_run_service_setup_steps", lambda *a, **k: ("sk", "pgpw", None)
+    )
+    monkeypatch.setattr(
+        installer,
+        "write_server_config",
+        lambda *a, **k: calls.append("write_config"),
+    )
+    monkeypatch.setattr(installer, "setup_acme", lambda *a, **k: None)
+    monkeypatch.setattr(
+        installer, "restart_hop3_server", lambda: calls.append("restart")
+    )
+    monkeypatch.setattr(
+        installer,
+        "verify_installation",
+        lambda *a, **k: calls.append("verify") or True,
+    )
+    monkeypatch.setattr(installer, "print_final_message", lambda *a, **k: None)
+    return calls
+
+
+def test_install_restarts_server_after_writing_config(monkeypatch):
+    """
+    Regression: the server must be restarted AFTER the config is written, or a
+    fresh install serves a stale (operator-email-less) config. Writing the file
+    without a restart is the exact shape of the bug this guards against.
+    """
+    calls = _record_main_call_order(monkeypatch)
+    assert installer.main() == 0
+    assert calls == ["write_config", "restart", "verify"], (
+        f"config must be written, THEN the server restarted, THEN verified; got {calls}"
+    )
+
+
+def test_restart_hop3_server_uses_systemctl_on_systemd(monkeypatch):
+    issued: list[list[str]] = []
+    monkeypatch.setattr(services, "has_systemd", lambda: True)
+    monkeypatch.setattr(
+        services,
+        "run_cmd",
+        lambda cmd, **k: issued.append(cmd)
+        or types.SimpleNamespace(returncode=0, stderr=""),
+    )
+    services.restart_hop3_server()
+    assert ["systemctl", "restart", "hop3-server"] in issued
+
+
+def test_restart_hop3_server_uses_supervisorctl_without_systemd(monkeypatch):
+    issued: list[list[str]] = []
+    monkeypatch.setattr(services, "has_systemd", lambda: False)
+    monkeypatch.setattr(
+        services,
+        "run_cmd",
+        lambda cmd, **k: issued.append(cmd)
+        or types.SimpleNamespace(returncode=0, stderr=""),
+    )
+    services.restart_hop3_server()
+    assert ["supervisorctl", "restart", "hop3-server"] in issued

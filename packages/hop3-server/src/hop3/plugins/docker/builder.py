@@ -138,13 +138,22 @@ def _is_transient_registry_error(output: str) -> bool:
     """
     Whether a build failure is an upstream registry blip rather than the app's.
 
-    Both halves must hold: a transient-looking network/5xx symptom AND a registry
-    context. A 500 emitted by the *app's own* build (a curl inside a RUN step, a
-    test suite printing "503 Service Unavailable") must not be mistaken for a
-    registry outage and silently retried.
+    Both halves must hold — a transient-looking network/5xx symptom AND a
+    registry context — AND both within the FAILING STEP's own output. The
+    scoping is essential: "[internal] load metadata for docker.io/..." and the
+    "FROM docker.io/..." line appear in EVERY build log, so an app's own RUN-step
+    failure (e.g. a truncated ``curl | tar`` printing "Unexpected EOF in
+    archive") would otherwise borrow that ambient registry context and be retried
+    as an outage. A genuine base-image pull failure keeps its registry phrases
+    inside the failing metadata/FROM step, so it still matches. With no numbered
+    failing step (a bare solve-phase error) fall back to the whole log.
     """
+    failing_output, message = _failing_step(output.splitlines())
+    scope = (
+        "\n".join([*failing_output, message]) if (failing_output or message) else output
+    )
     return bool(
-        _TRANSIENT_REGISTRY_RE.search(output) and _REGISTRY_CONTEXT_RE.search(output)
+        _TRANSIENT_REGISTRY_RE.search(scope) and _REGISTRY_CONTEXT_RE.search(scope)
     )
 
 

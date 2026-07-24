@@ -822,6 +822,7 @@ def _build_deploy_command(
     ssh_key: str | None = None,
     domain: str | None = None,
     acme_email: str | None = None,
+    admin_email: str = "hop3-test@example.com",
 ) -> list[str]:
     """
     Build the hop3-deploy-server command (canonical ADR 052 flags).
@@ -867,6 +868,13 @@ def _build_deploy_command(
         cmd.extend(["--admin-domain", domain])
     if acme_email:
         cmd.extend(["--acme-email", acme_email])
+    # The deployer forwards --admin-email as the server's OPERATOR_EMAIL, which
+    # is what recipes' `[admin].email = "operator"` resolve to (ADR 056). Always
+    # set it for a test box so admin-credential apps can deploy — relying on the
+    # deployer's env default (HOP3_ADMIN_EMAIL) let an empty value slip through
+    # and left the server with no operator email.
+    if admin_email:
+        cmd.extend(["--admin-email", admin_email])
 
     return cmd
 
