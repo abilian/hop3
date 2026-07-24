@@ -152,6 +152,7 @@ _PAYLOAD_FIELDS: dict[str, tuple[type[TemplatePayload], dict[str, str]]] = {
             "skip-source-copy": "skip_source_copy",
             "needs-writable-dir": "needs_writable_dir",
             "extra-native-build-inputs": "extra_native_build_inputs",
+            "install-files": "install_files",
         },
     ),
     "go-source": (

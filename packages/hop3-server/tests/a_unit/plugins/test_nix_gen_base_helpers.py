@@ -232,6 +232,20 @@ def test_wrapper_minimal():
     assert "exec BINDIR/test" in result
 
 
+def test_wrapper_is_fail_loud_set_e():
+    """
+    The wrapper runs under `set -e`, so a failing prelude/config/pre-exec step
+    aborts instead of falling through to `exec` and serving a half-installed
+    app. `set -e` must sit right after the shebang, before any real command.
+    """
+    spec = _make_spec(pre_exec_commands=["some-installer"])
+    result = format_wrapper_body(spec, "BINDIR/test")
+    lines = [ln for ln in result.splitlines() if ln.strip()]
+    assert lines[0] == "#!/bin/sh"
+    assert lines[1] == "set -e"
+    assert result.index("set -e") < result.index("some-installer")
+
+
 def test_wrapper_with_local_vars():
     spec = _make_spec(local_vars={"PORT": "${PORT:-8080}"})
     result = format_wrapper_body(spec, "BINDIR/test")
