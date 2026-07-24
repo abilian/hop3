@@ -273,8 +273,9 @@ def test_restart_hop3_server_uses_systemctl_on_systemd(monkeypatch):
     monkeypatch.setattr(
         services,
         "run_cmd",
-        lambda cmd, **k: issued.append(cmd)
-        or types.SimpleNamespace(returncode=0, stderr=""),
+        lambda cmd, **k: (
+            issued.append(cmd) or types.SimpleNamespace(returncode=0, stderr="")
+        ),
     )
     services.restart_hop3_server()
     assert ["systemctl", "restart", "hop3-server"] in issued
@@ -286,8 +287,9 @@ def test_restart_hop3_server_uses_supervisorctl_without_systemd(monkeypatch):
     monkeypatch.setattr(
         services,
         "run_cmd",
-        lambda cmd, **k: issued.append(cmd)
-        or types.SimpleNamespace(returncode=0, stderr=""),
+        lambda cmd, **k: (
+            issued.append(cmd) or types.SimpleNamespace(returncode=0, stderr="")
+        ),
     )
     services.restart_hop3_server()
     assert ["supervisorctl", "restart", "hop3-server"] in issued
