@@ -75,7 +75,7 @@ class Command:
     # signature stand without a spurious `[override]` conflict or a suppression.
     call: Callable[..., list[dict]]
 
-    def get_help(self) -> list[dict]:
+    def get_help(self, extra: tuple[str, ...] = ()) -> list[dict]:
         """
         Default help for namespace-bare invocations (ADR 036 M4.3).
 
@@ -84,6 +84,13 @@ class Command:
         DESCRIPTION (body), SUBCOMMANDS, and "Part of:" line for nested
         namespaces. The shared renderer lives in `_help_render.py` so this
         stays in sync with `HelpCmd._detailed_help`.
+
+        `extra` are the tokens typed after this namespace (e.g. `postgres` in
+        `hop addon postgres`). They scope the help into a sub-namespace, so a
+        parent namespace can render a child's page even when the child has no
+        namespace command of its own (`hop server email`, `hop waf bans`). When
+        the child *does* have a registered command, the dispatcher routes there
+        directly and this path is not needed.
         """
         # Lazy import to avoid an import cycle with `help.py`.
         from ._help_render import (  # ruff:ignore[import-outside-top-level]
@@ -93,9 +100,24 @@ class Command:
             short_help,
         )
 
+        commands = lookup(Command)
+        by_name = {c.name: c for c in commands}
+
+        # Drill into a sub-namespace for as many trailing tokens as still name a
+        # deeper part of the command tree; stop at the first that doesn't.
         namespace = self.name
+        for token in extra:
+            candidate = (*namespace, token)
+            if any(c.name[: len(candidate)] == candidate for c in commands):
+                namespace = candidate
+            else:
+                break
+
         display_name = " ".join(namespace) if namespace else ""
-        sections = parse_docstring_sections(self.__doc__)
+        # A registered command for the (possibly scoped) namespace supplies the
+        # summary/examples; otherwise the sub-namespace page is synthesized.
+        scoped = by_name.get(namespace)
+        sections = parse_docstring_sections(scoped.__doc__ if scoped else None)
 
         # If the docstring doesn't supply a Usage block, synthesize one for
         # namespace commands.
@@ -103,7 +125,6 @@ class Command:
             sections["usage"] = [f"hop {display_name} <subcommand>"]
 
         output = render_detailed_help(display_name, sections)
-        commands = lookup(Command)
         output.extend(render_subcommands(commands, namespace, short_help))
 
         # "Part of:" line for nested namespaces (e.g., `hop addon postgres`).
@@ -120,4 +141,7 @@ class NamespaceCommand(Command):
     """
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
-        return self.get_help()
+        # Trailing tokens (e.g. `postgres` in `hop addon postgres`) scope the
+        # help into a sub-namespace when that sub-namespace has no command of
+        # its own to route to.
+        return self.get_help(args)

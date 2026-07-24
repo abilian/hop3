@@ -118,21 +118,50 @@ def render_subcommands(
     namespace: tuple[str, ...],
     short_help_fn: Callable[[str | None], str],
 ) -> list[str]:
-    """Render the SUBCOMMANDS section for a namespace."""
-    subs = [
-        c
-        for c in all_commands
-        if len(c.name) > len(namespace)
-        and c.name[: len(namespace)] == namespace
-        and not getattr(c, "hidden", False)
-    ]
-    if not subs:
+    """
+    Render the SUBCOMMANDS section for a namespace: its *direct* children only.
+
+    Commands nested more than one level below `namespace` are collapsed into a
+    single row for their sub-namespace. Under `addon`, the many
+    `addon postgres <verb>` / `addon mysql <verb>` commands appear as one
+    `addon postgres` / `addon mysql` row each, rather than flattening the whole
+    tree — so a namespace lists what you can reach from it, and you drill in
+    (`hop addon postgres`) to see a sub-namespace's own verbs. A sub-namespace's
+    summary comes from its registered namespace command when there is one, else a
+    synthesized pointer to drill in.
+    """
+    ns_len = len(namespace)
+    by_name = {c.name: c for c in all_commands}
+
+    leaves: dict[tuple[str, ...], str] = {}  # direct child -> summary
+    subgroups: dict[tuple[str, ...], int] = {}  # sub-namespace -> descendant count
+    for c in all_commands:
+        if getattr(c, "hidden", False):
+            continue
+        if len(c.name) <= ns_len or c.name[:ns_len] != namespace:
+            continue
+        child = (*namespace, c.name[ns_len])
+        if len(c.name) == ns_len + 1:
+            leaves[child] = short_help_fn(c.__doc__)
+        else:
+            subgroups[child] = subgroups.get(child, 0) + 1
+
+    rows: dict[tuple[str, ...], str] = {
+        name: summary for name, summary in leaves.items() if name not in subgroups
+    }
+    for name, count in subgroups.items():
+        registered = by_name.get(name)
+        if registered is not None and registered.__doc__:
+            rows[name] = short_help_fn(registered.__doc__)
+        else:
+            noun = "subcommand" if count == 1 else "subcommands"
+            rows[name] = f"{count} {noun} — run 'hop {' '.join(name)}'"
+
+    if not rows:
         return []
-    subs.sort(key=lambda c: c.name)
     out = ["SUBCOMMANDS"]
-    for sub in subs:
-        display = " ".join(sub.name)
-        out.append(f"  {display:<28} {short_help_fn(sub.__doc__)}")
+    for name in sorted(rows):
+        out.append(f"  {' '.join(name):<28} {rows[name]}")
     out.append("")
     return out
 

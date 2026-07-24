@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, cast
 
-from hop3.commands._base import Command
+from hop3.commands._base import Command, NamespaceCommand
 from hop3.commands._errors import command_context
 from hop3.commands._response import blob, error, summary, table, text
 from hop3.core.identifiers import InvalidIdentifierError, validate_service_name
@@ -362,7 +362,27 @@ class AddonMysqlSettingsCmd(Command):
 
 
 # Contributed to the RPC dispatch table via MySQLPlugin.cli_commands().
+@register
+class AddonMysqlCmd(NamespaceCommand):
+    """
+    MySQL addon operations: backup, restore, query, clone, and more.
+
+    Work with one MySQL instance: show its credentials, dump/restore its data,
+    run ad-hoc SQL, inspect activity, or clone it. Create an instance with
+    'hop3 addon create mysql <name>'.
+
+    Examples:
+        hop3 addon mysql credentials mydb               # Connection details
+        hop3 addon mysql dump mydb                       # Back up (mysqldump)
+        hop3 addon mysql query mydb --command "SELECT 1"
+        hop3 addon mysql clone mydb mydb-copy            # Copy all data
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE)
+
+
 COMMANDS: list[type[Command]] = [
+    AddonMysqlCmd,
     AddonMysqlCredentialsCmd,
     AddonMysqlDumpCmd,
     AddonMysqlRestoreCmd,

@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar
 
-from hop3.commands._base import Command
+from hop3.commands._base import Command, NamespaceCommand
 from hop3.commands._errors import command_context
 from hop3.commands._response import error, summary, table, text, warning
 from hop3.core.identifiers import InvalidIdentifierError, validate_service_name
@@ -343,7 +343,25 @@ class AddonEmailStatusCmd(Command):
 
 
 # Contributed to the RPC dispatch table via EmailPlugin.cli_commands().
+@register
+class AddonEmailCmd(NamespaceCommand):
+    """
+    Email (SMTP relay) addon operations (EXPERIMENTAL).
+
+    Configure and inspect an app's outbound email relay. Set it up with
+    'hop3 addon email create <name>', then check it with
+    'hop3 addon email status <name>'.
+
+    Examples:
+        hop3 addon email create myrelay     # Configure an SMTP relay addon
+        hop3 addon email status myrelay     # Show the relay configuration
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE)
+
+
 COMMANDS: list[type[Command]] = [
+    AddonEmailCmd,
     AddonEmailCreateCmd,
     AddonEmailStatusCmd,
 ]
