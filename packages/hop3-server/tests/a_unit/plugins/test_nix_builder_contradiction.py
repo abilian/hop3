@@ -33,6 +33,23 @@ def _make_context(source_path: Path, app_config: dict) -> BuildContext:
     )
 
 
+@pytest.fixture(autouse=True)
+def _no_real_nix(monkeypatch):
+    """Mock _run_nix_command so accept() doesn't shell to `nix --version` per test.
+
+    The contradiction tests check the accept()/build() logic, not nix-availability.
+    The test_nix_build_* tests override this with their own capture (monkeypatch
+    wins on re-setattr).
+    """
+    monkeypatch.setattr(
+        NixBuilder,
+        "_run_nix_command",
+        lambda self, cmd, cwd=None: subprocess.CompletedProcess(
+            args=cmd, returncode=0, stdout="nix (Nix) 2.18.1\n", stderr=""
+        ),
+    )
+
+
 def test_accept_with_only_hop3_nix(tmp_path: Path):
     """Hand-crafted hop3.nix only — accept (or reject if nix unavailable)."""
     (tmp_path / "hop3.nix").write_text("# placeholder")

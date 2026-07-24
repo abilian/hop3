@@ -68,9 +68,13 @@ def test_allocate_skips_socket_bound_port():
     assert port != 20000
 
 
-def test_allocate_exhausted_aborts():
+def test_allocate_exhausted_aborts(monkeypatch):
     repo = MagicMock()
     repo.find_active.return_value = None
+    # Exhaustion is identical at any range size; scan 3 ports, not all ~12.7k
+    # (each iteration hits the MagicMock repo, which is what made this slow).
+    monkeypatch.setattr(expose, "PORT_RANGE_LOW", 20000)
+    monkeypatch.setattr(expose, "PORT_RANGE_HIGH", 20002)
     with (
         patch.object(expose, "_port_is_free", return_value=False),
         pytest.raises(Abort),
