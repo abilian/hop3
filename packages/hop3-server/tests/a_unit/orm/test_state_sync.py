@@ -210,14 +210,16 @@ class TestStateSyncService:
         assert app.run_state == AppStateEnum.FAILED
         assert "Failed to start" in app.error_message
 
+    @patch("hop3.run.reaper.reap_app_processes", return_value=[])
     @patch("hop3.server.state_sync.AppRepository")
-    def test_timeout_stopping_to_stopped(self, mock_repo_class):
+    def test_timeout_stopping_to_stopped(self, mock_repo_class, mock_reap):
         """Test that STOPPING apps time out to STOPPED state."""
         # App has been in STOPPING for 2 minutes
         old_time = datetime.now(UTC) - timedelta(minutes=2)
         app = MockApp("test-app", AppStateEnum.STOPPING, state_changed_at=old_time)
 
-        # Mock the repository
+        # No survivors from the reap (mocked): scanning real processes costs ~0.5s;
+        # the real reap-and-verify path is covered mock-free in b_integration.
         mock_repo = MagicMock()
         mock_repo.list_transitional.return_value = [app]
         mock_repo_class.return_value = mock_repo
@@ -227,6 +229,8 @@ class TestStateSyncService:
 
         service.sync_transitional_apps(cast("Session", session))
 
+        # The clean-stop path must reap-and-verify before declaring STOPPED.
+        mock_reap.assert_called_once_with("test-app")
         assert app.run_state == AppStateEnum.STOPPED
 
     @patch("hop3.run.reaper.reap_app_processes")
@@ -339,11 +343,11 @@ class TestStateSyncServiceIntegration:
         def mock_sync_cycle():
             sync_count["value"] += 1
 
-        service = _service(MockSession, interval=0.05)
+        service = _service(MockSession, interval=0.02)
         setattr(service, "_sync_cycle", mock_sync_cycle)  # ruff:ignore[set-attr-with-constant]
 
         service.start()
-        time.sleep(0.2)  # Allow a few cycles
+        time.sleep(0.1)  # ~5 intervals: comfortably more than the 2 we assert
         service.stop()
 
         assert sync_count["value"] >= 2  # At least 2 cycles should have run

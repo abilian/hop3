@@ -28,7 +28,7 @@ def _make_self_signed(store_dir, domain: str, days: int) -> None:
             "req",
             "-x509",
             "-newkey",
-            "rsa:2048",
+            "rsa:1024",  # test cert only; key size is irrelevant to renewal logic
             "-nodes",
             "-days",
             str(days),
