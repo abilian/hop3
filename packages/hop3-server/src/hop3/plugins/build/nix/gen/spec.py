@@ -324,6 +324,15 @@ class PhpAppPayload(TemplatePayload):
     # Extra nativeBuildInputs beyond php and composer. Taken as-is into the Nix
     # attrset, so use full attribute paths like "pkgs.nodejs".
     extra_native_build_inputs: list[str] = field(default_factory=list)
+    # Recipe-local files to ship into $out/app (paths relative to the recipe
+    # dir, copied to the same path under $out/app). For an app whose headless
+    # installer needs a script that is NOT in the upstream tarball — e.g.
+    # WordPress has no bundled CLI, so it ships its own wp-install.php that calls
+    # core wp_install(). Lets the nix recipe REUSE a reviewable script file
+    # instead of re-encoding install logic inline. The path `${./<f>}` resolves
+    # against the generated hop3.nix's own directory (the recipe dir), so Nix
+    # imports each file from there at build time.
+    install_files: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

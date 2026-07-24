@@ -206,6 +206,30 @@ def test_php_app_composer():
     assert "${composerProject}/share/php/bookstack/. $out/app/" in output
 
 
+def test_php_app_install_files_shipped_from_recipe_dir():
+    """
+    install-files ships recipe-local aux scripts into $out/app (e.g. WordPress's
+    wp-install.php, which is absent from the upstream tarball) via a `${./<f>}`
+    nix path that resolves against the recipe dir. Lets a pre-exec install reuse
+    a reviewable script file instead of re-encoding install logic inline.
+    """
+    spec = spec_for(
+        PhpAppPayload,
+        pname="wordpress",
+        version="6.4.2",
+        description="t",
+        php_extensions=["mysqli"],
+        source=Source(url="x", sha256="x", archive="tar-gz"),
+        extra_paths=["${php}/bin"],
+        install_files=["wp-install.php", "scripts/helper.php"],
+    )
+    output = generate(spec)
+    assert "install -D ${./wp-install.php} $out/app/wp-install.php" in output
+    assert (
+        "install -D ${./scripts/helper.php} $out/app/scripts/helper.php" in output
+    )
+
+
 def test_php_app_composer_requires_deps_hash():
     """Without the vendorHash the dependency set is unpinned — refuse."""
     with pytest.raises(ValueError, match="composer-deps-hash"):

@@ -150,6 +150,17 @@ class PhpAppTemplate:
             dirs = " ".join(f"$out/app/{d}" for d in p.post_install_dirs)
             install_lines.append(f"      mkdir -p {dirs}")
 
+        # Ship recipe-local install/aux files into $out/app, so a pre-exec
+        # install step can run the app's own installer script (e.g. WordPress's
+        # wp-install.php, which is NOT in the upstream tarball). `${./<f>}`
+        # resolves against the generated hop3.nix's own directory (the recipe
+        # dir), so Nix imports each file from there; `install -D` recreates any
+        # parent dirs. Copied AFTER the source so an aux file overrides a
+        # same-named upstream file (intended), and lands in the writable cwd via
+        # the needs_writable_dir prelude below.
+        for f in p.install_files:
+            install_lines.append(f"      install -D ${{./{f}}} $out/app/{f}")
+
         install_lines.append("")
 
         # When needs_writable_dir is set, materialize the store tree into the

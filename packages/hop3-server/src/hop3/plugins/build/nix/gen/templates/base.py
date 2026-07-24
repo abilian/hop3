@@ -219,7 +219,13 @@ def format_wrapper_body(
         <pre-exec commands>
         exec <exec_line>
     """
-    sections: list[str] = ["#!/bin/sh"]
+    # `set -e`: a failing prelude/config/pre-exec step aborts the wrapper instead
+    # of falling through to `exec` and serving a half-installed app that only the
+    # deploy validation would (later) catch. Fail-loud is the platform default;
+    # a step that may fail benignly must say so explicitly (`… || true`), which
+    # reads as intent rather than an accident. Not `-u`: wrappers legitimately
+    # reference optionally-set vars (addon creds, `${PORT:-8080}` defaults).
+    sections: list[str] = ["#!/bin/sh", "set -e"]
 
     # Runtime prelude is emitted raw (no nix_escape), so `${binding}`
     # references Nix-interpolate at build time. Used by
