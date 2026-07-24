@@ -166,7 +166,7 @@ test-e2e:
 ## Coverage — the in-process layers (what coverage.py can actually see)
 test-cov:
 	@echo "--> Coverage (unit + integration)"
-	uv run pytest --cov=hop3 --cov-report term-missing \
+	uv run pytest --cov=hop3 \
 	  packages/hop3-server/tests/a_unit \
 	  packages/hop3-server/tests/b_integration
 	@echo ""
