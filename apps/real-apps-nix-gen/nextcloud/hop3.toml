@@ -14,8 +14,16 @@ php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'mbstring', 'xml', 'curl', 'zip',
 post-install-dirs = ['data', 'config']
 extra-paths = ['${php}/bin']
 
-# Hop3 Configuration for Nextcloud (Nix build)
-# File hosting and collaboration platform
+# Headless install via Nextcloud's own occ CLI, run OUT OF BAND before the HTTP
+# worker starts. The previous browser-triggered config/autoconfig.php installed
+# on the first web request, which under single-threaded `php -S` deadlocked on
+# Nextcloud's own internal sub-requests — so /status.php never became ready.
+# occ is a plain CLI, so the install completes without any loopback request.
+# Idempotent (guarded on config/config.php, which occ writes on success) and
+# fail-loud (a non-zero occ exit aborts the wrapper, so a broken install can't
+# masquerade as a running app). Admin comes from the injected HOP3_ADMIN_*
+# (ADR 056); the data dir MUST be absolute (a relative one 503s every request).
+pre-exec = ["if [ ! -f config/config.php ]; then PHPBIN/php occ maintenance:install --database mysql --database-name \"$MYSQL_DATABASE\" --database-host \"$MYSQL_HOST:$MYSQL_PORT\" --database-user \"$MYSQL_USER\" --database-pass \"$MYSQL_PASSWORD\" --admin-user \"$HOP3_ADMIN_USER\" --admin-pass \"$HOP3_ADMIN_PASSWORD\" --data-dir \"$PWD/data\" || { echo 'nextcloud occ maintenance:install failed' >&2; exit 1; }; fi"]
 
 [build]
 builder = "nix"
@@ -23,26 +31,13 @@ builder = "nix"
 [[addons]]
 type = "mysql"
 
-[env]
-NEXTCLOUD_ADMIN_USER = "admin"
-NEXTCLOUD_ADMIN_PASSWORD = "changeme"
-
-[[nix.config-files]]
-path = "config/autoconfig.php"
-format = "raw"
-create-if-missing = true
-raw-content = """<?php
-$AUTOCONFIG = array(
-  "dbtype" => "mysql",
-  "dbname" => getenv("MYSQL_DATABASE") ?: "nextcloud",
-  "dbuser" => getenv("MYSQL_USER") ?: "nextcloud",
-  "dbpass" => getenv("MYSQL_PASSWORD") ?: "",
-  "dbhost" => getenv("MYSQL_HOST") ?: "127.0.0.1",
-  "directory" => "./data",
-  "adminlogin" => "admin",
-  "adminpass" => "admin123",
-);
-"""
+# Generated admin credentials (ADR 056): the platform mints the password once,
+# stores it encrypted, and injects HOP3_ADMIN_USER/EMAIL/PASSWORD at runtime —
+# the occ install above consumes them.
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }
 
 [test]
 priority = "P2"
@@ -51,7 +46,10 @@ author = "hop3-team"
 targets = ["docker", "remote"]
 covers = ["php", "nextcloud", "nix", "file-sharing", "collaboration"]
 
+# /status.php reports the real install state as JSON. `"installed":true` proves
+# the occ install completed — before it, Nextcloud reports `"installed":false`,
+# so a bare `contains = "installed"` would pass on an *un*installed instance.
 [[test.validations]]
 path = "/status.php"
 status = 200
-contains = "installed"
+contains = '"installed":true'

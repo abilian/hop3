@@ -7,7 +7,14 @@ description = "Simple, self-hosted documentation platform"
 composer-deps-hash = "sha256-ir7mLBoB5djufwvFcWof16xai9bnHt9IZm2/mq+pKIU="
 template = "php-app"
 needs-writable-dir = true
-pre-exec = ["PHPBIN/php artisan migrate --force 2>/dev/null || true"]
+# Migrate (idempotent, fail-loud — no more swallowed errors), then re-key the
+# admin to the injected credentials (ADR 056): BookStack's migration seeds a
+# fixed admin@admin.com, so create the platform admin explicitly. Guarded on a
+# marker (create-admin errors if the email already exists).
+pre-exec = [
+  "PHPBIN/php artisan migrate --force",
+  "if [ ! -f .hop3-admin ]; then PHPBIN/php artisan bookstack:create-admin --email=\"$HOP3_ADMIN_EMAIL\" --name=\"$HOP3_ADMIN_USER\" --password=\"$HOP3_ADMIN_PASSWORD\"; touch .hop3-admin; fi",
+]
 serve-mode = "artisan"
 url = "https://github.com/BookStackApp/BookStack/archive/refs/tags/v${version}.tar.gz"
 sha256 = "CDJ0X2x274ohrevyH+9w4J/wY9SEpdJTNO2MA0resLI="
@@ -30,6 +37,12 @@ builder = "nix"
 
 [[addons]]
 type = "mysql"
+
+# Generated admin credentials (ADR 056), consumed by the create-admin step.
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }
 
 [env]
 APP_KEY = "base64:YY6Y7MPsG9s105LprP4KohEbjGwQ8sUG7iYIoJs1t4Y="
