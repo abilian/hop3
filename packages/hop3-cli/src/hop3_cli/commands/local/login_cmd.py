@@ -22,7 +22,7 @@ from .ssh_ops import (
     get_magic_link_via_ssh,
     get_ssh_token,
     get_token_via_ssh,
-    infer_web_url,
+    web_base_url,
 )
 
 if TYPE_CHECKING:
@@ -297,13 +297,14 @@ def handle_login_web(args: list[str], config: Config, printer: RichPrinter) -> N
         sys.exit(1)
 
     # The server returns a full URL when it has a public admin domain (it knows
-    # its own scheme/host then). Otherwise it returns a bare token and we point
-    # the browser at the app's HTTP port directly — without an admin domain the
-    # dashboard isn't fronted by nginx/TLS on 443 (that path 404s).
+    # its own scheme/host then). Otherwise it returns a bare token and we build
+    # the URL from the server we actually reach — preserving https for a
+    # TLS-fronted host instead of guessing http://host:8000.
     if result.startswith(("http://", "https://")):
         magic_link = result
     else:
-        magic_link = f"{infer_web_url(ssh_target)}/auth/magic/{result}"
+        base = web_base_url(_resolved_server_url(config), ssh_target)
+        magic_link = f"{base}/auth/magic/{result}"
 
     print()
     print("Magic link generated!")
@@ -370,13 +371,43 @@ def _parse_login_web_args(args: list[str], config: Config) -> tuple[str, str]:
     return ssh_target, username
 
 
+def _resolved_server_url(config: Config) -> str | None:
+    """
+    The server URL the login should target — without aborting.
+
+    An explicit ``--context <name>`` selects that context's server (project-less,
+    global): it is the single selector every command honours (ADR 042), and a
+    *local* command like ``login`` must honour it too. Local commands dispatch
+    before ``main`` wires the active server, so ``get_api_url()`` alone ignores
+    ``--context`` — which is why ``--context prod login --web`` used to hit the
+    default server. Falls back to the configured/default server. Returns None if
+    the named context isn't defined (the caller decides whether that is fatal).
+    """
+    override = config.get_context_override()
+    if override:
+        return config.get_context_server(override)
+    return config.get_api_url()
+
+
 def _get_ssh_target_from_config(config: Config) -> str | None:
     """
     Extract SSH target from the current context's API URL.
 
-    Handles both SSH URLs (ssh://root@host) and HTTP URLs (https://host).
+    Handles both SSH URLs (ssh://root@host) and HTTP URLs (https://host). An
+    explicit ``--context`` that names no known context is a hard error here
+    rather than a silent fall-through to the default server.
     """
-    api_url = config.get_api_url()
+    override = config.get_context_override()
+    api_url = _resolved_server_url(config)
+    if override and not api_url:
+        known = ", ".join(sorted(config.list_global_contexts())) or "(none)"
+        print(
+            f"Error: context {override!r} is not defined.\n"
+            f"  Known contexts: {known}\n"
+            f"  Define it with:  hop3 login --context {override} --ssh root@<server>",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     if not api_url:
         return None
 

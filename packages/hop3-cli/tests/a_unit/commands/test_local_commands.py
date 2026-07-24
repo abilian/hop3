@@ -541,14 +541,15 @@ class TestHandleLogin:
         assert "auth:magic-link" in remote_cmd
         assert "auth magic-link" not in remote_cmd
 
-    def test_login_web_bare_token_builds_app_port_url(
+    def test_login_web_bare_token_uses_https_for_a_real_host(
         self, temp_config, mock_printer, capsys
     ):
         """
-        Bare token -> magic link must point at the app's HTTP port (:8000).
+        Bare token -> magic link must be https for a real host, not http://:8000.
 
-        Regression: it used to build `https://{host}` (nginx/TLS on 443), which
-        doesn't proxy `/auth/*` without an admin domain, so the link 404'd.
+        A production Hop3 with a domain is TLS-fronted on 443; the old
+        http://{host}:8000 sent the single-use login token in cleartext to the
+        wrong port. localhost dev still gets :8000 (see the test below).
         """
         with patch(
             "hop3_cli.commands.local.login_cmd.get_magic_link_via_ssh",
@@ -557,8 +558,56 @@ class TestHandleLogin:
             handle_login(["--web", "root@test.com"], temp_config, mock_printer)
 
         out = capsys.readouterr().out
-        assert f"http://test.com:8000/auth/magic/{_FAKE_JWT_ADMIN}" in out
-        assert "https://test.com/auth/magic" not in out
+        assert f"https://test.com/auth/magic/{_FAKE_JWT_ADMIN}" in out
+        assert ":8000" not in out
+
+    def test_login_web_bare_token_uses_app_port_for_localhost(
+        self, temp_config, mock_printer, capsys
+    ):
+        """A local dev server has no TLS: keep http://localhost:8000."""
+        with patch(
+            "hop3_cli.commands.local.login_cmd.get_magic_link_via_ssh",
+            return_value=_FAKE_JWT_ADMIN,
+        ):
+            handle_login(["--web", "root@localhost"], temp_config, mock_printer)
+
+        out = capsys.readouterr().out
+        assert f"http://localhost:8000/auth/magic/{_FAKE_JWT_ADMIN}" in out
+
+    def test_login_web_honors_context_override_for_target(
+        self, temp_config, mock_printer, capsys
+    ):
+        """
+        `--context prod login --web` targets prod, not the default server.
+
+        Regression: `login` dispatches before main wires the active server, so
+        the SSH target used to come from the default server, ignoring --context.
+        """
+        temp_config.set_context_server("prod", "ssh://root@prod.example.com")
+        temp_config.set_context_override("prod")
+
+        captured: dict = {}
+
+        def _fake_magic(ssh_target, username="admin"):
+            captured["ssh_target"] = ssh_target
+            return _FAKE_JWT_ADMIN
+
+        with patch(
+            "hop3_cli.commands.local.login_cmd.get_magic_link_via_ssh",
+            side_effect=_fake_magic,
+        ):
+            handle_login(["--web"], temp_config, mock_printer)  # no explicit target
+
+        assert captured["ssh_target"] == "root@prod.example.com"
+        out = capsys.readouterr().out
+        assert f"https://prod.example.com/auth/magic/{_FAKE_JWT_ADMIN}" in out
+
+    def test_login_web_aborts_on_undefined_context(self, temp_config, mock_printer):
+        """An explicit --context that names no context fails loud, not silently."""
+        temp_config.set_context_override("staging")  # never defined
+        with pytest.raises(SystemExit) as exc_info:
+            handle_login(["--web"], temp_config, mock_printer)
+        assert exc_info.value.code == 1
 
     def test_login_web_uses_full_url_from_server(
         self, temp_config, mock_printer, capsys

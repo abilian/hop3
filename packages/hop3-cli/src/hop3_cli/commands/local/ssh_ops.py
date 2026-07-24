@@ -331,16 +331,24 @@ def infer_server_url(ssh_target: str) -> str:
     return f"https://{_host_from_ssh_target(ssh_target)}"
 
 
-def infer_web_url(ssh_target: str) -> str:
+def web_base_url(server_url: str | None, ssh_target: str) -> str:
     """
-    Best-effort base URL for the web dashboard of a server reached over SSH.
+    Base URL for the web dashboard, to turn a bare magic-link token into a full
+    URL when the server didn't return one itself.
 
-    Used to build the magic-link URL when the server returns a bare token (i.e.
-    it has no public admin domain): the dashboard is then reachable only on the
-    app's HTTP port, not via nginx/TLS on 443.
-
-    Returns e.g. ``http://server.example.com:8000``.
+    Prefer the scheme + host[:port] of the HTTP(S) server URL we already use to
+    reach this host: that is where the dashboard is actually served (behind
+    nginx/TLS for a real domain). Otherwise infer from the SSH host —
+    ``https://<host>`` for a real host (a production Hop3 is TLS-fronted on 443),
+    and ``http://<host>:8000`` only for a local dev server. The old blanket
+    ``http://<host>:8000`` sent the magic token in cleartext to the wrong port on
+    a TLS-fronted server.
     """
-    # ponytail: assumes the default hop3-server HTTP port. Upgrade path: have
-    # the server report its bind port alongside the token.
-    return f"http://{_host_from_ssh_target(ssh_target)}:{DEFAULT_WEB_PORT}"
+    host = _host_from_ssh_target(ssh_target)
+    if server_url:
+        parsed = urlparse(server_url)
+        if parsed.scheme in {"http", "https"} and parsed.hostname == host:
+            return f"{parsed.scheme}://{parsed.netloc}"  # keeps an explicit port
+    if host in {"localhost", "127.0.0.1", "::1"}:
+        return f"http://{host}:{DEFAULT_WEB_PORT}"
+    return f"https://{host}"
