@@ -8,8 +8,9 @@ WORKDIR /var/www/html
 # renovate: datasource=github-releases depName=dokuwiki/dokuwiki versioning=loose extractVersion=^release-(?<version>.+)$
 ARG DOKUWIKI_VERSION=2024-02-06b
 
-# Download and extract DokuWiki
-RUN curl -L http://download.dokuwiki.org/src/dokuwiki/dokuwiki-${DOKUWIKI_VERSION}.tgz | tar -xz --strip-components 1 -f - && \
+# Download and extract DokuWiki. Use HTTPS (plain HTTP was reset by the peer in
+# CI) and fail loudly on a non-2xx so a bad fetch can't produce an empty extract.
+RUN curl -fSL https://download.dokuwiki.org/src/dokuwiki/dokuwiki-${DOKUWIKI_VERSION}.tgz | tar -xz --strip-components 1 -f - && \
     rm -f install.php
 
 # Enable Apache rewrite module
