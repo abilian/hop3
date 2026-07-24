@@ -20,9 +20,11 @@ extra-paths = ['${php}/bin']
 needs-writable-dir = true
 post-install-dirs = ['storage/cache', 'storage/logs', 'storage/sessions', 'storage/uploads']
 # Seed the schema once. Without it `/` redirects to the install wizard and never
-# serves the "Easy!Appointments" body the test asserts.
+# serves the "Easy!Appointments" body the test asserts. Idempotent (marker) and
+# fail-loud: a failed install aborts the wrapper (explicit `exit 1`) rather than
+# silently starting the app on its web installer.
 pre-exec = [
-  "if [ ! -f storage/.hop3-installed ]; then PHPBIN/php index.php console install && touch storage/.hop3-installed; fi",
+  "if [ ! -f storage/.hop3-installed ]; then PHPBIN/php index.php console install || { echo 'easy-appointments install failed' >&2; exit 1; }; touch storage/.hop3-installed; fi",
 ]
 
 # Easy!Appointments ships only config-sample.php; index.php refuses to boot

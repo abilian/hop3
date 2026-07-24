@@ -12,40 +12,22 @@ php-version = "php82"
 php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'zip', 'curl', 'mbstring', 'xml', 'intl', 'exif']
 post-install-dirs = ['wp-content/uploads', 'wp-content/plugins', 'wp-content/themes']
 extra-paths = ['${php}/bin']
-# WordPress writes wp-config.php (below) and wp-content/uploads; the Nix store is
-# read-only, so serve from a writable cwd copy.
+# WordPress writes wp-content/uploads and serves its own wp-config.php; the Nix
+# store is read-only, so serve from a writable cwd copy.
 needs-writable-dir = true
 
-# Without this, WordPress finds no wp-config.php and 302s /wp-admin/install.php to
-# setup-config.php ("Setup Configuration File") — it deploys and serves, but is
-# unconfigured. Values are read with getenv() at request time rather than
-# shell-expanded into the file, so the DB password is never baked onto disk.
-# NB: TOML *literal* quotes ('''), not """: the shell heredoc is unquoted, so
-# PHP's $table_prefix must be written \$table_prefix to survive it — and \$ is an
-# invalid escape in a TOML basic string.
-[[nix.config-files]]
-path = "wp-config.php"
-format = "raw"
-raw-content = '''<?php
-define( 'DB_NAME', getenv('MYSQL_DATABASE') );
-define( 'DB_USER', getenv('MYSQL_USER') );
-define( 'DB_PASSWORD', getenv('MYSQL_PASSWORD') );
-define( 'DB_HOST', getenv('MYSQL_HOST') . ':' . getenv('MYSQL_PORT') );
-define( 'DB_CHARSET', 'utf8mb4' );
-define( 'DB_COLLATE', '' );
-define( 'WP_DEBUG', getenv('WP_DEBUG') === 'true' );
-\$table_prefix = 'wp_';
-if ( ! defined( 'ABSPATH' ) ) {
-    define( 'ABSPATH', __DIR__ . '/' );
-}
-require_once ABSPATH . 'wp-settings.php';
-'''
+# Ship the app's own config + headless installer into the tree (they are not in
+# the upstream tarball — WordPress bundles no CLI). Reused verbatim, reviewable
+# PHP files rather than install logic re-encoded in the recipe. wp-config.php
+# reads all settings from getenv() at request time; wp-install.php calls core
+# wp_install() from the pre-exec step below.
+install-files = ['wp-config.php', 'wp-install.php']
 
-[nix.runtime-env]
-WP_DEBUG = "false"
-
-# Hop3 Configuration for WordPress (Nix build)
-# Popular content management system
+# Headless install (schema + first admin), idempotent + fail-loud. Runs in the
+# writable cwd after the tree is materialized and reads the WP_ADMIN_* mapped
+# from the injected HOP3_ADMIN_* (ADR 056). PHPBIN is sed-replaced with the php
+# store path by the template.
+pre-exec = ['PHPBIN/php wp-install.php || exit 1']
 
 [build]
 builder = "nix"
@@ -55,6 +37,37 @@ type = "mysql"
 
 [env]
 WP_DEBUG = "false"
+WP_TITLE = "WordPress"
+# Authentication keys and salts (ADR 046): stable generated secrets, injected
+# identically on every redeploy so sessions/nonces survive a redeploy.
+AUTH_KEY = { generate = "base64", length = 64 }
+SECURE_AUTH_KEY = { generate = "base64", length = 64 }
+LOGGED_IN_KEY = { generate = "base64", length = 64 }
+NONCE_KEY = { generate = "base64", length = 64 }
+AUTH_SALT = { generate = "base64", length = 64 }
+SECURE_AUTH_SALT = { generate = "base64", length = 64 }
+LOGGED_IN_SALT = { generate = "base64", length = 64 }
+NONCE_SALT = { generate = "base64", length = 64 }
+
+# Generated admin credentials (ADR 056): the platform mints the password once,
+# stores it encrypted, and injects HOP3_ADMIN_USER/EMAIL/PASSWORD at runtime.
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }
+
+# Map WordPress's installer inputs (read by wp-install.php) onto the injected
+# admin credentials. Interpolated AFTER HOP3_ADMIN_* is injected.
+[env.computed]
+WP_ADMIN_USER = "${HOP3_ADMIN_USER}"
+WP_ADMIN_EMAIL = "${HOP3_ADMIN_EMAIL}"
+WP_ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD}"
+
+# /wp-login.php serves 200 only once WordPress is installed; before install it
+# 302s to the wizard. A passing healthcheck therefore proves the headless
+# install completed, not just that PHP is up.
+[healthcheck]
+path = "/wp-login.php"
 
 [test]
 priority = "P2"
@@ -63,7 +76,15 @@ author = "hop3-team"
 targets = ["docker", "remote"]
 covers = ["php", "wordpress", "nix", "cms"]
 
+# Installed + working, not sitting on the wizard: the home page renders the
+# default "Hello world!" post (schema + seed content), and the login page serves
+# the real form (before install it would redirect to /wp-admin/install.php).
 [[test.validations]]
-path = "/wp-admin/install.php"
+path = "/"
 status = 200
-contains = "WordPress"
+contains = "Hello world"
+
+[[test.validations]]
+path = "/wp-login.php"
+status = 200
+contains = "user_login"

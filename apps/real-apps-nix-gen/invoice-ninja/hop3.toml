@@ -7,7 +7,15 @@ description = "Free open-source invoicing platform"
 composer-deps-hash = "sha256-IoNfYWq/Ocu2P50U65uWWQR2I4/BuZ/CoOrfDCAM8B8="
 template = "php-app"
 needs-writable-dir = true
-pre-exec = ["PHPBIN/php artisan migrate --force 2>/dev/null || true"]
+# Headless setup, fail-loud (set -e), so Invoice Ninja no longer lands on its
+# /setup wizard: migrate the schema, then once (marker-guarded, since the seeder
+# and account creation are not idempotent) seed the reference data and create the
+# first account/admin from the injected HOP3_ADMIN_* (ADR 056). `ninja:create-account`
+# is Invoice Ninja's own headless account command.
+pre-exec = [
+  "PHPBIN/php artisan migrate --force",
+  "if [ ! -f .hop3-account ]; then PHPBIN/php artisan db:seed --force; PHPBIN/php artisan ninja:create-account --email=\"$HOP3_ADMIN_EMAIL\" --password=\"$HOP3_ADMIN_PASSWORD\"; touch .hop3-account; fi",
+]
 serve-mode = "artisan"
 url = "https://github.com/invoiceninja/invoiceninja/archive/refs/tags/v${version}.tar.gz"
 sha256 = "7NZs3hAxH3awKMeIlwqem6gnVCRGdpDvZZ+7SW033qY="
@@ -35,6 +43,12 @@ builder = "nix"
 
 [[addons]]
 type = "mysql"
+
+# Generated admin credentials (ADR 056), consumed by ninja:create-account.
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }
 
 [env]
 APP_KEY = "base64:YY6Y7MPsG9s105LprP4KohEbjGwQ8sUG7iYIoJs1t4Y="
@@ -72,7 +86,14 @@ author = "hop3-team"
 targets = ["docker", "remote"]
 covers = ["php", "invoice-ninja", "nix", "invoicing", "laravel"]
 
+# `/` is a server-side 302 with an EMPTY body (the harness can't assert a
+# Location header and doesn't follow redirects), so validate the login SPA
+# directly: once setup completed, /login serves the Flutter app (200) whose HTML
+# carries the "Invoice Ninja" title. The fail-loud setup pre-exec above is the
+# real install gate; this content check proves the app serves its own page, not
+# a placeholder. (If the box shows /login is not 200 / lacks this marker, the
+# failure output pins the exact status+body to adjust to.)
 [[test.validations]]
-path = "/"
-status = 302
-contains = "/setup"
+path = "/login"
+status = 200
+contains = "Invoice Ninja"

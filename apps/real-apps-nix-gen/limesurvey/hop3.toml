@@ -6,7 +6,12 @@ description = "Professional online survey and data collection tool"
 [nix]
 template = "php-app"
 needs-writable-dir = true
-pre-exec = ["PHPBIN/php application/commands/console.php install admin password123 Admin admin@example.com 2>/dev/null || true"]
+# Headless install via LimeSurvey's console.php, wired to the injected admin
+# (ADR 056) — no more hardcoded password123. Idempotent (guarded on a marker,
+# since console.php install errors if the schema already exists) and fail-loud
+# (a failed install aborts the wrapper via set -e instead of leaving the app on
+# its web installer). Signature: install <user> <password> <full-name> <email>.
+pre-exec = ['if [ ! -f .hop3-installed ]; then PHPBIN/php application/commands/console.php install "$HOP3_ADMIN_USER" "$HOP3_ADMIN_PASSWORD" Administrator "$HOP3_ADMIN_EMAIL"; touch .hop3-installed; fi']
 url = "https://download.limesurvey.org/latest-master/limesurvey${version}+260223.zip"
 sha256 = "jXRc89eWmPd354Zk2peRJR7v4G9ePwTJT9BS2es3tnk="
 archive = "zip"
@@ -15,11 +20,6 @@ php-version = "php82"
 php-extensions = ['pgsql', 'pdo_pgsql', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'intl', 'ldap', 'imap']
 post-install-dirs = ['tmp', 'upload']
 extra-paths = ['${php}/bin']
-
-[nix.runtime-env]
-ADMIN_USER = "admin"
-ADMIN_NAME = "Administrator"
-ADMIN_EMAIL = "admin@example.com"
 
 # Hop3 Configuration for LimeSurvey (Nix build)
 # Professional online survey tool
@@ -30,11 +30,13 @@ builder = "nix"
 [[addons]]
 type = "postgres"
 
-[env]
-ADMIN_USER = "admin"
-ADMIN_NAME = "Administrator"
-ADMIN_EMAIL = "admin@example.com"
-ADMIN_PASSWORD = "change-me-admin-password"
+# Generated admin credentials (ADR 056): the platform mints the password once
+# and injects HOP3_ADMIN_USER/EMAIL/PASSWORD at runtime — consumed by the
+# console.php install above.
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }
 
 [[nix.config-files]]
 path = "application/config/config.php"
