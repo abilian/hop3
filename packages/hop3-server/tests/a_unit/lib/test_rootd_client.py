@@ -58,7 +58,7 @@ def short_tmp_dir() -> Iterator[Path]:
 # loop) or a dangling client connection (a refused-handshake test that leaves
 # the socket half-open while the client raises and hasn't GC'd yet — the
 # server's readline then waits this long for EOF). 0.01s is well above the
-# actual round-trip but 25× faster than the old 0.25s.
+# actual round-trip but 25x faster than the old 0.25s.
 _SOCKET_TIMEOUT = 0.01
 
 
