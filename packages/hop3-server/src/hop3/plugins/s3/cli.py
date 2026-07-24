@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar
 
-from hop3.commands._base import Command
+from hop3.commands._base import Command, NamespaceCommand
 from hop3.commands._errors import command_context
 from hop3.commands._response import blob, error, summary, table, text
 from hop3.core.identifiers import InvalidIdentifierError, validate_service_name
@@ -234,7 +234,26 @@ class AddonS3ImportCmd(Command):
 
 
 # Contributed to the RPC dispatch table via S3Plugin.cli_commands().
+@register
+class AddonS3Cmd(NamespaceCommand):
+    """
+    S3 addon operations: credentials, dump/restore, and clone.
+
+    Work with one S3 (object storage) instance: show its credentials, dump or
+    restore its manifest, or clone it. Create an instance with
+    'hop3 addon create s3 <name>'.
+
+    Examples:
+        hop3 addon s3 credentials myfiles               # Access key + bucket
+        hop3 addon s3 dump myfiles                        # Dump the manifest
+        hop3 addon s3 clone myfiles myfiles-copy          # Copy its data
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE)
+
+
 COMMANDS: list[type[Command]] = [
+    AddonS3Cmd,
     AddonS3CredentialsCmd,
     AddonS3DumpCmd,
     AddonS3RestoreCmd,

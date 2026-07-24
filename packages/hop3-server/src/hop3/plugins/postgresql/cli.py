@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, cast
 
-from hop3.commands._base import Command
+from hop3.commands._base import Command, NamespaceCommand
 from hop3.commands._errors import command_context
 from hop3.commands._response import blob, error, summary, table, text
 from hop3.core.identifiers import InvalidIdentifierError, validate_service_name
@@ -455,7 +455,27 @@ class AddonPostgresSettingsCmd(Command):
 
 
 # Contributed to the RPC dispatch table via PostgresqlPlugin.cli_commands().
+@register
+class AddonPostgresCmd(NamespaceCommand):
+    """
+    PostgreSQL addon operations: backup, restore, query, clone, and more.
+
+    Work with one Postgres instance: show its credentials, dump/restore its
+    data, run ad-hoc SQL, inspect locks and activity, or install extensions.
+    Create an instance with 'hop3 addon create postgres <name>'.
+
+    Examples:
+        hop3 addon postgres credentials mydb            # Connection details
+        hop3 addon postgres dump mydb                   # Back up (pg_dump)
+        hop3 addon postgres query mydb --command "SELECT 1"
+        hop3 addon postgres clone mydb mydb-copy        # Copy all data
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE)
+
+
 COMMANDS: list[type[Command]] = [
+    AddonPostgresCmd,
     AddonPostgresCredentialsCmd,
     AddonPostgresDumpCmd,
     AddonPostgresRestoreCmd,

@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, cast
 
-from hop3.commands._base import Command
+from hop3.commands._base import Command, NamespaceCommand
 from hop3.commands._errors import command_context
 from hop3.commands._response import blob, error, summary, table, text
 from hop3.core.identifiers import InvalidIdentifierError, validate_service_name
@@ -335,7 +335,27 @@ class AddonRedisImportCmd(Command):
 
 
 # Contributed to the RPC dispatch table via RedisPlugin.cli_commands().
+@register
+class AddonRedisCmd(NamespaceCommand):
+    """
+    Redis addon operations: dump, restore, query, flush, and diagnostics.
+
+    Work with one Redis instance: show its credentials, dump/restore its keys,
+    run redis-cli commands, flush its database, or read server INFO. Create an
+    instance with 'hop3 addon create redis <name>'.
+
+    Examples:
+        hop3 addon redis credentials mycache            # Connection details
+        hop3 addon redis dump mycache                    # Back up its keys
+        hop3 addon redis query mycache PING              # Ad-hoc redis-cli
+        hop3 addon redis info mycache                    # Server INFO
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE)
+
+
 COMMANDS: list[type[Command]] = [
+    AddonRedisCmd,
     AddonRedisCredentialsCmd,
     AddonRedisDumpCmd,
     AddonRedisRestoreCmd,

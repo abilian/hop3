@@ -8,9 +8,13 @@ from __future__ import annotations
 
 import pytest
 
+from hop3.commands import _base
+from hop3.commands._base import NamespaceCommand
 from hop3.commands._help_render import (
     classify_doc_line as _classify_doc_line,
     parse_docstring_sections as _parse_docstring_sections,
+    render_subcommands as _render_subcommands,
+    short_help as _short_help,
 )
 from hop3.commands.help import (
     CATEGORIES,
@@ -175,3 +179,93 @@ def test_detailed_help_for_top_level_no_part_of() -> None:
     result = cmd.call("help")
     text = result[0]["text"]
     assert "Part of:" not in text
+
+
+# ---- SUBCOMMANDS: a namespace lists direct children, sub-namespaces collapsed ----
+
+
+class _FakeCmd:
+    """A stand-in command with just what the help renderer reads."""
+
+    def __init__(self, name: tuple[str, ...], doc: str = "") -> None:
+        self.name = name
+        self.__doc__ = doc
+        self.hidden = False
+
+
+def test_render_subcommands_lists_direct_children() -> None:
+    cmds = [
+        _FakeCmd(("addon", "list"), "List addon instances."),
+        _FakeCmd(("addon", "create"), "Create a new addon."),
+    ]
+    out = "\n".join(_render_subcommands(cmds, ("addon",), _short_help))
+    assert "addon list" in out
+    assert "List addon instances." in out
+
+
+def test_render_subcommands_collapses_a_subgroup_into_one_row() -> None:
+    """`addon postgres <verb>` commands appear as one `addon postgres` row."""
+    cmds = [
+        _FakeCmd(("addon", "list"), "List addon instances."),
+        _FakeCmd(("addon", "postgres", "dump"), "Dump pg."),
+        _FakeCmd(("addon", "postgres", "restore"), "Restore pg."),
+    ]
+    out = "\n".join(_render_subcommands(cmds, ("addon",), _short_help))
+    assert "addon postgres" in out
+    assert "addon postgres dump" not in out  # verbs are NOT flattened here
+    assert "2 subcommands" in out  # synthesized pointer when no namespace command
+
+
+def test_render_subcommands_uses_registered_subgroup_summary() -> None:
+    """A registered sub-namespace command supplies the collapsed row's summary."""
+    cmds = [
+        _FakeCmd(("addon", "postgres"), "PostgreSQL addon operations: backup, ..."),
+        _FakeCmd(("addon", "postgres", "dump"), "Dump pg."),
+    ]
+    out = "\n".join(_render_subcommands(cmds, ("addon",), _short_help))
+    assert "PostgreSQL addon operations" in out
+    assert "addon postgres dump" not in out  # still collapsed
+
+
+def _fake_registry(monkeypatch, cmds) -> None:
+    """Point the namespace get_help at a controlled command set."""
+    monkeypatch.setattr(_base, "lookup", lambda _cls: cmds)
+
+
+def test_get_help_scopes_into_a_subgroup(monkeypatch) -> None:
+    """`hop addon postgres` renders the postgres subtree, not all of addon."""
+    cmds = [
+        _FakeCmd(("addon",), "Manage addons."),
+        _FakeCmd(("addon", "postgres"), "PostgreSQL addon operations."),
+        _FakeCmd(("addon", "postgres", "dump"), "Dump pg."),
+        _FakeCmd(("addon", "list"), "List addons."),
+    ]
+    _fake_registry(monkeypatch, cmds)
+    ns = NamespaceCommand()
+    ns.name = ("addon",)  # instance override of the ClassVar
+
+    text = ns.get_help(("postgres",))[0]["text"]
+
+    assert text.splitlines()[0] == "hop addon postgres — PostgreSQL addon operations."
+    assert "addon postgres dump" in text  # the subgroup's own verb is listed
+    assert "addon list" not in text  # a sibling of the subgroup is not
+    assert "Part of: hop addon namespace." in text
+
+
+def test_get_help_bare_namespace_collapses_subgroups(monkeypatch) -> None:
+    """`hop addon` shows the postgres subgroup as one row, not its verbs."""
+    cmds = [
+        _FakeCmd(("addon",), "Manage addons."),
+        _FakeCmd(("addon", "postgres"), "PostgreSQL addon operations."),
+        _FakeCmd(("addon", "postgres", "dump"), "Dump pg."),
+        _FakeCmd(("addon", "list"), "List addons."),
+    ]
+    _fake_registry(monkeypatch, cmds)
+    ns = NamespaceCommand()
+    ns.name = ("addon",)
+
+    text = ns.get_help()[0]["text"]
+
+    assert "addon list" in text
+    assert "PostgreSQL addon operations." in text  # subgroup row summary
+    assert "addon postgres dump" not in text  # collapsed, not flattened
