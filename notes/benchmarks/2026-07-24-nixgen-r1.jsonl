@@ -1,0 +1,20 @@
+{"app": "wordpress", "variant": "nix-gen", "status": "ok", "seconds": 116, "rc": 0}
+{"app": "nextcloud", "variant": "nix-gen", "status": "ok", "seconds": 145, "rc": 0}
+{"app": "bookstack", "variant": "nix-gen", "status": "ok", "seconds": 171, "rc": 0}
+{"app": "invoice-ninja", "variant": "nix-gen", "status": "failed", "seconds": 378, "rc": 1, "reason": "Error: HTTP 302 OK but body does not contain '/login' (checked 0 chars of the response).", "log": "notes/benchmarks/logs/2026-07-24-matrix/nix-gen-invoice-ninja.log"}
+{"app": "matomo", "variant": "nix-gen", "status": "ok", "seconds": 102, "rc": 0}
+{"app": "gitea", "variant": "nix-gen", "status": "ok", "seconds": 264, "rc": 0}
+{"app": "miniflux", "variant": "nix-gen", "status": "ok", "seconds": 111, "rc": 0}
+{"app": "vikunja", "variant": "nix-gen", "status": "ok", "seconds": 429, "rc": 0}
+{"app": "gatus", "variant": "nix-gen", "status": "ok", "seconds": 133, "rc": 0}
+{"app": "owncast", "variant": "nix-gen", "status": "ok", "seconds": 179, "rc": 0}
+{"app": "bugsink", "variant": "nix-gen", "status": "ok", "seconds": 114, "rc": 0}
+{"app": "isso", "variant": "nix-gen", "status": "ok", "seconds": 116, "rc": 0}
+{"app": "radicale", "variant": "nix-gen", "status": "ok", "seconds": 95, "rc": 0}
+{"app": "searxng", "variant": "nix-gen", "status": "ok", "seconds": 89, "rc": 0}
+{"app": "directus", "variant": "nix-gen", "status": "ok", "seconds": 200, "rc": 0}
+{"app": "wiki-js", "variant": "nix-gen", "status": "ok", "seconds": 112, "rc": 0}
+{"app": "etherpad", "variant": "nix-gen", "status": "ok", "seconds": 102, "rc": 0}
+{"app": "stirling-pdf", "variant": "nix-gen", "status": "ok", "seconds": 176, "rc": 0}
+{"app": "keycloak", "variant": "nix-gen", "status": "ok", "seconds": 117, "rc": 0}
+{"app": "jenkins", "variant": "nix-gen", "status": "ok", "seconds": 101, "rc": 0}

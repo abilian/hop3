@@ -25,7 +25,7 @@ Hop3 will support configuration and metadata through multiple file formats to ac
 - **Alternative Formats**: Alternative formats such as Procfiles and other configuration scripts are supported to ensure flexibility and compatibility.
 - **Unified Parsing and Validation**: Regardless of the format, all configuration files are parsed and validated to ensure consistency and correctness.
 
-A Hop3 application's configuration surface is bounded to `Procfile` + `hop3.toml`. Arbitrary ad-hoc configuration scripts (Dockerfile-flavoured shell snippets, inline Python) are out of scope: builders and deployers live in plugins, not in per-app scripts.
+A Hop3 application's configuration surface is bounded to `Procfile` + `hop3.toml`. Arbitrary ad-hoc configuration scripts (Dockerfile-flavoured shell snippets, inline Python) are out of scope: builders and deployers are plugin-based; per-app scripts are out of scope.
 
 ## Consequences
 

@@ -67,7 +67,7 @@ hop3.nix exists in source?
 
 ### Ejection
 
-When a generated template cannot express an app's needs, the developer runs `hop3 nix eject <app>` to materialize the generated `hop3.nix` as a real file in the source tree. After ejection, the committed `hop3.nix` takes precedence and can be customized freely. This mirrors Create React App's eject pattern: auto-generation is progressive disclosure, not lock-in.
+When a generated template cannot express an app's needs, the developer runs `hop3 nix eject <app>` to materialize the generated `hop3.nix` as a real file in the source tree. After ejection, the committed `hop3.nix` takes precedence and can be customized freely. This mirrors Create React App's eject pattern: auto-generation follows progressive disclosure: you can always eject.
 
 ## Templates
 
@@ -165,7 +165,7 @@ Concrete observations that shape the design:
 
 ## Prior Art
 
-- **nixpacks** (Railway): Validates the template-based approach at production scale. Uses nixpkgs primitives, not dream2nix/poetry2nix, confirming our direction. https://nixpacks.com/
+- **nixpacks** (Railway): Validates the template-based approach at production scale. Uses nixpkgs primitives (rather than dream2nix/poetry2nix), confirming our direction. https://nixpacks.com/
 - **dream2nix / poetry2nix / node2nix**: Third-party Nix generators we explicitly don't build on. They aim for pure-Nix dependency resolution but each covers one ecosystem and has known stability issues. The templates reach the same result through nixpkgs' own builders and a uniform two-phase FOD: see [ADR 058](./058-build-reproducibility-model.md).
 - **Create React App eject**: The precedent for the "auto-generate then customize" pattern.
 - **Heroku buildpacks**: Same UX goal (auto-detect and build without user config), different technology.

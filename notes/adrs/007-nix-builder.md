@@ -26,7 +26,7 @@ In Hop3's two-level build architecture ([ADR 030](./030-two-level-build-architec
 
 - **NixBuilder** is a **Level 1 Builder** - it orchestrates the build process
 - Unlike LocalBuilder, NixBuilder does **not** use Level 2 LanguageToolchains
-- Instead, it leverages Nix expressions (from nixpkgs or generated) to handle all languages uniformly
+- Instead, it uses Nix expressions (from nixpkgs or generated) to handle all languages uniformly
 
 This ADR focuses on **reusing existing nixpkgs packages** - applications already packaged in the Nix ecosystem (Nextcloud, Jitsi, etc.). [ADR 008](./008-nix-builders-2.md) covers generating Nix expressions for applications without existing Nix support.
 
@@ -34,7 +34,7 @@ This ADR focuses on **reusing existing nixpkgs packages** - applications already
 
 ## Decision
 
-Hop3 will develop NixBuilder (a Level 1 Builder per [ADR 030](./030-two-level-build-architecture.md)) that supports applications available in the nixpkgs repository or those that can be converted into Nix configurations using existing tools such as dream2nix, Poetry2nix, or Nixpacks. This builder will automate the integration of Nix-built applications within the Hop3 platform, providing a seamless experience for both developers and non-technical users.
+Hop3 will develop NixBuilder (a Level 1 Builder per [ADR 030](./030-two-level-build-architecture.md)) that supports applications available in the nixpkgs repository or those that can be converted into Nix configurations using existing tools such as dream2nix, Poetry2nix, or Nixpacks. This builder will automate the integration of Nix-built applications within the Hop3 platform, providing a consistent experience for both developers and non-technical users.
 
 ## Key Components
 
@@ -71,3 +71,4 @@ Hop3 will develop NixBuilder (a Level 1 Builder per [ADR 030](./030-two-level-bu
 - **Integration Complexity**: Ensuring that a wide variety of applications, particularly legacy or non-12-factor apps, are compatible with Nix and Hop3. This can be mitigated through community feedback and thorough testing with real-world applications.
 - **Ongoing Maintenance**: Keeping the builder plugin in sync with changes in the nixpkgs repository and updates to the supported applications. This will require a well-defined maintenance schedule and active community contributions.
 - **Performance Overhead**: Nix-based builds, while reproducible, can sometimes introduce performance overhead compared to native build systems. Mitigation involves continuous optimization of build processes and leveraging Nix’s caching mechanisms.
+nisms.

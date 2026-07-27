@@ -30,7 +30,7 @@ The drift comes from the CLI needing to know, *per command*, whether to inject t
 
 ### The wire channel already exists
 
-The `cli` RPC already carries a side dict (`extra_args`) alongside the positional args: `get_extra_args` (CLI) populates `repository`, `env_vars`, `streaming`, `verbosity`; the server's `call(command_name, args, extra_args)` already treats some keys as **context, not command kwargs**: it pops `verbosity` ("extracted as context") and injects `_token`. The invocation context is the same pattern, generalized into one reserved sub-structure.
+The `cli` RPC already carries a side dict (`extra_args`) alongside the positional args: `get_extra_args` (CLI) populates `repository`, `env_vars`, `streaming`, `verbosity`; the server's `call(command_name, args, extra_args)` already treats some keys as **context (rather than command kwargs)**: it pops `verbosity` ("extracted as context") and injects `_token`. The invocation context is the same pattern, generalized into one reserved sub-structure.
 
 ## Decision
 

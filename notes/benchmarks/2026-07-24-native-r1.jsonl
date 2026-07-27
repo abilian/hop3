@@ -1,0 +1,20 @@
+{"app": "wordpress", "variant": "native", "status": "ok", "seconds": 99, "rc": 0}
+{"app": "nextcloud", "variant": "native", "status": "ok", "seconds": 128, "rc": 0}
+{"app": "bookstack", "variant": "native", "status": "ok", "seconds": 112, "rc": 0}
+{"app": "invoice-ninja", "variant": "native", "status": "ok", "seconds": 181, "rc": 0}
+{"app": "matomo", "variant": "native", "status": "ok", "seconds": 94, "rc": 0}
+{"app": "gitea", "variant": "native", "status": "ok", "seconds": 88, "rc": 0}
+{"app": "miniflux", "variant": "native", "status": "ok", "seconds": 103, "rc": 0}
+{"app": "vikunja", "variant": "native", "status": "ok", "seconds": 85, "rc": 0}
+{"app": "gatus", "variant": "native", "status": "ok", "seconds": 139, "rc": 0}
+{"app": "owncast", "variant": "native", "status": "ok", "seconds": 89, "rc": 0}
+{"app": "bugsink", "variant": "native", "status": "ok", "seconds": 112, "rc": 0}
+{"app": "isso", "variant": "native", "status": "ok", "seconds": 105, "rc": 0}
+{"app": "radicale", "variant": "native", "status": "ok", "seconds": 99, "rc": 0}
+{"app": "searxng", "variant": "native", "status": "ok", "seconds": 100, "rc": 0}
+{"app": "directus", "variant": "native", "status": "no-recipe"}
+{"app": "wiki-js", "variant": "native", "status": "ok", "seconds": 89, "rc": 0}
+{"app": "etherpad", "variant": "native", "status": "ok", "seconds": 112, "rc": 0}
+{"app": "stirling-pdf", "variant": "native", "status": "ok", "seconds": 98, "rc": 0}
+{"app": "keycloak", "variant": "native", "status": "ok", "seconds": 115, "rc": 0}
+{"app": "jenkins", "variant": "native", "status": "ok", "seconds": 94, "rc": 0}

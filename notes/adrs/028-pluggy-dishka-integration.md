@@ -36,7 +36,7 @@ This approach:
 - Bypasses Dishka's lifecycle management
 
 ### Problem 2: No Dependency Injection for Plugin Services
-Plugin services couldn't leverage Dishka's features:
+Plugin services couldn't use Dishka's features:
 - No automatic dependency resolution
 - No scope management (APP vs REQUEST)
 - No type-safe injection
@@ -242,7 +242,7 @@ async def my_view(service: FromDishka[MyService]):
 
 1. **Two Frameworks Instead of One**
    - Could use pure Dishka or pure Pluggy
-   - But combination leverages strengths of both
+   - But combination uses strengths of both
    - Industry pattern (e.g., pytest uses Pluggy + fixtures)
 
 2. **Hook Returns List**
