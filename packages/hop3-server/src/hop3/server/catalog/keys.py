@@ -7,12 +7,13 @@ The public key the node verifies catalog signatures against is **compiled into t
 release here** — not read from a file or env var at runtime — so its trust anchor
 shares no write boundary with the catalog channel an attacker might control.
 
-PROVISIONING: this ships **empty**. Catalog sync stays disabled and fails loud
-until the Hop3 release process:
-
-1. generates an offline minisign keypair (the private key never touches a node),
-2. publishes a signed ``catalog.tar.gz`` + ``catalog.tar.gz.minisig``, and
-3. bakes the *public* key text into ``CATALOG_PUBLIC_KEY`` below.
+This is the public half of the official Hop3 catalog signing key (id
+``fa06cb6b08e36105``). Its private counterpart is held offline by the release team
+and never touches a node; the producer flow that signs the catalog with it is the
+hop3-catalog repo's ``make publish`` (see ``docs/src/developers/catalog-publishing.md``).
+A node with this key pinned verifies the official catalog at ``CATALOG_SOURCE_URL``
+out of the box; operators can still point that URL at their own signed catalog and
+recompile with their own key.
 
 Key rotation (accepting a tuple of current+next keys, all compiled in) is the
 documented hardening step — see ADR 049 "Hardening Path".
@@ -20,9 +21,12 @@ documented hardening step — see ADR 049 "Hardening Path".
 
 from __future__ import annotations
 
-# The minisign public key file text (or just its base64 body). Empty until
-# provisioned — see the module docstring.
-CATALOG_PUBLIC_KEY: str = ""
+# The minisign public key file text (comment line + base64 body). To rotate,
+# regenerate with `hop3-catalog keygen` and paste the new catalog.pub here.
+CATALOG_PUBLIC_KEY: str = (
+    "untrusted comment: hop3 catalog public key fa06cb6b08e36105\n"
+    "RWT6BstrCONhBUDJAARHbNOMa5eCDMdtoD/75ztsOTHYdVgyxDdQe4kf\n"
+)
 
 
 def get_catalog_public_key() -> str:

@@ -6,14 +6,25 @@ This page documents the **producer** side — how the Hop3 project builds and si
 
 The tool is `hop3-catalog` (shipped with `hop3-server`). It signs with the `cryptography` library already bundled with Hop3 — **no `minisign` binary required** — and its output verifies with both Hop3 and the stock `minisign -V`.
 
+> **Recommended — the catalog repo drives it.** The official catalog is its own repository ([`git.sr.ht/~sfermigier/hop3-catalog`](https://git.sr.ht/~sfermigier/hop3-catalog)), which holds **both** the content (`apps/<app-id>/`) and the deployable static site that serves it (`hop3.toml` + `public/`). A `Makefile` there runs the whole release from that one directory:
+>
+> ```bash
+> cd hop3-catalog
+> make publish CONTEXT=<ctx>    # validate → sign → verify → stage → deploy
+> ```
+>
+> `hop3-catalog` (the signing tool) resolves from the repo's `hop3-server` dependency, so `uv run` is all you need; `make deploy` uses the `hop3` client. The numbered steps below are exactly what each `make` target runs — follow them by hand if you publish some other way.
+>
+> The official public key is already pinned in the release (`hop3/server/catalog/keys.py`, id `fa06cb6b08e36105`), so §1 is only for **rotating** the key or running an **independent** catalog. The dev-only variant — sideloading a signed catalog onto your own box with no HTTPS host and no baked-in key — is [`stage-catalog.sh`](catalog-staging.md).
+
 ## 1. Generate a signing key (once)
 
-Run this **on an offline / trusted machine**. The private key is the root of trust for everything your nodes will execute — it must never touch a server.
+Run this **on an offline / trusted machine** (`make keygen`, or directly). The private key is the root of trust for everything your nodes will execute — it must never touch a server.
 
 ```bash
-hop3-catalog keygen --out-dir ./catalog-keys
-# writes catalog-keys/catalog.pub  (public — ships in the release)
-#        catalog-keys/catalog.key  (SECRET, mode 0600 — guard it)
+hop3-catalog keygen --out-dir ./keys
+# writes keys/catalog.pub  (public — ships in the release)
+#        keys/catalog.key  (SECRET, mode 0600 — guard it, never commit)
 ```
 
 Then bake the **public** key into the build that your nodes run:
@@ -25,49 +36,51 @@ Then bake the **public** key into the build that your nodes run:
 
 **Key custody.** Losing the private key means you must rotate (§5). A *leaked* key is a break-glass event: rotate **and** ship a release that drops the compromised key from the trust set. Keep the `.key` offline (hardware token or sealed secret), never commit it, never copy it to a node.
 
-## 2. Build and sign (each release)
+## 2. Build and sign (each release) — `make build`
 
-Lay out one directory per app — `content/<app-id>/` — each containing at least a `hop3.toml` (plus an optional `readme.md` and a raster `icon.png`/`icon.webp`):
+Content is one directory per app under `apps/<app-id>/`, each containing at least a `hop3.toml` (plus an optional `readme.md` and a raster `icon.png`/`icon.webp`). `make build` validates then signs:
 
 ```bash
-hop3-catalog publish content/ --key ./catalog-keys/catalog.key --out-dir dist/
+make build                       # = validate, then:
+hop3-catalog publish apps/ --key keys/catalog.key --out-dir dist/ --serial $(date +%s)
 # → dist/index.json, dist/catalog.tar.gz, dist/catalog.tar.gz.minisig
 ```
 
 `publish` validates every spec through the coexistence gate **before signing** — a spec that pins the nginx catch-all host `"_"` or a wildcard host is rejected here, because it would hijack the reverse-proxy default server and shadow every other app on a node. The tarball is built from the generated `index.json`, so the published tree is exactly the signed file set.
 
-`--serial` defaults to the current Unix time, which increases monotonically across releases. Nodes enforce anti-rollback: a serial less than or equal to one a node already holds is refused. If you set `--serial` manually, it must strictly increase.
+## 3. Verify before deploying — `make verify`
 
-## 3. Upload
-
-Copy both files to your static host at the URL your nodes are configured to fetch (`CATALOG_SOURCE_URL`, default `https://apps.hop3.cloud/catalog/catalog.tar.gz`). The official catalog is served under `https://apps.hop3.cloud/` (marketing site) with the data at `https://apps.hop3.cloud/catalog/`:
-
-```
-https://apps.hop3.cloud/catalog/catalog.tar.gz
-https://apps.hop3.cloud/catalog/catalog.tar.gz.minisig
-```
-
-HTTPS is mandatory — a node refuses a plaintext URL or an `https → http` redirect and ignores any `verify_ssl false` client setting on this path. `index.json` travels inside the tarball, so it does not need to be served separately.
-
-## 4. Verify before announcing
-
-Confirm the artifact verifies against the public key, then refresh a node:
+`make verify` confirms the freshly-built artifact verifies against the public key — it catches a wrong or rotated signing key *before* anything ships. `make publish` runs it between `build` and `deploy`.
 
 ```bash
-python -c "
-from pathlib import Path
-from hop3.server.catalog.verify import verify_minisign
-d = Path('dist')
-verify_minisign(
-    (d/'catalog.tar.gz').read_bytes(),
-    (d/'catalog.tar.gz.minisig').read_text(),
-    Path('catalog-keys/catalog.pub').read_text(),
-)
-print('OK')
-"
+make verify        # = verify_minisign(dist/catalog.tar.gz, .minisig, keys/catalog.pub)
+```
 
-# on a node, after upload:
-hop3 catalog refresh        # fetch → verify → publish → reload; reports the serial
+## 4. Deploy the site — `make stage` + `make deploy`
+
+`apps.hop3.cloud` is itself a **Hop3-deployed static app**, and this repo *is* that app: a `hop3.toml` (a `static` app bound to host `apps.hop3.cloud`) plus a `public/` web root. `make stage` copies the signed artifacts into `public/catalog/`; `make deploy` ships the site with `hop3`:
+
+```bash
+make stage                     # cp dist/catalog.tar.gz{,.minisig} → public/catalog/
+make deploy CONTEXT=<ctx>      # hop3 --context <ctx> deploy --app apps-hop3-cloud
+```
+
+so nodes fetch them at `https://apps.hop3.cloud/catalog/catalog.tar.gz` (+ `.minisig`).
+
+**The signing key never ships.** `hop3 deploy` uploads a tar of the working directory, and this repo also holds `keys/catalog.key`. The site's `hop3.toml` guards against that with an allowlist `[build].ignore`:
+
+```toml
+ignore = ["**", "!/public/", "!/public/**", "!/hop3.toml"]
+```
+
+so the upload contains **only** `public/` + `hop3.toml` — never `keys/`, `dist/`, `apps/`, or any `*.key`. Anything new in the repo stays excluded by default (fail-safe).
+
+Deploy to the server `apps.hop3.cloud` actually resolves to — pick it with `CONTEXT=<name>`; deploying to the wrong box means the domain won't reach it. HTTPS is mandatory on the consumer side: a node refuses a plaintext URL or an `https → http` redirect and ignores any `verify_ssl false` client setting on this path. `index.json` travels inside the tarball, so it is not served separately. (Serving the catalog some other way — object storage, a plain nginx root — also works; just place the two files at `CATALOG_SOURCE_URL`.)
+
+Then, on any node:
+
+```bash
+hop3 catalog refresh        # fetch → verify → anti-rollback → publish → reload
 ```
 
 A failed fetch or verification leaves the previously verified catalog in place and reports why — it never falls back to an empty or unverified catalog.
