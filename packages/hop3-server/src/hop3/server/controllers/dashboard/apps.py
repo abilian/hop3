@@ -16,7 +16,9 @@ from litestar.params import Body, FromPath
 from litestar.response import Redirect, Template
 
 from hop3.core.backup import BackupManager
-from hop3.orm import App, EnvVar
+from hop3.deployers.admin_bootstrap import read_admin_credential
+from hop3.lib.logging import server_log
+from hop3.orm import App, AppAdminCredentialRepository, EnvVar
 from hop3.orm.repositories import (
     AddonCredentialRepository,
     AppRepository,
@@ -29,7 +31,7 @@ from hop3.server.lib.database import get_session
 from .helpers import (
     get_addons_for_app,
     get_app_or_none,
-    get_app_state_dict,
+    get_display_state,
     get_worker_count,
 )
 
@@ -212,7 +214,7 @@ class AppsController(Controller):
             ctx = {
                 "app": {
                     "name": app.name,
-                    "state": get_app_state_dict(app),
+                    "state": get_display_state(app),
                     "port": app.port,
                     "hostname": app.hostname,
                     "created_at": app.created_at,
@@ -226,10 +228,47 @@ class AppsController(Controller):
                     "env_var_count": len(app.env_vars),
                 },
                 "addons": addons,
+                # Existence only — the password itself is revealed on its own
+                # page, so it never renders on a routinely-loaded (or
+                # screen-shared) page. Checked without decrypting.
+                "has_admin_credential": AppAdminCredentialRepository(
+                    session=db_session
+                ).get_by_app_id(app.id)
+                is not None,
                 "now": datetime.now(timezone.utc),
             }
 
         return Template(template_name="dashboard/app_detail.html", context=ctx)
+
+    @get("/{app_name:str}/credentials", sync_to_thread=False)
+    def app_credentials(self, app_name: FromPath[str]) -> Template | Redirect:
+        """
+        Reveal the app's initial admin credential (ADR 056).
+
+        The dashboard counterpart of `hop3 app credentials`: without it a
+        web-only operator who installs an app from the catalog can reach its
+        login page with no way to get in, because the credential is printed into
+        the deploy log exactly once and never again.
+        """
+        with get_session() as db_session:
+            app = get_app_or_none(db_session, app_name)
+
+            if not app:
+                return Redirect(path="/dashboard")
+
+            cred = read_admin_credential(app, db_session)
+            if cred is not None:
+                # Same lightweight audit as the CLI: a reveal is a secret read.
+                server_log.info("admin credential revealed", app_name=app.name)
+
+            ctx = {
+                "app_name": app.name,
+                "url": app.hostname and f"https://{app.hostname}/",
+                "cred": cred,
+                "now": datetime.now(timezone.utc),
+            }
+
+        return Template(template_name="dashboard/app_credentials.html", context=ctx)
 
     @get("/{app_name:str}/status", sync_to_thread=False)
     def app_status(self, app_name: FromPath[str]) -> Template:
@@ -250,7 +289,7 @@ class AppsController(Controller):
 
             ctx = {
                 "app": {
-                    "state": get_app_state_dict(app),
+                    "state": get_display_state(app),
                     "port": app.port,
                     "worker_count": worker_count,
                     "error_message": app.error_message,

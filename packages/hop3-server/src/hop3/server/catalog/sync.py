@@ -36,6 +36,7 @@ import tarfile
 import tempfile
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -193,6 +194,20 @@ def extract_verified_tarball(
         raise CatalogSyncError(msg) from e
 
 
+@dataclass(frozen=True, slots=True)
+class CatalogInstallResult:
+    """
+    Outcome of installing a catalog tarball.
+
+    ``changed`` is False when the source already published the serial we hold:
+    nothing was written, and there is nothing wrong — callers report "up to
+    date" rather than an error.
+    """
+
+    serial: int
+    changed: bool
+
+
 def install_catalog_tarball(
     tarball_path: Path,
     signature_text: str,
@@ -202,13 +217,15 @@ def install_catalog_tarball(
     *,
     max_uncompressed: int = MAX_UNCOMPRESSED_BYTES,
     max_members: int = MAX_MEMBERS,
-) -> int:
+) -> CatalogInstallResult:
     """
     Verify, anti-rollback-check, and atomically publish a catalog tarball.
 
-    Returns the published ``serial``. Raises ``CatalogSyncError`` /
-    ``CatalogVerificationError`` on any failure, leaving the previously published
-    catalog untouched.
+    Returns the resulting serial and whether anything was published (a source
+    that still offers the installed serial is a no-op, not a failure). Raises
+    ``CatalogSyncError`` / ``CatalogVerificationError`` on any real failure —
+    including an OLDER serial, the actual rollback case — leaving the previously
+    published catalog untouched.
     """
     tarball_bytes = tarball_path.read_bytes()
     verify_minisign(tarball_bytes, signature_text, public_key)
@@ -235,10 +252,17 @@ def install_catalog_tarball(
         # race the swap/GC (SYNC-1/SYNC-2).
         with _exclusive_lock(state_root):
             hwm = read_high_water_mark(state_root)
-            if serial <= hwm:
+            # Already current is a NO-OP, not a failure: the source simply has
+            # not re-published since the last refresh. Report it as an outcome
+            # so the caller can say "up to date" instead of raising, which read
+            # as a rollback attempt for something entirely routine.
+            if serial == hwm:
+                return CatalogInstallResult(serial=serial, changed=False)
+            # An older serial is the real anti-rollback case — refuse it.
+            if serial < hwm:
                 msg = (
-                    f"Catalog refused: serial {serial} is not newer than the "
-                    f"installed serial {hwm} (possible rollback)"
+                    f"Catalog refused: serial {serial} is older than the "
+                    f"installed serial {hwm} (rollback)"
                 )
                 raise CatalogSyncError(msg)
 
@@ -246,7 +270,7 @@ def install_catalog_tarball(
             published = True
             write_high_water_mark(state_root, serial)
             _gc_old_versions(parent, catalog_root=catalog_root, keep_serial=serial)
-        return serial
+        return CatalogInstallResult(serial=serial, changed=True)
     finally:
         if not published and staging.exists():
             _rmtree(staging)

@@ -531,6 +531,20 @@ class App(BigIntAuditBase):
 
         Transitions: STOPPED -> STARTING (RUNNING verified by sync_state)
         """
+        # An app that never deployed successfully has no artifact to run: its
+        # venv/image is absent or half-built, so spawning it can only produce a
+        # doomed process and a generic "failed to start within 60s" — burying
+        # the real cause (e.g. "unpinned requirements") that the build already
+        # reported. Refuse, and point at the build log.
+        if self.last_deployed_at is None:
+            msg = (
+                f"App '{self.name}' can't start: it has never deployed "
+                f"successfully, so there is nothing built to run. Check the "
+                f"build failure with `hop3 app build-logs --app {self.name}`, "
+                f"fix it, then `hop3 deploy`."
+            )
+            raise StateTransitionError(msg)
+
         # Transition to STARTING state
         self._transition_state(AppStateEnum.STARTING)
 

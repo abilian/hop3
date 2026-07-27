@@ -10,7 +10,11 @@ import pytest
 
 from hop3.server.catalog import loader
 from hop3.server.catalog.loader import load_apps
-from hop3.server.catalog.policy import CatalogSpecError, validate_catalog_spec
+from hop3.server.catalog.policy import (
+    CatalogSpecError,
+    validate_catalog_app_files,
+    validate_catalog_spec,
+)
 
 
 def test_spec_without_domains_is_allowed():
@@ -73,3 +77,43 @@ def test_loader_excludes_violating_app_loudly(tmp_path):
 
     assert {a.id for a in apps} == {"good"}  # violator excluded
     assert any("hijacker" in r.getMessage() for r in records)  # surfaced, not silent
+
+
+# Buildability gate — a blueprint that cannot build must not ship
+
+
+def test_unpinned_requirements_are_rejected_at_publish(tmp_path):
+    """
+    Regression: the catalog shipped bugsink with `gunicorn>=21.0`.
+
+    The Python toolchain refuses unpinned requirements as unreproducible, so the
+    build aborted on the node — leaving an empty venv, `gunicorn: not found`,
+    and a generic start timeout. Catch it in the release, not in every install.
+    """
+    app_dir = tmp_path / "bugsink"
+    app_dir.mkdir()
+    (app_dir / "requirements.txt").write_text(
+        "bugsink==2.1.2\ngunicorn>=21.0\npsycopg2-binary>=2.9\n"
+    )
+
+    with pytest.raises(CatalogSpecError, match=r"unpinned requirements\.txt"):
+        validate_catalog_app_files(app_dir, "bugsink")
+
+
+def test_pinned_requirements_pass(tmp_path):
+    app_dir = tmp_path / "bugsink"
+    app_dir.mkdir()
+    (app_dir / "requirements.txt").write_text(
+        "bugsink==2.1.2\ngunicorn==25.1.0\npsycopg2-binary==2.9.12\n"
+    )
+
+    validate_catalog_app_files(app_dir, "bugsink")  # must not raise
+
+
+def test_app_without_requirements_is_not_gated(tmp_path):
+    """Non-Python blueprints (PHP, static, nix) have no requirements.txt."""
+    app_dir = tmp_path / "wordpress"
+    app_dir.mkdir()
+    (app_dir / "hop3.toml").write_text("[metadata]\nid = 'wordpress'\n")
+
+    validate_catalog_app_files(app_dir, "wordpress")  # must not raise

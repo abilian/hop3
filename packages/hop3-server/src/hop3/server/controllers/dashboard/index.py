@@ -13,7 +13,7 @@ from hop3.orm import AppRepository
 from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
 
-from .helpers import get_app_state_dict
+from .helpers import get_display_state
 
 
 class DashboardIndexController(Controller):
@@ -32,7 +32,7 @@ class DashboardIndexController(Controller):
             app_list = [
                 {
                     "name": app.name,
-                    "state": get_app_state_dict(app),
+                    "state": get_display_state(app),
                     "port": app.port,
                     "created_at": app.created_at.isoformat()
                     if app.created_at

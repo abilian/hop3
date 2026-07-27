@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import ipaddress
 import re
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from pydantic import (
     BaseModel,
@@ -141,6 +141,18 @@ class DeploySection(BaseModel):
             "kind: 'uwsgi', 'static', 'docker-compose', or 'auto' (default). "
             "Unknown names are rejected at deploy time against the installed "
             "deployers."
+        ),
+    )
+    allow_http: bool = Field(
+        default=False,
+        alias="allow-http",
+        description=(
+            "Serve the app over plain HTTP as well as HTTPS. Off by default: "
+            "Hop3 redirects HTTP to HTTPS, because an app told it is served "
+            "over HTTPS issues Secure session/CSRF cookies that a browser will "
+            "not send back over HTTP — logins then fail with no usable error. "
+            "Enable only for an app that must answer on HTTP (the ACME "
+            "challenge path stays on HTTP either way)."
         ),
     )
 
@@ -1213,6 +1225,15 @@ class AdminSection(BaseModel):
             "environment. Omit when the app bootstraps itself from those vars."
         ),
     )
+    login: Literal["username", "email"] | None = Field(
+        default=None,
+        description=(
+            "Which identifier the app's sign-in form takes. Only the recipe "
+            "knows: BookStack authenticates by email while its username is just "
+            "a display name, so an operator handed both credentials picks wrong "
+            "and is rejected. Omit only when the app declares just one of them."
+        ),
+    )
 
     @field_validator("email")
     @classmethod
@@ -1240,6 +1261,14 @@ class AdminSection(BaseModel):
     def _needs_an_identity(self) -> AdminSection:
         if not self.username and not self.email:
             msg = "[admin] needs at least one of `username` or `email`."
+            raise ValueError(msg)
+        # Pointing `login` at an identifier the recipe never declares would hand
+        # the operator a sign-in field that stays empty — fail at parse time.
+        if self.login == "username" and not self.username:
+            msg = "[admin].login = 'username' but no `username` is declared."
+            raise ValueError(msg)
+        if self.login == "email" and not self.email:
+            msg = "[admin].login = 'email' but no `email` is declared."
             raise ValueError(msg)
         return self
 

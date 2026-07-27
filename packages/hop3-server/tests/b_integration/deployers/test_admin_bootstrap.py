@@ -20,6 +20,7 @@ from hop3.deployers import admin_bootstrap
 from hop3.deployers.admin_bootstrap import (
     AdminBootstrapError,
     bootstrap_admin_account,
+    format_admin_credential,
     provision_admin_credential,
     read_admin_credential,
     resolve_admin_email,
@@ -206,3 +207,30 @@ def test_docker_create_fails_loud(db_session, operator):
         # Stubs are intentional: the docker guard raises before app_config's full
         # type or build_artifact is used.
         _bootstrap_admin_account(app, app_config, None, "docker-compose", db_session)  # ty: ignore[invalid-argument-type]
+
+
+def test_credential_block_marks_the_sign_in_field():
+    """
+    The reveal must name the field the app authenticates on.
+
+    Regression: BookStack lists a username and an email; signing in with the
+    username is rejected as a bad password, so an unmarked block sends the
+    operator straight into "these credentials do not match our records".
+    """
+    cred = {"username": "admin", "email": "a@b.com", "password": "pw", "login": "email"}
+    block = format_admin_credential("bookstack", "bs.example.com", cred)
+
+    email_line = next(ln for ln in block.splitlines() if "a@b.com" in ln)
+    user_line = next(ln for ln in block.splitlines() if "Username:" in ln)
+    assert "sign in with this" in email_line
+    assert "sign in with this" not in user_line
+
+
+def test_credential_block_without_a_login_hint_marks_nothing():
+    """Credentials stored before the hint existed still render cleanly."""
+    cred = {"username": "admin", "email": "a@b.com", "password": "pw"}
+    block = format_admin_credential("legacy", "l.example.com", cred)
+
+    assert "sign in with this" not in block
+    assert "admin" in block
+    assert "a@b.com" in block

@@ -109,11 +109,12 @@ def test_install_happy_path(tmp_path):
     catalog_root, state_root = _roots(tmp_path)
     tarball, sig = _signed_catalog(tmp_path, priv, serial=3)
 
-    serial = install_catalog_tarball(
+    result = install_catalog_tarball(
         tarball, sig, _pubkey_text(priv), catalog_root, state_root
     )
 
-    assert serial == 3
+    assert result.serial == 3
+    assert result.changed is True
     assert catalog_root.is_symlink()
     assert catalog_root.resolve().name == "catalog-3"
     assert (
@@ -189,11 +190,12 @@ def test_crash_recovery_republish_keeps_live_catalog(tmp_path):
     install_catalog_tarball(t2, s2, _pubkey_text(priv), catalog_root, state_root)
     (state_root / "serial").write_text("1\n")  # roll the recorded HWM back
 
-    serial = install_catalog_tarball(
+    result = install_catalog_tarball(
         t2, s2, _pubkey_text(priv), catalog_root, state_root
     )
 
-    assert serial == 2
+    assert result.serial == 2
+    assert result.changed is True
     assert catalog_root.resolve().name == "catalog-2"
     assert (catalog_root / "nextcloud" / "hop3.toml").exists()  # live dir intact
     assert read_high_water_mark(state_root) == 2
@@ -290,3 +292,27 @@ def test_fetch_rejects_non_https(tmp_path):
 
 def test_read_high_water_mark_missing_is_zero(tmp_path):
     assert read_high_water_mark(tmp_path / "nope") == 0
+
+
+def test_install_reports_an_unchanged_catalog_as_a_no_op(tmp_path):
+    """
+    Re-installing the SAME serial is "nothing new" — not an attack, not an error.
+
+    It used to raise, so `hop3 catalog refresh` printed "ERROR: refresh failed"
+    for the wholly routine case of nobody having re-published yet. An OLDER
+    serial is still refused; that is the real rollback.
+    """
+    priv = Ed25519PrivateKey.generate()
+    catalog_root, state_root = _roots(tmp_path)
+
+    t, s = _signed_catalog(tmp_path, priv, serial=7)
+    install_catalog_tarball(t, s, _pubkey_text(priv), catalog_root, state_root)
+
+    t_again, s_again = _signed_catalog(tmp_path, priv, serial=7)
+    again = install_catalog_tarball(
+        t_again, s_again, _pubkey_text(priv), catalog_root, state_root
+    )
+
+    assert again.serial == 7
+    assert again.changed is False  # nothing written, nothing raised
+    assert catalog_root.resolve().name == "catalog-7"  # still published

@@ -540,6 +540,19 @@ class Hop3Config:
             and ("from" in v or "key" in v or "external_ip" in v)
         }
 
+    @property
+    def allow_http(self) -> bool:
+        """
+        Get [deploy].allow-http — serve plain HTTP instead of redirecting.
+
+        False (the default) means nginx redirects HTTP to HTTPS, so an app's
+        Secure cookies are never dropped by a plain-HTTP request.
+        """
+        section = self._data.get("deploy", {})
+        if not isinstance(section, dict):
+            return False
+        return bool(section.get("allow-http", section.get("allow_http", False)))
+
     # =========================================================================
     # [domains] section
     # =========================================================================
