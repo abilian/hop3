@@ -22,7 +22,7 @@ A naive implementation runs into an architectural flaw worth recording, because 
 cat | HOP3_ROOT="/home/hop3" hop3-server git-hook <app_name>
 ```
 
-where the RPC command reads push data from stdin, extracts the commit to the source directory, and triggers `do_deploy()`. This fails: the server CLI (`hop3-server`) scans `hop3.server.cli` for commands, not `hop3.commands` (the RPC commands), so `hop3-server git-hook` is an unknown command. The deeper issue is conceptual placement: RPC commands exist for client-server communication, whereas a git hook is an internal server operation. Git hook handling therefore belongs in the server CLI, not among the RPC commands.
+where the RPC command reads push data from stdin, extracts the commit to the source directory, and triggers `do_deploy()`. This fails: the server CLI (`hop3-server`) scans `hop3.server.cli` for commands; `hop3.commands` (the RPC commands) is not searched, so `hop3-server git-hook` is an unknown command. The deeper issue is conceptual placement: RPC commands exist for client-server communication, whereas a git hook is an internal server operation. Git hook handling therefore belongs in the server CLI.
 
 ## Decision
 

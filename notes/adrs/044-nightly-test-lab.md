@@ -67,7 +67,7 @@ The reuse boundary is the functional core of `hop3-testing`, promoted to a stabl
 - `Catalog.scan() -> [TestSpec]`: unchanged.
 - `ResultStore`: extended with a read/query API and a Postgres backend (§ data model).
 
-The CLI becomes a headless driver of the same `Orchestrator` writing to the same store (recording `target_type` and a `mode` of `cli` vs `nightly`). Library-over-CLI because the dashboard needs *structured* results and *bundle references*, not re-parsed console text: and sharing the engine guarantees the manual and scheduled paths can never diverge.
+The CLI becomes a headless driver of the same `Orchestrator` writing to the same store (recording `target_type` and a `mode` of `cli` vs `nightly`). Library-over-CLI because the dashboard needs *structured* results and *bundle references* rather than re-parsed console text; sharing the engine guarantees the manual and scheduled paths can never diverge.
 
 ### C. Collecting all useful data: and surfacing it legibly
 

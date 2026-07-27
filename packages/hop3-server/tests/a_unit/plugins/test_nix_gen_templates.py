@@ -225,9 +225,7 @@ def test_php_app_install_files_shipped_from_recipe_dir():
     )
     output = generate(spec)
     assert "install -D ${./wp-install.php} $out/app/wp-install.php" in output
-    assert (
-        "install -D ${./scripts/helper.php} $out/app/scripts/helper.php" in output
-    )
+    assert "install -D ${./scripts/helper.php} $out/app/scripts/helper.php" in output
 
 
 def test_php_app_composer_requires_deps_hash():

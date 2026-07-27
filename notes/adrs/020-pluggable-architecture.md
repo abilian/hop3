@@ -136,7 +136,7 @@ graph TD
 
 ## Lessons Learned
 
-The initial monolithic design, while simple to start with, quickly became a bottleneck for innovation and integration. It confirmed that for a platform intended to be part of a larger ecosystem, designing for extensibility from the outset is crucial. However, the effort required to refactor the core was not significant, meaning that there is nothing wrong in prototyping with a monolith and eventually leveraging the value of adopting a decoupled, plugin-based architecture later in a project's lifecycle.
+The initial monolithic design, while simple to start with, quickly became a bottleneck for innovation and integration. It confirmed that for a platform intended to be part of a larger ecosystem, designing for extensibility from the outset is important. However, the effort required to refactor the core was not significant, meaning that there is nothing wrong in prototyping with a monolith and eventually using a decoupled, plugin-based architecture later in a project's lifecycle.
 
 ## Alternatives
 

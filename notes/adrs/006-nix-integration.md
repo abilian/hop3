@@ -164,7 +164,7 @@ A `hop3.nix` file in the application root defines how to build and run the app. 
 
 5. **Auto-Generation** (Layer 3, [ADR 008](./008-nix-builders-2.md)):
    - Generate Nix expressions from requirements.txt, package.json, etc.
-   - Leverage dream2nix, poetry2nix, or nixpacks
+   - Use dream2nix, poetry2nix, or nixpacks
 
 6. **Optimization** (Layer 4):
    - Binary cache integration
@@ -178,7 +178,7 @@ Design questions deeper in the stack (Nix-store GC, multi-app isolation, sandbox
 ### Benefits
 
 - **Deterministic Deployments**: Reproducible and reliable application deployments.
-- **Reproducibility**: Guarantees consistent outputs from the same source inputs, crucial for debugging, security, and collaboration.
+- **Reproducibility**: Guarantees consistent outputs from the same source inputs, important for debugging, security, and collaboration.
 - **Resource Efficiency**: Optimized builds and resource usage across the platform.
 - **Enhanced Security**: Simplified and secure dependency management, reducing the attack surface.
 

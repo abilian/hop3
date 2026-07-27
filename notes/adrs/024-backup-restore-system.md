@@ -76,7 +76,7 @@ Path is `HopConfig.BACKUP_ROOT` (defaults to `HOP3_ROOT/backups`). `source.tar.g
    - Alternative considered: MD5 (rejected - cryptographically broken), SHA512 (rejected - overkill)
 
 5. **Service Plugin Integration**
-   - Leverages existing `Addon` protocol
+   - Uses existing `Addon` protocol
    - Each service implements `backup()` and `restore()` methods
    - Service-specific backup format (e.g., PostgreSQL uses `pg_dump`)
    - Extensible: new services automatically support backup

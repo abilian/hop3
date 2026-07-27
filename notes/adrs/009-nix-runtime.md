@@ -31,7 +31,7 @@ The `BuildArtifact.runtime` field provides this abstraction: the run phase reads
 
 To enable the security, reliability, and operational efficiency of the Hop3 platform, it is critical to provide robust runtime isolation for the applications it hosts. While traditional containerization tools like Docker offer runtime isolation, they can introduce complexity and security vulnerabilities. Nix, with its purely functional package management system, is traditionally known for its build-time guarantees (reproducibility, determinism). However, Nix also has potential as a runtime tool, particularly in providing isolation between applications and managing services.
 
-The goal of this ADR is to evaluate and leverage Nix's capabilities to ensure isolation between running applications and to manage applications along with their backing services (such as databases, email servers, certificates, etc.) in a controlled and consistent environment. This aligns with Hop3's objective of offering a secure, reliable, and user-friendly platform.
+The goal of this ADR is to evaluate and use Nix's capabilities to ensure isolation between running applications and to manage applications along with their backing services (such as databases, email servers, certificates, etc.) in a controlled and consistent environment. This aligns with Hop3's objective of offering a secure, reliable, and user-friendly platform.
 
 ### Architectural Context
 
@@ -134,7 +134,7 @@ Here is the current thinking on how Nix can be used to manage services:
 
 #### \*Automatic Service Management (with `systemd`)
 
-- **Systemd Integration**: Nix (on NixOS) integrates seamlessly with `systemd`, the default service manager for Linux, to handle the automatic starting, stopping, and restarting of services. Each service is tied to a systemd unit file that is generated automatically by Nix. This ensures that services like PostgreSQL or an email server are automatically started when needed and are properly managed (restarted in case of failure, stopped on shutdown, etc.).
+- **Systemd Integration**: Nix (on NixOS) integrates directly with `systemd`, the default service manager for Linux, to handle the automatic starting, stopping, and restarting of services. Each service is tied to a systemd unit file that is generated automatically by Nix. This ensures that services like PostgreSQL or an email server are automatically started when needed and are properly managed (restarted in case of failure, stopped on shutdown, etc.).
 
 - **Service Dependencies**: Nix can declaratively manage service dependencies. For example, if an application depends on a PostgreSQL database or an email server, Nix can ensure that those services are started before the application starts. This lifecycle management ensures that services are always available when needed.
 
@@ -154,7 +154,7 @@ Here is the current thinking on how Nix can be used to manage services:
 
 #### Managing Data Migrations and Backups
 
-- **Database Migrations**: Nix can manage migrations by defining version-specific configurations for services like PostgreSQL. Since Nix tracks dependencies and versions precisely, it can ensure that database migrations are applied at the correct time during the upgrade or deployment process. This ensures seamless upgrades of both applications and the databases they depend on.
+- **Database Migrations**: Nix can manage migrations by defining version-specific configurations for services like PostgreSQL. Since Nix tracks dependencies and versions precisely, it can ensure that database migrations are applied at the correct time during the upgrade or deployment process. This ensures smooth upgrades of both applications and the databases they depend on.
 - **Backups and Restores**: With Nix, the configuration for backup services can be defined declaratively, ensuring consistent and automated backup schedules for databases or other services. Nix can integrate with existing backup tools to provide version-controlled and reliable backup solutions for databases, ensuring that they can be restored in case of data loss.
 
 #### Reproducible Runtime Environments
@@ -209,6 +209,7 @@ Here is the current thinking on how Nix can be used to manage services:
 
 ## Risks
 
-- **Integration Complexity**: Nix’s role as a runtime isolation tool is still less mature than its build-time capabilities. Ensuring that Nix provides adequate runtime isolation across a wide range of applications and services might be challenging. To mitigate this, Hop3 will leverage `systemd` and other NixOS tools known to manage services effectively.
+- **Integration Complexity**: Nix’s role as a runtime isolation tool is still less mature than its build-time capabilities. Ensuring that Nix provides adequate runtime isolation across a wide range of applications and services might be challenging. To mitigate this, Hop3 will use `systemd` and other NixOS tools known to manage services effectively.
 - **Service Interoperability**: Managing backing services like databases and certificates using Nix could face challenges when integrating with legacy or complex services. Mitigation includes extensive testing and community feedback to ensure compatibility.
 - **Runtime Performance**: Using Nix to manage the runtime environment might introduce performance overhead, especially in complex deployments with many services. Continuous performance optimization and monitoring are essential to minimize this impact.
+t.

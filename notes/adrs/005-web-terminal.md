@@ -434,7 +434,7 @@ max_memory = 536870912  # 512MB
 ### 1. SSH-based Terminal (Wetty/ttyd)
 
 **Pros:**
-- Leverage existing SSH infrastructure
+- Use existing SSH infrastructure
 - Standard protocol, well-tested
 - No new server-side code
 
