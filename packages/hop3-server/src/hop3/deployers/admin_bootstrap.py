@@ -100,6 +100,11 @@ def provision_admin_credential(app: App, admin: dict, db_session: Session) -> No
                 "username": username,
                 "email": email,
                 "password": password,
+                # Which identifier the app's sign-in form takes, so the reveal
+                # can name it instead of listing both and letting the operator
+                # guess wrong. Recorded here (not re-read from the recipe) so
+                # the stored credential stays self-describing.
+                "login": admin.get("login") or "",
             }),
             source="generated",
             bootstrapped=False,
@@ -184,10 +189,16 @@ def format_admin_credential(app_name: str, host_name: str, cred: dict) -> str:
     else:
         url = "(no public URL — reachable only on its loopback port)"
     lines = [f"Admin account for '{app_name}'", f"  URL:      {url}"]
+    # Mark the field the app's sign-in form actually takes. Listing username and
+    # email side by side reads as a choice, and picking the one the app does not
+    # authenticate on is rejected as a bad password.
+    login = cred.get("login") or ""
     if cred.get("username"):
-        lines.append(f"  Username: {cred['username']}")
+        mark = "  <- sign in with this" if login == "username" else ""
+        lines.append(f"  Username: {cred['username']}{mark}")
     if cred.get("email"):
-        lines.append(f"  Email:    {cred['email']}")
+        mark = "  <- sign in with this" if login == "email" else ""
+        lines.append(f"  Email:    {cred['email']}{mark}")
     lines.append(f"  Password: {cred['password']}")
     created = cred.get("created_at")
     when = created.strftime("%Y-%m-%d") if created else "install"

@@ -103,14 +103,15 @@ def test_refresh_end_to_end(tmp_path, monkeypatch):
     monkeypatch.setattr(refresh_module, "fetch_to", fake_fetch)
     monkeypatch.setattr(service_module, "_default_catalog_dir", lambda: catalog_root)
 
-    serial = refresh_catalog(
+    result = refresh_catalog(
         source_url="https://apps.hop3.cloud/catalog/catalog.tar.gz",
         public_key=_pubkey_text(priv),
         catalog_root=catalog_root,
         state_root=state_root,
     )
 
-    assert serial == 1
+    assert result.serial == 1
+    assert result.changed is True
     svc = CatalogService.get_instance()
     assert svc.is_available()
     assert {a.id for a in svc.list_apps()} == {"nextcloud"}

@@ -39,7 +39,11 @@ import tomllib
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from .policy import CatalogSpecError, validate_catalog_spec
+from .policy import (
+    CatalogSpecError,
+    validate_catalog_app_files,
+    validate_catalog_spec,
+)
 from .verify import sha256_file
 
 _ALGO_PREHASHED = b"ED"  # minisign: signature is over BLAKE2b-512 of the content
@@ -126,6 +130,7 @@ def build_index(content_dir: Path, serial: int) -> dict:
         app_id = data.get("metadata", {}).get("id", app_dir.name)
         try:
             validate_catalog_spec(data, app_id)
+            validate_catalog_app_files(app_dir, app_id)
         except CatalogSpecError as e:
             raise PublishError(str(e)) from e
 

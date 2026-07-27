@@ -28,6 +28,7 @@ from hop3.deployers.env_provisioning import (
     resolve_env_refs,
     set_computed_env_vars,
     set_default_env_vars,
+    set_env_vars,
     set_generated_env_vars,
     set_public_url_env,
 )
@@ -39,6 +40,7 @@ from hop3.deployers.waf import configure_waf_preflight, start_waf_proxy
 from hop3.lib import Abort, Diagnosis, abort_with_diagnosis, log, log_diagnosis, shell
 from hop3.lib.logging import server_log
 from hop3.orm.app import AppStateEnum
+from hop3.plugins.proxy._policy import ALLOW_HTTP_KEY
 from hop3.project.config import AppConfig
 
 if TYPE_CHECKING:
@@ -1097,6 +1099,13 @@ def _process_config_dependencies(
         _apply_domains_to_host_name(
             app, domains_config, hop3_config.domains_policy, db_session
         )
+
+    # Translate [deploy].allow-http into the canonical flag every proxy reads
+    # (nginx/caddy/traefik share it via should_redirect_to_https), so the recipe
+    # declares the intent once regardless of which proxy is installed. Written
+    # on every deploy rather than keep-existing, so dropping `allow-http` from
+    # the recipe actually restores the redirect.
+    set_env_vars(app, {ALLOW_HTTP_KEY: str(hop3_config.allow_http).lower()}, db_session)
 
     # Expose the app's canonical public URL (HOP3_PUBLIC_URL = https://<host>)
     # now that HOST_NAME is settled, so recipes can reference ${HOP3_PUBLIC_URL}

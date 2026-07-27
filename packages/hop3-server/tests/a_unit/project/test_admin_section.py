@@ -10,7 +10,7 @@ import tomllib
 from pydantic import ValidationError
 
 from hop3.project.hop3_config import Hop3Config
-from hop3.project.schema import Hop3TomlSchema
+from hop3.project.schema import AdminSection, Hop3TomlSchema
 
 
 def _validate(admin_toml: str) -> Hop3TomlSchema:
@@ -78,3 +78,68 @@ def test_hop3config_admin_getter():
 def test_hop3config_admin_getter_absent():
     cfg = Hop3Config(_data=tomllib.loads('[metadata]\nid = "x"\n'))
     assert cfg.admin == {}
+
+
+# [admin].login — which identifier the app's sign-in form takes
+
+
+def test_admin_login_accepts_username_and_email():
+    assert (
+        AdminSection(
+            username="admin", password={"generate": "password"}, login="username"
+        ).login
+        == "username"
+    )
+    assert (
+        AdminSection(
+            email="a@b.com", password={"generate": "password"}, login="email"
+        ).login
+        == "email"
+    )
+
+
+def test_admin_login_defaults_to_unset():
+    """Unset keeps the old display (both listed) — no migration needed."""
+    section = AdminSection(username="admin", password={"generate": "password"})
+    assert section.login is None
+
+
+def test_admin_login_rejects_an_undeclared_identifier():
+    """
+    Pointing `login` at an identifier the recipe never declares must fail loud.
+
+    Otherwise the reveal names a sign-in field that has no value behind it.
+    """
+    with pytest.raises(ValidationError, match="no `email` is declared"):
+        AdminSection(username="admin", password={"generate": "password"}, login="email")
+
+    with pytest.raises(ValidationError, match="no `username` is declared"):
+        AdminSection(
+            email="a@b.com", password={"generate": "password"}, login="username"
+        )
+
+
+def test_admin_login_rejects_an_unknown_value():
+    with pytest.raises(ValidationError):
+        AdminSection(
+            username="admin", password={"generate": "password"}, login="nickname"
+        )
+
+
+# [deploy].allow-http
+
+
+def test_deploy_allow_http_defaults_to_false():
+    """Default is the HTTPS redirect, so recipes need declare nothing."""
+    config = Hop3Config.from_str("[build]\nbuilder = 'local'\n")
+    assert config.allow_http is False
+
+
+def test_deploy_allow_http_is_read_from_the_recipe():
+    config = Hop3Config.from_str("[deploy]\nallow-http = true\n")
+    assert config.allow_http is True
+
+
+def test_deploy_allow_http_accepts_the_schema():
+    """The kebab-case alias must validate (extra='forbid' otherwise rejects)."""
+    Hop3TomlSchema.model_validate({"deploy": {"allow-http": True}})

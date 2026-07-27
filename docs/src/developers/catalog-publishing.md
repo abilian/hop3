@@ -48,6 +48,8 @@ hop3-catalog publish apps/ --key keys/catalog.key --out-dir dist/ --serial $(dat
 
 `publish` validates every spec through the coexistence gate **before signing** — a spec that pins the nginx catch-all host `"_"` or a wildcard host is rejected here, because it would hijack the reverse-proxy default server and shadow every other app on a node. The tarball is built from the generated `index.json`, so the published tree is exactly the signed file set.
 
+`--serial` must **strictly increase** on every republish a node will fetch: a node records the highest serial it has installed (`CATALOG_STATE_ROOT/serial`) and refuses anything less than or equal to it as a rollback. The `$(date +%s)` default is naturally monotonic — but two `make build` runs in the same second, or a machine whose clock has moved backward, collide, and the node then silently rejects the newer tarball as a rollback. Pass `--serial` explicitly when you need to guarantee the increment.
+
 ## 3. Verify before deploying — `make verify`
 
 `make verify` confirms the freshly-built artifact verifies against the public key — it catches a wrong or rotated signing key *before* anything ships. `make publish` runs it between `build` and `deploy`.
@@ -76,6 +78,13 @@ ignore = ["**", "!/public/", "!/public/**", "!/hop3.toml"]
 so the upload contains **only** `public/` + `hop3.toml` — never `keys/`, `dist/`, `apps/`, or any `*.key`. Anything new in the repo stays excluded by default (fail-safe).
 
 Deploy to the server `apps.hop3.cloud` actually resolves to — pick it with `CONTEXT=<name>`; deploying to the wrong box means the domain won't reach it. HTTPS is mandatory on the consumer side: a node refuses a plaintext URL or an `https → http` redirect and ignores any `verify_ssl false` client setting on this path. `index.json` travels inside the tarball, so it is not served separately. (Serving the catalog some other way — object storage, a plain nginx root — also works; just place the two files at `CATALOG_SOURCE_URL`.)
+
+**Confirm the deploy took.** `hop3 deploy` reporting success only means the upload landed — not that the domain now serves your new bytes. A wrong `CONTEXT`, or a cache in front of the host, would leave the *old* catalog live while the release looked green. Check the live artifact against what you signed before announcing:
+
+```bash
+curl -fsSL https://apps.hop3.cloud/catalog/catalog.tar.gz | sha256sum
+sha256sum dist/catalog.tar.gz            # the two hashes must match
+```
 
 Then, on any node:
 

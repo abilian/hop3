@@ -40,7 +40,7 @@ def test_published_catalog_installs_and_verifies(tmp_path):
 
     catalog_root = tmp_path / "home" / "catalog"
     state_root = tmp_path / "home" / "catalog-state"
-    serial = install_catalog_tarball(
+    result = install_catalog_tarball(
         out["tarball"],
         out["signature"].read_text(),
         pub_text,
@@ -48,7 +48,7 @@ def test_published_catalog_installs_and_verifies(tmp_path):
         state_root,
     )
 
-    assert serial == 7
+    assert result.serial == 7
     assert catalog_root.resolve().name == "catalog-7"
     assert (catalog_root / "nextcloud" / "hop3.toml").read_text() == APP_TOML
     assert read_high_water_mark(state_root) == 7

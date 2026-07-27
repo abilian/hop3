@@ -285,3 +285,18 @@ def stream_context(stream: DeploymentStream) -> Iterator[DeploymentStream]:
         yield stream
     finally:
         _local.current_stream = old_stream
+
+
+def has_active_deploy(app_name: str) -> bool:
+    """
+    Is a deploy currently in flight for ``app_name``?
+
+    The app's row still reads STOPPED while a deploy builds (there is no
+    DEPLOYING run_state — the FSM tracks the *process*, not the build), so the
+    dashboard asks this to avoid reporting a multi-minute build as "STOPPED",
+    which reads as "nothing is happening".
+    """
+    return any(
+        stream.app_name == app_name and not stream.complete
+        for stream in _streams.values()
+    )

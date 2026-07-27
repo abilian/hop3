@@ -77,8 +77,19 @@ def test_setup_backend_points_service_at_bind_address_and_port() -> None:
 # --- default (auto-HTTPS) config: router/service/rule/entrypoints/tls -----
 
 
-def test_default_config_emits_router_service_and_host_rule() -> None:
+def test_default_config_redirects_http_to_https() -> None:
+    """
+    HTTPS-only is the default: an app served on both schemes drops the Secure
+    cookies it issues, so logins over plain HTTP fail with a misleading error.
+    """
     config = rendered()
+    assert "redirectScheme:" in config
+    assert "scheme: https" in config
+
+
+def test_allow_http_emits_router_service_and_host_rule() -> None:
+    """With the redirect opted out, the plain single-router config is used."""
+    config = rendered({"HOP3_ALLOW_HTTP": "true"})
     assert "testapp-router:" in config
     assert "testapp-service:" in config
     assert 'rule: "Host(`testapp.com`)"' in config

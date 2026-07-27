@@ -282,6 +282,27 @@ _policy = "keep-existing"   # optional; "override" to overwrite on every deploy
 - An empty list (`list = []`) is a no-op: HOST_NAME is **not** unset. Use `hop3 domains clear --app <app>` to remove the binding explicitly.
 - For CRUD from the CLI, see `hop3 domains` in the CLI reference.
 
+### `[deploy]` - Deploy-Time Configuration
+
+```toml
+[deploy]
+deployer = "auto"       # optional; "uwsgi", "static", "docker-compose", or "auto"
+allow-http = false      # optional; true serves plain HTTP instead of redirecting
+```
+
+**Fields:**
+
+- `deployer` (string, optional, default `"auto"`): force a specific deployer instead of auto-selecting by artifact kind. Unknown names are rejected at deploy time against the installed deployers.
+- `allow-http` (bool, optional, default `false`): serve the app over plain HTTP as well as HTTPS.
+
+**Why `allow-http` defaults to false.** Hop3 redirects HTTP to HTTPS for every app. An app told it is served over HTTPS (via `HOP3_PUBLIC_URL`, echoed in its own `ROOT_URL` or equivalent) issues **`Secure`** session and CSRF cookies, which a browser will not send back over plain HTTP. Serving both schemes therefore gives you an app that looks healthy but whose logins fail over HTTP — typically reported by the app as "these credentials do not match our records", blaming the password rather than the scheme. Enable `allow-http` only for an app that genuinely must answer on HTTP.
+
+**Notes:**
+
+- The ACME challenge path (`/.well-known/acme-challenge`) stays on HTTP either way, so certificate issuance and renewal are unaffected.
+- The setting is honoured identically by every proxy plugin (nginx / caddy / traefik) — declare it once, whichever proxy the server runs.
+- The per-app env vars `NGINX_HTTPS_ONLY` / `CADDY_HTTPS_ONLY` / `TRAEFIK_HTTPS_ONLY` still work and take precedence, as an escape hatch.
+
 ### `[admin]` - Initial Admin Account
 
 Declares the initial admin account Hop3 bootstraps on first deploy (ADR 056), so an installed app is ready to log into instead of dropping you at a login wall with no credentials. Hop3 generates the password (strong, CSPRNG, generated-once), resolves the email, stores the credential encrypted, and surfaces it once after deploy — retrieve it later with `hop3 app credentials --app <app>`.

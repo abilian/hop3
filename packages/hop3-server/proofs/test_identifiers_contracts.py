@@ -46,9 +46,6 @@ def test_every_identifier_contract_proves() -> None:
     broken = {
         name: getattr(results.get(name), "reason", "missing")
         for name in sorted(_CONTRACTED)
-        if not (
-            isinstance(results.get(name), Proven)
-            and results[name].contract
-        )
+        if not (isinstance(results.get(name), Proven) and results[name].contract)
     }
     assert not broken, f"contracts no longer prove against the live source: {broken}"

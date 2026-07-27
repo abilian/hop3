@@ -28,8 +28,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
+from hop3.toolchains.python import unpinned_requirements
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from pathlib import Path
 
 _CATCHALL_HOST = "_"  # the nginx catch-all / default_server
 _WILDCARD = "*"
@@ -97,3 +100,36 @@ def _as_str_list(value: object) -> Iterator[str]:
         for item in value:
             if isinstance(item, str):
                 yield item
+
+
+def validate_catalog_app_files(app_dir: Path, app_id: str) -> None:
+    """
+    Reject a catalog app whose recipe cannot build on a node.
+
+    A blueprint that fails to build is worse than a missing one: the operator
+    installs it, the build aborts, and the app is left with nothing to run. The
+    build-time rules therefore belong at publish time too, where they cost the
+    release team one message instead of every user one broken install.
+
+    Currently: an unpinned ``requirements.txt``, which the Python toolchain
+    refuses as unreproducible. The rule is imported from the toolchain rather
+    than restated, so the gate cannot drift from what a node enforces.
+
+    Raises:
+        CatalogSpecError: if the app's recipe would fail its build.
+    """
+    requirements = app_dir / "requirements.txt"
+    if not requirements.exists():
+        return
+
+    unpinned = unpinned_requirements(requirements.read_text())
+    if unpinned:
+        shown = ", ".join(unpinned[:5])
+        msg = (
+            f"Catalog app {app_id!r} ships an unpinned requirements.txt "
+            f"({shown}). The Python toolchain refuses it as unreproducible, so "
+            f"this blueprint would fail its build on every node that installs "
+            f"it. Pin every dependency — `uv pip compile requirements.in -o "
+            f"requirements.txt` — and re-publish."
+        )
+        raise CatalogSpecError(msg)
