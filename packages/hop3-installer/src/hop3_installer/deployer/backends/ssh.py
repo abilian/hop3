@@ -35,23 +35,76 @@ from hop3.core.plugins import get_addon
 from hop3.orm import get_session_factory
 from hop3.orm.repositories import AddonCredentialRepository
 
+failed = []
+reclaimed = 0
+
 session = get_session_factory()()
 addons = {
     (c.addon_type, c.addon_name)
     for c in AddonCredentialRepository(session=session).list_all_with_apps()
 }
 
-if not addons:
-    print("no addons to reclaim")
-    sys.exit(0)
-
-failed = []
 for addon_type, addon_name in sorted(addons):
     try:
         get_addon(addon_type, addon_name).destroy()
         print(f"reclaimed {addon_type} {addon_name}")
+        reclaimed += 1
     except Exception as e:
         failed.append(f"{addon_type} {addon_name}: {e}")
+
+
+def sweep_unowned():
+    \"\"\"
+    Drop databases Hop3 created whose records it has since lost.
+
+    Enumerating from Hop3's own tables only finds what it still remembers, and a
+    previous --clean wiped those records while leaving the databases behind — so
+    the very orphans that break the next install are invisible to it.
+
+    They are identifiable, though: Hop3 provisions a database `<name>_<type>`
+    together with a companion role `<name>_<type>_user`, and that pair is the
+    signature. A database somebody else put on this server has no such role, so
+    it is left alone.
+    \"\"\"
+    try:
+        import mysql.connector
+
+        from hop3.plugins.mysql.admin import MySQLAdmin
+    except Exception:
+        return
+
+    try:
+        conn = mysql.connector.connect(**MySQLAdmin().get_connection_params())
+    except Exception as e:
+        failed.append(f"mysql sweep: could not connect: {e}")
+        return
+
+    cursor = conn.cursor()
+    cursor.execute(
+        \"\"\"
+        SELECT d.SCHEMA_NAME FROM information_schema.SCHEMATA d
+        WHERE d.SCHEMA_NAME LIKE '%%_mysql'
+          AND EXISTS (SELECT 1 FROM mysql.user u
+                      WHERE u.User = CONCAT(d.SCHEMA_NAME, '_user'))
+        \"\"\"
+    )
+    orphans = [row[0] for row in cursor.fetchall()]
+    for db in orphans:
+        try:
+            cursor.execute(f"DROP DATABASE IF EXISTS `{db}`")
+            cursor.execute("DROP USER IF EXISTS %s", (db + "_user",))
+            conn.commit()
+            print(f"reclaimed orphaned mysql database {db}")
+        except Exception as e:
+            failed.append(f"mysql {db}: {e}")
+    cursor.close()
+    conn.close()
+
+
+sweep_unowned()
+
+if not addons and not reclaimed:
+    print("no tracked addons to reclaim")
 
 for failure in failed:
     print(f"FAILED to reclaim {failure}", file=sys.stderr)

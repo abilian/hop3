@@ -15,6 +15,7 @@ database still records them, so the reclaim has to run BEFORE the wipe.
 
 from __future__ import annotations
 
+import inspect
 from types import SimpleNamespace
 
 import pytest
@@ -101,3 +102,42 @@ def test_a_box_without_hop3_reclaims_nothing() -> None:
 
     assert all(s is None for s in backend.stdins)
     assert WIPE in backend.commands
+
+
+def test_the_reclaim_also_sweeps_databases_hop3_has_lost_track_of() -> None:
+    """
+    Enumerating Hop3's own records only finds what it still remembers.
+
+    A previous --clean wiped those records while leaving the databases behind,
+    so the very orphans that block the next install are invisible to it — which
+    is how one server ended up with eight databases and one credential row.
+
+    They are identifiable: Hop3 provisions `<name>_<type>` together with a
+    companion role `<name>_<type>_user`, and that pair is the signature.
+    """
+    backend = _Backend(installed=True)
+
+    backend.clean()
+
+    script = next(s for s in backend.stdins if s is not None)
+    assert "sweep_unowned" in script
+    # The companion-role condition is what keeps this off databases that are
+    # not ours; without it the sweep would be a name-prefix guess.
+    assert "_user" in script
+    assert "information_schema.SCHEMATA" in script
+
+
+def test_the_sweep_runs_only_as_part_of_clean() -> None:
+    """
+    Dropping databases is only ever appropriate when wiping the installation.
+
+    `clean()` is the single caller; nothing on the ordinary deploy path may
+    reach it.
+    """
+    source = inspect.getsource(SSHDeployBackend)
+    callers = [
+        line for line in source.splitlines() if "_reclaim_addon_storage(" in line
+    ]
+    # One definition, one call — and the call is inside clean().
+    assert len(callers) == 2, callers
+    assert "self._reclaim_addon_storage()" in source
