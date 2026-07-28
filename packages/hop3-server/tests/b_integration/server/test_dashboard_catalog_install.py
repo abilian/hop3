@@ -114,3 +114,34 @@ def test_install_invalid_name_rerenders_form(test_client, deploy_calls) -> None:
     assert resp.status_code == 200  # detail page re-rendered with errors
     assert b"must" in resp.content.lower()
     assert deploy_calls == []
+
+
+def test_install_form_defaults_the_name_to_the_blueprint_id(test_client) -> None:
+    """
+    The name field arrives pre-filled with the blueprint's own id.
+
+    Matches `hop3 catalog install <id>`, which names the app after the blueprint
+    unless --app overrides it, so the web and CLI agree on the default instead
+    of the form starting empty.
+    """
+    resp = test_client.get("/dashboard/catalog/apps/nextcloud")
+
+    assert resp.status_code == 200
+    content = resp.content.decode("utf-8", errors="ignore")
+    assert 'id="app_name"' in content
+    assert 'value="nextcloud"' in content
+
+
+def test_install_form_keeps_a_rejected_name_rather_than_resetting(
+    test_client, deploy_calls
+) -> None:
+    """A validation error must not discard what the operator typed."""
+    resp = test_client.post(
+        "/dashboard/catalog/apps/nextcloud/install",
+        data={"app_name": "my-cloud!"},
+    )
+
+    assert resp.status_code == 200
+    content = resp.content.decode("utf-8", errors="ignore")
+    assert 'value="my-cloud!"' in content
+    assert deploy_calls == []
