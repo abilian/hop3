@@ -725,6 +725,8 @@ class AppLauncher:
             env_vars_keys=list(applied_env.keys()),
         )
 
+        _ensure_php_server_concurrency(env, self.workers, self.app_name)
+
         # Keep the app's port STABLE across redeploys: reuse the port already
         # persisted on the App (assigned on the first deploy) and only allocate
         # a fresh one when the app has none yet. A port that changes on every
@@ -795,3 +797,44 @@ class AppLauncher:
                 msg = f"terminating '{self.app_name:s}:{k:s}.{w:d}'"
                 log(msg, level=3, fg="yellow")
                 enabled.unlink()  # Remove the worker's configuration file
+
+
+# PHP's built-in server handles ONE request at a time unless told otherwise, and
+# `php artisan serve` is that same server. Four workers is enough to break the
+# self-request deadlock below while staying modest on a shared box.
+PHP_BUILTIN_SERVER_WORKERS = "4"
+_PHP_BUILTIN_SERVER_MARKERS = ("php -S", "artisan serve")
+
+
+def _ensure_php_server_concurrency(
+    env: dict[str, str], workers: dict[str, str], app_name: str
+) -> None:
+    """
+    Give an app on PHP's built-in server more than one worker.
+
+    `php -S` (and `php artisan serve`, which wraps it) is single-threaded. Any
+    app that makes an HTTP request to ITSELF then deadlocks: the one worker is
+    busy serving the page that is waiting for the reply, so the reply can never
+    be produced. It is not a slow page — it is a hang that ends in a gateway
+    timeout, and it looks exactly like the app being broken.
+
+    Nextcloud does this (its richdocuments app fetches its own public URL) and
+    served 504s after 60s; with workers it answered in 0.12s. Ten of the twenty
+    catalog apps run on this server, so the fix belongs here rather than in each
+    recipe.
+
+    An explicit PHP_CLI_SERVER_WORKERS in the app's [env] wins — this only
+    supplies the default that PHP itself should have.
+    """
+    if "PHP_CLI_SERVER_WORKERS" in env:
+        return
+    commands = " ".join(workers.values())
+    if not any(marker in commands for marker in _PHP_BUILTIN_SERVER_MARKERS):
+        return
+    env["PHP_CLI_SERVER_WORKERS"] = PHP_BUILTIN_SERVER_WORKERS
+    log(
+        f"Running '{app_name}' on PHP's built-in server with "
+        f"{PHP_BUILTIN_SERVER_WORKERS} workers (single-threaded by default, "
+        f"which deadlocks an app that calls itself)",
+        level=2,
+    )

@@ -36,6 +36,10 @@ def _launcher(*, artifact_env: dict, db_env: dict) -> AppLauncher:
         port=12345,  # set so make_env reuses it instead of get_free_port()
         get_runtime_env=lambda: Env(dict(db_env)),
     )
+    # make_env also inspects the start commands, to give PHP's built-in server
+    # more than one worker (it deadlocks single-threaded). Nothing here is PHP,
+    # so this just has to resolve.
+    launcher.config = SimpleNamespace(workers={})
     return launcher
 
 
