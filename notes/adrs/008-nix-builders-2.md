@@ -17,7 +17,7 @@ The NixBuilder plugin ([ADR 006](./006-nix-integration.md)) builds applications 
 The current situation creates a two-tier experience:
 
 - **With `hop3.nix`**: Content-addressed dependency graph, bandwidth-efficient updates, and a path toward reproducible builds (see [ADR 058](./058-build-reproducibility-model.md) for the precise claim). But requires Nix expertise.
-- **Without `hop3.nix`**: Fast native builds via the LocalBuilder, but no reproducibility guarantees and no content-addressed closure. This is what most developers will use.
+- **Without `hop3.nix`**: Fast native builds via the LocalBuilder, but no reproducibility guarantees and no content-addressed closure. Most developers will use this path.
 
 We want to close this gap: give developers the structural benefits of Nix (content-addressed closures, atomic upgrades, minimal update deltas) without requiring them to learn the Nix expression language.
 
@@ -25,7 +25,7 @@ We want to close this gap: give developers the structural benefits of Nix (conte
 
 The generator's output must satisfy the platform's reproducibility model, specified in [ADR 058](./058-build-reproducibility-model.md): the tier taxonomy, the two-phase vendoring pattern each ecosystem uses, how the claim is checked, and what it is scoped to. It is stated there rather than here because it also governs the native and Docker builders, which have nothing to do with generating Nix expressions.
 
-Two consequences bind this ADR. A template must vendor its ecosystem's dependency set into a fixed-output derivation and then build offline, or it does not qualify as a source build. And a template declares its tier in code, so the per-application label is derived rather than maintained by hand.
+A template must vendor its ecosystem's dependency set into a fixed-output derivation and then build offline, or it does not qualify as a source build. And a template declares its tier in code, so the per-application label is derived rather than maintained by hand.
 
 ### Fetched Software and Your Own
 
@@ -92,7 +92,7 @@ Tier 3 is a floor for an app that could be built from source; the templates that
 The two now-unused templates stay, for reasons that outlive their current consumer count:
 
 - **Quick-and-dirty packaging.** Getting an app running should not require producing a lockfile first. Pointing `prebuilt-archive` at a release tarball is the shortest path from "I want this app" to a deployment, and it is a reasonable place to stop for an internal tool nobody audits.
-- **Proprietary software.** An app distributed only as a binary cannot be source-built by anyone, at any tier. Tier 3 is not a compromise there; it is the entire available ceiling, and a PaaS that refused to express it would simply be unable to deploy that class of software.
+- **Proprietary software.** An app distributed only as a binary cannot be source-built by anyone, at any tier. Tier 3 is the ceiling, and a PaaS that refused to express it would simply be unable to deploy that class of software.
 - **The upstream ships no buildable source for the packaged version**, which is why jenkins and wiki-js remain Tier 3; nixpkgs packages both from the upstream artefact too.
 
 The tier exists to make that trade-off legible. It must never stay implicit: a Tier-3 app is deployed on trust in its publisher, and the operator is entitled to know that before deciding.

@@ -14,7 +14,7 @@ The format defines a stable core that the runtime consumes, plus forward-looking
 - **`[build]`**: `builder` (explicit override), `toolchain` (explicit override), `packages` (apt-install list), `before-build`, `build`.
 - **`[run]`**: `start`, `before-run`, `start-timeout`, `packages`.
 - **`[run.workers]`**: per-role worker commands (same-process-tree).
-- **`[env]`**: static values. Generated secrets and dynamic references (`from`/`key`, `random`) are specified declaratively in [ADR 046](./046-declarative-app-resources.md), not by this ADR.
+- **`[env]`**: static values. Generated secrets and dynamic references (`from`/`key`, `random`) are specified declaratively in [ADR 046](./046-declarative-app-resources.md).
 - **`[[addons]]`**: `type` (postgres, mysql, redis, s3) drives provisioning; per-addon parameters.
 - **`[healthcheck]`**: `path`, `timeout`; consumed by the deployer's health-check stage and by `hop3-testing`.
 - **`[nix]`**: `template`, `nixpkgs-package`, `exec-target`, `exec-args`, `extra-paths`, `pre-exec`, `local-vars`, `env-exports`, `runtime-env`, `conditional-env`, `config-files`. Drives the template generator ([ADR 008](./008-nix-builders-2.md)).
@@ -30,11 +30,11 @@ Schema validation beyond TOML parse errors, YAML/JSON alternative formats, and C
 
 ## Summary
 
-This ADR details the format and structure of the `hop3.toml` file, the primary configuration file for the Hop3 platform. Designed for simplicity, human readability, and explicitness, the `hop3.toml` format also supports YAML and JSON configurations. This document specifies the sections and fields within `hop3.toml` and their intended use.
+This ADR details the format and structure of the `hop3.toml` file, the primary configuration file for the Hop3 platform. Designed for simplicity and explicitness, the `hop3.toml` format also supports YAML and JSON configurations. This document specifies the sections and fields within `hop3.toml` and their intended use.
 
 ## Context and Goals
 
-The `hop3.toml` file is central to the Hop3 platform, serving as the primary configuration file for deploying and managing web applications. Its design aims to be simple, human-readable, and explicit. The configuration can also be written in YAML and JSON formats. This document describes the detailed format and structure of the `hop3.toml` file, which contains a limited set of metadata and configuration details necessary for the operation of the Hop3 platform.
+The `hop3.toml` file is central to the Hop3 platform, serving as the primary configuration file for deploying and managing web applications. Its design aims to be simple and explicit. The configuration can also be written in YAML and JSON formats. This document describes the detailed format and structure of the `hop3.toml` file, which contains a limited set of metadata and configuration details necessary for the operation of the Hop3 platform.
 
 ## Decision
 
@@ -55,7 +55,7 @@ The `hop3.toml` file will be used as the primary configuration format for the Ho
 
 ## Alternatives
 
-- **Single Format**: Using only `hop3.toml` format to simplify implementation but at the cost of flexibility.
+- **Single Format**: Using only `hop3.toml` format. Implementation becomes simpler; the tradeoff is reduced flexibility.
 - **Ad-hoc Methods**: Using unstructured or ad-hoc configuration methods, leading to potential inconsistencies and complexity.
 
 ## Related

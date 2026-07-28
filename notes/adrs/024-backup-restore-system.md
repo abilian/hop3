@@ -11,7 +11,7 @@ This ADR specifies the foundational implementation of Hop3's backup system. [ADR
 
 ## Context
 
-Hop3 needs a comprehensive backup and restore system to protect user applications and data. This is essential for:
+Hop3 needs a comprehensive backup and restore system to protect user applications and data.
 
 1. **Disaster Recovery**: Quickly recover from server failures, data corruption, or accidental deletions
 2. **Deployment Safety**: Allow rollback to previous versions if deployments fail

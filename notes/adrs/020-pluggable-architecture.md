@@ -23,7 +23,7 @@ The original Hop3 architecture combined the logic for building, deploying, and p
 
 1.  **Enable Extensibility:** Allow new build systems, deployment targets, and proxy servers to be added as plugins without modifying Hop3's core.
 2.  **Increase Developer Flexibility:** Empower developers to choose the optimal toolchain for their application through simple configuration.
-3.  **Improve Maintainability:** Decouple responsibilities to make the core codebase simpler, more focused, and easier to test and maintain.
+3.  **Improve Maintainability:** Decouple responsibilities to make the core codebase simpler and easier to test and maintain.
 4.  **Future-Proof the Platform:** Create a foundation that can easily adapt to new and emerging technologies in the cloud-native ecosystem.
 
 ## Tenets
@@ -141,7 +141,7 @@ The initial monolithic design, while simple to start with, quickly became a bott
 ## Alternatives
 
 1.  **Hardcoded Conditional Logic:** We could have added `if/else` blocks to the existing `Deployer` to handle different cases (e.g., `if dockerfile_exists: do_docker_build()`). This was rejected as it would lead to an unmaintainable, monolithic function and would not be extensible by third parties.
-2.  **Simple Class-Based Inheritance:** We considered a simpler system where new deployers would inherit from a base `Deployer` class. This was rejected because it lacked a formal discovery mechanism and would still require modifications to the core to register new deployer types. The `pluggy` and `entry_points` system provides a much more robust and standard solution for a true plugin ecosystem.
+2.  **Simple Class-Based Inheritance:** We considered a simpler system where new deployers would inherit from a base `Deployer` class. This was rejected because it lacked a formal discovery mechanism and would still require modifications to the core to register new deployer types. The `pluggy` and `entry_points` system provides a much more capable and standard solution for a true plugin ecosystem.
 
 ## Prior Art
 

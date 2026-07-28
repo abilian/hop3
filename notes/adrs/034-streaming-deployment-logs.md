@@ -79,7 +79,7 @@ def deploy_app(app_name: str) -> dict:
 
 ### Server-Sent Events Streaming (Primary Mode)
 
-A streaming endpoint sends build logs in real-time using Server-Sent Events (SSE). This is the production path for both deploy and app logs, and is the answer to the in-band-streaming question left open by [ADR 018](018-cli-architecture.md).
+A streaming endpoint sends build logs in real-time using Server-Sent Events (SSE), for both deploy and app logs. SSE resolves the in-band-streaming question from [ADR 018](018-cli-architecture.md).
 
 **Architecture:**
 

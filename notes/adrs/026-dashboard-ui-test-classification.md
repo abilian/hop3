@@ -133,7 +133,7 @@ def test_client(tmp_path: Path, monkeypatch):
 **Decision**: Move dashboard UI tests to `c_system/` and remove mocks.
 
 **Rationale:**
-- `App.create()` is core business logic, not just I/O
+- `App.create()` implements core business logic
 - File system operations are part of the application's contract
 - System tests should verify the full stack including persistence
 - The file system is not truly "external" - it's a primary storage mechanism
@@ -342,7 +342,7 @@ User Request → Starlette → Route Handler → Form Validation
 The testing strategy says:
 > **Integration Tests**: "Uses real database (in-memory SQLite). **No external network dependencies.**"
 
-Note: It says "network dependencies" - not "file system dependencies". This is ambiguous.
+Note: The testing strategy names "network dependencies" but is silent on file system dependencies. The boundary is ambiguous.
 
 ### From Test Development Process
 

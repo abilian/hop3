@@ -32,11 +32,11 @@ The `hop3` CLI aliases `hop` for brevity. The full command listing is available 
 
 Some commands named in the original kernel are intentionally not part of the core surface, or depend on machinery that other ADRs own:
 
-- **`build` (separate from deploy)**: builds are tied to deploy. A stand-alone `build` command is cheap to add but is not required by operators, so it is not part of the surface.
+- **`build` (separate from deploy)**: builds are tied to deploy. Operators don't need a stand-alone `build` command; it is straightforward to add if that changes, so it stays off the surface.
 - **`revert`, `upgrade` / `downgrade`**: these depend on versioned artefacts and the deployment-strategies / artefact-lifecycle machinery owned by [ADR 032](./032-deployment-strategies-artifact-lifecycle.md); they are sequenced behind that work.
 - **`new` (project scaffolding)**: operators adopt Hop3 by adding a `hop3.toml` to an existing repo, so scaffolding is low priority.
 - **`docker` (run Docker on server)**: out of scope; the server-side SSH shell covers this without a dedicated CLI wrapper.
-- **Catalog commands (`search`, `info`, `install`)**: the catalog subsystem is addressed through the web UI first; the CLI surface follows that work rather than leading it.
+- **Catalog commands (`search`, `info`, `install`)**: the catalog subsystem is addressed through the web UI first; the CLI surface follows that work.
 
 ### Ergonomics and help system
 

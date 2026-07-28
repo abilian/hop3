@@ -117,7 +117,7 @@ Each artifact includes metadata for lifecycle management. The manifest extends `
 
 #### Versioning Across the Builder Family
 
-Builders differ in how much of this lifecycle they get for free. Nix-built apps obtain versioned, immutable artifacts directly from Nix's content-addressed store, and rolling such an app back is a symlink switch between store paths. Mutable-artifact builders (the LocalBuilder + uWSGI deployer, building virtualenvs and node_modules in place) gain versioning only by adopting the explicit `artifacts/<version>/` layout and `current`/`previous` symlinks described above. The lifecycle is uniform across builders; the cost of providing it is not.
+Builders differ in how much of this lifecycle they get for free. Nix-built apps obtain versioned, immutable artifacts directly from Nix's content-addressed store, and rolling such an app back is a symlink switch between store paths. Mutable-artifact builders (the LocalBuilder + uWSGI deployer, building virtualenvs and node_modules in place) gain versioning only by adopting the explicit `artifacts/<version>/` layout and `current`/`previous` symlinks described above. The lifecycle is uniform across builders; each arrives at it by a different route.
 
 The CLI surface for this lifecycle is the `revert` command and the `upgrade`/`downgrade` commands (deferred from [ADR 019](./019-cli-commands.md)): they list, select, and switch the active artifact version using the same `current`/`previous` mechanism.
 
