@@ -37,6 +37,8 @@ class DotNetToolchain(LanguageToolchain):
 
         # Restore dependencies
         log("Restoring .NET dependencies...", level=2, fg="cyan")
+        if self._run_declared_build():
+            return None
         self.shell("dotnet restore")
 
         # Build in Release mode

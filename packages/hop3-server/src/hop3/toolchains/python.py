@@ -131,7 +131,8 @@ class PythonToolchain(LanguageToolchain):
         # Change the directory to the source path and proceed with building the project
         with chdir(self.src_path):
             self.make_virtual_env()
-            self.install_virtualenv()
+            if not self._run_declared_build():
+                self.install_virtualenv()
 
         # Compute environment variables for runtime
         env_vars = {

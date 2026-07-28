@@ -86,7 +86,10 @@ class ElixirToolchain(LanguageToolchain):
         )
 
         # Install Hex and rebar non-interactively (required before deps.get)
-        self._install_hex_and_rebar(mix_env)
+        # A declared [build].build replaces mix's own dependency fetch and
+        # compile; everything after still runs, so the artifact is produced.
+        if not self._run_declared_build(env=mix_env):
+            self._install_hex_and_rebar(mix_env)
 
         # NOTE: do NOT wipe _build/ or deps/ here. Each deploy extracts a fresh
         # src tree (the upload extractor clears it first), so there's no stale

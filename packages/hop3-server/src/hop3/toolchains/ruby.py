@@ -47,7 +47,8 @@ class RubyToolchain(LanguageToolchain):
             # --frozen refuses to install when Gemfile.lock is missing or out of
             # sync with the Gemfile, instead of silently re-resolving and
             # producing a different gem set than the one that was tested.
-            self.shell("bundle install --frozen", env=env)
+            if not self._run_declared_build(env=env):
+                self.shell("bundle install --frozen", env=env)
             log("Ruby gems installed successfully", level=2, fg="green")
 
         # Compute environment variables for runtime

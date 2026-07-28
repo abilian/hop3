@@ -47,6 +47,14 @@ class JavaToolchain(LanguageToolchain):
         """Build the Java application using Maven or Gradle."""
         log(f"Building Java application '{self.app_name}'", level=1, fg="blue")
 
+        # A declared [build].build replaces the toolchain's own maven/gradle
+        # invocation; the artifact below is still produced either way.
+        if self._run_declared_build():
+            # The recipe built it; skip maven/gradle and go straight to the
+            # artifact, exactly as declaring a build does for every other
+            # toolchain.
+            return self._make_build_artifact(kind="java")
+
         if self.is_maven:
             log("Building with Maven...", level=2, fg="cyan")
             result = self.shell("mvn -B package -DskipTests", check=False)

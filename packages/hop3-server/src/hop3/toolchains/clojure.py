@@ -73,7 +73,9 @@ class ClojureToolchain(LanguageToolchain):
         emit(BuildEvent(self.app_name, "Building Clojure Application"))
         target_path = self.src_path / "target"
         target_path.mkdir(parents=True, exist_ok=True)
-        self._build(self.get_env())
+        # A declared [build].build replaces lein/clojure's own build step.
+        if not self._run_declared_build(env=self.get_env()):
+            self._build(self.get_env())
 
         # Compute environment variables for runtime
         env_vars = {}
