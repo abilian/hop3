@@ -1,0 +1,17 @@
+# Editor validation for hop3.toml, via the Taplo TOML language server
+# (VS Code's "Even Better TOML", Neovim/Helix over LSP; JetBrains has its own
+# TOML+JSON-Schema support).
+#
+# The schema is GENERATED from the server's Pydantic models
+# (scripts/generate-toml-schema.py), so the editor and the server cannot
+# disagree about which fields exist. A test fails if the committed copy drifts.
+#
+# It checks shape only: field names, types, enum values. Cross-field rules
+# ("[admin] needs a username or an email") are Python and still run at deploy.
+
+[[rule]]
+name = "hop3.toml"
+include = ["**/hop3.toml"]
+
+[rule.schema]
+path = "schema/hop3.toml.schema.json"

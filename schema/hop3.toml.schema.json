@@ -1,0 +1,1757 @@
+{
+  "$defs": {
+    "AddonConfig": {
+      "additionalProperties": true,
+      "description": "Single addon/provider configuration.",
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Addon instance name (legacy: also used as type in older configs)",
+          "title": "Name"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Addon type: 'postgres', 'mysql', 'redis', etc.",
+          "title": "Type"
+        }
+      },
+      "title": "AddonConfig",
+      "type": "object"
+    },
+    "AdminSection": {
+      "additionalProperties": false,
+      "description": "[admin] section \u2014 an app's initial admin account (ADR 056).\n\nThe platform generates the password once (CSPRNG, stable across redeploy),\nresolves the email, injects a canonical ``HOP3_ADMIN_USER`` /\n``HOP3_ADMIN_EMAIL`` / ``HOP3_ADMIN_PASSWORD`` triple into the app's runtime\nenv, records the credential (encrypted, retrievable via ``hop3 app\ncredentials``), and runs ``create`` once post-deploy to create the account.\nThe recipe maps the canonical vars to whatever its app expects.",
+      "properties": {
+        "create": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Idempotent (create-if-absent) command run once post-deploy to create the account. Receives HOP3_ADMIN_USER/EMAIL/PASSWORD in its environment. Omit when the app bootstraps itself from those vars.",
+          "title": "Create"
+        },
+        "email": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Admin email: 'operator' -> the server's OPERATOR_EMAIL, or a literal address. Omit when the app needs no admin email.",
+          "title": "Email"
+        },
+        "login": {
+          "anyOf": [
+            {
+              "enum": [
+                "username",
+                "email"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Which identifier the app's sign-in form takes. Only the recipe knows: BookStack authenticates by email while its username is just a display name, so an operator handed both credentials picks wrong and is rejected. Omit only when the app declares just one of them.",
+          "title": "Login"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvGenerate",
+          "description": "How to generate the admin password. Always generated (never a literal), so no credential is committed to the recipe."
+        },
+        "username": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Login username; omit when the app keys admins by email.",
+          "title": "Username"
+        }
+      },
+      "required": [
+        "password"
+      ],
+      "title": "AdminSection",
+      "type": "object"
+    },
+    "BackupSection": {
+      "additionalProperties": false,
+      "description": "[backup] section - Backup configuration.",
+      "properties": {
+        "exclude": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Patterns to exclude from backups",
+          "title": "Exclude"
+        },
+        "paths": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Directories to include in backups",
+          "title": "Paths"
+        }
+      },
+      "title": "BackupSection",
+      "type": "object"
+    },
+    "BuildSection": {
+      "additionalProperties": false,
+      "description": "[build] section - Build-time configuration.",
+      "properties": {
+        "after-build": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Commands to run after build (post-build)",
+          "title": "After-Build"
+        },
+        "before-build": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Commands to run before build",
+          "title": "Before-Build"
+        },
+        "build": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Build commands",
+          "title": "Build"
+        },
+        "builder": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Builder to use: 'local', 'docker', or 'auto' (default)",
+          "title": "Builder"
+        },
+        "ignore": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Gitignore-style patterns to exclude from the `hop3 deploy` upload, on top of Hop3's built-in defaults (ADR 046 \u00a75). The canonical ignore mechanism \u2014 the `.hop3ignore` sidecar and the `ignore-file` pointer are removed.",
+          "title": "Ignore"
+        },
+        "node-version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Per-app Node.js version (installed via nodeenv into the app's virtualenv). Use when the app requires a Node newer/older than the host's system Node. Maps to NODE_VERSION env var internally.",
+          "title": "Node-Version"
+        },
+        "packages": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "System packages required for build",
+          "title": "Packages"
+        },
+        "static-dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Directory a static site serves (toolchain = 'static'), relative to the app root \u2014 e.g. 'site', 'html', 'dist'. The first-class, Procfile-free way to point a static app at its content; defaults to 'public' when unset.",
+          "title": "Static-Dir"
+        },
+        "toolchain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Language toolchain: 'python', 'node', 'ruby', 'go', 'rust', etc.",
+          "title": "Toolchain"
+        }
+      },
+      "title": "BuildSection",
+      "type": "object"
+    },
+    "ContextSection": {
+      "additionalProperties": false,
+      "description": "A single ``[contexts.<name>]`` block \u2014 one deploy environment (ADR 042 r2).\n\nA \"context\" is a (server, app, domains, env) bundle answering \"where does\n*this* project go for environment ``<name>``?\". Multiple contexts express the\ndev / staging / prod story for one codebase. Carries NO secrets: ``server``\nis a literal address (the token lives in the CLI's per-server store), and a\ncommitted-credential tripwire rejects secret-shaped values. Resolved\nCLIENT-SIDE; the deployer ignores ``[contexts.*]``.",
+      "properties": {
+        "app": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "App instance name for this environment; inherits [metadata].id when absent.",
+          "title": "App"
+        },
+        "domains": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DomainsSection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hostnames for this environment \u2014 same shape as top-level [domains] (a `list = [...]` table). Full-replaces top-level when present."
+        },
+        "env": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Non-secret env overrides; merge over top-level [env]. Secrets go server-side via `hop3 env set`, never here.",
+          "title": "Env"
+        },
+        "server": {
+          "description": "Literal address of the target Hop3 instance, e.g. ssh://root@prod.example.com. Never a symbolic name, never credentials.",
+          "title": "Server",
+          "type": "string"
+        }
+      },
+      "required": [
+        "server"
+      ],
+      "title": "ContextSection",
+      "type": "object"
+    },
+    "DeploySection": {
+      "additionalProperties": false,
+      "description": "[deploy] section - Deploy-time (runtime) configuration.",
+      "properties": {
+        "allow-http": {
+          "default": false,
+          "description": "Serve the app over plain HTTP as well as HTTPS. Off by default: Hop3 redirects HTTP to HTTPS, because an app told it is served over HTTPS issues Secure session/CSRF cookies that a browser will not send back over HTTP \u2014 logins then fail with no usable error. Enable only for an app that must answer on HTTP (the ACME challenge path stays on HTTP either way).",
+          "title": "Allow-Http",
+          "type": "boolean"
+        },
+        "deployer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Force a specific deployer instead of auto-selecting by artifact kind: 'uwsgi', 'static', 'docker-compose', or 'auto' (default). Unknown names are rejected at deploy time against the installed deployers.",
+          "title": "Deployer"
+        }
+      },
+      "title": "DeploySection",
+      "type": "object"
+    },
+    "DockerSection": {
+      "additionalProperties": false,
+      "description": "[docker] section - Docker-specific configuration.",
+      "properties": {
+        "build-args": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Docker build arguments",
+          "title": "Build-Args"
+        },
+        "port": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Container port for Docker deployments",
+          "title": "Port"
+        },
+        "runtime": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Docker runtime: 'docker' (default) or 'docker-compose'",
+          "title": "Runtime"
+        }
+      },
+      "title": "DockerSection",
+      "type": "object"
+    },
+    "DomainsSection": {
+      "additionalProperties": false,
+      "description": "[domains] section - First-class declaration of an app's hostnames.\n\nTranslates at deploy time into the HOST_NAME env var, which the reverse-\nproxy plugins (nginx/caddy/traefik) read. Mirrors the [env] policy model:\nby default values are treated as defaults (keep-existing); set\n``_policy = \"override\"`` to update HOST_NAME on every deploy.",
+      "properties": {
+        "_policy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Merge policy: 'keep-existing' (default) or 'override'.",
+          "title": "Policy"
+        },
+        "list": {
+          "description": "Hostnames to bind to this app, in declaration order.",
+          "items": {
+            "type": "string"
+          },
+          "title": "List",
+          "type": "array"
+        }
+      },
+      "required": [
+        "list"
+      ],
+      "title": "DomainsSection",
+      "type": "object"
+    },
+    "EnvGenerate": {
+      "additionalProperties": false,
+      "description": "An `[env]` value the platform generates once on first deploy (ADR 046).\n\nReplaces the per-app ``hop3 deploy --env KEY=$(...)`` workaround for apps\nthat need a secret/key to exist before first boot (Phoenix SECRET_KEY_BASE,\nLaravel APP_KEY, Rails secret_key_base). The value is generated with a\nCSPRNG when the var is unset, persisted as a normal app env var, and never\nregenerated on redeploy (generated-once).",
+      "properties": {
+        "display": {
+          "default": false,
+          "description": "Surface the value once in deploy output (bootstrap creds).",
+          "title": "Display",
+          "type": "boolean"
+        },
+        "generate": {
+          "description": "Generator: 'hex', 'base64', 'urlsafe', 'password', or 'uuid'.",
+          "title": "Generate",
+          "type": "string"
+        },
+        "length": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Entropy size: bytes for hex/base64/urlsafe, characters for password. Ignored for uuid. Per-generator default when omitted.",
+          "title": "Length"
+        },
+        "prefix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Literal string prepended to the value (e.g. 'base64:').",
+          "title": "Prefix"
+        }
+      },
+      "required": [
+        "generate"
+      ],
+      "title": "EnvGenerate",
+      "type": "object"
+    },
+    "HealthcheckSection": {
+      "additionalProperties": false,
+      "description": "[healthcheck] section - Health monitoring configuration.",
+      "properties": {
+        "contains": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Expected substring in the health-check response body. When set, the app counts as ready only once the endpoint returns a body containing it \u2014 a status-only 200 can be a placeholder, an error page, or another app's default_server content.",
+          "title": "Contains"
+        },
+        "interval": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Check interval in seconds",
+          "title": "Interval"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Health check HTTP path",
+          "title": "Path"
+        },
+        "retries": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Number of retries before marking unhealthy",
+          "title": "Retries"
+        },
+        "timeout": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Timeout in seconds",
+          "title": "Timeout"
+        }
+      },
+      "title": "HealthcheckSection",
+      "type": "object"
+    },
+    "LimitsSection": {
+      "additionalProperties": false,
+      "description": "[limits] section \u2014 per-app resource caps (ADR 046 \u00a73).\n\nA declared limit is a safety guarantee: if the platform can't enforce it the\ndeploy aborts rather than running an app that only *looks* capped. Today\nenforcement is implemented for the Docker builder (compose mem_limit / cpus /\npids_limit); native/Nix enforcement needs cgroups via hop3-rootd and isn't\navailable yet, so [limits] on a non-Docker app fails loud at deploy.",
+      "properties": {
+        "cpu": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "CPU cores, fractional allowed (e.g. 1.5).",
+          "title": "Cpu"
+        },
+        "memory": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hard memory cap, e.g. '512M' or '1G'.",
+          "title": "Memory"
+        },
+        "processes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Max processes/threads (pids cap).",
+          "title": "Processes"
+        }
+      },
+      "title": "LimitsSection",
+      "type": "object"
+    },
+    "MetadataSection": {
+      "additionalProperties": false,
+      "description": "[metadata] section - Application identity and catalog info.",
+      "properties": {
+        "author": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Author"
+        },
+        "categories": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Categories"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "homepage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Homepage"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "License"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tags"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "title": "MetadataSection",
+      "type": "object"
+    },
+    "PortConfig": {
+      "additionalProperties": false,
+      "description": "Port configuration for a single port (full format).",
+      "properties": {
+        "container": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Internal container port",
+          "title": "Container"
+        },
+        "https": {
+          "default": true,
+          "description": "Whether HTTPS is enabled",
+          "title": "Https",
+          "type": "boolean"
+        },
+        "public": {
+          "default": true,
+          "description": "Whether the port is publicly accessible",
+          "title": "Public",
+          "type": "boolean"
+        }
+      },
+      "title": "PortConfig",
+      "type": "object"
+    },
+    "PortDeclaration": {
+      "additionalProperties": false,
+      "description": "A single [[ports]] entry \u2014 one fixed network port the app binds directly.\n\nFor non-HTTP services (SMTP, XMPP, RTMP, Matrix federation, \u2026) there is no\nreverse proxy or virtual hosting: the app binds the host port itself, so\nexactly one app can own a given (number, protocol) on the host. Declaring\nit lets Hop3 register the claim, refuse a conflicting second app up front,\nand open/close the firewall for it. The HTTP port stays dynamic (``$PORT``,\nproxied by nginx) and must NOT be declared here.",
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional label for diagnostics (e.g. 'rtmp', 'federation').",
+          "title": "Name"
+        },
+        "number": {
+          "description": "Port number (1-65535, excluding 22/80/443).",
+          "title": "Number",
+          "type": "integer"
+        },
+        "protocol": {
+          "default": "tcp",
+          "description": "Transport protocol: 'tcp' or 'udp'.",
+          "title": "Protocol",
+          "type": "string"
+        },
+        "source": {
+          "default": "any",
+          "description": "Who may reach the port: 'any' (the whole internet, default) or an IPv4 CIDR (e.g. '10.0.0.0/8') to restrict it to a network. IPv6 sources are not supported yet.",
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "number"
+      ],
+      "title": "PortDeclaration",
+      "type": "object"
+    },
+    "ProbeSection": {
+      "additionalProperties": false,
+      "description": "[probe] section \u2014 a Hop3-owned account used to verify the app keeps working.\n\nThe [admin] credential is handed to the operator, so Hop3 stops owning it the\nmoment they change the password: a later sign-in failure could equally mean\nthe app broke or the password moved, and from outside those are the same\nobservation. A probe account nobody else uses removes that ambiguity \u2014 its\npassword is Hop3's to rotate, so a failed probe sign-in means the app broke.\n\nIt exists to exercise the FULL dynamic path \u2014 app code, session, database,\npassword verification \u2014 which no unauthenticated request reaches: a login\npage renders fine with a dead database, and may not even be dynamic.\n\nDeliberately NOT an administrator: signing in is the entire diagnostic value,\nand a plain account carries a fraction of the privilege. Omit the section\nentirely for an app whose data is sensitive enough that no standing Hop3\naccount is acceptable \u2014 the check then verifies the handover only, and says\nso rather than silently testing less.",
+      "properties": {
+        "create": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Idempotent (create-if-absent) command that creates the account. Receives HOP3_PROBE_USER/EMAIL/PASSWORD in its environment. Omit when the app bootstraps it from those vars itself.",
+          "title": "Create"
+        },
+        "email": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Email for the probe account, when the app requires one. A literal address; unlike [admin].email this is never the operator's, since the account is Hop3's and receives nothing.",
+          "title": "Email"
+        },
+        "username": {
+          "default": "hop3probe",
+          "description": "Login name for the probe account. Avoid names an app reserves (Gitea and Forgejo reject 'admin', while still exiting 0).",
+          "title": "Username",
+          "type": "string"
+        }
+      },
+      "title": "ProbeSection",
+      "type": "object"
+    },
+    "RunSection": {
+      "additionalProperties": false,
+      "description": "[run] section - Runtime configuration.",
+      "properties": {
+        "before-run": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Commands to run before starting the app",
+          "title": "Before-Run"
+        },
+        "healthcheck": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Health check HTTP path",
+          "title": "Healthcheck"
+        },
+        "healthcheck-timeout": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Health check timeout in seconds",
+          "title": "Healthcheck-Timeout"
+        },
+        "packages": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "System packages required at runtime",
+          "title": "Packages"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Start command for the web process",
+          "title": "Start"
+        },
+        "start-timeout": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum time to wait for app to start (seconds)",
+          "title": "Start-Timeout"
+        },
+        "static": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Static file path mappings (URL path -> filesystem path)",
+          "title": "Static"
+        },
+        "workers": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Named worker processes (worker, scheduler, cron, etc.)",
+          "title": "Workers"
+        }
+      },
+      "title": "RunSection",
+      "type": "object"
+    },
+    "TestSection": {
+      "additionalProperties": false,
+      "description": "[test] section \u2014 test-harness-specific fields.\n\nEverything the test harness needs that cannot be derived from the rest\nof hop3.toml. Fields like name / description / category / services /\ndeployment type are derived (from metadata, build.builder, addons).\n\nReplaces the separate `test.toml` file \u2014 one source of truth per app.",
+      "properties": {
+        "author": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Author"
+        },
+        "covers": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free-form tags listing what the test exercises.",
+          "title": "Covers"
+        },
+        "expects-failure": {
+          "default": false,
+          "description": "Negative test case: the deploy is expected to fail. The runner treats a failed deploy as PASS and an unexpected successful deploy as FAIL. Used for ADR 039 Python-toolchain rejection paths and similar intentional-failure fixtures.",
+          "title": "Expects-Failure",
+          "type": "boolean"
+        },
+        "priority": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Test priority: 'P0' | 'P1' | 'P2'. Selects which profile runs it.",
+          "title": "Priority"
+        },
+        "targets": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Test targets this app supports: 'docker' | 'remote'.",
+          "title": "Targets"
+        },
+        "tier": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Test-tier label, used in reports only (no longer drives any timeout). Values: 'fast' | 'medium' | 'slow' | 'very-slow'.",
+          "title": "Tier"
+        },
+        "validations": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/TestValidation"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "HTTP checks beyond the single [healthcheck] endpoint.",
+          "title": "Validations"
+        }
+      },
+      "title": "TestSection",
+      "type": "object"
+    },
+    "TestValidation": {
+      "additionalProperties": false,
+      "description": "A single [[test.validations]] entry \u2014 one HTTP check the test harness\nperforms after the app is up.",
+      "properties": {
+        "contains": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "If set, response body must contain this substring.",
+          "title": "Contains"
+        },
+        "path": {
+          "default": "/",
+          "description": "URL path to probe.",
+          "title": "Path",
+          "type": "string"
+        },
+        "status": {
+          "default": 200,
+          "description": "Expected HTTP status code.",
+          "title": "Status",
+          "type": "integer"
+        },
+        "status-in": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Accept any of these status codes. Useful for apps whose first-boot install wizard legitimately returns 202 before migrations complete (e.g., xwiki). When set, `status` is ignored.",
+          "title": "Status-In"
+        },
+        "type": {
+          "default": "http",
+          "description": "Validation type. Currently only 'http' is supported.",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "title": "TestValidation",
+      "type": "object"
+    },
+    "VolumeBackupSection": {
+      "additionalProperties": false,
+      "description": "`[volumes.backup]` \u2014 per-volume backup policy (ADR 046 \u00a72/\u00a74a).\n\nA strict table so a typo (e.g. ``inclide = false``) is rejected at deploy\ntime rather than silently leaving the volume in the backup. ``include``\n(default true) is the only key acted on today.",
+      "properties": {
+        "include": {
+          "default": true,
+          "description": "Whether this volume's data is captured by `hop3 backup create`.",
+          "title": "Include",
+          "type": "boolean"
+        }
+      },
+      "title": "VolumeBackupSection",
+      "type": "object"
+    },
+    "VolumeSection": {
+      "additionalProperties": false,
+      "description": "A `[[volumes]]` entry \u2014 a path that survives the source-replacing redeploy.\n\n``persist`` (the default, and the only implemented type) links ``target`` \u2014\na directory inside the app's source tree \u2014 to storage under the app's data\nroot (`<app>/volumes/<name>/`), so writes outlive the redeploy that wipes\n`src/`.",
+      "properties": {
+        "backup": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VolumeBackupSection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Per-volume backup policy; omit to include the volume in backups."
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Octal permissions for the volume directory.",
+          "title": "Mode"
+        },
+        "name": {
+          "description": "Logical volume name; storage lives at <app>/volumes/<name>.",
+          "title": "Name",
+          "type": "string"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Size cap for a tmpfs volume (e.g. '256M').",
+          "title": "Size"
+        },
+        "target": {
+          "description": "Directory inside the app tree to back with the volume (relative).",
+          "title": "Target",
+          "type": "string"
+        },
+        "type": {
+          "default": "persist",
+          "description": "persist (default) | tmpfs | bind.",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "target"
+      ],
+      "title": "VolumeSection",
+      "type": "object"
+    },
+    "WafBans": {
+      "additionalProperties": false,
+      "description": "The ``[waf.bans]`` table \u2014 repeat-offender throttling (ADR 050 \u00a74).",
+      "properties": {
+        "duration": {
+          "default": "1h",
+          "description": "Ban TTL, e.g. '1h', '24h'.",
+          "title": "Duration",
+          "type": "string"
+        },
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "threshold": {
+          "default": 5,
+          "description": "Violations within the window before a ban.",
+          "title": "Threshold",
+          "type": "integer"
+        },
+        "window": {
+          "default": "10m",
+          "description": "Scoring window, e.g. '10m'.",
+          "title": "Window",
+          "type": "string"
+        }
+      },
+      "title": "WafBans",
+      "type": "object"
+    },
+    "WafGate": {
+      "additionalProperties": false,
+      "description": "A ``[[waf.gate]]`` entry \u2014 conditional access (ADR 050 \u00a72, use case 2).\n\nMatching paths are reachable only when ``require`` holds. v1 supports a\nnamed network (operator-defined, resolved at deploy from the DB); ``auth``\nis reserved but rejected here until Hop3 forward-auth exists (ADR 050 \u00a75 /\nSecurity invariant \u2014 fail loud, never a silent allow).",
+      "properties": {
+        "paths": {
+          "description": "URL-path regexes (full-matched) this gate covers.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Paths",
+          "type": "array"
+        },
+        "require": {
+          "description": "Condition: a named network (v1), or 'auth' (deferred \u2014 rejected).",
+          "title": "Require",
+          "type": "string"
+        }
+      },
+      "required": [
+        "paths",
+        "require"
+      ],
+      "title": "WafGate",
+      "type": "object"
+    },
+    "WafSection": {
+      "additionalProperties": false,
+      "description": "The ``[waf]`` section \u2014 per-app Layer-7 WAF policy (ADR 050).\n\nTwo access constructs (ADR 050 \u00a72): ``allow`` (a positive allowlist that, when\npresent, denies everything else \u2014 use case 1) and ``[[waf.gate]]`` (conditional\naccess \u2014 use case 2). ``[[waf.tuning]]`` relaxes CRS false positives; ``[waf.bans]``\nthrottles repeat offenders. Off by default (``enabled = false``).",
+      "properties": {
+        "allow": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Positive model: URL-path regexes the app serves. If present, any path matching none of these (and no satisfied gate) is denied.",
+          "title": "Allow"
+        },
+        "bans": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WafBans"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Ban policy ([waf.bans])."
+        },
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "gate": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/WafGate"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Conditional-access rules ([[waf.gate]]).",
+          "title": "Gate"
+        },
+        "mode": {
+          "default": "block",
+          "description": "'block' or 'detect' (log-only).",
+          "title": "Mode",
+          "type": "string"
+        },
+        "paranoia": {
+          "default": 1,
+          "description": "CRS paranoia level, 1-4.",
+          "title": "Paranoia",
+          "type": "integer"
+        },
+        "ruleset": {
+          "default": "owasp-crs",
+          "description": "CRS baseline ruleset.",
+          "title": "Ruleset",
+          "type": "string"
+        },
+        "tuning": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/WafTuning"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "CRS false-positive relief ([[waf.tuning]]).",
+          "title": "Tuning"
+        }
+      },
+      "title": "WafSection",
+      "type": "object"
+    },
+    "WafTuning": {
+      "additionalProperties": false,
+      "description": "A ``[[waf.tuning]]`` entry \u2014 scoped CRS false-positive relief (ADR 050 \u00a73).\n\nVerb-named keys (``disable-rule-ids`` / ``skip-body-inspection``) so the\ndirection is unambiguous (never the old \"exclusions\"). Scoped to ``paths``;\nomit ``paths`` for a global entry.",
+      "properties": {
+        "disable-rule-ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "CRS rule IDs to turn off (within the scope).",
+          "title": "Disable-Rule-Ids"
+        },
+        "paths": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path regexes to scope this tuning to; omit for global.",
+          "title": "Paths"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Why the relief is needed \u2014 surfaced for audit.",
+          "title": "Reason"
+        },
+        "skip-body-inspection": {
+          "default": false,
+          "description": "Don't scan request bodies (within the scope).",
+          "title": "Skip-Body-Inspection",
+          "type": "boolean"
+        }
+      },
+      "title": "WafTuning",
+      "type": "object"
+    }
+  },
+  "$id": "https://hop3.cloud/schema/hop3.toml.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Configuration for a Hop3 application. Generated from the server's own validation models; cross-field rules are enforced at deploy time.",
+  "properties": {
+    "addons": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/AddonConfig"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Addons"
+    },
+    "admin": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AdminSection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Initial admin account to bootstrap on first deploy (ADR 056). The platform generates the password, creates the account, and surfaces the credential to the operator."
+    },
+    "backup": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BackupSection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "build": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BuildSection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "contexts": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/ContextSection"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Per-project deploy environments (ADR 042, 2nd revision). Each [contexts.<name>] bundles (server, app, domains, env) for one environment \u2014 dev/staging/prod. Non-secret; resolved client-side; ignored by the deployer.",
+      "title": "Contexts"
+    },
+    "deploy": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DeploySection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "docker": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DockerSection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "domains": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DomainsSection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "App hostnames. Translates to HOST_NAME at deploy time. Mutually exclusive with setting HOST_NAME under [env]."
+    },
+    "env": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Environment variables. Set _policy = 'override' to update existing values on redeploy.",
+      "title": "Env"
+    },
+    "healthcheck": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/HealthcheckSection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "limits": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LimitsSection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Per-app resource caps (ADR 046 \u00a73): memory / cpu / processes. Enforced for Docker apps; declaring them on a non-Docker app fails loud until cgroup enforcement lands."
+    },
+    "metadata": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MetadataSection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "nix": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Nix template configuration for auto-generating hop3.nix. Requires [nix].template to be set. See ADR 008.",
+      "title": "Nix"
+    },
+    "port": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/$defs/PortConfig"
+              }
+            ]
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Port"
+    },
+    "ports": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/PortDeclaration"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Fixed host ports the app binds directly (non-HTTP services: SMTP, XMPP, RTMP, Matrix federation, \u2026). Each is claimed exclusively on the host; a second app declaring the same port is refused before deploy. The HTTP port stays dynamic ($PORT, proxied) \u2014 don't list it here.",
+      "title": "Ports"
+    },
+    "probe": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProbeSection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "A Hop3-owned account for verifying the app keeps working, whose password Hop3 controls (see ProbeSection)."
+    },
+    "provider": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/AddonConfig"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Deprecated: use [[addons]] instead",
+      "title": "Provider"
+    },
+    "run": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RunSection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "static": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Static file path mappings (URL path -> filesystem path)",
+      "title": "Static"
+    },
+    "test": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TestSection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Test-harness metadata. Replaces the separate test.toml file \u2014 see TestSection for fields."
+    },
+    "volumes": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/VolumeSection"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Declarative persistent volumes (ADR 046 \u00a72). Each links a directory in the app tree to storage that survives the source-replacing redeploy.",
+      "title": "Volumes"
+    },
+    "waf": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WafSection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Layer-7 Web Application Firewall policy (ADR 050): positive allowlist / conditional gates, CRS tuning, and bans. Off unless [waf].enabled = true."
+    }
+  },
+  "title": "hop3.toml",
+  "type": "object"
+}
