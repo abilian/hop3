@@ -48,6 +48,11 @@ _APP_NAMESPACE_SCOPED: set[tuple[str, ...]] = {
     ("app", "debug"),
     ("app", "sbom"),
     ("app", "credentials"),  # ADR 056: show an app's initial admin credential.
+    ("app", "check"),  # run the app's check.py smoke test.
+    # These two documented (and demonstrated) `--app` while the client refused
+    # it — found by the drift guard in the CLI's app-scope tests, not by a user.
+    ("app", "upgrade"),
+    ("app", "rollback"),
     ("app", "run"),  # canonical form of top-level `run` (alias). See run special-case.
     # ("app", "launch") and ("app", "list") are NOT app-scoped: launch creates
     # an app from a repo arg; list takes no app.
