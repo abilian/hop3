@@ -233,13 +233,22 @@ class SSHDeployBackend(DeployBackend):
         behind, and the next install of an app with the same name silently
         attaches to its predecessor's data.
         """
-        self._reclaim_addon_storage()
-
-        commands = [
+        # Stop the apps FIRST: a running app holds an open connection to its
+        # database, and PostgreSQL refuses to drop a database that anyone is
+        # connected to. Reclaiming before this failed on exactly that.
+        stop_commands = [
             "systemctl stop hop3-server 2>/dev/null || true",
             "systemctl stop uwsgi-hop3 2>/dev/null || true",
             "docker ps -q | xargs -r docker stop 2>/dev/null || true",
             "docker ps -aq | xargs -r docker rm 2>/dev/null || true",
+        ]
+        for cmd in stop_commands:
+            self.run(cmd, check=False)
+
+        # Then reclaim, while /home/hop3/hop3.db still records what to reclaim.
+        self._reclaim_addon_storage()
+
+        commands = [
             # Prune Docker networks to prevent "address pools fully subnetted" errors
             "docker network prune -f 2>/dev/null || true",
             "rm -f /etc/nginx/sites-enabled/hop3-* 2>/dev/null || true",
