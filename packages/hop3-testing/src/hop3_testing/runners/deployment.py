@@ -274,6 +274,52 @@ class DeploymentTestRunner:
             return check_result["message"]
         return None
 
+    def _write_check_credentials(
+        self, session: DeploymentSession, env_path: str
+    ) -> None:
+        """
+        Write the app's generated admin credential to a 0600 file on the server.
+
+        Read through the server's own ORM, so the test uses exactly the
+        credential `hop3 app credentials` would show an operator — if the two
+        could differ, the test would not be testing what the operator is told.
+
+        Best-effort by design: an app that declares no ``[admin]`` simply has no
+        credential, and its check.py fails loudly on its own when it asks for
+        one. Failing here instead would block apps whose checks need no sign-in.
+        """
+        reader = (
+            "from hop3.orm import get_session_factory, App, "
+            "AppAdminCredentialRepository;"
+            "from hop3.core.credentials import get_credential_encryptor;"
+            "from sqlalchemy import select;"
+            "s=get_session_factory()();"
+            f"a=s.scalars(select(App).where(App.name=='{session.app_name}')).one_or_none();"
+            "c=AppAdminCredentialRepository(session=s).get_by_app_id(a.id) if a else None;"
+            "d=get_credential_encryptor().decrypt(c.encrypted_data) if c else {};"
+            "print('HOP3_ADMIN_USER=' + d.get('username',''));"
+            "print('HOP3_ADMIN_EMAIL=' + d.get('email',''));"
+            "print('HOP3_ADMIN_PASSWORD=' + d.get('password',''))"
+        )
+        try:
+            exit_code, stdout, _ = self.target.exec_run(
+                f'su - hop3 -c "set -a; . /etc/default/hop3 2>/dev/null; '
+                f'{_HOP3_VENV_PYTHON} -c \\"{reader}\\""'
+            )
+            if exit_code != 0 or "HOP3_ADMIN_PASSWORD=" not in stdout:
+                return
+            lines = [
+                line for line in stdout.splitlines() if line.startswith("HOP3_ADMIN_")
+            ]
+            body = "\n".join(lines)
+            self.target.exec_run(
+                f"sh -c 'umask 077; cat > {env_path} <<\"HOP3EOF\"\n{body}\nHOP3EOF'"
+            )
+        except Exception:
+            # A credential we cannot read is not a reason to skip the check; the
+            # check itself decides whether it needed one.
+            return
+
     def _run_check_script_remote(self, session: DeploymentSession) -> dict[str, Any]:
         """
         Execute check.py ON the remote server (where localhost == nginx).
@@ -288,12 +334,26 @@ class DeploymentTestRunner:
         host = session.test_hostname
         check_path = session.app.path / "check.py"
         remote_path = f"/tmp/hop3-check-{session.app_name}.py"
+        env_path = f"/tmp/hop3-check-{session.app_name}.env"
         try:
             self.target.upload_file(check_path, remote_path)
+            # No helper to ship: a check imports `hop3.server.checks`, which the
+            # hop3-server venv below already provides. One copy, no drift.
+            # Hand the check the app's generated admin credential, so it can
+            # assert a real sign-in instead of only that a page renders.
+            self._write_check_credentials(session, env_path)
             # Run with the hop3-server venv Python (has httpx). Bare `uv` isn't on
             # the non-login SSH PATH (exit 127); this interpreter always is.
+            # The credentials are sourced from a 0600 file rather than passed on
+            # the command line, where they would show up in `ps` to every user.
+            # One command: source the credentials, run the check, then remove
+            # the credential file whatever the outcome, preserving its exit code.
             exit_code, stdout, stderr = self.target.exec_run(
-                f"{_HOP3_VENV_PYTHON} {remote_path} {host} 80"
+                "sh -c '"
+                f"set -a; . {env_path} 2>/dev/null; set +a; "
+                f"{_HOP3_VENV_PYTHON} {remote_path} {host} 80; "
+                f"rc=$?; rm -f {env_path}; exit $rc"
+                "'"
             )
         except Exception as e:  # upload/exec failed -> fail loud, never pass
             return {

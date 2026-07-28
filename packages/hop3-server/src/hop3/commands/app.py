@@ -10,12 +10,14 @@ import contextlib
 import json
 import os
 import subprocess
+import sys
 import time
 import urllib.error
 import urllib.request
 from base64 import b64decode
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from hop3.core.backup import BackupManager
@@ -1016,6 +1018,83 @@ class CredentialsCmd(Command):
         server_log.info("admin credential revealed", app_name=app_name)
         host_name = app.get_runtime_env().get("HOST_NAME", "")
         return [text(format_admin_credential(app_name, host_name, cred))]
+
+
+# A smoke test signs in and fetches a page or two; anything beyond this is hung,
+# and an RPC call must not wait on it forever.
+CHECK_TIMEOUT = 180
+
+
+@register
+@dataclass(frozen=True)
+class CheckCmd(Command):
+    """
+    Run an app's smoke test and report whether it passed.
+
+    Deploying an app proves it starts; this proves it works — the app's own
+    `check.py` signs in with the credential Hop3 generated and exercises a page
+    only a signed-in user can reach. Without it "it deployed" is the strongest
+    thing anyone can say, which today's failures showed is not the same as
+    "it works": apps served a login page fine while rejecting every credential.
+
+    Runs the same script, the same way, as the test harness — so a green result
+    here means what a green result there means.
+
+    Usage: hop3 app check [--app <app>]
+    """
+
+    db_session: Session
+    name: ClassVar[tuple[str, ...]] = ("app", "check")
+
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
+        app_name, _ = _resolve_app(args)
+        if not app_name:
+            msg = "Usage: hop3 app check [--app <app>]"
+            raise ValueError(msg)
+        app = get_app(self.db_session, app_name)
+
+        script = Path(app.src_path) / "check.py"
+        if not script.exists():
+            # Not a failure: plenty of apps ship no smoke test. Say so plainly
+            # rather than reporting a pass for a test that does not exist.
+            return [
+                text(
+                    f"App '{app_name}' ships no check.py, so there is no smoke "
+                    f"test to run. Nothing was verified."
+                )
+            ]
+
+        host = app.get_runtime_env().get("HOST_NAME", "").split()[0] or "localhost"
+        env = dict(os.environ)
+        env.update(app.get_runtime_env())
+        cred = read_admin_credential(app, self.db_session)
+        if cred:
+            # The check signs in with exactly the credential `hop3 app
+            # credentials` shows an operator; if the two could differ, a passing
+            # test would not be testing what the operator is handed.
+            env["HOP3_ADMIN_USER"] = cred.get("username", "")
+            env["HOP3_ADMIN_EMAIL"] = cred.get("email", "")
+            env["HOP3_ADMIN_PASSWORD"] = cred.get("password", "")
+
+        server_log.info("running app smoke test", app_name=app_name)
+        result = subprocess.run(
+            [sys.executable, str(script), host, "443"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=CHECK_TIMEOUT,
+            cwd=str(app.src_path),
+            env=env,
+        )
+        output = (result.stdout + result.stderr).strip()
+        if result.returncode == 0:
+            return [text(f"Smoke test PASSED for '{app_name}'.\n\n{output}")]
+        return [
+            error(
+                f"Smoke test FAILED for '{app_name}' (exit {result.returncode}).\n\n"
+                f"{output}"
+            )
+        ]
 
 
 @register
