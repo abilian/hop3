@@ -200,7 +200,10 @@ def test_docker_create_fails_loud(db_session, operator):
                 "email": "operator",
                 "password": {"generate": "password"},
                 "create": "make-admin",
-            }
+            },
+            # The bootstrap step now also creates Hop3's own probe account; this
+            # app declares none, which is the opt-out.
+            probe={},
         ),
     )
     with pytest.raises(AdminBootstrapError, match="not supported for the Docker"):
