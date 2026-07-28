@@ -85,10 +85,6 @@ class BuildSection(BaseModel):
         default=None,
         description="Build commands",
     )
-    test: str | list[str] | None = Field(
-        default=None,
-        description="Test/smoke test commands",
-    )
     packages: list[str] | None = Field(
         default=None,
         description="System packages required for build",
@@ -102,11 +98,6 @@ class BuildSection(BaseModel):
             "newer/older than the host's system Node. Maps to "
             "NODE_VERSION env var internally."
         ),
-    )
-    pip_install: list[str] | None = Field(
-        default=None,
-        alias="pip-install",
-        description="Python packages to install",
     )
     ignore: list[str] | None = Field(
         default=None,
@@ -1273,6 +1264,62 @@ class AdminSection(BaseModel):
         return self
 
 
+class ProbeSection(BaseModel):
+    """
+    [probe] section — a Hop3-owned account used to verify the app keeps working.
+
+    The [admin] credential is handed to the operator, so Hop3 stops owning it the
+    moment they change the password: a later sign-in failure could equally mean
+    the app broke or the password moved, and from outside those are the same
+    observation. A probe account nobody else uses removes that ambiguity — its
+    password is Hop3's to rotate, so a failed probe sign-in means the app broke.
+
+    It exists to exercise the FULL dynamic path — app code, session, database,
+    password verification — which no unauthenticated request reaches: a login
+    page renders fine with a dead database, and may not even be dynamic.
+
+    Deliberately NOT an administrator: signing in is the entire diagnostic value,
+    and a plain account carries a fraction of the privilege. Omit the section
+    entirely for an app whose data is sensitive enough that no standing Hop3
+    account is acceptable — the check then verifies the handover only, and says
+    so rather than silently testing less.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    username: str = Field(
+        default="hop3probe",
+        description=(
+            "Login name for the probe account. Avoid names an app reserves "
+            "(Gitea and Forgejo reject 'admin', while still exiting 0)."
+        ),
+    )
+    email: str | None = Field(
+        default=None,
+        description=(
+            "Email for the probe account, when the app requires one. A literal "
+            "address; unlike [admin].email this is never the operator's, since "
+            "the account is Hop3's and receives nothing."
+        ),
+    )
+    create: str | None = Field(
+        default=None,
+        description=(
+            "Idempotent (create-if-absent) command that creates the account. "
+            "Receives HOP3_PROBE_USER/EMAIL/PASSWORD in its environment. Omit "
+            "when the app bootstraps it from those vars itself."
+        ),
+    )
+
+    @field_validator("username")
+    @classmethod
+    def _check_username(cls, v: str) -> str:
+        if not v.strip():
+            msg = "[probe].username must not be blank."
+            raise ValueError(msg)
+        return v
+
+
 class Hop3TomlSchema(BaseModel):
     """
     Complete hop3.toml schema with validation.
@@ -1328,6 +1375,13 @@ class Hop3TomlSchema(BaseModel):
         description=(
             "App hostnames. Translates to HOST_NAME at deploy time. Mutually "
             "exclusive with setting HOST_NAME under [env]."
+        ),
+    )
+    probe: ProbeSection | None = Field(
+        default=None,
+        description=(
+            "A Hop3-owned account for verifying the app keeps working, whose "
+            "password Hop3 controls (see ProbeSection)."
         ),
     )
     admin: AdminSection | None = Field(

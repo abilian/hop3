@@ -24,7 +24,8 @@ A script looks like::
             "_token": token,
         }
         c.post("/login", form_data)
-        c.expect_signed_in("/", contains="Dashboard")
+        c.signed_in_looks_like("/", contains="Log out")
+        c.expect_signed_in()
 
         c.step("a wrong password is refused")
         c.expect_sign_in_refused(...)
@@ -98,6 +99,8 @@ class Check:
         self.base_url = "https://localhost:443"
         #: The step being attempted; failures quote it so a report says where.
         self.current_step = "starting"
+        self._auth_path = ""
+        self._auth_marker = ""
         self.client = httpx.Client(
             base_url=self.base_url,
             headers={"Host": host},
@@ -131,6 +134,45 @@ class Check:
             email=os.environ.get("HOP3_ADMIN_EMAIL", ""),
             password=password,
         )
+
+    @property
+    def probe(self) -> Admin:
+        """
+        Hop3's OWN account for this app, or FAIL.
+
+        Present only when the recipe declares [probe]. Unlike ``admin``, nobody
+        else uses it and its password is Hop3's to rotate — so a refused
+        sign-in here means the app broke, not that someone changed a password.
+        """
+        password = os.environ.get("HOP3_PROBE_PASSWORD", "")
+        if not password:
+            msg = (
+                "this app declares no [probe] account, so there is no credential "
+                "Hop3 still owns to sign in with"
+            )
+            raise CheckError(msg)
+        return Admin(
+            username=os.environ.get("HOP3_PROBE_USER", ""),
+            email=os.environ.get("HOP3_PROBE_EMAIL", ""),
+            password=password,
+        )
+
+    @property
+    def has_probe(self) -> bool:
+        """Does this app have a Hop3-owned account to sign in as?"""
+        return bool(os.environ.get("HOP3_PROBE_PASSWORD"))
+
+    @property
+    def login(self) -> Admin:
+        """
+        The credential to sign in with: the probe when there is one.
+
+        Falling back to the admin is deliberate but weaker — that credential
+        belongs to the operator, so it verifies the HANDOVER and stops being
+        Hop3's to assert once they change the password. Checks say which they
+        used, so a green result is never more confident than it earned.
+        """
+        return self.probe if self.has_probe else self.admin
 
     # -- narration --------------------------------------------------------
 
@@ -204,32 +246,52 @@ class Check:
             raise CheckError(msg)
         return response
 
-    def expect_signed_in(self, path: str, contains: str) -> httpx.Response:
+    def signed_in_looks_like(self, path: str, contains: str) -> None:
         """
-        Prove the session is real by fetching a page only a signed-in user sees.
+        Declare the page, and the marker on it, that proves a session is real.
 
-        This is the assertion that matters. A sign-in POST returning a redirect
-        proves very little — apps redirect back to the login form on failure
-        too — so the test is whether the session cookies now reach authenticated
-        content. ``contains`` must be something that appears ONLY when signed in
-        (a logout link, the account name), never the app's title.
+        Declared once and used by BOTH the positive and negative assertions, so
+        the two cannot drift apart. ``contains`` must appear ONLY when signed in
+        — a logout link, the account name — never the app's title, which the
+        login page carries too.
         """
+        self._auth_path = path
+        self._auth_marker = contains
+
+    def _require_auth_page(self) -> tuple[str, str]:
+        if not self._auth_path:
+            msg = (
+                "the check never declared what a signed-in session looks like; "
+                "call c.signed_in_looks_like(path, contains) first"
+            )
+            raise CheckError(msg)
+        return self._auth_path, self._auth_marker
+
+    def _reaches_authenticated_page(self) -> tuple[bool, httpx.Response]:
+        """Does THIS session reach the declared signed-in page?"""
+        path, marker = self._require_auth_page()
         response = self.client.get(
             path,
             follow_redirects=True,
             extensions={"sni_hostname": self.host},
         )
-        if response.status_code != 200:
+        return (response.status_code == 200 and marker in response.text), response
+
+    def expect_signed_in(self) -> httpx.Response:
+        """
+        Prove the session is real by fetching a page only a signed-in user sees.
+
+        This is the assertion that matters. A sign-in POST returning a redirect
+        proves very little — apps redirect back to the login form on failure too
+        — so the test is whether the session now reaches authenticated content.
+        """
+        path, marker = self._require_auth_page()
+        reached, response = self._reaches_authenticated_page()
+        if not reached:
             msg = (
-                f"signed-in page {path} returned {response.status_code}, not 200 — "
-                f"the sign-in did not establish a session"
-            )
-            raise CheckError(msg)
-        if contains not in response.text:
-            msg = (
-                f"signed-in page {path} did not contain {contains!r}, so the "
-                f"session is not authenticated. Landed on: "
-                f"{response.url.path!r}, body began: {response.text[:200]!r}"
+                f"the sign-in did not establish a session: {path} returned "
+                f"{response.status_code} and did not contain {marker!r}. Landed "
+                f"on {response.url.path!r}, body began: {response.text[:200]!r}"
             )
             raise CheckError(msg)
         return response
@@ -240,29 +302,31 @@ class Check:
 
         Without this a smoke test cannot tell a working login from one that
         accepts anything, or from a success signal we have misread. ``attempt``
-        is a callable performing the sign-in with a bad password and returning
-        the response.
+        performs the sign-in with a bad password on a FRESH session.
+
+        The test is the same one used positively — can this session reach the
+        declared signed-in page? — because weaker signals lie. Looking for a
+        session cookie does NOT work: apps set one on the login page itself,
+        before anyone has authenticated, so every attempt looks successful.
         """
+        path, marker = self._require_auth_page()
         fresh = Check(self.host, self.port)
         fresh.current_step = self.current_step
+        fresh.signed_in_looks_like(path, marker)
         try:
-            response = attempt(fresh)
-        except CheckError:
-            return  # refused before it could even post — still a refusal
-        if 200 <= response.status_code < 400 and self._looks_authenticated(fresh):
-            msg = (
-                "a WRONG password was accepted — the sign-in check proves nothing "
-                "about the real credential"
-            )
-            raise CheckError(msg)
-
-    @staticmethod
-    def _looks_authenticated(check: Check) -> bool:
-        """Best-effort: did a bad-password attempt still yield a session?"""
-        return any(
-            "session" in cookie.lower() or "sess" in cookie.lower()
-            for cookie in check.client.cookies
-        )
+            try:
+                attempt(fresh)
+            except CheckError:
+                return  # refused before it could even post — still a refusal
+            reached, _ = fresh._reaches_authenticated_page()
+            if reached:
+                msg = (
+                    f"a WRONG password reached {path} as a signed-in user, so "
+                    f"the sign-in check proves nothing about the real credential"
+                )
+                raise CheckError(msg)
+        finally:
+            fresh.close()
 
     def close(self) -> None:
         self.client.close()

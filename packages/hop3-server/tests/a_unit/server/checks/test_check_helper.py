@@ -95,3 +95,46 @@ def test_expect_status_names_what_it_wanted():
 
     with pytest.raises(hop3check.CheckError, match="returned 404, expected 200"):
         check.expect_status(response, 200)
+
+
+# The probe account: which credential a check signs in with
+
+
+def test_the_probe_is_preferred_when_present(monkeypatch) -> None:
+    """
+    A check signs in as Hop3's own account when the app has one.
+
+    The admin credential belongs to the operator, so it verifies the HANDOVER
+    and stops being Hop3's to assert once they change the password.
+    """
+    monkeypatch.setenv("HOP3_ADMIN_USER", "admin")
+    monkeypatch.setenv("HOP3_ADMIN_PASSWORD", "operator-password")
+    monkeypatch.setenv("HOP3_PROBE_USER", "hop3probe")
+    monkeypatch.setenv("HOP3_PROBE_PASSWORD", "hop3-owned")
+
+    check = hop3check.Check("app.example.com", 443)
+
+    assert check.has_probe is True
+    assert check.login.username == "hop3probe"
+    assert check.login.password == "hop3-owned"
+
+
+def test_without_a_probe_the_check_falls_back_to_the_admin(monkeypatch) -> None:
+    """An app that opted out is still checked — just with a weaker claim."""
+    monkeypatch.delenv("HOP3_PROBE_PASSWORD", raising=False)
+    monkeypatch.setenv("HOP3_ADMIN_USER", "admin")
+    monkeypatch.setenv("HOP3_ADMIN_PASSWORD", "operator-password")
+
+    check = hop3check.Check("app.example.com", 443)
+
+    assert check.has_probe is False
+    assert check.login.username == "admin"
+
+
+def test_asking_for_a_missing_probe_fails_clearly(monkeypatch) -> None:
+    monkeypatch.delenv("HOP3_PROBE_PASSWORD", raising=False)
+
+    check = hop3check.Check("app.example.com", 443)
+
+    with pytest.raises(hop3check.CheckError, match="declares no \\[probe\\]"):
+        _ = check.probe

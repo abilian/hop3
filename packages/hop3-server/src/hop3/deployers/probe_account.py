@@ -1,0 +1,122 @@
+# Copyright (c) 2026, Abilian SAS
+#
+# SPDX-License-Identifier: Apache-2.0
+"""
+The Hop3-owned probe account an app's smoke test signs in as ([probe]).
+
+Why a second account at all: the [admin] credential is handed to the operator,
+so Hop3 stops owning it the moment they change the password. A later sign-in
+failure then means either the app broke or the password moved, and from outside
+those are the same observation — a check that cannot tell them apart is a check
+that cries wolf. Nobody else uses the probe account, so a failed probe sign-in
+means the app broke, full stop.
+
+Why not test it unauthenticated instead: a login page renders perfectly with a
+dead database, and for some apps is not even dynamic. Signing in is what
+traverses app code, session, database and password verification — the whole
+stack the operator actually depends on.
+
+The password lives in the app's runtime env as an ADR-046 generated secret
+rather than in the encrypted credential store: it is Hop3's own, grants no
+administrator rights, and sits beside DATABASE_URL, which is strictly more
+sensitive. That also makes it rotatable — nothing human depends on it.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from hop3.lib import log
+
+from .env_provisioning import generate_secret_value, set_env_vars
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from sqlalchemy.orm import Session
+
+    from hop3.orm import App
+
+_ENV_USER = "HOP3_PROBE_USER"
+_ENV_EMAIL = "HOP3_PROBE_EMAIL"
+_ENV_PASSWORD = "HOP3_PROBE_PASSWORD"
+
+#: Marks that [probe].create already ran, so a redeploy does not re-run it.
+_ENV_CREATED = "HOP3_PROBE_CREATED"
+
+DEFAULT_USERNAME = "hop3probe"
+
+
+class ProbeAccountError(Exception):
+    """The probe account could not be created (fail loud, never skip)."""
+
+
+def provision_probe_credential(app: App, probe: dict, db_session: Session) -> None:
+    """
+    Generate-once the probe password and inject the canonical env vars.
+
+    Idempotent like every ADR-046 generated secret: minted on the first deploy
+    that declares [probe], then re-injected unchanged. No-op when the app
+    declares no [probe] — that app opted out, and its check verifies the
+    handover only.
+    """
+    if not probe:
+        return
+
+    runtime_env = app.get_runtime_env()
+    password = runtime_env.get(_ENV_PASSWORD) or generate_secret_value({
+        "generate": "password",
+        "length": 24,
+    })
+
+    injected = {
+        _ENV_USER: probe.get("username") or DEFAULT_USERNAME,
+        _ENV_PASSWORD: password,
+    }
+    email = probe.get("email")
+    if email:
+        injected[_ENV_EMAIL] = email
+
+    set_env_vars(app, injected, db_session)
+
+
+def bootstrap_probe_account(
+    app: App,
+    probe: dict,
+    db_session: Session,
+    run_create: Callable[[str], None],
+) -> None:
+    """
+    Run the recipe's ``[probe].create`` command once, after the app deploys.
+
+    Mirrors the admin bootstrap: ``run_create(command)`` executes in the app's
+    runtime with the injected ``HOP3_PROBE_*`` and RAISES on a non-zero exit.
+
+    A failure aborts loudly rather than leaving the app unverifiable in silence.
+    The command must also be idempotent (create-if-absent) as defence in depth,
+    since the guard below is an env var an operator could clear.
+    """
+    if not probe:
+        return
+
+    create_cmd = probe.get("create")
+    if not create_cmd:
+        return  # the app creates it from the injected HOP3_PROBE_* itself
+
+    if app.get_runtime_env().get(_ENV_CREATED):
+        return
+
+    log("  Creating the Hop3 probe account...", level=1, fg="blue")
+    try:
+        run_create(create_cmd)
+    except Exception as e:
+        msg = (
+            f"[probe].create failed for '{app.name}': {e}. The app has no "
+            f"account Hop3 can verify it with, so its smoke test could only "
+            f"check the operator's credential — which stops being Hop3's to "
+            f"assert as soon as they change the password."
+        )
+        raise ProbeAccountError(msg) from e
+
+    set_env_vars(app, {_ENV_CREATED: "1"}, db_session)
+    log("  Probe account created", level=2, fg="green")
