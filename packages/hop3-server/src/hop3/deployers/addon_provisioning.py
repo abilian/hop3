@@ -79,6 +79,21 @@ def _addon_failure_guidance(addon_type: str, error: str) -> tuple[str, list[str]
             "hop3 addon list",
         ]
 
+    if "left over from a previous app" in error:
+        # The service is fine; the name collides with a database that outlived
+        # its app. Sending the operator to reinstall the DB server would be
+        # actively misleading — the remedy is already in the refusal itself.
+        hint = (
+            "The database server is healthy. A database of this name survived a "
+            "previous app (a server rebuild reclaims Hop3's state but not the "
+            "database server's), and attaching to it would hand this app the "
+            "old one's data."
+        )
+        return hint, [
+            "hop3 addon list",
+            "drop the leftover database, or install the app under another name",
+        ]
+
     hint = (
         f"Check that {addon_type} is installed and running on the server. "
         f"You may need to re-run the installer with '--with {addon_type}'"
