@@ -1299,9 +1299,14 @@ def _bootstrap_admin_account(
             extra = ":".join(p for p in path_prepend if p)
             if extra:
                 env["PATH"] = f"{extra}:{env.get('PATH', '')}"
-        result = shell(command, cwd=app.src_path, env=env)
+        result = shell(command, cwd=app.src_path, env=env, check=False)
         if result.returncode:
-            msg = f"exit status {result.returncode}: {command}"
+            # Include what the command actually said. Reporting only the exit
+            # status leaves the operator (and the next deploy) with nothing to
+            # act on — the failure is loud but useless.
+            output = ((result.stdout or "") + (result.stderr or "")).strip()
+            detail = f"\n{output[-1500:]}" if output else " (no output)"
+            msg = f"exit status {result.returncode}: {command}{detail}"
             raise AdminBootstrapError(msg)
 
     bootstrap_admin_account(app, admin, db_session, run_create)
