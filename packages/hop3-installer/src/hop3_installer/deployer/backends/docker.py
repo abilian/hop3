@@ -539,7 +539,14 @@ class DockerDeployBackend(DeployBackend):
         return result.returncode == 0
 
     def clean(self) -> None:
-        """Clean the container for fresh installation."""
+        """
+        Clean the container for fresh installation.
+
+        No addon storage to reclaim here, unlike the SSH backend: `--clean`
+        forces `_create_fresh_container()`, so MySQL/PostgreSQL/Redis and their
+        data are destroyed with the container itself. This is belt and braces on
+        a container that is about to be replaced.
+        """
         commands = [
             "systemctl stop hop3-server 2>/dev/null || true",
             "rm -rf /home/hop3",
