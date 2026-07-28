@@ -35,6 +35,10 @@ from hop3.deployers.env_provisioning import (
 from hop3.deployers.fixed_ports import claim_fixed_ports, open_fixed_ports
 from hop3.deployers.limits import LimitsError, resolve_limits
 from hop3.deployers.native_limits import enforce_native_limits, format_limits_detail
+from hop3.deployers.probe_account import (
+    bootstrap_probe_account,
+    provision_probe_credential,
+)
 from hop3.deployers.volumes import realize_volumes
 from hop3.deployers.waf import configure_waf_preflight, start_waf_proxy
 from hop3.lib import Abort, Diagnosis, abort_with_diagnosis, log, log_diagnosis, shell
@@ -231,6 +235,19 @@ def _do_deploy(  # ruff:ignore[too-many-statements]
     build_artifact.save(artifact_path)
     log(f"Build artifact saved to: {artifact_path}", level=2)
 
+    # --- 3.9. Run the recipe's own build steps ---
+    # [build].build runs AFTER the toolchain (so compiled assets can rely on
+    # installed dependencies) and before after-build. This was parsed and never
+    # executed for a long time: eleven catalog apps declared build commands that
+    # silently did nothing, and only survived because their toolchain happened to
+    # do the equivalent. A declared step that does not run is a lie.
+    _run_hook(
+        "build",
+        app_config.build_steps,
+        app.src_path,
+        path_prepend=build_artifact.runtime.path_prepend,
+    )
+
     # --- 4. Run Postbuild Hook ---
     # Pass path_prepend from the build artifact so postbuild commands can
     # find binaries from the virtualenv (e.g., "python manage.py collectstatic")
@@ -302,6 +319,16 @@ def _do_deploy(  # ruff:ignore[too-many-statements]
     # re-print the password afterwards.
     if db_session is not None:
         surface_admin_credential(app, db_session)
+
+    # Verify the app actually WORKS, not merely that it started. Runs on every
+    # deploy path — web UI, `hop3 deploy`, catalog install, git push — because
+    # "it deployed" was repeatedly not the same as "you can log in": apps served
+    # their login page perfectly while rejecting every credential. A failure is
+    # reported loudly rather than swallowed; the app is left deployed so the
+    # operator can inspect it, but the deploy does not claim success it cannot
+    # back up.
+    _run_deploy_smoke_test(app, db_session)
+
     server_log.info(
         "Deployment finished successfully",
         app_name=app.name,
@@ -1118,6 +1145,10 @@ def _process_config_dependencies(
     # them into app-specific names. The account itself is created post-deploy.
     provision_admin_credential(app, hop3_config.admin, db_session)
 
+    # Mint the Hop3-owned probe password too, so the app's smoke test can sign
+    # in with an account the operator never touches (see probe_account).
+    provision_probe_credential(app, hop3_config.probe, db_session)
+
     # Resolve dynamic [env] references ({ from, key } / app facts). Runs after
     # the domains -> HOST_NAME step so a { key = "domain" } ref can see it, and
     # before [env.computed] so a computed value can interpolate a ref (ADR 046).
@@ -1244,8 +1275,11 @@ def _bootstrap_admin_account(
     declares ``[admin].create`` we abort loudly rather than silently skip it —
     the app must self-bootstrap from the injected env in its entrypoint.
     """
-    admin = app_config.hop3_config.admin if app_config.has_hop3_toml else {}
-    if not admin or not admin.get("create") or db_session is None:
+    has_toml = app_config.has_hop3_toml
+    admin = app_config.hop3_config.admin if has_toml else {}
+    probe = app_config.hop3_config.probe if has_toml else {}
+    wants_create = bool(admin.get("create")) or bool(probe.get("create"))
+    if not wants_create or db_session is None:
         return
 
     if "docker" in deployer_name:
@@ -1271,6 +1305,7 @@ def _bootstrap_admin_account(
             raise AdminBootstrapError(msg)
 
     bootstrap_admin_account(app, admin, db_session, run_create)
+    bootstrap_probe_account(app, probe, db_session, run_create)
 
 
 def _run_hook(
@@ -1368,3 +1403,64 @@ def _auto_discover_wsgi(artifact: BuildArtifact, src_path: Path) -> None:
             )
             artifact.runtime.workers["wsgi"] = module
             return
+
+
+def _run_deploy_smoke_test(app: App, db_session: Session | None) -> None:
+    """
+    Run the app's check.py at the end of a deploy and report what it found.
+
+    Silent about apps that ship no check — most do not, and saying so on every
+    deploy would be noise. Loud in both other cases: a pass is stated so the
+    operator knows the app was actually exercised, and a failure names the app
+    and shows the check's own output.
+
+    Deliberately does NOT abort the deploy. The app is already built, started
+    and healthy by this point; tearing that down over a smoke test would turn a
+    diagnosable app into no app at all. What must not happen is a deploy that
+    stays silent about it.
+    """
+    if db_session is None:
+        return
+
+    from hop3.server.checks.runner import (  # ruff:ignore[import-outside-top-level]
+        run_app_check,
+    )
+
+    try:
+        outcome = run_app_check(app, db_session)
+    except Exception as e:
+        # A broken check must not be mistaken for a broken app, nor hide itself.
+        log(f"Smoke test could not run for '{app.name}': {e}", level=0, fg="yellow")
+        server_log.warning("smoke test errored", app_name=app.name, error=str(e))
+        return
+
+    if not outcome.ran:
+        return
+
+    if outcome.passed:
+        log(
+            f"Smoke test passed for '{app.name}' — {outcome.summary}.",
+            level=0,
+            fg="green",
+        )
+        server_log.info(
+            "smoke test passed",
+            app_name=app.name,
+            used_hop3_account=outcome.used_hop3_account,
+        )
+        return
+
+    log(
+        f"Smoke test FAILED for '{app.name}' — it is deployed and running, but "
+        f"did not pass its own verification:",
+        level=0,
+        fg="red",
+    )
+    for line in outcome.output.splitlines():
+        log(f"  {line}", level=0, fg="red")
+    log(
+        f"Investigate with: hop3 app check --app {app.name}",
+        level=0,
+        fg="yellow",
+    )
+    server_log.warning("smoke test failed", app_name=app.name, output=outcome.output)
