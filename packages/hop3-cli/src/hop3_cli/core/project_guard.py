@@ -29,13 +29,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from hop3_cli.core.hop3_toml import first_hop3_toml
-from hop3_cli.core.resolution import is_cwd_rooted
-
-if TYPE_CHECKING:
-    from hop3_cli.core.resolution import AppSource
+from hop3_cli.core.resolution import AppSource, is_cwd_rooted
 
 
 @dataclass(frozen=True)
@@ -118,6 +114,20 @@ def check_project_mismatch(
     # (AppSource.CONTEXT_APP; an AMBIENT context selection is NOT cwd-rooted and
     # falls through to the refusal below — ADR 042 r2 footgun protection).
     if is_cwd_rooted(resolved_kind):
+        return ProjectMismatch(
+            is_mismatch=False,
+            cwd_app=cwd_app,
+            resolved_app=resolved_app,
+            resolved_source=resolved_source,
+        )
+
+    # An explicit `--app NAME` is not a footgun: the operator typed the target.
+    # The guard exists for targets that arrive INVISIBLY — $HOP3_APP or a
+    # server-level default — where the mismatch is genuinely a surprise. Firing
+    # on a named flag refused an unambiguous instruction because of an unrelated
+    # file in the working directory, and broke every scripted use from a
+    # checkout that happened to contain one.
+    if resolved_kind is AppSource.FLAG:
         return ProjectMismatch(
             is_mismatch=False,
             cwd_app=cwd_app,

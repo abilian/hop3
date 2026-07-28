@@ -124,12 +124,17 @@ def test_is_cwd_rooted_classification() -> None:
         assert is_cwd_rooted(kind) is False, kind
 
 
-def test_mismatch_with_flag_source_fires(tmp_path: Path) -> None:
+def test_mismatch_with_flag_source_does_not_fire(tmp_path: Path) -> None:
     """
-    ``--app other`` from inside project A → guard fires.
+    ``--app other`` from inside project A → guard does NOT fire.
 
-    FLAG is *not* CWD-rooted: an explicit ``--app`` pointing elsewhere
-    is precisely the operator-mistake the guard exists to catch.
+    This reverses the original contract deliberately. FLAG is not CWD-rooted,
+    but it is not invisible either: the operator typed the target, so there is
+    no surprise to protect them from. Refusing an unambiguous instruction
+    because of an unrelated hop3.toml in the working directory broke every
+    scripted use — `hop3 app destroy --app X` from any checkout containing one.
+    The guard keeps firing for $HOP3_APP and server-level defaults, which is
+    the case its own docstring argues for.
     """
     _write_hop3_toml(tmp_path, "myapp")
     result = check_project_mismatch(
@@ -140,7 +145,7 @@ def test_mismatch_with_flag_source_fires(tmp_path: Path) -> None:
         cwd=tmp_path,
         home=tmp_path.parent,
     )
-    assert result.is_mismatch is True
+    assert result.is_mismatch is False
 
 
 # ---- message format -----------------------------------------------------
@@ -259,3 +264,44 @@ def test_metadata_id_empty_string_ignored(tmp_path: Path) -> None:
         home=tmp_path.parent,
     )
     assert result.is_mismatch is False
+
+
+def test_explicit_app_flag_does_not_fire(tmp_path: Path) -> None:
+    """
+    `--app NAME` is not a footgun: the operator typed the target.
+
+    The guard exists for targets that arrive INVISIBLY ($HOP3_APP, a
+    server-level default), where a mismatch is a genuine surprise. Firing on a
+    named flag refused an unambiguous instruction because of an unrelated file
+    in the working directory, and broke every scripted use — including
+    `hop3 app destroy --app X` from any checkout that happened to contain a
+    hop3.toml.
+    """
+    _write_hop3_toml(tmp_path, "myapp")
+
+    result = check_project_mismatch(
+        resolved_app="other-app",
+        resolved_source="--app flag",
+        resolved_kind=AppSource.FLAG,
+        verb="app destroy",
+        cwd=tmp_path,
+        home=tmp_path.parent,
+    )
+
+    assert result.is_mismatch is False
+
+
+def test_env_var_still_fires_after_the_flag_exemption(tmp_path: Path) -> None:
+    """Exempting the flag must not disarm the case the guard is actually for."""
+    _write_hop3_toml(tmp_path, "myapp")
+
+    result = check_project_mismatch(
+        resolved_app="other-app",
+        resolved_source="$HOP3_APP",
+        resolved_kind=AppSource.ENV,
+        verb="app destroy",
+        cwd=tmp_path,
+        home=tmp_path.parent,
+    )
+
+    assert result.is_mismatch is True
