@@ -26,6 +26,7 @@ import tomllib
 from hop3.commands._helpers import check_hostname_conflict, parse_hostname_string
 from hop3.config import config
 from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
+from hop3.lib import log
 from hop3.orm import App, AppRepository, EnvVar
 from hop3.server.catalog.service import CatalogService
 
@@ -95,10 +96,26 @@ def stage_catalog_app(
         ])
 
     errors = _validate_app_name(app_name)
-    if not errors and _check_app_exists(app_name, db_session):
-        errors.append(f"An app named '{app_name}' already exists")
+    existing = _existing_app(app_name, db_session)
+    if not errors and existing is not None and existing.last_deployed_at is not None:
+        # A real name clash: this app deployed successfully at least once, so it
+        # is someone's working app and must not be overwritten.
+        errors.append(
+            f"An app named '{app_name}' already exists and has deployed "
+            f"successfully, so this would overwrite it. Install under another "
+            f"name (--app <name>), or remove it first with "
+            f"`hop3 app destroy --app {app_name} --force`."
+        )
     if errors:
         raise CatalogInstallError(errors)
+
+    if existing is not None:
+        # Wreckage from an install whose deploy failed. The platform does not
+        # roll back — a failed deploy is left in place so its logs can be read —
+        # so retrying an install used to be impossible: the row it had already
+        # committed made the retry look like a name clash. Resume instead:
+        # re-stage the recipe over the same app and let the caller deploy again.
+        return _restage(existing, catalog_app, app_id, env_vars, db_session)
 
     app = App(name=app_name)
     app.create(setup_git=True)
@@ -138,15 +155,18 @@ def _validate_app_name(app_name: str) -> list[str]:
     return errors
 
 
-def _check_app_exists(app_name: str, db_session: Session) -> bool:
+def _existing_app(app_name: str, db_session: Session) -> App | None:
     """
-    True if an app with this name already exists (DB check).
+    The app of this name, if one exists — the row itself, not just a flag.
+
+    The caller needs ``last_deployed_at`` to tell a working app apart from the
+    wreckage of a failed install, so a boolean is not enough.
 
     Uses the caller's install session (not a fresh one) so the check and the
-    create-or-refuse decision are made against the same view — closing the
+    create-or-resume decision are made against the same view — closing the
     check-then-create race a separate session would leave open.
     """
-    return AppRepository(session=db_session).app_exists(app_name)
+    return AppRepository(session=db_session).get_by_name(app_name)
 
 
 def _assign_hostname(
@@ -291,3 +311,35 @@ def _parse_and_add_env_vars(app: App, env_vars_str: str) -> None:
             value = value.strip()
             if key:
                 app.env_vars.append(EnvVar(name=key, value=value))
+
+
+def _restage(
+    app: App,
+    catalog_app: CatalogApp,
+    app_id: str,
+    env_vars: str,
+    db_session: Session,
+) -> App:
+    """
+    Re-stage a blueprint over an app whose first deploy never succeeded.
+
+    Keeps the app's identity — its hostname, generated secrets and provisioned
+    addons — so a retry resumes rather than starting from scratch: re-minting
+    those would strand the database the failed attempt already created.
+    """
+    _copy_catalog_source(catalog_app, app)
+    _parse_and_add_env_vars(app, env_vars)
+
+    if not (Path(app.src_path) / "hop3.toml").is_file():
+        msg = f"Recipe for '{app_id}' did not produce a hop3.toml; nothing to deploy"
+        raise CatalogInstallError([msg])
+
+    db_session.add(app)
+    db_session.commit()
+    log(
+        f"Resuming '{app.name}': its previous install never deployed "
+        f"successfully, so the recipe was re-staged over it",
+        level=1,
+        fg="yellow",
+    )
+    return app
