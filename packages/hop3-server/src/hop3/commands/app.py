@@ -16,6 +16,7 @@ import urllib.request
 from base64 import b64decode
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from hop3.core.backup import BackupManager
@@ -39,11 +40,13 @@ from hop3.lib.settings import parse_settings
 from hop3.orm import (
     AddonCredentialRepository,
     App,
+    AppAdminCredentialRepository,
     AppRepository,
     AppStateEnum,
     BackupRepository,
     EnvVar,
 )
+from hop3.project.config import AppConfig
 from hop3.server.checks.runner import run_app_check
 
 from ._base import Command, NamespaceCommand
@@ -846,7 +849,7 @@ class DestroyCmd(Command):
             # Tear down attached addons (DBs, redis slots) while their
             # credentials are still in the DB. Without this, addon resources
             # leak forever and eventually exhaust (e.g. Redis has 15 dbs).
-            self._destroy_addons(app)
+            leaked_addons = self._destroy_addons(app)
 
             # Fully release the app's fixed ports (firewall + registry rows)
             # BEFORE the fallible filesystem/Docker cleanup, so a stranded claim
@@ -897,9 +900,19 @@ class DestroyCmd(Command):
                 captured, [f"App '{app_name}' has been destroyed."]
             )
             response.append(summary(f"destroyed {app_name}."))
+            if leaked_addons:
+                # Surfaced where the operator is looking, not only in a log.
+                response.append(
+                    error(
+                        f"Storage was left behind for {len(leaked_addons)} "
+                        f"addon(s): " + "; ".join(leaked_addons) + ". It will "
+                        "block the next install of an app with this name — "
+                        "remove it by hand."
+                    )
+                )
         return response
 
-    def _destroy_addons(self, app: App) -> None:
+    def _destroy_addons(self, app: App) -> list[str]:
         """
         Destroy addons attached to this app, freeing their resources.
 
@@ -908,6 +921,7 @@ class DestroyCmd(Command):
         finite resources. Best-effort — a failed teardown must not block
         the app destroy. An addon still attached to another app is kept.
         """
+        leaked: list[str] = []
         repo = AddonCredentialRepository(session=self.db_session)
         for credential in list(app.addon_credentials):
             addon_type = credential.addon_type
@@ -928,6 +942,12 @@ class DestroyCmd(Command):
                 get_addon(addon_type, addon_name).destroy()
                 log(f"  Destroyed addon {addon_name} ({addon_type})", level=2)
             except Exception as e:
+                # Still best-effort about BLOCKING the destroy — a stuck addon
+                # must not make an app undestroyable. But the leak is returned
+                # to the caller and reported, not left as a log line: a database
+                # that outlives its app silently breaks the NEXT install of that
+                # name, and nothing else will ever mention it again.
+                leaked.append(f"{addon_name} ({addon_type}): {e}")
                 log(
                     f"  Warning: could not destroy addon {addon_name} "
                     f"({addon_type}): {e}",
@@ -940,6 +960,7 @@ class DestroyCmd(Command):
                     addon_type=addon_type,
                     error=str(e),
                 )
+        return leaked
 
     def _reload_nginx(self, app_name: str) -> None:
         """
@@ -1016,7 +1037,12 @@ class CredentialsCmd(Command):
         # covers only privileged ops, so record it here where it happens).
         server_log.info("admin credential revealed", app_name=app_name)
         host_name = app.get_runtime_env().get("HOST_NAME", "")
-        return [text(format_admin_credential(app_name, host_name, cred))]
+        block = format_admin_credential(app_name, host_name, cred)
+
+        warning = _account_not_created_warning(app, self.db_session)
+        if warning:
+            return [text(f"{block}\n\n{warning}")]
+        return [text(block)]
 
 
 @register
@@ -1471,3 +1497,39 @@ class AppRollbackCmd(Command):
             )
             raise ValueError(msg)
         return target
+
+
+def _account_not_created_warning(app: App, db_session: Session) -> str:
+    """
+    Warn when the credential exists but its account demonstrably does not.
+
+    Hop3 mints and commits the credential BEFORE running the recipe's
+    ``[admin].create``, so a deploy that fails at that step leaves a password
+    the operator can read and cannot use — with nothing to say why. The
+    credential's ``bootstrapped`` flag is only set when that command succeeds.
+
+    Says nothing for an app that bootstraps itself from the injected
+    ``HOP3_ADMIN_*`` (no ``create`` command): there is no signal either way, and
+    guessing would be worse than silence.
+    """
+    repo = AppAdminCredentialRepository(session=db_session)
+    credential = repo.get_by_app_id(app.id)
+    if credential is None or credential.bootstrapped:
+        return ""
+
+    app_path = Path(app.app_path)
+    if not app_path.exists():
+        return ""
+    try:
+        admin = AppConfig.from_dir(app_path).hop3_config.admin
+    except Exception:
+        return ""
+    if not admin.get("create"):
+        return ""  # self-bootstrapping: nothing recorded, nothing to claim
+
+    return (
+        "WARNING: this account was never created. The credential is generated "
+        "before the app's account-creation step runs, and that step has not "
+        "completed for this app — so the password above will not work. Check "
+        f"`hop3 app check --app {app.name}`, fix what failed, and redeploy."
+    )
