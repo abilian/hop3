@@ -3,7 +3,7 @@
 ZENSICAL := uv run zensical
 PYTHON := uv run python
 
-.PHONY: help build serve clean convert-tutorials convert-adrs generate-blog-index preprocess
+.PHONY: help build serve clean convert-tutorials convert-adrs generate-blog-index preprocess schema
 
 help:
 	@echo "Hop3 Documentation (Zensical)"
@@ -15,6 +15,7 @@ help:
 	@echo "  make convert-tutorials   - Convert tutorials from source format"
 	@echo "  make convert-adrs        - Publish ADRs (notes/adrs/) and update nav"
 	@echo "  make generate-blog-index - Generate blog index and update nav"
+	@echo "  make schema              - Publish the hop3.toml JSON Schema into site/"
 	@echo ""
 
 convert-tutorials:
@@ -29,9 +30,17 @@ generate-blog-index:
 preprocess: convert-tutorials convert-adrs generate-blog-index
 	$(PYTHON) scripts/preprocess_markdown.py
 
+# The hop3.toml JSON Schema editors validate against. Regenerated from the
+# server's Pydantic models and dropped at the path its own $$id points to, so a
+# recipe's `#:schema` directive resolves. Runs AFTER zensical build, which
+# rewrites site/ (same reason the installer bundles are placed here).
+schema:
+	$(PYTHON) ../scripts/generate-toml-schema.py --site-dir site
+
 build: preprocess
 	$(ZENSICAL) build
 	uv run hop3-install bundle --all --output-dir site/
+	@make schema
 
 serve: preprocess
 	$(ZENSICAL) serve --open
