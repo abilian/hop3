@@ -196,6 +196,15 @@ class MySQLAddon:
                 # Database and secrets both exist - nothing to do
                 return
 
+            # A database that exists WITHOUT our secrets is not ours: it outlived
+            # the app it belonged to (a server rebuild reclaims Hop3's own state
+            # but not MySQL's, which is a separate service). Adopting it silently
+            # hands a brand-new app the previous one's tables — including its
+            # user accounts — and then breaks the new app's installer on the
+            # rows it did not expect. Refuse, and say exactly how to proceed.
+            if db_exists and not existing_secrets:
+                _refuse_foreign_database(cursor, self.db_name, self.addon_name)
+
             # Create a user row per host the addon is reached from (native +
             # every Docker network pool). See ADDON_USER_HOSTS for the why.
             hosts = ADDON_USER_HOSTS
@@ -554,3 +563,35 @@ class MySQLAddon:
 
 # Backwards compatibility alias
 MysqlAddon = MySQLAddon
+
+
+def _refuse_foreign_database(
+    cursor: MySQLCursorAbstract, db_name: str, addon_name: str
+) -> None:
+    """
+    Abort when the target database exists but holds data we did not provision.
+
+    An EMPTY leftover is harmless and is adopted silently — that is the common
+    case after a partial teardown, and failing on it would be noise. A populated
+    one is different: its contents belong to a previous app of the same name.
+    """
+    cursor.execute(
+        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = %s",
+        (db_name,),
+    )
+    row = cursor.fetchone()
+    table_count = row[0] if row else 0
+    if not table_count:
+        return  # empty leftover: safe to reuse
+
+    msg = (
+        f"Database '{db_name}' already exists with {table_count} table(s), but "
+        f"Hop3 holds no credentials for addon '{addon_name}' — so this data is "
+        f"left over from a previous app of the same name, not this one. "
+        f"Refusing to attach it: the new app would inherit the old app's data "
+        f"(including its user accounts), and its installer would fail on rows it "
+        f"did not create. Either drop it "
+        f'(mysql -e "DROP DATABASE \\`{db_name}\\`") if the data is no longer '
+        f"wanted, or install this app under a different name."
+    )
+    raise RuntimeError(msg)
