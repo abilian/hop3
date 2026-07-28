@@ -24,13 +24,18 @@ def test_build_ignore_list_is_accepted():
     validate_hop3_toml(tomllib.loads(toml))  # must not raise
 
 
-def test_build_ignore_is_exposed_by_config():
+def test_build_ignore_is_readable_from_the_section():
+    """
+    The CLI reads [build].ignore straight off the section and owns the
+    behaviour (hop3-cli's test_generate_archive); the server exposed a duplicate
+    accessor that nothing called, which is now gone.
+    """
     cfg = Hop3Config.from_str('[build]\nignore = ["*.log", "tmp/"]\n')
-    assert cfg.ignore_patterns == ["*.log", "tmp/"]
+    assert cfg.build["ignore"] == ["*.log", "tmp/"]
 
 
-def test_no_ignore_is_empty_list():
-    assert Hop3Config.from_str('[metadata]\nid = "x"\n').ignore_patterns == []
+def test_no_ignore_leaves_the_key_absent():
+    assert "ignore" not in Hop3Config.from_str('[metadata]\nid = "x"\n').build
 
 
 def test_ignore_file_pointer_is_rejected():
