@@ -170,6 +170,28 @@ Colliding user aliases are reported at the bottom and skipped at resolution.
 """
 
 
+SCAFFOLD_HELP = """Usage: hop3 scaffold [--force]
+
+Write a starter hop3.toml for the project in this directory.
+
+Reads the working tree and writes one file; nothing is sent to a server, and
+no server needs to exist yet. The app id comes from the directory name, and
+the toolchain Hop3 would detect is reported (but not written: Hop3 detects it
+again at deploy, so a hard-coded value is only something to get wrong later).
+
+The generated file starts with a `#:schema` line, so an editor with a TOML
+language server ("Even Better TOML" in VS Code, or Taplo over LSP) completes
+field names, offers valid values, and flags typos as you type.
+
+Options:
+  -f, --force   Replace an existing hop3.toml. Refused by default: it is
+                hand-edited and may be the only record of how the app deploys.
+
+Next step:
+  hop3 deploy
+"""
+
+
 COMPLETION_HELP = """Usage: hop3 completion <shell|option>
 
 Generate shell completion scripts.
