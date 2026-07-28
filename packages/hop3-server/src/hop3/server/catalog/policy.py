@@ -25,6 +25,7 @@ bad spec, before signing) and as a *load-time* backstop on the node.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
@@ -119,17 +120,49 @@ def validate_catalog_app_files(app_dir: Path, app_id: str) -> None:
         CatalogSpecError: if the app's recipe would fail its build.
     """
     requirements = app_dir / "requirements.txt"
-    if not requirements.exists():
-        return
-
-    unpinned = unpinned_requirements(requirements.read_text())
-    if unpinned:
-        shown = ", ".join(unpinned[:5])
-        msg = (
-            f"Catalog app {app_id!r} ships an unpinned requirements.txt "
-            f"({shown}). The Python toolchain refuses it as unreproducible, so "
-            f"this blueprint would fail its build on every node that installs "
-            f"it. Pin every dependency — `uv pip compile requirements.in -o "
-            f"requirements.txt` — and re-publish."
+    if requirements.exists():
+        _reject_unpinned(
+            app_id, requirements.read_text(), "ships an unpinned requirements.txt"
         )
-        raise CatalogSpecError(msg)
+
+    # A build script that WRITES requirements.txt hides it from this gate: the
+    # file does not exist until deploy time, so an unpinned set shipped and only
+    # failed on the node. Read the heredoc it would write.
+    for script in sorted(app_dir.glob("scripts/*.sh")):
+        generated = _generated_requirements(script.read_text())
+        if generated:
+            _reject_unpinned(
+                app_id,
+                generated,
+                f"generates an unpinned requirements.txt in scripts/{script.name}",
+            )
+
+
+def _generated_requirements(script: str) -> str:
+    """
+    The requirements.txt body a shell script writes via heredoc, if any.
+
+    Matches ``cat > requirements.txt << 'EOF' ... EOF`` and its unquoted and
+    ``>>`` variants. Deliberately narrow: it recognises the one idiom recipes
+    actually use, and misses rather than guesses.
+    """
+    pattern = re.compile(
+        r"cat\s*>>?\s*(?:\./)?requirements\.txt\s*<<[-\s]*['\"]?(\w+)['\"]?\s*\n(.*?)\n\1",
+        re.DOTALL,
+    )
+    return "\n".join(match.group(2) for match in pattern.finditer(script))
+
+
+def _reject_unpinned(app_id: str, text: str, what: str) -> None:
+    """Refuse a requirement set the Python toolchain would reject on the node."""
+    unpinned = unpinned_requirements(text)
+    if not unpinned:
+        return
+    shown = ", ".join(unpinned[:5])
+    msg = (
+        f"Catalog app {app_id!r} {what}: {shown}. The Python toolchain refuses "
+        f"it as unreproducible, so this blueprint would fail its build on every "
+        f"node that installs it. Pin every dependency — `uv pip compile "
+        f"requirements.in -o requirements.txt` — and re-publish."
+    )
+    raise CatalogSpecError(msg)

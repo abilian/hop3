@@ -117,3 +117,43 @@ def test_app_without_requirements_is_not_gated(tmp_path):
     (app_dir / "hop3.toml").write_text("[metadata]\nid = 'wordpress'\n")
 
     validate_catalog_app_files(app_dir, "wordpress")  # must not raise
+
+
+def test_unpinned_requirements_generated_by_a_build_script_are_rejected(tmp_path):
+    """
+    A generated requirements.txt must be caught too.
+
+    Regression: radicale's download.sh wrote `radicale[bcrypt]` at build time,
+    so the file did not exist when the catalog was validated. The unpinned set
+    shipped and failed only on the node that installed it.
+    """
+    app_dir = tmp_path / "radicale"
+    (app_dir / "scripts").mkdir(parents=True)
+    (app_dir / "scripts" / "download.sh").write_text(
+        "#!/bin/bash\nmkdir -p collections\n"
+        "cat > requirements.txt << 'EOF'\nradicale[bcrypt]\nEOF\n"
+    )
+
+    with pytest.raises(CatalogSpecError, match="generates an unpinned"):
+        validate_catalog_app_files(app_dir, "radicale")
+
+
+def test_pinned_requirements_generated_by_a_build_script_pass(tmp_path):
+    app_dir = tmp_path / "radicale"
+    (app_dir / "scripts").mkdir(parents=True)
+    (app_dir / "scripts" / "download.sh").write_text(
+        "cat > requirements.txt << 'EOF'\nradicale[bcrypt]==3.2.3\nEOF\n"
+    )
+
+    validate_catalog_app_files(app_dir, "radicale")  # must not raise
+
+
+def test_build_script_without_requirements_heredoc_is_ignored(tmp_path):
+    """Ordinary build scripts must not be mistaken for dependency manifests."""
+    app_dir = tmp_path / "app"
+    (app_dir / "scripts").mkdir(parents=True)
+    (app_dir / "scripts" / "download.sh").write_text(
+        "#!/bin/bash\ncurl -fsSL https://example.com/x.tar.gz | tar xz\n"
+    )
+
+    validate_catalog_app_files(app_dir, "app")  # must not raise
