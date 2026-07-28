@@ -581,6 +581,16 @@ class PostgresAddon:
             connection.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
 
             with connection.cursor() as cursor:
+                # Close any session still attached, or the DROP below fails with
+                # "database is being accessed by other users". We are destroying
+                # this database on purpose, and every connection to it belongs to
+                # the app being torn down — a lingering one must not leave the
+                # database behind for the next app of the same name to inherit.
+                cursor.execute(
+                    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                    "WHERE datname = %s AND pid <> pg_backend_pid()",
+                    (self.db_name,),
+                )
                 # Drop database
                 cursor.execute(
                     sql.SQL("DROP DATABASE IF EXISTS {}").format(
