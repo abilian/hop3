@@ -53,6 +53,11 @@ class StaticToolchain(LanguageToolchain):
         """
         # Resolve the served directory (hop3.toml [run.workers].static, a
         # Procfile `static:` line, or the "public" default).
+        # A static site is often generated (mkdocs, hugo, a bundler), and that
+        # generator is exactly what [build].build declares. Ignoring it served
+        # the un-built sources — or nothing at all.
+        self._run_declared_build()
+
         static_dir = self._get_static_dir()
 
         # Verify the directory exists
