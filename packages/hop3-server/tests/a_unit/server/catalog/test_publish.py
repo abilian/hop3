@@ -30,6 +30,9 @@ def _content(tmp_path, toml=APP_TOML):
     app.mkdir(parents=True)
     (app / "hop3.toml").write_text(toml)
     (app / "readme.md").write_text("# Nextcloud\nHello.\n")
+    # Every catalog app must ship a smoke test, or installing it could only
+    # ever prove that it started.
+    (app / "check.py").write_text("# smoke test\n")
     return tmp_path / "content"
 
 
