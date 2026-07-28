@@ -95,6 +95,22 @@ class AppConfig:
         return [cmd] if cmd else []
 
     @property
+    def build_steps(self) -> list[str]:
+        """
+        Get [build].build — the app's own build commands.
+
+        Runs after the toolchain has installed dependencies and before
+        ``after-build``, so a step that compiles assets can rely on them being
+        present.
+
+        There is no Procfile equivalent: Procfile knows ``prebuild``/``postbuild``
+        only, so a Procfile-only app expresses this as ``postbuild``.
+        """
+        if self.has_hop3_toml:
+            return list(self.hop3_config.build_commands)
+        return []
+
+    @property
     def post_build(self) -> list[str]:
         """
         Get postbuild commands with precedence: hop3.toml > Procfile.
