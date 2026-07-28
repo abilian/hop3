@@ -17,6 +17,47 @@ if TYPE_CHECKING:
 
     from hop3_installer.deployer.config import DeployConfig
 
+# The hop3-server venv interpreter on a standard install; it can import `hop3`
+# and therefore the addon plugins.
+_SERVER_VENV_PYTHON = "/home/hop3/venv/bin/python3"
+
+# Destroy every provisioned addon through its own plugin, so each backing store
+# (MySQL/PostgreSQL database + role, Redis logical db) is reclaimed the way that
+# service requires. Fed to the server's interpreter on stdin.
+#
+# A failure to destroy one addon does not stop the others — reclaiming three of
+# four beats reclaiming none — but the script still exits non-zero so the caller
+# never reports a clean server it did not deliver.
+_RECLAIM_ADDONS_SCRIPT = """
+import sys
+
+from hop3.core.plugins import get_addon
+from hop3.orm import get_session_factory
+from hop3.orm.repositories import AddonCredentialRepository
+
+session = get_session_factory()()
+addons = {
+    (c.addon_type, c.addon_name)
+    for c in AddonCredentialRepository(session=session).list_all_with_apps()
+}
+
+if not addons:
+    print("no addons to reclaim")
+    sys.exit(0)
+
+failed = []
+for addon_type, addon_name in sorted(addons):
+    try:
+        get_addon(addon_type, addon_name).destroy()
+        print(f"reclaimed {addon_type} {addon_name}")
+    except Exception as e:
+        failed.append(f"{addon_type} {addon_name}: {e}")
+
+for failure in failed:
+    print(f"FAILED to reclaim {failure}", file=sys.stderr)
+sys.exit(1 if failed else 0)
+"""
+
 
 class SSHDeployBackend(DeployBackend):
     """Backend for deploying to remote servers via SSH."""
@@ -183,7 +224,17 @@ class SSHDeployBackend(DeployBackend):
         return result.returncode == 0
 
     def clean(self) -> None:
-        """Clean the server for fresh installation."""
+        """
+        Clean the server for fresh installation.
+
+        Addon storage is reclaimed FIRST, while Hop3 still knows what it
+        provisioned. Databases live in MySQL/PostgreSQL/Redis — separate
+        services, outside /home/hop3 — so wiping that directory leaves them
+        behind, and the next install of an app with the same name silently
+        attaches to its predecessor's data.
+        """
+        self._reclaim_addon_storage()
+
         commands = [
             "systemctl stop hop3-server 2>/dev/null || true",
             "systemctl stop uwsgi-hop3 2>/dev/null || true",
@@ -200,6 +251,52 @@ class SSHDeployBackend(DeployBackend):
 
         for cmd in commands:
             self.run(cmd, check=False)
+
+    def _reclaim_addon_storage(self) -> None:
+        """
+        Destroy every addon Hop3 provisioned, before its records are deleted.
+
+        Enumerated from Hop3's own database rather than guessed from database
+        names, so this drops exactly what Hop3 created and never a database
+        someone else put on the box. Each addon is destroyed through its own
+        plugin, so MySQL, PostgreSQL and Redis are handled the way each
+        requires.
+
+        A box with no Hop3 installed has nothing to reclaim — that is the normal
+        first-install case, not a failure. But an installation we can see and
+        cannot enumerate ABORTS: `--clean` promising a fresh server and silently
+        leaving a previous tenant's data behind is the bug this exists to fix.
+        """
+        probe = self.run(
+            f"test -x {_SERVER_VENV_PYTHON} && test -e /home/hop3/hop3.db",
+            check=False,
+        )
+        if probe.returncode != 0:
+            print("  → No existing Hop3 database; no addon storage to reclaim")
+            return
+
+        print("  → Reclaiming addon storage (databases) from the previous install")
+        result = self.run(
+            "su - hop3 -c 'set -a; . /etc/default/hop3 2>/dev/null; set +a; "
+            f"{_SERVER_VENV_PYTHON} -'",
+            check=False,
+            stdin=_RECLAIM_ADDONS_SCRIPT,
+        )
+        output = (result.stdout or "") + (result.stderr or "")
+        if result.returncode != 0:
+            msg = (
+                "Could not reclaim addon storage from the existing installation, "
+                "so --clean cannot deliver the fresh server it promises: the old "
+                "databases would survive and the next install of an app with the "
+                "same name would attach to its predecessor's data.\n"
+                f"{output.strip()}\n"
+                "Drop the leftover databases by hand (or remove /home/hop3/hop3.db "
+                "to accept keeping them), then re-run."
+            )
+            raise RuntimeError(msg)
+        for line in output.splitlines():
+            if line.strip():
+                print(f"    {line.strip()}")
 
     def get_server_url(self) -> str:
         """Get the URL to access the server."""
