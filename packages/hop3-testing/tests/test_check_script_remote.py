@@ -16,7 +16,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any, cast
 
-from hop3_testing.runners.deployment import DeploymentTestRunner
+from hop3_testing.runners.deployment import _HOP3_VENV_PYTHON, DeploymentTestRunner
 
 
 class _FakeTarget:
@@ -88,5 +88,7 @@ def test_remote_check_runs_via_server_venv_python_not_uv(tmp_path):
     target = _FakeTarget(exit_code=0)
     _run(target, _session(tmp_path))
     assert target.exec_cmd is not None
-    assert target.exec_cmd.startswith("/home/hop3/venv/bin/python3 ")
+    # Wrapped in `sh -c` so the injected credentials can be sourced from a file
+    # rather than passed in argv (where `ps` would show them to every user).
+    assert f"{_HOP3_VENV_PYTHON} " in target.exec_cmd
     assert "uv run" not in target.exec_cmd
