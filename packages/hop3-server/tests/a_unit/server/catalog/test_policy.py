@@ -92,6 +92,7 @@ def test_unpinned_requirements_are_rejected_at_publish(tmp_path):
     """
     app_dir = tmp_path / "bugsink"
     app_dir.mkdir()
+    (app_dir / "check.py").write_text("# smoke test\n")
     (app_dir / "requirements.txt").write_text(
         "bugsink==2.1.2\ngunicorn>=21.0\npsycopg2-binary>=2.9\n"
     )
@@ -103,6 +104,7 @@ def test_unpinned_requirements_are_rejected_at_publish(tmp_path):
 def test_pinned_requirements_pass(tmp_path):
     app_dir = tmp_path / "bugsink"
     app_dir.mkdir()
+    (app_dir / "check.py").write_text("# smoke test\n")
     (app_dir / "requirements.txt").write_text(
         "bugsink==2.1.2\ngunicorn==25.1.0\npsycopg2-binary==2.9.12\n"
     )
@@ -115,6 +117,7 @@ def test_app_without_requirements_is_not_gated(tmp_path):
     app_dir = tmp_path / "wordpress"
     app_dir.mkdir()
     (app_dir / "hop3.toml").write_text("[metadata]\nid = 'wordpress'\n")
+    (app_dir / "check.py").write_text("# smoke test\n")
 
     validate_catalog_app_files(app_dir, "wordpress")  # must not raise
 
@@ -129,6 +132,7 @@ def test_unpinned_requirements_generated_by_a_build_script_are_rejected(tmp_path
     """
     app_dir = tmp_path / "radicale"
     (app_dir / "scripts").mkdir(parents=True)
+    (app_dir / "check.py").write_text("# smoke test\n")
     (app_dir / "scripts" / "download.sh").write_text(
         "#!/bin/bash\nmkdir -p collections\n"
         "cat > requirements.txt << 'EOF'\nradicale[bcrypt]\nEOF\n"
@@ -141,6 +145,7 @@ def test_unpinned_requirements_generated_by_a_build_script_are_rejected(tmp_path
 def test_pinned_requirements_generated_by_a_build_script_pass(tmp_path):
     app_dir = tmp_path / "radicale"
     (app_dir / "scripts").mkdir(parents=True)
+    (app_dir / "check.py").write_text("# smoke test\n")
     (app_dir / "scripts" / "download.sh").write_text(
         "cat > requirements.txt << 'EOF'\nradicale[bcrypt]==3.2.3\nEOF\n"
     )
@@ -152,6 +157,7 @@ def test_build_script_without_requirements_heredoc_is_ignored(tmp_path):
     """Ordinary build scripts must not be mistaken for dependency manifests."""
     app_dir = tmp_path / "app"
     (app_dir / "scripts").mkdir(parents=True)
+    (app_dir / "check.py").write_text("# smoke test\n")
     (app_dir / "scripts" / "download.sh").write_text(
         "#!/bin/bash\ncurl -fsSL https://example.com/x.tar.gz | tar xz\n"
     )

@@ -119,6 +119,20 @@ def validate_catalog_app_files(app_dir: Path, app_id: str) -> None:
     Raises:
         CatalogSpecError: if the app's recipe would fail its build.
     """
+    # Every advertised app must be verifiable. Without a check.py the platform
+    # can say an app deployed and nothing more — and "it deployed" turned out
+    # repeatedly not to mean "it works": apps served their login page perfectly
+    # while rejecting every credential. A blueprint that ships no check makes
+    # that indistinguishable from success, so it does not go in the catalog.
+    if not (app_dir / "check.py").exists():
+        msg = (
+            f"Catalog app {app_id!r} ships no check.py, so installing it could "
+            f"only ever prove that it started. Add a smoke test that signs in "
+            f"and asserts a wrong password is refused (see an existing app's "
+            f"check.py), or leave the app out of the catalog."
+        )
+        raise CatalogSpecError(msg)
+
     requirements = app_dir / "requirements.txt"
     if requirements.exists():
         _reject_unpinned(
