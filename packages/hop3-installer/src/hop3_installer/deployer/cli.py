@@ -87,6 +87,24 @@ Examples:
         help="Target server hostname or IP (or set HOP3_HOST)",
     )
     target.add_argument(
+        "--provider",
+        choices=("hetzner",),
+        help=(
+            "Rebuild a pristine cloud server first, then deploy to it. Wipes "
+            "the target server's OS — use a dedicated throwaway box "
+            "(HETZNER_SERVER_ID). Same shape as `hop3-test run --provider`."
+        ),
+    )
+    target.add_argument(
+        "--image",
+        help="OS image for --provider (e.g. ubuntu-24.04); default: the server's current image",
+    )
+    target.add_argument(
+        "--server-id",
+        type=int,
+        help="Cloud server to rebuild for --provider (or set HETZNER_SERVER_ID)",
+    )
+    target.add_argument(
         "--docker",
         "-d",
         action="store_true",
@@ -272,7 +290,11 @@ def _apply_target_overrides(config: DeployConfig, args: argparse.Namespace) -> N
     ``!= default``: an explicit ``--ssh-user root`` must win over an env-supplied
     value even though ``root`` is the default (ADR 052 D7).
     """
-    if args.host:
+    if args.provider:
+        # Provision FIRST: the rebuilt server's address becomes the deploy
+        # target, so --provider and --host are alternatives, not companions.
+        config.host = _provision_pristine_server(args)
+    elif args.host:
         config.host = args.host
     if args.docker:
         config.use_docker = True
@@ -502,3 +524,45 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+def _provision_pristine_server(args: argparse.Namespace) -> str:
+    """
+    Rebuild a cloud server from scratch and return its address.
+
+    Deploying onto a box that already ran Hop3 is how a "fresh install" quietly
+    becomes an upgrade over someone else's leftovers — the reason `hop3-test`
+    grew this option. `hop3-deploy-server` needed the same thing, and offering
+    two different ways to say it would be worse than sharing one.
+
+    The provisioning itself lives in hop3-testing and is imported lazily, so
+    hop3-installer keeps the zero-dependency property that lets its bundled
+    installer run on a bare box with nothing but Python. Missing, it says so —
+    it does not fall back to deploying at whatever --host happened to be set,
+    which would silently do the opposite of what was asked.
+    """
+    try:
+        from hop3_testing.system_tests.provision import (  # ruff:ignore[import-outside-top-level]
+            provision_server,
+        )
+    except ImportError as e:
+        msg = (
+            "--provider needs the cloud provisioning support, which ships with "
+            "hop3-testing (not installed). Install it (`uv sync`, or `pip "
+            "install hop3-testing`), or deploy to an existing server with "
+            "--host."
+        )
+        raise SystemExit(msg) from e
+
+    try:
+        return provision_server(
+            provider=args.provider,
+            server_id=args.server_id,
+            image=args.image,
+            verbose=bool(getattr(args, "verbose", False)),
+        )
+    except Exception as e:
+        # A missing token or server id is an operator mistake, not a crash —
+        # report it as one sentence rather than a traceback.
+        msg = f"Cannot provision a {args.provider} server: {e}"
+        raise SystemExit(msg) from e
