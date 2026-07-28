@@ -7,7 +7,7 @@
 
 ## Context and Goals
 
-Data protection is a critical aspect of securing the Hop3 platform. Hop3 must ensure that the data it handles is protected through robust encryption methods, both at rest and in transit. This protects sensitive information, helps comply with regulatory requirements, and builds user trust.
+Hop3 must protect the data it handles through encryption at rest and in transit. This protects sensitive information, helps comply with regulatory requirements, and builds user trust.
 
 The control plane handles several classes of sensitive data (addon credentials, session secrets, magic-link tokens, user passwords, and RPC traffic) each with different protection requirements. The design must state, concretely, how each class is protected and where the protection boundary lies between Hop3 and the operator's host.
 
@@ -52,8 +52,6 @@ Hop3 protects data at rest and in transit using industry-standard encryption alg
 - **Encryption Performance**: Encryption may impact performance. Mitigation includes efficient algorithm choices and bounding hashing cost (bcrypt cost factor 12).
 
 ## Non-Goals and Boundaries
-
-The following are deliberately outside the scope Hop3 provides, and are left to the operator or to future work:
 
 - **Automated key rotation**: There is no automated rotation policy or secondary-key envelope scheme; rotation is manual.
 - **Hardware-backed key storage (HSM, TPM, cloud KMS)**: Not provided by Hop3. Operators requiring it integrate at the OS level.

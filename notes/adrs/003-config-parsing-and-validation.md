@@ -7,7 +7,7 @@
 
 ## Context
 
-We have decided, early on in the project, to use an existing syntax (instead of creating a new DSL) for the `hop3.toml` files, which are the heart of the Hop3 platform.
+We have decided, early on in the project, to use an existing syntax for the `hop3.toml` files, the heart of the Hop3 platform, rather than create a new DSL.
 
 We chose to favor [TOML](https://toml.io/en/) for several reasons, including:
 
@@ -20,7 +20,7 @@ However, we also choose to support JSON and YAML as alternatives because the con
 
 ### Decision
 
-- Parse the configuration once (and report errors as soon as possible), apply some transformations, and transform it into JSON which will then be the reference file (loaded by `jsonlib` when necessary, but without any further transformations, or as little as possible).
+- Parse the configuration once (and report errors as soon as possible), apply some transformations, and transform it into JSON which will then be the reference file (loaded by `jsonlib` when necessary, without further transformation).
 - Implement schema validation for the `hop3.toml` file (see Validation Requirements below).
 - Add specific code to validate the "env" section (because we don't know the keywords a priori), and possibly other sections.
 
@@ -29,8 +29,6 @@ However, we also choose to support JSON and YAML as alternatives because the con
 Configuration access is property-based, built on Python dataclasses and `@property` methods: a `Hop3Config` class parses `hop3.toml` with `tomllib`, and an `AppConfig` class merges `Procfile` and `hop3.toml`, exposing fields through property accessors. [ADR 001](./001-config-files.md) and [ADR 002](./002-config-format.md) document which fields are active.
 
 Validation at load time is limited to TOML parse errors; semantic errors (missing required field, wrong type) surface when the accessor runs. Formal schema validation is deferred in exchange for zero additional dependencies and fast iteration on the config surface.
-
-A full schema-validation layer is a deferred design question. The **Validation Requirements** section below specifies what such a layer must deliver, and the **Implementation Options** table records the candidate approaches; the choice among them is left open, and any approach meeting the requirements is acceptable.
 
 ### Validation Requirements
 
@@ -73,7 +71,7 @@ The validation requirements can be met by several approaches:
 | **msgspec** | Fast, good validation | Less mature ecosystem |
 | **JSON Schema** | Language-agnostic, IDE support | Separate from Python code |
 
-The implementation choice is left open - any approach that meets the validation requirements is acceptable.
+The implementation choice is left open; any approach that meets the validation requirements is acceptable.
 
 ### Alternatives
 

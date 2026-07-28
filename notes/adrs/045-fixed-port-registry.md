@@ -14,7 +14,7 @@ Without a registry, Hop3 is blind to those ports. They are baked into the app ra
 
 The user requirement: a user who tries to install a second SMTP server (or XMPP, RTMP, …) must get a **clear error up front (before the install attempt) rather than a confusing system error after the fact.**
 
-This sits on the project's platform-robustness ethos: apps must coexist without interference, and failures must be actionable. It complements the reliable-teardown work (the leftover-process fix in the uWSGI deployer): teardown stops a *previous* instance from holding the port; this ADR stops a *concurrent* second app from silently colliding.
+Under the platform-robustness ethos, apps must coexist without interference and failures must be actionable. Reliable teardown (the leftover-process fix in the uWSGI deployer) stops a *previous* instance from holding the port; this ADR stops a *concurrent* second app from silently colliding.
 
 ## Goals
 

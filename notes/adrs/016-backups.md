@@ -7,13 +7,13 @@
 
 ## Context and Goals
 
-Ensuring the availability and integrity of data is critical for the Hop3 platform. A robust backup strategy is essential to protect against data loss, corruption, and ensure quick recovery in case of failures. The goal is to define a comprehensive backup strategy that covers different types of data (e.g., configuration files, application data, and databases) and ensures that backups are performed regularly, stored securely, and can be restored efficiently.
+Ensuring the availability and integrity of data is critical for the Hop3 platform. A backup strategy is essential to protect against data loss, corruption, and ensure quick recovery in case of failures. The goal is to define a backup strategy that covers different types of data (e.g., configuration files, application data, and databases) and ensures that backups are performed regularly, stored securely, and can be restored efficiently.
 
 This ADR defines the long-term vision for Hop3's backup capabilities. [ADR 024](024-backup-restore-system.md) specifies the foundational backup and restore system on which the later phases build.
 
 ## Decision
 
-Hop3 implements a comprehensive backup strategy that includes regular backups of critical data, secure storage of backup files, and efficient restoration procedures. This strategy encompasses application data, configuration files, and databases.
+Hop3 implements a backup strategy that includes regular backups of critical data, secure storage of backup files, and efficient restoration procedures. This strategy encompasses application data, configuration files, and databases.
 
 The strategy is delivered in phases, so that a usable foundation exists before the more operationally demanding capabilities (scheduling, remote storage, encryption, incremental backups) are layered on:
 
@@ -93,7 +93,7 @@ The strategy is delivered in phases, so that a usable foundation exists before t
    - **Performance Monitoring**: Monitor the performance and reliability of the backup processes to identify and address any issues promptly.
 
 2. **Community Engagement**:
-   - **Hop3 Community**: Encourage contributions from the Hop3 community to refine and enhance the backup strategy.
+   - **Hop3 Community**: Encourage contributions from the Hop3 community to improve the backup strategy.
 
 ## Consequences
 
@@ -105,7 +105,7 @@ The strategy is delivered in phases, so that a usable foundation exists before t
 
 ### Drawbacks
 
-- **Resource Intensive**: Requires significant storage resources and network bandwidth for regular backups.
+- **Resource Intensive**: Requires storage resources and network bandwidth for regular backups.
 - **Management Complexity**: Adds complexity to system management, requiring careful planning and monitoring.
 - **Phased Delivery**: The advanced capabilities (scheduling, remote storage, encryption, incremental backups) depend on operational machinery that the foundational phase does not provide, so they become available only as later phases are built.
 

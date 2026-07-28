@@ -53,7 +53,7 @@ This bounds the attack surface to "what the daemon's API has been designed for".
 
 #### No authorization layer
 
-Rootd does not include a policy file or per-op authorization. SO_PEERCRED admits the hop3 user; structural validation rejects malformed requests; that is the entire authorization model.
+Rootd does not include a policy file or per-op authorization. SO_PEERCRED admits the hop3 user; structural validation rejects malformed requests. No other authorization mechanism is needed.
 
 A per-op policy layer would be theatre against a compromised hop3-server: SO_PEERCRED only authenticates "you're the hop3 user", and any "app A is requesting this rule" claim a compromised hop3-server makes is unverifiable. Rootd has no way to distinguish "hop3-server doing the right thing for app A" from "compromised hop3-server doing the wrong thing while claiming to act for app A".
 
@@ -91,9 +91,9 @@ daemon.handshake() -> {protocol_version, daemon_version, accepted}
 
 The daemon listens on `/run/hop3-rootd/socket`, owned by root, mode `0660`, group `hop3`. Any process running as the `hop3` user can connect; processes under any other UID are rejected at accept time.
 
-**Caller authentication** uses `SO_PEERCRED`: the kernel-provided peer-credentials mechanism. The daemon reads the connecting peer's UID directly from the socket and admits only `hop3` (and optionally `root`, for diagnostic / admin tools). No tokens, passwords, or shared secrets. The kernel's UID enforcement is the entire auth model.
+**Caller authentication** uses `SO_PEERCRED`: the kernel-provided peer-credentials mechanism. The daemon reads the connecting peer's UID directly from the socket and admits only `hop3` (and optionally `root`, for diagnostic / admin tools). No tokens, passwords, or shared secrets. The kernel's UID enforcement constitutes the auth model.
 
-**Wire framing** is line-delimited JSON: one JSON object per line, terminated with `\n`. Both sides write `json.dumps(obj) + "\n"` and read with `socket.makefile().readline()`. No length prefix, no streaming, no chunking. All payloads are small (≤2KB even with verbose audit context); JSON objects don't contain literal newlines (the JSON encoder escapes them).
+**Wire framing** is line-delimited JSON: one JSON object per line, terminated with `\n`. Both sides write `json.dumps(obj) + "\n"` and read with `socket.makefile().readline()`. No length prefix or chunking. All payloads are small (≤2KB even with verbose audit context); JSON objects don't contain literal newlines (the JSON encoder escapes them).
 
 **Request envelope**:
 ```json
@@ -327,7 +327,7 @@ The operator's mental model: "deploy failed; the app isn't running; firewall is 
 
 **Why this is stricter than nginx-reload's existing soft-failure**: nginx reload failure is benign (old config still serves). Firewall failure is fundamental: the app's *contract* (these ports are reachable) is broken. They deserve different handling.
 
-Build artifacts are not garbage-collected eagerly; they accumulate until the operator runs `hop3 app destroy` or some future cleanup command.
+Build artifacts accumulate until the operator runs `hop3 app destroy` or some future cleanup command.
 
 ### 9. CLI deploy-time prompt
 
@@ -598,7 +598,7 @@ Top-down stop, bottom-up start: same as any service-with-dependency.
 
 Four test layers, mirroring hop3-server's existing convention:
 
-#### a_unit (no privileges, no nft)
+#### a_unit (no privileges or nft)
 
 `packages/hop3-rootd/tests/a_unit/`: pure Python, runs anywhere.
 

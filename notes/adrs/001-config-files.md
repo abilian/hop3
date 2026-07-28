@@ -11,9 +11,9 @@ This ADR proposes the adoption of multiple configuration file formats for the Ho
 
 ## Context and Goals
 
-The Hop3 platform needs a robust and flexible configuration method for deploying and managing web applications. Initially, a single configuration file format was considered to streamline the process. However, the need for flexibility and compatibility with existing standards has led to the consideration of multiple configuration file formats. The core configurations and metadata for a given Hop3 package can be provided in various forms, including:
+The Hop3 platform needs a flexible configuration method for deploying and managing web applications. Initially, a single configuration file format was considered to simplify the process. However, the need for flexibility and compatibility with existing standards has led to the consideration of multiple configuration file formats. The core configurations and metadata for a given Hop3 package can be provided in various forms, including:
 
-1. **hop3.toml**: The primary configuration file designed for simplicity, readability, and explicitness.
+1. **hop3.toml**: The primary configuration file designed for simplicity and readability.
 1. **Procfile**: A file that defines process types and commands for a web application, widely used in platforms like Heroku.
 1. **Other Files and Scripts**: Various other files and scripts that can provide necessary configuration and metadata, ensuring compatibility with different deployment environments and user preferences.
 
@@ -58,6 +58,4 @@ Schema validation beyond TOML parse errors is owned by [ADR 003](./003-config-pa
 - TOML documentation: https://toml.io/en/
 - Procfile documentation: https://devcenter.heroku.com/articles/procfile
 
-## Notes
 
-- The decision to support multiple configuration formats aims to cater to diverse user needs and existing workflows, thereby enhancing the overall flexibility and usability of the Hop3 platform.

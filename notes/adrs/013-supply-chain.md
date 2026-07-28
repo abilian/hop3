@@ -7,7 +7,7 @@
 
 ## Context and Goals
 
-Ensuring the security of the software supply chain is critical to the integrity and reliability of the Hop3 platform. With increasing threats to software security, it is essential to adopt best practices that enhance the transparency, traceability, and security of software components. The goal is to implement robust measures for software supply chain security, including the use of Software Bill of Materials (SBOMs) to provide a detailed inventory of software components.
+Supply chain transparency, traceability, and component-level security are prerequisites for platform integrity and reliability. Hop3 implements Software Bill of Materials (SBOMs) to provide a detailed inventory of software components and to anchor the other supply-chain practices described here.
 
 ## Decision
 
@@ -68,7 +68,7 @@ Hop3 adopts a proactive stance towards software supply chain security by integra
 ### Drawbacks
 
 - **Implementation Effort**: Requires significant effort to integrate and maintain SBOM generation and supply chain security practices.
-- **Complexity**: Adds complexity to the development and delivery pipeline, necessitating robust tools and processes to manage it effectively.
+- **Complexity**: Adds complexity to the development and delivery pipeline, necessitating tools and processes to manage it effectively.
 
 ## Risks
 

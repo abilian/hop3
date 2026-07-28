@@ -7,7 +7,7 @@
 
 ## Purpose
 
-This ADR is the landing page for Hop3's security and resilience design. It enumerates the sub-concerns and points at the ADRs that decide them. It does not, by itself, commit Hop3 to specific mechanisms; the concrete design for each concern lives in its child ADR. A broad-scope "implement encryption, RBAC, MFA, backups, monitoring" framing is deliberately rejected here: a security decision is only meaningful once it commits to a mechanism, so each mechanism is decided in its own ADR rather than asserted in the aggregate.
+This ADR is the landing page for Hop3's security and resilience design. It enumerates the sub-concerns and points at the ADRs that decide them. Each concern commits to a specific mechanism in its own ADR. A broad-scope "implement encryption, RBAC, MFA, backups, monitoring" framing would short-circuit that: a security decision is only meaningful once it commits to a mechanism.
 
 ## Sub-concerns and child ADRs
 

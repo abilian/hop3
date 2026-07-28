@@ -39,7 +39,7 @@ The Wave 5 plan bundled "network-level firewall" as one item. In practice it's t
 1. **Platform baseline.** Drop everything on the wire that doesn't belong to a Hop3-managed service (SSH for operators, nginx for HTTP/S, addons bound only where addon topology says). One-shot, installer-time. Static.
 2. **Per-app port exposure.** Some apps need additional inbound ports. Each app declares what it needs; Hop3 reconciles the firewall against those declarations. Lifecycle-aware: open on deploy, close on destroy, diff-and-apply on config change.
 
-The audit collapsed these into one item. They are different decisions with different blast radii and merit separate sections in this ADR.
+The audit collapsed these into one item.
 
 ### What the NGI deliverable promised
 
@@ -59,7 +59,7 @@ Docker writes its own iptables rules in the `DOCKER` chain ahead of any rules uf
 - A "deny by default" host firewall is undermined by any container that publishes a port: visible reachable, but not visible *to ufw*, so operators can't audit it via `ufw status`.
 - For app-declared exposures to be the single source of truth, Hop3 must not let docker-compose publish ports unilaterally. Either rewrite generated compose files to bind container ports to `127.0.0.1` and let ufw forward inbound traffic, or require operators to use Hop3's `[[expose]]` mechanism instead of compose-level `ports:`.
 
-The right resolution here is non-trivial and is itself an open question (see "Open questions").
+This is an open question (see "Open questions").
 
 ## Decision
 
@@ -167,8 +167,8 @@ For user-supplied compose files (where Hop3 doesn't own the YAML), the deployer 
 
 ### Negative
 
-- New schema in `hop3.toml`. Existing apps need no change (default = no extra ports), but documentation, tutorials, and the schema validator all need updates.
-- The Docker port-publishing rework is real engineering work. We've been letting compose handle inbound traffic for a year; reverting to "ufw forwards to loopback-bound containers" requires careful testing across docker-compose versions.
+- New schema in `hop3.toml`. Documentation, tutorials, and the schema validator all need updates. Existing apps need no change: the default behaviour is no extra ports.
+- We've been letting compose handle inbound traffic for a year; reverting to "ufw forwards to loopback-bound containers" requires careful testing across docker-compose versions.
 - Firewall reconciliation introduces a new failure mode: deploy succeeds at the app level but the firewall step fails (e.g., sudo timeout, ufw rule conflict). Need clear rollback and operator-facing diagnostics.
 - Per-app `--reconfigure-firewall` invitations on upgrades will catch some operators who manually adjusted rules outside Hop3's view.
 
