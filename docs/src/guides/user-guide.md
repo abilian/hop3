@@ -2,8 +2,6 @@
 
 This guide provides a comprehensive overview of Hop3: the vision, deployment methods, and essential commands. For step-by-step tutorials, see [Quickstart](../get-started/quickstart.md). For exhaustive command documentation, see [CLI Reference](../reference/cli.md).
 
----
-
 ## Vision and Philosophy
 
 Hop3 is an open-source Platform as a Service (PaaS) designed for **simplicity, security, and digital sovereignty**. It enables deployment and management of web applications on a single server.
@@ -25,8 +23,6 @@ Hop3 is ideal for:
 - Projects requiring data sovereignty (GDPR compliance, etc.)
 - Developers familiar with Heroku who want a self-hosted alternative
 - Single-server deployments (VPS, dedicated server, or local VM)
-
----
 
 ## Deployment Methods
 
@@ -87,8 +83,6 @@ For applications that need custom environments, complex dependencies, or specifi
 - Need exact reproducibility across environments
 - Complex multi-service build process
 
----
-
 ## Configuration Files
 
 ### Procfile
@@ -147,8 +141,6 @@ For complete documentation of all options, see the **[hop3.toml Reference](../re
 ### Using Both Together
 
 You can use both Procfile and hop3.toml. Hop3 merges them with `hop3.toml` taking precedence for conflicting values.
-
----
 
 ## Essential Commands
 
@@ -293,8 +285,6 @@ hop3 user revoke-admin alice
 hop3 user remove alice
 ```
 
----
-
 ## Porting Applications to Hop3
 
 ### From Heroku
@@ -430,8 +420,6 @@ hop3 app migrate procfile /path/to/app --dry-run
 hop3 app migrate procfile /path/to/app --backup
 ```
 
----
-
 ## CLI Tips
 
 ### Output Formats
@@ -473,8 +461,6 @@ export HOP3_API_TOKEN="your-token-here"
 export HOP3_DEBUG=1
 ```
 
----
-
 ## Quick Reference
 
 | Task | Command |
@@ -491,8 +477,6 @@ export HOP3_DEBUG=1
 | Restore backup | `hop3 backup restore <backup-id>` |
 | System health | `hop3 system status` |
 | Get help | `hop3 help <command>` |
-
----
 
 ## Next Steps
 

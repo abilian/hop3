@@ -120,8 +120,8 @@ See the [Installation Guide](get-started/server-setup.md) for detailed instructi
 
 ## Funding
 
-Hop3 is partly funded through the [NGI0 Commons Fund](https://nlnet.nl/commonsfund), established by NLnet with support from the European Commission's Next Generation Internet programme.
+Hop3 was partly funded through the [NGI0 Commons Fund](https://nlnet.nl/commonsfund), established by NLnet with support from the European Commission's Next Generation Internet programme.
 
 ---
 
-*Copyright © 2021-2026 [Abilian SAS](https://www.abilian.com/). Licensed under AGPL-3.0.*
+*Copyright © 2021-2026 [Abilian SAS](https://www.abilian.com/).*

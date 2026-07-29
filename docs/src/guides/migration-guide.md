@@ -8,8 +8,6 @@ This guide helps you migrate applications to Hop3 from other platforms.
 - [From Fly.io](#from-flyio)
 - [From Procfile to hop3.toml](#from-procfile-to-hop3toml)
 
----
-
 ## From Heroku
 
 Hop3 is designed to be Heroku-compatible at the Procfile level, making migration straightforward.
@@ -126,8 +124,6 @@ Heroku sets `$PORT` dynamically. Hop3 also provides `$PORT`:
 port = int(os.environ.get("PORT", 8000))
 ```
 
----
-
 ## From Fly.io
 
 Fly.io uses `fly.toml` for configuration. You can migrate to Hop3's `hop3.toml` format.
@@ -193,8 +189,6 @@ hop3 deploy --app myapp
 | `fly status` | `hop3 app status --app myapp` | App status |
 | `fly logs` | `hop3 app logs --app myapp` | View logs |
 | `fly restart` | `hop3 app restart --app myapp` | Restart app |
-
----
 
 ## From Procfile to hop3.toml
 
@@ -285,8 +279,6 @@ type = "postgres"
 
 Hop3 will merge these configurations with `hop3.toml` taking precedence.
 
----
-
 ## Environment-Specific Configuration
 
 Hop3 uses a single `hop3.toml` configuration file. Environment-specific settings are handled through environment variables, which you can set differently per deployment.
@@ -317,8 +309,6 @@ LOG_LEVEL=debug flask run --reload
 
 For local development, run your app directly without Hop3. For deployed environments, use `hop3 env set` to configure environment-specific variables.
 
----
-
 ## Validation
 
 After migration, validate your configuration:
@@ -332,8 +322,6 @@ hop3 deploy --app myapp
 hop3 app status --app myapp
 hop3 app logs --app myapp
 ```
-
----
 
 ## Need Help?
 

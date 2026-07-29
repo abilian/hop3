@@ -21,8 +21,6 @@ Your Code  →  hop3 deploy  →  Running App on Your Server
 4. **Environment variables** configure runtime behavior.
 5. **The CLI** talks to the server via JSON-RPC; most commands run remotely.
 
----
-
 ## Quick Reference: Commands
 
 ### Setup & Authentication
@@ -250,8 +248,6 @@ hop3 help --all
 hop3 <command> --help
 ```
 
----
-
 ## CLI Flags
 
 | Flag | Effect |
@@ -319,8 +315,6 @@ hop3 aliases
 # What commands were meant? (Levenshtein suggestion)
 hop3 deplo myapp   # -> "Did you mean 'deploy'?"
 ```
-
----
 
 ## Configuration Files
 
@@ -404,8 +398,6 @@ See [hop3.toml Reference](../reference/config.md) for complete documentation.
 2. Non-conflicting values are **merged**
 3. You can use both together
 
----
-
 ## Common Workflows
 
 ### Deploy a New App
@@ -481,8 +473,6 @@ hop3 ps scale --app myapp web=4
 hop3 ps scale --app myapp worker=2
 ```
 
----
-
 ## Best Practices
 
 ### Configuration
@@ -536,8 +526,6 @@ hop3 ps scale --app myapp worker=2
 - Monitor with `hop3 app logs` and `hop3 app status`
 - Use health checks to catch failures early
 
----
-
 ## Quick Heroku → Hop3 Translation
 
 | Heroku | Hop3 |
@@ -550,8 +538,6 @@ hop3 ps scale --app myapp worker=2
 | `heroku ps` | `hop3 ps` |
 | `heroku restart` | `hop3 app restart` |
 | `heroku destroy` | `hop3 app destroy` |
-
----
 
 ## Getting Help
 

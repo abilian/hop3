@@ -22,8 +22,6 @@ This guide covers server administration tasks for Hop3 operators, including inst
 
 On the distros above, hop3-server is installed by the standard installer; on NixOS it is deployed via the Nix flake and the `services.hop3` NixOS module. (Separately, the Nix package manager is also available as an app *builder* on any supported host.)
 
----
-
 ## Installation
 
 ### Quick Install (Single Command)
@@ -72,8 +70,6 @@ systemctl status nginx
 systemctl status uwsgi-hop3
 ```
 
----
-
 ## Upgrading Hop3
 
 Upgrading the **server** (Hop3 itself) is done with the installer / deployer. Re-run the same tool you installed with:
@@ -112,8 +108,6 @@ hop3 app upgrade --app myapp      # snapshot -> redeploy + migrate -> verify -> 
 hop3 app rollback --app myapp     # restore the most recent backup (--to <backup-id> for a specific one)
 ```
 
----
-
 ## Directory Structure
 
 ```
@@ -132,8 +126,6 @@ hop3 app rollback --app myapp     # restore the most recent backup (--to <backup
 ├── hop3-server.toml           # Server configuration
 └── hop3.db                    # SQLite database
 ```
-
----
 
 ## Configuration
 
@@ -171,8 +163,6 @@ To reload Nginx after manual changes:
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
 ```
-
----
 
 ## User Management
 
@@ -214,8 +204,6 @@ hop3-server admin:token admin
 hop3 user list
 ```
 
----
-
 ## Database Addon Management
 
 Hop3 supports PostgreSQL, MySQL, and Redis as backing services. For complete addon command documentation, see the **[CLI Reference: Services (Addons)](../reference/cli.md#services-addons)**.
@@ -245,8 +233,6 @@ MYSQL_SUPERUSER_PASSWORD = "secure-password"
 REDIS_HOST = "localhost"
 REDIS_PORT = 6379
 ```
-
----
 
 ## SSL/TLS Certificates
 
@@ -288,8 +274,6 @@ systemctl status certbot.timer
 # Manual renewal test
 sudo certbot renew --dry-run
 ```
-
----
 
 ## Monitoring & Health Checks
 
@@ -350,8 +334,6 @@ systemctl status uwsgi-hop3
 ps aux | grep uwsgi
 ```
 
----
-
 ## Backup & Restore
 
 For application-level backups, see the **[Backup and Restore Guide](backup-restore.md)**.
@@ -391,8 +373,6 @@ sudo -u postgres pg_dumpall | gzip > "$BACKUP_DIR/postgres.sql.gz"
 2. Restore configuration and database files
 3. Restore application directories
 4. Redeploy applications: `hop3 deploy --app myapp`
-
----
 
 ## Security Hardening
 
@@ -448,8 +428,6 @@ Each application runs:
 - With dedicated virtual environment
 - Under the `hop3` user
 - With separate uWSGI worker processes
-
----
 
 ## Performance Tuning
 
@@ -536,8 +514,6 @@ docker network ls
 docker network create test-network && docker network rm test-network
 ```
 
----
-
 ## Troubleshooting
 
 ### Common Issues
@@ -602,8 +578,6 @@ hop3 system info
 hop3 system status
 ```
 
----
-
 ## Maintenance Tasks
 
 ### Regular Maintenance Checklist
@@ -648,8 +622,6 @@ Apply changes:
 sudo systemctl restart systemd-journald
 ```
 
----
-
 ## Reference
 
 ### Service Management
@@ -684,8 +656,6 @@ sudo systemctl restart systemd-journald
 | `HOP3_LOG_LEVEL` | Server log level (default: `INFO`) |
 | `HOP3_UNSAFE` | Disable auth (testing only) |
 | `HOP3_DEBUG` | Enable debug logging |
-
----
 
 ## Related Guides
 
