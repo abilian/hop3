@@ -8,10 +8,8 @@ description = "Official documentation for Hop3 PaaS"
 
 [build]
 toolchain = "static"
-
-ignore = [
-    "src",
-]
+static-dir = "site"
+ignore = ["src"]
 
 [env]
 HOST_NAME = "hop3.cloud"
