@@ -14,7 +14,7 @@ from hop3_installer.common import (
 from hop3_installer.constants import HOME_DIR
 
 from .config import ServerInstallerConfig
-from .user import run_as_hop3
+from .user import run_as_hop3, run_as_hop3_shell
 
 
 def setup_acme(config: ServerInstallerConfig) -> None:
@@ -30,14 +30,24 @@ def setup_acme(config: ServerInstallerConfig) -> None:
         return
 
     with Spinner("Installing acme.sh..."):
-        run_as_hop3(
-            "curl -fsSL https://raw.githubusercontent.com/Neilpang/acme.sh/master/acme.sh -o /tmp/acme.sh"
-        )
-        run_as_hop3("cd /tmp && bash acme.sh --install")
+        run_as_hop3([
+            "curl",
+            "-fsSL",
+            "https://raw.githubusercontent.com/Neilpang/acme.sh/master/acme.sh",
+            "-o",
+            "/tmp/acme.sh",
+        ])
+        run_as_hop3_shell("cd /tmp && bash acme.sh --install")
         run_cmd(["rm", "-f", "/tmp/acme.sh"])
 
     if acme_sh.exists():
-        run_as_hop3(f"bash {acme_sh} --set-default-ca --server letsencrypt")
+        run_as_hop3([
+            "bash",
+            str(acme_sh),
+            "--set-default-ca",
+            "--server",
+            "letsencrypt",
+        ])
         print_success("acme.sh installed and configured")
     else:
         print_warning("acme.sh installation may have failed")
