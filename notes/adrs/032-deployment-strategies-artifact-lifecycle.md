@@ -7,7 +7,7 @@
 
 ## Context
 
-Currently, Hop3 uses a simple "stop-then-deploy" approach for redeployments: when deploying a new version of a running application, it stops the old version, builds and deploys the new version, then starts it. This approach has significant limitations:
+Currently, Hop3 uses a simple "stop-then-deploy" approach for redeployments: when deploying a new version of a running application, it stops the old version, builds and deploys the new version, then starts it. This approach has limitations:
 
 1. **Downtime**: The application is unavailable during the entire build and deploy process
 2. **No rollback**: If the new version fails to start, the old version is already gone
@@ -379,7 +379,7 @@ Require all applications to be containerized, leveraging container orchestration
 
 Delegate to Kubernetes, Nomad, or similar for deployment strategies.
 
-**Rejected because**: Adds significant complexity and infrastructure requirements. May be offered as an optional plugin for larger deployments.
+**Rejected because**: Adds complexity and infrastructure requirements. May be offered as an optional plugin for larger deployments.
 
 ---
 

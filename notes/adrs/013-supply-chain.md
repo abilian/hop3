@@ -67,8 +67,8 @@ Hop3 adopts a proactive stance towards software supply chain security by integra
 
 ### Drawbacks
 
-- **Implementation Effort**: Requires significant effort to integrate and maintain SBOM generation and supply chain security practices.
-- **Complexity**: Adds complexity to the development and delivery pipeline, necessitating tools and processes to manage it effectively.
+- **Implementation Effort**: Requires dedicated effort to integrate and maintain SBOM generation and supply chain security practices.
+- **Complexity**: Adds complexity to the development and delivery pipeline, necessitating tools and processes to manage it.
 
 ## Risks
 

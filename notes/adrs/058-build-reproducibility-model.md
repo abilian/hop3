@@ -111,9 +111,9 @@ This is the trade the Nix path makes. Integration work that a distribution perfo
 
 The sandbox fixes a build's *inputs*: the source archive, the dependency set, the toolchain, each by hash. It does not fix how the tools consuming those inputs behave. One recipe in the corpus makes the distinction concrete. Its vendored dependency set hashed identically under two nixpkgs revisions, and its package manager was the same version in both, yet the installed tree differed, because the surrounding standard environment had changed. The newer environment also carried a check that declined to ship the result, so the difference surfaced at build time instead of at runtime.
 
-Two things follow. Identical inputs are necessary for a reproducible build without being sufficient, which is why determinism is established by rebuilding and comparing rather than by reasoning over input hashes. And a pin bump can change a build's output while changing none of its pinned inputs, so its cost is measured per application rather than inferred.
+Identical inputs are necessary for a reproducible build without being sufficient. Determinism is therefore established by rebuilding and comparing rather than by reasoning over input hashes. A pin bump can change a build's output while changing none of its pinned inputs, so its cost is measured per application rather than inferred.
 
-This also explains why the classification's catch-all category earns its place. A newer standard environment can introduce a check no recipe previously had to satisfy, and such a failure resembles neither a stale hash nor a missing attribute. Routing it to "read the log" is the correct disposition, since the remedy is specific to whatever the new check found.
+A newer standard environment can introduce a check no recipe previously had to satisfy. Such a failure resembles neither a stale hash nor a missing attribute, and routing it to "read the log" is the correct disposition: the remedy is specific to whatever the new check found.
 
 ## Alternatives considered
 

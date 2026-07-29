@@ -98,7 +98,7 @@ hop3 auth whoami
 
 ## Enhancement: SSH-Assisted Bootstrap (Option A+)
 
-For users with SSH access, we provide a single-command convenience that automates the entire 6-step manual process.
+For users with SSH access, we provide a single-command convenience that automates the 6-step manual process.
 
 ### Commands
 

@@ -135,9 +135,9 @@ names**, and each tool defines its own options to match it:
   helper; it does not import the installer's definitions.
 - The main `hop3` CLI is the source of the vocabulary; it already conforms.
 
-Drift between the tools is caught not by a shared module but by **contract tests
-at the coupling seams**: chiefly the Test Lab ↔ engine contract, which pins the
-exact flags the Lab passes to `hop3-test`. Documentation (help strings,
+**Contract tests at the coupling seams** catch drift between the tools:
+chiefly the Test Lab ↔ engine contract, which pins the exact flags the Lab
+passes to `hop3-test`. Documentation (help strings,
 CLAUDE.md, `docs/`) is checked against the lexicon so phantom commands and stale
 feature lists can't recur.
 
@@ -148,7 +148,7 @@ bundled standalone (`curl | python3` runs a file of that name). Where the
 
 ### D9. `hop3-test`: one `run`, with cardinality as a flag: not a `system`/`cloud`/`matrix` split
 
-`system` and `cloud` are not fundamentally different commands. Both deploy Hop3 and run the identical app/demo/tutorial catalog through the same core (`cli.runners.run_single_test` → the three runners → `DeploymentSession`, over a `RemoteTarget`). `cloud` adds exactly two things over `system --host`: it OS-rebuilds a *dedicated, operator-supplied* Hetzner server before testing (via `servers.rebuild` (it never creates or destroys the machine), and it can sweep a list of OS images serially on that one server. So the axes that actually matter are the **target** (docker / SSH host / managed cloud server) and the **cardinality** (one target vs an OS-image sweep)) not "local vs cloud."
+`system` and `cloud` are not fundamentally different commands. Both deploy Hop3 and run the identical app/demo/tutorial catalog through the same core (`cli.runners.run_single_test` → the three runners → `DeploymentSession`, over a `RemoteTarget`). `cloud` adds exactly two things over `system --host`: it OS-rebuilds a *dedicated, operator-supplied* Hetzner server before testing (via `servers.rebuild`; it never creates or destroys the machine), and it can sweep a list of OS images serially on that one server. So the axes that actually matter are the **target** (docker / SSH host / managed cloud server) and the **cardinality** (one target vs an OS-image sweep).
 
 There is **one command, `hop3-test run`**, and both axes are expressed as *flags* on it: cardinality does not warrant a second command:
 

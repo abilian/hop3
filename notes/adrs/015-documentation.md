@@ -6,7 +6,7 @@
 
 ## Context
 
-Hop3 needs reference material that lets users deploy and operate applications, and lets developers understand and extend the platform. It also needs channels through which the community can report problems, contribute changes, and follow the project's direction. Without a first-class documentation artefact and clear engagement channels, the platform is hard to adopt and hard to contribute to.
+Hop3 needs reference material that lets users deploy and operate applications, and lets developers understand and extend the platform. It also needs channels through which the community can report problems, contribute changes, and follow the project's direction. Without a first-class documentation artefact and clear engagement channels, the platform is hard to adopt and contribute to.
 
 ## Decision
 

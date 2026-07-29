@@ -52,7 +52,7 @@ We clarify the Python deployment surface along four axes:
 
 1. **Freeze at packaging time.** The packager's intent (which versions to deploy) is captured in the app's source tree in a form that the deployer can read without further resolution. The deployer installs what's declared; it does not compute what should be installed.
 2. **Make the install strategy explicit when ambiguous.** Ambiguity (chiefly both `requirements.txt` and `pyproject.toml` present) surfaces as a `Diagnosis`.
-3. **uv first, Poetry not special-cased, pip-freeze workflow documented but discouraged.** The default new-app recipe is uv. A Poetry-only `pyproject.toml` is neither rejected nor singled out: it falls through to `pip install .` via PEP-517, and packagers who want reproducibility export a frozen `requirements.txt` from Poetry's lockfile at packaging time. Abstract `requirements.txt` is accepted but warned on.
+3. **uv first, Poetry without special-casing, pip-freeze workflow documented and discouraged.** The default new-app recipe is uv. A Poetry-only `pyproject.toml` is neither rejected nor singled out: it falls through to `pip install .` via PEP-517, and packagers who want reproducibility export a frozen `requirements.txt` from Poetry's lockfile at packaging time. Abstract `requirements.txt` is accepted but warned on.
 4. **Users can override detection.** `[build.python].strategy` in `hop3.toml` lets packagers state the intended install path when the auto-detection would be ambiguous or wrong.
 
 ### Config surface

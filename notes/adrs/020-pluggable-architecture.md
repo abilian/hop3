@@ -7,7 +7,7 @@
 
 ## Introduction
 
-This ADR documents the decision to refactor Hop3's core deployment mechanism from a monolithic, hardcoded process into a flexible, extensible, and configuration-driven system based on swappable plugins.
+This ADR documents the decision to refactor Hop3's core deployment mechanism from a monolithic, hardcoded process into a flexible, configuration-driven system based on swappable plugins.
 
 ## Summary
 
@@ -17,7 +17,7 @@ We will deconstruct the monolithic `Deployer` class into three distinct, pluggab
 
 ### Context
 
-The original Hop3 architecture combined the logic for building, deploying, and proxying applications into a single, tightly-coupled `Deployer` class. This design was rigid and difficult to extend. Supporting new build systems (e.g., Docker), deployment targets (e.g., Kubernetes, external orchestrators), or proxy servers would have required significant and invasive changes to the core Hop3 codebase. This limited developer flexibility and made it challenging to integrate Hop3 with external systems like the NEPHELE SMO, a key requirement for the H3NI project.
+The original Hop3 architecture combined the logic for building, deploying, and proxying applications into a single, tightly-coupled `Deployer` class. This design was rigid and difficult to extend. Supporting new build systems (e.g., Docker), deployment targets (e.g., Kubernetes, external orchestrators), or proxy servers would have required invasive changes to the core Hop3 codebase. This limited developer flexibility and made it challenging to integrate Hop3 with external systems like the NEPHELE SMO, a key requirement for the H3NI project.
 
 ### Goals
 
@@ -126,7 +126,7 @@ graph TD
 
 1.  **Extensibility:** The platform is now open to new technologies. Adding support for a new runtime like WebAssembly is as simple as creating and installing a new `Deployer` plugin.
 2.  **Flexibility:** Developers have full control over their application's lifecycle, from build to deployment.
-3.  **Maintainability:** The core codebase is significantly simplified. The complex logic is isolated within individual plugins, making them easier to develop, test, and debug.
+3.  **Maintainability:** The core codebase is simplified. The complex logic is isolated within individual plugins, making them easier to develop, test, and debug.
 4.  **Clear Integration Path:** Provides a clear, non-intrusive path for integrating with external systems like the NEPHELE SMO.
 
 ### Drawbacks
@@ -146,7 +146,7 @@ The initial monolithic design, while simple to start with, quickly became a bott
 ## Prior Art
 
 This architectural pattern is well-established and draws inspiration from numerous successful projects:
-*   **`pytest`:** The testing framework `pytest` is a prime example of a powerful core extended by a rich ecosystem of plugins using `pluggy`.
+*   **`pytest`:** The testing framework `pytest` is a prime example of a core extended by a rich ecosystem of plugins using `pluggy`.
 *   **Heroku Buildpacks:** The concept of auto-detecting an application's needs and applying a specific build process is directly inspired by Heroku's buildpack system.
 *   **HashiCorp Plugins:** Many HashiCorp tools (like Terraform) use a plugin-based architecture to support different providers (cloud, services, etc.), demonstrating the pattern's effectiveness at scale.
 

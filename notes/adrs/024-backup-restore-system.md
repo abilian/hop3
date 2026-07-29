@@ -62,7 +62,7 @@ Path is `HopConfig.BACKUP_ROOT` (defaults to `HOP3_ROOT/backups`). `source.tar.g
    - Alternative considered: zip (rejected - less efficient), xz (rejected - slower)
 
 3. **JSON Metadata**
-   - Human-readable and inspectable
+   - Human-readable
    - Standard format with excellent tooling
    - Easy to parse and validate
    - Contains complete inventory with checksums
