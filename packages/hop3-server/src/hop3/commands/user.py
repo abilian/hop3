@@ -164,6 +164,19 @@ class UserAddCmd(Command):
         if is_admin:
             response.append(text("Admin: Yes"))
 
+        # The control plane is single-tenant: there is no per-app ownership, so
+        # any account reaches every app and addon on the host. Say so where the
+        # account is created -- an operator who reads "Admin: No" would
+        # otherwise reasonably infer a confinement the platform doesn't provide.
+        # See notes/security/security-model.md §1.4.
+        response.append(
+            text(
+                "Note: this account can manage every app and addon on this "
+                "server. Hop3 has no per-app ownership, so treat it as an "
+                "administrator credential. See https://hop3.cloud/guides/security/"
+            )
+        )
+
         role = "admin user" if is_admin else "user"
         response.append(summary(f"added {role} '{username}'."))
         return response
