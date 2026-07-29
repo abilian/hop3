@@ -19,7 +19,7 @@ Hop3 ships five command-line entry points, built with three unrelated argument p
 
 The same handful of concepts (*which server, where to install from, which optional services, how loud, machine-readable?*) recur in every one of these tools, and each tool spells them differently. A developer who runs `hop3`, `hop3-deploy`, and `hop3-test` in a single session, or an operator who runs `hop3-install` then `hop3`, has to relearn the flags each time. We are about to advertise a curated set of working apps; the tools that deploy and test them are part of that surface.
 
-### What is inconsistent
+### The inconsistencies
 
 The following are all *present in the code today* (surveyed flag-by-flag).
 
@@ -39,7 +39,7 @@ The following are all *present in the code today* (surveyed flag-by-flag).
 
 **Two commands one keystroke apart mean opposite things.** `hop3 deploy` (the client verb) deploys an **app** to a running server; `hop3-deploy` (the installer tool) deploys the **server itself** (the whole platform) onto a machine. The names are a hyphen apart and read as synonyms, but they operate at opposite levels; a developer reaching for one trivially invokes the other.
 
-### What is already right (and anchors this)
+### The model this extends
 
 The main `hop3` CLI is coherent, and ADRs 042 and 047 already decided its model: the **context is the server** (one selector, `--context`), host/user are derived from a literal `ssh://` address rather than passed as flags, **`--app` is always a flag never a positional**, verbosity stacks, and `--json` / `--yes` / `--force` mean one thing each. `hop3-test`'s `--deploy-from {local,git,pypi,none}` is the one good expression of install-source in the tree. This ADR does not invent a new style; it names the existing good one and extends it outward.
 

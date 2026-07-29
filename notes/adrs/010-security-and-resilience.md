@@ -26,9 +26,9 @@ This ADR is the landing page for Hop3's security and resilience design. The tabl
 | App-runtime UID separation | [ADR 055](055-app-runtime-uid-separation.md) |
 | App admin credentials (bootstrap, storage, retrieval) | [ADR 056](056-app-admin-credentials.md) |
 
-The engineering companion to this ADR — the trust model, the catalogue of audited-and-deliberate patterns, and the procedure for running a review round — is `notes/security/security-model.md`. Published security policy and the vulnerability disclosure channel are in `docs/src/reference/policies/security-policy.md`.
+The engineering companion to this ADR is `notes/security/security-model.md`: the trust model, the catalogue of audited-and-deliberate patterns, and the procedure for running a review round. Published security policy and the vulnerability disclosure channel are in `docs/src/reference/policies/security-policy.md`.
 
-## What is out of scope for this umbrella ADR
+## Out of scope
 
 - Specific cryptographic primitives and rotation policies (→ [ADR 011](./011-encryption.md)).
 - MFA flow and device-registration UX (→ [ADR 012](./012-mfa.md)).

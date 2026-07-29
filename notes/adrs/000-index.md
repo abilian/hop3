@@ -123,7 +123,7 @@ Establishes the JSON-RPC protocol for CLI-to-server communication, with the serv
 Defines the kernel command set: `app`, `addon`, `backup`, `domain`, `env`, `user`, `auth`, `system`, `network`, `catalog`, `cert`, `waf`, `plugin`, `ps`, `port`, `git`, `nix`, `version`, `help`. The dispatch mechanism uses a `@register` decorator with longest-prefix matching.
 
 ### 020. Pluggable Architecture for Core Deployment Workflow (`Final`)
-Refactors Hop3's deployment from a monolithic, hardcoded process into three swappable plugin stages: builder → deployer → proxy. Each stage has a well-defined protocol; plugins register via Pluggy hooks. This is the architectural backbone of the entire platform.
+Refactors Hop3's deployment from a monolithic, hardcoded process into three swappable plugin stages: builder → deployer → proxy. Each stage has a well-defined protocol; plugins register via Pluggy hooks. This is the architectural backbone of the platform.
 
 ### 021: Proxy Plugin System for Reverse Proxy Configuration (`Final`)
 Implements the proxy stage of the pluggable architecture. There is one reverse proxy per server; the plugin system lets operators choose Nginx, Caddy, or Traefik. Each proxy plugin implements `get_proxy_strategy()` and handles virtual hosting, TLS, and upstream configuration.
@@ -144,7 +144,7 @@ Defines CLI syntax conventions (space form `hop3 backup destroy` over colon form
 Originally classified dashboard UI tests into tiers. Superseded by ADR 043's unified testing architecture, which subsumes UI test classification into the broader three-tier (unit/integration/e2e) model.
 
 ### 027: Configuration System Refactoring for Testability (`Final`)
-Refactors the configuration system to support dependency injection: config values flow through Dishka providers rather than being imported as module-level constants. Makes the entire system testable by allowing test code to inject configuration without monkeypatching.
+Refactors the configuration system to support dependency injection: config values flow through Dishka providers rather than being imported as module-level constants. Makes the system testable by allowing test code to inject configuration without monkeypatching.
 
 ### 028. Pluggy + Dishka Integration for Plugin-Contributed Services (`Final`)
 Bridges Pluggy (plugin discovery) and Dishka (dependency injection) so that plugins can contribute services to the DI container. Introduces the `get_di_providers` hook: plugins return Dishka provider instances, and the container aggregates them at startup. Unblocks addon, proxy, and deployer plugins from needing global registries.
