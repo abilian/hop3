@@ -14,8 +14,22 @@ categories = ["comments", "blog", "community"]
 builder = "local"
 toolchain = "python"
 
-before-build = "bash scripts/download.sh"
-build = "pip install ."
+# The JS bundles must exist BEFORE the Python install packages them, so they are
+# built here rather than in `[build].build`. Isso serves an embeddable widget at
+# /js/embed.min.js — the whole point of the app — and those bundles are BUILD
+# OUTPUTS, absent from the source tree. Installing the package alone shipped only
+# the one committed script (admin.js), so every /js/* path 404'd and the widget
+# could not be embedded anywhere. `npm ci` installs exactly the committed
+# package-lock.json; webpack (build-prod) emits the .min.js bundles.
+#
+# With no `[build].build`, the toolchain's own install runs, which is what we
+# want here: it installs the project (pyproject.toml) into the app's venv.
+before-build = [
+  "bash scripts/download.sh",
+  "npm ci",
+  "npm run build-prod",
+]
+after-build = "test -f isso/js/embed.min.js || { echo 'isso JS build produced no embed.min.js (npm run build-prod failed silently?)' >&2; exit 1; }"
 
 [run]
 before-run = "bash scripts/setup-config.sh"
