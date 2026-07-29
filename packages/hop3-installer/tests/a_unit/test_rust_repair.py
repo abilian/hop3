@@ -27,10 +27,10 @@ class _Recorder:
 
     def __init__(self, results):
         self._results = list(results)
-        self.calls: list[str] = []
+        self.calls: list[list[str]] = []
 
-    def __call__(self, cmd, **_kwargs):
-        self.calls.append(cmd)
+    def __call__(self, argv, **_kwargs):
+        self.calls.append(argv)
         return self._results.pop(0)
 
 
@@ -56,9 +56,12 @@ def test_broken_toolchain_is_repaired(monkeypatch):
     monkeypatch.setattr(dc, "run_as_hop3", rec)
     monkeypatch.setattr(dc, "Spinner", _noop_spinner)
     assert dc._verify_or_repair_cargo(CARGO, RUSTUP).returncode == 0
-    assert any("toolchain install stable" in c and "--force" in c for c in rec.calls), (
-        rec.calls
-    )
+    # run_as_hop3 takes argv (quoted at the seam); assert on the arguments,
+    # not on a rendered command string.
+    assert any(
+        c[1:4] == ["toolchain", "install", "stable"] and "--force" in c
+        for c in rec.calls
+    ), rec.calls
 
 
 def test_still_broken_after_repair_fails_loud(monkeypatch):
