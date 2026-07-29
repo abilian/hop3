@@ -15,8 +15,6 @@ The Hop3 CLI has been enhanced with:
 
 **Good news:** The core functionality remains the same. Most scripts will continue to work without changes. However, we recommend updating them to take advantage of new features.
 
----
-
 ## Breaking Changes
 
 ### 1. Destructive Commands Now Require Confirmation
@@ -57,8 +55,6 @@ EOF
 ```
 
 **Recommendation:** Use the `-y` flag for automation, but ensure your scripts have proper safeguards to prevent accidental deletions.
-
----
 
 ## Recommended Updates
 
@@ -134,8 +130,6 @@ else
 fi
 ```
 
----
-
 ## Command Reference Updates
 
 ### 4. Command Naming Changes
@@ -167,8 +161,6 @@ hop3 app destroy --app myapp
 ```
 
 **Note:** The old short names are still accepted as aliases (`hop3 status`, `hop3 restart`, `hop3 destroy`), but we recommend updating to the namespaced names.
-
----
 
 ## Complete Migration Examples
 
@@ -353,8 +345,6 @@ else
 fi
 ```
 
----
-
 ## Testing Your Migrated Scripts
 
 ### 1. Test in a Safe Environment
@@ -394,8 +384,6 @@ echo "Exit code: $?"
 # Test destructive command with -y
 hop3 app destroy --app test-app -y
 ```
-
----
 
 ## Common Patterns
 
@@ -475,8 +463,6 @@ else
 fi
 ```
 
----
-
 ## Frequently Asked Questions
 
 ### Q: Will my old scripts break?
@@ -512,8 +498,6 @@ hop3 app status --app myapp --json | python3 -c "import sys, json; print(json.lo
 hop3 deploy -v --json
 ```
 
----
-
 ## Migration Checklist
 
 Use this checklist to ensure your scripts are fully migrated:
@@ -527,8 +511,6 @@ Use this checklist to ensure your scripts are fully migrated:
 - [ ] Verify JSON parsing with sample data
 - [ ] Add `set -e` to scripts to exit on first error
 - [ ] Document any `-y` usage with comments about safety
-
----
 
 ## Getting Help
 
@@ -544,8 +526,6 @@ For more help:
 hop3 help
 hop3 <command> --help
 ```
-
----
 
 ## Summary
 

@@ -20,8 +20,6 @@ hop3 app logs --app myapp --lines 50
 hop3 system info
 ```
 
----
-
 ## Deployment Issues
 
 ### Build Fails
@@ -80,8 +78,6 @@ bundler --version
 bundle clean --force
 ```
 
----
-
 ### Application Won't Start
 
 #### Symptom
@@ -135,8 +131,6 @@ hop3 env show --app myapp
 # Set missing variables
 hop3 env set --app myapp KEY=value
 ```
-
----
 
 ### 502 Bad Gateway
 
@@ -192,8 +186,6 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
----
-
 ### 404 Not Found
 
 #### Symptom
@@ -232,8 +224,6 @@ dig myapp.example.com
 # Check Nginx config
 grep server_name /home/hop3/nginx/myapp.conf
 ```
-
----
 
 ## Database Issues
 
@@ -317,8 +307,6 @@ sudo ufw status
 # listen_addresses = '*'
 ```
 
----
-
 ## SSL/TLS Issues
 
 ### Certificate Not Provisioned
@@ -371,8 +359,6 @@ sudo certbot renew --force-renewal
 # Check timer
 systemctl status certbot.timer
 ```
-
----
 
 ## Performance Issues
 
@@ -459,8 +445,6 @@ docker system prune -a
 # (Be careful - only remove apps you don't need)
 ```
 
----
-
 ## Networking Issues
 
 ### App Not Accessible Externally
@@ -510,8 +494,6 @@ cat /etc/hosts
 # For testing, add to /etc/hosts on client:
 # <server-ip> myapp.example.com
 ```
-
----
 
 ## Service Issues
 
@@ -591,8 +573,6 @@ ls /home/hop3/uwsgi-enabled/
 cat /home/hop3/uwsgi-enabled/*.ini
 ```
 
----
-
 ## Related Guides
 
 - **[User Guide](user-guide.md)** - Core concepts and daily operations
@@ -600,8 +580,6 @@ cat /home/hop3/uwsgi-enabled/*.ini
 - **[Backup and Restore](backup-restore.md)** - Data protection and recovery
 - **[CLI Reference](../reference/cli.md)** - Complete command documentation
 - **[FAQ](faq.md)** - Quick answers to common questions
-
----
 
 ## Getting More Help
 

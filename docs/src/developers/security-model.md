@@ -8,8 +8,6 @@ If you operate a Hop3 server rather than work on it, read [Security](../guides/s
 
     This page covers the model and the method. The exhaustive site-by-site catalogue of *reviewed and deliberate* code patterns — every construction that looks like an injection or a leak and has already been argued through, with the file, the reason and the enforcing control — lives in [`notes/security/security-model.md`](https://github.com/abilian/hop3/blob/main/notes/security/security-model.md) in the repository, alongside the per-round audit reports. Deliberately one copy: a duplicated catalogue drifts, and a drifted catalogue is worse than none.
 
----
-
 ## Actors
 
 Five actors, with real privilege boundaries between them. Most security findings resolve to a single question: **across which of these boundaries does the tainted data flow?** When the answer is "none", the finding is misaligned with the model however alarming the surface code looks.
@@ -54,8 +52,6 @@ Note that single-tenant is not the same claim as single-server. Hop3 targets one
 
 Several of those are planned rather than permanent. The repository note tracks which.
 
----
-
 ## Conventions in the source
 
 Two grep-able comment prefixes:
@@ -74,8 +70,6 @@ Whole-module reasoning goes in a top-of-file *Trust model* docstring instead.
 A hardening pattern that applies in one module almost certainly applies in others. This is the single most reliable source of real findings in Hop3's review history: in one round, *every* confirmed finding was a pattern already fixed elsewhere and missed in a sibling — a password moved off the command line in one package but not another, an atomic write with restricted permissions applied to one config file but not its twin, a hostname validator present in one proxy plugin and absent from two others.
 
 **When you fix a hardening pattern, grep for the anti-pattern across every package before calling the fix done.** Search for the *anti-pattern's shape*, not the fix's. Anything you find belongs in the same change or an immediate follow-up.
-
----
 
 ## Running a review
 
@@ -108,15 +102,11 @@ Record the commit audited and diff it against `HEAD` before publishing. In one r
 
 Rounds compound. A whole-codebase round found a pre-authentication administrative takeover that a preceding component-scoped review could not see; a later round caught documentation drift an earlier one had introduced. Three cheap rounds across a release beat one thorough audit at the end.
 
----
-
 ## Filing a finding
 
 1. Check the boundaries above. If the flow crosses none, it is most likely threat-model misaligned — write up the boundary argument and either retract or disagree explicitly.
 2. Search the source for a `# SECURITY:` or `# AUDIT:` comment at the site. If one exists and its reasoning does not actually defend the flow you found, that is a real finding — and a good one.
 3. For anything exploitable, report privately to **security@abilian.com** per the [Security Policy](../reference/policies/security-policy.md). For a stale or wrong rationale in the catalogue, open a normal issue or pull request.
-
----
 
 ## Related
 

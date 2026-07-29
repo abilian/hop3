@@ -741,6 +741,4 @@ If you encounter issues:
 - [Configuration Reference](../reference/config.md) - Application configuration
 - [CLI Reference](../reference/cli.md) - Complete command reference
 
----
-
 **Remember:** Backups are your safety net. Test them regularly, store them securely, and never skip a backup before making changes!

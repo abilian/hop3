@@ -7,8 +7,6 @@ Two companion documents:
 - [Security Policy](../reference/policies/security-policy.md) — how to report a vulnerability, and what we commit to in return.
 - [Security Model](../developers/security-model.md) — the developer-facing view: trust boundaries, reviewed code patterns, and how to run a security review. Read that one if you are auditing the code rather than operating it.
 
----
-
 ## The account model: accounts are operator-equivalent
 
 **Any Hop3 account can act on any application on the server.** There is no per-application ownership. An account you create to let a colleague deploy one app can also stop, reconfigure, back up, or destroy every other app on that server, and can read every addon's credentials.
@@ -23,8 +21,6 @@ What follows from it:
 
 Per-application ownership is planned for a future release. Until it ships, the rule above is the one to provision by.
 
----
-
 ## What Hop3 protects for you
 
 | Area | What the platform does |
@@ -37,8 +33,6 @@ Per-application ownership is planned for a future release. Until it ships, the r
 | **Uploaded archives** | Deploy tarballs are validated member by member before extraction — path traversal, symlink and hardlink entries, and decompression bombs are all rejected. |
 | **Privileged operations** | Firewall changes, proxy reloads and mounts run through `hop3-rootd`, a small root daemon reachable only over a local socket with a kernel-enforced caller check, restricted to an allow-list of binaries, with an append-only audit log. |
 | **Network exposure** | An L3/L4 firewall plus an optional L7 web application firewall (OWASP Core Rule Set) in front of applications that enable it. |
-
----
 
 ## What stays your responsibility
 
@@ -57,8 +51,6 @@ Per-application ownership is planned for a future release. Until it ships, the r
 
 **Account hygiene.** Given the account model above, the shortest path to a secure deployment is few accounts, promptly removed when no longer needed.
 
----
-
 ## Settings to check before going live
 
 ```bash
@@ -76,8 +68,6 @@ curl -X POST http://your-server/rpc \
 
 `HOP3_UNSAFE` disables authentication entirely and exists only for automated tests in isolated containers. Two interlocks guard it: enabling it also requires `HOP3_UNSAFE_ACK=yes-I-understand`, and in production mode it is forced off at startup regardless. Never rely on those interlocks as a substitute for checking.
 
----
-
 ## What Hop3 does not do
 
 Stated plainly, so you can plan around them:
@@ -86,8 +76,6 @@ Stated plainly, so you can plan around them:
 - **No control-plane audit log.** Privileged root operations are audited; logins, token issuance and application changes are not yet recorded in a structured, queryable form.
 - **No hardware-backed key storage.** No HSM, TPM or cloud KMS integration. Operators who need it integrate at the OS level.
 - **No isolation between accounts**, as described above.
-
----
 
 ## Reporting a vulnerability
 
