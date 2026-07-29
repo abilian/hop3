@@ -27,6 +27,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from hop3.lib import log
+from hop3.lib.logging import server_log
 
 from .env_provisioning import generate_secret_value, set_env_vars
 
@@ -110,13 +111,31 @@ def bootstrap_probe_account(
     try:
         run_create(create_cmd)
     except Exception as e:
-        msg = (
-            f"[probe].create failed for '{app.name}': {e}. The app has no "
-            f"account Hop3 can verify it with, so its smoke test could only "
-            f"check the operator's credential — which stops being Hop3's to "
-            f"assert as soon as they change the password."
+        # Loud, but NOT fatal. The probe exists to verify the app; it is not
+        # part of it. Failing the deploy here would take a working app down
+        # because a test account could not be made — and would make the
+        # platform's own diagnostics a deployment dependency.
+        #
+        # Nothing is silently skipped: this is reported here, and the smoke
+        # test then falls back to the operator's credential and SAYS it did
+        # ("verified the handover only"), so the weaker claim is never
+        # mistaken for the full one.
+        log(
+            f"  Could not create the probe account for '{app.name}': {e}",
+            level=0,
+            fg="yellow",
         )
-        raise ProbeAccountError(msg) from e
+        log(
+            "  The app is unaffected, but its smoke test can only verify the "
+            "operator's credential — which stops being Hop3's to assert once "
+            "they change the password.",
+            level=1,
+            fg="yellow",
+        )
+        server_log.warning(
+            "probe account creation failed", app_name=app.name, error=str(e)
+        )
+        return
 
     set_env_vars(app, {_ENV_CREATED: "1"}, db_session)
     log("  Probe account created", level=2, fg="green")

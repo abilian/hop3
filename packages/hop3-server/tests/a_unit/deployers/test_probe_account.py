@@ -17,7 +17,6 @@ import pytest
 from hop3.core.env import Env
 from hop3.deployers.probe_account import (
     DEFAULT_USERNAME,
-    ProbeAccountError,
     bootstrap_probe_account,
     provision_probe_credential,
 )
@@ -92,22 +91,26 @@ def test_create_runs_once(captured) -> None:
     assert calls == []
 
 
-def test_a_failed_create_aborts_loudly() -> None:
+def test_a_failed_create_is_loud_but_does_not_fail_the_deploy(captured) -> None:
     """
-    An app whose probe could not be created is not quietly less verified.
+    The probe verifies the app; it is not part of it.
 
-    Silently continuing would leave the check falling back to the operator's
-    credential without anyone knowing it had done so.
+    Aborting here would take a working app down because a TEST account could
+    not be created — making the platform's diagnostics a deployment
+    dependency. Nothing is silently skipped: the smoke test then falls back to
+    the operator's credential and reports that it did.
     """
 
     def _boom(command: str) -> None:
         msg = "exit status 1"
         raise RuntimeError(msg)
 
-    with pytest.raises(ProbeAccountError, match="no account Hop3 can verify"):
-        bootstrap_probe_account(
-            _App(), {"username": "p", "create": "make-user"}, object(), _boom
-        )
+    bootstrap_probe_account(
+        _App(), {"username": "p", "create": "make-user"}, object(), _boom
+    )
+
+    # Not marked as created, so a later deploy retries rather than assuming.
+    assert "HOP3_PROBE_CREATED" not in captured
 
 
 def test_an_app_that_self_bootstraps_needs_no_create_command() -> None:

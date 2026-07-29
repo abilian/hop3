@@ -45,14 +45,32 @@ import re
 import sys
 import traceback
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypedDict, Unpack
 
 import httpx
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
 TIMEOUT = 30.0
+
+
+class RequestOptions(TypedDict, total=False):
+    """
+    The httpx options a check may pass through ``get``/``post``.
+
+    Named rather than opened up as ``**kwargs: Any``: a check script is written
+    against this class, so the set of things it can send is part of the contract
+    and shows up in an editor. Add a field when a real check needs one.
+    """
+
+    headers: Mapping[str, str]
+    params: Mapping[str, str]
+    auth: tuple[str, str]
+    json: Any
+    follow_redirects: bool
+    #: Set by ``_request`` itself to carry the SNI name; see the note there.
+    extensions: Mapping[str, Any]
 
 
 class CheckError(Exception):
@@ -183,15 +201,21 @@ class Check:
 
     # -- requests ---------------------------------------------------------
 
-    def get(self, path: str, **kwargs: object) -> httpx.Response:
+    def get(self, path: str, **kwargs: Unpack[RequestOptions]) -> httpx.Response:
         return self._request("GET", path, **kwargs)
 
     def post(
-        self, path: str, data: dict | None = None, **kwargs: object
+        self, path: str, data: dict | None = None, **kwargs: Unpack[RequestOptions]
     ) -> httpx.Response:
         return self._request("POST", path, data=data, **kwargs)
 
-    def _request(self, method: str, path: str, **kwargs: object) -> httpx.Response:
+    def _request(
+        self,
+        method: str,
+        path: str,
+        data: dict | None = None,
+        **kwargs: Unpack[RequestOptions],
+    ) -> httpx.Response:
         # Over TLS the Host header alone does not select the vhost: nginx picks
         # the certificate (and therefore the server block) from the SNI name,
         # which would be "localhost" and land on the platform's default vhost —

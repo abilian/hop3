@@ -580,7 +580,7 @@ def _refuse_foreign_database(
         (db_name,),
     )
     row = cursor.fetchone()
-    table_count = row[0] if row else 0
+    table_count = cast("int", row[0]) if isinstance(row, tuple) else 0
     if not table_count:
         return  # empty leftover: safe to reuse
 
