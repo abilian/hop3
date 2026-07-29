@@ -83,9 +83,17 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 - <https://git.sr.ht/~sfermigier/hop3/tree/main/packages/hop3-server/src/hop3/server/controllers/dashboard> — dashboard controllers
 - <https://git.sr.ht/~sfermigier/hop3/tree/main/packages/hop3-server/src/hop3/server/templates/dashboard> — 20 templates (app/addon/backup management, env editing, log viewing)
 
-**M3.8 — Security-audit & accessibility outcomes** — *external NGI review + accessibility scan pending*
+**M3.8 — Security-audit & accessibility outcomes** — *audit outcomes processed; third-party review applied for but never allocated; accessibility scan pending with M3.7*
 
-- <https://hop3.cloud/blog/posts/2026-05-security-audit/> — internal audit: findings and fixes (command-injection sweep, per-IP rate-limiting, RFC-7235 bearer matching, archive-extraction guards, configurable token lifetime)
+Security review ran continuously through the project; most findings were fixed in the ordinary course of work. Three rounds are formalised below. A third-party review was applied for and followed up twice with NLnet without an auditor being allocated; rather than leave the milestone open indefinitely, the platform was audited in-house with tooling the project found and partly built, and the outcomes processed. We would still welcome that review and will act on its findings if it happens.
+
+- <https://hop3.cloud/guides/security/> — **operator-facing security guide**: the account model, what the platform protects, what stays the operator's responsibility, pre-production checks
+- <https://hop3.cloud/developers/security-model/> — **security model**: trust boundaries, actors, reviewed code patterns, and the procedure for running a review round
+- <https://hop3.cloud/reference/policies/security-policy/> — published policy: disclosure channel (security@abilian.com), acknowledgement commitment, safe harbour
+- <https://hop3.cloud/blog/posts/2026-05-security-audit/> — round 1 (published 2026-05-01): command-injection sweep, per-IP rate-limiting, RFC-7235 bearer matching, archive-extraction guards, configurable token lifetime
+- <https://git.sr.ht/~sfermigier/hop3/tree/main/notes/security/report-2026-05.md> — round 2 (2026-05-03→08, five iterative rounds): a pre-authentication administrative takeover, magic-link scope confusion, anonymous self-registration, a production debug-mode leak, plus ~30 further fixes
+- <https://git.sr.ht/~sfermigier/hop3/tree/main/notes/security/report-2026-07.md> — round 3 (2026-07): whole-repository automated audit (`letscode` + `vulnhunt`) with manual triage; installer input validation fixed the same day, and the control-plane tenancy model decided and documented rather than left implicit
+- <https://hop3.cloud/developers/adrs/010-security-and-resilience/> — umbrella ADR mapping each security concern to its decision
 - <https://hop3.cloud/developers/adrs/048-server-config-and-secret-storage/> — secret storage
 - <https://hop3.cloud/developers/adrs/011-encryption/> — encryption posture
 

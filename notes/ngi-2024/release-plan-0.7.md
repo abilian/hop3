@@ -23,7 +23,7 @@ Every annex milestone accounted for, so a reviewer can reconcile the whole proje
 | | M3.5 Firewalls + WAF | ✅ | **0.7** — L3/L4 firewall + L7 WAF (LeWAF/OWASP-CRS) shipped end-to-end |
 | | M3.6 CLI | ✅ | 0.5–0.6 |
 | | M3.7 Web UI | ◐ | **0.7** — basic/clean/usable |
-| | M3.8 Security audit + a11y | ◐ | **0.7** internal; external → 0.7.x |
+| | M3.8 Security audit + a11y | ◐ | **0.7** — three audit rounds processed in-house + security model published; a11y → 0.7.x; third-party review applied for, never allocated |
 | **T4** Packaged apps | M4.1–4.4 (20 apps + reports) | ◐ | 0.7.x |
 | **T5** Dissemination | M5.1 Website/blog | ✅ | shipped (23 posts) |
 | | M5.2 Documentation | ✅ | 0.6 |
@@ -51,12 +51,15 @@ The dashboard exists (9 controllers, 17 templates); make it clean and verify the
 - [ ] Verify core CRUD flows end to end from the UI (app list/status/logs, addons, backups, env)
 - [ ] (if time) wire the disabled Git-URL deploy field; basic in-browser log streaming
 
-### Security — internal rounds, engage the firm (M3.8)
-Internal fixes shipped in 0.5–0.6; the external review is 0.7.x.
+### Security — audit rounds done in-house (M3.8)
+
+Internal fixes shipped in 0.5–0.6. The third-party review was applied for and followed up twice with NLnet without an auditor ever being allocated; the milestone no longer waits on it. We audited the platform ourselves with tooling we found and partly built (`letscode` + the `vulnhunt` plugin) and processed the outcomes — the substitution is stated plainly in the report rather than glossed. If the review is still allocated later we will act on its findings.
 
 - [x] One or two more internal audit rounds; fix findings
-- [x] Engage the external security-audit firm (waiting for their answer)
-- [ ] Document the security model in the admin guide
+- [x] Applied for the third-party review; two follow-ups sent, no auditor allocated
+- [x] Third audit round run in-house — `notes/security/report-2026-07.md`
+- [x] Document the security model — published as `guides/security.md` (operators) and `developers/security-model.md` (developers/auditors), with `notes/security/security-model.md` as the engineering source
+- [ ] Fix the five open defects from the 2026-07 round (`local-notes/plans/28-security-remediation.md`) — gates the tag
 
 ### Upgrade mechanism (M3.2)
 Hop3-server's own Alembic migrations work. Scope confirmed (`local-notes/specs/upgrades.md`): the server upgrade is the installer/deployer's job (and ultimately the `hop3-server` command), **not** a `hop3` client command — there is no `hop3 server upgrade` RPC and no in-product self-upgrade.
@@ -112,9 +115,9 @@ Pinning (0.6.1) removed the moving-channel problem; hermeticity is the rest.
 - [ ] Production deploys with real traffic; finalise the experience reports
 - [ ] Application gallery page on hop3.cloud
 
-### External security review (M3.8)
-- [ ] The external firm's review; address feedback
+### Accessibility scan (M3.8)
 - [ ] Accessibility scan (with the M3.7 polish)
+- [ ] If NLnet allocates a third-party reviewer after all: run it, address feedback (not a blocker — see the M3.8 section above)
 
 ### Email addon refinements (M3.1)
 Email is a **backing service with a swappable backend**, symmetric with the database addon (ADR 054): the operator picks a backend once at the server level, an app opts in by attaching an email addon (and then inherits that backend), and the app-facing contract (`SMTP_*`/`EMAIL_*`/`MAIL_*`/`SMTP_URL`, all pointing at a loopback SMTP endpoint) is stable across backends. 0.6.1 shipped the interface; the work left is the backends and the productization.
