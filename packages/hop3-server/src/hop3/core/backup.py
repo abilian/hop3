@@ -168,6 +168,51 @@ def _is_under(path: Path, root: Path) -> bool:
     return p == r or p.startswith(r + os.sep)
 
 
+def resolve_backup_file(path: Path | str, backup_root: Path) -> Path:
+    """
+    Resolve a caller-supplied backup path, confined to ``backup_root``.
+
+    Addon restore commands take a path straight from the RPC caller and hand
+    it to ``psql -f`` / ``mysql <`` / ``json.load``. Unconfined, that is an
+    arbitrary-file read as the ``hop3`` user -- which includes every other
+    app's addon credentials. Containment is checked on the *resolved* path, so
+    neither ``..`` nor a symlink can walk out of the backup tree.
+
+    ``backup_root`` is passed in rather than read from config so that the
+    check is rooted at the same directory the caller's ``backup()`` writes to.
+    Deriving it independently would let writer and validator drift apart, and
+    a validator that rejects the platform's own backups is worse than none.
+
+    Args:
+        path: Backup file path as supplied by the caller.
+        backup_root: Directory backups are written to; the containment root.
+
+    Returns:
+        The resolved path, guaranteed to sit inside ``backup_root``.
+
+    Raises:
+        ValueError: if the resolved path escapes ``backup_root``.
+        FileNotFoundError: if it is not an existing file.
+    """
+    root = Path(backup_root).resolve()
+    resolved = Path(path).resolve()
+
+    # Containment before existence: probing arbitrary paths for existence is
+    # itself a (small) disclosure, and the caller has no business there.
+    if not _is_under(resolved, root):
+        msg = (
+            f"Backup path is outside the backup directory: {resolved}. "
+            f"Restores read only from {root}."
+        )
+        raise ValueError(msg)
+
+    if not resolved.is_file():
+        msg = f"Backup file not found: {resolved}"
+        raise FileNotFoundError(msg)
+
+    return resolved
+
+
 @dataclass
 class BackupManifest:
     """
