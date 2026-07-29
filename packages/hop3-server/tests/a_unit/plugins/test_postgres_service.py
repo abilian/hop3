@@ -67,12 +67,60 @@ def test_password_is_generated():
     assert service1.db_password != service2.db_password
 
 
-def test_restore_nonexistent_backup(postgres_service, tmp_path):
-    """Test that restore fails if backup file doesn't exist."""
-    nonexistent_file = tmp_path / "nonexistent.sql"
+def test_restore_nonexistent_backup(postgres_service, tmp_path, monkeypatch):
+    """Restore fails cleanly when a backup inside the backup tree is missing."""
+    monkeypatch.setattr(pg, "HOP3_ROOT", tmp_path)
+    backups = tmp_path / "backups" / "postgres"
+    backups.mkdir(parents=True)
 
     with pytest.raises(FileNotFoundError, match="Backup file not found"):
-        postgres_service.restore(nonexistent_file)
+        postgres_service.restore(backups / "nonexistent.sql")
+
+
+@pytest.mark.parametrize(
+    "escape",
+    [
+        "../../../etc/passwd",  # traversal out of the backup tree
+        "/etc/passwd",  # absolute path elsewhere
+        "../../addon-credentials.json",  # just outside <root>/backups/
+    ],
+)
+def test_restore_refuses_path_outside_backup_root(
+    postgres_service, tmp_path, monkeypatch, escape: str
+) -> None:
+    """
+    A restore path is caller-supplied and reaches ``psql -f``.
+
+    Unconfined it is an arbitrary-file read as the hop3 user, including other
+    apps' addon credentials. See notes/security/report-2026-07.md finding 4.
+
+    The containment root is ``<HOP3_ROOT>/backups``, not the per-engine
+    subdirectory: everything under it is a Hop3-written backup artifact, and
+    the app-level backup manager stores under ``backups/apps/`` alongside the
+    addon dumps. Escaping *that* is what matters.
+    """
+    monkeypatch.setattr(pg, "HOP3_ROOT", tmp_path)
+    backups = tmp_path / "backups" / "postgres"
+    backups.mkdir(parents=True)
+
+    with pytest.raises(ValueError, match="outside the backup directory"):
+        postgres_service.restore(backups / escape)
+
+
+def test_restore_refuses_symlink_escaping_backup_root(
+    postgres_service, tmp_path, monkeypatch
+) -> None:
+    """Containment is checked on the resolved path, so symlinks can't walk out."""
+    monkeypatch.setattr(pg, "HOP3_ROOT", tmp_path)
+    backups = tmp_path / "backups" / "postgres"
+    backups.mkdir(parents=True)
+    secret = tmp_path / "secret.json"
+    secret.write_text("{}")
+    link = backups / "innocent.sql"
+    link.symlink_to(secret)
+
+    with pytest.raises(ValueError, match="outside the backup directory"):
+        postgres_service.restore(link)
 
 
 def test_info_handles_connection_errors(postgres_service):

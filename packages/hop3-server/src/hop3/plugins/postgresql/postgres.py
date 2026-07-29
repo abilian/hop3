@@ -34,6 +34,7 @@ from psycopg2.errors import DuplicateObject  # type: ignore[import-not-found]
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 from hop3.config import HOP3_ROOT
+from hop3.core.backup import resolve_backup_file
 from hop3.lib.logging import server_log
 from hop3.plugins.addons import (
     delete_addon_secrets,
@@ -747,9 +748,10 @@ class PostgresAddon:
         Args:
             backup_path: Path to the SQL backup file
         """
-        if not backup_path.exists():
-            msg = f"Backup file not found: {backup_path}"
-            raise FileNotFoundError(msg)
+        # Confine the caller-supplied path to the backup tree: this value
+        # comes straight from RPC and reaches a file-reading sink below.
+        # Same root backup() writes to, so the two cannot drift apart.
+        backup_path = resolve_backup_file(backup_path, HOP3_ROOT / "backups")
 
         admin = self._get_admin()
         password = self._get_stored_password()
