@@ -109,7 +109,13 @@ def drift(catalog_apps: Path | None, source_root: Path | None) -> None:
     default=None,
     help="repo root holding notes/experience-reports and apps/ (default: this checkout)",
 )
-def reports(root: Path | None) -> None:
+@click.option(
+    "--bundle",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="write a single concatenated Markdown file (for md2pdf) and exit",
+)
+def reports(root: Path | None, bundle: Path | None) -> None:
     """
     Fail when an experience report has drifted from the recipe it describes.
 
@@ -119,6 +125,10 @@ def reports(root: Path | None) -> None:
     git, so staleness fails a check instead of waiting for a reader to notice.
     """
     root = root or Path(__file__).resolve().parents[4]
+    if bundle:
+        bundle.write_text(reports_lib.bundle_markdown(root))
+        click.echo(f"bundled -> {bundle}")
+        return
     findings = reports_lib.check_all(root)
     click.echo(reports_lib.format_findings(findings))
     if findings:

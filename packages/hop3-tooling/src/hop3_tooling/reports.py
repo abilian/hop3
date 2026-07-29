@@ -282,3 +282,50 @@ def format_findings(findings: list[Finding]) -> str:
     for f in findings:
         lines.append(f"  {f.report}: {f.message}")
     return "\n".join(lines)
+
+
+def bundle_markdown(
+    root: Path, title: str = "Hop3 — Application Experience Reports"
+) -> str:
+    """
+    Concatenate the aggregate and every report into one Markdown document.
+
+    `md2pdf` refuses `-o` with several inputs (each would become its own PDF),
+    so a single deliverable needs a single file. Two details matter:
+
+    - **Only the bundle carries frontmatter.** Each report's own header is
+      stripped: a second `---` block partway through a document is not metadata,
+      it renders as a horizontal rule and a wall of YAML.
+    - **The bundle is written beside the reports**, so every relative image path
+      (`images/<app>-01-login.png`) still resolves.
+
+    Headings are not re-levelled. Each report starts at `#`, which makes it a
+    chapter of the bundle — the structure a reader wants.
+    """
+    corpus = Corpus(root)
+    parts = [
+        f"---\ntitle: {title}\n---\n",
+        "# Application Experience Reports\n",
+        (
+            "One report per packaged application, plus the aggregate. Generated "
+            "by `make reports-pdf`; validated by `hop3-tools catalog reports`.\n"
+        ),
+    ]
+
+    aggregate = corpus.reports_dir / "00-aggregate.md"
+    ordered = ([aggregate] if aggregate.exists() else []) + corpus.report_paths()
+
+    for path in ordered:
+        text = path.read_text()
+        # Drop the report's own frontmatter; the bundle supplies the document's.
+        match = FRONTMATTER_RE.match(text)
+        body = text[match.end() :] if match else text
+        parts.append(body.strip())
+
+    # Separated by a rule, not a page break. `\pagebreak` is LaTeX and this
+    # renders through Typst, where it came out as literal text in the PDF; and
+    # neither a `{=typst}` raw block nor `--class report` breaks on a level-1
+    # heading. Making each report start a page wants a Typst stylesheet with a
+    # `show heading.where(level: 1)` rule, passed via `md2pdf --stylesheet`.
+    # Until that exists, a visible rule beats a broken directive.
+    return "\n\n---\n\n".join(parts) + "\n"

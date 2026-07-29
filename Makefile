@@ -331,6 +331,23 @@ doc:
 	@echo "--> Building documentation"
 	cd docs && $(MAKE) build
 
+## Check the experience reports against the recipes they describe (NGI M4)
+reports-check:
+	@echo "--> Validating experience reports"
+	uv run hop3-tools catalog reports
+
+## Bundle the experience reports into one PDF (NGI M4 deliverable)
+## Deliberately NOT gated on reports-check: the bundle is useful while the
+## reports are being migrated, and a blocked build teaches nothing a warning
+## does not. Run `make reports-check` for the verdict.
+reports-pdf:
+	@echo "--> Bundling experience reports"
+	uv run hop3-tools catalog reports --bundle notes/experience-reports/_bundle.md
+	uv run md2pdf --class report -o experience-reports.pdf \
+		notes/experience-reports/_bundle.md
+	@rm -f notes/experience-reports/_bundle.md
+	@echo "--> Wrote experience-reports.pdf (run 'make reports-check' for the verdict)"
+
 ## Serve documentation locally
 doc-serve:
 	@echo "--> Serving documentation"
