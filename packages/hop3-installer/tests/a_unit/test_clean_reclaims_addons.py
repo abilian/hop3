@@ -15,6 +15,7 @@ database still records them, so the reclaim has to run BEFORE the wipe.
 
 from __future__ import annotations
 
+import ast
 import inspect
 from types import SimpleNamespace
 
@@ -141,3 +142,60 @@ def test_the_sweep_runs_only_as_part_of_clean() -> None:
     # One definition, one call — and the call is inside clean().
     assert len(callers) == 2, callers
     assert "self._reclaim_addon_storage()" in source
+
+
+def test_the_sweep_builds_its_mysql_connection_the_only_way_that_works() -> None:
+    """
+    Regression: the sweep called `MySQLAdmin()` with no arguments.
+
+    That constructor takes three required positional arguments, so `--clean`
+    aborted on any box that had a leftover database — which is precisely the
+    box the sweep exists for. It shipped because the test above asserts the
+    string "sweep_unowned" appears in the script: presence, not correctness.
+    A script that is sent to a remote host to be executed cannot be run here,
+    but it CAN be parsed, and the API it calls is importable.
+    """
+    # ruff:ignore[import-outside-top-level] — deliberate: importing a
+    # hop3-server module at test-module level would couple this installer
+    # test suite to hop3-server's import graph.
+    from hop3.plugins.mysql.admin import MySQLAdmin
+
+    # The failure, pinned: this is not a viable way to build one.
+    with pytest.raises(TypeError):
+        MySQLAdmin()  # type: ignore[call-arg]
+    assert callable(MySQLAdmin.from_config)
+
+    script = _reclaim_script()
+    tree = ast.parse(script)
+    direct = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "MySQLAdmin"
+    ]
+    assert not direct, (
+        "the sweep must build MySQLAdmin via from_config(); the bare "
+        "constructor needs host/port/superuser and raises TypeError"
+    )
+    assert "MySQLAdmin.from_config()" in script
+
+
+def test_the_reclaim_script_is_valid_python() -> None:
+    """
+    It is executed on the remote host, so a syntax error surfaces there.
+
+    Parsing it here turns a failed deploy into a failed unit test.
+    """
+    ast.parse(_reclaim_script())
+
+
+def _reclaim_script() -> str:
+    """The addon-reclaim script the backend feeds to the target on stdin."""
+    backend = _Backend(installed=True)
+    backend.clean()
+    for script in backend.stdins:
+        if script and "sweep_unowned" in script:
+            return script
+    msg = "no reclaim script was sent"
+    raise AssertionError(msg)
