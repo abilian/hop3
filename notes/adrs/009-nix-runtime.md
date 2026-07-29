@@ -96,7 +96,7 @@ Hop3 will use Nix not only for build-time management but also for runtime behavi
 1. **Nix-Based Runtime Isolation**:
 
    - **Nix Shells for Isolation**: Use Nix shells or other isolation mechanisms to ensure that each application runs in its own environment with isolated dependencies and runtime configurations. This approach ensures runtime consistency and prevents dependency-related runtime failures.
-   - **Declarative Service Management**: Applications and their backing services will be declared in Nix, ensuring that the platform manages not only the deployment but also the runtime lifecycle of both the applications and the resources they depend on.
+   - **Declarative Service Management**: Applications and their backing services will be declared in Nix, ensuring that the platform manages the runtime lifecycle of the applications and the resources they depend on, as well as their deployment.
 
 1. **Managing Backing Services**:
 
@@ -111,7 +111,7 @@ Nix can manage the lifecycle of backing services in several ways by using its de
 
 - **NixOS Modules**: In NixOS (the operating system built around Nix), services such as databases (e.g., PostgreSQL, MySQL) and email servers (e.g., Postfix, Dovecot) can be defined declaratively using NixOS modules. These modules specify how services should be configured and managed. The configuration is entirely reproducible, meaning that rebuilding or restarting the service will always produce the same result.
 
-- **Declarative Resource Management**: Nix allows you to declare not only the application and service dependencies but also the configuration of the services themselves (such as database ports, connection limits, etc.). For example, you can define how PostgreSQL should be set up (e.g., data directory, authentication methods) in the Nix expression, ensuring that the service behaves consistently across deployments.
+- **Declarative Resource Management**: Nix declares the application and service dependencies alongside the configuration of the services themselves (such as database ports, connection limits, etc.). A Nix expression can define how PostgreSQL should be set up (e.g., data directory, authentication methods), ensuring that the service behaves consistently across deployments.
 
   Example for PostgreSQL:
 

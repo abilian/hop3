@@ -9,7 +9,7 @@
 
 ## Context
 
-### What's wrong
+### The problems
 
 The project accumulated several parallel testing approaches, each added for a good local reason, with no unifying model. A contributor must hold a large set of entry points across many layers in their head: and know *which still work*, because a sizeable fraction are dead. An audit of the full surface (pytest layers, the `hop3-test` runner, the standalone `demos/` harness, the tutorial scripts, `validoc`, `nox`, the Makefile/CI) found:
 
@@ -22,7 +22,7 @@ The project accumulated several parallel testing approaches, each added for a go
 7. **Three incompatible speed taxonomies, none meaningful in practice.** Directory layers, decorative pytest markers, and `hop3-test`'s `P0/P1/P2` + tier labels. `pytest -m "not slow"` cannot select a fast lane because the markers aren't applied.
 8. **Whole packages run in no CI.** `hop3-installer`, `hop3-rootd` (security-sensitive: [ADR 041](./041-privileged-operations-agent.md) and the v0.6 hardening note), `hop3-tui`, and `hop3-testing` appear in no Makefile target and no workflow.
 
-### What is actually good (and must be kept)
+### The parts that must survive
 
 - The `DeploymentTarget` ABC (`hop3-testing/targets/`) is a clean abstraction over docker/ssh/hetzner: the right single deploy-and-verify primitive.
 - `validoc` is a literate-test substrate: tutorials are Markdown with executable, asserted code blocks. It can drive *any* CLI scenario.

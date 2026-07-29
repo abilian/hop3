@@ -75,7 +75,7 @@ The installer ships a `configure_firewall()` step that, on **fresh installs**, a
 
 On RHEL/Fedora hosts (firewalld available, ufw not), the equivalent `firewall-cmd` calls apply. On hosts where neither is available, the installer prints a clear instruction and skips auto-management.
 
-Opt-out: `hop3-install server --no-firewall` skips the entire step (CI containers, embedded environments, operators with their own iptables setup).
+Opt-out: `hop3-install server --no-firewall` skips the step (CI containers, embedded environments, operators with their own iptables setup).
 
 On **upgrades** (marker file already present), the installer never touches firewall rules unless `hop3-install server --reconfigure-firewall` is passed. This avoids locking out operators whose post-install adjustments would otherwise be silently reverted.
 

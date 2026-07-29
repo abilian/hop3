@@ -11,7 +11,7 @@ Hop3 accumulates tooling that no shipped package owns: automation a *maintainer*
 
 Today this tooling lives as ad-hoc files under the repo-root `scripts/` directory. That directory has grown into a broad mix (Python and shell, checks and generators and deploy helpers) with structural problems that compound as it grows:
 
-- **No discovery.** A tool is useful only if you already know its filename exists. There is no `--help`, no index, no "what can I run here."
+- **No discovery.** A tool is useful only to a maintainer who already knows its filename exists. There is no `--help`, no index, no "what can I run here."
 - **No contract.** Scripts vary in argument style, exit-code discipline, and output. Some are `set -e` shell, some argparse Python, some neither.
 - **No tests.** A 500-line script like `verify-security-batch.py`, which SSHes to a box, drives `hop3 catalog install`, and asserts security properties, has no test and no way to acquire one in place.
 - **No shared library.** Every script re-implements the same primitives: shell out to the `hop3` CLI, parse `hop3 app credentials`, SSH to a box, talk to a staged catalog. The logic drifts between copies.
