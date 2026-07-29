@@ -136,6 +136,28 @@ def test_admin_user_add_success(mock_user_repo, mock_role_repo, mock_admin_user)
     assert "created successfully" in result[0]["text"]
 
 
+def test_user_add_states_the_account_is_operator_equivalent(
+    mock_user_repo, mock_role_repo, mock_admin_user
+):
+    """
+    Creating a non-admin account must say it still reaches every app.
+
+    The control plane is single-tenant (no per-app ownership), so "Admin: No"
+    would otherwise imply a confinement Hop3 does not provide. See
+    notes/security/security-model.md §1.4 and report-2026-07.md finding 1.
+    """
+    mock_user_repo.get_by_username.return_value = mock_admin_user
+    mock_user_repo.username_exists.return_value = False
+    mock_user_repo.email_exists.return_value = False
+
+    cmd = UserAddCmd(user_repo=mock_user_repo, role_repo=mock_role_repo)
+    result = cmd.call("admin", "newuser", "new@example.com", "password123")
+
+    notice = " ".join(item.get("text", "") for item in result)
+    assert "every app and addon" in notice
+    assert "no per-app ownership" in notice.lower()
+
+
 # user:add with --admin is covered by
 # b_integration/commands/test_user_commands_integration.py::test_add_user_with_admin_flag
 # (real in-memory DB; asserts user.is_admin is True).
