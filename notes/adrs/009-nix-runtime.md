@@ -210,4 +210,3 @@ Nix can manage the lifecycle of backing services in several ways by using its de
 - **Integration Complexity**: Nix’s role as a runtime isolation tool is still less mature than its build-time capabilities. Ensuring that Nix provides adequate runtime isolation across a wide range of applications and services might be challenging. To mitigate this, Hop3 will use `systemd` and other NixOS tools known to manage services effectively.
 - **Service Interoperability**: Managing backing services like databases and certificates using Nix could face challenges when integrating with legacy or complex services. Mitigation includes extensive testing and community feedback to ensure compatibility.
 - **Runtime Performance**: Using Nix to manage the runtime environment might introduce performance overhead, especially in complex deployments with many services. Continuous performance optimization and monitoring are needed to minimize this impact.
-t.

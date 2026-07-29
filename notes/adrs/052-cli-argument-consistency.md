@@ -118,33 +118,15 @@ One env var per concept, named `HOP3_<FLAG>` for `--flag`, replacing the `HOP3_P
 
 ### D8. Enforcement: one lexicon, per-tool definitions, drift caught at the seams
 
-There is **no single arg-spec module imported by every tool.** `hop3-testing`
-depends on `hop3-installer` only to run the shipped `hop3-deploy-server` binary
-as a subprocess: it deliberately imports none of the installer's code, so it
-exercises the same binary a user would; a shared Python module would couple the
-two against that grain, and the installer must stay stdlib-only regardless (it is
-bundled into the `curl … | python3` one-liner and runs before any dependency
-exists). Instead, **this document's lexicon is the source of truth for the
-names**, and each tool defines its own options to match it:
+There is **no single arg-spec module imported by every tool.** `hop3-testing` depends on `hop3-installer` only to run the shipped `hop3-deploy-server` binary as a subprocess: it deliberately imports none of the installer's code, so it exercises the same binary a user would; a shared Python module would couple the two against that grain, and the installer must stay stdlib-only regardless (it is bundled into the `curl … | python3` one-liner and runs before any dependency exists). Instead, **this document's lexicon is the source of truth for the names**, and each tool defines its own options to match it:
 
-- `hop3-installer` (both `hop3-deploy-server` and `hop3-install`) keeps argparse
-  and stays stdlib-only. Its two tools live in one package, so they share one
-  small stdlib module for the migration mechanics (deprecation aliases) and the
-  lexicon constants.
-- `hop3-test` keeps Click and defines matching options with its own small alias
-  helper; it does not import the installer's definitions.
+- `hop3-installer` (both `hop3-deploy-server` and `hop3-install`) keeps argparse and stays stdlib-only. Its two tools live in one package, so they share one small stdlib module for the migration mechanics (deprecation aliases) and the lexicon constants.
+- `hop3-test` keeps Click and defines matching options with its own small alias helper; it does not import the installer's definitions.
 - The main `hop3` CLI is the source of the vocabulary; it already conforms.
 
-**Contract tests at the coupling seams** catch drift between the tools:
-chiefly the Test Lab ↔ engine contract, which pins the exact flags the Lab
-passes to `hop3-test`. Documentation (help strings,
-CLAUDE.md, `docs/`) is checked against the lexicon so phantom commands and stale
-feature lists can't recur.
+**Contract tests at the coupling seams** catch drift between the tools: chiefly the Test Lab ↔ engine contract, which pins the exact flags the Lab passes to `hop3-test`. Documentation (help strings, CLAUDE.md, `docs/`) is checked against the lexicon so phantom commands and stale feature lists can't recur.
 
-`hop3-install` keeps its current subcommand dispatch rather than moving to
-argparse subparsers: `prog` reading `install-server.py` is *correct* for the
-bundled standalone (`curl | python3` runs a file of that name). Where the
-`hop3-install server --help` program name matters, set `prog` explicitly.
+`hop3-install` keeps its current subcommand dispatch rather than moving to argparse subparsers: `prog` reading `install-server.py` is *correct* for the bundled standalone (`curl | python3` runs a file of that name). Where the `hop3-install server --help` program name matters, set `prog` explicitly.
 
 ### D9. `hop3-test`: one `run`, with cardinality as a flag: not a `system`/`cloud`/`matrix` split
 

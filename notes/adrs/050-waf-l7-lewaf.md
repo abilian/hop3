@@ -42,10 +42,7 @@ Client → Nginx (TLS, vhost) → LeWAF proxy (unix socket) → app (uWSGI/web s
                                    └── JSON audit log (loguru rotation)
 ```
 
-Because `lewaf-proxy` is single-upstream, the fit is **one proxy process per
-WAF-enabled app**, supervised the same way app processes already are, as a
-**uWSGI Emperor vassal** (a generated `.ini` running the proxy via an attached
-daemon), so create/reload/reap reuse the existing machinery:
+Because `lewaf-proxy` is single-upstream, the fit is **one proxy process per WAF-enabled app**, supervised the same way app processes already are, as a **uWSGI Emperor vassal** (a generated `.ini` running the proxy via an attached daemon), so create/reload/reap reuse the existing machinery:
 
 ```
 uwsgi emperor
@@ -53,9 +50,7 @@ uwsgi emperor
 └── <app>_waf        (LeWAF proxy vassal, when [waf].enabled)   ← new
 ```
 
-> **Revision (2026-06-24).** An earlier draft showed a single shared
-> `lewaf-proxy` service under Honcho; the single-upstream reality (one proxy per
-> app) makes the per-app Emperor vassal the correct shape, consistent with §7.
+> **Revision (2026-06-24).** An earlier draft showed a single shared `lewaf-proxy` service under Honcho; the single-upstream reality (one proxy per app) makes the per-app Emperor vassal the correct shape, consistent with §7.
 
 **Why the proxy shape over in-app middleware** (LeWAF supports both): middleware is Python-only and per-framework, and couples the WAF lifecycle to each app's process and dependency tree. The proxy shape protects any app uniformly, is configured/reloaded by the platform, and keeps the WAF decision out of the app's code. The cost is one network hop and a shared service to operate, acceptable for the uniformity gained.
 

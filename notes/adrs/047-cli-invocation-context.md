@@ -6,9 +6,7 @@
 - **Updated**: 2026-06-24
 - **Related-ADRs**: [036](./036-cli-ergonomics.md) (§D7 implicit app resolution), [042](./042-cli-context-model.md) (resolution chains, project contexts), a future command-manifest ADR (plugin command manifest)
 
-> **Updated 2026-06-24:** `_context.server` is the selected context's literal
-> *address* (`ssh://root@host`): [ADR 042](./042-cli-context-model.md) r2 has no symbolic
-> server names. Field example corrected below.
+> **Updated 2026-06-24:** `_context.server` is the selected context's literal *address* (`ssh://root@host`): [ADR 042](./042-cli-context-model.md) r2 has no symbolic server names. Field example corrected below.
 
 This decision supersedes the client-side app-scoped injection mechanism (`hop3_cli/core/app_scope.py`), a stopgap retired by the design below.
 
