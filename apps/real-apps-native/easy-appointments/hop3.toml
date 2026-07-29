@@ -14,11 +14,23 @@ categories = ["scheduling", "appointments", "calendar"]
 builder = "local"
 toolchain = "php"
 
-before-build = "bash scripts/download.sh"
-# Composer must succeed: index.php hard-requires vendor/autoload.php (the tarball
-# ships no vendor/), so a swallowed failure would break both the app and the
-# headless `console install`. Fail loud — no '|| true'.
-build = "composer install --no-dev --optimize-autoloader"
+# Build both halves from source, each from its lockfile, so the deployed tree is
+# one we produced and can reproduce:
+#   - composer.lock     -> vendor/ (index.php hard-requires vendor/autoload.php)
+#   - package-lock.json -> the .min.js assets the production views reference
+#     (DEBUG_MODE = false serves <page>.min.js, which is a build output)
+# `npm ci` not `npm install`: it installs exactly the lock, and fails rather than
+# silently updating it. Fail loud throughout — no '|| true'.
+before-build = [
+  "bash scripts/download.sh",
+  "composer install --no-dev --optimize-autoloader",
+  "npm ci",
+  "npm run build",
+]
+# The asset build is invisible at deploy time — a missing .min.js still returns a
+# 200 HTML page, and only a browser reveals the dead UI. Assert it produced what
+# the views load, so the build fails here instead of in the user's face.
+after-build = "test -f assets/js/pages/booking.min.js || { echo 'Easy!Appointments asset build produced no .min.js (npm run build failed silently?)' >&2; exit 1; }"
 
 [run]
 before-run = "bash scripts/setup-config.sh"
