@@ -74,7 +74,9 @@ def sweep_unowned():
         return
 
     try:
-        conn = mysql.connector.connect(**MySQLAdmin().get_connection_params())
+        conn = mysql.connector.connect(
+            **MySQLAdmin.from_config().get_connection_params()
+        )
     except Exception as e:
         failed.append(f"mysql sweep: could not connect: {e}")
         return
