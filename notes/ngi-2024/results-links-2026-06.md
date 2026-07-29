@@ -1,4 +1,7 @@
-# NGI #2024-04-365 — Links to achieved results (per milestone)
+# NGI #2024-04-365 — Links to achieved results (per milestone) - Interim Report
+
+Status: final
+Date: 24 June 2026
 
 Evidence for the NLNet/NGI "verify these results" field, one entry per milestone. Documentation links resolve on <https://hop3.cloud/> (live at submission); code is on SourceHut (`sfermigier/hop3`), with a mirror on GitHUb (`abilian/hop3`); ADRs carry the design rationale.
 
