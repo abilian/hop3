@@ -147,7 +147,7 @@ class LanguageToolchain(ABC):
             case _:
                 return None
 
-    def _run_declared_build(self, env: dict | None = None) -> bool:
+    def _run_declared_build(self, env: Mapping[str, str] | None = None) -> bool:
         """
         Run the recipe's ``[build].build`` if it declares one; say whether it ran.
 

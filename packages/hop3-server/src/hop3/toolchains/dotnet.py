@@ -35,24 +35,23 @@ class DotNetToolchain(LanguageToolchain):
         """Build the .NET application using dotnet CLI."""
         log(f"Building .NET application '{self.app_name}'", level=1, fg="blue")
 
-        # Restore dependencies
-        log("Restoring .NET dependencies...", level=2, fg="cyan")
-        if self._run_declared_build():
-            return None
-        self.shell("dotnet restore")
+        # A declared [build].build replaces restore + build; the artifact below
+        # is still produced either way, exactly as for every other toolchain.
+        if not self._run_declared_build():
+            log("Restoring .NET dependencies...", level=2, fg="cyan")
+            self.shell("dotnet restore")
 
-        # Build in Release mode
-        log("Building .NET application...", level=2, fg="cyan")
-        result = self.shell("dotnet build -c Release", check=False)
+            log("Building .NET application...", level=2, fg="cyan")
+            result = self.shell("dotnet build -c Release", check=False)
 
-        if result.returncode == 0:
-            log(".NET build successful", level=2, fg="green")
-        else:
-            log(
-                ".NET build failed - check project files and source code",
-                level=1,
-                fg="red",
-            )
+            if result.returncode == 0:
+                log(".NET build successful", level=2, fg="green")
+            else:
+                log(
+                    ".NET build failed - check project files and source code",
+                    level=1,
+                    fg="red",
+                )
 
         # Compiled .NET app - minimal runtime config (just workers)
         return self._make_build_artifact(kind="dotnet")

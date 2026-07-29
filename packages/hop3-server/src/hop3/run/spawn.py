@@ -807,7 +807,7 @@ _PHP_BUILTIN_SERVER_MARKERS = ("php -S", "artisan serve")
 
 
 def _ensure_php_server_concurrency(
-    env: dict[str, str], workers: dict[str, str], app_name: str
+    env: Env, workers: dict[str, str], app_name: str
 ) -> None:
     """
     Give an app on PHP's built-in server more than one worker.
