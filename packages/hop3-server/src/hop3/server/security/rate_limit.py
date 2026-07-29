@@ -17,7 +17,18 @@ import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 
-__all__ = ["RateLimitError", "RateLimiter"]
+__all__ = ["LIMITER_STATE_IS_SHARED", "RateLimitError", "RateLimiter"]
+
+# Whether limiter state is shared across processes.
+#
+# False means each worker process keeps its own sliding window, so N workers
+# multiply the effective limit by N. `server/cli/serve.py` reads this to refuse
+# a multi-worker start: a rate limit that silently permits 5xN attempts while
+# reporting 5 is the platform lying about its own posture.
+#
+# Flip to True in the same change that backs the limiter with shared storage
+# (Redis or equivalent) -- that is what lifts the single-worker restriction.
+LIMITER_STATE_IS_SHARED = False
 
 
 class RateLimitError(Exception):
