@@ -166,6 +166,17 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ## User Management
 
+!!! warning "Every account can manage every application"
+
+    Hop3 has no per-application ownership: any account you create can stop,
+    reconfigure, back up or destroy **every** app on the server, and can read
+    every addon's credentials. The `--admin` flag controls user-management
+    rights, not application access.
+
+    Provision accounts on that basis, and don't host applications for parties
+    who shouldn't see each other's data on the same server. See
+    [Security](security.md#the-account-model-accounts-are-operator-equivalent).
+
 ### Creating Admin Users
 
 The recommended way to create an admin user is from your workstation:
@@ -389,6 +400,25 @@ sudo ufw allow 443/tcp
 # Enable firewall
 sudo ufw enable
 ```
+
+### Verifying a host key before the first deploy
+
+`hop3-deploy-server` connects with `StrictHostKeyChecking=accept-new`, so the
+host key of an unknown server is accepted on first contact. That first
+connection is also the one that installs Hop3 as root, so on a host you did
+not just provision yourself, verify the key out-of-band first:
+
+```bash
+# On the target (via console, or your provider's control panel):
+ssh-keyscan -t ed25519 localhost | ssh-keygen -lf -
+
+# On your workstation, compare, then pin it before deploying:
+ssh-keyscan -t ed25519 your-server.com >> ~/.ssh/known_hosts
+ssh-keygen -lf ~/.ssh/known_hosts | grep your-server.com
+```
+
+Once the key is in `known_hosts`, a mismatch on any later connection is
+refused rather than accepted.
 
 ### SSH Hardening
 
