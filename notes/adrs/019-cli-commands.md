@@ -44,26 +44,26 @@ CLI ergonomics (help text, discoverability, error messages) are covered separate
 
 ## Introduction
 
-This ADR outlines the basic commands for the Hop3 command-line interface (CLI), which serves as the primary tool for interacting with the Hop3 platform. The CLI is designed to be simple and user-friendly, delegating most logic and formatting responsibilities to the server.
+The Hop3 CLI is the primary interface to the platform. It delegates business logic and formatting to the server, keeping the client lightweight.
 
 ## Summary
 
-The Hop3 CLI will support a range of commands for user authentication, application management, system status, and service operations. The commands are designed to be intuitive and cater to the needs of developers, sysadmins, and end-users. The CLI will rely on the server to handle business logic and formatting, ensuring a lightweight client that is easy to maintain.
+The CLI covers authentication, application management, system status, and service operations. It delegates business logic and formatting to the server via JSON-RPC over HTTPS.
 
 ## Context and Goals
 
 ### Context
 
-The Hop3 project aims to provide a self-hosted PaaS solution that simplifies the deployment and management of web applications. To facilitate this, an efficient and user-friendly CLI is essential. The CLI should be capable of performing various tasks related to application management, system status checks, and service operations.
+The Hop3 project provides a self-hosted PaaS for deploying and managing web applications. The CLI must handle application management, system status checks, and service operations.
 
 ### Goals
 
-- Design a comprehensive set of commands for the Hop3 CLI.
-- Ensure the CLI is user-friendly and intuitive.
+- Design a complete command set for the Hop3 CLI.
+- Ensure the CLI is usable without prior platform knowledge.
 
 ## Decision
 
-The Hop3 CLI will implement a set of commands categorized into Authentication, Catalog, Development, System-Level Operations, App-Level Operations, and Service Operations. These commands will interact with the server using JSON-RPC over HTTPS.
+The CLI command set is organized into Authentication, Catalog, Development, System-Level Operations, App-Level Operations, and Service Operations. Commands interact with the server via JSON-RPC over HTTPS.
 
 ## Basic Commands
 

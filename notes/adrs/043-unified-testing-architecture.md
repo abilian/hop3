@@ -78,7 +78,7 @@ Tiers are named by feedback latency and selected by pytest markers stamped from 
 | **apps** | `hop3-test`: a P0 subset, or one named app | yes | touching deployer/proxy/builders | on-demand |
 | **nightly** | full `hop3-test` app/demo matrix + `validoc` tutorials + multi-distro, **HTML report** | yes | cron / release | SourceHut nightly |
 
-The slow Docker platform tests (backups, git-push, proxy) live in **`check`** and are not nightly-only (they are core guarantees and should gate a push. `check` requires Docker, so non-Docker distros run `fast` instead, matching the `.builds/` split. Bare `pytest` (and `make test`) run the in-process layers only (`a_unit` + `b_integration`); the `testpaths` default excludes the Docker `c_e2e` layer, so a reflexive `pytest` never spins up Docker; CI invokes `c_e2e` explicitly.
+The slow Docker platform tests (backups, git-push, proxy) live in **`check`** and are not nightly-only (they are core guarantees and should gate a push). `check` requires Docker, so non-Docker distros run `fast` instead, matching the `.builds/` split. Bare `pytest` (and `make test`) run the in-process layers only (`a_unit` + `b_integration`); the `testpaths` default excludes the Docker `c_e2e` layer, so a reflexive `pytest` never spins up Docker; CI invokes `c_e2e` explicitly.
 
 ### 5. Unified entry points
 
@@ -149,11 +149,11 @@ After a parity window (see migration):
 - The forked diagnostics collectors, folded into `collect_diagnostic_bundle`.
 - The dead Makefile targets (§5).
 
-**Kept:** `demos/demo.py`, `demos/lib`, and `runners/demo.py`. A demo is simultaneously an educational walkthrough, a live demonstration, and a test, so a broken demo is a first-class regression. The meta runner exercises each demo in place (`DemoTestRunner` → `demos/demo.py`) and surfaces a non-zero exit as a failed test; `runners/demo.py` is the integration layer. The HTML generator, the catalog/scanner, the `targets/` ABC, the Hetzner orchestrator, and `runners/tutorial.py` (now reached via tutorial discovery) are also kept. Reducing demo/runner duplication is welcome; removing the demo engine or its educational/demonstration behaviour is not.
+**Kept:** `demos/demo.py`, `demos/lib`, and `runners/demo.py`. A demo is simultaneously an educational walkthrough, a live demonstration, and a test, so a broken demo is a first-class regression. The meta runner exercises each demo in place (`DemoTestRunner` → `demos/demo.py`) and surfaces a non-zero exit as a failed test; `runners/demo.py` is the integration layer. The HTML generator, the catalog/scanner, the `targets/` ABC, the Hetzner orchestrator, and `runners/tutorial.py` (now reached via tutorial discovery) are also kept. The demo engine and its educational and demonstration roles are kept. Reducing demo/runner duplication within that constraint is welcome.
 
 ### 10. Cross-version upgrade validation
 
-The e2e surface validates not only that a version *deploys*, but that a running server *upgrades* across releases without losing its schema or its ability to serve. `hop3-test upgrade-chain` installs a baseline release on a fresh box, then walks a chain of versions (a git ref per hop, e.g. `0.6.2 → … → local`), performing an in-place update at each hop and asserting the server comes back healthy and the schema is readable.
+The e2e surface validates that a running server *upgrades* across releases without losing its schema or its ability to serve. It also validates that a version deploys. `hop3-test upgrade-chain` installs a baseline release on a fresh box, then walks a chain of versions (a git ref per hop, e.g. `0.6.2 → … → local`), performing an in-place update at each hop and asserting the server comes back healthy and the schema is readable.
 
 Two properties make it a faithful upgrade test and keep it from becoming a self-test:
 

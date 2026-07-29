@@ -56,7 +56,7 @@ This ADR addresses only the L3/L4 piece. The WAF piece is referenced as a future
 
 Docker writes its own iptables rules in the `DOCKER` chain ahead of any rules ufw inserts. A docker-compose `ports:` declaration like `"1935:1935"` makes the port reachable from the public Internet *regardless of the host firewall*. This means:
 
-- A "deny by default" host firewall is undermined by any container that publishes a port: visible reachable, but not visible *to ufw*, so operators can't audit it via `ufw status`.
+- A "deny by default" host firewall is undermined by any container that publishes a port: the port is reachable from the Internet but ufw does not show it, so operators cannot audit it through `ufw status`.
 - For app-declared exposures to be the single source of truth, Hop3 must not let docker-compose publish ports unilaterally. Either rewrite generated compose files to bind container ports to `127.0.0.1` and let ufw forward inbound traffic, or require operators to use Hop3's `[[expose]]` mechanism instead of compose-level `ports:`.
 
 This is an open question (see "Open questions").

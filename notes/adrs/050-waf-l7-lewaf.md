@@ -61,7 +61,7 @@ uwsgi emperor
 
 ### 2. Access model: two use cases, regex pattern lists, named networks
 
-Per-app access policy is reduced to the only two patterns that are real. There is **no unconditional per-URL deny**: it isn't needed (it falls out of use case 1) and it invites unscalable rule lists.
+Per-app access policy is reduced to the only two patterns that are real. An unconditional per-URL deny is unnecessary: use case 1 covers it, and it would only invite unscalable rule lists.
 
 **Use case 1: positive model (default-deny).** The app lists the URL-path patterns it actually serves; everything else is denied. A denied request is, by definition, a probe, so it also feeds the ban scorer (§4). This subsumes honeypot lists: `/wp-admin` on a non-WordPress app is denied because it isn't in the allowlist.
 
@@ -95,11 +95,11 @@ hop3 network add vpn    10.8.0.0/24
 
 **Evaluation order** (per request): **(1) ban check**: a banned source is rejected before anything else; **(2) gate**: if the path matches a gate and the condition fails, deny; **(3) allow**: if `allow` is set and the path matches neither `allow` nor a satisfied gate, deny; **(4) CRS** inspection; **(5) score** the violation (a deny or a CRS match) toward bans. When `allow` is absent, gates merely carve out conditional regions and everything else is open (the WordPress case).
 
-Two things this model leans on entirely, the client's **source IP** (for network gates and bans) and **path normalization** (for matching), are where positive-security WAFs get bypassed. They are pinned as normative Security invariants (1) and (2) below; an implementation that gets either wrong is bypassable regardless of the rules above.
+Positive-security WAFs are most often bypassed on the two things this model leans on entirely: the client's **source IP** (for network gates and bans) and **path normalization** (for matching). They are pinned as normative Security invariants (1) and (2) below; an implementation that gets either wrong is bypassable regardless of the rules above.
 
 ### 3. CRS baseline and tuning
 
-`ruleset` selects the managed attack ruleset (OWASP CRS); `mode` is `block` or `detect` (log-only, for safe rollout); paranoia is the CRS aggressiveness dial. False positives are silenced with **scoped, verb-named tuning**: never an ambiguous "exclusions" key (which reads as *deny* but means *allow through*):
+`ruleset` selects the managed attack ruleset (OWASP CRS); `mode` is `block` or `detect` (log-only, for safe rollout); paranoia is the CRS aggressiveness dial. False positives are silenced with **scoped, verb-named tuning**: never an ambiguous "exclusions" key (which reads as *deny* while meaning *allow through*):
 
 ```toml
 [[waf.tuning]]
@@ -169,7 +169,7 @@ Each audit entry is one JSON record, the exact contract the ban scorer (§4) con
 
 ## Security invariants (must hold before implementation)
 
-A WAF that can be bypassed is worse than none: it advertises protection it doesn't deliver. These are **normative**: the implementation must satisfy them and tests must cover them. The first two are critical: they are where positive-security WAFs are most often defeated.
+A WAF that can be bypassed is worse than none: it advertises protection it doesn't deliver. These are **normative**: the implementation must satisfy them and tests must cover them. The first two are critical: positive-security WAFs are most often defeated on these points.
 
 1. **Trusted client IP (no client-supplied `X-Forwarded-For` trust).** Gates (`require = <network>`) and bans decide on the client's source IP, so that IP must be unforgeable. If violated: `X-Forwarded-For: <office-ip>` bypasses a network gate (authorization bypass), and a spoofed or shared IP lets an attacker ban arbitrary victims: amplified to all ports once the L3/L4 ban (§4) lands. LeWAF handles this via `trusted_proxy_count`: XFF is honored only when N trusted proxies are declared, and the client is the **Nth entry from the right** (so client-forged leftmost entries are ignored); the default `0` ignores XFF entirely and uses the connecting peer. `lewaf-proxy` must be run with `trusted_proxy_count` set to the number of proxies in front of it (nginx ⇒ `1`), so it reads the real client and not nginx. Tests must assert a forged XFF does **not** satisfy a network gate.
 

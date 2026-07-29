@@ -8,11 +8,11 @@
 
 ## Superseding Context
 
-This guideline relied on a four-layer test pyramid (`a_unit`/`b_integration`/`c_system`/`d_e2e`) and classified tests by whether their dependencies were real or mocked. [ADR 043](043-unified-testing-architecture.md) replaces that pyramid with three layers (`a_unit`/`b_integration`/`c_e2e`) and dissolves `c_system`. [ADR 043](./043-unified-testing-architecture.md) classifies tests by whether they need Docker, root, or host-mutation rather than by real-vs-mocked dependencies. Under that rule the dashboard file-system tests are hermetic (they run a real `App.create()` in `tmp_path` with no root and no Docker) and therefore belong in `b_integration`, reversing the placement decision recorded here.
+This guideline relied on a four-layer test pyramid (`a_unit`/`b_integration`/`c_system`/`d_e2e`) and classified tests by whether their dependencies were real or mocked. [ADR 043](043-unified-testing-architecture.md) replaces that pyramid with three layers (`a_unit`/`b_integration`/`c_e2e`) and dissolves `c_system`. [ADR 043](./043-unified-testing-architecture.md) classifies tests by whether they need Docker, root, or host-mutation rather than by real-vs-mocked dependencies. Under that rule the dashboard file-system tests are hermetic (they run a real `App.create()` in `tmp_path` with no root and no Docker) and therefore belong in `b_integration`, reversing that placement decision.
 
 ## Introduction
 
-This ADR addresses the question of how to properly classify and implement tests for the Hop3 dashboard web UI, specifically focusing on where the boundary lies between integration tests and system tests when testing web application features.
+This ADR addresses how to classify and implement tests for the Hop3 dashboard web UI: where the boundary lies between integration tests and system tests when testing web application features.
 
 ## Summary
 
@@ -57,7 +57,7 @@ def test_client(tmp_path: Path, monkeypatch):
 1. **Maintain fast feedback loops** - Tests should run quickly during development
 2. **Ensure adequate coverage** - Critical business logic must be tested with real implementations
 3. **Follow testing pyramid principles** - Clear separation between test layers
-4. **Avoid test brittleness** - Tests shouldn't be overly complex or fragile
+4. **Avoid test brittleness** - Tests shouldn't be complex or fragile
 5. **Document clear guidelines** - Future developers should know where to place tests
 
 ## Tenets

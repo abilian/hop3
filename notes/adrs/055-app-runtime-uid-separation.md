@@ -89,7 +89,7 @@ Two changes enforce the separation at the daemon:
 - App-runtime users are **not** in the `hop3` group, so the `0660 root:hop3` socket mode denies them at the OS layer before `SO_PEERCRED` is even consulted.
 - rootd's allowed-UID set stays `{hop3, root}` (already the case; `server.py:_resolve_allowed_uids`). No app UID is ever added.
 
-With apps outside both gates, rootd again has a single trusted non-root caller. Its documented model (structural validation, no per-op authorization, `app_name` taken on trust) is then correct, because the only party that can assert an `app_name` is the orchestrator that legitimately owns all of them. This ADR does not add per-op authorization to rootd; it removes the untrusted callers that would have required it.
+With apps outside both gates, rootd again has a single trusted non-root caller. Its documented model (structural validation, no per-op authorization, `app_name` taken on trust) is then correct, because the only party that can assert an `app_name` is the orchestrator that legitimately owns all of them. This ADR removes the untrusted callers that would have required per-op authorization.
 
 ### 6. Secret and environment isolation
 
@@ -113,7 +113,7 @@ The window is per-app and each step is idempotent, so a partially migrated box i
 ### 9. Non-goals
 
 - **Full container-grade isolation** (per-app mount/network/PID namespaces) is out of scope. UID separation is the minimal change that closes the auth hole and the cross-app read/kill surface; namespace isolation is a separate, heavier decision (and Hop3 avoids Docker's complexity on the native path by design).
-- **Changing rootd's operation set or protocol.** This ADR restores rootd's stated model; it does not alter its wire protocol, ops, or validation.
+- **Changing rootd's operation set or protocol.** This ADR restores rootd's stated model while leaving its wire protocol, ops, and validation unchanged.
 
 ## Consequences
 

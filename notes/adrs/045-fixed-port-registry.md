@@ -42,7 +42,7 @@ The apps that need it are declared accordingly: owncast (`1935/tcp`) and matrix-
 
 ## Alternatives considered
 
-**Per-app network isolation (network namespace / always-containerize) (rejected.** It does not solve the actual problem: an *external* fixed port must be reachable from outside on one host `IP:port`, which isolation cannot multiplex (the outside world still reaches a single listener). Isolation would only help *internal* (localhost-only) ports) and those are better solved without it (below). The cost (a netns/container per native/nix app) buys nothing for the case at hand.
+**Per-app network isolation (network namespace / always-containerize) (rejected).** It does not solve the actual problem: an *external* fixed port must be reachable from outside on one host `IP:port`, which isolation cannot multiplex (the outside world still reaches a single listener). Isolation would only help *internal* (localhost-only) ports, and those are better solved without it (below). The cost (a netns/container per native/nix app) buys nothing for the case at hand.
 
 **Do internal ports need allocation?** Reviewed against real apps, effectively never in a way that needs a *fixed* port or isolation: a bundled datastore should use a Hop3 **addon** (already per-app, collision-free); a frontend↔backend or worker port should be a **dynamic** port Hop3 hands the app via env, or a Unix socket. A hardcoded internal port that can't be configured is a packaging defect. So the future direction for "an app needs a second port" is **dynamic allocation**.
 
