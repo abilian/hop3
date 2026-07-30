@@ -42,8 +42,13 @@ _ENV_USER = "HOP3_PROBE_USER"
 _ENV_EMAIL = "HOP3_PROBE_EMAIL"
 _ENV_PASSWORD = "HOP3_PROBE_PASSWORD"
 
-#: Marks that [probe].create already ran, so a redeploy does not re-run it.
-_ENV_CREATED = "HOP3_PROBE_CREATED"
+#: Marks that the probe account exists, so a redeploy does not re-create it and
+#: the smoke test may sign in as it. Public because `checks.runner` reads it —
+#: one definition, not the two it used to have.
+#:
+#: Written in exactly one place: after ``[probe].create`` has run and exited 0.
+#: Nothing else may claim an account exists.
+PROBE_CREATED_ENV = "HOP3_PROBE_CREATED"
 
 DEFAULT_USERNAME = "hop3probe"
 
@@ -102,9 +107,19 @@ def bootstrap_probe_account(
 
     create_cmd = probe.get("create")
     if not create_cmd:
-        return  # the app creates it from the injected HOP3_PROBE_* itself
+        # The recipe says the app creates this account itself from the injected
+        # HOP3_PROBE_*. Hop3 has no way to confirm it did, so it does NOT set
+        # the marker — and the check therefore never signs in as an account
+        # whose existence nobody established.
+        #
+        # This was briefly written the other way, marking such a probe created
+        # so the check would use it. Both apps that rely on it (matomo,
+        # uptime-kuma) then failed against accounts their own bootstraps were
+        # supposed to have made. The marker means "this exists"; only the branch
+        # below can honestly write it.
+        return
 
-    if app.get_runtime_env().get(_ENV_CREATED):
+    if app.get_runtime_env().get(PROBE_CREATED_ENV):
         return
 
     log("  Creating the Hop3 probe account...", level=1, fg="blue")
@@ -137,5 +152,5 @@ def bootstrap_probe_account(
         )
         return
 
-    set_env_vars(app, {_ENV_CREATED: "1"}, db_session)
+    set_env_vars(app, {PROBE_CREATED_ENV: "1"}, db_session)
     log("  Probe account created", level=2, fg="green")

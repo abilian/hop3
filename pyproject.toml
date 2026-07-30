@@ -169,3 +169,21 @@ unused-type-ignore-comment = "ignore"
 [tool.dead-code-detector]
 report = "flat"
 live-decorators = true
+
+# ----------------------------------------------------------
+
+[tool.bruce]
+source  = [
+    "packages/hop3-rootd/src",
+    "packages/hop3-server/src",
+    "packages/hop3-cli/src",
+]
+context = [
+    "docs/src/**/security*.md",
+    "notes/adrs/*security*.md",
+    "notes/security/security-model.md",
+]
+history = [
+    "notes/security/report-*.md",
+    "docs/blog/posts/*security-audit.md",
+]

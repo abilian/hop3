@@ -113,9 +113,24 @@ def test_a_failed_create_is_loud_but_does_not_fail_the_deploy(captured) -> None:
     assert "HOP3_PROBE_CREATED" not in captured
 
 
-def test_an_app_that_self_bootstraps_needs_no_create_command() -> None:
+def test_an_app_that_self_bootstraps_needs_no_create_command(captured) -> None:
+    """
+    No `[probe].create` means the APP makes the account from the injected vars.
+
+    Hop3 runs nothing here and, crucially, claims nothing either. Marking such
+    a probe as created — so the smoke test would sign in as it — was tried and
+    reverted the same day: matomo went from PASS to FAIL in one run and
+    uptime-kuma kept failing, both against accounts their own bootstraps were
+    supposed to have created. The check falls back to the operator's credential
+    and reports the weaker claim, which is accurate rather than silent.
+    """
     calls: list[str] = []
 
     bootstrap_probe_account(_App(), {"username": "p"}, object(), calls.append)
 
-    assert calls == []
+    assert calls == [], "there is no command to run on this path"
+    assert "HOP3_PROBE_CREATED" not in captured, (
+        "Hop3 did not create this account and cannot see whether anyone did, so "
+        "it must not mark one as existing — marking it took matomo from PASS to "
+        "FAIL and left uptime-kuma failing on an account nobody had made"
+    )

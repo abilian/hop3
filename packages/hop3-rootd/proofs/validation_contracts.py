@@ -6,9 +6,9 @@
 Out-of-line contracts for ``hop3_rootd.validation`` — proven, not promised.
 
 Each ``@ensures`` below is a statically PROVEN postcondition of the real
-validator body: mcpython adjudicates this spec against the source and the
+validator body: forall adjudicates this spec against the source and the
 claim holds for every input the type admits, or the proof fails. The
-production module keeps zero mcpython dependency — the contracts live here,
+production module keeps zero forall dependency — the contracts live here,
 out of line, exactly so the daemon's ADR 041 "no external dependencies" rule
 is untouched.
 
@@ -24,14 +24,14 @@ What each contract buys:
   validate" change of semantics) flips the proof and fails the drift test.
 
 Adjudicated by ``proofs/test_validation_contracts.py`` under pytest (when
-mcpython is installed), or by hand:
+forall is installed), or by hand:
 
-    mcpython check packages/hop3-rootd/src/hop3_rootd/validation.py \\
+    forall check packages/hop3-rootd/src/hop3_rootd/validation.py \\
         packages/hop3-rootd/proofs/validation_contracts.py \\
         --lib packages/hop3-rootd/src
 """
 
-from mcpython.harness import ensures
+from forall.harness import ensures
 
 from hop3_rootd.validation import (
     validate_app_name,
