@@ -24,6 +24,7 @@ from hop3.lib import (
     echo,
     get_free_port,
     log,
+    log_command_stream,
     log_diagnosis,
     shell,
 )
@@ -398,14 +399,8 @@ class AppLauncher:
                         level=0,
                         fg="red",
                     )
-                    if result.stdout:
-                        log("  stdout:", level=0, fg="red")
-                        for line in result.stdout.strip().split("\n")[-20:]:
-                            log(f"    {line}", level=0)
-                    if result.stderr:
-                        log("  stderr:", level=0, fg="red")
-                        for line in result.stderr.strip().split("\n")[-20:]:
-                            log(f"    {line}", level=0)
+                    log_command_stream("stdout", result.stdout, level=0, fg="red")
+                    log_command_stream("stderr", result.stderr, level=0, fg="red")
                     server_log.error(
                         "Before-run command failed",
                         app_name=self.app_name,
@@ -415,6 +410,18 @@ class AppLauncher:
                     )
                     msg = f"Before-run command failed: {cmd}"
                     raise RuntimeError(msg)
+                # A command that SUCCEEDED still has things to say, and this
+                # threw all of them away. These commands are the app's headless
+                # bootstrap — they report which account they created, or that
+                # they found one already and left it alone. Uptime Kuma's says
+                # in as many words when the admin Hop3 is about to advertise
+                # does not exist in the database; that line was written every
+                # deploy and read by nobody, while the smoke test's "the
+                # credential Hop3 generated was refused" sent everyone looking
+                # at the application instead. Output is evidence, not noise.
+                log_command_stream("stdout", result.stdout, level=1)
+                # stderr on a zero exit is a warning the script chose to raise.
+                log_command_stream("stderr", result.stderr, level=0, fg="yellow")
                 log("  Command completed successfully", level=2, fg="green")
             except subprocess.TimeoutExpired:
                 log("  Command timed out after 5 minutes", level=0, fg="red")

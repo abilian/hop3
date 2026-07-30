@@ -41,7 +41,15 @@ from hop3.deployers.probe_account import (
 )
 from hop3.deployers.volumes import realize_volumes
 from hop3.deployers.waf import configure_waf_preflight, start_waf_proxy
-from hop3.lib import Abort, Diagnosis, abort_with_diagnosis, log, log_diagnosis, shell
+from hop3.lib import (
+    Abort,
+    Diagnosis,
+    abort_with_diagnosis,
+    log,
+    log_command_stream,
+    log_diagnosis,
+    shell,
+)
 from hop3.lib.logging import server_log
 from hop3.orm.app import AppStateEnum
 from hop3.plugins.proxy._policy import ALLOW_HTTP_KEY
@@ -1318,6 +1326,15 @@ def _bootstrap_admin_account(
             detail = f"\n{output[-1500:]}" if output else " (no output)"
             msg = f"exit status {result.returncode}: {command}{detail}"
             raise AdminBootstrapError(msg)
+
+        # A command that SUCCEEDED still says what it did — which account it
+        # created, or that it found one and left it alone. Discarding that is
+        # how "Creating the Hop3 probe account..." came to be followed by
+        # nothing at all, and how the same silence in the before-run path cost
+        # three rounds of investigation into an app that was working.
+        log_command_stream("stdout", result.stdout, level=1)
+        # stderr on a zero exit is a warning the command chose to raise.
+        log_command_stream("stderr", result.stderr, level=0, fg="yellow")
 
     bootstrap_admin_account(app, admin, db_session, run_create)
     bootstrap_probe_account(app, probe, db_session, run_create)
