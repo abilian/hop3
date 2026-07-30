@@ -20,7 +20,7 @@ It is also not a record of any particular review — each review round gets its 
 |---|---|---|
 | [report-2026-05.md](report-2026-05.md) | Five iterative LLM review rounds, 0.5 release series | 4 critical/high pre-auth findings, ~30 further fixes |
 | [report-2026-07.md](report-2026-07.md) | Automated audit (letscode / vulnhunt) | 1 systemic authorization gap, 5 injection fixes, 4 open items |
-| [v0.6-rootd-hardening.md](v0.6-rootd-hardening.md) | rootd systemd sandboxing debt | Deferred to 0.6, with rationale |
+| [rootd-hardening.md](rootd-hardening.md) | rootd systemd sandboxing debt | Open: relocation (a live escalation) + sandbox redesign |
 
 For the umbrella ADR pointing to per-concern decisions (encryption-at-rest, MFA, supply chain, …), see [ADR 010](../adrs/010-security-and-resilience.md).
 
