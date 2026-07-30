@@ -1475,3 +1475,50 @@ class TestGoSourceExecTargetCheck:
         )
         spec = app_spec_from_config(config["nix"], config["metadata"], "forgejo")
         assert spec.exec_target == "forgejo.org"
+
+
+def test_nixpkgs_wrapper_exposes_a_binding_that_does_not_move():
+    """
+    A recipe must be able to name the wrapped package without knowing the app id.
+
+    The package's own let-binding is `pname` with dashes turned into
+    underscores, so it renames whenever the app does. keycloak-nixgen and
+    mattermost-nixgen were both made by copying a recipe and renaming the app,
+    and both kept `${keycloak}` / `${mattermost}` in `extra-paths` — names that
+    no longer existed. Nix failed them at BUILD time with a bare
+    `undefined variable 'keycloak'`, pointing at a generated line the recipe
+    author never wrote, after a 200-second deploy.
+    """
+    spec = AppSpec(
+        pname="keycloak-nixgen",
+        version="",
+        description="t",
+        exec_target="kc.sh",
+        source=Source(url="x", sha256="x"),
+        payload=NixpkgsWrapperPayload(package="keycloak"),
+    )
+    output = generate(spec)
+
+    assert "keycloak_nixgen = pkgs.keycloak;" in output, "the derived binding"
+    assert "pkg = keycloak_nixgen;" in output, (
+        "and a stable alias, so a recipe never has to spell the derived one"
+    )
+
+
+def test_the_stable_binding_survives_renaming_the_app():
+    """`pkg` is the point: it is the same name whatever the app is called."""
+    outputs = [
+        generate(
+            AppSpec(
+                pname=pname,
+                version="",
+                description="t",
+                exec_target="kc.sh",
+                source=Source(url="x", sha256="x"),
+                payload=NixpkgsWrapperPayload(package="keycloak"),
+            )
+        )
+        for pname in ("keycloak", "keycloak-nixgen", "keycloak-experiment-3")
+    ]
+
+    assert all("pkg = " in out for out in outputs)
