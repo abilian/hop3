@@ -20,7 +20,7 @@ from hop3.run.reaper import (
     proc_belongs_to_app,
     reap_app_processes,
 )
-from hop3.run.spawn import spawn_app
+from hop3.run.spawn import spawn_app, verify_nix_closure
 
 # Process detection/reaping moved to hop3.run.reaper so the ORM teardown
 # (app.stop()/destroy()) shares it. Keep this name importable here for tests.
@@ -167,6 +167,11 @@ class UWSGIDeployer:
     def restart(self) -> None:
         """For uWSGI, touching the .ini files is the most efficient way to restart."""
         log(f"Restarting '{self.app.name}'...", level=2, fg="blue")
+
+        # Same reason as App._restart_uwsgi: a touch-restart bypasses spawn_app,
+        # so the closure guard has to be invoked here too. Two touch-restart
+        # implementations means two ways to bypass it.
+        verify_nix_closure(self.app)
 
         config_files = list(UWSGI_ENABLED.glob(f"{self.app.name}*.ini"))
         if not config_files:

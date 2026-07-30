@@ -33,6 +33,12 @@ from hop3.lib.settings import write_settings
 from hop3.project.config import AppConfig
 from hop3.project.procfile import parse_procfile
 
+from .nix_closure import (
+    NIX_STORE_CANDIDATES,
+    ClosureCheckError,
+    missing_closure_paths,
+    resolve_nix_store,
+)
 from .uwsgi import spawn_uwsgi_worker
 
 # A top-level Nix store path `/nix/store/<hash>-<name>` (the hash is 32 base-32
@@ -62,6 +68,18 @@ def spawn_app(app: App, deltas: dict[str, int] | None = None) -> None:
         deltas = {}
     launcher = AppLauncher(app, deltas)
     launcher.spawn_app()
+
+
+def verify_nix_closure(app: App) -> None:
+    """Abort if a Nix app's runtime closure has been reclaimed.
+
+    Callable outside a spawn because a uWSGI *touch-restart* relaunches a vassal
+    from its existing `.ini` without going through `spawn_app`. The guard used to
+    live only on the spawn path, which left it one call short of the exact
+    scenario it was written for: a garbage collection reclaims a closure, the app
+    is restarted, and the vassal execs a store path that is no longer there.
+    """
+    AppLauncher(app).verify_nix_closure_intact()
 
 
 @dataclass
@@ -410,6 +428,7 @@ class AppLauncher:
                     )
                     msg = f"Before-run command failed: {cmd}"
                     raise RuntimeError(msg)
+
                 # A command that SUCCEEDED still has things to say, and this
                 # threw all of them away. These commands are the app's headless
                 # bootstrap — they report which account they created, or that
@@ -466,22 +485,29 @@ class AppLauncher:
             except OSError:
                 pass
 
-    def _verify_nix_closure_intact(self) -> None:
+    def verify_nix_closure_intact(self) -> None:
         """
         Fail loud, at deploy time, if a Nix app's runtime closure is broken.
 
         A nix wrapper execs hardcoded `/nix/store` paths (forgejo's wrapper execs
         `${forgejo}/bin/forgejo`). If a garbage-collect reclaimed any path in that
-        closure, the worker dies "No such file or directory" and today only
-        surfaces as a 180s health-check timeout. Checking the closure here turns
-        that into an immediate, named error before uWSGI ever starts.
+        closure, the worker dies "No such file or directory" and surfaces only as
+        a 180s health-check timeout. Checking here turns that into an immediate,
+        named error before uWSGI ever starts.
 
         Deploy-time, not build-time, on purpose: at build time the whole closure
         exists by construction (it was just realised) — the reclaim happens
-        later, so a build-time check is vacuous for this class. Best-effort:
-        aborts only on a POSITIVELY-missing path; if `nix-store` can't answer
-        (not on PATH, times out, errors) it logs and continues — a guard that
-        can't run must never block an otherwise-working deploy.
+        later, so a build-time check is vacuous for this class.
+
+        **This guard never skips silently.** If `nix-store` cannot be located, or
+        the query fails, the deploy aborts saying so. The earlier version logged
+        and continued, on the reasoning that a guard which cannot run should not
+        block an otherwise-working deploy; that is backwards. A guard that did
+        not run has established nothing, and continuing as though it had is the
+        silent-skip pattern this platform prohibits everywhere else. It also hid
+        the guard's own breakage: `nix-store` is not on the deploy process's PATH
+        on a normally-installed host, so the check logged a skip every time and
+        never once fired.
         """
         if not (self.artifact and self.artifact.kind == "nix"):
             return
@@ -489,38 +515,52 @@ class AppLauncher:
         if not roots:
             return
 
-        missing: list[str] = []
-        for root in roots:
-            if not os.path.exists(root):
-                missing.append(root)
-                continue
-            try:
-                result = subprocess.run(
-                    ["nix-store", "-q", "--requisites", root],
-                    capture_output=True,
-                    text=True,
-                    timeout=60,
-                    check=False,
+        nix_store = resolve_nix_store()
+        if nix_store is None:
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="uWSGI spawner",
+                    action="verify Nix closure",
+                    reason=(
+                        f"'{self.app_name}' is a Nix application, but `nix-store` "
+                        f"could not be found, so its runtime closure cannot be "
+                        f"checked."
+                    ),
+                    hint=(
+                        "A Nix app cannot run without Nix present. Verify the "
+                        "installation, or reinstall with `hop3-install server "
+                        "--with nix`."
+                    ),
+                    troubleshooting=[
+                        f"ls -l {NIX_STORE_CANDIDATES[0]}",
+                        "command -v nix-store",
+                    ],
                 )
-            except (FileNotFoundError, subprocess.TimeoutExpired) as e:
-                log(
-                    f"Nix closure check skipped for '{self.app_name}' "
-                    f"(nix-store unavailable: {e})",
-                    level=2,
-                    fg="yellow",
-                )
-                continue
-            if result.returncode != 0:
-                log(
-                    f"Nix closure check inconclusive for '{self.app_name}': "
-                    f"{result.stderr.strip()[:200]}",
-                    level=2,
-                    fg="yellow",
-                )
-                continue
-            missing.extend(
-                p for p in result.stdout.split() if p and not os.path.exists(p)
             )
+
+        try:
+            missing = missing_closure_paths(roots, nix_store)
+        except ClosureCheckError as e:
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="uWSGI spawner",
+                    action="verify Nix closure",
+                    reason=(
+                        f"the runtime closure of '{self.app_name}' could not be "
+                        f"checked: {e}"
+                    ),
+                    hint=(
+                        "The closure may or may not be intact — this is a "
+                        "failure of the check, not of the app. Run the query "
+                        "below by hand to see what Nix reports."
+                    ),
+                    troubleshooting=[
+                        f"{nix_store} -q --requisites {roots[0]}",
+                        f"hop3 app deploy --app {self.app_name}",
+                    ],
+                )
+            )
+            return
 
         if missing:
             abort_with_diagnosis(
@@ -539,7 +579,7 @@ class AppLauncher:
                         "disabled) to prevent recurrence."
                     ),
                     troubleshooting=[
-                        f"nix-store -q --requisites {roots[0]}",
+                        f"{nix_store} -q --requisites {roots[0]}",
                         f"hop3 app deploy --app {self.app_name}",
                     ],
                 )
@@ -568,7 +608,7 @@ class AppLauncher:
         # Fail loud early if a Nix app's runtime closure was garbage-collected,
         # instead of letting the worker crash-loop into a 180s health-check
         # timeout (the forgejo class).
-        self._verify_nix_closure_intact()
+        self.verify_nix_closure_intact()
 
         # Early detection: Python app with no web-facing workers
         if not self.web_workers and self.artifact:
