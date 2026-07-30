@@ -58,8 +58,11 @@ nav = [
         { "Packaging Applications" = "guides/packaging-applications.md" },
         { "Deploying with Nix" = "guides/nix-deployment.md" },
         { "Backup & Restore" = "guides/backup-restore.md" },
+        # The 22 per-platform guides under guides/migration/ are deliberately
+        # NOT listed: they would swamp this group. They build and render, and
+        # are reached from the hub page's index.
         { "Migration" = [
-            { "Migration Guide" = "guides/migration-guide.md" },
+            { "Migrating to Hop3" = "guides/migration-guide.md" },
             { "CLI Migration" = "guides/cli-migration.md" },
         ]},
         { "FAQ" = "guides/faq.md" },

@@ -166,12 +166,12 @@ Location: `~/.config/hop3-cli/config.toml`, resolved via `platformdirs` (so the 
 
 ```toml
 [cli]
-default_context = "production"                  # target for bare project-less commands
+default_context = "devel"                       # target for bare project-less commands
 # default_server = "ssh://root@host"            # legacy unnamed fallback (lower priority)
-# current_context = "production"                # legacy, read-only fallback
+# current_context = "devel"                     # legacy, read-only fallback
 
-[contexts.production]
-server = "ssh://root@hop3.example.com"          # a named server — `--context production` anywhere
+[contexts.devel]
+server = "ssh://root@hop3.example.com"          # a named server — `--context devel` anywhere
 ```
 
 The file is written atomically (tmpfile + `os.replace`) and `chmod 0600` defensively, even though it carries no secrets.

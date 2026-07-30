@@ -636,7 +636,7 @@ DATABASE_URL=postgresql://localhost/dev_db
 **Production (via CLI):**
 ```bash
 hop3 env set --app myapp DEBUG=false
-hop3 env set --app myapp DATABASE_URL="postgresql://prod-server/prod_db"
+hop3 env set --app myapp DATABASE_URL="postgresql://devel-server/devel_db"
 # SECRET_KEY: declare `{ generate = "hex", length = 32 }` in hop3.toml [env]
 # instead — generated once and persisted, never typed or committed.
 ```

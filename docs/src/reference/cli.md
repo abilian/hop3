@@ -207,7 +207,7 @@ without needing `--app` or a positional argument.
 A **context** is a named target — **`--context <name>` is the one selector for every command** (ADR 042), app-bound or not. A context exists at two scopes:
 
 - **Project** — declared in your project's committed `hop3.toml` under `[contexts.<name>]`: a full deploy environment, a non-secret bundle of `server` (a literal address like `ssh://root@host`), `app` (the app *instance* name for that environment), domains, and non-secret env. One codebase, many environments — each a distinct app instance, often on a different server.
-- **Global** — declared in your per-developer `config.toml` as `[contexts.<name>].server`: just a name bound to a server address. It exists so project-less commands can target a server by name — `hop3 apps --context prod` — exactly like an in-project deploy.
+- **Global** — declared in your per-developer `config.toml` as `[contexts.<name>].server`: just a name bound to a server address. It exists so project-less commands can target a server by name — `hop3 apps --context devel` — exactly like an in-project deploy.
 
 `--context <name>` resolves **project-first, then global**: the nearest `hop3.toml [contexts.<name>]`, else `config.toml [contexts.<name>]`. An explicit `--context` that resolves to nothing aborts loud — it never silently retargets a different instance. There is no `--server` flag: naming the target is the context's job.
 
@@ -215,9 +215,9 @@ A context is **not** a server-connection record: bearer tokens never live in `ho
 
 ### Why Use Contexts?
 
-- **Multi-environment**: Express `dev` / `staging` / `prod` as distinct app instances in one committed file, shared with your team.
-- **One selector everywhere**: `--context` targets both app-bound commands (`hop3 deploy --context prod`) and project-less ones (`hop3 apps --context prod`) — nothing to remember about which flag applies where.
-- **Safety**: A context names its own app (`myapp-prod` vs `myapp-dev`), so deploys go where you mean — surfaced by the deploy preview and the project-mismatch guard.
+- **Multi-environment**: Express `devel` / `staging` / whatever else you run as distinct app instances in one committed file, shared with your team.
+- **One selector everywhere**: `--context` targets both app-bound commands (`hop3 deploy --context devel`) and project-less ones (`hop3 apps --context devel`) — nothing to remember about which flag applies where.
+- **Safety**: A context names its own app (`myapp-devel` vs `myapp-dev`), so deploys go where you mean — surfaced by the deploy preview and the project-mismatch guard.
 - **No secrets in the repo**: contexts carry only addresses and non-secret config; tokens and secret env stay out of `hop3.toml` and `config.toml`.
 
 ### Context Priority
@@ -248,7 +248,7 @@ hop3 context add <name> --server <addr> [--global]   # global: server only
 ```
 
 **Arguments / options:**
-- `name` - Context name (e.g., "dev", "staging", "prod")
+- `name` - Context name (e.g., "devel", "staging")
 - `--server <addr>` - Target server address (required), e.g. `ssh://root@host`
 - `--app <app>` - App instance name (project only; inherits `[metadata].id`)
 - `--domain <host>` - Hostname for this environment (project only, repeatable)
@@ -257,19 +257,19 @@ hop3 context add <name> --server <addr> [--global]   # global: server only
 
 **Examples:**
 ```bash
-# A dev and a prod environment in this project's hop3.toml
-hop3 context add dev  --server ssh://root@dev.example.com  --app myapp-dev
-hop3 context add prod --server ssh://root@prod.example.com --app myapp --domain myapp.com
+# Two environments in this project's hop3.toml
+hop3 context add devel   --server ssh://root@devel.example.com   --app myapp-devel
+hop3 context add staging --server ssh://root@staging.example.com --app myapp-staging --domain staging.myapp.com
 
 # A global named server (run outside a project, or with --global inside one),
-# so `hop3 apps --context prod` works with no project:
-hop3 context add prod --server ssh://root@prod.example.com
-hop3 context add prod --server ssh://root@prod.example.com --global
+# so `hop3 apps --context devel` works with no project:
+hop3 context add devel --server ssh://root@devel.example.com
+hop3 context add devel --server ssh://root@devel.example.com --global
 ```
 
 **Notes:**
 - Inside a project, writes the committed `hop3.toml` — commit it to share the environment with your team. Outside a project (or with `--global`), writes the per-developer `config.toml` (secret-free).
-- To *log in* to a server (store its token), use `hop3 login` — `hop3 login --context prod --ssh root@host` also names the global context and makes it the default. To *select* a project environment for this checkout, use `hop3 context use <name>`.
+- To *log in* to a server (store its token), use `hop3 login` — `hop3 login --context devel --ssh root@host` also names the global context and makes it the default. To *select* a project environment for this checkout, use `hop3 context use <name>`.
 - Secrets never go here — set per-environment secrets server-side with `hop3 env set`.
 
 ### `hop3 context list`
@@ -285,8 +285,8 @@ hop3 context list
 ```
 Contexts in /home/me/project/hop3.toml:
 
-    prod
-      server: ssh://root@prod.example.com
+    devel
+      server: ssh://root@devel.example.com
       app:    myapp
       domains: myapp.com
   * staging
@@ -302,12 +302,12 @@ Selected (this checkout): staging
 ```
 Global contexts (config.toml):
 
-  * prod
-      server: ssh://root@prod.example.com
+  * devel
+      server: ssh://root@devel.example.com
     staging
       server: ssh://root@staging.example.com
 
-Default context: prod
+Default context: devel
 Select one with `--context <name>` on any command.
 ```
 
@@ -327,8 +327,8 @@ hop3 context show [<name>]
 
 **Example Output (project):**
 ```
-Context: prod
-  server:  ssh://root@prod.example.com
+Context: devel
+  server:  ssh://root@devel.example.com
   app:     myapp
   domains: myapp.com, www.myapp.com
   env:     LOG_LEVEL
@@ -336,8 +336,8 @@ Context: prod
 
 **Example Output (project-less, global):**
 ```
-Context: prod (default)  [global]
-  server:  ssh://root@prod.example.com
+Context: devel (default)  [global]
+  server:  ssh://root@devel.example.com
 ```
 
 **Possible selection sources** (highest to lowest):
@@ -374,11 +374,11 @@ hop3 deploy
 
 For one-off commands against another environment, prefer the per-command flag or the env var over re-pinning:
 ```bash
-# One command against production, without changing this checkout's selection:
-hop3 --context prod deploy
+# One command against another environment, without changing this checkout's selection:
+hop3 --context devel deploy
 
-# Or make a whole terminal session "production mode":
-export HOP3_CONTEXT=prod
+# Or point a whole terminal session at it:
+export HOP3_CONTEXT=devel
 ```
 
 ### `hop3 context remove`
@@ -419,10 +419,10 @@ hop3 context rename <old> <new>
 
 Use `--context` flag for one-off commands:
 ```bash
-# Deploy to production without changing your current context
-hop3 --context production deploy --app myapp
+# Deploy to another environment without changing your current context
+hop3 --context devel deploy --app myapp
 
-# Check staging logs while working on dev
+# Check staging logs while working on devel
 hop3 --context staging app logs --app myapp
 ```
 
@@ -430,10 +430,10 @@ hop3 --context staging app logs --app myapp
 
 Set environment variable for your terminal session:
 ```bash
-# This terminal is now "production mode"
-export HOP3_CONTEXT=production
+# This terminal now targets the devel context
+export HOP3_CONTEXT=devel
 
-# All commands use production
+# All commands use it
 hop3 apps
 hop3 app status --app myapp
 ```
@@ -484,12 +484,12 @@ Type 'myapp' to confirm: myapp
 **Example `.bashrc` setup:**
 ```bash
 # Production alias with explicit context
-alias hop3-prod='HOP3_CONTEXT=production hop3'
+alias hop3-devel='HOP3_CONTEXT=devel hop3'
 alias hop3-staging='HOP3_CONTEXT=staging hop3'
 
 # Or set default for specific terminal profiles
 # In your "Production Terminal" profile:
-export HOP3_CONTEXT=production
+export HOP3_CONTEXT=devel
 ```
 
 ### Files and where things live (ADR 042)
@@ -517,19 +517,19 @@ list = ["staging.myapp.com"]
 [contexts.staging.env]
 LOG_LEVEL = "debug"
 
-[contexts.prod]
-server = "ssh://root@prod.example.com"
+[contexts.devel]
+server = "ssh://root@devel.example.com"
 app    = "myapp"
-[contexts.prod.domains]
+[contexts.devel.domains]
 list = ["myapp.com", "www.myapp.com"]
-[contexts.prod.env]
+[contexts.devel.env]
 LOG_LEVEL = "warning"
 ```
 
 **Credential store** (`~/.config/hop3-cli/credentials.toml`) — local, per-developer, secret. Bearer tokens keyed by the *canonical* server address. Written only by `hop3 login` / `hop3 init`, created `0o600` (parent dir `0o700`); you never edit it by hand:
 
 ```toml
-[servers."ssh://root@prod.example.com:22"]
+[servers."ssh://root@devel.example.com:22"]
 token = "eyJ..."
 
 [servers."ssh://root@staging.example.com:22"]
@@ -540,17 +540,17 @@ token = "eyJ..."
 
 ```toml
 [cli]
-default_context = "prod"                         # used by `hop3 apps` etc. with no --context
+default_context = "devel"                        # used by `hop3 apps` etc. with no --context
 # default_server = "ssh://root@host"             # legacy unnamed fallback (lower priority)
 
-[contexts.prod]
-server = "ssh://root@prod.example.com"           # a named server — `--context prod` anywhere
+[contexts.devel]
+server = "ssh://root@devel.example.com"           # a named server — `--context devel` anywhere
 
 [contexts.staging]
 server = "ssh://root@staging.example.com"
 ```
 
-So `hop3 apps --context prod` targets the named server with no project; a bare `hop3 apps` targets `[cli].default_context`.
+So `hop3 apps --context devel` targets the named server with no project; a bare `hop3 apps` targets `[cli].default_context`.
 
 ## Authentication Commands
 
@@ -595,7 +595,7 @@ scriptable token use [`hop3 auth get-token`](#hop3-auth-get-token).
 ```bash
 hop3 login                                  # password (prompted) for the default server
 hop3 login --ssh root@server                # SSH bootstrap (no password needed)
-hop3 login --context prod --ssh root@server # SSH bootstrap; also names global context 'prod' + default
+hop3 login --context devel --ssh root@server # SSH bootstrap; also names global context 'devel' + default
 hop3 login --token <tok> --url <url>        # pre-generated token + server address
 hop3 login --web                            # magic link for the web dashboard
 ```

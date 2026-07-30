@@ -335,8 +335,8 @@ create   = "…"                             # optional: idempotent command run 
 
 A **context** is a named target, and `--context <name>` is the one CLI selector for every command. A context exists at two scopes, and `[contexts.<name>]` appears in **two files**:
 
-- In the **committed `hop3.toml`** (documented here): a full deploy environment — `dev`, `staging`, `prod` — each a distinct app instance, usually on a different server, with its own domains and non-secret configuration. One codebase, many environments.
-- In the per-developer **`config.toml`**: a *global* context, the same block pared to just `server = "<addr>"` — a name bound to a server address, so project-less commands (`hop3 apps --context prod`) can target a server by name. Server-only, no `app`/`domains`/`env`.
+- In the **committed `hop3.toml`** (documented here): a full deploy environment — `devel`, `staging`, and whatever else you run — each a distinct app instance, usually on a different server, with its own domains and non-secret configuration. One codebase, many environments.
+- In the per-developer **`config.toml`**: a *global* context, the same block pared to just `server = "<addr>"` — a name bound to a server address, so project-less commands (`hop3 apps --context devel`) can target a server by name. Server-only, no `app`/`domains`/`env`.
 
 `--context <name>` resolves **project-first, then global**. Neither file holds a secret: the `server` is always a literal address, and the bearer token lives only in the credential store (see below). See [ADR 042](https://github.com/abilian/hop3/blob/main/notes/adrs/042-cli-context-model.md) for the full model.
 
@@ -344,12 +344,12 @@ A **context** is a named target, and `--context <name>` is the one CLI selector 
 [metadata]
 id = "myapp"
 
-[contexts.prod]
-server = "ssh://root@prod.example.com"   # literal address of the target server
+[contexts.devel]
+server = "ssh://root@devel.example.com"   # literal address of the target server
 app    = "myapp"                          # app instance for this environment
-[contexts.prod.domains]
+[contexts.devel.domains]
 list = ["myapp.com", "www.myapp.com"]
-[contexts.prod.env]
+[contexts.devel.env]
 LOG_LEVEL = "warning"
 
 [contexts.dev]
@@ -361,13 +361,13 @@ list = ["myapp.dev.example.com"]
 LOG_LEVEL = "debug"
 ```
 
-Deploy a specific environment with `hop3 deploy --context prod`. (When `hop3.toml` declares exactly one context, it is selected automatically.)
+Deploy a specific environment with `hop3 deploy --context devel`. (When `hop3.toml` declares exactly one context, it is selected automatically.)
 
 **Fields:**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `server` | string | yes | **Literal address** of the target Hop3 instance, e.g. `ssh://root@prod.example.com`. Never a symbolic name, and never a credential — the bearer token lives in the local credential store (see below). An address that embeds credentials (`scheme://user:password@…`, or a `token=`/`password=` query param) is a hop3.toml validation error. |
+| `server` | string | yes | **Literal address** of the target Hop3 instance, e.g. `ssh://root@devel.example.com`. Never a symbolic name, and never a credential — the bearer token lives in the local credential store (see below). An address that embeds credentials (`scheme://user:password@…`, or a `token=`/`password=` query param) is a hop3.toml validation error. |
 | `app` | string | no | App instance name for this environment. Inherits `[metadata].id` when omitted. |
 | `[contexts.<name>.domains]` | table | no | Hostnames for this environment — **same shape as the top-level [`[domains]`](#domains-application-hostnames)** (a `list = [...]` table, with the same RFC-1123 / catch-all rules). When present, the context's domains **replace** the top-level `[domains]` on deploy; when absent, the top-level domains are inherited unchanged. |
 | `[contexts.<name>.env]` | table | no | Per-environment **non-secret** env overrides. These **merge over** the top-level `[env]`, key by key, on deploy. |

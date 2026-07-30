@@ -380,11 +380,11 @@ Periodically test your backups:
 4. Delete the test application
 
 ```bash
-hop3 backup create --app prod-app
-hop3 backup restore <backup-id> --target-app prod-app-test
-hop3 app restart --app prod-app-test
+hop3 backup create --app devel-app
+hop3 backup restore <backup-id> --target-app devel-app-test
+hop3 app restart --app devel-app-test
 # Test the application
-hop3 app destroy --app prod-app-test
+hop3 app destroy --app devel-app-test
 ```
 
 ### Security Considerations
