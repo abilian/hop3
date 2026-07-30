@@ -15,15 +15,16 @@ exec-target = "searxng-run"
 extra-paths = ['${searxng}/bin']
 
 [nix.env-exports]
-SEARXNG_SECRET = "${SEARXNG_SECRET:-hop3-searxng-secret-change-me}"
+# No default. A published fallback secret is the same secret on every
+# deployment, which is what SEARXNG_SECRET exists to prevent.
+SEARXNG_SECRET = "${SEARXNG_SECRET:?searxng: SEARXNG_SECRET not injected}"
 SEARXNG_PORT = "${PORT:-8080}"
 SEARXNG_BIND_ADDRESS = "0.0.0.0"
 
-[nix.runtime-env]
-SEARXNG_SECRET = "hop3-searxng-secret-change-me"
-
+# Generated once and re-injected unchanged (ADR 046), so it is unique per
+# deployment and stable across redeploys.
 [env]
-SEARXNG_SECRET = "hop3-searxng-secret-change-me"
+SEARXNG_SECRET = { generate = "base64" }
 
 [run]
 start-timeout = 120
