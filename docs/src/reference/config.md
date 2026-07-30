@@ -331,6 +331,39 @@ create   = "…"                             # optional: idempotent command run 
 | `password` | table | yes | A [generated secret](#generated-secrets) spec (always generated). |
 | `create` | string | no | Idempotent create-if-absent command; receives `HOP3_ADMIN_*` in its env. |
 
+### `[probe]` - Hop3's Own Verification Account
+
+Declares a second account, owned by Hop3 rather than the operator, that the app's smoke test signs in as. Optional: an app that omits it is still checked, using the admin credential, and the result says so.
+
+```toml
+[probe]
+username = "hop3probe"                     # avoid names the app reserves
+email    = "probe@hop3.invalid"            # only when the app requires one
+create   = "app-cli user create ..."       # REQUIRED: idempotent, run once after deploy
+```
+
+**Why a second account.** The `[admin]` credential is handed to the operator, so Hop3 stops owning it the moment they change the password. A later sign-in failure then means either the app broke or the password moved, and from outside those look identical — a check that cannot tell them apart cries wolf. Nobody else uses the probe account, so a refused probe sign-in means the app broke.
+
+**Why sign in at all.** A login page renders perfectly against a dead database, and for some apps is not even dynamic. Signing in is what traverses app code, session, database and password verification — the whole stack the operator depends on.
+
+**Not an administrator.** Signing in is the entire diagnostic value, and a plain account carries a fraction of the privilege. Omit the section for an app whose data is sensitive enough that no standing Hop3 account is acceptable; the check then verifies the handover only, and says so rather than silently testing less.
+
+**How it works:**
+
+- The username, optional email and a generated password are injected as `HOP3_PROBE_USER`, `HOP3_PROBE_EMAIL` and `HOP3_PROBE_PASSWORD`. The password is generated once and reused across deploys — regenerating it would break the account it created.
+- After the app is up, Hop3 runs `create` and checks its exit status. Only then is the account recorded as existing, and only then is the credential offered to `check.py`.
+- If `create` fails, the deploy still succeeds — the probe verifies the app, it is not part of it — but the failure is reported and the smoke test falls back to the admin credential, labelled `verified the handover only`.
+
+**`create` is required, deliberately.** It was once optional, meaning "the app builds this account itself from the injected vars". Hop3 has no way to confirm that it did, so it could never hand the credential to a check, and the whole section did nothing while looking like configuration. Both recipes that used that form had silently stopped creating their probe — each did so only in the branch where it also created the admin, so any instance that already had one got no probe and nothing noticed. If Hop3 cannot create the account, it cannot trust it.
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `username` | string | no (default `hop3probe`) | Login name. Avoid names the app reserves — Gitea and Forgejo reject `admin` while still exiting 0. |
+| `email` | string | no | A literal address, when the app requires one. Never the operator's: the account is Hop3's and receives nothing. |
+| `create` | string | **yes** | Idempotent create-if-absent command; receives `HOP3_PROBE_*` in its env and must exit non-zero if the account does not end up existing. |
+
 ### `[contexts.<name>]` - Deploy Environments
 
 A **context** is a named target, and `--context <name>` is the one CLI selector for every command. A context exists at two scopes, and `[contexts.<name>]` appears in **two files**:

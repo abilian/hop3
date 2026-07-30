@@ -839,17 +839,9 @@
       "description": "[probe] section \u2014 a Hop3-owned account used to verify the app keeps working.\n\nThe [admin] credential is handed to the operator, so Hop3 stops owning it the\nmoment they change the password: a later sign-in failure could equally mean\nthe app broke or the password moved, and from outside those are the same\nobservation. A probe account nobody else uses removes that ambiguity \u2014 its\npassword is Hop3's to rotate, so a failed probe sign-in means the app broke.\n\nIt exists to exercise the FULL dynamic path \u2014 app code, session, database,\npassword verification \u2014 which no unauthenticated request reaches: a login\npage renders fine with a dead database, and may not even be dynamic.\n\nDeliberately NOT an administrator: signing in is the entire diagnostic value,\nand a plain account carries a fraction of the privilege. Omit the section\nentirely for an app whose data is sensitive enough that no standing Hop3\naccount is acceptable \u2014 the check then verifies the handover only, and says\nso rather than silently testing less.",
       "properties": {
         "create": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Idempotent (create-if-absent) command that creates the account. Receives HOP3_PROBE_USER/EMAIL/PASSWORD in its environment. Omit when the app bootstraps it from those vars itself.",
-          "title": "Create"
+          "description": "REQUIRED. Idempotent (create-if-absent) command that creates the account. Receives HOP3_PROBE_USER/EMAIL/PASSWORD in its environment, runs after the app is up, and must exit non-zero if the account does not end up existing.",
+          "title": "Create",
+          "type": "string"
         },
         "email": {
           "anyOf": [
@@ -871,6 +863,9 @@
           "type": "string"
         }
       },
+      "required": [
+        "create"
+      ],
       "title": "ProbeSection",
       "type": "object"
     },
