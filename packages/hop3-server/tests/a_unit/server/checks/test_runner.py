@@ -135,11 +135,45 @@ def test_a_pass_without_a_probe_is_reported_as_the_weaker_claim(
 def test_a_pass_with_a_probe_is_the_full_claim(
     tmp_path, no_credential, monkeypatch
 ) -> None:
-    """An app with a [probe] is verified with an account only Hop3 uses."""
+    """An app with a CREATED [probe] is verified with an account only Hop3 uses."""
     monkeypatch.setenv("HOP3_PROBE_PASSWORD", "hop3-owned")
+    monkeypatch.setenv("HOP3_PROBE_CREATED", "1")
 
     outcome = run_app_check(_app(tmp_path, "print('ok')"), object())
 
     assert outcome.passed is True
     assert outcome.used_hop3_account is True
     assert outcome.summary == "smoke test passed"
+
+
+def test_a_probe_that_was_never_created_is_not_offered_to_the_check(
+    tmp_path, no_credential, monkeypatch
+) -> None:
+    """
+    Regression: a failed probe bootstrap left the credential in the env.
+
+    `HOP3_PROBE_*` is injected so the recipe's own `create` command can make the
+    account. When that command failed the variables stayed, `Check.has_probe`
+    kept reporting a probe was available, and the check signed in as an account
+    nobody had created — then reported the APPLICATION broken. Mattermost hit
+    exactly this: its `mmctl --local` socket is not enabled, the probe was never
+    created, and a perfectly working app failed its own smoke test.
+
+    Without `HOP3_PROBE_CREATED`, the check must not see a probe at all.
+    """
+    monkeypatch.setenv("HOP3_PROBE_PASSWORD", "never-created")
+    monkeypatch.setenv("HOP3_PROBE_USER", "hop3probe")
+    monkeypatch.delenv("HOP3_PROBE_CREATED", raising=False)
+
+    # The script fails if it can see a probe credential, so a pass proves the
+    # variables were withheld.
+    script = (
+        "import os, sys\nsys.exit(1 if os.environ.get('HOP3_PROBE_PASSWORD') else 0)\n"
+    )
+    outcome = run_app_check(_app(tmp_path, script), object())
+
+    assert outcome.passed is True, "the check could still see the probe credential"
+    assert outcome.used_hop3_account is False, (
+        "a probe that was never created must not be claimed as one Hop3 owns"
+    )
+    assert "handover only" in outcome.summary

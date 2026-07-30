@@ -9,7 +9,7 @@ Regression focus:
   loudly instead of writing a phantom ExecStart.
 - The heavy sandbox (ProtectHome/ProtectSystem/CapabilityBoundingSet/seccomp)
   was incompatible with rootd's nft+nginx+systemctl executor role and is
-  deferred to v0.6 (see notes/v0.6-rootd-hardening.md); these tests pin the
+  deferred to v0.6 (see notes/security/rootd-hardening.md); these tests pin the
   current minimal-functional unit so the breaking directives don't silently
   creep back before that redesign.
 """
@@ -76,7 +76,7 @@ def test_service_template_is_minimal_pending_v06_hardening() -> None:
     Guard the v0.6 decision: the subprocess-breaking hardening directives
     must NOT be present in the active unit until the hardening is redesigned and
     tested against nft + nginx + systemctl. If you re-add one, do it knowingly
-    (and update notes/v0.6-rootd-hardening.md), not by accident.
+    (and update notes/security/rootd-hardening.md), not by accident.
     """
     rendered = rootd.SERVICE_TEMPLATE.format(daemon_command="/x/hop3-rootd")
     for breaking in (

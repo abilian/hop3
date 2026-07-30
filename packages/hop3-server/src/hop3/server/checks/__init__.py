@@ -17,6 +17,20 @@ with nothing to upload and no second copy to drift.
 
 from __future__ import annotations
 
-from ._helper import Admin, Check, CheckError, run
+from ._helper import (
+    BROWSER_REQUIRED_MARKER,
+    Admin,
+    BrowserRequired,
+    Check,
+    CheckError,
+    run,
+)
 
-__all__ = ["Admin", "Check", "CheckError", "run"]
+__all__ = [
+    "BROWSER_REQUIRED_MARKER",
+    "Admin",
+    "BrowserRequired",
+    "Check",
+    "CheckError",
+    "run",
+]

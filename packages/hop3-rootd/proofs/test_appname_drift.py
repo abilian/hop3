@@ -16,16 +16,16 @@ section of test_validation.py). This file states the semantic fact instead:
 
     for every input, the server's gate accepts iff rootd's gate accepts.
 
-It runs two ways. Under plain pytest (mcpython installed) each ``@proof``
+It runs two ways. Under plain pytest (forall installed) each ``@proof``
 below executes as a property test over a pool of boundary inputs — trailing
 newlines, control characters, over-length strings — plus the pinned inputs
-from the bug we already met. Under ``mcpython check`` the same harness is
+from the bug we already met. Under ``forall check`` the same harness is
 PROVEN for every string, at every length:
 
-    mcpython check packages/hop3-rootd/src packages/hop3-server/src \\
+    forall check packages/hop3-rootd/src packages/hop3-server/src \\
         packages/hop3-rootd/tests/a_unit/test_appname_drift.py
 
-Without mcpython installed the module skips; the pattern-string parity test
+Without forall installed the module skips; the pattern-string parity test
 keeps guarding, dependency-free.
 
 HONESTY BOX: each wrapper below must mirror how its validator actually CALLS
@@ -45,11 +45,11 @@ from hop3.core.identifiers import (
     validate_app_name as server_validate,
 )
 
-pytest.importorskip("mcpython", reason="drift proof needs mcpython (dev tool)")
+pytest.importorskip("forall", reason="drift proof needs forall (dev tool)")
 
 from hop3_rootd.validation import APP_NAME_RE as ROOTD_APP_RE
-from mcpython.harness import any_str, assume, proof
-from mcpython.proptest import harness_tests
+from forall.harness import any_str, assume, proof
+from forall.proptest import harness_tests
 
 from hop3.core.identifiers import APP_NAME_RE as SERVER_APP_RE
 

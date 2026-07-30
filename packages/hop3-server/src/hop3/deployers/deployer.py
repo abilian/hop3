@@ -1278,6 +1278,16 @@ def _bootstrap_admin_account(
     has_toml = app_config.has_hop3_toml
     admin = app_config.hop3_config.admin if has_toml else {}
     probe = app_config.hop3_config.probe if has_toml else {}
+    # ONLY when something declares a `create` command. A [probe] without one is
+    # a recipe saying "the app makes this account itself", and that turned out
+    # not to be a claim Hop3 can act on: opening this gate so such a probe was
+    # offered to the smoke test took matomo from PASS to FAIL in one run, and
+    # left uptime-kuma failing exactly as before. Both apps' own bootstraps were
+    # supposed to create the account; neither produced one that authenticates.
+    #
+    # So Hop3 offers the check only a probe it created and watched succeed.
+    # Otherwise the check uses the operator's credential and REPORTS that it did
+    # ("verified the handover only"), which is a weaker claim, not a silent one.
     wants_create = bool(admin.get("create")) or bool(probe.get("create"))
     if not wants_create or db_session is None:
         return
