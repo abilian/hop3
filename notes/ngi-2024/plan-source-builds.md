@@ -1,11 +1,14 @@
 # Plan: Replace Pre-Built Binaries with Source Builds
 
-**Status:** ✅ DONE (Phases 1–3 complete). 6 of 7 apps converted via `nixpkgs-wrapper`:
+**Status:** ✅ DONE and closed. 6 of 7 apps converted via `nixpkgs-wrapper`:
 Miniflux, Gitea, Grafana, Mattermost, Vikunja, Wiki.js. Phases 4–5 (custom
 `go-module` / `node-package` templates) never needed — `nixpkgs-wrapper`
-covered every case. Focalboard remaining (upstream archived 2023; recommend
-drop, covered by Vikunja). The document below is preserved as a record of the
-design and decision trail.
+covered every case. **Focalboard was dropped** rather than converted (upstream
+archived 2023; it exists in no `apps/real-apps-*` directory today, and Vikunja
+covers the use case). The document below is preserved as a record of the
+design and decision trail; the Definition-of-Done checkboxes further down are
+left unticked as the original per-app worksheet — read the addendum
+immediately below for the actual disposition.
 
 **Created:** 2026-04-09
 **Closed:** 2026-04-18
@@ -21,7 +24,9 @@ design and decision trail.
 - ~~**Some builds are not hermetic.**~~ **Closed (2026-07).** The `python-venv` / `pnpm` / `composer` paths no longer set `__noChroot`; each vendors its dependency set into a fixed-output derivation from a committed lockfile and then builds offline in the sandbox. The floating-dependency escape went with it — `pip-packages` was retired, and a recipe that still carries the key is now rejected by name rather than silently ignored.
 - Of the two Definition-of-Done items below, the **ADR 008 reproducibility-tier update is done** (2026-07: the tiers were rewritten to rank provenance now that sandbox purity is uniform, and each template declares its tier in code). **aarch64 remains open by decision, not omission**: a vendored dependency set is resolved per platform, so supporting a second architecture means vendoring a second set, and the reproducibility claim is scoped to x86_64 explicitly.
 
-The accurate baseline is **ADR 008's reproducibility-tiers table**, which names these gaps explicitly (it does not overclaim). The remaining levers — hermetic fixed-output dependency derivations, lock-pinned deps, and a reproducibility CI gate — are the **Nix-reproducibility workstream tracked in `release-plan-0.7.md` (M1/M2)**: pinning nixpkgs landed in the 0.7 cut, and the hermetic-build work is 0.7.x. Treat this file as the source-build decision trail; treat 0.7/0.7.x as where "full Nix philosophy / reproducible builds" is actually delivered.
+The accurate baseline is **ADR 008's reproducibility-tiers table**, which names these gaps explicitly (it does not overclaim), now joined by [ADR 058](../adrs/058-build-reproducibility-model.md) for the model itself.
+
+**Where the workstream actually stands (2026-07-30).** Pinning landed in **0.6.1**; hermeticity closed in 2026-07; and reproducibility is now *measured* rather than asserted — the benchmark reports **30/30 template-generated recipes bit-for-bit reproducible** (`notes/benchmarks/2026-07-28-readonly.jsonl`). Two levers remain, both tracked under M1/M2 in [`release-plan-0.7.md`](release-plan-0.7.md): a **reproducibility CI gate** (rebuild 2×, assert identical store paths, ideally on a second architecture) so a regression is caught rather than re-measured by hand, and **aarch64**, which stays open by decision — a vendored dependency set is resolved per platform, so a second architecture means vendoring a second set, and the claim is scoped to x86_64 explicitly. Treat this file as the source-build decision trail; treat those two items as what is left of "full Nix philosophy / reproducible builds".
 
 ---
 
