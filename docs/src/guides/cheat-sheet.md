@@ -39,12 +39,16 @@ hop3 auth whoami
 hop3 version
 ```
 
-### Deploy Environments (dev / staging / prod)
+### Deploy Environments (devel / staging / …)
+
+Examples throughout use `devel` as the context name. Name your own contexts
+whatever you like — just be deliberate about which one a command targets, since
+`--context` is the only thing standing between a test command and a live server.
 
 ```bash
 # Declare environments in this project's hop3.toml (committed, no secrets)
+hop3 context add devel   --server ssh://root@devel.example.com   --app myapp-devel
 hop3 context add staging --server ssh://root@staging.example.com --app myapp-staging
-hop3 context add prod    --server ssh://root@prod.example.com    --app myapp
 
 # List them; pin one for this checkout (writes the gitignored .hop3-local.toml)
 hop3 context list
@@ -56,13 +60,13 @@ hop3 context show
 # Pin a context for this checkout (run from inside the project tree;
 # writes .hop3-local.toml, auto-gitignored — ADR 042)
 cd myproject/
-hop3 context use production
+hop3 context use devel
 
 # Override for one shell (ambient)
-export HOP3_CONTEXT=production
+export HOP3_CONTEXT=devel
 
 # Use context for single command (the one selector — works for any command)
-hop3 --context production apps
+hop3 --context devel apps
 
 # Remove context
 hop3 context remove old-staging
@@ -72,12 +76,12 @@ hop3 context remove old-staging
 
 ```bash
 # Name a global server (login authenticates, names the global context, makes it default)
-hop3 login --context prod --ssh root@prod.example.com
-# (or, without logging in: hop3 context add prod --server ssh://root@prod.example.com)
+hop3 login --context devel --ssh root@devel.example.com
+# (or, without logging in: hop3 context add devel --server ssh://root@devel.example.com)
 
 # Now target it by name with no project — same flag as an in-project deploy:
-hop3 apps --context prod
-hop3 system info --context prod
+hop3 apps --context devel
+hop3 system info --context devel
 
 # A bare project-less command targets [cli].default_context:
 hop3 apps
@@ -305,6 +309,8 @@ esac
 
 ### Helpful diagnostics
 
+<!-- lint-cli-ignore: `hop3 deplo` is a deliberate typo demonstrating did-you-mean -->
+
 ```bash
 # Why did the CLI pick that app / context?
 hop3 --why logs
@@ -313,7 +319,7 @@ hop3 --why logs
 hop3 aliases
 
 # What commands were meant? (Levenshtein suggestion)
-hop3 deplo myapp   # -> "Did you mean 'deploy'?"
+hop3 deplo --app myapp   # -> "Did you mean 'deploy'?"
 ```
 
 ## Configuration Files
@@ -510,13 +516,13 @@ hop3 ps scale --app myapp worker=2
 
 ### Working with Multiple Environments
 
-- **Declare them in hop3.toml:** `hop3 context add prod --server ssh://root@prod --app myapp`
-- **Select one for this checkout:** `hop3 context use prod` (writes the gitignored `.hop3-local.toml`), or `export HOP3_CONTEXT=prod` for one shell, or `--context prod` for one command.
-- **Log into a server (store its token):** `hop3 login --ssh root@your-server.com` — sets it as the default target too. Add `--context prod` to also name it as a global context and make it the default: `hop3 login --context prod --ssh root@prod.example.com`.
-- **Project-less commands** (`hop3 apps`, `hop3 system info`): select a server by name with the same flag — `hop3 apps --context prod` — or, with no `--context`, target the default context. `--context` is the one selector; there is no `--server` flag.
+- **Declare them in hop3.toml:** `hop3 context add devel --server ssh://root@devel --app myapp`
+- **Select one for this checkout:** `hop3 context use devel` (writes the gitignored `.hop3-local.toml`), or `export HOP3_CONTEXT=devel` for one shell, or `--context devel` for one command.
+- **Log into a server (store its token):** `hop3 login --ssh root@your-server.com` — sets it as the default target too. Add `--context devel` to also name it as a global context and make it the default: `hop3 login --context devel --ssh root@devel.example.com`.
+- **Project-less commands** (`hop3 apps`, `hop3 system info`): select a server by name with the same flag — `hop3 apps --context devel` — or, with no `--context`, target the default context. `--context` is the one selector; there is no `--server` flag.
 - **Create shell aliases:**
   ```bash
-  alias hop3-prod='HOP3_CONTEXT=production hop3'
+  alias hop3-devel='HOP3_CONTEXT=devel hop3'
   alias hop3-staging='HOP3_CONTEXT=staging hop3'
   ```
 

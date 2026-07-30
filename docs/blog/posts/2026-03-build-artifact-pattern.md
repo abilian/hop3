@@ -210,6 +210,8 @@ You can inspect `BUILD_ARTIFACT.json` to see exactly what was built:
 
 Build on your CI server, run on production:
 
+<!-- lint-cli-ignore: illustrative split-build API sketched in 2026-03; not a shipped command surface -->
+
 ```bash
 # On CI
 hop3 build myapp --output artifact.json
