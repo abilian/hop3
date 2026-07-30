@@ -44,3 +44,5 @@ demos/.cli-home/
 
 # Deployment
 /hop3.toml
+experience-reports.pdf
+notes/experience-reports/_bundle.md
