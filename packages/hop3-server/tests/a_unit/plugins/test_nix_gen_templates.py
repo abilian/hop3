@@ -1522,3 +1522,28 @@ def test_the_stable_binding_survives_renaming_the_app():
     ]
 
     assert all("pkg = " in out for out in outputs)
+
+
+def test_go_source_exposes_the_app_binary_as_pkg():
+    """
+    `pkg` means the same thing in every template: the application itself.
+
+    The wrapper derivation's bin holds a generated script that execs one fixed
+    subcommand, so `[admin].create` cannot use it to run `admin user create`.
+    gitea-nixgen failed with `gitea: not found` while its binary sat in the
+    inner derivation, one store path away and absent from the runtime PATH.
+    """
+    spec = AppSpec(
+        pname="gitea-nixgen",
+        version="1.22.6",
+        description="t",
+        exec_target="gitea",
+        exec_args=["web"],
+        source=Source(url="https://example/x.tar.gz", sha256="x", archive="tar-gz"),
+        payload=GoSourcePayload(vendor_hash="sha256-x"),
+    )
+    output = generate(spec)
+
+    assert "pkg = goApp;" in output, (
+        "a recipe must be able to put the app's own bin on PATH via ${pkg}/bin"
+    )
