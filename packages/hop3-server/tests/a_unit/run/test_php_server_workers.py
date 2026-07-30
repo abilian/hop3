@@ -69,3 +69,21 @@ def test_a_non_web_worker_still_counts() -> None:
     _ensure_php_server_concurrency(env, {"api": "php -S 0.0.0.0:$PORT"}, "app")
 
     assert env["PHP_CLI_SERVER_WORKERS"] == PHP_BUILTIN_SERVER_WORKERS
+
+
+def test_there_are_more_workers_than_a_browser_opens() -> None:
+    """
+    The count is sized against a real client, not against the deadlock alone.
+
+    Chromium and Firefox both hold up to six connections per origin. At four
+    workers, a page whose last subresource is requested after load could find
+    every worker occupied by an idle keep-alive socket and never be served.
+
+    A server a single browser can saturate is undersized, which is reason
+    enough. It is NOT, however, the explanation for paheko's hung screenshot:
+    that was the hypothesis this count was raised to test, and the capture timed
+    out identically before and after. The rule survives; the story does not.
+    """
+    browser_connections_per_origin = 6
+
+    assert int(PHP_BUILTIN_SERVER_WORKERS) > browser_connections_per_origin

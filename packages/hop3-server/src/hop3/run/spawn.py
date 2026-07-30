@@ -807,9 +807,20 @@ class AppLauncher:
 
 
 # PHP's built-in server handles ONE request at a time unless told otherwise, and
-# `php artisan serve` is that same server. Four workers is enough to break the
-# self-request deadlock below while staying modest on a shared box.
-PHP_BUILTIN_SERVER_WORKERS = "4"
+# `php artisan serve` is that same server.
+#
+# The number should exceed what a BROWSER opens to one origin, not merely what
+# breaks the self-request deadlock: Chromium and Firefox both keep up to six
+# connections per origin alive, and at four workers a page whose last subresource
+# is requested after load could find every worker held by an idle keep-alive
+# socket. Eight leaves headroom above that six.
+#
+# This was raised from four while chasing paheko's hung screenshot, on the theory
+# that starvation was why its page never finished painting. It was NOT: the
+# capture timed out identically at four workers and at eight. The reasoning above
+# stands on its own — a server that a browser can saturate is undersized — but it
+# is not the explanation for paheko, and nothing here should be read as one.
+PHP_BUILTIN_SERVER_WORKERS = "8"
 _PHP_BUILTIN_SERVER_MARKERS = ("php -S", "artisan serve")
 
 
