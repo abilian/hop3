@@ -5,7 +5,7 @@
 - **Created**: 2026-06-05
 - **Supersedes**: [ADR 026](./026-dashboard-ui-test-classification.md) (Dashboard UI Test Classification)
 - **Related-ADRs**: [004](./004-development-tooling.md) (development-tooling), [027](./027-config-system-refactoring.md) (config-system-refactoring-for-testability), [030](./030-two-level-build-architecture.md) (two-level-build-architecture), [041](./041-privileged-operations-agent.md) (privileged-operations-agent)
-- **Related-notes**: `notes/v0.6-rootd-hardening.md`, `docs/src/dev/testing-strategy.md`
+- **Related-notes**: `notes/security/rootd-hardening.md`, `docs/src/dev/testing-strategy.md`
 
 ## Context
 

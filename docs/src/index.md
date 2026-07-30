@@ -8,10 +8,10 @@ icon: lucide/cloud
 <img src="https://abilian.com/static/images/ext/hop3-logo.png" style="width: 400px; height: auto;" alt="Hop3 Logo"/>
 </div>
 
-**Hop3** is an open-source Platform as a Service (PaaS) that enables you to deploy and manage your applications seamlessly. It is designed to be **simple**, **secure**, and **sovereignty-focused**.
+**Hop3** is an open-source Platform as a Service (PaaS) for deploying and managing your applications. It is designed to be **simple**, **secure**, and **sovereignty-focused**.
 
 !!! warning "Development Status"
-    Hop3 is actively developed and still undergoing active architecture and API changes. Version 0.4.x is considered alpha quality. For bleeding-edge features, consider the `devel` branch on git.
+    Hop3 is beta-quality software: its architecture and APIs can still change between releases.
 
 ## Quick Links
 
@@ -43,14 +43,14 @@ Maintain complete control over your data and infrastructure. Deploy on your own 
 
 ### Simple by Design
 
-No Docker, no Kubernetes complexity. Deploy applications with `git push` simplicity using familiar toolchains (Python, Node.js, Go, Ruby, Rust, and more).
+Deploy applications with `git push` simplicity, using familiar toolchains (Python, Node.js, Go, Ruby, Rust, and more). Kubernetes is not involved, and Docker is optional: native, Nix, and Docker builds are all supported.
 
 ### Secure by Default
 
 - Automatic HTTPS with Let's Encrypt
-- Built-in security best practices
-- GDPR and CRA compliance ready
-- Regular security audits
+- Privilege separation: the server runs unprivileged, and root-level actions go through a narrow, audited daemon
+- Primitives for GDPR and CRA compliance: encryption at rest, audit logging, backups
+- Continuous security review
 
 ### Sustainable Computing
 
@@ -61,23 +61,23 @@ Lightweight architecture optimized for efficiency. Run multiple applications on 
 === "Application Deployment"
 
     - **Git-based deploys**: Push to deploy your applications
-    - **Multiple languages**: Python, Node.js, Go, Ruby, Rust, PHP, Java, Elixir
+    - **Multiple languages**: Python, Node.js, Go, Ruby, Rust, PHP, Java, Elixir, Clojure, .NET, plus static sites
+    - **Multiple builders**: Native toolchains, Nix, or Docker
     - **Process management**: Automatic process lifecycle management
-    - **Zero-downtime deploys**: Rolling updates without interruption
 
 === "Service Management"
 
-    - **Service addons**: PostgreSQL, MySQL, Redis, S3/MinIO object storage
+    - **Service addons**: PostgreSQL, MySQL, Redis, S3/MinIO object storage, email/SMTP
     - **Backup and restore**: Snapshot and restore app data and addons
     - **SSL certificates**: Let's Encrypt integration
-    - **Multiple frontends**: Nginx, Caddy, or Traefik
+    - **Reverse proxy**: Nginx (Caddy and Traefik are experimental)
 
 === "Administration"
 
-    - **Web dashboard**: Real-time monitoring and management
+    - **Web dashboard**: Monitor and manage your apps from the browser
     - **CLI tools**: Full command-line interface
     - **API access**: JSON-RPC API for automation
-    - **Multi-user**: Team management with access control
+    - **Multi-user**: Named accounts, with admin and non-admin roles
 
 ## Getting Started
 
@@ -93,7 +93,14 @@ Lightweight architecture optimized for efficiency. Run multiple applications on 
     curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
     ```
 
-3. **Deploy your first app**:
+3. **Point the CLI at your server and log in**:
+
+    ```bash
+    hop3 init  --ssh root@hop3.example.com
+    hop3 login --ssh root@hop3.example.com
+    ```
+
+4. **Deploy your first app**, from its source directory:
 
     ```bash
     hop3 deploy --app myapp
@@ -103,14 +110,15 @@ See the [Installation Guide](get-started/server-setup.md) for detailed instructi
 
 ## Supported Platforms
 
-| Operating System | Status |
-|------------------|--------|
-| Ubuntu 24.04+ | :material-check: Supported |
-| Debian 12+ | :material-check: Supported |
-| Rocky Linux 9+ | :material-check: Supported |
-| Arch Linux | :material-check: Supported |
-| NixOS | :material-flask: Experimental (via Nix flake) |
-| FreeBSD | :material-flask: Experimental |
+| Operating System | Status | Tested in CI |
+|------------------|--------|--------------|
+| Ubuntu 24.04 / 26.04 LTS | :material-check: Supported | yes |
+| Rocky Linux 9+ | :material-check: Supported | yes |
+| NixOS | :material-check: Supported | yes |
+| Debian 12+ | :material-check: Supported | via Ubuntu (same family) |
+| Arch Linux | :material-flask: Experimental | no |
+| FreeBSD | :material-flask: Experimental | no |
+| macOS | :material-flask: Experimental | no |
 
 ## Community
 
