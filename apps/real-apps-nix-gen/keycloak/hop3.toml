@@ -32,7 +32,7 @@ exec-args = [
 ]
 writable-home-at-runtime = true
 writable-home-env-var = "KC_HOME_DIR"
-extra-paths = ['${keycloak}/bin']
+extra-paths = ['${pkg}/bin']
 
 # Pull a JDK into the let-block. Zulu 21 matches what nixpkgs.keycloak
 # itself ships (hand-crafted reference in apps/real-apps-nix/keycloak/
@@ -55,8 +55,13 @@ KC_DB = "postgres"
 KC_DB_URL = "jdbc:postgresql://${PGHOST:-localhost}:${PGPORT:-5432}/${PGDATABASE:-keycloak}"
 KC_DB_USERNAME = "${PGUSER:-keycloak}"
 KC_DB_PASSWORD = "${PGPASSWORD:-}"
-KC_BOOTSTRAP_ADMIN_USERNAME = "admin"
-KC_BOOTSTRAP_ADMIN_PASSWORD = "changeme"
+# Keycloak reads these at first start to create the bootstrap admin. They must
+# be the credential Hop3 generated and advertises — a literal 'changeme' here
+# meant the deployed realm had a publicly known administrator while the operator
+# was handed a password that did not work. No default: if the injection is
+# missing, refuse to start rather than create a public admin.
+KC_BOOTSTRAP_ADMIN_USERNAME = "${HOP3_ADMIN_USER:?keycloak: HOP3_ADMIN_USER not injected}"
+KC_BOOTSTRAP_ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD:?keycloak: HOP3_ADMIN_PASSWORD not injected — refusing to create an admin with a default password}"
 
 [[addons]]
 type = "postgres"
@@ -78,3 +83,29 @@ covers = ["java", "jvm", "nix", "nixpkgs-wrapper", "postgres", "sso"]
 path = "/realms/master"
 status = 200
 contains = "master"
+
+[probe]
+username = "hop3probe"
+email = "probe@hop3.invalid"
+create = '''
+bin/kcadm.sh config credentials --server http://localhost:${PORT:-8080} \
+  --realm master --user "$HOP3_ADMIN_USER" --password "$HOP3_ADMIN_PASSWORD"
+if ! bin/kcadm.sh get users -r master -q username="$HOP3_PROBE_USER" 2>/dev/null | grep -q "$HOP3_PROBE_USER"; then
+  bin/kcadm.sh create users -r master -s username="$HOP3_PROBE_USER" \
+    -s email="$HOP3_PROBE_EMAIL" -s enabled=true
+  bin/kcadm.sh set-password -r master --username "$HOP3_PROBE_USER" \
+    --new-password "$HOP3_PROBE_PASSWORD"
+fi
+bin/kcadm.sh get users -r master -q username="$HOP3_PROBE_USER" 2>/dev/null | grep -q "$HOP3_PROBE_USER" || {
+  echo "Keycloak probe user missing after create" >&2
+  exit 1
+}
+'''
+
+[admin]
+username = "admin"
+password = { generate = "password", length = 20 }
+
+# Map the injected admin creds onto the env vars Keycloak 26 reads at first
+# start to create the temporary admin (KC_BOOTSTRAP_ADMIN_*). Interpolated
+# after the admin creds are injected, so no literal secret lives in [env].

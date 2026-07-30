@@ -8,10 +8,10 @@ builder = "nix"
 type = "postgres"
 
 [env]
-ADMIN_USER = "admin"
+# Identity and password come from [env.computed] below, interpolated from the
+# injected HOP3_ADMIN_*. A literal password here would be published in the
+# recipe and handed to every deployment.
 ADMIN_NAME = "Administrator"
-ADMIN_EMAIL = "admin@example.com"
-ADMIN_PASSWORD = "change-me-admin-password"
 
 [test]
 priority = "P2"
@@ -24,3 +24,12 @@ covers = ["php", "limesurvey", "nix", "surveys"]
 path = "/"
 status = 200
 contains = "LimeSurvey"
+
+# Map LimeSurvey's installer env vars to the injected admin credentials,
+# interpolated after HOP3_ADMIN_* is injected. Without it the recipe carried a
+# literal `change-me-admin-password`, so the installer created an administrator
+# whose password is published in this file while Hop3 advertised another.
+[env.computed]
+ADMIN_USER = "${HOP3_ADMIN_USER}"
+ADMIN_EMAIL = "${HOP3_ADMIN_EMAIL}"
+ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD}"
