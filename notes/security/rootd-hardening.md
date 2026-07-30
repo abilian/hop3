@@ -1,7 +1,7 @@
 # hop3-rootd: systemd sandboxing and relocation (open security debt)
 
-**Status:** open. Deferred from 0.5, still deferred through 0.6 and **0.7**
-(released 2026-07). The `hop3-rootd` systemd unit ships with **minimal
+**Status:** open. Deferred from 0.5, through 0.6, and out of scope for the
+**0.7** cut. The `hop3-rootd` systemd unit ships with **minimal
 sandboxing** — a plain `Type=notify` root daemon with socket activation —
 matching the proven-working container/supervisor model. This document records
 why the heavy hardening was removed, what was empirically established, and the

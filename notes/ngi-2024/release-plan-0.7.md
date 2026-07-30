@@ -1,7 +1,7 @@
 # Hop3 0.7.0 Release Plan — Final NGI Version
 
 **Depends on:** 0.6.0 (2026-06-20).
-**Status (2026-07-09):** the tree is on **0.6.2**; **0.7.0 is not yet tagged**. Two items originally slated for the cut — the **email addon** (M3.1) and **nixpkgs pinning** (M1/M2) — shipped early in **0.6.1/0.6.2**. The intervening weeks went to platform-robustness / DX work not in the original scope but required for advertising a curated app set: ADR 052 CLI consistency, a failed-deploy observability overhaul, content-aware healthchecks (`[healthcheck].contains`), testlab hardening, the 2026-06 auth-audit remediation, and a nix-reliability pass (forgejo GC-root retention + a per-app nixpkgs pin). The **WAF (M3.5)** — the largest remaining 0.7 item — has since landed end-to-end: LeWAF **0.7.6** on PyPI, per-app `nginx → LeWAF → uWSGI` proxying, autonomous in-process L7 bans, and two Docker e2e proofs.
+**Status (2026-07-30):** the tree is on **0.7.0**; the tag and the PyPI publish are the last mechanical step of the week. Two items originally slated for the cut — the **email addon** (M3.1) and **nixpkgs pinning** (M1/M2) — shipped early in **0.6.1/0.6.2**. The intervening weeks went to platform-robustness / DX work not in the original scope but required for advertising a curated app set: ADR 052 CLI consistency, a failed-deploy observability overhaul, content-aware healthchecks (`[healthcheck].contains`), testlab hardening, the 2026-06 auth-audit remediation, and a nix-reliability pass (forgejo GC-root retention + a per-app nixpkgs pin). The **WAF (M3.5)** — the largest remaining 0.7 item — has since landed end-to-end: LeWAF **0.7.6** on PyPI, per-app `nginx → LeWAF → uWSGI` proxying, autonomous in-process L7 bans, and two Docker e2e proofs. The **2026-07 security remediation** (five defects, `local-notes/plans/28-security-remediation.md`) is **closed**, so the tag gate is now Web UI + screencasts + a recorded all-green catalog run + release mechanics.
 
 0.7 is the final NGI deliverable release. This plan tracks **what is left** — first to tag 0.7.0, then to complete NGI in near-term 0.7.x point releases. It does not pretend the ~40 person-days remaining fit in one week; it separates the tag gate from the 0.7.x tail.
 
@@ -45,7 +45,7 @@ Network firewall + fixed-port registry shipped (ADR 045). The WAF (ADR 050, LeWA
 - [x] Documented `[waf]` + the WAF CLI in the config/CLI reference; ADR 050 marked shipped
 
 ### Web UI — basic, clean, usable (M3.7)
-The dashboard exists (9 controllers, 17 templates); make it clean and verify the core flows. Git-URL deploy, log streaming, a11y, and mobile are nice-to-haves that can ride to 0.7.x.
+The dashboard exists (9 controllers, 21 templates, and it now installs from the signed catalog); make it clean and verify the core flows. Git-URL deploy, log streaming, a11y, and mobile are nice-to-haves that can ride to 0.7.x.
 
 - [ ] Visual tidy-up: consistent layout, navigation, loading/empty/error states
 - [ ] Verify core CRUD flows end to end from the UI (app list/status/logs, addons, backups, env)
@@ -59,7 +59,8 @@ Internal fixes shipped in 0.5–0.6. The third-party review was applied for and 
 - [x] Applied for the third-party review; two follow-ups sent, no auditor allocated
 - [x] Third audit round run in-house — `notes/security/report-2026-07.md`
 - [x] Document the security model — published as `guides/security.md` (operators) and `developers/security-model.md` (developers/auditors), with `notes/security/security-model.md` as the engineering source
-- [ ] Fix the five open defects from the 2026-07 round (`local-notes/plans/28-security-remediation.md`) — gates the tag
+- [x] Fix the five open defects from the 2026-07 round (`local-notes/plans/28-security-remediation.md`) — **done 2026-07-29**: `run_as_hop3` argv split (16 argv / 4 shell call sites), addon restore-path containment, a fail-loud multi-worker/in-memory-rate-limiter invariant, the `user add` single-tenancy notice, and documented host-key pinning. Each landed with a regression test asserting the rejection; `make lint` and `make test-fast` green.
+- [ ] Publish the July round as a blog post (the third-party review never allocated → we built tooling and audited ourselves) — counts toward M5.1
 
 ### Upgrade mechanism (M3.2)
 Hop3-server's own Alembic migrations work. Scope confirmed (`local-notes/specs/upgrades.md`): the server upgrade is the installer/deployer's job (and ultimately the `hop3-server` command), **not** a `hop3` client command — there is no `hop3 server upgrade` RPC and no in-product self-upgrade.
@@ -81,6 +82,13 @@ Hop3-server's own Alembic migrations work. Scope confirmed (`local-notes/specs/u
 - [ ] Publish to the website + PeerTube; embed in the getting-started docs
 - [ ] (optional) the two narrated walkthroughs — "Zero to Running App" and "Dashboard Tour"
 
+### One recorded all-green catalog run (M4 evidence)
+
+The 2026-07-27/28 campaign left every one of the 20 catalog apps seen green, but **no single recorded run is 20/20** — the best complete recording is 19/20. The report and the results-links doc both cite this number, so it is a tag-gate artefact, not a nicety.
+
+- [ ] Re-baseline first. On 2026-07-29 a one-line regression in the shared check helper (`Check._request` gained a named `data` parameter and stopped forwarding it, so every form POST sent an empty body) failed 18/20 at once and prompted edits to four recipes that had been passing. The helper is fixed with a mutation-verified test (`test_request_carries_data.py`) and the four recipes reverted; **the state of the corpus is therefore unverified until a clean run**, and no per-app diagnosis should be trusted before one.
+- [ ] Then run `./scripts/check-catalog.py` against a `hop3-deploy-server --provider hetzner --clean` rebuild, save the log, and work only from its output. Two apps carry an open question into that run: **uptime-kuma** (had a passing login at 13:26 on 2026-07-29, then refused the credential — the probe-account gating change is the suspect) and **isso** (405 on the login POST, unexplained).
+
 ### Release mechanics
 - [ ] Finish the `[0.7.0]` changelog entry (started in `CHANGES.md`)
 - [ ] Bump to 0.7.0; tag v0.7.0
@@ -88,10 +96,19 @@ Hop3-server's own Alembic migrations work. Scope confirmed (`local-notes/specs/u
 
 ## What's left for 0.7.x (NGI complete)
 
-### Benchmarks + final paper (M5.3) — the longest chain (~8–9 days)
-- [ ] Baseline (Dokku + K3s, or Docker Compose + bare uWSGI)
-- [ ] B1 control-plane memory (0/10/28 apps); B2 deploy latency by build strategy; B3 Nix closure vs Docker image size; B4 cold-start; B5 bit-for-bit reproducibility
-- [ ] Integrate into the paper's evaluation; submit; archive on HAL
+### Benchmarks + final paper (M5.3) — the longest chain
+
+Measured, not pending. Everything runs through `hop3-bench` and lands as tracked JSONL in `notes/benchmarks/`; nothing in the paper is hand-typed.
+
+- [x] Baseline — K3s measured like-for-like: **7.8× heavier** (1441 vs 185 MB)
+- [x] B1 control-plane memory + B3 closure-vs-image + update-delta + reproducibility — the read-only tier, re-run 2026-07-28 (`2026-07-28-readonly.jsonl`)
+- [x] B2 deploy latency by build strategy — the 80-cell matrix, re-run 2026-07-28 (`2026-07-28-matrix.jsonl`, **71/80 ok**, 6 no-recipe, 3 failed). Median deploy 98 s native / 110 s nix / 116 s nix-gen / 163 s docker: the Nix paths land within 12–18% of native and are 1.4–1.5× faster than Docker.
+- [x] B5 bit-for-bit reproducibility — **30/30** nix-gen recipes, the one benchmark that measures the headline claim instead of asserting it
+- [x] Fresh-box control-plane memory (`2026-07-28-freshbox-memory.jsonl`) — settles the cgroup-vs-PSS problem: `memory.current` swings ~8× on page cache, PSS is stable, so the paper reports PSS
+- [ ] **N≥3 repeats with variance.** Every cell is still n=1, so the paper says "preliminary". This is the single biggest remaining threat to the evaluation.
+- [ ] Isolate the variant-ordering effect — all four variants ran sequentially on one box, so later variants inherit warmer caches
+- [ ] Pre-registration: commit the protocol with empty result skeletons *before* the repeat run, so "pre-registered" is true rather than aspirational
+- [ ] Fold the numbers into the paper's §6.3/§6.4; final prose pass; venue; submit; archive on HAL
 
 ### Nix runtime 1.0 (M2.3)
 - [ ] The 20-app runtime pass + formal per-app dispositions (fix / defer-upstream / drop)
@@ -112,7 +129,8 @@ Pinning (0.6.1) removed the moving-channel problem; hermeticity is the rest.
 
 - [x] **Manual test / cleanup pass over the 20+ apps — done 2026-07-28, and it is now an automated gate.** All 20 catalog apps were installed one at a time through the Web UI and every failure fixed as a platform class (23 commits). The pass ends with **all 20 installing from the signed catalog and accepting a real login on a pristine server**. (Precisely: the most recent complete recorded run returned 19/20, the twentieth failing on catalog content that predated its own fix rather than on a defect, and passing once republished. Every application has been seen green; a single all-green recorded run is outstanding and is not rounded up to here.) It is reproducible rather than anecdotal: `hop3-catalog/scripts/check-catalog.py` runs list → install → login-check → destroy and exits non-zero on any failure, against a `hop3-deploy-server --provider hetzner --clean` rebuild. Each app ships a `check.py` (required to publish) that signs in through the app's own auth surface and confirms a wrong password is refused; the check runs at the end of **every** deploy, Web UI included. Apps may declare a `[probe]` account — Hop3-owned, non-privileged, password rotated by Hop3 — so the check keeps working after an operator changes the admin password.
 - [ ] Fix the apps still red on the nix suite (all app-level, not runtime): **easy-appointments** + **wordpress** (config file — `config.php` / `wp-config.php` — not created at runtime; identical across native + nix, so an app-setup / before-run-config-write issue); **nextcloud** (`/status.php` never ready); **forgejo** (180 s health-check timeout — and while there, confirm whether the M2.2 closure pre-flight fired: `sudo -u hop3 which nix-store` on the box; if absent, harden the pre-flight to resolve `nix-store` absolutely); **etherpad** (fill the placeholder nixos-25.05 rev + `nix-prefetch-url` hash).
-- [ ] Production deploys with real traffic; finalise the experience reports
+- [ ] **The 20 experience reports — the other half of M4, and the weakest artefact in the set.** Reviewed 2026-07-28 (`local-notes/plans/27-experience-reports.md`); no edits applied yet. Three problems, in descending order of severity: (a) they assert a definition of "working" the project has since rejected — a reviewer who reads them after §6.1 of the report sees the contradiction; (b) the list is wrong — reports and catalog overlap on only 15, so **5 must be written** (bugsink, forgejo, keycloak, paheko, uptime-kuma) and **5 retired or re-scoped** (adminer, focalboard — dropped from the corpus entirely — grafana, jenkins, wiki-js); (c) the implicit template is too thin. Agreed shape: machine-checked YAML frontmatter on every report (`hop3-tools catalog reports`), the approved `TEMPLATE.md`, two screenshots per app (login page + signed-in default page, generated by `shoot-catalog.py` into `notes/experience-reports/images/`), and a single bundled PDF.
+- [ ] Production deploys with real traffic
 - [ ] Application gallery page on hop3.cloud
 
 ### Accessibility scan (M3.8)
@@ -139,10 +157,11 @@ Email is a **backing service with a swappable backend**, symmetric with the data
 - [ ] Sub-credentials (blocked on a provider API), SES/real-logic providers, outage/health notifications, encryption-at-rest + atomic writes; relay/direct e2e; other WordPress variants
 
 ### Migration series (T5)
-- [ ] Publish the 21 drafted "migrating from X" posts
+- [ ] Publish the 21 drafted "migrating from X" posts — drafts sit in `local-notes/blog/migrating-from-*.md`; one (Heroku) is published, so the pattern is proven and the rest is a review-and-move pass
 
 ### Final NGI report
-- [ ] Once the above are complete.
+- [ ] `notes/ngi-2024/results-links-2026-07.md` — the per-milestone evidence doc the auditors read. Still marked draft and dated "XX July 2026"; refreshed 2026-07-30 but needs the post-tag links (v0.7.0 release, asciinema URLs, gallery page, the reports PDF) and a submission date.
+- [ ] The report itself (`notes/reports/draft-paper.md` §10 reconciles annex T1–T5) — once the above are complete.
 
 ## Out of scope (post-NGI)
 
