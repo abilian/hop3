@@ -1302,12 +1302,12 @@ class ProbeSection(BaseModel):
             "the account is Hop3's and receives nothing."
         ),
     )
-    create: str | None = Field(
-        default=None,
+    create: str = Field(
         description=(
-            "Idempotent (create-if-absent) command that creates the account. "
-            "Receives HOP3_PROBE_USER/EMAIL/PASSWORD in its environment. Omit "
-            "when the app bootstraps it from those vars itself."
+            "REQUIRED. Idempotent (create-if-absent) command that creates the "
+            "account. Receives HOP3_PROBE_USER/EMAIL/PASSWORD in its "
+            "environment, runs after the app is up, and must exit non-zero if "
+            "the account does not end up existing."
         ),
     )
 
@@ -1316,6 +1316,34 @@ class ProbeSection(BaseModel):
     def _check_username(cls, v: str) -> str:
         if not v.strip():
             msg = "[probe].username must not be blank."
+            raise ValueError(msg)
+        return v
+
+    @field_validator("create")
+    @classmethod
+    def _check_create(cls, v: str) -> str:
+        """
+        A probe Hop3 cannot create is a probe Hop3 cannot trust.
+
+        `create` used to be optional, meaning "the app makes this account itself
+        from the injected vars". Hop3 has no way to confirm that it did, so the
+        smoke test could not be given the credential — which made the whole
+        section inert: it read as configuration and did nothing at all.
+
+        The two recipes that used the form both proved the point. matomo's
+        installer and uptime-kuma's bootstrap each created the probe only in the
+        branch where they also created the ADMIN, so any instance that already
+        had one silently got no probe — undetectable, because nothing ever
+        checked. Declaring the section must mean the account exists, and the
+        only way Hop3 knows that is by running a command and watching it
+        succeed.
+        """
+        if not v.strip():
+            msg = (
+                "[probe].create must not be blank. It is the command Hop3 runs "
+                "to create the probe account; without one, Hop3 cannot know the "
+                "account exists and the section would do nothing."
+            )
             raise ValueError(msg)
         return v
 
