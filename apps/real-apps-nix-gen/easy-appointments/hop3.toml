@@ -4,7 +4,6 @@ version = "1.5.0"
 description = "Open source appointment scheduling"
 
 [nix]
-composer-deps-hash = "sha256-7RTetAR1t9p4yRrteMHKP3MTPDLEvs+F6OsPuIzpnko="
 template = "php-app"
 # The RELEASE zip, not the git tag archive. Easy!Appointments serves
 # `<page>.min.js` in production, and those are BUILD outputs — the tag
@@ -28,7 +27,13 @@ php-version = "php82"
 # install check does -- it was handed that warning instead of the database
 # type and refused a correct install.
 php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'mbstring', 'curl', 'zip', 'intl']
-needs-composer = true
+# NO composer. The release zip ships a complete `vendor/` (27,549 entries,
+# `vendor/autoload.php` included) — the dependencies are resolved as part of
+# making the release. Running buildComposerProject over it made composer try
+# to reach repo.packagist.org from inside the sandbox, which correctly has no
+# network: `curl error 6 ... Could not resolve host`. Vendoring twice is not
+# more hermetic, just broken.
+needs-composer = false
 # Upstream composer.json fails composer's strict `validate` (benign for a
 # packaged release); skip it explicitly so buildComposerProject proceeds.
 composer-strict-validation = false
@@ -98,3 +103,22 @@ covers = ["php", "easy-appointments", "nix", "scheduling"]
 path = "/"
 status = 200
 contains = "Easy!Appointments"
+
+# The native bootstrap, ported unchanged: it writes config.php and reconciles
+# the admin account against the credential Hop3 generated.
+[run]
+before-run = "bash scripts/setup-config.sh"
+
+# Easy!Appointments' installer reads these; map the generated credential on.
+[env.computed]
+EA_ADMIN_USERNAME = "${HOP3_ADMIN_USER}"
+EA_ADMIN_EMAIL = "${HOP3_ADMIN_EMAIL}"
+EA_ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD}"
+
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }
+
+# Map the injected admin creds onto the names the setup script reads. Interpolated
+# after HOP3_ADMIN_* is injected, so they reach the before-run install step.

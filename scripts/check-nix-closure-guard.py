@@ -8,10 +8,11 @@ Prove the Nix closure guard on a real target (plan 30, item 2).
 **Self-contained. Docker by default; remote only for the harmless half.**
 DETECTION deletes a live Nix store path on purpose and is therefore refused
 against anything but a local container. RETENTION deletes nothing of its own —
-it runs the collection an operator would run and asserts the platform's roots
-held — so `--ssh-host` runs that one remotely, which is the only way to
-establish it: a container cannot complete a collection at all (Nix scans
-`/proc` for runtime roots and aborts on a read the sandbox refuses).
+it rebuilds the app through `hop3 app upgrade`, runs the collection an operator
+would run, and asserts the platform's roots held — so `--ssh-host` runs that one
+remotely, which is the only way to establish it: a container cannot complete a
+collection at all (Nix scans `/proc` for runtime roots and aborts on a read the
+sandbox refuses).
 
 It configures its own CLI target rather than inheriting yours. The API port is
 read from the container's port mapping and a token is minted inside it
@@ -22,8 +23,9 @@ to point at would produce no information and possibly an outage.
 
 Two properties, checked separately against a Docker target that has Nix:
 
-  RETENTION  a garbage collection does not reclaim a deployed app's closure,
-             because the builder roots it (`.nix-result` / `.nix-result-prev`).
+  RETENTION  after a rebuild, a garbage collection reclaims neither the new
+             closure nor the one the running workers came up on, because the
+             builder roots both (`.nix-result` / `.nix-result-prev`).
 
   DETECTION  if a closure path goes missing anyway, the next start aborts
              naming the missing path, instead of letting uWSGI come up and the
@@ -40,6 +42,15 @@ scenario cannot run yet: the e2e container image installs no Nix and its
 fixture has no `--with` knob. Until those tests find a home in a harness that
 provisions Nix, this is how the guard gets confirmed.
 
+Both properties construct their own preconditions. Retention needs *two*
+closures for one app — the one the workers came up on, and a newer one — and a
+rebuild from unchanged inputs does not produce that state: Nix returns the same
+store path, `.nix-result-prev` ends up pointing at what `.nix-result` already
+roots, and a collection has nothing to threaten. A run in that state reports
+retention as proven having exercised nothing, which is precisely what happened
+on 2026-07-30. So the script changes the app's source itself (see
+`force_distinct_closure`) rather than leaving that to be arranged by hand.
+
 Usage:
     # everything, from nothing (provisions, deploys, checks; 10-30 min):
     uv run python scripts/check-nix-closure-guard.py --deploy
@@ -53,7 +64,8 @@ Usage:
     uv run hop3-test run --host HOST --clean --keep --with nix apps/test-apps-nix/flask-hello
     uv run python scripts/check-nix-closure-guard.py --ssh-host HOST
 
-No environment variables to set, no CLI context to arrange.
+No environment variables to set, no CLI context to arrange, and nothing to edit
+on either side.
 
 Exits 0 only if both properties hold. It never exits 0 because a step was
 skipped — an inconclusive run is a failure, which is the whole point.
@@ -75,6 +87,8 @@ import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from uuid import uuid4
 
 # The name `hop3-test run --docker` actually gives its container. Note this is
 # NOT `DockerConfig`'s default of "hop3-test" — the CLI overrides it
@@ -96,10 +110,11 @@ APP_PATH = "apps/test-apps-nix/flask-hello"
 # this command provisions a target and then deletes it.
 PROVISION_CMD = f"uv run hop3-test run --docker --clean --keep --with nix {APP_PATH}"
 
-# The platform's service user, which owns a single-user Nix store. See `nix()`
+# The platform's service user, which owns a single-user Nix store. See `as_owner()`
 # for why store operations must run as this user and not as root.
 NIX_OWNER = "hop3"
 NIX_OWNER_HOME = f"/home/{NIX_OWNER}"
+APPS_DIR = f"{NIX_OWNER_HOME}/apps"
 
 # Both installer modes: multi-user where systemd exists, single-user in a
 # container. The guard resolves these same two absolutely, for the same reason
@@ -112,6 +127,14 @@ NIX_PROFILES = (
 # The diagnosis the guard must produce. Matching on the wording is deliberate:
 # a deploy that fails for some *other* reason must not count as a pass.
 EXPECTED_DIAGNOSIS = ("no longer exist", "garbage-collected")
+
+# Written into the app's source tree to make the next rebuild produce a
+# DIFFERENT derivation. `flask-hello`'s expression uses `src = ./.` with no
+# filter, so any new file changes the src hash, hence the derivation, hence the
+# output path — which is the state retention needs and cannot otherwise be sure
+# of. Left behind on purpose: it is the evidence that the rebuild was real, and
+# the next ordinary deploy replaces `src/` wholesale and removes it.
+MARKER_NAME = "hop3-retention-marker.txt"
 
 # Asked of the *deployed* interpreter: does its restart path call the guard?
 RESTART_GUARD_PROBE = """\
@@ -253,10 +276,10 @@ def dexec(
     return run(["docker", "exec", target.container, *cmd], timeout=timeout)
 
 
-def nix(
+def as_owner(
     target: Target, cmd: list[str], *, timeout: int = 300
 ) -> subprocess.CompletedProcess:
-    """Run a Nix command as the user that owns the store.
+    """Run a command as the user that owns the store and the app directories.
 
     Not root, for two reasons. This is a **single-user** install under
     `/home/hop3/.nix-profile`, so root writing to the store or its database
@@ -422,11 +445,11 @@ def resolve_app_name(target: Target) -> str:
     so the recipe directory name is not the app name. Assuming it was is how an
     earlier version of this script would have failed every CLI call.
     """
-    listing = dexec(target, ["ls", "/home/hop3/apps"])
+    listing = dexec(target, ["ls", APPS_DIR])
     names = [n for n in listing.stdout.split() if n == APP or n.startswith(f"{APP}-")]
     if not names:
         msg = (
-            f"no deployed app matching '{APP}' in /home/hop3/apps "
+            f"no deployed app matching '{APP}' in {APPS_DIR} "
             f"(found: {' '.join(listing.stdout.split()) or 'nothing'}).\n"
             f"        Deploy it first, or re-run with --deploy."
         )
@@ -436,7 +459,7 @@ def resolve_app_name(target: Target) -> str:
 
 def closure_root(target: Target, app: str) -> str:
     """The store path the deployed app's gcroot points at."""
-    result = dexec(target, ["readlink", "-f", f"/home/hop3/apps/{app}/.nix-result"])
+    result = dexec(target, ["readlink", "-f", f"{APPS_DIR}/{app}/.nix-result"])
     root = result.stdout.strip()
     if result.returncode != 0 or not root.startswith("/nix/store/"):
         msg = (
@@ -447,7 +470,115 @@ def closure_root(target: Target, app: str) -> str:
     return root
 
 
-def check_retention(target: Target, app: str, root: str) -> str:
+def force_distinct_closure(target: Target, app: str, before: str) -> tuple[str, str]:
+    """Rebuild the app so its running workers' closure becomes the superseded one.
+
+    Retention has content only when two closures exist for one application: the
+    one the workers came up on, and a newer one, leaving the first referenced by
+    nothing except `.nix-result-prev`. A rebuild from unchanged inputs does not
+    produce that state — Nix returns the same store path, so `.nix-result-prev`
+    ends up pointing at what `.nix-result` already roots, a collection has
+    nothing to threaten, and a pass would mean nothing. That is the run that was
+    reported green on 2026-07-30.
+
+    So the inputs are changed here rather than by hand beforehand. `hop3 app
+    upgrade` runs `do_deploy` against the source tree as it stands on disk —
+    unlike a git push, which replaces `src/` from a commit first — so writing a
+    file into `src/` is enough, and `src = ./.` with no filter means any file
+    will do.
+
+    Returns the (current, previous) store paths, in that order.
+    """
+    marker = f"{APPS_DIR}/{app}/src/{MARKER_NAME}"
+    content = (
+        f"Written by scripts/check-nix-closure-guard.py at "
+        f"{datetime.now(UTC).isoformat(timespec='seconds')}, run {uuid4()}. "
+        f"Its only purpose is to change this app's nix src hash, so the rebuild "
+        f"produces a closure distinct from the one the workers are running. "
+        f"Safe to delete; the next ordinary deploy removes it."
+    )
+    written = as_owner(
+        target,
+        ["sh", "-c", f"printf %s {shlex.quote(content)} > {shlex.quote(marker)}"],
+    )
+    if written.returncode != 0:
+        msg = (
+            f"could not write {marker} as {NIX_OWNER}, so the rebuild would have\n"
+            f"        had unchanged inputs and the collection nothing to threaten.\n"
+            f"        {(written.stdout + written.stderr).strip()[-400:]}"
+        )
+        raise TargetUnusableError(msg)
+    info(f"marked the source tree: {marker}")
+
+    rebuilt = hop3(target, "app", "upgrade", "--app", app, timeout=1800)
+    if rebuilt.returncode != 0:
+        msg = (
+            f"the rebuild failed, so the retention case was never set up:\n"
+            f"        {(rebuilt.stdout + rebuilt.stderr).strip()[-800:]}"
+        )
+        raise TargetUnusableError(msg)
+
+    current = closure_root(target, app)
+    prev = dexec(target, ["readlink", "-f", f"{APPS_DIR}/{app}/.nix-result-prev"])
+    prev_root = prev.stdout.strip()
+
+    # Each of these three says the precondition was not built, and each names a
+    # different cause. None may pass: a collection run against an unbuilt
+    # precondition can only produce a green that means nothing, which is the one
+    # outcome this script exists to make impossible.
+    if not prev_root.startswith("/nix/store/"):
+        msg = (
+            f"'{app}' has no .nix-result-prev after a rebuild, so the closure\n"
+            f"        the running workers came from was never rooted. That is the\n"
+            f"        retention mechanism absent rather than failing, and a\n"
+            f"        collection now would be testing nothing."
+        )
+        raise TargetUnusableError(msg)
+
+    if current == before:
+        msg = (
+            f"the rebuild produced the same closure despite the marker:\n"
+            f"          {current}\n"
+            f"        The marker did not reach the derivation. Either the write\n"
+            f"        was undone before the build (something replaced src/), or\n"
+            f"        this app's expression filters its source instead of taking\n"
+            f"        `src = ./.` whole — in which case pick a change the filter\n"
+            f"        admits. Passing here would report retention as proven while\n"
+            f"        the mechanism that carries it — rooting the SUPERSEDED\n"
+            f"        closure — went unexercised."
+        )
+        raise TargetUnusableError(msg)
+
+    if prev_root != before:
+        msg = (
+            f"'{app}' was rebuilt by something other than this run: the closure\n"
+            f"        now held as .nix-result-prev\n          {prev_root}\n"
+            f"        is not the one that was current when this check started\n"
+            f"          {before}\n"
+            f"        so what a collection would threaten is not what the workers\n"
+            f"        came up on. Re-run against a target nothing else is\n"
+            f"        deploying to."
+        )
+        raise TargetUnusableError(msg)
+
+    return current, prev_root
+
+
+def missing_paths(target: Target, paths: list[str]) -> list[str]:
+    """Which of `paths` no longer exist on the target.
+
+    One command for the whole set, not one per path: a closure runs to hundreds
+    of store paths and this is checked twice, which over SSH would be a thousand
+    round trips for a question a single loop answers.
+    """
+    probe = dexec(
+        target,
+        ["sh", "-c", 'for p; do [ -e "$p" ] || echo "$p"; done', "sh", *paths],
+    )
+    return probe.stdout.split()
+
+
+def check_retention(target: Target, app: str) -> None:
     """Retention: a rebuild while running, then a GC, must not break the app.
 
     This is the forgejo class, and the sequence matters. Deploying and then
@@ -461,33 +592,33 @@ def check_retention(target: Target, app: str, root: str) -> str:
     closure as `.nix-result-prev` **before** the rebuild starts (ADR 053). That
     root is what this checks, and a deploy-then-GC test never touches it.
 
-    Returns the post-rebuild closure root.
+    Whole, not merely present. Checking that a gcroot's own store path survived
+    would pass while a dependency three levels down had been reclaimed — which
+    is the shape the failure actually takes, since it is the *inner* paths a
+    wrapper execs that go missing. So every requisite of both closures is
+    enumerated before the collection and checked after it.
+
+    This deletes nothing of its own. It runs the collection an operator would
+    run, and asserts the platform's roots held.
     """
-    step("RETENTION — rebuild while running, then collect garbage")
-    info(f"closure before rebuild: {root}")
+    step(
+        "RETENTION — rebuild to a distinct closure, collect garbage, assert both whole"
+    )
+    before = closure_root(target, app)
+    info(f"closure before rebuild: {before}")
 
-    rebuilt = hop3(target, "app", "upgrade", "--app", app, timeout=1800)
-    if rebuilt.returncode != 0:
-        msg = (
-            f"the rebuild failed, so the retention case was never set up:\n"
-            f"        {(rebuilt.stdout + rebuilt.stderr).strip()[-800:]}"
-        )
-        raise TargetUnusableError(msg)
+    current, prev_root = force_distinct_closure(target, app, before)
+    info(f"current closure:  {current}")
+    info(f"previous closure: {prev_root}  (what the running workers came up on)")
 
-    new_root = closure_root(target, app)
-    if new_root == root:
-        info("rebuild produced the same closure (inputs unchanged)")
-    else:
-        info(f"closure after rebuild:  {new_root}")
+    guarded = {
+        "current": _requisites(target, current),
+        "previous": _requisites(target, prev_root),
+    }
+    for label, paths in guarded.items():
+        info(f"{label} closure: {len(paths)} store paths")
 
-    prev = dexec(target, ["readlink", "-f", f"/home/hop3/apps/{app}/.nix-result-prev"])
-    prev_root = prev.stdout.strip()
-    if prev_root.startswith("/nix/store/"):
-        info(f"previous closure rooted as .nix-result-prev: {prev_root}")
-    else:
-        info("no .nix-result-prev (first rebuild, or the rebuild was a no-op)")
-
-    gc = nix(target, [f"{target.nix_bin}/nix-collect-garbage", "-d"], timeout=1800)
+    gc = as_owner(target, [f"{target.nix_bin}/nix-collect-garbage", "-d"], timeout=3600)
     if gc.returncode != 0:
         msg = (
             f"the target cannot run a garbage collection, so retention was\n"
@@ -501,127 +632,8 @@ def check_retention(target: Target, app: str, root: str) -> str:
     collected = gc.stdout.strip().splitlines()
     info(f"collected: {collected[-1] if collected else 'nothing'}")
 
-    for label, path in (("current", new_root), ("previous", prev_root)):
-        if not path.startswith("/nix/store/"):
-            continue
-        if dexec(target, ["test", "-e", path]).returncode != 0:
-            msg = (
-                f"the {label} closure was reclaimed: {path}\n"
-                f"        A running app can now lose its files to a garbage\n"
-                f"        collection. This is the defect ADR 053's rooting exists\n"
-                f"        to prevent, and it is more serious than the guard."
-            )
-            raise CheckFailedError(msg)
-    ok("both closures survived the collection")
-
-    served = hop3(target, "app", "status", "--app", app, timeout=120)
-    if served.returncode != 0:
-        msg = (
-            "the app is not healthy after rebuild + garbage collection:\n"
-            f"        {(served.stdout + served.stderr).strip()[-600:]}"
-        )
-        raise CheckFailedError(msg)
-    ok("app still healthy after rebuild + collection")
-    return new_root
-
-
-def _requisites(target: Target, root: str) -> list[str]:
-    """Every store path the closure of `root` depends on."""
-    result = nix(target, [f"{target.nix_bin}/nix-store", "-q", "--requisites", root])
-    if result.returncode != 0:
-        msg = (
-            f"could not query the closure of {root}:\n"
-            f"        {result.stderr.strip()[-400:]}"
-        )
-        raise TargetUnusableError(msg)
-    return [p for p in result.stdout.split() if p.startswith("/nix/store/")]
-
-
-def check_retention_remote(target: Target, app: str) -> None:
-    """Retention on a host whose Nix can actually collect.
-
-    The Docker target cannot run a collection at all, so this property has only
-    ever been established by reading the builder's code. Here it is exercised:
-    collect, then assert that both the current closure and the one the running
-    workers came from are still whole.
-
-    Whole, not merely present. Checking that the gcroot's own store path
-    survived would pass while a dependency three levels down had been reclaimed
-    — which is the shape the failure actually takes, since it is the *inner*
-    paths a wrapper execs that go missing. So every requisite is enumerated
-    before the collection and checked after it.
-
-    This deletes nothing of its own. It runs the collection an operator would
-    run, which is the whole scenario, and asserts the platform's roots held.
-    """
-    step("RETENTION — collect garbage, then assert both closures are whole")
-
-    # The rebuild has to happen here, through the CLI. `hop3-test --reuse` looks
-    # like it would do it and does not: it deploys a *new* app under a fresh
-    # timestamped name, leaving the original untouched, so no .nix-result-prev
-    # is ever written and the collection would have nothing of interest to take.
-    info(f"closure before rebuild: {closure_root(target, app)}")
-    rebuilt = hop3(target, "app", "upgrade", "--app", app, timeout=1800)
-    if rebuilt.returncode != 0:
-        msg = (
-            f"the rebuild failed, so the retention case was never set up:\n"
-            f"        {(rebuilt.stdout + rebuilt.stderr).strip()[-800:]}"
-        )
-        raise TargetUnusableError(msg)
-
-    current = closure_root(target, app)
-    prev = dexec(
-        target, ["readlink", "-f", f"{NIX_OWNER_HOME}/apps/{app}/.nix-result-prev"]
-    )
-    prev_root = prev.stdout.strip()
-
-    if not prev_root.startswith("/nix/store/"):
-        msg = (
-            f"'{app}' has no .nix-result-prev after a rebuild, so the closure\n"
-            f"        the running workers came from was never rooted. That is the\n"
-            f"        retention mechanism absent rather than failing, and a\n"
-            f"        collection now would be testing nothing."
-        )
-        raise TargetUnusableError(msg)
-
-    if prev_root == current:
-        msg = (
-            f"the rebuild produced the same closure, so .nix-result-prev points\n"
-            f"        at the path .nix-result already roots:\n"
-            f"          {current}\n"
-            f"        A collection cannot threaten it, and passing here would\n"
-            f"        report retention as proven while the mechanism that carries\n"
-            f"        it — rooting the SUPERSEDED closure — went unexercised.\n"
-            f"        The precondition needs a rebuild whose inputs differ, so the\n"
-            f"        running workers are left executing a closure nothing else\n"
-            f"        references. Change the recipe (a version, a source file),\n"
-            f"        redeploy the same app, then re-run."
-        )
-        raise TargetUnusableError(msg)
-
-    info(f"current closure:  {current}")
-    info(f"previous closure: {prev_root}")
-
-    guarded = {
-        "current": _requisites(target, current),
-        "previous": _requisites(target, prev_root),
-    }
     for label, paths in guarded.items():
-        info(f"{label} closure: {len(paths)} store paths")
-
-    gc = nix(target, [f"{target.nix_bin}/nix-collect-garbage", "-d"], timeout=3600)
-    if gc.returncode != 0:
-        msg = (
-            f"the target cannot run a garbage collection, so retention was\n"
-            f"        never exercised — this says nothing about the property.\n"
-            f"        {gc.stderr.strip()[-500:]}"
-        )
-        raise TargetUnusableError(msg)
-    collected = gc.stdout.strip().splitlines()
-    info(f"collected: {collected[-1] if collected else 'nothing'}")
-
-    for label, paths in guarded.items():
-        missing = [p for p in paths if dexec(target, ["test", "-e", p]).returncode != 0]
+        missing = missing_paths(target, paths)
         if missing:
             msg = (
                 f"the {label} closure lost {len(missing)} of {len(paths)} paths to\n"
@@ -633,13 +645,36 @@ def check_retention_remote(target: Target, app: str) -> None:
             raise CheckFailedError(msg)
         ok(f"{label} closure intact: all {len(paths)} paths survived")
 
+    served = hop3(target, "app", "status", "--app", app, timeout=120)
+    if served.returncode != 0:
+        msg = (
+            "the app is not healthy after rebuild + garbage collection:\n"
+            f"        {(served.stdout + served.stderr).strip()[-600:]}"
+        )
+        raise CheckFailedError(msg)
+    ok("app still healthy after rebuild + collection")
+
+
+def _requisites(target: Target, root: str) -> list[str]:
+    """Every store path the closure of `root` depends on."""
+    result = as_owner(
+        target, [f"{target.nix_bin}/nix-store", "-q", "--requisites", root]
+    )
+    if result.returncode != 0:
+        msg = (
+            f"could not query the closure of {root}:\n"
+            f"        {result.stderr.strip()[-400:]}"
+        )
+        raise TargetUnusableError(msg)
+    return [p for p in result.stdout.split() if p.startswith("/nix/store/")]
+
 
 def break_closure(target: Target, root: str) -> None:
     step("Breaking the closure deliberately")
     # --ignore-liveness is required precisely because the path IS rooted; that
     # is what makes this a construction of the fault rather than a reproduction
     # of a bug in retention.
-    deleted = nix(
+    deleted = as_owner(
         target,
         [f"{target.nix_bin}/nix-store", "--delete", "--ignore-liveness", root],
         timeout=600,
@@ -776,9 +811,10 @@ def run_remote_retention(args: argparse.Namespace) -> int:
     info(f"deployed app: {app}")
 
     preflight_cli(target, app)
-    check_retention_remote(target, app)
+    check_retention(target, app)
 
     print(f"\n{GREEN}{BOLD}RETENTION holds.{OFF}")
+    print("  - a rebuild left the running workers' closure superseded and rooted")
     print("  - a garbage collection left both closures whole, every path")
     print("\nDETECTION is not run here — it deletes a live store path, which is")
     print("not something to do to a machine reachable by hostname. Run it on")
@@ -801,7 +837,6 @@ def run_docker_checks(args: argparse.Namespace) -> int:
 
     app = resolve_app_name(target)
     info(f"deployed app: {app}")
-    root = closure_root(target, app)
 
     preflight_cli(target, app)
     preflight_server_is_current(target)
@@ -813,13 +848,16 @@ def run_docker_checks(args: argparse.Namespace) -> int:
     # that mattered less.
     retention: CheckFailedError | None = None
     try:
-        root = check_retention(target, app, root)
+        check_retention(target, app)
     except TargetUnusableError as e:
         retention = e
         print(f"\n  {YELLOW}INCONCLUSIVE{OFF}  {e}", file=sys.stderr)
         info("continuing to DETECTION, which needs no collection")
-        root = closure_root(target, app)
 
+    # Read after retention either way: a successful retention run rebuilt the app
+    # and moved the gcroot, so the path read before it is no longer what a start
+    # would exec.
+    root = closure_root(target, app)
     break_closure(target, root)
     check_detection(target, app, root)
 
@@ -833,14 +871,14 @@ def run_docker_checks(args: argparse.Namespace) -> int:
     if retention is not None:
         print(f"\n{YELLOW}{BOLD}DETECTION holds; RETENTION was not exercised.{OFF}")
         print("  - a broken closure aborts the start, naming the missing path")
-        print("  - the target could not collect garbage, so retention is unproven")
+        print("  - retention is unproven, for the reason given above")
         print("\nDetection is the property the guard exists for, and it is now")
-        print("confirmed on a box. Retention needs a target whose Nix can run a")
-        print("collection — run this with --ssh-host to establish it there.")
+        print("confirmed on a box. A container cannot complete a collection at")
+        print("all — run this with --ssh-host to establish retention there.")
         return 1
 
     print(f"\n{GREEN}{BOLD}Both properties hold.{OFF}")
-    print("  - a garbage collection leaves a deployed app's closure intact")
+    print("  - a collection leaves both the current and the superseded closure whole")
     print("  - a broken closure aborts the start, naming the missing path")
     return 0
 

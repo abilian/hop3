@@ -27,31 +27,17 @@ An app that authenticates over socket.io rather than HTTP, so its check drives t
 
 ## What broke
 
-**The smoke test accused a working application for a week.** It reported "the
-credential Hop3 generated was refused"; the credential signs in through a
-browser without trouble. The probe drives the app's own bundled socket.io client
-through node, and every wait in it resolved on its own timeout:
+**The smoke test accused a working application for a week.** It reported "the credential Hop3 generated was refused"; the credential signs in through a browser without trouble. The probe drives the app's own bundled socket.io client through node, and every wait in it resolved on its own timeout:
 
 - the connect wait resolved whether or not a socket opened;
-- the next wait left `offered` as `null`, and the check asked only whether it
-  was `'setup'` — `null` is not `'setup'`, so *"the server offers a login, not
-  its setup wizard"* passed **without a socket ever being opened**;
-- the login then timed out, and a timeout was returned as `false`, which the
-  check rendered as a refusal.
+- the next wait left `offered` as `null`, and the check asked only whether it was `'setup'` — `null` is not `'setup'`, so *"the server offers a login, not its setup wizard"* passed **without a socket ever being opened**;
+- the login then timed out, and a timeout was returned as `false`, which the check rendered as a refusal.
 
-Three silent fallbacks stacked into an accusation. Making them fail loudly also
-fixed the app: the probe had been emitting `login` before the server announced
-`loginRequired`, and a wait that must succeed cannot race ahead of it.
+Three silent fallbacks stacked into an accusation. Making them fail loudly also fixed the app: the probe had been emitting `login` before the server announced `loginRequired`, and a wait that must succeed cannot race ahead of it.
 
-**The probe account was created only when the admin was.** `createProbeUser()`
-sat after an early `return` in the branch that creates the administrator, so any
-instance with an existing user row got no probe — undetectably, because nothing
-verified it.
+**The probe account was created only when the admin was.** `createProbeUser()` sat after an early `return` in the branch that creates the administrator, so any instance with an existing user row got no probe — undetectably, because nothing verified it.
 
-**The JavaScript lived inside a Python string.** The probe was an embedded
-literal in `check.py`; a `\'` in the Python source arrived at node as a bare
-quote and killed the whole probe with a `SyntaxError`, after a full deploy. It
-is a `scripts/probe.js` file now, which is what `node --check` can read.
+**The JavaScript lived inside a Python string.** The probe was an embedded literal in `check.py`; a `\'` in the Python source arrived at node as a bare quote and killed the whole probe with a `SyntaxError`, after a full deploy. It is a `scripts/probe.js` file now, which is what `node --check` can read.
 
 ## What the platform gained
 
