@@ -460,6 +460,28 @@ class AppSpec:
     # (libpq.so.5, libkrb5, libstdc++.so.6, etc.).
     nix_runtime_libs: list[str] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        """
+        Put ``LD_LIBRARY_PATH`` in the RUNTIME env, not only in the wrapper.
+
+        ``nix_runtime_libs`` used to become a single ``export`` line inside the
+        generated wrapper script. That covers the app itself and nothing else —
+        and Hop3 runs an app's own code in two other places: ``[run] before-run``
+        and the ``[admin]``/``[probe]`` create commands, both of which execute
+        directly, not through the wrapper.
+
+        bugsink showed what that costs. Its bootstrap is a Django ``migrate``,
+        and psycopg loads ``libpq.so.5`` dynamically, so the script died with
+        ``ImproperlyConfigured: Error loading psycopg2 or psycopg module`` while
+        the very same code worked once the wrapper started it. Declaring the
+        libraries in the runtime env puts them in ``runtime.json``, which
+        ``make_env()`` applies — so every path that runs the app's code sees
+        them, which is what the recipe was asking for in the first place.
+        """
+        if self.nix_runtime_libs and "LD_LIBRARY_PATH" not in self.runtime_env:
+            libs = ":".join(f"${{pkgs.{p}}}/lib" for p in self.nix_runtime_libs)
+            self.runtime_env["LD_LIBRARY_PATH"] = libs
+
     @property
     def template(self) -> str:
         """The template that renders this spec, named by its payload."""

@@ -237,3 +237,51 @@ def test_credential_block_without_a_login_hint_marks_nothing():
     assert "sign in with this" not in block
     assert "admin" in block
     assert "a@b.com" in block
+
+
+def test_create_commands_get_the_artifact_runtime_env(
+    db_session, operator, monkeypatch
+):
+    """
+    A create command runs the APP's code and needs the app's runtime.
+
+    `run_create` built its environment from `os.environ` plus the app's own
+    vars, and never applied the build artifact's `env_vars` — the ones the
+    toolchain establishes. For a Nix app that is where LD_LIBRARY_PATH lives,
+    so bugsink's `[probe].create` invoked `bugsink-manage` and Django could not
+    load psycopg: the exact library set the recipe declared was applied when
+    spawning workers and nowhere else.
+    """
+    seen: dict[str, str] = {}
+
+    def fake_shell(command, cwd=None, env=None, check=True):
+        seen.update(env or {})
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr("hop3.deployers.deployer.shell", fake_shell)
+
+    app = _app(db_session)
+    set_env_vars(app, {"HOST_NAME": "b.example.com", "OWN": "app-wins"}, db_session)
+    admin = {
+        "email": "operator",
+        "password": {"generate": "password"},
+        "create": "make-admin",
+    }
+    provision_admin_credential(app, admin, db_session)
+    app_config = SimpleNamespace(
+        has_hop3_toml=True,
+        hop3_config=SimpleNamespace(admin=admin, probe={}),
+    )
+    build_artifact = SimpleNamespace(
+        runtime=SimpleNamespace(
+            path_prepend=[],
+            env_vars={"LD_LIBRARY_PATH": "/nix/store/pg/lib", "OWN": "artifact-loses"},
+        )
+    )
+
+    _bootstrap_admin_account(app, app_config, build_artifact, "uwsgi", db_session)  # ty: ignore[invalid-argument-type]
+
+    assert seen.get("LD_LIBRARY_PATH") == "/nix/store/pg/lib", (
+        "the artifact's runtime env must reach create commands"
+    )
+    assert seen.get("OWN") == "app-wins", "the app's own value still wins"
