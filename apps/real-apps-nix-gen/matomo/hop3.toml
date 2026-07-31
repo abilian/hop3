@@ -47,18 +47,9 @@ contains = "Matomo"
 # creates the schema, the superuser and the first site. The generated
 # config-files block it replaces had no salt at all and trusted only localhost,
 # so Matomo answered the smoke test with an error page, not a login form.
-# BLOCKED, deliberately left declared so the failure is loud.
-#
-# `needs-writable-dir` materialises the app's code from the read-only store into
-# this directory, but it does so in the generated WRAPPER — which runs when the
-# app starts, after before-run. So at before-run time src/ holds only the recipe
-# files, and this script dies on `Failed opening required core/bootstrap.php`.
-#
-# The bootstrap itself is correct and ported unchanged from the native variant.
-# What is missing is a platform decision: the writable tree has to be
-# materialised at deploy time, before before-run, for any php-app that declares
-# needs-writable-dir. Until then this app cannot be installed by the Nix path,
-# and it fails at deploy rather than serving an uninstalled Matomo.
+# The native bootstrap, ported unchanged. It works here because Hop3 now
+# materialises the writable app tree at deploy time, before before-run — so the
+# script finds the application it is meant to configure.
 [run]
 before-run = "bash scripts/setup-config.sh"
 
