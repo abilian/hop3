@@ -27,36 +27,17 @@ Two processes from one recipe: a web worker and `snappea`, a background queue th
 
 ## What broke
 
-Everything below is from the Nix template variant; the native one has been
-clean.
+Everything below is from the Nix template variant; the native one has been clean.
 
-**The bootstrap had nowhere to run.** A Nix app's build artifact reported the
-read-only store path as its working directory, so `[run] before-run` — where
-every native recipe keeps its first-run setup — could not be used at all. The
-recipe compensated with a `pre-exec` block in the generated wrapper that
-re-implemented part of the setup and skipped the rest.
+**The bootstrap had nowhere to run.** A Nix app's build artifact reported the read-only store path as its working directory, so `[run] before-run` — where every native recipe keeps its first-run setup — could not be used at all. The recipe compensated with a `pre-exec` block in the generated wrapper that re-implemented part of the setup and skipped the rest.
 
-**Two different secrets, both unstable.** `SECRET_KEY` was `$(head -c 32
-/dev/urandom | base64)` in the wrapper's exports, which the wrapper re-evaluates
-on *every start* — a new Django signing key per restart, invalidating every
-session. Separately, `pre-exec` minted its own key into `bugsink_conf.py`, which
-lives under `src/` and is wiped and regenerated on each deploy.
+**Two different secrets, both unstable.** `SECRET_KEY` was `$(head -c 32 /dev/urandom | base64)` in the wrapper's exports, which the wrapper re-evaluates on *every start* — a new Django signing key per restart, invalidating every session. Separately, `pre-exec` minted its own key into `bugsink_conf.py`, which lives under `src/` and is wiped and regenerated on each deploy.
 
-**No administrator was ever created**, so the smoke test reported "the sign-in
-did not establish a session" against an application that was working correctly
-and simply had no account.
+**No administrator was ever created**, so the smoke test reported "the sign-in did not establish a session" against an application that was working correctly and simply had no account.
 
-**`psycopg` could not load `libpq`.** Once `before-run` worked, `migrate` died
-with `ImproperlyConfigured: Error loading psycopg2 or psycopg module`. The
-recipe declares `nix-runtime-libs`, but that became a single `LD_LIBRARY_PATH`
-export *inside the wrapper* — so the app process had the libraries and nothing
-else did. The same failure then reappeared one layer along, in
-`[probe].create`, because the create commands did not receive the artifact's
-runtime environment either.
+**`psycopg` could not load `libpq`.** Once `before-run` worked, `migrate` died with `ImproperlyConfigured: Error loading psycopg2 or psycopg module`. The recipe declares `nix-runtime-libs`, but that became a single `LD_LIBRARY_PATH` export *inside the wrapper* — so the app process had the libraries and nothing else did. The same failure then reappeared one layer along, in `[probe].create`, because the create commands did not receive the artifact's runtime environment either.
 
-**`DATABASE_URL` was composed in `[nix.env-exports]`**, which is also
-wrapper-only. `[probe].create` had `PGUSER` and `PGHOST` but not the URL, and
-Django failed building a connection.
+**`DATABASE_URL` was composed in `[nix.env-exports]`**, which is also wrapper-only. `[probe].create` had `PGUSER` and `PGHOST` but not the URL, and Django failed building a connection.
 
 ## What the platform gained
 
@@ -107,5 +88,4 @@ hop3 app check --app bugsink
 
 ## Screenshots
 
-![Sign-in page](images/bugsink-01-login.png)
-![After signing in](images/bugsink-02-signed-in.png)
+![Sign-in page](images/bugsink-01-login.png) ![After signing in](images/bugsink-02-signed-in.png)

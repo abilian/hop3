@@ -27,25 +27,11 @@ A PHP application that resolves its own public URL from `$_SERVER`, which is wro
 
 ## What broke
 
-**The login form was never processed.** The sign-in POST returned 200 with the
-form re-rendered and no error text. A correct password, a wrong password, and a
-deliberately *omitted* CSRF token all produced identical responses — the
-signature of a form that was never handled rather than one that was rejected.
-The cause was that Paheko routes on the submit control's name
-(`$form->runIf('login', …)`), and the check posted only the form's hidden
-fields. A browser sends the button it clicked; the check did not.
+**The login form was never processed.** The sign-in POST returned 200 with the form re-rendered and no error text. A correct password, a wrong password, and a deliberately *omitted* CSRF token all produced identical responses — the signature of a form that was never handled rather than one that was rejected. The cause was that Paheko routes on the submit control's name (`$form->runIf('login', …)`), and the check posted only the form's hidden fields. A browser sends the button it clicked; the check did not.
 
-**It advertised itself over plain HTTP.** Paheko resolves its own public URL
-from `$_SERVER`, and behind Hop3 it is reached over HTTP by the proxy that
-terminates TLS — so it rendered `data-url="http://…"` on an HTTPS deployment.
-`HOP3_PUBLIC_URL` is injected for exactly this and the recipe was not using it.
-Fixing it did not fix the sign-in, which is worth recording: it was a real
-defect and a wrong hypothesis at the same time.
+**It advertised itself over plain HTTP.** Paheko resolves its own public URL from `$_SERVER`, and behind Hop3 it is reached over HTTP by the proxy that terminates TLS — so it rendered `data-url="http://…"` on an HTTPS deployment. `HOP3_PUBLIC_URL` is injected for exactly this and the recipe was not using it. Fixing it did not fix the sign-in, which is worth recording: it was a real defect and a wrong hypothesis at the same time.
 
-**The Nix package is incomplete.** The template variant fails with
-`require_once .../KD2/ErrorManager.php: No such file or directory` — the built
-package does not carry the whole application tree. No bootstrap change fixes
-that.
+**The Nix package is incomplete.** The template variant fails with `require_once .../KD2/ErrorManager.php: No such file or directory` — the built package does not carry the whole application tree. No bootstrap change fixes that.
 
 ## What the platform gained
 
@@ -97,5 +83,4 @@ hop3 app check --app paheko
 
 ## Screenshots
 
-![Sign-in page](images/paheko-01-login.png)
-![After signing in](images/paheko-02-signed-in.png)
+![Sign-in page](images/paheko-01-login.png) ![After signing in](images/paheko-02-signed-in.png)

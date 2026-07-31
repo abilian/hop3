@@ -27,19 +27,9 @@ An identity provider with no login form to post: its check obtains an OIDC token
 
 ## What broke
 
-**The generated Nix expression did not evaluate.** `extra-paths` referenced
-`${keycloak}`, but the let-binding is derived from the app id, so in the
-`keycloak-nixgen` variant it is `keycloak_nixgen`. The recipe had been made by
-copying and renaming, which renamed the binding underneath it. Nix failed at
-*build* time with `undefined variable 'keycloak'`, pointing at a generated line
-nobody wrote.
+**The generated Nix expression did not evaluate.** `extra-paths` referenced `${keycloak}`, but the let-binding is derived from the app id, so in the `keycloak-nixgen` variant it is `keycloak_nixgen`. The recipe had been made by copying and renaming, which renamed the binding underneath it. Nix failed at *build* time with `undefined variable 'keycloak'`, pointing at a generated line nobody wrote.
 
-**The realm shipped with a published administrator password.**
-`KC_BOOTSTRAP_ADMIN_PASSWORD = "changeme"` was a literal in the recipe, and
-nothing mapped Hop3's generated credential onto it. The deployed instance had an
-administrator whose password is in the repository, while the operator was handed
-one that did not work — and the smoke test reported only the second half of
-that.
+**The realm shipped with a published administrator password.** `KC_BOOTSTRAP_ADMIN_PASSWORD = "changeme"` was a literal in the recipe, and nothing mapped Hop3's generated credential onto it. The deployed instance had an administrator whose password is in the repository, while the operator was handed one that did not work — and the smoke test reported only the second half of that.
 
 ## What the platform gained
 
@@ -90,5 +80,4 @@ hop3 app check --app keycloak
 
 ## Screenshots
 
-![Sign-in page](images/keycloak-01-login.png)
-![After signing in](images/keycloak-02-signed-in.png)
+![Sign-in page](images/keycloak-01-login.png) ![After signing in](images/keycloak-02-signed-in.png)

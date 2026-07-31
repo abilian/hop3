@@ -27,33 +27,17 @@ The same shape as Gitea, and the app that showed a Go binary is named after its 
 
 ## What broke
 
-Shared with Gitea, whose report describes the same four defects; only the
-last is specific to Forgejo.
+Shared with Gitea, whose report describes the same four defects; only the last is specific to Forgejo.
 
-**The admin bootstrap could not find the binary.** `[admin].create` was copied
-from the native recipe, which calls `./forgejo` — correct in a source tree that
-contains the binary, wrong when the command runs in the app's source directory
-and the binary is in the Nix store. It failed with `sh: ./forgejo: not found`
-after a 220-second build, and the deploy correctly refused to leave an app with
-no administrator.
+**The admin bootstrap could not find the binary.** `[admin].create` was copied from the native recipe, which calls `./forgejo` — correct in a source tree that contains the binary, wrong when the command runs in the app's source directory and the binary is in the Nix store. It failed with `sh: ./forgejo: not found` after a 220-second build, and the deploy correctly refused to leave an app with no administrator.
 
-**`$out/bin` holds only the generated wrapper**, which execs one fixed
-subcommand, so putting it on `PATH` does not help. The application's own
-derivation is a different store path.
+**`$out/bin` holds only the generated wrapper**, which execs one fixed subcommand, so putting it on `PATH` does not help. The application's own derivation is a different store path.
 
-**Three signing secrets rotated on every restart.** `SECRET_KEY`,
-`INTERNAL_TOKEN` and `JWT_SECRET` were minted with `$(head -c 32 /dev/urandom |
-base64)` inside a config file the wrapper rewrites at each start.
+**Three signing secrets rotated on every restart.** `SECRET_KEY`, `INTERNAL_TOKEN` and `JWT_SECRET` were minted with `$(head -c 32 /dev/urandom | base64)` inside a config file the wrapper rewrites at each start.
 
-**The binary is called `forgejo.org`.** `buildGoModule` names the output after
-the module path element, not the project — the same reason Miniflux's binary is
-`miniflux.app`. Every `forgejo …` invocation in the recipe had to be
-`forgejo.org …`.
+**The binary is called `forgejo.org`.** `buildGoModule` names the output after the module path element, not the project — the same reason Miniflux's binary is `miniflux.app`. Every `forgejo …` invocation in the recipe had to be `forgejo.org …`.
 
-**Open registration.** `DISABLE_REGISTRATION = true` lives in the native
-recipe's `scripts/setup-config.sh`, and no Nix variant carries a `scripts/`
-directory — so the Nix builds deploy an internet-facing forge on which the first
-visitor can register.
+**Open registration.** `DISABLE_REGISTRATION = true` lives in the native recipe's `scripts/setup-config.sh`, and no Nix variant carries a `scripts/` directory — so the Nix builds deploy an internet-facing forge on which the first visitor can register.
 
 ## What the platform gained
 
@@ -104,5 +88,4 @@ hop3 app check --app forgejo
 
 ## Screenshots
 
-![Sign-in page](images/forgejo-01-login.png)
-![After signing in](images/forgejo-02-signed-in.png)
+![Sign-in page](images/forgejo-01-login.png) ![After signing in](images/forgejo-02-signed-in.png)
