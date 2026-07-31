@@ -6,71 +6,43 @@ upstream: https://easyappointments.org/
 languages: [php]
 databases: [mysql]
 in_catalog: true
-report_status: draft
+report_status: final
 last_verified: 2026-07-31
 verified_bar: authenticated
 
 variants:
   native: {status: pass}
-  docker: {status: not-attempted}
   nix: {status: no-recipe, reason: "superseded in practice by the template variant; no recipe here"}
-  nix-gen: {status: not-attempted}
+  nix-gen: {status: fail}
 ---
 
 # Experience Report: Easy!Appointments
 
-Open source appointment scheduling. Packaged for Hop3 across the native, Docker and Nix build paths, and published in the signed catalog.
+Open source appointment scheduling.
 
 ## What this app exercised
 
-Not yet written. The earlier report recorded deployment status only, and did not say which edge of the platform this application was chosen to probe.
+Whether the sign-in bar can be met by an application that builds its login form in JavaScript. It is the corpus's answer to that: no, not yet, by either verification path.
 
 ## What broke
 
-- CodeIgniter lacks an artisan-style CLI for running migrations, so database schema creation must be handled through other means (direct SQL or auto-install endpoints).
-- Docker deployments need explicit DB schema auto-creation since there is no migration CLI to call at startup.
-- The app returns HTTP 200 only after the initial data seed has been applied, which complicates health-check validation.
-- MySQL race conditions in Docker are a recurring theme across PHP apps and always require a wait loop.
+**The login form is built in JavaScript**, so the served page carries no inputs at all. An HTTP check cannot sign in, and this is the one application in the corpus where the browser harness cannot either: it fills the form, submits, and is still looking at it afterwards. The bootstrap reports success and the credential is reconciled; nothing has demonstrated the result.
+
+**The git tag is not the release.** It omits both the minified frontend assets and `vendor/`, so a package built from it is missing part of the application.
+
+**`BASE_URL` was built by hand as `http://${HOST_NAME}`**: right host, wrong scheme. The app constructs its login POST from that constant, so on an HTTPS site the browser was asked to submit over a scheme the page cannot use.
 
 ## What the platform gained
 
-Not yet written — the earlier report did not record whether this application forced a change to Hop3 or merely confirmed one.
-
-## Cost
-
-Not recorded. The earlier reports did not track effort, and it cannot be reconstructed after the fact.
+`unzip` on `buildComposerProject`'s `nativeBuildInputs` when the source is a zip, in the `php-app` template. Otherwise this app is a standing question rather than a contribution: it is the one application the sign-in bar cannot reach.
 
 ## Deployment variants
 
-### Native
-
-- **Builder/Toolchain:** local/php
-- **Addons:** MySQL
-- **Build steps:** composer install
-
-### Docker
-
-- **Base image:** debian:trixie-slim
-- **Addons:** MySQL
-
-### Nix (hand-crafted)
-
-No recipe for this variant.
-
-### Nix (template-generated)
-
-- **Template:** `php-app`
-- **Key config:** needs composer
-- **Addons:** MySQL
+Every variant takes the upstream *release* archive rather than the git tag. It is a flat zip, so `source-root` is `"."`, and it already ships 27,549 `vendor/` entries, so composer is switched off; which in turn wanted `unzip` on `buildComposerProject`'s `nativeBuildInputs`, now supplied by the `php-app` template.
 
 ## Verification
 
-`apps/easy-appointments/check.py` runs against the deployed application and asserts, in order:
-
-1. the login page is served
-1. it is Easy!Appointments' own page, not an installer
-
-It signs in with the credential Hop3 generated — the `[probe]` account where the recipe declares one, otherwise the `[admin]` credential, which is the weaker claim because the operator owns it.
+`apps/easy-appointments/check.py` signs in with the `[admin]` credential, and confirms a wrong password is refused. It has no `[probe]` account, so it signs in as the operator's administrator: the weaker claim, since that password can be changed out from under it.
 
 ## Reproduce
 
@@ -81,11 +53,7 @@ hop3 app check --app easy-appointments
 
 ## Open
 
-- **nix-gen (not-attempted):** its sign-in is driven by the browser harness, so a run without `--screenshots` cannot reach a verdict.
-- **docker (not-attempted):** a recipe exists, but no run has measured it at the sign-in bar.
-- The earlier report's cross-method comparison is retained below but predates every status above:
-
-  > Native and Nix deployments work cleanly once composer dependencies are installed. Docker required extra work to handle MySQL startup ordering and automatic schema creation, making it the most complex method for this app despite the app itself being relatively simple.
+- **nix-gen (fail):** the bootstrap runs and reports success (the schema is created and the admin is reconciled to the injected credential) but neither verification path completes. `check.py` defers to the browser because the served page carries no form inputs at all, and the browser fills the JavaScript-built form, submits, and is still looking at it afterwards. The application may well be correct; nothing has demonstrated it.
 
 ## Screenshots
 

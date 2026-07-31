@@ -6,71 +6,43 @@ upstream: https://www.dolibarr.org/
 languages: [php]
 databases: [postgres]
 in_catalog: true
-report_status: draft
+report_status: final
 last_verified: 2026-07-31
 verified_bar: authenticated
 
 variants:
   native: {status: pass}
-  docker: {status: not-attempted}
-  nix: {status: not-attempted}
-  nix-gen: {status: fail}
+  nix: {status: pass}
+  nix-gen: {status: pass, template: php-app}
 ---
 
 # Experience Report: Dolibarr
 
-Open source ERP and CRM for small and medium businesses. Packaged for Hop3 across the native, Docker and Nix build paths, and published in the signed catalog.
+Open source ERP and CRM for small and medium businesses.
 
 ## What this app exercised
 
-Not yet written. The earlier report recorded deployment status only, and did not say which edge of the platform this application was chosen to probe.
+An application with **no installer CLI at all**. It was listed as a permanent deferral for that reason, and the question it forced (can a browser wizard be driven headlessly, or is a whole class of business software out of reach?) is the one it was kept for.
 
 ## What broke
 
-- The web root differs from the Laravel/Symfony default: Dolibarr uses `htdocs` instead of `public`, requiring explicit web-root configuration.
-- PostgreSQL is less common than MySQL for PHP apps, so this serves as a good test case for the PostgreSQL addon with PHP toolchains.
-- Composer dependency resolution is straightforward for Dolibarr compared to other PHP apps.
+**It was never installed.** The application deployed, started, and answered every request (the login page included) with *"Dolibarr config file content seems to be not correctly defined. Please run dolibarr setup by calling page /install"*. Under Nix it was served straight out of the read-only store, so it could not have been installed even in principle.
+
+Dolibarr ships **no installer CLI**, only a browser wizard, which is why it was once listed as a permanent deferral. Each wizard step also reads its inputs from `$argv` under the PHP CLI, so the same steps a browser drives can be driven from a script; that is how it is installed now, in every variant.
+
+**Its steps can print an error and still exit 0**, so the bootstrap verifies the admin row exists rather than trusting the exit code.
 
 ## What the platform gained
 
-Not yet written — the earlier report did not record whether this application forced a change to Hop3 or merely confirmed one.
-
-## Cost
-
-Not recorded. The earlier reports did not track effort, and it cannot be reconstructed after the fact.
+Nothing in the platform; the answer was a technique. Driving a browser wizard's steps through the PHP CLI is now the pattern for any application that ships no installer, and Matomo uses it too. Both were permanent deferrals before it.
 
 ## Deployment variants
 
-### Native
-
-- **Builder/Toolchain:** local/php
-- **Addons:** PostgreSQL
-- **Build steps:** composer install
-
-### Docker
-
-- **Base image:** debian:trixie-slim
-- **Addons:** PostgreSQL
-
-### Nix (hand-crafted)
-
-- **Template equivalent:** php-app
-- **Addons:** PostgreSQL
-
-### Nix (template-generated)
-
-- **Template:** `php-app`
-- **Key config:** web-root=htdocs, pgsql extensions
-- **Addons:** PostgreSQL
+Its web root is `htdocs`, not the `public` most PHP frameworks assume. **Native** and both **Nix** variants drive the browser wizard's steps from the CLI through the same script; **Docker** does the same at entrypoint. Postgres rather than MySQL, which makes it the corpus's test of that addon against a PHP toolchain.
 
 ## Verification
 
-`apps/dolibarr/check.py` runs against the deployed application and asserts, in order:
-
-1. the probe-or-admin credential signs in
-1. a wrong password is refused
-
-It signs in with the credential Hop3 generated — the `[probe]` account where the recipe declares one, otherwise the `[admin]` credential, which is the weaker claim because the operator owns it.
+`apps/dolibarr/check.py` signs in with the `[admin]` credential, reaches a page only a session can, and confirms a wrong password is refused. It has no `[probe]` account, so it signs in as the operator's administrator: the weaker claim, since that password can be changed out from under it.
 
 ## Reproduce
 
@@ -80,13 +52,6 @@ hop3 app check --app dolibarr
 ```
 
 ## Open
-
-- **nix-gen (fail):** the app deploys but is never installed; its native bootstrap has not been ported (`before-run` was unusable for Nix apps until 2026-07-31).
-- **docker (not-attempted):** a recipe exists, but no run has measured it at the sign-in bar.
-- **nix (not-attempted):** the hand-crafted recipe exists and has not been run at the sign-in bar.
-- The earlier report's cross-method comparison is retained below but predates every status above:
-
-  > All four deployment methods work without significant issues. The only notable configuration difference is the non-standard web root (`htdocs`), which must be specified in each method but is otherwise unremarkable.
 
 ## Screenshots
 

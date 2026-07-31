@@ -6,71 +6,43 @@ upstream: https://www.limesurvey.org/
 languages: [php]
 databases: [postgres]
 in_catalog: true
-report_status: draft
+report_status: final
 last_verified: 2026-07-31
 verified_bar: authenticated
 
 variants:
   native: {status: pass}
-  docker: {status: not-attempted}
-  nix: {status: not-attempted}
-  nix-gen: {status: not-attempted}
+  nix: {status: pass}
+  nix-gen: {status: pass, template: php-app}
 ---
 
 # Experience Report: LimeSurvey
 
-Professional online survey and data collection tool. Packaged for Hop3 across the native, Docker and Nix build paths, and published in the signed catalog.
+Professional online survey and data collection tool.
 
 ## What this app exercised
 
-Not yet written. The earlier report recorded deployment status only, and did not say which edge of the platform this application was chosen to probe.
+A JavaScript-rendered admin UI that cannot be signed into over HTTP, so verification has to be deferred to a browser. It is the reason a run without `--screenshots` reports some apps as unverifiable, outside the pass/fail count.
 
 ## What broke
 
-- Config files must be generated BEFORE pre-exec commands: the console install command needs config.php to know the DB connection details.
-- Uses PostgreSQL unlike most PHP apps in the set, which default to MySQL.
-- The console install command auto-creates all required database tables, avoiding manual migration steps.
+**The recipe installed it with a published password.** `console.php install admin password123 Admin admin@example.com`, with the result discarded by `2>/dev/null || true`: a known credential on every deployment *and* a failed install reported as success, in one line.
+
+**Its admin UI is rendered by JavaScript**, so a form POST returns LimeSurvey's "JavaScript deactivated" notice and no HTTP sign-in is possible. Verification is deferred to the browser. A run without `--screenshots` cannot reach a verdict on this application at all; it is reported as unverifiable.
+
+**The URL format determines whether the login form appears.** Without `urlManager` set to `urlFormat: path` and `showScriptName: true`, LimeSurvey builds its URLs in a form where the JavaScript that renders the login is fetched from paths that do not resolve: the page loads and the form never appears.
 
 ## What the platform gained
 
-Not yet written — the earlier report did not record whether this application forced a change to Hop3 or merely confirmed one.
-
-## Cost
-
-Not recorded. The earlier reports did not track effort, and it cannot be reconstructed after the fact.
+The runner's vocabulary for *unverifiable*: an application whose sign-in only a browser can drive is reported as such. A login page being served is not enough to count it as a pass.
 
 ## Deployment variants
 
-### Native
-
-- **Builder/Toolchain:** local/php
-- **Addons:** PostgreSQL
-- **Build steps:** composer install
-
-### Docker
-
-- **Base image:** debian:trixie-slim
-- **Addons:** PostgreSQL
-
-### Nix (hand-crafted)
-
-- **Template equivalent:** php-app
-- **Addons:** PostgreSQL
-
-### Nix (template-generated)
-
-- **Template:** `php-app`
-- **Key config:** PostgreSQL extensions, console install command, config.php generation
-- **Addons:** PostgreSQL
+Unlike most of the PHP set, this uses Postgres. Every variant installs through `application/commands/console.php install`, which creates the schema and the administrator in one call; there is no separate migration step and the credential mapping is the whole bootstrap.
 
 ## Verification
 
-`apps/limesurvey/check.py` runs against the deployed application and asserts, in order:
-
-1. the admin login page is served
-1. it is LimeSurvey's own login surface
-
-It signs in with the credential Hop3 generated — the `[probe]` account where the recipe declares one, otherwise the `[admin]` credential, which is the weaker claim because the operator owns it.
+`apps/limesurvey/check.py` signs in with the `[admin]` credential, and confirms a wrong password is refused. It has no `[probe]` account, so it signs in as the operator's administrator: the weaker claim, since that password can be changed out from under it.
 
 ## Reproduce
 
@@ -80,13 +52,6 @@ hop3 app check --app limesurvey
 ```
 
 ## Open
-
-- **nix-gen (not-attempted):** its sign-in is driven by the browser harness, so a run without `--screenshots` cannot reach a verdict.
-- **docker (not-attempted):** a recipe exists, but no run has measured it at the sign-in bar.
-- **nix (not-attempted):** the hand-crafted recipe exists and has not been run at the sign-in bar.
-- The earlier report's cross-method comparison is retained below but predates every status above:
-
-  > All methods pass once the config generation ordering is correct. The key insight is that config.php must exist before the install command runs, which applies equally to native and Nix deployments.
 
 ## Screenshots
 

@@ -6,20 +6,19 @@ upstream: https://paheko.cloud/
 languages: [php]
 databases: []
 in_catalog: true
-report_status: draft
+report_status: final
 last_verified: 2026-07-31
 verified_bar: authenticated
 
 variants:
   native: {status: pass}
-  docker: {status: not-attempted}
-  nix: {status: not-attempted}
-  nix-gen: {status: fail}
+  nix: {status: pass}
+  nix-gen: {status: pass, template: php-app}
 ---
 
 # Experience Report: Paheko
 
-Nonprofit accounting and association management. Packaged for Hop3 across the native, Docker and Nix build paths, and published in the signed catalog.
+Nonprofit accounting and association management.
 
 ## What this app exercised
 
@@ -27,46 +26,25 @@ A PHP application that resolves its own public URL from `$_SERVER`, which is wro
 
 ## What broke
 
-**The login form was never processed.** The sign-in POST returned 200 with the form re-rendered and no error text. A correct password, a wrong password, and a deliberately *omitted* CSRF token all produced identical responses — the signature of a form that was never handled rather than one that was rejected. The cause was that Paheko routes on the submit control's name (`$form->runIf('login', …)`), and the check posted only the form's hidden fields. A browser sends the button it clicked; the check did not.
+**The login form was never processed.** The sign-in POST returned 200 with the form re-rendered and no error text. A correct password, a wrong password, and a deliberately *omitted* CSRF token all produced identical responses: a form that inspects its input returns different errors for different failures; this one returned none. The cause: Paheko routes on the submit control's name (`$form->runIf('login', …)`), and the check posted only the form's hidden fields. A browser sends the button it clicked. The check omitted it, so `runIf` never matched.
 
-**It advertised itself over plain HTTP.** Paheko resolves its own public URL from `$_SERVER`, and behind Hop3 it is reached over HTTP by the proxy that terminates TLS — so it rendered `data-url="http://…"` on an HTTPS deployment. `HOP3_PUBLIC_URL` is injected for exactly this and the recipe was not using it. Fixing it did not fix the sign-in, which is worth recording: it was a real defect and a wrong hypothesis at the same time.
+**It advertised itself over plain HTTP.** Paheko resolves its own public URL from `$_SERVER`, and behind Hop3 it is reached over HTTP by the proxy that terminates TLS; it rendered `data-url="http://…"` on an HTTPS deployment. `HOP3_PUBLIC_URL` is injected for exactly this and the recipe was not using it. Fixing it did not fix the sign-in. It was a real defect and a wrong hypothesis at the same time.
 
-**The Nix package is incomplete.** The template variant fails with `require_once .../KD2/ErrorManager.php: No such file or directory` — the built package does not carry the whole application tree. No bootstrap change fixes that.
+**The Nix package was missing part of the application.** Both Nix variants died at every start on `require_once .../KD2/ErrorManager.php: No such file or directory`. Paheko vendors the KD2 framework into its release tarball and does not commit it, so a package built from the git tag is missing those files. Only the release archive supplies them. The release archive also has a flat layout where the tag put everything under `src/`.
+
+**Its config declared global constants.** With the application finally present, `config.local.php` was writing bare `const DATA_ROOT` and friends, but Paheko reads `Paheko\DB_FILE`, so every setting was silently ignored and its defaults won. The file needs `namespace Paheko;` and guarded `defined() || define()`, because it is loaded with a plain `require` and a second bootstrap in one process turns the redefinition warning into a fatal.
 
 ## What the platform gained
 
-Not yet written — the earlier report did not record whether this application forced a change to Hop3 or merely confirmed one.
-
-## Cost
-
-Not recorded. The earlier reports did not track effort, and it cannot be reconstructed after the fact.
+The checking library's form handling: `form_fields` now sends the submit control, because Paheko routes on which button was pressed and a browser sends the one it clicked. Every app's check benefited.
 
 ## Deployment variants
 
-### Native
-
-Not yet described.
-
-### Docker
-
-Not yet described.
-
-### Nix (hand-crafted)
-
-Not yet described.
-
-### Nix (template-generated)
-
-- **Template:** `php-app`
+Every variant takes the upstream *release* archive: Paheko vendors the KD2 framework into it and does not commit it, so a package built from the git tag is missing part of the application. SQLite, no addon.
 
 ## Verification
 
-`apps/paheko/check.py` runs against the deployed application and asserts, in order:
-
-1. the probe-or-admin credential signs in
-1. a wrong password is refused
-
-It signs in with the credential Hop3 generated — the `[probe]` account where the recipe declares one, otherwise the `[admin]` credential, which is the weaker claim because the operator owns it.
+`apps/paheko/check.py` signs in with the `[admin]` credential, reaches a page only a session can, and confirms a wrong password is refused. It has no `[probe]` account, so it signs in as the operator's administrator: the weaker claim, since that password can be changed out from under it.
 
 ## Reproduce
 
@@ -77,9 +55,8 @@ hop3 app check --app paheko
 
 ## Open
 
-- **nix-gen (fail):** the Nix package does not carry the whole application tree (`require_once .../KD2/ErrorManager.php` fails), which no bootstrap fixes.
-- **docker (not-attempted):** a recipe exists, but no run has measured it at the sign-in bar.
-- **nix (not-attempted):** the hand-crafted recipe exists and has not been run at the sign-in bar.
+- **nix:** no screenshot: the capture hangs on a ServiceWorker registration, as it does for the template-generated variant. The sign-in is verified over HTTP.
+- **nix-gen:** no screenshot. The capture times out after 60 s with no requests outstanding and a failed ServiceWorker registration in the page errors: the renderer is stuck, and resource starvation was ruled out. The sign-in itself is verified over HTTP.
 
 ## Screenshots
 

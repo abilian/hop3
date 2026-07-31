@@ -6,71 +6,45 @@ upstream: https://kanboard.org/
 languages: [php]
 databases: [mysql]
 in_catalog: true
-report_status: draft
+report_status: final
 last_verified: 2026-07-31
 verified_bar: authenticated
 
 variants:
   native: {status: pass}
-  docker: {status: not-attempted}
-  nix: {status: not-attempted}
-  nix-gen: {status: fail}
+  nix: {status: pass}
+  nix-gen: {status: pass, template: php-app}
 ---
 
 # Experience Report: Kanboard
 
-Kanban project management software. Packaged for Hop3 across the native, Docker and Nix build paths, and published in the signed catalog.
+Kanban project management software.
 
 ## What this app exercised
 
-Not yet written. The earlier report recorded deployment status only, and did not say which edge of the platform this application was chosen to probe.
+The plainest PHP application in the set, with no composer and no build step, which makes it a control: anything that breaks here points to the platform, rather than the application. It earned that role by breaking twice, both times in the transport rather than the application.
 
 ## What broke
 
-- Simplest PHP app to package: no composer, no build step required.
-- Works with both MySQL and SQLite as the backing database.
-- Permissions (chmod) matter for the data directory; the app writes session and task data there.
+**It was served out of the read-only store**, so it could not write its database, its config or its uploads, and had no account anyone could sign in as.
+
+**A PHP warning killed the session.** Kanboard's default log driver writes to a file and warns *to the response* when it cannot: output ahead of the headers, which suppresses `Set-Cookie`. The login POST then has no session to carry, and Kanboard reports that as **"The username is required"**: an application-level message describing a transport-level failure. Pinning `LOG_DRIVER = stderr` is the fix, and the working variants had it all along.
+
+**There is no `cli user:reset-password` subcommand.** The call to one sat inside a `|| true` and did nothing at all, leaving the shipped `admin`/`admin` in place. The password has to be written through Kanboard's own container.
+
+**`PLUGIN_INSTALLER` defaults on**, which lets a signed-in administrator install arbitrary remote code.
 
 ## What the platform gained
 
-Not yet written — the earlier report did not record whether this application forced a change to Hop3 or merely confirmed one.
-
-## Cost
-
-Not recorded. The earlier reports did not track effort, and it cannot be reconstructed after the fact.
+Nothing directly. Its value was diagnostic: because the app is so plain, its failures pointed straight at the platform and at what a check can and cannot see. "The username is required" describing a suppressed `Set-Cookie` is the example that keeps being useful.
 
 ## Deployment variants
 
-### Native
-
-- **Builder/Toolchain:** local/php
-- **Addons:** MySQL
-- **Build steps:** No composer needed; PHP files served directly
-
-### Docker
-
-- **Base image:** debian:trixie-slim
-- **Addons:** MySQL
-
-### Nix (hand-crafted)
-
-- **Template equivalent:** php-app
-- **Addons:** MySQL
-
-### Nix (template-generated)
-
-- **Template:** `php-app`
-- **Key config:** includes pdo_sqlite extension
-- **Addons:** MySQL
+No composer, no build step: the simplest PHP app here. Every variant writes `config.php` from the addon's variables and serves with PHP's built-in server. The **Nix** ones copy the tree writable first, since Kanboard writes its database, uploads and sessions inside it.
 
 ## Verification
 
-`apps/kanboard/check.py` runs against the deployed application and asserts, in order:
-
-1. the probe-or-admin credential signs in
-1. a wrong password is refused
-
-It signs in with the credential Hop3 generated — the `[probe]` account where the recipe declares one, otherwise the `[admin]` credential, which is the weaker claim because the operator owns it.
+`apps/kanboard/check.py` signs in with the `[admin]` credential, reaches a page only a session can, and confirms a wrong password is refused. It has no `[probe]` account, so it signs in as the operator's administrator: the weaker claim, since that password can be changed out from under it.
 
 ## Reproduce
 
@@ -80,13 +54,6 @@ hop3 app check --app kanboard
 ```
 
 ## Open
-
-- **nix-gen (fail):** the app deploys but has no admin account; its native bootstrap has not been ported.
-- **docker (not-attempted):** a recipe exists, but no run has measured it at the sign-in bar.
-- **nix (not-attempted):** the hand-crafted recipe exists and has not been run at the sign-in bar.
-- The earlier report's cross-method comparison is retained below but predates every status above:
-
-  > All four deployment methods work without friction. Kanboard's zero-build-step nature makes it an ideal baseline for testing PHP deployment pipelines.
 
 ## Screenshots
 
