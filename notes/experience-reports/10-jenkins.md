@@ -1,4 +1,24 @@
+---
+app: jenkins
+title: Jenkins
+version: "2.440.1"
+upstream: https://www.jenkins.io/
+languages: [java]
+databases: []
+in_catalog: false
+report_status: withdrawn
+last_verified: 2026-04-09
+verified_bar: http-status
+
+variants:
+  native: {status: not-attempted}
+  docker: {status: not-attempted}
+  nix: {status: not-attempted}
+  nix-gen: {status: not-attempted}
+---
 # Experience Report: Jenkins
+
+> **Withdrawn.** Jenkins is no longer part of the packaged corpus and is not published in the catalog, so nothing here is maintained or re-verified. It is kept because the packaging work was real and the findings below may still save someone time. Everything it says was measured at the *deployed and serving* bar — not by signing in — which is the bar the current reports reject.
 
 **Status:** Draft (0.5)
 **App:** Jenkins — CI/CD server

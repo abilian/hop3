@@ -1,4 +1,24 @@
+---
+app: wiki-js
+title: Wiki.js
+version: "2.5.302"
+upstream: https://js.wiki/
+languages: [node]
+databases: [postgres]
+in_catalog: false
+report_status: withdrawn
+last_verified: 2026-04-09
+verified_bar: http-status
+
+variants:
+  native: {status: not-attempted}
+  docker: {status: not-attempted}
+  nix: {status: not-attempted}
+  nix-gen: {status: not-attempted}
+---
 # Experience Report: Wiki.js
+
+> **Withdrawn.** Wiki.js is no longer part of the packaged corpus and is not published in the catalog, so nothing here is maintained or re-verified. It is kept because the packaging work was real and the findings below may still save someone time. Everything it says was measured at the *deployed and serving* bar — not by signing in — which is the bar the current reports reject.
 
 **Status:** Draft (0.5)
 **App:** Wiki.js — Modern wiki

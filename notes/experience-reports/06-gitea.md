@@ -1,67 +1,94 @@
+---
+app: gitea
+title: Gitea
+version: "1.21.4"
+upstream: https://gitea.io/
+languages: [go]
+databases: [postgres]
+in_catalog: true
+report_status: draft
+last_verified: 2026-07-31
+verified_bar: authenticated
+
+variants:
+  native: {status: pass}
+  docker: {status: not-attempted}
+  nix: {status: not-attempted}
+  nix-gen: {status: pass, template: go-source}
+---
+
 # Experience Report: Gitea
 
-**Status:** Draft (0.5)
-**App:** Gitea — Self-hosted Git
-**Language:** Go
-**Database:** PostgreSQL
-**Website:** https://gitea.io/
+Self-hosted Git service. Packaged for Hop3 across the native, Docker and Nix build paths, and published in the signed catalog.
 
-## Deployment Methods
+## What this app exercised
 
-### Native (local builder)
+A Go source build with a JavaScript frontend, and an app whose own CLI must be reachable to create the administrator. It is the first consumer of `go-static-dirs` for source assets that are not the compiled frontend.
 
-- **Builder/Toolchain:** local/generic
-- **Addons:** PostgreSQL
-- **Build steps:** Pre-built binary download (no source compilation)
-- **Status:** Passing
-- **Issues:** None
-
-### Nix (hand-crafted hop3.nix)
-
-- **Template equivalent:** prebuilt-binary
-- **Addons:** PostgreSQL
-- **Status:** Passing
-- **Issues:** None
-
-### Nix (template-generated)
-
-- **Template:** prebuilt-binary
-- **Key config:** app.ini config generation via [nix.config-files] (INI format)
-- **Addons:** PostgreSQL
-- **Status:** Passing
-- **Issues:** None
-
-### Docker
-
-- **Base image:** debian:trixie-slim
-- **Addons:** PostgreSQL
-- **Status:** Passing
-- **Issues:** None
-
-## Known Limitations
-
-**Pre-built binary reliance.** The Nix configurations (both hand-crafted
-and template-generated) use pre-built binaries downloaded from upstream
-releases. This is a pragmatic shortcut but has serious drawbacks:
-
-- **Not reproducible:** The binary cannot be rebuilt from source by Nix.
-  We trust the upstream CI pipeline.
-- **Not portable:** Only x86_64-linux binaries are available. ARM
-  (aarch64), RISC-V, and other architectures are not supported.
-- **Supply chain risk:** A compromised upstream release could distribute
-  malicious binaries.
-
-**Path forward:** Build from source using `buildGoModule` (for Go apps)
-or `buildNpmPackage` (for Node.js apps). This requires writing a proper
-Nix derivation, estimated at moderate (large Go project, no frontend build) effort.
-
-## Lessons Learned
+## What broke
 
 - Pre-built Go binaries are expedient but not a long-term solution: while they offer a single static binary with no runtime dependencies and fast startup, they sacrifice reproducibility and architecture portability.
 - INI config generation via [nix.config-files] works well for apps like Gitea that use traditional INI-style configuration.
 - Gitea requires a specific `custom/conf/` directory structure for its configuration, which must be set up correctly in all deployment methods.
 - Go apps with pre-built binaries have the most uniform experience across all deployment methods.
 
-## Cross-Method Comparison
+## What the platform gained
 
-All four methods are nearly equivalent in complexity since Gitea ships as a single binary. The only variation is how the app.ini configuration file is generated and placed in the custom/conf/ directory, which each method handles slightly differently. Note that the pre-built binary approach limits deployment to x86_64-linux; ARM and other architectures are not currently supported.
+`${pkg}`, a stable binding for the application's own derivation, so a recipe can put the app's CLI on `PATH` without knowing the app id. `$out/bin` holds only the generated wrapper.
+
+## Cost
+
+Not recorded. The earlier reports did not track effort, and it cannot be reconstructed after the fact.
+
+## Deployment variants
+
+### Native
+
+- **Builder/Toolchain:** local/generic
+- **Addons:** PostgreSQL
+- **Build steps:** Pre-built binary download (no source compilation)
+
+### Docker
+
+- **Base image:** debian:trixie-slim
+- **Addons:** PostgreSQL
+
+### Nix (hand-crafted)
+
+- **Template equivalent:** prebuilt-binary
+- **Addons:** PostgreSQL
+
+### Nix (template-generated)
+
+- **Template:** `go-source`
+- **Key config:** app.ini config generation via [nix.config-files] (INI format)
+- **Addons:** PostgreSQL
+
+## Verification
+
+`apps/gitea/check.py` runs against the deployed application and asserts, in order:
+
+1. the probe-or-admin credential signs in
+1. a wrong password is refused
+
+It signs in with the credential Hop3 generated — the `[probe]` account where the recipe declares one, otherwise the `[admin]` credential, which is the weaker claim because the operator owns it.
+
+## Reproduce
+
+```bash
+hop3 catalog install gitea
+hop3 app check --app gitea
+```
+
+## Open
+
+- **docker (not-attempted):** a recipe exists, but no run has measured it at the sign-in bar.
+- **nix (not-attempted):** the hand-crafted recipe exists and has not been run at the sign-in bar.
+- The earlier report's cross-method comparison is retained below but predates every status above:
+
+  > All four methods are nearly equivalent in complexity since Gitea ships as a single binary. The only variation is how the app.ini configuration file is generated and placed in the custom/conf/ directory, which each method handles slightly differently. Note that the pre-built binary approach limits deployment to x86_64-linux; ARM and other architectures are not currently supported.
+
+## Screenshots
+
+![Sign-in page](images/gitea-01-login.png)
+![After signing in](images/gitea-02-signed-in.png)
