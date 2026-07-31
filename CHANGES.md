@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.0] - Unreleased
+## [0.7.0] - 2026/07/31
 
 ### Changed
 
@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`[probe]` — a Hop3-owned account for verification**: an app can declare a non-privileged account whose password Hop3 owns and rotates, so its smoke test keeps working after you change the admin password. Apps that shouldn't have one can leave it out.
 - **`hop3 scaffold`**: writes a starter `hop3.toml` for the project in the current directory, with a `#:schema` line so your editor completes and validates the file as you type.
 - **Published `hop3.toml` JSON Schema**: at `https://hop3.cloud/schema/hop3.toml.json`, generated from the server's own validation models, so an editor with a TOML language server flags a typo as you type instead of at deploy time.
+- **Every bundled app is verified under Nix too.** The two Nix build strategies are now held to the same sign-in bar as the native one: 16 of 16 hand-written recipes and 18 of 19 template-generated ones sign in and refuse a wrong password on a recorded run. Easy!Appointments is the exception — it builds its login form in JavaScript, which neither check can drive.
 - **`hop3-deploy-server --provider hetzner --image <image>`**: rebuilds the target server from scratch before deploying, matching `hop3-test`. One command for a genuinely pristine box.
 
 ### Fixed
@@ -34,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A failed server upgrade can no longer report success**: after installing the new code and migrating, the deployer now confirms hop3-server actually came back up before reporting the upgrade complete. If it didn't, the deploy fails loudly with the exact command to revert to the previous release — and a reminder that a forward-migrated schema may also need a pre-upgrade database backup — instead of leaving a silently dead server behind a "complete" message. The restart also picks the right mechanism for the target (systemd or supervisor), so it can't silently keep serving old code.
 - **Admin-domain and TLS setup fail loud on a broken nginx reload**: configuring the server's admin domain or its certificate during a deploy now stops with a clear error when nginx can't be reloaded, instead of warning and carrying on — so a "complete" deploy never hides a domain that nginx never actually picked up.
 - **Nix apps survive garbage collection**: a running Nix app no longer loses its files to a `nix` garbage-collect — new installs pin auto-GC off and rebuilds keep the previous version rooted — and if anything is ever missing the deploy fails fast with a clear message instead of a slow timeout. Apps that need a newer package set can pin their own nixpkgs revision.
+- **`hop3 app restart` checks the Nix closure too**: the check above ran on deploy and start but not on restart, because a restart relaunches the worker from its existing config without going through the start path. A restart against a reclaimed closure therefore came up and died into a health-check timeout with nothing pointing at the cause. It now aborts with the same message naming the missing store path.
 - **A fresh install no longer serves a stale configuration**: the installer now restarts hop3-server once its configuration file is written, so a first-time install picks up its operator email, database credentials and admin domain immediately. Previously, on a brand-new server the service started *before* that file existed and cached the empty values — so every app using the built-in admin account failed to deploy with "this server has no operator email", even though the setting was correct on disk. Redeploys were unaffected, which is what made it a fresh-install-only bug.
 - **Build failures inside your Dockerfile are reported right away, not retried as phantom registry errors**: a step that fails in your own build (for example a truncated download surfacing as "tar: Error is not recoverable") is now surfaced immediately instead of being mistaken for a transient container-registry outage and retried three times. Genuine registry blips are still retried.
 - **Apps are served over HTTPS by default**: plain HTTP now redirects. Apps that set `Secure` cookies — most of them — were unloggable over the HTTP vhost, because the browser correctly refused to send the session cookie back, and the login silently looped.
@@ -47,6 +49,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **More bundled apps deploy and verify correctly**, from packaging and content-check fixes across several apps.
 - **Authentication hardening**: remediated the findings from the June 2026 auth audit.
 - **DNS**: fixed some server-side DNS resolution issues.
+
+### Security
+
+These are defects in Hop3's own bundled application recipes, all found by the sign-in check described above and none visible to a deploy that returned HTTP 200. Anyone who deployed the affected Nix variants should redeploy.
+
+- **Radicale served without authentication.** The Nix recipes set the calendar server's auth type from a variable that defaulted to `none` and was never set, so every calendar and address book was readable by anyone who asked. Authentication is now declared in the recipe where no environment can switch it off, and the config is rewritten on every start so a deployment that once ran open does not stay open.
+- **Isso's moderation dashboard was served disabled.** Its config carried no administrator section, so `/admin/` never asked for a password. It is now enabled against the generated credential, comment moderation is on, and the app refuses to start without the credential rather than serving the dashboard open.
+- **Published default passwords in three apps, under both Nix strategies.** Miniflux, Keycloak and LimeSurvey shipped literal credentials (`changeme`, `password123`), so the deployed instance had an administrator whose password is in this repository while the operator held a generated one that did not work. All six recipes now refuse to start unless Hop3's generated credential is injected.
+- **Gitea and Forgejo deployed with open registration** under both Nix strategies, because the setting that disables it lived in a shell script only the native recipe carried — so the first visitor to a fresh forge could register an account.
+- **Signing keys rotated on every restart.** The Gitea and Forgejo Nix recipes minted `SECRET_KEY`, `INTERNAL_TOKEN` and `JWT_SECRET` inside a config file rewritten at each start, which invalidates every session and makes 2FA secrets and stored credentials undecryptable. They are now generated once and re-injected unchanged.
 
 ## [0.6.2] - 2026-06-26
 
