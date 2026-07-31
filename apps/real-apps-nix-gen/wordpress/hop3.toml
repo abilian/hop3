@@ -9,7 +9,12 @@ url = "https://wordpress.org/wordpress-${version}.tar.gz"
 sha256 = "m4KJELf5zs3gwAQPmAhoPe2rhopZFsYN6OzAv6Wzo6c="
 archive = "tar-gz"
 php-version = "php82"
-php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'zip', 'curl', 'mbstring', 'xml', 'intl', 'exif']
+# `xml` is deliberately absent: the Nix PHP already provides it, and naming
+# it again makes every PHP invocation print a module-already-loaded warning
+# on STDOUT. Harmless until something reads that stdout, which nextcloud's
+# install check does -- it was handed that warning instead of the database
+# type and refused a correct install.
+php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'zip', 'curl', 'mbstring', 'intl', 'exif']
 post-install-dirs = ['wp-content/uploads', 'wp-content/plugins', 'wp-content/themes']
 extra-paths = ['${php}/bin']
 # WordPress writes wp-content/uploads and serves its own wp-config.php; the Nix

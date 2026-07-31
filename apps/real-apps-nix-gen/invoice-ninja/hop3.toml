@@ -21,7 +21,12 @@ url = "https://github.com/invoiceninja/invoiceninja/archive/refs/tags/v${version
 sha256 = "7NZs3hAxH3awKMeIlwqem6gnVCRGdpDvZZ+7SW033qY="
 archive = "tar-gz"
 php-version = "php82"
-php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'bcmath', 'intl', 'soap', 'fileinfo', 'tokenizer']
+# `xml` is deliberately absent: the Nix PHP already provides it, and naming
+# it again makes every PHP invocation print a module-already-loaded warning
+# on STDOUT. Harmless until something reads that stdout, which nextcloud's
+# install check does -- it was handed that warning instead of the database
+# type and refused a correct install.
+php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'mbstring', 'curl', 'zip', 'bcmath', 'intl', 'soap', 'fileinfo', 'tokenizer']
 needs-composer = true
 # Upstream composer.json fails composer's strict `validate` (benign for a
 # packaged release); skip it explicitly so buildComposerProject proceeds.
