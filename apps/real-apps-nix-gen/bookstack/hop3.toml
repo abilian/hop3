@@ -40,6 +40,12 @@ type = "mysql"
 
 # Generated admin credentials (ADR 056), consumed by the create-admin step.
 [admin]
+# BookStack authenticates by EMAIL; `username` is only the display name, so an
+# operator — or the screenshot harness — handed both and left to guess picks
+# the username and is rejected. The native recipe says so; this one did not,
+# and the browser sign-in failed here while check.py (which reads
+# `c.login.email` directly) passed.
+login = "email"
 username = "admin"
 email = "operator"
 password = { generate = "password", length = 20 }

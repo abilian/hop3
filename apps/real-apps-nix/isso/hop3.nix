@@ -29,27 +29,38 @@ let
       ${python}/bin/python -m venv $out/venv
       $out/venv/bin/pip install isso gunicorn 2>/dev/null
 
-      # Default config
-      cat > $out/app/isso.cfg << 'ISSOEOF'
-[general]
-dbpath = data/comments.db
-host = http://localhost:8080
-
-[server]
-listen = http://0.0.0.0:8080
-ISSOEOF
-
       cat > $out/bin/isso-start << 'EOF'
 #!/bin/sh
+set -e
 mkdir -p data
-# Generate config with the correct port at runtime
+
+# Isso has no admin USERNAME — the password is the whole credential — so it must
+# be present or the moderation dashboard is not protected at all. Refuse to
+# start rather than serve it open.
+: "''${ADMIN_PASSWORD:?isso: ADMIN_PASSWORD not injected — refusing to serve an unprotected moderation dashboard}"
+
+# `host` and `public-endpoint` are what isso tells the BROWSER, so they must be
+# the public address, not the loopback the server binds.
 cat > isso-runtime.cfg << CFGEOF
 [general]
 dbpath = data/comments.db
-host = http://localhost:''${PORT:-8080}
+host = ''${HOP3_PUBLIC_URL:-http://localhost:''${PORT:-8080}}
 
 [server]
 listen = http://''${BIND_ADDRESS:-0.0.0.0}:''${PORT:-8080}
+public-endpoint = ''${HOP3_PUBLIC_URL:-http://localhost:''${PORT:-8080}}
+
+# Absent this section isso serves /admin/ disabled, and the smoke test said so:
+# "the admin dashboard is not asking for a password" — correct, there was no
+# dashboard to ask.
+[admin]
+enabled = true
+password = ''${ADMIN_PASSWORD}
+
+# Hold new comments for approval. Without it any anonymous visitor
+# self-publishes, which is isso's equivalent of open registration.
+[moderation]
+enabled = true
 CFGEOF
 exec VENV/bin/isso -c isso-runtime.cfg "$@"
 EOF

@@ -77,14 +77,33 @@ return array(
       "charset" => "utf8",
       "tablePrefix" => "lime_",
     ),
+  // Without these LimeSurvey builds its URLs in a different form, and the
+  // JavaScript that renders the admin login is fetched from paths that do not
+  // resolve — the page loads, the form never appears. Both working variants
+  // declare them.
+  "urlManager" => array(
+    "urlFormat" => "path",
+    "showScriptName" => true,
+  ),
   ),
   "config" => array("debug" => 0, "debugsql" => 0),
 );
 CFGEOF
 fi
 
-# Install database tables on first run
-${php}/bin/php application/commands/console.php install admin password123 Admin admin@example.com 2>/dev/null || true
+# Install on first run, ONCE, with the injected credential.
+#
+# This used to read `install admin password123 Admin admin@example.com`, with
+# the result thrown away by `2>/dev/null || true`: a published default password
+# on every deployment, and a failed install reported as a success.
+if [ ! -f .hop3-installed ]; then
+  ${php}/bin/php application/commands/console.php install \
+    "''${HOP3_ADMIN_USER:?limesurvey: HOP3_ADMIN_USER not injected}" \
+    "''${HOP3_ADMIN_PASSWORD:?limesurvey: HOP3_ADMIN_PASSWORD not injected}" \
+    Administrator \
+    "''${HOP3_ADMIN_EMAIL:?limesurvey: HOP3_ADMIN_EMAIL not injected}" \
+    && touch .hop3-installed
+fi
 
 exec ${php}/bin/php -S 0.0.0.0:''${PORT:-8080} -t .
 WRAPPER

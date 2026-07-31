@@ -15,3 +15,13 @@ covers = ["php", "nix", "sqlite", "nonprofit"]
 path = "/admin/install.php"
 status = 200
 contains = "Paheko"
+
+# Paheko encrypts with SECRET_KEY; generated once and re-injected unchanged, or
+# a redeploy renders stored data undecryptable (ADR 046).
+[env]
+PAHEKO_SECRET_KEY = { generate = "base64", length = 32 }
+
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }

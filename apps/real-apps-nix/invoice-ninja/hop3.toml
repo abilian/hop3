@@ -31,3 +31,9 @@ covers = ["php", "invoice-ninja", "nix", "invoicing", "laravel"]
 path = "/"
 status = 302
 contains = "/setup"
+
+# No `username`: Invoice Ninja authenticates on the EMAIL, and a credential
+# reader handed both picks the username first, which the app rejects.
+[admin]
+email = "operator"
+password = { generate = "password", length = 20 }

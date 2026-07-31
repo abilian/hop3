@@ -62,7 +62,22 @@ let
 
       cat > $out/bin/dolibarr << 'WRAPPER'
 #!/bin/sh
-exec ${php}/bin/php -S 0.0.0.0:''${PORT:-8080} -t $out/app/htdocs
+set -e
+
+# Dolibarr was served straight out of the read-only store, so it could never be
+# installed: it answered every request with "Dolibarr config file content seems
+# to be not correctly defined. Please run dolibarr setup by calling page
+# /install" — including the login page the smoke test posts to.
+cp -a $out/app/. .
+chmod -R u+w .
+
+# Dolibarr ships no installer CLI, only a browser wizard. Each wizard step also
+# reads its inputs from $argv under the PHP CLI, so the same steps can be driven
+# from a script; setup-config.sh does that and then verifies the admin row
+# exists, because Dolibarr's steps can print an error and still exit 0.
+bash scripts/setup-config.sh
+
+exec ${php}/bin/php -S 0.0.0.0:''${PORT:-8080} -t ./htdocs
 WRAPPER
       sed -i "s|\$out|$out|g" $out/bin/dolibarr
       chmod +x $out/bin/dolibarr
@@ -78,7 +93,8 @@ WRAPPER
   },
   "path": [
     "$out/bin",
-    "${php}/bin"
+    "${php}/bin",
+    "${pkgs.postgresql}/bin"
   ]
 }
 EOF

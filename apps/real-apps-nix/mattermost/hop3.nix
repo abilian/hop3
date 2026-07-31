@@ -10,6 +10,11 @@
 
 let
   mattermost = pkgs.mattermost;
+  # A SEPARATE nixpkgs package. The mattermost derivation's bin/ holds only
+  # `mattermost`, so every `mmctl --local` call in the account bootstrap exited
+  # 127. A nixpkgs derivation is not obliged to ship the tools an application's
+  # own documentation assumes.
+  mmctl = pkgs.mmctl;
 
   app = pkgs.stdenv.mkDerivation {
     pname = "mattermost";
@@ -44,12 +49,13 @@ done
 cat > config/config.json << CONFEOF
 {
   "ServiceSettings": {
-    "SiteURL": "''${MM_SERVICESETTINGS_SITEURL:-http://localhost:''${PORT}}",
+    "SiteURL": "''${HOP3_PUBLIC_URL:-http://localhost:''${PORT}}",
     "ListenAddress": ":''${PORT}",
     "ConnectionSecurity": "",
     "TLSCertFile": "",
     "TLSKeyFile": "",
-    "EnableLocalMode": false
+    "EnableLocalMode": true,
+    "LocalModeSocketLocation": "''${PWD}/mattermost_local.socket"
   },
   "SqlSettings": {
     "DriverName": "postgres",
@@ -97,7 +103,8 @@ WRAPPER
   },
   "path": [
     "$out/bin",
-    "${mattermost}/bin"
+    "${mattermost}/bin",
+    "${mmctl}/bin"
   ]
 }
 EOF

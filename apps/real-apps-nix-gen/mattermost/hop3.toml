@@ -32,19 +32,21 @@ done"""
 [nix.local-vars]
 PORT = "${PORT:-8080}"
 
-[nix.runtime-env]
-MM_SERVICESETTINGS_SITEURL = "http://localhost:8080"
-
 [nix.let-extra]
 mmctl = "pkgs.mmctl"
 
 [[nix.config-files]]
 path = "config/config.json"
 format = "raw"
+# `SiteURL` is the address Mattermost hands to its own webapp, and it was pinned
+# to `http://localhost:8080` by a `[nix.runtime-env]` entry baked into the
+# wrapper at build time — no deploy could correct it. The webapp then loaded
+# against an origin the visitor cannot reach and never rendered its form, while
+# the REST check (which posts to /api/v4/users/login) passed.
 raw-content = """
 {
   "ServiceSettings": {
-    "SiteURL": "${MM_SERVICESETTINGS_SITEURL:-http://localhost:${PORT}}",
+    "SiteURL": "${HOP3_PUBLIC_URL:-http://localhost:${PORT}}",
     "ListenAddress": ":${PORT}",
     "ConnectionSecurity": "",
     "TLSCertFile": "",

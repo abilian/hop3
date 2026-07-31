@@ -23,3 +23,10 @@ status = 302
 # `/` 302s to the login page (title "Login"); "Kanboard" only shows once
 # authenticated. Match the login form's own controller instead.
 contains = "AuthController"
+
+# Kanboard ships a built-in `admin` account with the password `admin`. The
+# wrapper resets it to the generated one; without that the published default is
+# the way in and the operator's credential does not work.
+[admin]
+username = "admin"
+password = { generate = "password", length = 20 }

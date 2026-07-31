@@ -18,3 +18,15 @@ covers = ["golang", "nix", "postgres"]
 path = "/healthcheck"
 status = 200
 contains = "OK"
+
+# Miniflux creates its administrator at first start from CREATE_ADMIN +
+# ADMIN_USERNAME/ADMIN_PASSWORD, so there is no post-deploy `create` command —
+# the mapping IS the bootstrap. Without it the derivation used to fall back to
+# a literal `changeme`.
+[admin]
+username = "admin"
+password = { generate = "password", length = 20 }
+
+[env.computed]
+ADMIN_USERNAME = "${HOP3_ADMIN_USER}"
+ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD}"

@@ -50,8 +50,10 @@ builder = "nix"
 type = "mysql"
 
 # Generated admin credentials (ADR 056), consumed by ninja:create-account.
+# No `username`: Invoice Ninja authenticates on the EMAIL, and a credential
+# reader handed both picks the username first — which the app then rejects as a
+# bad password. The native recipe declares email alone for that reason.
 [admin]
-username = "admin"
 email = "operator"
 password = { generate = "password", length = 20 }
 
@@ -75,7 +77,13 @@ raw-content = """
 APP_ENV=${APP_ENV:-production}
 APP_DEBUG=${APP_DEBUG:-false}
 APP_KEY=${APP_KEY}
-APP_URL=http://localhost:${PORT:-8080}
+APP_URL=${HOP3_PUBLIC_URL:-http://localhost:${PORT:-8080}}
+# Laravel decides the scheme of every redirect it issues from APP_URL. Pinned to
+# `http://localhost`, `/` bounced between the app's idea of itself and the real
+# host until the browser gave up: ERR_TOO_MANY_REDIRECTS. `REQUIRE_HTTPS=false`
+# for the same reason the native recipe sets it — nginx terminates TLS, so the
+# app sees plain http and forcing a redirect to https is a loop.
+REQUIRE_HTTPS=false
 DB_CONNECTION=mysql
 DB_HOST=${DB_HOST:-127.0.0.1}
 DB_PORT=${DB_PORT:-3306}

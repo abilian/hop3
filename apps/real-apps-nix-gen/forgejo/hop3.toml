@@ -78,6 +78,13 @@ USER = "${DB_USER}"
 PASSWD = "${DB_PASS}"
 [nix.config-files.sections.repository]
 ROOT = "data/forgejo-repositories"
+# Disable open registration so a stranger cannot seize the first-admin slot.
+# Hop3 provisions the intended admin via [admin].create. The sign-in bar does
+# NOT catch this — an app with open registration signs in perfectly — which is
+# why it shipped in every Nix variant while the native recipes had it all along.
+[nix.config-files.sections.service]
+DISABLE_REGISTRATION = "true"
+
 [nix.config-files.sections.log]
 MODE = "console"
 LEVEL = "Info"
