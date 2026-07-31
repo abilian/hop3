@@ -87,6 +87,16 @@ class PhpAppTemplate:
             source_root_attr = (
                 f'\n    sourceRoot = "{spec.source_root}";' if spec.source_root else ""
             )
+            # buildComposerProject does its OWN unpack, so unzip must be in ITS
+            # inputs. On the wrapping derivation alone (which sets dontUnpack)
+            # nix answered `do not know how to unpack source archive` for any
+            # composer app shipped as a .zip — and a release zip is exactly what
+            # you want to package when the git tag lacks built assets.
+            composer_unzip = (
+                "\n    nativeBuildInputs = [ pkgs.unzip ];"
+                if spec.source.needs_unzip
+                else ""
+            )
             # composer validate is pedantic; skip it explicitly when a
             # third-party release fails it for benign reasons.
             strict_attr = (
@@ -100,7 +110,7 @@ class PhpAppTemplate:
   composerProject = pkgs.{p.php_version}.buildComposerProject {{
     pname = "{spec.pname}";
     inherit version;
-    src = {binding};{source_root_attr}
+    src = {binding};{source_root_attr}{composer_unzip}
     vendorHash = "{p.composer_deps_hash}";
     composerNoDev = true;{strict_attr}
   }};

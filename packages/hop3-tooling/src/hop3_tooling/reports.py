@@ -32,7 +32,7 @@ import datetime as dt
 import re
 import subprocess
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import tomllib
 import yaml
@@ -80,13 +80,22 @@ class Corpus:
     def __post_init__(self) -> None:
         self.reports_dir = self.root / "notes" / "experience-reports"
 
+    #: Reports for applications the corpus has dropped. Kept as a record, not
+    #: checked against recipes — there are none left to check against.
+    WITHDRAWN_DIR: ClassVar[str] = "withdrawn"
+
     def report_paths(self) -> list[Path]:
-        """Every report file, excluding the aggregate and the template."""
+        """Every current report, excluding the aggregate and the template."""
         return sorted(
             p
             for p in self.reports_dir.glob("*.md")
             if not p.name.startswith("00") and p.name != "TEMPLATE.md"
         )
+
+    def withdrawn_paths(self) -> list[Path]:
+        """Every report filed under `withdrawn/`."""
+        directory = self.reports_dir / self.WITHDRAWN_DIR
+        return sorted(directory.glob("*.md")) if directory.is_dir() else []
 
     def recipe(self, app: str, variant: str) -> Path | None:
         """The app's `hop3.toml` for a variant, if the corpus holds one."""
@@ -273,7 +282,53 @@ def check_all(root: Path) -> list[Finding]:
                 described.add(app)
         findings.extend(check_report(meta, corpus, path.name))
 
+    # A run that scanned nothing must not read as a pass. Renaming the reports
+    # or moving the directory would otherwise turn this whole check into a
+    # green line reporting on an empty set.
+    if not corpus.report_paths():
+        findings.append(
+            Finding("(corpus)", f"no reports found under {corpus.reports_dir}")
+        )
+
+    findings.extend(_check_withdrawn(corpus))
     findings.extend(_check_coverage(root, described))
+    return findings
+
+
+def _check_withdrawn(corpus: Corpus) -> list[Finding]:
+    """
+    The `withdrawn/` directory and the `report_status` field must agree.
+
+    Withdrawal is expressed twice — by where the file lives and by what its
+    header says — and two representations of one fact drift. A current report
+    filed under `withdrawn/` would silently stop being checked against its
+    recipes, which is exactly the failure the directory exists to make visible.
+    """
+    findings: list[Finding] = []
+    for path in corpus.withdrawn_paths():
+        meta = parse_frontmatter(path)
+        if meta is None:
+            findings.append(
+                Finding(f"{corpus.WITHDRAWN_DIR}/{path.name}", "no YAML frontmatter")
+            )
+        elif meta.get("report_status") != "withdrawn":
+            findings.append(
+                Finding(
+                    f"{corpus.WITHDRAWN_DIR}/{path.name}",
+                    f"filed under {corpus.WITHDRAWN_DIR}/ but report_status is "
+                    f"{meta.get('report_status')!r}; move it back or withdraw it",
+                )
+            )
+    for path in corpus.report_paths():
+        meta = parse_frontmatter(path)
+        if meta and meta.get("report_status") == "withdrawn":
+            findings.append(
+                Finding(
+                    path.name,
+                    f"report_status is 'withdrawn' but the file is not in "
+                    f"{corpus.WITHDRAWN_DIR}/",
+                )
+            )
     return findings
 
 
