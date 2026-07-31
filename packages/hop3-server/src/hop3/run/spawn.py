@@ -7,9 +7,12 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
+import stat
 import subprocess
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import object_session
@@ -57,7 +60,6 @@ def _extract_nix_store_paths(commands: Iterable[str]) -> list[str]:
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from pathlib import Path
 
     from hop3.orm import App
 
@@ -368,6 +370,65 @@ class AppLauncher:
             )
             time.sleep(remaining)
 
+    #: Written into the app directory once the store tree has been copied there,
+    #: so a redeploy does not overwrite files the app (or its bootstrap) wrote.
+    _WRITABLE_TREE_MARKER = ".hop3-writable-tree"
+
+    def _materialize_writable_tree(self) -> None:
+        """
+        Copy a read-only build tree into the app's own directory.
+
+        Some applications write inside their own install directory — a PHP app
+        generating `config.php`, Matomo seeding `config/config.ini.php`. A Nix
+        store path cannot support that, so the artifact names the tree and Hop3
+        copies it here, at DEPLOY time.
+
+        The timing is the whole point. This used to be a line in the generated
+        wrapper, which runs when the app starts — after `[run] before-run`. So a
+        bootstrap script ran against a directory holding the recipe and none of
+        the application, and Matomo's installer died on `Failed opening required
+        core/bootstrap.php` on a build that was otherwise correct.
+
+        Copied ONCE. A redeploy that copied again would put the pristine tree
+        back over a configuration the app has since written, silently reverting
+        it; the marker is what stops that. Removing the marker forces a refresh.
+        """
+        source = self.artifact.runtime.writable_tree if self.artifact else ""
+        if not source:
+            return
+
+        dest = self.app.src_path
+        marker = dest / self._WRITABLE_TREE_MARKER
+        if marker.exists():
+            log(f"Writable tree already in place for '{self.app_name}'", level=3)
+            return
+
+        src = Path(source)
+        if not src.is_dir():
+            # Never silently skip: without the tree the app has no code, and the
+            # bootstrap that follows would fail in a way that names the app.
+            msg = (
+                f"'{self.app_name}' declares a writable tree at {source}, which "
+                f"does not exist. The build artifact and the Nix store disagree; "
+                f"redeploy to rebuild it."
+            )
+            raise RuntimeError(msg)
+
+        log(f"Materializing {source} into {dest}", level=2, fg="blue")
+        shutil.copytree(src, dest, dirs_exist_ok=True)
+
+        # Store trees are read-only, and copytree preserves mode — including on
+        # `dest` ITSELF, which came out 0555 and left the app directory
+        # impossible to write or clean up ("Permission denied: hop3.nix" on the
+        # next deploy's teardown). Widen the destination first, then everything
+        # under it. Failures are NOT suppressed: a tree the app cannot write to
+        # is the exact condition this whole mechanism exists to avoid, so it
+        # must not be discovered later as a puzzling application error.
+        for path in [dest, *dest.rglob("*")]:
+            path.chmod(path.stat().st_mode | stat.S_IWUSR)
+        marker.write_text(f"{source}\n")
+        log(f"Writable tree ready for '{self.app_name}'", level=2, fg="green")
+
     def _run_before_run_commands(self, env: Env) -> None:
         """
         Execute before-run commands from the artifact.
@@ -648,6 +709,9 @@ class AppLauncher:
         write_settings(scaling, worker_count, ":")
 
         self._handle_auto_restart(env)
+
+        # BEFORE before-run: an app's bootstrap needs the application present.
+        self._materialize_writable_tree()
 
         # Execute before-run commands from artifact
         self._run_before_run_commands(env)

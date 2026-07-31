@@ -225,6 +225,7 @@ def _do_deploy(  # ruff:ignore[too-many-statements]
         path_prepend=build_artifact.runtime.path_prepend,
         working_dir=build_artifact.runtime.working_dir,
         workers=build_artifact.runtime.workers or None,
+        writable_tree=build_artifact.runtime.writable_tree,
     )
     build_artifact.runtime = enhanced_runtime
 
