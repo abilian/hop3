@@ -190,6 +190,7 @@ class NixBuilder:
             # running worker already cd's here itself (run/uwsgi/worker.py), so
             # this also makes the two agree instead of differing.
             working_dir=str(self.context.source_path),
+            writable_tree=runtime_data.get("writable_tree", ""),
             workers=workers,
         )
 
