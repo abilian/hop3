@@ -6,9 +6,16 @@ description = "Open source appointment scheduling"
 [nix]
 composer-deps-hash = "sha256-7RTetAR1t9p4yRrteMHKP3MTPDLEvs+F6OsPuIzpnko="
 template = "php-app"
-url = "https://github.com/alextselegidis/easyappointments/archive/refs/tags/${version}.tar.gz"
-sha256 = "Skz6uMjvtiXaw34st/FxtTljycI4yAyYiqa6qr0Av3I="
-archive = "tar-gz"
+# The RELEASE zip, not the git tag archive. Easy!Appointments serves
+# `<page>.min.js` in production, and those are BUILD outputs — the tag
+# archive has none. The native recipe runs `npm ci && npm run build` and
+# asserts `assets/js/pages/booking.min.js` exists; nix-gen has no frontend
+# phase, so this variant served a 200 whose JavaScript all 404'd, with a
+# `contains = "Easy!Appointments"` validation passing over a dead UI.
+# The published zip ships the built assets.
+url = "https://github.com/alextselegidis/easyappointments/releases/download/${version}/easyappointments-${version}.zip"
+sha256 = "sha256-KHXnf9AZFn6mKzBKk6OaPApALmArZCqq8NH1x0kmW+E="
+archive = "zip"
 php-version = "php82"
 # `xml` is deliberately absent: the Nix PHP already provides it, and naming
 # it again makes every PHP invocation print a module-already-loaded warning

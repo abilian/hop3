@@ -25,7 +25,10 @@ go-vendor-hash = "sha256-OsKejno8QGg7HzRsrftngiWGiWHFc1jDLi5mQ9/NjI4="
 go-ldflags = ["-X code.vikunja.io/api/pkg/version.Version=${version}"]
 # Frontend: pnpm (Vue/Vite), embedded via go:embed into frontend/dist.
 go-frontend-pnpm = true
-go-pnpm-deps-hash = "sha256-D2dOyYsdsNV1ZSQdjpy6rfoix7yBACEHj/2XyHb7HWE="
+# Re-pinned after the vendored set resolved differently than the recorded
+# hash: nix reported `hash mismatch in fixed-output derivation`, which is
+# the pin doing its job. The value below is what pnpm actually produced.
+go-pnpm-deps-hash = "sha256-d4OkpJ6uuGSJyv5nql4rDZK/HGDAkZ+In9NCDCArqWE="
 go-frontend-build = "pnpm run build"
 go-frontend-output = "dist"
 go-frontend-source-root = "vikunja-${version}/frontend"
