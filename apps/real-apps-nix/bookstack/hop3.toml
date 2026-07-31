@@ -31,3 +31,11 @@ covers = ["php", "bookstack", "nix", "wiki", "laravel"]
 path = "/login"
 status = 200
 contains = "BookStack"
+
+# BookStack authenticates by EMAIL; `username` is only the display name, so a
+# credential reader handed both picks the username and is rejected.
+[admin]
+login = "email"
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }

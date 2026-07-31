@@ -33,6 +33,7 @@ from hop3.platform.certificates import (
     verify_cert,
     write_private_key,
 )
+from hop3.plugins.proxy._policy import should_redirect_to_https
 
 from ._templates import (
     HOP3_INTERNAL_NGINX_CACHE_MAPPING,
@@ -214,7 +215,14 @@ class NginxVirtualHost(BaseProxy):
             f" '{self.env['HOST_NAME']}'",
             level=2,
         )
-        if self.env.get_bool("NGINX_HTTPS_ONLY"):
+        # HTTPS-only by DEFAULT. An app that knows it is served over HTTPS (it
+        # is told so via HOP3_PUBLIC_URL / its own ROOT_URL) issues Secure
+        # session and CSRF cookies; a browser will not send those back over
+        # plain HTTP, so the app appears to run yet every login silently fails.
+        # Serving both schemes therefore hands the operator a broken door, and
+        # the redirect is the correct default. `[deploy].allow-http = true`
+        # opts out; the ACME challenge path stays on HTTP in both templates.
+        if should_redirect_to_https(self.env, "NGINX_HTTPS_ONLY"):
             buffer = expand_vars(NGINX_HTTPS_ONLY_TEMPLATE, self.env)
             log(
                 "nginx will redirect all requests to hostname(s)"
@@ -223,6 +231,13 @@ class NginxVirtualHost(BaseProxy):
             )
         else:
             buffer = expand_vars(NGINX_TEMPLATE, self.env)
+            log(
+                f"nginx will serve hostname(s) '{self.env['HOST_NAME']}' over "
+                "plain HTTP as well as HTTPS ([deploy].allow-http). An app "
+                "that sets Secure cookies will not accept logins over HTTP.",
+                level=2,
+                fg="yellow",
+            )
 
         # For static-only apps, remove the upstream block entirely
         # (static files are served directly without a backend)

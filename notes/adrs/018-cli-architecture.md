@@ -40,7 +40,7 @@ The current requirement is to develop an efficient and secure communication prot
 
 We will implement a JSON-RPC protocol over HTTPS for the communication between the CLI and the server. The server will handle all business logic and formatting, sending formatted instructions to the CLI, which will then present the results to the user. The server will use ad-hoc certificates to secure the communication. Additionally, we will implement support for streaming responses to handle real-time data needs such as log tailing and file downloads.
 
-Streaming is delivered via a companion Server-Sent Events channel (at `/api/apps/{app}/logs/stream` and at the deployment endpoint, [ADR 034](./034-streaming-deployment-logs.md)) rather than embedded in the JSON-RPC channel itself. The streaming channel is *complementary* to JSON-RPC rather than embedded in it: this sidesteps the complexity of bidirectional JSON-RPC over HTTP and lets each protocol do what it does best. In-band JSON-RPC streaming (`yield` messages inside an RPC response) is rejected in favor of the SSE-companion approach, which covers the motivating use cases (deploy logs, app logs) cleanly; it can be re-opened if a future use case (e.g., large interactive operations) cannot be expressed via SSE. Likewise, large file uploads use a direct HTTP upload endpoint rather than chunked RPC.
+Streaming is delivered via a companion Server-Sent Events channel (at `/api/apps/{app}/logs/stream` and at the deployment endpoint, [ADR 034](./034-streaming-deployment-logs.md)). The channel is *complementary* to JSON-RPC; keeping it separate avoids the complexity of bidirectional JSON-RPC over HTTP and lets each protocol do what it does best. The SSE-companion approach replaces in-band JSON-RPC streaming (`yield` messages inside an RPC response); it covers the motivating use cases (deploy logs, app logs) cleanly and can be re-opened if a future use case (e.g., large interactive operations) cannot be expressed via SSE. Likewise, large file uploads go through a direct HTTP upload endpoint, bypassing chunked RPC.
 
 ## Consequences
 
@@ -81,7 +81,7 @@ In a previous project (Nua), a "smart" CLI with embedded presentation logic prov
 
 ## Notes
 
-Additional considerations include ensuring that the server is both lightweight and scalable and can handle multiple simultaneous connections efficiently. Future enhancements may involve automating certificate renewal and exploring advanced security measures.
+The server must stay lightweight and handle multiple simultaneous connections efficiently. Future enhancements may involve automating certificate renewal and exploring advanced security measures.
 
 ## Appendix
 

@@ -10,7 +10,11 @@ import pytest
 
 from hop3.server.catalog import loader
 from hop3.server.catalog.loader import load_apps
-from hop3.server.catalog.policy import CatalogSpecError, validate_catalog_spec
+from hop3.server.catalog.policy import (
+    CatalogSpecError,
+    validate_catalog_app_files,
+    validate_catalog_spec,
+)
 
 
 def test_spec_without_domains_is_allowed():
@@ -73,3 +77,89 @@ def test_loader_excludes_violating_app_loudly(tmp_path):
 
     assert {a.id for a in apps} == {"good"}  # violator excluded
     assert any("hijacker" in r.getMessage() for r in records)  # surfaced, not silent
+
+
+# Buildability gate — a blueprint that cannot build must not ship
+
+
+def test_unpinned_requirements_are_rejected_at_publish(tmp_path):
+    """
+    Regression: the catalog shipped bugsink with `gunicorn>=21.0`.
+
+    The Python toolchain refuses unpinned requirements as unreproducible, so the
+    build aborted on the node — leaving an empty venv, `gunicorn: not found`,
+    and a generic start timeout. Catch it in the release, not in every install.
+    """
+    app_dir = tmp_path / "bugsink"
+    app_dir.mkdir()
+    (app_dir / "check.py").write_text("# smoke test\n")
+    (app_dir / "requirements.txt").write_text(
+        "bugsink==2.1.2\ngunicorn>=21.0\npsycopg2-binary>=2.9\n"
+    )
+
+    with pytest.raises(CatalogSpecError, match=r"unpinned requirements\.txt"):
+        validate_catalog_app_files(app_dir, "bugsink")
+
+
+def test_pinned_requirements_pass(tmp_path):
+    app_dir = tmp_path / "bugsink"
+    app_dir.mkdir()
+    (app_dir / "check.py").write_text("# smoke test\n")
+    (app_dir / "requirements.txt").write_text(
+        "bugsink==2.1.2\ngunicorn==25.1.0\npsycopg2-binary==2.9.12\n"
+    )
+
+    validate_catalog_app_files(app_dir, "bugsink")  # must not raise
+
+
+def test_app_without_requirements_is_not_gated(tmp_path):
+    """Non-Python blueprints (PHP, static, nix) have no requirements.txt."""
+    app_dir = tmp_path / "wordpress"
+    app_dir.mkdir()
+    (app_dir / "hop3.toml").write_text("[metadata]\nid = 'wordpress'\n")
+    (app_dir / "check.py").write_text("# smoke test\n")
+
+    validate_catalog_app_files(app_dir, "wordpress")  # must not raise
+
+
+def test_unpinned_requirements_generated_by_a_build_script_are_rejected(tmp_path):
+    """
+    A generated requirements.txt must be caught too.
+
+    Regression: radicale's download.sh wrote `radicale[bcrypt]` at build time,
+    so the file did not exist when the catalog was validated. The unpinned set
+    shipped and failed only on the node that installed it.
+    """
+    app_dir = tmp_path / "radicale"
+    (app_dir / "scripts").mkdir(parents=True)
+    (app_dir / "check.py").write_text("# smoke test\n")
+    (app_dir / "scripts" / "download.sh").write_text(
+        "#!/bin/bash\nmkdir -p collections\n"
+        "cat > requirements.txt << 'EOF'\nradicale[bcrypt]\nEOF\n"
+    )
+
+    with pytest.raises(CatalogSpecError, match="generates an unpinned"):
+        validate_catalog_app_files(app_dir, "radicale")
+
+
+def test_pinned_requirements_generated_by_a_build_script_pass(tmp_path):
+    app_dir = tmp_path / "radicale"
+    (app_dir / "scripts").mkdir(parents=True)
+    (app_dir / "check.py").write_text("# smoke test\n")
+    (app_dir / "scripts" / "download.sh").write_text(
+        "cat > requirements.txt << 'EOF'\nradicale[bcrypt]==3.2.3\nEOF\n"
+    )
+
+    validate_catalog_app_files(app_dir, "radicale")  # must not raise
+
+
+def test_build_script_without_requirements_heredoc_is_ignored(tmp_path):
+    """Ordinary build scripts must not be mistaken for dependency manifests."""
+    app_dir = tmp_path / "app"
+    (app_dir / "scripts").mkdir(parents=True)
+    (app_dir / "check.py").write_text("# smoke test\n")
+    (app_dir / "scripts" / "download.sh").write_text(
+        "#!/bin/bash\ncurl -fsSL https://example.com/x.tar.gz | tar xz\n"
+    )
+
+    validate_catalog_app_files(app_dir, "app")  # must not raise

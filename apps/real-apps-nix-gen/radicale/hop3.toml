@@ -19,13 +19,16 @@ runtime-package = "python3"
 exec-target = "radicale"
 exec-args = ['--config', 'config']
 extra-paths = ['$out/venv/bin']
-pre-exec = ['mkdir -p collections']
+# `touch users`: the accounts are written post-deploy by [admin]/[probe].create,
+# but Radicale reads htpasswd_filename at STARTUP and will not come up without
+# it — the app timed out on its health check with no file to open. An empty
+# htpasswd is the fail-safe state: valid config, zero accounts, everything
+# rejected. The create commands then add the two entries.
+pre-exec = ['mkdir -p collections', 'touch users']
 
 [nix.local-vars]
 PORT = "${PORT:-8080}"
 
-[nix.runtime-env]
-RADICALE_AUTH_TYPE = "none"
 
 [[nix.config-files]]
 path = "config"
@@ -35,8 +38,15 @@ raw-content = """
 [server]
 hosts = 0.0.0.0:${PORT}
 
+# htpasswd, NOT `${RADICALE_AUTH_TYPE:-none}`. That indirection defaulted to
+# `none`, and nothing ever set it otherwise — so every deployment served every
+# calendar and address book to anyone who asked, with no credential at all.
+# The smoke test caught it on the one assertion that could ("a WRONG password
+# returned 200, not 401"). There is no safe default here: auth is spelled out.
 [auth]
-type = ${RADICALE_AUTH_TYPE:-none}
+type = htpasswd
+htpasswd_filename = users
+htpasswd_encryption = bcrypt
 
 [storage]
 filesystem_folder = collections
@@ -53,3 +63,44 @@ covers = ["python", "radicale", "nix"]
 path = "/.web/"
 status = 200
 contains = "Radicale"
+
+[probe]
+username = "hop3probe"
+# Radicale reads accounts from an htpasswd file and ships no user CLI, so an
+# account IS a line in that file. Written create-if-absent, and verified.
+create = '''
+python3 -c "
+import bcrypt, os, pathlib, sys
+user, password = sys.argv[1], sys.argv[2]
+path = pathlib.Path('users')
+existing = path.read_text().splitlines() if path.exists() else []
+lines = [l for l in existing if not l.startswith(user + ':')]
+lines.append(user + ':' + bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode())
+path.write_text('\\n'.join(lines) + '\\n')
+" "$HOP3_PROBE_USER" "$HOP3_PROBE_PASSWORD"
+grep -q "^$HOP3_PROBE_USER:" users || {
+  echo "Radicale probe entry missing from the htpasswd file" >&2
+  exit 1
+}
+'''
+
+[admin]
+username = "admin"
+password = { generate = "password", length = 20 }
+# The admin's htpasswd entry. Without it the server has no accounts at all, and
+# with `type = none` above that meant open access rather than a locked door.
+create = '''
+python3 -c "
+import bcrypt, os, pathlib, sys
+user, password = sys.argv[1], sys.argv[2]
+path = pathlib.Path('users')
+existing = path.read_text().splitlines() if path.exists() else []
+lines = [l for l in existing if not l.startswith(user + ':')]
+lines.append(user + ':' + bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode())
+path.write_text('\\n'.join(lines) + '\\n')
+" "$HOP3_ADMIN_USER" "$HOP3_ADMIN_PASSWORD"
+grep -q "^$HOP3_ADMIN_USER:" users || {
+  echo "Radicale admin entry missing from the htpasswd file" >&2
+  exit 1
+}
+'''

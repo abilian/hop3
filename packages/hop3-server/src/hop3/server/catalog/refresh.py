@@ -17,7 +17,12 @@ from hop3.config import config
 
 from .keys import get_catalog_public_key
 from .service import CatalogService
-from .sync import CatalogSyncError, fetch_to, install_catalog_tarball
+from .sync import (
+    CatalogInstallResult,
+    CatalogSyncError,
+    fetch_to,
+    install_catalog_tarball,
+)
 
 _SIG_SUFFIX = ".minisig"
 
@@ -28,13 +33,15 @@ def refresh_catalog(
     public_key: str | None = None,
     catalog_root: Path | None = None,
     state_root: Path | None = None,
-) -> int:
+) -> CatalogInstallResult:
     """
-    Fetch, verify, publish, and load the latest catalog. Returns the serial.
+    Fetch, verify, publish, and load the latest catalog.
 
-    Raises ``CatalogSyncError`` / ``CatalogVerificationError`` on any failure,
-    leaving the currently published catalog untouched. Arguments default to the
-    configured values; they exist mainly for testing.
+    Returns the serial and whether anything changed — a source still offering
+    the installed serial is a no-op, not a failure. Raises ``CatalogSyncError``
+    / ``CatalogVerificationError`` on any real failure, leaving the currently
+    published catalog untouched. Arguments default to the configured values;
+    they exist mainly for testing.
     """
     url = source_url or config.CATALOG_SOURCE_URL
     key = public_key if public_key is not None else get_catalog_public_key()
@@ -53,9 +60,9 @@ def refresh_catalog(
         sigfile = Path(tmp) / ("catalog.tar.gz" + _SIG_SUFFIX)
         fetch_to(url, tarball)
         fetch_to(url + _SIG_SUFFIX, sigfile)
-        serial = install_catalog_tarball(
+        result = install_catalog_tarball(
             tarball, sigfile.read_text(), key, catalog_root, state_root
         )
 
     CatalogService.get_instance().reload()
-    return serial
+    return result

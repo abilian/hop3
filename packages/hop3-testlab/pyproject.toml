@@ -1,6 +1,6 @@
 [project]
 name = "hop3-testlab"
-version = "0.6.2"
+version = "0.7.0"
 description = "Hop3 Test Lab — web dashboard + scheduler for the nightly test suite (ADR 044)"
 readme = "README.md"
 license = "Apache-2.0"

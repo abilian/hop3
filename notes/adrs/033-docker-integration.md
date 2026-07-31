@@ -150,7 +150,7 @@ Internet ──▶ Port 80/443 ──▶ │ nginx/caddy │──▶ │   127.
                                     └─────────────────────────────────┘
 ```
 
-**Key insight**: The proxy doesn't care whether the backend is a uWSGI process, a static folder, or a Docker container. It only needs:
+The proxy does not care whether the backend is a uWSGI process, a static folder, or a Docker container. It only needs:
 1. A `HOST_NAME` to route requests
 2. A `BIND_ADDRESS:PORT` to forward to
 3. Standard environment configuration
@@ -268,8 +268,8 @@ This design leaves room for the following extensions:
 - Multi-container applications supported via user-supplied compose
 - Proxy integration uses same pattern as other deployers (consistency)
 - Works with any configured proxy (nginx, caddy, traefik)
-- **Simple deployment**: Just provide a Dockerfile, Hop3 generates compose file
-- Correct port binding ensured by generated compose file
+- A Dockerfile is all that is needed; Hop3 generates the compose file
+- Correct port binding ensured by the generated compose file
 
 ### Negative
 

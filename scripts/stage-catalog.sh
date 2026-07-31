@@ -85,14 +85,22 @@ from hop3.config import config
 from hop3.server.catalog.sync import install_catalog_tarball
 
 d = Path(sys.argv[1])
-serial = install_catalog_tarball(
+result = install_catalog_tarball(
     d / "catalog.tar.gz",
     (d / "catalog.tar.gz.minisig").read_text(),
     (d / "catalog.pub").read_text(),
     config.CATALOG_ROOT,
     config.CATALOG_STATE_ROOT,
 )
-print(f"installed catalog serial {serial} at {config.CATALOG_ROOT}")
+if result.changed:
+    print(f"installed catalog serial {result.serial} at {config.CATALOG_ROOT}")
+else:
+    # Re-publishing without bumping the serial: nothing to install, and nothing
+    # wrong -- but say so, or the loop looks like it worked when it did nothing.
+    print(
+        f"catalog serial {result.serial} was already installed -- nothing changed. "
+        "Re-run `publish` (its serial is the current time, so it will increase)."
+    )
 PY
 chown hop3:hop3 /tmp/hop3-sideload.py
 su - hop3 -c "set -a; . /etc/default/hop3 2>/dev/null; /home/hop3/venv/bin/python /tmp/hop3-sideload.py '$remote_dir'"

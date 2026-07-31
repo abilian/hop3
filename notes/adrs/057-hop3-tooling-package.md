@@ -7,11 +7,11 @@
 
 ## Context
 
-Hop3 accumulates tooling that no shipped package owns: automation a *maintainer* runs to develop, release, and operate the platform and its catalog. Consider the recurring jobs: checking a catalog copy against its tested source, promoting a tested recipe into the catalog, installing every catalog app on a clean box and verifying it works, bumping versions, probing a box's infrastructure, reading an app's generated credentials over SSH. None of these belongs to the platform, the client, the installer, or the test framework, yet all are real, reused work.
+Hop3 accumulates tooling that no shipped package owns: automation a *maintainer* runs to develop, release, and operate the platform and its catalog. Consider the recurring jobs: checking a catalog copy against its tested source, promoting a tested recipe into the catalog, installing every catalog app on a clean box and verifying it works, bumping versions, probing a box's infrastructure, reading an app's generated credentials over SSH. None of these belongs to the platform, the client, the installer, or the test framework, yet all are recurring, reused work.
 
 Today this tooling lives as ad-hoc files under the repo-root `scripts/` directory. That directory has grown into a broad mix (Python and shell, checks and generators and deploy helpers) with structural problems that compound as it grows:
 
-- **No discovery.** A tool is useful only if you already know its filename exists. There is no `--help`, no index, no "what can I run here."
+- **No discovery.** A tool is useful only to a maintainer who already knows its filename exists. There is no `--help`, no index, no "what can I run here."
 - **No contract.** Scripts vary in argument style, exit-code discipline, and output. Some are `set -e` shell, some argparse Python, some neither.
 - **No tests.** A 500-line script like `verify-security-batch.py`, which SSHes to a box, drives `hop3 catalog install`, and asserts security properties, has no test and no way to acquire one in place.
 - **No shared library.** Every script re-implements the same primitives: shell out to the `hop3` CLI, parse `hop3 app credentials`, SSH to a box, talk to a staged catalog. The logic drifts between copies.

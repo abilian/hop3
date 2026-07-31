@@ -10,7 +10,12 @@ url = "https://download.nextcloud.com/server/releases/nextcloud-${version}.tar.b
 sha256 = "3jTWuvPszqz90TjoVSDNheHSzmeY2f+keKwX6x76HQg="
 archive = "tar-bz2"
 php-version = "php82"
-php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'intl', 'bcmath', 'gmp', 'exif', 'apcu', 'opcache', 'fileinfo']
+# `xml` is deliberately absent: the Nix PHP already provides it, and naming
+# it again makes every PHP invocation print a module-already-loaded warning
+# on STDOUT. Harmless until something reads that stdout, which nextcloud's
+# install check does -- it was handed that warning instead of the database
+# type and refused a correct install.
+php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'mbstring', 'curl', 'zip', 'intl', 'bcmath', 'gmp', 'exif', 'apcu', 'opcache', 'fileinfo']
 post-install-dirs = ['data', 'config']
 extra-paths = ['${php}/bin']
 
@@ -53,3 +58,25 @@ covers = ["php", "nextcloud", "nix", "file-sharing", "collaboration"]
 path = "/status.php"
 status = 200
 contains = '"installed":true'
+
+# The native bootstrap, ported unchanged.
+[run]
+before-run = "bash scripts/setup-config.sh"
+
+# The app reads these at first start; map the generated credential on.
+[env.computed]
+NEXTCLOUD_ADMIN_USER = "${HOP3_ADMIN_USER}"
+NEXTCLOUD_ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD}"
+
+[probe]
+username = "hop3probe"
+create = '''
+if ! php occ user:list --output=json | grep -q "\"$HOP3_PROBE_USER\""; then
+  OC_PASS="$HOP3_PROBE_PASSWORD" php occ user:add --password-from-env \
+    --display-name="Hop3 probe" "$HOP3_PROBE_USER"
+fi
+php occ user:list --output=json | grep -q "\"$HOP3_PROBE_USER\"" || {
+  echo "Nextcloud probe account missing after user:add" >&2
+  exit 1
+}
+'''

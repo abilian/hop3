@@ -23,6 +23,7 @@ from .completion_cmd import handle_completion
 from .context_cmd import handle_context
 from .init_cmd import handle_init
 from .login_cmd import handle_login, handle_login_token, handle_logout
+from .scaffold_cmd import handle_scaffold
 from .settings_cmd import handle_settings, settings_get, settings_set, settings_show
 from .ssh_ops import BootstrapError, extract_token, infer_server_url
 from .tunnel_cmd import handle_tunnel
@@ -47,6 +48,7 @@ __all__ = [
     "handle_login",
     "handle_login_token",
     "handle_logout",
+    "handle_scaffold",
     "handle_settings",
     "handle_tunnel",
     "handle_use",
@@ -67,6 +69,7 @@ LOCAL_COMMANDS_INFO = {
     "init": "Initialize connection to a Hop3 server via SSH.",
     "login": "Authenticate to a server (alias of `auth login`).",
     "logout": "Log out and clear the local token (alias of `auth logout`).",
+    "scaffold": "Write a starter hop3.toml for the project in this directory.",
     "settings": "Manage local CLI settings (server URL, token, SSL).",
     "tunnel": "Open a local SSH tunnel to a remote addon.",
     "use": "Pin / show / clear the app for the current directory.",
@@ -122,6 +125,7 @@ _LOCAL_HANDLERS = {
     "init": handle_init,
     "login": handle_login,
     "logout": handle_logout,
+    "scaffold": handle_scaffold,
     "settings": handle_settings,
     "aliases": handle_aliases,
     "tunnel": handle_tunnel,

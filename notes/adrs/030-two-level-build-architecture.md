@@ -272,7 +272,7 @@ artifact = builder.build()
 
 ⚠️ **Renaming and restructuring**: The original language-specific `*Builder` classes become `*Toolchain`, and the original `Builder` ABC becomes `LanguageToolchain`.
 
-⚠️ **Complexity**: Two protocols instead of one
+⚠️ **Complexity**: Two protocols
 - Requires clear documentation
 - Plugin authors need to understand the distinction
 

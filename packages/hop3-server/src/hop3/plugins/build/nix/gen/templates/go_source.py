@@ -262,6 +262,16 @@ let
     doCheck = false;
   }};
 
+  # The application itself, under the name every template exposes.
+  #
+  # `app` below is the WRAPPER derivation: its bin holds a generated script that
+  # execs one fixed subcommand, so it is useless for anything else. An app's own
+  # CLI lives here — and a recipe needs it, because [admin].create runs with the
+  # runtime PATH and has no other way to reach the binary. gitea-nixgen's
+  # bootstrap failed with `gitea: not found` while the binary sat in this
+  # derivation, one store path away and not on PATH.
+  pkg = goApp;
+
   app = pkgs.stdenv.mkDerivation {{
     pname = "{spec.pname}";
     inherit version;

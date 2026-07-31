@@ -54,10 +54,14 @@ class CatalogRefreshCmd(Command):
 
     def call(self, *args: str, **kwargs: object) -> list:
         try:
-            serial = refresh_catalog()
+            result = refresh_catalog()
         except (CatalogSyncError, CatalogVerificationError) as e:
             return [error(f"Catalog refresh failed: {e}")]
-        return [text(f"Catalog refreshed to serial {serial}.")]
+        if not result.changed:
+            # Routine: the source has not re-published since the last refresh.
+            # Nothing failed, so this is plain output, not an error.
+            return [text(f"Catalog is up to date (serial {result.serial}).")]
+        return [text(f"Catalog refreshed to serial {result.serial}.")]
 
 
 @register

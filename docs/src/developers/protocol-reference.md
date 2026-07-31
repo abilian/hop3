@@ -18,8 +18,6 @@ All protocols are defined in `hop3/core/protocols.py` using Python's PEP 544 Pro
   - [BaseProxy](#baseproxy)
   - [OS](#os)
 
----
-
 ## Data Structures
 
 ### DeploymentContext
@@ -51,8 +49,6 @@ context = DeploymentContext(
 ```
 
 **Validation**: The `source_path` must be a directory (validated in `__post_init__`).
-
----
 
 ### BuildArtifact
 
@@ -87,8 +83,6 @@ artifact = BuildArtifact(
 )
 ```
 
----
-
 ### DeploymentInfo
 
 **Location**: `hop3.core.protocols.DeploymentInfo`
@@ -121,8 +115,6 @@ info = DeploymentInfo(
     port=None
 )
 ```
-
----
 
 ## Strategy Protocols
 
@@ -196,8 +188,6 @@ def build(self) -> BuildArtifact:
 **Complete Example**:
 
 See `packages/hop3-server/src/hop3/toolchains/python.py` for the canonical Python toolchain implementation.
-
----
 
 ### Deployer
 
@@ -345,8 +335,6 @@ These methods may be provided for additional functionality:
 **Complete Example**:
 
 See `packages/hop3-server/src/hop3/plugins/docker/deployer.py` for the Docker Compose implementation.
-
----
 
 ### Addon
 
@@ -527,8 +515,6 @@ def info(self) -> dict[str, Any]:
 
 See `packages/hop3-server/src/hop3/plugins/postgresql/postgres.py` for the PostgreSQL addon implementation.
 
----
-
 ### Proxy
 
 **Location**: `hop3.core.protocols.Proxy`
@@ -550,8 +536,6 @@ See `packages/hop3-server/src/hop3/plugins/postgresql/postgres.py` for the Postg
 #### `setup() -> None`
 
 Configure the proxy for this application.
-
----
 
 ### BaseProxy
 
@@ -730,8 +714,6 @@ static_paths = self.get_static_paths()
 
 See `packages/hop3-server/src/hop3/plugins/proxy/nginx/_setup.py` for the Nginx implementation.
 
----
-
 ### OS
 
 **Location**: `hop3.core.protocols.OS`
@@ -862,8 +844,6 @@ def ensure_user(self, user, home, shell, group):
 
 See `packages/hop3-server/src/hop3/plugins/oses/debian_family.py` for the Debian/Ubuntu implementation.
 
----
-
 ## Protocol Compliance Checklist
 
 When implementing a strategy, use this checklist to ensure protocol compliance:
@@ -916,8 +896,6 @@ When implementing a strategy, use this checklist to ensure protocol compliance:
 - [ ] `setup_server()` is idempotent
 - [ ] `ensure_packages()` handles update parameter
 - [ ] `ensure_user()` is idempotent
-
----
 
 ## See Also
 

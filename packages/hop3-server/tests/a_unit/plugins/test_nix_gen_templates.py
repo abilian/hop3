@@ -1475,3 +1475,163 @@ class TestGoSourceExecTargetCheck:
         )
         spec = app_spec_from_config(config["nix"], config["metadata"], "forgejo")
         assert spec.exec_target == "forgejo.org"
+
+
+def test_nixpkgs_wrapper_exposes_a_binding_that_does_not_move():
+    """
+    A recipe must be able to name the wrapped package without knowing the app id.
+
+    The package's own let-binding is `pname` with dashes turned into
+    underscores, so it renames whenever the app does. keycloak-nixgen and
+    mattermost-nixgen were both made by copying a recipe and renaming the app,
+    and both kept `${keycloak}` / `${mattermost}` in `extra-paths` — names that
+    no longer existed. Nix failed them at BUILD time with a bare
+    `undefined variable 'keycloak'`, pointing at a generated line the recipe
+    author never wrote, after a 200-second deploy.
+    """
+    spec = AppSpec(
+        pname="keycloak-nixgen",
+        version="",
+        description="t",
+        exec_target="kc.sh",
+        source=Source(url="x", sha256="x"),
+        payload=NixpkgsWrapperPayload(package="keycloak"),
+    )
+    output = generate(spec)
+
+    assert "keycloak_nixgen = pkgs.keycloak;" in output, "the derived binding"
+    assert "pkg = keycloak_nixgen;" in output, (
+        "and a stable alias, so a recipe never has to spell the derived one"
+    )
+
+
+def test_the_stable_binding_survives_renaming_the_app():
+    """`pkg` is the point: it is the same name whatever the app is called."""
+    outputs = [
+        generate(
+            AppSpec(
+                pname=pname,
+                version="",
+                description="t",
+                exec_target="kc.sh",
+                source=Source(url="x", sha256="x"),
+                payload=NixpkgsWrapperPayload(package="keycloak"),
+            )
+        )
+        for pname in ("keycloak", "keycloak-nixgen", "keycloak-experiment-3")
+    ]
+
+    assert all("pkg = " in out for out in outputs)
+
+
+def test_go_source_exposes_the_app_binary_as_pkg():
+    """
+    `pkg` means the same thing in every template: the application itself.
+
+    The wrapper derivation's bin holds a generated script that execs one fixed
+    subcommand, so `[admin].create` cannot use it to run `admin user create`.
+    gitea-nixgen failed with `gitea: not found` while its binary sat in the
+    inner derivation, one store path away and absent from the runtime PATH.
+    """
+    spec = AppSpec(
+        pname="gitea-nixgen",
+        version="1.22.6",
+        description="t",
+        exec_target="gitea",
+        exec_args=["web"],
+        source=Source(url="https://example/x.tar.gz", sha256="x", archive="tar-gz"),
+        payload=GoSourcePayload(vendor_hash="sha256-x"),
+    )
+    output = generate(spec)
+
+    assert "pkg = goApp;" in output, (
+        "a recipe must be able to put the app's own bin on PATH via ${pkg}/bin"
+    )
+
+
+def test_nix_runtime_libs_reach_the_runtime_env_not_just_the_wrapper():
+    """
+    Anything that runs the app's own code needs its shared libraries.
+
+    `nix-runtime-libs` became one `export LD_LIBRARY_PATH=` inside the generated
+    wrapper, which covers the app process and nothing else. `[run] before-run`
+    and `[admin]/[probe].create` execute directly, so they got a venv whose C
+    extensions could not load: bugsink's `migrate` died with
+    `ImproperlyConfigured: Error loading psycopg2 or psycopg module` while the
+    identical code worked once the wrapper started it.
+    """
+    spec = AppSpec(
+        pname="bugsink-nixgen",
+        version="2.1.2",
+        description="t",
+        exec_target="gunicorn",
+        source=Source(url="https://example/x.tar.gz", sha256="x", archive="tar-gz"),
+        payload=PythonVenvPayload(
+            requirements="requirements.txt", deps_hash="sha256-x"
+        ),
+        nix_runtime_libs=["postgresql.lib", "krb5.lib"],
+    )
+
+    assert spec.runtime_env["LD_LIBRARY_PATH"] == (
+        "${pkgs.postgresql.lib}/lib:${pkgs.krb5.lib}/lib"
+    ), "the libraries must be declared in the runtime env, which runtime.json carries"
+
+    output = generate(spec)
+    assert output.count("LD_LIBRARY_PATH") >= 2, (
+        "both the wrapper export and the runtime env should carry it"
+    )
+
+
+def test_an_explicit_runtime_ld_library_path_is_not_overwritten():
+    """A recipe that sets it deliberately keeps its own value."""
+    spec = AppSpec(
+        pname="x",
+        version="1",
+        description="t",
+        exec_target="x",
+        source=Source(url="https://example/x.tar.gz", sha256="x", archive="tar-gz"),
+        payload=PythonVenvPayload(requirements="requirements.txt"),
+        nix_runtime_libs=["postgresql.lib"],
+        runtime_env={"LD_LIBRARY_PATH": "/hand/written"},
+    )
+
+    assert spec.runtime_env["LD_LIBRARY_PATH"] == "/hand/written"
+
+
+def test_a_composer_app_shipped_as_a_zip_can_unpack_it():
+    """
+    buildComposerProject does its own unpack, so unzip must be in ITS inputs.
+
+    Putting it only on the wrapping derivation — which sets `dontUnpack` — left
+    nix answering `do not know how to unpack source archive`. A release zip is
+    exactly what you want to package when the git tag lacks built assets, which
+    is why easy-appointments needed one.
+    """
+    spec = AppSpec(
+        pname="easy-appointments",
+        version="1.5.0",
+        description="t",
+        exec_target="index.php",
+        source=Source(url="https://example/app.zip", sha256="x", archive="zip"),
+        payload=PhpAppPayload(needs_composer=True, composer_deps_hash="sha256-x"),
+    )
+    output = generate(spec)
+
+    composer = output[output.index("buildComposerProject") : output.index("vendorHash")]
+    assert "pkgs.unzip" in composer, "the composer build cannot unpack its own source"
+
+
+def test_a_composer_app_from_a_tarball_gains_no_unzip():
+    """Only add the tool when the archive actually needs it."""
+    spec = AppSpec(
+        pname="x",
+        version="1",
+        description="t",
+        exec_target="index.php",
+        source=Source(url="https://example/app.tar.gz", sha256="x", archive="tar-gz"),
+        payload=PhpAppPayload(needs_composer=True, composer_deps_hash="sha256-x"),
+    )
+    output = generate(spec)
+
+    composer = output[output.index("buildComposerProject") : output.index("vendorHash")]
+    assert "unzip" not in composer

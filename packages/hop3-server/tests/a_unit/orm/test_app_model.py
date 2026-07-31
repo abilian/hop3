@@ -570,3 +570,36 @@ class TestRuntimeEnv:
         app.update_runtime_env(Env({"A": "1", "B": "2"}))
         app.update_runtime_env(Env({"C": "3"}))
         assert dict(app.get_runtime_env()) == {"C": "3"}
+
+
+# start() refuses an app that never built (regression)
+
+
+def test_start_refuses_an_app_that_never_deployed():
+    """
+    Starting a never-built app must fail loud with the real reason.
+
+    Regression: a catalog install whose build failed ("unpinned requirements")
+    could still be started; the empty venv then produced `gunicorn: not found`
+    and a generic "Failed to start within 60s", burying the build failure that
+    was the actual cause.
+    """
+    app = App(name="never-built")
+    assert app.last_deployed_at is None
+
+    with pytest.raises(StateTransitionError, match="never deployed successfully"):
+        app.start()
+
+    # The doomed spawn must not have happened, so no state change either.
+    assert app.run_state != AppStateEnum.STARTING
+
+
+def test_start_error_points_at_the_build_log():
+    """The message must name the command that shows why the build failed."""
+    app = App(name="never-built-2")
+
+    with pytest.raises(StateTransitionError) as exc_info:
+        app.start()
+
+    assert "build-logs" in str(exc_info.value)
+    assert "never-built-2" in str(exc_info.value)

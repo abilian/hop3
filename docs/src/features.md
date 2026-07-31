@@ -104,8 +104,6 @@ Browser-based management interface:
 - System health monitoring
 - User authentication
 
----
-
 ## Application Configuration
 
 ### hop3.toml
@@ -131,8 +129,6 @@ type = "postgres"
 ```
 
 See the [Configuration Reference](reference/config.md) for full documentation.
-
----
 
 ## Infrastructure
 
@@ -164,8 +160,6 @@ Extensible via plugins:
 - **Proxies**: Nginx (default), Caddy, Traefik
 - **Addons**: PostgreSQL, MySQL, Redis, S3/MinIO
 
----
-
 ## Security
 
 ### Authentication
@@ -193,8 +187,6 @@ Extensible via plugins:
 - Blocks SQLi / XSS / RCE / path-traversal before requests reach the app
 - Positive-model access lists and network-gated paths, configured via `[waf]` in `hop3.toml`
 - Auto-bans repeat offenders (reconciled in-process); fails closed if the proxy is down
-
----
 
 ## Operational Features
 
@@ -225,8 +217,6 @@ hop3 app logs --app myapp
 hop3 system logs
 ```
 
----
-
 ## Roadmap Features
 
 The following features are planned for future releases:
@@ -237,8 +227,6 @@ The following features are planned for future releases:
 | Web terminal | Planned |
 | LDAP/SSO integration | Planned |
 | Advanced monitoring | Planned |
-
----
 
 ## Comparison
 

@@ -19,7 +19,7 @@ Hop3 ships five command-line entry points, built with three unrelated argument p
 
 The same handful of concepts (*which server, where to install from, which optional services, how loud, machine-readable?*) recur in every one of these tools, and each tool spells them differently. A developer who runs `hop3`, `hop3-deploy`, and `hop3-test` in a single session, or an operator who runs `hop3-install` then `hop3`, has to relearn the flags each time. We are about to advertise a curated set of working apps; the tools that deploy and test them are part of that surface.
 
-### What is inconsistent
+### The inconsistencies
 
 The following are all *present in the code today* (surveyed flag-by-flag).
 
@@ -39,7 +39,7 @@ The following are all *present in the code today* (surveyed flag-by-flag).
 
 **Two commands one keystroke apart mean opposite things.** `hop3 deploy` (the client verb) deploys an **app** to a running server; `hop3-deploy` (the installer tool) deploys the **server itself** (the whole platform) onto a machine. The names are a hyphen apart and read as synonyms, but they operate at opposite levels; a developer reaching for one trivially invokes the other.
 
-### What is already right (and anchors this)
+### The model this extends
 
 The main `hop3` CLI is coherent, and ADRs 042 and 047 already decided its model: the **context is the server** (one selector, `--context`), host/user are derived from a literal `ssh://` address rather than passed as flags, **`--app` is always a flag never a positional**, verbosity stacks, and `--json` / `--yes` / `--force` mean one thing each. `hop3-test`'s `--deploy-from {local,git,pypi,none}` is the one good expression of install-source in the tree. This ADR does not invent a new style; it names the existing good one and extends it outward.
 
@@ -118,37 +118,19 @@ One env var per concept, named `HOP3_<FLAG>` for `--flag`, replacing the `HOP3_P
 
 ### D8. Enforcement: one lexicon, per-tool definitions, drift caught at the seams
 
-There is **no single arg-spec module imported by every tool.** `hop3-testing`
-depends on `hop3-installer` only to run the shipped `hop3-deploy-server` binary
-as a subprocess: it deliberately imports none of the installer's code, so it
-exercises the same binary a user would; a shared Python module would couple the
-two against that grain, and the installer must stay stdlib-only regardless (it is
-bundled into the `curl … | python3` one-liner and runs before any dependency
-exists). Instead, **this document's lexicon is the source of truth for the
-names**, and each tool defines its own options to match it:
+There is **no single arg-spec module imported by every tool.** `hop3-testing` depends on `hop3-installer` only to run the shipped `hop3-deploy-server` binary as a subprocess: it deliberately imports none of the installer's code, so it exercises the same binary a user would; a shared Python module would couple the two against that grain, and the installer must stay stdlib-only regardless (it is bundled into the `curl … | python3` one-liner and runs before any dependency exists). Instead, **this document's lexicon is the source of truth for the names**, and each tool defines its own options to match it:
 
-- `hop3-installer` (both `hop3-deploy-server` and `hop3-install`) keeps argparse
-  and stays stdlib-only. Its two tools live in one package, so they share one
-  small stdlib module for the migration mechanics (deprecation aliases) and the
-  lexicon constants.
-- `hop3-test` keeps Click and defines matching options with its own small alias
-  helper; it does not import the installer's definitions.
+- `hop3-installer` (both `hop3-deploy-server` and `hop3-install`) keeps argparse and stays stdlib-only. Its two tools live in one package, so they share one small stdlib module for the migration mechanics (deprecation aliases) and the lexicon constants.
+- `hop3-test` keeps Click and defines matching options with its own small alias helper; it does not import the installer's definitions.
 - The main `hop3` CLI is the source of the vocabulary; it already conforms.
 
-Drift between the tools is caught not by a shared module but by **contract tests
-at the coupling seams**: chiefly the Test Lab ↔ engine contract, which pins the
-exact flags the Lab passes to `hop3-test`. Documentation (help strings,
-CLAUDE.md, `docs/`) is checked against the lexicon so phantom commands and stale
-feature lists can't recur.
+**Contract tests at the coupling seams** catch drift between the tools: chiefly the Test Lab ↔ engine contract, which pins the exact flags the Lab passes to `hop3-test`. Documentation (help strings, CLAUDE.md, `docs/`) is checked against the lexicon so phantom commands and stale feature lists can't recur.
 
-`hop3-install` keeps its current subcommand dispatch rather than moving to
-argparse subparsers: `prog` reading `install-server.py` is *correct* for the
-bundled standalone (`curl | python3` runs a file of that name). Where the
-`hop3-install server --help` program name matters, set `prog` explicitly.
+`hop3-install` keeps its current subcommand dispatch rather than moving to argparse subparsers: `prog` reading `install-server.py` is *correct* for the bundled standalone (`curl | python3` runs a file of that name). Where the `hop3-install server --help` program name matters, set `prog` explicitly.
 
 ### D9. `hop3-test`: one `run`, with cardinality as a flag: not a `system`/`cloud`/`matrix` split
 
-`system` and `cloud` are not fundamentally different commands. Both deploy Hop3 and run the identical app/demo/tutorial catalog through the same core (`cli.runners.run_single_test` → the three runners → `DeploymentSession`, over a `RemoteTarget`). `cloud` adds exactly two things over `system --host`: it OS-rebuilds a *dedicated, operator-supplied* Hetzner server before testing (via `servers.rebuild` (it never creates or destroys the machine), and it can sweep a list of OS images serially on that one server. So the axes that actually matter are the **target** (docker / SSH host / managed cloud server) and the **cardinality** (one target vs an OS-image sweep)) not "local vs cloud."
+`system` and `cloud` are not fundamentally different commands. Both deploy Hop3 and run the identical app/demo/tutorial catalog through the same core (`cli.runners.run_single_test` → the three runners → `DeploymentSession`, over a `RemoteTarget`). `cloud` adds exactly two things over `system --host`: it OS-rebuilds a *dedicated, operator-supplied* Hetzner server before testing (via `servers.rebuild`; it never creates or destroys the machine), and it can sweep a list of OS images serially on that one server. So the axes that actually matter are the **target** (docker / SSH host / managed cloud server) and the **cardinality** (one target vs an OS-image sweep).
 
 There is **one command, `hop3-test run`**, and both axes are expressed as *flags* on it: cardinality does not warrant a second command:
 

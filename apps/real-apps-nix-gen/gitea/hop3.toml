@@ -34,9 +34,18 @@ go-frontend-build = "BROWSERSLIST_IGNORE_OLD_DATA=true npx webpack"
 # the built frontend left options/locale absent, and gitea died at boot —
 # "translation is missing for task update_mirrors" — crash-looping under uwsgi
 # rather than timing out. options/ is a source asset, so it is copied in.
-go-static-dirs = ["options"]
+# `templates` as well as `options`: both are SOURCE assets resolved under
+# STATIC_ROOT_PATH, and shipping only `options` left gitea unable to render
+# any page — "the template system is broken, or Gitea can't find your
+# template files" — on a build that otherwise succeeded.
+go-static-dirs = ["options", "templates"]
 go-npm-deps-hash = "sha256-7kYGFJffP7Mu4+tWlcLTb7eBibgpwEis2zQYMWCI7dw="
 pre-exec = ['mkdir -p custom/conf data']
+# The app's OWN bin, so [admin].create can reach its CLI. `$out/bin` (always
+# on the runtime path) holds only the generated wrapper, which execs
+# `gitea web` and nothing else — the bootstrap failed with `gitea: not found`
+# while the binary sat in this derivation, one store path away.
+extra-paths = ['${pkg}/bin']
 
 [nix.local-vars]
 PORT = "${PORT:-8080}"
@@ -45,6 +54,7 @@ DB_PORT = "${PGPORT:-5432}"
 DB_NAME = "${PGDATABASE:-gitea}"
 DB_USER = "${PGUSER:-gitea}"
 DB_PASS = "${PGPASSWORD:-}"
+
 
 [nix.env-exports]
 GITEA_WORK_DIR = "$PWD"
@@ -67,12 +77,37 @@ USER = "${DB_USER}"
 PASSWD = "${DB_PASS}"
 [nix.config-files.sections.repository]
 ROOT = "data/gitea-repositories"
+# Disable open registration so a stranger cannot seize the first-admin slot.
+# Hop3 provisions the intended admin via [admin].create. The sign-in bar does
+# NOT catch this — an app with open registration signs in perfectly — which is
+# why it shipped in every Nix variant while the native recipes had it all along.
+[nix.config-files.sections.service]
+DISABLE_REGISTRATION = "true"
+
 [nix.config-files.sections.log]
 MODE = "console"
 LEVEL = "Info"
 [nix.config-files.sections.security]
 INSTALL_LOCK = "true"
-SECRET_KEY = "$(head -c 32 /dev/urandom | base64)"
+# Hop3's generated-once secrets, NOT minted here. The config file is rewritten
+# on every start (no create-if-missing) and the heredoc marker is unquoted, so
+# `$(head -c 32 /dev/urandom | base64)` re-evaluated on every restart: SECRET_KEY
+# encrypts 2FA secrets and stored credentials, JWT_SECRET signs OAuth2 grants,
+# INTERNAL_TOKEN authenticates git hooks to the web process. Rotating them turns
+# 2FA and encrypted data undecryptable, invalidates every token, and breaks
+# internal auth — silently, on a restart nobody connected to it.
+SECRET_KEY = "${SECRET_KEY}"
+INTERNAL_TOKEN = "${INTERNAL_TOKEN}"
+JWT_SECRET = "${JWT_SECRET}"
+
+# Stable security secrets (ADR 046): generated once on first deploy and
+# re-injected unchanged on every redeploy, so they survive the source tree
+# being replaced. See the [nix.config-files] security section for what each
+# one protects and what rotating it destroys.
+[env]
+SECRET_KEY = { generate = "base64" }
+INTERNAL_TOKEN = { generate = "hex" }
+JWT_SECRET = { generate = "urlsafe" }
 
 [[addons]]
 type = "postgres"
@@ -91,3 +126,61 @@ covers = ["golang", "nix", "postgres"]
 path = "/"
 status = 200
 contains = "Gitea"
+
+[probe]
+username = "hop3probe"
+email = "probe@hop3.invalid"
+create = '''
+if ! gitea admin user list 2>/dev/null | awk '{print $2}' | grep -qx "$HOP3_PROBE_USER"; then
+  gitea admin user create --username "$HOP3_PROBE_USER" \
+    --email "$HOP3_PROBE_EMAIL" --password "$HOP3_PROBE_PASSWORD" \
+    --must-change-password=false
+fi
+gitea admin user list 2>/dev/null | awk '{print $2}' | grep -qx "$HOP3_PROBE_USER" || {
+  echo "Gitea probe account missing after create (its CLI exits 0 on refusal)" >&2
+  exit 1
+}
+'''
+
+[admin]
+# Gitea creates no admin and (by default) allows open registration, so the
+# first visitor becomes site admin. Provision the intended admin instead:
+# generate the password once, then create the account via the CLI post-deploy.
+# The username is NOT "admin": Gitea reserves that name (CreateUser rejects it),
+# and worse, `admin user create` prints the rejection but STILL EXITS 0 — a
+# fake success that would leave the app with no admin. Use a non-reserved name
+# and verify the account really exists afterwards.
+username = "hop3admin"
+email = "operator"
+password = { generate = "password", length = 20 }
+# Runs once, post-deploy, in src/ (DB migrated by then) with HOP3_ADMIN_* in
+# env. Idempotent (skip if the user already exists) and fail-loud: missing creds
+# abort via ${VAR:?}, and — because Gitea's create can exit 0 on error — a final
+# presence check fails the deploy if the account wasn't actually created.
+# --must-change-password=false lets the operator log in with the generated
+# password directly. -c points every subcommand at the DB config in
+# custom/conf/app.ini. The presence check matches the Username column exactly
+# (awk $2 + grep -Fxq), so it can't false-match an address in the Email column.
+# NOT `./gitea`: this command runs in the app's SOURCE directory, while the
+# binary lives in the read-only Nix store. `$out/bin` is first on the runtime
+# PATH (nix-gen always puts it there), so the plain name resolves; the `./`
+# was carried over from the native recipe, where the binary sits in the tree
+# beside the command. It failed with `sh: ./gitea: not found` after a 200-second
+# build, and the deploy correctly refused to leave an app with no admin.
+create = '''
+set -e
+ADMIN_USER="${HOP3_ADMIN_USER:?admin user not injected}"
+ADMIN_EMAIL="${HOP3_ADMIN_EMAIL:?admin email not injected}"
+ADMIN_PASSWORD="${HOP3_ADMIN_PASSWORD:?admin password not injected}"
+export GITEA_WORK_DIR="$(pwd)"
+conf="custom/conf/app.ini"
+present() { gitea admin user list -c "$conf" | awk 'NR>1{print $2}' | grep -Fxq "$ADMIN_USER"; }
+if present; then
+  echo "Gitea admin already exists: $ADMIN_USER"
+else
+  gitea admin user create --admin --username "$ADMIN_USER" \
+    --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" \
+    --must-change-password=false -c "$conf"
+fi
+present || { echo "ERROR: Gitea admin '$ADMIN_USER' was not created" >&2; exit 1; }
+'''

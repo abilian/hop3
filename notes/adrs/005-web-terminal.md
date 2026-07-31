@@ -10,7 +10,7 @@ The web terminal is an operator convenience for cases where SSH is inconvenient 
 
 ## Context
 
-Users need the ability to access terminal/shell access to their deployed applications directly through the web interface for debugging, troubleshooting, and operational tasks. Currently, users must:
+Users need shell access to their deployed applications directly through the web interface for troubleshooting and operational tasks. Currently, users must:
 - SSH into the server
 - Navigate to the app directory
 - Manually set up the environment

@@ -7,7 +7,7 @@
 
 ## Context
 
-Currently, Hop3 uses a simple "stop-then-deploy" approach for redeployments: when deploying a new version of a running application, it stops the old version, builds and deploys the new version, then starts it. This approach has significant limitations:
+Currently, Hop3 uses a simple "stop-then-deploy" approach for redeployments: when deploying a new version of a running application, it stops the old version, builds and deploys the new version, then starts it. This approach has limitations:
 
 1. **Downtime**: The application is unavailable during the entire build and deploy process
 2. **No rollback**: If the new version fails to start, the old version is already gone
@@ -117,7 +117,7 @@ Each artifact includes metadata for lifecycle management. The manifest extends `
 
 #### Versioning Across the Builder Family
 
-Builders differ in how much of this lifecycle they get for free. Nix-built apps obtain versioned, immutable artifacts directly from Nix's content-addressed store, and rolling such an app back is a symlink switch between store paths. Mutable-artifact builders (the LocalBuilder + uWSGI deployer, building virtualenvs and node_modules in place) gain versioning only by adopting the explicit `artifacts/<version>/` layout and `current`/`previous` symlinks described above. The lifecycle is uniform across builders; the cost of providing it is not.
+Builders differ in how much of this lifecycle they get for free. Nix-built apps obtain versioned, immutable artifacts directly from Nix's content-addressed store, and rolling such an app back is a symlink switch between store paths. Mutable-artifact builders (the LocalBuilder + uWSGI deployer, building virtualenvs and node_modules in place) gain versioning only by adopting the explicit `artifacts/<version>/` layout and `current`/`previous` symlinks described above. The lifecycle is uniform across builders; each arrives at it by a different route.
 
 The CLI surface for this lifecycle is the `revert` command and the `upgrade`/`downgrade` commands (deferred from [ADR 019](./019-cli-commands.md)): they list, select, and switch the active artifact version using the same `current`/`previous` mechanism.
 
@@ -379,7 +379,7 @@ Require all applications to be containerized, leveraging container orchestration
 
 Delegate to Kubernetes, Nomad, or similar for deployment strategies.
 
-**Rejected because**: Adds significant complexity and infrastructure requirements. May be offered as an optional plugin for larger deployments.
+**Rejected because**: Adds complexity and infrastructure requirements. May be offered as an optional plugin for larger deployments.
 
 ---
 

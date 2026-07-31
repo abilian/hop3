@@ -57,9 +57,9 @@ The release process builds and signs the artifact offline with the `hop3-catalog
 
 **Integrity: bare HTTPS, no signature. Rejected.** For executed code this is negligent: one compromised static host = RCE across every node, and a `verify_ssl false` escape hatch already exists in the client.
 
-**Integrity (an unsigned `sha256` next to the tarball. Rejected.** An attacker who can replace the tarball replaces the checksum in the same write. (Per-file sha256 is still useful *inside the signed* index) it just can't be the trust root.)
+**Integrity: an unsigned `sha256` next to the tarball. Rejected.** An attacker who can replace the tarball replaces the checksum in the same write. (Per-file sha256 is still useful *inside the signed* index; it just can't be the trust root.)
 
-**Integrity (Sigstore/cosign + transparency log. Deferred.** The right end state (CRA-aligned, named in [ADR 013](./013-supply-chain.md)) but it drags in OIDC/Rekor/Fulcio and verify-time network calls) wrong for a sovereign, simple v1. minisign is the proportionate middle: one keypair, a tiny detached sig, offline signing, no infra.
+**Integrity: Sigstore/cosign + transparency log. Deferred.** The right end state (CRA-aligned, named in [ADR 013](./013-supply-chain.md)), but it drags in OIDC/Rekor/Fulcio and verify-time network calls: wrong for a sovereign, simple v1. minisign is the proportionate middle: one keypair, a tiny detached sig, offline signing, no infra.
 
 **Shape: index + per-app fetch from day one. Deferred to v2.** Correct at scale, but a single signed tarball is the simplest thing that works now and maps almost verbatim to today's directory-of-dirs loader.
 

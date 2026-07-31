@@ -22,3 +22,48 @@ status = 200
 path = "/"
 status = 200
 contains = "Vikunja"
+
+# Accounts. The native recipe's `create` says `./vikunja`, a path with no
+# meaning in a Nix layout; nixpkgs' vikunja puts its binary on PATH as
+# `vikunja` (the template-generated variant compiles its own, which
+# buildGoModule names `api` — hence two different commands for one app).
+# OPEN: both accounts are created ("User was created successfully") and a
+# sign-in still answers 412 — Vikunja's "email not confirmed". Three things are
+# ruled out: the mailer is already disabled; THIS version's CLI has no `user
+# confirm` (it prints usage and exits 0, so calling it is a fake success); and
+# setting the flag with psql from here aborted the bootstrap outright, turning a
+# diagnosable check failure into a failed install. The next step is to read the
+# schema on a live instance rather than guess the column, or to bump the version
+# to match the template-generated variant, which does not have the problem.
+[probe]
+username = "hop3probe"
+email = "probe@hop3.invalid"
+create = """
+set -eu
+present() {
+  vikunja user list 2>/dev/null \
+    | awk -F'|' 'NF>=4 { gsub(/^[ \t]+|[ \t]+$/, "", $3); print $3 }' \
+    | grep -Fxq "$HOP3_PROBE_USER"
+}
+if ! present; then
+  vikunja user create -u "$HOP3_PROBE_USER" -e "$HOP3_PROBE_EMAIL" -p "$HOP3_PROBE_PASSWORD"
+fi
+present || { echo "ERROR: Vikunja probe '$HOP3_PROBE_USER' was not created" >&2; exit 1; }
+"""
+
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }
+create = """
+set -eu
+present() {
+  vikunja user list 2>/dev/null \
+    | awk -F'|' 'NF>=4 { gsub(/^[ \t]+|[ \t]+$/, "", $3); print $3 }' \
+    | grep -Fxq "$HOP3_ADMIN_USER"
+}
+if ! present; then
+  vikunja user create -u "$HOP3_ADMIN_USER" -e "$HOP3_ADMIN_EMAIL" -p "$HOP3_ADMIN_PASSWORD"
+fi
+present || { echo "ERROR: Vikunja admin '$HOP3_ADMIN_USER' was not created" >&2; exit 1; }
+"""

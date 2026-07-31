@@ -101,8 +101,6 @@ builder = get_builder(context)
 - Multiple plugins can provide builders
 - Builders are tried in registration order until one accepts (or the `[build].builder` key in `hop3.toml` selects one explicitly)
 
----
-
 ### get_language_toolchains
 
 **Purpose**: Register language-specific toolchains (Python, Node, Ruby, Go, Rust, Java, PHP, etc.) used by the local builder.
@@ -144,8 +142,6 @@ class ToolchainPlugin:
 - Each class must have a `name` attribute
 - Each class must implement `accept()` to detect its language
 - Toolchains are consumed by the local builder, which selects the first that accepts
-
----
 
 ### get_deployers
 
@@ -207,8 +203,6 @@ deployer = get_deployer_by_name(app, "docker-compose")
 - The `name` attribute is used by `get_deployer_by_name()` for lifecycle lookups
 - Multiple deployers can exist; selection is by `accept()` or by name
 
----
-
 ### get_addons
 
 **Purpose**: Register service strategies for managing backing services.
@@ -265,8 +259,6 @@ connection = addon.get_connection_details()
 - Addon instances are created per database/cache/etc.
 - Multiple plugins can provide different addon types (PostgreSQL, MySQL, Redis, S3/MinIO)
 
----
-
 ### get_os_implementations
 
 **Purpose**: Register OS setup strategies for different Linux distributions.
@@ -322,8 +314,6 @@ os_strategy.setup_server()
 - Only one strategy should detect `True` per system
 - Used primarily by the installer and setup commands
 
----
-
 ### get_proxies
 
 **Purpose**: Register reverse proxy strategies (Nginx, Caddy, Traefik, etc.).
@@ -376,8 +366,6 @@ proxy.setup()
 - Each proxy type should have a unique name
 - Only one proxy type is active per hop3 installation
 - The active proxy is set by the `HOP3_PROXY_TYPE` environment variable
-
----
 
 ### get_di_providers
 
@@ -460,8 +448,6 @@ for provider in providers:
 - Services are available for dependency injection in controllers, etc.
 - See [Dishka documentation](https://dishka.readthedocs.io/) for details
 
----
-
 ### get_health_checks
 
 **Purpose**: Register health checks that verify backing services are configured and reachable.
@@ -511,8 +497,6 @@ Health checks run during server startup (failures are logged) and via
 - Return health check **instances**, not classes
 - Each must implement `is_configured()` and `check()`
 - `check()` returns a `HealthCheckResult`
-
----
 
 ### cli_commands
 
@@ -573,8 +557,6 @@ for contributed in pm.hook.cli_commands():
 - Each command's `name` is a tuple of tokens, matched space-separated on the CLI
 - Contributed commands are dispatched over JSON-RPC alongside the core commands
 
----
-
 ## Hook Call Order
 
 Pluggy calls hooks in **last-registered-first-executed (LIFO)** order by default. For Hop3:
@@ -599,8 +581,6 @@ def get_builders(self) -> list:
     """This will be called after other implementations."""
     return [FallbackBuilder]
 ```
-
----
 
 ## Return Value Conventions
 
@@ -631,8 +611,6 @@ The `get_di_providers()` hook is the exception - it returns **provider instances
 def get_di_providers(self) -> list:
     return [MyProvider()]  # ✅ Instances, not classes
 ```
-
----
 
 ## Hook Implementation Patterns
 
@@ -728,8 +706,6 @@ class PostgresPlugin:
 plugin = PostgresPlugin()
 ```
 
----
-
 ## Testing Hooks
 
 ### Testing Hook Registration
@@ -792,8 +768,6 @@ def test_builder_discovery(tmp_path):
     builder = get_builder(context)
     assert builder.name == "local"
 ```
-
----
 
 ## Common Pitfalls
 
@@ -884,8 +858,6 @@ strategies = [cls for sublist in results for cls in sublist]
 # strategies = [Builder1, Builder2, Builder3]  ✅ Flat list
 ```
 
----
-
 ## Advanced Hook Usage
 
 ### Conditional Strategy Registration
@@ -948,8 +920,6 @@ def get_builders(self):
     # Return modified results
     outcome.force_result(results)
 ```
-
----
 
 ## See Also
 

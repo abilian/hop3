@@ -7,6 +7,7 @@ from __future__ import annotations
 import grp
 import os
 import pwd
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -35,7 +36,7 @@ def group_exists(groupname: str) -> bool:
 
 
 def run_as_hop3(
-    cmd: str,
+    argv: list[str],
     *,
     check: bool = False,
     timeout: float | None = None,
@@ -43,8 +44,56 @@ def run_as_hop3(
     """
     Run a command as the hop3 user.
 
+    ``su -c`` hands its argument to a login shell, so this is a shell context
+    whether or not the caller wants one. Taking an argv list and joining it
+    here makes the quoting a property of the seam instead of a rule every call
+    site has to remember -- see ``notes/security/security-model.md`` §3.2.5.
+
+    Use :func:`run_as_hop3_shell` for the rare command that genuinely needs
+    shell operators.
+
     Args:
-        cmd: Shell command to run as hop3 user.
+        argv: Command and arguments. Quoted here; callers pass raw values.
+        check: Whether to raise on non-zero exit (default: False).
+        timeout: Timeout in seconds (default: None).
+
+    Returns:
+        CompletedProcess with stdout/stderr.
+
+    Raises:
+        TypeError: if handed a string instead of a list.
+    """
+    # A bare string is silent corruption, not a type nit: shlex.join iterates
+    # it per character, so "pip install foo" becomes "p i p ' ' i n s t ...",
+    # which still parses and still runs -- as the wrong command. Most callers
+    # pass check=False, so the resulting failure would be swallowed. Fail loud.
+    if isinstance(argv, str):
+        msg = (
+            f"run_as_hop3 takes a list of arguments, got a string: {argv!r}. "
+            f"Use run_as_hop3([...]) for a command, or run_as_hop3_shell(...) "
+            f"if it genuinely needs shell operators."
+        )
+        raise TypeError(msg)
+    return run_as_hop3_shell(shlex.join(argv), check=check, timeout=timeout)
+
+
+def run_as_hop3_shell(
+    script: str,
+    *,
+    check: bool = False,
+    timeout: float | None = None,
+) -> subprocess.CompletedProcess:
+    """
+    Run a shell script fragment as the hop3 user.
+
+    Only for commands that need shell operators (``|``, ``&&``, redirection).
+    **The caller owns the quoting**: any value interpolated into ``script``
+    must be passed through :func:`shlex.quote` first. Prefer
+    :func:`run_as_hop3`, which quotes for you, wherever the command is a plain
+    argv.
+
+    Args:
+        script: Shell script fragment, executed by the hop3 user's login shell.
         check: Whether to raise on non-zero exit (default: False).
         timeout: Timeout in seconds (default: None).
 
@@ -52,7 +101,7 @@ def run_as_hop3(
         CompletedProcess with stdout/stderr.
     """
     return run_cmd(
-        ["su", "-", HOP3_USER, "-c", cmd],
+        ["su", "-", HOP3_USER, "-c", script],
         check=check,
         timeout=timeout,
     )

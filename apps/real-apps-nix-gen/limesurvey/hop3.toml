@@ -17,7 +17,12 @@ sha256 = "jXRc89eWmPd354Zk2peRJR7v4G9ePwTJT9BS2es3tnk="
 archive = "zip"
 source-root = "limesurvey"
 php-version = "php82"
-php-extensions = ['pgsql', 'pdo_pgsql', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'intl', 'ldap', 'imap']
+# `xml` is deliberately absent: the Nix PHP already provides it, and naming
+# it again makes every PHP invocation print a module-already-loaded warning
+# on STDOUT. Harmless until something reads that stdout, which nextcloud's
+# install check does -- it was handed that warning instead of the database
+# type and refused a correct install.
+php-extensions = ['pgsql', 'pdo_pgsql', 'gd', 'mbstring', 'curl', 'zip', 'intl', 'ldap', 'imap']
 post-install-dirs = ['tmp', 'upload']
 extra-paths = ['${php}/bin']
 

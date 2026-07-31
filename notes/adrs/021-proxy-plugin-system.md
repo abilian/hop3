@@ -257,7 +257,7 @@ A server runs **one reverse proxy instance** listening on ports 80/443:
 **Alternative Rejected:** Per-application proxy selection would require:
 - Multiple proxy instances on different ports (requires meta-proxy for port 80/443)
 - Complex port routing layer
-- Significant operational complexity for negligible benefit
+- Operational complexity for negligible benefit
 
 ### Why Protocol Over ABC?
 

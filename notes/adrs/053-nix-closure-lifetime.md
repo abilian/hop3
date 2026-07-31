@@ -53,7 +53,7 @@ Before a Nix app's workers start, the run phase verifies that every path in each
 - Pinning GC off removes the *trigger* (the external collect that turns any residual window lethal) and is the single change that most directly ends the intermittency.
 - The pre-flight assumes the first two can still fail (a misconfigured host, a manual `nix-collect-garbage`) and makes the failure **loud and early** instead of a silent slow timeout.
 
-Defense-in-depth is warranted because the failure is non-deterministic: a robust fix must *remove the non-determinism*.
+Defense-in-depth is warranted because the failure is non-deterministic: the fix must *remove the non-determinism*.
 
 **Why fail loud (mechanism 3).** A reclaimed closure is an unrecoverable state for that worker: it cannot exec a deleted binary. Surfacing it as an early, named error with the reclaimed path (and "redeploy to rebuild") is aligned with Hop3's principle that errors are never silent; a 180-second health-check timeout is the opposite.
 
@@ -70,7 +70,7 @@ Defense-in-depth is warranted because the failure is non-deterministic: a robust
 ### Negative
 
 - The run phase now assumes `nix-store` is reachable on the server for the pre-flight; where it is not, that layer degrades to a no-op and only the first two mechanisms protect the app.
-- Pinning auto-GC off trades **disk for predictability**: the store grows until an operator reclaims it deliberately. This is the intended trade (a background collector that can kill a live app is not acceptable on a single-server PaaS) but it makes store housekeeping an explicit operational task.
+- Pinning auto-GC off trades **disk for predictability**: the store grows until an operator reclaims it deliberately. Store housekeeping becomes an explicit operational task; a background collector that kills live apps is incompatible with a single-server PaaS.
 
 ### Neutral
 

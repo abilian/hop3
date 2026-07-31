@@ -33,7 +33,7 @@ This creates several problems:
 
 2. **No Automatic Recovery**: Failed applications stay in FAILED state indefinitely, requiring manual intervention to restart.
 
-3. **No Proactive Monitoring**: The `[healthcheck]` section in `hop3.toml` is parsed but never used for active monitoring.
+3. **No Proactive Monitoring**: The `[healthcheck]` section in `hop3.toml` is parsed during configuration loading. Active monitoring never reads it.
 
 4. **No Audit Trail**: When something goes wrong, there's no history of what happened, making debugging difficult.
 

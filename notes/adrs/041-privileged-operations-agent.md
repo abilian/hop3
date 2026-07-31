@@ -3,7 +3,7 @@
 - **Status**: Accepted
 - **Type**: Architecture
 - **Created**: 2026-04-24
-- **Related-ADRs**: [010](./010-security-and-resilience.md) (security and resilience), [017](./017-agent-based-architecture.md) (agent-based architecture), [020](./020-pluggable-architecture.md) (pluggable architecture), [036](./036-cli-ergonomics.md) (CLI ergonomics), [040](./040-network-firewall-and-port-exposure.md) (network firewall and per-app port exposure), [045](./045-fixed-port-registry.md) (fixed-port registry (the `[[ports]]` mechanism that drives rootd's firewall ops), [046](./046-declarative-app-resources.md) (declarative app resources) the cgroup/mount ops)
+- **Related-ADRs**: [010](./010-security-and-resilience.md) (security and resilience), [017](./017-agent-based-architecture.md) (agent-based architecture), [020](./020-pluggable-architecture.md) (pluggable architecture), [036](./036-cli-ergonomics.md) (CLI ergonomics), [040](./040-network-firewall-and-port-exposure.md) (network firewall and per-app port exposure), [045](./045-fixed-port-registry.md) (fixed-port registry: the `[[ports]]` mechanism that drives rootd's firewall ops), [046](./046-declarative-app-resources.md) (declarative app resources: the cgroup/mount ops)
 
 ## Context
 
@@ -53,7 +53,7 @@ This bounds the attack surface to "what the daemon's API has been designed for".
 
 #### No authorization layer
 
-Rootd does not include a policy file or per-op authorization. SO_PEERCRED admits the hop3 user; structural validation rejects malformed requests; that is the entire authorization model.
+Rootd does not include a policy file or per-op authorization. SO_PEERCRED admits the hop3 user; structural validation rejects malformed requests. No other authorization mechanism is needed.
 
 A per-op policy layer would be theatre against a compromised hop3-server: SO_PEERCRED only authenticates "you're the hop3 user", and any "app A is requesting this rule" claim a compromised hop3-server makes is unverifiable. Rootd has no way to distinguish "hop3-server doing the right thing for app A" from "compromised hop3-server doing the wrong thing while claiming to act for app A".
 
@@ -83,7 +83,7 @@ daemon.handshake() -> {protocol_version, daemon_version, accepted}
 
 **Why postgres reload is *not* a rootd op**: the existing postgres-plugin code mutates `/etc/postgresql/<v>/main/pg_hba.conf` and `postgresql.conf` at addon-provisioning time, then calls `sudo -n systemctl reload postgresql`. This fails silently in production: hop3 can't write the config files, the operation is wrapped in a try/except, and the sudo NOPASSWD entry isn't even granted in the installer's sudoers fragment. The right answer is to move the config mutation to install time (where the installer runs as root) and make the addon's runtime code pure SQL: `CREATE USER`, `CREATE DATABASE`, `GRANT`. After that rework, the postgres addon needs zero privileged operations and never enters rootd. This is a separate installer task.
 
-**Why caddy / traefik reload are follow-on, copying the work to two more proxy plugins inflates the initial scope. The state for those proxies is broken anyway: their sudo-based reload calls fail silently because the installer never granted NOPASSWD entries for them, leaving operators reliant on each proxy's own config-file watcher (caddy) or on manual reload (traefik). Routing their reloads through rootd is deferred to a follow-on release, which leaves caddy / traefik users no worse off in the interim.
+**Why caddy / traefik reload are follow-on**: copying the work to two more proxy plugins inflates the initial scope. The state for those proxies is broken anyway: their sudo-based reload calls fail silently because the installer never granted NOPASSWD entries for them, leaving operators reliant on each proxy's own config-file watcher (caddy) or on manual reload (traefik). Routing their reloads through rootd is deferred to a follow-on release, which leaves caddy / traefik users no worse off in the interim.
 
 **Future operations (informative)**: `package.ensure_installed`, `cert.request` / `cert.renew`, `systemd.reload(unit)`, `namespace.create_for_app(...)`: each is a separate ADR revision with its own threat model. Section 16 is the running list.
 
@@ -91,9 +91,9 @@ daemon.handshake() -> {protocol_version, daemon_version, accepted}
 
 The daemon listens on `/run/hop3-rootd/socket`, owned by root, mode `0660`, group `hop3`. Any process running as the `hop3` user can connect; processes under any other UID are rejected at accept time.
 
-**Caller authentication** uses `SO_PEERCRED`: the kernel-provided peer-credentials mechanism. The daemon reads the connecting peer's UID directly from the socket and admits only `hop3` (and optionally `root`, for diagnostic / admin tools). No tokens, passwords, or shared secrets. The kernel's UID enforcement is the entire auth model.
+**Caller authentication** uses `SO_PEERCRED`: the kernel-provided peer-credentials mechanism. The daemon reads the connecting peer's UID directly from the socket and admits only `hop3` (and optionally `root`, for diagnostic / admin tools). No tokens, passwords, or shared secrets. The kernel's UID enforcement constitutes the auth model.
 
-**Wire framing** is line-delimited JSON: one JSON object per line, terminated with `\n`. Both sides write `json.dumps(obj) + "\n"` and read with `socket.makefile().readline()`. No length prefix, no streaming, no chunking. All payloads are small (≤2KB even with verbose audit context); JSON objects don't contain literal newlines (the JSON encoder escapes them).
+**Wire framing** is line-delimited JSON: one JSON object per line, terminated with `\n`. Both sides write `json.dumps(obj) + "\n"` and read with `socket.makefile().readline()`. No length prefix or chunking. All payloads are small (≤2KB even with verbose audit context); JSON objects don't contain literal newlines (the JSON encoder escapes them).
 
 **Request envelope**:
 ```json
@@ -303,7 +303,7 @@ When `firewall.add_rule(spec)` is called:
 5. On success: mark state row `status: "applied"`, persist again. Return `rule_id`.
 6. On failure: delete the state row, persist, return `kernel_error` with stderr.
 
-The daemon's view of the world is always a superset of reality (we may know about a rule we couldn't apply, but never the reverse). On startup reconciliation, applied-state rules missing from the kernel are re-applied.
+The daemon's view of the world is always a superset of reality. It may know about a rule it could not apply. The reverse case (a rule applied in the kernel but unknown to the daemon) cannot occur. On startup reconciliation, applied-state rules missing from the kernel are re-applied.
 
 For `firewall.remove_rule`, mirror image: mark state `status: "removing"`, run `nft delete rule …`, on success delete state row, on failure revert state to `applied`.
 
@@ -327,7 +327,7 @@ The operator's mental model: "deploy failed; the app isn't running; firewall is 
 
 **Why this is stricter than nginx-reload's existing soft-failure**: nginx reload failure is benign (old config still serves). Firewall failure is fundamental: the app's *contract* (these ports are reachable) is broken. They deserve different handling.
 
-Build artifacts are not garbage-collected eagerly; they accumulate until the operator runs `hop3 app destroy` or some future cleanup command.
+Build artifacts accumulate until the operator runs `hop3 app destroy` or some future cleanup command.
 
 ### 9. CLI deploy-time prompt
 
@@ -598,7 +598,7 @@ Top-down stop, bottom-up start: same as any service-with-dependency.
 
 Four test layers, mirroring hop3-server's existing convention:
 
-#### a_unit (no privileges, no nft)
+#### a_unit (no privileges or nft)
 
 `packages/hop3-rootd/tests/a_unit/`: pure Python, runs anywhere.
 

@@ -10,7 +10,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3.orm import App, AppRepository
+from hop3.orm.app import AppStateEnum
 from hop3.project.config import AppConfig
+from hop3.server.streaming import has_active_deploy
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -40,6 +42,22 @@ def get_app_state_dict(app: App) -> str:
     if hasattr(app.run_state, "name"):
         return app.run_state.name
     return str(app.run_state)
+
+
+def get_display_state(app: App) -> str:
+    """
+    The app's state as an operator reads it, including an in-flight deploy.
+
+    ``run_state`` tracks the *process*, so an app whose build is still running
+    reads STOPPED — indistinguishable from "it never started" through a build
+    that can take minutes. A deploy in flight wins over that: report DEPLOYING.
+    A running app keeps its state, so a redeploy of a live app still shows
+    RUNNING rather than implying it went down.
+    """
+    state = get_app_state_dict(app)
+    if state != AppStateEnum.RUNNING.name and has_active_deploy(app.name):
+        return "DEPLOYING"
+    return state
 
 
 def get_addons_for_app(app: App) -> list[dict]:

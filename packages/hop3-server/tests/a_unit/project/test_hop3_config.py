@@ -61,17 +61,12 @@ def test_build_section():
 [build]
 build = ["make", "make install"]
 before-build = "autogen.sh"
-test = "make test"
 packages = ["gcc", "make"]
-pip-install = ["pytest", "mypy"]
 """
     config = Hop3Config.from_str(content)
 
     assert config.build_commands == ["make", "make install"]
     assert config.before_build_commands == ["autogen.sh"]
-    assert config.test_commands == ["make test"]
-    assert config.build_packages == ["gcc", "make"]
-    assert config.pip_install == ["pytest", "mypy"]
 
 
 def test_run_section():
@@ -89,7 +84,6 @@ packages = ["postgresql", "redis"]
         "python manage.py migrate",
         "python manage.py collectstatic --noinput",
     ]
-    assert config.run_packages == ["postgresql", "redis"]
 
 
 def test_run_section_static_paths():
@@ -192,7 +186,6 @@ packages = ["postgresql"]
     assert config.static_paths == {"/static": "staticfiles/", "/media": "media/"}
     assert config.healthcheck_path == "/health/"
     assert config.healthcheck_timeout == 120
-    assert config.run_packages == ["postgresql"]
 
 
 def test_get_workers_from_run_section():
@@ -330,47 +323,6 @@ type = "postgres"
     assert config.addons[0]["type"] == "mysql"
 
 
-def test_get_addon_types():
-    """Test get_addon_types() returns list of addon type names."""
-    content = """
-[[addons]]
-type = "postgres"
-
-[[addons]]
-type = "redis"
-
-[[addons]]
-type = "mysql"
-"""
-    config = Hop3Config.from_str(content)
-
-    addon_types = config.get_addon_types()
-    assert addon_types == ["postgres", "redis", "mysql"]
-
-
-def test_get_addon_types_empty():
-    """Test get_addon_types() returns empty list when no addons."""
-    content = ""
-    config = Hop3Config.from_str(content)
-
-    assert config.get_addon_types() == []
-
-
-def test_get_addon_types_skips_missing_type():
-    """Test get_addon_types() skips addons without type key."""
-    content = """
-[[addons]]
-type = "postgres"
-
-[[addons]]
-name = "no-type-addon"
-"""
-    config = Hop3Config.from_str(content)
-
-    addon_types = config.get_addon_types()
-    assert addon_types == ["postgres"]
-
-
 def test_empty_config():
     """Test parsing empty configuration (all defaults)."""
     content = ""
@@ -383,25 +335,7 @@ def test_empty_config():
     assert config.port == {}
     assert config.addons == []
     assert config.providers == []
-    assert config.get_addon_types() == []
     assert config.get_workers_from_run_section() == {}
-
-
-def test_has_section():
-    """Test has_section() utility method."""
-    content = """
-[metadata]
-id = "test"
-
-[run]
-start = "python app.py"
-"""
-    config = Hop3Config.from_str(content)
-
-    assert config.has_section("metadata") is True
-    assert config.has_section("run") is True
-    assert config.has_section("build") is False
-    assert config.has_section("env") is False
 
 
 def test_to_dict():

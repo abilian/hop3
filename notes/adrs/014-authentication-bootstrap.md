@@ -98,7 +98,7 @@ hop3 auth whoami
 
 ## Enhancement: SSH-Assisted Bootstrap (Option A+)
 
-For users with SSH access, we provide a single-command convenience that automates the entire 6-step manual process.
+For users with SSH access, we provide a single-command convenience that automates the 6-step manual process.
 
 ### Commands
 
@@ -331,12 +331,12 @@ The public server RPC that verifies a username + password and returns a token (o
 
 ### Drawbacks
 
-- **Requires SSH for remote servers**: But this is intentional for security
+- **Requires SSH for remote servers**: Required by the security principle
 - **Two implementations**: Server CLI + client SSH wrapper
 
 ### Trade-offs
 
-- **Security over convenience**: Chose requiring server access over easier but less secure options
+- **Security over convenience**: Requiring server access
 - **Two modes**: Manual for simplicity, SSH-assisted for convenience
 
 ---
@@ -363,8 +363,6 @@ The public server RPC that verifies a username + password and returns a token (o
 
 ## Appendix: Extended Alternatives Analysis
 
-This appendix expands the trade-off analysis behind the rejected options.
-
 ### Comparison Matrix
 
 | Criteria | Option 1: CLI | Option 2: Bootstrap Token | Option 3: Seed User | Option 4: Conditional |
@@ -372,7 +370,7 @@ This appendix expands the trade-off analysis behind the rejected options.
 | Security | ✅ High | ⚠️ Medium | ❌ Low | ⚠️ Medium |
 | Automation | ⚠️ Requires SSH | ✅ Fully automated | ✅ Fully automated | ⚠️ Requires coordination |
 | Auditability | ✅ Explicit | ✅ Token generation logged | ⚠️ Default credentials | ❌ Implicit |
-| User Experience | ⚠️ Requires server access | ✅ Seamless | ✅ Simple | ✅ Self-service |
+| User Experience | ⚠️ Requires server access | ✅ Direct | ✅ Simple | ✅ Self-service |
 | Implementation | ✅ Simple | ⚠️ Token management | ✅ Simple | ⚠️ Race conditions |
 
 ### Risk Analysis

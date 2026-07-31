@@ -18,3 +18,62 @@ covers = ["golang", "nix", "postgres"]
 path = "/api/v4/system/ping"
 status = 200
 contains = "status"
+
+# Accounts, lifted from the template-generated variant unchanged. `mmctl` is
+# the same tool in both packagings — it is the SERVER binary whose name
+# differs — and it talks to Mattermost over the local-mode socket, so nothing
+# here depends on the layout. The derivation pulls mmctl in as its own
+# package: nixpkgs' mattermost ships only `mattermost` in bin/, so every
+# `mmctl --local` call exited 127.
+[probe]
+username = "hop3probe"
+email = "probe@hop3.invalid"
+create = '''
+if ! mmctl --local user search "$HOP3_PROBE_USER" 2>/dev/null | grep -q "$HOP3_PROBE_USER"; then
+  mmctl --local user create --username "$HOP3_PROBE_USER" \
+    --email "$HOP3_PROBE_EMAIL" --password "$HOP3_PROBE_PASSWORD"
+fi
+mmctl --local user search "$HOP3_PROBE_USER" 2>/dev/null | grep -q "$HOP3_PROBE_USER" || {
+  echo "Mattermost probe account missing after user create" >&2
+  exit 1
+}
+'''
+
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }
+# Runs once post-deploy in src/ (cwd), with HOP3_ADMIN_* in env, failing the
+# deploy loud on a non-zero exit. Local mode talks to the running server over a
+# unix socket (no network auth); MMCTL_LOCAL_SOCKET_PATH must match
+# ServiceSettings.LocalModeSocketLocation written by scripts/setup-config.sh.
+# The socket lives under the per-app src/ dir so multiple Mattermost instances
+# never collide on the shared /var/tmp default. Idempotent (create-if-absent)
+# and fail-loud: it waits for the server's local-mode socket, then creates the
+# system admin only if it does not already exist. mmctl's plain CreateUser
+# bypasses the disabled web signup, so the admin is still created.
+create = '''
+set -e
+: "${HOP3_ADMIN_USER:?admin bootstrap: HOP3_ADMIN_USER not injected}"
+: "${HOP3_ADMIN_EMAIL:?admin bootstrap: HOP3_ADMIN_EMAIL not injected (set [admin].email)}"
+: "${HOP3_ADMIN_PASSWORD:?admin bootstrap: HOP3_ADMIN_PASSWORD not injected}"
+sock="$(pwd)/mattermost_local.socket"
+export MMCTL_LOCAL_SOCKET_PATH="$sock"
+i=0
+while [ ! -S "$sock" ]; do
+  i=$((i + 1))
+  if [ "$i" -gt 60 ]; then
+    echo "Mattermost local-mode socket $sock never appeared (120s); cannot create admin" >&2
+    exit 1
+  fi
+  sleep 2
+done
+if mmctl --local user list --all | grep -Fq ": $HOP3_ADMIN_USER ("; then
+  echo "Admin user '$HOP3_ADMIN_USER' already exists; skipping creation."
+else
+  mmctl --local user create --system-admin --email-verified \
+    --email "$HOP3_ADMIN_EMAIL" \
+    --username "$HOP3_ADMIN_USER" \
+    --password "$HOP3_ADMIN_PASSWORD"
+fi
+'''

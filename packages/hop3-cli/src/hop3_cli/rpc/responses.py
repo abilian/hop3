@@ -76,6 +76,21 @@ def handle_response(
     if printer.json_output:
         printer.flush_json()
 
+    # A command that reported a failure must exit non-zero, even though the RPC
+    # call itself succeeded. A JSON-RPC `Ok` means "the server answered", not
+    # "the operation worked": `hop3 app check` returns an `error` element when
+    # an app fails its smoke test, and for want of these three lines it printed
+    # "ERROR: Smoke test FAILED" and exited 0. Every script that trusted the
+    # exit code was told the opposite of what the output said — the catalog
+    # driver reported PASS for three apps whose checks had just failed.
+    if isinstance(response, Ok) and _reports_failure(response.result):
+        sys.exit(ExitCode.GENERAL_ERROR)
+
+
+def _reports_failure(result: list[dict] | None) -> bool:
+    """Whether a successful RPC response carries a command-level failure."""
+    return any(item.get("t") == "error" for item in result or [])
+
 
 def handle_ok_response(
     result: list[dict],

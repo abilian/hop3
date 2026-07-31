@@ -7,9 +7,12 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
+import stat
 import subprocess
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import object_session
@@ -24,6 +27,7 @@ from hop3.lib import (
     echo,
     get_free_port,
     log,
+    log_command_stream,
     log_diagnosis,
     shell,
 )
@@ -32,6 +36,12 @@ from hop3.lib.settings import write_settings
 from hop3.project.config import AppConfig
 from hop3.project.procfile import parse_procfile
 
+from .nix_closure import (
+    NIX_STORE_CANDIDATES,
+    ClosureCheckError,
+    missing_closure_paths,
+    resolve_nix_store,
+)
 from .uwsgi import spawn_uwsgi_worker
 
 # A top-level Nix store path `/nix/store/<hash>-<name>` (the hash is 32 base-32
@@ -50,7 +60,6 @@ def _extract_nix_store_paths(commands: Iterable[str]) -> list[str]:
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from pathlib import Path
 
     from hop3.orm import App
 
@@ -61,6 +70,18 @@ def spawn_app(app: App, deltas: dict[str, int] | None = None) -> None:
         deltas = {}
     launcher = AppLauncher(app, deltas)
     launcher.spawn_app()
+
+
+def verify_nix_closure(app: App) -> None:
+    """Abort if a Nix app's runtime closure has been reclaimed.
+
+    Callable outside a spawn because a uWSGI *touch-restart* relaunches a vassal
+    from its existing `.ini` without going through `spawn_app`. The guard used to
+    live only on the spawn path, which left it one call short of the exact
+    scenario it was written for: a garbage collection reclaims a closure, the app
+    is restarted, and the vassal execs a store path that is no longer there.
+    """
+    AppLauncher(app).verify_nix_closure_intact()
 
 
 @dataclass
@@ -349,6 +370,65 @@ class AppLauncher:
             )
             time.sleep(remaining)
 
+    #: Written into the app directory once the store tree has been copied there,
+    #: so a redeploy does not overwrite files the app (or its bootstrap) wrote.
+    _WRITABLE_TREE_MARKER = ".hop3-writable-tree"
+
+    def _materialize_writable_tree(self) -> None:
+        """
+        Copy a read-only build tree into the app's own directory.
+
+        Some applications write inside their own install directory — a PHP app
+        generating `config.php`, Matomo seeding `config/config.ini.php`. A Nix
+        store path cannot support that, so the artifact names the tree and Hop3
+        copies it here, at DEPLOY time.
+
+        The timing is the whole point. This used to be a line in the generated
+        wrapper, which runs when the app starts — after `[run] before-run`. So a
+        bootstrap script ran against a directory holding the recipe and none of
+        the application, and Matomo's installer died on `Failed opening required
+        core/bootstrap.php` on a build that was otherwise correct.
+
+        Copied ONCE. A redeploy that copied again would put the pristine tree
+        back over a configuration the app has since written, silently reverting
+        it; the marker is what stops that. Removing the marker forces a refresh.
+        """
+        source = self.artifact.runtime.writable_tree if self.artifact else ""
+        if not source:
+            return
+
+        dest = self.app.src_path
+        marker = dest / self._WRITABLE_TREE_MARKER
+        if marker.exists():
+            log(f"Writable tree already in place for '{self.app_name}'", level=3)
+            return
+
+        src = Path(source)
+        if not src.is_dir():
+            # Never silently skip: without the tree the app has no code, and the
+            # bootstrap that follows would fail in a way that names the app.
+            msg = (
+                f"'{self.app_name}' declares a writable tree at {source}, which "
+                f"does not exist. The build artifact and the Nix store disagree; "
+                f"redeploy to rebuild it."
+            )
+            raise RuntimeError(msg)
+
+        log(f"Materializing {source} into {dest}", level=2, fg="blue")
+        shutil.copytree(src, dest, dirs_exist_ok=True)
+
+        # Store trees are read-only, and copytree preserves mode — including on
+        # `dest` ITSELF, which came out 0555 and left the app directory
+        # impossible to write or clean up ("Permission denied: hop3.nix" on the
+        # next deploy's teardown). Widen the destination first, then everything
+        # under it. Failures are NOT suppressed: a tree the app cannot write to
+        # is the exact condition this whole mechanism exists to avoid, so it
+        # must not be discovered later as a puzzling application error.
+        for path in [dest, *dest.rglob("*")]:
+            path.chmod(path.stat().st_mode | stat.S_IWUSR)
+        marker.write_text(f"{source}\n")
+        log(f"Writable tree ready for '{self.app_name}'", level=2, fg="green")
+
     def _run_before_run_commands(self, env: Env) -> None:
         """
         Execute before-run commands from the artifact.
@@ -398,14 +478,8 @@ class AppLauncher:
                         level=0,
                         fg="red",
                     )
-                    if result.stdout:
-                        log("  stdout:", level=0, fg="red")
-                        for line in result.stdout.strip().split("\n")[-20:]:
-                            log(f"    {line}", level=0)
-                    if result.stderr:
-                        log("  stderr:", level=0, fg="red")
-                        for line in result.stderr.strip().split("\n")[-20:]:
-                            log(f"    {line}", level=0)
+                    log_command_stream("stdout", result.stdout, level=0, fg="red")
+                    log_command_stream("stderr", result.stderr, level=0, fg="red")
                     server_log.error(
                         "Before-run command failed",
                         app_name=self.app_name,
@@ -415,6 +489,19 @@ class AppLauncher:
                     )
                     msg = f"Before-run command failed: {cmd}"
                     raise RuntimeError(msg)
+
+                # A command that SUCCEEDED still has things to say, and this
+                # threw all of them away. These commands are the app's headless
+                # bootstrap — they report which account they created, or that
+                # they found one already and left it alone. Uptime Kuma's says
+                # in as many words when the admin Hop3 is about to advertise
+                # does not exist in the database; that line was written every
+                # deploy and read by nobody, while the smoke test's "the
+                # credential Hop3 generated was refused" sent everyone looking
+                # at the application instead. Output is evidence, not noise.
+                log_command_stream("stdout", result.stdout, level=1)
+                # stderr on a zero exit is a warning the script chose to raise.
+                log_command_stream("stderr", result.stderr, level=0, fg="yellow")
                 log("  Command completed successfully", level=2, fg="green")
             except subprocess.TimeoutExpired:
                 log("  Command timed out after 5 minutes", level=0, fg="red")
@@ -459,22 +546,29 @@ class AppLauncher:
             except OSError:
                 pass
 
-    def _verify_nix_closure_intact(self) -> None:
+    def verify_nix_closure_intact(self) -> None:
         """
         Fail loud, at deploy time, if a Nix app's runtime closure is broken.
 
         A nix wrapper execs hardcoded `/nix/store` paths (forgejo's wrapper execs
         `${forgejo}/bin/forgejo`). If a garbage-collect reclaimed any path in that
-        closure, the worker dies "No such file or directory" and today only
-        surfaces as a 180s health-check timeout. Checking the closure here turns
-        that into an immediate, named error before uWSGI ever starts.
+        closure, the worker dies "No such file or directory" and surfaces only as
+        a 180s health-check timeout. Checking here turns that into an immediate,
+        named error before uWSGI ever starts.
 
         Deploy-time, not build-time, on purpose: at build time the whole closure
         exists by construction (it was just realised) — the reclaim happens
-        later, so a build-time check is vacuous for this class. Best-effort:
-        aborts only on a POSITIVELY-missing path; if `nix-store` can't answer
-        (not on PATH, times out, errors) it logs and continues — a guard that
-        can't run must never block an otherwise-working deploy.
+        later, so a build-time check is vacuous for this class.
+
+        **This guard never skips silently.** If `nix-store` cannot be located, or
+        the query fails, the deploy aborts saying so. The earlier version logged
+        and continued, on the reasoning that a guard which cannot run should not
+        block an otherwise-working deploy; that is backwards. A guard that did
+        not run has established nothing, and continuing as though it had is the
+        silent-skip pattern this platform prohibits everywhere else. It also hid
+        the guard's own breakage: `nix-store` is not on the deploy process's PATH
+        on a normally-installed host, so the check logged a skip every time and
+        never once fired.
         """
         if not (self.artifact and self.artifact.kind == "nix"):
             return
@@ -482,38 +576,52 @@ class AppLauncher:
         if not roots:
             return
 
-        missing: list[str] = []
-        for root in roots:
-            if not os.path.exists(root):
-                missing.append(root)
-                continue
-            try:
-                result = subprocess.run(
-                    ["nix-store", "-q", "--requisites", root],
-                    capture_output=True,
-                    text=True,
-                    timeout=60,
-                    check=False,
+        nix_store = resolve_nix_store()
+        if nix_store is None:
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="uWSGI spawner",
+                    action="verify Nix closure",
+                    reason=(
+                        f"'{self.app_name}' is a Nix application, but `nix-store` "
+                        f"could not be found, so its runtime closure cannot be "
+                        f"checked."
+                    ),
+                    hint=(
+                        "A Nix app cannot run without Nix present. Verify the "
+                        "installation, or reinstall with `hop3-install server "
+                        "--with nix`."
+                    ),
+                    troubleshooting=[
+                        f"ls -l {NIX_STORE_CANDIDATES[0]}",
+                        "command -v nix-store",
+                    ],
                 )
-            except (FileNotFoundError, subprocess.TimeoutExpired) as e:
-                log(
-                    f"Nix closure check skipped for '{self.app_name}' "
-                    f"(nix-store unavailable: {e})",
-                    level=2,
-                    fg="yellow",
-                )
-                continue
-            if result.returncode != 0:
-                log(
-                    f"Nix closure check inconclusive for '{self.app_name}': "
-                    f"{result.stderr.strip()[:200]}",
-                    level=2,
-                    fg="yellow",
-                )
-                continue
-            missing.extend(
-                p for p in result.stdout.split() if p and not os.path.exists(p)
             )
+
+        try:
+            missing = missing_closure_paths(roots, nix_store)
+        except ClosureCheckError as e:
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="uWSGI spawner",
+                    action="verify Nix closure",
+                    reason=(
+                        f"the runtime closure of '{self.app_name}' could not be "
+                        f"checked: {e}"
+                    ),
+                    hint=(
+                        "The closure may or may not be intact — this is a "
+                        "failure of the check, not of the app. Run the query "
+                        "below by hand to see what Nix reports."
+                    ),
+                    troubleshooting=[
+                        f"{nix_store} -q --requisites {roots[0]}",
+                        f"hop3 app deploy --app {self.app_name}",
+                    ],
+                )
+            )
+            return
 
         if missing:
             abort_with_diagnosis(
@@ -532,7 +640,7 @@ class AppLauncher:
                         "disabled) to prevent recurrence."
                     ),
                     troubleshooting=[
-                        f"nix-store -q --requisites {roots[0]}",
+                        f"{nix_store} -q --requisites {roots[0]}",
                         f"hop3 app deploy --app {self.app_name}",
                     ],
                 )
@@ -561,7 +669,7 @@ class AppLauncher:
         # Fail loud early if a Nix app's runtime closure was garbage-collected,
         # instead of letting the worker crash-loop into a 180s health-check
         # timeout (the forgejo class).
-        self._verify_nix_closure_intact()
+        self.verify_nix_closure_intact()
 
         # Early detection: Python app with no web-facing workers
         if not self.web_workers and self.artifact:
@@ -601,6 +709,9 @@ class AppLauncher:
         write_settings(scaling, worker_count, ":")
 
         self._handle_auto_restart(env)
+
+        # BEFORE before-run: an app's bootstrap needs the application present.
+        self._materialize_writable_tree()
 
         # Execute before-run commands from artifact
         self._run_before_run_commands(env)
@@ -725,6 +836,8 @@ class AppLauncher:
             env_vars_keys=list(applied_env.keys()),
         )
 
+        _ensure_php_server_concurrency(env, self.workers, self.app_name)
+
         # Keep the app's port STABLE across redeploys: reuse the port already
         # persisted on the App (assigned on the first deploy) and only allocate
         # a fresh one when the app has none yet. A port that changes on every
@@ -795,3 +908,55 @@ class AppLauncher:
                 msg = f"terminating '{self.app_name:s}:{k:s}.{w:d}'"
                 log(msg, level=3, fg="yellow")
                 enabled.unlink()  # Remove the worker's configuration file
+
+
+# PHP's built-in server handles ONE request at a time unless told otherwise, and
+# `php artisan serve` is that same server.
+#
+# The number should exceed what a BROWSER opens to one origin, not merely what
+# breaks the self-request deadlock: Chromium and Firefox both keep up to six
+# connections per origin alive, and at four workers a page whose last subresource
+# is requested after load could find every worker held by an idle keep-alive
+# socket. Eight leaves headroom above that six.
+#
+# This was raised from four while chasing paheko's hung screenshot, on the theory
+# that starvation was why its page never finished painting. It was NOT: the
+# capture timed out identically at four workers and at eight. The reasoning above
+# stands on its own — a server that a browser can saturate is undersized — but it
+# is not the explanation for paheko, and nothing here should be read as one.
+PHP_BUILTIN_SERVER_WORKERS = "8"
+_PHP_BUILTIN_SERVER_MARKERS = ("php -S", "artisan serve")
+
+
+def _ensure_php_server_concurrency(
+    env: Env, workers: dict[str, str], app_name: str
+) -> None:
+    """
+    Give an app on PHP's built-in server more than one worker.
+
+    `php -S` (and `php artisan serve`, which wraps it) is single-threaded. Any
+    app that makes an HTTP request to ITSELF then deadlocks: the one worker is
+    busy serving the page that is waiting for the reply, so the reply can never
+    be produced. It is not a slow page — it is a hang that ends in a gateway
+    timeout, and it looks exactly like the app being broken.
+
+    Nextcloud does this (its richdocuments app fetches its own public URL) and
+    served 504s after 60s; with workers it answered in 0.12s. Ten of the twenty
+    catalog apps run on this server, so the fix belongs here rather than in each
+    recipe.
+
+    An explicit PHP_CLI_SERVER_WORKERS in the app's [env] wins — this only
+    supplies the default that PHP itself should have.
+    """
+    if "PHP_CLI_SERVER_WORKERS" in env:
+        return
+    commands = " ".join(workers.values())
+    if not any(marker in commands for marker in _PHP_BUILTIN_SERVER_MARKERS):
+        return
+    env["PHP_CLI_SERVER_WORKERS"] = PHP_BUILTIN_SERVER_WORKERS
+    log(
+        f"Running '{app_name}' on PHP's built-in server with "
+        f"{PHP_BUILTIN_SERVER_WORKERS} workers (single-threaded by default, "
+        f"which deadlocks an app that calls itself)",
+        level=2,
+    )

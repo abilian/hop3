@@ -30,8 +30,12 @@ let
 export LISTEN_ADDR="0.0.0.0:''${PORT:-8080}"
 export RUN_MIGRATIONS=1
 export CREATE_ADMIN=1
-export ADMIN_USERNAME="''${ADMIN_USERNAME:-admin}"
-export ADMIN_PASSWORD="''${ADMIN_PASSWORD:-changeme}"
+# No defaults. `ADMIN_PASSWORD="''${ADMIN_PASSWORD:-changeme}"` meant every
+# deployment had an administrator whose password is published in this
+# repository, while the operator was handed a generated one that did not work —
+# and the smoke test only ever saw the second half of that.
+export ADMIN_USERNAME="''${ADMIN_USERNAME:?miniflux: ADMIN_USERNAME not injected}"
+export ADMIN_PASSWORD="''${ADMIN_PASSWORD:?miniflux: ADMIN_PASSWORD not injected — refusing to create an admin with a default password}"
 
 if [ -z "$DATABASE_URL" ]; then
   export DATABASE_URL="postgres://''${PGUSER:-miniflux}:''${PGPASSWORD:-}@''${PGHOST:-localhost}:''${PGPORT:-5432}/''${PGDATABASE:-miniflux}?sslmode=disable"
@@ -48,9 +52,7 @@ WRAPPER
   },
   "env": {
     "RUN_MIGRATIONS": "1",
-    "CREATE_ADMIN": "1",
-    "ADMIN_USERNAME": "admin",
-    "ADMIN_PASSWORD": "changeme"
+    "CREATE_ADMIN": "1"
   },
   "path": [
     "$out/bin",
@@ -65,10 +67,10 @@ in
 {
   package = app;
 
+  # The admin credential is injected by Hop3 (see [env.computed] in hop3.toml),
+  # never defaulted here.
   env = {
     RUN_MIGRATIONS = "1";
     CREATE_ADMIN = "1";
-    ADMIN_USERNAME = "admin";
-    ADMIN_PASSWORD = "changeme";
   };
 }

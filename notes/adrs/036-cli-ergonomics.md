@@ -40,7 +40,7 @@ Decisions are grouped by concern. Each decision has a one-paragraph motivation.
 
 #### D1: Commands are space-separated, with a hybrid top-level / namespaced surface
 
-All multi-token commands use spaces (`hop3 env set`). The top-level surface holds (a) daily app-scoped verbs, (b) utilities, and (c) namespace roots. Namespaces hold management and CRUD verbs. The move from the legacy colon forms is a single breaking change: old colon forms produce a did-you-mean error that explicitly names the new spelling rather than silently aliasing.
+All multi-token commands use spaces (`hop3 env set`). The top-level surface holds (a) daily app-scoped verbs, (b) utilities, and (c) namespace roots. Namespaces hold management and CRUD verbs. The move from the legacy colon forms is a single breaking change: old colon forms produce a did-you-mean error that explicitly names the new spelling without silently aliasing.
 
 *Motivation*: spaces are the modern convention (docker, kubectl, gh, gcloud, aws, fly, railway, helm, terraform). Colons require bash `COMP_WORDBREAKS` hacks and read as retro. Top-level for frequent verbs matches Heroku/Fly/Railway; namespaces scale and add friction to destructive operations.
 
@@ -111,16 +111,7 @@ Flags may appear before or after the subcommand. Environment-variable equivalent
 
 #### D7: Implicit app resolution
 
-> **Superseded by [ADR 042](./042-cli-context-model.md).** The resolution chain is defined in
-> [ADR 042 §Resolution](042-cli-context-model.md#resolution).
-> Notable deltas: the app now resolves **CWD-rooted**: sources 6 (`default_app`)
-> and 7 (git remote) below are **dropped**, and `hop3 use <app>` writes a
-> `.hop3-app` pin (source 3) instead of a context default. Project-scoped
-> `[contexts.*]` in the committed `hop3.toml` is the source of truth; the r1
-> global `config.toml [contexts.*]` was retired ([ADR 042](./042-cli-context-model.md) r2, 2026-06-24). The
-> selected context's app is a *conditionally-trusted* source ([ADR 042](./042-cli-context-model.md)
-> §Resolution). The body below is retained for the record; see [ADR 042](./042-cli-context-model.md) for the
-> authoritative chain.
+> **Superseded by [ADR 042](./042-cli-context-model.md).** The resolution chain is defined in [ADR 042 §Resolution](042-cli-context-model.md#resolution). Notable deltas: the app now resolves **CWD-rooted**: sources 6 (`default_app`) and 7 (git remote) below are **dropped**, and `hop3 use <app>` writes a `.hop3-app` pin (source 3) instead of a context default. Project-scoped `[contexts.*]` in the committed `hop3.toml` is the source of truth; the r1 global `config.toml [contexts.*]` was retired ([ADR 042](./042-cli-context-model.md) r2, 2026-06-24). The selected context's app is a *conditionally-trusted* source ([ADR 042](./042-cli-context-model.md) §Resolution). The body below is retained for the record; see [ADR 042](./042-cli-context-model.md) for the authoritative chain.
 
 When a command requires `--app` and none is given, resolve in order:
 
@@ -136,16 +127,7 @@ Unresolvable → fail with the chain printed and a one-line fix suggested.
 
 #### D8: Sticky state: contexts and default app
 
-> **Superseded by [ADR 042](./042-cli-context-model.md).** Under [ADR 042](./042-cli-context-model.md) r2 a **context** is a per-project
-> deploy environment declared in the committed `hop3.toml` as `[contexts.<name>]`
-> (server address + app + domains + non-secret env), managed by `hop3 context`
-> (there is no `hop3 server`, no `servers.toml`, and no per-context `default_app`).
-> The server connection is invisible plumbing: the bearer token lives in
-> `~/.config/hop3-cli/credentials.toml` keyed by server address, and `config.toml`
-> is secret-free (prefs + an optional default-server pointer). `hop3 use <app>`
-> now pins the app for the current directory by writing `.hop3-app`. The
-> per-checkout context selector is `.hop3-local.toml [local].context`
-> (`.hop3-context` was retired). Body retained for the record.
+> **Superseded by [ADR 042](./042-cli-context-model.md).** Under [ADR 042](./042-cli-context-model.md) r2 a **context** is a per-project deploy environment declared in the committed `hop3.toml` as `[contexts.<name>]` (server address + app + domains + non-secret env), managed by `hop3 context` (there is no `hop3 server`, no `servers.toml`, and no per-context `default_app`). The server connection is invisible plumbing: the bearer token lives in `~/.config/hop3-cli/credentials.toml` keyed by server address, and `config.toml` is secret-free (prefs + an optional default-server pointer). `hop3 use <app>` now pins the app for the current directory by writing `.hop3-app`. The per-checkout context selector is `.hop3-local.toml [local].context` (`.hop3-context` was retired). Body retained for the record.
 
 - **Active context** lives in `~/.config/hop3-cli/state.toml` (XDG). Set via `hop3 context use <name>`. Overridable per-shell by `HOP3_CONTEXT`, per-project by `hop3.toml [cli].context`.
 - **Context's default app** lives in the same file under `[contexts.<name>].default_app`. `hop3 use <app>` is sugar for setting the current context's default app.
@@ -165,7 +147,7 @@ Unresolvable → fail with the chain printed and a one-line fix suggested.
 - Core and plugin collisions → plugin load fails (strict by default; lax via `HOP3_PLUGIN_COLLISION_MODE=lax`).
 - User-config collisions with core or plugin → the user alias is skipped with a warning on next bare `hop3` invocation (loud but non-fatal; one bad line doesn't break the whole CLI).
 
-**Resolution rule**: an alias fires *unless* the next token would be a known subcommand of the target namespace side of the expansion. Flags do not count as subcommands. For the conflict case, `hop3` emits a did-you-mean error rather than silently dispatching.
+**Resolution rule**: an alias fires *unless* the next token would be a known subcommand of the target namespace side of the expansion. Flags do not count as subcommands. For the conflict case, `hop3` emits a did-you-mean error without silently dispatching.
 
 **Prefix aliases are supported**: an alias may rewrite the first N tokens. `pg = "addon postgres"` is valid and makes `hop3 pg diagnose mydb` expand to `hop3 addon postgres diagnose mydb`. The subcommand-check at the expansion point still applies.
 
@@ -182,7 +164,7 @@ Unresolvable → fail with the chain printed and a one-line fix suggested.
 
 #### D10: Did-you-mean and bare-command help
 
-When an unknown top-level command, subcommand, or app name is given, suggest the closest match (Levenshtein ≤ 2). When a required argument is missing, show that command's help instead of a bare usage error. `hop3 --context prod` (no subcommand) shows top-level help with a note that context is set. `hop3 app` (namespace bare) shows that namespace's subcommand list.
+When an unknown top-level command, subcommand, or app name is given, suggest the closest match (Levenshtein ≤ 2). When a required argument is missing, show that command's help in place of a bare usage error. `hop3 --context prod` (no subcommand) shows top-level help with a note that context is set. `hop3 app` (namespace bare) shows that namespace's subcommand list.
 
 #### D11: Help output format
 
@@ -276,7 +258,7 @@ Scripts can distinguish user error (2, 10), resolution (3), auth (4, 5), server 
 
 #### D17: `env` and `addon` are the canonical terms
 
-- **`env`** for environment variables. Canonical commands are `env show/get/set/unset/live`. `config` is a full back-compat alias, registered server-side on each command, so `hop3 config set …` keeps working: no breakage for existing scripts or docs. Procfile→`hop3.toml` conversion belongs under `app migrate`; it operates on app configuration rather than environment variables.
+- **`env`** for environment variables. Canonical commands are `env show/get/set/unset/live`. `config` is a full back-compat alias, registered server-side on each command, so `hop3 config set …` keeps working: no breakage for existing scripts or docs. Procfile→`hop3.toml` conversion belongs under `app migrate`; it operates on app configuration alone.
 - **`addon`** for backing services. "Service" is overloaded across modern PaaS (means app components in Railway/Render).
 
 `env` is canonical rather than `config` (the Heroku/Piku lineage) because `config` collides with `hop3.toml`, the app's *configuration file*. `hop3 config show` listing environment variables while "the config" means the TOML file is a naming clash. `env` names exactly what the commands manage (environment variables), and the `config`/`settings` vocabulary is then freed for future app-level settings. `config` is retained as a full alias purely for compatibility.

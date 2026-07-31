@@ -178,8 +178,6 @@ pytest packages/hop3-server/tests/c_e2e/ -v
 make test-e2e
 ```
 
----
-
 ## Part 2: Application Deployment Testing (hop3-test)
 
 The `hop3-test` CLI provides a dedicated system for testing application deployments against Hop3. This complements the pytest layers by focusing on real-world deployment scenarios.
@@ -523,8 +521,6 @@ Use `-q/--quiet` to suppress the recap:
 hop3-test run --docker -q
 ```
 
----
-
 ## Part 3: Best Practices
 
 ### Writing Tests
@@ -585,8 +581,6 @@ def test_app_name_validation(app_name, valid):
     assert is_valid_app_name(app_name) == valid
 ```
 
----
-
 ## Part 4: Running Tests
 
 ### Quick Commands
@@ -635,8 +629,6 @@ uv sync
 
 pytest e2e runs against Docker by default; the root `conftest.py` strips `HOP3_DEV_HOST` / `HOP3_TEST_HOST`, so an ambient value can't redirect a run at a real box (ADR 043). Pass `--ssh-host` to target a remote server explicitly.
 
----
-
 ## Part 5: Continuous Integration
 
 ### Recommended CI Pipeline
@@ -668,8 +660,6 @@ nightly:
 
 See: <https://builds.sr.ht/~sfermigier/hop3/>
 
----
-
 ## Part 6: Coverage Targets
 
 | Component | Target | Notes |
@@ -684,8 +674,6 @@ View coverage:
 pytest --cov=hop3 --cov-report=html
 open htmlcov/index.html
 ```
-
----
 
 ## Part 7: Troubleshooting
 
@@ -719,8 +707,6 @@ For Docker tests, `HOP3_UNSAFE=true` is set in the container. If tests fail with
 1. Check the Dockerfile includes `HOP3_UNSAFE=true`
 2. Check the container started correctly
 
----
-
 ## Part 8: Security Testing
 
 ### HOP3_UNSAFE Mode
@@ -751,8 +737,6 @@ def test_non_admin_cannot_create_users():
     )
     assert response.status_code == 403
 ```
-
----
 
 ## Part 9: Cloud Testing
 
@@ -825,8 +809,6 @@ Each image in the matrix is a full `hop3-test run --provider hetzner`:
 
 To test an already-provisioned server without a rebuild, use
 `hop3-test run --host <server> --reuse`.
-
----
 
 ## References
 

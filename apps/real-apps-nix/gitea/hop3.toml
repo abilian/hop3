@@ -21,3 +21,55 @@ covers = ["golang", "nix", "postgres"]
 path = "/"
 status = 200
 contains = "Gitea"
+
+# Stable security secrets (ADR 046): generated once on first deploy and
+# re-injected unchanged on every redeploy. See the [security] section of
+# hop3.nix for what each protects and what rotating it destroys.
+[env]
+SECRET_KEY = { generate = "base64" }
+INTERNAL_TOKEN = { generate = "hex" }
+JWT_SECRET = { generate = "urlsafe" }
+
+# Accounts. The native recipe's `create` says `./gitea`, which is a path that
+# does not exist in a Nix layout — the binary comes from the store and is on
+# PATH. Declaring the block here also stops the generator grafting the native
+# one, which is what produced `sh: ./gitea: not found` on every deploy.
+#
+# nixpkgs names BOTH packages' main program `gitea` (forgejo's too), so this is
+# `gitea` in both hand-crafted recipes and not the module-path name the
+# template-generated variants use.
+[probe]
+username = "hop3probe"
+email = "probe@hop3.invalid"
+create = """
+set -e
+export GITEA_WORK_DIR="$(pwd)"
+conf="custom/conf/app.ini"
+present() { gitea admin user list -c "$conf" | awk 'NR>1{print $2}' | grep -Fxq "$HOP3_PROBE_USER"; }
+if ! present; then
+  gitea admin user create --username "$HOP3_PROBE_USER" \
+    --email "$HOP3_PROBE_EMAIL" --password "$HOP3_PROBE_PASSWORD" \
+    --must-change-password=false -c "$conf"
+fi
+present || { echo "ERROR: probe account '$HOP3_PROBE_USER' was not created (the CLI exits 0 on refusal)" >&2; exit 1; }
+"""
+
+# NOT "admin": Gitea and Forgejo reserve that name, and `admin user create`
+# prints the refusal while STILL EXITING 0 — a fake success that leaves the app
+# with no administrator. Hence the non-reserved name and the verify-by-listing.
+[admin]
+username = "hop3admin"
+email = "operator"
+password = { generate = "password", length = 20 }
+create = """
+set -e
+export GITEA_WORK_DIR="$(pwd)"
+conf="custom/conf/app.ini"
+present() { gitea admin user list -c "$conf" | awk 'NR>1{print $2}' | grep -Fxq "$HOP3_ADMIN_USER"; }
+if ! present; then
+  gitea admin user create --admin --username "$HOP3_ADMIN_USER" \
+    --email "$HOP3_ADMIN_EMAIL" --password "$HOP3_ADMIN_PASSWORD" \
+    --must-change-password=false -c "$conf"
+fi
+present || { echo "ERROR: admin account '$HOP3_ADMIN_USER' was not created (the CLI exits 0 on refusal)" >&2; exit 1; }
+"""

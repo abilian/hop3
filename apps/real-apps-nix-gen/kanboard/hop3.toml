@@ -5,11 +5,19 @@ description = "Kanban project management platform"
 
 [nix]
 template = "php-app"
+# Writes inside its own install directory (config file, cache, data),
+# which a read-only store path cannot support.
+needs-writable-dir = true
 url = "https://github.com/kanboard/kanboard/archive/refs/tags/v${version}.tar.gz"
 sha256 = "TVOLDXS3rX4n4cMQiztpkwmkYAbkTDhagD2+wZ+Erv8="
 archive = "tar-gz"
 php-version = "php82"
-php-extensions = ['mysqli', 'pdo_mysql', 'pdo_sqlite', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'ldap']
+# `xml` is deliberately absent: the Nix PHP already provides it, and naming
+# it again makes every PHP invocation print a module-already-loaded warning
+# on STDOUT. Harmless until something reads that stdout, which nextcloud's
+# install check does -- it was handed that warning instead of the database
+# type and refused a correct install.
+php-extensions = ['mysqli', 'pdo_mysql', 'pdo_sqlite', 'gd', 'mbstring', 'curl', 'zip', 'ldap']
 post-install-dirs = ['data']
 extra-paths = ['${php}/bin']
 
@@ -38,3 +46,11 @@ status = 302
 # `/` 302s to the login page (title "Login"); "Kanboard" only shows once
 # authenticated. Match the login form's own controller instead.
 contains = "AuthController"
+
+# The native bootstrap, ported unchanged.
+[run]
+before-run = ["bash scripts/setup-config.sh", "php cli db:migrate", "bash scripts/reset-admin.sh"]
+
+[admin]
+username = "admin"
+password = { generate = "password", length = 20 }

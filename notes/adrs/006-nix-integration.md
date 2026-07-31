@@ -7,9 +7,9 @@
 
 ## Context
 
-Hop3 is a self-hosted platform designed to streamline the deployment, management, and security of web applications. It caters to both developers and non-technical users by providing dual workflows: a `git push` or CLI-based workflow for developers and a web UI for non-technical users.
+Hop3 is a self-hosted platform designed to simplify deployment, management, and security of web applications. It caters to both developers and non-technical users by providing dual workflows: a `git push` or CLI-based workflow for developers and a web UI for non-technical users.
 
-To ensure deterministic, reproducible deployments and system configurations, integrating Nix as a core component is essential. Nix offers a declarative package management system and build environment, ensuring consistency and reliability across diverse deployment scenarios. This integration aligns with Hop3's goals and the broader NGI initiative while leveraging Nix’s strengths in reproducibility, resource efficiency, and security.
+To ensure deterministic, reproducible deployments and system configurations, integrating Nix as a core component is essential. Nix offers a declarative package management system and build environment, ensuring consistency and reliability across diverse deployment scenarios. This integration aligns with Hop3's goals and the broader NGI initiative while using Nix's strengths in reproducibility, resource efficiency, and security.
 
 Integrating Nix into Hop3 will bridge the gap between reproducible builds and practical deployment needs. Hop3 will generate Nix configurations automatically when they don't exist, convert Heroku-like config files (e.g., Procfile, app.json), and enable easy contribution to the Nix ecosystem.
 
@@ -31,7 +31,7 @@ Hop3 adopts a **two-level build architecture** ([ADR 030](./030-two-level-build-
 - **Level 1 - Builders**: Orchestrate HOW to build (LocalBuilder, DockerBuilder, NixBuilder)
 - **Level 2 - LanguageToolchains**: Execute WHAT to build (PythonToolchain, NodeToolchain, etc.)
 
-**NixBuilder is a Level 1 Builder** that does NOT delegate to LanguageToolchains. Instead, all build logic is encapsulated in the Nix expression (`hop3.nix`).
+**NixBuilder is a Level 1 Builder** whose build logic is entirely encapsulated in the Nix expression (`hop3.nix`).
 
 ```
 LocalBuilder                    NixBuilder
@@ -48,7 +48,7 @@ Additionally, Hop3 uses **BuildArtifact with RuntimeConfig** ([ADR 035](./035-bu
 
 - Nix computes all runtime paths (PATH, PYTHONPATH, etc.) at build time
 - These are stored in the BuildArtifact's `RuntimeConfig`
-- The run phase simply applies the artifact - no detection needed
+- The run phase applies the artifact; no detection is needed
 
 ```python
 # NixBuilder.build() returns:

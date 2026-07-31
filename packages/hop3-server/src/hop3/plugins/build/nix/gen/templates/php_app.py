@@ -87,6 +87,16 @@ class PhpAppTemplate:
             source_root_attr = (
                 f'\n    sourceRoot = "{spec.source_root}";' if spec.source_root else ""
             )
+            # buildComposerProject does its OWN unpack, so unzip must be in ITS
+            # inputs. On the wrapping derivation alone (which sets dontUnpack)
+            # nix answered `do not know how to unpack source archive` for any
+            # composer app shipped as a .zip — and a release zip is exactly what
+            # you want to package when the git tag lacks built assets.
+            composer_unzip = (
+                "\n    nativeBuildInputs = [ pkgs.unzip ];"
+                if spec.source.needs_unzip
+                else ""
+            )
             # composer validate is pedantic; skip it explicitly when a
             # third-party release fails it for benign reasons.
             strict_attr = (
@@ -100,7 +110,7 @@ class PhpAppTemplate:
   composerProject = pkgs.{p.php_version}.buildComposerProject {{
     pname = "{spec.pname}";
     inherit version;
-    src = {binding};{source_root_attr}
+    src = {binding};{source_root_attr}{composer_unzip}
     vendorHash = "{p.composer_deps_hash}";
     composerNoDev = true;{strict_attr}
   }};
@@ -180,13 +190,11 @@ class PhpAppTemplate:
             # cp -a (not symlinks) because PHP's __DIR__ resolves symlinks, and
             # when it resolves back into the read-only Nix store, Laravel/PHP
             # can't find .env, write to storage/, etc. Disk cost ~50-200 MB/app.
-            prelude_parts = [
-                (
-                    "# Copy app from read-only Nix store to writable cwd\n"
-                    "cp -a APPDIR/. .\n"
-                    "chmod -R u+w ."
-                )
-            ]
+            # NOT a `cp -a APPDIR/. .` here. Hop3 materialises the tree at
+            # deploy time from the `writable_tree` key in runtime.json, so it is
+            # in place before `[run] before-run` rather than after. Copying here
+            # as well would overwrite a tree the bootstrap had just configured.
+            prelude_parts = []
             if p.post_install_dirs:
                 dirs = " ".join(p.post_install_dirs)
                 prelude_parts.append(f"mkdir -p {dirs}")
@@ -214,8 +222,23 @@ WRAPPER
         # interpolates at build time (they're inside the installPhase string).
         runtime_env_json = format_runtime_env_json(spec.runtime_env)
         paths_json = format_paths_json(spec.extra_paths)
+        # `writable_tree` names the store path Hop3 must copy into the app's
+        # own directory BEFORE anything runs there. It is declared here rather
+        # than done in the wrapper because the wrapper runs when the app starts,
+        # which is after `[run] before-run` — so a bootstrap script found a
+        # directory holding the recipe and none of the application. Matomo's
+        # installer died on `Failed opening required core/bootstrap.php` for
+        # exactly that reason, on a build that was otherwise fine.
+        # `$out/app`, not `$out`: the application lives in that subdirectory,
+        # while `$out` also holds the generated wrapper and hop3/runtime.json.
+        # Copying `$out` puts the app one level down from where it expects to
+        # be, and drops build metadata into the app's directory where the next
+        # deploy trips over it.
+        writable_tree = (
+            '\n  "writable_tree": "$out/app",' if p.needs_writable_dir else ""
+        )
         runtime_json_section = f"""      cat > $out/hop3/runtime.json << EOF
-{{
+{{{writable_tree}
   "workers": {{
     "web": "$out/bin/{spec.pname}"
   }},

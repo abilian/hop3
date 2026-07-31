@@ -35,31 +35,39 @@ PORT="''${PORT:-8080}"
 
 mkdir -p files
 
-# Service
-export VIKUNJA_SERVICE_INTERFACE=":$PORT"
-# Vikunja v2.x validates: if cors.enable is true (default), publicurl
-# MUST be set — it's used as the CORS origin. The deprecated
-# ``frontendurl`` alias no longer satisfies the check on its own.
-export VIKUNJA_SERVICE_PUBLICURL="''${VIKUNJA_FRONTEND_URL:-http://localhost:$PORT/}"
-export VIKUNJA_SERVICE_FRONTENDURL="$VIKUNJA_SERVICE_PUBLICURL"
+# A CONFIG FILE, not exports.
+#
+# These settings used to be `export VIKUNJA_*` in this wrapper, which meant only
+# the server process ever saw them. `[admin].create` and `[probe].create` run
+# OUTSIDE the wrapper, so `vikunja user create` found no database configuration
+# — its own log says so on every run: "No config file found, using default or
+# config from environment variables" — and fell back to Vikunja's defaults. The
+# accounts were created somewhere other than the database the server reads,
+# which is why a sign-in answered "Wrong username or password" for the admin.
+#
+# nixpkgs ships 0.24.6, the same version the template-generated variant builds
+# from source, so the version was never the difference. The config file is.
+cat > config.yml << CFGEOF
+service:
+  interface: ":$PORT"
+  publicurl: "''${HOP3_PUBLIC_URL:-http://localhost:$PORT}/"
+  frontendurl: "''${HOP3_PUBLIC_URL:-http://localhost:$PORT}/"
+  jwtsecret: "$(cat .jwt-secret)"
 
-# Generate and persist a JWT secret on first run (required in v2.x)
-if [ ! -f .jwt-secret ]; then
-  (tr -dc 'A-Za-z0-9' </dev/urandom 2>/dev/null || openssl rand -base64 48) \
-    | head -c 64 > .jwt-secret
-fi
-export VIKUNJA_SERVICE_JWTSECRET="$(cat .jwt-secret)"
+cors:
+  enable: false
 
-# Database
-export VIKUNJA_DATABASE_TYPE=postgres
-export VIKUNJA_DATABASE_HOST="''${PGHOST:-localhost}"
-export VIKUNJA_DATABASE_PORT="''${PGPORT:-5432}"
-export VIKUNJA_DATABASE_DATABASE="''${PGDATABASE:-vikunja}"
-export VIKUNJA_DATABASE_USER="''${PGUSER:-vikunja}"
-export VIKUNJA_DATABASE_PASSWORD="''${PGPASSWORD:-}"
+database:
+  type: postgres
+  host: ''${PGHOST:-localhost}
+  port: ''${PGPORT:-5432}
+  database: ''${PGDATABASE:-vikunja}
+  user: ''${PGUSER:-vikunja}
+  password: ''${PGPASSWORD:-}
 
-# Files
-export VIKUNJA_FILES_BASEPATH="$PWD/files"
+files:
+  basepath: $PWD/files
+CFGEOF
 
 exec ${vikunja}/bin/vikunja
 WRAPPER
@@ -71,12 +79,14 @@ WRAPPER
   "workers": {
     "web": "$out/bin/vikunja-wrapper"
   },
-  "env": {
-    "VIKUNJA_FRONTEND_URL": "http://localhost:8080/"
+    "env": {
+    "VIKUNJA_DATABASE_TYPE": "postgres",
+    "VIKUNJA_FILES_BASEPATH": "files"
   },
   "path": [
     "$out/bin",
-    "${vikunja}/bin"
+    "${vikunja}/bin",
+    "${pkgs.postgresql}/bin"
   ]
 }
 EOF

@@ -165,8 +165,6 @@ The deployment process follows a three-stage pipeline: **Build → Deploy → Pr
 
 #### Addon vs. Service Distinction
 
-This is a critical distinction to avoid confusion:
-
 | Term | Meaning | Example |
 |------|---------|---------|
 | **Addon** | Platform-managed resource provided by Hop3 | PostgreSQL, Redis, S3 |

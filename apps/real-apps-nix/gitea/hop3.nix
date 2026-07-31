@@ -41,7 +41,9 @@ mkdir -p custom/conf data
 cat > custom/conf/app.ini << EOF
 [server]
 HTTP_PORT = ''${PORT}
-ROOT_URL = http://localhost:''${PORT}/
+# ROOT_URL is the address Gitea puts in clone URLs, redirects and OAuth
+# callbacks — the PUBLIC one, not the loopback it binds.
+ROOT_URL = ''${HOP3_PUBLIC_URL:-http://localhost:''${PORT}}/
 
 [database]
 DB_TYPE = postgres
@@ -53,13 +55,30 @@ PASSWD = ''${DB_PASS}
 [repository]
 ROOT = data/gitea-repositories
 
+[service]
+; Disable open registration so a stranger cannot seize the first-admin slot.
+; Hop3 provisions the intended admin via [admin].create, and the sign-in bar
+; does NOT catch this: an app with open registration signs in perfectly.
+DISABLE_REGISTRATION = true
+
 [log]
 MODE = console
 LEVEL = Info
 
 [security]
 INSTALL_LOCK = true
-SECRET_KEY = $(head -c 32 /dev/urandom | base64)
+# Hop3's generated-once secrets, NOT minted here. This file is rewritten on
+# every start and the heredoc marker is unquoted, so
+# `$(head -c 32 /dev/urandom | base64)` was re-evaluated on every restart.
+# SECRET_KEY encrypts 2FA secrets and stored credentials, INTERNAL_TOKEN
+# authenticates git hooks to the web process, JWT_SECRET signs OAuth2 grants:
+# rotating them makes encrypted data undecryptable and invalidates every token,
+# silently, on a restart nobody connected to it.
+SECRET_KEY = ''${SECRET_KEY:?gitea: SECRET_KEY not injected}
+INTERNAL_TOKEN = ''${INTERNAL_TOKEN:?gitea: INTERNAL_TOKEN not injected}
+
+[oauth2]
+JWT_SECRET = ''${JWT_SECRET:?gitea: JWT_SECRET not injected}
 EOF
 
 exec ${gitea}/bin/gitea web

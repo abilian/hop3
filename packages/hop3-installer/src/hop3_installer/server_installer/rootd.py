@@ -87,7 +87,7 @@ def _resolve_daemon_command() -> str:
     raise ServiceStartError(msg)
 
 
-# NOTE — v0.6 hardening debt (tracked in notes/v0.6-rootd-hardening.md):
+# NOTE — v0.6 hardening debt (tracked in notes/security/rootd-hardening.md):
 # This unit intentionally runs with MINIMAL sandboxing. The original heavy
 # hardening (ProtectHome, ProtectSystem=strict, CapabilityBoundingSet, seccomp
 # SystemCallFilter, namespace restrictions, MemoryDenyWriteExecute) was found to

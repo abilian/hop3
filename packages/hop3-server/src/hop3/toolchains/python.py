@@ -131,7 +131,8 @@ class PythonToolchain(LanguageToolchain):
         # Change the directory to the source path and proceed with building the project
         with chdir(self.src_path):
             self.make_virtual_env()
-            self.install_virtualenv()
+            if not self._run_declared_build(env=self._venv_env()):
+                self.install_virtualenv()
 
         # Compute environment variables for runtime
         env_vars = {
@@ -167,6 +168,30 @@ class PythonToolchain(LanguageToolchain):
         # Create an environment with specific settings for Python execution
         env = Env({"PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "UTF_8:replace"})
         env.parse_settings(Path("ENV"))
+        return env
+
+    def _venv_env(self) -> dict[str, str]:
+        """
+        An environment in which bare ``python``/``pip`` mean the app's venv.
+
+        A recipe's ``[build].build = "pip install -r requirements.txt"`` means
+        *the application's* pip, which is the only reading that makes sense: the
+        command exists to populate the venv the toolchain just created. Run with
+        the ambient environment instead, bare ``pip`` is the system interpreter's
+        — and on a distribution that marks its Python externally managed (PEP 668,
+        Debian/Ubuntu), pip then refuses outright and the build dies with advice
+        to create a virtualenv, which is exactly what Hop3 already did.
+
+        This is why the toolchain's own install path spells every call
+        ``{venv}/bin/python -m pip``. A declared command cannot be rewritten that
+        way, so it gets the PATH instead.
+        """
+        env = dict(os.environ)
+        venv_bin = self.virtual_env / "bin"
+        env["VIRTUAL_ENV"] = str(self.virtual_env)
+        env["PATH"] = f"{venv_bin}{os.pathsep}{env.get('PATH', '')}"
+        # A stale PYTHONHOME points the venv interpreter at another installation.
+        env.pop("PYTHONHOME", None)
         return env
 
     def make_virtual_env(self) -> None:

@@ -1,207 +1,133 @@
 # Aggregate Experience Report: Packaging 20 Applications for Hop3
 
-**Status:** Draft (0.5)
-**Last Updated:** 2026-04-09
+**Status:** Final (0.7) — the per-app reports are `report_status: final`; corrections continue against a published baseline rather than an open draft.
+**Last updated:** 2026-07-31
 
 ## Overview
 
-We packaged 20 open-source applications across four deployment methods
-on Hop3: native (local builder), hand-crafted Nix, template-generated
-Nix, and Docker. This report aggregates observations, patterns, and
-lessons learned.
+Twenty open-source applications are packaged for Hop3 and published in the signed catalog. Each is packaged for up to three build paths (native, hand-written Nix, and Nix generated from a template) and each carries a `check.py` that signs in through the application's own authentication and confirms a wrong password is refused.
 
-## Application Coverage
+Packaging is system-validation work. Every application was chosen to stress a different edge of the platform, and the per-app reports record which edge; where an app merely confirmed existing behaviour, its report says so without inventing a contribution.
 
-| App | Language | Database | Native | Nix | Nix-gen | Docker |
-|-----|----------|----------|--------|-----|---------|--------|
-| Adminer | PHP | None | Yes | Yes | Yes | — |
-| BookStack | PHP | MySQL | Yes | Yes | Yes | Yes |
-| Dolibarr | PHP | PostgreSQL | Yes | Yes | Yes | Yes |
-| Easy!Appointments | PHP | MySQL | Yes | Yes | Yes | Yes |
-| Focalboard | Go | PostgreSQL | Yes | Yes | Yes | Yes |
-| Gitea | Go | PostgreSQL | Yes | Yes | Yes | Yes |
-| Grafana | Go | None | Yes | Yes | Yes | Yes |
-| Invoice Ninja | PHP | MySQL | Yes | Yes | Yes | Yes |
-| Isso | Python | None | Yes | Yes | Yes | Yes |
-| Jenkins | Java | None | Yes | Yes | Yes | Yes |
-| Kanboard | PHP | MySQL | Yes | Yes | Yes | Yes |
-| LimeSurvey | PHP | PostgreSQL | Yes | Yes | Yes | Yes |
-| Matomo | PHP | MySQL | Yes | Yes | Yes | Yes |
-| Mattermost | Go | PostgreSQL | Yes | Yes | Yes | Yes |
-| Miniflux | Go | PostgreSQL | Yes | Yes | Yes | Yes |
-| NextCloud | PHP | MySQL | Yes | Yes | Yes | Yes |
-| Radicale | Python | None | Yes | Yes | Yes | Yes |
-| Vikunja | Go | PostgreSQL | Yes | Yes | Yes | Yes |
-| Wiki.js | Node.js | PostgreSQL | Yes | Yes | Yes | Yes |
-| WordPress | PHP | MySQL | Yes | Yes | Yes | Yes |
+The instrument matters more than the count. "Passing" here means an authenticated sign-in through the application's own surface, with a wrong password refused. That bar was adopted only after a majority of the corpus was found to clear the previous one (HTTP 200) while being impossible to log into. Read against that bar, five of these twenty were at one point serving with no usable credential at all, and every instrument the project then had reported them working.
 
-**Languages:** PHP (10), Go (6), Python (2), Node.js (1), Java (1)
-**Databases:** PostgreSQL (8), MySQL (7), None/SQLite (5)
+## Application coverage
 
-## Patterns Observed
+The table is derived from the reports' own headers, which `hop3-tools catalog reports` checks against the recipes, so it cannot drift from them silently. `n/a` means there is no recipe for that variant. Docker is not listed: recipes exist for most of these applications and none has been measured at this bar, so the report does not claim the variant.
 
-### What Works Well
+| App | Language | Database | Native | Nix | Nix-gen |
+|-----|----------|----------|--------|-----|---------|
+| BookStack | php | mysql | pass | pass | pass |
+| Bugsink | python | postgres | pass | pass | pass |
+| Dolibarr | php | postgres | pass | pass | pass |
+| Easy!Appointments | php | mysql | pass | n/a | **fail** |
+| Forgejo | go | postgres | pass | pass | pass |
+| Gitea | go | postgres | pass | pass | pass |
+| Invoice Ninja | php | mysql | pass | pass | pass |
+| Isso | python | none | pass | pass | pass |
+| Kanboard | php | mysql | pass | pass | pass |
+| Keycloak | java | postgres | pass | pass | pass |
+| LimeSurvey | php | postgres | pass | pass | pass |
+| Matomo | php | mysql | pass | pass | pass |
+| Mattermost | go | postgres | pass | pass | pass |
+| Miniflux | go | postgres | pass | pass | pass |
+| Nextcloud | php | mysql | pass | n/a | pass |
+| Paheko | php | none | pass | pass | pass |
+| Radicale | python | none | pass | pass | pass |
+| Uptime Kuma | node | none | pass | n/a | n/a |
+| Vikunja | go | postgres | pass | pass | pass |
+| WordPress | php | mysql | pass | n/a | pass |
 
-1. **The `[nix]` template system eliminates Nix expertise.** App
-   maintainers write TOML; Hop3 generates the Nix expression. The
-   `php-app`, `python-venv`, `java-war`, and `nixpkgs-wrapper`
-   templates build from source with full reproducibility.
+**Languages:** php (10), go (5), python (3), java (1), node (1)
+**Databases:** postgres (9), mysql (7), none (4)
 
-2. **PHP apps follow a consistent pattern.** The `php-app` template
-   handles Composer install, PHP extensions, writable directories, and
-   config file generation. Once the template was debugged, all 10 PHP
-   apps worked with it. These are true source builds.
+Five applications were packaged, reported, and later dropped from the corpus: Adminer, Focalboard, Grafana, Jenkins and Wiki.js. Their reports are kept under `withdrawn/`, marked `report_status: withdrawn`, because the packaging work was real even though the applications are no longer advertised.
 
-3. **`hop3.toml` is expressive enough.** Every app could be configured
-   declaratively. No app required escaping to a custom script (though
-   `before-run` commands handle migrations and initialization).
+## What the numbers mean, and what they do not
 
-4. **Apps already in nixpkgs are trivial.** The `nixpkgs-wrapper`
-   template (used by Radicale) wraps existing nixpkgs packages with
-   zero custom build logic — the ideal case for reproducibility.
+**Native is the variant the catalog publishes.** The most recent complete recorded run is 19 of 20; the twentieth failed on catalog content that predated its own fix and passes once republished. Every application has been seen green; no single run has been all-green *and* recorded. This report does not round that up, because a claim resting on "each of them passed at some point" is a weaker object than one resting on a run that can be pointed at.
 
-### The Pre-Built Binary Problem
+**Nix-gen is 18 of 19** and **hand-written Nix is 16 of 16**, each on a complete recorded run of its whole family (2026-07-31). The hand-written figure is the only all-green family artefact the corpus has. Easy!Appointments is the single failure: it builds its login form in JavaScript, so neither the HTTP check nor the browser harness can complete a sign-in, and its report says so instead of passing it on the strength of a bootstrap that reports success.
 
-**7 of 20 apps currently rely on pre-built binaries** (Gitea, Miniflux,
-Grafana, Mattermost, Vikunja, Focalboard, Wiki.js). This is a pragmatic
-shortcut but conflicts with Hop3's stated goals:
+Both families were measured for the first time that week, and the first measurement of the hand-written corpus **failed all sixteen applications**, three days after a deploy-oriented matrix scored the same recipes 15 ok, 0 fail. Two instruments, one corpus, opposite verdicts. That is the result the sign-in bar exists to produce. The older instrument could not see what it was reporting green; the same corpus reached 16 of 16 within a day.
 
-1. **Not reproducible.** We download a binary from an upstream release
-   page. We can verify the hash, but we cannot audit or rebuild it.
-   The build is opaque — we trust the upstream CI.
+### What the first measurement found
 
-2. **Not portable across architectures.** Pre-built binaries are
-   typically x86_64-linux only. ARM (aarch64), RISC-V, and other
-   architectures are not supported unless the upstream project also
-   publishes those binaries. This is a blocker for edge/IoT deployment.
+**Five of the sixteen were serving with no usable credential**, in five different ways. Radicale's `[auth] type` defaulted to `none` and nothing set it, so every calendar and address book was public. Isso's config had no `[admin]` section, so its moderation dashboard was served disabled. Miniflux and Keycloak each shipped a literal `changeme` (an identity provider among them), so the deployed instance had an administrator whose password is in this repository while the operator held one that did not work. LimeSurvey installed itself as `console.php install admin password123` with the result discarded by `2>/dev/null || true`: a published password *and* a failed install reported as success, in one line.
 
-3. **Supply chain risk.** A compromised upstream release pipeline could
-   distribute malicious binaries. With source builds, Nix's content-
-   addressed store provides an independent verification path.
+No status assertion and no content assertion can distinguish any of those from a working deployment. The argument is not hypothetical.
 
-**Mitigation plan:** These apps should eventually be built from source
-using Nix. For Go apps (6 of the 7), this means writing a `buildGoModule`
-derivation. For Wiki.js (Node.js), a `buildNpmPackage` or equivalent.
-This is significant Nix packaging work per app but is the right long-term
-approach. In the meantime, the pre-built templates are upfront about their
-limitations and should be documented as a "Tier 2" deployment — functional
-but not fully reproducible.
+The remainder divide cleanly: two forges carried a *native* `create` command naming `./gitea`, a path with no meaning in a Nix layout; three carried secrets minted by a wrapper that re-evaluates them on every start; three were served straight out of the read-only store and so could never be installed at all; and the rest had no first-run bootstrap, because these recipes predate ADR 056 and the variant generator grafts an identity they cannot honour.
 
-**Affected apps and their source-build feasibility:**
+### One methodological finding
 
-| App | Pre-built template | Source build path | Difficulty |
-|-----|-------------------|-------------------|------------|
-| Gitea | prebuilt-binary | `buildGoModule` | Medium (large Go project) |
-| Miniflux | prebuilt-binary | `buildGoModule` | Easy (small, no CGO) |
-| Grafana | prebuilt-archive | `buildGoModule` + frontend | Hard (Go + Node + Webpack) |
-| Mattermost | prebuilt-archive | `buildGoModule` + frontend | Hard (Go + React) |
-| Focalboard | prebuilt-archive | `buildGoModule` + frontend | Hard (Go + Node) |
-| Vikunja | prebuilt-archive | `buildGoModule` + frontend | Medium (Go + Vue) |
-| Wiki.js | node-prebuilt | `buildNpmPackage` | Medium (Node.js + build) |
+Every application in this corpus exists in two to four packagings, and the fastest route to a defect in one of them is a diff against a packaging that already passes. The last four hand-written failures each took a single attempt once that was the method, having resisted several rounds of reasoning from symptoms.
 
-### Multi-Component Applications
+The wrong theories are kept because each would have sent someone into the platform after a defect that is not there: a reverse-proxy misconfiguration (Matomo actually needed the `core:update` both working variants run), a version skew (`nix eval` says nixpkgs ships the *same* Vikunja the template variant compiles), and PHP's built-in server mismatching responses under concurrency (every working variant uses `php -S` too). Reading the redirect target, the log line, and the working recipe would each have been quicker than any of them.
 
-Several apps in the set consist of multiple components that should
-ideally run as separate processes:
+**Docker is out of scope for this report.** Recipes exist for most of these applications and no run has ever measured one at the sign-in bar, so the corpus has nothing to say about them. Earlier versions of these reports recorded Docker as "Passing", which is the specific rot this format exists to prevent: that status was asserted, not observed. Rather than carry an empty column, the variant is not claimed at all — and on the evidence above, whoever measures it first should expect to find things rather than confirm them.
 
-| App | Components | Current Approach | Ideal Approach |
-|-----|-----------|------------------|----------------|
-| Mattermost | API server + web frontend | Single binary serves both | Acceptable (monolith by design) |
-| NextCloud | PHP app + background cron | Single PHP process | Needs cron worker (`[run.workers]`) |
-| Focalboard | Go API + Node frontend | Pre-built archive bundles both | Separate build, single binary OK |
-| Invoice Ninja | PHP app + queue worker | Single PHP process | Needs queue worker (`[run.workers]`) |
-| Mastodon* | Rails + Sidekiq + Streaming | Not yet supported | Needs multi-service ADR |
+## The bar, and why it moved
 
-(*Mastodon is in Docker only, not in the 20-app set, but illustrates
-the problem.)
+For most of this corpus's life, "passing" meant the application deployed and answered HTTP 200. That bar was retired after a majority of the catalog was found to clear it while being impossible to log into: apps served their login page perfectly and rejected every credential. Some of those failures were the platform's, some the recipes', and one was the checking library posting an empty form body: the same symptom for all three.
 
-**Current limitation:** Hop3's `[run.workers]` section supports
-multiple named processes (web, worker, scheduler), and uWSGI can
-manage them. But there is no declarative way to express that a
-single app needs multiple containers or processes with different
-runtime configs (different env vars, different ports, different
-resource limits).
+Reports now name the bar they were verified at, in a header field the checker reads:
 
-**Needed:** An ADR for multi-service application support. This would
-define how `hop3.toml` expresses sidecar processes, shared storage
-volumes, and inter-process networking. The `[[addons]]` mechanism
-is a starting point (it already provisions databases as separate
-services), but the pattern needs to generalise to arbitrary app
-components.
+| Bar | Meaning |
+|-----|----------|----------|--------|-----|---------|
+| `http-status` | returned 200; **not sufficient** for a catalog app |
+| `http-content` | served its own content (a `contains` assertion) |
+| `authenticated` | signed in through the app's own auth; a wrong password was refused |
 
-### Recurring Technical Challenges
+An advertised application may not be reported `final` on anything less than `authenticated`, and the checker enforces it.
 
-1. **PHP `__DIR__` resolves symlinks.** Nix store paths are symlinked
-   into the working directory. PHP's `__DIR__` resolves the symlink,
-   pointing to the read-only Nix store instead of the writable cwd.
-   Fix: `cp -a` instead of symlinks (`needs-writable-dir` in nix-gen).
+One gap remains open at the platform level: `[healthcheck].contains` is declared by no recipe in the corpus, and a deploy currently treats any status line as "serving". So the "App is now running" a deploy prints is satisfied by a 500. Until that changes, a deploy's own report of success is a weaker claim than these reports are.
 
-2. **Laravel APP_KEY must be exactly 32 bytes, base64-encoded.** Several
-   PHP apps (BookStack, Invoice Ninja) failed silently with invalid keys.
-   Fix: generate proper keys in `start.sh` or `[env]`.
+## Recurring technical findings
 
-3. **Database addons need wait loops in Docker.** Containers start before
-   MySQL/PostgreSQL is ready. Every Docker app with a database addon
-   needs a wait loop in `start.sh`, and migrations must be non-fatal
-   (so the web server still starts for diagnostics).
+The per-app reports carry the detail; these are the patterns that showed up in more than one.
 
-4. **Config file generation before migrations.** LimeSurvey's install
-   command needs `config.php` to know the database. The Nix wrapper
-   must generate config files before running pre-exec commands.
+**An app's binary is rarely named after the app, and never the same in two packagings.** `buildGoModule` names it after the module path element, so a source build gives `forgejo.org`, `miniflux.app`, `api`. nixpkgs names the same three `gitea`, `miniflux`, `vikunja`; its Mattermost derivation ships no `mmctl` at all, though every `mmctl --local` in that app's documentation assumes one. `$out/bin` holds only the generated wrapper, which execs one fixed subcommand, so putting it on `PATH` does not help; `${pkg}` is the stable binding for the application's own derivation. A command copied from a sibling recipe fails differently, without working, and `nix eval` on the pinned nixpkgs settles the question in seconds.
 
-5. **Environment variable mapping.** Hop3 injects `DATABASE_URL` but
-   apps expect `DB_HOST`, `DB_PORT`, etc. The `[env.computed]` section
-   in nix-gen handles this, but native and Docker configs must do it
-   manually in `start.sh` or `wp-config.php`.
+**A credential is not injected until something maps it.** Hop3 generates an administrator password, stores it encrypted, and injects `HOP3_ADMIN_*`. An application reads whatever *it* reads, and the mapping is the recipe's job (`[env.computed]`). Where the mapping was missing, the recipe usually still carried a literal default, so the deployed application had an administrator whose password was published in the repository, while the operator was handed one that did not work. The smoke test reported only the second half of that. Four recipes were in this state.
 
-### Effort Per Deployment Method
+**A secret evaluated by the wrapper is a secret that rotates.** Values in `[nix.env-exports]` are shell expressions re-evaluated on every start. Several recipes minted signing keys there with `$(head -c 32 /dev/urandom | base64)`, which silently invalidates every session on restart and, for the forges, makes 2FA secrets and stored credentials undecryptable. Generated-once `[env]` secrets are the mechanism; the shell is not.
 
-| Method | Avg. Time | Nix Knowledge? | Reproducible? | Portable? |
-|--------|-----------|----------------|---------------|-----------|
-| Native | 15 min | No | No | Yes (source) |
-| Docker | 30-60 min | No | Partially | Yes (multi-arch build) |
-| Nix (source build) | 1-3 hours | Yes | Yes | Yes |
-| Nix (template, source) | 15-30 min | No | Yes | Yes |
-| Nix (template, pre-built) | 15 min | No | **No** | **No (x86_64 only)** |
+**The generated wrapper is not the only thing that runs the app's code.** `[run] before-run` and the `[admin]`/`[probe]` create commands execute directly. Anything that lives only in the wrapper (`LD_LIBRARY_PATH` from `nix-runtime-libs`, a composed `DATABASE_URL`) is absent there, and the failure looks like a broken application, not a missing environment.
 
-### Nix Reproducibility Tiers
+**PHP `__DIR__` resolves symlinks**, so a Nix store path reached through one lands back in the read-only store. `needs-writable-dir` copies the tree instead, and the copy's *timing* was the single largest cause of nix-gen failure. It happened when the app started, which is after `before-run`, so any application whose bootstrap needs its own code found an empty directory. Materialising it at deploy time, ahead of the first `before-run` command, moved six applications at once.
+
+**An application's public address is not the address it binds.** Four recipes pinned theirs to `http://localhost:8080` (three in `[nix.runtime-env]`, baked into the wrapper at build time) and one built it by hand as `http://${HOST_NAME}`, right host, wrong scheme. The consequences differ (a Vue frontend calling the visitor's own machine; a Laravel redirect loop; a Keycloak console whose sign-in redirect points nowhere; a JavaScript form posting over http from an https page) and the shape is identical: the server side is unaffected, so every status and content assertion passes while a browser is shown nothing usable. `HOP3_PUBLIC_URL` is injected once the hostname is settled and reaches config files, `before-run` and `create`; `make validate` now rejects a hand-built public URL in any build-time table.
+
+**A git tag is not a release.** Paheko vendors the KD2 framework into its release tarball without committing it; Easy!Appointments' tag omits both its minified assets and its `vendor/` tree. `fetchFromGitHub` on the tag produces a package missing part of the application, and the failure surfaces at runtime as a missing `require_once`, not at build time.
+
+**A setting that lives in a shell script does not survive repackaging.** `DISABLE_REGISTRATION = true` sat in the native recipes' `scripts/setup-config.sh`, and no Nix variant carries a `scripts/` directory, so all four Nix forge builds put an internet-facing Gitea or Forgejo online on which the first visitor could register. It shipped for as long as those variants existed. **The sign-in bar does not catch it**: an application with open registration signs in perfectly and refuses a wrong password. The bar is a floor, and a security posture that lives only in a file one packaging happens to carry is not a posture.
+
+**A bootstrap CLI's exit code is not its outcome.** Gitea and Forgejo print `admin user create`'s refusal and exit 0; Dolibarr's install steps do the same; Vikunja's `user` command answers an unknown subcommand with usage text and exit 0, so calling one that does not exist is a silent no-op. Every `create` in this corpus now verifies the account exists (by listing it, or by querying the row), because the platform's own "admin created" message is a promise it cannot otherwise keep.
+
+**A read-only store is not a place an application can be installed.** Three recipes served straight out of `$out`, which means no schema, no config, no uploads and no account: the app deploys, starts, answers HTTP, and cannot be signed into. The failure presents as an application-level message ("please run setup", "the username is required"), which points at the app, not at the filesystem underneath it.
+
+**Multi-process applications are under-served.** Bugsink needs a `snappea` worker and a second `migrate --database=` before any post-login page works; Nextcloud wants a cron worker; Invoice Ninja wants a queue. `[run.workers]` expresses the processes, but not per-process environment, ports, or limits.
+
+## Reproducibility tiers
+
+Every tier builds in a sealed sandbox: the dependency set is vendored into a fixed-output derivation from a committed lockfile, so the package manager runs offline. The tiers rank provenance; hermeticity is not the measure.
 
 | Tier | Method | Rebuilds identically? | Auditable to source? | Multi-arch? |
-|------|--------|---------------|------------|-------------|
-| 1 | nixpkgs package | Yes | Yes | Yes |
-| 2 | Source build against a committed lockfile | Yes | Yes | One arch per lockfile |
-| 3 | Pre-built upstream artefact (fetchurl) | Yes | No | **No** |
+|------|--------|-----------------------|----------------------|-------------|
+| 1 | nixpkgs package | yes | yes | yes |
+| 2 | source build against a committed lockfile | yes | yes | one arch per lockfile |
+| 3 | pre-built upstream artefact (`fetchurl`) | yes | no | **no** |
 
-Every tier builds in a sealed sandbox: the dependency set is vendored into a
-fixed-output derivation from a committed lockfile, so the package manager runs
-offline. What the tier ranks is provenance, not hermeticity.
+The pre-built-binary problem earlier drafts described has largely been worked through: Gitea, Forgejo, Miniflux and Vikunja are compiled from source with `go-source`, and Mattermost and Keycloak are `nixpkgs-wrapper`. Run `hop3-tools nix tiers apps/real-apps-nix-gen` for the current split, and see ADR 008 for the assessment.
 
-Only 2 of the 31 nix-gen apps remain Tier 3 (jenkins, wiki-js — nixpkgs itself
-packages both from the upstream artefact); 6 are Tier 1 and 23 Tier 2. Run
-`hop3-tools nix tiers apps/real-apps-nix-gen` for the current split, and see
-ADR 008 for the full assessment.
+Two moved the other way, deliberately. Paheko and Easy!Appointments now fetch the upstream *release* archive instead of building from the git tag, because the tag does not carry the whole application: vendored framework code in one case, built frontend assets and `vendor/` in the other. That is tier 3 by the table above. The alternative is a package that does not run.
 
-## Remaining Issues
+## Open
 
-- ~8 apps in `real-apps-nix-bad/` need further work (etherpad, hedgedoc,
-  cryptpad, searxng, listmonk, matrix-synapse, sonarqube, xwiki)
-- 7 apps rely on pre-built binaries (need source-build Nix derivations)
-- Multi-component apps (NextCloud cron, Invoice Ninja queue) need
-  `[run.workers]` configuration
-- Multi-service apps (Mastodon-like) need an ADR
-- Docker apps on SSH targets have MySQL connectivity issues
-- No production deployments with real traffic yet
-
-## Conclusion
-
-Hop3 can package and deploy a diverse set of applications across
-multiple languages and frameworks. The template-based Nix generation
-(ADR 008) is a significant contribution: it provides Nix benefits
-without requiring Nix expertise.
-
-However, the current reliance on pre-built binaries for 7 of 20 apps
-is a known compromise. These apps work but do not deliver on the
-reproducibility and portability promises of Nix. Moving to source
-builds is the priority for the next phase. Additionally, multi-
-component applications need a better architectural pattern than the
-current single-process-per-app model.
+- **No recorded all-green run of the native set:** the variant the catalog actually publishes. Every application has been seen green and the most recent complete run is 19 of 20. Both Nix families now have a complete recorded run, and hand-written Nix at 16 of 16 is the only all-green family artefact in the corpus; native is not. This report's headline number should rest on one.
+- **Docker is unclaimed.** Recipes exist and none has been measured at the sign-in bar; the reports no longer carry the variant rather than carry an empty column for it. Both families that *have* been measured failed comprehensively on first contact, so this is a known unknown, not a safe one.
+- **Easy!Appointments cannot be verified by either path.** Its bootstrap runs and reports success; the served page carries no form inputs for `check.py` to post, and the browser harness fills the JavaScript-built form and remains on it. It may need a check that queries the application instead of driving its interface.
+- **Four applications are not photographed signed in**: Mattermost's React login is not drivable by the harness, Paheko's capture hangs on a ServiceWorker registration, Bugsink's has not been made to work, and Easy!Appointments fails outright. Invoice Ninja (Flutter canvas) and Radicale (HTTP Basic, rendering identically signed in or out) are declared undrivable, not counted as gaps.
+- **Isso ships no built frontend** under Nix: the `python-venv` template has no frontend build phase, so its admin dashboard serves a 200 whose JavaScript 404s; a `contains` assertion passes on it.
+- **`[healthcheck].contains` is declared by no recipe in the corpus**, and a deploy treats any status line as "serving". The "App is now running" a deploy prints is therefore satisfied by a 500, which makes a deploy's own report of success a weaker claim than these reports are.

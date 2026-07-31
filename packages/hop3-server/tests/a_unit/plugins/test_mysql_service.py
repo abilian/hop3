@@ -18,6 +18,7 @@ import mysql.connector
 import pytest
 
 from hop3.core.identifiers import InvalidIdentifierError
+from hop3.plugins.mysql import mysql as my
 from hop3.plugins.mysql.mysql import ADDON_USER_HOSTS, MySQLAddon, MysqlAddon
 
 
@@ -89,12 +90,26 @@ def test_password_is_generated():
     assert service1.db_password != service2.db_password
 
 
-def test_restore_nonexistent_backup(mysql_service, tmp_path):
-    """Test that restore fails if backup file doesn't exist."""
-    nonexistent_file = tmp_path / "nonexistent.sql"
+def test_restore_nonexistent_backup(mysql_service, tmp_path, monkeypatch):
+    """Restore fails cleanly when a backup inside the backup tree is missing."""
+    monkeypatch.setattr(my, "HOP3_ROOT", tmp_path)
+    backups = tmp_path / "backups" / "mysql"
+    backups.mkdir(parents=True)
 
     with pytest.raises(FileNotFoundError, match="Backup file not found"):
-        mysql_service.restore(nonexistent_file)
+        mysql_service.restore(backups / "nonexistent.sql")
+
+
+def test_restore_refuses_path_outside_backup_root(
+    mysql_service, tmp_path, monkeypatch
+) -> None:
+    """Sister site of the Postgres check -- see report-2026-07.md finding 4."""
+    monkeypatch.setattr(my, "HOP3_ROOT", tmp_path)
+    backups = tmp_path / "backups" / "mysql"
+    backups.mkdir(parents=True)
+
+    with pytest.raises(ValueError, match="outside the backup directory"):
+        mysql_service.restore(backups / "../../../etc/passwd")
 
 
 def test_info_handles_connection_errors(mysql_service):

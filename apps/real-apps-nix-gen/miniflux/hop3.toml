@@ -33,8 +33,15 @@ go-ldflags = ["-X miniflux.app/v2/internal/version.Version=${version}"]
 LISTEN_ADDR = "0.0.0.0:${PORT:-8080}"
 RUN_MIGRATIONS = "1"
 CREATE_ADMIN = "1"
-ADMIN_USERNAME = "${ADMIN_USERNAME:-admin}"
-ADMIN_PASSWORD = "${ADMIN_PASSWORD:-changeme}"
+ADMIN_USERNAME = "${ADMIN_USERNAME:?miniflux: ADMIN_USERNAME not injected}"
+# NO default. `${ADMIN_PASSWORD:-changeme}` meant that whenever the injection
+# was missing — as it was, because nothing mapped HOP3_ADMIN_PASSWORD onto it —
+# CREATE_ADMIN made an `admin` account with a password published in this file,
+# while Hop3 advertised a generated one that did not work. The smoke test read
+# that as "Invalid username or password", which was true and buried the point:
+# the deployed app had a publicly known administrator. Refusing to start is the
+# only acceptable behaviour when the credential is absent.
+ADMIN_PASSWORD = "${ADMIN_PASSWORD:?miniflux: ADMIN_PASSWORD not injected — refusing to create an admin with a default password}"
 
 [[nix.conditional-env]]
 name = "DATABASE_URL"
@@ -44,8 +51,6 @@ value = "postgres://${PGUSER:-miniflux}:${PGPASSWORD:-}@${PGHOST:-localhost}:${P
 [nix.runtime-env]
 RUN_MIGRATIONS = "1"
 CREATE_ADMIN = "1"
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "changeme"
 
 [[addons]]
 type = "postgres"
@@ -61,3 +66,16 @@ covers = ["golang", "nix", "postgres"]
 path = "/healthcheck"
 status = 200
 contains = "OK"
+
+[admin]
+username = "admin"
+password = { generate = "password", length = 20 }
+
+# Map the generated credential onto the vars Miniflux reads at first start.
+# This is the whole bootstrap: CREATE_ADMIN makes the account from these, and
+# skips when the user already exists, so it is safe across redeploys. The
+# native recipe has had this mapping all along; the nix-gen variant was
+# generated without it.
+[env.computed]
+ADMIN_USERNAME = "${HOP3_ADMIN_USER}"
+ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD}"
