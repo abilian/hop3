@@ -13,7 +13,11 @@ template = "nixpkgs-wrapper"
 nixpkgs-package = "mattermost"
 exec-target = "mattermost"
 exec-args = ['--config', '"$PWD/config/config.json"']
-extra-paths = ['${pkg}/bin']
+# mmctl is a SEPARATE nixpkgs package — the mattermost derivation's bin holds
+# only `mattermost`, so every `mmctl --local` call in the bootstrap exited 127
+# (command not found) and the deploy correctly refused to leave the app
+# without an admin.
+extra-paths = ['${pkg}/bin', '${mmctl}/bin']
 pre-exec = [
   "mkdir -p data logs config plugins client/plugins",
   """# Symlink Mattermost assets from the nixpkgs package into the writable cwd
@@ -31,6 +35,9 @@ PORT = "${PORT:-8080}"
 [nix.runtime-env]
 MM_SERVICESETTINGS_SITEURL = "http://localhost:8080"
 
+[nix.let-extra]
+mmctl = "pkgs.mmctl"
+
 [[nix.config-files]]
 path = "config/config.json"
 format = "raw"
@@ -42,7 +49,8 @@ raw-content = """
     "ConnectionSecurity": "",
     "TLSCertFile": "",
     "TLSKeyFile": "",
-    "EnableLocalMode": false
+    "EnableLocalMode": true,
+    "LocalModeSocketLocation": "${PWD}/mattermost_local.socket"
   },
   "SqlSettings": {
     "DriverName": "postgres",
@@ -93,11 +101,11 @@ contains = "status"
 username = "hop3probe"
 email = "probe@hop3.invalid"
 create = '''
-if ! bin/mmctl --local user search "$HOP3_PROBE_USER" 2>/dev/null | grep -q "$HOP3_PROBE_USER"; then
-  bin/mmctl --local user create --username "$HOP3_PROBE_USER" \
+if ! mmctl --local user search "$HOP3_PROBE_USER" 2>/dev/null | grep -q "$HOP3_PROBE_USER"; then
+  mmctl --local user create --username "$HOP3_PROBE_USER" \
     --email "$HOP3_PROBE_EMAIL" --password "$HOP3_PROBE_PASSWORD"
 fi
-bin/mmctl --local user search "$HOP3_PROBE_USER" 2>/dev/null | grep -q "$HOP3_PROBE_USER" || {
+mmctl --local user search "$HOP3_PROBE_USER" 2>/dev/null | grep -q "$HOP3_PROBE_USER" || {
   echo "Mattermost probe account missing after user create" >&2
   exit 1
 }
@@ -132,10 +140,10 @@ while [ ! -S "$sock" ]; do
   fi
   sleep 2
 done
-if ./bin/mmctl --local user list --all | grep -Fq ": $HOP3_ADMIN_USER ("; then
+if mmctl --local user list --all | grep -Fq ": $HOP3_ADMIN_USER ("; then
   echo "Admin user '$HOP3_ADMIN_USER' already exists; skipping creation."
 else
-  ./bin/mmctl --local user create --system-admin --email-verified \
+  mmctl --local user create --system-admin --email-verified \
     --email "$HOP3_ADMIN_EMAIL" \
     --username "$HOP3_ADMIN_USER" \
     --password "$HOP3_ADMIN_PASSWORD"

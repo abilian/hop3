@@ -8,11 +8,16 @@ template = "php-app"
 # Writes inside its own install directory (config.local.php, data), which a
 # read-only store path cannot support.
 needs-writable-dir = true
-url = "https://codeload.github.com/paheko/paheko/tar.gz/refs/tags/${version}"
-sha256 = "sha256-D83byx+kmeDvKwiGIMN0lIx25Jp+vR0Mfmk1jCx+Nzw="
+# The RELEASE tarball, not the git tag. The tag archive omits the vendored
+# KD2 framework (produced by the release process), so the app built fine and
+# died on every request with
+# `require_once .../include/lib/KD2/ErrorManager.php: No such file`. The
+# native recipe fetches this same artefact and asserts KD2 is present.
+url = "https://fossil.kd2.org/paheko/uv/paheko-${version}.tar.gz"
+sha256 = "sha256-p7PbPJi22BkZO3NVq/cX9SOVvTupvPbGh96e8AjKT98="
 archive = "tar-gz"
 php-version = "php82"
-web-root = "src/www"
+web-root = "www"
 # `xml` is deliberately absent: the Nix PHP already provides it, and naming
 # it again makes every PHP invocation print a module-already-loaded warning
 # on STDOUT. Harmless until something reads that stdout, which nextcloud's

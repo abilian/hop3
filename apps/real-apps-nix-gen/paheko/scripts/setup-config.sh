@@ -16,19 +16,24 @@ mkdir -p data
 # time and invalidate sessions / render encrypted data undecryptable. Fail loud
 # if it's somehow missing (a stable generated var is always injected on a real
 # deploy).
+# Constants are written as `defined() || define()`, never bare `const`. The
+# file is required by include/init.php with a plain `require`, so anything
+# that bootstraps Paheko twice in one process redefines them — and Paheko's
+# error handler turns that warning into a fatal. Guarded, a second load is a
+# no-op.
 if [ ! -f config.local.php ]; then
     cat > config.local.php <<EOF
 <?php
 namespace Paheko;
-const DATA_ROOT = __DIR__ . '/data';
-const DB_FILE = DATA_ROOT . '/paheko.sqlite';
-const SECRET_KEY = '${PAHEKO_SECRET_KEY:?PAHEKO_SECRET_KEY not set (expected from [env] PAHEKO_SECRET_KEY generate)}';
+defined('Paheko\\DATA_ROOT') || define('Paheko\\DATA_ROOT', __DIR__ . '/data');
+defined('Paheko\\DB_FILE') || define('Paheko\\DB_FILE', DATA_ROOT . '/paheko.sqlite');
+defined('Paheko\\SECRET_KEY') || define('Paheko\\SECRET_KEY', '${PAHEKO_SECRET_KEY:?PAHEKO_SECRET_KEY not set (expected from [env] PAHEKO_SECRET_KEY generate)}');
 # Tell Paheko its PUBLIC url, scheme included. Left unset it auto-detects from
 # \$_SERVER, and behind Hop3 the app is reached over plain HTTP by the proxy
 # that terminates TLS — so Paheko concluded it lived at *http*://, and rendered
 # exactly that: data-url="http://paheko...". HOP3_PUBLIC_URL is the value it
 # needed and Hop3 already injects it.
-const WWW_URL = '${HOP3_PUBLIC_URL:?HOP3_PUBLIC_URL not set (injected by Hop3 for every app)}/';
+defined('Paheko\\WWW_URL') || define('Paheko\\WWW_URL', '${HOP3_PUBLIC_URL:?HOP3_PUBLIC_URL not set (injected by Hop3 for every app)}/');
 EOF
 fi
 
