@@ -1547,3 +1547,52 @@ def test_go_source_exposes_the_app_binary_as_pkg():
     assert "pkg = goApp;" in output, (
         "a recipe must be able to put the app's own bin on PATH via ${pkg}/bin"
     )
+
+
+def test_nix_runtime_libs_reach_the_runtime_env_not_just_the_wrapper():
+    """
+    Anything that runs the app's own code needs its shared libraries.
+
+    `nix-runtime-libs` became one `export LD_LIBRARY_PATH=` inside the generated
+    wrapper, which covers the app process and nothing else. `[run] before-run`
+    and `[admin]/[probe].create` execute directly, so they got a venv whose C
+    extensions could not load: bugsink's `migrate` died with
+    `ImproperlyConfigured: Error loading psycopg2 or psycopg module` while the
+    identical code worked once the wrapper started it.
+    """
+    spec = AppSpec(
+        pname="bugsink-nixgen",
+        version="2.1.2",
+        description="t",
+        exec_target="gunicorn",
+        source=Source(url="https://example/x.tar.gz", sha256="x", archive="tar-gz"),
+        payload=PythonVenvPayload(
+            requirements="requirements.txt", deps_hash="sha256-x"
+        ),
+        nix_runtime_libs=["postgresql.lib", "krb5.lib"],
+    )
+
+    assert spec.runtime_env["LD_LIBRARY_PATH"] == (
+        "${pkgs.postgresql.lib}/lib:${pkgs.krb5.lib}/lib"
+    ), "the libraries must be declared in the runtime env, which runtime.json carries"
+
+    output = generate(spec)
+    assert output.count("LD_LIBRARY_PATH") >= 2, (
+        "both the wrapper export and the runtime env should carry it"
+    )
+
+
+def test_an_explicit_runtime_ld_library_path_is_not_overwritten():
+    """A recipe that sets it deliberately keeps its own value."""
+    spec = AppSpec(
+        pname="x",
+        version="1",
+        description="t",
+        exec_target="x",
+        source=Source(url="https://example/x.tar.gz", sha256="x", archive="tar-gz"),
+        payload=PythonVenvPayload(requirements="requirements.txt"),
+        nix_runtime_libs=["postgresql.lib"],
+        runtime_env={"LD_LIBRARY_PATH": "/hand/written"},
+    )
+
+    assert spec.runtime_env["LD_LIBRARY_PATH"] == "/hand/written"

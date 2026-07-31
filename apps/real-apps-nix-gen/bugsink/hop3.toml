@@ -40,28 +40,48 @@ nix-runtime-libs = [
     "stdenv.cc.cc.lib", # libstdc++.so.6 — sentry-sdk transitive
 ]
 
-pre-exec = [
-    # First-deploy bugsink_conf.py generation. bugsink-create-conf
-    # --template docker writes ALLOWED_HOSTS = ["localhost"] by default;
-    # we append ALLOWED_HOSTS = ["*"] unconditionally after generation
-    # because Python takes the LAST assignment — this lets the test
-    # harness reach us on 127.0.0.1 and is the pattern the hand-crafted
-    # variant uses. Guard is on the file existence, not on the presence
-    # of ALLOWED_HOSTS (which would prevent our override from landing).
-    '[ -f bugsink_conf.py ] || { VENVBIN/bugsink-create-conf --template docker --host localhost --port ${PORT:-8080} -o bugsink_conf.py; KEY=$(VENVBIN/python -c "import secrets; print(secrets.token_urlsafe(50))"); printf "\n# appended by Hop3 on first deploy\nSECRET_KEY = \"%s\"\nALLOWED_HOSTS = [\"*\"]\n" "$KEY" >> bugsink_conf.py; }',
-    'VENVBIN/bugsink-manage migrate --noinput',
-]
 
 [nix.env-exports]
+# NOT `$(head -c 32 /dev/urandom | base64)`. The wrapper re-evaluates its exports
+# on every start, so that minted a new Django SECRET_KEY each restart and
+# invalidated every session. It comes from [env] below, generated once.
+SECRET_KEY = "${SECRET_KEY:?bugsink: SECRET_KEY not injected}"
+# Bugsink builds each project's Sentry ingest DSN from BASE_URL, so it must be
+# the public host — an SDK cannot report to `localhost`.
+BASE_URL = "${HOP3_PUBLIC_URL:-http://localhost:${PORT:-8080}}"
+
+# The same script the native variant runs, byte-identical: it generates
+# bugsink_conf.py, migrates BOTH databases, and creates the admin. It works here
+# because a Nix app's before-run now gets the app's own directory as its cwd and
+# the venv's bin on PATH.
+[run]
+before-run = "bash scripts/setup.sh"
+start-timeout = 180
+
+# Bugsink is two processes. Its background queue ("snappea") lives in a separate
+# database and is drained by this worker; without it the app signs in and then
+# 500s on the first task path — the "serves a login page but does not work"
+# failure the smoke test exists to catch.
+[run.workers]
+snappea = "bugsink-runsnappea"
+
+# Generated once and re-injected unchanged (ADR 046). bugsink_conf.py lives
+# under src/, which a redeploy wipes and regenerates, so the key must come from
+# outside or it rotates with the tree.
+[env]
+SECRET_KEY = { generate = "urlsafe" }
+
+# DATABASE_URL belongs in the APP's env, not in [nix.env-exports]. Those are
+# shell exports inside the generated wrapper, so only the app process ever sees
+# them — and [probe].create runs `bugsink-manage` directly, which then had the
+# PG* parts but not the composed URL and died building a connection. Resolved
+# here at deploy time, it reaches the wrapper, before-run and create alike.
+[env.computed]
 DATABASE_URL = "postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"
-SECRET_KEY = "${SECRET_KEY:-$(head -c 32 /dev/urandom | base64)}"
-BASE_URL = "http://localhost:${PORT:-8080}"
 
 [[addons]]
 type = "postgres"
 
-[run]
-start-timeout = 180
 
 [test]
 priority = "P1"
@@ -74,3 +94,27 @@ covers = ["python", "django", "nix", "postgres"]
 path = "/accounts/login/"
 status = 200
 contains = "Bugsink"
+
+[probe]
+username = "hop3probe"
+email = "probe@hop3.invalid"
+create = '''
+bugsink-manage shell -c "
+import os
+from django.contrib.auth import get_user_model
+User = get_user_model()
+username = os.environ['HOP3_PROBE_USER']
+if not User.objects.filter(username=username).exists():
+    User.objects.create_user(
+        username=username,
+        email=os.environ.get('HOP3_PROBE_EMAIL', ''),
+        password=os.environ['HOP3_PROBE_PASSWORD'],
+    )
+    print('probe user created')
+"
+'''
+
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }

@@ -1312,7 +1312,15 @@ def _bootstrap_admin_account(
     path_prepend = build_artifact.runtime.path_prepend
 
     def run_create(command: str) -> None:
-        env = {**os.environ, **app.get_runtime_env()}
+        # The build artifact's env comes FIRST, so the app's own values still
+        # win — this only fills what the recipe did not set. Without it a
+        # create command runs the app's code with none of the runtime its
+        # toolchain established: bugsink's probe called `bugsink-manage` and
+        # Django failed to load psycopg, because LD_LIBRARY_PATH (which carries
+        # libpq for a Nix-built venv) lives in the artifact runtime and was
+        # applied only when spawning workers.
+        artifact_env = build_artifact.runtime.env_vars if build_artifact else {}
+        env = {**os.environ, **artifact_env, **app.get_runtime_env()}
         if path_prepend:
             extra = ":".join(p for p in path_prepend if p)
             if extra:
