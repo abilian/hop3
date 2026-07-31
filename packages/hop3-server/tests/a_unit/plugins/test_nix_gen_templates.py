@@ -1596,3 +1596,42 @@ def test_an_explicit_runtime_ld_library_path_is_not_overwritten():
     )
 
     assert spec.runtime_env["LD_LIBRARY_PATH"] == "/hand/written"
+
+
+def test_a_composer_app_shipped_as_a_zip_can_unpack_it():
+    """
+    buildComposerProject does its own unpack, so unzip must be in ITS inputs.
+
+    Putting it only on the wrapping derivation — which sets `dontUnpack` — left
+    nix answering `do not know how to unpack source archive`. A release zip is
+    exactly what you want to package when the git tag lacks built assets, which
+    is why easy-appointments needed one.
+    """
+    spec = AppSpec(
+        pname="easy-appointments",
+        version="1.5.0",
+        description="t",
+        exec_target="index.php",
+        source=Source(url="https://example/app.zip", sha256="x", archive="zip"),
+        payload=PhpAppPayload(needs_composer=True, composer_deps_hash="sha256-x"),
+    )
+    output = generate(spec)
+
+    composer = output[output.index("buildComposerProject") : output.index("vendorHash")]
+    assert "pkgs.unzip" in composer, "the composer build cannot unpack its own source"
+
+
+def test_a_composer_app_from_a_tarball_gains_no_unzip():
+    """Only add the tool when the archive actually needs it."""
+    spec = AppSpec(
+        pname="x",
+        version="1",
+        description="t",
+        exec_target="index.php",
+        source=Source(url="https://example/app.tar.gz", sha256="x", archive="tar-gz"),
+        payload=PhpAppPayload(needs_composer=True, composer_deps_hash="sha256-x"),
+    )
+    output = generate(spec)
+
+    composer = output[output.index("buildComposerProject") : output.index("vendorHash")]
+    assert "unzip" not in composer
