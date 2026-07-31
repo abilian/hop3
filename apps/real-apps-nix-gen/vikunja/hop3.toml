@@ -16,6 +16,8 @@ builder = "nix"
 
 [nix]
 template = "go-source"
+# The app's own bin, so a create command can reach its CLI.
+extra-paths = ['${pkg}/bin']
 url = "https://github.com/go-vikunja/vikunja/archive/refs/tags/v${version}.tar.gz"
 sha256 = "1sKQpXfd248jXiiw9TZ3P6/48+zONGDrTG4Wka5WyxM="
 archive = "tar-gz"
@@ -84,3 +86,52 @@ status = 200
 path = "/"
 status = 200
 contains = "Vikunja"
+
+# `api`, not `./vikunja`: buildGoModule names the binary after the module
+# path element (that is what exec-target says), and it lives in the store,
+# not in the directory a create command runs from — `sh: ./vikunja: not
+# found`. Declared here so the generator's graft of the native section,
+# which is correct for the native layout only, goes inert.
+[probe]
+username = "hop3probe"
+email = "probe@hop3.invalid"
+create = '''
+if ! api user list 2>/dev/null | grep -q "$HOP3_PROBE_USER"; then
+  api user create --username "$HOP3_PROBE_USER" \
+    --email "$HOP3_PROBE_EMAIL" --password "$HOP3_PROBE_PASSWORD"
+fi
+api user list 2>/dev/null | grep -q "$HOP3_PROBE_USER" || {
+  echo "Vikunja probe account missing after user create" >&2
+  exit 1
+}
+'''
+
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }
+# Runs once, post-deploy, in src/ (the app has started and migrated the DB by
+# then) with HOP3_ADMIN_* + the postgres addon's PG* vars in the env. Vikunja's
+# `user create` reads config.yml from the cwd, and `-p` makes it non-interactive
+# (without it, the CLI PROMPTS and would hang). `user create` errors (exit != 0)
+# on a duplicate username, so guard it with an idempotent presence check parsing
+# the Username column (field 3) of `user list` — grep -Fxq gives an exact match
+# that can't false-hit an address in the Email column. A final presence check
+# fails the deploy loudly if the account still isn't there.
+create = '''
+set -eu
+ADMIN_USER="${HOP3_ADMIN_USER:?admin user not injected}"
+ADMIN_EMAIL="${HOP3_ADMIN_EMAIL:?admin email not injected}"
+ADMIN_PASSWORD="${HOP3_ADMIN_PASSWORD:?admin password not injected}"
+present() {
+  api user list 2>/dev/null \
+    | awk -F'|' 'NF>=4 { gsub(/^[ \t]+|[ \t]+$/, "", $3); print $3 }' \
+    | grep -Fxq "$ADMIN_USER"
+}
+if present; then
+  echo "Vikunja admin already exists: $ADMIN_USER"
+else
+  api user create -u "$ADMIN_USER" -e "$ADMIN_EMAIL" -p "$ADMIN_PASSWORD"
+fi
+present || { echo "ERROR: Vikunja admin '$ADMIN_USER' was not created" >&2; exit 1; }
+'''

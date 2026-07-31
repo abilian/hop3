@@ -16,6 +16,11 @@ template = "php-app"
 url = "https://github.com/alextselegidis/easyappointments/releases/download/${version}/easyappointments-${version}.zip"
 sha256 = "sha256-KHXnf9AZFn6mKzBKk6OaPApALmArZCqq8NH1x0kmW+E="
 archive = "zip"
+# The release zip extracts FLAT: its files sit at the archive root with no
+# wrapping directory, and nix's unpackPhase then refuses with "unpacker
+# produced multiple directories". Naming the current directory as the source
+# root is how a flat archive is expressed.
+source-root = "."
 php-version = "php82"
 # `xml` is deliberately absent: the Nix PHP already provides it, and naming
 # it again makes every PHP invocation print a module-already-loaded warning
