@@ -33,3 +33,10 @@ contains = "LimeSurvey"
 ADMIN_USER = "${HOP3_ADMIN_USER}"
 ADMIN_EMAIL = "${HOP3_ADMIN_EMAIL}"
 ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD}"
+
+# LimeSurvey's installer takes the administrator on its command line, so the
+# mapping IS the bootstrap. The recipe used to pass a literal `password123`.
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }

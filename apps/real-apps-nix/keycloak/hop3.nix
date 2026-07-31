@@ -74,8 +74,18 @@ export KC_DB=postgres
 export KC_DB_URL="jdbc:postgresql://''${PGHOST:-localhost}:''${PGPORT:-5432}/''${PGDATABASE:-keycloak}"
 export KC_DB_USERNAME="''${PGUSER:-keycloak}"
 export KC_DB_PASSWORD="''${PGPASSWORD:-}"
-export KC_BOOTSTRAP_ADMIN_USERNAME="''${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}"
-export KC_BOOTSTRAP_ADMIN_PASSWORD="''${KC_BOOTSTRAP_ADMIN_PASSWORD:-changeme}"
+# No defaults. A literal `changeme` here meant the deployed realm had a
+# publicly known administrator while the operator was handed a password that
+# did not work — and only the second half of that was ever reported.
+export KC_BOOTSTRAP_ADMIN_USERNAME="''${KC_BOOTSTRAP_ADMIN_USERNAME:?keycloak: KC_BOOTSTRAP_ADMIN_USERNAME not injected}"
+export KC_BOOTSTRAP_ADMIN_PASSWORD="''${KC_BOOTSTRAP_ADMIN_PASSWORD:?keycloak: KC_BOOTSTRAP_ADMIN_PASSWORD not injected — refusing to create an admin with a default password}"
+
+# Keycloak builds its OIDC issuer, redirect URIs and admin-console asset paths
+# from the address it believes it is served on. Behind Hop3's nginx it sees
+# `http://0.0.0.0:<port>`, so the console's sign-in redirect pointed at an
+# origin no visitor can reach.
+export KC_HOSTNAME="''${HOP3_PUBLIC_URL:-http://localhost:''${PORT:-8080}}"
+export KC_PROXY_HEADERS=xforwarded
 
 exec "$HOME_DIR/bin/.kc.sh-wrapped" start-dev \
     --http-host=0.0.0.0 \

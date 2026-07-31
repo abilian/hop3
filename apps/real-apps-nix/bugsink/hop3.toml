@@ -19,3 +19,43 @@ covers = ["python", "django", "nix", "postgres"]
 path = "/accounts/login/"
 status = 200
 contains = "Bugsink"
+
+# `bugsink_conf.py` lives in the source tree, which a redeploy replaces, so the
+# key has to come from outside or it rotates with the tree — invalidating every
+# session. Generated once and re-injected unchanged (ADR 046).
+[env]
+SECRET_KEY = { generate = "urlsafe" }
+
+# DATABASE_URL is composed HERE, not in the wrapper. The wrapper's exports are
+# seen only by the app process, and `[probe].create` runs `bugsink-manage`
+# directly — it had the PG* parts and not the composed URL, and died building a
+# connection. Resolved at deploy time it reaches wrapper, before-run and create
+# alike. LD_LIBRARY_PATH is in runtime.json for the same reason: psycopg is a
+# pure-Python client that dlopens libpq, and `create` loads it outside the
+# wrapper.
+[env.computed]
+DATABASE_URL = "postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"
+
+[probe]
+username = "hop3probe"
+email = "probe@hop3.invalid"
+create = """
+bugsink-manage shell -c "
+import os
+from django.contrib.auth import get_user_model
+User = get_user_model()
+username = os.environ['HOP3_PROBE_USER']
+if not User.objects.filter(username=username).exists():
+    User.objects.create_user(
+        username=username,
+        email=os.environ.get('HOP3_PROBE_EMAIL', ''),
+        password=os.environ['HOP3_PROBE_PASSWORD'],
+    )
+    print('probe user created')
+"
+"""
+
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }

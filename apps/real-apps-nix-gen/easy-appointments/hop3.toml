@@ -62,7 +62,12 @@ path = "config.php"
 format = "raw"
 raw-content = """<?php
 class Config {
-    const BASE_URL     = 'http://${HOST_NAME:-localhost}';
+    # NOT 'http://${HOST_NAME}'. Easy!Appointments builds its login form in
+    # JavaScript and posts to a URL derived from BASE_URL, so a hand-built
+    # `http://` on an https site made the browser submit to a scheme the page
+    # cannot use: the form stayed on screen and read as a refused credential.
+    # HOP3_PUBLIC_URL carries the scheme Hop3 actually serves.
+    const BASE_URL     = '${HOP3_PUBLIC_URL:-http://localhost:${PORT:-8080}}';
     const LANGUAGE     = 'english';
     const DEBUG_MODE   = false;
 
@@ -77,8 +82,10 @@ class Config {
 }
 """
 
-[nix.runtime-env]
-APP_URL = "http://localhost:8080"
+# No `[nix.runtime-env] APP_URL`: it duplicated the `[env] APP_URL` fallback
+# below, but baked into the wrapper at build time. setup-config.sh reads APP_URL
+# only after HOP3_PUBLIC_URL, and the app's own env wins over the artifact's, so
+# the baked copy could never be the value in force — it could only mislead.
 
 # Hop3 Configuration for Easy!Appointments (Nix build)
 # Open source appointment scheduling

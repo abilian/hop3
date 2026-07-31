@@ -40,18 +40,21 @@ pre-exec = ['mkdir -p files']
 [nix.local-vars]
 PORT = "${PORT:-8080}"
 
-[nix.runtime-env]
-VIKUNJA_FRONTEND_URL = "http://localhost:8080/"
-
 [[nix.config-files]]
 path = "config.yml"
 format = "raw"
 create-if-missing = true
+# `publicurl` is what the BROWSER is told to call, not what the server binds.
+# It used to come from a `[nix.runtime-env] VIKUNJA_FRONTEND_URL` pinned to
+# `http://localhost:8080/` — baked into the wrapper at build time, so no deploy
+# could correct it. The Vue frontend then aimed its API calls at the visitor's
+# own machine, failed to reach /api/v1/info, and rendered an error instead of
+# the login form: the app answered its API check and showed nobody a way in.
 raw-content = """
 service:
   interface: ":${PORT}"
-  frontendurl: "${VIKUNJA_FRONTEND_URL:-http://localhost:${PORT}/}"
-  publicurl: "${VIKUNJA_FRONTEND_URL:-http://localhost:${PORT}/}"
+  frontendurl: "${HOP3_PUBLIC_URL:-http://localhost:${PORT}}/"
+  publicurl: "${HOP3_PUBLIC_URL:-http://localhost:${PORT}}/"
 
 cors:
   enable: false

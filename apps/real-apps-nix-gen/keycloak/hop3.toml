@@ -62,6 +62,16 @@ KC_DB_PASSWORD = "${PGPASSWORD:-}"
 # missing, refuse to start rather than create a public admin.
 KC_BOOTSTRAP_ADMIN_USERNAME = "${HOP3_ADMIN_USER:?keycloak: HOP3_ADMIN_USER not injected}"
 KC_BOOTSTRAP_ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD:?keycloak: HOP3_ADMIN_PASSWORD not injected — refusing to create an admin with a default password}"
+# Keycloak builds its OIDC issuer, redirect URIs and admin-console asset paths
+# from the address it believes it is served on. Behind Hop3's nginx it sees
+# `http://0.0.0.0:<port>`, so the console's own sign-in redirect pointed at an
+# origin no visitor can reach: the page loaded and never rendered a form, while
+# `/realms/master` — which needs none of this — answered 200.
+KC_HOSTNAME = "${HOP3_PUBLIC_URL:-http://localhost:${PORT:-8080}}"
+# Trust the proxy's X-Forwarded-* so the scheme is https, not the http Keycloak
+# is actually listening on. Without it the console redirects to http:// and the
+# browser is bounced back by HSTS.
+KC_PROXY_HEADERS = "xforwarded"
 
 [[addons]]
 type = "postgres"
