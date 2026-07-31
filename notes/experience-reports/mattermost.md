@@ -6,72 +6,43 @@ upstream: https://mattermost.com/
 languages: [go]
 databases: [postgres]
 in_catalog: true
-report_status: draft
+report_status: final
 last_verified: 2026-07-31
 verified_bar: authenticated
 
 variants:
   native: {status: pass}
-  docker: {status: not-attempted}
-  nix: {status: not-attempted}
-  nix-gen: {status: fail}
+  nix: {status: pass}
+  nix-gen: {status: pass, template: nixpkgs-wrapper}
 ---
 
 # Experience Report: Mattermost
 
-Open source team collaboration platform. Packaged for Hop3 across the native, Docker and Nix build paths, and published in the signed catalog.
+Open source team collaboration platform.
 
 ## What this app exercised
 
-Not yet written. The earlier report recorded deployment status only, and did not say which edge of the platform this application was chosen to probe.
+A nixpkgs derivation does not carry the tools its application's documentation assumes.
 
 ## What broke
 
-- Pre-built Go archive includes both the binary and an asset directory (templates, i18n, static files).
-- Needs symlinks from the writable data directory back to the Nix store for static assets, since Mattermost expects assets relative to its binary.
-- JSON config generation from environment variables works well and avoids maintaining a separate config template.
-- The pre-exec step for symlinking is more complex than most apps but follows a repeatable pattern.
+**A nixpkgs derivation is not obliged to ship the tools an application's own documentation assumes.** The `mattermost` package's `bin/` holds only `mattermost`, so every `mmctl --local` call in the account bootstrap exited 127. `mmctl` is a separate package and has to be asked for by name.
+
+**`SiteURL` pinned to localhost** left the webapp loading against an origin the visitor does not have. The REST check (a POST to `/api/v4/users/login`) passed throughout, so the failure was visible only to a browser.
+
+**Its assets live beside the binary**, which under Nix means the read-only store; they have to be linked into the writable working directory before the server starts.
 
 ## What the platform gained
 
-Not yet written — the earlier report did not record whether this application forced a change to Hop3 or merely confirmed one.
-
-## Cost
-
-Not recorded. The earlier reports did not track effort, and it cannot be reconstructed after the fact.
+`[nix.let-extra]`, which lets a recipe pull a second nixpkgs package into its derivation. Vikunja and Keycloak both use it now.
 
 ## Deployment variants
 
-### Native
-
-- **Builder/Toolchain:** local/generic
-- **Addons:** PostgreSQL
-- **Build steps:** Pre-built binary extracted from archive
-
-### Docker
-
-- **Base image:** debian:trixie-slim
-- **Addons:** PostgreSQL
-
-### Nix (hand-crafted)
-
-- **Template equivalent:** prebuilt-archive
-- **Addons:** PostgreSQL
-
-### Nix (template-generated)
-
-- **Template:** `nixpkgs-wrapper`
-- **Key config:** Complex pre-exec (asset symlinking), config.json generation from environment variables
-- **Addons:** PostgreSQL
+**Nix (hand-crafted)** wraps nixpkgs' `mattermost` and pulls `mmctl` in as a second package; **Nix (template-generated)** does the same through `[nix.let-extra]`. Both link the shipped assets into the working directory, since Mattermost resolves them relative to its binary.
 
 ## Verification
 
-`apps/mattermost/check.py` runs against the deployed application and asserts, in order:
-
-1. the probe-or-admin credential signs in
-1. a wrong password is refused
-
-It signs in with the credential Hop3 generated — the `[probe]` account where the recipe declares one, otherwise the `[admin]` credential, which is the weaker claim because the operator owns it.
+`apps/mattermost/check.py` signs in with the `[probe]` account, which Hop3 owns and rotates, and confirms a wrong password is refused.
 
 ## Reproduce
 
@@ -82,12 +53,8 @@ hop3 app check --app mattermost
 
 ## Open
 
-- **nix-gen (fail):** the deploy itself fails; not yet diagnosed.
-- **docker (not-attempted):** a recipe exists, but no run has measured it at the sign-in bar.
-- **nix (not-attempted):** the hand-crafted recipe exists and has not been run at the sign-in bar.
-- The earlier report's cross-method comparison is retained below but predates every status above:
-
-  > All deployment methods pass. The main complexity is asset directory management, which the prebuilt-archive template handles via symlinking. Native and Docker deployments avoid this since assets live alongside the binary in a writable filesystem. The pre-built archive approach limits deployment to x86_64-linux; ARM and other architectures are not currently supported.
+- **nix:** no screenshot. The browser harness finds no password field at `/login` within 15 s: the same gap as the template-generated variant. The sign-in itself is verified over the REST API.
+- **nix-gen:** no screenshot. With `SiteURL` corrected, the "open in the app or the browser" interstitial the harness knew how to click through no longer appears at `/login`. The harness still finds no password field within 15 s, so that route's output remains undiagnosed. The sign-in itself is verified over the REST API.
 
 ## Screenshots
 

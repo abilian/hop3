@@ -6,72 +6,43 @@ upstream: https://vikunja.io/
 languages: [go]
 databases: [postgres]
 in_catalog: true
-report_status: draft
+report_status: final
 last_verified: 2026-07-31
 verified_bar: authenticated
 
 variants:
   native: {status: pass}
-  docker: {status: not-attempted}
-  nix: {status: not-attempted}
-  nix-gen: {status: fail}
+  nix: {status: pass}
+  nix-gen: {status: pass, template: go-source}
 ---
 
 # Experience Report: Vikunja
 
-Open source task and project management. Packaged for Hop3 across the native, Docker and Nix build paths, and published in the signed catalog.
+Open source task and project management.
 
 ## What this app exercised
 
-Not yet written. The earlier report recorded deployment status only, and did not say which edge of the platform this application was chosen to probe.
+Two toolchains in one derivation: a Vue frontend built offline from a committed lockfile and embedded into a Go binary at compile time. It is the corpus's proof that `go-frontend-pnpm` works, and separately the sharpest case of wrapper-only environment being invisible to the commands that bootstrap an app.
 
 ## What broke
 
-- YAML config generation works well for Go apps that expect a config.yml file.
-- ZIP archive extraction is supported alongside tar.gz, broadening the prebuilt-archive template's applicability.
-- Follows a consistent pre-built binary pattern shared with Mattermost and Miniflux, confirming that Go apps are straightforward to package.
+**The accounts were created against the wrong database.** Every setting was an `export VIKUNJA_*` inside the generated wrapper, so only the server process saw it; `[admin].create` runs outside the wrapper. `vikunja user create` therefore found no database configuration, said so in its own log on every run (*"No config file found, using default or config from environment variables"*), and wrote the accounts to Vikunja's defaults instead of the app's Postgres. A sign-in then answered *"Wrong username or password"* for the admin and 412 for the probe: two symptoms, one cause, and a day spent treating them as two problems.
+
+**`publicurl` is what the browser is told to call**, not what the server binds. Pinned to localhost, the Vue frontend aimed its API calls at the visitor's own machine, failed to reach `/api/v1/info`, and rendered an error where the login form should be, while the application answered its own API check perfectly.
+
+**The binary is not named after the app.** Built from source it is `api`; from nixpkgs it is `vikunja`.
 
 ## What the platform gained
 
-Not yet written — the earlier report did not record whether this application forced a change to Hop3 or merely confirmed one.
-
-## Cost
-
-Not recorded. The earlier reports did not track effort, and it cannot be reconstructed after the fact.
+`go-frontend-pnpm`, and the `${pkg}` binding it shares with the forges. It also supplied the clearest statement of a rule the corpus kept rediscovering: anything exported inside the generated wrapper is invisible to `before-run` and to `create`.
 
 ## Deployment variants
 
-### Native
-
-- **Builder/Toolchain:** local/generic
-- **Addons:** PostgreSQL
-- **Build steps:** Pre-built binary extracted from archive
-
-### Docker
-
-- **Base image:** debian:trixie-slim
-- **Addons:** PostgreSQL
-
-### Nix (hand-crafted)
-
-- **Template equivalent:** prebuilt-archive
-- **Addons:** PostgreSQL
-
-### Nix (template-generated)
-
-- **Template:** `go-source`
-- **Key config:** ZIP archive extraction, config.yml generation
-- **Addons:** PostgreSQL
+The only recipe here that builds two toolchains into one derivation: the Vue frontend is built offline from a committed pnpm lockfile and copied into `frontend/dist` before the Go compile, because Vikunja `go:embed`s it. **Nix (hand-crafted)** takes nixpkgs' package instead: the same 0.24.6, differently built, with the binary named `vikunja` where the source build produces `api`.
 
 ## Verification
 
-`apps/vikunja/check.py` runs against the deployed application and asserts, in order:
-
-1. the probe-or-admin credential signs in
-1. the token opens an authenticated route
-1. a wrong password is refused
-
-It signs in with the credential Hop3 generated — the `[probe]` account where the recipe declares one, otherwise the `[admin]` credential, which is the weaker claim because the operator owns it.
+`apps/vikunja/check.py` signs in with the `[probe]` account, which Hop3 owns and rotates, and confirms a wrong password is refused.
 
 ## Reproduce
 
@@ -81,13 +52,6 @@ hop3 app check --app vikunja
 ```
 
 ## Open
-
-- **nix-gen (fail):** the frontend derivation does not build.
-- **docker (not-attempted):** a recipe exists, but no run has measured it at the sign-in bar.
-- **nix (not-attempted):** the hand-crafted recipe exists and has not been run at the sign-in bar.
-- The earlier report's cross-method comparison is retained below but predates every status above:
-
-  > All deployment methods pass cleanly. Vikunja follows the same pre-built Go binary pattern as other Go apps in the set, with YAML config generation being the only notable difference from the JSON-based Mattermost config. The pre-built binary approach limits deployment to x86_64-linux; ARM and other architectures are not currently supported.
 
 ## Screenshots
 

@@ -6,73 +6,45 @@ upstream: https://invoiceninja.com/
 languages: [php]
 databases: [mysql]
 in_catalog: true
-report_status: draft
+report_status: final
 last_verified: 2026-07-31
 verified_bar: authenticated
 
 variants:
   native: {status: pass}
-  docker: {status: not-attempted}
-  nix: {status: not-attempted}
-  nix-gen: {status: not-attempted}
+  nix: {status: pass}
+  nix-gen: {status: pass, template: php-app}
 ---
 
 # Experience Report: Invoice Ninja
 
-Free open-source invoicing platform. Packaged for Hop3 across the native, Docker and Nix build paths, and published in the signed catalog.
+Free open-source invoicing platform.
 
 ## What this app exercised
 
-Not yet written. The earlier report recorded deployment status only, and did not say which edge of the platform this application was chosen to probe.
+A Laravel application whose UI is a Flutter canvas, so nothing a selector can reach. It probes the boundary of browser-driven verification. The boundary is declared; workarounds stop there.
 
 ## What broke
 
-- Laravel apps need careful APP_KEY handling: the key must be exactly 32 bytes base64-encoded, and newline corruption is a recurring issue across deployment methods.
-- The `composer --ignore-platform-reqs` flag is needed when the installed PHP version does not exactly match the version specified in composer.json, which is common in containerized environments.
-- npm asset compilation adds a second toolchain dependency (Node.js), increasing build complexity similar to Go/Node hybrid apps.
-- Docker failures caused by `set -e` killing the entrypoint on non-fatal migration errors are subtle and hard to diagnose without logs.
+**No account was ever created**, so `POST /api/v1/login` answered 401 on an application that looked deployed and healthy. The migration that should have preceded it ran as `artisan migrate --force 2>/dev/null || true`, hiding its own failure.
+
+**`APP_URL` pinned to localhost put `/` in a redirect loop.** Laravel derives the scheme and host of every redirect it issues from that value; Chromium gave up with `ERR_TOO_MANY_REDIRECTS` while the recipe's own `contains` assertion on `/login` passed throughout.
+
+**Invoice Ninja authenticates on the email**, and the generated variant had acquired a `username` the native recipe deliberately omits, which a credential reader then prefers.
+
+**Its UI is a Flutter canvas**, so no selector can reach its inputs. The sign-in is verified over HTTP. The signed-in screenshot is declared impossible; it is not counted as a gap.
 
 ## What the platform gained
 
-Not yet written — the earlier report did not record whether this application forced a change to Hop3 or merely confirmed one.
-
-## Cost
-
-Not recorded. The earlier reports did not track effort, and it cannot be reconstructed after the fact.
+The screenshot harness's `unsupported` declaration: a way to say *this application cannot be driven by a browser, and here is why*. It isn't a gap. Radicale uses it for a different reason.
 
 ## Deployment variants
 
-### Native
-
-- **Builder/Toolchain:** local/php
-- **Addons:** MySQL
-- **Build steps:** composer install + npm build for frontend assets
-
-### Docker
-
-- **Base image:** debian:trixie-slim
-- **Addons:** MySQL
-
-### Nix (hand-crafted)
-
-- **Template equivalent:** php-app
-- **Addons:** MySQL
-
-### Nix (template-generated)
-
-- **Template:** `php-app`
-- **Key config:** nodejs dependency, artisan migrations, .env generation
-- **Addons:** MySQL
+**Native** rebuilds the frontend with npm; the **Nix** variants rely on the committed Flutter bundle. Each variant ships something different, and both pass. The difference is noted without reconciliation.
 
 ## Verification
 
-`apps/invoice-ninja/check.py` runs against the deployed application and asserts, in order:
-
-1. the probe-or-admin credential signs in
-1. the built frontend is actually served
-1. a wrong password is refused
-
-It signs in with the credential Hop3 generated — the `[probe]` account where the recipe declares one, otherwise the `[admin]` credential, which is the weaker claim because the operator owns it.
+`apps/invoice-ninja/check.py` signs in with the `[admin]` credential, and confirms a wrong password is refused. It has no `[probe]` account, so it signs in as the operator's administrator: the weaker claim, since that password can be changed out from under it.
 
 ## Reproduce
 
@@ -83,12 +55,8 @@ hop3 app check --app invoice-ninja
 
 ## Open
 
-- **nix-gen (not-attempted):** the run lost the Hop3 server mid-build; the application was never tested.
-- **docker (not-attempted):** a recipe exists, but no run has measured it at the sign-in bar.
-- **nix (not-attempted):** the hand-crafted recipe exists and has not been run at the sign-in bar.
-- The earlier report's cross-method comparison is retained below but predates every status above:
-
-  > Native and Nix are comparable once dependencies are resolved, though both require managing PHP and Node toolchains. Docker was the most problematic method due to compounding issues (MySQL races, APP_KEY corruption, strict error handling, PHP version mismatches), but is now stable after targeted fixes.
+- **nix:** the sign-in page is photographed; there is no signed-in shot. Invoice Ninja renders a Flutter canvas, so its inputs are not DOM elements a selector can reach: by design, not a gap.
+- **nix-gen:** the sign-in page is photographed; there is no signed-in shot. Invoice Ninja renders a Flutter canvas, so its inputs are not DOM elements a selector can reach. Its `check.py` signs in over HTTP and is unaffected.
 
 ## Screenshots
 

@@ -6,71 +6,45 @@ upstream: https://nextcloud.com/
 languages: [php]
 databases: [mysql]
 in_catalog: true
-report_status: draft
+report_status: final
 last_verified: 2026-07-31
 verified_bar: authenticated
 
 variants:
   native: {status: pass}
-  docker: {status: not-attempted}
   nix: {status: no-recipe, reason: "superseded in practice by the template variant; no recipe here"}
-  nix-gen: {status: fail}
+  nix-gen: {status: pass, template: php-app}
 ---
 
 # Experience Report: Nextcloud
 
-Self-hosted productivity platform. Packaged for Hop3 across the native, Docker and Nix build paths, and published in the signed catalog.
+Self-hosted productivity platform.
 
 ## What this app exercised
 
-Not yet written. The earlier report recorded deployment status only, and did not say which edge of the platform this application was chosen to probe.
+The heaviest PHP dependency surface in the corpus (extensions, a cron worker, background jobs) and the app whose failing bootstrap first showed that `admin.create` reporting an exit status is not enough to diagnose anything.
 
 ## What broke
 
-- Most complex PHP app to package due to many required extensions, cron jobs, and background task configuration.
-- Docker deployment uses a different database (PostgreSQL) and adds Redis, showing how deployment methods can diverge in addon requirements.
-- autoconfig.php handles first-run setup automatically, avoiding the need for manual installation through the web UI.
-- Extension requirements (apcu, opcache) must be explicitly declared in the Nix config.
+**It answered `GET /login` with 400 because it was never installed**: the writable tree was materialised when the app started, which is after `before-run`, so a correctly ported bootstrap ran in a directory that did not yet hold the application.
+
+**`occ user:add` takes no `--email`.** The recipe passed one, the command failed, and the failure was invisible from the outside: Hop3 had already generated and displayed a credential for an account that did not exist. This is what made `admin.create` report its command's output rather than only an exit status.
+
+**It keeps a hidden password input in its signed-in markup**, which had the screenshot harness call a successful sign-in a refusal. Counting only *visible* fields is what a person looking at the image would do.
+
+**It is the most extension-hungry app in the set**, and under Nix every one has to be declared.
 
 ## What the platform gained
 
-Not yet written — the earlier report did not record whether this application forced a change to Hop3 or merely confirmed one.
-
-## Cost
-
-Not recorded. The earlier reports did not track effort, and it cannot be reconstructed after the fact.
+`admin.create` reports its command's output rather than only an exit status, which is what revealed the `occ user:add --email` mistake, and the screenshot harness counts only *visible* password fields, because Nextcloud keeps a hidden one in its signed-in markup.
 
 ## Deployment variants
 
-### Native
-
-- **Builder/Toolchain:** local/generic
-- **Addons:** MySQL
-- **Build steps:** No build step; PHP files served directly
-
-### Docker
-
-- **Base image:** debian:trixie-slim
-- **Addons:** PostgreSQL, Redis
-
-### Nix (hand-crafted)
-
-No recipe for this variant.
-
-### Nix (template-generated)
-
-- **Template:** `php-app`
-- **Key config:** Extensive extensions (apcu, opcache), autoconfig.php generation
-- **Addons:** MySQL
+The most extension-hungry app in the set, and under Nix each one is declared explicitly. `occ maintenance:install` drives first-run setup in every variant. **Docker** diverges deliberately: Postgres plus Redis where the others use MySQL, as a test of addon divergence across variants.
 
 ## Verification
 
-`apps/nextcloud/check.py` runs against the deployed application and asserts, in order:
-
-1. the probe-or-admin credential signs in
-1. a wrong password is refused
-
-It signs in with the credential Hop3 generated — the `[probe]` account where the recipe declares one, otherwise the `[admin]` credential, which is the weaker claim because the operator owns it.
+`apps/nextcloud/check.py` signs in with the `[probe]` account, which Hop3 owns and rotates, reaches a page only a session can, and confirms a wrong password is refused.
 
 ## Reproduce
 
@@ -80,12 +54,6 @@ hop3 app check --app nextcloud
 ```
 
 ## Open
-
-- **nix-gen (fail):** `GET /login` answers 400; the app is not installed.
-- **docker (not-attempted):** a recipe exists, but no run has measured it at the sign-in bar.
-- The earlier report's cross-method comparison is retained below but predates every status above:
-
-  > Native and Nix deployments pass with MySQL. Docker uses a different addon configuration (PostgreSQL+Redis), which makes it not directly comparable and is only partially working. NextCloud is the most complex PHP app in the set and stress-tests the php-app template's extension and config generation capabilities.
 
 ## Screenshots
 

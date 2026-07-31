@@ -37,7 +37,7 @@ PDF = HERE / "bundle.pdf"
 
 TITLE = "Hop3 — Application Experience Reports"
 SUBTITLE = (
-    "Twenty applications packaged across four build paths, and what each one "
+    "Twenty applications packaged across three build paths, and what each one "
     "cost the platform"
 )
 

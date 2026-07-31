@@ -6,20 +6,19 @@ upstream: https://miniflux.app/
 languages: [go]
 databases: [postgres]
 in_catalog: true
-report_status: draft
+report_status: final
 last_verified: 2026-07-31
 verified_bar: authenticated
 
 variants:
   native: {status: pass}
-  docker: {status: not-attempted}
-  nix: {status: not-attempted}
+  nix: {status: pass}
   nix-gen: {status: pass, template: go-source}
 ---
 
 # Experience Report: Miniflux
 
-Minimalist and opinionated RSS reader. Packaged for Hop3 across the native, Docker and Nix build paths, and published in the signed catalog.
+Minimalist and opinionated RSS reader.
 
 ## What this app exercised
 
@@ -27,50 +26,21 @@ An app that creates its own administrator at first start from injected environme
 
 ## What broke
 
-- Simplest Go app to package: single binary with environment-variable-only configuration.
-- Native builds from source using make, but Nix uses a pre-built binary, showing how deployment methods can diverge in build strategy while producing the same result.
-- DATABASE_URL is the only required configuration, making this app ideal for testing minimal PostgreSQL addon integration.
+**It shipped a published administrator password.** `ADMIN_PASSWORD="${ADMIN_PASSWORD:-changeme}"` appeared in three places in the hand-written Nix recipe (the wrapper, `runtime.json`, and the derivation's `env` attrset), so removing it from one changed nothing. Miniflux creates its administrator at first start from `CREATE_ADMIN` plus those variables, which means the credential mapping *is* the bootstrap; there is no post-deploy command to fix it afterwards.
+
+**`buildGoModule` names the binary after the module path element**, so the artefact is `miniflux.app`. Nothing in the app id predicts that.
 
 ## What the platform gained
 
-Not yet written — the earlier report did not record whether this application forced a change to Hop3 or merely confirmed one.
-
-## Cost
-
-Not recorded. The earlier reports did not track effort, and it cannot be reconstructed after the fact.
+Nothing in the platform. It contributed a pattern instead: where an application creates its administrator at first start from environment variables, the credential mapping *is* the bootstrap and there is no post-deploy command to correct it later.
 
 ## Deployment variants
 
-### Native
-
-- **Builder/Toolchain:** local/generic
-- **Addons:** PostgreSQL
-- **Build steps:** Build from source (make)
-
-### Docker
-
-- **Base image:** debian:trixie-slim
-- **Addons:** PostgreSQL
-
-### Nix (hand-crafted)
-
-- **Template equivalent:** prebuilt-binary
-- **Addons:** PostgreSQL
-
-### Nix (template-generated)
-
-- **Template:** `go-source`
-- **Key config:** Environment variable driven (no config file generation)
-- **Addons:** PostgreSQL
+A single binary configured entirely through environment variables: `DATABASE_URL` and little else. **Native** builds from source with make; the **Nix** variants take nixpkgs' package and compile from source respectively, which makes this the cleanest side-by-side of the two Nix strategies in the corpus.
 
 ## Verification
 
-`apps/miniflux/check.py` runs against the deployed application and asserts, in order:
-
-1. the probe-or-admin credential signs in
-1. a wrong password is refused
-
-It signs in with the credential Hop3 generated — the `[probe]` account where the recipe declares one, otherwise the `[admin]` credential, which is the weaker claim because the operator owns it.
+`apps/miniflux/check.py` signs in with the `[admin]` credential, reaches a page only a session can, and confirms a wrong password is refused. It has no `[probe]` account, so it signs in as the operator's administrator: the weaker claim, since that password can be changed out from under it.
 
 ## Reproduce
 
@@ -80,12 +50,6 @@ hop3 app check --app miniflux
 ```
 
 ## Open
-
-- **docker (not-attempted):** a recipe exists, but no run has measured it at the sign-in bar.
-- **nix (not-attempted):** the hand-crafted recipe exists and has not been run at the sign-in bar.
-- The earlier report's cross-method comparison is retained below but predates every status above:
-
-  > All methods pass cleanly. Miniflux is the simplest Go app in the set due to its single-binary, env-var-only design, making it a good baseline for testing Go deployment pipelines. The pre-built binary approach limits deployment to x86_64-linux; ARM and other architectures are not currently supported.
 
 ## Screenshots
 
