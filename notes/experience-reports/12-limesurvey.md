@@ -1,49 +1,94 @@
+---
+app: limesurvey
+title: LimeSurvey
+version: "6.4"
+upstream: https://www.limesurvey.org/
+languages: [php]
+databases: [postgres]
+in_catalog: true
+report_status: draft
+last_verified: 2026-07-31
+verified_bar: authenticated
+
+variants:
+  native: {status: pass}
+  docker: {status: not-attempted}
+  nix: {status: not-attempted}
+  nix-gen: {status: not-attempted}
+---
+
 # Experience Report: LimeSurvey
 
-**Status:** Draft (0.5)
-**App:** LimeSurvey — Survey platform
-**Language:** PHP
-**Database:** PostgreSQL
-**Website:** https://www.limesurvey.org/
+Professional online survey and data collection tool. Packaged for Hop3 across the native, Docker and Nix build paths, and published in the signed catalog.
 
-## Deployment Methods
+## What this app exercised
 
-### Native (local builder)
+Not yet written. The earlier report recorded deployment status only, and did not say which edge of the platform this application was chosen to probe.
 
-- **Builder/Toolchain:** local/php
-- **Addons:** PostgreSQL
-- **Build steps:** composer install
-- **Status:** Passing
-- **Issues:** None
-
-### Nix (hand-crafted hop3.nix)
-
-- **Template equivalent:** php-app
-- **Addons:** PostgreSQL
-- **Status:** Passing
-- **Issues:** None
-
-### Nix (template-generated)
-
-- **Template:** php-app
-- **Key config:** PostgreSQL extensions, console install command, config.php generation
-- **Addons:** PostgreSQL
-- **Status:** Passing
-- **Issues:** None
-
-### Docker
-
-- **Base image:** debian:trixie-slim
-- **Addons:** PostgreSQL
-- **Status:** Passing
-- **Issues:** None
-
-## Lessons Learned
+## What broke
 
 - Config files must be generated BEFORE pre-exec commands: the console install command needs config.php to know the DB connection details.
 - Uses PostgreSQL unlike most PHP apps in the set, which default to MySQL.
 - The console install command auto-creates all required database tables, avoiding manual migration steps.
 
-## Cross-Method Comparison
+## What the platform gained
 
-All methods pass once the config generation ordering is correct. The key insight is that config.php must exist before the install command runs, which applies equally to native and Nix deployments.
+Not yet written — the earlier report did not record whether this application forced a change to Hop3 or merely confirmed one.
+
+## Cost
+
+Not recorded. The earlier reports did not track effort, and it cannot be reconstructed after the fact.
+
+## Deployment variants
+
+### Native
+
+- **Builder/Toolchain:** local/php
+- **Addons:** PostgreSQL
+- **Build steps:** composer install
+
+### Docker
+
+- **Base image:** debian:trixie-slim
+- **Addons:** PostgreSQL
+
+### Nix (hand-crafted)
+
+- **Template equivalent:** php-app
+- **Addons:** PostgreSQL
+
+### Nix (template-generated)
+
+- **Template:** `php-app`
+- **Key config:** PostgreSQL extensions, console install command, config.php generation
+- **Addons:** PostgreSQL
+
+## Verification
+
+`apps/limesurvey/check.py` runs against the deployed application and asserts, in order:
+
+1. the admin login page is served
+1. it is LimeSurvey's own login surface
+
+It signs in with the credential Hop3 generated — the `[probe]` account where the recipe declares one, otherwise the `[admin]` credential, which is the weaker claim because the operator owns it.
+
+## Reproduce
+
+```bash
+hop3 catalog install limesurvey
+hop3 app check --app limesurvey
+```
+
+## Open
+
+- **nix-gen (not-attempted):** its sign-in is driven by the browser harness, so a run without `--screenshots` cannot reach a verdict.
+- **docker (not-attempted):** a recipe exists, but no run has measured it at the sign-in bar.
+- **nix (not-attempted):** the hand-crafted recipe exists and has not been run at the sign-in bar.
+- The earlier report's cross-method comparison is retained below but predates every status above:
+
+  > All methods pass once the config generation ordering is correct. The key insight is that config.php must exist before the install command runs, which applies equally to native and Nix deployments.
+
+## Screenshots
+
+![Sign-in page](images/limesurvey-01-login.png)
+![After signing in](images/limesurvey-02-signed-in.png)
