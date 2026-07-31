@@ -15,11 +15,20 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 import hop3.config
-from hop3.orm import AddonCredential, App, get_session_factory
+from hop3.core.credentials import get_credential_encryptor
+from hop3.orm import (
+    AddonCredential,
+    App,
+    AppAdminCredential,
+    get_session_factory,
+)
+from hop3.orm.app import AppStateEnum
 from hop3.orm.security import AuditBase
 from hop3.orm.session import reset_session_factory_cache
 from hop3.server.asgi import create_app
+from hop3.server.controllers.dashboard.helpers import get_display_state
 from hop3.server.lib.database import get_session
+from hop3.server.streaming import create_stream
 
 
 @pytest.fixture
@@ -680,3 +689,170 @@ def test_dashboard_app_list_data_structure(authenticated_client: TestClient):
     else:
         # Empty apps list
         assert "apps: []" in content or "apps: [" not in content
+
+
+# Admin Credentials Tests (ADR 056)
+
+
+def _make_app_with_admin_credential(name: str, password: str) -> None:
+    """Create an app plus the encrypted admin credential a deploy would store."""
+    with get_session() as session:
+        app = App(name=name, hostname=f"{name}.example.com")
+        session.add(app)
+        session.flush()
+        session.add(
+            AppAdminCredential(
+                app_id=app.id,
+                encrypted_data=get_credential_encryptor().encrypt({
+                    "username": "admin",
+                    "email": "ops@example.com",
+                    "password": password,
+                }),
+                source="generated",
+            )
+        )
+        session.commit()
+
+
+def test_app_credentials_page_reveals_the_password(
+    authenticated_client: TestClient, isolated_database
+):
+    """
+    A web-only operator must be able to retrieve the generated admin login.
+
+    Regression: the credential is printed into the deploy log exactly once
+    (`surfaced` latches), so with no dashboard surface an app installed from the
+    catalog could reach its login page with no way in.
+    """
+    password = "s3cret-initial-pw"
+    _make_app_with_admin_credential("creds-app", password)
+
+    response = authenticated_client.get("/dashboard/apps/creds-app/credentials")
+
+    assert response.status_code == 200
+    content = response.content.decode("utf-8", errors="ignore")
+    assert password in content
+    assert "admin" in content
+
+
+def test_app_detail_links_to_credentials_when_one_exists(
+    authenticated_client: TestClient, isolated_database
+):
+    """The detail page must advertise the reveal page, or nobody finds it."""
+    _make_app_with_admin_credential("linked-app", "pw-linked")
+
+    response = authenticated_client.get("/dashboard/apps/linked-app")
+
+    assert response.status_code == 200
+    content = response.content.decode("utf-8", errors="ignore")
+    assert "/dashboard/apps/linked-app/credentials" in content
+    # The password itself must NOT be on the routinely-loaded page.
+    assert "pw-linked" not in content
+
+
+def test_app_detail_has_no_credentials_link_without_one(
+    authenticated_client: TestClient, isolated_database
+):
+    """Apps that manage their own accounts must not advertise a reveal page."""
+    with get_session() as session:
+        session.add(App(name="plain-app", hostname="plain.example.com"))
+        session.commit()
+
+    response = authenticated_client.get("/dashboard/apps/plain-app")
+
+    assert response.status_code == 200
+    assert b"/dashboard/apps/plain-app/credentials" not in response.content
+
+
+def test_app_credentials_page_without_a_credential(
+    authenticated_client: TestClient, isolated_database
+):
+    """No credential is a plain explanation, not an error or a blank page."""
+    with get_session() as session:
+        session.add(App(name="nocred-app", hostname="nocred.example.com"))
+        session.commit()
+
+    response = authenticated_client.get("/dashboard/apps/nocred-app/credentials")
+
+    assert response.status_code == 200
+    assert b"no Hop3-managed admin credential" in response.content
+
+
+def test_app_credentials_unknown_app_redirects(authenticated_client: TestClient):
+    """An unknown app redirects to the dashboard, like every other app route."""
+    response = authenticated_client.get(
+        "/dashboard/apps/nonexistent/credentials", follow_redirects=False
+    )
+    assert response.status_code == 302
+    assert response.headers["location"] == "/dashboard"
+
+
+# Deploy-in-flight State Tests
+
+
+def _app_named(name: str) -> App:
+    with get_session() as session:
+        session.add(App(name=name, hostname=f"{name}.example.com"))
+        session.commit()
+        return session.query(App).filter_by(name=name).one()
+
+
+def test_building_app_reports_deploying_not_stopped():
+    """
+    A build in flight must not report as STOPPED.
+
+    Regression: `run_state` tracks the process, so a catalog install showed a
+    grey "STOPPED" badge for the whole (multi-minute) build — indistinguishable
+    from "it never started".
+    """
+    app = App(name="deploying-app")
+    app.run_state = AppStateEnum.STOPPED
+    assert get_display_state(app) == "STOPPED"
+
+    stream = create_stream("deploying-app")
+    try:
+        assert get_display_state(app) == "DEPLOYING"
+    finally:
+        stream.finish(success=True)
+
+    # A finished deploy hands the badge back to the real process state.
+    assert get_display_state(app) == "STOPPED"
+
+
+def test_running_app_keeps_running_during_a_redeploy():
+    """A redeploy of a live app must not imply it went down."""
+    app = App(name="live-app")
+    app.run_state = AppStateEnum.RUNNING
+
+    stream = create_stream("live-app")
+    try:
+        assert get_display_state(app) == "RUNNING"
+    finally:
+        stream.finish(success=True)
+
+
+def test_deploy_of_another_app_does_not_leak_state():
+    """DEPLOYING is per-app — a busy neighbour must not change this app."""
+    app = App(name="quiet-app")
+    app.run_state = AppStateEnum.STOPPED
+
+    stream = create_stream("some-other-app")
+    try:
+        assert get_display_state(app) == "STOPPED"
+    finally:
+        stream.finish(success=True)
+
+
+def test_app_detail_page_shows_deploying(
+    authenticated_client: TestClient, isolated_database
+):
+    """The state reaches the page an operator actually looks at."""
+    _app_named("detail-deploying")
+
+    stream = create_stream("detail-deploying")
+    try:
+        response = authenticated_client.get("/dashboard/apps/detail-deploying")
+        assert response.status_code == 200
+        assert b"DEPLOYING" in response.content
+    finally:
+        stream.finish(success=True)

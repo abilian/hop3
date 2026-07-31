@@ -34,6 +34,7 @@ from psycopg2.errors import DuplicateObject  # type: ignore[import-not-found]
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 from hop3.config import HOP3_ROOT
+from hop3.core.backup import resolve_backup_file
 from hop3.lib.logging import server_log
 from hop3.plugins.addons import (
     delete_addon_secrets,
@@ -581,6 +582,16 @@ class PostgresAddon:
             connection.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
 
             with connection.cursor() as cursor:
+                # Close any session still attached, or the DROP below fails with
+                # "database is being accessed by other users". We are destroying
+                # this database on purpose, and every connection to it belongs to
+                # the app being torn down — a lingering one must not leave the
+                # database behind for the next app of the same name to inherit.
+                cursor.execute(
+                    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                    "WHERE datname = %s AND pid <> pg_backend_pid()",
+                    (self.db_name,),
+                )
                 # Drop database
                 cursor.execute(
                     sql.SQL("DROP DATABASE IF EXISTS {}").format(
@@ -737,9 +748,10 @@ class PostgresAddon:
         Args:
             backup_path: Path to the SQL backup file
         """
-        if not backup_path.exists():
-            msg = f"Backup file not found: {backup_path}"
-            raise FileNotFoundError(msg)
+        # Confine the caller-supplied path to the backup tree: this value
+        # comes straight from RPC and reaches a file-reading sink below.
+        # Same root backup() writes to, so the two cannot drift apart.
+        backup_path = resolve_backup_file(backup_path, HOP3_ROOT / "backups")
 
         admin = self._get_admin()
         password = self._get_stored_password()

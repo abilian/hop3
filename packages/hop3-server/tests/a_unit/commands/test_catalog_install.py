@@ -10,6 +10,7 @@ root is needed. The on-disk happy path lives in the b_integration suite.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
@@ -81,15 +82,41 @@ def test_install_invalid_app_name(db_session: Session, loaded_catalog) -> None:
     assert _is_error(result)
 
 
-def test_install_duplicate_app_name(
+def test_install_over_a_deployed_app_is_refused(
     db_session: Session, test_app, loaded_catalog
 ) -> None:
-    # test_app is named "testapp" and already committed.
+    """A working app must never be overwritten by an install."""
+    test_app.last_deployed_at = datetime.now(UTC)
+    db_session.commit()
+
     result = CatalogInstallCmd(db_session=db_session).call(
         "nextcloud", "--app", "testapp"
     )
+
     assert _is_error(result)
-    assert "already exists" in _texts(result).lower()
+    text = _texts(result).lower()
+    assert "already exists" in text
+    assert "deployed successfully" in text
+
+
+def test_install_resumes_an_app_whose_deploy_never_succeeded(
+    db_session: Session, test_app, loaded_catalog
+) -> None:
+    """
+    Retrying an install must work, not report a name clash.
+
+    The platform does not roll back: a failed deploy leaves its app in place so
+    the logs can be read. But the row was committed before the deploy, so a
+    retry used to look like a collision with an app the operator never
+    knowingly created — leaving no way forward except destroying it.
+    """
+    assert test_app.last_deployed_at is None  # never deployed
+
+    result = CatalogInstallCmd(db_session=db_session).call(
+        "nextcloud", "--app", "testapp"
+    )
+
+    assert not _is_error(result), _texts(result)
 
 
 def test_install_no_catalog_published(

@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, ClassVar, assert_never
 
 from hop3.core.artifacts import BuildArtifact, RuntimeConfig
 from hop3.core.env import Env
-from hop3.lib import shell
+from hop3.lib import log, shell
 from hop3.project.procfile import parse_procfile
 
 if TYPE_CHECKING:
@@ -146,6 +146,27 @@ class LanguageToolchain(ABC):
                 return build_cmd
             case _:
                 return None
+
+    def _run_declared_build(self, env: Mapping[str, str] | None = None) -> bool:
+        """
+        Run the recipe's ``[build].build`` if it declares one; say whether it ran.
+
+        Returns True when a custom command ran, so the caller SKIPS its own
+        dependency installation — declaring a build replaces the toolchain's,
+        it does not add to it. (To add a step, use ``[build].before-build`` or
+        ``after-build``, which the deployer runs around the toolchain.)
+
+        Lives here, and is exercised by a conformance test over every toolchain,
+        because it was previously a convention each subclass had to remember:
+        five honoured ``[build].build`` and seven silently ignored it, so the
+        same recipe key worked or did nothing depending on the language.
+        """
+        command = self._get_custom_build_command()
+        if not command:
+            return False
+        log(f"Running custom build command: {command}", level=2, fg="cyan")
+        self.shell(command, env=env)
+        return True
 
     @abstractmethod
     def build(self) -> BuildArtifact:

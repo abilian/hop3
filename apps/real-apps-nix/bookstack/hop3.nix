@@ -68,7 +68,8 @@ cat > .env << ENVEOF
 APP_ENV=''${APP_ENV:-production}
 APP_DEBUG=''${APP_DEBUG:-false}
 APP_KEY=''${APP_KEY}
-APP_URL=http://localhost:''${PORT:-8080}
+# The address BookStack builds its links and redirects from: the public one.
+APP_URL=''${HOP3_PUBLIC_URL:-http://localhost:''${PORT:-8080}}
 DB_CONNECTION=mysql
 DB_HOST=''${DB_HOST:-127.0.0.1}
 DB_PORT=''${DB_PORT:-3306}
@@ -82,8 +83,19 @@ cp -a $out/app/. .
 chmod -R u+w .
 mkdir -p storage/app storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
 
-# Run database migration
-${php}/bin/php artisan migrate --force 2>/dev/null || true
+# Migrate, then create the administrator ONCE. `2>/dev/null || true` used to
+# hide a failing migration and leave an app with no schema reporting success.
+${php}/bin/php artisan migrate --force
+
+# BookStack seeds admin@admin.com/password on migrate; replace it with the
+# credential Hop3 generated, or the published default is the way in.
+if [ ! -f .hop3-admin ]; then
+  ${php}/bin/php artisan bookstack:create-admin \
+    --email="''${HOP3_ADMIN_EMAIL:?bookstack: HOP3_ADMIN_EMAIL not injected}" \
+    --name="''${HOP3_ADMIN_USER:-Admin}" \
+    --password="''${HOP3_ADMIN_PASSWORD:?bookstack: HOP3_ADMIN_PASSWORD not injected}"
+  touch .hop3-admin
+fi
 
 exec ${php}/bin/php ./artisan serve --host=0.0.0.0 --port=''${PORT:-8080}
 WRAPPER

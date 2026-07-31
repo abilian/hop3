@@ -32,7 +32,7 @@ The toolchain treats all three identically. The abstract case gives moving targe
 
 ### Case 3: `requirements.txt` vs `pyproject.toml` precedence
 
-When both files exist, `requirements.txt` wins silently. The comment in the code (L217-219) explains this was added to defend against "stray pyproject.toml" files. This is the same category of mistake as the bundler name-collision of W16: silent override rather than explicit error. An operator who added a pyproject.toml *expecting* it to drive the build gets a different build and no signal.
+When both files exist, `requirements.txt` wins silently. The comment in the code (L217-219) explains this was added to defend against "stray pyproject.toml" files. This is the same category of mistake as the bundler name-collision of W16: a silent override. The platform owes an explicit error here. An operator who added a pyproject.toml *expecting* it to drive the build gets a different build and no signal.
 
 ### Case 4: `uv sync` without `--no-dev`
 
@@ -52,7 +52,7 @@ We clarify the Python deployment surface along four axes:
 
 1. **Freeze at packaging time.** The packager's intent (which versions to deploy) is captured in the app's source tree in a form that the deployer can read without further resolution. The deployer installs what's declared; it does not compute what should be installed.
 2. **Make the install strategy explicit when ambiguous.** Ambiguity (chiefly both `requirements.txt` and `pyproject.toml` present) surfaces as a `Diagnosis`.
-3. **uv first, Poetry not special-cased, pip-freeze workflow documented but discouraged.** The default new-app recipe is uv. A Poetry-only `pyproject.toml` is neither rejected nor singled out: it falls through to `pip install .` via PEP-517, and packagers who want reproducibility export a frozen `requirements.txt` from Poetry's lockfile at packaging time. Abstract `requirements.txt` is accepted but warned on.
+3. **uv first, Poetry without special-casing, pip-freeze workflow documented and discouraged.** The default new-app recipe is uv. A Poetry-only `pyproject.toml` is neither rejected nor singled out: it falls through to `pip install .` via PEP-517, and packagers who want reproducibility export a frozen `requirements.txt` from Poetry's lockfile at packaging time. Abstract `requirements.txt` is accepted but warned on.
 4. **Users can override detection.** `[build.python].strategy` in `hop3.toml` lets packagers state the intended install path when the auto-detection would be ambiguous or wrong.
 
 ### Config surface
@@ -76,7 +76,7 @@ Omitting `[build.python].strategy` invokes auto-detection. Auto-detection rules:
 
 1. `uv.lock` present → `uv-sync`.
 2. `requirements.txt` present AND `pyproject.toml` absent → `requirements`.
-3. `pyproject.toml` present AND `requirements.txt` absent → `pyproject`. A Poetry-only `pyproject.toml` (dependencies under `[tool.poetry]`, no PEP-621 `[project]`) falls through here to `pip install .` rather than being rejected; packagers who want pinned, reproducible installs export a frozen `requirements.txt` from Poetry's lockfile and select `strategy = "requirements"`.
+3. `pyproject.toml` present AND `requirements.txt` absent → `pyproject`. A Poetry-only `pyproject.toml` (dependencies under `[tool.poetry]`, no PEP-621 `[project]`) falls through here to `pip install .` and is not rejected; packagers who want pinned, reproducible installs export a frozen `requirements.txt` from Poetry's lockfile and select `strategy = "requirements"`.
 4. Both `requirements.txt` and `pyproject.toml` present → **error** with a `Diagnosis` asking the operator to pick a strategy explicitly.
 5. Neither → **error** (unchanged).
 
@@ -107,7 +107,7 @@ Tutorials that currently teach `pip freeze > requirements.txt` as the production
 
 ## Deferred
 
-**`hop3 app freeze` client-side helper.** Worth doing (it would turn "run `poetry export`, commit the file, redeploy" into `hop3 app freeze`) but it requires the relevant toolchain (`uv`, `poetry`, `pip-compile`) on the packager's client machine and would have to be replicated for the other languages Hop3 supports (Node via `npm shrinkwrap` / `pnpm lock`, Ruby via `bundle lock`, etc.). The abstract mechanism is "a per-language freeze step"; designing it coherently belongs in a separate ADR rather than riding along with Python-specific changes.
+**`hop3 app freeze` client-side helper.** Worth doing (it would turn "run `poetry export`, commit the file, redeploy" into `hop3 app freeze`) but it requires the relevant toolchain (`uv`, `poetry`, `pip-compile`) on the packager's client machine and would have to be replicated for the other languages Hop3 supports (Node via `npm shrinkwrap` / `pnpm lock`, Ruby via `bundle lock`, etc.). The abstract mechanism is "a per-language freeze step" and deserves its own ADR; it should not ride along with Python-specific changes.
 
 ## Non-goals
 
@@ -132,7 +132,7 @@ Tutorials that currently teach `pip freeze > requirements.txt` as the production
 ### Risks
 
 - **Poetry path complexity.** `poetry export` has subtle flags (`--only`, `--without`, `--with`, `--without-hashes`) and has had broken behaviour historically. The recommended workflow standardises on one invocation; Hop3 does *not* run poetry itself.
-- **uv stability.** uv is young; its CLI has changed between minor versions (the `--no-dev` vs `--no-group dev` transition is an example). The Hop3 installer pins to a compatible range rather than tracking head.
+- **uv stability.** uv is young; its CLI has changed between minor versions (the `--no-dev` vs `--no-group dev` transition is an example). The Hop3 installer pins to a compatible range; it does not track head.
 - **Tutorial rewrite scope.** The Python tutorial set is a real chunk of doc work, and is scheduled separately from the toolchain changes.
 
 ## References

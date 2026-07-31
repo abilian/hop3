@@ -20,7 +20,7 @@ This exposes a deeper architectural issue: **the run phase has hardcoded knowled
 
 ### The Problem
 
-1. **Violates plugin architecture**: Adding a new language requires modifying `spawn.py`, not just adding a plugin
+1. **Violates plugin architecture**: Adding a new language requires modifying `spawn.py`, beyond what a plugin can express
 2. **Build/run coupling**: The run phase "peeks" at build outputs to infer configuration
 3. **No portability**: Runtime config is re-detected on each spawn, can't be moved between machines
 4. **Nix incompatibility**: Nix computes all paths at build time; detection-based approach doesn't fit

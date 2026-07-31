@@ -58,6 +58,7 @@ class RuntimeManifestBuilder:
         path_prepend: list[str] | None = None,
         working_dir: str = "",
         workers: dict[str, str] | None = None,
+        writable_tree: str = "",
     ) -> RuntimeConfig:
         """
         Build RuntimeConfig by merging all configuration sources.
@@ -67,6 +68,10 @@ class RuntimeManifestBuilder:
             path_prepend: Paths to prepend to PATH from toolchain
             working_dir: Working directory for processes
             workers: Worker definitions from builder (takes precedence over Procfile)
+            writable_tree: Read-only source tree to materialise before anything
+                runs in the app directory. Threaded through explicitly because
+                this method REBUILDS the RuntimeConfig rather than amending it,
+                so any field it forgets is silently dropped on the way out.
 
         Returns:
             Complete RuntimeConfig with all fields populated
@@ -122,6 +127,7 @@ class RuntimeManifestBuilder:
             env_vars=merged_env,
             path_prepend=merged_paths,
             working_dir=working_dir,
+            writable_tree=writable_tree,
             workers=merged_workers,
             before_run=before_run,
             static_paths=static_paths,

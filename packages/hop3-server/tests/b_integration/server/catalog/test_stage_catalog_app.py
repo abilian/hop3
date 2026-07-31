@@ -10,6 +10,7 @@ the blueprint recipe into it, and attaches env vars — but never deploys.
 from __future__ import annotations
 
 import shutil
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
@@ -84,10 +85,32 @@ def test_stage_rejects_when_recipe_dir_is_gone(rooted, monkeypatch) -> None:
     assert not (rooted / "apps" / "myapp").exists()
 
 
-def test_stage_rejects_duplicate_name(rooted) -> None:
+def test_stage_resumes_an_app_that_never_deployed(rooted) -> None:
+    """
+    Staging twice resumes rather than refusing.
+
+    A failed deploy leaves its app in place (the platform does not roll back),
+    and the row was committed before the deploy ran — so refusing here left the
+    operator with a name clash against an app they never knowingly created and
+    no way to retry.
+    """
     session = get_session_factory()()
-    stage_catalog_app("nextcloud", "mycloud", "", session)
-    with pytest.raises(CatalogInstallError, match="already exists"):
+    first = stage_catalog_app("nextcloud", "mycloud", "", session)
+    assert first.last_deployed_at is None
+
+    again = stage_catalog_app("nextcloud", "mycloud", "", session)
+
+    assert again.id == first.id  # same app, re-staged
+
+
+def test_stage_refuses_to_overwrite_a_deployed_app(rooted) -> None:
+    """An app that deployed successfully is someone's working app."""
+    session = get_session_factory()()
+    app = stage_catalog_app("nextcloud", "mycloud", "", session)
+    app.last_deployed_at = datetime.now(UTC)
+    session.commit()
+
+    with pytest.raises(CatalogInstallError, match="deployed successfully"):
         stage_catalog_app("nextcloud", "mycloud", "", session)
 
 

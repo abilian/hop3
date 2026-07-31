@@ -282,6 +282,27 @@ _policy = "keep-existing"   # optional; "override" to overwrite on every deploy
 - An empty list (`list = []`) is a no-op: HOST_NAME is **not** unset. Use `hop3 domains clear --app <app>` to remove the binding explicitly.
 - For CRUD from the CLI, see `hop3 domains` in the CLI reference.
 
+### `[deploy]` - Deploy-Time Configuration
+
+```toml
+[deploy]
+deployer = "auto"       # optional; "uwsgi", "static", "docker-compose", or "auto"
+allow-http = false      # optional; true serves plain HTTP instead of redirecting
+```
+
+**Fields:**
+
+- `deployer` (string, optional, default `"auto"`): force a specific deployer instead of auto-selecting by artifact kind. Unknown names are rejected at deploy time against the installed deployers.
+- `allow-http` (bool, optional, default `false`): serve the app over plain HTTP as well as HTTPS.
+
+**Why `allow-http` defaults to false.** Hop3 redirects HTTP to HTTPS for every app. An app told it is served over HTTPS (via `HOP3_PUBLIC_URL`, echoed in its own `ROOT_URL` or equivalent) issues **`Secure`** session and CSRF cookies, which a browser will not send back over plain HTTP. Serving both schemes therefore gives you an app that looks healthy but whose logins fail over HTTP — typically reported by the app as "these credentials do not match our records", blaming the password rather than the scheme. Enable `allow-http` only for an app that genuinely must answer on HTTP.
+
+**Notes:**
+
+- The ACME challenge path (`/.well-known/acme-challenge`) stays on HTTP either way, so certificate issuance and renewal are unaffected.
+- The setting is honoured identically by every proxy plugin (nginx / caddy / traefik) — declare it once, whichever proxy the server runs.
+- The per-app env vars `NGINX_HTTPS_ONLY` / `CADDY_HTTPS_ONLY` / `TRAEFIK_HTTPS_ONLY` still work and take precedence, as an escape hatch.
+
 ### `[admin]` - Initial Admin Account
 
 Declares the initial admin account Hop3 bootstraps on first deploy (ADR 056), so an installed app is ready to log into instead of dropping you at a login wall with no credentials. Hop3 generates the password (strong, CSPRNG, generated-once), resolves the email, stores the credential encrypted, and surfaces it once after deploy — retrieve it later with `hop3 app credentials --app <app>`.
@@ -310,12 +331,45 @@ create   = "…"                             # optional: idempotent command run 
 | `password` | table | yes | A [generated secret](#generated-secrets) spec (always generated). |
 | `create` | string | no | Idempotent create-if-absent command; receives `HOP3_ADMIN_*` in its env. |
 
+### `[probe]` - Hop3's Own Verification Account
+
+Declares a second account, owned by Hop3 rather than the operator, that the app's smoke test signs in as. Optional: an app that omits it is still checked, using the admin credential, and the result says so.
+
+```toml
+[probe]
+username = "hop3probe"                     # avoid names the app reserves
+email    = "probe@hop3.invalid"            # only when the app requires one
+create   = "app-cli user create ..."       # REQUIRED: idempotent, run once after deploy
+```
+
+**Why a second account.** The `[admin]` credential is handed to the operator, so Hop3 stops owning it the moment they change the password. A later sign-in failure then means either the app broke or the password moved, and from outside those look identical — a check that cannot tell them apart cries wolf. Nobody else uses the probe account, so a refused probe sign-in means the app broke.
+
+**Why sign in at all.** A login page renders perfectly against a dead database, and for some apps is not even dynamic. Signing in is what traverses app code, session, database and password verification — the whole stack the operator depends on.
+
+**Not an administrator.** Signing in is the entire diagnostic value, and a plain account carries a fraction of the privilege. Omit the section for an app whose data is sensitive enough that no standing Hop3 account is acceptable; the check then verifies the handover only, and says so rather than silently testing less.
+
+**How it works:**
+
+- The username, optional email and a generated password are injected as `HOP3_PROBE_USER`, `HOP3_PROBE_EMAIL` and `HOP3_PROBE_PASSWORD`. The password is generated once and reused across deploys — regenerating it would break the account it created.
+- After the app is up, Hop3 runs `create` and checks its exit status. Only then is the account recorded as existing, and only then is the credential offered to `check.py`.
+- If `create` fails, the deploy still succeeds — the probe verifies the app, it is not part of it — but the failure is reported and the smoke test falls back to the admin credential, labelled `verified the handover only`.
+
+**`create` is required, deliberately.** It was once optional, meaning "the app builds this account itself from the injected vars". Hop3 has no way to confirm that it did, so it could never hand the credential to a check, and the whole section did nothing while looking like configuration. Both recipes that used that form had silently stopped creating their probe — each did so only in the branch where it also created the admin, so any instance that already had one got no probe and nothing noticed. If Hop3 cannot create the account, it cannot trust it.
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `username` | string | no (default `hop3probe`) | Login name. Avoid names the app reserves — Gitea and Forgejo reject `admin` while still exiting 0. |
+| `email` | string | no | A literal address, when the app requires one. Never the operator's: the account is Hop3's and receives nothing. |
+| `create` | string | **yes** | Idempotent create-if-absent command; receives `HOP3_PROBE_*` in its env and must exit non-zero if the account does not end up existing. |
+
 ### `[contexts.<name>]` - Deploy Environments
 
 A **context** is a named target, and `--context <name>` is the one CLI selector for every command. A context exists at two scopes, and `[contexts.<name>]` appears in **two files**:
 
-- In the **committed `hop3.toml`** (documented here): a full deploy environment — `dev`, `staging`, `prod` — each a distinct app instance, usually on a different server, with its own domains and non-secret configuration. One codebase, many environments.
-- In the per-developer **`config.toml`**: a *global* context, the same block pared to just `server = "<addr>"` — a name bound to a server address, so project-less commands (`hop3 apps --context prod`) can target a server by name. Server-only, no `app`/`domains`/`env`.
+- In the **committed `hop3.toml`** (documented here): a full deploy environment — `devel`, `staging`, and whatever else you run — each a distinct app instance, usually on a different server, with its own domains and non-secret configuration. One codebase, many environments.
+- In the per-developer **`config.toml`**: a *global* context, the same block pared to just `server = "<addr>"` — a name bound to a server address, so project-less commands (`hop3 apps --context devel`) can target a server by name. Server-only, no `app`/`domains`/`env`.
 
 `--context <name>` resolves **project-first, then global**. Neither file holds a secret: the `server` is always a literal address, and the bearer token lives only in the credential store (see below). See [ADR 042](https://github.com/abilian/hop3/blob/main/notes/adrs/042-cli-context-model.md) for the full model.
 
@@ -323,12 +377,12 @@ A **context** is a named target, and `--context <name>` is the one CLI selector 
 [metadata]
 id = "myapp"
 
-[contexts.prod]
-server = "ssh://root@prod.example.com"   # literal address of the target server
+[contexts.devel]
+server = "ssh://root@devel.example.com"   # literal address of the target server
 app    = "myapp"                          # app instance for this environment
-[contexts.prod.domains]
+[contexts.devel.domains]
 list = ["myapp.com", "www.myapp.com"]
-[contexts.prod.env]
+[contexts.devel.env]
 LOG_LEVEL = "warning"
 
 [contexts.dev]
@@ -340,13 +394,13 @@ list = ["myapp.dev.example.com"]
 LOG_LEVEL = "debug"
 ```
 
-Deploy a specific environment with `hop3 deploy --context prod`. (When `hop3.toml` declares exactly one context, it is selected automatically.)
+Deploy a specific environment with `hop3 deploy --context devel`. (When `hop3.toml` declares exactly one context, it is selected automatically.)
 
 **Fields:**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `server` | string | yes | **Literal address** of the target Hop3 instance, e.g. `ssh://root@prod.example.com`. Never a symbolic name, and never a credential — the bearer token lives in the local credential store (see below). An address that embeds credentials (`scheme://user:password@…`, or a `token=`/`password=` query param) is a hop3.toml validation error. |
+| `server` | string | yes | **Literal address** of the target Hop3 instance, e.g. `ssh://root@devel.example.com`. Never a symbolic name, and never a credential — the bearer token lives in the local credential store (see below). An address that embeds credentials (`scheme://user:password@…`, or a `token=`/`password=` query param) is a hop3.toml validation error. |
 | `app` | string | no | App instance name for this environment. Inherits `[metadata].id` when omitted. |
 | `[contexts.<name>.domains]` | table | no | Hostnames for this environment — **same shape as the top-level [`[domains]`](#domains-application-hostnames)** (a `list = [...]` table, with the same RFC-1123 / catch-all rules). When present, the context's domains **replace** the top-level `[domains]` on deploy; when absent, the top-level domains are inherited unchanged. |
 | `[contexts.<name>.env]` | table | no | Per-environment **non-secret** env overrides. These **merge over** the top-level `[env]`, key by key, on deploy. |

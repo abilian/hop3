@@ -307,6 +307,23 @@
     </div>
     {% endif %}
 
+    <!-- Admin Credentials Card -->
+    {% if has_admin_credential %}
+    <div class="mt-8 bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Admin Account</h3>
+            <p class="text-sm text-gray-500">
+                Hop3 generated an admin account when it installed this app — use it to sign in the first time.
+            </p>
+            <div class="mt-4">
+                <a href="/dashboard/apps/{{ app.name }}/credentials" class="text-sm text-blue-600 hover:text-blue-900 font-medium">
+                    Reveal admin credentials →
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Environment Variables Card -->
     {% if app.env_var_count > 0 %}
     <div class="mt-8 bg-white shadow rounded-lg">

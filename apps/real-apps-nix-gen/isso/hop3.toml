@@ -19,10 +19,25 @@ format = "raw"
 raw-content = """
 [general]
 dbpath = data/comments.db
-host = http://localhost:${PORT:-8080}
+host = ${HOP3_PUBLIC_URL}
 
 [server]
 listen = http://${BIND_ADDRESS:-0.0.0.0}:${PORT:-8080}
+public-endpoint = ${HOP3_PUBLIC_URL}
+
+# The moderation dashboard at /admin/. Absent, isso serves it disabled: the
+# smoke test reported "the admin dashboard is not asking for a password", and
+# it was right — there was no dashboard to ask. Isso has no admin username;
+# the password IS the credential.
+[admin]
+enabled = true
+password = ${ADMIN_PASSWORD}
+
+# Hold new comments for approval instead of publishing them on submission.
+# Without it any anonymous visitor self-publishes — the isso equivalent of open
+# registration, and the native recipe closes it for that reason.
+[moderation]
+enabled = true
 """
 
 # Hop3 Configuration for Isso (Nix build)
@@ -31,8 +46,6 @@ listen = http://${BIND_ADDRESS:-0.0.0.0}:${PORT:-8080}
 [build]
 builder = "nix"
 
-[env]
-ISSO_HOST = "http://localhost:8080"
 
 [test]
 priority = "P2"
@@ -45,3 +58,12 @@ covers = ["python", "isso", "nix"]
 path = "/"
 status = 400
 contains = "missing uri query"
+
+[admin]
+username = "admin"
+password = { generate = "password", length = 20 }
+
+# Isso reads its password from the config file above, which the wrapper writes
+# at startup by interpolating this variable.
+[env.computed]
+ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD}"

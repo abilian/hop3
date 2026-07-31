@@ -9,6 +9,13 @@ tags:
 
 # Migrating from Heroku to Hop3
 
+!!! note "There is a maintained version of this guide"
+
+    This post is kept as published. The version that tracks the current CLI
+    lives in the documentation: **[Migrating from Heroku](/guides/migration/from-heroku/)**,
+    alongside guides for twenty other platforms under
+    [Migrating to Hop3](/guides/migration-guide/).
+
 Thinking about leaving Heroku? Whether it's cost predictability, provider independence, or data residency requirements, Hop3 offers a familiar deployment experience on your own infrastructure. This guide helps you migrate existing Heroku apps to Hop3.
 
 ## What's Similar

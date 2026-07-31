@@ -8,7 +8,6 @@ import grp
 import json
 import os
 import pwd
-import shlex
 import shutil
 import sys
 import tempfile
@@ -71,7 +70,7 @@ def create_virtual_environment(*, force: bool = False) -> None:
 
     python_exe = _get_python_executable()
     with Spinner(f"Creating virtual environment (using {python_exe})..."):
-        run_as_hop3(f"{python_exe} -m venv {VENV_DIR}")
+        run_as_hop3([python_exe, "-m", "venv", str(VENV_DIR)])
 
     print_success(f"Virtual environment created at {VENV_DIR}")
 
@@ -82,11 +81,11 @@ def install_package(config: ServerInstallerConfig) -> None:
 
     # Upgrade pip
     with Spinner("Upgrading pip..."):
-        run_as_hop3(f"{pip} install --upgrade pip")
+        run_as_hop3([pip, "install", "--upgrade", "pip"])
 
-    # Determine what to install
-    # Note: All user-controlled package specs are quoted to prevent command injection
-    pre_flag = ""
+    # Determine what to install. Values interpolated into package_spec are
+    # user-controlled; run_as_hop3 quotes every argv element at the seam.
+    pre_flag: list[str] = []
     # Install the WAF engine by default via the hop3-server[waf] extra (ADR 050):
     # LeWAF + uvicorn, marker-gated to py3.12+. Without it, deploying a WAF-enabled
     # app aborts loudly ("'waf' extra not installed"), so WAF must ship out of the box.
@@ -95,7 +94,7 @@ def install_package(config: ServerInstallerConfig) -> None:
         source_desc = f"local path ({config.local_path})"
     elif config.use_git:
         with Spinner("Installing build tools..."):
-            run_as_hop3(f"{pip} install uv")
+            run_as_hop3([pip, "install", "uv"])
         package_spec = (
             f"{SERVER_PACKAGE_NAME}[waf] @ "
             f"git+{GIT_REPO}@{config.branch}#subdirectory={SERVER_PACKAGE_SUBDIR}"
@@ -107,14 +106,13 @@ def install_package(config: ServerInstallerConfig) -> None:
     else:
         package_spec = f"{SERVER_PACKAGE_NAME}[waf]"
         if config.pre_release:
-            pre_flag = "--pre "
+            pre_flag = ["--pre"]
             source_desc = "PyPI (latest including pre-releases)"
         else:
             source_desc = "PyPI (latest stable)"
 
-    # Install - use shlex.quote to prevent command injection from user-provided values
     with Spinner(f"Installing hop3-server from {source_desc}..."):
-        run_as_hop3(f"{pip} install {pre_flag}{shlex.quote(package_spec)}")
+        run_as_hop3([pip, "install", *pre_flag, package_spec])
 
     print_success("hop3-server installed successfully")
 
@@ -161,7 +159,7 @@ def write_build_info(config: ServerInstallerConfig) -> None:
 def _installed_version() -> str | None:
     """Return the hop3-server version as installed in the venv."""
     code = "import importlib.metadata as m; print(m.version('hop3_server'))"
-    result = run_as_hop3(f'{VENV_DIR}/bin/python -c "{code}"')
+    result = run_as_hop3([f"{VENV_DIR}/bin/python", "-c", code])
     version = (result.stdout or "").strip()
     return version or None
 
@@ -227,7 +225,7 @@ def install_rootd_package(config: ServerInstallerConfig) -> None:
         source_desc = "PyPI (latest stable)"
 
     with Spinner(f"Installing hop3-rootd from {source_desc}..."):
-        run_as_hop3(f"{pip} install {shlex.quote(package_spec)}")
+        run_as_hop3([pip, "install", package_spec])
 
     print_success("hop3-rootd installed successfully")
 
@@ -269,7 +267,7 @@ def install_cli_package(config: ServerInstallerConfig) -> None:
         source_desc = "PyPI (latest stable)"
 
     with Spinner(f"Installing hop3-cli from {source_desc}..."):
-        run_as_hop3(f"{pip} install {shlex.quote(package_spec)}")
+        run_as_hop3([pip, "install", package_spec])
 
     print_success("hop3-cli installed successfully")
 
@@ -279,7 +277,7 @@ def run_hop3_setup() -> None:
     hop_server = f"{VENV_DIR}/bin/hop3-server"
 
     with Spinner("Running initial setup..."):
-        run_as_hop3(f"{hop_server} setup")
+        run_as_hop3([hop_server, "setup"])
 
     print_success("Hop3 initial setup complete")
 
@@ -315,7 +313,7 @@ def setup_ssh_keys() -> None:
         Path(temp_keys).chmod(0o600)  # Restrict permissions
 
         # Run setup:ssh - quote the path for safety
-        run_as_hop3(f"{hop_server} setup:ssh {shlex.quote(str(temp_keys))}")
+        run_as_hop3([hop_server, "setup:ssh", str(temp_keys)])
         print_success("SSH keys configured")
     except CommandError:
         print_warning("Could not configure SSH keys (invalid format?)")

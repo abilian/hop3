@@ -209,19 +209,6 @@ class Hop3Config:
         return cmds if isinstance(cmds, list) else []
 
     @property
-    def test_commands(self) -> list[str]:
-        """
-        Get build.test commands (smoke tests).
-
-        Returns:
-            List of test commands
-        """
-        test_cmds = self.build.get("test", [])
-        if isinstance(test_cmds, str):
-            return [test_cmds]
-        return test_cmds if isinstance(test_cmds, list) else []
-
-    @property
     def after_build_commands(self) -> list[str]:
         """
         Get build.after-build commands.
@@ -266,29 +253,6 @@ class Hop3Config:
         """
         return self.build.get("toolchain")
 
-    @property
-    def build_packages(self) -> list[str]:
-        """Get build.packages (system packages for build)."""
-        return self.build.get("packages", [])
-
-    @property
-    def ignore_patterns(self) -> list[str]:
-        """
-        Get build.ignore (patterns to exclude from deployment).
-
-        Returns:
-            List of glob patterns to ignore, empty list if not specified
-        """
-        patterns = self.build.get("ignore", [])
-        if isinstance(patterns, list):
-            return patterns
-        return []
-
-    @property
-    def pip_install(self) -> list[str]:
-        """Get build.pip-install (Python packages to install)."""
-        return self.build.get("pip-install", [])
-
     # =========================================================================
     # [run] section - Maps to Procfile workers
     # =========================================================================
@@ -297,11 +261,6 @@ class Hop3Config:
     def run(self) -> dict[str, Any]:
         """Get the [run] section."""
         return self._data.get("run", {})
-
-    @property
-    def run_packages(self) -> list[str]:
-        """Get run.packages (system packages for runtime)."""
-        return self.run.get("packages", [])
 
     @property
     def static_paths(self) -> dict[str, str]:
@@ -540,6 +499,19 @@ class Hop3Config:
             and ("from" in v or "key" in v or "external_ip" in v)
         }
 
+    @property
+    def allow_http(self) -> bool:
+        """
+        Get [deploy].allow-http — serve plain HTTP instead of redirecting.
+
+        False (the default) means nginx redirects HTTP to HTTPS, so an app's
+        Secure cookies are never dropped by a plain-HTTP request.
+        """
+        section = self._data.get("deploy", {})
+        if not isinstance(section, dict):
+            return False
+        return bool(section.get("allow-http", section.get("allow_http", False)))
+
     # =========================================================================
     # [domains] section
     # =========================================================================
@@ -571,6 +543,18 @@ class Hop3Config:
         if not isinstance(section, dict):
             return "keep-existing"
         return section.get("_policy", "keep-existing")
+
+    @property
+    def probe(self) -> dict[str, Any]:
+        """
+        Get the [probe] section — Hop3's own account for verifying the app.
+
+        Returns the raw section (``username`` / ``email`` / ``create``), or an
+        empty dict when no [probe] is declared, which means the app opted out
+        and its check verifies the handover only.
+        """
+        section = self._data.get("probe", {})
+        return section if isinstance(section, dict) else {}
 
     @property
     def admin(self) -> dict[str, Any]:
@@ -698,17 +682,6 @@ class Hop3Config:
         """Get the [docker] section."""
         return self._data.get("docker", {})
 
-    @property
-    def docker_port(self) -> int | None:
-        """
-        Get docker.port (container port for Docker deployments).
-
-        Returns:
-            Port number if specified, None otherwise
-        """
-        port = self.docker.get("port")
-        return int(port) if port is not None else None
-
     # =========================================================================
     # [[addons]] section (backing services)
     # =========================================================================
@@ -729,19 +702,6 @@ class Hop3Config:
             addons = self._data.get("provider", [])
         return addons
 
-    def get_addon_types(self) -> list[str]:
-        """
-        Get list of addon types required by this app.
-
-        Returns:
-            List of addon type names (e.g., ['postgres', 'redis'])
-        """
-        return [
-            addon_type
-            for addon in self.addons
-            if (addon_type := addon.get("type")) is not None
-        ]
-
     # =========================================================================
     # [[provider]] section (deprecated, use [[addons]])
     # =========================================================================
@@ -758,18 +718,6 @@ class Hop3Config:
     # =========================================================================
     # Utility methods
     # =========================================================================
-
-    def has_section(self, section_name: str) -> bool:
-        """
-        Check if a section exists in the configuration.
-
-        Args:
-            section_name: Name of the section (e.g., 'run', 'build')
-
-        Returns:
-            True if the section exists and is not empty
-        """
-        return section_name in self._data and bool(self._data[section_name])
 
     def to_dict(self) -> dict[str, Any]:
         """

@@ -7,7 +7,7 @@
 
 ## Introduction
 
-Hop3's configuration system is built around a configuration object rather than module-level constants, giving a more testable, flexible architecture that removes the need for monkeypatching in tests. The four-module configuration split (`HopConfig`, `Config`, `AppConfig`, `Hop3Config`) is the architecture on which [ADR 003](./003-config-parsing-and-validation.md)'s dataclass-based parser builds.
+Hop3's configuration system is built around a configuration object, giving a testable, flexible architecture that removes the need for monkeypatching in tests. The four-module configuration split (`HopConfig`, `Config`, `AppConfig`, `Hop3Config`) is the architecture on which [ADR 003](./003-config-parsing-and-validation.md)'s dataclass-based parser builds.
 
 ## Summary
 
@@ -73,7 +73,7 @@ class App:
 4. **Backward Compatibility**: Minimize disruption to existing code
 5. **Type Safety**: Maintain or improve type checking for config values
 6. **Performance**: No significant runtime overhead
-7. **Simplicity**: Don't over-engineer - keep it simple and Pythonic
+7. **Simplicity**: Keep it simple and Pythonic
 
 ## Tenets
 

@@ -7,7 +7,7 @@
 
 ## Purpose
 
-This ADR is the landing page for Hop3's security and resilience design. It enumerates the sub-concerns and points at the ADRs that decide them. It does not, by itself, commit Hop3 to specific mechanisms; the concrete design for each concern lives in its child ADR. A broad-scope "implement encryption, RBAC, MFA, backups, monitoring" framing is deliberately rejected here: a security decision is only meaningful once it commits to a mechanism, so each mechanism is decided in its own ADR rather than asserted in the aggregate.
+This ADR is the landing page for Hop3's security and resilience design. The table below maps each sub-concern to its child ADR. Each concern commits to a specific mechanism in its own ADR; a broad-scope "implement encryption, RBAC, MFA, backups, monitoring" framing would short-circuit that: a security decision is only meaningful once it commits to a mechanism.
 
 ## Sub-concerns and child ADRs
 
@@ -19,8 +19,16 @@ This ADR is the landing page for Hop3's security and resilience design. It enume
 | Authentication bootstrap (first-admin provisioning) | [ADR 014](014-authentication-bootstrap.md) |
 | Backup and restore | [ADR 024](024-backup-restore-system.md) |
 | Reconciliation and health checks | [ADR 029](029-reconciliation-health-checks.md) |
+| Network firewall and per-app port exposure | [ADR 040](040-network-firewall-and-port-exposure.md) |
+| Privilege separation for root-only operations | [ADR 041](041-privileged-operations-agent.md) |
+| Server configuration and secret storage | [ADR 048](048-server-config-and-secret-storage.md) |
+| Layer-7 web application firewall | [ADR 050](050-waf-l7-lewaf.md) |
+| App-runtime UID separation | [ADR 055](055-app-runtime-uid-separation.md) |
+| App admin credentials (bootstrap, storage, retrieval) | [ADR 056](056-app-admin-credentials.md) |
 
-## What is out of scope for this umbrella ADR
+The engineering companion to this ADR is `notes/security/security-model.md`: the trust model, the catalogue of audited-and-deliberate patterns, and the procedure for running a review round. Published security policy and the vulnerability disclosure channel are in `docs/src/reference/policies/security-policy.md`.
+
+## Out of scope
 
 - Specific cryptographic primitives and rotation policies (→ [ADR 011](./011-encryption.md)).
 - MFA flow and device-registration UX (→ [ADR 012](./012-mfa.md)).
@@ -32,14 +40,13 @@ This ADR is the landing page for Hop3's security and resilience design. It enume
 
 ## Operational posture
 
-The umbrella defines a baseline posture that the child ADRs refine:
-
-- **Authentication**: JWT tokens issued on login; every RPC call is authenticated; bearer-token handling is case-insensitive per RFC 7235; session lifetime is configurable via `HOP3_TOKEN_EXPIRY_HOURS`.
-- **Rate limiting**: An in-memory sliding-window limiter guards `/auth/login` and `/auth/magic/{token}` (5 requests per minute per IP).
-- **Credentials at rest**: Fernet AEAD encryption with a server-side `HOP3_SECRET_KEY` (see [ADR 011](./011-encryption.md)).
-- **Audit**: Structured audit records for security-relevant events.
+- **Authentication**: JWT tokens issued on login; every RPC call is authenticated; bearer-token handling is case-insensitive per RFC 7235; session lifetime is configurable via `HOP3_TOKEN_EXPIRY_HOURS` (default 24 hours).
+- **Authorization**: scope-based. Commands that manage users and accounts apply an admin check. Per-resource ownership is not modelled: the control plane is single-tenant, so an authenticated account is an operator-equivalent credential and reaches every app and addon on the host. Runtime isolation between apps is a separate mechanism and does hold ([ADR 055](./055-app-runtime-uid-separation.md), [ADR 046](./046-declarative-app-resources.md)). Per-resource ownership is planned; the reasoning is in `notes/security/security-model.md` §1.4.
+- **Rate limiting**: An in-memory sliding-window limiter guards `/auth/login` and `/auth/magic/{token}` (5 requests per minute per IP). The limiter's state is per worker process, which is why the server runs single-worker.
+- **Credentials at rest**: Fernet AEAD encryption with a key derived from the server-side `HOP3_SECRET_KEY` (see [ADR 011](./011-encryption.md)).
+- **Audit**: `hop3-rootd` keeps an append-only audit log, with credential redaction and an `fsync` per entry, covering every privileged operation ([ADR 041](./041-privileged-operations-agent.md)). The control plane has no equivalent audit log for RPC-level security events; that gap is open.
 - **Transport**: HTTPS or SSH-tunnelled HTTP; no unencrypted RPC in production.
 - **Health checks**: Per-app HTTP probing at the declared health-check path; a reconciliation loop is specified in [ADR 029](./029-reconciliation-health-checks.md).
 - **Backups**: Full backup and restore of app state and addon data ([ADR 024](./024-backup-restore-system.md)).
 
-An **external security review** precedes general release.
+Security review is continuous rather than periodic: findings are fixed in the ordinary course of work, and rounds are formalised into a written report when they turn up something worth recording. An independent third-party review is worth having — the reviewer who wrote an allow-list is the worst-placed person to find what is missing from it — and is sought where one can be arranged, but a release does not block on a third party's availability.

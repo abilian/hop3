@@ -8,6 +8,9 @@ builder = "nix"
 type = "mysql"
 
 [env]
+# Matomo signs sessions and cookies with `salt`; generated once so a redeploy
+# does not sign every visitor out.
+MATOMO_SALT = { generate = "urlsafe" }
 MATOMO_DATABASE_HOST = "${MYSQL_HOST}"
 
 [test]
@@ -21,3 +24,8 @@ covers = ["php", "matomo", "nix", "analytics"]
 path = "/"
 status = 200
 contains = "Matomo"
+
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }

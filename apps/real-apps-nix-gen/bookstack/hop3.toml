@@ -20,7 +20,7 @@ url = "https://github.com/BookStackApp/BookStack/archive/refs/tags/v${version}.t
 sha256 = "CDJ0X2x274ohrevyH+9w4J/wY9SEpdJTNO2MA0resLI="
 archive = "tar-gz"
 php-version = "php82"
-php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'tokenizer', 'bcmath', 'intl', 'ldap']
+php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'mbstring', 'curl', 'zip', 'tokenizer', 'bcmath', 'intl', 'ldap']
 needs-composer = true
 post-install-dirs = ['storage/app', 'storage/framework/cache', 'storage/framework/sessions', 'storage/framework/views', 'storage/logs', 'bootstrap/cache']
 extra-paths = ['${php}/bin']
@@ -40,6 +40,12 @@ type = "mysql"
 
 # Generated admin credentials (ADR 056), consumed by the create-admin step.
 [admin]
+# BookStack authenticates by EMAIL; `username` is only the display name, so an
+# operator — or the screenshot harness — handed both and left to guess picks
+# the username and is rejected. The native recipe says so; this one did not,
+# and the browser sign-in failed here while check.py (which reads
+# `c.login.email` directly) passed.
+login = "email"
 username = "admin"
 email = "operator"
 password = { generate = "password", length = 20 }

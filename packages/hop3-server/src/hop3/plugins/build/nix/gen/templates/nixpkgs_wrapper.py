@@ -141,7 +141,18 @@ class NixpkgsWrapperTemplate:
 {pinned_nixpkgs_header(spec.nixpkgs_rev, spec.nixpkgs_sha256)}
 
 let
-  {binding} = {package_expr};{let_extra_block}
+  {binding} = {package_expr};
+  # A STABLE name for the wrapped package, for recipes to reference.
+  #
+  # `{binding}` above is derived from the app id (dashes to underscores), so it
+  # renames whenever the app does — and a recipe that spelled the old name out
+  # in `extra-paths` or `env-exports-raw` then fails at BUILD time with a bare
+  # Nix `undefined variable`, naming a line the recipe author never wrote.
+  # keycloak-nixgen and mattermost-nixgen were both created by copying a recipe
+  # and renaming the app; both carried `${{keycloak}}`/`${{mattermost}}` into a
+  # tree whose binding had become `keycloak_nixgen`/`mattermost_nixgen`.
+  # Reference `${{pkg}}` and the app id stops being part of the contract.
+  pkg = {binding};{let_extra_block}
 
   app = pkgs.stdenv.mkDerivation {{
     pname = "{spec.pname}";

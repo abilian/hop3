@@ -22,8 +22,6 @@ This guide covers server administration tasks for Hop3 operators, including inst
 
 On the distros above, hop3-server is installed by the standard installer; on NixOS it is deployed via the Nix flake and the `services.hop3` NixOS module. (Separately, the Nix package manager is also available as an app *builder* on any supported host.)
 
----
-
 ## Installation
 
 ### Quick Install (Single Command)
@@ -72,8 +70,6 @@ systemctl status nginx
 systemctl status uwsgi-hop3
 ```
 
----
-
 ## Upgrading Hop3
 
 Upgrading the **server** (Hop3 itself) is done with the installer / deployer. Re-run the same tool you installed with:
@@ -112,8 +108,6 @@ hop3 app upgrade --app myapp      # snapshot -> redeploy + migrate -> verify -> 
 hop3 app rollback --app myapp     # restore the most recent backup (--to <backup-id> for a specific one)
 ```
 
----
-
 ## Directory Structure
 
 ```
@@ -132,8 +126,6 @@ hop3 app rollback --app myapp     # restore the most recent backup (--to <backup
 ├── hop3-server.toml           # Server configuration
 └── hop3.db                    # SQLite database
 ```
-
----
 
 ## Configuration
 
@@ -172,9 +164,18 @@ To reload Nginx after manual changes:
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
----
-
 ## User Management
+
+!!! warning "Every account can manage every application"
+
+    Hop3 has no per-application ownership: any account you create can stop,
+    reconfigure, back up or destroy **every** app on the server, and can read
+    every addon's credentials. The `--admin` flag controls user-management
+    rights, not application access.
+
+    Provision accounts on that basis, and don't host applications for parties
+    who shouldn't see each other's data on the same server. See
+    [Security](security.md#the-account-model-accounts-are-operator-equivalent).
 
 ### Creating Admin Users
 
@@ -214,8 +215,6 @@ hop3-server admin:token admin
 hop3 user list
 ```
 
----
-
 ## Database Addon Management
 
 Hop3 supports PostgreSQL, MySQL, and Redis as backing services. For complete addon command documentation, see the **[CLI Reference: Services (Addons)](../reference/cli.md#services-addons)**.
@@ -245,8 +244,6 @@ MYSQL_SUPERUSER_PASSWORD = "secure-password"
 REDIS_HOST = "localhost"
 REDIS_PORT = 6379
 ```
-
----
 
 ## SSL/TLS Certificates
 
@@ -288,8 +285,6 @@ systemctl status certbot.timer
 # Manual renewal test
 sudo certbot renew --dry-run
 ```
-
----
 
 ## Monitoring & Health Checks
 
@@ -350,8 +345,6 @@ systemctl status uwsgi-hop3
 ps aux | grep uwsgi
 ```
 
----
-
 ## Backup & Restore
 
 For application-level backups, see the **[Backup and Restore Guide](backup-restore.md)**.
@@ -392,8 +385,6 @@ sudo -u postgres pg_dumpall | gzip > "$BACKUP_DIR/postgres.sql.gz"
 3. Restore application directories
 4. Redeploy applications: `hop3 deploy --app myapp`
 
----
-
 ## Security Hardening
 
 ### Firewall Configuration
@@ -409,6 +400,25 @@ sudo ufw allow 443/tcp
 # Enable firewall
 sudo ufw enable
 ```
+
+### Verifying a host key before the first deploy
+
+`hop3-deploy-server` connects with `StrictHostKeyChecking=accept-new`, so the
+host key of an unknown server is accepted on first contact. That first
+connection is also the one that installs Hop3 as root, so on a host you did
+not just provision yourself, verify the key out-of-band first:
+
+```bash
+# On the target (via console, or your provider's control panel):
+ssh-keyscan -t ed25519 localhost | ssh-keygen -lf -
+
+# On your workstation, compare, then pin it before deploying:
+ssh-keyscan -t ed25519 your-server.com >> ~/.ssh/known_hosts
+ssh-keygen -lf ~/.ssh/known_hosts | grep your-server.com
+```
+
+Once the key is in `known_hosts`, a mismatch on any later connection is
+refused rather than accepted.
 
 ### SSH Hardening
 
@@ -448,8 +458,6 @@ Each application runs:
 - With dedicated virtual environment
 - Under the `hop3` user
 - With separate uWSGI worker processes
-
----
 
 ## Performance Tuning
 
@@ -536,8 +544,6 @@ docker network ls
 docker network create test-network && docker network rm test-network
 ```
 
----
-
 ## Troubleshooting
 
 ### Common Issues
@@ -602,8 +608,6 @@ hop3 system info
 hop3 system status
 ```
 
----
-
 ## Maintenance Tasks
 
 ### Regular Maintenance Checklist
@@ -648,8 +652,6 @@ Apply changes:
 sudo systemctl restart systemd-journald
 ```
 
----
-
 ## Reference
 
 ### Service Management
@@ -684,8 +686,6 @@ sudo systemctl restart systemd-journald
 | `HOP3_LOG_LEVEL` | Server log level (default: `INFO`) |
 | `HOP3_UNSAFE` | Disable auth (testing only) |
 | `HOP3_DEBUG` | Enable debug logging |
-
----
 
 ## Related Guides
 

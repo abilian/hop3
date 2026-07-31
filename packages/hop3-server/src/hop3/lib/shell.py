@@ -17,7 +17,7 @@ from .console import log
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-__all__ = ["shell"]
+__all__ = ["MAX_COMMAND_OUTPUT_LINES", "log_command_stream", "shell"]
 
 # Shell operators that require wrapping in sh -c
 _SHELL_OPERATORS = {"&&", "||", ";", "|", ">", ">>", "<", "$("}
@@ -135,3 +135,30 @@ def _log_output(output: str, level: int = 2, fg: str = "") -> None:
     """Log multi-line output, handling each line separately."""
     for line in output.rstrip().split("\n"):
         log(line, level=level, fg=fg)
+
+
+#: Enough to carry a command's verdict without burying the deploy log.
+MAX_COMMAND_OUTPUT_LINES = 20
+
+
+def log_command_stream(
+    label: str, text: str | None, *, level: int, fg: str = ""
+) -> None:
+    """
+    Show one of a subprocess's output streams to the operator, tail-first.
+
+    Both places Hop3 runs a recipe's own commands — before-run hooks and the
+    [admin]/[probe] create bootstraps — showed a command's output only when it
+    FAILED; `shell` itself logs stdout at level 2, which nobody sees on a normal
+    deploy. These commands are an app's headless bootstrap, and a successful one
+    still reports what it did: which account it created, or that it found one
+    already and left it alone. Uptime Kuma's said outright that the admin Hop3
+    was about to advertise did not exist. That line was written on every deploy
+    and read by nobody, while a smoke test's "the credential was refused" sent
+    three rounds of investigation at an application that was working.
+    """
+    if not text or not text.strip():
+        return
+    log(f"  {label}:", level=level, fg=fg)
+    tail = text.strip().split("\n")[-MAX_COMMAND_OUTPUT_LINES:]
+    _log_output("\n".join(f"    {line}" for line in tail), level=level)

@@ -28,7 +28,7 @@ from hop3_installer.constants import HOME_DIR
 from .config import ServerInstallerConfig
 from .email import pre_stage_email
 from .s3 import configure_s3
-from .user import run_as_hop3
+from .user import run_as_hop3, run_as_hop3_shell
 
 # =============================================================================
 # Non-interactive apt (Debian/Ubuntu)
@@ -383,16 +383,24 @@ def _verify_or_repair_cargo(
     to the 'stable-...' toolchain"). One forced toolchain reinstall self-heals
     that; the caller still fails loud when the returned result is non-zero.
     """
-    verify = run_as_hop3(f"{cargo_path} --version")
+    verify = run_as_hop3([str(cargo_path), "--version"])
     if verify.returncode == 0:
         return verify
     print_detail("cargo not usable; reinstalling the stable toolchain...")
     with Spinner("Repairing the Rust stable toolchain..."):
         run_as_hop3(
-            f"{rustup_path} toolchain install stable --profile minimal --force",
+            [
+                str(rustup_path),
+                "toolchain",
+                "install",
+                "stable",
+                "--profile",
+                "minimal",
+                "--force",
+            ],
             timeout=600,
         )
-    return run_as_hop3(f"{cargo_path} --version")
+    return run_as_hop3([str(cargo_path), "--version"])
 
 
 def install_catalogue_baseline(os_family: str) -> None:
@@ -492,7 +500,7 @@ def install_rust_toolchain(*, required: bool = False) -> None:
 
     # Check if cargo actually works for the hop3 user
     if cargo_path.exists():
-        result = run_as_hop3(f"{cargo_path} --version")
+        result = run_as_hop3([str(cargo_path), "--version"])
         if result.returncode == 0:
             print_info(f"Rust toolchain already installed: {result.stdout.strip()}")
             _create_rust_symlinks(cargo_path, rustc_path, rustup_path)
@@ -515,7 +523,7 @@ def install_rust_toolchain(*, required: bool = False) -> None:
     # --default-toolchain stable pins the channel; rustup would ask
     # otherwise.
     with Spinner("Downloading and installing rustup..."):
-        result = run_as_hop3(
+        result = run_as_hop3_shell(
             'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs '
             "| sh -s -- -y --default-toolchain stable --profile minimal",
             timeout=600,
@@ -614,7 +622,7 @@ def install_leiningen() -> None:
     # Run lein once as hop3 user to download the JAR
     # This sets up ~/.lein for the hop3 user
     with Spinner("Initializing Leiningen (downloading JAR)..."):
-        result = run_as_hop3("lein version")
+        result = run_as_hop3(["lein", "version"])
 
     if result.returncode == 0:
         print_success(f"Leiningen installed: {result.stdout.strip()}")

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import ipaddress
 import re
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from pydantic import (
     BaseModel,
@@ -85,10 +85,6 @@ class BuildSection(BaseModel):
         default=None,
         description="Build commands",
     )
-    test: str | list[str] | None = Field(
-        default=None,
-        description="Test/smoke test commands",
-    )
     packages: list[str] | None = Field(
         default=None,
         description="System packages required for build",
@@ -102,11 +98,6 @@ class BuildSection(BaseModel):
             "newer/older than the host's system Node. Maps to "
             "NODE_VERSION env var internally."
         ),
-    )
-    pip_install: list[str] | None = Field(
-        default=None,
-        alias="pip-install",
-        description="Python packages to install",
     )
     ignore: list[str] | None = Field(
         default=None,
@@ -141,6 +132,18 @@ class DeploySection(BaseModel):
             "kind: 'uwsgi', 'static', 'docker-compose', or 'auto' (default). "
             "Unknown names are rejected at deploy time against the installed "
             "deployers."
+        ),
+    )
+    allow_http: bool = Field(
+        default=False,
+        alias="allow-http",
+        description=(
+            "Serve the app over plain HTTP as well as HTTPS. Off by default: "
+            "Hop3 redirects HTTP to HTTPS, because an app told it is served "
+            "over HTTPS issues Secure session/CSRF cookies that a browser will "
+            "not send back over HTTP — logins then fail with no usable error. "
+            "Enable only for an app that must answer on HTTP (the ACME "
+            "challenge path stays on HTTP either way)."
         ),
     )
 
@@ -1213,6 +1216,15 @@ class AdminSection(BaseModel):
             "environment. Omit when the app bootstraps itself from those vars."
         ),
     )
+    login: Literal["username", "email"] | None = Field(
+        default=None,
+        description=(
+            "Which identifier the app's sign-in form takes. Only the recipe "
+            "knows: BookStack authenticates by email while its username is just "
+            "a display name, so an operator handed both credentials picks wrong "
+            "and is rejected. Omit only when the app declares just one of them."
+        ),
+    )
 
     @field_validator("email")
     @classmethod
@@ -1241,7 +1253,99 @@ class AdminSection(BaseModel):
         if not self.username and not self.email:
             msg = "[admin] needs at least one of `username` or `email`."
             raise ValueError(msg)
+        # Pointing `login` at an identifier the recipe never declares would hand
+        # the operator a sign-in field that stays empty — fail at parse time.
+        if self.login == "username" and not self.username:
+            msg = "[admin].login = 'username' but no `username` is declared."
+            raise ValueError(msg)
+        if self.login == "email" and not self.email:
+            msg = "[admin].login = 'email' but no `email` is declared."
+            raise ValueError(msg)
         return self
+
+
+class ProbeSection(BaseModel):
+    """
+    [probe] section — a Hop3-owned account used to verify the app keeps working.
+
+    The [admin] credential is handed to the operator, so Hop3 stops owning it the
+    moment they change the password: a later sign-in failure could equally mean
+    the app broke or the password moved, and from outside those are the same
+    observation. A probe account nobody else uses removes that ambiguity — its
+    password is Hop3's to rotate, so a failed probe sign-in means the app broke.
+
+    It exists to exercise the FULL dynamic path — app code, session, database,
+    password verification — which no unauthenticated request reaches: a login
+    page renders fine with a dead database, and may not even be dynamic.
+
+    Deliberately NOT an administrator: signing in is the entire diagnostic value,
+    and a plain account carries a fraction of the privilege. Omit the section
+    entirely for an app whose data is sensitive enough that no standing Hop3
+    account is acceptable — the check then verifies the handover only, and says
+    so rather than silently testing less.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    username: str = Field(
+        default="hop3probe",
+        description=(
+            "Login name for the probe account. Avoid names an app reserves "
+            "(Gitea and Forgejo reject 'admin', while still exiting 0)."
+        ),
+    )
+    email: str | None = Field(
+        default=None,
+        description=(
+            "Email for the probe account, when the app requires one. A literal "
+            "address; unlike [admin].email this is never the operator's, since "
+            "the account is Hop3's and receives nothing."
+        ),
+    )
+    create: str = Field(
+        description=(
+            "REQUIRED. Idempotent (create-if-absent) command that creates the "
+            "account. Receives HOP3_PROBE_USER/EMAIL/PASSWORD in its "
+            "environment, runs after the app is up, and must exit non-zero if "
+            "the account does not end up existing."
+        ),
+    )
+
+    @field_validator("username")
+    @classmethod
+    def _check_username(cls, v: str) -> str:
+        if not v.strip():
+            msg = "[probe].username must not be blank."
+            raise ValueError(msg)
+        return v
+
+    @field_validator("create")
+    @classmethod
+    def _check_create(cls, v: str) -> str:
+        """
+        A probe Hop3 cannot create is a probe Hop3 cannot trust.
+
+        `create` used to be optional, meaning "the app makes this account itself
+        from the injected vars". Hop3 has no way to confirm that it did, so the
+        smoke test could not be given the credential — which made the whole
+        section inert: it read as configuration and did nothing at all.
+
+        The two recipes that used the form both proved the point. matomo's
+        installer and uptime-kuma's bootstrap each created the probe only in the
+        branch where they also created the ADMIN, so any instance that already
+        had one silently got no probe — undetectable, because nothing ever
+        checked. Declaring the section must mean the account exists, and the
+        only way Hop3 knows that is by running a command and watching it
+        succeed.
+        """
+        if not v.strip():
+            msg = (
+                "[probe].create must not be blank. It is the command Hop3 runs "
+                "to create the probe account; without one, Hop3 cannot know the "
+                "account exists and the section would do nothing."
+            )
+            raise ValueError(msg)
+        return v
 
 
 class Hop3TomlSchema(BaseModel):
@@ -1299,6 +1403,13 @@ class Hop3TomlSchema(BaseModel):
         description=(
             "App hostnames. Translates to HOST_NAME at deploy time. Mutually "
             "exclusive with setting HOST_NAME under [env]."
+        ),
+    )
+    probe: ProbeSection | None = Field(
+        default=None,
+        description=(
+            "A Hop3-owned account for verifying the app keeps working, whose "
+            "password Hop3 controls (see ProbeSection)."
         ),
     )
     admin: AdminSection | None = Field(

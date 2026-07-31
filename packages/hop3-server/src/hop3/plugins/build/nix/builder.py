@@ -183,7 +183,14 @@ class NixBuilder:
         runtime = RuntimeConfig(
             env_vars=runtime_data.get("env", {}),
             path_prepend=runtime_data.get("path", []),
-            working_dir=store_path,
+            # The app's own directory, NOT the store path. This is the cwd that
+            # `before-run` commands get (run/spawn.py), and the store is
+            # read-only — so a Nix app had nowhere to run a first-run bootstrap
+            # and every recipe in the corpus simply went without one. The
+            # running worker already cd's here itself (run/uwsgi/worker.py), so
+            # this also makes the two agree instead of differing.
+            working_dir=str(self.context.source_path),
+            writable_tree=runtime_data.get("writable_tree", ""),
             workers=workers,
         )
 

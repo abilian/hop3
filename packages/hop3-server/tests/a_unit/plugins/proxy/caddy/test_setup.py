@@ -104,8 +104,18 @@ def test_https_only_emits_http_to_https_redirect() -> None:
     assert "https://testapp.com {" in conf
 
 
-def test_default_does_not_emit_https_redirect() -> None:
+def test_default_emits_https_redirect() -> None:
+    """
+    HTTPS-only is the default: an app served on both schemes drops the Secure
+    cookies it issues, so logins over plain HTTP fail with a misleading error.
+    """
     host = make_host({}, workers={"web": "x"})
+    assert "redir https://" in host.get_proxy_conf()
+
+
+def test_allow_http_serves_plain_http() -> None:
+    """[deploy].allow-http = true opts out of the redirect."""
+    host = make_host({"HOP3_ALLOW_HTTP": "true"}, workers={"web": "x"})
     assert "redir https://" not in host.get_proxy_conf()
 
 

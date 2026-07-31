@@ -23,7 +23,7 @@ from hop3.config import HopConfig
 from hop3.core.env import Env
 from hop3.core.plugins import get_deployer_by_name
 from hop3.lib import Abort, get_free_port, log, robust_rmtree
-from hop3.run.spawn import spawn_app
+from hop3.run.spawn import spawn_app, verify_nix_closure
 
 if TYPE_CHECKING:
     from sqlalchemy.engine.interfaces import Dialect
@@ -531,6 +531,20 @@ class App(BigIntAuditBase):
 
         Transitions: STOPPED -> STARTING (RUNNING verified by sync_state)
         """
+        # An app that never deployed successfully has no artifact to run: its
+        # venv/image is absent or half-built, so spawning it can only produce a
+        # doomed process and a generic "failed to start within 60s" — burying
+        # the real cause (e.g. "unpinned requirements") that the build already
+        # reported. Refuse, and point at the build log.
+        if self.last_deployed_at is None:
+            msg = (
+                f"App '{self.name}' can't start: it has never deployed "
+                f"successfully, so there is nothing built to run. Check the "
+                f"build failure with `hop3 app build-logs --app {self.name}`, "
+                f"fix it, then `hop3 deploy`."
+            )
+            raise StateTransitionError(msg)
+
         # Transition to STARTING state
         self._transition_state(AppStateEnum.STARTING)
 
@@ -1015,6 +1029,13 @@ class App(BigIntAuditBase):
 
     def _restart_uwsgi(self) -> None:
         """Restart uWSGI app using touch-based restart."""
+        # A touch-restart relaunches the vassal from its existing .ini, so it
+        # never reaches spawn_app — and therefore never reached the closure
+        # guard. That left the guard blind on the one path where a reclaimed
+        # Nix closure actually bites: collect garbage, restart, exec a store
+        # path that is gone, wait out the health-check timeout.
+        verify_nix_closure(self)
+
         cfg = HopConfig.get_instance()
         config_files = list(cfg.UWSGI_ENABLED.glob(f"{self.name}*.ini"))
         if config_files:

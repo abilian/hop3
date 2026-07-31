@@ -16,7 +16,7 @@ Git-based deployment is valuable for:
 - Version control as the deployment trigger
 - Deploying without a separate deploy command
 
-A naive implementation runs into an architectural flaw worth recording, because it shaped the decision below. A post-receive hook can be made to call an RPC command:
+A naive implementation runs into an architectural flaw. A post-receive hook can be made to call an RPC command:
 
 ```bash
 cat | HOP3_ROOT="/home/hop3" hop3-server git-hook <app_name>

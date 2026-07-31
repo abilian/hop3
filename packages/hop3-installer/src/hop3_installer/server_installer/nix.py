@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import shlex
 import ssl
 import tempfile
 import urllib.error
@@ -32,7 +33,7 @@ from hop3_installer.common import (
 )
 from hop3_installer.constants import HOME_DIR
 
-from .user import run_as_hop3
+from .user import run_as_hop3, run_as_hop3_shell
 
 # Nix official installer URL
 NIX_INSTALLER_URL = "https://nixos.org/nix/install"
@@ -209,7 +210,7 @@ def _run_nix_installer(installer_path: Path, *, daemon_mode: bool) -> bool:
             # Single-user installation (runs as hop3 user)
             # The installer needs to run as the hop3 user for single-user mode
             result = run_as_hop3(
-                f"sh {installer_path} --no-daemon --yes",
+                ["sh", str(installer_path), "--no-daemon", "--yes"],
                 timeout=600,
             )
 
@@ -259,8 +260,13 @@ def _write_nix_conf_setting(path: Path, *, as_hop3: bool) -> None:
         # so it can read it later. Avoid quoting hell by writing the
         # file as root and then chown'ing to hop3 — the file lives
         # under the hop3 home so this is safe.
-        run_as_hop3(f"mkdir -p {path.parent}")
-        existing = run_as_hop3(f"cat {path} 2>/dev/null || true").stdout or ""
+        run_as_hop3(["mkdir", "-p", str(path.parent)])
+        existing = (
+            run_as_hop3_shell(
+                f"cat {shlex.quote(str(path))} 2>/dev/null || true"
+            ).stdout
+            or ""
+        )
         if marker in existing:
             print_detail(f"Nix settings already present in {path}")
             return
@@ -358,8 +364,8 @@ def _verify_nix_installation() -> bool:
     # Try to find and source the profile script
     # Check both possible locations
     for profile_script in [NIX_DAEMON_PROFILE, NIX_SINGLE_USER_PROFILE]:
-        check_cmd = f'. "{profile_script}" 2>/dev/null && nix --version'
-        result = run_as_hop3(check_cmd)
+        check_cmd = f". {shlex.quote(str(profile_script))} 2>/dev/null && nix --version"
+        result = run_as_hop3_shell(check_cmd)
 
         if result.returncode == 0:
             version = result.stdout.strip()
@@ -367,7 +373,7 @@ def _verify_nix_installation() -> bool:
             return True
 
     # Try without sourcing (maybe it's already in PATH)
-    result = run_as_hop3("nix --version")
+    result = run_as_hop3(["nix", "--version"])
     if result.returncode == 0:
         version = result.stdout.strip()
         print_detail(f"Nix version: {version}")

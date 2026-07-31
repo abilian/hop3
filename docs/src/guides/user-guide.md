@@ -2,8 +2,6 @@
 
 This guide provides a comprehensive overview of Hop3: the vision, deployment methods, and essential commands. For step-by-step tutorials, see [Quickstart](../get-started/quickstart.md). For exhaustive command documentation, see [CLI Reference](../reference/cli.md).
 
----
-
 ## Vision and Philosophy
 
 Hop3 is an open-source Platform as a Service (PaaS) designed for **simplicity, security, and digital sovereignty**. It enables deployment and management of web applications on a single server.
@@ -12,7 +10,7 @@ Hop3 is an open-source Platform as a Service (PaaS) designed for **simplicity, s
 
 - **Self-hosted**: You own your infrastructure and data
 - **Simple**: Heroku-like developer experience without the complexity
-- **Flexible**: Supports both native builds and Docker containers
+- **Flexible**: Native builds, Docker containers, or hermetic Nix builds
 - **Standard**: Uses familiar conventions (Procfile, environment variables, 12-factor methodology)
 - **Lightweight**: No Kubernetes or container orchestration required (though Docker is supported)
 
@@ -26,17 +24,15 @@ Hop3 is ideal for:
 - Developers familiar with Heroku who want a self-hosted alternative
 - Single-server deployments (VPS, dedicated server, or local VM)
 
----
-
 ## Deployment Methods
 
-Hop3 supports two deployment strategies. Choose based on your application's needs.
+Hop3 supports four deployment strategies. Choose based on your application's needs.
 
 ### Method 1: Native Build (Recommended)
 
-Hop3 detects your application type and builds it directly on the server using buildpacks. This is the simplest approach and works well for most applications.
+Hop3 detects your application type and builds it directly on the server using its language toolchains. This is the simplest approach and works well for most applications.
 
-**Supported runtimes**: Python, Node.js, Ruby, Go, Rust, Java, PHP, static sites
+**Supported runtimes**: Python, Node.js, Ruby, Go, Rust, Java, PHP, Clojure, Elixir, .NET, static sites
 
 **How it works**:
 
@@ -87,7 +83,48 @@ For applications that need custom environments, complex dependencies, or specifi
 - Need exact reproducibility across environments
 - Complex multi-service build process
 
----
+### Method 3: Nix (hand-written expression)
+
+For deployments that must be reproducible: the same inputs produce a
+byte-identical artefact, verifiable by rebuilding.
+
+**How it works**:
+
+1. You provide a `hop3.nix` expression alongside your source
+2. Nix builds it in a sandbox, offline, against a pinned dependency set
+3. The built package declares how to run itself, and Hop3 runs it
+
+**Advantages**:
+
+- Reproducible: a rebuild is checkable against the first build
+- No container runtime, and native process performance
+- The full dependency graph is inspectable, from source to compiler
+
+**Requirements**: a `hop3.nix` in the repository, and familiarity with the Nix
+expression language.
+
+### Method 4: Nix from a template (no Nix knowledge needed)
+
+The same guarantees without writing Nix. Declare a template in `hop3.toml` and
+Hop3 generates the expression for you.
+
+```toml
+[build]
+builder = "nix"
+
+[nix]
+template = "python-venv"     # or php-app, go-source, node-pnpm-install, …
+```
+
+**How it works**: the template turns your project's existing lockfile
+(`requirements.txt`, `composer.lock`, `go.sum`, `pnpm-lock.yaml`, `Gemfile.lock`)
+into a vendored dependency set, then builds offline from it.
+
+**Requirements**: a committed lockfile with pinned versions. Hop3 refuses to
+build from unpinned dependencies, because the result could not be reproduced.
+
+You can start from a template and later "eject" to a hand-written expression
+with `hop3 nix eject --app <name>` if you need finer control.
 
 ## Configuration Files
 
@@ -114,12 +151,17 @@ web: python -m http.server $PORT
 
 - `web`: The main HTTP-serving process (required for web apps)
 - `worker`: Background job processors
-- `release`: Run once after build, before deploy (migrations, etc.)
 - Custom names for other process types
+
+Hop3 has no `release` process type. Run migrations with `[run].before-run` in
+`hop3.toml`, which executes on every deploy before the app starts.
 
 ### hop3.toml
 
 Optional configuration file for advanced settings. Provides more control than Procfile alone.
+`hop3 scaffold` writes a starter one for the project in the current directory,
+including a `#:schema` line so your editor can complete and validate the fields
+as you type.
 
 ```toml
 [metadata]
@@ -147,8 +189,6 @@ For complete documentation of all options, see the **[hop3.toml Reference](../re
 ### Using Both Together
 
 You can use both Procfile and hop3.toml. Hop3 merges them with `hop3.toml` taking precedence for conflicting values.
-
----
 
 ## Essential Commands
 
@@ -229,10 +269,76 @@ hop3 ps --app myapp
 hop3 ps scale --app myapp web=3 worker=2
 
 # Run one-off commands in app context
-hop3 run --app myapp python manage.py migrate
-hop3 run --app myapp npm run seed
-hop3 run --app myapp rails console
+hop3 app run --app myapp python manage.py migrate
+hop3 app run --app myapp npm run seed
+hop3 app run --app myapp rails console
 ```
+
+### Installing from the Catalog
+
+The quickest way to get a working application is not to write a recipe at all.
+Hop3 ships a signed catalog of ready-made applications.
+
+```bash
+# What is available
+hop3 catalog list
+
+# Install and deploy one (a hostname is assigned automatically)
+hop3 catalog install bookstack
+
+# Fetch the latest catalog from its publisher
+hop3 catalog refresh
+```
+
+Each catalog application gets an administrator account generated at install
+time. Retrieve it with:
+
+```bash
+hop3 app credentials --app bookstack
+```
+
+That password is the INITIAL one. If you change it inside the application, Hop3's
+copy is stale — the output says so.
+
+### Verifying an Application Works
+
+A deployment that starts and returns HTTP 200 is not proof the application
+works: a placeholder, an error page or a setup wizard all return 200. Catalog
+applications ship a check that signs in through the application's own
+authentication and confirms a wrong password is refused.
+
+```bash
+hop3 app check --app bookstack
+```
+
+This runs automatically at the end of every deploy, so a deploy that reports
+success has also signed in. Run it yourself when you want to re-confirm.
+
+### Upgrades and Rollback
+
+```bash
+# Snapshot, redeploy, run migrations, verify health — and restore the snapshot
+# automatically if any of that fails
+hop3 app upgrade --app myapp
+
+# Roll back on demand (most recent backup by default)
+hop3 app rollback --app myapp
+hop3 app rollback --app myapp --to <backup-id>
+```
+
+### Domains and TLS
+
+```bash
+hop3 domain list --app myapp
+hop3 domain add --app myapp app.example.com
+hop3 domain remove --app myapp app.example.com
+
+hop3 cert status --app myapp
+hop3 cert renew --app myapp
+```
+
+See the **[Domains and Hostnames Guide](domains.md)** for DNS and certificate
+setup.
 
 ### Backing Services (Addons)
 
@@ -262,7 +368,7 @@ hop3 addon destroy myapp-db
 
 ```bash
 hop3 backup create --app myapp   # Create backup
-hop3 backup list myapp           # List backups for an app
+hop3 backup list --app myapp     # List backups for an app
 hop3 backup restore <id>         # Restore from backup
 hop3 app restart --app myapp     # Restart after restore
 ```
@@ -283,7 +389,7 @@ hop3 system cleanup
 
 ```bash
 hop3 user list
-hop3 user add alice alice@example.com password123
+hop3 user add alice alice@example.com --stdin   # read the password from stdin
 hop3 user show alice
 hop3 user set-password alice newpassword
 hop3 user enable alice
@@ -292,8 +398,6 @@ hop3 user grant-admin alice
 hop3 user revoke-admin alice
 hop3 user remove alice
 ```
-
----
 
 ## Porting Applications to Hop3
 
@@ -390,10 +494,14 @@ id = "myapp"
 [env]
 PORT = "8080"
 
-[port.web]
-container = 8080
-public = true
+[[ports]]
+number = 8080
 ```
+
+`[[ports]]` is for a fixed host port an app binds *directly* — SMTP, XMPP, RTMP.
+Your HTTP port stays dynamic: Hop3 assigns `$PORT` and proxies to it, which is
+what `internal_port` in `fly.toml` corresponds to, so there is usually nothing
+to translate.
 
 **Step 2: Migrate services and deploy**
 
@@ -429,8 +537,6 @@ hop3 app migrate procfile /path/to/app --dry-run
 # Write hop3.toml (backs up the original Procfile by default)
 hop3 app migrate procfile /path/to/app --backup
 ```
-
----
 
 ## CLI Tips
 
@@ -473,26 +579,29 @@ export HOP3_API_TOKEN="your-token-here"
 export HOP3_DEBUG=1
 ```
 
----
-
 ## Quick Reference
 
 | Task | Command |
 |------|---------|
+| Browse ready-made apps | `hop3 catalog list` |
+| Install a catalog app | `hop3 catalog install <id>` |
+| Start a hop3.toml | `hop3 scaffold` |
 | Create new app | `hop3 app create <repo-url> --app <name>` |
+| Verify it works | `hop3 app check --app <name>` |
+| Get admin credentials | `hop3 app credentials --app <name>` |
+| Upgrade (auto-rollback) | `hop3 app upgrade --app <name>` |
+| Add a domain | `hop3 domain add --app <name> <fqdn>` |
 | Redeploy | `hop3 deploy --app <name>` |
 | View logs | `hop3 app logs --app <name>` |
 | Set config | `hop3 env set --app <name> KEY=val` |
 | Scale processes | `hop3 ps scale --app <name> web=2` |
-| Run command | `hop3 run --app <name> <cmd>` |
+| Run command | `hop3 app run --app <name> <cmd>` |
 | Add database | `hop3 addon create postgres <db-name>` |
 | Attach database | `hop3 addon attach <db-name> --app <name>` |
 | Create backup | `hop3 backup create --app <name>` |
 | Restore backup | `hop3 backup restore <backup-id>` |
 | System health | `hop3 system status` |
 | Get help | `hop3 help <command>` |
-
----
 
 ## Next Steps
 

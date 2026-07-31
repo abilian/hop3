@@ -123,7 +123,7 @@ class SetupCmd(Command):
             )
             return
         try:
-            serial = refresh_catalog()
+            result = refresh_catalog()
         except (CatalogSyncError, CatalogVerificationError) as e:
             echo(f"  Catalog sync failed: {e}", fg="red")
             echo(
@@ -132,7 +132,7 @@ class SetupCmd(Command):
                 fg="yellow",
             )
             return
-        echo(f"  Catalog synced (serial {serial}).", fg="green")
+        echo(f"  Catalog synced (serial {result.serial}).", fg="green")
 
     def _create_directories(self, *, verbose: bool) -> None:
         """Create required directories."""

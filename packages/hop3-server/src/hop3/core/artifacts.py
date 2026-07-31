@@ -67,6 +67,17 @@ class RuntimeConfig:
     # Working directory for processes (absolute path)
     working_dir: str = ""
 
+    # A read-only source tree to copy into the app's own directory before
+    # anything runs there (a Nix store path, for apps that write inside their
+    # own install directory). Empty for builders whose output is already
+    # writable.
+    #
+    # It has to happen at DEPLOY time: `[run] before-run` is where an app's
+    # bootstrap lives, and a bootstrap needs the application to be present. Done
+    # from the app's wrapper instead — i.e. at start — the tree appears after
+    # before-run has already failed against an empty directory.
+    writable_tree: str = ""
+
     # Workers from Procfile/hop3.toml, commands fully resolved
     # e.g., {"web": "gunicorn app:app", "worker": "celery -A tasks worker"}
     workers: dict[str, str] = field(default_factory=dict)

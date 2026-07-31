@@ -34,4 +34,18 @@ to plans / weeklies / commit messages as they're picked up.
   `hop3 config show` / `config export` from the same wishlist — revisit if those
   are still wanted.)
 
+## After 0.7 (or later)
+
+- Additional / alternative backends
+    - nix+docker backend
+    - docker backend without docker-compose backend (just docker)
+    - docker via podman
+    - isolation via Systemd (https://nlnet.nl/project/NixOS-Services/ )
+    - lightweight VM backends
+- web analytics for all apps (integrate an existing tool or use our own, Abilian Analytics)
+- threat dashboard for active security management
+- IAM for all applications (ie. centrally managed SSO)
+- apply uid separation adr (→ "audit" branch)
+- Default to "sslip.io" ?
+
 ## (other items as they come up)

@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from hop3.config import HOP3_ROOT
+from hop3.core.backup import resolve_backup_file
 from hop3.core.identifiers import validate_service_name
 from hop3.plugins.addons import (
     delete_addon_secrets,
@@ -400,9 +401,10 @@ class RedisAddon:
         Args:
             backup_path: Path to the JSON backup file
         """
-        if not backup_path.exists():
-            msg = f"Backup file not found: {backup_path}"
-            raise FileNotFoundError(msg)
+        # Confine the caller-supplied path to the backup tree: this value
+        # comes straight from RPC and reaches a file-reading sink below.
+        # Same root backup() writes to, so the two cannot drift apart.
+        backup_path = resolve_backup_file(backup_path, HOP3_ROOT / "backups")
 
         with Path(backup_path).open() as f:
             backup_data = json.load(f)

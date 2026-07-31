@@ -493,8 +493,6 @@ The Hop3 Programme conducts regular reviews of its Open Source Compliance Progra
 
 By committing to periodic reviews and continuous improvement, the Hop3 Programme ensures the ongoing conformance of its Open Source Compliance Program with ISO/IEC 5230, reinforcing its dedication to best practices and legal compliance.
 
----
-
 ## Annex: Self-Assessment
 
 Here are the answers to the OpenChain ISO/IEC 5230 Self-Certification Questionnaire for the Hop3 Programme's Open Source Compliance Program. The answers demonstrate the Hop3 Programme's commitment to adhering to the OpenChain standard, which is the international standard for open source license compliance. Each answer is directly linked to specific sections within the Hop3 Programme's comprehensive Open Source Compliance Program document, showcasing a robust and well-defined framework for managing open source usage, contributions, and compliance.

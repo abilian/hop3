@@ -10,6 +10,11 @@
 let
   radicale = pkgs.radicale;
 
+  # The `[admin]`/`[probe]` create commands write bcrypt hashes into the
+  # htpasswd file, and they run OUTSIDE the wrapper — so a `python3` carrying
+  # bcrypt has to be on the app's PATH in its own right.
+  python = pkgs.python3.withPackages (ps: [ ps.bcrypt ]);
+
   app = pkgs.stdenv.mkDerivation {
     pname = "radicale";
     version = radicale.version;
@@ -26,20 +31,30 @@ let
 PORT="''${PORT:-8080}"
 
 mkdir -p collections
+# The htpasswd file must EXIST before Radicale reads its config, even empty:
+# the accounts are written into it after this process starts.
+touch users
 
-# Generate config file
-if [ ! -f config ]; then
-  cat > config << EOF
+# Rewritten on every start, deliberately. This file used to be generated once
+# and left alone, so a deployment that had ever run with `type = none` kept
+# serving without authentication for the rest of its life.
+cat > config << EOF
 [server]
 hosts = 0.0.0.0:''${PORT}
 
+# htpasswd, NOT ''${RADICALE_AUTH_TYPE:-none}. That indirection defaulted to
+# `none` and nothing ever set it otherwise, so every deployment served every
+# calendar and address book to anyone who asked. The smoke test caught it on
+# the one assertion that could: "a WRONG password returned 200, not 401".
+# There is no safe default here, so auth is spelled out.
 [auth]
-type = ''${RADICALE_AUTH_TYPE:-none}
+type = htpasswd
+htpasswd_filename = users
+htpasswd_encryption = bcrypt
 
 [storage]
 filesystem_folder = collections
 EOF
-fi
 
 exec RADICALE_BIN --config config "$@"
 WRAPPER
@@ -51,10 +66,8 @@ WRAPPER
   "workers": {
     "web": "$out/bin/radicale-start"
   },
-  "env": {
-    "RADICALE_AUTH_TYPE": "none"
-  },
-  "path": ["$out/bin", "${radicale}/bin"]
+  "env": {},
+  "path": ["$out/bin", "${radicale}/bin", "${python}/bin"]
 }
 EOF
     '';

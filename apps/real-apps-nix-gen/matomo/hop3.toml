@@ -10,7 +10,12 @@ url = "https://builds.matomo.org/matomo-${version}.tar.gz"
 sha256 = "4dtIUinaEPtuEaangdlaIsw0xduG4AeUEaIUJ0IJ8Dw="
 archive = "tar-gz"
 php-version = "php82"
-php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'zlib', 'intl']
+# `xml` is deliberately absent: the Nix PHP already provides it, and naming
+# it again makes every PHP invocation print a module-already-loaded warning
+# on STDOUT. Harmless until something reads that stdout, which nextcloud's
+# install check does -- it was handed that warning instead of the database
+# type and refused a correct install.
+php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'mbstring', 'curl', 'zip', 'zlib', 'intl']
 post-install-dirs = ['tmp']
 extra-paths = ['${php}/bin']
 
@@ -24,24 +29,11 @@ builder = "nix"
 type = "mysql"
 
 [env]
+# Matomo derives session and cookie signing from this. Generated once and
+# re-injected, because config.ini.php lives under src/ which a redeploy wipes.
+MATOMO_SALT = { generate = "urlsafe" }
 MATOMO_DATABASE_HOST = "${MYSQL_HOST}"
 
-[[nix.config-files]]
-path = "config/config.ini.php"
-format = "raw"
-create-if-missing = true
-raw-content = """; <?php exit; ?> DO NOT REMOVE THIS LINE
-[database]
-host = "${MYSQL_HOST:-127.0.0.1}"
-username = "${MYSQL_USER:-matomo}"
-password = "${MYSQL_PASSWORD:-}"
-dbname = "${MYSQL_DATABASE:-matomo}"
-port = ${MYSQL_PORT:-3306}
-tables_prefix = "matomo_"
-
-[General]
-trusted_hosts[] = "localhost:${PORT:-8080}"
-"""
 
 [test]
 priority = "P2"
@@ -54,3 +46,24 @@ covers = ["php", "matomo", "nix", "analytics"]
 path = "/"
 status = 200
 contains = "Matomo"
+
+# The native bootstrap, ported unchanged: it seeds config.ini.php (with the
+# stable salt and the real trusted host) and then runs the installer that
+# creates the schema, the superuser and the first site. The generated
+# config-files block it replaces had no salt at all and trusted only localhost,
+# so Matomo answered the smoke test with an error page, not a login form.
+# The native bootstrap, ported unchanged. It works here because Hop3 now
+# materialises the writable app tree at deploy time, before before-run — so the
+# script finds the application it is meant to configure.
+[run]
+before-run = "bash scripts/setup-config.sh"
+
+[probe]
+username = "hop3probe"
+email = "probe@hop3.invalid"
+create = "php scripts/install.php --probe-only"
+
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }

@@ -1,225 +1,62 @@
-# Migration Guide
+# Migrating to Hop3
 
-This guide helps you migrate applications to Hop3 from other platforms.
+Moving an application to Hop3 from another platform. This page is the method that applies whatever you are coming from; the [per-platform guides](#per-platform-guides) below translate one specific platform's primitives, step by step.
 
-## Table of Contents
+If your source platform has a guide, start there and use this page for the parts it does not cover.
 
-- [From Heroku](#from-heroku)
-- [From Fly.io](#from-flyio)
-- [From Procfile to hop3.toml](#from-procfile-to-hop3toml)
+## The shape of a migration
 
----
+Every migration is the same five moves, regardless of source.
 
-## From Heroku
+**1. Inventory what the app actually needs.** Not what its current platform provides — what the app reads at runtime. The environment variables it consumes, the backing services it opens connections to, the files it writes, the scheduled jobs, the domains that point at it. Anything you cannot name here will be the thing that breaks after cutover.
 
-Hop3 is designed to be Heroku-compatible at the Procfile level, making migration straightforward.
+**2. Translate the configuration.** Your source platform describes the app in *its* format — `app.json`, `fly.toml`, `render.yaml`, `.ebextensions`, a Helm values file, or a chain of imperative `config:set` commands. Hop3 describes it in a `hop3.toml` checked into the repo. This is the step with real work in it, and it is what each per-platform guide spends most of its length on.
 
-### Step 1: Copy Your Procfile
+**3. Move the data.** Dump from the old backing service, restore into the Hop3 addon. Do this while the old deployment is still serving traffic, verify the restore, and only then cut over. See [Addons](addons.md) for per-service dump and restore commands.
 
-If you have a Heroku Procfile, it should work as-is in Hop3:
+**4. Deploy and verify before touching DNS.** Deploy to Hop3, reach it by its own hostname, and check the app actually works — sign in, exercise a write path, read the logs. A `200` on the homepage is not verification.
 
-```bash
-# Your existing Heroku Procfile
-web: gunicorn myapp.wsgi:application
-worker: celery -A myapp worker
-```
+**5. Cut over, and keep the rollback.** Point DNS at the new server. Keep the old deployment running and untouched until you are confident; DNS is the fastest thing to change back.
 
-Just copy it to your Hop3 application directory.
+## Set up the server and connect
 
-### Step 2: Migrate Environment Variables
-
-Export your Heroku config:
+Common to every guide. Provision a server (Ubuntu 24.04 LTS or later; Debian, Fedora, and Rocky/Alma also work) and install Hop3:
 
 ```bash
-heroku config -s --app myapp > .env
+ssh root@your-server.com
+curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 ```
 
-Set environment variables in Hop3:
+Install the CLI on your local machine:
 
 ```bash
-# Using hop3-cli (one or more KEY=VALUE pairs)
-hop3 env set --app myapp DATABASE_URL=postgresql://... SECRET_KEY=...
-
-# Or add to hop3.toml
-[env]
-DATABASE_URL = "postgresql://..."
-SECRET_KEY = "..."
+hop3-install cli
 ```
 
-### Step 3: Migrate Addons
-
-Map Heroku addons to Hop3 services:
-
-**Heroku Postgres:**
-```bash
-# Heroku
-heroku addon create heroku-postgresql:standard-0
-
-# Hop3
-hop3 addon create postgres myapp-db
-hop3 addon attach myapp-db --app myapp
-```
-
-**Heroku Redis:**
-```bash
-# Heroku
-heroku addon create heroku-redis:premium-0
-
-# Hop3
-hop3 addon create redis myapp-cache
-hop3 addon attach myapp-cache --app myapp
-```
-
-### Step 4: Deploy
+Connect the CLI to your server. On a first install this also creates the admin account and stores your API token:
 
 ```bash
-hop3 deploy --app myapp
+hop3 init --ssh root@your-server.com
 ```
 
-### Heroku → Hop3 Mapping
+Full detail in [Server Setup](../get-started/server-setup.md).
 
-| Heroku | Hop3 | Notes |
-|--------|------|-------|
-| `heroku create` | `hop3 app launch <repo> --app myapp` | Create app from repo |
-| `git push heroku main` | `hop3 deploy --app myapp` | Deploy code |
-| `heroku config set` | `hop3 env set --app myapp` | Set env vars |
-| `heroku addon create heroku-postgresql` | `hop3 addon create postgres` | Database |
-| `heroku addon create heroku-redis` | `hop3 addon create redis` | Cache |
-| `heroku ps` | `hop3 app status --app myapp` | Process status |
-| `heroku logs -t` | `hop3 app logs --app myapp` | View logs |
-| `heroku restart` | `hop3 app restart --app myapp` | Restart app |
+## From a Procfile
 
-### Common Gotchas
+Hop3 reads a Heroku-style `Procfile` as-is, so an app that has one already deploys. You do not need to convert it to migrate — convert it when you want what `hop3.toml` adds: health checks, declared addons, resource limits, backups, and configuration that is reviewable in a diff instead of accumulated on a server.
 
-**1. Buildpacks**
-
-Heroku uses buildpacks to detect the app type. Hop3 detects the language automatically; you can also pin it with the `toolchain` key:
+Convert automatically:
 
 ```bash
-# Heroku
-heroku buildpacks:set heroku/python
+# Dry run — see what would be generated
+hop3 app migrate procfile /path/to/app --dry-run
 
-# Hop3
-# Automatic detection, or pin the language in hop3.toml:
-[build]
-toolchain = "python"
+# Write hop3.toml (your Procfile is backed up to Procfile.bak)
+hop3 app migrate procfile /path/to/app
 ```
 
-**2. Procfile Commands**
+Or by hand:
 
-Some Heroku-specific commands may need adjustment:
-
-```procfile
-# Heroku release phase
-release: python manage.py migrate
-
-# Hop3 equivalent (use prerun)
-prerun: python manage.py migrate
-```
-
-**3. Port Binding**
-
-Heroku sets `$PORT` dynamically. Hop3 also provides `$PORT`:
-
-```python
-# Works on both Heroku and Hop3
-port = int(os.environ.get("PORT", 8000))
-```
-
----
-
-## From Fly.io
-
-Fly.io uses `fly.toml` for configuration. You can migrate to Hop3's `hop3.toml` format.
-
-### Step 1: Convert fly.toml to hop3.toml
-
-**Fly.io fly.toml:**
-```toml
-app = "myapp"
-
-[build]
-  builder = "paketobuildpacks/builder:base"
-
-[env]
-  PORT = "8080"
-
-[[services]]
-  internal_port = 8080
-  protocol = "tcp"
-```
-
-**Hop3 hop3.toml:**
-```toml
-[metadata]
-id = "myapp"
-
-[run]
-start = "python app.py"
-
-[env]
-PORT = "8080"
-
-[port]
-web = 8080
-```
-
-### Step 2: Migrate Services
-
-**Fly.io Postgres:**
-```bash
-# Fly.io
-fly postgres create --name myapp-db
-
-# Hop3
-hop3 addon create postgres myapp-db
-hop3 addon attach myapp-db --app myapp
-```
-
-### Step 3: Deploy
-
-```bash
-hop3 deploy --app myapp
-```
-
-### Fly.io → Hop3 Mapping
-
-| Fly.io | Hop3 | Notes |
-|--------|------|-------|
-| `fly launch` | `hop3 app launch <repo> --app myapp` | Create app from repo |
-| `fly deploy` | `hop3 deploy --app myapp` | Deploy code |
-| `fly secrets set` | `hop3 env set --app myapp` | Set secrets |
-| `fly postgres create` | `hop3 addon create postgres` | Database |
-| `fly status` | `hop3 app status --app myapp` | App status |
-| `fly logs` | `hop3 app logs --app myapp` | View logs |
-| `fly restart` | `hop3 app restart --app myapp` | Restart app |
-
----
-
-## From Procfile to hop3.toml
-
-If you want more control than Procfile provides, migrate to `hop3.toml`.
-
-### Automatic Migration
-
-Use the built-in migration command:
-
-```bash
-# Dry run - see what would be generated
-hop3 config migrate procfile /path/to/app --dry-run
-
-# Actually migrate
-hop3 config migrate procfile /path/to/app
-```
-
-This will:
-1. Parse your existing Procfile
-2. Generate a hop3.toml file
-3. Create a backup of your Procfile (Procfile.bak)
-
-### Manual Migration
-
-**Before (Procfile):**
 ```procfile
 prebuild: npm ci && npm run build
 prerun: npm run migrate
@@ -227,7 +64,8 @@ web: node dist/server.js
 worker: node dist/worker.js
 ```
 
-**After (hop3.toml):**
+becomes
+
 ```toml
 [metadata]
 id = "my-app"
@@ -239,105 +77,86 @@ before-build = ["npm ci", "npm run build"]
 [run]
 start = "node dist/server.js"
 before-run = "npm run migrate"
-
-# Note: 'worker' process needs manual integration
-# Consider using a process manager or separate deployment
 ```
 
-### Why Migrate to hop3.toml?
+The two can coexist: keep the `Procfile` for the process definitions and add a `hop3.toml` for everything else. Where both describe the same thing, `hop3.toml` wins.
 
-**Advantages of hop3.toml:**
-- More expressive (metadata, health checks, backups)
-- Better for complex applications
-- Supports environment-specific configuration
-- Native TOML validation
+Full key-by-key detail in the [hop3.toml reference](../reference/config.md).
 
-**Keep using Procfile if:**
-- You have a simple application
-- You want maximum Heroku compatibility
-- You prefer convention over configuration
+## Environments
 
-### Using Both Together
-
-You can use both Procfile and hop3.toml together:
-
-```procfile
-# Procfile - Basic worker definitions
-web: gunicorn app:app
-worker: celery worker
-```
-
-```toml
-# hop3.toml - Advanced configuration
-[metadata]
-id = "my-app"
-
-[build]
-before-build = "pip install -r requirements.txt"
-
-[healthcheck]
-path = "/health/"
-interval = 60
-
-[[addons]]
-type = "postgres"
-```
-
-Hop3 will merge these configurations with `hop3.toml` taking precedence.
-
----
-
-## Environment-Specific Configuration
-
-Hop3 uses a single `hop3.toml` configuration file. Environment-specific settings are handled through environment variables, which you can set differently per deployment.
-
-### Production Configuration (hop3.toml)
-
-```toml
-# hop3.toml - used for all environments
-[metadata]
-id = "myapp"
-
-[run]
-start = "gunicorn app:app --workers 4"
-
-[healthcheck]
-path = "/health/"
-```
-
-### Environment Variables for Different Environments
+Hop3 has one `hop3.toml` per app, not one per environment. Differences between staging and production belong in environment variables, set per deployment:
 
 ```bash
-# Production
 hop3 env set --app myapp LOG_LEVEL=info
-
-# Development/staging (local testing)
-LOG_LEVEL=debug flask run --reload
 ```
 
-For local development, run your app directly without Hop3. For deployed environments, use `hop3 env set` to configure environment-specific variables.
+To deploy the same project to more than one server, use contexts (`--context <name>`) rather than branching the configuration file. See the [CLI reference](../reference/cli.md).
 
----
+## Verify
 
-## Validation
-
-After migration, validate your configuration:
+After deploying, before cutting DNS over:
 
 ```bash
-# Check app configuration
-hop3 env show --app myapp
-
-# Deploy and verify
-hop3 deploy --app myapp
 hop3 app status --app myapp
 hop3 app logs --app myapp
+hop3 env show --app myapp --sources
+hop3 app check --app myapp
 ```
 
----
+`hop3 app check` is the one that matters: it runs the app's own smoke test, which signs in through the app's authentication rather than asking for a status code.
 
-## Need Help?
+## Per-platform guides
+
+### Heroku-style PaaS
+
+- [From Heroku](migration/from-heroku.md)
+- [From Render](migration/from-render.md)
+- [From Railway](migration/from-railway.md)
+- [From Fly.io](migration/from-fly-io.md)
+- [From Scalingo](migration/from-scalingo.md)
+- [From Clever Cloud](migration/from-clever-cloud.md)
+- [From Platform.sh / Upsun](migration/from-platform-sh.md)
+- [From DigitalOcean App Platform](migration/from-digitalocean-app-platform.md)
+
+### Self-hosted PaaS
+
+- [From Dokku](migration/from-dokku.md) — the closest cousin
+- [From Piku](migration/from-piku.md)
+- [From CapRover](migration/from-caprover.md)
+- [From Coolify](migration/from-coolify.md)
+
+### Containers and orchestration
+
+- [From Kubernetes / k3s](migration/from-kubernetes.md)
+- [From Docker Compose](migration/from-docker-compose.md)
+
+### Frontend and Jamstack
+
+- [From Vercel](migration/from-vercel.md)
+- [From Netlify](migration/from-netlify.md)
+
+### Hyperscaler app services
+
+- [From Google Cloud Run](migration/from-cloud-run.md)
+- [From Google App Engine](migration/from-google-app-engine.md)
+- [From AWS Elastic Beanstalk](migration/from-elastic-beanstalk.md)
+- [From Azure App Service](migration/from-azure-app-service.md)
+
+### Scripts and hand-rolled deploys
+
+- [From a hand-managed VPS](migration/from-vps.md)
+- [From Capistrano](migration/from-capistrano.md)
+
+Coming from something not listed? The method above still applies, and [an issue](https://github.com/abilian/hop3/issues) telling us what you moved from is how the list grows.
+
+## Migrating between Hop3 versions
+
+Moving from Hop3's pre-0.5 colon-syntax CLI (`hop3 config:set`) to the current space-separated commands is a different exercise: see [CLI Migration](cli-migration.md).
+
+## Need help?
 
 - [hop3.toml Reference](../reference/config.md)
-- [Configuration Examples](../developers/examples/)
+- [Troubleshooting](troubleshooting.md)
 - [FAQ](faq.md)
 - [GitHub Issues](https://github.com/abilian/hop3/issues)

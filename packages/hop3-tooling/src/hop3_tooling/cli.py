@@ -36,7 +36,7 @@ from hop3_tooling.nix_repro import (
     summarize,
 )
 
-from . import catalog as catalog_lib
+from . import catalog as catalog_lib, reports as reports_lib
 from .verify import CHECKS, DEFAULT_HOST, run_verification
 
 
@@ -100,6 +100,39 @@ def drift(catalog_apps: Path | None, source_root: Path | None) -> None:
         click.echo("Re-promote from the tested source (do not hand-edit the catalog).")
         raise SystemExit(1)
     click.echo(f"All {len(ids)} catalog app(s) match their tested source.")
+
+
+@catalog.command()
+@click.option(
+    "--root",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="repo root holding notes/experience-reports and apps/ (default: this checkout)",
+)
+@click.option(
+    "--bundle",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="write a single concatenated Markdown file (for md2pdf) and exit",
+)
+def reports(root: Path | None, bundle: Path | None) -> None:
+    """
+    Fail when an experience report has drifted from the recipe it describes.
+
+    The reports are half of NGI M4, and they rot silently: a recipe changes and
+    nothing tells the report. This compares each report's machine-checked header
+    (see notes/experience-reports/TEMPLATE.md) against the recipes and against
+    git, so staleness fails a check instead of waiting for a reader to notice.
+    """
+    root = root or Path(__file__).resolve().parents[4]
+    if bundle:
+        bundle.write_text(reports_lib.bundle_markdown(root))
+        click.echo(f"bundled -> {bundle}")
+        return
+    findings = reports_lib.check_all(root)
+    click.echo(reports_lib.format_findings(findings))
+    if findings:
+        raise SystemExit(1)
 
 
 @catalog.command()

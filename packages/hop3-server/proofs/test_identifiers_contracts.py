@@ -7,7 +7,7 @@ Drift detection: every contract in ``identifiers_contracts.py`` must PROVE.
 
 Re-adjudicates the out-of-line spec against the live source on every run; a
 refactor that changes what a validator returns fails here, naming the broken
-contract. Skips without mcpython (a dev tool).
+contract. Skips without forall (a dev tool).
 """
 
 from __future__ import annotations
@@ -16,9 +16,9 @@ from pathlib import Path
 
 import pytest
 
-pytest.importorskip("mcpython", reason="contract adjudication needs mcpython")
+pytest.importorskip("forall", reason="contract adjudication needs forall")
 
-from mcpython.symbolic import Proven, _external_contracts, verify_file
+from forall.symbolic import Proven, _external_contracts, verify_file
 
 _SRC = Path(__file__).resolve().parents[1] / "src"
 _IDENTIFIERS = _SRC / "hop3" / "core" / "identifiers.py"
@@ -46,9 +46,6 @@ def test_every_identifier_contract_proves() -> None:
     broken = {
         name: getattr(results.get(name), "reason", "missing")
         for name in sorted(_CONTRACTED)
-        if not (
-            isinstance(results.get(name), Proven)
-            and results[name].contract
-        )
+        if not (isinstance(results.get(name), Proven) and results[name].contract)
     }
     assert not broken, f"contracts no longer prove against the live source: {broken}"

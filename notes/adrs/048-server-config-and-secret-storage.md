@@ -60,7 +60,7 @@ The secret files are named canonically (one concern per file) so the layout is f
 
 `/etc/default/hop3` holds no secret. The signing key moves to the secrets tier and the ACME settings move to `hop3-server.toml` (non-secret config), so nothing the platform manages needs to be injected as environment. The systemd `EnvironmentFile` is therefore optional: it exists only to carry an environment-shaped, non-secret override (for example, a non-default `HOP3_ROOT`), and on a standard install it is empty or absent. It is never a parallel home for settings that belong in `hop3-server.toml`.
 
-`hop3-server.toml` is genuine TOML, even where its `KEY = "value"` lines resemble a flat key-value file. The server parses it with a TOML loader; the historical `KEY = "value"` form the installer emits is valid TOML, but the installer serialises through a TOML writer rather than string interpolation, so a value that needs quoting or escaping cannot produce a file the loader rejects. Operator-added settings must likewise remain valid TOML.
+`hop3-server.toml` is TOML, even where its `KEY = "value"` lines resemble a flat key-value file. The server parses it with a TOML loader; the historical `KEY = "value"` form the installer emits is valid TOML, but the installer serialises through a TOML writer rather than string interpolation, so a value that needs quoting or escaping cannot produce a file the loader rejects. Operator-added settings must likewise remain valid TOML.
 
 ### Configuration precedence
 

@@ -12,7 +12,7 @@ from Proven to Inconclusive and fails here, naming the contract that broke.
 (We watched this fire for real: the 2026-07 "parse, don't validate" refactor
 was contract-compatible, and these proofs held through it unchanged.)
 
-Skips without mcpython (a dev tool); the runtime test suite keeps guarding
+Skips without forall (a dev tool); the runtime test suite keeps guarding
 behavior, dependency-free.
 """
 
@@ -22,9 +22,9 @@ from pathlib import Path
 
 import pytest
 
-pytest.importorskip("mcpython", reason="contract adjudication needs mcpython")
+pytest.importorskip("forall", reason="contract adjudication needs forall")
 
-from mcpython.symbolic import Proven, _external_contracts, verify_file
+from forall.symbolic import Proven, _external_contracts, verify_file
 
 _PKG = Path(__file__).resolve().parents[1]
 _SRC = _PKG / "src"

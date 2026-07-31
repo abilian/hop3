@@ -40,7 +40,9 @@ let
       cat > custom/conf/app.ini << EOF
       [server]
       HTTP_PORT = ''${PORT}
-      ROOT_URL = http://localhost:''${PORT}/
+      # ROOT_URL is the address Forgejo puts in clone URLs, redirects and OAuth
+      # callbacks — the PUBLIC one, not the loopback it binds.
+      ROOT_URL = ''${HOP3_PUBLIC_URL:-http://localhost:''${PORT}}/
       DISABLE_SSH = true
 
       [database]
@@ -53,13 +55,27 @@ let
       [repository]
       ROOT = data/forgejo-repositories
 
+      [service]
+      ; Disable open registration so a stranger cannot seize the first-admin slot.
+      ; Hop3 provisions the intended admin via [admin].create, and the sign-in bar
+      ; does NOT catch this: an app with open registration signs in perfectly.
+      DISABLE_REGISTRATION = true
+
       [log]
       MODE = console
       LEVEL = Info
 
       [security]
       INSTALL_LOCK = true
-      SECRET_KEY = $(head -c 32 /dev/urandom | base64)
+      # Hop3's generated-once secrets, NOT minted here: this file is rewritten on
+      # every start with an unquoted heredoc, so the old expression was
+      # re-evaluated on every restart — making 2FA secrets and stored credentials
+      # undecryptable and invalidating every token, silently.
+      SECRET_KEY = ''${SECRET_KEY:?forgejo: SECRET_KEY not injected}
+      INTERNAL_TOKEN = ''${INTERNAL_TOKEN:?forgejo: INTERNAL_TOKEN not injected}
+
+      [oauth2]
+      JWT_SECRET = ''${JWT_SECRET:?forgejo: JWT_SECRET not injected}
       EOF
 
       # nixpkgs installs forgejo's server binary as `gitea` (its generic.nix
@@ -84,8 +100,8 @@ let
     '';
   };
 
-in
-{
+      in
+      {
   package = app;
   env = {};
 }

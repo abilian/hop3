@@ -69,7 +69,10 @@ cat > .env << ENVEOF
 APP_ENV=''${APP_ENV:-production}
 APP_DEBUG=''${APP_DEBUG:-false}
 APP_KEY=''${APP_KEY}
-APP_URL=http://localhost:''${PORT:-8080}
+# Laravel derives the scheme and host of every redirect from APP_URL; pinned to
+# localhost, `/` bounces until the browser gives up with ERR_TOO_MANY_REDIRECTS.
+APP_URL=''${HOP3_PUBLIC_URL:-http://localhost:''${PORT:-8080}}
+REQUIRE_HTTPS=false
 DB_CONNECTION=mysql
 DB_HOST=''${DB_HOST:-127.0.0.1}
 DB_PORT=''${DB_PORT:-3306}
@@ -83,8 +86,18 @@ cp -a $out/app/. .
 chmod -R u+w .
 mkdir -p storage/app storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache public/storage
 
-# Run database migration
-${php}/bin/php artisan migrate --force 2>/dev/null || true
+# Migrate, then seed and create the account ONCE. `2>/dev/null || true` hid a
+# failing migration and left an app with no schema reporting success — and
+# nothing ever created an account, so `POST /api/v1/login` answered 401.
+${php}/bin/php artisan migrate --force
+
+if [ ! -f .hop3-account ]; then
+  ${php}/bin/php artisan db:seed --force
+  ${php}/bin/php artisan ninja:create-account \
+    --email="''${HOP3_ADMIN_EMAIL:?invoice-ninja: HOP3_ADMIN_EMAIL not injected}" \
+    --password="''${HOP3_ADMIN_PASSWORD:?invoice-ninja: HOP3_ADMIN_PASSWORD not injected}"
+  touch .hop3-account
+fi
 
 exec ${php}/bin/php ./artisan serve --host=0.0.0.0 --port=''${PORT:-8080}
 WRAPPER

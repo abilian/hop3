@@ -341,7 +341,7 @@ Did you mean: 'my-app'?
 
 **Rejected because:**
 - Confirmation alone doesn't address other pain points
-- Rich formatting provides significant value
+- Rich formatting provides clear value
 - Partial solution doesn't meet user needs
 - Similar effort to implement fully
 

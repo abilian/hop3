@@ -6,9 +6,7 @@
 - **Updated**: 2026-06-24
 - **Related-ADRs**: [036](./036-cli-ergonomics.md) (§D7 implicit app resolution), [042](./042-cli-context-model.md) (resolution chains, project contexts), a future command-manifest ADR (plugin command manifest)
 
-> **Updated 2026-06-24:** `_context.server` is the selected context's literal
-> *address* (`ssh://root@host`): [ADR 042](./042-cli-context-model.md) r2 has no symbolic
-> server names. Field example corrected below.
+> **Updated 2026-06-24:** `_context.server` is the selected context's literal *address* (`ssh://root@host`): [ADR 042](./042-cli-context-model.md) r2 has no symbolic server names. Field example corrected below.
 
 This decision supersedes the client-side app-scoped injection mechanism (`hop3_cli/core/app_scope.py`), a stopgap retired by the design below.
 
@@ -26,7 +24,7 @@ The constraint that makes "just ask the server per command" a non-starter is rea
 
 ### The reframing
 
-The drift comes from the CLI needing to know, *per command*, whether to inject the app. Invert it: the CLI always resolves the **ambient app** (and the rest of the resolved environment) and ships it as a side-channel **invocation context** on every call. Each server command consumes `context.app` only if it wants one. The CLI no longer needs to know which commands are app-scoped (that knowledge stays entirely server-side, where it belongs) and the wire channel already exists.
+The drift comes from the CLI needing to know, *per command*, whether to inject the app. The CLI always resolves the **ambient app** (and the rest of the resolved environment) and ships it as a side-channel **invocation context** on every call. Each server command consumes `context.app` only if it wants one. The CLI no longer needs to know which commands are app-scoped (that knowledge stays entirely server-side, where it belongs) and the wire channel already exists.
 
 ### The wire channel already exists
 
@@ -54,7 +52,7 @@ A JSON object under a reserved key in `extra_args` (proposed: `_context`, mirror
 }
 ```
 
-The object is **open for extension** ("may be useful for other things"): future fields (locale, output width, dry-run intent, trace id) ride here without a protocol change. Unknown fields are ignored by older code that doesn't read them: but see *Versioning* on the reserved-key requirement.
+The object is **open for extension**: future fields (locale, output width, dry-run intent, trace id) ride here without a protocol change. Older code ignores unknown fields. The reserved key is the one exception; see *Versioning*.
 
 Values are still produced by [ADR 042](./042-cli-context-model.md)'s resolution chains; nothing about *how* the app/server/context resolve changes. [ADR 042](./042-cli-context-model.md) stays authoritative for the resolution model (servers, project contexts, the resolution order); this ADR is authoritative only for *how* the resolved values travel to the server and are consumed there. Resolution is now **always performed and always transmitted**, instead of being gated on a hardcoded app-scoped check and injected positionally.
 

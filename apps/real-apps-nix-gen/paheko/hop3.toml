@@ -5,25 +5,28 @@ description = "Nonprofit accounting and association management"
 
 [nix]
 template = "php-app"
-url = "https://codeload.github.com/paheko/paheko/tar.gz/refs/tags/${version}"
-sha256 = "sha256-D83byx+kmeDvKwiGIMN0lIx25Jp+vR0Mfmk1jCx+Nzw="
+# Writes inside its own install directory (config.local.php, data), which a
+# read-only store path cannot support.
+needs-writable-dir = true
+# The RELEASE tarball, not the git tag. The tag archive omits the vendored
+# KD2 framework (produced by the release process), so the app built fine and
+# died on every request with
+# `require_once .../include/lib/KD2/ErrorManager.php: No such file`. The
+# native recipe fetches this same artefact and asserts KD2 is present.
+url = "https://fossil.kd2.org/paheko/uv/paheko-${version}.tar.gz"
+sha256 = "sha256-p7PbPJi22BkZO3NVq/cX9SOVvTupvPbGh96e8AjKT98="
 archive = "tar-gz"
 php-version = "php82"
-web-root = "src/www"
-php-extensions = ['sqlite3', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'intl']
+web-root = "www"
+# `xml` is deliberately absent: the Nix PHP already provides it, and naming
+# it again makes every PHP invocation print a module-already-loaded warning
+# on STDOUT. Harmless until something reads that stdout, which nextcloud's
+# install check does -- it was handed that warning instead of the database
+# type and refused a correct install.
+php-extensions = ['sqlite3', 'gd', 'mbstring', 'curl', 'zip', 'intl']
 needs-composer = false
 extra-paths = ['${php}/bin']
 
-[[nix.config-files]]
-path = "src/config.local.php"
-format = "raw"
-create-if-missing = true
-raw-content = """
-<?php
-const DATA_ROOT = __DIR__ . '/../data';
-const DB_FILE = DATA_ROOT . '/paheko.sqlite';
-const SECRET_KEY = '__SECRET_KEY__';
-"""
 
 # Hop3 Configuration for Paheko (Nix build)
 
@@ -31,6 +34,8 @@ const SECRET_KEY = '__SECRET_KEY__';
 builder = "nix"
 
 [run]
+# The native bootstrap, ported unchanged.
+before-run = "bash scripts/setup-config.sh"
 start-timeout = 60
 
 [test]
@@ -44,3 +49,19 @@ covers = ["php", "nix", "sqlite", "nonprofit"]
 path = "/admin/install.php"
 status = 200
 contains = "Paheko"
+
+[env]
+PAHEKO_SECRET_KEY = { generate = "base64", length = 32 }
+
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }
+
+# Paheko keeps ALL of its state — the SQLite database and any uploaded documents
+# — under `data/` in the source tree (DATA_ROOT = __DIR__ . '/data' in
+# config.local.php; DB_FILE = data/paheko.sqlite). A redeploy wipes and re-extracts
+# src/, so without a volume the database is destroyed on every redeploy. Persist
+# `data/` outside src/ (storage at <app>/volumes/data/) so it survives the
+# source-replacing redeploy (ADR 046 §2). This is also what makes the
+# setup-config.sh "already installed" probe a true no-op on redeploy.

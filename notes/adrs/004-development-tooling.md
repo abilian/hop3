@@ -67,7 +67,7 @@ A modern Python project requires a comprehensive toolchain to ensure developer p
 **Rationale**:
 - **De facto standard**: Most widely used Python testing framework
 - **Rich ecosystem**: Extensive plugin ecosystem (pytest-cov, pytest-asyncio, etc.)
-- **Fixtures**: Powerful dependency injection for test setup
+- **Fixtures**: Dependency injection for test setup
 - **Parametrization**: Easy data-driven testing
 - **Readable**: Clear, pythonic test syntax
 
@@ -220,6 +220,6 @@ We intentionally avoided tool proliferation by:
 - Using Ruff instead of 5+ separate linting tools
 - Using uv instead of multiple package management tools
 
-However, we kept specialized tools (pytest, Pyrefly, mkdocs) where they excel in their domain rather than trying to force everything into a single tool.
+However, we kept specialized tools (pytest, Pyrefly, mkdocs) where they excel in their domain.
 
 For type checking specifically, we've chosen to adopt Pyrefly as a next-generation type checker, moving away from the traditional Mypy/Pyright approach. This decision reflects our commitment to exploring and adopting emerging tools that may offer better performance and accuracy. We're also experimenting with ty, which pushes the boundaries of Python's type system even further.

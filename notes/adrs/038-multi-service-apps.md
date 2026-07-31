@@ -11,8 +11,6 @@ Hop3's current deployment model assumes a single application = single logical pr
 
 ### Three patterns the single-process model handles poorly
 
-Real-world applications fall into three distinct patterns that the single-process model handles poorly:
-
 **Pattern 1: Same-app background tasks.** The main app process runs the web server; a secondary process handles cron jobs, queue workers, or scheduled maintenance. Both share the source tree and the addon credentials. This is common in PHP/Laravel (queue workers), NextCloud (cron), and Rails (Sidekiq when the worker is configured simply).
 
 **Pattern 2: Same-app multi-process with shared source, different commands.** Mastodon's Rails app, Sidekiq background workers, and Streaming API all run from the same source tree but with different commands and potentially different resource limits. They share the database and Redis addons.
@@ -199,12 +197,12 @@ Existing addon, env, and port handling remain unchanged in the legacy path.
 
 ### What stays out of scope
 
-- **Inter-component networking beyond shared-loopback.** Components share the app's working directory and 127.0.0.1. They don't get their own DNS entries inside the app's namespace. "Component A reaches component B on port 4000": that's it.
+- **Inter-component networking beyond shared-loopback.** Components share the app's working directory and 127.0.0.1. They don't get their own DNS entries inside the app's namespace. A component reaches another on its declared port.
 - **Rolling restarts across components.** Covered by [ADR 032](./032-deployment-strategies-artifact-lifecycle.md), not re-opened here.
 - **Per-component backups.** Backups are per-addon.
 - **Sidecar containers.** Hop3 doesn't run containers for apps. Everything runs as uWSGI-managed processes under the hop3 user.
 - **Full-fledged service mesh.** Hop3 is a single-server PaaS; the day we need a mesh is the day we've outgrown Hop3's model.
-- **Multi-app composition** (several independently-deployed apps forming a logical whole). That's a separate ADR: this one is strictly intra-app.
+- **Multi-app composition**, where several independently-deployed apps form a logical whole, belongs in a separate ADR. This one is strictly intra-app.
 
 ## Consequences
 

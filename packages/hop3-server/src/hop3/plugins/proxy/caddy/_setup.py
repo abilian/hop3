@@ -21,6 +21,7 @@ from hop3.platform.certificates import (
     verify_cert,
     write_private_key,
 )
+from hop3.plugins.proxy._policy import should_redirect_to_https
 
 from ._templates import (
     CADDY_BLOCK_GIT,
@@ -174,7 +175,7 @@ class CaddyVirtualHost(BaseProxy):
         )
 
         # Choose template based on HTTPS-only setting
-        if self.env.get_bool("CADDY_HTTPS_ONLY"):
+        if should_redirect_to_https(self.env, "CADDY_HTTPS_ONLY"):
             buffer = expand_vars(CADDY_HTTPS_ONLY_TEMPLATE, self.env)
             log(
                 f"caddy will redirect all HTTP requests to HTTPS for"

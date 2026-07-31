@@ -21,3 +21,10 @@ covers = ["php", "dolibarr", "nix", "erp", "crm"]
 path = "/"
 status = 200
 contains = "Dolibarr"
+
+# Dolibarr's install steps take the super-admin on their command line, so the
+# mapping IS the bootstrap.
+[admin]
+username = "admin"
+email = "operator"
+password = { generate = "password", length = 20 }

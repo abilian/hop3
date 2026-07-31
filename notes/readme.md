@@ -19,10 +19,12 @@ ADRs record the "why" behind architectural choices — plugin system, build/runt
 
 ## `ngi-2024/` — NGI project documents
 
-- [`project-plan.md`](./ngi-2024/project-plan.md) — NGI project plan (T1–T5 tasks, M-series milestones).
-- [`release-plan-0.5.md`](./ngi-2024/release-plan-0.5.md) — 0.5 release scope and DoD (active).
-- [`release-plan-0.6.md`](./ngi-2024/release-plan-0.6.md) — 0.6 future release plan (paper submission, screencasts, Nix Phase 3).
-- [`plan-source-builds.md`](./ngi-2024/plan-source-builds.md) — historical plan for Go-app source builds (✅ done; preserved as record).
+- [`annex.md`](./ngi-2024/annex.md) — **the contract**: the funded T1–T5 task text and the M-series milestone list, verbatim. Do not edit.
+- [`release-plan-0.7.md`](./ngi-2024/release-plan-0.7.md) — **the live tracker**: annex milestone status, what gates the 0.7 tag, and what remains for NGI-complete.
+- [`results-links-2026-07.md`](./ngi-2024/results-links-2026-07.md) — per-milestone evidence links for the auditors (final report). [`results-links-2026-06.md`](./ngi-2024/results-links-2026-06.md) is the submitted interim equivalent.
+- [`project-plan.md`](./ngi-2024/project-plan.md) — retired; a pointer to the three above.
+- [`release-plan-0.5.md`](./ngi-2024/release-plan-0.5.md) · [`release-plan-0.6.md`](./ngi-2024/release-plan-0.6.md) — shipped release plans, kept as record.
+- [`plan-source-builds.md`](./ngi-2024/plan-source-builds.md) — historical plan for Go-app source builds (✅ done; preserved as record, with a reproducibility addendum).
 
 ## `experience-reports/` — Packaging experience per app
 

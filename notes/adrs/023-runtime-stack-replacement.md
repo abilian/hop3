@@ -11,7 +11,7 @@ This ADR proposes replacing Hop3's current runtime stack (uWSGI + nginx + superv
 
 ## Summary
 
-We propose replacing the current three-component stack (uWSGI for application serving, nginx for reverse proxy, supervisor for process management) with a streamlined architecture consisting of:
+We propose replacing the current three-component stack (uWSGI for application serving, nginx for reverse proxy, supervisor for process management) with a simpler architecture consisting of:
 
 1. **Granian** - Modern Rust-based ASGI/WSGI server (replacing uWSGI)
 2. **Caddy** - Modern reverse proxy with automatic HTTPS (replacing nginx)
@@ -42,7 +42,7 @@ Hop3 currently relies on three major components for its runtime:
    - Limited hot reconfiguration
    - Requires `supervisorctl` commands for changes
 
-This stack works but has significant drawbacks:
+This stack works but has real drawbacks:
 - **uWSGI is unmaintained** - Security and compatibility risks
 - **No hot reconfiguration** - Adding apps requires nginx reloads
 - **Complexity** - uWSGI has 100+ features, we use ~7
@@ -452,7 +452,7 @@ From nginx experience:
 
 ### Alternative 2: Traefik Instead of Caddy
 
-**Description:** Use Traefik for reverse proxy instead of Caddy.
+**Description:** Use Traefik as the reverse proxy.
 
 **Pros:**
 - Service discovery built-in
@@ -485,7 +485,7 @@ From nginx experience:
 
 ### Alternative 4: systemd Only (No supervisor/PM)
 
-**Description:** Use systemd templates for process management instead of custom PM.
+**Description:** Use systemd templates for process management.
 
 **Pros:**
 - Standard Linux approach
