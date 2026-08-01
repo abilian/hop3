@@ -29,7 +29,7 @@ uv run hop3-bench report                                   # default: the latest
 uv run hop3-bench report --results notes/benchmarks/<run>.json
 ```
 
-This emits the closure table (paper Table 3), the deduplication sentence, the build-and-install band, and the control-plane baseline comparison — exactly as they appear in §6.4.
+This emits the closure table (report Table 7), the deduplication sentence, the build-and-install band, and the control-plane baseline comparison — exactly as they appear in §6.4.
 
 ## Measurement commands
 
@@ -37,8 +37,8 @@ This emits the closure table (paper Table 3), the deduplication sentence, the bu
 |---------|----------|---------------|
 | `memory --ssh H` | control-plane PSS + RSS of `hop3-server` | §6.2, §6.4 |
 | `cgroup-memory --ssh H SERVICE...` | cgroup `memory.current` — the cross-stack metric | §6.4 baselines |
-| `closures --ssh H APP...` | Nix closure size, path count, and dedup union | §6.4 Table 3 |
-| `docker-size --ssh H IMAGE...` | uncompressed size of a pulled image | §6.4 Table 3 |
+| `closures --ssh H APP...` | Nix closure size, path count, and dedup union | §6.4 Table 7 |
+| `docker-size --ssh H IMAGE...` | uncompressed size of a pulled image | §6.4 Table 7 |
 | `update-delta --ssh H APP...` | bytes re-sent on a source-only bump | §5.3, §6.4 |
 | `reproducibility --ssh H APP...` | byte-identical rebuild (`narHash`) | §6.2 R1, §6.4 |
 | `report` | regenerates every paper figure from a run | §6.4 |

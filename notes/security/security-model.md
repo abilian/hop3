@@ -92,7 +92,7 @@ What the code does: `App` carries no owner column, `AddonCredential` binds to an
 
 **Direction of travel.** Per-resource ownership (an owner on `App`, an authorization step in the RPC dispatcher) is planned work. It is out of scope for 0.7. Multi-tenancy on one host comes first; multi-server is the step after, and a later project. The code evidence and the proposed shape of the fix are in [report-2026-07-21.md](report-2026-07-21.md) §1. When it lands, §1.1, §1.2, §1.3 and this section change together, and a fourth boundary (app deployer A → app deployer B) joins §1.2 as an enforced one.
 
-`docs/src/developers/architecture.md` lists "a multi-tenant, SaaS-compatible solution" among the needs Hop3 addresses for MSPs. Read as a statement of direction that is accurate; read as a description of what the control plane enforces today it is not, which is why the operator-facing [Security](../../docs/src/guides/security.md) page states the account model in plain terms.
+`docs/src/developers/architecture.md` lists "a multi-tenant, SaaS-compatible solution" among the needs Hop3 addresses for MSPs. It is an accurate statement of direction. It does not describe what the control plane enforces today, which is why the operator-facing [Security](../../docs/src/guides/security.md) page states the account model in plain terms.
 
 Consequences for reviewers, until then:
 
@@ -458,8 +458,8 @@ Sort every candidate into one of four buckets before fixing anything, and keep t
 
 - **REAL**: crosses a boundary from §1.2, exploitable as described. Fix this round.
 - **REAL-LOW**: crosses a boundary, but impact is bounded (info disclosure to an already-authenticated caller, DoS requiring an authenticated tight loop, defense-in-depth gap behind a working control). Fix opportunistically; don't let it displace REAL.
-- **Threat-model misaligned**: the taint flow crosses no boundary in §1.2. Retract, or argue explicitly with §1. If the same misalignment recurs across rounds, that is a signal to add an `# AUDIT:` marker at the site (§2.1), not to keep re-litigating it.
-- **Structural**: no exploit today, but the safety of the code rests on per-site discipline that a future edit will silently break. Worth fixing when the fix makes the invariant hold by construction rather than by convention.
+- **Threat-model misaligned**: the taint flow crosses no boundary in §1.2. Retract, or argue explicitly with §1. If the same misalignment recurs across rounds, add an `# AUDIT:` marker at the site (§2.1); re-litigating wastes review time.
+- **Structural**: the safety of the code rests on per-site discipline that a future edit will silently break, without a working exploit today. Worth fixing when the fix makes the invariant hold by construction rather than by convention.
 
 ### 4.8 Record the round, then keep it current
 
