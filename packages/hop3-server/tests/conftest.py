@@ -23,6 +23,7 @@ from hop3_testing.targets import (
 from hop3_testing.targets.helpers import find_project_root
 
 from hop3.orm import reset_session_factory_cache
+from hop3.server.security.rate_limit import AUTH_RATE_LIMITER
 
 # Import fixtures from di_fixtures.py to make them available to all tests
 from .di_fixtures import di_container  # ruff:ignore[unused-import]
@@ -246,3 +247,20 @@ def reset_session_factory():
     reset_session_factory_cache()
     yield
     reset_session_factory_cache()
+
+
+# 5. Reset the shared auth rate limiter before each test
+@pytest.fixture(autouse=True)
+def reset_auth_rate_limiter():
+    """
+    Give every test a fresh rate-limit budget.
+
+    `AUTH_RATE_LIMITER` is module-level and now covers both the web login form
+    and the RPC `auth get-token` command, so without this the sixth
+    login-attempting test in a run would fail because of the five before it —
+    an order-dependent result, and one that would read as a bug in whichever
+    test happened to be sixth.
+    """
+    AUTH_RATE_LIMITER.reset()
+    yield
+    AUTH_RATE_LIMITER.reset()

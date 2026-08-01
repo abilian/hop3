@@ -133,7 +133,7 @@ def test_auth_login_nonexistent_user(user_repo: UserRepository):
 def test_auth_login_inactive_user(
     db_session: Session, user_repo: UserRepository, test_user: User
 ):
-    """Test login with inactive user."""
+    """A disabled account is not distinguishable from a wrong password."""
     test_user.active = False
     db_session.commit()
 
@@ -142,7 +142,28 @@ def test_auth_login_inactive_user(
 
     assert isinstance(result, list)
     assert any("error" in r.get("t", "") for r in result)
-    assert any("disabled" in str(r.get("text", "")) for r in result)
+    assert any("Invalid username or password" in str(r.get("text", "")) for r in result)
+    # This test used to assert the opposite -- that the reply said "disabled".
+    # That reply told an unauthenticated caller which usernames exist and which
+    # are merely locked, which is the enumeration step in front of a
+    # password-guessing campaign (audit 2026-07-29 F2, CWE-204).
+    assert not any("disabled" in str(r.get("text", "")).lower() for r in result)
+
+
+def test_auth_get_token_failures_are_indistinguishable(
+    db_session: Session, user_repo: UserRepository, test_user: User
+):
+    """All three failure modes return one identical response (F2)."""
+    cmd = AuthGetTokenCmd(user_repo=user_repo)
+
+    no_such_user = cmd.call("nosuchuser", "whatever")
+    wrong_password = cmd.call("testuser", "wrongpassword")
+
+    test_user.active = False
+    db_session.commit()
+    disabled = cmd.call("testuser", "testpass123")
+
+    assert no_such_user == wrong_password == disabled
 
 
 def test_auth_login_missing_params(user_repo: UserRepository):

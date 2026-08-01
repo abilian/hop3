@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any
 from litestar.datastructures import Cookie
 
 from hop3.config import HOP3_DEBUG
+from hop3.server.security.proxy_headers import request_is_secure
 from hop3.server.security.tokens import create_token, validate_token
 
 if TYPE_CHECKING:
@@ -74,6 +75,23 @@ def current_identity(connection: ASGIConnection) -> dict[str, Any] | None:
     if not token:
         return None
     return validate_token(token)
+
+
+def cookie_would_be_dropped(connection: ASGIConnection) -> bool:
+    """
+    True when issuing the auth cookie on this request cannot possibly work.
+
+    The cookie is `Secure` outside debug mode, so a browser on plain `http://`
+    accepts the `Set-Cookie` and then never sends it back. Login "succeeds",
+    redirects to the dashboard, finds no credential, and bounces to the login
+    page — an endless loop with no error anywhere, which is the failure mode
+    the platform's fail-loud rule exists to forbid. Callers use this to say so
+    instead of looping.
+
+    Both halves matter: with `HOP3_DEBUG` the cookie is not `Secure` and plain
+    HTTP works fine, which is what makes local development possible.
+    """
+    return not HOP3_DEBUG and not request_is_secure(connection)
 
 
 def auth_cookie(username: str) -> Cookie:

@@ -16,6 +16,7 @@ from hop3.lib.registry import register
 from hop3.orm.repositories import (
     UserRepository,  # ruff:ignore[typing-only-first-party-import]
 )
+from hop3.orm.security import burn_password_check
 from hop3.server.security.tokens import create_magic_token, create_token
 
 from ._base import Command, NamespaceCommand
@@ -59,6 +60,11 @@ class AuthGetTokenCmd(Command):
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("auth", "get-token")
     requires_auth: ClassVar[bool] = False  # Public command
+    # SECURITY: unauthenticated AND verifies a password, so the RPC dispatcher
+    # must throttle it by client IP before dispatch. Without this the web
+    # login's 5/min limit is trivially sidestepped by calling the same
+    # credential check over JSON-RPC instead (audit 2026-07-29 F1/F4).
+    rate_limited: ClassVar[bool] = True
 
     def call(
         self, username: str = "", password: str = "", *args: str, **kwargs: object
@@ -76,18 +82,25 @@ class AuthGetTokenCmd(Command):
         if not username or not password:
             return [error("Usage: hop3 auth get-token <username> <password>")]
 
-        # Look up the user
+        # SECURITY: every failure below returns this one string, and takes
+        # bcrypt's time to do it. A distinct "account is disabled" reply, or a
+        # fast return on an unknown username, tells an unauthenticated caller
+        # which accounts exist and which are merely locked — the enumeration
+        # step that makes a password-guessing campaign cheap (CWE-204).
+        # `POST /auth/login` collapses the same three cases; keep them in step.
+        invalid = [error("Invalid username or password")]
+
         user = self.user_repo.get_by_username(username)
         if not user:
-            return [error("Invalid username or password")]
+            burn_password_check(password)
+            return invalid
 
-        # Check if user is active
         if not user.active:
-            return [error("Account is disabled")]
+            burn_password_check(password)
+            return invalid
 
-        # Verify password
         if not user.check_password(password):
-            return [error("Invalid username or password")]
+            return invalid
 
         # Update login tracking
         user.last_login_at = user.current_login_at

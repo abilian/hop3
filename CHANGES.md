@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+
+Affects every release up to and including 0.7.0. **If your hop3-server is reachable from an untrusted network, upgrade.** Nothing to reconfigure and no credential to rotate, but weak account passwords are worth changing: until now they could be guessed far faster than intended.
+
+- **Password guessing over JSON-RPC was not rate limited.** The web login form has been capped at 5 attempts per IP per minute since 0.5, but `hop3 auth get-token` checks the same credentials and applied no limit, so an attacker could guess ~100x faster by choosing that path. Both now draw on one shared budget.
+- **Login failures revealed which accounts exist.** A disabled account answered differently from a wrong password, and an unknown username answered faster than a real one. All three failures now return one identical response in the same time.
+- **Signing in over plain HTTP looped instead of failing.** The session cookie is `Secure`, so a browser with no TLS discarded it and the login bounced back to the login page forever, with no error anywhere. It now refuses up front and says why. Local development over HTTP still works with `HOP3_DEBUG=true`.
+- **Signing out was a link, so another site could sign you out.** `GET /auth/logout` is now a form POST. Minor by itself, but it was the only state-changing GET, and "every mutation is a POST" is what lets Hop3 ship without CSRF tokens.
+
+Details, and the remaining open items, in `notes/security/`.
+
 ## [0.7.0] - 2026/07/31
 
 ### Changed
@@ -253,7 +266,9 @@ Major release: Hop3 becomes a complete self-hosted PaaS.
 
 Initial release: core architecture, app builders, addon support, SQLAlchemy models, first test runner.
 
-[Unreleased]: https://github.com/abilian/hop3/compare/0.6.0...HEAD
+[Unreleased]: https://github.com/abilian/hop3/compare/0.7.0...HEAD
+[0.7.0]: https://github.com/abilian/hop3/compare/0.6.2...0.7.0
+[0.6.2]: https://github.com/abilian/hop3/compare/0.6.0...0.6.2
 [0.6.1]: https://github.com/abilian/hop3/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/abilian/hop3/compare/0.5.0...0.6.0
 [0.5.0]: https://github.com/abilian/hop3/compare/v0.4.0...v0.5.0
