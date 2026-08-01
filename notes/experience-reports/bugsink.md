@@ -12,7 +12,7 @@ verified_bar: authenticated
 
 variants:
   native: {status: pass}
-  nix: {status: pass}
+  nix: {status: fail, reason: start-timeout in a whole-corpus run}
   nix-gen: {status: pass, template: python-venv}
 ---
 
@@ -63,8 +63,12 @@ hop3 app check --app bugsink
 
 ## Open
 
-- **nix:** no screenshot (sign-in verified over HTTP).
-- **nix-gen:** a 180 s start timeout in one 19-app run (three isolated deploys since came up in 15–29 s). `check-catalog.py` writes a failing app's full output to `check-failures/<app>.log` for diagnosis.
+- **The nix recipe runs Bugsink as one process. Bugsink is two.** It omits both halves of the second process that the native and nix-gen recipes carry: `bugsink-manage migrate --database=snappea` (the queue lives in its own database, which the default `migrate` does not touch) and `[run.workers] snappea = "bugsink-runsnappea"`. Both sibling recipes comment on why they are needed. The nix recipe nonetheless generates its config with the same `bugsink-create-conf --template docker`, which assumes them.
+
+  The failure this produces is a **silent gunicorn worker-boot hang**, not a slow start: in the 55-app run of 2026-08-01 the master bound the port 8 s in, logged `Listening at`, and then never logged `Booting worker` — no traceback, nothing served, until the 240 s window closed at 245 s. The platform diagnosed it correctly in the failure output ("the app's port is listening but it did not answer an HTTP request: the server bound its socket but no worker is serving"); the headline said "failed to start within 240.0s", and that is the line that got acted on.
+
+  **Three start-timeout increases have been spent on this** — native 120, nix-gen 180, nix 240 — each after a "did not start in time" that was never about time. The same recipe passed in isolation and in earlier corpus runs, which is what a fork-time hang looks like. Fix the recipe to match its siblings rather than raising the window a fourth time.
+- **nix:** no screenshot (sign-in verified over HTTP); in the 2026-08-01 run there was nothing to photograph, the install having failed first.
 
 ## Screenshots
 
