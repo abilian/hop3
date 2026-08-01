@@ -57,6 +57,12 @@ class Command:
     # Authentication metadata (default: requires auth, doesn't need username)
     requires_auth: ClassVar[bool] = True
     pass_username: ClassVar[bool] = False
+    # Throttle this command per client IP before dispatch. Required on any
+    # command that both skips authentication and verifies a credential —
+    # otherwise it is an unmetered password oracle, and the rate limit on the
+    # web login form means nothing. `test_rate_limited_commands.py` fails if a
+    # new `requires_auth = False` command appears without a decision here.
+    rate_limited: ClassVar[bool] = False
     # Destructive action metadata (default: not destructive)
     # Set to True for commands that delete/destroy data (requires confirmation)
     destructive: ClassVar[bool] = False

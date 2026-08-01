@@ -16,6 +16,29 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 AuditBase = BigIntAuditBase
 
 
+# SECURITY: a real bcrypt hash of a value nothing can authenticate as, used to
+# spend the same CPU on a nonexistent username as on a real one. Without it,
+# "no such user" returns in microseconds while "wrong password" takes bcrypt's
+# ~100ms, and the difference enumerates the user table regardless of how
+# carefully the two responses are worded (CWE-204). Generated once at import
+# rather than per call: `checkpw` is what has to cost, not `hashpw`.
+_DUMMY_PASSWORD_HASH = bcrypt_lib.hashpw(
+    b"hop3-timing-equalisation-placeholder", bcrypt_lib.gensalt()
+)
+
+
+def burn_password_check(password: str) -> None:
+    """
+    Verify `password` against a throwaway hash and discard the result.
+
+    Call this on the "user not found" branch of any login path so its
+    response time matches the "user found, wrong password" branch. Keep it
+    behind a rate limiter — it is deliberately expensive, which is a DoS
+    lever if an unauthenticated caller can drive it without limit.
+    """
+    bcrypt_lib.checkpw(password.encode("utf-8"), _DUMMY_PASSWORD_HASH)
+
+
 # Association table for many-to-many relationship between users and roles
 users_roles = Table(
     "sec_users_roles",

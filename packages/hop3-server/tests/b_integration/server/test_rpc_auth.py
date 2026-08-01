@@ -68,23 +68,58 @@ def test_rpc_public_command_without_auth(client: TestClient):
     assert "result" in data
 
 
-def test_rpc_auth_get_token_without_token(client: TestClient):
-    """Test that auth:get-token works without authentication."""
-    response = client.post(
+def _get_token_request(client: TestClient, password: str = "password"):
+    return client.post(
         "/rpc",
         json={
             "jsonrpc": "2.0",
             "method": "cli",
             "params": {
-                "cli_args": ["auth", "get-token", "testuser", "password"],
+                "cli_args": ["auth", "get-token", "testuser", password],
                 "extra_args": {},
             },
             "id": 1,
         },
     )
 
+
+def test_rpc_auth_get_token_without_token(client: TestClient):
+    """Test that auth:get-token works without authentication."""
+    response = _get_token_request(client)
+
     # Should work even without auth (though user may not exist)
     assert response.status_code in {200, 401}  # 200 for public access
+
+
+def test_rpc_auth_get_token_is_rate_limited(client: TestClient):
+    """
+    Password guessing over RPC hits the same 5/min ceiling as the web form.
+
+    Regression for audit 2026-07-29 F1/F4: `auth get-token` is unauthenticated
+    and verifies a password, but only `POST /auth/login` was throttled, so an
+    attacker could guess at bcrypt speed by choosing the other transport.
+    """
+    for _ in range(5):
+        assert _get_token_request(client, "wrong").status_code != 429
+
+    blocked = _get_token_request(client, "wrong")
+    assert blocked.status_code == 429
+    assert "Too many authentication attempts" in blocked.json()["error"]["message"]
+
+
+def test_rpc_public_command_is_not_rate_limited(client: TestClient):
+    """A command that verifies no credential stays unthrottled."""
+    for _ in range(10):
+        response = client.post(
+            "/rpc",
+            json={
+                "jsonrpc": "2.0",
+                "method": "cli",
+                "params": {"cli_args": ["help"], "extra_args": {}},
+                "id": 1,
+            },
+        )
+        assert response.status_code == 200
 
 
 def test_rpc_protected_command_without_auth(client: TestClient):

@@ -65,7 +65,7 @@ Internal fixes shipped in 0.5–0.6. The third-party review was applied for and 
 
 - [x] One or two more internal audit rounds; fix findings
 - [x] Applied for the third-party review; two follow-ups sent, no auditor allocated
-- [x] Third audit round run in-house: `notes/security/report-2026-07.md`
+- [x] Third audit round run in-house: `notes/security/report-2026-07-21.md`
 - [x] Document the security model: published as `guides/security.md` (operators) and `developers/security-model.md` (developers/auditors), with `notes/security/security-model.md` as the engineering source
 - [x] Fix the five open defects from the 2026-07 round (`local-notes/plans/28-security-remediation.md`): **done 2026-07-29**: `run_as_hop3` argv split (16 argv / 4 shell call sites), addon restore-path containment, a fail-loud multi-worker/in-memory-rate-limiter invariant, the `user add` single-tenancy notice, and documented host-key pinning. Each landed with a regression test asserting the rejection; `make lint` and `make test-fast` green.
 - [ ] Publish the July round as a blog post (the third-party review never allocated → we built tooling and audited ourselves): counts toward M5.1
@@ -175,8 +175,7 @@ Email is a **backing service with a swappable backend**, symmetric with the data
 - [x] The "migrating from X" series: **Reframed as documentation, and shipped (2026-07-31).** The series is not a blog run: the 22 per-platform guides live under `docs/src/guides/migration/`, reached from the migration hub page rather than the site nav (listing them there would swamp the group). They build and render. T5's migration deliverable is met.
 
 ### Final NGI report
-- [ ] `notes/ngi-2024/results-links-2026-07.md`: the per-milestone evidence doc the auditors read. Still marked draft and dated "XX July 2026"; refreshed 2026-07-30 but needs the post-tag links (v0.7.0 release, asciinema URLs, gallery page, the reports PDF) and a submission date.
-- [ ] The report itself (`notes/reports/draft-paper.md` §10 reconciles annex T1–T5): once the above are complete.
+- [x] `notes/ngi-2024/results-links-2026-07.md`: the per-milestone evidence doc the auditors read. - [x] The report itself (`notes/reports/TR-03.md` §10 reconciles annex T1–T5): once the above are complete.
 
 ## Out of scope (post-NGI)
 

@@ -95,9 +95,14 @@
                                 <a href="/auth/profile" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                     Profile
                                 </a>
-                                <a href="/auth/logout" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                    Sign out
-                                </a>
+                                {# POST, not a link: samesite=lax sends the auth
+                                   cookie on a cross-site GET, so a logout link
+                                   is CSRF-able (forced logout). #}
+                                <form action="/auth/logout" method="POST">
+                                    <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        Sign out
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     </div>
@@ -161,9 +166,11 @@
                         <a href="/auth/profile" class="block px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800">
                             Profile
                         </a>
-                        <a href="/auth/logout" class="block px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800">
-                            Sign out
-                        </a>
+                        <form action="/auth/logout" method="POST">
+                            <button type="submit" class="block w-full text-left px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800">
+                                Sign out
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>

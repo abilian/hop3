@@ -8,6 +8,15 @@ In-memory rate limiter for auth endpoints.
 Simple sliding-window counter keyed by client IP. Suitable for a
 single-server deployment. For multi-server, replace with a Redis-backed
 implementation.
+
+The shared `AUTH_RATE_LIMITER` instance lives here rather than in a controller
+because credential verification is reachable over two transports -- the web
+form (`POST /auth/login`) and JSON-RPC (`auth get-token`). Two limiter
+instances would give an attacker each transport's budget in full, so the
+instance is the control and it has to be one.
+
+Key requests with `client_ip` from `proxy_headers`, which decides when a
+forwarded header can be believed.
 """
 
 from __future__ import annotations
@@ -17,7 +26,12 @@ import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 
-__all__ = ["LIMITER_STATE_IS_SHARED", "RateLimitError", "RateLimiter"]
+__all__ = [
+    "AUTH_RATE_LIMITER",
+    "LIMITER_STATE_IS_SHARED",
+    "RateLimitError",
+    "RateLimiter",
+]
 
 # Whether limiter state is shared across processes.
 #
@@ -101,3 +115,11 @@ class RateLimiter:
                 self._buckets.clear()
             else:
                 self._buckets.pop(key, None)
+
+
+# SECURITY: the single budget covering every path that verifies a password.
+# 5 attempts per IP per minute is enough for legitimate typos and holds
+# brute force to a rate that bcrypt alone does not (bcrypt costs the
+# attacker ~100ms, not ~12s). Both the web login form and the JSON-RPC
+# `auth get-token` command check THIS instance -- see the module docstring.
+AUTH_RATE_LIMITER = RateLimiter(max_requests=5, window_seconds=60.0)

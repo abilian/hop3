@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
@@ -16,59 +15,32 @@ from litestar.response import Redirect, Template
 from hop3.orm.repositories import UserRepository
 from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
-from hop3.server.security.rate_limit import RateLimiter, RateLimitError
+from hop3.server.security.proxy_headers import client_ip
+from hop3.server.security.rate_limit import AUTH_RATE_LIMITER, RateLimitError
 from hop3.server.security.tokens import validate_magic_token
 from hop3.server.security.web_auth import (
     auth_cookie,
     clear_auth_cookie,
+    cookie_would_be_dropped,
     current_identity,
 )
 
 if TYPE_CHECKING:
     from litestar.params import FromPath
 
-# Module-level rate limiter shared across all AuthController instances.
-# 5 attempts per IP per minute is enough for legitimate users (typos)
-# and prevents brute force on credentials and magic links.
-_AUTH_RATE_LIMITER = RateLimiter(max_requests=5, window_seconds=60.0)
+# The limiter lives in hop3.server.security.rate_limit: the RPC `auth
+# get-token` path verifies the same credentials and has to draw on the same
+# budget, and a second instance here would have meant a second budget.
 
-
-# TCP peers we trust to have set X-Forwarded-For. hop3-server sits behind the
-# platform reverse proxy (nginx) on the same host; a client connecting directly
-# to the app port is never trusted to set XFF. Additional proxy IPs (e.g. an
-# external load balancer) can be allow-listed via HOP3_TRUSTED_PROXIES.
-_DEFAULT_TRUSTED_PROXIES: frozenset[str] = frozenset({"127.0.0.1", "::1"})
-
-
-def _trusted_proxies() -> frozenset[str]:
-    extra = os.environ.get("HOP3_TRUSTED_PROXIES", "")
-    if not extra:
-        return _DEFAULT_TRUSTED_PROXIES
-    return _DEFAULT_TRUSTED_PROXIES | {
-        ip.strip() for ip in extra.split(",") if ip.strip()
-    }
-
-
-def _client_ip(request: Request) -> str:
-    """
-    Client IP for rate limiting (audit H1, CWE-290).
-
-    X-Forwarded-For is honored ONLY when the TCP peer is a trusted proxy
-    (loopback by default; extend with HOP3_TRUSTED_PROXIES). Otherwise the
-    header is fully client-controlled, so an unauthenticated attacker could
-    send a fresh IP per request and cycle past the per-IP rate limiter.
-
-    When the peer IS trusted, we take the *rightmost* XFF entry — the address
-    our proxy appended ($proxy_add_x_forwarded_for) — not the leftmost, which a
-    client can pre-seed with a spoofed value before the proxy appends the real
-    peer.
-    """
-    peer = request.client.host if request.client else "unknown"
-    if peer in _trusted_proxies():
-        forwarded = request.headers.get("x-forwarded-for", "")
-        if forwarded:
-            return forwarded.split(",")[-1].strip()
-    return peer
+# Shown when the browser reached us over plain HTTP outside debug mode, where
+# the `Secure` auth cookie is accepted and then never sent back.
+INSECURE_TRANSPORT_ERROR = (
+    "Can't sign in over plain HTTP: the session cookie is marked Secure, so "
+    "your browser will discard it and the login would loop silently. Reach "
+    "this server over HTTPS — set an admin domain with a certificate "
+    "(hop3-deploy-server --admin-domain ...) — or set HOP3_DEBUG=true for "
+    "local development."
+)
 
 
 class AuthController(Controller):
@@ -79,6 +51,28 @@ class AuthController(Controller):
     """
 
     path = "/auth"
+
+    def _refuse_login(self, request: Request) -> Redirect | None:
+        """
+        The checks every credential-accepting route runs first, or None.
+
+        Both routes that can issue an auth cookie -- the login form and
+        magic-link redemption -- have to refuse an unusable transport and
+        draw on the rate-limit budget, in that order and before touching the
+        credential. Keeping the pair in one place is the point: security-model
+        §2.2 is a catalogue of fixes applied to one call site and missed at its
+        twin, and these two are twins.
+        """
+        if cookie_would_be_dropped(request):
+            return Redirect(path=f"/auth/login?error={INSECURE_TRANSPORT_ERROR}")
+
+        try:
+            AUTH_RATE_LIMITER.check(client_ip(request))
+        except RateLimitError as e:
+            return Redirect(
+                path=f"/auth/login?error=Too many login attempts. Try again in {int(e.retry_after) + 1}s."
+            )
+        return None
 
     @get("/login", sync_to_thread=False)
     def login_page(self, request: Request) -> Template | Redirect:
@@ -98,6 +92,8 @@ class AuthController(Controller):
         ctx = {
             "error": request.query_params.get("error"),
             "username": request.query_params.get("username", ""),
+            # Warn before they type a password, not after the login loops.
+            "insecure_transport": cookie_would_be_dropped(request),
         }
         return Template(template_name="auth/login.html", context=ctx)
 
@@ -115,13 +111,11 @@ class AuthController(Controller):
         Returns:
             Redirect to dashboard on success, or back to login on failure
         """
-        # Rate limit by client IP to prevent brute-force attacks
-        try:
-            _AUTH_RATE_LIMITER.check(_client_ip(request))
-        except RateLimitError as e:
-            return Redirect(
-                path=f"/auth/login?error=Too many login attempts. Try again in {int(e.retry_after) + 1}s."
-            )
+        # Refuse before verifying anything: over plain HTTP the credential
+        # would be checked, the cookie issued, and then silently discarded by
+        # the browser (security-model.md §3.7).
+        if refusal := self._refuse_login(request):
+            return refusal
 
         # Get form data directly from request
         form_data = await request.form()
@@ -155,8 +149,8 @@ class AuthController(Controller):
         # Issue the signed auth cookie (stateless — survives restarts).
         return Redirect(path="/dashboard", cookies=[auth_cookie(username)])
 
-    @get("/logout", sync_to_thread=False)
-    def logout(self, request: Request) -> Redirect:
+    @post("/logout")
+    async def logout(self, request: Request) -> Redirect:
         """
         Handle logout: revoke the cookie's token, then clear the cookie.
 
@@ -164,6 +158,14 @@ class AuthController(Controller):
         is not enough — a separately-captured copy would stay valid for the
         token's full lifetime. We revoke it server-side (the same mechanism the
         CLI logout uses) so web and CLI logout are symmetric (audit 2026-06 C5).
+
+        POST, not GET. `samesite=lax` deliberately sends the auth cookie on a
+        cross-site *GET*, so while this was a link any page could log a user
+        out by embedding it — the one state-changing GET that made the "every
+        mutation is a POST" argument for having no CSRF token untrue
+        (security-model.md §3.7). Impact was low (idempotent, no data loss);
+        the reason to fix it is that the invariant has to hold to be worth
+        anything.
 
         Args:
             request: HTTP request
@@ -243,13 +245,11 @@ class AuthController(Controller):
         Returns:
             Redirect to dashboard on success, or to login page with error
         """
-        # Rate limit by client IP to prevent magic-link brute-force
-        try:
-            _AUTH_RATE_LIMITER.check(_client_ip(request))
-        except RateLimitError as e:
-            return Redirect(
-                path=f"/auth/login?error=Too many login attempts. Try again in {int(e.retry_after) + 1}s."
-            )
+        # Runs *before* validating the token: `validate_magic_token` consumes
+        # it, so an unusable transport would burn a single-use link to reach a
+        # login that cannot hold its cookie.
+        if refusal := self._refuse_login(request):
+            return refusal
 
         # Validate the magic token (also marks it as used)
         token_info = validate_magic_token(token)

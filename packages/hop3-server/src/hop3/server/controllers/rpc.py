@@ -37,6 +37,8 @@ from hop3.orm.repositories import (
     RoleRepository,
     UserRepository,
 )
+from hop3.server.security.proxy_headers import client_ip
+from hop3.server.security.rate_limit import AUTH_RATE_LIMITER, RateLimitError
 from hop3.server.security.web_auth import current_identity
 
 # Mapping of repository types to their classes for dependency injection
@@ -132,6 +134,21 @@ def requires_authentication(command_class: type[Command]) -> bool:
         True if authentication is required, False otherwise
     """
     return getattr(command_class, "requires_auth", True)
+
+
+def is_rate_limited(command_class: type[Command]) -> bool:
+    """
+    Check if a command must be throttled per client IP before dispatch.
+
+    Uses the declarative `rate_limited` class attribute.
+
+    Args:
+        command_class: The command class
+
+    Returns:
+        True if the command is rate limited, False otherwise
+    """
+    return getattr(command_class, "rate_limited", False)
 
 
 def command_needs_username(command_class: type[Command]) -> bool:
@@ -333,6 +350,11 @@ class RPCController(Controller):
         if auth_error:
             return auth_error
 
+        # Throttle credential-verifying commands (see Command.rate_limited)
+        rate_error = self._check_rate_limit(request, command_class, request_id)
+        if rate_error:
+            return rate_error
+
         # Validate command exists
         if command_class is None:
             return self._build_error_response(
@@ -435,6 +457,56 @@ class RPCController(Controller):
             request_id=1,
             status_code=401,
         )
+
+    def _check_rate_limit(
+        self,
+        request: Request,
+        command_class: type[Command] | None,
+        request_id: int,
+    ) -> Response | None:
+        """
+        Throttle commands that verify a credential without authentication.
+
+        `POST /auth/login` has been rate limited since May 2026, but the same
+        password check is reachable over JSON-RPC as `auth get-token`, which
+        was not — so the limit could be sidestepped by choosing the other
+        transport (audit 2026-07-29 F1/F4). Both paths now draw down the one
+        `AUTH_RATE_LIMITER` budget; two limiter instances would have been two
+        budgets and no fix at all.
+
+        Args:
+            request: HTTP request
+            command_class: The command class (may be None if not found)
+            request_id: Request ID for the response
+
+        Returns:
+            Error response if the caller is over the limit, None if OK
+        """
+        if command_class is None or not is_rate_limited(command_class):
+            return None
+
+        # Mirrors the HOP3_UNSAFE skip in _check_authentication: the flag
+        # cannot be set in production (core/unsafe_gate.py forces it off), and
+        # test suites log in far faster than 5/min.
+        if config.HOP3_UNSAFE:
+            return None
+
+        try:
+            AUTH_RATE_LIMITER.check(client_ip(request))
+        except RateLimitError as e:
+            retry_after = int(e.retry_after) + 1
+            server_log.warning(
+                "Rate limit exceeded on credential-verifying command",
+                command=format_command_name(command_class.name),
+                retry_after=retry_after,
+            )
+            return self._build_error_response(
+                code=429,
+                message=f"Too many authentication attempts. Try again in {retry_after}s.",
+                request_id=request_id,
+                status_code=429,
+            )
+        return None
 
     def _prepare_command_args(
         self,
