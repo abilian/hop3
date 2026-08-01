@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{#
+  Site-wide analytics.
+
+  Umami is self-hosted on our own infrastructure, cookieless, and stores no
+  personal data, which is the only kind of analytics consistent with what this
+  site says about sovereignty (see the S1-S5 invariants in TR-03 §7.5).
+
+  This lives in `extrahead` rather than in the theme's `analytics` block: that
+  block dispatches to `partials/integrations/analytics/<provider>.html` and
+  ships no Umami provider.
+
+  Loaded once per document. With `navigation.instant` the head is not
+  re-executed on subsequent navigations, and Umami's tracker hooks
+  `history.pushState`, so instant navigations are still counted.
+
+  Every template that renders a page must inherit from this one, or it will be
+  served without the tracker (see overrides/blog_post.html).
+#}
+{% block extrahead %}
+  {{ super() }}
+  <script defer src="https://umami.apps.joinux.fr/script.js" data-website-id="11f3bf9d-05ef-4da0-966c-08ceb42a18f9"></script>
+{% endblock %}

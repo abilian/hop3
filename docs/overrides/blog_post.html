@@ -1,4 +1,6 @@
-{% extends "base.html" %}
+{# Extends main.html, not base.html: main.html carries the analytics tag, and a
+   template that skips it is served untracked. #}
+{% extends "main.html" %}
 
 {% block content %}
 <article class="blog-post">
