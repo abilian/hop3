@@ -97,7 +97,7 @@ Lightweight architecture optimized for efficiency. Run multiple applications on 
 
     ```bash
     hop3 init  --ssh root@hop3.example.com
-    hop3 login --ssh root@hop3.example.com
+    hop3 auth login --ssh root@hop3.example.com
     ```
 
 4. **Deploy your first app**, from its source directory:

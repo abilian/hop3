@@ -59,7 +59,7 @@ export HOP3_API_URL="https://your-hop3-server.com"
 export HOP3_API_URL="ssh://user@your-hop3-server.com"
 
 # Login (interactive; stores the token in the per-server credential store)
-hop3 login            # short form of `hop3 auth login`
+hop3 auth login
 
 # The token is stored in the per-server credential store
 # ~/.config/hop3-cli/credentials.toml (or override with HOP3_API_TOKEN)
@@ -69,7 +69,7 @@ hop3 login            # short form of `hop3 auth login`
 
 ```bash
 # List all applications
-hop3 apps
+hop3 app list
 
 # Deploy an application
 hop3 deploy --app myapp
@@ -134,7 +134,7 @@ Explicit flags override the environment variable.
 
 ```bash
 # Get JSON output
-hop3 apps --json
+hop3 app list --json
 
 # Deploy without confirmation
 hop3 deploy --app myapp -y
@@ -207,16 +207,16 @@ without needing `--app` or a positional argument.
 A **context** is a named target — **`--context <name>` is the one selector for every command** (ADR 042), app-bound or not. A context exists at two scopes:
 
 - **Project** — declared in your project's committed `hop3.toml` under `[contexts.<name>]`: a full deploy environment, a non-secret bundle of `server` (a literal address like `ssh://root@host`), `app` (the app *instance* name for that environment), domains, and non-secret env. One codebase, many environments — each a distinct app instance, often on a different server.
-- **Global** — declared in your per-developer `config.toml` as `[contexts.<name>].server`: just a name bound to a server address. It exists so project-less commands can target a server by name — `hop3 apps --context devel` — exactly like an in-project deploy.
+- **Global** — declared in your per-developer `config.toml` as `[contexts.<name>].server`: just a name bound to a server address. It exists so project-less commands can target a server by name — `hop3 app list --context devel` — exactly like an in-project deploy.
 
 `--context <name>` resolves **project-first, then global**: the nearest `hop3.toml [contexts.<name>]`, else `config.toml [contexts.<name>]`. An explicit `--context` that resolves to nothing aborts loud — it never silently retargets a different instance. There is no `--server` flag: naming the target is the context's job.
 
-A context is **not** a server-connection record: bearer tokens never live in `hop3.toml` or `config.toml`. They live in the per-server credential store (`~/.config/hop3-cli/credentials.toml`), populated by `hop3 login`/`hop3 init`.
+A context is **not** a server-connection record: bearer tokens never live in `hop3.toml` or `config.toml`. They live in the per-server credential store (`~/.config/hop3-cli/credentials.toml`), populated by `hop3 auth login`/`hop3 init`.
 
 ### Why Use Contexts?
 
 - **Multi-environment**: Express `devel` / `staging` / whatever else you run as distinct app instances in one committed file, shared with your team.
-- **One selector everywhere**: `--context` targets both app-bound commands (`hop3 deploy --context devel`) and project-less ones (`hop3 apps --context devel`) — nothing to remember about which flag applies where.
+- **One selector everywhere**: `--context` targets both app-bound commands (`hop3 deploy --context devel`) and project-less ones (`hop3 app list --context devel`) — nothing to remember about which flag applies where.
 - **Safety**: A context names its own app (`myapp-devel` vs `myapp-dev`), so deploys go where you mean — surfaced by the deploy preview and the project-mismatch guard.
 - **No secrets in the repo**: contexts carry only addresses and non-secret config; tokens and secret env stay out of `hop3.toml` and `config.toml`.
 
@@ -262,14 +262,14 @@ hop3 context add devel   --server ssh://root@devel.example.com   --app myapp-dev
 hop3 context add staging --server ssh://root@staging.example.com --app myapp-staging --domain staging.myapp.com
 
 # A global named server (run outside a project, or with --global inside one),
-# so `hop3 apps --context devel` works with no project:
+# so `hop3 app list --context devel` works with no project:
 hop3 context add devel --server ssh://root@devel.example.com
 hop3 context add devel --server ssh://root@devel.example.com --global
 ```
 
 **Notes:**
 - Inside a project, writes the committed `hop3.toml` — commit it to share the environment with your team. Outside a project (or with `--global`), writes the per-developer `config.toml` (secret-free).
-- To *log in* to a server (store its token), use `hop3 login` — `hop3 login --context devel --ssh root@host` also names the global context and makes it the default. To *select* a project environment for this checkout, use `hop3 context use <name>`.
+- To *log in* to a server (store its token), use `hop3 auth login` — `hop3 auth login --context devel --ssh root@host` also names the global context and makes it the default. To *select* a project environment for this checkout, use `hop3 context use <name>`.
 - Secrets never go here — set per-environment secrets server-side with `hop3 env set`.
 
 ### `hop3 context list`
@@ -358,7 +358,7 @@ hop3 context use <name>
 **Arguments:**
 - `name` - Name of a context declared in this project's `hop3.toml`
 
-Run `hop3 context use <name>` from inside a project directory (a tree containing `hop3.toml`). It writes `[local].context = "<name>"` to `.hop3-local.toml` (item 3 of the [Context Priority](#context-priority) chain). The file is local and not committed — each checkout chooses its own environment. `use` pins a *project* context only — it has no global form; to set a global default target, log in naming it (`hop3 login --context <name>`) or select per-command with `--context <name>`.
+Run `hop3 context use <name>` from inside a project directory (a tree containing `hop3.toml`). It writes `[local].context = "<name>"` to `.hop3-local.toml` (item 3 of the [Context Priority](#context-priority) chain). The file is local and not committed — each checkout chooses its own environment. `use` pins a *project* context only — it has no global form; to set a global default target, log in naming it (`hop3 auth login --context <name>`) or select per-command with `--context <name>`.
 
 **Examples:**
 ```bash
@@ -434,7 +434,7 @@ Set environment variable for your terminal session:
 export HOP3_CONTEXT=devel
 
 # All commands use it
-hop3 apps
+hop3 app list
 hop3 app status --app myapp
 ```
 
@@ -526,7 +526,7 @@ list = ["myapp.com", "www.myapp.com"]
 LOG_LEVEL = "warning"
 ```
 
-**Credential store** (`~/.config/hop3-cli/credentials.toml`) — local, per-developer, secret. Bearer tokens keyed by the *canonical* server address. Written only by `hop3 login` / `hop3 init`, created `0o600` (parent dir `0o700`); you never edit it by hand:
+**Credential store** (`~/.config/hop3-cli/credentials.toml`) — local, per-developer, secret. Bearer tokens keyed by the *canonical* server address. Written only by `hop3 auth login` / `hop3 init`, created `0o600` (parent dir `0o700`); you never edit it by hand:
 
 ```toml
 [servers."ssh://root@devel.example.com:22"]
@@ -536,11 +536,11 @@ token = "eyJ..."
 token = "eyJ..."
 ```
 
-**Global config** (`~/.config/hop3-cli/config.toml`) — secret-free. Local preferences plus **global contexts** (named servers) and the default context used by project-less commands (`hop3 apps`). The token still lives only in the credential store:
+**Global config** (`~/.config/hop3-cli/config.toml`) — secret-free. Local preferences plus **global contexts** (named servers) and the default context used by project-less commands (`hop3 app list`). The token still lives only in the credential store:
 
 ```toml
 [cli]
-default_context = "devel"                        # used by `hop3 apps` etc. with no --context
+default_context = "devel"                        # used by `hop3 app list` etc. with no --context
 # default_server = "ssh://root@host"             # legacy unnamed fallback (lower priority)
 
 [contexts.devel]
@@ -550,17 +550,17 @@ server = "ssh://root@devel.example.com"           # a named server — `--contex
 server = "ssh://root@staging.example.com"
 ```
 
-So `hop3 apps --context devel` targets the named server with no project; a bare `hop3 apps` targets `[cli].default_context`.
+So `hop3 app list --context devel` targets the named server with no project; a bare `hop3 app list` targets `[cli].default_context`.
 
 ## Authentication Commands
 
-### `hop3 auth register`
+### `hop3 user add`
 
 Register a new user account.
 
 **Usage:**
 ```bash
-hop3 auth register <username> <email> <password>
+hop3 user add <username> <email> <password>
 ```
 
 **Arguments:**
@@ -570,7 +570,7 @@ hop3 auth register <username> <email> <password>
 
 **Example:**
 ```bash
-hop3 auth register alice alice@example.com mypassword123
+hop3 user add alice alice@example.com mypassword123
 ```
 
 **Notes:**
@@ -587,17 +587,17 @@ URLs, magic links (`--web`) and password entry, and it stores the resulting
 token in the per-server credential store (`credentials.toml`). It also makes that
 server the default target for project-less commands. Pass `--context <name>` to
 **name** that server as a global context (`config.toml`) and make it the default
-context in one step — so `hop3 apps --context <name>` works afterwards with no
+context in one step — so `hop3 app list --context <name>` works afterwards with no
 project. It takes no positional username/password — for a non-interactive,
 scriptable token use [`hop3 auth get-token`](#hop3-auth-get-token).
 
 **Usage:**
 ```bash
-hop3 login                                  # password (prompted) for the default server
-hop3 login --ssh root@server                # SSH bootstrap (no password needed)
-hop3 login --context devel --ssh root@server # SSH bootstrap; also names global context 'devel' + default
-hop3 login --token <tok> --url <url>        # pre-generated token + server address
-hop3 login --web                            # magic link for the web dashboard
+hop3 auth login                                  # password (prompted) for the default server
+hop3 auth login --ssh root@server                # SSH bootstrap (no password needed)
+hop3 auth login --context devel --ssh root@server # SSH bootstrap; also names global context 'devel' + default
+hop3 auth login --token <tok> --url <url>        # pre-generated token + server address
+hop3 auth login --web                            # magic link for the web dashboard
 ```
 
 **Notes:**
@@ -655,13 +655,13 @@ hop3 auth logout
 
 ## Application Management
 
-### `hop3 apps`
+### `hop3 app list`
 
 List all applications.
 
 **Usage:**
 ```bash
-hop3 apps [--json]
+hop3 app list [--json]
 ```
 
 **Example Output:**
@@ -1142,65 +1142,65 @@ Manage the hostnames bound to an app. These commands are a first-class view over
 
 For the declarative equivalent in `hop3.toml`, see [`[domains]`](./config.md#domains-application-hostnames).
 
-### `hop3 domains list`
+### `hop3 domain list`
 
 Show the hostnames currently bound to an app.
 
 **Usage:**
 ```bash
-hop3 domains list [--app <app>]
+hop3 domain list [--app <app>]
 ```
 
 **Example:**
 ```bash
-hop3 domains list --app abilian-cms
+hop3 domain list --app abilian-cms
 ```
 
-### `hop3 domains add`
+### `hop3 domain add`
 
 Add one or more hostnames to an app (union, atomic, deduplicated).
 
 **Usage:**
 ```bash
-hop3 domains add [--app <app>] <host> [<host> ...]
+hop3 domain add [--app <app>] <host> [<host> ...]
 ```
 
 **Example:**
 ```bash
-hop3 domains add --app abilian-cms fermigier.com www.fermigier.com \
+hop3 domain add --app abilian-cms fermigier.com www.fermigier.com \
                                     abilian.com www.abilian.com
 ```
 
-### `hop3 domains remove`
+### `hop3 domain remove`
 
 Remove one or more hostnames from an app. Errors if any of the requested hostnames is not currently bound.
 
 **Usage:**
 ```bash
-hop3 domains remove [--app <app>] <host> [<host> ...]
+hop3 domain remove [--app <app>] <host> [<host> ...]
 ```
 
-### `hop3 domains set`
+### `hop3 domain set`
 
 Replace the full list of hostnames bound to an app.
 
 **Usage:**
 ```bash
-hop3 domains set [--app <app>] <host> [<host> ...]
+hop3 domain set [--app <app>] <host> [<host> ...]
 ```
 
 **Example:**
 ```bash
-hop3 domains set --app abilian-cms abilian.com www.abilian.com
+hop3 domain set --app abilian-cms abilian.com www.abilian.com
 ```
 
-### `hop3 domains clear`
+### `hop3 domain clear`
 
 Clear all hostnames from an app (unsets `HOST_NAME`).
 
 **Usage:**
 ```bash
-hop3 domains clear [--app <app>]
+hop3 domain clear [--app <app>]
 ```
 
 ## Nix Commands
@@ -1686,7 +1686,7 @@ hop3 addon postgres query <name> --command "SELECT 1"   # Ad-hoc SQL
 hop3 addon postgres clone <source> <new-name>   # Copy data into a new addon
 hop3 addon postgres export <name> > dump.sql    # Stream a dump to your machine
 hop3 addon postgres import <name> --confirm=<name> < dump.sql   # Load a dump
-hop3 addon postgres ps <name>                   # Active queries (diagnostics)
+hop3 addon postgres activity <name>                   # Active queries (diagnostics)
 hop3 addon postgres locks <name>                # Current locks
 hop3 addon postgres settings <name>             # Key configuration settings
 
@@ -1698,7 +1698,7 @@ hop3 addon mysql query <name> --command "SELECT 1"
 hop3 addon mysql clone <source> <new-name>       # Copy data into a new addon
 hop3 addon mysql export <name> > dump.sql        # Stream a dump to your machine
 hop3 addon mysql import <name> --confirm=<name> < dump.sql      # Load a dump
-hop3 addon mysql ps <name>                       # Active queries (diagnostics)
+hop3 addon mysql activity <name>                       # Active queries (diagnostics)
 hop3 addon mysql settings <name>                 # Key variables
 
 # Redis
@@ -2082,13 +2082,13 @@ hop3 completion fish > ~/.config/fish/completions/hop3.fish
 - `--refresh` - Update cached command list from server
 - `--status` - Show cache status
 
-### `hop3 plugins`
+### `hop3 plugin list`
 
 List installed plugins and their commands.
 
 **Usage:**
 ```bash
-hop3 plugins
+hop3 plugin list
 ```
 
 ### `hop3 tunnel`
@@ -2141,7 +2141,6 @@ Run a one-off command in the context of an app. `hop3 run` is a top-level alias.
 **Usage:**
 ```bash
 hop3 app run [--app <app>] <command> [args...] [--input <data>]
-hop3 run [--app <app>] <command> [args...]   # top-level alias
 ```
 
 **Options:**
@@ -2155,8 +2154,8 @@ hop3 app run python manage.py migrate
 # Run a command for an explicit app
 hop3 app run --app myapp python manage.py shell
 
-# One-off script via the alias
-hop3 run --app myapp node scripts/cleanup.js
+# One-off script
+hop3 app run --app myapp node scripts/cleanup.js
 ```
 
 ### `hop3 app sbom`
@@ -2249,7 +2248,7 @@ JSON output (`--json`) includes `error.exit_code` in the envelope so programmati
 
 4. **Use `--json` for automation:**
    ```bash
-   apps=$(hop3 apps --json | jq -r '.apps[].name')
+   apps=$(hop3 app list --json | jq -r '.apps[].name')
    for app in $apps; do
      hop3 backup create --app "$app"
    done

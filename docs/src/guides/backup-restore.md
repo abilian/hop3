@@ -430,7 +430,7 @@ Error: Application 'myapp' not found
 
 **Solution:** Check the application name:
 ```bash
-hop3 apps
+hop3 app list
 ```
 
 ### "Backup not found"

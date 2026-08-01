@@ -147,6 +147,7 @@ The CLI is space-separated (no colon syntax such as `app:status`), and the targe
 **Migration:**
 
 **Before:**
+<!-- lint-cli-ignore: legacy spellings are the subject of this migration Before-block -->
 ```bash
 hop3 status myapp
 hop3 restart myapp
@@ -167,6 +168,7 @@ hop3 app destroy --app myapp
 ### Example 1: Deployment Script
 
 **Before:**
+<!-- lint-cli-ignore: legacy spellings are the subject of this migration Before-block -->
 ```bash
 #!/bin/bash
 set -e
@@ -353,7 +355,7 @@ Always test migrated scripts in a development or staging environment first:
 
 ```bash
 # Authenticate against a test server (SSH-based auth)
-hop3 login --ssh root@dev.hop3.example.com
+hop3 auth login --ssh root@dev.hop3.example.com
 
 # Run your migrated script
 ./deploy.sh

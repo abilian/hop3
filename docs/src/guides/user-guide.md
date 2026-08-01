@@ -199,7 +199,7 @@ You can use both Procfile and hop3.toml. Hop3 merges them with `hop3.toml` takin
 hop3 init --ssh root@hop3.example.com
 
 # Or login to an existing setup
-hop3 login --ssh root@hop3.example.com
+hop3 auth login --ssh root@hop3.example.com
 
 # Verify connection
 hop3 auth whoami
@@ -213,7 +213,7 @@ hop3 settings
 
 ```bash
 # List all applications
-hop3 apps
+hop3 app list
 
 # Create a new app from a git repository (then deploy it)
 hop3 app create https://github.com/user/myapp.git --app myapp
@@ -544,7 +544,7 @@ hop3 app migrate procfile /path/to/app --backup
 
 ```bash
 # JSON output for scripting
-hop3 apps --json
+hop3 app list --json
 hop3 app status --app myapp --json | jq '.data.state'
 
 # Quiet mode (minimal output)

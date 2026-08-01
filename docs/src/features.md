@@ -89,7 +89,7 @@ hop3 env show --app myapp
 Full-featured command-line interface:
 
 ```bash
-hop3 apps                      # List applications
+hop3 app list                      # List applications
 hop3 app status --app myapp    # Application details
 hop3 app logs --app myapp      # View logs
 hop3 app restart --app myapp   # Restart application

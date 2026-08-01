@@ -199,7 +199,7 @@ hop3-server admin:create admin admin@example.com
 
 Then log into the server from your local CLI (the printed token is the API token):
 ```bash
-hop3 login --token <paste-token-here> --url https://your-server.com
+hop3 auth login --token <paste-token-here> --url https://your-server.com
 ```
 
 ### Generating API Tokens
@@ -309,7 +309,7 @@ Checks performed:
 
 ```bash
 # List all applications with status
-hop3 apps
+hop3 app list
 
 # Detailed app info
 hop3 app status --app myapp
@@ -563,7 +563,7 @@ hop3 env show --app myapp
 
 #### 502 Bad Gateway
 
-1. Check if application is running: `hop3 apps`
+1. Check if application is running: `hop3 app list`
 2. Check application logs: `hop3 app logs --app myapp`
 3. Verify Nginx config: `sudo nginx -t`
 4. Check uWSGI socket: `ls -la /tmp/uwsgi-*.sock`
