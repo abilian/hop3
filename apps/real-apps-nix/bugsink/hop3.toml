@@ -5,8 +5,23 @@ builder = "nix"
 type = "postgres"
 
 [run]
-# Cold migrate + Django first-request on the Nix venv over SSH can exceed 120s.
-start-timeout = 240
+# Setup runs here, not in the start wrapper. It has to complete before ANY
+# worker starts: snappea below would otherwise race the migration that creates
+# the tables it drains.
+before-run = "bash scripts/setup.sh"
+# 180s, matching the nix-gen variant. This was 240 after three successive
+# increases chasing a "failed to start within Ns" that was never about time:
+# the gunicorn master was binding the port and forking a worker that never
+# booted, because the app was running as one process (see [run.workers]).
+# Raising a start window does not fix a hang.
+start-timeout = 180
+
+# Bugsink is two processes. Its background queue ("snappea") lives in a separate
+# database and is drained by this worker; without it the app signs in and then
+# 500s on the first task path. This recipe ran gunicorn alone until 2026-08-01,
+# the only one of the three variants that did.
+[run.workers]
+snappea = "bugsink-runsnappea"
 
 [test]
 priority = "P1"

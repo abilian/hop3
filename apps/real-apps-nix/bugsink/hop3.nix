@@ -60,21 +60,13 @@ let
       # be the public host — an SDK cannot report to `localhost`.
       export BASE_URL="''${HOP3_PUBLIC_URL:-http://localhost:''${PORT:-8080}}"
 
-      # bugsink_conf.py is the operator-facing settings module. Generate
-      # on first run; bugsink-manage and bugsink.wsgi both set
-      # DJANGO_SETTINGS_MODULE=bugsink_conf and add cwd to sys.path.
-      # Persist SECRET_KEY in the file because env exports from here
-      # don't reliably propagate to the uWSGI daemon.
-      if [ ! -f bugsink_conf.py ]; then
-        VENVBIN/bugsink-create-conf --template docker \
-          --host localhost \
-          --port "''${PORT:-8080}" \
-          -o bugsink_conf.py
-        printf '\n# Written by Hop3 on first deploy from the injected, generated-once\n# SECRET_KEY — NOT minted here, which produced a new key per deploy.\nSECRET_KEY = "%s"\nALLOWED_HOSTS = ["*"]\n' "$SECRET_KEY" >> bugsink_conf.py
-      fi
-
-      VENVBIN/bugsink-manage migrate --noinput
-
+      # Config generation and BOTH migrations now live in
+      # `scripts/setup.sh`, run from `[run] before-run` (see hop3.toml).
+      # They were here, inside the web wrapper, which made them
+      # impossible to share with a second worker: whatever runs in this
+      # file runs only for gunicorn. That is how this recipe came to run
+      # a two-process application as one process, and it is why the
+      # snappea queue's own database was never migrated.
       exec VENVBIN/gunicorn bugsink.wsgi:application \
         --bind "0.0.0.0:''${PORT:-8080}" \
         --pythonpath . \
