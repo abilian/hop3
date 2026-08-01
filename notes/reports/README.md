@@ -1,0 +1,15 @@
+# Hop3 Technical Reports
+
+The technical report series written for the *Nix Integration for Hop3* project (NGI0 Commons Fund). Each report is authored in Markdown (`TR-*.md`) and typeset to PDF; the two interim reports are kept as records of the project at their date and are not updated, so read them with their supersession notes.
+
+## The reports
+
+**[TR-01](TR-01.md) — Hop3: A Sovereignty-First Platform-as-a-Service for Single-Server Deployment** *(April 2026, interim).* Establishes the system: the position between container orchestrators and ad-hoc provisioning, the plugin decomposition (builders × language toolchains, deployers, addons, proxies), the configuration model, the Nix build path with its code-generation templates and runtime contract, the backing-service abstractions, and the diagnostic infrastructure. Reports a preliminary qualitative evaluation over 99 end-to-end application-variant deployments. Carries a supersession note: the reproducibility taxonomy it describes (a `__noChroot` tier with network access) was later replaced by full dependency vendoring across all templates, with tiers reclassifying provenance rather than hermeticity.
+
+**[TR-02](TR-02.md) — Hop3: Consolidation, Operability, and the Road to a Final Release** *(June 2026, second interim).* Covers the 0.5 and 0.6 cycles, whose theme was operability rather than new headline capability: the unified testing architecture and failure-diagnosis discipline (ADR 043/044), the privileged-operations agent `hop3-rootd` and the exclusive host-port registry (ADR 041/045), the declarative application-resource model and server configuration/secret storage (ADR 046/048), the redesigned command surface and context model (ADR 036/042/047), and signed catalogue distribution (ADR 049). Complements TR-01 without restating it, and updates the NGI deliverable mapping ahead of the 0.7 release.
+
+**[TR-03](TR-03.md) — Hop3: A Sovereignty-First PaaS for Single-Server Deployment, with a Nix-Based Reproducible Build Path** *(2026, final).* The project's final report, doubling as the NGI0 final deliverable report, accompanying release 0.7. Carries the completed evaluation: a reproducibility census in which every template-generated recipe rebuilds bit-for-bit identically, a replicated four-strategy deploy-cost matrix in which both Nix paths deploy 1.4–1.6× faster than Docker, control-plane footprint measured against K3s and Docker Compose baselines, and closure sizes and update deltas against upstream Docker images. Its methodological throughline is the verification bar: verifying applications by signing in through their own authentication rather than by an HTTP response, and what raising that bar exposed. Ends with the milestone accounting, the supporting tooling, and the multi-node future-work programme.
+
+## Building
+
+`make` builds every out-of-date `TR-*.pdf`; `make TR-03.pdf` builds one. `build.py` converts the Markdown with `md2typst`, pre-renders the mermaid figures with `mmdc --pdfFit`, and compiles with `typst` against `report-style.typ`, which owns the visual design. Requires `typst`, `uv` and `mmdc` on `PATH`.
