@@ -34,7 +34,7 @@ The config was also written once and left alone, so a deployment that had ever r
 
 ## What the platform gained
 
-The screenshot harness no longer photographs a page it has not signed into; Radicale's two images were byte-identical and were being filed as proof.
+The screenshot harness no longer photographs a page it has not signed into.
 
 ## Deployment variants
 
@@ -53,11 +53,10 @@ hop3 app check --app radicale
 
 ## Open
 
-- **nix:** the sign-in page is photographed; there is no signed-in shot, deliberately. Radicale authenticates over HTTP Basic and its `.web` interface renders identically whether or not a credential was sent.
-- **nix-gen:** the sign-in page is photographed; there is no signed-in shot, deliberately. Radicale authenticates over HTTP Basic and its `.web` interface renders identically whether or not a credential was sent; the two images were once byte-identical and were being counted as 2 of 2.
+- **nix, nix-gen:** the sign-in page is photographed; there is no signed-in shot, deliberately (see above).
 
 ## Screenshots
 
 ![Sign-in page](images/radicale-01-login.png)
 
-Only the sign-in page. Radicale's `.web` interface renders identically once authenticated, so a second image would prove nothing: the pair that used to be here was byte-identical.
+Only the sign-in page, deliberately: a signed-in image would be identical (see above).

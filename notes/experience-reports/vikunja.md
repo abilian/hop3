@@ -53,6 +53,8 @@ hop3 app check --app vikunja
 
 ## Open
 
+Nothing open.
+
 ## Screenshots
 
 ![Sign-in page](images/vikunja-01-login.png)

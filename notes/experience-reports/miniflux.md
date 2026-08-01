@@ -26,13 +26,13 @@ An app that creates its own administrator at first start from injected environme
 
 ## What broke
 
-**It shipped a published administrator password.** `ADMIN_PASSWORD="${ADMIN_PASSWORD:-changeme}"` appeared in three places in the hand-written Nix recipe (the wrapper, `runtime.json`, and the derivation's `env` attrset), so removing it from one changed nothing. Miniflux creates its administrator at first start from `CREATE_ADMIN` plus those variables, which means the credential mapping *is* the bootstrap; there is no post-deploy command to fix it afterwards.
+**It shipped a published administrator password.** `ADMIN_PASSWORD="${ADMIN_PASSWORD:-changeme}"` appeared in three places in the hand-written Nix recipe (the wrapper, `runtime.json`, and the derivation's `env` attrset), so removing it from one changed nothing. Miniflux creates its administrator at first start from `CREATE_ADMIN` plus those variables, so there was no post-deploy command to fix it afterwards.
 
 **`buildGoModule` names the binary after the module path element**, so the artefact is `miniflux.app`. Nothing in the app id predicts that.
 
 ## What the platform gained
 
-Nothing in the platform. It contributed a pattern instead: where an application creates its administrator at first start from environment variables, the credential mapping *is* the bootstrap and there is no post-deploy command to correct it later.
+No platform change; a pattern: where an application creates its administrator at first start from environment variables, the credential mapping *is* the bootstrap, and it has to be right before the first start.
 
 ## Deployment variants
 
@@ -50,6 +50,8 @@ hop3 app check --app miniflux
 ```
 
 ## Open
+
+Nothing open.
 
 ## Screenshots
 

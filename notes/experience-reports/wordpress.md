@@ -28,11 +28,11 @@ Nothing new. It is the control that says the common path is boring: `getenv()` c
 
 Nothing broke that was WordPress's doing. It reads its configuration through `getenv()` in `wp-config.php`, which makes it unusually clean to express in every build path, and the template variant needed nothing the others did not.
 
-The one failure was ordering, and it was ours: the Docker variant started Apache before MySQL was accepting connections and returned a 500. A wait loop fixed it. The same shape now recurs across enough recipes to qualify as a platform pattern, and the fix belongs in the platform catalogue.
+The one failure was ordering, and it was ours: the Docker variant started Apache before MySQL was accepting connections and returned a 500. A wait loop fixed it.
 
 ## What the platform gained
 
-Nothing. It is a confirmation.
+The start-before-database race, first seen here, has since recurred across enough recipes to qualify as a platform pattern: a service-readiness wait belongs in the platform rather than in each recipe. Otherwise, a confirmation.
 
 ## Deployment variants
 
@@ -50,6 +50,8 @@ hop3 app check --app wordpress
 ```
 
 ## Open
+
+Nothing open.
 
 ## Screenshots
 

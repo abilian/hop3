@@ -40,7 +40,7 @@ The checking library's form handling: `form_fields` now sends the submit control
 
 ## Deployment variants
 
-Every variant takes the upstream *release* archive: Paheko vendors the KD2 framework into it and does not commit it, so a package built from the git tag is missing part of the application. SQLite, no addon.
+Every variant takes the upstream *release* archive, for the reason above: only it carries the vendored KD2 framework. SQLite, no addon.
 
 ## Verification
 

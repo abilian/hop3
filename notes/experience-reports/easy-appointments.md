@@ -22,11 +22,11 @@ Open source appointment scheduling.
 
 ## What this app exercised
 
-Whether the sign-in bar can be met by an application that builds its login form in JavaScript. It is the corpus's answer to that: no, not yet, by either verification path.
+Whether the sign-in bar can be met by an application that builds its login form in JavaScript. On the template variant the answer so far is no, by either verification path.
 
 ## What broke
 
-**The login form is built in JavaScript**, so the served page carries no inputs at all. An HTTP check cannot sign in, and this is the one application in the corpus where the browser harness cannot either: it fills the form, submits, and is still looking at it afterwards. The bootstrap reports success and the credential is reconciled; nothing has demonstrated the result.
+**The login form is built in JavaScript**, so the served page carries no inputs at all. On the template variant an HTTP check cannot sign in, and it is the one variant in the corpus the browser harness cannot sign into either: it fills the form, submits, and is still looking at it afterwards. The bootstrap reports success and the credential is reconciled; nothing has demonstrated the result.
 
 **The git tag is not the release.** It omits both the minified frontend assets and `vendor/`, so a package built from it is missing part of the application.
 
@@ -34,15 +34,15 @@ Whether the sign-in bar can be met by an application that builds its login form 
 
 ## What the platform gained
 
-`unzip` on `buildComposerProject`'s `nativeBuildInputs` when the source is a zip, in the `php-app` template. Otherwise this app is a standing question rather than a contribution: it is the one application the sign-in bar cannot reach.
+`unzip` on `buildComposerProject`'s `nativeBuildInputs` when the source is a zip, in the `php-app` template. Otherwise this app is a standing question rather than a contribution: the one variant in the corpus the sign-in bar cannot yet reach.
 
 ## Deployment variants
 
-Every variant takes the upstream *release* archive rather than the git tag. It is a flat zip, so `source-root` is `"."`, and it already ships 27,549 `vendor/` entries, so composer is switched off; which in turn wanted `unzip` on `buildComposerProject`'s `nativeBuildInputs`, now supplied by the `php-app` template.
+Every variant takes the upstream *release* archive rather than the git tag. It is a flat zip, so `source-root` is `"."`, and it already ships 27,549 `vendor/` entries, so composer is switched off.
 
 ## Verification
 
-`apps/easy-appointments/check.py` signs in with the `[admin]` credential, and confirms a wrong password is refused. It has no `[probe]` account, so it signs in as the operator's administrator: the weaker claim, since that password can be changed out from under it.
+`apps/easy-appointments/check.py` *attempts* to sign in with the `[admin]` credential and to confirm a wrong password is refused; on the template variant neither it nor the browser harness completes (see Open). It has no `[probe]` account, so what it attempts is the operator's administrator sign-in.
 
 ## Reproduce
 

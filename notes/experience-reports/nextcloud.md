@@ -32,8 +32,6 @@ The heaviest PHP dependency surface in the corpus (extensions, a cron worker, ba
 
 **It keeps a hidden password input in its signed-in markup**, which had the screenshot harness call a successful sign-in a refusal. Counting only *visible* fields is what a person looking at the image would do.
 
-**It is the most extension-hungry app in the set**, and under Nix every one has to be declared.
-
 ## What the platform gained
 
 `admin.create` reports its command's output rather than only an exit status, which is what revealed the `occ user:add --email` mistake, and the screenshot harness counts only *visible* password fields, because Nextcloud keeps a hidden one in its signed-in markup.
@@ -54,6 +52,8 @@ hop3 app check --app nextcloud
 ```
 
 ## Open
+
+Nothing open.
 
 ## Screenshots
 

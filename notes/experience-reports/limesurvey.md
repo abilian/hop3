@@ -28,7 +28,7 @@ A JavaScript-rendered admin UI that cannot be signed into over HTTP, so verifica
 
 **The recipe installed it with a published password.** `console.php install admin password123 Admin admin@example.com`, with the result discarded by `2>/dev/null || true`: a known credential on every deployment *and* a failed install reported as success, in one line.
 
-**Its admin UI is rendered by JavaScript**, so a form POST returns LimeSurvey's "JavaScript deactivated" notice and no HTTP sign-in is possible. Verification is deferred to the browser. A run without `--screenshots` cannot reach a verdict on this application at all; it is reported as unverifiable.
+**Its admin UI is rendered by JavaScript**, so a form POST returns LimeSurvey's "JavaScript deactivated" notice and no HTTP sign-in is possible; verification defers to the browser, as above.
 
 **The URL format determines whether the login form appears.** Without `urlManager` set to `urlFormat: path` and `showScriptName: true`, LimeSurvey builds its URLs in a form where the JavaScript that renders the login is fetched from paths that do not resolve: the page loads and the form never appears.
 
@@ -52,6 +52,8 @@ hop3 app check --app limesurvey
 ```
 
 ## Open
+
+Nothing open.
 
 ## Screenshots
 

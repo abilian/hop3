@@ -53,6 +53,8 @@ hop3 app check --app dolibarr
 
 ## Open
 
+Nothing open.
+
 ## Screenshots
 
 ![Sign-in page](images/dolibarr-01-login.png)

@@ -42,7 +42,7 @@ The hardest consumer of the Nix escape hatches. Quarkus rewrites `lib/quarkus` o
 
 ## Verification
 
-`apps/keycloak/check.py` signs in with the `[probe]` account, which Hop3 owns and rotates, and confirms a wrong password is refused.
+`apps/keycloak/check.py` authenticates as the `[probe]` account, which Hop3 owns and rotates — by obtaining an OIDC token, since Keycloak serves no login form to post — and confirms a wrong password fails to obtain one.
 
 ## Reproduce
 
@@ -52,6 +52,8 @@ hop3 app check --app keycloak
 ```
 
 ## Open
+
+Nothing open.
 
 ## Screenshots
 

@@ -45,11 +45,17 @@ Five applications were packaged, reported, and later dropped from the corpus: Ad
 
 ## What the numbers mean, and what they do not
 
-**Native is the variant the catalog publishes.** The most recent complete recorded run is 19 of 20; the twentieth failed on catalog content that predated its own fix and passes once republished. Every application has been seen green; no single run has been all-green *and* recorded. This report does not round that up, because a claim resting on "each of them passed at some point" is a weaker object than one resting on a run that can be pointed at.
+**Native is the variant the catalog publishes, and it is 20 of 20** on a complete recorded run (2026-08-01). Earlier drafts of this report declined to claim it: the runs before this one topped out at 19 of 20, every application had been seen green at some point, and no single run had been all-green *and* recorded. A claim resting on "each of them passed at some point" is a weaker object than one resting on a run that can be pointed at, so the number waited for the run. This is that run.
 
-**Nix-gen is 18 of 19** and **hand-written Nix is 16 of 16**, each on a complete recorded run of its whole family (2026-07-31). The hand-written figure is the only all-green family artefact the corpus has. Easy!Appointments is the single failure: it builds its login form in JavaScript, so neither the HTTP check nor the browser harness can complete a sign-in, and its report says so instead of passing it on the strength of a bootstrap that reports success.
+**Nix-gen is 18 of 19** and **hand-written Nix is 15 of 16**, on the same run. Two failures, and they are not the same kind of thing.
 
-Both families were measured for the first time that week, and the first measurement of the hand-written corpus **failed all sixteen applications**, three days after a deploy-oriented matrix scored the same recipes 15 ok, 0 fail. Two instruments, one corpus, opposite verdicts. That is the result the sign-in bar exists to produce. The older instrument could not see what it was reporting green; the same corpus reached 16 of 16 within a day.
+Easy!Appointments (nix-gen) builds its login form in JavaScript, so neither the HTTP check nor the browser harness can complete a sign-in; its report says so instead of passing it on the strength of a bootstrap that reports success. That failure is stable and understood.
+
+Bugsink (hand-written) is new and not yet understood: it did not install, timing out against its own 240-second start window at 245 seconds, with gunicorn visibly listening in the log by the time the window closed. Its sibling variants start in 28 and 43 seconds. The recipe already carries the longest start-timeout of the three, so raising it again would be treating a symptom of something not yet diagnosed. Until it is, this family's figure is 15 of 16 and the number is provisional in a way the other two are not.
+
+The hand-written family held the corpus's only all-green artefact until this run; native holds it now.
+
+Both families were measured for the first time that week, and the first measurement of the hand-written corpus **failed all sixteen applications**, three days after a deploy-oriented matrix scored the recipes in its scope 15 ok, 0 fail. Two instruments, one corpus, opposite verdicts. That is the result the sign-in bar exists to produce. The older instrument could not see what it was reporting green; the same corpus reached 16 of 16 within a day.
 
 ### What the first measurement found
 
@@ -74,7 +80,7 @@ For most of this corpus's life, "passing" meant the application deployed and ans
 Reports now name the bar they were verified at, in a header field the checker reads:
 
 | Bar | Meaning |
-|-----|----------|----------|--------|-----|---------|
+|-----|---------|
 | `http-status` | returned 200; **not sufficient** for a catalog app |
 | `http-content` | served its own content (a `contains` assertion) |
 | `authenticated` | signed in through the app's own auth; a wrong password was refused |
@@ -125,9 +131,9 @@ Two moved the other way, deliberately. Paheko and Easy!Appointments now fetch th
 
 ## Open
 
-- **No recorded all-green run of the native set:** the variant the catalog actually publishes. Every application has been seen green and the most recent complete run is 19 of 20. Both Nix families now have a complete recorded run, and hand-written Nix at 16 of 16 is the only all-green family artefact in the corpus; native is not. This report's headline number should rest on one.
+- **Bugsink under hand-written Nix stopped installing** (2026-08-01), after that family had been all-green the week before. It times out at 245s against its own 240s start window with gunicorn already listening; the nix-gen and native variants of the same application start in 28s and 43s. Whether that is a real slowdown in the `-nix` recipe or a boundary flake is undiagnosed, and it is the reason this family reads 15 of 16 rather than 16 of 16.
 - **Docker is unclaimed.** Recipes exist and none has been measured at the sign-in bar; the reports no longer carry the variant rather than carry an empty column for it. Both families that *have* been measured failed comprehensively on first contact, so this is a known unknown, not a safe one.
 - **Easy!Appointments cannot be verified by either path.** Its bootstrap runs and reports success; the served page carries no form inputs for `check.py` to post, and the browser harness fills the JavaScript-built form and remains on it. It may need a check that queries the application instead of driving its interface.
-- **Four applications are not photographed signed in**: Mattermost's React login is not drivable by the harness, Paheko's capture hangs on a ServiceWorker registration, Bugsink's has not been made to work, and Easy!Appointments fails outright. Invoice Ninja (Flutter canvas) and Radicale (HTTP Basic, rendering identically signed in or out) are declared undrivable, not counted as gaps.
+- **Two applications are not photographed signed in**: Mattermost's React login is not drivable by the harness, and Easy!Appointments fails outright. Paheko and Bugsink were on this list and have come off it — both now photograph, in every variant that installs. Invoice Ninja (Flutter canvas) and Radicale (HTTP Basic, rendering identically signed in or out) are declared undrivable, not counted as gaps. **Uptime Kuma joins them undeclared**: the 2026-08-01 run captured its sign-in page and no signed-in shot, and nobody has said whether that is a harness gap or another application the harness cannot drive. 50 of 55 variants are photographed.
 - **Isso ships no built frontend** under Nix: the `python-venv` template has no frontend build phase, so its admin dashboard serves a 200 whose JavaScript 404s; a `contains` assertion passes on it.
 - **`[healthcheck].contains` is declared by no recipe in the corpus**, and a deploy treats any status line as "serving". The "App is now running" a deploy prints is therefore satisfied by a 500, which makes a deploy's own report of success a weaker claim than these reports are.
