@@ -2,12 +2,12 @@
 
 **Status:** ✅ DONE and closed. 6 of 7 apps converted via `nixpkgs-wrapper`:
 Miniflux, Gitea, Grafana, Mattermost, Vikunja, Wiki.js. Phases 4–5 (custom
-`go-module` / `node-package` templates) never needed — `nixpkgs-wrapper`
+`go-module` / `node-package` templates) never needed: `nixpkgs-wrapper`
 covered every case. **Focalboard was dropped** rather than converted (upstream
 archived 2023; it exists in no `apps/real-apps-*` directory today, and Vikunja
 covers the use case). The document below is preserved as a record of the
 design and decision trail; the Definition-of-Done checkboxes further down are
-left unticked as the original per-app worksheet — read the addendum
+left unticked as the original per-app worksheet; read the addendum
 immediately below for the actual disposition.
 
 **Created:** 2026-04-09
@@ -17,16 +17,16 @@ immediately below for the actual disposition.
 
 ---
 
-**Reproducibility status (2026-06-22, for the NGI 0.7 review).** This plan delivered *source builds* — converting opaque `prebuilt-binary` apps to `nixpkgs-wrapper`, removing the x86_64-only, trust-the-vendor-binary problem. It did **not** deliver *reproducible* builds in the full Nix sense, and the "reproducible, multi-arch" phrasing in Approach A below overreaches on its own:
+**Reproducibility status (2026-06-22, for the NGI 0.7 review).** This plan delivered *source builds*: converting opaque `prebuilt-binary` apps to `nixpkgs-wrapper`, removing the x86_64-only, trust-the-vendor-binary problem. It did **not** deliver *reproducible* builds in the full Nix sense, and the "reproducible, multi-arch" phrasing in Approach A below overreaches on its own:
 
-- **nixpkgs is now pinned (shipped in 0.6.1, M1/M2).** Every generated and hand-crafted expression imports a specific nixpkgs commit (nixos-24.11) via `import (fetchTarball { url; sha256; }) {}` — no moving channel, and `<nixpkgs>`/`NIX_PATH` is never consulted — so two builds on different dates/hosts resolve the same nixpkgs. (When this plan closed in 2026-04, expressions still used the ambient `import <nixpkgs> {}` against the moving channel; that gap is now closed.)
-- **A per-app pin override exists (2026-07).** The single global pin can be too old for a package added to nixpkgs later — etherpad-lite entered nixpkgs only in nixos-25.05, while the default is 24.11 — so the `nixpkgs-wrapper` template accepts an optional `[nix].nixpkgs-rev` / `nixpkgs-sha256` that overrides the global pin for one app (rejected loudly on templates that can't honour it, so it never silently no-ops). This softens Approach A's "pinned to one nixpkgs version" disadvantage without giving up reproducibility.
-- ~~**Some builds are not hermetic.**~~ **Closed (2026-07).** The `python-venv` / `pnpm` / `composer` paths no longer set `__noChroot`; each vendors its dependency set into a fixed-output derivation from a committed lockfile and then builds offline in the sandbox. The floating-dependency escape went with it — `pip-packages` was retired, and a recipe that still carries the key is now rejected by name rather than silently ignored.
-- Of the two Definition-of-Done items below, the **ADR 008 reproducibility-tier update is done** (2026-07: the tiers were rewritten to rank provenance now that sandbox purity is uniform, and each template declares its tier in code). **aarch64 remains open by decision, not omission**: a vendored dependency set is resolved per platform, so supporting a second architecture means vendoring a second set, and the reproducibility claim is scoped to x86_64 explicitly.
+- **nixpkgs is now pinned (shipped in 0.6.1, M1/M2).** Every generated and hand-crafted expression imports a specific nixpkgs commit (nixos-24.11) via `import (fetchTarball { url; sha256; }) {}`. No moving channel, and `<nixpkgs>`/`NIX_PATH` is never consulted, so two builds on different dates/hosts resolve the same nixpkgs. (When this plan closed in 2026-04, expressions still used the ambient `import <nixpkgs> {}` against the moving channel; that gap is now closed.)
+- **A per-app pin override exists (2026-07).** The single global pin can be too old for a package added to nixpkgs later. Etherpad-lite entered nixpkgs only in nixos-25.05, while the default is 24.11, so the `nixpkgs-wrapper` template accepts an optional `[nix].nixpkgs-rev` / `nixpkgs-sha256` that overrides the global pin for one app (rejected loudly on templates that can't honour it, so it never silently no-ops). This softens Approach A's "pinned to one nixpkgs version" disadvantage without giving up reproducibility.
+- ~~**Some builds are not hermetic.**~~ **Closed (2026-07).** The `python-venv` / `pnpm` / `composer` paths no longer set `__noChroot`; each vendors its dependency set into a fixed-output derivation from a committed lockfile and then builds offline in the sandbox. The floating-dependency escape went with it; `pip-packages` was retired, and a recipe that still carries the key is now rejected by name rather than silently ignored.
+- Of the two Definition-of-Done items below, the **ADR 008 reproducibility-tier update is done** (2026-07: the tiers were rewritten to rank provenance now that sandbox purity is uniform, and each template declares its tier in code). **aarch64 remains open deliberately**: a vendored dependency set is resolved per platform, so supporting a second architecture means vendoring a second set, and the reproducibility claim is scoped to x86_64 explicitly.
 
 The accurate baseline is **ADR 008's reproducibility-tiers table**, which names these gaps explicitly (it does not overclaim), now joined by [ADR 058](../adrs/058-build-reproducibility-model.md) for the model itself.
 
-**Where the workstream actually stands (2026-07-30).** Pinning landed in **0.6.1**; hermeticity closed in 2026-07; and reproducibility is now *measured* rather than asserted — the benchmark reports **30/30 template-generated recipes bit-for-bit reproducible** (`notes/benchmarks/2026-07-28-readonly.jsonl`). Two levers remain, both tracked under M1/M2 in [`release-plan-0.7.md`](release-plan-0.7.md): a **reproducibility CI gate** (rebuild 2×, assert identical store paths, ideally on a second architecture) so a regression is caught rather than re-measured by hand, and **aarch64**, which stays open by decision — a vendored dependency set is resolved per platform, so a second architecture means vendoring a second set, and the claim is scoped to x86_64 explicitly. Treat this file as the source-build decision trail; treat those two items as what is left of "full Nix philosophy / reproducible builds".
+**Where the workstream actually stands (2026-07-30).** Pinning landed in **0.6.1**; hermeticity closed in 2026-07; and reproducibility is now *measured* rather than asserted. The benchmark reports **30/30 template-generated recipes bit-for-bit reproducible** (`notes/benchmarks/2026-07-28-readonly.jsonl`). Two levers remain, both tracked under M1/M2 in [`release-plan-0.7.md`](release-plan-0.7.md): a **reproducibility CI gate** (rebuild 2×, assert identical store paths, ideally on a second architecture) so a regression is caught rather than re-measured by hand, and **aarch64**, which stays open deliberately: a vendored dependency set is resolved per platform, so a second architecture means vendoring a second set, and the claim is scoped to x86_64 explicitly. Treat this file as the source-build decision trail; treat those two items as what is left of "full Nix philosophy / reproducible builds".
 
 ---
 
@@ -69,7 +69,7 @@ templates: `go-module` (using `buildGoModule`) and `node-package`
 - Not dependent on nixpkgs update cycle
 
 **Disadvantages:**
-- Significant effort per template + per app
+- More effort per template + per app
 - Need to compute and maintain `vendorHash` / `npmDepsHash`
 - Hash changes on every dependency update
 
@@ -98,7 +98,7 @@ Start with Miniflux (simplest Go app, single binary, env-var config).
 1. Check that `pkgs.miniflux` exists and builds on current nixpkgs
 2. Create `apps/real-apps-nix-gen/miniflux/hop3.toml` with
    `template = "nixpkgs-wrapper"` and `nixpkgs-package = "miniflux"`
-3. Keep the existing env vars, config, and `[[addons]]` — only the
+3. Keep the existing env vars, config, and `[[addons]]`; only the
    build method changes
 4. Test with `hop3-test system --ssh --with nix,postgres`
 5. Verify the binary works, connects to PostgreSQL, serves HTTP
@@ -115,7 +115,7 @@ Start with Miniflux (simplest Go app, single binary, env-var config).
 - Remove `exec` (wrapper uses the package's default binary)
 
 **Success criteria:** Miniflux deploys, connects to PostgreSQL,
-serves HTTP 200 on /healthcheck — same as before, but now built
+serves HTTP 200 on /healthcheck, same as before, but now built
 from source by Nix.
 
 ### Phase 2: Roll out to remaining nixpkgs apps (1 day)
@@ -213,7 +213,7 @@ Let me check if it needs enhancements for Go apps.
 **Likely needed enhancements:**
 - The exec target for Go apps is typically `$out/bin/<name>` but
   the wrapper needs to know the binary name (it may differ from
-  the package name — e.g., `pkgs.vikunja` binary is `vikunja`)
+  the package name; e.g., `pkgs.vikunja` binary is `vikunja`)
 - Some apps need `$out/share/<name>/` in PATH or as working dir
 - Config file generation (INI, YAML, JSON) already supported
 
@@ -234,7 +234,7 @@ data-dir = "$out/share/gitea"  # if app needs it
 | nixpkgs package layout differs from release | Medium | Wrapper script breaks | Compare `nix build` output with release archive; adjust paths |
 | `vendorHash` changes on updates | High (for go-module) | Builds break | Document hash update workflow; prefer nixpkgs-wrapper |
 | Some apps removed from nixpkgs | Low | Must fall back to go-module | Monitor nixpkgs; keep pre-built as fallback |
-| Build time significantly longer | Medium | Slower deployments | Cache Nix store; first build is slow, rebuilds are fast |
+| Build time longer | Medium | Slower deployments | Cache Nix store; first build is slow, rebuilds are fast |
 
 ## Definition of Done
 

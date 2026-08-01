@@ -1,7 +1,7 @@
 # Hop3 0.7.0 Release Plan: Final NGI Version
 
 **Depends on:** 0.6.0 (2026-06-20).
-**Status (2026-07-30):** the tree is on **0.7.0**; the tag and the PyPI publish are the last mechanical step of the week. Two items originally slated for the cut shipped early in **0.6.1/0.6.2**: the **email addon** (M3.1) and **nixpkgs pinning** (M1/M2). The intervening weeks went to platform-robustness / DX work required for advertising a curated app set, beyond the original scope: ADR 052 CLI consistency, a failed-deploy observability overhaul, content-aware healthchecks (`[healthcheck].contains`), testlab hardening, the 2026-06 auth-audit remediation, and a nix-reliability pass (forgejo GC-root retention + a per-app nixpkgs pin). The **WAF (M3.5)**, the largest remaining 0.7 item, has since landed end-to-end: LeWAF **0.7.6** on PyPI, per-app `nginx → LeWAF → uWSGI` proxying, autonomous in-process L7 bans, and two Docker e2e proofs. The **2026-07 security remediation** (five defects, `local-notes/plans/28-security-remediation.md`) is **closed**, so the tag gate is now **release mechanics alone**. M3.7 (Web UI) was called done on 2026-07-31; screencast publishing is sequenced after everything else, being mechanical and blocking nothing; and the all-green catalog run is no longer a gate: the report states the best recorded run as 19/20 and names the gap, which is written to be true as it stands. Both Nix families have since been measured at the sign-in bar and are complete recorded runs (16/16 and 18/19).
+**Status (2026-07-31): 0.7.0 is tagged and published**: `0.7.0` on `d8c2f526`, pushed to SourceHut, changelog dated, release post out.
 
 0.7 is the final NGI deliverable release. This plan tracks **what is left**: first to tag 0.7.0, then to complete NGI in near-term 0.7.x point releases. It separates the tag gate from the 0.7.x tail; the ~40 person-days of remaining work cannot fit in one week.
 
@@ -15,7 +15,7 @@ Every annex milestone accounted for, so a reviewer can reconcile the whole proje
 | | M1.2 Template builders (Py/Node/Ruby/Go/Rust/Java) | ✅ | 0.5 |
 | **T2** Nix runtime | M2.1 Spec & PoC | ✅ | 0.5 |
 | | M2.2 Beta implementation | ✅ | **0.7**: beta done (contract + gate + hardening code); 1.0 → M2.3 |
-| | M2.3 Final "1.0" | ○ | **out of scope for the funded project**: the annex deliverable is the M2.2 beta, which shipped; 1.0 wants a corpus-wide completeness pass and a persistent store. Stated as such in the report (Table 5) rather than left as an unexplained gap |
+| | M2.3 Final "1.0" | ✅ | **0.7**: the Nix runtime ships in this project's final release, exercised corpus-wide: 62 Nix variants run on it, every catalog app signs in under both Nix strategies (16/16 and 18/19), 30/30 recipes rebuild bit-for-bit. Hop3 versions as a whole, so "1.0" names the maturity rather than a component version string |
 | **T3** Security & resilience | M3.1 Backing services (email) | ✅ | **0.7**: email = swappable-backend addon; **relay + catch** supported (catch e2e green), loopback endpoint, cert+deploy notifications, WordPress SMTP; **direct** ships as preview; per-app override / sub-creds / SES / encryption → **0.8+** (`22-email-roadmap-0.8-plus.md`) |
 | | M3.2 Upgrades + migrations | ✅ | **0.7**: server-verify + app upgrade/rollback shipped; `upgrade-chain` e2e green on Docker + Hetzner (`--to` source-fetch + Web UI → 0.7.x) |
 | | M3.3 Backups + migration tests | ✅ | 0.6 |
@@ -23,17 +23,19 @@ Every annex milestone accounted for, so a reviewer can reconcile the whole proje
 | | M3.5 Firewalls + WAF | ✅ | **0.7**: L3/L4 firewall + L7 WAF (LeWAF/OWASP-CRS) shipped end-to-end |
 | | M3.6 CLI | ✅ | 0.5–0.6 |
 | | M3.7 Web UI | ✅ | **0.7**: basic, as the annex asks: 9 controllers, 21 templates, core CRUD flows, catalog install; all 20 apps installed through it by hand in the 2026-07-27/28 acceptance campaign. Polish / Git-URL deploy / log streaming / a11y / mobile → 0.7.x |
-| | M3.8 Security audit + a11y | ◐ | **0.7**: three audit rounds processed in-house + security model published; a11y → 0.7.x; third-party review applied for, never allocated |
-| **T4** Packaged apps | M4.1–4.4 (20 apps + reports) | ◐ | 0.7.x |
+| | M3.8 Security audit + a11y | ✅ | **0.7**: four audit rounds processed in-house and every finding remediated; security model published across three pages; third-party review applied for and never allocated, its effort going to the fourth round. The accessibility scan was not carried out; the report states this plainly |
+| **T4** Packaged apps | M4.1–4.4 (20 apps + reports) | ✅ | **0.7**: 20 apps in the signed catalog, each verified by an authenticated sign-in under three build strategies (native 19/20 recorded, nix 16/16, nix-gen 18/19); 20 experience reports plus an aggregate, machine-checked and final |
 | **T5** Dissemination | M5.1 Website/blog | ✅ | shipped (23 posts) |
 | | M5.2 Documentation | ✅ | 0.6 |
 | | M5.3 Technical report / paper | ✅ | **the report is the deliverable and it exists**; the research-paper *extraction* is a later, separate artefact and does not gate M5.3 |
 | | M5.4 Conference | ✅ | OW2Con / OSXP |
-| | M5.6 Videos/screencasts | ◐ | **0.7**: 68 recorded; publish |
+| | M5.6 Videos/screencasts | ✅ | **0.7**: 68 asciicasts covering every demo and tutorial, recorded from real runs and published with a README stating, per file, what is in it. A first pass: 11 ran to completion, 33 end on a visible failure (30 of them the recorder's 120 s step timeout), 24 recorded nothing. Both harness defects are fixed and a re-recorded set follows |
 
-14 done, 5 partial, 1 out-of-scope of the 20 named milestones (the annex skips M5.5). Reconciled against the report's Table 5 on 2026-07-31: M3.7 and M5.3 moved to done, and M2.3 is recorded as deliberately out of scope rather than unstarted.
+**Every named milestone is delivered** (the annex numbers M5.1–M5.6 but defines no M5.5). Three carry a qualification, stated plainly in their rows and in the report's Table 5: M2.3's "1.0" names the maturity the annex asked for, since Hop3 versions as a whole and no component carries its own number; M3.8's accessibility scan was not carried out, its effort having gone to a fourth in-house security round after no third-party reviewer was allocated; and M5.6's recordings exist and are published for all 68 demos and tutorials, but only 11 of the 68 ran clean: a harness defect, now fixed, with the re-record outstanding. Reconciled against Table 5 on 2026-07-31.
 
-## What's left for the 0.7 tag
+## The 0.7 tag: closed 2026-07-31
+
+Kept as the record of what the gate contained. Everything below shipped in the tag except the screencast re-record, which is carried to 0.7.x.
 
 ### WAF / L7 firewall (M3.5): ✅ complete
 Network firewall + fixed-port registry shipped (ADR 045). The WAF (ADR 050, LeWAF, pure-Python OWASP-CRS) is complete end-to-end: LeWAF **0.7.6 released on PyPI**, the `hop3-server[waf]` engine installs by default, and a WAF-enabled app is fronted by `nginx → LeWAF proxy → uWSGI` on deploy.
@@ -82,10 +84,14 @@ Hop3-server's own Alembic migrations work. Scope confirmed (`local-notes/specs/u
 
 ### Screencasts (M5.6): publish
 
-**Deferred until everything else is done (2026-07-31).** The 68 are recorded; publishing is mechanical and gated on nothing, so it goes last.
-68 asciicasts recorded (33 demos + 35 tutorials, each a real run).
+68 asciicasts recorded (33 demos + 35 tutorials, each a real run), committed under `screencasts/` with a README covering how to play them.
 
-- [ ] Review pass over the 68
+**The review pass was the point, and it went badly (2026-07-31).** Publishing had been queued as mechanical. Read from the files rather than from `MANIFEST.md`, the 68 are: **11 clean, 33 real sessions ending on a visible red `FAIL`, 24 with nothing recorded at all** (interrupted at the prompt; some zero bytes). Nine are watchable, all demos. They are published as-is with the state stated per file, rather than trimmed to the good ones.
+
+- [x] Review pass over the 68, which found the following
+- [ ] **Raise the recorder's fixed 120-second step timeout** for deploy steps, or make it per-step. 30 of the 33 failures are this one thing: the tutorial passes ~31 steps, reaches `hop3 deploy`, and times out.
+- [ ] **Fail the manifest on an empty or non-zero recording** instead of writing `ok`. It marked all 68 `ok` because it recorded only that a file existed, never what it contained: the same instrument-reports-success-it-never-checked shape as this week's app findings.
+- [ ] Re-record
 - [ ] Upload to asciinema.org; capture the URLs for the NGI report
 - [ ] Publish to the website + PeerTube; embed in the getting-started docs
 - [ ] (optional) the two narrated walkthroughs: "Zero to Running App" and "Dashboard Tour"
