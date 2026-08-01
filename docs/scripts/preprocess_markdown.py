@@ -83,8 +83,12 @@ class BlogMeta:
         return False
 
 
-def parse_frontmatter(content: str) -> tuple[dict, str]:
-    """Parse YAML frontmatter from markdown content."""
+def parse_frontmatter(content: str, source: Path | str) -> tuple[dict, str]:
+    """Parse YAML frontmatter from markdown content.
+
+    `source` names the file in the error, so a malformed post is identified
+    rather than leaving the reader to find it among hundreds.
+    """
     if not content.startswith("---"):
         return {}, content
 
@@ -97,8 +101,13 @@ def parse_frontmatter(content: str) -> tuple[dict, str]:
 
     try:
         metadata = yaml.safe_load(yaml_content) or {}
-    except yaml.YAMLError:
-        metadata = {}
+    except yaml.YAMLError as e:
+        msg = (
+            f"{source}: malformed YAML frontmatter: {e}\n"
+            "A value containing ': ' must be quoted, e.g. "
+            'description: "The Test Lab: making it legible".'
+        )
+        raise ValueError(msg) from e
 
     return metadata, remaining
 
@@ -289,8 +298,7 @@ def preprocess_blog_post(
     series_map = series_map or {}
     content = src_path.read_text()
 
-    # Parse frontmatter
-    metadata, body = parse_frontmatter(content)
+    metadata, body = parse_frontmatter(content, src_path)
     meta = extract_meta(metadata, body, src_path.name)
 
     # Skip drafts
@@ -484,7 +492,7 @@ def build_series_map(src_dir: Path) -> dict[str, list[BlogMeta]]:
     """
     series_map: dict[str, list[BlogMeta]] = {}
     for src_path in sorted(src_dir.glob("*.md")):
-        metadata, body = parse_frontmatter(src_path.read_text())
+        metadata, body = parse_frontmatter(src_path.read_text(), src_path)
         meta = extract_meta(metadata, body, src_path.name)
         if meta.is_draft or not meta.series:
             continue
