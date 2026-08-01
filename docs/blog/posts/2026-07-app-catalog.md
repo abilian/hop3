@@ -8,13 +8,13 @@ tags:
   - Getting Started
 ---
 
-# Nextcloud, Without the Install Guide
+# An App Catalog for Self-Hosting
 
-Nextcloud's installation documentation is thorough, well written, and roughly a morning's work. You need a database and a user for it. You need a specific set of PHP extensions, and a `php.ini` with a memory limit and an upload size that are not the defaults. You need a reverse proxy that sets the right headers, or the app will build every URL wrong and the login will loop. You need a cron job, or background jobs quietly stop. You need a TLS certificate. Then you get to create the admin account.
+Hop3 0.7 ships an **app catalog**: twenty real self-hosted applications you can browse in the dashboard and install by pressing a button. You give one a name and a domain, and Hop3 does the rest — including creating your admin account and signing in to check it worked before the deploy reports success.
 
-None of that is Nextcloud being difficult. Every serious self-hosted application has a version of that list, which is why so many people who want to self-host end up not self-hosting.
+What the catalog replaces is the setup guide. Every serious self-hosted application ships one, and they tend to be thorough, well written, and roughly a morning's work. Nextcloud's is representative rather than unusual: a database and a user for it; a particular set of PHP extensions; a `php.ini` whose memory limit and upload size are not the defaults; a reverse proxy that sets the right headers, or the app builds every URL wrong and the login loops; a cron job, or background jobs quietly stop; a TLS certificate. Then you get to create the admin account.
 
-Hop3 0.7 ships an **app catalog**. You open the dashboard, find the app, and install it.
+None of that is any one application being difficult. It is what connecting a web application to a machine actually involves, and it is why so many people who want to self-host end up not self-hosting.
 
 ## What that looks like
 
