@@ -23,7 +23,7 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 git push hop3 main
 ```
 
-That's it. Your app is live with automatic SSL, reverse proxy configuration, and process management.
+Your app is live with automatic SSL, reverse proxy configuration, and process management.
 
 ## Why We Built Hop3
 

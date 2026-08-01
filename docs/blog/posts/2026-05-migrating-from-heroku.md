@@ -40,7 +40,7 @@ One syntactic difference to keep in mind: where Heroku uses a colon (`config:set
 |--------|------|
 | Managed platform | Self-hosted |
 | Automatic scaling | Manual scaling |
-| Many addon types | PostgreSQL, MySQL, Redis, S3/MinIO — and growing |
+| Many addon types | PostgreSQL, MySQL, Redis, S3/MinIO, and growing |
 | Review apps | Not yet supported |
 | Pipelines | Not yet supported |
 
@@ -198,13 +198,13 @@ builder = "docker"
 
 ### Heroku Postgres Extensions
 
-If you use Heroku-specific Postgres extensions (like `pg_stat_statements`), enable them through the addon command — no SSH or manual `psql` needed:
+If you use Heroku-specific Postgres extensions (like `pg_stat_statements`), enable them through the addon command; no SSH or manual `psql` needed:
 
 ```bash
 hop3 addon postgres extensions your-app-db pg_stat_statements
 ```
 
-Extensions are allow-listed, so only the ones Hop3 ships support for will install.
+Extensions are allow-listed; only the ones Hop3 supports will install.
 
 ### Heroku Redis
 

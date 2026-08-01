@@ -13,7 +13,7 @@ Remember the first time you deployed something to Heroku? `git push heroku main`
 
 The difference: your code runs on your own server, with the same simplicity and full control.
 
-Let's deploy a Flask app from scratch. By the end of this post, you'll have a production-ready application with a database, custom domain, and SSL—all on a server you own.
+Let's deploy a Flask app from scratch. By the end of this post, you'll have a production-ready application with a database, custom domain, and SSL, all on a server you own.
 
 ## What You'll Need
 
@@ -32,7 +32,7 @@ ssh root@your-server.com
 curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 ```
 
-Grab a coffee—this takes a few minutes. The installer creates a `hop3` user, installs Python, Node, nginx, and sets up the hop3-server service. When it finishes, you'll see a success message.
+The installer takes a few minutes. Grab a coffee while you wait. It creates a `hop3` user, installs Python, Node, nginx, and sets up the hop3-server service. When it finishes, you'll see a success message.
 
 ## Installing the CLI
 
@@ -68,7 +68,7 @@ You should see an empty list. That's about to change.
 
 ## Building a Flask App
 
-Let's create something simple but real—an app that tracks page visits. Nothing fancy, but it'll exercise the full deployment pipeline.
+Let's create something simple but real: an app that tracks page visits. Nothing fancy, but it'll exercise the full deployment pipeline.
 
 ```bash
 mkdir myapp && cd myapp
@@ -139,7 +139,7 @@ Watch the magic happen:
 URL: http://your-server.com:5000
 ```
 
-Open that URL. See "Hello from Hop3!"? You just deployed an application. No Docker, no Kubernetes, no YAML files—just code to server.
+Open that URL. See "Hello from Hop3!"? You just deployed an application. Code to server, with nothing in between.
 
 ## Adding Your Domain
 
@@ -296,7 +296,7 @@ Now three gunicorn workers handle requests. Scaling is just a number.
 
 ## When Things Go Wrong
 
-They will. Here's how to debug.
+When they do, here's how to debug.
 
 **App won't start?** Check the logs:
 
@@ -353,6 +353,6 @@ Check our [guides](/guides/) for details on each of these.
 
 ---
 
-That's the Hop3 workflow. Code, deploy, iterate. No infrastructure PhD required.
+Code, deploy, iterate. No infrastructure PhD required.
 
 *For deeper configuration options, see [Designing hop3.toml](2026-02-hop3-toml-reference.md). Questions? Hit a snag? [Open an issue](https://github.com/abilian/hop3/issues) and we'll help you out.*

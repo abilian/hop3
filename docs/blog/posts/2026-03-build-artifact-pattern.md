@@ -126,7 +126,7 @@ class PythonToolchain(LanguageToolchain):
         )
 ```
 
-The artifact contains everything needed to run the app—no guessing required.
+The artifact contains everything needed to run the app. No guessing required.
 
 ## Deployers Consume Artifacts
 
@@ -151,7 +151,7 @@ class UWSGIDeployer:
             self.spawn_worker(name, command, env)
 ```
 
-The deployer doesn't need to know Python vs Ruby specifics—it just reads the artifact.
+The deployer reads the artifact; all language-specific details live in the artifact.
 
 ## Persistence
 

@@ -9,11 +9,11 @@ tags:
 
 # Designing hop3.toml: Configuration That Makes Sense
 
-When we started building Hop3, we faced a familiar dilemma: how do you configure a deployment without drowning in YAML? Heroku and Piku use environment variables and Procfiles. Kubernetes uses... well, a lot of YAML. We wanted something in between—expressive enough to handle real applications, simple enough to understand at a glance.
+When we started building Hop3, we faced a familiar dilemma: how do you configure a deployment without drowning in YAML? Heroku and Piku use environment variables and Procfiles. Kubernetes uses... well, a lot of YAML. We wanted something in between: expressive enough to handle real applications, simple enough to understand at a glance.
 
 We chose TOML. It's readable, it has proper data types, and it doesn't have YAML's indentation pitfalls. More importantly, it let us design a configuration that mirrors how developers actually think about their apps: "here's my app, here's how to build it, here's how to run it."
 
-This post walks through every section of `hop3.toml`. Think of it as both a reference and a peek into our design decisions.
+This post walks through every section of `hop3.toml`.
 
 ## The Basic Shape
 
@@ -43,9 +43,9 @@ path = "/health"
 type = "postgres"
 ```
 
-Each section handles one concern. No mixing build commands with runtime configuration. No environment variables scattered across files. Everything in one place.
+Each section handles one concern. Build commands stay separate from runtime configuration. Environment variables aren't scattered across files. Everything in one place.
 
-## `[metadata]` — Who Is This App?
+## `[metadata]`: Who Is This App?
 
 Every app needs an identity. The `metadata` section captures it:
 
@@ -61,7 +61,7 @@ license = "MIT"                 # Optional: license
 
 The `id` is the only required field. It must be lowercase letters, numbers, and hyphens, start with a letter, and be 2-64 characters. We enforce this strictly because the ID becomes part of file paths, database names, and URLs.
 
-## `[build]` — Getting Your App Ready
+## `[build]`: Getting Your App Ready
 
 The build section controls how Hop3 transforms your source code into something runnable:
 
@@ -98,9 +98,9 @@ Most of this is optional. Hop3 auto-detects your toolchain based on what files e
 | `clojure` | `project.clj` |
 | `static` | `index.html` |
 
-The `builder` option is interesting. By default (`auto`), Hop3 builds directly on the server using the native toolchain. But you can force Docker builds if you need isolation or specific system dependencies. We found that most apps don't need containerized builds—they're slower and more complex—but the option is there when you need it.
+By default (`auto`), Hop3 builds directly on the server using the native toolchain. Force Docker builds (`builder = "docker"`) if you need isolation or specific system dependencies.
 
-## `[run]` — Keeping Your App Alive
+## `[run]`: Keeping Your App Alive
 
 This is where you tell Hop3 how to actually run your application:
 
@@ -118,11 +118,11 @@ worker = "celery -A app worker"
 scheduler = "celery -A app beat"
 ```
 
-The `before-run` commands are one of our most-used features. They run every time the app starts—perfect for database migrations, static file collection, or cache warming. If any command fails, the deployment stops. No partial deployments, no broken state.
+The `before-run` commands are one of our most-used features. They run every time the app starts, which makes them perfect for database migrations, static file collection, or cache warming. If any command fails, the deployment stops. No partial deployments or broken state.
 
 ### A Note on Workers
 
-The `[run.workers]` section deserves special attention. Each key defines a separate process type:
+Each key in `[run.workers]` defines a separate process type:
 
 ```toml
 [run.workers]
@@ -134,7 +134,7 @@ cron = "python manage.py runcrons"
 
 Workers are managed independently. You can scale them separately (`hop3 ps scale --app worker=3`), restart them individually, and monitor them in isolation. This mirrors how Heroku's dynos work, and it's one of the patterns we explicitly borrowed.
 
-## `[env]` — Configuration Without Code Changes
+## `[env]`: Configuration Without Code Changes
 
 Environment variables live in their own section:
 
@@ -154,9 +154,9 @@ PORT = "8000"           # Correct
 # PORT = 8000           # Wrong - this is a TOML integer, not a string
 ```
 
-Some variables are special. `HOST_NAME` configures your domain for the reverse proxy and SSL. `PORT` is auto-injected—you shouldn't set it yourself. `DATABASE_URL` gets injected when you attach database addons.
+Some variables are special. `HOST_NAME` configures your domain for the reverse proxy and SSL. `PORT` is auto-injected; don't set it yourself. `DATABASE_URL` gets injected when you attach database addons.
 
-## `[static]` — Let Nginx Handle the Heavy Lifting
+## `[static]`: Let Nginx Handle the Heavy Lifting
 
 Static files can bypass your application entirely:
 
@@ -167,11 +167,11 @@ Static files can bypass your application entirely:
 "/favicon.ico" = "static/favicon.ico"
 ```
 
-The left side is the URL path, the right side is the filesystem path relative to your app's source. Nginx serves these directly, which is dramatically faster than having Python or Node serve static files.
+The left side is the URL path, the right side is the filesystem path relative to your app's source. Nginx serves these directly, which is faster than having Python or Node serve static files.
 
-We debated whether to auto-detect static directories. We decided against it—explicit configuration is clearer, and it prevents accidental exposure of directories you didn't intend to serve.
+We debated whether to auto-detect static directories. We decided against it. Explicit configuration is clearer, and it prevents accidental exposure of directories you didn't intend to serve.
 
-## `[healthcheck]` — Knowing When Things Break
+## `[healthcheck]`: Knowing When Things Break
 
 Health checks let Hop3 monitor your application:
 
@@ -195,9 +195,9 @@ def health():
         return "Database unavailable", 503
 ```
 
-When health checks fail repeatedly, Hop3 can restart your app automatically. This isn't magic—it's just automation of what you'd do manually when things go wrong.
+When health checks fail repeatedly, Hop3 can restart your app automatically. This is automation of what you'd do manually when things go wrong.
 
-## `[[addons]]` — Databases and Beyond
+## `[[addons]]`: Databases and Beyond
 
 The double-bracket syntax declares database addons:
 
@@ -219,7 +219,7 @@ When you deploy, Hop3 provisions these services and injects connection strings:
 | `mysql` | `DATABASE_URL`, `MYSQL_*` |
 | `redis` | `REDIS_URL` |
 
-We originally used `[[provider]]` for this, but "addon" is clearer. The old syntax still works—we don't break existing configs.
+We originally used `[[provider]]` for this, but "addon" is clearer. The old syntax still works: we don't break existing configs.
 
 ## The Less Common Sections
 
@@ -328,7 +328,7 @@ Hint: Check the hop3.toml reference for valid fields:
   https://hop3.cloud/reference/config/
 ```
 
-This is intentional. Silent failures—where Hop3 ignores a typo and your migration never runs—are worse than loud errors. We'd rather reject your deploy and tell you exactly what's wrong.
+Silent failures (where Hop3 ignores a typo and your migration never runs) are worse than loud errors. We reject your deploy and tell you exactly what's wrong.
 
 ## IDE Support
 
@@ -336,6 +336,6 @@ We generate a JSON Schema from our Pydantic models. VS Code with the "Even Bette
 
 ---
 
-Configuration is boring until it isn't. A well-designed config file saves hours of debugging. We've tried to make `hop3.toml` something you can read six months later and immediately understand.
+A well-designed config file saves hours of debugging. `hop3.toml` is designed to be readable six months later.
 
 *See also: [Configuration Validation](2026-03-configuration-validation.md) explains how we catch typos and provide helpful error messages. For a practical walkthrough, check out [Your First Hop3 Deployment](2026-02-deploying-first-app.md).*
