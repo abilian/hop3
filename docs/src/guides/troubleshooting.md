@@ -597,7 +597,7 @@ hop3 app logs --app myapp --lines 200 >> diagnostic.txt
 
 ### Where to Get Help
 
-1. **Documentation**: https://hop3.cloud/docs
+1. **Documentation**: https://hop3.cloud/
 2. **GitHub Issues**: https://github.com/hop3-project/hop3/issues
 3. **Community Chat**: (link to Discord/Matrix if available)
 
