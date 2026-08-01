@@ -22,7 +22,7 @@ Self-hosted uptime monitoring with a web UI and status pages.
 
 ## What this app exercised
 
-An app that authenticates over socket.io rather than HTTP, so its check drives the application's own bundled client through node.
+An app that authenticates over socket.io, so its check drives the application's own bundled client through node.
 
 ## What broke
 
@@ -40,15 +40,15 @@ Three silent fallbacks stacked into an accusation. Making them fail loudly also 
 
 ## What the platform gained
 
-The catalog driver's separation of "the run could not verify this" from "this application failed" — the vocabulary LimeSurvey's browser-only sign-in introduced — hardened here from the opposite direction: a probe whose silent fallbacks were converting "unverified" into a false "failed".
+The catalog driver's separation of "the run could not verify this" from "this application failed" (the vocabulary LimeSurvey's browser-only sign-in introduced) hardened from the opposite direction: a probe whose silent fallbacks were converting "unverified" into a false "failed".
 
 ## Deployment variants
 
-Node, no addon, and no template-generated variant. It authenticates over socket.io rather than a form, so its check drives the app's own bundled client through node; the only application in the corpus verified that way.
+Node, no addon, and no template-generated variant. It authenticates over socket.io, so its check drives the app's own bundled client through node; the only application in the corpus verified that way.
 
 ## Verification
 
-`apps/uptime-kuma/check.py` signs in as the `[probe]` account, which Hop3 owns and rotates, over socket.io — driving the application's own bundled client through node (`scripts/probe.js`), since Uptime Kuma has no form to post — and confirms a wrong password is refused.
+`apps/uptime-kuma/check.py` signs in as the `[probe]` account, which Hop3 owns and rotates, over socket.io (driving the application's own bundled client through node, `scripts/probe.js`, since Uptime Kuma has no form to post) and confirms a wrong password is refused.
 
 ## Reproduce
 
@@ -59,7 +59,7 @@ hop3 app check --app uptime-kuma
 
 ## Open
 
-- **No signed-in screenshot.** Uptime Kuma authenticates over socket.io rather than a form, so the browser harness cannot drive it and says so rather than photographing the login page twice. Its sign-in is verified by the node probe instead.
+- **No signed-in screenshot.** Uptime Kuma authenticates over socket.io, so the browser harness cannot drive it. Its sign-in is verified by the node probe.
 - **Only one variant exists.** Native is the whole of this app's coverage: there is no hand-written Nix recipe and no template one.
 
 ## Screenshots

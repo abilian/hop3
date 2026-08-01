@@ -38,7 +38,7 @@ The screenshot harness's `unsupported` declaration: a way to say *this applicati
 
 ## Deployment variants
 
-**Native** rebuilds the frontend with npm; the **Nix** variants rely on the committed Flutter bundle. Each variant ships something different, and both pass. The difference is noted without reconciliation.
+**Native** rebuilds the frontend with npm; the **Nix** variants rely on the committed Flutter bundle. Each variant ships something different, and both pass.
 
 ## Verification
 
@@ -53,7 +53,7 @@ hop3 app check --app invoice-ninja
 
 ## Open
 
-- **nix, nix-gen:** the sign-in page is photographed; there is no signed-in shot. The Flutter canvas offers no DOM inputs a selector can reach — declared `unsupported`, not a gap. `check.py` signs in over HTTP and is unaffected.
+- **nix, nix-gen:** the sign-in page is photographed; there is no signed-in shot. The Flutter canvas offers no DOM inputs a selector can reach: declared `unsupported`, not a gap. `check.py` signs in over HTTP and is unaffected.
 
 ## Screenshots
 

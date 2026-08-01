@@ -38,9 +38,9 @@ Everything below is from the two Nix variants; the native one has been clean.
 
 **`DATABASE_URL` was composed in `[nix.env-exports]`**, which is also wrapper-only. `[probe].create` had `PGUSER` and `PGHOST` but not the URL, and Django failed building a connection.
 
-**The hand-written Nix recipe ran the application as one process** (found and fixed 2026-08-01, after the template variant was already clean). It carried neither half of the second process the other two recipes have — no `migrate --database=snappea` for the queue's own database, no `[run.workers] snappea` — while generating its config from the same `--template docker` that assumes both. It could not have carried them: its setup lived inside the *web* start wrapper, and whatever runs in that file runs only for gunicorn, so setup was unshareable with a second worker by construction. Moving setup to `before-run` and declaring the worker fixed it.
+**The hand-written Nix recipe ran the application as one process** (found and fixed 2026-08-01, after the template variant was already clean). It carried neither half of the second process the other two recipes have (no `migrate --database=snappea` for the queue's own database, no `[run.workers] snappea`) while generating its config from the same `--template docker` that assumes both. It could not have carried them: its setup lived inside the *web* start wrapper, and whatever runs in that file runs only for gunicorn, so setup was unshareable with a second worker by construction.
 
-The failure this produced is worth recording precisely, because it was misread for weeks. It presented as *"failed to start within 240.0s"*, so the response each time was to raise the timeout — 120 native, 180 nix-gen, 240 nix, three increases spent on it. It was not slow. The gunicorn master bound the port eight seconds in, logged `Listening at`, and never logged `Booting worker`: no traceback, nothing served, a silent hang for the remaining 232 seconds. The platform said exactly that in the line beneath the headline — *"the app's port is listening but it did not answer an HTTP request: the server bound its socket but no worker is serving"* — at every occurrence. After the fix: 40 seconds to a pass.
+It presented as *"failed to start within 240.0s"*, so the response each time was to raise the timeout: 120 native, 180 nix-gen, 240 nix, three increases spent on it. It was not slow. The gunicorn master bound the port eight seconds in, logged `Listening at`, and never logged `Booting worker`: no traceback, nothing served, a silent hang for the remaining 232 seconds. The platform said exactly that in the line beneath the headline (*"the app's port is listening but it did not answer an HTTP request: the server bound its socket but no worker is serving"*) at every occurrence. After the fix: 40 seconds to a pass.
 
 ## What the platform gained
 
@@ -67,7 +67,7 @@ hop3 app check --app bugsink
 
 ## Open
 
-Nothing. All three variants sign in, and all three photograph — the hand-written Nix variant gained a signed-in shot once it stopped hanging, having previously had a login page only.
+No open items remain. All three variants sign in, and all three photograph. The hand-written Nix variant gained a signed-in shot once it stopped hanging, having previously had a login page only.
 
 ## Screenshots
 

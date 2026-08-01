@@ -30,7 +30,7 @@ An application with **no installer CLI at all**. It was listed as a permanent de
 
 Dolibarr ships **no installer CLI**, only a browser wizard, which is why it was once listed as a permanent deferral. Each wizard step also reads its inputs from `$argv` under the PHP CLI, so the same steps a browser drives can be driven from a script; that is how it is installed now, in every variant.
 
-**Its steps can print an error and still exit 0**, so the bootstrap verifies the admin row exists rather than trusting the exit code.
+**Its steps can print an error and still exit 0**, so the bootstrap checks for the admin row directly.
 
 ## What the platform gained
 
@@ -38,7 +38,7 @@ Nothing in the platform; the answer was a technique. Driving a browser wizard's 
 
 ## Deployment variants
 
-Its web root is `htdocs`, not the `public` most PHP frameworks assume. **Native** and both **Nix** variants drive the browser wizard's steps from the CLI through the same script; **Docker** does the same at entrypoint. Postgres rather than MySQL, which makes it the corpus's test of that addon against a PHP toolchain.
+Its web root is `htdocs`, where most PHP frameworks use `public`. **Native** and both **Nix** variants drive the browser wizard's steps from the CLI through the same script; **Docker** does the same at entrypoint. It uses Postgres, which makes it the corpus's test of that addon against a PHP toolchain.
 
 ## Verification
 

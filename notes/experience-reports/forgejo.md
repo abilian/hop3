@@ -26,9 +26,9 @@ Same shape as Gitea. Showed that a Go binary is named after its module path (`fo
 
 ## What broke
 
-Four defects are shared with Gitea, whose report describes them: an admin bootstrap calling `./forgejo` in a layout where the binary lives in the store, `$out/bin` holding only the generated wrapper, three signing secrets minted by the wrapper and rotating on every restart, and open registration shipping in every Nix variant — with the same fixes, and the same lesson about what the sign-in bar cannot catch.
+Four defects are shared with Gitea, whose report describes them: an admin bootstrap calling `./forgejo` in a layout where the binary lives in the store, `$out/bin` holding only the generated wrapper, three signing secrets minted by the wrapper and rotating on every restart, and open registration shipping in every Nix variant; the same fixes apply, and the same lesson about what the sign-in bar cannot catch.
 
-**What is Forgejo's own is the binary's name.** `buildGoModule` names the output after the module path element, so the source build produces `forgejo.org` (as Miniflux's produces `miniflux.app`), and every `forgejo …` invocation in the recipe had to be `forgejo.org …`.
+**The binary's name alone is Forgejo's own.** `buildGoModule` names the output after the module path element, so the source build produces `forgejo.org` (as Miniflux's produces `miniflux.app`), and every `forgejo …` invocation in the recipe had to be `forgejo.org …`.
 
 ## What the platform gained
 

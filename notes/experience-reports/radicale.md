@@ -38,7 +38,7 @@ The screenshot harness no longer photographs a page it has not signed into.
 
 ## Deployment variants
 
-Available as a top-level nixpkgs package, so the **Nix** variants wrap it rather than building anything. File-based storage and no addon. Accounts are lines in an htpasswd file (there is no user CLI), so `create` writes a bcrypt hash directly, which is why the derivation puts a `python3` carrying bcrypt on the app's PATH in its own right.
+Available as a top-level nixpkgs package. The **Nix** variants wrap it without a build step. File-based storage and no addon. Accounts are lines in an htpasswd file (there is no user CLI), so `create` writes a bcrypt hash directly, which is why the derivation puts a `python3` carrying bcrypt on the app's PATH in its own right.
 
 ## Verification
 

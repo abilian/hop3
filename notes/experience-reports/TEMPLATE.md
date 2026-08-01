@@ -48,7 +48,7 @@ field, an installer step, a runtime behaviour.
 
 Every failure worth another packager's time: the symptom, the error as it
 actually appeared, how it was diagnosed, and what resolved it. Include failures
-that turned out to be our own misreading; those are the ones that cost the most
+that turned out to be our own misreading; they cost the most
 time and are least likely to be written down elsewhere.
 
 > Required. "Nothing broke" is a legitimate answer for a genuinely clean app and
@@ -58,10 +58,9 @@ time and are least likely to be written down elsewhere.
 ## What the platform gained
 
 The changes to Hop3 this application forced, with links (ADR, commit, template
-field). This is the section that makes the corpus an instrument rather than a
-checklist.
+field). This is the section that makes the corpus an instrument.
 
-> If the answer is "nothing", the app was a confirmation rather than a probe.
+> If the answer is "nothing", the app was a confirmation.
 > Say that.
 
 ## Deployment variants

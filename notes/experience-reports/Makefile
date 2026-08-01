@@ -13,7 +13,7 @@ HOP3 := $(CURDIR)/../..
 
 .PHONY: all lint pdf pdf-debug bundle clean help
 
-all: lint
+all: lint pdf
 
 ## Validate every report header against the recipes it describes.
 ##

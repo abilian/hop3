@@ -22,7 +22,7 @@ A lightweight commenting system, Disqus alternative.
 
 ## What this app exercised
 
-A comment widget whose `/` is an API rather than a page, and whose moderation dashboard is password-only: there is no account to name.
+A comment widget whose `/` is an API. Its moderation dashboard is password-only: there is no account to name.
 
 ## What broke
 
