@@ -138,7 +138,7 @@ Most commands are forwarded to the server as the `cli` method, with the command 
 ```bash
 # These are forwarded to the server as cli(["<tokens>"])
 hop3 app list                  # `apps` is a built-in alias for `app list`
-hop3 app launch foo            # alias for `app create foo`
+hop3 app create foo            # create an app from a repository
 hop3 deploy                    # package the current project and deploy
 hop3 app logs --app myapp      # show logs for an explicit app
 hop3 app logs                  # same, app resolved from context
@@ -185,7 +185,7 @@ Bearer tokens live in `~/.config/hop3-cli/credentials.toml` (same config dir), k
 token = "eyJ..."
 ```
 
-This file is invisible plumbing: `hop3 login` / `hop3 init` populate it, deploy/RPC read it, and it is never hand-edited. It is created file-mode `0o600` with parent dir `0o700`, and the store **aborts loudly** rather than ever leaving it group/world-readable (Hop3's "errors are never silent" rule). See `core/credential_store.py`.
+This file is invisible plumbing: `hop3 auth login` / `hop3 init` populate it, deploy/RPC read it, and it is never hand-edited. It is created file-mode `0o600` with parent dir `0o700`, and the store **aborts loudly** rather than ever leaving it group/world-readable (Hop3's "errors are never silent" rule). See `core/credential_store.py`.
 
 ### Contexts (the one target selector)
 
@@ -225,7 +225,7 @@ The CLI supports multiple output formats:
 ### Human-Readable (default)
 
 ```
-$ hop3 apps
+$ hop3 app list
 NAME        STATE     PORT    UPDATED
 myapp       running   8001    2h ago
 api         running   8002    1d ago
@@ -234,14 +234,14 @@ api         running   8002    1d ago
 ### JSON
 
 ```
-$ hop3 apps --json
+$ hop3 app list --json
 [{"name": "myapp", "state": "running", "port": 8001}, ...]
 ```
 
 ### Quiet
 
 ```
-$ hop3 apps --quiet
+$ hop3 app list --quiet
 myapp
 api
 ```
@@ -290,11 +290,11 @@ The JSON envelope includes `error.exit_code` so JSON consumers don't have to map
 
 ## Authentication Flow
 
-`hop3 login` (canonical spelling: `hop3 auth login`) is a local handler. Its
+`hop3 auth login` (canonical spelling: `hop3 auth login`) is a local handler. Its
 password path goes through the server's `auth get-token` primitive:
 
 ```
-1. User runs: hop3 login   (prompts for username/password)
+1. User runs: hop3 auth login   (prompts for username/password)
 2. CLI forwards the credentials as cli(["auth", "get-token", user, pass])
 3. Server verifies them and returns a JWT token
 4. CLI saves the token to the per-server credential store (credentials.toml)
@@ -305,7 +305,7 @@ password path goes through the server's `auth get-token` primitive:
 `hop3 auth get-token <user> --password-file -` exposes that same primitive
 directly, for scripts that want to capture a token without saving config.
 
-`hop3 login --ssh <target>` obtains the token over SSH and stores it the same way — in the per-server credential store, keyed by the canonical server address, with the server set as the project-less default. With `--context <name>`, the server is also recorded as a global context in `config.toml` and set as `[cli].default_context` (still secret-free — only the address is written). `config.toml` is never where the token goes. When the API URL uses an `ssh://` scheme, the CLI can also obtain a token over SSH automatically: on a 401 it runs the SSH bootstrap, fetches a token, stores it, and retries the request. This is what the local `hop3 init` and `hop3 login` commands rely on.
+`hop3 auth login --ssh <target>` obtains the token over SSH and stores it the same way — in the per-server credential store, keyed by the canonical server address, with the server set as the project-less default. With `--context <name>`, the server is also recorded as a global context in `config.toml` and set as `[cli].default_context` (still secret-free — only the address is written). `config.toml` is never where the token goes. When the API URL uses an `ssh://` scheme, the CLI can also obtain a token over SSH automatically: on a 401 it runs the SSH bootstrap, fetches a token, stores it, and retries the request. This is what the local `hop3 init` and `hop3 auth login` commands rely on.
 
 ## Development Notes
 

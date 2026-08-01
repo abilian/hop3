@@ -667,11 +667,11 @@ Migrations run automatically before each deployment.
 Run the migration as a one-off command against the deployed app, then deploy:
 
 ```bash
-hop3 run --app myapp python manage.py migrate  # Run migrations
+hop3 app run --app myapp python manage.py migrate  # Run migrations
 hop3 deploy --app myapp                          # Deploy new version
 ```
 
-`hop3 run` executes the given command line inside the app's environment (the same virtualenv and env vars the app runs with).
+`hop3 app run` executes the given command line inside the app's environment (the same virtualenv and env vars the app runs with).
 
 ### Asset Compilation
 

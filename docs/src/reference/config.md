@@ -273,14 +273,14 @@ _policy = "keep-existing"   # optional; "override" to overwrite on every deploy
 **Fields:**
 
 - `list` (array of strings, required when section is present): hostnames bound to this app, in declaration order. Each entry must be a valid RFC-1123 hostname. The special value `"_"` is the nginx catch-all and may only appear alone.
-- `_policy` (string, optional, default `"keep-existing"`): merge policy. Mirrors `[env]._policy`. With `"keep-existing"`, a manually set HOST_NAME (via `hop3 env set` or `hop3 domains`) is preserved across deploys. With `"override"`, the value from `hop3.toml` is reapplied on every deploy.
+- `_policy` (string, optional, default `"keep-existing"`): merge policy. Mirrors `[env]._policy`. With `"keep-existing"`, a manually set HOST_NAME (via `hop3 env set` or `hop3 domain`) is preserved across deploys. With `"override"`, the value from `hop3.toml` is reapplied on every deploy.
 
 **Notes:**
 
 - `[domains].list` is mutually exclusive with `HOST_NAME` under `[env]`. Setting both is a hop3.toml validation error — use one or the other.
 - At deploy time, the section is translated into the `HOST_NAME` env var that the reverse-proxy plugins (nginx / caddy / traefik) read.
-- An empty list (`list = []`) is a no-op: HOST_NAME is **not** unset. Use `hop3 domains clear --app <app>` to remove the binding explicitly.
-- For CRUD from the CLI, see `hop3 domains` in the CLI reference.
+- An empty list (`list = []`) is a no-op: HOST_NAME is **not** unset. Use `hop3 domain clear --app <app>` to remove the binding explicitly.
+- For CRUD from the CLI, see `hop3 domain` in the CLI reference.
 
 ### `[deploy]` - Deploy-Time Configuration
 
@@ -369,7 +369,7 @@ create   = "app-cli user create ..."       # REQUIRED: idempotent, run once afte
 A **context** is a named target, and `--context <name>` is the one CLI selector for every command. A context exists at two scopes, and `[contexts.<name>]` appears in **two files**:
 
 - In the **committed `hop3.toml`** (documented here): a full deploy environment — `devel`, `staging`, and whatever else you run — each a distinct app instance, usually on a different server, with its own domains and non-secret configuration. One codebase, many environments.
-- In the per-developer **`config.toml`**: a *global* context, the same block pared to just `server = "<addr>"` — a name bound to a server address, so project-less commands (`hop3 apps --context devel`) can target a server by name. Server-only, no `app`/`domains`/`env`.
+- In the per-developer **`config.toml`**: a *global* context, the same block pared to just `server = "<addr>"` — a name bound to a server address, so project-less commands (`hop3 app list --context devel`) can target a server by name. Server-only, no `app`/`domains`/`env`.
 
 `--context <name>` resolves **project-first, then global**. Neither file holds a secret: the `server` is always a literal address, and the bearer token lives only in the credential store (see below). See [ADR 042](https://github.com/abilian/hop3/blob/main/notes/adrs/042-cli-context-model.md) for the full model.
 
@@ -427,7 +427,7 @@ Because each context targets a distinct app instance (`myapp` vs `myapp-dev`), p
 
 ### Where bearer tokens live (not in `hop3.toml`)
 
-The bearer token used to *talk to* a server is **not** in `hop3.toml` (it is shared) — nor in `config.toml`. It lives in the per-server **credential store** at `~/.config/hop3-cli/credentials.toml` (file mode `0o600`, keyed by canonical server address), written by `hop3 login` / `hop3 init`. A context's `server` field names the address; the CLI looks up that address's token in the credential store at deploy time. The credential store is documented more fully in the [CLI reference](cli.md).
+The bearer token used to *talk to* a server is **not** in `hop3.toml` (it is shared) — nor in `config.toml`. It lives in the per-server **credential store** at `~/.config/hop3-cli/credentials.toml` (file mode `0o600`, keyed by canonical server address), written by `hop3 auth login` / `hop3 init`. A context's `server` field names the address; the CLI looks up that address's token in the credential store at deploy time. The credential store is documented more fully in the [CLI reference](cli.md).
 
 ### `[port]` - Port Configuration
 

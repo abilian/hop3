@@ -140,7 +140,7 @@ Admin user 'admin' created successfully.
 Configuration saved to ~/.config/hop3-cli/config.toml
 
 You're all set! Try:
-  hop3 apps           # List applications
+  hop3 app list           # List applications
   hop3 auth whoami    # Check current user
 ```
 
@@ -170,10 +170,10 @@ sudo -u hop3 /home/hop3/venv/bin/hop3-server admin:list
 Then log into the server from your local CLI with the token:
 
 ```bash
-hop3 login --token <paste-token-here> --url https://your-server.com
+hop3 auth login --token <paste-token-here> --url https://your-server.com
 ```
 
-> `hop3 login --ssh root@your-server.com` does all of the above in one step
+> `hop3 auth login --ssh root@your-server.com` does all of the above in one step
 > (SSH access ⇒ admin access): it runs `admin:ssh-token` on the server,
 > auto-creating a default `admin` if none exists, and stores the token locally.
 
@@ -183,7 +183,7 @@ Once an [admin domain](#admin-ui-access) is configured, you can sign into the
 Web UI without a password using a one-time magic link. From your workstation:
 
 ```bash
-hop3 login --web root@your-server.com
+hop3 auth login --web root@your-server.com
 ```
 
 This prints a `https://<admin-domain>/auth/magic/<token>` URL — open it in a

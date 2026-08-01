@@ -110,7 +110,7 @@ With your application code and configuration ready, you can now deploy it.
     If you've already set up the server and just need to configure a new machine:
 
     ```bash
-    hop3 login --ssh root@hop3.example.com
+    hop3 auth login --ssh root@hop3.example.com
     ```
 
     See the [Installation Guide](./server-setup.md) for detailed setup instructions.
@@ -186,7 +186,7 @@ This prints the last 100 lines by default. Use `-n`/`--lines` to change the coun
 #### List All Applications
 See all your deployed applications at a glance:
 ```bash
-hop3 apps
+hop3 app list
 ```
 
 #### Destroy the Application
@@ -323,7 +323,7 @@ Almost all Hop3 commands support `--json` output for scripting and automation:
 hop3 app status --app myapp --json | jq '.data.state'
 
 # List all apps and filter by status
-hop3 apps --json | jq '.data[] | select(.state == "RUNNING")'
+hop3 app list --json | jq '.data[] | select(.state == "RUNNING")'
 
 # Create backup and capture backup ID
 BACKUP_ID=$(hop3 backup create --app myapp --json | jq -r '.data.backup_id')
@@ -339,7 +339,7 @@ Use `--quiet` to suppress progress messages and only show essential output:
 hop3 deploy --app myapp --quiet
 
 # Combine with JSON for clean machine-readable output
-hop3 apps --json --quiet
+hop3 app list --json --quiet
 ```
 
 ### Skipping Confirmations

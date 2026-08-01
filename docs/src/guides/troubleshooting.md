@@ -11,7 +11,7 @@ Before diving into specific issues, run these commands to gather information:
 hop3 system status
 
 # Application status
-hop3 apps
+hop3 app list
 
 # Recent logs
 hop3 app logs --app myapp --lines 50
@@ -589,7 +589,7 @@ cat /home/hop3/uwsgi-enabled/*.ini
 # Full diagnostic dump
 hop3 system info >  diagnostic.txt
 hop3 system status >> diagnostic.txt
-hop3 apps >> diagnostic.txt
+hop3 app list >> diagnostic.txt
 
 # Include logs for specific app
 hop3 app logs --app myapp --lines 200 >> diagnostic.txt

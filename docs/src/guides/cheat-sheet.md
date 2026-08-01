@@ -30,7 +30,7 @@ Your Code  →  hop3 deploy  →  Running App on Your Server
 hop3 init --ssh root@hop3.example.com
 
 # Log in to existing server
-hop3 login --ssh root@hop3.example.com
+hop3 auth login --ssh root@hop3.example.com
 
 # Check who you're logged in as
 hop3 auth whoami
@@ -76,15 +76,15 @@ hop3 context remove old-staging
 
 ```bash
 # Name a global server (login authenticates, names the global context, makes it default)
-hop3 login --context devel --ssh root@devel.example.com
+hop3 auth login --context devel --ssh root@devel.example.com
 # (or, without logging in: hop3 context add devel --server ssh://root@devel.example.com)
 
 # Now target it by name with no project — same flag as an in-project deploy:
-hop3 apps --context devel
+hop3 app list --context devel
 hop3 system info --context devel
 
 # A bare project-less command targets [cli].default_context:
-hop3 apps
+hop3 app list
 ```
 
 **Context priority (highest to lowest):**
@@ -99,7 +99,7 @@ The chosen name resolves **project-first, then global** (`hop3.toml` then `confi
 
 ```bash
 # Create app from git repository
-hop3 app launch <git-url> --app <app-name>
+hop3 app create <git-url> --app <app-name>
 
 # Deploy (from project directory)
 hop3 deploy --app <app-name>
@@ -122,7 +122,7 @@ hop3 app stop --app <app>
 hop3 app restart --app <app>
 
 # List all apps
-hop3 apps
+hop3 app list
 
 # Destroy app (requires confirmation)
 hop3 app destroy --app <app>
@@ -183,7 +183,7 @@ hop3 app migrate procfile /path/to/app --dry-run
 ### Addons (Backing Services)
 
 ```bash
-hop3 addons                           # List instances (alias for `addon list`)
+hop3 addon list                           # List instances
 hop3 addon types                     # List addon types you can create
 hop3 addon create postgres my-db     # Create addon
 hop3 addon attach my-db --app <app>  # Attach (sets DATABASE_URL)
@@ -518,8 +518,8 @@ hop3 ps scale --app myapp worker=2
 
 - **Declare them in hop3.toml:** `hop3 context add devel --server ssh://root@devel --app myapp`
 - **Select one for this checkout:** `hop3 context use devel` (writes the gitignored `.hop3-local.toml`), or `export HOP3_CONTEXT=devel` for one shell, or `--context devel` for one command.
-- **Log into a server (store its token):** `hop3 login --ssh root@your-server.com` — sets it as the default target too. Add `--context devel` to also name it as a global context and make it the default: `hop3 login --context devel --ssh root@devel.example.com`.
-- **Project-less commands** (`hop3 apps`, `hop3 system info`): select a server by name with the same flag — `hop3 apps --context devel` — or, with no `--context`, target the default context. `--context` is the one selector; there is no `--server` flag.
+- **Log into a server (store its token):** `hop3 auth login --ssh root@your-server.com` — sets it as the default target too. Add `--context devel` to also name it as a global context and make it the default: `hop3 auth login --context devel --ssh root@devel.example.com`.
+- **Project-less commands** (`hop3 app list`, `hop3 system info`): select a server by name with the same flag — `hop3 app list --context devel` — or, with no `--context`, target the default context. `--context` is the one selector; there is no `--server` flag.
 - **Create shell aliases:**
   ```bash
   alias hop3-devel='HOP3_CONTEXT=devel hop3'
@@ -536,7 +536,7 @@ hop3 ps scale --app myapp worker=2
 
 | Heroku | Hop3 |
 |--------|------|
-| `heroku create` | `hop3 app launch <repo> --app <name>` |
+| `heroku create` | `hop3 app create <repo> --app <name>` |
 | `git push heroku main` | `hop3 deploy` |
 | `heroku config set` | `hop3 env set` |
 | `heroku addon create heroku-postgresql` | `hop3 addon create postgres` |
