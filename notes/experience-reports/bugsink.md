@@ -7,12 +7,12 @@ languages: [python]
 databases: [postgres]
 in_catalog: true
 report_status: final
-last_verified: 2026-07-31
+last_verified: 2026-08-01
 verified_bar: authenticated
 
 variants:
   native: {status: pass}
-  nix: {status: fail, reason: start-timeout in a whole-corpus run}
+  nix: {status: pass}
   nix-gen: {status: pass, template: python-venv}
 ---
 
@@ -26,7 +26,7 @@ Two processes from one recipe: a web worker and `snappea`, a background queue th
 
 ## What broke
 
-Everything below is from the Nix template variant; the native one has been clean.
+Everything below is from the two Nix variants; the native one has been clean.
 
 **The bootstrap had nowhere to run.** A Nix app's build artifact reported the read-only store path as its working directory, so `[run] before-run` (where every native recipe keeps its first-run setup) could not be used at all. The recipe compensated with a `pre-exec` block in the generated wrapper that re-implemented part of the setup and skipped the rest.
 
@@ -37,6 +37,10 @@ Everything below is from the Nix template variant; the native one has been clean
 **`psycopg` could not load `libpq`.** Once `before-run` worked, `migrate` died with `ImproperlyConfigured: Error loading psycopg2 or psycopg module`. The recipe declares `nix-runtime-libs`, but that became a single `LD_LIBRARY_PATH` export *inside the wrapper*, so the app process had the libraries and nothing else did. The same failure then reappeared one layer along, in `[probe].create`, because the create commands did not receive the artifact's runtime environment either.
 
 **`DATABASE_URL` was composed in `[nix.env-exports]`**, which is also wrapper-only. `[probe].create` had `PGUSER` and `PGHOST` but not the URL, and Django failed building a connection.
+
+**The hand-written Nix recipe ran the application as one process** (found and fixed 2026-08-01, after the template variant was already clean). It carried neither half of the second process the other two recipes have — no `migrate --database=snappea` for the queue's own database, no `[run.workers] snappea` — while generating its config from the same `--template docker` that assumes both. It could not have carried them: its setup lived inside the *web* start wrapper, and whatever runs in that file runs only for gunicorn, so setup was unshareable with a second worker by construction. Moving setup to `before-run` and declaring the worker fixed it.
+
+The failure this produced is worth recording precisely, because it was misread for weeks. It presented as *"failed to start within 240.0s"*, so the response each time was to raise the timeout — 120 native, 180 nix-gen, 240 nix, three increases spent on it. It was not slow. The gunicorn master bound the port eight seconds in, logged `Listening at`, and never logged `Booting worker`: no traceback, nothing served, a silent hang for the remaining 232 seconds. The platform said exactly that in the line beneath the headline — *"the app's port is listening but it did not answer an HTTP request: the server bound its socket but no worker is serving"* — at every occurrence. After the fix: 40 seconds to a pass.
 
 ## What the platform gained
 
@@ -63,12 +67,7 @@ hop3 app check --app bugsink
 
 ## Open
 
-- **The nix recipe runs Bugsink as one process. Bugsink is two.** It omits both halves of the second process that the native and nix-gen recipes carry: `bugsink-manage migrate --database=snappea` (the queue lives in its own database, which the default `migrate` does not touch) and `[run.workers] snappea = "bugsink-runsnappea"`. Both sibling recipes comment on why they are needed. The nix recipe nonetheless generates its config with the same `bugsink-create-conf --template docker`, which assumes them.
-
-  The failure this produces is a **silent gunicorn worker-boot hang**, not a slow start: in the 55-app run of 2026-08-01 the master bound the port 8 s in, logged `Listening at`, and then never logged `Booting worker` — no traceback, nothing served, until the 240 s window closed at 245 s. The platform diagnosed it correctly in the failure output ("the app's port is listening but it did not answer an HTTP request: the server bound its socket but no worker is serving"); the headline said "failed to start within 240.0s", and that is the line that got acted on.
-
-  **Three start-timeout increases have been spent on this** — native 120, nix-gen 180, nix 240 — each after a "did not start in time" that was never about time. The same recipe passed in isolation and in earlier corpus runs, which is what a fork-time hang looks like. Fix the recipe to match its siblings rather than raising the window a fourth time.
-- **nix:** no screenshot (sign-in verified over HTTP); in the 2026-08-01 run there was nothing to photograph, the install having failed first.
+Nothing. All three variants sign in, and all three photograph — the hand-written Nix variant gained a signed-in shot once it stopped hanging, having previously had a login page only.
 
 ## Screenshots
 
