@@ -432,7 +432,7 @@ Initial Spring Boot application
 
 ## Step 7: Deploy to Hop3
 
-The following steps require a Hop3 server. Log into yours first — for example, `hop3 login --ssh root@your-server.com` — so the CLI knows where to deploy.
+The following steps require a Hop3 server. Log into yours first — for example, `hop3 auth login --ssh root@your-server.com` — so the CLI knows where to deploy.
 
 ### Configure the CLI
 
@@ -584,8 +584,8 @@ spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
 Create and attach database:
 
 ```bash skip
-hop3 addons create postgres hop3-tuto-spring-boot-db
-hop3 addons attach hop3-tuto-spring-boot hop3-tuto-spring-boot-db
+hop3 addon create postgres hop3-tuto-spring-boot-db
+hop3 addon attach hop3-tuto-spring-boot hop3-tuto-spring-boot-db
 ```
 
 ### Entity and Repository Example
@@ -660,8 +660,8 @@ public class MyappApplication {
 Attach Redis:
 
 ```bash skip
-hop3 addons create redis hop3-tuto-spring-boot-redis
-hop3 addons attach hop3-tuto-spring-boot hop3-tuto-spring-boot-redis
+hop3 addon create redis hop3-tuto-spring-boot-redis
+hop3 addon attach hop3-tuto-spring-boot hop3-tuto-spring-boot-redis
 ```
 
 ### Scheduled Tasks

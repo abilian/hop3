@@ -56,12 +56,12 @@ These apply to every framework here:
 - **Databases and caches are addons.** Create and attach a service, and Hop3 injects its connection string for you: PostgreSQL exposes `DATABASE_URL`, Redis exposes `REDIS_URL`. Read them with `os.environ` and never hardcode credentials.
 
   ```bash
-  hop3 addons create postgres my-app-db
-  hop3 addons attach my-app my-app-db
+  hop3 addon create postgres my-app-db
+  hop3 addon attach my-app my-app-db
   ```
 - **Run setup before the web process starts.** Use `[run] before-run` (or a `prerun:` line in the `Procfile`) for database migrations and `collectstatic` — these run on every deploy before the new process takes traffic.
 - **Health checks.** Expose a cheap endpoint (the tutorials use `/up` returning `OK`) and point `[healthcheck] path` at it so Hop3 knows when your app is ready.
-- **One-off and background processes.** Run management commands in the app's environment with `hop3 run --app <app> <command>` (e.g. `python manage.py migrate`). Background workers (Celery, etc.) are declared as additional processes and scaled with `hop3 ps scale`.
+- **One-off and background processes.** Run management commands in the app's environment with `hop3 app run --app <app> <command>` (e.g. `python manage.py migrate`). Background workers (Celery, etc.) are declared as additional processes and scaled with `hop3 ps scale`.
 - **Build caching.** Dependencies are reinstalled into the virtualenv on deploy; keep `requirements.txt` pinned and minimal for fast, reproducible builds.
 
 ## Choose a framework

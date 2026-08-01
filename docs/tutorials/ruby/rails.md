@@ -438,7 +438,7 @@ Initial Rails 8 application
 
 ## Step 8: Deploy to Hop3
 
-The following steps require a Hop3 server. Log into yours first — for example, `hop3 login --ssh root@your-server.com` — so the CLI knows where to deploy.
+The following steps require a Hop3 server. Log into yours first — for example, `hop3 auth login --ssh root@your-server.com` — so the CLI knows where to deploy.
 
 ### Configure the CLI
 
@@ -451,8 +451,8 @@ hop3 init --ssh root@your-server.example.com
 ### Create and Attach a Database
 
 ```bash skip
-hop3 addons create postgres myapp-db
-hop3 addons attach hop3-tuto-rails myapp-db
+hop3 addon create postgres myapp-db
+hop3 addon attach hop3-tuto-rails myapp-db
 ```
 
 ### Set Environment Variables
@@ -536,20 +536,20 @@ Open your application:
 Migrations run automatically during deployment via `prerun`. To run manually:
 
 ```bash skip
-hop3 run --app hop3-tuto-rails bin/rails db:migrate
+hop3 app run --app hop3-tuto-rails bin/rails db:migrate
 ```
 
 ### Run Rails Console
 
 ```bash skip
-hop3 run --app hop3-tuto-rails bin/rails console
+hop3 app run --app hop3-tuto-rails bin/rails console
 ```
 
 ### Run Rake Tasks
 
 ```bash skip
-hop3 run --app hop3-tuto-rails bin/rails db:seed
-hop3 run --app hop3-tuto-rails bin/rake custom:task
+hop3 app run --app hop3-tuto-rails bin/rails db:seed
+hop3 app run --app hop3-tuto-rails bin/rake custom:task
 ```
 
 ### View and Manage Environment Variables
@@ -610,8 +610,8 @@ worker: bundle exec sidekiq -C config/sidekiq.yml
 Attach a Redis addon:
 
 ```bash skip
-hop3 addons create redis myapp-redis
-hop3 addons attach hop3-tuto-rails myapp-redis
+hop3 addon create redis myapp-redis
+hop3 addon attach hop3-tuto-rails myapp-redis
 ```
 
 ### Active Storage with Local Storage
@@ -747,7 +747,7 @@ hop3 env show --app hop3-tuto-rails | grep DATABASE
 Test the connection:
 
 ```bash skip
-hop3 run --app hop3-tuto-rails bin/rails db:version
+hop3 app run --app hop3-tuto-rails bin/rails db:version
 ```
 
 ### Missing Gems in Production

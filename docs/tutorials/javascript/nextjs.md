@@ -328,7 +328,7 @@ Initial Next.js application
 
 ## Step 7: Deploy to Hop3
 
-The following steps require a Hop3 server. Log into yours first — for example, `hop3 login --ssh root@your-server.com` — so the CLI knows where to deploy.
+The following steps require a Hop3 server. Log into yours first — for example, `hop3 auth login --ssh root@your-server.com` — so the CLI knows where to deploy.
 
 ### Configure the CLI
 
@@ -474,8 +474,8 @@ before-run = "npx prisma migrate deploy && cp -r .next/static .next/standalone/.
 Attach a database addon:
 
 ```bash skip
-hop3 addons create postgres hop3-tuto-nextjs-db
-hop3 addons attach hop3-tuto-nextjs hop3-tuto-nextjs-db
+hop3 addon create postgres hop3-tuto-nextjs-db
+hop3 addon attach hop3-tuto-nextjs hop3-tuto-nextjs-db
 ```
 
 ### Environment Variables for Client-Side
