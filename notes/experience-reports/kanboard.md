@@ -22,7 +22,7 @@ Kanban project management software.
 
 ## What this app exercised
 
-The plainest PHP application in the set, with no composer and no build step, which makes it a control: anything that breaks here points to the platform, rather than the application. It earned that role by breaking twice, both times in the transport rather than the application.
+The plainest PHP application in the set, with no composer and no build step, which makes it a control: anything that breaks here points to the platform. It earned that role by breaking twice, both times in the transport.
 
 ## What broke
 

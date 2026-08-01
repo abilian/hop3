@@ -32,11 +32,11 @@ The one failure was ordering, and it was ours: the Docker variant started Apache
 
 ## What the platform gained
 
-The start-before-database race, first seen here, has since recurred across enough recipes to qualify as a platform pattern: a service-readiness wait belongs in the platform rather than in each recipe. Otherwise, a confirmation.
+The start-before-database race, first seen here, has since recurred across enough recipes to qualify as a platform pattern: a service-readiness wait belongs in the platform. Otherwise, a confirmation.
 
 ## Deployment variants
 
-No composer and no build step in any variant. `wp-config.php` reads through `getenv()`, so configuration is an environment bridge rather than a generated file, and `wp core install` creates the administrator.
+No composer and no build step in any variant. `wp-config.php` reads through `getenv()`, so configuration is an environment bridge, and `wp core install` creates the administrator.
 
 ## Verification
 

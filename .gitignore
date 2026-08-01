@@ -48,5 +48,5 @@ experience-reports.pdf
 # Generated in the experience-reports directory. The `_` prefix is the
 # convention build.py uses to tell its own output from its input.
 notes/experience-reports/_*
-notes/experience-reports/bundle.pdf
+# notes/experience-reports/bundle.pdf
 notes/experience-reports/build/

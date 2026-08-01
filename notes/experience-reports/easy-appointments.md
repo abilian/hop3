@@ -34,7 +34,7 @@ Whether the sign-in bar can be met by an application that builds its login form 
 
 ## What the platform gained
 
-`unzip` on `buildComposerProject`'s `nativeBuildInputs` when the source is a zip, in the `php-app` template. Otherwise this app is a standing question rather than a contribution: the one variant in the corpus the sign-in bar cannot yet reach.
+`unzip` on `buildComposerProject`'s `nativeBuildInputs` when the source is a zip, in the `php-app` template. Otherwise this app is a standing question: the one variant in the corpus the sign-in bar cannot yet reach.
 
 ## Deployment variants
 

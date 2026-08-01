@@ -22,7 +22,7 @@ Open source web analytics platform.
 
 ## What this app exercised
 
-An application with no user-creation CLI at all. Its installer is a browser wizard, so the account is made by driving Matomo's own model classes from PHP.
+An application with no user-creation CLI. Its installer is a browser wizard, so the account is made by driving Matomo's own model classes from PHP.
 
 ## What broke
 
@@ -36,7 +36,7 @@ An application with no user-creation CLI at all. Its installer is a browser wiza
 
 ## What the platform gained
 
-`[probe].create` is now required rather than optional: a probe account Hop3 cannot create is one it can never offer to a check, and the optional form silently did nothing.
+`[probe].create` is now required. A probe account Hop3 cannot create is one it can never offer to a check; the optional form silently did nothing.
 
 ## Deployment variants
 

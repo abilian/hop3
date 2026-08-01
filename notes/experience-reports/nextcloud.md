@@ -28,13 +28,13 @@ The heaviest PHP dependency surface in the corpus (extensions, a cron worker, ba
 
 **It answered `GET /login` with 400 because it was never installed**: the writable tree was materialised when the app started, which is after `before-run`, so a correctly ported bootstrap ran in a directory that did not yet hold the application.
 
-**`occ user:add` takes no `--email`.** The recipe passed one, the command failed, and the failure was invisible from the outside: Hop3 had already generated and displayed a credential for an account that did not exist. This is what made `admin.create` report its command's output rather than only an exit status.
+**`occ user:add` takes no `--email`.** The recipe passed one, the command failed, and the failure was invisible from the outside: Hop3 had already generated and displayed a credential for an account that did not exist. After this, `admin.create` began reporting its full command output.
 
 **It keeps a hidden password input in its signed-in markup**, which had the screenshot harness call a successful sign-in a refusal. Counting only *visible* fields is what a person looking at the image would do.
 
 ## What the platform gained
 
-`admin.create` reports its command's output rather than only an exit status, which is what revealed the `occ user:add --email` mistake, and the screenshot harness counts only *visible* password fields, because Nextcloud keeps a hidden one in its signed-in markup.
+`admin.create` reports its command's output, which revealed the `occ user:add --email` mistake. The screenshot harness counts only *visible* password fields, because Nextcloud keeps a hidden one in its signed-in markup.
 
 ## Deployment variants
 
