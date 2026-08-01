@@ -6,7 +6,15 @@ Developer-facing notes for Hop3. The entries below cover what lives where.
 
 - [`app-porting-tips.md`](./app-porting-tips.md) — cookbook for packaging a self-hosted application as a Hop3 app, distilled from ~30 real apps packaged between late 2025 and April 2026.
 - [`questions.md`](./questions.md) — open architectural questions (pointer to relevant ADRs).
-- [`security.md`](./security.md) — trust model, audited patterns, scope. Read this before filing a security finding (or briefing an LLM-based review tool).
+- [`todo.md`](./todo.md) — engineering tasks captured day to day, before they graduate to a plan.
+
+## `security/` — Trust model, audits, backlog
+
+Trust model, audited patterns and scope. Read this before filing a security finding (or briefing an LLM-based review tool).
+
+- [`security/security-model.md`](./security/security-model.md) and [`security/threat-model.md`](./security/threat-model.md) — the standing documents.
+- [`security/backlog-2026-08-01.md`](./security/backlog-2026-08-01.md) — what is open after the 2026-07 review rounds.
+- `security/report-*.md` — the individual review rounds, kept as record.
 
 ## `adrs/` — Architecture Decision Records
 
@@ -14,8 +22,19 @@ ADRs record the "why" behind architectural choices — plugin system, build/runt
 
 ## `reports/` — Technical reports
 
-- [`TR-01.md`](./reports/TR-01.md) — Hop3 technical report (interim), with: abstract, related work, system design, evaluation, threats, references.
-- `draft-paper.md` — draft research paper material.
+See [`reports/README.md`](./reports/README.md) for the series and how it builds.
+
+- [`TR-01.md`](./reports/TR-01.md) — first interim report (April 2026): architecture, the Nix build path, preliminary qualitative evaluation.
+- [`TR-02.md`](./reports/TR-02.md) — second interim report (June 2026): the 0.5/0.6 consolidation and operability work.
+- [`TR-03.md`](./reports/TR-03.md) — the final report, doubling as the NGI0 final deliverable: the completed evaluation and the milestone accounting.
+
+## `plans/` — Forward-looking release plans
+
+- [`plans/plan-0.7.x.md`](./plans/plan-0.7.x.md) — the 0.7 maintenance tail: the unreleased security payload, catalog presentation, the open security backlog, and the loose ends of 0.7.
+- [`plans/plan-0.8.md`](./plans/plan-0.8.md) — 0.8 (September 2026): app isolation, a production PHP runtime, local-source Nix builds, installer composability.
+- [`plans/parked.md`](./plans/parked.md) — **frozen**: work inside the Fediversity proposal's scope, which may not be started before that grant is decided. Read this before adding anything to the two plans above.
+
+Shipped release plans live in [`ngi-2024/`](./ngi-2024/); per-topic engineering plans are in `local-notes/plans/`.
 
 ## `ngi-2024/` — NGI project documents
 

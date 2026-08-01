@@ -22,12 +22,13 @@ To manage and promote the Hop3 open-source project, we operate several public-fa
 
 When you visit our official websites (such as `hop3.cloud` and its documentation pages), we may collect non-personally-identifying information to better understand how our site is used.
 
--   **Analytics:** We use a self-hosted instance of Matomo, a privacy-respecting analytics platform. The `README.md` file includes a Matomo tracking pixel to gather anonymous usage statistics. This helps us gauge interest and improve the project. We collect:
-    -   Anonymized IP addresses (the last octets are removed).
-    -   Browser type and version.
-    -   Pages visited and the time spent on them.
+-   **Analytics:** We use [Umami](https://umami.is/), a privacy-respecting analytics platform, self-hosted on our own infrastructure. No data is sent to a third-party analytics provider. Umami sets no cookies and does not track visitors across sites or sessions. We collect:
+    -   Pages visited, and the date and time of the visit.
     -   Referring site.
--   **Cookies:** We may use cookies for the essential operation of our websites, such as session management. We do not use third-party tracking or advertising cookies.
+    -   Browser, operating system and device type.
+    -   Country, derived from the IP address. The IP address itself is not stored.
+-   **Repository README:** the project's `README.md` carries a tracking pixel served by a self-hosted [Matomo](https://matomo.org/) instance, which counts views of that page where the hosting platform renders images. It records the same class of anonymous data, with IP addresses anonymised.
+-   **Cookies:** We may use cookies for the essential operation of our websites, such as session management. We do not use analytics, third-party tracking or advertising cookies.
 
 #### b) Community and Contributor Information
 
