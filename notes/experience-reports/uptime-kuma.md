@@ -40,7 +40,7 @@ Three silent fallbacks stacked into an accusation. Making them fail loudly also 
 
 ## What the platform gained
 
-The catalog driver now separates 'the run could not verify this' from 'this application failed'.
+The catalog driver's separation of "the run could not verify this" from "this application failed" — the vocabulary LimeSurvey's browser-only sign-in introduced — hardened here from the opposite direction: a probe whose silent fallbacks were converting "unverified" into a false "failed".
 
 ## Deployment variants
 
@@ -48,7 +48,7 @@ Node, no addon, and no template-generated variant. It authenticates over socket.
 
 ## Verification
 
-`apps/uptime-kuma/check.py` signs in with the `[probe]` account, which Hop3 owns and rotates, and confirms a wrong password is refused.
+`apps/uptime-kuma/check.py` signs in as the `[probe]` account, which Hop3 owns and rotates, over socket.io — driving the application's own bundled client through node (`scripts/probe.js`), since Uptime Kuma has no form to post — and confirms a wrong password is refused.
 
 ## Reproduce
 

@@ -32,8 +32,6 @@ Laravel under Nix, where PHP's `__DIR__` resolves symlinks and lands back in the
 
 **BookStack authenticates on the EMAIL**, and `username` is only a display name. A credential reader handed both picks the username and is rejected as if the password were wrong; which is why the recipe declares `login = "email"`. The generated variant dropped that line and failed in exactly that way while its own `check.py`, which names the email field directly, kept passing.
 
-**PHP's `__DIR__` resolves symlinks**, so a Nix store path reached through one lands back in the read-only store. The tree has to be copied.
-
 ## What the platform gained
 
 `needs-writable-dir`, and the `login` key in `[admin]`; which tells anything reading a credential which field the app actually authenticates on. `make-nix-variants.py` now refuses to generate a variant whose sign-in field differs from its native counterpart, because this app is where that drift was found.
@@ -54,6 +52,8 @@ hop3 app check --app bookstack
 ```
 
 ## Open
+
+Nothing open.
 
 ## Screenshots
 

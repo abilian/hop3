@@ -26,7 +26,7 @@ A nixpkgs derivation does not carry the tools its application's documentation as
 
 ## What broke
 
-**A nixpkgs derivation is not obliged to ship the tools an application's own documentation assumes.** The `mattermost` package's `bin/` holds only `mattermost`, so every `mmctl --local` call in the account bootstrap exited 127. `mmctl` is a separate package and has to be asked for by name.
+**Every `mmctl --local` call in the account bootstrap exited 127.** The `mattermost` package's `bin/` holds only `mattermost`; `mmctl` is a separate package and has to be asked for by name.
 
 **`SiteURL` pinned to localhost** left the webapp loading against an origin the visitor does not have. The REST check (a POST to `/api/v4/users/login`) passed throughout, so the failure was visible only to a browser.
 
@@ -53,8 +53,7 @@ hop3 app check --app mattermost
 
 ## Open
 
-- **nix:** no screenshot. The browser harness finds no password field at `/login` within 15 s: the same gap as the template-generated variant. The sign-in itself is verified over the REST API.
-- **nix-gen:** no screenshot. With `SiteURL` corrected, the "open in the app or the browser" interstitial the harness knew how to click through no longer appears at `/login`. The harness still finds no password field within 15 s, so that route's output remains undiagnosed. The sign-in itself is verified over the REST API.
+- **nix, nix-gen:** no screenshot. The browser harness finds no password field at `/login` within 15 s; with `SiteURL` corrected, the "open in the app or the browser" interstitial it knew how to click through no longer appears, so that route's output remains undiagnosed. The sign-in itself is verified over the REST API.
 
 ## Screenshots
 

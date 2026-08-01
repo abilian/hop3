@@ -59,6 +59,8 @@ hop3 app check --app gitea
 
 ## Open
 
+Nothing open.
+
 ## Screenshots
 
 ![Sign-in page](images/gitea-01-login.png)

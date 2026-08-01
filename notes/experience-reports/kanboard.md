@@ -36,7 +36,7 @@ The plainest PHP application in the set, with no composer and no build step, whi
 
 ## What the platform gained
 
-Nothing directly. Its value was diagnostic: because the app is so plain, its failures pointed straight at the platform and at what a check can and cannot see. "The username is required" describing a suppressed `Set-Cookie` is the example that keeps being useful.
+No platform change; the control role above is the contribution. Its lasting artefact is the example that keeps being useful: "The username is required" describing a suppressed `Set-Cookie`.
 
 ## Deployment variants
 
@@ -54,6 +54,8 @@ hop3 app check --app kanboard
 ```
 
 ## Open
+
+Nothing open.
 
 ## Screenshots
 

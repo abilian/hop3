@@ -32,8 +32,6 @@ A Laravel application whose UI is a Flutter canvas, so nothing a selector can re
 
 **Invoice Ninja authenticates on the email**, and the generated variant had acquired a `username` the native recipe deliberately omits, which a credential reader then prefers.
 
-**Its UI is a Flutter canvas**, so no selector can reach its inputs. The sign-in is verified over HTTP. The signed-in screenshot is declared impossible; it is not counted as a gap.
-
 ## What the platform gained
 
 The screenshot harness's `unsupported` declaration: a way to say *this application cannot be driven by a browser, and here is why*. It isn't a gap. Radicale uses it for a different reason.
@@ -55,8 +53,7 @@ hop3 app check --app invoice-ninja
 
 ## Open
 
-- **nix:** the sign-in page is photographed; there is no signed-in shot. Invoice Ninja renders a Flutter canvas, so its inputs are not DOM elements a selector can reach: by design, not a gap.
-- **nix-gen:** the sign-in page is photographed; there is no signed-in shot. Invoice Ninja renders a Flutter canvas, so its inputs are not DOM elements a selector can reach. Its `check.py` signs in over HTTP and is unaffected.
+- **nix, nix-gen:** the sign-in page is photographed; there is no signed-in shot. The Flutter canvas offers no DOM inputs a selector can reach — declared `unsupported`, not a gap. `check.py` signs in over HTTP and is unaffected.
 
 ## Screenshots
 

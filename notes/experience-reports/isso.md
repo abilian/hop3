@@ -34,7 +34,7 @@ A comment widget whose `/` is an API rather than a page, and whose moderation da
 
 ## What the platform gained
 
-Nothing in the platform. Its contribution is evidential: an application serving an unprotected admin surface while every status and content assertion passes is the argument for the sign-in bar, made in one line of config.
+No platform change; the contribution is evidential, and it is the one above: the argument for the sign-in bar, made in one line of config.
 
 ## Deployment variants
 
@@ -52,6 +52,8 @@ hop3 app check --app isso
 ```
 
 ## Open
+
+Nothing open.
 
 ## Screenshots
 

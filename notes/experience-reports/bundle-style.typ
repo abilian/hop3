@@ -20,8 +20,8 @@
 #let ink         = rgb("#0d1117")
 
 #let body-font    = ("Charter", "IBM Plex Serif", "Source Serif Pro", "Libertinus Serif", "New Computer Modern")
-#let display-font = ("Inter", "IBM Plex Sans", "Source Sans Pro", "Atkinson Hyperlegible", "Helvetica Neue")
-#let mono-font    = ("JetBrains Mono", "IBM Plex Mono", "SF Mono", "DejaVu Sans Mono")
+#let display-font = ("Inter", "IBM Plex Sans", "Source Sans Pro", "Helvetica Neue")
+#let mono-font    = ("JetBrains Mono", "IBM Plex Mono", "DejaVu Sans Mono")
 
 #let org-name = "Abilian — Hop3"
 #let org-url  = "hop3.cloud"

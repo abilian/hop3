@@ -55,6 +55,8 @@ hop3 app check --app matomo
 
 ## Open
 
+Nothing open.
+
 ## Screenshots
 
 ![Sign-in page](images/matomo-01-login.png)
