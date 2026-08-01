@@ -323,4 +323,4 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 - --domain your-s
 
 For additional help or to report issues:
 - GitHub: [https://github.com/abilian/hop3/issues](https://github.com/abilian/hop3/issues)
-- Documentation: [https://hop3.cloud/docs](https://hop3.cloud/docs)
+- Documentation: [https://hop3.cloud/](https://hop3.cloud/)
