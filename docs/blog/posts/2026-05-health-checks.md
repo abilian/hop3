@@ -44,7 +44,7 @@ Status: ⚠ 2 warnings
 
 One glance tells you what's healthy, what's degraded, and what's broken. The identity header up top (host, IP, version, uptime) tells you which server you are looking at before the checks tell you whether it is OK.
 
-The severity legend is `✓` ok, `⚠` warning, `✗` failure. Optional services like Redis report `⚠` when unreachable rather than `✗`, so a server that doesn't use Redis reads as *degraded* rather than *failed*. The bottom-line summary rolls everything up to the worst severity seen.
+The severity legend is `✓` ok, `⚠` warning, `✗` failure. Optional services like Redis get `⚠` when unreachable, so a server without Redis reads as *degraded*. That is the right call: an optional service you never configured is not a failure. The bottom-line summary rolls everything up to the worst severity seen.
 
 ## Each Service Knows Its Own Health
 
@@ -101,13 +101,13 @@ class HealthCheck(Protocol):
     def check(self) -> HealthCheckResult: ...
 ```
 
-A check reports `passed`, and severity is derived from it: `passed=True` renders as `ok`, `passed=False` as `fail`. The one nuance worth its own field: a check can set `severity` explicitly to override that default. An optional service that's unreachable returns `passed=False` but `severity="warn"`; the result is unacceptable from the check's point of view, yet the operator can still ship. That's how Redis shows up as a yellow warning instead of a red failure.
+A check reports `passed`, and severity is derived from it: `passed=True` renders as `ok`, `passed=False` as `fail`. The one nuance worth its own field: a check can set `severity` explicitly to override that default. An optional service that's unreachable returns `passed=False` but `severity="warn"`; the result is unacceptable from the check's point of view, yet the operator can still ship. That mechanism is what turns an unreachable Redis into a yellow warning on an otherwise green board.
 
-`is_configured()` is the other half of keeping the report accurate: a check that doesn't apply to this server says so, and is skipped rather than reported as a spurious failure.
+`is_configured()` is the other half of keeping the report accurate: a check that doesn't apply to this server says so, and is skipped, so it never generates a spurious failure.
 
 ## Reporting at Startup
 
-The same addon checks run when the server starts. If PostgreSQL isn't accepting connections, or Redis is configured but unreachable, the failure is logged with a pointed message (*apps using this service will fail to deploy*) so the problem surfaces in the logs before the first deploy hits it, rather than after.
+The same addon checks run when the server starts. If PostgreSQL isn't accepting connections, or Redis is configured but unreachable, the failure is logged with a pointed message (*apps using this service will fail to deploy*) so the problem surfaces in the logs before the first deploy hits it.
 
 ```python
 def verify_addon_health() -> dict[str, HealthCheckResult]:
@@ -126,7 +126,7 @@ def verify_addon_health() -> dict[str, HealthCheckResult]:
 
 ## Your Apps Get a Startup Probe Too
 
-Platform health is one thing; what about the applications running on Hop3? An app can declare a health endpoint in `hop3.toml`:
+An app can declare a health endpoint in `hop3.toml`:
 
 ```toml
 [healthcheck]
@@ -135,7 +135,7 @@ timeout = 5
 retries = 3
 ```
 
-At deploy time, Hop3 probes that path before declaring the app up. If `/health` doesn't return a 200 within the window, the deploy doesn't quietly succeed. It fails loudly, with the app reported as not having responded to health checks. That's the difference between "deployed" meaning *the process started* and "deployed" meaning *the app actually answers requests*.
+At deploy time, Hop3 probes that path before declaring the app up. If `/health` doesn't return a 200 within the window, the deploy fails and Hop3 reports the app as unresponsive. "Deployed" then means the app answers requests: the process starting is only the first step.
 
 You define what "healthy" means. A trivial endpoint:
 
@@ -158,7 +158,7 @@ def health():
         return f"Unhealthy: {e}", 503
 ```
 
-The second version is the one that catches the connection-pool scenario from the opening paragraph: *at deploy time*, before you route traffic to a broken release.
+The second version catches the connection-pool scenario at deploy time, before traffic reaches a broken release.
 
 ## Machine-Readable Output
 
@@ -185,7 +185,7 @@ Zero means everything's OK; non-zero means there's at least a warning. `--quiet`
 
 The checks above are the foundation. The direction we're building toward (designed in [ADR 029](https://github.com/abilian/hop3/blob/main/notes/adrs/029-reconciliation-health-checks.md), not yet shipped) turns this from a tool you run into a platform that watches itself:
 
-- **Continuous reconciliation.** A background watchdog that periodically compares each app's recorded state against its actual process state, so a process that dies overnight is detected in seconds rather than when a user complains. Hop3 already has the state-sync primitive (`App.sync_state()`); today it runs when you view the dashboard or issue a lifecycle command, not on a timer.
+- **Continuous reconciliation.** A background watchdog that periodically compares each app's recorded state against its actual process state, so a process that dies overnight is detected in seconds, before a user files a ticket. Hop3 already has the state-sync primitive (`App.sync_state()`); today it runs when you view the dashboard or issue a lifecycle command, not on a timer.
 - **Restart policies.** Per-app `on_failure` / `always` / `never` policies, with exponential backoff and a cap, so transient crashes recover automatically without flapping forever.
 - **An event log.** An immutable audit trail of state changes, health results, and restarts: the history you wish you had when something broke at 3 AM.
 - **Certificate-expiry monitoring.** Today the certificate check reports whether a real certificate is configured at all (self-signed vs. Let's Encrypt). Tracking days-until-expiry, and warning before a renewal silently fails, is the natural next step.
@@ -207,10 +207,8 @@ timeout = 5
 retries = 3
 ```
 
-Then build a `/health` that actually checks your dependencies, rather than one that only returns 200.
+Then build a `/health` that actually checks your dependencies.
 
 ---
-
-Health checks are the difference between "we noticed and fixed it" and "a customer told us it was down for three hours." Build the observability in from the start.
 
 *For more on operating Hop3, see the [Administration Guide](/guides/administration/).*

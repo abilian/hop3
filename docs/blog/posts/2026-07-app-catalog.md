@@ -1,7 +1,7 @@
 ---
 date: 2026-07-24
 template: blog_post.html
-description: Hop3's app catalog lets you browse real self-hosted applications in the dashboard and install one without reading its setup guide: an admin account is created for you and a sign-in is verified before the deploy reports success.
+description: "Hop3's app catalog lets you browse real self-hosted applications in the dashboard and install one without reading its setup guide: an admin account is created for you and a sign-in is verified before the deploy reports success."
 tags:
   - Announcement
   - Operations
@@ -36,7 +36,7 @@ It started with an application that passed every check we had while being unusab
 
 It threw a 500 the moment anyone actually signed in. Bugsink runs two processes, a web app and a background worker with its own separate queue database, and the second one was never wired up. Everything before the login worked. Everything after it did not.
 
-The lesson generalises past that one app. A status code tells you a web server answered. It does not tell you the application works, because a 200 can be a placeholder page, a generic error page, a maintenance notice, or another app's content served through a misconfigured vhost. We had been treating "the port responds" as "the app runs", and those are different claims.
+The lesson generalises past that one app. A status code tells you a web server answered. Behind a 200 can sit a placeholder page, a generic error page, a maintenance notice, or another app's content served through a misconfigured vhost. We had been treating "the port responds" as "the app runs", and those are different claims.
 
 So the bar moved. **Every application in the catalog ships a smoke test that signs in through the app's own authentication**, using the credential Hop3 generated, and confirms that a wrong password is refused. A login form that accepts anything is not a passing test, and without checking it you cannot distinguish a working sign-in from a broken one that happens to redirect.
 
@@ -67,7 +67,7 @@ The catalog is content fetched from a network, which makes it a supply chain. It
 
 ## What it took to get here
 
-Every one of the catalog applications was installed by hand, one at a time, through the dashboard, by someone reporting what a first-time operator actually sees. Every failure was traced to a platform defect and fixed there rather than patched in that app's configuration.
+Every one of the catalog applications was installed by hand, one at a time, through the dashboard, by someone reporting what a first-time operator actually sees. Every failure was traced to a platform defect and fixed in the platform itself.
 
 - **HTTPS is now the default.** Plain HTTP redirects. Three applications could not be logged into at all over the HTTP vhost, because they set `Secure` cookies, the browser correctly declined to send them back, and the login silently looped. That looks exactly like a wrong password.
 - **PHP's built-in server got more than one worker.** It is single-threaded, so any application that makes a request to itself while installing deadlocks against its own only worker. Nextcloud's installer does exactly this. Ten of the catalog apps sit on that runtime.

@@ -126,7 +126,7 @@ class PythonToolchain(LanguageToolchain):
         )
 ```
 
-The artifact contains everything needed to run the app. No guessing required.
+The artifact contains everything needed to run the app.
 
 ## Deployers Consume Artifacts
 

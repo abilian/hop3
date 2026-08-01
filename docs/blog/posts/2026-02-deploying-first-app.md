@@ -9,7 +9,7 @@ tags:
 
 # Your First Hop3 Deployment: From Zero to Production
 
-Remember the first time you deployed something to Heroku? `git push heroku main` and suddenly your side project was live on the internet. That feeling of "wait, it just... works?" is what we're chasing with Hop3.
+Remember the first time you deployed something to Heroku? `git push heroku main` and suddenly your side project was live on the internet. Hop3 brings that same feeling of "wait, it just... works?"
 
 The difference: your code runs on your own server, with the same simplicity and full control.
 
@@ -61,10 +61,10 @@ hop3 settings set server ssh://root@your-server.com
 Test the connection:
 
 ```bash
-hop3 apps list
+hop3 app list
 ```
 
-You should see an empty list. That's about to change.
+You should see an empty list. That won't last.
 
 ## Building a Flask App
 
@@ -116,7 +116,7 @@ id = "myapp"
 path = "/health"
 ```
 
-That's it. Four files, maybe 30 lines total.
+Four files, maybe 30 lines total.
 
 ## The Moment of Truth
 
@@ -139,7 +139,7 @@ Watch the magic happen:
 URL: http://your-server.com:5000
 ```
 
-Open that URL. See "Hello from Hop3!"? You just deployed an application. Code to server, with nothing in between.
+Open that URL. See "Hello from Hop3!"? You just deployed an application.
 
 ## Adding Your Domain
 
@@ -175,18 +175,18 @@ Hop3 automatically:
 - Requests a Let's Encrypt SSL certificate
 - Sets up HTTPS redirects
 
-Visit `https://myapp.example.com`. That padlock icon? That's real SSL, automatically provisioned.
+Visit `https://myapp.example.com`. That padlock icon means your SSL certificate was provisioned automatically.
 
 ## Adding a Database
 
 Most real apps need a database. Let's add PostgreSQL:
 
 ```bash
-hop3 addons create postgres myapp-db
-hop3 addons attach myapp myapp-db
+hop3 addon create postgres myapp-db
+hop3 addon attach myapp myapp-db
 ```
 
-Two commands. You now have a PostgreSQL database with `DATABASE_URL` automatically injected into your app's environment.
+You now have a PostgreSQL database. Hop3 automatically injects `DATABASE_URL` into your app's environment.
 
 Let's use it. Update `app.py`:
 
@@ -263,7 +263,7 @@ hop3 app logs myapp -f   # Follow logs in real-time
 **See your apps:**
 
 ```bash
-hop3 apps list
+hop3 app list
 ```
 
 ```
@@ -274,7 +274,7 @@ myapp   running  https://myapp.example.com
 **Get details:**
 
 ```bash
-hop3 apps info myapp
+hop3 app status myapp
 ```
 
 ```
@@ -292,7 +292,7 @@ Last deployed: 2026-03-21 10:30:00
 hop3 ps scale --app myapp web=3
 ```
 
-Now three gunicorn workers handle requests. Scaling is just a number.
+Now three gunicorn workers handle requests.
 
 ## When Things Go Wrong
 
@@ -312,7 +312,7 @@ Common culprits:
 **502 Bad Gateway?** Nginx is running but can't reach your app:
 
 ```bash
-hop3 run myapp "ss -tlnp"
+hop3 app run --app myapp "ss -tlnp"
 ```
 
 Make sure you're binding to `0.0.0.0:$PORT`, not `127.0.0.1` or a hardcoded port.
@@ -332,10 +332,10 @@ Commands you'll use constantly:
 ```bash
 hop3 deploy myapp              # Deploy changes
 hop3 app logs myapp                # View logs
-hop3 apps restart myapp        # Restart
-hop3 apps stop myapp           # Stop
-hop3 apps start myapp          # Start
-hop3 apps destroy myapp        # Delete (careful!)
+hop3 app restart myapp        # Restart
+hop3 app stop myapp           # Stop
+hop3 app start myapp          # Start
+hop3 app destroy myapp        # Delete (careful!)
 hop3 env set --app myapp KEY=val  # Set environment variable
 hop3 env show --app myapp         # View configuration
 ```

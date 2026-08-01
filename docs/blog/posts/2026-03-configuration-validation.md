@@ -9,7 +9,7 @@ tags:
 
 # Configuration Validation with Pydantic
 
-A single typo in a configuration file can cause hours of debugging. We learned this the hard way when users reported deployment failures with helpful messages like "502 Bad Gateway." The root cause? `post-deploy` instead of `before-run` in their `hop3.toml`.
+A single typo in a configuration file can cause hours of debugging. Users reported deployment failures with helpful messages like "502 Bad Gateway." The root cause? `post-deploy` instead of `before-run` in their `hop3.toml`.
 
 ## The Problem
 

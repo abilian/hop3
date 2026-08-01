@@ -3,7 +3,7 @@ date: 2026-06-19
 template: blog_post.html
 series: How Hop3 is Tested
 series_order: 2
-description: Why every Hop3 demo is three things at once — a tutorial, a screencast, and a regression test — and how the launcher runs them.
+description: Why every Hop3 demo is a tutorial, a screencast, and a regression test all at once, and how the launcher runs them.
 tags:
   - Testing
   - Demos
@@ -49,7 +49,7 @@ def run(ctx: DemoContext) -> None:
     cleanup_app(ctx, APP_NAME, f"https://{host}")       # honours --keep
 ```
 
-The verification is **content-checked**. `test_app_via_curl` asserts that the *body* contains app-specific text; a `200` can be a placeholder, an error page, or, memorably, *another app's content* leaking through a misconfigured proxy. A green status code proves almost nothing on a PaaS.
+The verification is **content-checked**. `test_app_via_curl` asserts that the *body* contains app-specific text; a `200` can be a placeholder, an error page, or *another app's content* leaking through a misconfigured proxy. A green status code proves almost nothing on a PaaS.
 
 ## Running and inspecting them
 

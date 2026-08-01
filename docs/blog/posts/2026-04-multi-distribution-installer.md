@@ -263,7 +263,7 @@ Detection is family-based: a strategy matches on `ID` or `ID_LIKE` from `/etc/os
 | Rocky Linux | Rocky 9 | RHEL 9 clone, Docker from Docker's repo |
 | AlmaLinux | Alma 9 | RHEL 9 clone, Docker from Docker's repo |
 
-Arch, BSD, and macOS strategies also exist for development targets; the curated CI matrix above is what we lean on for server installs.
+Arch, BSD, and macOS strategies also exist for development targets; we lean on the curated CI matrix above for server installs.
 
 ## Try It
 
