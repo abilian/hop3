@@ -543,7 +543,7 @@ Initial Django application
 
 ## Step 8: Deploy to Hop3
 
-The following steps require a Hop3 server. Log into yours first — for example, `hop3 login --ssh root@your-server.com` — so the CLI knows where to deploy.
+The following steps require a Hop3 server. Log into yours first — for example, `hop3 auth login --ssh root@your-server.com` — so the CLI knows where to deploy.
 
 ### Configure the CLI
 
@@ -556,8 +556,8 @@ hop3 init --ssh root@your-server.example.com
 ### Create and Attach a Database
 
 ```bash skip
-hop3 addons create postgres hop3-tuto-django-db
-hop3 addons attach hop3-tuto-django hop3-tuto-django-db
+hop3 addon create postgres hop3-tuto-django-db
+hop3 addon attach hop3-tuto-django hop3-tuto-django-db
 ```
 
 ### Set Environment Variables
@@ -644,7 +644,7 @@ Open your application:
 ### Create a Superuser
 
 ```bash skip
-hop3 run --app hop3-tuto-django python manage.py createsuperuser
+hop3 app run --app hop3-tuto-django python manage.py createsuperuser
 ```
 
 ## Managing Your Application
@@ -654,20 +654,20 @@ hop3 run --app hop3-tuto-django python manage.py createsuperuser
 Migrations run automatically during deployment via `prerun`. To run manually:
 
 ```bash skip
-hop3 run --app hop3-tuto-django python manage.py migrate
+hop3 app run --app hop3-tuto-django python manage.py migrate
 ```
 
 ### Run Django Shell
 
 ```bash skip
-hop3 run --app hop3-tuto-django python manage.py shell
+hop3 app run --app hop3-tuto-django python manage.py shell
 ```
 
 ### Run Management Commands
 
 ```bash skip
-hop3 run --app hop3-tuto-django python manage.py loaddata fixtures.json
-hop3 run --app hop3-tuto-django python manage.py custom_command
+hop3 app run --app hop3-tuto-django python manage.py loaddata fixtures.json
+hop3 app run --app hop3-tuto-django python manage.py custom_command
 ```
 
 ### View and Manage Environment Variables
@@ -751,8 +751,8 @@ beat: celery -A myproject beat --loglevel=info
 Attach a Redis addon:
 
 ```bash skip
-hop3 addons create redis hop3-tuto-django-redis
-hop3 addons attach hop3-tuto-django hop3-tuto-django-redis
+hop3 addon create redis hop3-tuto-django-redis
+hop3 addon attach hop3-tuto-django hop3-tuto-django-redis
 ```
 
 ### Django Q (Database-backed Task Queue)
@@ -976,7 +976,7 @@ hop3 env show --app hop3-tuto-django | grep DATABASE
 Test the connection:
 
 ```bash skip
-hop3 run --app hop3-tuto-django python manage.py dbshell
+hop3 app run --app hop3-tuto-django python manage.py dbshell
 ```
 
 ### Static Files Not Loading
@@ -989,7 +989,7 @@ hop3 run --app hop3-tuto-django python manage.py dbshell
 Run manually to debug:
 
 ```bash skip
-hop3 run --app hop3-tuto-django python manage.py collectstatic --noinput
+hop3 app run --app hop3-tuto-django python manage.py collectstatic --noinput
 ```
 
 ### Migration Errors
@@ -998,10 +998,10 @@ If migrations fail during deployment:
 
 ```bash skip
 # Check migration status
-hop3 run --app hop3-tuto-django python manage.py showmigrations
+hop3 app run --app hop3-tuto-django python manage.py showmigrations
 
 # Run migrations manually with verbose output
-hop3 run --app hop3-tuto-django python manage.py migrate --verbosity=2
+hop3 app run --app hop3-tuto-django python manage.py migrate --verbosity=2
 ```
 
 ### Import Errors
@@ -1013,7 +1013,7 @@ Ensure all packages are in `requirements.txt`:
 pip freeze > requirements.txt
 
 # Or check what's installed
-hop3 run --app hop3-tuto-django pip list
+hop3 app run --app hop3-tuto-django pip list
 ```
 
 ### Gunicorn Workers Timing Out

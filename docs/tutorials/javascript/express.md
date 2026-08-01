@@ -296,7 +296,7 @@ Initial Express.js application
 
 ## Step 7: Deploy to Hop3
 
-The following steps require a Hop3 server. Log into yours first — for example, `hop3 login --ssh root@your-server.com` — so the CLI knows where to deploy.
+The following steps require a Hop3 server. Log into yours first — for example, `hop3 auth login --ssh root@your-server.com` — so the CLI knows where to deploy.
 
 ### Configure the CLI
 
@@ -373,7 +373,7 @@ hop3 app restart --app hop3-tuto-express
 ### Run Commands in the Application Context
 
 ```bash skip
-hop3 run --app hop3-tuto-express node -e "console.log('Hello from server!')"
+hop3 app run --app hop3-tuto-express node -e "console.log('Hello from server!')"
 ```
 
 ### View and Manage Environment Variables
@@ -430,8 +430,8 @@ module.exports = {
 Attach a database addon:
 
 ```bash skip
-hop3 addons create postgres hop3-tuto-express-db
-hop3 addons attach hop3-tuto-express hop3-tuto-express-db
+hop3 addon create postgres hop3-tuto-express-db
+hop3 addon attach hop3-tuto-express hop3-tuto-express-db
 ```
 
 ### Adding Redis for Sessions/Caching
@@ -463,8 +463,8 @@ app.use(session({
 Attach a Redis addon:
 
 ```bash skip
-hop3 addons create redis hop3-tuto-express-redis
-hop3 addons attach hop3-tuto-express hop3-tuto-express-redis
+hop3 addon create redis hop3-tuto-express-redis
+hop3 addon attach hop3-tuto-express hop3-tuto-express-redis
 ```
 
 ### Using PM2 for Process Management

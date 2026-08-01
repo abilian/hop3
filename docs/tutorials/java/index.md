@@ -43,7 +43,7 @@ path = "/actuator/health"
 
 - **Memory is your main tuning knob.** The JVM is memory-hungry. Set heap limits through a `JAVA_OPTS` env var (e.g. `-Xmx512m -Xms256m -XX:+UseG1GC`) and reference it in your `start` command. Out-of-memory kills show up as the process restarting under load.
 - **Builds are heavy; let Hop3 cache them.** Maven downloads its dependency tree on the first deploy. Keep `target/` out of git (`.gitignore`) and let the server build — don't commit JARs.
-- **Addons are injected as env vars.** Attaching a database or cache exposes `DATABASE_URL` / `REDIS_URL` to the process. Wire them in via your framework's config — Spring Boot reads `spring.datasource.url=${DATABASE_URL}`, Quarkus reads the equivalent datasource properties. Create and attach with `hop3 addons create postgres <name>` then `hop3 addons attach <app> <name>`.
+- **Addons are injected as env vars.** Attaching a database or cache exposes `DATABASE_URL` / `REDIS_URL` to the process. Wire them in via your framework's config — Spring Boot reads `spring.datasource.url=${DATABASE_URL}`, Quarkus reads the equivalent datasource properties. Create and attach with `hop3 addon create postgres <name>` then `hop3 addon attach <app> <name>`.
 - **Health checks point at the framework's endpoint, not `/`.** Spring Boot Actuator serves `/actuator/health`; Quarkus SmallRye Health serves `/q/health/ready`. Set `[healthcheck].path` accordingly so Hop3 knows when the (slow-starting) JVM is actually ready.
 - **Startup is slow on the JVM.** Cold start can take several seconds; give the health check enough `timeout`. For faster startup and a smaller footprint, both frameworks support GraalVM native images — you then run the native binary directly instead of `java -jar`.
 

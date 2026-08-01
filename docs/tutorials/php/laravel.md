@@ -472,7 +472,7 @@ Initial Laravel application
 
 ## Step 7: Deploy to Hop3
 
-The following steps require a Hop3 server. Log into yours first — for example, `hop3 login --ssh root@your-server.com` — so the CLI knows where to deploy.
+The following steps require a Hop3 server. Log into yours first — for example, `hop3 auth login --ssh root@your-server.com` — so the CLI knows where to deploy.
 
 ### Configure the CLI
 
@@ -485,8 +485,8 @@ hop3 init --ssh root@your-server.example.com
 ### Create and Attach a Database
 
 ```bash skip
-hop3 addons create postgres hop3-tuto-laravel-db
-hop3 addons attach hop3-tuto-laravel hop3-tuto-laravel-db
+hop3 addon create postgres hop3-tuto-laravel-db
+hop3 addon attach hop3-tuto-laravel hop3-tuto-laravel-db
 ```
 
 ### Set Environment Variables
@@ -582,18 +582,18 @@ Open your application:
 ### Run Artisan Commands
 
 ```bash skip
-hop3 run --app hop3-tuto-laravel php artisan migrate
-hop3 run --app hop3-tuto-laravel php artisan tinker
-hop3 run --app hop3-tuto-laravel php artisan queue:work --once
+hop3 app run --app hop3-tuto-laravel php artisan migrate
+hop3 app run --app hop3-tuto-laravel php artisan tinker
+hop3 app run --app hop3-tuto-laravel php artisan queue:work --once
 ```
 
 ### Clear Caches
 
 ```bash skip
-hop3 run --app hop3-tuto-laravel php artisan cache:clear
-hop3 run --app hop3-tuto-laravel php artisan config:clear
-hop3 run --app hop3-tuto-laravel php artisan route:clear
-hop3 run --app hop3-tuto-laravel php artisan view:clear
+hop3 app run --app hop3-tuto-laravel php artisan cache:clear
+hop3 app run --app hop3-tuto-laravel php artisan config:clear
+hop3 app run --app hop3-tuto-laravel php artisan route:clear
+hop3 app run --app hop3-tuto-laravel php artisan view:clear
 ```
 
 ### View and Manage Environment Variables
@@ -677,8 +677,8 @@ composer require predis/predis
 Attach Redis addon:
 
 ```bash skip
-hop3 addons create redis hop3-tuto-laravel-redis
-hop3 addons attach hop3-tuto-laravel hop3-tuto-laravel-redis
+hop3 addon create redis hop3-tuto-laravel-redis
+hop3 addon attach hop3-tuto-laravel hop3-tuto-laravel-redis
 hop3 env set --app hop3-tuto-laravel CACHE_DRIVER=redis
 hop3 env set --app hop3-tuto-laravel SESSION_DRIVER=redis
 ```
@@ -734,7 +734,7 @@ Common issues:
 Storage directories need write permissions:
 
 ```bash skip
-hop3 run --app hop3-tuto-laravel chmod -R 775 storage bootstrap/cache
+hop3 app run --app hop3-tuto-laravel chmod -R 775 storage bootstrap/cache
 ```
 
 ### Composer Memory Issues
@@ -756,7 +756,7 @@ hop3 env show --app hop3-tuto-laravel | grep DATABASE
 Test the connection:
 
 ```bash skip
-hop3 run --app hop3-tuto-laravel php artisan db:show
+hop3 app run --app hop3-tuto-laravel php artisan db:show
 ```
 
 ### Asset Compilation Issues

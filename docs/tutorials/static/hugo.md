@@ -388,7 +388,7 @@ baseURL = 'https://myblog.example.com/'
 ```
 
 ```bash skip
-hop3 domains add hop3-tuto-hugo myblog.example.com
+hop3 domain add --app hop3-tuto-hugo myblog.example.com
 ```
 
 ### Multiple Environments

@@ -398,7 +398,7 @@ Initial Flask application
 
 ## Step 8: Deploy to Hop3
 
-The following steps require a Hop3 server. Log into yours first — for example, `hop3 login --ssh root@your-server.com` — so the CLI knows where to deploy.
+The following steps require a Hop3 server. Log into yours first — for example, `hop3 auth login --ssh root@your-server.com` — so the CLI knows where to deploy.
 
 ### Configure the CLI
 
@@ -482,7 +482,7 @@ hop3 app restart --app hop3-tuto-flask
 ### Run Commands in the Application Context
 
 ```bash skip
-hop3 run --app hop3-tuto-flask python -c "from app import app; print(app.config)"
+hop3 app run --app hop3-tuto-flask python -c "from app import app; print(app.config)"
 ```
 
 ### View and Manage Environment Variables
@@ -555,14 +555,14 @@ def health():
 Create and attach database:
 
 ```bash skip
-hop3 addons create postgres hop3-tuto-flask-db
-hop3 addons attach hop3-tuto-flask hop3-tuto-flask-db
+hop3 addon create postgres hop3-tuto-flask-db
+hop3 addon attach hop3-tuto-flask hop3-tuto-flask-db
 ```
 
 Run migrations:
 
 ```bash skip
-hop3 run --app hop3-tuto-flask flask db upgrade
+hop3 app run --app hop3-tuto-flask flask db upgrade
 ```
 
 ### Adding Flask-Migrate for Database Migrations
@@ -613,8 +613,8 @@ def cached_view():
 Attach Redis:
 
 ```bash skip
-hop3 addons create redis hop3-tuto-flask-redis
-hop3 addons attach hop3-tuto-flask hop3-tuto-flask-redis
+hop3 addon create redis hop3-tuto-flask-redis
+hop3 addon attach hop3-tuto-flask hop3-tuto-flask-redis
 ```
 
 ### Background Tasks with Celery
@@ -748,7 +748,7 @@ hop3 env show --app hop3-tuto-flask | grep DATABASE
 Test the connection:
 
 ```bash skip
-hop3 run --app hop3-tuto-flask python -c "from app import db; db.session.execute(db.text('SELECT 1'))"
+hop3 app run --app hop3-tuto-flask python -c "from app import db; db.session.execute(db.text('SELECT 1'))"
 ```
 
 ### Import Errors
