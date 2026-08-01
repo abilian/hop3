@@ -25,7 +25,7 @@ Hop3 is a single-host Platform as a Service. An operator installs it on a server
 
 Per-app UID separation is designed in [ADR 055](../adrs/055-app-runtime-uid-separation.md) but its status is **Proposed**: the ADR states plainly that un-migrated apps "keep running as `hop3` (no worse than today)". Until it ships, treat code execution inside any deployed app as equivalent to code execution as `hop3`, which is the platform's own service account.
 
-What *does* separate apps today is real but narrower: cgroup resource limits ([ADR 046](../adrs/046-declarative-app-resources.md)) bound one app's CPU, memory and PIDs so it cannot starve another; per-app nginx routing keeps traffic addressed correctly; and the `hop3` user is itself unprivileged, so an app cannot reach root except through `hop3-rootd`'s allow-listed operations. That is availability and correctness isolation, not confidentiality isolation.
+The separation that exists today is real but narrower: cgroup resource limits ([ADR 046](../adrs/046-declarative-app-resources.md)) bound one app's CPU, memory and PIDs so it cannot starve another; per-app nginx routing keeps traffic addressed correctly; and the `hop3` user is itself unprivileged, so an app cannot reach root except through `hop3-rootd`'s allow-listed operations. That provides availability and correctness isolation; it stops short of confidentiality isolation.
 
 ## Adversaries
 
@@ -77,18 +77,18 @@ Opt-in, so absent from a default install, but present on any host where the oper
 
 | Surface | Enabled by | Binds | Notes |
 |---------|-----------|-------|-------|
-| Postfix submission endpoint | `--with email` | Loopback only ([ADR 054](../adrs/054-email-transport-and-notifications.md)) | Relays for local processes only, never an open relay. Any local process can submit; the envelope sender is whatever the submitting app presents, so sender attribution between apps rests on the app, not on the OS identity |
+| Postfix submission endpoint | `--with email` | Loopback only ([ADR 054](../adrs/054-email-transport-and-notifications.md)) | Relays for local processes only, never an open relay. Any local process can submit; the envelope sender is whatever the submitting app presents, so sender attribution between apps therefore depends entirely on the submitting app |
 | MinIO (S3 addon) | `--with s3` | `--address :9000`, console `:9001` on **all interfaces**, though the platform addresses it as `http://127.0.0.1:9000` | Root credentials in `MINIO_CREDENTIALS_FILE`. See the note below on the firewall |
 | LeWAF proxy (per WAF-enabled app) | `[waf]` in `hop3.toml` ([ADR 050](../adrs/050-waf-l7-lewaf.md)) | `127.0.0.1` | Request-parsing layer between nginx and uWSGI; itself an input-handling surface, running OWASP CRS |
 | App-declared fixed ports | `[ports]` in `hop3.toml` ([ADR 045](../adrs/045-fixed-port-registry.md)) | Per app | Registry prevents two apps claiming the same port; exposure is governed by the firewall |
 
-**The firewall does not default-deny.** `hop3-rootd`'s nftables input chain is created with `policy=accept` and only *adds* accept rules; the comment at `nft/table.py:64` states that deny "is the operator's main-chain responsibility". So a service bound to all interfaces is reachable from the network unless the operator has their own default-deny policy. This matters for the MinIO row above and is worth settling explicitly rather than inferring.
+**The firewall does not default-deny.** `hop3-rootd`'s nftables input chain is created with `policy=accept` and only *adds* accept rules; the comment at `nft/table.py:64` states that deny "is the operator's main-chain responsibility". So a service bound to all interfaces is reachable from the network unless the operator has their own default-deny policy. This matters for the MinIO row above.
 
 ## Invariants
 
 1. **No unauthenticated access to mutating operations.** Every RPC command that changes state requires a valid JWT: `Command.requires_auth` defaults to `True` (`commands/_base.py:58`), and `rpc.py` returns the 401 *before* the "command not found" response, so command existence is not revealed pre-auth.
 
-   The unauthenticated surface is `/` (redirect), `GET|POST /auth/login`, `POST /auth/logout`, `GET /auth/magic/{token}`, `/static/*`, `GET /dashboard/catalog/icons/{app_id}`, and `POST /rpc` itself (which must be reachable to answer 401). Guards are declared per controller, not globally, so **this list is enumerated by hand and can go stale**: verify it with `grep -rn "guards=" packages/hop3-server/src/hop3/server/controllers/` rather than trusting it. A new controller that forgets `guards=[auth_guard]` is unauthenticated by default; that is the failure mode to watch for, not a violation of the list above.
+   The unauthenticated surface is `/` (redirect), `GET|POST /auth/login`, `POST /auth/logout`, `GET /auth/magic/{token}`, `/static/*`, `GET /dashboard/catalog/icons/{app_id}`, and `POST /rpc` itself (which must be reachable to answer 401). Guards are declared per controller; there is no global guard list, so **this list is enumerated by hand and can go stale**: verify it with `grep -rn "guards=" packages/hop3-server/src/hop3/server/controllers/`; do not trust it. A new controller that forgets `guards=[auth_guard]` is unauthenticated by default. That missing guard is the failure mode to watch for; the list above is a snapshot that will lag.
 
 2. **No credential in argv.** Any subprocess that receives a secret gets it via environment variable or stdin: `MYSQL_PWD`, `PGPASSWORD`, `REDISCLI_AUTH`, `--password-stdin`.
 
@@ -98,7 +98,7 @@ Opt-in, so absent from a default install, but present on any host where the oper
 
    **Partly enforced.** `test_rate_limited_commands.py` fails when a new `requires_auth = False` command neither declares `rate_limited = True` nor is listed as verifying no credential, so a new *command* cannot drift. A new *controller* route that checks a password can still forget the limiter: routes are not enumerable the same way. See security-model.md §3.8, §3.9.
 
-4. **No deployer-controlled string interpolated into SQL identifiers without validation.** `validate_service_name` gates addon names before they reach `CREATE DATABASE` / `GRANT`. `psycopg2.sql.Identifier` plus an allow-list gates Postgres extensions. Redis db numbers are sequentially allocated, not derived from input.
+4. **No deployer-controlled string interpolated into SQL identifiers without validation.** `validate_service_name` gates addon names before they reach `CREATE DATABASE` / `GRANT`. `psycopg2.sql.Identifier` plus an allow-list gates Postgres extensions. Redis db numbers are sequentially allocated, never derived from input.
 
 5. **`HOP3_UNSAFE` cannot be active in production.** `enforce_unsafe_mode_policy()` runs at startup: forces the flag off when `MODE=production`, requires `HOP3_UNSAFE_ACK=yes-I-understand` otherwise.
 
@@ -108,9 +108,9 @@ Opt-in, so absent from a default install, but present on any host where the oper
 
 8. **Addon credentials are encrypted at rest.** Fernet AEAD with PBKDF2-HMAC-SHA256 (600k iterations, per-install salt). Stored as versioned tokens in the database; a DB backup is useless without `HOP3_SECRET_KEY`.
 
-9. **The control plane is single-tenant.** An authenticated account is operator-equivalent and can act on any app. This is a design decision for 0.7, not an invariant to enforce. Treat cross-tenant access *over the RPC and dashboard surfaces* as the model rather than a vulnerability.
+9. **The control plane is single-tenant.** An authenticated account is operator-equivalent and can act on any app. This is a design decision for 0.7; the platform does not enforce it. Treat cross-tenant access *over the RPC and dashboard surfaces* as the model rather than a vulnerability.
 
-   Do not extend this to the runtime. That two accounts share the control plane is decided; that two *apps* share a Unix account is an unfinished migration ([ADR 055](../adrs/055-app-runtime-uid-separation.md), Proposed) with a scheduled fix. A finding that one app's code can read another's data is a live exposure against the intended design, not an instance of invariant 9: see §Runtime isolation.
+   Do not extend this to the runtime. That two accounts share the control plane is decided; that two *apps* share a Unix account is an unfinished migration ([ADR 055](../adrs/055-app-runtime-uid-separation.md), Proposed) with a scheduled fix. A finding that one app's code can read another's data is a live exposure against the intended design, separate from invariant 9; see §Runtime isolation.
 
 ## Out of scope
 
@@ -125,17 +125,17 @@ Opt-in, so absent from a default install, but present on any host where the oper
 | **Control-plane separation between accounts** | Single-tenant by design for 0.7; multi-tenant ownership is planned |
 | **Control-plane audit log** | rootd audits privileged operations; RPC-layer audit is planned for 0.8 |
 | **CSRF token on dashboard** | `samesite=lax` blocks cross-site POSTs and every mutation is a POST; a route-map test now fails on any state-changing GET, so the property this rests on is enforced rather than periodically re-checked |
-| **Multi-factor authentication** | Designed (ADR 012), not implemented; SSH key via tunnel pattern is a second factor in practice |
+| **Multi-factor authentication** | Designed (ADR 012), still unimplemented; SSH key via tunnel pattern is a second factor in practice |
 | **Compliance certifications** (GDPR, ISO 27001) | Hop3 ships primitives; operators certify their deployments |
 | **Third-party app security** | Hop3 deploys and routes apps; their internal security is the deployer's responsibility |
 
 ## In scope, currently unmitigated
 
-Distinct from the table above: these are risks the model *does* accept as real, with no control in place yet. They are listed so an audit reports them as findings rather than closing them against a scope exclusion.
+Distinct from the table above: these are risks the model *does* accept as real, with no control in place yet.
 
 | Exposure | State |
 |----------|-------|
-| **One app's code can read every other app's source, data and addon credentials** | All apps run as `hop3`. Fix designed in [ADR 055](../adrs/055-app-runtime-uid-separation.md) (Proposed), not scheduled. See §Runtime isolation |
+| **One app's code can read every other app's source, data and addon credentials** | All apps run as `hop3`. Fix designed in [ADR 055](../adrs/055-app-runtime-uid-separation.md) (Proposed), still unscheduled. See §Runtime isolation |
 | **Services bound to all interfaces are not firewalled off by default** | The nftables input chain is `policy=accept` and additive; default-deny is left to the operator. MinIO binds `:9000`/`:9001` while the platform addresses it as loopback. Whether that pairing is intended has not been settled |
 
 ## Always reported anyway
