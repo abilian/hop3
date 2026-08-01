@@ -42,13 +42,13 @@ Certificates
 Status: ⚠ 2 warnings
 ```
 
-One glance tells you what's healthy, what's degraded, and what's broken. The identity header up top — host, IP, version, uptime — answers "which server am I even looking at?" before the checks answer "is it OK?".
+One glance tells you what's healthy, what's degraded, and what's broken. The identity header up top (host, IP, version, uptime) tells you which server you are looking at before the checks tell you whether it is OK.
 
 The severity legend is `✓` ok, `⚠` warning, `✗` failure. Optional services like Redis report `⚠` when unreachable rather than `✗`, so a server that doesn't use Redis reads as *degraded* rather than *failed*. The bottom-line summary rolls everything up to the worst severity seen.
 
 ## Each Service Knows Its Own Health
 
-Here's the design decision worth dwelling on: there's no monolithic health checker that knows about everything. Each plugin contributes its own health check, discovered through the `get_health_checks()` hook.
+There's no monolithic health checker that knows about everything. Each plugin contributes its own health check, discovered through the `get_health_checks()` hook.
 
 The PostgreSQL addon knows how to verify PostgreSQL is working:
 
@@ -79,7 +79,7 @@ class PostgresHealthCheck:
             )
 ```
 
-When we add a new addon — say, MongoDB — it ships with its own health check. There's no central list to update: the plugin system handles discovery. `system status` runs every registered check and renders the results.
+When we add a new addon (say, MongoDB) it ships with its own health check. There's no central list to update: the plugin system handles discovery. `system status` runs every registered check and renders the results.
 
 ## A Simple Protocol
 
@@ -101,13 +101,13 @@ class HealthCheck(Protocol):
     def check(self) -> HealthCheckResult: ...
 ```
 
-A check reports `passed`, and severity is derived from it — `passed=True` renders as `ok`, `passed=False` as `fail`. The one nuance worth its own field: a check can set `severity` explicitly to override that default. An optional service that's unreachable returns `passed=False` but `severity="warn"` — the result is unacceptable from the check's point of view, yet the operator can still ship. That's how Redis shows up as a yellow warning instead of a red failure.
+A check reports `passed`, and severity is derived from it: `passed=True` renders as `ok`, `passed=False` as `fail`. The one nuance worth its own field: a check can set `severity` explicitly to override that default. An optional service that's unreachable returns `passed=False` but `severity="warn"`; the result is unacceptable from the check's point of view, yet the operator can still ship. That's how Redis shows up as a yellow warning instead of a red failure.
 
 `is_configured()` is the other half of keeping the report accurate: a check that doesn't apply to this server says so, and is skipped rather than reported as a spurious failure.
 
 ## Reporting at Startup
 
-The same addon checks run when the server starts. If PostgreSQL isn't accepting connections, or Redis is configured but unreachable, the failure is logged with a pointed message — *apps using this service will fail to deploy* — so the problem surfaces in the logs before the first deploy hits it, rather than after.
+The same addon checks run when the server starts. If PostgreSQL isn't accepting connections, or Redis is configured but unreachable, the failure is logged with a pointed message (*apps using this service will fail to deploy*) so the problem surfaces in the logs before the first deploy hits it, rather than after.
 
 ```python
 def verify_addon_health() -> dict[str, HealthCheckResult]:
@@ -135,9 +135,9 @@ timeout = 5
 retries = 3
 ```
 
-At deploy time, Hop3 probes that path before declaring the app up. If `/health` doesn't return a 200 within the window, the deploy doesn't quietly succeed — it fails loudly, with the app reported as not having responded to health checks. That's the difference between "deployed" meaning *the process started* and "deployed" meaning *the app actually answers requests*.
+At deploy time, Hop3 probes that path before declaring the app up. If `/health` doesn't return a 200 within the window, the deploy doesn't quietly succeed. It fails loudly, with the app reported as not having responded to health checks. That's the difference between "deployed" meaning *the process started* and "deployed" meaning *the app actually answers requests*.
 
-What "healthy" means is up to you. A trivial endpoint:
+You define what "healthy" means. A trivial endpoint:
 
 ```python
 @app.route("/health")
@@ -158,7 +158,7 @@ def health():
         return f"Unhealthy: {e}", 503
 ```
 
-The second version is the one that catches the connection-pool scenario from the opening paragraph — *at deploy time*, before you route traffic to a broken release.
+The second version is the one that catches the connection-pool scenario from the opening paragraph: *at deploy time*, before you route traffic to a broken release.
 
 ## Machine-Readable Output
 
@@ -168,7 +168,7 @@ For automation, `system status` speaks JSON:
 hop3 system status --json
 ```
 
-This emits the same identity, per-section items, and overall severity as a structured document — feed it to a dashboard or an external monitor. And for the shell-script case, the command sets its exit code from the worst severity it found:
+This emits the same identity, per-section items, and overall severity as a structured document. Feed it to a dashboard or an external monitor. And for the shell-script case, the command sets its exit code from the worst severity it found:
 
 ```bash
 hop3 system status --quiet
@@ -183,14 +183,12 @@ Zero means everything's OK; non-zero means there's at least a warning. `--quiet`
 
 ## Where This Is Going
 
-The checks above are the foundation. The direction we're building toward — designed in [ADR 029](https://github.com/abilian/hop3/blob/main/notes/adrs/029-reconciliation-health-checks.md), not yet shipped — turns this from a tool you run into a platform that watches itself:
+The checks above are the foundation. The direction we're building toward (designed in [ADR 029](https://github.com/abilian/hop3/blob/main/notes/adrs/029-reconciliation-health-checks.md), not yet shipped) turns this from a tool you run into a platform that watches itself:
 
 - **Continuous reconciliation.** A background watchdog that periodically compares each app's recorded state against its actual process state, so a process that dies overnight is detected in seconds rather than when a user complains. Hop3 already has the state-sync primitive (`App.sync_state()`); today it runs when you view the dashboard or issue a lifecycle command, not on a timer.
 - **Restart policies.** Per-app `on_failure` / `always` / `never` policies, with exponential backoff and a cap, so transient crashes recover automatically without flapping forever.
-- **An event log.** An immutable audit trail of state changes, health results, and restarts — the history you wish you had when something broke at 3 AM.
-- **Certificate-expiry monitoring.** Today the certificate check reports whether a real certificate is configured at all (self-signed vs. Let's Encrypt). Tracking days-until-expiry — and warning before a renewal silently fails — is the natural next step.
-
-We're calling those out explicitly because the gap between "designed" and "running" is exactly the kind of thing health checks are supposed to make visible. We'd rather be clear about which is which.
+- **An event log.** An immutable audit trail of state changes, health results, and restarts: the history you wish you had when something broke at 3 AM.
+- **Certificate-expiry monitoring.** Today the certificate check reports whether a real certificate is configured at all (self-signed vs. Let's Encrypt). Tracking days-until-expiry, and warning before a renewal silently fails, is the natural next step.
 
 ## Try It Now
 
@@ -213,6 +211,6 @@ Then build a `/health` that actually checks your dependencies, rather than one t
 
 ---
 
-Health checks aren't glamorous, but they're the difference between "we noticed and fixed it" and "a customer told us it was down for three hours." Build the observability in from the start.
+Health checks are the difference between "we noticed and fixed it" and "a customer told us it was down for three hours." Build the observability in from the start.
 
 *For more on operating Hop3, see the [Administration Guide](/guides/administration/).*

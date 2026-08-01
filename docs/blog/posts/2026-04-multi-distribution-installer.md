@@ -86,7 +86,7 @@ class DebianInstaller:
 
 ### 3. Version-Specific Logic
 
-Here's where it gets interesting. Docker packages vary by distribution *and* version:
+Docker packages vary by distribution *and* version:
 
 ```python
 def _get_docker_packages(distro: DistroInfo) -> list[str]:
@@ -169,7 +169,7 @@ This sidesteps fragile per-distro plugin detection entirely: the base package li
 
 ### Problem 3: Backports for Debian Stable
 
-Debian Stable freezes its toolchains for the life of a release, so the stock Go on Bookworm lags behind what many apps expect. Rather than mix releases, we pull a newer Go from the matching `-backports` suite.
+Debian Stable freezes its toolchains for the life of a release, so the stock Go on Bookworm lags behind what many apps expect. We pull a newer Go from the matching `-backports` suite.
 
 **Solution**: Enable backports and install from there:
 

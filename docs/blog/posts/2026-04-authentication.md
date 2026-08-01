@@ -11,19 +11,17 @@ tags:
 
 Authentication in a PaaS is tricky. You're protecting access to applications, databases, secrets, and server configuration. Get it wrong and someone deploys crypto miners to your infrastructure. Get it too right and developers can't do their jobs.
 
-We spent a lot of time thinking about this. Kubernetes punts to external identity providers. Heroku has a global account system. Neither fit our single-server model. We needed something that works standalone, leverages existing infrastructure, and doesn't require a PhD in OAuth to set up.
-
-Here's what we built.
+Kubernetes punts to external identity providers. Heroku has a global account system. Neither fits our single-server model. We needed something that works standalone, uses existing infrastructure, and doesn't require a PhD in OAuth to set up.
 
 ## The Guiding Ideas
 
 Before writing code, we established some principles:
 
-1. **No central auth server**—Hop3 runs on a single server; auth should too
-2. **Leverage existing keys**—Developers already have SSH keys; use them
-3. **Stateless where possible**—JWT tokens avoid server-side session management
-4. **Fail closed**—Invalid tokens are rejected, never ignored
-5. **Multiple access methods**—CLI, web, API should all work
+1. **No central auth server:** Hop3 runs on a single server; auth should too
+2. **Use existing keys:** Developers already have SSH keys; use them
+3. **Stateless where possible:** JWT tokens avoid server-side session management
+4. **Fail closed:** Invalid tokens are rejected, never ignored
+5. **Multiple access methods:** CLI, web, API should all work
 
 ## SSH: The Obvious Choice (That Wasn't Obvious)
 
@@ -38,9 +36,9 @@ What happens under the hood:
 1. The CLI opens an SSH connection using your existing keys or agent
 2. An SSH tunnel forwards JSON-RPC traffic to `hop3-server`
 3. The server trusts connections from localhost (they came through SSH)
-4. No passwords, no tokens—your SSH key is your identity
+4. Your SSH key is your identity: no passwords or tokens needed.
 
-This felt almost too simple. But consider: if you can SSH to a server, you already have the access Hop3 needs. We're not adding security theater; we're reusing infrastructure that already exists and already works.
+If you can SSH to a server, you already have the access Hop3 needs. We're reusing infrastructure that already exists and already works.
 
 The flow looks like this:
 
@@ -90,7 +88,7 @@ def create_token(username: str, scopes: list[str], expires_hours: int = 24) -> s
 
 Tokens are signed with HMAC-SHA256, expire after 24 hours by default (configurable via `HOP3_TOKEN_EXPIRY_HOURS`), and include a unique identifier (`jti`) so we can revoke them if needed.
 
-Why JWT instead of session cookies? Simplicity. JWTs are self-contained—the server doesn't need to look anything up to validate them. This matters when you want to add API access or multiple server instances later.
+Why JWT instead of session cookies? Simplicity. JWTs are self-contained: the server doesn't need to look anything up to validate them. This matters when you want to add API access or multiple server instances later.
 
 ## The Magic Link Trick
 
@@ -118,7 +116,7 @@ No password needed. If you have SSH access, you can get web access. The token is
 
 ## Password Hashing (When You Need Passwords)
 
-Some users want password auth—maybe they're accessing from a machine without their SSH keys. We support that too:
+Some users want password auth: maybe they're accessing from a machine without their SSH keys. We support that too:
 
 ```python
 import bcrypt
@@ -131,7 +129,7 @@ def hash_password(password: str) -> str:
     ).decode("utf-8")
 ```
 
-We use bcrypt at cost factor 12 (ADR 014), deliberately slow per guess. That tunable work factor is what makes offline brute-force against a leaked hash impractical, and it can be raised as hardware gets faster.
+We use bcrypt at cost factor 12 (ADR 014), deliberately slow per guess. That tunable work factor makes offline brute-force against a leaked hash impractical, and it can be raised as hardware gets faster.
 
 ## Protecting Secrets
 
@@ -147,7 +145,7 @@ def encrypt_credential(plaintext: str) -> str:
     return fernet.encrypt(plaintext.encode()).decode()
 ```
 
-Fernet provides authenticated encryption—both confidentiality (can't read it) and integrity (can't tamper with it). The encryption key is derived from `HOP3_SECRET_KEY` with PBKDF2-HMAC-SHA256, which brings us to...
+Fernet provides authenticated encryption: both confidentiality (can't read it) and integrity (can't tamper with it). The encryption key is derived from `HOP3_SECRET_KEY` with PBKDF2-HMAC-SHA256, which brings us to...
 
 ## The One Secret to Rule Them All
 
@@ -180,7 +178,7 @@ def validate_token(token: str) -> dict:
     return payload
 ```
 
-Revoked tokens are stored in the database, each row carrying the token's original `expires_at`. That timestamp is what lets the list stay bounded: once a revoked token would have expired on its own, its blacklist entry is safe to prune—there's no point tracking tokens that are already invalid.
+Revoked tokens are stored in the database, each row carrying the token's original `expires_at`. The timestamp keeps the list bounded: once a revoked token would have expired on its own, its blacklist entry is safe to prune; there's no point tracking tokens that are already invalid.
 
 ## Authorization Scopes
 
@@ -191,18 +189,16 @@ Tokens carry scopes that limit their capabilities:
 VALID_SCOPES = {"authenticated", "admin", "user"}
 ```
 
-The `magic_link` scope is deliberately *not* in this set. Magic-link tokens are validated by a separate single-use path, never by the general bearer check—otherwise a redeemable magic link could act as a five-minute bearer token for any RPC command. Keeping the scopes apart is what makes that guarantee enforceable.
+The `magic_link` scope is deliberately *not* in this set. Magic-link tokens are validated by a separate single-use path, never by the general bearer check: otherwise a redeemable magic link could act as a five-minute bearer token for any RPC command. Keeping the scopes apart makes that guarantee enforceable.
 
-The general scopes let us reason about capability per token: an `admin`-scoped token can do administrative work, while an ordinary `authenticated`/`user` token cannot. As scoped policies grow, the same mechanism is how we'd issue narrower tokens (for example, a CI token that can deploy but not manage users).
+The general scopes let us reason about capability per token: an `admin`-scoped token can do administrative work, while an ordinary `authenticated`/`user` token cannot. As scoped policies grow, the same mechanism lets us issue narrower tokens (for example, a CI token that can deploy but not manage users).
 
-## What We're Still Working On
+## Current Limitations
 
-It helps to be clear about where the model stops. Here's what isn't built out yet:
-
-- **No MFA**: Multi-factor auth is designed but deferred (ADR 012). Today the second factor is the operator's SSH key on the host—CLI access goes CLI → SSH tunnel → RPC—plus per-IP rate limiting on the web login and magic-link endpoints. TOTP gating JWT issuance is the planned first step.
+- **No MFA**: Multi-factor auth is designed but deferred (ADR 012). Today the second factor is the operator's SSH key on the host (CLI access goes CLI → SSH tunnel → RPC), plus per-IP rate limiting on the web login and magic-link endpoints. TOTP gating JWT issuance is the planned first step.
 - **Manual key rotation**: There's no automated rotation policy. Rotating `HOP3_SECRET_KEY` invalidates issued JWTs and sessions; stored addon credentials are re-encrypted with `hop3 admin reencrypt-credentials` rather than lost. Automated rotation is future work (ADR 011).
 
-Rate limiting on the auth endpoints is already in place—a per-IP sliding-window counter (five attempts per minute) guards both password login and magic-link redemption—but it's deliberately in-memory and single-server; a Redis-backed limiter is what multi-server deployments will need.
+Rate limiting on the auth endpoints is already in place: a per-IP sliding-window counter (five attempts per minute) guards both password login and magic-link redemption. It's deliberately in-memory and single-server; multi-server deployments will need a Redis-backed limiter.
 
 ## The Practical Details
 
@@ -231,6 +227,6 @@ hop3 auth whoami
 
 ---
 
-Authentication is one of those things you want to be boring. No surprises, no clever hacks, just predictable security. We've tried to build something that's secure by default but gets out of your way when you're trying to deploy code.
+Authentication should be boring: predictable security, no surprises. Ours is secure by default and stays out of your way.
 
 *Questions about our security model? [Open an issue](https://github.com/abilian/hop3/issues) or check the [security policy](/reference/policies/security-policy/).*
